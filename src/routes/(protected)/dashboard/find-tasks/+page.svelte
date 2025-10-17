@@ -687,7 +687,7 @@
 											aria-hidden={task.status !== TaskStatusEnum.OPEN}
 											data-task-id={task.id}
 										>
-											<div class="card-body p-4 md:p-4">
+											<div class="card-body p-4 md:p-4 border-2 border-[#f7931a] rounded-xl">
 												<!-- Top Row: Title + Price -->
 												<div
 													class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"

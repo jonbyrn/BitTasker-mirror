@@ -2,10 +2,23 @@
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import { goto } from '$app/navigation';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
-	async function logout() {
+	// Control logout confirmation modal
+	let showLogoutModal = $state(false);
+
+	function logout() {
+		showLogoutModal = true;
+	}
+
+	async function confirmedLogout() {
+		showLogoutModal = false;
 		await authState.logout();
 		goto('/');
+	}
+
+	function cancelLogout() {
+		showLogoutModal = false;
 	}
 </script>
 
@@ -36,3 +49,14 @@
 		</div>
 	</div>
 </div>
+
+<!-- Logout Confirmation Modal -->
+<ConfirmModal
+	isOpen={showLogoutModal}
+	title={$t('common.components.confirm_modal.logout.title')}
+	message={$t('common.components.confirm_modal.logout.message')}
+	confirmText={$t('common.components.confirm_modal.logout.confirm_button')}
+	confirmButtonClass="btn-primary"
+	onConfirm={confirmedLogout}
+	onCancel={cancelLogout}
+/>

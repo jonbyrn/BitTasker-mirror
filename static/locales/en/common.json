@@ -113,6 +113,15 @@
             "modal": {
                 "close": "Close dialog"
             },
+            "confirm_modal": {
+                "confirm": "Confirm",
+                "cancel": "Cancel",
+                "logout": {
+                    "title": "Confirm Logout",
+                    "message": "Are you sure you want to log out?",
+                    "confirm_button": "Logout"
+                }
+            },
             "warning_popup": {
                 "title": "Beta Warning",
                 "message": "This app is currently in beta, please don't rely on it for serious business but we will be live soon and will activate your live Wallets. Feel free to use the platform with your testnet Wallet",

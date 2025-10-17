@@ -10,6 +10,7 @@
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	// Icon imports for unplugin-icons
 	import IconAccountCircle from '~icons/mdi/account-circle';
 	import IconAccountGroup from '~icons/mdi/account-group';
@@ -44,6 +45,9 @@
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);
+	
+	// Control logout confirmation modal
+	let showLogoutModal = $state(false);
 
 	// Track if user is logged in
 	let isLoggedIn = $derived($authState.isAuthenticated);
@@ -156,10 +160,20 @@
 		}
 	});
 
-	async function logout() {
+	function logout() {
 		closeDrawer();
+		closeDropdowns();
+		showLogoutModal = true;
+	}
+
+	async function confirmedLogout() {
+		showLogoutModal = false;
 		await authState.logout();
 		goto('/');
+	}
+
+	function cancelLogout() {
+		showLogoutModal = false;
 	}
 
 	// Function to close all dropdown menus - optimized with passive listeners
@@ -684,6 +698,17 @@ ates to X --
 		</ul>
 	{/snippet}
 </Drawer>
+
+<!-- Logout Confirmation Modal -->
+<ConfirmModal
+	isOpen={showLogoutModal}
+	title={$t('common.components.confirm_modal.logout.title')}
+	message={$t('common.components.confirm_modal.logout.message')}
+	confirmText={$t('common.components.confirm_modal.logout.confirm_button')}
+	confirmButtonClass="btn-primary"
+	onConfirm={confirmedLogout}
+	onCancel={cancelLogout}
+/>
 
 <style>
 	.pt-safe {
