@@ -434,7 +434,7 @@
 				fullscreenControl: false,
 				mapTypeControlOptions: {
 					style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
-					position: google.maps.ControlPosition.TOP_RIGHT
+					position: google.maps.ControlPosition.TOP_LEFT
 				},
 				zoomControlOptions: {
 					position: google.maps.ControlPosition.RIGHT_CENTER
@@ -836,8 +836,8 @@
 			<button
 				onclick={toggleFullscreen}
 				class="{isFullscreen
-					? 'fixed bottom-4 left-4 z-[1000]'
-					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+					? 'fixed top-4 right-4 z-[1000]'
+					: 'absolute top-4 right-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
 				aria-label={isFullscreen
 					? $t('task.location_picker.exit_fullscreen')
 					: $t('task.location_picker.enter_fullscreen')}

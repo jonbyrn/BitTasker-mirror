@@ -113,6 +113,15 @@
       "modal": {
         "close": "Cerrar diálogo"
       },
+      "confirm_modal": {
+        "confirm": "Confirmar",
+        "cancel": "Cancelar",
+        "logout": {
+          "title": "Confirmar Cierre de Sesión",
+          "message": "¿Estás seguro de que quieres cerrar sesión?",
+          "confirm_button": "Cerrar Sesión"
+        }
+      },
       "warning_popup": {
         "title": "Advertencia Beta",
         "message": "Esta app está actualmente en beta, por favor no confíes en esto para negocios serios pero estaremos en vivo pronto y activaremos tus Wallets en vivo. Siéntete libre de usar la plataforma con tu Wallet de testnet",
