@@ -208,20 +208,26 @@
 	function getStatusInfo(status: string): { label: string; color: string; icon: string } {
 		switch (status) {
 			case 'swap.created':
-				return { label: 'Waiting for payment', color: 'text-warning', icon: '⏳' };
+				return { label: 'Invoice ready - waiting for payment', color: 'text-warning', icon: '⏳' };
+			case 'invoice.set':
+				return { label: 'Invoice paid! Waiting for lockup...', color: 'text-info', icon: '⚡' };
 			case 'transaction.mempool':
-				return { label: 'Boltz locked funds', color: 'text-info', icon: '🔒' };
+				return { label: 'Boltz locking funds...', color: 'text-info', icon: '🔒' };
 			case 'transaction.confirmed':
-				return { label: 'Ready to claim', color: 'text-success', icon: '✅' };
+				return { label: 'Ready to claim rBTC!', color: 'text-success', icon: '✅' };
+			case 'transaction.claim.pending':
+				return { label: 'Claiming rBTC...', color: 'text-info', icon: '⏳' };
+			case 'transaction.claim.failed':
+				return { label: 'Claim failed - retry', color: 'text-error', icon: '⚠️' };
 			case 'invoice.settled':
-				return { label: 'Completed', color: 'text-success', icon: '✅' };
+				return { label: 'Swap completed!', color: 'text-success', icon: '✅' };
 			case 'claimed':
-				return { label: 'rBTC claimed!', color: 'text-success', icon: '🎉' };
+				return { label: 'rBTC claimed successfully!', color: 'text-success', icon: '🎉' };
 			case 'invoice.expired':
 			case 'swap.expired':
 				return { label: 'Expired', color: 'text-error', icon: '⏰' };
 			case 'transaction.failed':
-				return { label: 'Failed', color: 'text-error', icon: '❌' };
+				return { label: 'Transaction failed', color: 'text-error', icon: '❌' };
 			default:
 				return { label: status, color: 'text-base-content', icon: 'ℹ️' };
 		}
@@ -392,20 +398,21 @@
 
 						<!-- Action Buttons -->
 						<div class="flex gap-2 mt-2">
-							{#if !swap.claimTxHash && swap.status !== 'invoice.settled'}
+							{#if !swap.claimTxHash && (swap.status === 'transaction.confirmed' || swap.status === 'transaction.claim.failed')}
 								<button 
 									class="btn btn-sm flex-1"
-									class:btn-success={(swap.status === 'transaction.mempool' || swap.status === 'transaction.confirmed')}
-									class:btn-warning={swap.status === 'swap.created' || swap.status === 'invoice.set'}
+									class:btn-success={swap.status === 'transaction.confirmed'}
+									class:btn-error={swap.status === 'transaction.claim.failed'}
 									onclick={() => claimRBTC(swap)} 
 									disabled={isClaiming}
 								>
 									{#if isClaiming}
 										<span class="loading loading-spinner loading-xs"></span>
-									{:else if swap.status === 'transaction.mempool' || swap.status === 'transaction.confirmed'}
-										✅ Claim
+										Claiming...
+									{:else if swap.status === 'transaction.claim.failed'}
+										🔄 Retry Claim
 									{:else}
-										⚠️ Force Claim
+										✅ Claim rBTC
 									{/if}
 								</button>
 							{/if}
@@ -415,8 +422,20 @@
 									class="btn btn-ghost btn-sm flex-1"
 									onclick={() => removeSwap(swap.id)}
 								>
-									Remove
+									✓ Remove
 								</button>
+							{/if}
+							
+							{#if swap.status === 'swap.created' || swap.status === 'invoice.set' || swap.status === 'transaction.mempool'}
+								<div class="text-xs text-base-content/70 text-center w-full py-2">
+									{#if swap.status === 'swap.created'}
+										Pay the Lightning invoice to continue
+									{:else if swap.status === 'invoice.set'}
+										Payment received! Waiting for Boltz to lock funds...
+									{:else if swap.status === 'transaction.mempool'}
+										Lockup in progress... Will be ready to claim soon
+									{/if}
+								</div>
 							{/if}
 						</div>
 					</div>

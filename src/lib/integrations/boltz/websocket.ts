@@ -194,7 +194,7 @@ export class BoltzWebSocket {
 		setTimeout(async () => {
 			try {
 				await this.connect();
-				
+
 				// Re-subscribe to all previously subscribed swaps
 				for (const swapId of this.subscribedSwaps) {
 					this.send({
@@ -223,13 +223,13 @@ export class BoltzWebSocket {
 // Singleton instance - use environment-specific endpoint
 const getWebSocketEndpoint = (): string => {
 	// Match the network detection from reverseSwapService
-	const network = (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet';
-	
-	if (network === 'testnet') {
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+
+	if (network === 'testnet' || network === 'regtest') {
 		// For regtest/testnet, use localhost WebSocket
 		return 'ws://localhost:9001/v2/ws';
 	}
-	
+
 	// Production mainnet
 	return 'wss://api.boltz.exchange/v2/ws';
 };

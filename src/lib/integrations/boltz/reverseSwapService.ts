@@ -40,7 +40,7 @@ import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import { BoltzClient } from './client';
 import { boltzWebSocket } from './websocket';
-import { Contract, keccak256, solidityPacked } from 'ethers';
+import { Contract, Interface, keccak256, solidityPacked } from 'ethers';
 import { getPublicKey, finalizeEvent, type NostrEvent } from 'nostr-tools';
 import nip44 from '$lib/nostr/nip44';
 import nostrEventsService from '$lib/api/services/nostr/events';
@@ -64,13 +64,26 @@ export interface BoltzSwapData {
 	expiresAt?: number;
 }
 
-// EtherSwap ABI - claim function and query function for Rootstock
-// Based on Boltz's EtherSwap contract structure
-// IMPORTANT: The claim function takes the PREIMAGE (not the hash)
-// The contract will hash it internally and use that to look up the swap
+// EtherSwap ABI - Based on actual Boltz EtherSwap.sol contract
+// Reference: https://github.com/BoltzExchange/boltz-core/blob/master/contracts/EtherSwap.sol
+// 
+// IMPORTANT NOTES:
+// 1. The claim function takes the PREIMAGE (not the hash) and uses msg.sender as claimAddress
+// 2. The swaps mapping returns bool (not a struct) and is indexed by keccak256 hash of all parameters
+// 3. We don't need to query - just call claim() directly and it will revert if swap doesn't exist
 const ETHER_SWAP_ABI = [
-	'function claim(bytes32 preimage, uint256 amount, address refundAddress, uint256 timeoutBlockHeight) external',
-	'function swaps(bytes32) view returns (address refundAddress, uint256 amount, address claimAddress, uint256 timeoutBlockHeight)'
+	// Main claim function - auto-uses msg.sender as claimAddress
+	'function claim(bytes32 preimage, uint256 amount, address refundAddress, uint256 timelock) external',
+	
+	// Query function - returns bool indicating if swap exists (indexed by hashValues result)
+	'function swaps(bytes32) view returns (bool)',
+	
+	// Hash computation helper - combines all parameters into single hash
+	'function hashValues(bytes32 preimageHash, uint256 amount, address claimAddress, address refundAddress, uint256 timelock) public pure returns (bytes32)',
+	
+	// Events
+	'event Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)',
+	'event Claim(bytes32 indexed preimageHash, bytes32 preimage)'
 ];
 
 // Conversion factor: 1 sat = 10^10 wei on RSK
@@ -203,12 +216,20 @@ export class ReverseSwapService {
 				break;
 
 			case 'transaction.confirmed':
-				// Boltz has confirmed the lockup transaction
-				console.log('🔒 Lockup confirmed, attempting to claim rBTC...');
+			// Boltz has confirmed the lockup transaction - NOW we can claim!
+			console.log('✅ Lockup confirmed! Attempting to claim rBTC...');
+			console.log('📋 Swap parameters:', {
+				id: swapData.id,
+				amount: swapData.onchainAmount,
+				claimAddress: swapData.rbtcAddress,
+				refundAddress: swapData.refundAddress,
+				timelock: swapData.timeoutBlockHeight
+			});
+			
 				try {
 					const wallet = this.walletGetter?.();
 					if (!wallet) {
-						console.error('❌ Wallet not available for claiming. User must claim manually.');
+					console.warn('⚠️ Wallet not available for auto-claiming. User must claim manually.');
 						swapData.status = 'transaction.confirmed'; // Keep this status for manual claim
 					} else {
 						await this.claimRBTC(swapData, nsec, wallet);
@@ -216,6 +237,7 @@ export class ReverseSwapService {
 				} catch (error) {
 					console.error('❌ Auto-claim failed:', error);
 					// Don't throw - user can manually claim later
+				swapData.status = 'transaction.confirmed'; // Keep ready for manual retry
 				}
 				break;
 
@@ -236,9 +258,123 @@ export class ReverseSwapService {
 	}
 
 	/**
+	 * Get actual lockup parameters from the Lockup event in the blockchain transaction
+	 * This is CRITICAL because the Boltz API response may have different values than what's actually locked
+	 * 
+	 * The Lockup event contains the EXACT parameters that were used:
+	 * event Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)
+	 */
+	private async getLockupEventParameters(
+		contractAddress: string,
+		preimageHash: string,
+		lockupTxHash: string,
+		provider: any
+	): Promise<{
+		amount: bigint;
+		claimAddress: string;
+		refundAddress: string;
+		timelock: number;
+	} | null> {
+		try {
+			console.log('🔍 Fetching lockup transaction receipt:', lockupTxHash);
+			
+			// Wait for the transaction receipt with retry logic
+			// The RPC node might need a few moments to index the transaction
+			let receipt = null;
+			const maxRetries = 10;
+			const retryDelay = 2000; // 2 seconds
+			
+			for (let i = 0; i < maxRetries; i++) {
+				receipt = await provider.getTransactionReceipt(lockupTxHash);
+				
+				if (receipt) {
+					console.log('✅ Receipt found after', i + 1, 'attempt(s)');
+					break;
+				}
+				
+				if (i < maxRetries - 1) {
+					console.log(`⏳ Receipt not available yet, waiting ${retryDelay}ms... (attempt ${i + 1}/${maxRetries})`);
+					await new Promise(resolve => setTimeout(resolve, retryDelay));
+				}
+			}
+			
+			if (!receipt) {
+				console.error('❌ Transaction receipt not found after', maxRetries, 'attempts');
+				return null;
+			}
+
+			console.log('📋 Receipt found with', receipt.logs.length, 'logs');
+
+			// Create contract interface to parse events
+			const iface = new Interface(ETHER_SWAP_ABI);
+
+			// The preimageHash should be 0x-prefixed for comparison
+			const preimageHashWithPrefix = preimageHash.startsWith('0x') ? preimageHash : '0x' + preimageHash;
+
+			// Find the Lockup event in the logs
+			for (const log of receipt.logs) {
+				// Check if this log is from our contract
+				if (log.address.toLowerCase() !== contractAddress.toLowerCase()) {
+					continue;
+				}
+
+				try {
+					const parsed = iface.parseLog({
+						topics: [...log.topics],
+						data: log.data
+					});
+
+					console.log('📝 Parsed event:', parsed?.name, 'with args:', parsed?.args);
+
+					if (parsed?.name === 'Lockup') {
+						// Event structure: Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)
+						const eventPreimageHash = parsed.args[0];
+						const eventAmount = parsed.args[1];
+						const eventClaimAddress = parsed.args[2];
+						const eventRefundAddress = parsed.args[3];
+						const eventTimelock = parsed.args[4];
+
+						console.log('🔍 Checking Lockup event:', {
+							eventPreimageHash,
+							expectedPreimageHash: preimageHashWithPrefix,
+							matches: eventPreimageHash.toLowerCase() === preimageHashWithPrefix.toLowerCase()
+						});
+
+						// Check if this is the event for our swap
+						if (eventPreimageHash.toLowerCase() === preimageHashWithPrefix.toLowerCase()) {
+							console.log('✅ Found matching Lockup event!');
+							return {
+								amount: eventAmount,
+								claimAddress: eventClaimAddress,
+								refundAddress: eventRefundAddress,
+								timelock: Number(eventTimelock)
+							};
+						}
+					}
+				} catch (e) {
+					// Not a Lockup event or failed to parse, continue
+					console.log('⚠️ Failed to parse log:', e);
+				}
+			}
+
+			console.warn('⚠️ No matching Lockup event found in transaction');
+			return null;
+		} catch (error) {
+			console.error('❌ Failed to get lockup event parameters:', error);
+			return null;
+		}
+	}
+
+	/**
 	 * Claim rBTC from EtherSwap contract
-	 * This method is called internally when the swap reaches transaction.confirmed status
-	 * It requires the user's RSK wallet to be connected
+	 * 
+	 * IMPORTANT: EtherSwap contract structure (from EtherSwap.sol):
+	 * - Contract uses keccak256 hash of ALL parameters to index swaps
+	 * - The claim() function auto-uses msg.sender as claimAddress
+	 * - We don't need to query the contract - just call claim() directly
+	 * - If swap doesn't exist or already claimed, the contract will revert
+	 * 
+	 * This method is called when swap reaches 'transaction.confirmed' status
 	 */
 	async claimRBTC(
 		swapData: BoltzSwapData,
@@ -250,7 +386,18 @@ export class ReverseSwapService {
 				throw new Error('RSK wallet not connected. Please connect your wallet to claim funds.');
 			}
 
+			// Validate required swap data
+			if (!swapData.preimage || !swapData.onchainAmount || !swapData.refundAddress || !swapData.timeoutBlockHeight) {
+				throw new Error('Missing required swap data for claiming. Data: ' + JSON.stringify({
+					hasPreimage: !!swapData.preimage,
+					onchainAmount: swapData.onchainAmount,
+					refundAddress: swapData.refundAddress,
+					timeoutBlockHeight: swapData.timeoutBlockHeight
+				}));
+			}
+
 			// Get EtherSwap contract address from Boltz API
+			console.log('📡 Fetching EtherSwap contract address from Boltz API...');
 			const contractsResponse = await fetch(
 				`${this.boltzClient['config'].apiUrl}/v2/chain/RBTC/contracts`
 			);
@@ -273,152 +420,122 @@ export class ReverseSwapService {
 			// Create contract instance with the user's wallet signer
 			const etherSwapContract = new Contract(etherSwapAddress, ETHER_SWAP_ABI, walletSigner);
 
-			// Validate swap data
-			if (!swapData.preimage || !swapData.onchainAmount || !swapData.refundAddress || !swapData.timeoutBlockHeight) {
-				throw new Error('Missing required swap data for claiming');
+			// CRITICAL: Get the ACTUAL parameters from the Lockup event
+			// The API response may have different values than what was actually locked
+			let amountWei: bigint;
+			let refundAddress: string;
+			let timelock: number;
+
+			if (swapData.lockupTxHash) {
+				console.log('📡 Fetching actual lockup parameters from contract event...');
+				const eventParams = await this.getLockupEventParameters(
+					etherSwapAddress,
+					swapData.preimageHash,
+					swapData.lockupTxHash,
+					walletSigner.provider
+				);
+
+				if (eventParams) {
+					console.log('✅ Got actual parameters from Lockup event:', {
+						amount: eventParams.amount.toString() + ' wei',
+						claimAddress: eventParams.claimAddress,
+						refundAddress: eventParams.refundAddress,
+						timelock: eventParams.timelock
+					});
+
+					// Use event parameters (the REAL values)
+					amountWei = eventParams.amount;
+					refundAddress = eventParams.refundAddress;
+					timelock = eventParams.timelock;
+
+					console.log('✅ Using event parameters for claim');
+				} else {
+					console.warn('⚠️ Could not fetch Lockup event, using API response values (may fail)');
+					// Fall back to API response
+					amountWei = BigInt(swapData.onchainAmount) * SATOSHI_TO_WEI;
+					refundAddress = swapData.refundAddress!;
+					timelock = swapData.timeoutBlockHeight!;
+				}
+			} else {
+				console.warn('⚠️ No lockup TX hash available, using API response values (may fail)');
+				// Fall back to API response
+				amountWei = BigInt(swapData.onchainAmount) * SATOSHI_TO_WEI;
+				refundAddress = swapData.refundAddress!;
+				timelock = swapData.timeoutBlockHeight!;
 			}
 
-			// Convert preimage to bytes32 format (0x prefix + hex)
+			// Prepare claim parameters
 			const preimageBytes32 = '0x' + swapData.preimage;
 
-			// Convert satoshis to wei (1 sat = 10^10 wei on RSK)
-			const amountWei = BigInt(swapData.onchainAmount) * SATOSHI_TO_WEI;
-
-			// For EtherSwap, Boltz uses the preimage hash as the key in the swaps mapping
-			// The contract stores swaps using: swaps[preimageHash] = SwapData(...)
-			const preimageHashBytes32 = '0x' + swapData.preimageHash;
-			
-			console.log('🔍 Attempting to query swap from contract...');
-			console.log('📋 Swap lookup parameters:', {
-				preimageHash: preimageHashBytes32,
-				amount: amountWei.toString(),
-				claimAddress: swapData.rbtcAddress,
-				refundAddress: swapData.refundAddress,
-				timeoutBlockHeight: swapData.timeoutBlockHeight,
-				lockupTxHash: swapData.lockupTxHash
-			});
-			
-			// Query the swap details from the contract using the preimage hash
-			// The swaps mapping uses: mapping(bytes32 => Swap) public swaps;
-			// where the key is the preimage hash (SHA256 of the preimage)
-			try {
-				// Add a small delay to ensure the lockup transaction has been processed
-				console.log('⏳ Waiting 2 seconds for lockup transaction to be fully processed...');
-				await new Promise(resolve => setTimeout(resolve, 2000));
-				
-				console.log('🔍 Querying contract with preimage hash:', preimageHashBytes32);
-				const swapDetails = await etherSwapContract.swaps(preimageHashBytes32);
-				console.log('📋 Raw swap details from contract:', swapDetails);
-				console.log('📋 Parsed swap details:', {
-					refundAddress: swapDetails[0],
-					amount: swapDetails[1]?.toString(),
-					claimAddress: swapDetails[2],
-					timeoutBlockHeight: swapDetails[3]?.toString()
-				});
-				
-				// Check if swap exists - amount > 0 means the swap is locked
-				if (!swapDetails[1] || swapDetails[1].toString() === '0') {
-					console.warn('⚠️ Swap not found in contract or not yet locked');
-					console.warn('💡 Possible reasons:');
-					console.warn('   1. Lockup transaction still being mined (wait a bit longer)');
-					console.warn('   2. Wrong preimage hash (check swap creation)');
-					console.warn('   3. Wrong contract address');
-					console.warn('📊 Debug info:', {
-						swapId: swapData.id,
-						preimageHash: preimageHashBytes32,
-						lockupTxHash: swapData.lockupTxHash,
-						contractAddress: etherSwapAddress
-					});
-					throw new Error(
-						`Swap not found in EtherSwap contract (amount is 0 or undefined). ` +
-						`The lockup transaction may still be processing. Please wait a moment and try again.`
-					);
-				}
-				
-				// Validate swap parameters match what we expect
-				const contractAmount = swapDetails[1];
-				const contractClaimAddress = swapDetails[2];
-				const contractRefundAddress = swapDetails[0];
-				const contractTimeout = swapDetails[3];
-				
-				console.log('🔍 Validating swap parameters...');
-				console.log('Expected claim address:', swapData.rbtcAddress);
-				console.log('Contract claim address:', contractClaimAddress);
-				
-				// Check if claim address matches (case-insensitive)
-				if (contractClaimAddress.toLowerCase() !== swapData.rbtcAddress.toLowerCase()) {
-					throw new Error(
-						`Claim address mismatch! ` +
-						`Expected: ${swapData.rbtcAddress}, ` +
-						`Contract has: ${contractClaimAddress}`
-					);
-				}
-				
-				console.log('✅ Swap found in contract and parameters validated');
-				console.log('✅ Ready to claim', amountWei.toString(), 'wei (', swapData.onchainAmount, 'sats)');
-			} catch (queryError) {
-				console.error('❌ Failed to query swap from contract:', queryError);
-				
-				// If it's our custom error, rethrow it
-				if (queryError instanceof Error && queryError.message.includes('Swap not found in EtherSwap contract')) {
-					throw queryError;
-				}
-				
-				// Check if it's a contract call error
-				if (queryError instanceof Error && queryError.message.includes('execution reverted')) {
-					throw new Error(
-						`Contract query failed: The swap doesn't exist in the contract yet. ` +
-						`This usually means the lockup transaction is still being processed. ` +
-						`Wait a few more seconds and try again. ` +
-						`Lockup TX: ${swapData.lockupTxHash || 'unknown'}`
-					);
-				}
-				
-				// Otherwise, wrap it with more context
-				throw new Error(
-					`Cannot query swap from contract: ${queryError instanceof Error ? queryError.message : 'Unknown error'}. ` +
-					`This might indicate the lockup transaction hasn't been processed yet.`
-				);
-			}
-
-			console.log('🎯 Calling contract claim function with params:', {
-				preimage: preimageBytes32,
-				amount: amountWei.toString(),
-				refundAddress: swapData.refundAddress,
-				timeoutBlockHeight: swapData.timeoutBlockHeight
+			console.log('🎯 Claiming with parameters:', {
+				preimage: preimageBytes32.slice(0, 20) + '...',
+				amount: `${amountWei.toString()} wei (${Number(amountWei / SATOSHI_TO_WEI)} sats)`,
+				refundAddress: refundAddress,
+				timelock: timelock,
+				claimAddress: swapData.rbtcAddress + ' (auto from msg.sender)'
 			});
 
-			// Call the claim function on the EtherSwap contract
-			// The function signature is: claim(bytes32 preimage, uint256 amount, address refundAddress, uint256 timeoutBlockHeight)
+			// Call claim function directly
+			// The EtherSwap contract will:
+			// 1. Hash the preimage with SHA256
+			// 2. Compute swap hash using hashValues(preimageHash, amount, msg.sender, refundAddress, timelock)
+			// 3. Check if swap exists and is locked
+			// 4. Transfer funds to msg.sender (our wallet)
+			console.log('🚀 Calling EtherSwap.claim()...');
 			const tx = await etherSwapContract.claim(
 				preimageBytes32,
 				amountWei,
-				swapData.refundAddress,
-				swapData.timeoutBlockHeight
+				refundAddress,
+				timelock
 			);
 
-			console.log('Claim transaction sent:', tx.hash);
+			console.log('✅ Claim transaction sent:', tx.hash);
+			console.log('⏳ Waiting for transaction confirmation...');
 
 			// Update swap data with claim transaction hash
 			swapData.claimTxHash = tx.hash;
 			swapData.status = 'transaction.claim.pending';
 			swapData.updatedAt = Date.now();
-
-			// Save updated swap data to Nostr
 			await this.saveSwapToNostr(swapData, nsec);
 
-			// Wait for transaction confirmation (optional - can be done in background)
+			// Wait for transaction confirmation
 			const receipt = await tx.wait();
-			console.log('Claim transaction confirmed:', receipt.hash);
+			console.log('✅ Claim transaction confirmed!');
+			console.log('📋 Receipt:', {
+				transactionHash: receipt.hash,
+				blockNumber: receipt.blockNumber,
+				gasUsed: receipt.gasUsed?.toString(),
+				status: receipt.status
+			});
 
 			// Update status to settled
-			swapData.status = 'invoice.settled';
+			swapData.status = 'claimed';
 			swapData.updatedAt = Date.now();
 			await this.saveSwapToNostr(swapData, nsec);
 
+			console.log('🎉 Successfully claimed', swapData.onchainAmount, 'sats of rBTC!');
+
 			return { txHash: tx.hash };
 		} catch (error) {
-			console.error('Failed to claim rBTC:', error);
+			console.error('❌ Failed to claim rBTC:', error);
+			
+			// Provide helpful error messages
+			if (error instanceof Error) {
+				if (error.message.includes('swap has no Ether locked')) {
+					console.error('💡 Swap not found in contract. Possible reasons:');
+					console.error('   1. Lockup transaction not yet confirmed');
+					console.error('   2. Wrong parameters (amount, addresses, or timelock)');
+					console.error('   3. Swap already claimed');
+					console.error('📊 Swap data:', {
+						id: swapData.id,
+						amount: swapData.onchainAmount,
+						claimAddress: swapData.rbtcAddress,
+						refundAddress: swapData.refundAddress,
+						timelock: swapData.timeoutBlockHeight,
+						lockupTx: swapData.lockupTxHash
+					});
+				}
+			}
 			
 			// Update swap status to show claim failed
 			swapData.status = 'transaction.claim.failed';

@@ -120,8 +120,8 @@ export class BoltzClient {
 		if (!config.apiUrl) {
 			throw new BoltzError('API URL is required', 'INVALID_CONFIG');
 		}
-		if (!['mainnet', 'testnet'].includes(config.network)) {
-			throw new BoltzError('Network must be mainnet or testnet', 'INVALID_CONFIG');
+		if (!['mainnet', 'testnet', 'regtest'].includes(config.network)) {
+			throw new BoltzError('Network must be mainnet or testnet or regtest', 'INVALID_CONFIG');
 		}
 	}
 

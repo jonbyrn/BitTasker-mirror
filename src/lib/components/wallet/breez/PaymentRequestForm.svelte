@@ -10,7 +10,7 @@
 		getSupportedAssets,
 		getCurrentNetwork,
 		getAssetId,
-		type AssetMetadata
+		type ASSET_METADATA
 	} from '$lib/utils/constants/assets';
 	import { appStore } from '$lib/stores/app.store';
 	import Input from '$lib/components/Input.svelte';
@@ -37,7 +37,7 @@
 	let errorMessage = $state<string | null>(null);
 	let feeSats = $state(0);
 	let address = $state<string | null>(null);
-	let supportedAssets = $state<AssetMetadata[]>([]);
+	let supportedAssets = $state<typeof ASSET_METADATA[]>([]);
 	let currentNetwork = getCurrentNetwork();
 	let qrCodeDataUrl = $state('');
 
