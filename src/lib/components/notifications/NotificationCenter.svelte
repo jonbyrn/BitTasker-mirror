@@ -130,69 +130,37 @@
 	}
 
 	function getTranslatedTitle(notification: Notification): string {
-		// Remove emojis from title
-		let cleanTitle = notification.title.replace(/[🎉💰✅❌📝💬⚙️🔒📋💳]/g, '').trim();
-		
-		// If title is already in Spanish, return as is
-		if (cleanTitle.includes('Nueva') || cleanTitle.includes('Recibida') || 
-			cleanTitle.includes('Oferta') || cleanTitle.includes('Pago')) {
-			return cleanTitle;
+		// If notification is already translated, return as-is
+		if (notification.data?.isTranslated) {
+			return notification.title;
 		}
-
-		// Translate common English titles to Spanish
-		const translations: Record<string, string> = {
-			'New Bid Received': 'Nueva Oferta Recibida',
-			'Bid Accepted': 'Oferta Aceptada',
-			'Bid Rejected': 'Oferta Rechazada',
-			'Payment Received': 'Pago Recibido',
-			'Payment Sent': 'Pago Enviado',
-			'Task Updated': 'Tarea Actualizada',
-			'New Message': 'Nuevo Mensaje',
-			'System Maintenance': 'Mantenimiento del Sistema',
-			'Security Alert': 'Alerta de Seguridad',
-			'Contract Created': 'Contrato Creado',
-			'Contract Completed': 'Contrato Completado',
-			'Task Completed': 'Tarea Completada',
-			'New Notification': 'Nueva Notificación'
-		};
-
-		return translations[cleanTitle] || cleanTitle;
+		
+		// Check if notification has translation keys
+		if (notification.data?.titleKey) {
+			return $t(notification.data.titleKey);
+		}
+		
+		// Fallback to direct translation of the title
+		return $t(notification.title) || notification.title;
 	}
 
 	function getTranslatedBody(notification: Notification): string {
-		// Remove emojis from body
-		let cleanBody = notification.body.replace(/[🎉💰✅❌📝💬⚙️🔒📋💳]/g, '').trim();
+		// If notification is already translated, return as-is
+		if (notification.data?.isTranslated) {
+			return notification.body;
+		}
 		
-		// If body is already in Spanish, return as is
-		if (cleanBody.includes('recibido') || cleanBody.includes('enviado') || 
-			cleanBody.includes('tarea') || cleanBody.includes('oferta')) {
-			return cleanBody;
+		// Check if notification has translation keys
+		if (notification.data?.bodyKey) {
+			const translation = $t(notification.data.bodyKey as any);
+			// Replace {senderName} placeholder with actual sender name
+			return translation.replace('{senderName}', notification.data.senderName || 'Usuario');
 		}
-
-		// Translate common English body text to Spanish
-		const bodyTranslations: Record<string, string> = {
-			'You have received a new bid': 'Has recibido una nueva oferta',
-			'Your bid has been accepted': 'Tu oferta ha sido aceptada',
-			'Your bid has been rejected': 'Tu oferta ha sido rechazada',
-			'Payment has been received': 'El pago ha sido recibido',
-			'Payment has been sent': 'El pago ha sido enviado',
-			'Task has been updated': 'La tarea ha sido actualizada',
-			'You have a new message': 'Tienes un nuevo mensaje',
-			'System maintenance scheduled': 'Mantenimiento del sistema programado',
-			'Security alert detected': 'Alerta de seguridad detectada',
-			'Contract has been created': 'El contrato ha sido creado',
-			'Contract has been completed': 'El contrato ha sido completado',
-			'Task has been completed': 'La tarea ha sido completada'
-		};
-
-		// Try to find a matching translation
-		for (const [english, spanish] of Object.entries(bodyTranslations)) {
-			if (cleanBody.includes(english)) {
-				return cleanBody.replace(english, spanish);
-			}
-		}
-
-		return cleanBody;
+		
+		// Fallback to direct translation of the body
+		const translation = $t(notification.body as any) || notification.body;
+		// Replace {senderName} placeholder with actual sender name
+		return translation.replace('{senderName}', notification.data?.senderName || 'Usuario');
 	}
 
 </script>
@@ -328,9 +296,16 @@
 												</span>
 											{/if}
 											{#if notification.data.amount}
-												<span class="inline-block bg-success/20 text-success px-2 py-1 rounded text-xs ml-1">
-													{notification.data.amount} {notification.data.currency || 'USD'}
-												</span>
+												<div class="flex gap-1 mt-1">
+													{#if notification.data.bitcoinAmount}
+														<span class="inline-block bg-primary/20 text-primary px-2 py-1 rounded text-xs">
+															{notification.data.bitcoinAmount} sats
+														</span>
+													{/if}
+													<span class="inline-block bg-success/20 text-success px-2 py-1 rounded text-xs">
+														{notification.data.amount} {notification.data.currency || 'USD'}
+													</span>
+												</div>
 											{/if}
 										</div>
 									{/if}

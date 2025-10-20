@@ -115,8 +115,7 @@ class LocalNotificationService {
 			// Set up real-time message listener for JSON notifications
 			this.setupMessageListener();
 			
-			this.isInitialized = true;
-			console.log('Local notification service initialized');
+		this.isInitialized = true;
 		} catch (error) {
 			console.error('Failed to initialize local notification service:', error);
 			throw error;
@@ -161,7 +160,6 @@ class LocalNotificationService {
 
 		// If permission is already granted, we're good
 		if (Notification.permission === 'granted') {
-			console.log('Notification permission already granted');
 			return;
 		}
 
@@ -174,9 +172,7 @@ class LocalNotificationService {
 		// Request permission
 		try {
 			const permission = await Notification.requestPermission();
-			if (permission === 'granted') {
-				console.log('Notification permission granted');
-			} else {
+			if (permission !== 'granted') {
 				console.warn('Notification permission denied by user');
 			}
 		} catch (error) {
@@ -212,36 +208,24 @@ class LocalNotificationService {
 		try {
 			const jsonMessage: JsonMessage = JSON.parse(plaintext);
 			
-			console.log('Processing JSON message:', { 
-				messageType: jsonMessage.messageType, 
-				senderPubkey: senderPubkey.substring(0, 8) + '...',
-				eventId: event.id
-			});
-			
 			// Check if this notification is intended for the current user
 			const isIntendedForCurrentUser = await this.isNotificationIntendedForCurrentUser(jsonMessage, senderPubkey, event);
 			
 			if (!isIntendedForCurrentUser) {
-				console.log('Notification not intended for current user, skipping');
 				return;
 			}
 			
-			// Get sender profile information
-			const messagedPeople = await getMessagedPeople();
-			const sender = messagedPeople.find(p => p.pubkey === senderPubkey);
-			const senderName = sender?.profile?.name || 'Unknown User';
+			// Get sender profile information from multiple sources
+			const senderName = await this.getSenderName(senderPubkey);
 
 			// Convert JSON message to notification based on type
 			const notification = await this.convertJsonToNotification(jsonMessage, senderName, senderPubkey, event);
 			
 			if (notification) {
-				console.log('Created notification:', notification.title);
 				this.addNotification(notification);
 				// Only show system notifications, no toast notifications
 				this.showSystemNotification(notification);
 				this.incrementIncomingCount();
-			} else {
-				console.log('No notification created for message type:', jsonMessage.messageType);
 			}
 		} catch (error) {
 			console.error('Failed to handle JSON message:', error);
@@ -264,12 +248,6 @@ class LocalNotificationService {
 			// Determine user role in the context of this message
 			const userRole = await this.determineUserRole(jsonMessage, currentUserPubkey, senderPubkey);
 			
-			console.log('Notification targeting check:', {
-				messageType: jsonMessage.messageType,
-				userRole,
-				currentUserPubkey: currentUserPubkey.substring(0, 8) + '...',
-				senderPubkey: senderPubkey.substring(0, 8) + '...'
-			});
 
 			// Check targeting based on message type and user role
 			switch (jsonMessage.messageType) {
@@ -291,7 +269,6 @@ class LocalNotificationService {
 
 				default:
 					// For unknown message types, show to current user
-					console.log('Unknown message type, defaulting to show notification');
 					return true;
 			}
 		} catch (error) {
@@ -337,35 +314,84 @@ class LocalNotificationService {
 				return 'unknown'; // Don't show notifications for messages sent by current user
 			}
 
-			// Try to determine role from message data
-			if (jsonMessage.taskerPubkey && jsonMessage.taskeePubkey) {
-				if (currentUserPubkey === jsonMessage.taskerPubkey) {
-					return 'tasker';
-				} else if (currentUserPubkey === jsonMessage.taskeePubkey) {
+			// First, check if we have explicit pubkeys in the message
+			if ('taskerPubkey' in jsonMessage && jsonMessage.taskerPubkey === currentUserPubkey) {
+				return 'tasker';
+			}
+			
+			if ('taskeePubkey' in jsonMessage && jsonMessage.taskeePubkey === currentUserPubkey) {
+				return 'taskee';
+			}
+
+			// For bid messages, check if current user is the sender (taskee) or recipient (tasker)
+			if (jsonMessage.messageType === 'bid') {
+				// If current user is the sender, they are the taskee (bidder)
+				if (senderPubkey === currentUserPubkey) {
 					return 'taskee';
 				}
+				
+				// For bid messages, the recipient is typically the tasker
+				return 'tasker';
 			}
 
-			// Fallback: check task ownership
-			if (jsonMessage.taskId) {
-				const isTaskOwner = await this.isCurrentUserTaskOwner(jsonMessage.taskId);
-				if (isTaskOwner) {
+			// For bid-status messages, check if current user is the sender (tasker) or recipient (taskee)
+			if (jsonMessage.messageType === 'bid-status') {
+				// If current user is the sender, they are the tasker (who accepts/rejects bids)
+				if (senderPubkey === currentUserPubkey) {
 					return 'tasker';
 				}
+				
+				// For bid-status messages, the recipient is typically the taskee
+				return 'taskee';
 			}
 
-			// Check if current user is involved in any contract
-			if (jsonMessage.contractId) {
-				const contractRole = await this.getUserRoleInContract(jsonMessage.contractId, currentUserPubkey);
-				if (contractRole !== 'unknown') {
-					return contractRole;
+			// For contract messages, both parties can be involved
+			if (jsonMessage.messageType === 'contract' || jsonMessage.messageType === 'contract-status') {
+				// Try to determine from contract involvement
+				if ('contractId' in jsonMessage && jsonMessage.contractId) {
+					const contractRole = await this.getUserRoleInContract(jsonMessage.contractId, currentUserPubkey);
+					if (contractRole !== 'unknown') {
+						return contractRole;
+					}
 				}
+				
+				// If we can't determine from contract, assume both parties are involved
+				return 'tasker'; // Default to tasker for contract messages
 			}
 
-			// Check recipient tag in event
-			if (jsonMessage.messageType === 'bid-status') {
-				// For bid status, check if current user is the intended recipient
-				// This is handled in the specific notification method
+			// For task completion messages, the sender is typically the taskee
+			if (jsonMessage.messageType === 'task-completed') {
+				if (senderPubkey === currentUserPubkey) {
+					return 'taskee';
+				}
+				
+				return 'tasker';
+			}
+
+			// For payment messages, both parties can be involved
+			if (jsonMessage.messageType === 'payment') {
+				// Try to determine from contract involvement
+				if ('contractId' in jsonMessage && jsonMessage.contractId) {
+					const contractRole = await this.getUserRoleInContract(jsonMessage.contractId, currentUserPubkey);
+					if (contractRole !== 'unknown') {
+						return contractRole;
+					}
+				}
+				
+				return 'tasker'; // Default to tasker for payment messages
+			}
+
+			// Fallback: try to check task ownership only if we have a valid task ID format
+			// Skip API call if taskId looks like a hex string (Nostr event ID)
+			if ('taskId' in jsonMessage && jsonMessage.taskId && !this.isHexString(jsonMessage.taskId)) {
+				try {
+					const isTaskOwner = await this.isCurrentUserTaskOwner(jsonMessage.taskId);
+					if (isTaskOwner) {
+						return 'tasker';
+					}
+				} catch (error) {
+					// Skip task ownership check due to API error
+				}
 			}
 
 			return 'unknown';
@@ -373,6 +399,13 @@ class LocalNotificationService {
 			console.error('Error determining user role:', error);
 			return 'unknown';
 		}
+	}
+
+	/**
+	 * Check if a string is a hex string (likely a Nostr event ID)
+	 */
+	private isHexString(str: string): boolean {
+		return /^[0-9a-fA-F]{64}$/.test(str);
 	}
 
 	/**
@@ -386,17 +419,14 @@ class LocalNotificationService {
 		// Bid status updates are sent TO the bidder (taskee)
 		// The tasker sends the status update to the taskee
 		if (userRole === 'taskee') {
-			console.log('Taskee should receive bid status notification');
 			return true;
 		}
 
 		// Additional check: if we have explicit taskee pubkey in message
 		if (message.taskeePubkey && message.taskeePubkey === currentUserPubkey) {
-			console.log('Current user is the taskee (from message data)');
 			return true;
 		}
 
-		console.log('User should not receive bid status notification');
 		return false;
 	}
 
@@ -410,17 +440,14 @@ class LocalNotificationService {
 	): boolean {
 		// New bids are sent TO the tasker
 		if (userRole === 'tasker') {
-			console.log('Tasker should receive bid notification');
 			return true;
 		}
 
 		// Additional check: if we have explicit tasker pubkey in message
 		if (message.taskerPubkey && message.taskerPubkey === currentUserPubkey) {
-			console.log('Current user is the tasker (from message data)');
 			return true;
 		}
 
-		console.log('User should not receive bid notification');
 		return false;
 	}
 
@@ -434,18 +461,15 @@ class LocalNotificationService {
 	): boolean {
 		// Contract events should go to both parties involved
 		if (userRole === 'tasker' || userRole === 'taskee') {
-			console.log(`${userRole} should receive contract notification`);
 			return true;
 		}
 
 		// Additional check: if we have explicit pubkeys in message
 		if ((message.taskerPubkey && message.taskerPubkey === currentUserPubkey) ||
 			(message.taskeePubkey && message.taskeePubkey === currentUserPubkey)) {
-			console.log('Current user is involved in contract (from message data)');
 			return true;
 		}
 
-		console.log('User should not receive contract notification');
 		return false;
 	}
 
@@ -459,17 +483,14 @@ class LocalNotificationService {
 	): boolean {
 		// Task completion notifications should go to the tasker (task owner)
 		if (userRole === 'tasker') {
-			console.log('Tasker should receive task completion notification');
 			return true;
 		}
 
 		// Additional check: if we have explicit tasker pubkey in message
 		if (message.taskerPubkey && message.taskerPubkey === currentUserPubkey) {
-			console.log('Current user is the tasker (from message data)');
 			return true;
 		}
 
-		console.log('User should not receive task completion notification');
 		return false;
 	}
 
@@ -484,18 +505,15 @@ class LocalNotificationService {
 		// Payment notifications should go to the recipient
 		// Both tasker and taskee can receive payment notifications
 		if (userRole === 'tasker' || userRole === 'taskee') {
-			console.log(`${userRole} should receive payment notification`);
 			return true;
 		}
 
 		// Additional check: if we have explicit pubkeys in message
 		if ((message.taskerPubkey && message.taskerPubkey === currentUserPubkey) ||
 			(message.taskeePubkey && message.taskeePubkey === currentUserPubkey)) {
-			console.log('Current user is involved in payment (from message data)');
 			return true;
 		}
 
-		console.log('User should not receive payment notification');
 		return false;
 	}
 
@@ -627,10 +645,51 @@ class LocalNotificationService {
 				// Handle task completion notifications
 				return this.createTaskCompletionNotification(jsonMessage as TaskCompletionMessage, senderName, baseNotification, userRole);
 			
+			case undefined:
+			case null:
+				// Handle messages with undefined messageType - create a generic notification
+				return this.createGenericNotification(jsonMessage, senderName, baseNotification, userRole);
+			
 			default:
-				console.log('Unknown message type:', jsonMessage.messageType);
 				return null;
 		}
+	}
+
+	/**
+	 * Create generic notification for messages with undefined type
+	 */
+	private createGenericNotification(
+		jsonMessage: JsonMessage, 
+		senderName: string, 
+		base: Partial<Notification>,
+		userRole: UserRole
+	): Notification {
+		// Determine navigation URL based on message content
+		let navigationUrl = '/dashboard/messages';
+		if ('taskId' in jsonMessage && jsonMessage.taskId) {
+			navigationUrl = `/dashboard/task/${jsonMessage.taskId}/messages`;
+		} else if ('contractId' in jsonMessage && jsonMessage.contractId) {
+			navigationUrl = `/dashboard/contracts/${jsonMessage.contractId}/messages`;
+		}
+
+		return {
+			...base,
+			type: 'message',
+			title: 'Nuevo Mensaje',
+			body: `Has recibido un mensaje de ${senderName}`,
+			priority: 'normal',
+			data: {
+				senderName,
+				userRole,
+				messageType: 'generic',
+				originalMessage: jsonMessage,
+				isTranslated: true // Flag to indicate this is already translated
+			},
+			action: {
+				type: 'navigation',
+				payload: navigationUrl
+			}
+		} as Notification;
 	}
 
 	/**
@@ -645,22 +704,30 @@ class LocalNotificationService {
 		const isAccepted = message.status === 'accepted';
 		const isRejected = message.status === 'rejected';
 
-		// Role-aware titles and messages
+		// Create proper navigation URL based on notification type
+		const navigationUrl = userRole === 'taskee' 
+			? `/dashboard/bids/${message.bidId}` // Taskee goes to specific bid page
+			: `/dashboard/task/${message.taskId}/bids`; // Tasker goes to bids page
+
+		// Create translated content based on user role and status
 		let title: string;
 		let body: string;
 
 		if (userRole === 'taskee') {
 			// Taskee (bidder) receiving bid status update
-			title = isAccepted ? 'Bid Accepted' : 'Bid Rejected';
-			body = isAccepted 
-				? `Great news! Your bid has been accepted by ${senderName}. Time to start working!`
-				: `Your bid has been rejected by ${senderName}. Don't get discouraged, keep trying.`;
+			if (isAccepted) {
+				title = 'Oferta Aceptada';
+				body = `¡Excelente! Tu oferta ha sido aceptada por ${senderName}. ¡Es hora de comenzar el trabajo!`;
+			} else {
+				title = 'Oferta Rechazada';
+				body = `Tu oferta ha sido rechazada por ${senderName}. No te desanimes, sigue intentando.`;
+			}
 		} else {
-			// Fallback for unknown roles
-			title = isAccepted ? 'Bid Status Update' : 'Bid Status Update';
+			// Tasker (task owner) - this shouldn't happen for bid status, but fallback
+			title = isAccepted ? 'Actualización de Oferta' : 'Actualización de Oferta';
 			body = isAccepted 
-				? `Bid accepted by ${senderName}`
-				: `Bid rejected by ${senderName}`;
+				? `Oferta aceptada por ${senderName}`
+				: `Oferta rechazada por ${senderName}`;
 		}
 
 		return {
@@ -678,11 +745,12 @@ class LocalNotificationService {
 				senderName,
 				userRole,
 				taskerPubkey: message.taskerPubkey,
-				taskeePubkey: message.taskeePubkey
+				taskeePubkey: message.taskeePubkey,
+				isTranslated: true // Flag to indicate this is already translated
 			},
 			action: {
 				type: 'navigation',
-				payload: `/dashboard/task/${message.taskId}`
+				payload: navigationUrl
 			}
 		} as Notification;
 	}
@@ -698,72 +766,72 @@ class LocalNotificationService {
 	): Notification {
 		const actionTitles: Record<string, Record<UserRole, string>> = {
 			'contract-created': {
-				'tasker': 'Contract Created',
-				'taskee': 'Contract Created',
-				'unknown': 'Contract Created'
+				'tasker': 'Contrato Creado',
+				'taskee': 'Contrato Creado',
+				'unknown': 'Contrato Creado'
 			},
 			'contract-completed': {
-				'tasker': 'Contract Completed',
-				'taskee': 'Contract Completed',
-				'unknown': 'Contract Completed'
+				'tasker': 'Contrato Completado',
+				'taskee': 'Contrato Completado',
+				'unknown': 'Contrato Completado'
 			},
 			'contract-disputed': {
-				'tasker': 'Contract Disputed',
-				'taskee': 'Contract Disputed',
-				'unknown': 'Contract Disputed'
+				'tasker': 'Contrato en Disputa',
+				'taskee': 'Contrato en Disputa',
+				'unknown': 'Contrato en Disputa'
 			},
 			'contract-cancelled': {
-				'tasker': 'Contract Cancelled',
-				'taskee': 'Contract Cancelled',
-				'unknown': 'Contract Cancelled'
+				'tasker': 'Contrato Cancelado',
+				'taskee': 'Contrato Cancelado',
+				'unknown': 'Contrato Cancelado'
 			},
 			'payment-released': {
-				'tasker': 'Payment Released',
-				'taskee': 'Payment Received',
-				'unknown': 'Payment Released'
+				'tasker': 'Pago Liberado',
+				'taskee': 'Pago Recibido',
+				'unknown': 'Pago Liberado'
 			},
 			'payment-refunded': {
-				'tasker': 'Payment Refunded',
-				'taskee': 'Payment Refunded',
-				'unknown': 'Payment Refunded'
+				'tasker': 'Pago Reembolsado',
+				'taskee': 'Pago Reembolsado',
+				'unknown': 'Pago Reembolsado'
 			}
 		};
 
 		const actionBodies: Record<string, Record<UserRole, string>> = {
 			'contract-created': {
-				'tasker': `New contract created with ${senderName}`,
-				'taskee': `New contract created with ${senderName}`,
-				'unknown': `New contract created by ${senderName}`
+				'tasker': `Nuevo contrato creado con ${senderName}`,
+				'taskee': `Nuevo contrato creado con ${senderName}`,
+				'unknown': `Nuevo contrato creado por ${senderName}`
 			},
 			'contract-completed': {
-				'tasker': `Contract completed by ${senderName}`,
-				'taskee': `Contract completed with ${senderName}`,
-				'unknown': `Contract completed by ${senderName}`
+				'tasker': `Contrato completado por ${senderName}`,
+				'taskee': `Contrato completado con ${senderName}`,
+				'unknown': `Contrato completado por ${senderName}`
 			},
 			'contract-disputed': {
-				'tasker': `Dispute initiated by ${senderName}`,
-				'taskee': `Dispute initiated by ${senderName}`,
-				'unknown': `Dispute initiated by ${senderName}`
+				'tasker': `Disputa iniciada por ${senderName}`,
+				'taskee': `Disputa iniciada por ${senderName}`,
+				'unknown': `Disputa iniciada por ${senderName}`
 			},
 			'contract-cancelled': {
-				'tasker': `Contract cancelled by ${senderName}`,
-				'taskee': `Contract cancelled by ${senderName}`,
-				'unknown': `Contract cancelled by ${senderName}`
+				'tasker': `Contrato cancelado por ${senderName}`,
+				'taskee': `Contrato cancelado por ${senderName}`,
+				'unknown': `Contrato cancelado por ${senderName}`
 			},
 			'payment-released': {
-				'tasker': `Payment released to ${senderName}`,
-				'taskee': `Payment received from ${senderName}`,
-				'unknown': `Payment released by ${senderName}`
+				'tasker': `Pago liberado a ${senderName}`,
+				'taskee': `Pago recibido de ${senderName}`,
+				'unknown': `Pago liberado por ${senderName}`
 			},
 			'payment-refunded': {
-				'tasker': `Payment refunded to ${senderName}`,
-				'taskee': `Payment refunded by ${senderName}`,
-				'unknown': `Payment refunded by ${senderName}`
+				'tasker': `Pago reembolsado a ${senderName}`,
+				'taskee': `Pago reembolsado por ${senderName}`,
+				'unknown': `Pago reembolsado por ${senderName}`
 			}
 		};
 
-		const title = actionTitles[message.action]?.[userRole] || 'Contract Update';
-		const body = actionBodies[message.action]?.[userRole] || message.message || `Contract update by ${senderName}`;
+		const title = actionTitles[message.action]?.[userRole] || 'Actualización de Contrato';
+		const body = actionBodies[message.action]?.[userRole] || message.message || `Actualización de contrato por ${senderName}`;
 
 		return {
 			...base,
@@ -780,7 +848,8 @@ class LocalNotificationService {
 				userRole,
 				taskerPubkey: message.taskerPubkey,
 				taskeePubkey: message.taskeePubkey,
-				taskId: message.taskId
+				taskId: message.taskId,
+				isTranslated: true // Flag to indicate this is already translated
 			},
 			action: {
 				type: 'navigation',
@@ -798,18 +867,27 @@ class LocalNotificationService {
 		base: Partial<Notification>,
 		userRole: UserRole
 	): Notification {
-		// Role-aware titles and messages
+		// Convert USD to Bitcoin (sats) for display
+		const usdAmount = parseFloat(message.amount?.toString() || '0');
+		const bitcoinAmount = this.convertUsdToSats(usdAmount);
+
+		// Create proper navigation URL based on notification type
+		const navigationUrl = userRole === 'tasker' 
+			? `/dashboard/task/${message.taskId}/bids` // Tasker goes to bids page
+			: `/dashboard/bids/${message.bidId}`; // Taskee goes to specific bid page
+
+		// Create translated content based on user role
 		let title: string;
 		let body: string;
 
 		if (userRole === 'tasker') {
 			// Tasker receiving new bid
-			title = 'New Bid Received';
-			body = `${senderName} has sent a bid for your task. Review the details and decide if you accept it.`;
+			title = 'Nueva Oferta Recibida'; // Spanish
+			body = `${senderName} ha enviado una oferta para tu tarea. Revisa los detalles y decide si la aceptas.`;
 		} else {
 			// Fallback for unknown roles
-			title = 'New Bid';
-			body = `${senderName} has sent a bid.`;
+			title = 'Nueva Oferta';
+			body = `${senderName} ha enviado una oferta.`;
 		}
 
 		return {
@@ -823,16 +901,69 @@ class LocalNotificationService {
 				taskId: message.taskId,
 				amount: message.amount,
 				currency: message.currency || 'USD',
+				bitcoinAmount: bitcoinAmount,
 				senderName,
 				userRole,
 				taskerPubkey: message.taskerPubkey,
-				taskeePubkey: message.taskeePubkey
+				taskeePubkey: message.taskeePubkey,
+				isTranslated: true // Flag to indicate this is already translated
 			},
 			action: {
 				type: 'navigation',
-				payload: `/dashboard/task/${message.taskId}/bids`
+				payload: navigationUrl
 			}
 		} as Notification;
+	}
+
+	/**
+	 * Convert USD amount to Bitcoin (sats)
+	 * Using approximate rate: 1 USD ≈ 20,000 sats (this should be dynamic in production)
+	 */
+	private convertUsdToSats(usdAmount: number): number {
+		// Approximate conversion rate (should be fetched from API in production)
+		const BTC_TO_USD_RATE = 50000; // $50,000 per BTC
+		const SATS_PER_BTC = 100000000; // 100 million sats per BTC
+		
+		const btcAmount = usdAmount / BTC_TO_USD_RATE;
+		return Math.round(btcAmount * SATS_PER_BTC);
+	}
+
+	/**
+	 * Get sender name from multiple sources
+	 */
+	private async getSenderName(senderPubkey: string): Promise<string> {
+		try {
+			// First, try to get from messaged people
+			const messagedPeople = await getMessagedPeople();
+			const sender = messagedPeople.find(p => p.pubkey === senderPubkey);
+			if (sender?.profile?.name) {
+				return sender.profile.name;
+			}
+
+			// Second, try to get from Nostr relays (simplified approach)
+			// For now, we'll skip this as it requires complex Nostr relay queries
+			// In production, this could be implemented with proper Nostr profile fetching
+
+			// Third, try to get from local storage or cache
+			try {
+				const cachedProfiles = localStorage.getItem('nostr-profiles');
+				if (cachedProfiles) {
+					const profiles = JSON.parse(cachedProfiles);
+					const profile = profiles[senderPubkey];
+					if (profile?.name) {
+						return profile.name;
+					}
+				}
+			} catch (error) {
+				// Could not get profile from cache
+			}
+
+			// Fallback: use a more descriptive name
+			return `User ${senderPubkey.substring(0, 8)}...`;
+		} catch (error) {
+			console.error('Error getting sender name:', error);
+			return `User ${senderPubkey.substring(0, 8)}...`;
+		}
 	}
 
 	/**
@@ -960,7 +1091,9 @@ class LocalNotificationService {
 		this.notifications.update(notifications => {
 			// Check if notification already exists (avoid duplicates)
 			const exists = notifications.some(n => n.id === notification.id);
-			if (exists) return notifications;
+			if (exists) {
+				return notifications;
+			}
 
 			// Add to beginning of array (most recent first)
 			const updated = [notification, ...notifications];
@@ -1060,8 +1193,6 @@ class LocalNotificationService {
 				systemNotification.close();
 			}, autoCloseTime);
 		}
-
-		console.log('System notification created:', notification.title);
 	}
 
 	/**
@@ -1254,14 +1385,30 @@ class LocalNotificationService {
 	}
 
 	/**
-	 * Cleanup and destroy the service
+	 * Test notification creation (for debugging)
 	 */
-	public destroy(): void {
-		if (this.messageUnsubscribe) {
-			this.messageUnsubscribe();
-			this.messageUnsubscribe = null;
-		}
-		this.isInitialized = false;
+	public async testNotification(): Promise<void> {
+		const testNotification: Notification = {
+			id: 'test-' + Date.now(),
+			userId: 'current-user',
+			type: 'system',
+			title: 'Test Notification',
+			body: 'This is a test notification to verify the system is working.',
+			priority: 'normal',
+			read: false,
+			delivered: {
+				inApp: true,
+				push: false
+			},
+			createdAt: new Date(),
+			data: {
+				test: true,
+				userRole: 'unknown'
+			}
+		};
+
+		this.addNotification(testNotification);
+		this.showSystemNotification(testNotification);
 	}
 }
 
