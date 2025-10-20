@@ -94,7 +94,7 @@ export async function loadNamespaces(
  */
 async function loadEssentialTranslations(currentLocale: SupportedLanguage): Promise<void> {
 	// Only load critical translations needed for initial render
-	const essentialNamespaces = ['home', 'common'];
+	const essentialNamespaces = ['home', 'common', 'notifications'];
 
 	await loadNamespaces(currentLocale, essentialNamespaces);
 }
@@ -116,6 +116,8 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
 		namespaces.push('dashboard/wallet');
+		// Load notifications namespace for notification components
+		namespaces.push('notifications');
 
 		if (route.includes('/profile')) {
 			namespaces.push(

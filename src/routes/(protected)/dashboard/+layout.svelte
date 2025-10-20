@@ -14,7 +14,6 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
-	import ToastNotification from '$lib/components/notifications/ToastNotification.svelte';
 
 	let { children } = $props();
 
@@ -127,5 +126,4 @@
 </div>
 
 	<!-- Toast Notifications -->
-	<ToastNotification />
 </WarningProvider>

@@ -8,7 +8,7 @@
 	import { devicePlatform, initializeDevicePlatform } from '$lib/stores/device.store';
 	import TopBar from '$lib/components/TopBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
-	import Toast from '$lib/components/Toast.svelte';
+	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
 	// Social media icon imports
 	import IconFacebook from '~icons/mdi/facebook';
 	import IconInstagram from '~icons/mdi/instagram';
@@ -512,7 +512,7 @@
 			</div>
 		{/if}
 
-		<!-- Toast notifications -->
-		<Toast />
+		<!-- Notification Permission Banner -->
+		<NotificationPermissionBanner />
 	</main>
 {/if}
