@@ -21,6 +21,8 @@
         "view_all": "View All",
         "view_profile": "View Profile",
         "reviews": "reviews",
+        "uploading": "Uploading...",
+        "uploading_file": "Uploading file",
         "profile": {
             "performance_stats": "Performance Stats",
             "tasks_completed": "Tasks Completed",

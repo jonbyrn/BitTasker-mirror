@@ -577,6 +577,7 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			transactionHash: params.transactionHash,
 			proposedClientAmount: params.proposedClientAmount,
 			proposedFreelancerAmount: params.proposedFreelancerAmount,
+			completionAttachments: params.completionAttachments,
 			messageType: 'contract-status'
 		};
 
@@ -692,6 +693,10 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							switch (latestNostrStatus) {
 								case 'task-completed':
 									currentStatus = 'completed';
+									// Update contract with completion attachments if available
+									if (statusEvents[statusEvents.length - 1].status.completionAttachments) {
+										contractData.completionAttachments = statusEvents[statusEvents.length - 1].status.completionAttachments;
+									}
 									break;
 								case 'payment-released':
 									currentStatus = 'resolved';

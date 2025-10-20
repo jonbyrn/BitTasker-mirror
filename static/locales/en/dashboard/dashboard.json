@@ -488,6 +488,7 @@
       "available_actions": "Available Actions",
       "no_actions_available": "No actions available",
       "status": {
+        "label": "Status",
         "active": "Active",
         "completed": "Completed",
         "disputed": "Disputed",
@@ -591,7 +592,21 @@
           "escrow_cancelled": "Contract cancelled",
           "contract_cancelled": "Contract cancelled",
           "timelock_resolved": "Resolved after timelock"
-        }
+        },
+        "completion": {
+          "title": "Mark Task as Complete",
+          "task_info": "Task Information",
+          "instructions_title": "Upload Completion Evidence",
+          "instructions_text": "Please upload photos or videos showing that the task has been completed successfully. This evidence will be shared with the tasker.",
+          "upload_evidence": "Upload Evidence",
+          "upload_placeholder": "Click to upload photos or videos",
+          "upload_limits": "Max 5 files, 10MB each, videos up to 5 minutes",
+          "uploaded_files": "Uploaded Evidence",
+          "mark_complete": "Mark as Complete",
+          "completing": "Completing Task..."
+        },
+        "completion_evidence": "Completion Evidence",
+        "completion_evidence_description": "Evidence provided by the taskee showing task completion:"
       }
     }
   }
