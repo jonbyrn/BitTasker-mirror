@@ -132,7 +132,6 @@
 				biometricData = await getWebBiometricData();
 			}
 
-			console.log('biometricData', biometricData);
 
 			if (biometricData) {
 				await login(biometricData, deviceId, authMethod);

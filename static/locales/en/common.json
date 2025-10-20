@@ -1,6 +1,7 @@
 {
     "common": {
         "back": "Back to Task",
+        "back_to_tasks": "Regresar",
         "redirecting_to_login": "Redirecting to login...",
         "or": "or",
         "processing": "Processing",
@@ -111,6 +112,15 @@
             },
             "modal": {
                 "close": "Close dialog"
+            },
+            "confirm_modal": {
+                "confirm": "Confirm",
+                "cancel": "Cancel",
+                "logout": {
+                    "title": "Confirm Logout",
+                    "message": "Are you sure you want to log out?",
+                    "confirm_button": "Logout"
+                }
             },
             "warning_popup": {
                 "title": "Beta Warning",

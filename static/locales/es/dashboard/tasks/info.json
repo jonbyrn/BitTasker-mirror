@@ -30,6 +30,8 @@
         "view_bids": "Ver Ofertas",
         "mark_as_done": "Marcar como Completado",
         "rescope": "Re-Escopio",
+        "edit": "Editar",
+        "delete": "Eliminar",
         "delete_task": "Eliminar Tarea",
         "dispute_task": "Disputar Tarea"
       },

@@ -264,9 +264,13 @@ export const tasksStore = (() => {
 export const myTasksStore = writable<{
 	items: Task[],
 	loading: boolean,
-	error: string | null
+	error: string | null,
+	currentPage: number,
+	hasMore: boolean
 }>({
 	items: [],
 	loading: false,
-	error: null
+	error: null,
+	currentPage: 1,
+	hasMore: true
 })

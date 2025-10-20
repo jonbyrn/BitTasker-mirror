@@ -141,7 +141,7 @@
 @source inline("ease-in-out");
 
 /* Custom utilities */
-@utilities {
+
 	.scrollbar-hide {
 		-ms-overflow-style: none;
 		scrollbar-width: none;
@@ -155,7 +155,6 @@
 	.font-display {
 		font-family: var(--font-display);
 	}
-}
 
 * {
 	box-sizing: border-box;

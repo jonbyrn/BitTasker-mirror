@@ -1,6 +1,7 @@
 {
   "common": {
     "back": "Volver a la tarea",
+    "back_to_tasks": "Regresar",
     "redirecting_to_login": "Redirigiendo al inicio de sesión...",  
     "or": "O",
     "processing": "Procesando",
@@ -111,6 +112,15 @@
       },
       "modal": {
         "close": "Cerrar diálogo"
+      },
+      "confirm_modal": {
+        "confirm": "Confirmar",
+        "cancel": "Cancelar",
+        "logout": {
+          "title": "Confirmar Cierre de Sesión",
+          "message": "¿Estás seguro de que quieres cerrar sesión?",
+          "confirm_button": "Cerrar Sesión"
+        }
       },
       "warning_popup": {
         "title": "Advertencia Beta",
