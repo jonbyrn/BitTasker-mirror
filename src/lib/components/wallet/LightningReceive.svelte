@@ -20,6 +20,8 @@
 	let error = $state<string | null>(null);
 	let isClaiming = $state(false);
 	let nsecHex = $state<string>('');
+	let isDeletingSwaps = $state(false);
+	let showHelpModal = $state(false);
 
 	/**
 	 * Get user's nsec and setup wallet getter on component load
@@ -53,6 +55,7 @@
 			}
 		})();
 	});
+
 
 	/**
 	 * Create reverse swap
@@ -116,7 +119,7 @@
 	}
 
 	/**
-	 * Monitor swap and auto-claim when ready
+	 * Monitor swap status and update UI
 	 */
 	function monitorSwapForClaiming(swapId: string) {
 		// Poll for swap status every 5 seconds
@@ -134,36 +137,37 @@
 				pendingSwaps = [...pendingSwaps]; // Trigger reactivity
 			}
 
-			// Check if ready to claim
-			if (
-				(swap.status === 'transaction.mempool' || swap.status === 'transaction.confirmed') &&
-				!swap.claimTxHash
-			) {
-				clearInterval(interval);
-				await claimRBTC(swap);
-			}
-
 			// Stop monitoring on final states
-			if (['invoice.settled', 'swap.expired', 'transaction.failed'].includes(swap.status)) {
+			if (['invoice.settled', 'swap.expired', 'transaction.failed', 'claimed'].includes(swap.status)) {
 				clearInterval(interval);
+				
+				// Show success message when settled
+				if (swap.status === 'invoice.settled') {
+					appStore.showSuccessToast('✅ RBTC received!');
+				}
 			}
 		}, 5000);
 	}
 
+
 	/**
-	 * Manually claim rBTC from EtherSwap contract
-	 * This is called when automatic claiming fails or user wants to claim manually
+	 * Manually claim rBTC
+	 * Attempts gasless claim via RIF Relay first, falls back to direct claim if user has gas
 	 */
 	async function claimRBTC(swap: BoltzSwapData) {
-		if (!$rskConnection.wallet || !nsecHex) return;
+		if (!nsecHex || !$rskConnection.wallet) {
+			appStore.showErrorToast('Wallet not connected');
+			return;
+		}
 
 		isClaiming = true;
 		error = null;
 
 		try {
-			appStore.showInfoToast('Claiming rBTC...');
+			appStore.showInfoToast('Claiming RBTC (no gas fees required)...');
 
-			const result = await reverseSwapService.claimRBTC(
+			// Attempt gasless claim via RIF Relay
+			const result = await reverseSwapService.claimRBTCViaRifRelay(
 				swap,
 				nsecHex,
 				$rskConnection.wallet
@@ -174,13 +178,14 @@
 			if (swapIndex !== -1) {
 				pendingSwaps[swapIndex].claimTxHash = result.txHash;
 				pendingSwaps[swapIndex].status = 'claimed';
+				pendingSwaps[swapIndex].rifRelayUsed = true;
 				pendingSwaps = [...pendingSwaps]; // Trigger reactivity
 			}
 			
-			appStore.showSuccessToast('✅ rBTC claimed successfully!');
+			appStore.showSuccessToast('✅ RBTC claimed successfully (gasless)!');
 		} catch (err) {
-			console.error('Failed to claim rBTC:', err);
-			error = err instanceof Error ? err.message : 'Failed to claim rBTC';
+			console.error('Failed to claim RBTC:', err);
+			error = err instanceof Error ? err.message : 'Failed to claim RBTC';
 			appStore.showErrorToast(error);
 		} finally {
 			isClaiming = false;
@@ -200,6 +205,35 @@
 	 */
 	function removeSwap(swapId: string) {
 		pendingSwaps = pendingSwaps.filter(s => s.id !== swapId);
+	}
+
+	/**
+	 * Delete all swap events from Nostr (for testing)
+	 */
+	async function deleteAllSwaps() {
+		if (!nsecHex) {
+			appStore.showErrorToast('Authentication required');
+			return;
+		}
+
+		if (!confirm('⚠️ This will delete ALL swap events from Nostr. Continue?')) {
+			return;
+		}
+
+		isDeletingSwaps = true;
+		error = null;
+
+		try {
+			const result = await reverseSwapService.deleteAllSwapEvents(nsecHex);
+			pendingSwaps = [];
+			appStore.showSuccessToast(`✅ Deleted ${result.count} swap events`);
+		} catch (err) {
+			console.error('Failed to delete swaps:', err);
+			error = err instanceof Error ? err.message : 'Failed to delete swaps';
+			appStore.showErrorToast(error);
+		} finally {
+			isDeletingSwaps = false;
+		}
 	}
 
 	/**
@@ -235,6 +269,32 @@
 </script>
 
 <div class="space-y-6">
+	<!-- Developer Tool: Delete All Swaps -->
+	{#if import.meta.env.DEV || import.meta.env.VITE_RSK_NETWORK === 'testnet'}
+		<div class="alert alert-warning">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+			</svg>
+			<div class="flex-1">
+				<h3 class="font-bold">🧪 Developer Tools</h3>
+				<div class="text-sm">Clear test data from Nostr storage</div>
+			</div>
+			<button 
+				class="btn btn-error btn-sm"
+				onclick={deleteAllSwaps}
+				disabled={isDeletingSwaps}
+			>
+				{#if isDeletingSwaps}
+					<span class="loading loading-spinner loading-xs"></span>
+					Deleting...
+				{:else}
+					🗑️ Delete All Swaps
+				{/if}
+			</button>
+		</div>
+	{/if}
+
+
 	{#if error}
 		<div class="alert alert-error">
 			<svg
@@ -329,38 +389,40 @@
 				<div class="card bg-base-200 shadow-lg">
 					<div class="card-body p-4">
 						<!-- Status Header -->
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								<span class="text-xl">{statusInfo.icon}</span>
-								<span class="text-sm font-semibold {statusInfo.color}">{statusInfo.label}</span>
+							<div class="flex items-center justify-between mb-4">
+								<div class="flex items-center gap-2">
+									<span class="text-xl">{statusInfo.icon}</span>
+									<span class="text-sm font-semibold {statusInfo.color}">{statusInfo.label}</span>
+								</div>
+								<span class="text-sm opacity-70">{swap.amount} sats</span>
 							</div>
-							<span class="text-sm opacity-70">{swap.amount} sats</span>
-						</div>
 
-						<!-- Invoice with QR -->
-						<details class="collapse collapse-arrow bg-base-100">
-							<summary class="collapse-title text-sm font-medium">View Invoice</summary>
-							<div class="collapse-content space-y-3">
-								<!-- QR Code -->
-								{#await generateQrCodeUrl(swap.invoice) then qrUrl}
-									<div class="flex justify-center">
-										<div class="rounded-lg bg-white p-3">
-											<img src={qrUrl} alt="QR Code" class="h-32 w-32" />
+							<!-- Main Invoice with QR -->
+							<details class="collapse collapse-arrow bg-base-100">
+								<summary class="collapse-title text-sm font-medium">
+									View Invoice
+								</summary>
+								<div class="collapse-content space-y-3">
+									<!-- QR Code -->
+									{#await generateQrCodeUrl(swap.invoice) then qrUrl}
+										<div class="flex justify-center">
+											<div class="rounded-lg bg-white p-3">
+												<img src={qrUrl} alt="QR Code" class="h-32 w-32" />
+											</div>
 										</div>
-									</div>
-								{/await}
+									{/await}
 
-								<!-- Invoice String -->
-								<button
-									class="btn btn-outline btn-sm w-full justify-start overflow-hidden text-ellipsis"
-									onclick={() => copyInvoice(swap.invoice)}
-								>
-									<code class="overflow-hidden text-ellipsis text-xs">
-										{swap.invoice}
-									</code>
-								</button>
-							</div>
-						</details>
+									<!-- Invoice String -->
+									<button
+										class="btn btn-outline btn-sm w-full justify-start overflow-hidden text-ellipsis"
+										onclick={() => copyInvoice(swap.invoice)}
+									>
+										<code class="overflow-hidden text-ellipsis text-xs">
+											{swap.invoice}
+										</code>
+									</button>
+								</div>
+							</details>
 
 						<!-- Swap Details -->
 						<div class="space-y-1 text-xs">
@@ -398,21 +460,18 @@
 
 						<!-- Action Buttons -->
 						<div class="flex gap-2 mt-2">
-							{#if !swap.claimTxHash && (swap.status === 'transaction.confirmed' || swap.status === 'transaction.claim.failed')}
+							{#if !swap.claimTxHash && swap.status === 'transaction.confirmed'}
+								<!-- Can claim now - gasless via RIF Relay -->
 								<button 
-									class="btn btn-sm flex-1"
-									class:btn-success={swap.status === 'transaction.confirmed'}
-									class:btn-error={swap.status === 'transaction.claim.failed'}
+									class="btn btn-success btn-sm flex-1"
 									onclick={() => claimRBTC(swap)} 
 									disabled={isClaiming}
 								>
 									{#if isClaiming}
 										<span class="loading loading-spinner loading-xs"></span>
 										Claiming...
-									{:else if swap.status === 'transaction.claim.failed'}
-										🔄 Retry Claim
 									{:else}
-										✅ Claim rBTC
+										⚡ Claim Now (No Gas Fees)
 									{/if}
 								</button>
 							{/if}
@@ -442,6 +501,55 @@
 				</div>
 			{/each}
 		</div>
+	{/if}
+
+	<!-- Help Modal -->
+	{#if showHelpModal}
+		<dialog class="modal modal-open">
+			<div class="modal-box max-w-2xl">
+				<h3 class="font-bold text-xl mb-4">How Gasless RBTC Swaps Work</h3>
+				
+				<div class="space-y-4">
+					<div>
+						<h4 class="font-semibold mb-2">What is RIF Relay?</h4>
+						<p class="text-sm">
+							RIF Relay technology enables gasless transactions on Rootstock. BitTasker uses 
+							RIF Relay to claim your RBTC without you needing any RBTC for gas fees.
+						</p>
+					</div>
+
+					<div class="divider"></div>
+
+					<div>
+						<h4 class="font-semibold mb-2">How it works:</h4>
+						<ol class="list-decimal list-inside space-y-2 text-sm ml-2">
+							<li>You pay the Lightning invoice with your Lightning wallet</li>
+							<li>Boltz locks RBTC in a smart contract on Rootstock</li>
+							<li>BitTasker claims the RBTC via RIF Relay (no gas fees for you!)</li>
+							<li>RBTC arrives in your wallet! ✅</li>
+						</ol>
+					</div>
+
+					<div class="divider"></div>
+
+					<div>
+						<h4 class="font-semibold mb-2">Key benefits:</h4>
+						<ul class="list-disc list-inside space-y-1 text-sm ml-2">
+							<li><strong>No gas fees</strong> - RIF Relay pays the transaction fees</li>
+							<li><strong>Automatic claiming</strong> - No manual steps required</li>
+							<li><strong>First RBTC</strong> - Perfect for receiving your first RBTC</li>
+							<li><strong>Fast & reliable</strong> - Claims complete in seconds</li>
+						</ul>
+					</div>
+				</div>
+
+				<div class="modal-action">
+					<button class="btn" onclick={() => showHelpModal = false}>
+						Got it!
+					</button>
+				</div>
+			</div>
+		</dialog>
 	{/if}
 </div>
 

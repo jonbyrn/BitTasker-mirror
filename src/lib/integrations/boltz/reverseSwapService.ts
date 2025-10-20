@@ -44,6 +44,9 @@ import { Contract, Interface, keccak256, solidityPacked } from 'ethers';
 import { getPublicKey, finalizeEvent, type NostrEvent } from 'nostr-tools';
 import nip44 from '$lib/nostr/nip44';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import { rifRelayService, type RifRelayServiceError } from './rifRelayService';
+import { getBoltzConfig, satoshiToWei, isRifRelayAvailable } from './config';
+import { EtherSwap__factory } from '$lib/contracts';
 
 // Swap data structure for Nostr storage
 export interface BoltzSwapData {
@@ -62,6 +65,7 @@ export interface BoltzSwapData {
 	createdAt: number;
 	updatedAt: number;
 	expiresAt?: number;
+	rifRelayUsed?: boolean; // Track if RIF Relay was used for gasless claiming
 }
 
 // EtherSwap ABI - Based on actual Boltz EtherSwap.sol contract
@@ -74,13 +78,13 @@ export interface BoltzSwapData {
 const ETHER_SWAP_ABI = [
 	// Main claim function - auto-uses msg.sender as claimAddress
 	'function claim(bytes32 preimage, uint256 amount, address refundAddress, uint256 timelock) external',
-	
+
 	// Query function - returns bool indicating if swap exists (indexed by hashValues result)
 	'function swaps(bytes32) view returns (bool)',
-	
+
 	// Hash computation helper - combines all parameters into single hash
 	'function hashValues(bytes32 preimageHash, uint256 amount, address claimAddress, address refundAddress, uint256 timelock) public pure returns (bytes32)',
-	
+
 	// Events
 	'event Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)',
 	'event Claim(bytes32 indexed preimageHash, bytes32 preimage)'
@@ -126,6 +130,13 @@ export class ReverseSwapService {
 		// For EVM chains like RBTC, we use the REST API directly since the client
 		// method expects claimPublicKey but EVM swaps use claimAddress
 		const apiUrl = this.boltzClient['config'].apiUrl;
+
+		console.log('🔧 Creating reverse swap:', {
+			amount: params.amountSats,
+			claimAddress: params.rbtcAddress,
+			rifRelayAvailable: isRifRelayAvailable()
+		});
+
 		const response = await fetch(`${apiUrl}/v2/swap/reverse`, {
 			method: 'POST',
 			headers: {
@@ -146,6 +157,11 @@ export class ReverseSwapService {
 		}
 
 		const swapResponse = await response.json();
+
+		console.log('✅ Swap created:', {
+			id: swapResponse.id,
+			invoice: swapResponse.invoice
+		});
 
 		// Prepare swap data
 		const swapData: BoltzSwapData = {
@@ -207,7 +223,7 @@ export class ReverseSwapService {
 				break;
 
 			case 'transaction.mempool':
-				// Boltz's lockup transaction is in mempool (after invoice was paid)
+				// Boltz's lockup transaction is in mempool
 				// ⚠️ IMPORTANT: We should NOT attempt to claim yet because the lockup
 				// transaction hasn't been mined. The contract doesn't have the swap data yet.
 				console.log('🔒 Lockup transaction in mempool, waiting for confirmation...');
@@ -216,40 +232,75 @@ export class ReverseSwapService {
 				break;
 
 			case 'transaction.confirmed':
-			// Boltz has confirmed the lockup transaction - NOW we can claim!
-			console.log('✅ Lockup confirmed! Attempting to claim rBTC...');
-			console.log('📋 Swap parameters:', {
-				id: swapData.id,
-				amount: swapData.onchainAmount,
-				claimAddress: swapData.rbtcAddress,
-				refundAddress: swapData.refundAddress,
-				timelock: swapData.timeoutBlockHeight
-			});
-			
-				try {
-					const wallet = this.walletGetter?.();
-					if (!wallet) {
-					console.warn('⚠️ Wallet not available for auto-claiming. User must claim manually.');
-						swapData.status = 'transaction.confirmed'; // Keep this status for manual claim
-					} else {
-						await this.claimRBTC(swapData, nsec, wallet);
+				// Boltz has confirmed the lockup transaction - now we can claim!
+				console.log('✅ Lockup confirmed!');
+				console.log('📋 Swap parameters:', {
+					id: swapData.id,
+					amount: swapData.onchainAmount,
+					claimAddress: swapData.rbtcAddress,
+					refundAddress: swapData.refundAddress,
+					timelock: swapData.timeoutBlockHeight
+				});
+
+				// Get wallet for claiming
+				const wallet = this.walletGetter?.();
+
+				if (!wallet) {
+					console.warn('⚠️ No wallet connected - manual claim required');
+					swapData.status = 'transaction.confirmed';
+					await this.saveSwapToNostr(swapData, nsec);
+					break;
+				}
+
+				// Attempt gasless claim via RIF Relay if available
+				if (isRifRelayAvailable()) {
+					console.log('🌐 Attempting gasless claim via RIF Relay...');
+					try {
+						await this.claimRBTCViaRifRelay(swapData, nsec, wallet);
+						// Success! The claim method already updates status and saves to Nostr
+						break;
+					} catch (error) {
+						console.error('❌ RIF Relay claim failed:', error);
+						console.log('🔄 Falling back to direct claim check...');
 					}
-				} catch (error) {
-					console.error('❌ Auto-claim failed:', error);
-					// Don't throw - user can manually claim later
-				swapData.status = 'transaction.confirmed'; // Keep ready for manual retry
+				}
+
+				// Fallback: Check if user has gas for direct claim
+				try {
+					const balance = await wallet.provider.getBalance(wallet.address);
+					const gasEstimate = await this.estimateClaimGas(swapData);
+
+					if (balance >= gasEstimate) {
+						console.log('💰 User has gas, attempting direct claim...');
+						try {
+							await this.claimRBTC(swapData, nsec, wallet);
+						} catch (error) {
+							console.error('❌ Direct claim failed:', error);
+							swapData.status = 'transaction.confirmed'; // Allow manual retry
+						}
+					} else {
+						console.log('⚠️ Insufficient gas for direct claiming');
+						console.log('💡 User needs to add RBTC for gas or wait for manual intervention');
+						swapData.status = 'transaction.confirmed';
+					}
+				} catch (err) {
+					console.warn('⚠️ Could not check balance:', err);
+					swapData.status = 'transaction.confirmed';
 				}
 				break;
 
 			case 'invoice.settled':
-				// Success! Boltz settled the invoice after seeing our preimage
-				console.log('✅ Swap successful - Invoice settled by Boltz:', swapData.id);
+				// Success! Boltz has settled the invoice
+				console.log('✅ Swap successful - Invoice settled:', swapData.id);
+				console.log('🎉 RBTC has been credited to your wallet!');
+				swapData.status = 'invoice.settled';
 				break;
 
 			case 'invoice.expired':
 			case 'swap.expired':
 			case 'transaction.failed':
 				console.error('❌ Swap failed:', swapData.id, event.status);
+				swapData.status = event.status;
 				break;
 		}
 
@@ -277,27 +328,27 @@ export class ReverseSwapService {
 	} | null> {
 		try {
 			console.log('🔍 Fetching lockup transaction receipt:', lockupTxHash);
-			
+
 			// Wait for the transaction receipt with retry logic
 			// The RPC node might need a few moments to index the transaction
 			let receipt = null;
 			const maxRetries = 10;
 			const retryDelay = 2000; // 2 seconds
-			
+
 			for (let i = 0; i < maxRetries; i++) {
 				receipt = await provider.getTransactionReceipt(lockupTxHash);
-				
+
 				if (receipt) {
 					console.log('✅ Receipt found after', i + 1, 'attempt(s)');
 					break;
 				}
-				
+
 				if (i < maxRetries - 1) {
 					console.log(`⏳ Receipt not available yet, waiting ${retryDelay}ms... (attempt ${i + 1}/${maxRetries})`);
 					await new Promise(resolve => setTimeout(resolve, retryDelay));
 				}
 			}
-			
+
 			if (!receipt) {
 				console.error('❌ Transaction receipt not found after', maxRetries, 'attempts');
 				return null;
@@ -366,13 +417,349 @@ export class ReverseSwapService {
 	}
 
 	/**
-	 * Claim rBTC from EtherSwap contract
+	 * Claim RBTC via RIF Relay (gasless)
+	 * 
+	 * This method uses the RIF Relay SDK to broadcast the claim transaction
+	 * without requiring the user to have RBTC for gas fees.
+	 * The RIF Relay server pays gas fees on behalf of the user.
+	 * 
+	 * @param swapData - The swap data containing preimage and swap ID
+	 * @param nsec - User's Nostr private key for storage updates
+	 * @param walletSigner - User's RSK wallet signer
+	 * @returns Transaction hash
+	 */
+	async claimRBTCViaRifRelay(
+		swapData: BoltzSwapData,
+		nsec: string,
+		walletSigner: any
+	): Promise<{ txHash: string }> {
+		try {
+			console.log('🌐 Claiming RBTC via RIF Relay (gasless)...');
+			console.log('📋 Swap ID:', swapData.id);
+
+			// Validate required swap data
+			if (!swapData.preimage || !swapData.onchainAmount || !swapData.refundAddress || !swapData.timeoutBlockHeight) {
+				throw new Error('Missing required swap data for claiming');
+			}
+
+			// Initialize RIF Relay service if not already initialized
+			await rifRelayService.initialize();
+
+			// Get EtherSwap contract address from Boltz API
+			console.log('📡 Fetching EtherSwap contract address from Boltz API...');
+			const config = getBoltzConfig();
+			const contractsResponse = await fetch(
+				`${config.boltzApiUrl}/v2/chain/RBTC/contracts`
+			);
+
+			if (!contractsResponse.ok) {
+				throw new Error(`Failed to fetch contract addresses: ${contractsResponse.statusText}`);
+			}
+
+			const contracts = await contractsResponse.json();
+			const etherSwapAddress = contracts.swapContracts?.EtherSwap;
+
+			if (!etherSwapAddress) {
+				throw new Error('EtherSwap contract address not found in Boltz response');
+			}
+
+			console.log('📍 Using EtherSwap contract:', etherSwapAddress);
+
+			// Get actual lockup parameters from the Lockup event
+			let amountWei: bigint;
+			let refundAddress: string;
+			let timelock: number;
+
+			if (swapData.lockupTxHash) {
+				console.log('📡 Fetching actual lockup parameters from contract event...');
+				const eventParams = await this.getLockupEventParameters(
+					etherSwapAddress,
+					swapData.preimageHash,
+					swapData.lockupTxHash,
+					walletSigner.provider
+				);
+
+				if (eventParams) {
+					amountWei = eventParams.amount;
+					refundAddress = eventParams.refundAddress;
+					timelock = eventParams.timelock;
+					console.log('✅ Using event parameters for claim');
+				} else {
+					console.warn('⚠️ Could not fetch Lockup event, using API response values');
+					amountWei = satoshiToWei(swapData.onchainAmount!);
+					refundAddress = swapData.refundAddress!;
+					timelock = swapData.timeoutBlockHeight!;
+				}
+			} else {
+				console.warn('⚠️ No lockup TX hash available, using API response values');
+				amountWei = satoshiToWei(swapData.onchainAmount!);
+				refundAddress = swapData.refundAddress!;
+				timelock = swapData.timeoutBlockHeight!;
+			}
+
+			// Build unsigned claim transaction using TypeScript-generated contract types
+			const etherSwapContract = EtherSwap__factory.connect(etherSwapAddress, walletSigner);
+			const preimageBytes32 = '0x' + swapData.preimage;
+
+			console.log('🎯 Building claim transaction with parameters:', {
+				preimage: preimageBytes32.slice(0, 20) + '...',
+				amount: `${amountWei.toString()} wei`,
+				refundAddress,
+				timelock,
+				claimAddress: walletSigner.address
+			});
+
+			// Populate the transaction (don't send it yet)
+			const claimTx = await etherSwapContract.claim.populateTransaction(
+				preimageBytes32,
+				amountWei,
+				refundAddress,
+				timelock
+			);
+
+			if (!claimTx.data) {
+				throw new Error('Failed to populate claim transaction data');
+			}
+
+			console.log('✅ Claim transaction built successfully');
+			console.log('🚀 Relaying transaction via RIF Relay...');
+
+			// Relay the transaction via RIF Relay (gasless!)
+			const relayResult = await rifRelayService.relayTransaction(
+				{
+					from: walletSigner.address,
+					to: etherSwapAddress,
+					data: claimTx.data,
+					gas: '200000', // Sufficient for claim transaction
+					value: '0'
+				},
+				walletSigner
+			);
+
+			console.log('✅ Transaction relayed successfully:', relayResult.hash);
+			console.log('⏳ Waiting for transaction confirmation...');
+
+			// Update swap data
+			swapData.claimTxHash = relayResult.hash;
+			swapData.status = 'transaction.claim.pending';
+			swapData.rifRelayUsed = true;
+			swapData.updatedAt = Date.now();
+			await this.saveSwapToNostr(swapData, nsec);
+
+			// Wait for transaction confirmation
+			const receipt = await walletSigner.provider.waitForTransaction(relayResult.hash);
+
+			console.log('✅ Claim transaction confirmed!');
+			console.log('📋 Receipt:', {
+				transactionHash: receipt.hash,
+				blockNumber: receipt.blockNumber,
+				gasUsed: receipt.gasUsed?.toString(),
+				status: receipt.status
+			});
+
+			// Update status
+			swapData.status = 'claimed';
+			swapData.updatedAt = Date.now();
+			await this.saveSwapToNostr(swapData, nsec);
+
+			console.log('🎉 Successfully claimed', swapData.onchainAmount, 'sats of RBTC via RIF Relay (gasless)!');
+
+			return { txHash: relayResult.hash };
+		} catch (error) {
+			console.error('❌ Failed to claim RBTC via RIF Relay:', error);
+
+			// Update swap status to show claim failed
+			swapData.status = 'transaction.claim.failed';
+			swapData.updatedAt = Date.now();
+			await this.saveSwapToNostr(swapData, nsec);
+
+			throw error;
+		}
+	}
+
+	/**
+	 * Claim RBTC cooperatively via Boltz API (gasless)
+	 * 
+	 * This method submits the preimage to Boltz who then uses RIF Relay
+	 * to broadcast the claim transaction on behalf of the user.
+	 * User does not need any RBTC for gas fees.
+	 * 
+	 * @param swapData - The swap data containing preimage and swap ID
+	 * @param nsec - User's Nostr private key for storage updates
+	 * @returns Transaction hash from Boltz
+	 */
+	async claimRBTCCooperative(
+		swapData: BoltzSwapData,
+		nsec: string
+	): Promise<{ txHash: string }> {
+		try {
+			console.log('🤝 Using Boltz cooperative claim (gasless)...');
+			console.log('📋 Swap ID:', swapData.id);
+
+			// Submit preimage to Boltz API
+			const apiUrl = this.boltzClient['config'].apiUrl;
+			const response = await fetch(
+				`${apiUrl}/v2/swap/reverse/${swapData.id}/claim`,
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						preimage: swapData.preimage
+					})
+				}
+			);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('❌ Boltz API error:', response.status, errorText);
+
+				// Provide helpful error messages
+				if (response.status === 404) {
+					throw new Error('Swap not found. Please check swap ID.');
+				} else if (response.status === 409) {
+					throw new Error('Swap already claimed.');
+				} else if (response.status === 400) {
+					throw new Error('Invalid claim data. Please contact support.');
+				}
+
+				throw new Error(`Boltz cooperative claim failed: ${response.status} ${errorText}`);
+			}
+
+			const result = await response.json();
+
+			// The response might have different field names for transaction ID
+			const txHash = result.transactionId || result.txHash || result.hash;
+
+			if (!txHash) {
+				console.error('❌ No transaction ID in response:', result);
+				throw new Error('Boltz did not return a transaction ID');
+			}
+
+			console.log('✅ Boltz broadcasting claim transaction via RIF Relay');
+			console.log('📋 Transaction ID:', txHash);
+
+			// Update swap data
+			swapData.claimTxHash = txHash;
+			swapData.status = 'transaction.claim.pending';
+			swapData.updatedAt = Date.now();
+			await this.saveSwapToNostr(swapData, nsec);
+
+			// Boltz will emit 'invoice.settled' via WebSocket when complete
+			return { txHash };
+		} catch (error) {
+			console.error('❌ Cooperative claim failed:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Estimate gas needed for direct claim
+	 * 
+	 * @returns Estimated gas cost in wei
+	 */
+	private async estimateClaimGas(swapData: BoltzSwapData): Promise<bigint> {
+		// Typical claim transaction uses ~100,000 gas
+		// At 0.06 gwei (RSK typical), that's ~0.000006 RBTC
+		const gasLimit = 100000n;
+		const gasPrice = 60000000n; // 0.06 gwei in wei
+		return gasLimit * gasPrice;
+	}
+
+	/**
+	 * Claim RBTC with automatic method selection
+	 * 
+	 * This method automatically selects between:
+	 * - Cooperative claim (gasless via Boltz RIF Relay) - when user has insufficient gas
+	 * - Direct claim (user pays gas) - when user has sufficient gas
+	 * 
+	 * Falls back to direct claim if cooperative fails and wallet has gas.
+	 * 
+	 * @param swapData - The swap data
+	 * @param nsec - User's Nostr private key
+	 * @param walletSigner - User's wallet signer (optional, for direct claim)
+	 * @returns Transaction hash
+	 */
+	async checkInvoicePaymentStatus(swapId: string): Promise<{
+		mainInvoicePaid: boolean;
+		serviceFeeInvoicePaid?: boolean;
+		status: string;
+	}> {
+		return await this.boltzClient.checkInvoicePaymentStatus(swapId);
+	}
+
+	/**
+	 * Update swap data and save to Nostr
+	 * Used by the UI to update swap state
+	 */
+	async updateSwapData(swapData: BoltzSwapData, nsec: string): Promise<void> {
+		await this.saveSwapToNostr(swapData, nsec);
+	}
+
+	async claimRBTCWithAutoSelection(
+		swapData: BoltzSwapData,
+		nsec: string,
+		walletSigner?: any
+	): Promise<{ txHash: string }> {
+
+		// Check if user has sufficient gas for direct claim
+		if (walletSigner) {
+			try {
+				const balance = await walletSigner.provider.getBalance(walletSigner.address);
+				const gasEstimate = await this.estimateClaimGas(swapData);
+
+				console.log('💰 Balance check:', {
+					balance: balance.toString(),
+					gasEstimate: gasEstimate.toString(),
+					hasSufficientGas: balance >= gasEstimate
+				});
+
+				if (balance >= gasEstimate) {
+					console.log('💰 Sufficient gas available, using direct claim');
+					return await this.claimRBTC(swapData, nsec, walletSigner);
+				}
+			} catch (err) {
+				console.warn('⚠️ Could not check balance, will try cooperative claim:', err);
+			}
+		}
+
+		// Insufficient gas or no wallet - use cooperative claim
+		console.log('⛽ Insufficient gas or no wallet, using Boltz cooperative claim (gasless)');
+
+		try {
+			return await this.claimRBTCCooperative(swapData, nsec);
+		} catch (cooperativeError) {
+			console.error('❌ Cooperative claim failed:', cooperativeError);
+
+			// If cooperative fails AND user has wallet, try direct as last resort
+			if (walletSigner) {
+				console.log('🔄 Attempting direct claim as fallback...');
+				try {
+					return await this.claimRBTC(swapData, nsec, walletSigner);
+				} catch (directError) {
+					console.error('❌ Direct claim also failed:', directError);
+					// Throw the original cooperative error as it was the primary attempt
+					throw cooperativeError;
+				}
+			}
+
+			throw cooperativeError;
+		}
+	}
+
+	/**
+	 * Claim rBTC from EtherSwap contract (Direct method - requires gas)
 	 * 
 	 * IMPORTANT: EtherSwap contract structure (from EtherSwap.sol):
 	 * - Contract uses keccak256 hash of ALL parameters to index swaps
 	 * - The claim() function auto-uses msg.sender as claimAddress
 	 * - We don't need to query the contract - just call claim() directly
 	 * - If swap doesn't exist or already claimed, the contract will revert
+	 * 
+	 * NOTE: This method requires the user to have RBTC for gas fees.
+	 * Consider using claimRBTCWithAutoSelection() which will use cooperative
+	 * claim if the user has insufficient gas.
 	 * 
 	 * This method is called when swap reaches 'transaction.confirmed' status
 	 */
@@ -408,7 +795,7 @@ export class ReverseSwapService {
 
 			const contracts = await contractsResponse.json();
 			console.log('📋 Boltz contracts response:', contracts);
-			
+
 			const etherSwapAddress = contracts.swapContracts?.EtherSwap;
 
 			if (!etherSwapAddress) {
@@ -518,7 +905,7 @@ export class ReverseSwapService {
 			return { txHash: tx.hash };
 		} catch (error) {
 			console.error('❌ Failed to claim rBTC:', error);
-			
+
 			// Provide helpful error messages
 			if (error instanceof Error) {
 				if (error.message.includes('swap has no Ether locked')) {
@@ -536,7 +923,7 @@ export class ReverseSwapService {
 					});
 				}
 			}
-			
+
 			// Update swap status to show claim failed
 			swapData.status = 'transaction.claim.failed';
 			swapData.updatedAt = Date.now();
@@ -552,10 +939,10 @@ export class ReverseSwapService {
 	private async saveSwapToNostr(swapData: BoltzSwapData, nsec: string): Promise<void> {
 		try {
 			// Convert hex nsec to Uint8Array if needed
-			const nsecBytes = typeof nsec === 'string' && nsec.length === 64 
+			const nsecBytes = typeof nsec === 'string' && nsec.length === 64
 				? new Uint8Array(Buffer.from(nsec, 'hex'))
 				: nsec;
-			
+
 			const npub = getPublicKey(nsecBytes as any);
 
 			// Encrypt sensitive data (preimage)
@@ -608,10 +995,10 @@ export class ReverseSwapService {
 	async recoverPendingSwaps(nsec: string): Promise<BoltzSwapData[]> {
 		try {
 			// Convert hex nsec to Uint8Array if needed
-			const nsecBytes = typeof nsec === 'string' && nsec.length === 64 
+			const nsecBytes = typeof nsec === 'string' && nsec.length === 64
 				? new Uint8Array(Buffer.from(nsec, 'hex'))
 				: nsec;
-			
+
 			const npub = getPublicKey(nsecBytes as any);
 
 			// Query Nostr for user's swap events
@@ -678,6 +1065,68 @@ export class ReverseSwapService {
 	async checkSwapStatus(swapId: string): Promise<string> {
 		const status = await this.boltzClient.getSwapStatus(swapId, true); // true = reverse swap
 		return status.status;
+	}
+
+	/**
+	 * Delete all swap events from Nostr
+	 * Useful for clearing test data
+	 */
+	async deleteAllSwapEvents(nsec: string): Promise<{ count: number }> {
+		try {
+			// Convert hex nsec to Uint8Array if needed
+			const nsecBytes = typeof nsec === 'string' && nsec.length === 64
+				? new Uint8Array(Buffer.from(nsec, 'hex'))
+				: nsec;
+
+			const npub = getPublicKey(nsecBytes as any);
+
+			// Query Nostr for user's swap events
+			const response = await nostrEventsService.requestEvents({
+				filters: [
+					{
+						authors: [npub],
+						kinds: [30078],
+						'#t': ['boltz-swap']
+					}
+				]
+			});
+
+			console.log(`🗑️ Found ${response.data?.length || 0} swap events to delete`);
+
+			let deleteCount = 0;
+
+			// Delete each event
+			for (const event of response.data || []) {
+				try {
+					// Create deletion event (NIP-09)
+					const deletionEventTemplate: Partial<NostrEvent> = {
+						kind: 5, // Deletion event
+						created_at: Math.floor(Date.now() / 1000),
+						tags: [
+							['e', event.id], // Reference the event to delete
+							['k', '30078'] // Optional: specify the kind being deleted
+						],
+						content: 'Deleting test swap data'
+					};
+
+					const signedDeletion = finalizeEvent(deletionEventTemplate as any, nsecBytes as any);
+					await nostrEventsService.publishEvent(signedDeletion as any);
+					deleteCount++;
+					console.log(`✅ Deleted event: ${event.id}`);
+				} catch (err) {
+					console.error(`❌ Failed to delete event ${event.id}:`, err);
+				}
+			}
+
+			// Clear active swaps from memory
+			this.activeSwaps.clear();
+
+			console.log(`✅ Deleted ${deleteCount} swap events from Nostr`);
+			return { count: deleteCount };
+		} catch (error) {
+			console.error('Failed to delete swap events:', error);
+			throw error;
+		}
 	}
 }
 

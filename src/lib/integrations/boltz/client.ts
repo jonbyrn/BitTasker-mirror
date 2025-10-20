@@ -806,6 +806,44 @@ export class BoltzClient {
 	}
 
 	/**
+	 * Check if invoices have been paid for a reverse swap
+	 * Used to manually verify payment status when WebSocket updates are missed
+	 */
+	async checkInvoicePaymentStatus(swapId: string): Promise<{
+		mainInvoicePaid: boolean;
+		serviceFeeInvoicePaid?: boolean;
+		status: string;
+	}> {
+		if (!swapId || swapId.trim() === '') {
+			throw new BoltzError('Swap ID is required', 'INVALID_PARAMS');
+		}
+
+		try {
+			const response = await this.request('GET', `/v2/swap/reverse/${swapId}`);
+			
+			if (!response.status) {
+				throw new BoltzError('Invalid status response', 'INVALID_RESPONSE');
+			}
+			
+			// Determine if main invoice has been paid based on status
+			// invoice.set, transaction.mempool, or transaction.confirmed indicate payment
+			const mainInvoicePaid = ['invoice.set', 'transaction.mempool', 'transaction.confirmed', 'invoice.settled'].includes(response.status);
+			
+			return {
+				mainInvoicePaid,
+				serviceFeeInvoicePaid: response.serviceFeeInvoicePaid, // May not be in API response
+				status: response.status
+			};
+		} catch (error) {
+			console.error(`Failed to check invoice payment status for ${swapId}:`, error);
+			throw new BoltzError(
+				'Invoice payment status check failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'PAYMENT_STATUS_ERROR'
+			);
+		}
+	}
+
+	/**
 	 * Refund a failed swap
 	 */
 	async refundSwap(
