@@ -90,6 +90,16 @@
       "login_required": "Inicio de sesión requerido",
       "login_to_bid": "Inicia sesión para poder ofertar en esta tarea",
       "login": "Iniciar Sesión",
+      "deadline_expired": "Fecha Límite Expirada",
+      "deadline_expired_message": "La fecha límite de esta tarea ha pasado y ya no acepta ofertas.",
+      "edit_task_confirmation": {
+        "title": "Confirmación de Edición de Tarea",
+        "message": "¿Estás seguro de que quieres editar esta tarea?",
+        "warning": "Todas las ofertas existentes serán eliminadas para prevenir fraudes y asegurar una competencia justa.",
+        "details": "Esta acción no se puede deshacer. Los Taskees que ya enviaron ofertas tendrán que volver a enviarlas después de tus cambios.",
+        "cancel": "Cancelar",
+        "confirm_edit": "Sí, Editar Tarea"
+      },
       "page_title": "Detalles de la Tarea - BitTasker",
       "page_description": "Aquí puedes ver los detalles de la tarea."
     },
