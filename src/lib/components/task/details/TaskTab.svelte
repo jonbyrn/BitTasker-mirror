@@ -373,8 +373,8 @@
 			<!-- Modal Header -->
 			<div class="mb-6">
 				<div class="mb-2 flex items-center gap-3">
-					<div class="bg-warning/10 flex h-10 w-10 items-center justify-center rounded-full">
-						<svg class="text-warning h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<div class="bg-error/10 flex h-10 w-10 items-center justify-center rounded-full">
+						<svg class="text-error h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -391,32 +391,21 @@
 
 			<!-- Content -->
 			<div class="space-y-4">
-				<!-- Main Message -->
-				<div class="bg-warning/10 rounded-lg p-4">
-					<p class="text-sm">
-						{$t('dashboard.task_details_by_task.edit_task_confirmation.message')}
+				<!-- Main Warning Box -->
+				<div class="bg-error/10 rounded-lg p-4">
+					<p class="text-sm text-error font-semibold mb-2">
+						{$t('dashboard.task_details_by_task.edit_task_confirmation.warning')}
+					</p>
+					<p class="text-sm text-error">
+						{$t('dashboard.task_details_by_task.edit_task_confirmation.details')}
 					</p>
 				</div>
 
-				<!-- Warning Details -->
-				<div class="flex items-start gap-2">
-					<div class="flex h-5 w-5 items-center justify-center rounded-full">
-						<svg class="text-error h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-							<path
-								fill-rule="evenodd"
-								d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-								clip-rule="evenodd"
-							/>
-						</svg>
-					</div>
-					<div class="text-base-content/70 text-sm">
-						<p class="font-semibold text-error mb-1">
-							{$t('dashboard.task_details_by_task.edit_task_confirmation.warning')}
-						</p>
-						<p>
-							{$t('dashboard.task_details_by_task.edit_task_confirmation.details')}
-						</p>
-					</div>
+				<!-- Additional Information -->
+				<div class="text-base-content/70 text-sm">
+					<p>
+						{$t('dashboard.task_details_by_task.edit_task_confirmation.message')}
+					</p>
 				</div>
 			</div>
 
@@ -433,7 +422,7 @@
 					</svg>
 					{$t('dashboard.task_details_by_task.edit_task_confirmation.cancel')}
 				</button>
-				<button type="button" class="btn btn-primary flex-1" onclick={confirmEditTask}>
+				<button type="button" class="btn btn-error flex-1" onclick={confirmEditTask}>
 					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"

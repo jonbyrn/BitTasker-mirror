@@ -20,6 +20,9 @@
 	import { locale } from 'svelte-i18n';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { goto } from '$app/navigation';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import { taskTranslationService } from '$lib/services/task-translation.service';
+	import { currentUserLanguage } from '$lib/stores/translation.store';
 
 	// Props
 	let { taskId, showShareButton = true } = $props<{
@@ -33,7 +36,8 @@
 	let errorMessage = $state('');
 	let taskCreatorPubkey = $state<string>('');
 	let btcPrice = $state<number>(0); // Default fallback price
-	let showFullDescription = $state(false); // New state for description toggle
+	let showFullDescription = $state(false); // State for description toggle
+	let translatedTask = $state<any>(null); // Store translated content
 
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(taskId || null);
@@ -148,7 +152,7 @@
 	}
 
 	// Helper function to truncate description
-	const getTruncatedDescription = (description: string, maxLength: number = 50) => {
+	const getTruncatedDescription = (description: string, maxLength: number = 200) => {
 		if (description.length <= maxLength) return description;
 		return description.slice(0, maxLength) + '...';
 	};
@@ -156,6 +160,27 @@
 	const toggleDescription = () => {
 		showFullDescription = !showFullDescription;
 	};
+
+	// Translation functions
+	async function translateTask() {
+		if (!task) return;
+		
+		try {
+			const userLang = $currentUserLanguage;
+			if (userLang) {
+				translatedTask = await taskTranslationService.translateTask(task, userLang);
+			}
+		} catch (error) {
+			console.error('Translation failed:', error);
+		}
+	}
+
+	// Get the display description (translated or original, truncated or full)
+	const getDisplayDescription = () => {
+		const description = translatedTask?.translatedDescription || task?.description || '';
+		return showFullDescription ? description : getTruncatedDescription(description);
+	};
+
 
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) return;
@@ -204,6 +229,13 @@
 	async function fetchBtcPrice(): Promise<void> {
 		btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 	}
+
+	// Effect to translate task when it loads or language changes
+	$effect(() => {
+		if (task) {
+			translateTask();
+		}
+	});
 
 	onMount(() => {
 		loadTaskDetails(taskId || '');
@@ -285,25 +317,60 @@
 						<!-- Header row with title and posted date -->
 						<div class="mb-6 flex flex-row items-start justify-between gap-3">
 							<div class="">
-								<small class="card-title line-clamp-2 pb-1 text-lg">
-									{task.title}
-								</small>
+								<div class="pb-1">
+									<TranslatableTask 
+										{task} 
+										showTitle={true}
+										showDescription={false}
+										titleClass="card-title line-clamp-2 text-lg"
+									/>
+								</div>
 								<div class="text-base-content/60 text-start">
-									{#if showFullDescription}
-										{task.description}
-									{:else}
-										{getTruncatedDescription(task.description)}
-									{/if}
-
-									{#if task.description.length > 200}
-										<button class="btn btn-xs hover:text-primary-focus" onclick={toggleDescription}>
-											{#if showFullDescription}
-												{$t('dashboard.task_details_by_task.show_less')}
-											{:else}
-												{$t('dashboard.task_details_by_task.show_more')}
-											{/if}
-										</button>
-									{/if}
+									<div class="translatable-description">
+										{#if translatedTask && !showFullDescription}
+											<!-- Show truncated translated description -->
+											{getTruncatedDescription(translatedTask.translatedDescription)}
+										{:else if translatedTask && showFullDescription}
+											<!-- Show full translated description -->
+											{translatedTask.translatedDescription}
+										{:else if !translatedTask && !showFullDescription}
+											<!-- Show truncated original description -->
+											{getTruncatedDescription(task?.description || '')}
+										{:else}
+											<!-- Show full original description -->
+											{task?.description || ''}
+										{/if}
+										
+										{#if (task?.description || '').length > 200}
+											<button class="btn btn-xs hover:text-primary-focus ml-2" onclick={toggleDescription}>
+												{#if showFullDescription}
+													{$t('dashboard.task_details_by_task.show_less')}
+												{:else}
+													{$t('dashboard.task_details_by_task.show_more')}
+												{/if}
+											</button>
+										{/if}
+										
+										{#if translatedTask}
+											<div class="mt-2">
+												<button 
+													class="text-xs text-blue-500 hover:text-blue-700 transition-colors" 
+													onclick={() => { translatedTask = null; showFullDescription = false; }}
+												>
+													{translatedTask.targetLanguage === 'es' ? 'Ver original' : 'View original'}
+												</button>
+											</div>
+										{:else if task}
+											<div class="mt-2">
+												<button 
+													class="text-xs text-blue-500 hover:text-blue-700 transition-colors" 
+													onclick={translateTask}
+												>
+													{$t('dashboard.task_details_by_task.translate')}
+												</button>
+											</div>
+										{/if}
+									</div>
 								</div>
 							</div>
 							<!-- <div class="flex flex-col text-center">

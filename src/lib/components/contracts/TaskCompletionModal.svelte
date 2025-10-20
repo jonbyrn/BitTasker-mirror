@@ -5,17 +5,20 @@
 	import MediaUploader from '$lib/components/MediaUploader.svelte';
 	import uploadService, { type UploadResult } from '$lib/api/services/upload.service';
 	import { appStore } from '$lib/stores/app.store';
+	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
 
 	const {
 		contract,
 		isOpen = false,
 		onClose = () => {},
-		onComplete = () => {}
+		onComplete = () => {},
+		btcPrice = 63000
 	} = $props<{
 		contract: ContractWithEvents | null;
 		isOpen: boolean;
 		onClose: () => void;
 		onComplete: (attachments: Attachment[]) => Promise<void>;
+		btcPrice?: number;
 	}>();
 
 	// State
@@ -125,7 +128,7 @@
 						<strong>{$t('dashboard.contracts.task_description')}:</strong> {contract.contract.taskTitle}
 					</p>
 					<p class="text-sm text-base-content/80">
-						<strong>{$t('dashboard.contracts.amount')}:</strong> {contract.contract.amount} RBTC
+						<strong>{$t('dashboard.contracts.amount')}:</strong> {btcPrice > 0 ? formatUSDWithSatsSync(contract.contract.amount, btcPrice) : `${contract.contract.amount} RBTC`}
 					</p>
 				</div>
 			</div>
