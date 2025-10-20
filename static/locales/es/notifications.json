@@ -141,6 +141,7 @@
         "contract_completed": "El contrato para la tarea '{taskTitle}' ha sido completado exitosamente.",
         "contract_disputed": "El contrato para la tarea '{taskTitle}' está en disputa y requiere tu atención.",
         "new_message": "Tienes un nuevo mensaje de {senderName}.",
+        "new_message_body": "Has recibido un mensaje de {senderName}.",
         "system_maintenance": "El sistema estará en mantenimiento programado. Algunas funciones pueden no estar disponibles.",
         "security_alert": "Se ha detectado actividad sospechosa en tu cuenta. Por favor, verifica tu seguridad.",
         "new_notification": "Tienes una nueva notificación."
