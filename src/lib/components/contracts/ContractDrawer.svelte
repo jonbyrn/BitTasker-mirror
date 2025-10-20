@@ -264,6 +264,53 @@
 				</div>
 			</div>
 
+			<!-- Completion Evidence (only show if task is completed and has attachments) -->
+			{#if contract.contract.status === 'completed' && contract.contract.completionAttachments && contract.contract.completionAttachments.length > 0}
+				<div class="card bg-base-200 overflow-hidden">
+					<div class="card-body p-4">
+						<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.completion_evidence')}</h4>
+						<p class="text-base-content/70 text-sm mb-4">
+							{$t('dashboard.contracts.timeline.completion_evidence_description')}
+						</p>
+						
+						<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+							{#each contract.contract.completionAttachments as attachment}
+								<div class="relative group">
+									<div class="aspect-square rounded-lg overflow-hidden bg-base-300">
+									{#if attachment.type.startsWith('video/')}
+										<video 
+											src={attachment.url} 
+											class="w-full h-full object-cover"
+											controls
+											preload="metadata"
+										>
+											<track kind="captions" src="" label="No captions available" />
+										</video>
+									{:else}
+										<button
+											type="button"
+											class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+											onclick={() => window.open(attachment.url, '_blank')}
+											aria-label="Open image in new tab"
+										>
+											<img 
+												src={attachment.url} 
+												alt={attachment.alt || 'Completion evidence'}
+												class="w-full h-full object-cover"
+											/>
+										</button>
+									{/if}
+									</div>
+									<div class="mt-2 text-xs text-base-content/60 truncate">
+										{attachment.alt || 'Evidence'}
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				</div>
+			{/if}
+
 			<!-- Available Actions -->
 			<div class="card bg-base-200">
 				<div class="card-body p-4">

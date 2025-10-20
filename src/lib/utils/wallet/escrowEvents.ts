@@ -1,12 +1,13 @@
 import type { ethers } from 'ethers';
 import type { CreateContractParams } from '$lib/types/contract';
 import { writable } from 'svelte/store';
-import { appStore } from '$lib/stores/app.store';
+import type { Attachment } from '$lib/types/task';
 import { createContract, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { rskWalletStore, getRSKWallet, getEventListeners } from '$lib/stores/rskWallet.store';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
+import { appStore } from '$lib/stores/app.store';
 import { publishContractStatus } from '$lib/utils/nostr-bid';
 
 const _ = get(t);
@@ -155,20 +156,26 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 /**
  * Handle task completed event - called from transaction confirmation
  */
-export async function handleTaskCompleted(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
+export async function handleTaskCompleted(event: { 
+	escrowId: string; 
+	transactionHash: string; 
+	contractEventId: string;
+	completionAttachments?: Attachment[];
+}): Promise<void> {
 	console.log('Handling task completed event:', event);
 
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.Completed);
 
-		// Publish status update to Nostr
+		// Publish status update to Nostr with completion attachments
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
 			escrowId: event.escrowId,
 			action: 'task-completed',
 			message: _('dashboard.contracts.actions.task_completed_message'),
-			transactionHash: event.transactionHash
+			transactionHash: event.transactionHash,
+			completionAttachments: event.completionAttachments
 		});
 
 		// Show success toast

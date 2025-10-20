@@ -488,6 +488,7 @@
       "available_actions": "Acciones Disponibles",
       "no_actions_available": "No hay acciones disponibles",
       "status": {
+        "label": "Estado",
         "active": "Activo",
         "completed": "Completado",
         "disputed": "En Disputa",
@@ -591,7 +592,21 @@
           "escrow_cancelled": "Contrato cancelado",
           "contract_cancelled": "Contrato cancelado",
           "timelock_resolved": "Resuelto después del timelock"
-        }
+        },
+        "completion": {
+          "title": "Marcar Tarea como Completada",
+          "task_info": "Información de la Tarea",
+          "instructions_title": "Subir Evidencia de Completado",
+          "instructions_text": "Por favor sube fotos o videos mostrando que la tarea ha sido completada exitosamente. Esta evidencia será compartida con el tasker.",
+          "upload_evidence": "Subir Evidencia",
+          "upload_placeholder": "Haz clic para subir fotos o videos",
+          "upload_limits": "Máx 5 archivos, 10MB cada uno, videos hasta 5 minutos",
+          "uploaded_files": "Evidencia Subida",
+          "mark_complete": "Marcar como Completado",
+          "completing": "Completando Tarea..."
+        },
+        "completion_evidence": "Evidencia de Completado",
+        "completion_evidence_description": "Evidencia proporcionada por el taskee mostrando la completación de la tarea:"
       }
     }
   }
