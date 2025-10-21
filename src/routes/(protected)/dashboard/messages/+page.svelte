@@ -6,9 +6,10 @@
 		fetchProfileMetadata,
 		getMessagedPeople,
 		getMessageHistory,
-		listenForIncomingMessages,
-		subscribeToProfileUpdates
+		listenForIncomingMessages
 	} from '$lib/utils/nostr-message';
+	import { profileCache } from '$lib/utils/profile-cache';
+	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { subscribeToEvents } from '$lib/utils/nostr';
 	import type { Event as NostrEvent, Filter } from 'nostr-tools';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
@@ -70,12 +71,18 @@
 	// Real-time subscription for conversation list updates
 	let conversationListUnsubscribe: (() => void) | null = null;
 
-	// Profile subscriptions map to track individual profile updates
-	let profileSubscriptions = new Map<string, () => void>();
+	// Profile subscriptions removed - using props instead
 
 	// Load conversations on mount
 	onMount(async () => {
 		try {
+			// Clear profile cache to ensure we only show conversations for current user
+			const { nsec, npub } = await getNostrKeyPair();
+			const currentUserPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+			
+			console.log('🧹 Clearing profile cache for user:', currentUserPubkey);
+			profileCache.clear(); // Clear all cached profiles
+			
 			// Obtener conversaciones pero excluir las que solo contengan bids
 			const people = await getMessagedPeople();
 
@@ -136,7 +143,7 @@
 
 			// Setup profile subscriptions for existing conversations
 			for (const conversation of conversations) {
-				setupProfileSubscription(conversation.pubkey);
+				// Profile subscription removed - using props instead
 			}
 		} catch (err) {
 			error = 'messages.failed_load_conversations';
@@ -154,11 +161,7 @@
 			conversationListUnsubscribe();
 		}
 
-		// Clean up all profile subscriptions
-		for (const unsubscribe of profileSubscriptions.values()) {
-			unsubscribe();
-		}
-		profileSubscriptions.clear();
+		// Profile subscriptions removed
 	});
 
 	function setupConversationListListener() {
@@ -218,7 +221,6 @@
 					conversations = [newConversation, ...conversations];
 
 					// Setup profile subscription for new conversation
-					setupProfileSubscription(senderPubkey);
 				} catch (err) {
 					console.error('Failed to fetch profile for new conversation:', err);
 				}
@@ -226,28 +228,7 @@
 		});
 	}
 
-	function setupProfileSubscription(pubkey: string) {
-		// Don't subscribe if already subscribed
-		if (profileSubscriptions.has(pubkey)) {
-			return;
-		}
-
-		const unsubscribe = subscribeToProfileUpdates(pubkey, (profile) => {
-			// Update the conversation with new profile data
-			const conversationIndex = conversations.findIndex((c) => c.pubkey === pubkey);
-			if (conversationIndex >= 0) {
-				conversations[conversationIndex] = {
-					...conversations[conversationIndex],
-					profile: profile
-				};
-
-				// Trigger reactivity
-				conversations = [...conversations];
-			}
-		});
-
-		profileSubscriptions.set(pubkey, unsubscribe);
-	}
+	// Profile subscription removed - using props instead
 
 	// Handle conversation selection
 	function selectConversation(pubkey: string) {
@@ -538,7 +519,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-7xl p-4 md:p-0">
+<div class="mx-auto max-w-7xl p-2 md:p-4 lg:p-0">
 	<!-- Header -->
 	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
 		<div class="min-w-0 flex-1 space-y-1">
@@ -930,11 +911,11 @@
 	</style>
 
 	<!-- Main Content - Conversation List Only -->
-	<div class="bg-base-100 flex-1 overflow-hidden rounded-2xl p-4 shadow-lg">
+	<div class="bg-base-100 flex-1 overflow-hidden rounded-2xl p-2 shadow-lg sm:p-4">
 		<div class="card-body flex h-full flex-col overflow-hidden p-0">
 			<!-- Search Input -->
 			{#if conversations.length > 0}
-				<div class="border-base-300/20 flex-shrink-0 border-b p-4 pb-3">
+				<div class="border-base-300/20 flex-shrink-0 border-b p-3 pb-2 sm:p-4 sm:pb-3">
 					<div class="relative">
 						<input
 							type="text"
@@ -1047,7 +1028,7 @@
 					<div class="divide-base-300/20 divide-y">
 						{#each filteredConversations as conversation}
 							<button
-								class="hover:bg-base-200/50 active:bg-base-200 flex w-full items-center gap-4 px-6 py-4 transition-colors"
+								class="hover:bg-base-200/50 active:bg-base-200 flex w-full items-center gap-3 px-4 py-3 transition-colors sm:gap-4 sm:px-6 sm:py-4"
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
 								<!-- Avatar -->
@@ -1079,7 +1060,7 @@
 								<div class="min-w-0 flex-1 text-left pl-2">
 									<div class="mb-2 flex items-center justify-between">
 										<h4 class="truncate text-sm font-medium">
-											{conversation.profile.name || conversation.pubkey.slice(0, 8) + '...'}
+											{conversation.profile.name}
 										</h4>
 										<span class="text-base-content/50 ml-3 flex-shrink-0 text-xs">
 											{formatTimeAgo(new Date(conversation.lastMessageTime * 1000))}

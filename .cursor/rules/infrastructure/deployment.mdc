@@ -1,0 +1,678 @@
+---
+description: Deployment patterns, infrastructure configuration, and CI/CD best practices
+globs: ["**/deploy/**/*", "**/infrastructure/**/*", "**/.github/**/*", "**/docker/**/*", "wrangler.toml", "Dockerfile"]
+alwaysApply: false
+---
+
+# Deployment Rules
+
+## Overview
+
+BitTasker uses a multi-platform deployment strategy with Cloudflare Workers, Docker containers, and mobile app stores. This document outlines deployment patterns, infrastructure configuration, and CI/CD best practices.
+
+## Core Principles
+
+### Multi-Platform Deployment
+
+- **Web**: Cloudflare Workers with static site generation
+- **Mobile**: Capacitor builds for iOS and Android app stores
+- **Infrastructure**: Docker containers with Kubernetes orchestration
+- **CDN**: Global content delivery for optimal performance
+
+### Environment Management
+
+- **Development**: Local development with hot reloading
+- **Staging**: Pre-production testing environment
+- **Production**: Live environment with monitoring and analytics
+- **Security**: Environment-specific secrets and configurations
+
+## Cloudflare Workers Deployment
+
+### Wrangler Configuration
+
+```toml
+# wrangler.toml
+name = "bittasker"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+route = "bittasker.com/*"
+vars = { ENVIRONMENT = "production" }
+
+[env.staging]
+route = "staging.bittasker.com/*"
+vars = { ENVIRONMENT = "staging" }
+
+# Site configuration for static assets
+[site]
+bucket = "./build"
+entry-point = "worker.js"
+
+# KV storage for caching
+[[kv_namespaces]]
+binding = "CACHE"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+
+# Durable Objects for state management
+[[durable_objects.bindings]]
+name = "TASK_STORE"
+class_name = "TaskStore"
+
+# R2 storage for file uploads
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "bittasker-files"
+```
+
+### Worker Implementation
+
+```typescript
+// worker.js
+import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    
+    // API routes
+    if (url.pathname.startsWith('/api/')) {
+      return handleAPI(request, env, ctx);
+    }
+    
+    // Static assets
+    try {
+      return await getAssetFromKV(
+        {
+          request,
+          waitUntil: ctx.waitUntil,
+        },
+        {
+          ASSET_NAMESPACE: env.__STATIC_CONTENT,
+          ASSET_MANIFEST: env.__STATIC_CONTENT_MANIFEST,
+        }
+      );
+    } catch (e) {
+      return new Response('Not found', { status: 404 });
+    }
+  }
+};
+
+async function handleAPI(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  
+  // CORS headers
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+  
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+  
+  // Route handling
+  switch (path) {
+    case '/api/tasks':
+      return handleTasks(request, env);
+    case '/api/wallet':
+      return handleWallet(request, env);
+    case '/api/messages':
+      return handleMessages(request, env);
+    default:
+      return new Response('Not found', { status: 404, headers: corsHeaders });
+  }
+}
+```
+
+### Build and Deploy Scripts
+
+```json
+{
+  "scripts": {
+    "build": "vite build",
+    "build:worker": "esbuild worker.js --bundle --format=esm --outfile=dist/worker.js",
+    "deploy:staging": "npm run build && wrangler deploy --env staging",
+    "deploy:production": "npm run build && wrangler deploy --env production",
+    "deploy:preview": "npm run build && wrangler deploy --compatibility-date=2024-01-15"
+  }
+}
+```
+
+## Docker Deployment
+
+### Dockerfile Configuration
+
+```dockerfile
+# Dockerfile
+FROM node:20-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY bun.lockb ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy source code
+COPY . .
+
+# Build application
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine AS production
+
+# Install serve for static files
+RUN npm install -g serve
+
+# Copy built application
+COPY --from=builder /app/build ./build
+COPY --from=builder /app/package*.json ./
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Start application
+CMD ["serve", "-s", "build", "-l", "3000"]
+```
+
+### Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=bittasker
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
+```
+
+### Kubernetes Deployment
+
+```yaml
+# k8s-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bittasker-app
+  labels:
+    app: bittasker
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: bittasker
+  template:
+    metadata:
+      labels:
+        app: bittasker
+    spec:
+      containers:
+      - name: bittasker
+        image: bittasker:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: bittasker-secrets
+              key: database-url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bittasker-service
+spec:
+  selector:
+    app: bittasker
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+  type: LoadBalancer
+```
+
+## Mobile App Deployment
+
+### iOS App Store
+
+```json
+{
+  "scripts": {
+    "build:ios": "npm run build && npx cap sync ios && npx cap build ios",
+    "deploy:ios": "npm run build:ios && npx cap run ios --target='iPhone 15 Pro'",
+    "build:ios:release": "npm run build && npx cap sync ios && npx cap build ios --release",
+    "deploy:ios:appstore": "npm run build:ios:release && npx cap run ios --target='iPhone 15 Pro' --release"
+  }
+}
+```
+
+### Android Play Store
+
+```json
+{
+  "scripts": {
+    "build:android": "npm run build && npx cap sync android && npx cap build android",
+    "deploy:android": "npm run build:android && npx cap run android",
+    "build:android:release": "npm run build && npx cap sync android && npx cap build android --release",
+    "deploy:android:playstore": "npm run build:android:release && npx cap run android --release"
+  }
+}
+```
+
+### App Store Configuration
+
+```typescript
+// capacitor.config.ts
+import { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.bittasker.app',
+  appName: 'BitTasker',
+  webDir: 'build',
+  server: {
+    androidScheme: 'https'
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 2000,
+      backgroundColor: '#FF9315',
+      showSpinner: false
+    },
+    StatusBar: {
+      style: 'dark',
+      backgroundColor: '#FF9315'
+    },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert']
+    }
+  }
+};
+
+export default config;
+```
+
+## CI/CD Pipeline
+
+### GitHub Actions Workflow
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm run test:unit
+    
+    - name: Run E2E tests
+      run: npm run test:e2e
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-files
+        path: build/
+
+  deploy-staging:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Deploy to Cloudflare Workers (Staging)
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        command: deploy --env staging
+
+  deploy-production:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Deploy to Cloudflare Workers (Production)
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        command: deploy --env production
+    
+    - name: Deploy to Docker Registry
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          bittasker:latest
+          bittasker:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+```
+
+### Mobile CI/CD
+
+```yaml
+# .github/workflows/mobile-deploy.yml
+name: Deploy Mobile Apps
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build iOS app
+      run: npm run build:ios:release
+    
+    - name: Deploy to App Store Connect
+      uses: apple-actions/upload-app-store@v1
+      with:
+        app-path: ios/App/App.xcarchive
+        issuer-id: ${{ secrets.APPLE_ISSUER_ID }}
+        api-key-id: ${{ secrets.APPLE_API_KEY_ID }}
+        api-private-key: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build Android app
+      run: npm run build:android:release
+    
+    - name: Deploy to Play Store
+      uses: r0adkll/upload-google-play@v1
+      with:
+        serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+        packageName: com.bittasker.app
+        releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+        track: production
+```
+
+## Environment Configuration
+
+### Environment Variables
+
+```typescript
+// Environment configuration
+export const environments = {
+  development: {
+    API_URL: 'http://localhost:3000/api',
+    DATABASE_URL: 'postgresql://localhost:5432/bittasker_dev',
+    REDIS_URL: 'redis://localhost:6379',
+    NODE_ENV: 'development'
+  },
+  
+  staging: {
+    API_URL: 'https://staging-api.bittasker.com',
+    DATABASE_URL: process.env.DATABASE_URL,
+    REDIS_URL: process.env.REDIS_URL,
+    NODE_ENV: 'staging'
+  },
+  
+  production: {
+    API_URL: 'https://api.bittasker.com',
+    DATABASE_URL: process.env.DATABASE_URL,
+    REDIS_URL: process.env.REDIS_URL,
+    NODE_ENV: 'production'
+  }
+};
+```
+
+### Secrets Management
+
+```yaml
+# .env.example
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/bittasker
+REDIS_URL=redis://localhost:6379
+
+# Cloudflare
+CLOUDFLARE_API_TOKEN=your_api_token
+CLOUDFLARE_ACCOUNT_ID=your_account_id
+
+# Mobile
+APPLE_ISSUER_ID=your_issuer_id
+APPLE_API_KEY_ID=your_api_key_id
+APPLE_API_PRIVATE_KEY=your_private_key
+
+# Google Play
+GOOGLE_PLAY_SERVICE_ACCOUNT=your_service_account_json
+
+# Blockchain
+BITCOIN_NODE_URL=your_bitcoin_node_url
+LIGHTNING_NODE_URL=your_lightning_node_url
+```
+
+## Monitoring and Logging
+
+### Application Monitoring
+
+```typescript
+// Monitoring configuration
+export const monitoringConfig = {
+  // Performance monitoring
+  performance: {
+    enabled: true,
+    sampleRate: 0.1, // 10% of requests
+    endpoints: ['/api/tasks', '/api/wallet']
+  },
+  
+  // Error tracking
+  errorTracking: {
+    enabled: true,
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV
+  },
+  
+  // Analytics
+  analytics: {
+    enabled: true,
+    trackingId: process.env.GA_TRACKING_ID
+  }
+};
+```
+
+### Health Checks
+
+```typescript
+// Health check endpoints
+export async function healthCheck(): Promise<Response> {
+  const checks = {
+    database: await checkDatabase(),
+    redis: await checkRedis(),
+    external: await checkExternalServices()
+  };
+  
+  const isHealthy = Object.values(checks).every(check => check.status === 'ok');
+  
+  return new Response(JSON.stringify(checks), {
+    status: isHealthy ? 200 : 503,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+```
+
+## Best Practices
+
+### 1. Deployment Strategy
+
+- **Use blue-green deployments** for zero-downtime updates
+- **Implement rollback procedures** for quick recovery
+- **Test deployments** in staging environment first
+- **Monitor deployment metrics** for success/failure
+
+### 2. Security
+
+- **Use environment-specific secrets** for sensitive data
+- **Implement proper access controls** for deployment systems
+- **Encrypt sensitive data** in transit and at rest
+- **Regular security audits** of deployment infrastructure
+
+### 3. Performance
+
+- **Optimize build times** with caching strategies
+- **Use CDN** for static asset delivery
+- **Implement proper caching** for API responses
+- **Monitor performance metrics** in production
+
+### 4. Monitoring
+
+- **Set up alerts** for critical system failures
+- **Monitor application metrics** continuously
+- **Implement logging** for debugging and analysis
+- **Use health checks** for system status
+
+### 5. Mobile Deployment
+
+- **Test on multiple devices** before app store submission
+- **Follow platform guidelines** for app store approval
+- **Implement proper versioning** for app updates
+- **Monitor app store metrics** for user feedback
+
+This comprehensive deployment guide ensures reliable, secure, and performant deployments across all platforms using modern CI/CD practices and infrastructure patterns.

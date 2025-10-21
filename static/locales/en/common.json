@@ -1,6 +1,7 @@
 {
     "common": {
         "back": "Back to Task",
+        "back_to_tasks": "Regresar",
         "redirecting_to_login": "Redirecting to login...",
         "or": "or",
         "processing": "Processing",
@@ -20,6 +21,8 @@
         "view_all": "View All",
         "view_profile": "View Profile",
         "reviews": "reviews",
+        "uploading": "Uploading...",
+        "uploading_file": "Uploading file",
         "profile": {
             "performance_stats": "Performance Stats",
             "tasks_completed": "Tasks Completed",
@@ -111,6 +114,15 @@
             },
             "modal": {
                 "close": "Close dialog"
+            },
+            "confirm_modal": {
+                "confirm": "Confirm",
+                "cancel": "Cancel",
+                "logout": {
+                    "title": "Confirm Logout",
+                    "message": "Are you sure you want to log out?",
+                    "confirm_button": "Logout"
+                }
             },
             "warning_popup": {
                 "title": "Beta Warning",

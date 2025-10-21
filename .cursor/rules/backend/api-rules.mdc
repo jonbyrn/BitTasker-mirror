@@ -1,6 +1,6 @@
 ---
-description: These are the rules which has defined how to work with backend APIs, how a backend request should be handled on a code level and also the file structure to follow.
-globs: 
+description: API service layer architecture, endpoints, types, and service patterns
+globs: ["**/api/**/*", "**/services/**/*"]
 alwaysApply: false
 ---
 # BitTasker API Service Layer Documentation
@@ -13,7 +13,7 @@ The BitTasker API service layer is designed to provide a structured, type-safe, 
 
 ### Directory Structure
 
-```
+```text
 src/lib/api/
 ├── index.ts          # Main export file
 ├── endpoints.ts      # API endpoint constants
@@ -157,7 +157,7 @@ export class PaymentService extends BaseApiService {
 export const paymentService = new PaymentService();
 ```
 
-2. Export the new service in `index.ts`:
+1. Export the new service in `index.ts`:
 
 ```typescript
 // Add to existing exports

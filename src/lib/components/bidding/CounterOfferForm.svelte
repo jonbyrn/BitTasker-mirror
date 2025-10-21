@@ -33,7 +33,7 @@
 	// USDT conversion state
 	let usdAmount = $state<number>(0);
 	let hourlyRateUsd = $state<number>(0);
-	let btcPrice = $state<number>(63000); // Default fallback price
+	let btcPrice = $state<number>(0);
 
 	// Fetch BTC price on mount
 	async function fetchBtcPrice(): Promise<void> {

@@ -20,6 +20,9 @@
 	import { locale } from 'svelte-i18n';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { goto } from '$app/navigation';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import { taskTranslationService } from '$lib/services/task-translation.service';
+	import { currentUserLanguage } from '$lib/stores/translation.store';
 
 	// Props
 	let { taskId, showShareButton = true } = $props<{
@@ -33,7 +36,8 @@
 	let errorMessage = $state('');
 	let taskCreatorPubkey = $state<string>('');
 	let btcPrice = $state<number>(0); // Default fallback price
-	let showFullDescription = $state(false); // New state for description toggle
+	let showFullDescription = $state(false); // State for description toggle
+	let translatedTask = $state<any>(null); // Store translated content
 
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(taskId || null);
@@ -44,6 +48,14 @@
 	
 	// Check if user is logged in - using same validation as navbar
 	const isLoggedIn = $derived($authState.isAuthenticated);
+	
+	// Check if task deadline has expired
+	const isDeadlineExpired = $derived(() => {
+		if (!task?.deadline) return false;
+		const deadlineDate = new Date(task.deadline);
+		const now = new Date();
+		return deadlineDate <= now;
+	});
 
 	// Generate share link for public route
 	const shareLink = $derived(() => {
@@ -140,7 +152,7 @@
 	}
 
 	// Helper function to truncate description
-	const getTruncatedDescription = (description: string, maxLength: number = 50) => {
+	const getTruncatedDescription = (description: string, maxLength: number = 200) => {
 		if (description.length <= maxLength) return description;
 		return description.slice(0, maxLength) + '...';
 	};
@@ -148,6 +160,27 @@
 	const toggleDescription = () => {
 		showFullDescription = !showFullDescription;
 	};
+
+	// Translation functions
+	async function translateTask() {
+		if (!task) return;
+		
+		try {
+			const userLang = $currentUserLanguage;
+			if (userLang) {
+				translatedTask = await taskTranslationService.translateTask(task, userLang);
+			}
+		} catch (error) {
+			console.error('Translation failed:', error);
+		}
+	}
+
+	// Get the display description (translated or original, truncated or full)
+	const getDisplayDescription = () => {
+		const description = translatedTask?.translatedDescription || task?.description || '';
+		return showFullDescription ? description : getTruncatedDescription(description);
+	};
+
 
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) return;
@@ -196,6 +229,13 @@
 	async function fetchBtcPrice(): Promise<void> {
 		btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 	}
+
+	// Effect to translate task when it loads or language changes
+	$effect(() => {
+		if (task) {
+			translateTask();
+		}
+	});
 
 	onMount(() => {
 		loadTaskDetails(taskId || '');
@@ -277,25 +317,60 @@
 						<!-- Header row with title and posted date -->
 						<div class="mb-6 flex flex-row items-start justify-between gap-3">
 							<div class="">
-								<small class="card-title line-clamp-2 pb-1 text-lg">
-									{task.title}
-								</small>
+								<div class="pb-1">
+									<TranslatableTask 
+										{task} 
+										showTitle={true}
+										showDescription={false}
+										titleClass="card-title line-clamp-2 text-lg"
+									/>
+								</div>
 								<div class="text-base-content/60 text-start">
-									{#if showFullDescription}
-										{task.description}
-									{:else}
-										{getTruncatedDescription(task.description)}
-									{/if}
-
-									{#if task.description.length > 200}
-										<button class="btn btn-xs hover:text-primary-focus" onclick={toggleDescription}>
-											{#if showFullDescription}
-												{$t('dashboard.task_details_by_task.show_less')}
-											{:else}
-												{$t('dashboard.task_details_by_task.show_more')}
-											{/if}
-										</button>
-									{/if}
+									<div class="translatable-description">
+										{#if translatedTask && !showFullDescription}
+											<!-- Show truncated translated description -->
+											{getTruncatedDescription(translatedTask.translatedDescription)}
+										{:else if translatedTask && showFullDescription}
+											<!-- Show full translated description -->
+											{translatedTask.translatedDescription}
+										{:else if !translatedTask && !showFullDescription}
+											<!-- Show truncated original description -->
+											{getTruncatedDescription(task?.description || '')}
+										{:else}
+											<!-- Show full original description -->
+											{task?.description || ''}
+										{/if}
+										
+										{#if (task?.description || '').length > 200}
+											<button class="btn btn-xs hover:text-primary-focus ml-2" onclick={toggleDescription}>
+												{#if showFullDescription}
+													{$t('dashboard.task_details_by_task.show_less')}
+												{:else}
+													{$t('dashboard.task_details_by_task.show_more')}
+												{/if}
+											</button>
+										{/if}
+										
+										{#if translatedTask}
+											<div class="mt-2">
+												<button 
+													class="text-xs text-blue-500 hover:text-blue-700 transition-colors" 
+													onclick={() => { translatedTask = null; showFullDescription = false; }}
+												>
+													{translatedTask.targetLanguage === 'es' ? 'Ver original' : 'View original'}
+												</button>
+											</div>
+										{:else if task}
+											<div class="mt-2">
+												<button 
+													class="text-xs text-blue-500 hover:text-blue-700 transition-colors" 
+													onclick={translateTask}
+												>
+													{$t('dashboard.task_details_by_task.translate')}
+												</button>
+											</div>
+										{/if}
+									</div>
 								</div>
 							</div>
 							<!-- <div class="flex flex-col text-center">
@@ -459,7 +534,27 @@
 				<div class="lg:col-span-1">
 					<div class="bg-base-100 border-base-300 sticky top-6 rounded-2xl border p-6 shadow-sm">
 						<!-- Action buttons -->
-						{#if task.status === TaskStatusEnum.OPEN && !isOwner && isLoggedIn}
+						{#if isDeadlineExpired()}
+							<div class="alert alert-error alert-outline">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-6 w-6 shrink-0 stroke-current"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L73.34 16c-.77 1.333.192 3 1.732 3z"
+									/>
+								</svg>
+								<div>
+									<span class="font-bold">{$t('dashboard.task_details_by_task.deadline_expired')}</span>
+									<div class="text-xs">{$t('dashboard.task_details_by_task.deadline_expired_message')}</div>
+								</div>
+							</div>
+						{:else if task.status === TaskStatusEnum.OPEN && !isOwner && isLoggedIn}
 							<div class="mb-6">
 								<h4 class="mb-4">{$t('dashboard.task_details_by_task.interested_in_task')}</h4>
 								<button class="btn btn-primary btn-sm w-full" onclick={handleBidNow}>

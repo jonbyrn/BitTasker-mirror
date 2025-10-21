@@ -7,6 +7,7 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { user } from '$lib/stores/user.store';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
+import { initializeNotificationService } from '$lib/stores/notification.store';
 
 export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
@@ -19,6 +20,7 @@ export const load: LayoutLoad = async () => {
 			await tryCatch(user.getUserData());
 			authState.login();
 			await tryCatch(pushNotificationService.init());
+			await tryCatch(initializeNotificationService());
 		}
 	}
 };

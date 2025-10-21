@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { ContractWithEvents } from '$lib/types/contract';
+	import type { Attachment } from '$lib/types/task';
 	import { escrow } from '$lib/utils/wallet/escrow';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import TaskCompletionModal from './TaskCompletionModal.svelte';
 
 	const {
 		contract,
@@ -23,23 +25,25 @@
 	// State for actions
 	let isLoading = $state<Record<string, boolean>>({});
 	let showResolutionForm = $state(false);
+	let showCompletionModal = $state(false);
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
-	let btcPrice = $state<number>(63000); // Default fallback price
+	let btcPrice = $state<number>(0); // No fallback price
 
 	// Helper to set loading state
 	function setLoading(action: string, loading: boolean) {
 		isLoading = { ...isLoading, [action]: loading };
 	}
 
-	// Complete task (freelancer only)
-	async function completeTask() {
+	// Complete task with attachments (freelancer only)
+	async function completeTaskWithAttachments(attachments: Attachment[]) {
 		if (!contract.canComplete) return;
 
 		setLoading('complete', true);
 		try {
-			// Call RSK escrow completeTask with contract event ID for proper nostr event publishing
-			await escrow.completeTask(contract.contract.escrowId, contract.contractEvent.id);
+			// Call RSK escrow completeTask with contract event ID and attachments for proper nostr event publishing
+			await escrow.completeTask(contract.contract.escrowId, contract.contractEvent.id, attachments);
+			showCompletionModal = false;
 			onActionComplete?.();
 		} catch (error) {
 			console.error('Error completing task:', error);
@@ -51,6 +55,12 @@
 		} finally {
 			setLoading('complete', false);
 		}
+	}
+
+	// Show completion modal
+	function showCompleteTaskModal() {
+		if (!contract.canComplete) return;
+		showCompletionModal = true;
 	}
 
 	// Accept task (client only)
@@ -241,7 +251,7 @@
 	{#if contract.canComplete}
 		<button
 			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
-			onclick={completeTask}
+			onclick={showCompleteTaskModal}
 			disabled={isLoading.complete}
 		>
 			{#if isLoading.complete}
@@ -593,3 +603,12 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Task Completion Modal -->
+<TaskCompletionModal
+	{contract}
+	isOpen={showCompletionModal}
+	onClose={() => (showCompletionModal = false)}
+	onComplete={completeTaskWithAttachments}
+	{btcPrice}
+/>

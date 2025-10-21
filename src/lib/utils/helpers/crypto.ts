@@ -181,5 +181,8 @@ export function usdFromSats(sats: number, price: number) {
 
 export function formatNumberForInput(value: number | undefined): string {
 	if (value == null || isNaN(value)) return '';
-	return Math.floor(value).toLocaleString('en-US');
+	return value.toLocaleString('en-US', { 
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 2
+	});
 }

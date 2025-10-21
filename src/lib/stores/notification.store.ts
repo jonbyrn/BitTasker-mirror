@@ -1,10 +1,13 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { writable, derived } from 'svelte/store';
 import type { Writable } from 'svelte/store';
+import { localNotificationService } from '$lib/services/local-notification.service';
 
 export interface Notification {
 	id: string;
 	userId: string;
-	type: 'task_update' | 'bid_response' | 'payment' | 'message' | 'system' | 'security' | 'contract_event';
+	type: 'task_update' | 'bid_response' | 'payment' | 'message' | 'system' | 'security' | 'contract_event' | 'new_bid' | 'task_completed';
 	title: string;
 	body: string;
 	image?: string;
@@ -69,6 +72,7 @@ interface NotificationState {
 	notifications: Notification[];
 	preferences: NotificationPreference | null;
 	unreadCount: number;
+	incomingCount: number;
 	isLoading: boolean;
 	error: string | null;
 }
@@ -78,6 +82,7 @@ function createNotificationStore() {
 		notifications: [],
 		preferences: null,
 		unreadCount: 0,
+		incomingCount: 0,
 		isLoading: false,
 		error: null
 	});
@@ -190,6 +195,11 @@ function createNotificationStore() {
 			}));
 		},
 
+		// Update state
+		update: (updater: (state: NotificationState) => NotificationState) => {
+			update(updater);
+		},
+
 		// Get notifications by type
 		getNotificationsByType: (type: Notification['type']) => {
 			let notifications: Notification[] = [];
@@ -212,6 +222,30 @@ function createNotificationStore() {
 
 export const notificationStore = createNotificationStore();
 
+// Initialize local notification service and sync with store
+let isServiceInitialized = false;
+
+export async function initializeNotificationService() {
+	if (!isServiceInitialized) {
+		await localNotificationService.init();
+		
+		// Subscribe to local notification service and sync with store
+		localNotificationService.getNotifications().subscribe(notifications => {
+			notificationStore.setNotifications(notifications);
+		});
+		
+		// Subscribe to incoming count
+		localNotificationService.getIncomingCount().subscribe(incomingCount => {
+			notificationStore.update(state => ({
+				...state,
+				incomingCount
+			}));
+		});
+		
+		isServiceInitialized = true;
+	}
+}
+
 // Derived stores for common use cases
 export const unreadNotifications = derived(
 	notificationStore,
@@ -226,6 +260,11 @@ export const notificationsByType = (type: Notification['type']) => derived(
 export const hasUnreadNotifications = derived(
 	notificationStore,
 	$notificationStore => $notificationStore.unreadCount > 0
+);
+
+export const incomingNotificationsCount = derived(
+	notificationStore,
+	$notificationStore => $notificationStore.incomingCount
 );
 
 // Notification categories for preferences

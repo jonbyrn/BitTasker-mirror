@@ -160,6 +160,20 @@ export function filterIndexedTasks(
 		});
 	}
 	
+	// Apply deadline filter - exclude tasks with past deadlines
+	filteredTasks = filteredTasks.filter(task => {
+		// If task has no deadline, include it
+		if (!task.deadline) return true;
+		
+		// Check if deadline has passed
+		const deadlineDate = new Date(task.deadline);
+		const now = new Date();
+		
+		// Include task only if deadline is in the future
+		return deadlineDate > now;
+	});
+	
+	
 	// Apply location filter with radius - ONLY use pickup location
 	if (params.location && params.radius) {
 		const searchLocation = params.location.toLowerCase().trim();
@@ -262,7 +276,8 @@ function hasActiveFilters(params: SearchTasksParams): boolean {
 		(params.skills && params.skills.length > 0) ||
 		(params.categories && params.categories.length > 0) ||
 		(params.search && params.search.trim().length > 0) ||
-		(params.location && params.radius)
+		(params.location && params.radius) ||
+		true // Always apply deadline filtering
 	);
 }
 

@@ -1,0 +1,173 @@
+---
+description: Rootstock (RSK) blockchain integration for Bitcoin smart contracts and DeFi functionality
+globs: ["**/wallet/**/*", "**/integrations/rootstock/**/*", "**/blockchain/**/*"]
+alwaysApply: false
+---
+
+# Rootstock (RSK) Integration Rules
+
+## Overview
+
+Rootstock (RSK) is a Bitcoin sidechain that brings smart contract functionality to Bitcoin. It enables Bitcoin holders to participate in DeFi and smart contracts while maintaining Bitcoin's security through merge-mining.
+
+### Key Features
+
+- Bitcoin merge-mining security
+- EVM-compatible smart contracts  
+- Native Bitcoin (RBTC) support
+- RIF token ecosystem
+- Gas fees paid in RBTC
+- 2-way peg with Bitcoin
+
+## Configuration
+
+### Network Setup
+
+```typescript
+// Rootstock Mainnet
+export const ROOTSTOCK_MAINNET = {
+  chainId: 30,
+  chainName: 'Rootstock Mainnet',
+  rpcUrls: ['https://public-node.rsk.co'],
+  blockExplorerUrls: ['https://explorer.rsk.co'],
+  nativeCurrency: {
+    name: 'RBTC',
+    symbol: 'RBTC',
+    decimals: 18
+  }
+};
+
+// Rootstock Testnet  
+export const ROOTSTOCK_TESTNET = {
+  chainId: 31,
+  chainName: 'Rootstock Testnet',
+  rpcUrls: ['https://public-node.testnet.rsk.co'],
+  blockExplorerUrls: ['https://explorer.testnet.rsk.co'],
+  nativeCurrency: {
+    name: 'tRBTC',
+    symbol: 'tRBTC', 
+    decimals: 18
+  }
+};
+```
+
+### Web3 Provider
+
+```typescript
+import { Web3 } from 'web3';
+
+export const createRootstockProvider = (rpcUrl: string = 'https://public-node.rsk.co') => {
+  return new Web3(rpcUrl);
+};
+```
+
+## Core Functionality
+
+### Wallet Connection
+
+```typescript
+export const connectRootstockWallet = async (): Promise<string> => {
+  if (typeof window.ethereum === 'undefined') {
+    throw new Error('MetaMask not installed');
+  }
+
+  try {
+    const accounts = await window.ethereum.request({
+      method: 'eth_requestAccounts'
+    });
+    
+    await switchToRootstockNetwork();
+    return accounts[0];
+  } catch (error) {
+    throw new Error('Failed to connect wallet');
+  }
+};
+
+export const switchToRootstockNetwork = async (): Promise<void> => {
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0x1e' }] // 30 in hex
+    });
+  } catch (error: any) {
+    if (error.code === 4902) {
+      await addRootstockNetwork();
+    } else {
+      throw error;
+    }
+  }
+};
+```
+
+### Smart Contract Interaction
+
+```typescript
+export const createContract = (web3: Web3, address: string, abi: any[]) => {
+  return new web3.eth.Contract(abi, address);
+};
+
+export const callContractMethod = async (
+  contract: any,
+  methodName: string,
+  ...args: any[]
+): Promise<any> => {
+  return await contract.methods[methodName](...args).call();
+};
+
+export const sendContractTransaction = async (
+  contract: any,
+  methodName: string,
+  from: string,
+  ...args: any[]
+): Promise<string> => {
+  const gasEstimate = await contract.methods[methodName](...args).estimateGas({ from });
+  
+  const tx = await contract.methods[methodName](...args).send({
+    from,
+    gas: gasEstimate
+  });
+  
+  return tx.transactionHash;
+};
+```
+
+### BitTasker Integration
+
+```typescript
+export const processRBTCPayment = async (
+  web3: Web3,
+  from: string,
+  to: string,
+  amount: string
+): Promise<string> => {
+  const tx = await web3.eth.sendTransaction({
+    from,
+    to,
+    value: web3.utils.toWei(amount, 'ether'),
+    gas: 21000
+  });
+  
+  return tx.transactionHash;
+};
+```
+
+## Error Handling
+
+```typescript
+export const handleRootstockError = (error: any): string => {
+  if (error.code === 4001) return 'User rejected transaction';
+  if (error.code === -32603) return 'Invalid transaction parameters';
+  if (error.message.includes('insufficient funds')) return 'Insufficient RBTC balance';
+  if (error.message.includes('gas required exceeds allowance')) return 'Gas limit exceeded';
+  
+  return `Rootstock error: ${error.message}`;
+};
+```
+
+## Best Practices
+
+1. **Always validate transaction parameters before sending**
+2. **Use appropriate gas limits for contract interactions**
+3. **Implement proper error handling for network issues**
+4. **Cache contract instances to avoid repeated initialization**
+5. **Use testnet for development and testing**

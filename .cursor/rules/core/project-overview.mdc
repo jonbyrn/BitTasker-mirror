@@ -1,0 +1,202 @@
+---
+description: High-level BitTasker project context, architecture, and key technical decisions
+globs: []
+alwaysApply: true
+---
+
+# BitTasker Project Overview
+
+*Note: The official name of the application is "BitTasker" (capital 'B', capital 'T', no space). Please ensure all documentation, code, and marketing materials use this spelling consistently.*
+
+## Overview
+
+BitTasker is a revolutionary gig economy platform inspired by Airtasker, designed to connect people seeking services (Taskers) with professionals offering those services (Taskees). The platform facilitates the entire process from task posting, bidding, hiring, communication, scheduling, payment, to reviews.
+
+### Company Mission
+
+BitTasker's mission is to:
+
+- **Expand Bitcoin Adoption**: Make Bitcoin the standard for everyday transactions
+- **Increase Accessibility**: Make Bitcoin easily accessible to everyone
+- **Promote Decentralization**: Build a more decentralized economy
+- **Uphold Human Dignity**: Recognize that tasks, work, and financial freedom are fundamental to human dignity
+- **Build the Bitcoin Economy**: Help create the new Bitcoin-based economic system
+
+### Core Business Model
+
+BitTasker operates as a two-sided marketplace with the following revenue streams:
+
+- **Transaction Fees**: Percentage-based fees on completed tasks
+- **Premium Subscriptions**: Enhanced features for power users
+- **Advertising**: Sponsored task listings and promoted profiles
+- **Blockchain Services**: Bitcoin transaction fees and Lightning Network routing
+
+### Target Market
+
+- **Primary**: Freelancers and service providers seeking flexible work opportunities
+- **Secondary**: Individuals and businesses needing various services completed
+- **Geographic Focus**: Global platform with initial focus on English-speaking markets
+- **Demographics**: Tech-savvy users comfortable with Bitcoin and decentralized technologies
+
+To maintain consistent branding, ensure you're using the terms "Tasker" (client) and "Taskee" (freelancer) when generating text.
+
+### Key Differentiators
+
+- **Bitcoin Integration**: Native support for Bitcoin payments through Rootstock, Liquid, Lightning, and on-chain transactions
+- **Decentralized Identity**: Integration with Nostr for secure, user-owned identity management
+- **Multi-Language Support**: Automatic translations for global accessibility
+- **Gamification**: Level-based system to incentivize platform engagement
+- **Dynamic Fee Structure**: Reduced fees for repeat hirings and active users
+
+### Core Platform Features
+
+#### Task Management
+
+- **Task Posting**: Detailed task creation with categories, budget, timeline, and requirements
+- **Bidding System**: Taskees can submit competitive bids with pricing and timeline estimates
+- **Task Matching**: AI-powered matching based on skills, location, and preferences
+- **Task Categories**: Home services, digital work, personal assistance, creative services, and more
+
+#### Communication & Collaboration
+
+- **In-App Messaging**: Secure, encrypted messaging between Taskers and Taskees
+- **File Sharing**: Secure document and media sharing capabilities
+- **Task Updates**: Real-time status updates and progress tracking
+
+#### Payment & Financial
+
+- **Bitcoin Payments**: Multiple Bitcoin payment options (Rootstock, Lightning, Liquid, USDT)
+- **Escrow System**: Secure payment holding until task completion
+- **Dynamic Pricing**: Market-driven pricing from bids sent by taskees
+- **Fee Structure**: Transparent, competitive fee structure with loyalty discounts
+
+#### User Experience
+
+- **Mobile-First Design**: Optimized for mobile devices with responsive web interface
+- **Progressive Web App**: Native app-like experience in browsers
+- **Offline Capabilities**: Core functionality available offline with sync when online
+- **Accessibility**: WCAG 2.1 AA compliance for inclusive design
+
+#### Trust & Safety
+
+- **Review System**: Comprehensive rating and review system for both parties
+- **Dispute Resolution**: Built-in mediation and arbitration system
+
+## Technical Architecture
+
+### Platform Components
+
+1. **Mobile Applications**
+   - iOS and Android apps built with SvelteKit
+   - Capacitor for native device capability access
+   - Single codebase for web and mobile platforms
+   - Progressive enhancement for device-specific features
+   - Native biometric authentication
+   - Push notifications for real-time updates
+   - Offline-first architecture with local data synchronization
+
+2. **Web Application**
+   - SvelteKit frontend framework with static adapter
+   - Responsive design for mobile and desktop
+   - Progressive Web App (PWA) capabilities
+   - Service worker for offline functionality
+   - WebRTC for video calling features
+   - Web Crypto API for client-side encryption
+
+3. **Backend Services**
+   - API Layer (Node.js with Express or Fastify)
+   - Database (PostgreSQL for relational data)
+   - Caching Layer (Redis for session and data caching)
+   - Search Engine (Elasticsearch or MeiliSearch for task discovery)
+   - Task Scheduling (Bull or similar for background jobs)
+   - Real-time communication (WebSocket/Socket.io)
+   - File storage (AWS S3 or similar for media and documents)
+
+4. **Blockchain Integration**
+   - Bitcoin Wallet Services
+   - Rootstock Network Integration (Bitcoin smart contracts)
+   - Liquid Network Integration (fast, confidential transactions)
+   - Lightning Network Integration (instant, low-cost payments)
+   - Bitcoin On-chain Transaction Support (settlement layer)
+   - Multi-signature wallet support for escrow
+
+5. **Decentralized Components**
+   - Nostr Protocol Integration for identity and messaging
+   - Public Key Infrastructure for E2E encryption
+   - Decentralized identity management
+   - Peer-to-peer messaging capabilities
+   - Distributed reputation system
+
+6. **Infrastructure**
+   - Cloudflare Workers for edge computing
+   - CDN for static assets and global distribution
+   - Edge computing for geographically distributed services
+   - DDoS protection and security
+   - Global load balancing
+   - Automated scaling based on demand
+
+## Development Tools
+
+- Sveltekit with static adapter
+- Svelte 5 with Runes
+- TypeScript
+- Daisy UI
+- Tailwind CSS
+- Web Crypto API
+- Vitest
+- Storybook
+- npm
+
+## Project Structure
+
+```text
+src/
+├── lib/
+│   ├── components/      # Reusable UI components
+│   ├── api/             # Business logic and API services
+│   ├── types/           # TypeScript type definitions
+│   ├── stores/          # State management, stores, and context
+│   ├── tests/           # Unit and integration tests
+│   └── utils/           # Utility functions, helpers, constants, enums
+│       ├── helpers/            # Helper functions
+│       ├── constants/          # JSON constant data
+│       └── enums/              # Enumerations
+├── routes/             # SvelteKit routes and pages
+│   ├── (company)/       # Company/marketing pages (about, careers, terms, etc.)
+│   ├── (protected)/    # Authenticated user areas (dashboard, profile, wallet)
+│   ├── [...path]/      # Catch-all route for dynamic paths
+│   ├── 404/            # Error page handling
+│   ├── auth/           # Authentication flows (login, signup, recovery)
+│   ├── firebase-config.json/ # Firebase configuration endpoint
+│   ├── tasks/          # Task management and viewing
+│   └── verify-email/   # Email verification process
+└── stories/           # Storybook component stories
+    ├── assets/         # Storybook assets (images, icons, documentation)
+    ├── bidding/        # Bidding system component stories
+    ├── messages/       # Messaging and chat component stories
+    └── task/           # Task-related component stories
+```
+
+## Naming Conventions
+
+- Use camelCase for variable names
+- Use PascalCase for component names
+- Use kebab-case for routes names
+- Use snake_case for assets
+- File Naming and Location:
+  - Components: src/lib/components/ExampleComponent.svelte
+  - Services: src/lib/services/example.service.ts
+  - Utils: src/lib/utils/exampleUtil.ts
+  - Types: src/lib/types/exampleTypes.d.ts
+  - Tests: src/lib/tests/example.test.ts
+  - Stores: src/lib/stores/example.store.ts
+
+## Ignored Files
+
+- /node_modules
+- .env
+- .env.*
+- !.env.example
+- .DS_Store
+- *.pem
+- *.log

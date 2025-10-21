@@ -1,0 +1,284 @@
+---
+description: Security requirements and cryptographic guidelines for BitTasker
+globs: []
+alwaysApply: true
+---
+
+# Security Guidelines
+
+## Core Security Rules
+
+- All cryptographic operations must use Web Crypto API
+- No server-side operations (static adapter requirement)
+- Sensitive data must be encrypted before storage
+- Use dual encryption for critical data (sub user id + recovery password)
+- Implement proper key derivation for passwords
+- Store encrypted keys using secure storage (NativeBiometric when available for mobile platform)
+- Never expose private keys or encryption keys in plaintext
+- Check Capacitor plugins availability on the platform before using them
+- Always update test files according to changes in the code if needed
+
+## Cryptographic Operations
+
+### Web Crypto API Usage
+
+```typescript
+// Generate encryption key
+const key = await crypto.subtle.generateKey(
+  { name: 'AES-GCM', length: 256 },
+  true,
+  ['encrypt', 'decrypt']
+);
+
+// Encrypt data
+const encrypted = await crypto.subtle.encrypt(
+  { name: 'AES-GCM', iv: iv },
+  key,
+  new TextEncoder().encode(plaintext)
+);
+
+// Decrypt data
+const decrypted = await crypto.subtle.decrypt(
+  { name: 'AES-GCM', iv: iv },
+  key,
+  encrypted
+);
+```
+
+### Key Management
+
+```typescript
+// Generate secure random keys
+const generateSecureKey = (): Uint8Array => {
+  return crypto.getRandomValues(new Uint8Array(32));
+};
+
+// Derive keys from passwords
+const deriveKey = async (password: string, salt: Uint8Array): Promise<CryptoKey> => {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits', 'deriveKey']
+  );
+
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+};
+```
+
+## Data Encryption
+
+### Dual Encryption Pattern
+
+```typescript
+// First layer: User-specific encryption
+const encryptUserData = async (data: string, userKey: CryptoKey): Promise<string> => {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    userKey,
+    new TextEncoder().encode(data)
+  );
+  return btoa(String.fromCharCode(...iv, ...new Uint8Array(encrypted)));
+};
+
+// Second layer: Recovery password encryption
+const encryptWithRecovery = async (encryptedData: string, recoveryKey: CryptoKey): Promise<string> => {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    recoveryKey,
+    new TextEncoder().encode(encryptedData)
+  );
+  return btoa(String.fromCharCode(...iv, ...new Uint8Array(encrypted)));
+};
+```
+
+### Secure Storage
+
+```typescript
+// Check platform capabilities
+const isNativeBiometricAvailable = async (): Promise<boolean> => {
+  try {
+    const { NativeBiometric } = await import('capacitor-native-biometric');
+    return await NativeBiometric.isAvailable();
+  } catch {
+    return false;
+  }
+};
+
+// Store encrypted data securely
+const storeSecurely = async (key: string, value: string): Promise<void> => {
+  if (await isNativeBiometricAvailable()) {
+    // Use biometric-secured storage
+    const { NativeBiometric } = await import('capacitor-native-biometric');
+    await NativeBiometric.setCredentials({
+      username: key,
+      password: value,
+      server: 'bittasker'
+    });
+  } else {
+    // Fallback to encrypted localStorage
+    const encrypted = await encryptWithAppKey(value);
+    localStorage.setItem(key, encrypted);
+  }
+};
+```
+
+## Input Validation
+
+### Schema Validation
+
+```typescript
+import { z } from 'zod';
+
+// Define strict schemas
+const userSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+  age: z.number().int().min(0).max(150)
+});
+
+// Validate and sanitize input
+const validateUser = (input: unknown): User => {
+  return userSchema.parse(input);
+};
+```
+
+### XSS Prevention
+
+```typescript
+// Sanitize HTML content
+const sanitizeHtml = (html: string): string => {
+  const div = document.createElement('div');
+  div.textContent = html;
+  return div.innerHTML;
+};
+
+// Escape user input
+const escapeHtml = (text: string): string => {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+```
+
+## Authentication Security
+
+### Key Generation
+
+```typescript
+// Generate secure random keys for authentication
+const generateAuthKey = (): string => {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+```
+
+### Session Management
+
+```typescript
+// Secure session token generation
+const generateSessionToken = async (): Promise<string> => {
+  const randomBytes = crypto.getRandomValues(new Uint8Array(32));
+  const hash = await crypto.subtle.digest('SHA-256', randomBytes);
+  return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+};
+```
+
+## Error Handling Security
+
+### Secure Error Messages
+
+```typescript
+// Don't expose sensitive information in errors
+const handleError = (error: unknown): string => {
+  console.error('Internal error:', error);
+  return 'An error occurred. Please try again.';
+};
+
+// Log errors securely
+const logError = (error: Error, context: string): void => {
+  console.error(`[${context}] ${error.message}`, {
+    stack: error.stack,
+    timestamp: new Date().toISOString()
+  });
+};
+```
+
+## Platform-Specific Security
+
+### Capacitor Plugin Security
+
+```typescript
+// Check plugin availability before use
+const useSecureStorage = async (): Promise<boolean> => {
+  try {
+    const { NativeBiometric } = await import('capacitor-native-biometric');
+    return await NativeBiometric.isAvailable();
+  } catch (error) {
+    console.warn('Native biometric not available:', error);
+    return false;
+  }
+};
+```
+
+## Testing Security
+
+### Security Test Requirements
+
+```typescript
+// Test encryption/decryption
+describe('Encryption', () => {
+  it('should encrypt and decrypt data correctly', async () => {
+    const key = await generateEncryptionKey();
+    const data = 'sensitive information';
+    
+    const encrypted = await encrypt(data, key);
+    const decrypted = await decrypt(encrypted, key);
+    
+    expect(decrypted).toBe(data);
+    expect(encrypted).not.toBe(data);
+  });
+});
+
+// Test key derivation
+describe('Key Derivation', () => {
+  it('should derive consistent keys from same password', async () => {
+    const password = 'test-password';
+    const salt = new Uint8Array(16);
+    
+    const key1 = await deriveKey(password, salt);
+    const key2 = await deriveKey(password, salt);
+    
+    expect(key1).toEqual(key2);
+  });
+});
+```
+
+## Security Checklist
+
+Before deploying any security-sensitive code:
+
+- [ ] All sensitive data is encrypted
+- [ ] Keys are properly derived and stored securely
+- [ ] Input validation is implemented
+- [ ] Error messages don't expose sensitive information
+- [ ] Platform capabilities are checked before use
+- [ ] Tests cover security scenarios
+- [ ] No hardcoded secrets or keys
+- [ ] Proper key rotation mechanisms
+- [ ] Secure communication protocols
+- [ ] Access controls are implemented

@@ -1,4 +1,5 @@
 import type { ContractTransactionResult, DisputeProposal, EscrowData, GasEstimation } from "$lib/types/wallet";
+import type { Attachment } from '$lib/types/task';
 import { getProvider, getWallet, rskAddress, walletStore } from "$lib/stores/wallet.store";
 import { t } from "svelte-i18n";
 import { get } from "svelte/store";
@@ -402,7 +403,7 @@ async function createEscrow(
 }
 
 // Complete task
-async function completeTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
+async function completeTask(escrowId: string, contractEventId?: string, completionAttachments?: Attachment[]): Promise<ContractTransactionResult> {
     try {
         const { contract } = await ensureEscrowReady();
 
@@ -432,7 +433,8 @@ async function completeTask(escrowId: string, contractEventId?: string): Promise
                     await handleTaskCompleted({
                         escrowId,
                         transactionHash: receipt.hash,
-                        contractEventId
+                        contractEventId,
+                        completionAttachments
                     });
                 }
             } else {

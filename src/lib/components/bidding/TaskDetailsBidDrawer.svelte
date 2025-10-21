@@ -67,14 +67,14 @@
 		return enableBodyScroll;
 	});
 
-	let btcPrice = $state<number>(120000); // Default fallback price
+	let btcPrice = $state<number>(0);
 
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
-			// Keep using fallback price
+			throw new Error('Unable to fetch Bitcoin price. Please try again later.');
 		}
 	}
 

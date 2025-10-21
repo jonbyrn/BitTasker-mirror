@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Attachment, TaskBody } from '$lib/types/task';
+	import type { Attachment, Task, TaskBody } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -8,6 +8,7 @@
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { TriggerSavedSearchCheckStore, type TaskBodyInput } from '$houdini';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
+	import { findMyTasks } from '$lib/nostr/findMyTasks';
 	import {
 		BudgetTypeEnum,
 		TaskStatusEnum,
@@ -79,6 +80,24 @@
 			console.warn('⚠️ Background saved search check failed:', error);
 		}
 	};
+
+	// Function to refresh My Tasks list after creating/updating a task
+	async function refreshMyTasks() {
+		try {
+			// Reload the first page of My Tasks to show the new task
+			await findMyTasks({ page: 1, limit: 20, refresh: true });
+		} catch (error) {
+			console.error('Error refreshing My Tasks:', error);
+		}
+	}
+
+	// Function to handle cancel/back to My Tasks
+	function handleCancel() {
+		// Clear any draft data
+		store.clearDraft();
+		// Navigate back to My Tasks
+		goto('/dashboard');
+	}
 
 	// Load the draft when the page is loaded
 	onMount(async () => {
@@ -283,6 +302,9 @@
 				signedEventId = await updateTask($store.id, task);
 				appStore.showSuccessToast($t('task.success.updated'));
 
+				// Refresh My Tasks list to show updated task
+				await refreshMyTasks();
+
 				const url = new URL($page.url);
 				url.searchParams.delete('edit');
 				goto(url);
@@ -297,6 +319,10 @@
 			}
 
 			await store.clearDraft();
+			
+			// Refresh My Tasks list to show new task
+			await refreshMyTasks();
+			
 			await goto('/dashboard');
 			
 		} catch (error) {
@@ -372,7 +398,7 @@
 					<div class="mt-6 flex justify-between">
 						{#if $store.currentStep !== 'basics'}
 							<button
-								class="btn"
+								class="btn btn-secondary"
 								onclick={() => {
 									store.previousStep();
 									direction = 'backward';
@@ -381,7 +407,26 @@
 								{$t('task.back')}
 							</button>
 						{:else}
-							<div></div>
+							<button
+								class="btn btn-secondary"
+								onclick={handleCancel}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="mr-1 h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M6 18L18 6M6 6l12 12"
+									/>
+								</svg>
+								{$t('common.back_to_tasks')}
+							</button>
 						{/if}
 
 						{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}

@@ -1,6 +1,7 @@
 {
   "common": {
     "back": "Volver a la tarea",
+    "back_to_tasks": "Regresar",
     "redirecting_to_login": "Redirigiendo al inicio de sesión...",  
     "or": "O",
     "processing": "Procesando",
@@ -19,7 +20,9 @@
     "slide": "Diapositiva",
     "view_all": "Ver Todo",
     "view_profile": "Ver Perfil",
-    "reviews": "reseñas",
+        "reviews": "reseñas",
+        "uploading": "Subiendo...",
+        "uploading_file": "Subiendo archivo",
     "profile": {
       "performance_stats": "Estadísticas de Rendimiento",
       "tasks_completed": "Tareas Completadas",
@@ -111,6 +114,15 @@
       },
       "modal": {
         "close": "Cerrar diálogo"
+      },
+      "confirm_modal": {
+        "confirm": "Confirmar",
+        "cancel": "Cancelar",
+        "logout": {
+          "title": "Confirmar Cierre de Sesión",
+          "message": "¿Estás seguro de que quieres cerrar sesión?",
+          "confirm_button": "Cerrar Sesión"
+        }
       },
       "warning_popup": {
         "title": "Advertencia Beta",

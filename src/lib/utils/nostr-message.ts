@@ -1136,11 +1136,12 @@ export async function getMessagedPeople(): Promise<
 				try {
 					const fetchedProfile = await fetchProfileMetadata(pubkey);
 					profile = {
-						name: fetchedProfile.name,
+						name: fetchedProfile.name || 'Usuario', // Fallback to 'Usuario' instead of undefined
 						picture: fetchedProfile.picture
 					};
 				} catch (e) {
 					console.error('Failed to fetch profile for', pubkey, e);
+					profile = { name: 'Usuario', picture: undefined };
 				}
 
 				return { pubkey, lastEvent: decryptedLastEvent, profile };

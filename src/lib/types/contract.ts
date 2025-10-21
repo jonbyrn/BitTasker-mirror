@@ -1,6 +1,6 @@
 import type { Event as NostrEvent } from 'nostr-tools';
-import type { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 import type { DisputeProposal } from './wallet';
+import type { Attachment } from './task';
 
 // Contract status actions that can be performed
 export type ContractAction = 
@@ -44,6 +44,8 @@ export interface NostrContract {
 	transactionHash?: string;
 	// Dispute proposal
 	disputeProposal?: DisputeProposal;
+	// Completion evidence attachments (images/videos)
+	completionAttachments?: Attachment[];
 }
 
 // Status update event data (both parties can publish as encrypted DMs)
@@ -59,6 +61,8 @@ export interface NostrContractStatus {
 	// Dispute resolution data
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
+	// Completion evidence attachments
+	completionAttachments?: Attachment[];
 }
 
 // Full contract with events for UI display
@@ -107,6 +111,7 @@ export interface PublishStatusParams {
 	transactionHash?: string;
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
+	completionAttachments?: Attachment[];
 }
 
 // Contract filter for queries

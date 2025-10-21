@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { notificationStore, unreadNotifications, hasUnreadNotifications } from '$lib/stores/notification.store';
+	import { notificationStore, initializeNotificationService } from '$lib/stores/notification.store';
+	import { localNotificationService } from '$lib/services/local-notification.service';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { t } from 'svelte-i18n';
 	import type { Notification } from '$lib/stores/notification.store';
 	
 	// MDI Icons
 	import IconBell from '~icons/mdi/bell';
 	import IconBellOutline from '~icons/mdi/bell-outline';
 	import IconClose from '~icons/mdi/close';
-	import IconEye from '~icons/mdi/eye';
 	import IconDelete from '~icons/mdi/delete';
 	import IconBellAlert from '~icons/mdi/bell-alert';
 	import IconCurrencyUsd from '~icons/mdi/currency-usd';
@@ -23,37 +24,64 @@
 	let isOpen = $state(false);
 	let notifications = $state<Notification[]>([]);
 	let unreadCount = $state(0);
+	let incomingCount = $state(0);
 	let isLoading = $state(false);
+	let showOnlyUnread = $state(true);
 
-	// Subscribe to notification store
-	$effect(() => {
-		const store = $notificationStore;
-		notifications = store.notifications;
-		unreadCount = store.unreadCount;
-		isLoading = store.isLoading;
-	});
+	// Computed property for filtered notifications
+	let filteredNotifications = $derived(
+		showOnlyUnread 
+			? notifications.filter(n => !n.read)
+			: notifications
+	);
+
+	let unsubscribe: (() => void) | null = null;
 
 	onMount(async () => {
-		// Load notifications from backend
-		//await notificationService.loadNotifications();
+		// Initialize notification service
+		await initializeNotificationService();
+		
+		// Subscribe to notification store manually
+		unsubscribe = notificationStore.subscribe((store) => {
+			notifications = store.notifications;
+			unreadCount = store.unreadCount;
+			incomingCount = store.incomingCount;
+			isLoading = store.isLoading;
+		});
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		if (unsubscribe) {
+			unsubscribe();
+		}
 	});
 
 	function toggleNotificationCenter() {
 		isOpen = !isOpen;
 		if (isOpen) {
-			// Mark all notifications as read when opening
-			//notificationService.markAllAsRead();
+			// Reset incoming count when opening
+			localNotificationService.resetIncomingCount();
+			// Reset the showOnlyUnread to true when opening to show unread by default
+			showOnlyUnread = true;
 		}
 	}
 
 	function handleNotificationClick(notification: Notification) {
 		// Mark as read
-		//notificationService.markAsRead(notification.id);
+		localNotificationService.markAsRead(notification.id);
+		
+		// Reset incoming count when viewing a notification
+		localNotificationService.resetIncomingCount();
 
-		// Handle action
+		// Close notification center first
+		isOpen = false;
+
+		// Handle action with proper navigation
 		if (notification.action) {
 			switch (notification.action.type) {
 				case 'navigation':
+					// Use goto for internal navigation
 					goto(notification.action.payload);
 					break;
 				case 'external_link':
@@ -61,25 +89,32 @@
 					break;
 				case 'function_call':
 					// Handle function call if needed
-					console.log('Function call:', notification.action.payload);
 					break;
 			}
+		} else {
+			// Default navigation if no action specified
+			goto('/dashboard/notifications');
 		}
-
-		// Close notification center
-		isOpen = false;
 	}
 
 	function removeNotification(notificationId: string, event?: Event) {
 		if (event) {
 			event.stopPropagation();
 		}
-		//notificationService.deleteNotification(notificationId);
+		localNotificationService.removeNotification(notificationId);
 	}
 
 	function clearAllNotifications() {
-		// Mark all as read instead of clearing (backend doesn't support bulk delete)
-		//notificationService.markAllAsRead();
+		// Actually clear all notifications
+		localNotificationService.clearAll();
+	}
+
+	function handleViewAllNotifications() {
+		// Close the notification center first
+		isOpen = false;
+		
+		// Navigate to notifications page using goto
+		goto('/dashboard/notifications');
 	}
 
 	function formatTimeAgo(timestamp: Date): string {
@@ -89,102 +124,57 @@
 		const minutes = Math.floor(seconds / 60);
 		const hours = Math.floor(minutes / 60);
 		const days = Math.floor(hours / 24);
+		const weeks = Math.floor(days / 7);
+		const months = Math.floor(days / 30);
+		const years = Math.floor(days / 365);
 
-		if (days > 0) return `${days}d ago`;
-		if (hours > 0) return `${hours}h ago`;
-		if (minutes > 0) return `${minutes}m ago`;
-		return 'Just now';
+		if (years > 0) return $t('notifications.years_ago', { values: { count: years } });
+		if (months > 0) return $t('notifications.months_ago', { values: { count: months } });
+		if (weeks > 0) return $t('notifications.weeks_ago', { values: { count: weeks } });
+		if (days > 0) return $t('notifications.days_ago', { values: { count: days } });
+		if (hours > 0) return $t('notifications.hours_ago', { values: { count: hours } });
+		if (minutes > 0) return $t('notifications.minutes_ago', { values: { count: minutes } });
+		return $t('notifications.just_now');
 	}
 
-	function getPriorityColor(priority: Notification['priority']): string {
-		switch (priority) {
-			case 'urgent': return 'text-error bg-error/10 border-error/20';
-			case 'high': return 'text-primary bg-primary/10 border-primary/20';
-			case 'normal': return 'text-info bg-info/10 border-info/20';
-			case 'low': return 'text-neutral bg-neutral/10 border-neutral/20';
-			default: return 'text-neutral bg-neutral/10 border-neutral/20';
-		}
-	}
 
 	function getTitleSize(notification: Notification): string {
-		switch (notification.type) {
-			case 'bid_response':
-				return 'text-xs sm:text-sm font-medium'; // Smaller for bid notifications, responsive
-			case 'payment':
-				return 'text-xs sm:text-sm font-medium'; // Smaller for payment notifications, responsive
-			case 'message':
-				return 'text-sm font-medium'; // Normal size for messages
-			case 'task_update':
-				return 'text-sm font-medium'; // Normal size for task updates
-			case 'contract_event':
-				return 'text-sm font-medium'; // Normal size for contracts
-			case 'system':
-				return 'text-xs sm:text-sm font-medium'; // Smaller for system notifications, responsive
-			case 'security':
-				return 'text-sm font-semibold'; // Slightly larger for security
-			default:
-				return 'text-sm font-medium'; // Default size
-		}
+		// Make all titles smaller and consistent
+		return 'text-xs sm:text-sm font-medium';
 	}
 
 	function getTranslatedTitle(notification: Notification): string {
-		// If title is already in Spanish, return as is
-		if (notification.title.includes('Nueva') || notification.title.includes('Recibida') || 
-			notification.title.includes('Oferta') || notification.title.includes('Pago')) {
+		// If notification is already translated, return as-is
+		if (notification.data?.isTranslated) {
 			return notification.title;
 		}
-
-		// Translate common English titles to Spanish
-		const translations: Record<string, string> = {
-			'New Bid Received': 'Nueva Oferta Recibida',
-			'Bid Accepted': 'Oferta Aceptada',
-			'Bid Rejected': 'Oferta Rechazada',
-			'Payment Received': 'Pago Recibido',
-			'Payment Sent': 'Pago Enviado',
-			'Task Updated': 'Tarea Actualizada',
-			'New Message': 'Nuevo Mensaje',
-			'System Maintenance': 'Mantenimiento del Sistema',
-			'Security Alert': 'Alerta de Seguridad',
-			'Contract Created': 'Contrato Creado',
-			'Contract Completed': 'Contrato Completado',
-			'Task Completed': 'Tarea Completada',
-			'New Notification': 'Nueva Notificación'
-		};
-
-		return translations[notification.title] || notification.title;
+		
+		// Check if notification has translation keys
+		if (notification.data?.titleKey) {
+			return $t(notification.data.titleKey);
+		}
+		
+		// Fallback to direct translation of the title
+		return $t(notification.title) || notification.title;
 	}
 
 	function getTranslatedBody(notification: Notification): string {
-		// If body is already in Spanish, return as is
-		if (notification.body.includes('recibido') || notification.body.includes('enviado') || 
-			notification.body.includes('tarea') || notification.body.includes('oferta')) {
+		// If notification is already translated, return as-is
+		if (notification.data?.isTranslated) {
 			return notification.body;
 		}
-
-		// Translate common English body text to Spanish
-		const bodyTranslations: Record<string, string> = {
-			'You have received a new bid': 'Has recibido una nueva oferta',
-			'Your bid has been accepted': 'Tu oferta ha sido aceptada',
-			'Your bid has been rejected': 'Tu oferta ha sido rechazada',
-			'Payment has been received': 'El pago ha sido recibido',
-			'Payment has been sent': 'El pago ha sido enviado',
-			'Task has been updated': 'La tarea ha sido actualizada',
-			'You have a new message': 'Tienes un nuevo mensaje',
-			'System maintenance scheduled': 'Mantenimiento del sistema programado',
-			'Security alert detected': 'Alerta de seguridad detectada',
-			'Contract has been created': 'El contrato ha sido creado',
-			'Contract has been completed': 'El contrato ha sido completado',
-			'Task has been completed': 'La tarea ha sido completada'
-		};
-
-		// Try to find a matching translation
-		for (const [english, spanish] of Object.entries(bodyTranslations)) {
-			if (notification.body.includes(english)) {
-				return notification.body.replace(english, spanish);
-			}
+		
+		// Check if notification has translation keys
+		if (notification.data?.bodyKey) {
+			const translation = $t(notification.data.bodyKey as any);
+			// Replace {senderName} placeholder with actual sender name
+			return translation.replace('{senderName}', notification.data.senderName || 'Usuario');
 		}
-
-		return notification.body;
+		
+		// Fallback to direct translation of the body
+		const translation = $t(notification.body as any) || notification.body;
+		// Replace {senderName} placeholder with actual sender name
+		return translation.replace('{senderName}', notification.data?.senderName || 'Usuario');
 	}
 
 </script>
@@ -196,63 +186,84 @@
 		class="relative btn btn-ghost btn-sm p-2 hover:bg-base-200 transition-colors"
 		aria-label="Notifications"
 	>
-		{#if unreadCount > 0}
+		{#if unreadCount > 0 || incomingCount > 0}
 			<IconBellAlert class="w-5 h-5 text-primary" />
 		{:else}
 			<IconBellOutline class="w-5 h-5 text-base-content/70" />
 		{/if}
 		
 		<!-- Unread Badge -->
-		{#if unreadCount > 0}
+		{#if unreadCount > 0 || incomingCount > 0}
 			<span class="absolute -top-1 -right-1 bg-error text-error-content text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold shadow-sm">
-				{unreadCount > 99 ? '99+' : unreadCount}
+				{unreadCount + incomingCount > 99 ? '99+' : unreadCount + incomingCount}
 			</span>
 		{/if}
 	</button>
 
 	<!-- Notification Dropdown -->
 	{#if isOpen}
-		<div class="absolute right-0 mt-2 w-96 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-96 overflow-hidden">
+		<div class="absolute right-2 sm:right-0 mt-2 w-80 sm:w-96 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-96 flex flex-col">
 			<!-- Header -->
-			<div class="px-4 py-3 border-b border-base-300 flex items-center justify-end">
+			<div class="px-3 sm:px-4 py-3 border-b border-base-300 flex items-center justify-between flex-shrink-0">
 				<div class="flex items-center space-x-2">
 					{#if notifications.length > 0}
+						<span class="text-xs text-base-content/60">
+							{filteredNotifications.length} {showOnlyUnread ? $t('notifications.unread') : 'total'}
+						</span>
+					{/if}
+				</div>
+				<div class="flex items-center space-x-1 sm:space-x-2">
+					{#if notifications.length > 0}
+						<button
+							onclick={() => showOnlyUnread = !showOnlyUnread}
+							class="text-xs sm:text-sm text-primary hover:text-primary-focus"
+						>
+							{showOnlyUnread ? $t('notifications.show_all') : $t('notifications.show_unread_only')}
+						</button>
 						<button
 							onclick={clearAllNotifications}
-							class="text-sm text-base-content/60 hover:text-base-content/80"
+							class="text-xs sm:text-sm text-base-content/60 hover:text-base-content/80"
 						>
-							Clear all
+							{$t('notifications.clear_all')}
 						</button>
 					{/if}
 					<button
 						onclick={() => isOpen = false}
-						class="text-base-content/40 hover:text-base-content/60"
+						class="text-base-content/40 hover:text-base-content/60 p-1"
 						aria-label="Close notifications"
 					>
-						<IconClose class="w-5 h-5" />
+						<IconClose class="w-4 h-4 sm:w-5 sm:h-5" />
 					</button>
 				</div>
 			</div>
 
 			<!-- Notifications List -->
-			<div class="max-h-80 overflow-y-auto">
+			<div class="flex-1 overflow-y-auto min-h-0">
 				{#if isLoading}
 					<div class="p-4 text-center text-base-content/60">
 						<IconLoading class="w-6 h-6 animate-spin text-primary mx-auto" />
-						<p class="mt-2">Loading notifications...</p>
+						<p class="mt-2">{$t('notifications.loading')}</p>
 					</div>
-				{:else if notifications.length === 0}
+				{:else if filteredNotifications.length === 0}
 					<div class="p-8 text-center text-base-content/60">
 						<IconBellOutline class="w-12 h-12 mx-auto mb-4 text-base-content/30" />
-						<p class="text-lg font-medium">No notifications</p>
-						<p class="text-sm">You're all caught up!</p>
+						<p class="text-lg font-medium">
+							{showOnlyUnread ? $t('notifications.no_unread_notifications') : $t('notifications.no_notifications')}
+						</p>
+						<p class="text-sm">
+							{$t('notifications.no_notifications_message')}
+						</p>
 					</div>
 				{:else}
-					{#each notifications as notification (notification.id)}
+					{#each filteredNotifications as notification (notification.id)}
 						<div
-							class="px-4 py-3 border-b border-base-300 hover:bg-base-200 transition-colors {notification.read ? 'opacity-75' : 'bg-primary/5'} relative"
+							onclick={() => handleNotificationClick(notification)}
+							onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotificationClick(notification); } }}
+							role="button"
+							tabindex="0"
+							class="px-3 sm:px-4 py-3 border-b border-base-300 hover:bg-base-200 transition-colors cursor-pointer {notification.read ? 'opacity-75' : 'bg-primary/5'} relative"
 						>
-							<div class="flex items-start space-x-3">
+							<div class="flex items-start space-x-2 sm:space-x-3">
 								<!-- Icon -->
 								<div class="flex-shrink-0">
 									{#if notification.type === 'bid_response'}
@@ -276,67 +287,56 @@
 
 								<!-- Content -->
 								<div class="flex-1 min-w-0">
-									<div class="flex items-center justify-between">
-									<h4 class="{getTitleSize(notification)} text-base-content truncate">
-										{getTranslatedTitle(notification)}
-									</h4>
-										<div class="flex items-center space-x-2">
-											<!-- Priority Badge -->
-											<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {getPriorityColor(notification.priority)}">
-												{notification.priority}
+									<div class="flex items-start justify-between">
+										<div class="flex-1 min-w-0">
+											<span class="{getTitleSize(notification)} text-base-content truncate">
+												{getTranslatedTitle(notification)}
 											</span>
-											<!-- Time -->
-											<span class="text-xs text-base-content/60">
+											<p class="mt-1 text-sm text-base-content/80 line-clamp-2">
+												{getTranslatedBody(notification)}
+											</p>
+										</div>
+										<!-- Time and Remove Button -->
+										<div class="flex items-center space-x-1 ml-2">
+											<span class="text-xs text-base-content/60 whitespace-nowrap">
 												{formatTimeAgo(notification.createdAt)}
 											</span>
+											<button
+												onclick={(e) => removeNotification(notification.id, e)}
+												class="text-base-content/40 hover:text-base-content/60 p-1 flex-shrink-0"
+												aria-label="Remove notification"
+											>
+												<IconDelete class="w-4 h-4" />
+											</button>
 										</div>
 									</div>
-									<p class="mt-1 text-sm text-base-content/80 line-clamp-2">
-										{getTranslatedBody(notification)}
-									</p>
 									
 									<!-- Additional Data -->
 									{#if notification.data && Object.keys(notification.data).length > 0}
 										<div class="mt-2 text-xs text-base-content/60">
 											{#if notification.data.taskTitle}
-												<span class="inline-block bg-base-200 px-2 py-1 rounded">
+												<span class="inline-block bg-base-200 px-2 py-1 rounded text-xs">
 													{notification.data.taskTitle}
 												</span>
 											{/if}
 											{#if notification.data.amount}
-												<span class="inline-block bg-success/20 text-success px-2 py-1 rounded ml-1">
-													{notification.data.amount} {notification.data.currency || 'USD'}
-												</span>
+												<div class="flex gap-1 mt-1">
+													{#if notification.data.bitcoinAmount}
+														<span class="inline-block bg-primary/20 text-primary px-2 py-1 rounded text-xs">
+															{notification.data.bitcoinAmount} sats
+														</span>
+													{/if}
+													<span class="inline-block bg-success/20 text-success px-2 py-1 rounded text-xs">
+														{notification.data.amount} {notification.data.currency || 'USD'}
+													</span>
+												</div>
 											{/if}
 										</div>
 									{/if}
 								</div>
-
-								<!-- Action Buttons -->
-								<div class="flex-shrink-0 flex items-center space-x-1">
-									<!-- View Button -->
-									<button
-										onclick={() => handleNotificationClick(notification)}
-										class="text-primary hover:text-primary-focus p-1"
-										aria-label="View notification"
-									>
-										<IconEye class="w-4 h-4" />
-									</button>
-									<!-- Remove Button -->
-									<button
-										onclick={() => removeNotification(notification.id)}
-										class="text-base-content/40 hover:text-base-content/60 p-1"
-										aria-label="Remove notification"
-									>
-										<IconDelete class="w-4 h-4" />
-									</button>
-								</div>
 							</div>
 
-							<!-- Unread Indicator -->
-							{#if !notification.read}
-								<div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r"></div>
-							{/if}
+							
 						</div>
 					{/each}
 				{/if}
@@ -344,12 +344,12 @@
 
 			<!-- Footer -->
 			{#if notifications.length > 0}
-				<div class="px-4 py-3 border-t border-base-300 bg-base-200">
+				<div class="px-3 sm:px-4 py-3 border-t border-base-300 bg-base-200 flex-shrink-0">
 					<button
-						onclick={() => goto('/dashboard/notifications')}
-						class="w-full text-center text-sm text-primary hover:text-primary-focus font-medium"
+						onclick={handleViewAllNotifications}
+						class="w-full text-center cursor-pointer text-xs sm:text-sm text-primary hover:text-primary-focus font-medium"
 					>
-						View all notifications
+						{$t('notifications.view_all')}
 					</button>
 				</div>
 			{/if}

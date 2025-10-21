@@ -1,0 +1,222 @@
+{
+    "notifications": {
+      "page_title": "Notifications",
+      "title": "Notifications",
+      "subtitle": "Stay updated with your tasks, bids, and payments",
+      "search_placeholder": "Search notifications...",
+      "loading": "Loading notifications...",
+      "no_notifications": "No notifications",
+      "no_matching": "No matching notifications",
+      "adjust_search": "Try adjusting your search or filter criteria.",
+      "all_caught_up": "You're all caught up! New notifications will appear here.",
+      "notifications_actions": {
+        "mark_all_read": "Mark all as read",
+        "clear_all": "Clear all",
+        "view": "View notification",
+        "remove": "Remove notification"
+      },
+      "filters": {
+        "all": "All Notifications"
+      },
+      "types": {
+        "bid_response": "Bid Responses",
+        "contract_event": "Contract Events",
+        "payment": "Payments",
+        "task_update": "Task Updates",
+        "message": "Messages",
+        "system": "System",
+        "security": "Security",
+        "other": "Other"
+      },
+      "stats": {
+        "showing": "Showing",
+        "of": "of",
+        "notifications": "notifications"
+      },
+      "no_notifications_message": "You're all caught up!",
+      "no_unread_notifications": "No unread notifications",
+      "no_unread_notifications_message": "All notifications have been read!",
+      "clear_all": "Clear all",
+      "view_all": "View all notifications",
+      "mark_all_read": "Mark all as read",
+      "show_all": "Show all",
+      "show_unread_only": "Show unread only",
+      "new": "new",
+      "new_plural": "new",
+      "unread": "unread",
+      "unread_plural": "unread",
+      "read": "read",
+    "just_now": "Just now",
+    "minutes_ago": "{count}m ago",
+    "hours_ago": "{count}h ago",
+    "days_ago": "{count}d ago",
+    "weeks_ago": "{count}w ago",
+    "months_ago": "{count}mo ago",
+    "years_ago": "{count}y ago",
+    "priority": {
+      "low": "low",
+      "normal": "normal",
+      "high": "high",
+      "urgent": "urgent"
+    },
+    "roles": {
+      "tasker": "Tasker",
+      "taskee": "Taskee",
+      "unknown": "Unknown"
+    },
+    "titles": {
+      "new_bid_received": "New Bid Received",
+      "bid_accepted": "Bid Accepted",
+      "bid_rejected": "Bid Rejected",
+      "payment_received": "Payment Received",
+      "payment_sent": "Payment Sent",
+      "payment_pending": "Payment Pending",
+      "task_updated": "Task Updated",
+      "task_completed": "Task Completed",
+      "contract_created": "Contract Created",
+      "contract_updated": "Contract Updated",
+      "contract_completed": "Contract Completed",
+      "contract_disputed": "Contract Disputed",
+      "new_message": "New Message",
+      "system_maintenance": "System Maintenance",
+      "security_alert": "Security Alert",
+      "new_notification": "New Notification"
+    },
+    "messages": {
+      "bid_status": {
+        "taskee": {
+          "accepted": "Great news! Your bid has been accepted by {senderName}. Time to start working!",
+          "rejected": "Your bid has been rejected by {senderName}. Don't get discouraged, keep trying."
+        },
+        "tasker": {
+          "accepted": "You have accepted a bid from {senderName}.",
+          "rejected": "You have rejected a bid from {senderName}."
+        },
+        "unknown": {
+          "accepted": "Bid accepted by {senderName}",
+          "rejected": "Bid rejected by {senderName}"
+        }
+      },
+      "new_bid": {
+        "tasker": "{senderName} has sent a bid for your task. Review the details and decide if you accept it.",
+        "taskee": "You have sent a bid to {senderName}.",
+        "unknown": "{senderName} has sent a bid."
+      },
+      "contract": {
+        "tasker": {
+          "created": "New contract created with {senderName}",
+          "completed": "Contract completed by {senderName}",
+          "disputed": "Dispute initiated by {senderName}",
+          "cancelled": "Contract cancelled by {senderName}",
+          "payment_released": "Payment released to {senderName}",
+          "payment_refunded": "Payment refunded to {senderName}"
+        },
+        "taskee": {
+          "created": "New contract created with {senderName}",
+          "completed": "Contract completed with {senderName}",
+          "disputed": "Dispute initiated by {senderName}",
+          "cancelled": "Contract cancelled by {senderName}",
+          "payment_released": "Payment received from {senderName}",
+          "payment_refunded": "Payment refunded by {senderName}"
+        },
+        "unknown": {
+          "created": "New contract created by {senderName}",
+          "completed": "Contract completed by {senderName}",
+          "disputed": "Dispute initiated by {senderName}",
+          "cancelled": "Contract cancelled by {senderName}",
+          "payment_released": "Payment released by {senderName}",
+          "payment_refunded": "Payment refunded by {senderName}"
+        }
+      },
+      "task_completion": {
+        "tasker": "{senderName} has marked your task as completed! Review the work and confirm if it's ready.",
+        "taskee": "You have marked a task as completed.",
+        "unknown": "{senderName} has marked a task as completed."
+      },
+      "payment": {
+        "tasker": {
+          "received": "You have sent {amount} {currency} to {senderName}",
+          "sent": "You have sent {amount} {currency} to {senderName}",
+          "pending": "Your payment of {amount} {currency} is pending confirmation"
+        },
+        "taskee": {
+          "received": "You have received {amount} {currency} from {senderName}",
+          "sent": "You have received {amount} {currency} from {senderName}",
+          "pending": "Payment of {amount} {currency} is pending confirmation"
+        },
+        "unknown": {
+          "received": "Payment of {amount} {currency} processed",
+          "sent": "Payment of {amount} {currency} sent",
+          "pending": "Payment of {amount} {currency} is pending"
+        }
+      },
+      "legacy": {
+        "new_bid_received": "{senderName} has sent a bid for your task. Review the details and decide if you accept it.",
+        "bid_accepted": "Excellent! Your bid has been accepted by {senderName}. Time to start working!",
+        "bid_rejected": "Your bid has been rejected by {senderName}. Don't get discouraged, keep trying.",
+        "payment_received": "You have received a payment of {amount} {currency} from {senderName}.",
+        "payment_sent": "You have sent a payment of {amount} {currency} to {senderName}.",
+        "payment_pending": "Your payment of {amount} {currency} is pending confirmation.",
+        "task_updated": "The task '{taskTitle}' has been updated by {senderName}.",
+        "task_completed": "{senderName} has marked your task as completed! Review the work and confirm if it's ready.",
+        "contract_created": "A new contract has been created for the task '{taskTitle}'.",
+        "contract_updated": "The contract for task '{taskTitle}' has been updated.",
+        "contract_completed": "The contract for task '{taskTitle}' has been completed successfully.",
+        "contract_disputed": "The contract for task '{taskTitle}' is in dispute and requires your attention.",
+        "new_message": "You have a new message from {senderName}.",
+        "new_message_body": "You received a message from {senderName}.",
+        "system_maintenance": "The system will be under scheduled maintenance. Some features may not be available.",
+        "security_alert": "Suspicious activity has been detected on your account. Please verify your security.",
+        "new_notification": "You have a new notification."
+      }
+    },
+    "noactions": {
+      "view_task": "View Task",
+      "view_contract": "View Contract",
+      "view_message": "View Message",
+      "view_payment": "View Payment",
+      "respond_to_bid": "Respond to Bid",
+      "review_work": "Review Work",
+      "resolve_dispute": "Resolve Dispute",
+      "check_security": "Check Security",
+      "view_details": "View Details"
+    },
+    "permissions": {
+      "title": "Notification Permissions",
+      "message": "To receive important notifications about your tasks and bids, please allow notifications in your browser.",
+      "enable_notifications": "Enable Notifications",
+      "not_supported": "Notifications are not supported in this browser.",
+      "permission_denied": "Notification permissions denied. You can enable them in your browser settings.",
+      "permission_granted": "Notifications enabled successfully."
+    },
+    "settings": {
+      "title": "Notification Settings",
+      "in_app": "In-app",
+      "push": "Push notifications",
+      "email": "Email",
+      "sms": "SMS",
+      "quiet_hours": "Quiet hours",
+      "quiet_hours_enabled": "Quiet hours enabled",
+      "quiet_hours_start": "Start",
+      "quiet_hours_end": "End",
+      "quiet_hours_timezone": "Timezone",
+      "save_settings": "Save Settings",
+      "settings_saved": "Settings saved successfully",
+      "settings_error": "Error saving settings"
+    },
+    "errors": {
+      "load_failed": "Failed to load notifications",
+      "mark_read_failed": "Failed to mark as read",
+      "delete_failed": "Failed to delete notification",
+      "clear_failed": "Failed to clear notifications",
+      "permission_failed": "Failed to request notification permissions"
+    },
+    "success": {
+      "marked_read": "Notification marked as read",
+      "deleted": "Notification deleted",
+      "cleared": "Notifications cleared",
+      "settings_updated": "Settings updated"
+    }
+  }
+}
+
