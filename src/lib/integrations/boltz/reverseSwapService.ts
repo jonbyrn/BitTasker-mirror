@@ -40,11 +40,12 @@ import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import { BoltzClient } from './client';
 import { boltzWebSocket } from './websocket';
-import { Contract, Interface, keccak256, solidityPacked } from 'ethers';
+import { Contract, Interface, keccak256, solidityPacked, ethers } from 'ethers';
 import { getPublicKey, finalizeEvent, type NostrEvent } from 'nostr-tools';
 import nip44 from '$lib/nostr/nip44';
 import nostrEventsService from '$lib/api/services/nostr/events';
-import { rifRelayService, type RifRelayServiceError } from './rifRelayService';
+import { rifRelayHttpClient } from './rifRelayHttpClient';
+import { smartWalletService } from './smartWalletService';
 import { getBoltzConfig, satoshiToWei, isRifRelayAvailable } from './config';
 import { EtherSwap__factory } from '$lib/contracts';
 
@@ -252,39 +253,51 @@ export class ReverseSwapService {
 					break;
 				}
 
-				// Attempt gasless claim via RIF Relay if available
-				if (isRifRelayAvailable()) {
-					console.log('🌐 Attempting gasless claim via RIF Relay...');
-					try {
-						await this.claimRBTCViaRifRelay(swapData, nsec, wallet);
-						// Success! The claim method already updates status and saves to Nostr
-						break;
-					} catch (error) {
-						console.error('❌ RIF Relay claim failed:', error);
-						console.log('🔄 Falling back to direct claim check...');
-					}
-				}
+				// Strategy: Try direct claim first (if user has gas), then fallback to RIF Relay
+				// Direct claim is simpler, cheaper, and doesn't require Smart Wallet deployment
+				let claimSuccessful = false;
 
-				// Fallback: Check if user has gas for direct claim
+				// 1. Check if user has sufficient RBTC for gas
 				try {
 					const balance = await wallet.provider.getBalance(wallet.address);
 					const gasEstimate = await this.estimateClaimGas(swapData);
 
 					if (balance >= gasEstimate) {
-						console.log('💰 User has gas, attempting direct claim...');
+						console.log('💰 User has sufficient RBTC for gas \n 📊 Balance:', ethers.formatEther(balance), 'RBTC');
+						console.log('⛽ Estimated gas:', ethers.formatEther(gasEstimate), 'RBTC');
 						try {
 							await this.claimRBTC(swapData, nsec, wallet);
+							claimSuccessful = true;
 						} catch (error) {
 							console.error('❌ Direct claim failed:', error);
-							swapData.status = 'transaction.confirmed'; // Allow manual retry
+							console.log('🔄 Will try RIF Relay as fallback...');
 						}
 					} else {
-						console.log('⚠️ Insufficient gas for direct claiming');
-						console.log('💡 User needs to add RBTC for gas or wait for manual intervention');
-						swapData.status = 'transaction.confirmed';
+						console.log('⚠️ Insufficient RBTC for gas fees');
+						console.log('📊 Balance:', ethers.formatEther(balance), 'RBTC');
+						console.log('⛽ Need:', ethers.formatEther(gasEstimate), 'RBTC');
+						console.log('🔄 Will try gasless claim via RIF Relay...');
 					}
 				} catch (err) {
-					console.warn('⚠️ Could not check balance:', err);
+					console.warn('⚠️ Could not check balance for direct claim:', err);
+					console.log('🔄 Will try RIF Relay as fallback...');
+				}
+
+				// 2. If direct claim failed or user has no gas, try RIF Relay (gasless)
+				if (!claimSuccessful && isRifRelayAvailable()) {
+					console.log('🌐 Attempting gasless claim via RIF Relay...');
+					try {
+						await this.claimRBTCViaRifRelay(swapData, nsec, wallet);
+						claimSuccessful = true;
+					} catch (error) {
+						console.error('❌ RIF Relay claim failed:', error);
+					}
+				}
+
+				// 3. If both methods failed, leave in confirmed state for manual retry
+				if (!claimSuccessful) {
+					console.warn('⚠️ All automatic claim methods failed');
+					console.log('💡 User may need to manually claim or add RBTC for gas');
 					swapData.status = 'transaction.confirmed';
 				}
 				break;
@@ -428,6 +441,20 @@ export class ReverseSwapService {
 	 * @param walletSigner - User's RSK wallet signer
 	 * @returns Transaction hash
 	 */
+	/**
+	 * Claim RBTC via RIF Relay (gasless)
+	 * 
+	 * This method uses RIF Relay to claim RBTC without requiring the user to have gas.
+	 * The transaction is executed FROM a Smart Wallet (deployed if needed).
+	 * RIF Relay pays the gas fees.
+	 * 
+	 * NOTE: Smart Wallet addresses are cached in-memory. Persistence will be added later.
+	 * 
+	 * @param swapData - Swap data with preimage and parameters
+	 * @param nsec - User's Nostr private key (for swap status updates)
+	 * @param walletSigner - User's EOA wallet (owns Smart Wallet)
+	 * @returns Transaction hash
+	 */
 	async claimRBTCViaRifRelay(
 		swapData: BoltzSwapData,
 		nsec: string,
@@ -442,10 +469,21 @@ export class ReverseSwapService {
 				throw new Error('Missing required swap data for claiming');
 			}
 
-			// Initialize RIF Relay service if not already initialized
-			await rifRelayService.initialize();
+			// Check if RIF Relay is available
+			if (!isRifRelayAvailable()) {
+				throw new Error('RIF Relay is not available for this environment');
+			}
 
-			// Get EtherSwap contract address from Boltz API
+			// 1. Ensure Smart Wallet exists (deploy if needed)
+			console.log('🔧 Ensuring Smart Wallet exists...');
+			const smartWalletAddress = await smartWalletService.ensureSmartWallet(
+				walletSigner.address,
+				walletSigner
+			);
+
+			console.log('✅ Using Smart Wallet:', smartWalletAddress);
+
+			// 2. Get EtherSwap contract address from Boltz API
 			console.log('📡 Fetching EtherSwap contract address from Boltz API...');
 			const config = getBoltzConfig();
 			const contractsResponse = await fetch(
@@ -465,7 +503,7 @@ export class ReverseSwapService {
 
 			console.log('📍 Using EtherSwap contract:', etherSwapAddress);
 
-			// Get actual lockup parameters from the Lockup event
+			// 3. Get actual lockup parameters from the Lockup event
 			let amountWei: bigint;
 			let refundAddress: string;
 			let timelock: number;
@@ -497,7 +535,7 @@ export class ReverseSwapService {
 				timelock = swapData.timeoutBlockHeight!;
 			}
 
-			// Build unsigned claim transaction using TypeScript-generated contract types
+			// 4. Build claim transaction data
 			const etherSwapContract = EtherSwap__factory.connect(etherSwapAddress, walletSigner);
 			const preimageBytes32 = '0x' + swapData.preimage;
 
@@ -506,47 +544,43 @@ export class ReverseSwapService {
 				amount: `${amountWei.toString()} wei`,
 				refundAddress,
 				timelock,
-				claimAddress: walletSigner.address
+				smartWallet: smartWalletAddress
 			});
 
-			// Populate the transaction (don't send it yet)
-			const claimTx = await etherSwapContract.claim.populateTransaction(
+			// Encode the claim function call
+			const claimData = etherSwapContract.interface.encodeFunctionData('claim', [
 				preimageBytes32,
 				amountWei,
 				refundAddress,
 				timelock
-			);
+			]);
 
-			if (!claimTx.data) {
-				throw new Error('Failed to populate claim transaction data');
-			}
-
-			console.log('✅ Claim transaction built successfully');
+			console.log('✅ Claim transaction encoded');
 			console.log('🚀 Relaying transaction via RIF Relay...');
 
-			// Relay the transaction via RIF Relay (gasless!)
-			const relayResult = await rifRelayService.relayTransaction(
+			// 5. Relay the transaction via RIF Relay (gasless!)
+			const relayResult = await rifRelayHttpClient.relayTransaction(
 				{
-					from: walletSigner.address,
-					to: etherSwapAddress,
-					data: claimTx.data,
-					gas: '200000', // Sufficient for claim transaction
+					smartWalletAddress,      // FROM Smart Wallet
+					targetContract: etherSwapAddress,  // TO EtherSwap
+					encodedData: claimData,  // Encoded claim() call
+					gas: '200000',           // Sufficient for claim
 					value: '0'
 				},
-				walletSigner
+				walletSigner  // EOA wallet for signing
 			);
 
 			console.log('✅ Transaction relayed successfully:', relayResult.hash);
 			console.log('⏳ Waiting for transaction confirmation...');
 
-			// Update swap data
+			// 6. Update swap data
 			swapData.claimTxHash = relayResult.hash;
 			swapData.status = 'transaction.claim.pending';
 			swapData.rifRelayUsed = true;
 			swapData.updatedAt = Date.now();
 			await this.saveSwapToNostr(swapData, nsec);
 
-			// Wait for transaction confirmation
+			// 7. Wait for transaction confirmation
 			const receipt = await walletSigner.provider.waitForTransaction(relayResult.hash);
 
 			console.log('✅ Claim transaction confirmed!');
@@ -557,7 +591,7 @@ export class ReverseSwapService {
 				status: receipt.status
 			});
 
-			// Update status
+			// 8. Update status
 			swapData.status = 'claimed';
 			swapData.updatedAt = Date.now();
 			await this.saveSwapToNostr(swapData, nsec);
@@ -577,82 +611,6 @@ export class ReverseSwapService {
 		}
 	}
 
-	/**
-	 * Claim RBTC cooperatively via Boltz API (gasless)
-	 * 
-	 * This method submits the preimage to Boltz who then uses RIF Relay
-	 * to broadcast the claim transaction on behalf of the user.
-	 * User does not need any RBTC for gas fees.
-	 * 
-	 * @param swapData - The swap data containing preimage and swap ID
-	 * @param nsec - User's Nostr private key for storage updates
-	 * @returns Transaction hash from Boltz
-	 */
-	async claimRBTCCooperative(
-		swapData: BoltzSwapData,
-		nsec: string
-	): Promise<{ txHash: string }> {
-		try {
-			console.log('🤝 Using Boltz cooperative claim (gasless)...');
-			console.log('📋 Swap ID:', swapData.id);
-
-			// Submit preimage to Boltz API
-			const apiUrl = this.boltzClient['config'].apiUrl;
-			const response = await fetch(
-				`${apiUrl}/v2/swap/reverse/${swapData.id}/claim`,
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						preimage: swapData.preimage
-					})
-				}
-			);
-
-			if (!response.ok) {
-				const errorText = await response.text();
-				console.error('❌ Boltz API error:', response.status, errorText);
-
-				// Provide helpful error messages
-				if (response.status === 404) {
-					throw new Error('Swap not found. Please check swap ID.');
-				} else if (response.status === 409) {
-					throw new Error('Swap already claimed.');
-				} else if (response.status === 400) {
-					throw new Error('Invalid claim data. Please contact support.');
-				}
-
-				throw new Error(`Boltz cooperative claim failed: ${response.status} ${errorText}`);
-			}
-
-			const result = await response.json();
-
-			// The response might have different field names for transaction ID
-			const txHash = result.transactionId || result.txHash || result.hash;
-
-			if (!txHash) {
-				console.error('❌ No transaction ID in response:', result);
-				throw new Error('Boltz did not return a transaction ID');
-			}
-
-			console.log('✅ Boltz broadcasting claim transaction via RIF Relay');
-			console.log('📋 Transaction ID:', txHash);
-
-			// Update swap data
-			swapData.claimTxHash = txHash;
-			swapData.status = 'transaction.claim.pending';
-			swapData.updatedAt = Date.now();
-			await this.saveSwapToNostr(swapData, nsec);
-
-			// Boltz will emit 'invoice.settled' via WebSocket when complete
-			return { txHash };
-		} catch (error) {
-			console.error('❌ Cooperative claim failed:', error);
-			throw error;
-		}
-	}
 
 	/**
 	 * Estimate gas needed for direct claim
@@ -697,56 +655,6 @@ export class ReverseSwapService {
 		await this.saveSwapToNostr(swapData, nsec);
 	}
 
-	async claimRBTCWithAutoSelection(
-		swapData: BoltzSwapData,
-		nsec: string,
-		walletSigner?: any
-	): Promise<{ txHash: string }> {
-
-		// Check if user has sufficient gas for direct claim
-		if (walletSigner) {
-			try {
-				const balance = await walletSigner.provider.getBalance(walletSigner.address);
-				const gasEstimate = await this.estimateClaimGas(swapData);
-
-				console.log('💰 Balance check:', {
-					balance: balance.toString(),
-					gasEstimate: gasEstimate.toString(),
-					hasSufficientGas: balance >= gasEstimate
-				});
-
-				if (balance >= gasEstimate) {
-					console.log('💰 Sufficient gas available, using direct claim');
-					return await this.claimRBTC(swapData, nsec, walletSigner);
-				}
-			} catch (err) {
-				console.warn('⚠️ Could not check balance, will try cooperative claim:', err);
-			}
-		}
-
-		// Insufficient gas or no wallet - use cooperative claim
-		console.log('⛽ Insufficient gas or no wallet, using Boltz cooperative claim (gasless)');
-
-		try {
-			return await this.claimRBTCCooperative(swapData, nsec);
-		} catch (cooperativeError) {
-			console.error('❌ Cooperative claim failed:', cooperativeError);
-
-			// If cooperative fails AND user has wallet, try direct as last resort
-			if (walletSigner) {
-				console.log('🔄 Attempting direct claim as fallback...');
-				try {
-					return await this.claimRBTC(swapData, nsec, walletSigner);
-				} catch (directError) {
-					console.error('❌ Direct claim also failed:', directError);
-					// Throw the original cooperative error as it was the primary attempt
-					throw cooperativeError;
-				}
-			}
-
-			throw cooperativeError;
-		}
-	}
 
 	/**
 	 * Claim rBTC from EtherSwap contract (Direct method - requires gas)
@@ -758,10 +666,10 @@ export class ReverseSwapService {
 	 * - If swap doesn't exist or already claimed, the contract will revert
 	 * 
 	 * NOTE: This method requires the user to have RBTC for gas fees.
-	 * Consider using claimRBTCWithAutoSelection() which will use cooperative
-	 * claim if the user has insufficient gas.
+	 * For gasless claiming, use claimRBTCViaRifRelay() instead.
 	 * 
 	 * This method is called when swap reaches 'transaction.confirmed' status
+	 * and user has sufficient gas balance.
 	 */
 	async claimRBTC(
 		swapData: BoltzSwapData,

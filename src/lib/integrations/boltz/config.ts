@@ -24,7 +24,9 @@ export const BOLTZ_NETWORKS: Record<BoltzEnvironment, BoltzNetworkConfig> = {
 		rskRpcUrl: 'http://localhost:8545',
 		rskChainId: 33, // Anvil regtest
 		rifRelayServerUrl: 'http://localhost:8090',
-		rifRelayEnabled: true
+		rifRelayEnabled: true,
+		// MinimalBoltzSmartWalletFactory deployed in regtest
+		smartWalletFactoryAddress: '0x59b670e9fA9D0A427751Af201D676719a970857b'
 	},
 	mainnet: {
 		boltzApiUrl: 'https://api.boltz.exchange',
