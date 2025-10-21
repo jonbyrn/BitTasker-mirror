@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { notificationStore, unreadNotifications, hasUnreadNotifications, incomingNotificationsCount, initializeNotificationService } from '$lib/stores/notification.store';
+	import { notificationStore, initializeNotificationService } from '$lib/stores/notification.store';
 	import { localNotificationService } from '$lib/services/local-notification.service';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import type { Notification } from '$lib/stores/notification.store';
 	
@@ -28,15 +28,6 @@
 	let isLoading = $state(false);
 	let showOnlyUnread = $state(true);
 
-	// Subscribe to notification store
-	$effect(() => {
-		const store = $notificationStore;
-		notifications = store.notifications;
-		unreadCount = store.unreadCount;
-		incomingCount = store.incomingCount;
-		isLoading = store.isLoading;
-	});
-
 	// Computed property for filtered notifications
 	let filteredNotifications = $derived(
 		showOnlyUnread 
@@ -44,9 +35,26 @@
 			: notifications
 	);
 
+	let unsubscribe: (() => void) | null = null;
+
 	onMount(async () => {
 		// Initialize notification service
 		await initializeNotificationService();
+		
+		// Subscribe to notification store manually
+		unsubscribe = notificationStore.subscribe((store) => {
+			notifications = store.notifications;
+			unreadCount = store.unreadCount;
+			incomingCount = store.incomingCount;
+			isLoading = store.isLoading;
+		});
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		if (unsubscribe) {
+			unsubscribe();
+		}
 	});
 
 	function toggleNotificationCenter() {
@@ -66,10 +74,14 @@
 		// Reset incoming count when viewing a notification
 		localNotificationService.resetIncomingCount();
 
-		// Handle action
+		// Close notification center first
+		isOpen = false;
+
+		// Handle action with proper navigation
 		if (notification.action) {
 			switch (notification.action.type) {
 				case 'navigation':
+					// Use goto for internal navigation
 					goto(notification.action.payload);
 					break;
 				case 'external_link':
@@ -77,13 +89,12 @@
 					break;
 				case 'function_call':
 					// Handle function call if needed
-					console.log('Function call:', notification.action.payload);
 					break;
 			}
+		} else {
+			// Default navigation if no action specified
+			goto('/dashboard/notifications');
 		}
-
-		// Close notification center
-		isOpen = false;
 	}
 
 	function removeNotification(notificationId: string, event?: Event) {
@@ -96,6 +107,14 @@
 	function clearAllNotifications() {
 		// Actually clear all notifications
 		localNotificationService.clearAll();
+	}
+
+	function handleViewAllNotifications() {
+		// Close the notification center first
+		isOpen = false;
+		
+		// Navigate to notifications page using goto
+		goto('/dashboard/notifications');
 	}
 
 	function formatTimeAgo(timestamp: Date): string {
@@ -270,9 +289,9 @@
 								<div class="flex-1 min-w-0">
 									<div class="flex items-start justify-between">
 										<div class="flex-1 min-w-0">
-											<h4 class="{getTitleSize(notification)} text-base-content truncate">
+											<span class="{getTitleSize(notification)} text-base-content truncate">
 												{getTranslatedTitle(notification)}
-											</h4>
+											</span>
 											<p class="mt-1 text-sm text-base-content/80 line-clamp-2">
 												{getTranslatedBody(notification)}
 											</p>
@@ -327,8 +346,8 @@
 			{#if notifications.length > 0}
 				<div class="px-3 sm:px-4 py-3 border-t border-base-300 bg-base-200 flex-shrink-0">
 					<button
-						onclick={() => goto('/dashboard/notifications')}
-						class="w-full text-center text-xs sm:text-sm text-primary hover:text-primary-focus font-medium"
+						onclick={handleViewAllNotifications}
+						class="w-full text-center cursor-pointer text-xs sm:text-sm text-primary hover:text-primary-focus font-medium"
 					>
 						{$t('notifications.view_all')}
 					</button>

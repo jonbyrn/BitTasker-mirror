@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { notificationStore, NOTIFICATION_CATEGORIES } from '$lib/stores/notification.store';
+	import { notificationStore, NOTIFICATION_CATEGORIES, initializeNotificationService } from '$lib/stores/notification.store';
+	import { localNotificationService } from '$lib/services/local-notification.service';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import type { Notification } from '$lib/stores/notification.store';
 	
@@ -21,13 +22,8 @@
 	let isLoading = $state(false);
 	let searchQuery = $state('');
 
-	// Subscribe to notification store and apply filters
-	$effect(() => {
-		const store = $notificationStore;
-		notifications = store.notifications;
-		isLoading = store.isLoading;
-		
-		// Apply filters whenever notifications, selectedFilter, or searchQuery changes
+	// Function to apply filters
+	function applyFilters() {
 		let filtered = [...notifications];
 
 		// Apply type filter
@@ -50,44 +46,73 @@
 		filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
 		filteredNotifications = filtered;
-	});
+	}
+
+	let unsubscribe: (() => void) | null = null;
 
 	onMount(async () => {
 		// Load notifications from backend
-		//await notificationService.loadNotifications();
+		try {
+			await initializeNotificationService();
+			
+			// Subscribe to notification store manually
+			unsubscribe = notificationStore.subscribe((store) => {
+				notifications = store.notifications;
+				isLoading = store.isLoading;
+				applyFilters(); // Apply filters when notifications change
+			});
+		} catch (error) {
+			console.error('❌ Error initializing notification service:', error);
+		}
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		if (unsubscribe) {
+			unsubscribe();
+		}
 	});
 
 
 	function handleNotificationClick(notification: Notification) {
 		// Mark as read
-		//notificationService.markAsRead(notification.id);
+		localNotificationService.markAsRead(notification.id);
 
-		// Handle action
+		// Handle action with proper navigation
 		if (notification.action) {
 			switch (notification.action.type) {
 				case 'navigation':
+					// Use goto for internal navigation
 					goto(notification.action.payload);
 					break;
 				case 'external_link':
 					window.open(notification.action.payload, '_blank');
 					break;
 				case 'function_call':
-					console.log('Function call:', notification.action.payload);
+					// Handle function call if needed
 					break;
 			}
 		}
 	}
 
 	function removeNotification(notificationId: string) {
-		//notificationService.removeNotification(notificationId);
+		localNotificationService.removeNotification(notificationId);
 	}
 
 	function markAllAsRead() {
-		//notificationService.markAllAsRead();
+		localNotificationService.markAllAsRead();
 	}
 
 	function clearAllNotifications() {
-		//notificationService.clearAll();
+		localNotificationService.clearAll();
+	}
+
+	function handleSearchChange() {
+		applyFilters();
+	}
+
+	function handleFilterChange() {
+		applyFilters();
 	}
 
 	function formatTimeAgo(timestamp: Date): string {
@@ -216,6 +241,7 @@
 						<div class="relative">
 							<input
 								bind:value={searchQuery}
+								oninput={handleSearchChange}
 								type="text"
 								placeholder={$t('notifications.search_placeholder')}
 								class="input input-bordered w-full pl-10"
@@ -244,6 +270,7 @@
 					<div class="form-control">
 						<select
 							bind:value={selectedFilter}
+							onchange={handleFilterChange}
 							class="select select-bordered w-full"
 						>
 							{#each filterOptions as option}
