@@ -639,7 +639,7 @@ class LocalNotificationService {
 			
 			case 'bid':
 				// Handle direct bid messages
-				return this.createBidNotification(jsonMessage as BidMessage, senderName, baseNotification, userRole);
+				return await this.createBidNotification(jsonMessage as BidMessage, senderName, baseNotification, userRole);
 			
 			case 'task-completed':
 				// Handle task completion notifications
@@ -861,15 +861,15 @@ class LocalNotificationService {
 	/**
 	 * Create notification for direct bid messages
 	 */
-	private createBidNotification(
+	private async createBidNotification(
 		message: BidMessage, 
 		senderName: string, 
 		base: Partial<Notification>,
 		userRole: UserRole
-	): Notification {
+	): Promise<Notification> {
 		// Convert USD to Bitcoin (sats) for display
 		const usdAmount = parseFloat(message.amount?.toString() || '0');
-		const bitcoinAmount = this.convertUsdToSats(usdAmount);
+		const bitcoinAmount = await this.convertUsdToSats(usdAmount);
 
 		// Create proper navigation URL based on notification type
 		const navigationUrl = userRole === 'tasker' 
@@ -916,16 +916,21 @@ class LocalNotificationService {
 	}
 
 	/**
-	 * Convert USD amount to Bitcoin (sats)
-	 * Using approximate rate: 1 USD ≈ 20,000 sats (this should be dynamic in production)
+	 * Convert USD amount to Bitcoin (sats) using real-time Bitcoin price
 	 */
-	private convertUsdToSats(usdAmount: number): number {
-		// Approximate conversion rate (should be fetched from API in production)
-		const BTC_TO_USD_RATE = 50000; // $50,000 per BTC
-		const SATS_PER_BTC = 100000000; // 100 million sats per BTC
-		
-		const btcAmount = usdAmount / BTC_TO_USD_RATE;
-		return Math.round(btcAmount * SATS_PER_BTC);
+	private async convertUsdToSats(usdAmount: number): Promise<number> {
+		try {
+			const cryptoPriceService = (await import('$lib/api/services/crypto-price.service')).default;
+			const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			const SATS_PER_BTC = 100000000; // 100 million sats per BTC
+			
+			const btcAmount = usdAmount / btcPrice;
+			return Math.round(btcAmount * SATS_PER_BTC);
+		} catch (error) {
+			console.error('Error fetching BTC price for notification conversion:', error);
+			// Return 0 if we can't get real price - better to show no amount than wrong amount
+			return 0;
+		}
 	}
 
 	/**
@@ -1231,13 +1236,13 @@ class LocalNotificationService {
 	}
 
 	/**
-	 * Load notifications from session storage
+	 * Load notifications from local storage
 	 */
 	private loadFromStorage(): void {
 		try {
 			if (typeof window === 'undefined') return;
 			
-			const stored = sessionStorage.getItem('bittasker-notifications');
+			const stored = localStorage.getItem('bittasker-notifications');
 			if (stored) {
 				const notifications: Notification[] = JSON.parse(stored).map((n: any) => ({
 					...n,
@@ -1267,13 +1272,13 @@ class LocalNotificationService {
 	}
 
 	/**
-	 * Save notifications to session storage
+	 * Save notifications to local storage
 	 */
 	private saveToStorage(notifications: Notification[]): void {
 		try {
 			if (typeof window === 'undefined') return;
 			
-			sessionStorage.setItem('bittasker-notifications', JSON.stringify(notifications));
+			localStorage.setItem('bittasker-notifications', JSON.stringify(notifications));
 		} catch (error) {
 			console.error('Failed to save notifications to storage:', error);
 		}
@@ -1332,7 +1337,7 @@ class LocalNotificationService {
 		
 		try {
 			if (typeof window !== 'undefined') {
-				sessionStorage.removeItem('bittasker-notifications');
+				localStorage.removeItem('bittasker-notifications');
 			}
 		} catch (error) {
 			console.error('Failed to clear notifications from storage:', error);

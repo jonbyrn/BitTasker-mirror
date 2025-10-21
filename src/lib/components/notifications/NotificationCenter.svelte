@@ -26,6 +26,7 @@
 	let unreadCount = $state(0);
 	let incomingCount = $state(0);
 	let isLoading = $state(false);
+	let showOnlyUnread = $state(true);
 
 	// Subscribe to notification store
 	$effect(() => {
@@ -36,6 +37,13 @@
 		isLoading = store.isLoading;
 	});
 
+	// Computed property for filtered notifications
+	let filteredNotifications = $derived(
+		showOnlyUnread 
+			? notifications.filter(n => !n.read)
+			: notifications
+	);
+
 	onMount(async () => {
 		// Initialize notification service
 		await initializeNotificationService();
@@ -44,16 +52,19 @@
 	function toggleNotificationCenter() {
 		isOpen = !isOpen;
 		if (isOpen) {
-			// Mark all notifications as read when opening
-			localNotificationService.markAllAsRead();
 			// Reset incoming count when opening
 			localNotificationService.resetIncomingCount();
+			// Reset the showOnlyUnread to true when opening to show unread by default
+			showOnlyUnread = true;
 		}
 	}
 
 	function handleNotificationClick(notification: Notification) {
 		// Mark as read
 		localNotificationService.markAsRead(notification.id);
+		
+		// Reset incoming count when viewing a notification
+		localNotificationService.resetIncomingCount();
 
 		// Handle action
 		if (notification.action) {
@@ -188,18 +199,24 @@
 
 	<!-- Notification Dropdown -->
 	{#if isOpen}
-		<div class="absolute right-2 sm:right-0 mt-2 w-80 sm:w-96 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-96 overflow-hidden">
+		<div class="absolute right-2 sm:right-0 mt-2 w-80 sm:w-96 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-96 flex flex-col">
 			<!-- Header -->
-			<div class="px-3 sm:px-4 py-3 border-b border-base-300 flex items-center justify-between">
+			<div class="px-3 sm:px-4 py-3 border-b border-base-300 flex items-center justify-between flex-shrink-0">
 				<div class="flex items-center space-x-2">
-					{#if incomingCount > 0}
-						<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary text-primary-content">
-							{incomingCount} {$t('notifications.new')}
+					{#if notifications.length > 0}
+						<span class="text-xs text-base-content/60">
+							{filteredNotifications.length} {showOnlyUnread ? $t('notifications.unread') : 'total'}
 						</span>
 					{/if}
 				</div>
 				<div class="flex items-center space-x-1 sm:space-x-2">
 					{#if notifications.length > 0}
+						<button
+							onclick={() => showOnlyUnread = !showOnlyUnread}
+							class="text-xs sm:text-sm text-primary hover:text-primary-focus"
+						>
+							{showOnlyUnread ? $t('notifications.show_all') : $t('notifications.show_unread_only')}
+						</button>
 						<button
 							onclick={clearAllNotifications}
 							class="text-xs sm:text-sm text-base-content/60 hover:text-base-content/80"
@@ -218,20 +235,24 @@
 			</div>
 
 			<!-- Notifications List -->
-			<div class="max-h-80 overflow-y-auto">
+			<div class="flex-1 overflow-y-auto min-h-0">
 				{#if isLoading}
 					<div class="p-4 text-center text-base-content/60">
 						<IconLoading class="w-6 h-6 animate-spin text-primary mx-auto" />
 						<p class="mt-2">{$t('notifications.loading')}</p>
 					</div>
-				{:else if notifications.length === 0}
+				{:else if filteredNotifications.length === 0}
 					<div class="p-8 text-center text-base-content/60">
 						<IconBellOutline class="w-12 h-12 mx-auto mb-4 text-base-content/30" />
-						<p class="text-lg font-medium">{$t('notifications.no_notifications')}</p>
-						<p class="text-sm">{$t('notifications.no_notifications_message')}</p>
+						<p class="text-lg font-medium">
+							{showOnlyUnread ? $t('notifications.no_unread_notifications') : $t('notifications.no_notifications')}
+						</p>
+						<p class="text-sm">
+							{$t('notifications.no_notifications_message')}
+						</p>
 					</div>
 				{:else}
-					{#each notifications as notification (notification.id)}
+					{#each filteredNotifications as notification (notification.id)}
 						<div
 							onclick={() => handleNotificationClick(notification)}
 							onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotificationClick(notification); } }}
@@ -323,7 +344,7 @@
 
 			<!-- Footer -->
 			{#if notifications.length > 0}
-				<div class="px-3 sm:px-4 py-3 border-t border-base-300 bg-base-200">
+				<div class="px-3 sm:px-4 py-3 border-t border-base-300 bg-base-200 flex-shrink-0">
 					<button
 						onclick={() => goto('/dashboard/notifications')}
 						class="w-full text-center text-xs sm:text-sm text-primary hover:text-primary-focus font-medium"

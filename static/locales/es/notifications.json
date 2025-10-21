@@ -1,12 +1,46 @@
 {
   "notifications": {
+    "page_title": "Notificaciones",
     "title": "Notificaciones",
-    "no_notifications": "Sin notificaciones",
-    "no_notifications_message": "¡Estás al día!",
+    "subtitle": "Mantente actualizado con tus tareas, ofertas y pagos",
+    "search_placeholder": "Buscar notificaciones...",
     "loading": "Cargando notificaciones...",
+    "no_notifications": "Sin notificaciones",
+    "no_matching": "Sin notificaciones coincidentes",
+    "adjust_search": "Intenta ajustar tu búsqueda o criterios de filtro.",
+    "all_caught_up": "¡Estás al día! Las nuevas notificaciones aparecerán aquí.",
+    "notifications_actions": {
+      "mark_all_read": "Marcar todas como leídas",
+      "clear_all": "Limpiar todo",
+      "view": "Ver notificación",
+      "remove": "Eliminar notificación"
+    },
+    "filters": {
+      "all": "Todas las Notificaciones"
+    },
+    "types": {
+      "bid_response": "Respuestas de Ofertas",
+      "contract_event": "Eventos de Contrato",
+      "payment": "Pagos",
+      "task_update": "Actualizaciones de Tarea",
+      "message": "Mensajes",
+      "system": "Sistema",
+      "security": "Seguridad",
+      "other": "Otros"
+    },
+    "stats": {
+      "showing": "Mostrando",
+      "of": "de",
+      "notifications": "notificaciones"
+    },
+    "no_notifications_message": "¡Estás al día!",
+    "no_unread_notifications": "Sin notificaciones no leídas",
+    "no_unread_notifications_message": "¡Todas las notificaciones han sido leídas!",
     "clear_all": "Limpiar todo",
     "view_all": "Ver todas las notificaciones",
     "mark_all_read": "Marcar todas como leídas",
+    "show_all": "Mostrar todas",
+    "show_unread_only": "Mostrar solo no leídas",
     "new": "nuevo",
     "new_plural": "nuevos",
     "unread": "no leído",
@@ -29,17 +63,6 @@
       "tasker": "Solicitante",
       "taskee": "Ejecutor",
       "unknown": "Desconocido"
-    },
-    "types": {
-      "bid_response": "Respuesta de Oferta",
-      "new_bid": "Nueva Oferta",
-      "contract_event": "Evento de Contrato",
-      "payment": "Pago",
-      "task_update": "Actualización de Tarea",
-      "task_completed": "Tarea Completada",
-      "message": "Mensaje",
-      "system": "Sistema",
-      "security": "Seguridad"
     },
     "titles": {
       "new_bid_received": "Nueva Oferta Recibida",

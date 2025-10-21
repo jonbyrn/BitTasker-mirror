@@ -1,17 +1,51 @@
 {
-  "notifications": {
-    "title": "Notifications",
-    "no_notifications": "No notifications",
-    "no_notifications_message": "You're all caught up!",
-    "loading": "Loading notifications...",
-    "clear_all": "Clear all",
-    "view_all": "View all notifications",
-    "mark_all_read": "Mark all as read",
-    "new": "new",
-    "new_plural": "new",
-    "unread": "unread",
-    "unread_plural": "unread",
-    "read": "read",
+    "notifications": {
+      "page_title": "Notifications",
+      "title": "Notifications",
+      "subtitle": "Stay updated with your tasks, bids, and payments",
+      "search_placeholder": "Search notifications...",
+      "loading": "Loading notifications...",
+      "no_notifications": "No notifications",
+      "no_matching": "No matching notifications",
+      "adjust_search": "Try adjusting your search or filter criteria.",
+      "all_caught_up": "You're all caught up! New notifications will appear here.",
+      "notifications_actions": {
+        "mark_all_read": "Mark all as read",
+        "clear_all": "Clear all",
+        "view": "View notification",
+        "remove": "Remove notification"
+      },
+      "filters": {
+        "all": "All Notifications"
+      },
+      "types": {
+        "bid_response": "Bid Responses",
+        "contract_event": "Contract Events",
+        "payment": "Payments",
+        "task_update": "Task Updates",
+        "message": "Messages",
+        "system": "System",
+        "security": "Security",
+        "other": "Other"
+      },
+      "stats": {
+        "showing": "Showing",
+        "of": "of",
+        "notifications": "notifications"
+      },
+      "no_notifications_message": "You're all caught up!",
+      "no_unread_notifications": "No unread notifications",
+      "no_unread_notifications_message": "All notifications have been read!",
+      "clear_all": "Clear all",
+      "view_all": "View all notifications",
+      "mark_all_read": "Mark all as read",
+      "show_all": "Show all",
+      "show_unread_only": "Show unread only",
+      "new": "new",
+      "new_plural": "new",
+      "unread": "unread",
+      "unread_plural": "unread",
+      "read": "read",
     "just_now": "Just now",
     "minutes_ago": "{count}m ago",
     "hours_ago": "{count}h ago",
@@ -29,17 +63,6 @@
       "tasker": "Tasker",
       "taskee": "Taskee",
       "unknown": "Unknown"
-    },
-    "types": {
-      "bid_response": "Bid Response",
-      "new_bid": "New Bid",
-      "contract_event": "Contract Event",
-      "payment": "Payment",
-      "task_update": "Task Update",
-      "task_completed": "Task Completed",
-      "message": "Message",
-      "system": "System",
-      "security": "Security"
     },
     "titles": {
       "new_bid_received": "New Bid Received",
@@ -147,7 +170,7 @@
         "new_notification": "You have a new notification."
       }
     },
-    "actions": {
+    "noactions": {
       "view_task": "View Task",
       "view_contract": "View Contract",
       "view_message": "View Message",

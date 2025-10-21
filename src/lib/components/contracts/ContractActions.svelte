@@ -28,7 +28,7 @@
 	let showCompletionModal = $state(false);
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
-	let btcPrice = $state<number>(63000); // Default fallback price
+	let btcPrice = $state<number>(0); // No fallback price
 
 	// Helper to set loading state
 	function setLoading(action: string, loading: boolean) {

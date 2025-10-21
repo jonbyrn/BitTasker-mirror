@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { allAssets, walletManager, liquidConnection, rskConnection } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
-	import type { WalletAsset } from '$lib/stores/wallet.store';
+	import type { WalletAsset } from '$lib/types/wallet';
 
 	// Extended asset type that includes Lightning Bitcoin
 	type ExtendedAsset = WalletAsset | {
@@ -18,7 +18,7 @@
 
 	// Form state
 	let selectedAsset = $state<'bitcoin' | 'usd'>('bitcoin');
-	let selectedNetwork = $state<string>('rootstock-bitcoin');
+	let selectedNetwork = $state<string>('lightning-bitcoin');
 	let recipientAddress = $state('');
 	let amount = $state('');
 	let description = $state('');
@@ -50,16 +50,16 @@
 		if (selectedAsset === 'bitcoin') {
 			return [
 				{
-					value: 'rootstock-bitcoin',
-					label: 'Rootstock Bitcoin',
-					description: 'rBTC on Rootstock network',
-					icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
-				},
-				{
 					value: 'lightning-bitcoin',
 					label: 'Lightning Bitcoin',
 					description: 'Lightning Network payments',
 					icon: null // Will use lightning icon
+				},
+				{
+					value: 'rootstock-bitcoin',
+					label: 'L2 BTC',
+					description: 'rBTC on Rootstock network',
+					icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
 				},
 				{
 					value: 'liquid-bitcoin',

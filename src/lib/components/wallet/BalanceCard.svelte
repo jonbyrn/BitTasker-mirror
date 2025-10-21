@@ -31,10 +31,8 @@
 	let hasRbtcRateError = $derived($walletStore.rbtcRateError);
 	let rbtcRate = $derived($walletStore.rbtcToBtcRate);
 
-	// Only combine balances if we have a reliable exchange rate
-	let canCombineBalances = $derived(!hasRbtcRateError && rbtcBalance > 0);
 	let rbtcInSats = $derived(rbtcBalance * rbtcRate * 100_000_000);
-	let totalSats = $derived(canCombineBalances ? liquidSats + rbtcInSats : liquidSats);
+	let totalSats = $derived(Math.floor(rbtcInSats));
 	let totalBtcEquivalent = $derived(totalSats / 100_000_000);
 
 	async function copyLiquidAddress() {
@@ -73,58 +71,30 @@
 				<div class="flex-1">
 					<h3 class="card-title text-white">{$t('wallet.total_balance')}</h3>
 
-					{#if canCombineBalances}
-						<!-- Combined balance when exchange rate is available -->
+					{#if rbtcBalance > 0}
+						<!-- Show rBTC balance as L2 BTC -->
 						<p class="text-3xl font-bold text-white">
 							{totalSats.toLocaleString()} {$t('wallet.sats')}
 						</p>
 						<p class="text-white opacity-90">
 							≈ {totalBtcEquivalent.toFixed(8)} BTC
 						</p>
+						{#if hasRbtcRateError}
+							<div class="mt-1">
+								<p class="text-xs text-white opacity-70">
+									⚠️ {$t('wallet.exchange_rate_unavailable')}
+								</p>
+								<button
+									class="text-xs text-white underline opacity-80 hover:opacity-100"
+									onclick={() => walletManager.retryRbtcExchangeRate()}
+								>
+									{$t('wallet.retry')}
+								</button>
+							</div>
+						{/if}
 					{:else}
-						<!-- Separate balances when rate is unavailable -->
-						<div class="space-y-1">
-							{#if liquidSats > 0}
-								<div>
-									<span class="text-2xl font-bold text-white">
-										{liquidSats.toLocaleString()}
-									</span>
-									<span class="ml-2 text-sm text-white opacity-90">{$t('wallet.sats')}</span>
-								</div>
-							{/if}
-							{#if rbtcBalance > 0}
-								<div>
-									<span class="text-2xl font-bold text-white">
-										{rbtcBalance.toFixed(6)}
-									</span>
-									<span class="ml-2 text-sm text-white opacity-90">{$t('wallet.rbtc')}</span>
-								</div>
-								{#if hasRbtcRateError}
-									<div class="mt-1">
-										<p class="text-xs text-white opacity-70">
-											⚠️ {$t('wallet.exchange_rate_unavailable')}
-										</p>
-										<button
-											class="text-xs text-white underline opacity-80 hover:opacity-100"
-											onclick={() => walletManager.retryRbtcExchangeRate()}
-										>
-											{$t('wallet.retry')}
-										</button>
-									</div>
-								{/if}
-							{/if}
-							{#if usdtBalance > 0}
-								<div>
-									<span class="text-2xl font-bold text-white">
-										{usdtBalance.toFixed(2)}
-									</span>
-									<span class="ml-2 text-sm text-white opacity-90">{$t('wallet.usdt')}</span>
-								</div>
-							{/if}
-					{#if liquidSats === 0 && rbtcBalance === 0 && usdtBalance === 0}
-								<p class="text-2xl font-bold text-white opacity-70">{$t('wallet.no_assets')}</p>
-							{/if}
-						</div>
+						<!-- No balance state -->
+						<p class="text-2xl font-bold text-white opacity-70">{$t('wallet.no_assets')}</p>
 					{/if}
 
 					{#if totalUsdValue > 0}
@@ -159,8 +129,8 @@
 			<div class="card-body flex flex-col flex-1">
 				<div class="mb-4 flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-6 w-6" />
-						<h4 class="font-semibold">{$t('wallet.rootstock_bitcoin')}</h4>
+						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="L2 BTC" class="h-6 w-6" />
+						<h4 class="font-semibold">{$t('wallet.l2_btc')}</h4>
 						<button class="btn btn-ghost btn-xs p-1" onclick={() => (document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click()}>
 							<IconHelpCircle class="h-5 w-5 text-base-content/70 hover:text-base-content" />
 						</button>
@@ -185,7 +155,7 @@
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-2">
 										<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
-										<span class="font-medium">{asset.ticker}</span>
+										<span class="font-medium">{$t('wallet.l2_btc')}</span>
 									</div>
 									<div class="text-right">
 										<div class="font-semibold">{asset.formattedBalance}</div>

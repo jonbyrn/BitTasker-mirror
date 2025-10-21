@@ -24,7 +24,7 @@
 
 	let isDeleting = $state(false);
 	let errorMessage = $state('');
-	let btcPrice = $state<number>(63000); // Default fallback price
+	let btcPrice = $state<number>(0);
 
 	const formatDateString = (date: string | number): string => {
 		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
@@ -99,7 +99,7 @@
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
-			// Keep using fallback price
+			throw new Error('Unable to fetch Bitcoin price. Please try again later.');
 		}
 	}
 

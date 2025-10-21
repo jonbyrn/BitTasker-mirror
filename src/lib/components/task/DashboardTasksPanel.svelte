@@ -23,7 +23,7 @@
 	type TaskFilterCategory = 'bids_received' | 'tasks_in_progress' | 'tasks_completed';
 
 	let activeFilter = $state<TaskFilterCategory>('bids_received');
-	let btcPrice = $state<number>(63000); // Default fallback price
+	let btcPrice = $state<number>(0);
 	let isDropdownOpen = $state<boolean>(false);
 
 	// Infinite scroll variables
@@ -56,7 +56,7 @@
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
-			// Keep using fallback price
+			throw new Error('Unable to fetch Bitcoin price. Please try again later.');
 		}
 	}
 

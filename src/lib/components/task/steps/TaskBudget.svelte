@@ -19,7 +19,7 @@
 
 	// BTC to USD conversion state
 	let usdAmount = $state<number>(0);
-	let btcPrice = $state<number>(100000); // Default fallback price
+	let btcPrice = $state<number>(0);
 
 	// File upload state
 	let isUploading = $state(false);

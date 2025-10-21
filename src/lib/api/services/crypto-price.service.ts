@@ -57,23 +57,6 @@ class CryptoPriceService {
       return rate;
     } catch (error) {
       console.error(`Error fetching ${fromSymbol}/${toSymbol} exchange rate:`, error);
-
-      // Critical: Don't return fallback for rBTC - throw error instead
-      // This prevents showing incorrect balance to users
-      if (upperFromSymbol === 'RBTC') {
-        throw new Error(`Unable to fetch rBTC/${upperToSymbol} exchange rate. Please try again later.`);
-      }
-
-      // For other pairs, use fallback rates
-      const fallbackRates: Record<string, number> = {
-        'BTC-ETH': 0.03,
-        'ETH-BTC': 33.33
-      };
-
-      if (fallbackRates[cacheKey]) {
-        return fallbackRates[cacheKey];
-      }
-
       throw new Error(`Failed to get exchange rate for ${fromSymbol}/${toSymbol}`);
     }
   }
@@ -130,19 +113,6 @@ class CryptoPriceService {
       throw new Error('Invalid response format');
     } catch (error) {
       console.error(`Error fetching ${symbol} price:`, error);
-
-      // Fallback prices if API fails
-      const fallbackPrices: Record<string, number> = {
-        BTC: 100000,
-        ETH: 50000,
-        RBTC: 100000 // Same as BTC since they're typically 1:1
-      };
-
-      // Return fallback price or throw error
-      if (fallbackPrices[upperSymbol]) {
-        return fallbackPrices[upperSymbol];
-      }
-
       throw new Error(`Failed to get price for ${symbol}`);
     }
   }

@@ -25,7 +25,7 @@
 	let servicesForm = $state<HTMLDivElement | null>(null);
 	let currentEventId = $state<string | null>(null); // Track the current event ID
 	let isInitialLoading = $state(false);
-	let btcPrice = $state<number>(100000); // Default fallback price
+	let btcPrice = $state<number>(0); // No fallback price
 
 	// New service form state
 	let newService = $state<Partial<StandardService>>({

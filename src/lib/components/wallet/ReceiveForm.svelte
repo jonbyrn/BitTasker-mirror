@@ -12,8 +12,8 @@
 
 	// Form state
 	let selectedAsset = $state<'bitcoin' | 'usd'>('bitcoin');
-	let selectedNetwork = $state<string>('rootstock-bitcoin');
-	let rskPaymentMethod = $state<'rskAddress' | 'lightningBitcoin'>('rskAddress');
+	let selectedNetwork = $state<string>('lightning-bitcoin');
+	let rskPaymentMethod = $state<'rskAddress' | 'lightningBitcoin'>('lightningBitcoin');
 	let amount = $state('');
 	let liquidDescription = $state('');
 	let rskDescription = $state('');
@@ -48,16 +48,16 @@
 		if (selectedAsset === 'bitcoin') {
 			return [
 				{
-					value: 'rootstock-bitcoin',
-					label: 'Rootstock Bitcoin',
-					description: 'rBTC on Rootstock network',
-					icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
-				},
-				{
 					value: 'lightning-bitcoin',
 					label: 'Lightning Bitcoin',
 					description: 'Lightning Network payments',
 					icon: null // Will use lightning icon
+				},
+				{
+					value: 'rootstock-bitcoin',
+					label: 'L2 BTC',
+					description: 'rBTC on Rootstock network',
+					icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
 				},
 				{
 					value: 'liquid-bitcoin',

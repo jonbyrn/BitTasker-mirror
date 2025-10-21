@@ -52,7 +52,7 @@
 	let endDateTime = $state<Date | null>(null);
 
 	// BTC conversion state
-	let btcPrice = $state<number>(63000); // Default fallback price
+	let btcPrice = $state<number>(0);
 
 	// Fetch BTC price on mount
 	async function fetchBtcPrice(): Promise<void> {
@@ -61,7 +61,7 @@
 			btcPrice = newPrice;
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
-			// Keep the default price if fetch fails
+			throw new Error('Unable to fetch Bitcoin price. Please try again later.');
 		}
 	}
 
