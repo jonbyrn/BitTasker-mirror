@@ -610,4 +610,5 @@
 	isOpen={showCompletionModal}
 	onClose={() => (showCompletionModal = false)}
 	onComplete={completeTaskWithAttachments}
+	{btcPrice}
 />

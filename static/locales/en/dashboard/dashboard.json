@@ -62,6 +62,7 @@
       "member_since": "Member since",
       "show_more": "Show more",
       "show_less": "Show less",
+      "translate": "Translate",
       "remote": "Remote",
       "posted": "Posted",
       "edit_task": "Edit Task",
@@ -90,6 +91,17 @@
       "login_required": "Login Required",
       "login_to_bid": "Please log in to bid on this task",
       "login": "Login",
+      "deadline_expired": "Deadline Expired",
+      "deadline_expired_message": "This task's deadline has passed and is no longer accepting bids.",
+      "edit_task_confirmation": {
+        "title": "Edit Task Confirmation",
+        "message": "Are you sure you want to edit this task?",
+        "warning": "All existing bids will be deleted to prevent fraud and ensure fair competition.",
+        "details": "This action cannot be undone. Taskees who have already submitted bids will need to resubmit them after your changes.",
+        "continue_confirmation": "Are you sure you want to continue?",
+        "cancel": "Cancel",
+        "confirm_edit": "Yes, Edit Task"
+      },
       "page_title": "Task Details - BitTasker",
       "page_description": "Here you can see the details of the task."
     },

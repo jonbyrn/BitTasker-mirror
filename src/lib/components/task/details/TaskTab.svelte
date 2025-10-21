@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Task, Attachment } from '$lib/types/task';
+	import type { Task } from '$lib/types/task';
 	import { goto } from '$app/navigation';
 	import { deleteTask } from '$lib/nostr/task';
 	import { taskStore } from '$lib/stores/task.store';
@@ -13,8 +13,8 @@
 	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { formatStandardDate, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
-	import Gallery from '$lib/components/Gallery.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { fade, scale } from 'svelte/transition';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -24,7 +24,8 @@
 
 	let isDeleting = $state(false);
 	let errorMessage = $state('');
-	let btcPrice = $state<number>(0);
+	let btcPrice = $state<number>(63000); // Default fallback price
+	let showEditConfirmation = $state(false);
 
 	const formatDateString = (date: string | number): string => {
 		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
@@ -38,45 +39,22 @@
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
 
-	// Helper function to prepare images for Gallery component
-	const prepareGalleryImages = async (attachments: Attachment[]) => {
-		const imagePromises = attachments
-			.filter((attachment) => !isVideoFile(attachment.url))
-			.map((attachment) => {
-				return new Promise((resolve) => {
-					const img = new Image();
-					img.onload = () => {
-						resolve({
-							url: attachment.url,
-							alt: attachment.alt || 'Task attachment',
-							width: img.naturalWidth,
-							height: img.naturalHeight,
-							size: attachment.size
-						});
-					};
-					img.onerror = () => {
-						resolve({
-							url: attachment.url,
-							alt: attachment.alt || 'Task attachment',
-							width: 0,
-							height: 0,
-							size: attachment.size
-						});
-					};
-					img.src = attachment.url;
-				});
-			});
-
-		return await Promise.all(imagePromises);
-	};
-
 	function handleEditTask() {
+		showEditConfirmation = true;
+	}
+
+	function confirmEditTask() {
 		const editTask = { ...task };
 		['id', 'author'].forEach((key) => {
 			delete editTask[key as keyof Task];
 		});
 		taskStore.saveEditTaskDraft(task?.id, task?.uniqueId, editTask);
+		showEditConfirmation = false;
 		goto(`/dashboard/create-task?edit=true`);
+	}
+
+	function cancelEditTask() {
+		showEditConfirmation = false;
 	}
 
 	async function handleDeleteTask() {
@@ -387,3 +365,80 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Edit Task Confirmation Modal -->
+{#if showEditConfirmation}
+	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
+		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
+			<!-- Modal Header -->
+			<div class="mb-6">
+				<div class="mb-2 flex items-center gap-3">
+					<div class="bg-error/10 flex h-10 w-10 items-center justify-center rounded-full">
+						<svg class="text-error h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+							/>
+						</svg>
+					</div>
+					<div>
+						<h4 class="text-sm font-semibold">{$t('dashboard.task_details_by_task.edit_task_confirmation.title')}</h4>
+					</div>
+				</div>
+			</div>
+
+			<!-- Content -->
+			<div class="space-y-4">
+				<!-- Main Warning Box -->
+				<div class="bg-error/10 rounded-lg p-4">
+					<p class="text-sm text-error font-semibold mb-2">
+						{$t('dashboard.task_details_by_task.edit_task_confirmation.warning')}
+					</p>
+					<p class="text-sm text-error">
+						{$t('dashboard.task_details_by_task.edit_task_confirmation.details')}
+					</p>
+				</div>
+
+				<!-- Additional Information -->
+				<div class="text-base-content/70 text-sm">
+					<p>
+						{$t('dashboard.task_details_by_task.edit_task_confirmation.message')}
+					</p>
+				</div>
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="border-base-300 flex gap-3 pt-6">
+				<button type="button" class="btn btn-ghost flex-1" onclick={cancelEditTask}>
+					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+					{$t('dashboard.task_details_by_task.edit_task_confirmation.cancel')}
+				</button>
+				<button type="button" class="btn btn-error flex-1" onclick={confirmEditTask}>
+					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+						/>
+					</svg>
+					{$t('dashboard.task_details_by_task.edit_task_confirmation.confirm_edit')}
+				</button>
+			</div>
+		</div>
+		<button
+			class="modal-backdrop"
+			onclick={cancelEditTask}
+			aria-label={$t('dashboard.task_details_by_task.edit_task_confirmation.title')}
+		></button>
+	</div>
+{/if}
