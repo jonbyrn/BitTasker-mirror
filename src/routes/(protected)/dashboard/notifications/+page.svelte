@@ -4,6 +4,16 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import type { Notification } from '$lib/stores/notification.store';
+	
+	// MDI Icons
+	import IconBell from '~icons/mdi/bell';
+	import IconCurrencyUsd from '~icons/mdi/currency-usd';
+	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+	import IconCreditCard from '~icons/mdi/credit-card';
+	import IconPencil from '~icons/mdi/pencil';
+	import IconChat from '~icons/mdi/chat';
+	import IconCog from '~icons/mdi/cog';
+	import IconShield from '~icons/mdi/shield';
 
 	let notifications = $state<Notification[]>([]);
 	let filteredNotifications = $state<Notification[]>([]);
@@ -11,25 +21,13 @@
 	let isLoading = $state(false);
 	let searchQuery = $state('');
 
-	// Subscribe to notification store
+	// Subscribe to notification store and apply filters
 	$effect(() => {
 		const store = $notificationStore;
 		notifications = store.notifications;
 		isLoading = store.isLoading;
-		applyFilters();
-	});
-
-	// Apply filters when notifications or filter changes
-	$effect(() => {
-		applyFilters();
-	});
-
-	onMount(async () => {
-		// Load notifications from backend
-		//await notificationService.loadNotifications();
-	});
-
-	function applyFilters() {
+		
+		// Apply filters whenever notifications, selectedFilter, or searchQuery changes
 		let filtered = [...notifications];
 
 		// Apply type filter
@@ -52,7 +50,13 @@
 		filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
 		filteredNotifications = filtered;
-	}
+	});
+
+	onMount(async () => {
+		// Load notifications from backend
+		//await notificationService.loadNotifications();
+	});
+
 
 	function handleNotificationClick(notification: Notification) {
 		// Mark as read
@@ -156,6 +160,7 @@
 				return $t('notifications.types.other');
 		}
 	}
+
 
 	const filterOptions = [
 		{ value: 'all', label: $t('notifications.filters.all') },
@@ -293,11 +298,31 @@
 						>
 							<div class="card-body p-4">
 								<div class="flex items-start gap-4">
+									<!-- Icon -->
+									<div class="flex-shrink-0">
+										{#if notification.type === 'bid_response'}
+											<IconCurrencyUsd class="w-5 h-5 text-primary" />
+										{:else if notification.type === 'contract_event'}
+											<IconFileDocumentOutline class="w-5 h-5 text-primary" />
+										{:else if notification.type === 'payment'}
+											<IconCreditCard class="w-5 h-5 text-primary" />
+										{:else if notification.type === 'task_update'}
+											<IconPencil class="w-5 h-5 text-primary" />
+										{:else if notification.type === 'message'}
+											<IconChat class="w-5 h-5 text-primary" />
+										{:else if notification.type === 'system'}
+											<IconCog class="w-5 h-5 text-primary" />
+										{:else if notification.type === 'security'}
+											<IconShield class="w-5 h-5 text-primary" />
+										{:else}
+											<IconBell class="w-5 h-5 text-primary" />
+										{/if}
+									</div>
 
 									<!-- Content -->
 									<div class="min-w-0 flex-1">
 										<div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-											<span class="text-lg font-medium text-base-content">
+											<span class="text-base font-medium text-base-content">
 												{notification.title}
 											</span>
 											<div class="flex items-center gap-2">

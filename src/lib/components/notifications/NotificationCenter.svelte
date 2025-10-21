@@ -120,24 +120,8 @@
 
 
 	function getTitleSize(notification: Notification): string {
-		switch (notification.type) {
-			case 'bid_response':
-				return 'text-xs sm:text-sm font-medium'; // Smaller for bid notifications, responsive
-			case 'payment':
-				return 'text-xs sm:text-sm font-medium'; // Smaller for payment notifications, responsive
-			case 'message':
-				return 'text-sm font-medium'; // Normal size for messages
-			case 'task_update':
-				return 'text-sm font-medium'; // Normal size for task updates
-			case 'contract_event':
-				return 'text-sm font-medium'; // Normal size for contracts
-			case 'system':
-				return 'text-xs sm:text-sm font-medium'; // Smaller for system notifications, responsive
-			case 'security':
-				return 'text-sm font-semibold'; // Slightly larger for security
-			default:
-				return 'text-sm font-medium'; // Default size
-		}
+		// Make all titles smaller and consistent
+		return 'text-xs sm:text-sm font-medium';
 	}
 
 	function getTranslatedTitle(notification: Notification): string {
@@ -333,10 +317,7 @@
 								</div>
 							</div>
 
-							<!-- Unread Indicator -->
-							{#if !notification.read}
-								<div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r"></div>
-							{/if}
+							
 						</div>
 					{/each}
 				{/if}

@@ -1,11 +1,13 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
+	import type { Attachment } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
 	import UserProfile from '$lib/components/UserNostrBadge.svelte';
+	import Gallery from '$lib/components/Gallery.svelte';
 
 	const { contract, isOpen, btcPrice, onClose, onUpdate } = $props<{
 		contract: ContractWithEvents | null;
@@ -18,6 +20,45 @@
 	// Technical details toggle state
 	let isTechnicalDetailsOpen = $state(false);
 	let isOriginalBidOpen = $state(false);
+
+	// Helper function to detect video files
+	function isVideoFile(url: string): boolean {
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+		const urlLower = url.toLowerCase();
+		return videoExtensions.some((ext) => urlLower.endsWith(ext));
+	}
+
+	// Helper function to prepare images for Gallery component
+	const prepareGalleryImages = async (attachments: Attachment[]) => {
+		const imagePromises = attachments
+			.filter((attachment) => !isVideoFile(attachment.url))
+			.map((attachment) => {
+				return new Promise((resolve) => {
+					const img = new Image();
+					img.onload = () => {
+						resolve({
+							url: attachment.url,
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
+							width: img.naturalWidth,
+							height: img.naturalHeight,
+							size: attachment.size
+						});
+					};
+					img.onerror = () => {
+						resolve({
+							url: attachment.url,
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
+							width: 0,
+							height: 0,
+							size: attachment.size
+						});
+					};
+					img.src = attachment.url;
+				});
+			});
+
+		return await Promise.all(imagePromises);
+	};
 
 	// Format RBTC amount
 	function formatRBTC(amount: string): string {
@@ -269,44 +310,42 @@
 				<div class="card bg-base-200 overflow-hidden">
 					<div class="card-body p-4">
 						<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.completion_evidence')}</h4>
-						<p class="text-base-content/70 text-sm mb-4">
-							{$t('dashboard.contracts.timeline.completion_evidence_description')}
-						</p>
 						
-						<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-							{#each contract.contract.completionAttachments as attachment}
-								<div class="relative group">
-									<div class="aspect-square rounded-lg overflow-hidden bg-base-300">
-									{#if attachment.type.startsWith('video/')}
-										<video 
-											src={attachment.url} 
-											class="w-full h-full object-cover"
-											controls
-											preload="metadata"
-										>
-											<track kind="captions" src="" label="No captions available" />
-										</video>
-									{:else}
-										<button
-											type="button"
-											class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
-											onclick={() => window.open(attachment.url, '_blank')}
-											aria-label="Open image in new tab"
-										>
-											<img 
+						<!-- Images Gallery -->
+						{#if contract.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+							<div class="mb-4">
+								{#await prepareGalleryImages(contract.contract.completionAttachments) then galleryImages}
+									<Gallery
+										galleryID="completion-evidence-gallery"
+										images={galleryImages}
+										thumbnailSize="h-40 w-40"
+									/>
+								{/await}
+							</div>
+						{/if}
+
+						<!-- Videos -->
+						{#if contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
+							<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+								{#each contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
+									<div class="relative group">
+										<div class="aspect-square rounded-lg overflow-hidden bg-base-300">
+											<video 
 												src={attachment.url} 
-												alt={attachment.alt || 'Completion evidence'}
 												class="w-full h-full object-cover"
-											/>
-										</button>
-									{/if}
+												controls
+												preload="metadata"
+											>
+												<track kind="captions" src="" label="No captions available" />
+											</video>
+										</div>
+										<div class="mt-2 text-xs text-base-content/60 truncate">
+											{attachment.alt || 'Evidence'}
+										</div>
 									</div>
-									<div class="mt-2 text-xs text-base-content/60 truncate">
-										{attachment.alt || 'Evidence'}
-									</div>
-								</div>
-							{/each}
-						</div>
+								{/each}
+							</div>
+						{/if}
 					</div>
 				</div>
 			{/if}
