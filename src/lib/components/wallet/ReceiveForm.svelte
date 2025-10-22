@@ -55,7 +55,7 @@
 				},
 				{
 					value: 'rootstock-bitcoin',
-					label: 'L2 BTC',
+					label: 'Rootstock Bitcoin',
 					description: 'rBTC on Rootstock network',
 					icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
 				},
