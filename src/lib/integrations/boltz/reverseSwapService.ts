@@ -259,25 +259,26 @@ export class ReverseSwapService {
 
 				// 1. Check if user has sufficient RBTC for gas
 				try {
-					const balance = await wallet.provider.getBalance(wallet.address);
-					const gasEstimate = await this.estimateClaimGas(swapData);
+					// const balance = await wallet.provider.getBalance(wallet.address);
+					// const gasEstimate = await this.estimateClaimGas(swapData);
 
-					if (balance >= gasEstimate) {
-						console.log('💰 User has sufficient RBTC for gas \n 📊 Balance:', ethers.formatEther(balance), 'RBTC');
-						console.log('⛽ Estimated gas:', ethers.formatEther(gasEstimate), 'RBTC');
-						try {
-							await this.claimRBTC(swapData, nsec, wallet);
-							claimSuccessful = true;
-						} catch (error) {
-							console.error('❌ Direct claim failed:', error);
-							console.log('🔄 Will try RIF Relay as fallback...');
-						}
-					} else {
-						console.log('⚠️ Insufficient RBTC for gas fees');
-						console.log('📊 Balance:', ethers.formatEther(balance), 'RBTC');
-						console.log('⛽ Need:', ethers.formatEther(gasEstimate), 'RBTC');
-						console.log('🔄 Will try gasless claim via RIF Relay...');
+					// IMPORTANT - DO NOT REMOVE THIS COMMENT: Bypass gas estimation for now, to test Boltz on mainnet
+					// if (balance >= gasEstimate) {
+					// console.log('💰 User has sufficient RBTC for gas \n 📊 Balance:', ethers.formatEther(balance), 'RBTC');
+					// console.log('⛽ Estimated gas:', ethers.formatEther(gasEstimate), 'RBTC');
+					try {
+						await this.claimRBTC(swapData, nsec, wallet);
+						claimSuccessful = true;
+					} catch (error) {
+						console.error('❌ Direct claim failed:', error);
+						console.log('🔄 Will try RIF Relay as fallback...');
 					}
+					// } else {
+					// 	console.log('⚠️ Insufficient RBTC for gas fees');
+					// 	console.log('📊 Balance:', ethers.formatEther(balance), 'RBTC');
+					// 	console.log('⛽ Need:', ethers.formatEther(gasEstimate), 'RBTC');
+					// 	console.log('🔄 Will try gasless claim via RIF Relay...');
+					// }
 				} catch (err) {
 					console.warn('⚠️ Could not check balance for direct claim:', err);
 					console.log('🔄 Will try RIF Relay as fallback...');
@@ -613,6 +614,7 @@ export class ReverseSwapService {
 
 
 	/**
+	 * TODO: Make gas cost dynamic based on the network and the gas price
 	 * Estimate gas needed for direct claim
 	 * 
 	 * @returns Estimated gas cost in wei
@@ -1042,4 +1044,3 @@ export class ReverseSwapService {
 export const reverseSwapService = new ReverseSwapService(
 	(import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet'
 );
-

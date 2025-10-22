@@ -16,6 +16,7 @@ export interface BoltzNetworkConfig {
 	// RIF Relay
 	rifRelayServerUrl: string;
 	rifRelayEnabled: boolean;
+	smartWalletFactoryAddress?: string;
 }
 
 export const BOLTZ_NETWORKS: Record<BoltzEnvironment, BoltzNetworkConfig> = {
@@ -32,13 +33,9 @@ export const BOLTZ_NETWORKS: Record<BoltzEnvironment, BoltzNetworkConfig> = {
 		boltzApiUrl: 'https://api.boltz.exchange',
 		rskRpcUrl: 'https://public-node.rsk.co',
 		rskChainId: 30, // RSK Mainnet
-		// TODO: Find actual production RIF Relay URL from Boltz
-		// Possible locations to check:
-		// - Boltz Web App source: https://github.com/BoltzExchange/boltz-web-app
-		// - Boltz documentation
-		// - Direct communication with Boltz team
-		rifRelayServerUrl: 'https://rif-relay.boltz.exchange', // Placeholder
-		rifRelayEnabled: true // Set to false if production URL not available yet
+		rifRelayServerUrl: 'https://boltz.mainnet.relay.rifcomputing.net',
+		rifRelayEnabled: true,
+		smartWalletFactoryAddress: '0x44944a80861120B58cc48B066d57cDAf5eC213dd'
 	}
 };
 
