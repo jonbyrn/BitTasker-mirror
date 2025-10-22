@@ -29,7 +29,6 @@ export class TaskTranslationService {
 
       // Check if translation failed
       if ('code' in titleResult || 'code' in descResult) {
-        console.warn('Translation failed for task:', task.id);
         return null;
       }
 
@@ -47,8 +46,7 @@ export class TaskTranslationService {
       // Cache the result
       this.cache.set(cacheKey, translation);
       return translation;
-    } catch (error) {
-      console.error('Translation service error:', error);
+    } catch {
       return null;
     }
   }
@@ -69,8 +67,7 @@ export class TaskTranslationService {
   async translateText(text: string, targetLanguage: string): Promise<TranslationResult | TranslationError | null> {
     try {
       return await this.translationService.translate(text, targetLanguage);
-    } catch (error) {
-      console.error('Text translation error:', error);
+    } catch {
       return null;
     }
   }

@@ -62,8 +62,7 @@ export class FeaturedTasksService {
 			};
 
 			return featuredTasks;
-		} catch (error) {
-			console.error('Error fetching featured tasks:', error);
+		} catch {
 			// Return empty array on error
 			return [];
 		}

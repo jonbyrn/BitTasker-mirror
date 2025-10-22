@@ -55,8 +55,7 @@ class CryptoPriceService {
       };
 
       return rate;
-    } catch (error) {
-      console.error(`Error fetching ${fromSymbol}/${toSymbol} exchange rate:`, error);
+    } catch {
       throw new Error(`Failed to get exchange rate for ${fromSymbol}/${toSymbol}`);
     }
   }
@@ -111,8 +110,7 @@ class CryptoPriceService {
       }
 
       throw new Error('Invalid response format');
-    } catch (error) {
-      console.error(`Error fetching ${symbol} price:`, error);
+    } catch {
       throw new Error(`Failed to get price for ${symbol}`);
     }
   }

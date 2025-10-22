@@ -457,13 +457,10 @@ export class AuthService extends BaseApiService {
 				return response;
 			}
 			
-			// If neither structure matches, log the actual response for debugging
-			console.error('Unexpected response structure:', response);
+			// If neither structure matches, throw error
 			throw new Error('Unexpected response format from verification service');
 			
 		} catch (error: any) {
-			console.error('Failed to verify recovery email:', error);
-			
 			// Handle Firebase function errors specifically
 			if (error?.code) {
 				throw new Error(`Firebase function error: ${error.message || error.code}`);
@@ -495,7 +492,6 @@ export class AuthService extends BaseApiService {
 			const response = result.data as { result: { message: string; invalidatedDevices: number } };
 			return response.result;
 		} catch (error: any) {
-			console.error('Failed to invalidate devices:', error);
 			throw new Error(error?.message || 'Failed to invalidate devices');
 		}
 	}
@@ -520,7 +516,6 @@ export class AuthService extends BaseApiService {
 			});
 			return response.data;
 		} catch (error: any) {
-			console.error('Migration to master key error:', error);
 			throw new Error(error.message || 'Failed to migrate to master key');
 		}
 	}

@@ -33,9 +33,6 @@ export class TranslationService {
 
 	constructor() {
 		this.apiKey = import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY;
-		if (!this.apiKey) {
-			console.warn('Google Translate API key not found. Translation features will be disabled.');
-		}
 		this.loadCacheFromStorage();
 	}
 
@@ -83,8 +80,7 @@ export class TranslationService {
 			
 			// Only return if it's a supported language
 			return this.validateLanguage(detectedLang) ? detectedLang : null;
-		} catch (error) {
-			console.error('Error detecting language:', error);
+		} catch {
 			return null;
 		}
 	}
@@ -232,8 +228,8 @@ export class TranslationService {
 				const parsed = JSON.parse(stored);
 				this.cache = new Map(parsed);
 			}
-		} catch (error) {
-			console.error('Failed to load translation cache:', error);
+		} catch {
+			// Failed to load translation cache
 		}
 	}
 
@@ -246,8 +242,8 @@ export class TranslationService {
 		try {
 			const serialized = Array.from(this.cache.entries());
 			localStorage.setItem('translation_cache', JSON.stringify(serialized));
-		} catch (error) {
-			console.error('Failed to save translation cache:', error);
+		} catch {
+			// Failed to save translation cache
 		}
 	}
 

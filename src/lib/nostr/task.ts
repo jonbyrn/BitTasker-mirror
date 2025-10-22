@@ -73,84 +73,63 @@ async function generateTaskTags(taskData: TaskBody, pow: [string, string], uniqu
  * Create a new task
  */
 export async function createTask(taskData: TaskBody): Promise<string> {
-    try {
-        console.log('🚀 Starting task creation...');
-        
-        // Validar datos requeridos
-        if (!taskData.title?.trim()) {
-            throw new Error('Task title is required');
-        }
-        if (!taskData.description?.trim()) {
-            throw new Error('Task description is required');
-        }
-        if (!taskData.budget?.amount || taskData.budget.amount <= 0) {
-            throw new Error('Valid budget amount is required');
-        }
-        if (!taskData.categories?.length) {
-            throw new Error('At least one category is required');
-        }
-        if (!taskData.skills?.length) {
-            throw new Error('At least one skill is required');
-        }
-
-        console.log('✅ Validation passed');
-
-        // Verificar que el usuario esté autenticado
-        const userData = get(user);
-        console.log('👤 User data:', userData);
-        
-        if (!userData?.name) {
-            throw new Error('User not authenticated or profile incomplete');
-        }
-
-        // Generate a unique identifier for this task
-        const uniqueId = crypto.randomUUID();
-        console.log('🆔 Generated unique ID:', uniqueId);
-
-        const creator = {
-            username: userData.name,
-            avatar: userData.picture || userData.picture
-        };
-
-        // Add creation timestamp and unique identifier to task data
-        const taskDataWithMeta = {
-            ...taskData,
-            creator,
-            createdAt: Math.floor(Date.now() / 1000),
-            uniqueId
-        };
-
-        console.log('📝 Task data with meta:', taskDataWithMeta);
-
-        // Calculate POW based on task value and uniqueId
-        console.log('⛏️ Calculating POW...');
-        const pow = await calculatePOW(taskData.budget.amount, uniqueId);
-        console.log('✅ POW calculated:', pow);
-
-        // Create event
-        const event = {
-            kind: KINDS.TASK_CREATION,
-            created_at: Math.floor(Date.now() / 1000),
-            content: JSON.stringify(taskDataWithMeta),
-            tags: await generateTaskTags(taskData, pow, uniqueId)
-        };
-
-        console.log('📋 Event created:', event);
-
-        // Sign and publish
-        console.log('✍️ Signing event...');
-        const signedEvent = await getSignedEvent(event);
-        console.log('✅ Event signed:', signedEvent);
-
-        console.log('📡 Publishing to relay...');
-        await nostrEventsService.publishEvent(signedEvent);
-        console.log('✅ Task published successfully with ID:', signedEvent.id);
-
-        return signedEvent.id;
-    } catch (error) {
-        console.error('❌ Failed to create task:', error);
-        throw error;
+    // Validar datos requeridos
+    if (!taskData.title?.trim()) {
+        throw new Error('Task title is required');
     }
+    if (!taskData.description?.trim()) {
+        throw new Error('Task description is required');
+    }
+    if (!taskData.budget?.amount || taskData.budget.amount <= 0) {
+        throw new Error('Valid budget amount is required');
+    }
+    if (!taskData.categories?.length) {
+        throw new Error('At least one category is required');
+    }
+    if (!taskData.skills?.length) {
+        throw new Error('At least one skill is required');
+    }
+
+    // Verificar que el usuario esté autenticado
+    const userData = get(user);
+    
+    if (!userData?.name) {
+        throw new Error('User not authenticated or profile incomplete');
+    }
+
+    // Generate a unique identifier for this task
+    const uniqueId = crypto.randomUUID();
+
+    const creator = {
+        username: userData.name,
+        avatar: userData.picture || userData.picture
+    };
+
+    // Add creation timestamp and unique identifier to task data
+    const taskDataWithMeta = {
+        ...taskData,
+        creator,
+        createdAt: Math.floor(Date.now() / 1000),
+        uniqueId
+    };
+
+    // Calculate POW based on task value and uniqueId
+    const pow = await calculatePOW(taskData.budget.amount, uniqueId);
+
+    // Create event
+    const event = {
+        kind: KINDS.TASK_CREATION,
+        created_at: Math.floor(Date.now() / 1000),
+        content: JSON.stringify(taskDataWithMeta),
+        tags: await generateTaskTags(taskData, pow, uniqueId)
+    };
+
+    // Sign and publish
+    const signedEvent = await getSignedEvent(event);
+
+    await nostrEventsService.publishEvent(signedEvent);
+
+    return signedEvent.id;
 }
 
 /**
@@ -162,131 +141,100 @@ export async function createRecurringTask(taskData: TaskBody, schedule: {
     description: string;
     recurrencePattern: RecurrencePattern;
 }): Promise<string> {
-    try {
-        const uniqueId = crypto.randomUUID();
-        const pow = await calculatePOW(taskData.budget.amount, uniqueId);
+    const uniqueId = crypto.randomUUID();
+    const pow = await calculatePOW(taskData.budget.amount, uniqueId);
 
-        const event = {
-            kind: KINDS.RECURRING_TASK,
-            created_at: Math.floor(Date.now() / 1000),
-            content: JSON.stringify({
-                template: taskData,
-                schedule,
-                uniqueId
-            }),
-            tags: [
-                ...(await generateTaskTags(taskData, pow, uniqueId)),
-                ['t', 'recurring'],
-                ['f', schedule.recurrencePattern.frequency],
-                ['i', schedule.recurrencePattern.interval.toString()]
-            ]
-        };
+    const event = {
+        kind: KINDS.RECURRING_TASK,
+        created_at: Math.floor(Date.now() / 1000),
+        content: JSON.stringify({
+            template: taskData,
+            schedule,
+            uniqueId
+        }),
+        tags: [
+            ...(await generateTaskTags(taskData, pow, uniqueId)),
+            ['t', 'recurring'],
+            ['f', schedule.recurrencePattern.frequency],
+            ['i', schedule.recurrencePattern.interval.toString()]
+        ]
+    };
 
-        const signedEvent = await getSignedEvent(event);
-        
-        // Usar el mismo servicio que createTask para consistencia
-        await nostrEventsService.publishEvent(signedEvent);
-        
-        return signedEvent.id;
-    } catch (error) {
-        console.error('Failed to create recurring task:', error);
-        throw error;
-    }
+    const signedEvent = await getSignedEvent(event);
+    
+    // Usar el mismo servicio que createTask para consistencia
+    await nostrEventsService.publishEvent(signedEvent);
+
+    return signedEvent.id;
 }
 
 /**
  * Update an existing task
  */
 export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
-    try {
-        // Get the original task
-        const { data: originalTask } = await nostrEventsService.findEventById(taskId);
-        if (!originalTask) {
-            throw new Error('Task not found');
-        }
-
-        // Parse original task data
-        const originalTaskData = JSON.parse(originalTask.content);
-
-        // Get the original uniqueId
-        const uniqueId = originalTaskData.uniqueId;
-        if (!uniqueId) {
-            throw new Error('Original task has no uniqueId');
-        }
-
-        // Merge updates with original task data
-        const updatedTaskData = {
-            ...originalTaskData,
-            ...updates,
-            uniqueId, // Keep the same uniqueId
-            updatedAt: Math.floor(Date.now() / 1000)
-        };
-
-        // Calculate POW based on updated task value
-        const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, uniqueId);
-        // Create update event using the same kind as creation for proper replacement
-        const event = {
-            kind: KINDS.TASK_CREATION, // Use same kind as creation
-            // created_at: Math.floor(originalTask.created_at + 0.000001), // Add a microsecond to original timestamp for update
-            content: JSON.stringify(updatedTaskData),
-            tags: await generateTaskTags(updatedTaskData, pow, uniqueId)
-        };
-
-        // Sign and publish
-        const signedEvent = await getSignedEvent(event);
-        await nostrEventsService.publishEvent(signedEvent);
-        // await publishToRelays(signedEvent);
-
-        return signedEvent.id;
-    } catch (error) {
-        console.error('Failed to update task:', error);
-        throw error;
+    // Get the original task
+    const { data: originalTask } = await nostrEventsService.findEventById(taskId);
+    if (!originalTask) {
+        throw new Error('Task not found');
     }
+
+    // Parse original task data
+    const originalTaskData = JSON.parse(originalTask.content);
+
+    // Get the original uniqueId
+    const uniqueId = originalTaskData.uniqueId;
+    if (!uniqueId) {
+        throw new Error('Original task has no uniqueId');
+    }
+
+    // Merge updates with original task data
+    const updatedTaskData = {
+        ...originalTaskData,
+        ...updates,
+        uniqueId, // Keep the same uniqueId
+        updatedAt: Math.floor(Date.now() / 1000)
+    };
+
+    // Calculate POW based on updated task value
+    const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, uniqueId);
+    // Create update event using the same kind as creation for proper replacement
+    const event = {
+        kind: KINDS.TASK_CREATION, // Use same kind as creation
+        // created_at: Math.floor(originalTask.created_at + 0.000001), // Add a microsecond to original timestamp for update
+        content: JSON.stringify(updatedTaskData),
+        tags: await generateTaskTags(updatedTaskData, pow, uniqueId)
+    };
+
+    // Sign and publish
+    const signedEvent = await getSignedEvent(event);
+    await nostrEventsService.publishEvent(signedEvent);
+
+    return signedEvent.id;
 }
 
 /**
  * Delete a task
  */
 export async function deleteTask(taskId: string): Promise<string> {
-    try {
-        // Create deletion event (kind 5)
-        const event = {
-            kind: 5,
-            created_at: Math.floor(Date.now() / 1000),
-            content: "Task deleted",
-            tags: [
-                ['e', taskId], // Reference to event being deleted
-            ]
-        };
+    // Create deletion event (kind 5)
+    const event = {
+        kind: 5,
+        created_at: Math.floor(Date.now() / 1000),
+        content: "Task deleted",
+        tags: [
+            ['e', taskId], // Reference to event being deleted
+        ]
+    };
 
-        // Sign and publish
-        const signedEvent = await getSignedEvent(event);
-        const response = await nostrEventsService.deleteEvent(signedEvent);
-        if (response.deleteCount === 0) {
-            throw new Error('Failed to delete task');
-        }
-        return response.message;
-    } catch (error) {
-        console.error('Failed to delete task:', error);
-        throw error;
+    // Sign and publish
+    const signedEvent = await getSignedEvent(event);
+    const response = await nostrEventsService.deleteEvent(signedEvent);
+    if (response.deleteCount === 0) {
+        throw new Error('Failed to delete task');
     }
+    return response.message;
 }
 
-/**
- * Publish an event to relays
- */
-export async function publishToRelays(event: NostrEvent, relays = RELAYS): Promise<void> {
-    try {
-        const pub = pool.publish(relays, event as any); // Type cast to any to bypass type check
-        await Promise.race([
-            Promise.all(pub),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
-        ]);
-    } catch (error) {
-        console.error('Failed to publish to relays:', error);
-        throw error;
-    }
-}
 
 /**
  * Subscribe to task events
@@ -307,65 +255,28 @@ export function subscribeToTasks(
     return () => sub.close();
 }
 
-// TODO: This is not used anywhere, to be removed
-/**
- * Query tasks
- */
-export async function queryTasks(
-    callback: (event: NostrEvent) => void,
-    filter: { kinds?: number[], authors?: string[], tags?: string[][], limit?: number } = {},
-    relays = RELAYS
-): Promise<NostrEvent[]> {
-    const query = await pool.querySync(relays, {
-        ...filter,
-        kinds: filter.kinds || [KINDS.TASK_CREATION], // Only look for creation events
-        authors: filter.authors
-    });
-
-    // Sort events by creation time to ensure consistent ordering
-    const sortedEvents = query.sort((a, b) => b.created_at - a.created_at);
-
-    // Process events in chronological order for proper state reconstruction
-    sortedEvents.forEach(event => {
-        callback(event);
-    });
-
-    return sortedEvents;
-}
 
 /**
  * Get a task by its ID
  */
 export async function getTaskById(taskId: string, author?: string, relays = RELAYS): Promise<NostrEvent | null> {
-    try {
-        const filter: Filter = {
-            kinds: [KINDS.TASK_CREATION], // Only look for creation events
-            ids: [taskId]
-        };
+    const filter: Filter = {
+        kinds: [KINDS.TASK_CREATION], // Only look for creation events
+        ids: [taskId]
+    };
 
-        // If author is provided, add it to the filter
-        if (author) {
-            filter.authors = [author];
-        }
-
-        // Query events
-        const events = await pool.querySync(relays, filter);
-
-        if (!events || events.length === 0) {
-            return null;
-        }
-
-        // Get the most recent version of the task
-        return events.sort((a, b) => b.created_at - a.created_at)[0];
-    } catch (error) {
-        console.error('Failed to get task by ID:', error);
-        throw error;
+    // If author is provided, add it to the filter
+    if (author) {
+        filter.authors = [author];
     }
-}
 
-/**
- * Close all relay connections
- */
-export function closePool(): void {
-    pool.close(RELAYS);
+    // Query events
+    const events = await pool.querySync(relays, filter);
+
+    if (!events || events.length === 0) {
+        return null;
+    }
+
+    // Get the most recent version of the task
+    return events.sort((a, b) => b.created_at - a.created_at)[0];
 }

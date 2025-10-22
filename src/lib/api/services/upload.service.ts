@@ -73,8 +73,8 @@ class UploadService extends BaseApiService {
 
 				processedFile = compressionResult.file;
 				compressed = true;
-			} catch (error) {
-				console.warn('Image compression failed, using original file:', error);
+			} catch {
+				// Image compression failed, using original file
 			}
 		}
 
@@ -123,8 +123,8 @@ class UploadService extends BaseApiService {
 						compressed: false
 					};
 				}
-			} catch (error) {
-				console.warn('Cloudflare upload failed, falling back to default upload:', error);
+			} catch {
+				// Cloudflare upload failed, falling back to default upload
 			}
 		}
 
@@ -239,8 +239,8 @@ class UploadService extends BaseApiService {
 					await cloudflareMediaService.deleteVideo(uploadResult.cloudflareId);
 				}
 				return;
-			} catch (error) {
-				console.warn('Failed to delete from Cloudflare, trying default service:', error);
+			} catch {
+				// Failed to delete from Cloudflare, trying default service
 			}
 		}
 

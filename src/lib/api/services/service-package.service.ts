@@ -12,39 +12,24 @@ class ServicePackageService extends BaseApiService {
 	 * Get all service packages for the current user
 	 */
 	async getPackages(): Promise<ServicePackage[]> {
-		try {
-			const response = await this.get<ServicePackage[]>(ENDPOINTS.SERVICE_PACKAGES.GET);
-			return response.data;
-		} catch (error) {
-			console.error('Error fetching service packages:', error);
-			throw error;
-		}
+		const response = await this.get<ServicePackage[]>(ENDPOINTS.SERVICE_PACKAGES.GET);
+		return response.data;
 	}
 
 	/**
 	 * Get all public service packages
 	 */
 	async getPublicPackages(): Promise<ServicePackage[]> {
-		try {
-			const response = await this.get<ServicePackage[]>(ENDPOINTS.SERVICE_PACKAGES.GET_PUBLIC);
-			return response.data;
-		} catch (error) {
-			console.error('Error fetching public service packages:', error);
-			throw error;
-		}
+		const response = await this.get<ServicePackage[]>(ENDPOINTS.SERVICE_PACKAGES.GET_PUBLIC);
+		return response.data;
 	}
 
 	/**
 	 * Get a single service package by ID
 	 */
 	async getPackageById(id: string): Promise<ServicePackage> {
-		try {
-			const response = await this.get<ServicePackage>(ENDPOINTS.SERVICE_PACKAGES.GET_BY_ID(id));
-			return response.data;
-		} catch (error) {
-			console.error(`Error fetching service package with ID ${id}:`, error);
-			throw error;
-		}
+		const response = await this.get<ServicePackage>(ENDPOINTS.SERVICE_PACKAGES.GET_BY_ID(id));
+		return response.data;
 	}
 
 	/**
@@ -53,45 +38,30 @@ class ServicePackageService extends BaseApiService {
 	async createPackage(
 		packageData: Omit<ServicePackage, 'id' | 'createdAt' | 'createdBy' | 'status'>
 	): Promise<ServicePackage> {
-		try {
-			const response = await this.post<ServicePackage>(
-				ENDPOINTS.SERVICE_PACKAGES.POST,
-				packageData
-			);
-			return response.data;
-		} catch (error) {
-			console.error('Error creating service package:', error);
-			throw error;
-		}
+		const response = await this.post<ServicePackage>(
+			ENDPOINTS.SERVICE_PACKAGES.POST,
+			packageData
+		);
+		return response.data;
 	}
 
 	/**
 	 * Update an existing service package
 	 */
 	async updatePackage(id: string, packageData: Partial<ServicePackage>): Promise<ServicePackage> {
-		try {
-			const response = await this.put<ServicePackage>(
-				ENDPOINTS.SERVICE_PACKAGES.UPDATE(id),
-				packageData
-			);
-			return response.data;
-		} catch (error) {
-			console.error(`Error updating service package with ID ${id}:`, error);
-			throw error;
-		}
+		const response = await this.put<ServicePackage>(
+			ENDPOINTS.SERVICE_PACKAGES.UPDATE(id),
+			packageData
+		);
+		return response.data;
 	}
 
 	/**
 	 * Delete a service package
 	 */
 	async deletePackage(id: string): Promise<void> {
-		try {
-			const response = await this.delete(ENDPOINTS.SERVICE_PACKAGES.DELETE(id));
-			return response.data;
-		} catch (error) {
-			console.error(`Error deleting service package with ID ${id}:`, error);
-			throw error;
-		}
+		const response = await this.delete(ENDPOINTS.SERVICE_PACKAGES.DELETE(id));
+		return response.data;
 	}
 
 	/**
@@ -99,13 +69,8 @@ class ServicePackageService extends BaseApiService {
 	 * This creates task templates for the user based on the package
 	 */
 	async purchasePackage(id: string): Promise<void> {
-		try {
-			const response = await this.post(ENDPOINTS.SERVICE_PACKAGES.PURCHASE_PACKAGE(id));
-			return response.data;
-		} catch (error) {
-			console.error(`Error purchasing service package with ID ${id}:`, error);
-			throw error;
-		}
+		const response = await this.post(ENDPOINTS.SERVICE_PACKAGES.PURCHASE_PACKAGE(id));
+		return response.data;
 	}
 
 	/**
