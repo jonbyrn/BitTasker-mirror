@@ -122,11 +122,17 @@
 		const minutes = Math.floor(seconds / 60);
 		const hours = Math.floor(minutes / 60);
 		const days = Math.floor(hours / 24);
+		const weeks = Math.floor(days / 7);
+		const months = Math.floor(days / 30);
+		const years = Math.floor(days / 365);
 
-		if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
-		if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-		if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-		return 'Just now';
+		if (years > 0) return $t('notifications.years_ago', { values: { count: years } });
+		if (months > 0) return $t('notifications.months_ago', { values: { count: months } });
+		if (weeks > 0) return $t('notifications.weeks_ago', { values: { count: weeks } });
+		if (days > 0) return $t('notifications.days_ago', { values: { count: days } });
+		if (hours > 0) return $t('notifications.hours_ago', { values: { count: hours } });
+		if (minutes > 0) return $t('notifications.minutes_ago', { values: { count: minutes } });
+		return $t('notifications.just_now');
 	}
 
 	function getPriorityColor(priority: Notification['priority']): string {
@@ -319,9 +325,9 @@
 				<div class="space-y-4">
 					{#each filteredNotifications as notification (notification.id)}
 						<div
-							class="card bg-base-100 hover:bg-base-200 transition-colors {notification.read
-								? 'opacity-75'
-								: 'ring-2 ring-primary/20'} relative"
+							class="card hover:bg-base-200 transition-colors {notification.read
+								? 'bg-base-100 opacity-75'
+								: 'bg-primary/5 ring-2 ring-primary/20'} relative"
 						>
 							<div class="card-body p-4">
 								<div class="flex items-start gap-4">
@@ -355,7 +361,7 @@
 											<div class="flex items-center gap-2">
 												<!-- Priority Badge -->
 												<div class="badge badge-outline badge-sm">
-													{notification.priority}
+													{$t(`notifications.priority_labels.${notification.priority}`)}
 												</div>
 												<!-- Time -->
 												<span class="text-sm text-base-content/70">

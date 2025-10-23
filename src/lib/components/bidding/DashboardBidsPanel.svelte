@@ -48,6 +48,7 @@
 	async function loadMyBids() {
 		try {
 			loading = true;
+			error = ''; // Clear any previous error
 			const bids = await getMyBids();
 			myBids = bids;
 		} catch (err) {

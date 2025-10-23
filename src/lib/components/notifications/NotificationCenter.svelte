@@ -28,11 +28,12 @@
 	let isLoading = $state(false);
 	let showOnlyUnread = $state(true);
 
-	// Computed property for filtered notifications
+	// Computed property for filtered notifications - sorted by creation date (newest first)
 	let filteredNotifications = $derived(
-		showOnlyUnread 
+		(showOnlyUnread 
 			? notifications.filter(n => !n.read)
 			: notifications
+		).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 	);
 
 	let unsubscribe: (() => void) | null = null;
@@ -184,7 +185,7 @@
 	<button
 		onclick={toggleNotificationCenter}
 		class="relative btn btn-ghost btn-sm p-2 hover:bg-base-200 transition-colors"
-		aria-label="Notifications"
+		aria-label={$t('notifications.aria_labels.notifications')}
 	>
 		{#if unreadCount > 0 || incomingCount > 0}
 			<IconBellAlert class="w-5 h-5 text-primary" />
@@ -208,7 +209,7 @@
 				<div class="flex items-center space-x-2">
 					{#if notifications.length > 0}
 						<span class="text-xs text-base-content/60">
-							{filteredNotifications.length} {showOnlyUnread ? $t('notifications.unread') : 'total'}
+							{filteredNotifications.length} {showOnlyUnread ? $t('notifications.unread') : $t('notifications.total')}
 						</span>
 					{/if}
 				</div>
@@ -230,7 +231,7 @@
 					<button
 						onclick={() => isOpen = false}
 						class="text-base-content/40 hover:text-base-content/60 p-1"
-						aria-label="Close notifications"
+						aria-label={$t('notifications.aria_labels.close_notifications')}
 					>
 						<IconClose class="w-4 h-4 sm:w-5 sm:h-5" />
 					</button>
@@ -261,7 +262,7 @@
 							onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotificationClick(notification); } }}
 							role="button"
 							tabindex="0"
-							class="px-3 sm:px-4 py-3 border-b border-base-300 hover:bg-base-200 transition-colors cursor-pointer {notification.read ? 'opacity-75' : 'bg-primary/5'} relative"
+							class="px-3 sm:px-4 py-3 border-b border-base-300 hover:bg-base-200 transition-colors cursor-pointer {notification.read ? 'opacity-75 bg-base-100' : 'bg-primary/5'} relative"
 						>
 							<div class="flex items-start space-x-2 sm:space-x-3">
 								<!-- Icon -->
@@ -304,7 +305,7 @@
 											<button
 												onclick={(e) => removeNotification(notification.id, e)}
 												class="text-base-content/40 hover:text-base-content/60 p-1 flex-shrink-0"
-												aria-label="Remove notification"
+												aria-label={$t('notifications.aria_labels.remove_notification')}
 											>
 												<IconDelete class="w-4 h-4" />
 											</button>

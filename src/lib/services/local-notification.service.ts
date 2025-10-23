@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { writable } from 'svelte/store';
 import type { Notification } from '$lib/stores/notification.store';
 import { listenForIncomingMessages } from '$lib/utils/nostr-message';
@@ -675,15 +677,16 @@ class LocalNotificationService {
 		return {
 			...base,
 			type: 'message',
-			title: 'Nuevo Mensaje',
-			body: `Has recibido un mensaje de ${senderName}`,
+			title: 'notifications.service_messages.new_message',
+			body: 'notifications.service_messages.new_message_body',
 			priority: 'normal',
 			data: {
 				senderName,
 				userRole,
 				messageType: 'generic',
 				originalMessage: jsonMessage,
-				isTranslated: true // Flag to indicate this is already translated
+				titleKey: 'notifications.service_messages.new_message',
+				bodyKey: 'notifications.service_messages.new_message_body'
 			},
 			action: {
 				type: 'navigation',
@@ -709,32 +712,30 @@ class LocalNotificationService {
 			? `/dashboard/bids/${message.bidId}` // Taskee goes to specific bid page
 			: `/dashboard/task/${message.taskId}/bids`; // Tasker goes to bids page
 
-		// Create translated content based on user role and status
-		let title: string;
-		let body: string;
+		// Create translation keys based on user role and status
+		let titleKey: string;
+		let bodyKey: string;
 
 		if (userRole === 'taskee') {
 			// Taskee (bidder) receiving bid status update
 			if (isAccepted) {
-				title = 'Oferta Aceptada';
-				body = `¡Excelente! Tu oferta ha sido aceptada por ${senderName}. ¡Es hora de comenzar el trabajo!`;
+				titleKey = 'notifications.service_messages.bid_accepted_title';
+				bodyKey = 'notifications.service_messages.bid_accepted_body_taskee';
 			} else {
-				title = 'Oferta Rechazada';
-				body = `Tu oferta ha sido rechazada por ${senderName}. No te desanimes, sigue intentando.`;
+				titleKey = 'notifications.service_messages.bid_rejected_title';
+				bodyKey = 'notifications.service_messages.bid_rejected_body_taskee';
 			}
 		} else {
 			// Tasker (task owner) - this shouldn't happen for bid status, but fallback
-			title = isAccepted ? 'Actualización de Oferta' : 'Actualización de Oferta';
-			body = isAccepted 
-				? `Oferta aceptada por ${senderName}`
-				: `Oferta rechazada por ${senderName}`;
+			titleKey = 'notifications.service_messages.bid_update_title';
+			bodyKey = 'notifications.service_messages.bid_update_body_tasker';
 		}
 
 		return {
 			...base,
 			type: 'bid_response',
-			title,
-			body,
+			title: titleKey,
+			body: bodyKey,
 			priority: isAccepted ? 'high' : 'normal',
 			data: {
 				bidId: message.bidId,
@@ -746,7 +747,8 @@ class LocalNotificationService {
 				userRole,
 				taskerPubkey: message.taskerPubkey,
 				taskeePubkey: message.taskeePubkey,
-				isTranslated: true // Flag to indicate this is already translated
+				titleKey,
+				bodyKey
 			},
 			action: {
 				type: 'navigation',
@@ -764,80 +766,80 @@ class LocalNotificationService {
 		base: Partial<Notification>,
 		userRole: UserRole
 	): Notification {
-		const actionTitles: Record<string, Record<UserRole, string>> = {
+		const actionTitleKeys: Record<string, Record<UserRole, string>> = {
 			'contract-created': {
-				'tasker': 'Contrato Creado',
-				'taskee': 'Contrato Creado',
-				'unknown': 'Contrato Creado'
+				'tasker': 'notifications.service_messages.contract_created_title',
+				'taskee': 'notifications.service_messages.contract_created_title',
+				'unknown': 'notifications.service_messages.contract_created_title'
 			},
 			'contract-completed': {
-				'tasker': 'Contrato Completado',
-				'taskee': 'Contrato Completado',
-				'unknown': 'Contrato Completado'
+				'tasker': 'notifications.service_messages.contract_completed_title',
+				'taskee': 'notifications.service_messages.contract_completed_title',
+				'unknown': 'notifications.service_messages.contract_completed_title'
 			},
 			'contract-disputed': {
-				'tasker': 'Contrato en Disputa',
-				'taskee': 'Contrato en Disputa',
-				'unknown': 'Contrato en Disputa'
+				'tasker': 'notifications.service_messages.contract_disputed_title',
+				'taskee': 'notifications.service_messages.contract_disputed_title',
+				'unknown': 'notifications.service_messages.contract_disputed_title'
 			},
 			'contract-cancelled': {
-				'tasker': 'Contrato Cancelado',
-				'taskee': 'Contrato Cancelado',
-				'unknown': 'Contrato Cancelado'
+				'tasker': 'notifications.service_messages.contract_cancelled_title',
+				'taskee': 'notifications.service_messages.contract_cancelled_title',
+				'unknown': 'notifications.service_messages.contract_cancelled_title'
 			},
 			'payment-released': {
-				'tasker': 'Pago Liberado',
-				'taskee': 'Pago Recibido',
-				'unknown': 'Pago Liberado'
+				'tasker': 'notifications.service_messages.payment_released_title',
+				'taskee': 'notifications.service_messages.payment_received_title',
+				'unknown': 'notifications.service_messages.payment_released_title'
 			},
 			'payment-refunded': {
-				'tasker': 'Pago Reembolsado',
-				'taskee': 'Pago Reembolsado',
-				'unknown': 'Pago Reembolsado'
+				'tasker': 'notifications.service_messages.payment_refunded_title',
+				'taskee': 'notifications.service_messages.payment_refunded_title',
+				'unknown': 'notifications.service_messages.payment_refunded_title'
 			}
 		};
 
-		const actionBodies: Record<string, Record<UserRole, string>> = {
+		const actionBodyKeys: Record<string, Record<UserRole, string>> = {
 			'contract-created': {
-				'tasker': `Nuevo contrato creado con ${senderName}`,
-				'taskee': `Nuevo contrato creado con ${senderName}`,
-				'unknown': `Nuevo contrato creado por ${senderName}`
+				'tasker': 'notifications.service_messages.contract_created_body',
+				'taskee': 'notifications.service_messages.contract_created_body',
+				'unknown': 'notifications.service_messages.contract_created_body'
 			},
 			'contract-completed': {
-				'tasker': `Contrato completado por ${senderName}`,
-				'taskee': `Contrato completado con ${senderName}`,
-				'unknown': `Contrato completado por ${senderName}`
+				'tasker': 'notifications.service_messages.contract_completed_body_tasker',
+				'taskee': 'notifications.service_messages.contract_completed_body_taskee',
+				'unknown': 'notifications.service_messages.contract_completed_body_tasker'
 			},
 			'contract-disputed': {
-				'tasker': `Disputa iniciada por ${senderName}`,
-				'taskee': `Disputa iniciada por ${senderName}`,
-				'unknown': `Disputa iniciada por ${senderName}`
+				'tasker': 'notifications.service_messages.contract_disputed_body',
+				'taskee': 'notifications.service_messages.contract_disputed_body',
+				'unknown': 'notifications.service_messages.contract_disputed_body'
 			},
 			'contract-cancelled': {
-				'tasker': `Contrato cancelado por ${senderName}`,
-				'taskee': `Contrato cancelado por ${senderName}`,
-				'unknown': `Contrato cancelado por ${senderName}`
+				'tasker': 'notifications.service_messages.contract_cancelled_body',
+				'taskee': 'notifications.service_messages.contract_cancelled_body',
+				'unknown': 'notifications.service_messages.contract_cancelled_body'
 			},
 			'payment-released': {
-				'tasker': `Pago liberado a ${senderName}`,
-				'taskee': `Pago recibido de ${senderName}`,
-				'unknown': `Pago liberado por ${senderName}`
+				'tasker': 'notifications.service_messages.payment_released_body_tasker',
+				'taskee': 'notifications.service_messages.payment_released_body_taskee',
+				'unknown': 'notifications.service_messages.payment_released_body_tasker'
 			},
 			'payment-refunded': {
-				'tasker': `Pago reembolsado a ${senderName}`,
-				'taskee': `Pago reembolsado por ${senderName}`,
-				'unknown': `Pago reembolsado por ${senderName}`
+				'tasker': 'notifications.service_messages.payment_refunded_body_tasker',
+				'taskee': 'notifications.service_messages.payment_refunded_body_taskee',
+				'unknown': 'notifications.service_messages.payment_refunded_body_tasker'
 			}
 		};
 
-		const title = actionTitles[message.action]?.[userRole] || 'Actualización de Contrato';
-		const body = actionBodies[message.action]?.[userRole] || message.message || `Actualización de contrato por ${senderName}`;
+		const titleKey = actionTitleKeys[message.action]?.[userRole] || 'notifications.service_messages.contract_update_title';
+		const bodyKey = actionBodyKeys[message.action]?.[userRole] || 'notifications.service_messages.contract_update_body';
 
 		return {
 			...base,
 			type: 'contract_event',
-			title,
-			body,
+			title: titleKey,
+			body: bodyKey,
 			priority: message.action === 'contract-disputed' ? 'urgent' : 'normal',
 			data: {
 				contractId: message.contractId,
@@ -849,7 +851,8 @@ class LocalNotificationService {
 				taskerPubkey: message.taskerPubkey,
 				taskeePubkey: message.taskeePubkey,
 				taskId: message.taskId,
-				isTranslated: true // Flag to indicate this is already translated
+				titleKey,
+				bodyKey
 			},
 			action: {
 				type: 'navigation',
@@ -876,25 +879,25 @@ class LocalNotificationService {
 			? `/dashboard/task/${message.taskId}/bids` // Tasker goes to bids page
 			: `/dashboard/bids/${message.bidId}`; // Taskee goes to specific bid page
 
-		// Create translated content based on user role
-		let title: string;
-		let body: string;
+		// Create translation keys based on user role
+		let titleKey: string;
+		let bodyKey: string;
 
 		if (userRole === 'tasker') {
 			// Tasker receiving new bid
-			title = 'Nueva Oferta Recibida'; // Spanish
-			body = `${senderName} ha enviado una oferta para tu tarea. Revisa los detalles y decide si la aceptas.`;
+			titleKey = 'notifications.service_messages.new_bid_title';
+			bodyKey = 'notifications.service_messages.new_bid_body_tasker';
 		} else {
 			// Fallback for unknown roles
-			title = 'Nueva Oferta';
-			body = `${senderName} ha enviado una oferta.`;
+			titleKey = 'notifications.service_messages.new_bid_title';
+			bodyKey = 'notifications.service_messages.new_bid_body_unknown';
 		}
 
 		return {
 			...base,
 			type: 'new_bid',
-			title,
-			body,
+			title: titleKey,
+			body: bodyKey,
 			priority: 'high',
 			data: {
 				bidId: message.bidId,
@@ -906,7 +909,8 @@ class LocalNotificationService {
 				userRole,
 				taskerPubkey: message.taskerPubkey,
 				taskeePubkey: message.taskeePubkey,
-				isTranslated: true // Flag to indicate this is already translated
+				titleKey,
+				bodyKey
 			},
 			action: {
 				type: 'navigation',
@@ -980,25 +984,25 @@ class LocalNotificationService {
 		base: Partial<Notification>,
 		userRole: UserRole
 	): Notification {
-		// Role-aware titles and messages
-		let title: string;
-		let body: string;
+		// Role-aware translation keys
+		let titleKey: string;
+		let bodyKey: string;
 
 		if (userRole === 'tasker') {
 			// Tasker receiving task completion notification
-			title = 'Task Completed';
-			body = `${senderName} has marked your task as completed! Review the work and confirm if it's ready.`;
+			titleKey = 'notifications.service_messages.task_completed_title';
+			bodyKey = 'notifications.service_messages.task_completed_body_tasker';
 		} else {
 			// Fallback for unknown roles
-			title = 'Task Completed';
-			body = `${senderName} has marked a task as completed.`;
+			titleKey = 'notifications.service_messages.task_completed_title';
+			bodyKey = 'notifications.service_messages.task_completed_body_unknown';
 		}
 
 		return {
 			...base,
 			type: 'task_completed',
-			title,
-			body,
+			title: titleKey,
+			body: bodyKey,
 			priority: 'high',
 			data: {
 				taskId: message.taskId,
@@ -1008,7 +1012,9 @@ class LocalNotificationService {
 				senderName,
 				userRole,
 				taskerPubkey: message.taskerPubkey,
-				taskeePubkey: message.taskeePubkey
+				taskeePubkey: message.taskeePubkey,
+				titleKey,
+				bodyKey
 			},
 			action: {
 				type: 'navigation',
@@ -1026,50 +1032,50 @@ class LocalNotificationService {
 		base: Partial<Notification>,
 		userRole: UserRole
 	): Notification {
-		const statusTitles: Record<string, Record<UserRole, string>> = {
+		const statusTitleKeys: Record<string, Record<UserRole, string>> = {
 			'received': {
-				'tasker': 'Payment Sent',
-				'taskee': 'Payment Received',
-				'unknown': 'Payment Update'
+				'tasker': 'notifications.service_messages.payment_sent_title',
+				'taskee': 'notifications.service_messages.payment_received_title',
+				'unknown': 'notifications.service_messages.payment_update_title'
 			},
 			'sent': {
-				'tasker': 'Payment Sent',
-				'taskee': 'Payment Received',
-				'unknown': 'Payment Update'
+				'tasker': 'notifications.service_messages.payment_sent_title',
+				'taskee': 'notifications.service_messages.payment_received_title',
+				'unknown': 'notifications.service_messages.payment_update_title'
 			},
 			'pending': {
-				'tasker': 'Payment Pending',
-				'taskee': 'Payment Pending',
-				'unknown': 'Payment Pending'
+				'tasker': 'notifications.service_messages.payment_pending_title',
+				'taskee': 'notifications.service_messages.payment_pending_title',
+				'unknown': 'notifications.service_messages.payment_pending_title'
 			}
 		};
 
-		const statusBodies: Record<string, Record<UserRole, string>> = {
+		const statusBodyKeys: Record<string, Record<UserRole, string>> = {
 			'received': {
-				'tasker': `You have sent ${message.amount} ${message.currency} to ${senderName}`,
-				'taskee': `You have received ${message.amount} ${message.currency} from ${senderName}`,
-				'unknown': `Payment of ${message.amount} ${message.currency} processed`
+				'tasker': 'notifications.service_messages.payment_sent_body_tasker',
+				'taskee': 'notifications.service_messages.payment_received_body_taskee',
+				'unknown': 'notifications.service_messages.payment_update_body'
 			},
 			'sent': {
-				'tasker': `You have sent ${message.amount} ${message.currency} to ${senderName}`,
-				'taskee': `You have received ${message.amount} ${message.currency} from ${senderName}`,
-				'unknown': `Payment of ${message.amount} ${message.currency} sent`
+				'tasker': 'notifications.service_messages.payment_sent_body_tasker',
+				'taskee': 'notifications.service_messages.payment_received_body_taskee',
+				'unknown': 'notifications.service_messages.payment_update_body'
 			},
 			'pending': {
-				'tasker': `Your payment of ${message.amount} ${message.currency} is pending confirmation`,
-				'taskee': `Payment of ${message.amount} ${message.currency} is pending confirmation`,
-				'unknown': `Payment of ${message.amount} ${message.currency} is pending`
+				'tasker': 'notifications.service_messages.payment_pending_body_tasker',
+				'taskee': 'notifications.service_messages.payment_pending_body_taskee',
+				'unknown': 'notifications.service_messages.payment_pending_body_taskee'
 			}
 		};
 
-		const title = statusTitles[message.status]?.[userRole] || 'Payment Update';
-		const body = statusBodies[message.status]?.[userRole] || message.message || `Payment update by ${senderName}`;
+		const titleKey = statusTitleKeys[message.status]?.[userRole] || 'notifications.service_messages.payment_update_title';
+		const bodyKey = statusBodyKeys[message.status]?.[userRole] || 'notifications.service_messages.payment_update_body';
 
 		return {
 			...base,
 			type: 'payment',
-			title,
-			body,
+			title: titleKey,
+			body: bodyKey,
 			priority: message.status === 'received' ? 'high' : 'normal',
 			data: {
 				paymentId: message.paymentId,
@@ -1080,7 +1086,9 @@ class LocalNotificationService {
 				senderName,
 				userRole,
 				taskerPubkey: message.taskerPubkey,
-				taskeePubkey: message.taskeePubkey
+				taskeePubkey: message.taskeePubkey,
+				titleKey,
+				bodyKey
 			},
 			action: {
 				type: 'navigation',

@@ -526,7 +526,7 @@
 			<h3 class="truncate text-xl font-semibold tracking-tight">{$t('messages.title')}</h3>
 			<p class="text-base-content/70 text-sm">{$t('messages.subtitle')}</p>
 		</div>
-		<button class="btn btn-primary btn-sm hidden sm:flex" onclick={startNewMessage}
+		<button class="btn btn-primary btn-sm flex" onclick={startNewMessage}
 			>{$t('messages.new_message')}
 		</button>
 	</div>
