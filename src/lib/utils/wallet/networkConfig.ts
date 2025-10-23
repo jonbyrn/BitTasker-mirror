@@ -103,6 +103,17 @@ export const RSK_NETWORKS = {
 				decimals: 18
 			}
 		] as ERC20Token[] */
+	},
+	regtest: {
+		name: 'RSK Regtest (Local)',
+		chainId: 33,
+		rpcUrl: 'http://localhost:8545',
+		explorerUrl: 'http://localhost:4002',
+		currency: {
+			name: 'Regtest Smart Bitcoin',
+			symbol: 'rRBTC',
+			decimals: 18
+		}
 	}
 } as const;
 

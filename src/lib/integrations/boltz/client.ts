@@ -1,6 +1,9 @@
 /**
  * Boltz Exchange REST API Client
- * Production-ready implementation based on official Boltz documentation
+ * 
+ * IMPORTANT: This client is specifically designed for RBTC swaps on Rootstock.
+ * RBTC uses EVM smart contracts (EtherSwap), not Bitcoin scripts or Taproot.
+ * The Taproot/script methods below are for Bitcoin UTXO swaps only.
  * 
  * PRODUCTION FEATURES IMPLEMENTED:
  * ✅ Uses boltz-core's optimized swapScript() and reverseSwapScript() functions
@@ -20,6 +23,11 @@
  * ✅ Proper fee estimation and transaction broadcasting
  * ✅ Swap monitoring with configurable polling intervals
  * 
+ * BITCOIN UTXO FEATURES (not used for RBTC):
+ * ⚠️ Taproot/MuSig2 support (framework only - needs full boltz-core integration)
+ * ⚠️ P2WSH script construction (legacy Bitcoin swaps)
+ * ⚠️ HTLC claim/refund transactions
+ * 
  * PRODUCTION SAFETY FEATURES:
  * 🔒 Proper timelock validation (minimum 1 hour in future)
  * 🔒 Key format validation (33/65 byte public keys)
@@ -27,7 +35,6 @@
  * 🔒 Fee validation to prevent dust outputs
  * 🔒 Network-specific configuration validation
  * 🔒 Rate limiting to prevent API abuse
- * 🔒 Request timeout and retry handling
  * 🔒 Comprehensive error types for debugging
  * 
  * EMERGENCY RECOVERY:
@@ -66,7 +73,8 @@ import type {
 	ClaimSwapRequest,
 	ClaimSwapResponse,
 	BroadcastTransactionRequest,
-	BroadcastTransactionResponse
+	BroadcastTransactionResponse,
+	RefundFileData
 } from './types';
 import { Buffer } from 'buffer';
 
@@ -81,21 +89,13 @@ export class BoltzError extends Error {
 	}
 }
 
-export interface RefundFileData {
-	id: string;
-	currency: string;
-	redeemScript: string;
-	privateKey: string;
-	timeoutBlockHeight: number;
-}
-
 export class BoltzClient {
+	private readonly maxRequestsPerSecond = 10;
 	private config: BoltzConfig;
 	private baseUrl: string;
 	private ECPair = ECPairFactory(ecc);
 	private requestCount = 0;
 	private lastRequestTime = 0;
-	private readonly maxRequestsPerSecond = 10;
 	private network: networks.Network;
 
 	constructor(config: BoltzConfig) {
@@ -112,8 +112,8 @@ export class BoltzClient {
 		if (!config.apiUrl) {
 			throw new BoltzError('API URL is required', 'INVALID_CONFIG');
 		}
-		if (!['mainnet', 'testnet'].includes(config.network)) {
-			throw new BoltzError('Network must be mainnet or testnet', 'INVALID_CONFIG');
+		if (!['mainnet', 'testnet', 'regtest'].includes(config.network)) {
+			throw new BoltzError('Network must be mainnet, testnet, or regtest', 'INVALID_CONFIG');
 		}
 	}
 
@@ -185,6 +185,9 @@ export class BoltzClient {
 	 * Create Taproot-based swap script using boltz-core functions
 	 * Implements MuSig2 aggregated keys as per Boltz documentation
 	 * Boltz's public key always comes first in aggregation
+	 * 
+	 * NOTE: This is only used for Bitcoin UTXO swaps.
+	 * EVM chains (RBTC, ETH) use smart contracts instead.
 	 */
 	private createTaprootSwapScript(params: {
 		preimageHash: string;
@@ -216,27 +219,28 @@ export class BoltzClient {
 			timelock
 		);
 
-		// Create proper Taproot tree structure (simplified for now)
-		// Note: This is a simplified implementation - full boltz-core integration would require
-		// proper tree serialization matching their exact API
+		// Create Taproot tree structure
+		// TODO: For production Taproot swaps, use boltz-core's SwapTreeSerializer
 		const tree = {
 			claimLeaf: { output: claimScript, version: 192 },
 			refundLeaf: { output: refundScript, version: 192 }
 		};
 
 		// Create MuSig2 aggregated key (Boltz public key comes first per documentation)
+		// For production, use boltz-core's Musig class with proper nonce aggregation
 		let aggregatedKey: Buffer;
 		let musig: any = null;
 
 		if (boltzPublicKey) {
-			// Note: This is simplified - real MuSig2 aggregation would require proper API
-			aggregatedKey = boltzPublicKey; // Simplified for now
+			// In production, use: new Musig(zkp, keys, randomBytes(32), [boltzPublicKey, claimPublicKey])
+			aggregatedKey = boltzPublicKey;
 		} else {
 			// Fallback for when Boltz key is not available yet
 			aggregatedKey = claimPublicKey;
 		}
 
-		// Use aggregated key directly (simplified implementation)
+		// Tweak the aggregated key with the Taptree
+		// In production, use: TaprootUtils.tweakMusig(musig, tree)
 		const tweakedPublicKey = aggregatedKey;
 
 		// Create P2TR address
@@ -648,8 +652,8 @@ export class BoltzClient {
 	}
 
 	/**
-	 * Create a submarine swap (Lightning → Bitcoin)
-	 * User pays Lightning invoice, receives Bitcoin on-chain
+	 * Create a submarine swap (Chain → Lightning)
+	 * User pays Bitcoin on-chain, receives Lightning invoice
 	 */
 	async createSubmarineSwap(params: {
 		pairId: string;
@@ -702,8 +706,9 @@ export class BoltzClient {
 	}
 
 	/**
-	 * Create a reverse submarine swap (Bitcoin → Lightning)
-	 * User sends Bitcoin on-chain, receives Lightning payment
+	 * Create a reverse submarine swap (Lightning → Chain)
+	 * User sends Lightning payment, receives Chain on-chain
+	 * @deprecated In favor of reverseSwapService.ts
 	 */
 	async createReverseSubmarineSwap(params: {
 		pairId: string;
@@ -711,6 +716,7 @@ export class BoltzClient {
 		preimageHash: string;
 		claimPublicKey: string;
 		referralId?: string;
+		claimAddress?: string; // For direct address claiming
 	}): Promise<CreateReverseSwapResponse> {
 		// Validate inputs
 		if (!params.pairId || !params.preimageHash || !params.claimPublicKey) {
@@ -748,7 +754,8 @@ export class BoltzClient {
 			invoiceAmount: params.invoiceAmount,
 			preimageHash: params.preimageHash,
 			claimPublicKey: params.claimPublicKey,
-			referralId: params.referralId
+			referralId: params.referralId,
+			claimAddress: params.claimAddress
 		};
 
 		try {
@@ -768,14 +775,18 @@ export class BoltzClient {
 
 	/**
 	 * Get swap status by ID
+	 * According to Boltz API v2 docs, there's no dedicated status endpoint.
+	 * Status updates should be received via WebSocket subscription.
+	 * This is a fallback that tries common endpoint patterns.
 	 */
-	async getSwapStatus(swapId: string): Promise<SwapStatus> {
+	async getSwapStatus(swapId: string, isReverse: boolean = false): Promise<SwapStatus> {
 		if (!swapId || swapId.trim() === '') {
 			throw new Error('Swap ID is required');
 		}
 
 		try {
-			const response = await this.request('GET', `/v2/swap/${swapId}/status`);
+			// Try the generic swap endpoint first (most likely to work)
+			const response = await this.request('GET', `/v2/swap/${swapId}`);
 			
 			// Validate response has required status field
 			if (!response.status) {
@@ -786,6 +797,44 @@ export class BoltzClient {
 		} catch (error) {
 			console.error(`Failed to get swap status for ${swapId}:`, error);
 			throw new Error('Failed to get swap status: ' + (error instanceof Error ? error.message : 'Unknown error'));
+		}
+	}
+
+	/**
+	 * Check if invoices have been paid for a reverse swap
+	 * Used to manually verify payment status when WebSocket updates are missed
+	 */
+	async checkInvoicePaymentStatus(swapId: string): Promise<{
+		mainInvoicePaid: boolean;
+		serviceFeeInvoicePaid?: boolean;
+		status: string;
+	}> {
+		if (!swapId || swapId.trim() === '') {
+			throw new BoltzError('Swap ID is required', 'INVALID_PARAMS');
+		}
+
+		try {
+			const response = await this.request('GET', `/v2/swap/reverse/${swapId}`);
+			
+			if (!response.status) {
+				throw new BoltzError('Invalid status response', 'INVALID_RESPONSE');
+			}
+			
+			// Determine if main invoice has been paid based on status
+			// invoice.set, transaction.mempool, or transaction.confirmed indicate payment
+			const mainInvoicePaid = ['invoice.set', 'transaction.mempool', 'transaction.confirmed', 'invoice.settled'].includes(response.status);
+			
+			return {
+				mainInvoicePaid,
+				serviceFeeInvoicePaid: response.serviceFeeInvoicePaid,
+				status: response.status
+			};
+		} catch (error) {
+			console.error(`Failed to check invoice payment status for ${swapId}:`, error);
+			throw new BoltzError(
+				'Invoice payment status check failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'PAYMENT_STATUS_ERROR'
+			);
 		}
 	}
 
@@ -834,7 +883,7 @@ export class BoltzClient {
 
 	/**
 	 * Get EVM contract addresses for swap contracts
-	 * Used for EVM chain swaps (Ethereum, Polygon, etc.)
+	 * Used for EVM chain swaps (Rootstock, Ethereum, Polygon, etc.)
 	 */
 	async getContractAddresses(): Promise<{
 		[chain: string]: {
@@ -900,10 +949,6 @@ export class BoltzClient {
 			// Validate that the calculation makes sense
 			if (result.receiveAmount <= 0) {
 				throw new Error('Invalid quote: receive amount must be greater than 0');
-			}
-
-			if (result.sendAmount < result.receiveAmount + result.fee + result.minerFee * 0.1) {
-				console.warn('Quote validation warning: fees seem disproportionate to amounts');
 			}
 
 			return result;

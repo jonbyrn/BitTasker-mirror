@@ -74,24 +74,10 @@ export function getSupportedAssets(network: 'mainnet' | 'testnet'): AssetMetadat
 }
 
 /**
- * Check if an asset ID is valid for the given network
- */
-export function isValidAssetId(network: 'mainnet' | 'testnet', assetId: string): boolean {
-	return assetId in ASSET_METADATA[network];
-}
-
-/**
  * Detect current network based on environment or asset ID
  */
 export function getCurrentNetwork(): 'mainnet' | 'testnet' {
-	// Check environment variable first
-	if (typeof import.meta !== 'undefined' && import.meta.env) {
-		const envNetwork = import.meta.env.VITE_RSK_NETWORK;
-		if (envNetwork) return envNetwork;
-	}
-	
-	// Default to testnet to match RSK network setting
-	return 'testnet';
+	return import.meta.env.VITE_RSK_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
 }
 
 /**

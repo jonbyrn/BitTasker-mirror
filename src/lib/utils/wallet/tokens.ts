@@ -16,7 +16,7 @@ async function loadTokenBalances(walletType: 'rsk' | 'bsc'): Promise<void> {
         const tokenBalances: TokenBalance[] = [];
 
         // Check if tokens are defined for this network
-        if ('tokens' in networkConfig && networkConfig.tokens) {
+        if (networkConfig && 'tokens' in networkConfig && networkConfig.tokens) {
             const tokens = networkConfig.tokens as ERC20Token[];
 
             for (const token of tokens) {

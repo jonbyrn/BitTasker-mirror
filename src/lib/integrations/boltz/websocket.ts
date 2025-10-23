@@ -5,6 +5,7 @@
  */
 
 import type { SwapStatusType, SwapEvent } from './types';
+import { getWebSocketEndpoint } from './config';
 
 interface WebSocketMessage {
 	op?: string;
@@ -44,7 +45,9 @@ export class BoltzWebSocket {
 				};
 
 				this.ws.onmessage = (event) => {
-					this.handleMessage(JSON.parse(event.data));
+					const data = JSON.parse(event.data);
+					console.log('📨 Boltz WebSocket message:', data);
+					this.handleMessage(data);
 				};
 
 				this.ws.onclose = () => {
@@ -68,6 +71,7 @@ export class BoltzWebSocket {
 	 */
 	subscribeToSwap(swapId: string, callback: (event: SwapEvent) => void): void {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+			console.error('❌ WebSocket not connected, cannot subscribe to swap:', swapId);
 			throw new Error('WebSocket not connected');
 		}
 
@@ -75,6 +79,7 @@ export class BoltzWebSocket {
 		this.callbacks.set(swapId, callback);
 
 		// Send subscription message as per Boltz API documentation
+		console.log('📡 Subscribing to swap updates:', swapId);
 		this.send({
 			op: 'subscribe',
 			channel: 'swap.update',
@@ -190,7 +195,7 @@ export class BoltzWebSocket {
 		setTimeout(async () => {
 			try {
 				await this.connect();
-				
+
 				// Re-subscribe to all previously subscribed swaps
 				for (const swapId of this.subscribedSwaps) {
 					this.send({
@@ -216,10 +221,11 @@ export class BoltzWebSocket {
 	}
 }
 
-// Singleton instance
-export const boltzWebSocket = new BoltzWebSocket();
+// Singleton instance - use environment-specific endpoint
+export const boltzWebSocket = new BoltzWebSocket(getWebSocketEndpoint());
 
 // Auto-connect when module is imported
 if (typeof window !== 'undefined') {
+	console.log('🔌 Connecting to Boltz WebSocket:', getWebSocketEndpoint());
 	boltzWebSocket.connect().catch(console.error);
 }
