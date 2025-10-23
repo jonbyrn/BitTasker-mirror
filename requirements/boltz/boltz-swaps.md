@@ -423,10 +423,110 @@ lncli-sim 1 payinvoice <INVOICE>
 - ❌ Never expose private keys
 - ❌ Never trust API amounts without verification
 
+## Contract ABI Implementation
+
+### Current: Using boltz-core ABI (Recommended)
+
+We use Boltz's official EtherSwap ABI directly from `boltz-core`:
+
+```typescript
+import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
+
+const contract = new Contract(
+  contractAddress,
+  EtherSwapArtifact.abi,
+  signer
+);
+```
+
+**Benefits:**
+- ✅ Always in sync with Boltz's actual contract
+- ✅ Access to all contract functions
+- ✅ No need to maintain separate ABI files
+- ✅ Guaranteed compatibility
+
+### Deprecated: TypeChain-Generated Bindings
+
+**Note**: We previously used TypeChain to generate TypeScript bindings from the EtherSwap ABI. This provided excellent type safety but required manual maintenance to stay in sync with Boltz's contracts.
+
+#### What TypeChain Provided
+
+TypeChain generated type-safe wrappers:
+- ✅ **Type Safety**: Compile-time checking of contract method calls
+- ✅ **Autocomplete**: IntelliSense support for methods and events
+- ✅ **Error Prevention**: Catch parameter mismatches before runtime
+- ✅ **Better DX**: Clear documentation through TypeScript interfaces
+
+#### Usage Pattern (Deprecated)
+
+```typescript
+import { EtherSwap__factory } from '$lib/contracts';
+
+// The factory's connect() method was just a helper that did:
+// new Contract(address, abi, signer)
+const etherSwap = EtherSwap__factory.connect(
+  contractAddress,
+  walletSigner
+);
+
+// Full TypeScript types for all methods
+const tx = await etherSwap.claim(
+  preimage,      // BytesLike - typed!
+  amount,        // BigNumberish - typed!
+  refundAddress, // AddressLike - typed!
+  timelock       // BigNumberish - typed!
+);
+```
+
+#### Why We Switched
+
+1. **Maintenance**: TypeChain bindings needed regeneration when contract changed
+2. **Redundancy**: `boltz-core` already exports the official ABI
+3. **Sync Risk**: Our generated ABI could drift from Boltz's actual contract
+4. **Simplicity**: Direct ABI import is more straightforward
+
+#### Migration Path
+
+If you need to regenerate TypeChain bindings in the future:
+
+```bash
+# 1. Install TypeChain
+npm install -D typechain @typechain/ethers-v6
+
+# 2. Get latest ABI from boltz-core
+# node_modules/boltz-core/out/EtherSwap.sol/EtherSwap.json
+
+# 3. Generate bindings
+npx typechain --target ethers-v6 \
+  --out-dir src/lib/contracts \
+  'path/to/abi/*.json'
+```
+
+**File Structure (Deprecated):**
+```
+contracts/
+├── README.md
+├── abis/
+│   └── EtherSwap.json          # Contract ABI
+├── common.ts                    # TypeChain common types
+├── EtherSwap.ts                 # Contract interface
+├── index.ts                     # Exports
+└── factories/
+    └── EtherSwap__factory.ts   # Contract factory with connect()
+```
+
+The `EtherSwap__factory.connect()` method was essentially:
+```typescript
+static connect(address: string, runner?: ContractRunner | null): EtherSwap {
+  return new Contract(address, _abi, runner) as unknown as EtherSwap;
+}
+```
+
 ## References
 
 - [Boltz API v2 Documentation](https://api.docs.boltz.exchange/api-v2.html)
 - [Boltz Exchange](https://boltz.exchange/)
 - [EtherSwap Contract Source](https://github.com/BoltzExchange/boltz-core/blob/master/contracts/EtherSwap.sol)
 - [Boltz GitHub](https://github.com/BoltzExchange)
+- [TypeChain Documentation](https://github.com/dethcrypto/TypeChain) (for reference)
 

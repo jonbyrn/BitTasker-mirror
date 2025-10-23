@@ -2,14 +2,20 @@
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { rskConnection } from '$lib/stores/wallet.store';
-	import { reverseSwapService, type BoltzSwapData } from '$lib/integrations/boltz/reverseSwapService';
+	import {
+		reverseSwapService,
+		type BoltzSwapData
+	} from '$lib/integrations/boltz/reverseSwapService';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { bytesToHex } from '@noble/hashes/utils';
 
 	// Props
-	let { amount = $bindable(''), description = $bindable('') }: { amount?: string; description?: string } = $props();
+	let {
+		amount = $bindable(''),
+		description = $bindable('')
+	}: { amount?: string; description?: string } = $props();
 
 	// State
 	let isCreatingSwap = $state(false);
@@ -39,10 +45,10 @@
 				// Recover pending swaps from Nostr storage
 				const recovered = await reverseSwapService.recoverPendingSwaps(nsecHex);
 				console.log('Recovered swaps:', recovered);
-				
+
 				if (recovered.length > 0) {
 					pendingSwaps = recovered;
-					
+
 					// Monitor all recovered swaps
 					for (const swap of recovered) {
 						monitorSwapForClaiming(swap.id);
@@ -55,7 +61,6 @@
 			}
 		})();
 	});
-
 
 	/**
 	 * Create reverse swap
@@ -77,11 +82,11 @@
 		}
 
 		const amountSats = Math.floor(parseFloat(amount) * 100_000_000);
-		
+
 		// Minimum amount varies by network
 		const minAmount = import.meta.env.VITE_RSK_NETWORK === 'mainnet' ? 1000 : 10000;
 		const minBTC = minAmount / 100_000_000;
-		
+
 		if (amountSats < minAmount) {
 			error = `Minimum amount is ${minAmount} sats (${minBTC} BTC)`;
 			return;
@@ -106,7 +111,7 @@
 
 			// Monitor swap for automatic claiming
 			monitorSwapForClaiming(result.swapId);
-			
+
 			// Clear form
 			amount = '';
 			description = '';
@@ -132,16 +137,18 @@
 			}
 
 			// Update swap in the list
-			const swapIndex = pendingSwaps.findIndex(s => s.id === swapId);
+			const swapIndex = pendingSwaps.findIndex((s) => s.id === swapId);
 			if (swapIndex !== -1) {
 				pendingSwaps[swapIndex] = swap;
 				pendingSwaps = [...pendingSwaps]; // Trigger reactivity
 			}
 
 			// Stop monitoring on final states
-			if (['invoice.settled', 'swap.expired', 'transaction.failed', 'claimed'].includes(swap.status)) {
+			if (
+				['invoice.settled', 'swap.expired', 'transaction.failed', 'claimed'].includes(swap.status)
+			) {
 				clearInterval(interval);
-				
+
 				// Show success message when settled
 				if (swap.status === 'invoice.settled') {
 					appStore.showSuccessToast('✅ RBTC received!');
@@ -149,7 +156,6 @@
 			}
 		}, 5000);
 	}
-
 
 	/**
 	 * Manually claim rBTC
@@ -175,14 +181,14 @@
 			);
 
 			// Update swap in the list
-			const swapIndex = pendingSwaps.findIndex(s => s.id === swap.id);
+			const swapIndex = pendingSwaps.findIndex((s) => s.id === swap.id);
 			if (swapIndex !== -1) {
 				pendingSwaps[swapIndex].claimTxHash = result.txHash;
 				pendingSwaps[swapIndex].status = 'claimed';
 				pendingSwaps[swapIndex].rifRelayUsed = true;
 				pendingSwaps = [...pendingSwaps]; // Trigger reactivity
 			}
-			
+
 			appStore.showSuccessToast('✅ RBTC claimed successfully (gasless)!');
 		} catch (err) {
 			console.error('Failed to claim RBTC:', err);
@@ -205,7 +211,7 @@
 	 * Remove a swap from the pending list
 	 */
 	function removeSwap(swapId: string) {
-		pendingSwaps = pendingSwaps.filter(s => s.id !== swapId);
+		pendingSwaps = pendingSwaps.filter((s) => s.id !== swapId);
 	}
 
 	/**
@@ -267,34 +273,64 @@
 				return { label: status, color: 'text-base-content', icon: 'ℹ️' };
 		}
 	}
+
+	const pendingSwapExample = {
+		id: '1234567890',
+		invoice: 'lightning:1234567890',
+		amount: 100000000,
+		rbtcAddress: '0x1234567890',
+		status: 'swap.created',
+		createdAt: Date.now(),
+		updatedAt: Date.now(),
+		expiresAt: Date.now() + 1000 * 60 * 60 * 24,
+		rifRelayUsed: false,
+		preimage: '1234567890',
+		preimageHash: '1234567890',
+		lockupTxHash: '1234567890',
+		claimTxHash: '1234567890',
+		onchainAmount: 100000000,
+		refundAddress: '0x1234567890',
+		timeoutBlockHeight: 100000000
+	};
 </script>
 
 <div class="space-y-6">
 	<!-- Developer Tool: Delete All Swaps -->
-	{#if import.meta.env.DEV || import.meta.env.VITE_RSK_NETWORK === 'testnet'}
-		<div class="alert alert-warning">
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-			</svg>
-			<div class="flex-1">
-				<h3 class="font-bold">🧪 Developer Tools</h3>
-				<div class="text-sm">Clear test data from Nostr storage</div>
-			</div>
-			<button 
-				class="btn btn-error btn-sm"
-				onclick={deleteAllSwaps}
-				disabled={isDeletingSwaps}
+	{#if import.meta.env.DEV || import.meta.env.VITE_BOLTZ_NETWORK === 'regtest'}
+		<div class="alert alert-horizontal">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
 			>
-				{#if isDeletingSwaps}
-					<span class="loading loading-spinner loading-xs"></span>
-					Deleting...
-				{:else}
-					🗑️ Delete All Swaps
-				{/if}
-			</button>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+				/>
+			</svg>
+			<div class="flex w-full flex-col items-center justify-between space-y-2 sm:flex-row">
+				<div class="flex-1">
+					<h4 class="font-bold">🧪 Developer Tools</h4>
+					<div class="text-sm">Clear test data from Nostr storage</div>
+				</div>
+				<button
+					class="btn btn-error btn-sm mx-auto block"
+					onclick={deleteAllSwaps}
+					disabled={isDeletingSwaps}
+				>
+					{#if isDeletingSwaps}
+						<span class="loading loading-spinner loading-xs"></span>
+						Deleting...
+					{:else}
+						🗑️ Delete All Swaps
+					{/if}
+				</button>
+			</div>
 		</div>
 	{/if}
-
 
 	{#if error}
 		<div class="alert alert-error">
@@ -332,7 +368,7 @@
 				/>
 			</svg>
 			<div>
-				<h3 class="font-bold">Lightning → rBTC Swap</h3>
+				<h4 class="font-bold">Lightning → rBTC Swap</h4>
 				<div class="text-sm">
 					Receive Lightning payments and automatically convert them to rBTC. Fees: ~0.4-0.5%
 				</div>
@@ -342,7 +378,9 @@
 		<div class="form-control">
 			<label class="label" for="amount">
 				<span class="label-text">Amount (BTC)</span>
-				<span class="label-text-alt">Min: {import.meta.env.VITE_RSK_NETWORK === 'mainnet' ? '0.00001' : '0.0001'} BTC</span>
+				<span class="label-text-alt"
+					>Min: {import.meta.env.VITE_RSK_NETWORK === 'mainnet' ? '0.00001' : '0.0001'} BTC</span
+				>
 			</label>
 			<input
 				id="amount"
@@ -370,7 +408,11 @@
 			></textarea>
 		</div>
 
-		<button class="btn btn-primary w-full" onclick={createSwap} disabled={isCreatingSwap || !$rskConnection.connected}>
+		<button
+			class="btn btn-primary w-full"
+			onclick={createSwap}
+			disabled={isCreatingSwap || !$rskConnection.connected}
+		>
 			{#if isCreatingSwap}
 				<span class="loading loading-spinner loading-sm"></span>
 				Creating swap...
@@ -384,52 +426,70 @@
 	{#if pendingSwaps.length > 0}
 		<div class="space-y-4">
 			<div class="divider">Pending Swaps</div>
-			
+
 			{#each pendingSwaps as swap (swap.id)}
 				{@const statusInfo = getStatusInfo(swap.status)}
 				<div class="card bg-base-200 shadow-lg">
 					<div class="card-body p-4">
 						<!-- Status Header -->
-							<div class="flex items-center justify-between mb-4">
-								<div class="flex items-center gap-2">
-									<span class="text-xl">{statusInfo.icon}</span>
-									<span class="text-sm font-semibold {statusInfo.color}">{statusInfo.label}</span>
-								</div>
-								<span class="text-sm opacity-70">{swap.amount} sats</span>
+						<div class="mb-4 flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<span class="text-xl">{statusInfo.icon}</span>
+								<span class="text-sm font-semibold {statusInfo.color}">{statusInfo.label}</span>
 							</div>
+							<span class="text-sm opacity-70">{swap.amount} sats</span>
+						</div>
 
-							<!-- Main Invoice with QR -->
-							<details class="collapse collapse-arrow bg-base-100">
-								<summary class="collapse-title text-sm font-medium">
-									View Invoice
-								</summary>
-								<div class="collapse-content space-y-3">
-									<!-- QR Code -->
+						<!-- Main Invoice with QR -->
+						<div class="bg-base-100 rounded-4xl p-4">
+							<div class="mb-4 flex items-center justify-between">
+								<span class="block font-medium"> View Invoice </span>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-6 w-6"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 9l-7 7-7-7"
+									/>
+								</svg>
+							</div>
+							<div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
+								<!-- QR Code -->
+								<div class="relative flex w-full justify-center">
 									{#await generateQrCodeUrl(swap.invoice) then qrUrl}
-										<div class="flex justify-center">
-											<div class="rounded-lg bg-white p-3">
-												<img src={qrUrl} alt="QR Code" class="h-32 w-32" />
-											</div>
+										<div class="rounded-lg bg-white p-3">
+											<img src={qrUrl} alt="QR Code" class="h-32 w-32" />
 										</div>
 									{/await}
+								</div>
 
-									<!-- Invoice String -->
+								<!-- Invoice String -->
+								<div class="w-full text-start">
 									<button
-										class="btn btn-outline btn-sm w-full justify-start overflow-hidden text-ellipsis"
+										class="btn btn-outline btn-sm h-full w-[75%] justify-start overflow-hidden p-4 text-ellipsis"
 										onclick={() => copyInvoice(swap.invoice)}
 									>
-										<code class="overflow-hidden text-ellipsis text-xs">
+										<code class="overflow-hidden text-xs text-ellipsis">
 											{swap.invoice}
 										</code>
 									</button>
 								</div>
-							</details>
+							</div>
+						</div>
 
 						<!-- Swap Details -->
 						<div class="space-y-1 text-xs">
 							<div class="flex justify-between">
 								<span class="opacity-70">Destination:</span>
-								<code class="truncate">{swap.rbtcAddress.slice(0, 8)}...{swap.rbtcAddress.slice(-6)}</code>
+								<code class="truncate"
+									>{swap.rbtcAddress.slice(0, 8)}...{swap.rbtcAddress.slice(-6)}</code
+								>
 							</div>
 							{#if swap.lockupTxHash}
 								<div class="flex justify-between">
@@ -460,12 +520,12 @@
 						</div>
 
 						<!-- Action Buttons -->
-						<div class="flex gap-2 mt-2">
+						<div class="mt-2 gap-2">
 							{#if !swap.claimTxHash && swap.status === 'transaction.confirmed'}
 								<!-- Can claim now - gasless via RIF Relay -->
-								<button 
+								<button
 									class="btn btn-success btn-sm flex-1"
-									onclick={() => claimRBTC(swap)} 
+									onclick={() => claimRBTC(swap)}
 									disabled={isClaiming}
 								>
 									{#if isClaiming}
@@ -476,18 +536,18 @@
 									{/if}
 								</button>
 							{/if}
-							
+
 							{#if swap.status === 'invoice.settled' || swap.status === 'claimed'}
-								<button 
-									class="btn btn-ghost btn-sm flex-1"
+								<button
+									class="btn btn-ghost btn-sm btn-outline block w-fit justify-self-end"
 									onclick={() => removeSwap(swap.id)}
 								>
 									✓ Remove
 								</button>
 							{/if}
-							
+
 							{#if swap.status === 'swap.created' || swap.status === 'invoice.set' || swap.status === 'transaction.mempool'}
-								<div class="text-xs text-base-content/70 text-center w-full py-2">
+								<div class="text-base-content/70 w-full py-2 text-center text-xs">
 									{#if swap.status === 'swap.created'}
 										Pay the Lightning invoice to continue
 									{:else if swap.status === 'invoice.set'}
@@ -508,22 +568,22 @@
 	{#if showHelpModal}
 		<dialog class="modal modal-open">
 			<div class="modal-box max-w-2xl">
-				<h3 class="font-bold text-xl mb-4">How Gasless RBTC Swaps Work</h3>
-				
+				<h3 class="mb-4 text-xl font-bold">How Gasless RBTC Swaps Work</h3>
+
 				<div class="space-y-4">
 					<div>
-						<h4 class="font-semibold mb-2">What is RIF Relay?</h4>
+						<h4 class="mb-2 font-semibold">What is RIF Relay?</h4>
 						<p class="text-sm">
-							RIF Relay technology enables gasless transactions on Rootstock. BitTasker uses 
-							RIF Relay to claim your RBTC without you needing any RBTC for gas fees.
+							RIF Relay technology enables gasless transactions on Rootstock. BitTasker uses RIF
+							Relay to claim your RBTC without you needing any RBTC for gas fees.
 						</p>
 					</div>
 
 					<div class="divider"></div>
 
 					<div>
-						<h4 class="font-semibold mb-2">How it works:</h4>
-						<ol class="list-decimal list-inside space-y-2 text-sm ml-2">
+						<h4 class="mb-2 font-semibold">How it works:</h4>
+						<ol class="ml-2 list-inside list-decimal space-y-2 text-sm">
 							<li>You pay the Lightning invoice with your Lightning wallet</li>
 							<li>Boltz locks RBTC in a smart contract on Rootstock</li>
 							<li>BitTasker claims the RBTC via RIF Relay (no gas fees for you!)</li>
@@ -534,8 +594,8 @@
 					<div class="divider"></div>
 
 					<div>
-						<h4 class="font-semibold mb-2">Key benefits:</h4>
-						<ul class="list-disc list-inside space-y-1 text-sm ml-2">
+						<h4 class="mb-2 font-semibold">Key benefits:</h4>
+						<ul class="ml-2 list-inside list-disc space-y-1 text-sm">
 							<li><strong>No gas fees</strong> - RIF Relay pays the transaction fees</li>
 							<li><strong>Automatic claiming</strong> - No manual steps required</li>
 							<li><strong>First RBTC</strong> - Perfect for receiving your first RBTC</li>
@@ -545,12 +605,9 @@
 				</div>
 
 				<div class="modal-action">
-					<button class="btn" onclick={() => showHelpModal = false}>
-						Got it!
-					</button>
+					<button class="btn" onclick={() => (showHelpModal = false)}> Got it! </button>
 				</div>
 			</div>
 		</dialog>
 	{/if}
 </div>
-

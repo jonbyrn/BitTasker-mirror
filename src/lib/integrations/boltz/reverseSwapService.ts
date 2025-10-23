@@ -46,7 +46,7 @@ import nip44 from '$lib/nostr/nip44';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { relayClaimTransaction, getSmartWalletAddress } from './rif/Signer';
 import { getBoltzConfig, satoshiToWei, isRifRelayAvailable, SATOSHI_TO_WEI } from './config';
-import { EtherSwap__factory } from '$lib/contracts';
+import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
 
 // Swap data structure for Nostr storage
 export interface BoltzSwapData {
@@ -70,26 +70,9 @@ export interface BoltzSwapData {
 }
 
 // EtherSwap ABI - Based on actual Boltz EtherSwap.sol contract
+// Using official Boltz EtherSwap ABI from boltz-core
+// This ensures we have all contract functions and stay in sync with Boltz's implementation
 // Reference: https://github.com/BoltzExchange/boltz-core/blob/master/contracts/EtherSwap.sol
-// 
-// IMPORTANT NOTES:
-// 1. The claim function takes the PREIMAGE (not the hash) and uses msg.sender as claimAddress
-// 2. The swaps mapping returns bool (not a struct) and is indexed by keccak256 hash of all parameters
-// 3. We don't need to query - just call claim() directly and it will revert if swap doesn't exist
-const ETHER_SWAP_ABI = [
-	// Main claim function - auto-uses msg.sender as claimAddress
-	'function claim(bytes32 preimage, uint256 amount, address refundAddress, uint256 timelock) external',
-
-	// Query function - returns bool indicating if swap exists (indexed by hashValues result)
-	'function swaps(bytes32) view returns (bool)',
-
-	// Hash computation helper - combines all parameters into single hash
-	'function hashValues(bytes32 preimageHash, uint256 amount, address claimAddress, address refundAddress, uint256 timelock) public pure returns (bytes32)',
-
-	// Events
-	'event Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)',
-	'event Claim(bytes32 indexed preimageHash, bytes32 preimage)'
-];
 
 // Conversion factor imported from config
 
@@ -416,7 +399,7 @@ export class ReverseSwapService {
 			console.log('📋 Receipt found with', receipt.logs.length, 'logs');
 
 			// Create contract interface to parse events
-			const iface = new Interface(ETHER_SWAP_ABI);
+			const iface = new Interface(EtherSwapArtifact.abi);
 
 			// The preimageHash should be 0x-prefixed for comparison
 			const preimageHashWithPrefix = preimageHash.startsWith('0x') ? preimageHash : '0x' + preimageHash;
@@ -506,9 +489,9 @@ export class ReverseSwapService {
 				throw new Error('RIF Relay is not available');
 			}
 
-			// Get EtherSwap contract
+			// Get EtherSwap contract using Boltz's official ABI
 			const etherSwapAddress = await this.getEtherSwapAddress();
-			const etherSwapContract = EtherSwap__factory.connect(etherSwapAddress, walletSigner);
+			const etherSwapContract = new Contract(etherSwapAddress, EtherSwapArtifact.abi, walletSigner);
 
 			// Get actual lockup parameters from event
 			let amount: number;
@@ -700,8 +683,8 @@ export class ReverseSwapService {
 
 			console.log('📍 Using EtherSwap contract:', etherSwapAddress);
 
-			// Create contract instance with the user's wallet signer
-			const etherSwapContract = new Contract(etherSwapAddress, ETHER_SWAP_ABI, walletSigner);
+			// Create contract instance with Boltz's official ABI
+			const etherSwapContract = new Contract(etherSwapAddress, EtherSwapArtifact.abi, walletSigner);
 
 			// CRITICAL: Get the ACTUAL parameters from the Lockup event
 			// The API response may have different values than what was actually locked
