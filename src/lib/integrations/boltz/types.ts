@@ -1,19 +1,59 @@
 /**
  * Boltz Exchange API Types
- * Based on the Boltz REST API documentation
+ * Type definitions for Boltz REST API v2 and swap operations
+ * 
+ * @see https://api.docs.boltz.exchange/api-v2.html
  */
 
 export interface BoltzConfig {
 	apiUrl: string;
-	network: 'mainnet' | 'testnet';
+	network: 'mainnet' | 'testnet' | 'regtest';
 	timeout?: number;
 }
 
-export interface SwapPair {
-	from: string;
-	to: string;
-	hash: string;
+/**
+ * All possible swap status states from Boltz API
+ */
+export type SwapStatusType =
+	// Creation states
+	| 'swap.created'
+	| 'swap.expired'
+
+	// Invoice states  
+	| 'invoice.set'
+	| 'invoice.paid'
+	| 'invoice.pending'
+	| 'invoice.settled'
+	| 'invoice.expired'
+	| 'invoice.failedToPay'
+
+	// Transaction states
+	| 'transaction.mempool'
+	| 'transaction.confirmed'
+	| 'transaction.failed'
+	| 'transaction.lockupFailed'
+	| 'transaction.refunded'
+
+	// Claim states
+	| 'transaction.claim.pending'
+	| 'transaction.claim.failed'
+
+	// Refund states
+	| 'swap.refunded';
+
+export interface SwapStatus {
+	status: SwapStatusType;
+	transaction?: {
+		id: string;
+		hex?: string;
+		eta?: number;
+	};
+	failureReason?: string;
 }
+
+// ============================================================================
+// Swap Creation Types
+// ============================================================================
 
 export interface SwapLimits {
 	minimal: number;
@@ -35,11 +75,14 @@ export interface SwapFees {
 	};
 }
 
-// Normal swap (Lightning → Bitcoin)
+// ============================================================================
+// Submarine Swap Types (Lightning → Bitcoin)
+// ============================================================================
+
 export interface CreateSwapRequest {
 	type: 'submarine';
 	pairId: string;
-	orderSide: 'sell'; // Always sell for submarine swaps
+	orderSide: 'sell';
 	invoice: string;
 	refundPublicKey: string;
 	referralId?: string;
@@ -55,15 +98,19 @@ export interface CreateSwapResponse {
 	blindingKey?: string; // For Liquid
 }
 
-// Reverse swap (Bitcoin → Lightning)
+// ============================================================================
+// Reverse Swap Types (Bitcoin → Lightning)
+// ============================================================================
+
 export interface CreateReverseSwapRequest {
 	type: 'reversesubmarine';
 	pairId: string;
-	orderSide: 'buy'; // Always buy for reverse swaps
+	orderSide: 'buy';
 	invoiceAmount: number;
 	preimageHash: string;
 	claimPublicKey: string;
 	referralId?: string;
+	claimAddress?: string; // Optional RBTC address for direct claiming
 }
 
 export interface CreateReverseSwapResponse {
@@ -76,33 +123,9 @@ export interface CreateReverseSwapResponse {
 	blindingKey?: string; // For Liquid
 }
 
-export interface SwapStatus {
-	status: SwapStatusType;
-	transaction?: {
-		id: string;
-		hex?: string;
-		eta?: number;
-	};
-	failureReason?: string;
-}
-
-export type SwapStatusType = 
-	| 'swap.created'
-	| 'swap.expired'
-	| 'invoice.set'
-	| 'invoice.paid'
-	| 'invoice.failedToPay'
-	| 'invoice.pending'
-	| 'invoice.settled'
-	| 'invoice.expired'
-	| 'transaction.mempool'
-	| 'transaction.confirmed'
-	| 'transaction.lockupFailed'
-	| 'transaction.refunded'
-	| 'transaction.failed'
-	| 'transaction.claim.pending'
-	| 'transaction.claim.failed'
-	| 'swap.refunded';
+// ============================================================================
+// Claim & Refund Types
+// ============================================================================
 
 export interface RefundSwapRequest {
 	address: string;
@@ -125,6 +148,10 @@ export interface ClaimSwapResponse {
 	transactionHex: string;
 }
 
+// ============================================================================
+// Transaction Broadcasting Types
+// ============================================================================
+
 export interface BroadcastTransactionRequest {
 	transactionHex: string;
 }
@@ -139,7 +166,27 @@ export interface SwapTransaction {
 	eta?: number;
 }
 
-// Swap monitoring interface
+// ============================================================================
+// EVM Contract Types
+// ============================================================================
+
+/**
+ * Contract addresses for EVM chains (RBTC, Ethereum, etc.)
+ */
+export interface ContractAddresses {
+	[chain: string]: {
+		erc20Swap: string;
+		etherSwap: string;
+	};
+}
+
+// ============================================================================
+// Event & Monitoring Types
+// ============================================================================
+
+/**
+ * Swap monitoring interface for active swap tracking
+ */
 export interface SwapMonitor {
 	swapId: string;
 	type: 'submarine' | 'reversesubmarine';
@@ -155,7 +202,9 @@ export interface SwapMonitor {
 	failureReason?: string;
 }
 
-// Event types for swap monitoring
+/**
+ * Event emitted when swap status changes
+ */
 export interface SwapEvent {
 	swapId: string;
 	status: SwapStatusType;
@@ -164,9 +213,20 @@ export interface SwapEvent {
 	failureReason?: string;
 }
 
+/**
+ * Callback type for swap event listeners
+ */
 export type SwapEventCallback = (event: SwapEvent) => void;
 
-// Cooperative claiming interfaces for Taproot swaps
+// ============================================================================
+// Taproot/MuSig2 Types (Bitcoin UTXO swaps only, not used for RBTC)
+// ============================================================================
+
+/**
+ * Cooperative claim details for Taproot swaps
+ * 
+ * Note: These types are for Bitcoin UTXO swaps. RBTC uses EtherSwap contracts.
+ */
 export interface CooperativeClaimDetails {
 	musig: any;
 	transaction: any;
@@ -192,7 +252,15 @@ export interface CooperativeRefundResponse {
 	partialSignature: string;
 }
 
-// Emergency recovery interfaces
+// ============================================================================
+// Emergency Recovery Types (Bitcoin UTXO only)
+// ============================================================================
+
+/**
+ * Refund file data for emergency recovery
+ * 
+ * Note: Used for Bitcoin UTXO swaps, not applicable to RBTC/EVM swaps
+ */
 export interface RefundFileData {
 	id: string;
 	currency: string;
@@ -205,7 +273,7 @@ export interface EmergencyRefundParams {
 	refundData: RefundFileData;
 	destinationAddress: string;
 	feeRate: number;
-	lockupTransaction: any; // Transaction type
+	lockupTransaction: any;
 	outputIndex: number;
 }
 
@@ -213,17 +281,17 @@ export interface PreimageClaimParams {
 	swapId: string;
 	preimage: string;
 	destinationAddress: string;
-	lockupTransaction: any; // Transaction type
+	lockupTransaction: any;
 	outputIndex: number;
 	redeemScript: string;
 	claimPrivateKey: string;
 	feeRate: number;
 }
 
-// Contract addresses for EVM chains
-export interface ContractAddresses {
-	[chain: string]: {
-		erc20Swap: string;
-		etherSwap: string;
-	};
+export interface RefundFileData {
+    id: string;
+    currency: string;
+    redeemScript: string;
+    privateKey: string;
+    timeoutBlockHeight: number;
 }

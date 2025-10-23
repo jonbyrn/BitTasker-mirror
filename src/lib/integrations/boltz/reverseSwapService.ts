@@ -270,8 +270,7 @@ export class ReverseSwapService {
 
 			case 'transaction.confirmed':
 				// Boltz has confirmed the lockup transaction - now we can claim!
-				console.log('✅ Lockup confirmed!');
-				console.log('📋 Swap parameters:', {
+				console.log('✅ Lockup confirmed! - 📋 Swap parameters:', {
 					id: swapData.id,
 					amount: swapData.onchainAmount,
 					userWallet: swapData.rbtcAddress,
@@ -302,7 +301,6 @@ export class ReverseSwapService {
 
 					if (wasCreatedForSmartWallet) {
 						// Swap was created with Smart Wallet address - MUST use RIF Relay
-						console.log('🔐 Swap created with Smart Wallet address - using RIF Relay');
 						if (isRifRelayAvailable()) {
 							try {
 								await this.claimRBTCViaRifRelay(swapData, nsec, wallet);
@@ -311,7 +309,7 @@ export class ReverseSwapService {
 								console.error('❌ RIF Relay claim failed:', error);
 							}
 						} else {
-							console.error('❌ RIF Relay not available but required for this swap');
+							console.error('❌ RIF Relay not available');
 						}
 					} else {
 						// Swap was created with user's wallet - try direct claim first
@@ -327,12 +325,7 @@ export class ReverseSwapService {
 								claimSuccessful = true;
 							} catch (error) {
 								console.error('❌ Direct claim failed:', error);
-								if (isRifRelayAvailable()) {
-									console.log('🔄 Trying RIF Relay as fallback...');
-								}
 							}
-						} else {
-							console.log('⚠️ Insufficient gas, using RIF Relay');
 						}
 
 						// Try RIF Relay if direct claim failed or no gas
@@ -358,9 +351,7 @@ export class ReverseSwapService {
 				break;
 
 			case 'invoice.settled':
-				// Success! Boltz has settled the invoice
-				console.log('✅ Swap successful - Invoice settled:', swapData.id);
-				console.log('🎉 RBTC has been credited to your wallet!');
+				console.log('🎉 Swap complete! RBTC credited to wallet', swapData.id);
 				swapData.status = 'invoice.settled';
 				break;
 
@@ -448,10 +439,6 @@ export class ReverseSwapService {
 					if (parsed?.name === 'Lockup') {
 						// Event structure: Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)
 						const eventPreimageHash = parsed.args[0];
-						const eventAmount = parsed.args[1];
-						const eventClaimAddress = parsed.args[2];
-						const eventRefundAddress = parsed.args[3];
-						const eventTimelock = parsed.args[4];
 
 						console.log('🔍 Checking Lockup event:', {
 							eventPreimageHash,
@@ -461,12 +448,12 @@ export class ReverseSwapService {
 
 						// Check if this is the event for our swap
 						if (eventPreimageHash.toLowerCase() === preimageHashWithPrefix.toLowerCase()) {
-							console.log('✅ Found matching Lockup event!');
+							console.log('✅ Found Lockup event with actual parameters');
 							return {
-								amount: eventAmount,
-								claimAddress: eventClaimAddress,
-								refundAddress: eventRefundAddress,
-								timelock: Number(eventTimelock)
+								amount: parsed.args[1],
+								claimAddress: parsed.args[2],
+								refundAddress: parsed.args[3],
+								timelock: Number(parsed.args[4])
 							};
 						}
 					}
@@ -502,7 +489,7 @@ export class ReverseSwapService {
 		walletSigner: any
 	): Promise<{ txHash: string }> {
 		try {
-			console.log('🌐 Claiming RBTC via RIF Relay (gasless)...');
+			console.log('🌐 Gasless claim via RIF Relay...');
 
 			// Validate required data
 			if (
@@ -551,9 +538,7 @@ export class ReverseSwapService {
 				timelock = swapData.timeoutBlockHeight;
 			}
 
-			console.log('🚀 Relaying claim via RIF Relay...');
-
-			// Use Boltz's proven relayClaimTransaction
+			// Use RIF Relay to execute gasless claim
 			const txHash = await relayClaimTransaction(
 				walletSigner,
 				etherSwapContract as any,
@@ -696,7 +681,6 @@ export class ReverseSwapService {
 			}
 
 			// Get EtherSwap contract address from Boltz API
-			console.log('📡 Fetching EtherSwap contract address from Boltz API...');
 			const contractsResponse = await fetch(
 				`${this.boltzClient['config'].apiUrl}/v2/chain/RBTC/contracts`
 			);
@@ -726,7 +710,6 @@ export class ReverseSwapService {
 			let timelock: number;
 
 			if (swapData.lockupTxHash) {
-				console.log('📡 Fetching actual lockup parameters from contract event...');
 				const eventParams = await this.getLockupEventParameters(
 					etherSwapAddress,
 					swapData.preimageHash,
@@ -735,29 +718,24 @@ export class ReverseSwapService {
 				);
 
 				if (eventParams) {
-					console.log('✅ Got actual parameters from Lockup event:', {
+					console.log('✅ Using Lockup event parameters:', {
 						amount: eventParams.amount.toString() + ' wei',
 						claimAddress: eventParams.claimAddress,
 						refundAddress: eventParams.refundAddress,
 						timelock: eventParams.timelock
 					});
 
-					// Use event parameters (the REAL values)
 					amountWei = eventParams.amount;
 					refundAddress = eventParams.refundAddress;
 					timelock = eventParams.timelock;
-
-					console.log('✅ Using event parameters for claim');
 				} else {
-					console.warn('⚠️ Could not fetch Lockup event, using API response values (may fail)');
-					// Fall back to API response
+					console.warn('⚠️ Lockup event not found, using API values (may fail)');
 					amountWei = satoshiToWei(swapData.onchainAmount);
 					refundAddress = swapData.refundAddress!;
 					timelock = swapData.timeoutBlockHeight!;
 				}
 			} else {
-				console.warn('⚠️ No lockup TX hash available, using API response values (may fail)');
-				// Fall back to API response
+				console.warn('⚠️ No lockup TX hash, using API values (may fail)');
 				amountWei = satoshiToWei(swapData.onchainAmount);
 				refundAddress = swapData.refundAddress!;
 				timelock = swapData.timeoutBlockHeight!;
@@ -799,41 +777,33 @@ export class ReverseSwapService {
 
 			// Wait for transaction confirmation
 			const receipt = await tx.wait();
-			console.log('✅ Claim transaction confirmed!');
-			console.log('📋 Receipt:', {
+			console.log('✅ Claim transaction confirmed! 📋 Receipt:', {
 				transactionHash: receipt.hash,
 				blockNumber: receipt.blockNumber,
 				gasUsed: receipt.gasUsed?.toString(),
 				status: receipt.status
 			});
 
-			// Update status to settled
 			swapData.status = 'claimed';
 			swapData.updatedAt = Date.now();
 			await this.saveSwapToNostr(swapData, nsec);
 
-			console.log('🎉 Successfully claimed', swapData.onchainAmount, 'sats of rBTC!');
+			console.log('✅ Successfully claimed', swapData.onchainAmount, 'sats');
 
 			return { txHash: tx.hash };
 		} catch (error) {
-			console.error('❌ Failed to claim rBTC:', error);
+			console.error('❌ Claim failed:', error);
 
-			// Provide helpful error messages
-			if (error instanceof Error) {
-				if (error.message.includes('swap has no Ether locked')) {
-					console.error('💡 Swap not found in contract. Possible reasons:');
-					console.error('   1. Lockup transaction not yet confirmed');
-					console.error('   2. Wrong parameters (amount, addresses, or timelock)');
-					console.error('   3. Swap already claimed');
-					console.error('📊 Swap data:', {
-						id: swapData.id,
-						amount: swapData.onchainAmount,
-						claimAddress: swapData.rbtcAddress,
-						refundAddress: swapData.refundAddress,
-						timelock: swapData.timeoutBlockHeight,
-						lockupTx: swapData.lockupTxHash
-					});
-				}
+			if (error instanceof Error && error.message.includes('swap has no Ether locked')) {
+				console.error('💡 Swap not found. Reasons: \n\n 1) TX not confirmed, \n\n 2) Wrong parameters, \n\n 3) Already claimed');
+				console.error('📊 Swap:', {
+					id: swapData.id,
+                    amount: swapData.onchainAmount,
+                    claimAddress: swapData.rbtcAddress,
+                    refundAddress: swapData.refundAddress,
+                    timelock: swapData.timeoutBlockHeight,
+                    lockupTx: swapData.lockupTxHash
+				});
 			}
 
 			// Update swap status to show claim failed

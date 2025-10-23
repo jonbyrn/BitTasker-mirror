@@ -1,8 +1,7 @@
 /**
  * Boltz Exchange REST API Client
- * Production-ready implementation based on official Boltz documentation
  * 
- * IMPORTANT: For RBTC (Rootstock) swaps, this client is only used for API calls.
+ * IMPORTANT: This client is specifically designed for RBTC swaps on Rootstock.
  * RBTC uses EVM smart contracts (EtherSwap), not Bitcoin scripts or Taproot.
  * The Taproot/script methods below are for Bitcoin UTXO swaps only.
  * 
@@ -74,7 +73,8 @@ import type {
 	ClaimSwapRequest,
 	ClaimSwapResponse,
 	BroadcastTransactionRequest,
-	BroadcastTransactionResponse
+	BroadcastTransactionResponse,
+	RefundFileData
 } from './types';
 import { Buffer } from 'buffer';
 
@@ -89,21 +89,13 @@ export class BoltzError extends Error {
 	}
 }
 
-export interface RefundFileData {
-	id: string;
-	currency: string;
-	redeemScript: string;
-	privateKey: string;
-	timeoutBlockHeight: number;
-}
-
 export class BoltzClient {
+	private readonly maxRequestsPerSecond = 10;
 	private config: BoltzConfig;
 	private baseUrl: string;
 	private ECPair = ECPairFactory(ecc);
 	private requestCount = 0;
 	private lastRequestTime = 0;
-	private readonly maxRequestsPerSecond = 10;
 	private network: networks.Network;
 
 	constructor(config: BoltzConfig) {
@@ -121,7 +113,7 @@ export class BoltzClient {
 			throw new BoltzError('API URL is required', 'INVALID_CONFIG');
 		}
 		if (!['mainnet', 'testnet', 'regtest'].includes(config.network)) {
-			throw new BoltzError('Network must be mainnet or testnet or regtest', 'INVALID_CONFIG');
+			throw new BoltzError('Network must be mainnet, testnet, or regtest', 'INVALID_CONFIG');
 		}
 	}
 
@@ -660,8 +652,8 @@ export class BoltzClient {
 	}
 
 	/**
-	 * Create a submarine swap (Lightning → Bitcoin)
-	 * User pays Lightning invoice, receives Bitcoin on-chain
+	 * Create a submarine swap (Chain → Lightning)
+	 * User pays Bitcoin on-chain, receives Lightning invoice
 	 */
 	async createSubmarineSwap(params: {
 		pairId: string;
@@ -714,8 +706,9 @@ export class BoltzClient {
 	}
 
 	/**
-	 * Create a reverse submarine swap (Bitcoin → Lightning)
-	 * User sends Bitcoin on-chain, receives Lightning payment
+	 * Create a reverse submarine swap (Lightning → Chain)
+	 * User sends Lightning payment, receives Chain on-chain
+	 * @deprecated In favor of reverseSwapService.ts
 	 */
 	async createReverseSubmarineSwap(params: {
 		pairId: string;
@@ -723,6 +716,7 @@ export class BoltzClient {
 		preimageHash: string;
 		claimPublicKey: string;
 		referralId?: string;
+		claimAddress?: string; // For direct address claiming
 	}): Promise<CreateReverseSwapResponse> {
 		// Validate inputs
 		if (!params.pairId || !params.preimageHash || !params.claimPublicKey) {
@@ -760,7 +754,8 @@ export class BoltzClient {
 			invoiceAmount: params.invoiceAmount,
 			preimageHash: params.preimageHash,
 			claimPublicKey: params.claimPublicKey,
-			referralId: params.referralId
+			referralId: params.referralId,
+			claimAddress: params.claimAddress
 		};
 
 		try {
@@ -831,7 +826,7 @@ export class BoltzClient {
 			
 			return {
 				mainInvoicePaid,
-				serviceFeeInvoicePaid: response.serviceFeeInvoicePaid, // May not be in API response
+				serviceFeeInvoicePaid: response.serviceFeeInvoicePaid,
 				status: response.status
 			};
 		} catch (error) {
@@ -888,7 +883,7 @@ export class BoltzClient {
 
 	/**
 	 * Get EVM contract addresses for swap contracts
-	 * Used for EVM chain swaps (Ethereum, Polygon, etc.)
+	 * Used for EVM chain swaps (Rootstock, Ethereum, Polygon, etc.)
 	 */
 	async getContractAddresses(): Promise<{
 		[chain: string]: {
@@ -954,10 +949,6 @@ export class BoltzClient {
 			// Validate that the calculation makes sense
 			if (result.receiveAmount <= 0) {
 				throw new Error('Invalid quote: receive amount must be greater than 0');
-			}
-
-			if (result.sendAmount < result.receiveAmount + result.fee + result.minerFee * 0.1) {
-				console.warn('Quote validation warning: fees seem disproportionate to amounts');
 			}
 
 			return result;
