@@ -3,9 +3,9 @@ import type { Signer } from "ethers";
 import { ZeroAddress } from "ethers";
 import log from "loglevel";
 
-import { config } from "../config";
-import { RBTC } from "../consts/Assets";
-import { prefix0x, satoshiToWei } from "../utils/rootstock";
+import { config } from "./config";
+import { RBTC } from "./Assets";
+import { prefix0x, satoshiToWei } from "./rootstock";
 import { getForwarder, getSmartWalletFactory } from "./Contracts";
 import type { Metadata } from "./Relay";
 import { estimate, getChainInfo, relay } from "./Relay";

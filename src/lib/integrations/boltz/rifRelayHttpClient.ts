@@ -1,4 +1,6 @@
 /**
+ * @deprecated This file is deprecated. Use the RIF implementation in ./rif/ folder instead.
+ * 
  * RIF Relay HTTP Client
  * Direct HTTP API implementation for RIF Relay without SDK dependency
  * 

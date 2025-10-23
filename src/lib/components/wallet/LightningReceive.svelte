@@ -95,7 +95,8 @@
 				amountSats,
 				rbtcAddress: $rskConnection.address,
 				description: description || undefined,
-				nsec: nsecHex
+				nsec: nsecHex,
+				walletSigner: $rskConnection.wallet // Pass wallet for Smart Wallet address computation
 			});
 
 			// Add to pending swaps list

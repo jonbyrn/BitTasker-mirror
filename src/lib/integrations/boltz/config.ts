@@ -16,7 +16,11 @@ export interface BoltzNetworkConfig {
 	// RIF Relay
 	rifRelayServerUrl: string;
 	rifRelayEnabled: boolean;
-	smartWalletFactoryAddress?: string;
+	contracts: {
+		deployHeight: number;
+		smartWalletFactory: string;
+		deployVerifier: string;
+	};
 }
 
 export const BOLTZ_NETWORKS: Record<BoltzEnvironment, BoltzNetworkConfig> = {
@@ -25,9 +29,12 @@ export const BOLTZ_NETWORKS: Record<BoltzEnvironment, BoltzNetworkConfig> = {
 		rskRpcUrl: 'http://localhost:8545',
 		rskChainId: 33, // Anvil regtest
 		rifRelayServerUrl: 'http://localhost:8090',
-		rifRelayEnabled: true,
-		// MinimalBoltzSmartWalletFactory deployed in regtest
-		smartWalletFactoryAddress: '0x59b670e9fA9D0A427751Af201D676719a970857b'
+		rifRelayEnabled: false, // RIF Relay deprecated on regtest
+		contracts: {
+			deployHeight: 0,
+			smartWalletFactory: '0x59b670e9fA9D0A427751Af201D676719a970857b',
+			deployVerifier: '0x0000000000000000000000000000000000000000'
+		}
 	},
 	mainnet: {
 		boltzApiUrl: 'https://api.boltz.exchange',
@@ -35,7 +42,11 @@ export const BOLTZ_NETWORKS: Record<BoltzEnvironment, BoltzNetworkConfig> = {
 		rskChainId: 30, // RSK Mainnet
 		rifRelayServerUrl: 'https://boltz.mainnet.relay.rifcomputing.net',
 		rifRelayEnabled: true,
-		smartWalletFactoryAddress: '0x44944a80861120B58cc48B066d57cDAf5eC213dd'
+		contracts: {
+			deployHeight: 6747215,
+			smartWalletFactory: '0x44944a80861120B58cc48B066d57cDAf5eC213dd',
+			deployVerifier: '0xc0F5bEF6b20Be41174F826684c663a8635c6A081'
+		}
 	}
 };
 

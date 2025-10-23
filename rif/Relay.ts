@@ -1,5 +1,5 @@
-import { config } from "../config";
-import { RBTC } from "../consts/Assets";
+import { config } from "./config";
+import { RBTC } from "./Assets";
 import type { EnvelopingRequest } from "./types/TypedRequestData";
 
 export type Metadata = {

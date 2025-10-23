@@ -1,8 +1,8 @@
 import type { Signer } from "ethers";
 import { Contract } from "ethers";
 
-import { config } from "../config";
-import { RBTC } from "../consts/Assets";
+import { config } from "./config";
+import { RBTC } from "./Assets";
 
 const BoltzSmartWalletFactoryAbi = [
     {

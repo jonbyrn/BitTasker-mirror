@@ -1,4 +1,6 @@
 /**
+ * @deprecated This file is deprecated. Use the RIF implementation in ./rif/ folder instead.
+ * 
  * Smart Wallet Service
  * Manages Smart Wallet deployment and address lookups for RIF Relay gasless transactions
  * 
