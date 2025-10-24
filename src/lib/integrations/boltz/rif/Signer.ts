@@ -1,3 +1,4 @@
+import type { EtherSwap } from "boltz-core/typechain/EtherSwap";
 import type { Signer } from 'ethers';
 import { ZeroAddress } from 'ethers';
 import { getBoltzConfig } from '../config';
@@ -33,41 +34,48 @@ const sign = async (signer: Signer, request: EnvelopingRequest) => {
 
 export const relayClaimTransaction = async (
 	signer: Signer,
-	etherSwap: any, // EtherSwap contract instance
+	etherSwap: EtherSwap,
 	preimage: string,
 	amount: number,
 	refundAddress: string,
 	timeoutBlockHeight: number
 ) => {
-	const callData = etherSwap.interface.encodeFunctionData('claim', [
-		prefix0x(preimage),
-		satoshiToWei(amount),
-		refundAddress,
-		timeoutBlockHeight
+	const callData = etherSwap.interface.encodeFunctionData(
+		"claim(bytes32,uint256,address,uint256)",
+		[
+			prefix0x(preimage),
+			satoshiToWei(amount),
+			refundAddress,
+			timeoutBlockHeight
+		]
+	);
+	const [
+		chainInfo,
+		smartWalletAddress,
+		feeData,
+		signerAddress,
+		etherSwapAddress
+	] = await Promise.all([
+		getChainInfo(),
+		getSmartWalletAddress(signer),
+		signer.provider!.getFeeData(),
+		signer.getAddress(),
+		etherSwap.getAddress(),
 	]);
 
-	const [chainInfo, smartWalletAddress, feeData, signerAddress, etherSwapAddress] =
-		await Promise.all([
-			getChainInfo(),
-			getSmartWalletAddress(signer),
-			signer.provider!.getFeeData(),
-			signer.getAddress(),
-			etherSwap.getAddress()
-		]);
-
 	const smartWalletExists =
-		(await signer.provider!.getCode(smartWalletAddress.address)) !== '0x';
-	console.log('RIF smart wallet exists:', smartWalletExists);
+		(await signer.provider!.getCode(smartWalletAddress.address)) !== "0x";
+	console.log("RIF smart wallet exists:", smartWalletExists);
 
 	const smartWalletFactory = getSmartWalletFactory(signer);
 	const config = getBoltzConfig();
 
 	const envelopingRequest: EnvelopingRequest = {
 		request: {
-			value: '0',
+			value: "0",
 			data: callData,
-			tokenAmount: '0',
-			tokenGas: '20000',
+			tokenAmount: "0",
+			tokenGas: "20000",
 			from: signerAddress,
 			to: etherSwapAddress,
 			tokenContract: ZeroAddress,
@@ -93,19 +101,18 @@ export const relayClaimTransaction = async (
 			await getForwarder(signer, smartWalletAddress.address).nonce()
 		).toString();
 
-		envelopingRequest.relayData.callForwarder = smartWalletAddress.address;
+		envelopingRequest.relayData.callForwarder = smartWalletAddress;
 	}
 
 	const metadata: Metadata = {
-		signature: 'SERVER_SIGNATURE_REQUIRED',
+		signature: "SERVER_SIGNATURE_REQUIRED",
 		relayHubAddress: chainInfo.relayHubAddress,
 		relayMaxNonce:
-			(await signer.provider!.getTransactionCount(chainInfo.relayWorkerAddress)) +
-			MaxRelayNonceGap
+			(await signer.provider!.getTransactionCount(chainInfo.relayWorkerAddress)) + MaxRelayNonceGap
 	};
 
 	const estimateRes = await estimate(envelopingRequest, metadata);
-	console.log('RIF gas estimation response', estimateRes);
+	console.log("RIF gas estimation response", estimateRes);
 
 	envelopingRequest.request.tokenGas = estimateRes.estimation;
 	envelopingRequest.request.tokenAmount = estimateRes.requiredTokenAmount;
