@@ -19,15 +19,13 @@
 
 	// State
 	let isCreatingSwap = $state(false);
-	let currentSwap = $state<BoltzSwapData | null>(null);
 	let pendingSwaps = $state<BoltzSwapData[]>([]);
-	let invoice = $state<string | null>(null);
-	let qrCodeDataUrl = $state<string | null>(null);
 	let error = $state<string | null>(null);
 	let isClaiming = $state(false);
 	let nsecHex = $state<string>('');
 	let isDeletingSwaps = $state(false);
 	let showHelpModal = $state(false);
+	let expandedSwaps = $state<Set<string>>(new Set());
 
 	/**
 	 * Get user's nsec and setup wallet getter on component load
@@ -136,11 +134,19 @@
 				return;
 			}
 
-			// Update swap in the list
+			// Update swap in the list without reinitializing the array
 			const swapIndex = pendingSwaps.findIndex((s) => s.id === swapId);
 			if (swapIndex !== -1) {
-				pendingSwaps[swapIndex] = swap;
-				pendingSwaps = [...pendingSwaps]; // Trigger reactivity
+				// Only update if there's an actual change to prevent unnecessary re-renders
+				const currentSwap = pendingSwaps[swapIndex];
+				if (
+					currentSwap.status !== swap.status ||
+					currentSwap.lockupTxHash !== swap.lockupTxHash ||
+					currentSwap.claimTxHash !== swap.claimTxHash
+				) {
+					pendingSwaps[swapIndex] = swap;
+					pendingSwaps = [...pendingSwaps]; // Trigger reactivity
+				}
 			}
 
 			// Stop monitoring on final states
@@ -244,6 +250,29 @@
 	}
 
 	/**
+	 * Toggle invoice expansion
+	 */
+	function toggleInvoice(swapId: string) {
+		const newExpanded = new Set(expandedSwaps);
+		if (newExpanded.has(swapId)) {
+			newExpanded.delete(swapId);
+		} else {
+			newExpanded.add(swapId);
+		}
+		expandedSwaps = newExpanded;
+	}
+
+	/**
+	 * Close invoice (only when clicking arrow)
+	 */
+	function closeInvoice(swapId: string, event: MouseEvent) {
+		event.stopPropagation();
+		const newExpanded = new Set(expandedSwaps);
+		newExpanded.delete(swapId);
+		expandedSwaps = newExpanded;
+	}
+
+	/**
 	 * Get status display info
 	 */
 	function getStatusInfo(status: string): { label: string; color: string; icon: string } {
@@ -273,25 +302,6 @@
 				return { label: status, color: 'text-base-content', icon: 'ℹ️' };
 		}
 	}
-
-	const pendingSwapExample = {
-		id: '1234567890',
-		invoice: 'lightning:1234567890',
-		amount: 100000000,
-		rbtcAddress: '0x1234567890',
-		status: 'swap.created',
-		createdAt: Date.now(),
-		updatedAt: Date.now(),
-		expiresAt: Date.now() + 1000 * 60 * 60 * 24,
-		rifRelayUsed: false,
-		preimage: '1234567890',
-		preimageHash: '1234567890',
-		lockupTxHash: '1234567890',
-		claimTxHash: '1234567890',
-		onchainAmount: 100000000,
-		refundAddress: '0x1234567890',
-		timeoutBlockHeight: 100000000
-	};
 </script>
 
 <div class="space-y-6">
@@ -440,13 +450,36 @@
 							<span class="text-sm opacity-70">{swap.amount} sats</span>
 						</div>
 
-						<!-- Main Invoice with QR -->
-						<div class="bg-base-100 rounded-4xl p-4">
-							<div class="mb-4 flex items-center justify-between">
-								<span class="block font-medium"> View Invoice </span>
+					<!-- Main Invoice with QR (Collapsible) -->
+					<div class="bg-base-100 rounded-lg">
+						<div class="flex w-full items-center justify-between cursor-pointer">
+							<button
+								class="flex flex-1 items-center justify-between text-left transition-colors hover:opacity-80 p-4"
+								onclick={() => toggleInvoice(swap.id)}
+								type="button"
+							>
+								<span class="block font-medium">View Invoice</span>
+							</button>
+							<button
+								class="ml-2 transition-transform duration-200 hover:opacity-80 p-4 {expandedSwaps.has(
+									swap.id
+								)
+									? 'rotate-180'
+									: ''}"
+								onclick={(e) => {
+									e.stopPropagation();
+									if (expandedSwaps.has(swap.id)) {
+										closeInvoice(swap.id, e);
+									} else {
+										toggleInvoice(swap.id);
+									}
+								}}
+								type="button"
+								aria-label={expandedSwaps.has(swap.id) ? 'Collapse invoice' : 'Expand invoice'}
+							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6"
+									class="h-4 w-4"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -458,30 +491,45 @@
 										d="M19 9l-7 7-7-7"
 									/>
 								</svg>
-							</div>
-							<div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
-								<!-- QR Code -->
-								<div class="relative flex w-full justify-center">
-									{#await generateQrCodeUrl(swap.invoice) then qrUrl}
-										<div class="rounded-lg bg-white p-3">
-											<img src={qrUrl} alt="QR Code" class="h-32 w-32" />
-										</div>
-									{/await}
-								</div>
-
-								<!-- Invoice String -->
-								<div class="w-full text-start">
-									<button
-										class="btn btn-outline btn-sm h-full w-[75%] justify-start overflow-hidden p-4 text-ellipsis"
-										onclick={() => copyInvoice(swap.invoice)}
-									>
-										<code class="overflow-hidden text-xs text-ellipsis">
-											{swap.invoice}
-										</code>
-									</button>
-								</div>
-							</div>
+							</button>
 						</div>
+
+						<!-- Collapsible Content -->
+						{#if expandedSwaps.has(swap.id)}
+							<div class="border-t border-base-300 p-4">
+								<div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+									<!-- QR Code -->
+									<div class="shrink-0">
+										{#await generateQrCodeUrl(swap.invoice)}
+											<div class="flex h-32 w-32 items-center justify-center rounded-lg bg-white p-3">
+												<span class="loading loading-spinner loading-md"></span>
+											</div>
+										{:then qrUrl}
+											<div class="rounded-lg bg-white p-3">
+												<img src={qrUrl} alt="QR Code" class="h-32 w-32" />
+											</div>
+										{/await}
+									</div>
+
+									<!-- Invoice String -->
+									<div class="w-full sm:flex-1">
+										<button
+											class="btn btn-outline btn-sm h-auto min-h-12 w-full justify-start break-all p-3 text-left"
+											onclick={(e) => {
+												e.stopPropagation();
+												copyInvoice(swap.invoice);
+											}}
+											type="button"
+										>
+											<code class="text-xs leading-relaxed">
+												{swap.invoice}
+											</code>
+										</button>
+									</div>
+								</div>
+							</div>
+						{/if}
+					</div>
 
 						<!-- Swap Details -->
 						<div class="space-y-1 text-xs">
@@ -524,7 +572,7 @@
 							{#if !swap.claimTxHash && swap.status === 'transaction.confirmed'}
 								<!-- Can claim now - gasless via RIF Relay -->
 								<button
-									class="btn btn-success btn-sm flex-1"
+									class="btn btn-success btn-sm block w-fit justify-self-end"
 									onclick={() => claimRBTC(swap)}
 									disabled={isClaiming}
 								>
