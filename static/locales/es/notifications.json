@@ -187,7 +187,14 @@
       "enable_notifications": "Habilitar Notificaciones",
       "not_supported": "Las notificaciones no son compatibles con este navegador.",
       "permission_denied": "Permisos de notificación denegados. Puedes habilitarlos en la configuración de tu navegador.",
-      "permission_granted": "Notificaciones habilitadas exitosamente."
+      "permission_granted": "Notificaciones habilitadas exitosamente.",
+      "banner": {
+        "title": "Habilitar Notificaciones",
+        "description": "Recibe notificaciones sobre nuevas ofertas, actualizaciones de contratos y pagos incluso cuando la aplicación está cerrada.",
+        "enable_button": "Habilitar",
+        "later_button": "Después",
+        "close_aria": "Cerrar banner"
+      }
     },
     "settings": {
       "title": "Configuración de Notificaciones",

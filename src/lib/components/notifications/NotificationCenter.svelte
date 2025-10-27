@@ -205,7 +205,7 @@
 	{#if isOpen}
 		<div class="absolute right-2 sm:right-0 mt-2 w-80 sm:w-96 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-96 flex flex-col">
 			<!-- Header -->
-			<div class="px-3 sm:px-4 py-3 border-b border-base-300 flex items-center justify-between flex-shrink-0">
+			<div class="px-3 sm:px-4 py-3 border-b border-base-300 flex items-center justify-between shrink-0">
 				<div class="flex items-center space-x-2">
 					{#if notifications.length > 0}
 						<span class="text-xs text-base-content/60">
@@ -215,12 +215,12 @@
 				</div>
 				<div class="flex items-center space-x-1 sm:space-x-2">
 					{#if notifications.length > 0}
-						<button
+					<!-- 	<button
 							onclick={() => showOnlyUnread = !showOnlyUnread}
 							class="text-xs sm:text-sm text-primary hover:text-primary-focus"
 						>
 							{showOnlyUnread ? $t('notifications.show_all') : $t('notifications.show_unread_only')}
-						</button>
+						</button> -->
 						<button
 							onclick={clearAllNotifications}
 							class="text-xs sm:text-sm text-base-content/60 hover:text-base-content/80"
@@ -266,7 +266,7 @@
 						>
 							<div class="flex items-start space-x-2 sm:space-x-3">
 								<!-- Icon -->
-								<div class="flex-shrink-0">
+								<div class="shrink-0">
 									{#if notification.type === 'bid_response'}
 										<IconCurrencyUsd class="w-5 h-5 text-primary" />
 									{:else if notification.type === 'contract_event'}
@@ -304,7 +304,7 @@
 											</span>
 											<button
 												onclick={(e) => removeNotification(notification.id, e)}
-												class="text-base-content/40 hover:text-base-content/60 p-1 flex-shrink-0"
+												class="text-base-content/40 hover:text-base-content/60 p-1 shrink-0"
 												aria-label={$t('notifications.aria_labels.remove_notification')}
 											>
 												<IconDelete class="w-4 h-4" />
@@ -345,7 +345,7 @@
 
 			<!-- Footer -->
 			{#if notifications.length > 0}
-				<div class="px-3 sm:px-4 py-3 border-t border-base-300 bg-base-200 flex-shrink-0">
+				<div class="px-3 sm:px-4 py-3 border-t border-base-300 bg-base-200 shrink-0">
 					<button
 						onclick={handleViewAllNotifications}
 						class="w-full text-center cursor-pointer text-xs sm:text-sm text-primary hover:text-primary-focus font-medium"

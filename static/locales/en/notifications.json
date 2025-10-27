@@ -187,7 +187,14 @@
       "enable_notifications": "Enable Notifications",
       "not_supported": "Notifications are not supported in this browser.",
       "permission_denied": "Notification permissions denied. You can enable them in your browser settings.",
-      "permission_granted": "Notifications enabled successfully."
+      "permission_granted": "Notifications enabled successfully.",
+      "banner": {
+        "title": "Enable Notifications",
+        "description": "Get notified about new bids, contract updates, and payments even when the app is closed.",
+        "enable_button": "Enable",
+        "later_button": "Later",
+        "close_aria": "Close banner"
+      }
     },
     "settings": {
       "title": "Notification Settings",
