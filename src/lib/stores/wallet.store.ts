@@ -847,7 +847,7 @@ export function setActiveNetwork(network: 'liquid' | 'rsk' | 'bsc'): void {
 	walletStore.update((state) => ({ ...state, activeNetwork: network }));
 }
 
-export function setActiveTab(tab: 'balance' | 'send' | 'receive' | 'transactions'): void {
+export function setActiveTab(tab: 'balance' | 'send' | 'receive' | 'transactions' | 'buy-sell' | 'swap'): void {
 	walletStore.update((state) => ({ ...state, activeTab: tab }));
 }
 
