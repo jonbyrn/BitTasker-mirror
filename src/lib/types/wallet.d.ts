@@ -251,6 +251,6 @@ export interface CombinedWalletState {
 
     // UI state
     activeNetwork: 'liquid' | 'rsk' | 'bsc';
-    activeTab: 'balance' | 'send' | 'receive' | 'transactions';
+    activeTab: 'balance' | 'send' | 'receive' | 'transactions' | 'buy-sell' | 'swap';
     selectedAsset: string;
 }

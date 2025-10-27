@@ -22,6 +22,8 @@
 	import ReceiveForm from '$lib/components/wallet/ReceiveForm.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
+	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
+	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
@@ -218,6 +220,18 @@
 					{$t('wallet.tab_send')}
 				</button>
 				<button
+					class="tab {$combinedWalletState.activeTab === 'buy-sell' ? 'active-tab' : ''}"
+					onclick={() => walletManager.setActiveTab('buy-sell')}
+				>
+					{$t('wallet.tab_buy_sell')}
+				</button>
+				<button
+					class="tab {$combinedWalletState.activeTab === 'swap' ? 'active-tab' : ''}"
+					onclick={() => walletManager.setActiveTab('swap')}
+				>
+					{$t('wallet.tab_swap')}
+				</button>
+				<button
 					class="tab {$combinedWalletState.activeTab === 'transactions' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('transactions')}
 				>
@@ -238,6 +252,14 @@
 				<div class="space-y-6">
 					<SendForm />
 				</div>
+			{/if}
+
+			{#if $combinedWalletState.activeTab === 'buy-sell'}
+				<BuySellForm />
+			{/if}
+
+			{#if $combinedWalletState.activeTab === 'swap'}
+				<SwapForm />
 			{/if}
 
 			{#if $combinedWalletState.activeTab === 'transactions'}
@@ -279,7 +301,9 @@
 <style>
 	.tab.active-tab {
 		position: relative;
-		color: white;
+		color: hsl(var(--p));
+		background-color: hsl(var(--p) / 0.1);
+		font-weight: 600;
 	}
 
 	.tab.active-tab::after {
@@ -289,7 +313,7 @@
 		left: 0;
 		width: 100%;
 		height: 2px;
-		background-color: orange;
+		background-color: hsl(var(--p));
 		border-radius: 1px;
 	}
 </style>
