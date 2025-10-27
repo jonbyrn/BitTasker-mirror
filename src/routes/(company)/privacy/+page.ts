@@ -4,12 +4,12 @@ import type { PageLoad } from './$types';
  * Load function for the privacy policy page.
  * Returns the SEO metadata for the page.
  */
-export const load: PageLoad = async () => {
+export const load: PageLoad = async ({ url }) => {
 	const seo = {
 		title: 'Privacy Policy - BitTasker | Data Protection & User Privacy',
 		description: "Learn about BitTasker's privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.",
 		keywords: 'BitTasker privacy policy, data protection, user privacy, GDPR, CCPA, personal data, Bitcoin privacy, secure data handling',
-		canonical: 'https://bittasker.com/privacy',
+		canonical: url.href,
 		ogTitle: 'Privacy Policy - BitTasker | Data Protection & User Privacy',
 		ogDescription: "Learn about BitTasker's privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.",
 		twitterTitle: 'Privacy Policy - BitTasker | Data Protection & User Privacy',
@@ -19,7 +19,7 @@ export const load: PageLoad = async () => {
 			'@type': 'WebPage',
 			name: 'Privacy Policy - BitTasker',
 			description: "Learn about BitTasker's privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.",
-			url: 'https://bittasker.com/privacy',
+			url: url.href,
 			mainEntity: {
 				'@type': 'WebPageElement',
 				name: 'Privacy Policy',

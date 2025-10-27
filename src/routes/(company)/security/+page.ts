@@ -2,12 +2,12 @@
 import type { PageLoad } from './$types';
 
 
-export const load: PageLoad = async () => {
+export const load: PageLoad = async ({ url }) => {
 	const seo = {
 		title: 'Security & Safety - BitTasker | Bitcoin Platform Security',
 		description: 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
 		keywords: 'BitTasker security, Bitcoin security, platform safety, transaction security, multisig wallet security, cryptocurrency safety, user protection, secure payments',
-		canonical: 'https://bittasker.com/security',
+		canonical: url.href,
 		ogTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',
 		ogDescription: 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
 		twitterTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',
@@ -17,7 +17,7 @@ export const load: PageLoad = async () => {
 			'@type': 'WebPage',
 			'name': 'Security & Safety - BitTasker',
 			'description': 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
-			'url': 'https://bittasker.com/security',
+			'url': url.href,
 
 			'mainEntity': {
 				'@type': 'Article',

@@ -2,12 +2,12 @@
 import type { PageLoad } from './$types';
 
 
-export const load: PageLoad = async () => {
+export const load: PageLoad = async ({ url }) => {
 	const seo = {
 		title: 'Press & Media - BitTasker | Company News & Media Coverage',
 		description: 'Latest news, press releases, and media coverage about BitTasker, the decentralized Bitcoin task marketplace. Get media kits and company updates.',
 		keywords: 'BitTasker press, media coverage, company news, Bitcoin marketplace news, press releases, media kit, partnership announcements, startup news',
-		canonical: 'https://bittasker.com/press',
+		canonical: url.href,
 		ogTitle: 'Press & Media - BitTasker | Company News & Media Coverage',
 		ogDescription: 'Latest news, press releases, and media coverage about BitTasker, the decentralized Bitcoin task marketplace. Get media kits and company updates.',
 		twitterTitle: 'Press & Media - BitTasker | Company News & Media Coverage',
@@ -17,7 +17,7 @@ export const load: PageLoad = async () => {
 			'@type': 'WebPage',
 			'name': 'Press & Media - BitTasker',
 			'description': 'Latest news, press releases, and media coverage about BitTasker, the decentralized Bitcoin task marketplace. Get media kits, company updates, and partnership announcements.',
-			'url': 'https://bittasker.com/press',
+			'url': url.href,
 
 			'mainEntity': {
 				'@type': 'NewsArticle',

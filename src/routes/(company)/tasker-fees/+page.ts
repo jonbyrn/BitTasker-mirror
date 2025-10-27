@@ -14,7 +14,7 @@ export async function load({ url }) {
 			'@type': 'WebPage',
 			'name': 'Tasker Fees & Pricing - BitTasker',
 			'description': 'Transparent fee structure for task posters on BitTasker with tiered pricing based on activity level',
-			'url': 'https://bittasker.com/tasker-fees',
+			'url': url.href,
 
 			'mainEntity': {
 				'@type': 'PriceSpecification',

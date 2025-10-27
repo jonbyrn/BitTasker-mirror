@@ -215,7 +215,7 @@
 
 	<!-- Notification Dropdown -->
 	{#if isOpen}
-		<div class="fixed sm:absolute sm:right-0 inset-x-3 top-18 sm:top-auto sm:mt-2 w-[calc(100vw-1.5rem)] sm:w-80 md:w-96 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-80 sm:max-h-80 flex flex-col">
+		<div class="fixed sm:absolute inset-x-3 sm:inset-x-auto sm:right-0 top-18 sm:top-auto sm:mt-2 w-[calc(100vw-1.5rem)] sm:w-80 md:w-96 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-80 sm:max-h-80 flex flex-col">
 			<!-- Header -->
 			<div class="px-3 sm:px-4 py-2 border-b border-base-300 flex items-center justify-between shrink-0">
 				{#if notifications.length > 0}
