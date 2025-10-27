@@ -505,7 +505,7 @@
 												<span class="loading loading-spinner loading-md"></span>
 											</div>
 										{:then qrUrl}
-											<div class="rounded-lg bg-white p-3">
+											<div class="rounded-lg bg-white p-1">
 												<img src={qrUrl} alt="QR Code" class="h-32 w-32" />
 											</div>
 										{/await}

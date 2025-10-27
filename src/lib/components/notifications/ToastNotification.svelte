@@ -173,7 +173,7 @@
 			<div class="p-4">
 				<div class="flex items-start">
 					<!-- Icon -->
-					<div class="flex-shrink-0">
+					<div class="shrink-0">
 						{#if toast.type === 'bid_response'}
 							<IconCurrencyUsd class="w-5 h-5 {getToastIconColor(toast.priority)}" />
 						{:else if toast.type === 'contract_event'}
@@ -222,7 +222,7 @@
 					<!-- Close Button -->
 					<button
 						onclick={(e) => { e.stopPropagation(); dismissToast(toast.id); }}
-						class="ml-3 flex-shrink-0 {getToastIconColor(toast.priority)} hover:opacity-75"
+						class="ml-3 shrink-0 {getToastIconColor(toast.priority)} hover:opacity-75"
 						aria-label="Dismiss notification"
 					>
 						<IconClose class="w-4 h-4" />

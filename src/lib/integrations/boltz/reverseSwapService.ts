@@ -40,12 +40,12 @@ import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import { BoltzClient } from './client';
 import { boltzWebSocket } from './websocket';
-import { Contract, Interface, keccak256, solidityPacked, ethers } from 'ethers';
+import { Contract, Interface, ethers } from 'ethers';
 import { getPublicKey, finalizeEvent, type NostrEvent } from 'nostr-tools';
 import nip44 from '$lib/nostr/nip44';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { relayClaimTransaction, getSmartWalletAddress } from './rif/Signer';
-import { getBoltzConfig, satoshiToWei, isRifRelayAvailable, SATOSHI_TO_WEI } from './config';
+import { satoshiToWei, isRifRelayAvailable, SATOSHI_TO_WEI } from './config';
 import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
 
 // Swap data structure for Nostr storage

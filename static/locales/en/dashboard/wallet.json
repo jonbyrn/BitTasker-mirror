@@ -308,6 +308,9 @@
       "usdt_binance_chain": "USDT (Binance Chain)",
       "coming_soon": "Coming Soon",
       "retry": "Retry",
+      "refresh_balance": "Refresh Balance",
+      "balance_refreshed": "Balance refreshed successfully",
+      "refresh_failed": "Failed to refresh balance",
       "buy_sell": {
         "title": "Buy & Sell Digital Assets",
         "coming_soon": "Buy & Sell functionality coming soon!",

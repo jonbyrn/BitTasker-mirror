@@ -11,8 +11,6 @@ import type {
 	NetworkType,
 	Transaction,
 	WalletAsset,
-	BSCUnit,
-	TokenBalance,
 	GasEstimation
 } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
@@ -45,7 +43,6 @@ import { BSCPaymasterContract } from '$lib/utils/wallet/BSCPaymasterContract';
 // Import utility functions
 import { tokens } from '$lib/utils/wallet/tokens';
 import { loadRSKTransactions, loadBSCTransactions, updateTransactionStatus } from '$lib/utils/wallet/transactionHistory';
-import { updateBSCBalances } from '$lib/utils/wallet/balanceManager';
 
 
 // Initial state
@@ -118,8 +115,6 @@ export const walletStore = writable(initialState);
 
 // Internal state for event listeners
 const eventListeners: (() => void)[] = [];
-const bscEventListeners: (() => void)[] = [];
-const refreshIntervals: NodeJS.Timeout[] = [];
 
 // Helper functions (simplified implementations)
 async function loadAllData(): Promise<void> {
@@ -130,64 +125,209 @@ async function loadAllData(): Promise<void> {
 	}
 }
 
-function setupRSKEventListeners(provider: ethers.JsonRpcProvider): void {
-	// Listen for new blocks
-	const blockListener = (blockNumber: number) => {
-		walletStore.update((state) => ({
-			...state,
-			rsk: { ...state.rsk, blockNumber }
-		}));
-	}; 
-	provider.on('block', blockListener);
-    eventListeners.push(() => provider.off('block', blockListener));
-	// Poll for block number updates every 15 seconds (instead of using filters)
-	/* const blockInterval = setInterval(async () => {
+/**
+ * Setup event listeners for network providers
+ * 
+ * Performance Optimizations:
+ * - Reuses existing contract instances instead of creating new ones
+ * - Throttles balance refreshes to every 10 blocks (~20-30 seconds)
+ * - Checks for Transfer events every 5 blocks using queryFilter (one-time queries)
+ * - Respects provider.pause()/resume() for page visibility handling
+ */
+function setupNetworkEventListeners(
+	network: 'rsk' | 'bsc',
+	provider: ethers.JsonRpcProvider,
+	wallet: ethers.Wallet,
+	usdtContract?: ethers.Contract | null
+): void {
+	let blockCount = 0;
+	let lastCheckedBlock = 0;
+	
+	// Block listener - ethers handles polling internally
+	const blockListener = async (blockNumber: number) => {
 		try {
-			const blockNumber = await provider.getBlockNumber();
+			// Update block number in store
 			walletStore.update((state) => ({
 				...state,
-				rsk: { ...state.rsk, blockNumber }
+				[network]: { ...state[network], blockNumber }
 			}));
+			
+			blockCount++;
+			
+			// Refresh balance every 10 blocks (~20-30 seconds for most networks)
+			if (blockCount % 10 === 0) {
+				const balanceChanged = await refreshNetworkBalance(network, provider, wallet, usdtContract);
+				// Only reload assets if balance actually changed
+				if (balanceChanged) {
+					await loadAssets();
+				}
+			}
+			
+			// For ERC20 tokens, check for Transfer events every 5 blocks using queryFilter
+			// This avoids persistent RPC filters that expire and cause "filter not found" errors
+			if (usdtContract && blockNumber % 5 === 0 && blockNumber > lastCheckedBlock) {
+				try {
+					const fromBlock = Math.max(lastCheckedBlock > 0 ? lastCheckedBlock : blockNumber - 5, blockNumber - 5);
+					const toBlock = blockNumber;
+					
+					// Create filters for incoming and outgoing transfers
+					const incomingFilter = usdtContract.filters.Transfer(null, wallet.address);
+					const outgoingFilter = usdtContract.filters.Transfer(wallet.address, null);
+					
+					// Query for events (one-time query, no persistent filter)
+					const [incomingEvents, outgoingEvents] = await Promise.all([
+						usdtContract.queryFilter(incomingFilter, fromBlock, toBlock),
+						usdtContract.queryFilter(outgoingFilter, fromBlock, toBlock)
+					]);
+					
+					// If any transfers detected, refresh balance and transactions
+					if (incomingEvents.length > 0 || outgoingEvents.length > 0) {
+						console.log(`[${network}] Transfers detected in blocks ${fromBlock}-${toBlock}, refreshing...`);
+						const balanceChanged = await refreshNetworkBalance(network, provider, wallet, usdtContract);
+						if (balanceChanged) {
+							await loadAssets();
+						}
+						await loadTransactions();
+					}
+					
+					lastCheckedBlock = blockNumber;
+				} catch (error) {
+					// Silently handle query errors - they're not critical
+					console.debug(`[${network}] Transfer check failed:`, error);
+				}
+			}
 		} catch (error) {
-			console.error('Failed to fetch RSK block number:', error);
+			console.error(`[${network}] Block listener error:`, error);
 		}
-	}, 15000);
+	};
+	
+	// Subscribe to block events
+	provider.on('block', blockListener);
+	eventListeners.push(() => provider.off('block', blockListener));
+}
 
-	eventListeners.push(() => clearInterval(blockInterval));
-
-	// Poll for balance updates every 30 seconds
-	const balanceInterval = setInterval(async () => {
-		try {
-			const state = get(walletStore);
-			if (state.rsk.wallet && state.rsk.provider) {
-				const balance = await state.rsk.provider.getBalance(state.rsk.wallet.address);
+/**
+ * Refresh balance for a specific network
+ * Uses existing contract instances to avoid creating new ones on each refresh
+ * Only updates state if balance changed to minimize unnecessary RPC calls
+ */
+async function refreshNetworkBalance(
+	network: 'rsk' | 'bsc',
+	provider: ethers.JsonRpcProvider,
+	wallet: ethers.Wallet,
+	usdtContract?: ethers.Contract | null
+): Promise<boolean> {
+	try {
+		let balanceChanged = false;
+		const state = get(walletStore);
+		
+		if (network === 'rsk') {
+			const balance = await provider.getBalance(wallet.address);
+			const balanceStr = balance.toString();
+			
+			// Only update if balance actually changed
+			if (state.rsk.balance !== balanceStr) {
 				const formattedBalance = ethers.formatEther(balance);
-				walletStore.update((s) => ({
-					...s,
+				walletStore.update((state) => ({
+					...state,
 					rsk: {
-						...s.rsk,
-						balance: balance.toString(),
+						...state.rsk,
+						balance: balanceStr,
 						formattedBalance: parseFloat(formattedBalance).toFixed(6)
 					}
 				}));
+				balanceChanged = true;
 			}
-		} catch (error) {
-			console.error('Failed to update RSK balance:', error);
+		} else if (network === 'bsc') {
+			// Get BNB balance
+			const bnbBalance = await provider.getBalance(wallet.address);
+			const bnbBalanceStr = bnbBalance.toString();
+
+			// Get USDT balance using existing contract
+			let usdtBalance = BigInt(0);
+			let usdtBalanceStr = '0';
+			
+			if (usdtContract) {
+				try {
+					usdtBalance = await usdtContract.balanceOf(wallet.address);
+					usdtBalanceStr = usdtBalance.toString();
+				} catch (error) {
+					console.debug(`[${network}] Failed to fetch USDT balance:`, error);
+				}
+			}
+
+			// Only update if balance actually changed
+			if (state.bsc.bnbBalance !== bnbBalanceStr || state.bsc.usdtBalance !== usdtBalanceStr) {
+				const formattedBnb = ethers.formatEther(bnbBalance);
+				const decimals = usdtContract ? await usdtContract.decimals() : 18;
+				const formattedUsdt = parseFloat(ethers.formatUnits(usdtBalance, decimals)).toFixed(6);
+				
+				walletStore.update((state) => ({
+					...state,
+					bsc: {
+						...state.bsc,
+						bnbBalance: bnbBalanceStr,
+						formattedBnbBalance: parseFloat(formattedBnb).toFixed(6),
+						usdtBalance: usdtBalanceStr,
+						formattedUsdtBalance: formattedUsdt
+					}
+				}));
+				balanceChanged = true;
+			}
 		}
-	}, 30000);
+		
+		return balanceChanged;
+	} catch (error) {
+		console.error(`[${network}] Failed to refresh balance:`, error);
+		return false;
+	}
+}
 
-	eventListeners.push(() => clearInterval(balanceInterval));
-
-	// Poll for transaction updates every 20 seconds
-	const txInterval = setInterval(async () => {
-		try {
-			await loadRSKTransactions();
-		} catch (error) {
-			console.error('Failed to poll RSK transactions:', error);
-		}
-	}, 20000);
-
-	eventListeners.push(() => clearInterval(txInterval)); */
+/**
+ * Setup page visibility handling for pausing/resuming providers
+ * Pauses ethers providers when the app is in the background to save resources
+ */
+function setupPageVisibilityHandling(): void {
+	if (typeof document === 'undefined') return; // Skip on SSR
+	
+	let debounceTimeout: NodeJS.Timeout | null = null;
+	
+	const handleVisibilityChange = () => {
+		// Debounce to avoid rapid pause/resume on quick tab switches
+		if (debounceTimeout) clearTimeout(debounceTimeout);
+		
+		debounceTimeout = setTimeout(() => {
+			const state = get(walletStore);
+			
+			if (document.hidden) {
+				console.log('[Wallet] Page hidden - pausing providers');
+				// Pause all providers (true = drop events while paused)
+				state.rsk.provider?.pause(true);
+				state.bsc.provider?.pause(true);
+			} else {
+				console.log('[Wallet] Page visible - resuming providers');
+				// Resume providers
+				state.rsk.provider?.resume();
+				state.bsc.provider?.resume();
+				
+				// Immediately refresh data after resume
+				Promise.allSettled([
+					loadAssets(),
+					loadTransactions()
+				]).catch(error => {
+					console.error('[Wallet] Failed to refresh after resume:', error);
+				});
+			}
+		}, 300); // 300ms debounce
+	};
+	
+	document.addEventListener('visibilitychange', handleVisibilityChange);
+	
+	// Store cleanup function
+	eventListeners.push(() => {
+		if (debounceTimeout) clearTimeout(debounceTimeout);
+		document.removeEventListener('visibilitychange', handleVisibilityChange);
+	});
 }
 
 /**
@@ -250,6 +390,9 @@ export async function initializeWallet(): Promise<void> {
 		if (hasAnyConnection) {
 			await loadAllData();
 			await loadTransactions();
+			
+			// Setup page visibility handling to pause polling when app is backgrounded
+			setupPageVisibilityHandling();
 		}
 	} catch (error) {
 		console.error('Failed to initialize wallets:', error);
@@ -373,8 +516,8 @@ async function initializeRSKWallet(mnemonic?: string): Promise<void> {
 			}
 		}));
 
-		// Set up RSK event listeners
-		setupRSKEventListeners(provider);
+		// Set up event listeners using ethers' built-in polling
+		setupNetworkEventListeners('rsk', provider, wallet);
 	} catch (error) {
 		console.error('RSK wallet initialization failed:', error);
 		walletStore.update((state) => ({
@@ -448,9 +591,19 @@ async function initializeBSCWallet(mnemonic?: string): Promise<void> {
 			await checkBSCPaymasterConnection(paymasterContract);
 		}
 
-		// Get initial data
-		await updateBSCBalances();
-		await tokens.loadTokenBalances('bsc');
+		// Get initial balances using existing contract
+		const bnbBalance = await provider.getBalance(wallet.address);
+		const formattedBnb = ethers.formatEther(bnbBalance);
+		
+		let usdtBalance = BigInt(0);
+		let formattedUsdt = '0.00';
+		if (usdtContract) {
+			const balance = await usdtContract.balanceOf(wallet.address);
+			const decimals = await usdtContract.decimals();
+			formattedUsdt = parseFloat(ethers.formatUnits(balance, decimals)).toFixed(6);
+			usdtBalance = balance;
+		}
+		
 		await loadBSCTransactions();
 
 		walletStore.update((state) => ({
@@ -467,11 +620,15 @@ async function initializeBSCWallet(mnemonic?: string): Promise<void> {
 				paymasterContract,
 				paymasterAddress: paymasterContract ? paymasterConfig.address : null,
 				blockNumber,
+				bnbBalance: bnbBalance.toString(),
+				formattedBnbBalance: parseFloat(formattedBnb).toFixed(6),
+				usdtBalance: usdtBalance.toString(),
+				formattedUsdtBalance: formattedUsdt
 			}
 		}));
 
-		// Set up event listeners
-		setupBSCEventListeners(provider);
+		// Set up event listeners using ethers' built-in polling
+		setupNetworkEventListeners('bsc', provider, wallet, usdtContract);
 	} catch (error) {
 		console.error('BSC wallet initialization failed:', error);
 		walletStore.update((state) => ({
@@ -505,11 +662,6 @@ async function loadLiquidTransactions(): Promise<Payment[]> {
 	}
 }
 
-
-/**
- * BSC Helper Functions
- */
-
 // Check BSC paymaster connection and capabilities
 async function checkBSCPaymasterConnection(paymasterContract: BSCPaymasterContract): Promise<void> {
 	if (!paymasterContract) return;
@@ -538,50 +690,6 @@ async function checkBSCPaymasterConnection(paymasterContract: BSCPaymasterContra
 		}));
 	}
 }
-
-// Set up BSC event listeners using polling instead of filters
-function setupBSCEventListeners(
-	provider: ethers.JsonRpcProvider,
-): void {
-	// Poll for block number updates every 15 seconds
-	const blockInterval = setInterval(async () => {
-		try {
-			const blockNumber = await provider.getBlockNumber();
-			walletStore.update((state) => ({
-				...state,
-				bsc: {
-					...state.bsc,
-					blockNumber
-				}
-			}));
-		} catch (error) {
-			console.error('Failed to fetch BSC block number:', error);
-		}
-	}, 30000);
-
-	bscEventListeners.push(() => clearInterval(blockInterval));
-
-	// Set up periodic balance updates every 30 seconds
-	const balanceInterval = setInterval(() => {
-		updateBSCBalances();
-		tokens.loadTokenBalances('bsc');
-	}, 30000);
-
-	bscEventListeners.push(() => clearInterval(balanceInterval));
-
-	// Poll for transaction updates every 60 seconds
-	const txInterval = setInterval(async () => {
-		try {
-			await loadBSCTransactions();
-		} catch (error) {
-			console.error('Failed to poll BSC transactions:', error);
-		}
-	}, 60000);
-
-	bscEventListeners.push(() => clearInterval(txInterval));
-}
-
-// BSC transaction status updates are now handled by transactionHistory utility
 
 /**
  * Load transactions from both networks
@@ -683,11 +791,10 @@ export async function loadAssets(): Promise<void> {
 			}
 		}
 
-		// Load RSK assets if connected
-		if (state.rsk.connected && state.rsk.provider && state.rsk.wallet) {
+		// Load RSK assets if connected (use cached balance from state)
+		if (state.rsk.connected && state.rsk.balance) {
 			try {
-				const balance = await state.rsk.provider.getBalance(state.rsk.wallet.address);
-				const rbtcValue = parseFloat(ethers.formatEther(balance));
+				const rbtcValue = parseFloat(ethers.formatEther(state.rsk.balance));
 				const btcPrice = state.fiatRates.find((rate) => rate.coin === 'BTC')?.value || 0;
 
 				assets.push({
@@ -866,16 +973,20 @@ export async function reinitializeBSCWallet(): Promise<void> {
 			throw new Error('No mnemonic found. Please set up your wallet first.');
 		}
 
-		walletStore.update((state) => ({
-			...state,
-			bsc: { ...state.bsc, connecting: true, error: null }
-		}));
+	walletStore.update((state) => ({
+		...state,
+		bsc: { ...state.bsc, connecting: true, error: null }
+	}));
 
-		// Cleanup existing BSC connections
-		cleanupBSC();
+	// Cleanup existing BSC event listeners
+	const state = get(walletStore);
+	if (state.bsc.provider) {
+		// Remove all event listeners for this provider
+		state.bsc.provider.removeAllListeners();
+	}
 
-		// Reinitialize with current env network
-		await initializeBSCWallet(mnemonic);
+	// Reinitialize with current env network
+	await initializeBSCWallet(mnemonic);
 
 		// Refresh assets and transactions
 		await loadAssets();
@@ -1192,30 +1303,17 @@ export async function getBSCPaymasterStatus(): Promise<{
 }
 
 /**
- * BSC Cleanup function
- */
-function cleanupBSC(): void {
-	// Remove all BSC event listeners
-	bscEventListeners.forEach(cleanup => cleanup());
-	bscEventListeners.splice(0, bscEventListeners.length);
-
-	// Reset BSC state
-	walletStore.update((state) => ({
-		...state,
-		bsc: {
-			...initialState.bsc
-		}
-	}));
-}
-
-/**
- * Cleanup
+ * Cleanup all wallet connections and event listeners
  */
 export async function cleanup(): Promise<void> {
-	refreshIntervals.forEach((interval) => clearInterval(interval));
+	// Remove all event listeners (includes RSK, BSC, and page visibility)
 	eventListeners.forEach((cleanup) => cleanup());
-	cleanupBSC();
+	eventListeners.length = 0; // Clear the array
+	
+	// Disconnect from Breez
 	await disconnect();
+	
+	// Reset store to initial state
 	walletStore.set(initialState);
 }
 

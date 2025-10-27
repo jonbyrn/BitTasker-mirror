@@ -22,8 +22,6 @@
 	let errorMessage = $state<string | null>(null);
 	let generatedAddress = $state<string | null>(null);
 	let qrCodeDataUrl = $state<string | null>(null);
-	let showQr = $state(false);
-	let rskDropdownElement: HTMLElement;
 	let dropdownKey = $state(0);
 
 	// Asset options (Bitcoin and USD)

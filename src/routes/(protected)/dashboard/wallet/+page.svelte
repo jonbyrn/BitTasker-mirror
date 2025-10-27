@@ -92,7 +92,7 @@
 					<div class="flex items-center">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="mr-2 h-6 w-6 flex-shrink-0 stroke-current"
+							class="mr-2 h-6 w-6 shrink-0 stroke-current"
 							fill="none"
 							viewBox="0 0 24 24"
 						>
@@ -134,7 +134,7 @@
 				<div class="flex items-center">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="mr-3 h-6 w-6 flex-shrink-0 stroke-current"
+						class="mr-3 h-6 w-6 shrink-0 stroke-current"
 						fill="none"
 						viewBox="0 0 24 24"
 					>

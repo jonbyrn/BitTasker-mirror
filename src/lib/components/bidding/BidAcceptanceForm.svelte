@@ -89,7 +89,7 @@
 				props.bid,
 				props.task,
 				props.btcPrice,
-				'RSK' // Always use RSK network
+				'RSK'
 			);
 
 			if (result.success) {
@@ -486,7 +486,7 @@
 			<!-- Wallet Connection Status -->
 			{#if !$walletStore.rsk.connected}
 				<div
-					class="alert alert-outline alert-warning mt-4 !flex !flex-row !items-center !justify-between text-black"
+					class="alert alert-outline alert-warning mt-4 flex! flex-row! items-center! justify-between! text-black"
 				>
 					<div class="flex items-center">
 						<svg
@@ -580,11 +580,11 @@
 							{$t('dashboard.bids.bid_acceptance.insufficient_balance')}
 						</div>
 						{#if balanceErrors.length === 1}
-							<p class="text-sm break-words">{balanceErrors[0]}</p>
+							<p class="text-sm word-break-words">{balanceErrors[0]}</p>
 						{:else}
 							<ul class="list-inside list-disc space-y-1 text-sm">
 								{#each balanceErrors as error}
-									<li class="break-words">{error}</li>
+									<li class="word-break-words">{error}</li>
 								{/each}
 							</ul>
 						{/if}
@@ -621,11 +621,11 @@
 					</svg>
 					<div class="min-w-0 flex-1">
 						{#if validationErrors.length === 1}
-							<p class="break-words">{validationErrors[0]}</p>
+							<p class="word-break-words">{validationErrors[0]}</p>
 						{:else}
 							<ul class="list-inside list-disc space-y-1">
 								{#each validationErrors as error}
-									<li class="break-words">{error}</li>
+									<li class="word-break-words">{error}</li>
 								{/each}
 							</ul>
 						{/if}
@@ -640,7 +640,7 @@
 				<div class="flex items-center">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="mr-3 h-6 w-6 flex-shrink-0 stroke-current"
+						class="mr-3 h-6 w-6 shrink-0 stroke-current"
 						fill="none"
 						viewBox="0 0 24 24"
 					>
