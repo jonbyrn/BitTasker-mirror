@@ -192,8 +192,42 @@
 		}
 	}
 
+	function getTranslatedTitle(notification: Notification): string {
+		// If notification is already translated, return as-is
+		if (notification.data?.isTranslated) {
+			return notification.title;
+		}
+		
+		// Check if notification has translation keys
+		if (notification.data?.titleKey) {
+			return $t(notification.data.titleKey);
+		}
+		
+		// Fallback to direct translation of the title
+		return $t(notification.title) || notification.title;
+	}
 
-	const filterOptions = [
+	function getTranslatedBody(notification: Notification): string {
+		// If notification is already translated, return as-is
+		if (notification.data?.isTranslated) {
+			return notification.body;
+		}
+		
+		// Check if notification has translation keys
+		if (notification.data?.bodyKey) {
+			const translation = $t(notification.data.bodyKey as any);
+			// Replace {senderName} placeholder with actual sender name
+			return translation.replace('{senderName}', notification.data.senderName || 'Usuario');
+		}
+		
+		// Fallback to direct translation of the body
+		const translation = $t(notification.body as any) || notification.body;
+		// Replace {senderName} placeholder with actual sender name
+		return translation.replace('{senderName}', notification.data?.senderName || 'Usuario');
+	}
+
+
+	let filterOptions = $derived([
 		{ value: 'all', label: $t('notifications.filters.all') },
 		{ value: NOTIFICATION_CATEGORIES.BID_RESPONSE, label: $t('notifications.types.bid_response') },
 		{ value: NOTIFICATION_CATEGORIES.CONTRACT_EVENT, label: $t('notifications.types.contract_event') },
@@ -202,7 +236,7 @@
 		{ value: NOTIFICATION_CATEGORIES.MESSAGE, label: $t('notifications.types.message') },
 		{ value: NOTIFICATION_CATEGORIES.SYSTEM, label: $t('notifications.types.system') },
 		{ value: NOTIFICATION_CATEGORIES.SECURITY, label: $t('notifications.types.security') }
-	];
+	]);
 </script>
 
 <svelte:head>
@@ -329,10 +363,10 @@
 								? 'bg-base-100 opacity-75'
 								: 'bg-primary/5 ring-2 ring-primary/20'} relative"
 						>
-							<div class="card-body p-4">
-								<div class="flex items-start gap-4">
+							<div class="card-body p-3 sm:p-4">
+								<div class="flex items-start gap-3 sm:gap-4">
 									<!-- Icon -->
-									<div class="flex-shrink-0">
+									<div class="shrink-0">
 										{#if notification.type === 'bid_response'}
 											<IconCurrencyUsd class="w-5 h-5 text-primary" />
 										{:else if notification.type === 'contract_event'}
@@ -354,47 +388,47 @@
 
 									<!-- Content -->
 									<div class="min-w-0 flex-1">
-										<div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-											<span class="text-base font-medium text-base-content">
-												{notification.title}
+										<div class="mb-2 flex flex-col gap-2">
+											<span class="text-sm sm:text-base font-medium text-base-content">
+												{getTranslatedTitle(notification)}
 											</span>
-											<div class="flex items-center gap-2">
+											<div class="flex flex-wrap items-center gap-2">
 												<!-- Priority Badge -->
-												<div class="badge badge-outline badge-sm">
+												<div class="badge badge-outline badge-xs sm:badge-sm">
 													{$t(`notifications.priority_labels.${notification.priority}`)}
 												</div>
 												<!-- Time -->
-												<span class="text-sm text-base-content/70">
+												<span class="text-xs sm:text-sm text-base-content/70">
 													{formatTimeAgo(notification.createdAt)}
 												</span>
 											</div>
 										</div>
 
-										<p class="mb-3 text-base-content/80">
-											{notification.body}
+										<p class="mb-3 text-sm text-base-content/80">
+											{getTranslatedBody(notification)}
 										</p>
 
 										<!-- Additional Data -->
 										{#if notification.data && Object.keys(notification.data).length > 0}
 											<div class="flex flex-wrap gap-2">
 												{#if notification.data.taskTitle}
-													<div class="badge badge-secondary">
+													<div class="badge badge-secondary badge-xs sm:badge-sm">
 														{notification.data.taskTitle}
 													</div>
 												{/if}
 												{#if notification.data.amount}
-													<div class="badge badge-success">
+													<div class="badge badge-success badge-xs sm:badge-sm">
 														{notification.data.amount}
 														{notification.data.currency || 'USD'}
 													</div>
 												{/if}
 												{#if notification.data.bidderName}
-													<div class="badge badge-info">
+													<div class="badge badge-info badge-xs sm:badge-sm">
 														{notification.data.bidderName}
 													</div>
 												{/if}
 												{#if notification.data.participantName}
-													<div class="badge badge-accent">
+													<div class="badge badge-accent badge-xs sm:badge-sm">
 														{notification.data.participantName}
 													</div>
 												{/if}
@@ -403,14 +437,14 @@
 									</div>
 
 									<!-- Action Buttons -->
-									<div class="flex flex-shrink-0 items-center gap-2">
+									<div class="flex flex-col gap-2 shrink-0">
 										<!-- View Button -->
 										<button
 											onclick={() => handleNotificationClick(notification)}
 											class="btn btn-sm btn-primary btn-circle"
 											aria-label={$t('notifications.notifications_actions.view')}
 										>
-											<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 												<path
 													stroke-linecap="round"
 													stroke-linejoin="round"
@@ -431,7 +465,7 @@
 											class="btn btn-sm btn-error btn-circle"
 											aria-label={$t('notifications.notifications_actions.remove')}
 										>
-											<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 												<path
 													stroke-linecap="round"
 													stroke-linejoin="round"

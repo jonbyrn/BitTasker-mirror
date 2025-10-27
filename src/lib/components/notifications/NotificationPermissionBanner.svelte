@@ -67,38 +67,45 @@
 </script>
 
 {#if showBanner && isLoggedIn}
-	<div class="fixed inset-x-4 top-4 z-50 mx-auto max-w-md md:inset-x-auto md:right-4 md:max-w-sm">
-		<div class="bg-primary text-primary-content rounded-lg shadow-lg border border-primary-content/20 p-4 md:p-5">
-			<div class="flex items-start gap-3 md:gap-4">
-				<div class="shrink-0">
-					<IconBell class="w-5 h-5 md:w-6 md:h-6" />
-				</div>
-				<div class="grow min-w-0">
-					<h4 class="text-sm font-medium md:text-base">{$t('notifications.permissions.banner.title')}</h4>
-					<p class="mt-1 text-xs opacity-90 md:text-sm">
-						{$t('notifications.permissions.banner.description')}
-					</p>
-					<div class="mt-3 flex flex-col gap-2 sm:flex-row sm:gap-2">
-						<button
-							onclick={requestPermission}
-							class="btn btn-sm btn-primary-content text-primary font-medium transition-all duration-200 hover:scale-105 md:btn-md"
-						>
-							{$t('notifications.permissions.banner.enable_button')}
-						</button>
-						<button
-							onclick={dismissBanner}
-							class="btn btn-sm btn-outline border-primary-content/30 text-primary-content bg-transparent hover:bg-primary-content/10 hover:border-primary-content/50 transition-all duration-200 md:btn-md"
-						>
-							{$t('notifications.permissions.banner.later_button')}
-						</button>
+	<div class="fixed inset-x-3 top-3 z-50 mx-auto max-w-none sm:inset-x-4 sm:top-4 md:inset-x-auto md:right-4 md:max-w-sm md:top-4">
+		<div class="bg-primary text-primary-content rounded-xl shadow-2xl border border-primary-content/20 p-3 sm:p-4 md:p-5">
+			<!-- Header with icon, title and close button -->
+			<div class="flex items-center justify-between gap-2 mb-2 sm:gap-3 sm:mb-3">
+				<div class="flex items-center gap-2 sm:gap-3">
+					<div class="shrink-0">
+						<IconBell class="w-5 h-5 sm:w-6 sm:h-6" />
 					</div>
+					<h4 class="text-sm font-semibold sm:text-base md:text-lg">
+						{$t('notifications.permissions.banner.title')}
+					</h4>
 				</div>
 				<button
 					onclick={dismissBanner}
-					class="shrink-0 text-primary-content/40 hover:text-primary-content/80 transition-colors duration-200"
+					class="shrink-0 text-primary-content/60 hover:text-primary-content/90 transition-colors duration-200 p-1"
 					aria-label={$t('notifications.permissions.banner.close_aria')}
 				>
-					<IconClose class="w-4 h-4 md:w-5 md:h-5" />
+					<IconClose class="w-5 h-5 sm:w-6 sm:h-6" />
+				</button>
+			</div>
+
+			<!-- Description -->
+			<p class="text-xs leading-relaxed opacity-90 sm:text-sm mb-3 sm:mb-4 md:mb-5">
+				{$t('notifications.permissions.banner.description')}
+			</p>
+
+			<!-- Action Buttons -->
+			<div class="flex flex-col gap-2 sm:flex-row sm:gap-2">
+				<button
+					onclick={requestPermission}
+					class="btn w-full btn-sm btn-primary-content text-primary font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto sm:btn-md"
+				>
+					{$t('notifications.permissions.banner.enable_button')}
+				</button>
+				<button
+					onclick={dismissBanner}
+					class="btn w-full btn-sm btn-outline border-2 border-primary-content/40 text-primary-content bg-transparent hover:bg-primary-content/10 hover:border-primary-content/60 transition-all duration-200 font-medium active:scale-[0.98] sm:w-auto sm:btn-md"
+				>
+					{$t('notifications.permissions.banner.later_button')}
 				</button>
 			</div>
 		</div>
