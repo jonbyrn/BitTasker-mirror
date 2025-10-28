@@ -780,7 +780,7 @@
 			<button
 				id="bid-submit-btn"
 				type="submit"
-				class="btn btn-primary ml-auto block {bidFormErrors.general ? '' : 'mb-16 sm:mb-4'}"
+				class="btn btn-primary ml-auto block {bidFormErrors.general ? '' : 'mb-20 lg:mb-4'}"
 				disabled={submittingBid}
 			>
 				{#if submittingBid}
@@ -791,7 +791,7 @@
 				{/if}
 			</button>
 			{#if bidFormErrors.general}
-				<div class="alert alert-error alert-outline mb-16 sm:mb-4">
+				<div class="alert alert-error alert-outline mb-20 lg:mb-4">
 					<span>{bidFormErrors.general}</span>
 				</div>
 			{/if}
