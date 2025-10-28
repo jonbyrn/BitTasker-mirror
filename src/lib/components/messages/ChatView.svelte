@@ -14,6 +14,7 @@
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 	import { TranslationStore } from '$lib/stores/translation.store';
 	import { TranslationService } from '$lib/services/translation.service';
+	import { smartMessageCache } from '$lib/utils/messageCache';
 
 	// Props
 	let {
@@ -357,29 +358,42 @@
 	async function loadMessages() {
 		isLoadingMessages = true;
 		error = '';
-
+		
 		try {
-			// Fetch initial message history
-			const messageHistory = await getMessageHistory(recipientHex(), {
+			const currentUserHexPubkey = currentUserHex();
+			const recipientHexPubkey = recipientHex();
+			
+			// STEP 1: Try to load from cache first
+			const cached = smartMessageCache.get(currentUserHexPubkey, recipientHexPubkey);
+			if (cached && !smartMessageCache.isStale(`${currentUserHexPubkey}:${recipientHexPubkey}`)) {
+				messages = cached.messages;
+				oldestMessageTimestamp = cached.oldestMessageTimestamp;
+				hasMoreMessages = true; // Assume there might be more
+				isLoadingMessages = false; // Show cached immediately
+			}
+			
+			// STEP 2: Fetch fresh messages in background (with timeout already applied!)
+			const messageHistory = await getMessageHistory(recipientHexPubkey, {
 				limit: MESSAGES_PER_PAGE
 			});
-
+			
 			// Sort messages by timestamp (oldest first)
 			const sortedMessages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
 			messages = sortedMessages;
-
-			// Update pagination state
+			
+			// Update cache
 			if (sortedMessages.length > 0) {
 				oldestMessageTimestamp = sortedMessages[0].event.created_at;
 				hasMoreMessages = sortedMessages.length === MESSAGES_PER_PAGE;
+				smartMessageCache.set(currentUserHexPubkey, recipientHexPubkey, sortedMessages, oldestMessageTimestamp);
 			} else {
 				hasMoreMessages = false;
 			}
-
-			// Fetch recipient profile if not provided or incomplete
+			
+			// Fetch recipient profile if not provided (with timeout already applied!)
 			if (!initialProfile || (!initialProfile.name && !initialProfile.picture)) {
 				try {
-					const profile = await fetchProfileMetadata(recipientHex());
+					const profile = await fetchProfileMetadata(recipientHexPubkey);
 					if (profile && (profile.name || profile.picture)) {
 						recipientProfile = profile;
 					}
