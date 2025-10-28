@@ -49,8 +49,15 @@
 		try {
 			loading = true;
 			error = ''; // Clear any previous error
-			const bids = await getMyBids();
-			myBids = bids;
+			
+			// Use progressive loading
+			await getMyBids({
+				progressive: true,
+				onProgress: (bids) => {
+					myBids = bids;
+					loading = bids.length === 0; // Keep loading only if no bids yet
+				}
+			});
 		} catch (err) {
 			console.error('Error loading bids:', err);
 			error = $t('bids.error.loading');
@@ -78,7 +85,7 @@
 </script>
 
 <div class="space-y-6 ">
-	{#if loading}
+	{#if loading && myBids.length === 0}
 		<div class="space-y-4">
 			{#each Array(1) as _}
 				<div class="card bg-base-100 border-base-300 animate-pulse rounded-lg border shadow-sm">
@@ -159,6 +166,19 @@
 					</div>
 				</div>
 			{/each}
+		</div>
+	{:else if myBids.length > 0}
+		<div class="space-y-4">
+			{#each myBids as bid (bid.bid.bidId)}
+				<!-- Bid cards will be rendered here -->
+			{/each}
+			
+			{#if loading}
+				<div class="text-center text-sm opacity-70">
+					<div class="loading loading-spinner loading-sm"></div>
+					<span class="ml-2">Loading more bids...</span>
+				</div>
+			{/if}
 		</div>
 	{:else if error}
 		<!-- Error State -->
