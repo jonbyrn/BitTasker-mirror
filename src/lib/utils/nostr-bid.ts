@@ -412,11 +412,21 @@ export async function getMyBids(options?: {
 		if (cachedBids.length > 0) {
 			return cachedBids;
 		}
-		throw error;
+		// If no cached bids and refresh failed, return empty array rather than throwing
+		// This allows the UI to show "no bids" instead of an error
+		console.warn('No bids found after refresh attempt. Returning empty array.');
+		return [];
 	}
 	
 	// STEP 3: Return updated bids
-	return smartBidCache.getUserBids(pubkeyHex);
+	const updatedBids = smartBidCache.getUserBids(pubkeyHex);
+	
+	// Log for debugging if we have no bids after refresh (on first load)
+	if (updatedBids.length === 0 && cachedBids.length === 0) {
+		console.warn('No bids found after refresh. This might indicate issues loading message histories.');
+	}
+	
+	return updatedBids;
 }
 
 async function refreshBidsIncremental(
@@ -424,6 +434,9 @@ async function refreshBidsIncremental(
 	options?: { progressive?: boolean; onProgress?: (bids: BidMessage[]) => void }
 ): Promise<void> {
 	const lastFetchTime = smartBidCache.getLastFetchTime(pubkeyHex);
+	const isFirstLoad = lastFetchTime === 0;
+	const cachedBids = smartBidCache.getUserBids(pubkeyHex);
+	const hasCachedBids = cachedBids.length > 0;
 	
 	// Get messaged people with timeout
 	const messagedPeople = await withTimeout(
@@ -432,19 +445,24 @@ async function refreshBidsIncremental(
 		'Timeout getting messaged people'
 	);
 	
-	// Fetch only new messages since last fetch (incremental)
+	// On first load or when cache is empty, fetch ALL messages (no since filter, higher limit)
+	// Otherwise use incremental loading
+	const fetchOptions = isFirstLoad || !hasCachedBids
+		? { limit: 100 } // Fetch more on first load
+		: { limit: 50, since: lastFetchTime }; // Incremental load
+	
+	// Fetch messages from all conversations
 	const messageHistoryPromises = messagedPeople.map(async (person) => {
 		try {
 			return await withTimeout(
-				getMessageHistory(person.pubkey, { 
-					limit: 50, 
-					since: lastFetchTime 
-				}),
-				3000,
+				getMessageHistory(person.pubkey, fetchOptions),
+				5000, // Increased timeout for first load
 				`Timeout fetching messages from ${person.pubkey}`
 			);
 		} catch (err) {
-			console.warn('Failed to get message history for pubkey:', person.pubkey);
+			console.warn('Failed to get message history for pubkey:', person.pubkey, err);
+			// On first load, we should still try to get bids even if some fail
+			// Return empty array but log the error for debugging
 			return [];
 		}
 	});
