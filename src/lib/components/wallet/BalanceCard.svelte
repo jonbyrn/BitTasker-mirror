@@ -4,30 +4,23 @@
 	import {
 		allAssets,
 		totalBalances,
-		liquidConnection,
-		rskConnection,
-		bscConnection,
 		walletManager,
 		combinedWalletState,
 		walletStore
 	} from '$lib/stores/wallet.store';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	// Icon imports for unplugin-icons
-	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
 	import IconHelpCircle from '~icons/mdi/help-circle';
+	import IconRefresh from '~icons/mdi/refresh';
+	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	
-	// Import HelpModal component
-	import HelpModal from './HelpModal.svelte';
+	// Refresh state
+	let isRefreshing = $state(false);
 
 	// Convert rBTC to sats using dynamic market rate or show separate balances on error
 	let totalUsdValue = $derived($totalBalances.usd);
-	let liquidSats = $derived($totalBalances.sats);
 	let rbtcBalance = $derived($totalBalances.rbtc);
-	let usdtBalance = $derived($totalBalances.usdt);
-	let bnbBalance = $derived($totalBalances.bnb);
 	let hasRbtcRateError = $derived($walletStore.rbtcRateError);
 	let rbtcRate = $derived($walletStore.rbtcToBtcRate);
 
@@ -35,37 +28,25 @@
 	let totalSats = $derived(Math.floor(rbtcInSats));
 	let totalBtcEquivalent = $derived(totalSats / 100_000_000);
 
-	async function copyLiquidAddress() {
-		// Get the actual liquid address from walletInfo
-		const walletInfo = $combinedWalletState.liquid.walletInfo;
-		if (walletInfo?.walletInfo?.pubkey) {
-			await copyToClipboard(walletInfo.walletInfo.pubkey);
-			appStore.showSuccessToast($t('wallet.address_copied'));
-		} else {
-			appStore.showErrorToast('Liquid address not available');
-		}
-	}
-
-	async function copyRskAddress() {
-		const rskAddr = $combinedWalletState.rsk.address;
-		if (rskAddr) {
-			await copyToClipboard(rskAddr);
-			appStore.showSuccessToast($t('wallet.address_copied'));
-		}
-	}
-
-	async function copyBscAddress() {
-		const bscAddr = $combinedWalletState.bsc.address;
-		if (bscAddr) {
-			await copyToClipboard(bscAddr);
-			appStore.showSuccessToast($t('wallet.address_copied'));
+	async function handleRefresh() {
+		if (isRefreshing) return;
+		
+		isRefreshing = true;
+		try {
+			await walletManager.loadAssets();
+			appStore.showSuccessToast($t('wallet.balance_refreshed'));
+		} catch (error) {
+			console.error('Failed to refresh balances:', error);
+			appStore.showErrorToast($t('wallet.refresh_failed'));
+		} finally {
+			isRefreshing = false;
 		}
 	}
 </script>
 
 <div class="space-y-4">
 	<!-- Total Portfolio Value Card -->
-	<div class="card bg-gradient-to-br bg-primary text-white shadow-xl">
+	<div class="card bg-linear-to-br bg-primary text-white shadow-xl">
 		<div class="card-body">
 			<div class="flex items-center justify-between">
 				<div class="flex-1">
@@ -108,7 +89,7 @@
 	</div>
 
 	<!-- Quick Actions -->
-	<div class="grid grid-cols-2 gap-4">
+	<div class="grid grid-cols-3 gap-4">
 		<button
 			class="btn btn-outline btn-primary"
 			onclick={() => walletManager.setActiveTab('receive')}
@@ -119,6 +100,14 @@
 		<button class="btn btn-outline btn-primary" onclick={() => walletManager.setActiveTab('send')}>
 			<IconUpload class="mr-2 h-5 w-5" />
 			{$t('wallet.send_button')}
+		</button>
+		<button 
+			class="btn btn-outline btn-secondary" 
+			onclick={handleRefresh}
+			disabled={isRefreshing}
+			aria-label={$t('wallet.refresh_balance')}
+		>
+			<IconRefresh class={isRefreshing ? 'h-5 w-5 animate-spin' : 'h-5 w-5'} />
 		</button>
 	</div>
 
@@ -135,17 +124,6 @@
 							<IconHelpCircle class="h-5 w-5 text-base-content/70 hover:text-base-content" />
 						</button>
 					</div>
-					<!-- Connection status badge - commented out -->
-					<!--
-					<div
-						class="badge {$rskConnection.connected
-							? 'badge-success'
-							: 'badge-error'} badge-sm text-xs"
-					>
-						{$rskConnection.connected ? 'Connected' : 'Disconnected'}
-					</div>
-					-->
-
 				</div>
 
 				<div class="flex-1">

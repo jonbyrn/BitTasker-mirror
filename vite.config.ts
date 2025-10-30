@@ -5,10 +5,26 @@ import tailwindcss from '@tailwindcss/vite';
 import Icons from 'unplugin-icons/vite';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
+// import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import pkg from './package.json';
 
 export default defineConfig({
     plugins: [
+        /* nodePolyfills({
+            // Whether to polyfill `node:` protocol imports.
+            protocolImports: true,
+            // Enable polyfills for specific globals and modules.
+            globals: {
+                Buffer: true,
+                global: true,
+                process: true,
+            },
+            // Add specific polyfills for modules required by liquidjs-lib
+            // IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
+            include: ['crypto', 'stream', 'buffer', 'util', 'process', 'events'],
+            // Explicitly exclude modules that should not be polyfilled
+            exclude: ['fs', 'path'],
+        }), */
         sveltekit(),
         houdini(),
         tailwindcss(),
@@ -27,7 +43,39 @@ export default defineConfig({
         global: 'globalThis',
     },
     build: {
-        target: 'es2020'
+        target: 'es2020',
+        /* chunkSizeWarningLimit: 1000, // Increase to 1000 kB to reduce noise
+        rollupOptions: {
+            output: {
+                manualChunks: (id) => {
+                    // Vendor chunks - separate large dependencies
+                    if (id.includes('node_modules')) {
+                        // Crypto libraries
+                        if (id.includes('liquidjs-lib') || id.includes('bitcoinjs-lib')) {
+                            return 'vendor-crypto';
+                        }
+                        // Boltz SDK
+                        if (id.includes('boltz-core') || id.includes('boltz')) {
+                            return 'vendor-boltz';
+                        }
+                        // Nostr libraries
+                        if (id.includes('nostr-tools') || id.includes('nostr')) {
+                            return 'vendor-nostr';
+                        }
+                        // UI libraries
+                        if (id.includes('swiper') || id.includes('photoswipe')) {
+                            return 'vendor-ui';
+                        }
+                        // Breez SDK
+                        if (id.includes('breez')) {
+                            return 'vendor-breez';
+                        }
+                        // All other vendor code
+                        return 'vendor';
+                    }
+                }
+            }
+        } */
     },
     optimizeDeps: {
         include: [
@@ -44,14 +92,24 @@ export default defineConfig({
             '@breeztech/breez-sdk-liquid/web',
             '@breeztech/breez-sdk-liquid',
             '@capacitor/device',
-            '@capacitor/preferences'
-        ]
+            '@capacitor/preferences',
+            /* 'liquidjs-lib',
+            'boltz-core',
+            '@vulpemventures/secp256k1-zkp' */
+        ],
+        /* esbuildOptions: {
+            define: {
+                global: 'globalThis'
+            }
+        } */
     },
     resolve: {
         alias: {
             buffer: 'buffer',
             crypto: 'crypto-browserify',
             stream: 'stream-browserify',
+            // Do NOT alias 'path' as it breaks WASM loading in @vulpemventures/secp256k1-zkp
+            // path: 'path-browserify',
             path: 'path-browserify',
             process: 'process/browser'
         }

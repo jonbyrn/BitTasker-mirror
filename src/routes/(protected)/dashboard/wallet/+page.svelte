@@ -12,11 +12,9 @@
 	import {
 		walletManager,
 		combinedWalletState,
-		liquidConnection,
 		rskConnection,
 		walletStore
 	} from '$lib/stores/wallet.store';
-	import { initWasm, isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import SendForm from '$lib/components/wallet/SendForm.svelte';
 	import ReceiveForm from '$lib/components/wallet/ReceiveForm.svelte';
@@ -28,11 +26,8 @@
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
 	onMount(async () => {
-		// Initialize WASM first, then both wallets
-		await initWasm();
-		if ($isWasmInitialized) {
-			await walletManager.initialize();
-		}
+		// Initialize wallets
+		await walletManager.initialize();
 	});
 
 	onDestroy(async () => {
@@ -40,8 +35,8 @@
 	});
 
 	// Reactive state from centralized store
-	let hasErrors = $derived($walletStore.error || $liquidConnection.error || $rskConnection.error);
-	let isConnecting = $derived($liquidConnection.connecting || $rskConnection.connecting);
+	let hasErrors = $derived($walletStore.error || $rskConnection.error);
+	let isConnecting = $derived($rskConnection.connecting);
 </script>
 
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
@@ -92,7 +87,7 @@
 					<div class="flex items-center">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="mr-2 h-6 w-6 flex-shrink-0 stroke-current"
+							class="mr-2 h-6 w-6 shrink-0 stroke-current"
 							fill="none"
 							viewBox="0 0 24 24"
 						>
@@ -106,13 +101,9 @@
 						<div>
 							<div class="font-bold">{$t('wallet.page.connection_error')}</div>
 							<div class="text-sm">
-								{#if $liquidConnection.error?.includes('No mnemonic found')}
+								{#if $rskConnection.error?.includes('No mnemonic found')}
 									{$t('wallet.page.no_wallet_setup')}
-								{:else if $liquidConnection.error}
-									Liquid: {$liquidConnection.error}
-								{/if}
-								{#if $rskConnection.error}
-									{#if $liquidConnection.error}<br />{/if}
+								{:else if $rskConnection.error}
 									RSK: {$rskConnection.error}
 								{/if}
 							</div>
@@ -134,7 +125,7 @@
 				<div class="flex items-center">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="mr-3 h-6 w-6 flex-shrink-0 stroke-current"
+						class="mr-3 h-6 w-6 shrink-0 stroke-current"
 						fill="none"
 						viewBox="0 0 24 24"
 					>

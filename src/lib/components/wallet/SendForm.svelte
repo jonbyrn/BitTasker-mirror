@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onMount } from 'svelte';
-	import { allAssets, walletManager, liquidConnection, rskConnection } from '$lib/stores/wallet.store';
+	import { allAssets, walletManager } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import type { WalletAsset } from '$lib/types/wallet';
 

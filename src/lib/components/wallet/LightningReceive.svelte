@@ -214,10 +214,31 @@
 	}
 
 	/**
-	 * Remove a swap from the pending list
+	 * Delete a single swap event from Nostr
 	 */
-	function removeSwap(swapId: string) {
-		pendingSwaps = pendingSwaps.filter((s) => s.id !== swapId);
+	async function deleteSwap(swapId: string) {
+		if (!nsecHex) {
+			appStore.showErrorToast('Authentication required');
+			return;
+		}
+
+		if (!confirm('⚠️ Delete this swap from storage? This cannot be undone.')) {
+			return;
+		}
+
+		try {
+			const success = await reverseSwapService.deleteSwapEvent(nsecHex, swapId);
+			if (success) {
+				// Remove from UI
+				pendingSwaps = pendingSwaps.filter((s) => s.id !== swapId);
+				appStore.showSuccessToast('✅ Swap deleted');
+			} else {
+				appStore.showErrorToast('❌ Failed to delete swap');
+			}
+		} catch (err) {
+			console.error('Failed to delete swap:', err);
+			appStore.showErrorToast('❌ Failed to delete swap');
+		}
 	}
 
 	/**
@@ -290,14 +311,14 @@
 			case 'transaction.claim.failed':
 				return { label: 'Claim failed - retry', color: 'text-error', icon: '⚠️' };
 			case 'invoice.settled':
-				return { label: 'Swap completed!', color: 'text-success', icon: '✅' };
+				return { label: 'Swap completed! ✓', color: 'text-success', icon: '✅' };
 			case 'claimed':
-				return { label: 'rBTC claimed successfully!', color: 'text-success', icon: '🎉' };
+				return { label: 'rBTC claimed successfully! ✓', color: 'text-success', icon: '🎉' };
 			case 'invoice.expired':
 			case 'swap.expired':
-				return { label: 'Expired', color: 'text-error', icon: '⏰' };
+				return { label: 'Swap expired - Delete to remove', color: 'text-error', icon: '⏰' };
 			case 'transaction.failed':
-				return { label: 'Transaction failed', color: 'text-error', icon: '❌' };
+				return { label: 'Swap failed - Delete to remove', color: 'text-error', icon: '❌' };
 			default:
 				return { label: status, color: 'text-base-content', icon: 'ℹ️' };
 		}
@@ -450,86 +471,88 @@
 							<span class="text-sm opacity-70">{swap.amount} sats</span>
 						</div>
 
-					<!-- Main Invoice with QR (Collapsible) -->
-					<div class="bg-base-100 rounded-lg">
-						<div class="flex w-full items-center justify-between cursor-pointer">
-							<button
-								class="flex flex-1 items-center justify-between text-left transition-colors hover:opacity-80 p-4"
-								onclick={() => toggleInvoice(swap.id)}
-								type="button"
-							>
-								<span class="block font-medium">View Invoice</span>
-							</button>
-							<button
-								class="ml-2 transition-transform duration-200 hover:opacity-80 p-4 {expandedSwaps.has(
-									swap.id
-								)
-									? 'rotate-180'
-									: ''}"
-								onclick={(e) => {
-									e.stopPropagation();
-									if (expandedSwaps.has(swap.id)) {
-										closeInvoice(swap.id, e);
-									} else {
-										toggleInvoice(swap.id);
-									}
-								}}
-								type="button"
-								aria-label={expandedSwaps.has(swap.id) ? 'Collapse invoice' : 'Expand invoice'}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
+						<!-- Main Invoice with QR (Collapsible) -->
+						<div class="bg-base-100 rounded-lg">
+							<div class="flex w-full cursor-pointer items-center justify-between">
+								<button
+									class="flex flex-1 items-center justify-between p-4 text-left transition-colors hover:opacity-80"
+									onclick={() => toggleInvoice(swap.id)}
+									type="button"
 								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 9l-7 7-7-7"
-									/>
-								</svg>
-							</button>
-						</div>
+									<span class="block font-medium">View Invoice</span>
+								</button>
+								<button
+									class="ml-2 p-4 transition-transform duration-200 hover:opacity-80 {expandedSwaps.has(
+										swap.id
+									)
+										? 'rotate-180'
+										: ''}"
+									onclick={(e) => {
+										e.stopPropagation();
+										if (expandedSwaps.has(swap.id)) {
+											closeInvoice(swap.id, e);
+										} else {
+											toggleInvoice(swap.id);
+										}
+									}}
+									type="button"
+									aria-label={expandedSwaps.has(swap.id) ? 'Collapse invoice' : 'Expand invoice'}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M19 9l-7 7-7-7"
+										/>
+									</svg>
+								</button>
+							</div>
 
-						<!-- Collapsible Content -->
-						{#if expandedSwaps.has(swap.id)}
-							<div class="border-t border-base-300 p-4">
-								<div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-									<!-- QR Code -->
-									<div class="shrink-0">
-										{#await generateQrCodeUrl(swap.invoice)}
-											<div class="flex h-32 w-32 items-center justify-center rounded-lg bg-white p-3">
-												<span class="loading loading-spinner loading-md"></span>
-											</div>
-										{:then qrUrl}
-											<div class="rounded-lg bg-white p-3">
-												<img src={qrUrl} alt="QR Code" class="h-32 w-32" />
-											</div>
-										{/await}
-									</div>
+							<!-- Collapsible Content -->
+							{#if expandedSwaps.has(swap.id)}
+								<div class="border-base-300 border-t p-4">
+									<div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+										<!-- QR Code -->
+										<div class="shrink-0">
+											{#await generateQrCodeUrl(swap.invoice)}
+												<div
+													class="flex h-44 w-44 items-center justify-center rounded-lg bg-white p-3"
+												>
+													<span class="loading loading-spinner loading-md"></span>
+												</div>
+											{:then qrUrl}
+												<div class="rounded-lg bg-white p-1">
+													<img src={qrUrl} alt="QR Code" class="h-44 w-44" />
+												</div>
+											{/await}
+										</div>
 
-									<!-- Invoice String -->
-									<div class="w-full sm:flex-1">
-										<button
-											class="btn btn-outline btn-sm h-auto min-h-12 w-full justify-start break-all p-3 text-left"
-											onclick={(e) => {
-												e.stopPropagation();
-												copyInvoice(swap.invoice);
-											}}
-											type="button"
-										>
-											<code class="text-xs leading-relaxed">
-												{swap.invoice}
-											</code>
-										</button>
+										<!-- Invoice String -->
+										<div class="w-full sm:flex-1">
+											<button
+												class="btn btn-outline btn-sm h-auto min-h-12 w-full justify-start p-3 text-left break-all"
+												onclick={(e) => {
+													e.stopPropagation();
+													copyInvoice(swap.invoice);
+												}}
+												type="button"
+											>
+												<code class="text-xs leading-relaxed">
+													{swap.invoice}
+												</code>
+											</button>
+										</div>
 									</div>
 								</div>
-							</div>
-						{/if}
-					</div>
+							{/if}
+						</div>
 
 						<!-- Swap Details -->
 						<div class="space-y-1 text-xs">
@@ -568,7 +591,7 @@
 						</div>
 
 						<!-- Action Buttons -->
-						<div class="mt-2 gap-2">
+						<div class="mt-2 flex flex-wrap gap-2">
 							{#if !swap.claimTxHash && swap.status === 'transaction.confirmed'}
 								<!-- Can claim now - gasless via RIF Relay -->
 								<button
@@ -585,14 +608,14 @@
 								</button>
 							{/if}
 
-							{#if swap.status === 'invoice.settled' || swap.status === 'claimed'}
-								<button
-									class="btn btn-ghost btn-sm btn-outline block w-fit justify-self-end"
-									onclick={() => removeSwap(swap.id)}
-								>
-									✓ Remove
-								</button>
-							{/if}
+							<!-- Always show delete button -->
+							<button
+								class="btn btn-ghost btn-sm btn-outline"
+								onclick={() => deleteSwap(swap.id)}
+								title="Delete this swap from storage"
+							>
+								🗑️ Delete Swap
+							</button>
 
 							{#if swap.status === 'swap.created' || swap.status === 'invoice.set' || swap.status === 'transaction.mempool'}
 								<div class="text-base-content/70 w-full py-2 text-center text-xs">

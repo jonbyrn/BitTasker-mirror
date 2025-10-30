@@ -328,7 +328,7 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-2xl flex-grow flex-col items-center justify-center px-4 py-8">
+<div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
 			<div class="mb-8 flex flex-col items-center justify-center">

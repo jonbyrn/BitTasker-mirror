@@ -46,19 +46,9 @@
 
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { 
-	Musig, 
-	SwapTreeSerializer, 
-	TaprootUtils,
-	reverseSwapScript,
-	swapScript,
-	constructClaimTransaction,
-	constructRefundTransaction,
-	detectSwap,
-	OutputType
-} from 'boltz-core';
+import { swapScript } from 'boltz-core';
 import { randomBytes, createHmac } from 'crypto';
-import { crypto, networks, payments, script, address, Transaction, Psbt } from 'bitcoinjs-lib';
+import { crypto, networks, payments, script, Transaction, Psbt } from 'bitcoinjs-lib';
 import type {
 	BoltzConfig,
 	SwapPairs,
@@ -67,6 +57,8 @@ import type {
 	CreateSwapResponse,
 	CreateReverseSwapRequest,
 	CreateReverseSwapResponse,
+	CreateChainSwapRequest,
+	CreateChainSwapResponse,
 	SwapStatus,
 	RefundSwapRequest,
 	RefundSwapResponse,
@@ -77,6 +69,8 @@ import type {
 	RefundFileData
 } from './types';
 import { Buffer } from 'buffer';
+import { Interface } from 'ethers';
+import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
 
 export class BoltzError extends Error {
 	constructor(
@@ -102,7 +96,7 @@ export class BoltzClient {
 		this.validateConfig(config);
 		this.config = config;
 		this.baseUrl = config.apiUrl || 'https://api.boltz.exchange';
-		this.network = config.network === 'testnet' ? networks.testnet : networks.bitcoin;
+		this.network = config.network === 'mainnet' ? networks.bitcoin : config.network === 'regtest' ? networks.regtest : networks.testnet;
 	}
 
 	/**
@@ -148,15 +142,15 @@ export class BoltzClient {
 		refundPublicKey: Buffer;
 		timelock: number;
 		useTaproot?: boolean;
-	}): { 
-		script: Buffer; 
-		address: string; 
+	}): {
+		script: Buffer;
+		address: string;
 		redeemScript?: Buffer;
 		tree?: any;
 		musig?: any;
 	} {
 		const { preimageHash, claimPublicKey, refundPublicKey, timelock, useTaproot = true } = params;
-		
+
 		try {
 			if (useTaproot && this.network === networks.bitcoin) {
 				// Use boltz-core's Taproot implementation for better privacy and efficiency
@@ -316,23 +310,23 @@ export class BoltzClient {
 		// ELSE
 		//   SIZE 32 EQUALVERIFY HASH256 <preimageHash> EQUALVERIFY <claimPublicKey> CHECKSIG
 		// ENDIF
-		
+
 		return script.compile([
 			script.OPS.OP_IF,
-				script.number.encode(timelock),
-				script.OPS.OP_CHECKLOCKTIMEVERIFY,
-				script.OPS.OP_DROP,
-				refundPublicKey,
-				script.OPS.OP_CHECKSIG,
+			script.number.encode(timelock),
+			script.OPS.OP_CHECKLOCKTIMEVERIFY,
+			script.OPS.OP_DROP,
+			refundPublicKey,
+			script.OPS.OP_CHECKSIG,
 			script.OPS.OP_ELSE,
-				script.OPS.OP_SIZE,
-				script.number.encode(32),
-				script.OPS.OP_EQUALVERIFY,
-				script.OPS.OP_HASH256,
-				preimageHash,
-				script.OPS.OP_EQUALVERIFY,
-				claimPublicKey,
-				script.OPS.OP_CHECKSIG,
+			script.OPS.OP_SIZE,
+			script.number.encode(32),
+			script.OPS.OP_EQUALVERIFY,
+			script.OPS.OP_HASH256,
+			preimageHash,
+			script.OPS.OP_EQUALVERIFY,
+			claimPublicKey,
+			script.OPS.OP_CHECKSIG,
 			script.OPS.OP_ENDIF
 		]);
 	}
@@ -352,7 +346,7 @@ export class BoltzClient {
 		try {
 			// Simplified validation approach since boltz-core's detectSwap API may vary
 			// In production, you would use the exact API structure from boltz-core docs
-			
+
 			// Basic script structure validation
 			const expectedScript = this.createSwapScript({
 				preimageHash: params.preimageHash,
@@ -420,8 +414,8 @@ export class BoltzClient {
 		// Create key pairs from derived seeds
 		const claimKeyPair = this.ECPair.fromPrivateKey(claimSeed);
 		const refundKeyPair = this.ECPair.fromPrivateKey(refundSeed);
-		
-		return { 
+
+		return {
 			claimKeyPair,
 			refundKeyPair,
 			claimKey: Buffer.from(claimKeyPair.publicKey),
@@ -476,7 +470,7 @@ export class BoltzClient {
 
 			// Sign the input manually for claim transaction
 			psbt.signInput(0, params.claimKeyPair);
-			
+
 			// Finalize the input with custom witness for HTLC claim
 			psbt.finalizeInput(0, (inputIndex: number, input: any, script: any) => {
 				const signature = input.partialSig![0].signature;
@@ -552,7 +546,7 @@ export class BoltzClient {
 
 			// Sign the input for refund transaction
 			psbt.signInput(0, params.refundKeyPair);
-			
+
 			// Finalize the input with custom witness for HTLC refund
 			psbt.finalizeInput(0, (inputIndex: number, input: any, script: any) => {
 				const signature = input.partialSig![0].signature;
@@ -591,7 +585,7 @@ export class BoltzClient {
 		try {
 			// For now, use manual validation until boltz-core API is properly integrated
 			// In production, this would use proper detectSwap once API is clarified
-			
+
 			// Validate timelock is reasonable
 			const currentTime = Math.floor(Date.now() / 1000);
 			if (params.timelock < currentTime + 3600) { // Must be at least 1 hour in future
@@ -692,7 +686,7 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('POST', '/v2/swap/submarine', request);
-			
+
 			// Validate response structure
 			if (!response.id || !response.address || !response.redeemScript) {
 				throw new Error('Invalid response from Boltz API');
@@ -760,7 +754,7 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('POST', '/v2/swap/reverse', request);
-			
+
 			// Validate response structure
 			if (!response.id || !response.lockupAddress || !response.invoice) {
 				throw new Error('Invalid response from Boltz API');
@@ -770,6 +764,115 @@ export class BoltzClient {
 		} catch (error) {
 			console.error('Failed to create reverse submarine swap:', error);
 			throw new Error('Reverse submarine swap creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+		}
+	}
+
+	/**
+	 * Get chain swap pairs (L-BTC → RBTC, etc.)
+	 * Returns available chain-to-chain swap pairs with limits and fees
+	 */
+	async getChainSwapPairs(): Promise<any> {
+		try {
+			const response = await this.request('GET', '/v2/swap/chain');
+			console.log('🔍 Chain swap pairs response:', response);
+			return response;
+		} catch (error) {
+			console.error('Failed to get chain swap pairs:', error);
+			throw new BoltzError(
+				'Chain swap pairs request failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'CHAIN_PAIRS_ERROR'
+			);
+		}
+	}
+
+	/**
+	 * Create a chain swap (L-BTC → RBTC)
+	 * User sends L-BTC first, then receives RBTC
+	 * 
+	 * IMPORTANT: Chain swaps require a refund key for L-BTC side
+	 * Unlike reverse swaps, user locks funds first!
+	 */
+	async createChainSwap(params: {
+		from: 'L-BTC';
+		to: 'RBTC';
+		userLockAmount: number;
+		preimageHash: string;
+		claimAddress: string;
+		refundPublicKey: string;
+		pairHash: string;
+		referralId?: string;
+	}): Promise<CreateChainSwapResponse> {
+		// Validate inputs
+		if (!params.from || !params.to || !params.preimageHash || !params.claimAddress || !params.refundPublicKey || !params.pairHash) {
+			throw new BoltzError('Missing required parameters for chain swap', 'INVALID_PARAMS');
+		}
+
+		if (params.userLockAmount <= 0) {
+			throw new BoltzError('Invalid user lock amount: must be greater than 0', 'INVALID_PARAMS');
+		}
+
+		// Validate preimage hash
+		try {
+			const hashBuffer = Buffer.from(params.preimageHash, 'hex');
+			if (hashBuffer.length !== 32) {
+				throw new BoltzError('Invalid preimage hash length: must be 32 bytes', 'INVALID_PARAMS');
+			}
+		} catch (error) {
+			throw new BoltzError('Invalid preimage hash format', 'INVALID_PARAMS');
+		}
+
+		// Validate refund public key
+		try {
+			const pubKeyBuffer = Buffer.from(params.refundPublicKey, 'hex');
+			if (pubKeyBuffer.length !== 33 && pubKeyBuffer.length !== 65) {
+				throw new BoltzError('Invalid refund public key length', 'INVALID_PARAMS');
+			}
+		} catch (error) {
+			throw new BoltzError('Invalid refund public key format', 'INVALID_PARAMS');
+		}
+
+		const request: CreateChainSwapRequest = {
+			from: params.from,
+			to: params.to,
+			userLockAmount: params.userLockAmount,
+			preimageHash: params.preimageHash,
+			claimPublicKey: undefined, // Not used for RBTC
+			refundPublicKey: params.refundPublicKey,
+			claimAddress: params.claimAddress,
+			pairHash: params.pairHash,
+			referralId: params.referralId || ''
+		};
+
+		console.log('🔍 Chain swap request:', request);
+
+		try {
+			const response = await this.request('POST', '/v2/swap/chain', request);
+
+			console.log('🔍 Chain swap response:', response);
+
+			// Validate response structure
+			if (!response.id || !response.lockupDetails || !response.claimDetails) {
+				throw new BoltzError('Invalid response from Boltz API', 'INVALID_RESPONSE');
+			}
+
+			// Validate lockup details
+			if (!response.lockupDetails.lockupAddress || !response.lockupDetails.blindingKey) {
+				throw new BoltzError('Missing lockup details in response', 'INVALID_RESPONSE');
+			}
+
+			// Validate claim details
+			if (!response.claimDetails.lockupAddress || !response.claimDetails.refundAddress) {
+				throw new BoltzError('Missing claim details in response', 'INVALID_RESPONSE');
+			}
+
+			return response;
+		} catch (error) {
+			console.error('Failed to create chain swap:', error);
+			if (error instanceof BoltzError) throw error;
+			throw new BoltzError(
+				'Chain swap creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'CHAIN_SWAP_ERROR'
+			);
 		}
 	}
 
@@ -787,7 +890,7 @@ export class BoltzClient {
 		try {
 			// Try the generic swap endpoint first (most likely to work)
 			const response = await this.request('GET', `/v2/swap/${swapId}`);
-			
+
 			// Validate response has required status field
 			if (!response.status) {
 				throw new Error('Invalid status response from Boltz API');
@@ -815,15 +918,15 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('GET', `/v2/swap/reverse/${swapId}`);
-			
+
 			if (!response.status) {
 				throw new BoltzError('Invalid status response', 'INVALID_RESPONSE');
 			}
-			
+
 			// Determine if main invoice has been paid based on status
 			// invoice.set, transaction.mempool, or transaction.confirmed indicate payment
 			const mainInvoicePaid = ['invoice.set', 'transaction.mempool', 'transaction.confirmed', 'invoice.settled'].includes(response.status);
-			
+
 			return {
 				mainInvoicePaid,
 				serviceFeeInvoicePaid: response.serviceFeeInvoicePaid,
@@ -842,7 +945,7 @@ export class BoltzClient {
 	 * Refund a failed swap
 	 */
 	async refundSwap(
-		swapId: string, 
+		swapId: string,
 		params: RefundSwapRequest
 	): Promise<RefundSwapResponse> {
 		return await this.request('POST', `/v2/swap/${swapId}/refund`, params);
@@ -866,11 +969,11 @@ export class BoltzClient {
 	): Promise<BroadcastTransactionResponse> {
 		try {
 			const response = await this.request('POST', '/v2/chain/broadcast', params);
-			
+
 			if (!response.transactionId) {
 				throw new BoltzError('Invalid broadcast response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error('Failed to broadcast transaction:', error);
@@ -893,11 +996,12 @@ export class BoltzClient {
 	}> {
 		try {
 			const response = await this.request('GET', '/v2/chain/contracts');
-			
+			console.log('🔍 Contract addresses response:', response);
+
 			if (!response) {
 				throw new BoltzError('Invalid contracts response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error('Failed to get contract addresses:', error);
@@ -931,7 +1035,7 @@ export class BoltzClient {
 		}
 
 		const endpoint = isReverse ? '/v2/swap/reverse/quote' : '/v2/swap/submarine/quote';
-		
+
 		try {
 			const response = await this.request('POST', endpoint, {
 				pairId,
@@ -970,12 +1074,12 @@ export class BoltzClient {
 	}> {
 		try {
 			const response = await this.request('GET', '/v2/chain/fees');
-			
+
 			// Validate response structure
 			if (!response.BTC || typeof response.BTC.normal !== 'number') {
 				throw new BoltzError('Invalid fee rates response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error('Failed to get fee rates:', error);
@@ -1001,11 +1105,11 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('GET', `/v2/swap/submarine/${swapId}/claim`);
-			
+
 			if (!response.transaction) {
 				throw new BoltzError('Invalid claim details response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to get submarine claim details for ${swapId}:`, error);
@@ -1032,11 +1136,11 @@ export class BoltzClient {
 			const response = await this.request('POST', `/v2/swap/submarine/${swapId}/claim`, {
 				partialSignature
 			});
-			
+
 			if (!response.transactionId) {
 				throw new BoltzError('Invalid claim response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to submit submarine claim for ${swapId}:`, error);
@@ -1062,11 +1166,11 @@ export class BoltzClient {
 			const response = await this.request('POST', `/v2/swap/submarine/${swapId}/refund`, {
 				transaction: refundTransaction
 			});
-			
+
 			if (!response.partialSignature) {
 				throw new BoltzError('Invalid refund signature response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to get submarine refund signature for ${swapId}:`, error);
@@ -1099,11 +1203,11 @@ export class BoltzClient {
 				partialSignature: params.partialSignature,
 				transaction: params.transaction
 			});
-			
+
 			if (!response.transactionId) {
 				throw new BoltzError('Invalid reverse claim response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to submit reverse claim for ${swapId}:`, error);
@@ -1127,11 +1231,11 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('GET', `/v2/swap/chain/${swapId}/claim`);
-			
+
 			if (!response.transaction) {
 				throw new BoltzError('Invalid chain claim details response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to get chain claim details for ${swapId}:`, error);
@@ -1163,11 +1267,11 @@ export class BoltzClient {
 				partialSignature: params.partialSignature,
 				claimTransaction: params.claimTransaction
 			});
-			
+
 			if (!response.transactionId) {
 				throw new BoltzError('Invalid chain claim response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to submit chain claim for ${swapId}:`, error);
@@ -1192,17 +1296,63 @@ export class BoltzClient {
 			const response = await this.request('POST', `/v2/swap/chain/${swapId}/refund`, {
 				transaction: refundTransaction
 			});
-			
+
 			if (!response.partialSignature) {
 				throw new BoltzError('Invalid chain refund response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to submit chain refund for ${swapId}:`, error);
 			throw new BoltzError(
 				'Chain refund submission failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
 				'CHAIN_REFUND_ERROR'
+			);
+		}
+	}
+
+	/**
+	 * Get partial refund signature from Boltz for cooperative refunds
+	 * Used for Taproot swaps (Submarine and Chain) to enable key path spending
+	 */
+	async getPartialRefundSignature(
+		swapId: string,
+		swapType: 'submarine' | 'chain',
+		publicNonce: Buffer,
+		refundTransaction: any,
+		index: number
+	): Promise<{
+		pubNonce: Buffer;
+		signature: Buffer;
+	}> {
+		if (!swapId || !publicNonce || !refundTransaction) {
+			throw new BoltzError('Swap ID, public nonce, and refund transaction are required', 'INVALID_PARAMS');
+		}
+
+		const endpoint = swapType === 'chain'
+			? `/v2/swap/chain/${swapId}/refund`
+			: `/v2/swap/submarine/${swapId}/refund`;
+
+		try {
+			const response = await this.request('POST', endpoint, {
+				index,
+				pubNonce: publicNonce.toString('hex'),
+				transaction: refundTransaction.toHex()
+			});
+
+			if (!response.pubNonce || !response.partialSignature) {
+				throw new BoltzError('Invalid partial refund signature response', 'INVALID_RESPONSE');
+			}
+
+			return {
+				pubNonce: Buffer.from(response.pubNonce, 'hex'),
+				signature: Buffer.from(response.partialSignature, 'hex')
+			};
+		} catch (error) {
+			console.error(`Failed to get partial refund signature for ${swapId}:`, error);
+			throw new BoltzError(
+				'Partial refund signature request failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'PARTIAL_REFUND_SIGNATURE_ERROR'
 			);
 		}
 	}
@@ -1248,7 +1398,7 @@ export class BoltzClient {
 	parseRefundFile(fileContent: string): RefundFileData {
 		try {
 			const data = JSON.parse(fileContent);
-			
+
 			// Validate required fields
 			const requiredFields = ['id', 'currency', 'redeemScript', 'privateKey', 'timeoutBlockHeight'];
 			for (const field of requiredFields) {
@@ -1256,7 +1406,7 @@ export class BoltzClient {
 					throw new BoltzError(`Missing required field: ${field}`, 'INVALID_REFUND_FILE');
 				}
 			}
-			
+
 			return data as RefundFileData;
 		} catch (error) {
 			if (error instanceof BoltzError) throw error;
@@ -1283,7 +1433,7 @@ export class BoltzClient {
 
 			// Create refund transaction using boltz-core
 			const redeemScript = Buffer.from(params.refundData.redeemScript, 'hex');
-			
+
 			return this.createRefundTransaction({
 				swapScript: redeemScript,
 				lockupTransaction: params.lockupTransaction,
@@ -1331,7 +1481,7 @@ export class BoltzClient {
 
 			// Create claim transaction
 			const redeemScript = Buffer.from(params.redeemScript, 'hex');
-			
+
 			return this.createClaimTransaction({
 				swapScript: redeemScript,
 				lockupTransaction: params.lockupTransaction,
@@ -1366,7 +1516,7 @@ export class BoltzClient {
 			while (isMonitoring) {
 				try {
 					const status = await this.getSwapStatus(swapId);
-					
+
 					if (status.status !== lastStatus) {
 						lastStatus = status.status;
 						onStatusChange(status);
@@ -1415,13 +1565,13 @@ export class BoltzClient {
 	 */
 	private async enforceRateLimit(): Promise<void> {
 		const now = Date.now();
-		
+
 		// Reset counter every second
 		if (now - this.lastRequestTime >= 1000) {
 			this.requestCount = 0;
 			this.lastRequestTime = now;
 		}
-		
+
 		// Check rate limit
 		if (this.requestCount >= this.maxRequestsPerSecond) {
 			const waitTime = 1000 - (now - this.lastRequestTime);
@@ -1430,7 +1580,7 @@ export class BoltzClient {
 				return this.enforceRateLimit();
 			}
 		}
-		
+
 		this.requestCount++;
 	}
 
@@ -1470,7 +1620,7 @@ export class BoltzClient {
 
 				if (!response.ok) {
 					const errorText = await response.text();
-					
+
 					// Handle specific HTTP status codes
 					switch (response.status) {
 						case 429:
@@ -1498,7 +1648,7 @@ export class BoltzClient {
 				}
 
 				const result = await response.json();
-				
+
 				// Validate that we got a valid JSON response
 				if (result === null || result === undefined) {
 					throw new Error('Empty response from Boltz API');
@@ -1507,21 +1657,21 @@ export class BoltzClient {
 				return result;
 			} catch (error) {
 				clearTimeout(timeoutId);
-				
+
 				if (error instanceof Error && error.name === 'AbortError') {
 					throw new Error(`Boltz API request timeout after ${timeout}ms`);
 				}
 
 				// Retry on network errors (but not on API errors)
-				if (retryCount < maxRetries - 1 && 
-					(error instanceof TypeError || 
-					 (error instanceof Error && error.message.includes('fetch')))) {
+				if (retryCount < maxRetries - 1 &&
+					(error instanceof TypeError ||
+						(error instanceof Error && error.message.includes('fetch')))) {
 					retryCount++;
 					console.warn(`Boltz API request failed, retrying (${retryCount}/${maxRetries}):`, error.message);
 					await this.delay(1000 * retryCount); // Exponential backoff
 					continue;
 				}
-				
+
 				throw error;
 			}
 		}
@@ -1534,6 +1684,110 @@ export class BoltzClient {
 	 */
 	private delay(ms: number): Promise<void> {
 		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+}
+
+/**
+ * Get actual lockup parameters from the Lockup event in the blockchain transaction
+ * This is CRITICAL because the Boltz API response may have different values than what's actually locked
+ * 
+ * The Lockup event contains the EXACT parameters that were used:
+ * event Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)
+ */
+export async function getLockupEventParameters(
+	contractAddress: string,
+	preimageHash: string,
+	lockupTxHash: string,
+	provider: any
+): Promise<{
+	amount: bigint;
+	claimAddress: string;
+	refundAddress: string;
+	timelock: number;
+} | null> {
+	try {
+		console.log('🔍 Fetching lockup transaction receipt:', lockupTxHash);
+
+		// Wait for the transaction receipt with retry logic
+		// The RPC node might need a few moments to index the transaction
+		let receipt = null;
+		const maxRetries = 10;
+		const retryDelay = 2000; // 2 seconds
+
+		for (let i = 0; i < maxRetries; i++) {
+			receipt = await provider.getTransactionReceipt(lockupTxHash);
+
+			if (receipt) {
+				console.log('✅ Receipt found after', i + 1, 'attempt(s)');
+				break;
+			}
+
+			if (i < maxRetries - 1) {
+				console.log(`⏳ Receipt not available yet, waiting ${retryDelay}ms... (attempt ${i + 1}/${maxRetries})`);
+				await new Promise(resolve => setTimeout(resolve, retryDelay));
+			}
+		}
+
+		if (!receipt) {
+			console.error('❌ Transaction receipt not found after', maxRetries, 'attempts');
+			return null;
+		}
+
+		console.log('📋 Receipt found with', receipt.logs.length, 'logs');
+
+		// Create contract interface to parse events
+		const iface = new Interface(EtherSwapArtifact.abi);
+
+		// The preimageHash should be 0x-prefixed for comparison
+		const preimageHashWithPrefix = preimageHash.startsWith('0x') ? preimageHash : '0x' + preimageHash;
+
+		// Find the Lockup event in the logs
+		for (const log of receipt.logs) {
+			// Check if this log is from our contract
+			if (log.address.toLowerCase() !== contractAddress.toLowerCase()) {
+				continue;
+			}
+
+			try {
+				const parsed = iface.parseLog({
+					topics: [...log.topics],
+					data: log.data
+				});
+
+				console.log('📝 Parsed event:', parsed?.name, 'with args:', parsed?.args);
+
+				if (parsed?.name === 'Lockup') {
+					// Event structure: Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)
+					const eventPreimageHash = parsed.args[0];
+
+					console.log('🔍 Checking Lockup event:', {
+						eventPreimageHash,
+						expectedPreimageHash: preimageHashWithPrefix,
+						matches: eventPreimageHash.toLowerCase() === preimageHashWithPrefix.toLowerCase()
+					});
+
+					// Check if this is the event for our swap
+					if (eventPreimageHash.toLowerCase() === preimageHashWithPrefix.toLowerCase()) {
+						console.log('✅ Found Lockup event with actual parameters');
+						return {
+							amount: parsed.args[1],
+							claimAddress: parsed.args[2],
+							refundAddress: parsed.args[3],
+							timelock: Number(parsed.args[4])
+						};
+					}
+				}
+			} catch (e) {
+				// Not a Lockup event or failed to parse, continue
+				console.log('⚠️ Failed to parse log:', e);
+			}
+		}
+
+		console.warn('⚠️ No matching Lockup event found in transaction');
+		return null;
+	} catch (error) {
+		console.error('❌ Failed to get lockup event parameters:', error);
+		return null;
 	}
 }
 
