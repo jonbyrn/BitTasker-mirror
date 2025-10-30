@@ -4,34 +4,23 @@
 	import {
 		allAssets,
 		totalBalances,
-		liquidConnection,
-		rskConnection,
-		bscConnection,
 		walletManager,
 		combinedWalletState,
 		walletStore
 	} from '$lib/stores/wallet.store';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	// Icon imports for unplugin-icons
-	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
 	import IconHelpCircle from '~icons/mdi/help-circle';
 	import IconRefresh from '~icons/mdi/refresh';
-	
-	// Import HelpModal component
-	import HelpModal from './HelpModal.svelte';
+	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	
 	// Refresh state
 	let isRefreshing = $state(false);
 
 	// Convert rBTC to sats using dynamic market rate or show separate balances on error
 	let totalUsdValue = $derived($totalBalances.usd);
-	let liquidSats = $derived($totalBalances.sats);
 	let rbtcBalance = $derived($totalBalances.rbtc);
-	let usdtBalance = $derived($totalBalances.usdt);
-	let bnbBalance = $derived($totalBalances.bnb);
 	let hasRbtcRateError = $derived($walletStore.rbtcRateError);
 	let rbtcRate = $derived($walletStore.rbtcToBtcRate);
 
@@ -39,24 +28,12 @@
 	let totalSats = $derived(Math.floor(rbtcInSats));
 	let totalBtcEquivalent = $derived(totalSats / 100_000_000);
 
-	async function copyLiquidAddress() {
-		// Get the actual liquid address from walletInfo
-		const walletInfo = $combinedWalletState.liquid.walletInfo;
-		if (walletInfo?.walletInfo?.pubkey) {
-			await copyToClipboard(walletInfo.walletInfo.pubkey);
-			appStore.showSuccessToast($t('wallet.address_copied'));
-		} else {
-			appStore.showErrorToast('Liquid address not available');
-		}
-	}
-
-	
 	async function handleRefresh() {
 		if (isRefreshing) return;
 		
 		isRefreshing = true;
 		try {
-			await walletManager.refreshAllBalances();
+			await walletManager.loadAssets();
 			appStore.showSuccessToast($t('wallet.balance_refreshed'));
 		} catch (error) {
 			console.error('Failed to refresh balances:', error);
@@ -147,17 +124,6 @@
 							<IconHelpCircle class="h-5 w-5 text-base-content/70 hover:text-base-content" />
 						</button>
 					</div>
-					<!-- Connection status badge - commented out -->
-					<!--
-					<div
-						class="badge {$rskConnection.connected
-							? 'badge-success'
-							: 'badge-error'} badge-sm text-xs"
-					>
-						{$rskConnection.connected ? 'Connected' : 'Disconnected'}
-					</div>
-					-->
-
 				</div>
 
 				<div class="flex-1">

@@ -471,13 +471,13 @@
 										<div class="shrink-0">
 											{#await generateQrCodeUrl(swap.liquidUri)}
 												<div
-													class="flex h-32 w-32 items-center justify-center rounded-lg bg-white p-3"
+													class="flex h-44 w-44 items-center justify-center rounded-lg bg-white p-3"
 												>
 													<span class="loading loading-spinner loading-md"></span>
 												</div>
 											{:then qrUrl}
 												<div class="rounded-lg bg-white p-1">
-													<img src={qrUrl} alt="QR Code" class="h-full w-full sm:h-32 sm:w-32" />
+													<img src={qrUrl} alt="QR Code" class="h-full w-full sm:h-44 sm:w-44" />
 												</div>
 											{/await}
 										</div>
