@@ -300,12 +300,12 @@ function setupPageVisibilityHandling(): void {
 			const state = get(walletStore);
 			
 			if (document.hidden) {
-				console.log('[Wallet] Page hidden - pausing providers');
+				// console.log('[Wallet] Page hidden - pausing providers');
 				// Pause all providers (true = drop events while paused)
 				state.rsk.provider?.pause(true);
 				state.bsc.provider?.pause(true);
 			} else {
-				console.log('[Wallet] Page visible - resuming providers');
+				// console.log('[Wallet] Page visible - resuming providers');
 				// Resume providers
 				state.rsk.provider?.resume();
 				state.bsc.provider?.resume();

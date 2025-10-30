@@ -8,6 +8,7 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import LightningReceive from '$lib/components/wallet/LightningReceive.svelte';
+	import LBTCReceive from '$lib/components/wallet/LBTCReceive.svelte';
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
@@ -61,7 +62,7 @@
 				{
 					value: 'liquid-bitcoin',
 					label: 'Liquid Bitcoin',
-					description: 'L-BTC on Liquid network',
+					description: 'L-BTC on Liquid network (swap to rBTC)',
 					icon: '/images/chains/Liquid-Bitcoin.svg'
 				},
 				{
@@ -959,7 +960,7 @@
 										<span class="text-base-content/70 font-medium"
 											>{$t('common.components.wallet.payment_request_form.description_label')}</span
 										>
-										<span class="max-w-48 text-right text-sm break-words">{description}</span>
+										<span class="max-w-48 text-right text-sm word-break-words">{description}</span>
 									</div>
 								{/if}
 							</div>
@@ -986,7 +987,7 @@
 
 					<!-- QR Code -->
 					{#if qrCodeDataUrl}
-						<div class="w-full flex-shrink-0 text-center sm:w-1/2">
+						<div class="w-full shrink-0 text-center sm:w-1/2">
 							<div class="mx-auto flex w-fit justify-center rounded-lg bg-white p-4 shadow-lg">
 								<img
 									src={qrCodeDataUrl}
@@ -1024,6 +1025,11 @@
 	<!-- Lightning Bitcoin Payment Receiving Area -->
 	{#if selectedNetwork === 'lightning-bitcoin'}
 		<LightningReceive bind:amount bind:description={rskDescription} />
+	{/if}
+
+	<!-- L-BTC to RBTC Chain Swap Area -->
+	{#if selectedNetwork === 'liquid-bitcoin'}
+		<LBTCReceive bind:amount bind:description={rskDescription} />
 	{/if}
 
 	<!-- RSK Network Info -->

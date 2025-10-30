@@ -78,6 +78,7 @@
 		"typescript": "^5.0.0",
 		"typescript-eslint": "^8.20.0",
 		"unplugin-icons": "^22.2.0",
+		"vite-plugin-node-polyfills": "^0.24.0",
 		"vitest": "^3.0.0"
 	},
 	"dependencies": {
@@ -128,6 +129,7 @@
 		"ethers": "^6.15.0",
 		"firebase": "^11.10.0",
 		"iconify-icon": "^2.3.0",
+		"liquidjs-lib": "^6.0.2-liquid.37",
 		"nostr-tools": "^2.13.0",
 		"path-browserify": "^1.0.1",
 		"photoswipe": "^5.4.4",
