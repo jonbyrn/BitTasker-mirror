@@ -57,14 +57,6 @@ export const getNpub = async (): Promise<string> => {
 };
 
 export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: string }> => {
-    if (process.env.NODE_ENV === 'development') {
-        const npub = "ceda26d39d2e9aeee53c2a475b6b056145213ec6ac6acdb183357f66f8de76b2";
-        Preferences.set({ key: StorageKeys.NPUB, value: npub });
-        return {
-            nsec: new Uint8Array([64, 85, 53, 116, 137, 216, 86, 105, 25, 84, 68, 96, 227, 45, 78, 105, 29, 245, 10, 190, 172, 102, 107, 78, 164, 177, 164, 186, 209, 169, 14, 54]),
-            npub: npub
-        }
-    }
     const currentState = get(appStore);
 
     if (currentState.biometricData) {
