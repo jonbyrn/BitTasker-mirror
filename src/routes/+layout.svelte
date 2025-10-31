@@ -9,6 +9,7 @@
 	import TopBar from '$lib/components/TopBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
+	import Toast from '$lib/components/Toast.svelte';
 	// Social media icon imports
 	import IconFacebook from '~icons/mdi/facebook';
 	import IconInstagram from '~icons/mdi/instagram';
@@ -261,7 +262,7 @@
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
 			{#if devicePlatformValue === 'web' && !isLandingPage}
-				<div class="bg-base-200 flex flex-grow lg:block overflow-hidden">
+				<div class="bg-base-200 flex grow lg:block overflow-hidden">
 					{@render children()}
 				</div>
 			{:else}
@@ -514,5 +515,8 @@
 
 		<!-- Notification Permission Banner -->
 		<NotificationPermissionBanner />
+
+		<!-- Toast notifications -->
+		<Toast />
 	</main>
 {/if}

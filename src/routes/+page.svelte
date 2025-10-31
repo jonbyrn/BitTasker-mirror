@@ -6,18 +6,12 @@
 	import { FeaturedTasksService } from '$lib/services/featuredTasks.service';
 	import Logo from '$lib/components/Logo.svelte';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
-	import { appStore } from '$lib/stores/app.store';
 
 	let { data }: { data: PageData } = $props();
 	const seo = data.seo;
 	
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
-
-	setTimeout(() => {
-		console.log('Showing toast');
-		appStore.showSuccessToast('Hello, world!');
-	}, 3000);
 
 	// Feature IDs for the trust features section
 	const featureIds: FeatureId[] = ['bitcoin', 'escrow', 'nostr', 'payments'];
