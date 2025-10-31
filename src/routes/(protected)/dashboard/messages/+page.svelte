@@ -512,9 +512,9 @@
 								></path>
 							</svg>
 						</div>
-						<div>
-							<h4 class="text-sm font-semibold">Start New Message</h4>
-						</div>
+                        <div>
+                            <h4 class="text-sm font-semibold">{$t('messages.start_new_message')}</h4>
+                        </div>
 					</div>
 				</div>
 
@@ -522,12 +522,12 @@
 					<!-- Input Section -->
 					<div class="space-y-3">
 						<div>
-							<label
-								for="recipient-pubkey"
-								class="text-base-content mb-2 block text-sm font-medium"
-							>
-								Recipient (npub or username)
-							</label>
+                            <label
+                                for="recipient-pubkey"
+                                class="text-base-content mb-2 block text-sm font-medium"
+                            >
+                                {$t('messages.recipient_label')}
+                            </label>
 							<div class="relative">
 								<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 									<svg
@@ -544,20 +544,20 @@
 										></path>
 									</svg>
 								</div>
-								<input
-									id="recipient-pubkey"
-									type="text"
-									class="input input-bordered focus:input-primary w-full pl-10 text-sm"
-									bind:value={newMessagePubkey}
-									oninput={handlePubkeyInput}
-									placeholder="Enter npub or username"
-									autocomplete="off"
-								/>
+                                <input
+                                    id="recipient-pubkey"
+                                    type="text"
+                                    class="input input-bordered focus:input-primary w-full pl-10 text-sm"
+                                    bind:value={newMessagePubkey}
+                                    oninput={handlePubkeyInput}
+                                    placeholder={$t('messages.recipient_placeholder')}
+                                    autocomplete="off"
+                                />
 							</div>
 						</div>
 
 						<!-- Help text -->
-						<div class="bg-base-200/50 rounded-lg p-3">
+                        <div class="bg-base-200/50 rounded-lg p-3">
 							<div class="flex items-start gap-2">
 								<svg
 									class="text-info mt-0.5 h-4 w-4 flex-shrink-0"
@@ -572,19 +572,19 @@
 										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 									></path>
 								</svg>
-								<div class="text-base-content/70 text-xs">
-									<p class="mb-1 font-medium">Search by username</p>
-									<p class="text-xs">
-										Enter a username to search for users, or paste an npub/hex pubkey directly
-									</p>
-								</div>
+                                <div class="text-base-content/70 text-xs">
+                                    <p class="mb-1 font-medium">{$t('messages.search_by_username_title')}</p>
+                                    <p class="text-xs">
+                                        {$t('messages.search_by_username_desc')}
+                                    </p>
+                                </div>
 							</div>
 						</div>
 					</div>
 
 					<!-- Username Search Results -->
 					{#if showUsernameResults && usernameSearchResults.length > 0}
-						<div class="space-y-3">
+                        <div class="space-y-3">
 							<div class="flex items-center gap-2">
 								<svg
 									class="text-success h-4 w-4"
@@ -599,15 +599,15 @@
 										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 									></path>
 								</svg>
-								<span class="text-sm font-medium">Search Results</span>
+                                <span class="text-sm font-medium">{$t('messages.search_results')}</span>
 							</div>
 							<div class="border-base-300 max-h-48 space-y-1 overflow-y-auto rounded-lg border p-1">
 								{#each usernameSearchResults as result}
 									<button
 										type="button"
 										class="hover:bg-primary/5 hover:border-primary/20 flex w-full items-center gap-3 rounded-lg border border-transparent p-3 transition-all duration-200"
-										onclick={() => selectUserFromSearch(result.pubkey)}
-										aria-label={`Select ${result.profile.name || 'Unknown User'}`}
+                                        onclick={() => selectUserFromSearch(result.pubkey)}
+                                        aria-label={$t('messages.select_user')}
 									>
 										<div class="user-avatar flex-shrink-0">
 											{#if result.profile.picture}
@@ -646,9 +646,9 @@
 											</div>
 										</div>
 										<div class="min-w-0 flex-1 text-left">
-											<h5 class="text-base-content truncate text-sm font-medium">
-												{result.profile.name || 'Unknown User'}
-											</h5>
+                                            <h5 class="text-base-content truncate text-sm font-medium">
+                                                {result.profile.name || $t('messages.unknown_user')}
+                                            </h5>
 											<p class="text-base-content/60 truncate font-mono text-xs">
 												{result.pubkey.slice(0, 12)}...{result.pubkey.slice(-8)}
 											</p>
@@ -778,7 +778,7 @@
 								</svg>
 							</div>
 						</div>
-					{:else if newMessagePubkey && !newMessageError && !showUsernameResults}
+                    {:else if newMessagePubkey && !newMessageError && !showUsernameResults}
 						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
 							<div class="bg-base-300 flex h-10 w-10 items-center justify-center rounded-full">
 								<svg
@@ -796,8 +796,8 @@
 									/>
 								</svg>
 							</div>
-							<div class="min-w-0 flex-1">
-								<p class="text-base-content/60 font-medium">No se encontró perfil</p>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-base-content/60 font-medium">{$t('messages.no_profile_found')}</p>
 								<p class="text-base-content/50 truncate text-xs">
 									{newMessagePubkey.startsWith('npub')
 										? `${newMessagePubkey.slice(0, 16)}...`
@@ -809,7 +809,7 @@
 
 					<!-- Action Buttons -->
 					<div class="border-base-300 flex gap-3 border-t pt-6">
-						<button type="button" class="btn btn-ghost flex-1" onclick={closeModal}>
+                        <button type="button" class="btn btn-ghost flex-1" onclick={closeModal}>
 							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path
 									stroke-linecap="round"
@@ -818,7 +818,7 @@
 									d="M6 18L18 6M6 6l12 12"
 								></path>
 							</svg>
-							Cancel
+                            {$t('messages.cancel')}
 						</button>
 						<button
 							type="submit"
@@ -827,7 +827,7 @@
 						>
 							{#if isProfileLoading}
 								<span class="loading loading-spinner loading-sm mr-2"></span>
-								Loading...
+                                {$t('messages.loading')}
 							{:else}
 								<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path
@@ -837,7 +837,7 @@
 										d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
 									></path>
 								</svg>
-								Start Chat
+                                {$t('messages.start_chat')}
 							{/if}
 						</button>
 					</div>
@@ -943,11 +943,11 @@
 							</button>
 						{/each}
 						
-						{#if isLoading}
-							<div class="p-2 text-center text-xs opacity-50">
-								Loading more conversations...
-							</div>
-						{/if}
+                        {#if isLoading}
+                            <div class="p-2 text-center text-xs opacity-50">
+                                {$t('messages.loading_more_conversations')}
+                            </div>
+                        {/if}
 					</div>
 				{:else if !isLoading}
 					<!-- Empty State -->
