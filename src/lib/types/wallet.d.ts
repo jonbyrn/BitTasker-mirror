@@ -5,7 +5,7 @@ import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 
 export type RSKUnit = 'rbtc' | 'wei';
 export type BSCUnit = 'usdt' | 'wei';
-export type NetworkType = 'mainnet' | 'testnet';
+export type NetworkType = 'mainnet' | 'testnet' | 'regtest';
 
 // ERC-20 Token Configuration for all networks (RSK, BSC)
 export interface ERC20Token {
@@ -253,4 +253,28 @@ export interface WalletState {
     activeNetwork: 'liquid' | 'rsk' | 'bsc';
     activeTab: 'balance' | 'send' | 'receive' | 'transactions' | 'buy-sell' | 'swap';
     selectedAsset: string;
+}
+
+/**
+ * Boltz and RIF Relay Configuration
+ */
+export interface BoltzNetworkConfig {
+	// Boltz API
+	boltzApiUrl: string;
+	boltzWsUrl: string;
+	
+	// RSK Network
+	rskRpcUrl: string;
+	rskChainId: number;
+	rskExplorerUrl: string;
+	rskExplorerApiUrl: string;
+	
+	// RIF Relay
+	rifRelayServerUrl: string;
+	rifRelayEnabled: boolean;
+	contracts: {
+		deployHeight: number;
+		smartWalletFactory: string;
+		deployVerifier: string;
+	};
 }

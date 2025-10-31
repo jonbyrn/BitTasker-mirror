@@ -5,12 +5,6 @@
  * @see https://api.docs.boltz.exchange/api-v2.html
  */
 
-export interface BoltzConfig {
-	apiUrl: string;
-	network: 'mainnet' | 'testnet' | 'regtest';
-	timeout?: number;
-}
-
 /**
  * All possible swap status states from Boltz API
  */

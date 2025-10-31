@@ -1,4 +1,4 @@
-import { getBoltzConfig } from '../config';
+import { getBoltzConfig } from '$lib/utils/wallet/networkConfig';
 import type { EnvelopingRequest } from './types/TypedRequestData';
 
 export type Metadata = {

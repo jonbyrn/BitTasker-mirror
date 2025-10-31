@@ -1,7 +1,7 @@
 import type { Transaction } from '$lib/types/wallet';
 import { get } from 'svelte/store';
 import { walletStore } from '$lib/stores/wallet.store';
-import { getUSDTToken } from './networkConfig';
+import { getUSDTToken, getBoltzConfig, getRSKConfig, getBSCConfig } from '$lib/utils/wallet/networkConfig';
 import { ethers } from 'ethers';
 
 /**
@@ -19,14 +19,14 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
         const address = state.rsk.wallet.address.toLowerCase();
         const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
+        // Get network configurations
+        const boltzConfig = getBoltzConfig(network);
+        const rskConfig = getRSKConfig(network);
+
         // Get EtherSwap contract address for swap detection
         let etherSwapAddress: string | null = null;
         try {
-            const apiUrl = network === 'mainnet'
-                ? 'https://api.boltz.exchange'
-                : 'http://localhost:9001';
-
-            const contractResponse = await fetch(`${apiUrl}/v2/chain/RBTC/contracts`);
+            const contractResponse = await fetch(`${boltzConfig.boltzApiUrl}/v2/chain/RBTC/contracts`);
             if (contractResponse.ok) {
                 const contracts = await contractResponse.json();
                 etherSwapAddress = contracts.swapContracts?.EtherSwap?.toLowerCase() || null;
@@ -36,10 +36,7 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
         }
 
         // Use RSK Explorer API to get transaction history
-        const explorerApiUrl =
-            network === 'mainnet'
-                ? 'https://rootstock.blockscout.com/api'
-                : 'https://rootstock-testnet.blockscout.com/api';
+        const explorerApiUrl = rskConfig.explorerApiUrl;
 
         try {
             // Fetch transactions from RSK Explorer API
@@ -341,15 +338,18 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
         const address = state.bsc.wallet.address.toLowerCase();
         const network = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 
+        // Get network configuration
+        const bscConfig = getBSCConfig(network);
+
         // Get BSCScan API key from environment
         const apiKey = import.meta.env.VITE_BSCSCAN_API_KEY;
 
         // Use BSCScan API to get transaction history
-        const explorerApiUrl = 'https://api.etherscan.io/v2/api'
+        const explorerApiUrl = bscConfig.explorerApiUrl;
 
         try {
             // Fetch BNB transactions using V2 API
-            const bnbUrl = `${explorerApiUrl}?chainid=${network === 'mainnet' ? 56 : 97}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
+            const bnbUrl = `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
 
             const bnbResponse = await fetch(bnbUrl);
 
@@ -426,7 +426,7 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
 
             if (usdtToken) {
                 const usdtResponse = await fetch(
-                    `${explorerApiUrl}?chainid=${network === 'mainnet' ? 56 : 97}&module=account&action=tokentx&contractaddress=${usdtToken.address}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`
+                    `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=tokentx&contractaddress=${usdtToken.address}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`
                 );
 
                 if (usdtResponse.ok) {

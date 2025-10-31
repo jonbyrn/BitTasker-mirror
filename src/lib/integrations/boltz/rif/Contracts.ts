@@ -1,6 +1,6 @@
 import type { Signer } from 'ethers';
 import { Contract } from 'ethers';
-import { getBoltzConfig } from '../config';
+import { getBoltzConfig } from '$lib/utils/wallet/networkConfig';
 
 const BoltzSmartWalletFactoryAbi = [
 	{

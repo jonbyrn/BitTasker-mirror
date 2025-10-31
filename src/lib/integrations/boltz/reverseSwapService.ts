@@ -42,7 +42,7 @@ import { BoltzClient, getLockupEventParameters } from '$lib/integrations/boltz/c
 import { boltzWebSocket } from '$lib/integrations/boltz/websocket';
 import { Contract, ethers } from 'ethers';
 import { relayClaimTransaction, getSmartWalletAddress } from '$lib/integrations/boltz/rif/Signer';
-import { satoshiToWei, isRifRelayAvailable, SATOSHI_TO_WEI } from '$lib/integrations/boltz/config';
+import { satoshiToWei, isRifRelayAvailable, SATOSHI_TO_WEI, getBoltzConfig, getWebSocketEndpoint, getRSKConfig } from '$lib/utils/wallet/networkConfig';
 import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
 import {
 	saveSwapToNostr,
@@ -50,6 +50,7 @@ import {
 	deleteAllSwapEvents,
 	deleteSwapEvent
 } from '$lib/integrations/boltz/pendingSwaps';
+import type { NetworkType } from '$lib/types/wallet';
 
 // Swap data structure for Nostr storage
 export interface BoltzSwapData {
@@ -77,14 +78,10 @@ export interface BoltzSwapData {
 export class ReverseSwapService {
 	private boltzClient: BoltzClient;
 	private activeSwaps: Map<string, BoltzSwapData> = new Map();
-	private network: 'mainnet' | 'testnet';
 	private walletGetter: (() => any) | null = null;
 
-	constructor(network: 'mainnet' | 'testnet' = 'testnet') {
-		this.network = network;
-		const apiUrl =
-			network === 'mainnet' ? 'https://api.boltz.exchange' : 'http://localhost:9001';
-		this.boltzClient = new BoltzClient({ apiUrl, network });
+	constructor(network: NetworkType = 'testnet') {
+		this.boltzClient = new BoltzClient(network);
 	}
 
 	/**
@@ -115,7 +112,7 @@ export class ReverseSwapService {
 
 		// For EVM chains like RBTC, we use the REST API directly since the client
 		// method expects claimPublicKey but EVM swaps use claimAddress
-		const apiUrl = this.boltzClient['config'].apiUrl;
+		const apiUrl = this.boltzClient['config'].boltzApiUrl;
 
 		// Determine which address to use for claiming
 		let claimAddress = params.rbtcAddress; // Default to user's wallet
@@ -461,7 +458,7 @@ export class ReverseSwapService {
 	 */
 	private async getEtherSwapAddress(): Promise<string> {
 		const response = await fetch(
-			`${this.boltzClient['config'].apiUrl}/v2/chain/RBTC/contracts`
+			`${this.boltzClient['config'].boltzApiUrl}/v2/chain/RBTC/contracts`
 		);
 
 		if (!response.ok) {
@@ -560,7 +557,7 @@ export class ReverseSwapService {
 
 			// Get EtherSwap contract address from Boltz API
 			const contractsResponse = await fetch(
-				`${this.boltzClient['config'].apiUrl}/v2/chain/RBTC/contracts`
+				`${this.boltzClient['config'].boltzApiUrl}/v2/chain/RBTC/contracts`
 			);
 
 			if (!contractsResponse.ok) {
@@ -780,5 +777,5 @@ export class ReverseSwapService {
 
 // Export singleton instance
 export const reverseSwapService = new ReverseSwapService(
-	(import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet'
+	(import.meta.env.VITE_RSK_NETWORK as NetworkType) || 'testnet'
 );

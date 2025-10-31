@@ -46,7 +46,7 @@ import { Contract } from 'ethers';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { relayClaimTransaction, getSmartWalletAddress } from '$lib/integrations/boltz/rif/Signer';
-import { isRifRelayAvailable } from '$lib/integrations/boltz/config';
+import { isRifRelayAvailable, getBoltzConfig } from '$lib/utils/wallet/networkConfig';
 import { getAssetId } from '$lib/utils/constants/assets';
 import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
 import {
@@ -55,6 +55,7 @@ import {
 	deleteAllSwapEvents,
 	deleteSwapEvent
 } from '$lib/integrations/boltz/pendingSwaps';
+import type { NetworkType } from '$lib/types/wallet';
 // import { ChainSwapRefundService } from '$lib/integrations/boltz/refund';
 // import type { RefundParams, RefundResult, RefundCheck } from '$lib/integrations/boltz/refund';
 
@@ -106,15 +107,10 @@ export class ChainSwapService {
 	// private refundService: ChainSwapRefundService;
 	private refundService: any;
 	private activeSwaps: Map<string, ChainSwapData> = new Map();
-	private network: 'mainnet' | 'testnet' | 'regtest';
 	private walletGetter: (() => any) | null = null;
 
-	constructor(network: 'mainnet' | 'testnet' | 'regtest' = 'testnet') {
-		this.network = network;
-		const apiUrl =
-			network === 'mainnet' ? 'https://api.boltz.exchange' : 'http://localhost:9001';
-
-		this.boltzClient = new BoltzClient({ apiUrl, network });
+	constructor(network: NetworkType = 'testnet') {
+		this.boltzClient = new BoltzClient(network);
 		// this.refundService = new ChainSwapRefundService(network, this.boltzClient);
 	}
 
@@ -719,5 +715,5 @@ export class ChainSwapService {
 }
 
 // Export singleton instance
-export const chainSwapService = new ChainSwapService(import.meta.env.VITE_BOLTZ_NETWORK as 'mainnet' | 'testnet' | 'regtest' || 'testnet');
+export const chainSwapService = new ChainSwapService(import.meta.env.VITE_RSK_NETWORK as NetworkType || 'testnet');
 

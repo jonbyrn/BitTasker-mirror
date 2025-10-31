@@ -24,7 +24,6 @@ VITE_NOSTR_RELAY_URL = "wss://relay.bittasker.hedgehackers.finance"
 VITE_NOSTR_RELAY_NESTJS = "https://relay.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
-VITE_BOLTZ_NETWORK="mainnet"
 
 # ============================================
 # PRODUCTION Environment

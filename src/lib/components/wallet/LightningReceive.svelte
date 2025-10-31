@@ -8,8 +8,7 @@
 	} from '$lib/integrations/boltz/reverseSwapService';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
+	import PendingSwap from '$lib/components/wallet/PendingSwap.svelte';
 
 	// Props
 	let {
@@ -24,8 +23,12 @@
 	let isClaiming = $state(false);
 	let nsecHex = $state<string>('');
 	let isDeletingSwaps = $state(false);
-	let showHelpModal = $state(false);
 	let expandedSwaps = $state<Set<string>>(new Set());
+
+	// Get network and minimum amount
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	const minAmount = network === 'mainnet' ? 1000 : 10000;
+	const minBTC = minAmount / 100_000_000;
 
 	/**
 	 * Get user's nsec and setup wallet getter on component load
@@ -65,28 +68,24 @@
 	 */
 	async function createSwap() {
 		if (!$rskConnection.address) {
-			error = 'RSK wallet not connected';
+			error = $t('wallet.rsk_not_connected');
 			return;
 		}
 
 		if (!nsecHex) {
-			error = 'Authentication required. Please sign in again.';
+			error = $t('wallet.swap.error.auth_required');
 			return;
 		}
 
 		if (!amount || parseFloat(amount) <= 0) {
-			error = 'Please enter a valid amount';
+			error = $t('wallet.validation.amount_required');
 			return;
 		}
 
 		const amountSats = Math.floor(parseFloat(amount) * 100_000_000);
 
-		// Minimum amount varies by network
-		const minAmount = import.meta.env.VITE_RSK_NETWORK === 'mainnet' ? 1000 : 10000;
-		const minBTC = minAmount / 100_000_000;
-
 		if (amountSats < minAmount) {
-			error = `Minimum amount is ${minAmount} sats (${minBTC} BTC)`;
+			error = $t('wallet.swap.error.minimum_amount', { values: { minAmount, minBTC } });
 			return;
 		}
 
@@ -105,7 +104,7 @@
 			// Add to pending swaps list
 			pendingSwaps = [...pendingSwaps, result.swapData];
 
-			appStore.showSuccessToast('Lightning invoice created!');
+			appStore.showSuccessToast($t('wallet.swap.lightning.invoice_created'));
 
 			// Monitor swap for automatic claiming
 			monitorSwapForClaiming(result.swapId);
@@ -115,7 +114,7 @@
 			description = '';
 		} catch (err) {
 			console.error('Failed to create swap:', err);
-			error = err instanceof Error ? err.message : 'Failed to create swap';
+			error = err instanceof Error ? err.message : $t('wallet.swap.error.create_failed');
 			appStore.showErrorToast(error);
 		} finally {
 			isCreatingSwap = false;
@@ -157,7 +156,7 @@
 
 				// Show success message when settled
 				if (swap.status === 'invoice.settled') {
-					appStore.showSuccessToast('✅ RBTC received!');
+					appStore.showSuccessToast($t('wallet.swap.lightning.rbtc_received'));
 				}
 			}
 		}, 5000);
@@ -169,7 +168,7 @@
 	 */
 	async function claimRBTC(swap: BoltzSwapData) {
 		if (!nsecHex || !$rskConnection.wallet) {
-			appStore.showErrorToast('Wallet not connected');
+			appStore.showErrorToast($t('wallet.rsk_wallet_not_connected'));
 			return;
 		}
 
@@ -177,7 +176,7 @@
 		error = null;
 
 		try {
-			appStore.showInfoToast('Claiming RBTC (no gas fees required)...');
+			appStore.showInfoToast($t('wallet.swap.lightning.claiming_gasless'));
 
 			// Attempt gasless claim via RIF Relay
 			const result = await reverseSwapService.claimRBTCViaRifRelay(
@@ -195,10 +194,10 @@
 				pendingSwaps = [...pendingSwaps]; // Trigger reactivity
 			}
 
-			appStore.showSuccessToast('✅ RBTC claimed successfully (gasless)!');
+			appStore.showSuccessToast($t('wallet.swap.lightning.claimed_success'));
 		} catch (err) {
 			console.error('Failed to claim RBTC:', err);
-			error = err instanceof Error ? err.message : 'Failed to claim RBTC';
+			error = err instanceof Error ? err.message : $t('wallet.swap.error.claim_failed');
 			appStore.showErrorToast(error);
 		} finally {
 			isClaiming = false;
@@ -206,23 +205,15 @@
 	}
 
 	/**
-	 * Copy invoice to clipboard
-	 */
-	async function copyInvoice(invoiceStr: string) {
-		await copyToClipboard(invoiceStr);
-		appStore.showSuccessToast('Invoice copied!');
-	}
-
-	/**
 	 * Delete a single swap event from Nostr
 	 */
 	async function deleteSwap(swapId: string) {
 		if (!nsecHex) {
-			appStore.showErrorToast('Authentication required');
+			appStore.showErrorToast($t('wallet.swap.error.auth_required'));
 			return;
 		}
 
-		if (!confirm('⚠️ Delete this swap from storage? This cannot be undone.')) {
+		if (!confirm($t('wallet.swap.confirm_delete'))) {
 			return;
 		}
 
@@ -231,13 +222,13 @@
 			if (success) {
 				// Remove from UI
 				pendingSwaps = pendingSwaps.filter((s) => s.id !== swapId);
-				appStore.showSuccessToast('✅ Swap deleted');
+				appStore.showSuccessToast($t('wallet.swap.deleted'));
 			} else {
-				appStore.showErrorToast('❌ Failed to delete swap');
+				appStore.showErrorToast($t('wallet.swap.error.delete_failed'));
 			}
 		} catch (err) {
 			console.error('Failed to delete swap:', err);
-			appStore.showErrorToast('❌ Failed to delete swap');
+			appStore.showErrorToast($t('wallet.swap.error.delete_failed'));
 		}
 	}
 
@@ -246,11 +237,11 @@
 	 */
 	async function deleteAllSwaps() {
 		if (!nsecHex) {
-			appStore.showErrorToast('Authentication required');
+			appStore.showErrorToast($t('wallet.swap.error.auth_required'));
 			return;
 		}
 
-		if (!confirm('⚠️ This will delete ALL swap events from Nostr. Continue?')) {
+		if (!confirm($t('wallet.swap.confirm_delete_all'))) {
 			return;
 		}
 
@@ -260,74 +251,20 @@
 		try {
 			const result = await reverseSwapService.deleteAllSwapEvents(nsecHex);
 			pendingSwaps = [];
-			appStore.showSuccessToast(`✅ Deleted ${result.count} swap events`);
+			appStore.showSuccessToast($t('wallet.swap.deleted_count', { values: { count: result.count } }));
 		} catch (err) {
 			console.error('Failed to delete swaps:', err);
-			error = err instanceof Error ? err.message : 'Failed to delete swaps';
+			error = err instanceof Error ? err.message : $t('wallet.swap.error.delete_failed');
 			appStore.showErrorToast(error);
 		} finally {
 			isDeletingSwaps = false;
-		}
-	}
-
-	/**
-	 * Toggle invoice expansion
-	 */
-	function toggleInvoice(swapId: string) {
-		const newExpanded = new Set(expandedSwaps);
-		if (newExpanded.has(swapId)) {
-			newExpanded.delete(swapId);
-		} else {
-			newExpanded.add(swapId);
-		}
-		expandedSwaps = newExpanded;
-	}
-
-	/**
-	 * Close invoice (only when clicking arrow)
-	 */
-	function closeInvoice(swapId: string, event: MouseEvent) {
-		event.stopPropagation();
-		const newExpanded = new Set(expandedSwaps);
-		newExpanded.delete(swapId);
-		expandedSwaps = newExpanded;
-	}
-
-	/**
-	 * Get status display info
-	 */
-	function getStatusInfo(status: string): { label: string; color: string; icon: string } {
-		switch (status) {
-			case 'swap.created':
-				return { label: 'Invoice ready - waiting for payment', color: 'text-warning', icon: '⏳' };
-			case 'invoice.set':
-				return { label: 'Invoice paid! Waiting for lockup...', color: 'text-info', icon: '⚡' };
-			case 'transaction.mempool':
-				return { label: 'Boltz locking funds...', color: 'text-info', icon: '🔒' };
-			case 'transaction.confirmed':
-				return { label: 'Ready to claim rBTC!', color: 'text-success', icon: '✅' };
-			case 'transaction.claim.pending':
-				return { label: 'Claiming rBTC...', color: 'text-info', icon: '⏳' };
-			case 'transaction.claim.failed':
-				return { label: 'Claim failed - retry', color: 'text-error', icon: '⚠️' };
-			case 'invoice.settled':
-				return { label: 'Swap completed! ✓', color: 'text-success', icon: '✅' };
-			case 'claimed':
-				return { label: 'rBTC claimed successfully! ✓', color: 'text-success', icon: '🎉' };
-			case 'invoice.expired':
-			case 'swap.expired':
-				return { label: 'Swap expired - Delete to remove', color: 'text-error', icon: '⏰' };
-			case 'transaction.failed':
-				return { label: 'Swap failed - Delete to remove', color: 'text-error', icon: '❌' };
-			default:
-				return { label: status, color: 'text-base-content', icon: 'ℹ️' };
 		}
 	}
 </script>
 
 <div class="space-y-6">
 	<!-- Developer Tool: Delete All Swaps -->
-	{#if import.meta.env.DEV || import.meta.env.VITE_BOLTZ_NETWORK === 'regtest'}
+	{#if import.meta.env.DEV || network === 'regtest'}
 		<div class="alert alert-horizontal">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -344,8 +281,8 @@
 			</svg>
 			<div class="flex w-full flex-col items-center justify-between space-y-2 sm:flex-row">
 				<div class="flex-1">
-					<h4 class="font-bold">🧪 Developer Tools</h4>
-					<div class="text-sm">Clear test data from Nostr storage</div>
+					<h4 class="font-bold">{$t('wallet.swap.dev_tools')}</h4>
+					<div class="text-sm">{$t('wallet.swap.dev_tools_description')}</div>
 				</div>
 				<button
 					class="btn btn-error btn-sm mx-auto block"
@@ -354,9 +291,9 @@
 				>
 					{#if isDeletingSwaps}
 						<span class="loading loading-spinner loading-xs"></span>
-						Deleting...
+						{$t('wallet.swap.deleting')}
 					{:else}
-						🗑️ Delete All Swaps
+						🗑️ {$t('wallet.swap.delete_all')}
 					{/if}
 				</button>
 			</div>
@@ -399,18 +336,18 @@
 				/>
 			</svg>
 			<div>
-				<h4 class="font-bold">Lightning → rBTC Swap</h4>
+				<h4 class="font-bold">{$t('wallet.swap.lightning.title')}</h4>
 				<div class="text-sm">
-					Receive Lightning payments and automatically convert them to rBTC. Fees: ~0.4-0.5%
+					{$t('wallet.swap.lightning.description')}
 				</div>
 			</div>
 		</div>
 
 		<div class="form-control">
 			<label class="label" for="amount">
-				<span class="label-text">Amount (BTC)</span>
+				<span class="label-text">{$t('wallet.swap.amount_btc')}</span>
 				<span class="label-text-alt"
-					>Min: {import.meta.env.VITE_RSK_NETWORK === 'mainnet' ? '0.00001' : '0.0001'} BTC</span
+					>{$t('wallet.swap.min_amount')}: {network === 'mainnet' ? '0.00001' : '0.0001'} BTC</span
 				>
 			</label>
 			<input
@@ -426,12 +363,12 @@
 
 		<div class="form-control">
 			<label class="label" for="description">
-				<span class="label-text">Description</span>
-				<span class="label-text-alt">Optional</span>
+				<span class="label-text">{$t('wallet.description')}</span>
+				<span class="label-text-alt">{$t('wallet.optional')}</span>
 			</label>
 			<textarea
 				id="description"
-				placeholder="Payment for..."
+				placeholder={$t('wallet.payment_for_placeholder')}
 				class="textarea textarea-bordered w-full"
 				rows="2"
 				bind:value={description}
@@ -446,9 +383,9 @@
 		>
 			{#if isCreatingSwap}
 				<span class="loading loading-spinner loading-sm"></span>
-				Creating swap...
+				{$t('wallet.swap.creating')}
 			{:else}
-				Generate Lightning Invoice
+				{$t('wallet.swap.lightning.generate_invoice')}
 			{/if}
 		</button>
 	</div>
@@ -456,229 +393,22 @@
 	<!-- Pending Swaps List -->
 	{#if pendingSwaps.length > 0}
 		<div class="space-y-4">
-			<div class="divider">Pending Swaps</div>
+			<div class="divider">{$t('wallet.swap.pending_swaps')}</div>
 
-			{#each pendingSwaps as swap (swap.id)}
-				{@const statusInfo = getStatusInfo(swap.status)}
-				<div class="card bg-base-200 shadow-lg">
-					<div class="card-body p-4">
-						<!-- Status Header -->
-						<div class="mb-4 flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								<span class="text-xl">{statusInfo.icon}</span>
-								<span class="text-sm font-semibold {statusInfo.color}">{statusInfo.label}</span>
-							</div>
-							<span class="text-sm opacity-70">{swap.amount} sats</span>
-						</div>
-
-						<!-- Main Invoice with QR (Collapsible) -->
-						<div class="bg-base-100 cursor-pointer rounded-lg">
-							<div class="flex w-full items-center justify-between">
-								<button
-									class="flex flex-1 items-center justify-between p-4 text-left transition-colors hover:opacity-80"
-									onclick={() => toggleInvoice(swap.id)}
-									type="button"
-								>
-									<span class="block font-medium">View Invoice</span>
-								</button>
-								<button
-									class="ml-2 p-4 transition-transform duration-200 hover:opacity-80 {expandedSwaps.has(
-										swap.id
-									)
-										? 'rotate-180'
-										: ''}"
-									onclick={(e) => {
-										e.stopPropagation();
-										if (expandedSwaps.has(swap.id)) {
-											closeInvoice(swap.id, e);
-										} else {
-											toggleInvoice(swap.id);
-										}
-									}}
-									type="button"
-									aria-label={expandedSwaps.has(swap.id) ? 'Collapse invoice' : 'Expand invoice'}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M19 9l-7 7-7-7"
-										/>
-									</svg>
-								</button>
-							</div>
-
-							<!-- Collapsible Content -->
-							{#if expandedSwaps.has(swap.id)}
-								<div class="border-base-300 border-t p-4">
-									<div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-										<!-- QR Code -->
-										<div class="shrink-0">
-											{#await generateQrCodeUrl(swap.invoice)}
-												<div
-													class="flex h-44 w-44 items-center justify-center rounded-lg bg-white p-3"
-												>
-													<span class="loading loading-spinner loading-md"></span>
-												</div>
-											{:then qrUrl}
-												<div class="rounded-lg bg-white p-1">
-													<img src={qrUrl} alt="QR Code" class="h-44 w-44" />
-												</div>
-											{/await}
-										</div>
-
-										<!-- Invoice String -->
-										<div class="w-full sm:flex-1">
-											<button
-												class="btn btn-outline btn-sm h-auto min-h-12 w-full justify-start p-3 text-left break-all"
-												onclick={(e) => {
-													e.stopPropagation();
-													copyInvoice(swap.invoice);
-												}}
-												type="button"
-											>
-												<code class="text-xs leading-relaxed">
-													{swap.invoice}
-												</code>
-											</button>
-										</div>
-									</div>
-								</div>
-							{/if}
-						</div>
-
-						<!-- Swap Details -->
-						<div class="space-y-1 text-xs">
-							<div class="flex justify-between">
-								<span class="opacity-70">Destination:</span>
-								<code class="truncate"
-									>{swap.rbtcAddress.slice(0, 8)}...{swap.rbtcAddress.slice(-6)}</code
-								>
-							</div>
-							{#if swap.lockupTxHash}
-								<div class="flex justify-between">
-									<span class="opacity-70">Lockup TX:</span>
-									<a
-										href={`https://explorer${import.meta.env.VITE_RSK_NETWORK === 'testnet' ? '.testnet' : ''}.rsk.co/tx/${swap.lockupTxHash}`}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="link link-primary"
-									>
-										View
-									</a>
-								</div>
-							{/if}
-							{#if swap.claimTxHash}
-								<div class="flex justify-between">
-									<span class="opacity-70">Claim TX:</span>
-									<a
-										href={`https://explorer${import.meta.env.VITE_RSK_NETWORK === 'testnet' ? '.testnet' : ''}.rsk.co/tx/${swap.claimTxHash}`}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="link link-primary"
-									>
-										View
-									</a>
-								</div>
-							{/if}
-						</div>
-
-						<!-- Action Buttons -->
-						<div class="mt-2 flex flex-wrap gap-2">
-							{#if !swap.claimTxHash && swap.status === 'transaction.confirmed'}
-								<!-- Can claim now - gasless via RIF Relay -->
-								<button
-									class="btn btn-success btn-sm block w-fit justify-self-end"
-									onclick={() => claimRBTC(swap)}
-									disabled={isClaiming}
-								>
-									{#if isClaiming}
-										<span class="loading loading-spinner loading-xs"></span>
-										Claiming...
-									{:else}
-										⚡ Claim Now (No Gas Fees)
-									{/if}
-								</button>
-							{/if}
-
-							<!-- Always show delete button -->
-							<button
-								class="btn btn-ghost btn-sm btn-outline"
-								onclick={() => deleteSwap(swap.id)}
-								title="Delete this swap from storage"
-							>
-								🗑️ Delete Swap
-							</button>
-
-							{#if swap.status === 'swap.created' || swap.status === 'invoice.set' || swap.status === 'transaction.mempool'}
-								<div class="text-base-content/70 w-full py-2 text-center text-xs">
-									{#if swap.status === 'swap.created'}
-										Pay the Lightning invoice to continue
-									{:else if swap.status === 'invoice.set'}
-										Payment received! Waiting for Boltz to lock funds...
-									{:else if swap.status === 'transaction.mempool'}
-										Lockup in progress... Will be ready to claim soon
-									{/if}
-								</div>
-							{/if}
-						</div>
-					</div>
-				</div>
+			{#each pendingSwaps as swap, i (swap.id)}
+				<PendingSwap
+					{swap}
+					swapType="lightning"
+					expanded={expandedSwaps.has(swap.id)}
+					onCopyInvoice={async (invoice: string) => {
+						const { copyToClipboard } = await import('$lib/utils/helpers/clipboard');
+						await copyToClipboard(invoice);
+						appStore.showSuccessToast($t('wallet.swap.invoice_copied'));
+					}}
+					onClaimRBTC={claimRBTC}
+					onDeleteSwap={deleteSwap}
+				/>
 			{/each}
 		</div>
-	{/if}
-
-	<!-- Help Modal -->
-	{#if showHelpModal}
-		<dialog class="modal modal-open">
-			<div class="modal-box max-w-2xl">
-				<h3 class="mb-4 text-xl font-bold">How Gasless RBTC Swaps Work</h3>
-
-				<div class="space-y-4">
-					<div>
-						<h4 class="mb-2 font-semibold">What is RIF Relay?</h4>
-						<p class="text-sm">
-							RIF Relay technology enables gasless transactions on Rootstock. BitTasker uses RIF
-							Relay to claim your RBTC without you needing any RBTC for gas fees.
-						</p>
-					</div>
-
-					<div class="divider"></div>
-
-					<div>
-						<h4 class="mb-2 font-semibold">How it works:</h4>
-						<ol class="ml-2 list-inside list-decimal space-y-2 text-sm">
-							<li>You pay the Lightning invoice with your Lightning wallet</li>
-							<li>Boltz locks RBTC in a smart contract on Rootstock</li>
-							<li>BitTasker claims the RBTC via RIF Relay (no gas fees for you!)</li>
-							<li>RBTC arrives in your wallet! ✅</li>
-						</ol>
-					</div>
-
-					<div class="divider"></div>
-
-					<div>
-						<h4 class="mb-2 font-semibold">Key benefits:</h4>
-						<ul class="ml-2 list-inside list-disc space-y-1 text-sm">
-							<li><strong>No gas fees</strong> - RIF Relay pays the transaction fees</li>
-							<li><strong>Automatic claiming</strong> - No manual steps required</li>
-							<li><strong>First RBTC</strong> - Perfect for receiving your first RBTC</li>
-							<li><strong>Fast & reliable</strong> - Claims complete in seconds</li>
-						</ul>
-					</div>
-				</div>
-
-				<div class="modal-action">
-					<button class="btn" onclick={() => (showHelpModal = false)}> Got it! </button>
-				</div>
-			</div>
-		</dialog>
 	{/if}
 </div>

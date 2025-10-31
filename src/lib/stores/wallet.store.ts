@@ -472,7 +472,7 @@ async function initializeBSCWallet(mnemonic?: string): Promise<void> {
 		}));
 
 		// Get network from config
-		const network: NetworkType = import.meta.env.VITE_BSC_NETWORK || 'testnet';
+		const network: Extract<NetworkType, 'mainnet' | 'testnet'> = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 
 		// Initialize provider
 		const networkConfig = BSC_NETWORKS[network]
