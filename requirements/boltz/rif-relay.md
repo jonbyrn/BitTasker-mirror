@@ -458,9 +458,6 @@ async function handleSwapUpdate(event: SwapEvent) {
 ### Mainnet Testing
 
 ```bash
-# 1. Set environment to mainnet
-export VITE_BOLTZ_NETWORK=mainnet
-
 # 2. Create wallet with ZERO RBTC balance
 # (Use fresh mnemonic, don't fund it)
 

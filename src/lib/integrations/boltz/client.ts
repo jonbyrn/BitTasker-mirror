@@ -50,7 +50,6 @@ import { swapScript } from 'boltz-core';
 import { randomBytes, createHmac } from 'crypto';
 import { crypto, networks, payments, script, Transaction, Psbt } from 'bitcoinjs-lib';
 import type {
-	BoltzConfig,
 	SwapPairs,
 	SwapFees,
 	CreateSwapRequest,
@@ -71,6 +70,8 @@ import type {
 import { Buffer } from 'buffer';
 import { Interface } from 'ethers';
 import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
+import { getBoltzConfig } from '$lib/utils/wallet/networkConfig';
+import type { BoltzNetworkConfig, NetworkType } from '$lib/types/wallet';
 
 export class BoltzError extends Error {
 	constructor(
@@ -85,30 +86,15 @@ export class BoltzError extends Error {
 
 export class BoltzClient {
 	private readonly maxRequestsPerSecond = 10;
-	private config: BoltzConfig;
-	private baseUrl: string;
+	private config: BoltzNetworkConfig;
 	private ECPair = ECPairFactory(ecc);
 	private requestCount = 0;
 	private lastRequestTime = 0;
 	private network: networks.Network;
 
-	constructor(config: BoltzConfig) {
-		this.validateConfig(config);
-		this.config = config;
-		this.baseUrl = config.apiUrl || 'https://api.boltz.exchange';
-		this.network = config.network === 'mainnet' ? networks.bitcoin : config.network === 'regtest' ? networks.regtest : networks.testnet;
-	}
-
-	/**
-	 * Validate configuration
-	 */
-	private validateConfig(config: BoltzConfig): void {
-		if (!config.apiUrl) {
-			throw new BoltzError('API URL is required', 'INVALID_CONFIG');
-		}
-		if (!['mainnet', 'testnet', 'regtest'].includes(config.network)) {
-			throw new BoltzError('Network must be mainnet, testnet, or regtest', 'INVALID_CONFIG');
-		}
+	constructor(network: NetworkType) {
+		this.config = getBoltzConfig(network);
+		this.network = network === 'mainnet' ? networks.bitcoin : network === 'regtest' ? networks.regtest : networks.testnet;
 	}
 
 	/**
@@ -764,6 +750,24 @@ export class BoltzClient {
 		} catch (error) {
 			console.error('Failed to create reverse submarine swap:', error);
 			throw new Error('Reverse submarine swap creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+		}
+	}
+
+	/**
+	 * Get reverse swap pairs (Lightning → RBTC)
+	 * Returns available reverse swap pairs with limits and fees
+	 */
+	async getReverseSwapPairs(): Promise<any> {
+		try {
+			const response = await this.request('GET', '/v2/swap/reverse');
+			console.log('🔍 Reverse swap pairs response:', response);
+			return response;
+		} catch (error) {
+			console.error('Failed to get reverse swap pairs:', error);
+			throw new BoltzError(
+				'Reverse swap pairs request failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'REVERSE_PAIRS_ERROR'
+			);
 		}
 	}
 
@@ -1595,8 +1599,8 @@ export class BoltzClient {
 		// Enforce rate limiting
 		await this.enforceRateLimit();
 
-		const url = `${this.baseUrl}${endpoint}`;
-		const timeout = this.config.timeout || 30000;
+		const url = `${this.config.boltzApiUrl}${endpoint}`;
+		const timeout = 30000;
 		const maxRetries = 3;
 		let retryCount = 0;
 
@@ -1791,19 +1795,5 @@ export async function getLockupEventParameters(
 	}
 }
 
-/**
- * Create Boltz client instance
- */
-export function createBoltzClient(config: Partial<BoltzConfig> = {}): BoltzClient {
-	const defaultConfig: BoltzConfig = {
-		apiUrl: 'https://api.boltz.exchange',
-		network: 'mainnet',
-		timeout: 30000,
-		...config
-	};
-
-	return new BoltzClient(defaultConfig);
-}
-
 // Export default client instance
-export const boltzClient = createBoltzClient();
+export const boltzClient = new BoltzClient(import.meta.env.VITE_RSK_NETWORK as NetworkType || 'regtest');

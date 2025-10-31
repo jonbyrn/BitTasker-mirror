@@ -42,7 +42,7 @@ import { BoltzClient, getLockupEventParameters } from '$lib/integrations/boltz/c
 import { boltzWebSocket } from '$lib/integrations/boltz/websocket';
 import { Contract, ethers } from 'ethers';
 import { relayClaimTransaction, getSmartWalletAddress } from '$lib/integrations/boltz/rif/Signer';
-import { satoshiToWei, isRifRelayAvailable, SATOSHI_TO_WEI } from '$lib/integrations/boltz/config';
+import { satoshiToWei, isRifRelayAvailable, SATOSHI_TO_WEI, getBoltzConfig, getWebSocketEndpoint, getRSKConfig } from '$lib/utils/wallet/networkConfig';
 import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
 import {
 	saveSwapToNostr,
@@ -50,6 +50,7 @@ import {
 	deleteAllSwapEvents,
 	deleteSwapEvent
 } from '$lib/integrations/boltz/pendingSwaps';
+import type { NetworkType } from '$lib/types/wallet';
 
 // Swap data structure for Nostr storage
 export interface BoltzSwapData {
@@ -77,14 +78,10 @@ export interface BoltzSwapData {
 export class ReverseSwapService {
 	private boltzClient: BoltzClient;
 	private activeSwaps: Map<string, BoltzSwapData> = new Map();
-	private network: 'mainnet' | 'testnet';
 	private walletGetter: (() => any) | null = null;
 
-	constructor(network: 'mainnet' | 'testnet' = 'testnet') {
-		this.network = network;
-		const apiUrl =
-			network === 'mainnet' ? 'https://api.boltz.exchange' : 'http://localhost:9001';
-		this.boltzClient = new BoltzClient({ apiUrl, network });
+	constructor(network: NetworkType = 'testnet') {
+		this.boltzClient = new BoltzClient(network);
 	}
 
 	/**
@@ -93,6 +90,37 @@ export class ReverseSwapService {
 	 */
 	setWalletGetter(getter: () => any): void {
 		this.walletGetter = getter;
+	}
+
+	/**
+	 * Get swap limits from Boltz API
+	 * Returns minimal and maximal amounts for Lightning → RBTC swaps
+	 */
+	async getSwapLimits(): Promise<{ minimal: number; maximal: number }> {
+		try {
+			// Get reverse swap pairs
+			const reversePairs = await this.boltzClient.getReverseSwapPairs();
+			console.log({ reversePairs })
+
+			// API returns flat structure: { 'BTC': {...}, 'RBTC': {...}, 'L-BTC': {...} }
+			// For Lightning → RBTC swaps, we use RBTC limits
+			const pairInfo = reversePairs?.['BTC']?.['RBTC'];
+
+			if (!pairInfo || !pairInfo.limits) {
+				console.warn('Could not find RBTC pair limits in response:', reversePairs);
+				throw new Error('Reverse swap pair limits not available');
+			}
+
+			console.log('✅ Found RBTC reverse swap limits:', pairInfo.limits);
+
+			return {
+				minimal: pairInfo.limits.minimal,
+				maximal: pairInfo.limits.maximal
+			};
+		} catch (error) {
+			console.error('Failed to get swap limits:', error);
+			throw error;
+		}
 	}
 
 	/**
@@ -115,7 +143,7 @@ export class ReverseSwapService {
 
 		// For EVM chains like RBTC, we use the REST API directly since the client
 		// method expects claimPublicKey but EVM swaps use claimAddress
-		const apiUrl = this.boltzClient['config'].apiUrl;
+		const apiUrl = this.boltzClient['config'].boltzApiUrl;
 
 		// Determine which address to use for claiming
 		let claimAddress = params.rbtcAddress; // Default to user's wallet
@@ -127,7 +155,7 @@ export class ReverseSwapService {
 				// Check user's gas balance
 				const balance = await params.walletSigner.provider.getBalance(params.rbtcAddress);
 				const gasEstimate = 100000n * 60000000n; // ~100k gas @ 0.06 gwei
-				
+
 				if (balance < gasEstimate) {
 					// User has insufficient gas - use Smart Wallet for gasless claim
 					const smartWallet = await getSmartWalletAddress(params.walletSigner);
@@ -277,7 +305,7 @@ export class ReverseSwapService {
 				let claimSuccessful = false;
 
 				try {
-					const wasCreatedForSmartWallet = swapData.claimAddress && 
+					const wasCreatedForSmartWallet = swapData.claimAddress &&
 						swapData.claimAddress !== swapData.rbtcAddress;
 
 					if (wasCreatedForSmartWallet) {
@@ -461,7 +489,7 @@ export class ReverseSwapService {
 	 */
 	private async getEtherSwapAddress(): Promise<string> {
 		const response = await fetch(
-			`${this.boltzClient['config'].apiUrl}/v2/chain/RBTC/contracts`
+			`${this.boltzClient['config'].boltzApiUrl}/v2/chain/RBTC/contracts`
 		);
 
 		if (!response.ok) {
@@ -560,7 +588,7 @@ export class ReverseSwapService {
 
 			// Get EtherSwap contract address from Boltz API
 			const contractsResponse = await fetch(
-				`${this.boltzClient['config'].apiUrl}/v2/chain/RBTC/contracts`
+				`${this.boltzClient['config'].boltzApiUrl}/v2/chain/RBTC/contracts`
 			);
 
 			if (!contractsResponse.ok) {
@@ -676,11 +704,11 @@ export class ReverseSwapService {
 				console.error('💡 Swap not found. Reasons: \n\n 1) TX not confirmed, \n\n 2) Wrong parameters, \n\n 3) Already claimed');
 				console.error('📊 Swap:', {
 					id: swapData.id,
-                    amount: swapData.onchainAmount,
-                    claimAddress: swapData.rbtcAddress,
-                    refundAddress: swapData.refundAddress,
-                    timelock: swapData.timeoutBlockHeight,
-                    lockupTx: swapData.lockupTxHash
+					amount: swapData.onchainAmount,
+					claimAddress: swapData.rbtcAddress,
+					refundAddress: swapData.refundAddress,
+					timelock: swapData.timeoutBlockHeight,
+					lockupTx: swapData.lockupTxHash
 				});
 			}
 
@@ -699,11 +727,11 @@ export class ReverseSwapService {
 	async recoverPendingSwaps(nsec: string): Promise<BoltzSwapData[]> {
 		try {
 			const swaps = await recoverPendingSwaps(nsec, 'boltz-swap-reverse');
-			
+
 			// Store in memory and resubscribe to WebSocket
 			for (const swap of swaps) {
 				this.activeSwaps.set(swap.id, swap as BoltzSwapData);
-				
+
 				// Resubscribe to WebSocket
 				boltzWebSocket.subscribeToSwap(swap.id, async (event) => {
 					await this.handleSwapUpdate(event, nsec);
@@ -746,7 +774,7 @@ export class ReverseSwapService {
 	async deleteAllSwapEvents(nsec: string): Promise<{ count: number }> {
 		try {
 			const result = await deleteAllSwapEvents(nsec, 'boltz-swap-reverse');
-			
+
 			// Clear active swaps from memory
 			this.activeSwaps.clear();
 
@@ -764,7 +792,7 @@ export class ReverseSwapService {
 	async deleteSwapEvent(nsec: string, swapId: string): Promise<boolean> {
 		try {
 			const success = await deleteSwapEvent(nsec, swapId, 'boltz-swap-reverse');
-			
+
 			// Remove from memory if successful
 			if (success) {
 				this.activeSwaps.delete(swapId);
@@ -780,5 +808,5 @@ export class ReverseSwapService {
 
 // Export singleton instance
 export const reverseSwapService = new ReverseSwapService(
-	(import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet'
+	(import.meta.env.VITE_RSK_NETWORK as NetworkType) || 'testnet'
 );

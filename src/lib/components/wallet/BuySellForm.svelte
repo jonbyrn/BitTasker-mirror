@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { combinedWalletState } from '$lib/stores/wallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	
 	// State management

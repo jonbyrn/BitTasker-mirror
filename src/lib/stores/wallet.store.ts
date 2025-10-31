@@ -6,7 +6,7 @@
  */
 
 import type {
-	CombinedWalletState,
+	WalletState,
 	NetworkType,
 	Transaction,
 	WalletAsset,
@@ -29,7 +29,7 @@ import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 
 // Initial state
-const initialState: CombinedWalletState = {
+const initialState: WalletState = {
 	isInitializing: false,
 	isConnected: false,
 	isConnecting: false,
@@ -472,7 +472,7 @@ async function initializeBSCWallet(mnemonic?: string): Promise<void> {
 		}));
 
 		// Get network from config
-		const network: NetworkType = import.meta.env.VITE_BSC_NETWORK || 'testnet';
+		const network: Extract<NetworkType, 'mainnet' | 'testnet'> = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 
 		// Initialize provider
 		const networkConfig = BSC_NETWORKS[network]
@@ -596,19 +596,20 @@ async function checkBSCPaymasterConnection(paymasterContract: BSCPaymasterContra
 }
 
 /**
- * Load transactions from both networks
+ * Load transactions from both networks (RSK includes swap transactions)
  */
 export async function loadTransactions(): Promise<void> {
 	try {
 		const allTransactions: Transaction[] = [];
 
 		// Load transactions from all networks in parallel
+		// Note: RSK transactions now include swap transactions automatically
 		const [rskTxs, bscTxs] = await Promise.allSettled([
 			loadRSKTransactions(),
 			loadBSCTransactions()
 		]);
 
-		// Process RSK transactions
+		// Process RSK transactions (includes regular + swap transactions)
 		if (rskTxs.status === 'fulfilled' && rskTxs.value.length > 0) {
 			allTransactions.push(...rskTxs.value);
 		} else if (rskTxs.status === 'rejected') {
@@ -622,8 +623,13 @@ export async function loadTransactions(): Promise<void> {
 			console.warn('Failed to load BSC transactions:', bscTxs.reason);
 		}
 
+		// Remove duplicate transactions by hash
+		const uniqueTransactions = allTransactions.filter((tx, index, self) =>
+			index === self.findIndex(t => t.hash === tx.hash)
+		);
+
 		// Sort by timestamp (newest first)
-		const sortedTransactions = allTransactions.sort((a, b) => {
+		const sortedTransactions = uniqueTransactions.sort((a, b) => {
 			return b.timestamp - a.timestamp;
 		});
 
@@ -1153,10 +1159,10 @@ export async function cleanup(): Promise<void> {
 // Derived stores for easy access
 export const rskConnection = derived(walletStore, ($store) => $store.rsk);
 export const bscConnection = derived(walletStore, ($store) => $store.bsc);
-export const combinedWalletState = derived(walletStore, ($store) => $store);
 export const allAssets = derived(walletStore, ($store) => $store.assets);
 export const totalBalances = derived(walletStore, ($store) => $store.totalBalances);
 export const rbtcToBtcRate = derived(walletStore, ($store) => $store.rbtcToBtcRate);
+export const transactions = derived(walletStore, ($store) => $store.transactions);
 
 /**
  * Utility functions

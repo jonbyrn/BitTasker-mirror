@@ -5,7 +5,7 @@
  */
 
 import type { SwapStatusType, SwapEvent } from './types';
-import { getWebSocketEndpoint } from './config';
+import { getWebSocketEndpoint } from '$lib/utils/wallet/networkConfig';
 
 interface WebSocketMessage {
 	op?: string;

@@ -1,7 +1,7 @@
 import type { EtherSwap } from "boltz-core/typechain/EtherSwap";
 import type { Signer } from 'ethers';
 import { ZeroAddress } from 'ethers';
-import { getBoltzConfig } from '../config';
+import { getBoltzConfig } from '$lib/utils/wallet/networkConfig';
 import { prefix0x, satoshiToWei } from './rootstock';
 import { getForwarder, getSmartWalletFactory } from './Contracts';
 import type { Metadata } from './Relay';
