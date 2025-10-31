@@ -2,7 +2,9 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import type { BidMessage, NostrBid, NostrBidStatus } from '$lib/types/bid';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
-import { sendDirectMessage, getMessageHistory, getMessagedPeople } from './nostr-message';
+import { sendDirectMessage, getMessageHistory, getMessagedPeople, getMessagedPeopleOptimized } from './nostr-message';
+import { smartBidCache } from './bidCache';
+import { withTimeout } from './wallet/timeoutHelpers';
 import type {
 	NostrContract,
 	NostrContractStatus,
@@ -386,88 +388,115 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 }
 
 /**
- * Get all bids sent by the current user
+ * Get all bids sent by the current user with smart caching and progressive loading
  */
-export async function getMyBids(): Promise<BidMessage[]> {
+export async function getMyBids(options?: {
+	progressive?: boolean;
+	onProgress?: (bids: BidMessage[]) => void;
+}): Promise<BidMessage[]> {
+	const npub = await getNpub();
+	const pubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+	
+	// STEP 1: Load cached bids instantly (stale-while-revalidate)
+	const cachedBids = smartBidCache.getUserBids(pubkeyHex);
+	if (cachedBids.length > 0 && options?.onProgress) {
+		options.onProgress(cachedBids);
+	}
+	
+	// STEP 2: Refresh in background
 	try {
-		const npub = await getNpub();
-		const pubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-
-		// Create cache key based on user's pubkey
-		const cacheKey = `my-bids-${pubkeyHex}`;
-
-		// Check cache first
-		const cachedBids = bidCache.get<BidMessage[]>(cacheKey);
-		if (cachedBids) {
-			console.log('Using cached bid data');
+		await refreshBidsIncremental(pubkeyHex, options);
+	} catch (error) {
+		console.error('Failed to refresh bids:', error);
+		// Return cached bids on error
+		if (cachedBids.length > 0) {
 			return cachedBids;
 		}
-
-		// Get all people you've exchanged messages with
-		const messagedPeople = await getMessagedPeople();
-		const bids: BidMessage[] = [];
-
-		// Fetch message histories for all conversations in parallel
-		const messageHistoryPromises = messagedPeople.map(async (person) => {
-			try {
-				return await getMessageHistory(person.pubkey, { limit: 100 });
-			} catch (err) {
-				// Skip this conversation if there's an error
-				console.warn('Failed to get message history for pubkey:', person.pubkey, err);
-				return [];
-			}
-		});
-
-		// Wait for all message histories to be fetched in parallel
-		const messageHistories = await Promise.all(messageHistoryPromises);
-
-		// Process all message histories to extract bids
-		for (let i = 0; i < messagedPeople.length; i++) {
-			const person = messagedPeople[i];
-			const messageHistory = messageHistories[i];
-
-			for (const message of messageHistory) {
-				try {
-					// Skip if message is empty or invalid
-					if (!message.plaintext || message.plaintext.trim() === '') {
-						continue;
-					}
-
-					const parsedContent = JSON.parse(message.plaintext);
-
-					// Verify it's a bid sent by the current user
-					if (parsedContent.messageType === 'bid' &&
-						parsedContent.type === 'bid' &&
-						message.senderPubkey === pubkeyHex) {
-
-						// Ensure all fields are present
-						const completeBid: NostrBid = {
-							...parsedContent,
-							messageType: 'bid'
-						};
-
-						bids.push({
-							bid: completeBid,
-							senderPubkey: message.senderPubkey,
-							event: message.event
-						});
-					}
-				} catch (parseError) {
-					continue;
-				}
-			}
-		}
-
-		const sortedBids = bids.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
-
-		// Cache the results for 5 minutes
-		bidCache.set(cacheKey, sortedBids, 5);
-
-		return sortedBids;
-	} catch (error) {
-		console.error('Error getting my bids:', error);
 		throw error;
 	}
+	
+	// STEP 3: Return updated bids
+	return smartBidCache.getUserBids(pubkeyHex);
+}
+
+async function refreshBidsIncremental(
+	pubkeyHex: string,
+	options?: { progressive?: boolean; onProgress?: (bids: BidMessage[]) => void }
+): Promise<void> {
+	const lastFetchTime = smartBidCache.getLastFetchTime(pubkeyHex);
+	
+	// Get messaged people with timeout
+	const messagedPeople = await withTimeout(
+		getMessagedPeopleOptimized(), 
+		8000, 
+		'Timeout getting messaged people'
+	);
+	
+	// Fetch only new messages since last fetch (incremental)
+	const messageHistoryPromises = messagedPeople.map(async (person) => {
+		try {
+			return await withTimeout(
+				getMessageHistory(person.pubkey, { 
+					limit: 50, 
+					since: lastFetchTime 
+				}),
+				3000,
+				`Timeout fetching messages from ${person.pubkey}`
+			);
+		} catch (err) {
+			console.warn('Failed to get message history for pubkey:', person.pubkey);
+			return [];
+		}
+	});
+	
+	const messageHistories = await Promise.all(messageHistoryPromises);
+	
+	// Process messages and extract bids with progressive updates
+	for (let i = 0; i < messagedPeople.length; i++) {
+		const messageHistory = messageHistories[i];
+		
+		for (const message of messageHistory) {
+			// Pre-filter: Check if message might be a bid before parsing
+			if (!message.plaintext || !message.plaintext.includes('"messageType"')) {
+				continue;
+			}
+			
+			try {
+				const parsedContent = JSON.parse(message.plaintext);
+				
+				// Verify it's a bid sent by current user
+				if (parsedContent.messageType === 'bid' &&
+					parsedContent.type === 'bid' &&
+					message.senderPubkey === pubkeyHex) {
+					
+					const bidMessage: BidMessage = {
+						bid: { ...parsedContent, messageType: 'bid' },
+						senderPubkey: message.senderPubkey,
+						event: message.event
+					};
+					
+					smartBidCache.set(bidMessage.bid.bidId, bidMessage);
+					
+					// Progressive update
+					if (options?.progressive && options.onProgress) {
+						const currentBids = smartBidCache.getUserBids(pubkeyHex);
+						options.onProgress(currentBids);
+					}
+				}
+				
+				// Check for bid status update
+				if (parsedContent.messageType === 'bidStatus' || 
+					(parsedContent.type === 'status' && parsedContent.bidId)) {
+					// Update existing bid status
+					smartBidCache.updateBidStatus(parsedContent.bidId, parsedContent.status);
+				}
+			} catch {
+				continue;
+			}
+		}
+	}
+	
+	smartBidCache.setLastFetchTime(pubkeyHex, Date.now());
 }
 
 /**

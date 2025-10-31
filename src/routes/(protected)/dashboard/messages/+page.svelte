@@ -13,7 +13,7 @@
 	import { subscribeToEvents } from '$lib/utils/nostr';
 	import type { Event as NostrEvent, Filter } from 'nostr-tools';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
-	import { conversationManager } from '$lib/utils/conversation-manager';
+	import { conversationManager, getConversations } from '$lib/utils/conversation-manager';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { t } from 'svelte-i18n';
 	import KINDS from '$lib/utils/constants/kinds';
@@ -76,81 +76,32 @@
 	// Load conversations on mount
 	onMount(async () => {
 		try {
-			// Clear profile cache to ensure we only show conversations for current user
-			const { nsec, npub } = await getNostrKeyPair();
-			const currentUserPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+			isLoading = true;
 			
-			console.log('🧹 Clearing profile cache for user:', currentUserPubkey);
-			profileCache.clear(); // Clear all cached profiles
+			// Get current user's pubkey
+			const { npub } = await getNostrKeyPair();
+			const currentUserPubkey = npub.startsWith('npub') 
+				? (nip19.decode(npub).data as string) 
+				: npub;
 			
-			// Obtener conversaciones pero excluir las que solo contengan bids
-			const people = await getMessagedPeople();
-
-			// Process conversations in parallel for better performance
-			const conversationPromises = people.map(async (person) => {
-				try {
-					// Obtener historial de mensajes con esta persona (limit to 10 for performance)
-					const messageHistory = await getMessageHistory(person.pubkey, { limit: 10 });
-
-					// Verificar si hay mensajes que NO sean JSON (system messages)
-					const hasNonJsonMessages = messageHistory.some((message) => {
-						const isJsonMessage = message.plaintext.startsWith('[') || message.plaintext.startsWith('{');
-						return !isJsonMessage;
-					});
-
-					// Solo incluir conversaciones que tengan mensajes normales (no JSON)
-					if (hasNonJsonMessages) {
-						// Find the most recent non-JSON message for preview
-						const lastNonJsonMessage = messageHistory
-							.filter(message => {
-								const isJsonMessage = message.plaintext.startsWith('[') || message.plaintext.startsWith('{');
-								return !isJsonMessage;
-							})
-							.sort((a, b) => b.event.created_at - a.event.created_at)[0];
-
-						// Update the person's lastEvent with the filtered content
-						if (lastNonJsonMessage) {
-							return {
-								...person,
-								lastEvent: {
-									...person.lastEvent,
-									content: lastNonJsonMessage.plaintext,
-									created_at: lastNonJsonMessage.event.created_at
-								}
-							};
-						} else {
-							return person;
-						}
-					}
-					// Don't include conversations with only JSON messages - return undefined to filter out
-					return undefined;
-				} catch (err) {
-					// Si hay error, incluir la conversación por seguridad
-					return person;
+			// Use optimized getConversations with progressive loading
+			const conversationList = await getConversations({
+				progressive: true,
+				userPubkey: currentUserPubkey,
+				onProgress: (progressConversations) => {
+					conversations = progressConversations;
+					isLoading = progressConversations.length === 0; // Keep loading only if no conversations yet
 				}
 			});
-
-			// Wait for all conversations to be processed
-			const conversationResults = await Promise.all(conversationPromises);
-			const filteredConversations = conversationResults.filter((conversation): conversation is NonNullable<typeof conversation> => conversation !== undefined);
-
-			// Ordenar conversaciones del más reciente al más antiguo
-			conversations = filteredConversations.sort((a, b) => {
-				const timeA = a.lastEvent?.created_at || 0;
-				const timeB = b.lastEvent?.created_at || 0;
-				return timeB - timeA; // Más reciente primero
-			});
-
-			// Setup profile subscriptions for existing conversations
-			for (const conversation of conversations) {
-				// Profile subscription removed - using props instead
-			}
+			
+			conversations = conversationList;
 		} catch (err) {
 			error = 'messages.failed_load_conversations';
+			console.error('Failed to load conversations:', err);
 		} finally {
 			isLoading = false;
 		}
-
+		
 		// Setup real-time updates for conversation list
 		setupConversationListListener();
 	});
@@ -561,9 +512,9 @@
 								></path>
 							</svg>
 						</div>
-						<div>
-							<h4 class="text-sm font-semibold">Start New Message</h4>
-						</div>
+                        <div>
+                            <h4 class="text-sm font-semibold">{$t('messages.start_new_message')}</h4>
+                        </div>
 					</div>
 				</div>
 
@@ -571,12 +522,12 @@
 					<!-- Input Section -->
 					<div class="space-y-3">
 						<div>
-							<label
-								for="recipient-pubkey"
-								class="text-base-content mb-2 block text-sm font-medium"
-							>
-								Recipient (npub or username)
-							</label>
+                            <label
+                                for="recipient-pubkey"
+                                class="text-base-content mb-2 block text-sm font-medium"
+                            >
+                                {$t('messages.recipient_label')}
+                            </label>
 							<div class="relative">
 								<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 									<svg
@@ -593,20 +544,20 @@
 										></path>
 									</svg>
 								</div>
-								<input
-									id="recipient-pubkey"
-									type="text"
-									class="input input-bordered focus:input-primary w-full pl-10 text-sm"
-									bind:value={newMessagePubkey}
-									oninput={handlePubkeyInput}
-									placeholder="Enter npub or username"
-									autocomplete="off"
-								/>
+                                <input
+                                    id="recipient-pubkey"
+                                    type="text"
+                                    class="input input-bordered focus:input-primary w-full pl-10 text-sm"
+                                    bind:value={newMessagePubkey}
+                                    oninput={handlePubkeyInput}
+                                    placeholder={$t('messages.recipient_placeholder')}
+                                    autocomplete="off"
+                                />
 							</div>
 						</div>
 
 						<!-- Help text -->
-						<div class="bg-base-200/50 rounded-lg p-3">
+                        <div class="bg-base-200/50 rounded-lg p-3">
 							<div class="flex items-start gap-2">
 								<svg
 									class="text-info mt-0.5 h-4 w-4 flex-shrink-0"
@@ -621,19 +572,19 @@
 										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 									></path>
 								</svg>
-								<div class="text-base-content/70 text-xs">
-									<p class="mb-1 font-medium">Search by username</p>
-									<p class="text-xs">
-										Enter a username to search for users, or paste an npub/hex pubkey directly
-									</p>
-								</div>
+                                <div class="text-base-content/70 text-xs">
+                                    <p class="mb-1 font-medium">{$t('messages.search_by_username_title')}</p>
+                                    <p class="text-xs">
+                                        {$t('messages.search_by_username_desc')}
+                                    </p>
+                                </div>
 							</div>
 						</div>
 					</div>
 
 					<!-- Username Search Results -->
 					{#if showUsernameResults && usernameSearchResults.length > 0}
-						<div class="space-y-3">
+                        <div class="space-y-3">
 							<div class="flex items-center gap-2">
 								<svg
 									class="text-success h-4 w-4"
@@ -648,15 +599,15 @@
 										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 									></path>
 								</svg>
-								<span class="text-sm font-medium">Search Results</span>
+                                <span class="text-sm font-medium">{$t('messages.search_results')}</span>
 							</div>
 							<div class="border-base-300 max-h-48 space-y-1 overflow-y-auto rounded-lg border p-1">
 								{#each usernameSearchResults as result}
 									<button
 										type="button"
 										class="hover:bg-primary/5 hover:border-primary/20 flex w-full items-center gap-3 rounded-lg border border-transparent p-3 transition-all duration-200"
-										onclick={() => selectUserFromSearch(result.pubkey)}
-										aria-label={`Select ${result.profile.name || 'Unknown User'}`}
+                                        onclick={() => selectUserFromSearch(result.pubkey)}
+                                        aria-label={$t('messages.select_user')}
 									>
 										<div class="user-avatar flex-shrink-0">
 											{#if result.profile.picture}
@@ -695,9 +646,9 @@
 											</div>
 										</div>
 										<div class="min-w-0 flex-1 text-left">
-											<h5 class="text-base-content truncate text-sm font-medium">
-												{result.profile.name || 'Unknown User'}
-											</h5>
+                                            <h5 class="text-base-content truncate text-sm font-medium">
+                                                {result.profile.name || $t('messages.unknown_user')}
+                                            </h5>
 											<p class="text-base-content/60 truncate font-mono text-xs">
 												{result.pubkey.slice(0, 12)}...{result.pubkey.slice(-8)}
 											</p>
@@ -827,7 +778,7 @@
 								</svg>
 							</div>
 						</div>
-					{:else if newMessagePubkey && !newMessageError && !showUsernameResults}
+                    {:else if newMessagePubkey && !newMessageError && !showUsernameResults}
 						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
 							<div class="bg-base-300 flex h-10 w-10 items-center justify-center rounded-full">
 								<svg
@@ -845,8 +796,8 @@
 									/>
 								</svg>
 							</div>
-							<div class="min-w-0 flex-1">
-								<p class="text-base-content/60 font-medium">No se encontró perfil</p>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-base-content/60 font-medium">{$t('messages.no_profile_found')}</p>
 								<p class="text-base-content/50 truncate text-xs">
 									{newMessagePubkey.startsWith('npub')
 										? `${newMessagePubkey.slice(0, 16)}...`
@@ -858,7 +809,7 @@
 
 					<!-- Action Buttons -->
 					<div class="border-base-300 flex gap-3 border-t pt-6">
-						<button type="button" class="btn btn-ghost flex-1" onclick={closeModal}>
+                        <button type="button" class="btn btn-ghost flex-1" onclick={closeModal}>
 							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path
 									stroke-linecap="round"
@@ -867,7 +818,7 @@
 									d="M6 18L18 6M6 6l12 12"
 								></path>
 							</svg>
-							Cancel
+                            {$t('messages.cancel')}
 						</button>
 						<button
 							type="submit"
@@ -876,7 +827,7 @@
 						>
 							{#if isProfileLoading}
 								<span class="loading loading-spinner loading-sm mr-2"></span>
-								Loading...
+                                {$t('messages.loading')}
 							{:else}
 								<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path
@@ -886,7 +837,7 @@
 										d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
 									></path>
 								</svg>
-								Start Chat
+                                {$t('messages.start_chat')}
 							{/if}
 						</button>
 					</div>
@@ -945,8 +896,8 @@
 
 			<!-- Scrollable content area -->
 			<div class="min-h-0 flex-1 overflow-y-auto">
-				{#if isLoading}
-					<!-- Loading State -->
+				{#if isLoading && conversations.length === 0}
+					<!-- Loading State - Only show if no cached conversations -->
 					<div class="divide-base-300/20 divide-y">
 						{#each Array(3) as _}
 							<div class="flex animate-pulse items-center gap-3 p-4">
@@ -955,29 +906,50 @@
 									<div class="bg-base-300 mb-1 h-4 w-1/4 rounded"></div>
 									<div class="bg-base-300 h-3 w-2/3 rounded"></div>
 								</div>
-								<div class="bg-base-300 h-4 w-4 rounded"></div>
 							</div>
 						{/each}
 					</div>
-				{:else if error}
-					<!-- Error State -->
-					<div class="alert alert-error alert-outline">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span>{$t(error)}</span>
+				{:else if conversations.length > 0}
+					<!-- Show conversations with optional loading indicator -->
+					<div class="divide-base-300/20 divide-y">
+						{#each filteredConversations as conversation}
+							<button
+								class="flex w-full items-center gap-3 p-4 text-left hover:bg-base-200/50 transition-colors"
+								onclick={() => selectConversation(conversation.pubkey)}
+							>
+								<!-- Avatar -->
+								<div class="flex-shrink-0">
+									<Avatar
+										picture={conversation.profile.picture}
+										name={conversation.profile.name}
+										size="md"
+									/>
+								</div>
+
+								<!-- Conversation Info -->
+								<div class="min-w-0 flex-1">
+									<div class="flex items-center justify-between">
+										<h3 class="font-medium truncate">
+											{conversation.profile.name || `${conversation.pubkey.slice(0, 8)}...`}
+										</h3>
+										<span class="text-base-content/60 text-xs flex-shrink-0 ml-2">
+											{formatTimeAgo(new Date(conversation.lastMessageTime * 1000))}
+										</span>
+									</div>
+									<p class="text-base-content/70 text-sm truncate mt-1">
+										{conversation.lastMessage || $t('messages.no_messages')}
+									</p>
+								</div>
+							</button>
+						{/each}
+						
+                        {#if isLoading}
+                            <div class="p-2 text-center text-xs opacity-50">
+                                {$t('messages.loading_more_conversations')}
+                            </div>
+                        {/if}
 					</div>
-				{:else if conversations.length === 0}
+				{:else if !isLoading}
 					<!-- Empty State -->
 					<div class="py-12 text-center">
 						<svg
@@ -999,6 +971,24 @@
 						<button class="btn btn-primary mt-4" onclick={startNewMessage}>
 							{$t('messages.start_new_message')}
 						</button>
+					</div>
+				{:else if error}
+					<!-- Error State -->
+					<div class="alert alert-error alert-outline">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span>{$t(error)}</span>
 					</div>
 				{:else if filteredConversations.length === 0}
 					<!-- No Search Results -->
@@ -1023,77 +1013,8 @@
 							{$t('messages.clear_search')}
 						</button>
 					</div>
-				{:else}
-					<!-- Conversation List -->
-					<div class="divide-base-300/20 divide-y">
-						{#each filteredConversations as conversation}
-							<button
-								class="hover:bg-base-200/50 active:bg-base-200 flex w-full items-center gap-3 px-4 py-3 transition-colors sm:gap-4 sm:px-6 sm:py-4"
-								onclick={() => selectConversation(conversation.pubkey)}
-							>
-								<!-- Avatar -->
-									<div class="flex-shrink-0">
-										{#if conversation.profile.picture}
-											<img
-												src={conversation.profile.picture}
-												alt={conversation.profile.name || $t('messages.unknown_user')}
-												class="h-10 w-10 rounded-full object-cover ring-2 ring-base-300"
-												width={40}
-												height={40}
-											/>
-										{:else}
-											<div class="bg-gradient-to-br from-primary/20 to-secondary/20 flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-base-300">
-												{#if conversation.profile.name}
-													<span class="text-primary font-semibold text-sm">
-														{conversation.profile.name.charAt(0).toUpperCase()}
-													</span>
-												{:else}
-													<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-													</svg>
-												{/if}
-											</div>
-										{/if}
-									</div>
-
-								<!-- Content -->
-								<div class="min-w-0 flex-1 text-left pl-2">
-									<div class="mb-2 flex items-center justify-between">
-										<h4 class="truncate text-sm font-medium">
-											{conversation.profile.name}
-										</h4>
-										<span class="text-base-content/50 ml-3 flex-shrink-0 text-xs">
-											{formatTimeAgo(new Date(conversation.lastMessageTime * 1000))}
-										</span>
-									</div>
-									<p class="text-base-content/70 line-clamp-2 text-xs leading-relaxed">
-										{conversation.lastMessage}
-									</p>
-								</div>
-
-								<!-- Arrow indicator -->
-								<div class="flex-shrink-0 pl-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="text-base-content/30 h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 5l7 7-7 7"
-										/>
-									</svg>
-								</div>
-							</button>
-						{/each}
-					</div>
 				{/if}
 			</div>
-			<!-- Close scrollable content area -->
 		</div>
 	</div>
 </div>
