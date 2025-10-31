@@ -20,15 +20,20 @@
 	let nsecHex = $state<string>('');
 	let isDeletingSwaps = $state(false);
 	let expandedSwaps = $state<Set<string>>(new Set());
+	let minAmount = $state<number>(0);
+	let maxAmount = $state<number>(0);
+	let isLoadingLimits = $state(true);
 
-	// Get network and minimum amount
+	// Get network
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-	const minAmount = 2500;
-	const minBTC = minAmount / 100_000_000;
+
+	// Derived values
+	let minBTC = $derived(minAmount / 100_000_000);
+	let maxBTC = $derived(maxAmount / 100_000_000);
 
 	/**
 	 * Get user's nsec and setup wallet getter on component load
-	 * Also recover any pending swaps from Nostr
+	 * Also recover any pending swaps from Nostr and fetch swap limits
 	 */
 	$effect(() => {
 		(async () => {
@@ -38,6 +43,9 @@
 
 				// Set wallet getter for automatic claiming
 				chainSwapService.setWalletGetter(() => $rskConnection.wallet);
+
+				// Fetch swap limits from Boltz
+				await fetchSwapLimits();
 
 				// Recover pending swaps from Nostr storage
 				const recovered = await chainSwapService.recoverPendingSwaps(nsecHex);
@@ -58,6 +66,26 @@
 			}
 		})();
 	});
+
+	/**
+	 * Fetch swap limits from Boltz API
+	 */
+	async function fetchSwapLimits() {
+		try {
+			isLoadingLimits = true;
+			const limits = await chainSwapService.getSwapLimits();
+			minAmount = limits.minimal;
+			maxAmount = limits.maximal;
+			console.log('✅ Fetched chain swap limits:', { minAmount, maxAmount, minBTC, maxBTC });
+		} catch (err) {
+			console.error('Failed to fetch chain swap limits:', err);
+			// Use fallback values
+			minAmount = 2500;
+			maxAmount = network === 'mainnet' ? 100_000_000 : 10_000_000; // 1 BTC or 0.1 BTC
+		} finally {
+			isLoadingLimits = false;
+		}
+	}
 
 	/**
 	 * Create chain swap (L-BTC → RBTC)
@@ -301,9 +329,14 @@
 		<div class="form-control">
 			<label class="label" for="amount">
 				<span class="label-text">{$t('wallet.swap.amount_btc')}</span>
-				<span class="label-text-alt"
-					>{$t('wallet.swap.min_amount')}: {network === 'mainnet' ? '0.00001' : '0.0001'} BTC</span
-				>
+				<span class="label-text-alt">
+					{#if isLoadingLimits}
+						<span class="loading loading-spinner loading-xs"></span>
+						{$t('wallet.loading')}...
+					{:else}
+						{$t('wallet.swap.min_amount')}: {minBTC.toFixed(8)} BTC ({minAmount.toLocaleString()} sats)
+					{/if}
+				</span>
 			</label>
 			<input
 				id="amount"
@@ -312,7 +345,7 @@
 				placeholder="0.001"
 				class="input input-bordered w-full"
 				bind:value={amount}
-				disabled={isCreatingSwap}
+				disabled={isCreatingSwap || isLoadingLimits}
 			/>
 		</div>
 

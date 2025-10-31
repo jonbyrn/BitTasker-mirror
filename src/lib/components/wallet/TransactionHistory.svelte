@@ -113,17 +113,31 @@
 		return '↑';
 	}
 
-	function formatFee(fee: number): string {
-		// Convert to a more readable format
-		if (fee < 0.000001) {
-			// For very small fees, show in scientific notation with fewer decimals
-			return fee.toExponential(2);
-		} else if (fee < 0.001) {
-			// For small fees, show 8 decimal places
-			return fee.toFixed(8);
+	function formatFee(fee: number, asset: string): string {
+		// Fee is already in native units (rBTC, BNB, etc.) from transactionHistory.ts
+		
+		if (asset === 'rBTC' || asset === 'BNB' || asset.includes('ETH')) {
+			// For EVM chains, show in Gwei for better readability
+			if (fee < 0.00001) {
+				const gwei = fee * 1e9; // Convert from native token to Gwei
+				return `${gwei.toFixed(4)} Gwei`;
+			}
+			// For larger fees, show in native token
+			return `${fee.toFixed(10)} ${asset}`;
+		} else if (asset === 'BTC' || asset === 'L-BTC' || asset.includes('BTC')) {
+			// For Bitcoin-based assets, show in satoshis for small amounts
+			if (fee < 0.00001) {
+				const sats = Math.floor(fee * 100_000_000);
+				return `${sats.toLocaleString()} sats`;
+			}
+			// Otherwise show in BTC with appropriate decimals
+			return `${fee.toFixed(8)} ${asset}`;
 		} else {
-			// For larger fees, show 6 decimal places
-			return fee.toFixed(6);
+			// Fallback for unknown assets
+			if (fee < 0.000001) {
+				return `${fee.toExponential(2)} ${asset}`;
+			}
+			return `${fee.toFixed(8)} ${asset}`;
 		}
 	}
 
@@ -403,8 +417,7 @@
 								</div>
 								{#if tx.fee}
 									<div class="text-xs opacity-70">
-										{$t('wallet.transaction_fee')}: {formatFee(tx.fee)}
-										{tx.asset}
+										{$t('wallet.transaction_fee')}: {formatFee(tx.fee, tx.asset || '')}
 									</div>
 								{/if}
 								{#if tx.txHash}
@@ -480,8 +493,7 @@
 								{/if}
 								{#if tx.fee}
 									<div class="text-xs">
-										{$t('wallet.transaction_fee')}: {formatFee(tx.fee)}
-										{tx.asset}
+										{$t('wallet.transaction_fee')}: {formatFee(tx.fee, tx.asset || '')}
 									</div>
 								{/if}
 							</div>

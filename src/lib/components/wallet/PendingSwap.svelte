@@ -354,23 +354,7 @@
 		</div>
 
 		<!-- Action Buttons -->
-		<div class="mt-2 flex flex-wrap gap-2">
-			{#if swapType === 'lightning' && !(swap as BoltzSwapData).claimTxHash && swap.status === 'transaction.confirmed'}
-				<!-- Can claim now - gasless via RIF Relay -->
-				<button
-					class="btn btn-success btn-sm block w-fit justify-self-end"
-					onclick={handleClaim}
-					disabled={isClaiming}
-				>
-					{#if isClaiming}
-						<span class="loading loading-spinner loading-xs"></span>
-						{$t('wallet.swap.claiming')}
-					{:else}
-						⚡ {$t('wallet.swap.lightning.claim_now')}
-					{/if}
-				</button>
-			{/if}
-
+		<div class="mt-2 flex flex-wrap justify-end gap-2">
 			<!-- Always show delete button -->
 			<button
 				class="btn btn-ghost btn-sm btn-outline"

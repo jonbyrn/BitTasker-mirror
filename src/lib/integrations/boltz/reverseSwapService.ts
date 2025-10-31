@@ -93,6 +93,37 @@ export class ReverseSwapService {
 	}
 
 	/**
+	 * Get swap limits from Boltz API
+	 * Returns minimal and maximal amounts for Lightning → RBTC swaps
+	 */
+	async getSwapLimits(): Promise<{ minimal: number; maximal: number }> {
+		try {
+			// Get reverse swap pairs
+			const reversePairs = await this.boltzClient.getReverseSwapPairs();
+			console.log({ reversePairs })
+
+			// API returns flat structure: { 'BTC': {...}, 'RBTC': {...}, 'L-BTC': {...} }
+			// For Lightning → RBTC swaps, we use RBTC limits
+			const pairInfo = reversePairs?.['BTC']?.['RBTC'];
+
+			if (!pairInfo || !pairInfo.limits) {
+				console.warn('Could not find RBTC pair limits in response:', reversePairs);
+				throw new Error('Reverse swap pair limits not available');
+			}
+
+			console.log('✅ Found RBTC reverse swap limits:', pairInfo.limits);
+
+			return {
+				minimal: pairInfo.limits.minimal,
+				maximal: pairInfo.limits.maximal
+			};
+		} catch (error) {
+			console.error('Failed to get swap limits:', error);
+			throw error;
+		}
+	}
+
+	/**
 	 * Create a reverse swap (Lightning → rBTC)
 	 * 
 	 * IMPORTANT: Determines claim address based on user's gas balance
@@ -124,7 +155,7 @@ export class ReverseSwapService {
 				// Check user's gas balance
 				const balance = await params.walletSigner.provider.getBalance(params.rbtcAddress);
 				const gasEstimate = 100000n * 60000000n; // ~100k gas @ 0.06 gwei
-				
+
 				if (balance < gasEstimate) {
 					// User has insufficient gas - use Smart Wallet for gasless claim
 					const smartWallet = await getSmartWalletAddress(params.walletSigner);
@@ -274,7 +305,7 @@ export class ReverseSwapService {
 				let claimSuccessful = false;
 
 				try {
-					const wasCreatedForSmartWallet = swapData.claimAddress && 
+					const wasCreatedForSmartWallet = swapData.claimAddress &&
 						swapData.claimAddress !== swapData.rbtcAddress;
 
 					if (wasCreatedForSmartWallet) {
@@ -673,11 +704,11 @@ export class ReverseSwapService {
 				console.error('💡 Swap not found. Reasons: \n\n 1) TX not confirmed, \n\n 2) Wrong parameters, \n\n 3) Already claimed');
 				console.error('📊 Swap:', {
 					id: swapData.id,
-                    amount: swapData.onchainAmount,
-                    claimAddress: swapData.rbtcAddress,
-                    refundAddress: swapData.refundAddress,
-                    timelock: swapData.timeoutBlockHeight,
-                    lockupTx: swapData.lockupTxHash
+					amount: swapData.onchainAmount,
+					claimAddress: swapData.rbtcAddress,
+					refundAddress: swapData.refundAddress,
+					timelock: swapData.timeoutBlockHeight,
+					lockupTx: swapData.lockupTxHash
 				});
 			}
 
@@ -696,11 +727,11 @@ export class ReverseSwapService {
 	async recoverPendingSwaps(nsec: string): Promise<BoltzSwapData[]> {
 		try {
 			const swaps = await recoverPendingSwaps(nsec, 'boltz-swap-reverse');
-			
+
 			// Store in memory and resubscribe to WebSocket
 			for (const swap of swaps) {
 				this.activeSwaps.set(swap.id, swap as BoltzSwapData);
-				
+
 				// Resubscribe to WebSocket
 				boltzWebSocket.subscribeToSwap(swap.id, async (event) => {
 					await this.handleSwapUpdate(event, nsec);
@@ -743,7 +774,7 @@ export class ReverseSwapService {
 	async deleteAllSwapEvents(nsec: string): Promise<{ count: number }> {
 		try {
 			const result = await deleteAllSwapEvents(nsec, 'boltz-swap-reverse');
-			
+
 			// Clear active swaps from memory
 			this.activeSwaps.clear();
 
@@ -761,7 +792,7 @@ export class ReverseSwapService {
 	async deleteSwapEvent(nsec: string, swapId: string): Promise<boolean> {
 		try {
 			const success = await deleteSwapEvent(nsec, swapId, 'boltz-swap-reverse');
-			
+
 			// Remove from memory if successful
 			if (success) {
 				this.activeSwaps.delete(swapId);

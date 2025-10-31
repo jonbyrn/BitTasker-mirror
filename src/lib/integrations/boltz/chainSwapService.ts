@@ -123,6 +123,33 @@ export class ChainSwapService {
 	}
 
 	/**
+	 * Get swap limits from Boltz API
+	 * Returns minimal and maximal amounts for L-BTC → RBTC swaps
+	 */
+	async getSwapLimits(): Promise<{ minimal: number; maximal: number }> {
+		try {
+			// Get chain swap pairs
+			const chainPairs = await this.boltzClient.getChainSwapPairs();
+
+			// API returns nested structure: chainPairs['L-BTC']['RBTC']
+			const pairInfo = chainPairs?.['L-BTC']?.['RBTC'];
+
+			if (!pairInfo || !pairInfo.limits) {
+				console.warn('Could not find pair limits in response:', chainPairs);
+				throw new Error('Chain swap pair limits not available');
+			}
+
+			return {
+				minimal: pairInfo.limits.minimal,
+				maximal: pairInfo.limits.maximal
+			};
+		} catch (error) {
+			console.error('Failed to get chain swap limits:', error);
+			throw error;
+		}
+	}
+
+	/**
 	 * Generate L-BTC refund key pair
 	 * This is needed to refund L-BTC if swap expires or fails
 	 */

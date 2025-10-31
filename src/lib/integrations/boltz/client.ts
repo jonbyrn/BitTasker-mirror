@@ -754,6 +754,24 @@ export class BoltzClient {
 	}
 
 	/**
+	 * Get reverse swap pairs (Lightning → RBTC)
+	 * Returns available reverse swap pairs with limits and fees
+	 */
+	async getReverseSwapPairs(): Promise<any> {
+		try {
+			const response = await this.request('GET', '/v2/swap/reverse');
+			console.log('🔍 Reverse swap pairs response:', response);
+			return response;
+		} catch (error) {
+			console.error('Failed to get reverse swap pairs:', error);
+			throw new BoltzError(
+				'Reverse swap pairs request failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'REVERSE_PAIRS_ERROR'
+			);
+		}
+	}
+
+	/**
 	 * Get chain swap pairs (L-BTC → RBTC, etc.)
 	 * Returns available chain-to-chain swap pairs with limits and fees
 	 */
