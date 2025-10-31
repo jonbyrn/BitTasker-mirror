@@ -184,24 +184,24 @@ export const BSC_NETWORKS = {
 
 // BSC Paymaster Contract configurations
 export const BSC_PAYMASTER_CONFIGS: Record<NetworkType, PaymasterConfig> = {
-    mainnet: {
-        address: '0x0000000000000000000000000000000000000000', // Placeholder - needs to be deployed
-        usdtTokenAddress: '0x55d398326f99059fF775485246999027B3197955',
-        minDeposit: ethers.parseEther('1'), // 1 BNB minimum deposit
-        maxGasPrice: ethers.parseUnits('50', 'gwei'), // 50 gwei max gas price
-        usdtPriceOracle: '0x0000000000000000000000000000000000000000' // Placeholder
-    },
-    testnet: {
-        address: '0x0000000000000000000000000000000000000000', // Placeholder - needs to be deployed
-        usdtTokenAddress: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
-        minDeposit: ethers.parseEther('0.1'), // 0.1 BNB minimum deposit
-        maxGasPrice: ethers.parseUnits('20', 'gwei'), // 20 gwei max gas price
-        usdtPriceOracle: '0x0000000000000000000000000000000000000000' // Placeholder
-    }
+	mainnet: {
+		address: '0x0000000000000000000000000000000000000000', // Placeholder - needs to be deployed
+		usdtTokenAddress: '0x55d398326f99059fF775485246999027B3197955',
+		minDeposit: ethers.parseEther('1'), // 1 BNB minimum deposit
+		maxGasPrice: ethers.parseUnits('50', 'gwei'), // 50 gwei max gas price
+		usdtPriceOracle: '0x0000000000000000000000000000000000000000' // Placeholder
+	},
+	testnet: {
+		address: '0x0000000000000000000000000000000000000000', // Placeholder - needs to be deployed
+		usdtTokenAddress: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
+		minDeposit: ethers.parseEther('0.1'), // 0.1 BNB minimum deposit
+		maxGasPrice: ethers.parseUnits('20', 'gwei'), // 20 gwei max gas price
+		usdtPriceOracle: '0x0000000000000000000000000000000000000000' // Placeholder
+	}
 };
 
 export function getBSCPaymasterConfig(network: NetworkType): PaymasterConfig {
-    return BSC_PAYMASTER_CONFIGS[network];
+	return BSC_PAYMASTER_CONFIGS[network];
 }
 
 export function getUSDTToken(network: NetworkType): ERC20Token | undefined {
@@ -212,4 +212,6 @@ export function getUSDTToken(network: NetworkType): ERC20Token | undefined {
 // Helper function to get Multicall address for a network
 export function getMulticallAddress(network: NetworkType): string | null {
     return RSK_NETWORKS[network].multicallAddress || null;
+	const networkConfig = BSC_NETWORKS[network];
+	return networkConfig.tokens.find(token => token.symbol === 'USDT' || token.symbol === 'tUSDT');
 }

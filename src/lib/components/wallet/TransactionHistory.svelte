@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Payment } from '@breeztech/breez-sdk-liquid/web';
 	import type { Transaction as RSKTransaction } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
@@ -10,7 +9,7 @@
 	interface Transaction {
 		id: string;
 		type: 'send' | 'receive';
-		network: 'liquid' | 'rsk' | 'bsc';
+		network: 'rsk' | 'bsc';
 		asset: string;
 		amount: number;
 		formattedAmount: string;
@@ -26,7 +25,7 @@
 	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	let selectedFilter = $state<'all' | 'liquid' | 'rsk' | 'bsc' | 'send' | 'receive'>('all');
+	let selectedFilter = $state<'all' | 'rsk' | 'bsc' | 'send' | 'receive'>('all');
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
 
@@ -35,7 +34,7 @@
 		transactions
 			.filter((tx) => {
 				if (selectedFilter === 'all') return true;
-				if (selectedFilter === 'liquid' || selectedFilter === 'rsk' || selectedFilter === 'bsc') {
+				if (selectedFilter === 'rsk' || selectedFilter === 'bsc') {
 					return tx.network === selectedFilter;
 				}
 				if (selectedFilter === 'send' || selectedFilter === 'receive') {
@@ -70,66 +69,10 @@
 			const convertedTransactions: Transaction[] = [];
 
 			for (const tx of storeTransactions) {
-				// Check if it's a Breez Payment (Liquid) or a blockchain Transaction (RSK/BSC)
-				if ('paymentType' in tx) {
-					// It's a Breez Payment (Liquid network)
-					const payment = tx as Payment;
-					const isReceive = payment.paymentType === 'receive';
-					const timestamp = payment.timestamp * 1000; // Convert to milliseconds
+				// All transactions are blockchain Transactions (RSK or BSC)
+				const blockchainTx = tx as RSKTransaction;
 
-					// Get asset info
-					let asset = 'L-BTC';
-					let formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(8).replace(/\.?0+$/, '')} L-BTC`;
-
-					// Check if it's a different asset
-					if (
-						payment.details.type === 'liquid' &&
-						'assetId' in payment.details &&
-						payment.details.assetId
-					) {
-						// Handle other Liquid assets (USDt, etc.)
-						// Mainnet USDt asset ID
-						if (
-							payment.details.assetId ===
-							'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2'
-						) {
-							asset = 'USDt';
-							formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(2)} USDt`;
-						}
-						// Testnet USDt asset ID
-						else if (
-							payment.details.assetId ===
-							'b612eb46313a2cd6ebabd8b7a8eed5696e29898b87a43bff41c94f51acef9d73'
-						) {
-							asset = 'USDt';
-							formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(2)} USDt`;
-						}
-						// Other assets - show first 6 chars of asset ID
-						else {
-							asset = payment.details.assetId.slice(0, 6) + '...';
-							formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(8).replace(/\.?0+$/, '')} ${asset}`;
-						}
-					}
-
-					convertedTransactions.push({
-						id: payment.txId || `liquid-${payment.timestamp}-${payment.amountSat}`,
-						type: isReceive ? 'receive' : 'send',
-						network: 'liquid' as const,
-						asset,
-						amount: payment.amountSat,
-						formattedAmount,
-						address: payment.destination,
-						timestamp,
-						status: getBreezTransactionStatus(payment),
-						txHash: payment.txId,
-						description: getBreezTransactionDescription(payment),
-						fee: payment.feesSat
-					});
-				} else if ('network' in tx) {
-					// It's a blockchain Transaction (RSK or BSC)
-					const blockchainTx = tx as RSKTransaction;
-
-					if (blockchainTx.network === 'bsc') {
+				if (blockchainTx.network === 'bsc') {
 						// BSC Transaction
 						let asset = 'BNB';
 						let amount = 0;
@@ -176,46 +119,42 @@
 							description: getBSCTransactionDescription(blockchainTx),
 							fee
 						});
-					} else {
-						// RSK Transaction
-						const rskTx = blockchainTx;
-						const amount = parseFloat(ethers.formatEther(rskTx.value || '0'));
-						const formattedAmount = `${amount.toFixed(6)} rBTC`;
-
-						// Calculate fee if available
-						let fee: number | undefined;
-						if (
-							rskTx.gasUsed &&
-							rskTx.gasUsed !== '0' &&
-							rskTx.gasPrice &&
-							rskTx.gasPrice !== '0'
-						) {
-							try {
-								const feeWei = BigInt(rskTx.gasUsed) * BigInt(rskTx.gasPrice);
-								fee = parseFloat(ethers.formatEther(feeWei));
-							} catch (error) {
-								console.warn('Failed to calculate transaction fee:', error);
-							}
-						}
-
-						convertedTransactions.push({
-							id: rskTx.hash || `rsk-${rskTx.timestamp}-${rskTx.value}`,
-							type: rskTx.type as 'send' | 'receive',
-							network: 'rsk' as const,
-							asset: 'rBTC',
-							amount,
-							formattedAmount,
-							address: rskTx.to,
-							timestamp: rskTx.timestamp,
-							status: rskTx.status as 'confirmed' | 'pending' | 'failed',
-							txHash: rskTx.hash,
-							description: getTransactionDescription(rskTx),
-							fee
-						});
-					}
 				} else {
-					// Fallback: Legacy transaction without network property
-					console.warn('Transaction without network property:', tx);
+					// RSK Transaction
+					const rskTx = blockchainTx;
+					const amount = parseFloat(ethers.formatEther(rskTx.value || '0'));
+					const formattedAmount = `${amount.toFixed(6)} rBTC`;
+
+					// Calculate fee if available
+					let fee: number | undefined;
+					if (
+						rskTx.gasUsed &&
+						rskTx.gasUsed !== '0' &&
+						rskTx.gasPrice &&
+						rskTx.gasPrice !== '0'
+					) {
+						try {
+							const feeWei = BigInt(rskTx.gasUsed) * BigInt(rskTx.gasPrice);
+							fee = parseFloat(ethers.formatEther(feeWei));
+						} catch (error) {
+							console.warn('Failed to calculate transaction fee:', error);
+						}
+					}
+
+					convertedTransactions.push({
+						id: rskTx.hash || `rsk-${rskTx.timestamp}-${rskTx.value}`,
+						type: rskTx.type as 'send' | 'receive',
+						network: 'rsk' as const,
+						asset: 'rBTC',
+						amount,
+						formattedAmount,
+						address: rskTx.to,
+						timestamp: rskTx.timestamp,
+						status: rskTx.status as 'confirmed' | 'pending' | 'failed',
+						txHash: rskTx.hash,
+						description: getTransactionDescription(rskTx),
+						fee
+					});
 				}
 			}
 
@@ -231,30 +170,6 @@
 
 	async function refreshTransactions() {
 		await loadTransactions();
-	}
-
-	function getBreezTransactionStatus(tx: Payment): 'confirmed' | 'pending' | 'failed' {
-		if (tx.status === 'pending') return 'pending';
-		if (tx.status === 'failed') return 'failed';
-		return 'confirmed';
-	}
-
-	function getBreezTransactionDescription(tx: Payment): string {
-		if (tx.paymentType === 'receive') {
-			if (tx.details.type === 'lightning') {
-				return 'Lightning payment received';
-			} else if (tx.details.type === 'liquid') {
-				return 'Liquid payment received';
-			}
-			return 'Payment received';
-		} else {
-			if (tx.details.type === 'lightning') {
-				return 'Lightning payment sent';
-			} else if (tx.details.type === 'liquid') {
-				return 'Liquid payment sent';
-			}
-			return 'Payment sent';
-		}
 	}
 
 	function getTransactionDescription(tx: RSKTransaction): string {
@@ -307,8 +222,6 @@
 
 	function getNetworkIcon(network: string): string {
 		switch (network) {
-			case 'liquid':
-				return '/images/chains/Liquid-Bitcoin.svg';
 			case 'rsk':
 				return '/images/chains/Bitcoin-Rootstock-logo.webp';
 			case 'bsc':
@@ -320,8 +233,6 @@
 
 	function getNetworkDisplayName(network: string): string {
 		switch (network) {
-			case 'liquid':
-				return 'Liquid Bitcoin';
 			case 'rsk':
 				return 'Rootstock Bitcoin';
 			case 'bsc':
@@ -350,9 +261,7 @@
 		if (!txHash) return;
 
 		let explorerUrl = '';
-		if (network === 'liquid') {
-			explorerUrl = `https://liquid.network/tx/${txHash}`;
-		} else if (network === 'rsk') {
+		if (network === 'rsk') {
 			// Use the correct RSK explorer based on network (default to testnet for now)
 			const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 			if (rskNetwork === 'mainnet') {
@@ -435,20 +344,6 @@
 				}}
 			>
 				{$t('wallet.all')} ({transactions.length})
-			</button>
-			<button
-				class="tab {selectedFilter === 'liquid' ? 'tab-active' : ''} whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'liquid';
-					currentPage = 0;
-				}}
-			>
-				<img
-					src="/images/chains/Liquid-Bitcoin.svg"
-					alt="Liquid Bitcoin"
-					class="mr-1 inline h-4 w-4"
-				/>
-				Liquid Bitcoin ({transactions.filter((tx) => tx.network === 'liquid').length})
 			</button>
 			<button
 				class="tab {selectedFilter === 'rsk' ? 'tab-active' : ''} whitespace-nowrap"

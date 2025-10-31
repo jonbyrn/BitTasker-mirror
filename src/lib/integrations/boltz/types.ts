@@ -34,9 +34,14 @@ export type SwapStatusType =
 	| 'transaction.lockupFailed'
 	| 'transaction.refunded'
 
+	// Chain swap specific - server side transactions
+	| 'transaction.server.mempool'
+	| 'transaction.server.confirmed'
+
 	// Claim states
 	| 'transaction.claim.pending'
 	| 'transaction.claim.failed'
+	| 'transaction.claimed'
 
 	// Refund states
 	| 'swap.refunded';
@@ -122,6 +127,71 @@ export interface CreateReverseSwapResponse {
 	timeoutBlockHeight: number;
 	blindingKey?: string; // For Liquid
 }
+
+// ============================================================================
+// Chain Swap Types (L-BTC → RBTC)
+// ============================================================================
+
+/**
+ * Chain swap request for L-BTC to RBTC swaps
+ * 
+ * Note: Chain swaps are different from reverse swaps:
+ * - User locks L-BTC first (not Lightning payment)
+ * - Requires refund key for L-BTC side
+ * - No claim public key for RBTC (uses address)
+ */
+export interface CreateChainSwapRequest {
+	from: 'L-BTC';
+	to: 'RBTC';
+	userLockAmount?: number; // Amount user will send in sats (optional)
+	serverLockAmount?: number; // Amount user will receive in sats (optional)
+	preimageHash: string;
+	claimPublicKey?: undefined; // Not used for RBTC (uses address)
+	refundPublicKey: string; // For L-BTC refunds if swap fails
+	claimAddress: string; // RBTC address (or Smart Wallet)
+	pairHash: string;
+	referralId?: string;
+}
+
+/**
+ * Chain swap response from Boltz API
+ * Contains both L-BTC lockup details and RBTC claim details
+ */
+export interface CreateChainSwapResponse {
+	id: string;
+	// User sends L-BTC here
+	lockupDetails: {
+		lockupAddress: string; // L-BTC address
+		amount: number; // Amount to send in sats
+		blindingKey: string; // Liquid confidential tx blinding key
+		swapTree: any; // Swap tree data for refunds
+		serverPublicKey: string; // Boltz public key
+		timeoutBlockHeight: number; // Liquid block height for refund
+	};
+	// User receives RBTC from here
+	claimDetails: {
+		lockupAddress: string; // RBTC EtherSwap contract address
+		amount: number; // Amount to receive in sats
+		refundAddress: string; // Boltz's RBTC refund address
+		timeoutBlockHeight: number; // RSK block height for claim timeout
+	};
+}
+
+/**
+ * Chain swap status type
+ * Distinct from reverse swaps - includes transaction.server.* events
+ */
+export type ChainSwapStatus = 
+	| 'swap.created'                  // Swap created, waiting for user's L-BTC
+	| 'transaction.mempool'           // User's L-BTC tx in mempool
+	| 'transaction.confirmed'         // User's L-BTC confirmed
+	| 'transaction.server.mempool'    // Boltz's RBTC tx in mempool
+	| 'transaction.server.confirmed'  // Boltz's RBTC confirmed, ready to claim!
+	| 'transaction.claim.pending'     // Claim transaction submitted, waiting for confirmation
+	| 'transaction.claimed'           // User claimed RBTC successfully
+	| 'swap.expired'                  // Timeout reached
+	| 'swap.refunded'                 // L-BTC refunded back to user
+	| 'transaction.failed';           // Swap failed
 
 // ============================================================================
 // Claim & Refund Types

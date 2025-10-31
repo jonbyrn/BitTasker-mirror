@@ -1,3 +1,14 @@
+/* 
+ * Nostr Events Service
+ * 
+ * IMPORTANT: This service is only intended to be used for tasks that are not related to the main app.
+ * 
+ * Features:
+ * - Publish events
+ * - Find events
+ * - Find event by ID
+ * - Request events
+ */
 import type { NostrEvent } from '$lib/types/nostr';
 import { ENDPOINTS } from '$lib/api/endpoints';
 import { BaseApiService } from '$lib/api/apiService';

@@ -38,15 +38,18 @@
 import type { SwapEvent } from './types';
 import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
-import { BoltzClient } from './client';
-import { boltzWebSocket } from './websocket';
-import { Contract, Interface, keccak256, solidityPacked, ethers } from 'ethers';
-import { getPublicKey, finalizeEvent, type NostrEvent } from 'nostr-tools';
-import nip44 from '$lib/nostr/nip44';
-import nostrEventsService from '$lib/api/services/nostr/events';
-import { relayClaimTransaction, getSmartWalletAddress } from './rif/Signer';
-import { getBoltzConfig, satoshiToWei, isRifRelayAvailable, SATOSHI_TO_WEI } from './config';
+import { BoltzClient, getLockupEventParameters } from '$lib/integrations/boltz/client';
+import { boltzWebSocket } from '$lib/integrations/boltz/websocket';
+import { Contract, ethers } from 'ethers';
+import { relayClaimTransaction, getSmartWalletAddress } from '$lib/integrations/boltz/rif/Signer';
+import { satoshiToWei, isRifRelayAvailable, SATOSHI_TO_WEI } from '$lib/integrations/boltz/config';
 import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
+import {
+	saveSwapToNostr,
+	recoverPendingSwaps,
+	deleteAllSwapEvents,
+	deleteSwapEvent
+} from '$lib/integrations/boltz/pendingSwaps';
 
 // Swap data structure for Nostr storage
 export interface BoltzSwapData {
@@ -69,12 +72,7 @@ export interface BoltzSwapData {
 	rifRelayUsed?: boolean; // Track if RIF Relay was used for gasless claiming
 }
 
-// EtherSwap ABI - Based on actual Boltz EtherSwap.sol contract
-// Using official Boltz EtherSwap ABI from boltz-core
-// This ensures we have all contract functions and stay in sync with Boltz's implementation
 // Reference: https://github.com/BoltzExchange/boltz-core/blob/master/contracts/EtherSwap.sol
-
-// Conversion factor imported from config
 
 export class ReverseSwapService {
 	private boltzClient: BoltzClient;
@@ -203,8 +201,8 @@ export class ReverseSwapService {
 		// Store in memory
 		this.activeSwaps.set(swapResponse.id, swapData);
 
-		// Save to Nostr (encrypted)
-		await this.saveSwapToNostr(swapData, params.nsec);
+		// Save to Nostr (encrypted) using shared module
+		await saveSwapToNostr(swapData, params.nsec, 'boltz-swap-reverse');
 
 		// Subscribe to WebSocket updates
 		boltzWebSocket.subscribeToSwap(swapResponse.id, async (event) => {
@@ -269,7 +267,7 @@ export class ReverseSwapService {
 				if (!wallet) {
 					console.warn('⚠️ No wallet connected - manual claim required');
 					swapData.status = 'transaction.confirmed';
-					await this.saveSwapToNostr(swapData, nsec);
+					await saveSwapToNostr(swapData, nsec, 'boltz-swap-reverse');
 					break;
 				}
 
@@ -346,113 +344,10 @@ export class ReverseSwapService {
 				break;
 		}
 
-		// Update Nostr storage
-		await this.saveSwapToNostr(swapData, nsec);
+		// Update Nostr storage using shared module
+		await saveSwapToNostr(swapData, nsec, 'boltz-swap-reverse');
 	}
 
-	/**
-	 * Get actual lockup parameters from the Lockup event in the blockchain transaction
-	 * This is CRITICAL because the Boltz API response may have different values than what's actually locked
-	 * 
-	 * The Lockup event contains the EXACT parameters that were used:
-	 * event Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)
-	 */
-	private async getLockupEventParameters(
-		contractAddress: string,
-		preimageHash: string,
-		lockupTxHash: string,
-		provider: any
-	): Promise<{
-		amount: bigint;
-		claimAddress: string;
-		refundAddress: string;
-		timelock: number;
-	} | null> {
-		try {
-			console.log('🔍 Fetching lockup transaction receipt:', lockupTxHash);
-
-			// Wait for the transaction receipt with retry logic
-			// The RPC node might need a few moments to index the transaction
-			let receipt = null;
-			const maxRetries = 10;
-			const retryDelay = 2000; // 2 seconds
-
-			for (let i = 0; i < maxRetries; i++) {
-				receipt = await provider.getTransactionReceipt(lockupTxHash);
-
-				if (receipt) {
-					console.log('✅ Receipt found after', i + 1, 'attempt(s)');
-					break;
-				}
-
-				if (i < maxRetries - 1) {
-					console.log(`⏳ Receipt not available yet, waiting ${retryDelay}ms... (attempt ${i + 1}/${maxRetries})`);
-					await new Promise(resolve => setTimeout(resolve, retryDelay));
-				}
-			}
-
-			if (!receipt) {
-				console.error('❌ Transaction receipt not found after', maxRetries, 'attempts');
-				return null;
-			}
-
-			console.log('📋 Receipt found with', receipt.logs.length, 'logs');
-
-			// Create contract interface to parse events
-			const iface = new Interface(EtherSwapArtifact.abi);
-
-			// The preimageHash should be 0x-prefixed for comparison
-			const preimageHashWithPrefix = preimageHash.startsWith('0x') ? preimageHash : '0x' + preimageHash;
-
-			// Find the Lockup event in the logs
-			for (const log of receipt.logs) {
-				// Check if this log is from our contract
-				if (log.address.toLowerCase() !== contractAddress.toLowerCase()) {
-					continue;
-				}
-
-				try {
-					const parsed = iface.parseLog({
-						topics: [...log.topics],
-						data: log.data
-					});
-
-					console.log('📝 Parsed event:', parsed?.name, 'with args:', parsed?.args);
-
-					if (parsed?.name === 'Lockup') {
-						// Event structure: Lockup(bytes32 indexed preimageHash, uint256 amount, address claimAddress, address indexed refundAddress, uint256 timelock)
-						const eventPreimageHash = parsed.args[0];
-
-						console.log('🔍 Checking Lockup event:', {
-							eventPreimageHash,
-							expectedPreimageHash: preimageHashWithPrefix,
-							matches: eventPreimageHash.toLowerCase() === preimageHashWithPrefix.toLowerCase()
-						});
-
-						// Check if this is the event for our swap
-						if (eventPreimageHash.toLowerCase() === preimageHashWithPrefix.toLowerCase()) {
-							console.log('✅ Found Lockup event with actual parameters');
-							return {
-								amount: parsed.args[1],
-								claimAddress: parsed.args[2],
-								refundAddress: parsed.args[3],
-								timelock: Number(parsed.args[4])
-							};
-						}
-					}
-				} catch (e) {
-					// Not a Lockup event or failed to parse, continue
-					console.log('⚠️ Failed to parse log:', e);
-				}
-			}
-
-			console.warn('⚠️ No matching Lockup event found in transaction');
-			return null;
-		} catch (error) {
-			console.error('❌ Failed to get lockup event parameters:', error);
-			return null;
-		}
-	}
 
 	/**
 	 * Claim RBTC via RIF Relay (gasless)
@@ -499,7 +394,7 @@ export class ReverseSwapService {
 			let timelock: number;
 
 			if (swapData.lockupTxHash) {
-				const eventParams = await this.getLockupEventParameters(
+				const eventParams = await getLockupEventParameters(
 					etherSwapAddress,
 					swapData.preimageHash,
 					swapData.lockupTxHash,
@@ -538,7 +433,7 @@ export class ReverseSwapService {
 			swapData.status = 'transaction.claim.pending';
 			swapData.rifRelayUsed = true;
 			swapData.updatedAt = Date.now();
-			await this.saveSwapToNostr(swapData, nsec);
+			await saveSwapToNostr(swapData, nsec, 'boltz-swap-reverse');
 
 			// Wait for confirmation
 			const receipt = await walletSigner.provider.waitForTransaction(txHash);
@@ -547,7 +442,7 @@ export class ReverseSwapService {
 
 			swapData.status = 'claimed';
 			swapData.updatedAt = Date.now();
-			await this.saveSwapToNostr(swapData, nsec);
+			await saveSwapToNostr(swapData, nsec, 'boltz-swap-reverse');
 
 			console.log('🎉 Successfully claimed via RIF Relay!');
 			return { txHash };
@@ -555,7 +450,7 @@ export class ReverseSwapService {
 			console.error('❌ RIF Relay claim failed:', error);
 			swapData.status = 'transaction.claim.failed';
 			swapData.updatedAt = Date.now();
-			await this.saveSwapToNostr(swapData, nsec);
+			await saveSwapToNostr(swapData, nsec, 'boltz-swap-reverse');
 			throw error;
 		}
 	}
@@ -624,7 +519,7 @@ export class ReverseSwapService {
 	 * Used by the UI to update swap state
 	 */
 	async updateSwapData(swapData: BoltzSwapData, nsec: string): Promise<void> {
-		await this.saveSwapToNostr(swapData, nsec);
+		await saveSwapToNostr(swapData, nsec, 'boltz-swap-reverse');
 	}
 
 
@@ -693,7 +588,7 @@ export class ReverseSwapService {
 			let timelock: number;
 
 			if (swapData.lockupTxHash) {
-				const eventParams = await this.getLockupEventParameters(
+				const eventParams = await getLockupEventParameters(
 					etherSwapAddress,
 					swapData.preimageHash,
 					swapData.lockupTxHash,
@@ -756,7 +651,7 @@ export class ReverseSwapService {
 			swapData.claimTxHash = tx.hash;
 			swapData.status = 'transaction.claim.pending';
 			swapData.updatedAt = Date.now();
-			await this.saveSwapToNostr(swapData, nsec);
+			await saveSwapToNostr(swapData, nsec, 'boltz-swap-reverse');
 
 			// Wait for transaction confirmation
 			const receipt = await tx.wait();
@@ -769,7 +664,7 @@ export class ReverseSwapService {
 
 			swapData.status = 'claimed';
 			swapData.updatedAt = Date.now();
-			await this.saveSwapToNostr(swapData, nsec);
+			await saveSwapToNostr(swapData, nsec, 'boltz-swap-reverse');
 
 			console.log('✅ Successfully claimed', swapData.onchainAmount, 'sats');
 
@@ -792,65 +687,9 @@ export class ReverseSwapService {
 			// Update swap status to show claim failed
 			swapData.status = 'transaction.claim.failed';
 			swapData.updatedAt = Date.now();
-			await this.saveSwapToNostr(swapData, nsec);
+			await saveSwapToNostr(swapData, nsec, 'boltz-swap-reverse');
 
 			throw error;
-		}
-	}
-
-	/**
-	 * Save swap data to Nostr (encrypted)
-	 */
-	private async saveSwapToNostr(swapData: BoltzSwapData, nsec: string): Promise<void> {
-		try {
-			// Convert hex nsec to Uint8Array if needed
-			const nsecBytes = typeof nsec === 'string' && nsec.length === 64
-				? new Uint8Array(Buffer.from(nsec, 'hex'))
-				: nsec;
-
-			const npub = getPublicKey(nsecBytes as any);
-
-			// Encrypt sensitive data (preimage)
-			const conversationKey = await nip44.getConversationKey(nsecBytes as any, npub);
-			const nonce = randomBytes(32);
-			const encryptedPreimage = await nip44.encrypt(swapData.preimage, conversationKey, nonce);
-
-			// Prepare Nostr event
-			const eventTemplate: Partial<NostrEvent> = {
-				kind: 30078, // Parameterized replaceable event
-				created_at: Math.floor(Date.now() / 1000),
-				tags: [
-					['d', swapData.id], // Unique identifier
-					['a', swapData.amount.toString()], // Amount
-					['s', swapData.status], // Status
-					['r', swapData.rbtcAddress], // rBTC address
-					['t', 'boltz-swap'] // Tag for filtering
-				],
-				content: JSON.stringify({
-					id: swapData.id,
-					preimage: encryptedPreimage, // Encrypted
-					preimageHash: swapData.preimageHash,
-					invoice: swapData.invoice,
-					amount: swapData.amount,
-					rbtcAddress: swapData.rbtcAddress,
-					status: swapData.status,
-					lockupTxHash: swapData.lockupTxHash,
-					claimTxHash: swapData.claimTxHash,
-					onchainAmount: swapData.onchainAmount,
-					refundAddress: swapData.refundAddress,
-					timeoutBlockHeight: swapData.timeoutBlockHeight,
-					createdAt: swapData.createdAt,
-					updatedAt: swapData.updatedAt,
-					expiresAt: swapData.expiresAt
-				})
-			};
-
-			// Sign and publish
-			const signedEvent = finalizeEvent(eventTemplate as any, nsecBytes as any);
-			await nostrEventsService.publishEvent(signedEvent as any);
-		} catch (error) {
-			console.error('Failed to save swap to Nostr:', error);
-			// Don't throw - swap can still work even if Nostr storage fails
 		}
 	}
 
@@ -859,51 +698,19 @@ export class ReverseSwapService {
 	 */
 	async recoverPendingSwaps(nsec: string): Promise<BoltzSwapData[]> {
 		try {
-			// Convert hex nsec to Uint8Array if needed
-			const nsecBytes = typeof nsec === 'string' && nsec.length === 64
-				? new Uint8Array(Buffer.from(nsec, 'hex'))
-				: nsec;
-
-			const npub = getPublicKey(nsecBytes as any);
-
-			// Query Nostr for user's swap events
-			const response = await nostrEventsService.requestEvents({
-				filters: [
-					{
-						authors: [npub],
-						kinds: [30078],
-						'#t': ['boltz-swap']
-					}
-				]
-			});
-
-			const conversationKey = await nip44.getConversationKey(nsecBytes as any, npub);
-			const pendingSwaps: BoltzSwapData[] = [];
-
-			for (const event of response.data || []) {
-				try {
-					const data = JSON.parse(event.content);
-
-					// Decrypt preimage
-					data.preimage = await nip44.decrypt(data.preimage, conversationKey);
-
-					// Check if swap is still pending
-					const finalStates = ['invoice.settled', 'swap.expired', 'transaction.failed'];
-					if (!finalStates.includes(data.status)) {
-						pendingSwaps.push(data);
-						this.activeSwaps.set(data.id, data);
-
-						// Resubscribe to WebSocket
-						boltzWebSocket.subscribeToSwap(data.id, async (event) => {
-							await this.handleSwapUpdate(event, nsec);
-						});
-					}
-				} catch (err) {
-					console.error('Failed to process swap event:', err);
-				}
+			const swaps = await recoverPendingSwaps(nsec, 'boltz-swap-reverse');
+			
+			// Store in memory and resubscribe to WebSocket
+			for (const swap of swaps) {
+				this.activeSwaps.set(swap.id, swap as BoltzSwapData);
+				
+				// Resubscribe to WebSocket
+				boltzWebSocket.subscribeToSwap(swap.id, async (event) => {
+					await this.handleSwapUpdate(event, nsec);
+				});
 			}
 
-			return pendingSwaps;
+			return swaps as BoltzSwapData[];
 		} catch (error) {
 			console.error('Failed to recover swaps from Nostr:', error);
 			return [];
@@ -933,64 +740,40 @@ export class ReverseSwapService {
 	}
 
 	/**
-	 * Delete all swap events from Nostr
+	 * Delete all reverse swap events from Nostr
 	 * Useful for clearing test data
 	 */
 	async deleteAllSwapEvents(nsec: string): Promise<{ count: number }> {
 		try {
-			// Convert hex nsec to Uint8Array if needed
-			const nsecBytes = typeof nsec === 'string' && nsec.length === 64
-				? new Uint8Array(Buffer.from(nsec, 'hex'))
-				: nsec;
-
-			const npub = getPublicKey(nsecBytes as any);
-
-			// Query Nostr for user's swap events
-			const response = await nostrEventsService.requestEvents({
-				filters: [
-					{
-						authors: [npub],
-						kinds: [30078],
-						'#t': ['boltz-swap']
-					}
-				]
-			});
-
-			console.log(`🗑️ Found ${response.data?.length || 0} swap events to delete`);
-
-			let deleteCount = 0;
-
-			// Delete each event
-			for (const event of response.data || []) {
-				try {
-					// Create deletion event (NIP-09)
-					const deletionEventTemplate: Partial<NostrEvent> = {
-						kind: 5, // Deletion event
-						created_at: Math.floor(Date.now() / 1000),
-						tags: [
-							['e', event.id], // Reference the event to delete
-							['k', '30078'] // Optional: specify the kind being deleted
-						],
-						content: 'Deleting test swap data'
-					};
-
-					const signedDeletion = finalizeEvent(deletionEventTemplate as any, nsecBytes as any);
-					await nostrEventsService.publishEvent(signedDeletion as any);
-					deleteCount++;
-					console.log(`✅ Deleted event: ${event.id}`);
-				} catch (err) {
-					console.error(`❌ Failed to delete event ${event.id}:`, err);
-				}
-			}
-
+			const result = await deleteAllSwapEvents(nsec, 'boltz-swap-reverse');
+			
 			// Clear active swaps from memory
 			this.activeSwaps.clear();
 
-			console.log(`✅ Deleted ${deleteCount} swap events from Nostr`);
-			return { count: deleteCount };
+			return result;
 		} catch (error) {
 			console.error('Failed to delete swap events:', error);
 			throw error;
+		}
+	}
+
+	/**
+	 * Delete a single swap event from Nostr
+	 * Uses shared pendingSwaps module
+	 */
+	async deleteSwapEvent(nsec: string, swapId: string): Promise<boolean> {
+		try {
+			const success = await deleteSwapEvent(nsec, swapId, 'boltz-swap-reverse');
+			
+			// Remove from memory if successful
+			if (success) {
+				this.activeSwaps.delete(swapId);
+			}
+
+			return success;
+		} catch (error) {
+			console.error('Failed to delete swap event:', error);
+			return false;
 		}
 	}
 }

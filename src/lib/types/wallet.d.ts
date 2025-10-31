@@ -192,13 +192,6 @@ export interface CombinedWalletState {
     error: string | null;
 
     // Network states
-    liquid: {
-        connected: boolean;
-        connecting: boolean;
-        error: string | null;
-        walletInfo: GetInfoResponse | null;
-    };
-
     rsk: {
         connected: boolean;
         connecting: boolean;
@@ -213,7 +206,6 @@ export interface CombinedWalletState {
         contractConnected?: boolean;
         escrows?: EscrowData[];
     };
-
     bsc: {
         connected: boolean;
         connecting: boolean;

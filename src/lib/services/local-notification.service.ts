@@ -103,6 +103,7 @@ class LocalNotificationService {
 	 * Initialize the notification service
 	 */
 	public async init(): Promise<void> {
+		return;
 		if (this.isInitialized) return;
 
 		try {
