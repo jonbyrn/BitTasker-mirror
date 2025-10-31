@@ -6,10 +6,10 @@
 		reverseSwapService,
 		type BoltzSwapData
 	} from '$lib/integrations/boltz/reverseSwapService';
+	import { bytesToHex } from '@noble/hashes/utils';
+	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
-	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-	import { bytesToHex } from '@noble/hashes/utils';
 
 	// Props
 	let {
@@ -472,8 +472,8 @@
 						</div>
 
 						<!-- Main Invoice with QR (Collapsible) -->
-						<div class="bg-base-100 rounded-lg">
-							<div class="flex w-full cursor-pointer items-center justify-between">
+						<div class="bg-base-100 cursor-pointer rounded-lg">
+							<div class="flex w-full items-center justify-between">
 								<button
 									class="flex flex-1 items-center justify-between p-4 text-left transition-colors hover:opacity-80"
 									onclick={() => toggleInvoice(swap.id)}

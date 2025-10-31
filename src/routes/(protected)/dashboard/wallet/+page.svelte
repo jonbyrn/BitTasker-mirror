@@ -11,7 +11,6 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import {
 		walletManager,
-		combinedWalletState,
 		rskConnection,
 		walletStore
 	} from '$lib/stores/wallet.store';
@@ -67,7 +66,7 @@
 
 		<!-- Connection Status - commented out -->
 
-		{#if $combinedWalletState.isInitializing}
+		{#if $walletStore.isInitializing}
 			<div class="alert alert-outlinealert-info mb-6">
 				<div class="flex items-center">
 					<span class="loading loading-spinner loading-sm mr-2"></span>
@@ -189,41 +188,41 @@
 			</div>
 		{/if}
 
-		{#if $combinedWalletState.hasAnyConnection || !hasErrors}
+		{#if $walletStore.hasAnyConnection || !hasErrors}
 			<!-- Tab Navigation -->
 			<div class="tabs tabs-bordered mb-6 w-full">
 				<button
-					class="tab {$combinedWalletState.activeTab === 'balance' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'balance' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('balance')}
 				>
 					{$t('wallet.tab_balance')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'receive' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'receive' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('receive')}
 				>
 					{$t('wallet.tab_receive')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'send' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'send' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('send')}
 				>
 					{$t('wallet.tab_send')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'buy-sell' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'buy-sell' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('buy-sell')}
 				>
 					{$t('wallet.tab_buy_sell')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'swap' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'swap' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('swap')}
 				>
 					{$t('wallet.tab_swap')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'transactions' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'transactions' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('transactions')}
 				>
 					{$t('wallet.tab_transactions')}
@@ -231,29 +230,29 @@
 			</div>
 
 			<!-- Tab Content -->
-			{#if $combinedWalletState.activeTab === 'balance'}
+			{#if $walletStore.activeTab === 'balance'}
 				<BalanceCard />
 			{/if}
 
-			{#if $combinedWalletState.activeTab === 'receive'}
+			{#if $walletStore.activeTab === 'receive'}
 				<ReceiveForm />
 			{/if}
 
-			{#if $combinedWalletState.activeTab === 'send'}
+			{#if $walletStore.activeTab === 'send'}
 				<div class="space-y-6">
 					<SendForm />
 				</div>
 			{/if}
 
-			{#if $combinedWalletState.activeTab === 'buy-sell'}
+			{#if $walletStore.activeTab === 'buy-sell'}
 				<BuySellForm />
 			{/if}
 
-			{#if $combinedWalletState.activeTab === 'swap'}
+			{#if $walletStore.activeTab === 'swap'}
 				<SwapForm />
 			{/if}
 
-			{#if $combinedWalletState.activeTab === 'transactions'}
+			{#if $walletStore.activeTab === 'transactions'}
 				<TransactionHistory />
 			{/if}
 		{:else}

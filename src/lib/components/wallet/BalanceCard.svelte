@@ -5,7 +5,6 @@
 		allAssets,
 		totalBalances,
 		walletManager,
-		combinedWalletState,
 		walletStore
 	} from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
@@ -194,7 +193,7 @@
 							<img src="/images/chains/Binance-logo.svg" alt="USDT (Binance Chain)" class="h-5 w-5 opacity-50" />
 							<span class="font-medium text-base-content/50">{$t('wallet.usdt_binance_chain')}</span>
 							<div class="text-xs text-base-content/50 ml-auto">
-								${$combinedWalletState.bsc.formattedUsdtBalance || '0.00'}
+								${$walletStore.bsc.formattedUsdtBalance || '0.00'}
 							</div>
 						</div>
 						<div class="flex items-center gap-2">

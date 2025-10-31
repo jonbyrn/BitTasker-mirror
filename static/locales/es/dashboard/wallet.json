@@ -249,6 +249,11 @@
     "showing_page": "Mostrando página",
     "of": "de",
     "total_transactions": "transacciones totales",
+    "swap_title": "Intercambio",
+    "swaps": "Intercambios",
+    "swap_claimed": "Intercambio reclamado",
+    "lightning_to_rbtc_swap": "Intercambio Lightning → rBTC reclamado",
+    "lbtc_to_rbtc_swap": "Intercambio L-BTC → rBTC reclamado",
     "view_all_transactions_tab": "Cambia a la pestaña de transacciones para ver actividad",
     "send": {
       "transaction_sent": "Transacción enviada exitosamente",

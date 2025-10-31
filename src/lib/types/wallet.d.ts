@@ -1,7 +1,7 @@
+import type { ethers } from 'ethers';
+import type { Rate } from '@breeztech/breez-sdk-liquid/web';
 import type { RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
-import type { Payment, GetInfoResponse, Rate } from '@breeztech/breez-sdk-liquid/web';
-import type { ethers } from 'ethers';
 
 export type RSKUnit = 'rbtc' | 'wei';
 export type BSCUnit = 'usdt' | 'wei';
@@ -36,9 +36,17 @@ export interface Transaction {
     blockNumber: number;
     timestamp: number;
     status: 'pending' | 'confirmed' | 'failed';
-    type: 'send' | 'receive' | 'contract';
+    type: 'send' | 'receive' | 'contract' | 'swap';
     network: 'rsk' | 'bsc'; // Explicitly identify the network
     tokenSymbol?: string; // Optional for token transactions (BSC USDT)
+    swapType?: 'chain' | 'reverse'; // Type of swap (chain: L-BTC→RBTC, reverse: Lightning→RBTC)
+    description?: string; // Transaction description (for UI display)
+    formattedAmount?: string; // Pre-formatted amount with symbol (for UI display)
+    fee?: number; // Transaction fee in native currency (for UI display)
+    asset?: string; // Asset symbol (for UI display)
+    id?: string; // Unique identifier (for UI display)
+    address?: string; // Associated address (for UI display)
+    txHash?: string; // Transaction hash alias (for UI compatibility)
 }
 
 // Enhanced Escrow types
@@ -183,7 +191,7 @@ export interface BSCWalletState {
 }
 
 // Combined wallet state
-export interface CombinedWalletState {
+export interface WalletState {
     // Connection status
     isInitializing: boolean;
     isConnected: boolean;
@@ -227,7 +235,7 @@ export interface CombinedWalletState {
 
     // Combined data
     assets: WalletAsset[];
-    transactions: (Payment | Transaction)[];
+    transactions: Transaction[];
     fiatRates: Rate[];
     totalBalances: {
         usd: number;
