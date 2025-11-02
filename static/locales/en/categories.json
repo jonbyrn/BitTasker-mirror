@@ -96,6 +96,18 @@
             "name": "Real Estate",
             "description": "Property management, real estate photography, staging, and real estate services"
         },
+        "accommodation": {
+            "name": "Accommodation",
+            "description": "Short-term rentals, room booking, accommodation services, and hospitality stays"
+        },
+        "hospitality": {
+            "name": "Hospitality",
+            "description": "Restaurant services, catering, food service, event hospitality, and guest services"
+        },
+        "tourism": {
+            "name": "Tourism",
+            "description": "Tour guiding, travel assistance, local experiences, sightseeing, and tourism services"
+        },
         "other": {
             "name": "Other",
             "description": "Other types of tasks not covered by other categories"

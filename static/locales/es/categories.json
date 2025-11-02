@@ -96,6 +96,18 @@
             "name": "Bienes Raíces",
             "description": "Gestión de propiedades, fotografía inmobiliaria, escenografía y servicios inmobiliarios"
         },
+        "accommodation": {
+            "name": "Alojamiento",
+            "description": "Alquileres a corto plazo, reserva de habitaciones, servicios de alojamiento y estancias de hospitalidad"
+        },
+        "hospitality": {
+            "name": "Hospitalidad",
+            "description": "Servicios de restaurantes, catering, servicio de comida, hospitalidad en eventos y servicios de atención al cliente"
+        },
+        "tourism": {
+            "name": "Turismo",
+            "description": "Guías turísticos, asistencia de viajes, experiencias locales, turismo y servicios turísticos"
+        },
         "other": {
             "name": "Otros",
             "description": "Otros tipos de tareas no cubiertas por otras categorías"

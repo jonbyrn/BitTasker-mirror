@@ -2,6 +2,7 @@
 	import { localNotificationService } from '$lib/services/local-notification.service';
 	import { onMount } from 'svelte';
 	import { authState } from '$lib/stores/auth.store';
+	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
 	import IconBell from '~icons/mdi/bell';
 	import IconClose from '~icons/mdi/close';
@@ -11,8 +12,20 @@
 	
 	// Get authentication state
 	let isLoggedIn = $derived($authState.isAuthenticated);
+	
+	// Check if we're in onboarding or auth routes
+	let isOnboardingOrAuth = $derived.by(() => {
+		const path = page.url.pathname;
+		return path.includes('/onboarding') || path.includes('/auth/signup') || path.includes('/auth/login');
+	});
 
 	function checkNotificationPermission() {
+		// Don't show banner during onboarding or auth flows
+		if (isOnboardingOrAuth) {
+			showBanner = false;
+			return;
+		}
+		
 		// Only show banner if user is logged in
 		if (!isLoggedIn) {
 			showBanner = false;
@@ -34,11 +47,14 @@
 		checkNotificationPermission();
 	});
 
-	// React to authentication state changes
+	// React to authentication state changes and route changes
 	$effect(() => {
 		if (isLoggedIn !== undefined) {
 			checkNotificationPermission();
 		}
+		// Also react to route changes
+		page.url.pathname;
+		checkNotificationPermission();
 	});
 
 	async function requestPermission() {
@@ -66,7 +82,7 @@
 	}
 </script>
 
-{#if showBanner && isLoggedIn}
+{#if showBanner && isLoggedIn && !isOnboardingOrAuth}
 	<div class="fixed inset-x-3 top-3 z-50 mx-auto max-w-none sm:inset-x-4 sm:top-4 md:inset-x-auto md:right-4 md:max-w-sm md:top-4">
 		<div class="bg-primary text-primary-content rounded-xl shadow-2xl border border-primary-content/20 p-3 sm:p-4 md:p-5">
 			<!-- Header with icon, title and close button -->

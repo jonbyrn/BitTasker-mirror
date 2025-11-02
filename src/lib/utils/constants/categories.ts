@@ -222,6 +222,24 @@ export const TASK_CATEGORIES: Category[] = [
     },
     {
         id: '25',
+		slug: 'accommodation',
+        name: 'Accommodation',
+        description: 'Short-term rentals, room booking, accommodation services, and hospitality stays'
+    },
+    {
+        id: '26',
+		slug: 'hospitality',
+        name: 'Hospitality',
+        description: 'Restaurant services, catering, food service, event hospitality, and guest services'
+    },
+    {
+        id: '27',
+		slug: 'tourism',
+        name: 'Tourism',
+        description: 'Tour guiding, travel assistance, local experiences, sightseeing, and tourism services'
+    },
+    {
+        id: '28',
 		slug: 'other',
         name: 'Other',
         description: 'Other types of tasks not covered by other categories'

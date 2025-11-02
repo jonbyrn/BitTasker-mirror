@@ -5,6 +5,7 @@
 export const StorageKeys = {
 	// Tasks
 	DRAFT_TASK: 'bittasker_draft_task',
+	DRAFT_TASK_EDIT: 'bittasker_draft_task_edit',
 	TASK_FILTERS: 'bittasker_task_filters',
 
 	// User preferences
