@@ -1,15 +1,15 @@
 <script lang="ts">
   import { taskTranslationService } from '$lib/services/task-translation.service';
   import { currentUserLanguage } from '$lib/stores/translation.store';
-  import type { Task, TaskTranslation } from '$lib/types/task';
+  import type { Task } from '$lib/types/task';
   
   let { 
     task, 
     showToggle = false, // Por defecto false, solo true en mensajes
     showTitle = true,
     showDescription = true,
-    titleClass = "text-lg font-semibold",
-    descriptionClass = "text-sm text-base-content/80"
+    titleClass = "",
+    descriptionClass = "text-sm text-base-content/80 line-clamp-2"
   } = $props<{ 
     task: Task; 
     showToggle?: boolean;

@@ -693,9 +693,10 @@
 													class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
 												>
 													<!-- Left: Title and Sats -->
-													<div class="line-clamp-2 ">
-														<TranslatableTask {task} titleClass="line-clamp-2" />
-													</div>
+													<TranslatableTask 
+														{task} 
+														titleClass="card-title line-clamp-2 text-lg font-semibold" 
+													/>
 												</div>
 
 												<!-- Schedule and Sats Row -->
@@ -705,7 +706,7 @@
 														<div class="flex items-center gap-2">
 															<svg
 																xmlns="http://www.w3.org/2000/svg"
-																class="text-base-content/60 h-4 w-4 flex-shrink-0"
+																class="text-base-content/60 h-4 w-4 shrink-0"
 																fill="none"
 																viewBox="0 0 24 24"
 																stroke="currentColor"
@@ -753,7 +754,7 @@
 													<div class="flex w-full items-start gap-2">
 														<svg
 															xmlns="http://www.w3.org/2000/svg"
-															class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
+															class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
 															fill="none"
 															viewBox="0 0 24 24"
 															stroke="currentColor"
@@ -863,7 +864,7 @@
 													</div>
 
 													<!-- Right: Action Buttons -->
-													<div class="flex w-full flex-shrink-0 items-center gap-2 md:w-auto">
+													<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 														<button
 															class="btn btn-primary btn-sm flex-1 md:flex-none"
 															class:btn-disabled={task.status === TaskStatusEnum.CANCELLED ||
