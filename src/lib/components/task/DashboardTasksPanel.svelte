@@ -13,6 +13,7 @@
 	import { browser } from '$app/environment';
 	import { onDestroy } from 'svelte';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -627,7 +628,7 @@
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
 						<div class="flex flex-col justify-between gap-2">
-							<small class="card-title line-clamp-1 text-lg">
+							<div class="card-title line-clamp-1 text-lg">
 								<button
 									class="hover:text-primary cursor-pointer transition-colors text-left"
 									onclick={(e) => {
@@ -635,11 +636,23 @@
 										goto(`/dashboard/task/${task.id}`);
 									}}
 								>
-									{task.title}
+									<TranslatableTask 
+										{task} 
+										showTitle={true}
+										showDescription={false}
+										showToggle={false}
+										titleClass="text-lg font-semibold"
+									/>
 								</button>
-							</small>
-							<div class="text-base-content/60 line-clamp-2">
-								{task.description}
+							</div>
+							<div class="text-base-content/60">
+								<TranslatableTask 
+									{task} 
+									showTitle={false}
+									showDescription={true}
+									showToggle={false}
+									descriptionClass="text-sm text-base-content/60 line-clamp-2"
+								/>
 							</div>
 						</div>
 
@@ -648,7 +661,7 @@
 							<div class="flex items-center gap-2">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/60 h-4 w-4 flex-shrink-0"
+									class="text-base-content/60 h-4 w-4 shrink-0"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -694,7 +707,7 @@
 						<div class="flex w-full items-start gap-2">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
+								class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"

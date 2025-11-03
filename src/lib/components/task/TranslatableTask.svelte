@@ -19,69 +19,21 @@
     descriptionClass?: string;
   }>();
   
-  let translatedTask = $state<TaskTranslation | null>(null);
-  let isTranslating = $state(false);
-  let showOriginal = $state(false);
-  let translationError = $state(false);
-
-  // Check if translation is available synchronously from stored translations
-  $effect(() => {
+  // Solo obtener traducción almacenada - sin llamadas API
+  const translatedTask = $derived.by(() => {
     const userLang = $currentUserLanguage;
-    if (!userLang || !task) return;
+    if (!userLang || !task) return null;
 
-    // Fast path: Check if translation exists in Nostr event
-    if (task.translations?.translations && task.translations.translations[userLang]) {
-      const storedTranslation = task.translations.translations[userLang];
-      const sourceLanguage = task.translations.sourceLanguage;
-      
-      // If user's language matches source language, no translation needed
-      if (sourceLanguage === userLang) {
-        translatedTask = null;
-        return;
-      }
-
-      // Use stored translation immediately (no API call!)
-      translatedTask = {
-        taskId: task.id,
-        originalTitle: task.title,
-        translatedTitle: storedTranslation.title,
-        originalDescription: task.description,
-        translatedDescription: storedTranslation.description,
-        targetLanguage: userLang,
-        sourceLanguage,
-        timestamp: Date.now()
-      };
-      return;
+    // Si el idioma del usuario coincide con el idioma fuente, no hay traducción
+    if (task.translations?.sourceLanguage === userLang) {
+      return null;
     }
 
-    // Fallback: Use translation service (for older tasks or when stored translation unavailable)
-    translateTask(userLang);
+    // Obtener traducción almacenada (sin llamadas API)
+    return taskTranslationService.getStoredTranslation(task, userLang);
   });
 
-  async function translateTask(targetLanguage: string) {
-    if (!task) return;
-    
-    // Skip if user's language matches source language from stored translations
-    if (task.translations?.sourceLanguage === targetLanguage) {
-      translatedTask = null;
-      return;
-    }
-    
-    isTranslating = true;
-    translationError = false;
-    
-    try {
-      translatedTask = await taskTranslationService.translateTask(task, targetLanguage);
-      if (!translatedTask) {
-        translationError = true;
-      }
-    } catch (error) {
-      console.error('Translation failed:', error);
-      translationError = true;
-    } finally {
-      isTranslating = false;
-    }
-  }
+  let showOriginal = $state(false);
 
   function toggleTranslation() {
     showOriginal = !showOriginal;
@@ -89,19 +41,10 @@
 </script>
 
 <div class="translatable-task">
-  {#if isTranslating}
-    <div class="animate-pulse">
-      {#if showTitle}
-        <div class="h-6 bg-gray-200 rounded mb-2"></div>
-      {/if}
-      {#if showDescription}
-        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
-      {/if}
-    </div>
-  {:else if translatedTask && !showOriginal}
-    <!-- Translated content -->
+  {#if translatedTask && !showOriginal}
+    <!-- Mostrar contenido traducido (de las traducciones almacenadas) -->
     {#if showTitle}
-      <span class="text-sm md:text-lg font-semibold">{translatedTask.translatedTitle}</span>
+      <span class={titleClass}>{translatedTask.translatedTitle}</span>
     {/if}
     {#if showDescription}
       <p class={descriptionClass}>{translatedTask.translatedDescription}</p>
@@ -116,9 +59,9 @@
       </button>
     {/if}
   {:else}
-    <!-- Original content -->
+    <!-- Mostrar contenido original (cuando no hay traducción almacenada o se muestra original) -->
     {#if showTitle}
-      <span class="text-sm md:text-lg font-semibold" > {task.title}</span> 
+      <span class={titleClass}>{task.title}</span> 
     {/if}
     {#if showDescription}
       <p class={descriptionClass}>{task.description}</p>
@@ -129,7 +72,7 @@
         class="text-xs text-blue-500 hover:text-blue-700 transition-colors" 
         onclick={toggleTranslation}
       >
-        {translatedTask.targetLanguage === 'es' ? 'Traducir' : 'Translate'}
+        {translatedTask.targetLanguage === 'es' ? 'Ver traducido' : 'View translated'}
       </button>
     {/if}
   {/if}
