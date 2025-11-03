@@ -16,6 +16,10 @@
             "name": "Mejoras del Hogar",
             "description": "Pintura, renovaciones, plomería, trabajo eléctrico y mejoras del hogar"
         },
+        "building-construction": {
+            "name": "Construcción y Edificación",
+            "description": "Construcción nueva, proyectos de construcción, trabajo estructural, construcción comercial y servicios de construcción residencial"
+        },
         "gardening": {
             "name": "Jardinería y Paisajismo",
             "description": "Cuidado del césped, mantenimiento del jardín, paisajismo y servicios al aire libre"

@@ -21,8 +21,6 @@
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { goto } from '$app/navigation';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	import { taskTranslationService } from '$lib/services/task-translation.service';
-	import { currentUserLanguage } from '$lib/stores/translation.store';
 
 	// Props
 	let { taskId, showShareButton = true } = $props<{
@@ -37,7 +35,7 @@
 	let taskCreatorPubkey = $state<string>('');
 	let btcPrice = $state<number>(0); // Default fallback price
 	let showFullDescription = $state(false); // State for description toggle
-	let translatedTask = $state<any>(null); // Store translated content
+	// TranslatedTask component now handles translations automatically
 
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(taskId || null);
@@ -161,25 +159,7 @@
 		showFullDescription = !showFullDescription;
 	};
 
-	// Translation functions
-	async function translateTask() {
-		if (!task) return;
-		
-		try {
-			const userLang = $currentUserLanguage;
-			if (userLang) {
-				translatedTask = await taskTranslationService.translateTask(task, userLang);
-			}
-		} catch (error) {
-			console.error('Translation failed:', error);
-		}
-	}
-
-	// Get the display description (translated or original, truncated or full)
-	const getDisplayDescription = () => {
-		const description = translatedTask?.translatedDescription || task?.description || '';
-		return showFullDescription ? description : getTruncatedDescription(description);
-	};
+	// Translation is now handled automatically by TranslatableTask component
 
 
 	async function loadTaskDetails(taskId: string) {
@@ -230,12 +210,7 @@
 		btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 	}
 
-	// Effect to translate task when it loads or language changes
-	$effect(() => {
-		if (task) {
-			translateTask();
-		}
-	});
+	// Translation is now handled automatically by TranslatableTask component
 
 	onMount(() => {
 		loadTaskDetails(taskId || '');
@@ -326,23 +301,16 @@
 									/>
 								</div>
 								<div class="text-base-content/60 text-start">
-									<div class="translatable-description">
-										{#if translatedTask && !showFullDescription}
-											<!-- Show truncated translated description -->
-											{getTruncatedDescription(translatedTask.translatedDescription)}
-										{:else if translatedTask && showFullDescription}
-											<!-- Show full translated description -->
-											{translatedTask.translatedDescription}
-										{:else if !translatedTask && !showFullDescription}
-											<!-- Show truncated original description -->
-											{getTruncatedDescription(task?.description || '')}
-										{:else}
-											<!-- Show full original description -->
-											{task?.description || ''}
-										{/if}
-										
+									{#if task}
+										<TranslatableTask 
+											{task} 
+											showTitle={false}
+											showDescription={true}
+											showToggle={false}
+											descriptionClass={showFullDescription ? "text-sm text-base-content/80" : "text-sm text-base-content/80 line-clamp-2"}
+										/>
 										{#if (task?.description || '').length > 200}
-											<button class="btn btn-xs hover:text-primary-focus ml-2" onclick={toggleDescription}>
+											<button class="btn btn-xs hover:text-primary-focus mt-2" onclick={toggleDescription}>
 												{#if showFullDescription}
 													{$t('dashboard.task_details_by_task.show_less')}
 												{:else}
@@ -350,27 +318,7 @@
 												{/if}
 											</button>
 										{/if}
-										
-										{#if translatedTask}
-											<div class="mt-2">
-												<button 
-													class="text-xs text-blue-500 hover:text-blue-700 transition-colors" 
-													onclick={() => { translatedTask = null; showFullDescription = false; }}
-												>
-													{translatedTask.targetLanguage === 'es' ? 'Ver original' : 'View original'}
-												</button>
-											</div>
-										{:else if task}
-											<div class="mt-2">
-												<button 
-													class="text-xs text-blue-500 hover:text-blue-700 transition-colors" 
-													onclick={translateTask}
-												>
-													{$t('dashboard.task_details_by_task.translate')}
-												</button>
-											</div>
-										{/if}
-									</div>
+									{/if}
 								</div>
 							</div>
 							<!-- <div class="flex flex-col text-center">

@@ -16,6 +16,10 @@
             "name": "Home Improvement",
             "description": "Painting, renovations, plumbing, electrical work, and home upgrades"
         },
+        "building-construction": {
+            "name": "Building and Construction",
+            "description": "New construction, building projects, structural work, commercial construction, and residential building services"
+        },
         "gardening": {
             "name": "Gardening & Landscaping",
             "description": "Lawn care, garden maintenance, landscaping, and outdoor services"

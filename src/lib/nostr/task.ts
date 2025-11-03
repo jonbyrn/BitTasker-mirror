@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { TaskBody } from '$lib/types/task';
+import type { TaskBody, TaskTranslations } from '$lib/types/task';
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { calculatePOW } from '$lib/nostr';
@@ -13,12 +13,93 @@ import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
+import { TranslationService } from '$lib/services/translation.service';
+import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
+
+// Translation service instance
+const translationService = new TranslationService();
+
+/**
+ * Generate translations for a task
+ * Translates title and description to all supported languages
+ */
+async function generateTaskTranslations(
+	taskData: TaskBody
+): Promise<TaskTranslations | undefined> {
+	// Only generate translations if translation service is available
+	if (!translationService.isAvailable()) {
+		console.warn('Translation service not available, skipping translations');
+		return undefined;
+	}
+
+	try {
+		// Detect source language from the combined text (title + description)
+		const combinedText = `${taskData.title} ${taskData.description}`;
+		const detectedLanguage = await translationService.detectLanguage(combinedText);
+		
+		// If we can't detect language or it's not supported, default to 'en'
+		const sourceLanguage = detectedLanguage || 'en';
+		
+		// Get all supported languages except the source language
+		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		
+		// If no target languages (task is already in all supported languages), return empty
+		if (targetLanguages.length === 0) {
+			return {
+				sourceLanguage,
+				translations: {}
+			};
+		}
+
+		// Translate title and description to all target languages in parallel
+		const translationPromises = targetLanguages.map(async (targetLang) => {
+			const [titleResult, descResult] = await Promise.all([
+				translationService.translate(taskData.title, targetLang, sourceLanguage),
+				translationService.translate(taskData.description, targetLang, sourceLanguage)
+			]);
+
+			// Check if translation failed
+			if ('code' in titleResult || 'code' in descResult) {
+				console.warn(`Translation failed for ${targetLang}:`, 
+					'code' in titleResult ? titleResult.message : descResult.message);
+				return null;
+			}
+
+			return {
+				language: targetLang,
+				title: titleResult.translatedText,
+				description: descResult.translatedText
+			};
+		});
+
+		const results = await Promise.all(translationPromises);
+		
+		// Build translations object, filtering out failed translations
+		const translations: TaskTranslations['translations'] = {};
+		results.forEach(result => {
+			if (result) {
+				translations[result.language] = {
+					title: result.title,
+					description: result.description
+				};
+			}
+		});
+
+		return {
+			sourceLanguage,
+			translations
+		};
+	} catch (error) {
+		console.error('Error generating task translations:', error);
+		return undefined;
+	}
+}
 
 /**
  * Generate tags for a task event
@@ -117,12 +198,20 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 			avatar: userData?.picture || ''
 		};
 
-		// Add creation timestamp and unique identifier to task data
+		// Generate translations for all supported languages
+		console.log('🌐 Generating translations for task...');
+		const translations = await generateTaskTranslations(taskData);
+		if (translations) {
+			console.log('✅ Translations generated:', Object.keys(translations.translations));
+		}
+
+		// Add creation timestamp, unique identifier, and translations to task data
 		const taskDataWithMeta = {
 			...taskData,
 			creator,
 			createdAt: Math.floor(Date.now() / 1000),
-			uniqueId
+			uniqueId,
+			...(translations && { translations })
 		};
 
 		// Calculate POW based on task value and uniqueId
@@ -163,11 +252,24 @@ export async function createRecurringTask(
 		const uniqueId = crypto.randomUUID();
 		const pow = await calculatePOW(taskData.budget.amount, uniqueId);
 
+		// Generate translations for the recurring task template (same as regular tasks)
+		console.log('🌐 Generating translations for recurring task template...');
+		const translations = await generateTaskTranslations(taskData);
+		if (translations) {
+			console.log('✅ Translations generated for recurring task:', Object.keys(translations.translations));
+		}
+
+		// Include translations in the template
+		const taskDataWithTranslations = {
+			...taskData,
+			...(translations && { translations })
+		};
+
 		const event = {
 			kind: KINDS.RECURRING_TASK,
 			created_at: Math.floor(Date.now() / 1000),
 			content: JSON.stringify({
-				template: taskData,
+				template: taskDataWithTranslations,
 				schedule,
 				uniqueId
 			}),
@@ -211,12 +313,35 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 			throw new Error('Original task has no uniqueId');
 		}
 
+		// Check if title or description changed - if so, regenerate translations
+		const needsRetranslation = 
+			(updates.title && updates.title !== originalTaskData.title) ||
+			(updates.description && updates.description !== originalTaskData.description);
+
+		// Create updated task data for translation (if needed)
+		const taskDataForTranslation: TaskBody = {
+			...originalTaskData,
+			...updates
+		};
+
+		// Generate new translations if content changed
+		let translations = originalTaskData.translations;
+		if (needsRetranslation) {
+			console.log('🌐 Regenerating translations for updated task...');
+			const newTranslations = await generateTaskTranslations(taskDataForTranslation);
+			if (newTranslations) {
+				translations = newTranslations;
+				console.log('✅ Translations regenerated:', Object.keys(translations.translations));
+			}
+		}
+
 		// Merge updates with original task data
 		const updatedTaskData = {
 			...originalTaskData,
 			...updates,
 			uniqueId, // Keep the same uniqueId
-			updatedAt: Math.floor(Date.now() / 1000)
+			updatedAt: Math.floor(Date.now() / 1000),
+			...(translations && { translations })
 		};
 
 		// Calculate POW based on updated task value

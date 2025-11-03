@@ -101,6 +101,12 @@ export const TASK_CATEGORIES: Category[] = [
         description: 'Painting, renovations, plumbing, electrical work, and home upgrades'
     },
     {
+        id: '29',
+		slug: 'building-construction',
+        name: 'Building and Construction',
+        description: 'New construction, building projects, structural work, commercial construction, and residential building services'
+    },
+    {
         id: '5',
 		slug: 'gardening',
         name: 'Gardening & Landscaping',

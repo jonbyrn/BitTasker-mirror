@@ -5,7 +5,7 @@
   
   let { 
     task, 
-    showToggle = true,
+    showToggle = false, // Por defecto false, solo true en mensajes
     showTitle = true,
     showDescription = true,
     titleClass = "text-lg font-semibold",
@@ -24,15 +24,48 @@
   let showOriginal = $state(false);
   let translationError = $state(false);
 
+  // Check if translation is available synchronously from stored translations
   $effect(() => {
     const userLang = $currentUserLanguage;
-    if (userLang && task) {
-      translateTask(userLang);
+    if (!userLang || !task) return;
+
+    // Fast path: Check if translation exists in Nostr event
+    if (task.translations?.translations && task.translations.translations[userLang]) {
+      const storedTranslation = task.translations.translations[userLang];
+      const sourceLanguage = task.translations.sourceLanguage;
+      
+      // If user's language matches source language, no translation needed
+      if (sourceLanguage === userLang) {
+        translatedTask = null;
+        return;
+      }
+
+      // Use stored translation immediately (no API call!)
+      translatedTask = {
+        taskId: task.id,
+        originalTitle: task.title,
+        translatedTitle: storedTranslation.title,
+        originalDescription: task.description,
+        translatedDescription: storedTranslation.description,
+        targetLanguage: userLang,
+        sourceLanguage,
+        timestamp: Date.now()
+      };
+      return;
     }
+
+    // Fallback: Use translation service (for older tasks or when stored translation unavailable)
+    translateTask(userLang);
   });
 
   async function translateTask(targetLanguage: string) {
     if (!task) return;
+    
+    // Skip if user's language matches source language from stored translations
+    if (task.translations?.sourceLanguage === targetLanguage) {
+      translatedTask = null;
+      return;
+    }
     
     isTranslating = true;
     translationError = false;

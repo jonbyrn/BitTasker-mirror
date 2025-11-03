@@ -12,14 +12,32 @@ export class TaskTranslationService {
       return null;
     }
 
+    // First, check if translations are stored in the Nostr event (task.translations)
+    if (task.translations?.translations && task.translations.translations[targetLanguage]) {
+      const storedTranslation = task.translations.translations[targetLanguage];
+      const sourceLanguage = task.translations.sourceLanguage;
+      
+      // Return translation from Nostr event - no API call needed!
+      return {
+        taskId: task.id,
+        originalTitle: task.title,
+        translatedTitle: storedTranslation.title,
+        originalDescription: task.description,
+        translatedDescription: storedTranslation.description,
+        targetLanguage,
+        sourceLanguage,
+        timestamp: Date.now() // Use current timestamp since it's from Nostr
+      };
+    }
+
+    // If stored translation not available, check cache
     const cacheKey = `${task.id}-${targetLanguage}`;
-    
-    // Check cache first
     const cached = this.cache.get(cacheKey);
     if (cached && this.isCacheValid(cached)) {
       return cached;
     }
 
+    // Fallback: translate on-demand (for older tasks without stored translations)
     try {
       // Translate both title and description in parallel
       const [titleResult, descResult] = await Promise.all([
