@@ -4,7 +4,7 @@ _Note: The official name of the application is "BitTasker" (capital 'B', capital
 
 ## Overview
 
-BitTasker is a gig economy platform inspired by Airtasker, designed to connect people seeking services (task hirers) with professionals offering those services (task doers). The platform facilitates the entire process from task posting, bidding, hiring, communication, scheduling, payment, to reviews.
+BitTasker is a Bitcoin platform in the gig economy sector inspired by Airtasker, designed to connect people seeking services (task hirers) with professionals offering those services (task doers). The platform facilitates the entire process from task posting, bidding, hiring, communication, scheduling, payment, to reviews.
 
 ### Key Differentiators
 
