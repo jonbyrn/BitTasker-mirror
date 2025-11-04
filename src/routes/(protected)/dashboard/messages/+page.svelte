@@ -13,7 +13,7 @@
 	import { subscribeToEvents } from '$lib/utils/nostr';
 	import type { Event as NostrEvent, Filter } from 'nostr-tools';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
-	import { conversationManager, getConversations } from '$lib/utils/conversation-manager';
+	import { conversationManager } from '$lib/utils/conversation-manager';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { t } from 'svelte-i18n';
 	import KINDS from '$lib/utils/constants/kinds';
@@ -76,32 +76,81 @@
 	// Load conversations on mount
 	onMount(async () => {
 		try {
-			isLoading = true;
+			// Clear profile cache to ensure we only show conversations for current user
+			const { nsec, npub } = await getNostrKeyPair();
+			const currentUserPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 			
-			// Get current user's pubkey
-			const { npub } = await getNostrKeyPair();
-			const currentUserPubkey = npub.startsWith('npub') 
-				? (nip19.decode(npub).data as string) 
-				: npub;
+			console.log('🧹 Clearing profile cache for user:', currentUserPubkey);
+			profileCache.clear(); // Clear all cached profiles
 			
-			// Use optimized getConversations with progressive loading
-			const conversationList = await getConversations({
-				progressive: true,
-				userPubkey: currentUserPubkey,
-				onProgress: (progressConversations) => {
-					conversations = progressConversations;
-					isLoading = progressConversations.length === 0; // Keep loading only if no conversations yet
+			// Obtener conversaciones pero excluir las que solo contengan bids
+			const people = await getMessagedPeople();
+
+			// Process conversations in parallel for better performance
+			const conversationPromises = people.map(async (person) => {
+				try {
+					// Obtener historial de mensajes con esta persona (limit to 10 for performance)
+					const messageHistory = await getMessageHistory(person.pubkey, { limit: 10 });
+
+					// Verificar si hay mensajes que NO sean JSON (system messages)
+					const hasNonJsonMessages = messageHistory.some((message) => {
+						const isJsonMessage = message.plaintext.startsWith('[') || message.plaintext.startsWith('{');
+						return !isJsonMessage;
+					});
+
+					// Solo incluir conversaciones que tengan mensajes normales (no JSON)
+					if (hasNonJsonMessages) {
+						// Find the most recent non-JSON message for preview
+						const lastNonJsonMessage = messageHistory
+							.filter(message => {
+								const isJsonMessage = message.plaintext.startsWith('[') || message.plaintext.startsWith('{');
+								return !isJsonMessage;
+							})
+							.sort((a, b) => b.event.created_at - a.event.created_at)[0];
+
+						// Update the person's lastEvent with the filtered content
+						if (lastNonJsonMessage) {
+							return {
+								...person,
+								lastEvent: {
+									...person.lastEvent,
+									content: lastNonJsonMessage.plaintext,
+									created_at: lastNonJsonMessage.event.created_at
+								}
+							};
+						} else {
+							return person;
+						}
+					}
+					// Don't include conversations with only JSON messages - return undefined to filter out
+					return undefined;
+				} catch (err) {
+					// Si hay error, incluir la conversación por seguridad
+					return person;
 				}
 			});
-			
-			conversations = conversationList;
+
+			// Wait for all conversations to be processed
+			const conversationResults = await Promise.all(conversationPromises);
+			const filteredConversations = conversationResults.filter((conversation): conversation is NonNullable<typeof conversation> => conversation !== undefined);
+
+			// Ordenar conversaciones del más reciente al más antiguo
+			conversations = filteredConversations.sort((a, b) => {
+				const timeA = a.lastEvent?.created_at || 0;
+				const timeB = b.lastEvent?.created_at || 0;
+				return timeB - timeA; // Más reciente primero
+			});
+
+			// Setup profile subscriptions for existing conversations
+			for (const conversation of conversations) {
+				// Profile subscription removed - using props instead
+			}
 		} catch (err) {
 			error = 'messages.failed_load_conversations';
-			console.error('Failed to load conversations:', err);
 		} finally {
 			isLoading = false;
 		}
-		
+
 		// Setup real-time updates for conversation list
 		setupConversationListListener();
 	});
@@ -896,8 +945,8 @@
 
 			<!-- Scrollable content area -->
 			<div class="min-h-0 flex-1 overflow-y-auto">
-				{#if isLoading && conversations.length === 0}
-					<!-- Loading State - Only show if no cached conversations -->
+				{#if isLoading}
+					<!-- Loading State -->
 					<div class="divide-base-300/20 divide-y">
 						{#each Array(3) as _}
 							<div class="flex animate-pulse items-center gap-3 p-4">
@@ -906,8 +955,27 @@
 									<div class="bg-base-300 mb-1 h-4 w-1/4 rounded"></div>
 									<div class="bg-base-300 h-3 w-2/3 rounded"></div>
 								</div>
+								<div class="bg-base-300 h-4 w-4 rounded"></div>
 							</div>
 						{/each}
+					</div>
+				{:else if error}
+					<!-- Error State -->
+					<div class="alert alert-error alert-outline">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span>{$t(error)}</span>
 					</div>
 				{:else if conversations.length > 0}
 					<!-- Show conversations with optional loading indicator -->
@@ -942,14 +1010,14 @@
 								</div>
 							</button>
 						{/each}
-						
-                        {#if isLoading}
-                            <div class="p-2 text-center text-xs opacity-50">
-                                {$t('messages.loading_more_conversations')}
-                            </div>
-                        {/if}
+
+						{#if isLoading}
+							<div class="p-2 text-center text-xs opacity-50">
+								{$t('messages.loading_more_conversations')}
+							</div>
+						{/if}
 					</div>
-				{:else if !isLoading}
+				{:else if conversations.length === 0}
 					<!-- Empty State -->
 					<div class="py-12 text-center">
 						<svg
@@ -971,24 +1039,6 @@
 						<button class="btn btn-primary mt-4" onclick={startNewMessage}>
 							{$t('messages.start_new_message')}
 						</button>
-					</div>
-				{:else if error}
-					<!-- Error State -->
-					<div class="alert alert-error alert-outline">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span>{$t(error)}</span>
 					</div>
 				{:else if filteredConversations.length === 0}
 					<!-- No Search Results -->
@@ -1013,8 +1063,77 @@
 							{$t('messages.clear_search')}
 						</button>
 					</div>
+				{:else}
+					<!-- Conversation List -->
+					<div class="divide-base-300/20 divide-y">
+						{#each filteredConversations as conversation}
+							<button
+								class="hover:bg-base-200/50 active:bg-base-200 flex w-full items-center gap-3 px-4 py-3 transition-colors sm:gap-4 sm:px-6 sm:py-4"
+								onclick={() => selectConversation(conversation.pubkey)}
+							>
+								<!-- Avatar -->
+									<div class="flex-shrink-0">
+										{#if conversation.profile.picture}
+											<img
+												src={conversation.profile.picture}
+												alt={conversation.profile.name || $t('messages.unknown_user')}
+												class="h-10 w-10 rounded-full object-cover ring-2 ring-base-300"
+												width={40}
+												height={40}
+											/>
+										{:else}
+											<div class="bg-gradient-to-br from-primary/20 to-secondary/20 flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-base-300">
+												{#if conversation.profile.name}
+													<span class="text-primary font-semibold text-sm">
+														{conversation.profile.name.charAt(0).toUpperCase()}
+													</span>
+												{:else}
+													<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+													</svg>
+												{/if}
+											</div>
+										{/if}
+									</div>
+
+								<!-- Content -->
+								<div class="min-w-0 flex-1 text-left pl-2">
+									<div class="mb-2 flex items-center justify-between">
+										<h4 class="truncate text-sm font-medium">
+											{conversation.profile.name}
+										</h4>
+										<span class="text-base-content/50 ml-3 flex-shrink-0 text-xs">
+											{formatTimeAgo(new Date(conversation.lastMessageTime * 1000))}
+										</span>
+									</div>
+									<p class="text-base-content/70 line-clamp-2 text-xs leading-relaxed">
+										{conversation.lastMessage}
+									</p>
+								</div>
+
+								<!-- Arrow indicator -->
+								<div class="flex-shrink-0 pl-2">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="text-base-content/30 h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M9 5l7 7-7 7"
+										/>
+									</svg>
+								</div>
+							</button>
+						{/each}
+					</div>
 				{/if}
 			</div>
+			<!-- Close scrollable content area -->
 		</div>
 	</div>
 </div>
