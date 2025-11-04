@@ -106,8 +106,11 @@ async function loadAllData(): Promise<void> {
  * 
  * Performance Optimizations:
  * - Reuses existing contract instances instead of creating new ones
- * - Throttles balance refreshes to every 10 blocks (~20-30 seconds)
- * - Checks for Transfer events every 5 blocks using queryFilter (one-time queries)
+ * - Network-specific refresh intervals:
+ *   - RSK: Every block (~30 seconds) due to slow block time
+ *   - BSC: Every 30 blocks (~90 seconds) due to fast block time
+ * - For RSK, checks for incoming transactions every block
+ * - For BSC, checks for USDT Transfer events every 30 blocks using queryFilter
  * - Respects provider.pause()/resume() for page visibility handling
  */
 function setupNetworkEventListeners(
@@ -118,6 +121,12 @@ function setupNetworkEventListeners(
 ): void {
 	let blockCount = 0;
 	let lastCheckedBlock = 0;
+
+	// Network-specific configuration based on block time
+	// RSK: ~30 second blocks → check every block
+	// BSC: ~3 second blocks → check every 30 blocks
+	const refreshInterval = network === 'rsk' ? 1 : 30;
+	const txCheckInterval = network === 'rsk' ? 1 : 30;
 
 	// Block listener - ethers handles polling internally
 	const blockListener = async (blockNumber: number) => {
@@ -130,46 +139,73 @@ function setupNetworkEventListeners(
 
 			blockCount++;
 
-			// Refresh balance every 10 blocks (~20-30 seconds for most networks)
-			if (blockCount % 10 === 0) {
+			// Refresh balance based on network-specific interval
+			// RSK: Every block (blockCount % 1 === 0, always true)
+			// BSC: Every 30 blocks (blockCount % 30 === 0)
+			if (blockCount % refreshInterval === 0) {
 				const balanceChanged = await refreshNetworkBalance(network, provider, wallet, usdtContract);
 				// Only reload assets if balance actually changed
 				if (balanceChanged) {
+					console.log(`[${network}] Balance changed, reloading assets`);
 					await loadAssets();
 				}
 			}
 
-			// For ERC20 tokens, check for Transfer events every 5 blocks using queryFilter
-			// This avoids persistent RPC filters that expire and cause "filter not found" errors
-			if (usdtContract && blockNumber % 5 === 0 && blockNumber > lastCheckedBlock) {
-				try {
-					const fromBlock = Math.max(lastCheckedBlock > 0 ? lastCheckedBlock : blockNumber - 5, blockNumber - 5);
-					const toBlock = blockNumber;
+			// Check for incoming transactions based on network-specific interval
+			if (blockCount % txCheckInterval === 0 && blockNumber > lastCheckedBlock) {
+				if (network === 'rsk') {
+					// For RSK, check for native RBTC transfers by querying transaction history
+					try {
+						const fromBlock = Math.max(lastCheckedBlock > 0 ? lastCheckedBlock : blockNumber - 5, blockNumber - 5);
+						const toBlock = blockNumber;
 
-					// Create filters for incoming and outgoing transfers
-					const incomingFilter = usdtContract.filters.Transfer(null, wallet.address);
-					const outgoingFilter = usdtContract.filters.Transfer(wallet.address, null);
+						// Get transaction count for the address to detect incoming transactions
+						const currentTxCount = await provider.getTransactionCount(wallet.address, toBlock);
+						const previousTxCount = await provider.getTransactionCount(wallet.address, fromBlock - 1);
 
-					// Query for events (one-time query, no persistent filter)
-					const [incomingEvents, outgoingEvents] = await Promise.all([
-						usdtContract.queryFilter(incomingFilter, fromBlock, toBlock),
-						usdtContract.queryFilter(outgoingFilter, fromBlock, toBlock)
-					]);
-
-					// If any transfers detected, refresh balance and transactions
-					if (incomingEvents.length > 0 || outgoingEvents.length > 0) {
-						console.log(`[${network}] Transfers detected in blocks ${fromBlock}-${toBlock}, refreshing...`);
-						const balanceChanged = await refreshNetworkBalance(network, provider, wallet, usdtContract);
-						if (balanceChanged) {
-							await loadAssets();
+						if (currentTxCount !== previousTxCount) {
+							console.log(`[${network}] Transaction detected (count changed from ${previousTxCount} to ${currentTxCount}), refreshing...`);
+							const balanceChanged = await refreshNetworkBalance(network, provider, wallet);
+							if (balanceChanged) {
+								await loadAssets();
+							}
+							await loadTransactions();
 						}
-						await loadTransactions();
-					}
 
-					lastCheckedBlock = blockNumber;
-				} catch (error) {
-					// Silently handle query errors - they're not critical
-					console.debug(`[${network}] Transfer check failed:`, error);
+						lastCheckedBlock = blockNumber;
+					} catch (error) {
+						console.debug(`[${network}] Transaction check failed:`, error);
+					}
+				} else if (usdtContract) {
+					// For BSC, check for USDT Transfer events using queryFilter
+					try {
+						const fromBlock = Math.max(lastCheckedBlock > 0 ? lastCheckedBlock : blockNumber - 5, blockNumber - 5);
+						const toBlock = blockNumber;
+
+						// Create filters for incoming and outgoing transfers
+						const incomingFilter = usdtContract.filters.Transfer(null, wallet.address);
+						const outgoingFilter = usdtContract.filters.Transfer(wallet.address, null);
+
+						// Query for events (one-time query, no persistent filter)
+						const [incomingEvents, outgoingEvents] = await Promise.all([
+							usdtContract.queryFilter(incomingFilter, fromBlock, toBlock),
+							usdtContract.queryFilter(outgoingFilter, fromBlock, toBlock)
+						]);
+
+						// If any transfers detected, refresh balance and transactions
+						if (incomingEvents.length > 0 || outgoingEvents.length > 0) {
+							console.log(`[${network}] USDT transfers detected in blocks ${fromBlock}-${toBlock}, refreshing...`);
+							const balanceChanged = await refreshNetworkBalance(network, provider, wallet, usdtContract);
+							if (balanceChanged) {
+								await loadAssets();
+							}
+							await loadTransactions();
+						}
+
+						lastCheckedBlock = blockNumber;
+					} catch (error) {
+						console.debug(`[${network}] Transfer check failed:`, error);
+					}
 				}
 			}
 		} catch (error) {
@@ -400,8 +436,18 @@ async function initializeRSKWallet(mnemonic?: string): Promise<void> {
 		const network: NetworkType = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const networkConfig = RSK_NETWORKS[network];
 
-		// Create provider
-		const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
+		// Create provider with explicit network configuration to ensure proper polling
+		// This prevents ethers from trying to auto-detect the network
+		const ethersNetwork = ethers.Network.from({
+			name: networkConfig.name.toLowerCase().replace(' ', '-'),
+			chainId: networkConfig.chainId
+		});
+
+		const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl, ethersNetwork, {
+			staticNetwork: ethersNetwork, // Prevent network detection
+			batchMaxCount: 1, // Disable batching for better compatibility
+			pollingInterval: 5000 // Poll every 30 seconds (RSK block time is ~30s)
+		});
 
 		// Create wallet from mnemonic with RSK derivation path
 		const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/137'/0'/0/0");
@@ -475,10 +521,20 @@ async function initializeBSCWallet(mnemonic?: string): Promise<void> {
 		const network: Extract<NetworkType, 'mainnet' | 'testnet'> = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 
 		// Initialize provider
-		const networkConfig = BSC_NETWORKS[network]
+		const networkConfig = BSC_NETWORKS[network];
 
-		// Create provider
-		const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
+		// Create provider with explicit network configuration
+		const ethersNetwork = ethers.Network.from({
+			name: networkConfig.name.toLowerCase().replace(' ', '-'),
+			chainId: networkConfig.chainId
+		});
+
+		const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl, ethersNetwork, {
+			staticNetwork: ethersNetwork, // Prevent network detection
+			batchMaxCount: 1, // Disable batching for better compatibility
+			pollingInterval: 30000 // Poll every 30 seconds (BSC block time is ~3s)
+		});
+
 
 		// Create wallet from mnemonic with BSC derivation path: m/44'/60'/0'/0/0 (Ethereum standard)
 		const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'/0/0");
@@ -487,7 +543,7 @@ async function initializeBSCWallet(mnemonic?: string): Promise<void> {
 		try {
 			await provider.getBlockNumber();
 		} catch (BscError) {
-			throw new Error(`BSC provider connection failed: ${BscError instanceof Error ? BscError.message : 'Unknown error'}`)
+			throw new Error(`BSC provider connection failed: ${BscError instanceof Error ? BscError.message : 'Unknown error'}`);
 		}
 
 		const blockNumber = await provider.getBlockNumber();
@@ -1079,7 +1135,7 @@ export async function estimateBSCBNBGas(to: string, amount: string): Promise<Gas
  */
 export async function depositToBSCPaymaster(amount: string): Promise<string> {
 	const state = get(walletStore);
-	if (!state.bsc.paymasterContract) {
+	if (!state?.bsc?.paymasterContract) {
 		throw new Error('BSC paymaster not initialized');
 	}
 

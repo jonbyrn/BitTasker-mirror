@@ -12,6 +12,7 @@ interface AppStore {
 	error: string | null;
 	toasts: Toast[];
 	biometricData: Credentials | null;
+	network: 'mainnet' | 'testnet' | 'regtest';
 }
 
 const createAppStore = () => {
@@ -19,7 +20,8 @@ const createAppStore = () => {
 		isLoading: false,
 		error: null,
 		toasts: [],
-		biometricData: null
+		biometricData: null,
+		network: import.meta.env.VITE_RSK_NETWORK || 'testnet'
 	});
 
 	const { subscribe, set, update } = store;

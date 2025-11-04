@@ -7,13 +7,9 @@
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import PendingSwap from '$lib/components/wallet/PendingSwap.svelte';
 
-	// Props
-	let {
-		amount = $bindable(''),
-		description = $bindable('')
-	}: { amount?: string; description?: string } = $props();
-
 	// State
+	let amount = $state('');
+	let description = $state('');
 	let isCreatingSwap = $state(false);
 	let pendingSwaps = $state<ChainSwapData[]>([]);
 	let error = $state<string | null>(null);
@@ -332,7 +328,7 @@
 				<span class="label-text-alt">
 					{#if isLoadingLimits}
 						<span class="loading loading-spinner loading-xs"></span>
-						{$t('wallet.loading')}...
+						{$t('wallet.swap.loading')}...
 					{:else}
 						{$t('wallet.swap.min_amount')}: {minBTC.toFixed(8)} BTC ({minAmount.toLocaleString()} sats)
 					{/if}

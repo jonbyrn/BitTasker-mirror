@@ -9,11 +9,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	// Icon imports for unplugin-icons
 	import IconContentCopy from '~icons/mdi/content-copy';
-	import {
-		walletManager,
-		rskConnection,
-		walletStore
-	} from '$lib/stores/wallet.store';
+	import { walletManager, rskConnection, walletStore } from '$lib/stores/wallet.store';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import SendForm from '$lib/components/wallet/SendForm.svelte';
 	import ReceiveForm from '$lib/components/wallet/ReceiveForm.svelte';
@@ -239,9 +235,7 @@
 			{/if}
 
 			{#if $walletStore.activeTab === 'send'}
-				<div class="space-y-6">
-					<SendForm />
-				</div>
+				<SendForm />
 			{/if}
 
 			{#if $walletStore.activeTab === 'buy-sell'}
