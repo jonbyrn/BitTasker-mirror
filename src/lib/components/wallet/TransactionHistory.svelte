@@ -199,11 +199,11 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex flex-wrap gap-4">
+	<div class="flex flex-wrap gap-4 items-center">
 		<h3 class="text-lg font-semibold">{$t('wallet.transaction_history')}</h3>
 		<button
 			class="btn btn-outline btn-sm self-start sm:self-auto"
-			onclick={refreshTransactions}
+			onclick={(refreshTransactions)}
 			disabled={isLoading}
 		>
 			{#if isLoading}

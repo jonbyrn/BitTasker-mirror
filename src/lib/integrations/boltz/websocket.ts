@@ -21,7 +21,7 @@ export class BoltzWebSocket {
 	private ws: WebSocket | null = null;
 	private endpoint: string;
 	private reconnectAttempts = 0;
-	private maxReconnectAttempts = 5;
+	private maxReconnectAttempts = 3;
 	private reconnectDelay = 1000;
 	private subscribedSwaps: Set<string> = new Set();
 	private callbacks: Map<string, (event: SwapEvent) => void> = new Map();
@@ -183,7 +183,9 @@ export class BoltzWebSocket {
 	 */
 	private handleReconnect(): void {
 		if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-			console.error('Max reconnection attempts reached');
+			console.error('Max reconnection attempts reached - stopping reconnection');
+			// Clear the WebSocket to prevent further reconnection attempts
+			this.ws = null;
 			return;
 		}
 
@@ -193,6 +195,13 @@ export class BoltzWebSocket {
 		console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
 		setTimeout(async () => {
+			// Check if we should still try to reconnect
+			if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+				console.error('Max reconnection attempts reached during timeout');
+				this.ws = null;
+				return;
+			}
+
 			try {
 				await this.connect();
 

@@ -142,33 +142,16 @@
 
 	// Enhanced form validation
 	let isFormValid = $derived(
-		recipientAddress.trim() !== '' && 
-		amount.trim() !== '' && 
+		recipientAddress?.trim() !== '' && 
+		String(amount || '').trim() !== '' && 
 		parseFloat(amount) > 0 && 
 		currentAsset() && 
 		parseFloat(amount) <= (currentAsset()?.balance || 0)
 	);
 	
 	// Individual validation states for better UX
-	let hasValidAddress = $derived(recipientAddress.trim() !== '');
-	let hasValidAmount = $derived(amount.trim() !== '' && parseFloat(amount) > 0);
-	let hasSufficientBalance = $derived(currentAsset() && parseFloat(amount) <= (currentAsset()?.balance || 0));
-	
-	// Validation error messages
-	let validationErrors = $derived.by(() => {
-		const errors = [];
-		if (!hasValidAddress) {
-			errors.push($t('wallet.validation.address_required'));
-		}
-		if (!hasValidAmount) {
-			errors.push($t('wallet.validation.amount_required'));
-		}
-		if (hasValidAmount && !hasSufficientBalance) {
-			errors.push($t('wallet.validation.insufficient_balance'));
-		}
-		return errors;
-	});
-
+	let hasValidAddress = $derived(recipientAddress?.trim() !== '');
+	let hasValidAmount = $derived(String(amount || '').trim() !== '' && parseFloat(amount) > 0);
 
 	async function handleSend() {
 		if (!isFormValid || !currentAsset) return;
@@ -430,7 +413,7 @@
 							: selectedNetwork === 'liquid-usdt'
 								? 'Liquid USDT address'
 								: 'Rootstock address (0x...)'}
-				class="input input-bordered w-full {!hasValidAddress && recipientAddress.trim() !== '' ? 'input-error' : ''}"
+				class="input input-bordered w-full {!hasValidAddress && String(recipientAddress || '').trim() !== '' ? 'input-error' : ''}"
 				disabled={isLoading}
 			/>
 		</div>
@@ -453,7 +436,7 @@
 				min="0"
 				max={currentAsset()?.balance}
 				placeholder="0.00"
-				class="input input-bordered join-item flex-1 rounded-r-none {!hasValidAmount && amount.trim() !== '' ? 'input-error' : ''}"
+				class="input input-bordered join-item flex-1 rounded-r-none {!hasValidAmount && String(amount || '').trim() !== '' ? 'input-error' : ''}"
 				style="border-radius: 0.5rem 0 0 0.5rem !important; border-right-color: var(--color-primary) !important;"
 				disabled={isLoading}
 			/>
