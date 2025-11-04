@@ -190,17 +190,17 @@
 			<div class="rounded-lg bg-white p-2 shadow-lg">
 				<img src={qrCodeData} alt="Payment QR Code" class="h-48 w-48" />
 			</div>
-			{#if address}
+			{#if $rskConnection.address}
 				<div class="col-span-2 mt-4 w-full">
 					<div class="mb-1 text-xs opacity-70 text-start">{$t('wallet.address')}</div>
 					<div class="border-base-300 relative rounded border">
 						<button
 							class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 pr-10 text-left transition-colors"
 							onclick={copyAddress}
-							disabled={!$rskConnection.connected || !address}
+							disabled={!$rskConnection.connected || !$rskConnection.address}
 						>
 							<code class="overflow-wrap-anywhere text-xs break-all whitespace-normal">
-								{address}
+								{$rskConnection.address}
 							</code>
 						</button>
 						<div class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 transform">
