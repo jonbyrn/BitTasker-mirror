@@ -30,7 +30,6 @@
 				return;
 			}
 
-			address = `ethereum:${address}`;
 			const params = new URLSearchParams();
 
 			if (amount) {
@@ -82,7 +81,7 @@
 	}
 </script>
 
-<div class="grid grid-cols-1 items-center gap-6 sm:grid-cols-2">
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 	<!-- Payment Request Form -->
 	<div class="space-y-4">
 		<h4 class="font-semibold">{$t('wallet.payment_request')}</h4>
@@ -128,7 +127,7 @@
 	<div class="flex flex-col items-center text-center">
 		<h4 class="mb-4 font-semibold">{$t('wallet.receive_rbtc')}</h4>
 
-		{#if $appStore.network === 'testnet'}
+		{#if $appStore.network !== 'testnet'}
 			<!-- Abbreviated testnet warning shown instead of QR on testnet -->
 			<div class="alert alert-outline alert-warning w-full max-w-sm">
 				<svg
@@ -191,64 +190,63 @@
 			<div class="rounded-lg bg-white p-2 shadow-lg">
 				<img src={qrCodeData} alt="Payment QR Code" class="h-48 w-48" />
 			</div>
+			{#if address}
+				<div class="col-span-2 mt-4 w-full">
+					<div class="mb-1 text-xs opacity-70 text-start">{$t('wallet.address')}</div>
+					<div class="border-base-300 relative rounded border">
+						<button
+							class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 pr-10 text-left transition-colors"
+							onclick={copyAddress}
+							disabled={!$rskConnection.connected || !address}
+						>
+							<code class="overflow-wrap-anywhere text-xs break-all whitespace-normal">
+								{address}
+							</code>
+						</button>
+						<div class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 transform">
+							{#if addressCopied}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-success h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M5 13l4 4L19 7"
+									/>
+								</svg>
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-4 w-4 opacity-70"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+									/>
+								</svg>
+							{/if}
+						</div>
+					</div>
+				</div>
+			{:else if $rskConnection.connected}
+				<div class="mt-4 w-full">
+					<div class="text-error text-center text-xs">
+						{$t('wallet.no_rsk_address_available')}
+					</div>
+				</div>
+			{/if}
 		{/if}
 	</div>
-
-	{#if address}
-		<div class="col-span-2 mt-4 w-full">
-			<div class="mb-1 text-xs opacity-70">{$t('wallet.address')}</div>
-			<div class="border-base-300 relative rounded border">
-				<button
-					class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 pr-10 text-left transition-colors"
-					onclick={copyAddress}
-					disabled={!$rskConnection.connected || !address}
-				>
-					<code class="overflow-wrap-anywhere text-xs break-all whitespace-normal">
-						{address}
-					</code>
-				</button>
-				<div class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 transform">
-					{#if addressCopied}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-success h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
-					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4 opacity-70"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-							/>
-						</svg>
-					{/if}
-				</div>
-			</div>
-		</div>
-	{:else if $rskConnection.connected}
-		<div class="mt-4 w-full">
-			<div class="text-error text-center text-xs">
-				{$t('wallet.no_rsk_address_available')}
-			</div>
-		</div>
-	{/if}
 
 	<button class="btn btn-primary col-span-2 w-full" onclick={copyAddress} disabled={!address}>
 		<svg
