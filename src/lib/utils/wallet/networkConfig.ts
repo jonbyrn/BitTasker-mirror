@@ -117,7 +117,6 @@ export const RSK_NETWORKS = {
 			symbol: 'RBTC',
 			decimals: 18
 		},
-		multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11', // Multicall3 if deployed
 		/* tokens: [
 			{
 				address: '0xEf213441a85dF4d7acBdAe0Cf78004E1e486BB96',
@@ -150,7 +149,6 @@ export const RSK_NETWORKS = {
 			symbol: 'tRBTC',
 			decimals: 18
 		},
-		multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11', // Multicall3 if deployed
 		/* tokens: [
 			{
 				address: '0x19F64674D8A5B4E652319F5e239eFd3bc969A1fE',
@@ -176,8 +174,7 @@ export const RSK_NETWORKS = {
 			name: 'Regtest Smart Bitcoin',
 			symbol: 'rRBTC',
 			decimals: 18
-		},
-		multicallAddress: null // No multicall on local regtest
+		}
 	}
 } as const;
 
@@ -306,12 +303,7 @@ export function getBSCPaymasterConfig(network: NetworkType): PaymasterConfig {
 
 export function getUSDTToken(network: NetworkType): ERC20Token | undefined {
 	const networkConfig = getBSCConfig(network);
-    return networkConfig.tokens.find(token => token.symbol === 'USDT' || token.symbol === 'tUSDT');
-}
-
-// Helper function to get Multicall address for a network
-export function getMulticallAddress(network: NetworkType): string | null {
-    return RSK_NETWORKS[network].multicallAddress || null;
+	return networkConfig.tokens.find(token => token.symbol === 'USDT' || token.symbol === 'tUSDT');
 }
 
 /**

@@ -6,7 +6,6 @@
  */
 
 import { ethers } from 'ethers';
-import { withTimeout } from './timeoutHelpers';
 
 // EIP-7702 Paymaster ABI
 export const PAYMASTER_ABI = [
@@ -269,12 +268,11 @@ export class BSCPaymasterContract {
         minDeposit: bigint;
     }> {
         try {
-            // Add 2-second timeout per call, 8 seconds total
             const [hasDeposit, depositAmount, canPayInUsdt, usdtPrice] = await Promise.all([
-                withTimeout(this.hasSufficientDeposit(), 2000, 'Timeout checking deposit'),
-                withTimeout(this.getDeposit(), 2000, 'Timeout getting deposit amount'),
-                withTimeout(this.canPayFeesInUsdt(), 2000, 'Timeout checking USDT payment'),
-                withTimeout(this.getUsdtPrice(), 2000, 'Timeout getting USDT price')
+                this.hasSufficientDeposit(),
+                this.getDeposit(),
+                this.canPayFeesInUsdt(),
+                this.getUsdtPrice()
             ]);
 
             return {

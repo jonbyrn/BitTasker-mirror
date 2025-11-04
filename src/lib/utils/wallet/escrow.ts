@@ -9,9 +9,6 @@ import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
-import { escrowCache } from './escrowCache';
-import { withTimeout } from './timeoutHelpers';
-import { batchGetEscrows } from './multicall';
 
 let contract: ethers.Contract | null = null;
 
@@ -225,258 +222,67 @@ async function getDisputeProposal(escrowId: string): Promise<DisputeProposal | n
     }
 }
 
-// Single unified loading function with all optimizations
-export async function loadUserEscrows(options?: {
-  progressive?: boolean;
-  onProgress?: (escrows: EscrowData[]) => void;
-}): Promise<void> {
-  const wallet = getRSKWallet();
-  if (!contract || !wallet) return;
+// Load all user escrows
+async function loadUserEscrows(): Promise<void> {
+    const wallet = getRSKWallet();
+    if (!contract || !wallet) return;
 
-  const userAddress = wallet.address;
+    try {
+        const userAddress = wallet.address;
 
-  // STEP 1: Load cached data instantly (stale-while-revalidate)
-  const cachedEscrows = escrowCache.getUserEscrows(userAddress);
-  if (cachedEscrows.length > 0) {
-    walletStore.update(state => ({
-      ...state,
-      rsk: { 
-        ...state.rsk, 
-        escrows: cachedEscrows,
-        escrowsLoading: true
-      }
-    }));
-    
-    if (options?.onProgress) {
-      options.onProgress(cachedEscrows);
-    }
-  }
-
-  // STEP 2: Refresh in background
-  try {
-    await refreshEscrowsIncremental(userAddress, options);
-  } catch (error) {
-    console.error('Failed to refresh escrows:', error);
-  } finally {
-    walletStore.update(state => ({
-      ...state,
-      rsk: { ...state.rsk, escrowsLoading: false }
-    }));
-  }
-}
-
-// Helper: Load single escrow (always fetches fresh)
-async function loadEscrowDetailsFresh(escrowId: string): Promise<EscrowData | null> {
-  if (!contract) {
-    await ensureEscrowReady();
-    if (!contract) return null;
-  }
-
-  try {
-    const escrowData = await withTimeout(
-      contract.getEscrow(escrowId),
-      3000,
-      `Timeout loading escrow ${escrowId}`
-    );
-
-    const statusMapping: Record<number, EscrowStatus> = {
-      0: EscrowStatus.Funded,
-      1: EscrowStatus.InDispute,
-      2: EscrowStatus.DisputeResolved,
-      3: EscrowStatus.DisputeUnresolved,
-      4: EscrowStatus.Completed,
-      5: EscrowStatus.Cancelled
-    };
-
-    const escrow: EscrowData = {
-      id: escrowId,
-      client: escrowData.client.toLowerCase(),
-      freelancer: escrowData.freelancer.toLowerCase(),
-      baseAmount: ethers.formatEther(escrowData.amount),
-      clientFee: '0',
-      freelancerFee: '0',
-      totalAmount: ethers.formatEther(escrowData.amount),
-      status: statusMapping[escrowData.state] || EscrowStatus.Funded,
-      estimatedStartTime: Number(escrowData.estimatedStartTime),
-      estimatedCompletionTime: Number(escrowData.estimatedCompletionTime),
-      completionTime: 0,
-      timelockExpiry: Number(escrowData.timelockEnd),
-      clientFeeTier: escrowData.clientFeeTier as FeeTier,
-      freelancerFeeTier: escrowData.freelancerFeeTier as FeeTier,
-      createdAt: Number(escrowData.createdAt) * 1000,
-      lastUpdated: Date.now()
-    };
-
-    escrowCache.set(escrowId, escrow);
-    return escrow;
-  } catch (error) {
-    console.error(`Failed to load escrow ${escrowId}:`, error);
-    return null;
-  }
-}
-
-// Helper: Incremental refresh with progressive updates
-async function refreshEscrowsIncremental(
-  userAddress: string,
-  options?: { progressive?: boolean; onProgress?: (escrows: EscrowData[]) => void }
-): Promise<void> {
-  if (!contract) return;
-
-  const nextEscrowId = await withTimeout(
-    contract.nextEscrowId(),
-    5000,
-    'Timeout fetching nextEscrowId'
-  );
-
-  const currentNextId = Number(nextEscrowId);
-  const lastKnownId = escrowCache.getLastKnownId();
-
-  // Load new escrows (if any)
-  if (currentNextId > lastKnownId) {
-    await loadNewEscrows(lastKnownId, currentNextId, userAddress, options);
-  }
-
-  // Refresh stale active/pending escrows
-  const staleIds = escrowCache.getStaleEscrowIds(userAddress);
-  if (staleIds.length > 0) {
-    const refreshPromises = staleIds.map(id => loadEscrowDetailsFresh(id));
-    await Promise.allSettled(refreshPromises);
-  }
-
-  // Final update
-  const allEscrows = escrowCache.getUserEscrows(userAddress);
-  walletStore.update(state => ({
-    ...state,
-    rsk: { ...state.rsk, escrows: allEscrows }
-  }));
-
-  escrowCache.setLastKnownId(currentNextId);
-}
-
-// Helper: Load new escrows in parallel batches with multicall support
-async function loadNewEscrows(
-  startId: number,
-  endId: number,
-  userAddress: string,
-  options?: { progressive?: boolean; onProgress?: (escrows: EscrowData[]) => void }
-): Promise<void> {
-  const newIds = Array.from(
-    { length: endId - startId },
-    (_, i) => (startId + i).toString()
-  );
-
-  const wallet = getRSKWallet();
-  if (!wallet?.provider || !contract) return;
-
-  const userAddr = userAddress.toLowerCase();
-  const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-
-  // Try multicall first (fastest - 1-2 calls for all escrows)
-  try {
-    const MULTICALL_BATCH_SIZE = 25;
-    
-    for (let i = 0; i < newIds.length; i += MULTICALL_BATCH_SIZE) {
-      const batchIds = newIds.slice(i, i + MULTICALL_BATCH_SIZE);
-      const batchData = await batchGetEscrows(
-        contract,
-        wallet.provider as ethers.JsonRpcProvider,
-        network,
-        batchIds
-      );
-      
-      batchData.forEach((escrowData, index) => {
-        if (!escrowData) return;
-        
-        const escrow = mapRawEscrowToData(batchIds[index], escrowData);
-        const clientAddr = escrow.client.toLowerCase();
-        const freelancerAddr = escrow.freelancer.toLowerCase();
-        
-        if (clientAddr === userAddr || freelancerAddr === userAddr) {
-          escrowCache.set(escrow.id, escrow);
-          
-          if (options?.progressive) {
-            const currentEscrows = escrowCache.getUserEscrows(userAddress);
+        // Check if contract is properly deployed
+        let nextEscrowId;
+        try {
+            nextEscrowId = await contract.nextEscrowId();
+        } catch (error) {
+            console.error('Failed to get nextEscrowId - contract may not be deployed correctly:', error);
+            // Set escrows to empty array and return
             walletStore.update(state => ({
-              ...state,
-              rsk: { ...state.rsk, escrows: currentEscrows }
-            }));
-            
-            if (options.onProgress) {
-              options.onProgress(currentEscrows);
-            }
-          }
-        }
-      });
-    }
-  } catch (error) {
-    console.warn('Multicall failed, falling back to parallel loading:', error);
-    
-    // Fallback to parallel batch loading
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < newIds.length; i += BATCH_SIZE) {
-      const batchIds = newIds.slice(i, i + BATCH_SIZE);
-      const batchPromises = batchIds.map(id => loadEscrowDetailsFresh(id));
-      const results = await Promise.allSettled(batchPromises);
-
-      results.forEach(result => {
-        if (result.status === 'fulfilled' && result.value) {
-          const escrow = result.value;
-          const clientAddr = escrow.client.toLowerCase();
-          const freelancerAddr = escrow.freelancer.toLowerCase();
-
-          if (clientAddr === userAddr || freelancerAddr === userAddr) {
-            if (options?.progressive) {
-              const currentEscrows = escrowCache.getUserEscrows(userAddress);
-              walletStore.update(state => ({
                 ...state,
-                rsk: { ...state.rsk, escrows: currentEscrows }
-              }));
-              
-              if (options.onProgress) {
-                options.onProgress(currentEscrows);
-              }
-            }
-          }
+                rsk: {
+                    ...state.rsk,
+                    escrows: []
+                }
+            }));
+            return;
         }
-      });
+
+        const escrows: EscrowData[] = [];
+
+        // Load recent escrows (last 50 to avoid too many calls)
+        const startId = Math.max(0, Number(nextEscrowId) - 50);
+
+        for (let i = startId; i < Number(nextEscrowId); i++) {
+            try {
+                const escrowData = await loadEscrowDetails(i.toString());
+                if (escrowData) {
+                    // Ensure all addresses are properly formatted for comparison
+                    const clientAddr = escrowData.client.toLowerCase();
+                    const freelancerAddr = escrowData.freelancer.toLowerCase();
+                    const userAddr = userAddress.toLowerCase();
+
+                    if (clientAddr === userAddr || freelancerAddr === userAddr) {
+                        escrows.push(escrowData);
+                    }
+                }
+            } catch (error) {
+                // Skip failed escrows (might be non-existent IDs)
+                console.warn(`Failed to load escrow ${i}:`, error);
+                continue;
+            }
+        }
+
+        walletStore.update(state => ({
+            ...state,
+            rsk: {
+                ...state.rsk,
+                escrows: escrows.sort((a, b) => b.createdAt - a.createdAt)
+            }
+        }));
+
+    } catch (error) {
+        throw new Error(`Failed to load user escrows: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }
-}
-
-// Helper function to map raw contract data
-function mapRawEscrowToData(escrowId: string, escrowData: any): EscrowData {
-  const statusMapping: Record<number, EscrowStatus> = {
-    0: EscrowStatus.Funded,
-    1: EscrowStatus.InDispute,
-    2: EscrowStatus.DisputeResolved,
-    3: EscrowStatus.DisputeUnresolved,
-    4: EscrowStatus.Completed,
-    5: EscrowStatus.Cancelled
-  };
-
-  return {
-    id: escrowId,
-    client: escrowData.client.toLowerCase(),
-    freelancer: escrowData.freelancer.toLowerCase(),
-    baseAmount: ethers.formatEther(escrowData.amount),
-    clientFee: '0',
-    freelancerFee: '0',
-    totalAmount: ethers.formatEther(escrowData.amount),
-    status: statusMapping[escrowData.state] || EscrowStatus.Funded,
-    estimatedStartTime: Number(escrowData.estimatedStartTime),
-    estimatedCompletionTime: Number(escrowData.estimatedCompletionTime),
-    completionTime: 0,
-    timelockExpiry: Number(escrowData.timelockEnd),
-    clientFeeTier: escrowData.clientFeeTier as FeeTier,
-    freelancerFeeTier: escrowData.freelancerFeeTier as FeeTier,
-    createdAt: Number(escrowData.createdAt) * 1000,
-    lastUpdated: Date.now()
-  };
-}
-
-// Cache invalidation on user actions
-export function invalidateEscrowCache(escrowId?: string): void {
-  escrowCache.invalidate(escrowId);
 }
 
 // Create new escrow
