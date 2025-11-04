@@ -9,7 +9,6 @@ import { profileCache } from './profile-cache';
 import { formatStandardDateShort } from './helpers/dateFormatter';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
-import { withTimeout } from './wallet/timeoutHelpers';
 
 // --- Relay Configuration ---
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -853,11 +852,7 @@ export async function getMessageHistory(
 			...(options?.until ? { until: options.until } : {})
 		};
 
-		const events = await withTimeout(
-			withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter)),
-			3000,
-			'Timeout fetching message history'
-		);
+		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
 
 		const decrypted = await Promise.all(
 			events.map(async (event, index) => {
@@ -1079,18 +1074,10 @@ export async function getMessagedPeople(): Promise<
 			limit: 1000
 		};
 
-		// Fetch both sent and received messages with retry logic and timeout
+		// Fetch both sent and received messages with retry logic
 		const [sentEvents, receivedEvents] = await Promise.all([
-			withTimeout(
-				withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, sentFilter)),
-				5000,
-				'Timeout fetching sent messages'
-			),
-			withTimeout(
-				withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, receivedFilter)),
-				5000,
-				'Timeout fetching received messages'
-			)
+			withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, sentFilter)),
+			withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, receivedFilter))
 		]);
 
 		const allEvents = [...sentEvents, ...receivedEvents];
@@ -1147,11 +1134,7 @@ export async function getMessagedPeople(): Promise<
 				}
 
 				try {
-					const fetchedProfile = await withTimeout(
-						fetchProfileMetadata(pubkey),
-						2000,
-						'Profile fetch timeout'
-					);
+					const fetchedProfile = await fetchProfileMetadata(pubkey);
 					profile = {
 						name: fetchedProfile.name || 'Usuario', // Fallback to 'Usuario' instead of undefined
 						picture: fetchedProfile.picture
@@ -1253,16 +1236,10 @@ export async function getMessagedPeopleOptimized(): Promise<
 					picture: undefined as string | undefined
 				};
 				try {
-					const fetchedProfile = await withTimeout(
-						fetchProfileMetadata(pubkey),
-						2000,
-						'Profile fetch timeout'
-					);
+					const fetchedProfile = await fetchProfileMetadata(pubkey);
 					profile = { name: fetchedProfile.name, picture: fetchedProfile.picture };
 				} catch (e) {
 					console.error('[People] Failed to fetch profile for', pubkey, e);
-					// Use fallback profile
-					profile = { name: 'Usuario', picture: undefined };
 				}
 				return { pubkey, lastEvent, profile };
 			})
