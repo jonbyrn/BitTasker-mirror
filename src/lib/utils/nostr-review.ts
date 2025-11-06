@@ -1,0 +1,346 @@
+/**
+ * Nostr Review Utilities
+ * 
+ * Functions for publishing and retrieving verified reviews via Nostr
+ */
+
+import type { Event as NostrEvent, Filter } from 'nostr-tools';
+import { getSignedEvent, publishEvent, subscribeToEvents } from './nostr';
+import KINDS from './constants/kinds';
+import { 
+	createEscrowCommitment, 
+	getCommitmentProof, 
+	verifyReview
+} from '$lib/services/review-verification.service';
+import type { NostrVerifiedReview, ReviewContentWithRatings } from '$lib/types/review';
+import type { VerifiedReview } from '@bittasker/merkle-review-sdk';
+import { escrow } from '$lib/utils/wallet/escrow';
+import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+
+const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
+
+/**
+ * Publish a verified review to Nostr
+ */
+export async function publishVerifiedReview(
+	escrowId: string,
+	revieweePubkey: string,
+	content: ReviewContentWithRatings,
+	escrowTxHash?: string
+): Promise<string> {
+	try {
+		// Get escrow details to verify completion status
+		const escrowData = await escrow.getEscrow(escrowId);
+		if (!escrowData) {
+			throw new Error('Escrow not found');
+		}
+
+		// Verify escrow is in a completed state
+		const completedStates = [
+			EscrowStatus.Completed,
+			EscrowStatus.DisputeResolved
+		];
+		
+		if (!completedStates.includes(escrowData.status)) {
+			throw new Error(`Escrow is not in a completed state. Current status: ${escrowData.status}`);
+		}
+
+		// Get transaction hash if not provided
+		const txHash = escrowTxHash || escrowData.id; // Use escrow ID as fallback
+		
+		// Create commitment
+		const commitment = await createEscrowCommitment(
+			escrowId,
+			txHash,
+			escrowData.client,
+			escrowData.freelancer
+		);
+
+		// Get Merkle proof
+		// First try to get latest tree
+		const latestVersion = await getLatestTreeVersion();
+		let treeData = null;
+		if (latestVersion) {
+			treeData = await retrieveMerkleTree(latestVersion);
+		}
+
+		const proofJson = await getCommitmentProof(commitment, treeData || undefined);
+		if (!proofJson) {
+			throw new Error('Failed to generate Merkle proof. Merkle tree may not be updated yet.');
+		}
+
+		const merkleProof = JSON.parse(proofJson);
+
+		// Get reviewer pubkey
+		const { getNpub } = await import('$lib/utils/nostrKeys');
+		const reviewerPubkey = await getNpub();
+		if (!reviewerPubkey) {
+			throw new Error('Failed to get reviewer pubkey');
+		}
+
+		// Create verified review
+		const verifiedReview: VerifiedReview = {
+			commitment,
+			merkleProof,
+			reviewerPubkey,
+			revieweePubkey,
+			content: {
+				overallRating: content.overallRating,
+				categoryRatings: {
+					quality: content.categoryRatings.quality,
+					professionalism: content.categoryRatings.professionalism,
+					timeliness: content.categoryRatings.timeliness
+				},
+				comment: content.comment || '',
+				photos: content.photos || []
+			},
+			createdAt: Date.now()
+		};
+
+		// Verify the review before publishing
+		const verification = await verifyReview(verifiedReview, merkleProof.root);
+		if (!verification.valid) {
+			throw new Error(`Review verification failed: ${verification.error}`);
+		}
+
+		// Create Nostr event
+		const event: Partial<NostrEvent> = {
+			kind: KINDS.REVIEW_VERIFIED,
+			created_at: Math.floor(Date.now() / 1000),
+			content: JSON.stringify(verifiedReview),
+			tags: [
+				['e', escrowId], // Escrow ID reference
+				['p', revieweePubkey], // Reviewee pubkey
+				['commitment', commitment], // Commitment hash
+				['root', merkleProof.root], // Merkle root
+				['version', latestVersion || ''] // Tree version
+			]
+		};
+
+		// Sign and publish
+		const signedEvent = await getSignedEvent(event);
+		await publishEvent(signedEvent);
+
+		return signedEvent.id;
+	} catch (error) {
+		console.error('Failed to publish verified review:', error);
+		throw error;
+	}
+}
+
+/**
+ * Update an existing review
+ */
+export async function updateVerifiedReview(
+	originalEventId: string,
+	escrowId: string,
+	revieweePubkey: string,
+	content: ReviewContentWithRatings,
+	escrowTxHash?: string
+): Promise<string> {
+	// Check if review exists
+	const existingReview = await getReviewByEventId(originalEventId);
+	if (!existingReview) {
+		throw new Error('Original review not found');
+	}
+
+	// Verify it's the same escrow
+	if (existingReview.commitment !== await createEscrowCommitment(
+		escrowId,
+		escrowTxHash || escrowId,
+		(await escrow.getEscrow(escrowId))?.client || '',
+		(await escrow.getEscrow(escrowId))?.freelancer || ''
+	)) {
+		throw new Error('Cannot update review for different escrow');
+	}
+
+	// Publish new review (replaces old one)
+	return await publishVerifiedReview(escrowId, revieweePubkey, content, escrowTxHash);
+}
+
+/**
+ * Get reviews for a user (reviewee)
+ */
+export async function getReviewsForUser(
+	revieweePubkey: string,
+	limit: number = 50
+): Promise<NostrVerifiedReview[]> {
+	return new Promise((resolve) => {
+		const reviews: NostrVerifiedReview[] = [];
+		const seenCommitments = new Set<string>();
+
+		const filter: Filter = {
+			kinds: [KINDS.REVIEW_VERIFIED],
+			'#p': [revieweePubkey],
+			limit
+		};
+
+		const relayUrl = DEFAULT_RELAYS[0] || '';
+		if (!relayUrl) {
+			resolve([]);
+			return;
+		}
+
+		const unsubscribe = subscribeToEvents(
+			relayUrl,
+			[filter],
+			(event: NostrEvent) => {
+				try {
+					const reviewData = JSON.parse(event.content) as VerifiedReview;
+					
+					// Deduplicate by commitment
+					if (seenCommitments.has(reviewData.commitment)) {
+						return;
+					}
+					seenCommitments.add(reviewData.commitment);
+
+					const nostrReview: NostrVerifiedReview = {
+						...reviewData,
+						nostrEventId: event.id,
+						nostrRelay: relayUrl
+					};
+
+					reviews.push(nostrReview);
+
+					if (reviews.length >= limit) {
+						unsubscribe();
+						resolve(reviews);
+					}
+				} catch (error) {
+					console.error('Failed to parse review event:', error);
+				}
+			}
+		);
+
+		// Timeout after 10 seconds
+		setTimeout(() => {
+			unsubscribe();
+			resolve(reviews);
+		}, 10000);
+	});
+}
+
+/**
+ * Get review by Nostr event ID
+ */
+export async function getReviewByEventId(eventId: string): Promise<NostrVerifiedReview | null> {
+	return new Promise((resolve) => {
+		const filter: Filter = {
+			ids: [eventId],
+			kinds: [KINDS.REVIEW_VERIFIED]
+		};
+
+		const relayUrl = DEFAULT_RELAYS[0] || '';
+		if (!relayUrl) {
+			resolve(null);
+			return;
+		}
+
+		let found = false;
+		const unsubscribe = subscribeToEvents(
+			relayUrl,
+			[filter],
+			(event: NostrEvent) => {
+				if (!found) {
+					found = true;
+					try {
+						const reviewData = JSON.parse(event.content) as VerifiedReview;
+						const nostrReview: NostrVerifiedReview = {
+							...reviewData,
+							nostrEventId: event.id,
+							nostrRelay: relayUrl
+						};
+						unsubscribe();
+						resolve(nostrReview);
+					} catch (error) {
+						console.error('Failed to parse review event:', error);
+						unsubscribe();
+						resolve(null);
+					}
+				}
+			}
+		);
+
+		// Timeout after 5 seconds
+		setTimeout(() => {
+			if (!found) {
+				unsubscribe();
+				resolve(null);
+			}
+		}, 5000);
+	});
+}
+
+/**
+ * Get reviews for an escrow
+ */
+export async function getReviewsForEscrow(escrowId: string): Promise<NostrVerifiedReview[]> {
+	return new Promise((resolve) => {
+		const reviews: NostrVerifiedReview[] = [];
+		const seenCommitments = new Set<string>();
+
+		const filter: Filter = {
+			kinds: [KINDS.REVIEW_VERIFIED],
+			'#e': [escrowId],
+			limit: 10 // Maximum one review per escrow (with updates)
+		};
+
+		const relayUrl = DEFAULT_RELAYS[0] || '';
+		if (!relayUrl) {
+			resolve([]);
+			return;
+		}
+
+		const unsubscribe = subscribeToEvents(
+			relayUrl,
+			[filter],
+			(event: NostrEvent) => {
+				try {
+					const reviewData = JSON.parse(event.content) as VerifiedReview;
+					
+					// Deduplicate by commitment
+					if (seenCommitments.has(reviewData.commitment)) {
+						return;
+					}
+					seenCommitments.add(reviewData.commitment);
+
+					const nostrReview: NostrVerifiedReview = {
+						...reviewData,
+						nostrEventId: event.id,
+						nostrRelay: relayUrl
+					};
+
+					reviews.push(nostrReview);
+				} catch (error) {
+					console.error('Failed to parse review event:', error);
+				}
+			}
+		);
+
+		// Timeout after 10 seconds
+		setTimeout(() => {
+			unsubscribe();
+			resolve(reviews);
+		}, 10000);
+	});
+}
+
+/**
+ * Verify a review retrieved from Nostr
+ */
+export async function verifyNostrReview(review: NostrVerifiedReview): Promise<boolean> {
+	const verification = await verifyReview(review, review.merkleProof.root);
+	return verification.valid;
+}
+
+/**
+ * Check if user has already reviewed an escrow
+ */
+export async function hasUserReviewedEscrow(
+	escrowId: string,
+	reviewerPubkey: string
+): Promise<boolean> {
+	const reviews = await getReviewsForEscrow(escrowId);
+	return reviews.some(review => review.reviewerPubkey === reviewerPubkey);
+}
+

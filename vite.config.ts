@@ -1,6 +1,6 @@
 import houdini from 'houdini/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
 import Icons from 'unplugin-icons/vite';
 import wasm from 'vite-plugin-wasm';
@@ -116,5 +116,52 @@ export default defineConfig({
     },
     server: {
         allowedHosts: ['bittasker.com', 'master.bittasker.com', 'dev.bittasker.com', 'local.bittasker.com']
+    },
+    test: {
+        // Use jsdom for component tests that need DOM APIs
+        environment: 'jsdom',
+        // Setup file for test environment configuration
+        setupFiles: ['./vitest-setup-client.ts'],
+        // Include test files
+        include: ['src/**/*.{test,spec}.{js,ts,jsx,tsx}', 'src/**/__tests__/**/*.{js,ts,jsx,tsx}'],
+        // Exclude files
+        exclude: ['node_modules', 'dist', '.idea', '.git', '.svelte-kit', 'build'],
+        // Globals available in tests
+        globals: true,
+        // Environment variables for tests
+        env: {
+            BROWSER: 'true'
+        },
+        // Svelte-specific test configuration
+        deps: {
+            // Optimize dependencies for tests
+            inline: ['@testing-library/svelte']
+        },
+        // Coverage configuration
+        coverage: {
+            provider: 'v8',
+            reporter: ['text', 'json', 'html'],
+            include: ['src/**/*.{js,ts,svelte}'],
+            exclude: [
+                'node_modules/',
+                'src/**/*.d.ts',
+                'src/**/*.stories.{js,ts,svelte}',
+                'src/**/__tests__/**',
+                'src/**/*.test.{js,ts}',
+                'src/**/*.spec.{js,ts}'
+            ],
+            thresholds: {
+                global: {
+                    branches: 70,
+                    functions: 70,
+                    lines: 70,
+                    statements: 70
+                }
+            }
+        },
+        // Test timeout
+        testTimeout: 10000,
+        // Hook timeout
+        hookTimeout: 10000
     }
 });

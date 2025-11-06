@@ -1,0 +1,34 @@
+{
+	"reviews": {
+		"form": {
+			"title": "Write a Review",
+			"overall_rating": "Overall Rating",
+			"quality": "Quality",
+			"professionalism": "Professionalism",
+			"timeliness": "Timeliness",
+			"comment": "Comment (Optional)",
+			"comment_placeholder": "Share your experience...",
+			"submit": "Submit Review",
+			"submitting": "Submitting...",
+			"success": "Review submitted successfully!",
+			"already_reviewed": "You have already reviewed this escrow. You can update your review by submitting a new one.",
+			"errors": {
+				"overall_rating_required": "Overall rating is required",
+				"quality_rating_required": "Quality rating is required",
+				"professionalism_rating_required": "Professionalism rating is required",
+				"timeliness_rating_required": "Timeliness rating is required",
+				"comment_too_long": "Comment must be 1000 characters or less",
+				"submit_failed": "Failed to submit review. Please try again."
+			}
+		},
+		"verified": "Verified",
+		"unverified": "Unverified",
+		"reply": "Reply",
+		"list": {
+			"load_error": "Failed to load reviews",
+			"no_reviews": "No reviews yet"
+		}
+	}
+}
+
+

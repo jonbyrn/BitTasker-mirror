@@ -21,6 +21,14 @@ const KINDS = {
     CONTRACT: 30006, // Parameterized replaceable - client creates/updates contract
     CONTRACT_STATUS: 31006, // Regular event - both parties can publish status updates
 
+    // Review System (Secure Merkle Tree Verified Reviews)
+    REVIEW_VERIFIED: 31007, // Verified review with Merkle proof
+    MERKLE_TREE_METADATA: 31008, // Merkle tree metadata (root, version, etc.)
+    MERKLE_TREE_CHUNK: 31009, // Chunked Merkle tree data
+    MERKLE_TREE_UPDATE: 31010, // Merkle tree update notification
+    REVIEW_REPORTED: 31011, // Reported review for moderation
+    REVIEW_REPLY: 31012, // Reply to a review
+
     NIP_65_RELAY_LIST: 10002,
 
     PENDING_SWAPS: 30078
