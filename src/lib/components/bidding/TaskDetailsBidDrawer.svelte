@@ -9,6 +9,7 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{

@@ -178,6 +178,7 @@
         }
     },
     "bid_acceptance": {
+        "acceptance_message": "I've accepted your bid and it will be a pleasure to work with you!",
         "title": "Accept Bid & Fund Contract",
         "close_dialog": "Close dialog",
         "bidder_avatar": "Bidder Avatar",

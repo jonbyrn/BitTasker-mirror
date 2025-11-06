@@ -15,6 +15,7 @@
 	import { formatStandardDate, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { fade, scale } from 'svelte/transition';
+	import TranslatableTask from '../TranslatableTask.svelte';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -169,7 +170,13 @@
 		>
 		<div class="bg-base-200 rounded-2xl p-3">
 			<div class="max-h-[7rem] overflow-y-auto">
-				<p>{task.description}</p>
+				<TranslatableTask 
+					{task} 
+					showTitle={false}
+					showDescription={true}
+					showToggle={false}
+					descriptionClass="text-sm"
+				/>
 			</div>
 		</div>
 	</div>

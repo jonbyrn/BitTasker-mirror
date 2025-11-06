@@ -17,6 +17,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { t } from 'svelte-i18n';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
 
 	// State
 	let conversations = $state<
@@ -36,7 +37,7 @@
 			conversations.map((c) => ({
 				pubkey: c.pubkey,
 				lastEvent: c.lastEvent,
-				lastMessage: c.lastEvent.content || '',
+				lastMessage: parseMessageContent(c.lastEvent.content || ''),
 				lastMessageTime: c.lastEvent.created_at,
 				profile: c.profile
 			})),
@@ -92,38 +93,27 @@
 					// Obtener historial de mensajes con esta persona (limit to 10 for performance)
 					const messageHistory = await getMessageHistory(person.pubkey, { limit: 10 });
 
-					// Verificar si hay mensajes que NO sean JSON (system messages)
-					const hasNonJsonMessages = messageHistory.some((message) => {
-						const isJsonMessage = message.plaintext.startsWith('[') || message.plaintext.startsWith('{');
-						return !isJsonMessage;
-					});
+					// Find the most recent message (including JSON system messages like bid-status)
+					// We'll parse them to extract readable content
+					const lastMessage = messageHistory
+						.sort((a, b) => b.event.created_at - a.event.created_at)[0];
 
-					// Solo incluir conversaciones que tengan mensajes normales (no JSON)
-					if (hasNonJsonMessages) {
-						// Find the most recent non-JSON message for preview
-						const lastNonJsonMessage = messageHistory
-							.filter(message => {
-								const isJsonMessage = message.plaintext.startsWith('[') || message.plaintext.startsWith('{');
-								return !isJsonMessage;
-							})
-							.sort((a, b) => b.event.created_at - a.event.created_at)[0];
-
-						// Update the person's lastEvent with the filtered content
-						if (lastNonJsonMessage) {
-							return {
-								...person,
-								lastEvent: {
-									...person.lastEvent,
-									content: lastNonJsonMessage.plaintext,
-									created_at: lastNonJsonMessage.event.created_at
-								}
-							};
-						} else {
-							return person;
-						}
+					if (lastMessage) {
+						// Import parseMessageContent to extract readable text from JSON messages
+						const { parseMessageContent } = await import('$lib/utils/helpers/messageParser');
+						const readableContent = parseMessageContent(lastMessage.plaintext);
+						
+						return {
+							...person,
+							lastEvent: {
+								...person.lastEvent,
+								content: readableContent,
+								created_at: lastMessage.event.created_at
+							}
+						};
 					}
-					// Don't include conversations with only JSON messages - return undefined to filter out
-					return undefined;
+					
+					return person;
 				} catch (err) {
 					// Si hay error, incluir la conversación por seguridad
 					return person;
