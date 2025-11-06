@@ -34,8 +34,7 @@
 	let errorMessage = $state('');
 	let taskCreatorPubkey = $state<string>('');
 	let btcPrice = $state<number>(0); // Default fallback price
-	let showFullDescription = $state(false); // State for description toggle
-	// TranslatedTask component now handles translations automatically
+	// TranslatedTask component now handles translations and show more/less automatically
 
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(taskId || null);
@@ -155,9 +154,6 @@
 		return description.slice(0, maxLength) + '...';
 	};
 
-	const toggleDescription = () => {
-		showFullDescription = !showFullDescription;
-	};
 
 	// Translation is now handled automatically by TranslatableTask component
 
@@ -307,17 +303,8 @@
 											showTitle={false}
 											showDescription={true}
 											showToggle={false}
-											descriptionClass={showFullDescription ? "text-sm text-base-content/80" : "text-sm text-base-content/80 line-clamp-2"}
+											descriptionClass="text-sm text-base-content/80 line-clamp-2"
 										/>
-										{#if (task?.description || '').length > 200}
-											<button class="btn btn-xs hover:text-primary-focus mt-2" onclick={toggleDescription}>
-												{#if showFullDescription}
-													{$t('dashboard.task_details_by_task.show_less')}
-												{:else}
-													{$t('dashboard.task_details_by_task.show_more')}
-												{/if}
-											</button>
-										{/if}
 									{/if}
 								</div>
 							</div>

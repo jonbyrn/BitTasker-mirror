@@ -7,9 +7,7 @@
 	let { error } = $props();
 
 	// Debug logging to understand error structure
-	console.log('Error object:', error);
-	console.log('Page URL:', page.url.pathname);
-	console.log('Page error:', page.error);
+	
 
 	// Get basic error info - try multiple sources
 	const getErrorInfo = () => {

@@ -147,6 +147,7 @@
     "profile_task": {
       "no_saved_searches": "Aún no hay búsquedas guardadas",
       "saved_searches_info": "Tus búsquedas guardadas aparecerán aquí",
+      "start_new_search": "Buscar Tareas",
       "saved_searches_title": "Tus búsquedas guardadas",
       "retry": "Reintentar",
       "new_matching_tasks": "Nuevas tareas coincidentes",

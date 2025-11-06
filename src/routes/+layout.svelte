@@ -246,7 +246,7 @@
 	<main
 		data-theme={$darkMode ? 'dark' : 'light'}
 		id="main"
-		class="no-horizontal-scroll flex min-h-[100dvh] flex-col bg-base-200"
+		class="no-horizontal-scroll flex min-h-dvh flex-col bg-base-200"
 	>
 		<!-- Desktop TopBar will be positioned fixed via its own component styles -->
 		{#if showTopBar}

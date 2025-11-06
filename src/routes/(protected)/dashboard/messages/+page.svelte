@@ -476,10 +476,10 @@
 			})).slice(0, 5);
 
 			if (profileMap.size === 0) {
-				usernameSearchError = 'No users found with that name';
+				usernameSearchError = 'messages.no_users_found';
 			}
 		} catch (err) {
-			usernameSearchError = 'Search failed';
+			usernameSearchError = 'messages.search_failed';
 			console.error('Username search failed:', err);
 		} finally {
 			isUsernameSearching = false;
@@ -521,7 +521,7 @@
 
 <div class="mx-auto max-w-7xl p-2 md:p-4 lg:p-0">
 	<!-- Header -->
-	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
+	<div class="mb-6 flex shrink-0 items-center justify-between">
 		<div class="min-w-0 flex-1 space-y-1">
 			<h3 class="truncate text-xl font-semibold tracking-tight">{$t('messages.title')}</h3>
 			<p class="text-base-content/70 text-sm">{$t('messages.subtitle')}</p>
@@ -609,7 +609,7 @@
                         <div class="bg-base-200/50 rounded-lg p-3">
 							<div class="flex items-start gap-2">
 								<svg
-									class="text-info mt-0.5 h-4 w-4 flex-shrink-0"
+									class="text-info mt-0.5 h-4 w-4 shrink-0"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -658,7 +658,7 @@
                                         onclick={() => selectUserFromSearch(result.pubkey)}
                                         aria-label={$t('messages.select_user')}
 									>
-										<div class="user-avatar flex-shrink-0">
+										<div class="user-avatar shrink-0">
 											{#if result.profile.picture}
 												<img
 													src={result.profile.picture}
@@ -702,7 +702,7 @@
 												{result.pubkey.slice(0, 12)}...{result.pubkey.slice(-8)}
 											</p>
 										</div>
-										<div class="flex-shrink-0">
+										<div class="shrink-0">
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
 												class="text-primary h-4 w-4"
@@ -742,7 +742,11 @@
 									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
-							<span class="text-sm">{usernameSearchError}</span>
+							<span class="text-sm">
+								{usernameSearchError.startsWith('messages.') 
+									? $t(usernameSearchError) 
+									: usernameSearchError}
+							</span>
 						</div>
 					{/if}
 
@@ -762,7 +766,11 @@
 									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
-							<span class="text-sm">{newMessageError}</span>
+							<span class="text-sm">
+								{newMessageError.startsWith('messages.') 
+									? $t(newMessageError) 
+									: newMessageError}
+							</span>
 						</div>
 					{/if}
 
@@ -777,7 +785,7 @@
 						</div>
 					{:else if newMessageProfile}
 						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
-							<div class="flex-shrink-0">
+							<div class="shrink-0">
 								{#if newMessageProfile.picture}
 									<img
 										src={newMessageProfile.picture}
@@ -810,7 +818,7 @@
 										: `${newMessagePubkey.slice(0, 8)}...`}
 								</p>
 							</div>
-							<div class="flex-shrink-0">
+							<div class="shrink-0">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="text-success h-5 w-5"
@@ -915,7 +923,7 @@
 		<div class="card-body flex h-full flex-col overflow-hidden p-0">
 			<!-- Search Input -->
 			{#if conversations.length > 0}
-				<div class="border-base-300/20 flex-shrink-0 border-b p-3 pb-2 sm:p-4 sm:pb-3">
+				<div class="border-base-300/20 shrink-0 border-b p-3 pb-2 sm:p-4 sm:pb-3">
 					<div class="relative">
 						<input
 							type="text"
@@ -986,7 +994,7 @@
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
 								<!-- Avatar -->
-								<div class="flex-shrink-0">
+								<div class="shrink-0">
 									<Avatar
 										picture={conversation.profile.picture}
 										name={conversation.profile.name}
@@ -1000,7 +1008,7 @@
 										<h3 class="font-medium truncate">
 											{conversation.profile.name || `${conversation.pubkey.slice(0, 8)}...`}
 										</h3>
-										<span class="text-base-content/60 text-xs flex-shrink-0 ml-2">
+										<span class="text-base-content/60 text-xs shrink-0 ml-2">
 											{formatTimeAgo(new Date(conversation.lastMessageTime * 1000))}
 										</span>
 									</div>
@@ -1072,7 +1080,7 @@
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
 								<!-- Avatar -->
-									<div class="flex-shrink-0">
+									<div class="shrink-0">
 										{#if conversation.profile.picture}
 											<img
 												src={conversation.profile.picture}
@@ -1102,7 +1110,7 @@
 										<h4 class="truncate text-sm font-medium">
 											{conversation.profile.name}
 										</h4>
-										<span class="text-base-content/50 ml-3 flex-shrink-0 text-xs">
+										<span class="text-base-content/50 ml-3 shrink-0 text-xs">
 											{formatTimeAgo(new Date(conversation.lastMessageTime * 1000))}
 										</span>
 									</div>
@@ -1112,7 +1120,7 @@
 								</div>
 
 								<!-- Arrow indicator -->
-								<div class="flex-shrink-0 pl-2">
+								<div class="shrink-0 pl-2">
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="text-base-content/30 h-4 w-4"

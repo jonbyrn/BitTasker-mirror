@@ -147,6 +147,7 @@
     "profile_task": {
       "no_saved_searches": "No saved searches yet",
       "saved_searches_info": "Your saved searches will appear here",
+      "start_new_search": "Find Tasks",
       "saved_searches_title": "Your Saved Searches",
       "retry": "Retry",
       "new_matching_tasks": "New matching tasks",

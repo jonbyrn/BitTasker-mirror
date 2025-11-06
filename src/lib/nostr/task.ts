@@ -179,7 +179,6 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 		// Verify user is authenticated (has npub)
 		const userData = get(user);
 		const npub = await getNpub();
-		console.log('👤 User data:', userData);
 
 		if (!npub) {
 			throw new Error('User not authenticated');
@@ -187,7 +186,6 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 
 		// Generate a unique identifier for this task
 		const uniqueId = crypto.randomUUID();
-		console.log('🆔 Generated unique ID:', uniqueId);
 
 		// Use user name if available, otherwise use shortened npub as fallback
 		const username =
@@ -199,11 +197,8 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 		};
 
 		// Generate translations for all supported languages
-		console.log('🌐 Generating translations for task...');
 		const translations = await generateTaskTranslations(taskData);
-		if (translations) {
-			console.log('✅ Translations generated:', Object.keys(translations.translations));
-		}
+	
 
 		// Add creation timestamp, unique identifier, and translations to task data
 		const taskDataWithMeta = {
@@ -253,11 +248,8 @@ export async function createRecurringTask(
 		const pow = await calculatePOW(taskData.budget.amount, uniqueId);
 
 		// Generate translations for the recurring task template (same as regular tasks)
-		console.log('🌐 Generating translations for recurring task template...');
 		const translations = await generateTaskTranslations(taskData);
-		if (translations) {
-			console.log('✅ Translations generated for recurring task:', Object.keys(translations.translations));
-		}
+		
 
 		// Include translations in the template
 		const taskDataWithTranslations = {
@@ -327,11 +319,9 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		// Generate new translations if content changed
 		let translations = originalTaskData.translations;
 		if (needsRetranslation) {
-			console.log('🌐 Regenerating translations for updated task...');
 			const newTranslations = await generateTaskTranslations(taskDataForTranslation);
 			if (newTranslations) {
 				translations = newTranslations;
-				console.log('✅ Translations regenerated:', Object.keys(translations.translations));
 			}
 		}
 

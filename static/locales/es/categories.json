@@ -52,6 +52,10 @@
             "name": "Tecnología e IT",
             "description": "Reparación de computadoras, soporte técnico, desarrollo de software y servicios digitales"
         },
+        "it-web-development": {
+            "name": "IT y Desarrollo Web",
+            "description": "Desarrollo web, desarrollo de software, servicios de IT, integración de API, gestión de bases de datos y soluciones técnicas"
+        },
         "creative": {
             "name": "Creativo y Diseño",
             "description": "Diseño gráfico, fotografía, videografía y servicios creativos"

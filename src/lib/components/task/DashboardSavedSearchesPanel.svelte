@@ -8,6 +8,7 @@
 	} from '$lib/nostr/savedSearch';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import { t, locale } from 'svelte-i18n';
+	import { goto } from '$app/navigation';
 	// State
 	let savedSearches = $state<SavedSearch[]>([]);
 	let isLoading = $state(true);
@@ -199,9 +200,29 @@
 				/>
 			</svg>
 			<p class="text-lg font-medium">{$t('profile_task.no_saved_searches')}</p>
-			<p class="mb-4 text-gray-500">
+			<p class="mb-4 text-base-content/60">
 				{$t('profile_task.saved_searches_info')}
 			</p>
+			<button
+				class="btn btn-primary gap-2"
+				onclick={() => goto('/dashboard/find-tasks')}
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-5 w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+					/>
+				</svg>
+				{$t('profile_task.start_new_search')}
+			</button>
 		</div>
 	{:else}
 		<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
