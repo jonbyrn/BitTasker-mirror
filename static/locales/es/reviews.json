@@ -1,0 +1,34 @@
+{
+	"reviews": {
+		"form": {
+			"title": "Escribir una Reseña",
+			"overall_rating": "Calificación General",
+			"quality": "Calidad",
+			"professionalism": "Profesionalismo",
+			"timeliness": "Puntualidad",
+			"comment": "Comentario (Opcional)",
+			"comment_placeholder": "Comparte tu experiencia...",
+			"submit": "Enviar Reseña",
+			"submitting": "Enviando...",
+			"success": "¡Reseña enviada exitosamente!",
+			"already_reviewed": "Ya has reseñado este depósito en garantía. Puedes actualizar tu reseña enviando una nueva.",
+			"errors": {
+				"overall_rating_required": "La calificación general es requerida",
+				"quality_rating_required": "La calificación de calidad es requerida",
+				"professionalism_rating_required": "La calificación de profesionalismo es requerida",
+				"timeliness_rating_required": "La calificación de puntualidad es requerida",
+				"comment_too_long": "El comentario debe tener 1000 caracteres o menos",
+				"submit_failed": "Error al enviar la reseña. Por favor intenta de nuevo."
+			}
+		},
+		"verified": "Verificado",
+		"unverified": "No Verificado",
+		"reply": "Responder",
+		"list": {
+			"load_error": "Error al cargar reseñas",
+			"no_reviews": "Aún no hay reseñas"
+		}
+	}
+}
+
+

@@ -20,6 +20,17 @@ const KINDS = {
 	/** Availability schedule - parameterized replaceable */
 	PROFILE_AVAILABILITY: 30002,
 
+    // Review System (Secure Merkle Tree Verified Reviews)
+    REVIEW_VERIFIED: 31007, // Verified review with Merkle proof
+    MERKLE_TREE_METADATA: 31008, // Merkle tree metadata (root, version, etc.)
+    MERKLE_TREE_CHUNK: 31009, // Chunked Merkle tree data
+    MERKLE_TREE_UPDATE: 31010, // Merkle tree update notification
+    REVIEW_REPORTED: 31011, // Reported review for moderation
+    REVIEW_REPLY: 31012, // Reply to a review
+
+	/** Standard services offered - parameterized replaceable */
+	PROFILE_STANDARD_SERVICES: 30003,
+
 	/** User reviews - parameterized replaceable */
 	PROFILE_REVIEWS: 30004,
 
