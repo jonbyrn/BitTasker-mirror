@@ -1,5 +1,5 @@
 import { sendEscrowFundedNotification } from './nostr-scheduling';
-import { requestQueueStore, type RequestQueueItem } from './request-queue.store';
+import { requestQueueStore, type RequestQueueItem } from '../stores/request-queue.store';
 import { escrow } from './wallet/escrow';
 import { EscrowStatus } from './enums/wallet.enum';
 import { pollEscrowStatus } from './escrow-verification';
