@@ -593,7 +593,7 @@
 		<button
 			class="btn btn-primary w-full"
 			onclick={createSwap}
-			disabled={isCreatingSwap || !$rskConnection.connected}
+			disabled={isCreatingSwap || !$rskConnection.connected || amountError !== null || !amount || amountSats <= 0 || (minAmount > 0 && amountSats < minAmount)}
 		>
 			{#if isCreatingSwap}
 				<span class="loading loading-spinner loading-sm"></span>
