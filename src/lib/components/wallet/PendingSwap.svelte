@@ -278,22 +278,22 @@
 			<!-- Collapsible Content -->
 			{#if isExpanded}
 				<div class="border-base-300 border-t p-4">
-					<div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+					<div class="flex flex-col items-center gap-4">
 						<!-- QR Code -->
-						<div class="shrink-0">
+						<div class="w-full flex justify-center sm:max-w-[50%]">
 							{#await generateQrCodeUrl(qrCodeData)}
 								<div class="flex h-44 w-44 items-center justify-center rounded-lg bg-white p-3">
 									<span class="loading loading-spinner loading-md"></span>
 								</div>
 							{:then qrUrl}
-								<div class="rounded-lg bg-white p-1">
-									<img src={qrUrl} alt="QR Code" class="h-full w-full sm:h-44 sm:w-44" />
+								<div class="rounded-lg bg-white p-1 w-full max-w-[176px] sm:max-w-full">
+									<img src={qrUrl} alt="QR Code" class="h-full w-full" />
 								</div>
 							{/await}
 						</div>
 
 						<!-- Payment String/Address -->
-						<div class="w-full sm:flex-1">
+						<div class="w-full">
 							<button
 								class="btn btn-outline btn-sm h-auto min-h-12 w-full justify-start p-3 text-left break-all"
 								onclick={handleCopyPaymentDetails}
