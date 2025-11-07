@@ -291,7 +291,7 @@
 <div class="space-y-6">
 	<!-- Developer Tool: Delete All Swaps -->
 	{#if import.meta.env.DEV || network === 'regtest'}
-		<div class="alert alert-horizontal">
+		<div class="alert alert-outline alert-horizontal">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -327,7 +327,7 @@
 	{/if}
 
 	{#if error}
-		<div class="alert alert-error">
+		<div class="alert alert-outline alert-error">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -347,7 +347,7 @@
 
 	<!-- Create Swap Form -->
 	<div class="space-y-4">
-		<div class="alert alert-info">
+		<!-- <div class="alert alert-outline alert-info">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				fill="none"
@@ -367,7 +367,7 @@
 					{$t('wallet.swap.lightning.description')}
 				</div>
 			</div>
-		</div>
+		</div> -->
 
 		<div class="form-control">
 			<label class="label" for="amount">

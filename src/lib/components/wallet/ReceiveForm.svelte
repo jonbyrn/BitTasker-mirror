@@ -3,6 +3,7 @@
 	import LightningReceive from '$lib/components/wallet/LightningReceive.svelte';
 	import LBTCReceive from '$lib/components/wallet/LBTCReceive.svelte';
 	import RSKReceive from '$lib/components/wallet/RSKReceive.svelte';
+	import { t } from 'svelte-i18n';
 
 	// Form state
 	let selectedAsset = $state<'bitcoin' | 'usd'>('bitcoin');
@@ -15,15 +16,15 @@
 	let assetOptions = $derived([
 		{
 			value: 'bitcoin',
-			label: 'Bitcoin',
-			description: 'Bitcoin and Bitcoin-based networks',
+			label: $t('wallet.receive_form.assets.bitcoin.label'),
+			description: $t('wallet.receive_form.assets.bitcoin.description'),
 			icon: '/images/chains/Bitcoin.svg',
 			disabled: false
 		},
 		{
 			value: 'usd',
-			label: 'USD',
-			description: 'USD-pegged stablecoins',
+			label: $t('wallet.receive_form.assets.usd.label'),
+			description: $t('wallet.receive_form.assets.usd.description'),
 			icon: '/images/chains/Tether-USD.svg',
 			disabled: false
 		}
@@ -35,26 +36,26 @@
 			return [
 				{
 					value: 'lightning-bitcoin',
-					label: 'Lightning Bitcoin',
-					description: 'Lightning Network payments',
+					label: $t('wallet.receive_form.networks.lightning_bitcoin.label'),
+					description: $t('wallet.receive_form.networks.lightning_bitcoin.description'),
 					icon: null // Will use lightning icon
 				},
 				{
 					value: 'rootstock-bitcoin',
-					label: 'Rootstock Bitcoin',
-					description: 'rBTC on Rootstock network',
+					label: $t('wallet.receive_form.networks.rootstock_bitcoin.label'),
+					description: $t('wallet.receive_form.networks.rootstock_bitcoin.description'),
 					icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
 				},
 				{
 					value: 'liquid-bitcoin',
-					label: 'Liquid Bitcoin',
-					description: 'L-BTC on Liquid network (swap to rBTC)',
+					label: $t('wallet.receive_form.networks.liquid_bitcoin.label'),
+					description: $t('wallet.receive_form.networks.liquid_bitcoin.description'),
 					icon: '/images/chains/Liquid-Bitcoin.svg'
 				},
 				{
 					value: 'bitcoin',
-					label: 'Bitcoin',
-					description: 'Native Bitcoin network',
+					label: $t('wallet.receive_form.networks.bitcoin.label'),
+					description: $t('wallet.receive_form.networks.bitcoin.description'),
 					icon: '/images/chains/Bitcoin.svg'
 				}
 			];
@@ -62,8 +63,8 @@
 			return [
 				{
 					value: 'liquid-usdt',
-					label: 'Liquid USDT',
-					description: 'USDT on Liquid network',
+					label: $t('wallet.receive_form.networks.liquid_usdt.label'),
+					description: $t('wallet.receive_form.networks.liquid_usdt.description'),
 					icon: '/images/chains/Tether-USD.svg'
 				}
 			];
@@ -119,7 +120,7 @@
 	<!-- Asset Selection -->
 	<div class="form-control">
 		<label class="label" for="asset-select">
-			<span class="label-text font-medium">Select Asset</span>
+			<span class="label-text font-medium">{$t('wallet.receive_form.select_asset')}</span>
 		</label>
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 			{#each assetOptions as asset}
@@ -141,7 +142,7 @@
 						<div class="card-body p-4">
 							<div class="flex items-center gap-3">
 								{#if asset.icon.startsWith('/')}
-									<img src={asset.icon} alt="Asset icon" class="h-8 w-8" />
+									<img src={asset.icon} alt={$t('wallet.receive_form.asset_icon')} class="h-8 w-8" />
 								{:else}
 									<span class="text-2xl">{asset.icon}</span>
 								{/if}
@@ -179,8 +180,8 @@
 				></path>
 			</svg>
 			<div>
-				<div class="font-bold">Coming Soon</div>
-				<div class="text-sm">USDT receiving functionality is not yet available.</div>
+				<div class="font-bold">{$t('wallet.receive_form.coming_soon')}</div>
+				<div class="text-sm">{$t('wallet.receive_form.usdt_not_available')}</div>
 			</div>
 		</div>
 	{/if}
@@ -189,7 +190,7 @@
 	{#if selectedAsset === 'bitcoin'}
 		<div class="form-control">
 			<label class="label" for="network-select">
-				<span class="label-text font-medium">Select Network</span>
+				<span class="label-text font-medium">{$t('wallet.receive_form.select_network')}</span>
 			</label>
 			{#key dropdownKey}
 				<div class="dropdown dropdown-bottom w-full">
@@ -292,8 +293,8 @@
 				></path>
 			</svg>
 			<div>
-				<div class="font-bold">Coming Soon</div>
-				<div class="text-sm">This network is not yet available for receiving.</div>
+				<div class="font-bold">{$t('wallet.receive_form.coming_soon')}</div>
+				<div class="text-sm">{$t('wallet.receive_form.network_not_available')}</div>
 			</div>
 		</div>
 	{/if}
@@ -314,9 +315,9 @@
 			></path>
 		</svg>
 		<div>
-			<div class="text-base-content font-bold">Available Balance</div>
+			<div class="text-base-content font-bold">{$t('wallet.receive_form.available_balance')}</div>
 			<div class="text-base-content/70 text-sm">
-				{availableBalance()} rBTC
+				{availableBalance()} L2 BTC
 			</div>
 		</div>
 	</div>

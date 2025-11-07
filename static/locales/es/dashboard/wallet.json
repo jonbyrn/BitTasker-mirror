@@ -471,17 +471,58 @@
       }
     },
     "information": {
-      "swap_info_title": "Información de Intercambio",
-      "swap_info_1": "Los intercambios son procesados por el exchange Changelly",
-      "swap_info_2": "Las comisiones de transacción están incluidas en la tasa de intercambio",
-      "swap_info_3": "La tolerancia de deslizamiento protege contra movimientos de precio",
-      "swap_info_4": "Los intercambios típicamente se completan en 5-30 minutos",
-      "buy_sell_info_title": "Información de Compra y Venta",
-      "buy_sell_info_1": "Los activos digitales serán enviados a tu dirección de billetera",
-      "buy_sell_info_2": "El dinero fiat será enviado a tu cuenta bancaria o tarjeta",
-      "buy_sell_info_3": "Las transacciones son procesadas por socios de Changelly",
-      "buy_sell_info_4": "Tiempo de procesamiento: 5-30 minutos para activos digitales, 1-3 días hábiles para fiat",
-      "buy_sell_info_5": "La verificación KYC puede ser requerida para montos más grandes"
+        "swap_info_title": "Información de Intercambio",
+        "swap_info_1": "Los intercambios son procesados por el exchange Changelly",
+        "swap_info_2": "Las comisiones de transacción están incluidas en la tasa de intercambio",
+        "swap_info_3": "La tolerancia de deslizamiento protege contra movimientos de precio",
+        "swap_info_4": "Los intercambios típicamente se completan en 5-30 minutos",
+        "buy_sell_info_title": "Información de Compra y Venta",
+        "buy_sell_info_1": "Los activos digitales serán enviados a tu dirección de billetera",
+        "buy_sell_info_2": "El dinero fiat será enviado a tu cuenta bancaria o tarjeta",
+        "buy_sell_info_3": "Las transacciones son procesadas por socios de Changelly",
+        "buy_sell_info_4": "Tiempo de procesamiento: 5-30 minutos para activos digitales, 1-3 días hábiles para fiat",
+        "buy_sell_info_5": "La verificación KYC puede ser requerida para montos más grandes"
+      },
+      "receive_form": {
+        "select_asset": "Seleccionar Activo",
+        "select_network": "Seleccionar Red",
+        "asset_icon": "Icono de activo",
+        "available_balance": "Saldo Disponible",
+        "coming_soon": "Próximamente",
+        "usdt_not_available": "La funcionalidad de recepción de USDT aún no está disponible.",
+        "network_not_available": "Esta red aún no está disponible para recibir.",
+        "assets": {
+          "bitcoin": {
+            "label": "Bitcoin",
+            "description": "Bitcoin y redes basadas en Bitcoin"
+          },
+          "usd": {
+            "label": "USD",
+            "description": "Stablecoins vinculadas al USD"
+          }
+        },
+        "networks": {
+          "lightning_bitcoin": {
+            "label": "Bitcoin Lightning",
+            "description": "Pagos de Lightning Network"
+          },
+          "rootstock_bitcoin": {
+            "label": "Bitcoin Rootstock",
+            "description": "rBTC en la red Rootstock"
+          },
+          "liquid_bitcoin": {
+            "label": "Bitcoin Liquid",
+            "description": "L-BTC en la red Liquid (intercambiar a rBTC)"
+          },
+          "bitcoin": {
+            "label": "Bitcoin",
+            "description": "Red Bitcoin nativa"
+          },
+          "liquid_usdt": {
+            "label": "USDT Liquid",
+            "description": "USDT en la red Liquid"
+          }
+        }
+      }
     }
   }
-}
