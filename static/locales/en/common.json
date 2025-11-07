@@ -1,7 +1,7 @@
 {
     "common": {
         "back": "Back to Task",
-        "back_to_tasks": "Regresar",
+        "back_to_tasks": "Cancel",
         "redirecting_to_login": "Redirecting to login...",
         "or": "or",
         "processing": "Processing",
