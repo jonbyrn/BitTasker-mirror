@@ -7,12 +7,23 @@ import { localNotificationService } from '$lib/services/local-notification.servi
 export interface Notification {
 	id: string;
 	userId: string;
-	type: 'task_update' | 'bid_response' | 'payment' | 'message' | 'system' | 'security' | 'contract_event' | 'new_bid' | 'task_completed';
+	type: 'task_update' | 'bid_response' | 'payment' | 'message' | 'system' | 'security' | 'contract_event' | 'new_bid' | 'task_completed' | 'scheduling';
 	title: string;
 	body: string;
 	image?: string;
 	data?: {
 		[key: string]: any;
+		// Scheduling-specific data
+		requestId?: string;
+		bidId?: string;
+		taskId?: string;
+		taskerPubkey?: string;
+		taskeePubkey?: string;
+		timeSlot?: {
+			startTime: number;
+			endTime: number;
+		};
+		escrowId?: string;
 	};
 	action?: {
 		type: 'navigation' | 'external_link' | 'function_call';
@@ -32,6 +43,8 @@ export interface Notification {
 	senderPubkey?: string;
 	eventId?: string;
 	relayUrl?: string;
+	// Scheduling-specific fields
+	batchId?: string; // ID of batched notification group
 }
 
 export interface NotificationPreference {

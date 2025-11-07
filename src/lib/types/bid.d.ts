@@ -329,3 +329,18 @@ export interface BidStatusMessage {
 	senderPubkey: string;
 	event: NostrEvent;
 }
+
+// Re-export scheduling types for convenience
+export type {
+	TimeSlotRequest,
+	SoonestAvailableRequest,
+	RequestAcceptance,
+	EscrowFundedNotification,
+	SlotConfirmation,
+	AvailabilityResponse,
+	RequestCancellation,
+	AvailabilityUpdate,
+	SchedulingMessage,
+	CalculatedAvailableSlot,
+	RequestStatus
+} from './scheduling';

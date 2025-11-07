@@ -246,6 +246,15 @@ export async function acceptBidAndCreateEscrow(
 		});
 		console.log('✅ [EscrowBid] Pending contract registered');
 
+		// Check if this escrow is for a scheduling request
+		// If bid has scheduling request ID, register it
+		const schedulingRequestId = (bid as any).schedulingRequestId;
+		if (schedulingRequestId) {
+			const { registerPendingEscrowForScheduling } = await import('$lib/utils/escrow-scheduling');
+			registerPendingEscrowForScheduling(transactionResult.hash, schedulingRequestId);
+			console.log('✅ [EscrowBid] Registered pending escrow for scheduling request:', schedulingRequestId);
+		}
+
 		return {
 			success: true,
 			transactionResult

@@ -1,0 +1,113 @@
+{
+  "scheduling": {
+    "title": "Programación",
+    "request_queue": {
+      "title": "Cola de Solicitudes",
+      "subtitle": "Tienes {count} solicitud(es) esperando"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "accepted": "Aceptada",
+      "confirmed": "Confirmada",
+      "expired": "Expirada",
+      "cancelled": "Cancelada"
+    },
+    "request_types": {
+      "time_slot": "Solicitud de Horario",
+      "soonest_available": "Solicitud de Próxima Disponibilidad"
+    },
+    "filters": {
+      "status": "Filtrar por Estado",
+      "sort": "Ordenar Por"
+    },
+    "sort": {
+      "expires_soonest": "Expira Pronto",
+      "expires_latest": "Expira Más Tarde",
+      "newest": "Más Recientes",
+      "oldest": "Más Antiguas",
+      "by_status": "Por Estado"
+    },
+    "search_placeholder": "Buscar solicitudes...",
+    "no_requests": "No se encontraron solicitudes",
+    "refreshing": "Actualizando...",
+    "best_offer": "Mejor Oferta",
+    "accept_best": "Aceptar Mejor Oferta",
+    "suggestions": "Sugerencias",
+    "conflicts_detected": "Se detectaron {count} conflicto(s)",
+    "conflict": "Conflicto",
+    "availability_updated": "Disponibilidad Actualizada",
+    "expired": "Expirada",
+    "expires_soon": "Expira en {minutes}m {seconds}s",
+    "expires_in": "Expira en {minutes}m {seconds}s",
+    "request_id": "ID de Solicitud",
+    "task_id": "ID de Tarea",
+    "bid_id": "ID de Oferta",
+    "created": "Creada",
+    "accepted_time": "Hora Aceptada",
+    "escrow_id": "ID de Depósito",
+    "confirmed_at": "Confirmada En",
+    "start_time": "Hora de Inicio",
+    "end_time": "Hora de Fin",
+    "request_expiry": "Expiración de Solicitud",
+    "expiry_minutes": "minutos",
+    "duration": "{minutes} minutos",
+    "preferred_times": "Rangos de Tiempo Preferidos",
+    "add_preferred_range": "Agregar Rango Preferido",
+    "request_soonest": "Solicitar Próxima Disponibilidad",
+    "send_request": "Enviar Solicitud",
+    "reschedule": "Reprogramar",
+    "accept_all": "Aceptar Todas",
+    "reschedule_all": "Reprogramar Todas",
+    "reject_all": "Rechazar Todas",
+    "selected_count": "{count} seleccionada(s)",
+    "no_available_slots": "No se encontraron horarios disponibles",
+    "more_slots_available": "{count} horario(s) más disponible(s)",
+    "cancel_confirm": "¿Estás seguro de que quieres cancelar esta solicitud?",
+    "cancel_reason": "Razón de Cancelación (Opcional)",
+    "cancel_reason_placeholder": "Ingresa la razón...",
+    "confirm_cancel": "Confirmar Cancelación",
+    "cancel_request": "Cancelar Solicitud",
+    "escrow_funding": {
+      "title": "Fondear Depósito",
+      "description": "¡Tu solicitud ha sido aceptada! Por favor fonda el depósito para confirmar la reserva."
+    },
+    "escrow_amount": "Monto del Depósito",
+    "fund_escrow": "Fondear Depósito",
+    "soonest_available": {
+      "title": "Seleccionar Tiempo Disponible",
+      "description": "El solicitante pidió la próxima disponibilidad. Por favor selecciona un horario disponible:",
+      "no_slots": "No se encontraron horarios disponibles para esta solicitud"
+    },
+    "conflict": {
+      "title": "Conflicto de Horario",
+      "description": "Tienes {count} solicitud(es) para el mismo horario. Por favor selecciona cuál aceptar:",
+      "time_slot": "Horario",
+      "accept_best_offer": "Aceptar Mejor Oferta",
+      "best_offer": "Mejor Oferta",
+      "show_alternatives": "Mostrar Horarios Alternativos",
+      "alternative_slots": "Horarios Alternativos",
+      "rejected_due_to_conflict": "Solicitud rechazada debido a conflicto con otra reserva"
+    },
+    "notifications": {
+      "new_request": "Nueva solicitud de programación",
+      "new_requests": "{count} nuevas solicitudes de programación",
+      "conflict": "Se detectaron {count} solicitudes en conflicto",
+      "better_offer": "Mejor oferta disponible",
+      "escrow_funded": "Depósito fondeado - confirmar reserva",
+      "update": "Actualización de programación",
+      "count_more": "+{count} más"
+    },
+    "validation": {
+      "start_time_required": "La hora de inicio es requerida",
+      "end_time_required": "La hora de fin es requerida",
+      "end_after_start": "La hora de fin debe ser después de la hora de inicio",
+      "start_in_future": "La hora de inicio debe ser en el futuro",
+      "expiry_range": "La expiración debe estar entre 5 y 60 minutos",
+      "both_times_required": "Ambas horas (inicio y fin) son requeridas"
+    },
+    "error": {
+      "submit_failed": "Error al enviar la solicitud. Por favor intenta de nuevo."
+    }
+  }
+}
+

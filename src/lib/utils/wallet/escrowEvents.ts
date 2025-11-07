@@ -125,6 +125,22 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			);
 			console.log('✅ Bid status update sent successfully after contract creation');
 
+			// Check if this escrow is for a scheduling request and handle accordingly
+			try {
+				const { handleEscrowCreatedForScheduling } = await import('$lib/utils/escrow-scheduling');
+				// Try to find request ID from pending escrow creations
+				const schedulingResult = await handleEscrowCreatedForScheduling(event);
+				if (schedulingResult.success) {
+					console.log('✅ Escrow-funded notification sent for scheduling request');
+				} else {
+					// Not a scheduling escrow or no request found - this is OK
+					console.log('ℹ️ Escrow not associated with scheduling request (or request not found)');
+				}
+			} catch (schedulingError) {
+				// Don't fail the whole process if scheduling handling fails
+				console.warn('⚠️ Failed to handle escrow for scheduling:', schedulingError);
+			}
+
 
 			// Show success toast
 			appStore.showSuccessToast(`Contract created successfully! Escrow ID: ${event.escrowId.slice(0, 8)}...`);

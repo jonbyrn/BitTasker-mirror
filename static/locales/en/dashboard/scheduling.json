@@ -1,0 +1,113 @@
+{
+  "scheduling": {
+    "title": "Scheduling",
+    "request_queue": {
+      "title": "Request Queue",
+      "subtitle": "You have {count} request(s) waiting"
+    },
+    "status": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "confirmed": "Confirmed",
+      "expired": "Expired",
+      "cancelled": "Cancelled"
+    },
+    "request_types": {
+      "time_slot": "Time Slot Request",
+      "soonest_available": "Soonest Available Request"
+    },
+    "filters": {
+      "status": "Filter by Status",
+      "sort": "Sort By"
+    },
+    "sort": {
+      "expires_soonest": "Expires Soonest",
+      "expires_latest": "Expires Latest",
+      "newest": "Newest First",
+      "oldest": "Oldest First",
+      "by_status": "By Status"
+    },
+    "search_placeholder": "Search requests...",
+    "no_requests": "No requests found",
+    "refreshing": "Refreshing...",
+    "best_offer": "Best Offer",
+    "accept_best": "Accept Best Offer",
+    "suggestions": "Suggestions",
+    "conflicts_detected": "{count} conflict(s) detected",
+    "conflict": "Conflict",
+    "availability_updated": "Availability Updated",
+    "expired": "Expired",
+    "expires_soon": "Expires in {minutes}m {seconds}s",
+    "expires_in": "Expires in {minutes}m {seconds}s",
+    "request_id": "Request ID",
+    "task_id": "Task ID",
+    "bid_id": "Bid ID",
+    "created": "Created",
+    "accepted_time": "Accepted Time",
+    "escrow_id": "Escrow ID",
+    "confirmed_at": "Confirmed At",
+    "start_time": "Start Time",
+    "end_time": "End Time",
+    "request_expiry": "Request Expiry",
+    "expiry_minutes": "minutes",
+    "duration": "{minutes} minutes",
+    "preferred_times": "Preferred Time Ranges",
+    "add_preferred_range": "Add Preferred Range",
+    "request_soonest": "Request Soonest Available",
+    "send_request": "Send Request",
+    "reschedule": "Reschedule",
+    "accept_all": "Accept All",
+    "reschedule_all": "Reschedule All",
+    "reject_all": "Reject All",
+    "selected_count": "{count} selected",
+    "no_available_slots": "No available slots found",
+    "more_slots_available": "{count} more slot(s) available",
+    "cancel_confirm": "Are you sure you want to cancel this request?",
+    "cancel_reason": "Reason for Cancellation (Optional)",
+    "cancel_reason_placeholder": "Enter reason...",
+    "confirm_cancel": "Confirm Cancellation",
+    "cancel_request": "Cancel Request",
+    "escrow_funding": {
+      "title": "Fund Escrow",
+      "description": "Your request has been accepted! Please fund the escrow to confirm the booking."
+    },
+    "escrow_amount": "Escrow Amount",
+    "fund_escrow": "Fund Escrow",
+    "soonest_available": {
+      "title": "Select Available Time",
+      "description": "The tasker requested the soonest available time. Please select an available slot:",
+      "no_slots": "No available slots found for this request"
+    },
+    "conflict": {
+      "title": "Time Slot Conflict",
+      "description": "You have {count} request(s) for the same time slot. Please select which one to accept:",
+      "time_slot": "Time Slot",
+      "accept_best_offer": "Accept Best Offer",
+      "best_offer": "Best Offer",
+      "show_alternatives": "Show Alternative Slots",
+      "alternative_slots": "Alternative Time Slots",
+      "rejected_due_to_conflict": "Request rejected due to conflict with another booking"
+    },
+    "notifications": {
+      "new_request": "New scheduling request",
+      "new_requests": "{count} new scheduling requests",
+      "conflict": "{count} conflicting requests detected",
+      "better_offer": "Better offer available",
+      "escrow_funded": "Escrow funded - confirm booking",
+      "update": "Scheduling update",
+      "count_more": "+{count} more"
+    },
+    "validation": {
+      "start_time_required": "Start time is required",
+      "end_time_required": "End time is required",
+      "end_after_start": "End time must be after start time",
+      "start_in_future": "Start time must be in the future",
+      "expiry_range": "Expiry must be between 5 and 60 minutes",
+      "both_times_required": "Both start and end times are required"
+    },
+    "error": {
+      "submit_failed": "Failed to submit request. Please try again."
+    }
+  }
+}
+
