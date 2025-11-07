@@ -410,24 +410,31 @@
       "amount_btc": "Cantidad (BTC)",
       "amount_sats": "Cantidad (sats)",
       "min_amount": "Mín",
+      "fee_breakdown": "Desglose de Tarifas",
+      "swap_fee": "Tarifa de Intercambio",
+      "network_transaction_fee": "Tarifa de Transacción de Red",
+      "total_fees": "Tarifas Totales",
+      "estimated_received": "Estimado a Recibir",
+      "total_received_est": "Total Recibido (est)",
       "error": {
         "auth_required": "Autenticación requerida. Por favor inicia sesión nuevamente.",
         "minimum_amount": "La cantidad mínima es {minAmount} sats ({minBTC} BTC)",
         "minimum_amount_sats": "La cantidad mínima es {minAmount} sats",
+        "maximum_amount_sats": "La cantidad máxima es {maxAmount} sats",
         "create_failed": "Error al crear intercambio",
         "claim_failed": "Error al reclamar RBTC",
         "delete_failed": "❌ Error al eliminar intercambio"
       },
       "lightning": {
         "title": "Intercambio Lightning → rBTC",
-        "description": "Recibe pagos Lightning y conviértelos automáticamente a rBTC. Tarifas: ~0.4-0.5%",
+        "description": "Recibe pagos Lightning y conviértelos automáticamente a rBTC. Tarifa de servicio de Boltz: ~0.4-0.5% más tarifas de transacción de red.",
         "invoice_created": "¡Factura Lightning creada!",
         "rbtc_received": "✅ ¡RBTC recibido!",
-        "claiming_gasless": "Reclamando RBTC (sin tarifas de gas requeridas)...",
-        "claimed_success": "✅ ¡RBTC reclamado exitosamente (sin gas)!",
+        "claiming_gasless": "Reclamando RBTC...",
+        "claimed_success": "✅ ¡RBTC reclamado exitosamente!",
         "generate_invoice": "Generar Factura Lightning",
         "view_invoice": "Ver Factura",
-        "claim_now": "Reclamar Ahora (Sin Tarifas de Gas)",
+        "claim_now": "Reclamar Ahora",
         "status": {
           "invoice_ready": "Factura lista - esperando pago",
           "invoice_paid": "¡Factura pagada! Esperando bloqueo...",
@@ -468,7 +475,7 @@
           "send_lbtc": "Envía L-BTC a la dirección de arriba para continuar",
           "lbtc_waiting": "¡L-BTC detectado! Esperando confirmación...",
           "waiting_boltz": "Esperando que Boltz bloquee RBTC...",
-          "claiming_now": "Reclamando RBTC ahora (sin gas)..."
+          "claiming_now": "Reclamando RBTC ahora..."
         }
       }
     },

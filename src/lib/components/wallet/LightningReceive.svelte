@@ -9,6 +9,7 @@
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import PendingSwap from '$lib/components/wallet/PendingSwap.svelte';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// State
 	let amount = $state('');
@@ -23,6 +24,19 @@
 	let minAmount = $state<number>(0);
 	let maxAmount = $state<number>(0);
 	let isLoadingLimits = $state(true);
+
+	// Fee breakdown state
+	let btcPrice = $state<number>(0);
+	let networkFee = $state<number>(150); // Estimated network transaction fee in sats
+	let isLoadingPrice = $state(false);
+	let amountError = $state<string | null>(null);
+	let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	// Derived fee calculations - use amount directly for immediate updates
+	let amountSats = $derived(parseFloat(amount) || 0);
+	let swapFee = $derived(amountSats > 0 ? Math.ceil(amountSats * 0.0045) : 0); // Boltz service fee: ~0.45%
+	let totalFees = $derived(swapFee + networkFee);
+	let totalReceived = $derived(Math.max(0, amountSats - totalFees));
 
 	// Get network
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
@@ -47,6 +61,9 @@
 				// Fetch swap limits from Boltz
 				await fetchSwapLimits();
 
+				// Fetch BTC price for USD conversion
+				await fetchBtcPrice();
+
 				// Recover pending swaps from Nostr storage
 				const recovered = await reverseSwapService.recoverPendingSwaps(nsecHex);
 				console.log('Recovered swaps:', recovered);
@@ -65,6 +82,97 @@
 				console.error('Failed to initialize swap service:', err);
 			}
 		})();
+	});
+
+	/**
+	 * Fetch BTC price for USD conversion
+	 */
+	async function fetchBtcPrice() {
+		try {
+			isLoadingPrice = true;
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (err) {
+			console.error('Failed to fetch BTC price:', err);
+			// Use fallback price if fetch fails
+			btcPrice = 60000; // Fallback to ~$60k
+		} finally {
+			isLoadingPrice = false;
+		}
+	}
+
+	/**
+	 * Validate amount and update error state
+	 */
+	function validateAmount(value: string | number) {
+		amountError = null;
+		
+		// Convert to string for validation
+		const valueStr = String(value ?? '');
+		
+		// Check if value is empty or whitespace
+		if (valueStr.trim() === '' || value === null || value === undefined) {
+			return;
+		}
+
+		const amountSats = parseFloat(valueStr);
+		
+		if (isNaN(amountSats) || amountSats <= 0) {
+			amountError = $t('wallet.validation.amount_required');
+			return;
+		}
+
+		// Only validate against limits if they've been loaded
+		if (!isLoadingLimits) {
+			if (minAmount > 0 && amountSats < minAmount) {
+				amountError = $t('wallet.swap.error.minimum_amount_sats', { values: { minAmount: minAmount.toLocaleString() } });
+				return;
+			}
+
+			if (maxAmount > 0 && amountSats > maxAmount) {
+				amountError = $t('wallet.swap.error.maximum_amount_sats', { values: { maxAmount: maxAmount.toLocaleString() } });
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Debounced validation when amount changes
+	 */
+	$effect(() => {
+		// Access amount to track it reactively
+		const currentAmount = amount;
+
+		// Clear existing timeout
+		if (debounceTimeout) {
+			clearTimeout(debounceTimeout);
+		}
+
+		// Set new timeout for debounced validation
+		debounceTimeout = setTimeout(() => {
+			validateAmount(currentAmount);
+		}, 300); // 300ms debounce
+
+		// Cleanup function
+		return () => {
+			if (debounceTimeout) {
+				clearTimeout(debounceTimeout);
+			}
+		};
+	});
+
+	/**
+	 * Re-validate when limits are loaded or change
+	 */
+	$effect(() => {
+		// Track minAmount and maxAmount to trigger re-validation when limits change
+		const currentMinAmount = minAmount;
+		const currentMaxAmount = maxAmount;
+		const currentIsLoadingLimits = isLoadingLimits;
+
+		// If limits have been loaded and we have an amount, validate immediately
+		if (!currentIsLoadingLimits && amount) {
+			validateAmount(amount);
+		}
 	});
 
 	/**
@@ -101,6 +209,13 @@
 			return;
 		}
 
+		// Validate amount before proceeding
+		validateAmount(amount);
+		if (amountError) {
+			error = amountError;
+			return;
+		}
+
 		if (!amount || parseFloat(amount) <= 0) {
 			error = $t('wallet.validation.amount_required');
 			return;
@@ -109,8 +224,13 @@
 		// Amount is already in sats, parse as integer
 		const amountSats = Math.floor(parseFloat(amount));
 
-		if (amountSats < minAmount) {
+		if (minAmount > 0 && amountSats < minAmount) {
 			error = $t('wallet.swap.error.minimum_amount_sats', { values: { minAmount: minAmount.toLocaleString() } });
+			return;
+		}
+
+		if (maxAmount > 0 && amountSats > maxAmount) {
+			error = $t('wallet.swap.error.maximum_amount_sats', { values: { maxAmount: maxAmount.toLocaleString() } });
 			return;
 		}
 
@@ -189,7 +309,7 @@
 
 	/**
 	 * Manually claim rBTC
-	 * Attempts gasless claim via RIF Relay first, falls back to direct claim if user has gas
+	 * Attempts claim via RIF Relay first, falls back to direct claim if needed
 	 */
 	async function claimRBTC(swap: BoltzSwapData) {
 		if (!nsecHex || !$rskConnection.wallet) {
@@ -203,7 +323,7 @@
 		try {
 			appStore.showInfoToast($t('wallet.swap.lightning.claiming_gasless'));
 
-			// Attempt gasless claim via RIF Relay
+			// Attempt claim via RIF Relay
 			const result = await reverseSwapService.claimRBTCViaRifRelay(
 				swap,
 				nsecHex,
@@ -377,7 +497,7 @@
 					{#if isLoadingLimits}
 						<span class="loading loading-spinner loading-xs"></span>
 						{$t('wallet.swap.loading')}...
-					{:else}
+					{:else if minAmount > 0}
 						{$t('wallet.swap.min_amount')}: {minAmount.toLocaleString()} {$t('wallet.sats')}
 					{/if}
 				</span>
@@ -386,13 +506,74 @@
 				id="amount"
 				type="number"
 				step="1"
-				min="0"
+				min={minAmount > 0 ? minAmount : 0}
+				max={maxAmount > 0 ? maxAmount : undefined}
 				placeholder="100000"
-				class="input input-bordered w-full"
+				class="input input-bordered w-full {amountError ? 'input-error' : ''}"
 				bind:value={amount}
+				oninput={(e) => {
+					// Clear existing timeout for immediate validation
+					if (debounceTimeout) {
+						clearTimeout(debounceTimeout);
+					}
+					// Validate immediately with the current input value
+					const inputValue = (e.currentTarget as HTMLInputElement).value;
+					validateAmount(inputValue);
+				}}
 				disabled={isCreatingSwap || isLoadingLimits}
 			/>
+			{#if amountError}
+				<div class="label">
+					<span class="label-text-alt text-error">{amountError}</span>
+				</div>
+			{/if}
 		</div>
+
+		<!-- Fee Breakdown -->
+		{#if amount && parseFloat(amount) > 0}
+			<div class="rounded-lg border border-base-300 bg-base-200 p-3">
+				<div class="space-y-1.5 text-xs">
+					<div class="flex justify-between items-center">
+						<span class="opacity-70">{$t('wallet.swap.swap_fee')}:</span>
+						<div class="text-right">
+							<span>{swapFee.toLocaleString()} {$t('wallet.sats')}</span>
+							{#if btcPrice > 0}
+								<span class="ml-2 opacity-60">${((swapFee / 100_000_000) * btcPrice).toFixed(2)}</span>
+							{/if}
+						</div>
+					</div>
+					<div class="flex justify-between items-center">
+						<span class="opacity-70">{$t('wallet.swap.network_transaction_fee')}:</span>
+						<div class="text-right">
+							<span>{networkFee.toLocaleString()} {$t('wallet.sats')}</span>
+							{#if btcPrice > 0}
+								<span class="ml-2 opacity-60">${((networkFee / 100_000_000) * btcPrice).toFixed(2)}</span>
+							{/if}
+						</div>
+					</div>
+					<div class="divider my-1.5"></div>
+					<div class="flex justify-between items-center font-semibold">
+						<span>{$t('wallet.swap.total_fees')}:</span>
+						<div class="text-right">
+							<span>{totalFees.toLocaleString()} {$t('wallet.sats')}</span>
+							{#if btcPrice > 0}
+								<span class="ml-2 opacity-60">${((totalFees / 100_000_000) * btcPrice).toFixed(2)}</span>
+							{/if}
+						</div>
+					</div>
+					<div class="divider my-1.5"></div>
+					<div class="flex justify-between items-center text-sm font-bold text-primary">
+						<span>{$t('wallet.swap.total_received_est')}:</span>
+						<div class="text-right">
+							<span>{totalReceived.toLocaleString()} {$t('wallet.sats')}</span>
+							{#if btcPrice > 0}
+								<span class="ml-2 opacity-70">${((totalReceived / 100_000_000) * btcPrice).toFixed(2)}</span>
+							{/if}
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
 
 		<div class="form-control">
 			<label class="label" for="description">

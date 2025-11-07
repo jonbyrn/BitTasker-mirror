@@ -410,24 +410,31 @@
         "amount_btc": "Amount (BTC)",
         "amount_sats": "Amount (sats)",
         "min_amount": "Min",
+        "fee_breakdown": "Fee Breakdown",
+        "swap_fee": "Swap Fee",
+        "network_transaction_fee": "Network Transaction Fee",
+        "total_fees": "Total Fees",
+        "estimated_received": "Estimated Received",
+        "total_received_est": "Total Received (est)",
         "error": {
           "auth_required": "Authentication required. Please sign in again.",
           "minimum_amount": "Minimum amount is {minAmount} sats ({minBTC} BTC)",
           "minimum_amount_sats": "Minimum amount is {minAmount} sats",
+          "maximum_amount_sats": "Maximum amount is {maxAmount} sats",
           "create_failed": "Failed to create swap",
           "claim_failed": "Failed to claim RBTC",
           "delete_failed": "❌ Failed to delete swap"
         },
         "lightning": {
           "title": "Lightning → rBTC Swap",
-          "description": "Receive Lightning payments and automatically convert them to rBTC. Fees: ~0.4-0.5%",
+          "description": "Receive Lightning payments and automatically convert them to rBTC. Boltz service fee: ~0.4-0.5% plus network transaction fees.",
           "invoice_created": "Lightning invoice created!",
           "rbtc_received": "✅ RBTC received!",
-          "claiming_gasless": "Claiming RBTC (no gas fees required)...",
-          "claimed_success": "✅ RBTC claimed successfully (gasless)!",
+          "claiming_gasless": "Claiming RBTC...",
+          "claimed_success": "✅ RBTC claimed successfully!",
           "generate_invoice": "Generate Lightning Invoice",
           "view_invoice": "View Invoice",
-          "claim_now": "Claim Now (No Gas Fees)",
+          "claim_now": "Claim Now",
           "status": {
             "invoice_ready": "Invoice ready - waiting for payment",
             "invoice_paid": "Invoice paid! Waiting for lockup...",
@@ -468,7 +475,7 @@
             "send_lbtc": "Send L-BTC to the address above to continue",
             "lbtc_waiting": "L-BTC detected! Waiting for confirmation...",
             "waiting_boltz": "Waiting for Boltz to lock RBTC...",
-            "claiming_now": "Claiming RBTC now (gasless)..."
+            "claiming_now": "Claiming RBTC now..."
           }
         }
       },
