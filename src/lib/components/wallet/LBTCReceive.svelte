@@ -23,7 +23,7 @@
 	// Get network
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
-	// Derived values
+	// Derived values (no longer needed for BTC conversion, but kept for display if needed)
 	let minBTC = $derived(minAmount / 100_000_000);
 	let maxBTC = $derived(maxAmount / 100_000_000);
 
@@ -102,10 +102,11 @@
 			return;
 		}
 
-		const amountSats = Math.floor(parseFloat(amount) * 100_000_000);
+		// Amount is already in sats, parse as integer
+		const amountSats = Math.floor(parseFloat(amount));
 
 		if (amountSats < minAmount) {
-			error = $t('wallet.swap.error.minimum_amount', { values: { minAmount, minBTC } });
+			error = $t('wallet.swap.error.minimum_amount_sats', { values: { minAmount: minAmount.toLocaleString() } });
 			return;
 		}
 
@@ -324,21 +325,22 @@
 
 		<div class="form-control">
 			<label class="label" for="amount">
-				<span class="label-text">{$t('wallet.swap.amount_btc')}</span>
+				<span class="label-text">{$t('wallet.swap.amount_sats')}</span>
 				<span class="label-text-alt">
 					{#if isLoadingLimits}
 						<span class="loading loading-spinner loading-xs"></span>
 						{$t('wallet.swap.loading')}...
 					{:else}
-						{$t('wallet.swap.min_amount')}: {minBTC.toFixed(8)} BTC ({minAmount.toLocaleString()} sats)
+						{$t('wallet.swap.min_amount')}: {minAmount.toLocaleString()} {$t('wallet.sats')}
 					{/if}
 				</span>
 			</label>
 			<input
 				id="amount"
 				type="number"
-				step="0.00000001"
-				placeholder="0.001"
+				step="1"
+				min="0"
+				placeholder="100000"
 				class="input input-bordered w-full"
 				bind:value={amount}
 				disabled={isCreatingSwap || isLoadingLimits}

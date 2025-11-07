@@ -408,10 +408,12 @@
       "invoice_copied": "✅ ¡Factura copiada al portapapeles!",
       "address_copied": "✅ ¡Dirección copiada al portapapeles!",
       "amount_btc": "Cantidad (BTC)",
+      "amount_sats": "Cantidad (sats)",
       "min_amount": "Mín",
       "error": {
         "auth_required": "Autenticación requerida. Por favor inicia sesión nuevamente.",
         "minimum_amount": "La cantidad mínima es {minAmount} sats ({minBTC} BTC)",
+        "minimum_amount_sats": "La cantidad mínima es {minAmount} sats",
         "create_failed": "Error al crear intercambio",
         "claim_failed": "Error al reclamar RBTC",
         "delete_failed": "❌ Error al eliminar intercambio"

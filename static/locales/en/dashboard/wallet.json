@@ -408,10 +408,12 @@
         "invoice_copied": "✅ Invoice copied to clipboard!",
         "address_copied": "✅ Address copied to clipboard!",
         "amount_btc": "Amount (BTC)",
+        "amount_sats": "Amount (sats)",
         "min_amount": "Min",
         "error": {
           "auth_required": "Authentication required. Please sign in again.",
           "minimum_amount": "Minimum amount is {minAmount} sats ({minBTC} BTC)",
+          "minimum_amount_sats": "Minimum amount is {minAmount} sats",
           "create_failed": "Failed to create swap",
           "claim_failed": "Failed to claim RBTC",
           "delete_failed": "❌ Failed to delete swap"
