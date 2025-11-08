@@ -302,6 +302,45 @@
 								</p>
 							</div>
 						</div>
+
+						<!-- Start and end times -->
+						<div class="mt-4 space-y-2 block">
+							<div class="flex items-center justify-between text-xs">
+								<span class="text-base-content/60"
+									>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
+								>
+								<span class="text-base-content/80">
+									<!-- Convert seconds to milliseconds -->
+									{bidEscrowDetails
+										? formatStandardDateTime(new Date(bidEscrowDetails.estimatedStartTime * 1000))
+										: 'N/A'}
+								</span>
+							</div>
+							<div class="flex items-center justify-between text-xs">
+								<span class="text-base-content/60"
+									>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
+								>
+								<span class="text-base-content/80">
+									<!-- Convert seconds to milliseconds -->
+									{bidEscrowDetails
+										? formatStandardDateTime(new Date(bidEscrowDetails.estimatedCompletionTime * 1000))
+										: 'N/A'}
+								</span>
+							</div>
+							<div class="flex items-center justify-between text-xs">
+								<span class="text-base-content/60"
+									>{$t('dashboard.bids.bid_acceptance.estimated_duration')}</span
+								>
+								<span class="text-base-content/80"
+									>{bidEscrowDetails
+										? formatDuration(
+												bidEscrowDetails.estimatedStartTime * 1000,
+												bidEscrowDetails.estimatedCompletionTime * 1000
+											)
+										: 'N/A'}</span
+								>
+							</div>
+						</div>
 					</div>
 				</div>
 
@@ -434,44 +473,6 @@
 				</div>
 			</div>
 
-			<!-- Start and end times -->
-			<div class="mt-4 space-y-2 px-6 pb-4">
-				<div class="flex items-center justify-between text-xs">
-					<span class="text-base-content/60"
-						>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
-					>
-					<span class="text-base-content/80">
-						<!-- Convert seconds to milliseconds -->
-						{bidEscrowDetails
-							? formatStandardDateTime(new Date(bidEscrowDetails.estimatedStartTime * 1000))
-							: 'N/A'}
-					</span>
-				</div>
-				<div class="flex items-center justify-between text-xs">
-					<span class="text-base-content/60"
-						>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
-					>
-					<span class="text-base-content/80">
-						<!-- Convert seconds to milliseconds -->
-						{bidEscrowDetails
-							? formatStandardDateTime(new Date(bidEscrowDetails.estimatedCompletionTime * 1000))
-							: 'N/A'}
-					</span>
-				</div>
-				<div class="flex items-center justify-between text-xs">
-					<span class="text-base-content/60"
-						>{$t('dashboard.bids.bid_acceptance.estimated_duration')}</span
-					>
-					<span class="text-base-content/80"
-						>{bidEscrowDetails
-							? formatDuration(
-									bidEscrowDetails.estimatedStartTime * 1000,
-									bidEscrowDetails.estimatedCompletionTime * 1000
-								)
-							: 'N/A'}</span
-					>
-				</div>
-			</div>
 		</div>
 
 		<!-- Escrow Information -->
