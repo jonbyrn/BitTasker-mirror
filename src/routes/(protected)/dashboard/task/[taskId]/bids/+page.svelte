@@ -353,7 +353,7 @@
 				>
 					<div class="p-4 md:p-6">
 						<!-- Top row: User info and status (full width) -->
-						<div class="mb-4 flex w-full items-start justify-between gap-4">
+						<div class="mb-4 flex w-full items-center justify-between gap-4">
 							<!-- Left side: Avatar + Username on same row, then member since and rating below -->
 							<div class="flex min-w-0 flex-1 items-center gap-4">
 								<!-- Avatar -->
@@ -379,7 +379,7 @@
 									</div>
 								</div>
 								<!-- User info column -->
-								<div class="flex min-w-0 flex-1 flex-col items-start gap-2">
+								<div class="flex min-w-0 flex-1 flex-col items-start">
 									<!-- Display name -->
 									<p class="w-full truncate text-base font-semibold sm:text-lg">
 										{bid.userProfile?.user?.name || $t('task.drawer.anonymous')}
