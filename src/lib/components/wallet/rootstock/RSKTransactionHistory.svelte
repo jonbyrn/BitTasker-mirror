@@ -28,7 +28,7 @@
 
 	async function copyTxHash(hash: string) {
 		await copyToClipboard(hash);
-		appStore.showSuccessToast('Transaction hash copied');
+		appStore.showSuccessToast($t('wallet.transaction.toast.hash_copied'));
 	}
 
 	function getStatusBadgeClass(status: string): string {
@@ -76,10 +76,10 @@
 		isRefreshing = true;
 		try {
 			await rskWallet.refreshTransactions();
-			appStore.showSuccessToast('Transactions refreshed');
+			appStore.showSuccessToast($t('wallet.transaction.toast.refreshed'));
 		} catch (error) {
 			console.error('Failed to refresh transactions:', error);
-			appStore.showErrorToast('Failed to refresh transactions');
+			appStore.showErrorToast($t('wallet.transaction.toast.refresh_failed'));
 		} finally {
 			isRefreshing = false;
 		}
@@ -121,7 +121,17 @@
 									</div>
 									<div class="min-w-0 flex-1">
 										<div class="mb-1 flex items-center gap-2">
-											<span class="font-semibold capitalize">{tx.type}</span>
+											<span class="font-semibold">
+												{#if tx.type === 'send'}
+													{$t('wallet.transaction.type.send')}
+												{:else if tx.type === 'receive'}
+													{$t('wallet.transaction.type.receive')}
+												{:else if tx.type === 'contract'}
+													{$t('wallet.transaction.type.contract')}
+												{:else}
+													{tx.type}
+												{/if}
+											</span>
 											<div class="badge badge-sm {getStatusBadgeClass(tx.status)}">
 												{getTranslatedStatus(tx.status)}
 											</div>

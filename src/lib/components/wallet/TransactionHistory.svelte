@@ -62,11 +62,11 @@
 	function getTranslatedStatus(status: string): string {
 		switch (status) {
 			case 'confirmed':
-				return 'Confirmed';
+				return $t('wallet.transaction.status.confirmed');
 			case 'pending':
-				return 'Pending';
+				return $t('wallet.transaction.status.pending');
 			case 'failed':
-				return 'Failed';
+				return $t('wallet.transaction.status.failed');
 			default:
 				return status;
 		}
@@ -99,11 +99,11 @@
 	function getNetworkDisplayName(network: string): string {
 		switch (network) {
 			case 'rsk':
-				return 'Rootstock Bitcoin';
+				return $t('wallet.transaction.network.rootstock_bitcoin');
 			case 'bsc':
-				return 'Binance Smart Chain';
+				return $t('wallet.transaction.network.binance_smart_chain');
 			default:
-				return 'Unknown Network';
+				return $t('wallet.transaction.network.unknown_network');
 		}
 	}
 
@@ -252,7 +252,7 @@
 					alt="Rootstock Bitcoin"
 					class="mr-1 inline h-4 w-4"
 				/>
-				Rootstock Bitcoin ({$transactions.filter((tx) => tx.network === 'rsk').length})
+				{$t('wallet.transaction.network.rootstock_bitcoin')} ({$transactions.filter((tx) => tx.network === 'rsk').length})
 			</button>
 			<button
 				class="tab {selectedFilter === 'bsc' ? 'tab-active' : ''} whitespace-nowrap"
@@ -266,7 +266,7 @@
 					alt="Binance Smart Chain"
 					class="mr-1 inline h-4 w-4"
 				/>
-				BSC ({$transactions.filter((tx) => tx.network === 'bsc').length})
+				{$t('wallet.transaction.network.bsc')} ({$transactions.filter((tx) => tx.network === 'bsc').length})
 			</button>
 			<button
 				class="tab {selectedFilter === 'send' ? 'tab-active' : ''} whitespace-nowrap"
@@ -385,11 +385,17 @@
 
 								<div class="flex-1">
 									<div class="mb-1 flex items-center gap-2">
-										<span class="font-semibold capitalize">
+										<span class="font-semibold">
 											{#if tx.type === 'swap'}
-												{$t('wallet.swap_title')}
+												{$t('wallet.transaction.type.swap')}
+											{:else if tx.type === 'send'}
+												{$t('wallet.transaction.type.send')}
+											{:else if tx.type === 'receive'}
+												{$t('wallet.transaction.type.receive')}
+											{:else if tx.type === 'contract'}
+												{$t('wallet.transaction.type.contract')}
 											{:else}
-												{tx.type === 'send' ? $t('wallet.sent') : $t('wallet.received')}
+												{tx.type}
 											{/if}
 										</span>
 										<div class="badge badge-outline badge-sm text-xs">
@@ -403,7 +409,17 @@
 									<div class="space-y-1 text-sm opacity-70">
 										<div>{formatTimestamp(tx.timestamp)}</div>
 										{#if tx.description}
-											<div>{tx.description || ''}</div>
+											<div>
+												{tx.description === 'RSK transaction sent' 
+													? $t('wallet.transaction.description.rsk_sent')
+													: tx.description === 'RSK payment received'
+														? $t('wallet.transaction.description.rsk_received')
+														: tx.description === 'BSC transaction sent'
+															? $t('wallet.transaction.description.bsc_sent')
+															: tx.description === 'BSC payment received'
+																? $t('wallet.transaction.description.bsc_received')
+																: tx.description || ''}
+											</div>
 										{/if}
 									</div>
 								</div>
@@ -460,11 +476,17 @@
 											{getTypeIcon(tx.type)}
 										</span>
 									</div>
-									<span class="font-semibold capitalize">
+									<span class="font-semibold">
 										{#if tx.type === 'swap'}
-											{$t('wallet.swap_title')}
+											{$t('wallet.transaction.type.swap')}
+										{:else if tx.type === 'send'}
+											{$t('wallet.transaction.type.send')}
+										{:else if tx.type === 'receive'}
+											{$t('wallet.transaction.type.receive')}
+										{:else if tx.type === 'contract'}
+											{$t('wallet.transaction.type.contract')}
 										{:else}
-											{tx.type === 'send' ? $t('wallet.sent') : $t('wallet.received')}
+											{tx.type}
 										{/if}
 									</span>
 								</div>
@@ -489,7 +511,17 @@
 							<div class="space-y-1 text-sm opacity-70">
 								<div>{formatTimestamp(tx.timestamp)}</div>
 								{#if tx.description}
-									<div>{tx.description || ''}</div>
+									<div>
+										{tx.description === 'RSK transaction sent' 
+											? $t('wallet.transaction.description.rsk_sent')
+											: tx.description === 'RSK payment received'
+												? $t('wallet.transaction.description.rsk_received')
+												: tx.description === 'BSC transaction sent'
+													? $t('wallet.transaction.description.bsc_sent')
+													: tx.description === 'BSC payment received'
+														? $t('wallet.transaction.description.bsc_received')
+														: tx.description || ''}
+									</div>
 								{/if}
 								{#if tx.fee}
 									<div class="text-xs">

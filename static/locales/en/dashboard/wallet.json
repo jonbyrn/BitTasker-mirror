@@ -54,7 +54,38 @@
       "to": "To",
       "status_confirmed": "Confirmed",
       "status_pending": "Pending",
+      "status_failed": "Failed",
       "status_confirmations": "Confirmations",
+      "transaction": {
+        "status": {
+          "confirmed": "Confirmed",
+          "pending": "Pending",
+          "failed": "Failed"
+        },
+        "type": {
+          "send": "Sent",
+          "receive": "Received",
+          "contract": "Contract",
+          "swap": "Swap"
+        },
+        "description": {
+          "rsk_sent": "RSK transaction sent",
+          "rsk_received": "RSK payment received",
+          "bsc_sent": "BSC transaction sent",
+          "bsc_received": "BSC payment received"
+        },
+        "network": {
+          "rootstock_bitcoin": "Rootstock Bitcoin",
+          "binance_smart_chain": "Binance Smart Chain",
+          "bsc": "BSC",
+          "unknown_network": "Unknown Network"
+        },
+        "toast": {
+          "hash_copied": "Transaction hash copied",
+          "refreshed": "Transactions refreshed",
+          "refresh_failed": "Failed to refresh transactions"
+        }
+      },
       "error": {
         "no_mnemonic": {
           "title": "No Wallet Found",
@@ -219,6 +250,43 @@
       "multi_network_support": "Multi-Network Support",
       "select_network": "Select Network",
       "select_asset": "Select Asset",
+      "send_form": {
+        "asset": {
+          "bitcoin": "Bitcoin",
+          "bitcoin_description": "Bitcoin and Bitcoin-based networks",
+          "usd": "USD",
+          "usd_description": "USD-pegged stablecoins"
+        },
+        "network": {
+          "lightning_bitcoin": "Lightning Bitcoin",
+          "lightning_bitcoin_description": "Lightning Network payments",
+          "rootstock_bitcoin": "Rootstock Bitcoin",
+          "rootstock_bitcoin_description": "rBTC on Rootstock network",
+          "liquid_bitcoin": "Liquid Bitcoin",
+          "liquid_bitcoin_description": "L-BTC on Liquid network",
+          "bitcoin": "Bitcoin",
+          "bitcoin_description": "Native Bitcoin network",
+          "liquid_usdt": "Liquid USDT",
+          "liquid_usdt_description": "USDT on Liquid network"
+        },
+        "coming_soon": "Coming Soon",
+        "usd_not_available": "USD sending functionality is not yet available.",
+        "network_not_available": "This network is not yet available for sending.",
+        "address_placeholder": {
+          "lightning": "Lightning invoice or Lightning address",
+          "liquid_bitcoin": "Liquid address",
+          "bitcoin": "Bitcoin address",
+          "liquid_usdt": "Liquid USDT address",
+          "rootstock": "Rootstock address (0x...)"
+        },
+        "send_button": {
+          "lightning_bitcoin": "Send Lightning Bitcoin",
+          "liquid_bitcoin": "Send Liquid Bitcoin",
+          "bitcoin": "Send Bitcoin",
+          "liquid_usdt": "Send USDT",
+          "rootstock_bitcoin": "Send rBTC"
+        }
+      },
       "rsk_address": "RSK Address",
       "rsk_address_placeholder": "Rootstock address (0x...)",
       "liquid_address_desc": "Universal address for L-BTC, USDT, and Lightning",

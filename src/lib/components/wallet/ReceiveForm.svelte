@@ -300,7 +300,7 @@
 	{/if}
 
 	<!-- Available Balance Display -->
-	<div class="alert alert-outline bg-base-200 border-base-300">
+	<!-- <div class="alert alert-outline bg-base-200 border-base-300">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			fill="none"
@@ -320,7 +320,7 @@
 				{availableBalance()} L2 BTC
 			</div>
 		</div>
-	</div>
+	</div> -->
 
 	<!-- RSK Default Layout - show form and QR side by side by default -->
 	{#if selectedNetwork === 'rootstock-bitcoin'}

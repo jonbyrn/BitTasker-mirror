@@ -4,7 +4,7 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
-	import QRCode from 'qrcode';
+	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 	
@@ -46,14 +46,7 @@
 				uri += `?${params.toString()}`;
 			}
 
-			qrCodeDataUrl = await QRCode.toDataURL(uri, {
-				width: 256,
-				margin: 2,
-				color: {
-					dark: '#000000',
-					light: '#FFFFFF'
-				}
-			});
+			qrCodeDataUrl = await generateQrCodeUrl(uri);
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
 			qrCodeError = 'Failed to generate QR code';

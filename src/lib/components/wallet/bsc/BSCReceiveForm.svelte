@@ -2,7 +2,7 @@
 	import { t} from 'svelte-i18n';
 	import { bscUsdtWalletStore, bscTokenBalances } from '$lib/stores/bscUsdtWallet.store';
 	import { BSC_NETWORKS } from '$lib/utils/wallet/networkConfig';
-	import QRCode from 'qrcode';
+	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 
@@ -37,14 +37,7 @@
 				qrData = $bscUsdtWalletStore.address;
 			}
 
-			qrCodeDataUrl = await QRCode.toDataURL(qrData, {
-				width: 256,
-				margin: 2,
-				color: {
-					dark: '#000000',
-					light: '#FFFFFF'
-				}
-			});
+			qrCodeDataUrl = await generateQrCodeUrl(qrData);
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
 		}

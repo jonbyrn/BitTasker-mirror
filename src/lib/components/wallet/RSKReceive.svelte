@@ -33,7 +33,11 @@
 			const params = new URLSearchParams();
 
 			if (amount) {
-				params.append('value', (parseFloat(amount) * 1e18).toString()); // Convert to wei
+				// Convert sats to wei: 1 sat = 1e10 wei (since 1 BTC = 1e8 sats = 1e18 wei)
+				const amountSats = parseFloat(amount);
+				if (!isNaN(amountSats) && amountSats > 0) {
+					params.append('value', (amountSats * 1e10).toString()); // Convert sats to wei
+				}
 			}
 			if (message) {
 				params.append('message', message);
@@ -93,15 +97,16 @@
 		<div class="form-control">
 			<label class="label" for="rsk-amount">
 				<span class="label-text">
-					{$t('wallet.amount_rbtc')}
+					{$t('wallet.swap.amount_sats')}
 				</span>
 				<span class="label-text-alt">{$t('wallet.optional')}</span>
 			</label>
 			<input
 				id="rsk-amount"
 				type="number"
-				step="0.000001"
-				placeholder="0.0"
+				step="1"
+				min="0"
+				placeholder="100000"
 				class="input input-bordered w-full"
 				bind:value={amount}
 				oninput={debounce(() => paymentRequest(), 1000)}

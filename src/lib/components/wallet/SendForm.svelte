@@ -50,15 +50,15 @@
 	let assetOptions = $derived([
 		{
 			value: 'bitcoin',
-			label: 'Bitcoin',
-			description: 'Bitcoin and Bitcoin-based networks',
+			label: $t('wallet.send_form.asset.bitcoin'),
+			description: $t('wallet.send_form.asset.bitcoin_description'),
 			icon: '/images/chains/Bitcoin.svg',
 			disabled: false
 		},
 		{
 			value: 'usd',
-			label: 'USD',
-			description: 'USD-pegged stablecoins',
+			label: $t('wallet.send_form.asset.usd'),
+			description: $t('wallet.send_form.asset.usd_description'),
 			icon: '/images/chains/Tether-USD.svg',
 			disabled: false
 		}
@@ -70,26 +70,26 @@
 			return [
 				{
 					value: 'lightning-bitcoin',
-					label: 'Lightning Bitcoin',
-					description: 'Lightning Network payments',
+					label: $t('wallet.send_form.network.lightning_bitcoin'),
+					description: $t('wallet.send_form.network.lightning_bitcoin_description'),
 					icon: null // Will use lightning icon
 				},
 				{
 					value: 'rootstock-bitcoin',
-					label: 'Rootstock Bitcoin',
-					description: 'rBTC on Rootstock network',
+					label: $t('wallet.send_form.network.rootstock_bitcoin'),
+					description: $t('wallet.send_form.network.rootstock_bitcoin_description'),
 					icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
 				},
 				{
 					value: 'liquid-bitcoin',
-					label: 'Liquid Bitcoin',
-					description: 'L-BTC on Liquid network',
+					label: $t('wallet.send_form.network.liquid_bitcoin'),
+					description: $t('wallet.send_form.network.liquid_bitcoin_description'),
 					icon: '/images/chains/Liquid-Bitcoin.svg'
 				},
 				{
 					value: 'bitcoin',
-					label: 'Bitcoin',
-					description: 'Native Bitcoin network',
+					label: $t('wallet.send_form.network.bitcoin'),
+					description: $t('wallet.send_form.network.bitcoin_description'),
 					icon: '/images/chains/Bitcoin.svg'
 				}
 			];
@@ -97,8 +97,8 @@
 			return [
 				{
 					value: 'liquid-usdt',
-					label: 'Liquid USDT',
-					description: 'USDT on Liquid network',
+					label: $t('wallet.send_form.network.liquid_usdt'),
+					description: $t('wallet.send_form.network.liquid_usdt_description'),
 					icon: '/images/chains/Tether-USD.svg'
 				}
 			];
@@ -439,7 +439,7 @@
 	<!-- Asset Selection -->
 	<div class="form-control">
 		<label class="label" for="asset-select">
-			<span class="label-text font-medium">Select Asset</span>
+			<span class="label-text font-medium">{$t('wallet.select_asset')}</span>
 		</label>
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 			{#each assetOptions as asset}
@@ -499,8 +499,8 @@
 				></path>
 			</svg>
 			<div>
-				<div class="font-bold">Coming Soon</div>
-				<div class="text-sm">USD sending functionality is not yet available.</div>
+				<div class="font-bold">{$t('wallet.send_form.coming_soon')}</div>
+				<div class="text-sm">{$t('wallet.send_form.usd_not_available')}</div>
 			</div>
 		</div>
 	{/if}
@@ -509,7 +509,7 @@
 	{#if selectedAsset === 'bitcoin'}
 		<div class="form-control">
 			<label class="label" for="network-select">
-				<span class="label-text font-medium">Select Network</span>
+				<span class="label-text font-medium">{$t('wallet.select_network')}</span>
 			</label>
 			{#key dropdownKey}
 				<div class="dropdown dropdown-bottom w-full">
@@ -612,8 +612,8 @@
 				></path>
 			</svg>
 			<div>
-				<div class="font-bold">Coming Soon</div>
-				<div class="text-sm">This network is not yet available for sending.</div>
+				<div class="font-bold">{$t('wallet.send_form.coming_soon')}</div>
+				<div class="text-sm">{$t('wallet.send_form.network_not_available')}</div>
 			</div>
 		</div>
 	{/if}
@@ -659,14 +659,14 @@
 				id="recipient-address"
 				bind:value={recipientAddress}
 				placeholder={selectedNetwork === 'lightning-bitcoin'
-					? 'Lightning invoice or Lightning address'
+					? $t('wallet.send_form.address_placeholder.lightning')
 					: selectedNetwork === 'liquid-bitcoin'
-						? 'Liquid address'
+						? $t('wallet.send_form.address_placeholder.liquid_bitcoin')
 						: selectedNetwork === 'bitcoin'
-							? 'Bitcoin address'
+							? $t('wallet.send_form.address_placeholder.bitcoin')
 							: selectedNetwork === 'liquid-usdt'
-								? 'Liquid USDT address'
-								: 'Rootstock address (0x...)'}
+								? $t('wallet.send_form.address_placeholder.liquid_usdt')
+								: $t('wallet.send_form.address_placeholder.rootstock')}
 				class="input input-bordered w-full {!addressValidation.isValid &&
 				recipientAddress.trim() !== ''
 					? 'input-error'
@@ -831,14 +831,14 @@
 				{$t('wallet.send.processing')}
 			{:else}
 				{selectedNetwork === 'lightning-bitcoin'
-					? 'Send Lightning Bitcoin'
+					? $t('wallet.send_form.send_button.lightning_bitcoin')
 					: selectedNetwork === 'liquid-bitcoin'
-						? 'Send Liquid Bitcoin'
+						? $t('wallet.send_form.send_button.liquid_bitcoin')
 						: selectedNetwork === 'bitcoin'
-							? 'Send Bitcoin'
+							? $t('wallet.send_form.send_button.bitcoin')
 							: selectedNetwork === 'liquid-usdt'
-								? 'Send USDT'
-								: 'Send rBTC'}
+								? $t('wallet.send_form.send_button.liquid_usdt')
+								: $t('wallet.send_form.send_button.rootstock_bitcoin')}
 			{/if}
 		</button>
 	{/if}

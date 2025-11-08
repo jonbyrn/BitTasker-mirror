@@ -335,7 +335,7 @@
 				<Logo />
 				<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
 				<br />
-				<p class="text-base-content text-center text-base">
+				<p class="text-base-content text-center text-base mb-4">
 					{$t('login.subtitle')}
 				</p>
 				<p class="text-base-content text-center text-base">

@@ -70,7 +70,7 @@ export default async function generateQrCodeUrl(data: string): Promise<string> {
             };
 
             // Load the logo
-            logo.src = '/logo_compact.svg';
+            logo.src = '/images/Logos/BitTasker-square-logo.svg';
         });
     } catch (err) {
         console.error('Failed to generate QR code:', err);
