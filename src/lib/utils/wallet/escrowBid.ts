@@ -140,8 +140,14 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 /**
  * Validate escrow details before creation
  */
-export function validateEscrowDetails(details: BidEscrowDetails): string[] {
+export interface ValidationResult {
+	errors: string[];
+	warnings: string[];
+}
+
+export function validateEscrowDetails(details: BidEscrowDetails): ValidationResult {
 	const errors: string[] = [];
+	const warnings: string[] = [];
 
 	// Validate freelancer address
 	if (!details.freelancerAddress) {
@@ -158,15 +164,27 @@ export function validateEscrowDetails(details: BidEscrowDetails): string[] {
 
 	// Validate timing
 	const now = Math.floor(Date.now() / 1000);
+	const timeDifferenceSeconds = now - details.estimatedStartTime;
+	const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
+
 	if (details.estimatedStartTime <= now) {
-		errors.push('Start time must be in the future');
+		// Check if it's more than 15 minutes past the estimated start time
+		if (timeDifferenceMinutes > 15) {
+			errors.push(`The estimated start time was ${timeDifferenceMinutes} minutes ago. The bid is no longer valid as the Taskee may no longer have this time slot available.`);
+		} else if (timeDifferenceMinutes >= 0) {
+			// Between 0 and 15 minutes past - show warning but allow funding
+			const timeText = timeDifferenceMinutes === 0 
+				? 'just now' 
+				: `${timeDifferenceMinutes} minute${timeDifferenceMinutes !== 1 ? 's' : ''} ago`;
+			warnings.push(`Warning: The estimated start time was ${timeText}. The Taskee may no longer have this time slot available.`);
+		}
 	}
 
 	if (details.estimatedCompletionTime <= details.estimatedStartTime) {
 		errors.push('Completion time must be after start time');
 	}
 
-	return errors;
+	return { errors, warnings };
 }
 
 /**
@@ -183,11 +201,11 @@ export async function acceptBidAndCreateEscrow(
 		const escrowDetails = calculateBidEscrowDetails(bid, task, btcPrice);
 
 		// Validate details
-		const validationErrors = validateEscrowDetails(escrowDetails);
-		if (validationErrors.length > 0) {
+		const validationResult = validateEscrowDetails(escrowDetails);
+		if (validationResult.errors.length > 0) {
 			return {
 				success: false,
-				error: `Validation failed: ${validationErrors.join(', ')}`
+				error: `Validation failed: ${validationResult.errors.join(', ')}`
 			};
 		}
 
