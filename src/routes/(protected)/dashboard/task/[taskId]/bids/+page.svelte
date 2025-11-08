@@ -386,15 +386,15 @@
 										</p>
 										<!-- Bid Status Badge -->
 										{#if bid.status === 'ACCEPTED'}
-											<div class="badge badge-success badge-sm">
+											<div class="badge badge-success badge-sm text-primary-content">
 												{$t('dashboard.bids.bid_acceptance.accepted')}
 											</div>
 										{:else if bid.status === 'REJECTED'}
-											<div class="badge badge-error badge-sm">
+											<div class="badge badge-error badge-sm text-primary-content">
 												{$t('dashboard.bids.bid_acceptance.rejected')}
 											</div>
 										{:else if bid.status === 'PENDING'}
-											<div class="badge badge-warning badge-sm">
+											<div class="badge badge-warning badge-sm text-primary-content">
 												{$t('dashboard.bids.bid_acceptance.pending')}
 											</div>
 										{/if}
@@ -467,7 +467,7 @@
 
 						<!-- Bid description -->
 						<div class="mb-4">
-							<p class="text-base-content/80">{bid.description}</p>
+							<p class="text-base-content/80 break-words">{bid.description}</p>
 						</div>
 
 						<!-- Action buttons - always visible -->
@@ -600,7 +600,7 @@
 								<!-- Description -->
 								{#if bid.description}
 									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium">
+										<p class="text-base-content/60 mb-2 text-xs font-medium break-words">
 											{$t('bids.your_description')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
@@ -615,7 +615,7 @@
 								<!-- Approach -->
 								{#if bid.proposedApproach}
 									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium">
+										<p class="text-base-content/60 mb-2 text-xs font-medium break-words">
 											{$t('bids.your_approach')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
@@ -630,7 +630,7 @@
 								<!-- Cover Letter -->
 								{#if bid.coverLetter}
 									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium">
+										<p class="text-base-content/60 mb-2 text-xs font-medium break-words">
 											{$t('bids.your_cover_letter')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
