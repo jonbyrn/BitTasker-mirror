@@ -355,9 +355,9 @@
 						<!-- Top row: User info and status (full width) -->
 						<div class="mb-4 flex w-full items-start justify-between gap-4">
 							<!-- Left side: Avatar + Username on same row, then member since and rating below -->
-							<div class="flex items-start gap-4">
+							<div class="flex min-w-0 flex-1 items-center gap-4">
 								<!-- Avatar -->
-								<div class="avatar">
+								<div class="avatar flex-shrink-0">
 									<div
 										class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
 									>
@@ -379,9 +379,9 @@
 									</div>
 								</div>
 								<!-- User info column -->
-								<div class="flex flex-col items-start gap-2">
+								<div class="flex min-w-0 flex-1 flex-col items-start gap-2">
 									<!-- Display name -->
-									<p class="truncate text-base font-semibold sm:text-lg">
+									<p class="w-full truncate text-base font-semibold sm:text-lg">
 										{bid.userProfile?.user?.name || $t('task.drawer.anonymous')}
 									</p>
 									<!-- Member since -->
@@ -413,7 +413,7 @@
 							</div>
 
 							<!-- Right side: Status badge and profile link (right-aligned) -->
-							<div class="flex flex-col items-end gap-2">
+							<div class="flex flex-shrink-0 flex-col items-end gap-2">
 								<!-- Bid Status Badge -->
 								{#if bid.status === 'ACCEPTED'}
 									<div class="badge badge-success badge-sm text-primary-content">
