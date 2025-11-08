@@ -352,34 +352,34 @@
 					class="bg-base-100 border-base-200 rounded-2xl border shadow-sm transition-all duration-200 hover:shadow-md"
 				>
 					<div class="p-4 md:p-6">
-						<!-- Header with user info, status, description, and payment -->
-						<div class="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-							<!-- Left side: User info and status columns -->
+						<!-- Top row: User info and status (full width) -->
+						<div class="mb-4 flex w-full items-start justify-between gap-4">
+							<!-- Left side: Avatar + Username on same row, then member since and rating below -->
 							<div class="flex items-start gap-4">
-								<!-- Column 1: User info (avatar, name, member since, rating) -->
-								<div class="flex flex-col items-start gap-2">
-									<!-- Avatar -->
-									<div class="avatar">
-										<div
-											class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-										>
-											{#if bid.userProfile?.user?.avatar}
-												<img
-													src={bid.userProfile.user.avatar}
-													alt={$t('task.drawer.avatar_alt')}
-													class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
-												/>
-											{:else}
-												<div
-													class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-												>
-													<span class="text-lg font-semibold sm:text-2xl">
-														{(bid.userProfile?.user?.name || 'A').charAt(0).toUpperCase()}
-													</span>
-												</div>
-											{/if}
-										</div>
+								<!-- Avatar -->
+								<div class="avatar">
+									<div
+										class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+									>
+										{#if bid.userProfile?.user?.avatar}
+											<img
+												src={bid.userProfile.user.avatar}
+												alt={$t('task.drawer.avatar_alt')}
+												class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
+											/>
+										{:else}
+											<div
+												class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+											>
+												<span class="text-lg font-semibold sm:text-2xl">
+													{(bid.userProfile?.user?.name || 'A').charAt(0).toUpperCase()}
+												</span>
+											</div>
+										{/if}
 									</div>
+								</div>
+								<!-- User info column -->
+								<div class="flex flex-col items-start gap-2">
 									<!-- Display name -->
 									<p class="truncate text-base font-semibold sm:text-lg">
 										{bid.userProfile?.user?.name || $t('task.drawer.anonymous')}
@@ -410,67 +410,67 @@
 										>
 									</div>
 								</div>
-
-								<!-- Column 2: Status badge and profile link -->
-								<div class="flex flex-col items-start gap-2">
-									<!-- Bid Status Badge -->
-									{#if bid.status === 'ACCEPTED'}
-										<div class="badge badge-success badge-sm text-primary-content">
-											{$t('dashboard.bids.bid_acceptance.accepted')}
-										</div>
-									{:else if bid.status === 'REJECTED'}
-										<div class="badge badge-error badge-sm text-primary-content">
-											{$t('dashboard.bids.bid_acceptance.rejected')}
-										</div>
-									{:else if bid.status === 'PENDING'}
-										<div class="badge badge-warning badge-sm text-primary-content">
-											{$t('dashboard.bids.bid_acceptance.pending')}
-										</div>
-									{/if}
-									<!-- See Profile link -->
-									<button
-										class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
-										onclick={() =>
-											goto(
-												`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`
-											)}
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-3 w-3"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-											/>
-										</svg>
-										<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
-									</button>
-								</div>
 							</div>
 
-							<!-- Right side: Description and payment info in same row, vertically centered -->
-							<div class="flex flex-1 items-center justify-end gap-4 lg:gap-6">
-								<!-- Description column -->
-								<div class="flex-1 min-w-0">
-									<p class="text-base-content/80 break-words line-clamp-2">{bid.description}</p>
+							<!-- Right side: Status badge and profile link (right-aligned) -->
+							<div class="flex flex-col items-end gap-2">
+								<!-- Bid Status Badge -->
+								{#if bid.status === 'ACCEPTED'}
+									<div class="badge badge-success badge-sm text-primary-content">
+										{$t('dashboard.bids.bid_acceptance.accepted')}
+									</div>
+								{:else if bid.status === 'REJECTED'}
+									<div class="badge badge-error badge-sm text-primary-content">
+										{$t('dashboard.bids.bid_acceptance.rejected')}
+									</div>
+								{:else if bid.status === 'PENDING'}
+									<div class="badge badge-warning badge-sm text-primary-content">
+										{$t('dashboard.bids.bid_acceptance.pending')}
+									</div>
+								{/if}
+								<!-- See Profile link -->
+								<button
+									class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
+									onclick={() =>
+										goto(
+											`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`
+										)}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-3 w-3"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+										/>
+									</svg>
+									<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
+								</button>
+							</div>
+						</div>
+
+						<!-- Second row: Description and payment info -->
+						<div class="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end">
+							<!-- Description column -->
+							<div class="flex-1 min-w-0">
+								<p class="text-base-content/80 break-words line-clamp-2">{bid.description}</p>
+							</div>
+							<!-- Payment info column (aligned right) -->
+							<div class="flex-shrink-0 text-right">
+								<div class="text-xl font-bold sm:text-2xl">
+									${formatNumberWithTwoDecimals(bid.amount)}
 								</div>
-								<!-- Payment info column (aligned right) -->
-								<div class="flex-shrink-0 text-right">
-									<div class="text-xl font-bold sm:text-2xl">
-										${formatNumberWithTwoDecimals(bid.amount)}
-									</div>
-									<div class="sm:text-md text-base-content/60 text-sm font-bold">
-										{cachedSatsFromUsd(bid.amount, btcPrice)} Sats
-									</div>
-									<div class="text-base-content/50 mt-1 text-xs">
-										{bid.paymentType} • {bid.estimatedDuration}
-									</div>
+								<div class="sm:text-md text-base-content/60 text-sm font-bold">
+									{cachedSatsFromUsd(bid.amount, btcPrice)} Sats
+								</div>
+								<div class="text-base-content/50 mt-1 text-xs">
+									{bid.paymentType} • {bid.estimatedDuration}
 								</div>
 							</div>
 						</div>
