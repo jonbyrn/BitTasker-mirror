@@ -85,6 +85,9 @@
 	<!-- Payment Request Form -->
 	<div class="space-y-4">
 		<h4 class="font-semibold">{$t('wallet.payment_request')}</h4>
+		<p class="text-sm text-base-content/70">
+			{$t('wallet.payment_request_description')}
+		</p>
 
 		<!-- Amount Field for RSK -->
 		<div class="form-control">
@@ -124,8 +127,8 @@
 	</div>
 
 	<!-- QR Code Display or Testnet Alert -->
-	<div class="flex flex-col items-center text-center">
-		<h4 class="mb-4 font-semibold">{$t('wallet.receive_rbtc')}</h4>
+	<div class="flex flex-col items-center text-center w-full">
+		<h4 class="mb-4 font-semibold w-full text-left sm:text-center">{$t('wallet.receive_rbtc')}</h4>
 
 		{#if $appStore.network !== 'testnet'}
 			<!-- Abbreviated testnet warning shown instead of QR on testnet -->
@@ -187,11 +190,13 @@
 				<span class="loading loading-spinner loading-lg"></span>
 			</div>
 		{:else}
-			<div class="rounded-lg bg-white p-2 shadow-lg">
-				<img src={qrCodeData} alt="Payment QR Code" class="h-48 w-48" />
+			<div class="rounded-lg bg-white p-2 shadow-lg flex justify-center">
+				<div class="w-full max-w-[200px] sm:max-w-[256px]">
+					<img src={qrCodeData} alt="Payment QR Code" class="h-full w-full" />
+				</div>
 			</div>
 			{#if $rskConnection.address}
-				<div class="col-span-2 mt-4 w-full">
+				<div class="mt-4 w-full sm:col-span-2">
 					<div class="mb-1 text-xs opacity-70 text-start">{$t('wallet.address')}</div>
 					<div class="border-base-300 relative rounded border">
 						<button
@@ -248,7 +253,7 @@
 		{/if}
 	</div>
 
-	<button class="btn btn-primary col-span-2 w-full" onclick={copyAddress} disabled={!address}>
+	<button class="btn btn-primary w-full sm:col-span-2" onclick={copyAddress} disabled={!address}>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			class="h-4 w-4"

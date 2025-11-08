@@ -261,6 +261,7 @@
       "processing": "Procesando..."
     },
     "payment_request": "Solicitud de Pago",
+    "payment_request_description": "Envía cualquier cantidad de Bitcoin Rootstock a esta dirección, o especifica una cantidad a continuación para generar un código QR con la cantidad.",
     "receive_rbtc": "Recibir rBTC",
     "your_rsk_address": "Tu Dirección RSK",
     "generating": "Generando...",
