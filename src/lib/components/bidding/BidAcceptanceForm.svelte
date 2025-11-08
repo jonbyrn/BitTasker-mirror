@@ -236,7 +236,7 @@
 			</div>
 
 			<!-- User Info and Pricing Layout -->
-			<div class="flex flex-col gap-4 px-3 lg:flex-row">
+			<div class="flex flex-col gap-4 pb-4 px-3 lg:flex-row">
 				<!-- Left Column: Bidder Information -->
 				<div class="flex-1">
 					<div class="rounded-lg px-3 pt-3">
