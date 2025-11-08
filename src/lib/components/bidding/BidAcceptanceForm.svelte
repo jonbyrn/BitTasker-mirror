@@ -226,8 +226,8 @@
 		<!-- Unified Responsive Layout -->
 		<div class="bg-base-300 lg:bg-base-200 rounded-2xl">
 			<!-- Task Title Row -->
-			<div class="w-full px-6 pt-3">
-				<h5 class="line-clamp-2 text-lg font-semibold">{props.task.title}</h5>
+			<div class="w-full min-w-0 px-6 pt-3">
+				<h5 class="line-clamp-2 text-lg font-semibold break-words">{props.task.title}</h5>
 			</div>
 
 			<!-- Divider (Desktop only) -->
@@ -238,11 +238,11 @@
 			<!-- User Info and Pricing Layout -->
 			<div class="flex flex-col gap-4 pb-4 px-3 lg:flex-row">
 				<!-- Left Column: Bidder Information -->
-				<div class="flex-1">
+				<div class="flex-1 min-w-0">
 					<div class="rounded-lg px-3 pt-3">
 						<!-- Bidder Profile -->
-						<div class="flex items-center gap-3">
-							<div class="avatar">
+						<div class="flex items-center gap-3 min-w-0">
+							<div class="avatar shrink-0">
 								<div
 									class="bg-base-100 flex h-8 w-8 items-center justify-center rounded-full lg:h-10 lg:w-10"
 								>
@@ -264,36 +264,38 @@
 								</div>
 							</div>
 
-							<div class="flex flex-col">
-								<span class="text-sm font-medium">
+							<div class="flex flex-col min-w-0 flex-1">
+								<span class="text-sm font-medium truncate">
 									{props.bid?.userProfile?.user?.name ||
 										props.bid?.userProfile?.professionalTitle ||
 										$t('dashboard.bids.bid_acceptance.anonymous')}
 								</span>
 
-								<div class="mt-1 flex items-center">
-									{#each Array(5) as _, i}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-3 w-3 {i < (props.bid?.userProfile?.averageRating || 0)
-												? 'text-yellow-400'
-												: 'text-base-content/30'}"
-											fill="currentColor"
-											viewBox="0 0 24 24"
-										>
-											<path
-												d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-											/>
-										</svg>
-									{/each}
-									<span class="text-base-content/60 ml-1 text-xs">
+								<div class="mt-1 flex items-center min-w-0">
+									<div class="flex shrink-0">
+										{#each Array(5) as _, i}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-3 w-3 {i < (props.bid?.userProfile?.averageRating || 0)
+													? 'text-yellow-400'
+													: 'text-base-content/30'}"
+												fill="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+												/>
+											</svg>
+										{/each}
+									</div>
+									<span class="text-base-content/60 ml-1 text-xs truncate">
 										{(props.bid?.userProfile?.averageRating || 0).toFixed(1)} ({props.bid
 											?.userProfile?.tasksCompleted || 0}
 										{$t('dashboard.bids.bid_acceptance.tasks')})
 									</span>
 								</div>
 
-								<p class="text-base-content/60 mt-1 text-sm">
+								<p class="text-base-content/60 mt-1 text-sm truncate">
 									{$t('dashboard.bids.bid_acceptance.member_since')}
 									{new Date(props.bid?.createdAt || '').toLocaleDateString('en-US', {
 										month: 'short',
@@ -305,33 +307,33 @@
 
 						<!-- Start and end times -->
 						<div class="mt-4 space-y-2 block">
-							<div class="flex items-center justify-between text-xs">
-								<span class="text-base-content/60"
+							<div class="flex items-center justify-between gap-2 text-xs min-w-0">
+								<span class="text-base-content/60 shrink-0"
 									>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
 								>
-								<span class="text-base-content/80">
+								<span class="text-base-content/80 truncate text-right">
 									<!-- Convert seconds to milliseconds -->
 									{bidEscrowDetails
 										? formatStandardDateTime(new Date(bidEscrowDetails.estimatedStartTime * 1000))
 										: 'N/A'}
 								</span>
 							</div>
-							<div class="flex items-center justify-between text-xs">
-								<span class="text-base-content/60"
+							<div class="flex items-center justify-between gap-2 text-xs min-w-0">
+								<span class="text-base-content/60 shrink-0"
 									>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
 								>
-								<span class="text-base-content/80">
+								<span class="text-base-content/80 truncate text-right">
 									<!-- Convert seconds to milliseconds -->
 									{bidEscrowDetails
 										? formatStandardDateTime(new Date(bidEscrowDetails.estimatedCompletionTime * 1000))
 										: 'N/A'}
 								</span>
 							</div>
-							<div class="flex items-center justify-between text-xs">
-								<span class="text-base-content/60"
+							<div class="flex items-center justify-between gap-2 text-xs min-w-0">
+								<span class="text-base-content/60 shrink-0"
 									>{$t('dashboard.bids.bid_acceptance.estimated_duration')}</span
 								>
-								<span class="text-base-content/80"
+								<span class="text-base-content/80 truncate text-right"
 									>{bidEscrowDetails
 										? formatDuration(
 												bidEscrowDetails.estimatedStartTime * 1000,
@@ -345,16 +347,16 @@
 				</div>
 
 				<!-- Pricing Section -->
-				<div class="flex-1">
+				<div class="flex-1 min-w-0">
 					<div class="bg-base-100 mt-3 rounded-lg p-3 lg:mt-0 lg:bg-transparent">
 						<div class="space-y-2">
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-1">
-									<span class="text-xs font-medium"
+							<div class="flex items-center justify-between gap-2 min-w-0">
+								<div class="flex items-center gap-1 min-w-0">
+									<span class="text-xs font-medium truncate"
 										>{$t('dashboard.bids.bid_acceptance.base_amount')}</span
 									>
 									<div
-										class="tooltip tooltip-top"
+										class="tooltip tooltip-top shrink-0"
 										data-tip={$t('dashboard.bids.bid_acceptance.base_amount_tooltip')}
 									>
 										<svg
@@ -373,16 +375,16 @@
 										</svg>
 									</div>
 								</div>
-								<span class="text-xs font-bold">
+								<span class="text-xs font-bold shrink-0">
 									{bidEscrowDetails
 										? formatUSDAmount(parseFloat(bidEscrowDetails.baseAmount))
 										: '$0.00'}
 								</span>
 							</div>
 
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-1">
-									<span class="text-xs font-medium"
+							<div class="flex items-center justify-between gap-2 min-w-0">
+								<div class="flex items-center gap-1 min-w-0">
+									<span class="text-xs font-medium truncate"
 										>{$t('dashboard.bids.bid_acceptance.client_fee', {
 											values: {
 												fee: bidEscrowDetails
@@ -392,7 +394,7 @@
 										})}</span
 									>
 									<div
-										class="tooltip tooltip-top"
+										class="tooltip tooltip-top shrink-0"
 										data-tip={$t('dashboard.bids.bid_acceptance.fee_tooltip')}
 									>
 										<svg
@@ -411,20 +413,20 @@
 										</svg>
 									</div>
 								</div>
-								<span class="text-xs font-bold"
+								<span class="text-xs font-bold shrink-0"
 									>{bidEscrowDetails
 										? formatUSDAmount(parseFloat(bidEscrowDetails.clientFee))
 										: '$0.00'}</span
 								>
 							</div>
 
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-1">
-									<span class="text-xs font-medium italic"
+							<div class="flex items-center justify-between gap-2 min-w-0">
+								<div class="flex items-center gap-1 min-w-0">
+									<span class="text-xs font-medium italic truncate"
 										>{$t('dashboard.bids.bid_acceptance.estimated_gas_fee')}</span
 									>
 									<div
-										class="tooltip tooltip-top"
+										class="tooltip tooltip-top shrink-0"
 										data-tip={$t('dashboard.bids.bid_acceptance.gas_fee_tooltip')}
 									>
 										<svg
@@ -443,15 +445,15 @@
 										</svg>
 									</div>
 								</div>
-								<span class="text-xs font-bold italic">${getEstimatedGasFee().toFixed(2)}</span>
+								<span class="text-xs font-bold italic shrink-0">${getEstimatedGasFee().toFixed(2)}</span>
 							</div>
 
 							<div class="border-base-200 border-t pt-2">
-								<div class="flex items-center justify-between">
-									<span class="text-base font-bold"
+								<div class="flex items-center justify-between gap-2 min-w-0">
+									<span class="text-base font-bold truncate"
 										>{$t('dashboard.bids.bid_acceptance.total_payment')}</span
 									>
-									<span class="text-primary text-base font-bold"
+									<span class="text-primary text-base font-bold shrink-0"
 										>${getTotalWithGasFee().toFixed(2)}</span
 									>
 								</div>
@@ -459,11 +461,11 @@
 
 							<!-- BTC Price and Sats on same row -->
 							<div class="">
-								<div class="flex items-center justify-between">
-									<span class="text-base-content/60 text-xs font-medium italic"
+								<div class="flex items-center justify-between gap-2 min-w-0">
+									<span class="text-base-content/60 text-xs font-medium italic truncate"
 										>{$t('dashboard.bids.bid_acceptance.btc_price')} {formatBTCPrice()}</span
 									>
-									<span class="text-base-content/60 text-xs font-medium italic"
+									<span class="text-base-content/60 text-xs font-medium italic shrink-0"
 										>{formatTotalSatsAmount()} {$t('dashboard.bids.bid_acceptance.sats')}</span
 									>
 								</div>
