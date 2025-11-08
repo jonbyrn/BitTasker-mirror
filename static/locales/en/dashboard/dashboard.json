@@ -170,7 +170,7 @@
         "estimated_start": "Estimated Start:",
         "estimated_completion": "Estimated Completion:",
         "estimated_duration": "Estimated Duration:",
-        "estimated_gas_fee": "Estimated Gas Fee:",
+        "estimated_gas_fee": "Estimated Network Fee:",
         "btc_price": "BTC Price:",
         "sats": "Sats",
         "base_amount_tooltip": "The amount the taskee is charging for completing this task.",
