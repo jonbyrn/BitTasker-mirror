@@ -9,6 +9,8 @@
 		validateBitcoinAddress,
 		type ValidationResult
 	} from '$lib/utils/helpers/validators';
+	import { reverseSwapService } from '$lib/integrations/boltz/reverseSwapService';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// Extended asset type that includes Lightning Bitcoin
 	type ExtendedAsset =
@@ -34,6 +36,15 @@
 	let feeEstimate = $state<number | null>(null);
 	let dropdownKey = $state(0);
 	let addressValidation = $state<ValidationResult>({ isValid: true });
+
+	// Lightning swap state (for fee breakdown and validation)
+	let minAmount = $state<number>(0);
+	let maxAmount = $state<number>(0);
+	let isLoadingLimits = $state(false);
+	let btcPrice = $state<number>(0);
+	let isLoadingPrice = $state(false);
+	let amountError = $state<string | null>(null);
+	let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Asset options (Bitcoin and USD)
 	let assetOptions = $derived([
@@ -138,6 +149,148 @@
 		}
 	});
 
+	// Fetch swap limits and BTC price when Lightning network is selected
+	$effect(() => {
+		if (selectedNetwork === 'lightning-bitcoin') {
+			(async () => {
+				await fetchSwapLimits();
+				await fetchBtcPrice();
+			})();
+		} else {
+			// Reset limits when switching away from Lightning
+			minAmount = 0;
+			maxAmount = 0;
+			amountError = null;
+		}
+	});
+
+	/**
+	 * Fetch BTC price for USD conversion
+	 */
+	async function fetchBtcPrice() {
+		try {
+			isLoadingPrice = true;
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (err) {
+			console.error('Failed to fetch BTC price:', err);
+			// Use fallback price if fetch fails
+			btcPrice = 60000; // Fallback to ~$60k
+		} finally {
+			isLoadingPrice = false;
+		}
+	}
+
+	/**
+	 * Fetch swap limits from Boltz API
+	 */
+	async function fetchSwapLimits() {
+		try {
+			isLoadingLimits = true;
+			const limits = await reverseSwapService.getSwapLimits();
+			minAmount = limits.minimal;
+			maxAmount = limits.maximal;
+			console.log('✅ Fetched Lightning swap limits:', { minAmount, maxAmount });
+		} catch (err) {
+			console.error('Failed to fetch swap limits:', err);
+			// Use fallback values
+			minAmount = 2500;
+			maxAmount = 100_000_000; // 1 BTC
+		} finally {
+			isLoadingLimits = false;
+		}
+	}
+
+	/**
+	 * Validate amount and update error state
+	 */
+	function validateAmount(value: string | number) {
+		amountError = null;
+		
+		// Only validate for Lightning network
+		if (selectedNetwork !== 'lightning-bitcoin') {
+			return;
+		}
+
+		// Convert to string for validation
+		const valueStr = String(value ?? '');
+		
+		// Check if value is empty or whitespace
+		if (valueStr.trim() === '' || value === null || value === undefined) {
+			return;
+		}
+
+		const amountSats = parseFloat(valueStr);
+		
+		if (isNaN(amountSats) || amountSats <= 0) {
+			amountError = $t('wallet.validation.amount_required');
+			return;
+		}
+
+		// Only validate against limits if they've been loaded
+		if (!isLoadingLimits) {
+			if (minAmount > 0 && amountSats < minAmount) {
+				amountError = $t('wallet.swap.error.minimum_amount_sats', { values: { minAmount: minAmount.toLocaleString() } });
+				return;
+			}
+
+			if (maxAmount > 0 && amountSats > maxAmount) {
+				amountError = $t('wallet.swap.error.maximum_amount_sats', { values: { maxAmount: maxAmount.toLocaleString() } });
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Debounced validation when amount changes
+	 */
+	$effect(() => {
+		// Only validate for Lightning network
+		if (selectedNetwork !== 'lightning-bitcoin') {
+			amountError = null;
+			return;
+		}
+
+		// Access amount to track it reactively
+		const currentAmount = amount;
+
+		// Clear existing timeout
+		if (debounceTimeout) {
+			clearTimeout(debounceTimeout);
+		}
+
+		// Set new timeout for debounced validation
+		debounceTimeout = setTimeout(() => {
+			validateAmount(currentAmount);
+		}, 300); // 300ms debounce
+
+		// Cleanup function
+		return () => {
+			if (debounceTimeout) {
+				clearTimeout(debounceTimeout);
+			}
+		};
+	});
+
+	/**
+	 * Re-validate when limits are loaded or change
+	 */
+	$effect(() => {
+		// Only validate for Lightning network
+		if (selectedNetwork !== 'lightning-bitcoin') {
+			return;
+		}
+
+		// Track minAmount and maxAmount to trigger re-validation when limits change
+		const currentMinAmount = minAmount;
+		const currentMaxAmount = maxAmount;
+		const currentIsLoadingLimits = isLoadingLimits;
+
+		// If limits have been loaded and we have an amount, validate immediately
+		if (!currentIsLoadingLimits && amount) {
+			validateAmount(amount);
+		}
+	});
+
 	// Validate address in real-time based on selected network
 	$effect(() => {
 		if (!recipientAddress.trim()) {
@@ -172,18 +325,50 @@
 		dropdownKey++;
 	}
 
-	// Enhanced form validation
+	// Check if network uses sats (Lightning and rBTC)
+	let usesSats = $derived(selectedNetwork === 'lightning-bitcoin' || selectedNetwork === 'rootstock-bitcoin');
+
+	// Convert balance to sats if needed
+	let balanceInSats = $derived.by(() => {
+		if (!currentAsset()) return 0;
+		if (usesSats) {
+			// Convert BTC balance to sats
+			return Math.floor((currentAsset()?.balance || 0) * 100_000_000);
+		}
+		return currentAsset()?.balance || 0;
+	});
+
+	// Convert amount to sats for validation
+	let amountInSats = $derived.by(() => {
+		if (!amount || amount.trim() === '') return 0;
+		const amountNum = parseFloat(amount);
+		if (isNaN(amountNum)) return 0;
+		return usesSats ? Math.floor(amountNum) : Math.floor(amountNum * 100_000_000);
+	});
+
+	// Fee breakdown for Lightning swaps (same as LightningReceive)
+	// Use amount directly for immediate reactivity, just like LightningReceive
+	let amountSatsForFees = $derived(selectedNetwork === 'lightning-bitcoin' ? (parseFloat(amount) || 0) : 0);
+	let swapFee = $derived(amountSatsForFees > 0 ? Math.ceil(amountSatsForFees * 0.0045) : 0); // Boltz service fee: ~0.45%
+	let networkFee = $derived(selectedNetwork === 'lightning-bitcoin' ? 150 : 0); // Estimated network transaction fee in sats
+	let totalFees = $derived(swapFee + networkFee);
+	let totalReceived = $derived(Math.max(0, amountSatsForFees - totalFees));
+
+	// Individual validation states for better UX
+	let hasValidAmount = $derived(String(amount || '').trim() !== '' && parseFloat(amount) > 0);
+
+	// Enhanced form validation - updated to work with sats
 	let isFormValid = $derived(
 		recipientAddress?.trim() !== '' &&
 			addressValidation.isValid &&
 			String(amount || '').trim() !== '' &&
-			parseFloat(amount) > 0 &&
+			amountInSats > 0 &&
 			currentAsset() &&
-			parseFloat(amount) <= (currentAsset()?.balance || 0)
+			amountInSats <= balanceInSats &&
+			amountError === null &&
+			(selectedNetwork !== 'lightning-bitcoin' || (minAmount === 0 || amountInSats >= minAmount)) &&
+			(selectedNetwork !== 'lightning-bitcoin' || (maxAmount === 0 || amountInSats <= maxAmount))
 	);
-
-	// Individual validation states for better UX
-	let hasValidAmount = $derived(String(amount || '').trim() !== '' && parseFloat(amount) > 0);
 
 	async function handleSend() {
 		if (!isFormValid || !currentAsset) return;
@@ -193,7 +378,9 @@
 
 		try {
 			if (selectedNetwork === 'rootstock-bitcoin') {
-				await walletManager.sendRBTC(recipientAddress, String(amount));
+				// Convert sats to BTC for sendRBTC
+				const amountInBTC = amountInSats / 100_000_000;
+				await walletManager.sendRBTC(recipientAddress, amountInBTC.toString());
 			} else if (selectedNetwork === 'liquid-bitcoin' || selectedNetwork === 'bitcoin') {
 				throw new Error('Liquid and Bitcoin transactions not yet implemented');
 			} else if (selectedNetwork === 'lightning-bitcoin') {
@@ -217,9 +404,14 @@
 
 	function handleMaxAmount() {
 		if (currentAsset()) {
-			// Subtract estimated fees
-			const maxAmount = Math.max(0, (currentAsset()?.balance || 0) - (feeEstimate || 0.001));
-			amount = maxAmount.toString();
+			if (usesSats) {
+				// For Lightning and rBTC, use full balance (fees are shown in breakdown)
+				const balanceSats = balanceInSats;
+				amount = balanceSats.toString();
+			} else {
+				// For other networks, use full balance
+				amount = (currentAsset()?.balance || 0).toString();
+			}
 		}
 	}
 </script>
@@ -428,7 +620,7 @@
 
 	<!-- Available Balance Display -->
 	{#if availableAssets().length > 0}
-		{#if selectedNetwork === 'rootstock-bitcoin'}
+		{#if selectedNetwork === 'rootstock-bitcoin' || selectedNetwork === 'lightning-bitcoin'}
 			<div class="alert alert-outline bg-base-200 border-base-300">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -444,31 +636,12 @@
 					></path>
 				</svg>
 				<div>
-					<div class="text-base-content font-bold">Available Balance</div>
+					<div class="text-base-content font-bold">{$t('wallet.available_balance')}</div>
 					<div class="text-base-content/70 text-sm">
-						{availableAssets()[0]?.formattedBalance || '0.00'} rBTC
-					</div>
-				</div>
-			</div>
-		{:else if selectedNetwork === 'lightning-bitcoin'}
-			<div class="alert alert-outline bg-base-200 border-base-300">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					class="text-base-content h-6 w-6 shrink-0 stroke-current"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-					></path>
-				</svg>
-				<div>
-					<div class="text-base-content font-bold">Available Balance</div>
-					<div class="text-base-content/70 text-sm">
-						{availableAssets()[0]?.formattedBalance || '0.00'} rBTC
+						{balanceInSats.toLocaleString()} {$t('wallet.sats')}
+						<span class="opacity-60 ml-2">
+							({availableAssets()[0]?.formattedBalance || '0.00'} L2 BTC)
+						</span>
 					</div>
 				</div>
 			</div>
@@ -511,7 +684,15 @@
 		<div class="form-control">
 			<label class="label" for="amount">
 				<span class="label-text font-medium">
-					Amount ({currentAsset()?.ticker || 'BTC'})
+					{usesSats ? $t('wallet.swap.amount_sats') : `Amount (${currentAsset()?.ticker || 'BTC'})`}
+				</span>
+				<span class="label-text-alt">
+					{#if selectedNetwork === 'lightning-bitcoin' && isLoadingLimits}
+						<span class="loading loading-spinner loading-xs"></span>
+						{$t('wallet.swap.loading')}...
+					{:else if selectedNetwork === 'lightning-bitcoin' && minAmount > 0}
+						{$t('wallet.swap.min_amount')}: {minAmount.toLocaleString()} {$t('wallet.sats')}
+					{/if}
 				</span>
 			</label>
 
@@ -521,26 +702,86 @@
 					id="amount"
 					bind:value={amount}
 					type="number"
-					step="any"
-					min="0"
-					max={currentAsset()?.balance}
-					placeholder="0.00"
-					class="input input-bordered join-item flex-1 rounded-r-none {!hasValidAmount &&
-					String(amount || '').trim() !== ''
+					step={usesSats ? "1" : "any"}
+					min={selectedNetwork === 'lightning-bitcoin' && minAmount > 0 ? minAmount : 0}
+					max={selectedNetwork === 'lightning-bitcoin' && maxAmount > 0 ? maxAmount : (usesSats ? balanceInSats : currentAsset()?.balance)}
+					placeholder={usesSats ? "100000" : "0.00"}
+					class="input input-bordered join-item flex-1 rounded-r-none {(amountError || (!hasValidAmount &&
+					String(amount || '').trim() !== ''))
 						? 'input-error'
 						: ''}"
 					style="border-radius: 0.5rem 0 0 0.5rem !important; border-right-color: var(--color-primary) !important;"
-					disabled={isLoading}
+					oninput={(e) => {
+						// Clear existing timeout for immediate validation
+						if (debounceTimeout) {
+							clearTimeout(debounceTimeout);
+						}
+						// Validate immediately with the current input value
+						const inputValue = (e.currentTarget as HTMLInputElement).value;
+						validateAmount(inputValue);
+					}}
+					disabled={isLoading || (selectedNetwork === 'lightning-bitcoin' && isLoadingLimits)}
 				/>
 				<button
 					class="btn btn-primary join-item rounded-l-none"
 					onclick={handleMaxAmount}
-					disabled={isLoading || !currentAsset()}
+					disabled={isLoading || !currentAsset() || (selectedNetwork === 'lightning-bitcoin' && isLoadingLimits)}
 				>
 					{$t('wallet.max')}
 				</button>
 			</div>
+			{#if amountError}
+				<div class="label">
+					<span class="label-text-alt text-error">{amountError}</span>
+				</div>
+			{/if}
 		</div>
+
+		<!-- Fee Breakdown for Lightning Swaps -->
+		{#if selectedNetwork === 'lightning-bitcoin' && amount && parseFloat(amount) > 0}
+			<div class="rounded-lg border border-base-300 bg-base-200 p-3">
+				<div class="space-y-1.5 text-xs">
+					<div class="flex justify-between items-center">
+						<span class="opacity-70">{$t('wallet.swap.swap_fee')}:</span>
+						<div class="text-right">
+							<span>{swapFee.toLocaleString()} {$t('wallet.sats')}</span>
+							{#if btcPrice > 0}
+								<span class="ml-2 opacity-60">${((swapFee / 100_000_000) * btcPrice).toFixed(2)}</span>
+							{/if}
+						</div>
+					</div>
+					<div class="flex justify-between items-center">
+						<span class="opacity-70">{$t('wallet.swap.network_transaction_fee')}:</span>
+						<div class="text-right">
+							<span>{networkFee.toLocaleString()} {$t('wallet.sats')}</span>
+							{#if btcPrice > 0}
+								<span class="ml-2 opacity-60">${((networkFee / 100_000_000) * btcPrice).toFixed(2)}</span>
+							{/if}
+						</div>
+					</div>
+					<div class="divider my-1.5"></div>
+					<div class="flex justify-between items-center font-semibold">
+						<span>{$t('wallet.swap.total_fees')}:</span>
+						<div class="text-right">
+							<span>{totalFees.toLocaleString()} {$t('wallet.sats')}</span>
+							{#if btcPrice > 0}
+								<span class="ml-2 opacity-60">${((totalFees / 100_000_000) * btcPrice).toFixed(2)}</span>
+							{/if}
+						</div>
+					</div>
+					<div class="divider my-1.5"></div>
+					<div class="flex justify-between items-center text-sm font-bold text-primary">
+						<span>{$t('wallet.swap.total_received_est')}:</span>
+						<div class="text-right">
+							<span>{totalReceived.toLocaleString()} {$t('wallet.sats')}</span>
+							{#if btcPrice > 0}
+								<span class="ml-2 opacity-70">${((totalReceived / 100_000_000) * btcPrice).toFixed(2)}</span>
+							{/if}
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
 
 		<!-- Description -->
 		<div class="form-control">
@@ -583,7 +824,7 @@
 		<button
 			class="btn btn-primary w-full"
 			onclick={handleSend}
-			disabled={!isFormValid || isLoading}
+			disabled={!isFormValid || isLoading || amountError !== null}
 		>
 			{#if isLoading}
 				<span class="loading loading-spinner loading-sm"></span>
