@@ -135,6 +135,8 @@
             },
             "wallet_help_modal": {
                 "title": "Your Bitcoin Wallet",
+                "learn_more": "Learn More",
+                "button_title": "Learn about your Bitcoin wallet",
                 "start_using_button": "Start Using Wallet",
                 "hero_title": "Your Bitcoin-Powered Wallet",
                 "hero_description": "Send, receive, and manage Bitcoin across multiple networks with complete control of your funds.",

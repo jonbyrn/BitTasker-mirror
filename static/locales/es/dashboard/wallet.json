@@ -72,7 +72,12 @@
         "rsk_sent": "Transacción RSK enviada",
         "rsk_received": "Pago RSK recibido",
         "bsc_sent": "Transacción BSC enviada",
-        "bsc_received": "Pago BSC recibido"
+        "bsc_received": "Pago BSC recibido",
+        "bsc_bnb_sent": "BNB BSC enviado",
+        "bsc_bnb_received": "BNB BSC recibido",
+        "bsc_token_sent": "{token} BSC enviado",
+        "bsc_token_received": "{token} BSC recibido",
+        "swap_claimed": "Intercambio reclamado"
       },
       "network": {
         "rootstock_bitcoin": "Bitcoin Rootstock",

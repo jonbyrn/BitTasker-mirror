@@ -72,6 +72,34 @@
 		}
 	}
 
+	function getTranslatedDescription(description: string, tokenSymbol?: string): string {
+		if (description === 'RSK transaction sent') {
+			return $t('wallet.transaction.description.rsk_sent');
+		} else if (description === 'RSK payment received') {
+			return $t('wallet.transaction.description.rsk_received');
+		} else if (description === 'BSC transaction sent') {
+			return $t('wallet.transaction.description.bsc_sent');
+		} else if (description === 'BSC payment received') {
+			return $t('wallet.transaction.description.bsc_received');
+		} else if (description === 'Swap claimed') {
+			return $t('wallet.transaction.description.swap_claimed');
+		} else if (description === 'BSC BNB sent') {
+			return $t('wallet.transaction.description.bsc_bnb_sent');
+		} else if (description === 'BSC BNB received') {
+			return $t('wallet.transaction.description.bsc_bnb_received');
+		} else if (description && description.startsWith('BSC ') && description.endsWith(' sent')) {
+			// Handle dynamic token sends: "BSC {token} sent"
+			const token = description.replace('BSC ', '').replace(' sent', '');
+			return $t('wallet.transaction.description.bsc_token_sent', { values: { token } });
+		} else if (description && description.startsWith('BSC ') && description.endsWith(' received')) {
+			// Handle dynamic token receives: "BSC {token} received"
+			const token = description.replace('BSC ', '').replace(' received', '');
+			return $t('wallet.transaction.description.bsc_token_received', { values: { token } });
+		}
+		// Fallback to original description if no translation found
+		return description || '';
+	}
+
 	function getStatusBadgeClass(status: string): string {
 		switch (status) {
 			case 'confirmed':
@@ -409,15 +437,7 @@
 										<div>{formatTimestamp(tx.timestamp)}</div>
 										{#if tx.description}
 											<div>
-												{tx.description === 'RSK transaction sent' 
-													? $t('wallet.transaction.description.rsk_sent')
-													: tx.description === 'RSK payment received'
-														? $t('wallet.transaction.description.rsk_received')
-														: tx.description === 'BSC transaction sent'
-															? $t('wallet.transaction.description.bsc_sent')
-															: tx.description === 'BSC payment received'
-																? $t('wallet.transaction.description.bsc_received')
-																: tx.description || ''}
+												{getTranslatedDescription(tx.description, tx.tokenSymbol)}
 											</div>
 										{/if}
 									</div>
@@ -511,15 +531,7 @@
 								<div>{formatTimestamp(tx.timestamp)}</div>
 								{#if tx.description}
 									<div>
-										{tx.description === 'RSK transaction sent' 
-											? $t('wallet.transaction.description.rsk_sent')
-											: tx.description === 'RSK payment received'
-												? $t('wallet.transaction.description.rsk_received')
-												: tx.description === 'BSC transaction sent'
-													? $t('wallet.transaction.description.bsc_sent')
-													: tx.description === 'BSC payment received'
-														? $t('wallet.transaction.description.bsc_received')
-														: tx.description || ''}
+										{getTranslatedDescription(tx.description, tx.tokenSymbol)}
 									</div>
 								{/if}
 								{#if tx.fee}
