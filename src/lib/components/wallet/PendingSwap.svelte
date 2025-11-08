@@ -315,10 +315,6 @@
 
 		<!-- Swap Details -->
 		<div class="space-y-1 text-xs">
-			<div class="flex justify-between">
-				<span class="opacity-70">{$t('wallet.swap.destination')}:</span>
-				<code class="truncate">{swap.rbtcAddress.slice(0, 8)}...{swap.rbtcAddress.slice(-6)}</code>
-			</div>
 			{#if lockupTxHash}
 				<div class="flex justify-between">
 					<span class="opacity-70">
