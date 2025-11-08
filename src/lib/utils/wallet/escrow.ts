@@ -97,16 +97,27 @@ async function connectToEscrowContract(): Promise<void> {
 
     try {
         const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+        const contractAddress = network === 'mainnet'
+            ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+            : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+        
+        if (!contractAddress) {
+            const envVarName = network === 'mainnet' 
+                ? 'VITE_RSK_CONTRACT_ADDRESS_MAINNET'
+                : 'VITE_RSK_CONTRACT_ADDRESS_TESTNET';
+            throw new Error(`Contract address not configured for ${network}. Please set ${envVarName} environment variable.`);
+        }
+        
         const contractConfig = {
-            address: (import.meta.env.VITE_RSK_CONTRACT_ADDRESS).toLowerCase(),
+            address: contractAddress.toLowerCase(),
             abi: escrowABI,
             network
         }
 
         // Ensure the contract address is properly checksummed
-        const contractAddress = ethers.getAddress(contractConfig.address);
+        const checksummedAddress = ethers.getAddress(contractConfig.address);
 
-        contract = new ethers.Contract(contractAddress, contractConfig.abi, wallet);
+        contract = new ethers.Contract(checksummedAddress, contractConfig.abi, wallet);
 
         // Update the unified wallet store with contract connection info
         walletStore.update(state => ({
