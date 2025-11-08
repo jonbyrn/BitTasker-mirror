@@ -116,21 +116,20 @@
 	function formatFee(fee: number, asset: string): string {
 		// Fee is already in native units (rBTC, BNB, etc.) from transactionHistory.ts
 		
-		if (asset === 'rBTC' || asset === 'BNB' || asset.includes('ETH')) {
-			// For EVM chains, show in Gwei for better readability
+		if (asset === 'rBTC' || asset === 'BTC' || asset === 'L-BTC' || asset.includes('BTC')) {
+			// For Bitcoin-based assets, show in satoshis
+			const sats = Math.floor(fee * 100_000_000);
+			if (sats > 0) {
+				return `${sats.toLocaleString()} ${$t('wallet.sats')}`;
+			}
+			// For very small fees, show in BTC with appropriate decimals
+			return `${fee.toFixed(8)} ${asset}`;
+		} else if (asset === 'BNB' || asset.includes('ETH')) {
+			// For other EVM chains, show in native token (no Gwei conversion)
 			if (fee < 0.00001) {
-				const gwei = fee * 1e9; // Convert from native token to Gwei
-				return `${gwei.toFixed(4)} Gwei`;
+				return `${fee.toFixed(10)} ${asset}`;
 			}
 			// For larger fees, show in native token
-			return `${fee.toFixed(10)} ${asset}`;
-		} else if (asset === 'BTC' || asset === 'L-BTC' || asset.includes('BTC')) {
-			// For Bitcoin-based assets, show in satoshis for small amounts
-			if (fee < 0.00001) {
-				const sats = Math.floor(fee * 100_000_000);
-				return `${sats.toLocaleString()} sats`;
-			}
-			// Otherwise show in BTC with appropriate decimals
 			return `${fee.toFixed(8)} ${asset}`;
 		} else {
 			// Fallback for unknown assets

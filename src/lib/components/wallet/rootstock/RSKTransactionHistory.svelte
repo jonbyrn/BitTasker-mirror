@@ -17,6 +17,16 @@
 		return parseFloat(amount).toFixed(6);
 	}
 
+	function formatFeeInSats(gasUsed: string, gasPrice: string): string {
+		// Calculate fee in wei: gasUsed * gasPrice
+		const feeWei = BigInt(gasUsed) * BigInt(gasPrice);
+		// Convert wei to rBTC (1 rBTC = 1e18 wei)
+		const feeRBTC = Number(ethers.formatEther(feeWei.toString()));
+		// Convert rBTC to sats (1 rBTC = 100,000,000 sats)
+		const sats = Math.floor(feeRBTC * 100_000_000);
+		return sats.toLocaleString();
+	}
+
 	function formatTimestamp(timestamp: number): string {
 		return new Date(timestamp).toLocaleString();
 	}
@@ -215,7 +225,7 @@
 
 									{#if tx.gasUsed !== '0'}
 										<div class="text-xs opacity-60">
-											{$t('wallet.rsk.fee')} {formatAmount((BigInt(tx.gasUsed) * BigInt(tx.gasPrice)).toString())} RBTC
+											{$t('wallet.rsk.fee')} {formatFeeInSats(tx.gasUsed, tx.gasPrice)} {$t('wallet.sats')}
 										</div>
 									{/if}
 

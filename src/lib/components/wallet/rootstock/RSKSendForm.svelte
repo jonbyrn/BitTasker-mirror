@@ -9,6 +9,7 @@
 	} from '$lib/stores/rskWallet.store';
 	import { ethers } from 'ethers';
 	import { appStore } from '$lib/stores/app.store';
+	import { t } from 'svelte-i18n';
 
 	let recipientAddress = $state('');
 	let amount = $state('');
@@ -309,18 +310,16 @@
 							<span class="opacity-70">Gas Limit:</span>
 							<span>{parseInt(gasEstimate.gasLimit).toLocaleString()}</span>
 						</div>
-						<div class="flex justify-between">
-							<span class="opacity-70">Gas Price:</span>
-							<span>{ethers.formatUnits(gasEstimate.gasPrice, 'gwei')} Gwei</span>
-						</div>
 						<div class="divider my-1"></div>
 						<div class="flex justify-between font-semibold">
 							<span>Network Fee:</span>
 							<span>
-								{formatSmallAmount(
-									parseFloat(gasEstimate.totalCost),
-									getUnitLabel('rbtc', $rskWalletStore.network)
-								)}
+								{(() => {
+									// Convert totalCost (in rBTC) to sats
+									const feeRBTC = parseFloat(gasEstimate.totalCost);
+									const sats = Math.floor(feeRBTC * 100_000_000);
+									return `${sats.toLocaleString()} ${$t('wallet.sats')}`;
+								})()}
 							</span>
 						</div>
 					</div>
