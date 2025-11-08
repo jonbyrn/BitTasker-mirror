@@ -136,9 +136,9 @@ async function connectToEscrowContract(): Promise<void> {
         // Validate contract deployment before loading escrows
         try {
             // Test if contract is deployed by checking if it has code
-            const code = await provider.getCode(contractAddress);
+            const code = await provider.getCode(checksummedAddress);
             if (code === '0x') {
-                throw new Error(`No contract deployed at address ${contractAddress}`);
+                throw new Error(`No contract deployed at address ${checksummedAddress}`);
             }
 
             // Test if contract has the expected interface
