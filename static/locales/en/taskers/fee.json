@@ -11,20 +11,51 @@
             "savingsTitle": "Save money as you use BitTasker!",
             "savingsDescription": "Our unique tier system rewards active taskers with progressively lower fees.",
             "label": "Fee Rate",
+            "usdtLabel": "USDT Fee Rate",
             "tier1": {
                 "title": "Nakamoto<br />Newbie",
                 "description": "For taskers posting and completing 0-3 tasks in the last 30 days",
-                "example": "Example: For a $100 task, you'll pay $112.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker)."
+                "example": "Example: For a $100 task, you'll pay $112.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker).",
+                "bitcoin": {
+                    "label": "Bitcoin Fee Rate",
+                    "rate": "2.5%",
+                    "example": "Bitcoin: For a $100 task, you'll pay $102.50 total (plus ~$0.01 Bitcoin network fees, not paid to BitTasker)."
+                },
+                "usdt": {
+                    "label": "USDT Fee Rate",
+                    "rate": "3%",
+                    "example": "USDT: For a $100 task, you'll pay $103 total (plus ~$0.01-$0.02 USDT network fees, not paid to BitTasker)."
+                }
             },
             "tier2": {
                 "title": "Satoshi<br />Stacker",
                 "description": "For taskers posting and completing 4-10 tasks in the last 30 days",
-                "example": "Example: For a $100 task, you'll pay $110 total (plus $0.05-$0.10 network fees, not paid to BitTasker)."
+                "example": "Example: For a $100 task, you'll pay $110 total (plus $0.05-$0.10 network fees, not paid to BitTasker).",
+                "bitcoin": {
+                    "label": "Bitcoin Fee Rate",
+                    "rate": "2%",
+                    "example": "Bitcoin: For a $100 task, you'll pay $102 total (plus ~$0.01 Bitcoin network fees, not paid to BitTasker)."
+                },
+                "usdt": {
+                    "label": "USDT Fee Rate",
+                    "rate": "2.5%",
+                    "example": "USDT: For a $100 task, you'll pay $102.50 total (plus ~$0.01-$0.02 USDT network fees, not paid to BitTasker)."
+                }
             },
             "tier3": {
                 "title": "Hash<br />Master",
                 "description": "For our most active taskers posting and completing 11+ tasks in the last 30 days",
-                "example": "Example: For a $100 task, you'll pay $107.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker)."
+                "example": "Example: For a $100 task, you'll pay $107.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker).",
+                "bitcoin": {
+                    "label": "Bitcoin Fee Rate",
+                    "rate": "1.5%",
+                    "example": "Bitcoin: For a $100 task, you'll pay $101.50 total (plus ~$0.01 Bitcoin network fees, not paid to BitTasker)."
+                },
+                "usdt": {
+                    "label": "USDT Fee Rate",
+                    "rate": "2%",
+                    "example": "USDT: For a $100 task, you'll pay $102 total (plus ~$0.01-$0.02 USDT network fees, not paid to BitTasker)."
+                }
             },
             "btc": {
                 "title": "Bitcoin Payments: Lower Fees, Same Great Service",
