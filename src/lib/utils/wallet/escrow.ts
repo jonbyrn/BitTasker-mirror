@@ -872,6 +872,59 @@ async function isContractPaused(): Promise<boolean> {
     }
 }
 
+/**
+ * Check if an escrow was ever funded using blockchain validation
+ * This is the source of truth - checks the escrow contract directly
+ * @param escrowId The escrow ID to check
+ * @returns Object with wasFunded flag and escrow data if it exists
+ */
+async function checkEscrowFundingStatus(escrowId: string): Promise<{
+	wasFunded: boolean;
+	escrowData: EscrowData | null;
+	error?: EscrowError;
+}> {
+	const { createEscrowError, isEscrowNotFoundError, EscrowError, EscrowErrorCode } = await import('$lib/utils/errors/escrowErrors');
+	
+	try {
+		const escrowData = await loadEscrowDetails(escrowId);
+		
+		if (!escrowData) {
+			// Escrow doesn't exist - never funded
+			return { wasFunded: false, escrowData: null };
+		}
+		
+		// If escrow exists, check if it was ever funded
+		// Since createEscrow is payable, if escrow exists, it was funded
+		// However, for cancelled escrows, we need to check the amount
+		// If amount > 0, it was funded; if amount = 0, funding might have failed
+		
+		if (escrowData.status === EscrowStatus.Cancelled) {
+			// For cancelled escrows, check if amount > 0 (was funded)
+			const amount = parseFloat(escrowData.baseAmount);
+			if (amount > 0) {
+				// Escrow exists with amount > 0 - was funded
+				return { wasFunded: true, escrowData };
+			} else {
+				// Escrow exists but amount = 0 - funding failed
+				return { wasFunded: false, escrowData };
+			}
+		} else {
+			// For all other statuses (Funded, InDispute, Completed, etc.), escrow was funded
+			// These statuses can only be reached after funding
+			return { wasFunded: true, escrowData };
+		}
+	} catch (error) {
+		if (isEscrowNotFoundError(error)) {
+			// Escrow doesn't exist - never funded
+			return { wasFunded: false, escrowData: null };
+		}
+		
+		// Other error - return error for caller to handle
+		const escrowError = createEscrowError(error, `Failed to check escrow funding status for ${escrowId}`);
+		return { wasFunded: false, escrowData: null, error: escrowError };
+	}
+}
+
 export const escrow = {
     connectToEscrowContract,
     ensureEscrowReady,
