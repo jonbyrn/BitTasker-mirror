@@ -535,8 +535,14 @@
 
 	// Convert amount to sats for validation
 	let amountInSats = $derived.by(() => {
-		if (!amount || amount.trim() === '') return 0;
-		const amountNum = parseFloat(amount);
+		// DIAGNOSTIC LOG: Log amount type and value
+		console.log('[SendForm] amountInSats derived - amount type:', typeof amount);
+		console.log('[SendForm] amountInSats derived - amount value:', amount);
+		
+		// Ensure amount is a string before calling trim
+		const amountStr = typeof amount === 'string' ? amount : String(amount || '');
+		if (!amount || amountStr.trim() === '') return 0;
+		const amountNum = parseFloat(amountStr);
 		if (isNaN(amountNum)) return 0;
 		return usesSats ? Math.floor(amountNum) : Math.floor(amountNum * 100_000_000);
 	});
@@ -549,7 +555,9 @@
 			if (invoiceHasAmount && invoiceAmount !== null) {
 				return invoiceAmount;
 			}
-			return parseFloat(amount) || 0;
+			// Ensure amount is converted to string/number properly for parseFloat
+			const amountValue = typeof amount === 'string' ? amount : String(amount || '');
+			return parseFloat(amountValue) || 0;
 		}
 		return 0;
 	});
@@ -559,7 +567,11 @@
 	let totalReceived = $derived(Math.max(0, amountSatsForFees - totalFees));
 
 	// Individual validation states for better UX
-	let hasValidAmount = $derived(String(amount || '').trim() !== '' && parseFloat(amount) > 0);
+	let hasValidAmount = $derived(() => {
+		// Ensure amount is a string before calling trim
+		const amountStr = typeof amount === 'string' ? amount : String(amount || '');
+		return amountStr.trim() !== '' && parseFloat(amountStr) > 0;
+	});
 
 	// Enhanced form validation - updated to work with sats
 	let isFormValid = $derived(() => {
@@ -596,8 +608,9 @@
 			return false; // Should show amount field but doesn't
 		}
 		
-		// Standard validation
-		const hasValidAmount = String(amount || '').trim() !== '' && amountInSats > 0;
+		// Standard validation - ensure amount is a string before calling trim
+		const amountStr = typeof amount === 'string' ? amount : String(amount || '');
+		const hasValidAmount = amountStr.trim() !== '' && amountInSats > 0;
 		if (!hasValidAmount) {
 			return false;
 		}
@@ -1006,7 +1019,7 @@
 						max={selectedNetwork === 'lightning-bitcoin' && maxAmount > 0 ? maxAmount : (usesSats ? balanceInSats : currentAsset()?.balance)}
 						placeholder={usesSats ? "100000" : "0.00"}
 						class="input input-bordered join-item flex-1 rounded-r-none {(amountError || (!hasValidAmount &&
-						String(amount || '').trim() !== ''))
+						(typeof amount === 'string' ? amount : String(amount || '')).trim() !== ''))
 							? 'input-error'
 							: ''}"
 						style="border-radius: 0.5rem 0 0 0.5rem !important; border-right-color: var(--color-primary) !important;"
