@@ -81,11 +81,20 @@
 		}
 	});
 
-	// Separate effect for balance validation
+	// Separate effect for balance validation (async)
 	$effect(() => {
 		// Only check balance if wallet is connected and basic validation passes
 		if (bidEscrowDetails && $walletStore.rsk.connected && validationErrors.length === 0) {
-			balanceErrors = validateSufficientBalance(bidEscrowDetails);
+			// Validate balance asynchronously with real-time gas prices
+			(async () => {
+				try {
+					const errors = await validateSufficientBalance(bidEscrowDetails);
+					balanceErrors = errors;
+				} catch (error) {
+					console.error('Balance validation error:', error);
+					balanceErrors = ['Unable to validate balance. Please check your wallet connection.'];
+				}
+			})();
 		} else {
 			balanceErrors = [];
 		}

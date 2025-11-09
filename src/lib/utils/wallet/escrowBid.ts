@@ -82,8 +82,22 @@ export function calculateBidEscrowDetails(bid: SimplifiedTaskBid, task: Task, bt
 		throw new Error('Invalid start or completion time');
 	}
 
+	// Ensure freelancer address is a valid string and normalize it
+	let freelancerAddress = '';
+	if (bid?.bidderWalletAddress) {
+		// Convert to string explicitly and normalize using ethers.getAddress
+		const addressStr = String(bid.bidderWalletAddress).trim();
+		if (addressStr && ethers.isAddress(addressStr)) {
+			freelancerAddress = ethers.getAddress(addressStr);
+		} else {
+			throw new Error('Invalid freelancer wallet address format');
+		}
+	} else {
+		throw new Error('Freelancer wallet address is required');
+	}
+
 	return {
-		freelancerAddress: bid?.bidderWalletAddress || '',
+		freelancerAddress,
 		baseAmount,
 		totalAmount: ethers.formatEther(totalAmountWei),
 		clientFee: ethers.formatEther(clientFeeAmount),
@@ -97,8 +111,9 @@ export function calculateBidEscrowDetails(bid: SimplifiedTaskBid, task: Task, bt
 
 /**
  * Check if user has sufficient balance for the escrow
+ * Now uses real-time gas prices from the provider
  */
-export function validateSufficientBalance(details: BidEscrowDetails): string[] {
+export async function validateSufficientBalance(details: BidEscrowDetails): Promise<string[]> {
 	const errors: string[] = [];
 	
 	// Get current wallet state
@@ -114,10 +129,32 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 		const currentBalanceWei = BigInt(walletState.rsk.balance);
 		const requiredAmountWei = ethers.parseEther(details.totalAmount);
 		
-		// Estimate gas cost (approximate)
+		// Fetch real-time gas price from provider
+		let gasPrice: bigint;
+		if (walletState.rsk.provider) {
+			try {
+				const feeData = await walletState.rsk.provider.getFeeData();
+				gasPrice = feeData.gasPrice || BigInt(0);
+				
+				// Fallback to a reasonable default if gas price is 0 or unavailable
+				if (gasPrice === 0n) {
+					console.warn('Gas price returned 0, using fallback value');
+					gasPrice = BigInt(65164000); // 0.065164 gwei fallback
+				}
+			} catch (gasError) {
+				console.warn('Failed to fetch real-time gas price, using fallback:', gasError);
+				// Fallback to typical RSK gas price if fetch fails
+				gasPrice = BigInt(65164000); // 0.065164 gwei (typical RSK gas price)
+			}
+		} else {
+			// Fallback if provider is not available
+			console.warn('Provider not available, using fallback gas price');
+			gasPrice = BigInt(65164000); // 0.065164 gwei (typical RSK gas price)
+		}
+		
+		// Estimate gas cost using real-time gas price
 		const estimatedGasLimit = BigInt(150000); // Conservative estimate for escrow creation
-		const estimatedGasPrice = BigInt(65164000); // 0.065164 gwei (typical RSK gas price)
-		const estimatedGasCost = estimatedGasLimit * estimatedGasPrice;
+		const estimatedGasCost = estimatedGasLimit * gasPrice;
 		
 		// Total required = escrow amount + gas fees
 		const totalRequired = requiredAmountWei + estimatedGasCost;

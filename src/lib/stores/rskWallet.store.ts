@@ -122,9 +122,36 @@ async function sendRBTC(to: string, amount: string, gasLimit?: string): Promise<
     }
 
     try {
+        // Validate and normalize recipient address
+        // Convert to string first to handle cases where it might be null, undefined, or other types
+        const addressStr = String(to || '').trim();
+        if (!addressStr || !ethers.isAddress(addressStr)) {
+            throw new Error(`Invalid recipient address: ${to}`);
+        }
+        const normalizedAddress = ethers.getAddress(addressStr);
+
+        // Validate amount format
+        const amountStr = String(amount || '').trim();
+        if (!amountStr || isNaN(parseFloat(amountStr)) || parseFloat(amountStr) <= 0) {
+            throw new Error(`Invalid amount: ${amount}`);
+        }
+
+        // Parse amount to wei
+        let amountWei: bigint;
+        try {
+            amountWei = ethers.parseEther(amountStr);
+        } catch (parseError) {
+            throw new Error(`Invalid amount format: ${amount}. Amount must be a valid number.`);
+        }
+
+        // Check if sending to self (optional validation)
+        if (normalizedAddress.toLowerCase() === wallet.address.toLowerCase()) {
+            throw new Error('Cannot send to your own address');
+        }
+
         const tx = await wallet.sendTransaction({
-            to,
-            value: ethers.parseEther(amount),
+            to: normalizedAddress,
+            value: amountWei,
             gasLimit: gasLimit ? BigInt(gasLimit) : undefined
         });
 
@@ -132,8 +159,8 @@ async function sendRBTC(to: string, amount: string, gasLimit?: string): Promise<
         const pendingTx: RSKTransaction = {
             hash: tx.hash,
             from: wallet.address,
-            to,
-            value: ethers.parseEther(amount).toString(),
+            to: normalizedAddress,
+            value: amountWei.toString(),
             gasUsed: '0',
             gasPrice: tx.gasPrice?.toString() || '0',
             blockNumber: 0,
@@ -147,8 +174,13 @@ async function sendRBTC(to: string, amount: string, gasLimit?: string): Promise<
             pendingTransactions: [...state.pendingTransactions, pendingTx]
         }));
 
-        // Wait for confirmation
-        const receipt = await tx.wait();
+        // Wait for confirmation with timeout (2 minutes)
+        const receipt = await Promise.race([
+            tx.wait(),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Transaction confirmation timeout')), 120000)
+            )
+        ]);
 
         // Update transaction status
         updateTransactionStatus(tx.hash, receipt);
@@ -156,6 +188,10 @@ async function sendRBTC(to: string, amount: string, gasLimit?: string): Promise<
         return tx.hash;
 
     } catch (error) {
+        // Re-throw with better error message
+        if (error instanceof Error && error.message.includes('timeout')) {
+            throw new Error('Transaction confirmation timeout. The transaction may still be processing.');
+        }
         throw new Error(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
@@ -167,10 +203,31 @@ async function estimateGas(to: string, amount: string): Promise<{ gasLimit: stri
     }
 
     try {
+        // Validate and normalize recipient address
+        const addressStr = String(to || '').trim();
+        if (!addressStr || !ethers.isAddress(addressStr)) {
+            throw new Error(`Invalid recipient address: ${to}`);
+        }
+        const normalizedAddress = ethers.getAddress(addressStr);
+
+        // Validate amount format
+        const amountStr = String(amount || '').trim();
+        if (!amountStr || isNaN(parseFloat(amountStr)) || parseFloat(amountStr) <= 0) {
+            throw new Error(`Invalid amount: ${amount}`);
+        }
+
+        // Parse amount to wei
+        let amountWei: bigint;
+        try {
+            amountWei = ethers.parseEther(amountStr);
+        } catch (parseError) {
+            throw new Error(`Invalid amount format: ${amount}. Amount must be a valid number.`);
+        }
+
         const gasPrice = await provider.getFeeData();
         const gasLimit = await wallet.estimateGas({
-            to,
-            value: ethers.parseEther(amount)
+            to: normalizedAddress,
+            value: amountWei
         });
 
         const totalCost = gasLimit * (gasPrice.gasPrice || BigInt(0));

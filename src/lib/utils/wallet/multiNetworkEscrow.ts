@@ -210,12 +210,20 @@ export class MultiNetworkEscrowManager {
 		try {
 			const { contract } = await this.ensureNetworkReady(network, environment);
 
+			// Ensure freelancer address is a valid string and normalize it
+			// Convert to string first to handle cases where it might be null, undefined, or other types
+			const addressStr = String(freelancerAddress || '').trim();
+			if (!addressStr || !ethers.isAddress(addressStr)) {
+				throw new Error(`Invalid freelancer address: ${freelancerAddress}`);
+			}
+			const normalizedAddress = ethers.getAddress(addressStr);
+
 			const baseAmountWei = ethers.parseEther(baseAmount);
 			const totalPayment = this.calculateTotalPayment(baseAmountWei, clientFeeTier);
 
 			// Estimate gas first
 			const gasEstimate = await contract.createEscrow.estimateGas(
-				freelancerAddress,
+				normalizedAddress,
 				estimatedStartTime,
 				estimatedCompletionTime,
 				clientFeeTier,
@@ -226,7 +234,7 @@ export class MultiNetworkEscrowManager {
 			// Execute transaction
 			console.log('🚀 [MultiNetworkEscrow] Sending transaction...');
 			const tx = await contract.createEscrow(
-				freelancerAddress,
+				normalizedAddress,
 				estimatedStartTime,
 				estimatedCompletionTime,
 				clientFeeTier,
