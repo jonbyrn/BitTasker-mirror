@@ -347,7 +347,8 @@
 
 	// Validate address in real-time based on selected network and parse Lightning invoices
 	$effect(() => {
-		const currentAddress = recipientAddress.trim();
+		// Ensure recipientAddress is a string before calling .trim()
+		const currentAddress = String(recipientAddress || '').trim();
 		const currentNetwork = selectedNetwork;
 
 		// Clear invoice parsing timeout if it exists
@@ -367,7 +368,9 @@
 		}
 
 		if (currentNetwork === 'rootstock-bitcoin') {
-			addressValidation = validateRSKAddress(recipientAddress);
+			// Ensure recipientAddress is a string before validation
+			const addressStr = String(recipientAddress || '').trim();
+			addressValidation = validateRSKAddress(addressStr);
 			showAmountField = true;
 			invoiceAmount = null;
 			invoiceHasAmount = false;
@@ -519,7 +522,9 @@
 
 	// Enhanced form validation - updated to work with sats
 	let isFormValid = $derived(() => {
-		if (!recipientAddress?.trim() || !addressValidation.isValid || !currentAsset()) {
+		// Ensure recipientAddress is a string before calling .trim()
+		const addressStr = String(recipientAddress || '').trim();
+		if (!addressStr || !addressValidation.isValid || !currentAsset()) {
 			return false;
 		}
 		
@@ -557,9 +562,15 @@
 
 		try {
 			if (selectedNetwork === 'rootstock-bitcoin') {
+				// Ensure recipientAddress is a valid string before sending
+				const addressStr = String(recipientAddress || '').trim();
+				if (!addressStr) {
+					throw new Error('Recipient address is required');
+				}
+				
 				// Convert sats to BTC for sendRBTC
 				const amountInBTC = amountInSats / 100_000_000;
-				await walletManager.sendRBTC(recipientAddress, amountInBTC.toString());
+				await walletManager.sendRBTC(addressStr, amountInBTC.toString());
 			} else if (selectedNetwork === 'liquid-bitcoin' || selectedNetwork === 'bitcoin') {
 				throw new Error('Liquid and Bitcoin transactions not yet implemented');
 			} else if (selectedNetwork === 'lightning-bitcoin') {
@@ -847,12 +858,12 @@
 								? $t('wallet.send_form.address_placeholder.liquid_usdt')
 								: $t('wallet.send_form.address_placeholder.rootstock')}
 				class="input input-bordered w-full {!addressValidation.isValid &&
-				recipientAddress.trim() !== ''
+				String(recipientAddress || '').trim() !== ''
 					? 'input-error'
 					: ''}"
 				disabled={isLoading}
 			/>
-			{#if !addressValidation.isValid && recipientAddress.trim() !== ''}
+			{#if !addressValidation.isValid && String(recipientAddress || '').trim() !== ''}
 				<div class="label">
 					<span class="label-text-alt text-error">{addressValidation.error}</span>
 				</div>
