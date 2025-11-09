@@ -228,11 +228,10 @@
 								<div class="flex flex-col items-end gap-1.5 text-right">
 									<div class="text-lg font-bold">
 										{#if tx.type === 'send'}
-											<span class="text-error">-{formatAmountInSats(tx.value || '0')}</span>
+											<span class="text-error">-{tx.formattedAmount || `${formatAmountInSats(tx.value || '0')} ${$t('wallet.sats')}`}</span>
 										{:else}
-											<span class="text-success">+{formatAmountInSats(tx.value || '0')}</span>
+											<span class="text-success">+{tx.formattedAmount || `${formatAmountInSats(tx.value || '0')} ${$t('wallet.sats')}`}</span>
 										{/if}
-										<span class="ml-1 text-sm opacity-60">{$t('wallet.sats')}</span>
 									</div>
 
 									{#if tx.gasUsed && tx.gasUsed !== '0' && tx.gasPrice && tx.gasPrice !== '0'}

@@ -413,11 +413,28 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                     amount = parseFloat(ethers.formatEther(valueBigInt));
                                 } else {
                                     // Handle decimal string values
+                                    // Need to detect if it's in wei format or rBTC format
                                     const valueNum = parseFloat(rawValue);
                                     if (isNaN(valueNum) || valueNum <= 0) continue;
-                                    // Convert to wei hex string for consistency
-                                    value = ethers.parseEther(valueNum.toString()).toString();
-                                    amount = valueNum;
+                                    
+                                    // Detect format: if number is very large (> 1e15), it's likely in wei format
+                                    // Otherwise, assume it's in rBTC format
+                                    // Threshold: 1e15 wei = 0.001 rBTC, so anything larger is likely wei
+                                    const WEI_THRESHOLD = 1e15;
+                                    
+                                    if (valueNum >= WEI_THRESHOLD) {
+                                        // Value is in wei format (decimal representation of wei)
+                                        // Convert to rBTC for amount calculation
+                                        const valueBigInt = BigInt(Math.floor(valueNum));
+                                        amount = parseFloat(ethers.formatEther(valueBigInt));
+                                        // Convert to hex string for consistency
+                                        value = '0x' + valueBigInt.toString(16);
+                                    } else {
+                                        // Value is in rBTC format (already in rBTC)
+                                        amount = valueNum;
+                                        // Convert to wei hex string for consistency
+                                        value = ethers.parseEther(valueNum.toString()).toString();
+                                    }
                                 }
                                 
                                 // Skip if amount is zero or very small (dust)
