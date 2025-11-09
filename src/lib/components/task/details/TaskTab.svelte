@@ -386,9 +386,9 @@
 		</div>
 	{/if}
 
-	<div class="mb-20 flex justify-end gap-2 md:mb-5">
+	<div class="mb-20 flex flex-col gap-2 md:mb-5 md:flex-row md:justify-end">
 		{#if isOwner && task.status === TaskStatusEnum.OPEN}
-			<button class="btn btn-primary btn-sm" onclick={handleEditTask}>
+			<button class="btn btn-primary btn-sm w-full md:w-auto" onclick={handleEditTask}>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4"
@@ -409,7 +409,7 @@
 		
 		<!-- Delete Task Section -->
 		{#if isOwner}
-			<div class="space-y-3">
+			<div class="flex w-full flex-col gap-3 md:w-auto">
 				<!-- Alert message when deletion is not allowed -->
 				{#if !canDelete && !isCheckingDelete}
 					<div class="alert alert-outline alert-warning">
@@ -432,7 +432,7 @@
 
 				<!-- Delete Button (always visible, disabled when canDelete is false) -->
 				<button
-					class="btn btn-error btn-sm place-self-end"
+					class="btn btn-error btn-sm w-full md:w-auto"
 					onclick={showDeleteConfirmation}
 					disabled={isDeleting || isCheckingDelete || !canDelete}
 				>
