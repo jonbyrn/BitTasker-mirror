@@ -8,6 +8,8 @@
 	} from '$lib/stores/rskWallet.store';
 	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	// MDI Icons
+	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 
 	async function copyAddress() {
 		if ($rskAddress) {
@@ -47,7 +49,7 @@
 						onclick={toggleUnit}
 						title="Toggle unit display"
 					>
-						⇄
+						<IconSwapHorizontal class="w-4 h-4" />
 					</button>
 				</div>
 				<div class="mt-2 text-3xl font-bold">

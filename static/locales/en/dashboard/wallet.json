@@ -35,6 +35,7 @@
       "address_placeholder": "Bitcoin, Lightning, or Liquid address",
       "available_balance": "Available",
       "transaction_fee": "Transaction Fee",
+      "network_fee": "Network Fee",
       "fee_low": "Low",
       "fee_medium": "Medium",
       "fee_high": "High",

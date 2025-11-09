@@ -35,6 +35,7 @@
     "address_placeholder": "Dirección Bitcoin, Lightning o Liquid",
     "available_balance": "Disponible",
     "transaction_fee": "Comisión de transacción",
+    "network_fee": "Comisión de Red",
     "fee_low": "Baja",
     "fee_medium": "Media",
     "fee_high": "Alta",

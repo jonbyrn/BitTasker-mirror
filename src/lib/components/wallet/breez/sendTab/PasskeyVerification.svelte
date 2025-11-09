@@ -8,6 +8,12 @@
 	import { fly } from 'svelte/transition';
 	import { sendForm } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
+	// MDI Icons
+	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
+	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
+	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
+	import IconContentSave from '~icons/mdi/content-save';
+	import IconLock from '~icons/mdi/lock';
 
 	interface VerificationContext {
 		operation: string;
@@ -57,18 +63,18 @@
 		return `${mainAmount.toFixed(8)} ${asset}`.replace(/\.?0+$/, '');
 	}
 
-	function getOperationIcon(operation: string): string {
+	function getOperationIcon(operation: string) {
 		switch (operation.toLowerCase()) {
 			case 'send':
-				return '↗️';
+				return IconArrowUpBold;
 			case 'receive':
-				return '↙️';
+				return IconArrowDownBold;
 			case 'swap':
-				return '🔄';
+				return IconSwapHorizontal;
 			case 'backup':
-				return '💾';
+				return IconContentSave;
 			default:
-				return '🔒';
+				return IconLock;
 		}
 	}
 
@@ -143,7 +149,9 @@
 	<div class="relative mx-auto max-w-md">
 		<!-- Header -->
 		<div class="mb-6 flex items-center gap-3">
-			<span class="text-3xl">{getOperationIcon(context.operation)}</span>
+			<div class="flex items-center justify-center w-12 h-12 rounded-full bg-primary/20 text-primary">
+				<svelte:component this={getOperationIcon(context.operation)} class="w-6 h-6" />
+			</div>
 			<div>
 				<h3 class="text-lg font-bold">{title}</h3>
 				<p class="text-sm opacity-70">

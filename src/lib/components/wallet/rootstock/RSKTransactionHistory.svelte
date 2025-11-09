@@ -5,6 +5,13 @@
 	import { ethers } from 'ethers';
 	import { appStore } from '$lib/stores/app.store';
 	import { t } from 'svelte-i18n';
+	// MDI Icons
+	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
+	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
+	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+	import IconCheckCircle from '~icons/mdi/check-circle';
+	import IconClockOutline from '~icons/mdi/clock-outline';
+	import IconCloseCircle from '~icons/mdi/close-circle';
 
 	let isRefreshing = $state(false);
 
@@ -13,21 +20,35 @@
 	}
 
 	function formatAmountInSats(value: string): string {
-		const amount = ethers.formatEther(value);
-		const rbtcAmount = parseFloat(amount);
-		// Convert rBTC to sats (1 rBTC = 100,000,000 sats)
-		const sats = Math.floor(rbtcAmount * 100_000_000);
-		return sats.toLocaleString();
+		try {
+			if (!value || value === '0' || value === '') return '0';
+			const amount = ethers.formatEther(value);
+			const rbtcAmount = parseFloat(amount);
+			if (isNaN(rbtcAmount) || !isFinite(rbtcAmount)) return '0';
+			// Convert rBTC to sats (1 rBTC = 100,000,000 sats)
+			const sats = Math.floor(rbtcAmount * 100_000_000);
+			return sats.toLocaleString();
+		} catch (error) {
+			console.error('Error formatting amount:', error);
+			return '0';
+		}
 	}
 
 	function formatFeeInSats(gasUsed: string, gasPrice: string): string {
-		// Calculate fee in wei: gasUsed * gasPrice
-		const feeWei = BigInt(gasUsed) * BigInt(gasPrice);
-		// Convert wei to rBTC (1 rBTC = 1e18 wei)
-		const feeRBTC = Number(ethers.formatEther(feeWei.toString()));
-		// Convert rBTC to sats (1 rBTC = 100,000,000 sats)
-		const sats = Math.floor(feeRBTC * 100_000_000);
-		return sats.toLocaleString();
+		try {
+			if (!gasUsed || !gasPrice || gasUsed === '0' || gasPrice === '0') return '0';
+			// Calculate fee in wei: gasUsed * gasPrice
+			const feeWei = BigInt(gasUsed) * BigInt(gasPrice);
+			// Convert wei to rBTC (1 rBTC = 1e18 wei)
+			const feeRBTC = Number(ethers.formatEther(feeWei.toString()));
+			if (isNaN(feeRBTC) || !isFinite(feeRBTC)) return '0';
+			// Convert rBTC to sats (1 rBTC = 100,000,000 sats)
+			const sats = Math.floor(feeRBTC * 100_000_000);
+			return sats.toLocaleString();
+		} catch (error) {
+			console.error('Error formatting fee:', error);
+			return '0';
+		}
 	}
 
 	function formatTimestamp(timestamp: number): string {
@@ -44,33 +65,53 @@
 		appStore.showSuccessToast($t('wallet.transaction.toast.hash_copied'));
 	}
 
-	function getStatusBadgeClass(status: string): string {
+	function getStatusIcon(status: string) {
+		if (!status) return IconClockOutline; // Fallback for undefined/null
 		switch (status) {
 			case 'confirmed':
-				return 'badge-success';
+				return IconCheckCircle;
 			case 'pending':
-				return 'badge-warning';
+				return IconClockOutline;
 			case 'failed':
-				return 'badge-error';
+				return IconCloseCircle;
 			default:
-				return 'badge-ghost';
+				// Default to pending icon for unknown statuses
+				return IconClockOutline;
 		}
 	}
 
-	function getTypeIcon(type: string): string {
+	function getStatusIconColor(status: string): string {
+		if (!status) return 'text-base-content/60'; // Fallback for undefined/null
+		switch (status) {
+			case 'confirmed':
+				return 'text-success';
+			case 'pending':
+				return 'text-warning';
+			case 'failed':
+				return 'text-error';
+			default:
+				// Default to muted color for unknown statuses
+				return 'text-base-content/60';
+		}
+	}
+
+	function getTypeIcon(type: string) {
+		if (!type) return IconArrowUpBold; // Fallback for undefined/null
 		switch (type) {
 			case 'send':
-				return '↗️';
+				return IconArrowUpBold;
 			case 'receive':
-				return '↙️';
+				return IconArrowDownBold;
 			case 'contract':
-				return '📄';
+				return IconFileDocumentOutline;
 			default:
-				return '💱';
+				// Default to send icon for unknown types (swaps are filtered out)
+				return IconArrowUpBold;
 		}
 	}
 
-	function getTranslatedStatus(status: string): string {
+	function getStatusLabel(status: string): string {
+		if (!status) return 'Unknown'; // Fallback for undefined/null
 		switch (status) {
 			case 'confirmed':
 				return $t('common.components.wallet.transaction_history.confirmed');
@@ -98,10 +139,11 @@
 		}
 	}
 
-    // Combine confirmed and pending transactions
-	const allTransactions = $derived([...$rskWalletStore.pendingTransactions, ...$rskTransactions].sort(
-		(a, b) => b.timestamp - a.timestamp
-	));
+    // Combine confirmed and pending transactions, filter out swaps
+	const allTransactions = $derived([...$rskWalletStore.pendingTransactions, ...$rskTransactions]
+		.filter(tx => tx.type !== 'swap')
+		.sort((a, b) => b.timestamp - a.timestamp)
+	);
 </script>
 
 <div class="card bg-base-100 shadow-xl">
@@ -126,11 +168,11 @@
 				{#each allTransactions as tx}
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
-							<div class="flex items-start justify-between">
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
 								<!-- Transaction Info -->
-								<div class="flex flex-1 items-start gap-3">
-									<div class="text-2xl">
-										{getTypeIcon(tx.type)}
+								<div class="flex flex-1 items-center gap-3">
+									<div class="flex items-center justify-center w-10 h-10 rounded-full {tx.type === 'send' ? 'bg-error/20 text-error' : tx.type === 'receive' ? 'bg-success/20 text-success' : 'bg-primary/20 text-primary'}">
+										<svelte:component this={getTypeIcon(tx.type || 'send')} class="w-5 h-5" />
 									</div>
 									<div class="min-w-0 flex-1">
 										<div class="mb-1 flex items-center gap-2">
@@ -145,119 +187,62 @@
 													{tx.type}
 												{/if}
 											</span>
-											<div class="badge badge-sm {getStatusBadgeClass(tx.status)}">
-												{getTranslatedStatus(tx.status)}
+											<div class="badge badge-outline badge-sm text-xs">
+												{$t('wallet.transaction.network.rootstock_bitcoin')}
 											</div>
-											{#if tx.status === 'pending'}
-												<span class="loading loading-spinner loading-xs"></span>
-											{/if}
+											<div class="flex items-center justify-center w-5 h-5 {getStatusIconColor(tx.status || 'pending')}" title={getStatusLabel(tx.status || 'pending')}>
+												<svelte:component this={getStatusIcon(tx.status || 'pending')} class="w-5 h-5" aria-label={getStatusLabel(tx.status || 'pending')} />
+											</div>
 										</div>
 
-										<div class="space-y-1 text-sm opacity-70">
-											<div class="flex items-center gap-2">
-												<span>{$t('wallet.rsk.to')}</span>
-												<span class="font-mono">{formatAddress(tx.to)}</span>
-												<button
-													aria-label="Copy address"
-													class="btn btn-ghost btn-xs"
-													onclick={() => copyTxHash(tx.to)}
-													title="Copy address"
-												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														class="h-3 w-3"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke="currentColor"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-														/>
-													</svg>
-												</button>
-											</div>
-
-											<div class="flex items-center gap-2">
-												<span>{$t('wallet.rsk.hash')}</span>
-												<span class="font-mono">{formatAddress(tx.hash)}</span>
-												<button
-													aria-label="Copy hash"
-													class="btn btn-ghost btn-xs"
-													onclick={() => copyTxHash(tx.hash)}
-													title="Copy hash"
-												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														class="h-3 w-3"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke="currentColor"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-														/>
-													</svg>
-												</button>
-											</div>
-
-											{#if tx.blockNumber > 0}
-												<div>{$t('wallet.rsk.block')} #{tx.blockNumber.toLocaleString()}</div>
-											{/if}
-
+										<div class="text-sm opacity-70">
 											<div>{formatTimestamp(tx.timestamp)}</div>
 										</div>
 									</div>
 								</div>
 
-								<!-- Amount and Actions -->
-								<div class="flex flex-col items-end gap-2 text-right">
+								<!-- Amount, Fee, and Actions -->
+								<div class="flex flex-col items-end gap-1.5 text-right">
 									<div class="text-lg font-bold">
 										{#if tx.type === 'send'}
-											<span class="text-error">-{formatAmountInSats(tx.value)}</span>
+											<span class="text-error">-{formatAmountInSats(tx.value || '0')}</span>
 										{:else}
-											<span class="text-success">+{formatAmountInSats(tx.value)}</span>
+											<span class="text-success">+{formatAmountInSats(tx.value || '0')}</span>
 										{/if}
 										<span class="ml-1 text-sm opacity-60">{$t('wallet.sats')}</span>
 									</div>
 
-									{#if tx.gasUsed !== '0'}
-										<div class="text-xs opacity-60">
-											{$t('wallet.rsk.fee')} {formatFeeInSats(tx.gasUsed, tx.gasPrice)} {$t('wallet.sats')}
+									{#if tx.gasUsed && tx.gasUsed !== '0' && tx.gasPrice && tx.gasPrice !== '0'}
+										<div class="text-xs opacity-70">
+											{$t('wallet.network_fee')}: {formatFeeInSats(tx.gasUsed, tx.gasPrice)} {$t('wallet.sats')}
 										</div>
 									{/if}
 
-									<!-- Action Buttons -->
-									<div class="flex gap-1">
-										<a
-											aria-label="View on explorer"
-											href={getTransactionUrl(tx.hash)}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="btn btn-ghost btn-xs"
-											title="View on explorer"
+									<!-- Explorer Link -->
+									<a
+										aria-label="View on explorer"
+										href={getTransactionUrl(tx.hash)}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="btn btn-ghost btn-xs"
+										title="View on explorer"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-3 w-3"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
 										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-												/>
-											</svg>
-										</a>
-									</div>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+											/>
+										</svg>
+										{$t('wallet.view_explorer')}
+									</a>
 								</div>
 							</div>
 						</div>
