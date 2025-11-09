@@ -80,6 +80,10 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                             }
                         }
 
+                        // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
+                        const sats = Math.floor(amount * 100_000_000);
+                        const formattedSats = sats.toLocaleString();
+
                         const transaction: Transaction = {
                             hash: tx.hash,
                             from: txFrom,
@@ -96,7 +100,7 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                             swapType,
                             id: tx.hash,
                             asset: 'rBTC',
-                            formattedAmount: `${amount.toFixed(6)} rBTC`,
+                            formattedAmount: `${formattedSats} Sats`,
                             // TODO: show generic swap description. Could be enhanced to show
                             // specific swap type (Lightning/L-BTC) based on transaction analysis
                             description: 'Swap claimed',
@@ -122,6 +126,10 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                             }
                         }
 
+                        // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
+                        const sats = Math.floor(amount * 100_000_000);
+                        const formattedSats = sats.toLocaleString();
+
                         const transaction: Transaction = {
                             hash: tx.hash,
                             from: tx.from.hash,
@@ -136,7 +144,7 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                             network: 'rsk',
                             id: tx.hash,
                             asset: 'rBTC',
-                            formattedAmount: `${amount.toFixed(6)} rBTC`,
+                            formattedAmount: `${formattedSats} Sats`,
                             description: txType === 'send' ? 'RSK transaction sent' : 'RSK payment received',
                             fee,
                             address: tx.to?.hash || '0x0000000000000000000000000000000000000000',
@@ -187,6 +195,10 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                     }
                                 }
 
+                                // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
+                                const sats = Math.floor(amount * 100_000_000);
+                                const formattedSats = sats.toLocaleString();
+
                                 const transaction: Transaction = {
                                     hash: tx.hash,
                                     from: txFrom,
@@ -203,7 +215,7 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                     swapType,
                                     id: tx.hash,
                                     asset: 'rBTC',
-                                    formattedAmount: `${amount.toFixed(6)} rBTC`,
+                                    formattedAmount: `${formattedSats} Sats`,
                                     description: 'Swap claimed',
                                     fee,
                                     address: txTo,
@@ -226,6 +238,10 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                     }
                                 }
 
+                                // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
+                                const sats = Math.floor(amount * 100_000_000);
+                                const formattedSats = sats.toLocaleString();
+
                                 const transaction: Transaction = {
                                     hash: tx.hash,
                                     from: tx.from?.hash || tx.from,
@@ -240,7 +256,7 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                     network: 'rsk',
                                     id: tx.hash,
                                     asset: 'rBTC',
-                                    formattedAmount: `${amount.toFixed(6)} rBTC`,
+                                    formattedAmount: `${formattedSats} Sats`,
                                     description: txType === 'send' ? 'RSK transaction sent' : 'RSK payment received',
                                     fee,
                                     address: tx.to?.hash || tx.to || '0x0000000000000000000000000000000000000000',
@@ -279,6 +295,10 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                     }
                                 }
 
+                                // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
+                                const sats = Math.floor(amount * 100_000_000);
+                                const formattedSats = sats.toLocaleString();
+
                                 const transaction: Transaction = {
                                     hash: tx.hash,
                                     from: tx.from,
@@ -293,7 +313,7 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                     network: 'rsk',
                                     id: tx.hash,
                                     asset: 'rBTC',
-                                    formattedAmount: `${amount.toFixed(6)} rBTC`,
+                                    formattedAmount: `${formattedSats} Sats`,
                                     description: txType === 'send' ? 'RSK transaction sent' : 'RSK payment received',
                                     fee,
                                     address: tx.to || '0x0000000000000000000000000000000000000000',

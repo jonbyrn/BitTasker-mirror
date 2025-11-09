@@ -12,9 +12,12 @@
 		return `${address.slice(0, 6)}...${address.slice(-4)}`;
 	}
 
-	function formatAmount(value: string): string {
+	function formatAmountInSats(value: string): string {
 		const amount = ethers.formatEther(value);
-		return parseFloat(amount).toFixed(6);
+		const rbtcAmount = parseFloat(amount);
+		// Convert rBTC to sats (1 rBTC = 100,000,000 sats)
+		const sats = Math.floor(rbtcAmount * 100_000_000);
+		return sats.toLocaleString();
 	}
 
 	function formatFeeInSats(gasUsed: string, gasPrice: string): string {
@@ -216,11 +219,11 @@
 								<div class="flex flex-col items-end gap-2 text-right">
 									<div class="text-lg font-bold">
 										{#if tx.type === 'send'}
-											<span class="text-error">-{formatAmount(tx.value)}</span>
+											<span class="text-error">-{formatAmountInSats(tx.value)}</span>
 										{:else}
-											<span class="text-success">+{formatAmount(tx.value)}</span>
+											<span class="text-success">+{formatAmountInSats(tx.value)}</span>
 										{/if}
-										<span class="ml-1 text-sm opacity-60">RBTC</span>
+										<span class="ml-1 text-sm opacity-60">{$t('wallet.sats')}</span>
 									</div>
 
 									{#if tx.gasUsed !== '0'}
