@@ -67,6 +67,26 @@
 		// Return shortened npub as fallback
 		return `${npub.slice(0, 8)}...${npub.slice(-4)}`;
 	}
+
+	// Format date as "Month, Year" (e.g., "Sep, 2025")
+	function formatMemberSinceDate(dateString: string | undefined): string {
+		if (!dateString) return '';
+		
+		try {
+			// Parse the date string (it should be in format like "Sep 27, 2025")
+			const date = new Date(dateString);
+			if (isNaN(date.getTime())) return dateString; // Return original if invalid
+			
+			// Format as "Month, Year" (e.g., "Sep, 2025")
+			return date.toLocaleDateString('en-US', {
+				month: 'short',
+				year: 'numeric'
+			});
+		} catch (error) {
+			console.error('Error formatting member since date:', error);
+			return dateString; // Return original if error
+		}
+	}
 </script>
 
 <div class="flex items-center gap-3">
@@ -109,7 +129,7 @@
 
 		{#if showMemberSince && !isLoading}
 			<p class="text-base-content/60 {config.details}">
-				Member since {profile?.createdAt}
+				Member since {formatMemberSinceDate(profile?.createdAt)}
 			</p>
 		{/if}
 	</div>
