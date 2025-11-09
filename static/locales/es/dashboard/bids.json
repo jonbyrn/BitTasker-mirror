@@ -221,6 +221,7 @@
         "estimated_start": "Inicio Estimado",
         "estimated_completion": "Finalización Estimada",
         "estimated_duration": "Duración Estimada",
+        "time_adjusted_note": "Hora de inicio ajustada a la hora actual para garantizar la validez del contrato",
         "wallet_not_connected": "Cartera No Conectada",
         "connecting": "Conectando...",
         "connect_wallet": "Conectar Cartera",

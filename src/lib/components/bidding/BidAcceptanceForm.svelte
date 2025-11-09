@@ -47,6 +47,32 @@
 	// Calculate escrow details from bid
 	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task, props.btcPrice));
 
+	// Calculate adjusted times if start time is in the past but within 15 minutes
+	let adjustedTimes = $derived.by(() => {
+		if (!bidEscrowDetails) return null;
+		
+		const now = Math.floor(Date.now() / 1000);
+		const timeDifferenceSeconds = now - bidEscrowDetails.estimatedStartTime;
+		const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
+		
+		if (bidEscrowDetails.estimatedStartTime <= now && timeDifferenceMinutes <= 15) {
+			const originalDuration = bidEscrowDetails.estimatedCompletionTime - bidEscrowDetails.estimatedStartTime;
+			return {
+				startTime: now + 60, // 1 minute buffer
+				completionTime: now + 60 + originalDuration,
+				wasAdjusted: true,
+				originalStartTime: bidEscrowDetails.estimatedStartTime,
+				originalCompletionTime: bidEscrowDetails.estimatedCompletionTime
+			};
+		}
+		
+		return {
+			startTime: bidEscrowDetails.estimatedStartTime,
+			completionTime: bidEscrowDetails.estimatedCompletionTime,
+			wasAdjusted: false
+		};
+	});
+
 	$effect(() => {
 		if (bidEscrowDetails) {
 			const validationResult = validateEscrowDetails(bidEscrowDetails);
@@ -310,14 +336,18 @@
 
 						<!-- Start and end times -->
 						<div class="mt-4 space-y-2 block">
+							{#if adjustedTimes?.wasAdjusted}
+								<div class="mb-2 rounded bg-warning/20 p-2 text-xs text-warning">
+									⚠️ {$t('dashboard.bids.bid_acceptance.time_adjusted_note')}
+								</div>
+							{/if}
 							<div class="flex items-center justify-between gap-2 text-xs min-w-0">
 								<span class="text-base-content/60 shrink-0"
 									>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
 								>
 								<span class="text-base-content/80 truncate text-right">
-									<!-- Convert seconds to milliseconds -->
-									{bidEscrowDetails
-										? formatStandardDateTime(new Date(bidEscrowDetails.estimatedStartTime * 1000))
+									{adjustedTimes
+										? formatStandardDateTime(new Date(adjustedTimes.startTime * 1000))
 										: 'N/A'}
 								</span>
 							</div>
@@ -326,9 +356,8 @@
 									>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
 								>
 								<span class="text-base-content/80 truncate text-right">
-									<!-- Convert seconds to milliseconds -->
-									{bidEscrowDetails
-										? formatStandardDateTime(new Date(bidEscrowDetails.estimatedCompletionTime * 1000))
+									{adjustedTimes
+										? formatStandardDateTime(new Date(adjustedTimes.completionTime * 1000))
 										: 'N/A'}
 								</span>
 							</div>
@@ -337,10 +366,10 @@
 									>{$t('dashboard.bids.bid_acceptance.estimated_duration')}</span
 								>
 								<span class="text-base-content/80 truncate text-right"
-									>{bidEscrowDetails
+									>{adjustedTimes
 										? formatDuration(
-												bidEscrowDetails.estimatedStartTime * 1000,
-												bidEscrowDetails.estimatedCompletionTime * 1000
+												adjustedTimes.startTime * 1000,
+												adjustedTimes.completionTime * 1000
 											)
 										: 'N/A'}</span
 								>
