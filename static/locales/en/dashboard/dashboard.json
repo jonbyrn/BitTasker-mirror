@@ -102,6 +102,10 @@
         "cancel": "Cancel",
         "confirm_edit": "Yes, Edit Task"
       },
+      "delete_task_confirm_title": "Delete Task",
+      "delete_task_confirm_message": "Are you sure you want to delete this task? This action cannot be undone. The task will be permanently removed.",
+      "cannot_delete_message": "This task cannot be deleted because it has been funded. Tasks can only be deleted before funding or if funding failed. Once a task is funded, it must be completed, cancelled, or resolved through the normal task lifecycle.",
+      "cancel": "Cancel",
       "page_title": "Task Details - BitTasker",
       "page_description": "Here you can see the details of the task."
     },

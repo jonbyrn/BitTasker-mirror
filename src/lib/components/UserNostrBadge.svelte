@@ -124,7 +124,7 @@
 		<!-- {#if showReviews && !isLoading}
 			<div class="flex items-center gap-1">
 				<span class="text-base-content/60 {config.details}"> No reviews yet </span>
-			</div>
+			</div>S
 		{/if} -->
 
 		{#if showMemberSince && !isLoading}
