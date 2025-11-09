@@ -76,17 +76,22 @@
 
 			const deviceName = await createUserDeviceShortName(npub);
 
+			// Validate username and provide fallback to deviceName if invalid
+			// This ensures we always have a valid name for the passkey
+			const passkeyName = username?.trim() || deviceName;
+
 			// Register device with server using master key
+			// Use username for passkey naming so it appears in password managers
 			let credentialId = '';
 			if (isMobileBiometrics) {
 				credentialId = await setBiometricKey(
 					npub,
 					masterKeyData.exportedMasterKey,
 					'biometrics',
-					deviceName
+					passkeyName
 				);
 			} else {
-				credentialId = await setWebBiometricKey(npub, masterKeyData.exportedMasterKey, deviceName);
+				credentialId = await setWebBiometricKey(npub, masterKeyData.exportedMasterKey, passkeyName);
 			}
 
 			if (!credentialId) {
