@@ -48,6 +48,9 @@
 	let isVerifying = $state(false);
 	let error = $state<string | null>(null);
 
+	// Derived icon component
+	let OperationIcon = $derived(getOperationIcon(context.operation));
+
 	function handleCancel() {
 		show = false;
 		onCancel();
@@ -150,7 +153,7 @@
 		<!-- Header -->
 		<div class="mb-6 flex items-center gap-3">
 			<div class="flex items-center justify-center w-12 h-12 rounded-full bg-primary/20 text-primary">
-				<svelte:component this={getOperationIcon(context.operation)} class="w-6 h-6" />
+				<OperationIcon class="w-6 h-6" />
 			</div>
 			<div>
 				<h3 class="text-lg font-bold">{title}</h3>

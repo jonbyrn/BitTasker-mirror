@@ -188,9 +188,14 @@
 	}
 
 	function formatTimestamp(timestamp: number): string {
-		return (
-			new Date(timestamp).toLocaleDateString() + ' ' + new Date(timestamp).toLocaleTimeString()
-		);
+		try {
+			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
+			const date = new Date(timestamp);
+			return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+		} catch (error) {
+			console.error('Error formatting timestamp:', error);
+			return '';
+		}
 	}
 
 	function formatAddress(address?: string): string {
@@ -405,14 +410,25 @@
 		<!-- Transaction List -->
 		<div class="space-y-3">
 			{#each paginatedTransactions as tx}
+				{@const TypeIcon = getTypeIcon(tx.type)}
+				{@const StatusIcon = getStatusIcon(tx.status || 'pending')}
 				<div class="card bg-base-200 hover:bg-base-300 transition-colors">
 					<div class="card-body p-4">
 						<!-- Desktop Layout -->
 						<div class="hidden items-center justify-between gap-2 sm:gap-4 md:flex">
 							<div class="flex items-center gap-3">
 								<!-- Network and Type Icons -->
-								<div class="flex items-center justify-center w-10 h-10 rounded-full {tx.type === 'receive' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}">
-									<svelte:component this={getTypeIcon(tx.type)} class="w-5 h-5" />
+								<div class="flex items-center gap-2">
+									<div class="flex items-center justify-center w-10 h-10 rounded-full {tx.type === 'receive' ? 'bg-success/20 text-success' : tx.type === 'contract' ? 'bg-primary/20 text-primary' : 'bg-warning/20 text-warning'}">
+										<TypeIcon class="w-5 h-5" />
+									</div>
+									<div class="flex items-center justify-center w-10 h-10 rounded-full bg-base-300/20">
+										{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
+											<img src={getNetworkIcon(tx.network || 'rsk')} alt={getNetworkDisplayName(tx.network || 'rsk')} class="w-5 h-5" />
+										{:else}
+											<span class="text-lg">{getNetworkIcon(tx.network || 'rsk')}</span>
+										{/if}
+									</div>
 								</div>
 
 								<div class="flex-1">
@@ -428,16 +444,13 @@
 												{tx.type}
 											{/if}
 										</span>
-										<div class="badge badge-outline badge-sm text-xs">
-											{getNetworkDisplayName(tx.network)}
-										</div>
 										<div class="flex items-center justify-center w-5 h-5 {getStatusIconColor(tx.status || 'pending')}" title={getStatusLabel(tx.status || 'pending')}>
-											<svelte:component this={getStatusIcon(tx.status || 'pending')} class="w-5 h-5" aria-label={getStatusLabel(tx.status || 'pending')} />
+											<StatusIcon class="w-5 h-5" aria-label={getStatusLabel(tx.status || 'pending')} />
 										</div>
 									</div>
 
 									<div class="text-sm opacity-70">
-										<div>{formatTimestamp(tx.timestamp)}</div>
+										{formatTimestamp(tx.timestamp)}
 									</div>
 								</div>
 							</div>
@@ -482,8 +495,17 @@
 						<div class="md:hidden">
 							<div class="flex items-center justify-between gap-2 sm:gap-4">
 								<div class="flex items-center gap-3">
-									<div class="flex items-center justify-center w-10 h-10 rounded-full {tx.type === 'receive' ? 'bg-success/20 text-success' : tx.type === 'contract' ? 'bg-primary/20 text-primary' : 'bg-warning/20 text-warning'}">
-										<svelte:component this={getTypeIcon(tx.type || 'send')} class="w-5 h-5" />
+									<div class="flex items-center gap-2">
+										<div class="flex items-center justify-center w-10 h-10 rounded-full {tx.type === 'receive' ? 'bg-success/20 text-success' : tx.type === 'contract' ? 'bg-primary/20 text-primary' : 'bg-warning/20 text-warning'}">
+											<TypeIcon class="w-5 h-5" />
+										</div>
+										<div class="flex items-center justify-center w-10 h-10 rounded-full bg-base-300/20">
+											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
+												<img src={getNetworkIcon(tx.network || 'rsk')} alt={getNetworkDisplayName(tx.network || 'rsk')} class="w-5 h-5" />
+											{:else}
+												<span class="text-lg">{getNetworkIcon(tx.network || 'rsk')}</span>
+											{/if}
+										</div>
 									</div>
 									<div class="flex-1">
 										<div class="mb-1 flex items-center gap-2">
@@ -498,15 +520,12 @@
 													{tx.type}
 												{/if}
 											</span>
-											<div class="badge badge-outline badge-sm text-xs">
-												{getNetworkDisplayName(tx.network)}
-											</div>
-											<div class="flex items-center justify-center w-5 h-5 {getStatusIconColor(tx.status)}">
-												<svelte:component this={getStatusIcon(tx.status)} class="w-5 h-5" />
+											<div class="flex items-center justify-center w-5 h-5 {getStatusIconColor(tx.status || 'pending')}" title={getStatusLabel(tx.status || 'pending')}>
+												<StatusIcon class="w-5 h-5" aria-label={getStatusLabel(tx.status || 'pending')} />
 											</div>
 										</div>
 										<div class="text-sm opacity-70">
-											<div>{formatTimestamp(tx.timestamp)}</div>
+											{formatTimestamp(tx.timestamp)}
 										</div>
 									</div>
 								</div>

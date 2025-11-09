@@ -52,7 +52,14 @@
 	}
 
 	function formatTimestamp(timestamp: number): string {
-		return new Date(timestamp).toLocaleString();
+		try {
+			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
+			const date = new Date(timestamp);
+			return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+		} catch (error) {
+			console.error('Error formatting timestamp:', error);
+			return '';
+		}
 	}
 
 	function getTransactionUrl(hash: string): string {
@@ -166,13 +173,20 @@
 		{:else}
 			<div class="space-y-3">
 				{#each allTransactions as tx}
+					{@const TypeIcon = getTypeIcon(tx.type || 'send')}
+					{@const StatusIcon = getStatusIcon(tx.status || 'pending')}
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center justify-between gap-2 sm:gap-4">
 								<!-- Transaction Info -->
 								<div class="flex flex-1 items-center gap-3">
-									<div class="flex items-center justify-center w-10 h-10 rounded-full {tx.type === 'send' ? 'bg-error/20 text-error' : tx.type === 'receive' ? 'bg-success/20 text-success' : 'bg-primary/20 text-primary'}">
-										<svelte:component this={getTypeIcon(tx.type || 'send')} class="w-5 h-5" />
+									<div class="flex items-center gap-2">
+										<div class="flex items-center justify-center w-10 h-10 rounded-full {tx.type === 'send' ? 'bg-error/20 text-error' : tx.type === 'receive' ? 'bg-success/20 text-success' : 'bg-primary/20 text-primary'}">
+											<TypeIcon class="w-5 h-5" />
+										</div>
+										<div class="flex items-center justify-center w-10 h-10 rounded-full bg-base-300/20">
+											<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="w-5 h-5" />
+										</div>
 									</div>
 									<div class="min-w-0 flex-1">
 										<div class="mb-1 flex items-center gap-2">
@@ -187,16 +201,13 @@
 													{tx.type}
 												{/if}
 											</span>
-											<div class="badge badge-outline badge-sm text-xs">
-												{$t('wallet.transaction.network.rootstock_bitcoin')}
-											</div>
 											<div class="flex items-center justify-center w-5 h-5 {getStatusIconColor(tx.status || 'pending')}" title={getStatusLabel(tx.status || 'pending')}>
-												<svelte:component this={getStatusIcon(tx.status || 'pending')} class="w-5 h-5" aria-label={getStatusLabel(tx.status || 'pending')} />
+												<StatusIcon class="w-5 h-5" aria-label={getStatusLabel(tx.status || 'pending')} />
 											</div>
 										</div>
 
 										<div class="text-sm opacity-70">
-											<div>{formatTimestamp(tx.timestamp)}</div>
+											{formatTimestamp(tx.timestamp)}
 										</div>
 									</div>
 								</div>
