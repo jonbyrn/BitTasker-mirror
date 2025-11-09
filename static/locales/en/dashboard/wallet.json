@@ -483,6 +483,7 @@
         "address_copied": "✅ Address copied to clipboard!",
         "amount_btc": "Amount (BTC)",
         "amount_sats": "Amount (sats)",
+        "amount_from_invoice": "Amount from invoice",
         "min_amount": "Min",
         "fee_breakdown": "Fee Breakdown",
         "swap_fee": "Swap Fee",
