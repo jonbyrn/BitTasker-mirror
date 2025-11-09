@@ -36,8 +36,12 @@
         "dispute_task": "Disputar Tarea"
       },
       "filters": {
+        "waiting_for_bids": "Esperando",
+        "bids_received": "Ofertas",
+        "in_progress": "En Progreso",
+        "completed": "Completadas",
+        "disputed": "En Disputa",
         "tasks_in_progress": "Tareas en Progreso",
-        "bids_received": "Ofertas Recibidas",
         "tasks_waiting_for_bids": "Esperando Ofertas",
         "tasks_completed": "Tareas Completadas",
         "tasks_disputed": "Tareas en Disputa"
