@@ -22,6 +22,30 @@
 	function formatAmountInSats(value: string): string {
 		try {
 			if (!value || value === '0' || value === '') return '0';
+			
+			// Value should be in wei format (hex string like "0x...")
+			// If it's not a hex string, it might be in the wrong format
+			if (!value.startsWith('0x')) {
+				console.warn('formatAmountInSats received non-hex value:', value);
+				// Try to parse as decimal number
+				const valueNum = parseFloat(value);
+				if (isNaN(valueNum) || !isFinite(valueNum)) return '0';
+				
+				// If it's a very large number, it might be in wei format (decimal)
+				// Convert to BigInt and then format
+				if (valueNum >= 1e10) {
+					const valueBigInt = BigInt(Math.floor(valueNum));
+					const amount = parseFloat(ethers.formatEther(valueBigInt));
+					const sats = Math.floor(amount * 100_000_000);
+					return sats.toLocaleString();
+				} else {
+					// Assume it's already in rBTC format
+					const sats = Math.floor(valueNum * 100_000_000);
+					return sats.toLocaleString();
+				}
+			}
+			
+			// Value is in hex format (wei), convert to rBTC then to sats
 			const amount = ethers.formatEther(value);
 			const rbtcAmount = parseFloat(amount);
 			if (isNaN(rbtcAmount) || !isFinite(rbtcAmount)) return '0';
@@ -29,7 +53,7 @@
 			const sats = Math.floor(rbtcAmount * 100_000_000);
 			return sats.toLocaleString();
 		} catch (error) {
-			console.error('Error formatting amount:', error);
+			console.error('Error formatting amount:', error, 'value:', value);
 			return '0';
 		}
 	}

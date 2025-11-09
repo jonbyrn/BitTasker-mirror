@@ -409,38 +409,72 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                     if (valueBigInt === 0n) continue; // Skip zero value
                                     // Keep value as hex string for Transaction interface
                                     value = rawValue;
-                                    // Convert to amount for calculations
+                                    // Convert to amount for calculations (wei to rBTC)
                                     amount = parseFloat(ethers.formatEther(valueBigInt));
                                 } else {
                                     // Handle decimal string values
-                                    // Need to detect if it's in wei format or rBTC format
+                                    // Blockscout API may return values in different formats:
+                                    // 1. Hex string (0x...) - already handled above
+                                    // 2. Decimal string in wei format (large number like "33215624491200000000")
+                                    // 3. Decimal string in rBTC format (small number like "0.0000332156244912")
+                                    
+                                    // First, try to parse as a number
                                     const valueNum = parseFloat(rawValue);
                                     if (isNaN(valueNum) || valueNum <= 0) continue;
                                     
-                                    // Detect format: if number is very large (> 1e15), it's likely in wei format
-                                    // Otherwise, assume it's in rBTC format
-                                    // Threshold: 1e15 wei = 0.001 rBTC, so anything larger is likely wei
-                                    const WEI_THRESHOLD = 1e15;
+                                    // Detect format based on magnitude
+                                    // If number is >= 1e10, it's likely in wei format (decimal representation)
+                                    // If number is < 1e10, it's likely in rBTC format
+                                    // Threshold: 1e10 wei = 0.00000001 rBTC (very small)
+                                    // This is safer than 1e15 because we want to catch wei values earlier
+                                    const WEI_THRESHOLD = 1e10;
                                     
                                     if (valueNum >= WEI_THRESHOLD) {
                                         // Value is in wei format (decimal representation of wei)
                                         // Convert to rBTC for amount calculation
-                                        const valueBigInt = BigInt(Math.floor(valueNum));
+                                        // Use BigInt to avoid precision loss with very large numbers
+                                        // parseFloat can lose precision for numbers > Number.MAX_SAFE_INTEGER
+                                        // So we need to parse the string directly as BigInt
+                                        let valueBigInt: bigint;
+                                        try {
+                                            // Try to parse as BigInt directly from string to avoid precision loss
+                                            valueBigInt = BigInt(rawValue);
+                                        } catch {
+                                            // If that fails, use Math.floor (may lose precision for very large numbers)
+                                            valueBigInt = BigInt(Math.floor(valueNum));
+                                        }
                                         amount = parseFloat(ethers.formatEther(valueBigInt));
                                         // Convert to hex string for consistency
                                         value = '0x' + valueBigInt.toString(16);
                                     } else {
                                         // Value is in rBTC format (already in rBTC)
+                                        // Use it directly as the amount
                                         amount = valueNum;
                                         // Convert to wei hex string for consistency
-                                        value = ethers.parseEther(valueNum.toString()).toString();
+                                        // This ensures tx.value is always in wei format (hex string)
+                                        const valueWei = ethers.parseEther(valueNum.toString());
+                                        // Convert BigNumber to hex string (not decimal string)
+                                        // Use toHexString() method if available, otherwise toString(16)
+                                        if (typeof valueWei.toHexString === 'function') {
+                                            value = valueWei.toHexString();
+                                        } else {
+                                            // Fallback: convert to BigInt then to hex
+                                            const valueBigInt = BigInt(valueWei.toString());
+                                            value = '0x' + valueBigInt.toString(16);
+                                        }
                                     }
+                                }
+                                
+                                // Validate the calculated amount
+                                if (!isFinite(amount) || isNaN(amount)) {
+                                    console.debug('Invalid amount calculated from internal transaction value:', rawValue, amount);
+                                    continue;
                                 }
                                 
                                 // Skip if amount is zero or very small (dust)
                                 if (amount <= 0 || amount < 0.00000001) continue;
                             } catch (valueError) {
-                                console.debug('Failed to parse internal transaction value:', valueError);
+                                console.debug('Failed to parse internal transaction value:', rawValue, valueError);
                                 continue;
                             }
 
@@ -510,8 +544,38 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                             const isFromUser = internalTxFrom === address;
                             const txType: 'send' | 'receive' = isFromUser ? 'send' : 'receive';
 
+                            // Validate amount before converting to sats
+                            // Amount should be in rBTC format (typically < 1)
+                            // If amount is suspiciously large (> 1e9), something went wrong
+                            if (amount > 1e9) {
+                                console.warn('Suspiciously large amount detected for internal transaction:', {
+                                    rawValue: internalTx.value,
+                                    amount,
+                                    from: internalTxFrom,
+                                    to: internalTxTo
+                                });
+                                // Skip this transaction as it's likely a parsing error
+                                continue;
+                            }
+
                             // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
                             const sats = Math.floor(amount * 100_000_000);
+                            
+                            // Validate sats value (should be reasonable - not trillions)
+                            // Maximum reasonable sats: 21 million BTC * 100M sats = 2.1e15 sats
+                            // But for a single transaction, it should be much smaller
+                            if (sats > 1e12) {
+                                console.warn('Suspiciously large sats value detected:', {
+                                    rawValue: internalTx.value,
+                                    amount,
+                                    sats,
+                                    from: internalTxFrom,
+                                    to: internalTxTo
+                                });
+                                // Skip this transaction as it's likely a parsing error
+                                continue;
+                            }
+                            
                             const formattedSats = sats.toLocaleString();
 
                             // Get timestamp from internal transaction or parent transaction
