@@ -383,16 +383,10 @@
 						invoiceHasAmount = parsed.hasAmount;
 						invoiceAmount = parsed.amountSats;
 						
-						// If invoice has an amount, auto-populate it only if amount field is empty
-						// This prevents overwriting user input
+						// If invoice has an amount, hide the amount field and show read-only display
 						if (parsed.hasAmount && parsed.amountSats !== null) {
-							// Only set amount if it's empty or if user hasn't manually entered a different value
-							// Check if current amount matches what we would set (to avoid overwriting)
-							const expectedAmount = parsed.amountSats.toString();
-							if (!amount || amount === expectedAmount || amount === '') {
-								amount = expectedAmount;
-							}
-							showAmountField = false; // Hide field, show amount as read-only
+							showAmountField = false; // Hide field completely, show amount as read-only below
+							amount = ''; // Clear amount field since we'll show it read-only
 							// Validate the invoice amount
 							validateAmount(parsed.amountSats);
 						} else {
@@ -853,7 +847,27 @@
 			{/if}
 		</div>
 
-		<!-- Amount -->
+		<!-- Invoice Amount Display (read-only, shown when invoice has amount) -->
+		{#if selectedNetwork === 'lightning-bitcoin' && invoiceHasAmount && invoiceAmount !== null}
+			<div class="form-control">
+				<label class="label" for="invoice-amount">
+					<span class="label-text font-medium">
+						{$t('wallet.swap.amount_sats')}
+					</span>
+				</label>
+				<div class="input input-bordered bg-base-200 cursor-not-allowed">
+					{invoiceAmount.toLocaleString()} {$t('wallet.sats')}
+					<span class="text-sm opacity-70 ml-2">({$t('wallet.swap.amount_from_invoice')})</span>
+				</div>
+				{#if amountError}
+					<div class="label">
+						<span class="label-text-alt text-error">{amountError}</span>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		<!-- Amount Input Field (shown for amountless invoices or non-Lightning networks) -->
 		{#if (showAmountField && selectedNetwork === 'lightning-bitcoin') || selectedNetwork !== 'lightning-bitcoin'}
 			<div class="form-control">
 				<label class="label" for="amount">
@@ -909,19 +923,6 @@
 						<span class="label-text-alt text-error">{amountError}</span>
 					</div>
 				{/if}
-			</div>
-		{:else if selectedNetwork === 'lightning-bitcoin' && invoiceHasAmount && invoiceAmount !== null}
-			<!-- Display invoice amount as read-only -->
-			<div class="form-control">
-				<label class="label" for="invoice-amount">
-					<span class="label-text font-medium">
-						{$t('wallet.swap.amount_sats')}
-					</span>
-				</label>
-				<div class="input input-bordered bg-base-200">
-					{invoiceAmount.toLocaleString()} {$t('wallet.sats')}
-					<span class="text-sm opacity-70 ml-2">({$t('wallet.swap.amount_from_invoice')})</span>
-				</div>
 			</div>
 		{/if}
 
