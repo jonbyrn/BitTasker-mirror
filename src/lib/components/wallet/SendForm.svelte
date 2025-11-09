@@ -14,7 +14,8 @@
 	import {
 		parseLightningInvoice,
 		isLightningInvoice,
-		isLightningAddress
+		isLightningAddress,
+		isBolt12Invoice
 	} from '$lib/utils/helpers/lightningInvoice';
 
 	// Extended asset type that includes Lightning Bitcoin
@@ -55,7 +56,7 @@
 	// Lightning invoice parsing state
 	let invoiceAmount = $state<number | null>(null);
 	let invoiceHasAmount = $state(false);
-	let showAmountField = $state(false);
+	let showAmountField = $state(false); // Start hidden until address is entered
 	let isParsingInvoice = $state(false);
 
 	// Asset options (Bitcoin and USD)
@@ -373,12 +374,23 @@
 		} else if (currentNetwork === 'lightning-bitcoin') {
 			addressValidation = validateLightningAddress(recipientAddress);
 			
-			// Debounce invoice parsing to avoid overwriting user input
-			isParsingInvoice = true;
-			invoiceParseTimeout = setTimeout(() => {
-				// Parse Lightning invoice if it's an invoice
-				if (isLightningInvoice(recipientAddress)) {
+			// Parse invoice immediately (no debounce needed since we're not overwriting user input)
+			// Check if it's a Lightning invoice (BOLT11 or BOLT12)
+			if (isLightningInvoice(recipientAddress)) {
+				// Check if it's BOLT12 (offers are always amountless - payer chooses amount)
+				if (isBolt12Invoice(recipientAddress)) {
+					// BOLT12 offers - always show amount field (payer chooses amount)
+					showAmountField = true;
+					invoiceAmount = null;
+					invoiceHasAmount = false;
+					// Don't clear amount if user has entered one
+					if (!amount) {
+						amount = '';
+					}
+				} else {
+					// BOLT11 invoice - parse using bolt11 library
 					const parsed = parseLightningInvoice(recipientAddress);
+					
 					if (parsed.isValid) {
 						invoiceHasAmount = parsed.hasAmount;
 						invoiceAmount = parsed.amountSats;
@@ -390,7 +402,7 @@
 							// Validate the invoice amount
 							validateAmount(parsed.amountSats);
 						} else {
-							// Amountless invoice - show amount field
+							// Amountless BOLT11 invoice - show amount field
 							showAmountField = true;
 							// Don't clear amount if user has entered one
 							if (!amount) {
@@ -398,23 +410,23 @@
 							}
 						}
 					} else {
+						// Invalid BOLT11 invoice
 						showAmountField = false;
 						invoiceAmount = null;
 						invoiceHasAmount = false;
 						amountError = null;
 					}
-				} else if (isLightningAddress(recipientAddress)) {
-					// Lightning address (email format) - show amount field
-					showAmountField = true;
-					invoiceAmount = null;
-					invoiceHasAmount = false;
-				} else {
-					showAmountField = false;
-					invoiceAmount = null;
-					invoiceHasAmount = false;
 				}
-				isParsingInvoice = false;
-			}, 300); // 300ms debounce for invoice parsing
+			} else if (isLightningAddress(recipientAddress)) {
+				// Lightning address (email format) - show amount field
+				showAmountField = true;
+				invoiceAmount = null;
+				invoiceHasAmount = false;
+			} else {
+				showAmountField = false;
+				invoiceAmount = null;
+				invoiceHasAmount = false;
+			}
 		} else if (currentNetwork === 'bitcoin') {
 			addressValidation = validateBitcoinAddress(recipientAddress);
 			showAmountField = true;

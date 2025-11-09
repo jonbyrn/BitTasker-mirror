@@ -1,8 +1,40 @@
-import { bech32 } from 'bech32';
+import { decode as decodeBolt11 } from 'bolt11';
 
 /**
- * Parse BOLT11 Lightning invoice and extract amount
- * @param invoice - The Lightning invoice string (starts with "ln")
+ * Detect Lightning invoice type (BOLT11 or BOLT12)
+ * @param input - The input string to check
+ * @returns 'bolt11' | 'bolt12' | 'lightning-address' | 'unknown'
+ */
+export function detectLightningType(input: string): 'bolt11' | 'bolt12' | 'lightning-address' | 'unknown' {
+	if (!input || typeof input !== 'string') {
+		return 'unknown';
+	}
+
+	const lowerInput = input.toLowerCase().trim();
+
+	// Check for Lightning address (email format) first
+	if (isLightningAddress(lowerInput)) {
+		return 'lightning-address';
+	}
+
+	// Check for BOLT12 prefixes (must come before BOLT11 check)
+	// BOLT12 uses: lno (offer), lnr (invoice request), lni (invoice)
+	if (lowerInput.startsWith('lno') || lowerInput.startsWith('lnr') || lowerInput.startsWith('lni')) {
+		return 'bolt12';
+	}
+
+	// Check for BOLT11 prefixes
+	// BOLT11 uses: lnbc (mainnet), lntb (testnet), lnbcrt (regtest), or just ln
+	if (lowerInput.startsWith('lnbc') || lowerInput.startsWith('lntb') || lowerInput.startsWith('lnbcrt') || lowerInput.startsWith('ln')) {
+		return 'bolt11';
+	}
+
+	return 'unknown';
+}
+
+/**
+ * Parse BOLT11 Lightning invoice and extract amount using bolt11 library
+ * @param invoice - The BOLT11 Lightning invoice string
  * @returns Object with amount in satoshis (if present) and whether invoice is valid
  */
 export function parseLightningInvoice(invoice: string): {
@@ -10,76 +42,74 @@ export function parseLightningInvoice(invoice: string): {
 	amountSats: number | null;
 	hasAmount: boolean;
 } {
-	if (!invoice || !invoice.toLowerCase().startsWith('ln')) {
+	if (!invoice || typeof invoice !== 'string') {
+		return { isValid: false, amountSats: null, hasAmount: false };
+	}
+
+	// First check if it's actually BOLT11 (not BOLT12)
+	const type = detectLightningType(invoice);
+	if (type !== 'bolt11') {
 		return { isValid: false, amountSats: null, hasAmount: false };
 	}
 
 	try {
-		// BOLT11 invoice format: ln[bc|tb|bcrt][munp]?[0-9]+[a-z0-9]+
-		// The amount is encoded in the characters after the prefix
-		// If there's a multiplier (m, u, n, p) followed by digits, it has an amount
-		// If it goes directly to alphanumeric, it's amountless
-		
-		const lowerInvoice = invoice.toLowerCase();
-		
-		// Match the prefix and amount part
-		// Prefix can be: lnbc (mainnet), lntb (testnet), lnbcrt (regtest), or just ln
-		// After prefix: optional multiplier (m, u, n, p) followed by digits
-		// IMPORTANT: Check longer prefixes first to avoid matching "ln" before "lnbc"
-		const prefixMatch = lowerInvoice.match(/^(lnbc|lntb|lnbcrt|ln)([munp]?)(\d+)?/);
-		
-		if (!prefixMatch) {
-			return { isValid: false, amountSats: null, hasAmount: false };
+		// Use bolt11 library to decode the invoice
+		const decoded = decodeBolt11(invoice);
+
+		// Extract amount from decoded invoice
+		// bolt11 returns amount in satoshis (decoded.satoshis) or millisatoshis (decoded.millisatoshis)
+		let amountSats: number | null = null;
+		let hasAmount = false;
+
+		if (decoded.satoshis !== null && decoded.satoshis !== undefined) {
+			// Amount is in satoshis
+			amountSats = decoded.satoshis;
+			hasAmount = true;
+		} else if (decoded.millisatoshis !== null && decoded.millisatoshis !== undefined) {
+			// Amount is in millisatoshis, convert to satoshis
+			amountSats = Math.floor(decoded.millisatoshis / 1000);
+			hasAmount = true;
 		}
-		
-		const multiplierChar = prefixMatch[2];
-		const amountStr = prefixMatch[3];
-		
-		// Amount multiplier encoding (BOLT11 spec)
-		const multipliers: Record<string, number> = {
-			'm': 0.001,  // milli
-			'u': 0.000001, // micro
-			'n': 0.000000001, // nano
-			'p': 0.000000000001 // pico
-		};
-		
-		// If there's a multiplier character followed by digits, the invoice has an amount
-		if (multiplierChar && amountStr) {
-			const multiplier = multipliers[multiplierChar] || 1;
-			const amountNum = parseInt(amountStr, 10);
-			if (isNaN(amountNum) || amountNum <= 0) {
-				return { isValid: false, amountSats: null, hasAmount: false };
-			}
-			const amountSats = Math.floor(amountNum * multiplier * 100_000_000);
-			return { isValid: true, amountSats, hasAmount: true };
-		}
-		
-		// If there's a number but no multiplier, check if it's a valid format
-		// Actually, BOLT11 requires a multiplier if there's an amount
-		// So if there's a number without multiplier, it might be invalid
-		// But let's be lenient and check if it's a valid bech32 string
-		
-		// No amount found - this is an amountless invoice
-		// Verify it's a valid bech32 string
-		// Use a more reasonable limit (BOLT11 invoices are typically 200-500 chars)
-		try {
-			bech32.decode(lowerInvoice, 10000);
-			return { isValid: true, amountSats: null, hasAmount: false };
-		} catch (decodeError) {
-			// If bech32 decode fails, the invoice is invalid
-			return { isValid: false, amountSats: null, hasAmount: false };
-		}
+
+		// Invoice is valid if decode succeeded
+		return { isValid: true, amountSats, hasAmount };
 	} catch (error) {
-		console.error('Failed to parse Lightning invoice:', error);
+		// bolt11.decode() throws on invalid invoices
+		console.error('Failed to decode BOLT11 invoice:', error);
 		return { isValid: false, amountSats: null, hasAmount: false };
 	}
 }
 
 /**
- * Check if input is a Lightning invoice (BOLT11)
+ * Check if input is a Lightning invoice (BOLT11 or BOLT12)
+ * @param input - The input string to check
+ * @returns true if input is a Lightning invoice (BOLT11 or BOLT12)
  */
 export function isLightningInvoice(input: string): boolean {
-	return input?.toLowerCase().startsWith('ln') ?? false;
+	if (!input || typeof input !== 'string') {
+		return false;
+	}
+
+	const type = detectLightningType(input);
+	return type === 'bolt11' || type === 'bolt12';
+}
+
+/**
+ * Check if input is a BOLT11 invoice specifically
+ * @param input - The input string to check
+ * @returns true if input is a BOLT11 invoice
+ */
+export function isBolt11Invoice(input: string): boolean {
+	return detectLightningType(input) === 'bolt11';
+}
+
+/**
+ * Check if input is a BOLT12 offer/invoice
+ * @param input - The input string to check
+ * @returns true if input is a BOLT12 offer/invoice
+ */
+export function isBolt12Invoice(input: string): boolean {
+	return detectLightningType(input) === 'bolt12';
 }
 
 /**
