@@ -569,8 +569,10 @@
 				}
 				
 				// Convert sats to BTC for sendRBTC
+				// Use toFixed to avoid scientific notation and ensure proper decimal formatting
 				const amountInBTC = amountInSats / 100_000_000;
-				await walletManager.sendRBTC(addressStr, amountInBTC.toString());
+				const amountStr = amountInBTC.toFixed(8).replace(/\.?0+$/, ''); // Remove trailing zeros
+				await walletManager.sendRBTC(addressStr, amountStr);
 			} else if (selectedNetwork === 'liquid-bitcoin' || selectedNetwork === 'bitcoin') {
 				throw new Error('Liquid and Bitcoin transactions not yet implemented');
 			} else if (selectedNetwork === 'lightning-bitcoin') {
@@ -608,7 +610,7 @@
 
 <div class="space-y-6">
 	{#if errorMessage}
-		<div class="alert alert-error">
+		<div class="alert alert-outline alert-error">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -1011,7 +1013,7 @@
 
 		<!-- Fee Estimate -->
 		{#if feeEstimate !== null}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
