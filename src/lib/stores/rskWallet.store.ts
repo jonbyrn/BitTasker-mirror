@@ -121,95 +121,19 @@ async function sendRBTC(to: string, amount: string, gasLimit?: string): Promise<
         throw new Error('Wallet not initialized');
     }
 
-    // Ensure wallet.address is a string (defensive check)
-    if (!wallet.address || typeof wallet.address !== 'string') {
-        throw new Error('Wallet address is invalid or not available');
-    }
-
     try {
-        // Validate and normalize recipient address
-        // Convert to string first to handle cases where it might be null, undefined, or other types
-        const addressStr = String(to || '').trim();
-        if (!addressStr || !ethers.isAddress(addressStr)) {
-            throw new Error(`Invalid recipient address: ${to}`);
-        }
-        // Normalize address and ensure it's a plain string (not an Address type)
-        // Use getAddress to normalize, then explicitly convert to string
-        const normalizedAddressRaw = ethers.getAddress(addressStr);
-        const normalizedAddress = typeof normalizedAddressRaw === 'string' 
-            ? normalizedAddressRaw 
-            : String(normalizedAddressRaw);
-        
-        // Final validation - ensure it's definitely a string
-        if (typeof normalizedAddress !== 'string' || normalizedAddress.length !== 42) {
-            throw new Error(`Address normalization failed: ${normalizedAddress}`);
-        }
-
-        // Validate amount format
-        const amountStr = String(amount || '').trim();
-        if (!amountStr || isNaN(parseFloat(amountStr)) || parseFloat(amountStr) <= 0) {
-            throw new Error(`Invalid amount: ${amount}`);
-        }
-
-        // Parse amount to wei
-        let amountWei: bigint;
-        try {
-            amountWei = ethers.parseEther(amountStr);
-        } catch (parseError) {
-            throw new Error(`Invalid amount format: ${amount}. Amount must be a valid number.`);
-        }
-
-        // Ensure wallet.address is a string for validation and transaction
-        const walletAddress = String(wallet.address || '');
-        if (!walletAddress || typeof walletAddress !== 'string') {
-            throw new Error('Invalid wallet address');
-        }
-
-        // Check if sending to self (optional validation)
-        if (normalizedAddress.toLowerCase() === walletAddress.toLowerCase()) {
-            throw new Error('Cannot send to your own address');
-        }
-
-        // Use walletAddress as fromAddress
-        const fromAddress = walletAddress;
-
-        // Ensure all transaction parameters are properly typed before sending
-        // Create a completely fresh plain object to avoid any prototype issues
-        // Don't pass 'from' - let ethers.js get it from the wallet object
-        const txParamsBase: {
-            to: string;
-            value: bigint;
-            gasLimit?: bigint;
-        } = {
-            to: String(normalizedAddress),
-            value: BigInt(amountWei)
-        };
-        
-        if (gasLimit) {
-            txParamsBase.gasLimit = BigInt(String(gasLimit));
-        }
-
-        // Create a plain object copy to avoid prototype issues
-        const txParams = Object.assign({}, txParamsBase);
-
-        // Double-check that to address is definitely a string before sending
-        if (typeof txParams.to !== 'string' || !txParams.to) {
-            throw new Error(`Invalid to address type: ${typeof txParams.to}, value: ${txParams.to}`);
-        }
-
-        // Ensure value is a bigint
-        if (typeof txParams.value !== 'bigint') {
-            throw new Error(`Invalid value type: ${typeof txParams.value}`);
-        }
-
-        const tx = await wallet.sendTransaction(txParams);
+        const tx = await wallet.sendTransaction({
+            to,
+            value: ethers.parseEther(amount),
+            gasLimit: gasLimit ? BigInt(gasLimit) : undefined
+        });
 
         // Add to pending transactions
         const pendingTx: RSKTransaction = {
             hash: tx.hash,
-            from: fromAddress,
-            to: normalizedAddress,
-            value: amountWei.toString(),
+            from: wallet.address,
+            to,
+            value: ethers.parseEther(amount).toString(),
             gasUsed: '0',
             gasPrice: tx.gasPrice?.toString() || '0',
             blockNumber: 0,
@@ -223,13 +147,8 @@ async function sendRBTC(to: string, amount: string, gasLimit?: string): Promise<
             pendingTransactions: [...state.pendingTransactions, pendingTx]
         }));
 
-        // Wait for confirmation with timeout (2 minutes)
-        const receipt = await Promise.race([
-            tx.wait(),
-            new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('Transaction confirmation timeout')), 120000)
-            )
-        ]);
+        // Wait for confirmation
+        const receipt = await tx.wait();
 
         // Update transaction status
         updateTransactionStatus(tx.hash, receipt);
@@ -237,10 +156,6 @@ async function sendRBTC(to: string, amount: string, gasLimit?: string): Promise<
         return tx.hash;
 
     } catch (error) {
-        // Re-throw with better error message
-        if (error instanceof Error && error.message.includes('timeout')) {
-            throw new Error('Transaction confirmation timeout. The transaction may still be processing.');
-        }
         throw new Error(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
@@ -252,31 +167,10 @@ async function estimateGas(to: string, amount: string): Promise<{ gasLimit: stri
     }
 
     try {
-        // Validate and normalize recipient address
-        const addressStr = String(to || '').trim();
-        if (!addressStr || !ethers.isAddress(addressStr)) {
-            throw new Error(`Invalid recipient address: ${to}`);
-        }
-        const normalizedAddress = ethers.getAddress(addressStr);
-
-        // Validate amount format
-        const amountStr = String(amount || '').trim();
-        if (!amountStr || isNaN(parseFloat(amountStr)) || parseFloat(amountStr) <= 0) {
-            throw new Error(`Invalid amount: ${amount}`);
-        }
-
-        // Parse amount to wei
-        let amountWei: bigint;
-        try {
-            amountWei = ethers.parseEther(amountStr);
-        } catch (parseError) {
-            throw new Error(`Invalid amount format: ${amount}. Amount must be a valid number.`);
-        }
-
         const gasPrice = await provider.getFeeData();
         const gasLimit = await wallet.estimateGas({
-            to: normalizedAddress,
-            value: amountWei
+            to,
+            value: ethers.parseEther(amount)
         });
 
         const totalCost = gasLimit * (gasPrice.gasPrice || BigInt(0));

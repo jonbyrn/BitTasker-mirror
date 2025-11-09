@@ -94,6 +94,24 @@ export function validateUsername(username: string): ValidationResult {
  * Checks for valid hex format and proper length (42 characters including 0x prefix)
  */
 export function validateRSKAddress(address: string): ValidationResult {
+	// DIAGNOSTIC LOG: Log validation entry
+	console.log('[validators] validateRSKAddress called');
+	console.log('[validators] address parameter type:', typeof address);
+	console.log('[validators] address parameter value:', address);
+	console.log('[validators] address is null?', address === null);
+	console.log('[validators] address is undefined?', address === undefined);
+	console.log('[validators] address constructor:', address?.constructor?.name);
+	
+	// Ensure address is a string
+	if (typeof address !== 'string') {
+		console.error('[validators] ERROR: address is not a string!', {
+			type: typeof address,
+			value: address,
+			constructor: address?.constructor?.name
+		});
+		return { isValid: false, error: `Invalid address type: expected string, got ${typeof address}` };
+	}
+	
 	if (!address) {
 		return { isValid: false, error: 'Address is required' };
 	}

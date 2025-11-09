@@ -794,89 +794,66 @@ export async function loadRbtcExchangeRate(): Promise<void> {
  * Send RSK transaction
  */
 export async function sendRBTC(to: string, amount: string): Promise<string> {
+	// DIAGNOSTIC LOG: Log function entry and parameters
+	console.log('[wallet.store] sendRBTC called');
+	console.log('[wallet.store] to parameter type:', typeof to);
+	console.log('[wallet.store] to parameter value:', to);
+	console.log('[wallet.store] to is null?', to === null);
+	console.log('[wallet.store] to is undefined?', to === undefined);
+	console.log('[wallet.store] to constructor:', to?.constructor?.name);
+	console.log('[wallet.store] amount parameter type:', typeof amount);
+	console.log('[wallet.store] amount parameter value:', amount);
+	console.log('[wallet.store] amount is null?', amount === null);
+	console.log('[wallet.store] amount is undefined?', amount === undefined);
+	console.log('[wallet.store] amount constructor:', amount?.constructor?.name);
+	
+	// Validate parameters are strings
+	if (typeof to !== 'string') {
+		console.error('[wallet.store] ERROR: to parameter is not a string!', {
+			type: typeof to,
+			value: to,
+			constructor: to?.constructor?.name
+		});
+		throw new Error(`Invalid 'to' parameter: expected string, got ${typeof to}`);
+	}
+	
+	if (typeof amount !== 'string') {
+		console.error('[wallet.store] ERROR: amount parameter is not a string!', {
+			type: typeof amount,
+			value: amount,
+			constructor: amount?.constructor?.name
+		});
+		throw new Error(`Invalid 'amount' parameter: expected string, got ${typeof amount}`);
+	}
+	
 	const state = get(walletStore);
+	console.log('[wallet.store] RSK connected?', state.rsk.connected);
+	console.log('[wallet.store] RSK wallet exists?', !!state.rsk.wallet);
+	
 	if (!state.rsk.connected || !state.rsk.wallet) {
 		throw new Error('RSK wallet not connected');
 	}
 
-	// Ensure wallet.address is a string (defensive check)
-	if (!state.rsk.wallet.address || typeof state.rsk.wallet.address !== 'string') {
-		throw new Error('Wallet address is invalid or not available');
-	}
-
 	try {
-		// Validate and normalize recipient address
-		// Convert to string first to handle cases where it might be null, undefined, or other types
-		const addressStr = String(to || '').trim();
-		if (!addressStr || !ethers.isAddress(addressStr)) {
-			throw new Error(`Invalid recipient address: ${to}`);
-		}
-		// Normalize address and ensure it's a plain string (not an Address type)
-		// Use getAddress to normalize, then explicitly convert to string
-		const normalizedAddressRaw = ethers.getAddress(addressStr);
-		const normalizedAddress = typeof normalizedAddressRaw === 'string' 
-			? normalizedAddressRaw 
-			: String(normalizedAddressRaw);
-		
-		// Final validation - ensure it's definitely a string
-		if (typeof normalizedAddress !== 'string' || normalizedAddress.length !== 42) {
-			throw new Error(`Address normalization failed: ${normalizedAddress}`);
-		}
-
-		// Validate amount format
-		const amountStr = String(amount || '').trim();
-		if (!amountStr || isNaN(parseFloat(amountStr)) || parseFloat(amountStr) <= 0) {
-			throw new Error(`Invalid amount: ${amount}`);
-		}
-
-		// Parse amount to wei
-		let amountWei: bigint;
-		try {
-			amountWei = ethers.parseEther(amountStr);
-		} catch (parseError) {
-			throw new Error(`Invalid amount format: ${amount}. Amount must be a valid number.`);
-		}
-
-		// Ensure wallet.address is a string for validation and transaction
-		const walletAddress = String(state.rsk.wallet.address || '');
-		if (!walletAddress || typeof walletAddress !== 'string') {
-			throw new Error('Invalid wallet address');
-		}
-
-		// Check if sending to self (optional validation)
-		if (normalizedAddress.toLowerCase() === walletAddress.toLowerCase()) {
-			throw new Error('Cannot send to your own address');
-		}
-
-		// Use walletAddress as fromAddress
-		const fromAddress = walletAddress;
-
-		// Ensure all transaction parameters are properly typed before sending
-		// Create a completely fresh plain object to avoid any prototype issues
-		// Don't pass 'from' - let ethers.js get it from the wallet object
-		const txParams = Object.assign({}, {
-			to: String(normalizedAddress),
-			value: BigInt(amountWei)
+		console.log('[wallet.store] Preparing transaction with:', {
+			to: to.trim(),
+			amount: amount.trim(),
+			parsedAmount: ethers.parseEther(amount.trim()).toString()
 		});
-
-		// Double-check that to address is definitely a string before sending
-		if (typeof txParams.to !== 'string' || !txParams.to) {
-			throw new Error(`Invalid to address type: ${typeof txParams.to}, value: ${txParams.to}`);
-		}
-
-		// Ensure value is a bigint
-		if (typeof txParams.value !== 'bigint') {
-			throw new Error(`Invalid value type: ${typeof txParams.value}`);
-		}
-
-		const tx = await state.rsk.wallet.sendTransaction(txParams);
+		
+		const tx = await state.rsk.wallet.sendTransaction({
+			to: to.trim(),
+			value: ethers.parseEther(amount.trim())
+		});
+		
+		console.log('[wallet.store] Transaction sent, hash:', tx.hash);
 
 		// Add to pending transactions in the store
 		const pendingTx: Transaction = {
 			hash: tx.hash,
-			from: fromAddress,
-			to: normalizedAddress,
-			value: amountWei.toString(),
+			from: state.rsk.wallet.address,
+			to,
+			value: ethers.parseEther(amount).toString(),
 			gasUsed: '0',
 			gasPrice: tx.gasPrice?.toString() || '0',
 			blockNumber: 0,
@@ -892,13 +869,8 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 			transactions: [pendingTx, ...storeState.transactions]
 		}));
 
-		// Wait for confirmation with timeout (2 minutes)
-		const receipt = await Promise.race([
-			tx.wait(),
-			new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error('Transaction confirmation timeout')), 120000)
-			)
-		]);
+		// Wait for confirmation
+		const receipt = await tx.wait();
 
 		// Update transaction status
 		updateTransactionStatus('rsk', tx.hash, receipt);
@@ -909,10 +881,13 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 
 		return tx.hash;
 	} catch (error) {
-		// Re-throw with better error message
-		if (error instanceof Error && error.message.includes('timeout')) {
-			throw new Error('Transaction confirmation timeout. The transaction may still be processing.');
-		}
+		// DIAGNOSTIC LOG: Enhanced error logging
+		console.error('[wallet.store] sendRBTC error:', error);
+		console.error('[wallet.store] Error type:', typeof error);
+		console.error('[wallet.store] Error constructor:', error?.constructor?.name);
+		console.error('[wallet.store] Error message:', error instanceof Error ? error.message : String(error));
+		console.error('[wallet.store] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+		console.error('[wallet.store] Full error object:', error);
 		throw new Error(
 			`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
 		);

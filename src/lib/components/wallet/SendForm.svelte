@@ -347,9 +347,29 @@
 
 	// Validate address in real-time based on selected network and parse Lightning invoices
 	$effect(() => {
-		// Ensure recipientAddress is a string before calling .trim()
-		const currentAddress = String(recipientAddress || '').trim();
+		// DIAGNOSTIC LOG: Log recipientAddress type and value before trim
+		console.log('[SendForm] Address validation effect triggered');
+		console.log('[SendForm] recipientAddress type:', typeof recipientAddress);
+		console.log('[SendForm] recipientAddress value:', recipientAddress);
+		console.log('[SendForm] recipientAddress is null?', recipientAddress === null);
+		console.log('[SendForm] recipientAddress is undefined?', recipientAddress === undefined);
+		console.log('[SendForm] recipientAddress constructor:', recipientAddress?.constructor?.name);
+		
+		// Guard against non-string values
+		if (typeof recipientAddress !== 'string' && recipientAddress != null) {
+			const nonStringAddress = recipientAddress as unknown;
+			console.error('[SendForm] ERROR: recipientAddress is not a string!', {
+				type: typeof recipientAddress,
+				value: recipientAddress,
+				constructor: (nonStringAddress as any)?.constructor?.name
+			});
+		}
+		
+		const currentAddress = typeof recipientAddress === 'string' ? recipientAddress.trim() : '';
 		const currentNetwork = selectedNetwork;
+		
+		console.log('[SendForm] currentAddress after trim:', currentAddress);
+		console.log('[SendForm] currentNetwork:', currentNetwork);
 
 		// Clear invoice parsing timeout if it exists
 		if (invoiceParseTimeout) {
@@ -368,14 +388,27 @@
 		}
 
 		if (currentNetwork === 'rootstock-bitcoin') {
+			// DIAGNOSTIC LOG: Log before validation
+			console.log('[SendForm] Validating RSK address');
+			console.log('[SendForm] recipientAddress for validation type:', typeof recipientAddress);
+			console.log('[SendForm] recipientAddress for validation value:', recipientAddress);
+			
 			// Ensure recipientAddress is a string before validation
-			const addressStr = String(recipientAddress || '').trim();
-			addressValidation = validateRSKAddress(addressStr);
+			const addressForValidation = typeof recipientAddress === 'string' 
+				? recipientAddress 
+				: String(recipientAddress || '');
+			
+			console.log('[SendForm] addressForValidation:', addressForValidation);
+			addressValidation = validateRSKAddress(addressForValidation);
 			showAmountField = true;
 			invoiceAmount = null;
 			invoiceHasAmount = false;
 		} else if (currentNetwork === 'lightning-bitcoin') {
-			addressValidation = validateLightningAddress(recipientAddress);
+			// Ensure recipientAddress is a string before validation
+			const addressForValidation = typeof recipientAddress === 'string' 
+				? recipientAddress 
+				: String(recipientAddress || '');
+			addressValidation = validateLightningAddress(addressForValidation);
 			
 			// Parse invoice immediately (no debounce needed since we're not overwriting user input)
 			// Check if it's a Lightning invoice (BOLT11 or BOLT12)
@@ -431,13 +464,21 @@
 				invoiceHasAmount = false;
 			}
 		} else if (currentNetwork === 'bitcoin') {
-			addressValidation = validateBitcoinAddress(recipientAddress);
+			// Ensure recipientAddress is a string before validation
+			const addressForValidation = typeof recipientAddress === 'string' 
+				? recipientAddress 
+				: String(recipientAddress || '');
+			addressValidation = validateBitcoinAddress(addressForValidation);
 			showAmountField = true;
 			invoiceAmount = null;
 			invoiceHasAmount = false;
 		} else if (currentNetwork === 'liquid-bitcoin' || currentNetwork === 'liquid-usdt') {
 			// Liquid uses similar address format to Bitcoin
-			addressValidation = validateBitcoinAddress(recipientAddress);
+			// Ensure recipientAddress is a string before validation
+			const addressForValidation = typeof recipientAddress === 'string' 
+				? recipientAddress 
+				: String(recipientAddress || '');
+			addressValidation = validateBitcoinAddress(addressForValidation);
 			showAmountField = true;
 			invoiceAmount = null;
 			invoiceHasAmount = false;
@@ -522,9 +563,22 @@
 
 	// Enhanced form validation - updated to work with sats
 	let isFormValid = $derived(() => {
-		// Ensure recipientAddress is a string before calling .trim()
-		const addressStr = String(recipientAddress || '').trim();
-		if (!addressStr || !addressValidation.isValid || !currentAsset()) {
+		// DIAGNOSTIC LOG: Log validation check
+		console.log('[SendForm] isFormValid check');
+		console.log('[SendForm] recipientAddress type:', typeof recipientAddress);
+		console.log('[SendForm] recipientAddress value:', recipientAddress);
+		console.log('[SendForm] recipientAddress?.trim() result:', typeof recipientAddress === 'string' ? recipientAddress.trim() : 'N/A (not a string)');
+		
+		const recipientAddressTrimmed = typeof recipientAddress === 'string' 
+			? recipientAddress.trim() 
+			: '';
+		
+		if (!recipientAddressTrimmed || !addressValidation.isValid || !currentAsset()) {
+			console.log('[SendForm] isFormValid: false - reasons:', {
+				hasAddress: !!recipientAddressTrimmed,
+				addressValid: addressValidation.isValid,
+				hasAsset: !!currentAsset()
+			});
 			return false;
 		}
 		
@@ -561,18 +615,44 @@
 		errorMessage = null;
 
 		try {
+			// DIAGNOSTIC LOG: Log all values before sending
+			console.log('[SendForm] handleSend called');
+			console.log('[SendForm] selectedNetwork:', selectedNetwork);
+			console.log('[SendForm] recipientAddress type:', typeof recipientAddress);
+			console.log('[SendForm] recipientAddress value:', recipientAddress);
+			console.log('[SendForm] recipientAddress is null?', recipientAddress === null);
+			console.log('[SendForm] recipientAddress is undefined?', recipientAddress === undefined);
+			console.log('[SendForm] amount type:', typeof amount);
+			console.log('[SendForm] amount value:', amount);
+			console.log('[SendForm] amountInSats:', amountInSats);
+			console.log('[SendForm] currentAsset():', currentAsset());
+			console.log('[SendForm] isFormValid:', isFormValid);
+			
 			if (selectedNetwork === 'rootstock-bitcoin') {
-				// Ensure recipientAddress is a valid string before sending
-				const addressStr = String(recipientAddress || '').trim();
-				if (!addressStr) {
-					throw new Error('Recipient address is required');
-				}
-				
 				// Convert sats to BTC for sendRBTC
-				// Use toFixed to avoid scientific notation and ensure proper decimal formatting
 				const amountInBTC = amountInSats / 100_000_000;
-				const amountStr = amountInBTC.toFixed(8).replace(/\.?0+$/, ''); // Remove trailing zeros
-				await walletManager.sendRBTC(addressStr, amountStr);
+				const amountInBTCString = amountInBTC.toString();
+				
+				console.log('[SendForm] Rootstock send - amountInBTC:', amountInBTC);
+				console.log('[SendForm] Rootstock send - amountInBTCString:', amountInBTCString);
+				console.log('[SendForm] Rootstock send - amountInBTCString type:', typeof amountInBTCString);
+				console.log('[SendForm] Rootstock send - recipientAddress type:', typeof recipientAddress);
+				console.log('[SendForm] Rootstock send - recipientAddress value:', recipientAddress);
+				
+				// Ensure recipientAddress is a string
+				const recipientAddressString = typeof recipientAddress === 'string' 
+					? recipientAddress 
+					: String(recipientAddress || '');
+				
+				console.log('[SendForm] Rootstock send - recipientAddressString:', recipientAddressString);
+				console.log('[SendForm] Rootstock send - calling walletManager.sendRBTC with:', {
+					to: recipientAddressString,
+					amount: amountInBTCString,
+					toType: typeof recipientAddressString,
+					amountType: typeof amountInBTCString
+				});
+				
+				await walletManager.sendRBTC(recipientAddressString, amountInBTCString);
 			} else if (selectedNetwork === 'liquid-bitcoin' || selectedNetwork === 'bitcoin') {
 				throw new Error('Liquid and Bitcoin transactions not yet implemented');
 			} else if (selectedNetwork === 'lightning-bitcoin') {
@@ -587,7 +667,13 @@
 			description = '';
 			appStore.showSuccessToast($t('wallet.send.transaction_sent'));
 		} catch (error) {
-			console.error('Send transaction error:', error);
+			// DIAGNOSTIC LOG: Enhanced error logging
+			console.error('[SendForm] Send transaction error:', error);
+			console.error('[SendForm] Error type:', typeof error);
+			console.error('[SendForm] Error constructor:', error?.constructor?.name);
+			console.error('[SendForm] Error message:', error instanceof Error ? error.message : String(error));
+			console.error('[SendForm] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+			console.error('[SendForm] Full error object:', error);
 			errorMessage = error instanceof Error ? error.message : $t('wallet.send.transaction_failed');
 		} finally {
 			isLoading = false;
@@ -610,7 +696,7 @@
 
 <div class="space-y-6">
 	{#if errorMessage}
-		<div class="alert alert-outline alert-error">
+		<div class="alert alert-error">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -860,12 +946,12 @@
 								? $t('wallet.send_form.address_placeholder.liquid_usdt')
 								: $t('wallet.send_form.address_placeholder.rootstock')}
 				class="input input-bordered w-full {!addressValidation.isValid &&
-				String(recipientAddress || '').trim() !== ''
+				(typeof recipientAddress === 'string' ? recipientAddress.trim() : '') !== ''
 					? 'input-error'
 					: ''}"
 				disabled={isLoading}
 			/>
-			{#if !addressValidation.isValid && String(recipientAddress || '').trim() !== ''}
+			{#if !addressValidation.isValid && (typeof recipientAddress === 'string' ? recipientAddress.trim() : '') !== ''}
 				<div class="label">
 					<span class="label-text-alt text-error">{addressValidation.error}</span>
 				</div>
@@ -1013,7 +1099,7 @@
 
 		<!-- Fee Estimate -->
 		{#if feeEstimate !== null}
-			<div class="alert alert-outline alert-info">
+			<div class="alert alert-info">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
