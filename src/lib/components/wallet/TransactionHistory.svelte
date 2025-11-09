@@ -187,13 +187,24 @@
 		}
 	}
 
-	function formatTimestamp(timestamp: number): string {
+	function formatDate(timestamp: number): string {
 		try {
 			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
 			const date = new Date(timestamp);
 			return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 		} catch (error) {
-			console.error('Error formatting timestamp:', error);
+			console.error('Error formatting date:', error);
+			return '';
+		}
+	}
+
+	function formatTime(timestamp: number): string {
+		try {
+			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
+			const date = new Date(timestamp);
+			return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+		} catch (error) {
+			console.error('Error formatting time:', error);
 			return '';
 		}
 	}
@@ -424,9 +435,9 @@
 									</div>
 									<div class="flex items-center justify-center w-10 h-10 rounded-full bg-base-300/20">
 										{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-											<img src={getNetworkIcon(tx.network || 'rsk')} alt={getNetworkDisplayName(tx.network || 'rsk')} class="w-5 h-5" />
+											<img src={getNetworkIcon(tx.network || 'rsk')} alt={getNetworkDisplayName(tx.network || 'rsk')} class="w-10 h-10" />
 										{:else}
-											<span class="text-lg">{getNetworkIcon(tx.network || 'rsk')}</span>
+											<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
 										{/if}
 									</div>
 								</div>
@@ -450,7 +461,8 @@
 									</div>
 
 									<div class="text-sm opacity-70">
-										{formatTimestamp(tx.timestamp)}
+										<div>{formatDate(tx.timestamp)}</div>
+										<div>{formatTime(tx.timestamp)}</div>
 									</div>
 								</div>
 							</div>
@@ -501,9 +513,9 @@
 										</div>
 										<div class="flex items-center justify-center w-10 h-10 rounded-full bg-base-300/20">
 											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-												<img src={getNetworkIcon(tx.network || 'rsk')} alt={getNetworkDisplayName(tx.network || 'rsk')} class="w-5 h-5" />
+												<img src={getNetworkIcon(tx.network || 'rsk')} alt={getNetworkDisplayName(tx.network || 'rsk')} class="w-10 h-10" />
 											{:else}
-												<span class="text-lg">{getNetworkIcon(tx.network || 'rsk')}</span>
+												<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
 											{/if}
 										</div>
 									</div>
@@ -525,7 +537,8 @@
 											</div>
 										</div>
 										<div class="text-sm opacity-70">
-											{formatTimestamp(tx.timestamp)}
+											<div>{formatDate(tx.timestamp)}</div>
+											<div>{formatTime(tx.timestamp)}</div>
 										</div>
 									</div>
 								</div>

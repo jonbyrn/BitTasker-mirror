@@ -51,13 +51,24 @@
 		}
 	}
 
-	function formatTimestamp(timestamp: number): string {
+	function formatDate(timestamp: number): string {
 		try {
 			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
 			const date = new Date(timestamp);
 			return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 		} catch (error) {
-			console.error('Error formatting timestamp:', error);
+			console.error('Error formatting date:', error);
+			return '';
+		}
+	}
+
+	function formatTime(timestamp: number): string {
+		try {
+			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
+			const date = new Date(timestamp);
+			return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+		} catch (error) {
+			console.error('Error formatting time:', error);
 			return '';
 		}
 	}
@@ -185,7 +196,7 @@
 											<TypeIcon class="w-5 h-5" />
 										</div>
 										<div class="flex items-center justify-center w-10 h-10 rounded-full bg-base-300/20">
-											<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="w-5 h-5" />
+											<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="w-10 h-10" />
 										</div>
 									</div>
 									<div class="min-w-0 flex-1">
@@ -207,7 +218,8 @@
 										</div>
 
 										<div class="text-sm opacity-70">
-											{formatTimestamp(tx.timestamp)}
+											<div>{formatDate(tx.timestamp)}</div>
+											<div>{formatTime(tx.timestamp)}</div>
 										</div>
 									</div>
 								</div>
