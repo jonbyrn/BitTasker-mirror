@@ -928,31 +928,6 @@
 			</p>
 		</div>
 
-		<!-- Transaction Details -->
-		{#if escrowDetails.transactionResult}
-			<div class="bg-base-200 space-y-2 rounded-lg p-4">
-				<h4 class="font-semibold">{$t('dashboard.bids.bid_acceptance.transaction_details')}</h4>
-				<div class="space-y-1 text-sm">
-					<div class="flex flex-col gap-1 sm:flex-row sm:justify-between">
-						<span>{$t('dashboard.bids.bid_acceptance.transaction_hash')}</span>
-						<span class="font-mono text-xs break-all">{escrowDetails.transactionResult.hash}</span>
-					</div>
-					<div class="flex justify-between">
-						<span>{$t('dashboard.bids.bid_acceptance.status')}</span>
-						<span class="badge badge-info badge-sm capitalize"
-							>{escrowDetails.transactionResult.status}</span
-						>
-					</div>
-					{#if escrowDetails.transactionResult.escrowId}
-						<div class="flex justify-between">
-							<span>{$t('dashboard.bids.bid_acceptance.escrow_id')}</span>
-							<span class="font-bold">{escrowDetails.transactionResult.escrowId}</span>
-						</div>
-					{/if}
-				</div>
-			</div>
-		{/if}
-
 		<!-- Contract Creation Status -->
 		<div class="bg-base-200 rounded-lg p-4">
 			<h4 class="mb-3 font-semibold">
@@ -1004,8 +979,8 @@
 		</div>
 
 		<!-- Next Steps -->
-		<div class="bg-info/10 rounded-lg p-4">
-			<h4 class="text-info mb-2 font-semibold">
+		<div class="bg-base-200 rounded-lg p-4">
+			<h4 class="mb-2 font-semibold text-base-content">
 				{$t('dashboard.bids.bid_acceptance.what_happens_next_title')}
 			</h4>
 			<ul class="text-base-content/80 space-y-1 text-left text-sm">
