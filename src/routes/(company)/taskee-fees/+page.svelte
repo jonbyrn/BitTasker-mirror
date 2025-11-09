@@ -107,14 +107,27 @@
 						/>
 					</div>
 					<p class="text-sm">{$t('fees.tiers.1.criteria')}</p>
+					
+					<!-- Bitcoin Fees (Featured Above) -->
 					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
-								<div class="stat-title">{$t('fees.tiers.1.fee_label')}</div>
+								<div class="stat-title">{$t('fees.tiers.1.bitcoin.label')}</div>
+								<div class="stat-value text-primary">{$t('fees.tiers.1.bitcoin.rate')}</div>
+							</div>
+						</div>
+					</div>
+					
+					<!-- USDT Fees -->
+					<div class="my-4 flex justify-center">
+						<div class="stats shadow">
+							<div class="stat">
+								<div class="stat-title">{$t('fees.usdtLabel')}</div>
 								<div class="stat-value text-primary">{$t('fees.tiers.1.fee_rate')}</div>
 							</div>
 						</div>
 					</div>
+					
 					<div class="text-sm text-base-content/80">
 						<p>{$t('fees.tiers.1.example')}</p>
 					</div>
@@ -136,14 +149,27 @@
 						/>
 					</div>
 					<p class="text-sm">{$t('fees.tiers.2.criteria')}</p>
+					
+					<!-- Bitcoin Fees (Featured Above) -->
 					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
-								<div class="stat-title">{$t('fees.tiers.2.fee_label')}</div>
+								<div class="stat-title">{$t('fees.tiers.2.bitcoin.label')}</div>
+								<div class="stat-value text-primary">{$t('fees.tiers.2.bitcoin.rate')}</div>
+							</div>
+						</div>
+					</div>
+					
+					<!-- USDT Fees -->
+					<div class="my-4 flex justify-center">
+						<div class="stats shadow">
+							<div class="stat">
+								<div class="stat-title">{$t('fees.usdtLabel')}</div>
 								<div class="stat-value text-primary">{$t('fees.tiers.2.fee_rate')}</div>
 							</div>
 						</div>
 					</div>
+					
 					<div class="text-sm text-base-content/80">
 						<p>{$t('fees.tiers.2.example')}</p>
 					</div>
@@ -165,14 +191,27 @@
 						/>
 					</div>
 					<p class="text-sm">{$t('fees.tiers.3.criteria')}</p>
+					
+					<!-- Bitcoin Fees (Featured Above) -->
 					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
-								<div class="stat-title">{$t('fees.tiers.3.fee_label')}</div>
+								<div class="stat-title">{$t('fees.tiers.3.bitcoin.label')}</div>
+								<div class="stat-value text-primary">{$t('fees.tiers.3.bitcoin.rate')}</div>
+							</div>
+						</div>
+					</div>
+					
+					<!-- USDT Fees -->
+					<div class="my-4 flex justify-center">
+						<div class="stats shadow">
+							<div class="stat">
+								<div class="stat-title">{$t('fees.usdtLabel')}</div>
 								<div class="stat-value text-primary">{$t('fees.tiers.3.fee_rate')}</div>
 							</div>
 						</div>
 					</div>
+					
 					<div class="text-sm text-base-content/80">
 						<p>{$t('fees.tiers.3.example')}</p>
 					</div>
