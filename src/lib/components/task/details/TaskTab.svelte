@@ -386,53 +386,53 @@
 		</div>
 	{/if}
 
-	<div class="mb-20 flex flex-col gap-2 md:mb-5 md:flex-row md:justify-end">
-		{#if isOwner && task.status === TaskStatusEnum.OPEN}
-			<button class="btn btn-primary btn-sm w-full md:w-auto" onclick={handleEditTask}>
+	<div class="mb-20 space-y-3 md:mb-5">
+		<!-- Alert message when deletion is not allowed (in its own row) -->
+		{#if isOwner && !canDelete && !isCheckingDelete}
+			<div class="alert alert-outline alert-warning">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="mr-1 h-4 w-4"
+					class="h-6 w-6 shrink-0 stroke-current"
 					fill="none"
 					viewBox="0 0 24 24"
-					stroke="currentColor"
 				>
 					<path
 						stroke-linecap="round"
 						stroke-linejoin="round"
 						stroke-width="2"
-						d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
 					/>
 				</svg>
-				{$t('dashboard.task_details_by_task.edit_task')}
-			</button>
+				<span>{$t('dashboard.task_details_by_task.cannot_delete_message')}</span>
+			</div>
 		{/if}
-		
-		<!-- Delete Task Section -->
-		{#if isOwner}
-			<div class="flex w-full flex-col gap-3 md:w-auto">
-				<!-- Alert message when deletion is not allowed -->
-				{#if !canDelete && !isCheckingDelete}
-					<div class="alert alert-outline alert-warning">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-							/>
-						</svg>
-						<span>{$t('dashboard.task_details_by_task.cannot_delete_message')}</span>
-					</div>
-				{/if}
 
-				<!-- Delete Button (always visible, disabled when canDelete is false) -->
+		<!-- Action Buttons Row -->
+		<div class="flex justify-end gap-2">
+			{#if isOwner && task.status === TaskStatusEnum.OPEN}
+				<button class="btn btn-primary btn-sm" onclick={handleEditTask}>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="mr-1 h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+						/>
+					</svg>
+					{$t('dashboard.task_details_by_task.edit_task')}
+				</button>
+			{/if}
+			
+			<!-- Delete Button (always visible, disabled when canDelete is false) -->
+			{#if isOwner}
 				<button
-					class="btn btn-error btn-sm w-full md:w-auto"
+					class="btn btn-error btn-sm"
 					onclick={showDeleteConfirmation}
 					disabled={isDeleting || isCheckingDelete || !canDelete}
 				>
@@ -456,8 +456,8 @@
 					{/if}
 					{$t('dashboard.task_details_by_task.delete_task')}
 				</button>
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
 </div>
 
