@@ -556,7 +556,13 @@
         "dispute_raising_message": "Dispute raising in progress... Once confirmed, the dispute will be raised.",
         "resolution_proposing_message": "Resolution proposal in progress... Once confirmed, the resolution proposal will be submitted.",
         "proposal_accepting_message": "Proposal acceptance in progress... Once confirmed, the proposal will be accepted.",
-        "timelock_resolving_message": "Timelock resolution in progress... Once confirmed, the contract will be resolved."
+        "timelock_resolving_message": "Timelock resolution in progress... Once confirmed, the contract will be resolved.",
+        "delete_contract": "Delete Contract",
+        "delete_contract_confirm_title": "Delete Contract",
+        "delete_contract_confirm_message": "Are you sure you want to delete this contract? This action cannot be undone. The contract will be permanently removed from your contract list.",
+        "cannot_delete_message": "This contract cannot be deleted because it has been funded. Contracts can only be deleted before funding or if funding failed. Once a contract is funded, it must be completed, cancelled, or resolved through the normal contract lifecycle.",
+        "delete_contract_error": "Failed to delete contract",
+        "delete_contract_success": "Contract deleted successfully"
       },
       "errors": {
         "unknown_error": "An unexpected error occurred. Please try again.",

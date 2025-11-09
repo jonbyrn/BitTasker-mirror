@@ -556,7 +556,13 @@
         "dispute_raising_message": "Presentando disputa en progreso... Por favor espera la confirmación de blockchain.",
         "resolution_proposing_message": "Proponiendo resolución en progreso... Por favor espera la confirmación de blockchain.",
         "proposal_accepting_message": "Aceptando propuesta en progreso... Por favor espera la confirmación de blockchain.",
-        "timelock_resolving_message": "Resolviendo después del timelock en progreso... Por favor espera la confirmación de blockchain."
+        "timelock_resolving_message": "Resolviendo después del timelock en progreso... Por favor espera la confirmación de blockchain.",
+        "delete_contract": "Eliminar Contrato",
+        "delete_contract_confirm_title": "Eliminar Contrato",
+        "delete_contract_confirm_message": "¿Estás seguro de que deseas eliminar este contrato? Esta acción no se puede deshacer. El contrato se eliminará permanentemente de tu lista de contratos.",
+        "cannot_delete_message": "Este contrato no se puede eliminar porque ha sido financiado. Los contratos solo se pueden eliminar antes del financiamiento o si el financiamiento falló. Una vez que un contrato está financiado, debe completarse, cancelarse o resolverse a través del ciclo de vida normal del contrato.",
+        "delete_contract_error": "Error al eliminar el contrato",
+        "delete_contract_success": "Contrato eliminado exitosamente"
       },
       "errors": {
         "unknown_error": "Ocurrió un error inesperado. Por favor inténtalo de nuevo.",

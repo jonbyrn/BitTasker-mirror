@@ -78,6 +78,7 @@ export interface ContractWithEvents {
 	canAcceptProposal: boolean; // other party can accept proposal
 	canCancel: boolean; // either party can cancel
 	canResolveTimelock: boolean; // either party can resolve after timelock
+	canDelete: boolean; // either party can delete (ONLY if contract was never funded or funding failed)
 }
 
 // Status event with metadata

@@ -889,7 +889,8 @@ export const escrow = {
     getDisputeProposal,
     refreshEscrows: loadUserEscrows,
     loadUserEscrows,
-    isContractPaused
+    isContractPaused,
+    checkEscrowFundingStatus
 }
 
 // Enhanced derived stores for escrow data

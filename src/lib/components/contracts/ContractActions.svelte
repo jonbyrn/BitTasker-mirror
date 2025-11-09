@@ -7,6 +7,8 @@
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
+	import { deleteContract as deleteContractUtil } from '$lib/utils/nostr-bid';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	const {
 		contract,
@@ -26,6 +28,7 @@
 	let isLoading = $state<Record<string, boolean>>({});
 	let showResolutionForm = $state(false);
 	let showCompletionModal = $state(false);
+	let showDeleteConfirm = $state(false);
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
 	let btcPrice = $state<number>(0); // No fallback price
@@ -216,6 +219,37 @@
 			appStore.showErrorToast(errorMessage);
 		} finally {
 			setLoading('resolveTimelock', false);
+		}
+	}
+
+	// Show delete confirmation
+	function showDeleteConfirmation() {
+		if (!contract.canDelete) return;
+		showDeleteConfirm = true;
+	}
+
+	// Delete contract (after confirmation)
+	async function deleteContract() {
+		if (!contract.canDelete) return;
+
+		showDeleteConfirm = false;
+		setLoading('delete', true);
+		try {
+			await deleteContractUtil(contract.contractEvent.id, contract.contract.escrowId);
+			appStore.showSuccessToast($t('dashboard.contracts.actions.delete_contract_success'));
+			onActionComplete?.();
+		} catch (error) {
+			console.error('Error deleting contract:', error);
+			// Handle structured EscrowError
+			const { isEscrowError } = await import('$lib/utils/errors/escrowErrors');
+			const errorMessage = isEscrowError(error)
+				? error.message
+				: error instanceof Error
+					? error.message
+					: $t('dashboard.contracts.actions.delete_contract_error');
+			appStore.showErrorToast(errorMessage);
+		} finally {
+			setLoading('delete', false);
 		}
 	}
 
@@ -602,6 +636,56 @@
 			</button>
 		</div>
 	{/if}
+
+	<!-- Delete Contract -->
+	<div class="space-y-3">
+		<!-- Alert message when deletion is not allowed -->
+		{#if !contract.canDelete}
+			<div class="alert alert-outline alert-warning">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+					/>
+				</svg>
+				<span>{$t('dashboard.contracts.actions.cannot_delete_message')}</span>
+			</div>
+		{/if}
+
+		<!-- Delete Button (always visible, disabled when canDelete is false) -->
+		<button
+			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			onclick={showDeleteConfirmation}
+			disabled={isLoading.delete || !contract.canDelete}
+		>
+			{#if isLoading.delete}
+				<span class="loading loading-spinner loading-xs"></span>
+			{:else}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+					/>
+				</svg>
+			{/if}
+			{$t('dashboard.contracts.actions.delete_contract')}
+		</button>
+	</div>
 </div>
 
 <!-- Task Completion Modal -->
@@ -611,4 +695,16 @@
 	onClose={() => (showCompletionModal = false)}
 	onComplete={completeTaskWithAttachments}
 	{btcPrice}
+/>
+
+<!-- Delete Confirmation Modal -->
+<ConfirmModal
+	isOpen={showDeleteConfirm}
+	title={$t('dashboard.contracts.actions.delete_contract_confirm_title')}
+	message={$t('dashboard.contracts.actions.delete_contract_confirm_message')}
+	confirmText={$t('dashboard.contracts.actions.delete_contract')}
+	cancelText={$t('dashboard.contracts.actions.cancel')}
+	confirmButtonClass="btn-error"
+	onConfirm={deleteContract}
+	onCancel={() => (showDeleteConfirm = false)}
 />
