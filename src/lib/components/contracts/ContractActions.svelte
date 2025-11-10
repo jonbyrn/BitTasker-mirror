@@ -31,7 +31,8 @@
 		updateAcceptDisputeStatus,
 		getAcceptAttempt,
 		getDisputeAttempt,
-		clearAcceptDisputeAttempt
+		clearAcceptDisputeAttempt,
+		acceptDisputeStore
 	} from '$lib/stores/acceptDisputeCache.store';
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 	import type { EscrowData } from '$lib/types/wallet';
@@ -368,9 +369,10 @@
 				registerAcceptDisputeAttempt(contract.contract.escrowId, 'accept', result.hash);
 			}
 			
-			// Note: Status will be updated to 'confirmed' when transaction confirms
+			// Note: Loading state will remain true until transaction confirms
+			// Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleTaskAccepted
-			// If transaction fails, it will be handled in escrow.ts
+			// The reactive effect will clear loading when status becomes 'confirmed'
 		} catch (error) {
 			if (!isMounted) return;
 			
@@ -380,15 +382,14 @@
 			clearAcceptDisputeAttempt(contract.contract.escrowId);
 			acceptAttempt = null;
 			
+			// Clear loading on error
+			setLoading('accept', false);
+			
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.payment_released_error');
 			appStore.showErrorToast(errorMessage);
-		} finally {
-			if (isMounted) {
-				setLoading('accept', false);
-			}
 		}
 	}
 
@@ -447,9 +448,10 @@
 				registerAcceptDisputeAttempt(contract.contract.escrowId, 'dispute', result.hash);
 			}
 			
-			// Note: Status will be updated to 'confirmed' when transaction confirms
+			// Note: Loading state will remain true until transaction confirms
+			// Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleTaskDisputed
-			// If transaction fails, it will be handled in escrow.ts
+			// The reactive effect will clear loading when status becomes 'confirmed'
 		} catch (error) {
 			if (!isMounted) return;
 			
@@ -459,15 +461,14 @@
 			clearAcceptDisputeAttempt(contract.contract.escrowId);
 			disputeAttempt = null;
 			
+			// Clear loading on error
+			setLoading('dispute', false);
+			
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.dispute_raised_error');
 			appStore.showErrorToast(errorMessage);
-		} finally {
-			if (isMounted) {
-				setLoading('dispute', false);
-			}
 		}
 	}
 
@@ -737,7 +738,7 @@
 		}
 	});
 	
-	// Load accept/dispute attempts on mount
+	// Load accept/dispute attempts on mount and watch for status changes
 	$effect(() => {
 		if (!isMounted) return;
 		
@@ -749,6 +750,57 @@
 		const dispute = getDisputeAttempt(contract.contract.escrowId);
 		if (dispute) {
 			disputeAttempt = dispute;
+		}
+	});
+	
+	// Watch for accept/dispute attempt status changes and clear loading when confirmed
+	$effect(() => {
+		if (!isMounted) return;
+		
+		// Subscribe to store changes
+		const unsubscribe = acceptDisputeStore.subscribe((cache) => {
+			if (!isMounted) return;
+			
+			const escrowId = contract.contract.escrowId;
+			const attempt = cache.get(escrowId);
+			
+			if (attempt) {
+				// Update local state
+				if (attempt.type === 'accept') {
+					const previousStatus = acceptAttempt?.status;
+					acceptAttempt = attempt;
+					// Clear loading when status becomes confirmed
+					if (attempt.status === 'confirmed' && previousStatus !== 'confirmed') {
+						setLoading('accept', false);
+					}
+				} else if (attempt.type === 'dispute') {
+					const previousStatus = disputeAttempt?.status;
+					disputeAttempt = attempt;
+					// Clear loading when status becomes confirmed
+					if (attempt.status === 'confirmed' && previousStatus !== 'confirmed') {
+						setLoading('dispute', false);
+					}
+				}
+			}
+		});
+		
+		return () => {
+			unsubscribe();
+		};
+	});
+	
+	// Also watch local state changes to clear loading when status becomes confirmed
+	$effect(() => {
+		if (!isMounted) return;
+		
+		// Clear loading when accept attempt status becomes confirmed
+		if (acceptAttempt?.status === 'confirmed' && isLoading.accept) {
+			setLoading('accept', false);
+		}
+		
+		// Clear loading when dispute attempt status becomes confirmed
+		if (disputeAttempt?.status === 'confirmed' && isLoading.dispute) {
+			setLoading('dispute', false);
 		}
 	});
 	
