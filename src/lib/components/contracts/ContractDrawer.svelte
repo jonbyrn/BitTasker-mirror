@@ -6,8 +6,8 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
-	import UserProfile from '$lib/components/UserNostrBadge.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
+	import { fetchProfileMetadata, fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 
 	const { contract, isOpen, btcPrice, onClose, onUpdate } = $props<{
 		contract: ContractWithEvents | null;
@@ -20,6 +20,70 @@
 	// Technical details toggle state
 	let isTechnicalDetailsOpen = $state(false);
 	let isOriginalBidOpen = $state(false);
+
+	// Taskee profile state
+	let taskeeProfile = $state<{
+		name?: string;
+		picture?: string;
+		createdAt?: string;
+		reviews?: Array<{ id: string; from: string; rating: number; text: string; date: string }>;
+		averageRating?: number;
+		tasksCompleted?: number;
+	} | null>(null);
+	let isLoadingTaskeeProfile = $state(false);
+
+	// Load taskee profile
+	$effect(() => {
+		if (contract) {
+			const taskeePubkey = contract.isClient
+				? contract.contract.freelancerPubkey
+				: contract.contract.clientPubkey;
+			loadTaskeeProfile(taskeePubkey);
+		}
+	});
+
+	async function loadTaskeeProfile(pubkey: string) {
+		try {
+			isLoadingTaskeeProfile = true;
+			const [basicProfile, comprehensiveProfile] = await Promise.all([
+				fetchProfileMetadata(pubkey),
+				fetchComprehensiveProfile(pubkey).catch(() => null)
+			]);
+
+			const avgRating = comprehensiveProfile?.reviews && comprehensiveProfile.reviews.length > 0
+				? comprehensiveProfile.reviews.reduce((sum, review) => sum + review.rating, 0) / comprehensiveProfile.reviews.length
+				: 0;
+
+			taskeeProfile = {
+				name: basicProfile.name,
+				picture: basicProfile.picture,
+				createdAt: basicProfile.createdAt,
+				reviews: comprehensiveProfile?.reviews || [],
+				averageRating: avgRating,
+				tasksCompleted: comprehensiveProfile?.reviews?.length || 0
+			};
+		} catch (error) {
+			console.error('Failed to load taskee profile:', error);
+			taskeeProfile = null;
+		} finally {
+			isLoadingTaskeeProfile = false;
+		}
+	}
+
+	// Format member since date
+	function formatMemberSinceDate(dateString: string | undefined): string {
+		if (!dateString) return '';
+		try {
+			const date = new Date(dateString);
+			if (isNaN(date.getTime())) return dateString;
+			return date.toLocaleDateString('en-US', {
+				month: 'short',
+				year: 'numeric'
+			});
+		} catch (error) {
+			return dateString;
+		}
+	}
 
 	// Helper function to detect video files
 	function isVideoFile(url: string): boolean {
@@ -157,6 +221,75 @@
 					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
 
 					<div class="space-y-3">
+						<!-- Taskee Info -->
+						<div class="mb-4 pb-4 border-b border-base-300">
+							<div class="flex items-center gap-3">
+								<div class="avatar shrink-0">
+									<div class="bg-base-300 flex items-center justify-center rounded-full h-10 w-10">
+										{#if isLoadingTaskeeProfile}
+											<div class="skeleton rounded-full h-10 w-10"></div>
+										{:else if taskeeProfile?.picture}
+											<img
+												src={taskeeProfile.picture}
+												alt="Taskee avatar"
+												class="rounded-full object-cover h-10 w-10"
+											/>
+										{:else}
+											<div
+												class="avatar placeholder text-neutral-content bg-primary flex items-center justify-center overflow-hidden rounded-full text-center h-10 w-10"
+											>
+												<span class="text-sm font-semibold">
+													{(taskeeProfile?.name || 'A').charAt(0).toUpperCase()}
+												</span>
+											</div>
+										{/if}
+									</div>
+								</div>
+
+								<div class="flex flex-col min-w-0 flex-1">
+									<span class="text-sm font-medium truncate">
+										{isLoadingTaskeeProfile
+											? 'Loading...'
+											: taskeeProfile?.name ||
+												$t('dashboard.contracts.anonymous')}
+									</span>
+
+									<!-- Review Stars -->
+									{#if !isLoadingTaskeeProfile && taskeeProfile}
+										<div class="mt-1 flex items-center min-w-0">
+											<div class="flex shrink-0">
+												{#each Array(5) as _, i}
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="h-3 w-3 {i < (taskeeProfile.averageRating || 0)
+															? 'text-yellow-400'
+															: 'text-base-content/30'}"
+														fill="currentColor"
+														viewBox="0 0 24 24"
+													>
+														<path
+															d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+														/>
+													</svg>
+												{/each}
+											</div>
+											<span class="text-base-content/60 ml-1 text-xs truncate">
+												{(taskeeProfile.averageRating || 0).toFixed(1)} ({taskeeProfile
+													.tasksCompleted || 0} {$t('dashboard.contracts.tasks')})
+											</span>
+										</div>
+									{/if}
+
+									{#if !isLoadingTaskeeProfile && taskeeProfile?.createdAt}
+										<p class="text-base-content/60 mt-1 text-xs">
+											{$t('dashboard.contracts.member_since')}{' '}
+											{formatMemberSinceDate(taskeeProfile.createdAt)}
+										</p>
+									{/if}
+								</div>
+							</div>
+						</div>
+
 						<div class="flex justify-between gap-2">
 							<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
 							<span class="font-semibold"
@@ -166,29 +299,6 @@
 							>
 						</div>
 
-						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70 whitespace-nowrap"
-								>{$t('dashboard.contracts.task_id')}:</span
-							>
-							<span class="overflow-wrap-anywhere font-mono text-sm break-all whitespace-normal"
-								>#{contract.contract.taskId}</span
-							>
-						</div>
-
-						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
-							<span class="text-sm">{formatDate(contract.contract.createdAt)}</span>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Timeline Card -->
-			<div class="card bg-base-200">
-				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.label')}</h4>
-
-					<div class="space-y-3">
 						<div class="flex justify-between gap-2">
 							<span class="text-base-content/70 whitespace-nowrap"
 								>{$t('dashboard.contracts.estimated_start')}:</span
@@ -206,22 +316,12 @@
 								>{formatDate(contract.contract.estimatedCompletionTime)}</span
 							>
 						</div>
-					</div>
-				</div>
-			</div>
 
-			<!-- User Info Card -->
-			<div class="card bg-base-200">
-				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">
-						{contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
-					</h4>
-					<UserProfile
-						npub={contract.isClient
-							? contract.contract.freelancerPubkey
-							: contract.contract.clientPubkey}
-						size="md"
-					/>
+						<div class="flex justify-between gap-2">
+							<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
+							<span class="text-sm">{formatDate(contract.contract.createdAt)}</span>
+						</div>
+					</div>
 				</div>
 			</div>
 
@@ -426,6 +526,14 @@
 					{#if isTechnicalDetailsOpen}
 						<div class="px-4 pb-4">
 							<div class="space-y-3 text-xs">
+								<div>
+									<span class="text-base-content/60"
+										>{$t('dashboard.contracts.task_id')}:</span
+									>
+									<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
+										{contract.contract.taskId}
+									</div>
+								</div>
 								<div>
 									<span class="text-base-content/60"
 										>{$t('dashboard.contracts.client_pubkey')}:</span
