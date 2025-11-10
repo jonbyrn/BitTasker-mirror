@@ -474,7 +474,7 @@
                     "select_asset": "Seleccionar Activo",
                     "network": "Red",
                     "available_balance": "Saldo Disponible",
-                    "available_rbtc_balance": "Saldo rBTC Disponible",
+                    "available_rbtc_balance": "Saldo de Bitcoin L2 Disponible",
                     "sats": "Sats"
                 },
         "balance_card": {

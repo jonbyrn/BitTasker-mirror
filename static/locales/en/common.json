@@ -474,7 +474,7 @@
                     "select_asset": "Select Asset",
                     "network": "Network",
                     "available_balance": "Available Balance",
-                    "available_rbtc_balance": "Available rBTC Balance",
+                    "available_rbtc_balance": "Available L2 Bitcoin Balance",
                     "sats": "Sats"
                 },
                 "balance_card": {

@@ -808,9 +808,6 @@
 								<div class="flex items-center space-x-2">
 									<h4 class="font-semibold">{$t('common.components.wallet.asset_selector.available_rbtc_balance')}</h4>
 								</div>
-								<p class="text-base-content/70 text-sm">
-									{$walletStore.rsk.formattedBalance} rBTC
-								</p>
 								<p class="text-primary font-bold text-lg">
 									{formatRBTCToSats($walletStore.rsk.formattedBalance)} {$t('common.components.wallet.asset_selector.sats')}
 								</p>
