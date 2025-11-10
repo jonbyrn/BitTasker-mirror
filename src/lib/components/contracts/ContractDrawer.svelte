@@ -306,7 +306,7 @@
 			</div>
 
 			<!-- Completion Evidence (only show if task is completed and has attachments) -->
-			{#if contract.contract.status === 'completed' && contract.contract.completionAttachments && contract.contract.completionAttachments.length > 0}
+			{#if contract.contract.completionAttachments && contract.contract.completionAttachments.length > 0}
 				<div class="card bg-base-200 overflow-hidden">
 					<div class="card-body p-4">
 						<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.completion_evidence')}</h4>
