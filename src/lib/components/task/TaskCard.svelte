@@ -7,10 +7,26 @@
 	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import TranslatableTask from './TranslatableTask.svelte';
+	import IconInformationOutline from '~icons/mdi/information-outline';
+	import IconEyeOutline from '~icons/mdi/eye-outline';
 
-	const { task, btcPrice, onclick } = $props<{
+	type TaskFilterCategory = 
+		| 'waiting_for_bids'
+		| 'bids_received'
+		| 'tasks_in_progress'
+		| 'tasks_completed'
+		| 'tasks_disputed';
+
+	const { task, btcPrice, activeFilter, getActionButtons, onclick } = $props<{
 		task: Task;
 		btcPrice: number;
+		activeFilter: TaskFilterCategory;
+		getActionButtons: (task: Task, category: TaskFilterCategory) => Array<{
+			label: string;
+			class: string;
+			onclick: (e: any) => void;
+			icon: string;
+		}>;
 		onclick: () => void;
 	}>();
 
@@ -138,6 +154,32 @@
 						{$t('dashboard.task.type.remote')}
 					{/if}
 				</span>
+			</div>
+		</div>
+
+		<!-- Action Buttons -->
+		<div class="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+			<!-- Left: Empty space on larger screens, full width on mobile -->
+			<div class="hidden md:block"></div>
+
+			<!-- Right: Action Buttons -->
+			<div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:w-auto">
+				{#each getActionButtons(task, activeFilter) as action}
+					<button
+						class="btn {action.class} w-full sm:w-auto"
+						onclick={(e) => {
+							e.stopPropagation();
+							action.onclick(e);
+						}}
+					>
+						{#if action.icon === 'view_details'}
+							<IconInformationOutline class="h-4 w-4" />
+						{:else if action.icon === 'view_bids'}
+							<IconEyeOutline class="h-4 w-4" />
+						{/if}
+						{action.label}
+					</button>
+				{/each}
 			</div>
 		</div>
 	</div>

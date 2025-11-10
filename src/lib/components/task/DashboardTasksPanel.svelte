@@ -6,6 +6,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
+	import { goto } from '$app/navigation';
 	import TaskCard from './TaskCard.svelte';
 	
 	// MDI Icons for filters
@@ -17,6 +18,8 @@
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconCheck from '~icons/mdi/check';
 	import IconRefresh from '~icons/mdi/refresh';
+	import IconInformationOutline from '~icons/mdi/information-outline';
+	import IconEyeOutline from '~icons/mdi/eye-outline';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -256,6 +259,77 @@
 		}
 	}
 
+	/**
+	 * Get action buttons for each category
+	 */
+	function getActionButtons(task: Task, category: TaskFilterCategory) {
+		switch (category) {
+			case 'waiting_for_bids':
+			case 'bids_received':
+				return [
+					{
+						label: $t('task.actions.view_details'),
+						class: 'btn-primary btn-sm',
+						onclick: (e: any) => {
+							e.stopPropagation();
+							openTaskDrawer(task, 'details');
+						},
+						icon: 'view_details'
+					},
+					{
+						label: $t('task.actions.view_bids'),
+						class: 'btn-outline btn-sm',
+						onclick: (e: any) => {
+							e.stopPropagation();
+							goto(`/dashboard/task/${task.id}/bids`);
+						},
+						icon: 'view_bids'
+					}
+				];
+
+			case 'tasks_in_progress':
+				return [
+					{
+						label: $t('task.actions.mark_as_done'),
+						class: 'btn-success btn-sm',
+						onclick: (e: any) => {
+							e.stopPropagation();
+							// TODO: Implement mark as done functionality
+							console.log('Mark as done:', task.id);
+						},
+						icon: 'mark_as_done'
+					},
+					{
+						label: $t('task.actions.rescope'),
+						class: 'btn-info btn-outline btn-sm',
+						onclick: (e: any) => {
+							e.stopPropagation();
+							// TODO: Implement rescope functionality
+							console.log('Rescope task:', task.id);
+						},
+						icon: 'rescope'
+					}
+				];
+
+			case 'tasks_completed':
+			case 'tasks_disputed':
+				return [
+					{
+						label: $t('task.actions.view_details'),
+						class: 'btn-primary btn-sm',
+						onclick: (e: any) => {
+							e.stopPropagation();
+							openTaskDrawer(task, 'details');
+						},
+						icon: 'view_details'
+					}
+				];
+
+			default:
+				return [];
+		}
+	}
+
 	onMount(() => {
 		// Add click outside listener for dropdown
 		document.addEventListener('click', handleClickOutside);
@@ -441,6 +515,8 @@
 					<TaskCard
 						{task}
 						{btcPrice}
+						activeFilter={activeFilter}
+						{getActionButtons}
 						onclick={() => openTaskDrawer(task)}
 					/>
 				{/each}
