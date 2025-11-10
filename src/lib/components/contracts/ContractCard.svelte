@@ -220,7 +220,7 @@
 			<div class="flex items-center gap-2">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/60 h-5 w-5 flex-shrink-0"
+					class="text-base-content/60 h-6 w-6 flex-shrink-0"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
