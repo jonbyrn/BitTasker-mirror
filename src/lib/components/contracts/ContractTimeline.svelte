@@ -119,7 +119,7 @@
 					</time>
 					
 					<div class="mt-1 flex items-center gap-2">
-						{#if event.status.action === 'task-completed'}
+						{#if event.status.action === 'task-completed' || event.status.action === 'payment-released'}
 							<div class="bg-success text-success-content flex h-5 w-5 min-h-5 min-w-5 items-center justify-center rounded-full shrink-0">
 								<svg 
 									xmlns="http://www.w3.org/2000/svg" 

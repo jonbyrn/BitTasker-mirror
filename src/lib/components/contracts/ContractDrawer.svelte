@@ -10,6 +10,8 @@
 	import { fetchProfileMetadata, fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
+	import { contractUpdateStore } from '$lib/utils/wallet/escrowEvents';
+	import { getUserContracts } from '$lib/utils/nostr-bid';
 
 	const { contract, isOpen, btcPrice, onClose, onUpdate } = $props<{
 		contract: ContractWithEvents | null;
@@ -18,6 +20,21 @@
 		onClose: () => void;
 		onUpdate: () => void;
 	}>();
+
+	// Local contract state (updated reactively from blockchain)
+	let localContract = $state<ContractWithEvents | null>(null);
+	let isReloadingContract = $state(false);
+
+	// Reset local contract when prop changes
+	$effect(() => {
+		if (contract) {
+			// Reset local contract when prop changes (e.g., when parent updates)
+			localContract = null;
+		}
+	});
+
+	// Use local contract if available, otherwise use prop
+	const displayContract = $derived(localContract || contract);
 
 	// Technical details toggle state
 	let isTechnicalDetailsOpen = $state(false);
@@ -48,13 +65,44 @@
 
 	// Load taskee profile
 	$effect(() => {
-		if (contract) {
-			const taskeePubkey = contract.isClient
-				? contract.contract.freelancerPubkey
-				: contract.contract.clientPubkey;
+		if (displayContract) {
+			const taskeePubkey = displayContract.isClient
+				? displayContract.contract.freelancerPubkey
+				: displayContract.contract.clientPubkey;
 			loadTaskeeProfile(taskeePubkey);
 		}
 	});
+
+	// Subscribe to contract update store and reload contract when it's updated
+	$effect(() => {
+		if (!displayContract || !isOpen) return;
+
+		const escrowIds = $contractUpdateStore;
+		const currentEscrowId = displayContract.contract.escrowId;
+
+		// Check if this contract's escrowId is in the update queue
+		if (escrowIds.includes(currentEscrowId) && !isReloadingContract) {
+			// Reload this specific contract
+			reloadContract(currentEscrowId);
+		}
+	});
+
+	// Reload a specific contract
+	async function reloadContract(escrowId: string) {
+		try {
+			isReloadingContract = true;
+			const contracts = await getUserContracts({ escrowIds: [escrowId] });
+			if (contracts.length > 0) {
+				localContract = contracts[0];
+				// Also trigger parent update
+				onUpdate();
+			}
+		} catch (error) {
+			console.error('Failed to reload contract:', error);
+		} finally {
+			isReloadingContract = false;
+		}
+	}
 
 	async function loadTaskeeProfile(pubkey: string) {
 		try {
@@ -197,39 +245,41 @@
 	}
 
 	const getAvailableActionsCount = () => {
+		if (!displayContract) return 0;
 		let count = 0;
-		if (contract.canComplete) count++;
-		if (contract.canAccept) count++;
-		if (contract.canDispute) count++;
-		if (contract.canPropose) count++;
-		if (contract.canAcceptProposal) count++;
-		if (contract.canCancel) count++;
-		if (contract.canResolveTimelock) count++;
+		if (displayContract.canComplete) count++;
+		if (displayContract.canAccept) count++;
+		if (displayContract.canDispute) count++;
+		if (displayContract.canPropose) count++;
+		if (displayContract.canAcceptProposal) count++;
+		if (displayContract.canCancel) count++;
+		if (displayContract.canResolveTimelock) count++;
 		return count;
 	};
 </script>
 
 <Drawer
 	{isOpen}
-	title={contract?.contract?.taskTitle}
+	title={displayContract?.contract?.taskTitle}
 	{onClose}
 	position="right"
 	isScrollable={true}
 >
 	{#snippet children()}
-		<!-- Contract Details -->
-		<div class="space-y-6">
-			<!-- Contract Info Card -->
-			<div class="card bg-base-200">
+		{#if displayContract}
+			<!-- Contract Details -->
+			<div class="space-y-6">
+				<!-- Contract Info Card -->
+				<div class="card bg-base-200">
 				<div class="card-body p-4">
 					<div class="mb-3 flex items-center justify-between gap-2">
 						<h4 class="font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
 						<div class="flex items-center gap-2 shrink-0">
-							<div class="badge {getStatusColorClass(contract.contract.status)}">
-								{$t(`dashboard.contracts.status.${contract.contract.status}`)}
+							<div class="badge {getStatusColorClass(displayContract.contract.status)}">
+								{$t(`dashboard.contracts.status.${displayContract.contract.status}`)}
 							</div>
-							<div class="badge {contract.isClient ? 'badge-primary' : 'badge-secondary'}">
-								{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
+							<div class="badge {displayContract.isClient ? 'badge-primary' : 'badge-secondary'}">
+								{displayContract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
 							</div>
 						</div>
 					</div>
@@ -308,8 +358,8 @@
 							<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
 							<span class="font-semibold"
 								>{btcPrice > 0
-									? formatUSDWithSatsSync(contract.contract.amount, btcPrice)
-									: `${formatRBTC(contract.contract.amount)} RBTC`}</span
+									? formatUSDWithSatsSync(displayContract.contract.amount, btcPrice)
+									: `${formatRBTC(displayContract.contract.amount)} RBTC`}</span
 							>
 						</div>
 
@@ -318,7 +368,7 @@
 								>{$t('dashboard.contracts.estimated_start')}:</span
 							>
 							<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
-								>{formatDate(contract.contract.estimatedStartTime)}</span
+								>{formatDate(displayContract.contract.estimatedStartTime)}</span
 							>
 						</div>
 
@@ -327,13 +377,13 @@
 								>{$t('dashboard.contracts.estimated_completion')}:</span
 							>
 							<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
-								>{formatDate(contract.contract.estimatedCompletionTime)}</span
+								>{formatDate(displayContract.contract.estimatedCompletionTime)}</span
 							>
 						</div>
 
 						<div class="flex justify-between gap-2">
 							<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
-							<span class="text-sm">{formatDate(contract.contract.createdAt)}</span>
+							<span class="text-sm">{formatDate(displayContract.contract.createdAt)}</span>
 						</div>
 					</div>
 				</div>
@@ -344,7 +394,7 @@
 				<div class="card-body p-4">
 					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.task_description')}</h4>
 					<p class="text-base-content/80 text-sm leading-relaxed">
-						{contract.contract.taskDescription}
+						{displayContract.contract.taskDescription}
 					</p>
 
 					<!-- Original Bid Proposal - Expandable Section -->
@@ -394,8 +444,8 @@
 													>{$t('dashboard.contracts.estimated_duration')}:</span
 												>
 												<p class="text-base-content/80 mt-1 text-xs">
-													{formatDate(contract.contract.estimatedStartTime)} - {formatDate(
-														contract.contract.estimatedCompletionTime
+													{formatDate(displayContract.contract.estimatedStartTime)} - {formatDate(
+														displayContract.contract.estimatedCompletionTime
 													)}
 												</p>
 											</div>
@@ -422,15 +472,15 @@
 			<!-- Completion Evidence and Status Timeline (side-by-side on desktop) -->
 			<div class="flex flex-col gap-6 lg:flex-row">
 				<!-- Completion Evidence (only show if task is completed and has attachments) -->
-				{#if contract.contract.completionAttachments && contract.contract.completionAttachments.length > 0}
+				{#if displayContract.contract.completionAttachments && displayContract.contract.completionAttachments.length > 0}
 					<div class="card bg-base-200 overflow-hidden flex-1">
 						<div class="card-body p-4">
 							<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.completion_evidence')}</h4>
 							
 							<!-- Images Gallery -->
-							{#if contract.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+							{#if displayContract.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
 								<div class="mb-4">
-									{#await prepareGalleryImages(contract.contract.completionAttachments) then galleryImages}
+									{#await prepareGalleryImages(displayContract.contract.completionAttachments) then galleryImages}
 										<Gallery
 											galleryID="completion-evidence-gallery"
 											images={galleryImages}
@@ -441,9 +491,9 @@
 							{/if}
 
 							<!-- Videos -->
-							{#if contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
+							{#if displayContract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
 								<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-									{#each contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
+									{#each displayContract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
 										<div class="relative group">
 											<div class="aspect-square rounded-lg overflow-hidden bg-base-300">
 												<video 
@@ -470,11 +520,11 @@
 				<div class="card bg-base-200 flex-1">
 					<div class="card-body p-4">
 						<div class="mb-3 flex items-center gap-3">
-							{#if contract.statusEvents.length > 0}
+							{#if displayContract.statusEvents.length > 0}
 								<div
 									class="bg-primary text-primary-content flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full text-base font-semibold"
 								>
-									{contract.statusEvents.length}
+									{displayContract.statusEvents.length}
 								</div>
 							{/if}
 							<h4 class="font-semibold">
@@ -482,7 +532,7 @@
 							</h4>
 						</div>
 
-						<ContractTimeline statusEvents={contract.statusEvents} />
+						<ContractTimeline statusEvents={displayContract.statusEvents} />
 					</div>
 				</div>
 			</div>
@@ -513,7 +563,7 @@
 						</div>
 					{/if}
 					<ContractActions
-						{contract}
+						contract={displayContract}
 						onActionComplete={handleActionComplete}
 						containerClass={getAvailableActionsCount() > 1
 							? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
@@ -563,7 +613,7 @@
 										>{$t('dashboard.contracts.task_id')}:</span
 									>
 									<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-										{contract.contract.taskId}
+										{displayContract.contract.taskId}
 									</div>
 								</div>
 								<div>
@@ -571,7 +621,7 @@
 										>{$t('dashboard.contracts.client_pubkey')}:</span
 									>
 									<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-										{contract.contract.clientPubkey}
+										{displayContract.contract.clientPubkey}
 									</div>
 								</div>
 								<div>
@@ -579,7 +629,7 @@
 										>{$t('dashboard.contracts.freelancer_pubkey')}:</span
 									>
 									<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-										{contract.contract.freelancerPubkey}
+										{displayContract.contract.freelancerPubkey}
 									</div>
 								</div>
 								<div>
@@ -587,12 +637,12 @@
 										>{$t('dashboard.contracts.contract_event_id')}:</span
 									>
 									<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-										{contract.contractEvent.id}
+										{displayContract.contractEvent.id}
 									</div>
 								</div>
 								<div>
 									<span class="text-base-content/60">{$t('dashboard.contracts.currency')}:</span>
-									<div class="mt-1 font-semibold">{contract.contract.currency}</div>
+									<div class="mt-1 font-semibold">{displayContract.contract.currency}</div>
 								</div>
 							</div>
 						</div>
@@ -600,14 +650,19 @@
 				</div>
 			</div>
 		</div>
+		{:else}
+			<div class="flex items-center justify-center py-12">
+				<p class="text-base-content/60">{$t('dashboard.contracts.loading')}</p>
+			</div>
+		{/if}
 	{/snippet}
 </Drawer>
 
 <!-- Modals (outside drawer to avoid z-index issues) -->
-{#if contract}
+{#if displayContract}
 	<!-- Task Completion Modal -->
 	<TaskCompletionModal
-		{contract}
+		contract={displayContract}
 		isOpen={showCompletionModal}
 		onClose={() => (showCompletionModal = false)}
 		onComplete={async (attachments) => {
