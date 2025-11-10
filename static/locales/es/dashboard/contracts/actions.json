@@ -1,0 +1,49 @@
+{
+	"dashboard": {
+		"contracts": {
+			"actions": {
+				"complete_task": "Completar Tarea",
+				"accept_work": "Aceptar Trabajo",
+				"dispute_work": "Disputar Trabajo",
+				"propose_resolution": "Proponer Resolución",
+				"accept_proposal": "Aceptar Propuesta",
+				"cancel_contract": "Cancelar Contrato",
+				"resolve_timelock": "Resolver Timelock",
+				"delete_contract": "Eliminar Contrato",
+				"task_completed_error": "Error al completar la tarea",
+				"payment_released_error": "Error al liberar el pago",
+				"dispute_raised_error": "Error al plantear la disputa",
+				"resolution_proposed_error": "Error al proponer la resolución",
+				"proposal_accepted_error": "Error al aceptar la propuesta",
+				"escrow_cancelled_error": "Error al cancelar el depósito en garantía",
+				"timelock_resolved_error": "Error al resolver el timelock",
+				"delete_contract_success": "Contrato eliminado exitosamente",
+				"delete_contract_error": "Error al eliminar el contrato",
+				"delete_contract_confirm_title": "Eliminar Contrato",
+				"delete_contract_confirm_message": "¿Está seguro de que desea eliminar este contrato? Esta acción no se puede deshacer.",
+				"cancel": "Cancelar",
+				"propose": "Proponer",
+				"resolution_form_title": "Proponer Resolución",
+				"resolution_amounts_required": "Se requieren montos de resolución",
+				"resolution_amounts_invalid": "Los montos de resolución no son válidos",
+				"freelancer_amount": "Monto del Freelancer",
+				"your_amount": "Tu Monto",
+				"client_amount": "Monto del Cliente",
+				"total_amount": "Monto Total",
+				"current_proposal": "Propuesta Actual",
+				"proposed_by": "Propuesto por",
+				"loading_proposal": "Cargando propuesta...",
+				"timelock_resolution": "Resolución de Timelock",
+				"timelock_expired_message": "El timelock ha expirado. Ahora puede resolver la disputa.",
+				"task_completing_message": "Completando tarea...",
+				"task_completed_message": "Tarea completada exitosamente",
+				"task_completed_success": "Tarea completada exitosamente",
+				"task_already_completed": "La tarea ya ha sido marcada como completada en la cadena de bloques.",
+				"task_completion_pending": "La finalización de la tarea ya está en progreso. Por favor, espere a que se confirme la transacción.",
+				"task_already_completed_tooltip": "Esta tarea ya ha sido completada en la cadena de bloques.",
+				"task_completion_pending_tooltip": "La transacción de finalización de la tarea está pendiente de confirmación."
+			}
+		}
+	}
+}
+

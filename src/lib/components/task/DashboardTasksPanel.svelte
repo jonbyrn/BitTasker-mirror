@@ -14,6 +14,14 @@
 	import { onDestroy } from 'svelte';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	// MDI Icons for filters
+	import IconClockOutline from '~icons/mdi/clock-outline';
+	import IconClockCheckOutline from '~icons/mdi/clock-check-outline';
+	import IconLightningBolt from '~icons/mdi/lightning-bolt';
+	import IconCheckCircle from '~icons/mdi/check-circle';
+	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
+	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconCheck from '~icons/mdi/check';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -21,11 +29,19 @@
 	}>();
 
 	// Task filter categories
-	type TaskFilterCategory = 'bids_received' | 'tasks_in_progress' | 'tasks_completed';
+	type TaskFilterCategory = 
+		| 'waiting_for_bids'      // OPEN with no bids
+		| 'bids_received'         // OPEN with bids
+		| 'tasks_in_progress'     // Active work
+		| 'tasks_completed'       // Terminal states
+		| 'tasks_disputed';       // Dispute states
 
-	let activeFilter = $state<TaskFilterCategory>('bids_received');
+	let activeFilter = $state<TaskFilterCategory>('waiting_for_bids');
 	let btcPrice = $state<number>(0);
 	let isDropdownOpen = $state<boolean>(false);
+	
+	// Cache for bid status per task
+	let taskBidStatusCache = $state<Map<string, boolean>>(new Map());
 
 	// Infinite scroll variables
 	let infiniteScrollObserver: IntersectionObserver | null = null;
@@ -44,9 +60,31 @@
 
 	// Filter options - reactive to language changes
 	const filterOptions = $derived([
-		{ id: 'bids_received', label: $t('task.filters.bids_received') },
-		{ id: 'tasks_in_progress', label: $t('task.filters.tasks_in_progress') },
-		{ id: 'tasks_completed', label: $t('task.filters.tasks_completed') }
+		{ 
+			id: 'waiting_for_bids', 
+			label: $t('task.filters.waiting_for_bids'),  // "Waiting"
+			icon: IconClockOutline
+		},
+		{ 
+			id: 'bids_received', 
+			label: $t('task.filters.bids_received'),      // "Bids"
+			icon: IconClockCheckOutline
+		},
+		{ 
+			id: 'tasks_in_progress', 
+			label: $t('task.filters.in_progress'),        // "In Progress"
+			icon: IconLightningBolt
+		},
+		{ 
+			id: 'tasks_completed', 
+			label: $t('task.filters.completed'),          // "Completed"
+			icon: IconCheckCircle
+		},
+		{ 
+			id: 'tasks_disputed', 
+			label: $t('task.filters.disputed'),           // "Disputed"
+			icon: IconAlertCircleOutline
+		}
 	] as const);
 
 	/**
@@ -62,18 +100,185 @@
 	}
 
 	/**
-	 * Filter tasks based on selected category
+	 * Check if task has bids (with caching)
 	 */
-	function getFilteredTasks(tasks: Task[], filter: TaskFilterCategory): Task[] {
+	async function taskHasBids(taskId: string): Promise<boolean> {
+		const startTime = performance.now();
+		
+		// Check cache first
+		if (taskBidStatusCache.has(taskId)) {
+			const cachedResult = taskBidStatusCache.get(taskId)!;
+			const duration = performance.now() - startTime;
+			console.log(`[TaskFilter] ✅ Cache HIT: task=${taskId.substring(0, 8)}... hasBids=${cachedResult} (${duration.toFixed(0)}ms)`);
+			return cachedResult;
+		}
+		
+		console.log(`[TaskFilter] 🔍 Cache MISS: task=${taskId.substring(0, 8)}... checking bids...`);
+		
+		// Check bids
+		try {
+			const { getBidsForTaskOptimized } = await import('$lib/utils/nostr-bid');
+			const authStartTime = performance.now();
+			const bids = await getBidsForTaskOptimized(taskId);
+			const authDuration = performance.now() - authStartTime;
+			const hasBids = bids.length > 0;
+			const totalDuration = performance.now() - startTime;
+			
+			console.log(`[TaskFilter] 📡 Task ${taskId.substring(0, 8)}...: ${bids.length} bids, hasBids=${hasBids} (auth: ${authDuration.toFixed(0)}ms, total: ${totalDuration.toFixed(0)}ms)`);
+			
+			taskBidStatusCache.set(taskId, hasBids);
+			return hasBids;
+		} catch (error) {
+			const duration = performance.now() - startTime;
+			console.error(`[TaskFilter] ❌ Error checking bids for task ${taskId.substring(0, 8)}... (${duration.toFixed(0)}ms):`, error);
+			taskBidStatusCache.set(taskId, false);
+			return false;
+		}
+	}
+
+	/**
+	 * Check if multiple tasks have bids (batched to avoid multiple auth requests)
+	 */
+	async function checkTasksForBids(taskIds: string[]): Promise<Map<string, boolean>> {
+		const results = new Map<string, boolean>();
+		const startTime = performance.now();
+		
+		console.log(`[TaskFilter] 🔄 Batch checking ${taskIds.length} tasks for bids...`);
+		
+		// Check cache first for all tasks
+		const uncachedTaskIds: string[] = [];
+		for (const taskId of taskIds) {
+			if (taskBidStatusCache.has(taskId)) {
+				results.set(taskId, taskBidStatusCache.get(taskId)!);
+			} else {
+				uncachedTaskIds.push(taskId);
+			}
+		}
+		
+		const cachedCount = taskIds.length - uncachedTaskIds.length;
+		console.log(`[TaskFilter] 📦 Cache: ${cachedCount} cached, ${uncachedTaskIds.length} need checking`);
+		
+		// If all are cached, return early
+		if (uncachedTaskIds.length === 0) {
+			console.log(`[TaskFilter] ✅ All tasks cached (${(performance.now() - startTime).toFixed(0)}ms)`);
+			return results;
+		}
+		
+		// Batch check: get all bids at once instead of per-task
+		try {
+			const { getBidsFromDMs } = await import('$lib/utils/nostr-bid');
+			console.log(`[TaskFilter] 📡 Fetching all bids (single auth request)...`);
+			const authStartTime = performance.now();
+			const allBids = await getBidsFromDMs(); // No taskId filter = get all bids
+			const authDuration = performance.now() - authStartTime;
+			console.log(`[TaskFilter] 📥 Fetched ${allBids.length} total bids (${authDuration.toFixed(0)}ms)`);
+			
+			// Create a set of task IDs that have bids
+			const tasksWithBids = new Set<string>();
+			for (const bid of allBids) {
+				if (bid.bid?.taskId) {
+					tasksWithBids.add(bid.bid.taskId);
+				}
+			}
+			
+			// Check each uncached task
+			for (const taskId of uncachedTaskIds) {
+				const hasBids = tasksWithBids.has(taskId);
+				results.set(taskId, hasBids);
+				taskBidStatusCache.set(taskId, hasBids);
+			}
+			
+			const foundCount = uncachedTaskIds.filter(id => results.get(id)).length;
+			console.log(`[TaskFilter] ✅ Batch check complete: ${foundCount}/${uncachedTaskIds.length} have bids (${(performance.now() - startTime).toFixed(0)}ms total)`);
+			
+			return results;
+		} catch (error) {
+			console.error(`[TaskFilter] ❌ Error in batch check (${(performance.now() - startTime).toFixed(0)}ms):`, error);
+			// On error, assume no bids (conservative approach)
+			for (const taskId of uncachedTaskIds) {
+				results.set(taskId, false);
+				taskBidStatusCache.set(taskId, false);
+			}
+			return results;
+		}
+	}
+
+	/**
+	 * Filter tasks based on selected category
+	 * Now uses batched bid checking to avoid multiple auth requests
+	 */
+	async function getFilteredTasks(tasks: Task[], filter: TaskFilterCategory): Promise<Task[]> {
+		const filterStartTime = performance.now();
+		console.log(`[TaskFilter] 🎯 Filter: "${filter}" | Total tasks: ${tasks.length}`);
+		
 		switch (filter) {
+			case 'waiting_for_bids':
+				// OPEN tasks with no bids
+				const waitingTasks = tasks.filter((task) => task.status === TaskStatusEnum.OPEN);
+				console.log(`[TaskFilter] 📋 OPEN tasks: ${waitingTasks.length}`);
+				
+				if (waitingTasks.length === 0) {
+					console.log(`[TaskFilter] ✅ Result: 0 waiting tasks (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+					return [];
+				}
+				
+				// Batch check all tasks at once
+				const waitingTaskIds = waitingTasks.map(t => t.id);
+				const bidStatusMap = await checkTasksForBids(waitingTaskIds);
+				
+				const waitingTasksWithNoBids = waitingTasks.filter((task) => !bidStatusMap.get(task.id));
+				console.log(`[TaskFilter] ✅ Result: ${waitingTasksWithNoBids.length} waiting tasks (${(performance.now() - filterStartTime).toFixed(0)}ms total)`);
+				
+				return waitingTasksWithNoBids;
+			
 			case 'bids_received':
-				return tasks.filter((task) => task.status === TaskStatusEnum.OPEN);
-
+				// OPEN tasks with bids
+				const bidTasks = tasks.filter((task) => task.status === TaskStatusEnum.OPEN);
+				console.log(`[TaskFilter] 📋 OPEN tasks: ${bidTasks.length}`);
+				
+				if (bidTasks.length === 0) {
+					console.log(`[TaskFilter] ✅ Result: 0 tasks with bids (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+					return [];
+				}
+				
+				// Batch check all tasks at once
+				const bidTaskIds = bidTasks.map(t => t.id);
+				const bidStatusMap2 = await checkTasksForBids(bidTaskIds);
+				
+				const tasksWithBids = bidTasks.filter((task) => bidStatusMap2.get(task.id));
+				console.log(`[TaskFilter] ✅ Result: ${tasksWithBids.length} tasks with bids (${(performance.now() - filterStartTime).toFixed(0)}ms total)`);
+				
+				return tasksWithBids;
+			
 			case 'tasks_in_progress':
-				return tasks.filter((task) => task.status === TaskStatusEnum.IN_PROGRESS);
+				const inProgressTasks = tasks.filter((task) => 
+					task.status === TaskStatusEnum.IN_PROGRESS ||
+					task.status === TaskStatusEnum.BID_ACCEPTED ||
+					task.status === TaskStatusEnum.ESCROW_FUNDED ||
+					task.status === TaskStatusEnum.RESCOPED ||
+					task.status === TaskStatusEnum.RESCOPE_ACCEPTED
+				);
+				console.log(`[TaskFilter] ✅ Result: ${inProgressTasks.length} in-progress tasks (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+				return inProgressTasks;
+			
 			case 'tasks_completed':
-				return tasks.filter((task) => task.status === TaskStatusEnum.COMPLETED);
-
+				// Include all terminal/final states
+				const completedTasks = tasks.filter((task) => 
+					task.status === TaskStatusEnum.COMPLETED ||
+					task.status === TaskStatusEnum.CANCELLED ||
+					task.status === TaskStatusEnum.REFUNDED
+				);
+				console.log(`[TaskFilter] ✅ Result: ${completedTasks.length} completed tasks (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+				return completedTasks;
+			
+			case 'tasks_disputed':
+				const disputedTasks = tasks.filter((task) => 
+					task.status === TaskStatusEnum.DISPUTED ||
+					task.status === TaskStatusEnum.DISPUTE_PROPOSAL
+				);
+				console.log(`[TaskFilter] ✅ Result: ${disputedTasks.length} disputed tasks (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+				return disputedTasks;
+			
 			default:
 				return tasks;
 		}
@@ -84,6 +289,7 @@
 	 */
 	function getActionButtons(task: Task, category: TaskFilterCategory) {
 		switch (category) {
+			case 'waiting_for_bids':
 			case 'bids_received':
 				return [
 					{
@@ -129,6 +335,7 @@
 				];
 
 			case 'tasks_completed':
+			case 'tasks_disputed':
 				return [
 					{
 						label: $t('task.actions.view_details'),
@@ -200,8 +407,12 @@
 	 * Select filter option
 	 */
 	function selectFilter(optionId: TaskFilterCategory) {
+		console.log(`[TaskFilter] 🎚️ Filter changed: "${activeFilter}" → "${optionId}"`);
 		activeFilter = optionId;
 		isDropdownOpen = false;
+		// Clear bid cache when switching filters to ensure fresh data
+		taskBidStatusCache.clear();
+		console.log(`[TaskFilter] 🗑️ Cache cleared`);
 	}
 
 	/**
@@ -258,10 +469,42 @@
 		}
 	}
 
-	// Reactive statement to get filtered tasks
-	const filteredTasks = $derived(
-		$myTasksStore.items ? getFilteredTasks($myTasksStore.items, activeFilter) : []
-	);
+	// Reactive statement to get filtered tasks (now async)
+	let filteredTasks = $state<Task[]>([]);
+	let isFiltering = $state(false);
+
+	// Watch for filter or task changes
+	$effect(() => {
+		const tasks = $myTasksStore.items;
+		const currentFilter = activeFilter;
+		
+		console.log(`[TaskFilter] 🔄 Effect triggered: filter="${currentFilter}" | tasks=${tasks?.length || 0}`);
+		
+		// Call async function inside effect
+		(async () => {
+			if (!tasks) {
+				console.log(`[TaskFilter] ⚠️ No tasks available`);
+				filteredTasks = [];
+				return;
+			}
+			
+			isFiltering = true;
+			const effectStartTime = performance.now();
+			console.log(`[TaskFilter] 🚀 Starting filtering...`);
+			
+			try {
+				filteredTasks = await getFilteredTasks(tasks, currentFilter);
+				const effectDuration = performance.now() - effectStartTime;
+				console.log(`[TaskFilter] ✅ Filtering complete: ${filteredTasks.length} tasks shown (${effectDuration.toFixed(0)}ms total)`);
+			} catch (error) {
+				const effectDuration = performance.now() - effectStartTime;
+				console.error(`[TaskFilter] ❌ Error filtering (${effectDuration.toFixed(0)}ms):`, error);
+				filteredTasks = [];
+			} finally {
+				isFiltering = false;
+			}
+		})();
+	});
 
 	onMount(() => {
 		// Add click outside listener for dropdown
@@ -318,60 +561,22 @@
 	<div class="hidden sm:block">
 		<div class="mt-3 flex flex-col gap-3 sm:flex-row">
 			{#each filterOptions as option}
+				{@const IconComponent = option.icon}
 				<button
-					class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter ===
-					option.id
+					class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter === option.id
 						? 'text-primary bg-primary/10'
 						: 'bg-base-100/40 hover:bg-base-100/50'}"
-					onclick={() => (activeFilter = option.id)}
+					onclick={() => {
+						console.log(`[TaskFilter] 🎚️ Filter changed: "${activeFilter}" → "${option.id}"`);
+						activeFilter = option.id;
+						taskBidStatusCache.clear();
+						console.log(`[TaskFilter] 🗑️ Cache cleared`);
+					}}
 				>
-					<!-- Icon for each category -->
-					{#if option.id === 'bids_received'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-					{:else if option.id === 'tasks_in_progress'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 10V3L4 14h7v7l9-11h-7z"
-							/>
-						</svg>
-					{:else if option.id === 'tasks_completed'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-							/>
-						</svg>
-					{/if}
+					<!-- MDI Icon Component -->
+					<IconComponent 
+						class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
+					/>
 					<span class="font-medium">{option.label}</span>
 				</button>
 			{/each}
@@ -386,73 +591,21 @@
 				onclick={toggleDropdown}
 			>
 				<div class="flex items-center gap-2">
-					<!-- Icon for selected category -->
-					{#if activeFilter === 'bids_received'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-primary h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-					{:else if activeFilter === 'tasks_in_progress'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-primary h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 10V3L4 14h7v7l9-11h-7z"
-							/>
-						</svg>
-					{:else if activeFilter === 'tasks_completed'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-primary h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-							/>
-						</svg>
-					{/if}
+					<!-- MDI Icon Component for selected filter -->
+					{#each filterOptions as option}
+						{#if activeFilter === option.id}
+							{@const IconComponent = option.icon}
+							<IconComponent class="text-primary h-5 w-5" />
+						{/if}
+					{/each}
 					<span class="font-medium">
 						{filterOptions.find((opt) => opt.id === activeFilter)?.label}
 					</span>
 				</div>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-primary h-5 w-5 transition-transform duration-200 {isDropdownOpen
-						? 'rotate-180'
-						: ''}"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M19 9l-7 7-7-7"
-					/>
-				</svg>
+				<!-- Dropdown arrow icon -->
+				<IconChevronDown 
+					class="text-primary h-5 w-5 transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
+				/>
 			</button>
 
 			<!-- Dropdown menu -->
@@ -461,82 +614,20 @@
 					class="border-base-300 bg-base-300 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 				>
 					{#each filterOptions as option}
+						{@const IconComponent = option.icon}
 						<button
-							class="hover:bg-base-200 flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
-							option.id
+							class="hover:bg-base-200 flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter === option.id
 								? 'bg-primary/10 text-primary'
 								: 'text-base-content'}"
 							onclick={() => selectFilter(option.id)}
 						>
-							<!-- Icon for each category -->
-							{#if option.id === 'bids_received'}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 {activeFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-							{:else if option.id === 'tasks_in_progress'}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 {activeFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M13 10V3L4 14h7v7l9-11h-7z"
-									/>
-								</svg>
-							{:else if option.id === 'tasks_completed'}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 {activeFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-									/>
-								</svg>
-							{/if}
+							<!-- MDI Icon Component -->
+							<IconComponent 
+								class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+							/>
 							<span class="font-medium">{option.label}</span>
 							{#if activeFilter === option.id}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-primary ml-auto h-5 w-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M5 13l4 4L19 7"
-									/>
-								</svg>
+								<IconCheck class="text-primary ml-auto h-5 w-5" />
 							{/if}
 						</button>
 					{/each}
@@ -547,9 +638,15 @@
 </div>
 
 <!-- Loading State -->
-{#if $myTasksStore.loading}
+{#if $myTasksStore.loading || isFiltering}
 	<div class="space-y-2">
-		{#each Array(1) as _}
+		{#if isFiltering}
+			<div class="flex items-center justify-center gap-2 py-8">
+				<span class="loading loading-spinner loading-md text-primary"></span>
+				<span class="text-base-content/60">{$t('task.filters.filtering')}</span>
+			</div>
+		{:else}
+			{#each Array(1) as _}
 			<div class="bg-base-100 animate-pulse rounded-xl shadow-md">
 				<div class="card-body">
 					<!-- Title and Description Section -->
@@ -617,11 +714,12 @@
 				</div>
 			</div>
 		{/each}
+		{/if}
 	</div>
 {/if}
 
 <!-- Task List -->
-{#if !$myTasksStore.loading && filteredTasks.length > 0}
+{#if !$myTasksStore.loading && !isFiltering && filteredTasks.length > 0}
 	<div class="grid grid-cols-1 gap-5">
 		{#each filteredTasks as task}
 			{#if task}
@@ -871,7 +969,7 @@
 			</div>
 		{/if}
 	</div>
-{:else if !$myTasksStore.loading && !$myTasksStore.error}
+{:else if !$myTasksStore.loading && !isFiltering && !$myTasksStore.error}
 	<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"

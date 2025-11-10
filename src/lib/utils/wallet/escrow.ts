@@ -9,6 +9,7 @@ import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
+import { updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
 
 let contract: ethers.Contract | null = null;
 
@@ -306,19 +307,23 @@ async function createEscrow(
     freelancerFeeTier: FeeTier
 ): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
 
-        // Estimate gas first
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
         const gasEstimate = await contract.createEscrow.estimateGas(
             freelancerAddress,
             estimatedStartTime,
             estimatedCompletionTime,
             clientFeeTier,
             freelancerFeeTier,
-            { value: totalPayment }
+            { value: totalPayment, gasPrice: gasPrice }
         );
 
         const tx = await contract.createEscrow(
@@ -329,7 +334,8 @@ async function createEscrow(
             freelancerFeeTier,
             {
                 value: totalPayment,
-                gasLimit: gasEstimate + (gasEstimate / 10n) // Add 10% buffer
+                gasLimit: gasEstimate + (gasEstimate / 10n), // Add 10% buffer
+                gasPrice: gasPrice
             }
         );
 
@@ -416,11 +422,19 @@ async function createEscrow(
 // Complete task
 async function completeTask(escrowId: string, contractEventId?: string, completionAttachments?: Attachment[]): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.completeTask.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.completeTask.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.completeTask(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -451,17 +465,34 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
             } else {
                 result.status = 'failed';
                 console.error('Task completion transaction receipt is null');
+                
+                // Clear cache on failure to allow retry
+                clearCompletionAttempt(escrowId);
+                
                 appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
             }
         }).catch((error: unknown) => {
             console.error('Task completion transaction failed:', error);
             result.status = 'failed';
+            
+            // Clear cache on failure to allow retry
+            clearCompletionAttempt(escrowId);
+            
+            // Update cache status to failed
+            updateCompletionStatus(escrowId, 'failed');
+            
             appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
         });
 
         return result;
 
     } catch (error) {
+        // Handle immediate errors (before transaction is sent)
+        console.error('Error completing task:', error);
+        
+        // Clear cache on error to allow retry
+        clearCompletionAttempt(escrowId);
+        
         throw new Error(`Failed to complete task: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
@@ -469,11 +500,19 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
 // Accept task
 async function acceptTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.acceptTask.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.acceptTask.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.acceptTask(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -521,11 +560,19 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
 // Cancel escrow
 async function cancelEscrow(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.cancelEscrow.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.cancelEscrow.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.cancelEscrow(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -573,11 +620,19 @@ async function cancelEscrow(escrowId: string, contractEventId?: string): Promise
 // Dispute task
 async function disputeTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.disputeTask.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.disputeTask.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.disputeTask(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -631,19 +686,28 @@ async function proposeResolution(
     proposedFreelancerAmount?: string
 ): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
         const freelancerAmountWei = ethers.parseEther(freelancerAmount);
 
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
         const gasEstimate = await contract.proposeResolution.estimateGas(
             escrowId,
-            freelancerAmountWei
+            freelancerAmountWei,
+            { gasPrice: gasPrice }
         );
 
         const tx = await contract.proposeResolution(
             escrowId,
             freelancerAmountWei,
-            { gasLimit: gasEstimate + (gasEstimate / 10n) }
+            { 
+                gasLimit: gasEstimate + (gasEstimate / 10n),
+                gasPrice: gasPrice
+            }
         );
 
         const result: ContractTransactionResult = {
@@ -693,11 +757,19 @@ async function proposeResolution(
 // Accept proposal
 async function acceptProposal(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.acceptProposal.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.acceptProposal.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.acceptProposal(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -745,11 +817,19 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
 // Resolve after timelock
 async function resolveAfterTimelock(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.resolveAfterTimelock.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.resolveAfterTimelock.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.resolveAfterTimelock(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
