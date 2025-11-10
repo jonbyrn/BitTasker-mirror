@@ -43,6 +43,8 @@
 	// Background bid checking state
 	let bidStatusMap = $state<Map<string, boolean>>(new Map());
 	let isCheckingBids = $state(false);
+	let lastCheckedTaskCount = $state(0);
+	let bidCheckTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Pagination state
 	let currentPage = $state(1);
@@ -92,17 +94,34 @@
 	 * Background bid checking (non-blocking)
 	 */
 	async function checkBidsInBackground() {
-		if (isCheckingBids) return;
+		// Prevent multiple simultaneous calls
+		if (isCheckingBids) {
+			console.log('Bid check already in progress, skipping...');
+			return;
+		}
+		
+		const currentTaskCount = $myTasksStore.items.length;
+		const openTasks = $myTasksStore.items.filter(t => t.status === TaskStatusEnum.OPEN);
+		
+		// If no open tasks, no need to check bids
+		if (openTasks.length === 0) {
+			console.log('No open tasks, skipping bid check');
+			return;
+		}
+		
+		// If we've already checked for this task count, skip (unless forced)
+		if (currentTaskCount === lastCheckedTaskCount && bidStatusMap.size > 0) {
+			console.log('Bids already checked for current task set, skipping...');
+			return;
+		}
 		
 		isCheckingBids = true;
+		lastCheckedTaskCount = currentTaskCount;
+		
 		try {
-			const openTasks = $myTasksStore.items.filter(t => t.status === TaskStatusEnum.OPEN);
-			if (openTasks.length === 0) {
-				isCheckingBids = false;
-				return;
-			}
-
 			const taskIds = openTasks.map(t => t.id);
+			
+			console.log(`Checking bids for ${openTasks.length} open tasks...`);
 			
 			// Batch check all bids
 			const { getBidsFromDMs } = await import('$lib/utils/nostr-bid');
@@ -120,8 +139,12 @@
 			for (const taskId of taskIds) {
 				bidStatusMap.set(taskId, tasksWithBids.has(taskId));
 			}
+			
+			console.log(`Bid check complete. Found bids for ${tasksWithBids.size} tasks.`);
 		} catch (error) {
 			console.error('Error checking bids in background:', error);
+			// Reset lastCheckedTaskCount on error so we can retry
+			lastCheckedTaskCount = 0;
 		} finally {
 			isCheckingBids = false;
 		}
@@ -210,11 +233,29 @@
 		currentPage = 1;
 	});
 
-	// Check bids in background on mount and when tasks change
+	// Check bids in background on mount and when tasks change (debounced)
 	$effect(() => {
-		if ($myTasksStore.items.length > 0) {
-			checkBidsInBackground();
+		const taskCount = $myTasksStore.items.length;
+		
+		// Clear any pending timeout
+		if (bidCheckTimeout) {
+			clearTimeout(bidCheckTimeout);
 		}
+		
+		// Only check if we have tasks and they've actually changed
+		if (taskCount > 0 && taskCount !== lastCheckedTaskCount) {
+			// Debounce the bid check to avoid multiple rapid calls
+			bidCheckTimeout = setTimeout(() => {
+				checkBidsInBackground();
+			}, 500); // 500ms debounce
+		}
+		
+		// Cleanup on unmount
+		return () => {
+			if (bidCheckTimeout) {
+				clearTimeout(bidCheckTimeout);
+			}
+		};
 	});
 
 	/**
