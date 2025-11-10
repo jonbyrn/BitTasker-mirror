@@ -171,10 +171,6 @@
 </script>
 
 <div class="space-y-6">
-	<!-- Header with description -->
-	<div class="mt-4">
-		<p class="text-base-content/70">{$t('dashboard.contracts.description')}</p>
-	</div>
 
 	<!-- Row 1: Role Filter Buttons + Refresh Button -->
 	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
