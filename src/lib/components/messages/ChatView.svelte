@@ -14,6 +14,7 @@
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 	import { TranslationStore } from '$lib/stores/translation.store';
 	import { TranslationService } from '$lib/services/translation.service';
+	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
 
 	// Props
 	let {
@@ -171,18 +172,13 @@
 				// Mark as processed immediately to avoid duplicates
 				processedMessageIds.add(messageId);
 
-				// Only translate incoming messages with text content
-				if (!isFromCurrentUser && hasText && hasText.length > 3) {
-					const isNotSystemMessage =
-						!message.plaintext.startsWith('[') && !message.plaintext.startsWith('{');
-
-					if (isNotSystemMessage) {
-						try {
-							// TranslationStore handles duplicate prevention internally
-							const result = await TranslationStore.translateMessage(messageId, message.plaintext);
-						} catch (error) {
-							console.error('Translation error for new message', messageId, ':', error);
-						}
+				// Only translate incoming user-to-user messages with text content
+				if (!isFromCurrentUser && hasText && hasText.length > 3 && isUserToUserMessage(message.plaintext)) {
+					try {
+						// TranslationStore handles duplicate prevention internally
+						const result = await TranslationStore.translateMessage(messageId, message.plaintext);
+					} catch (error) {
+						console.error('Translation error for new message', messageId, ':', error);
 					}
 				}
 			});
@@ -364,8 +360,11 @@
 				limit: MESSAGES_PER_PAGE
 			});
 
+			// Filter out system messages (bids, contracts, etc.) - only show user-to-user messages
+			const userMessages = messageHistory.filter((msg) => isUserToUserMessage(msg.plaintext));
+
 			// Sort messages by timestamp (oldest first)
-			const sortedMessages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
+			const sortedMessages = userMessages.sort((a, b) => a.event.created_at - b.event.created_at);
 			messages = sortedMessages;
 
 			// Update pagination state
@@ -411,8 +410,11 @@
 			});
 
 			if (olderMessages.length > 0) {
+				// Filter out system messages (bids, contracts, etc.) - only show user-to-user messages
+				const userOlderMessages = olderMessages.filter((msg) => isUserToUserMessage(msg.plaintext));
+				
 				// Sort and prepend older messages
-				const sortedOlderMessages = olderMessages.sort(
+				const sortedOlderMessages = userOlderMessages.sort(
 					(a, b) => a.event.created_at - b.event.created_at
 				);
 				messages = [...sortedOlderMessages, ...messages];
@@ -453,11 +455,13 @@
 		unsubscribe = listenForIncomingMessages((msg) => {
 			const { plaintext, senderPubkey, event } = msg;
 
-			// Only add messages that are relevant to this conversation
+			// Only add messages that are relevant to this conversation AND are user-to-user messages
+			// Filter out system messages (bids, contracts, etc.)
 			if (
-				senderPubkey === recipientHex() ||
-				(senderPubkey === currentUserHex() &&
-					event.tags.some((tag) => tag[0] === 'p' && tag[1] === recipientHex()))
+				(senderPubkey === recipientHex() ||
+					(senderPubkey === currentUserHex() &&
+						event.tags.some((tag) => tag[0] === 'p' && tag[1] === recipientHex()))) &&
+				isUserToUserMessage(plaintext)
 			) {
 				// Check if we already have this message to avoid duplicates
 				const existingMessageIndex = messages.findIndex((existingMsg) => {
