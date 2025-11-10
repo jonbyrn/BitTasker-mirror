@@ -190,7 +190,7 @@
 	{#if selectedAsset === 'bitcoin'}
 		<div class="form-control">
 			<label class="label" for="network-select">
-				<span class="label-text font-medium">{$t('wallet.receive_form.select_network')}</span>
+				<span class="label-text font-medium">{$t('wallet.select_network')}</span>
 			</label>
 			{#key dropdownKey}
 				<div class="dropdown dropdown-bottom w-full">

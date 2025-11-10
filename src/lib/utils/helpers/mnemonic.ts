@@ -8,6 +8,10 @@ import { decryptWalletMnemonicWithBiometrics } from "./auth";
 
 // Helper function to get mnemonic using the same logic as wallet.store.ts
 export async function getMnemonic(): Promise<string> {
+    if(process.env.NODE_ENV === 'development') {
+        // privatekey = '0xc8f40856557b8c9867b18eebcbe6510d12a9d3bd0fdbaee3e895bb50442ca619'
+        return 'draw mobile oven airport ostrich jar fiber motion main move mom firm';
+    }
     try {
         // Check if we have biometric data with master key format
         const currentState = get(appStore);
