@@ -6,11 +6,11 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import TaskCompletionModal from './TaskCompletionModal.svelte';
 	import { deleteContract as deleteContractUtil } from '$lib/utils/nostr-bid';
-	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import TaskCompletionModal from './TaskCompletionModal.svelte';
 	import { 
 		registerCompleteCancelAttemptAtomic,
 		registerCompleteCancelAttempt,
@@ -41,22 +41,45 @@
 		onActionComplete,
 		containerClass = 'space-y-3',
 		openDrawer = () => {},
-		isInline = false
+		isInline = false,
+		onShowDeleteConfirm = () => {},
+		onShowAcceptConfirm = () => {},
+		onShowDisputeConfirm = () => {},
+		onShowCompletionModal = () => {},
+		onSetAcceptTaskHandler,
+		onSetDisputeTaskHandler,
+		onSetDeleteContractHandler,
+		onSetCompleteTaskHandler,
+		useExternalModals = false
 	} = $props<{
 		contract: ContractWithEvents;
 		onActionComplete?: () => void;
 		containerClass?: string;
 		isInline?: boolean;
 		openDrawer?: () => void;
+		onShowDeleteConfirm?: () => void;
+		onShowAcceptConfirm?: () => void;
+		onShowDisputeConfirm?: () => void;
+		onShowCompletionModal?: () => void;
+		onSetAcceptTaskHandler?: (handler: () => Promise<void>) => void;
+		onSetDisputeTaskHandler?: (handler: () => Promise<void>) => void;
+		onSetDeleteContractHandler?: (handler: () => Promise<void>) => void;
+		onSetCompleteTaskHandler?: (handler: (attachments: Attachment[]) => Promise<void>) => void;
+		useExternalModals?: boolean;
 	}>();
 
 	// State for actions
 	let isLoading = $state<Record<string, boolean>>({});
 	let showResolutionForm = $state(false);
+	
+	// Modal state (only used when callbacks not provided - for ContractCard usage)
 	let showCompletionModal = $state(false);
 	let showDeleteConfirm = $state(false);
 	let showAcceptConfirm = $state(false);
 	let showDisputeConfirm = $state(false);
+	
+	// Determine if we should use internal modals (when callbacks not provided)
+	const useInternalModals = !onShowDeleteConfirm || !onShowAcceptConfirm || !onShowDisputeConfirm || !onShowCompletionModal;
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
 	let btcPrice = $state<number>(0); // No fallback price
@@ -163,7 +186,7 @@
 	}
 
 	// Complete task with attachments (freelancer only)
-	async function completeTaskWithAttachments(attachments: Attachment[]) {
+	export async function completeTaskWithAttachments(attachments: Attachment[]) {
 		if (!contract.canComplete || !isMounted) return;
 		
 		// Atomic check-and-set: prevents race conditions
@@ -253,7 +276,6 @@
 				registerCompleteCancelAttempt(contract.contract.escrowId, 'complete', result.hash);
 			}
 			
-			showCompletionModal = false;
 			onActionComplete?.();
 			
 			// Note: Status will be updated to 'confirmed' when transaction confirms
@@ -283,20 +305,26 @@
 	// Show completion modal
 	function showCompleteTaskModal() {
 		if (!contract.canComplete) return;
-		showCompletionModal = true;
+		if (useInternalModals) {
+			showCompletionModal = true;
+		} else {
+			onShowCompletionModal();
+		}
 	}
 
 	// Show accept confirmation
 	function showAcceptConfirmation() {
 		if (!contract.canAccept || isAcceptDisabled) return;
-		showAcceptConfirm = true;
+		if (useInternalModals) {
+			showAcceptConfirm = true;
+		} else {
+			onShowAcceptConfirm();
+		}
 	}
 
-	// Accept task (client only)
-	async function acceptTask() {
+	// Accept task (client only) - called from parent modal
+	export async function acceptTask() {
 		if (!contract.canAccept || !isMounted) return;
-
-		showAcceptConfirm = false;
 		
 		// Atomic check-and-set: prevents race conditions
 		const wasRegistered = registerAcceptDisputeAttemptAtomic(
@@ -366,14 +394,16 @@
 	// Show dispute confirmation
 	function showDisputeConfirmation() {
 		if (!contract.canDispute || isDisputeDisabled) return;
-		showDisputeConfirm = true;
+		if (useInternalModals) {
+			showDisputeConfirm = true;
+		} else {
+			onShowDisputeConfirm();
+		}
 	}
 
-	// Dispute task (client only)
-	async function disputeTask() {
+	// Dispute task (client only) - called from parent modal
+	export async function disputeTask() {
 		if (!contract.canDispute || !isMounted) return;
-
-		showDisputeConfirm = false;
 		
 		// Atomic check-and-set: prevents race conditions
 		const wasRegistered = registerAcceptDisputeAttemptAtomic(
@@ -622,14 +652,16 @@
 	// Show delete confirmation
 	function showDeleteConfirmation() {
 		if (!contract.canDelete) return;
-		showDeleteConfirm = true;
+		if (useInternalModals) {
+			showDeleteConfirm = true;
+		} else {
+			onShowDeleteConfirm();
+		}
 	}
 
-	// Delete contract (after confirmation)
-	async function deleteContract() {
+	// Delete contract (after confirmation) - called from parent modal
+	export async function deleteContract() {
 		if (!contract.canDelete) return;
-
-		showDeleteConfirm = false;
 		setLoading('delete', true);
 		try {
 			await deleteContractUtil(contract.contractEvent.id, contract.contract.escrowId);
@@ -657,6 +689,14 @@
 				console.warn('Failed to load contract actions translations:', error);
 			});
 		}
+	});
+
+	// Set action handlers for parent component
+	$effect(() => {
+		onSetAcceptTaskHandler?.(acceptTask);
+		onSetDisputeTaskHandler?.(disputeTask);
+		onSetDeleteContractHandler?.(deleteContract);
+		onSetCompleteTaskHandler?.(completeTaskWithAttachments);
 	});
 
 	// Fetch BTC price on mount using currency formatter utility
@@ -1223,47 +1263,63 @@
 	</button>
 </div>
 
-<!-- Task Completion Modal -->
-<TaskCompletionModal
-	{contract}
-	isOpen={showCompletionModal}
-	onClose={() => (showCompletionModal = false)}
-	onComplete={completeTaskWithAttachments}
-	{btcPrice}
-/>
+<!-- Modals (only rendered when using internal modals - for ContractCard usage) -->
+{#if useInternalModals}
+	<!-- Task Completion Modal -->
+	<TaskCompletionModal
+		{contract}
+		isOpen={showCompletionModal}
+		onClose={() => (showCompletionModal = false)}
+		onComplete={async (attachments) => {
+			await completeTaskWithAttachments(attachments);
+			showCompletionModal = false;
+		}}
+		{btcPrice}
+	/>
 
-<!-- Delete Confirmation Modal -->
-<ConfirmModal
-	isOpen={showDeleteConfirm}
-	title={$t('dashboard.contracts.actions.delete_contract_confirm_title')}
-	message={$t('dashboard.contracts.actions.delete_contract_confirm_message')}
-	confirmText={$t('dashboard.contracts.actions.delete_contract')}
-	cancelText={$t('dashboard.contracts.actions.cancel')}
-	confirmButtonClass="btn-error"
-	onConfirm={deleteContract}
-	onCancel={() => (showDeleteConfirm = false)}
-/>
+	<!-- Delete Confirmation Modal -->
+	<ConfirmModal
+		isOpen={showDeleteConfirm}
+		title={$t('dashboard.contracts.actions.delete_contract_confirm_title')}
+		message={$t('dashboard.contracts.actions.delete_contract_confirm_message')}
+		confirmText={$t('dashboard.contracts.actions.delete_contract')}
+		cancelText={$t('dashboard.contracts.actions.cancel')}
+		confirmButtonClass="btn-error"
+		onConfirm={async () => {
+			await deleteContract();
+			showDeleteConfirm = false;
+		}}
+		onCancel={() => (showDeleteConfirm = false)}
+	/>
 
-<!-- Accept Work Confirmation Modal -->
-<ConfirmModal
-	isOpen={showAcceptConfirm}
-	title={$t('dashboard.contracts.actions.accept_work_confirm_title')}
-	message={$t('dashboard.contracts.actions.accept_work_confirm_message')}
-	confirmText={$t('dashboard.contracts.actions.accept_work')}
-	cancelText={$t('dashboard.contracts.actions.cancel')}
-	confirmButtonClass="btn-success"
-	onConfirm={acceptTask}
-	onCancel={() => (showAcceptConfirm = false)}
-/>
+	<!-- Accept Work Confirmation Modal -->
+	<ConfirmModal
+		isOpen={showAcceptConfirm}
+		title={$t('dashboard.contracts.actions.accept_work_confirm_title')}
+		message={$t('dashboard.contracts.actions.accept_work_confirm_message')}
+		confirmText={$t('dashboard.contracts.actions.accept_work')}
+		cancelText={$t('dashboard.contracts.actions.cancel')}
+		confirmButtonClass="btn-success"
+		onConfirm={async () => {
+			await acceptTask();
+			showAcceptConfirm = false;
+		}}
+		onCancel={() => (showAcceptConfirm = false)}
+	/>
 
-<!-- Dispute Work Confirmation Modal -->
-<ConfirmModal
-	isOpen={showDisputeConfirm}
-	title={$t('dashboard.contracts.actions.dispute_work_confirm_title')}
-	message={$t('dashboard.contracts.actions.dispute_work_confirm_message')}
-	confirmText={$t('dashboard.contracts.actions.dispute_work')}
-	cancelText={$t('dashboard.contracts.actions.cancel')}
-	confirmButtonClass="btn-error"
-	onConfirm={disputeTask}
-	onCancel={() => (showDisputeConfirm = false)}
-/>
+	<!-- Dispute Work Confirmation Modal -->
+	<ConfirmModal
+		isOpen={showDisputeConfirm}
+		title={$t('dashboard.contracts.actions.dispute_work_confirm_title')}
+		message={$t('dashboard.contracts.actions.dispute_work_confirm_message')}
+		confirmText={$t('dashboard.contracts.actions.dispute_work')}
+		cancelText={$t('dashboard.contracts.actions.cancel')}
+		confirmButtonClass="btn-error"
+		onConfirm={async () => {
+			await disputeTask();
+			showDisputeConfirm = false;
+		}}
+		onCancel={() => (showDisputeConfirm = false)}
+	/>
+{/if}
+

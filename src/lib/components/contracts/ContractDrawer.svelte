@@ -8,6 +8,8 @@
 	import ContractActions from './ContractActions.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import { fetchProfileMetadata, fetchComprehensiveProfile } from '$lib/utils/nostr-message';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import TaskCompletionModal from './TaskCompletionModal.svelte';
 
 	const { contract, isOpen, btcPrice, onClose, onUpdate } = $props<{
 		contract: ContractWithEvents | null;
@@ -20,6 +22,18 @@
 	// Technical details toggle state
 	let isTechnicalDetailsOpen = $state(false);
 	let isOriginalBidOpen = $state(false);
+
+	// Modal state
+	let showDeleteConfirm = $state(false);
+	let showAcceptConfirm = $state(false);
+	let showDisputeConfirm = $state(false);
+	let showCompletionModal = $state(false);
+
+	// Action handlers (set by ContractActions)
+	let acceptTaskHandler: (() => Promise<void>) | null = $state(null);
+	let disputeTaskHandler: (() => Promise<void>) | null = $state(null);
+	let deleteContractHandler: (() => Promise<void>) | null = $state(null);
+	let completeTaskWithAttachmentsHandler: ((attachments: Attachment[]) => Promise<void>) | null = $state(null);
 
 	// Taskee profile state
 	let taskeeProfile = $state<{
@@ -504,6 +518,15 @@
 						containerClass={getAvailableActionsCount() > 1
 							? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
 							: 'flex justify-center items-center'}
+						onShowDeleteConfirm={() => (showDeleteConfirm = true)}
+						onShowAcceptConfirm={() => (showAcceptConfirm = true)}
+						onShowDisputeConfirm={() => (showDisputeConfirm = true)}
+						onShowCompletionModal={() => (showCompletionModal = true)}
+						onSetAcceptTaskHandler={(handler) => (acceptTaskHandler = handler)}
+						onSetDisputeTaskHandler={(handler) => (disputeTaskHandler = handler)}
+						onSetDeleteContractHandler={(handler) => (deleteContractHandler = handler)}
+						onSetCompleteTaskHandler={(handler) => (completeTaskWithAttachmentsHandler = handler)}
+						useExternalModals={true}
 					/>
 				</div>
 			</div>
@@ -579,3 +602,71 @@
 		</div>
 	{/snippet}
 </Drawer>
+
+<!-- Modals (outside drawer to avoid z-index issues) -->
+{#if contract}
+	<!-- Task Completion Modal -->
+	<TaskCompletionModal
+		{contract}
+		isOpen={showCompletionModal}
+		onClose={() => (showCompletionModal = false)}
+		onComplete={async (attachments) => {
+			if (completeTaskWithAttachmentsHandler) {
+				await completeTaskWithAttachmentsHandler(attachments);
+				showCompletionModal = false;
+			}
+		}}
+		{btcPrice}
+	/>
+
+	<!-- Delete Confirmation Modal -->
+	<ConfirmModal
+		isOpen={showDeleteConfirm}
+		title={$t('dashboard.contracts.actions.delete_contract_confirm_title')}
+		message={$t('dashboard.contracts.actions.delete_contract_confirm_message')}
+		confirmText={$t('dashboard.contracts.actions.delete_contract')}
+		cancelText={$t('dashboard.contracts.actions.cancel')}
+		confirmButtonClass="btn-error"
+		onConfirm={async () => {
+			if (deleteContractHandler) {
+				await deleteContractHandler();
+				showDeleteConfirm = false;
+			}
+		}}
+		onCancel={() => (showDeleteConfirm = false)}
+	/>
+
+	<!-- Accept Work Confirmation Modal -->
+	<ConfirmModal
+		isOpen={showAcceptConfirm}
+		title={$t('dashboard.contracts.actions.accept_work_confirm_title')}
+		message={$t('dashboard.contracts.actions.accept_work_confirm_message')}
+		confirmText={$t('dashboard.contracts.actions.accept_work')}
+		cancelText={$t('dashboard.contracts.actions.cancel')}
+		confirmButtonClass="btn-success"
+		onConfirm={async () => {
+			if (acceptTaskHandler) {
+				await acceptTaskHandler();
+				showAcceptConfirm = false;
+			}
+		}}
+		onCancel={() => (showAcceptConfirm = false)}
+	/>
+
+	<!-- Dispute Work Confirmation Modal -->
+	<ConfirmModal
+		isOpen={showDisputeConfirm}
+		title={$t('dashboard.contracts.actions.dispute_work_confirm_title')}
+		message={$t('dashboard.contracts.actions.dispute_work_confirm_message')}
+		confirmText={$t('dashboard.contracts.actions.dispute_work')}
+		cancelText={$t('dashboard.contracts.actions.cancel')}
+		confirmButtonClass="btn-error"
+		onConfirm={async () => {
+			if (disputeTaskHandler) {
+				await disputeTaskHandler();
+				showDisputeConfirm = false;
+			}
+		}}
+		onCancel={() => (showDisputeConfirm = false)}
+	/>
+{/if}
