@@ -30,6 +30,7 @@ export interface ContractCreationEvent {
 // Stores for escrow events
 export const escrowCreatedStore = writable<EscrowCreatedEvent | null>(null);
 export const contractCreationStore = writable<ContractCreationEvent | null>(null);
+export const contractUpdateStore = writable<string[]>([]);
 
 // Pending contract creation requests
 interface PendingContractCreation {
@@ -200,6 +201,13 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
 
+		// Update accept/dispute cache to confirmed
+		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
+		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
+
+		// Add escrowId to contract update queue
+		contractUpdateStore.update(ids => [...ids, event.escrowId]);
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -227,6 +235,13 @@ export async function handleTaskDisputed(event: { escrowId: string; transactionH
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.InDispute);
+
+		// Update accept/dispute cache to confirmed
+		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
+		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
+
+		// Add escrowId to contract update queue
+		contractUpdateStore.update(ids => [...ids, event.escrowId]);
 
 		// Publish status update to Nostr
 		await publishContractStatus({

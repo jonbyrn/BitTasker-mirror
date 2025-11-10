@@ -3,6 +3,8 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { getUserContracts } from '$lib/utils/nostr-bid';
+	import { contractUpdateStore } from '$lib/utils/wallet/escrowEvents';
+	import { onDestroy } from 'svelte';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -114,9 +116,17 @@
 		}
 	}
 
+	let isMounted = $state(true);
+	let isProcessingUpdates = $state(false);
+
 	onMount(async () => {
+		isMounted = true;
 		await loadContracts();
 		await fetchBtcPrice();
+	});
+
+	onDestroy(() => {
+		isMounted = false;
 	});
 
 	async function loadContracts() {
@@ -131,6 +141,40 @@
 			isLoading = false;
 		}
 	}
+
+	// Subscribe to contract update store (queue-based approach)
+	$effect(() => {
+		const escrowIds = $contractUpdateStore;
+		
+		// Only process if:
+		// 1. There are escrowIds to process
+		// 2. We're not already loading contracts
+		// 3. We're not already processing updates
+		// 4. Component is still mounted
+		if (escrowIds.length > 0 && !isLoading && !isProcessingUpdates && isMounted) {
+			// Get the IDs to process and clear the queue immediately
+			const idsToProcess = [...escrowIds];
+			contractUpdateStore.set([]); // Clear immediately to prevent race conditions
+			
+			// Set processing flag
+			isProcessingUpdates = true;
+			
+			// Load contracts (this will refresh all contracts, including the updated ones)
+			loadContracts().finally(() => {
+				if (isMounted) {
+					isProcessingUpdates = false;
+					
+					// Check if any new updates came in while we were loading
+					const remaining = $contractUpdateStore;
+					if (remaining.length > 0 && !isLoading) {
+						// Process remaining updates
+						contractUpdateStore.set([]);
+						loadContracts();
+					}
+				}
+			});
+		}
+	});
 
 	function openContractDrawer(contract: ContractWithEvents) {
 		selectedContract = contract;

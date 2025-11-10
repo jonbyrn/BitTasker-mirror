@@ -17,6 +17,14 @@
 		getCompletionAttempt,
 		clearCompletionAttempt 
 	} from '$lib/stores/completionCache.store';
+	import {
+		registerAcceptDisputeAttemptAtomic,
+		registerAcceptDisputeAttempt,
+		updateAcceptDisputeStatus,
+		getAcceptAttempt,
+		getDisputeAttempt,
+		clearAcceptDisputeAttempt
+	} from '$lib/stores/acceptDisputeCache.store';
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 	import type { EscrowData } from '$lib/types/wallet';
 
@@ -39,6 +47,8 @@
 	let showResolutionForm = $state(false);
 	let showCompletionModal = $state(false);
 	let showDeleteConfirm = $state(false);
+	let showAcceptConfirm = $state(false);
+	let showDisputeConfirm = $state(false);
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
 	let btcPrice = $state<number>(0); // No fallback price
@@ -47,6 +57,11 @@
 	let isCheckingBlockchain = $state(false);
 	let blockchainCompletionStatus = $state<EscrowStatus | null>(null);
 	let completionAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed' } | null>(null);
+	
+	// Accept/Dispute cache state
+	let acceptAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed'; type: 'accept' | 'dispute' } | null>(null);
+	let disputeAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed'; type: 'accept' | 'dispute' } | null>(null);
+	
 	let isMounted = $state(true);
 	
 	// Blockchain check cache (30 second TTL)
@@ -242,45 +257,157 @@
 		showCompletionModal = true;
 	}
 
+	// Show accept confirmation
+	function showAcceptConfirmation() {
+		if (!contract.canAccept || isAcceptDisabled) return;
+		showAcceptConfirm = true;
+	}
+
 	// Accept task (client only)
 	async function acceptTask() {
-		if (!contract.canAccept) return;
+		if (!contract.canAccept || !isMounted) return;
+
+		showAcceptConfirm = false;
+		
+		// Atomic check-and-set: prevents race conditions
+		const wasRegistered = registerAcceptDisputeAttemptAtomic(
+			contract.contract.escrowId,
+			'accept'
+		);
+		if (!wasRegistered) {
+			// Already attempted - check status
+			const attempt = getAcceptAttempt(contract.contract.escrowId);
+			if (attempt?.status === 'confirmed') {
+				if (isMounted) {
+					appStore.showErrorToast($t('dashboard.contracts.actions.payment_already_released'));
+				}
+				return;
+			} else if (attempt?.status === 'pending') {
+				// Transaction pending - don't allow duplicate
+				if (isMounted) {
+					appStore.showErrorToast($t('dashboard.contracts.actions.payment_release_pending'));
+				}
+				return;
+			}
+			// If failed, allow retry
+		}
+		
+		// Get the attempt (either newly created or existing)
+		acceptAttempt = getAcceptAttempt(contract.contract.escrowId);
 
 		setLoading('accept', true);
 		try {
 			// Call RSK escrow acceptTask with contract event ID for proper nostr event publishing
-			await escrow.acceptTask(contract.contract.escrowId, contract.contractEvent.id);
-			onActionComplete?.();
+			const result = await escrow.acceptTask(contract.contract.escrowId, contract.contractEvent.id);
+			
+			if (!isMounted) return;
+			
+			// Update cache with transaction hash (status is already 'pending' from registration)
+			if (result.hash && acceptAttempt) {
+				// Update the attempt with transaction hash
+				acceptAttempt.transactionHash = result.hash;
+				// Update the cache entry (overwrites existing entry with transaction hash)
+				registerAcceptDisputeAttempt(contract.contract.escrowId, 'accept', result.hash);
+			}
+			
+			// Note: Status will be updated to 'confirmed' when transaction confirms
+			// This happens in escrowEvents.ts handleTaskAccepted
+			// If transaction fails, it will be handled in escrow.ts
 		} catch (error) {
+			if (!isMounted) return;
+			
 			console.error('Error accepting task:', error);
+			
+			// Clear attempt on failure to allow retry
+			clearAcceptDisputeAttempt(contract.contract.escrowId);
+			acceptAttempt = null;
+			
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.payment_released_error');
 			appStore.showErrorToast(errorMessage);
 		} finally {
-			setLoading('accept', false);
+			if (isMounted) {
+				setLoading('accept', false);
+			}
 		}
+	}
+
+	// Show dispute confirmation
+	function showDisputeConfirmation() {
+		if (!contract.canDispute || isDisputeDisabled) return;
+		showDisputeConfirm = true;
 	}
 
 	// Dispute task (client only)
 	async function disputeTask() {
-		if (!contract.canDispute) return;
+		if (!contract.canDispute || !isMounted) return;
+
+		showDisputeConfirm = false;
+		
+		// Atomic check-and-set: prevents race conditions
+		const wasRegistered = registerAcceptDisputeAttemptAtomic(
+			contract.contract.escrowId,
+			'dispute'
+		);
+		if (!wasRegistered) {
+			// Already attempted - check status
+			const attempt = getDisputeAttempt(contract.contract.escrowId);
+			if (attempt?.status === 'confirmed') {
+				if (isMounted) {
+					appStore.showErrorToast($t('dashboard.contracts.actions.dispute_already_raised'));
+				}
+				return;
+			} else if (attempt?.status === 'pending') {
+				// Transaction pending - don't allow duplicate
+				if (isMounted) {
+					appStore.showErrorToast($t('dashboard.contracts.actions.dispute_raising_pending'));
+				}
+				return;
+			}
+			// If failed, allow retry
+		}
+		
+		// Get the attempt (either newly created or existing)
+		disputeAttempt = getDisputeAttempt(contract.contract.escrowId);
 
 		setLoading('dispute', true);
 		try {
 			// Call RSK escrow disputeTask with contract event ID for proper nostr event publishing
-			await escrow.disputeTask(contract.contract.escrowId, contract.contractEvent.id);
-			onActionComplete?.();
+			const result = await escrow.disputeTask(contract.contract.escrowId, contract.contractEvent.id);
+			
+			if (!isMounted) return;
+			
+			// Update cache with transaction hash (status is already 'pending' from registration)
+			if (result.hash && disputeAttempt) {
+				// Update the attempt with transaction hash
+				disputeAttempt.transactionHash = result.hash;
+				// Update the cache entry (overwrites existing entry with transaction hash)
+				registerAcceptDisputeAttempt(contract.contract.escrowId, 'dispute', result.hash);
+			}
+			
+			// Note: Status will be updated to 'confirmed' when transaction confirms
+			// This happens in escrowEvents.ts handleTaskDisputed
+			// If transaction fails, it will be handled in escrow.ts
 		} catch (error) {
+			if (!isMounted) return;
+			
 			console.error('Error disputing task:', error);
+			
+			// Clear attempt on failure to allow retry
+			clearAcceptDisputeAttempt(contract.contract.escrowId);
+			disputeAttempt = null;
+			
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.dispute_raised_error');
 			appStore.showErrorToast(errorMessage);
 		} finally {
-			setLoading('dispute', false);
+			if (isMounted) {
+				setLoading('dispute', false);
+			}
 		}
 	}
 
@@ -456,6 +583,21 @@
 		}
 	});
 	
+	// Load accept/dispute attempts on mount
+	$effect(() => {
+		if (!isMounted) return;
+		
+		const accept = getAcceptAttempt(contract.contract.escrowId);
+		if (accept) {
+			acceptAttempt = accept;
+		}
+		
+		const dispute = getDisputeAttempt(contract.contract.escrowId);
+		if (dispute) {
+			disputeAttempt = dispute;
+		}
+	});
+	
 	// Derived state for button disabled logic
 	const isCompleteDisabled = $derived(
 		!isMounted ||
@@ -464,6 +606,27 @@
 		(completionAttempt?.status === 'pending') ||
 		(completionAttempt?.status === 'confirmed') ||
 		(blockchainCompletionStatus === EscrowStatus.Completed)
+	);
+	
+	// Derived state for accept/dispute button disabled logic
+	const isAcceptDisabled = $derived(
+		!isMounted ||
+		isLoading.accept ||
+		isLoading.dispute || // Disable if dispute is loading
+		(acceptAttempt?.status === 'pending') ||
+		(acceptAttempt?.status === 'confirmed') ||
+		(disputeAttempt?.status === 'pending') ||
+		(disputeAttempt?.status === 'confirmed')
+	);
+	
+	const isDisputeDisabled = $derived(
+		!isMounted ||
+		isLoading.accept || // Disable if accept is loading
+		isLoading.dispute ||
+		(acceptAttempt?.status === 'pending') ||
+		(acceptAttempt?.status === 'confirmed') ||
+		(disputeAttempt?.status === 'pending') ||
+		(disputeAttempt?.status === 'confirmed')
 	);
 
 	// Auto-calculate client amount from freelancer amount in USD
@@ -534,11 +697,26 @@
 	{#if contract.canAccept}
 		<button
 			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
-			onclick={acceptTask}
-			disabled={isLoading.accept}
+			onclick={showAcceptConfirmation}
+			disabled={isAcceptDisabled}
 		>
-			{#if isLoading.accept}
+			{#if isLoading.accept || acceptAttempt?.status === 'pending'}
 				<span class="loading loading-spinner loading-xs"></span>
+			{:else if acceptAttempt?.status === 'confirmed'}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M5 13l4 4L19 7"
+					/>
+				</svg>
 			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -563,11 +741,26 @@
 	{#if contract.canDispute}
 		<button
 			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
-			onclick={disputeTask}
-			disabled={isLoading.dispute}
+			onclick={showDisputeConfirmation}
+			disabled={isDisputeDisabled}
 		>
-			{#if isLoading.dispute}
+			{#if isLoading.dispute || disputeAttempt?.status === 'pending'}
 				<span class="loading loading-spinner loading-xs"></span>
+			{:else if disputeAttempt?.status === 'confirmed'}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M5 13l4 4L19 7"
+					/>
+				</svg>
 			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -907,4 +1100,28 @@
 	confirmButtonClass="btn-error"
 	onConfirm={deleteContract}
 	onCancel={() => (showDeleteConfirm = false)}
+/>
+
+<!-- Accept Work Confirmation Modal -->
+<ConfirmModal
+	isOpen={showAcceptConfirm}
+	title={$t('dashboard.contracts.actions.accept_work_confirm_title')}
+	message={$t('dashboard.contracts.actions.accept_work_confirm_message')}
+	confirmText={$t('dashboard.contracts.actions.accept_work')}
+	cancelText={$t('dashboard.contracts.actions.cancel')}
+	confirmButtonClass="btn-success"
+	onConfirm={acceptTask}
+	onCancel={() => (showAcceptConfirm = false)}
+/>
+
+<!-- Dispute Work Confirmation Modal -->
+<ConfirmModal
+	isOpen={showDisputeConfirm}
+	title={$t('dashboard.contracts.actions.dispute_work_confirm_title')}
+	message={$t('dashboard.contracts.actions.dispute_work_confirm_message')}
+	confirmText={$t('dashboard.contracts.actions.dispute_work')}
+	cancelText={$t('dashboard.contracts.actions.cancel')}
+	confirmButtonClass="btn-error"
+	onConfirm={disputeTask}
+	onCancel={() => (showDisputeConfirm = false)}
 />

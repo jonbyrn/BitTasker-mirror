@@ -38,10 +38,18 @@
 				"task_completing_message": "Completing task...",
 				"task_completed_message": "Task completed successfully",
 				"task_completed_success": "Task completed successfully",
-				"task_already_completed": "Task has already been marked as completed on the blockchain.",
-				"task_completion_pending": "Task completion is already in progress. Please wait for the transaction to confirm.",
-				"task_already_completed_tooltip": "This task has already been completed on the blockchain.",
-				"task_completion_pending_tooltip": "Task completion transaction is pending confirmation."
+		"task_already_completed": "Task has already been marked as completed on the blockchain.",
+		"task_completion_pending": "Task completion is already in progress. Please wait for the transaction to confirm.",
+		"task_already_completed_tooltip": "This task has already been completed on the blockchain.",
+		"task_completion_pending_tooltip": "Task completion transaction is pending confirmation.",
+		"accept_work_confirm_title": "Accept Work",
+		"accept_work_confirm_message": "Are you sure you want to accept this work? This will release the payment to the taskee.",
+		"dispute_work_confirm_title": "Dispute Work",
+		"dispute_work_confirm_message": "Are you sure you want to dispute this work? This will raise a dispute and lock the escrow funds.",
+		"payment_already_released": "Payment has already been released for this contract.",
+		"payment_release_pending": "Payment release is already in progress. Please wait for the transaction to confirm.",
+		"dispute_already_raised": "A dispute has already been raised for this contract.",
+		"dispute_raising_pending": "Dispute is already being raised. Please wait for the transaction to confirm."
 			}
 		}
 	}
