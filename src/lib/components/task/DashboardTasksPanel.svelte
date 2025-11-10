@@ -226,7 +226,13 @@
 				const waitingTaskIds = waitingTasks.map(t => t.id);
 				const bidStatusMap = await checkTasksForBids(waitingTaskIds);
 				
-				const waitingTasksWithNoBids = waitingTasks.filter((task) => !bidStatusMap.get(task.id));
+				// Filter tasks with no bids - ensure they only appear in this section
+				const waitingTasksWithNoBids = waitingTasks.filter((task) => {
+					const hasBids = bidStatusMap.get(task.id) || false;
+					// Only include if task has no bids (hasBids === false)
+					return !hasBids;
+				});
+				
 				console.log(`[TaskFilter] ✅ Result: ${waitingTasksWithNoBids.length} waiting tasks (${(performance.now() - filterStartTime).toFixed(0)}ms total)`);
 				
 				return waitingTasksWithNoBids;
@@ -245,7 +251,13 @@
 				const bidTaskIds = bidTasks.map(t => t.id);
 				const bidStatusMap2 = await checkTasksForBids(bidTaskIds);
 				
-				const tasksWithBids = bidTasks.filter((task) => bidStatusMap2.get(task.id));
+				// Filter tasks with bids - ensure they only appear in this section
+				const tasksWithBids = bidTasks.filter((task) => {
+					const hasBids = bidStatusMap2.get(task.id) || false;
+					// Only include if task has bids (hasBids === true)
+					return hasBids;
+				});
+				
 				console.log(`[TaskFilter] ✅ Result: ${tasksWithBids.length} tasks with bids (${(performance.now() - filterStartTime).toFixed(0)}ms total)`);
 				
 				return tasksWithBids;
@@ -410,9 +422,9 @@
 		console.log(`[TaskFilter] 🎚️ Filter changed: "${activeFilter}" → "${optionId}"`);
 		activeFilter = optionId;
 		isDropdownOpen = false;
-		// Clear bid cache when switching filters to ensure fresh data
-		taskBidStatusCache.clear();
-		console.log(`[TaskFilter] 🗑️ Cache cleared`);
+		// DON'T clear cache - preserve it across filter changes for consistency
+		// Cache will naturally expire, but persists during session for better UX
+		console.log(`[TaskFilter] ✅ Filter changed, cache preserved`);
 	}
 
 	/**
@@ -472,16 +484,25 @@
 	// Reactive statement to get filtered tasks (now async)
 	let filteredTasks = $state<Task[]>([]);
 	let isFiltering = $state(false);
+	
+	// Debounce timeout to prevent multiple rapid effect runs
+	let filterTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	// Watch for filter or task changes
+	// Watch for filter or task changes with debouncing
 	$effect(() => {
 		const tasks = $myTasksStore.items;
 		const currentFilter = activeFilter;
 		
-		console.log(`[TaskFilter] 🔄 Effect triggered: filter="${currentFilter}" | tasks=${tasks?.length || 0}`);
+		// Clear any pending filter operation
+		if (filterTimeout) {
+			clearTimeout(filterTimeout);
+		}
 		
-		// Call async function inside effect
-		(async () => {
+		// Debounce filtering by 150ms to prevent multiple rapid runs
+		// This prevents effect from running when tasks load incrementally
+		filterTimeout = setTimeout(async () => {
+			console.log(`[TaskFilter] 🔄 Effect triggered: filter="${currentFilter}" | tasks=${tasks?.length || 0}`);
+			
 			if (!tasks) {
 				console.log(`[TaskFilter] ⚠️ No tasks available`);
 				filteredTasks = [];
@@ -503,7 +524,15 @@
 			} finally {
 				isFiltering = false;
 			}
-		})();
+		}, 150);
+		
+		// Cleanup on unmount or when dependencies change
+		return () => {
+			if (filterTimeout) {
+				clearTimeout(filterTimeout);
+				filterTimeout = null;
+			}
+		};
 	});
 
 	onMount(() => {
@@ -569,8 +598,8 @@
 					onclick={() => {
 						console.log(`[TaskFilter] 🎚️ Filter changed: "${activeFilter}" → "${option.id}"`);
 						activeFilter = option.id;
-						taskBidStatusCache.clear();
-						console.log(`[TaskFilter] 🗑️ Cache cleared`);
+						// DON'T clear cache - preserve it across filter changes for consistency
+						console.log(`[TaskFilter] ✅ Filter changed, cache preserved`);
 					}}
 				>
 					<!-- MDI Icon Component -->

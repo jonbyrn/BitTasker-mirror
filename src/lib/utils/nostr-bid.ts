@@ -318,7 +318,9 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 		}
 
 		// Get all people you've exchanged messages with
-		const messagedPeople = await getMessagedPeople();
+		// Use optimized version that doesn't require decryption for better performance
+		const { getMessagedPeopleOptimized } = await import('./nostr-message');
+		const messagedPeople = await getMessagedPeopleOptimized();
 		const bids: BidMessage[] = [];
 
 		// Fetch message histories for all conversations in parallel
@@ -406,7 +408,9 @@ export async function getMyBids(): Promise<BidMessage[]> {
 		}
 
 		// Get all people you've exchanged messages with
-		const messagedPeople = await getMessagedPeople();
+		// Use optimized version that doesn't require decryption for better performance
+		const { getMessagedPeopleOptimized } = await import('./nostr-message');
+		const messagedPeople = await getMessagedPeopleOptimized();
 		const bids: BidMessage[] = [];
 
 		// Fetch message histories for all conversations in parallel
