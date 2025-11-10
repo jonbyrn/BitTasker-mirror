@@ -388,14 +388,21 @@ async function createEscrow(
                             result.escrowId = escrowId;
 
                             // Handle escrow created event through our event management system
-                            const { handleEscrowCreated } = await import('$lib/utils/wallet/escrowEvents');
-                            await handleEscrowCreated({
-                                escrowId,
-                                transactionHash: receipt.hash,
-                                client,
-                                freelancer,
-                                amount
-                            });
+                            // Wrap in try-catch to prevent import errors from marking transaction as failed
+                            try {
+                                const { handleEscrowCreated } = await import('$lib/utils/wallet/escrowEvents');
+                                await handleEscrowCreated({
+                                    escrowId,
+                                    transactionHash: receipt.hash,
+                                    client,
+                                    freelancer,
+                                    amount
+                                });
+                            } catch (importError) {
+                                // Log import error but don't mark transaction as failed
+                                // Transaction already succeeded, this is just event handling
+                                console.warn('Failed to handle escrow created event (transaction still succeeded):', importError);
+                            }
                         }
                     } else {
                         console.warn('EscrowCreated event not found in transaction receipt');
@@ -453,14 +460,21 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
                 console.log('Task completion transaction confirmed:', receipt);
 
                 // Handle task completed event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleTaskCompleted } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleTaskCompleted({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId,
-                        completionAttachments
-                    });
+                    try {
+                        const { handleTaskCompleted } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleTaskCompleted({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId,
+                            completionAttachments
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle task completed event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -472,6 +486,8 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
                 appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
             }
         }).catch((error: unknown) => {
+            // Only catch transaction errors, not import errors
+            // Import errors are handled in the try-catch above
             console.error('Task completion transaction failed:', error);
             result.status = 'failed';
             
@@ -531,13 +547,20 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
                 console.log('Task acceptance transaction confirmed:', receipt);
 
                 // Handle task accepted event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleTaskAccepted } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleTaskAccepted({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleTaskAccepted } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleTaskAccepted({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle task accepted event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -591,13 +614,20 @@ async function cancelEscrow(escrowId: string, contractEventId?: string): Promise
                 console.log('Escrow cancellation transaction confirmed:', receipt);
 
                 // Handle escrow cancelled event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleEscrowCancelled } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleEscrowCancelled({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleEscrowCancelled } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleEscrowCancelled({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle escrow cancelled event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -651,13 +681,20 @@ async function disputeTask(escrowId: string, contractEventId?: string): Promise<
                 console.log('Task dispute transaction confirmed:', receipt);
 
                 // Handle task disputed event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleTaskDisputed } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleTaskDisputed({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleTaskDisputed } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleTaskDisputed({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle task disputed event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -726,15 +763,22 @@ async function proposeResolution(
                 console.log('Resolution proposal transaction confirmed:', receipt);
 
                 // Handle resolution proposed event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
-                    const { handleResolutionProposed } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleResolutionProposed({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId,
-                        proposedClientAmount,
-                        proposedFreelancerAmount
-                    });
+                    try {
+                        const { handleResolutionProposed } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleResolutionProposed({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId,
+                            proposedClientAmount,
+                            proposedFreelancerAmount
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle resolution proposed event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -788,13 +832,20 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
                 console.log('Proposal acceptance transaction confirmed:', receipt);
 
                 // Handle proposal accepted event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleProposalAccepted } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleProposalAccepted({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleProposalAccepted } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleProposalAccepted({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle proposal accepted event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -848,13 +899,20 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
                 console.log('Timelock resolution transaction confirmed:', receipt);
 
                 // Handle timelock resolved event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleTimelockResolved } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleTimelockResolved({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleTimelockResolved } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleTimelockResolved({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle timelock resolved event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
