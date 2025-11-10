@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { Attachment } from '$lib/types/task';
 	import { escrow } from '$lib/utils/wallet/escrow';
@@ -9,6 +9,8 @@
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
 	import { deleteContract as deleteContractUtil } from '$lib/utils/nostr-bid';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
+	import { browser } from '$app/environment';
 	import { 
 		registerCompleteCancelAttemptAtomic,
 		registerCompleteCancelAttempt,
@@ -647,6 +649,15 @@
 			setLoading('delete', false);
 		}
 	}
+
+	// Load translations on mount and when locale changes
+	$effect(() => {
+		if (browser && $locale) {
+			loadNamespace($locale as SupportedLanguage, 'dashboard/contracts/actions').catch((error) => {
+				console.warn('Failed to load contract actions translations:', error);
+			});
+		}
+	});
 
 	// Fetch BTC price on mount using currency formatter utility
 	$effect(() => {

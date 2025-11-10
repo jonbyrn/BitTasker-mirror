@@ -118,6 +118,8 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/wallet');
 		// Load notifications namespace for notification components
 		namespaces.push('notifications');
+		// Load contracts actions namespace for contract-related components
+		namespaces.push('dashboard/contracts/actions');
 
 		if (route.includes('/profile')) {
 			namespaces.push(
