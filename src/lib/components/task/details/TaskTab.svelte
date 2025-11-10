@@ -17,7 +17,6 @@
 	import { fade, scale } from 'svelte/transition';
 	import TranslatableTask from '../TranslatableTask.svelte';
 	import { getUserContracts } from '$lib/utils/nostr-bid';
-	import { escrow } from '$lib/utils/wallet/escrow';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -64,6 +63,7 @@
 	}
 
 	// Check if task can be deleted (similar to contract deletion logic)
+	// Uses canDelete property already calculated by getUserContracts to avoid duplicate auth requests
 	async function checkCanDeleteTask(): Promise<void> {
 		if (!task?.id) {
 			canDelete = false;
@@ -74,6 +74,7 @@
 			isCheckingDelete = true;
 			
 			// Check if task has any contracts (which means it has an escrow)
+			// getUserContracts already calculates canDelete for each contract, avoiding duplicate auth
 			const contracts = await getUserContracts({ taskIds: [task.id] });
 			
 			if (contracts.length === 0) {
@@ -82,25 +83,17 @@
 				return;
 			}
 
-			// Task has contracts - check if any escrow was funded
-			for (const contract of contracts) {
-				const fundingStatus = await escrow.checkEscrowFundingStatus(contract.contract.escrowId);
-				
-				if (fundingStatus.error) {
-					// Error checking escrow - be conservative and disallow deletion
-					canDelete = false;
-					return;
-				}
-				
-				if (fundingStatus.wasFunded) {
-					// Escrow was funded - cannot delete
-					canDelete = false;
-					return;
-				}
-			}
+			// Task has contracts - use canDelete property already calculated by getUserContracts
+			// If ANY contract cannot be deleted (was funded), then task cannot be deleted
+			const anyContractCannotDelete = contracts.some(contract => !contract.canDelete);
 			
-			// All escrows were never funded - can delete
-			canDelete = true;
+			if (anyContractCannotDelete) {
+				// At least one contract was funded - cannot delete task
+				canDelete = false;
+			} else {
+				// All contracts can be deleted (never funded) - can delete task
+				canDelete = true;
+			}
 		} catch (error) {
 			console.error('Error checking if task can be deleted:', error);
 			// On error, be conservative and disallow deletion
