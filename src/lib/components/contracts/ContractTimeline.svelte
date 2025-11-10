@@ -84,6 +84,16 @@
 	function getActionDescription(action: string): string {
 		return $t(`dashboard.contracts.timeline.actions.${action.replace('-', '_')}`);
 	}
+
+	// Get Rootstock explorer URL for transaction
+	function getTransactionUrl(txHash: string): string {
+		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+		if (rskNetwork === 'mainnet') {
+			return `https://rootstock.blockscout.com/tx/${txHash}`;
+		} else {
+			return `https://rootstock-testnet.blockscout.com/tx/${txHash}`;
+		}
+	}
 </script>
 
 {#if statusEvents.length === 0}
@@ -99,20 +109,7 @@
 			<li>
 				<!-- Timeline point -->
 				<div class="timeline-middle">
-					<svg 
-						xmlns="http://www.w3.org/2000/svg" 
-						class="h-5 w-5 {getActionColorClass(event.status.action)}" 
-						fill="none" 
-						viewBox="0 0 24 24" 
-						stroke="currentColor"
-					>
-						<path 
-							stroke-linecap="round" 
-							stroke-linejoin="round" 
-							stroke-width="2" 
-							d={getActionIcon(event.status.action)}
-						/>
-					</svg>
+					<div class="h-2 w-2 rounded-full bg-base-300"></div>
 				</div>
 
 				<!-- Timeline content -->
@@ -121,24 +118,58 @@
 						{formatTimelineDate(event.status.timestamp)}
 					</time>
 					
-					<div class="text-sm font-semibold {getActionColorClass(event.status.action)} mt-1">
-						{getActionDescription(event.status.action)}
+					<div class="mt-1 flex items-center gap-2">
+						{#if event.status.action === 'task-completed'}
+							<div class="bg-success text-success-content flex h-5 w-5 min-h-5 min-w-5 items-center justify-center rounded-full shrink-0">
+								<svg 
+									xmlns="http://www.w3.org/2000/svg" 
+									class="h-3 w-3" 
+									fill="none" 
+									viewBox="0 0 24 24" 
+									stroke="currentColor"
+								>
+									<path 
+										stroke-linecap="round" 
+										stroke-linejoin="round" 
+										stroke-width="2" 
+										d="M5 13l4 4L19 7"
+									/>
+								</svg>
+							</div>
+						{/if}
+						<div class="text-sm font-semibold {getActionColorClass(event.status.action)}">
+							{getActionDescription(event.status.action)}
+						</div>
 					</div>
 					
 					<div class="text-xs text-base-content/60 mt-1">
 						{getSenderRoleText(event)}
 					</div>
 
-					{#if event.status.message}
-						<div class="text-xs text-base-content/80 mt-2 p-2 bg-base-300 rounded">
-							{event.status.message}
-						</div>
-					{/if}
-
 					{#if event.status.transactionHash}
 						<div class="text-xs text-base-content/60 mt-2">
-							<span class="font-medium">{$t('dashboard.contracts.timeline.transaction')}:</span>
-							<span class="font-mono">{event.status.transactionHash.slice(0, 10)}...</span>
+							<a
+								href={getTransactionUrl(event.status.transactionHash)}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="link link-primary inline-flex items-center gap-1"
+							>
+								<span>{$t('dashboard.contracts.timeline.view_transaction')}</span>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+									/>
+								</svg>
+							</a>
 						</div>
 					{/if}
 

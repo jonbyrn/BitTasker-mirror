@@ -619,6 +619,7 @@
         "from_freelancer": "Del Taskee",
         "from_unknown": "Remitente desconocido",
         "transaction": "Transacción",
+        "view_transaction": "Ver Transacción",
         "proposed_split": "División Propuesta",
         "actions": {
           "task_completed": "Tarea marcada como completada",

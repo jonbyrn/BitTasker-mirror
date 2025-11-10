@@ -619,6 +619,7 @@
         "from_freelancer": "From Taskee",
         "from_unknown": "Unknown sender",
         "transaction": "Transaction",
+        "view_transaction": "View Transaction",
         "proposed_split": "Proposed Split",
         "actions": {
           "task_completed": "Task marked as completed",
