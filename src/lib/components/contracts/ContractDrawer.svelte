@@ -203,22 +203,22 @@
 	isScrollable={true}
 >
 	{#snippet children()}
-		<!-- Header with badges -->
-		<div class="mb-6 flex items-center gap-2">
-			<div class="badge {getStatusColorClass(contract.contract.status)}">
-				{$t(`dashboard.contracts.status.${contract.contract.status}`)}
-			</div>
-			<div class="badge {contract.isClient ? 'badge-primary' : 'badge-secondary'}">
-				{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
-			</div>
-		</div>
-
 		<!-- Contract Details -->
 		<div class="space-y-6">
 			<!-- Contract Info Card -->
 			<div class="card bg-base-200">
 				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
+					<div class="mb-3 flex items-center justify-between gap-2">
+						<h4 class="font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
+						<div class="flex items-center gap-2 shrink-0">
+							<div class="badge {getStatusColorClass(contract.contract.status)}">
+								{$t(`dashboard.contracts.status.${contract.contract.status}`)}
+							</div>
+							<div class="badge {contract.isClient ? 'badge-primary' : 'badge-secondary'}">
+								{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
+							</div>
+						</div>
+					</div>
 
 					<div class="space-y-3">
 						<!-- Taskee Info -->
@@ -455,7 +455,7 @@
 				<!-- Status Timeline -->
 				<div class="card bg-base-200 flex-1">
 					<div class="card-body p-4">
-						<div class="mb-3 flex items-baseline gap-3">
+						<div class="mb-3 flex items-center gap-3">
 							{#if contract.statusEvents.length > 0}
 								<div
 									class="bg-primary text-primary-content flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full text-base font-semibold"

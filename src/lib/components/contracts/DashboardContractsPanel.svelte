@@ -218,7 +218,7 @@
 
 	<!-- Row 1: Role Filter Buttons + Refresh Button -->
 	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-		<div class="flex gap-2 mx-auto">
+		<div class="flex gap-2 mx-auto mt-3">
 			<!-- Role Filter Buttons -->
 			{#each roleFilterOptions as option}
 				{@const IconComponent = option.icon}

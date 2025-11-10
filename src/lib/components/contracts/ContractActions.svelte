@@ -1199,7 +1199,7 @@
 	<div class="space-y-3">
 		<!-- Delete Button (always visible, disabled when canDelete is false) -->
 		<button
-			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			class="btn btn-error btn-sm w-full"
 			onclick={showDeleteConfirmation}
 			disabled={isLoading.delete || !contract.canDelete}
 		>
