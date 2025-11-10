@@ -621,7 +621,10 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
  */
 export async function getUserContracts(filter?: ContractFilter): Promise<ContractWithEvents[]> {
 	try {
-		const npub = await getNpub();
+		// Use getAuthOnce() to share auth singleton with getMessageHistoryOptimized()
+		// This prevents multiple auth prompts when both are called
+		const { getAuthOnce } = await import('./nostr-message');
+		const { npub } = await getAuthOnce();
 		const userPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
 		// OPTIMIZATION 1: Use optimized version that doesn't require decryption
