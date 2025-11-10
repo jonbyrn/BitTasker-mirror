@@ -135,7 +135,7 @@
 	<div class="flex flex-col items-center text-center w-full">
 		<h4 class="mb-4 font-semibold w-full text-left sm:text-center">{$t('wallet.receive_rbtc')}</h4>
 
-		{#if $appStore.network !== 'testnet'}
+		{#if $appStore.network === 'testnet'}
 			<!-- Abbreviated testnet warning shown instead of QR on testnet -->
 			<div class="alert alert-outline alert-warning w-full max-w-sm">
 				<svg

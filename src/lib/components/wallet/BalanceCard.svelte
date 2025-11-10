@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { WalletAsset } from '$lib/types/wallet';
+	import type { WalletAsset } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
 	import { allAssets, totalBalances, walletManager, walletStore } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';

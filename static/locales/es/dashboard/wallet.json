@@ -331,7 +331,19 @@
     "send": {
       "transaction_sent": "Transacción enviada exitosamente",
       "transaction_failed": "La transacción falló",
-      "processing": "Procesando..."
+      "processing": "Procesando...",
+      "usd_not_available": "La funcionalidad de envío de USD aún no está disponible.",
+      "network_not_available": "Esta red aún no está disponible para envíos.",
+      "placeholder_lightning": "Factura Lightning o dirección Lightning",
+      "placeholder_liquid_btc": "Dirección Liquid",
+      "placeholder_bitcoin": "Dirección Bitcoin",
+      "placeholder_liquid_usdt": "Dirección USDT Liquid",
+      "placeholder_rootstock": "Dirección Rootstock (0x...)",
+      "button_lightning": "Enviar Lightning Bitcoin",
+      "button_liquid_btc": "Enviar Liquid Bitcoin",
+      "button_bitcoin": "Enviar Bitcoin",
+      "button_liquid_usdt": "Enviar USDT",
+      "button_rootstock": "Enviar rBTC"
     },
     "payment_request": "Solicitud de Pago",
     "payment_request_description": "Envía cualquier cantidad de Bitcoin Rootstock a esta dirección, o especifica una cantidad a continuación para generar un código QR con la cantidad.",
@@ -372,8 +384,11 @@
     },
     "validation": {
       "address_required": "La dirección de destino es requerida",
+      "address_invalid": "Formato de dirección inválido",
       "amount_required": "El monto es requerido",
-      "insufficient_balance": "Saldo insuficiente"
+      "amount_positive": "El monto debe ser mayor que cero",
+      "insufficient_balance": "Saldo insuficiente",
+      "no_balance": "No hay saldo disponible"
     },
     "sats": "Sats",
     "rbtc": "rBTC",

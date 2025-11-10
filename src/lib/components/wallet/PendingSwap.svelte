@@ -1,8 +1,7 @@
 <script lang="ts">
+	import type { BoltzSwapData, ChainSwapData } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
-	import type { BoltzSwapData } from '$lib/integrations/boltz/reverseSwapService';
-	import type { ChainSwapData } from '$lib/integrations/boltz/chainSwapService';
 
 	type SwapType = 'lightning' | 'lbtc';
 

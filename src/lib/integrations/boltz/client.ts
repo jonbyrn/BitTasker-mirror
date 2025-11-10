@@ -1,4 +1,10 @@
 /**
+ * @deprecated This file is deprecated. Use @bittasker/wallet-core package instead.
+ * Import: import { BoltzClient } from '@bittasker/wallet-core'
+ * 
+ * This file is kept for reference only and should not be used in new code.
+ * All components should use the @bittasker/wallet-core package implementation.
+ * 
  * Boltz Exchange REST API Client
  * 
  * IMPORTANT: This client is specifically designed for RBTC swaps on Rootstock.
@@ -760,7 +766,6 @@ export class BoltzClient {
 	async getReverseSwapPairs(): Promise<any> {
 		try {
 			const response = await this.request('GET', '/v2/swap/reverse');
-			console.log('🔍 Reverse swap pairs response:', response);
 			return response;
 		} catch (error) {
 			console.error('Failed to get reverse swap pairs:', error);
@@ -778,7 +783,6 @@ export class BoltzClient {
 	async getChainSwapPairs(): Promise<any> {
 		try {
 			const response = await this.request('GET', '/v2/swap/chain');
-			console.log('🔍 Chain swap pairs response:', response);
 			return response;
 		} catch (error) {
 			console.error('Failed to get chain swap pairs:', error);

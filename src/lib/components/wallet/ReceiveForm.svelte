@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
 	import { allAssets } from '$lib/stores/wallet.store';
 	import LightningReceive from '$lib/components/wallet/LightningReceive.svelte';
 	import LBTCReceive from '$lib/components/wallet/LBTCReceive.svelte';
 	import RSKReceive from '$lib/components/wallet/RSKReceive.svelte';
-	import { t } from 'svelte-i18n';
 
 	// Form state
 	let selectedAsset = $state<'bitcoin' | 'usd'>('bitcoin');

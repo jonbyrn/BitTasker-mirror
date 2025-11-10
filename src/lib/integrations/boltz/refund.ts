@@ -16,8 +16,7 @@
  * - User's wallet cannot refund because it doesn't have the refund private key
  */
 
-import type { ChainSwapData } from '$lib/integrations/boltz/chainSwapService';
-import type { BoltzClient } from '$lib/integrations/boltz/client';
+import type { ChainSwapData, BoltzClient } from '@bittasker/wallet-core';
 import { OutputType, SwapTreeSerializer, detectSwap, targetFee } from 'boltz-core';
 import { constructRefundTransaction as liquidConstructRefundTransaction, type LiquidRefundDetails } from 'boltz-core/dist/lib/liquid';
 import { Transaction as LiquidTransaction, networks as LiquidNetworks } from 'liquidjs-lib';

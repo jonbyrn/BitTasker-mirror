@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Transaction } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { transactions, walletManager } from '$lib/stores/wallet.store';

@@ -1,4 +1,10 @@
 /**
+ * @deprecated This file is deprecated. Use @bittasker/wallet-core package instead.
+ * Import: import { BoltzWebSocket } from '@bittasker/wallet-core'
+ * 
+ * This file is kept for reference only and should not be used in new code.
+ * All components should use the @bittasker/wallet-core package implementation.
+ * 
  * Boltz WebSocket Client
  * Implements real-time swap monitoring as per Boltz API v2 documentation
  * Reference: http://api.docs.boltz.exchange/api-v2.html#websocket
@@ -39,7 +45,7 @@ export class BoltzWebSocket {
 				this.ws = new WebSocket(this.endpoint);
 
 				this.ws.onopen = () => {
-					console.log('Boltz WebSocket connected');
+					// console.log('Boltz WebSocket connected');
 					this.reconnectAttempts = 0;
 					resolve();
 				};
@@ -234,7 +240,7 @@ export class BoltzWebSocket {
 export const boltzWebSocket = new BoltzWebSocket(getWebSocketEndpoint());
 
 // Auto-connect when module is imported
-if (typeof window !== 'undefined') {
-	console.log('🔌 Connecting to Boltz WebSocket:', getWebSocketEndpoint());
-	boltzWebSocket.connect().catch(console.error);
-}
+// if (typeof window !== 'undefined') {
+// 	console.log('🔌 Connecting to Boltz WebSocket:', getWebSocketEndpoint());
+// 	boltzWebSocket.connect().catch(console.error);
+// }

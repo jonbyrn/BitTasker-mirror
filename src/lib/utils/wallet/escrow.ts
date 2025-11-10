@@ -1080,46 +1080,5 @@ export const escrow = {
     getDisputeProposal,
     refreshEscrows: loadUserEscrows,
     loadUserEscrows,
-    isContractPaused,
-    checkEscrowFundingStatus
+    isContractPaused
 }
-
-// Enhanced derived stores for escrow data
-export const rskActiveEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow =>
-        escrow.status === EscrowStatus.Funded ||
-        escrow.status === EscrowStatus.Completed ||
-        escrow.status === EscrowStatus.InDispute
-    )
-);
-
-export const rskClientEscrows = derived([walletStore, rskAddress], ([$store, $address]) =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.client.toLowerCase() === $address?.toLowerCase())
-);
-
-export const rskFreelancerEscrows = derived([walletStore, rskAddress], ([$store, $address]) =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.freelancer.toLowerCase() === $address?.toLowerCase())
-);
-
-export const rskPendingEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Funded)
-);
-
-export const rskCompletedEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Completed)
-);
-
-export const rskDisputedEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.InDispute)
-);
-
-export const rskResolvedEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow =>
-        escrow.status === EscrowStatus.DisputeResolved ||
-        escrow.status === EscrowStatus.DisputeUnresolved
-    )
-);
-
-export const rskCancelledEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Cancelled)
-);

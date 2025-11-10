@@ -1,18 +1,18 @@
 /**
- * Boltz Pending Swaps Storage (Nostr)
+ * Nostr-based Swap Storage Adapter
  * 
- * Unified storage layer for both reverse swaps and chain swaps.
+ * Consolidated implementation of SwapStorage interface for Boltz swaps.
  * Uses Nostr (NIP-44 encryption) for decentralized, user-owned data storage.
  * 
  * Features:
- * - Save/update swap data to Nostr
+ * - Implements SwapStorage interface from @bittasker/wallet-core
+ * - Save/update swap data to Nostr with NIP-44 encryption
  * - Recover pending swaps on app restart
- * - Delete swap events (by type)
- * - Delete individual swap events
+ * - Delete swap events (individual or all by type)
+ * - Supports both reverse swaps (Lightning → RBTC) and chain swaps (L-BTC → RBTC)
  */
 
-import type { BoltzSwapData } from './reverseSwapService';
-import type { ChainSwapData } from './chainSwapService';
+import type { SwapStorage, BoltzSwapData, ChainSwapData } from '@bittasker/wallet-core';
 import { randomBytes } from 'crypto';
 import { Buffer } from 'buffer';
 import { SimplePool } from 'nostr-tools/pool';
@@ -33,37 +33,26 @@ export type SwapType = 'boltz-swap-reverse' | 'boltz-swap-chain';
 export type PendingSwapData = BoltzSwapData | ChainSwapData;
 
 /**
- * Convert nsec to bytes if needed
- */
-function nsecToBytes(nsec: string | Uint8Array): Uint8Array {
-	if (typeof nsec === 'string' && nsec.length === 64) {
-		return new Uint8Array(Buffer.from(nsec, 'hex'));
-	}
-	return nsec as Uint8Array;
-}
-
-/**
  * Save swap data to Nostr (encrypted via NIP-44)
  * 
  * The ENTIRE event content is encrypted with NIP-44.
  * Sensitive fields (preimage, refundPrivateKey) are stored as plaintext
  * within the encrypted content - no double encryption needed.
  */
-export async function saveSwapToNostr(
+async function saveSwapToNostr(
 	swapData: BoltzSwapData | ChainSwapData,
-	nsec: string | Uint8Array,
+	nsec: Uint8Array,
 	swapType: SwapType
 ): Promise<void> {
 	try {
 		console.log('🔒 Saving swap to Nostr:', swapData.id, 'Type:', swapType);
 
-		const nsecBytes = nsecToBytes(nsec);
-		const npub = getPublicKey(nsecBytes);
+		const npub = getPublicKey(nsec);
 
 		// Build content object - will be encrypted as a whole
 		const content: Record<string, unknown> = {
 			id: swapData.id,
-			preimage: swapData.preimage, // Plaintext within encrypted event
+			preimage: swapData.preimage,
 			preimageHash: swapData.preimageHash,
 			rbtcAddress: swapData.rbtcAddress,
 			status: swapData.status,
@@ -87,7 +76,7 @@ export async function saveSwapToNostr(
 		} else if (swapType === 'boltz-swap-chain') {
 			const chainSwap = swapData as ChainSwapData;
 			content.type = 'chain';
-			content.refundPrivateKey = chainSwap.refundPrivateKey; // Plaintext within encrypted event
+			content.refundPrivateKey = chainSwap.refundPrivateKey;
 			content.refundPublicKey = chainSwap.refundPublicKey;
 			content.blindingKey = chainSwap.blindingKey;
 			content.liquidUri = chainSwap.liquidUri;
@@ -105,9 +94,9 @@ export async function saveSwapToNostr(
 
 		// Encrypt the entire content with NIP-44
 		const contentString = JSON.stringify(content);
-		
+
 		// getConversationKey expects hex strings
-		const nsecHex = Buffer.from(nsecBytes).toString('hex');
+		const nsecHex = Buffer.from(nsec).toString('hex');
 		const conversationKey = await nip44.getConversationKey(nsecHex, npub);
 		const nonce = randomBytes(32);
 		const encryptedContent = await nip44.encrypt(contentString, conversationKey, nonce);
@@ -118,9 +107,9 @@ export async function saveSwapToNostr(
 			created_at: Math.floor(Date.now() / 1000),
 			tags: [
 				['d', swapData.id], // Unique identifier (makes it replaceable)
-				['a', String('amount' in swapData ? swapData.amount : 'toAmount' in swapData ? swapData.toAmount : 0)], // Amount
-				['s', swapData.status], // Status
-				['r', swapData.rbtcAddress], // rBTC address
+				['a', String('amount' in swapData ? swapData.amount : 'toAmount' in swapData ? swapData.toAmount : 0)],
+				['s', swapData.status],
+				['r', swapData.rbtcAddress],
 				['t', swapType] // Swap type tag for filtering
 			],
 			content: encryptedContent,
@@ -128,7 +117,7 @@ export async function saveSwapToNostr(
 		};
 
 		// Sign and publish
-		const signedEvent = finalizeEvent(eventTemplate, nsecBytes);
+		const signedEvent = finalizeEvent(eventTemplate, nsec);
 		pool.publish(RELAYS, signedEvent);
 
 		console.log('✅ Swap saved to Nostr:', swapData.id);
@@ -142,15 +131,12 @@ export async function saveSwapToNostr(
  * Recover pending swaps from Nostr
  * Filters by swap type tag and decrypts content
  */
-export async function recoverPendingSwaps(
-	nsec: string | Uint8Array,
+async function recoverPendingSwaps(
+	nsec: Uint8Array,
 	swapType: SwapType
 ): Promise<PendingSwapData[]> {
 	try {
-		const nsecBytes = nsecToBytes(nsec);
-		const npub = getPublicKey(nsecBytes);
-
-		console.log('🔍 Recovering swaps from Nostr. Type:', swapType, 'User:', npub.slice(0, 8));
+		const npub = getPublicKey(nsec);
 
 		// Query Nostr for user's swap events with the specified tag
 		const events = await pool.querySync(RELAYS, {
@@ -159,12 +145,10 @@ export async function recoverPendingSwaps(
 			'#t': [swapType]
 		});
 
-		console.log('📦 Found', events.length, 'swap events');
-
 		const pendingSwaps: PendingSwapData[] = [];
-		
+
 		// getConversationKey expects hex strings
-		const nsecHex = Buffer.from(nsecBytes).toString('hex');
+		const nsecHex = Buffer.from(nsec).toString('hex');
 		const conversationKey = await nip44.getConversationKey(nsecHex, npub);
 
 		for (const event of events) {
@@ -184,15 +168,12 @@ export async function recoverPendingSwaps(
 
 				if (!finalStates.includes(data.status)) {
 					pendingSwaps.push(data);
-				} else {
-					console.log('⏭️ Skipping completed/failed swap:', data.id, 'Status:', data.status);
 				}
 			} catch (err) {
 				console.error('❌ Failed to process swap event:', err);
 			}
 		}
 
-		console.log('✅ Recovered', pendingSwaps.length, 'pending swaps');
 		return pendingSwaps;
 	} catch (error) {
 		console.error('❌ Failed to recover swaps from Nostr:', error);
@@ -201,72 +182,16 @@ export async function recoverPendingSwaps(
 }
 
 /**
- * Delete all swap events of a specific type from Nostr
- * Useful for clearing test data
- */
-export async function deleteAllSwapEvents(
-	nsec: string | Uint8Array,
-	swapType: SwapType
-): Promise<{ count: number }> {
-	try {
-		const nsecBytes = nsecToBytes(nsec);
-		const npub = getPublicKey(nsecBytes);
-
-		console.log('🗑️ Deleting all swaps. Type:', swapType);
-
-		// Query Nostr for user's swap events of this type
-		const events = await pool.querySync(RELAYS, {
-			authors: [npub],
-			kinds: [KINDS.PENDING_SWAPS],
-			'#t': [swapType]
-		});
-
-		console.log(`📦 Found ${events.length} swap events to delete`);
-
-		let deleteCount = 0;
-
-		// Delete each event (NIP-09)
-		for (const event of events) {
-			try {
-				const deletionEventTemplate: Partial<NostrEvent> = {
-					kind: 5, // Deletion event
-					created_at: Math.floor(Date.now() / 1000),
-					tags: [
-						['e', event.id], // Reference the event to delete
-						['k', KINDS.PENDING_SWAPS.toString()] // Optional: specify the kind being deleted
-					],
-					content: `Deleting ${swapType} swap data`
-				};
-
-				const signedDeletion = finalizeEvent(deletionEventTemplate as any, nsecBytes);
-				pool.publish(RELAYS, signedDeletion as any);
-				deleteCount++;
-				console.log(`✅ Deleted event: ${event.id}`);
-			} catch (err) {
-				console.error(`❌ Failed to delete event ${event.id}:`, err);
-			}
-		}
-
-		console.log(`✅ Deleted ${deleteCount} swap events from Nostr`);
-		return { count: deleteCount };
-	} catch (error) {
-		console.error('❌ Failed to delete swap events:', error);
-		throw error;
-	}
-}
-
-/**
  * Delete a single swap event from Nostr
  * Used when user manually dismisses a swap
  */
-export async function deleteSwapEvent(
-	nsec: string | Uint8Array,
+async function deleteSwapEvent(
+	nsec: Uint8Array,
 	swapId: string,
 	swapType: SwapType
 ): Promise<boolean> {
 	try {
-		const nsecBytes = nsecToBytes(nsec);
-		const npub = getPublicKey(nsecBytes);
+		const npub = getPublicKey(nsec);
 
 		console.log('🗑️ Deleting swap:', swapId);
 
@@ -274,8 +199,8 @@ export async function deleteSwapEvent(
 		const events = await pool.querySync(RELAYS, {
 			authors: [npub],
 			kinds: [KINDS.PENDING_SWAPS],
-			'#d': [swapId], // Match by 'd' tag (identifier)
-			'#t': [swapType] // Match by type
+			'#d': [swapId],
+			'#t': [swapType]
 		});
 
 		if (!events || events.length === 0) {
@@ -295,7 +220,7 @@ export async function deleteSwapEvent(
 			content: `Deleting swap ${swapId}`
 		};
 
-		const signedDeletion = finalizeEvent(deletionEventTemplate as any, nsecBytes);
+		const signedDeletion = finalizeEvent(deletionEventTemplate as any, nsec);
 		pool.publish(RELAYS, signedDeletion as any);
 
 		console.log('✅ Deleted swap event:', swapId);
@@ -303,6 +228,139 @@ export async function deleteSwapEvent(
 	} catch (error) {
 		console.error('❌ Failed to delete swap event:', error);
 		return false;
+	}
+}
+
+/**
+ * Delete all swap events of a specific type from Nostr
+ * Useful for clearing test data
+ */
+async function deleteAllSwapEvents(
+	nsec: Uint8Array,
+	swapType: SwapType
+): Promise<{ count: number }> {
+	try {
+		const npub = getPublicKey(nsec);
+
+		console.log('🗑️ Deleting all swaps. Type:', swapType);
+
+		// Query Nostr for user's swap events of this type
+		const events = await pool.querySync(RELAYS, {
+			authors: [npub],
+			kinds: [KINDS.PENDING_SWAPS],
+			'#t': [swapType]
+		});
+
+		console.log(`📦 Found ${events.length} swap events to delete`);
+
+		let deleteCount = 0;
+
+		// Delete each event (NIP-09)
+		for (const event of events) {
+			try {
+				const deletionEventTemplate: Partial<NostrEvent> = {
+					kind: 5,
+					created_at: Math.floor(Date.now() / 1000),
+					tags: [
+						['e', event.id],
+						['k', KINDS.PENDING_SWAPS.toString()]
+					],
+					content: `Deleting ${swapType} swap data`
+				};
+
+				const signedDeletion = finalizeEvent(deletionEventTemplate as any, nsec);
+				pool.publish(RELAYS, signedDeletion as any);
+				deleteCount++;
+				console.log(`✅ Deleted event: ${event.id}`);
+			} catch (err) {
+				console.error(`❌ Failed to delete event ${event.id}:`, err);
+			}
+		}
+
+		console.log(`✅ Deleted ${deleteCount} swap events from Nostr`);
+		return { count: deleteCount };
+	} catch (error) {
+		console.error('❌ Failed to delete swap events:', error);
+		throw error;
+	}
+}
+
+/**
+ * Nostr-based storage adapter for Boltz swaps
+ * Implements the SDK's SwapStorage interface
+ */
+export class NostrSwapStorage implements SwapStorage {
+	constructor(
+		private nsec: Uint8Array,
+		private swapType: SwapType
+	) {}
+	
+	/**
+	 * Save swap data to Nostr
+	 * @param swapId - Unique swap identifier
+	 * @param data - Swap data to save
+	 */
+	async save(swapId: string, data: any): Promise<void> {
+		try {
+			await saveSwapToNostr(data, this.nsec, this.swapType);
+		} catch (error) {
+			console.error(`Failed to save swap ${swapId} to Nostr:`, error);
+			// Don't throw - swap can continue even if storage fails
+		}
+	}
+	
+	/**
+	 * Load a specific swap by ID
+	 * @param swapId - Unique swap identifier
+	 * @returns Swap data or null if not found
+	 */
+	async load(swapId: string): Promise<any | null> {
+		try {
+			const swaps = await this.loadAll();
+			return swaps.find(s => s.id === swapId) || null;
+		} catch (error) {
+			console.error(`Failed to load swap ${swapId} from Nostr:`, error);
+			return null;
+		}
+	}
+	
+	/**
+	 * Load all swaps of this type
+	 * @returns Array of swap data
+	 */
+	async loadAll(): Promise<any[]> {
+		try {
+			return await recoverPendingSwaps(this.nsec, this.swapType);
+		} catch (error) {
+			console.error('Failed to load swaps from Nostr:', error);
+			return [];
+		}
+	}
+	
+	/**
+	 * Delete a specific swap
+	 * @param swapId - Unique swap identifier
+	 */
+	async delete(swapId: string): Promise<void> {
+		try {
+			await deleteSwapEvent(this.nsec, swapId, this.swapType);
+		} catch (error) {
+			console.error(`Failed to delete swap ${swapId} from Nostr:`, error);
+			// Don't throw - deletion is not critical
+		}
+	}
+	
+	/**
+	 * Delete all swaps of this type
+	 * @returns Object with count of deleted swaps
+	 */
+	async deleteAll(): Promise<{ count: number }> {
+		try {
+			return await deleteAllSwapEvents(this.nsec, this.swapType);
+		} catch (error) {
+			console.error('Failed to delete all swaps from Nostr:', error);
+			throw error;
+		}
 	}
 }
 

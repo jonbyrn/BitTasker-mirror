@@ -1,13 +1,8 @@
 <script lang="ts">
+	import type { BoltzSwapData } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
-	import { rskConnection } from '$lib/stores/wallet.store';
-	import {
-		reverseSwapService,
-		type BoltzSwapData
-	} from '$lib/integrations/boltz/reverseSwapService';
-	import { bytesToHex } from '@noble/hashes/utils';
-	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+	import { rskConnection, getWalletManager } from '$lib/stores/wallet.store';
 	import PendingSwap from '$lib/components/wallet/PendingSwap.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
@@ -18,7 +13,6 @@
 	let pendingSwaps = $state<BoltzSwapData[]>([]);
 	let error = $state<string | null>(null);
 	let isClaiming = $state(false);
-	let nsecHex = $state<string>('');
 	let isDeletingSwaps = $state(false);
 	let expandedSwaps = $state<Set<string>>(new Set());
 	let minAmount = $state<number>(0);
@@ -43,29 +37,19 @@
 
 	// Derived values (no longer needed for BTC conversion, but kept for display if needed)
 	let minBTC = $derived(minAmount / 100_000_000);
-	let maxBTC = $derived(maxAmount / 100_000_000);
 
 	/**
-	 * Get user's nsec and setup wallet getter on component load
-	 * Also recover any pending swaps from Nostr and fetch swap limits
+	 * Fetch swap limits and recover pending swaps
 	 */
 	$effect(() => {
 		(async () => {
 			try {
-				const { nsec } = await getNostrKeyPair();
-				nsecHex = bytesToHex(nsec);
-
-				// Set wallet getter for automatic claiming
-				reverseSwapService.setWalletGetter(() => $rskConnection.wallet);
-
 				// Fetch swap limits from Boltz
 				await fetchSwapLimits();
 
-				// Fetch BTC price for USD conversion
-				await fetchBtcPrice();
-
-				// Recover pending swaps from Nostr storage
-				const recovered = await reverseSwapService.recoverPendingSwaps(nsecHex);
+				// Recover pending swaps from wallet manager
+				const walletManager = getWalletManager();
+				const recovered = walletManager.reverseSwapService.getAllSwaps();
 				console.log('Recovered swaps:', recovered);
 
 				if (recovered.length > 0) {
@@ -75,8 +59,6 @@
 					for (const swap of recovered) {
 						monitorSwapForClaiming(swap.id);
 					}
-				} else {
-					console.log('ℹ️ No pending swaps found');
 				}
 			} catch (err) {
 				console.error('Failed to initialize swap service:', err);
@@ -181,10 +163,10 @@
 	async function fetchSwapLimits() {
 		try {
 			isLoadingLimits = true;
-			const limits = await reverseSwapService.getSwapLimits();
+			const walletManager = getWalletManager();
+			const limits = await walletManager.reverseSwapService.getSwapLimits();
 			minAmount = limits.minimal;
 			maxAmount = limits.maximal;
-			console.log('✅ Fetched swap limits:', { minAmount, maxAmount, minBTC, maxBTC });
 		} catch (err) {
 			console.error('Failed to fetch swap limits:', err);
 			// Use fallback values
@@ -201,11 +183,6 @@
 	async function createSwap() {
 		if (!$rskConnection.address) {
 			error = $t('wallet.rsk_not_connected');
-			return;
-		}
-
-		if (!nsecHex) {
-			error = $t('wallet.swap.error.auth_required');
 			return;
 		}
 
@@ -238,11 +215,11 @@
 		error = null;
 
 		try {
-			const result = await reverseSwapService.createReverseSwap({
+			const walletManager = getWalletManager();
+			const result = await walletManager.reverseSwapService.createReverseSwap({
 				amountSats,
 				rbtcAddress: $rskConnection.address,
 				description: description || undefined,
-				nsec: nsecHex,
 				walletSigner: $rskConnection.wallet // Pass wallet for Smart Wallet address computation
 			});
 
@@ -272,37 +249,42 @@
 	function monitorSwapForClaiming(swapId: string) {
 		// Poll for swap status every 5 seconds
 		const interval = setInterval(async () => {
-			const swap = reverseSwapService.getSwap(swapId);
-			if (!swap) {
-				clearInterval(interval);
-				return;
-			}
+			try {
+				const walletManager = getWalletManager();
+				const swap = walletManager.reverseSwapService.getSwap(swapId);
+				if (!swap) {
+					clearInterval(interval);
+					return;
+				}
 
-			// Update swap in the list without reinitializing the array
-			const swapIndex = pendingSwaps.findIndex((s) => s.id === swapId);
-			if (swapIndex !== -1) {
-				// Only update if there's an actual change to prevent unnecessary re-renders
-				const currentSwap = pendingSwaps[swapIndex];
+				// Update swap in the list without reinitializing the array
+				const swapIndex = pendingSwaps.findIndex((s) => s.id === swapId);
+				if (swapIndex !== -1) {
+					// Only update if there's an actual change to prevent unnecessary re-renders
+					const currentSwap = pendingSwaps[swapIndex];
+					if (
+						currentSwap.status !== swap.status ||
+						currentSwap.lockupTxHash !== swap.lockupTxHash ||
+						currentSwap.claimTxHash !== swap.claimTxHash
+					) {
+						pendingSwaps[swapIndex] = swap;
+						pendingSwaps = [...pendingSwaps]; // Trigger reactivity
+					}
+				}
+
+				// Stop monitoring on final states
 				if (
-					currentSwap.status !== swap.status ||
-					currentSwap.lockupTxHash !== swap.lockupTxHash ||
-					currentSwap.claimTxHash !== swap.claimTxHash
+					['invoice.settled', 'swap.expired', 'transaction.failed', 'claimed'].includes(swap.status)
 				) {
-					pendingSwaps[swapIndex] = swap;
-					pendingSwaps = [...pendingSwaps]; // Trigger reactivity
-				}
-			}
+					clearInterval(interval);
 
-			// Stop monitoring on final states
-			if (
-				['invoice.settled', 'swap.expired', 'transaction.failed', 'claimed'].includes(swap.status)
-			) {
-				clearInterval(interval);
-
-				// Show success message when settled
-				if (swap.status === 'invoice.settled') {
-					appStore.showSuccessToast($t('wallet.swap.lightning.rbtc_received'));
+					// Show success message when settled
+					if (swap.status === 'invoice.settled') {
+						appStore.showSuccessToast($t('wallet.swap.lightning.rbtc_received'));
+					}
 				}
+			} catch (err) {
+				console.error('Error monitoring swap:', err);
 			}
 		}, 5000);
 	}
@@ -312,7 +294,7 @@
 	 * Attempts claim via RIF Relay first, falls back to direct claim if needed
 	 */
 	async function claimRBTC(swap: BoltzSwapData) {
-		if (!nsecHex || !$rskConnection.wallet) {
+		if (!$rskConnection.wallet) {
 			appStore.showErrorToast($t('wallet.rsk_wallet_not_connected'));
 			return;
 		}
@@ -323,10 +305,10 @@
 		try {
 			appStore.showInfoToast($t('wallet.swap.lightning.claiming_gasless'));
 
-			// Attempt claim via RIF Relay
-			const result = await reverseSwapService.claimRBTCViaRifRelay(
+			const walletManager = getWalletManager();
+			// Attempt gasless claim via RIF Relay
+			const result = await walletManager.reverseSwapService.claimRBTCViaRifRelay(
 				swap,
-				nsecHex,
 				$rskConnection.wallet
 			);
 
@@ -350,27 +332,16 @@
 	}
 
 	/**
-	 * Delete a single swap event from Nostr
+	 * Delete a single swap event
 	 */
 	async function deleteSwap(swapId: string) {
-		if (!nsecHex) {
-			appStore.showErrorToast($t('wallet.swap.error.auth_required'));
-			return;
-		}
-
-		if (!confirm($t('wallet.swap.confirm_delete'))) {
-			return;
-		}
-
 		try {
-			const success = await reverseSwapService.deleteSwapEvent(nsecHex, swapId);
-			if (success) {
-				// Remove from UI
-				pendingSwaps = pendingSwaps.filter((s) => s.id !== swapId);
-				appStore.showSuccessToast($t('wallet.swap.deleted'));
-			} else {
-				appStore.showErrorToast($t('wallet.swap.error.delete_failed'));
-			}
+			const walletManager = getWalletManager();
+			await walletManager.reverseSwapService.deleteSwap(swapId);
+
+			// Remove from UI
+			pendingSwaps = pendingSwaps.filter((s) => s.id !== swapId);
+			appStore.showSuccessToast($t('wallet.swap.deleted'));
 		} catch (err) {
 			console.error('Failed to delete swap:', err);
 			appStore.showErrorToast($t('wallet.swap.error.delete_failed'));
@@ -378,14 +349,9 @@
 	}
 
 	/**
-	 * Delete all swap events from Nostr (for testing)
+	 * Delete all swap events (for testing)
 	 */
 	async function deleteAllSwaps() {
-		if (!nsecHex) {
-			appStore.showErrorToast($t('wallet.swap.error.auth_required'));
-			return;
-		}
-
 		if (!confirm($t('wallet.swap.confirm_delete_all'))) {
 			return;
 		}
@@ -394,7 +360,8 @@
 		error = null;
 
 		try {
-			const result = await reverseSwapService.deleteAllSwapEvents(nsecHex);
+			const walletManager = getWalletManager();
+			const result = await walletManager.reverseSwapService.deleteAllSwaps();
 			pendingSwaps = [];
 			appStore.showSuccessToast(
 				$t('wallet.swap.deleted_count', { values: { count: result.count } })
