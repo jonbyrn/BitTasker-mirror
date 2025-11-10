@@ -48,8 +48,10 @@
 				"dispute_work_confirm_message": "¿Está seguro de que desea disputar este trabajo? Esto iniciará una disputa y bloqueará los fondos del depósito.",
 				"payment_already_released": "El pago ya ha sido liberado para este contrato.",
 				"payment_release_pending": "La liberación del pago ya está en progreso. Por favor, espere a que se confirme la transacción.",
-				"dispute_already_raised": "Ya se ha iniciado una disputa para este contrato.",
-				"dispute_raising_pending": "La disputa ya se está iniciando. Por favor, espere a que se confirme la transacción."
+		"dispute_already_raised": "Ya se ha iniciado una disputa para este contrato.",
+		"dispute_raising_pending": "La disputa ya se está iniciando. Por favor, espere a que se confirme la transacción.",
+		"contract_already_cancelled": "Este contrato ya ha sido cancelado.",
+		"contract_cancellation_pending": "La cancelación del contrato ya está en progreso. Por favor, espere a que se confirme la transacción."
 			}
 		}
 	}

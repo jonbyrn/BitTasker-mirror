@@ -10,10 +10,16 @@
 	import { deleteContract as deleteContractUtil } from '$lib/utils/nostr-bid';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import { 
+		registerCompleteCancelAttemptAtomic,
+		registerCompleteCancelAttempt,
 		registerCompletionAttemptAtomic,
 		registerCompletionAttempt,
+		updateCompleteCancelStatus,
 		updateCompletionStatus, 
 		hasCompletionAttempt, 
+		getCompleteCancelAttempt,
+		getCompleteAttempt,
+		getCancelAttempt,
 		getCompletionAttempt,
 		clearCompletionAttempt 
 	} from '$lib/stores/completionCache.store';
@@ -56,7 +62,8 @@
 	// Completion cache state
 	let isCheckingBlockchain = $state(false);
 	let blockchainCompletionStatus = $state<EscrowStatus | null>(null);
-	let completionAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed' } | null>(null);
+	let completionAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed'; type: 'complete' | 'cancel' } | null>(null);
+	let cancelAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed'; type: 'complete' | 'cancel' } | null>(null);
 	
 	// Accept/Dispute cache state
 	let acceptAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed'; type: 'accept' | 'dispute' } | null>(null);
@@ -158,35 +165,55 @@
 		if (!contract.canComplete || !isMounted) return;
 		
 		// Atomic check-and-set: prevents race conditions
-		const wasRegistered = registerCompletionAttemptAtomic(contract.contract.escrowId);
+		const wasRegistered = registerCompleteCancelAttemptAtomic(
+			contract.contract.escrowId,
+			'complete'
+		);
 		if (!wasRegistered) {
-			// Already attempted - check status
-			const attempt = getCompletionAttempt(contract.contract.escrowId);
-			if (attempt?.status === 'confirmed') {
-				// Already completed - check blockchain to be sure
-				const isCompleted = await checkBlockchainCompletionStatus();
-				if (isCompleted) {
+			// Already attempted - check if it's a cancel or complete attempt
+			const existingAttempt = getCompleteCancelAttempt(contract.contract.escrowId);
+			if (existingAttempt?.type === 'cancel') {
+				// Cancel was attempted - check status
+				if (existingAttempt.status === 'confirmed') {
+					if (isMounted) {
+						appStore.showErrorToast($t('dashboard.contracts.actions.contract_already_cancelled'));
+					}
+					return;
+				} else if (existingAttempt.status === 'pending') {
+					// Cancel pending - don't allow complete
+					if (isMounted) {
+						appStore.showErrorToast($t('dashboard.contracts.actions.contract_cancellation_pending'));
+					}
+					return;
+				}
+			} else if (existingAttempt?.type === 'complete') {
+				// Complete was attempted - check status
+				if (existingAttempt.status === 'confirmed') {
+					// Already completed - check blockchain to be sure
+					const isCompleted = await checkBlockchainCompletionStatus();
+					if (isCompleted) {
+						if (isMounted) {
+							appStore.showErrorToast(
+								$t('dashboard.contracts.actions.task_already_completed')
+							);
+						}
+						return;
+					}
+				} else if (existingAttempt.status === 'pending') {
+					// Transaction pending - don't allow duplicate
 					if (isMounted) {
 						appStore.showErrorToast(
-							$t('dashboard.contracts.actions.task_already_completed')
+							$t('dashboard.contracts.actions.task_completion_pending')
 						);
 					}
 					return;
 				}
-			} else if (attempt?.status === 'pending') {
-				// Transaction pending - don't allow duplicate
-				if (isMounted) {
-					appStore.showErrorToast(
-						$t('dashboard.contracts.actions.task_completion_pending')
-					);
-				}
-				return;
 			}
-			// If failed, allow retry (wasRegistered would be false, but we continue)
+			// If failed, allow retry
 		}
 		
 		// Get the attempt (either newly created or existing)
-		completionAttempt = getCompletionAttempt(contract.contract.escrowId);
+		completionAttempt = getCompleteAttempt(contract.contract.escrowId);
 		
 		// Check blockchain status before submitting (with caching)
 		const isAlreadyCompleted = await checkBlockchainCompletionStatus();
@@ -198,7 +225,7 @@
 			}
 			// Update cache to confirmed
 			if (completionAttempt) {
-				updateCompletionStatus(contract.contract.escrowId, 'confirmed');
+				updateCompleteCancelStatus(contract.contract.escrowId, 'confirmed');
 			}
 			return;
 		}
@@ -221,7 +248,7 @@
 				// Update the attempt with transaction hash
 				completionAttempt.transactionHash = result.hash;
 				// Update the cache entry (overwrites existing entry with transaction hash)
-				registerCompletionAttempt(contract.contract.escrowId, result.hash);
+				registerCompleteCancelAttempt(contract.contract.escrowId, 'complete', result.hash);
 			}
 			
 			showCompletionModal = false;
@@ -485,22 +512,87 @@
 
 	// Cancel escrow
 	async function cancelEscrow() {
-		if (!contract.canCancel) return;
+		if (!contract.canCancel || !isMounted) return;
+
+		// Atomic check-and-set: prevents race conditions
+		const wasRegistered = registerCompleteCancelAttemptAtomic(
+			contract.contract.escrowId,
+			'cancel'
+		);
+		if (!wasRegistered) {
+			// Already attempted - check if it's a complete or cancel attempt
+			const existingAttempt = getCompleteCancelAttempt(contract.contract.escrowId);
+			if (existingAttempt?.type === 'complete') {
+				// Complete was attempted - check status
+				if (existingAttempt.status === 'confirmed') {
+					if (isMounted) {
+						appStore.showErrorToast($t('dashboard.contracts.actions.task_already_completed'));
+					}
+					return;
+				} else if (existingAttempt.status === 'pending') {
+					// Complete pending - don't allow cancel
+					if (isMounted) {
+						appStore.showErrorToast($t('dashboard.contracts.actions.task_completion_pending'));
+					}
+					return;
+				}
+			} else if (existingAttempt?.type === 'cancel') {
+				// Cancel was attempted - check status
+				if (existingAttempt.status === 'confirmed') {
+					if (isMounted) {
+						appStore.showErrorToast($t('dashboard.contracts.actions.contract_already_cancelled'));
+					}
+					return;
+				} else if (existingAttempt.status === 'pending') {
+					// Transaction pending - don't allow duplicate
+					if (isMounted) {
+						appStore.showErrorToast($t('dashboard.contracts.actions.contract_cancellation_pending'));
+					}
+					return;
+				}
+			}
+			// If failed, allow retry
+		}
+		
+		// Get the attempt (either newly created or existing)
+		cancelAttempt = getCancelAttempt(contract.contract.escrowId);
 
 		setLoading('cancel', true);
 		try {
 			// Call RSK escrow cancelEscrow with contract event ID for proper nostr event publishing
-			await escrow.cancelEscrow(contract.contract.escrowId, contract.contractEvent.id);
-			onActionComplete?.();
+			const result = await escrow.cancelEscrow(contract.contract.escrowId, contract.contractEvent.id);
+			
+			if (!isMounted) return;
+			
+			// Update cache with transaction hash (status is already 'pending' from registration)
+			if (result.hash && cancelAttempt) {
+				// Update the attempt with transaction hash
+				cancelAttempt.transactionHash = result.hash;
+				// Update the cache entry (overwrites existing entry with transaction hash)
+				registerCompleteCancelAttempt(contract.contract.escrowId, 'cancel', result.hash);
+			}
+			
+			// Note: Status will be updated to 'confirmed' when transaction confirms
+			// This happens in escrowEvents.ts handleEscrowCancelled
+			// If transaction fails, it will be handled in escrow.ts
 		} catch (error) {
+			if (!isMounted) return;
+			
 			console.error('Error cancelling escrow:', error);
+			
+			// Clear attempt on failure to allow retry
+			clearCompletionAttempt(contract.contract.escrowId);
+			cancelAttempt = null;
+			
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.escrow_cancelled_error');
 			appStore.showErrorToast(errorMessage);
 		} finally {
-			setLoading('cancel', false);
+			if (isMounted) {
+				setLoading('cancel', false);
+			}
 		}
 	}
 
@@ -573,13 +665,23 @@
 	$effect(() => {
 		if (!isMounted) return;
 		
-		const attempt = getCompletionAttempt(contract.contract.escrowId);
+		const attempt = getCompleteAttempt(contract.contract.escrowId);
 		if (attempt) {
 			completionAttempt = attempt;
 			// If confirmed, check blockchain status to verify
 			if (attempt.status === 'confirmed') {
 				checkBlockchainCompletionStatus();
 			}
+		}
+	});
+	
+	// Load cancel attempt on mount
+	$effect(() => {
+		if (!isMounted) return;
+		
+		const cancel = getCancelAttempt(contract.contract.escrowId);
+		if (cancel) {
+			cancelAttempt = cancel;
 		}
 	});
 	
@@ -601,11 +703,15 @@
 	// Derived state for button disabled logic
 	const isCompleteDisabled = $derived(
 		!isMounted ||
-		isLoading.complete || 
+		isLoading.complete ||
+		isLoading.cancel || // Disable if cancel is loading
 		isCheckingBlockchain ||
 		(completionAttempt?.status === 'pending') ||
 		(completionAttempt?.status === 'confirmed') ||
-		(blockchainCompletionStatus === EscrowStatus.Completed)
+		(cancelAttempt?.status === 'pending') || // Disable if cancel is pending
+		(cancelAttempt?.status === 'confirmed') || // Disable if cancel is confirmed
+		(blockchainCompletionStatus === EscrowStatus.Completed) ||
+		(blockchainCompletionStatus === EscrowStatus.Cancelled) // Disable if cancelled
 	);
 	
 	// Derived state for accept/dispute button disabled logic
@@ -627,6 +733,19 @@
 		(acceptAttempt?.status === 'confirmed') ||
 		(disputeAttempt?.status === 'pending') ||
 		(disputeAttempt?.status === 'confirmed')
+	);
+	
+	// Derived state for cancel button disabled logic
+	const isCancelDisabled = $derived(
+		!isMounted ||
+		isLoading.cancel ||
+		isLoading.complete || // Disable if complete is loading
+		(cancelAttempt?.status === 'pending') ||
+		(cancelAttempt?.status === 'confirmed') ||
+		(completionAttempt?.status === 'pending') || // Disable if complete is pending
+		(completionAttempt?.status === 'confirmed') || // Disable if complete is confirmed
+		(blockchainCompletionStatus === EscrowStatus.Cancelled) ||
+		(blockchainCompletionStatus === EscrowStatus.Completed) // Disable if completed
 	);
 
 	// Auto-calculate client amount from freelancer amount in USD
@@ -985,10 +1104,25 @@
 		<button
 			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
 			onclick={cancelEscrow}
-			disabled={isLoading.cancel}
+			disabled={isCancelDisabled}
 		>
-			{#if isLoading.cancel}
+			{#if isLoading.cancel || cancelAttempt?.status === 'pending'}
 				<span class="loading loading-spinner loading-xs"></span>
+			{:else if cancelAttempt?.status === 'confirmed'}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M5 13l4 4L19 7"
+					/>
+				</svg>
 			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

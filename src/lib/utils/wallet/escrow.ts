@@ -9,7 +9,7 @@ import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
-import { updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
+import { updateCompleteCancelStatus, updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
 
 let contract: ethers.Contract | null = null;
 

@@ -49,7 +49,9 @@
 		"payment_already_released": "Payment has already been released for this contract.",
 		"payment_release_pending": "Payment release is already in progress. Please wait for the transaction to confirm.",
 		"dispute_already_raised": "A dispute has already been raised for this contract.",
-		"dispute_raising_pending": "Dispute is already being raised. Please wait for the transaction to confirm."
+		"dispute_raising_pending": "Dispute is already being raised. Please wait for the transaction to confirm.",
+		"contract_already_cancelled": "This contract has already been cancelled.",
+		"contract_cancellation_pending": "Contract cancellation is already in progress. Please wait for the transaction to confirm."
 			}
 		}
 	}

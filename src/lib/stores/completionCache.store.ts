@@ -2,18 +2,19 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 
-interface CompletionAttempt {
+interface CompleteCancelAttempt {
 	escrowId: string;
 	timestamp: number;
 	transactionHash?: string;
 	status: 'pending' | 'confirmed' | 'failed';
+	type: 'complete' | 'cancel';
 }
 
 // In-memory cache for fast lookups
-const completionCache = new Map<string, CompletionAttempt>();
+const completionCache = new Map<string, CompleteCancelAttempt>();
 
 // Store for reactive updates
-const completionStore = writable<Map<string, CompletionAttempt>>(new Map());
+const completionStore = writable<Map<string, CompleteCancelAttempt>>(new Map());
 
 // localStorage key
 const STORAGE_KEY = 'bittasker_completion_cache';
@@ -29,9 +30,9 @@ let saveTimeout: NodeJS.Timeout | null = null;
 /**
  * Clean up old entries from cache
  */
-function cleanupOldEntries(cache: Map<string, CompletionAttempt>): Map<string, CompletionAttempt> {
+function cleanupOldEntries(cache: Map<string, CompleteCancelAttempt>): Map<string, CompleteCancelAttempt> {
 	const now = Date.now();
-	const cleaned = new Map<string, CompletionAttempt>();
+	const cleaned = new Map<string, CompleteCancelAttempt>();
 	
 	for (const [escrowId, attempt] of cache.entries()) {
 		const age = now - attempt.timestamp;
@@ -59,7 +60,7 @@ function cleanupOldEntries(cache: Map<string, CompletionAttempt>): Map<string, C
 /**
  * Enforce cache size limit by removing oldest entries
  */
-function enforceSizeLimit(cache: Map<string, CompletionAttempt>): Map<string, CompletionAttempt> {
+function enforceSizeLimit(cache: Map<string, CompleteCancelAttempt>): Map<string, CompleteCancelAttempt> {
 	if (cache.size <= MAX_CACHE_SIZE) {
 		return cache;
 	}
@@ -74,7 +75,7 @@ function enforceSizeLimit(cache: Map<string, CompletionAttempt>): Map<string, Co
 /**
  * Save cache to localStorage with quota handling
  */
-function saveToLocalStorage(cache: Map<string, CompletionAttempt>): void {
+function saveToLocalStorage(cache: Map<string, CompleteCancelAttempt>): void {
 	if (!browser) return;
 	
 	try {
@@ -114,11 +115,24 @@ function saveToLocalStorage(cache: Map<string, CompletionAttempt>): void {
 function loadFromLocalStorage(): void {
 	if (!browser) return;
 	
-	try {
-		const saved = localStorage.getItem(STORAGE_KEY);
-		if (saved) {
-			const parsed = JSON.parse(saved) as Array<[string, CompletionAttempt]>;
-			const cache = new Map<string, CompletionAttempt>(parsed);
+		try {
+			const saved = localStorage.getItem(STORAGE_KEY);
+			if (saved) {
+				const parsed = JSON.parse(saved) as Array<[string, CompleteCancelAttempt | CompletionAttempt]>;
+				// Migrate old format (without type) to new format (with type)
+				const cache = new Map<string, CompleteCancelAttempt>();
+				parsed.forEach(([escrowId, attempt]) => {
+					// If old format (no type field), default to 'complete'
+					if ('type' in attempt) {
+						cache.set(escrowId, attempt as CompleteCancelAttempt);
+					} else {
+						// Migrate old CompletionAttempt to new CompleteCancelAttempt
+						cache.set(escrowId, {
+							...attempt,
+							type: 'complete' // Default old attempts to 'complete'
+						});
+					}
+				});
 			
 			// Clean up old entries
 			const cleaned = cleanupOldEntries(cache);
@@ -151,8 +165,21 @@ if (browser) {
 	window.addEventListener('storage', (e) => {
 		if (e.key === STORAGE_KEY && e.newValue) {
 			try {
-				const parsed = JSON.parse(e.newValue) as Array<[string, CompletionAttempt]>;
-				const cache = new Map<string, CompletionAttempt>(parsed);
+				const parsed = JSON.parse(e.newValue) as Array<[string, CompleteCancelAttempt | CompletionAttempt]>;
+				// Migrate old format (without type) to new format (with type)
+				const cache = new Map<string, CompleteCancelAttempt>();
+				parsed.forEach(([escrowId, attempt]) => {
+					// If old format (no type field), default to 'complete'
+					if ('type' in attempt) {
+						cache.set(escrowId, attempt as CompleteCancelAttempt);
+					} else {
+						// Migrate old CompletionAttempt to new CompleteCancelAttempt
+						cache.set(escrowId, {
+							...attempt,
+							type: 'complete' // Default old attempts to 'complete'
+						});
+					}
+				});
 				
 				// Update in-memory cache
 				completionCache.clear();
@@ -177,21 +204,27 @@ completionStore.subscribe((cache) => {
 });
 
 /**
- * Atomic check-and-set: Register completion attempt if not already exists
+ * Atomic check-and-set: Register complete/cancel attempt if not already exists
  * Returns true if successfully registered, false if already exists
+ * This prevents race conditions - only one action (complete OR cancel) can be registered at a time
  */
-export function registerCompletionAttemptAtomic(escrowId: string, transactionHash?: string): boolean {
-	// Atomic check-and-set
+export function registerCompleteCancelAttemptAtomic(
+	escrowId: string,
+	type: 'complete' | 'cancel',
+	transactionHash?: string
+): boolean {
+	// Atomic check-and-set - checks if ANY attempt exists (complete OR cancel)
 	if (completionCache.has(escrowId)) {
-		return false; // Already exists
+		return false; // Already exists (either complete or cancel)
 	}
 	
 	// Set immediately (atomic operation)
-	const attempt: CompletionAttempt = {
+	const attempt: CompleteCancelAttempt = {
 		escrowId,
 		timestamp: Date.now(),
 		transactionHash,
-		status: 'pending'
+		status: 'pending',
+		type
 	};
 	
 	completionCache.set(escrowId, attempt);
@@ -201,14 +234,27 @@ export function registerCompletionAttemptAtomic(escrowId: string, transactionHas
 }
 
 /**
- * Register a completion attempt (non-atomic, use registerCompletionAttemptAtomic for safety)
+ * @deprecated Use registerCompleteCancelAttemptAtomic instead
+ * Kept for backward compatibility
  */
-export function registerCompletionAttempt(escrowId: string, transactionHash?: string): void {
-	const attempt: CompletionAttempt = {
+export function registerCompletionAttemptAtomic(escrowId: string, transactionHash?: string): boolean {
+	return registerCompleteCancelAttemptAtomic(escrowId, 'complete', transactionHash);
+}
+
+/**
+ * Register a complete/cancel attempt (non-atomic, use registerCompleteCancelAttemptAtomic for safety)
+ */
+export function registerCompleteCancelAttempt(
+	escrowId: string,
+	type: 'complete' | 'cancel',
+	transactionHash?: string
+): void {
+	const attempt: CompleteCancelAttempt = {
 		escrowId,
 		timestamp: Date.now(),
 		transactionHash,
-		status: 'pending'
+		status: 'pending',
+		type
 	};
 	
 	completionCache.set(escrowId, attempt);
@@ -216,10 +262,18 @@ export function registerCompletionAttempt(escrowId: string, transactionHash?: st
 }
 
 /**
- * Update completion attempt status
+ * @deprecated Use registerCompleteCancelAttempt instead
+ * Kept for backward compatibility
  */
-export function updateCompletionStatus(
-	escrowId: string, 
+export function registerCompletionAttempt(escrowId: string, transactionHash?: string): void {
+	registerCompleteCancelAttempt(escrowId, 'complete', transactionHash);
+}
+
+/**
+ * Update complete/cancel attempt status
+ */
+export function updateCompleteCancelStatus(
+	escrowId: string,
 	status: 'confirmed' | 'failed',
 	transactionHash?: string
 ): void {
@@ -236,6 +290,18 @@ export function updateCompletionStatus(
 }
 
 /**
+ * @deprecated Use updateCompleteCancelStatus instead
+ * Kept for backward compatibility
+ */
+export function updateCompletionStatus(
+	escrowId: string,
+	status: 'confirmed' | 'failed',
+	transactionHash?: string
+): void {
+	updateCompleteCancelStatus(escrowId, status, transactionHash);
+}
+
+/**
  * Check if completion was already attempted
  */
 export function hasCompletionAttempt(escrowId: string): boolean {
@@ -243,10 +309,34 @@ export function hasCompletionAttempt(escrowId: string): boolean {
 }
 
 /**
- * Get completion attempt
+ * Get complete/cancel attempt (any type)
  */
-export function getCompletionAttempt(escrowId: string): CompletionAttempt | null {
+export function getCompleteCancelAttempt(escrowId: string): CompleteCancelAttempt | null {
 	return completionCache.get(escrowId) || null;
+}
+
+/**
+ * Get complete attempt (if exists)
+ */
+export function getCompleteAttempt(escrowId: string): CompleteCancelAttempt | null {
+	const attempt = completionCache.get(escrowId);
+	return attempt && attempt.type === 'complete' ? attempt : null;
+}
+
+/**
+ * Get cancel attempt (if exists)
+ */
+export function getCancelAttempt(escrowId: string): CompleteCancelAttempt | null {
+	const attempt = completionCache.get(escrowId);
+	return attempt && attempt.type === 'cancel' ? attempt : null;
+}
+
+/**
+ * @deprecated Use getCompleteAttempt instead
+ * Kept for backward compatibility
+ */
+export function getCompletionAttempt(escrowId: string): CompleteCancelAttempt | null {
+	return getCompleteAttempt(escrowId);
 }
 
 /**
