@@ -9,6 +9,16 @@
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
 	import { deleteContract as deleteContractUtil } from '$lib/utils/nostr-bid';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import { 
+		registerCompletionAttemptAtomic,
+		registerCompletionAttempt,
+		updateCompletionStatus, 
+		hasCompletionAttempt, 
+		getCompletionAttempt,
+		clearCompletionAttempt 
+	} from '$lib/stores/completionCache.store';
+	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import type { EscrowData } from '$lib/types/wallet';
 
 	const {
 		contract,
@@ -32,31 +42,197 @@
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
 	let btcPrice = $state<number>(0); // No fallback price
+	
+	// Completion cache state
+	let isCheckingBlockchain = $state(false);
+	let blockchainCompletionStatus = $state<EscrowStatus | null>(null);
+	let completionAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed' } | null>(null);
+	let isMounted = $state(true);
+	
+	// Blockchain check cache (30 second TTL)
+	const blockchainCheckCache = new Map<string, { status: EscrowStatus | null; timestamp: number }>();
+	const BLOCKCHAIN_CACHE_TTL = 30000; // 30 seconds
+
+	// Component unmount protection
+	$effect(() => {
+		isMounted = true;
+		
+		return () => {
+			isMounted = false; // Cleanup on unmount
+		};
+	});
 
 	// Helper to set loading state
 	function setLoading(action: string, loading: boolean) {
 		isLoading = { ...isLoading, [action]: loading };
 	}
+	
+	// Check blockchain completion status with caching
+	async function checkBlockchainCompletionStatus(): Promise<boolean> {
+		if (!isMounted) return false;
+		
+		const cacheKey = contract.contract.escrowId;
+		const cached = blockchainCheckCache.get(cacheKey);
+		const now = Date.now();
+		
+		// Use cached result if less than 30 seconds old
+		if (cached && (now - cached.timestamp) < BLOCKCHAIN_CACHE_TTL) {
+			if (isMounted) {
+				blockchainCompletionStatus = cached.status;
+			}
+			// Update cache if we have an attempt
+			if (cached.status === EscrowStatus.Completed && completionAttempt) {
+				updateCompletionStatus(contract.contract.escrowId, 'confirmed');
+			}
+			return cached.status === EscrowStatus.Completed;
+		}
+		
+		try {
+			if (isMounted) {
+				isCheckingBlockchain = true;
+			}
+			
+			// Add timeout protection (5 seconds)
+			const escrowData = await Promise.race([
+				escrow.getEscrow(contract.contract.escrowId),
+				new Promise<null>((_, reject) => 
+					setTimeout(() => reject(new Error('Blockchain check timeout')), 5000)
+				)
+			]) as EscrowData | null;
+			
+			if (!isMounted) return false;
+			
+			const status = escrowData?.status || null;
+			
+			if (status === EscrowStatus.Completed) {
+				blockchainCompletionStatus = EscrowStatus.Completed;
+				// Update cache to confirmed if we have an attempt
+				if (completionAttempt) {
+					updateCompletionStatus(contract.contract.escrowId, 'confirmed');
+				}
+				// Cache result
+				blockchainCheckCache.set(cacheKey, { status, timestamp: now });
+				return true; // Already completed
+			}
+			
+			blockchainCompletionStatus = status;
+			// Cache result
+			blockchainCheckCache.set(cacheKey, { status, timestamp: now });
+			return false; // Not completed yet
+		} catch (error) {
+			if (!isMounted) return false;
+			
+			if (error instanceof Error && error.message === 'Blockchain check timeout') {
+				console.warn('Blockchain check timeout, allowing transaction to proceed');
+				// Don't block transaction on timeout
+				return false;
+			}
+			
+			console.error('Error checking blockchain status:', error);
+			// Fallback: don't block if check fails
+			return false;
+		} finally {
+			if (isMounted) {
+				isCheckingBlockchain = false;
+			}
+		}
+	}
 
 	// Complete task with attachments (freelancer only)
 	async function completeTaskWithAttachments(attachments: Attachment[]) {
-		if (!contract.canComplete) return;
-
+		if (!contract.canComplete || !isMounted) return;
+		
+		// Atomic check-and-set: prevents race conditions
+		const wasRegistered = registerCompletionAttemptAtomic(contract.contract.escrowId);
+		if (!wasRegistered) {
+			// Already attempted - check status
+			const attempt = getCompletionAttempt(contract.contract.escrowId);
+			if (attempt?.status === 'confirmed') {
+				// Already completed - check blockchain to be sure
+				const isCompleted = await checkBlockchainCompletionStatus();
+				if (isCompleted) {
+					if (isMounted) {
+						appStore.showErrorToast(
+							$t('dashboard.contracts.actions.task_already_completed')
+						);
+					}
+					return;
+				}
+			} else if (attempt?.status === 'pending') {
+				// Transaction pending - don't allow duplicate
+				if (isMounted) {
+					appStore.showErrorToast(
+						$t('dashboard.contracts.actions.task_completion_pending')
+					);
+				}
+				return;
+			}
+			// If failed, allow retry (wasRegistered would be false, but we continue)
+		}
+		
+		// Get the attempt (either newly created or existing)
+		completionAttempt = getCompletionAttempt(contract.contract.escrowId);
+		
+		// Check blockchain status before submitting (with caching)
+		const isAlreadyCompleted = await checkBlockchainCompletionStatus();
+		if (isAlreadyCompleted) {
+			if (isMounted) {
+				appStore.showErrorToast(
+					$t('dashboard.contracts.actions.task_already_completed')
+				);
+			}
+			// Update cache to confirmed
+			if (completionAttempt) {
+				updateCompletionStatus(contract.contract.escrowId, 'confirmed');
+			}
+			return;
+		}
+		
+		if (!isMounted) return;
+		
 		setLoading('complete', true);
 		try {
-			// Call RSK escrow completeTask with contract event ID and attachments for proper nostr event publishing
-			await escrow.completeTask(contract.contract.escrowId, contract.contractEvent.id, attachments);
+			// Call RSK escrow completeTask with contract event ID and attachments
+			const result = await escrow.completeTask(
+				contract.contract.escrowId, 
+				contract.contractEvent.id, 
+				attachments
+			);
+			
+			if (!isMounted) return;
+			
+			// Update cache with transaction hash (status is already 'pending' from registration)
+			if (result.hash && completionAttempt) {
+				// Update the attempt with transaction hash
+				completionAttempt.transactionHash = result.hash;
+				// Update the cache entry (overwrites existing entry with transaction hash)
+				registerCompletionAttempt(contract.contract.escrowId, result.hash);
+			}
+			
 			showCompletionModal = false;
 			onActionComplete?.();
+			
+			// Note: Status will be updated to 'confirmed' when transaction confirms
+			// This happens in escrowEvents.ts handleTaskCompleted
+			// If transaction fails, it will be handled in escrow.ts
 		} catch (error) {
+			if (!isMounted) return;
+			
 			console.error('Error completing task:', error);
+			
+			// Clear attempt on failure to allow retry
+			clearCompletionAttempt(contract.contract.escrowId);
+			completionAttempt = null;
+			
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.task_completed_error');
 			appStore.showErrorToast(errorMessage);
 		} finally {
-			setLoading('complete', false);
+			if (isMounted) {
+				setLoading('complete', false);
+			}
 		}
 	}
 
@@ -265,6 +441,30 @@
 			console.error('Error fetching BTC price:', error);
 		}
 	}
+	
+	// Load completion attempt on mount
+	$effect(() => {
+		if (!isMounted) return;
+		
+		const attempt = getCompletionAttempt(contract.contract.escrowId);
+		if (attempt) {
+			completionAttempt = attempt;
+			// If confirmed, check blockchain status to verify
+			if (attempt.status === 'confirmed') {
+				checkBlockchainCompletionStatus();
+			}
+		}
+	});
+	
+	// Derived state for button disabled logic
+	const isCompleteDisabled = $derived(
+		!isMounted ||
+		isLoading.complete || 
+		isCheckingBlockchain ||
+		(completionAttempt?.status === 'pending') ||
+		(completionAttempt?.status === 'confirmed') ||
+		(blockchainCompletionStatus === EscrowStatus.Completed)
+	);
 
 	// Auto-calculate client amount from freelancer amount in USD
 	$effect(() => {
@@ -286,10 +486,30 @@
 		<button
 			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
 			onclick={showCompleteTaskModal}
-			disabled={isLoading.complete}
+			disabled={isCompleteDisabled}
+			title={isCompleteDisabled && (completionAttempt?.status === 'confirmed' || blockchainCompletionStatus === EscrowStatus.Completed)
+				? $t('dashboard.contracts.actions.task_already_completed_tooltip')
+				: isCompleteDisabled && completionAttempt?.status === 'pending'
+				? $t('dashboard.contracts.actions.task_completion_pending_tooltip')
+				: ''}
 		>
-			{#if isLoading.complete}
+			{#if isLoading.complete || isCheckingBlockchain}
 				<span class="loading loading-spinner loading-xs"></span>
+			{:else if completionAttempt?.status === 'confirmed' || blockchainCompletionStatus === EscrowStatus.Completed}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M5 13l4 4L19 7"
+					/>
+				</svg>
 			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

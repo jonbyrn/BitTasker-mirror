@@ -168,6 +168,10 @@ export async function handleTaskCompleted(event: {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.Completed);
 
+		// Update completion cache to confirmed
+		const { updateCompletionStatus } = await import('$lib/stores/completionCache.store');
+		updateCompletionStatus(event.escrowId, 'confirmed', event.transactionHash);
+
 		// Publish status update to Nostr with completion attachments
 		await publishContractStatus({
 			contractEventId: event.contractEventId,

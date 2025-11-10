@@ -9,6 +9,7 @@ import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
+import { updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
 
 let contract: ethers.Contract | null = null;
 
@@ -451,17 +452,34 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
             } else {
                 result.status = 'failed';
                 console.error('Task completion transaction receipt is null');
+                
+                // Clear cache on failure to allow retry
+                clearCompletionAttempt(escrowId);
+                
                 appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
             }
         }).catch((error: unknown) => {
             console.error('Task completion transaction failed:', error);
             result.status = 'failed';
+            
+            // Clear cache on failure to allow retry
+            clearCompletionAttempt(escrowId);
+            
+            // Update cache status to failed
+            updateCompletionStatus(escrowId, 'failed');
+            
             appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
         });
 
         return result;
 
     } catch (error) {
+        // Handle immediate errors (before transaction is sent)
+        console.error('Error completing task:', error);
+        
+        // Clear cache on error to allow retry
+        clearCompletionAttempt(escrowId);
+        
         throw new Error(`Failed to complete task: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
