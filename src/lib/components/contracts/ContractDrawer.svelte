@@ -405,50 +405,73 @@
 				</div>
 			</div>
 
-			<!-- Completion Evidence (only show if task is completed and has attachments) -->
-			{#if contract.contract.completionAttachments && contract.contract.completionAttachments.length > 0}
-				<div class="card bg-base-200 overflow-hidden">
-					<div class="card-body p-4">
-						<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.completion_evidence')}</h4>
-						
-						<!-- Images Gallery -->
-						{#if contract.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
-							<div class="mb-4">
-								{#await prepareGalleryImages(contract.contract.completionAttachments) then galleryImages}
-									<Gallery
-										galleryID="completion-evidence-gallery"
-										images={galleryImages}
-										thumbnailSize="h-40 w-40"
-									/>
-								{/await}
-							</div>
-						{/if}
+			<!-- Completion Evidence and Status Timeline (side-by-side on desktop) -->
+			<div class="flex flex-col gap-6 lg:flex-row">
+				<!-- Completion Evidence (only show if task is completed and has attachments) -->
+				{#if contract.contract.completionAttachments && contract.contract.completionAttachments.length > 0}
+					<div class="card bg-base-200 overflow-hidden flex-1">
+						<div class="card-body p-4">
+							<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.completion_evidence')}</h4>
+							
+							<!-- Images Gallery -->
+							{#if contract.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+								<div class="mb-4">
+									{#await prepareGalleryImages(contract.contract.completionAttachments) then galleryImages}
+										<Gallery
+											galleryID="completion-evidence-gallery"
+											images={galleryImages}
+											thumbnailSize="h-40 w-40"
+										/>
+									{/await}
+								</div>
+							{/if}
 
-						<!-- Videos -->
-						{#if contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
-							<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-								{#each contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
-									<div class="relative group">
-										<div class="aspect-square rounded-lg overflow-hidden bg-base-300">
-											<video 
-												src={attachment.url} 
-												class="w-full h-full object-cover"
-												controls
-												preload="metadata"
-											>
-												<track kind="captions" src="" label="No captions available" />
-											</video>
+							<!-- Videos -->
+							{#if contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
+								<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+									{#each contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
+										<div class="relative group">
+											<div class="aspect-square rounded-lg overflow-hidden bg-base-300">
+												<video 
+													src={attachment.url} 
+													class="w-full h-full object-cover"
+													controls
+													preload="metadata"
+												>
+													<track kind="captions" src="" label="No captions available" />
+												</video>
+											</div>
+											<div class="mt-2 text-xs text-base-content/60 truncate">
+												{attachment.alt || 'Evidence'}
+											</div>
 										</div>
-										<div class="mt-2 text-xs text-base-content/60 truncate">
-											{attachment.alt || 'Evidence'}
-										</div>
-									</div>
-								{/each}
-							</div>
-						{/if}
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Status Timeline -->
+				<div class="card bg-base-200 flex-1">
+					<div class="card-body p-4">
+						<div class="mb-3 flex items-baseline gap-3">
+							{#if contract.statusEvents.length > 0}
+								<div
+									class="bg-primary text-primary-content flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full text-base font-semibold"
+								>
+									{contract.statusEvents.length}
+								</div>
+							{/if}
+							<h4 class="font-semibold">
+								{$t('dashboard.contracts.timeline.status_timeline')}
+							</h4>
+						</div>
+
+						<ContractTimeline statusEvents={contract.statusEvents} />
 					</div>
 				</div>
-			{/if}
+			</div>
 
 			<!-- Available Actions -->
 			<div class="card bg-base-200">
@@ -482,20 +505,6 @@
 							? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
 							: 'flex justify-center items-center'}
 					/>
-				</div>
-			</div>
-
-			<!-- Status Timeline -->
-			<div class="card bg-base-200">
-				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">
-						{$t('dashboard.contracts.timeline.status_timeline')}
-						<span class="badge badge-outline badge-sm ml-2">
-							{contract.statusEvents.length}
-						</span>
-					</h4>
-
-					<ContractTimeline statusEvents={contract.statusEvents} />
 				</div>
 			</div>
 
