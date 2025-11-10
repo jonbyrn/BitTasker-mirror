@@ -41,6 +41,7 @@
         "in_progress": "In Progress",
         "completed": "Completed",
         "disputed": "Disputed",
+        "filtering": "Filtering tasks...",
         "tasks_in_progress": "Tasks in Progress",
         "tasks_waiting_for_bids": "Waiting for Bids",
         "tasks_completed": "Tasks Completed",

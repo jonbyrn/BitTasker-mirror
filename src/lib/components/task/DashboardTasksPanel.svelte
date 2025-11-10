@@ -103,79 +103,181 @@
 	 * Check if task has bids (with caching)
 	 */
 	async function taskHasBids(taskId: string): Promise<boolean> {
+		const startTime = performance.now();
+		
 		// Check cache first
 		if (taskBidStatusCache.has(taskId)) {
-			return taskBidStatusCache.get(taskId)!;
+			const cachedResult = taskBidStatusCache.get(taskId)!;
+			const duration = performance.now() - startTime;
+			console.log(`[TaskFilter] ✅ Cache HIT: task=${taskId.substring(0, 8)}... hasBids=${cachedResult} (${duration.toFixed(0)}ms)`);
+			return cachedResult;
 		}
+		
+		console.log(`[TaskFilter] 🔍 Cache MISS: task=${taskId.substring(0, 8)}... checking bids...`);
 		
 		// Check bids
 		try {
 			const { getBidsForTaskOptimized } = await import('$lib/utils/nostr-bid');
+			const authStartTime = performance.now();
 			const bids = await getBidsForTaskOptimized(taskId);
+			const authDuration = performance.now() - authStartTime;
 			const hasBids = bids.length > 0;
+			const totalDuration = performance.now() - startTime;
+			
+			console.log(`[TaskFilter] 📡 Task ${taskId.substring(0, 8)}...: ${bids.length} bids, hasBids=${hasBids} (auth: ${authDuration.toFixed(0)}ms, total: ${totalDuration.toFixed(0)}ms)`);
+			
 			taskBidStatusCache.set(taskId, hasBids);
 			return hasBids;
 		} catch (error) {
-			console.error('Error checking bids:', error);
+			const duration = performance.now() - startTime;
+			console.error(`[TaskFilter] ❌ Error checking bids for task ${taskId.substring(0, 8)}... (${duration.toFixed(0)}ms):`, error);
 			taskBidStatusCache.set(taskId, false);
 			return false;
 		}
 	}
 
 	/**
+	 * Check if multiple tasks have bids (batched to avoid multiple auth requests)
+	 */
+	async function checkTasksForBids(taskIds: string[]): Promise<Map<string, boolean>> {
+		const results = new Map<string, boolean>();
+		const startTime = performance.now();
+		
+		console.log(`[TaskFilter] 🔄 Batch checking ${taskIds.length} tasks for bids...`);
+		
+		// Check cache first for all tasks
+		const uncachedTaskIds: string[] = [];
+		for (const taskId of taskIds) {
+			if (taskBidStatusCache.has(taskId)) {
+				results.set(taskId, taskBidStatusCache.get(taskId)!);
+			} else {
+				uncachedTaskIds.push(taskId);
+			}
+		}
+		
+		const cachedCount = taskIds.length - uncachedTaskIds.length;
+		console.log(`[TaskFilter] 📦 Cache: ${cachedCount} cached, ${uncachedTaskIds.length} need checking`);
+		
+		// If all are cached, return early
+		if (uncachedTaskIds.length === 0) {
+			console.log(`[TaskFilter] ✅ All tasks cached (${(performance.now() - startTime).toFixed(0)}ms)`);
+			return results;
+		}
+		
+		// Batch check: get all bids at once instead of per-task
+		try {
+			const { getBidsFromDMs } = await import('$lib/utils/nostr-bid');
+			console.log(`[TaskFilter] 📡 Fetching all bids (single auth request)...`);
+			const authStartTime = performance.now();
+			const allBids = await getBidsFromDMs(); // No taskId filter = get all bids
+			const authDuration = performance.now() - authStartTime;
+			console.log(`[TaskFilter] 📥 Fetched ${allBids.length} total bids (${authDuration.toFixed(0)}ms)`);
+			
+			// Create a set of task IDs that have bids
+			const tasksWithBids = new Set<string>();
+			for (const bid of allBids) {
+				if (bid.bid?.taskId) {
+					tasksWithBids.add(bid.bid.taskId);
+				}
+			}
+			
+			// Check each uncached task
+			for (const taskId of uncachedTaskIds) {
+				const hasBids = tasksWithBids.has(taskId);
+				results.set(taskId, hasBids);
+				taskBidStatusCache.set(taskId, hasBids);
+			}
+			
+			const foundCount = uncachedTaskIds.filter(id => results.get(id)).length;
+			console.log(`[TaskFilter] ✅ Batch check complete: ${foundCount}/${uncachedTaskIds.length} have bids (${(performance.now() - startTime).toFixed(0)}ms total)`);
+			
+			return results;
+		} catch (error) {
+			console.error(`[TaskFilter] ❌ Error in batch check (${(performance.now() - startTime).toFixed(0)}ms):`, error);
+			// On error, assume no bids (conservative approach)
+			for (const taskId of uncachedTaskIds) {
+				results.set(taskId, false);
+				taskBidStatusCache.set(taskId, false);
+			}
+			return results;
+		}
+	}
+
+	/**
 	 * Filter tasks based on selected category
-	 * Now includes async bid checking for "waiting_for_bids" and "bids_received"
+	 * Now uses batched bid checking to avoid multiple auth requests
 	 */
 	async function getFilteredTasks(tasks: Task[], filter: TaskFilterCategory): Promise<Task[]> {
+		const filterStartTime = performance.now();
+		console.log(`[TaskFilter] 🎯 Filter: "${filter}" | Total tasks: ${tasks.length}`);
+		
 		switch (filter) {
 			case 'waiting_for_bids':
 				// OPEN tasks with no bids
 				const waitingTasks = tasks.filter((task) => task.status === TaskStatusEnum.OPEN);
-				const waitingResults = await Promise.all(
-					waitingTasks.map(async (task) => ({
-						task,
-						hasBids: await taskHasBids(task.id)
-					}))
-				);
-				return waitingResults
-					.filter(({ hasBids }) => !hasBids)
-					.map(({ task }) => task);
+				console.log(`[TaskFilter] 📋 OPEN tasks: ${waitingTasks.length}`);
+				
+				if (waitingTasks.length === 0) {
+					console.log(`[TaskFilter] ✅ Result: 0 waiting tasks (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+					return [];
+				}
+				
+				// Batch check all tasks at once
+				const waitingTaskIds = waitingTasks.map(t => t.id);
+				const bidStatusMap = await checkTasksForBids(waitingTaskIds);
+				
+				const waitingTasksWithNoBids = waitingTasks.filter((task) => !bidStatusMap.get(task.id));
+				console.log(`[TaskFilter] ✅ Result: ${waitingTasksWithNoBids.length} waiting tasks (${(performance.now() - filterStartTime).toFixed(0)}ms total)`);
+				
+				return waitingTasksWithNoBids;
 			
 			case 'bids_received':
 				// OPEN tasks with bids
 				const bidTasks = tasks.filter((task) => task.status === TaskStatusEnum.OPEN);
-				const bidResults = await Promise.all(
-					bidTasks.map(async (task) => ({
-						task,
-						hasBids: await taskHasBids(task.id)
-					}))
-				);
-				return bidResults
-					.filter(({ hasBids }) => hasBids)
-					.map(({ task }) => task);
+				console.log(`[TaskFilter] 📋 OPEN tasks: ${bidTasks.length}`);
+				
+				if (bidTasks.length === 0) {
+					console.log(`[TaskFilter] ✅ Result: 0 tasks with bids (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+					return [];
+				}
+				
+				// Batch check all tasks at once
+				const bidTaskIds = bidTasks.map(t => t.id);
+				const bidStatusMap2 = await checkTasksForBids(bidTaskIds);
+				
+				const tasksWithBids = bidTasks.filter((task) => bidStatusMap2.get(task.id));
+				console.log(`[TaskFilter] ✅ Result: ${tasksWithBids.length} tasks with bids (${(performance.now() - filterStartTime).toFixed(0)}ms total)`);
+				
+				return tasksWithBids;
 			
 			case 'tasks_in_progress':
-				return tasks.filter((task) => 
+				const inProgressTasks = tasks.filter((task) => 
 					task.status === TaskStatusEnum.IN_PROGRESS ||
 					task.status === TaskStatusEnum.BID_ACCEPTED ||
 					task.status === TaskStatusEnum.ESCROW_FUNDED ||
 					task.status === TaskStatusEnum.RESCOPED ||
 					task.status === TaskStatusEnum.RESCOPE_ACCEPTED
 				);
+				console.log(`[TaskFilter] ✅ Result: ${inProgressTasks.length} in-progress tasks (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+				return inProgressTasks;
 			
 			case 'tasks_completed':
 				// Include all terminal/final states
-				return tasks.filter((task) => 
+				const completedTasks = tasks.filter((task) => 
 					task.status === TaskStatusEnum.COMPLETED ||
 					task.status === TaskStatusEnum.CANCELLED ||
 					task.status === TaskStatusEnum.REFUNDED
 				);
+				console.log(`[TaskFilter] ✅ Result: ${completedTasks.length} completed tasks (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+				return completedTasks;
 			
 			case 'tasks_disputed':
-				return tasks.filter((task) => 
+				const disputedTasks = tasks.filter((task) => 
 					task.status === TaskStatusEnum.DISPUTED ||
 					task.status === TaskStatusEnum.DISPUTE_PROPOSAL
 				);
+				console.log(`[TaskFilter] ✅ Result: ${disputedTasks.length} disputed tasks (${(performance.now() - filterStartTime).toFixed(0)}ms)`);
+				return disputedTasks;
 			
 			default:
 				return tasks;
@@ -305,10 +407,12 @@
 	 * Select filter option
 	 */
 	function selectFilter(optionId: TaskFilterCategory) {
+		console.log(`[TaskFilter] 🎚️ Filter changed: "${activeFilter}" → "${optionId}"`);
 		activeFilter = optionId;
 		isDropdownOpen = false;
 		// Clear bid cache when switching filters to ensure fresh data
 		taskBidStatusCache.clear();
+		console.log(`[TaskFilter] 🗑️ Cache cleared`);
 	}
 
 	/**
@@ -371,22 +475,30 @@
 
 	// Watch for filter or task changes
 	$effect(() => {
-		// Track dependencies
-		$myTasksStore.items;
-		activeFilter;
+		const tasks = $myTasksStore.items;
+		const currentFilter = activeFilter;
+		
+		console.log(`[TaskFilter] 🔄 Effect triggered: filter="${currentFilter}" | tasks=${tasks?.length || 0}`);
 		
 		// Call async function inside effect
 		(async () => {
-			if (!$myTasksStore.items) {
+			if (!tasks) {
+				console.log(`[TaskFilter] ⚠️ No tasks available`);
 				filteredTasks = [];
 				return;
 			}
 			
 			isFiltering = true;
+			const effectStartTime = performance.now();
+			console.log(`[TaskFilter] 🚀 Starting filtering...`);
+			
 			try {
-				filteredTasks = await getFilteredTasks($myTasksStore.items, activeFilter);
+				filteredTasks = await getFilteredTasks(tasks, currentFilter);
+				const effectDuration = performance.now() - effectStartTime;
+				console.log(`[TaskFilter] ✅ Filtering complete: ${filteredTasks.length} tasks shown (${effectDuration.toFixed(0)}ms total)`);
 			} catch (error) {
-				console.error('Error filtering tasks:', error);
+				const effectDuration = performance.now() - effectStartTime;
+				console.error(`[TaskFilter] ❌ Error filtering (${effectDuration.toFixed(0)}ms):`, error);
 				filteredTasks = [];
 			} finally {
 				isFiltering = false;
@@ -455,8 +567,10 @@
 						? 'text-primary bg-primary/10'
 						: 'bg-base-100/40 hover:bg-base-100/50'}"
 					onclick={() => {
+						console.log(`[TaskFilter] 🎚️ Filter changed: "${activeFilter}" → "${option.id}"`);
 						activeFilter = option.id;
 						taskBidStatusCache.clear();
+						console.log(`[TaskFilter] 🗑️ Cache cleared`);
 					}}
 				>
 					<!-- MDI Icon Component -->
@@ -524,9 +638,15 @@
 </div>
 
 <!-- Loading State -->
-{#if $myTasksStore.loading}
+{#if $myTasksStore.loading || isFiltering}
 	<div class="space-y-2">
-		{#each Array(1) as _}
+		{#if isFiltering}
+			<div class="flex items-center justify-center gap-2 py-8">
+				<span class="loading loading-spinner loading-md text-primary"></span>
+				<span class="text-base-content/60">{$t('task.filters.filtering')}</span>
+			</div>
+		{:else}
+			{#each Array(1) as _}
 			<div class="bg-base-100 animate-pulse rounded-xl shadow-md">
 				<div class="card-body">
 					<!-- Title and Description Section -->
@@ -594,6 +714,7 @@
 				</div>
 			</div>
 		{/each}
+		{/if}
 	</div>
 {/if}
 
