@@ -458,6 +458,18 @@
       "bid_now": "Ofertar Ahora",
       "view_bid": "Ver Oferta"
     },
+    "tasks": {
+      "title": "Mis Tareas",
+      "description": "Gestiona tus tareas",
+      "loading": "Cargando tareas...",
+      "error_title": "Error al cargar tareas",
+      "retry": "Reintentar",
+      "refresh": "Actualizar",
+      "no_tasks": "No se encontraron tareas",
+      "no_tasks_description": "Aún no tienes tareas. Crea una tarea para comenzar.",
+      "no_filtered_tasks": "Ninguna tarea coincide con tus filtros",
+      "try_different_filters": "Intenta ajustar tus filtros para ver más tareas."
+    },
     "contracts": {
       "title": "Contratos",
       "description": "Gestiona tus contratos activos y acuerdos de depósito en garantía",

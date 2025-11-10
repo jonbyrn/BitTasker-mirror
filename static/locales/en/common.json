@@ -15,6 +15,10 @@
         "required": "Required",
         "previous": "Previous",
         "next": "Next",
+        "pagination": {
+            "previous": "Previous",
+            "next": "Next"
+        },
         "today": "Today",
         "clear": "Clear",
         "slide": "Slide",
