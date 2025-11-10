@@ -78,8 +78,9 @@
 	let showAcceptConfirm = $state(false);
 	let showDisputeConfirm = $state(false);
 	
-	// Determine if we should use internal modals (when callbacks not provided)
-	const useInternalModals = !onShowDeleteConfirm || !onShowAcceptConfirm || !onShowDisputeConfirm || !onShowCompletionModal;
+	// Determine if we should use internal modals (when external modals not explicitly requested)
+	// useExternalModals is only set to true in ContractDrawer, ContractCard doesn't pass it (defaults to false)
+	const useInternalModals = !useExternalModals;
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
 	let btcPrice = $state<number>(0); // No fallback price
