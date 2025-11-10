@@ -43,8 +43,6 @@
 	// Background bid checking state
 	let bidStatusMap = $state<Map<string, boolean>>(new Map());
 	let isCheckingBids = $state(false);
-	let lastCheckedTaskCount = $state(0);
-	let bidCheckTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Pagination state
 	let currentPage = $state(1);
@@ -94,34 +92,17 @@
 	 * Background bid checking (non-blocking)
 	 */
 	async function checkBidsInBackground() {
-		// Prevent multiple simultaneous calls
-		if (isCheckingBids) {
-			console.log('Bid check already in progress, skipping...');
-			return;
-		}
-		
-		const currentTaskCount = $myTasksStore.items.length;
-		const openTasks = $myTasksStore.items.filter(t => t.status === TaskStatusEnum.OPEN);
-		
-		// If no open tasks, no need to check bids
-		if (openTasks.length === 0) {
-			console.log('No open tasks, skipping bid check');
-			return;
-		}
-		
-		// If we've already checked for this task count, skip (unless forced)
-		if (currentTaskCount === lastCheckedTaskCount && bidStatusMap.size > 0) {
-			console.log('Bids already checked for current task set, skipping...');
-			return;
-		}
+		if (isCheckingBids) return;
 		
 		isCheckingBids = true;
-		lastCheckedTaskCount = currentTaskCount;
-		
 		try {
+			const openTasks = $myTasksStore.items.filter(t => t.status === TaskStatusEnum.OPEN);
+			if (openTasks.length === 0) {
+				isCheckingBids = false;
+				return;
+			}
+
 			const taskIds = openTasks.map(t => t.id);
-			
-			console.log(`Checking bids for ${openTasks.length} open tasks...`);
 			
 			// Batch check all bids
 			const { getBidsFromDMs } = await import('$lib/utils/nostr-bid');
@@ -139,12 +120,8 @@
 			for (const taskId of taskIds) {
 				bidStatusMap.set(taskId, tasksWithBids.has(taskId));
 			}
-			
-			console.log(`Bid check complete. Found bids for ${tasksWithBids.size} tasks.`);
 		} catch (error) {
 			console.error('Error checking bids in background:', error);
-			// Reset lastCheckedTaskCount on error so we can retry
-			lastCheckedTaskCount = 0;
 		} finally {
 			isCheckingBids = false;
 		}
@@ -169,7 +146,7 @@
 					t.status === TaskStatusEnum.OPEN && 
 					bidStatusMap.get(t.id) === true // Has bids
 				);
-			
+
 			case 'tasks_in_progress':
 				return filtered.filter(t => 
 					t.status === TaskStatusEnum.IN_PROGRESS ||
@@ -191,7 +168,7 @@
 					t.status === TaskStatusEnum.DISPUTED ||
 					t.status === TaskStatusEnum.DISPUTE_PROPOSAL
 				);
-			
+
 			default:
 				return filtered;
 		}
@@ -233,29 +210,11 @@
 		currentPage = 1;
 	});
 
-	// Check bids in background on mount and when tasks change (debounced)
+	// Check bids in background on mount and when tasks change
 	$effect(() => {
-		const taskCount = $myTasksStore.items.length;
-		
-		// Clear any pending timeout
-		if (bidCheckTimeout) {
-			clearTimeout(bidCheckTimeout);
+		if ($myTasksStore.items.length > 0) {
+			checkBidsInBackground();
 		}
-		
-		// Only check if we have tasks and they've actually changed
-		if (taskCount > 0 && taskCount !== lastCheckedTaskCount) {
-			// Debounce the bid check to avoid multiple rapid calls
-			bidCheckTimeout = setTimeout(() => {
-				checkBidsInBackground();
-			}, 500); // 500ms debounce
-		}
-		
-		// Cleanup on unmount
-		return () => {
-			if (bidCheckTimeout) {
-				clearTimeout(bidCheckTimeout);
-			}
-		};
 	});
 
 	/**
@@ -392,14 +351,14 @@
 
 	<!-- Row 1: Status Filter Buttons (top) -->
 	<div class="mb-4">
-		<!-- Desktop: Button filters -->
-		<div class="hidden sm:block">
-			<div class="mt-3 flex flex-col gap-3 sm:flex-row">
-				{#each filterOptions as option}
+	<!-- Desktop: Button filters -->
+	<div class="hidden sm:block">
+		<div class="mt-3 flex flex-col gap-3 sm:flex-row">
+			{#each filterOptions as option}
 					{@const IconComponent = option.icon}
-					<button
+				<button
 						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter === option.id
-							? 'text-primary bg-primary/10'
+						? 'text-primary bg-primary/10'
 							: 'bg-base-100/40 hover:bg-base-100/50 text-base-content/70'}"
 						onclick={() => selectFilter(option.id)}
 						aria-label={option.label}
@@ -407,62 +366,62 @@
 						<IconComponent 
 							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
 						/>
-						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
-			</div>
+					<span class="font-medium">{option.label}</span>
+				</button>
+			{/each}
 		</div>
+	</div>
 
-		<!-- Mobile: Custom dropdown -->
-		<div class="block sm:hidden">
+	<!-- Mobile: Custom dropdown -->
+	<div class="block sm:hidden">
 			<div class="status-dropdown-container relative mt-3">
-				<button
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full cursor-pointer items-center justify-between rounded-3xl border px-4 py-1 transition-all duration-200"
-					onclick={toggleDropdown}
-				>
-					<div class="flex items-center gap-2">
+			<button
+				class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full cursor-pointer items-center justify-between rounded-3xl border px-4 py-1 transition-all duration-200"
+				onclick={toggleDropdown}
+			>
+				<div class="flex items-center gap-2">
 						{#each filterOptions as option}
 							{#if activeFilter === option.id}
 								{@const IconComponent = option.icon}
 								<IconComponent class="h-5 w-5" />
-							{/if}
+					{/if}
 						{/each}
-						<span class="font-medium">
-							{filterOptions.find((opt) => opt.id === activeFilter)?.label}
-						</span>
-					</div>
+					<span class="font-medium">
+						{filterOptions.find((opt) => opt.id === activeFilter)?.label}
+					</span>
+				</div>
 					<IconChevronDown 
 						class="h-5 w-5 transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
 					/>
-				</button>
+			</button>
 
-				<!-- Dropdown menu -->
-				{#if isDropdownOpen}
-					<div
-						class="border-base-300 bg-base-300 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-					>
-						{#each filterOptions as option}
+			<!-- Dropdown menu -->
+			{#if isDropdownOpen}
+				<div
+					class="border-base-300 bg-base-300 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+				>
+					{#each filterOptions as option}
 							{@const IconComponent = option.icon}
-							<button
+						<button
 								class="hover:bg-base-200 flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter === option.id
-									? 'bg-primary/10 text-primary'
-									: 'text-base-content'}"
-								onclick={() => selectFilter(option.id)}
-							>
+								? 'bg-primary/10 text-primary'
+								: 'text-base-content'}"
+							onclick={() => selectFilter(option.id)}
+						>
 								<IconComponent 
 									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
 								/>
-								<span class="font-medium">{option.label}</span>
-								{#if activeFilter === option.id}
+							<span class="font-medium">{option.label}</span>
+							{#if activeFilter === option.id}
 									<IconCheck class="text-primary ml-auto h-5 w-5" />
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</div>
+</div>
 
 	<!-- Row 2: Refresh Button -->
 	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -480,43 +439,43 @@
 					<IconRefresh class="h-5 w-5" />
 				{/if}
 			</button>
-		</div>
-	</div>
+							</div>
+						</div>
 
 	<!-- Loading State -->
 	{#if isLoading}
 		<div class="flex justify-center py-12">
-			<div class="flex items-center gap-3">
+						<div class="flex items-center gap-3">
 				<span class="loading loading-spinner loading-md"></span>
 				<span>{$t('dashboard.tasks.loading')}</span>
 			</div>
-		</div>
-	{/if}
+	</div>
+{/if}
 
 	<!-- Error State -->
 	{#if error}
 		<div class="alert alert-outline alert-error">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
 					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
+									/>
+								</svg>
 			<div>
 				<h3 class="font-bold">{$t('dashboard.tasks.error_title')}</h3>
 				<div class="text-xs">{error}</div>
-			</div>
+								</div>
 			<button class="btn btn-sm btn-outline" onclick={loadTasks}>
 				{$t('dashboard.tasks.retry')}
 			</button>
-		</div>
+							</div>
 	{/if}
 
 	<!-- Tasks List -->
@@ -524,20 +483,20 @@
 		{#if filteredTasks.length === 0}
 			<div class="py-12 text-center">
 				<div class="mb-4">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
 						class="text-base-content/30 mx-auto h-12 w-12"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
 							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-						/>
-					</svg>
+								/>
+							</svg>
 				</div>
 				<h3 class="mb-2 text-lg font-semibold">
 					{$myTasksStore.items.length === 0
@@ -550,7 +509,7 @@
 						: $t('dashboard.tasks.try_different_filters')}
 				</p>
 			</div>
-		{:else}
+									{:else}
 			<div class="grid grid-cols-1 gap-5">
 				{#each paginatedTasks as task (task.id)}
 					<TaskCard
@@ -561,7 +520,7 @@
 						onclick={() => openTaskDrawer(task)}
 					/>
 				{/each}
-			</div>
+						</div>
 
 			<!-- Pagination Controls -->
 			{#if totalPages > 1}
@@ -577,13 +536,13 @@
 					<div class="flex gap-1">
 						{#each Array(totalPages) as _, i}
 							{@const page = i + 1}
-							<button
+									<button
 								class="btn btn-sm {currentPage === page ? 'btn-primary' : 'btn-ghost'}"
 								onclick={() => goToPage(page)}
 							>
 								{page}
-							</button>
-						{/each}
+									</button>
+								{/each}
 					</div>
 					
 					<button
@@ -596,7 +555,7 @@
 				</div>
 			{/if}
 		{/if}
-	{/if}
-</div>
+{/if}
+	</div>
 
 <svelte:window onclick={handleClickOutside} />
