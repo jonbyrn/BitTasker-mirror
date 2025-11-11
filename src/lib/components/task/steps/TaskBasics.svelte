@@ -148,7 +148,7 @@
 			<div class="flex gap-4">
 				<div class="flex-1">
 					<DateInput
-						bind:value={$store.task.dateRange.start}
+						value={$store.task.dateRange.start}
 						type="single"
 						maxDate={undefined}
 						labelKey="task.start_date"
@@ -156,19 +156,22 @@
 						minDate={normalizeDateToUTC(new Date())}
 						onChange={(date: Date | null) => {
 							if (date && $store.task.dateRange) {
-								store.updateTask({
-									dateRange: {
-										...$store.task.dateRange,
-										start: normalizeDateToUTC(date)
-									}
-								});
+								const normalized = normalizeDateToUTC(date);
+								if (normalized && normalized !== $store.task.dateRange.start) {
+									store.updateTask({
+										dateRange: {
+											...$store.task.dateRange,
+											start: normalized
+										}
+									});
+								}
 							}
 						}}
 					/>
 				</div>
 				<div class="flex-1">
 					<DateInput
-						bind:value={$store.task.dateRange.end}
+						value={$store.task.dateRange.end}
 						type="single"
 						maxDate={undefined}
 						labelKey="task.end_date"
@@ -176,12 +179,15 @@
 						minDate={$store.task.dateRange.start || normalizeDateToUTC(new Date())}
 						onChange={(date: Date | null) => {
 							if (date && $store.task.dateRange) {
-								store.updateTask({
-									dateRange: {
-										...$store.task.dateRange,
-										end: normalizeDateToUTC(date)
-									}
-								});
+								const normalized = normalizeDateToUTC(date);
+								if (normalized && normalized !== $store.task.dateRange.end) {
+									store.updateTask({
+										dateRange: {
+											...$store.task.dateRange,
+											end: normalized
+										}
+									});
+								}
 							}
 						}}
 					/>
@@ -192,13 +198,21 @@
 			{/if}
 		{:else}
 			<DateInput
-				bind:value={$store.task.deadline}
+				value={$store.task.deadline}
 				type="single"
 				placeholderKey="task.deadline"
 				maxDate={undefined}
 				minDate={normalizeDateToUTC(new Date())}
-				onChange={(date: Date | null) =>
-					store.updateTask({ deadline: date ? normalizeDateToUTC(date) : undefined })}
+				onChange={(date: Date | null) => {
+					if (date) {
+						const normalized = normalizeDateToUTC(date);
+						if (normalized && normalized !== $store.task.deadline) {
+							store.updateTask({ deadline: normalized });
+						}
+					} else if ($store.task.deadline) {
+						store.updateTask({ deadline: undefined });
+					}
+				}}
 			/>
 			{#if errors.deadline}
 				<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>

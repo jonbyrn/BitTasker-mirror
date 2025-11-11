@@ -76,20 +76,16 @@
           return `${year}-${month}-${day}T${hours}:${minutes}`;
         }
       } else {
-        // For date inputs, extract just the date part (YYYY-MM-DD)
-        // If it's an ISO string, parse it to local date to avoid timezone shifts
+        // For date inputs, extract just the date part (YYYY-MM-DD) directly from the string
+        // This avoids timezone conversion issues - we want to display the date as-is
         const datePart = value.split('T')[0];
+        // Validate it's in YYYY-MM-DD format
         if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          // Return the date part directly without any Date object conversion
+          // This preserves the date regardless of timezone
           return datePart;
         }
-        // If it's an ISO string with time, parse it and extract local date
-        const date = new Date(value);
-        if (!isNaN(date.getTime())) {
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
-        }
+        // If the format is unexpected, try to extract a valid date part
         return datePart;
       }
     }
