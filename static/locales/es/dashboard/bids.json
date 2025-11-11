@@ -177,7 +177,7 @@
         }
     },
     "bid_acceptance": {
-        "acceptance_message": "¡Hola {bidderName}, he aceptado tu oferta! Será un placer trabajar contigo.",
+        "acceptance_message": "He aceptado tu oferta y será un placer trabajar contigo!",
         "title": "Aceptar Oferta y Financiar Contrato",
         "close_dialog": "Cerrar diálogo",
         "bidder_avatar": "Avatar del Ofertante",

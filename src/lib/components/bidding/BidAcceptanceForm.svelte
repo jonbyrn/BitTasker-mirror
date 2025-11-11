@@ -134,25 +134,9 @@
 				try {
 					const bidderPubkey = props.bid.userProfile?.user?.id;
 					if (bidderPubkey) {
-						// Get bidder's name for personalized message
-						// The name should typically be available, but provide a fallback for edge cases
-						const bidderName = props.bid.userProfile?.user?.name;
-						if (bidderName) {
-							// Get translation and replace placeholder with bidder's name
-							const translation = $t('dashboard.bids.bid_acceptance.acceptance_message');
-							const acceptanceMessage = translation.replace('{bidderName}', bidderName);
-							await sendDirectMessage(acceptanceMessage, bidderPubkey);
-							console.log('✅ Acceptance message sent to bidder');
-						} else {
-							// Fallback: if name is not available, send message without personalized greeting
-							// This should be rare, but ensures the acceptance message is always sent
-							const currentLocale = $locale || 'en';
-							const fallbackMessage = currentLocale === 'es' 
-								? '¡He aceptado tu oferta! Será un placer trabajar contigo.'
-								: 'I\'ve accepted your bid! It will be a pleasure to work with you.';
-							await sendDirectMessage(fallbackMessage, bidderPubkey);
-							console.log('✅ Acceptance message sent to bidder (fallback message)');
-						}
+						const acceptanceMessage = $t('dashboard.bids.bid_acceptance.acceptance_message');
+						await sendDirectMessage(acceptanceMessage, bidderPubkey);
+						console.log('✅ Acceptance message sent to bidder');
 					}
 				} catch (error) {
 					// Don't fail the bid acceptance if message sending fails
