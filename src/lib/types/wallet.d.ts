@@ -1,3 +1,7 @@
+/**
+ * @deprecated This file is no longer used. Use the types from @bittasker/wallet-core instead.
+ */
+
 import type { ethers } from 'ethers';
 import type { Rate } from '@breeztech/breez-sdk-liquid/web';
 import type { RSKNetwork } from "$lib/utils/wallet/networkConfig";

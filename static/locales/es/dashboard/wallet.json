@@ -388,7 +388,11 @@
       "amount_required": "El monto es requerido",
       "amount_positive": "El monto debe ser mayor que cero",
       "insufficient_balance": "Saldo insuficiente",
-      "no_balance": "No hay saldo disponible"
+      "no_balance": "No hay saldo disponible",
+      "invoice_required": "La factura Lightning es requerida",
+      "invoice_invalid": "Formato de factura Lightning inválido",
+      "amount_below_minimum": "Monto por debajo del mínimo ({min} sats)",
+      "amount_above_maximum": "Monto por encima del máximo ({max} sats)"
     },
     "sats": "Sats",
     "rbtc": "rBTC",
@@ -566,6 +570,33 @@
           "lbtc_waiting": "¡L-BTC detectado! Esperando confirmación...",
           "waiting_boltz": "Esperando que Boltz bloquee RBTC...",
           "claiming_now": "Reclamando RBTC ahora..."
+        }
+      },
+      "submarine": {
+        "title": "Pagar Factura Lightning (rBTC → Lightning)",
+        "description": "Paga facturas Lightning bloqueando rBTC. Tarifas: ~0.4-0.5%",
+        "invoice_label": "Factura Lightning",
+        "invoice_placeholder": "lnbc... (pegar o escanear código QR)",
+        "scan_qr": "Escanear Código QR",
+        "invoice_created": "Intercambio creado - listo para bloquear fondos",
+        "lock_funds_button": "Bloquear {amount} rBTC y Pagar Factura",
+        "locking_funds": "Bloqueando rBTC...",
+        "invoice_paid": "✅ ¡Factura pagada por Boltz!",
+        "generate_swap": "Crear Intercambio",
+        "status": {
+          "ready_to_lock": "Listo - bloquea rBTC para pagar la factura",
+          "funds_locked": "Fondos bloqueados, esperando a Boltz...",
+          "lockup_confirmed": "Bloqueo confirmado, Boltz pagando factura...",
+          "invoice_paid": "¡Factura pagada exitosamente! ✅",
+          "swap_complete": "¡Intercambio completado! ✓",
+          "expired": "Intercambio expirado - Eliminar para quitar",
+          "failed": "Intercambio fallido - Eliminar para quitar"
+        },
+        "helper": {
+          "paste_invoice": "Pega o escanea una factura Lightning para comenzar",
+          "lock_to_pay": "Bloquea rBTC para pagar la factura Lightning",
+          "waiting_payment": "Esperando que Boltz pague la factura...",
+          "payment_complete": "¡Factura Lightning pagada exitosamente!"
         }
       }
     },

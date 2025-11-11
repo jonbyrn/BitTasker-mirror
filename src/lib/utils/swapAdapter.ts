@@ -12,7 +12,7 @@
  * - Supports both reverse swaps (Lightning → RBTC) and chain swaps (L-BTC → RBTC)
  */
 
-import type { SwapStorage, BoltzSwapData, ChainSwapData } from '@bittasker/wallet-core';
+import type { SwapStorage, BoltzSwapData, ChainSwapData, SubmarineSwapData } from '@bittasker/wallet-core';
 import { randomBytes } from 'crypto';
 import { Buffer } from 'buffer';
 import { SimplePool } from 'nostr-tools/pool';
@@ -27,10 +27,10 @@ const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 const pool = new SimplePool();
 
 // Swap type tags for filtering
-export type SwapType = 'boltz-swap-reverse' | 'boltz-swap-chain';
+export type SwapType = 'boltz-swap-reverse' | 'boltz-swap-chain' | 'boltz-swap-submarine';
 
 // Union type for all swap data
-export type PendingSwapData = BoltzSwapData | ChainSwapData;
+export type PendingSwapData = BoltzSwapData | ChainSwapData | SubmarineSwapData;
 
 /**
  * Save swap data to Nostr (encrypted via NIP-44)
@@ -40,7 +40,7 @@ export type PendingSwapData = BoltzSwapData | ChainSwapData;
  * within the encrypted content - no double encryption needed.
  */
 async function saveSwapToNostr(
-	swapData: BoltzSwapData | ChainSwapData,
+	swapData: BoltzSwapData | ChainSwapData | SubmarineSwapData,
 	nsec: Uint8Array,
 	swapType: SwapType
 ): Promise<void> {
@@ -52,24 +52,33 @@ async function saveSwapToNostr(
 		// Build content object - will be encrypted as a whole
 		const content: Record<string, unknown> = {
 			id: swapData.id,
-			preimage: swapData.preimage,
 			preimageHash: swapData.preimageHash,
-			rbtcAddress: swapData.rbtcAddress,
 			status: swapData.status,
 			lockupTxHash: swapData.lockupTxHash,
-			claimTxHash: swapData.claimTxHash,
 			createdAt: swapData.createdAt,
 			updatedAt: swapData.updatedAt,
 			expiresAt: swapData.expiresAt,
-			rifRelayUsed: swapData.rifRelayUsed
+			rifRelayUsed: swapData.rifRelayUsed,
+			claimAddress: swapData.claimAddress
 		};
+
+		// Add common optional fields if they exist
+		if ('preimage' in swapData && swapData.preimage) {
+			content.preimage = swapData.preimage;
+		}
+		if ('rbtcAddress' in swapData && swapData.rbtcAddress) {
+			content.rbtcAddress = swapData.rbtcAddress;
+		}
+		if ('claimTxHash' in swapData && swapData.claimTxHash) {
+			content.claimTxHash = swapData.claimTxHash;
+		}
 
 		// Add type-specific fields
 		if (swapType === 'boltz-swap-reverse') {
 			const reverseSwap = swapData as BoltzSwapData;
+			content.type = 'reverse';
 			content.amount = reverseSwap.amount;
 			content.invoice = reverseSwap.invoice;
-			content.claimAddress = reverseSwap.claimAddress;
 			content.onchainAmount = reverseSwap.onchainAmount;
 			content.refundAddress = reverseSwap.refundAddress;
 			content.timeoutBlockHeight = reverseSwap.timeoutBlockHeight;
@@ -87,9 +96,24 @@ async function saveSwapToNostr(
 			content.toAsset = chainSwap.toAsset;
 			content.lockupTimeoutBlockHeight = chainSwap.lockupTimeoutBlockHeight;
 			content.claimTimeoutBlockHeight = chainSwap.claimTimeoutBlockHeight;
-			content.claimAddress = chainSwap.claimAddress;
 			content.serverLockupTxHash = chainSwap.serverLockupTxHash;
 			content.refundAddress = chainSwap.refundAddress;
+		} else if (swapType === 'boltz-swap-submarine') {
+			const submarineSwap = swapData as SubmarineSwapData;
+			content.type = 'submarine';
+			content.invoice = submarineSwap.invoice;
+			content.invoiceAmount = submarineSwap.invoiceAmount;
+			content.fromAmount = submarineSwap.fromAmount;
+			content.fromAsset = submarineSwap.fromAsset;
+			content.expectedAmount = submarineSwap.expectedAmount;
+			content.lockupAddress = submarineSwap.lockupAddress;
+			content.swapTree = submarineSwap.swapTree;
+			content.refundPublicKey = submarineSwap.refundPublicKey;
+			content.refundPrivateKey = submarineSwap.refundPrivateKey;
+			content.timeoutBlockHeight = submarineSwap.timeoutBlockHeight;
+			if (submarineSwap.blindingKey) {
+				content.blindingKey = submarineSwap.blindingKey;
+			}
 		}
 
 		// Encrypt the entire content with NIP-44
@@ -102,16 +126,22 @@ async function saveSwapToNostr(
 		const encryptedContent = await nip44.encrypt(contentString, conversationKey, nonce);
 
 		// Prepare Nostr event (parameterized replaceable)
+		const tags: string[][] = [
+			['d', swapData.id], // Unique identifier (makes it replaceable)
+			['a', String('amount' in swapData ? swapData.amount : 'fromAmount' in swapData ? swapData.fromAmount : 0)],
+			['s', swapData.status],
+			['t', swapType] // Swap type tag for filtering
+		];
+
+		// Add rbtcAddress tag if it exists
+		if ('rbtcAddress' in swapData && swapData.rbtcAddress) {
+			tags.push(['r', swapData.rbtcAddress]);
+		}
+
 		const eventTemplate = {
 			kind: KINDS.PENDING_SWAPS,
 			created_at: Math.floor(Date.now() / 1000),
-			tags: [
-				['d', swapData.id], // Unique identifier (makes it replaceable)
-				['a', String('amount' in swapData ? swapData.amount : 'toAmount' in swapData ? swapData.toAmount : 0)],
-				['s', swapData.status],
-				['r', swapData.rbtcAddress],
-				['t', swapType] // Swap type tag for filtering
-			],
+			tags,
 			content: encryptedContent,
 			pubkey: npub
 		};
@@ -293,8 +323,8 @@ export class NostrSwapStorage implements SwapStorage {
 	constructor(
 		private nsec: Uint8Array,
 		private swapType: SwapType
-	) {}
-	
+	) { }
+
 	/**
 	 * Save swap data to Nostr
 	 * @param swapId - Unique swap identifier
@@ -308,7 +338,7 @@ export class NostrSwapStorage implements SwapStorage {
 			// Don't throw - swap can continue even if storage fails
 		}
 	}
-	
+
 	/**
 	 * Load a specific swap by ID
 	 * @param swapId - Unique swap identifier
@@ -323,7 +353,7 @@ export class NostrSwapStorage implements SwapStorage {
 			return null;
 		}
 	}
-	
+
 	/**
 	 * Load all swaps of this type
 	 * @returns Array of swap data
@@ -336,7 +366,7 @@ export class NostrSwapStorage implements SwapStorage {
 			return [];
 		}
 	}
-	
+
 	/**
 	 * Delete a specific swap
 	 * @param swapId - Unique swap identifier
@@ -349,7 +379,7 @@ export class NostrSwapStorage implements SwapStorage {
 			// Don't throw - deletion is not critical
 		}
 	}
-	
+
 	/**
 	 * Delete all swaps of this type
 	 * @returns Object with count of deleted swaps

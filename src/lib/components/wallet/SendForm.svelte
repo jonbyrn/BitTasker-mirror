@@ -791,7 +791,12 @@
 		</div>
 	{/if}
 
-	<!-- Coming Soon Alerts -->
+	<!-- Submarine Swap for Lightning Bitcoin -->
+	{#if selectedNetwork.value === 'lightning-bitcoin'}
+		<SubmarineSend />
+	{/if}
+
+	<!-- Coming Soon Alerts for Other Networks -->
 	{#if selectedNetwork.isComingSoon}
 		<div class="alert alert-outline alert-info">
 			<svg
@@ -848,7 +853,7 @@
 		<SubmarineSend />
 	{/if}
 
-	<!-- Input Fields - Hidden for Coming Soon networks -->
+	<!-- Input Fields - Hidden for Coming Soon networks and Lightning Bitcoin (uses SubmarineSend) -->
 	{#if selectedAsset !== 'usd' && !selectedNetwork.isComingSoon && selectedNetwork.value !== 'lightning-bitcoin'}
 		<!-- Recipient Address -->
 		<div class="form-control">

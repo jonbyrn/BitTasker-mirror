@@ -49,7 +49,7 @@
 
 				// Recover pending swaps from wallet manager
 				const walletManager = getWalletManager();
-				const recovered = walletManager.reverseSwapService.getAllSwaps();
+				const recovered = await walletManager.reverseSwapService.recoverPendingSwaps();
 				console.log('Recovered swaps:', recovered);
 
 				if (recovered.length > 0) {

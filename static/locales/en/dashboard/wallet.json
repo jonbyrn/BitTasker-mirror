@@ -606,6 +606,33 @@
           "waiting_payment": "Waiting for Boltz to pay invoice...",
           "payment_complete": "Lightning invoice paid successfully!"
         }
+      },
+      "submarine": {
+        "title": "Pay Lightning Invoice (rBTC → Lightning)",
+        "description": "Pay Lightning invoices by locking rBTC. Fees: ~0.4-0.5%",
+        "invoice_label": "Lightning Invoice",
+        "invoice_placeholder": "lnbc... (paste or scan QR code)",
+        "scan_qr": "Scan QR Code",
+        "invoice_created": "Swap created - ready to lock funds",
+        "lock_funds_button": "Lock {amount} rBTC & Pay Invoice",
+        "locking_funds": "Locking rBTC...",
+        "invoice_paid": "✅ Invoice paid by Boltz!",
+        "generate_swap": "Create Swap",
+        "status": {
+          "ready_to_lock": "Ready - lock rBTC to pay invoice",
+          "funds_locked": "Funds locked, waiting for Boltz...",
+          "lockup_confirmed": "Lockup confirmed, Boltz paying invoice...",
+          "invoice_paid": "Invoice paid successfully! ✅",
+          "swap_complete": "Swap completed! ✓",
+          "expired": "Swap expired - Delete to remove",
+          "failed": "Swap failed - Delete to remove"
+        },
+        "helper": {
+          "paste_invoice": "Paste or scan a Lightning invoice to begin",
+          "lock_to_pay": "Lock rBTC to pay the Lightning invoice",
+          "waiting_payment": "Waiting for Boltz to pay invoice...",
+          "payment_complete": "Lightning invoice paid successfully!"
+        }
       }
     },
     "information": {

@@ -49,8 +49,7 @@
 
 				// Recover pending swaps from wallet manager
 				const walletManager = getWalletManager();
-				const recovered = walletManager.chainSwapService.getActiveSwaps();
-				console.log('Recovered chain swaps:', recovered);
+				const recovered = await walletManager.chainSwapService.recoverPendingSwaps();
 
 				if (recovered.length > 0) {
 					pendingSwaps = recovered;
@@ -59,8 +58,6 @@
 					for (const swap of recovered) {
 						monitorSwapStatus(swap.id);
 					}
-				} else {
-					console.log('ℹ️ No pending L-BTC swaps found');
 				}
 			} catch (err) {
 				console.error('Failed to initialize chain swap service:', err);
