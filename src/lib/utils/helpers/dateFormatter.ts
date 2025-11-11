@@ -214,62 +214,29 @@ export function formatTimestamp(timestamp: number): string {
 /**
  * Normalize a date to midnight UTC for the selected date
  * This prevents timezone shifts when storing dates (e.g., Nov 12 should stay Nov 12, not become Nov 11)
- * @param date - The date to normalize (can be Date object or ISO string or YYYY-MM-DD string)
+ * @param date - The date to normalize (can be Date object or ISO string)
  * @returns ISO string at midnight UTC for the selected date
  */
 export function normalizeDateToUTC(date: Date | string | null | undefined): string | undefined {
 	if (!date) return undefined;
 	
-	// If it's already a string in YYYY-MM-DD format, extract components directly
-	if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(date)) {
-		const datePart = date.split('T')[0]; // Get YYYY-MM-DD part
-		const parts = datePart.split('-');
-		
-		if (parts.length === 3) {
-			const year = parseInt(parts[0], 10);
-			const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in Date.UTC
-			const day = parseInt(parts[2], 10);
-			
-			if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-				// Create a new date at midnight UTC for the selected date
-				const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-				return normalizedDate.toISOString();
-			}
-		}
+	const dateObj = date instanceof Date ? date : new Date(date);
+	
+	if (isNaN(dateObj.getTime())) {
+		console.error('Invalid date provided to normalizeDateToUTC:', date);
+		return undefined;
 	}
 	
-	// For Date objects or other string formats, extract from the date input value
-	// When a date input gives us a Date object, we need to get the original input value
-	// Since we can't access that, we'll use a workaround: format it as YYYY-MM-DD first
-	let dateStr: string;
-	if (date instanceof Date) {
-		// Format as YYYY-MM-DD using local timezone to preserve the selected date
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		dateStr = `${year}-${month}-${day}`;
-	} else {
-		dateStr = date;
-	}
+	// Extract year, month, and day from the date in local timezone
+	// This ensures the user's selected date is preserved
+	const year = dateObj.getFullYear();
+	const month = dateObj.getMonth();
+	const day = dateObj.getDate();
 	
-	// Extract date components from the string
-	const datePart = dateStr.split('T')[0];
-	const parts = datePart.split('-');
+	// Create a new date at midnight UTC for the selected date
+	const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
 	
-	if (parts.length === 3) {
-		const year = parseInt(parts[0], 10);
-		const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in Date.UTC
-		const day = parseInt(parts[2], 10);
-		
-		if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-			// Create a new date at midnight UTC for the selected date
-			const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-			return normalizedDate.toISOString();
-		}
-	}
-	
-	console.error('Invalid date provided to normalizeDateToUTC:', date);
-	return undefined;
+	return normalizedDate.toISOString();
 }
 
 /**
