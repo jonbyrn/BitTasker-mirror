@@ -89,11 +89,17 @@
 		}
 	};
 
-	function formatDateTimeReactive(date: Date) {
-		return formatStandardDateTime(date, $locale || 'en');
+	function formatDateTimeReactive(dateString: string) {
+		const date = parseDateToLocalMidnight(dateString);
+		if (!date) return '';
+		// For deadlines, only show date, not time
+		return formatStandardDateShort(date, $locale || 'en');
 	}
 
-	function formatDateRangeReactive(startDate: Date, endDate: Date) {
+	function formatDateRangeReactive(startDateString: string, endDateString: string) {
+		const startDate = parseDateToLocalMidnight(startDateString);
+		const endDate = parseDateToLocalMidnight(endDateString);
+		if (!startDate || !endDate) return '';
 		const start = formatStandardDateShort(startDate, $locale || 'en');
 		const end = formatStandardDateShort(endDate, $locale || 'en');
 		return `${start} - ${end}`;
@@ -325,7 +331,7 @@
 												{$t('dashboard.task_details_by_task.deadline')}
 											</h4>
 											<div class="font-semibold">
-												{formatDateTimeReactive(new Date(task.deadline))}
+												{formatDateTimeReactive(task.deadline)}
 											</div>
 										</div>
 									{:else if task.dateRange}
@@ -335,8 +341,8 @@
 											>
 											<div class="font-semibold">
 												{formatDateRangeReactive(
-													new Date(task.dateRange.start),
-													new Date(task.dateRange.end)
+													task.dateRange.start,
+													task.dateRange.end
 												)}
 											</div>
 										</div>

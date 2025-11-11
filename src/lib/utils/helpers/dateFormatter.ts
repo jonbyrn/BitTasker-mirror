@@ -210,3 +210,95 @@ export function timeAgo(date: Date): string {
 export function formatTimestamp(timestamp: number): string {
 	return new Date(timestamp * 1000).toLocaleString();
 }
+
+/**
+ * Normalize a date to midnight UTC for the selected date
+ * This prevents timezone shifts when storing dates (e.g., Nov 12 should stay Nov 12, not become Nov 11)
+ * @param date - The date to normalize (can be Date object or ISO string or YYYY-MM-DD string)
+ * @returns ISO string at midnight UTC for the selected date
+ */
+export function normalizeDateToUTC(date: Date | string | null | undefined): string | undefined {
+	if (!date) return undefined;
+	
+	// If it's already a string in YYYY-MM-DD format, extract components directly
+	if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(date)) {
+		const datePart = date.split('T')[0]; // Get YYYY-MM-DD part
+		const parts = datePart.split('-');
+		
+		if (parts.length === 3) {
+			const year = parseInt(parts[0], 10);
+			const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in Date.UTC
+			const day = parseInt(parts[2], 10);
+			
+			if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+				// Create a new date at midnight UTC for the selected date
+				const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+				return normalizedDate.toISOString();
+			}
+		}
+	}
+	
+	// For Date objects, extract local date components and create UTC date at midnight
+	if (date instanceof Date) {
+		// Extract year, month, and day from the date in local timezone
+		// This ensures the user's selected date is preserved
+		const year = date.getFullYear();
+		const month = date.getMonth();
+		const day = date.getDate();
+		
+		// Create a new date at midnight UTC for the selected date
+		const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+		return normalizedDate.toISOString();
+	}
+	
+	// For ISO string formats, extract the date part and normalize
+	if (typeof date === 'string') {
+		const datePart = date.split('T')[0];
+		const parts = datePart.split('-');
+		
+		if (parts.length === 3) {
+			const year = parseInt(parts[0], 10);
+			const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in Date.UTC
+			const day = parseInt(parts[2], 10);
+			
+			if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+				// Create a new date at midnight UTC for the selected date
+				const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+				return normalizedDate.toISOString();
+			}
+		}
+	}
+	
+	console.error('Invalid date provided to normalizeDateToUTC:', date);
+	return undefined;
+}
+
+/**
+ * Parse a date string and return a Date object normalized to local midnight
+ * This is useful for displaying dates without timezone shifts
+ * @param dateString - ISO date string (e.g., "2024-11-12T00:00:00.000Z")
+ * @returns Date object at local midnight for the date
+ */
+export function parseDateToLocalMidnight(dateString: string | null | undefined): Date | null {
+	if (!dateString) return null;
+	
+	// Extract date components directly from the ISO string to avoid timezone conversion issues
+	// ISO format: "YYYY-MM-DDTHH:mm:ss.sssZ" or "YYYY-MM-DD"
+	const datePart = dateString.split('T')[0]; // Get "YYYY-MM-DD" part
+	const parts = datePart.split('-');
+	
+	if (parts.length === 3) {
+		const year = parseInt(parts[0], 10);
+		const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in JavaScript Date
+		const day = parseInt(parts[2], 10);
+		
+		// Validate the parsed values
+		if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+			// Create a new date at local midnight to avoid timezone display issues
+			return new Date(year, month, day, 0, 0, 0, 0);
+		}
+	}
+	
+	console.error('Invalid date string provided to parseDateToLocalMidnight:', dateString);
+	return null;
+}
