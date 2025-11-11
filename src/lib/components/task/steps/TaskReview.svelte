@@ -12,7 +12,7 @@
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import { formatStandardDate, formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDate, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import type { Attachment } from '$lib/types/task';
 
@@ -153,11 +153,11 @@
 					<div class="flex items-center gap-2">
 						{#if $store.task.dateRange}
 							<span class="text-base font-medium text-base-content">
-								{$t('task.complete_between')} {formatDateWithoutYear(parseDateToLocalMidnight($store.task.dateRange.start) || new Date())} {$t('task.and')} {formatStandardDateShort(parseDateToLocalMidnight($store.task.dateRange.end) || new Date())}
+								{$t('task.complete_between')} {formatDateWithoutYear(new Date($store.task.dateRange.start))} {$t('task.and')} {formatStandardDateShort(new Date($store.task.dateRange.end))}
 							</span>
 						{:else if $store.task.deadline}
 							<span class="text-base font-medium text-base-content">
-								{$t('task.complete_by')} {formatStandardDateShort(parseDateToLocalMidnight($store.task.deadline) || new Date())}
+								{$t('task.complete_by')} {formatStandardDateShort(new Date($store.task.deadline))}
 							</span>
 						{/if}
 					</div>

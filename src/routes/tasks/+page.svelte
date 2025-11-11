@@ -14,7 +14,7 @@
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
-	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	
@@ -57,16 +57,11 @@
 		return formatStandardDate(date, $locale || 'en');
 	}
 
-	function formatDateTimeReactive(dateString: string) {
-		const date = parseDateToLocalMidnight(dateString);
-		if (!date) return '';
+	function formatDateTimeReactive(date: Date) {
 		return formatStandardDateTime(date, $locale || 'en');
 	}
 
-	function formatDateRangeReactive(startDateString: string, endDateString: string) {
-		const startDate = parseDateToLocalMidnight(startDateString);
-		const endDate = parseDateToLocalMidnight(endDateString);
-		if (!startDate || !endDate) return '';
+	function formatDateRangeReactive(startDate: Date, endDate: Date) {
 		const start = formatStandardDateShort(startDate, $locale || 'en');
 		const end = formatStandardDateShort(endDate, $locale || 'en');
 		return `${start} - ${end}`;
@@ -726,14 +721,14 @@
 																		>{$t('dashboard.task_details_by_task.deadline')}</small
 																	>
 																	<span class="text-sm font-medium">
-																		{formatDateTimeReactive(task.deadline)}
+																		{formatDateTimeReactive(new Date(task.deadline))}
 																	</span>
 																{:else if task.dateRange}
 																	<small class="text-base-content/60 text-xs"
 																		>{$t('dashboard.task_details_by_task.date_range')}</small
 																	>
 																	<span class="text-sm font-medium">
-																		{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
+																		{formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end))}
 																	</span>
 																{/if}
 															</div>

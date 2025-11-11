@@ -12,7 +12,7 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import { formatStandardDate, formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDate, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { fade, scale } from 'svelte/transition';
 	import TranslatableTask from '../TranslatableTask.svelte';
@@ -201,7 +201,7 @@
 					{$t('dashboard.task_details_by_task.deadline')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDate(parseDateToLocalMidnight(task.deadline) || new Date(), $locale || 'en')}, 12pm
+					{formatStandardDate(new Date(task.deadline), $locale || 'en')}, 12pm
 				</p>
 			</div>
 		{:else if task.dateRange}
@@ -210,8 +210,8 @@
 					{$t('dashboard.task_details_by_task.date_range')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDateShort(parseDateToLocalMidnight(task.dateRange.start) || new Date(), $locale || 'en')} - {formatStandardDateShort(
-						parseDateToLocalMidnight(task.dateRange.end) || new Date(),
+					{formatStandardDateShort(new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDateShort(
+						new Date(task.dateRange.end),
 						$locale || 'en'
 					)}
 				</p>
