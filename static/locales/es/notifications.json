@@ -276,7 +276,9 @@
       "payment_pending_body_tasker": "Tu pago de {amount} {currency} está pendiente de confirmación",
       "payment_pending_body_taskee": "Pago de {amount} {currency} está pendiente de confirmación",
       "payment_update_title": "Actualización de Pago",
-      "payment_update_body": "Pago de {amount} {currency} procesado"
+      "payment_update_body": "Pago de {amount} {currency} procesado",
+      "decrypting_message": "Descifrando mensaje...",
+      "decryption_failed": "No se pudo descifrar el mensaje. Por favor, verifica tu conexión e intenta de nuevo."
     }
   }
 }

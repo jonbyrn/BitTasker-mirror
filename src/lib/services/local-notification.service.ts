@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import type { Notification } from '$lib/stores/notification.store';
 import { listenForIncomingMessages } from '$lib/utils/nostr-message';
 import { getMessagedPeople } from '$lib/utils/nostr-message';
@@ -103,7 +103,6 @@ class LocalNotificationService {
 	 * Initialize the notification service
 	 */
 	public async init(): Promise<void> {
-		return;
 		if (this.isInitialized) return;
 
 		try {
@@ -118,7 +117,7 @@ class LocalNotificationService {
 			// Set up real-time message listener for JSON notifications
 			this.setupMessageListener();
 			
-		this.isInitialized = true;
+			this.isInitialized = true;
 		} catch (error) {
 			console.error('Failed to initialize local notification service:', error);
 			throw error;
@@ -187,12 +186,26 @@ class LocalNotificationService {
 	 * Set up real-time listener for JSON messages that should become notifications
 	 */
 	private setupMessageListener(): void {
-		this.messageUnsubscribe = listenForIncomingMessages((msg) => {
-			const { plaintext, senderPubkey, event } = msg;
+		this.messageUnsubscribe = listenForIncomingMessages(async (msg: any) => {
+			const { plaintext, senderPubkey, event, decryptionError, error } = msg;
+
+			// Show generic notification immediately for all messages (before processing)
+			await this.showGenericNotificationForMessage(senderPubkey, event);
+
+			// If decryption failed, keep the generic notification and don't process further
+			if (decryptionError) {
+				console.warn('Message decryption failed, showing generic notification:', error);
+				// Update generic notification to indicate decryption failure
+				await this.updateGenericNotificationForDecryptionError(event.id, error);
+				return;
+			}
 
 			// Check if this is a JSON message (system notification)
-			if (this.isJsonMessage(plaintext)) {
-				this.handleJsonMessage(plaintext, senderPubkey, event);
+			if (plaintext && this.isJsonMessage(plaintext)) {
+				await this.handleJsonMessage(plaintext, senderPubkey, event);
+			} else if (plaintext) {
+				// Handle regular text messages
+				await this.handleRegularMessage(plaintext, senderPubkey, event);
 			}
 		});
 	}
@@ -225,9 +238,12 @@ class LocalNotificationService {
 			const notification = await this.convertJsonToNotification(jsonMessage, senderName, senderPubkey, event);
 			
 			if (notification) {
-				this.addNotification(notification);
+				// Update or add notification (replace generic one if exists)
+				this.updateOrAddNotification(notification);
 				// Only show system notifications, no toast notifications
 				this.showSystemNotification(notification);
+				// Trigger push notification if available
+				await this.triggerPushNotification(notification);
 				this.incrementIncomingCount();
 			}
 		} catch (error) {
@@ -1099,6 +1115,190 @@ class LocalNotificationService {
 	}
 
 	/**
+	 * Show generic notification immediately when encrypted message is received
+	 * This is shown before decryption completes
+	 */
+	private async showGenericNotificationForMessage(senderPubkey: string, event: any): Promise<void> {
+		try {
+			// Check if notification already exists to avoid duplicates
+			const existingNotifications = get(this.notifications);
+			const exists = existingNotifications.some(n => n.eventId === event.id);
+			if (exists) {
+				return; // Already processed
+			}
+
+			// Get sender name (may be generic if not yet loaded)
+			const senderName = await this.getSenderName(senderPubkey);
+
+			// Create generic notification
+			const genericNotification: Notification = {
+				id: `generic-${event.id}`,
+				userId: 'current-user',
+				type: 'message',
+				title: 'notifications.service_messages.new_message',
+				body: 'notifications.service_messages.decrypting_message',
+				priority: 'normal',
+				read: false,
+				delivered: {
+					inApp: true,
+					push: false
+				},
+				createdAt: new Date(event.created_at * 1000),
+				senderPubkey,
+				eventId: event.id,
+				data: {
+					senderName,
+					isGeneric: true,
+					decrypting: true
+				},
+				action: {
+					type: 'navigation',
+					payload: '/dashboard/messages'
+				}
+			};
+
+			// Add to store
+			this.addNotification(genericNotification);
+			
+			// Show system notification
+			this.showSystemNotification(genericNotification);
+		} catch (error) {
+			console.error('Failed to show generic notification:', error);
+		}
+	}
+
+	/**
+	 * Update generic notification to indicate decryption failure
+	 */
+	private async updateGenericNotificationForDecryptionError(eventId: string, errorMessage?: string): Promise<void> {
+		try {
+			this.notifications.update(notifications => {
+				const genericIndex = notifications.findIndex(n => 
+					n.eventId === eventId && n.data?.isGeneric === true
+				);
+
+				if (genericIndex >= 0) {
+					const updated = [...notifications];
+					updated[genericIndex] = {
+						...updated[genericIndex],
+						body: 'notifications.service_messages.decryption_failed',
+						data: {
+							...updated[genericIndex].data,
+							decrypting: false,
+							decryptionError: true,
+							errorMessage
+						}
+					};
+
+					this.saveToStorage(updated);
+					return updated;
+				}
+
+				return notifications;
+			});
+		} catch (error) {
+			console.error('Failed to update generic notification for decryption error:', error);
+		}
+	}
+
+	/**
+	 * Handle regular text messages (non-JSON)
+	 */
+	private async handleRegularMessage(plaintext: string, senderPubkey: string, event: any): Promise<void> {
+		try {
+			// Get sender name
+			const senderName = await this.getSenderName(senderPubkey);
+
+			// Create notification for regular message
+			const notification: Notification = {
+				id: event.id,
+				userId: 'current-user',
+				type: 'message',
+				title: 'notifications.service_messages.new_message',
+				body: plaintext.length > 100 ? plaintext.substring(0, 100) + '...' : plaintext,
+				priority: 'normal',
+				read: false,
+				delivered: {
+					inApp: true,
+					push: false
+				},
+				createdAt: new Date(event.created_at * 1000),
+				senderPubkey,
+				eventId: event.id,
+				data: {
+					senderName,
+					fullMessage: plaintext
+				},
+				action: {
+					type: 'navigation',
+					payload: '/dashboard/messages'
+				}
+			};
+
+			// Update or add notification (replace generic one if exists)
+			this.updateOrAddNotification(notification);
+			
+			// Show system notification
+			this.showSystemNotification(notification);
+			// Trigger push notification if available
+			await this.triggerPushNotification(notification);
+			this.incrementIncomingCount();
+		} catch (error) {
+			console.error('Failed to handle regular message:', error);
+		}
+	}
+
+	/**
+	 * Update existing notification or add new one
+	 * This is used to replace generic notifications with actual content
+	 */
+	private updateOrAddNotification(notification: Notification): void {
+		this.notifications.update(notifications => {
+			// Check if generic notification exists for this event
+			const genericIndex = notifications.findIndex(n => 
+				n.eventId === notification.eventId && n.data?.isGeneric === true
+			);
+
+			if (genericIndex >= 0) {
+				// Replace generic notification with actual one
+				const updated = [...notifications];
+				updated[genericIndex] = notification;
+				
+				// Sort by creation date (most recent first)
+				const sorted = updated.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+				
+				// Limit to last 50 notifications
+				const limited = sorted.slice(0, 50);
+				
+				// Update unread count
+				this.updateUnreadCount(limited);
+				
+				// Persist to storage
+				this.saveToStorage(limited);
+				
+				return limited;
+			} else {
+				// No generic notification found, add new one
+				const updated = [notification, ...notifications];
+				
+				// Sort by creation date (most recent first)
+				const sorted = updated.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+				
+				// Limit to last 50 notifications
+				const limited = sorted.slice(0, 50);
+				
+				// Update unread count
+				this.updateUnreadCount(limited);
+				
+				// Persist to storage
+				this.saveToStorage(limited);
+				
+				return limited;
+			}
+		});
+	}
+
+	/**
 	 * Add notification to the store and persist to storage
 	 */
 	private addNotification(notification: Notification): void {
@@ -1219,6 +1419,50 @@ class LocalNotificationService {
 			case 'normal': return 7000; // 7 seconds
 			case 'low': return 5000; // 5 seconds
 			default: return 7000;
+		}
+	}
+
+	/**
+	 * Trigger push notification for a local notification
+	 * Note: This requires backend integration to monitor NOSTR relays and send push notifications
+	 */
+	private async triggerPushNotification(notification: Notification): Promise<void> {
+		try {
+			// Check if push notification service is available
+			const { pushNotificationService } = await import('$lib/api/services/push-notification.service');
+			
+			// Get current device ID
+			const deviceId = pushNotificationService.getCurrentDeviceId();
+			if (!deviceId) {
+				console.warn('⚠️ No device ID available for push notification');
+				return;
+			}
+
+			// Prepare notification data for push
+			// Note: The backend should ideally monitor NOSTR relays and send push notifications
+			// This is a fallback that could trigger a push notification request to the backend
+			// For now, we'll just log that a push notification should be sent
+			console.log('📱 Push notification should be sent for:', {
+				type: notification.type,
+				title: notification.title,
+				deviceId
+			});
+
+			// TODO: Implement backend API call to trigger push notification
+			// This would require the backend to have a GraphQL mutation or REST endpoint
+			// that accepts notification data and sends it via Firebase
+			// Example:
+			// await pushNotificationService.sendNotification({
+			//   title: notification.title,
+			//   body: notification.body,
+			//   deviceId,
+			//   type: notification.type,
+			//   data: notification.data
+			// });
+
+		} catch (error) {
+			// Silently fail - push notifications are optional
+			console.warn('⚠️ Failed to trigger push notification:', error);
 		}
 	}
 

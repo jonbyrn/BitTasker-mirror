@@ -743,6 +743,16 @@ export function listenForIncomingMessages(
 							callback({ plaintext, senderPubkey, event });
 						} catch (err: unknown) {
 							console.error('❌ Failed to decrypt real-time message:', err);
+							// Still call callback with error flag so generic notification can be shown
+							// Extract sender pubkey from event
+							const senderPubkey = event.pubkey;
+							callback({ 
+								plaintext: '', 
+								senderPubkey, 
+								event,
+								decryptionError: true,
+								error: err instanceof Error ? err.message : 'Decryption failed'
+							} as any);
 						}
 					});
 

@@ -276,7 +276,9 @@
       "payment_pending_body_tasker": "Your payment of {amount} {currency} is pending confirmation",
       "payment_pending_body_taskee": "Payment of {amount} {currency} is pending confirmation",
       "payment_update_title": "Payment Update",
-      "payment_update_body": "Payment of {amount} {currency} processed"
+      "payment_update_body": "Payment of {amount} {currency} processed",
+      "decrypting_message": "Decrypting message...",
+      "decryption_failed": "Unable to decrypt message. Please check your connection and try again."
     }
   }
 }
