@@ -22,7 +22,6 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import IconContentCopy from '~icons/mdi/content-copy';
-	import { sendDirectMessage } from '$lib/utils/nostr-message';
 	// Props
 	const props = $props<{
 		bid: SimplifiedTaskBid;
@@ -130,18 +129,8 @@
 
 				currentScreen = 'success';
 
-				// Send automatic message to bidder
-				try {
-					const bidderPubkey = props.bid.userProfile?.user?.id;
-					if (bidderPubkey) {
-						const acceptanceMessage = $t('dashboard.bids.bid_acceptance.acceptance_message');
-						await sendDirectMessage(acceptanceMessage, bidderPubkey);
-						console.log('✅ Acceptance message sent to bidder');
-					}
-				} catch (error) {
-					// Don't fail the bid acceptance if message sending fails
-					console.warn('⚠️ Failed to send acceptance message:', error);
-				}
+				// Note: Bid status update is automatically sent via escrowEvents.ts
+				// after contract creation, so we don't need to send a separate message here
 			} else {
 				// Show error
 				validationErrors = [result.error || 'Failed to create escrow'];
