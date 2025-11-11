@@ -56,7 +56,11 @@
         const minutes = String(value.getMinutes()).padStart(2, '0');
         return `${year}-${month}-${day}T${hours}:${minutes}`;
       } else {
-        return value.toISOString().split('T')[0];
+        // For date inputs, use local date components to avoid timezone shifts
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
       }
     }
     
@@ -72,7 +76,21 @@
           return `${year}-${month}-${day}T${hours}:${minutes}`;
         }
       } else {
-        return value.split('T')[0];
+        // For date inputs, extract just the date part (YYYY-MM-DD)
+        // If it's an ISO string, parse it to local date to avoid timezone shifts
+        const datePart = value.split('T')[0];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          return datePart;
+        }
+        // If it's an ISO string with time, parse it and extract local date
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+        return datePart;
       }
     }
     
@@ -106,7 +124,30 @@
       if (!isNaN(date.getTime())) {
         onChange?.({ start: date, end: date });
       }
+    } else if (type === 'single' || type === 'date') {
+      // For date inputs, create a Date object using local timezone to preserve the selected date
+      // The inputValue is in YYYY-MM-DD format, which represents a local date
+      // We create a Date object at local midnight to avoid timezone conversion issues
+      const parts = inputValue.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+        const day = parseInt(parts[2], 10);
+        
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          // Create date at local midnight to preserve the selected date
+          const date = new Date(year, month, day, 0, 0, 0, 0);
+          onChange?.(date);
+          return;
+        }
+      }
+      // Fallback to standard Date parsing
+      const date = new Date(inputValue);
+      if (!isNaN(date.getTime())) {
+        onChange?.(date);
+      }
     } else {
+      // For datetime and time inputs, use standard Date parsing
       const date = new Date(inputValue);
       if (!isNaN(date.getTime())) {
         onChange?.(date);
