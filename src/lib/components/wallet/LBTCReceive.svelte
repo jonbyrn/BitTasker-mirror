@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Signer } from 'ethers';
 	import type { ChainSwapData } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
@@ -36,7 +37,6 @@
 
 	// Derived values (no longer needed for BTC conversion, but kept for display if needed)
 	let minBTC = $derived(minAmount / 100_000_000);
-	let maxBTC = $derived(maxAmount / 100_000_000);
 
 	/**
 	 * Fetch swap limits and recover pending swaps
@@ -141,7 +141,6 @@
 			const limits = await walletManager.chainSwapService.getSwapLimits();
 			minAmount = limits.minimal;
 			maxAmount = limits.maximal;
-			console.log('✅ Fetched chain swap limits:', { minAmount, maxAmount, minBTC, maxBTC });
 		} catch (err) {
 			console.error('Failed to fetch chain swap limits:', err);
 			// Use fallback values
@@ -194,7 +193,7 @@
 			const result = await walletManager.chainSwapService.createChainSwap({
 				amountSats,
 				rbtcAddress: $rskConnection.address,
-				walletSigner: $rskConnection.wallet // Pass wallet for Smart Wallet address computation
+				walletSigner: $rskConnection.wallet as Signer // Pass wallet for Smart Wallet address computation
 			});
 
 			// Add to pending swaps list
@@ -395,8 +394,8 @@
 		</div> -->
 
 		<div class="form-control">
-			<label class="label" for="amount">
-				<span class="label-text">{$t('wallet.swap.amount_sats')}</span>
+			<label class="label flex flex-col sm:flex-row items-start sm:items-center" for="amount">
+				<span class="label-text">{$t('wallet.swap.amount_btc')}</span>
 				<span class="label-text-alt">
 					{#if isLoadingLimits}
 						<span class="loading loading-spinner loading-xs"></span>

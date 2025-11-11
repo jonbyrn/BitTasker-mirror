@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Signer } from 'ethers';
 	import type { BoltzSwapData } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
@@ -12,7 +13,6 @@
 	let isCreatingSwap = $state(false);
 	let pendingSwaps = $state<BoltzSwapData[]>([]);
 	let error = $state<string | null>(null);
-	let isClaiming = $state(false);
 	let isDeletingSwaps = $state(false);
 	let expandedSwaps = $state<Set<string>>(new Set());
 	let minAmount = $state<number>(0);
@@ -50,7 +50,6 @@
 				// Recover pending swaps from wallet manager
 				const walletManager = getWalletManager();
 				const recovered = await walletManager.reverseSwapService.recoverPendingSwaps();
-				console.log('Recovered swaps:', recovered);
 
 				if (recovered.length > 0) {
 					pendingSwaps = recovered;
@@ -220,7 +219,7 @@
 				amountSats,
 				rbtcAddress: $rskConnection.address,
 				description: description || undefined,
-				walletSigner: $rskConnection.wallet // Pass wallet for Smart Wallet address computation
+				walletSigner: $rskConnection.wallet as Signer // Pass wallet for Smart Wallet address computation
 			});
 
 			// Add to pending swaps list
@@ -287,48 +286,6 @@
 				console.error('Error monitoring swap:', err);
 			}
 		}, 5000);
-	}
-
-	/**
-	 * Manually claim rBTC
-	 * Attempts claim via RIF Relay first, falls back to direct claim if needed
-	 */
-	async function claimRBTC(swap: BoltzSwapData) {
-		if (!$rskConnection.wallet) {
-			appStore.showErrorToast($t('wallet.rsk_wallet_not_connected'));
-			return;
-		}
-
-		isClaiming = true;
-		error = null;
-
-		try {
-			appStore.showInfoToast($t('wallet.swap.lightning.claiming_gasless'));
-
-			const walletManager = getWalletManager();
-			// Attempt gasless claim via RIF Relay
-			const result = await walletManager.reverseSwapService.claimRBTCViaRifRelay(
-				swap,
-				$rskConnection.wallet
-			);
-
-			// Update swap in the list
-			const swapIndex = pendingSwaps.findIndex((s) => s.id === swap.id);
-			if (swapIndex !== -1) {
-				pendingSwaps[swapIndex].claimTxHash = result.txHash;
-				pendingSwaps[swapIndex].status = 'claimed';
-				pendingSwaps[swapIndex].rifRelayUsed = true;
-				pendingSwaps = [...pendingSwaps]; // Trigger reactivity
-			}
-
-			appStore.showSuccessToast($t('wallet.swap.lightning.claimed_success'));
-		} catch (err) {
-			console.error('Failed to claim RBTC:', err);
-			error = err instanceof Error ? err.message : $t('wallet.swap.error.claim_failed');
-			appStore.showErrorToast(error);
-		} finally {
-			isClaiming = false;
-		}
 	}
 
 	/**
@@ -458,8 +415,8 @@
 		</div> -->
 
 		<div class="form-control">
-			<label class="label" for="amount">
-				<span class="label-text">{$t('wallet.swap.amount_sats')}</span>
+			<label class="label flex flex-col sm:flex-row items-start sm:items-center" for="amount">
+				<span class="label-text">{$t('wallet.swap.amount_btc')}</span>
 				<span class="label-text-alt">
 					{#if isLoadingLimits}
 						<span class="loading loading-spinner loading-xs"></span>
@@ -586,7 +543,6 @@
 						await copyToClipboard(invoice);
 						appStore.showSuccessToast($t('wallet.swap.invoice_copied'));
 					}}
-					onClaimRBTC={claimRBTC}
 					onDeleteSwap={deleteSwap}
 				/>
 			{/each}

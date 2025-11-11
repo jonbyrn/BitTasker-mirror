@@ -791,11 +791,6 @@
 		</div>
 	{/if}
 
-	<!-- Submarine Swap for Lightning Bitcoin -->
-	{#if selectedNetwork.value === 'lightning-bitcoin'}
-		<SubmarineSend />
-	{/if}
-
 	<!-- Coming Soon Alerts for Other Networks -->
 	{#if selectedNetwork.isComingSoon}
 		<div class="alert alert-outline alert-info">

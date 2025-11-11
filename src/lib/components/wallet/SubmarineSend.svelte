@@ -1,21 +1,30 @@
 <script lang="ts">
+	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
 	import type { SubmarineSwapData, WalletAsset } from '@bittasker/wallet-core';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { walletManager, allAssets } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
-	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
+
+	// Extended swap data with gas estimation
+	type SubmarineSwapWithGas = SubmarineSwapData & {
+		estimatedGas?: {
+			costWei: bigint;
+			costSats: number;
+			totalRequired: number;
+		};
+	};
 
 	// Form state
 	let invoice = $state('');
 	let invoiceError = $state<string | null>(null);
 	let isCreatingSwap = $state(false);
-	let isLockingFunds = $state(false);
-	let pendingSwaps = $state<SubmarineSwapData[]>([]);
+	let lockingSwapId = $state<string | null>(null); // Track which swap is being locked
+	let pendingSwaps = $state<SubmarineSwapWithGas[]>([]);
 	let swapLimits = $state<{ minimal: number; maximal: number } | null>(null);
 	let isLoadingLimits = $state(false);
-	let currentSwap = $state<SubmarineSwapData | null>(null);
+	let currentSwap = $state<SubmarineSwapWithGas | null>(null);
 	let qrScannerActive = $state(false);
 
 	// Get available RBTC balance
@@ -26,7 +35,7 @@
 
 	/**
 	 * Filter out finished swaps (only show pending ones)
-	 * 
+	 *
 	 * Finished states:
 	 * - invoice.paid: Boltz successfully paid the Lightning invoice
 	 * - transaction.claimed: Boltz claimed the on-chain funds (swap complete)
@@ -34,7 +43,7 @@
 	 * - transaction.failed: Transaction failed
 	 */
 	let activePendingSwaps = $derived(() => {
-		const finishedStatuses: SubmarineSwapData['status'][] = [
+		const finishedStatuses: SubmarineSwapWithGas['status'][] = [
 			'invoice.paid',
 			'transaction.claimed',
 			'swap.refunded',
@@ -56,7 +65,11 @@
 			const recovered = await walletManager.submarineSwapService.recoverPendingSwaps();
 			if (recovered && recovered.length > 0) {
 				pendingSwaps = recovered;
-				console.log(`✅ Recovered ${recovered.length} pending submarine swap(s)`);
+				
+				// Monitor all recovered swaps
+				for (const swap of recovered) {
+					monitorSwapStatus(swap.id);
+				}
 			}
 		} catch (error) {
 			console.error('Failed to load submarine swap limits:', error);
@@ -77,6 +90,121 @@
 			return { isValid: false, error: $t('wallet.validation.invoice_invalid') };
 		}
 		return { isValid: true };
+	}
+
+	/**
+	 * Monitor swap status and update UI
+	 */
+	function monitorSwapStatus(swapId: string) {
+		// Poll for swap status every 5 seconds
+		const interval = setInterval(async () => {
+			try {
+				const swap = walletManager.submarineSwapService.getSwap(swapId);
+				if (!swap) {
+					clearInterval(interval);
+					return;
+				}
+
+				// Update swap in the list without reinitializing the array
+				const swapIndex = pendingSwaps.findIndex((s) => s.id === swapId);
+				if (swapIndex !== -1) {
+					// Only update if there's an actual change to prevent unnecessary re-renders
+					const currentSwap = pendingSwaps[swapIndex];
+					if (
+						currentSwap.status !== swap.status ||
+						currentSwap.lockupTxHash !== swap.lockupTxHash
+					) {
+						// Preserve estimatedGas from current swap
+						const updatedSwap: SubmarineSwapWithGas = {
+							...swap,
+							estimatedGas: currentSwap.estimatedGas
+						};
+						pendingSwaps[swapIndex] = updatedSwap;
+						pendingSwaps = [...pendingSwaps]; // Trigger reactivity
+					}
+				}
+
+				// Stop monitoring on final states
+				if (
+					['invoice.paid', 'transaction.claimed', 'swap.refunded', 'transaction.failed'].includes(
+						swap.status
+					)
+				) {
+					clearInterval(interval);
+
+					// Reload assets when swap completes to update balance
+					if (swap.status === 'invoice.paid' || swap.status === 'transaction.claimed') {
+						await walletManager.loadAssets();
+						appStore.showSuccessToast($t('wallet.swap.submarine.invoice_paid'));
+					}
+				}
+			} catch (err) {
+				console.error('Error monitoring swap:', err);
+			}
+		}, 5000);
+	}
+
+	/**
+	 * Get status display for submarine swap with user-friendly messages
+	 */
+	function getSwapStatus(swap: SubmarineSwapWithGas): {
+		text: string;
+		color: string;
+		isComplete: boolean;
+	} {
+		switch (swap.status) {
+			case 'swap.created':
+				return {
+					text: $t('wallet.swap.submarine.status.ready_to_lock'),
+					color: 'badge-warning',
+					isComplete: false
+				};
+			case 'transaction.mempool':
+				return {
+					text: $t('wallet.swap.submarine.status.funds_locked'),
+					color: 'badge-info',
+					isComplete: false
+				};
+			case 'transaction.confirmed':
+			case 'invoice.pending':
+				return {
+					text: $t('wallet.swap.submarine.status.lockup_confirmed'),
+					color: 'badge-info',
+					isComplete: false
+				};
+			case 'invoice.paid':
+			case 'transaction.claimed':
+				return {
+					text: $t('wallet.swap.submarine.status.swap_complete'),
+					color: 'badge-success',
+					isComplete: true
+				};
+			case 'swap.expired':
+				return {
+					text: $t('wallet.swap.submarine.status.expired'),
+					color: 'badge-error',
+					isComplete: true
+				};
+			case 'swap.refunded':
+				return {
+					text: $t('wallet.swap.submarine.status.refunded'),
+					color: 'badge-warning',
+					isComplete: true
+				};
+			case 'transaction.failed':
+				return {
+					text: $t('wallet.swap.submarine.status.failed'),
+					color: 'badge-error',
+					isComplete: true
+				};
+			default:
+				// Fallback for any unexpected status - show as processing
+				return {
+					text: $t('wallet.swap.submarine.status.processing'),
+					color: 'badge-ghost',
+					isComplete: false
+				};
+		}
 	}
 
 	/**
@@ -132,8 +260,6 @@
 			// Create submarine swap via wallet manager
 			const result = await walletManager.createSubmarineSwap(invoice);
 
-			console.log('📋 Full swap data:', { result });
-
 			// Check swap limits
 			if (swapLimits) {
 				if (result.swapData.fromAmount < swapLimits.minimal) {
@@ -155,15 +281,46 @@
 				}
 			}
 
-			// Check balance
-			const rbtcNeeded = result.swapData.fromAmount / 100000000; // Convert sats to RBTC
-			if (rbtcNeeded > availableBalance()) {
-				throw new Error($t('wallet.validation.insufficient_balance'));
+			// Check balance including gas fees (if estimated)
+			const swapAmount = result.swapData.fromAmount;
+			const gasAmount = result.estimatedGas?.costSats || 0;
+			const totalRequired = result.estimatedGas?.totalRequired || swapAmount;
+			const totalRequiredRBTC = totalRequired / 100000000;
+			
+			const availableRBTC = availableBalance();
+			
+			if (totalRequiredRBTC > availableRBTC) {
+				const shortfallSats = totalRequired - Math.floor(availableRBTC * 100000000);
+				
+				if (result.estimatedGas) {
+					// Show detailed error with gas breakdown
+					throw new Error(
+						$t('wallet.swap.error.insufficient_balance_with_gas', {
+							values: {
+								swapAmount: swapAmount.toLocaleString(),
+								gasAmount: gasAmount.toLocaleString(),
+								totalNeeded: totalRequired.toLocaleString(),
+								available: Math.floor(availableRBTC * 100000000).toLocaleString(),
+								shortfall: shortfallSats.toLocaleString()
+							}
+						})
+					);
+				} else {
+					// Fallback to simple insufficient balance error
+					throw new Error($t('wallet.validation.insufficient_balance'));
+				}
 			}
 
-			// Set current swap and add to pending swaps
-			currentSwap = result.swapData;
-			pendingSwaps = [...pendingSwaps, result.swapData];
+			// Set current swap and add to pending swaps (with gas estimation)
+			const swapWithGas: SubmarineSwapWithGas = {
+				...result.swapData,
+				estimatedGas: result.estimatedGas
+			};
+			currentSwap = swapWithGas;
+			pendingSwaps = [...pendingSwaps, swapWithGas];
+
+			// Start monitoring swap status
+			monitorSwapStatus(result.swapId);
 
 			// Clear invoice input
 			invoice = '';
@@ -185,14 +342,10 @@
 	 */
 	async function handleLockFunds(swap: SubmarineSwapData) {
 		try {
-			isLockingFunds = true;
-
-			console.log('📋 Swap data:', { swap });
+			lockingSwapId = swap.id; // Set the specific swap being locked
 
 			// Lock funds via wallet manager
 			const result = await walletManager.lockSubmarineSwapFunds(swap);
-
-			console.log('✅ Funds locked! Transaction:', result.txHash);
 
 			// Update swap in pending swaps list
 			const swapIndex = pendingSwaps.findIndex((s) => s.id === swap.id);
@@ -216,7 +369,7 @@
 				error instanceof Error ? error.message : $t('wallet.swap.error.create_failed')
 			);
 		} finally {
-			isLockingFunds = false;
+			lockingSwapId = null; // Clear the locking state
 		}
 	}
 
@@ -237,9 +390,6 @@
 	 */
 	async function handleDeleteSwap(swapId: string) {
 		try {
-			const confirmed = confirm($t('wallet.swap.confirm_delete'));
-			if (!confirmed) return;
-
 			await walletManager.submarineSwapService.deleteSwap(swapId);
 			pendingSwaps = pendingSwaps.filter((s) => s.id !== swapId);
 
@@ -408,16 +558,22 @@
 	<!-- Current Swap - Ready to Lock Funds -->
 	{#if activePendingSwaps().length > 0}
 		{#each activePendingSwaps() as currentSwap, i (currentSwap.id)}
+			{@const swapStatus = getSwapStatus(currentSwap)}
 			<div class="card bg-base-200 border-primary border-2">
 				<div class="card-body">
-					<h3 class="card-title text-primary" style="font-size: 1.25rem;">
-						{$t('wallet.swap.submarine.invoice_created')}
-					</h3>
+					<div class="flex items-start justify-between gap-2">
+						<h3 class="card-title text-primary" style="font-size: 1.25rem;">
+							{$t('wallet.swap.submarine.invoice_created')}
+						</h3>
+						<span class="badge {swapStatus.color} badge-lg">
+							{swapStatus.text}
+						</span>
+					</div>
 
 					<div class="space-y-3">
 						<!-- Amount to Lock -->
 						<div class="flex flex-col items-start justify-between sm:flex-row">
-							<span class="text-sm opacity-70">{$t('wallet.amount')}:</span>
+							<span class="text-sm opacity-70">{$t('wallet.swap.submarine.swap_amount')}:</span>
 							<span class="font-bold">
 								{(currentSwap.fromAmount / 100000000).toFixed(8)} RBTC
 								<span class="text-sm opacity-70">
@@ -426,8 +582,33 @@
 							</span>
 						</div>
 
+						<!-- Gas Fees (if available) -->
+						{#if currentSwap.estimatedGas}
+							<div class="flex flex-col items-start justify-between sm:flex-row">
+								<span class="text-sm opacity-70">{$t('wallet.swap.submarine.gas_fees')}:</span>
+								<span class="font-mono text-sm">
+									~{currentSwap.estimatedGas.costSats.toLocaleString()} sats
+									<span class="text-xs opacity-70">
+										({(currentSwap.estimatedGas.costSats / 100000000).toFixed(8)} RBTC)
+									</span>
+								</span>
+							</div>
+
+							<!-- Total Required -->
+							<div class="divider my-1"></div>
+							<div class="flex flex-col items-start justify-between sm:flex-row">
+								<span class="text-sm font-semibold">{$t('wallet.swap.submarine.total_required')}:</span>
+								<span class="font-bold text-primary">
+									{(currentSwap.estimatedGas.totalRequired / 100000000).toFixed(8)} RBTC
+									<span class="text-sm opacity-70">
+										({currentSwap.estimatedGas.totalRequired.toLocaleString()} sats)
+									</span>
+								</span>
+							</div>
+						{/if}
+
 						<!-- Invoice (truncated) -->
-						<div class="flex flex-col items-start justify-between gap-2 sm:flex-row">
+						<div class="flex flex-col items-start justify-between gap-2 sm:flex-row mt-2">
 							<span class="text-sm opacity-70">{$t('wallet.swap.submarine.invoice_label')}:</span>
 							<button
 								class="btn btn-ghost btn-xs"
@@ -475,21 +656,22 @@
 						<button
 							class="btn btn-ghost btn-outline w-full sm:w-fit"
 							onclick={() => handleDeleteSwap(currentSwap!.id)}
+							disabled={lockingSwapId === currentSwap!.id}
 						>
 							{$t('wallet.swap.delete')}
 						</button>
 						<button
 							class="btn btn-primary"
 							onclick={() => handleLockFunds(currentSwap!)}
-							disabled={isLockingFunds}
+							disabled={swapStatus.isComplete || lockingSwapId === currentSwap!.id}
 						>
-							{#if isLockingFunds}
+							{#if lockingSwapId === currentSwap!.id}
 								<span class="loading loading-spinner loading-sm"></span>
 								{$t('wallet.swap.submarine.locking_funds')}
+							{:else if swapStatus.isComplete}
+								✓ {$t('wallet.swap.submarine.swap_complete')}
 							{:else}
-								{$t('wallet.swap.submarine.lock_funds_button', {
-									values: { amount: (currentSwap.fromAmount / 100000000).toFixed(8) }
-								})}
+								{$t('wallet.swap.submarine.pay_invoice_button')}
 							{/if}
 						</button>
 					</div>

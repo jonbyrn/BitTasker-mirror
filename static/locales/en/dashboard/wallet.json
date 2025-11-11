@@ -615,17 +615,24 @@
         "scan_qr": "Scan QR Code",
         "invoice_created": "Swap created - ready to lock funds",
         "lock_funds_button": "Lock {amount} rBTC & Pay Invoice",
+        "pay_invoice_button": "Pay Invoice",
         "locking_funds": "Locking rBTC...",
         "invoice_paid": "✅ Invoice paid by Boltz!",
         "generate_swap": "Create Swap",
+        "swap_amount": "Swap Amount",
+        "gas_fees": "Gas Fees (estimated)",
+        "total_required": "Total Required",
+        "swap_complete": "Complete",
         "status": {
           "ready_to_lock": "Ready - lock rBTC to pay invoice",
-          "funds_locked": "Funds locked, waiting for Boltz...",
-          "lockup_confirmed": "Lockup confirmed, Boltz paying invoice...",
+          "funds_locked": "Funds locked - Waiting for confirmations...",
+          "lockup_confirmed": "Confirmed - Boltz paying invoice...",
           "invoice_paid": "Invoice paid successfully! ✅",
           "swap_complete": "Swap completed! ✓",
-          "expired": "Swap expired - Delete to remove",
-          "failed": "Swap failed - Delete to remove"
+          "expired": "Expired - Delete to remove",
+          "failed": "Failed - Delete to remove",
+          "refunded": "Refunded",
+          "processing": "Processing..."
         },
         "helper": {
           "paste_invoice": "Paste or scan a Lightning invoice to begin",
