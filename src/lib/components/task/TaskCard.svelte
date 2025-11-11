@@ -3,7 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
-	import { formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDateTime, formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import TranslatableTask from './TranslatableTask.svelte';
@@ -30,11 +30,16 @@
 		onclick: () => void;
 	}>();
 
-	function formatDateTimeReactive(date: Date) {
+	function formatDateTimeReactive(dateString: string) {
+		const date = parseDateToLocalMidnight(dateString);
+		if (!date) return '';
 		return formatStandardDateTime(date, $locale || 'en');
 	}
 
-	function formatDateRangeReactive(startDate: Date, endDate: Date) {
+	function formatDateRangeReactive(startDateString: string, endDateString: string) {
+		const startDate = parseDateToLocalMidnight(startDateString);
+		const endDate = parseDateToLocalMidnight(endDateString);
+		if (!startDate || !endDate) return '';
 		const start = formatStandardDateShort(startDate, $locale || 'en');
 		const end = formatStandardDateShort(endDate, $locale || 'en');
 		return `${start} - ${end}`;
@@ -97,14 +102,14 @@
 							{$t('dashboard.task.deadline.label')}
 						</small>
 						<span class="text-sm font-medium">
-							{formatDateTimeReactive(new Date(task.deadline))}
+							{formatDateTimeReactive(task.deadline)}
 						</span>
 					{:else if task.dateRange}
 						<small class="text-base-content/60 text-xs">
 							{$t('dashboard.task.dateRange.label')}
 						</small>
 						<span class="text-sm font-medium">
-							{formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end))}
+							{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
 						</span>
 					{/if}
 				</div>

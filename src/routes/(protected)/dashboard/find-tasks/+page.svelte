@@ -23,7 +23,8 @@
 	
 	import {
 		formatStandardDateTime,
-		formatStandardDateShort
+		formatStandardDateShort,
+		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 
@@ -63,11 +64,16 @@
 	let showSkeleton = $state(true);
 	let selectedLocation = $state<any | null>(null);
 
-	function formatDateTimeReactive(date: Date) {
+	function formatDateTimeReactive(dateString: string) {
+		const date = parseDateToLocalMidnight(dateString);
+		if (!date) return '';
 		return formatStandardDateTime(date, $locale || 'en');
 	}
 
-	function formatDateRangeReactive(startDate: Date, endDate: Date) {
+	function formatDateRangeReactive(startDateString: string, endDateString: string) {
+		const startDate = parseDateToLocalMidnight(startDateString);
+		const endDate = parseDateToLocalMidnight(endDateString);
+		if (!startDate || !endDate) return '';
 		const start = formatStandardDateShort(startDate, $locale || 'en');
 		const end = formatStandardDateShort(endDate, $locale || 'en');
 		return `${start} - ${end}`;
@@ -724,7 +730,7 @@
 																		>{$t('dashboard.task_details_by_task.deadline')}</small
 																	>
 																	<span class="text-sm font-medium">
-																		{formatDateTimeReactive(new Date(task.deadline))}
+																		{formatDateTimeReactive(task.deadline)}
 																	</span>
 																{:else if task.dateRange}
 																	<small class="text-base-content/60 text-xs"
@@ -732,8 +738,8 @@
 																	>
 																	<span class="text-sm font-medium">
 																		{formatDateRangeReactive(
-																			new Date(task.dateRange.start),
-																			new Date(task.dateRange.end)
+																			task.dateRange.start,
+																			task.dateRange.end
 																		)}
 																	</span>
 																{/if}
