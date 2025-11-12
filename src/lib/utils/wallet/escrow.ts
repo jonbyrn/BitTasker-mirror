@@ -1,15 +1,15 @@
-import type { ContractTransactionResult, DisputeProposal, EscrowData, GasEstimation } from "$lib/types/wallet";
+import type { GasEstimation } from '@bittasker/wallet-core';
+import type { ContractTransactionResult, DisputeProposal, EscrowData } from "$lib/types/wallet";
 import type { Attachment } from '$lib/types/task';
-import { getProvider, getWallet, rskAddress, walletStore } from "$lib/stores/wallet.store";
+import { getProvider, getWallet, walletStore } from "$lib/stores/wallet.store";
 import { t } from "svelte-i18n";
 import { get } from "svelte/store";
-import { derived } from 'svelte/store';
 import { appStore } from "$lib/stores/app.store";
 import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
-import { updateCompleteCancelStatus, updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
+import { updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
 
 let contract: ethers.Contract | null = null;
 
@@ -29,7 +29,7 @@ export async function ensureEscrowReady(): Promise<{
     let wallet = getRSKWallet();
     if (!wallet) {
         const { walletManager } = await import('$lib/stores/wallet.store');
-        await walletManager.initializeRSKWallet();
+        await walletManager.initialize();
         wallet = getRSKWallet();
         if (!wallet) {
             throw new Error('Failed to initialize wallet');
@@ -40,7 +40,7 @@ export async function ensureEscrowReady(): Promise<{
     let provider = getRSKProvider();
     if (!provider) {
         const { walletManager } = await import('$lib/stores/wallet.store');
-        await walletManager.initializeRSKWallet();
+        await walletManager.initialize();
         provider = getRSKProvider();
         if (!provider) {
             throw new Error('Failed to get provider');
@@ -1017,50 +1017,50 @@ async function isContractPaused(): Promise<boolean> {
  * @returns Object with wasFunded flag and escrow data if it exists
  */
 async function checkEscrowFundingStatus(escrowId: string): Promise<{
-	wasFunded: boolean;
-	escrowData: EscrowData | null;
-	error?: EscrowError;
+    wasFunded: boolean;
+    escrowData: EscrowData | null;
+    error?: typeof EscrowError;
 }> {
-	const { createEscrowError, isEscrowNotFoundError, EscrowError, EscrowErrorCode } = await import('$lib/utils/errors/escrowErrors');
-	
-	try {
-		const escrowData = await loadEscrowDetails(escrowId);
-		
-		if (!escrowData) {
-			// Escrow doesn't exist - never funded
-			return { wasFunded: false, escrowData: null };
-		}
-		
-		// If escrow exists, check if it was ever funded
-		// Since createEscrow is payable, if escrow exists, it was funded
-		// However, for cancelled escrows, we need to check the amount
-		// If amount > 0, it was funded; if amount = 0, funding might have failed
-		
-		if (escrowData.status === EscrowStatus.Cancelled) {
-			// For cancelled escrows, check if amount > 0 (was funded)
-			const amount = parseFloat(escrowData.baseAmount);
-			if (amount > 0) {
-				// Escrow exists with amount > 0 - was funded
-				return { wasFunded: true, escrowData };
-			} else {
-				// Escrow exists but amount = 0 - funding failed
-				return { wasFunded: false, escrowData };
-			}
-		} else {
-			// For all other statuses (Funded, InDispute, Completed, etc.), escrow was funded
-			// These statuses can only be reached after funding
-			return { wasFunded: true, escrowData };
-		}
-	} catch (error) {
-		if (isEscrowNotFoundError(error)) {
-			// Escrow doesn't exist - never funded
-			return { wasFunded: false, escrowData: null };
-		}
-		
-		// Other error - return error for caller to handle
-		const escrowError = createEscrowError(error, `Failed to check escrow funding status for ${escrowId}`);
-		return { wasFunded: false, escrowData: null, error: escrowError };
-	}
+    const { createEscrowError, isEscrowNotFoundError, EscrowError, EscrowErrorCode } = await import('$lib/utils/errors/escrowErrors');
+
+    try {
+        const escrowData = await loadEscrowDetails(escrowId);
+
+        if (!escrowData) {
+            // Escrow doesn't exist - never funded
+            return { wasFunded: false, escrowData: null };
+        }
+
+        // If escrow exists, check if it was ever funded
+        // Since createEscrow is payable, if escrow exists, it was funded
+        // However, for cancelled escrows, we need to check the amount
+        // If amount > 0, it was funded; if amount = 0, funding might have failed
+
+        if (escrowData.status === EscrowStatus.Cancelled) {
+            // For cancelled escrows, check if amount > 0 (was funded)
+            const amount = parseFloat(escrowData.baseAmount);
+            if (amount > 0) {
+                // Escrow exists with amount > 0 - was funded
+                return { wasFunded: true, escrowData };
+            } else {
+                // Escrow exists but amount = 0 - funding failed
+                return { wasFunded: false, escrowData };
+            }
+        } else {
+            // For all other statuses (Funded, InDispute, Completed, etc.), escrow was funded
+            // These statuses can only be reached after funding
+            return { wasFunded: true, escrowData };
+        }
+    } catch (error) {
+        if (isEscrowNotFoundError(error)) {
+            // Escrow doesn't exist - never funded
+            return { wasFunded: false, escrowData: null };
+        }
+
+        // Other error - return error for caller to handle
+        const escrowError = createEscrowError(error, `Failed to check escrow funding status for ${escrowId}`);
+        return { wasFunded: false, escrowData: null, error: escrowError as unknown as typeof EscrowError };
+    }
 }
 
 export const escrow = {
@@ -1080,5 +1080,6 @@ export const escrow = {
     getDisputeProposal,
     refreshEscrows: loadUserEscrows,
     loadUserEscrows,
-    isContractPaused
+    isContractPaused,
+    checkEscrowFundingStatus
 }

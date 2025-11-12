@@ -13,7 +13,7 @@
 	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { formatStandardDate, formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { fade, scale } from 'svelte/transition';
 	import TranslatableTask from '../TranslatableTask.svelte';
 	import { getUserContracts } from '$lib/utils/nostr-bid';
@@ -232,7 +232,7 @@
 			>{$t('dashboard.task_details_by_task.description_task')}</small
 		>
 		<div class="bg-base-200 rounded-2xl p-3">
-			<div class="max-h-[7rem] overflow-y-auto">
+			<div class="max-h-28 overflow-y-auto">
 				<TranslatableTask 
 					{task} 
 					showTitle={false}

@@ -13,11 +13,15 @@
 	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
-	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatStandardDate,
+		formatStandardDateTime,
+		formatStandardDateShort
+	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+
 	// Import performance testing helper in development
 	import '$lib/utils/performance-testing-helper';
 
@@ -585,7 +589,6 @@
 						</svg>
 						{$t('find_tasks.filters')}
 					</button>
-
 				</div>
 			</div>
 		</div>
@@ -703,7 +706,7 @@
 														<div class="flex items-center gap-2">
 															<svg
 																xmlns="http://www.w3.org/2000/svg"
-																class="text-base-content/60 h-4 w-4 flex-shrink-0"
+																class="text-base-content/60 h-4 w-4 shrink-0"
 																fill="none"
 																viewBox="0 0 24 24"
 																stroke="currentColor"
@@ -728,7 +731,10 @@
 																		>{$t('dashboard.task_details_by_task.date_range')}</small
 																	>
 																	<span class="text-sm font-medium">
-																		{formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end))}
+																		{formatDateRangeReactive(
+																			new Date(task.dateRange.start),
+																			new Date(task.dateRange.end)
+																		)}
 																	</span>
 																{/if}
 															</div>
@@ -748,7 +754,7 @@
 													<div class="flex w-full items-start gap-2">
 														<svg
 															xmlns="http://www.w3.org/2000/svg"
-															class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
+															class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
 															fill="none"
 															viewBox="0 0 24 24"
 															stroke="currentColor"
@@ -852,13 +858,15 @@
 																		/>
 																	</svg>
 																{/each}
-																<span class="text-base-content/60 ml-1 text-xs">{task.creator?.rating || 0}</span>
+																<span class="text-base-content/60 ml-1 text-xs"
+																	>{task.creator?.rating || 0}</span
+																>
 															</div>
 														</div>
 													</div>
 
 													<!-- Right: Action Buttons -->
-													<div class="flex w-full flex-shrink-0 items-center gap-2 md:w-auto">
+													<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 														<button
 															class="btn btn-primary btn-sm flex-1 md:flex-none"
 															class:btn-disabled={task.status !== TaskStatusEnum.OPEN}
@@ -866,7 +874,8 @@
 																e.stopPropagation();
 																onSelectTask(task);
 															}}
-															aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') || 'Sign up to bid on this task'}
+															aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') ||
+																'Sign up to bid on this task'}
 														>
 															<svg
 																xmlns="http://www.w3.org/2000/svg"
@@ -883,8 +892,8 @@
 																/>
 															</svg>
 															{task.status === TaskStatusEnum.OPEN
-																? ($t('dashboard.find_tasks.sign_up_to_bid') || 'Sign up to bid')
-																: ($t('dashboard.find_tasks.bidding_closed') || 'Bidding closed')}
+																? $t('dashboard.find_tasks.sign_up_to_bid') || 'Sign up to bid'
+																: $t('dashboard.find_tasks.bidding_closed') || 'Bidding closed'}
 														</button>
 
 														<button
@@ -1045,7 +1054,6 @@
 	onClose={() => (isFilterDrawerOpen = false)}
 	onApply={handleFilterApply}
 />
-
 
 <style>
 	:global([name='gmp-internal-google-attribution']),

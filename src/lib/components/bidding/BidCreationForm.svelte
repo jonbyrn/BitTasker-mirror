@@ -4,10 +4,10 @@
 	import { fly } from 'svelte/transition';
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 	import { sendDirectMessage } from '$lib/utils/nostr-message';
-	import { rskAddress, rskWallet } from '$lib/stores/rskWallet.store';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { walletManager, rskAddress } from '$lib/stores/wallet.store';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
@@ -316,7 +316,7 @@
 		submittingBid = true;
 
 		try {
-			await rskWallet.initializeWallet();
+			await walletManager.initialize();
 
 			// Create bid data structure with explicit type
 			const bidData = {

@@ -3,7 +3,6 @@
  */
 
 import type { ethers } from 'ethers';
-import type { Rate } from '@breeztech/breez-sdk-liquid/web';
 import type { RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 
@@ -83,36 +82,12 @@ export interface DisputeProposal {
     accepted: boolean;
 }
 
-// Gas estimation result
-export interface GasEstimation {
-    gasLimit: string;
-    gasPrice: string;
-    totalCost: string;
-    totalCostFormatted: string;
-    usdtCost?: string; // Cost in USDT if paying fees in USDT
-}
-
 // Contract transaction result
 export interface ContractTransactionResult {
     hash: string;
     escrowId?: string;
     gasUsed?: string;
     status: 'pending' | 'confirmed' | 'failed';
-}
-
-// Token balance interface
-export interface TokenBalance {
-    token: ERC20Token;
-    balance: bigint;
-    formattedBalance: string;
-    usdValue?: number;
-}
-
-// Contract configuration interface
-export interface ContractConfig {
-    address: string;
-    abi: any[];
-    network: NetworkType;
 }
 
 // Asset metadata
@@ -123,140 +98,6 @@ export interface AssetMetadata {
 	precision: number;
 	icon: string;
 	fiatId?: string; // For assets that can pay fees
-}
-
-// Wallet asset interface
-export interface WalletAsset extends AssetMetadata {
-    balance: number;
-    usdValue: number;
-    formattedBalance: string;
-    network: 'Liquid' | 'Bitcoin' | 'RSK' | 'BSC';
-}
-
-// RSK Wallet State interface
-export interface RSKWalletState {
-    // Connection
-    isConnected: boolean;
-    isConnecting: boolean;
-    error: string | null;
-    network: RSKNetwork;
-
-    // Wallet
-    address: string | null;
-    balance: string;
-    formattedBalance: string;
-    blockNumber: number | null;
-    unitPreference: RSKUnit;
-
-    // Tokens
-    tokenBalances: TokenBalance[];
-
-    // Transactions
-    transactions: Transaction[];
-    pendingTransactions: Transaction[];
-
-    // Escrows
-    escrows: EscrowData[];
-    disputeProposals: DisputeProposal[];
-
-    // Contract
-    contractAddress: string | null;
-    contractConnected: boolean;
-    contractConfig: ContractConfig | null;
-}
-
-// BSC Wallet State interface
-export interface BSCWalletState {
-    // Connection
-    isConnected: boolean;
-    isConnecting: boolean;
-    error: string | null;
-    network: NetworkType;
-
-    // Wallet
-    address: string | null;
-    bnbBalance: string;
-    formattedBnbBalance: string;
-    blockNumber: number | null;
-
-    // Tokens
-    tokenBalances: TokenBalance[];
-    usdtBalance: string;
-    formattedUsdtBalance: string;
-
-    // Transactions
-    transactions: Transaction[];
-    pendingTransactions: Transaction[];
-
-    // EIP-7702 Support
-    paymasterConnected: boolean;
-    paymasterAddress: string | null;
-    canPayFeesInUsdt: boolean;
-}
-
-// Combined wallet state
-export interface WalletState {
-    // Connection status
-    isInitializing: boolean;
-    isConnected: boolean;
-    isConnecting: boolean;
-    hasAnyConnection: boolean;
-    error: string | null;
-
-    // Network states
-    rsk: {
-        connected: boolean;
-        connecting: boolean;
-        error: string | null;
-        address: string | null;
-        balance: string;
-        formattedBalance: string;
-        blockNumber: number | null;
-        provider: ethers.JsonRpcProvider | null;
-        wallet: ethers.Wallet | null;
-        contractAddress?: string;
-        contractConnected?: boolean;
-        escrows?: EscrowData[];
-    };
-    bsc: {
-        connected: boolean;
-        connecting: boolean;
-        error: string | null;
-        address: string | null;
-        bnbBalance: string;
-        formattedBnbBalance: string;
-        usdtBalance: string;
-        formattedUsdtBalance: string;
-        blockNumber: number | null;
-        provider: ethers.JsonRpcProvider | null;
-        wallet: ethers.Wallet | null;
-        usdtContract: ethers.Contract | null;
-        paymasterContract: any | null; // BSCPaymasterContract type
-        paymasterConnected: boolean;
-        paymasterAddress: string | null;
-        canPayFeesInUsdt: boolean;
-    };
-
-    // Combined data
-    assets: WalletAsset[];
-    transactions: Transaction[];
-    fiatRates: Rate[];
-    totalBalances: {
-        usd: number;
-        sats: number;
-        rbtc: number;
-        usdt: number;
-        bnb: number;
-    };
-
-    // Exchange rates
-    rbtcToBtcRate: number;
-    rbtcRateError: boolean;
-
-    // UI state
-    activeNetwork: 'liquid' | 'rsk' | 'bsc';
-    activeTab: 'balance' | 'send' | 'receive' | 'transactions' | 'buy-sell' | 'swap';
-    selectedAsset: string;
 }
 
 /**

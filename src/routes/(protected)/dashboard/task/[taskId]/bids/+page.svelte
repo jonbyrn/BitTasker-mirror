@@ -12,7 +12,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import bidService from '$lib/api/services/bid.service';
@@ -357,7 +357,7 @@
 							<!-- Left side: Avatar + Username on same row, then member since and rating below -->
 							<div class="flex min-w-0 flex-1 items-center gap-4">
 								<!-- Avatar -->
-								<div class="avatar flex-shrink-0">
+								<div class="avatar shrink-0">
 									<div
 										class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
 									>
@@ -413,7 +413,7 @@
 							</div>
 
 							<!-- Right side: Status badge and profile link (right-aligned) -->
-							<div class="flex flex-shrink-0 flex-col items-end gap-2">
+							<div class="flex shrink-0 flex-col items-end gap-2">
 								<!-- Bid Status Badge -->
 								{#if bid.status === 'ACCEPTED'}
 									<div class="badge badge-success badge-sm text-primary-content">
@@ -459,10 +459,10 @@
 						<div class="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end">
 							<!-- Description column -->
 							<div class="flex-1 min-w-0">
-								<p class="text-base-content/80 break-words line-clamp-2">{bid.description}</p>
+								<p class="text-base-content/80 wrap-break-words line-clamp-2">{bid.description}</p>
 							</div>
 							<!-- Payment info column (aligned right) -->
-							<div class="flex-shrink-0 text-right">
+							<div class="shrink-0 text-right">
 								<div class="text-xl font-bold sm:text-2xl">
 									${formatNumberWithTwoDecimals(bid.amount)}
 								</div>
@@ -605,7 +605,7 @@
 								<!-- Description -->
 								{#if bid.description}
 									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium break-words">
+										<p class="text-base-content/60 mb-2 text-xs font-medium wrap-break-words">
 											{$t('bids.your_description')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
@@ -620,7 +620,7 @@
 								<!-- Approach -->
 								{#if bid.proposedApproach}
 									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium break-words">
+										<p class="text-base-content/60 mb-2 text-xs font-medium wrap-break-words">
 											{$t('bids.your_approach')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
@@ -635,7 +635,7 @@
 								<!-- Cover Letter -->
 								{#if bid.coverLetter}
 									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium break-words">
+										<p class="text-base-content/60 mb-2 text-xs font-medium wrap-break-words">
 											{$t('bids.your_cover_letter')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
