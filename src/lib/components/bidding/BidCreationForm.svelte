@@ -373,16 +373,28 @@
 				const deviceId = pushNotificationService.getCurrentDeviceId();
 				
 				if (deviceId) {
-					await sendNotificationStore.mutate({
+					const result = await sendNotificationStore.mutate({
 						input: {
 							title: 'New Bid Received',
-							body: `New bid received for task: ${taskTitle || taskId}`,
+							body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId}`,
 							deviceId: deviceId, // Backend should use this to identify the user and notify the task creator
 							type: 'bid_created'
 						}
 					});
 					
-					console.log('✅ Bid notification sent to backend for push notifications');
+					// Check backend response to verify processing
+					if (result.errors) {
+						console.error('❌ GraphQL errors sending bid notification:', result.errors);
+					} else if (result.data?.sendNotification) {
+						const { success, message } = result.data.sendNotification;
+						if (success) {
+							console.log('✅ Backend processed bid notification successfully:', message);
+						} else {
+							console.warn('⚠️ Backend returned failure for bid notification:', message);
+						}
+					} else {
+						console.warn('⚠️ No response data from sendNotification mutation');
+					}
 				} else {
 					console.warn('⚠️ Device ID not available, skipping backend notification');
 				}
