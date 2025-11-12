@@ -41,7 +41,17 @@
 				"task_already_completed": "La tarea ya ha sido marcada como completada en la cadena de bloques.",
 				"task_completion_pending": "La finalización de la tarea ya está en progreso. Por favor, espere a que se confirme la transacción.",
 				"task_already_completed_tooltip": "Esta tarea ya ha sido completada en la cadena de bloques.",
-				"task_completion_pending_tooltip": "La transacción de finalización de la tarea está pendiente de confirmación."
+				"task_completion_pending_tooltip": "La transacción de finalización de la tarea está pendiente de confirmación.",
+				"accept_work_confirm_title": "Aceptar Trabajo",
+				"accept_work_confirm_message": "¿Está seguro de que desea aceptar este trabajo? Esto liberará el pago al taskee. Advertencia: Esta acción no se puede deshacer.",
+				"dispute_work_confirm_title": "Disputar Trabajo",
+				"dispute_work_confirm_message": "¿Está seguro de que desea disputar este trabajo? Esto iniciará una disputa y bloqueará los fondos del depósito. Este proceso le da a usted y al Taskee la oportunidad de llegar a un nuevo acuerdo. Si usted y el Taskee no pueden llegar a un acuerdo, podrá recuperar sus Sats en dos semanas.",
+				"payment_already_released": "El pago ya ha sido liberado para este contrato.",
+				"payment_release_pending": "La liberación del pago ya está en progreso. Por favor, espere a que se confirme la transacción.",
+		"dispute_already_raised": "Ya se ha iniciado una disputa para este contrato.",
+		"dispute_raising_pending": "La disputa ya se está iniciando. Por favor, espere a que se confirme la transacción.",
+		"contract_already_cancelled": "Este contrato ya ha sido cancelado.",
+		"contract_cancellation_pending": "La cancelación del contrato ya está en progreso. Por favor, espere a que se confirme la transacción."
 			}
 		}
 	}

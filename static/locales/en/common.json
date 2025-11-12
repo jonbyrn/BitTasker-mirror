@@ -15,6 +15,10 @@
         "required": "Required",
         "previous": "Previous",
         "next": "Next",
+        "pagination": {
+            "previous": "Previous",
+            "next": "Next"
+        },
         "today": "Today",
         "clear": "Clear",
         "slide": "Slide",
@@ -470,7 +474,7 @@
                     "select_asset": "Select Asset",
                     "network": "Network",
                     "available_balance": "Available Balance",
-                    "available_rbtc_balance": "Available rBTC Balance",
+                    "available_rbtc_balance": "Available L2 Bitcoin Balance",
                     "sats": "Sats"
                 },
                 "balance_card": {

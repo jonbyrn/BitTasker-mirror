@@ -17,7 +17,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { t } from 'svelte-i18n';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
+	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
 
 	// State
 	let conversations = $state<
@@ -37,7 +37,9 @@
 			conversations.map((c) => ({
 				pubkey: c.pubkey,
 				lastEvent: c.lastEvent,
-				lastMessage: parseMessageContent(c.lastEvent.content || ''),
+				// Use content directly since we've already filtered system messages
+				// Only user-to-user messages are stored in conversations
+				lastMessage: c.lastEvent.content || '',
 				lastMessageTime: c.lastEvent.created_at,
 				profile: c.profile
 			})),
@@ -90,39 +92,55 @@
 			// Process conversations in parallel for better performance
 			const conversationPromises = people.map(async (person) => {
 				try {
-					// Obtener historial de mensajes con esta persona (limit to 10 for performance)
+					// First, check if the original last event from getMessagedPeople is already a user message
+					// This avoids unnecessary message history fetches
+					if (person.lastEvent?.content && isUserToUserMessage(person.lastEvent.content)) {
+						// The last event is already a user message, use it directly
+						return person;
+					}
+
+					// The last event is a system message, so we need to find the most recent user message
+					// Fetch message history (limit increased to ensure we find user messages)
+					// We need to fetch more messages to account for system messages that will be filtered out
 					const messageHistory = await getMessageHistory(person.pubkey, { limit: 10 });
 
-					// Find the most recent message (including JSON system messages like bid-status)
-					// We'll parse them to extract readable content
-					const lastMessage = messageHistory
+					// Filter out system messages - only show user-to-user messages
+					const userMessages = messageHistory.filter((msg) => isUserToUserMessage(msg.plaintext));
+
+					// Find the most recent user-to-user message
+					const lastUserMessage = userMessages
 						.sort((a, b) => b.event.created_at - a.event.created_at)[0];
 
-					if (lastMessage) {
-						// Import parseMessageContent to extract readable text from JSON messages
-						const { parseMessageContent } = await import('$lib/utils/helpers/messageParser');
-						const readableContent = parseMessageContent(lastMessage.plaintext);
-						
+					if (lastUserMessage) {
+						// Use the user message content directly (no need to parse as it's already plain text)
 						return {
 							...person,
 							lastEvent: {
 								...person.lastEvent,
-								content: readableContent,
-								created_at: lastMessage.event.created_at
+								content: lastUserMessage.plaintext,
+								created_at: lastUserMessage.event.created_at
 							}
 						};
 					}
 					
-					return person;
+					// If no user messages found in history, exclude this conversation from the list
+					// as it only contains system messages
+					return null;
 				} catch (err) {
-					// Si hay error, incluir la conversación por seguridad
-					return person;
+					console.error('Error processing conversation:', err);
+					// Only include conversation if we can verify it has user messages
+					// For safety, check if the original last event is a user message
+					if (person.lastEvent?.content && isUserToUserMessage(person.lastEvent.content)) {
+						return person;
+					}
+					return null;
 				}
 			});
 
 			// Wait for all conversations to be processed
 			const conversationResults = await Promise.all(conversationPromises);
-			const filteredConversations = conversationResults.filter((conversation): conversation is NonNullable<typeof conversation> => conversation !== undefined);
+			// Filter out null conversations (those with only system messages)
+			const filteredConversations = conversationResults.filter((conversation): conversation is NonNullable<typeof conversation> => conversation !== null && conversation !== undefined);
 
 			// Ordenar conversaciones del más reciente al más antiguo
 			conversations = filteredConversations.sort((a, b) => {
@@ -164,10 +182,10 @@
 		conversationListUnsubscribe = listenForIncomingMessages(async (msg) => {
 			const { plaintext, senderPubkey, event } = msg;
 
-			// Filter out JSON messages (system messages) - they should be handled by notifications
-			const isJsonMessage = plaintext.startsWith('[') || plaintext.startsWith('{');
-			if (isJsonMessage) {
-				return; // Skip JSON messages in conversation list
+			// Filter out system messages - only show user-to-user messages in conversation list
+			// System messages should be handled by notifications, not shown in chat previews
+			if (!isUserToUserMessage(plaintext)) {
+				return; // Skip system messages in conversation list
 			}
 
 			// Find or create conversation for this message

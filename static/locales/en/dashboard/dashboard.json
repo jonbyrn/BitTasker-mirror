@@ -458,6 +458,18 @@
       "bid_now": "Bid Now",
       "view_bid": "View Bid"
     },
+    "tasks": {
+      "title": "My Tasks",
+      "description": "Manage your tasks",
+      "loading": "Loading tasks...",
+      "error_title": "Failed to load tasks",
+      "retry": "Retry",
+      "refresh": "Refresh",
+      "no_tasks": "No tasks found",
+      "no_tasks_description": "You don't have any tasks yet. Create a task to get started.",
+      "no_filtered_tasks": "No tasks match your filters",
+      "try_different_filters": "Try adjusting your filters to see more tasks."
+    },
     "contracts": {
       "title": "Contracts",
       "description": "Manage your active contracts and escrow agreements",
@@ -487,6 +499,9 @@
       "close_modal": "Close modal",
       "close": "Close",
       "contract_details": "Contract Details",
+      "anonymous": "Anonymous",
+      "member_since": "Member since",
+      "tasks": "tasks",
       "estimated_start": "Estimated Start",
       "estimated_completion": "Estimated Completion",
       "task_description": "Task Description",
@@ -604,6 +619,7 @@
         "from_freelancer": "From Taskee",
         "from_unknown": "Unknown sender",
         "transaction": "Transaction",
+        "view_transaction": "View Transaction",
         "proposed_split": "Proposed Split",
         "actions": {
           "task_completed": "Task marked as completed",

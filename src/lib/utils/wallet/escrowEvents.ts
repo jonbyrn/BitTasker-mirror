@@ -30,6 +30,7 @@ export interface ContractCreationEvent {
 // Stores for escrow events
 export const escrowCreatedStore = writable<EscrowCreatedEvent | null>(null);
 export const contractCreationStore = writable<ContractCreationEvent | null>(null);
+export const contractUpdateStore = writable<string[]>([]);
 
 // Pending contract creation requests
 interface PendingContractCreation {
@@ -169,8 +170,8 @@ export async function handleTaskCompleted(event: {
 		updateEscrowStatus(event.escrowId, EscrowStatus.Completed);
 
 		// Update completion cache to confirmed
-		const { updateCompletionStatus } = await import('$lib/stores/completionCache.store');
-		updateCompletionStatus(event.escrowId, 'confirmed', event.transactionHash);
+		const { updateCompleteCancelStatus } = await import('$lib/stores/completionCache.store');
+		updateCompleteCancelStatus(event.escrowId, 'confirmed', event.transactionHash);
 
 		// Publish status update to Nostr with completion attachments
 		await publishContractStatus({
@@ -200,6 +201,13 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
 
+		// Update accept/dispute cache to confirmed
+		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
+		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
+
+		// Add escrowId to contract update queue
+		contractUpdateStore.update(ids => [...ids, event.escrowId]);
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -227,6 +235,13 @@ export async function handleTaskDisputed(event: { escrowId: string; transactionH
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.InDispute);
+
+		// Update accept/dispute cache to confirmed
+		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
+		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
+
+		// Add escrowId to contract update queue
+		contractUpdateStore.update(ids => [...ids, event.escrowId]);
 
 		// Publish status update to Nostr
 		await publishContractStatus({
@@ -313,6 +328,13 @@ export async function handleEscrowCancelled(event: { escrowId: string; transacti
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.Cancelled);
+
+		// Update complete/cancel cache to confirmed
+		const { updateCompleteCancelStatus } = await import('$lib/stores/completionCache.store');
+		updateCompleteCancelStatus(event.escrowId, 'confirmed', event.transactionHash);
+
+		// Add escrowId to contract update queue
+		contractUpdateStore.update(ids => [...ids, event.escrowId]);
 
 		// Publish status update to Nostr
 		await publishContractStatus({

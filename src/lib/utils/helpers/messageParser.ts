@@ -33,22 +33,50 @@ export function parseMessageContent(plaintext: string): string {
 }
 
 /**
- * Check if a message is a JSON system message (should be parsed for display)
+ * Check if a message is a JSON system message (should be filtered out from chat)
+ * Returns true for all system/automated messages that shouldn't be shown in user-to-user chat
+ * 
+ * System messages are identified by having a 'messageType' property in their JSON structure.
+ * All system messages (bids, contracts, status updates, payments, etc.) have this property.
+ * User messages are plain text and don't have this property, so they pass through.
  */
 export function isJsonSystemMessage(plaintext: string): boolean {
 	if (!plaintext || !plaintext.trim()) {
 		return false;
 	}
 
+	// Check if it's a JSON message
 	if (plaintext.startsWith('{') || plaintext.startsWith('[')) {
 		try {
 			const parsed = JSON.parse(plaintext);
-			return parsed.messageType === 'bid-status' || parsed.messageType === 'contract' || parsed.messageType === 'contract-status';
+			
+			// If the message has a messageType property, it's a system message
+			// This catches ALL system messages regardless of their specific type:
+			// - bid, bid-status (accepted/rejected)
+			// - contract, contract-status
+			// - task-completed, payment, payment-released
+			// - dispute-raised, resolution-proposed, proposal-accepted
+			// - escrow-cancelled, timelock-resolved
+			// - and any future system message types
+			if (parsed && typeof parsed === 'object' && parsed !== null && 'messageType' in parsed) {
+				return true;
+			}
+			
+			return false;
 		} catch {
+			// If it's not valid JSON, it's not a system message
 			return false;
 		}
 	}
 
 	return false;
+}
+
+/**
+ * Check if a message is a user-to-user chat message (should be displayed)
+ * Returns true only for non-system messages
+ */
+export function isUserToUserMessage(plaintext: string): boolean {
+	return !isJsonSystemMessage(plaintext);
 }
 

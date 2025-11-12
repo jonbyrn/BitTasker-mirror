@@ -14,6 +14,7 @@
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 	import { TranslationStore } from '$lib/stores/translation.store';
 	import { TranslationService } from '$lib/services/translation.service';
+	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
 
 	// Props
 	let {
@@ -171,18 +172,13 @@
 				// Mark as processed immediately to avoid duplicates
 				processedMessageIds.add(messageId);
 
-				// Only translate incoming messages with text content
-				if (!isFromCurrentUser && hasText && hasText.length > 3) {
-					const isNotSystemMessage =
-						!message.plaintext.startsWith('[') && !message.plaintext.startsWith('{');
-
-					if (isNotSystemMessage) {
-						try {
-							// TranslationStore handles duplicate prevention internally
-							const result = await TranslationStore.translateMessage(messageId, message.plaintext);
-						} catch (error) {
-							console.error('Translation error for new message', messageId, ':', error);
-						}
+				// Only translate incoming user-to-user messages with text content
+				if (!isFromCurrentUser && hasText && hasText.length > 3 && isUserToUserMessage(message.plaintext)) {
+					try {
+						// TranslationStore handles duplicate prevention internally
+						const result = await TranslationStore.translateMessage(messageId, message.plaintext);
+					} catch (error) {
+						console.error('Translation error for new message', messageId, ':', error);
 					}
 				}
 			});
@@ -364,8 +360,11 @@
 				limit: MESSAGES_PER_PAGE
 			});
 
+			// Filter out system messages (bids, contracts, etc.) - only show user-to-user messages
+			const userMessages = messageHistory.filter((msg) => isUserToUserMessage(msg.plaintext));
+
 			// Sort messages by timestamp (oldest first)
-			const sortedMessages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
+			const sortedMessages = userMessages.sort((a, b) => a.event.created_at - b.event.created_at);
 			messages = sortedMessages;
 
 			// Update pagination state
@@ -410,29 +409,49 @@
 				until: oldestMessageTimestamp - 1 // Subtract 1 to exclude the oldest message we already have
 			});
 
+			// Check if we received fewer messages than requested (means no more messages available)
+			// This check must be done BEFORE filtering to correctly determine if there are more messages
+			const hasMoreRawMessages = olderMessages.length === MESSAGES_PER_PAGE;
+
 			if (olderMessages.length > 0) {
-				// Sort and prepend older messages
-				const sortedOlderMessages = olderMessages.sort(
-					(a, b) => a.event.created_at - b.event.created_at
-				);
-				messages = [...sortedOlderMessages, ...messages];
+				// Filter out system messages (bids, contracts, etc.) - only show user-to-user messages
+				const userOlderMessages = olderMessages.filter((msg) => isUserToUserMessage(msg.plaintext));
+				
+				// Only update messages and timestamp if we have user messages after filtering
+				if (userOlderMessages.length > 0) {
+					// Sort and prepend older messages
+					const sortedOlderMessages = userOlderMessages.sort(
+						(a, b) => a.event.created_at - b.event.created_at
+					);
+					messages = [...sortedOlderMessages, ...messages];
 
-				// Update oldest timestamp
-				oldestMessageTimestamp = sortedOlderMessages[0].event.created_at;
+					// Update oldest timestamp only if we actually added user messages
+					oldestMessageTimestamp = sortedOlderMessages[0].event.created_at;
+				}
+				// If all messages were system messages, we don't update the messages array or timestamp
+				// but we still need to check if there are more messages to load
 
-				// Check if we have more messages to load
-				hasMoreMessages = olderMessages.length === MESSAGES_PER_PAGE;
-
-				// Preserve scroll position
-				setTimeout(() => {
-					if (messagesContainer) {
-						const newScrollHeight = messagesContainer.scrollHeight;
-						const scrollDiff = newScrollHeight - previousScrollHeight;
-						messagesContainer.scrollTop += scrollDiff;
-					}
-				}, 0);
+				// Set hasMoreMessages based on whether we received the full requested amount
+				// If we got fewer than requested, there are no more messages
+				// If we got exactly the requested amount, there might be more (even if they're system messages)
+				hasMoreMessages = hasMoreRawMessages;
 			} else {
+				// No messages returned from API - definitely no more messages
 				hasMoreMessages = false;
+			}
+			
+			// Preserve scroll position (only if we actually added messages)
+			if (olderMessages.length > 0) {
+				const userOlderMessages = olderMessages.filter((msg) => isUserToUserMessage(msg.plaintext));
+				if (userOlderMessages.length > 0) {
+					setTimeout(() => {
+						if (messagesContainer) {
+							const newScrollHeight = messagesContainer.scrollHeight;
+							const scrollDiff = newScrollHeight - previousScrollHeight;
+							messagesContainer.scrollTop += scrollDiff;
+						}
+					}, 0);
+				}
 			}
 		} catch (err) {
 			console.error('Error loading more messages:', err);
@@ -453,11 +472,13 @@
 		unsubscribe = listenForIncomingMessages((msg) => {
 			const { plaintext, senderPubkey, event } = msg;
 
-			// Only add messages that are relevant to this conversation
+			// Only add messages that are relevant to this conversation AND are user-to-user messages
+			// Filter out system messages (bids, contracts, etc.)
 			if (
-				senderPubkey === recipientHex() ||
-				(senderPubkey === currentUserHex() &&
-					event.tags.some((tag) => tag[0] === 'p' && tag[1] === recipientHex()))
+				(senderPubkey === recipientHex() ||
+					(senderPubkey === currentUserHex() &&
+						event.tags.some((tag) => tag[0] === 'p' && tag[1] === recipientHex()))) &&
+				isUserToUserMessage(plaintext)
 			) {
 				// Check if we already have this message to avoid duplicates
 				const existingMessageIndex = messages.findIndex((existingMsg) => {

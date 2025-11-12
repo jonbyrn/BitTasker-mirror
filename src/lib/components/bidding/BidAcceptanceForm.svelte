@@ -22,7 +22,6 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import IconContentCopy from '~icons/mdi/content-copy';
-	import { sendDirectMessage } from '$lib/utils/nostr-message';
 	// Props
 	const props = $props<{
 		bid: SimplifiedTaskBid;
@@ -130,18 +129,8 @@
 
 				currentScreen = 'success';
 
-				// Send automatic message to bidder
-				try {
-					const bidderPubkey = props.bid.userProfile?.user?.id;
-					if (bidderPubkey) {
-						const acceptanceMessage = $t('dashboard.bids.bid_acceptance.acceptance_message');
-						await sendDirectMessage(acceptanceMessage, bidderPubkey);
-						console.log('✅ Acceptance message sent to bidder');
-					}
-				} catch (error) {
-					// Don't fail the bid acceptance if message sending fails
-					console.warn('⚠️ Failed to send acceptance message:', error);
-				}
+				// Note: Bid status update is automatically sent via escrowEvents.ts
+				// after contract creation, so we don't need to send a separate message here
 			} else {
 				// Show error
 				validationErrors = [result.error || 'Failed to create escrow'];
@@ -808,9 +797,6 @@
 								<div class="flex items-center space-x-2">
 									<h4 class="font-semibold">{$t('common.components.wallet.asset_selector.available_rbtc_balance')}</h4>
 								</div>
-								<p class="text-base-content/70 text-sm">
-									{$walletStore.rsk.formattedBalance} rBTC
-								</p>
 								<p class="text-primary font-bold text-lg">
 									{formatRBTCToSats($walletStore.rsk.formattedBalance)} {$t('common.components.wallet.asset_selector.sats')}
 								</p>
