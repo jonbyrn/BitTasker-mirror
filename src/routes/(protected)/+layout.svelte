@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { authState } from '$lib/stores/auth.store';
 	import { t } from 'svelte-i18n';
+	import '$lib/utils/push-notification-test-helper'; // Make push notification test helper available in console
 	const { children } = $props();
 </script>
 
