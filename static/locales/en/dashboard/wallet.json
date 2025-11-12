@@ -511,14 +511,21 @@
       "total_fees": "Total Fees",
       "estimated_received": "Estimated Received",
       "total_received_est": "Total Received (est)",
+      "loading_fees": "Calculating fees...",
+      "service_fee": "Service Fee",
+      "miner_fee": "Miner Fee",
       "error": {
         "auth_required": "Authentication required. Please sign in again.",
         "minimum_amount": "Minimum amount is {minAmount} sats ({minBTC} BTC)",
         "minimum_amount_sats": "Minimum amount is {minAmount} sats",
         "maximum_amount_sats": "Maximum amount is {maxAmount} sats",
+        "amount_above_maximum": "Amount above maximum ({max} sats)",
         "create_failed": "Failed to create swap",
         "claim_failed": "Failed to claim RBTC",
-        "delete_failed": "❌ Failed to delete swap"
+        "delete_failed": "❌ Failed to delete swap",
+        "insufficient_balance_with_fees": "Insufficient balance. Need {needed} sats, have {available} sats (shortfall: {shortfall} sats)",
+        "insufficient_balance_with_gas": "Insufficient balance. Need {swapAmount} sats + {gasAmount} sats gas = {totalNeeded} sats. Available: {available} sats. Shortfall: {shortfall} sats",
+        "fee_fetch_failed": "Failed to fetch fee estimate"
       },
       "lightning": {
         "title": "Lightning → rBTC Swap",
@@ -580,6 +587,8 @@
         "invoice_placeholder": "lnbc... (paste or scan QR code)",
         "scan_qr": "Scan QR Code",
         "invoice_created": "Swap created - ready to lock funds",
+        "invoice_breakdown": "Invoice Breakdown",
+        "invoice_amount": "Invoice Amount",
         "lock_funds_button": "Lock {amount} rBTC & Pay Invoice",
         "pay_invoice_button": "Pay Invoice",
         "locking_funds": "Locking rBTC...",
@@ -589,40 +598,9 @@
         "gas_fees": "Gas Fees (estimated)",
         "total_required": "Total Required",
         "swap_complete": "Complete",
-        "status": {
-          "ready_to_lock": "Ready - lock rBTC to pay invoice",
-          "funds_locked": "Funds locked - Waiting for confirmations...",
-          "lockup_confirmed": "Confirmed - Boltz paying invoice...",
-          "invoice_paid": "Invoice paid successfully! ✅",
-          "swap_complete": "Swap completed! ✓",
-          "expired": "Expired - Delete to remove",
-          "failed": "Failed - Delete to remove",
-          "refunded": "Refunded",
-          "processing": "Processing..."
+        "error": {
+          "invoice_no_amount": "Invoice must include an amount. Amountless invoices are not supported for submarine swaps."
         },
-        "helper": {
-          "paste_invoice": "Paste or scan a Lightning invoice to begin",
-          "lock_to_pay": "Lock rBTC to pay the Lightning invoice",
-          "waiting_payment": "Waiting for Boltz to pay invoice...",
-          "payment_complete": "Lightning invoice paid successfully!"
-        }
-      },
-      "submarine": {
-        "title": "Pay Lightning Invoice (rBTC → Lightning)",
-        "description": "Pay Lightning invoices by locking rBTC. Fees: ~0.4-0.5%",
-        "invoice_label": "Lightning Invoice",
-        "invoice_placeholder": "lnbc... (paste or scan QR code)",
-        "scan_qr": "Scan QR Code",
-        "invoice_created": "Swap created - ready to lock funds",
-        "lock_funds_button": "Lock {amount} rBTC & Pay Invoice",
-        "pay_invoice_button": "Pay Invoice",
-        "locking_funds": "Locking rBTC...",
-        "invoice_paid": "✅ Invoice paid by Boltz!",
-        "generate_swap": "Create Swap",
-        "swap_amount": "Swap Amount",
-        "gas_fees": "Gas Fees (estimated)",
-        "total_required": "Total Required",
-        "swap_complete": "Complete",
         "status": {
           "ready_to_lock": "Ready - lock rBTC to pay invoice",
           "funds_locked": "Funds locked - Waiting for confirmations...",

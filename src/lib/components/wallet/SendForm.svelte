@@ -8,13 +8,6 @@
 		validateBitcoinAddress,
 		type ValidationResult
 	} from '$lib/utils/helpers/validators';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import {
-		parseLightningInvoice,
-		isLightningInvoice,
-		isLightningAddress,
-		isBolt12Invoice
-	} from '$lib/utils/helpers/lightningInvoice';
 	import SubmarineSend from './SubmarineSend.svelte';
 
 	type ExtendedAsset = {
@@ -26,22 +19,6 @@
 		formattedBalance: string;
 		icon: string | null;
 	};
-
-	// Lightning swap state (for fee breakdown and validation)
-	let minAmount = $state<number>(0);
-	let maxAmount = $state<number>(0);
-	let isLoadingLimits = $state(false);
-	let btcPrice = $state<number>(0);
-	let isLoadingPrice = $state(false);
-	let amountError = $state<string | null>(null);
-	let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
-	let invoiceParseTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	// Lightning invoice parsing state
-	let invoiceAmount = $state<number | null>(null);
-	let invoiceHasAmount = $state(false);
-	let showAmountField = $state(false); // Start hidden until address is entered
-	let isParsingInvoice = $state(false);
 
 	// Asset options (Bitcoin and USD)
 	const assetOptions = [
@@ -82,7 +59,8 @@
 					icon: '/images/chains/lightning.svg',
 					placeholderKey: 'wallet.send.placeholder_lightning',
 					sendButtonKey: 'wallet.send.button_lightning',
-					isComingSoon: true
+					usesSats: true,
+					isComingSoon: false
 				},
 				{
 					value: 'rootstock-bitcoin',
@@ -91,6 +69,7 @@
 					icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 					placeholderKey: 'wallet.send.placeholder_rootstock',
 					sendButtonKey: 'wallet.send.button_rootstock',
+					usesSats: true,
 					isComingSoon: false
 				},
 				{
@@ -100,6 +79,7 @@
 					icon: '/images/chains/Liquid-Bitcoin.svg',
 					placeholderKey: 'wallet.send.placeholder_liquid_btc',
 					sendButtonKey: 'wallet.send.button_liquid_btc',
+					usesSats: false,
 					isComingSoon: true
 				},
 				{
@@ -109,6 +89,7 @@
 					icon: '/images/chains/Bitcoin.svg',
 					placeholderKey: 'wallet.send.placeholder_bitcoin',
 					sendButtonKey: 'wallet.send.button_bitcoin',
+					usesSats: false,
 					isComingSoon: true
 				}
 			];
@@ -121,7 +102,8 @@
 					icon: '/images/chains/Tether-USD.svg',
 					placeholderKey: 'wallet.send.placeholder_liquid_usdt',
 					sendButtonKey: 'wallet.send.button_liquid_usdt',
-					isComingSoon: false
+					usesSats: false,
+					isComingSoon: true
 				}
 			];
 		}
@@ -161,21 +143,14 @@
 		return [];
 	});
 
-	/**
-	 * Fetch BTC price for USD conversion
-	 */
-	async function fetchBtcPrice() {
-		try {
-			isLoadingPrice = true;
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (err) {
-			console.error('Failed to fetch BTC price:', err);
-			// Use fallback price if fetch fails
-			btcPrice = 60000; // Fallback to ~$60k
-		} finally {
-			isLoadingPrice = false;
+	// Get current asset info based on selected network
+	let currentAsset = $derived(() => {
+		const assets = availableAssets();
+		if (assets.length > 0) {
+			return assets[0]; // Return the first (and typically only) asset for the selected network
 		}
-	}
+		return null;
+	});
 
 	// Validate address in real-time based on selected network
 	$effect(() => {
@@ -186,8 +161,6 @@
 
 		if (selectedNetwork.value === 'rootstock-bitcoin') {
 			addressValidation = validateRSKAddress(recipientAddress);
-		} else if (selectedNetwork.value === 'lightning-bitcoin') {
-			addressValidation = validateLightningAddress(recipientAddress);
 		} else if (selectedNetwork.value === 'bitcoin') {
 			addressValidation = validateBitcoinAddress(recipientAddress);
 		} else if (
@@ -198,233 +171,6 @@
 			addressValidation = validateBitcoinAddress(recipientAddress);
 		} else {
 			addressValidation = { isValid: true };
-		}
-	});
-
-	/**
-	 * Validate amount and update error state
-	 */
-	function validateAmount(value: string | number) {
-		amountError = null;
-
-		// Only validate for Lightning network
-		if (selectedNetwork.value !== 'lightning-bitcoin') {
-			return;
-		}
-
-		// If invoice has an amount, validate it against limits and balance
-		if (invoiceHasAmount && invoiceAmount !== null) {
-			// Validate invoice amount against limits
-			if (!isLoadingLimits) {
-				if (minAmount > 0 && invoiceAmount < minAmount) {
-					amountError = $t('wallet.swap.error.minimum_amount_sats', {
-						values: { minAmount: minAmount.toLocaleString() }
-					});
-					return;
-				}
-
-				if (maxAmount > 0 && invoiceAmount > maxAmount) {
-					amountError = $t('wallet.swap.error.maximum_amount_sats', {
-						values: { maxAmount: maxAmount.toLocaleString() }
-					});
-					return;
-				}
-			}
-
-			// Validate invoice amount against balance
-			if (invoiceAmount > balanceInSats) {
-				amountError = $t('wallet.validation.insufficient_balance');
-				return;
-			}
-
-			// Invoice amount is valid
-			return;
-		}
-
-		// Convert to string for validation
-		const valueStr = String(value ?? '');
-
-		// Check if value is empty or whitespace
-		if (valueStr.trim() === '' || value === null || value === undefined) {
-			// For amountless invoices, require at least 1 sat
-			if (showAmountField && !invoiceHasAmount) {
-				amountError = $t('wallet.validation.amount_required');
-			}
-			return;
-		}
-
-		const amountSats = parseFloat(valueStr);
-
-		if (isNaN(amountSats) || amountSats <= 0) {
-			amountError = $t('wallet.validation.amount_required');
-			return;
-		}
-
-		// For amountless invoices, require at least 1 sat
-		if (!invoiceHasAmount && amountSats < 1) {
-			amountError = $t('wallet.validation.amount_required');
-			return;
-		}
-
-		// Only validate against limits if they've been loaded
-		if (!isLoadingLimits) {
-			if (minAmount > 0 && amountSats < minAmount) {
-				amountError = $t('wallet.swap.error.minimum_amount_sats', {
-					values: { minAmount: minAmount.toLocaleString() }
-				});
-				return;
-			}
-
-			if (maxAmount > 0 && amountSats > maxAmount) {
-				amountError = $t('wallet.swap.error.maximum_amount_sats', {
-					values: { maxAmount: maxAmount.toLocaleString() }
-				});
-				return;
-			}
-		}
-	}
-
-	// Validate address in real-time based on selected network and parse Lightning invoices
-	$effect(() => {
-		// Guard against non-string values
-		if (typeof recipientAddress !== 'string' && recipientAddress != null) {
-			const nonStringAddress = recipientAddress as unknown;
-			console.error('[SendForm] ERROR: recipientAddress is not a string!', {
-				type: typeof recipientAddress,
-				value: recipientAddress,
-				constructor: (nonStringAddress as any)?.constructor?.name
-			});
-		}
-
-		const currentAddress = typeof recipientAddress === 'string' ? recipientAddress.trim() : '';
-		const currentNetwork = selectedNetwork;
-
-		// Clear invoice parsing timeout if it exists
-		if (invoiceParseTimeout) {
-			clearTimeout(invoiceParseTimeout);
-			invoiceParseTimeout = null;
-		}
-
-		if (!currentAddress) {
-			addressValidation = { isValid: true }; // Empty is valid (not touched yet)
-			showAmountField = false;
-			invoiceAmount = null;
-			invoiceHasAmount = false;
-			// Don't clear amount if user is just clearing address temporarily
-			// Only clear if switching networks or explicitly clearing
-			return;
-		}
-
-		if (currentNetwork.value === 'rootstock-bitcoin') {
-			// Ensure recipientAddress is a string before validation
-			const addressForValidation =
-				typeof recipientAddress === 'string' ? recipientAddress : String(recipientAddress || '');
-
-			addressValidation = validateRSKAddress(addressForValidation);
-			showAmountField = true;
-			invoiceAmount = null;
-			invoiceHasAmount = false;
-		} else if (currentNetwork.value === 'lightning-bitcoin') {
-			// Ensure recipientAddress is a string before validation
-			const addressForValidation =
-				typeof recipientAddress === 'string' ? recipientAddress : String(recipientAddress || '');
-			addressValidation = validateLightningAddress(addressForValidation);
-
-			// Parse invoice immediately (no debounce needed since we're not overwriting user input)
-			// Check if it's a Lightning invoice (BOLT11 or BOLT12)
-			if (isLightningInvoice(recipientAddress)) {
-				// Check if it's BOLT12 (offers are always amountless - payer chooses amount)
-				if (isBolt12Invoice(recipientAddress)) {
-					// BOLT12 offers - always show amount field (payer chooses amount)
-					showAmountField = true;
-					invoiceAmount = null;
-					invoiceHasAmount = false;
-					// Don't clear amount if user has entered one
-					if (!amount) {
-						amount = '';
-					}
-				} else {
-					// BOLT11 invoice - parse using bolt11 library
-					const parsed = parseLightningInvoice(recipientAddress);
-
-					if (parsed.isValid) {
-						invoiceHasAmount = parsed.hasAmount;
-						invoiceAmount = parsed.amountSats;
-
-						// If invoice has an amount, hide the amount field and show read-only display
-						if (parsed.hasAmount && parsed.amountSats !== null) {
-							showAmountField = false; // Hide field completely, show amount as read-only below
-							amount = ''; // Clear amount field since we'll show it read-only
-							// Validate the invoice amount
-							validateAmount(parsed.amountSats);
-						} else {
-							// Amountless BOLT11 invoice - show amount field
-							showAmountField = true;
-							// Don't clear amount if user has entered one
-							if (!amount) {
-								amount = '';
-							}
-						}
-					} else {
-						// Invalid BOLT11 invoice
-						showAmountField = false;
-						invoiceAmount = null;
-						invoiceHasAmount = false;
-						amountError = null;
-					}
-				}
-			} else if (isLightningAddress(recipientAddress)) {
-				// Lightning address (email format) - show amount field
-				showAmountField = true;
-				invoiceAmount = null;
-				invoiceHasAmount = false;
-			} else {
-				showAmountField = false;
-				invoiceAmount = null;
-				invoiceHasAmount = false;
-			}
-		} else if (currentNetwork.value === 'bitcoin') {
-			// Ensure recipientAddress is a string before validation
-			const addressForValidation =
-				typeof recipientAddress === 'string' ? recipientAddress : String(recipientAddress || '');
-			addressValidation = validateBitcoinAddress(addressForValidation);
-			showAmountField = true;
-			invoiceAmount = null;
-			invoiceHasAmount = false;
-		} else if (
-			currentNetwork.value === 'liquid-bitcoin' ||
-			currentNetwork.value === 'liquid-usdt'
-		) {
-			// Liquid uses similar address format to Bitcoin
-			// Ensure recipientAddress is a string before validation
-			const addressForValidation =
-				typeof recipientAddress === 'string' ? recipientAddress : String(recipientAddress || '');
-			addressValidation = validateBitcoinAddress(addressForValidation);
-			showAmountField = true;
-			invoiceAmount = null;
-			invoiceHasAmount = false;
-		} else {
-			addressValidation = { isValid: true };
-			showAmountField = true;
-			invoiceAmount = null;
-			invoiceHasAmount = false;
-		}
-
-		// Cleanup function
-		return () => {
-			if (invoiceParseTimeout) {
-				clearTimeout(invoiceParseTimeout);
-			}
-		};
-	});
-
-	// Reset invoice state when switching networks away from Lightning
-	$effect(() => {
-		if (selectedNetwork.value !== 'lightning-bitcoin') {
-			invoiceAmount = null;
-			invoiceHasAmount = false;
-			// Only reset showAmountField if we're not on Lightning network
-			// For other networks, showAmountField is set in the address validation effect
 		}
 	});
 
@@ -459,121 +205,28 @@
 		}
 	}
 
-	// Get current asset info based on selected network
-	let currentAsset = $derived(() => {
-		const assets = availableAssets();
-		if (assets.length > 0) {
-			return assets[0]; // Return the first (and typically only) asset for the selected network
-		}
-		return null;
-	});
-
-	function closeNetworkDropdown() {
-		dropdownKey++;
-	}
-
-	// Check if network uses sats (Lightning and rBTC)
-	let usesSats = $derived(
-		selectedNetwork.value === 'lightning-bitcoin' || selectedNetwork.value === 'rootstock-bitcoin'
-	);
-
 	// Convert balance to sats if needed
 	let balanceInSats = $derived.by(() => {
 		if (!currentAsset()) return 0;
-		if (usesSats) {
+		if (selectedNetwork.usesSats) {
 			// Convert BTC balance to sats
 			return Math.floor((currentAsset()?.balance || 0) * 100_000_000);
 		}
 		return currentAsset()?.balance || 0;
 	});
 
-	// Convert amount to sats for validation
-	let amountInSats = $derived.by(() => {
-		// DIAGNOSTIC LOG: Log amount type and value
-		console.log('[SendForm] amountInSats derived - amount type:', typeof amount);
-		console.log('[SendForm] amountInSats derived - amount value:', amount);
-
-		// Ensure amount is a string before calling trim
-		const amountStr = typeof amount === 'string' ? amount : String(amount || '');
-		if (!amount || amountStr.trim() === '') return 0;
-		const amountNum = parseFloat(amountStr);
-		if (isNaN(amountNum)) return 0;
-		return usesSats ? Math.floor(amountNum) : Math.floor(amountNum * 100_000_000);
-	});
-
-	// Fee breakdown for Lightning swaps (same as LightningReceive)
-	// Use amount directly for immediate reactivity, just like LightningReceive
-	// If invoice has amount, use that; otherwise use entered amount
-	let amountSatsForFees = $derived.by(() => {
-		if (selectedNetwork.value === 'lightning-bitcoin') {
-			if (invoiceHasAmount && invoiceAmount !== null) {
-				return invoiceAmount;
-			}
-			// Ensure amount is converted to string/number properly for parseFloat
-			const amountValue = typeof amount === 'string' ? amount : String(amount || '');
-			return parseFloat(amountValue) || 0;
-		}
-		return 0;
-	});
-	let swapFee = $derived(amountSatsForFees > 0 ? Math.ceil(amountSatsForFees * 0.0045) : 0); // Boltz service fee: ~0.45%
-	let networkFee = $derived(selectedNetwork.value === 'lightning-bitcoin' ? 150 : 0); // Estimated network transaction fee in sats
-	let totalFees = $derived(swapFee + networkFee);
-	let totalReceived = $derived(Math.max(0, amountSatsForFees - totalFees));
+	// Enhanced form validation
+	let isFormValid = $derived(
+		recipientAddress?.trim() !== '' &&
+			addressValidation.isValid &&
+			String(amount || '').trim() !== '' &&
+			parseFloat(amount) > 0 &&
+			currentAsset() &&
+			parseFloat(amount) <= (currentAsset()?.balance || 0)
+	);
 
 	// Individual validation states for better UX
-	let hasValidAmount = $derived(() => {
-		// Ensure amount is a string before calling trim
-		const amountStr = typeof amount === 'string' ? amount : String(amount || '');
-		return amountStr.trim() !== '' && parseFloat(amountStr) > 0;
-	});
-
-	// Enhanced form validation - updated to work with sats
-	let isFormValid = $derived(() => {
-		const recipientAddressTrimmed =
-			typeof recipientAddress === 'string' ? recipientAddress.trim() : '';
-
-		if (!recipientAddressTrimmed || !addressValidation.isValid || !currentAsset()) {
-			return false;
-		}
-
-		// For Lightning network with invoice that has amount, validation passes if invoice is valid
-		if (
-			selectedNetwork.value === 'lightning-bitcoin' &&
-			invoiceHasAmount &&
-			invoiceAmount !== null
-		) {
-			return (
-				invoiceAmount > 0 &&
-				invoiceAmount <= balanceInSats &&
-				amountError === null &&
-				(minAmount === 0 || invoiceAmount >= minAmount) &&
-				(maxAmount === 0 || invoiceAmount <= maxAmount)
-			);
-		}
-
-		// For other cases, require amount field
-		if (!showAmountField && selectedNetwork.value === 'lightning-bitcoin') {
-			return false; // Should show amount field but doesn't
-		}
-
-		// Standard validation - ensure amount is a string before calling trim
-		const amountStr = typeof amount === 'string' ? amount : String(amount || '');
-		const hasValidAmount = amountStr.trim() !== '' && amountInSats > 0;
-		if (!hasValidAmount) {
-			return false;
-		}
-
-		return (
-			amountInSats <= balanceInSats &&
-			amountError === null &&
-			(selectedNetwork.value !== 'lightning-bitcoin' ||
-				minAmount === 0 ||
-				amountInSats >= minAmount) &&
-			(selectedNetwork.value !== 'lightning-bitcoin' ||
-				maxAmount === 0 ||
-				amountInSats <= maxAmount)
-		);
-	});
+	let hasValidAmount = $derived(String(amount || '').trim() !== '' && parseFloat(amount) > 0);
 
 	// Get validation error message for display
 	let validationError = $derived(() => {
@@ -620,8 +273,6 @@
 				selectedNetwork.value === 'bitcoin'
 			) {
 				throw new Error('Liquid and Bitcoin transactions not yet implemented');
-			} else if (selectedNetwork.value === 'lightning-bitcoin') {
-				throw new Error('Lightning Bitcoin transactions not yet implemented');
 			} else {
 				throw new Error('Transaction type not yet implemented');
 			}
@@ -772,7 +423,7 @@
 									class="flex w-full items-center justify-start gap-2"
 									onclick={() => {
 										selectedNetwork = network;
-										closeNetworkDropdown();
+										dropdownKey++;
 									}}
 								>
 									<img src={network.icon} alt={network.label} class="h-5 w-5" />
@@ -843,70 +494,37 @@
 		</div>
 	{/if}
 
-	<!-- Submarine Swap for Lightning Bitcoin -->
-	{#if selectedNetwork.value === 'lightning-bitcoin'}
-		<SubmarineSend />
-	{/if}
-
 	<!-- Input Fields - Hidden for Coming Soon networks and Lightning Bitcoin (uses SubmarineSend) -->
-	{#if selectedAsset !== 'usd' && !selectedNetwork.isComingSoon && selectedNetwork.value !== 'lightning-bitcoin'}
-		<!-- Recipient Address -->
-		<div class="form-control">
-			<label class="label" for="recipient-address">
-				<span class="label-text font-medium">{$t('wallet.recipient_address')}</span>
-			</label>
-			<input
-				id="recipient-address"
-				bind:value={recipientAddress}
-				placeholder={$t(selectedNetwork.placeholderKey)}
-				class="input input-bordered w-full"
-				class:input-error={!addressValidation.isValid && recipientAddress.trim() !== ''}
-				disabled={isLoading}
-			/>
-			{#if !addressValidation.isValid && (typeof recipientAddress === 'string' ? recipientAddress.trim() : '') !== ''}
-				<div class="label">
-					<span class="label-text-alt text-error">{addressValidation.error}</span>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Invoice Amount Display (read-only, shown when invoice has amount) -->
-		{#if selectedNetwork.value === 'lightning-bitcoin' && invoiceHasAmount && invoiceAmount !== null}
+	{#if selectedAsset !== 'usd' && !selectedNetwork.isComingSoon}
+		<!-- Submarine Swap for Lightning Bitcoin -->
+		{#if selectedNetwork.value === 'lightning-bitcoin'}
+			<SubmarineSend />
+		{:else}
+			<!-- Recipient Address -->
 			<div class="form-control">
-				<label class="label" for="invoice-amount">
-					<span class="label-text font-medium">
-						{$t('wallet.swap.amount_sats')}
-					</span>
+				<label class="label" for="recipient-address">
+					<span class="label-text font-medium">{$t('wallet.recipient_address')}</span>
 				</label>
-				<div class="input input-bordered bg-base-200 cursor-not-allowed">
-					{invoiceAmount.toLocaleString()}
-					{$t('wallet.sats')}
-					<span class="ml-2 text-sm opacity-70">({$t('wallet.swap.amount_from_invoice')})</span>
-				</div>
-				{#if amountError}
+				<input
+					id="recipient-address"
+					bind:value={recipientAddress}
+					placeholder={$t(selectedNetwork.placeholderKey)}
+					class="input input-bordered w-full"
+					class:input-error={!addressValidation.isValid && recipientAddress.trim() !== ''}
+					disabled={isLoading}
+				/>
+				{#if !addressValidation.isValid && (typeof recipientAddress === 'string' ? recipientAddress.trim() : '') !== ''}
 					<div class="label">
-						<span class="label-text-alt text-error">{amountError}</span>
+						<span class="label-text-alt text-error">{addressValidation.error}</span>
 					</div>
 				{/if}
 			</div>
-		{/if}
 
-		<!-- Amount Input Field (shown for amountless invoices or non-Lightning networks) -->
-		{#if (showAmountField && selectedNetwork.value === 'lightning-bitcoin') || selectedNetwork.value !== 'lightning-bitcoin'}
+			<!-- Amount -->
 			<div class="form-control">
 				<label class="label" for="amount">
 					<span class="label-text font-medium">
-						{usesSats
-							? $t('wallet.swap.amount_sats')
-							: `Amount (${currentAsset()?.ticker || 'BTC'})`}
-					</span>
-					<span class="label-text-alt">
-						{#if selectedNetwork.value === 'lightning-bitcoin' && isLoadingLimits}
-							<span class="loading loading-spinner loading-xs"></span>
-							{$t('wallet.swap.loading')}...
-						{:else if selectedNetwork.value === 'lightning-bitcoin' && minAmount > 0}
-							{$t('wallet.swap.min_amount')}: {minAmount.toLocaleString()} {$t('wallet.sats')}
-						{/if}
+						Amount ({currentAsset()?.ticker || 'BTC'})
 					</span>
 				</label>
 
@@ -916,157 +534,77 @@
 						id="amount"
 						bind:value={amount}
 						type="number"
-						step={usesSats ? '1' : 'any'}
-						min={selectedNetwork.value === 'lightning-bitcoin' && minAmount > 0
-							? minAmount
-							: selectedNetwork.value === 'lightning-bitcoin' && !invoiceHasAmount
-								? 1
-								: 0}
-						max={selectedNetwork.value === 'lightning-bitcoin' && maxAmount > 0
-							? maxAmount
-							: usesSats
-								? balanceInSats
-								: currentAsset()?.balance}
-						placeholder={usesSats ? '100000' : '0.00'}
-						class="input input-bordered join-item flex-1 rounded-r-none {amountError ||
-						(!hasValidAmount &&
-							(typeof amount === 'string' ? amount : String(amount || '')).trim() !== '')
+						step="any"
+						min="0"
+						max={currentAsset()?.balance}
+						placeholder="0.00"
+						class="input input-bordered join-item flex-1 rounded-r-none {!hasValidAmount &&
+						String(amount || '').trim() !== ''
 							? 'input-error'
 							: ''}"
 						style="border-radius: 0.5rem 0 0 0.5rem !important; border-right-color: var(--color-primary) !important;"
-						oninput={(e) => {
-							// Clear existing timeout for immediate validation
-							if (debounceTimeout) {
-								clearTimeout(debounceTimeout);
-							}
-							// Validate immediately with the current input value
-							const inputValue = (e.currentTarget as HTMLInputElement).value;
-							validateAmount(inputValue);
-						}}
-						disabled={isLoading ||
-							(selectedNetwork.value === 'lightning-bitcoin' && isLoadingLimits)}
+						disabled={isLoading}
 					/>
 					<button
 						class="btn btn-primary join-item rounded-l-none"
 						onclick={handleMaxAmount}
-						disabled={isLoading ||
-							!currentAsset() ||
-							(selectedNetwork.value === 'lightning-bitcoin' && isLoadingLimits)}
+						disabled={isLoading || !currentAsset()}
 					>
 						{$t('wallet.max')}
 					</button>
 				</div>
-				{#if amountError}
-					<div class="label">
-						<span class="label-text-alt text-error">{amountError}</span>
+			</div>
+
+			<!-- Description -->
+			<div class="form-control">
+				<label class="label" for="description">
+					<span class="label-text font-medium">{$t('wallet.description_optional')}</span>
+				</label>
+				<input
+					id="description"
+					bind:value={description}
+					placeholder={$t('wallet.description_placeholder')}
+					class="input input-bordered w-full"
+					disabled={isLoading}
+				/>
+			</div>
+
+			<!-- Send Button -->
+			<div class="space-y-2">
+				<button
+					class="btn btn-primary w-full"
+					onclick={handleSend}
+					disabled={!isFormValid || isLoading}
+				>
+					{#if isLoading}
+						<span class="loading loading-spinner loading-sm"></span>
+						{$t('wallet.send.processing')}
+					{:else}
+						{$t(selectedNetwork.sendButtonKey)}
+					{/if}
+				</button>
+
+				<!-- Validation Error Message -->
+				{#if validationError()}
+					<div class="alert alert-outline alert-warning">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
+						</svg>
+						<span class="text-sm">{$t(validationError() || '')}</span>
 					</div>
 				{/if}
 			</div>
 		{/if}
-
-		<!-- Fee Breakdown for Lightning Swaps -->
-		{#if selectedNetwork.value === 'lightning-bitcoin' && amountSatsForFees > 0}
-			<div class="border-base-300 bg-base-200 rounded-lg border p-3">
-				<div class="space-y-1.5 text-xs">
-					<div class="flex items-center justify-between">
-						<span class="opacity-70">{$t('wallet.swap.swap_fee')}:</span>
-						<div class="text-right">
-							<span>{swapFee.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
-								<span class="ml-2 opacity-60"
-									>${((swapFee / 100_000_000) * btcPrice).toFixed(2)}</span
-								>
-							{/if}
-						</div>
-					</div>
-					<div class="flex items-center justify-between">
-						<span class="opacity-70">{$t('wallet.swap.network_transaction_fee')}:</span>
-						<div class="text-right">
-							<span>{networkFee.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
-								<span class="ml-2 opacity-60"
-									>${((networkFee / 100_000_000) * btcPrice).toFixed(2)}</span
-								>
-							{/if}
-						</div>
-					</div>
-					<div class="divider my-1.5"></div>
-					<div class="flex items-center justify-between font-semibold">
-						<span>{$t('wallet.swap.total_fees')}:</span>
-						<div class="text-right">
-							<span>{totalFees.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
-								<span class="ml-2 opacity-60"
-									>${((totalFees / 100_000_000) * btcPrice).toFixed(2)}</span
-								>
-							{/if}
-						</div>
-					</div>
-					<div class="divider my-1.5"></div>
-					<div class="text-primary flex items-center justify-between text-sm font-bold">
-						<span>{$t('wallet.swap.total_received_est')}:</span>
-						<div class="text-right">
-							<span>{totalReceived.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
-								<span class="ml-2 opacity-70"
-									>${((totalReceived / 100_000_000) * btcPrice).toFixed(2)}</span
-								>
-							{/if}
-						</div>
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Description -->
-		<div class="form-control">
-			<label class="label" for="description">
-				<span class="label-text font-medium">{$t('wallet.description_optional')}</span>
-			</label>
-			<input
-				id="description"
-				bind:value={description}
-				placeholder={$t('wallet.description_placeholder')}
-				class="input input-bordered w-full"
-				disabled={isLoading}
-			/>
-		</div>
-
-		<!-- Send Button -->
-		<div class="space-y-2">
-			<button
-				class="btn btn-primary w-full"
-				onclick={handleSend}
-				disabled={!isFormValid || isLoading}
-			>
-				{#if isLoading}
-					<span class="loading loading-spinner loading-sm"></span>
-					{$t('wallet.send.processing')}
-				{:else}
-					{$t(selectedNetwork.sendButtonKey)}
-				{/if}
-			</button>
-
-			<!-- Validation Error Message -->
-			{#if validationError()}
-				<div class="alert alert-outline alert-warning">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
-					<span class="text-sm">{$t(validationError() || '')}</span>
-				</div>
-			{/if}
-		</div>
 	{/if}
 </div>
 
@@ -1075,14 +613,5 @@
 	.dropdown-content {
 		max-height: 300px;
 		overflow-y: auto;
-	}
-
-	/* Make the Max button look integrated with the input */
-	.join .btn.join-item {
-		border-left: none;
-	}
-
-	.join .input.join-item {
-		border-right: none;
 	}
 </style>

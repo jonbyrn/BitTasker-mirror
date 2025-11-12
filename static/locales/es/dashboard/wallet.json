@@ -510,14 +510,21 @@
       "total_fees": "Tarifas Totales",
       "estimated_received": "Estimado a Recibir",
       "total_received_est": "Total Recibido (est)",
+      "loading_fees": "Calculando tarifas...",
+      "service_fee": "Tarifa de Servicio",
+      "miner_fee": "Tarifa de Minero",
       "error": {
         "auth_required": "Autenticación requerida. Por favor inicia sesión nuevamente.",
         "minimum_amount": "La cantidad mínima es {minAmount} sats ({minBTC} BTC)",
         "minimum_amount_sats": "La cantidad mínima es {minAmount} sats",
         "maximum_amount_sats": "La cantidad máxima es {maxAmount} sats",
+        "amount_above_maximum": "Cantidad superior al máximo ({max} sats)",
         "create_failed": "Error al crear intercambio",
         "claim_failed": "Error al reclamar RBTC",
-        "delete_failed": "❌ Error al eliminar intercambio"
+        "delete_failed": "❌ Error al eliminar intercambio",
+        "insufficient_balance_with_fees": "Saldo insuficiente. Necesita {needed} sats, tiene {available} sats (faltante: {shortfall} sats)",
+        "insufficient_balance_with_gas": "Saldo insuficiente. Necesita {swapAmount} sats + {gasAmount} sats gas = {totalNeeded} sats. Disponible: {available} sats. Faltante: {shortfall} sats",
+        "fee_fetch_failed": "Error al obtener estimación de tarifas"
       },
       "lightning": {
         "title": "Intercambio Lightning → rBTC",
@@ -579,6 +586,8 @@
         "invoice_placeholder": "lnbc... (pegar o escanear código QR)",
         "scan_qr": "Escanear Código QR",
         "invoice_created": "Intercambio creado - listo para bloquear fondos",
+        "invoice_breakdown": "Desglose de Factura",
+        "invoice_amount": "Monto de Factura",
         "lock_funds_button": "Bloquear {amount} rBTC y Pagar Factura",
         "pay_invoice_button": "Pagar Factura",
         "locking_funds": "Bloqueando rBTC...",
@@ -588,6 +597,9 @@
         "gas_fees": "Tarifas de Gas (estimadas)",
         "total_required": "Total Requerido",
         "swap_complete": "Completado",
+        "error": {
+          "invoice_no_amount": "La factura debe incluir un monto. Las facturas sin monto no son compatibles con intercambios submarine."
+        },
         "status": {
           "ready_to_lock": "Listo - bloquea rBTC para pagar la factura",
           "funds_locked": "Fondos bloqueados - Esperando confirmaciones...",
