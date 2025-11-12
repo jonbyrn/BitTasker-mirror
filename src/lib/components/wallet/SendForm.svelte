@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { allAssets, walletManager } from '$lib/stores/wallet.store';
+	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
+	import { allAssets, walletManager } from '$lib/stores/wallet.store';
 	import {
 		validateRSKAddress,
-		validateLightningAddress,
 		validateBitcoinAddress,
 		type ValidationResult
 	} from '$lib/utils/helpers/validators';
 	import SubmarineSend from './SubmarineSend.svelte';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	type ExtendedAsset = {
 		assetId: string;
@@ -41,12 +42,29 @@
 	// Form state
 	let selectedAsset = $state<'bitcoin' | 'usd'>('bitcoin');
 	let recipientAddress = $state('');
-	let amount = $state('');
+	let amount = $state(''); // Amount in sats
 	let description = $state('');
 	let isLoading = $state(false);
 	let errorMessage = $state<string | null>(null);
 	let dropdownKey = $state(0);
 	let addressValidation = $state<ValidationResult>({ isValid: true });
+	let btcPrice = $state<number>(0);
+
+	// Fetch BTC price for USD conversion
+	onMount(async () => {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (err) {
+			console.error('Failed to fetch BTC price:', err);
+			btcPrice = 60000; // Fallback price
+		}
+	});
+
+	// Convert sats to RBTC
+	let amountInRBTC = $derived(() => {
+		const sats = parseFloat(amount) || 0;
+		return sats / 100_000_000;
+	});
 
 	// Network options based on selected asset
 	let networkOptions = $derived(() => {
@@ -174,37 +192,6 @@
 		}
 	});
 
-	// Estimate gas fee when address and amount change
-	async function estimateGasFee(): Promise<number> {
-		// Only estimate for Rootstock network
-		if (selectedNetwork.value !== 'rootstock-bitcoin') {
-			return 0;
-		}
-
-		// Need valid address and amount
-		if (
-			!recipientAddress.trim() ||
-			!addressValidation.isValid ||
-			!amount ||
-			parseFloat(amount) <= 0
-		) {
-			console.log('Invalid address or amount');
-			return 0.00001;
-		}
-
-		try {
-			const gasEstimation = await walletManager.estimateRBTCGas(recipientAddress, amount);
-			// Extract just the gas cost (not including the amount being sent)
-			const totalCost = parseFloat(gasEstimation.totalCostFormatted);
-			const amountValue = parseFloat(amount);
-			return totalCost - amountValue;
-		} catch (error) {
-			console.warn('Failed to estimate gas:', error);
-			// Fallback to a reasonable default
-			return 0.00001; // 0.00001 RBTC
-		}
-	}
-
 	// Convert balance to sats if needed
 	let balanceInSats = $derived.by(() => {
 		if (!currentAsset()) return 0;
@@ -219,19 +206,16 @@
 	let isFormValid = $derived(
 		recipientAddress?.trim() !== '' &&
 			addressValidation.isValid &&
-			String(amount || '').trim() !== '' &&
+			String(amount).trim() !== '' &&
 			parseFloat(amount) > 0 &&
 			currentAsset() &&
 			parseFloat(amount) <= (currentAsset()?.balance || 0)
 	);
 
-	// Individual validation states for better UX
-	let hasValidAmount = $derived(String(amount || '').trim() !== '' && parseFloat(amount) > 0);
-
 	// Get validation error message for display
 	let validationError = $derived(() => {
 		// Only show errors if user has interacted with the form
-		const hasInteracted = recipientAddress.trim() !== '' || amount.trim() !== '';
+		const hasInteracted = recipientAddress.trim() !== '' && String(amount).trim() !== '';
 		if (!hasInteracted) return null;
 
 		// Check address validation
@@ -243,7 +227,7 @@
 		}
 
 		// Check amount validation
-		if (amount.trim() === '') {
+		if (String(amount).trim() === '') {
 			return 'wallet.validation.amount_required';
 		}
 		if (parseFloat(amount) <= 0) {
@@ -267,7 +251,9 @@
 
 		try {
 			if (selectedNetwork.value === 'rootstock-bitcoin') {
-				await walletManager.sendRBTC(recipientAddress, String(amount));
+				// Convert sats to RBTC for sending
+				const amountRBTC = amountInRBTC();
+				await walletManager.sendRBTC(recipientAddress, amountRBTC.toFixed(8));
 			} else if (
 				selectedNetwork.value === 'liquid-bitcoin' ||
 				selectedNetwork.value === 'bitcoin'
@@ -290,14 +276,56 @@
 		}
 	}
 
-	async function handleMaxAmount() {
-		if (currentAsset()) {
-			// Use dynamic fee estimate if available, otherwise use a conservative default
-			const feeEstimate = await estimateGasFee();
-			console.log({ feeEstimate });
-			const maxAmount = Math.max(0, (currentAsset()?.balance || 0) - feeEstimate);
-			amount = maxAmount.toFixed(8); // Format to 8 decimal places
+	// Estimate gas fee for specific amount and address
+	// Returns gas fee in RBTC
+	async function estimateGasFee() {
+		try {
+			const balance = currentAsset()?.balance || 0;
+			if (balance <= 0) return 0.00003;
+
+			if (
+				selectedNetwork.value !== 'rootstock-bitcoin' ||
+				!recipientAddress.trim() ||
+				!addressValidation.isValid ||
+				!amount ||
+				parseFloat(amount) <= 0
+			) {
+				// Use 90% of balance for estimation to avoid "insufficient funds" error
+				// (since we need some balance for gas itself)
+				const estimateAmount = balance * 0.9;
+
+				const gasEstimation = await walletManager.estimateRBTCGas(
+					'0x0000000000000000000000000000000000000001',
+					estimateAmount.toFixed(8)
+				);
+				const totalCost = parseFloat(gasEstimation.totalCostFormatted);
+				const gasFee = totalCost - estimateAmount;
+				return gasFee;
+			}
+
+			// Convert sats to RBTC for estimation
+			const amountRBTC = amountInRBTC();
+			const gasEstimation = await walletManager.estimateRBTCGas(
+				recipientAddress,
+				amountRBTC.toFixed(8)
+			);
+			const totalCost = parseFloat(gasEstimation.totalCostFormatted);
+			return totalCost - amountRBTC;
+		} catch (error) {
+			console.warn('Failed to estimate gas:', error);
+			// Fallback to a reasonable default
+			return 0.00003; // 0.00003 RBTC
 		}
+	}
+
+	async function handleMaxAmount() {
+		if (!currentAsset()) {
+			return;
+		}
+		const feeEstimate = await estimateGasFee();
+		const maxRBTC = Math.max(0, (currentAsset()?.balance || 0) - feeEstimate);
+		const maxSats = Math.floor(maxRBTC * 100_000_000);
+		amount = maxSats.toString();
 	}
 </script>
 
@@ -523,9 +551,7 @@
 			<!-- Amount -->
 			<div class="form-control">
 				<label class="label" for="amount">
-					<span class="label-text font-medium">
-						Amount ({currentAsset()?.ticker || 'BTC'})
-					</span>
+					<span class="label-text font-medium">{$t('wallet.swap.amount_btc')}</span>
 				</label>
 
 				<!-- Amount Input with Max Button -->
@@ -534,15 +560,12 @@
 						id="amount"
 						bind:value={amount}
 						type="number"
-						step="any"
+						step="1"
 						min="0"
-						max={currentAsset()?.balance}
-						placeholder="0.00"
-						class="input input-bordered join-item flex-1 rounded-r-none {!hasValidAmount &&
-						String(amount || '').trim() !== ''
-							? 'input-error'
-							: ''}"
+						placeholder="100000"
 						style="border-radius: 0.5rem 0 0 0.5rem !important; border-right-color: var(--color-primary) !important;"
+						class="input input-bordered join-item flex-1 rounded-r-none"
+						class:input-error={amount && !(String(amount).trim() !== '' && parseFloat(amount) > 0)}
 						disabled={isLoading}
 					/>
 					<button
@@ -554,6 +577,66 @@
 					</button>
 				</div>
 			</div>
+
+			<!-- Fee Estimation for Rootstock -->
+			{#if selectedNetwork.value === 'rootstock-bitcoin' && amount && parseFloat(amount) > 0}
+				{#await estimateGasFee()}
+					<div
+						class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-4"
+					>
+						<span class="loading loading-spinner loading-sm"></span>
+						<span class="text-sm">{$t('wallet.swap.loading_fees')}</span>
+					</div>
+				{:then gasFee}
+					{@const amountSats = parseFloat(amount)}
+					{@const gasFeeInSats = Math.floor(gasFee * 100_000_000)}
+					{@const totalSats = amountSats + gasFeeInSats}
+					<div class="border-base-300 bg-base-200 rounded-lg border p-3">
+						<div class="space-y-1.5 text-xs">
+							<!-- Send Amount -->
+							<div class="flex items-center justify-between">
+								<span class="opacity-70">{$t('wallet.amount')}:</span>
+								<div class="text-right">
+									<span class="font-semibold">{amountSats.toLocaleString()} {$t('wallet.sats')}</span>
+									{#if btcPrice > 0}
+										<span class="ml-2 opacity-60">
+											${((amountSats / 100_000_000) * btcPrice).toFixed(2)}
+										</span>
+									{/if}
+								</div>
+							</div>
+
+							<!-- Network Gas Fee -->
+							<div class="flex items-center justify-between">
+								<span class="opacity-70">{$t('wallet.network_fee')}:</span>
+								<div class="text-right">
+									<span>{gasFeeInSats.toLocaleString()} {$t('wallet.sats')}</span>
+									{#if btcPrice > 0}
+										<span class="ml-2 opacity-60">
+											${((gasFeeInSats / 100_000_000) * btcPrice).toFixed(2)}
+										</span>
+									{/if}
+								</div>
+							</div>
+
+							<div class="divider my-1.5"></div>
+
+							<!-- Total Required -->
+							<div class="text-primary flex items-center justify-between text-sm font-bold">
+								<span>{$t('wallet.swap.submarine.total_required')}:</span>
+								<div class="text-right">
+									<span>{totalSats.toLocaleString()} {$t('wallet.sats')}</span>
+									{#if btcPrice > 0}
+										<span class="ml-2 opacity-70">
+											${((totalSats / 100_000_000) * btcPrice).toFixed(2)}
+										</span>
+									{/if}
+								</div>
+							</div>
+						</div>
+					</div>
+				{/await}
+			{/if}
 
 			<!-- Description -->
 			<div class="form-control">
@@ -571,19 +654,6 @@
 
 			<!-- Send Button -->
 			<div class="space-y-2">
-				<button
-					class="btn btn-primary w-full"
-					onclick={handleSend}
-					disabled={!isFormValid || isLoading}
-				>
-					{#if isLoading}
-						<span class="loading loading-spinner loading-sm"></span>
-						{$t('wallet.send.processing')}
-					{:else}
-						{$t(selectedNetwork.sendButtonKey)}
-					{/if}
-				</button>
-
 				<!-- Validation Error Message -->
 				{#if validationError()}
 					<div class="alert alert-outline alert-warning">
@@ -603,6 +673,19 @@
 						<span class="text-sm">{$t(validationError() || '')}</span>
 					</div>
 				{/if}
+
+				<button
+					class="btn btn-primary w-full"
+					onclick={handleSend}
+					disabled={!isFormValid || isLoading}
+				>
+					{#if isLoading}
+						<span class="loading loading-spinner loading-sm"></span>
+						{$t('wallet.send.processing')}
+					{:else}
+						{$t(selectedNetwork.sendButtonKey)}
+					{/if}
+				</button>
 			</div>
 		{/if}
 	{/if}
