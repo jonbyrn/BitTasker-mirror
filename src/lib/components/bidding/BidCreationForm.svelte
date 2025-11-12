@@ -7,6 +7,7 @@
 	import { rskAddress, rskWallet } from '$lib/stores/rskWallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
+	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
@@ -365,27 +366,28 @@
 
 			// Notify backend via GraphQL so it can send push notifications
 			try {
-				const { CreateBidStore } = await import('$houdini');
-				const createBidStore = new CreateBidStore();
+				const { SendNotificationStore } = await import('$houdini');
+				const sendNotificationStore = new SendNotificationStore();
 				
-				await createBidStore.mutate({
-					input: {
-						taskId: parseInt(taskId),
-						amount: amount,
-						currency: 'USD',
-						paymentType: bidType,
-						description: description,
-						estimatedDuration: estimatedDuration,
-						proposedApproach: proposedApproach,
-						coverLetter: coverLetter,
-						hourlyRate: bidType === 'HOURLY' ? hourlyRate : undefined,
-						estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : undefined
-					}
-				});
+				// Get current device ID (backend will determine recipient devices)
+				const deviceId = pushNotificationService.getCurrentDeviceId();
 				
-				console.log('✅ Bid registered with backend for push notifications');
+				if (deviceId) {
+					await sendNotificationStore.mutate({
+						input: {
+							title: 'New Bid Received',
+							body: `New bid received for task: ${taskTitle || taskId}`,
+							deviceId: deviceId, // Backend should use this to identify the user and notify the task creator
+							type: 'bid_created'
+						}
+					});
+					
+					console.log('✅ Bid notification sent to backend for push notifications');
+				} else {
+					console.warn('⚠️ Device ID not available, skipping backend notification');
+				}
 			} catch (error) {
-				console.warn('⚠️ Failed to register bid with backend (Nostr DM was successful):', error);
+				console.warn('⚠️ Failed to notify backend (Nostr DM was successful):', error);
 				// Don't fail the bid submission if backend call fails
 				// Nostr DM is the primary communication method
 			}
