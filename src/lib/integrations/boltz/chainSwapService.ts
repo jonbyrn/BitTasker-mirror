@@ -1,4 +1,10 @@
 /**
+ * @deprecated This file is deprecated. Use @bittasker/wallet-core package instead.
+ * Import: import { ChainSwapService } from '@bittasker/wallet-core'
+ * 
+ * This file is kept for reference only and should not be used in new code.
+ * All components should use the @bittasker/wallet-core package implementation.
+ * 
  * Boltz Chain Swap Service (L-BTC → RBTC)
  * Client-side implementation with Nostr storage
  * 
@@ -46,7 +52,7 @@ import { Contract } from 'ethers';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { relayClaimTransaction, getSmartWalletAddress } from '$lib/integrations/boltz/rif/Signer';
-import { isRifRelayAvailable, getBoltzConfig } from '$lib/utils/wallet/networkConfig';
+import { isRifRelayAvailable } from '$lib/utils/wallet/networkConfig';
 import { getAssetId } from '$lib/utils/constants/assets';
 import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
 import {
@@ -656,8 +662,6 @@ export class ChainSwapService {
 					swap.id,
 					(event) => this.handleSwapUpdate(event, nsec)
 				);
-
-				console.log('🔄 Recovered pending chain swap:', swap.id);
 			}
 
 			return chainSwaps;

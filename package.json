@@ -82,6 +82,7 @@
 		"vitest": "^3.0.0"
 	},
 	"dependencies": {
+		"@bittasker/wallet-core": "^0.1.4",
 		"@breeztech/breez-sdk-liquid": "^0.10.3",
 		"@capacitor-mlkit/barcode-scanning": "^7.3.0",
 		"@capacitor/android": "^7.0.1",

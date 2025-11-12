@@ -5,12 +5,12 @@ import tailwindcss from '@tailwindcss/vite';
 import Icons from 'unplugin-icons/vite';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
-// import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import pkg from './package.json';
 
 export default defineConfig({
     plugins: [
-        /* nodePolyfills({
+        nodePolyfills({
             // Whether to polyfill `node:` protocol imports.
             protocolImports: true,
             // Enable polyfills for specific globals and modules.
@@ -19,12 +19,12 @@ export default defineConfig({
                 global: true,
                 process: true,
             },
-            // Add specific polyfills for modules required by liquidjs-lib
+            // Add specific polyfills for modules required by wallet SDK
             // IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
             include: ['crypto', 'stream', 'buffer', 'util', 'process', 'events'],
             // Explicitly exclude modules that should not be polyfilled
             exclude: ['fs', 'path'],
-        }), */
+        }),
         sveltekit(),
         houdini(),
         tailwindcss(),

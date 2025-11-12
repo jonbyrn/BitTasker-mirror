@@ -1,4 +1,10 @@
 /**
+ * @deprecated This file is deprecated. Use @bittasker/wallet-core package instead.
+ * Import: import { ReverseSwapService } from '@bittasker/wallet-core'
+ * 
+ * This file is kept for reference only and should not be used in new code.
+ * All components should use the @bittasker/wallet-core package implementation.
+ * 
  * Boltz Reverse Swap Service (Lightning → rBTC)
  * Client-side implementation with Nostr storage
  * 
@@ -100,7 +106,6 @@ export class ReverseSwapService {
 		try {
 			// Get reverse swap pairs
 			const reversePairs = await this.boltzClient.getReverseSwapPairs();
-			console.log({ reversePairs })
 
 			// API returns flat structure: { 'BTC': {...}, 'RBTC': {...}, 'L-BTC': {...} }
 			// For Lightning → RBTC swaps, we use RBTC limits
@@ -110,8 +115,6 @@ export class ReverseSwapService {
 				console.warn('Could not find RBTC pair limits in response:', reversePairs);
 				throw new Error('Reverse swap pair limits not available');
 			}
-
-			console.log('✅ Found RBTC reverse swap limits:', pairInfo.limits);
 
 			return {
 				minimal: pairInfo.limits.minimal,

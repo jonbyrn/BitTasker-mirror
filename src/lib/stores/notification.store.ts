@@ -89,7 +89,7 @@ function createNotificationStore() {
 
 	return {
 		subscribe,
-		
+
 		// Add a new notification
 		addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'delivered' | 'read'>) => {
 			const newNotification: Notification = {
@@ -146,8 +146,8 @@ function createNotificationStore() {
 				return {
 					...state,
 					notifications: newNotifications,
-					unreadCount: notification && !notification.read 
-						? Math.max(0, state.unreadCount - 1) 
+					unreadCount: notification && !notification.read
+						? Math.max(0, state.unreadCount - 1)
 						: state.unreadCount
 				};
 			});
@@ -226,14 +226,16 @@ export const notificationStore = createNotificationStore();
 let isServiceInitialized = false;
 
 export async function initializeNotificationService() {
+	// Deliberately disable broken notifications center
+	return;
 	if (!isServiceInitialized) {
 		await localNotificationService.init();
-		
+
 		// Subscribe to local notification service and sync with store
 		localNotificationService.getNotifications().subscribe(notifications => {
 			notificationStore.setNotifications(notifications);
 		});
-		
+
 		// Subscribe to incoming count
 		localNotificationService.getIncomingCount().subscribe(incomingCount => {
 			notificationStore.update(state => ({
@@ -241,7 +243,7 @@ export async function initializeNotificationService() {
 				incomingCount
 			}));
 		});
-		
+
 		isServiceInitialized = true;
 	}
 }

@@ -1,4 +1,6 @@
 /**
+ * @deprecated This file is deprecated. Use @bittasker/wallet-core package instead.
+ * 
  * Boltz Exchange API Types
  * Type definitions for Boltz REST API v2 and swap operations
  * 
@@ -350,12 +352,4 @@ export interface PreimageClaimParams {
 	redeemScript: string;
 	claimPrivateKey: string;
 	feeRate: number;
-}
-
-export interface RefundFileData {
-    id: string;
-    currency: string;
-    redeemScript: string;
-    privateKey: string;
-    timeoutBlockHeight: number;
 }

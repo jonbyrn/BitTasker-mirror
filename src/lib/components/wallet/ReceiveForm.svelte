@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
 	import { allAssets } from '$lib/stores/wallet.store';
 	import LightningReceive from '$lib/components/wallet/LightningReceive.svelte';
 	import LBTCReceive from '$lib/components/wallet/LBTCReceive.svelte';
 	import RSKReceive from '$lib/components/wallet/RSKReceive.svelte';
-	import { t } from 'svelte-i18n';
 
 	// Form state
 	let selectedAsset = $state<'bitcoin' | 'usd'>('bitcoin');
@@ -298,29 +298,6 @@
 			</div>
 		</div>
 	{/if}
-
-	<!-- Available Balance Display -->
-	<!-- <div class="alert alert-outline bg-base-200 border-base-300">
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			fill="none"
-			viewBox="0 0 24 24"
-			class="text-base-content h-6 w-6 shrink-0 stroke-current"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				stroke-width="2"
-				d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-			></path>
-		</svg>
-		<div>
-			<div class="text-base-content font-bold">{$t('wallet.receive_form.available_balance')}</div>
-			<div class="text-base-content/70 text-sm">
-				{availableBalance()} L2 BTC
-			</div>
-		</div>
-	</div> -->
 
 	<!-- RSK Default Layout - show form and QR side by side by default -->
 	{#if selectedNetwork === 'rootstock-bitcoin'}

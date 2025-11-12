@@ -33,7 +33,7 @@
     "payment_description_placeholder": "¿Para qué es este pago?",
     "recipient_address": "Dirección de destino",
     "address_placeholder": "Dirección Bitcoin, Lightning o Liquid",
-    "available_balance": "Disponible",
+    "available_balance": "Saldo Disponible",
     "transaction_fee": "Comisión de transacción",
     "network_fee": "Comisión de Red",
     "fee_low": "Baja",
@@ -331,7 +331,19 @@
     "send": {
       "transaction_sent": "Transacción enviada exitosamente",
       "transaction_failed": "La transacción falló",
-      "processing": "Procesando..."
+      "processing": "Procesando...",
+      "usd_not_available": "La funcionalidad de envío de USD aún no está disponible.",
+      "network_not_available": "Esta red aún no está disponible para envíos.",
+      "placeholder_lightning": "Factura Lightning o dirección Lightning",
+      "placeholder_liquid_btc": "Dirección Liquid",
+      "placeholder_bitcoin": "Dirección Bitcoin",
+      "placeholder_liquid_usdt": "Dirección USDT Liquid",
+      "placeholder_rootstock": "Dirección Rootstock (0x...)",
+      "button_lightning": "Enviar Lightning Bitcoin",
+      "button_liquid_btc": "Enviar Liquid Bitcoin",
+      "button_bitcoin": "Enviar Bitcoin",
+      "button_liquid_usdt": "Enviar USDT",
+      "button_rootstock": "Enviar rBTC"
     },
     "payment_request": "Solicitud de Pago",
     "payment_request_description": "Envía cualquier cantidad de Bitcoin Rootstock a esta dirección, o especifica una cantidad a continuación para generar un código QR con la cantidad.",
@@ -372,8 +384,15 @@
     },
     "validation": {
       "address_required": "La dirección de destino es requerida",
+      "address_invalid": "Formato de dirección inválido",
       "amount_required": "El monto es requerido",
-      "insufficient_balance": "Saldo insuficiente"
+      "amount_positive": "El monto debe ser mayor que cero",
+      "insufficient_balance": "Saldo insuficiente",
+      "no_balance": "No hay saldo disponible",
+      "invoice_required": "La factura Lightning es requerida",
+      "invoice_invalid": "Formato de factura Lightning inválido",
+      "amount_below_minimum": "Monto por debajo del mínimo ({min} sats)",
+      "amount_above_maximum": "Monto por encima del máximo ({max} sats)"
     },
     "sats": "Sats",
     "rbtc": "rBTC",
@@ -491,14 +510,21 @@
       "total_fees": "Tarifas Totales",
       "estimated_received": "Estimado a Recibir",
       "total_received_est": "Total Recibido (est)",
+      "loading_fees": "Calculando tarifas...",
+      "service_fee": "Tarifa de Servicio",
+      "miner_fee": "Tarifa de Minero",
       "error": {
         "auth_required": "Autenticación requerida. Por favor inicia sesión nuevamente.",
         "minimum_amount": "La cantidad mínima es {minAmount} sats ({minBTC} BTC)",
         "minimum_amount_sats": "La cantidad mínima es {minAmount} sats",
         "maximum_amount_sats": "La cantidad máxima es {maxAmount} sats",
+        "amount_above_maximum": "Cantidad superior al máximo ({max} sats)",
         "create_failed": "Error al crear intercambio",
         "claim_failed": "Error al reclamar RBTC",
-        "delete_failed": "❌ Error al eliminar intercambio"
+        "delete_failed": "❌ Error al eliminar intercambio",
+        "insufficient_balance_with_fees": "Saldo insuficiente. Necesita {needed} sats, tiene {available} sats (faltante: {shortfall} sats)",
+        "insufficient_balance_with_gas": "Saldo insuficiente. Necesita {swapAmount} sats + {gasAmount} sats gas = {totalNeeded} sats. Disponible: {available} sats. Faltante: {shortfall} sats",
+        "fee_fetch_failed": "Error al obtener estimación de tarifas"
       },
       "lightning": {
         "title": "Intercambio Lightning → rBTC",
@@ -551,6 +577,45 @@
           "lbtc_waiting": "¡L-BTC detectado! Esperando confirmación...",
           "waiting_boltz": "Esperando que Boltz bloquee RBTC...",
           "claiming_now": "Reclamando RBTC ahora..."
+        }
+      },
+      "submarine": {
+        "title": "Pagar Factura Lightning (rBTC → Lightning)",
+        "description": "Paga facturas Lightning bloqueando rBTC. Tarifas: ~0.4-0.5%",
+        "invoice_label": "Factura Lightning",
+        "invoice_placeholder": "lnbc... (pegar o escanear código QR)",
+        "scan_qr": "Escanear Código QR",
+        "invoice_created": "Intercambio creado - listo para bloquear fondos",
+        "invoice_breakdown": "Desglose de Factura",
+        "invoice_amount": "Monto de Factura",
+        "lock_funds_button": "Bloquear {amount} rBTC y Pagar Factura",
+        "pay_invoice_button": "Pagar Factura",
+        "locking_funds": "Bloqueando rBTC...",
+        "invoice_paid": "✅ ¡Factura pagada por Boltz!",
+        "generate_swap": "Crear Intercambio",
+        "swap_amount": "Monto del Intercambio",
+        "gas_fees": "Tarifas de Gas (estimadas)",
+        "total_required": "Total Requerido",
+        "swap_complete": "Completado",
+        "error": {
+          "invoice_no_amount": "La factura debe incluir un monto. Las facturas sin monto no son compatibles con intercambios submarine."
+        },
+        "status": {
+          "ready_to_lock": "Listo - bloquea rBTC para pagar la factura",
+          "funds_locked": "Fondos bloqueados - Esperando confirmaciones...",
+          "lockup_confirmed": "Confirmado - Boltz está pagando la factura...",
+          "invoice_paid": "¡Factura pagada exitosamente! ✅",
+          "swap_complete": "¡Intercambio completado! ✓",
+          "expired": "Expirado - Eliminar para quitar",
+          "failed": "Fallido - Eliminar para quitar",
+          "refunded": "Reembolsado",
+          "processing": "Procesando..."
+        },
+        "helper": {
+          "paste_invoice": "Pega o escanea una factura Lightning para comenzar",
+          "lock_to_pay": "Bloquea rBTC para pagar la factura Lightning",
+          "waiting_payment": "Esperando que Boltz pague la factura...",
+          "payment_complete": "¡Factura Lightning pagada exitosamente!"
         }
       }
     },

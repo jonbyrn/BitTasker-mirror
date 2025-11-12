@@ -67,7 +67,7 @@ export function parseLightningInvoice(invoice: string): {
 			hasAmount = true;
 		} else if (decoded.millisatoshis !== null && decoded.millisatoshis !== undefined) {
 			// Amount is in millisatoshis, convert to satoshis
-			amountSats = Math.floor(decoded.millisatoshis / 1000);
+			amountSats = Math.floor(Number(decoded.millisatoshis) / 1000);
 			hasAmount = true;
 		}
 
