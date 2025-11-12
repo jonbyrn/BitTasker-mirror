@@ -8,15 +8,17 @@
 
 	// QR code states
 	let appQrCode = $state('');
-	let primalQrCode = $state('');
-	let xQrCode = $state('');
 
 	// Social media URLs
+	const appUrl = 'https://bittasker.com';
 	const primalUrl = 'https://primal.net/p/BitTasker';
 	const xUrl = 'https://x.com/BitTaskerDotCom';
-	const appUrl = 'https://bittasker.com';
 
-	// Generate QR codes on mount
+	// QR code SVG paths
+	const primalQrCodePath = '/images/primal-net-qr-code-transparent-background.svg';
+	const xQrCodePath = '/images/qr-code-twitter-transparent-background.svg';
+
+	// Generate app QR code on mount
 	onMount(async () => {
 		if (typeof window === 'undefined') return;
 		try {
@@ -64,34 +66,8 @@
 			} else {
 				appQrCode = appCanvas.toDataURL();
 			}
-
-			// Generate Primal QR code
-			const primalCanvas = document.createElement('canvas');
-			await QRCode.toCanvas(primalCanvas, primalUrl, {
-				errorCorrectionLevel: 'H',
-				margin: 1,
-				width: 256,
-				color: {
-					dark: '#000000',
-					light: '#FFFFFF'
-				}
-			});
-			primalQrCode = primalCanvas.toDataURL();
-
-			// Generate X QR code
-			const xCanvas = document.createElement('canvas');
-			await QRCode.toCanvas(xCanvas, xUrl, {
-				errorCorrectionLevel: 'H',
-				margin: 1,
-				width: 256,
-				color: {
-					dark: '#000000',
-					light: '#FFFFFF'
-				}
-			});
-			xQrCode = xCanvas.toDataURL();
 		} catch (error) {
-			console.error('Failed to generate QR codes:', error);
+			console.error('Failed to generate QR code:', error);
 		}
 	});
 </script>
@@ -130,11 +106,11 @@
 </svelte:head>
 
 <div class="min-h-screen bg-[#363636] text-white">
-	<div class="container mx-auto px-4 py-8 max-w-4xl">
+	<div class="container mx-auto px-6 py-8 max-w-4xl">
 		<!-- Logo and Tagline -->
 		<div class="text-center mb-8">
-			<Logo class="max-w-xs mx-auto mb-4" />
-			<p class="text-primary text-lg font-light">The Decentralized Workforce</p>
+			<Logo />
+			<p class="text-primary text-lg font-light mt-4">The Decentralized Workforce</p>
 		</div>
 
 		<!-- Contest Title -->
@@ -171,93 +147,105 @@
 		</div>
 
 		<!-- To Qualify Section -->
-		<div class="mb-12">
-			<h2 class="text-2xl md:text-3xl font-bold mb-4">To Qualify:</h2>
-			<ul class="space-y-3 text-lg">
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>Follow BitTasker on X or Nostr</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span
-						>Post at least <strong>ONE</strong> picture/video of yourself and anyone with a
-						BitTasker shirt on X or Nostr</span
-					>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>Tag BitTasker in your post</span>
-				</li>
-			</ul>
+		<div class="mb-8">
+			<div class="card bg-[#424242] shadow-xl">
+				<div class="card-body">
+					<h2 class="card-title text-2xl md:text-3xl mb-4 text-white">To Qualify:</h2>
+					<ul class="space-y-3 text-lg">
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>Follow BitTasker on X or Nostr</span>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span
+								>Post at least <strong>ONE</strong> picture/video of yourself and anyone with a
+								BitTasker shirt on X or Nostr</span
+							>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>Tag BitTasker in your post</span>
+						</li>
+					</ul>
+				</div>
+			</div>
 		</div>
 
 		<!-- Rules Section -->
-		<div class="mb-12">
-			<h2 class="text-2xl md:text-3xl font-bold mb-4">Rules:</h2>
-			<ul class="space-y-3 text-lg">
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>The person who completes the most tasks on BitTasker wins.</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>Both hiring as the Tasker, and being hired as the Taskee, count.</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>The tasks must be completed, not in progress.</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span
-						>All tasks must be completed before the After Party, where the winner will be
-						determined.</span
-					>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span
-						>In the event of a tie, the person who posted the most BitTasker posts on social
-						media wins.</span
-					>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>You must be at the After party to receive the prize</span>
-				</li>
-			</ul>
+		<div class="mb-8">
+			<div class="card bg-[#424242] shadow-xl">
+				<div class="card-body">
+					<h2 class="card-title text-2xl md:text-3xl mb-4 text-white">Rules:</h2>
+					<ul class="space-y-3 text-lg">
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>The person who completes the most tasks on BitTasker wins.</span>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>Both hiring as the Tasker, and being hired as the Taskee, count.</span>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>The tasks must be completed, not in progress.</span>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span
+								>All tasks must be completed before the After Party, where the winner will be
+								determined.</span
+							>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span
+								>In the event of a tie, the person who posted the most BitTasker posts on social
+								media wins.</span
+							>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>You must be at the After party to receive the prize</span>
+						</li>
+					</ul>
+				</div>
+			</div>
 		</div>
 
 		<!-- Task Ideas Section -->
 		<div class="mb-12">
-			<h2 class="text-2xl md:text-3xl font-bold mb-4">Task ideas:</h2>
-			<ul class="space-y-3 text-lg">
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>Get me a coffee/food/drink</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>Take notes/pictures in a session</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>Ask a question in a session I can't attend</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>Bring a Salvadorian to the event</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>Get supplies for a booth or farmers market vendor</span>
-				</li>
-				<li class="flex items-start">
-					<span class="text-primary mr-3">•</span>
-					<span>etc</span>
-				</li>
-			</ul>
+			<div class="card bg-[#424242] shadow-xl">
+				<div class="card-body">
+					<h2 class="card-title text-2xl md:text-3xl mb-4 text-white">Task ideas:</h2>
+					<ul class="space-y-3 text-lg">
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>Get me a coffee/food/drink</span>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>Take notes/pictures in a session</span>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>Ask a question in a session I can't attend</span>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>Bring a Salvadorian to the event</span>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>Get supplies for a booth or farmers market vendor</span>
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary mr-3">•</span>
+							<span>etc</span>
+						</li>
+					</ul>
+				</div>
+			</div>
 		</div>
 
 		<!-- Runner Up Prize Section -->
@@ -279,43 +267,41 @@
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
 			<!-- Primal.net -->
 			<div class="text-center">
-				<p class="text-lg mb-4">Follow @BitTasker on Primal.net:</p>
-				{#if primalQrCode}
-					<div class="flex justify-center">
-						<img src={primalQrCode} alt="Primal.net QR Code" class="w-48 h-48" />
-					</div>
-				{:else}
-					<div class="flex justify-center">
-						<span class="loading loading-spinner"></span>
-					</div>
-				{/if}
+				<p class="text-lg mb-4">
+					Follow @BitTasker on
+					<a
+						href={primalUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-primary hover:underline font-semibold"
+					>
+						Primal.net
+					</a>
+					:
+				</p>
+				<div class="flex justify-center">
+					<img src={primalQrCodePath} alt="Primal.net QR Code" class="w-48 h-48" />
+				</div>
 			</div>
 
 			<!-- X (Twitter) -->
 			<div class="text-center">
-				<p class="text-lg mb-4">Follow @BitTaskerDotCom on X:</p>
-				{#if xQrCode}
-					<div class="flex justify-center">
-						<img src={xQrCode} alt="X QR Code" class="w-48 h-48" />
-					</div>
-				{:else}
-					<div class="flex justify-center">
-						<span class="loading loading-spinner"></span>
-					</div>
-				{/if}
+				<p class="text-lg mb-4">
+					Follow @BitTaskerDotCom on
+					<a
+						href={xUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-primary hover:underline font-semibold"
+					>
+						X
+					</a>
+					:
+				</p>
+				<div class="flex justify-center">
+					<img src={xQrCodePath} alt="X QR Code" class="w-48 h-48" />
+				</div>
 			</div>
-		</div>
-
-		<!-- Website URL -->
-		<div class="text-center">
-			<a
-				href="https://bittasker.com"
-				target="_blank"
-				rel="noopener noreferrer"
-				class="text-primary text-lg hover:underline"
-			>
-				https://bittasker.com
-			</a>
 		</div>
 	</div>
 </div>
