@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { transactions, walletManager } from '$lib/stores/wallet.store';
+	import { weiToSatoshi } from '@bittasker/wallet-core';
 	// MDI Icons
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
@@ -23,7 +24,7 @@
 			.filter((tx) => {
 				// Always filter out swaps
 				if (tx.type === 'swap') return false;
-				
+
 				if (selectedFilter === 'all') return true;
 				if (selectedFilter === 'rsk' || selectedFilter === 'bsc') {
 					return tx.network === selectedFilter;
@@ -75,8 +76,6 @@
 		await loadTransactions();
 	}
 
-
-
 	function getStatusLabel(status: string): string {
 		if (!status) return 'Unknown'; // Fallback for undefined/null
 		switch (status) {
@@ -90,7 +89,6 @@
 				return status;
 		}
 	}
-
 
 	function getStatusIcon(status: string) {
 		if (!status) return IconClockOutline; // Fallback for undefined/null
@@ -157,7 +155,7 @@
 			// Fee is already in native units (rBTC, BNB, etc.) from transactionHistory.ts
 			if (!fee || !isFinite(fee) || isNaN(fee)) return '0';
 			if (!asset) asset = '';
-			
+
 			if (asset === 'rBTC' || asset === 'BTC' || asset === 'L-BTC' || asset.includes('BTC')) {
 				// For Bitcoin-based assets, show in satoshis
 				const sats = Math.floor(fee * 100_000_000);
@@ -260,11 +258,11 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex flex-wrap gap-4 items-center">
+	<div class="flex flex-wrap items-center gap-4">
 		<h3 class="text-lg font-semibold">{$t('wallet.transaction_history')}</h3>
 		<button
 			class="btn btn-outline btn-sm self-start sm:self-auto"
-			onclick={(refreshTransactions)}
+			onclick={refreshTransactions}
 			disabled={isLoading}
 		>
 			{#if isLoading}
@@ -330,23 +328,27 @@
 				{$t('wallet.transaction.network.bsc')} ({filterCounts.bsc})
 			</button>
 			<button
-				class="tab {selectedFilter === 'send' ? 'tab-active' : ''} whitespace-nowrap flex items-center gap-1"
+				class="tab {selectedFilter === 'send'
+					? 'tab-active'
+					: ''} flex items-center gap-1 whitespace-nowrap"
 				onclick={() => {
 					selectedFilter = 'send';
 					currentPage = 0;
 				}}
 			>
-				<IconArrowUpBold class="w-4 h-4" />
+				<IconArrowUpBold class="h-4 w-4" />
 				{$t('wallet.sent')} ({filterCounts.send})
 			</button>
 			<button
-				class="tab {selectedFilter === 'receive' ? 'tab-active' : ''} whitespace-nowrap flex items-center gap-1"
+				class="tab {selectedFilter === 'receive'
+					? 'tab-active'
+					: ''} flex items-center gap-1 whitespace-nowrap"
 				onclick={() => {
 					selectedFilter = 'receive';
 					currentPage = 0;
 				}}
 			>
-				<IconArrowDownBold class="w-4 h-4" />
+				<IconArrowDownBold class="h-4 w-4" />
 				{$t('wallet.received')} ({filterCounts.receive})
 			</button>
 		</div>
@@ -429,12 +431,25 @@
 							<div class="flex items-center gap-3">
 								<!-- Network and Type Icons -->
 								<div class="flex items-center gap-2">
-									<div class="flex items-center justify-center w-10 h-10 rounded-full {tx.type === 'receive' ? 'bg-success/20 text-success' : tx.type === 'contract' ? 'bg-primary/20 text-primary' : 'bg-warning/20 text-warning'}">
-										<TypeIcon class="w-5 h-5" />
+									<div
+										class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
+										'receive'
+											? 'bg-success/20 text-success'
+											: tx.type === 'contract'
+												? 'bg-primary/20 text-primary'
+												: 'bg-warning/20 text-warning'}"
+									>
+										<TypeIcon class="h-5 w-5" />
 									</div>
-									<div class="flex items-center justify-center w-10 h-10 rounded-full bg-base-300/20">
+									<div
+										class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+									>
 										{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-											<img src={getNetworkIcon(tx.network || 'rsk')} alt={getNetworkDisplayName(tx.network || 'rsk')} class="w-10 h-10" />
+											<img
+												src={getNetworkIcon(tx.network || 'rsk')}
+												alt={getNetworkDisplayName(tx.network || 'rsk')}
+												class="h-10 w-10"
+											/>
 										{:else}
 											<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
 										{/if}
@@ -454,8 +469,16 @@
 												{tx.type}
 											{/if}
 										</span>
-										<div class="flex items-center justify-center w-5 h-5 {getStatusIconColor(tx.status || 'pending')}" title={getStatusLabel(tx.status || 'pending')}>
-											<StatusIcon class="w-5 h-5" aria-label={getStatusLabel(tx.status || 'pending')} />
+										<div
+											class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
+												tx.status || 'pending'
+											)}"
+											title={getStatusLabel(tx.status || 'pending')}
+										>
+											<StatusIcon
+												class="h-5 w-5"
+												aria-label={getStatusLabel(tx.status || 'pending')}
+											/>
 										</div>
 									</div>
 
@@ -470,7 +493,12 @@
 								<div
 									class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
 								>
-									{tx.type === 'receive' ? '+' : '-'}{tx.formattedAmount}
+									{tx.type === 'receive'
+										? '+'
+										: '-' +
+											weiToSatoshi(BigInt(tx.value)).toLocaleString() +
+											' ' +
+											$t('wallet.sats')}
 								</div>
 								{#if tx.fee}
 									<div class="text-xs opacity-70">
@@ -507,12 +535,25 @@
 							<div class="flex items-center justify-between gap-2 sm:gap-4">
 								<div class="flex items-center gap-3">
 									<div class="flex items-center gap-2">
-										<div class="flex items-center justify-center w-10 h-10 rounded-full {tx.type === 'receive' ? 'bg-success/20 text-success' : tx.type === 'contract' ? 'bg-primary/20 text-primary' : 'bg-warning/20 text-warning'}">
-											<TypeIcon class="w-5 h-5" />
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
+											'receive'
+												? 'bg-success/20 text-success'
+												: tx.type === 'contract'
+													? 'bg-primary/20 text-primary'
+													: 'bg-warning/20 text-warning'}"
+										>
+											<TypeIcon class="h-5 w-5" />
 										</div>
-										<div class="flex items-center justify-center w-10 h-10 rounded-full bg-base-300/20">
+										<div
+											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+										>
 											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-												<img src={getNetworkIcon(tx.network || 'rsk')} alt={getNetworkDisplayName(tx.network || 'rsk')} class="w-10 h-10" />
+												<img
+													src={getNetworkIcon(tx.network || 'rsk')}
+													alt={getNetworkDisplayName(tx.network || 'rsk')}
+													class="h-10 w-10"
+												/>
 											{:else}
 												<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
 											{/if}
@@ -531,8 +572,16 @@
 													{tx.type}
 												{/if}
 											</span>
-											<div class="flex items-center justify-center w-5 h-5 {getStatusIconColor(tx.status || 'pending')}" title={getStatusLabel(tx.status || 'pending')}>
-												<StatusIcon class="w-5 h-5" aria-label={getStatusLabel(tx.status || 'pending')} />
+											<div
+												class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
+													tx.status || 'pending'
+												)}"
+												title={getStatusLabel(tx.status || 'pending')}
+											>
+												<StatusIcon
+													class="h-5 w-5"
+													aria-label={getStatusLabel(tx.status || 'pending')}
+												/>
 											</div>
 										</div>
 										<div class="text-sm opacity-70">
@@ -546,7 +595,12 @@
 									<div
 										class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
 									>
-										{tx.type === 'receive' ? '+' : '-'}{tx.formattedAmount}
+										{tx.type === 'receive'
+											? '+'
+											: '-' +
+												weiToSatoshi(BigInt(tx.value)).toLocaleString() +
+												' ' +
+												$t('wallet.sats')}
 									</div>
 									{#if tx.fee}
 										<div class="text-xs opacity-70">

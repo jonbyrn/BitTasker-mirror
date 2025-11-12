@@ -207,9 +207,9 @@
 		recipientAddress?.trim() !== '' &&
 			addressValidation.isValid &&
 			String(amount).trim() !== '' &&
-			parseFloat(amount) > 0 &&
+			amountInRBTC() > 0 &&
 			currentAsset() &&
-			parseFloat(amount) <= (currentAsset()?.balance || 0)
+			amountInRBTC() <= (currentAsset()?.balance || 0)
 	);
 
 	// Get validation error message for display
@@ -230,13 +230,13 @@
 		if (String(amount).trim() === '') {
 			return 'wallet.validation.amount_required';
 		}
-		if (parseFloat(amount) <= 0) {
+		if (amountInRBTC() <= 0) {
 			return 'wallet.validation.amount_positive';
 		}
 		if (!currentAsset()) {
 			return 'wallet.validation.no_balance';
 		}
-		if (parseFloat(amount) > (currentAsset()?.balance || 0)) {
+		if (amountInRBTC() > (currentAsset()?.balance || 0)) {
 			return 'wallet.validation.insufficient_balance';
 		}
 
