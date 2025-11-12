@@ -44,7 +44,8 @@
 	let bidStatusMap = $state<Map<string, boolean>>(new Map());
 	let isCheckingBids = $state(false);
 	let lastBidCheckTime = $state<number>(0);
-	const BID_CHECK_INTERVAL = 30000; // 30 seconds minimum between checks
+	let lastCheckedTaskIds = $state<Set<string>>(new Set());
+	const BID_CHECK_INTERVAL = 5000; // 5 seconds minimum between checks (reduced from 30s)
 
 	// Pagination state
 	let currentPage = $state(1);
@@ -92,27 +93,42 @@
 
 	/**
 	 * Background bid checking (non-blocking)
-	 * Debounced to prevent excessive calls
+	 * Smart debouncing: only checks when task IDs actually change
 	 */
-	async function checkBidsInBackground() {
+	async function checkBidsInBackground(force: boolean = false) {
 		const now = Date.now();
 		
-		// Prevent rapid successive calls
+		// Prevent rapid successive calls (unless forced)
 		if (isCheckingBids) return;
-		if (now - lastBidCheckTime < BID_CHECK_INTERVAL) return;
+		if (!force && now - lastBidCheckTime < BID_CHECK_INTERVAL) return;
+		
+		const openTasks = $myTasksStore.items.filter(t => t.status === TaskStatusEnum.OPEN);
+		if (openTasks.length === 0) {
+			lastCheckedTaskIds.clear();
+			return;
+		}
+
+		// Get current task IDs
+		const currentTaskIds = new Set(openTasks.map(t => t.id));
+		
+		// Check if task IDs have actually changed (unless forced)
+		if (!force) {
+			const taskIdsChanged = 
+				currentTaskIds.size !== lastCheckedTaskIds.size ||
+				Array.from(currentTaskIds).some(id => !lastCheckedTaskIds.has(id)) ||
+				Array.from(lastCheckedTaskIds).some(id => !currentTaskIds.has(id));
+			
+			// If no meaningful change and we've checked recently, skip
+			if (!taskIdsChanged && lastBidCheckTime > 0) {
+				return;
+			}
+		}
 		
 		isCheckingBids = true;
 		lastBidCheckTime = now;
+		lastCheckedTaskIds = new Set(currentTaskIds);
 		
 		try {
-			const openTasks = $myTasksStore.items.filter(t => t.status === TaskStatusEnum.OPEN);
-			if (openTasks.length === 0) {
-				isCheckingBids = false;
-				return;
-			}
-
-			const taskIds = openTasks.map(t => t.id);
-			
 			// Batch check all bids
 			const { getBidsFromDMs } = await import('$lib/utils/nostr-bid');
 			const allBids = await getBidsFromDMs();
@@ -126,7 +142,7 @@
 			}
 			
 			// Update bid status map
-			for (const taskId of taskIds) {
+			for (const taskId of currentTaskIds) {
 				bidStatusMap.set(taskId, tasksWithBids.has(taskId));
 			}
 		} catch (error) {
@@ -219,15 +235,20 @@
 		currentPage = 1;
 	});
 
-	// Check bids in background on mount and when tasks change
-	// Use untrack to prevent reactive loop - only check when component mounts or tasks are loaded
-	let tasksInitialized = $state(false);
-	
+	// Check bids in background when tasks change
+	// Smart tracking: only checks when task IDs actually change, not on every store update
 	$effect(() => {
-		// Track when tasks are first loaded
-		if ($myTasksStore.items.length > 0 && !tasksInitialized) {
-			tasksInitialized = true;
-			checkBidsInBackground();
+		// Access the store to track changes
+		const tasks = $myTasksStore.items;
+		
+		// Only check if we have tasks and they've actually changed
+		if (tasks.length > 0) {
+			// Use a small delay to batch rapid updates
+			const timeoutId = setTimeout(() => {
+				checkBidsInBackground();
+			}, 100); // 100ms debounce to batch rapid updates
+			
+			return () => clearTimeout(timeoutId);
 		}
 	});
 
@@ -265,8 +286,8 @@
 			isLoading = true;
 			error = null;
 			await findMyTasks({ page: 1, limit: 100 });
-			// Check bids after tasks are loaded
-			checkBidsInBackground();
+			// Force bid check after manual refresh
+			checkBidsInBackground(true);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load tasks';
 			console.error('Error loading tasks:', err);
@@ -354,6 +375,7 @@
 		(async () => {
 			await loadTasks();
 			await fetchBtcPrice();
+			// Note: loadTasks() already triggers checkBidsInBackground(true)
 		})();
 
 		// Cleanup on unmount
