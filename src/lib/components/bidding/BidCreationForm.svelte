@@ -363,6 +363,33 @@
 			// Submit a bid as an encrypted DM to the task creator with custom tags
 			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
 
+			// Notify backend via GraphQL so it can send push notifications
+			try {
+				const { CreateBidStore } = await import('$houdini');
+				const createBidStore = new CreateBidStore();
+				
+				await createBidStore.mutate({
+					input: {
+						taskId: parseInt(taskId),
+						amount: amount,
+						currency: 'USD',
+						paymentType: bidType,
+						description: description,
+						estimatedDuration: estimatedDuration,
+						proposedApproach: proposedApproach,
+						coverLetter: coverLetter,
+						hourlyRate: bidType === 'HOURLY' ? hourlyRate : undefined,
+						estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : undefined
+					}
+				});
+				
+				console.log('✅ Bid registered with backend for push notifications');
+			} catch (error) {
+				console.warn('⚠️ Failed to register bid with backend (Nostr DM was successful):', error);
+				// Don't fail the bid submission if backend call fails
+				// Nostr DM is the primary communication method
+			}
+
 			// Clear bid cache to ensure fresh data on next load
 			clearBidCache();
 

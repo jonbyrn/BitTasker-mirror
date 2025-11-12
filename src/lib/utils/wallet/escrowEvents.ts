@@ -108,6 +108,19 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			console.log('Creating Nostr contract with params:', contractParams);
 			await createContract(contractParams);
 
+			// Notify backend that contract was created
+			try {
+				const { notifyBackendOfContractAction } = await import('$lib/utils/contract-notification-helper');
+				await notifyBackendOfContractAction(
+					event.escrowId,
+					'contract-created',
+					`contract-${event.escrowId}`,
+					{ transactionHash: event.transactionHash }
+				);
+			} catch (error) {
+				console.warn('Failed to notify backend of contract creation:', error);
+			}
+
 			// Update contract creation store
 			contractCreationStore.set({
 				escrowId: event.escrowId,

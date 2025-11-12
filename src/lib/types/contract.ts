@@ -4,6 +4,7 @@ import type { Attachment } from './task';
 
 // Contract status actions that can be performed
 export type ContractAction = 
+	| 'contract-created'
 	| 'task-completed'
 	| 'payment-released'
 	| 'dispute-raised'

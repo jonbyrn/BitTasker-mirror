@@ -7,6 +7,7 @@
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { deleteContract as deleteContractUtil } from '$lib/utils/nostr-bid';
+	import { notifyBackendOfContractAction } from '$lib/utils/contract-notification-helper';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
@@ -278,6 +279,14 @@
 				registerCompleteCancelAttempt(contract.contract.escrowId, 'complete', result.hash);
 			}
 			
+			// Notify backend for push notifications
+			await notifyBackendOfContractAction(
+				contract.contract.escrowId,
+				'task-completed',
+				contract.contractEvent.id,
+				{ attachments: attachments.length, transactionHash: result.hash }
+			);
+			
 			onActionComplete?.();
 			
 			// Note: Status will be updated to 'confirmed' when transaction confirms
@@ -356,20 +365,28 @@
 
 		setLoading('accept', true);
 		try {
-			// Call RSK escrow acceptTask with contract event ID for proper nostr event publishing
-			const result = await escrow.acceptTask(contract.contract.escrowId, contract.contractEvent.id);
-			
-			if (!isMounted) return;
-			
-			// Update cache with transaction hash (status is already 'pending' from registration)
-			if (result.hash && acceptAttempt) {
-				// Update the attempt with transaction hash
-				acceptAttempt.transactionHash = result.hash;
-				// Update the cache entry (overwrites existing entry with transaction hash)
-				registerAcceptDisputeAttempt(contract.contract.escrowId, 'accept', result.hash);
-			}
-			
-			// Note: Loading state will remain true until transaction confirms
+		// Call RSK escrow acceptTask with contract event ID for proper nostr event publishing
+		const result = await escrow.acceptTask(contract.contract.escrowId, contract.contractEvent.id);
+		
+		if (!isMounted) return;
+		
+		// Update cache with transaction hash (status is already 'pending' from registration)
+		if (result.hash && acceptAttempt) {
+			// Update the attempt with transaction hash
+			acceptAttempt.transactionHash = result.hash;
+			// Update the cache entry (overwrites existing entry with transaction hash)
+			registerAcceptDisputeAttempt(contract.contract.escrowId, 'accept', result.hash);
+		}
+		
+		// Notify backend for push notifications
+		await notifyBackendOfContractAction(
+			contract.contract.escrowId,
+			'payment-released',
+			contract.contractEvent.id,
+			{ transactionHash: result.hash }
+		);
+		
+		// Note: Loading state will remain true until transaction confirms
 			// Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleTaskAccepted
 			// The reactive effect will clear loading when status becomes 'confirmed'
@@ -435,20 +452,28 @@
 
 		setLoading('dispute', true);
 		try {
-			// Call RSK escrow disputeTask with contract event ID for proper nostr event publishing
-			const result = await escrow.disputeTask(contract.contract.escrowId, contract.contractEvent.id);
-			
-			if (!isMounted) return;
-			
-			// Update cache with transaction hash (status is already 'pending' from registration)
-			if (result.hash && disputeAttempt) {
-				// Update the attempt with transaction hash
-				disputeAttempt.transactionHash = result.hash;
-				// Update the cache entry (overwrites existing entry with transaction hash)
-				registerAcceptDisputeAttempt(contract.contract.escrowId, 'dispute', result.hash);
-			}
-			
-			// Note: Loading state will remain true until transaction confirms
+		// Call RSK escrow disputeTask with contract event ID for proper nostr event publishing
+		const result = await escrow.disputeTask(contract.contract.escrowId, contract.contractEvent.id);
+		
+		if (!isMounted) return;
+		
+		// Update cache with transaction hash (status is already 'pending' from registration)
+		if (result.hash && disputeAttempt) {
+			// Update the attempt with transaction hash
+			disputeAttempt.transactionHash = result.hash;
+			// Update the cache entry (overwrites existing entry with transaction hash)
+			registerAcceptDisputeAttempt(contract.contract.escrowId, 'dispute', result.hash);
+		}
+		
+		// Notify backend for push notifications
+		await notifyBackendOfContractAction(
+			contract.contract.escrowId,
+			'dispute-raised',
+			contract.contractEvent.id,
+			{ transactionHash: result.hash }
+		);
+		
+		// Note: Loading state will remain true until transaction confirms
 			// Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleTaskDisputed
 			// The reactive effect will clear loading when status becomes 'confirmed'
@@ -498,19 +523,30 @@
 
 		setLoading('propose', true);
 		try {
-			// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
-			await escrow.proposeResolution(
-				contract.contract.escrowId,
-				freelancerAmountRBTC,
-				contract.contractEvent.id,
-				clientAmountRBTC,
-				freelancerAmountRBTC
-			);
+		// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
+		await escrow.proposeResolution(
+			contract.contract.escrowId,
+			freelancerAmountRBTC,
+			contract.contractEvent.id,
+			clientAmountRBTC,
+			freelancerAmountRBTC
+		);
 
-			showResolutionForm = false;
-			proposedClientAmountUSD = '';
-			proposedFreelancerAmountUSD = '';
-			onActionComplete?.();
+		// Notify backend for push notifications
+		await notifyBackendOfContractAction(
+			contract.contract.escrowId,
+			'resolution-proposed',
+			contract.contractEvent.id,
+			{
+				freelancerAmount: freelancerAmountRBTC,
+				clientAmount: clientAmountRBTC
+			}
+		);
+
+		showResolutionForm = false;
+		proposedClientAmountUSD = '';
+		proposedFreelancerAmountUSD = '';
+		onActionComplete?.();
 		} catch (error) {
 			console.error('Error proposing resolution:', error);
 			const errorMessage =
@@ -529,9 +565,17 @@
 
 		setLoading('acceptProposal', true);
 		try {
-			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
-			await escrow.acceptProposal(contract.contract.escrowId, contract.contractEvent.id);
-			onActionComplete?.();
+		// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
+		await escrow.acceptProposal(contract.contract.escrowId, contract.contractEvent.id);
+		
+		// Notify backend for push notifications
+		await notifyBackendOfContractAction(
+			contract.contract.escrowId,
+			'proposal-accepted',
+			contract.contractEvent.id
+		);
+		
+		onActionComplete?.();
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
 			const errorMessage =
@@ -593,20 +637,28 @@
 
 		setLoading('cancel', true);
 		try {
-			// Call RSK escrow cancelEscrow with contract event ID for proper nostr event publishing
-			const result = await escrow.cancelEscrow(contract.contract.escrowId, contract.contractEvent.id);
-			
-			if (!isMounted) return;
-			
-			// Update cache with transaction hash (status is already 'pending' from registration)
-			if (result.hash && cancelAttempt) {
-				// Update the attempt with transaction hash
-				cancelAttempt.transactionHash = result.hash;
-				// Update the cache entry (overwrites existing entry with transaction hash)
-				registerCompleteCancelAttempt(contract.contract.escrowId, 'cancel', result.hash);
-			}
-			
-			// Note: Status will be updated to 'confirmed' when transaction confirms
+		// Call RSK escrow cancelEscrow with contract event ID for proper nostr event publishing
+		const result = await escrow.cancelEscrow(contract.contract.escrowId, contract.contractEvent.id);
+		
+		if (!isMounted) return;
+		
+		// Update cache with transaction hash (status is already 'pending' from registration)
+		if (result.hash && cancelAttempt) {
+			// Update the attempt with transaction hash
+			cancelAttempt.transactionHash = result.hash;
+			// Update the cache entry (overwrites existing entry with transaction hash)
+			registerCompleteCancelAttempt(contract.contract.escrowId, 'cancel', result.hash);
+		}
+		
+		// Notify backend for push notifications
+		await notifyBackendOfContractAction(
+			contract.contract.escrowId,
+			'escrow-cancelled',
+			contract.contractEvent.id,
+			{ transactionHash: result.hash }
+		);
+		
+		// Note: Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleEscrowCancelled
 			// If transaction fails, it will be handled in escrow.ts
 		} catch (error) {
@@ -636,9 +688,17 @@
 
 		setLoading('resolveTimelock', true);
 		try {
-			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
-			await escrow.resolveAfterTimelock(contract.contract.escrowId, contract.contractEvent.id);
-			onActionComplete?.();
+		// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
+		await escrow.resolveAfterTimelock(contract.contract.escrowId, contract.contractEvent.id);
+		
+		// Notify backend for push notifications
+		await notifyBackendOfContractAction(
+			contract.contract.escrowId,
+			'timelock-resolved',
+			contract.contractEvent.id
+		);
+		
+		onActionComplete?.();
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
 			const errorMessage =
