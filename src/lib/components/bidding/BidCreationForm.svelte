@@ -8,7 +8,6 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
 	import DateInput from '$lib/components/date/DateInput.svelte';
-	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 
 	// Props
 	const {
@@ -363,25 +362,6 @@
 
 			// Submit a bid as an encrypted DM to the task creator with custom tags
 			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
-
-			// Send push notification to task creator about new bid
-			if (taskCreatorPubkey) {
-				try {
-					const bidderName = loggedInUserName || $t('dashboard.bids.bid_creation.anonymous_bidder');
-					const taskTitleText = taskTitle || $t('dashboard.bids.bid_creation.untitled_task');
-					await pushNotificationService.sendNotificationToUser({
-						title: $t('dashboard.bids.bid_creation.new_bid_notification_title'),
-						body: $t('dashboard.bids.bid_creation.new_bid_notification_body')
-							.replace('{bidderName}', bidderName)
-							.replace('{taskTitle}', taskTitleText),
-						userPubkey: taskCreatorPubkey,
-						type: 'new_bid'
-					});
-				} catch (error) {
-					// Notification failure shouldn't block bid submission
-					console.warn('Failed to send push notification for new bid:', error);
-				}
-			}
 
 			// Clear bid cache to ensure fresh data on next load
 			clearBidCache();

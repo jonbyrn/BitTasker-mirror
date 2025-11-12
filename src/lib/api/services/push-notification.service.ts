@@ -689,24 +689,14 @@ class PushNotificationService {
 	}
 
 	// Public method to send notification
-	public async sendNotification({ 
-		title, 
-		body, 
-		deviceId, 
-		type = 'device_revoked' 
-	}: { 
-		title: string; 
-		body: string; 
-		deviceId?: string; 
-		type?: string;
-	}) {
+	public async sendNotification({ title, body, deviceId }: { title: string, body: string, deviceId: string }) {
 		try {
 			const result = await this.sendNotificationStore.mutate({
 				input: {
 					title,
 					body,
-					deviceId: deviceId || undefined,
-					type
+					deviceId,
+					type: 'device_revoked'
 				}
 			});
 
@@ -718,44 +708,6 @@ class PushNotificationService {
 		} catch (error) {
 			console.error('Error sending notification:', error);
 			throw error;
-		}
-	}
-
-	// Public method to send notification to user by pubkey (backend will handle device lookup)
-	public async sendNotificationToUser({ 
-		title, 
-		body, 
-		userPubkey, 
-		type
-	}: { 
-		title: string; 
-		body: string; 
-		userPubkey: string; 
-		type: string;
-	}) {
-		try {
-			// Send notification without deviceId - backend should handle user lookup by pubkey
-			// The type field can include pubkey information for backend routing
-			const result = await this.sendNotificationStore.mutate({
-				input: {
-					title,
-					body,
-					// Include pubkey in type or as part of the notification data
-					// Backend should parse this and route to user's devices
-					type: `${type}:${userPubkey}`
-				}
-			});
-
-			if (result.errors) {
-				throw new Error(result.errors[0].message);
-			}
-
-			return result.data?.sendNotification;
-		} catch (error) {
-			console.error('Error sending notification to user:', error);
-			// Don't throw - notification failures shouldn't break the main flow
-			console.warn('Notification sending failed, but continuing with main operation');
-			return null;
 		}
 	}
 
