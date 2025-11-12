@@ -11,19 +11,45 @@
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
 	if (!('serviceWorker' in navigator)) {
-		console.warn('Service workers are not supported in this browser');
+		console.warn('⚠️ Service workers are not supported in this browser');
 		return null;
 	}
 
 	try {
-		const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+		console.log('📦 Registering service worker...');
+		const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+			scope: '/'
+		});
+
+		console.log('✅ Service worker registered:', registration.scope);
+
+		// Wait for service worker to be ready
+		if (registration.installing) {
+			await new Promise<void>((resolve) => {
+				registration.installing!.addEventListener('statechange', () => {
+					if (registration.installing!.state === 'activated') {
+						resolve();
+					}
+				});
+			});
+		} else if (registration.waiting) {
+			// Service worker is waiting, activate it
+			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+		}
+
+		// Wait a bit for service worker to be ready
+		await new Promise((resolve) => setTimeout(resolve, 500));
 
 		// Send Firebase config to service worker
-		if (registration.active) {
-			registration.active.postMessage({
+		const activeWorker = registration.active || registration.waiting || registration.installing;
+		if (activeWorker) {
+			console.log('📤 Sending Firebase config to service worker...');
+			activeWorker.postMessage({
 				type: 'FIREBASE_CONFIG',
 				config: getFirebaseWebConfig()
 			});
+		} else {
+			console.warn('⚠️ No active service worker found to send config to');
 		}
 
 		// Set up navigation message handler
@@ -31,7 +57,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 		return registration;
 	} catch (error) {
-		console.error('Service Worker registration failed:', error);
+		console.error('❌ Service Worker registration failed:', error);
 		return null;
 	}
 }

@@ -1,30 +1,42 @@
 // Firebase Messaging Service Worker
 // This file handles background push notifications for web browsers
 
+/* global importScripts, firebase, clients */
 // Import Firebase scripts for service worker
 importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging-compat.js');
 
 let messaging = null;
+let isInitialized = false;
 
 // Function to initialize Firebase with config from server
 async function initializeFirebase(config = {}) {
 	try {
+		// Don't re-initialize if already done
+		if (isInitialized && firebase.apps.length > 0) {
+			console.log('✅ SW: Firebase already initialized');
+			return messaging;
+		}
+
 		let firebaseConfig = config;
 
+		// If config is empty or incomplete, fetch from server
 		if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
-			// Fetch Firebase config from app
+			console.log('📡 SW: Fetching Firebase config from server...');
 			try {
-				const response = await fetch('/firebase-config.json');
+				const response = await fetch('/firebase-config.json', {
+					cache: 'no-cache'
+				});
 				if (!response.ok) {
 					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 				}
 
 				firebaseConfig = await response.json();
+				console.log('✅ SW: Firebase config fetched successfully');
 			} catch (error) {
-				console.error('Failed to fetch Firebase config:', error);
+				console.error('❌ SW: Failed to fetch Firebase config:', error);
 				// Don't throw here, just log and wait for message from main thread
-				return;
+				return null;
 			}
 		}
 
@@ -34,32 +46,35 @@ async function initializeFirebase(config = {}) {
 		}
 
 		// Initialize Firebase
-		firebase.initializeApp(firebaseConfig);
+		if (firebase.apps.length === 0) {
+			firebase.initializeApp(firebaseConfig);
+			console.log('✅ SW: Firebase initialized successfully');
+		}
+		
 		messaging = firebase.messaging();
+		isInitialized = true;
 
+		// Set up background message handler immediately after initialization
+		setupBackgroundMessageHandler();
+
+		return messaging;
 	} catch (error) {
-		console.error('❌ Failed to initialize Firebase in service worker:', error);
+		console.error('❌ SW: Failed to initialize Firebase in service worker:', error);
+		isInitialized = false;
+		return null;
 	}
 }
 
-// Initialize Firebase when service worker starts
-initializeFirebase();
-
-// Handle background messages
-self.addEventListener('message', (event) => {
-	if (event.data && event.data.type === 'FIREBASE_CONFIG') {
-		// Re-initialize with correct config if needed
-		if (!firebase.apps.length) {
-			initializeFirebase(event.data.config);
-		}
+// Set up background message handler
+function setupBackgroundMessageHandler() {
+	if (!messaging) {
+		console.error('❌ SW: Cannot setup message handler - messaging not available');
+		return;
 	}
-});
 
-// Wait for Firebase to be ready before setting up message handler
-setTimeout(() => {
-	if (messaging) {
+	try {
 		messaging.onBackgroundMessage((payload) => {
-			console.log('Received background message: ', payload);
+			console.log('📨 SW: Received background message:', payload);
 
 			const { notification, data } = payload;
 
@@ -81,15 +96,33 @@ setTimeout(() => {
 						title: 'Close'
 					}
 				],
-				requireInteraction: true
+				requireInteraction: false // Changed to false for better UX
 			};
 
 			self.registration.showNotification(notificationTitle, notificationOptions);
+			console.log('✅ SW: Background notification displayed');
 		});
-	} else {
-		console.error('❌ SW: Messaging not available after timeout');
+		console.log('✅ SW: Background message handler set up');
+	} catch (error) {
+		console.error('❌ SW: Error setting up background message handler:', error);
 	}
-}, 1000);
+}
+
+// Initialize Firebase when service worker starts
+initializeFirebase().catch((error) => {
+	console.error('❌ SW: Error during initial Firebase initialization:', error);
+});
+
+// Handle messages from main thread (including Firebase config)
+self.addEventListener('message', async (event) => {
+	if (event.data && event.data.type === 'FIREBASE_CONFIG') {
+		console.log('📨 SW: Received Firebase config from main thread');
+		// Re-initialize with correct config if needed
+		if (!isInitialized || firebase.apps.length === 0) {
+			await initializeFirebase(event.data.config);
+		}
+	}
+});
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
