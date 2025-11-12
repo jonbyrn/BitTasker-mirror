@@ -50,7 +50,7 @@ class PushNotificationService {
 			this.currentDeviceId = deviceId;
 		});
 		(async () => {
-			let npub = get(appStore)?.biometricData?.username || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
+			const npub = get(appStore)?.biometricData?.username || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
 			createUserDeviceShortName(npub).then((deviceName) => {
 				this.deviceName = deviceName;
 			});
@@ -63,18 +63,14 @@ class PushNotificationService {
 	}
 
 	public async init(): Promise<void> {
-		try {
-			if (Capacitor.isNativePlatform()) {
-				this.addListeners();
-				await this.requestPermissions();
-				await this.createPushNotificationChannel();
-				await this.registerDevice();
-				this.addDeepLinkListener();
-			} else {
-				await this.initWebPushNotifications();
-			}
-		} catch (error) {
-			throw error;
+		if (Capacitor.isNativePlatform()) {
+			this.addListeners();
+			await this.requestPermissions();
+			await this.createPushNotificationChannel();
+			await this.registerDevice();
+			this.addDeepLinkListener();
+		} else {
+			await this.initWebPushNotifications();
 		}
 	}
 
@@ -86,6 +82,8 @@ class PushNotificationService {
 				return;
 			}
 
+			console.log('🔧 Initializing web push notifications...');
+
 			const { initializeApp } = await import('firebase/app');
 			const { getMessaging, onMessage } = await import('firebase/messaging');
 
@@ -93,11 +91,36 @@ class PushNotificationService {
 
 			// Validate Firebase config
 			if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
-				throw new Error('❌ Firebase configuration is incomplete');
+				const missing = [];
+				if (!firebaseConfig.apiKey) missing.push('VITE_FIREBASE_WEB_API_KEY');
+				if (!firebaseConfig.projectId) missing.push('VITE_FIREBASE_WEB_PROJECT_ID');
+				if (!firebaseConfig.messagingSenderId) missing.push('VITE_FIREBASE_WEB_MESSAGING_SENDER_ID');
+				throw new Error(`❌ Firebase configuration is incomplete. Missing: ${missing.join(', ')}`);
 			}
 
-			const app = initializeApp(firebaseConfig);
+			console.log('✅ Firebase config validated');
+
+			// Check if Firebase is already initialized
+			let app;
+			try {
+				app = initializeApp(firebaseConfig);
+				console.log('✅ Firebase app initialized');
+			} catch (error: any) {
+				// If app already exists, get it
+				if (error.code === 'app/duplicate-app') {
+					const { getApp } = await import('firebase/app');
+					app = getApp();
+					console.log('✅ Using existing Firebase app');
+				} else {
+					throw error;
+				}
+			}
+
 			this.messaging = getMessaging(app);
+
+			// Register service worker FIRST (before requesting permissions)
+			console.log('📦 Registering service worker...');
+			await registerServiceWorker();
 
 			// Request permission for web notifications
 			await this.requestWebPermissions();
@@ -111,8 +134,7 @@ class PushNotificationService {
 				this.handleForegroundMessage(payload);
 			});
 
-			// Register service worker for background messages
-			await registerServiceWorker();
+			console.log('✅ Web push notifications initialized successfully');
 
 		} catch (error) {
 			console.error('❌ Error initializing web push notifications:', error);
@@ -134,19 +156,34 @@ class PushNotificationService {
 			const vapidKey = getVapidKey();
 
 			if (!vapidKey) {
-				throw new Error('❌ VAPID key is not configured');
+				throw new Error('❌ VAPID key is not configured. Please set VITE_FIREBASE_VAPID_KEY environment variable.');
 			}
+
+			console.log('🔑 Requesting FCM token...');
+			
+			// Wait a bit for service worker to be ready
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 
 			const token = await getToken(this.messaging, {
 				vapidKey: vapidKey
 			});
 
 			if (token) {
+				console.log('✅ FCM token received:', token.substring(0, 20) + '...');
 				await this.registerTokenOnServer(token);
 			} else {
-				console.warn('⚠️ No registration token available.');
+				console.warn('⚠️ No registration token available. Request permission was denied or service worker not ready.');
 			}
-		} catch (error) {
+		} catch (error: any) {
+			console.error('❌ Error getting FCM token:', error);
+			// Provide more helpful error messages
+			if (error.code === 'messaging/permission-blocked') {
+				throw new Error('❌ Notification permission was blocked. Please enable notifications in your browser settings.');
+			} else if (error.code === 'messaging/permission-default') {
+				throw new Error('❌ Notification permission was not granted. Please allow notifications when prompted.');
+			} else if (error.code === 'messaging/unsupported-browser') {
+				throw new Error('❌ This browser does not support push notifications.');
+			}
 			throw error || new Error('❌ An error occurred while retrieving token');
 		}
 	}
@@ -228,7 +265,8 @@ class PushNotificationService {
 		await authState.logout();
 
 		// Navigate to login
-		goto('/auth/login');
+		// eslint-disable-next-line
+		await goto('/auth/login');
 	}
 
 	/**
@@ -283,10 +321,12 @@ class PushNotificationService {
 				// For native platforms, use SvelteKit navigation
 				// The notification should already bring the app to foreground
 				console.log('📱 Native SPA navigation to:', url);
+				// eslint-disable-next-line
 				await goto(url);
 			} else {
 				// For web, use SvelteKit navigation
 				console.log('🌐 Web navigation to:', url);
+				// eslint-disable-next-line
 				await goto(url);
 			}
 		} catch (error) {
@@ -414,7 +454,7 @@ class PushNotificationService {
 				lightColor: '#FF0000'
 			});
 			console.log('✅ Push notification channel created');
-		} catch (error) {
+		} catch {
 			// Channel might already exist, that's fine
 			console.log('📱 Push notification channel already exists or not needed on this platform');
 		}
@@ -438,7 +478,7 @@ class PushNotificationService {
 				lights: true,
 				lightColor: '#FF0000'
 			});
-		} catch (error) {
+		} catch {
 			// Channel might already exist, that's fine
 			console.log('📱 Local notification channel already exists or not needed on this platform');
 		}
