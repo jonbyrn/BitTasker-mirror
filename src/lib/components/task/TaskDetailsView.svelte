@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import type { Attachment, Task } from '$lib/types/task';
 	import { format } from 'date-fns';
@@ -15,7 +16,8 @@
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import {
 		formatStandardDateTime,
-		formatStandardDateShort
+		formatStandardDateShort,
+		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
@@ -165,7 +167,10 @@
 
 
 	async function loadTaskDetails(taskId: string) {
-		if (!taskId) return;
+		if (!taskId) {
+			loading = false;
+			return;
+		}
 
 		try {
 			loading = true;
@@ -209,13 +214,40 @@
 	};
 
 	async function fetchBtcPrice(): Promise<void> {
-		btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Failed to fetch BTC price:', error);
+		}
 	}
 
 	// Translation is now handled automatically by TranslatableTask component
 
+	// Track previous taskId to detect changes
+	let previousTaskId = $state<string | null>(null);
+
+	// React to taskId prop changes and reload task details
+	$effect(() => {
+		if (taskId && taskId !== previousTaskId) {
+			previousTaskId = taskId;
+			loadTaskDetails(taskId);
+		}
+	});
+
+	// Reload task details when navigating to this route (handles back navigation)
+	afterNavigate(({ to, from }) => {
+		// Only reload if we're navigating TO a task details route (not away from it)
+		// Check if the current URL matches a task details pattern
+		if (to && taskId && to.url.pathname.includes(`/task/${taskId}`)) {
+			// Reset state and reload to ensure fresh data
+			task = null;
+			errorMessage = '';
+			loadTaskDetails(taskId);
+		}
+	});
+
+	// Fetch BTC price on mount
 	onMount(() => {
-		loadTaskDetails(taskId || '');
 		fetchBtcPrice();
 	});
 </script>
