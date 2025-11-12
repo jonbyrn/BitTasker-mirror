@@ -66,10 +66,6 @@ export default defineConfig({
                         if (id.includes('swiper') || id.includes('photoswipe')) {
                             return 'vendor-ui';
                         }
-                        // Breez SDK
-                        if (id.includes('breez')) {
-                            return 'vendor-breez';
-                        }
                         // All other vendor code
                         return 'vendor';
                     }
@@ -89,8 +85,6 @@ export default defineConfig({
         ],
         exclude: [
             'firebase',
-            '@breeztech/breez-sdk-liquid/web',
-            '@breeztech/breez-sdk-liquid',
             '@capacitor/device',
             '@capacitor/preferences',
             /* 'liquidjs-lib',

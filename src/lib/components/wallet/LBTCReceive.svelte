@@ -1,5 +1,8 @@
 <script lang="ts">
+<<<<<<< HEAD
 	import type { Signer } from 'ethers';
+=======
+>>>>>>> 639875bd (Initial integration of BitTasker wallet package)
 	import type { ChainSwapData } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
@@ -49,7 +52,12 @@
 
 				// Recover pending swaps from wallet manager
 				const walletManager = getWalletManager();
+<<<<<<< HEAD
 				const recovered = await walletManager.chainSwapService.recoverPendingSwaps();
+=======
+				const recovered = walletManager.chainSwapService.getActiveSwaps();
+				console.log('Recovered chain swaps:', recovered);
+>>>>>>> 639875bd (Initial integration of BitTasker wallet package)
 
 				if (recovered.length > 0) {
 					pendingSwaps = recovered;
@@ -160,6 +168,7 @@
 			return;
 		}
 
+<<<<<<< HEAD
 		// Validate amount before proceeding
 		validateAmount(amount);
 		if (amountError) {
@@ -167,6 +176,8 @@
 			return;
 		}
 
+=======
+>>>>>>> 639875bd (Initial integration of BitTasker wallet package)
 		if (!amount || parseFloat(amount) <= 0) {
 			error = $t('wallet.validation.amount_required');
 			return;
@@ -193,7 +204,11 @@
 			const result = await walletManager.chainSwapService.createChainSwap({
 				amountSats,
 				rbtcAddress: $rskConnection.address,
+<<<<<<< HEAD
 				walletSigner: $rskConnection.wallet as Signer // Pass wallet for Smart Wallet address computation
+=======
+				walletSigner: $rskConnection.wallet // Pass wallet for Smart Wallet address computation
+>>>>>>> 639875bd (Initial integration of BitTasker wallet package)
 			});
 
 			// Add to pending swaps list

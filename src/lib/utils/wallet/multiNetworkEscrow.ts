@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 import { walletStore } from '$lib/stores/wallet.store';
 import { FEE_TIERS, type FeeTier, RSK_NETWORKS, BSC_NETWORKS } from '$lib/utils/wallet/networkConfig';
 import escrowABI from '$lib/utils/constants/escrowABI.json';
-import type { GasEstimation } from '$lib/types/wallet';
+import type { GasEstimation } from '@bittasker/wallet-core';
 
 // Network types
 export type EscrowNetwork = 'RSK' | 'BSC';

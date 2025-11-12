@@ -96,23 +96,8 @@
 	// Auto-initialize Rootstock wallet if not connected
 	// Use effect with untrack to prevent reactive loops while still checking when component is active
 	$effect(() => {
-		// Access props to ensure effect runs when component is rendered
-		props.bid;
-		props.task;
-		
-		// Read wallet state without tracking it to prevent infinite loops
-		const walletState = untrack(() => get(walletStore));
-		
-		// Only attempt initialization once, and only if wallet is not connected/connecting
-		if (
-			!walletInitAttempted &&
-			!walletState.rsk.connected &&
-			!walletState.rsk.connecting &&
-			!walletState.rsk.error
-		) {
-			walletInitAttempted = true;
-			// Initialize wallet without tracking the promise
-			walletManager.initializeRSKWallet().catch((error) => {
+		if (!$walletStore.rsk.connected && !$walletStore.rsk.connecting && !$walletStore.rsk.error) {
+			walletManager.initialize().catch((error) => {
 				console.error('Auto-initialization of Rootstock wallet failed:', error);
 				// Reset flag on error so user can retry manually
 				walletInitAttempted = false;
@@ -266,7 +251,7 @@
 		<div class="bg-base-300 lg:bg-base-200 rounded-2xl">
 			<!-- Task Title Row -->
 			<div class="w-full min-w-0 px-6 pt-3">
-				<h5 class="line-clamp-2 text-lg font-semibold break-words">{props.task.title}</h5>
+				<h5 class="line-clamp-2 text-lg font-semibold wrap-break-words">{props.task.title}</h5>
 			</div>
 
 			<!-- Divider (Desktop only) -->
@@ -567,7 +552,7 @@
 						class="btn btn-sm btn-primary ml-auto"
 						onclick={async () => {
 							try {
-								await walletManager.initializeRSKWallet();
+								await walletManager.initialize();
 							} catch (error) {
 								console.error('Failed to connect Rootstock wallet:', error);
 							}
@@ -598,7 +583,7 @@
 								class="btn btn-sm btn-outline"
 								onclick={async () => {
 									try {
-										await walletManager.initializeRSKWallet();
+										await walletManager.initialize();
 									} catch (error) {
 										console.error('Failed to retry Rootstock wallet connection:', error);
 									}

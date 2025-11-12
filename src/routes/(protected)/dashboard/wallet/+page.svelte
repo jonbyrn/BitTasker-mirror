@@ -41,23 +41,6 @@
 				<h2 class="text-3xl font-bold">{$t('wallet.title')}</h2>
 				<HelpModal />
 			</div>
-			<!-- Network status badges - commented out -->
-			<!--
-			<div class="flex gap-2">
-				<div class="tooltip" data-tip="Breez Liquid Wallet">
-					<div class="badge {$liquidConnection.connected ? 'badge-success' : 'badge-error'} gap-2">
-						<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid" class="h-4 w-4" />
-						Liquid
-					</div>
-				</div>
-				<div class="tooltip" data-tip="Rootstock Wallet">
-					<div class="badge {$rskConnection.connected ? 'badge-success' : 'badge-error'} gap-2">
-						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="RSK" class="h-4 w-4" />
-						RSK
-					</div>
-				</div>
-			</div>
-			-->
 		</div>
 
 		<!-- Connection Status - commented out -->

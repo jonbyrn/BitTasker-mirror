@@ -3,7 +3,7 @@ import type { CreateContractParams } from '$lib/types/contract';
 import { writable } from 'svelte/store';
 import type { Attachment } from '$lib/types/task';
 import { createContract, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-import { rskWalletStore, getRSKWallet, getEventListeners } from '$lib/stores/rskWallet.store';
+import { escrowStore, getRSKWallet, getEventListeners } from '$lib/stores/wallet.store';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -451,7 +451,7 @@ export function resetStores(): void {
 
 // Helper function to update escrow status
 function updateEscrowStatus(escrowId: string, status: EscrowStatus): void {
-	rskWalletStore.update(state => ({
+	escrowStore.update(state => ({
 		...state,
 		escrows: state.escrows.map(escrow =>
 			escrow.id === escrowId
@@ -506,7 +506,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		// Load and update escrow data
 		loadEscrowDetails(escrowId.toString()).then(escrowData => {
 			if (escrowData) {
-				rskWalletStore.update(state => ({
+				escrowStore.update(state => ({
 					...state,
 					escrows: [escrowData, ...state.escrows.filter(e => e.id !== escrowData.id)]
 				}));
@@ -574,7 +574,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 			console.log('DisputeProposed event received:', escrowIdStr);
 			loadDisputeProposal(escrowIdStr).then(proposal => {
 				if (proposal) {
-					rskWalletStore.update(state => ({
+					escrowStore.update(state => ({
 						...state,
 						disputeProposals: [proposal, ...state.disputeProposals.filter(p => p.escrowId !== proposal.escrowId)]
 					}));
@@ -591,7 +591,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 			console.log('DisputeResolved event received:', escrowIdStr);
 			updateEscrowStatus(escrowIdStr, EscrowStatus.DisputeResolved);
 			// Remove dispute proposal
-			rskWalletStore.update(state => ({
+			escrowStore.update(state => ({
 				...state,
 				disputeProposals: state.disputeProposals.filter(p => p.escrowId !== escrowIdStr)
 			}));

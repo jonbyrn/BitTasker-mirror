@@ -22,6 +22,21 @@ import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers } from 'ethers';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
+
+// Escrow management state (separate from main wallet state)
+interface EscrowState {
+	escrows: EscrowData[];
+	disputeProposals: DisputeProposal[];
+}
+
+const initialEscrowState: EscrowState = {
+	escrows: [],
+	disputeProposals: []
+};
+
+// Create escrow store
+export const escrowStore = writable(initialEscrowState);
 
 // Initial state
 const initialState: WalletState = {
@@ -97,6 +112,29 @@ export function getWalletManager(): WalletManager {
 		throw new Error('Wallet not initialized. Call initializeWallet() first.');
 	}
 	return sdkWalletManager;
+}
+
+/**
+ * Get RSK wallet instance (for escrow utilities)
+ */
+export function getRSKWallet(): ethers.Wallet | null {
+	const state = get(walletStore);
+	return state.rsk.wallet;
+}
+
+/**
+ * Get RSK provider instance (for escrow utilities)
+ */
+export function getRSKProvider(): ethers.JsonRpcProvider | null {
+	const state = get(walletStore);
+	return state.rsk.provider;
+}
+
+/**
+ * Get event listeners array (for cleanup management)
+ */
+export function getEventListeners(): (() => void)[] {
+	return eventListeners;
 }
 
 /**
@@ -626,11 +664,11 @@ export const allAssets = derived(walletStore, $w => $w.assets);
 export const totalBalances = derived(walletStore, $w => $w.totalBalances);
 export const rbtcToBtcRate = derived(walletStore, $w => $w.rbtcToBtcRate);
 export const transactions = derived(walletStore, $w => $w.transactions);
+export const rskEscrows = derived(escrowStore, $e => $e.escrows);
+export const rskDisputeProposals = derived(escrowStore, $e => $e.disputeProposals);
 
 // Wallet manager compatibility object
 export const walletManager = {
-	initializeRSKWallet: initializeWallet,
-	initializeBSCWallet: initializeWallet,
 	initialize: initializeWallet,
 	disconnect: disconnectWallet,
 	cleanup: disconnectWallet,

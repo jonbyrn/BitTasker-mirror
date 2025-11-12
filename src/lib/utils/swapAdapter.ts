@@ -338,7 +338,6 @@ export class NostrSwapStorage implements SwapStorage {
 			// Don't throw - swap can continue even if storage fails
 		}
 	}
-
 	/**
 	 * Load a specific swap by ID
 	 * @param swapId - Unique swap identifier
@@ -353,7 +352,6 @@ export class NostrSwapStorage implements SwapStorage {
 			return null;
 		}
 	}
-
 	/**
 	 * Load all swaps of this type
 	 * @returns Array of swap data
@@ -366,7 +364,6 @@ export class NostrSwapStorage implements SwapStorage {
 			return [];
 		}
 	}
-
 	/**
 	 * Delete a specific swap
 	 * @param swapId - Unique swap identifier
@@ -379,7 +376,6 @@ export class NostrSwapStorage implements SwapStorage {
 			// Don't throw - deletion is not critical
 		}
 	}
-
 	/**
 	 * Delete all swaps of this type
 	 * @returns Object with count of deleted swaps
