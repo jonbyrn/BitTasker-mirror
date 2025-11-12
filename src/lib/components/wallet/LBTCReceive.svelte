@@ -3,151 +3,131 @@
 	import type { ChainSwapData } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
-	import { rskConnection, getWalletManager } from '$lib/stores/wallet.store';
+	import { rskConnection, walletManager } from '$lib/stores/wallet.store';
 	import PendingSwap from '$lib/components/wallet/PendingSwap.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { debounce } from '$lib/utils/helpers/common';
+	import { onMount } from 'svelte';
 
-	// State
+	// Form state
 	let amount = $state('');
 	let description = $state('');
+	let amountError = $state<string | null>(null);
+
+	// UI state
 	let isCreatingSwap = $state(false);
 	let pendingSwaps = $state<ChainSwapData[]>([]);
 	let error = $state<string | null>(null);
 	let isDeletingSwaps = $state(false);
 	let expandedSwaps = $state<Set<string>>(new Set());
-	let minAmount = $state<number>(0);
-	let maxAmount = $state<number>(0);
+
+	// Swap limits and fees
+	let swapLimits = $state<{ minimal: number; maximal: number } | null>(null);
 	let isLoadingLimits = $state(true);
-
-	// Fee breakdown state
+	let fees = $state<{
+		percentage: number;
+		claimFee: number;
+		lockupFee: number;
+	} | null>(null);
 	let btcPrice = $state<number>(0);
-	let networkFee = $state<number>(150); // Estimated network transaction fee in sats
-	let isLoadingPrice = $state(false);
-	let amountError = $state<string | null>(null);
-	let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	// Derived fee calculations - use amount directly for immediate updates
+	// Derived values
 	let amountSats = $derived(parseFloat(amount) || 0);
-	let swapFee = $derived(amountSats > 0 ? Math.ceil(amountSats * 0.0045) : 0); // Boltz service fee: ~0.45%
+	let swapFee = $derived(
+		fees && amountSats > 0 ? Math.ceil((amountSats * fees.percentage) / 100) : 0
+	);
+	let networkFee = $derived(fees ? fees.claimFee + fees.lockupFee : 0);
 	let totalFees = $derived(swapFee + networkFee);
 	let totalReceived = $derived(Math.max(0, amountSats - totalFees));
 
-	// Get network
-	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-
-	// Derived values (no longer needed for BTC conversion, but kept for display if needed)
-	let minBTC = $derived(minAmount / 100_000_000);
-
 	/**
-	 * Fetch swap limits and recover pending swaps
+	 * Fetch swap limits, fees, and recover pending swaps
 	 */
-	$effect(() => {
-		(async () => {
-			try {
-				// Fetch swap limits from Boltz
-				await fetchSwapLimits();
+	onMount(async () => {
+		try {
+			isLoadingLimits = true;
 
-				// Recover pending swaps from wallet manager
-				const walletManager = getWalletManager();
-				const recovered = await walletManager.chainSwapService.recoverPendingSwaps();
+			// Fetch pairs data from Boltz to get fees and limits
+			const pairsData = await walletManager.getChainSwapPairs();
 
-				if (recovered.length > 0) {
-					pendingSwaps = recovered;
+			// For chain swaps (L-BTC → RBTC), we need the L-BTC/RBTC pair
+			const pair = pairsData?.['L-BTC']?.['RBTC'];
 
-					// Monitor all recovered swaps
-					for (const swap of recovered) {
-						monitorSwapStatus(swap.id);
-					}
-				}
-			} catch (err) {
-				console.error('Failed to initialize chain swap service:', err);
+			if (pair) {
+				// Set limits
+				swapLimits = {
+					minimal: pair.limits.minimal,
+					maximal: pair.limits.maximal
+				};
+
+				// Set fees
+				fees = {
+					percentage: pair.fees.percentage,
+					claimFee: pair.fees.minerFees.user.claim,
+					lockupFee: pair.fees.minerFees.user.lockup
+				};
 			}
-		})();
+
+			// Fetch BTC price for USD conversion
+			try {
+				btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			} catch (err) {
+				console.error('Failed to fetch BTC price:', err);
+				btcPrice = 60000; // Fallback price
+			}
+
+			// Recover pending swaps
+			const recovered = await walletManager.chainSwapService.recoverPendingSwaps();
+			if (recovered.length > 0) {
+				pendingSwaps = recovered;
+
+				// Monitor all recovered swaps
+				for (const swap of recovered) {
+					monitorSwapStatus(swap.id);
+				}
+			}
+		} catch (err) {
+			console.error('Failed to load chain swap data:', err);
+			error = $t('wallet.swap.error.failed_to_load');
+		} finally {
+			isLoadingLimits = false;
+		}
 	});
 
 	/**
-	 * Fetch BTC price for USD conversion
+	 * Validate amount against limits
 	 */
-	async function fetchBtcPrice() {
-		try {
-			isLoadingPrice = true;
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (err) {
-			console.error('Failed to fetch BTC price:', err);
-			// Use fallback price if fetch fails
-			btcPrice = 60000; // Fallback to ~$60k
-		} finally {
-			isLoadingPrice = false;
-		}
-	}
-
-	/**
-	 * Validate amount and update error state
-	 */
-	function validateAmount(value: string | number) {
+	function validateAmount() {
 		amountError = null;
-		
-		// Convert to string for validation
-		const valueStr = String(value ?? '');
-		
-		// Check if value is empty or whitespace
-		if (valueStr.trim() === '' || value === null || value === undefined) {
+
+		// Skip validation if amount is empty
+		if (!amount || String(amount).trim() === '') {
 			return;
 		}
 
-		const amountSats = parseFloat(valueStr);
-		
-		if (isNaN(amountSats) || amountSats <= 0) {
+		const sats = parseFloat(amount);
+
+		// Check for valid number
+		if (isNaN(sats) || sats <= 0) {
 			amountError = $t('wallet.validation.amount_required');
 			return;
 		}
 
-		// Only validate against limits if they've been loaded
-		if (!isLoadingLimits) {
-			if (minAmount > 0 && amountSats < minAmount) {
-				amountError = $t('wallet.swap.error.minimum_amount_sats', { values: { minAmount: minAmount.toLocaleString() } });
+		// Validate against limits (only if loaded)
+		if (swapLimits && !isLoadingLimits) {
+			if (sats < swapLimits.minimal) {
+				amountError = $t('wallet.swap.error.minimum_amount_sats', {
+					values: { minAmount: swapLimits.minimal.toLocaleString() }
+				});
 				return;
 			}
 
-			if (maxAmount > 0 && amountSats > maxAmount) {
-				amountError = $t('wallet.swap.error.maximum_amount_sats', { values: { maxAmount: maxAmount.toLocaleString() } });
+			if (sats > swapLimits.maximal) {
+				amountError = $t('wallet.swap.error.maximum_amount_sats', {
+					values: { maxAmount: swapLimits.maximal.toLocaleString() }
+				});
 				return;
 			}
-		}
-	}
-
-	/**
-	 * Re-validate when limits are loaded or change
-	 */
-	$effect(() => {
-		// Track minAmount and maxAmount to trigger re-validation when limits change
-		const currentMinAmount = minAmount;
-		const currentMaxAmount = maxAmount;
-		const currentIsLoadingLimits = isLoadingLimits;
-
-		// If limits have been loaded and we have an amount, validate immediately
-		if (!currentIsLoadingLimits && amount) {
-			validateAmount(amount);
-		}
-	});
-
-	/**
-	 * Fetch swap limits from Boltz API
-	 */
-	async function fetchSwapLimits() {
-		try {
-			isLoadingLimits = true;
-			const walletManager = getWalletManager();
-			const limits = await walletManager.chainSwapService.getSwapLimits();
-			minAmount = limits.minimal;
-			maxAmount = limits.maximal;
-		} catch (err) {
-			console.error('Failed to fetch chain swap limits:', err);
-			// Use fallback values
-			minAmount = 2500;
-			maxAmount = network === 'mainnet' ? 100_000_000 : 10_000_000; // 1 BTC or 0.1 BTC
-		} finally {
-			isLoadingLimits = false;
 		}
 	}
 
@@ -161,27 +141,9 @@
 		}
 
 		// Validate amount before proceeding
-		validateAmount(amount);
+		validateAmount();
 		if (amountError) {
 			error = amountError;
-			return;
-		}
-
-		if (!amount || parseFloat(amount) <= 0) {
-			error = $t('wallet.validation.amount_required');
-			return;
-		}
-
-		// Amount is already in sats, parse as integer
-		const amountSats = Math.floor(parseFloat(amount));
-
-		if (minAmount > 0 && amountSats < minAmount) {
-			error = $t('wallet.swap.error.minimum_amount_sats', { values: { minAmount: minAmount.toLocaleString() } });
-			return;
-		}
-
-		if (maxAmount > 0 && amountSats > maxAmount) {
-			error = $t('wallet.swap.error.maximum_amount_sats', { values: { maxAmount: maxAmount.toLocaleString() } });
 			return;
 		}
 
@@ -189,11 +151,10 @@
 		error = null;
 
 		try {
-			const walletManager = getWalletManager();
 			const result = await walletManager.chainSwapService.createChainSwap({
-				amountSats,
+				amountSats: Math.floor(parseFloat(amount)),
 				rbtcAddress: $rskConnection.address,
-				walletSigner: $rskConnection.wallet as Signer // Pass wallet for Smart Wallet address computation
+				walletSigner: $rskConnection.wallet as Signer
 			});
 
 			// Add to pending swaps list
@@ -223,14 +184,13 @@
 		// Poll for swap status every 5 seconds
 		const interval = setInterval(async () => {
 			try {
-				const walletManager = getWalletManager();
 				const swap = walletManager.chainSwapService.getSwap(swapId);
 				if (!swap) {
 					clearInterval(interval);
 					return;
 				}
 
-				// Update swap in the list without reinitializing the array
+				// Update swap in the list
 				const swapIndex = pendingSwaps.findIndex((s) => s.id === swapId);
 				if (swapIndex !== -1) {
 					// Only update if there's an actual change to prevent unnecessary re-renders
@@ -272,7 +232,6 @@
 	 */
 	async function deleteSwap(swapId: string) {
 		try {
-			const walletManager = getWalletManager();
 			await walletManager.chainSwapService.deleteSwap(swapId);
 
 			// Remove from UI
@@ -296,7 +255,6 @@
 		error = null;
 
 		try {
-			const walletManager = getWalletManager();
 			const result = await walletManager.chainSwapService.deleteAllSwaps();
 			pendingSwaps = [];
 			appStore.showSuccessToast(
@@ -314,7 +272,7 @@
 
 <div class="space-y-6">
 	<!-- Developer Tool: Delete All Swaps -->
-	{#if import.meta.env.DEV || network === 'regtest'}
+	{#if import.meta.env.DEV || $appStore.network === 'regtest'}
 		<div class="alert alert-outline alert-horizontal">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -371,37 +329,16 @@
 
 	<!-- Create Swap Form -->
 	<div class="space-y-4">
-		<!-- <div class="alert alert-outline alert-info">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				class="h-6 w-6 shrink-0 stroke-current"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<div>
-				<h4 class="font-bold">{$t('wallet.swap.lbtc.title')}</h4>
-				<div class="text-sm">
-					{$t('wallet.swap.lbtc.description')}
-				</div>
-			</div>
-		</div> -->
-
 		<div class="form-control">
-			<label class="label flex flex-col sm:flex-row items-start sm:items-center" for="amount">
+			<label class="label flex flex-col items-start sm:flex-row sm:items-center" for="amount">
 				<span class="label-text">{$t('wallet.swap.amount_btc')}</span>
 				<span class="label-text-alt">
 					{#if isLoadingLimits}
 						<span class="loading loading-spinner loading-xs"></span>
 						{$t('wallet.swap.loading')}...
-					{:else if minAmount > 0}
-						{$t('wallet.swap.min_amount')}: {minAmount.toLocaleString()} {$t('wallet.sats')}
+					{:else if swapLimits}
+						{$t('wallet.swap.min_amount')}: {swapLimits.minimal.toLocaleString()}
+						{$t('wallet.sats')}
 					{/if}
 				</span>
 			</label>
@@ -409,20 +346,13 @@
 				id="amount"
 				type="number"
 				step="1"
-				min={minAmount > 0 ? minAmount : 0}
-				max={maxAmount > 0 ? maxAmount : undefined}
+				min={swapLimits?.minimal || 0}
+				max={swapLimits?.maximal || undefined}
 				placeholder="100000"
-				class="input input-bordered w-full {amountError ? 'input-error' : ''}"
+				class="input input-bordered w-full"
+				class:input-error={amountError}
 				bind:value={amount}
-				oninput={(e) => {
-					// Clear existing timeout for immediate validation
-					if (debounceTimeout) {
-						clearTimeout(debounceTimeout);
-					}
-					// Validate immediately with the current input value
-					const inputValue = (e.currentTarget as HTMLInputElement).value;
-					validateAmount(inputValue);
-				}}
+				oninput={debounce(() => validateAmount(), 500)}
 				disabled={isCreatingSwap || isLoadingLimits}
 			/>
 			{#if amountError}
@@ -433,44 +363,61 @@
 		</div>
 
 		<!-- Fee Breakdown -->
-		{#if amount && parseFloat(amount) > 0}
-			<div class="rounded-lg border border-base-300 bg-base-200 p-3">
+		{#if amount && parseFloat(amount) > 0 && fees}
+			<div class="border-base-300 bg-base-200 rounded-lg border p-3">
 				<div class="space-y-1.5 text-xs">
-					<div class="flex justify-between items-center">
+					<!-- Swap Fee -->
+					<div class="flex items-center justify-between">
 						<span class="opacity-70">{$t('wallet.swap.swap_fee')}:</span>
 						<div class="text-right">
 							<span>{swapFee.toLocaleString()} {$t('wallet.sats')}</span>
 							{#if btcPrice > 0}
-								<span class="ml-2 opacity-60">${((swapFee / 100_000_000) * btcPrice).toFixed(2)}</span>
+								<span class="ml-2 opacity-60"
+									>${((swapFee / 100_000_000) * btcPrice).toFixed(2)}</span
+								>
 							{/if}
 						</div>
 					</div>
-					<div class="flex justify-between items-center">
+
+					<!-- Network Transaction Fee -->
+					<div class="flex items-center justify-between">
 						<span class="opacity-70">{$t('wallet.swap.network_transaction_fee')}:</span>
 						<div class="text-right">
 							<span>{networkFee.toLocaleString()} {$t('wallet.sats')}</span>
 							{#if btcPrice > 0}
-								<span class="ml-2 opacity-60">${((networkFee / 100_000_000) * btcPrice).toFixed(2)}</span>
+								<span class="ml-2 opacity-60"
+									>${((networkFee / 100_000_000) * btcPrice).toFixed(2)}</span
+								>
 							{/if}
 						</div>
 					</div>
+
 					<div class="divider my-1.5"></div>
-					<div class="flex justify-between items-center font-semibold">
+
+					<!-- Total Fees -->
+					<div class="flex items-center justify-between font-semibold">
 						<span>{$t('wallet.swap.total_fees')}:</span>
 						<div class="text-right">
 							<span>{totalFees.toLocaleString()} {$t('wallet.sats')}</span>
 							{#if btcPrice > 0}
-								<span class="ml-2 opacity-60">${((totalFees / 100_000_000) * btcPrice).toFixed(2)}</span>
+								<span class="ml-2 opacity-60"
+									>${((totalFees / 100_000_000) * btcPrice).toFixed(2)}</span
+								>
 							{/if}
 						</div>
 					</div>
+
 					<div class="divider my-1.5"></div>
-					<div class="flex justify-between items-center text-sm font-bold text-primary">
+
+					<!-- Total Received (You get) -->
+					<div class="text-primary flex items-center justify-between text-sm font-bold">
 						<span>{$t('wallet.swap.total_received_est')}:</span>
 						<div class="text-right">
 							<span>{totalReceived.toLocaleString()} {$t('wallet.sats')}</span>
 							{#if btcPrice > 0}
-								<span class="ml-2 opacity-70">${((totalReceived / 100_000_000) * btcPrice).toFixed(2)}</span>
+								<span class="ml-2 opacity-70"
+									>${((totalReceived / 100_000_000) * btcPrice).toFixed(2)}</span
+								>
 							{/if}
 						</div>
 					</div>
@@ -496,7 +443,12 @@
 		<button
 			class="btn btn-primary w-full"
 			onclick={createSwap}
-			disabled={isCreatingSwap || !$rskConnection.connected || amountError !== null || !amount || amountSats <= 0 || (minAmount > 0 && amountSats < minAmount)}
+			disabled={isCreatingSwap ||
+				!$rskConnection.connected ||
+				!!amountError ||
+				!amount ||
+				amountSats <= 0 ||
+				isLoadingLimits}
 		>
 			{#if isCreatingSwap}
 				<span class="loading loading-spinner loading-sm"></span>

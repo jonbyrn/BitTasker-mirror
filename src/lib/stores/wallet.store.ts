@@ -564,6 +564,22 @@ export async function getSubmarineSwapPairs(): Promise<any> {
 }
 
 /**
+ * Get reverse swap pairs with fee information
+ */
+export async function getReverseSwapPairs(): Promise<any> {
+	const manager = getWalletManager();
+	return await manager.boltzClient.getReverseSwapPairs();
+}
+
+/**
+ * Get chain swap pairs with fee information
+ */
+export async function getChainSwapPairs(): Promise<any> {
+	const manager = getWalletManager();
+	return await manager.boltzClient.getChainSwapPairs();
+}
+
+/**
  * Estimate gas for RBTC transaction
  */
 export async function estimateRBTCGas(to: string, amount: string): Promise<GasEstimation> {
@@ -686,8 +702,16 @@ export const walletManager = {
 	lockSubmarineSwapFunds,
 	getSubmarineSwapLimits,
 	getSubmarineSwapPairs,
+	getReverseSwapPairs,
+	getChainSwapPairs,
 	get submarineSwapService() {
 		return getWalletManager().submarineSwapService;
+	},
+	get reverseSwapService() {
+		return getWalletManager().reverseSwapService;
+	},
+	get chainSwapService() {
+		return getWalletManager().chainSwapService;
 	}
 };
 

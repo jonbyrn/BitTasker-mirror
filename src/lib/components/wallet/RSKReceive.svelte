@@ -6,20 +6,18 @@
 	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
+	import { debounce } from '$lib/utils/helpers/common';
 
 	let amount = $state('');
 	let message = $state('');
 	let addressCopied = $state(false);
 	let qrCodeData = $state('');
 	let address = $state($rskConnection.address);
-	let isLoading = $state(false);
 
 	async function paymentRequest(): Promise<void> {
 		address = $rskConnection.address;
 
 		try {
-			isLoading = true;
-
 			if (!address) {
 				appStore.showErrorToast('No RSK address available');
 				return;
@@ -55,8 +53,6 @@
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
 			appStore.showErrorToast('Failed to generate QR code');
-		} finally {
-			isLoading = false;
 		}
 	}
 
@@ -73,15 +69,6 @@
 				addressCopied = false;
 			}, 2000);
 		}
-	}
-
-	// Debounce function
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
-		let timeoutId: ReturnType<typeof setTimeout>;
-		return function (...args: Parameters<T>) {
-			clearTimeout(timeoutId);
-			timeoutId = setTimeout(() => fn.apply(null, args), delay);
-		};
 	}
 </script>
 
@@ -189,10 +176,6 @@
 				</svg>
 				<span class="text-warning text-center text-xs">{$t('wallet.rsk_wallet_not_connected')}</span
 				>
-			</div>
-		{:else if isLoading}
-			<div class="bg-base-200 flex h-48 w-48 items-center justify-center rounded-lg">
-				<span class="loading loading-spinner loading-lg"></span>
 			</div>
 		{:else}
 			<div class="rounded-lg bg-white p-2 shadow-lg flex justify-center">

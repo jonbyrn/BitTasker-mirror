@@ -525,7 +525,8 @@
         "delete_failed": "❌ Failed to delete swap",
         "insufficient_balance_with_fees": "Insufficient balance. Need {needed} sats, have {available} sats (shortfall: {shortfall} sats)",
         "insufficient_balance_with_gas": "Insufficient balance. Need {swapAmount} sats + {gasAmount} sats gas = {totalNeeded} sats. Available: {available} sats. Shortfall: {shortfall} sats",
-        "fee_fetch_failed": "Failed to fetch fee estimate"
+        "fee_fetch_failed": "Failed to fetch fee estimate",
+        "failed_to_load": "Failed to load swap data"
       },
       "lightning": {
         "title": "Lightning → rBTC Swap",

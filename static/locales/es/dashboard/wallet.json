@@ -524,7 +524,8 @@
         "delete_failed": "❌ Error al eliminar intercambio",
         "insufficient_balance_with_fees": "Saldo insuficiente. Necesita {needed} sats, tiene {available} sats (faltante: {shortfall} sats)",
         "insufficient_balance_with_gas": "Saldo insuficiente. Necesita {swapAmount} sats + {gasAmount} sats gas = {totalNeeded} sats. Disponible: {available} sats. Faltante: {shortfall} sats",
-        "fee_fetch_failed": "Error al obtener estimación de tarifas"
+        "fee_fetch_failed": "Error al obtener estimación de tarifas",
+        "failed_to_load": "Error al cargar datos de intercambio"
       },
       "lightning": {
         "title": "Intercambio Lightning → rBTC",
