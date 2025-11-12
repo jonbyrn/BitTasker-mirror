@@ -36,6 +36,7 @@
 	} from '$lib/stores/acceptDisputeCache.store';
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 	import type { EscrowData } from '$lib/types/wallet';
+	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 
 	const {
 		contract,
@@ -280,6 +281,20 @@
 			
 			onActionComplete?.();
 			
+			// Send push notification to client about task completion
+			if (contract.contract.clientPubkey) {
+				try {
+					await pushNotificationService.sendNotificationToUser({
+						title: $t('dashboard.contracts.actions.task_completed_notification_title'),
+						body: $t('dashboard.contracts.actions.task_completed_notification_body').replace('{taskTitle}', contract.contract.taskTitle),
+						userPubkey: contract.contract.clientPubkey,
+						type: 'contract_event'
+					});
+				} catch (error) {
+					console.warn('Failed to send push notification for task completion:', error);
+				}
+			}
+			
 			// Note: Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleTaskCompleted
 			// If transaction fails, it will be handled in escrow.ts
@@ -369,6 +384,20 @@
 				registerAcceptDisputeAttempt(contract.contract.escrowId, 'accept', result.hash);
 			}
 			
+			// Send push notification to freelancer about payment release
+			if (contract.contract.freelancerPubkey) {
+				try {
+					await pushNotificationService.sendNotificationToUser({
+						title: $t('dashboard.contracts.actions.payment_released_notification_title'),
+						body: $t('dashboard.contracts.actions.payment_released_notification_body').replace('{taskTitle}', contract.contract.taskTitle),
+						userPubkey: contract.contract.freelancerPubkey,
+						type: 'contract_event'
+					});
+				} catch (error) {
+					console.warn('Failed to send push notification for payment release:', error);
+				}
+			}
+			
 			// Note: Loading state will remain true until transaction confirms
 			// Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleTaskAccepted
@@ -448,6 +477,20 @@
 				registerAcceptDisputeAttempt(contract.contract.escrowId, 'dispute', result.hash);
 			}
 			
+			// Send push notification to freelancer about dispute
+			if (contract.contract.freelancerPubkey) {
+				try {
+					await pushNotificationService.sendNotificationToUser({
+						title: $t('dashboard.contracts.actions.dispute_raised_notification_title'),
+						body: $t('dashboard.contracts.actions.dispute_raised_notification_body').replace('{taskTitle}', contract.contract.taskTitle),
+						userPubkey: contract.contract.freelancerPubkey,
+						type: 'contract_event'
+					});
+				} catch (error) {
+					console.warn('Failed to send push notification for dispute:', error);
+				}
+			}
+			
 			// Note: Loading state will remain true until transaction confirms
 			// Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleTaskDisputed
@@ -510,6 +553,24 @@
 			showResolutionForm = false;
 			proposedClientAmountUSD = '';
 			proposedFreelancerAmountUSD = '';
+			
+			// Send push notification to other party about resolution proposal
+			const otherPartyPubkey = contract.isClient 
+				? contract.contract.freelancerPubkey 
+				: contract.contract.clientPubkey;
+			if (otherPartyPubkey) {
+				try {
+					await pushNotificationService.sendNotificationToUser({
+						title: $t('dashboard.contracts.actions.resolution_proposed_notification_title'),
+						body: $t('dashboard.contracts.actions.resolution_proposed_notification_body').replace('{taskTitle}', contract.contract.taskTitle),
+						userPubkey: otherPartyPubkey,
+						type: 'contract_event'
+					});
+				} catch (error) {
+					console.warn('Failed to send push notification for resolution proposal:', error);
+				}
+			}
+			
 			onActionComplete?.();
 		} catch (error) {
 			console.error('Error proposing resolution:', error);
@@ -531,6 +592,24 @@
 		try {
 			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
 			await escrow.acceptProposal(contract.contract.escrowId, contract.contractEvent.id);
+			
+			// Send push notification to other party about proposal acceptance
+			const otherPartyPubkey = contract.isClient 
+				? contract.contract.freelancerPubkey 
+				: contract.contract.clientPubkey;
+			if (otherPartyPubkey) {
+				try {
+					await pushNotificationService.sendNotificationToUser({
+						title: $t('dashboard.contracts.actions.proposal_accepted_notification_title'),
+						body: $t('dashboard.contracts.actions.proposal_accepted_notification_body').replace('{taskTitle}', contract.contract.taskTitle),
+						userPubkey: otherPartyPubkey,
+						type: 'contract_event'
+					});
+				} catch (error) {
+					console.warn('Failed to send push notification for proposal acceptance:', error);
+				}
+			}
+			
 			onActionComplete?.();
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
@@ -606,6 +685,23 @@
 				registerCompleteCancelAttempt(contract.contract.escrowId, 'cancel', result.hash);
 			}
 			
+			// Send push notification to other party about cancellation
+			const otherPartyPubkey = contract.isClient 
+				? contract.contract.freelancerPubkey 
+				: contract.contract.clientPubkey;
+			if (otherPartyPubkey) {
+				try {
+					await pushNotificationService.sendNotificationToUser({
+						title: $t('dashboard.contracts.actions.contract_cancelled_notification_title'),
+						body: $t('dashboard.contracts.actions.contract_cancelled_notification_body').replace('{taskTitle}', contract.contract.taskTitle),
+						userPubkey: otherPartyPubkey,
+						type: 'contract_event'
+					});
+				} catch (error) {
+					console.warn('Failed to send push notification for contract cancellation:', error);
+				}
+			}
+			
 			// Note: Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleEscrowCancelled
 			// If transaction fails, it will be handled in escrow.ts
@@ -638,6 +734,24 @@
 		try {
 			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
 			await escrow.resolveAfterTimelock(contract.contract.escrowId, contract.contractEvent.id);
+			
+			// Send push notification to other party about timelock resolution
+			const otherPartyPubkey = contract.isClient 
+				? contract.contract.freelancerPubkey 
+				: contract.contract.clientPubkey;
+			if (otherPartyPubkey) {
+				try {
+					await pushNotificationService.sendNotificationToUser({
+						title: $t('dashboard.contracts.actions.timelock_resolved_notification_title'),
+						body: $t('dashboard.contracts.actions.timelock_resolved_notification_body').replace('{taskTitle}', contract.contract.taskTitle),
+						userPubkey: otherPartyPubkey,
+						type: 'contract_event'
+					});
+				} catch (error) {
+					console.warn('Failed to send push notification for timelock resolution:', error);
+				}
+			}
+			
 			onActionComplete?.();
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
