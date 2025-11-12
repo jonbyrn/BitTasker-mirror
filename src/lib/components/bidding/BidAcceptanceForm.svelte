@@ -14,6 +14,7 @@
 	import { goto } from '$app/navigation';
 	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
+	import { get } from 'svelte/store';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { locale } from 'svelte-i18n';
 	import { browser } from '$app/environment';
@@ -21,6 +22,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
+	import { onMount } from 'svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	// Props
 	const props = $props<{
@@ -91,8 +93,11 @@
 	});
 
 	// Auto-initialize Rootstock wallet if not connected
-	$effect(() => {
-		if (!$walletStore.rsk.connected && !$walletStore.rsk.connecting && !$walletStore.rsk.error) {
+	// Use onMount to prevent reactive loops - only check once when component mounts
+	onMount(() => {
+		// Read wallet state without creating a reactive subscription
+		const walletState = get(walletStore);
+		if (!walletState.rsk.connected && !walletState.rsk.connecting && !walletState.rsk.error) {
 			walletManager.initializeRSKWallet().catch((error) => {
 				console.error('Auto-initialization of Rootstock wallet failed:', error);
 			});
