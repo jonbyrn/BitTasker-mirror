@@ -250,7 +250,10 @@ export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessag
 	// Check if we have cached processed data
 	const cachedData = bidCache.getProcessedBidData(cacheKey);
 	if (cachedData) {
-		console.log('Using cached processed bid data');
+		// Only log in development to reduce console noise
+		if (import.meta.env.DEV) {
+			console.debug('Using cached processed bid data');
+		}
 		return cachedData.transformedBids;
 	}
 
@@ -313,7 +316,10 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 		// Check cache first
 		const cachedBids = bidCache.get<BidMessage[]>(cacheKey);
 		if (cachedBids) {
-			console.log('Using cached task bid data');
+			// Only log in development to reduce console noise
+			if (import.meta.env.DEV) {
+				console.debug('Using cached task bid data');
+			}
 			return cachedBids;
 		}
 
@@ -403,7 +409,10 @@ export async function getMyBids(): Promise<BidMessage[]> {
 		// Check cache first
 		const cachedBids = bidCache.get<BidMessage[]>(cacheKey);
 		if (cachedBids) {
-			console.log('Using cached bid data');
+			// Only log in development to reduce console noise
+			if (import.meta.env.DEV) {
+				console.debug('Using cached bid data');
+			}
 			return cachedBids;
 		}
 

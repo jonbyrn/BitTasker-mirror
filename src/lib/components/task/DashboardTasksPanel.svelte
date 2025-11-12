@@ -43,6 +43,8 @@
 	// Background bid checking state
 	let bidStatusMap = $state<Map<string, boolean>>(new Map());
 	let isCheckingBids = $state(false);
+	let lastBidCheckTime = $state<number>(0);
+	const BID_CHECK_INTERVAL = 30000; // 30 seconds minimum between checks
 
 	// Pagination state
 	let currentPage = $state(1);
@@ -90,11 +92,18 @@
 
 	/**
 	 * Background bid checking (non-blocking)
+	 * Debounced to prevent excessive calls
 	 */
 	async function checkBidsInBackground() {
+		const now = Date.now();
+		
+		// Prevent rapid successive calls
 		if (isCheckingBids) return;
+		if (now - lastBidCheckTime < BID_CHECK_INTERVAL) return;
 		
 		isCheckingBids = true;
+		lastBidCheckTime = now;
+		
 		try {
 			const openTasks = $myTasksStore.items.filter(t => t.status === TaskStatusEnum.OPEN);
 			if (openTasks.length === 0) {
@@ -211,8 +220,13 @@
 	});
 
 	// Check bids in background on mount and when tasks change
+	// Use untrack to prevent reactive loop - only check when component mounts or tasks are loaded
+	let tasksInitialized = $state(false);
+	
 	$effect(() => {
-		if ($myTasksStore.items.length > 0) {
+		// Track when tasks are first loaded
+		if ($myTasksStore.items.length > 0 && !tasksInitialized) {
+			tasksInitialized = true;
 			checkBidsInBackground();
 		}
 	});
@@ -251,6 +265,8 @@
 			isLoading = true;
 			error = null;
 			await findMyTasks({ page: 1, limit: 100 });
+			// Check bids after tasks are loaded
+			checkBidsInBackground();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load tasks';
 			console.error('Error loading tasks:', err);
