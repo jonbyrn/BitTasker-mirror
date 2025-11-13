@@ -994,9 +994,17 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						}
 					} catch (error) {
 						// Use structured error handling instead of string matching
-						const { isEscrowNotFoundError, isNetworkError } = await import(
-							'$lib/utils/errors/escrowErrors'
-						);
+						let isEscrowNotFoundError: ((error: unknown) => boolean) | null = null;
+						let isNetworkError: ((error: unknown) => boolean) | null = null;
+						
+						try {
+							const errorUtils = await import('$lib/utils/errors/escrowErrors');
+							isEscrowNotFoundError = errorUtils.isEscrowNotFoundError;
+							isNetworkError = errorUtils.isNetworkError;
+						} catch (importError) {
+							// Silently handle import errors - use fallback logic
+							console.warn('Failed to import error utilities, using fallback logic:', importError);
+						}
 
 						// If RSK check fails, fall back to Nostr status (same logic as else block above)
 						console.warn('Failed to check RSK contract state, using Nostr status:', error);
@@ -1024,26 +1032,26 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							canCancel = currentStatus === 'active';
 							canResolveTimelock = currentStatus === 'disputed';
 
-							// Determine canDelete based on error type
-							if (isEscrowNotFoundError(error)) {
-								// Escrow doesn't exist - contract was never funded, allow deletion
-								canDelete = true;
-							} else if (isNetworkError(error)) {
-								// Network error - be conservative and disallow deletion
-								canDelete = false;
-								console.warn(
-									'Network error while checking RSK contract state, disallowing deletion for safety:',
-									error
-								);
-							} else {
-								// Other error - check if contract has transaction hash
-								if (contractData.transactionHash) {
-									canDelete = false; // Has transaction hash, might have been funded
+								// Determine canDelete based on error type
+								if (isEscrowNotFoundError && isEscrowNotFoundError(error)) {
+									// Escrow doesn't exist - contract was never funded, allow deletion
+									canDelete = true;
+								} else if (isNetworkError && isNetworkError(error)) {
+									// Network error - be conservative and disallow deletion
+									canDelete = false;
+									console.warn(
+										'Network error while checking RSK contract state, disallowing deletion for safety:',
+										error
+									);
 								} else {
-									// No transaction hash, but we can't be certain - be conservative
-									canDelete = false; // Default to false for safety
+									// Other error - check if contract has transaction hash
+									if (contractData.transactionHash) {
+										canDelete = false; // Has transaction hash, might have been funded
+									} else {
+										// No transaction hash, but we can't be certain - be conservative
+										canDelete = false; // Default to false for safety
+									}
 								}
-							}
 						}
 					}
 
