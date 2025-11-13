@@ -41,7 +41,7 @@
 	const {
 		contract,
 		onActionComplete,
-		containerClass = 'grid grid-cols-1 gap-3 md:grid-cols-2',
+		containerClass = 'space-y-3',
 		openDrawer = () => {},
 		isInline = false,
 		onShowDeleteConfirm = () => {},
@@ -1159,7 +1159,7 @@
 				{$t('dashboard.contracts.actions.propose_resolution')}
 			</button>
 		{:else if !isInline}
-			<div class="bg-base-300 w-full space-y-3 rounded-lg p-3 md:col-span-2">
+			<div class="bg-base-300 col-span-2 w-full space-y-3 rounded-lg p-3">
 				<h5 class="text-sm font-medium">
 					{$t('dashboard.contracts.actions.resolution_form_title')}
 				</h5>
@@ -1253,7 +1253,7 @@
 
 	<!-- Accept Proposal -->
 	{#if !isInline && contract.canAcceptProposal}
-		<div class="bg-base-300 w-full space-y-3 rounded-lg p-3 md:col-span-2">
+		<div class="bg-base-300 w-full space-y-3 rounded-lg p-3">
 			<h5 class="text-sm font-medium">
 				{$t('dashboard.contracts.actions.current_proposal')}
 			</h5>
@@ -1377,7 +1377,7 @@
 
 	<!-- Resolve After Timelock -->
 	{#if contract.canResolveTimelock}
-		<div class="bg-base-300 space-y-3 rounded-lg p-3 md:col-span-2">
+		<div class="bg-base-300 space-y-3 rounded-lg p-3">
 			{#if !isInline}
 				<h5 class="text-sm font-medium">
 					{$t('dashboard.contracts.actions.timelock_resolution')}
