@@ -207,21 +207,33 @@ export function deduplicateBids(bids: BidMessage[]): BidMessage[] {
  * Get bid status messages from DMs
  */
 async function getBidStatusMessages(taskId?: string): Promise<{ [bidId: string]: NostrBidStatus }> {
+	const startTime = Date.now();
+	console.log(`[getBidStatusMessages] 🔍 Starting for taskId: ${taskId || 'all'} at ${new Date().toISOString()}`);
+	
 	try {
 		// Get all people you've exchanged messages with
+		console.log(`[getBidStatusMessages] 📞 Calling getMessagedPeople() at ${new Date().toISOString()}`);
 		const messagedPeople = await getMessagedPeople();
+		console.log(`[getBidStatusMessages] ✅ getMessagedPeople completed, got ${messagedPeople.length} people at ${new Date().toISOString()}`);
+		
 		const bidStatuses: { [bidId: string]: NostrBidStatus } = {};
 
 		// Fetch message histories for all conversations in parallel
-		const messageHistoryPromises = messagedPeople.map(async (person) => {
+		console.log(`[getBidStatusMessages] 📞 Starting ${messagedPeople.length} parallel getMessageHistory() calls at ${new Date().toISOString()}`);
+		const messageHistoryPromises = messagedPeople.map(async (person, index) => {
 			try {
-				return await getMessageHistory(person.pubkey, { limit: 100 });
+				console.log(`[getBidStatusMessages] 📞 getMessageHistory(${person.pubkey.substring(0, 8)}...) call #${index + 1} at ${new Date().toISOString()}`);
+				const result = await getMessageHistory(person.pubkey, { limit: 100 });
+				console.log(`[getBidStatusMessages] ✅ getMessageHistory(${person.pubkey.substring(0, 8)}...) completed, got ${result.length} messages at ${new Date().toISOString()}`);
+				return result;
 			} catch (err) {
+				console.error(`[getBidStatusMessages] ❌ getMessageHistory(${person.pubkey.substring(0, 8)}...) failed:`, err);
 				return [];
 			}
 		});
 
 		const messageHistories = await Promise.all(messageHistoryPromises);
+		console.log(`[getBidStatusMessages] ✅ All ${messageHistoryPromises.length} getMessageHistory() calls completed at ${new Date().toISOString()}`);
 
 		// Process all message histories to extract bid status messages
 		for (let i = 0; i < messagedPeople.length; i++) {
@@ -252,9 +264,12 @@ async function getBidStatusMessages(taskId?: string): Promise<{ [bidId: string]:
 			}
 		}
 
+		const duration = Date.now() - startTime;
+		console.log(`[getBidStatusMessages] ✅ Completed in ${duration}ms, found ${Object.keys(bidStatuses).length} bid statuses at ${new Date().toISOString()}`);
 		return bidStatuses;
 	} catch (error) {
-		console.error('Error getting bid status messages:', error);
+		const duration = Date.now() - startTime;
+		console.error(`[getBidStatusMessages] ❌ Error after ${duration}ms:`, error);
 		return {};
 	}
 }
@@ -263,7 +278,10 @@ async function getBidStatusMessages(taskId?: string): Promise<{ [bidId: string]:
  * Get bids for a specific task with optimized processing
  */
 export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessage[]> {
+	const startTime = Date.now();
 	const cacheKey = `task-optimized-${taskId}`;
+
+	console.log(`[getBidsForTaskOptimized] 🔍 Starting for taskId: ${taskId} at ${new Date().toISOString()}`);
 
 	// Check if we have cached processed data
 	const cachedData = bidCache.getProcessedBidData(cacheKey);
@@ -272,15 +290,20 @@ export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessag
 		if (import.meta.env.DEV) {
 			console.debug('Using cached processed bid data');
 		}
+		console.log(`[getBidsForTaskOptimized] ✅ Cache hit, returning ${cachedData.transformedBids.length} bids`);
 		return cachedData.transformedBids;
 	}
 
 	try {
 		// Get raw bids from DMs
+		console.log(`[getBidsForTaskOptimized] 📞 Calling getBidsFromDMs(${taskId}) at ${new Date().toISOString()}`);
 		const dmBids = await getBidsFromDMs(taskId);
+		console.log(`[getBidsForTaskOptimized] ✅ getBidsFromDMs completed, got ${dmBids.length} bids at ${new Date().toISOString()}`);
 
 		// Get bid status messages
+		console.log(`[getBidsForTaskOptimized] 📞 Calling getBidStatusMessages(${taskId}) at ${new Date().toISOString()}`);
 		const bidStatuses = await getBidStatusMessages(taskId);
+		console.log(`[getBidsForTaskOptimized] ✅ getBidStatusMessages completed, got ${Object.keys(bidStatuses).length} statuses at ${new Date().toISOString()}`);
 
 		// Deduplicate efficiently
 		const deduplicatedBids = deduplicateBids(dmBids);
@@ -317,10 +340,13 @@ export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessag
 			5
 		);
 
+		const duration = Date.now() - startTime;
+		console.log(`[getBidsForTaskOptimized] ✅ Completed in ${duration}ms, returning ${sortedBids.length} bids at ${new Date().toISOString()}`);
 		return sortedBids;
 	} catch (error) {
+		const duration = Date.now() - startTime;
 		// Don't throw - return what we have so the UI doesn't break
-		console.warn('Error getting optimized task bids (returning partial results):', error);
+		console.error(`[getBidsForTaskOptimized] ❌ Error after ${duration}ms:`, error);
 		// Return empty array if we couldn't load any bids
 		return [];
 	}
@@ -330,8 +356,14 @@ export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessag
  * Get only bids from DMs (excluding normal messages)
  */
 export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
+	const startTime = Date.now();
+	console.log(`[getBidsFromDMs] 🔍 Starting for taskId: ${taskId || 'all'} at ${new Date().toISOString()}`);
+	
 	try {
+		console.log(`[getBidsFromDMs] 📞 Calling getNpub() at ${new Date().toISOString()}`);
 		const npub = await getNpub();
+		console.log(`[getBidsFromDMs] ✅ getNpub() completed, got npub: ${npub.substring(0, 16)}... at ${new Date().toISOString()}`);
+		
 		const pubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
 		// Create cache key based on user's pubkey and taskId
@@ -349,15 +381,23 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 
 		// Get all people you've exchanged messages with
 		// Use optimized version that doesn't require decryption for better performance
+		console.log(`[getBidsFromDMs] 📞 Calling getMessagedPeopleOptimized() at ${new Date().toISOString()}`);
 		const { getMessagedPeopleOptimized } = await import('./nostr-message');
 		const messagedPeople = await getMessagedPeopleOptimized();
+		console.log(`[getBidsFromDMs] ✅ getMessagedPeopleOptimized() completed, got ${messagedPeople.length} people at ${new Date().toISOString()}`);
+		
 		const bids: BidMessage[] = [];
 
 		// Fetch message histories for all conversations in parallel
-		const messageHistoryPromises = messagedPeople.map(async (person) => {
+		console.log(`[getBidsFromDMs] 📞 Starting ${messagedPeople.length} parallel getMessageHistory() calls at ${new Date().toISOString()}`);
+		const messageHistoryPromises = messagedPeople.map(async (person, index) => {
 			try {
-				return await getMessageHistory(person.pubkey, { limit: 100 });
+				console.log(`[getBidsFromDMs] 📞 getMessageHistory(${person.pubkey.substring(0, 8)}...) call #${index + 1} at ${new Date().toISOString()}`);
+				const result = await getMessageHistory(person.pubkey, { limit: 100 });
+				console.log(`[getBidsFromDMs] ✅ getMessageHistory(${person.pubkey.substring(0, 8)}...) completed, got ${result.length} messages at ${new Date().toISOString()}`);
+				return result;
 			} catch (err) {
+				console.error(`[getBidsFromDMs] ❌ getMessageHistory(${person.pubkey.substring(0, 8)}...) failed:`, err);
 				// Return empty array for failed conversations
 				return [];
 			}
@@ -365,6 +405,7 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 
 		// Wait for all message histories to be fetched in parallel
 		const messageHistories = await Promise.all(messageHistoryPromises);
+		console.log(`[getBidsFromDMs] ✅ All ${messageHistoryPromises.length} getMessageHistory() calls completed at ${new Date().toISOString()}`);
 
 		// Process all message histories to extract bids
 		for (let i = 0; i < messagedPeople.length; i++) {
@@ -415,10 +456,13 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 		// Cache the results for 5 minutes
 		bidCache.set(cacheKey, sortedBids, 5);
 
+		const duration = Date.now() - startTime;
+		console.log(`[getBidsFromDMs] ✅ Completed in ${duration}ms, found ${sortedBids.length} bids at ${new Date().toISOString()}`);
 		return sortedBids;
 	} catch (error) {
+		const duration = Date.now() - startTime;
 		// Don't throw - return what we have so the UI doesn't break
-		console.warn('Error getting bids from DMs (returning partial results):', error);
+		console.error(`[getBidsFromDMs] ❌ Error after ${duration}ms:`, error);
 		// Return empty array if we couldn't load any bids
 		return [];
 	}
