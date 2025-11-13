@@ -841,7 +841,15 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							escrowData = null;
 						}
 
-						const userAddress = get(rskAddress);
+						// Safely get user address - handle potential store errors
+						let userAddress: string | null = null;
+						try {
+							userAddress = get(rskAddress);
+						} catch (storeError) {
+							// Silently handle store access errors
+							console.warn('Failed to get RSK address from store:', storeError);
+							userAddress = null;
+						}
 
 						// Only load dispute proposal if contract is in dispute
 						if (escrowData && escrowData.status === EscrowStatus.InDispute) {

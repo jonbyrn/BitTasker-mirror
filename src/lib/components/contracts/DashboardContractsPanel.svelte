@@ -166,19 +166,27 @@
 			isProcessingUpdates = true;
 			
 			// Load contracts (this will refresh all contracts, including the updated ones)
-			loadContracts().finally(() => {
-				if (isMounted) {
-					isProcessingUpdates = false;
-					
-					// Check if any new updates came in while we were loading
-					const remaining = $contractUpdateStore;
-					if (remaining.length > 0 && !isLoading) {
-						// Process remaining updates
-						contractUpdateStore.set([]);
-						loadContracts();
+			// Wrap in try-catch to prevent unhandled promise rejections
+			loadContracts()
+				.catch((err) => {
+					// Silently handle errors - loadContracts already handles them internally
+					console.warn('Error in contract update effect (non-fatal):', err);
+				})
+				.finally(() => {
+					if (isMounted) {
+						isProcessingUpdates = false;
+						
+						// Check if any new updates came in while we were loading
+						const remaining = $contractUpdateStore;
+						if (remaining.length > 0 && !isLoading && !isProcessingUpdates) {
+							// Process remaining updates (with error handling)
+							contractUpdateStore.set([]);
+							loadContracts().catch((err) => {
+								console.warn('Error processing remaining contract updates (non-fatal):', err);
+							});
+						}
 					}
-				}
-			});
+				});
 		}
 	});
 
