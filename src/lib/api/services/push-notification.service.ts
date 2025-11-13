@@ -131,7 +131,10 @@ class PushNotificationService {
 			// Handle foreground messages
 			onMessage(this.messaging, (payload) => {
 				console.log('📨 Message received in foreground: ', payload);
-				this.handleForegroundMessage(payload);
+				// Handle foreground message asynchronously
+				this.handleForegroundMessage(payload).catch((error) => {
+					console.error('❌ Error handling foreground message:', error);
+				});
 			});
 
 			console.log('✅ Web push notifications initialized successfully');
@@ -188,29 +191,261 @@ class PushNotificationService {
 		}
 	}
 
-	private handleForegroundMessage(payload: any): void {
+	private async handleForegroundMessage(payload: any): Promise<void> {
 		const { notification, data } = payload;
+
+		console.log('📨 Foreground message received:', { notification, data });
 
 		// Handle data payload first (includes device revocation)
 		if (data) {
 			this.handleNotificationData(data);
 		}
 
-		// Show notification in foreground (optional, since browser handles this)
+		// Show notification in foreground with our custom icon
+		// With unique tags, we don't need to close existing notifications
+		// Each notification will have its own unique tag and won't replace others
 		if (notification) {
-			this.showInAppNotification(notification);
+			console.log('🔔 Attempting to show foreground notification:', notification);
+			await this.showInAppNotification(notification);
+		} else {
+			console.warn('⚠️ No notification payload in foreground message');
 		}
 	}
 
-	private showInAppNotification(notification: any): void {
+	private async closeAllExistingNotifications(): Promise<void> {
+		try {
+			if ('serviceWorker' in navigator) {
+				const registration = await navigator.serviceWorker.ready;
+				const allNotifications = await registration.getNotifications();
+				
+				if (allNotifications.length > 0) {
+					console.log(`🔄 Closing ${allNotifications.length} existing notification(s) to prevent duplicates`);
+					for (const existing of allNotifications) {
+						console.log('🔄 Closing notification:', existing.tag || '(no tag)', existing.title || '(no title)');
+						existing.close();
+					}
+					// Small delay to ensure notifications are closed
+					await new Promise(resolve => setTimeout(resolve, 50));
+				}
+			}
+		} catch (error) {
+			console.warn('⚠️ Could not close existing notifications:', error);
+		}
+	}
+
+	private async showInAppNotification(notification: any): Promise<void> {
 		// You can implement custom in-app notification UI here
 		// For now, we'll use the browser's native notification
 		if (Notification.permission === 'granted') {
-			new Notification(notification.title, {
-				body: notification.body,
-				icon: notification.icon || '/favicon.ico',
-				tag: 'bittasker-notification'
-			});
+			try {
+				// Extract taskId and bidId from notification body or data for navigation and unique tag
+				const data = notification.data || {};
+				const body = notification.body || '';
+				let taskId: string | null = null;
+				let bidId: string | null = null;
+				
+				if (data.taskId) {
+					taskId = data.taskId;
+				} else if (data.type === 'bid_created' && body.includes('taskId:')) {
+					const match = body.match(/taskId:([a-f0-9]+)/i);
+					if (match) {
+						taskId = match[1];
+					}
+				}
+				
+				// Extract bidId from body or data for unique tag
+				if (data.bidId) {
+					bidId = data.bidId;
+				} else if (body.includes('bidId:')) {
+					const bidMatch = body.match(/bidId:([a-f0-9]+)/i);
+					if (bidMatch) {
+						bidId = bidMatch[1];
+					}
+				}
+				
+				// Create unique tag for each notification to prevent replacement
+				// Use combination of type, taskId, bidId, and timestamp to ensure uniqueness
+				const timestamp = Date.now();
+				const tag = `bittasker-${data.type || 'notification'}-${taskId || 'unknown'}-${bidId || timestamp}`;
+				
+				console.log('🔔 Creating notification with tag:', tag, { taskId, bidId, type: data.type });
+
+				// For foreground notifications, use direct Notification API for better reliability
+				// Service worker notifications work better for background, but direct API is more reliable in foreground
+				try {
+					// Determine navigation URL
+					let urlToOpen = '/dashboard';
+					if (taskId) {
+						urlToOpen = `/dashboard/task/${taskId}`;
+					}
+					
+					// Always use our app icon, ignore backend icon to ensure consistent branding
+					const notificationOptions: NotificationOptions = {
+						body: notification.body,
+						icon: '/web-app-manifest-192x192.png', // Always use app icon, ignore backend icon
+						badge: '/web-app-manifest-192x192.png',
+						tag: tag,
+						requireInteraction: false,
+						silent: false,
+						data: {
+							...data,
+							taskId: taskId,
+							url: urlToOpen,
+							type: data.type || 'notification'
+						}
+					};
+
+					// Use direct Notification API for foreground notifications (more reliable)
+					const browserNotification = new Notification(notification.title || 'BitTasker', notificationOptions);
+					
+					// Handle notification click - navigate to task if taskId is in data
+					browserNotification.onclick = async () => {
+						window.focus();
+						
+						// Navigate to task if we have taskId
+						if (taskId) {
+							const { goto } = await import('$app/navigation');
+							await goto(`/dashboard/task/${taskId}`);
+						} else {
+							// Fallback to dashboard
+							const { goto } = await import('$app/navigation');
+							await goto('/dashboard');
+						}
+						
+						browserNotification.close();
+					};
+					
+					console.log('✅ Browser notification created (direct API):', notification.title, 'with tag:', tag);
+				} catch (directError) {
+					console.error('❌ Direct notification API failed, trying service worker fallback:', directError);
+					// Fallback to service worker if direct API fails
+					if ('serviceWorker' in navigator) {
+						try {
+							const registration = await navigator.serviceWorker.ready;
+							
+							// Determine navigation URL
+							let urlToOpen = '/dashboard';
+							if (taskId) {
+								urlToOpen = `/dashboard/task/${taskId}`;
+							}
+							
+							const notificationOptions = {
+								body: notification.body,
+								icon: '/web-app-manifest-192x192.png',
+								badge: '/web-app-manifest-192x192.png',
+								tag: tag,
+								requireInteraction: false,
+								silent: false,
+								data: {
+									...data,
+									taskId: taskId,
+									url: urlToOpen,
+									type: data.type || 'notification'
+								},
+								actions: [
+									{
+										action: 'open',
+										title: 'Open',
+										icon: '/web-app-manifest-192x192.png'
+									},
+									{
+										action: 'close',
+										title: 'Close'
+									}
+								]
+							};
+
+							await registration.showNotification(notification.title || 'BitTasker', notificationOptions);
+							console.log('✅ Browser notification created via service worker (fallback):', notification.title);
+						} catch (swError) {
+							console.error('❌ Service worker notification also failed:', swError);
+							throw swError;
+						}
+					} else {
+						// Fallback to direct notification if service worker not available
+						const notificationOptions: NotificationOptions = {
+							body: notification.body,
+							icon: '/web-app-manifest-192x192.png',
+							badge: '/web-app-manifest-192x192.png',
+							tag: tag, // Use the unique tag we created above
+							requireInteraction: false,
+							silent: false,
+							data: notification.data || {}
+						};
+
+						const browserNotification = new Notification(notification.title || 'BitTasker', notificationOptions);
+						
+						// Handle notification click - navigate to task if taskId is in data
+						browserNotification.onclick = async () => {
+							window.focus();
+							
+							// Extract taskId from notification body or data
+							const data = notification.data || notificationOptions.data || {};
+							const body = notification.body || '';
+							
+							// Try to extract taskId from body (format: "| taskId:...")
+							let taskId: string | null = null;
+							if (data.taskId) {
+								taskId = data.taskId;
+							} else if (data.type === 'bid_created' && body.includes('taskId:')) {
+								const match = body.match(/taskId:([a-f0-9]+)/i);
+								if (match) {
+									taskId = match[1];
+								}
+							}
+							
+							// Navigate to task if we have taskId
+							if (taskId) {
+								const { goto } = await import('$app/navigation');
+								await goto(`/dashboard/task/${taskId}`);
+							} else {
+								// Fallback to dashboard
+								const { goto } = await import('$app/navigation');
+								await goto('/dashboard');
+							}
+							
+							browserNotification.close();
+						};
+
+						console.log('✅ Browser notification created (fallback):', notification.title);
+					}
+				}
+			} catch (error) {
+				console.error('❌ Error creating browser notification with web-app-manifest icon:', error);
+					// Try with favicon fallback if web-app-manifest icon fails
+					try {
+						console.log('🔄 Attempting fallback with favicon...');
+						// Create unique tag for fallback notification too
+						const fallbackTag = `bittasker-${data.type || 'notification'}-${taskId || 'unknown'}-${bidId || Date.now()}`;
+						const fallbackOptions: NotificationOptions = {
+							body: notification.body,
+							icon: '/favicon-96x96.png',
+							badge: '/favicon-96x96.png',
+							tag: fallbackTag,
+							requireInteraction: false,
+							silent: false
+						};
+						const fallbackNotification = new Notification(notification.title || 'BitTasker', fallbackOptions);
+						fallbackNotification.onclick = () => {
+							window.focus();
+							fallbackNotification.close();
+						};
+						console.log('✅ Fallback notification created successfully with favicon');
+					} catch (fallbackError) {
+						console.error('❌ Fallback notification also failed, trying minimal options:', fallbackError);
+						// Last resort: try with no icon
+						try {
+							new Notification(notification.title || 'BitTasker', {
+								body: notification.body
+							});
+							console.log('✅ Minimal notification created (no icon)');
+						} catch (minimalError) {
+							console.error('❌ All notification attempts failed:', minimalError);
+						}
+					}
+				}
+		} else {
+			console.warn('⚠️ Notification permission not granted:', Notification.permission);
 		}
 	}
 

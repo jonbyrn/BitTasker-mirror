@@ -1161,8 +1161,8 @@ class LocalNotificationService {
 	private createSystemNotification(notification: Notification): void {
 		const notificationOptions: NotificationOptions = {
 			body: notification.body,
-			icon: '/favicon-96x96.png', // Use your app icon
-			badge: '/favicon-96x96.png',
+			icon: '/web-app-manifest-192x192.png', // Use app icon optimized for notifications
+			badge: '/web-app-manifest-192x192.png',
 			tag: `bittasker-${notification.id}`, // Prevent duplicate notifications
 			requireInteraction: notification.priority === 'urgent', // Keep urgent notifications until clicked
 			silent: notification.priority === 'low', // Silent for low priority

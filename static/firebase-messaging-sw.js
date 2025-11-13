@@ -78,18 +78,43 @@ function setupBackgroundMessageHandler() {
 
 			const { notification, data } = payload;
 
+			// Extract taskId and bidId from data or body for unique tag
+			const notificationData = data || {};
+			const body = notification?.body || '';
+			let taskId = notificationData.taskId || null;
+			let bidId = notificationData.bidId || null;
+			
+			// Try to extract from body if not in data
+			if (!taskId && body.includes('taskId:')) {
+				const match = body.match(/taskId:([a-f0-9]+)/i);
+				if (match) {
+					taskId = match[1];
+				}
+			}
+			if (!bidId && body.includes('bidId:')) {
+				const bidMatch = body.match(/bidId:([a-f0-9]+)/i);
+				if (bidMatch) {
+					bidId = bidMatch[1];
+				}
+			}
+			
+			// Create unique tag for each notification to prevent replacement
+			// Use combination of type, taskId, bidId, and timestamp to ensure uniqueness
+			const timestamp = Date.now();
+			const tag = `bittasker-${notificationData.type || 'notification'}-${taskId || 'unknown'}-${bidId || timestamp}`;
+
 			const notificationTitle = notification?.title || 'BitTasker';
 			const notificationOptions = {
 				body: notification?.body || 'You have a new notification',
-				icon: notification?.icon || '/favicon.ico',
-				badge: '/favicon.ico',
-				tag: 'bittasker-notification',
-				data: data || {},
+				icon: '/web-app-manifest-192x192.png', // Always use app icon, ignore backend icon
+				badge: '/web-app-manifest-192x192.png',
+				tag: tag,
+				data: notificationData,
 				actions: [
 					{
 						action: 'open',
 						title: 'Open',
-						icon: '/favicon.ico'
+						icon: '/web-app-manifest-192x192.png'
 					},
 					{
 						action: 'close',
@@ -121,6 +146,18 @@ self.addEventListener('message', async (event) => {
 		if (!isInitialized || firebase.apps.length === 0) {
 			await initializeFirebase(event.data.config);
 		}
+	} else if (event.data && event.data.type === 'CLOSE_NOTIFICATION') {
+		// Close any existing notification with the specified tag to prevent duplicates
+		console.log('🔄 SW: Closing notification with tag:', event.data.tag);
+		try {
+			const notifications = await self.registration.getNotifications({ tag: event.data.tag });
+			for (const notification of notifications) {
+				console.log('✅ SW: Closing duplicate notification');
+				notification.close();
+			}
+		} catch (error) {
+			console.error('❌ SW: Error closing notifications:', error);
+		}
 	}
 });
 
@@ -144,12 +181,17 @@ self.addEventListener('notificationclick', (event) => {
 
 	if (data.type === 'new_bid' && data.taskId) {
 		urlToOpen = `/dashboard/task/${data.taskId}`;
+	} else if (data.type === 'bid_created' && data.taskId) {
+		urlToOpen = `/dashboard/task/${data.taskId}`;
 	} else if (data.type === 'message' && data.conversationId) {
 		urlToOpen = `/dashboard/messages/to/${data.conversationId}`;
 	} else if (data.type === 'task_update' && data.taskId) {
 		urlToOpen = `/dashboard/task/${data.taskId}`;
 	} else if (data.url) {
 		urlToOpen = data.url;
+	} else if (data.taskId) {
+		// Fallback: if we have a taskId, navigate to the task
+		urlToOpen = `/dashboard/task/${data.taskId}`;
 	}
 
 	console.log('🌐 SW: Opening URL:', urlToOpen);

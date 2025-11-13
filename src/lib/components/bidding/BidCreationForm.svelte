@@ -365,21 +365,41 @@
 			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
 
 			// Notify backend via GraphQL so it can send push notifications
+			// IMPORTANT: The backend should send notification to the TASK CREATOR, not the bidder
 			try {
 				const { SendNotificationStore } = await import('$houdini');
 				const sendNotificationStore = new SendNotificationStore();
 				
-				// Get current device ID (backend will determine recipient devices)
+				// Get current device ID (this identifies the BIDDER - backend should use this to identify sender)
+				// Backend should then use taskId to find task creator and notify them instead
 				const deviceId = pushNotificationService.getCurrentDeviceId();
 				
-				if (deviceId) {
+				if (deviceId && taskCreatorPubkey) {
+					// CRITICAL: For bid_created notifications, the backend MUST:
+					// 1. Use deviceId to identify the BIDDER (sender)
+					// 2. Parse taskId from body to find the task
+					// 3. Get the task creator from the task (or use taskCreatorPubkey from body)
+					// 4. Send notification to TASK CREATOR's devices (NOT the bidder's deviceId)
+					// 
+					// The deviceId provided is the BIDDER's device - backend should NOT send to this device
+					// Backend should look up task creator's devices and send to those instead
+					const notificationInput = {
+						title: 'New Bid Received',
+						body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey} | bidderDeviceId:${deviceId}`,
+						deviceId: deviceId, // WARNING: This is the BIDDER's device - backend must NOT send notification here
+						// Backend must use taskId/taskCreatorPubkey to find task creator and send to their devices
+						type: 'bid_created'
+					};
+					
+					console.log('📤 Sending bid_created notification to backend:', {
+						deviceId: notificationInput.deviceId,
+						type: notificationInput.type,
+						body: notificationInput.body,
+						note: 'deviceId is the BIDDER - backend should send to TASK CREATOR instead'
+					});
+					
 					const result = await sendNotificationStore.mutate({
-						input: {
-							title: 'New Bid Received',
-							body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId}`,
-							deviceId: deviceId, // Backend should use this to identify the user and notify the task creator
-							type: 'bid_created'
-						}
+						input: notificationInput
 					});
 					
 					// Check backend response to verify processing
