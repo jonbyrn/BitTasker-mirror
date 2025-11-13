@@ -16,12 +16,9 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 	}
 
 	try {
-		console.log('📦 Registering service worker...');
 		const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
 			scope: '/'
 		});
-
-		console.log('✅ Service worker registered:', registration.scope);
 
 		// Wait for service worker to be ready
 		if (registration.installing) {
@@ -60,13 +57,11 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 			try {
 				const activeWorker = registration.active || registration.waiting || registration.installing;
 				if (activeWorker) {
-					console.log(`📤 Sending Firebase config to service worker (attempt ${attempt}/3)...`);
 					activeWorker.postMessage({
 						type: 'FIREBASE_CONFIG',
 						config: firebaseConfig
 					});
 					configSent = true;
-					console.log('✅ Firebase config sent to service worker successfully');
 					break;
 				} else {
 					console.warn(`⚠️ No active service worker found (attempt ${attempt}/3), waiting...`);
@@ -106,13 +101,10 @@ function setupNavigationHandler(): void {
 	if ('serviceWorker' in navigator) {
 		navigator.serviceWorker.addEventListener('message', async (event) => {
 			if (event.data && event.data.type === 'NAVIGATE') {
-				console.log('🔄 Service worker navigation request:', event.data.url);
-				
 				try {
 					// Use SvelteKit navigation
 					const { goto } = await import('$app/navigation');
 					await goto(event.data.url);
-					console.log('✅ Navigation successful:', event.data.url);
 				} catch (error) {
 					console.error('❌ Navigation error, falling back to window.location:', error);
 					// Fallback to window.location for critical navigation

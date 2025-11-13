@@ -111,13 +111,6 @@ export async function notifyBackendOfContractAction(
 				...(additionalData || {})
 			}
 		});
-		
-		console.log(`✅ Backend notified of contract action: ${action} for escrow ${escrowId}`, {
-			deviceId,
-			type,
-			taskId,
-			note: 'deviceId is the SENDER - backend should send to the OTHER party'
-		});
 	} catch (error) {
 		console.warn(`⚠️ Failed to notify backend of contract action ${action}:`, error);
 		// Don't throw - contract action via Nostr was successful

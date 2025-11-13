@@ -64,8 +64,6 @@ export async function notifyBackendOfBidAction(
 				...(additionalData || {})
 			}
 		});
-		
-		console.log(`✅ Backend notified of bid action: ${status} for bid ${bidId}`);
 	} catch (error) {
 		console.warn(`⚠️ Failed to notify backend of bid action ${status}:`, error);
 		// Don't throw - bid action via Nostr was successful
