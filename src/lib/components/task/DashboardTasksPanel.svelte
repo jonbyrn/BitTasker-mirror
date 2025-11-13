@@ -8,7 +8,7 @@
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
 	import { goto } from '$app/navigation';
 	import TaskCard from './TaskCard.svelte';
-	
+
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconClockCheckOutline from '~icons/mdi/clock-check-outline';
@@ -18,8 +18,6 @@
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconCheck from '~icons/mdi/check';
 	import IconRefresh from '~icons/mdi/refresh';
-	import IconInformationOutline from '~icons/mdi/information-outline';
-	import IconEyeOutline from '~icons/mdi/eye-outline';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -27,19 +25,19 @@
 	}>();
 
 	// Task filter categories
-	type TaskFilterCategory = 
-		| 'waiting_for_bids'      // OPEN with no bids
-		| 'bids_received'         // OPEN with bids
-		| 'tasks_in_progress'     // Active work
-		| 'tasks_completed'       // Terminal states
-		| 'tasks_disputed';       // Dispute states
+	type TaskFilterCategory =
+		| 'waiting_for_bids' // OPEN with no bids
+		| 'bids_received' // OPEN with bids
+		| 'tasks_in_progress' // Active work
+		| 'tasks_completed' // Terminal states
+		| 'tasks_disputed'; // Dispute states
 
 	let activeFilter = $state<TaskFilterCategory>('waiting_for_bids');
 	let btcPrice = $state<number>(0);
 	let isDropdownOpen = $state<boolean>(false);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	
+
 	// Background bid checking state
 	let bidStatusMap = $state<Map<string, boolean>>(new Map());
 	let isCheckingBids = $state(false);
@@ -53,28 +51,28 @@
 
 	// Filter options - reactive to language changes
 	const filterOptions = $derived([
-		{ 
-			id: 'waiting_for_bids', 
+		{
+			id: 'waiting_for_bids',
 			label: $t('task.filters.waiting_for_bids'),
 			icon: IconClockOutline
 		},
-		{ 
-			id: 'bids_received', 
-			label: $t('task.filters.bids_received'),
-			icon: IconClockCheckOutline
-		},
-		{ 
-			id: 'tasks_in_progress', 
+		// {
+		// 	id: 'bids_received',
+		// 	label: $t('task.filters.bids_received'),
+		// 	icon: IconClockCheckOutline
+		// },
+		{
+			id: 'tasks_in_progress',
 			label: $t('task.filters.in_progress'),
 			icon: IconLightningBolt
 		},
-		{ 
-			id: 'tasks_completed', 
+		{
+			id: 'tasks_completed',
 			label: $t('task.filters.completed'),
 			icon: IconCheckCircle
 		},
-		{ 
-			id: 'tasks_disputed', 
+		{
+			id: 'tasks_disputed',
 			label: $t('task.filters.disputed'),
 			icon: IconAlertCircleOutline
 		}
@@ -92,47 +90,49 @@
 	}
 
 	/**
+	 * TODO: Implement later in seperate file to avoid accidental use
+	 * IMPORTATN: Func calls for nostr-bid which requires passkey prompts
 	 * Background bid checking (non-blocking)
 	 * Smart debouncing: only checks when task IDs actually change
 	 */
 	async function checkBidsInBackground(force: boolean = false) {
 		const now = Date.now();
-		
+
 		// Prevent rapid successive calls (unless forced)
 		if (isCheckingBids) return;
 		if (!force && now - lastBidCheckTime < BID_CHECK_INTERVAL) return;
-		
-		const openTasks = $myTasksStore.items.filter(t => t.status === TaskStatusEnum.OPEN);
+
+		const openTasks = $myTasksStore.items.filter((t) => t.status === TaskStatusEnum.OPEN);
 		if (openTasks.length === 0) {
 			lastCheckedTaskIds.clear();
 			return;
 		}
 
 		// Get current task IDs
-		const currentTaskIds = new Set(openTasks.map(t => t.id));
-		
+		const currentTaskIds = new Set(openTasks.map((t) => t.id));
+
 		// Check if task IDs have actually changed (unless forced)
 		if (!force) {
-			const taskIdsChanged = 
+			const taskIdsChanged =
 				currentTaskIds.size !== lastCheckedTaskIds.size ||
-				Array.from(currentTaskIds).some(id => !lastCheckedTaskIds.has(id)) ||
-				Array.from(lastCheckedTaskIds).some(id => !currentTaskIds.has(id));
-			
+				Array.from(currentTaskIds).some((id) => !lastCheckedTaskIds.has(id)) ||
+				Array.from(lastCheckedTaskIds).some((id) => !currentTaskIds.has(id));
+
 			// If no meaningful change and we've checked recently, skip
 			if (!taskIdsChanged && lastBidCheckTime > 0) {
 				return;
 			}
 		}
-		
+
 		isCheckingBids = true;
 		lastBidCheckTime = now;
 		lastCheckedTaskIds = new Set(currentTaskIds);
-		
+
 		try {
 			// Batch check all bids
 			const { getBidsFromDMs } = await import('$lib/utils/nostr-bid');
 			const allBids = await getBidsFromDMs();
-			
+
 			// Create map of task IDs with bids
 			const tasksWithBids = new Set<string>();
 			for (const bid of allBids) {
@@ -140,7 +140,7 @@
 					tasksWithBids.add(bid.bid.taskId);
 				}
 			}
-			
+
 			// Update bid status map
 			for (const taskId of currentTaskIds) {
 				bidStatusMap.set(taskId, tasksWithBids.has(taskId));
@@ -155,43 +155,43 @@
 	// Simple synchronous filtering
 	let filteredTasks = $derived.by(() => {
 		let filtered = $myTasksStore.items;
-		
+
 		// Filter by status category (synchronous)
 		switch (activeFilter) {
 			case 'waiting_for_bids':
 				// Filter OPEN tasks, then check bid status (from map)
-				return filtered.filter(t => 
-					t.status === TaskStatusEnum.OPEN && 
-					!bidStatusMap.get(t.id) // No bids (or not checked yet)
+				return filtered.filter(
+					(t) => t.status === TaskStatusEnum.OPEN && !bidStatusMap.get(t.id) // No bids (or not checked yet)
 				);
-			
+
 			case 'bids_received':
 				// Filter OPEN tasks with bids
-				return filtered.filter(t => 
-					t.status === TaskStatusEnum.OPEN && 
-					bidStatusMap.get(t.id) === true // Has bids
+				return filtered.filter(
+					(t) => t.status === TaskStatusEnum.OPEN && bidStatusMap.get(t.id) === true // Has bids
 				);
 
 			case 'tasks_in_progress':
-				return filtered.filter(t => 
-					t.status === TaskStatusEnum.IN_PROGRESS ||
-					t.status === TaskStatusEnum.BID_ACCEPTED ||
-					t.status === TaskStatusEnum.ESCROW_FUNDED ||
-					t.status === TaskStatusEnum.RESCOPED ||
-					t.status === TaskStatusEnum.RESCOPE_ACCEPTED
+				return filtered.filter(
+					(t) =>
+						t.status === TaskStatusEnum.IN_PROGRESS ||
+						t.status === TaskStatusEnum.BID_ACCEPTED ||
+						t.status === TaskStatusEnum.ESCROW_FUNDED ||
+						t.status === TaskStatusEnum.RESCOPED ||
+						t.status === TaskStatusEnum.RESCOPE_ACCEPTED
 				);
-			
+
 			case 'tasks_completed':
-				return filtered.filter(t => 
-					t.status === TaskStatusEnum.COMPLETED ||
-					t.status === TaskStatusEnum.CANCELLED ||
-					t.status === TaskStatusEnum.REFUNDED
+				return filtered.filter(
+					(t) =>
+						t.status === TaskStatusEnum.COMPLETED ||
+						t.status === TaskStatusEnum.CANCELLED ||
+						t.status === TaskStatusEnum.REFUNDED
 				);
-			
+
 			case 'tasks_disputed':
-				return filtered.filter(t => 
-					t.status === TaskStatusEnum.DISPUTED ||
-					t.status === TaskStatusEnum.DISPUTE_PROPOSAL
+				return filtered.filter(
+					(t) =>
+						t.status === TaskStatusEnum.DISPUTED || t.status === TaskStatusEnum.DISPUTE_PROPOSAL
 				);
 
 			default:
@@ -235,23 +235,6 @@
 		currentPage = 1;
 	});
 
-	// Check bids in background when tasks change
-	// Smart tracking: only checks when task IDs actually change, not on every store update
-	$effect(() => {
-		// Access the store to track changes
-		const tasks = $myTasksStore.items;
-		
-		// Only check if we have tasks and they've actually changed
-		if (tasks.length > 0) {
-			// Use a small delay to batch rapid updates
-			const timeoutId = setTimeout(() => {
-				checkBidsInBackground();
-			}, 100); // 100ms debounce to batch rapid updates
-			
-			return () => clearTimeout(timeoutId);
-		}
-	});
-
 	/**
 	 * Toggle dropdown
 	 */
@@ -286,8 +269,6 @@
 			isLoading = true;
 			error = null;
 			await findMyTasks({ page: 1, limit: 100 });
-			// Force bid check after manual refresh
-			checkBidsInBackground(true);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load tasks';
 			console.error('Error loading tasks:', err);
@@ -375,7 +356,6 @@
 		(async () => {
 			await loadTasks();
 			await fetchBtcPrice();
-			// Note: loadTasks() already triggers checkBidsInBackground(true)
 		})();
 
 		// Cleanup on unmount
@@ -386,84 +366,85 @@
 </script>
 
 <div class="space-y-6">
-
 	<!-- Row 1: Status Filter Buttons (top) -->
 	<div class="mb-4">
-	<!-- Desktop: Button filters -->
-	<div class="hidden sm:block">
-		<div class="mt-3 flex flex-col gap-3 sm:flex-row">
-			{#each filterOptions as option}
+		<!-- Desktop: Button filters -->
+		<div class="hidden sm:block">
+			<div class="mt-3 flex flex-col gap-3 sm:flex-row">
+				{#each filterOptions as option}
 					{@const IconComponent = option.icon}
-				<button
-						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter === option.id
-						? 'text-primary bg-primary/10'
+					<button
+						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter ===
+						option.id
+							? 'text-primary bg-primary/10'
 							: 'bg-base-100/40 hover:bg-base-100/50 text-base-content/70'}"
 						onclick={() => selectFilter(option.id)}
 						aria-label={option.label}
 					>
-						<IconComponent 
-							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
-						/>
-					<span class="font-medium">{option.label}</span>
-				</button>
-			{/each}
+						<IconComponent class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}" />
+						<span class="font-medium">{option.label}</span>
+					</button>
+				{/each}
+			</div>
 		</div>
-	</div>
 
-	<!-- Mobile: Custom dropdown -->
-	<div class="block sm:hidden">
+		<!-- Mobile: Custom dropdown -->
+		<div class="block sm:hidden">
 			<div class="status-dropdown-container relative mt-3">
-			<button
-				class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full cursor-pointer items-center justify-between rounded-3xl border px-4 py-1 transition-all duration-200"
-				onclick={toggleDropdown}
-			>
-				<div class="flex items-center gap-2">
+				<button
+					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full cursor-pointer items-center justify-between rounded-3xl border px-4 py-1 transition-all duration-200"
+					onclick={toggleDropdown}
+				>
+					<div class="flex items-center gap-2">
 						{#each filterOptions as option}
 							{#if activeFilter === option.id}
 								{@const IconComponent = option.icon}
 								<IconComponent class="h-5 w-5" />
-					{/if}
+							{/if}
 						{/each}
-					<span class="font-medium">
-						{filterOptions.find((opt) => opt.id === activeFilter)?.label}
-					</span>
-				</div>
-					<IconChevronDown 
+						<span class="font-medium">
+							{filterOptions.find((opt) => opt.id === activeFilter)?.label}
+						</span>
+					</div>
+					<IconChevronDown
 						class="h-5 w-5 transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
 					/>
-			</button>
+				</button>
 
-			<!-- Dropdown menu -->
-			{#if isDropdownOpen}
-				<div
-					class="border-base-300 bg-base-300 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-				>
-					{#each filterOptions as option}
+				<!-- Dropdown menu -->
+				{#if isDropdownOpen}
+					<div
+						class="border-base-300 bg-base-300 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+					>
+						{#each filterOptions as option}
 							{@const IconComponent = option.icon}
-						<button
-								class="hover:bg-base-200 flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter === option.id
-								? 'bg-primary/10 text-primary'
-								: 'text-base-content'}"
-							onclick={() => selectFilter(option.id)}
-						>
-								<IconComponent 
-									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+							<button
+								class="hover:bg-base-200 flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
+								option.id
+									? 'bg-primary/10 text-primary'
+									: 'text-base-content'}"
+								onclick={() => selectFilter(option.id)}
+							>
+								<IconComponent
+									class="h-5 w-5 {activeFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
 								/>
-							<span class="font-medium">{option.label}</span>
-							{#if activeFilter === option.id}
+								<span class="font-medium">{option.label}</span>
+								{#if activeFilter === option.id}
 									<IconCheck class="text-primary ml-auto h-5 w-5" />
-							{/if}
-						</button>
-					{/each}
-				</div>
-			{/if}
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
-</div>
 
 	<!-- Row 2: Refresh Button -->
 	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-		<div class="flex gap-2 mx-auto">
+		<div class="mx-auto flex gap-2">
 			<!-- Refresh Button -->
 			<button
 				class="btn btn-ghost btn-sm rounded-full"
@@ -477,43 +458,43 @@
 					<IconRefresh class="h-5 w-5" />
 				{/if}
 			</button>
-							</div>
-						</div>
+		</div>
+	</div>
 
 	<!-- Loading State -->
 	{#if isLoading}
 		<div class="flex justify-center py-12">
-						<div class="flex items-center gap-3">
+			<div class="flex items-center gap-3">
 				<span class="loading loading-spinner loading-md"></span>
 				<span>{$t('dashboard.tasks.loading')}</span>
 			</div>
-	</div>
-{/if}
+		</div>
+	{/if}
 
 	<!-- Error State -->
 	{#if error}
 		<div class="alert alert-outline alert-error">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
 					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
+				/>
+			</svg>
 			<div>
 				<h3 class="font-bold">{$t('dashboard.tasks.error_title')}</h3>
 				<div class="text-xs">{error}</div>
-								</div>
+			</div>
 			<button class="btn btn-sm btn-outline" onclick={loadTasks}>
 				{$t('dashboard.tasks.retry')}
 			</button>
-							</div>
+		</div>
 	{/if}
 
 	<!-- Tasks List -->
@@ -521,20 +502,20 @@
 		{#if filteredTasks.length === 0}
 			<div class="py-12 text-center">
 				<div class="mb-4">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
 						class="text-base-content/30 mx-auto h-12 w-12"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
 							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-								/>
-							</svg>
+						/>
+					</svg>
 				</div>
 				<h3 class="mb-2 text-lg font-semibold">
 					{$myTasksStore.items.length === 0
@@ -547,42 +528,38 @@
 						: $t('dashboard.tasks.try_different_filters')}
 				</p>
 			</div>
-									{:else}
+		{:else}
 			<div class="grid grid-cols-1 gap-5">
 				{#each paginatedTasks as task (task.id)}
 					<TaskCard
 						{task}
 						{btcPrice}
-						activeFilter={activeFilter}
+						{activeFilter}
 						{getActionButtons}
 						onclick={() => openTaskDrawer(task)}
 					/>
 				{/each}
-						</div>
+			</div>
 
 			<!-- Pagination Controls -->
 			{#if totalPages > 1}
 				<div class="flex items-center justify-center gap-2 py-6">
-					<button
-						class="btn btn-sm btn-ghost"
-						onclick={prevPage}
-						disabled={currentPage === 1}
-					>
+					<button class="btn btn-sm btn-ghost" onclick={prevPage} disabled={currentPage === 1}>
 						{$t('common.pagination.previous')}
 					</button>
-					
+
 					<div class="flex gap-1">
 						{#each Array(totalPages) as _, i}
 							{@const page = i + 1}
-									<button
+							<button
 								class="btn btn-sm {currentPage === page ? 'btn-primary' : 'btn-ghost'}"
 								onclick={() => goToPage(page)}
 							>
 								{page}
-									</button>
-								{/each}
+							</button>
+						{/each}
 					</div>
-					
+
 					<button
 						class="btn btn-sm btn-ghost"
 						onclick={nextPage}
@@ -593,7 +570,5 @@
 				</div>
 			{/if}
 		{/if}
-{/if}
-	</div>
-
-<svelte:window onclick={handleClickOutside} />
+	{/if}
+</div>

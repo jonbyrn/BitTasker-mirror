@@ -7,6 +7,7 @@
 	import { walletManager, rskAddress } from '$lib/stores/wallet.store';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+	import { SendNotificationToNpubsStore } from '$houdini';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
@@ -363,59 +364,18 @@
 
 			// Submit a bid as an encrypted DM to the task creator with custom tags
 			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
-
-			// Notify backend via GraphQL so it can send push notifications
-			// IMPORTANT: The backend should send notification to the TASK CREATOR, not the bidder
-			try {
-				const { SendNotificationStore } = await import('$houdini');
-				const sendNotificationStore = new SendNotificationStore();
-				
-				// Get current device ID (this identifies the BIDDER - backend should use this to identify sender)
-				// Backend should then use taskId to find task creator and notify them instead
-				const deviceId = pushNotificationService.getCurrentDeviceId();
-				
-				if (deviceId && taskCreatorPubkey) {
-					// CRITICAL: For bid_created notifications, the backend MUST:
-					// 1. Use deviceId to identify the BIDDER (sender)
-					// 2. Parse taskId from body to find the task
-					// 3. Get the task creator from the task (or use taskCreatorPubkey from body)
-					// 4. Send notification to TASK CREATOR's devices (NOT the bidder's deviceId)
-					// 
-					// The deviceId provided is the BIDDER's device - backend should NOT send to this device
-					// Backend should look up task creator's devices and send to those instead
-					const notificationInput = {
-						title: 'New Bid Received',
-						body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey} | bidderDeviceId:${deviceId}`,
-						deviceId: deviceId, // WARNING: This is the BIDDER's device - backend must NOT send notification here
-						// Backend must use taskId/taskCreatorPubkey to find task creator and send to their devices
-						type: 'bid_created'
-					};
-					
-					const result = await sendNotificationStore.mutate({
-						input: notificationInput
-					});
-					
-					// Check backend response to verify processing
-					if (result.errors) {
-						console.error('❌ GraphQL errors sending bid notification:', result.errors);
-					} else if (result.data?.sendNotification) {
-						const { success, message } = result.data.sendNotification;
-						if (success) {
-							// Backend processed successfully
-						} else {
-							console.warn('⚠️ Backend returned failure for bid notification:', message);
-						}
-					} else {
-						console.warn('⚠️ No response data from sendNotification mutation');
-					}
-				} else {
-					console.warn('⚠️ Device ID not available, skipping backend notification');
+			const sendNotificationToNpubsStore = new SendNotificationToNpubsStore();
+			const result = await sendNotificationToNpubsStore.mutate({
+				input: {
+					npubs: [taskCreatorPubkey],
+					title: 'New Bid Received',
+					body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey}`,
+					type: 'bid_created',
+					clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${taskId}`,
+					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 				}
-			} catch (error) {
-				console.warn('⚠️ Failed to notify backend (Nostr DM was successful):', error);
-				// Don't fail the bid submission if backend call fails
-				// Nostr DM is the primary communication method
-			}
+			});
+			console.log({ notificationResult: result });
 
 			// Clear bid cache to ensure fresh data on next load
 			clearBidCache();

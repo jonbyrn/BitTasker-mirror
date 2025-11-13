@@ -230,7 +230,6 @@ class PushNotificationService {
 	 * Enhanced handling for foreground notifications using local notifications for better reliability
 	 */
 	private async handleForegroundNotification(notification: PushNotificationSchema): Promise<void> {
-
 		// Show both toast and local notification for better UX
 		await this.handleNativeNotification(notification);
 
@@ -739,6 +738,28 @@ class PushNotificationService {
 	// Getter for current device ID
 	public getCurrentDeviceId(): string | null {
 		return this.currentDeviceId;
+	}
+
+	/**
+	 * Close all existing notifications for web push notifications
+	 */
+	private async closeAllExistingNotifications(): Promise<void> {
+		try {
+			if ('serviceWorker' in navigator) {
+				const registration = await navigator.serviceWorker.ready;
+				const allNotifications = await registration.getNotifications();
+
+				if (allNotifications.length > 0) {
+					for (const existing of allNotifications) {
+						existing.close();
+					}
+					// Small delay to ensure notifications are closed
+					await new Promise(resolve => setTimeout(resolve, 50));
+				}
+			}
+		} catch (error) {
+			console.warn('⚠️ Could not close existing notifications:', error);
+		}
 	}
 
 	// Method to test notifications (useful for debugging)

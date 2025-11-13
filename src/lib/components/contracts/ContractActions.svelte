@@ -15,21 +15,16 @@
 	import { 
 		registerCompleteCancelAttemptAtomic,
 		registerCompleteCancelAttempt,
-		registerCompletionAttemptAtomic,
-		registerCompletionAttempt,
 		updateCompleteCancelStatus,
 		updateCompletionStatus, 
-		hasCompletionAttempt, 
 		getCompleteCancelAttempt,
 		getCompleteAttempt,
 		getCancelAttempt,
-		getCompletionAttempt,
 		clearCompletionAttempt 
 	} from '$lib/stores/completionCache.store';
 	import {
 		registerAcceptDisputeAttemptAtomic,
 		registerAcceptDisputeAttempt,
-		updateAcceptDisputeStatus,
 		getAcceptAttempt,
 		getDisputeAttempt,
 		clearAcceptDisputeAttempt,

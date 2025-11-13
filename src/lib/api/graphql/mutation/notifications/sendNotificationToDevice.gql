@@ -1,0 +1,8 @@
+mutation SendNotificationToDevice($input: SendNotificationToDeviceInput!) {
+	sendNotificationToDevice(input: $input) {
+		deviceId
+		error
+		npub
+		success
+	}
+}
