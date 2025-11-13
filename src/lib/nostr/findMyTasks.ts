@@ -96,14 +96,40 @@ export async function findMyTasks(params: {
             const events = Array.isArray(response?.data) ? response.data : [];
             const tasks = events.map((event: Event) => convertEventToTask(event));
 
+            // Get current state before updating
+            const currentState = get(myTasksStore);
+            const hadExistingItems = currentState.items.length > 0;
+            const isRefresh = params.page === 1;
+
+            // If refreshing (page 1) and we get empty results but had items before,
+            // preserve existing items to prevent tasks from disappearing
+            // This handles cases where the API might return empty due to network issues
+            // or timing problems on the live server
+            if (isRefresh && tasks.length === 0 && hadExistingItems) {
+                console.warn('[FindMyTasks] Refresh returned empty results but had existing items. Preserving existing items.');
+                myTasksStore.update(state => ({
+                    ...state,
+                    loading: false,
+                    currentPage: params.page || 1,
+                    hasMore: false,
+                    // Keep existing items - don't clear them
+                }));
+
+                return {
+                    tasks: currentState.items,
+                    total: currentState.items.length,
+                    hasMore: false
+                };
+            }
+
             // Update cache
             cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
 
             // Update store - concatenate for pagination
-            // Only update items if we have a successful response (even if empty)
+            // Only replace items if we have data or if we're doing a fresh load (no existing items)
             myTasksStore.update(state => ({
                 ...state,
-                items: params.page === 1 ? tasks : [...state.items, ...tasks],
+                items: isRefresh ? tasks : [...state.items, ...tasks],
                 loading: false,
                 currentPage: params.page || 1,
                 hasMore: tasks.length >= (params.limit || BATCH_SIZE),

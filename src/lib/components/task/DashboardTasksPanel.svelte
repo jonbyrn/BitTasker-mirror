@@ -285,7 +285,8 @@
 		try {
 			isLoading = true;
 			error = null;
-			await findMyTasks({ page: 1, limit: 100 });
+			// Pass refresh: true to clear cache and force fresh fetch
+			await findMyTasks({ page: 1, limit: 100, refresh: true });
 			// Force bid check after manual refresh
 			checkBidsInBackground(true);
 		} catch (err) {
