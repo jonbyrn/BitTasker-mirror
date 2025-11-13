@@ -22,7 +22,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
-	import { untrack } from 'svelte';
+	import { untrack, onMount } from 'svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	// Props
 	const props = $props<{
@@ -75,60 +75,61 @@
 		};
 	});
 
-	// Validate escrow details when bidEscrowDetails changes
-	// This effect only tracks bidEscrowDetails
-	$effect(() => {
-		const details = bidEscrowDetails;
-		if (details) {
-			const validationResult = validateEscrowDetails(details);
-			validationErrors = validationResult.errors;
-			validationWarnings = validationResult.warnings;
-			
-			// After validation, check balance if needed
-			// Do this in the same effect to avoid circular dependencies
-			if (validationResult.errors.length === 0 && !isSubmitting) {
-				// Use untrack to read wallet store without creating reactive dependency
-				const connected = untrack(() => $walletStore.rsk.connected);
-				if (connected) {
-					// Use untrack to prevent validateSufficientBalance from creating reactive dependencies
-					balanceErrors = untrack(() => validateSufficientBalance(details));
+	let isValidating = $state(false);
+	let lastValidatedKey = $state<string>('');
+
+	// Function to validate and check balance
+	function validateAndCheckBalance(details: any) {
+		if (isSubmitting || isValidating) return;
+		
+		// Create a stable key from the details to prevent duplicate validation
+		const detailsKey = details 
+			? `${details.baseAmount}-${details.freelancerAddress}-${details.estimatedStartTime}`
+			: '';
+		
+		// Skip if we already validated this exact details
+		if (lastValidatedKey === detailsKey) return;
+		
+		isValidating = true;
+		
+		try {
+			if (details) {
+				const validationResult = validateEscrowDetails(details);
+				validationErrors = validationResult.errors;
+				validationWarnings = validationResult.warnings;
+				
+				// After validation, check balance if needed
+				if (validationResult.errors.length === 0) {
+					// Use untrack to read wallet store without creating reactive dependency
+					const connected = untrack(() => $walletStore.rsk.connected);
+					if (connected) {
+						// Use untrack to prevent validateSufficientBalance from creating reactive dependencies
+						balanceErrors = untrack(() => validateSufficientBalance(details));
+					} else {
+						balanceErrors = [];
+					}
 				} else {
 					balanceErrors = [];
 				}
+				lastValidatedKey = detailsKey;
 			} else {
+				validationErrors = [];
+				validationWarnings = [];
 				balanceErrors = [];
+				lastValidatedKey = '';
 			}
-		} else {
-			validationErrors = [];
-			validationWarnings = [];
-			balanceErrors = [];
+		} finally {
+			isValidating = false;
 		}
-	});
+	}
 
-	// Separate effect to re-check balance when wallet connection changes
-	// Use $derived to track only connection state, not entire wallet store
-	const walletConnected = $derived($walletStore.rsk.connected);
-	
+	// Validate when bidEscrowDetails changes
+	// Use a single effect that only tracks bidEscrowDetails
 	$effect(() => {
-		if (isSubmitting) {
-			return;
-		}
-
-		// Track only connection state via $derived
-		const connected = walletConnected;
-		
-		// Only re-check balance if we have valid escrow details and no validation errors
-		// Use untrack to read these without creating reactive dependencies
-		const details = untrack(() => bidEscrowDetails);
-		const hasErrors = untrack(() => validationErrors.length > 0);
-		
-		if (details && connected && !hasErrors) {
-			// Re-check balance when connection state changes
-			// Use untrack to prevent validateSufficientBalance from creating reactive dependencies
-			balanceErrors = untrack(() => validateSufficientBalance(details));
-		} else if (!connected) {
-			balanceErrors = [];
-		}
+		// Track bidEscrowDetails - this is the only reactive dependency
+		const details = bidEscrowDetails;
+		// Call validation function - it uses untrack internally for wallet store reads
+		validateAndCheckBalance(details);
 	});
 
 	// Auto-initialize Rootstock wallet if not connected
