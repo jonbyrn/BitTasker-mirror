@@ -183,6 +183,16 @@ self.addEventListener('notificationclick', (event) => {
 		urlToOpen = `/dashboard/task/${data.taskId}`;
 	} else if (data.type === 'bid_created' && data.taskId) {
 		urlToOpen = `/dashboard/task/${data.taskId}`;
+	} else if (data.type === 'contract_created' && data.taskId) {
+		urlToOpen = `/dashboard/task/${data.taskId}`;
+	} else if (data.type === 'task_completed' && data.taskId) {
+		urlToOpen = `/dashboard/task/${data.taskId}`;
+	} else if (data.type === 'payment_released' && data.taskId) {
+		urlToOpen = `/dashboard/task/${data.taskId}`;
+	} else if (data.type === 'dispute_raised' && data.taskId) {
+		urlToOpen = `/dashboard/task/${data.taskId}`;
+	} else if (data.type === 'contract_cancelled' && data.taskId) {
+		urlToOpen = `/dashboard/task/${data.taskId}`;
 	} else if (data.type === 'message' && data.conversationId) {
 		urlToOpen = `/dashboard/messages/to/${data.conversationId}`;
 	} else if (data.type === 'task_update' && data.taskId) {

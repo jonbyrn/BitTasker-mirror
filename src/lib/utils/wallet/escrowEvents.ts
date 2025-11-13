@@ -111,11 +111,20 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			// Notify backend that contract was created
 			try {
 				const { notifyBackendOfContractAction } = await import('$lib/utils/contract-notification-helper');
+				// Get current user pubkey (task creator)
+				const { getCurrentUserPubkey } = await import('$lib/utils/nostr-message');
+				const taskCreatorPubkey = await getCurrentUserPubkey();
+				
 				await notifyBackendOfContractAction(
 					event.escrowId,
 					'contract-created',
 					`contract-${event.escrowId}`,
-					{ transactionHash: event.transactionHash }
+					{
+						taskId: pendingContract.taskId,
+						freelancerPubkey: pendingContract.freelancerPubkey,
+						taskCreatorPubkey: taskCreatorPubkey || '',
+						transactionHash: event.transactionHash
+					}
 				);
 			} catch (error) {
 				console.warn('Failed to notify backend of contract creation:', error);

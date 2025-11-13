@@ -246,7 +246,8 @@ class PushNotificationService {
 				
 				if (data.taskId) {
 					taskId = data.taskId;
-				} else if (data.type === 'bid_created' && body.includes('taskId:')) {
+				} else if (body.includes('taskId:')) {
+					// Extract taskId from body for any notification type (bid, contract, etc.)
 					const match = body.match(/taskId:([a-f0-9]+)/i);
 					if (match) {
 						taskId = match[1];
@@ -387,7 +388,8 @@ class PushNotificationService {
 							let taskId: string | null = null;
 							if (data.taskId) {
 								taskId = data.taskId;
-							} else if (data.type === 'bid_created' && body.includes('taskId:')) {
+							} else if (body.includes('taskId:')) {
+								// Extract taskId from body for any notification type
 								const match = body.match(/taskId:([a-f0-9]+)/i);
 								if (match) {
 									taskId = match[1];

@@ -37,19 +37,56 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
 		}
 
-		// Wait a bit for service worker to be ready
-		await new Promise((resolve) => setTimeout(resolve, 500));
+		// Wait for service worker to be ready
+		await navigator.serviceWorker.ready;
 
-		// Send Firebase config to service worker
-		const activeWorker = registration.active || registration.waiting || registration.installing;
-		if (activeWorker) {
-			console.log('📤 Sending Firebase config to service worker...');
-			activeWorker.postMessage({
-				type: 'FIREBASE_CONFIG',
-				config: getFirebaseWebConfig()
+		// Get Firebase config and validate
+		const firebaseConfig = getFirebaseWebConfig();
+		
+		// Validate config before sending
+		if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
+			console.error('❌ Firebase config is incomplete, cannot send to service worker');
+			console.error('Missing config:', {
+				apiKey: !!firebaseConfig.apiKey,
+				projectId: !!firebaseConfig.projectId,
+				messagingSenderId: !!firebaseConfig.messagingSenderId
 			});
-		} else {
-			console.warn('⚠️ No active service worker found to send config to');
+			return registration;
+		}
+
+		// Send Firebase config to service worker with retry logic
+		let configSent = false;
+		for (let attempt = 1; attempt <= 3; attempt++) {
+			try {
+				const activeWorker = registration.active || registration.waiting || registration.installing;
+				if (activeWorker) {
+					console.log(`📤 Sending Firebase config to service worker (attempt ${attempt}/3)...`);
+					activeWorker.postMessage({
+						type: 'FIREBASE_CONFIG',
+						config: firebaseConfig
+					});
+					configSent = true;
+					console.log('✅ Firebase config sent to service worker successfully');
+					break;
+				} else {
+					console.warn(`⚠️ No active service worker found (attempt ${attempt}/3), waiting...`);
+					if (attempt < 3) {
+						await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+						// Try to get ready again
+						await navigator.serviceWorker.ready;
+					}
+				}
+			} catch (error) {
+				console.error(`❌ Error sending config (attempt ${attempt}/3):`, error);
+				if (attempt < 3) {
+					await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+				}
+			}
+		}
+
+		if (!configSent) {
+			console.error('❌ Failed to send Firebase config to service worker after 3 attempts');
+			console.warn('⚠️ Service worker will try to fetch from /firebase-config.json (may fail on static server)');
 		}
 
 		// Set up navigation message handler
