@@ -78,7 +78,9 @@
 			// Update task status based on existing bids
 			if (task) {
 				// Use optimized bid fetching with caching and efficient deduplication
+				console.log(`[BidsPage] 🚀 Starting getBidsForTaskOptimized for task ${task.id} at ${new Date().toISOString()}`);
 				const dmBids = await getBidsForTaskOptimized(task.id);
+				console.log(`[BidsPage] ✅ Completed getBidsForTaskOptimized for task ${task.id} at ${new Date().toISOString()}, got ${dmBids.length} bids`);
 
 				// Transform to SimplifiedTaskBid format (sync mapping)
 				bids = dmBids.map(({ bid }) => {
