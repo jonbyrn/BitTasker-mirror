@@ -184,7 +184,7 @@
 
 	// Font Awesome is now loaded via the link tag in the head
 
-	// Initialize theme based on system preference - Broken up into smaller functions
+	// Global error handlers to catch unhandled errors and promise rejections
 	onMount(async (): Promise<any> => {
 		// Critical operations first - only what's needed for initial render
 		initializeCriticalFeatures();
@@ -200,10 +200,32 @@
 		// Defer all non-critical operations
 		deferHelpers();
 
+		// Global error handler for uncaught errors
+		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
+			const error = event instanceof ErrorEvent ? event.error : event.reason;
+			console.error('[Global Error Handler] Uncaught error detected:', {
+				error: error instanceof Error ? error.message : String(error),
+				errorType: error?.constructor?.name,
+				stack: error instanceof Error ? error.stack : undefined,
+				eventType: event instanceof ErrorEvent ? 'error' : 'unhandledrejection',
+				timestamp: new Date().toISOString(),
+				url: window.location.href
+			});
+			// Prevent default error handling to avoid console spam
+			if (event instanceof ErrorEvent) {
+				event.preventDefault();
+			}
+		};
+
+		window.addEventListener('error', handleError);
+		window.addEventListener('unhandledrejection', handleError);
+
 		// Return cleanup function for proper disposal
 		return () => {
 			clearTimeout(routeChangeTimeout);
 			themeCleanup();
+			window.removeEventListener('error', handleError);
+			window.removeEventListener('unhandledrejection', handleError);
 			// No cleanup needed for Font Awesome loaded via link tag
 		};
 	});

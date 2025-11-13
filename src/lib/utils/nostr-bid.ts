@@ -974,12 +974,22 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 								error?: unknown;
 							} | null = null;
 							try {
+								console.log(`[getUserContracts] Checking funding status for escrow ${contractData.escrowId}...`);
 								fundingStatus = await escrow.checkEscrowFundingStatus(contractData.escrowId);
+								console.log(`[getUserContracts] Funding status checked for escrow ${contractData.escrowId}`, {
+									wasFunded: fundingStatus?.wasFunded,
+									hasError: !!fundingStatus?.error
+								});
 							} catch (fundingError) {
 								// Silently handle funding status check errors
 								console.warn(
-									`Failed to check funding status for escrow ${contractData.escrowId}:`,
-									fundingError
+									`[getUserContracts] Failed to check funding status for escrow ${contractData.escrowId}:`,
+									{
+										escrowId: contractData.escrowId,
+										error: fundingError instanceof Error ? fundingError.message : String(fundingError),
+										errorType: fundingError?.constructor?.name,
+										stack: fundingError instanceof Error ? fundingError.stack : undefined
+									}
 								);
 								// Default to conservative values
 								fundingStatus = { wasFunded: false };
