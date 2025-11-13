@@ -748,7 +748,32 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
 }
 
 /**
+ * Fetch with timeout to prevent hanging requests
+ */
+async function fetchWithTimeout(url: string, timeoutMs: number = 15000): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+    }, timeoutMs);
+
+    try {
+        const response = await fetch(url, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeoutMs}ms`);
+        }
+        throw error;
+    }
+}
+
+/**
  * Load BSC transaction history using BSCScan API
+ * Includes timeout protection to prevent blocking other operations
  */
 export async function loadBSCTransactions(): Promise<Transaction[]> {
     const state = get(walletStore);
@@ -770,11 +795,10 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
         // Use BSCScan API to get transaction history
         const explorerApiUrl = bscConfig.explorerApiUrl;
 
+        // Fetch BNB transactions independently - don't let failures block other operations
         try {
-            // Fetch BNB transactions using V2 API
             const bnbUrl = `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
-
-            const bnbResponse = await fetch(bnbUrl);
+            const bnbResponse = await fetchWithTimeout(bnbUrl, 15000); // 15 second timeout
 
             if (bnbResponse.ok) {
                 const bnbData = await bnbResponse.json();
@@ -843,14 +867,22 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
             } else {
                 console.error('Failed to fetch BNB transactions:', bnbResponse.status, bnbResponse.statusText);
             }
+        } catch (bnbError) {
+            // Log error but continue - don't let BNB fetch failure block USDT fetch
+            const errorMessage = bnbError instanceof Error ? bnbError.message : String(bnbError);
+            if (errorMessage.includes('timeout')) {
+                console.warn('BSCScan API request timed out for BNB transactions - transaction history may be incomplete');
+            } else {
+                console.error('Failed to fetch BNB transactions from BSCScan API:', bnbError);
+            }
+        }
 
-            // Fetch USDT token transactions
-            const usdtToken = getUSDTToken(network);
-
-            if (usdtToken) {
-                const usdtResponse = await fetch(
-                    `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=tokentx&contractaddress=${usdtToken.address}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`
-                );
+        // Fetch USDT token transactions independently - don't let failures block other operations
+        const usdtToken = getUSDTToken(network);
+        if (usdtToken) {
+            try {
+                const usdtUrl = `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=tokentx&contractaddress=${usdtToken.address}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
+                const usdtResponse = await fetchWithTimeout(usdtUrl, 15000); // 15 second timeout
 
                 if (usdtResponse.ok) {
                     const usdtData = await usdtResponse.json();
@@ -917,11 +949,15 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
                         }
                     }
                 }
+            } catch (usdtError) {
+                // Log error but continue - don't let USDT fetch failure block return of BNB transactions
+                const errorMessage = usdtError instanceof Error ? usdtError.message : String(usdtError);
+                if (errorMessage.includes('timeout')) {
+                    console.warn('BSCScan API request timed out for USDT transactions - transaction history may be incomplete');
+                } else {
+                    console.error('Failed to fetch USDT transactions from BSCScan API:', usdtError);
+                }
             }
-
-        } catch (apiError) {
-            console.error('Failed to fetch from BSCScan API:', apiError);
-            return [];
         }
 
         // Sort transactions by timestamp and remove duplicates

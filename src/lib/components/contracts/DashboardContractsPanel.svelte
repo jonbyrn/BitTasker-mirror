@@ -186,17 +186,17 @@
 			escrowIds: escrowIds.slice(0, 5) // Log first 5 for debugging
 		});
 		
-		// Get the IDs to process and clear the queue immediately
-		const idsToProcess = [...escrowIds];
-		contractUpdateStore.set([]); // Clear immediately to prevent race conditions
-		
+			// Get the IDs to process and clear the queue immediately
+			const idsToProcess = [...escrowIds];
+			contractUpdateStore.set([]); // Clear immediately to prevent race conditions
+			
 		try {
 			isProcessingUpdates = true;
 			// Load contracts (this will refresh all contracts, including the updated ones)
 			await loadContracts();
-			
-			// Check if any new updates came in while we were loading
-			const remaining = $contractUpdateStore;
+					
+					// Check if any new updates came in while we were loading
+					const remaining = $contractUpdateStore;
 			if (remaining.length > 0 && isMounted && !isLoading) {
 				console.log('[DashboardContractsPanel] Processing remaining contract updates', {
 					remainingCount: remaining.length
@@ -215,8 +215,8 @@
 		} finally {
 			if (isMounted) {
 				isProcessingUpdates = false;
-			}
-		}
+					}
+				}
 	}
 
 	// Subscribe to contract update store (queue-based approach)
