@@ -12,7 +12,11 @@ import {
 	SendNotificationStore,
 	SubscribeToTopicStore,
 	UnsubscribeFromTopicStore,
-	UpdateDeviceActivityStore
+	UpdateDeviceActivityStore,
+	SendNotificationToDeviceStore,
+	SendNotificationToNpubsStore,
+	type SendNotificationToDeviceInput,
+	type SendNotificationToNpubsInput
 } from '$houdini';
 import {
 	registerServiceWorker,
@@ -41,6 +45,8 @@ class PushNotificationService {
 	private myDevicesStore = new MyDevicesStore();
 	private myNotificationPreferencesStore = new MyNotificationPreferencesStore();
 	private sendNotificationStore = new SendNotificationStore();
+	private sendNotificationToDeviceStore = new SendNotificationToDeviceStore();
+	private sendNotificationToNpubsStore = new SendNotificationToNpubsStore();
 	private subscribeToTopicStore = new SubscribeToTopicStore();
 	private unsubscribeFromTopicStore = new UnsubscribeFromTopicStore();
 	private updateDeviceActivityStore = new UpdateDeviceActivityStore();
@@ -78,6 +84,10 @@ class PushNotificationService {
 		}
 	}
 
+	/**
+	 * Initialize web push notifications
+	 * Web specific
+	 */
 	private async initWebPushNotifications(): Promise<void> {
 		try {
 			// Check if notifications are supported
@@ -113,13 +123,16 @@ class PushNotificationService {
 
 			// Register service worker for background messages
 			await registerServiceWorker();
-
 		} catch (error) {
 			console.error('❌ Error initializing web push notifications:', error);
 			throw error;
 		}
 	}
 
+	/**
+	 * Request permissions for web push notifications
+	 * Web specific
+	 */
 	private async requestWebPermissions(): Promise<void> {
 		const permission = await requestNotificationPermission();
 		if (permission !== 'granted') {
@@ -127,6 +140,10 @@ class PushNotificationService {
 		}
 	}
 
+	/**
+	 * Get web token for web push notifications
+	 * Web specific
+	 */
 	private async getWebToken(): Promise<void> {
 		try {
 			const { getToken } = await import('firebase/messaging');
@@ -151,6 +168,10 @@ class PushNotificationService {
 		}
 	}
 
+	/**
+	 * Handle foreground message for web push notifications
+	 * Web specific
+	 */
 	private handleForegroundMessage(payload: any): void {
 		const { notification, data } = payload;
 
@@ -165,6 +186,10 @@ class PushNotificationService {
 		}
 	}
 
+	/**
+	 * Show in-app notification for web push notifications
+	 * Web specific
+	 */
 	private showInAppNotification(notification: any): void {
 		// You can implement custom in-app notification UI here
 		// For now, we'll use the browser's native notification
@@ -177,6 +202,10 @@ class PushNotificationService {
 		}
 	}
 
+	/**
+	 * Handle notification data
+	 * Mobile specific
+	 */
 	private async handleNotificationData(data: any): Promise<void> {
 		// Handle notification data (e.g., navigate to specific page)
 
@@ -228,6 +257,7 @@ class PushNotificationService {
 
 	/**
 	 * Enhanced handling for foreground notifications using local notifications for better reliability
+	 * Mobile specific
 	 */
 	private async handleForegroundNotification(notification: PushNotificationSchema): Promise<void> {
 		// Show both toast and local notification for better UX
@@ -265,6 +295,7 @@ class PushNotificationService {
 
 	/**
 	 * Navigate to URL using appropriate method for the platform
+	 * Mobile & Web
 	 */
 	private async navigateToUrl(url: string): Promise<void> {
 		if (!browser) return;
@@ -290,6 +321,10 @@ class PushNotificationService {
 		}
 	}
 
+	/**
+	 * Add listeners for push notifications
+	 * Mobile specific
+	 */
 	private async addListeners(): Promise<void> {
 		PushNotifications.addListener('registration', (token: Token) => {
 			this.registerTokenOnServer(token.value);
@@ -329,6 +364,7 @@ class PushNotificationService {
 
 	/**
 	 * Add deep link listener for when app is opened from notifications
+	 * Mobile specific
 	 */
 	private addDeepLinkListener(): void {
 		App.addListener('appUrlOpen', (data) => {
@@ -362,9 +398,11 @@ class PushNotificationService {
 		}
 	}
 
+	/**
+	 * Handle native notification received in foreground
+	 * Mobile specific
+	 */
 	private async handleNativeNotification(notification: PushNotificationSchema): Promise<void> {
-		// Handle native notification received in foreground
-
 		try {
 			// Show a local notification in the notification bar even when app is in foreground
 			await this.showLocalNotification(notification);
@@ -380,6 +418,7 @@ class PushNotificationService {
 
 	/**
 	 * Create push notification channel for Android
+	 * Mobile specific
 	 */
 	private async createPushNotificationChannel(): Promise<void> {
 		if (!Capacitor.isNativePlatform()) return;
@@ -403,6 +442,7 @@ class PushNotificationService {
 
 	/**
 	 * Ensure local notification channel exists for Android
+	 * Mobile specific
 	 */
 	private async ensureNotificationChannel(): Promise<void> {
 		if (!Capacitor.isNativePlatform()) return;
@@ -436,6 +476,7 @@ class PushNotificationService {
 
 	/**
 	 * Show a local notification for foreground push notifications
+	 * Mobile specific
 	 */
 	private async showLocalNotification(pushNotification: PushNotificationSchema): Promise<void> {
 		if (!Capacitor.isNativePlatform()) return;
@@ -483,6 +524,7 @@ class PushNotificationService {
 
 	/**
 	 * Add listener for local notification actions (more reliable than push notification actions)
+	 * Mobile specific
 	 */
 	private async handleNativeNotificationAction(notification: ActionPerformed): Promise<void> {
 		// Handle when user taps on notification
@@ -510,6 +552,10 @@ class PushNotificationService {
 		}
 	}
 
+	/**
+	 * Request permissions for push notifications
+	 * Mobile specific
+	 */
 	private async requestPermissions(): Promise<void> {
 		let permStatus = await PushNotifications.checkPermissions();
 
@@ -522,10 +568,18 @@ class PushNotificationService {
 		}
 	}
 
+	/**
+	 * Register device for push notifications
+	 * Mobile specific
+	 */
 	private async registerDevice(): Promise<void> {
 		await PushNotifications.register();
 	}
 
+	/**
+	 * Register token on server
+	 * Mobile & Web
+	 */
 	private async registerTokenOnServer(token: string): Promise<void> {
 		try {
 			if (!this.currentDeviceId) {
@@ -561,7 +615,10 @@ class PushNotificationService {
 		}
 	}
 
-	// Public method to manually refresh token (useful for token rotation)
+	/**
+	 * Public method to manually refresh token (useful for token rotation)
+	 * Mobile & Web
+	 */
 	public async refreshToken(): Promise<void> {
 		if (Capacitor.isNativePlatform()) {
 			await this.registerDevice();
@@ -739,6 +796,42 @@ class PushNotificationService {
 	public getCurrentDeviceId(): string | null {
 		return this.currentDeviceId;
 	}
+
+	/**
+	 * Send notification to a specific device
+	 * Mobile & Web
+	 */
+	public async sendNotificationToDevice(notification: SendNotificationToDeviceInput) {
+		try {
+			const result = await this.sendNotificationToDeviceStore.mutate({ input: notification });
+			if (result.errors) {
+				throw new Error(result.errors[0].message);
+			}
+			return result.data?.sendNotificationToDevice;
+		} catch (error) {
+			console.error('Error sending notification to device:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Send notification to a list of npubs
+	 * Mobile & Web
+	 */
+	public async sendNotificationToNpubs(notification: SendNotificationToNpubsInput) {
+		try {
+			const result = await this.sendNotificationToNpubsStore.mutate({ input: notification });
+			console.log({ result });
+			if (result.errors) {
+				throw new Error(result.errors[0].message);
+			}
+			return result.data?.sendNotificationToNpubs;
+		} catch (error) {
+			console.error('Error sending notification to npubs:', error);
+			throw error;
+		}
+	}
+
 
 	/**
 	 * Close all existing notifications for web push notifications

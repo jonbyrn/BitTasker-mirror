@@ -9,7 +9,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
-	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
+	// import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	// Icon imports for unplugin-icons
 	import IconAccountCircle from '~icons/mdi/account-circle';
@@ -578,7 +578,7 @@ ates to X --
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
 			<!-- Notification Button -->
-			<NotificationCenter />
+			<!-- <NotificationCenter /> -->
 			
 			<!-- Avatar Dropdown -->
 			<details class="dropdown dropdown-end">

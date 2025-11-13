@@ -7,7 +7,6 @@
 	import { walletManager, rskAddress } from '$lib/stores/wallet.store';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
-	import { SendNotificationToNpubsStore } from '$houdini';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
@@ -364,18 +363,14 @@
 
 			// Submit a bid as an encrypted DM to the task creator with custom tags
 			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
-			const sendNotificationToNpubsStore = new SendNotificationToNpubsStore();
-			const result = await sendNotificationToNpubsStore.mutate({
-				input: {
-					npubs: [taskCreatorPubkey],
-					title: 'New Bid Received',
-					body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey}`,
-					type: 'bid_created',
-					clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${taskId}`,
-					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-				}
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [taskCreatorPubkey],
+				title: 'New Bid Received',
+				body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey}`,
+				type: 'bid_created',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${taskId}`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
-			console.log({ notificationResult: result });
 
 			// Clear bid cache to ensure fresh data on next load
 			clearBidCache();
