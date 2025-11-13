@@ -477,18 +477,18 @@
 						<div class="card-body p-4">
 							<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.completion_evidence')}</h4>
 							
-							<!-- Images Gallery -->
-							{#if displayContract.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
-								<div class="mb-4">
-									{#await prepareGalleryImages(displayContract.contract.completionAttachments) then galleryImages}
-										<Gallery
-											galleryID="completion-evidence-gallery"
-											images={galleryImages}
-											thumbnailSize="h-40 w-40"
-										/>
-									{/await}
-								</div>
-							{/if}
+						<!-- Images Gallery -->
+						{#if displayContract.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+							<div class="mb-4">
+								{#await prepareGalleryImages(displayContract.contract.completionAttachments) then galleryImages}
+									<Gallery
+										galleryID={`completion-evidence-gallery-${displayContract.contract.escrowId}`}
+										images={galleryImages}
+										thumbnailSize="h-40 w-40"
+									/>
+								{/await}
+							</div>
+						{/if}
 
 							<!-- Videos -->
 							{#if displayContract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}

@@ -1,24 +1,82 @@
 <script>
-  import { onMount } from 'svelte';
+  import { tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import PhotoSwipeLightbox from 'photoswipe/lightbox';
   import 'photoswipe/style.css';
 
   const { galleryID = 'my-gallery', images = [], thumbnailSize = 'h-40 w-40' } = $props();
 
-  onMount(() => {
-    const lightbox = new PhotoSwipeLightbox({
-      gallery: '#' + galleryID,
-      children: 'a',
-      mouseMovePan: true,
-      initialZoomLevel: 'fit',
-      secondaryZoomLevel: 1.5,
-      maxZoomLevel: 1,
-      pswpModule: () => import('photoswipe')
-    });
-    lightbox.init();
+  let lightboxInstance: PhotoSwipeLightbox | null = $state(null);
+  let initializationPending = $state(false);
 
-    return () => lightbox.destroy(); // cleanup
+  // Initialize PhotoSwipe when images or galleryID changes
+  $effect(() => {
+    // Access reactive values to track them - this makes the effect reactive to changes
+    const currentGalleryID = galleryID;
+    const currentImages = images;
+    const imagesCount = currentImages?.length || 0;
+    const hasImages = imagesCount > 0;
+
+    // Only initialize if we have images
+    if (hasImages && imagesCount > 0) {
+      // Mark initialization as pending to prevent race conditions
+      initializationPending = true;
+
+      // Use tick to wait for DOM updates, then initialize
+      tick().then(() => {
+        // Check if initialization is still pending (effect hasn't been cleaned up)
+        if (!initializationPending) return;
+
+        const galleryElement = document.getElementById(currentGalleryID);
+        if (galleryElement && galleryElement.children.length > 0) {
+          // Destroy existing instance if it exists
+          if (lightboxInstance) {
+            try {
+              lightboxInstance.destroy();
+            } catch (error) {
+              // Ignore errors when destroying
+            }
+            lightboxInstance = null;
+          }
+
+          // Create new PhotoSwipe instance
+          try {
+            const lightbox = new PhotoSwipeLightbox({
+              gallery: '#' + currentGalleryID,
+              children: 'a',
+              mouseMovePan: true,
+              initialZoomLevel: 'fit',
+              secondaryZoomLevel: 1.5,
+              maxZoomLevel: 1,
+              pswpModule: () => import('photoswipe')
+            });
+            lightbox.init();
+            lightboxInstance = lightbox;
+            initializationPending = false;
+          } catch (error) {
+            console.error('Error initializing PhotoSwipe:', error);
+            initializationPending = false;
+          }
+        } else {
+          initializationPending = false;
+        }
+      });
+    } else {
+      initializationPending = false;
+    }
+
+    // Cleanup function - runs when effect re-runs or component unmounts
+    return () => {
+      initializationPending = false;
+      if (lightboxInstance) {
+        try {
+          lightboxInstance.destroy();
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+        lightboxInstance = null;
+      }
+    };
   });
 </script>
 
