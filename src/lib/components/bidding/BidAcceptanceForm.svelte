@@ -133,8 +133,24 @@
 
 	// Auto-initialize Rootstock wallet if not connected
 	// Use effect with untrack to prevent reactive loops while still checking when component is active
+	// Track only props to ensure it runs when component is rendered, not when wallet store updates
 	$effect(() => {
-		if (!$walletStore.rsk.connected && !$walletStore.rsk.connecting && !$walletStore.rsk.error) {
+		// Access props to ensure effect runs when component is rendered
+		props.bid;
+		props.task;
+		
+		// Read wallet state without tracking it to prevent infinite loops
+		const walletState = untrack(() => get(walletStore));
+		
+		// Only attempt initialization once, and only if wallet is not connected/connecting
+		if (
+			!walletInitAttempted &&
+			!walletState.rsk.connected &&
+			!walletState.rsk.connecting &&
+			!walletState.rsk.error
+		) {
+			walletInitAttempted = true;
+			// Initialize wallet without tracking the promise
 			walletManager.initialize().catch((error) => {
 				console.error('Auto-initialization of Rootstock wallet failed:', error);
 				// Reset flag on error so user can retry manually
