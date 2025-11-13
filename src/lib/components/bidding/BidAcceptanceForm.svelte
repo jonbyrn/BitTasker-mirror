@@ -75,38 +75,58 @@
 		};
 	});
 
-	let isValidating = $state(false);
-	let isCheckingBalance = $state(false);
-
+	// Validate escrow details when bidEscrowDetails changes
+	// This effect only tracks bidEscrowDetails
 	$effect(() => {
-		if (bidEscrowDetails && !isValidating) {
-			isValidating = true;
-			const validationResult = validateEscrowDetails(bidEscrowDetails);
+		const details = bidEscrowDetails;
+		if (details) {
+			const validationResult = validateEscrowDetails(details);
 			validationErrors = validationResult.errors;
 			validationWarnings = validationResult.warnings;
-			isValidating = false;
+			
+			// After validation, check balance if needed
+			// Do this in the same effect to avoid circular dependencies
+			if (validationResult.errors.length === 0 && !isSubmitting) {
+				// Use untrack to read wallet store without creating reactive dependency
+				const connected = untrack(() => $walletStore.rsk.connected);
+				if (connected) {
+					// Use untrack to prevent validateSufficientBalance from creating reactive dependencies
+					balanceErrors = untrack(() => validateSufficientBalance(details));
+				} else {
+					balanceErrors = [];
+				}
+			} else {
+				balanceErrors = [];
+			}
+		} else {
+			validationErrors = [];
+			validationWarnings = [];
+			balanceErrors = [];
 		}
 	});
 
-	// Separate effect for balance validation
-	// Track only connection state and validation errors, not entire wallet store
-	// This prevents infinite loops when wallet store updates (e.g., balance polling)
+	// Separate effect to re-check balance when wallet connection changes
+	// Use $derived to track only connection state, not entire wallet store
 	const walletConnected = $derived($walletStore.rsk.connected);
 	
 	$effect(() => {
-		// Prevent re-running during submission or if already checking
-		if (isSubmitting || isCheckingBalance || isValidating) {
+		if (isSubmitting) {
 			return;
 		}
 
-		// Only check balance if wallet is connected and basic validation passes
-		if (bidEscrowDetails && walletConnected && validationErrors.length === 0) {
-			isCheckingBalance = true;
+		// Track only connection state via $derived
+		const connected = walletConnected;
+		
+		// Only re-check balance if we have valid escrow details and no validation errors
+		// Use untrack to read these without creating reactive dependencies
+		const details = untrack(() => bidEscrowDetails);
+		const hasErrors = untrack(() => validationErrors.length > 0);
+		
+		if (details && connected && !hasErrors) {
+			// Re-check balance when connection state changes
 			// Use untrack to prevent validateSufficientBalance from creating reactive dependencies
-			// This prevents the effect from re-running when wallet store updates
-			balanceErrors = untrack(() => validateSufficientBalance(bidEscrowDetails));
-			isCheckingBalance = false;
-		} else {
+			balanceErrors = untrack(() => validateSufficientBalance(details));
+		} else if (!connected) {
 			balanceErrors = [];
 		}
 	});
