@@ -935,7 +935,6 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					}
 				}
 			}
-		}
 		
 		// Phase 2: Batch all blockchain calls in parallel (after collecting all contracts)
 		if (contractDataList.length > 0) {
