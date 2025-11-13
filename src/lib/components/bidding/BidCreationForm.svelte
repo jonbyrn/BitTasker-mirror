@@ -391,13 +391,6 @@
 						type: 'bid_created'
 					};
 					
-					console.log('📤 Sending bid_created notification to backend:', {
-						deviceId: notificationInput.deviceId,
-						type: notificationInput.type,
-						body: notificationInput.body,
-						note: 'deviceId is the BIDDER - backend should send to TASK CREATOR instead'
-					});
-					
 					const result = await sendNotificationStore.mutate({
 						input: notificationInput
 					});
@@ -408,7 +401,7 @@
 					} else if (result.data?.sendNotification) {
 						const { success, message } = result.data.sendNotification;
 						if (success) {
-							console.log('✅ Backend processed bid notification successfully:', message);
+							// Backend processed successfully
 						} else {
 							console.warn('⚠️ Backend returned failure for bid notification:', message);
 						}

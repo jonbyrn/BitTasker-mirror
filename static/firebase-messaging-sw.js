@@ -14,7 +14,6 @@ async function initializeFirebase(config = {}) {
 	try {
 		// Don't re-initialize if already done
 		if (isInitialized && firebase.apps.length > 0) {
-			console.log('✅ SW: Firebase already initialized');
 			return messaging;
 		}
 
@@ -22,7 +21,6 @@ async function initializeFirebase(config = {}) {
 
 		// If config is empty or incomplete, fetch from server
 		if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
-			console.log('📡 SW: Fetching Firebase config from server...');
 			try {
 				const response = await fetch('/firebase-config.json', {
 					cache: 'no-cache'
@@ -32,7 +30,6 @@ async function initializeFirebase(config = {}) {
 				}
 
 				firebaseConfig = await response.json();
-				console.log('✅ SW: Firebase config fetched successfully');
 			} catch (error) {
 				console.error('❌ SW: Failed to fetch Firebase config:', error);
 				// Don't throw here, just log and wait for message from main thread
@@ -48,7 +45,6 @@ async function initializeFirebase(config = {}) {
 		// Initialize Firebase
 		if (firebase.apps.length === 0) {
 			firebase.initializeApp(firebaseConfig);
-			console.log('✅ SW: Firebase initialized successfully');
 		}
 		
 		messaging = firebase.messaging();
@@ -74,8 +70,6 @@ function setupBackgroundMessageHandler() {
 
 	try {
 		messaging.onBackgroundMessage((payload) => {
-			console.log('📨 SW: Received background message:', payload);
-
 			const { notification, data } = payload;
 
 			// Extract taskId and bidId from data or body for unique tag
@@ -125,9 +119,7 @@ function setupBackgroundMessageHandler() {
 			};
 
 			self.registration.showNotification(notificationTitle, notificationOptions);
-			console.log('✅ SW: Background notification displayed');
 		});
-		console.log('✅ SW: Background message handler set up');
 	} catch (error) {
 		console.error('❌ SW: Error setting up background message handler:', error);
 	}
@@ -141,18 +133,15 @@ initializeFirebase().catch((error) => {
 // Handle messages from main thread (including Firebase config)
 self.addEventListener('message', async (event) => {
 	if (event.data && event.data.type === 'FIREBASE_CONFIG') {
-		console.log('📨 SW: Received Firebase config from main thread');
 		// Re-initialize with correct config if needed
 		if (!isInitialized || firebase.apps.length === 0) {
 			await initializeFirebase(event.data.config);
 		}
 	} else if (event.data && event.data.type === 'CLOSE_NOTIFICATION') {
 		// Close any existing notification with the specified tag to prevent duplicates
-		console.log('🔄 SW: Closing notification with tag:', event.data.tag);
 		try {
 			const notifications = await self.registration.getNotifications({ tag: event.data.tag });
 			for (const notification of notifications) {
-				console.log('✅ SW: Closing duplicate notification');
 				notification.close();
 			}
 		} catch (error) {
@@ -163,18 +152,14 @@ self.addEventListener('message', async (event) => {
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
-	console.log('Notification clicked: ', event);
-
 	event.notification.close();
 
 	if (event.action === 'close') {
-		console.log('🚪 SW: Close action - dismissing notification');
 		return;
 	}
 
 	// Get the notification data
 	const data = event.notification.data;
-	console.log('📄 SW: Notification data:', data);
 
 	// Determine the URL to open based on notification type
 	let urlToOpen = '/dashboard';
@@ -204,17 +189,12 @@ self.addEventListener('notificationclick', (event) => {
 		urlToOpen = `/dashboard/task/${data.taskId}`;
 	}
 
-	console.log('🌐 SW: Opening URL:', urlToOpen);
-
 	// Open the app/specific page
 	event.waitUntil(
 		clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-			console.log('👥 SW: Found clients:', clientList.length);
-
 			// Check if app is already open
 			for (const client of clientList) {
 				if (client.url.includes(self.location.origin) && 'focus' in client) {
-					console.log('🔍 SW: Focusing existing client:', client.url);
 					client.focus();
 					// Use postMessage to navigate instead of client.navigate (which doesn't exist)
 					client.postMessage({ type: 'NAVIGATE', url: urlToOpen });
@@ -224,7 +204,6 @@ self.addEventListener('notificationclick', (event) => {
 
 			// Open new window if app is not open
 			if (clients.openWindow) {
-				console.log('🪟 SW: Opening new window');
 				return clients.openWindow(urlToOpen);
 			} else {
 				console.error('❌ SW: Cannot open new window');
@@ -235,6 +214,5 @@ self.addEventListener('notificationclick', (event) => {
 
 // Handle notification close
 self.addEventListener('notificationclose', (event) => {
-	console.log('Notification closed: ', event);
 	// You can track notification dismissals here if needed
 }); 

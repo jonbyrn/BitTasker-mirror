@@ -82,8 +82,6 @@ class PushNotificationService {
 				return;
 			}
 
-			console.log('🔧 Initializing web push notifications...');
-
 			const { initializeApp } = await import('firebase/app');
 			const { getMessaging, onMessage } = await import('firebase/messaging');
 
@@ -98,19 +96,15 @@ class PushNotificationService {
 				throw new Error(`❌ Firebase configuration is incomplete. Missing: ${missing.join(', ')}`);
 			}
 
-			console.log('✅ Firebase config validated');
-
 			// Check if Firebase is already initialized
 			let app;
 			try {
 				app = initializeApp(firebaseConfig);
-				console.log('✅ Firebase app initialized');
 			} catch (error: any) {
 				// If app already exists, get it
 				if (error.code === 'app/duplicate-app') {
 					const { getApp } = await import('firebase/app');
 					app = getApp();
-					console.log('✅ Using existing Firebase app');
 				} else {
 					throw error;
 				}
@@ -119,7 +113,6 @@ class PushNotificationService {
 			this.messaging = getMessaging(app);
 
 			// Register service worker FIRST (before requesting permissions)
-			console.log('📦 Registering service worker...');
 			await registerServiceWorker();
 
 			// Request permission for web notifications
@@ -130,14 +123,11 @@ class PushNotificationService {
 
 			// Handle foreground messages
 			onMessage(this.messaging, (payload) => {
-				console.log('📨 Message received in foreground: ', payload);
 				// Handle foreground message asynchronously
 				this.handleForegroundMessage(payload).catch((error) => {
 					console.error('❌ Error handling foreground message:', error);
 				});
 			});
-
-			console.log('✅ Web push notifications initialized successfully');
 
 		} catch (error) {
 			console.error('❌ Error initializing web push notifications:', error);
@@ -161,8 +151,6 @@ class PushNotificationService {
 			if (!vapidKey) {
 				throw new Error('❌ VAPID key is not configured. Please set VITE_FIREBASE_VAPID_KEY environment variable.');
 			}
-
-			console.log('🔑 Requesting FCM token...');
 			
 			// Wait a bit for service worker to be ready
 			await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -172,7 +160,6 @@ class PushNotificationService {
 			});
 
 			if (token) {
-				console.log('✅ FCM token received:', token.substring(0, 20) + '...');
 				await this.registerTokenOnServer(token);
 			} else {
 				console.warn('⚠️ No registration token available. Request permission was denied or service worker not ready.');
@@ -194,8 +181,6 @@ class PushNotificationService {
 	private async handleForegroundMessage(payload: any): Promise<void> {
 		const { notification, data } = payload;
 
-		console.log('📨 Foreground message received:', { notification, data });
-
 		// Handle data payload first (includes device revocation)
 		if (data) {
 			this.handleNotificationData(data);
@@ -205,7 +190,6 @@ class PushNotificationService {
 		// With unique tags, we don't need to close existing notifications
 		// Each notification will have its own unique tag and won't replace others
 		if (notification) {
-			console.log('🔔 Attempting to show foreground notification:', notification);
 			await this.showInAppNotification(notification);
 		} else {
 			console.warn('⚠️ No notification payload in foreground message');
@@ -219,9 +203,7 @@ class PushNotificationService {
 				const allNotifications = await registration.getNotifications();
 				
 				if (allNotifications.length > 0) {
-					console.log(`🔄 Closing ${allNotifications.length} existing notification(s) to prevent duplicates`);
 					for (const existing of allNotifications) {
-						console.log('🔄 Closing notification:', existing.tag || '(no tag)', existing.title || '(no title)');
 						existing.close();
 					}
 					// Small delay to ensure notifications are closed
@@ -268,8 +250,6 @@ class PushNotificationService {
 				// Use combination of type, taskId, bidId, and timestamp to ensure uniqueness
 				const timestamp = Date.now();
 				const tag = `bittasker-${data.type || 'notification'}-${taskId || 'unknown'}-${bidId || timestamp}`;
-				
-				console.log('🔔 Creating notification with tag:', tag, { taskId, bidId, type: data.type });
 
 				// For foreground notifications, use direct Notification API for better reliability
 				// Service worker notifications work better for background, but direct API is more reliable in foreground
@@ -315,8 +295,6 @@ class PushNotificationService {
 						
 						browserNotification.close();
 					};
-					
-					console.log('✅ Browser notification created (direct API):', notification.title, 'with tag:', tag);
 				} catch (directError) {
 					console.error('❌ Direct notification API failed, trying service worker fallback:', directError);
 					// Fallback to service worker if direct API fails
@@ -357,7 +335,6 @@ class PushNotificationService {
 							};
 
 							await registration.showNotification(notification.title || 'BitTasker', notificationOptions);
-							console.log('✅ Browser notification created via service worker (fallback):', notification.title);
 						} catch (swError) {
 							console.error('❌ Service worker notification also failed:', swError);
 							throw swError;
@@ -408,15 +385,12 @@ class PushNotificationService {
 							
 							browserNotification.close();
 						};
-
-						console.log('✅ Browser notification created (fallback):', notification.title);
 					}
 				}
 			} catch (error) {
 				console.error('❌ Error creating browser notification with web-app-manifest icon:', error);
 					// Try with favicon fallback if web-app-manifest icon fails
 					try {
-						console.log('🔄 Attempting fallback with favicon...');
 						// Create unique tag for fallback notification too
 						const fallbackTag = `bittasker-${data.type || 'notification'}-${taskId || 'unknown'}-${bidId || Date.now()}`;
 						const fallbackOptions: NotificationOptions = {
@@ -432,7 +406,6 @@ class PushNotificationService {
 							window.focus();
 							fallbackNotification.close();
 						};
-						console.log('✅ Fallback notification created successfully with favicon');
 					} catch (fallbackError) {
 						console.error('❌ Fallback notification also failed, trying minimal options:', fallbackError);
 						// Last resort: try with no icon
@@ -440,7 +413,6 @@ class PushNotificationService {
 							new Notification(notification.title || 'BitTasker', {
 								body: notification.body
 							});
-							console.log('✅ Minimal notification created (no icon)');
 						} catch (minimalError) {
 							console.error('❌ All notification attempts failed:', minimalError);
 						}
@@ -453,7 +425,6 @@ class PushNotificationService {
 
 	private async handleNotificationData(data: any): Promise<void> {
 		// Handle notification data (e.g., navigate to specific page)
-		console.log('📱 Handling notification data:', data);
 
 		// Handle device revocation notification first
 		if (data.type === 'device_revoked') {
@@ -468,10 +439,8 @@ class PushNotificationService {
 		// Check for click_action first (Android-specific), then fallback to other locations
 		if (data.click_action) {
 			targetUrl = data.click_action;
-			console.log('🎯 Using click_action:', targetUrl);
 		} else if (data.clickAction || data.data?.clickAction) {
 			targetUrl = data.clickAction || data.data.clickAction;
-			console.log('🎯 Using clickAction:', targetUrl);
 		} else if (data.type === 'task_match') {
 			targetUrl = data.clickAction || '/dashboard/find-tasks';
 		} else if (data.type === 'new_bid' && data.taskId) {
@@ -483,8 +452,6 @@ class PushNotificationService {
 		} else if (data.url) {
 			targetUrl = data.url;
 		}
-
-		console.log('🎯 Navigating to:', targetUrl);
 
 		// Navigate using appropriate method for platform
 		await this.navigateToUrl(targetUrl);
@@ -510,7 +477,6 @@ class PushNotificationService {
 	 * Enhanced handling for foreground notifications using local notifications for better reliability
 	 */
 	private async handleForegroundNotification(notification: PushNotificationSchema): Promise<void> {
-		console.log('🔔 Handling foreground notification:', notification);
 
 		// Show both toast and local notification for better UX
 		await this.handleNativeNotification(notification);
@@ -539,8 +505,6 @@ class PushNotificationService {
 				await LocalNotifications.schedule({
 					notifications: [localNotificationData]
 				});
-
-				console.log('📱 Local notification scheduled for foreground push');
 			} catch (error) {
 				console.error('❌ Error creating local notification:', error);
 			}
@@ -557,12 +521,10 @@ class PushNotificationService {
 			if (Capacitor.isNativePlatform()) {
 				// For native platforms, use SvelteKit navigation
 				// The notification should already bring the app to foreground
-				console.log('📱 Native SPA navigation to:', url);
 				// eslint-disable-next-line
 				await goto(url);
 			} else {
 				// For web, use SvelteKit navigation
-				console.log('🌐 Web navigation to:', url);
 				// eslint-disable-next-line
 				await goto(url);
 			}
@@ -577,7 +539,6 @@ class PushNotificationService {
 
 	private async addListeners(): Promise<void> {
 		PushNotifications.addListener('registration', (token: Token) => {
-			console.log('Push registration token success');
 			this.registerTokenOnServer(token.value);
 		});
 
@@ -588,7 +549,6 @@ class PushNotificationService {
 		PushNotifications.addListener(
 			'pushNotificationReceived',
 			(notification: PushNotificationSchema) => {
-				console.log('Push received: ', notification);
 				this.handleForegroundNotification(notification);
 			}
 		);
@@ -603,8 +563,6 @@ class PushNotificationService {
 		// Add local notification listeners for foreground notifications
 		if (Capacitor.isNativePlatform()) {
 			LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
-				console.log('🔔 Local notification action performed:', notification);
-
 				// Handle the local notification tap the same way as push notifications
 				if (notification.notification.extra) {
 					this.handleNotificationData(notification.notification.extra);
@@ -621,15 +579,12 @@ class PushNotificationService {
 	 */
 	private addDeepLinkListener(): void {
 		App.addListener('appUrlOpen', (data) => {
-			console.log('🔗 App opened with URL:', data);
-
 			// Parse the URL to extract the path for internal navigation
 			if (data.url) {
 				try {
 					const url = new URL(data.url);
 					// Navigate to the path portion of the URL
 					if (url.pathname && url.pathname !== '/') {
-						console.log('📍 Navigating to deep link path:', url.pathname);
 						this.navigateToUrl(url.pathname + (url.search || ''));
 					} else {
 						// Fallback to dashboard if no specific path
@@ -647,7 +602,6 @@ class PushNotificationService {
 		if (Capacitor.isNativePlatform()) {
 			// Listen for custom notification URL events from MainActivity
 			(window as any).addEventListener('notificationUrlOpen', (event: any) => {
-				console.log('🔔 Notification URL event received:', event.detail);
 				if (event.detail?.url) {
 					this.navigateToUrl(event.detail.url);
 				}
@@ -657,7 +611,6 @@ class PushNotificationService {
 
 	private async handleNativeNotification(notification: PushNotificationSchema): Promise<void> {
 		// Handle native notification received in foreground
-		console.log('📱 Foreground notification received:', notification);
 
 		try {
 			// Show a local notification in the notification bar even when app is in foreground
@@ -690,10 +643,8 @@ class PushNotificationService {
 				lights: true,
 				lightColor: '#FF0000'
 			});
-			console.log('✅ Push notification channel created');
 		} catch {
 			// Channel might already exist, that's fine
-			console.log('📱 Push notification channel already exists or not needed on this platform');
 		}
 	}
 
@@ -717,7 +668,6 @@ class PushNotificationService {
 			});
 		} catch {
 			// Channel might already exist, that's fine
-			console.log('📱 Local notification channel already exists or not needed on this platform');
 		}
 	}
 
@@ -773,8 +723,6 @@ class PushNotificationService {
 					}
 				]
 			});
-
-			console.log('✅ Local notification scheduled with ID:', notificationId);
 		} catch (error) {
 			console.error('❌ Error scheduling local notification:', error);
 		}
@@ -785,8 +733,6 @@ class PushNotificationService {
 	 */
 	private async handleNativeNotificationAction(notification: ActionPerformed): Promise<void> {
 		// Handle when user taps on notification
-		console.log('🔔 Notification action performed:', notification);
-		console.log('🔍 Full notification object:', JSON.stringify(notification, null, 2));
 
 		// Extract data from different possible locations in the notification
 		let notificationData: any = {};
@@ -794,26 +740,19 @@ class PushNotificationService {
 		// Try different paths where the data might be located
 		if (notification.notification?.data) {
 			notificationData = notification.notification.data;
-			console.log('🎯 Using notification.notification.data');
 		} else if (notification.notification) {
 			notificationData = notification.notification;
-			console.log('🎯 Using notification.notification');
 		} else if ((notification as any).data) {
 			notificationData = (notification as any).data;
-			console.log('🎯 Using notification.data');
 		} else {
 			notificationData = notification;
-			console.log('🎯 Using notification directly');
 		}
-
-		console.log('📱 Extracted notification data:', notificationData);
 
 		// Navigate to the appropriate screen based on notification data
 		if (notificationData && Object.keys(notificationData).length > 0) {
 			await this.handleNotificationData(notificationData);
 		} else {
 			// Fallback to dashboard if no specific data
-			console.log('⚠️ No notification data found, navigating to dashboard');
 			await this.navigateToUrl('/dashboard');
 		}
 	}
@@ -920,7 +859,6 @@ class PushNotificationService {
 	// Public method to revoke a specific device
 	public async revokeDevice(deviceId: string, message?: string) {
 		try {
-			console.log({ deviceId, curr: this.currentDeviceId })
 			const result = await this.revokeDeviceStore.mutate({
 				deviceId
 			});
@@ -928,8 +866,6 @@ class PushNotificationService {
 			if (result.errors) {
 				throw new Error(result.errors[0].message);
 			}
-
-			console.log(`Successfully revoked device: ${deviceId}`);
 
 			// Then, send push notification to the revoked device to force logout
 			try {
@@ -1054,8 +990,6 @@ class PushNotificationService {
 	// Method to test notifications (useful for debugging)
 	public async testNotification(): Promise<void> {
 		try {
-			console.log('🧪 Testing notification...');
-
 			if (Capacitor.isNativePlatform()) {
 				// For native platforms, we'll use the sendNotification mutation
 				const notificationData = {
@@ -1072,7 +1006,6 @@ class PushNotificationService {
 						icon: '/favicon.ico',
 						tag: 'test-notification'
 					});
-					console.log('✅ Local test notification shown');
 				} else {
 					console.warn('⚠️ Notification permission not granted for local test');
 				}
