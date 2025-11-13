@@ -227,8 +227,10 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
 		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
 		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
 
-		// Add escrowId to contract update queue
-		contractUpdateStore.update(ids => [...ids, event.escrowId]);
+		// Add escrowId to contract update queue (avoid duplicates)
+		contractUpdateStore.update(ids => 
+			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
+		);
 
 		// Publish status update to Nostr
 		await publishContractStatus({
@@ -262,8 +264,10 @@ export async function handleTaskDisputed(event: { escrowId: string; transactionH
 		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
 		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
 
-		// Add escrowId to contract update queue
-		contractUpdateStore.update(ids => [...ids, event.escrowId]);
+		// Add escrowId to contract update queue (avoid duplicates)
+		contractUpdateStore.update(ids => 
+			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
+		);
 
 		// Publish status update to Nostr
 		await publishContractStatus({
@@ -355,8 +359,10 @@ export async function handleEscrowCancelled(event: { escrowId: string; transacti
 		const { updateCompleteCancelStatus } = await import('$lib/stores/completionCache.store');
 		updateCompleteCancelStatus(event.escrowId, 'confirmed', event.transactionHash);
 
-		// Add escrowId to contract update queue
-		contractUpdateStore.update(ids => [...ids, event.escrowId]);
+		// Add escrowId to contract update queue (avoid duplicates)
+		contractUpdateStore.update(ids => 
+			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
+		);
 
 		// Publish status update to Nostr
 		await publishContractStatus({

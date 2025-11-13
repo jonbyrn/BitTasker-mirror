@@ -2,6 +2,7 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { Attachment } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
+	import { untrack } from 'svelte';
 	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ContractTimeline from './ContractTimeline.svelte';
@@ -24,12 +25,15 @@
 	// Local contract state (updated reactively from blockchain)
 	let localContract = $state<ContractWithEvents | null>(null);
 	let isReloadingContract = $state(false);
+	let processedEscrowIds = $state<Set<string>>(new Set());
 
 	// Reset local contract when prop changes
 	$effect(() => {
 		if (contract) {
 			// Reset local contract when prop changes (e.g., when parent updates)
 			localContract = null;
+			// Clear processed IDs when contract prop changes
+			processedEscrowIds.clear();
 		}
 	});
 
@@ -77,13 +81,27 @@
 
 	// Subscribe to contract update store and reload contract when it's updated
 	$effect(() => {
-		if (!displayContract || !isOpen) return;
+		if (!isOpen) return;
+
+		// Use untrack to prevent tracking displayContract changes
+		// We only want to react to contractUpdateStore changes
+		const currentContract = untrack(() => displayContract);
+		if (!currentContract) return;
 
 		const escrowIds = $contractUpdateStore;
-		const currentEscrowId = displayContract.contract.escrowId;
+		const currentEscrowId = currentContract.contract.escrowId;
 
 		// Check if this contract's escrowId is in the update queue
-		if (escrowIds.includes(currentEscrowId) && !isReloadingContract) {
+		// and we haven't already processed it
+		if (
+			escrowIds.includes(currentEscrowId) &&
+			!isReloadingContract &&
+			!processedEscrowIds.has(currentEscrowId)
+		) {
+			// Mark as processed before reloading to prevent re-triggering
+			processedEscrowIds.add(currentEscrowId);
+			// Remove from update store to prevent other components from processing it
+			contractUpdateStore.update(ids => ids.filter(id => id !== currentEscrowId));
 			// Reload this specific contract
 			reloadContract(currentEscrowId);
 		}
@@ -96,11 +114,13 @@
 			const contracts = await getUserContracts({ escrowIds: [escrowId] });
 			if (contracts.length > 0) {
 				localContract = contracts[0];
-				// Also trigger parent update
+				// Also trigger parent update (but don't add to update store again)
 				onUpdate();
 			}
 		} catch (error) {
 			console.error('Failed to reload contract:', error);
+			// Remove from processed set on error so it can be retried
+			processedEscrowIds.delete(escrowId);
 		} finally {
 			isReloadingContract = false;
 		}
