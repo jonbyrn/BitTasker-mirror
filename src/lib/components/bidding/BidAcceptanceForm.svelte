@@ -39,6 +39,7 @@
 	let balanceErrors = $state<string[]>([]);
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
+	let hasAttemptedConnection = $state(false);
 
 	// Ensure wallet and bids translations are loaded
 	if (browser && $locale) {
@@ -99,6 +100,7 @@
 		// Read wallet state without creating a reactive subscription
 		const walletState = get(walletStore);
 		if (!walletState.rsk.connected && !walletState.rsk.connecting && !walletState.rsk.error) {
+			hasAttemptedConnection = true;
 			walletManager.initialize().catch((error: unknown) => {
 				console.error('Auto-initialization of Rootstock wallet failed:', error);
 			});
@@ -333,7 +335,7 @@
 						<div class="mt-4 space-y-2 block">
 							{#if adjustedTimes?.wasAdjusted}
 								<div class="mb-2 rounded bg-warning/20 p-2 text-xs text-warning">
-									⚠️ {$t('dashboard.bids.bid_acceptance.time_adjusted_note')}
+									⚠️ {$t('bid_acceptance.time_adjusted_note')}
 								</div>
 							{/if}
 							<div class="flex items-center justify-between gap-2 text-xs min-w-0">
@@ -527,8 +529,16 @@
 
 		<!-- Rootstock Escrow Contract Details -->
 		<div class="mb-4">
-			<!-- Wallet Connection Status -->
-			{#if !$walletStore.rsk.connected}
+			<!-- Wallet Connection Loading State -->
+			{#if $walletStore.rsk.connecting}
+				<div class="alert alert-outline alert-info mt-4">
+					<div class="flex items-center">
+						<span class="loading loading-spinner loading-sm mr-2"></span>
+						<span>{$t('dashboard.bids.bid_acceptance.connecting')}</span>
+					</div>
+				</div>
+			<!-- Wallet Connection Error (only show if connection failed after attempting) -->
+			{:else if !$walletStore.rsk.connected && (hasAttemptedConnection || $walletStore.rsk.error)}
 				<div
 					class="alert alert-outline alert-warning mt-4 flex! flex-row! items-center! justify-between! text-black"
 				>
@@ -546,11 +556,16 @@
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
 							/>
 						</svg>
-						<span>{$t('dashboard.bids.bid_acceptance.wallet_not_connected')}</span>
+						<span>
+							{$walletStore.rsk.error 
+								? `${$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} ${$walletStore.rsk.error}`
+								: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
+						</span>
 					</div>
 					<button
 						class="btn btn-sm btn-primary ml-auto"
 						onclick={async () => {
+							hasAttemptedConnection = true;
 							try {
 								await walletManager.initialize();
 							} catch (error) {
@@ -559,12 +574,7 @@
 						}}
 						disabled={$walletStore.rsk.connecting}
 					>
-						{#if $walletStore.rsk.connecting}
-							<span class="loading loading-spinner loading-xs"></span>
-							{$t('dashboard.bids.bid_acceptance.connecting')}
-						{:else}
-							{$t('dashboard.bids.bid_acceptance.connect_wallet')}
-						{/if}
+						{$t('dashboard.bids.bid_acceptance.connect_wallet')}
 					</button>
 				</div>
 			{/if}
@@ -803,9 +813,22 @@
 								<div class="flex items-center space-x-2">
 									<h4 class="font-semibold">{$t('common.components.wallet.asset_selector.available_rbtc_balance')}</h4>
 								</div>
-								<p class="text-primary font-bold text-lg">
-									{formatRBTCToSats($walletStore.rsk.formattedBalance)} {$t('common.components.wallet.asset_selector.sats')}
-								</p>
+								{#if $walletStore.rsk.connecting}
+									<div class="flex items-center gap-2">
+										<span class="loading loading-spinner loading-sm"></span>
+										<span class="text-base-content/60 text-sm">{$t('dashboard.bids.bid_acceptance.connecting')}</span>
+									</div>
+								{:else if !$walletStore.rsk.connected && (hasAttemptedConnection || $walletStore.rsk.error)}
+									<p class="text-error font-bold text-lg">
+										{$walletStore.rsk.error 
+											? `${$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} ${$walletStore.rsk.error}`
+											: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
+									</p>
+								{:else}
+									<p class="text-primary font-bold text-lg">
+										{formatRBTCToSats($walletStore.rsk.formattedBalance)} {$t('common.components.wallet.asset_selector.sats')}
+									</p>
+								{/if}
 							</div>
 						</div>
 					</div>
