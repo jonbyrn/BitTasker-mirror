@@ -26,13 +26,25 @@
 	let localContract = $state<ContractWithEvents | null>(null);
 	let isReloadingContract = $state(false);
 	let processedEscrowIds = $state<Set<string>>(new Set());
+	let currentEscrowId = $state<string | null>(null);
 
-	// Reset local contract when prop changes
+	// Reset local contract when prop changes (but only if escrowId actually changed)
 	$effect(() => {
 		if (contract) {
-			// Reset local contract when prop changes (e.g., when parent updates)
+			const newEscrowId = contract.contract.escrowId;
+			// Only reset if this is a different contract (different escrowId)
+			if (currentEscrowId !== newEscrowId) {
+				currentEscrowId = newEscrowId;
+				// Reset local contract when switching to a different contract
+				localContract = null;
+				// Clear processed IDs when switching contracts
+				processedEscrowIds.clear();
+			}
+			// If same escrowId but contract prop updated, don't reset localContract
+			// This prevents loops when parent updates the contract object reference
+		} else {
+			currentEscrowId = null;
 			localContract = null;
-			// Clear processed IDs when contract prop changes
 			processedEscrowIds.clear();
 		}
 	});
@@ -93,6 +105,8 @@
 
 		// Check if this contract's escrowId is in the update queue
 		// and we haven't already processed it
+		// Don't remove from store - let parent process it too
+		// Just mark as processed locally to prevent duplicate reloads
 		if (
 			escrowIds.includes(currentEscrowId) &&
 			!isReloadingContract &&
@@ -100,9 +114,7 @@
 		) {
 			// Mark as processed before reloading to prevent re-triggering
 			processedEscrowIds.add(currentEscrowId);
-			// Remove from update store to prevent other components from processing it
-			contractUpdateStore.update(ids => ids.filter(id => id !== currentEscrowId));
-			// Reload this specific contract
+			// Reload this specific contract (parent will also process it separately)
 			reloadContract(currentEscrowId);
 		}
 	});
@@ -114,8 +126,9 @@
 			const contracts = await getUserContracts({ escrowIds: [escrowId] });
 			if (contracts.length > 0) {
 				localContract = contracts[0];
-				// Also trigger parent update (but don't add to update store again)
-				onUpdate();
+				// Don't call onUpdate() here - it causes the parent to reload,
+				// which creates a new contract object reference and triggers loops
+				// The parent will update automatically when contractUpdateStore is processed
 			}
 		} catch (error) {
 			console.error('Failed to reload contract:', error);
