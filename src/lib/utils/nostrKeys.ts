@@ -9,17 +9,9 @@ import { nip19 } from 'nostr-tools';
 import { decryptNsecWithBiometrics, decryptMasterKeyDataFromBiometrics } from '$lib/utils/helpers/auth';
 
 export const getNpub = async (): Promise<string> => {
-    const callStack = new Error().stack?.split('\n').slice(2, 5).join(' -> ') || 'unknown';
-    console.log(`[getNpub] 🔐 Called at ${new Date().toISOString()} from: ${callStack}`);
-    
     const { value } = await Preferences.get({ key: StorageKeys.NPUB });
 
-    if (value) {
-        console.log(`[getNpub] ✅ Returning cached npub: ${value.substring(0, 16)}... at ${new Date().toISOString()}`);
-        return value;
-    }
-    
-    console.log(`[getNpub] ⚠️ No cached npub, will trigger auth at ${new Date().toISOString()}`);
+    if (value) return value;
 
     const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
 
@@ -47,15 +39,11 @@ export const getNpub = async (): Promise<string> => {
     const isBiometricAvailable = await checkBiometricAvailability();
 
     if (isBiometricAvailable) {
-        console.log(`[getNpub] 🔐 Calling getBiometricData() at ${new Date().toISOString()}`);
         biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
-        console.log(`[getNpub] ✅ getBiometricData() completed at ${new Date().toISOString()}`);
         appStore.update((state) => ({ ...state, biometricData }));
     } else {
-        console.log(`[getNpub] 🔐 Calling getWebBiometricData() at ${new Date().toISOString()}`);
         const { getWebBiometricData } = await import('$lib/utils/helpers/webBiometrics');
         biometricData = await getWebBiometricData(true);
-        console.log(`[getNpub] ✅ getWebBiometricData() completed at ${new Date().toISOString()}`);
         appStore.update((state) => ({ ...state, biometricData }));
     }
 
@@ -65,14 +53,10 @@ export const getNpub = async (): Promise<string> => {
 
     const npub = biometricData.username;
     await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-    console.log(`[getNpub] ✅ Auth completed, returning npub: ${npub.substring(0, 16)}... at ${new Date().toISOString()}`);
     return npub;
 };
 
 export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: string }> => {
-    const callStack = new Error().stack?.split('\n').slice(2, 5).join(' -> ') || 'unknown';
-    console.log(`[getNostrKeyPair] 🔐 Called at ${new Date().toISOString()} from: ${callStack}`);
-    
     if (process.env.NODE_ENV === 'development') {
         const npub = "ceda26d39d2e9aeee53c2a475b6b056145213ec6ac6acdb183357f66f8de76b2";
         Preferences.set({ key: StorageKeys.NPUB, value: npub });
@@ -84,17 +68,14 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
     const currentState = get(appStore);
 
     if (currentState.biometricData) {
-        console.log(`[getNostrKeyPair] ✅ Using cached biometricData at ${new Date().toISOString()}`);
         const sk = await decryptNsecWithBiometrics(currentState.biometricData.password);
         const nsec: Uint8Array = decodeNsec(sk);
 
         const npub = currentState.biometricData.username;
         await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-        console.log(`[getNostrKeyPair] ✅ Returning cached keypair at ${new Date().toISOString()}`);
         return { nsec, npub };
     }
 
-    console.log(`[getNostrKeyPair] ⚠️ No cached biometricData, will trigger auth at ${new Date().toISOString()}`);
     let biometricData: Credentials | null = null;
 
     const { checkBiometricAvailability, getBiometricData } = await import('$lib/utils/helpers/biometrics');
@@ -103,15 +84,11 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
 
     if (isBiometricAvailable) {
         const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
-        console.log(`[getNostrKeyPair] 🔐 Calling getBiometricData() at ${new Date().toISOString()}`);
         biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
-        console.log(`[getNostrKeyPair] ✅ getBiometricData() completed at ${new Date().toISOString()}`);
         appStore.update((state) => ({ ...state, biometricData }));
     } else {
-        console.log(`[getNostrKeyPair] 🔐 Calling getWebBiometricData() at ${new Date().toISOString()}`);
         const { getWebBiometricData } = await import('$lib/utils/helpers/webBiometrics');
         biometricData = await getWebBiometricData(true);
-        console.log(`[getNostrKeyPair] ✅ getWebBiometricData() completed at ${new Date().toISOString()}`);
         appStore.update((state) => ({ ...state, biometricData }));
     }
 

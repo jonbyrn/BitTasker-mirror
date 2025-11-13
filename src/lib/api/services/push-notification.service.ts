@@ -50,7 +50,7 @@ class PushNotificationService {
 			this.currentDeviceId = deviceId;
 		});
 		(async () => {
-			const npub = get(appStore)?.biometricData?.username || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
+			let npub = get(appStore)?.biometricData?.username || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
 			createUserDeviceShortName(npub).then((deviceName) => {
 				this.deviceName = deviceName;
 			});
@@ -63,14 +63,18 @@ class PushNotificationService {
 	}
 
 	public async init(): Promise<void> {
-		if (Capacitor.isNativePlatform()) {
-			this.addListeners();
-			await this.requestPermissions();
-			await this.createPushNotificationChannel();
-			await this.registerDevice();
-			this.addDeepLinkListener();
-		} else {
-			await this.initWebPushNotifications();
+		try {
+			if (Capacitor.isNativePlatform()) {
+				this.addListeners();
+				await this.requestPermissions();
+				await this.createPushNotificationChannel();
+				await this.registerDevice();
+				this.addDeepLinkListener();
+			} else {
+				await this.initWebPushNotifications();
+			}
+		} catch (error) {
+			throw error;
 		}
 	}
 
@@ -82,8 +86,6 @@ class PushNotificationService {
 				return;
 			}
 
-			console.log('🔧 Initializing web push notifications...');
-
 			const { initializeApp } = await import('firebase/app');
 			const { getMessaging, onMessage } = await import('firebase/messaging');
 
@@ -91,36 +93,11 @@ class PushNotificationService {
 
 			// Validate Firebase config
 			if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
-				const missing = [];
-				if (!firebaseConfig.apiKey) missing.push('VITE_FIREBASE_WEB_API_KEY');
-				if (!firebaseConfig.projectId) missing.push('VITE_FIREBASE_WEB_PROJECT_ID');
-				if (!firebaseConfig.messagingSenderId) missing.push('VITE_FIREBASE_WEB_MESSAGING_SENDER_ID');
-				throw new Error(`❌ Firebase configuration is incomplete. Missing: ${missing.join(', ')}`);
+				throw new Error('❌ Firebase configuration is incomplete');
 			}
 
-			console.log('✅ Firebase config validated');
-
-			// Check if Firebase is already initialized
-			let app;
-			try {
-				app = initializeApp(firebaseConfig);
-				console.log('✅ Firebase app initialized');
-			} catch (error: any) {
-				// If app already exists, get it
-				if (error.code === 'app/duplicate-app') {
-					const { getApp } = await import('firebase/app');
-					app = getApp();
-					console.log('✅ Using existing Firebase app');
-				} else {
-					throw error;
-				}
-			}
-
+			const app = initializeApp(firebaseConfig);
 			this.messaging = getMessaging(app);
-
-			// Register service worker FIRST (before requesting permissions)
-			console.log('📦 Registering service worker...');
-			await registerServiceWorker();
 
 			// Request permission for web notifications
 			await this.requestWebPermissions();
@@ -131,13 +108,11 @@ class PushNotificationService {
 			// Handle foreground messages
 			onMessage(this.messaging, (payload) => {
 				console.log('📨 Message received in foreground: ', payload);
-				// Handle foreground message asynchronously
-				this.handleForegroundMessage(payload).catch((error) => {
-					console.error('❌ Error handling foreground message:', error);
-				});
+				this.handleForegroundMessage(payload);
 			});
 
-			console.log('✅ Web push notifications initialized successfully');
+			// Register service worker for background messages
+			await registerServiceWorker();
 
 		} catch (error) {
 			console.error('❌ Error initializing web push notifications:', error);
@@ -159,295 +134,46 @@ class PushNotificationService {
 			const vapidKey = getVapidKey();
 
 			if (!vapidKey) {
-				throw new Error('❌ VAPID key is not configured. Please set VITE_FIREBASE_VAPID_KEY environment variable.');
+				throw new Error('❌ VAPID key is not configured');
 			}
-
-			console.log('🔑 Requesting FCM token...');
-			
-			// Wait a bit for service worker to be ready
-			await new Promise((resolve) => setTimeout(resolve, 1000));
 
 			const token = await getToken(this.messaging, {
 				vapidKey: vapidKey
 			});
 
 			if (token) {
-				console.log('✅ FCM token received:', token.substring(0, 20) + '...');
 				await this.registerTokenOnServer(token);
 			} else {
-				console.warn('⚠️ No registration token available. Request permission was denied or service worker not ready.');
+				console.warn('⚠️ No registration token available.');
 			}
-		} catch (error: any) {
-			console.error('❌ Error getting FCM token:', error);
-			// Provide more helpful error messages
-			if (error.code === 'messaging/permission-blocked') {
-				throw new Error('❌ Notification permission was blocked. Please enable notifications in your browser settings.');
-			} else if (error.code === 'messaging/permission-default') {
-				throw new Error('❌ Notification permission was not granted. Please allow notifications when prompted.');
-			} else if (error.code === 'messaging/unsupported-browser') {
-				throw new Error('❌ This browser does not support push notifications.');
-			}
+		} catch (error) {
 			throw error || new Error('❌ An error occurred while retrieving token');
 		}
 	}
 
-	private async handleForegroundMessage(payload: any): Promise<void> {
+	private handleForegroundMessage(payload: any): void {
 		const { notification, data } = payload;
-
-		console.log('📨 Foreground message received:', { notification, data });
 
 		// Handle data payload first (includes device revocation)
 		if (data) {
 			this.handleNotificationData(data);
 		}
 
-		// Show notification in foreground with our custom icon
-		// With unique tags, we don't need to close existing notifications
-		// Each notification will have its own unique tag and won't replace others
+		// Show notification in foreground (optional, since browser handles this)
 		if (notification) {
-			console.log('🔔 Attempting to show foreground notification:', notification);
-			await this.showInAppNotification(notification);
-		} else {
-			console.warn('⚠️ No notification payload in foreground message');
+			this.showInAppNotification(notification);
 		}
 	}
 
-	private async closeAllExistingNotifications(): Promise<void> {
-		try {
-			if ('serviceWorker' in navigator) {
-				const registration = await navigator.serviceWorker.ready;
-				const allNotifications = await registration.getNotifications();
-				
-				if (allNotifications.length > 0) {
-					console.log(`🔄 Closing ${allNotifications.length} existing notification(s) to prevent duplicates`);
-					for (const existing of allNotifications) {
-						console.log('🔄 Closing notification:', existing.tag || '(no tag)', existing.title || '(no title)');
-						existing.close();
-					}
-					// Small delay to ensure notifications are closed
-					await new Promise(resolve => setTimeout(resolve, 50));
-				}
-			}
-		} catch (error) {
-			console.warn('⚠️ Could not close existing notifications:', error);
-		}
-	}
-
-	private async showInAppNotification(notification: any): Promise<void> {
+	private showInAppNotification(notification: any): void {
 		// You can implement custom in-app notification UI here
 		// For now, we'll use the browser's native notification
 		if (Notification.permission === 'granted') {
-			try {
-				// Extract taskId and bidId from notification body or data for navigation and unique tag
-				const data = notification.data || {};
-				const body = notification.body || '';
-				let taskId: string | null = null;
-				let bidId: string | null = null;
-				
-				if (data.taskId) {
-					taskId = data.taskId;
-				} else if (body.includes('taskId:')) {
-					// Extract taskId from body for any notification type (bid, contract, etc.)
-					const match = body.match(/taskId:([a-f0-9]+)/i);
-					if (match) {
-						taskId = match[1];
-					}
-				}
-				
-				// Extract bidId from body or data for unique tag
-				if (data.bidId) {
-					bidId = data.bidId;
-				} else if (body.includes('bidId:')) {
-					const bidMatch = body.match(/bidId:([a-f0-9]+)/i);
-					if (bidMatch) {
-						bidId = bidMatch[1];
-					}
-				}
-				
-				// Create unique tag for each notification to prevent replacement
-				// Use combination of type, taskId, bidId, and timestamp to ensure uniqueness
-				const timestamp = Date.now();
-				const tag = `bittasker-${data.type || 'notification'}-${taskId || 'unknown'}-${bidId || timestamp}`;
-				
-				console.log('🔔 Creating notification with tag:', tag, { taskId, bidId, type: data.type });
-
-				// For foreground notifications, use direct Notification API for better reliability
-				// Service worker notifications work better for background, but direct API is more reliable in foreground
-				try {
-					// Determine navigation URL
-					let urlToOpen = '/dashboard';
-					if (taskId) {
-						urlToOpen = `/dashboard/task/${taskId}`;
-					}
-					
-					// Always use our app icon, ignore backend icon to ensure consistent branding
-					const notificationOptions: NotificationOptions = {
-						body: notification.body,
-						icon: '/web-app-manifest-192x192.png', // Always use app icon, ignore backend icon
-						badge: '/web-app-manifest-192x192.png',
-						tag: tag,
-						requireInteraction: false,
-						silent: false,
-						data: {
-							...data,
-							taskId: taskId,
-							url: urlToOpen,
-							type: data.type || 'notification'
-						}
-					};
-
-					// Use direct Notification API for foreground notifications (more reliable)
-					const browserNotification = new Notification(notification.title || 'BitTasker', notificationOptions);
-					
-					// Handle notification click - navigate to task if taskId is in data
-					browserNotification.onclick = async () => {
-						window.focus();
-						
-						// Navigate to task if we have taskId
-						if (taskId) {
-							const { goto } = await import('$app/navigation');
-							await goto(`/dashboard/task/${taskId}`);
-						} else {
-							// Fallback to dashboard
-							const { goto } = await import('$app/navigation');
-							await goto('/dashboard');
-						}
-						
-						browserNotification.close();
-					};
-					
-					console.log('✅ Browser notification created (direct API):', notification.title, 'with tag:', tag);
-				} catch (directError) {
-					console.error('❌ Direct notification API failed, trying service worker fallback:', directError);
-					// Fallback to service worker if direct API fails
-					if ('serviceWorker' in navigator) {
-						try {
-							const registration = await navigator.serviceWorker.ready;
-							
-							// Determine navigation URL
-							let urlToOpen = '/dashboard';
-							if (taskId) {
-								urlToOpen = `/dashboard/task/${taskId}`;
-							}
-							
-							const notificationOptions = {
-								body: notification.body,
-								icon: '/web-app-manifest-192x192.png',
-								badge: '/web-app-manifest-192x192.png',
-								tag: tag,
-								requireInteraction: false,
-								silent: false,
-								data: {
-									...data,
-									taskId: taskId,
-									url: urlToOpen,
-									type: data.type || 'notification'
-								},
-								actions: [
-									{
-										action: 'open',
-										title: 'Open',
-										icon: '/web-app-manifest-192x192.png'
-									},
-									{
-										action: 'close',
-										title: 'Close'
-									}
-								]
-							};
-
-							await registration.showNotification(notification.title || 'BitTasker', notificationOptions);
-							console.log('✅ Browser notification created via service worker (fallback):', notification.title);
-						} catch (swError) {
-							console.error('❌ Service worker notification also failed:', swError);
-							throw swError;
-						}
-					} else {
-						// Fallback to direct notification if service worker not available
-						const notificationOptions: NotificationOptions = {
-							body: notification.body,
-							icon: '/web-app-manifest-192x192.png',
-							badge: '/web-app-manifest-192x192.png',
-							tag: tag, // Use the unique tag we created above
-							requireInteraction: false,
-							silent: false,
-							data: notification.data || {}
-						};
-
-						const browserNotification = new Notification(notification.title || 'BitTasker', notificationOptions);
-						
-						// Handle notification click - navigate to task if taskId is in data
-						browserNotification.onclick = async () => {
-							window.focus();
-							
-							// Extract taskId from notification body or data
-							const data = notification.data || notificationOptions.data || {};
-							const body = notification.body || '';
-							
-							// Try to extract taskId from body (format: "| taskId:...")
-							let taskId: string | null = null;
-							if (data.taskId) {
-								taskId = data.taskId;
-							} else if (body.includes('taskId:')) {
-								// Extract taskId from body for any notification type
-								const match = body.match(/taskId:([a-f0-9]+)/i);
-								if (match) {
-									taskId = match[1];
-								}
-							}
-							
-							// Navigate to task if we have taskId
-							if (taskId) {
-								const { goto } = await import('$app/navigation');
-								await goto(`/dashboard/task/${taskId}`);
-							} else {
-								// Fallback to dashboard
-								const { goto } = await import('$app/navigation');
-								await goto('/dashboard');
-							}
-							
-							browserNotification.close();
-						};
-
-						console.log('✅ Browser notification created (fallback):', notification.title);
-					}
-				}
-			} catch (error) {
-				console.error('❌ Error creating browser notification with web-app-manifest icon:', error);
-					// Try with favicon fallback if web-app-manifest icon fails
-					try {
-						console.log('🔄 Attempting fallback with favicon...');
-						// Create unique tag for fallback notification too
-						const fallbackTag = `bittasker-${data.type || 'notification'}-${taskId || 'unknown'}-${bidId || Date.now()}`;
-						const fallbackOptions: NotificationOptions = {
-							body: notification.body,
-							icon: '/favicon-96x96.png',
-							badge: '/favicon-96x96.png',
-							tag: fallbackTag,
-							requireInteraction: false,
-							silent: false
-						};
-						const fallbackNotification = new Notification(notification.title || 'BitTasker', fallbackOptions);
-						fallbackNotification.onclick = () => {
-							window.focus();
-							fallbackNotification.close();
-						};
-						console.log('✅ Fallback notification created successfully with favicon');
-					} catch (fallbackError) {
-						console.error('❌ Fallback notification also failed, trying minimal options:', fallbackError);
-						// Last resort: try with no icon
-						try {
-							new Notification(notification.title || 'BitTasker', {
-								body: notification.body
-							});
-							console.log('✅ Minimal notification created (no icon)');
-						} catch (minimalError) {
-							console.error('❌ All notification attempts failed:', minimalError);
-						}
-					}
-				}
-		} else {
-			console.warn('⚠️ Notification permission not granted:', Notification.permission);
+			new Notification(notification.title, {
+				body: notification.body,
+				icon: notification.icon || '/favicon.ico',
+				tag: 'bittasker-notification'
+			});
 		}
 	}
 
@@ -502,8 +228,7 @@ class PushNotificationService {
 		await authState.logout();
 
 		// Navigate to login
-		// eslint-disable-next-line
-		await goto('/auth/login');
+		goto('/auth/login');
 	}
 
 	/**
@@ -558,12 +283,10 @@ class PushNotificationService {
 				// For native platforms, use SvelteKit navigation
 				// The notification should already bring the app to foreground
 				console.log('📱 Native SPA navigation to:', url);
-				// eslint-disable-next-line
 				await goto(url);
 			} else {
 				// For web, use SvelteKit navigation
 				console.log('🌐 Web navigation to:', url);
-				// eslint-disable-next-line
 				await goto(url);
 			}
 		} catch (error) {
@@ -691,7 +414,7 @@ class PushNotificationService {
 				lightColor: '#FF0000'
 			});
 			console.log('✅ Push notification channel created');
-		} catch {
+		} catch (error) {
 			// Channel might already exist, that's fine
 			console.log('📱 Push notification channel already exists or not needed on this platform');
 		}
@@ -715,7 +438,7 @@ class PushNotificationService {
 				lights: true,
 				lightColor: '#FF0000'
 			});
-		} catch {
+		} catch (error) {
 			// Channel might already exist, that's fine
 			console.log('📱 Local notification channel already exists or not needed on this platform');
 		}
