@@ -23,6 +23,7 @@
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { goto } from '$app/navigation';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import IconAlertCircle from '~icons/mdi/alert-circle';
 
 	// Props
 	let { taskId, showShareButton = true } = $props<{
@@ -49,11 +50,19 @@
 	const isLoggedIn = $derived($authState.isAuthenticated);
 	
 	// Check if task deadline has expired
+	// Compare dates using date strings to avoid timezone issues
+	// Deadline is expired only if today is AFTER the deadline date (allows bidding through end of deadline day)
 	const isDeadlineExpired = $derived(() => {
 		if (!task?.deadline) return false;
 		const deadlineDate = new Date(task.deadline);
 		const now = new Date();
-		return deadlineDate <= now;
+		
+		// Compare dates using date strings to avoid timezone issues
+		const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
+		const todayDateStr = now.toISOString().split('T')[0];
+		
+		// Deadline is expired only if today is AFTER the deadline date
+		return todayDateStr > deadlineDateStr;
 	});
 
 	// Generate share link for public route
@@ -509,19 +518,7 @@
 						<!-- Action buttons -->
 						{#if isDeadlineExpired()}
 							<div class="alert alert-error alert-outline">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L73.34 16c-.77 1.333.192 3 1.732 3z"
-									/>
-								</svg>
+								<IconAlertCircle class="h-6 w-6 shrink-0" />
 								<div>
 									<span class="font-bold">{$t('dashboard.task_details_by_task.deadline_expired')}</span>
 									<div class="text-xs">{$t('dashboard.task_details_by_task.deadline_expired_message')}</div>
