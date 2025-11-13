@@ -20,13 +20,8 @@ const RETRY_DELAY = 1000; // 1 second
 // --- Auth memoization to prevent multiple passkey prompts ---
 let authSingleton: Promise<{ nsec: Uint8Array; npub: string }> | null = null;
 export function getAuthOnce(): Promise<{ nsec: Uint8Array; npub: string }> {
-	const callStack = new Error().stack?.split('\n').slice(2, 5).join(' -> ') || 'unknown';
-	
 	if (!authSingleton) {
-		console.log(`[getAuthOnce] 🆕 Creating new auth singleton at ${new Date().toISOString()} from: ${callStack}`);
 		authSingleton = getNostrKeyPair();
-	} else {
-		console.log(`[getAuthOnce] ♻️ Reusing existing auth singleton at ${new Date().toISOString()} from: ${callStack}`);
 	}
 	return authSingleton;
 }
@@ -810,13 +805,8 @@ export async function getMessageHistory(
 	withPubkey: string,
 	options?: { limit?: number; since?: number; until?: number }
 ): Promise<{ plaintext: string; senderPubkey: string; event: NostrEvent }[]> {
-	const startTime = Date.now();
-	console.log(`[getMessageHistory] 🔍 Starting for pubkey: ${withPubkey.substring(0, 8)}... at ${new Date().toISOString()}`);
-	
 	try {
-		console.log(`[getMessageHistory] 📞 Calling getAuthOnce() at ${new Date().toISOString()}`);
-		const { nsec, npub } = await getAuthOnce();
-		console.log(`[getMessageHistory] ✅ getAuthOnce() completed at ${new Date().toISOString()}`);
+		const { nsec, npub } = await getNostrKeyPair();
 		const privkey = bytesToHex(nsec);
 
 		// Validate and convert npub to hex format for relay filters
@@ -885,12 +875,9 @@ export async function getMessageHistory(
 			event: NostrEvent;
 		}[];
 
-		const duration = Date.now() - startTime;
-		console.log(`[getMessageHistory] ✅ Completed in ${duration}ms, got ${validMessages.length} messages for ${withPubkey.substring(0, 8)}... at ${new Date().toISOString()}`);
 		return validMessages;
 	} catch (err: unknown) {
-		const duration = Date.now() - startTime;
-		console.error(`[getMessageHistory] ❌ Error after ${duration}ms:`, err);
+		console.error('💥 getMessageHistory error:', err);
 		const errorMessage = (err as Error)?.message || 'Failed to fetch message history';
 		appStore.showErrorToast(errorMessage);
 		throw err;
@@ -1042,13 +1029,8 @@ export async function getThreadMessages(
 export async function getMessagedPeople(): Promise<
 	{ pubkey: string; lastEvent: NostrEvent; profile: { name?: string; picture?: string } }[]
 > {
-	const startTime = Date.now();
-	console.log(`[getMessagedPeople] 🔍 Starting at ${new Date().toISOString()}`);
-	
 	try {
-		console.log(`[getMessagedPeople] 📞 Calling getNostrKeyPair() at ${new Date().toISOString()}`);
 		const { nsec, npub } = await getNostrKeyPair();
-		console.log(`[getMessagedPeople] ✅ getNostrKeyPair() completed at ${new Date().toISOString()}`);
 		const privkey = bytesToHex(nsec);
 
 		// Validate and convert npub to hex format for relay filters
@@ -1166,13 +1148,9 @@ export async function getMessagedPeople(): Promise<
 			})
 		);
 
-		const duration = Date.now() - startTime;
-		console.log(`[getMessagedPeople] ✅ Completed in ${duration}ms, found ${results.length} people at ${new Date().toISOString()}`);
 		return results;
 	} catch (err: unknown) {
-		const duration = Date.now() - startTime;
 		const errorMessage = (err as Error)?.message || 'Failed to fetch messaged people';
-		console.error(`[getMessagedPeople] ❌ Error after ${duration}ms:`, err);
 		appStore.showErrorToast(errorMessage);
 		throw err;
 	}
