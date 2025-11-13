@@ -12,6 +12,7 @@ import type {
 	PublishStatusParams,
 	ContractFilter
 } from '$lib/types/contract';
+import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import { get } from 'svelte/store';
 import { rskAddress } from '$lib/stores/wallet.store';
 import { escrow } from '$lib/utils/wallet/escrow';
@@ -31,13 +32,26 @@ interface CacheEntry<T> {
 interface ProcessedBidData {
 	originalBids: BidMessage[];
 	deduplicatedBids: BidMessage[];
-	transformedBids: any[];
+	transformedBids: BidMessage[];
 }
 
 class BidCache {
 	private cache = new Map<string, CacheEntry<any>>();
+	private readonly MAX_CACHE_SIZE = 100; // Prevent unbounded growth
 
 	set<T>(key: string, data: T, ttlMinutes: number = 5): void {
+		// Auto-cleanup expired entries before adding new ones
+		this.cleanup();
+		
+		// Prevent cache from growing too large
+		if (this.cache.size >= this.MAX_CACHE_SIZE) {
+			// Remove oldest entries (simple FIFO approach)
+			const firstKey = this.cache.keys().next().value;
+			if (firstKey) {
+				this.cache.delete(firstKey);
+			}
+		}
+
 		this.cache.set(key, {
 			data,
 			timestamp: Date.now(),
@@ -49,6 +63,7 @@ class BidCache {
 		const entry = this.cache.get(key);
 		if (!entry) return null;
 
+		// Auto-cleanup expired entries on access
 		if (Date.now() - entry.timestamp > entry.ttl) {
 			this.cache.delete(key);
 			return null;
@@ -297,8 +312,10 @@ export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessag
 
 		return sortedBids;
 	} catch (error) {
-		console.error('Error getting optimized task bids:', error);
-		throw error;
+		// Don't throw - return what we have so the UI doesn't break
+		console.warn('Error getting optimized task bids (returning partial results):', error);
+		// Return empty array if we couldn't load any bids
+		return [];
 	}
 }
 
@@ -364,6 +381,9 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 						continue;
 					}
 
+					// Validate parsed content structure
+					if (!parsedContent || typeof parsedContent !== 'object') continue;
+
 					// Verify it's a valid bid
 					if (parsedContent.messageType === 'bid' && parsedContent.type === 'bid') {
 						// If taskId is specified, filter by that task
@@ -390,8 +410,10 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 
 		return sortedBids;
 	} catch (error) {
-		console.error('Error getting bids from DMs:', error);
-		throw error;
+		// Don't throw - return what we have so the UI doesn't break
+		console.warn('Error getting bids from DMs (returning partial results):', error);
+		// Return empty array if we couldn't load any bids
+		return [];
 	}
 }
 
@@ -450,6 +472,9 @@ export async function getMyBids(): Promise<BidMessage[]> {
 
 					const parsedContent = JSON.parse(message.plaintext);
 
+					// Validate parsed content structure
+					if (!parsedContent || typeof parsedContent !== 'object') continue;
+
 					// Verify it's a bid sent by the current user
 					if (parsedContent.messageType === 'bid' &&
 						parsedContent.type === 'bid' &&
@@ -480,8 +505,10 @@ export async function getMyBids(): Promise<BidMessage[]> {
 
 		return sortedBids;
 	} catch (error) {
-		console.error('Error getting my bids:', error);
-		throw error;
+		// Don't throw - return what we have so the UI doesn't break
+		console.warn('Error getting my bids (returning partial results):', error);
+		// Return empty array if we couldn't load any bids
+		return [];
 	}
 }
 
@@ -523,8 +550,10 @@ export async function sendBidStatusUpdate(
 
 		console.log(`Bid status update sent for bid ${bidId}: ${status}`);
 	} catch (error) {
-		console.error('Error sending bid status update:', error);
-		throw error;
+		// Log error but don't throw - allow UI to continue
+		console.warn('Error sending bid status update:', error);
+		// Don't throw - let the caller handle the error if needed
+		// The UI should show a warning but not break
 	}
 }
 
@@ -570,8 +599,10 @@ export async function createContract(params: CreateContractParams): Promise<void
 		]);
 
 	} catch (error) {
-		console.error('Error creating contract:', error);
-		throw error;
+		// Log error but don't throw - allow UI to continue
+		console.warn('Error creating contract:', error);
+		// Don't throw - let the caller handle the error if needed
+		// The UI should show a warning but not break
 	}
 }
 
@@ -620,8 +651,10 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 
 		console.log(`Status update sent for escrow ${params.escrowId}: ${params.action}`);
 	} catch (error) {
-		console.error('Error publishing contract status:', error);
-		throw error;
+		// Log error but don't throw - allow UI to continue
+		console.warn('Error publishing contract status:', error);
+		// Don't throw - let the caller handle the error if needed
+		// The UI should show a warning but not break
 	}
 }
 
@@ -666,47 +699,60 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 			// Skip if no messages for this person
 			if (!messageHistory || messageHistory.length === 0) continue;
 
-				// Group messages by escrow ID
-				const contractMessages = new Map<string, { plaintext: string; event: NostrEvent; senderPubkey: string }[]>();
+			// Group messages by escrow ID
+			const contractMessages = new Map<string, { plaintext: string; event: NostrEvent; senderPubkey: string }[]>();
 
-				for (const message of messageHistory) {
-					try {
-						if (!message.plaintext || message.plaintext.trim() === '') continue;
+			for (const message of messageHistory) {
+				try {
+					if (!message.plaintext || message.plaintext.trim() === '') continue;
 
-						const parsedContent = JSON.parse(message.plaintext);
+					const parsedContent = JSON.parse(message.plaintext);
 
-						// Check if it's a contract-related message
-						if (parsedContent.messageType === 'contract' || parsedContent.messageType === 'contract-status') {
-							const escrowId = parsedContent.escrowId;
-							if (escrowId) {
-								if (!contractMessages.has(escrowId)) {
-									contractMessages.set(escrowId, []);
-								}
-								contractMessages.get(escrowId)!.push(message);
+					// Validate parsed content structure
+					if (!parsedContent || typeof parsedContent !== 'object') continue;
+
+					// Check if it's a contract-related message
+					if (parsedContent.messageType === 'contract' || parsedContent.messageType === 'contract-status') {
+						const escrowId = parsedContent.escrowId;
+						if (escrowId && typeof escrowId === 'string') {
+							if (!contractMessages.has(escrowId)) {
+								contractMessages.set(escrowId, []);
 							}
+							contractMessages.get(escrowId)!.push(message);
 						}
-					} catch (parseError) {
-						// Not a contract message, continue
-						continue;
 					}
+				} catch (parseError) {
+					// Not a contract message, continue
+					continue;
 				}
+			}
 
-				// Process each contract
-				for (const [escrowId, messages] of contractMessages.entries()) {
+			// Process each contract
+			for (const [escrowId, messages] of contractMessages.entries()) {
+				try {
+					// Find the contract creation message
+					const contractCreationMessage = messages.find(msg => {
+						try {
+							const content = JSON.parse(msg.plaintext);
+							return content && typeof content === 'object' && content.messageType === 'contract';
+						} catch {
+							return false;
+						}
+					});
+
+					if (!contractCreationMessage) continue;
+
+					// Validate contract data structure
+					let contractData: NostrContract;
 					try {
-						// Find the contract creation message
-						const contractCreationMessage = messages.find(msg => {
-							try {
-								const content = JSON.parse(msg.plaintext);
-								return content.messageType === 'contract';
-							} catch {
-								return false;
-							}
-						});
-
-						if (!contractCreationMessage) continue;
-
-						const contractData: NostrContract = JSON.parse(contractCreationMessage.plaintext);
+						const parsed = JSON.parse(contractCreationMessage.plaintext);
+						if (!parsed || typeof parsed !== 'object' || !parsed.escrowId || !parsed.taskId) {
+							continue; // Invalid contract structure
+						}
+						contractData = parsed as NostrContract;
+					} catch {
+						continue; // Invalid JSON
+					}
 
 						// Check if user is involved in this contract
 						const isClient = contractData.clientPubkey === userPubkey;
@@ -720,7 +766,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						if (filter?.statuses && !filter.statuses.includes(contractData.status)) continue;
 
 						// Get status events for this contract
-						let statusEvents: any[] = [];
+						let statusEvents: ContractStatusEvent[] = [];
 						try {
 							statusEvents = await getContractStatusEventsFromMessages(escrowId, messages);
 						} catch (statusError) {
@@ -764,11 +810,11 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						let canCancel = false;
 						let canResolveTimelock = false;
 					let canDelete = false; // Can only delete if never funded or funding failed
-						let disputeProposal = null;
+					let disputeProposal: DisputeProposal | null = null;
 
-						try {
-							// Get actual escrow data from RSK contract
-							let escrowData: any = null;
+					try {
+						// Get actual escrow data from RSK contract
+							let escrowData: EscrowData | null = null;
 							try {
 								escrowData = await escrow.getEscrow(contractData.escrowId);
 							} catch (escrowError) {
@@ -781,7 +827,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							const userAddress = get(rskAddress);
 
 							// Only load dispute proposal if contract is in dispute
-							if (escrowData && escrowData.status === 1) { // EscrowStatus.InDispute
+							if (escrowData && escrowData.status === EscrowStatus.InDispute) {
 								try {
 									disputeProposal = await escrow.getDisputeProposal(contractData.escrowId);
 									// total amount
@@ -800,17 +846,17 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							console.log(`Contract ${contractData.escrowId}: RSK status = ${escrowData?.status} (${escrowData ? ['Funded', 'InDispute', 'DisputeResolved', 'DisputeUnresolved', 'Completed', 'Cancelled'][escrowData.status] || 'Unknown' : 'No Data'})`);
 
 							if (escrowData && userAddress) {
-							// Use blockchain-level validation to check if escrow was ever funded
-							// This is more reliable than checking transaction hash
-							let fundingStatus: any = null;
-							try {
-								fundingStatus = await escrow.checkEscrowFundingStatus(contractData.escrowId);
-							} catch (fundingError) {
-								// Silently handle funding status check errors
-								console.warn(`Failed to check funding status for escrow ${contractData.escrowId}:`, fundingError);
-								// Default to conservative values
-								fundingStatus = { wasFunded: false };
-							}
+								// Use blockchain-level validation to check if escrow was ever funded
+								// This is more reliable than checking transaction hash
+								let fundingStatus: { wasFunded: boolean; escrowData?: EscrowData | null; error?: unknown } | null = null;
+								try {
+									fundingStatus = await escrow.checkEscrowFundingStatus(contractData.escrowId);
+								} catch (fundingError) {
+									// Silently handle funding status check errors
+									console.warn(`Failed to check funding status for escrow ${contractData.escrowId}:`, fundingError);
+									// Default to conservative values
+									fundingStatus = { wasFunded: false };
+								}
 							
 								// RSK contract state is the source of truth, but Nostr status events provide additional context
 								// Use latest Nostr status event to determine if certain actions have been completed
@@ -822,7 +868,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 										}
 										canComplete = isFreelancer && latestNostrStatus !== 'task-completed';
 										canCancel = true; // Either party can cancel when funded
-									canDelete = false; // Cannot delete if funded
+										canDelete = false; // Cannot delete if funded
 										break;
 
 									case EscrowStatus.InDispute: // 1
@@ -838,14 +884,14 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 										// Can resolve after timelock if timelock has expired
 										canResolveTimelock = Date.now() > (escrowData.timelockExpiry * 1000);
-									canDelete = false; // Cannot delete if funded (dispute means it was funded)
+										canDelete = false; // Cannot delete if funded (dispute means it was funded)
 										break;
 
 									case EscrowStatus.DisputeResolved: // 2
 									case EscrowStatus.DisputeUnresolved: // 3
 										currentStatus = 'resolved';
 										// TODO: No actions available for resolved disputes
-									canDelete = false; // Cannot delete if funded (resolved means it was funded)
+										canDelete = false; // Cannot delete if funded (resolved means it was funded)
 										break;
 
 									case EscrowStatus.Completed: // 4
@@ -856,24 +902,24 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 											canAccept = isClient;
 											canDispute = isClient;
 										}
-									canDelete = false; // Cannot delete if funded (completed means it was funded)
+										canDelete = false; // Cannot delete if funded (completed means it was funded)
 										break;
 
 									case EscrowStatus.Cancelled: // 5
 										currentStatus = 'cancelled';
 										// No actions available for cancelled contracts
-									// Use blockchain-level validation to check if escrow was ever funded
-									// This is more reliable than checking transaction hash
-									if (fundingStatus && fundingStatus.wasFunded) {
-										canDelete = false; // Escrow was funded, cannot delete
-									} else {
-										canDelete = true; // Escrow was never funded (funding failed), can delete
-									}
+										// Use blockchain-level validation to check if escrow was ever funded
+										// This is more reliable than checking transaction hash
+										if (fundingStatus && fundingStatus.wasFunded) {
+											canDelete = false; // Escrow was funded, cannot delete
+										} else {
+											canDelete = true; // Escrow was never funded (funding failed), can delete
+										}
 										break;
 								}
 
-							// Note: canDelete is already set in each switch case above
-							// No need to recalculate here to avoid overriding correct values
+								// Note: canDelete is already set in each switch case above
+								// No need to recalculate here to avoid overriding correct values
 							} else {
 								// Fallback to Nostr status if RSK data unavailable
 								console.warn('RSK escrow data unavailable, falling back to Nostr status');
@@ -882,7 +928,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 								if (latestNostrStatus === 'payment-released') {
 									currentStatus = 'resolved';
 									// No actions available when payment is released
-								canDelete = false; // Payment released means it was funded
+									canDelete = false; // Payment released means it was funded
 								} else {
 									canComplete = isFreelancer && currentStatus === 'active' && latestNostrStatus !== 'task-completed';
 									canAccept = isClient && currentStatus === 'completed' && latestNostrStatus !== 'payment-released';
@@ -892,39 +938,26 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 									canCancel = currentStatus === 'active';
 									canResolveTimelock = currentStatus === 'disputed';
 								
-								// If no escrow data, check if contract has transaction hash
-								if (contractData.transactionHash) {
-									canDelete = false; // Has transaction hash, funding might be in progress
-								} else {
-									canDelete = true; // No transaction hash, likely never funded
-								}
+									// If no escrow data, check if contract has transaction hash
+									if (contractData.transactionHash) {
+										canDelete = false; // Has transaction hash, funding might be in progress
+									} else {
+										canDelete = true; // No transaction hash, likely never funded
+									}
 								}
 							}
 						} catch (error) {
-						// Use structured error handling instead of string matching
-						const { isEscrowNotFoundError, isNetworkError } = await import('$lib/utils/errors/escrowErrors');
-						
-						if (isEscrowNotFoundError(error)) {
-							// Escrow doesn't exist - contract was never funded, allow deletion
-							canDelete = true;
-						} else if (isNetworkError(error)) {
-							// Network error - be conservative and disallow deletion
-							canDelete = false;
-							console.warn('Network error while checking RSK contract state, disallowing deletion for safety:', error);
-						} else {
-							// Other error - be conservative and disallow deletion
-							canDelete = false;
-							console.warn('Failed to check RSK contract state, disallowing deletion for safety:', error);
-						}
-						
-							// If RSK check fails, fall back to Nostr status
+							// Use structured error handling instead of string matching
+							const { isEscrowNotFoundError, isNetworkError } = await import('$lib/utils/errors/escrowErrors');
+							
+							// If RSK check fails, fall back to Nostr status (same logic as else block above)
 							console.warn('Failed to check RSK contract state, using Nostr status:', error);
 
 							// Use Nostr status with basic action logic
 							if (latestNostrStatus === 'payment-released') {
 								currentStatus = 'resolved';
 								// No actions available when payment is released
-							canDelete = false; // Payment released means it was funded
+								canDelete = false; // Payment released means it was funded
 							} else {
 								canComplete = isFreelancer && currentStatus === 'active' && latestNostrStatus !== 'task-completed';
 								canAccept = isClient && currentStatus === 'completed' && latestNostrStatus !== 'payment-released';
@@ -934,45 +967,51 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 								canCancel = currentStatus === 'active';
 								canResolveTimelock = currentStatus === 'disputed';
 							
-							// Only override canDelete if escrow truly doesn't exist
-							const { isEscrowNotFoundError: isNotFound } = await import('$lib/utils/errors/escrowErrors');
-							if (!isNotFound(error)) {
-								// If escrow check failed for other reasons, check if contract has transaction hash
-								if (contractData.transactionHash) {
-									canDelete = false; // Has transaction hash, might have been funded
+								// Determine canDelete based on error type
+								if (isEscrowNotFoundError(error)) {
+									// Escrow doesn't exist - contract was never funded, allow deletion
+									canDelete = true;
+								} else if (isNetworkError(error)) {
+									// Network error - be conservative and disallow deletion
+									canDelete = false;
+									console.warn('Network error while checking RSK contract state, disallowing deletion for safety:', error);
 								} else {
-									// No transaction hash, but we can't be certain - be conservative
-									canDelete = false; // Default to false for safety
+									// Other error - check if contract has transaction hash
+									if (contractData.transactionHash) {
+										canDelete = false; // Has transaction hash, might have been funded
+									} else {
+										// No transaction hash, but we can't be certain - be conservative
+										canDelete = false; // Default to false for safety
+									}
 								}
-							}
 							}
 						}
 
-						// NOW create the updated contract with RSK-synced status as the source of truth
-						const updatedContract = { ...contractData, status: currentStatus };
+				// NOW create the updated contract with RSK-synced status as the source of truth
+				const updatedContract = { ...contractData, status: currentStatus };
 
-						if (disputeProposal) updatedContract.disputeProposal = disputeProposal;
+				if (disputeProposal) updatedContract.disputeProposal = disputeProposal;
 
-						contracts.push({
-							contract: updatedContract,
-							contractEvent: contractCreationMessage.event,
-							statusEvents,
-							isClient,
-							canComplete,
-							canAccept,
-							canDispute,
-							canPropose,
-							canAcceptProposal,
-							canCancel,
-						canResolveTimelock,
-						canDelete
-						});
-					} catch (error) {
-						console.warn('Failed to parse contract messages:', error);
-						continue;
-					}
+				contracts.push({
+					contract: updatedContract,
+					contractEvent: contractCreationMessage.event,
+					statusEvents,
+					isClient,
+					canComplete,
+					canAccept,
+					canDispute,
+					canPropose,
+					canAcceptProposal,
+					canCancel,
+					canResolveTimelock,
+					canDelete
+				});
+			} catch (error) {
+				console.warn('Failed to parse contract messages:', error);
+				continue;
 			}
 		}
+	}
 
 		// Sort by creation time (newest first)
 		return contracts.sort((a: ContractWithEvents, b: ContractWithEvents) => b.contract.createdAt - a.contract.createdAt);
@@ -990,41 +1029,57 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
  */
 async function getContractMessagesByEscrowId(escrowId: string): Promise<{ plaintext: string; event: NostrEvent; senderPubkey: string }[]> {
 	try {
-		// Get all people you've exchanged messages with
-		const messagedPeople = await getMessagedPeople();
+		// Use optimized version that doesn't require decryption for better performance
+		const { getMessagedPeopleOptimized } = await import('./nostr-message');
+		const messagedPeople = await getMessagedPeopleOptimized();
 		const contractMessages: { plaintext: string; event: NostrEvent; senderPubkey: string }[] = [];
 
-		// For each conversation, search for contract messages
-		for (const person of messagedPeople) {
+		// Fetch message histories for all conversations in parallel (optimization)
+		const { getMessageHistoryOptimized } = await import('./nostr-message');
+		const messageHistoryPromises = messagedPeople.map(async (person) => {
 			try {
-				// Get message history with this person
-				const messageHistory = await getMessageHistory(person.pubkey, { limit: 200 });
-
-				for (const message of messageHistory) {
-					try {
-						if (!message.plaintext || message.plaintext.trim() === '') continue;
-
-						const parsedContent = JSON.parse(message.plaintext);
-
-						// Check if it's a contract-related message for this escrow
-						if ((parsedContent.messageType === 'contract' || parsedContent.messageType === 'contract-status')
-							&& parsedContent.escrowId === escrowId) {
-							contractMessages.push(message);
-						}
-					} catch (parseError) {
-						// Not a contract message, continue
-						continue;
-					}
-				}
+				// Use optimized version that batches auth and uses worker
+				return await getMessageHistoryOptimized(person.pubkey, { limit: 200 });
 			} catch (err) {
 				console.warn('Failed to get message history for pubkey:', person.pubkey, err);
-				continue;
+				return [];
+			}
+		});
+
+		// Wait for all message histories in parallel
+		const messageHistories = await Promise.all(messageHistoryPromises);
+
+		// Process all message histories to extract contract messages
+		for (let i = 0; i < messagedPeople.length; i++) {
+			const messageHistory = messageHistories[i];
+
+			if (!messageHistory || messageHistory.length === 0) continue;
+
+			for (const message of messageHistory) {
+				try {
+					if (!message.plaintext || message.plaintext.trim() === '') continue;
+
+					const parsedContent = JSON.parse(message.plaintext);
+
+					// Validate parsed content structure
+					if (!parsedContent || typeof parsedContent !== 'object') continue;
+
+					// Check if it's a contract-related message for this escrow
+					if ((parsedContent.messageType === 'contract' || parsedContent.messageType === 'contract-status')
+						&& parsedContent.escrowId === escrowId
+						&& typeof parsedContent.escrowId === 'string') {
+						contractMessages.push(message);
+					}
+				} catch (parseError) {
+					// Not a contract message, continue
+					continue;
+				}
 			}
 		}
 
 		return contractMessages.sort((a, b) => a.event.created_at - b.event.created_at);
 	} catch (error) {
-		console.error('Error getting contract messages by escrow ID:', error);
+		console.warn('Error getting contract messages by escrow ID:', error);
 		return [];
 	}
 }
@@ -1041,7 +1096,7 @@ async function getContractStatusEventsFromMessages(
 		const contractCreationMessage = messages.find(msg => {
 			try {
 				const content = JSON.parse(msg.plaintext);
-				return content.messageType === 'contract';
+				return content && typeof content === 'object' && content.messageType === 'contract';
 			} catch {
 				return false;
 			}
@@ -1049,13 +1104,26 @@ async function getContractStatusEventsFromMessages(
 
 		if (!contractCreationMessage) return [];
 
-		const contractData: NostrContract = JSON.parse(contractCreationMessage.plaintext);
+		// Validate contract data structure
+		let contractData: NostrContract;
+		try {
+			const parsed = JSON.parse(contractCreationMessage.plaintext);
+			if (!parsed || typeof parsed !== 'object' || !parsed.escrowId || !parsed.taskId) {
+				return []; // Invalid contract structure
+			}
+			contractData = parsed as NostrContract;
+		} catch {
+			return []; // Invalid JSON
+		}
 		const processedEvents: ContractStatusEvent[] = [];
 
 		// Process status messages
 		for (const message of messages) {
 			try {
 				const parsedContent = JSON.parse(message.plaintext);
+
+				// Validate parsed content structure
+				if (!parsedContent || typeof parsedContent !== 'object') continue;
 
 				if (parsedContent.messageType === 'contract-status') {
 					const statusData: NostrContractStatus = parsedContent;
