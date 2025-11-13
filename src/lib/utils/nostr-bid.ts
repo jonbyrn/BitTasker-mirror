@@ -671,40 +671,67 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 export async function getUserContracts(filter?: ContractFilter): Promise<ContractWithEvents[]> {
 	// Initialize contracts array at the top level so it's always available
 	const contracts: ContractWithEvents[] = [];
+	const startTime = Date.now();
+	console.log('[getUserContracts] Starting contract loading', { filter, timestamp: startTime });
 
 	try {
 		// Use getAuthOnce() to share auth singleton with getMessageHistoryOptimized()
 		// This prevents multiple auth prompts when both are called
+		console.log('[getUserContracts] Getting auth...');
 		const { getAuthOnce } = await import('./nostr-message');
 		const { npub } = await getAuthOnce();
 		const userPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+		console.log('[getUserContracts] Auth obtained', { userPubkey: userPubkey.substring(0, 16) + '...' });
 
 		// OPTIMIZATION 1: Use optimized version that doesn't require decryption
+		console.log('[getUserContracts] Getting messaged people...');
 		const { getMessagedPeopleOptimized } = await import('./nostr-message');
 		const messagedPeople = await getMessagedPeopleOptimized();
+		console.log('[getUserContracts] Found messaged people', { count: messagedPeople.length });
 
 		// OPTIMIZATION 2 & 3: Parallelize message history fetching and use optimized version
 		const { getMessageHistoryOptimized } = await import('./nostr-message');
-		const messageHistoryPromises = messagedPeople.map(async (person) => {
+		console.log('[getUserContracts] Fetching message histories in parallel...');
+		const messageHistoryPromises = messagedPeople.map(async (person, index) => {
 			try {
 				// Use optimized version that batches auth and uses worker
-				return await getMessageHistoryOptimized(person.pubkey, { limit: 200 });
+				const history = await getMessageHistoryOptimized(person.pubkey, { limit: 200 });
+				console.log(`[getUserContracts] Message history ${index + 1}/${messagedPeople.length} fetched`, {
+					pubkey: person.pubkey.substring(0, 16) + '...',
+					messageCount: history.length
+				});
+				return history;
 			} catch (err) {
-				console.warn('Failed to get message history for pubkey:', person.pubkey, err);
+				console.warn(`[getUserContracts] Failed to get message history for pubkey ${index + 1}:`, {
+					pubkey: person.pubkey.substring(0, 16) + '...',
+					error: err instanceof Error ? err.message : String(err),
+					stack: err instanceof Error ? err.stack : undefined
+				});
 				return [];
 			}
 		});
 
 		// Wait for all message histories in parallel (instead of sequential loop)
+		console.log('[getUserContracts] Waiting for all message histories...');
 		const messageHistories = await Promise.all(messageHistoryPromises);
+		console.log('[getUserContracts] All message histories fetched', {
+			totalMessages: messageHistories.reduce((sum, h) => sum + h.length, 0)
+		});
 
 		// Process all conversations with their message histories
+		console.log('[getUserContracts] Processing conversations...');
+		let contractCount = 0;
 		for (let i = 0; i < messagedPeople.length; i++) {
 			const person = messagedPeople[i];
 			const messageHistory = messageHistories[i];
 
 			// Skip if no messages for this person
 			if (!messageHistory || messageHistory.length === 0) continue;
+
+			console.log(`[getUserContracts] Processing conversation ${i + 1}/${messagedPeople.length}`, {
+				pubkey: person.pubkey.substring(0, 16) + '...',
+				messageCount: messageHistory.length
+			});
 
 			// Group messages by escrow ID
 			const contractMessages = new Map<
@@ -742,6 +769,11 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 			// Process each contract
 			for (const [escrowId, messages] of contractMessages.entries()) {
+				contractCount++;
+				console.log(`[getUserContracts] Processing contract ${contractCount}`, {
+					escrowId,
+					messageCount: messages.length
+				});
 				try {
 					// Find the contract creation message
 					const contractCreationMessage = messages.find((msg) => {
@@ -753,7 +785,11 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						}
 					});
 
-					if (!contractCreationMessage) continue;
+					if (!contractCreationMessage) {
+						console.warn(`[getUserContracts] No contract creation message found for escrow ${escrowId}`);
+						continue;
+					}
+					console.log(`[getUserContracts] Contract creation message found for escrow ${escrowId}`);
 
 					// Validate contract data structure
 					let contractData: NostrContract;
@@ -828,15 +864,25 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 					try {
 						// Get actual escrow data from RSK contract
+						console.log(`[getUserContracts] Fetching escrow data for ${contractData.escrowId}...`);
 						let escrowData: EscrowData | null = null;
 						try {
 							escrowData = await escrow.getEscrow(contractData.escrowId);
+							console.log(`[getUserContracts] Escrow data fetched for ${contractData.escrowId}`, {
+								status: escrowData?.status,
+								hasData: !!escrowData
+							});
 						} catch (escrowError) {
 							// Silently handle escrow fetch errors - contract might not exist on-chain yet
 							// This is expected for contracts that were never funded
 							console.warn(
-								`Escrow ${contractData.escrowId} not found or invalid, using Nostr status only:`,
-								escrowError
+								`[getUserContracts] Escrow ${contractData.escrowId} not found or invalid, using Nostr status only:`,
+								{
+									escrowId: contractData.escrowId,
+									error: escrowError instanceof Error ? escrowError.message : String(escrowError),
+									errorType: escrowError?.constructor?.name,
+									stack: escrowError instanceof Error ? escrowError.stack : undefined
+								}
 							);
 							escrowData = null;
 						}
@@ -959,7 +1005,13 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							// No need to recalculate here to avoid overriding correct values
 						} else {
 							// Fallback to Nostr status if RSK data unavailable
-							console.warn('RSK escrow data unavailable, falling back to Nostr status');
+							console.warn('[getUserContracts] RSK escrow data unavailable, falling back to Nostr status', {
+								escrowId: contractData.escrowId,
+								hasUserAddress: !!userAddress,
+								hasEscrowData: !!escrowData,
+								currentStatus,
+								latestNostrStatus
+							});
 
 							// Use Nostr status with basic action logic
 							if (latestNostrStatus === 'payment-released') {
@@ -994,6 +1046,18 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						}
 					} catch (error) {
 						// Use structured error handling instead of string matching
+						console.error('[getUserContracts] Error processing contract escrow data', {
+							escrowId: contractData.escrowId,
+							error: error instanceof Error ? error.message : String(error),
+							errorType: error?.constructor?.name,
+							stack: error instanceof Error ? error.stack : undefined,
+							contractData: {
+								taskId: contractData.taskId,
+								status: contractData.status,
+								hasTransactionHash: !!contractData.transactionHash
+							}
+						});
+
 						let isEscrowNotFoundError: ((error: unknown) => boolean) | null = null;
 						let isNetworkError: ((error: unknown) => boolean) | null = null;
 						
@@ -1001,13 +1065,20 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							const errorUtils = await import('$lib/utils/errors/escrowErrors');
 							isEscrowNotFoundError = errorUtils.isEscrowNotFoundError;
 							isNetworkError = errorUtils.isNetworkError;
+							console.log('[getUserContracts] Error utilities imported successfully');
 						} catch (importError) {
 							// Silently handle import errors - use fallback logic
-							console.warn('Failed to import error utilities, using fallback logic:', importError);
+							console.warn('[getUserContracts] Failed to import error utilities, using fallback logic:', {
+								importError: importError instanceof Error ? importError.message : String(importError),
+								stack: importError instanceof Error ? importError.stack : undefined
+							});
 						}
 
 						// If RSK check fails, fall back to Nostr status (same logic as else block above)
-						console.warn('Failed to check RSK contract state, using Nostr status:', error);
+						console.warn('[getUserContracts] Failed to check RSK contract state, using Nostr status', {
+							escrowId: contractData.escrowId,
+							error: error instanceof Error ? error.message : String(error)
+						});
 
 						// Use Nostr status with basic action logic
 						if (latestNostrStatus === 'payment-released') {
@@ -1075,20 +1146,43 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						canDelete
 					});
 				} catch (error) {
-					console.warn('Failed to parse contract messages:', error);
+					console.error('[getUserContracts] Failed to parse contract messages', {
+						escrowId,
+						error: error instanceof Error ? error.message : String(error),
+						errorType: error?.constructor?.name,
+						stack: error instanceof Error ? error.stack : undefined,
+						messageCount: messages.length
+					});
 					continue;
 				}
 			}
 		}
+
+		const endTime = Date.now();
+		const duration = endTime - startTime;
+		console.log('[getUserContracts] Contract loading completed', {
+			contractCount: contracts.length,
+			duration: `${duration}ms`,
+			filter
+		});
 
 		// Sort by creation time (newest first)
 		return contracts.sort(
 			(a: ContractWithEvents, b: ContractWithEvents) => b.contract.createdAt - a.contract.createdAt
 		);
 	} catch (error) {
+		const endTime = Date.now();
+		const duration = endTime - startTime;
 		// Don't throw - return what we have so the UI doesn't break
 		// Log the error but continue with any contracts we successfully loaded
-		console.warn('Error getting user contracts (returning partial results):', error);
+		console.error('[getUserContracts] Error getting user contracts (returning partial results)', {
+			error: error instanceof Error ? error.message : String(error),
+			errorType: error?.constructor?.name,
+			stack: error instanceof Error ? error.stack : undefined,
+			contractsLoaded: contracts.length,
+			duration: `${duration}ms`,
+			filter
+		});
 		// Return whatever contracts we managed to load, even if some failed
 		return contracts.sort(
 			(a: ContractWithEvents, b: ContractWithEvents) => b.contract.createdAt - a.contract.createdAt

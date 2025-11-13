@@ -130,27 +130,60 @@
 	});
 
 	async function loadContracts() {
+		const startTime = Date.now();
+		console.log('[DashboardContractsPanel] loadContracts() called', {
+			timestamp: startTime,
+			currentContractCount: contracts.length,
+			isLoading,
+			isProcessingUpdates
+		});
 		try {
 			isLoading = true;
 			error = null;
 			// getUserContracts now returns partial results instead of throwing
 			// This prevents infinite retry loops when some contracts fail to load
+			console.log('[DashboardContractsPanel] Calling getUserContracts()...');
 			contracts = await getUserContracts();
+			const duration = Date.now() - startTime;
+			console.log('[DashboardContractsPanel] Contracts loaded successfully', {
+				contractCount: contracts.length,
+				duration: `${duration}ms`
+			});
 		} catch (err) {
+			const duration = Date.now() - startTime;
 			// This should rarely happen now since getUserContracts doesn't throw
 			// But keep it as a safety net
 			error = err instanceof Error ? err.message : 'Failed to load contracts';
-			console.warn('Error loading contracts (non-fatal):', err);
+			console.error('[DashboardContractsPanel] Error loading contracts (non-fatal)', {
+				error: err instanceof Error ? err.message : String(err),
+				errorType: err?.constructor?.name,
+				stack: err instanceof Error ? err.stack : undefined,
+				duration: `${duration}ms`,
+				currentContractCount: contracts.length
+			});
 			// Don't set contracts to empty - keep what we have
 			// contracts = []; // Removed - keep existing contracts
 		} finally {
 			isLoading = false;
+			const duration = Date.now() - startTime;
+			console.log('[DashboardContractsPanel] loadContracts() completed', {
+				duration: `${duration}ms`,
+				contractCount: contracts.length,
+				hasError: !!error
+			});
 		}
 	}
 
 	// Subscribe to contract update store (queue-based approach)
 	$effect(() => {
 		const escrowIds = $contractUpdateStore;
+		console.log('[DashboardContractsPanel] $effect triggered', {
+			escrowIdsCount: escrowIds.length,
+			escrowIds: escrowIds.slice(0, 5), // Log first 5 for debugging
+			isLoading,
+			isProcessingUpdates,
+			isMounted
+		});
 		
 		// Only process if:
 		// 1. There are escrowIds to process
@@ -158,6 +191,10 @@
 		// 3. We're not already processing updates
 		// 4. Component is still mounted
 		if (escrowIds.length > 0 && !isLoading && !isProcessingUpdates && isMounted) {
+			console.log('[DashboardContractsPanel] Processing contract updates', {
+				escrowIdsCount: escrowIds.length,
+				escrowIds: escrowIds
+			});
 			// Get the IDs to process and clear the queue immediately
 			const idsToProcess = [...escrowIds];
 			contractUpdateStore.set([]); // Clear immediately to prevent race conditions
@@ -170,7 +207,12 @@
 			loadContracts()
 				.catch((err) => {
 					// Silently handle errors - loadContracts already handles them internally
-					console.warn('Error in contract update effect (non-fatal):', err);
+					console.error('[DashboardContractsPanel] Error in contract update effect (non-fatal)', {
+						error: err instanceof Error ? err.message : String(err),
+						errorType: err?.constructor?.name,
+						stack: err instanceof Error ? err.stack : undefined,
+						escrowIds: idsToProcess
+					});
 				})
 				.finally(() => {
 					if (isMounted) {
@@ -179,14 +221,29 @@
 						// Check if any new updates came in while we were loading
 						const remaining = $contractUpdateStore;
 						if (remaining.length > 0 && !isLoading && !isProcessingUpdates) {
+							console.log('[DashboardContractsPanel] Processing remaining contract updates', {
+								remainingCount: remaining.length
+							});
 							// Process remaining updates (with error handling)
 							contractUpdateStore.set([]);
 							loadContracts().catch((err) => {
-								console.warn('Error processing remaining contract updates (non-fatal):', err);
+								console.error('[DashboardContractsPanel] Error processing remaining contract updates (non-fatal)', {
+									error: err instanceof Error ? err.message : String(err),
+									errorType: err?.constructor?.name,
+									stack: err instanceof Error ? err.stack : undefined,
+									remainingCount: remaining.length
+								});
 							});
 						}
 					}
 				});
+		} else {
+			console.log('[DashboardContractsPanel] Skipping contract update processing', {
+				hasEscrowIds: escrowIds.length > 0,
+				isLoading,
+				isProcessingUpdates,
+				isMounted
+			});
 		}
 	});
 
