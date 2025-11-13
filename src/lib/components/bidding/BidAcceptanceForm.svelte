@@ -22,7 +22,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
-	import { untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	// Props
 	const props = $props<{
@@ -39,7 +39,6 @@
 	let balanceErrors = $state<string[]>([]);
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
-	let walletInitAttempted = $state(false);
 
 	// Ensure wallet translations are loaded
 	if (browser && $locale) {
@@ -94,13 +93,13 @@
 	});
 
 	// Auto-initialize Rootstock wallet if not connected
-	// Use effect with untrack to prevent reactive loops while still checking when component is active
-	$effect(() => {
-		if (!$walletStore.rsk.connected && !$walletStore.rsk.connecting && !$walletStore.rsk.error) {
-			walletManager.initialize().catch((error) => {
+	// Use onMount to prevent reactive loops - only check once when component mounts
+	onMount(() => {
+		// Read wallet state without creating a reactive subscription
+		const walletState = get(walletStore);
+		if (!walletState.rsk.connected && !walletState.rsk.connecting && !walletState.rsk.error) {
+			walletManager.initialize().catch((error: unknown) => {
 				console.error('Auto-initialization of Rootstock wallet failed:', error);
-				// Reset flag on error so user can retry manually
-				walletInitAttempted = false;
 			});
 		}
 	});
