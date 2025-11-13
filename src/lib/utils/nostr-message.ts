@@ -814,9 +814,9 @@ export async function getMessageHistory(
 	console.log(`[getMessageHistory] 🔍 Starting for pubkey: ${withPubkey.substring(0, 8)}... at ${new Date().toISOString()}`);
 	
 	try {
-		console.log(`[getMessageHistory] 📞 Calling getNostrKeyPair() at ${new Date().toISOString()}`);
-		const { nsec, npub } = await getNostrKeyPair();
-		console.log(`[getMessageHistory] ✅ getNostrKeyPair() completed at ${new Date().toISOString()}`);
+		console.log(`[getMessageHistory] 📞 Calling getAuthOnce() at ${new Date().toISOString()}`);
+		const { nsec, npub } = await getAuthOnce();
+		console.log(`[getMessageHistory] ✅ getAuthOnce() completed at ${new Date().toISOString()}`);
 		const privkey = bytesToHex(nsec);
 
 		// Validate and convert npub to hex format for relay filters
