@@ -100,6 +100,9 @@ export const walletStore = writable(initialState);
 
 // SDK wallet manager instance
 let sdkWalletManager: WalletManager | null = null;
+let originalConnectWebSocket: (() => Promise<void>) | null = null;
+let boltzConnectionPromise: Promise<void> | null = null;
+let boltzIsConnected = false;
 
 // Track initialization state to prevent concurrent initializations
 let isInitializing = false;
@@ -157,6 +160,9 @@ export async function initializeWallet(): Promise<void> {
 	
 	// Start new initialization
 	isInitializing = true;
+	originalConnectWebSocket = null;
+	boltzConnectionPromise = null;
+	boltzIsConnected = false;
 	initializationPromise = (async () => {
 		try {
 			walletStore.update(s => ({ ...s, isInitializing: true, isConnecting: true, error: null }));
@@ -188,51 +194,14 @@ export async function initializeWallet(): Promise<void> {
 			
 			sdkWalletManager = new WalletManager(config);
 			
-			// Initialize wallet manager - make Boltz connection non-blocking
-			// Start initialization but don't wait for slow Boltz WebSocket connections
-			const initPromise = sdkWalletManager.initialize();
-			
-			// Race between initialization and a reasonable timeout
-			// This prevents the Boltz WebSocket connection from blocking everything
-			try {
-				await Promise.race([
-					initPromise,
-					new Promise<void>((resolve, reject) => {
-						// Poll every 500ms to check if core wallets are ready
-						// This allows us to continue as soon as wallets are ready, not wait full 5 seconds
-						let attempts = 0;
-						const maxAttempts = 10; // 10 attempts * 500ms = 5 seconds max
-						const checkInterval = setInterval(() => {
-							attempts++;
-							if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
-								clearInterval(checkInterval);
-								console.warn('Wallet initialization taking longer than expected (likely Boltz connection), but core wallets are ready. Continuing...');
-								resolve();
-							} else if (attempts >= maxAttempts) {
-								clearInterval(checkInterval);
-								// After 5 seconds, if wallets still not ready, wait a bit more or reject
-								// Give it one more second as final chance
-								setTimeout(() => {
-									if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
-										resolve();
-									} else {
-										reject(new Error('Wallet initialization timeout - core wallets not ready'));
-									}
-								}, 1000);
-							}
-						}, 500);
-					})
-				]);
-			} catch (error) {
-				// If initialization fails, check if core wallets are ready anyway
-				// The Boltz connection can fail without blocking core functionality
-				if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
-					console.warn('Wallet initialization had issues (likely Boltz connection), but core wallets are ready:', error);
-					// Continue - core wallets are ready
-				} else {
-					throw error; // Core wallets not ready, throw error
-				}
+			// Patch Boltz WebSocket connection so it only opens when explicitly requested.
+			const walletManagerWithSocket = sdkWalletManager as unknown as { connectWebSocket?: () => Promise<void> };
+			originalConnectWebSocket = walletManagerWithSocket.connectWebSocket?.bind(sdkWalletManager) ?? null;
+			if (walletManagerWithSocket.connectWebSocket) {
+				walletManagerWithSocket.connectWebSocket = async () => Promise.resolve();
 			}
+
+			await sdkWalletManager.initialize();
 			
 			// Update store with wallet info
 			const rskWallet = sdkWalletManager.rskWallet;
@@ -312,6 +281,9 @@ export function disconnectWallet(): void {
 		}
 		sdkWalletManager = null;
 	}
+	originalConnectWebSocket = null;
+	boltzConnectionPromise = null;
+	boltzIsConnected = false;
 	
 	// Cleanup event listeners
 	eventListeners.forEach(cleanup => cleanup());
@@ -451,6 +423,34 @@ async function loadAssets(): Promise<void> {
 }
 
 /**
+ * Lazily establish Boltz websocket connection (used for swap flows)
+ */
+async function ensureBoltzConnection(): Promise<void> {
+	if (!sdkWalletManager) {
+		throw new Error('Wallet not initialized. Call initializeWallet() first.');
+	}
+	if (boltzIsConnected) {
+		return;
+	}
+	if (!originalConnectWebSocket) {
+		// No websocket available (e.g., during tests) - treat as connected
+		boltzIsConnected = true;
+		return;
+	}
+	if (!boltzConnectionPromise) {
+		boltzConnectionPromise = originalConnectWebSocket()
+			.then(() => {
+				boltzIsConnected = true;
+			})
+			.catch((error) => {
+				boltzConnectionPromise = null;
+				throw error;
+			});
+	}
+	return boltzConnectionPromise;
+}
+
+/**
  * Load transactions
  */
 async function loadTransactions(): Promise<void> {
@@ -550,6 +550,7 @@ export async function sendBSCBNB(to: string, amount: string): Promise<string> {
  * Create reverse swap (Lightning → RBTC)
  */
 export async function createReverseSwap(amountSats: number): Promise<any> {
+	await ensureBoltzConnection();
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
@@ -565,6 +566,7 @@ export async function createReverseSwap(amountSats: number): Promise<any> {
  * Create chain swap (L-BTC → RBTC)
  */
 export async function createChainSwap(amountSats: number): Promise<any> {
+	await ensureBoltzConnection();
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
@@ -580,6 +582,7 @@ export async function createChainSwap(amountSats: number): Promise<any> {
  * Get swap limits
  */
 export async function getSwapLimits() {
+	await ensureBoltzConnection();
 	const manager = getWalletManager();
 	return await manager.getSwapLimits();
 }
@@ -588,6 +591,7 @@ export async function getSwapLimits() {
  * Create submarine swap (RBTC → Lightning)
  */
 export async function createSubmarineSwap(invoice: string): Promise<SubmarineSwapResult> {
+	await ensureBoltzConnection();
 	const manager = getWalletManager();
 	
 	const params: CreateSubmarineSwapParams = {
@@ -604,6 +608,7 @@ export async function createSubmarineSwap(invoice: string): Promise<SubmarineSwa
  * Lock funds for submarine swap
  */
 export async function lockSubmarineSwapFunds(swapData: SubmarineSwapData): Promise<{ txHash: string }> {
+	await ensureBoltzConnection();
 	const manager = getWalletManager();
 	const signer = manager.rskWallet.getWallet();
 	
@@ -619,6 +624,7 @@ export async function lockSubmarineSwapFunds(swapData: SubmarineSwapData): Promi
  * Get submarine swap limits
  */
 export async function getSubmarineSwapLimits(): Promise<{ minimal: number; maximal: number }> {
+	await ensureBoltzConnection();
 	const manager = getWalletManager();
 	return await manager.submarineSwapService.getSwapLimits('RBTC', 'BTC');
 }
@@ -627,6 +633,7 @@ export async function getSubmarineSwapLimits(): Promise<{ minimal: number; maxim
  * Get submarine swap pairs with fee information
  */
 export async function getSubmarineSwapPairs(): Promise<any> {
+	await ensureBoltzConnection();
 	const manager = getWalletManager();
 	return await manager.boltzClient.getSubmarineSwapPairs();
 }
@@ -635,6 +642,7 @@ export async function getSubmarineSwapPairs(): Promise<any> {
  * Get reverse swap pairs with fee information
  */
 export async function getReverseSwapPairs(): Promise<any> {
+	await ensureBoltzConnection();
 	const manager = getWalletManager();
 	return await manager.boltzClient.getReverseSwapPairs();
 }
@@ -643,6 +651,7 @@ export async function getReverseSwapPairs(): Promise<any> {
  * Get chain swap pairs with fee information
  */
 export async function getChainSwapPairs(): Promise<any> {
+	await ensureBoltzConnection();
 	const manager = getWalletManager();
 	return await manager.boltzClient.getChainSwapPairs();
 }
@@ -756,6 +765,7 @@ export const walletManager = {
 	initialize: initializeWallet,
 	disconnect: disconnectWallet,
 	cleanup: disconnectWallet,
+	ensureBoltzConnection,
 	setActiveTab,
 	loadAssets,
 	loadTransactions,
@@ -773,12 +783,15 @@ export const walletManager = {
 	getReverseSwapPairs,
 	getChainSwapPairs,
 	get submarineSwapService() {
+		ensureBoltzConnection().catch(() => {});
 		return getWalletManager().submarineSwapService;
 	},
 	get reverseSwapService() {
+		ensureBoltzConnection().catch(() => {});
 		return getWalletManager().reverseSwapService;
 	},
 	get chainSwapService() {
+		ensureBoltzConnection().catch(() => {});
 		return getWalletManager().chainSwapService;
 	}
 };
