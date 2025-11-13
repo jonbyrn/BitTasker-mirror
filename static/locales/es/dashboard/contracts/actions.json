@@ -51,7 +51,12 @@
 		"dispute_already_raised": "Ya se ha iniciado una disputa para este contrato.",
 		"dispute_raising_pending": "La disputa ya se está iniciando. Por favor, espere a que se confirme la transacción.",
 		"contract_already_cancelled": "Este contrato ya ha sido cancelado.",
-		"contract_cancellation_pending": "La cancelación del contrato ya está en progreso. Por favor, espere a que se confirme la transacción."
+		"contract_cancellation_pending": "La cancelación del contrato ya está en progreso. Por favor, espere a que se confirme la transacción.",
+		"cancel_contract_confirm_title": "Cancelar Contrato",
+		"cancel_contract_confirm_message": "¿Está seguro de que desea cancelar este contrato? Esto cancelará el depósito en garantía y reembolsará todos los fondos. Advertencia: Esta acción no se puede deshacer.",
+		"cancel_time_restriction": "Este contrato no se puede cancelar en este momento.",
+		"cancel_time_restriction_too_close": "Este contrato no se puede cancelar porque faltan menos de 24 horas para la hora de inicio estimada y el período de gracia ha expirado.",
+		"cancel_time_restriction_grace_period_expired": "Este contrato no se puede cancelar porque faltan menos de 24 horas para la hora de inicio estimada y ha pasado más de 1 hora desde la creación del contrato."
 			}
 		}
 	}

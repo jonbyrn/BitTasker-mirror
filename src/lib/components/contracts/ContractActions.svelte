@@ -47,10 +47,12 @@
 		onShowDeleteConfirm = () => {},
 		onShowAcceptConfirm = () => {},
 		onShowDisputeConfirm = () => {},
+		onShowCancelConfirm = () => {},
 		onShowCompletionModal = () => {},
 		onSetAcceptTaskHandler,
 		onSetDisputeTaskHandler,
 		onSetDeleteContractHandler,
+		onSetCancelEscrowHandler,
 		onSetCompleteTaskHandler,
 		useExternalModals = false
 	} = $props<{
@@ -62,10 +64,12 @@
 		onShowDeleteConfirm?: () => void;
 		onShowAcceptConfirm?: () => void;
 		onShowDisputeConfirm?: () => void;
+		onShowCancelConfirm?: () => void;
 		onShowCompletionModal?: () => void;
 		onSetAcceptTaskHandler?: (handler: () => Promise<void>) => void;
 		onSetDisputeTaskHandler?: (handler: () => Promise<void>) => void;
 		onSetDeleteContractHandler?: (handler: () => Promise<void>) => void;
+		onSetCancelEscrowHandler?: (handler: () => Promise<void>) => void;
 		onSetCompleteTaskHandler?: (handler: (attachments: Attachment[]) => Promise<void>) => void;
 		useExternalModals?: boolean;
 	}>();
@@ -79,6 +83,7 @@
 	let showDeleteConfirm = $state(false);
 	let showAcceptConfirm = $state(false);
 	let showDisputeConfirm = $state(false);
+	let showCancelConfirm = $state(false);
 	
 	// Determine if we should use internal modals (when external modals not explicitly requested)
 	// useExternalModals is only set to true in ContractDrawer, ContractCard doesn't pass it (defaults to false)
@@ -115,6 +120,38 @@
 	// Helper to set loading state
 	function setLoading(action: string, loading: boolean) {
 		isLoading = { ...isLoading, [action]: loading };
+	}
+	
+	// Check if cancel is allowed based on time restrictions
+	function canCancelBasedOnTime(): { allowed: boolean; reason?: string } {
+		const now = Date.now();
+		const estimatedStartTime = contract.contract.estimatedStartTime;
+		const createdAt = contract.contract.createdAt;
+		
+		// Convert timestamps to milliseconds if they're in seconds
+		const startTime = estimatedStartTime > 1000000000000 ? estimatedStartTime : estimatedStartTime * 1000;
+		const createdTime = createdAt > 1000000000000 ? createdAt : createdAt * 1000;
+		
+		const hoursUntilStart = (startTime - now) / (1000 * 60 * 60);
+		const hoursSinceCreation = (now - createdTime) / (1000 * 60 * 60);
+		
+		// Can cancel if more than 24 hours before estimated start time
+		if (hoursUntilStart > 24) {
+			return { allowed: true };
+		}
+		
+		// Can cancel if less than 24 hours before start AND less than 1 hour since creation (grace period)
+		if (hoursUntilStart <= 24 && hoursSinceCreation <= 1) {
+			return { allowed: true };
+		}
+		
+		// Cannot cancel otherwise
+		return { 
+			allowed: false, 
+			reason: hoursUntilStart <= 24 
+				? $t('dashboard.contracts.actions.cancel_time_restriction_grace_period_expired')
+				: $t('dashboard.contracts.actions.cancel_time_restriction_too_close')
+		};
 	}
 	
 	// Check blockchain completion status with caching
@@ -420,6 +457,24 @@
 		}
 	}
 
+	// Show cancel confirmation
+	function showCancelConfirmation() {
+		if (!contract.canCancel || isCancelDisabled) return;
+		
+		// Check time-based restrictions
+		const timeCheck = canCancelBasedOnTime();
+		if (!timeCheck.allowed) {
+			appStore.showErrorToast(timeCheck.reason || $t('dashboard.contracts.actions.cancel_time_restriction'));
+			return;
+		}
+		
+		if (useInternalModals) {
+			showCancelConfirm = true;
+		} else {
+			onShowCancelConfirm();
+		}
+	}
+
 	// Dispute task (client only) - called from parent modal
 	export async function disputeTask() {
 		if (!contract.canDispute || !isMounted) return;
@@ -589,7 +644,7 @@
 	}
 
 	// Cancel escrow
-	async function cancelEscrow() {
+	export async function cancelEscrow() {
 		if (!contract.canCancel || !isMounted) return;
 
 		// Atomic check-and-set: prevents race conditions
@@ -758,6 +813,7 @@
 		onSetAcceptTaskHandler?.(acceptTask);
 		onSetDisputeTaskHandler?.(disputeTask);
 		onSetDeleteContractHandler?.(deleteContract);
+		onSetCancelEscrowHandler?.(cancelEscrow);
 		onSetCompleteTaskHandler?.(completeTaskWithAttachments);
 	});
 
@@ -883,20 +939,26 @@
 		!isMounted ||
 		isLoading.accept ||
 		isLoading.dispute || // Disable if dispute is loading
+		isLoading.cancel || // Disable if cancel is loading
 		(acceptAttempt?.status === 'pending') ||
 		(acceptAttempt?.status === 'confirmed') ||
 		(disputeAttempt?.status === 'pending') ||
-		(disputeAttempt?.status === 'confirmed')
+		(disputeAttempt?.status === 'confirmed') ||
+		(cancelAttempt?.status === 'pending') || // Disable if cancel is pending
+		(cancelAttempt?.status === 'confirmed') // Disable if cancel is confirmed
 	);
 	
 	const isDisputeDisabled = $derived(
 		!isMounted ||
 		isLoading.accept || // Disable if accept is loading
 		isLoading.dispute ||
+		isLoading.cancel || // Disable if cancel is loading
 		(acceptAttempt?.status === 'pending') ||
 		(acceptAttempt?.status === 'confirmed') ||
 		(disputeAttempt?.status === 'pending') ||
-		(disputeAttempt?.status === 'confirmed')
+		(disputeAttempt?.status === 'confirmed') ||
+		(cancelAttempt?.status === 'pending') || // Disable if cancel is pending
+		(cancelAttempt?.status === 'confirmed') // Disable if cancel is confirmed
 	);
 	
 	// Derived state for cancel button disabled logic
@@ -904,10 +966,16 @@
 		!isMounted ||
 		isLoading.cancel ||
 		isLoading.complete || // Disable if complete is loading
+		isLoading.accept || // Disable if accept is loading
+		isLoading.dispute || // Disable if dispute is loading
 		(cancelAttempt?.status === 'pending') ||
 		(cancelAttempt?.status === 'confirmed') ||
 		(completionAttempt?.status === 'pending') || // Disable if complete is pending
 		(completionAttempt?.status === 'confirmed') || // Disable if complete is confirmed
+		(acceptAttempt?.status === 'pending') || // Disable if accept is pending
+		(acceptAttempt?.status === 'confirmed') || // Disable if accept is confirmed
+		(disputeAttempt?.status === 'pending') || // Disable if dispute is pending
+		(disputeAttempt?.status === 'confirmed') || // Disable if dispute is confirmed
 		(blockchainCompletionStatus === EscrowStatus.Cancelled) ||
 		(blockchainCompletionStatus === EscrowStatus.Completed) // Disable if completed
 	);
@@ -1267,7 +1335,7 @@
 	{#if contract.canCancel}
 		<button
 			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
-			onclick={cancelEscrow}
+			onclick={showCancelConfirmation}
 			disabled={isCancelDisabled}
 		>
 			{#if isLoading.cancel || cancelAttempt?.status === 'pending'}
@@ -1433,6 +1501,21 @@
 			showDisputeConfirm = false;
 		}}
 		onCancel={() => (showDisputeConfirm = false)}
+	/>
+
+	<!-- Cancel Contract Confirmation Modal -->
+	<ConfirmModal
+		isOpen={showCancelConfirm}
+		title={$t('dashboard.contracts.actions.cancel_contract_confirm_title')}
+		message={$t('dashboard.contracts.actions.cancel_contract_confirm_message')}
+		confirmText={$t('dashboard.contracts.actions.cancel_contract')}
+		cancelText={$t('dashboard.contracts.actions.cancel')}
+		confirmButtonClass="btn-error"
+		onConfirm={async () => {
+			await cancelEscrow();
+			showCancelConfirm = false;
+		}}
+		onCancel={() => (showCancelConfirm = false)}
 	/>
 {/if}
 

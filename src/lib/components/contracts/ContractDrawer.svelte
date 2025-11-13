@@ -44,12 +44,14 @@
 	let showDeleteConfirm = $state(false);
 	let showAcceptConfirm = $state(false);
 	let showDisputeConfirm = $state(false);
+	let showCancelConfirm = $state(false);
 	let showCompletionModal = $state(false);
 
 	// Action handlers (set by ContractActions)
 	let acceptTaskHandler: (() => Promise<void>) | null = $state(null);
 	let disputeTaskHandler: (() => Promise<void>) | null = $state(null);
 	let deleteContractHandler: (() => Promise<void>) | null = $state(null);
+	let cancelEscrowHandler: (() => Promise<void>) | null = $state(null);
 	let completeTaskWithAttachmentsHandler: ((attachments: Attachment[]) => Promise<void>) | null = $state(null);
 
 	// Taskee profile state
@@ -571,10 +573,12 @@
 						onShowDeleteConfirm={() => (showDeleteConfirm = true)}
 						onShowAcceptConfirm={() => (showAcceptConfirm = true)}
 						onShowDisputeConfirm={() => (showDisputeConfirm = true)}
+						onShowCancelConfirm={() => (showCancelConfirm = true)}
 						onShowCompletionModal={() => (showCompletionModal = true)}
 						onSetAcceptTaskHandler={(handler) => (acceptTaskHandler = handler)}
 						onSetDisputeTaskHandler={(handler) => (disputeTaskHandler = handler)}
 						onSetDeleteContractHandler={(handler) => (deleteContractHandler = handler)}
+						onSetCancelEscrowHandler={(handler) => (cancelEscrowHandler = handler)}
 						onSetCompleteTaskHandler={(handler) => (completeTaskWithAttachmentsHandler = handler)}
 						useExternalModals={true}
 					/>
@@ -723,5 +727,22 @@
 			}
 		}}
 		onCancel={() => (showDisputeConfirm = false)}
+	/>
+
+	<!-- Cancel Contract Confirmation Modal -->
+	<ConfirmModal
+		isOpen={showCancelConfirm}
+		title={$t('dashboard.contracts.actions.cancel_contract_confirm_title')}
+		message={$t('dashboard.contracts.actions.cancel_contract_confirm_message')}
+		confirmText={$t('dashboard.contracts.actions.cancel_contract')}
+		cancelText={$t('dashboard.contracts.actions.cancel')}
+		confirmButtonClass="btn-error"
+		onConfirm={async () => {
+			if (cancelEscrowHandler) {
+				await cancelEscrowHandler();
+				showCancelConfirm = false;
+			}
+		}}
+		onCancel={() => (showCancelConfirm = false)}
 	/>
 {/if}

@@ -51,7 +51,12 @@
 		"dispute_already_raised": "A dispute has already been raised for this contract.",
 		"dispute_raising_pending": "Dispute is already being raised. Please wait for the transaction to confirm.",
 		"contract_already_cancelled": "This contract has already been cancelled.",
-		"contract_cancellation_pending": "Contract cancellation is already in progress. Please wait for the transaction to confirm."
+		"contract_cancellation_pending": "Contract cancellation is already in progress. Please wait for the transaction to confirm.",
+		"cancel_contract_confirm_title": "Cancel Contract",
+		"cancel_contract_confirm_message": "Are you sure you want to cancel this contract? This will cancel the escrow and refund all funds. Warning: This action cannot be undone.",
+		"cancel_time_restriction": "This contract cannot be cancelled at this time.",
+		"cancel_time_restriction_too_close": "This contract cannot be cancelled because it is less than 24 hours before the estimated start time and the grace period has expired.",
+		"cancel_time_restriction_grace_period_expired": "This contract cannot be cancelled because it is less than 24 hours before the estimated start time and more than 1 hour has passed since contract creation."
 			}
 		}
 	}
