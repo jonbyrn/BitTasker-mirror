@@ -2,63 +2,26 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
-	import { fetchProfileMetadata, fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 
-	const { contract, btcPrice, onclick, onActionComplete } = $props<{
-		contract: ContractWithEvents;
-		btcPrice: number;
-		onclick?: () => void;
-		onActionComplete?: () => void;
-	}>();
-
-	// User profile state
-	let userProfile = $state<{
+	type UserProfile = {
 		name?: string;
 		picture?: string;
 		createdAt?: string;
 		reviews?: Array<{ id: string; from: string; rating: number; text: string; date: string }>;
 		averageRating?: number;
 		tasksCompleted?: number;
-	} | null>(null);
-	let isLoadingUserProfile = $state(false);
+	};
 
-	// Load user profile
-	$effect(() => {
-		if (contract) {
-			const userPubkey = contract.isClient
-				? contract.contract.freelancerPubkey
-				: contract.contract.clientPubkey;
-			loadUserProfile(userPubkey);
-		}
-	});
+	const { contract, btcPrice, userProfile, onclick, onActionComplete } = $props<{
+		contract: ContractWithEvents;
+		btcPrice: number;
+		userProfile?: UserProfile | null;
+		onclick?: () => void;
+		onActionComplete?: () => void;
+	}>();
 
-	async function loadUserProfile(pubkey: string) {
-		try {
-			isLoadingUserProfile = true;
-			const [basicProfile, comprehensiveProfile] = await Promise.all([
-				fetchProfileMetadata(pubkey),
-				fetchComprehensiveProfile(pubkey).catch(() => null)
-			]);
-
-			const avgRating = comprehensiveProfile?.reviews && comprehensiveProfile.reviews.length > 0
-				? comprehensiveProfile.reviews.reduce((sum, review) => sum + review.rating, 0) / comprehensiveProfile.reviews.length
-				: 0;
-
-			userProfile = {
-				name: basicProfile.name,
-				picture: basicProfile.picture,
-				createdAt: basicProfile.createdAt,
-				reviews: comprehensiveProfile?.reviews || [],
-				averageRating: avgRating,
-				tasksCompleted: comprehensiveProfile?.reviews?.length || 0
-			};
-		} catch (error) {
-			console.error('Failed to load user profile:', error);
-			userProfile = null;
-		} finally {
-			isLoadingUserProfile = false;
-		}
-	}
+	// Profile is now passed as prop, no need to fetch
+	const isLoadingUserProfile = $derived(userProfile === undefined);
 
 	// Format member since date
 	function formatMemberSinceDate(dateString: string | undefined): string {
@@ -252,9 +215,7 @@
 				<!-- Avatar -->
 				<div class="avatar shrink-0">
 					<div class="bg-base-300 flex items-center justify-center rounded-full h-6 w-6">
-						{#if isLoadingUserProfile}
-							<div class="skeleton rounded-full h-6 w-6"></div>
-						{:else if userProfile?.picture}
+						{#if userProfile?.picture}
 							<img
 								src={userProfile.picture}
 								alt="User avatar"

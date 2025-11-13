@@ -8,6 +8,7 @@
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { fetchProfileMetadata, fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 	
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
@@ -34,6 +35,18 @@
 	let isStatusDropdownOpen = $state(false);
 
 	let btcPrice = $state<number>(0);
+	
+	// Profile cache - batched profile fetching
+	type UserProfile = {
+		name?: string;
+		picture?: string;
+		createdAt?: string;
+		reviews?: Array<{ id: string; from: string; rating: number; text: string; date: string }>;
+		averageRating?: number;
+		tasksCompleted?: number;
+	};
+	let profileCache = $state<Map<string, UserProfile>>(new Map());
+	let isLoadingProfiles = $state(false);
 
 	// Status filter options - matching My Tasks style
 	const statusFilterOptions = $derived([
@@ -121,21 +134,26 @@
 
 	onMount(async () => {
 		isMounted = true;
-		await loadContracts();
-		await fetchBtcPrice();
+		await Promise.all([
+			loadContracts(),
+			fetchBtcPrice()
+		]);
+		// Load profiles after contracts are loaded
+		await loadProfilesForContracts();
 	});
 
 	onDestroy(() => {
 		isMounted = false;
 	});
 
-	async function loadContracts() {
+	async function loadContracts(escrowIds?: string[]) {
 		const startTime = Date.now();
 		console.log('[DashboardContractsPanel] loadContracts() called', {
 			timestamp: startTime,
 			currentContractCount: contracts.length,
 			isLoading,
-			isProcessingUpdates
+			isProcessingUpdates,
+			targetedReload: !!escrowIds
 		});
 		try {
 			isLoading = true;
@@ -143,12 +161,48 @@
 			// getUserContracts now returns partial results instead of throwing
 			// This prevents infinite retry loops when some contracts fail to load
 			console.log('[DashboardContractsPanel] Calling getUserContracts()...');
-			contracts = await getUserContracts();
+			const loadedContracts = await getUserContracts(escrowIds ? { escrowIds } : undefined);
+			
+			if (escrowIds && escrowIds.length > 0) {
+				// Targeted reload: update only specific contracts
+				const updatedEscrowIds = new Set(escrowIds);
+				contracts = contracts.map(existing => {
+					const escrowId = existing.contract.escrowId;
+					if (updatedEscrowIds.has(escrowId)) {
+						// Find the updated contract
+						const updated = loadedContracts.find(c => c.contract.escrowId === escrowId);
+						return updated || existing;
+					}
+					return existing;
+				});
+				
+				// Add any new contracts that weren't in the list
+				for (const newContract of loadedContracts) {
+					if (!contracts.some(c => c.contract.escrowId === newContract.contract.escrowId)) {
+						contracts = [...contracts, newContract];
+					}
+				}
+				
+				// Sort by creation time (newest first)
+				contracts = contracts.sort(
+					(a, b) => b.contract.createdAt - a.contract.createdAt
+				);
+			} else {
+				// Full reload: replace all contracts
+				contracts = loadedContracts;
+			}
+			
 			const duration = Date.now() - startTime;
 			console.log('[DashboardContractsPanel] Contracts loaded successfully', {
 				contractCount: contracts.length,
-				duration: `${duration}ms`
+				duration: `${duration}ms`,
+				targetedReload: !!escrowIds
 			});
+			
+			// Load profiles for new/updated contracts
+			if (isMounted) {
+				await loadProfilesForContracts(escrowIds);
+			}
 		} catch (err) {
 			const duration = Date.now() - startTime;
 			// This should rarely happen now since getUserContracts doesn't throw
@@ -173,8 +227,85 @@
 			});
 		}
 	}
+	
+	// Batch load profiles for all contracts
+	async function loadProfilesForContracts(targetEscrowIds?: string[]) {
+		if (!isMounted || isLoadingProfiles) return;
+		
+		try {
+			isLoadingProfiles = true;
+			
+			// Collect unique pubkeys from contracts
+			const pubkeysToLoad = new Set<string>();
+			const contractsToProcess = targetEscrowIds
+				? contracts.filter(c => targetEscrowIds.includes(c.contract.escrowId))
+				: contracts;
+			
+			for (const contract of contractsToProcess) {
+				const userPubkey = contract.isClient
+					? contract.contract.freelancerPubkey
+					: contract.contract.clientPubkey;
+				
+				// Only load if not already cached
+				if (!profileCache.has(userPubkey)) {
+					pubkeysToLoad.add(userPubkey);
+				}
+			}
+			
+			if (pubkeysToLoad.size === 0) {
+				return; // All profiles already cached
+			}
+			
+			console.log('[DashboardContractsPanel] Loading profiles for', pubkeysToLoad.size, 'users');
+			
+			// Batch fetch all profiles in parallel
+			const profilePromises = Array.from(pubkeysToLoad).map(async (pubkey) => {
+				try {
+					const [basicProfile, comprehensiveProfile] = await Promise.all([
+						fetchProfileMetadata(pubkey),
+						fetchComprehensiveProfile(pubkey).catch(() => null)
+					]);
+					
+					const avgRating = comprehensiveProfile?.reviews && comprehensiveProfile.reviews.length > 0
+						? comprehensiveProfile.reviews.reduce((sum, review) => sum + review.rating, 0) / comprehensiveProfile.reviews.length
+						: 0;
+					
+					const profile: UserProfile = {
+						name: basicProfile.name,
+						picture: basicProfile.picture,
+						createdAt: basicProfile.createdAt,
+						reviews: comprehensiveProfile?.reviews || [],
+						averageRating: avgRating,
+						tasksCompleted: comprehensiveProfile?.reviews?.length || 0
+					};
+					
+					return { pubkey, profile };
+				} catch (error) {
+					console.error(`Failed to load profile for ${pubkey}:`, error);
+					return { pubkey, profile: null };
+				}
+			});
+			
+			const results = await Promise.all(profilePromises);
+			
+			// Update cache
+			for (const { pubkey, profile } of results) {
+				if (profile && isMounted) {
+					profileCache.set(pubkey, profile);
+				}
+			}
+			
+			console.log('[DashboardContractsPanel] Profiles loaded:', results.filter(r => r.profile).length);
+		} catch (error) {
+			console.error('[DashboardContractsPanel] Error loading profiles:', error);
+		} finally {
+			if (isMounted) {
+				isLoadingProfiles = false;
+			}
+		}
+	}
 
-	// Process contract updates from the store
+	// Process contract updates from the store (targeted reload)
 	async function processContractUpdates() {
 		if (!isMounted || isLoading || isProcessingUpdates) return;
 		
@@ -186,17 +317,17 @@
 			escrowIds: escrowIds.slice(0, 5) // Log first 5 for debugging
 		});
 		
-			// Get the IDs to process and clear the queue immediately
-			const idsToProcess = [...escrowIds];
-			contractUpdateStore.set([]); // Clear immediately to prevent race conditions
-			
+		// Get the IDs to process and clear the queue immediately
+		const idsToProcess = [...escrowIds];
+		contractUpdateStore.set([]); // Clear immediately to prevent race conditions
+		
 		try {
 			isProcessingUpdates = true;
-			// Load contracts (this will refresh all contracts, including the updated ones)
-			await loadContracts();
-					
-					// Check if any new updates came in while we were loading
-					const remaining = $contractUpdateStore;
+			// Targeted reload: only reload the specific contracts that changed
+			await loadContracts(idsToProcess);
+			
+			// Check if any new updates came in while we were loading
+			const remaining = $contractUpdateStore;
 			if (remaining.length > 0 && isMounted && !isLoading) {
 				console.log('[DashboardContractsPanel] Processing remaining contract updates', {
 					remainingCount: remaining.length
@@ -215,8 +346,8 @@
 		} finally {
 			if (isMounted) {
 				isProcessingUpdates = false;
-					}
-				}
+			}
+		}
 	}
 
 	// Subscribe to contract update store (queue-based approach)
@@ -240,11 +371,25 @@
 		showContractDrawer = false;
 	}
 
-	// Handle contract updates (from drawer)
-	function handleContractUpdate() {
-		// Reload contracts to get latest data
-		loadContracts();
+	// Handle contract updates (from drawer) - targeted reload
+	function handleContractUpdate(updatedEscrowId?: string) {
+		if (updatedEscrowId) {
+			// Targeted reload: only reload the specific contract
+			loadContracts([updatedEscrowId]);
+		} else if (selectedContract) {
+			// Fallback: reload the selected contract
+			loadContracts([selectedContract.contract.escrowId]);
+		} else {
+			// Last resort: full reload
+			loadContracts();
+		}
 		closeContractDrawer();
+	}
+	
+	// Handle action completion from contract cards - targeted reload
+	function handleActionComplete(escrowId: string) {
+		// Optimistically update: reload only the affected contract
+		loadContracts([escrowId]);
 	}
 
 	function selectStatusFilter(statusId: string) {
@@ -293,7 +438,7 @@
 			<!-- Refresh Button -->
 			<button
 				class="btn btn-ghost btn-sm rounded-full"
-				onclick={loadContracts}
+				onclick={() => loadContracts()}
 				disabled={isLoading}
 				aria-label={$t('dashboard.contracts.refresh')}
 			>
@@ -418,7 +563,7 @@
 				<h3 class="font-bold">{$t('dashboard.contracts.error_title')}</h3>
 				<div class="text-xs">{error}</div>
 			</div>
-			<button class="btn btn-sm btn-outline" onclick={loadContracts}>
+			<button class="btn btn-sm btn-outline" onclick={() => loadContracts()}>
 				{$t('dashboard.contracts.retry')}
 			</button>
 		</div>
@@ -457,11 +602,14 @@
 			</div>
 		{:else}
 			{#each filteredContracts() as contract (contract.contract.escrowId)}
+				{@const userPubkey = contract.isClient ? contract.contract.freelancerPubkey : contract.contract.clientPubkey}
+				{@const userProfile = profileCache.get(userPubkey)}
 				<ContractCard
 					{contract}
 					{btcPrice}
+					{userProfile}
 					onclick={() => openContractDrawer(contract)}
-					onActionComplete={loadContracts}
+					onActionComplete={() => handleActionComplete(contract.contract.escrowId)}
 				/>
 			{/each}
 		{/if}
@@ -474,7 +622,7 @@
 	isOpen={showContractDrawer}
 	{btcPrice}
 	onClose={closeContractDrawer}
-	onUpdate={handleContractUpdate}
+	onUpdate={() => handleContractUpdate(selectedContract?.contract.escrowId)}
 />
 
 <svelte:window onclick={handleClickOutside} />
