@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
-	import { onMount, untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { getUserContracts } from '$lib/utils/nostr-bid';
 	import { contractUpdateStore } from '$lib/utils/wallet/escrowEvents';
@@ -174,94 +174,59 @@
 		}
 	}
 
-	// Subscribe to contract update store (queue-based approach)
-	// Use untrack to prevent infinite loops when isLoading/isProcessingUpdates change
-	$effect(() => {
+	// Process contract updates from the store
+	async function processContractUpdates() {
+		if (!isMounted || isLoading || isProcessingUpdates) return;
+		
 		const escrowIds = $contractUpdateStore;
+		if (escrowIds.length === 0) return;
 		
-		// Use untrack to read state variables without triggering re-runs
-		// This prevents infinite loops when loadContracts() updates isLoading
-		const currentIsLoading = untrack(() => isLoading);
-		const currentIsProcessingUpdates = untrack(() => isProcessingUpdates);
-		const currentIsMounted = untrack(() => isMounted);
-		
-		console.log('[DashboardContractsPanel] $effect triggered', {
+		console.log('[DashboardContractsPanel] Processing contract updates', {
 			escrowIdsCount: escrowIds.length,
-			escrowIds: escrowIds.slice(0, 5), // Log first 5 for debugging
-			isLoading: currentIsLoading,
-			isProcessingUpdates: currentIsProcessingUpdates,
-			isMounted: currentIsMounted
+			escrowIds: escrowIds.slice(0, 5) // Log first 5 for debugging
 		});
 		
-		// Only process if:
-		// 1. There are escrowIds to process
-		// 2. We're not already loading contracts
-		// 3. We're not already processing updates
-		// 4. Component is still mounted
-		if (escrowIds.length > 0 && !currentIsLoading && !currentIsProcessingUpdates && currentIsMounted) {
-			console.log('[DashboardContractsPanel] Processing contract updates', {
-				escrowIdsCount: escrowIds.length,
-				escrowIds: escrowIds
-			});
-			// Get the IDs to process and clear the queue immediately
-			const idsToProcess = [...escrowIds];
-			contractUpdateStore.set([]); // Clear immediately to prevent race conditions
-			
-			// Set processing flag
+		// Get the IDs to process and clear the queue immediately
+		const idsToProcess = [...escrowIds];
+		contractUpdateStore.set([]); // Clear immediately to prevent race conditions
+		
+		try {
 			isProcessingUpdates = true;
-			
 			// Load contracts (this will refresh all contracts, including the updated ones)
-			// Wrap in try-catch to prevent unhandled promise rejections
-			loadContracts()
-				.catch((err) => {
-					// Silently handle errors - loadContracts already handles them internally
-					console.error('[DashboardContractsPanel] Error in contract update effect (non-fatal)', {
-						error: err instanceof Error ? err.message : String(err),
-						errorType: err?.constructor?.name,
-						stack: err instanceof Error ? err.stack : undefined,
-						escrowIds: idsToProcess
-					});
-				})
-				.finally(() => {
-					// Use untrack to check state without triggering effects
-					const stillMounted = untrack(() => isMounted);
-					
-					if (stillMounted) {
-						isProcessingUpdates = false;
-						
-						// Check if any new updates came in while we were loading
-						// Use setTimeout to defer this check and prevent immediate re-triggering
-						setTimeout(() => {
-							const remaining = $contractUpdateStore;
-							const stillLoading = untrack(() => isLoading);
-							const stillProcessing = untrack(() => isProcessingUpdates);
-							const stillMountedCheck = untrack(() => isMounted);
-							
-							if (remaining.length > 0 && !stillLoading && !stillProcessing && stillMountedCheck) {
-								console.log('[DashboardContractsPanel] Processing remaining contract updates', {
-									remainingCount: remaining.length
-								});
-								// Process remaining updates (with error handling)
-								contractUpdateStore.set([]);
-								loadContracts().catch((err) => {
-									console.error('[DashboardContractsPanel] Error processing remaining contract updates (non-fatal)', {
-										error: err instanceof Error ? err.message : String(err),
-										errorType: err?.constructor?.name,
-										stack: err instanceof Error ? err.stack : undefined,
-										remainingCount: remaining.length
-									});
-								});
-							}
-						}, 100); // Small delay to prevent immediate re-triggering
-					}
+			await loadContracts();
+			
+			// Check if any new updates came in while we were loading
+			const remaining = $contractUpdateStore;
+			if (remaining.length > 0 && isMounted && !isLoading) {
+				console.log('[DashboardContractsPanel] Processing remaining contract updates', {
+					remainingCount: remaining.length
 				});
-		} else {
-			console.log('[DashboardContractsPanel] Skipping contract update processing', {
-				hasEscrowIds: escrowIds.length > 0,
-				isLoading: currentIsLoading,
-				isProcessingUpdates: currentIsProcessingUpdates,
-				isMounted: currentIsMounted
+				// Recursively process remaining updates
+				await processContractUpdates();
+			}
+		} catch (err) {
+			// Silently handle errors - loadContracts already handles them internally
+			console.error('[DashboardContractsPanel] Error processing contract updates (non-fatal)', {
+				error: err instanceof Error ? err.message : String(err),
+				errorType: err?.constructor?.name,
+				stack: err instanceof Error ? err.stack : undefined,
+				escrowIds: idsToProcess
 			});
+		} finally {
+			if (isMounted) {
+				isProcessingUpdates = false;
+			}
+		}
+	}
+
+	// Subscribe to contract update store (queue-based approach)
+	$effect(() => {
+		if (!isMounted || isLoading || isProcessingUpdates) return;
+		
+		const escrowIds = $contractUpdateStore;
+		if (escrowIds.length > 0) {
+			// Process updates asynchronously - flag changes happen inside async function
+			processContractUpdates();
 		}
 	});
 
