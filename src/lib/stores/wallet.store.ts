@@ -188,18 +188,51 @@ export async function initializeWallet(): Promise<void> {
 			
 			sdkWalletManager = new WalletManager(config);
 			
-		// Patch Boltz WebSocket connection to run in the background (non-blocking)
-		const walletManagerWithSocket = sdkWalletManager as unknown as { connectWebSocket?: () => Promise<void> };
-		const originalConnectWebSocket = walletManagerWithSocket.connectWebSocket?.bind(sdkWalletManager);
-		if (originalConnectWebSocket) {
-			walletManagerWithSocket.connectWebSocket = async () => {
-				originalConnectWebSocket().catch((error: unknown) => {
-					console.warn('⚠️ Failed to connect Boltz WebSocket (non-blocking):', error);
-				});
-			};
-		}
-
-		await sdkWalletManager.initialize();
+			// Initialize wallet manager - make Boltz connection non-blocking
+			// Start initialization but don't wait for slow Boltz WebSocket connections
+			const initPromise = sdkWalletManager.initialize();
+			
+			// Race between initialization and a reasonable timeout
+			// This prevents the Boltz WebSocket connection from blocking everything
+			try {
+				await Promise.race([
+					initPromise,
+					new Promise<void>((resolve, reject) => {
+						// Poll every 500ms to check if core wallets are ready
+						// This allows us to continue as soon as wallets are ready, not wait full 5 seconds
+						let attempts = 0;
+						const maxAttempts = 10; // 10 attempts * 500ms = 5 seconds max
+						const checkInterval = setInterval(() => {
+							attempts++;
+							if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
+								clearInterval(checkInterval);
+								console.warn('Wallet initialization taking longer than expected (likely Boltz connection), but core wallets are ready. Continuing...');
+								resolve();
+							} else if (attempts >= maxAttempts) {
+								clearInterval(checkInterval);
+								// After 5 seconds, if wallets still not ready, wait a bit more or reject
+								// Give it one more second as final chance
+								setTimeout(() => {
+									if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
+										resolve();
+									} else {
+										reject(new Error('Wallet initialization timeout - core wallets not ready'));
+									}
+								}, 1000);
+							}
+						}, 500);
+					})
+				]);
+			} catch (error) {
+				// If initialization fails, check if core wallets are ready anyway
+				// The Boltz connection can fail without blocking core functionality
+				if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
+					console.warn('Wallet initialization had issues (likely Boltz connection), but core wallets are ready:', error);
+					// Continue - core wallets are ready
+				} else {
+					throw error; // Core wallets not ready, throw error
+				}
+			}
 			
 			// Update store with wallet info
 			const rskWallet = sdkWalletManager.rskWallet;
