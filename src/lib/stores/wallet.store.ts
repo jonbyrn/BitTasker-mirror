@@ -101,10 +101,6 @@ export const walletStore = writable(initialState);
 // SDK wallet manager instance
 let sdkWalletManager: WalletManager | null = null;
 
-// Track initialization state to prevent concurrent initializations
-let isInitializing = false;
-let initializationPromise: Promise<void> | null = null;
-
 // Event listeners cleanup
 const eventListeners: (() => void)[] = [];
 
@@ -145,157 +141,93 @@ export function getEventListeners(): (() => void)[] {
  * Initialize wallet using SDK
  */
 export async function initializeWallet(): Promise<void> {
-	// If already initialized, return immediately
-	if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
-		return;
-	}
-	
-	// If initialization is in progress, wait for it
-	if (isInitializing && initializationPromise) {
-		return initializationPromise;
-	}
-	
-	// Start new initialization
-	isInitializing = true;
-	initializationPromise = (async () => {
-		try {
-			walletStore.update(s => ({ ...s, isInitializing: true, isConnecting: true, error: null }));
-			
-			// Get mnemonic
-			const mnemonic = await getMnemonic();
-			
-			// Get Nostr keys for swap storage
-			const { nsec } = await getNostrKeyPair();
-			
-			// Get network from environment
-			const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
-			
-			// Create Nostr storage adapter for reverse swaps
-			const reverseSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-reverse');
-			const chainSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-chain');
-			const submarineSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-submarine');
-			
-			// Initialize wallet manager
-			const config: WalletManagerConfig = {
-				network,
-				mnemonic,
-				swapStorages: {
-					reverse: reverseSwapStorage,
-					chain: chainSwapStorage,
-					submarine: submarineSwapStorage
-				}
-			};
-			
-			sdkWalletManager = new WalletManager(config);
-			
-			// Initialize wallet manager - make Boltz connection non-blocking
-			// Start initialization but don't wait for slow Boltz WebSocket connections
-			const initPromise = sdkWalletManager.initialize();
-			
-			// Race between initialization and a reasonable timeout
-			// This prevents the Boltz WebSocket connection from blocking everything
-			try {
-				await Promise.race([
-					initPromise,
-					new Promise<void>((resolve, reject) => {
-						// Poll every 500ms to check if core wallets are ready
-						// This allows us to continue as soon as wallets are ready, not wait full 5 seconds
-						let attempts = 0;
-						const maxAttempts = 10; // 10 attempts * 500ms = 5 seconds max
-						const checkInterval = setInterval(() => {
-							attempts++;
-							if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
-								clearInterval(checkInterval);
-								console.warn('Wallet initialization taking longer than expected (likely Boltz connection), but core wallets are ready. Continuing...');
-								resolve();
-							} else if (attempts >= maxAttempts) {
-								clearInterval(checkInterval);
-								// After 5 seconds, if wallets still not ready, wait a bit more or reject
-								// Give it one more second as final chance
-								setTimeout(() => {
-									if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
-										resolve();
-									} else {
-										reject(new Error('Wallet initialization timeout - core wallets not ready'));
-									}
-								}, 1000);
-							}
-						}, 500);
-					})
-				]);
-			} catch (error) {
-				// If initialization fails, check if core wallets are ready anyway
-				// The Boltz connection can fail without blocking core functionality
-				if (sdkWalletManager?.rskWallet && sdkWalletManager?.bscWallet) {
-					console.warn('Wallet initialization had issues (likely Boltz connection), but core wallets are ready:', error);
-					// Continue - core wallets are ready
-				} else {
-					throw error; // Core wallets not ready, throw error
-				}
-			}
-			
-			// Update store with wallet info
-			const rskWallet = sdkWalletManager.rskWallet;
-			const bscWallet = sdkWalletManager.bscWallet;
-			
-			if (rskWallet && bscWallet) {
-				const rskBalanceData = await rskWallet.getBalance();
-				const bscBalances = await bscWallet.getBalances();
-				
-				walletStore.update(s => ({
-					...s,
-					isConnected: true,
-					isConnecting: false,
-					isInitializing: false,
-					hasAnyConnection: true,
-					rsk: {
-						...s.rsk,
-						connected: true,
-						connecting: false,
-						address: rskWallet.getAddress(),
-						balance: rskBalanceData.balance.toString(),
-						formattedBalance: rskBalanceData.formatted,
-						wallet: rskWallet.getWallet() as any,
-						provider: rskWallet.getProvider() as any
-					},
-					bsc: {
-						...s.bsc,
-						connected: true,
-						connecting: false,
-						address: bscWallet.getAddress(),
-						bnbBalance: bscBalances.bnb.balance.toString(),
-						usdtBalance: bscBalances.usdt.balance.toString(),
-						formattedBnbBalance: bscBalances.bnb.formatted,
-						formattedUsdtBalance: bscBalances.usdt.formatted,
-						wallet: bscWallet.getWallet() as any,
-						provider: bscWallet.getProvider() as any
-					}
-				}));
-				
-				// Load additional data
-				await Promise.allSettled([
-					loadAssets(),
-					loadTransactions(),
-					loadRbtcExchangeRate()
-				]);
-			}
+	try {
+		walletStore.update(s => ({ ...s, isInitializing: true, isConnecting: true, error: null }));
 		
-		} catch (error) {
-			console.error('Failed to initialize wallet:', error);
+		// Get mnemonic
+		const mnemonic = await getMnemonic();
+		
+		// Get Nostr keys for swap storage
+		const { nsec } = await getNostrKeyPair();
+		
+		// Get network from environment
+		const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
+		
+		// Create Nostr storage adapter for reverse swaps
+		const reverseSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-reverse');
+		const chainSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-chain');
+		const submarineSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-submarine');
+		
+		// Initialize wallet manager
+		const config: WalletManagerConfig = {
+			network,
+			mnemonic,
+			swapStorages: {
+				reverse: reverseSwapStorage,
+				chain: chainSwapStorage,
+				submarine: submarineSwapStorage
+			}
+		};
+		
+		sdkWalletManager = new WalletManager(config);
+		await sdkWalletManager.initialize();
+		
+		// Update store with wallet info
+		const rskWallet = sdkWalletManager.rskWallet;
+		const bscWallet = sdkWalletManager.bscWallet;
+		
+		if (rskWallet && bscWallet) {
+			const rskBalanceData = await rskWallet.getBalance();
+			const bscBalances = await bscWallet.getBalances();
+			
 			walletStore.update(s => ({
 				...s,
-				isInitializing: false,
+				isConnected: true,
 				isConnecting: false,
-				error: error instanceof Error ? error.message : 'Failed to initialize wallet'
+				isInitializing: false,
+				hasAnyConnection: true,
+				rsk: {
+					...s.rsk,
+					connected: true,
+					connecting: false,
+					address: rskWallet.getAddress(),
+					balance: rskBalanceData.balance.toString(),
+					formattedBalance: rskBalanceData.formatted,
+					wallet: rskWallet.getWallet() as any,
+					provider: rskWallet.getProvider() as any
+				},
+				bsc: {
+					...s.bsc,
+					connected: true,
+					connecting: false,
+					address: bscWallet.getAddress(),
+					bnbBalance: bscBalances.bnb.balance.toString(),
+					usdtBalance: bscBalances.usdt.balance.toString(),
+					formattedBnbBalance: bscBalances.bnb.formatted,
+					formattedUsdtBalance: bscBalances.usdt.formatted,
+					wallet: bscWallet.getWallet() as any,
+					provider: bscWallet.getProvider() as any
+				}
 			}));
-			throw error;
-		} finally {
-			isInitializing = false;
-			initializationPromise = null;
+			
+			// Load additional data
+			await Promise.allSettled([
+				loadAssets(),
+				loadTransactions(),
+				loadRbtcExchangeRate()
+			]);
 		}
-	})();
-	
-	return initializationPromise;
+		
+	} catch (error) {
+		console.error('Failed to initialize wallet:', error);
+		walletStore.update(s => ({
+			...s,
+			isInitializing: false,
+			isConnecting: false,
+			error: error instanceof Error ? error.message : 'Failed to initialize wallet'
+		}));
+		throw error;
+	}
 }
 
 /**

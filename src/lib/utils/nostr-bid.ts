@@ -2,7 +2,7 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import type { BidMessage, NostrBid, NostrBidStatus } from '$lib/types/bid';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
-import { sendDirectMessage } from './nostr-message';
+import { sendDirectMessage, getMessageHistory, getMessagedPeople } from './nostr-message';
 import type {
 	NostrContract,
 	NostrContractStatus,
@@ -212,32 +212,29 @@ async function getBidStatusMessages(taskId?: string): Promise<{ [bidId: string]:
 	console.log(`[getBidStatusMessages] 🔍 Starting for taskId: ${taskId || 'all'} at ${new Date().toISOString()}`);
 	
 	try {
-		// Get all people you've exchanged messages with using optimized version
-		console.log(`[getBidStatusMessages] 📞 Calling getMessagedPeopleOptimized() at ${new Date().toISOString()}`);
-		const { getMessagedPeopleOptimized } = await import('./nostr-message');
-		const messagedPeople = await getMessagedPeopleOptimized();
-		console.log(`[getBidStatusMessages] ✅ getMessagedPeopleOptimized completed, got ${messagedPeople.length} people at ${new Date().toISOString()}`);
+		// Get all people you've exchanged messages with
+		console.log(`[getBidStatusMessages] 📞 Calling getMessagedPeople() at ${new Date().toISOString()}`);
+		const messagedPeople = await getMessagedPeople();
+		console.log(`[getBidStatusMessages] ✅ getMessagedPeople completed, got ${messagedPeople.length} people at ${new Date().toISOString()}`);
 		
 		const bidStatuses: { [bidId: string]: NostrBidStatus } = {};
 
-		// Fetch message histories for all conversations in parallel using optimized version
-		// The optimized version uses a worker for network I/O and batches auth, preventing multiple prompts
-		const { getMessageHistoryOptimized } = await import('./nostr-message');
-		console.log(`[getBidStatusMessages] 📞 Starting ${messagedPeople.length} parallel getMessageHistoryOptimized() calls at ${new Date().toISOString()}`);
+		// Fetch message histories for all conversations in parallel
+		console.log(`[getBidStatusMessages] 📞 Starting ${messagedPeople.length} parallel getMessageHistory() calls at ${new Date().toISOString()}`);
 		const messageHistoryPromises = messagedPeople.map(async (person, index) => {
 			try {
-				console.log(`[getBidStatusMessages] 📞 getMessageHistoryOptimized(${person.pubkey.substring(0, 8)}...) call #${index + 1} at ${new Date().toISOString()}`);
-				const result = await getMessageHistoryOptimized(person.pubkey, { limit: 100 });
-				console.log(`[getBidStatusMessages] ✅ getMessageHistoryOptimized(${person.pubkey.substring(0, 8)}...) completed, got ${result.length} messages at ${new Date().toISOString()}`);
+				console.log(`[getBidStatusMessages] 📞 getMessageHistory(${person.pubkey.substring(0, 8)}...) call #${index + 1} at ${new Date().toISOString()}`);
+				const result = await getMessageHistory(person.pubkey, { limit: 100 });
+				console.log(`[getBidStatusMessages] ✅ getMessageHistory(${person.pubkey.substring(0, 8)}...) completed, got ${result.length} messages at ${new Date().toISOString()}`);
 				return result;
 			} catch (err) {
-				console.error(`[getBidStatusMessages] ❌ getMessageHistoryOptimized(${person.pubkey.substring(0, 8)}...) failed:`, err);
+				console.error(`[getBidStatusMessages] ❌ getMessageHistory(${person.pubkey.substring(0, 8)}...) failed:`, err);
 				return [];
 			}
 		});
 
 		const messageHistories = await Promise.all(messageHistoryPromises);
-		console.log(`[getBidStatusMessages] ✅ All ${messageHistoryPromises.length} getMessageHistoryOptimized() calls completed at ${new Date().toISOString()}`);
+		console.log(`[getBidStatusMessages] ✅ All ${messageHistoryPromises.length} getMessageHistory() calls completed at ${new Date().toISOString()}`);
 
 		// Process all message histories to extract bid status messages
 		for (let i = 0; i < messagedPeople.length; i++) {
@@ -392,18 +389,16 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 		
 		const bids: BidMessage[] = [];
 
-		// Fetch message histories for all conversations in parallel using optimized version
-		// The optimized version uses a worker for network I/O and batches auth, preventing multiple prompts
-		const { getMessageHistoryOptimized } = await import('./nostr-message');
-		console.log(`[getBidsFromDMs] 📞 Starting ${messagedPeople.length} parallel getMessageHistoryOptimized() calls at ${new Date().toISOString()}`);
+		// Fetch message histories for all conversations in parallel
+		console.log(`[getBidsFromDMs] 📞 Starting ${messagedPeople.length} parallel getMessageHistory() calls at ${new Date().toISOString()}`);
 		const messageHistoryPromises = messagedPeople.map(async (person, index) => {
 			try {
-				console.log(`[getBidsFromDMs] 📞 getMessageHistoryOptimized(${person.pubkey.substring(0, 8)}...) call #${index + 1} at ${new Date().toISOString()}`);
-				const result = await getMessageHistoryOptimized(person.pubkey, { limit: 100 });
-				console.log(`[getBidsFromDMs] ✅ getMessageHistoryOptimized(${person.pubkey.substring(0, 8)}...) completed, got ${result.length} messages at ${new Date().toISOString()}`);
+				console.log(`[getBidsFromDMs] 📞 getMessageHistory(${person.pubkey.substring(0, 8)}...) call #${index + 1} at ${new Date().toISOString()}`);
+				const result = await getMessageHistory(person.pubkey, { limit: 100 });
+				console.log(`[getBidsFromDMs] ✅ getMessageHistory(${person.pubkey.substring(0, 8)}...) completed, got ${result.length} messages at ${new Date().toISOString()}`);
 				return result;
 			} catch (err) {
-				console.error(`[getBidsFromDMs] ❌ getMessageHistoryOptimized(${person.pubkey.substring(0, 8)}...) failed:`, err);
+				console.error(`[getBidsFromDMs] ❌ getMessageHistory(${person.pubkey.substring(0, 8)}...) failed:`, err);
 				// Return empty array for failed conversations
 				return [];
 			}
@@ -411,7 +406,7 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 
 		// Wait for all message histories to be fetched in parallel
 		const messageHistories = await Promise.all(messageHistoryPromises);
-		console.log(`[getBidsFromDMs] ✅ All ${messageHistoryPromises.length} getMessageHistoryOptimized() calls completed at ${new Date().toISOString()}`);
+		console.log(`[getBidsFromDMs] ✅ All ${messageHistoryPromises.length} getMessageHistory() calls completed at ${new Date().toISOString()}`);
 
 		// Process all message histories to extract bids
 		for (let i = 0; i < messagedPeople.length; i++) {
@@ -501,12 +496,10 @@ export async function getMyBids(): Promise<BidMessage[]> {
 		const messagedPeople = await getMessagedPeopleOptimized();
 		const bids: BidMessage[] = [];
 
-		// Fetch message histories for all conversations in parallel using optimized version
-		// The optimized version uses a worker for network I/O and batches auth, preventing multiple prompts
-		const { getMessageHistoryOptimized } = await import('./nostr-message');
+		// Fetch message histories for all conversations in parallel
 		const messageHistoryPromises = messagedPeople.map(async (person) => {
 			try {
-				return await getMessageHistoryOptimized(person.pubkey, { limit: 100 });
+				return await getMessageHistory(person.pubkey, { limit: 100 });
 			} catch (err) {
 				// Skip this conversation if there's an error
 				console.warn('Failed to get message history for pubkey:', person.pubkey, err);

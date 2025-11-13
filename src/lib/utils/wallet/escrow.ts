@@ -28,16 +28,9 @@ export async function ensureEscrowReady(): Promise<{
     // Check and initialize wallet if needed
     let wallet = getRSKWallet();
     if (!wallet) {
-        const { walletManager, getWalletManager } = await import('$lib/stores/wallet.store');
-        // Check if wallet is already initialized (avoid re-initialization)
-        try {
-            getWalletManager();
-            wallet = getRSKWallet();
-        } catch {
-            // Wallet not initialized, initialize it (but make Boltz connection non-blocking)
-            await walletManager.initialize();
-            wallet = getRSKWallet();
-        }
+        const { walletManager } = await import('$lib/stores/wallet.store');
+        await walletManager.initialize();
+        wallet = getRSKWallet();
         if (!wallet) {
             throw new Error('Failed to initialize wallet');
         }
@@ -46,16 +39,9 @@ export async function ensureEscrowReady(): Promise<{
     // Check and get provider if needed
     let provider = getRSKProvider();
     if (!provider) {
-        const { walletManager, getWalletManager } = await import('$lib/stores/wallet.store');
-        // Check if wallet is already initialized (avoid re-initialization)
-        try {
-            getWalletManager();
-            provider = getRSKProvider();
-        } catch {
-            // Wallet not initialized, initialize it (but make Boltz connection non-blocking)
-            await walletManager.initialize();
-            provider = getRSKProvider();
-        }
+        const { walletManager } = await import('$lib/stores/wallet.store');
+        await walletManager.initialize();
+        provider = getRSKProvider();
         if (!provider) {
             throw new Error('Failed to get provider');
         }
