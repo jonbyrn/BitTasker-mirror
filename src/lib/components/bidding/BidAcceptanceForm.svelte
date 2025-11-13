@@ -22,7 +22,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
-	import { untrack, onMount } from 'svelte';
+	import { untrack } from 'svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	// Props
 	const props = $props<{
@@ -75,83 +75,28 @@
 		};
 	});
 
-	let isValidating = $state(false);
-	let lastValidatedKey = $state<string>('');
-
-	// Function to validate and check balance
-	function validateAndCheckBalance(details: any) {
-		if (isSubmitting || isValidating) return;
-		
-		// Create a stable key from the details to prevent duplicate validation
-		const detailsKey = details 
-			? `${details.baseAmount}-${details.freelancerAddress}-${details.estimatedStartTime}`
-			: '';
-		
-		// Skip if we already validated this exact details
-		if (lastValidatedKey === detailsKey) return;
-		
-		isValidating = true;
-		
-		try {
-			if (details) {
-				const validationResult = validateEscrowDetails(details);
-				validationErrors = validationResult.errors;
-				validationWarnings = validationResult.warnings;
-				
-				// After validation, check balance if needed
-				if (validationResult.errors.length === 0) {
-					// Use untrack to read wallet store without creating reactive dependency
-					const connected = untrack(() => $walletStore.rsk.connected);
-					if (connected) {
-						// Use untrack to prevent validateSufficientBalance from creating reactive dependencies
-						balanceErrors = untrack(() => validateSufficientBalance(details));
-					} else {
-						balanceErrors = [];
-					}
-				} else {
-					balanceErrors = [];
-				}
-				lastValidatedKey = detailsKey;
-			} else {
-				validationErrors = [];
-				validationWarnings = [];
-				balanceErrors = [];
-				lastValidatedKey = '';
-			}
-		} finally {
-			isValidating = false;
-		}
-	}
-
-	// Validate when bidEscrowDetails changes
-	// Use a single effect that only tracks bidEscrowDetails
 	$effect(() => {
-		// Track bidEscrowDetails - this is the only reactive dependency
-		const details = bidEscrowDetails;
-		// Call validation function - it uses untrack internally for wallet store reads
-		validateAndCheckBalance(details);
+		if (bidEscrowDetails) {
+			const validationResult = validateEscrowDetails(bidEscrowDetails);
+			validationErrors = validationResult.errors;
+			validationWarnings = validationResult.warnings;
+		}
+	});
+
+	// Separate effect for balance validation
+	$effect(() => {
+		// Only check balance if wallet is connected and basic validation passes
+		if (bidEscrowDetails && $walletStore.rsk.connected && validationErrors.length === 0) {
+			balanceErrors = validateSufficientBalance(bidEscrowDetails);
+		} else {
+			balanceErrors = [];
+		}
 	});
 
 	// Auto-initialize Rootstock wallet if not connected
 	// Use effect with untrack to prevent reactive loops while still checking when component is active
-	// Track only props to ensure it runs when component is rendered, not when wallet store updates
 	$effect(() => {
-		// Access props to ensure effect runs when component is rendered
-		props.bid;
-		props.task;
-		
-		// Read wallet state without tracking it to prevent infinite loops
-		const walletState = untrack(() => get(walletStore));
-		
-		// Only attempt initialization once, and only if wallet is not connected/connecting
-		if (
-			!walletInitAttempted &&
-			!walletState.rsk.connected &&
-			!walletState.rsk.connecting &&
-			!walletState.rsk.error
-		) {
-			walletInitAttempted = true;
-			// Initialize wallet without tracking the promise
+		if (!$walletStore.rsk.connected && !$walletStore.rsk.connecting && !$walletStore.rsk.error) {
 			walletManager.initialize().catch((error) => {
 				console.error('Auto-initialization of Rootstock wallet failed:', error);
 				// Reset flag on error so user can retry manually
