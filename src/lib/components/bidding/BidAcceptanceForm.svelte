@@ -75,19 +75,37 @@
 		};
 	});
 
+	let isValidating = $state(false);
+	let isCheckingBalance = $state(false);
+
 	$effect(() => {
-		if (bidEscrowDetails) {
+		if (bidEscrowDetails && !isValidating) {
+			isValidating = true;
 			const validationResult = validateEscrowDetails(bidEscrowDetails);
 			validationErrors = validationResult.errors;
 			validationWarnings = validationResult.warnings;
+			isValidating = false;
 		}
 	});
 
 	// Separate effect for balance validation
+	// Track only connection state and validation errors, not entire wallet store
+	// This prevents infinite loops when wallet store updates (e.g., balance polling)
+	const walletConnected = $derived($walletStore.rsk.connected);
+	
 	$effect(() => {
+		// Prevent re-running during submission or if already checking
+		if (isSubmitting || isCheckingBalance || isValidating) {
+			return;
+		}
+
 		// Only check balance if wallet is connected and basic validation passes
-		if (bidEscrowDetails && $walletStore.rsk.connected && validationErrors.length === 0) {
-			balanceErrors = validateSufficientBalance(bidEscrowDetails);
+		if (bidEscrowDetails && walletConnected && validationErrors.length === 0) {
+			isCheckingBalance = true;
+			// Use untrack to prevent validateSufficientBalance from creating reactive dependencies
+			// This prevents the effect from re-running when wallet store updates
+			balanceErrors = untrack(() => validateSufficientBalance(bidEscrowDetails));
+			isCheckingBalance = false;
 		} else {
 			balanceErrors = [];
 		}
