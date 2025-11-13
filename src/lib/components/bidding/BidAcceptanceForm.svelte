@@ -40,9 +40,10 @@
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
 
-	// Ensure wallet translations are loaded
+	// Ensure wallet and bids translations are loaded
 	if (browser && $locale) {
 		loadNamespace($locale as SupportedLanguage, 'dashboard/wallet');
+		loadNamespace($locale as SupportedLanguage, 'dashboard/bids');
 	}
 
 	// Calculate escrow details from bid
