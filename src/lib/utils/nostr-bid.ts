@@ -629,6 +629,9 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
  * Get contracts for the current user (as client or freelancer) from encrypted DMs
  */
 export async function getUserContracts(filter?: ContractFilter): Promise<ContractWithEvents[]> {
+	// Initialize contracts array at the top level so it's always available
+	const contracts: ContractWithEvents[] = [];
+	
 	try {
 		// Use getAuthOnce() to share auth singleton with getMessageHistoryOptimized()
 		// This prevents multiple auth prompts when both are called
@@ -639,7 +642,6 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 		// OPTIMIZATION 1: Use optimized version that doesn't require decryption
 		const { getMessagedPeopleOptimized } = await import('./nostr-message');
 		const messagedPeople = await getMessagedPeopleOptimized();
-		const contracts: ContractWithEvents[] = [];
 
 		// OPTIMIZATION 2 & 3: Parallelize message history fetching and use optimized version
 		const { getMessageHistoryOptimized } = await import('./nostr-message');
@@ -718,7 +720,14 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						if (filter?.statuses && !filter.statuses.includes(contractData.status)) continue;
 
 						// Get status events for this contract
-						const statusEvents = await getContractStatusEventsFromMessages(escrowId, messages);
+						let statusEvents: any[] = [];
+						try {
+							statusEvents = await getContractStatusEventsFromMessages(escrowId, messages);
+						} catch (statusError) {
+							// Silently handle status event parsing errors
+							console.warn(`Failed to parse status events for escrow ${escrowId}:`, statusError);
+							statusEvents = [];
+						}
 
 						// Determine current status from latest status event
 						let currentStatus = contractData.status;
@@ -966,10 +975,13 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 		}
 
 		// Sort by creation time (newest first)
-		return contracts.sort((a, b) => b.contract.createdAt - a.contract.createdAt);
+		return contracts.sort((a: ContractWithEvents, b: ContractWithEvents) => b.contract.createdAt - a.contract.createdAt);
 	} catch (error) {
-		console.error('Error getting user contracts:', error);
-		throw error;
+		// Don't throw - return what we have so the UI doesn't break
+		// Log the error but continue with any contracts we successfully loaded
+		console.warn('Error getting user contracts (returning partial results):', error);
+		// Return whatever contracts we managed to load, even if some failed
+		return contracts.sort((a: ContractWithEvents, b: ContractWithEvents) => b.contract.createdAt - a.contract.createdAt);
 	}
 }
 

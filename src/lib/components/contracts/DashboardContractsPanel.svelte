@@ -133,10 +133,16 @@
 		try {
 			isLoading = true;
 			error = null;
+			// getUserContracts now returns partial results instead of throwing
+			// This prevents infinite retry loops when some contracts fail to load
 			contracts = await getUserContracts();
 		} catch (err) {
+			// This should rarely happen now since getUserContracts doesn't throw
+			// But keep it as a safety net
 			error = err instanceof Error ? err.message : 'Failed to load contracts';
-			console.error('Error loading contracts:', err);
+			console.warn('Error loading contracts (non-fatal):', err);
+			// Don't set contracts to empty - keep what we have
+			// contracts = []; // Removed - keep existing contracts
 		} finally {
 			isLoading = false;
 		}
