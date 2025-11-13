@@ -198,7 +198,9 @@ async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
 
         return escrow;
     } catch (error) {
-        console.error('Failed to load escrow details:', error);
+        // Silently handle errors - invalid escrow IDs are expected for contracts that were never funded
+        // This is not a critical error, just log as warning
+        console.warn(`Failed to load escrow details for ID ${escrowId}:`, error);
         return null;
     }
 }

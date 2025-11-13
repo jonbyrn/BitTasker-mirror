@@ -759,17 +759,32 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 						try {
 							// Get actual escrow data from RSK contract
-							const escrowData = await escrow.getEscrow(contractData.escrowId);
+							let escrowData: any = null;
+							try {
+								escrowData = await escrow.getEscrow(contractData.escrowId);
+							} catch (escrowError) {
+								// Silently handle escrow fetch errors - contract might not exist on-chain yet
+								// This is expected for contracts that were never funded
+								console.warn(`Escrow ${contractData.escrowId} not found or invalid, using Nostr status only:`, escrowError);
+								escrowData = null;
+							}
+
 							const userAddress = get(rskAddress);
 
 							// Only load dispute proposal if contract is in dispute
 							if (escrowData && escrowData.status === 1) { // EscrowStatus.InDispute
-								disputeProposal = await escrow.getDisputeProposal(contractData.escrowId);
-								// total amount
-								if (disputeProposal) {
-									const totalAmount = parseFloat(escrowData.baseAmount);
-									const freelancerAmount = parseFloat(disputeProposal.freelancerAmount);
-									disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
+								try {
+									disputeProposal = await escrow.getDisputeProposal(contractData.escrowId);
+									// total amount
+									if (disputeProposal) {
+										const totalAmount = parseFloat(escrowData.baseAmount);
+										const freelancerAmount = parseFloat(disputeProposal.freelancerAmount);
+										disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
+									}
+								} catch (disputeError) {
+									// Silently handle dispute proposal fetch errors
+									console.warn(`Failed to load dispute proposal for escrow ${contractData.escrowId}:`, disputeError);
+									disputeProposal = null;
 								}
 							}
 
@@ -778,7 +793,15 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							if (escrowData && userAddress) {
 							// Use blockchain-level validation to check if escrow was ever funded
 							// This is more reliable than checking transaction hash
-							const fundingStatus = await escrow.checkEscrowFundingStatus(contractData.escrowId);
+							let fundingStatus: any = null;
+							try {
+								fundingStatus = await escrow.checkEscrowFundingStatus(contractData.escrowId);
+							} catch (fundingError) {
+								// Silently handle funding status check errors
+								console.warn(`Failed to check funding status for escrow ${contractData.escrowId}:`, fundingError);
+								// Default to conservative values
+								fundingStatus = { wasFunded: false };
+							}
 							
 								// RSK contract state is the source of truth, but Nostr status events provide additional context
 								// Use latest Nostr status event to determine if certain actions have been completed
@@ -832,7 +855,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 										// No actions available for cancelled contracts
 									// Use blockchain-level validation to check if escrow was ever funded
 									// This is more reliable than checking transaction hash
-									if (fundingStatus.wasFunded) {
+									if (fundingStatus && fundingStatus.wasFunded) {
 										canDelete = false; // Escrow was funded, cannot delete
 									} else {
 										canDelete = true; // Escrow was never funded (funding failed), can delete
