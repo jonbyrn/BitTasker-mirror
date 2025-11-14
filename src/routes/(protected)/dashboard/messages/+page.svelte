@@ -19,6 +19,39 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
 
+	/**
+	 * Helper function to translate message content if it's a translation key
+	 * Translation keys typically follow patterns like: dashboard.bids.bid_acceptance.acceptance_message
+	 * This function is used in the template, so it will be reactive to language changes
+	 */
+	function translateMessageContent(content: string): string {
+		if (!content || !content.trim()) {
+			return content;
+		}
+
+		// Check if it looks like a translation key (contains dots and follows a pattern)
+		// Translation keys typically have at least 2 segments separated by dots
+		const translationKeyPattern = /^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i;
+		const trimmedContent = content.trim();
+		
+		if (translationKeyPattern.test(trimmedContent)) {
+			try {
+				// Try to translate it using the reactive $t function
+				// Since this is called from the template, $t will be reactive
+				const translated = $t(trimmedContent);
+				// If translation returns the key itself or an error, return original
+				// svelte-i18n returns the key if translation is missing, so check if it changed
+				return translated && translated !== trimmedContent ? translated : content;
+			} catch {
+				// If translation fails, return original content
+				return content;
+			}
+		}
+
+		// Not a translation key, return as-is
+		return content;
+	}
+
 	// State
 	let conversations = $state<
 		{
@@ -1021,7 +1054,7 @@
 										</span>
 									</div>
 									<p class="text-base-content/70 text-sm truncate mt-1">
-										{conversation.lastMessage || $t('messages.no_messages')}
+										{conversation.lastMessage ? translateMessageContent(conversation.lastMessage) : $t('messages.no_messages')}
 									</p>
 								</div>
 							</button>
@@ -1123,7 +1156,7 @@
 										</span>
 									</div>
 									<p class="text-base-content/70 line-clamp-2 text-xs leading-relaxed">
-										{conversation.lastMessage}
+										{translateMessageContent(conversation.lastMessage)}
 									</p>
 								</div>
 
