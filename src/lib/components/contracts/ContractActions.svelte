@@ -989,11 +989,11 @@
 	});
 </script>
 
-<div class={containerClass}>
+<div class="{containerClass} {containerClass.includes('grid') ? 'w-full' : ''}">
 	<!-- Complete Task (Freelancer) -->
 	{#if contract.canComplete}
 		<button
-			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={showCompleteTaskModal}
 			disabled={isCompleteDisabled}
 			title={isCompleteDisabled && (completionAttempt?.status === 'confirmed' || blockchainCompletionStatus === EscrowStatus.Completed)
@@ -1042,7 +1042,7 @@
 	<!-- Accept Task (Client) -->
 	{#if contract.canAccept}
 		<button
-			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={showAcceptConfirmation}
 			disabled={isAcceptDisabled}
 		>
@@ -1086,7 +1086,7 @@
 	<!-- Dispute Task (Client) -->
 	{#if contract.canDispute}
 		<button
-			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={showDisputeConfirmation}
 			disabled={isDisputeDisabled}
 		>
@@ -1131,7 +1131,7 @@
 	{#if contract.canPropose}
 		{#if !showResolutionForm}
 			<button
-				class="btn btn-warning btn-sm text-black {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+				class="btn btn-warning btn-sm text-black {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 				onclick={() => {
 					showResolutionForm = true;
 					openDrawer();
@@ -1329,7 +1329,7 @@
 	<!-- Cancel Escrow -->
 	{#if contract.canCancel}
 		<button
-			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={showCancelConfirmation}
 			disabled={isCancelDisabled}
 		>
@@ -1384,7 +1384,7 @@
 			{/if}
 
 			<button
-				class="btn btn-info btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+				class="btn btn-info btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 				onclick={resolveAfterTimelock}
 				disabled={isLoading.resolveTimelock}
 			>
@@ -1413,7 +1413,7 @@
 
 	<!-- Delete Contract (always visible, disabled when canDelete is false) -->
 	<button
-		class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+		class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 		onclick={showDeleteConfirmation}
 		disabled={isLoading.delete || !contract.canDelete}
 	>
