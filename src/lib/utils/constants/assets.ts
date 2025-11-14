@@ -1,4 +1,5 @@
 /**
+ * @deprecated Unused file
  * Liquid Network Asset Constants
  * These are well-known asset IDs that never change on the Liquid Network
  */
