@@ -92,30 +92,42 @@
 	});
 
 	// Subscribe to contract update store and reload contract when it's updated
+	// This effect should ONLY react to contractUpdateStore and isOpen changes
 	$effect(() => {
 		if (!isOpen) return;
 
-		// Use untrack to prevent tracking displayContract changes
-		// We only want to react to contractUpdateStore changes
-		const currentContract = untrack(() => displayContract);
-		if (!currentContract) return;
-
+		// Capture the current escrowId once, outside of any reactive tracking
+		// This prevents the effect from re-running when displayContract changes
+		const escrowIdToCheck = untrack(() => {
+			const currentContract = displayContract;
+			return currentContract?.contract.escrowId;
+		});
+		
+		if (!escrowIdToCheck) return;
+		
+		// React to contractUpdateStore changes (this is the ONLY reactive dependency)
 		const escrowIds = $contractUpdateStore;
-		const currentEscrowId = currentContract.contract.escrowId;
-
+		
 		// Check if this contract's escrowId is in the update queue
 		// and we haven't already processed it
 		// Don't remove from store - let parent process it too
 		// Just mark as processed locally to prevent duplicate reloads
 		if (
-			escrowIds.includes(currentEscrowId) &&
+			escrowIds.includes(escrowIdToCheck) &&
 			!isReloadingContract &&
-			!processedEscrowIds.has(currentEscrowId)
+			!processedEscrowIds.has(escrowIdToCheck)
 		) {
-			// Mark as processed before reloading to prevent re-triggering
-			processedEscrowIds.add(currentEscrowId);
+			// Mark as processed IMMEDIATELY before any async operations
+			// This prevents the effect from running again with the same escrowId
+			processedEscrowIds.add(escrowIdToCheck);
+			
 			// Reload this specific contract (parent will also process it separately)
-			reloadContract(currentEscrowId);
+			// The reloadContract function updates localContract, which changes displayContract,
+			// but since we use untrack() when reading displayContract above, this won't cause the effect to re-run
+			reloadContract(escrowIdToCheck).catch(() => {
+				// Remove from processed set on error so it can be retried
+				processedEscrowIds.delete(escrowIdToCheck);
+			});
 		}
 	});
 

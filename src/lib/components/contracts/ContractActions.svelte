@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t, locale } from 'svelte-i18n';
+	import { untrack } from 'svelte';
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { Attachment } from '$lib/types/task';
 	import { escrow } from '$lib/utils/wallet/escrow';
@@ -804,12 +805,26 @@
 	});
 
 	// Set action handlers for parent component
+	// Only re-register when contract escrowId changes to prevent infinite loops
+	let lastRegisteredEscrowId = $state<string | null>(null);
 	$effect(() => {
-		onSetAcceptTaskHandler?.(acceptTask);
-		onSetDisputeTaskHandler?.(disputeTask);
-		onSetDeleteContractHandler?.(deleteContract);
-		onSetCancelEscrowHandler?.(cancelEscrow);
-		onSetCompleteTaskHandler?.(completeTaskWithAttachments);
+		// Only register handlers if they exist, component is mounted, and escrowId changed
+		if (!isMounted) return;
+		
+		const currentEscrowId = contract.contract.escrowId;
+		// Only register if this is a new contract (different escrowId)
+		if (lastRegisteredEscrowId === currentEscrowId) return;
+		
+		lastRegisteredEscrowId = currentEscrowId;
+		
+		// Register handlers - use untrack to prevent reactive updates during registration
+		untrack(() => {
+			onSetAcceptTaskHandler?.(acceptTask);
+			onSetDisputeTaskHandler?.(disputeTask);
+			onSetDeleteContractHandler?.(deleteContract);
+			onSetCancelEscrowHandler?.(cancelEscrow);
+			onSetCompleteTaskHandler?.(completeTaskWithAttachments);
+		});
 	});
 
 	// Fetch BTC price on mount using currency formatter utility
