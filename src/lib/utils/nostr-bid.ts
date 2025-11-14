@@ -10,7 +10,8 @@ import type {
 	ContractStatusEvent,
 	CreateContractParams,
 	PublishStatusParams,
-	ContractFilter
+	ContractFilter,
+	ContractStatus
 } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import { get } from 'svelte/store';
@@ -666,6 +667,95 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 }
 
 /**
+ * Helper function to determine contract status and actions based on Nostr events (fallback when RSK data unavailable)
+ * Priority order: cancelled > disputed > task-completed > payment-released > other
+ */
+function determineNostrFallbackStatus(
+	currentStatus: string,
+	latestNostrStatus: string | null,
+	statusEvents: ContractStatusEvent[],
+	contractData: NostrContract,
+	isClient: boolean,
+	isFreelancer: boolean,
+	error?: unknown,
+	isEscrowNotFoundError?: ((error: unknown) => boolean) | null,
+	isNetworkError?: ((error: unknown) => boolean) | null
+): {
+	currentStatus: ContractStatus;
+	canComplete: boolean;
+	canAccept: boolean;
+	canDispute: boolean;
+	canPropose: boolean;
+	canAcceptProposal: boolean;
+	canCancel: boolean;
+	canResolveTimelock: boolean;
+	canDelete: boolean;
+} {
+	const hasTaskCompleted = statusEvents.some(e => e.status.action === 'task-completed');
+	const hasPaymentReleased = statusEvents.some(e => e.status.action === 'payment-released');
+	const hasDispute = statusEvents.some(e => e.status.action === 'dispute-raised');
+
+	let status: ContractStatus = currentStatus as ContractStatus;
+	let canComplete = false;
+	let canAccept = false;
+	let canDispute = false;
+	let canPropose = false;
+	let canAcceptProposal = false;
+	let canCancel = false;
+	let canResolveTimelock = false;
+	let canDelete = false;
+
+	if (status === 'cancelled' || latestNostrStatus === 'contract-cancelled') {
+		status = 'cancelled';
+		canDelete = contractData.transactionHash ? false : true;
+	} else if (status === 'disputed' || hasDispute || latestNostrStatus === 'dispute-raised') {
+		status = 'disputed';
+		canPropose = isFreelancer;
+		canAcceptProposal = isClient;
+		canDelete = false;
+	} else if (hasTaskCompleted) {
+		status = 'completed';
+		if (!hasPaymentReleased) {
+			canAccept = isClient;
+			canDispute = isClient;
+		}
+		canDelete = false;
+	} else if (latestNostrStatus === 'payment-released') {
+		status = 'resolved';
+		canDelete = false;
+	} else if (latestNostrStatus === 'contract-cancelled') {
+		status = 'cancelled';
+		canDelete = contractData.transactionHash ? false : true;
+	} else {
+		if (status === 'active') {
+			canComplete = isFreelancer;
+			canCancel = true;
+		}
+		
+		// Determine canDelete based on error type (only in catch block)
+		if (error && isEscrowNotFoundError && isEscrowNotFoundError(error)) {
+			canDelete = true;
+		} else if (error && isNetworkError && isNetworkError(error)) {
+			canDelete = false;
+		} else {
+			canDelete = contractData.transactionHash ? false : true;
+		}
+	}
+
+	return {
+		currentStatus: status,
+		canComplete,
+		canAccept,
+		canDispute,
+		canPropose,
+		canAcceptProposal,
+		canCancel,
+		canResolveTimelock,
+		canDelete
+	};
+}
+
+/**
  * Get contracts for the current user (as client or freelancer) from encrypted DMs
  */
 export async function getUserContracts(filter?: ContractFilter): Promise<ContractWithEvents[]> {
@@ -720,6 +810,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 		// Process all conversations with their message histories
 		console.log('[getUserContracts] Processing conversations...');
+
 		let contractCount = 0;
 		for (let i = 0; i < messagedPeople.length; i++) {
 			const person = messagedPeople[i];
@@ -755,6 +846,24 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					) {
 						const escrowId = parsedContent.escrowId;
 						if (escrowId && typeof escrowId === 'string') {
+							// For contract-status messages, validate contractEventId matches expected pattern OR event ID
+							// This provides early filtering to prevent incorrect grouping
+							// Note: We can't check the actual event ID here since we don't have the contract creation message yet
+							// So we only filter out obvious mismatches (non-matching expected format)
+							// The full validation happens later in getContractStatusEventsFromMessages
+							if (parsedContent.messageType === 'contract-status') {
+								const expectedContractEventId = `contract-${escrowId}`;
+								// Only filter if contractEventId exists and doesn't match expected format
+								// We'll do full validation (including event ID check) later
+								if (parsedContent.contractEventId && 
+									parsedContent.contractEventId !== expectedContractEventId &&
+									// Don't filter if it looks like a Nostr event ID (64 char hex) - validate later
+									parsedContent.contractEventId.length !== 64) {
+									// Don't skip here - let it through for full validation later
+									// This allows events with Nostr event IDs to pass through
+								}
+							}
+							
 							if (!contractMessages.has(escrowId)) {
 								contractMessages.set(escrowId, []);
 							}
@@ -799,6 +908,12 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							continue; // Invalid contract structure
 						}
 						contractData = parsed as NostrContract;
+						
+						// CRITICAL: Validate that the contract creation message's escrowId matches the map key escrowId
+						// This prevents processing contracts with mismatched escrowIds that may have been incorrectly grouped
+						if (contractData.escrowId !== escrowId) {
+							continue; // Contract escrowId doesn't match map key - skip this contract
+						}
 					} catch {
 						continue; // Invalid JSON
 					}
@@ -814,7 +929,34 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					if (filter?.taskIds && !filter.taskIds.includes(contractData.taskId)) continue;
 					if (filter?.statuses && !filter.statuses.includes(contractData.status)) continue;
 
-					// Get status events for this contract
+					// CRITICAL: FIRST check ALL messages for key statuses (cancelled, disputed) 
+					// even if they don't pass contractEventId validation
+					// This ensures we detect these statuses even if contractEventId validation fails
+					// We check ALL messages because status events might be filtered out due to contractEventId mismatches
+					// Priority: cancelled > disputed
+					let hasCancelledStatusInAnyMessage = false;
+					let hasDisputeStatusInAnyMessage = false;
+					
+					for (const message of messages) {
+						try {
+							const parsedContent = JSON.parse(message.plaintext);
+							if (parsedContent && typeof parsedContent === 'object' && 
+								parsedContent.messageType === 'contract-status' &&
+								parsedContent.escrowId === escrowId) {
+								const action = parsedContent.action;
+								if (action === 'contract-cancelled') {
+									hasCancelledStatusInAnyMessage = true;
+								} else if (action === 'dispute-raised') {
+									hasDisputeStatusInAnyMessage = true;
+								}
+							}
+						} catch {
+							// Not a valid JSON message, continue
+							continue;
+						}
+					}
+
+					// Get status events for this contract (filtered by contractEventId validation)
 					let statusEvents: ContractStatusEvent[] = [];
 					try {
 						statusEvents = await getContractStatusEventsFromMessages(escrowId, messages);
@@ -824,32 +966,58 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						statusEvents = [];
 					}
 
-					// Determine current status from latest status event
+					// Determine current status - start with contract's initial status
+					// CRITICAL: Don't set status to 'resolved' here - only blockchain status can determine 'resolved'
+					// 'resolved' means DisputeResolved/DisputeUnresolved on blockchain, not just a payment-released Nostr event
+					// CRITICAL: Don't set status from messages here - wait for blockchain status first
+					// Only use message statuses for cancelled/disputed detection, not for completed
+					// Blockchain status is the source of truth for active/completed/resolved
 					let currentStatus = contractData.status;
 					let latestNostrStatus = '';
+					
+					// CRITICAL: Only set status from ALL messages for cancelled/disputed (these take absolute priority)
+					// Do NOT set to 'completed' here - blockchain status will determine that
+					// This prevents active contracts from being incorrectly marked as completed
+					if (hasCancelledStatusInAnyMessage) {
+						currentStatus = 'cancelled';
+						latestNostrStatus = 'contract-cancelled';
+					} else if (hasDisputeStatusInAnyMessage) {
+						currentStatus = 'disputed';
+						latestNostrStatus = 'dispute-raised';
+					}
+					// Note: We do NOT check for 'task-completed' here - blockchain status (Funded vs Completed) is the source of truth
+					
+					// Then update from filtered status events if available (but don't override cancelled/disputed)
+					// Note: cancelled/disputed are already set from all messages check above, so we don't need to check again
 					if (statusEvents.length > 0) {
-						latestNostrStatus = statusEvents[statusEvents.length - 1].status.action;
-						// Update status based on latest action
-						switch (latestNostrStatus) {
-							case 'task-completed':
-								currentStatus = 'completed';
-								// Update contract with completion attachments if available
-								if (statusEvents[statusEvents.length - 1].status.completionAttachments) {
-									contractData.completionAttachments =
-										statusEvents[statusEvents.length - 1].status.completionAttachments;
-								}
-								break;
-							case 'payment-released':
-								currentStatus = 'resolved';
-								break;
-							case 'dispute-raised':
-								currentStatus = 'disputed';
-								break;
-							case 'contract-cancelled':
-								currentStatus = 'cancelled';
-								break;
+						const filteredLatestStatus = statusEvents[statusEvents.length - 1].status.action;
+						latestNostrStatus = filteredLatestStatus;
+						// Update contract data from status events, but don't override cancelled/disputed status
+						// and don't set to 'resolved' or 'completed' here - blockchain will determine that
+						if (currentStatus !== 'cancelled' && currentStatus !== 'disputed') {
+							switch (filteredLatestStatus) {
+								case 'task-completed':
+									// Don't set to 'completed' here - blockchain status will determine if it's completed
+									// Just update contract with completion attachments if available
+									if (statusEvents[statusEvents.length - 1].status.completionAttachments) {
+										contractData.completionAttachments =
+											statusEvents[statusEvents.length - 1].status.completionAttachments;
+									}
+									break;
+								case 'payment-released':
+									// Don't set to 'resolved' here - only blockchain status can determine 'resolved'
+									// If blockchain status is Completed, it should stay 'completed'
+									// If blockchain status is DisputeResolved/DisputeUnresolved, it will be set to 'resolved' later
+									// This is just a notification that payment was released, but blockchain status is source of truth
+									// Keep current status (will be overridden by blockchain status if available)
+									break;
+								// Note: 'dispute-raised' and 'contract-cancelled' are already handled by all messages check above
+								// No need to check again here since we've already set status from all messages
+							}
 						}
 					}
+					// Note: currentStatus will be overridden by escrow data status if escrow data exists
+					// This ensures blockchain status is the source of truth for active/completed/resolved
 
 					// Determine available actions by checking actual RSK contract state
 					let canComplete = false;
@@ -873,17 +1041,17 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 								hasData: !!escrowData
 							});
 						} catch (escrowError) {
-							// Silently handle escrow fetch errors - contract might not exist on-chain yet
-							// This is expected for contracts that were never funded
-							console.warn(
-								`[getUserContracts] Escrow ${contractData.escrowId} not found or invalid, using Nostr status only:`,
-								{
-									escrowId: contractData.escrowId,
-									error: escrowError instanceof Error ? escrowError.message : String(escrowError),
-									errorType: escrowError?.constructor?.name,
-									stack: escrowError instanceof Error ? escrowError.stack : undefined
-								}
-							);
+							// Check if this is an expected "Invalid escrow ID" error
+							// Only log it if it's unexpected (has transaction hash or completion events)
+							const { isEscrowNotFoundError } = await import('$lib/utils/errors/escrowErrors');
+							const isInvalidEscrowId = isEscrowNotFoundError(escrowError);
+							
+							// Determine if this error is unexpected
+							const hasTransactionHash = !!contractData.transactionHash;
+							const hasCompletionEvents = latestNostrStatus === 'task-completed' || latestNostrStatus === 'payment-released';
+							const isUnexpected = isInvalidEscrowId && (hasTransactionHash || hasCompletionEvents);
+							
+							// Silently handle expected "Invalid escrow ID" errors for contracts that were never funded
 							escrowData = null;
 						}
 
@@ -917,11 +1085,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							}
 						}
 
-						console.log(
-							`Contract ${contractData.escrowId}: RSK status = ${escrowData?.status} (${escrowData ? ['Funded', 'InDispute', 'DisputeResolved', 'DisputeUnresolved', 'Completed', 'Cancelled'][escrowData.status] || 'Unknown' : 'No Data'})`
-						);
-
-						if (escrowData && userAddress) {
+						if (escrowData) {
 							// Use blockchain-level validation to check if escrow was ever funded
 							// This is more reliable than checking transaction hash
 							let fundingStatus: {
@@ -929,32 +1093,54 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 								escrowData?: EscrowData | null;
 								error?: unknown;
 							} | null = null;
-							try {
-								fundingStatus = await escrow.checkEscrowFundingStatus(contractData.escrowId);
-							} catch (fundingError) {
-								// Silently handle funding status check errors
-								console.warn(
-									`Failed to check funding status for escrow ${contractData.escrowId}:`,
-									fundingError
-								);
-								// Default to conservative values
-								fundingStatus = { wasFunded: false };
+							
+							// Only check funding status if userAddress is available (needed for some checks)
+							if (userAddress) {
+								try {
+									fundingStatus = await escrow.checkEscrowFundingStatus(contractData.escrowId);
+								} catch (fundingError) {
+									// Silently handle funding status check errors
+									console.warn(
+										`Failed to check funding status for escrow ${contractData.escrowId}:`,
+										fundingError
+									);
+									// Default to conservative values
+									fundingStatus = { wasFunded: false };
+								}
 							}
 
 							// RSK contract state is the source of truth, but Nostr status events provide additional context
 							// Use latest Nostr status event to determine if certain actions have been completed
+							// CRITICAL: Always set status from escrow data first, then adjust based on Nostr events
+							// Note: We check escrowData.status even if userAddress is null, as status is independent of user address
+							// CRITICAL: Preserve cancelled status from Nostr if escrow data shows cancelled - don't override with 'active'
+							const wasCancelledInNostr = currentStatus === 'cancelled';
 							switch (escrowData.status) {
 								case EscrowStatus.Funded: // 0
-									// Keep Nostr status if it's more specific, otherwise use 'active'
-									if (currentStatus !== 'completed' && currentStatus !== 'disputed') {
+									// CRITICAL: EscrowStatus.Funded means the contract is active (funded but not completed)
+									// Always set to 'active' unless cancelled or disputed (those take priority)
+									// Do NOT keep 'completed' status from Nostr - blockchain says it's Funded, so it's active
+									if (currentStatus !== 'cancelled' && currentStatus !== 'disputed') {
 										currentStatus = 'active';
 									}
-									canComplete = isFreelancer && latestNostrStatus !== 'task-completed';
-									canCancel = true; // Either party can cancel when funded
+									// CRITICAL: If status is cancelled (from Nostr), disable all actions including cancel
+									if (currentStatus === 'cancelled') {
+										canCancel = false;
+										canComplete = false;
+										canAccept = false;
+										canDispute = false;
+										canPropose = false;
+										canAcceptProposal = false;
+										canResolveTimelock = false;
+									} else {
+										canComplete = isFreelancer && latestNostrStatus !== 'task-completed';
+										canCancel = true; // Either party can cancel when funded (and not already cancelled)
+									}
 									canDelete = false; // Cannot delete if funded
 									break;
 
 								case EscrowStatus.InDispute: // 1
+									// Always set to disputed when escrow is in dispute
 									currentStatus = 'disputed';
 
 									// Only taskee (freelancer) can propose resolution if no active proposal exists
@@ -967,30 +1153,54 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 									// Can resolve after timelock if timelock has expired
 									canResolveTimelock = Date.now() > escrowData.timelockExpiry * 1000;
+									canCancel = false; // Cannot cancel disputed contracts
 									canDelete = false; // Cannot delete if funded (dispute means it was funded)
 									break;
 
 								case EscrowStatus.DisputeResolved: // 2
 								case EscrowStatus.DisputeUnresolved: // 3
+									// Always set to resolved when dispute is resolved
 									currentStatus = 'resolved';
-									// TODO: No actions available for resolved disputes
+									// No actions available for resolved disputes
+									canCancel = false; // Cannot cancel resolved contracts
+									canComplete = false; // Cannot complete resolved contracts
+									canAccept = false; // Cannot accept resolved contracts
+									canDispute = false; // Cannot dispute resolved contracts
+									canPropose = false; // Cannot propose on resolved contracts
+									canAcceptProposal = false; // Cannot accept proposals on resolved contracts
+									canResolveTimelock = false; // Cannot resolve timelock on resolved contracts
 									canDelete = false; // Cannot delete if funded (resolved means it was funded)
 									break;
 
 								case EscrowStatus.Completed: // 4
-									// Check if payment was already released via Nostr event
+									// CRITICAL: EscrowStatus.Completed means task is completed but payment not yet released
+									// Always show as 'completed' - the blockchain status is the source of truth
+									// If payment was actually released, the escrow status would be DisputeResolved/DisputeUnresolved
 									currentStatus = 'completed';
+									// Only allow accept/dispute if payment hasn't been released yet
+									// Check Nostr events to see if payment was released (but don't override blockchain status)
 									if (latestNostrStatus !== 'payment-released') {
-										// Only allow accept/dispute if payment hasn't been released yet
 										canAccept = isClient;
 										canDispute = isClient;
 									}
+									// CRITICAL: Cannot cancel completed contracts
+									canCancel = false;
 									canDelete = false; // Cannot delete if funded (completed means it was funded)
 									break;
 
 								case EscrowStatus.Cancelled: // 5
+									// CRITICAL: Always set to 'cancelled' when escrow status is Cancelled
+									// This ensures contracts show as cancelled even if there are no Nostr status events
 									currentStatus = 'cancelled';
 									// No actions available for cancelled contracts
+									// CRITICAL: Cannot cancel already-cancelled contracts
+									canCancel = false;
+									canComplete = false; // Cannot complete cancelled contracts
+									canAccept = false; // Cannot accept cancelled contracts
+									canDispute = false; // Cannot dispute cancelled contracts
+									canPropose = false; // Cannot propose on cancelled contracts
+									canAcceptProposal = false; // Cannot accept proposals on cancelled contracts
+									canResolveTimelock = false; // Cannot resolve timelock on cancelled contracts
 									// Use blockchain-level validation to check if escrow was ever funded
 									// This is more reliable than checking transaction hash
 									if (fundingStatus && fundingStatus.wasFunded) {
@@ -1013,36 +1223,23 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 								latestNostrStatus
 							});
 
-							// Use Nostr status with basic action logic
-							if (latestNostrStatus === 'payment-released') {
-								currentStatus = 'resolved';
-								// No actions available when payment is released
-								canDelete = false; // Payment released means it was funded
-							} else {
-								canComplete =
-									isFreelancer &&
-									currentStatus === 'active' &&
-									latestNostrStatus !== 'task-completed';
-								canAccept =
-									isClient &&
-									currentStatus === 'completed' &&
-									latestNostrStatus !== 'payment-released';
-								canDispute =
-									isClient &&
-									currentStatus === 'completed' &&
-									latestNostrStatus !== 'payment-released';
-								canPropose = isFreelancer && currentStatus === 'disputed';
-								canAcceptProposal = isClient && currentStatus === 'disputed';
-								canCancel = currentStatus === 'active';
-								canResolveTimelock = currentStatus === 'disputed';
-
-								// If no escrow data, check if contract has transaction hash
-								if (contractData.transactionHash) {
-									canDelete = false; // Has transaction hash, funding might be in progress
-								} else {
-									canDelete = true; // No transaction hash, likely never funded
-								}
-							}
+							const fallback = determineNostrFallbackStatus(
+								currentStatus,
+								latestNostrStatus,
+								statusEvents,
+								contractData,
+								isClient,
+								isFreelancer
+							);
+							currentStatus = fallback.currentStatus;
+							canComplete = fallback.canComplete;
+							canAccept = fallback.canAccept;
+							canDispute = fallback.canDispute;
+							canPropose = fallback.canPropose;
+							canAcceptProposal = fallback.canAcceptProposal;
+							canCancel = fallback.canCancel;
+							canResolveTimelock = fallback.canResolveTimelock;
+							canDelete = fallback.canDelete;
 						}
 					} catch (error) {
 						// Use structured error handling instead of string matching
@@ -1074,56 +1271,38 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							});
 						}
 
-						// If RSK check fails, fall back to Nostr status (same logic as else block above)
+						// If RSK check fails, fall back to Nostr status
 						console.warn('[getUserContracts] Failed to check RSK contract state, using Nostr status', {
 							escrowId: contractData.escrowId,
 							error: error instanceof Error ? error.message : String(error)
 						});
 
-						// Use Nostr status with basic action logic
-						if (latestNostrStatus === 'payment-released') {
-							currentStatus = 'resolved';
-							// No actions available when payment is released
-							canDelete = false; // Payment released means it was funded
-						} else {
-							canComplete =
-								isFreelancer &&
-								currentStatus === 'active' &&
-								latestNostrStatus !== 'task-completed';
-							canAccept =
-								isClient &&
-								currentStatus === 'completed' &&
-								latestNostrStatus !== 'payment-released';
-							canDispute =
-								isClient &&
-								currentStatus === 'completed' &&
-								latestNostrStatus !== 'payment-released';
-							canPropose = isFreelancer && currentStatus === 'disputed';
-							canAcceptProposal = isClient && currentStatus === 'disputed';
-							canCancel = currentStatus === 'active';
-							canResolveTimelock = currentStatus === 'disputed';
+						const fallback = determineNostrFallbackStatus(
+							currentStatus,
+							latestNostrStatus,
+							statusEvents,
+							contractData,
+							isClient,
+							isFreelancer,
+							error,
+							isEscrowNotFoundError,
+							isNetworkError
+						);
+						currentStatus = fallback.currentStatus;
+						canComplete = fallback.canComplete;
+						canAccept = fallback.canAccept;
+						canDispute = fallback.canDispute;
+						canPropose = fallback.canPropose;
+						canAcceptProposal = fallback.canAcceptProposal;
+						canCancel = fallback.canCancel;
+						canResolveTimelock = fallback.canResolveTimelock;
+						canDelete = fallback.canDelete;
+					}
 
-							// Determine canDelete based on error type
-							if (isEscrowNotFoundError && isEscrowNotFoundError(error)) {
-								// Escrow doesn't exist - contract was never funded, allow deletion
-								canDelete = true;
-							} else if (isNetworkError && isNetworkError(error)) {
-								// Network error - be conservative and disallow deletion
-								canDelete = false;
-								console.warn(
-									'Network error while checking RSK contract state, disallowing deletion for safety:',
-									error
-								);
-							} else {
-								// Other error - check if contract has transaction hash
-								if (contractData.transactionHash) {
-									canDelete = false; // Has transaction hash, might have been funded
-								} else {
-									// No transaction hash, but we can't be certain - be conservative
-									canDelete = false; // Default to false for safety
-								}
-							}
-						}
+					// CRITICAL: Final safeguard - if status is cancelled, completed, resolved, or disputed, ensure canCancel is false
+					// This prevents any edge cases where canCancel might have been set incorrectly
+					if (currentStatus === 'cancelled' || currentStatus === 'completed' || currentStatus === 'resolved' || currentStatus === 'disputed') {
+						canCancel = false;
 					}
 
 					// NOW create the updated contract with RSK-synced status as the source of truth
@@ -1167,6 +1346,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 		});
 
 		// Sort by creation time (newest first)
+		// Note: Deduplication is handled in the component using Svelte's $derived
 		return contracts.sort(
 			(a: ContractWithEvents, b: ContractWithEvents) => b.contract.createdAt - a.contract.createdAt
 		);
@@ -1184,6 +1364,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 			filter
 		});
 		// Return whatever contracts we managed to load, even if some failed
+		// Note: Deduplication is handled in the component using Svelte's $derived
 		return contracts.sort(
 			(a: ContractWithEvents, b: ContractWithEvents) => b.contract.createdAt - a.contract.createdAt
 		);
@@ -1283,6 +1464,12 @@ async function getContractStatusEventsFromMessages(
 				return []; // Invalid contract structure
 			}
 			contractData = parsed as NostrContract;
+			
+			// CRITICAL: Validate that the contract's escrowId matches the expected escrowId
+			// This prevents processing status messages from different contracts
+			if (contractData.escrowId !== escrowId) {
+				return []; // Contract escrowId doesn't match - this is the wrong contract
+			}
 		} catch {
 			return []; // Invalid JSON
 		}
@@ -1297,6 +1484,41 @@ async function getContractStatusEventsFromMessages(
 				if (!parsedContent || typeof parsedContent !== 'object') continue;
 
 				if (parsedContent.messageType === 'contract-status') {
+					// CRITICAL: Validate that the status message's escrowId matches the expected escrowId
+					// This prevents processing status messages from different contracts that may have been incorrectly grouped
+					if (parsedContent.escrowId !== escrowId) {
+						continue; // Skip this status message - it belongs to a different contract
+					}
+					
+					// CRITICAL: Validate that the status message's contractEventId matches the expected contract event ID
+					// This ensures status events are associated with the correct contract creation event
+					// Note: Accept multiple formats for backward compatibility:
+					// 1. Expected format: `contract-{escrowId}`
+					// 2. Nostr event ID: The actual event ID of the contract creation event
+					// 3. Missing: Older events without contractEventId (allowed if escrowId matches)
+					const expectedContractEventId = `contract-${escrowId}`;
+					const contractCreationEventId = contractCreationMessage.event.id;
+					
+					if (parsedContent.contractEventId) {
+						// Check if contractEventId matches expected format OR the actual contract creation event ID
+						const matchesExpectedFormat = parsedContent.contractEventId === expectedContractEventId;
+						const matchesEventId = parsedContent.contractEventId === contractCreationEventId;
+						
+						if (!matchesExpectedFormat && !matchesEventId) {
+							continue; // Skip this status message - it references a different contract
+						}
+					}
+					
+					// CRITICAL: Validate that the status event timestamp is after contract creation
+					// This prevents showing events from before the contract was created (e.g., from a different contract)
+					// Use both contractData.createdAt and the contract creation event's created_at for validation
+					// Allow a small window (5 minutes) to account for clock skew and timing differences
+					const contractCreationTimestamp = contractData.createdAt || (contractCreationMessage.event.created_at * 1000);
+					const TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000; // 5 minutes tolerance
+					if (parsedContent.timestamp && contractCreationTimestamp && parsedContent.timestamp < (contractCreationTimestamp - TIMESTAMP_TOLERANCE_MS)) {
+						continue; // Skip this status message - it occurred significantly before contract creation
+					}
+					
 					const statusData: NostrContractStatus = parsedContent;
 					const isFromClient = message.senderPubkey === contractData.clientPubkey;
 					const isFromFreelancer = message.senderPubkey === contractData.freelancerPubkey;

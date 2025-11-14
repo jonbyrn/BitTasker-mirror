@@ -101,9 +101,28 @@
 		}
 	] as const);
 
-	// Filtered contracts
+	// Filtered contracts with deduplication using Svelte's reactivity
 	let filteredContracts = $derived(() => {
-		let filtered = contracts;
+		// First, deduplicate contracts by escrowId using a Map
+		// This leverages Svelte's reactivity to handle deduplication reactively
+		const uniqueContracts = new Map<string, ContractWithEvents>();
+		for (const contract of contracts) {
+			const escrowId = contract.contract.escrowId;
+			const existing = uniqueContracts.get(escrowId);
+			
+			// Keep the contract with the most recent creation time or more status events
+			if (!existing || contract.contract.createdAt > existing.contract.createdAt) {
+				uniqueContracts.set(escrowId, contract);
+			} else if (contract.contract.createdAt === existing.contract.createdAt) {
+				// If same creation time, prefer the one with more status events (more complete)
+				if (contract.statusEvents.length > existing.statusEvents.length) {
+					uniqueContracts.set(escrowId, contract);
+				}
+			}
+		}
+		
+		// Convert Map to array
+		let filtered = Array.from(uniqueContracts.values());
 
 		// Filter by status
 		if (statusFilter !== 'all') {
