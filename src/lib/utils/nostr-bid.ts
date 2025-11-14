@@ -705,28 +705,46 @@ function determineNostrFallbackStatus(
 	let canResolveTimelock = false;
 	let canDelete = false;
 
-	if (status === 'cancelled' || latestNostrStatus === 'contract-cancelled') {
+	// CRITICAL: Check status in priority order: cancelled > disputed > completed > resolved > active
+	// Preserve cancelled and completed statuses if they're already set
+	if (status === 'cancelled' || latestNostrStatus === 'contract-cancelled' || latestNostrStatus === 'escrow-cancelled') {
 		status = 'cancelled';
+		canCancel = false;
+		canComplete = false;
+		canAccept = false;
+		canDispute = false;
+		canPropose = false;
+		canAcceptProposal = false;
 		canDelete = contractData.transactionHash ? false : true;
 	} else if (status === 'disputed' || hasDispute || latestNostrStatus === 'dispute-raised') {
 		status = 'disputed';
 		canPropose = isFreelancer;
 		canAcceptProposal = isClient;
+		canCancel = false;
 		canDelete = false;
-	} else if (hasTaskCompleted) {
+	} else if (status === 'completed' || hasTaskCompleted) {
+		// Preserve completed status if already set, or set it if task is completed
 		status = 'completed';
+		canCancel = false;
+		canComplete = false;
 		if (!hasPaymentReleased) {
 			canAccept = isClient;
 			canDispute = isClient;
 		}
 		canDelete = false;
-	} else if (latestNostrStatus === 'payment-released') {
+	} else if (status === 'resolved' || latestNostrStatus === 'payment-released') {
 		status = 'resolved';
+		canCancel = false;
+		canComplete = false;
+		canAccept = false;
+		canDispute = false;
 		canDelete = false;
-	} else if (latestNostrStatus === 'contract-cancelled') {
-		status = 'cancelled';
-		canDelete = contractData.transactionHash ? false : true;
 	} else {
+		// Only set to active if not already cancelled, disputed, completed, or resolved
+		if (status !== 'cancelled' && status !== 'disputed' && status !== 'completed' && status !== 'resolved') {
+			status = 'active';
+		}
+		
 		if (status === 'active') {
 			canComplete = isFreelancer;
 			canCancel = true;
@@ -944,7 +962,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 								parsedContent.messageType === 'contract-status' &&
 								parsedContent.escrowId === escrowId) {
 								const action = parsedContent.action;
-								if (action === 'contract-cancelled') {
+								// Check for both 'contract-cancelled' (Nostr) and 'escrow-cancelled' (blockchain)
+								if (action === 'contract-cancelled' || action === 'escrow-cancelled') {
 									hasCancelledStatusInAnyMessage = true;
 								} else if (action === 'dispute-raised') {
 									hasDisputeStatusInAnyMessage = true;
@@ -980,7 +999,23 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					// This prevents active contracts from being incorrectly marked as completed
 					if (hasCancelledStatusInAnyMessage) {
 						currentStatus = 'cancelled';
-						latestNostrStatus = 'contract-cancelled';
+						// Try to find the actual cancelled action type from messages
+						let cancelledAction = 'contract-cancelled'; // default
+						for (const message of messages) {
+							try {
+								const parsedContent = JSON.parse(message.plaintext);
+								if (parsedContent && typeof parsedContent === 'object' && 
+									parsedContent.messageType === 'contract-status' &&
+									parsedContent.escrowId === escrowId &&
+									(parsedContent.action === 'contract-cancelled' || parsedContent.action === 'escrow-cancelled')) {
+									cancelledAction = parsedContent.action;
+									break; // Use the first cancelled action found
+								}
+							} catch {
+								continue;
+							}
+						}
+						latestNostrStatus = cancelledAction;
 					} else if (hasDisputeStatusInAnyMessage) {
 						currentStatus = 'disputed';
 						latestNostrStatus = 'dispute-raised';
@@ -988,10 +1023,14 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					// Note: We do NOT check for 'task-completed' here - blockchain status (Funded vs Completed) is the source of truth
 					
 					// Then update from filtered status events if available (but don't override cancelled/disputed)
+					// CRITICAL: Don't overwrite latestNostrStatus if we already set it to 'contract-cancelled', 'escrow-cancelled', or 'dispute-raised'
 					// Note: cancelled/disputed are already set from all messages check above, so we don't need to check again
 					if (statusEvents.length > 0) {
 						const filteredLatestStatus = statusEvents[statusEvents.length - 1].status.action;
-						latestNostrStatus = filteredLatestStatus;
+						// Only update latestNostrStatus if we haven't already set it to cancelled/disputed from all messages
+						if (currentStatus !== 'cancelled' && currentStatus !== 'disputed') {
+							latestNostrStatus = filteredLatestStatus;
+						}
 						// Update contract data from status events, but don't override cancelled/disputed status
 						// and don't set to 'resolved' or 'completed' here - blockchain will determine that
 						if (currentStatus !== 'cancelled' && currentStatus !== 'disputed') {
@@ -1029,11 +1068,12 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					let canResolveTimelock = false;
 					let canDelete = false; // Can only delete if never funded or funding failed
 					let disputeProposal: DisputeProposal | null = null;
+					// Declare escrowData outside try block so it's accessible for logging
+					let escrowData: EscrowData | null = null;
 
 					try {
 						// Get actual escrow data from RSK contract
 						console.log(`[getUserContracts] Fetching escrow data for ${contractData.escrowId}...`);
-						let escrowData: EscrowData | null = null;
 						try {
 							escrowData = await escrow.getEscrow(contractData.escrowId);
 							console.log(`[getUserContracts] Escrow data fetched for ${contractData.escrowId}`, {
@@ -1118,11 +1158,12 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							switch (escrowData.status) {
 								case EscrowStatus.Funded: // 0
 									// CRITICAL: EscrowStatus.Funded means the contract is active (funded but not completed)
-									// Always set to 'active' unless cancelled or disputed (those take priority)
-									// Do NOT keep 'completed' status from Nostr - blockchain says it's Funded, so it's active
-									if (currentStatus !== 'cancelled' && currentStatus !== 'disputed') {
+									// Always set to 'active' unless cancelled, disputed, or completed (those take priority)
+									// Preserve cancelled, disputed, and completed statuses - don't override them
+									if (currentStatus !== 'cancelled' && currentStatus !== 'disputed' && currentStatus !== 'completed') {
 										currentStatus = 'active';
 									}
+									
 									// CRITICAL: If status is cancelled (from Nostr), disable all actions including cancel
 									if (currentStatus === 'cancelled') {
 										canCancel = false;
@@ -1132,9 +1173,18 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 										canPropose = false;
 										canAcceptProposal = false;
 										canResolveTimelock = false;
+									} else if (currentStatus === 'completed') {
+										// Preserve completed status - payment may have been released but escrow still shows Funded
+										// Only allow accept/dispute if payment hasn't been released yet
+										if (latestNostrStatus !== 'payment-released') {
+											canAccept = isClient;
+											canDispute = isClient;
+										}
+										canCancel = false;
+										canComplete = false;
 									} else {
 										canComplete = isFreelancer && latestNostrStatus !== 'task-completed';
-										canCancel = true; // Either party can cancel when funded (and not already cancelled)
+										canCancel = true; // Either party can cancel when funded (and not already cancelled/completed)
 									}
 									canDelete = false; // Cannot delete if funded
 									break;
