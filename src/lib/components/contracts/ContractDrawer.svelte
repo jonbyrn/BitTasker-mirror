@@ -601,7 +601,7 @@
 						contract={displayContract}
 						onActionComplete={handleActionComplete}
 						containerClass={getAvailableActionsCount() > 1
-							? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
+							? 'grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'
 							: 'flex justify-center items-center'}
 						onShowDeleteConfirm={() => (showDeleteConfirm = true)}
 						onShowAcceptConfirm={() => (showAcceptConfirm = true)}
