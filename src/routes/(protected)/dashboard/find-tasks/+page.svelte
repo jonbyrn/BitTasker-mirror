@@ -15,15 +15,15 @@
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	
 	// Import performance testing helper in development
 	import '$lib/utils/performance-testing-helper';
 	
 	import {
-		formatStandardDateTime,
-		formatStandardDateShort
+		formatStandardDateShort,
+		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 
@@ -63,8 +63,11 @@
 	let showSkeleton = $state(true);
 	let selectedLocation = $state<any | null>(null);
 
-	function formatDateTimeReactive(date: Date) {
-		return formatStandardDateTime(date, $locale || 'en');
+	function formatDateTimeReactive(dateString: string) {
+		const date = parseDateToLocalMidnight(dateString);
+		if (!date) return '';
+		// For deadlines, only show date, not time
+		return formatStandardDateShort(date, $locale || 'en');
 	}
 
 	function formatDateRangeReactive(startDate: Date, endDate: Date) {
@@ -693,9 +696,10 @@
 													class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
 												>
 													<!-- Left: Title and Sats -->
-													<div class="line-clamp-2 ">
-														<TranslatableTask {task} titleClass="line-clamp-2" />
-													</div>
+													<TranslatableTask 
+														{task} 
+														titleClass="card-title line-clamp-2 text-lg font-semibold" 
+													/>
 												</div>
 
 												<!-- Schedule and Sats Row -->
@@ -705,7 +709,7 @@
 														<div class="flex items-center gap-2">
 															<svg
 																xmlns="http://www.w3.org/2000/svg"
-																class="text-base-content/60 h-4 w-4 flex-shrink-0"
+																class="text-base-content/60 h-4 w-4 shrink-0"
 																fill="none"
 																viewBox="0 0 24 24"
 																stroke="currentColor"
@@ -723,7 +727,7 @@
 																		>{$t('dashboard.task_details_by_task.deadline')}</small
 																	>
 																	<span class="text-sm font-medium">
-																		{formatDateTimeReactive(new Date(task.deadline))}
+																		{formatDateTimeReactive(task.deadline)}
 																	</span>
 																{:else if task.dateRange}
 																	<small class="text-base-content/60 text-xs"
@@ -753,7 +757,7 @@
 													<div class="flex w-full items-start gap-2">
 														<svg
 															xmlns="http://www.w3.org/2000/svg"
-															class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
+															class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
 															fill="none"
 															viewBox="0 0 24 24"
 															stroke="currentColor"
@@ -863,7 +867,7 @@
 													</div>
 
 													<!-- Right: Action Buttons -->
-													<div class="flex w-full flex-shrink-0 items-center gap-2 md:w-auto">
+													<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 														<button
 															class="btn btn-primary btn-sm flex-1 md:flex-none"
 															class:btn-disabled={task.status === TaskStatusEnum.CANCELLED ||

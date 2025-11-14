@@ -112,7 +112,6 @@ class CryptoPriceService {
 
       throw new Error('Invalid response format');
     } catch (error) {
-      console.error(`Error fetching ${symbol} price:`, error);
       throw new Error(`Failed to get price for ${symbol}`);
     }
   }

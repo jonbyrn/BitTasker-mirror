@@ -19,7 +19,7 @@ const RETRY_DELAY = 1000; // 1 second
 
 // --- Auth memoization to prevent multiple passkey prompts ---
 let authSingleton: Promise<{ nsec: Uint8Array; npub: string }> | null = null;
-function getAuthOnce(): Promise<{ nsec: Uint8Array; npub: string }> {
+export function getAuthOnce(): Promise<{ nsec: Uint8Array; npub: string }> {
 	if (!authSingleton) {
 		authSingleton = getNostrKeyPair();
 	}
@@ -1175,7 +1175,10 @@ export async function getMessagedPeopleOptimized(): Promise<
 			// ignore
 		}
 		if (!npub) {
-			npub = await getNpub();
+			// Use getAuthOnce() to share auth singleton with other functions
+			// This prevents multiple auth prompts when called concurrently
+			const { npub: authNpub } = await getAuthOnce();
+			npub = authNpub;
 		}
 
 		if (!npub || typeof npub !== 'string') {

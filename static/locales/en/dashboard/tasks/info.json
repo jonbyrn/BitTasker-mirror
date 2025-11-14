@@ -36,8 +36,13 @@
         "dispute_task": "Dispute Task"
       },
       "filters": {
+        "waiting_for_bids": "Waiting",
+        "bids_received": "Bids",
+        "in_progress": "In Progress",
+        "completed": "Completed",
+        "disputed": "Disputed",
+        "filtering": "Filtering tasks...",
         "tasks_in_progress": "Tasks in Progress",
-        "bids_received": "Bids Received",
         "tasks_waiting_for_bids": "Waiting for Bids",
         "tasks_completed": "Tasks Completed",
         "tasks_disputed": "Tasks Disputed"
@@ -147,6 +152,7 @@
     "profile_task": {
       "no_saved_searches": "No saved searches yet",
       "saved_searches_info": "Your saved searches will appear here",
+      "start_new_search": "Find Tasks",
       "saved_searches_title": "Your Saved Searches",
       "retry": "Retry",
       "new_matching_tasks": "New matching tasks",

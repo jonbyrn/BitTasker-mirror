@@ -7,6 +7,7 @@
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { t } from 'svelte-i18n';
+	import { normalizeDateToUTC, normalizeDeadlineToEndOfDay } from '$lib/utils/helpers/dateFormatter';
 	let { errors, direction } = $props();
 
 	// Use category IDs directly - CategoryMultiselect now handles translation internally
@@ -18,7 +19,7 @@
 		if (!$store.task.deadline && !$store.task.dateRange) {
 			const today = new Date();
 			store.updateTask({
-				deadline: today.toISOString()
+				deadline: normalizeDeadlineToEndOfDay(today) || today.toISOString()
 			});
 		}
 	});
@@ -116,7 +117,7 @@
 					const today = new Date();
 
 					store.updateTask({
-						deadline: today.toISOString(),
+						deadline: normalizeDeadlineToEndOfDay(today) || today.toISOString(),
 						dateRange: undefined
 					});
 				}}
@@ -153,16 +154,16 @@
 						labelKey="task.start_date"
 						placeholderKey="task.start_date"
 						minDate={new Date().toISOString()}
-						onChange={(date: Date | null) => {
-							if (date && $store.task.dateRange) {
-								store.updateTask({
-									dateRange: {
-										...$store.task.dateRange,
-										start: date.toISOString()
-									}
-								});
-							}
-						}}
+					onChange={(date: Date | null) => {
+						if (date && $store.task.dateRange) {
+							store.updateTask({
+								dateRange: {
+									...$store.task.dateRange,
+									start: normalizeDateToUTC(date) || date.toISOString()
+								}
+							});
+						}
+					}}
 					/>
 				</div>
 				<div class="flex-1">
@@ -173,16 +174,16 @@
 						labelKey="task.end_date"
 						placeholderKey="task.end_date"
 						minDate={$store.task.dateRange.start || new Date().toISOString()}
-						onChange={(date: Date | null) => {
-							if (date && $store.task.dateRange) {
-								store.updateTask({
-									dateRange: {
-										...$store.task.dateRange,
-										end: date.toISOString()
-									}
-								});
-							}
-						}}
+					onChange={(date: Date | null) => {
+						if (date && $store.task.dateRange) {
+							store.updateTask({
+								dateRange: {
+									...$store.task.dateRange,
+									end: normalizeDateToUTC(date) || date.toISOString()
+								}
+							});
+						}
+					}}
 					/>
 				</div>
 			</div>
@@ -197,7 +198,7 @@
 				maxDate={undefined}
 				minDate={new Date().toISOString()}
 				onChange={(date: Date | null) =>
-					store.updateTask({ deadline: date ? date.toISOString() : undefined })}
+					store.updateTask({ deadline: date ? (normalizeDeadlineToEndOfDay(date) || date.toISOString()) : undefined })}
 			/>
 			{#if errors.deadline}
 				<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>

@@ -15,6 +15,10 @@
     "required": "Requerido",
     "previous": "Anterior",
     "next": "Siguiente",
+        "pagination": {
+            "previous": "Anterior",
+            "next": "Siguiente"
+        },
     "today": "Hoy",
     "clear": "Limpiar",
     "slide": "Diapositiva",
@@ -135,6 +139,8 @@
       },
       "wallet_help_modal": {
         "title": "Tu Wallet de Bitcoin",
+        "learn_more": "Aprender Más",
+        "button_title": "Aprende sobre tu wallet de Bitcoin",
         "start_using_button": "Comenzar a Usar Wallet",
         "hero_title": "Tu Wallet Alimentado por Bitcoin",
         "hero_description": "Envía, recibe y gestiona Bitcoin a través de múltiples redes con control total de tus fondos.",
@@ -468,7 +474,7 @@
                     "select_asset": "Seleccionar Activo",
                     "network": "Red",
                     "available_balance": "Saldo Disponible",
-                    "available_rbtc_balance": "Saldo rBTC Disponible",
+                    "available_rbtc_balance": "Saldo de Bitcoin L2 Disponible",
                     "sats": "Sats"
                 },
         "balance_card": {

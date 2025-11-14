@@ -22,6 +22,8 @@ const KINDS = {
     CONTRACT_STATUS: 31006, // Regular event - both parties can publish status updates
 
     NIP_65_RELAY_LIST: 10002,
+
+    PENDING_SWAPS: 30078
 }
 
 export default KINDS;

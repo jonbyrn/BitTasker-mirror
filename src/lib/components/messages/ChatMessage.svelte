@@ -6,6 +6,7 @@
 	import MessageReactions from './MessageReactions.svelte';
 	import { TranslationStore } from '$lib/stores/translation.store';
 	import { onMount } from 'svelte';
+	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
 
 	// Props
 	let {
@@ -43,11 +44,14 @@
 	// Get message ID for translation lookup
 	const messageId = $derived(message.event.id);
 
+	// Parse message content to extract readable text (for JSON messages like bid-status)
+	const parsedPlaintext = $derived(parseMessageContent(message.plaintext));
+	
 	// Get translated text or original
 	const displayText = $derived(
 		showOriginal 
-			? message.plaintext 
-			: TranslationStore.getDisplayText(messageId, message.plaintext)
+			? parsedPlaintext 
+			: TranslationStore.getDisplayText(messageId, parsedPlaintext)
 	);
 
 	// Check if message is translated
@@ -55,10 +59,10 @@
 
 	// Auto-translate message on mount if it's not from sender
 	onMount(async () => {
-		if (!isSender && message.plaintext.trim()) {
+		if (!isSender && parsedPlaintext.trim()) {
 			try {
 				isTranslating = true;
-				await TranslationStore.translateMessage(messageId, message.plaintext);
+				await TranslationStore.translateMessage(messageId, parsedPlaintext);
 			} catch (error) {
 				console.error('Failed to translate message:', error);
 				translationError = 'Translation failed';
@@ -78,7 +82,7 @@
 		translationError = null;
 		try {
 			isTranslating = true;
-			await TranslationStore.translateMessage(messageId, message.plaintext, true);
+			await TranslationStore.translateMessage(messageId, parsedPlaintext, true);
 		} catch (error) {
 			console.error('Failed to retry translation:', error);
 			translationError = 'Translation failed';
@@ -102,7 +106,7 @@
 			<p class="text-sm leading-relaxed break-all whitespace-pre-wrap">{displayText}</p>
 			
 			<!-- Translation indicators and controls -->
-			{#if !isSender && message.plaintext.trim()}
+			{#if !isSender && parsedPlaintext.trim()}
 				<div class="mt-2 flex items-center gap-2 text-xs opacity-70">
 					{#if isTranslating}
 						<div class="flex items-center gap-1">

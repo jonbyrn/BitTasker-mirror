@@ -6,9 +6,8 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { goto } from '$app/navigation';
 	import { formatTimeLarge, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { locale } from 'svelte-i18n';
-	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 
 	// State
@@ -48,6 +47,7 @@
 	async function loadMyBids() {
 		try {
 			loading = true;
+			error = ''; // Clear any previous error
 			const bids = await getMyBids();
 			myBids = bids;
 		} catch (err) {

@@ -161,16 +161,35 @@ export function filterIndexedTasks(
 	}
 	
 	// Apply deadline filter - exclude tasks with past deadlines
+	// Compare dates by date only (not time) to ensure tasks with today's deadline are included
+	// Use local timezone for comparison to avoid timezone-related filtering issues
 	filteredTasks = filteredTasks.filter(task => {
 		// If task has no deadline, include it
 		if (!task.deadline) return true;
 		
-		// Check if deadline has passed
+		// Extract date components (YYYY-MM-DD) from deadline and current date in local timezone
+		// This ensures we compare dates only, not times, so tasks with today's deadline are included
 		const deadlineDate = new Date(task.deadline);
-		const now = new Date();
 		
-		// Include task only if deadline is in the future
-		return deadlineDate > now;
+		// Check if the date is valid
+		if (isNaN(deadlineDate.getTime())) {
+			return true; // Include tasks with invalid dates to avoid breaking the UI
+		}
+		
+		// Get local date components to avoid timezone conversion issues
+		const deadlineYear = deadlineDate.getFullYear();
+		const deadlineMonth = deadlineDate.getMonth();
+		const deadlineDay = deadlineDate.getDate();
+		const deadlineDateStr = `${deadlineYear}-${String(deadlineMonth + 1).padStart(2, '0')}-${String(deadlineDay).padStart(2, '0')}`;
+		
+		const now = new Date();
+		const nowYear = now.getFullYear();
+		const nowMonth = now.getMonth();
+		const nowDay = now.getDate();
+		const nowDateStr = `${nowYear}-${String(nowMonth + 1).padStart(2, '0')}-${String(nowDay).padStart(2, '0')}`;
+		
+		// Include task if deadline date is today or in the future (comparing in local timezone)
+		return deadlineDateStr >= nowDateStr;
 	});
 	
 	

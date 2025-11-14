@@ -182,7 +182,21 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             // For public users, show all tasks without filtering by npub
             // This avoids triggering biometric authentication for public users
             const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
-            const rawTasks = events.map((event: Event) => convertEventToTask(event)).filter((task: Task) => task.npub !== npub);
+            
+            // TEMPORARY: Allow showing own tasks in development for testing
+            // Set this to true to see your own tasks in Find Tasks for testing purposes
+            const SHOW_OWN_TASKS_FOR_TESTING = typeof window !== 'undefined' && 
+                (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+                new URLSearchParams(window.location.search).get('showOwnTasks') === 'true';
+            
+            const rawTasks = events.map((event: Event) => convertEventToTask(event)).filter((task: Task) => {
+                if (SHOW_OWN_TASKS_FOR_TESTING) {
+                    // In testing mode, show all tasks including own tasks
+                    return true;
+                }
+                // Normal mode: exclude own tasks
+                return task.npub !== npub;
+            });
 
             // Pre-index tasks for optimized filtering
             const indexedTasks = indexTaskData(rawTasks);

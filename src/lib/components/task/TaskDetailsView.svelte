@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import type { Attachment, Task } from '$lib/types/task';
 	import { format } from 'date-fns';
@@ -12,17 +13,17 @@
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import {
 		formatStandardDateTime,
-		formatStandardDateShort
+		formatStandardDateShort,
+		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { goto } from '$app/navigation';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	import { taskTranslationService } from '$lib/services/task-translation.service';
-	import { currentUserLanguage } from '$lib/stores/translation.store';
+	import IconAlertCircle from '~icons/mdi/alert-circle';
 
 	// Props
 	let { taskId, showShareButton = true } = $props<{
@@ -36,8 +37,7 @@
 	let errorMessage = $state('');
 	let taskCreatorPubkey = $state<string>('');
 	let btcPrice = $state<number>(0); // Default fallback price
-	let showFullDescription = $state(false); // State for description toggle
-	let translatedTask = $state<any>(null); // Store translated content
+	// TranslatedTask component now handles translations and show more/less automatically
 
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(taskId || null);
@@ -50,11 +50,19 @@
 	const isLoggedIn = $derived($authState.isAuthenticated);
 	
 	// Check if task deadline has expired
+	// Compare dates using date strings to avoid timezone issues
+	// Deadline is expired only if today is AFTER the deadline date (allows bidding through end of deadline day)
 	const isDeadlineExpired = $derived(() => {
 		if (!task?.deadline) return false;
 		const deadlineDate = new Date(task.deadline);
 		const now = new Date();
-		return deadlineDate <= now;
+		
+		// Compare dates using date strings to avoid timezone issues
+		const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
+		const todayDateStr = now.toISOString().split('T')[0];
+		
+		// Deadline is expired only if today is AFTER the deadline date
+		return todayDateStr > deadlineDateStr;
 	});
 
 	// Generate share link for public route
@@ -92,11 +100,17 @@
 		}
 	};
 
-	function formatDateTimeReactive(date: Date) {
-		return formatStandardDateTime(date, $locale || 'en');
+	function formatDateTimeReactive(dateString: string) {
+		const date = parseDateToLocalMidnight(dateString);
+		if (!date) return '';
+		// For deadlines, only show date, not time
+		return formatStandardDateShort(date, $locale || 'en');
 	}
 
-	function formatDateRangeReactive(startDate: Date, endDate: Date) {
+	function formatDateRangeReactive(startDateString: string, endDateString: string) {
+		const startDate = parseDateToLocalMidnight(startDateString);
+		const endDate = parseDateToLocalMidnight(endDateString);
+		if (!startDate || !endDate) return '';
 		const start = formatStandardDateShort(startDate, $locale || 'en');
 		const end = formatStandardDateShort(endDate, $locale || 'en');
 		return `${start} - ${end}`;
@@ -157,33 +171,15 @@
 		return description.slice(0, maxLength) + '...';
 	};
 
-	const toggleDescription = () => {
-		showFullDescription = !showFullDescription;
-	};
 
-	// Translation functions
-	async function translateTask() {
-		if (!task) return;
-		
-		try {
-			const userLang = $currentUserLanguage;
-			if (userLang) {
-				translatedTask = await taskTranslationService.translateTask(task, userLang);
-			}
-		} catch (error) {
-			console.error('Translation failed:', error);
-		}
-	}
-
-	// Get the display description (translated or original, truncated or full)
-	const getDisplayDescription = () => {
-		const description = translatedTask?.translatedDescription || task?.description || '';
-		return showFullDescription ? description : getTruncatedDescription(description);
-	};
+	// Translation is now handled automatically by TranslatableTask component
 
 
 	async function loadTaskDetails(taskId: string) {
-		if (!taskId) return;
+		if (!taskId) {
+			loading = false;
+			return;
+		}
 
 		try {
 			loading = true;
@@ -227,18 +223,40 @@
 	};
 
 	async function fetchBtcPrice(): Promise<void> {
-		btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Failed to fetch BTC price:', error);
+		}
 	}
 
-	// Effect to translate task when it loads or language changes
+	// Translation is now handled automatically by TranslatableTask component
+
+	// Track previous taskId to detect changes
+	let previousTaskId = $state<string | null>(null);
+
+	// React to taskId prop changes and reload task details
 	$effect(() => {
-		if (task) {
-			translateTask();
+		if (taskId && taskId !== previousTaskId) {
+			previousTaskId = taskId;
+			loadTaskDetails(taskId);
 		}
 	});
 
+	// Reload task details when navigating to this route (handles back navigation)
+	afterNavigate(({ to, from }) => {
+		// Only reload if we're navigating TO a task details route (not away from it)
+		// Check if the current URL matches a task details pattern
+		if (to && taskId && to.url.pathname.includes(`/task/${taskId}`)) {
+			// Reset state and reload to ensure fresh data
+			task = null;
+			errorMessage = '';
+			loadTaskDetails(taskId);
+		}
+	});
+
+	// Fetch BTC price on mount
 	onMount(() => {
-		loadTaskDetails(taskId || '');
 		fetchBtcPrice();
 	});
 </script>
@@ -326,51 +344,15 @@
 									/>
 								</div>
 								<div class="text-base-content/60 text-start">
-									<div class="translatable-description">
-										{#if translatedTask && !showFullDescription}
-											<!-- Show truncated translated description -->
-											{getTruncatedDescription(translatedTask.translatedDescription)}
-										{:else if translatedTask && showFullDescription}
-											<!-- Show full translated description -->
-											{translatedTask.translatedDescription}
-										{:else if !translatedTask && !showFullDescription}
-											<!-- Show truncated original description -->
-											{getTruncatedDescription(task?.description || '')}
-										{:else}
-											<!-- Show full original description -->
-											{task?.description || ''}
-										{/if}
-										
-										{#if (task?.description || '').length > 200}
-											<button class="btn btn-xs hover:text-primary-focus ml-2" onclick={toggleDescription}>
-												{#if showFullDescription}
-													{$t('dashboard.task_details_by_task.show_less')}
-												{:else}
-													{$t('dashboard.task_details_by_task.show_more')}
-												{/if}
-											</button>
-										{/if}
-										
-										{#if translatedTask}
-											<div class="mt-2">
-												<button 
-													class="text-xs text-blue-500 hover:text-blue-700 transition-colors" 
-													onclick={() => { translatedTask = null; showFullDescription = false; }}
-												>
-													{translatedTask.targetLanguage === 'es' ? 'Ver original' : 'View original'}
-												</button>
-											</div>
-										{:else if task}
-											<div class="mt-2">
-												<button 
-													class="text-xs text-blue-500 hover:text-blue-700 transition-colors" 
-													onclick={translateTask}
-												>
-													{$t('dashboard.task_details_by_task.translate')}
-												</button>
-											</div>
-										{/if}
-									</div>
+									{#if task}
+										<TranslatableTask 
+											{task} 
+											showTitle={false}
+											showDescription={true}
+											showToggle={false}
+											descriptionClass="text-sm text-base-content/80 line-clamp-2"
+										/>
+									{/if}
 								</div>
 							</div>
 							<!-- <div class="flex flex-col text-center">
@@ -390,7 +372,7 @@
 												{$t('dashboard.task_details_by_task.deadline')}
 											</h4>
 											<div class="font-semibold">
-												{formatDateTimeReactive(new Date(task.deadline))}
+												{formatDateTimeReactive(task.deadline)}
 											</div>
 										</div>
 									{:else if task.dateRange}
@@ -400,8 +382,8 @@
 											>
 											<div class="font-semibold">
 												{formatDateRangeReactive(
-													new Date(task.dateRange.start),
-													new Date(task.dateRange.end)
+													task.dateRange.start,
+													task.dateRange.end
 												)}
 											</div>
 										</div>
@@ -536,19 +518,7 @@
 						<!-- Action buttons -->
 						{#if isDeadlineExpired()}
 							<div class="alert alert-error alert-outline">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L73.34 16c-.77 1.333.192 3 1.732 3z"
-									/>
-								</svg>
+								<IconAlertCircle class="h-6 w-6 shrink-0" />
 								<div>
 									<span class="font-bold">{$t('dashboard.task_details_by_task.deadline_expired')}</span>
 									<div class="text-xs">{$t('dashboard.task_details_by_task.deadline_expired_message')}</div>

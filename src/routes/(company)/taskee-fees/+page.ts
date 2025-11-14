@@ -14,7 +14,7 @@ export async function load({ url }) {
 			'@type': 'WebPage',
 			'name': 'Taskee Fees & Earnings - BitTasker',
 			'description': 'Transparent fee structure for task workers on BitTasker with tiered pricing based on activity level',
-			'url': 'https://bittasker.com/taskee-fees',
+			'url': url.href,
 
 			'mainEntity': {
 				'@type': 'PriceSpecification',

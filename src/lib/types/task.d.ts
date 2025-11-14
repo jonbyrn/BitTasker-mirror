@@ -51,6 +51,7 @@ export interface TaskBody {
 	categories: Category[];
 	attachments?: Attachment[];
 	status?: TaskStatusEnum;
+	translations?: TaskTranslations; // Translations for all supported languages
 }
 
 export interface Task {
@@ -89,6 +90,7 @@ export interface Task {
 	};
 
 	bids?: TaskBid[];
+	translations?: TaskTranslations; // Translations for all supported languages
 }
 
 export interface SearchTasksParams {
@@ -245,4 +247,15 @@ export interface TaskTranslation {
 	targetLanguage: string;
 	sourceLanguage: string | undefined;
 	timestamp: number;
+}
+
+// Translations stored in task
+export interface TaskTranslations {
+	sourceLanguage: string; // Language of the original content
+	translations: {
+		[language: string]: {
+			title: string;
+			description: string;
+		};
+	};
 }

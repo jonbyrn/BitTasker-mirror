@@ -187,7 +187,14 @@
       "enable_notifications": "Habilitar Notificaciones",
       "not_supported": "Las notificaciones no son compatibles con este navegador.",
       "permission_denied": "Permisos de notificación denegados. Puedes habilitarlos en la configuración de tu navegador.",
-      "permission_granted": "Notificaciones habilitadas exitosamente."
+      "permission_granted": "Notificaciones habilitadas exitosamente.",
+      "banner": {
+        "title": "Habilitar Notificaciones",
+        "description": "Recibe notificaciones sobre nuevas ofertas, actualizaciones de contratos y pagos incluso cuando la aplicación está cerrada.",
+        "enable_button": "Habilitar",
+        "later_button": "Después",
+        "close_aria": "Cerrar banner"
+      }
     },
     "settings": {
       "title": "Configuración de Notificaciones",
@@ -216,6 +223,60 @@
       "deleted": "Notificación eliminada",
       "cleared": "Notificaciones limpiadas",
       "settings_updated": "Configuración actualizada"
+    },
+    "aria_labels": {
+      "notifications": "Notificaciones",
+      "close_notifications": "Cerrar notificaciones",
+      "remove_notification": "Eliminar notificación"
+    },
+    "total": "total",
+    "priority_labels": {
+      "low": "baja",
+      "normal": "normal",
+      "high": "alta", 
+      "urgent": "urgente"
+    },
+    "service_messages": {
+      "new_message": "Nuevo Mensaje",
+      "new_message_body": "Has recibido un mensaje de {senderName}",
+      "bid_accepted_title": "Oferta Aceptada",
+      "bid_accepted_body_taskee": "¡Excelente! Tu oferta ha sido aceptada por {senderName}. ¡Es hora de comenzar el trabajo!",
+      "bid_rejected_title": "Oferta Rechazada",
+      "bid_rejected_body_taskee": "Tu oferta ha sido rechazada por {senderName}. No te desanimes, sigue intentando.",
+      "bid_update_title": "Actualización de Oferta",
+      "bid_update_body_tasker": "Oferta {status} por {senderName}",
+      "contract_created_title": "Contrato Creado",
+      "contract_created_body": "Nuevo contrato creado con {senderName}",
+      "contract_completed_title": "Contrato Completado",
+      "contract_completed_body_tasker": "Contrato completado por {senderName}",
+      "contract_completed_body_taskee": "Contrato completado con {senderName}",
+      "contract_disputed_title": "Contrato en Disputa",
+      "contract_disputed_body": "Disputa iniciada por {senderName}",
+      "contract_cancelled_title": "Contrato Cancelado",
+      "contract_cancelled_body": "Contrato cancelado por {senderName}",
+      "payment_released_title": "Pago Liberado",
+      "payment_released_body_tasker": "Pago liberado a {senderName}",
+      "payment_released_body_taskee": "Pago recibido de {senderName}",
+      "payment_refunded_title": "Pago Reembolsado",
+      "payment_refunded_body_tasker": "Pago reembolsado a {senderName}",
+      "payment_refunded_body_taskee": "Pago reembolsado por {senderName}",
+      "contract_update_title": "Actualización de Contrato",
+      "contract_update_body": "Actualización de contrato por {senderName}",
+      "new_bid_title": "Nueva Oferta Recibida",
+      "new_bid_body_tasker": "{senderName} ha enviado una oferta para tu tarea. Revisa los detalles y decide si la aceptas.",
+      "new_bid_body_unknown": "{senderName} ha enviado una oferta.",
+      "task_completed_title": "Tarea Completada",
+      "task_completed_body_tasker": "¡{senderName} ha marcado tu tarea como completada! Revisa el trabajo y confirma si está listo.",
+      "task_completed_body_unknown": "{senderName} ha marcado una tarea como completada.",
+      "payment_sent_title": "Pago Enviado",
+      "payment_sent_body_tasker": "Has enviado {amount} {currency} a {senderName}",
+      "payment_received_title": "Pago Recibido",
+      "payment_received_body_taskee": "Has recibido {amount} {currency} de {senderName}",
+      "payment_pending_title": "Pago Pendiente",
+      "payment_pending_body_tasker": "Tu pago de {amount} {currency} está pendiente de confirmación",
+      "payment_pending_body_taskee": "Pago de {amount} {currency} está pendiente de confirmación",
+      "payment_update_title": "Actualización de Pago",
+      "payment_update_body": "Pago de {amount} {currency} procesado"
     }
   }
 }

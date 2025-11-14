@@ -5,7 +5,7 @@
 </script>
 
 {#if $authState.isLoading}
-	<div class="flex h-[100dvh] w-full flex-col items-center justify-center">
+	<div class="flex h-dvh w-full flex-col items-center justify-center">
 		<span class="loading loading-spinner loading-xl"></span>
 		<p>{$t('common.loading')}</p>
 	</div>

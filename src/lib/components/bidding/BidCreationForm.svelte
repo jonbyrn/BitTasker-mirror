@@ -4,9 +4,10 @@
 	import { fly } from 'svelte/transition';
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 	import { sendDirectMessage } from '$lib/utils/nostr-message';
-	import { rskAddress, rskWallet } from '$lib/stores/rskWallet.store';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { walletManager, rskAddress } from '$lib/stores/wallet.store';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
+	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
@@ -315,7 +316,7 @@
 		submittingBid = true;
 
 		try {
-			await rskWallet.initializeWallet();
+			await walletManager.initialize();
 
 			// Create bid data structure with explicit type
 			const bidData = {
@@ -362,6 +363,14 @@
 
 			// Submit a bid as an encrypted DM to the task creator with custom tags
 			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [taskCreatorPubkey],
+				title: 'New Bid Received',
+				body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey}`,
+				type: 'bid_created',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${taskId}`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
 
 			// Clear bid cache to ensure fresh data on next load
 			clearBidCache();
@@ -780,7 +789,7 @@
 			<button
 				id="bid-submit-btn"
 				type="submit"
-				class="btn btn-primary ml-auto block {bidFormErrors.general ? '' : 'mb-16 sm:mb-4'}"
+				class="btn btn-primary ml-auto block {bidFormErrors.general ? '' : 'mb-20 lg:mb-4'}"
 				disabled={submittingBid}
 			>
 				{#if submittingBid}
@@ -791,7 +800,7 @@
 				{/if}
 			</button>
 			{#if bidFormErrors.general}
-				<div class="alert alert-error alert-outline mb-16 sm:mb-4">
+				<div class="alert alert-error alert-outline mb-20 lg:mb-4">
 					<span>{bidFormErrors.general}</span>
 				</div>
 			{/if}

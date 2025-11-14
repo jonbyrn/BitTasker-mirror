@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 import { walletStore } from '$lib/stores/wallet.store';
 import { FEE_TIERS, type FeeTier, RSK_NETWORKS, BSC_NETWORKS } from '$lib/utils/wallet/networkConfig';
 import escrowABI from '$lib/utils/constants/escrowABI.json';
-import type { GasEstimation } from '$lib/types/wallet';
+import type { GasEstimation } from '@bittasker/wallet-core';
 
 // Network types
 export type EscrowNetwork = 'RSK' | 'BSC';
@@ -27,7 +27,9 @@ export interface NetworkConfig {
 // Helper function to get escrow network config from centralized configs
 function getEscrowNetworkConfig(network: EscrowNetwork, environment: NetworkEnvironment): NetworkConfig {
 	const contractAddress = network === 'RSK' 
-		? import.meta.env.VITE_RSK_CONTRACT_ADDRESS || ''
+		? (environment === 'mainnet' 
+			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET || ''
+			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET || '')
 		: import.meta.env.VITE_BSC_CONTRACT_ADDRESS || '';
 
 	if (network === 'RSK') {
@@ -165,7 +167,10 @@ export class MultiNetworkEscrowManager {
 			
 			// Check if contract address is set
 			if (!config.contractAddress || config.contractAddress === '') {
-				throw new Error(`Contract address not configured for ${network} ${environment}. Please set VITE_RSK_CONTRACT_ADDRESS environment variable.`);
+				const envVarName = network === 'RSK' 
+					? `VITE_RSK_CONTRACT_ADDRESS_${environment.toUpperCase()}`
+					: 'VITE_BSC_CONTRACT_ADDRESS';
+				throw new Error(`Contract address not configured for ${network} ${environment}. Please set ${envVarName} environment variable.`);
 			}
 
 			// Check wallet balance

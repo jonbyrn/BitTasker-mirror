@@ -65,7 +65,11 @@ export async function setBiometricKey(
 			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
 			if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
-			const displayName = customName ? `BitTasker ${customName}` : createDisplayName(publicKey);
+			// Handle empty/whitespace-only customName by falling back to public key-based name
+			const validCustomName = customName?.trim() || null;
+			const displayName = validCustomName ? `BitTasker ${validCustomName}` : createDisplayName(publicKey);
+			// Use customName for user.name so it appears in password managers
+			const passkeyUserName = validCustomName ? `BitTasker ${validCustomName}` : createDisplayName(publicKey);
 
 			const registrationOptions: PublicKeyCredentialCreationOptionsJSON = {
 				challenge: generateMobileChallenge(),
@@ -75,7 +79,7 @@ export async function setBiometricKey(
 				},
 				user: {
 					id: packedKeysBase64,
-					name: userName,
+					name: passkeyUserName,
 					displayName: displayName
 				},
 				pubKeyCredParams: [

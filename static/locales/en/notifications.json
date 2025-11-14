@@ -187,7 +187,14 @@
       "enable_notifications": "Enable Notifications",
       "not_supported": "Notifications are not supported in this browser.",
       "permission_denied": "Notification permissions denied. You can enable them in your browser settings.",
-      "permission_granted": "Notifications enabled successfully."
+      "permission_granted": "Notifications enabled successfully.",
+      "banner": {
+        "title": "Enable Notifications",
+        "description": "Get notified about new bids, contract updates, and payments even when the app is closed.",
+        "enable_button": "Enable",
+        "later_button": "Later",
+        "close_aria": "Close banner"
+      }
     },
     "settings": {
       "title": "Notification Settings",
@@ -216,6 +223,60 @@
       "deleted": "Notification deleted",
       "cleared": "Notifications cleared",
       "settings_updated": "Settings updated"
+    },
+    "aria_labels": {
+      "notifications": "Notifications",
+      "close_notifications": "Close notifications",
+      "remove_notification": "Remove notification"
+    },
+    "total": "total",
+    "priority_labels": {
+      "low": "low",
+      "normal": "normal", 
+      "high": "high",
+      "urgent": "urgent"
+    },
+    "service_messages": {
+      "new_message": "New Message",
+      "new_message_body": "You have received a message from {senderName}",
+      "bid_accepted_title": "Bid Accepted",
+      "bid_accepted_body_taskee": "Excellent! Your bid has been accepted by {senderName}. Time to start working!",
+      "bid_rejected_title": "Bid Rejected", 
+      "bid_rejected_body_taskee": "Your bid has been rejected by {senderName}. Don't get discouraged, keep trying.",
+      "bid_update_title": "Bid Update",
+      "bid_update_body_tasker": "Bid {status} by {senderName}",
+      "contract_created_title": "Contract Created",
+      "contract_created_body": "New contract created with {senderName}",
+      "contract_completed_title": "Contract Completed",
+      "contract_completed_body_tasker": "Contract completed by {senderName}",
+      "contract_completed_body_taskee": "Contract completed with {senderName}",
+      "contract_disputed_title": "Contract in Dispute",
+      "contract_disputed_body": "Dispute initiated by {senderName}",
+      "contract_cancelled_title": "Contract Cancelled",
+      "contract_cancelled_body": "Contract cancelled by {senderName}",
+      "payment_released_title": "Payment Released",
+      "payment_released_body_tasker": "Payment released to {senderName}",
+      "payment_released_body_taskee": "Payment received from {senderName}",
+      "payment_refunded_title": "Payment Refunded",
+      "payment_refunded_body_tasker": "Payment refunded to {senderName}",
+      "payment_refunded_body_taskee": "Payment refunded by {senderName}",
+      "contract_update_title": "Contract Update",
+      "contract_update_body": "Contract update by {senderName}",
+      "new_bid_title": "New Bid Received",
+      "new_bid_body_tasker": "{senderName} has sent a bid for your task. Review the details and decide if you accept it.",
+      "new_bid_body_unknown": "{senderName} has sent a bid.",
+      "task_completed_title": "Task Completed",
+      "task_completed_body_tasker": "{senderName} has marked your task as completed! Review the work and confirm if it's ready.",
+      "task_completed_body_unknown": "{senderName} has marked a task as completed.",
+      "payment_sent_title": "Payment Sent",
+      "payment_sent_body_tasker": "You have sent {amount} {currency} to {senderName}",
+      "payment_received_title": "Payment Received", 
+      "payment_received_body_taskee": "You have received {amount} {currency} from {senderName}",
+      "payment_pending_title": "Payment Pending",
+      "payment_pending_body_tasker": "Your payment of {amount} {currency} is pending confirmation",
+      "payment_pending_body_taskee": "Payment of {amount} {currency} is pending confirmation",
+      "payment_update_title": "Payment Update",
+      "payment_update_body": "Payment of {amount} {currency} processed"
     }
   }
 }

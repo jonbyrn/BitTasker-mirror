@@ -28,11 +28,12 @@
 	let isLoading = $state(false);
 	let showOnlyUnread = $state(true);
 
-	// Computed property for filtered notifications
+	// Computed property for filtered notifications - sorted by creation date (newest first)
 	let filteredNotifications = $derived(
-		showOnlyUnread 
+		(showOnlyUnread 
 			? notifications.filter(n => !n.read)
 			: notifications
+		).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 	);
 
 	let unsubscribe: (() => void) | null = null;
@@ -184,7 +185,7 @@
 	<button
 		onclick={toggleNotificationCenter}
 		class="relative btn btn-ghost btn-sm p-2 hover:bg-base-200 transition-colors"
-		aria-label="Notifications"
+		aria-label={$t('notifications.aria_labels.notifications')}
 	>
 		{#if unreadCount > 0 || incomingCount > 0}
 			<IconBellAlert class="w-5 h-5 text-primary" />
@@ -200,37 +201,41 @@
 		{/if}
 	</button>
 
+	<!-- Backdrop (Only on mobile) -->
+	{#if isOpen}
+		<div 
+			class="fixed inset-0 bg-black/50 z-40 sm:hidden" 
+			onclick={() => isOpen = false}
+			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isOpen = false; } }}
+			role="button"
+			tabindex="0"
+			aria-label="Close notification center"
+		></div>
+	{/if}
+
 	<!-- Notification Dropdown -->
 	{#if isOpen}
-		<div class="absolute right-2 sm:right-0 mt-2 w-80 sm:w-96 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-96 flex flex-col">
+		<div class="fixed sm:absolute inset-x-3 sm:inset-x-auto sm:right-0 top-18 sm:top-auto sm:mt-2 w-[calc(100vw-1.5rem)] sm:w-80 md:w-96 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-80 sm:max-h-80 flex flex-col">
 			<!-- Header -->
-			<div class="px-3 sm:px-4 py-3 border-b border-base-300 flex items-center justify-between flex-shrink-0">
-				<div class="flex items-center space-x-2">
+			<div class="px-3 sm:px-4 py-2 border-b border-base-300 flex items-center justify-between shrink-0">
+				{#if notifications.length > 0}
+					<button
+						onclick={clearAllNotifications}
+						class="text-xs sm:text-sm text-base-content/60 hover:text-base-content/80"
+					>
+						{$t('notifications.clear_all')}
+					</button>
+				{/if}
+				<div class="flex items-center gap-2">
 					{#if notifications.length > 0}
 						<span class="text-xs text-base-content/60">
-							{filteredNotifications.length} {showOnlyUnread ? $t('notifications.unread') : 'total'}
+							{filteredNotifications.length} {showOnlyUnread ? $t('notifications.unread') : $t('notifications.total')}
 						</span>
-					{/if}
-				</div>
-				<div class="flex items-center space-x-1 sm:space-x-2">
-					{#if notifications.length > 0}
-						<button
-							onclick={() => showOnlyUnread = !showOnlyUnread}
-							class="text-xs sm:text-sm text-primary hover:text-primary-focus"
-						>
-							{showOnlyUnread ? $t('notifications.show_all') : $t('notifications.show_unread_only')}
-						</button>
-						<button
-							onclick={clearAllNotifications}
-							class="text-xs sm:text-sm text-base-content/60 hover:text-base-content/80"
-						>
-							{$t('notifications.clear_all')}
-						</button>
 					{/if}
 					<button
 						onclick={() => isOpen = false}
 						class="text-base-content/40 hover:text-base-content/60 p-1"
-						aria-label="Close notifications"
+						aria-label={$t('notifications.aria_labels.close_notifications')}
 					>
 						<IconClose class="w-4 h-4 sm:w-5 sm:h-5" />
 					</button>
@@ -261,11 +266,11 @@
 							onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotificationClick(notification); } }}
 							role="button"
 							tabindex="0"
-							class="px-3 sm:px-4 py-3 border-b border-base-300 hover:bg-base-200 transition-colors cursor-pointer {notification.read ? 'opacity-75' : 'bg-primary/5'} relative"
+							class="px-3 sm:px-4 py-3 border-b border-base-300 hover:bg-base-200 transition-colors cursor-pointer {notification.read ? 'opacity-75 bg-base-100' : 'bg-primary/5'} relative"
 						>
 							<div class="flex items-start space-x-2 sm:space-x-3">
 								<!-- Icon -->
-								<div class="flex-shrink-0">
+								<div class="shrink-0">
 									{#if notification.type === 'bid_response'}
 										<IconCurrencyUsd class="w-5 h-5 text-primary" />
 									{:else if notification.type === 'contract_event'}
@@ -303,8 +308,8 @@
 											</span>
 											<button
 												onclick={(e) => removeNotification(notification.id, e)}
-												class="text-base-content/40 hover:text-base-content/60 p-1 flex-shrink-0"
-												aria-label="Remove notification"
+												class="text-base-content/40 hover:text-base-content/60 p-1 shrink-0"
+												aria-label={$t('notifications.aria_labels.remove_notification')}
 											>
 												<IconDelete class="w-4 h-4" />
 											</button>
@@ -344,7 +349,7 @@
 
 			<!-- Footer -->
 			{#if notifications.length > 0}
-				<div class="px-3 sm:px-4 py-3 border-t border-base-300 bg-base-200 flex-shrink-0">
+				<div class="px-3 sm:px-4 py-3 border-t border-base-300 bg-base-200 shrink-0">
 					<button
 						onclick={handleViewAllNotifications}
 						class="w-full text-center cursor-pointer text-xs sm:text-sm text-primary hover:text-primary-focus font-medium"

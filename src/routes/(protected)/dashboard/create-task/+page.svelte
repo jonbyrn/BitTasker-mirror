@@ -22,6 +22,8 @@
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import { t } from 'svelte-i18n';
+	import { onDestroy } from 'svelte';
+	import { browser } from '$app/environment';
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
@@ -93,11 +95,17 @@
 
 	// Function to handle cancel/back to My Tasks
 	function handleCancel() {
-		// Clear any draft data
-		store.clearDraft();
+		// Check if we're in edit mode
+		const isEditing = $page.url.searchParams.get('edit') === 'true';
+		// Clear the appropriate draft (creation or edit)
+		store.clearDraft(isEditing);
 		// Navigate back to My Tasks
 		goto('/dashboard');
 	}
+
+	// Save draft before leaving the page
+	let isEditingMode = $state(false);
+	let beforeUnloadHandler: (() => void) | null = null;
 
 	// Load the draft when the page is loaded
 	onMount(async () => {
@@ -106,21 +114,45 @@
 			
 			// Check if we're in edit mode
 			const isEditing = $page.url.searchParams.get('edit') === 'true';
+			isEditingMode = isEditing;
 			
 			if (isEditing) {
-				// Load the draft for editing
-				await store.loadDraft();
+				// Load the draft for editing (uses EDIT_STORAGE_KEY)
+				await store.loadDraft(true);
 				// Mark that edit data is loaded
 				isEditDataLoaded = true;
 			} else {
-				// Clear any existing draft for new task creation
-				await store.clearDraft();
+				// Load draft for new task creation (uses CREATE_STORAGE_KEY)
+				await store.loadDraft(false);
+				// Mark that edit data is loaded
 				isEditDataLoaded = true;
+			}
+
+			// Setup auto-save on page unload
+			if (browser) {
+				beforeUnloadHandler = () => {
+					// Force immediate save before leaving
+					store.saveDraft(isEditingMode, true);
+				};
+
+				window.addEventListener('beforeunload', beforeUnloadHandler);
 			}
 		} catch (error) {
 			console.error('Error loading draft:', error);
 		} finally {
 			isLoading = false;
+		}
+	});
+
+	// Save draft when component is destroyed
+	onDestroy(() => {
+		if (browser) {
+			// Remove beforeunload listener
+			if (beforeUnloadHandler) {
+				window.removeEventListener('beforeunload', beforeUnloadHandler);
+			}
+			// Save draft one more time when component is destroyed
+			store.saveDraft(isEditingMode, true);
 		}
 	});
 
@@ -318,7 +350,8 @@
 				appStore.showSuccessToast($t('task.success.created'));
 			}
 
-			await store.clearDraft();
+			// Clear the appropriate draft (creation or edit)
+			await store.clearDraft(isUpdating);
 			
 			// Refresh My Tasks list to show new task
 			await refreshMyTasks();

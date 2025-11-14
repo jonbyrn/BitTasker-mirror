@@ -155,8 +155,11 @@
                 throw new Error('Failed to read geolocation coordinates');
             }
 		} catch (error) {
-			// Use default location if geolocation fails
-			createMarkerAndCircle(location.latitude!, location.longitude!);
+			// Silently use default location if geolocation fails
+			// Don't show error since we already have a default location set
+			if (map && googleMapsReady) {
+				createMarkerAndCircle(location.latitude!, location.longitude!);
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -165,7 +168,16 @@
 	async function tryInitMap() {
 		try {
 			if (initRetryCount >= maxRetries) {
-				throw new Error($t('onboarding_auth.form.failed_initialize_map_after_multiple_attempts'));
+				// If map fails after retries, use default location silently
+				// Don't show error since we have a default location
+				console.warn('Google Maps failed to load after retries, using default location');
+				isMapLoaded = false;
+				hasError = false; // Don't show error if we have default location
+				if (!location.displayName) {
+					location.displayName = 'Ubicación por defecto'; // Default location name
+				}
+				location.locationLoaded = true; // Allow user to proceed
+				return;
 			}
 
 			// Only proceed if Google Maps is ready
@@ -178,36 +190,76 @@
 
 			await initMap();
 			isMapLoaded = true;
+			hasError = false;
 
+			// Always create marker and circle with default location first (if map is ready)
+			if (map && googleMapsReady) {
+				createMarkerAndCircle(location.latitude!, location.longitude!);
+			}
+
+			// Then try to get saved location or user's geolocation
 			const savedLocation = await getLatestLocation();
 			if (savedLocation) {
 				location = savedLocation;
 				createMarkerAndCircle(savedLocation.latitude!, savedLocation.longitude!);
 			} else {
-				// Try to get user's geolocation
+				// Try to get user's geolocation (will fallback to default if it fails)
 				getUserLocation();
 			}
 		} catch (err) {
-			console.error('Error initializing map:', err);
-			error =
-				err instanceof Error ? err.message : $t('onboarding_auth.form.error_initializing_map');
-			hasError = true;
+			// Always use default location if map initialization fails
+			console.warn('Error initializing map, using default location:', err);
+			hasError = false; // Never show error if we have default location
+			isMapLoaded = false;
+			if (!location.displayName) {
+				location.displayName = 'Ubicación por defecto'; // Default location name
+			}
+			location.locationLoaded = true; // Allow user to proceed with default location
+			
+			// Only try to create marker if map is actually initialized
+			if (map && googleMapsReady && window.google?.maps) {
+				try {
+					createMarkerAndCircle(location.latitude!, location.longitude!);
+					isMapLoaded = true;
+				} catch (markerError) {
+					console.warn('Could not create marker, but default location is set:', markerError);
+				}
+			}
 		}
 	}
 
 	onMount(async () => {
 		try {
 			isLoading = true;
+			hasError = false; // Reset error state
 
 			// Load Google Maps API dynamically if not already loaded
-			await loadGoogleMapsScript();
-
-			// Try to initialize the map
-			await tryInitMap();
+			try {
+				await loadGoogleMapsScript();
+				// Try to initialize the map
+				await tryInitMap();
+			} catch (mapError) {
+				// If Google Maps fails to load, use default location silently
+				console.warn('Google Maps could not be loaded, using default location:', mapError);
+				// Since we have a default location, we don't show the error
+				// Mark as "loaded" so user can continue
+				hasError = false;
+				isMapLoaded = false; // Map didn't load, but that's okay
+				// Ensure location is marked as loaded so user can proceed
+				if (!location.displayName) {
+					location.displayName = 'Ubicación por defecto'; // Default location name
+				}
+				location.locationLoaded = true;
+			}
 		} catch (err) {
-			console.error('Error loading Google Maps:', err);
-			error =
-				err instanceof Error ? err.message : $t('onboarding_auth.form.error_loading_google_maps');
+			// Fallback: always use default location if everything fails
+			console.warn('Error in map initialization, using default location:', err);
+			hasError = false;
+			isMapLoaded = false;
+			if (!location.displayName) {
+				location.displayName = 'Ubicación por defecto'; // Default location name
+			}
+			location.locationLoaded = true; // Allow user to proceed with default location
 		} finally {
 			isLoading = false;
 		}
@@ -531,27 +583,45 @@
 		try {
 			isLoading = true;
 
-			// If map failed to load, allow user to proceed without setting location
-			if (hasError && !isMapLoaded) {
-				console.log('Map failed to load, proceeding without location');
-				nextStep();
-				return;
+			// Always allow user to proceed with default location if map didn't load
+			if (!isMapLoaded) {
+				console.log('Map not loaded, proceeding with default location');
+				// Use default location
+				location.locationLoaded = true;
 			}
 
-			// Don't proceed if location isn't loaded yet (only when map is working)
+			// Ensure we have valid coordinates (should always have default location)
 			if (location.latitude === null || location.longitude === null) {
-				error = $t('onboarding_auth.form.please_select_a_location');
-				throw new Error($t('onboarding_auth.form.please_select_a_location'));
+				// Fallback to default location
+				location.latitude = 13.6929;
+				location.longitude = -89.2182;
+				if (!location.displayName) {
+					location.displayName = 'Ubicación por defecto'; // Default location name
+				}
+				location.locationLoaded = true;
 			}
 
-			// Publish location to Nostr
-			await publishLocation(location);
+			// Try to publish location to Nostr (if map was loaded and user selected a location)
+			if (location.locationLoaded) {
+				try {
+					await publishLocation(location);
+				} catch (publishError) {
+					// If publishing fails, still allow user to continue
+					console.warn('Could not publish location, but continuing:', publishError);
+				}
+			}
 
 			// Go to next step
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Error saving location:', err);
-			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_saving_location');
+			// Even on error, allow user to proceed with default location
+			if (location.latitude && location.longitude) {
+				location.locationLoaded = true;
+				nextStep();
+			} else {
+				error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_saving_location');
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -600,7 +670,7 @@
 			<!-- Search bar - using fixed positioning when in fullscreen mode -->
 			<div
 				class={isFullscreen
-					? 'fixed top-6 left-6 right-6 z-[1000]'
+					? 'fixed top-6 left-6 right-6 z-1000'
 					: 'absolute top-4 right-0 left-0 z-10 px-4'}
 			>
                 {#if isFullscreen}
@@ -652,7 +722,7 @@
 
 					{#if showOptions}
 						<div
-							class="predictions-dropdown bg-base-100 absolute z-[1000] mt-2 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg border border-base-300"
+							class="predictions-dropdown bg-base-100 absolute z-1000 mt-2 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg border border-base-300"
 						>
 							{#if predictions.length > 0}
 								{#each predictions as prediction}
@@ -686,7 +756,7 @@
 			<button
 				onclick={toggleFullscreen}
 				class="{isFullscreen
-					? 'fixed bottom-4 left-4 z-[1000]'
+					? 'fixed bottom-4 left-4 z-1000'
 					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 shadow-md hover:bg-base-100"
 				aria-label={isFullscreen
 					? $t('onboarding_auth.form.exit_fullscreen')
@@ -721,7 +791,7 @@
 			<!-- Service Radius Panel - mejor posicionado y espaciado -->
 			<div
 				class={isFullscreen
-					? 'fixed top-32 right-6 z-[1000]'
+					? 'fixed top-32 right-6 z-1000'
 					: 'absolute top-16 right-4 z-20'}
 			>
 				<div class="bg-base-100/95 rounded-lg p-4 shadow-lg border border-base-300">
@@ -744,7 +814,7 @@
 			</div>
 		</div>
 
-		{#if error}
+		{#if error && hasError}
 			<div class="alert alert-error alert-outline mx-4 mt-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -776,12 +846,15 @@
 						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 					/></svg
 				>
-				<span>{$t('onboarding_auth.form.location_setup.location_set')}: {location.displayName}</span>
+				<span>
+					{$t('onboarding_auth.form.location_setup.location_set')}: 
+					{location.displayName || $t('onboarding_auth.form.location_setup.default_location')}
+				</span>
 			</div>
 		{/if}
 
-		<!-- Retry button for map loading issues -->
-		{#if hasError && !isMapLoaded}
+		<!-- Retry button for map loading issues - only show if there's a real error and no default location -->
+		{#if hasError && !isMapLoaded && (!location.latitude || !location.longitude)}
 			<div class="alert alert-warning alert-outline mx-4 mt-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -803,7 +876,12 @@
 					class="btn btn-sm"
 					onclick={() => {
 						hasError = false;
-						loadGoogleMapsScript().then(() => tryInitMap());
+						initRetryCount = 0;
+						loadGoogleMapsScript().then(() => tryInitMap()).catch(() => {
+							// Silent fail, use default location
+							hasError = false;
+							location.locationLoaded = true;
+						});
 					}}
 				>
 					{$t('onboarding_auth.form.retry')}
@@ -820,7 +898,7 @@
 			type="button"
 			class="btn btn-primary"
 			onclick={handleSubmit}
-			disabled={isLoading || (!location.locationLoaded && !hasError && !isMapLoaded)}
+			disabled={isLoading}
 		>
 			{#if isLoading}
 				<span class="loading loading-spinner"></span>

@@ -12,9 +12,12 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import { formatStandardDate, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatStandardDate, formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { fade, scale } from 'svelte/transition';
+	import TranslatableTask from '../TranslatableTask.svelte';
+	import { getUserContracts } from '$lib/utils/nostr-bid';
+	import { escrow } from '$lib/utils/wallet/escrow';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -26,6 +29,9 @@
 	let errorMessage = $state('');
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let showEditConfirmation = $state(false);
+	let showDeleteConfirm = $state(false);
+	let canDelete = $state(true); // Default to true, will be checked
+	let isCheckingDelete = $state(false);
 
 	const formatDateString = (date: string | number): string => {
 		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
@@ -57,7 +63,64 @@
 		showEditConfirmation = false;
 	}
 
+	// Check if task can be deleted (similar to contract deletion logic)
+	async function checkCanDeleteTask(): Promise<void> {
+		if (!task?.id) {
+			canDelete = false;
+			return;
+		}
+
+		try {
+			isCheckingDelete = true;
+			
+			// Check if task has any contracts (which means it has an escrow)
+			const contracts = await getUserContracts({ taskIds: [task.id] });
+			
+			if (contracts.length === 0) {
+				// No contracts found - task was never funded, can delete
+				canDelete = true;
+				return;
+			}
+
+			// Task has contracts - check if any escrow was funded
+			for (const contract of contracts) {
+				const fundingStatus = await escrow.checkEscrowFundingStatus(contract.contract.escrowId);
+				
+				if (fundingStatus.error) {
+					// Error checking escrow - be conservative and disallow deletion
+					canDelete = false;
+					return;
+				}
+				
+				if (fundingStatus.wasFunded) {
+					// Escrow was funded - cannot delete
+					canDelete = false;
+					return;
+				}
+			}
+			
+			// All escrows were never funded - can delete
+			canDelete = true;
+		} catch (error) {
+			console.error('Error checking if task can be deleted:', error);
+			// On error, be conservative and disallow deletion
+			canDelete = false;
+		} finally {
+			isCheckingDelete = false;
+		}
+	}
+
+	// Show delete confirmation
+	function showDeleteConfirmation() {
+		if (!canDelete) return;
+		showDeleteConfirm = true;
+	}
+
+	// Delete task (after confirmation)
 	async function handleDeleteTask() {
+		if (!canDelete) return;
+		
+		showDeleteConfirm = false;
 		try {
 			isDeleting = true;
 			if (!task?.id) return;
@@ -83,6 +146,7 @@
 
 	onMount(() => {
 		fetchBtcPrice();
+		checkCanDeleteTask();
 	});
 </script>
 
@@ -137,7 +201,7 @@
 					{$t('dashboard.task_details_by_task.deadline')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDate(new Date(task.deadline), $locale || 'en')}, 12pm
+					{formatStandardDate(parseDateToLocalMidnight(task.deadline) || new Date(task.deadline), $locale || 'en')}
 				</p>
 			</div>
 		{:else if task.dateRange}
@@ -168,8 +232,14 @@
 			>{$t('dashboard.task_details_by_task.description_task')}</small
 		>
 		<div class="bg-base-200 rounded-2xl p-3">
-			<div class="max-h-[7rem] overflow-y-auto">
-				<p>{task.description}</p>
+			<div class="max-h-28 overflow-y-auto">
+				<TranslatableTask 
+					{task} 
+					showTitle={false}
+					showDescription={true}
+					showToggle={false}
+					descriptionClass="text-sm"
+				/>
 			</div>
 		</div>
 	</div>
@@ -316,53 +386,58 @@
 		</div>
 	{/if}
 
-	<div class="mb-20 flex justify-end gap-2 md:mb-5">
-		{#if isOwner && task.status === TaskStatusEnum.OPEN}
-			<button class="btn btn-primary btn-sm" onclick={handleEditTask}>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-1 h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
+	<div class="mb-20 space-y-3 md:mb-5">
+		<!-- Action Buttons Row -->
+		<div class="flex justify-end gap-2">
+			{#if isOwner && task.status === TaskStatusEnum.OPEN}
+				<button class="btn btn-primary btn-sm" onclick={handleEditTask}>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="mr-1 h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+						/>
+					</svg>
+					{$t('dashboard.task_details_by_task.edit_task')}
+				</button>
+			{/if}
+			
+			<!-- Delete Button (always visible, disabled when canDelete is false) -->
+			{#if isOwner}
+				<button
+					class="btn btn-error btn-sm"
+					onclick={showDeleteConfirmation}
+					disabled={isDeleting || isCheckingDelete || !canDelete}
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-					/>
-				</svg>
-				{$t('dashboard.task_details_by_task.edit_task')}
-			</button>
-		{/if}
-		{#if isOwner && task.status === TaskStatusEnum.OPEN}
-			<button
-				class="btn btn-error btn-sm place-self-end"
-				onclick={handleDeleteTask}
-				disabled={isDeleting}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-1 h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-					/>
-				</svg>
-				{#if isDeleting}
-					<span class="loading loading-spinner loading-sm"></span>
-				{:else}
+					{#if isDeleting || isCheckingDelete}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-1 h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+							/>
+						</svg>
+					{/if}
 					{$t('dashboard.task_details_by_task.delete_task')}
-				{/if}
-			</button>
-		{/if}
+				</button>
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -439,6 +514,73 @@
 			class="modal-backdrop"
 			onclick={cancelEditTask}
 			aria-label={$t('dashboard.task_details_by_task.edit_task_confirmation.title')}
+		></button>
+	</div>
+{/if}
+
+<!-- Delete Task Confirmation Modal -->
+{#if showDeleteConfirm}
+	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
+		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
+			<!-- Modal Header -->
+			<div class="mb-6">
+				<div class="mb-2 flex items-center gap-3">
+					<div class="bg-error/10 flex h-10 w-10 items-center justify-center rounded-full">
+						<svg class="text-error h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+							/>
+						</svg>
+					</div>
+					<div>
+						<h4 class="text-sm font-semibold">{$t('dashboard.task_details_by_task.delete_task_confirm_title')}</h4>
+					</div>
+				</div>
+			</div>
+
+			<!-- Content -->
+			<div class="space-y-4">
+				<!-- Main Warning Box -->
+				<div class="bg-error/10 rounded-lg p-4">
+					<p class="text-sm text-error font-semibold">
+						{$t('dashboard.task_details_by_task.delete_task_confirm_message')}
+					</p>
+				</div>
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="border-base-300 flex gap-3 pt-6">
+				<button type="button" class="btn btn-ghost flex-1" onclick={() => (showDeleteConfirm = false)}>
+					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+					{$t('dashboard.task_details_by_task.cancel')}
+				</button>
+				<button type="button" class="btn btn-error flex-1" onclick={handleDeleteTask}>
+					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+						/>
+					</svg>
+					{$t('dashboard.task_details_by_task.delete_task')}
+				</button>
+			</div>
+		</div>
+		<button
+			class="modal-backdrop"
+			onclick={() => (showDeleteConfirm = false)}
+			aria-label={$t('dashboard.task_details_by_task.delete_task_confirm_title')}
 		></button>
 	</div>
 {/if}

@@ -67,11 +67,11 @@
 	<button
 		class="btn btn-ghost gap-2"
 		onclick={openModal}
-		title="Learn about your Bitcoin wallet"
+		title={$t('common.components.wallet_help_modal.button_title')}
 		data-help-modal
 	>
 		<IconHelpCircle class="h-5 w-5" />
-		Learn More
+		{$t('common.components.wallet_help_modal.learn_more')}
 	</button>
 {/if}
 

@@ -129,7 +129,7 @@
 					placeholder={$t('onboarding_auth.form.username_setup.placeholder')}
 					required
 				/>
-                <div class="label line-clamp-2">
+                <div class="label">
                     <span class="label-text-alt text-base-content/70">
                         {$t('onboarding_auth.form.username_setup.help_text')}
                     </span>

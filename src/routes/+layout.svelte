@@ -8,7 +8,7 @@
 	import { devicePlatform, initializeDevicePlatform } from '$lib/stores/device.store';
 	import TopBar from '$lib/components/TopBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
-	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
+	import Toast from '$lib/components/Toast.svelte';
 	// Social media icon imports
 	import IconFacebook from '~icons/mdi/facebook';
 	import IconInstagram from '~icons/mdi/instagram';
@@ -183,7 +183,7 @@
 
 	// Font Awesome is now loaded via the link tag in the head
 
-	// Initialize theme based on system preference - Broken up into smaller functions
+	// Global error handlers to catch unhandled errors and promise rejections
 	onMount(async (): Promise<any> => {
 		// Critical operations first - only what's needed for initial render
 		initializeCriticalFeatures();
@@ -199,10 +199,32 @@
 		// Defer all non-critical operations
 		deferHelpers();
 
+		// Global error handler for uncaught errors
+		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
+			const error = event instanceof ErrorEvent ? event.error : event.reason;
+			console.error('[Global Error Handler] Uncaught error detected:', {
+				error: error instanceof Error ? error.message : String(error),
+				errorType: error?.constructor?.name,
+				stack: error instanceof Error ? error.stack : undefined,
+				eventType: event instanceof ErrorEvent ? 'error' : 'unhandledrejection',
+				timestamp: new Date().toISOString(),
+				url: window.location.href
+			});
+			// Prevent default error handling to avoid console spam
+			if (event instanceof ErrorEvent) {
+				event.preventDefault();
+			}
+		};
+
+		window.addEventListener('error', handleError);
+		window.addEventListener('unhandledrejection', handleError);
+
 		// Return cleanup function for proper disposal
 		return () => {
 			clearTimeout(routeChangeTimeout);
 			themeCleanup();
+			window.removeEventListener('error', handleError);
+			window.removeEventListener('unhandledrejection', handleError);
 			// No cleanup needed for Font Awesome loaded via link tag
 		};
 	});
@@ -245,7 +267,7 @@
 	<main
 		data-theme={$darkMode ? 'dark' : 'light'}
 		id="main"
-		class="no-horizontal-scroll flex min-h-[100dvh] flex-col bg-base-200"
+		class="no-horizontal-scroll flex min-h-dvh flex-col bg-base-200"
 	>
 		<!-- Desktop TopBar will be positioned fixed via its own component styles -->
 		{#if showTopBar}
@@ -261,7 +283,7 @@
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
 			{#if devicePlatformValue === 'web' && !isLandingPage}
-				<div class="bg-base-200 flex flex-grow lg:block overflow-hidden">
+				<div class="bg-base-200 flex grow lg:block overflow-hidden">
 					{@render children()}
 				</div>
 			{:else}
@@ -512,7 +534,7 @@
 			</div>
 		{/if}
 
-		<!-- Notification Permission Banner -->
-		<NotificationPermissionBanner />
+		<!-- Toast notifications -->
+		<Toast />
 	</main>
 {/if}

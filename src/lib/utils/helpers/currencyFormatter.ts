@@ -180,3 +180,10 @@ export function formatUSDWithSatsSync(rbtcAmount: string | number, btcPrice: num
 	
 	return `$${usdAmount.toFixed(2)} (${sats.toLocaleString('en-US')} Sats)`;
 }
+
+export function formatNumberWithTwoDecimals(number: number): string {
+	return new Intl.NumberFormat('en-US', {
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 2
+	}).format(number);
+}

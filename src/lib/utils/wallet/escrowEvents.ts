@@ -3,7 +3,7 @@ import type { CreateContractParams } from '$lib/types/contract';
 import { writable } from 'svelte/store';
 import type { Attachment } from '$lib/types/task';
 import { createContract, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-import { rskWalletStore, getRSKWallet, getEventListeners } from '$lib/stores/rskWallet.store';
+import { escrowStore, getRSKWallet, getEventListeners } from '$lib/stores/wallet.store';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -30,6 +30,7 @@ export interface ContractCreationEvent {
 // Stores for escrow events
 export const escrowCreatedStore = writable<EscrowCreatedEvent | null>(null);
 export const contractCreationStore = writable<ContractCreationEvent | null>(null);
+export const contractUpdateStore = writable<string[]>([]);
 
 // Pending contract creation requests
 interface PendingContractCreation {
@@ -107,6 +108,28 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			console.log('Creating Nostr contract with params:', contractParams);
 			await createContract(contractParams);
 
+			// Notify backend that contract was created
+			try {
+				const { notifyBackendOfContractAction } = await import('$lib/utils/contract-notification-helper');
+				// Get current user pubkey (task creator)
+				const { getCurrentUserPubkey } = await import('$lib/utils/nostr-message');
+				const taskCreatorPubkey = await getCurrentUserPubkey();
+				
+				await notifyBackendOfContractAction(
+					event.escrowId,
+					'contract-created',
+					`contract-${event.escrowId}`,
+					{
+						taskId: pendingContract.taskId,
+						freelancerPubkey: pendingContract.freelancerPubkey,
+						taskCreatorPubkey: taskCreatorPubkey || '',
+						transactionHash: event.transactionHash
+					}
+				);
+			} catch (error) {
+				console.warn('Failed to notify backend of contract creation:', error);
+			}
+
 			// Update contract creation store
 			contractCreationStore.set({
 				escrowId: event.escrowId,
@@ -168,6 +191,10 @@ export async function handleTaskCompleted(event: {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.Completed);
 
+		// Update completion cache to confirmed
+		const { updateCompleteCancelStatus } = await import('$lib/stores/completionCache.store');
+		updateCompleteCancelStatus(event.escrowId, 'confirmed', event.transactionHash);
+
 		// Publish status update to Nostr with completion attachments
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -196,6 +223,15 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
 
+		// Update accept/dispute cache to confirmed
+		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
+		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
+
+		// Add escrowId to contract update queue (avoid duplicates)
+		contractUpdateStore.update(ids => 
+			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
+		);
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -223,6 +259,15 @@ export async function handleTaskDisputed(event: { escrowId: string; transactionH
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.InDispute);
+
+		// Update accept/dispute cache to confirmed
+		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
+		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
+
+		// Add escrowId to contract update queue (avoid duplicates)
+		contractUpdateStore.update(ids => 
+			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
+		);
 
 		// Publish status update to Nostr
 		await publishContractStatus({
@@ -309,6 +354,15 @@ export async function handleEscrowCancelled(event: { escrowId: string; transacti
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.Cancelled);
+
+		// Update complete/cancel cache to confirmed
+		const { updateCompleteCancelStatus } = await import('$lib/stores/completionCache.store');
+		updateCompleteCancelStatus(event.escrowId, 'confirmed', event.transactionHash);
+
+		// Add escrowId to contract update queue (avoid duplicates)
+		contractUpdateStore.update(ids => 
+			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
+		);
 
 		// Publish status update to Nostr
 		await publishContractStatus({
@@ -412,7 +466,7 @@ export function resetStores(): void {
 
 // Helper function to update escrow status
 function updateEscrowStatus(escrowId: string, status: EscrowStatus): void {
-	rskWalletStore.update(state => ({
+	escrowStore.update(state => ({
 		...state,
 		escrows: state.escrows.map(escrow =>
 			escrow.id === escrowId
@@ -467,7 +521,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		// Load and update escrow data
 		loadEscrowDetails(escrowId.toString()).then(escrowData => {
 			if (escrowData) {
-				rskWalletStore.update(state => ({
+				escrowStore.update(state => ({
 					...state,
 					escrows: [escrowData, ...state.escrows.filter(e => e.id !== escrowData.id)]
 				}));
@@ -535,7 +589,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 			console.log('DisputeProposed event received:', escrowIdStr);
 			loadDisputeProposal(escrowIdStr).then(proposal => {
 				if (proposal) {
-					rskWalletStore.update(state => ({
+					escrowStore.update(state => ({
 						...state,
 						disputeProposals: [proposal, ...state.disputeProposals.filter(p => p.escrowId !== proposal.escrowId)]
 					}));
@@ -552,7 +606,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 			console.log('DisputeResolved event received:', escrowIdStr);
 			updateEscrowStatus(escrowIdStr, EscrowStatus.DisputeResolved);
 			// Remove dispute proposal
-			rskWalletStore.update(state => ({
+			escrowStore.update(state => ({
 				...state,
 				disputeProposals: state.disputeProposals.filter(p => p.escrowId !== escrowIdStr)
 			}));

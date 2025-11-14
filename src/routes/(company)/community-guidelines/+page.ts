@@ -2,12 +2,12 @@
 import type { PageLoad } from './$types';
 
 
-export const load: PageLoad = async () => {
+export const load: PageLoad = async ({ url }) => {
 	const seo = {
 		title: 'Community Guidelines - BitTasker | Platform Rules',
 		description: 'Learn about BitTasker\'s community guidelines, platform rules, and user safety policies. Understand how to behave properly on our Bitcoin task marketplace.',
 		keywords: 'BitTasker community guidelines, platform rules, user safety, Bitcoin marketplace conduct, task platform policies, community standards, user behavior guidelines',
-		canonical: 'https://bittasker.com/community-guidelines',
+		canonical: url.href,
 		ogTitle: 'Community Guidelines - BitTasker | Platform Rules & User Safety',
 		ogDescription: 'Learn about BitTasker\'s community guidelines, platform rules, and user safety policies. Understand how to behave properly on our Bitcoin task marketplace.',
 		twitterTitle: 'Community Guidelines - BitTasker | Platform Rules & User Safety',
@@ -17,7 +17,7 @@ export const load: PageLoad = async () => {
 			'@type': 'WebPage',
 			'name': 'Community Guidelines - BitTasker',
 			'description': 'Learn about BitTasker\'s community guidelines, platform rules, and user safety policies. Understand how to behave properly on our Bitcoin task marketplace for a positive experience.',
-			'url': 'https://bittasker.com/community-guidelines',
+			'url': url.href,
 
 			'mainEntity': {
 				'@type': 'Article',

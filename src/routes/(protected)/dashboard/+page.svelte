@@ -11,6 +11,7 @@
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
+
 	// Tab management - reactive to language changes
 	const availableTabs = $derived([
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },

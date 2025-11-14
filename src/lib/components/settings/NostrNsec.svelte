@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import QRCode from 'qrcode';
+	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	let {
@@ -25,74 +25,7 @@
 	async function generateQrCode() {
 		if (nsec && authMethod !== 'alby') {
 			try {
-				// Create canvas for custom QR code with logo
-				const canvas = document.createElement('canvas');
-				const ctx = canvas.getContext('2d');
-
-				if (!ctx) {
-					console.error('Failed to get canvas context');
-					return;
-				}
-
-				// Generate QR code with higher error correction for logo overlay
-				await QRCode.toCanvas(canvas, nsec, {
-					errorCorrectionLevel: 'H', // High error correction for logo overlay
-					margin: 0,
-					width: 256,
-					color: {
-						dark: '#000000',
-						light: '#FFFFFF'
-					}
-				});
-
-				// Load BitTasker logo
-				const logo = new Image();
-				logo.crossOrigin = 'anonymous';
-
-				return new Promise<void>((resolve, reject) => {
-					logo.onload = () => {
-						try {
-							// Calculate logo size (about 20% of QR code)
-							const logoSize = canvas.width * 0.2;
-							const logoX = (canvas.width - logoSize) / 2;
-							const logoY = (canvas.height - logoSize) / 2;
-
-							// Draw white background circle for logo
-							const padding = 8;
-							ctx.fillStyle = '#FFFFFF';
-							ctx.beginPath();
-							ctx.arc(
-								canvas.width / 2,
-								canvas.height / 2,
-								(logoSize + padding) / 2,
-								0,
-								2 * Math.PI
-							);
-							ctx.fill();
-
-							// Draw logo
-							ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
-
-							// Convert to data URL
-							qrCodeDataUrl = canvas.toDataURL();
-							resolve();
-						} catch (err) {
-							console.error('Failed to draw logo on QR code:', err);
-							// Fallback to QR code without logo
-							qrCodeDataUrl = canvas.toDataURL();
-							resolve();
-						}
-					};
-
-					logo.onerror = () => {
-						console.error('Failed to load logo, using QR code without logo');
-						qrCodeDataUrl = canvas.toDataURL();
-						resolve();
-					};
-
-					// Load the logo
-					logo.src = '/logo_compact.svg';
-				});
+				qrCodeDataUrl = await generateQrCodeUrl(nsec);
 			} catch (err) {
 				console.error('Failed to generate QR code:', err);
 			}

@@ -9,28 +9,20 @@
 	import { appStore } from '$lib/stores/app.store';
 	// Icon imports for unplugin-icons
 	import IconContentCopy from '~icons/mdi/content-copy';
-	import {
-		walletManager,
-		combinedWalletState,
-		liquidConnection,
-		rskConnection,
-		walletStore
-	} from '$lib/stores/wallet.store';
-	import { initWasm, isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
+	import { walletManager, rskConnection, walletStore } from '$lib/stores/wallet.store';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import SendForm from '$lib/components/wallet/SendForm.svelte';
 	import ReceiveForm from '$lib/components/wallet/ReceiveForm.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
+	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
+	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
 	onMount(async () => {
-		// Initialize WASM first, then both wallets
-		await initWasm();
-		if ($isWasmInitialized) {
-			await walletManager.initialize();
-		}
+		// Initialize wallets
+		await walletManager.initialize();
 	});
 
 	onDestroy(async () => {
@@ -38,8 +30,8 @@
 	});
 
 	// Reactive state from centralized store
-	let hasErrors = $derived($walletStore.error || $liquidConnection.error || $rskConnection.error);
-	let isConnecting = $derived($liquidConnection.connecting || $rskConnection.connecting);
+	let hasErrors = $derived($walletStore.error || $rskConnection.error);
+	let isConnecting = $derived($rskConnection.connecting);
 </script>
 
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
@@ -49,28 +41,11 @@
 				<h2 class="text-3xl font-bold">{$t('wallet.title')}</h2>
 				<HelpModal />
 			</div>
-			<!-- Network status badges - commented out -->
-			<!--
-			<div class="flex gap-2">
-				<div class="tooltip" data-tip="Breez Liquid Wallet">
-					<div class="badge {$liquidConnection.connected ? 'badge-success' : 'badge-error'} gap-2">
-						<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid" class="h-4 w-4" />
-						Liquid
-					</div>
-				</div>
-				<div class="tooltip" data-tip="Rootstock Wallet">
-					<div class="badge {$rskConnection.connected ? 'badge-success' : 'badge-error'} gap-2">
-						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="RSK" class="h-4 w-4" />
-						RSK
-					</div>
-				</div>
-			</div>
-			-->
 		</div>
 
 		<!-- Connection Status - commented out -->
 
-		{#if $combinedWalletState.isInitializing}
+		{#if $walletStore.isInitializing}
 			<div class="alert alert-outlinealert-info mb-6">
 				<div class="flex items-center">
 					<span class="loading loading-spinner loading-sm mr-2"></span>
@@ -90,7 +65,7 @@
 					<div class="flex items-center">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="mr-2 h-6 w-6 flex-shrink-0 stroke-current"
+							class="mr-2 h-6 w-6 shrink-0 stroke-current"
 							fill="none"
 							viewBox="0 0 24 24"
 						>
@@ -104,13 +79,9 @@
 						<div>
 							<div class="font-bold">{$t('wallet.page.connection_error')}</div>
 							<div class="text-sm">
-								{#if $liquidConnection.error?.includes('No mnemonic found')}
+								{#if $rskConnection.error?.includes('No mnemonic found')}
 									{$t('wallet.page.no_wallet_setup')}
-								{:else if $liquidConnection.error}
-									Liquid: {$liquidConnection.error}
-								{/if}
-								{#if $rskConnection.error}
-									{#if $liquidConnection.error}<br />{/if}
+								{:else if $rskConnection.error}
 									RSK: {$rskConnection.error}
 								{/if}
 							</div>
@@ -132,7 +103,7 @@
 				<div class="flex items-center">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="mr-3 h-6 w-6 flex-shrink-0 stroke-current"
+						class="mr-3 h-6 w-6 shrink-0 stroke-current"
 						fill="none"
 						viewBox="0 0 24 24"
 					>
@@ -196,29 +167,41 @@
 			</div>
 		{/if}
 
-		{#if $combinedWalletState.hasAnyConnection || !hasErrors}
+		{#if $walletStore.hasAnyConnection || !hasErrors}
 			<!-- Tab Navigation -->
 			<div class="tabs tabs-bordered mb-6 w-full">
 				<button
-					class="tab {$combinedWalletState.activeTab === 'balance' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'balance' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('balance')}
 				>
 					{$t('wallet.tab_balance')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'receive' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'receive' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('receive')}
 				>
 					{$t('wallet.tab_receive')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'send' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'send' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('send')}
 				>
 					{$t('wallet.tab_send')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'transactions' ? 'active-tab' : ''}"
+					class="tab {$walletStore.activeTab === 'buy-sell' ? 'active-tab' : ''}"
+					onclick={() => walletManager.setActiveTab('buy-sell')}
+				>
+					{$t('wallet.tab_buy_sell')}
+				</button>
+				<button
+					class="tab {$walletStore.activeTab === 'swap' ? 'active-tab' : ''}"
+					onclick={() => walletManager.setActiveTab('swap')}
+				>
+					{$t('wallet.tab_swap')}
+				</button>
+				<button
+					class="tab {$walletStore.activeTab === 'transactions' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('transactions')}
 				>
 					{$t('wallet.tab_transactions')}
@@ -226,21 +209,27 @@
 			</div>
 
 			<!-- Tab Content -->
-			{#if $combinedWalletState.activeTab === 'balance'}
+			{#if $walletStore.activeTab === 'balance'}
 				<BalanceCard />
 			{/if}
 
-			{#if $combinedWalletState.activeTab === 'receive'}
+			{#if $walletStore.activeTab === 'receive'}
 				<ReceiveForm />
 			{/if}
 
-			{#if $combinedWalletState.activeTab === 'send'}
-				<div class="space-y-6">
-					<SendForm />
-				</div>
+			{#if $walletStore.activeTab === 'send'}
+				<SendForm />
 			{/if}
 
-			{#if $combinedWalletState.activeTab === 'transactions'}
+			{#if $walletStore.activeTab === 'buy-sell'}
+				<BuySellForm />
+			{/if}
+
+			{#if $walletStore.activeTab === 'swap'}
+				<SwapForm />
+			{/if}
+
+			{#if $walletStore.activeTab === 'transactions'}
 				<TransactionHistory />
 			{/if}
 		{:else}
@@ -279,7 +268,9 @@
 <style>
 	.tab.active-tab {
 		position: relative;
-		color: white;
+		color: hsl(var(--p));
+		background-color: hsl(var(--p) / 0.1);
+		font-weight: 600;
 	}
 
 	.tab.active-tab::after {
@@ -289,7 +280,7 @@
 		left: 0;
 		width: 100%;
 		height: 2px;
-		background-color: orange;
+		background-color: hsl(var(--p));
 		border-radius: 1px;
 	}
 </style>

@@ -2,6 +2,7 @@
 	import { notificationStore } from '$lib/stores/notification.store';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { t } from 'svelte-i18n';
 	import type { Notification } from '$lib/stores/notification.store';
 	
 	// MDI Icons
@@ -124,63 +125,37 @@
 	}
 
 	function getTranslatedToastTitle(notification: Notification): string {
-		// If title is already in Spanish, return as is
-		if (notification.title.includes('Nueva') || notification.title.includes('Recibida') || 
-			notification.title.includes('Oferta') || notification.title.includes('Pago')) {
+		// If notification is already translated, return as-is
+		if (notification.data?.isTranslated) {
 			return notification.title;
 		}
-
-		// Translate common English titles to Spanish
-		const translations: Record<string, string> = {
-			'New Bid Received': 'Nueva Oferta Recibida',
-			'Bid Accepted': 'Oferta Aceptada',
-			'Bid Rejected': 'Oferta Rechazada',
-			'Payment Received': 'Pago Recibido',
-			'Payment Sent': 'Pago Enviado',
-			'Task Updated': 'Tarea Actualizada',
-			'New Message': 'Nuevo Mensaje',
-			'System Maintenance': 'Mantenimiento del Sistema',
-			'Security Alert': 'Alerta de Seguridad',
-			'Contract Created': 'Contrato Creado',
-			'Contract Completed': 'Contrato Completado',
-			'Task Completed': 'Tarea Completada',
-			'New Notification': 'Nueva Notificación'
-		};
-
-		return translations[notification.title] || notification.title;
+		
+		// Check if notification has translation keys
+		if (notification.data?.titleKey) {
+			return $t(notification.data.titleKey);
+		}
+		
+		// Fallback to direct translation of the title
+		return $t(notification.title) || notification.title;
 	}
 
 	function getTranslatedToastBody(notification: Notification): string {
-		// If body is already in Spanish, return as is
-		if (notification.body.includes('recibido') || notification.body.includes('enviado') || 
-			notification.body.includes('tarea') || notification.body.includes('oferta')) {
+		// If notification is already translated, return as-is
+		if (notification.data?.isTranslated) {
 			return notification.body;
 		}
-
-		// Translate common English body text to Spanish
-		const bodyTranslations: Record<string, string> = {
-			'You have received a new bid': 'Has recibido una nueva oferta',
-			'Your bid has been accepted': 'Tu oferta ha sido aceptada',
-			'Your bid has been rejected': 'Tu oferta ha sido rechazada',
-			'Payment has been received': 'El pago ha sido recibido',
-			'Payment has been sent': 'El pago ha sido enviado',
-			'Task has been updated': 'La tarea ha sido actualizada',
-			'You have a new message': 'Tienes un nuevo mensaje',
-			'System maintenance scheduled': 'Mantenimiento del sistema programado',
-			'Security alert detected': 'Alerta de seguridad detectada',
-			'Contract has been created': 'El contrato ha sido creado',
-			'Contract has been completed': 'El contrato ha sido completado',
-			'Task has been completed': 'La tarea ha sido completada'
-		};
-
-		// Try to find a matching translation
-		for (const [english, spanish] of Object.entries(bodyTranslations)) {
-			if (notification.body.includes(english)) {
-				return notification.body.replace(english, spanish);
-			}
+		
+		// Check if notification has translation keys
+		if (notification.data?.bodyKey) {
+			const translation = $t(notification.data.bodyKey as any);
+			// Replace {senderName} placeholder with actual sender name
+			return translation.replace('{senderName}', notification.data.senderName || 'Usuario');
 		}
-
-		return notification.body;
+		
+		// Fallback to direct translation of the body
+		const translation = $t(notification.body as any) || notification.body;
+		// Replace {senderName} placeholder with actual sender name
+		return translation.replace('{senderName}', notification.data?.senderName || 'Usuario');
 	}
 </script>
 
@@ -198,7 +173,7 @@
 			<div class="p-4">
 				<div class="flex items-start">
 					<!-- Icon -->
-					<div class="flex-shrink-0">
+					<div class="shrink-0">
 						{#if toast.type === 'bid_response'}
 							<IconCurrencyUsd class="w-5 h-5 {getToastIconColor(toast.priority)}" />
 						{:else if toast.type === 'contract_event'}
@@ -247,7 +222,7 @@
 					<!-- Close Button -->
 					<button
 						onclick={(e) => { e.stopPropagation(); dismissToast(toast.id); }}
-						class="ml-3 flex-shrink-0 {getToastIconColor(toast.priority)} hover:opacity-75"
+						class="ml-3 shrink-0 {getToastIconColor(toast.priority)} hover:opacity-75"
 						aria-label="Dismiss notification"
 					>
 						<IconClose class="w-4 h-4" />

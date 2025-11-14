@@ -102,6 +102,10 @@
         "cancel": "Cancel",
         "confirm_edit": "Yes, Edit Task"
       },
+      "delete_task_confirm_title": "Delete Task",
+      "delete_task_confirm_message": "Are you sure you want to delete this task? This action cannot be undone. The task will be permanently removed.",
+      "cannot_delete_message": "This task cannot be deleted because it has been funded. Tasks can only be deleted before funding or if funding failed. Once a task is funded, it must be completed, cancelled, or resolved through the normal task lifecycle.",
+      "cancel": "Cancel",
       "page_title": "Task Details - BitTasker",
       "page_description": "Here you can see the details of the task."
     },
@@ -170,7 +174,7 @@
         "estimated_start": "Estimated Start:",
         "estimated_completion": "Estimated Completion:",
         "estimated_duration": "Estimated Duration:",
-        "estimated_gas_fee": "Estimated Gas Fee:",
+        "estimated_gas_fee": "Estimated Network Fee:",
         "btc_price": "BTC Price:",
         "sats": "Sats",
         "base_amount_tooltip": "The amount the taskee is charging for completing this task.",
@@ -220,9 +224,9 @@
         "status": "Status:",
         "escrow_id": "Escrow ID:",
         "contract_creation_status": "Contract Creation Status",
-        "creating_nostr_contract": "Creating Nostr contract...",
-        "nostr_contract_success": "Nostr contract created successfully!",
-        "nostr_contract_failed": "Failed to create Nostr contract",
+        "creating_nostr_contract": "Creating contract...",
+        "nostr_contract_success": "Contract created successfully!",
+        "nostr_contract_failed": "Failed to create contract",
         "what_happens_next_title": "What happens next?",
         "next_item_notify": "The taskee will be notified of the accepted bid",
         "next_item_begin": "Work can begin as per the agreed timeline",
@@ -454,6 +458,18 @@
       "bid_now": "Bid Now",
       "view_bid": "View Bid"
     },
+    "tasks": {
+      "title": "My Tasks",
+      "description": "Manage your tasks",
+      "loading": "Loading tasks...",
+      "error_title": "Failed to load tasks",
+      "retry": "Retry",
+      "refresh": "Refresh",
+      "no_tasks": "No tasks found",
+      "no_tasks_description": "You don't have any tasks yet. Create a task to get started.",
+      "no_filtered_tasks": "No tasks match your filters",
+      "try_different_filters": "Try adjusting your filters to see more tasks."
+    },
     "contracts": {
       "title": "Contracts",
       "description": "Manage your active contracts and escrow agreements",
@@ -483,6 +499,9 @@
       "close_modal": "Close modal",
       "close": "Close",
       "contract_details": "Contract Details",
+      "anonymous": "Anonymous",
+      "member_since": "Member since",
+      "tasks": "tasks",
       "estimated_start": "Estimated Start",
       "estimated_completion": "Estimated Completion",
       "task_description": "Task Description",
@@ -556,7 +575,13 @@
         "dispute_raising_message": "Dispute raising in progress... Once confirmed, the dispute will be raised.",
         "resolution_proposing_message": "Resolution proposal in progress... Once confirmed, the resolution proposal will be submitted.",
         "proposal_accepting_message": "Proposal acceptance in progress... Once confirmed, the proposal will be accepted.",
-        "timelock_resolving_message": "Timelock resolution in progress... Once confirmed, the contract will be resolved."
+        "timelock_resolving_message": "Timelock resolution in progress... Once confirmed, the contract will be resolved.",
+        "delete_contract": "Delete Contract",
+        "delete_contract_confirm_title": "Delete Contract",
+        "delete_contract_confirm_message": "Are you sure you want to delete this contract? This action cannot be undone. The contract will be permanently removed from your contract list.",
+        "cannot_delete_message": "This contract cannot be deleted because it has been funded. Contracts can only be deleted before funding or if funding failed. Once a contract is funded, it must be completed, cancelled, or resolved through the normal contract lifecycle.",
+        "delete_contract_error": "Failed to delete contract",
+        "delete_contract_success": "Contract deleted successfully"
       },
       "errors": {
         "unknown_error": "An unexpected error occurred. Please try again.",
@@ -594,6 +619,7 @@
         "from_freelancer": "From Taskee",
         "from_unknown": "Unknown sender",
         "transaction": "Transaction",
+        "view_transaction": "View Transaction",
         "proposed_split": "Proposed Split",
         "actions": {
           "task_completed": "Task marked as completed",

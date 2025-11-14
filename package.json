@@ -78,10 +78,11 @@
 		"typescript": "^5.0.0",
 		"typescript-eslint": "^8.20.0",
 		"unplugin-icons": "^22.2.0",
+		"vite-plugin-node-polyfills": "^0.24.0",
 		"vitest": "^3.0.0"
 	},
 	"dependencies": {
-		"@breeztech/breez-sdk-liquid": "^0.10.3",
+		"@bittasker/wallet-core": "^0.1.4",
 		"@capacitor-mlkit/barcode-scanning": "^7.3.0",
 		"@capacitor/android": "^7.0.1",
 		"@capacitor/app": "^7.0.0",
@@ -117,6 +118,7 @@
 		"bip32": "^4.0.0",
 		"bip39": "^3.1.0",
 		"bitcoinjs-lib": "^6.1.0",
+		"bolt11": "^1.4.1",
 		"boltz-core": "^3.0.0",
 		"browser-image-compression": "^2.0.2",
 		"buffer": "^6.0.3",
@@ -128,6 +130,7 @@
 		"ethers": "^6.15.0",
 		"firebase": "^11.10.0",
 		"iconify-icon": "^2.3.0",
+		"liquidjs-lib": "^6.0.2-liquid.37",
 		"nostr-tools": "^2.13.0",
 		"path-browserify": "^1.0.1",
 		"photoswipe": "^5.4.4",

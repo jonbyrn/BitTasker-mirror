@@ -6,7 +6,7 @@
 </script>
 
 <!-- Ensure Toast has the highest z-index and is positioned at center bottom -->
-<div class="toast toast-bottom fixed z-[99999] left-1/2 transform -translate-x-1/2">
+<div class="toast toast-bottom fixed z-99999 left-1/2 transform -translate-x-1/2">
 	{#each toasts as toast (toast.id)}
 		<div
 			class="alert {toast.type === 'success'

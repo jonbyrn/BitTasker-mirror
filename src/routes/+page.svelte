@@ -1,10 +1,14 @@
 <script lang="ts">
 	import type { LiveTask } from '$lib/types/homepage';
+	import type { PageData } from './$types';
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { FeaturedTasksService } from '$lib/services/featuredTasks.service';
 	import Logo from '$lib/components/Logo.svelte';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
+
+	let { data }: { data: PageData } = $props();
+	const seo = data.seo;
 	
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
@@ -108,10 +112,38 @@
 </script>
 
 <svelte:head>
-    <title>The Decentralized Workforce | BitTasker</title>
-    <meta name="description" content="Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr." />
-    
-    <link rel="preload" href={featureImages['bitcoin']} as="image" />
+	<title>{seo.title}</title>
+	<meta name="description" content={seo.description} />
+	<meta name="keywords" content={seo.keywords} />
+	<meta name="author" content="BitTasker" />
+	<meta name="robots" content="index, follow" />
+	<link rel="canonical" href={seo.canonical} />
+
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={seo.canonical} />
+	<meta property="og:title" content={seo.ogTitle} />
+	<meta property="og:description" content={seo.ogDescription} />
+
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content="BitTasker - Decentralized Bitcoin Task Marketplace" />
+	<meta property="og:site_name" content="BitTasker" />
+
+	<!-- Twitter -->
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content={seo.canonical} />
+	<meta property="twitter:title" content={seo.twitterTitle} />
+	<meta property="twitter:description" content={seo.twitterDescription} />
+
+	<meta property="twitter:image:alt" content="BitTasker Logo" />
+	<meta property="twitter:site" content="@BitTaskerdotcom" />
+	<meta property="twitter:creator" content="@BitTaskerdotcom" />
+
+	<!-- Structured Data -->
+	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	
+	<link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>
 
 <div class="min-h-screen">
@@ -316,7 +348,7 @@
 						style="scrollbar-width:none;"
 					>
 						{#each liveTasks as task (task.id)}
-							<div class="w-80 flex-shrink-0 snap-start">
+							<div class="w-80 shrink-0 snap-start">
 								<LiveTaskCard {task} />
 							</div>
 						{/each}
@@ -345,8 +377,8 @@
 								</svg>
 							</div>
 						</div>
-						<h3 class="text-lg font-semibold mb-4 min-h-[3rem] flex items-center justify-center">{$t('homepage.v2.benefits.payments.title')}</h3>
-						<p class="text-base-content/80 flex-grow">
+						<h3 class="text-lg font-semibold mb-4 min-h-12 flex items-center justify-center">{$t('homepage.v2.benefits.payments.title')}</h3>
+						<p class="text-base-content/80 grow">
 							{$t('homepage.v2.benefits.payments.description')}
 						</p>
 					</div>
@@ -360,8 +392,8 @@
 								</svg>
 							</div>
 						</div>
-						<h3 class="text-lg font-semibold mb-4 min-h-[3rem] flex items-center justify-center">{$t('homepage.v2.benefits.escrow.title')}</h3>
-						<p class="text-base-content/80 flex-grow">
+						<h3 class="text-lg font-semibold mb-4 min-h-12 flex items-center justify-center">{$t('homepage.v2.benefits.escrow.title')}</h3>
+						<p class="text-base-content/80 grow">
 							{$t('homepage.v2.benefits.escrow.description')}
 						</p>
 					</div>
@@ -375,8 +407,8 @@
 								</svg>
 							</div>
 						</div>
-						<h3 class="text-lg font-semibold mb-4 min-h-[3rem] flex items-center justify-center">{$t('homepage.v2.benefits.ownership.title')}</h3>
-						<p class="text-base-content/80 flex-grow">
+						<h3 class="text-lg font-semibold mb-4 min-h-12 flex items-center justify-center">{$t('homepage.v2.benefits.ownership.title')}</h3>
+						<p class="text-base-content/80 grow">
 							{$t('homepage.v2.benefits.ownership.description')}
 						</p>
 					</div>
@@ -395,8 +427,8 @@
 								</svg>
 							</div>
 						</div>
-						<h3 class="text-lg font-semibold mb-4 min-h-[3rem] flex items-center justify-center">{$t('homepage.v2.benefits.fees.title')}</h3>
-						<p class="text-base-content/80 flex-grow">{$t('homepage.v2.benefits.fees.description')}</p>
+						<h3 class="text-lg font-semibold mb-4 min-h-12 flex items-center justify-center">{$t('homepage.v2.benefits.fees.title')}</h3>
+						<p class="text-base-content/80 grow">{$t('homepage.v2.benefits.fees.description')}</p>
 					</div>
 				</div>
 			</div>
@@ -432,7 +464,7 @@
 					style="scrollbar-width:none;"
 				>
 					{#each featuredTaskees as taskee (taskee.id)}
-						<div class="w-80 flex-shrink-0 snap-start">
+						<div class="w-80 shrink-0 snap-start">
 							<TaskeeCard {taskee} />
 						</div>
 					{/each}

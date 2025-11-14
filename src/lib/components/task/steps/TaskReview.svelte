@@ -10,10 +10,9 @@
 		satsFromUsd
 	} from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import { formatStandardDate, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
-	import Gallery from '$lib/components/Gallery.svelte';
+	import { formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import type { Attachment } from '$lib/types/task';
 
 	let { direction } = $props();
@@ -157,7 +156,7 @@
 							</span>
 						{:else if $store.task.deadline}
 							<span class="text-base font-medium text-base-content">
-								{$t('task.complete_by')} {formatStandardDateShort(new Date($store.task.deadline))}
+								{$t('task.complete_by')} {formatStandardDateShort(parseDateToLocalMidnight($store.task.deadline) || new Date($store.task.deadline))}
 							</span>
 						{/if}
 					</div>

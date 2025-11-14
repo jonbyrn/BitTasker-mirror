@@ -16,6 +16,10 @@
             "name": "Mejoras del Hogar",
             "description": "Pintura, renovaciones, plomería, trabajo eléctrico y mejoras del hogar"
         },
+        "building-construction": {
+            "name": "Construcción y Edificación",
+            "description": "Construcción nueva, proyectos de construcción, trabajo estructural, construcción comercial y servicios de construcción residencial"
+        },
         "gardening": {
             "name": "Jardinería y Paisajismo",
             "description": "Cuidado del césped, mantenimiento del jardín, paisajismo y servicios al aire libre"
@@ -47,6 +51,10 @@
         "tech": {
             "name": "Tecnología e IT",
             "description": "Reparación de computadoras, soporte técnico, desarrollo de software y servicios digitales"
+        },
+        "it-web-development": {
+            "name": "IT y Desarrollo Web",
+            "description": "Desarrollo web, desarrollo de software, servicios de IT, integración de API, gestión de bases de datos y soluciones técnicas"
         },
         "creative": {
             "name": "Creativo y Diseño",
@@ -95,6 +103,18 @@
         "real-estate": {
             "name": "Bienes Raíces",
             "description": "Gestión de propiedades, fotografía inmobiliaria, escenografía y servicios inmobiliarios"
+        },
+        "accommodation": {
+            "name": "Alojamiento",
+            "description": "Alquileres a corto plazo, reserva de habitaciones, servicios de alojamiento y estancias de hospitalidad"
+        },
+        "hospitality": {
+            "name": "Hospitalidad",
+            "description": "Servicios de restaurantes, catering, servicio de comida, hospitalidad en eventos y servicios de atención al cliente"
+        },
+        "tourism": {
+            "name": "Turismo",
+            "description": "Guías turísticos, asistencia de viajes, experiencias locales, turismo y servicios turísticos"
         },
         "other": {
             "name": "Otros",

@@ -1,41 +1,32 @@
 <script lang="ts">
-	import type { Payment } from '@breeztech/breez-sdk-liquid/web';
-	import type { Transaction as RSKTransaction } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { ethers } from 'ethers';
-	import { combinedWalletState, walletManager } from '$lib/stores/wallet.store';
-
-	// Transaction types
-	interface Transaction {
-		id: string;
-		type: 'send' | 'receive';
-		network: 'liquid' | 'rsk' | 'bsc';
-		asset: string;
-		amount: number;
-		formattedAmount: string;
-		address?: string;
-		timestamp: number;
-		status: 'confirmed' | 'pending' | 'failed';
-		txHash?: string;
-		description?: string;
-		fee?: number;
-	}
+	import { transactions, walletManager } from '$lib/stores/wallet.store';
+	import { weiToSatoshi } from '@bittasker/wallet-core';
+	// MDI Icons
+	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
+	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
+	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+	import IconCheckCircle from '~icons/mdi/check-circle';
+	import IconClockOutline from '~icons/mdi/clock-outline';
+	import IconCloseCircle from '~icons/mdi/close-circle';
 
 	// State
-	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	let selectedFilter = $state<'all' | 'liquid' | 'rsk' | 'bsc' | 'send' | 'receive'>('all');
+	let selectedFilter = $state<'all' | 'rsk' | 'bsc' | 'send' | 'receive'>('all');
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
 
-	// Filtered transactions
+	// Filtered transactions (exclude swaps)
 	let filteredTransactions = $derived(
-		transactions
+		$transactions
 			.filter((tx) => {
+				// Always filter out swaps
+				if (tx.type === 'swap') return false;
+
 				if (selectedFilter === 'all') return true;
-				if (selectedFilter === 'liquid' || selectedFilter === 'rsk' || selectedFilter === 'bsc') {
+				if (selectedFilter === 'rsk' || selectedFilter === 'bsc') {
 					return tx.network === selectedFilter;
 				}
 				if (selectedFilter === 'send' || selectedFilter === 'receive') {
@@ -45,6 +36,15 @@
 			})
 			.sort((a, b) => b.timestamp - a.timestamp)
 	);
+
+	// Derived filter counts for performance
+	let filterCounts = $derived({
+		all: $transactions.filter((tx) => tx.type !== 'swap').length,
+		rsk: $transactions.filter((tx) => tx.network === 'rsk' && tx.type !== 'swap').length,
+		bsc: $transactions.filter((tx) => tx.network === 'bsc' && tx.type !== 'swap').length,
+		send: $transactions.filter((tx) => tx.type === 'send').length,
+		receive: $transactions.filter((tx) => tx.type === 'receive').length
+	});
 
 	// Paginated transactions
 	let paginatedTransactions = $derived(
@@ -64,163 +64,6 @@
 		try {
 			// Load transactions using the combined wallet manager
 			await walletManager.loadTransactions();
-
-			// Get transactions from the combined store and convert them to our interface
-			const storeTransactions = $combinedWalletState.transactions;
-			const convertedTransactions: Transaction[] = [];
-
-			for (const tx of storeTransactions) {
-				// Check if it's a Breez Payment (Liquid) or a blockchain Transaction (RSK/BSC)
-				if ('paymentType' in tx) {
-					// It's a Breez Payment (Liquid network)
-					const payment = tx as Payment;
-					const isReceive = payment.paymentType === 'receive';
-					const timestamp = payment.timestamp * 1000; // Convert to milliseconds
-
-					// Get asset info
-					let asset = 'L-BTC';
-					let formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(8).replace(/\.?0+$/, '')} L-BTC`;
-
-					// Check if it's a different asset
-					if (
-						payment.details.type === 'liquid' &&
-						'assetId' in payment.details &&
-						payment.details.assetId
-					) {
-						// Handle other Liquid assets (USDt, etc.)
-						// Mainnet USDt asset ID
-						if (
-							payment.details.assetId ===
-							'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2'
-						) {
-							asset = 'USDt';
-							formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(2)} USDt`;
-						}
-						// Testnet USDt asset ID
-						else if (
-							payment.details.assetId ===
-							'b612eb46313a2cd6ebabd8b7a8eed5696e29898b87a43bff41c94f51acef9d73'
-						) {
-							asset = 'USDt';
-							formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(2)} USDt`;
-						}
-						// Other assets - show first 6 chars of asset ID
-						else {
-							asset = payment.details.assetId.slice(0, 6) + '...';
-							formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(8).replace(/\.?0+$/, '')} ${asset}`;
-						}
-					}
-
-					convertedTransactions.push({
-						id: payment.txId || `liquid-${payment.timestamp}-${payment.amountSat}`,
-						type: isReceive ? 'receive' : 'send',
-						network: 'liquid' as const,
-						asset,
-						amount: payment.amountSat,
-						formattedAmount,
-						address: payment.destination,
-						timestamp,
-						status: getBreezTransactionStatus(payment),
-						txHash: payment.txId,
-						description: getBreezTransactionDescription(payment),
-						fee: payment.feesSat
-					});
-				} else if ('network' in tx) {
-					// It's a blockchain Transaction (RSK or BSC)
-					const blockchainTx = tx as RSKTransaction;
-
-					if (blockchainTx.network === 'bsc') {
-						// BSC Transaction
-						let asset = 'BNB';
-						let amount = 0;
-						let formattedAmount = '';
-
-						if (blockchainTx.tokenSymbol) {
-							// Token transaction (USDT)
-							asset = blockchainTx.tokenSymbol;
-							amount = parseFloat(ethers.formatUnits(blockchainTx.value, 18));
-							formattedAmount = `${amount.toFixed(6)} ${blockchainTx.tokenSymbol}`;
-						} else {
-							// BNB transaction
-							amount = parseFloat(ethers.formatEther(blockchainTx.value));
-							formattedAmount = `${amount.toFixed(6)} BNB`;
-						}
-
-						// Calculate fee if available
-						let fee: number | undefined;
-						if (
-							blockchainTx.gasUsed &&
-							blockchainTx.gasUsed !== '0' &&
-							blockchainTx.gasPrice &&
-							blockchainTx.gasPrice !== '0'
-						) {
-							try {
-								const feeWei = BigInt(blockchainTx.gasUsed) * BigInt(blockchainTx.gasPrice);
-								fee = parseFloat(ethers.formatEther(feeWei));
-							} catch (error) {
-								console.warn('Failed to calculate BSC transaction fee:', error);
-							}
-						}
-
-						convertedTransactions.push({
-							id: blockchainTx.hash || `bsc-${blockchainTx.timestamp}-${blockchainTx.value}`,
-							type: blockchainTx.type as 'send' | 'receive',
-							network: 'bsc' as const,
-							asset,
-							amount,
-							formattedAmount,
-							address: blockchainTx.to,
-							timestamp: blockchainTx.timestamp,
-							status: blockchainTx.status as 'confirmed' | 'pending' | 'failed',
-							txHash: blockchainTx.hash,
-							description: getBSCTransactionDescription(blockchainTx),
-							fee
-						});
-					} else {
-						// RSK Transaction
-						const rskTx = blockchainTx;
-						const amount = parseFloat(ethers.formatEther(rskTx.value || '0'));
-						const formattedAmount = `${amount.toFixed(6)} rBTC`;
-
-						// Calculate fee if available
-						let fee: number | undefined;
-						if (
-							rskTx.gasUsed &&
-							rskTx.gasUsed !== '0' &&
-							rskTx.gasPrice &&
-							rskTx.gasPrice !== '0'
-						) {
-							try {
-								const feeWei = BigInt(rskTx.gasUsed) * BigInt(rskTx.gasPrice);
-								fee = parseFloat(ethers.formatEther(feeWei));
-							} catch (error) {
-								console.warn('Failed to calculate transaction fee:', error);
-							}
-						}
-
-						convertedTransactions.push({
-							id: rskTx.hash || `rsk-${rskTx.timestamp}-${rskTx.value}`,
-							type: rskTx.type as 'send' | 'receive',
-							network: 'rsk' as const,
-							asset: 'rBTC',
-							amount,
-							formattedAmount,
-							address: rskTx.to,
-							timestamp: rskTx.timestamp,
-							status: rskTx.status as 'confirmed' | 'pending' | 'failed',
-							txHash: rskTx.hash,
-							description: getTransactionDescription(rskTx),
-							fee
-						});
-					}
-				} else {
-					// Fallback: Legacy transaction without network property
-					console.warn('Transaction without network property:', tx);
-				}
-			}
-
-			// Sort by timestamp (newest first)
-			transactions = convertedTransactions.sort((a, b) => b.timestamp - a.timestamp);
 		} catch (err) {
 			console.error('Failed to load transactions:', err);
 			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');
@@ -233,82 +76,52 @@
 		await loadTransactions();
 	}
 
-	function getBreezTransactionStatus(tx: Payment): 'confirmed' | 'pending' | 'failed' {
-		if (tx.status === 'pending') return 'pending';
-		if (tx.status === 'failed') return 'failed';
-		return 'confirmed';
-	}
-
-	function getBreezTransactionDescription(tx: Payment): string {
-		if (tx.paymentType === 'receive') {
-			if (tx.details.type === 'lightning') {
-				return 'Lightning payment received';
-			} else if (tx.details.type === 'liquid') {
-				return 'Liquid payment received';
-			}
-			return 'Payment received';
-		} else {
-			if (tx.details.type === 'lightning') {
-				return 'Lightning payment sent';
-			} else if (tx.details.type === 'liquid') {
-				return 'Liquid payment sent';
-			}
-			return 'Payment sent';
-		}
-	}
-
-	function getTransactionDescription(tx: RSKTransaction): string {
-		if (tx.type === 'send') {
-			return 'RSK transaction sent';
-		} else if (tx.type === 'receive') {
-			return 'RSK payment received';
-		} else if (tx.type === 'contract') {
-			return 'Smart contract interaction';
-		}
-		return 'RSK transaction';
-	}
-
-	function getBSCTransactionDescription(tx: any): string {
-		if (tx.type === 'send') {
-			return tx.tokenSymbol ? `BSC ${tx.tokenSymbol} sent` : 'BSC BNB sent';
-		} else if (tx.type === 'receive') {
-			return tx.tokenSymbol ? `BSC ${tx.tokenSymbol} received` : 'BSC BNB received';
-		} else if (tx.type === 'contract') {
-			return 'BSC smart contract interaction';
-		}
-		return 'BSC transaction';
-	}
-
-	function getTranslatedStatus(status: string): string {
+	function getStatusLabel(status: string): string {
+		if (!status) return 'Unknown'; // Fallback for undefined/null
 		switch (status) {
 			case 'confirmed':
-				return 'Confirmed';
+				return $t('wallet.transaction.status.confirmed');
 			case 'pending':
-				return 'Pending';
+				return $t('wallet.transaction.status.pending');
 			case 'failed':
-				return 'Failed';
+				return $t('wallet.transaction.status.failed');
 			default:
 				return status;
 		}
 	}
 
-	function getStatusBadgeClass(status: string): string {
+	function getStatusIcon(status: string) {
+		if (!status) return IconClockOutline; // Fallback for undefined/null
 		switch (status) {
 			case 'confirmed':
-				return 'badge-success';
+				return IconCheckCircle;
 			case 'pending':
-				return 'badge-warning';
+				return IconClockOutline;
 			case 'failed':
-				return 'badge-error';
+				return IconCloseCircle;
 			default:
-				return 'badge-ghost';
+				// Default to pending icon for unknown statuses
+				return IconClockOutline;
+		}
+	}
+
+	function getStatusIconColor(status: string): string {
+		if (!status) return 'text-base-content/60'; // Fallback for undefined/null
+		switch (status) {
+			case 'confirmed':
+				return 'text-success';
+			case 'pending':
+				return 'text-warning';
+			case 'failed':
+				return 'text-error';
+			default:
+				// Default to muted color for unknown statuses
+				return 'text-base-content/60';
 		}
 	}
 
 	function getNetworkIcon(network: string): string {
 		switch (network) {
-			case 'liquid':
-				return '/images/chains/Liquid-Bitcoin.svg';
 			case 'rsk':
 				return '/images/chains/Bitcoin-Rootstock-logo.webp';
 			case 'bsc':
@@ -320,25 +133,77 @@
 
 	function getNetworkDisplayName(network: string): string {
 		switch (network) {
-			case 'liquid':
-				return 'Liquid Bitcoin';
 			case 'rsk':
-				return 'Rootstock Bitcoin';
+				return $t('wallet.transaction.network.rootstock_bitcoin');
 			case 'bsc':
-				return 'Binance Smart Chain';
+				return $t('wallet.transaction.network.binance_smart_chain');
 			default:
-				return 'Unknown Network';
+				return $t('wallet.transaction.network.unknown_network');
 		}
 	}
 
-	function getTypeIcon(type: string): string {
-		return type === 'receive' ? '↓' : '↑';
+	function getTypeIcon(type: string) {
+		if (!type) return IconArrowUpBold; // Fallback for undefined/null
+		if (type === 'receive') return IconArrowDownBold;
+		if (type === 'contract') return IconFileDocumentOutline;
+		// Default to send icon for 'send' and any other types
+		return IconArrowUpBold;
 	}
 
-	function formatTimestamp(timestamp: number): string {
-		return (
-			new Date(timestamp).toLocaleDateString() + ' ' + new Date(timestamp).toLocaleTimeString()
-		);
+	function formatFee(fee: number, asset: string): string {
+		try {
+			// Fee is already in native units (rBTC, BNB, etc.) from transactionHistory.ts
+			if (!fee || !isFinite(fee) || isNaN(fee)) return '0';
+			if (!asset) asset = '';
+
+			if (asset === 'rBTC' || asset === 'BTC' || asset === 'L-BTC' || asset.includes('BTC')) {
+				// For Bitcoin-based assets, show in satoshis
+				const sats = Math.floor(fee * 100_000_000);
+				if (sats > 0) {
+					return `${sats.toLocaleString()} ${$t('wallet.sats')}`;
+				}
+				// For very small fees, show in BTC with appropriate decimals
+				return `${fee.toFixed(8)} ${asset}`;
+			} else if (asset === 'BNB' || asset.includes('ETH')) {
+				// For other EVM chains, show in native token (no Gwei conversion)
+				if (fee < 0.00001) {
+					return `${fee.toFixed(10)} ${asset}`;
+				}
+				// For larger fees, show in native token
+				return `${fee.toFixed(8)} ${asset}`;
+			} else {
+				// Fallback for unknown assets
+				if (fee < 0.000001) {
+					return `${fee.toExponential(2)} ${asset}`;
+				}
+				return `${fee.toFixed(8)} ${asset}`;
+			}
+		} catch (error) {
+			console.error('Error formatting fee:', error);
+			return '0';
+		}
+	}
+
+	function formatDate(timestamp: number): string {
+		try {
+			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
+			const date = new Date(timestamp);
+			return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+		} catch (error) {
+			console.error('Error formatting date:', error);
+			return '';
+		}
+	}
+
+	function formatTime(timestamp: number): string {
+		try {
+			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
+			const date = new Date(timestamp);
+			return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+		} catch (error) {
+			console.error('Error formatting time:', error);
+			return '';
+		}
 	}
 
 	function formatAddress(address?: string): string {
@@ -350,9 +215,7 @@
 		if (!txHash) return;
 
 		let explorerUrl = '';
-		if (network === 'liquid') {
-			explorerUrl = `https://liquid.network/tx/${txHash}`;
-		} else if (network === 'rsk') {
+		if (network === 'rsk') {
 			// Use the correct RSK explorer based on network (default to testnet for now)
 			const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 			if (rskNetwork === 'mainnet') {
@@ -395,7 +258,7 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex flex-wrap gap-4">
+	<div class="flex flex-wrap items-center gap-4">
 		<h3 class="text-lg font-semibold">{$t('wallet.transaction_history')}</h3>
 		<button
 			class="btn btn-outline btn-sm self-start sm:self-auto"
@@ -434,21 +297,7 @@
 					currentPage = 0;
 				}}
 			>
-				{$t('wallet.all')} ({transactions.length})
-			</button>
-			<button
-				class="tab {selectedFilter === 'liquid' ? 'tab-active' : ''} whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'liquid';
-					currentPage = 0;
-				}}
-			>
-				<img
-					src="/images/chains/Liquid-Bitcoin.svg"
-					alt="Liquid Bitcoin"
-					class="mr-1 inline h-4 w-4"
-				/>
-				Liquid Bitcoin ({transactions.filter((tx) => tx.network === 'liquid').length})
+				{$t('wallet.all')} ({filterCounts.all})
 			</button>
 			<button
 				class="tab {selectedFilter === 'rsk' ? 'tab-active' : ''} whitespace-nowrap"
@@ -462,7 +311,7 @@
 					alt="Rootstock Bitcoin"
 					class="mr-1 inline h-4 w-4"
 				/>
-				Rootstock Bitcoin ({transactions.filter((tx) => tx.network === 'rsk').length})
+				{$t('wallet.transaction.network.rootstock_bitcoin')} ({filterCounts.rsk})
 			</button>
 			<button
 				class="tab {selectedFilter === 'bsc' ? 'tab-active' : ''} whitespace-nowrap"
@@ -476,25 +325,31 @@
 					alt="Binance Smart Chain"
 					class="mr-1 inline h-4 w-4"
 				/>
-				BSC ({transactions.filter((tx) => tx.network === 'bsc').length})
+				{$t('wallet.transaction.network.bsc')} ({filterCounts.bsc})
 			</button>
 			<button
-				class="tab {selectedFilter === 'send' ? 'tab-active' : ''} whitespace-nowrap"
+				class="tab {selectedFilter === 'send'
+					? 'tab-active'
+					: ''} flex items-center gap-1 whitespace-nowrap"
 				onclick={() => {
 					selectedFilter = 'send';
 					currentPage = 0;
 				}}
 			>
-				↑ {$t('wallet.sent')} ({transactions.filter((tx) => tx.type === 'send').length})
+				<IconArrowUpBold class="h-4 w-4" />
+				{$t('wallet.sent')} ({filterCounts.send})
 			</button>
 			<button
-				class="tab {selectedFilter === 'receive' ? 'tab-active' : ''} whitespace-nowrap"
+				class="tab {selectedFilter === 'receive'
+					? 'tab-active'
+					: ''} flex items-center gap-1 whitespace-nowrap"
 				onclick={() => {
 					selectedFilter = 'receive';
 					currentPage = 0;
 				}}
 			>
-				↓ {$t('wallet.received')} ({transactions.filter((tx) => tx.type === 'receive').length})
+				<IconArrowDownBold class="h-4 w-4" />
+				{$t('wallet.received')} ({filterCounts.receive})
 			</button>
 		</div>
 	</div>
@@ -567,60 +422,92 @@
 		<!-- Transaction List -->
 		<div class="space-y-3">
 			{#each paginatedTransactions as tx}
+				{@const TypeIcon = getTypeIcon(tx.type)}
+				{@const StatusIcon = getStatusIcon(tx.status || 'pending')}
 				<div class="card bg-base-200 hover:bg-base-300 transition-colors">
 					<div class="card-body p-4">
 						<!-- Desktop Layout -->
-						<div class="hidden items-center justify-between md:flex">
+						<div class="hidden items-center justify-between gap-2 sm:gap-4 md:flex">
 							<div class="flex items-center gap-3">
 								<!-- Network and Type Icons -->
-								<div class="flex flex-col items-center">
-									{#if getNetworkIcon(tx.network).startsWith('/')}
-										<img src={getNetworkIcon(tx.network)} alt="Network icon" class="h-6 w-6" />
-									{:else}
-										<span class="text-lg">{getNetworkIcon(tx.network)}</span>
-									{/if}
-									<span class="text-sm {tx.type === 'receive' ? 'text-success' : 'text-warning'}">
-										{getTypeIcon(tx.type)}
-									</span>
+								<div class="flex items-center gap-2">
+									<div
+										class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
+										'receive'
+											? 'bg-success/20 text-success'
+											: tx.type === 'contract'
+												? 'bg-primary/20 text-primary'
+												: 'bg-warning/20 text-warning'}"
+									>
+										<TypeIcon class="h-5 w-5" />
+									</div>
+									<div
+										class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+									>
+										{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
+											<img
+												src={getNetworkIcon(tx.network || 'rsk')}
+												alt={getNetworkDisplayName(tx.network || 'rsk')}
+												class="h-10 w-10"
+											/>
+										{:else}
+											<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
+										{/if}
+									</div>
 								</div>
 
 								<div class="flex-1">
 									<div class="mb-1 flex items-center gap-2">
-										<span class="font-semibold capitalize">
-											{tx.type === 'send' ? $t('wallet.sent') : $t('wallet.received')}
+										<span class="font-semibold">
+											{#if tx.type === 'send'}
+												{$t('wallet.transaction.type.send')}
+											{:else if tx.type === 'receive'}
+												{$t('wallet.transaction.type.receive')}
+											{:else if tx.type === 'contract'}
+												{$t('wallet.transaction.type.contract')}
+											{:else}
+												{tx.type}
+											{/if}
 										</span>
-										<div class="badge badge-outline badge-sm text-xs">
-											{getNetworkDisplayName(tx.network)}
-										</div>
-										<div class="badge {getStatusBadgeClass(tx.status)} badge-sm text-xs">
-											{getTranslatedStatus(tx.status)}
+										<div
+											class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
+												tx.status || 'pending'
+											)}"
+											title={getStatusLabel(tx.status || 'pending')}
+										>
+											<StatusIcon
+												class="h-5 w-5"
+												aria-label={getStatusLabel(tx.status || 'pending')}
+											/>
 										</div>
 									</div>
 
-									<div class="space-y-1 text-sm opacity-70">
-										<div>{formatTimestamp(tx.timestamp)}</div>
-										{#if tx.description}
-											<div>{tx.description}</div>
-										{/if}
+									<div class="text-sm opacity-70">
+										<div>{formatDate(tx.timestamp)}</div>
+										<div>{formatTime(tx.timestamp)}</div>
 									</div>
 								</div>
 							</div>
 
-							<div class="text-right">
+							<div class="flex flex-col items-end gap-1.5 text-right">
 								<div
 									class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
 								>
-									{tx.type === 'receive' ? '+' : '-'}{tx.formattedAmount}
+									{tx.type === 'receive'
+										? '+'
+										: '-' +
+											weiToSatoshi(BigInt(tx.value)).toLocaleString() +
+											' ' +
+											$t('wallet.sats')}
 								</div>
 								{#if tx.fee}
 									<div class="text-xs opacity-70">
-										{$t('wallet.transaction_fee')}: {tx.fee}
-										{tx.asset}
+										{$t('wallet.network_fee')}: {formatFee(tx.fee, tx.asset || '')}
 									</div>
 								{/if}
 								{#if tx.txHash}
 									<button
-										class="btn btn-ghost btn-xs mt-1"
+										class="btn btn-ghost btn-xs"
 										onclick={() => openExplorer(tx.txHash, tx.network)}
 									>
 										<svg
@@ -644,80 +531,106 @@
 						</div>
 
 						<!-- Mobile Layout -->
-						<div class="space-y-3 md:hidden">
-							<!-- Header Row -->
-							<div class="flex items-center justify-between">
+						<div class="md:hidden">
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
 								<div class="flex items-center gap-3">
-									<div class="flex items-center gap-1">
-										{#if getNetworkIcon(tx.network).startsWith('/')}
-											<img src={getNetworkIcon(tx.network)} alt="Network icon" class="h-6 w-6" />
-										{:else}
-											<span class="text-lg">{getNetworkIcon(tx.network)}</span>
-										{/if}
-										<span class="text-sm {tx.type === 'receive' ? 'text-success' : 'text-warning'}">
-											{getTypeIcon(tx.type)}
-										</span>
-									</div>
-									<span class="font-semibold capitalize">
-										{tx.type === 'send' ? $t('wallet.sent') : $t('wallet.received')}
-									</span>
-								</div>
-								<div
-									class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
-								>
-									{tx.type === 'receive' ? '+' : '-'}{tx.formattedAmount}
-								</div>
-							</div>
-
-							<!-- Badges Row -->
-							<div class="flex items-center gap-2">
-								<div class="badge badge-outline badge-sm text-xs">
-									{getNetworkDisplayName(tx.network)}
-								</div>
-								<div class="badge {getStatusBadgeClass(tx.status)} badge-sm text-xs">
-									{getTranslatedStatus(tx.status)}
-								</div>
-							</div>
-
-							<!-- Details -->
-							<div class="space-y-1 text-sm opacity-70">
-								<div>{formatTimestamp(tx.timestamp)}</div>
-								{#if tx.description}
-									<div>{tx.description}</div>
-								{/if}
-								{#if tx.fee}
-									<div class="text-xs">
-										{$t('wallet.transaction_fee')}: {tx.fee}
-										{tx.asset}
-									</div>
-								{/if}
-							</div>
-
-							<!-- Action Button -->
-							{#if tx.txHash}
-								<div class="flex justify-end">
-									<button
-										class="btn btn-ghost btn-xs"
-										onclick={() => openExplorer(tx.txHash, tx.network)}
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-3 w-3"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
+									<div class="flex items-center gap-2">
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
+											'receive'
+												? 'bg-success/20 text-success'
+												: tx.type === 'contract'
+													? 'bg-primary/20 text-primary'
+													: 'bg-warning/20 text-warning'}"
 										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-											/>
-										</svg>
-										{$t('wallet.view_explorer')}
-									</button>
+											<TypeIcon class="h-5 w-5" />
+										</div>
+										<div
+											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+										>
+											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
+												<img
+													src={getNetworkIcon(tx.network || 'rsk')}
+													alt={getNetworkDisplayName(tx.network || 'rsk')}
+													class="h-10 w-10"
+												/>
+											{:else}
+												<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
+											{/if}
+										</div>
+									</div>
+									<div class="flex-1">
+										<div class="mb-1 flex items-center gap-2">
+											<span class="font-semibold">
+												{#if tx.type === 'send'}
+													{$t('wallet.transaction.type.send')}
+												{:else if tx.type === 'receive'}
+													{$t('wallet.transaction.type.receive')}
+												{:else if tx.type === 'contract'}
+													{$t('wallet.transaction.type.contract')}
+												{:else}
+													{tx.type}
+												{/if}
+											</span>
+											<div
+												class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
+													tx.status || 'pending'
+												)}"
+												title={getStatusLabel(tx.status || 'pending')}
+											>
+												<StatusIcon
+													class="h-5 w-5"
+													aria-label={getStatusLabel(tx.status || 'pending')}
+												/>
+											</div>
+										</div>
+										<div class="text-sm opacity-70">
+											<div>{formatDate(tx.timestamp)}</div>
+											<div>{formatTime(tx.timestamp)}</div>
+										</div>
+									</div>
 								</div>
-							{/if}
+
+								<div class="flex flex-col items-end gap-1.5 text-right">
+									<div
+										class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
+									>
+										{tx.type === 'receive'
+											? '+'
+											: '-' +
+												weiToSatoshi(BigInt(tx.value)).toLocaleString() +
+												' ' +
+												$t('wallet.sats')}
+									</div>
+									{#if tx.fee}
+										<div class="text-xs opacity-70">
+											{$t('wallet.network_fee')}: {formatFee(tx.fee, tx.asset || '')}
+										</div>
+									{/if}
+									{#if tx.txHash}
+										<button
+											class="btn btn-ghost btn-xs"
+											onclick={() => openExplorer(tx.txHash, tx.network)}
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-3 w-3"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+												/>
+											</svg>
+											{$t('wallet.view_explorer')}
+										</button>
+									{/if}
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

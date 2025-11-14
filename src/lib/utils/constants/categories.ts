@@ -101,6 +101,12 @@ export const TASK_CATEGORIES: Category[] = [
         description: 'Painting, renovations, plumbing, electrical work, and home upgrades'
     },
     {
+        id: '29',
+		slug: 'building-construction',
+        name: 'Building and Construction',
+        description: 'New construction, building projects, structural work, commercial construction, and residential building services'
+    },
+    {
         id: '5',
 		slug: 'gardening',
         name: 'Gardening & Landscaping',
@@ -147,6 +153,12 @@ export const TASK_CATEGORIES: Category[] = [
 		slug: 'tech',
         name: 'Technology & IT',
         description: 'Computer repair, tech support, software development, and digital services'
+    },
+    {
+        id: '30',
+		slug: 'it-web-development',
+        name: 'IT and Web Development',
+        description: 'Web development, software development, IT services, API integration, database management, and technical solutions'
     },
     {
         id: '13',
@@ -222,6 +234,24 @@ export const TASK_CATEGORIES: Category[] = [
     },
     {
         id: '25',
+		slug: 'accommodation',
+        name: 'Accommodation',
+        description: 'Short-term rentals, room booking, accommodation services, and hospitality stays'
+    },
+    {
+        id: '26',
+		slug: 'hospitality',
+        name: 'Hospitality',
+        description: 'Restaurant services, catering, food service, event hospitality, and guest services'
+    },
+    {
+        id: '27',
+		slug: 'tourism',
+        name: 'Tourism',
+        description: 'Tour guiding, travel assistance, local experiences, sightseeing, and tourism services'
+    },
+    {
+        id: '28',
 		slug: 'other',
         name: 'Other',
         description: 'Other types of tasks not covered by other categories'

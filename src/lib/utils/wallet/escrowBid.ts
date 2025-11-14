@@ -140,8 +140,14 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 /**
  * Validate escrow details before creation
  */
-export function validateEscrowDetails(details: BidEscrowDetails): string[] {
+export interface ValidationResult {
+	errors: string[];
+	warnings: string[];
+}
+
+export function validateEscrowDetails(details: BidEscrowDetails): ValidationResult {
 	const errors: string[] = [];
+	const warnings: string[] = [];
 
 	// Validate freelancer address
 	if (!details.freelancerAddress) {
@@ -158,15 +164,27 @@ export function validateEscrowDetails(details: BidEscrowDetails): string[] {
 
 	// Validate timing
 	const now = Math.floor(Date.now() / 1000);
+	const timeDifferenceSeconds = now - details.estimatedStartTime;
+	const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
+
 	if (details.estimatedStartTime <= now) {
-		errors.push('Start time must be in the future');
+		// Check if it's more than 15 minutes past the estimated start time
+		if (timeDifferenceMinutes > 15) {
+			errors.push(`The estimated start time was ${timeDifferenceMinutes} minutes ago. The bid is no longer valid as the Taskee may no longer have this time slot available.`);
+		} else if (timeDifferenceMinutes >= 0) {
+			// Between 0 and 15 minutes past - show warning but allow funding
+			const timeText = timeDifferenceMinutes === 0 
+				? 'just now' 
+				: `${timeDifferenceMinutes} minute${timeDifferenceMinutes !== 1 ? 's' : ''} ago`;
+			warnings.push(`Warning: The estimated start time was ${timeText}. The Taskee may no longer have this time slot available.`);
+		}
 	}
 
 	if (details.estimatedCompletionTime <= details.estimatedStartTime) {
 		errors.push('Completion time must be after start time');
 	}
 
-	return errors;
+	return { errors, warnings };
 }
 
 /**
@@ -183,11 +201,11 @@ export async function acceptBidAndCreateEscrow(
 		const escrowDetails = calculateBidEscrowDetails(bid, task, btcPrice);
 
 		// Validate details
-		const validationErrors = validateEscrowDetails(escrowDetails);
-		if (validationErrors.length > 0) {
+		const validationResult = validateEscrowDetails(escrowDetails);
+		if (validationResult.errors.length > 0) {
 			return {
 				success: false,
-				error: `Validation failed: ${validationErrors.join(', ')}`
+				error: `Validation failed: ${validationResult.errors.join(', ')}`
 			};
 		}
 
@@ -221,12 +239,38 @@ export async function acceptBidAndCreateEscrow(
 			}
 		}
 
+		// Adjust estimated start time if it's in the past but within 15 minutes
+		let adjustedStartTime = escrowDetails.estimatedStartTime;
+		let adjustedCompletionTime = escrowDetails.estimatedCompletionTime;
+
+		const now = Math.floor(Date.now() / 1000);
+		const timeDifferenceSeconds = now - escrowDetails.estimatedStartTime;
+		const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
+
+		if (escrowDetails.estimatedStartTime <= now && timeDifferenceMinutes <= 15) {
+			// Start time is in the past but within 15 minutes - adjust to 1 minute after current time
+			adjustedStartTime = now + 60; // 1 minute buffer
+			
+			// Maintain the same duration by adjusting completion time
+			const originalDuration = escrowDetails.estimatedCompletionTime - escrowDetails.estimatedStartTime;
+			adjustedCompletionTime = now + 60 + originalDuration;
+			
+			console.log('⏰ Adjusted start time from past to 1 minute after current time:', {
+				originalStart: escrowDetails.estimatedStartTime,
+				adjustedStart: adjustedStartTime,
+				originalCompletion: escrowDetails.estimatedCompletionTime,
+				adjustedCompletion: adjustedCompletionTime,
+				duration: originalDuration,
+				minutesPast: timeDifferenceMinutes
+			});
+		}
+
 		// Create the escrow using multi-network manager
 		const transactionResult = await escrow.createEscrow(
 			escrowDetails.freelancerAddress,
 			escrowDetails.baseAmount,
-			escrowDetails.estimatedStartTime,
-			escrowDetails.estimatedCompletionTime,
+			adjustedStartTime,
+			adjustedCompletionTime,
 			escrowDetails.clientFeeTier,
 			escrowDetails.freelancerFeeTier
 		);
@@ -240,8 +284,8 @@ export async function acceptBidAndCreateEscrow(
 			taskDescription: task.description,
 			freelancerPubkey: bid.userProfile?.user?.id || '',
 			amount: escrowDetails.baseAmount,
-			estimatedStartTime: escrowDetails.estimatedStartTime,
-			estimatedCompletionTime: escrowDetails.estimatedCompletionTime,
+			estimatedStartTime: adjustedStartTime,
+			estimatedCompletionTime: adjustedCompletionTime,
 			transactionHash: transactionResult.hash
 		});
 		console.log('✅ [EscrowBid] Pending contract registered');

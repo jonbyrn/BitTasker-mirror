@@ -1,14 +1,15 @@
-import type { ContractTransactionResult, DisputeProposal, EscrowData, GasEstimation } from "$lib/types/wallet";
+import type { GasEstimation } from '@bittasker/wallet-core';
+import type { ContractTransactionResult, DisputeProposal, EscrowData } from "$lib/types/wallet";
 import type { Attachment } from '$lib/types/task';
-import { getProvider, getWallet, rskAddress, walletStore } from "$lib/stores/wallet.store";
+import { getProvider, getWallet, walletStore } from "$lib/stores/wallet.store";
 import { t } from "svelte-i18n";
 import { get } from "svelte/store";
-import { derived } from 'svelte/store';
 import { appStore } from "$lib/stores/app.store";
 import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
+import { updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
 
 let contract: ethers.Contract | null = null;
 
@@ -28,7 +29,7 @@ export async function ensureEscrowReady(): Promise<{
     let wallet = getRSKWallet();
     if (!wallet) {
         const { walletManager } = await import('$lib/stores/wallet.store');
-        await walletManager.initializeRSKWallet();
+        await walletManager.initialize();
         wallet = getRSKWallet();
         if (!wallet) {
             throw new Error('Failed to initialize wallet');
@@ -39,7 +40,7 @@ export async function ensureEscrowReady(): Promise<{
     let provider = getRSKProvider();
     if (!provider) {
         const { walletManager } = await import('$lib/stores/wallet.store');
-        await walletManager.initializeRSKWallet();
+        await walletManager.initialize();
         provider = getRSKProvider();
         if (!provider) {
             throw new Error('Failed to get provider');
@@ -97,16 +98,27 @@ async function connectToEscrowContract(): Promise<void> {
 
     try {
         const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+        const contractAddress = network === 'mainnet'
+            ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+            : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+        
+        if (!contractAddress) {
+            const envVarName = network === 'mainnet' 
+                ? 'VITE_RSK_CONTRACT_ADDRESS_MAINNET'
+                : 'VITE_RSK_CONTRACT_ADDRESS_TESTNET';
+            throw new Error(`Contract address not configured for ${network}. Please set ${envVarName} environment variable.`);
+        }
+        
         const contractConfig = {
-            address: (import.meta.env.VITE_RSK_CONTRACT_ADDRESS).toLowerCase(),
+            address: contractAddress.toLowerCase(),
             abi: escrowABI,
             network
         }
 
         // Ensure the contract address is properly checksummed
-        const contractAddress = ethers.getAddress(contractConfig.address);
+        const checksummedAddress = ethers.getAddress(contractConfig.address);
 
-        contract = new ethers.Contract(contractAddress, contractConfig.abi, wallet);
+        contract = new ethers.Contract(checksummedAddress, contractConfig.abi, wallet);
 
         // Update the unified wallet store with contract connection info
         walletStore.update(state => ({
@@ -125,9 +137,9 @@ async function connectToEscrowContract(): Promise<void> {
         // Validate contract deployment before loading escrows
         try {
             // Test if contract is deployed by checking if it has code
-            const code = await provider.getCode(contractAddress);
+            const code = await provider.getCode(checksummedAddress);
             if (code === '0x') {
-                throw new Error(`No contract deployed at address ${contractAddress}`);
+                throw new Error(`No contract deployed at address ${checksummedAddress}`);
             }
 
             // Test if contract has the expected interface
@@ -186,7 +198,9 @@ async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
 
         return escrow;
     } catch (error) {
-        console.error('Failed to load escrow details:', error);
+        // Silently handle errors - invalid escrow IDs are expected for contracts that were never funded
+        // This is not a critical error, just log as warning
+        console.warn(`Failed to load escrow details for ID ${escrowId}:`, error);
         return null;
     }
 }
@@ -295,19 +309,23 @@ async function createEscrow(
     freelancerFeeTier: FeeTier
 ): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
 
-        // Estimate gas first
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
         const gasEstimate = await contract.createEscrow.estimateGas(
             freelancerAddress,
             estimatedStartTime,
             estimatedCompletionTime,
             clientFeeTier,
             freelancerFeeTier,
-            { value: totalPayment }
+            { value: totalPayment, gasPrice: gasPrice }
         );
 
         const tx = await contract.createEscrow(
@@ -318,7 +336,8 @@ async function createEscrow(
             freelancerFeeTier,
             {
                 value: totalPayment,
-                gasLimit: gasEstimate + (gasEstimate / 10n) // Add 10% buffer
+                gasLimit: gasEstimate + (gasEstimate / 10n), // Add 10% buffer
+                gasPrice: gasPrice
             }
         );
 
@@ -371,14 +390,21 @@ async function createEscrow(
                             result.escrowId = escrowId;
 
                             // Handle escrow created event through our event management system
-                            const { handleEscrowCreated } = await import('$lib/utils/wallet/escrowEvents');
-                            await handleEscrowCreated({
-                                escrowId,
-                                transactionHash: receipt.hash,
-                                client,
-                                freelancer,
-                                amount
-                            });
+                            // Wrap in try-catch to prevent import errors from marking transaction as failed
+                            try {
+                                const { handleEscrowCreated } = await import('$lib/utils/wallet/escrowEvents');
+                                await handleEscrowCreated({
+                                    escrowId,
+                                    transactionHash: receipt.hash,
+                                    client,
+                                    freelancer,
+                                    amount
+                                });
+                            } catch (importError) {
+                                // Log import error but don't mark transaction as failed
+                                // Transaction already succeeded, this is just event handling
+                                console.warn('Failed to handle escrow created event (transaction still succeeded):', importError);
+                            }
                         }
                     } else {
                         console.warn('EscrowCreated event not found in transaction receipt');
@@ -405,11 +431,19 @@ async function createEscrow(
 // Complete task
 async function completeTask(escrowId: string, contractEventId?: string, completionAttachments?: Attachment[]): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.completeTask.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.completeTask.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.completeTask(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -428,29 +462,55 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
                 console.log('Task completion transaction confirmed:', receipt);
 
                 // Handle task completed event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleTaskCompleted } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleTaskCompleted({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId,
-                        completionAttachments
-                    });
+                    try {
+                        const { handleTaskCompleted } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleTaskCompleted({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId,
+                            completionAttachments
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle task completed event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
                 console.error('Task completion transaction receipt is null');
+                
+                // Clear cache on failure to allow retry
+                clearCompletionAttempt(escrowId);
+                
                 appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
             }
         }).catch((error: unknown) => {
+            // Only catch transaction errors, not import errors
+            // Import errors are handled in the try-catch above
             console.error('Task completion transaction failed:', error);
             result.status = 'failed';
+            
+            // Clear cache on failure to allow retry
+            clearCompletionAttempt(escrowId);
+            
+            // Update cache status to failed
+            updateCompletionStatus(escrowId, 'failed');
+            
             appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
         });
 
         return result;
 
     } catch (error) {
+        // Handle immediate errors (before transaction is sent)
+        console.error('Error completing task:', error);
+        
+        // Clear cache on error to allow retry
+        clearCompletionAttempt(escrowId);
+        
         throw new Error(`Failed to complete task: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
@@ -458,11 +518,19 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
 // Accept task
 async function acceptTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.acceptTask.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.acceptTask.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.acceptTask(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -481,13 +549,20 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
                 console.log('Task acceptance transaction confirmed:', receipt);
 
                 // Handle task accepted event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleTaskAccepted } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleTaskAccepted({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleTaskAccepted } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleTaskAccepted({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle task accepted event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -510,11 +585,19 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
 // Cancel escrow
 async function cancelEscrow(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.cancelEscrow.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.cancelEscrow.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.cancelEscrow(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -533,13 +616,20 @@ async function cancelEscrow(escrowId: string, contractEventId?: string): Promise
                 console.log('Escrow cancellation transaction confirmed:', receipt);
 
                 // Handle escrow cancelled event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleEscrowCancelled } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleEscrowCancelled({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleEscrowCancelled } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleEscrowCancelled({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle escrow cancelled event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -562,11 +652,19 @@ async function cancelEscrow(escrowId: string, contractEventId?: string): Promise
 // Dispute task
 async function disputeTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.disputeTask.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.disputeTask.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.disputeTask(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -585,13 +683,20 @@ async function disputeTask(escrowId: string, contractEventId?: string): Promise<
                 console.log('Task dispute transaction confirmed:', receipt);
 
                 // Handle task disputed event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleTaskDisputed } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleTaskDisputed({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleTaskDisputed } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleTaskDisputed({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle task disputed event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -620,19 +725,28 @@ async function proposeResolution(
     proposedFreelancerAmount?: string
 ): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
         const freelancerAmountWei = ethers.parseEther(freelancerAmount);
 
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
         const gasEstimate = await contract.proposeResolution.estimateGas(
             escrowId,
-            freelancerAmountWei
+            freelancerAmountWei,
+            { gasPrice: gasPrice }
         );
 
         const tx = await contract.proposeResolution(
             escrowId,
             freelancerAmountWei,
-            { gasLimit: gasEstimate + (gasEstimate / 10n) }
+            { 
+                gasLimit: gasEstimate + (gasEstimate / 10n),
+                gasPrice: gasPrice
+            }
         );
 
         const result: ContractTransactionResult = {
@@ -651,15 +765,22 @@ async function proposeResolution(
                 console.log('Resolution proposal transaction confirmed:', receipt);
 
                 // Handle resolution proposed event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
-                    const { handleResolutionProposed } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleResolutionProposed({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId,
-                        proposedClientAmount,
-                        proposedFreelancerAmount
-                    });
+                    try {
+                        const { handleResolutionProposed } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleResolutionProposed({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId,
+                            proposedClientAmount,
+                            proposedFreelancerAmount
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle resolution proposed event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -682,11 +803,19 @@ async function proposeResolution(
 // Accept proposal
 async function acceptProposal(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.acceptProposal.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.acceptProposal.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.acceptProposal(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -705,13 +834,20 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
                 console.log('Proposal acceptance transaction confirmed:', receipt);
 
                 // Handle proposal accepted event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleProposalAccepted } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleProposalAccepted({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleProposalAccepted } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleProposalAccepted({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle proposal accepted event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -734,11 +870,19 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
 // Resolve after timelock
 async function resolveAfterTimelock(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
-        const { contract } = await ensureEscrowReady();
+        const { contract, provider } = await ensureEscrowReady();
 
-        const gasEstimate = await contract.resolveAfterTimelock.estimateGas(escrowId);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt(0);
+
+        // Estimate gas with the same gas price that will be used in the transaction
+        const gasEstimate = await contract.resolveAfterTimelock.estimateGas(escrowId, {
+            gasPrice: gasPrice
+        });
         const tx = await contract.resolveAfterTimelock(escrowId, {
-            gasLimit: gasEstimate + (gasEstimate / 10n)
+            gasLimit: gasEstimate + (gasEstimate / 10n),
+            gasPrice: gasPrice
         });
 
         const result: ContractTransactionResult = {
@@ -757,13 +901,20 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
                 console.log('Timelock resolution transaction confirmed:', receipt);
 
                 // Handle timelock resolved event through our event management system
+                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    const { handleTimelockResolved } = await import('$lib/utils/wallet/escrowEvents');
-                    await handleTimelockResolved({
-                        escrowId,
-                        transactionHash: receipt.hash,
-                        contractEventId
-                    });
+                    try {
+                        const { handleTimelockResolved } = await import('$lib/utils/wallet/escrowEvents');
+                        await handleTimelockResolved({
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            contractEventId
+                        });
+                    } catch (importError) {
+                        // Log import error but don't mark transaction as failed
+                        // Transaction already succeeded, this is just event handling
+                        console.warn('Failed to handle timelock resolved event (transaction still succeeded):', importError);
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -861,6 +1012,59 @@ async function isContractPaused(): Promise<boolean> {
     }
 }
 
+/**
+ * Check if an escrow was ever funded using blockchain validation
+ * This is the source of truth - checks the escrow contract directly
+ * @param escrowId The escrow ID to check
+ * @returns Object with wasFunded flag and escrow data if it exists
+ */
+async function checkEscrowFundingStatus(escrowId: string): Promise<{
+    wasFunded: boolean;
+    escrowData: EscrowData | null;
+    error?: typeof EscrowError;
+}> {
+    const { createEscrowError, isEscrowNotFoundError, EscrowError, EscrowErrorCode } = await import('$lib/utils/errors/escrowErrors');
+
+    try {
+        const escrowData = await loadEscrowDetails(escrowId);
+
+        if (!escrowData) {
+            // Escrow doesn't exist - never funded
+            return { wasFunded: false, escrowData: null };
+        }
+
+        // If escrow exists, check if it was ever funded
+        // Since createEscrow is payable, if escrow exists, it was funded
+        // However, for cancelled escrows, we need to check the amount
+        // If amount > 0, it was funded; if amount = 0, funding might have failed
+
+        if (escrowData.status === EscrowStatus.Cancelled) {
+            // For cancelled escrows, check if amount > 0 (was funded)
+            const amount = parseFloat(escrowData.baseAmount);
+            if (amount > 0) {
+                // Escrow exists with amount > 0 - was funded
+                return { wasFunded: true, escrowData };
+            } else {
+                // Escrow exists but amount = 0 - funding failed
+                return { wasFunded: false, escrowData };
+            }
+        } else {
+            // For all other statuses (Funded, InDispute, Completed, etc.), escrow was funded
+            // These statuses can only be reached after funding
+            return { wasFunded: true, escrowData };
+        }
+    } catch (error) {
+        if (isEscrowNotFoundError(error)) {
+            // Escrow doesn't exist - never funded
+            return { wasFunded: false, escrowData: null };
+        }
+
+        // Other error - return error for caller to handle
+        const escrowError = createEscrowError(error, `Failed to check escrow funding status for ${escrowId}`);
+        return { wasFunded: false, escrowData: null, error: escrowError as unknown as typeof EscrowError };
+    }
+}
+
 export const escrow = {
     connectToEscrowContract,
     ensureEscrowReady,
@@ -878,45 +1082,6 @@ export const escrow = {
     getDisputeProposal,
     refreshEscrows: loadUserEscrows,
     loadUserEscrows,
-    isContractPaused
+    isContractPaused,
+    checkEscrowFundingStatus
 }
-
-// Enhanced derived stores for escrow data
-export const rskActiveEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow =>
-        escrow.status === EscrowStatus.Funded ||
-        escrow.status === EscrowStatus.Completed ||
-        escrow.status === EscrowStatus.InDispute
-    )
-);
-
-export const rskClientEscrows = derived([walletStore, rskAddress], ([$store, $address]) =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.client.toLowerCase() === $address?.toLowerCase())
-);
-
-export const rskFreelancerEscrows = derived([walletStore, rskAddress], ([$store, $address]) =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.freelancer.toLowerCase() === $address?.toLowerCase())
-);
-
-export const rskPendingEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Funded)
-);
-
-export const rskCompletedEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Completed)
-);
-
-export const rskDisputedEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.InDispute)
-);
-
-export const rskResolvedEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow =>
-        escrow.status === EscrowStatus.DisputeResolved ||
-        escrow.status === EscrowStatus.DisputeUnresolved
-    )
-);
-
-export const rskCancelledEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Cancelled)
-);

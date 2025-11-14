@@ -1,7 +1,7 @@
 {
     "common": {
         "back": "Back to Task",
-        "back_to_tasks": "Regresar",
+        "back_to_tasks": "Cancel",
         "redirecting_to_login": "Redirecting to login...",
         "or": "or",
         "processing": "Processing",
@@ -15,6 +15,10 @@
         "required": "Required",
         "previous": "Previous",
         "next": "Next",
+        "pagination": {
+            "previous": "Previous",
+            "next": "Next"
+        },
         "today": "Today",
         "clear": "Clear",
         "slide": "Slide",
@@ -135,6 +139,8 @@
             },
             "wallet_help_modal": {
                 "title": "Your Bitcoin Wallet",
+                "learn_more": "Learn More",
+                "button_title": "Learn about your Bitcoin wallet",
                 "start_using_button": "Start Using Wallet",
                 "hero_title": "Your Bitcoin-Powered Wallet",
                 "hero_description": "Send, receive, and manage Bitcoin across multiple networks with complete control of your funds.",
@@ -468,7 +474,7 @@
                     "select_asset": "Select Asset",
                     "network": "Network",
                     "available_balance": "Available Balance",
-                    "available_rbtc_balance": "Available rBTC Balance",
+                    "available_rbtc_balance": "Available L2 Bitcoin Balance",
                     "sats": "Sats"
                 },
                 "balance_card": {
