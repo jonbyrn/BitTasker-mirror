@@ -1158,10 +1158,19 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							switch (escrowData.status) {
 								case EscrowStatus.Funded: // 0
 									// CRITICAL: EscrowStatus.Funded means the contract is active (funded but not completed)
+									// However, check Nostr status events for task-completed - blockchain status might not be updated yet
 									// Always set to 'active' unless cancelled, disputed, or completed (those take priority)
 									// Preserve cancelled, disputed, and completed statuses - don't override them
-									if (currentStatus !== 'cancelled' && currentStatus !== 'disputed' && currentStatus !== 'completed') {
+									
+									// Check if task was completed in Nostr even if blockchain hasn't updated yet
+									const hasTaskCompletedInEvents = statusEvents.some(e => e.status.action === 'task-completed');
+									const shouldBeCompleted = hasTaskCompletedInEvents || currentStatus === 'completed';
+									
+									if (currentStatus !== 'cancelled' && currentStatus !== 'disputed' && !shouldBeCompleted) {
 										currentStatus = 'active';
+									} else if (shouldBeCompleted && currentStatus !== 'cancelled' && currentStatus !== 'disputed') {
+										// Set to completed if we have task-completed events, even if blockchain shows Funded
+										currentStatus = 'completed';
 									}
 									
 									// CRITICAL: If status is cancelled (from Nostr), disable all actions including cancel
