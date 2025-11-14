@@ -765,4 +765,15 @@ ates to X --
 		color: inherit !important;
 	}
 
+	/* Ensure dropdown positioning works correctly in navbar */
+	:global(.navbar-center .menu.menu-horizontal > li.relative) {
+		position: relative;
+	}
+
+	:global(.navbar-center .dropdown-content) {
+		position: absolute;
+		top: 100%;
+		left: 0;
+	}
+
 </style>
