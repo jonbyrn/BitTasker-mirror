@@ -11,7 +11,6 @@
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
-	import IconClockCheckOutline from '~icons/mdi/clock-check-outline';
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';

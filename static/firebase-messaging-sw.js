@@ -46,7 +46,7 @@ async function initializeFirebase(config = {}) {
 		if (firebase.apps.length === 0) {
 			firebase.initializeApp(firebaseConfig);
 		}
-		
+
 		messaging = firebase.messaging();
 		isInitialized = true;
 
@@ -72,38 +72,26 @@ function setupBackgroundMessageHandler() {
 		messaging.onBackgroundMessage((payload) => {
 			const { notification, data } = payload;
 
-			// Extract taskId and bidId from data or body for unique tag
-			const notificationData = data || {};
-			const body = notification?.body || '';
-			let taskId = notificationData.taskId || null;
-			let bidId = notificationData.bidId || null;
-			
-			// Try to extract from body if not in data
-			if (!taskId && body.includes('taskId:')) {
-				const match = body.match(/taskId:([a-f0-9]+)/i);
-				if (match) {
-					taskId = match[1];
-				}
+
+			// ⚠️ CRITICAL: If notification object exists, FCM already displayed it
+			// Don't show another one to prevent duplicates
+			if (notification) {
+				console.log('🔕 SW: Notification object present, FCM will handle display automatically');
+				return; // Exit early - FCM handles it
 			}
-			if (!bidId && body.includes('bidId:')) {
-				const bidMatch = body.match(/bidId:([a-f0-9]+)/i);
-				if (bidMatch) {
-					bidId = bidMatch[1];
-				}
-			}
-			
+
 			// Create unique tag for each notification to prevent replacement
 			// Use combination of type, taskId, bidId, and timestamp to ensure uniqueness
 			const timestamp = Date.now();
-			const tag = `bittasker-${notificationData.type || 'notification'}-${taskId || 'unknown'}-${bidId || timestamp}`;
+			const tag = `bittasker-${data.type || 'notification'}-${timestamp}`;
 
-			const notificationTitle = notification?.title || 'BitTasker';
+			const notificationTitle = data?.title || 'BitTasker';
 			const notificationOptions = {
-				body: notification?.body || 'You have a new notification',
+				body: data?.body || 'You have a new notification',
 				icon: '/web-app-manifest-192x192.png', // Always use app icon, ignore backend icon
 				badge: '/web-app-manifest-192x192.png',
 				tag: tag,
-				data: notificationData,
+				data: data || {},
 				actions: [
 					{
 						action: 'open',
@@ -115,10 +103,10 @@ function setupBackgroundMessageHandler() {
 						title: 'Close'
 					}
 				],
-				requireInteraction: false // Changed to false for better UX
+				requireInteraction: false
 			};
 
-			self.registration.showNotification(notificationTitle, notificationOptions);
+			return self.registration.showNotification(notificationTitle, notificationOptions);
 		});
 	} catch (error) {
 		console.error('❌ SW: Error setting up background message handler:', error);
@@ -136,16 +124,6 @@ self.addEventListener('message', async (event) => {
 		// Re-initialize with correct config if needed
 		if (!isInitialized || firebase.apps.length === 0) {
 			await initializeFirebase(event.data.config);
-		}
-	} else if (event.data && event.data.type === 'CLOSE_NOTIFICATION') {
-		// Close any existing notification with the specified tag to prevent duplicates
-		try {
-			const notifications = await self.registration.getNotifications({ tag: event.data.tag });
-			for (const notification of notifications) {
-				notification.close();
-			}
-		} catch (error) {
-			console.error('❌ SW: Error closing notifications:', error);
 		}
 	}
 });

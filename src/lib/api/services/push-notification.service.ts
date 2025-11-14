@@ -173,16 +173,18 @@ class PushNotificationService {
 	 * Web specific
 	 */
 	private handleForegroundMessage(payload: any): void {
-		const { notification, data } = payload;
-
 		// Handle data payload first (includes device revocation)
-		if (data) {
-			this.handleNotificationData(data);
-		}
+		if (payload.data) {
+			appStore.showInfoToast(payload.data.title || 'New notification received');
 
-		// Show notification in foreground (optional, since browser handles this)
-		if (notification) {
-			this.showInAppNotification(notification);
+			/**
+			 * Avoid directly navigating to the URL in the notification
+			 * TODO: Update toast notification to show action buttons
+			 */
+			// this.handleNotificationData(payload.data);
+
+			// Show notification in foreground (optional, since browser handles this)
+			this.showInAppNotification(payload.data);
 		}
 	}
 
@@ -204,7 +206,7 @@ class PushNotificationService {
 
 	/**
 	 * Handle notification data
-	 * Mobile specific
+	 * Mobile & Web
 	 */
 	private async handleNotificationData(data: any): Promise<void> {
 		// Handle notification data (e.g., navigate to specific page)
