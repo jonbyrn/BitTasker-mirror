@@ -52,6 +52,11 @@
 	// Track if user is logged in
 	let isLoggedIn = $derived($authState.isAuthenticated);
 
+	// Dropdown state
+	let myAccountOpen = $state(false);
+	let taskManagementOpen = $state(false);
+	let supportHelpOpen = $state(false);
+
 	// Initialize stores when component mounts
 	onMount(async () => {
 		if (isLoggedIn) {
@@ -176,42 +181,47 @@
 		showLogoutModal = false;
 	}
 
-	// Function to close all dropdown menus - optimized with passive listeners
+	// Function to close all dropdown menus
 	function closeDropdowns() {
-		// Close all details elements (dropdowns)
-		const dropdowns = document.querySelectorAll('details[open]');
-		dropdowns.forEach((dropdown) => {
-			dropdown.removeAttribute('open');
-		});
+		myAccountOpen = false;
+		taskManagementOpen = false;
+		supportHelpOpen = false;
 	}
 
-	// Function to close other dropdown menus except the current one
-	function closeOtherDropdowns(currentDropdown: HTMLDetailsElement) {
-		const dropdowns = document.querySelectorAll('details[open]');
-		dropdowns.forEach((dropdown) => {
-			if (dropdown !== currentDropdown) {
-				dropdown.removeAttribute('open');
-			}
-		});
-	}
 
-	// Handle dropdown summary clicks - optimized with passive listeners
-	function handleDropdownClick(event: MouseEvent) {
-		const summary = event.currentTarget as HTMLElement;
-		const dropdown = summary.closest('details') as HTMLDetailsElement;
-
-		// Close other dropdowns when this one is about to open
-		if (dropdown && !dropdown.hasAttribute('open')) {
-			closeOtherDropdowns(dropdown);
+	// Toggle dropdown functions
+	function toggleMyAccount() {
+		myAccountOpen = !myAccountOpen;
+		if (myAccountOpen) {
+			taskManagementOpen = false;
+			supportHelpOpen = false;
 		}
 	}
+
+	function toggleTaskManagement() {
+		taskManagementOpen = !taskManagementOpen;
+		if (taskManagementOpen) {
+			myAccountOpen = false;
+			supportHelpOpen = false;
+		}
+	}
+
+	function toggleSupportHelp() {
+		supportHelpOpen = !supportHelpOpen;
+		if (supportHelpOpen) {
+			myAccountOpen = false;
+			taskManagementOpen = false;
+		}
+	}
+
 
 	// Handle clicks outside dropdowns to close them
 	function handleClickOutside(event: MouseEvent) {
 		const target = event.target as HTMLElement;
 
-		// Check if click is outside any dropdown
-		const isInsideDropdown = target.closest('details.dropdown');
+		// Check if click is inside any dropdown button or menu
+		const isInsideDropdown = target.closest('.navbar-center li.relative') || 
+			target.closest('.dropdown-content');
 
 		if (!isInsideDropdown) {
 			closeDropdowns();
@@ -281,18 +291,23 @@ ates to X --
 		<ul class="menu menu-horizontal px-1">
 			{#if isLoggedIn}
 				<!-- My Account -->
-				<li>
-					<details class="dropdown">
-						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<IconAccountCircle class="text-primary" />
-							<span>{$t('navbar.my_account')}</span>
-						</summary>
+				<li class="relative">
+					<button
+						class="btn btn-ghost flex items-center gap-2"
+						onclick={toggleMyAccount}
+						aria-expanded={myAccountOpen}
+						aria-haspopup="true"
+					>
+						<IconAccountCircle class="text-primary" />
+						<span>{$t('navbar.my_account')}</span>
+					</button>
+					{#if myAccountOpen}
 						<ul
-							class="menu dropdown-content bg-base-100 rounded-box z-1 w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-sm"
+							class="menu dropdown-content bg-base-100 rounded-box absolute z-[100] w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-lg mt-1 left-0"
 						>
 							<li>
-								<a href="/dashboard/messages" onclick={closeDropdowns}
-									><IconChatOutline class="text-primary" /> <span>{$t('navbar.messages')}</span></a
+								<a href="/dashboard/profile" onclick={closeDropdowns}
+									><IconAccount class="text-primary" /> <span>{$t('navbar.profile')}</span></a
 								>
 							</li>
 							<li>
@@ -301,8 +316,8 @@ ates to X --
 								>
 							</li>
 							<li>
-								<a href="/dashboard/profile" onclick={closeDropdowns}
-									><IconAccount class="text-primary" /> <span>{$t('navbar.profile')}</span></a
+								<a href="/dashboard/messages" onclick={closeDropdowns}
+									><IconChatOutline class="text-primary" /> <span>{$t('navbar.messages')}</span></a
 								>
 							</li>
 							<li>
@@ -316,34 +331,33 @@ ates to X --
 								>
 							</li>
 						</ul>
-					</details>
+					{/if}
 				</li>
 
 				<!-- Task Management -->
-				<li>
-					<details class="dropdown">
-						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<IconBriefcaseOutline class="text-primary" />
-							<span>{$t('navbar.task_management')}</span>
-						</summary>
+				<li class="relative">
+					<button
+						class="btn btn-ghost flex items-center gap-2"
+						onclick={toggleTaskManagement}
+						aria-expanded={taskManagementOpen}
+						aria-haspopup="true"
+					>
+						<IconBriefcaseOutline class="text-primary" />
+						<span>{$t('navbar.task_management')}</span>
+					</button>
+					{#if taskManagementOpen}
 						<ul
-							class="menu dropdown-content bg-base-100 rounded-box z-1 w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-sm"
+							class="menu dropdown-content bg-base-100 rounded-box absolute z-[100] w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-lg mt-1 left-0"
 						>
-							<li>
-								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeDropdowns}
-									><IconMagnify class="text-primary" /> <span>{$t('navbar.find_tasks')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/dashboard" onclick={closeDropdowns}
-									><IconFormatListBulleted class="text-primary" />
-									<span>{$t('navbar.my_tasks')}</span></a
-								>
-							</li>
 							<li>
 								<a href="/dashboard/create-task" onclick={closeDropdowns}
 									><IconPlusCircleOutline class="text-primary" />
 									<span>{$t('navbar.create_task')}</span></a
+								>
+							</li>
+							<li>
+								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeDropdowns}
+									><IconMagnify class="text-primary" /> <span>{$t('navbar.find_tasks')}</span></a
 								>
 							</li>
 							<li>
@@ -359,18 +373,23 @@ ates to X --
 								>
 							</li>
 						</ul>
-					</details>
+					{/if}
 				</li>
 
 				<!-- Support & Help -->
-				<li>
-					<details class="dropdown">
-						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<IconHelpCircleOutline class="text-primary" />
-							<span>{$t('navbar.support_help')}</span>
-						</summary>
+				<li class="relative">
+					<button
+						class="btn btn-ghost flex items-center gap-2"
+						onclick={toggleSupportHelp}
+						aria-expanded={supportHelpOpen}
+						aria-haspopup="true"
+					>
+						<IconHelpCircleOutline class="text-primary" />
+						<span>{$t('navbar.support_help')}</span>
+					</button>
+					{#if supportHelpOpen}
 						<ul
-							class="menu dropdown-content bg-base-100 rounded-box z-1 w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-sm"
+							class="menu dropdown-content bg-base-100 rounded-box absolute z-[100] w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-lg mt-1 left-0"
 						>
 							<li>
 								<a href="/how-it-works" onclick={closeDropdowns}
@@ -420,7 +439,7 @@ ates to X --
 								>
 							</li>
 						</ul>
-					</details>
+					{/if}
 				</li>
 			{:else}
 				<li>
@@ -431,7 +450,7 @@ ates to X --
 				</li>
 				<li>
 					<details class="dropdown">
-						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
+						<summary class="btn btn-ghost">
 							<IconBriefcaseOutline class="text-primary" />
 							<span>{$t('footer.for_taskers')}</span>
 						</summary>
@@ -467,7 +486,7 @@ ates to X --
 				</li>
 				<li>
 					<details class="dropdown">
-						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
+						<summary class="btn btn-ghost">
 							<IconAccountHardHat class="text-primary" />
 							<span>{$t('footer.for_taskees')}</span>
 						</summary>
@@ -509,7 +528,7 @@ ates to X --
 				</li>
 				<li>
 					<details class="dropdown">
-						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
+						<summary class="btn btn-ghost">
 							<IconDomain class="text-primary" />
 							<span>{$t('footer.company')}</span>
 						</summary>
@@ -582,7 +601,7 @@ ates to X --
 			
 			<!-- Avatar Dropdown -->
 			<details class="dropdown dropdown-end">
-				<summary class="btn btn-ghost" onclick={handleDropdownClick}>
+				<summary class="btn btn-ghost">
 					<Avatar 
 						name={$user.picture}
 						picture={userPicture()} 
@@ -745,4 +764,5 @@ ates to X --
 		box-shadow: none !important;
 		color: inherit !important;
 	}
+
 </style>
