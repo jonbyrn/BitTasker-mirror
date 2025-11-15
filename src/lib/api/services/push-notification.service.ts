@@ -116,9 +116,9 @@ class PushNotificationService {
 			await this.getWebToken();
 
 			// Handle foreground messages
-			onMessage(this.messaging, (payload) => {
+			onMessage(this.messaging, async (payload) => {
 				console.log('📨 Message received in foreground: ', payload);
-				this.handleForegroundMessage(payload);
+				await this.handleForegroundMessage(payload);
 			});
 
 			// Register service worker for background messages
@@ -172,7 +172,7 @@ class PushNotificationService {
 	 * Handle foreground message for web push notifications
 	 * Web specific
 	 */
-	private handleForegroundMessage(payload: any): void {
+	private async handleForegroundMessage(payload: any): Promise<void> {
 		// Handle data payload first (includes device revocation)
 		if (payload.data) {
 			appStore.showInfoToast(payload.data.title || 'New notification received');
@@ -181,6 +181,10 @@ class PushNotificationService {
 			 * Avoid directly navigating to the URL in the notification
 			 * TODO: Update toast notification to show action buttons
 			 */
+			if (payload.data.type === 'device_revoked') {
+				await this.handleDeviceRevocation(payload.data);
+				return; // Exit early, don't navigate anywhere
+			}
 			// this.handleNotificationData(payload.data);
 
 			// Show notification in foreground (optional, since browser handles this)
@@ -823,7 +827,6 @@ class PushNotificationService {
 	public async sendNotificationToNpubs(notification: SendNotificationToNpubsInput) {
 		try {
 			const result = await this.sendNotificationToNpubsStore.mutate({ input: notification });
-			console.log({ result });
 			if (result.errors) {
 				throw new Error(result.errors[0].message);
 			}

@@ -59,7 +59,6 @@ The sitemap includes the following public URLs:
 The following URLs are intentionally excluded from the sitemap:
 
 - **Protected Routes**: `/dashboard/**` (requires authentication)
-- **Internal Routes**: `/firebase-config.json`
 - **Onboarding**: `/auth/onboarding` (internal flow)
 - **Dynamic Routes**: `/auth/recover/[npub]` (requires parameters)
 - **Sensitive Routes**: `/auth/recover/send` (internal flow)

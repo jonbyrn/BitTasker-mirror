@@ -6,6 +6,15 @@
 importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging-compat.js');
 
+const _firebaseConfig = {
+	apiKey: "AIzaSyCPvSA-3VNTbj0CeXsVPrr9R3RrnO6N1KY",
+	authDomain: "bittasker-928ff.firebaseapp.com",
+	projectId: "bittasker-928ff",
+	storageBucket: "bittasker-928ff.firebasestorage.app",
+	messagingSenderId: "256658163015",
+	appId: "1:256658163015:web:b220610251f027bf597862"
+}
+
 let messaging = null;
 let isInitialized = false;
 
@@ -21,20 +30,7 @@ async function initializeFirebase(config = {}) {
 
 		// If config is empty or incomplete, fetch from server
 		if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
-			try {
-				const response = await fetch('/firebase-config.json', {
-					cache: 'no-cache'
-				});
-				if (!response.ok) {
-					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-				}
-
-				firebaseConfig = await response.json();
-			} catch (error) {
-				console.error('❌ SW: Failed to fetch Firebase config:', error);
-				// Don't throw here, just log and wait for message from main thread
-				return null;
-			}
+			firebaseConfig = _firebaseConfig;
 		}
 
 		// Validate config
