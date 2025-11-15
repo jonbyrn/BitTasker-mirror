@@ -28,8 +28,6 @@ const sitemap = createSitemap('https://bittasker.com', {
 	ignore: [
 		// Exclude protected routes
 		'/dashboard/**',
-		// Exclude internal routes
-		'/firebase-config.json',
 		// Exclude auth onboarding
 		'/auth/onboarding',
 		// Exclude dynamic routes that require parameters

@@ -5,10 +5,6 @@
  * including dynamically updating the service worker with configuration.
  */
 
-/**
- * Registers the Firebase Messaging Service Worker
- * The service worker will fetch its config from /firebase-config.json endpoint
- */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
 	if (!('serviceWorker' in navigator)) {
 		console.warn('⚠️ Service workers are not supported in this browser');
@@ -42,7 +38,6 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 		// Send Firebase config to service worker
 		const activeWorker = registration.active || registration.waiting || registration.installing;
 		if (activeWorker) {
-			console.log('📤 Sending Firebase config to service worker...');
 			activeWorker.postMessage({
 				type: 'FIREBASE_CONFIG',
 				config: getFirebaseWebConfig()
