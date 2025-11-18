@@ -24,7 +24,7 @@
             "point1": "BitTasker provides a decentralized platform that enables Taskers to publish task requests and Taskees to make offers to complete these tasks.",
             "point2": "The platform uses the Nostr protocol for identity, data storage, and communications, with Bitcoin and fiat as payment methods.",
             "point3": "When a Tasker accepts a Taskee's offer, a Task Contract is created directly between these parties.",
-            "point4": "Upon task completion and confirmation, funds are released from escrow to the Taskee.",
+            "point4": "Upon task completion and confirmation, funds are released from the secure payment contract to the Taskee.",
             "point5": "Both parties are encouraged to review and provide feedback after task completion, to help the community."
         },
         "role": {
@@ -61,9 +61,9 @@
         "bitcoin": {
             "title": "4. Bitcoin Payments",
             "point1": "Users acknowledge that Bitcoin transactions are irreversible and BitTasker cannot recover funds sent to incorrect addresses.",
-            "point2": "BitTasker uses multi-signature escrow for task payments to provide security for both parties.",
-            "point3": "When a Task Contract is created, the Tasker must deposit the agreed amount into escrow.",
-            "point4": "Service Fees are deducted from the task payment when funds are released from escrow.",
+            "point2": "BitTasker uses smart contract-based secure payment contracts for task payments to provide security for both parties.",
+            "point3": "When a Task Contract is created, the Tasker must deposit the agreed amount into the secure payment contract.",
+            "point4": "Service Fees are deducted from the task payment when funds are released from the secure payment contract.",
             "point5": "Bitcoin price volatility: Both parties acknowledge that the value of Bitcoin can fluctuate and agree that once a price is set in Bitcoin for a task, it will not be adjusted due to price fluctuations.",
             "point6": "Users are responsible for any taxes or regulatory compliance related to their transactions."
         },
@@ -94,11 +94,11 @@
         "disputes": {
             "title": "8. Dispute Resolution",
             "point1": "In the event of a dispute between a Tasker and a Taskee, both parties must attempt to resolve the issue directly through the platform's messaging system.",
-            "point2": "If the parties cannot reach a resolution, our escrow system will be used to resolve the dispute.",
-            "point3": "Escrow is implemented with 2:2 multisig wallets where only the tasker and taskee have the keys.",
+            "point2": "If the parties cannot reach a resolution, our secure payment contract system will be used to resolve the dispute.",
+            "point3": "Secure payment contracts are implemented with smart contracts on the Rootstock network where only the tasker and taskee control the funds.",
             "point4": "Since BitTasker does not have access to your funds, we are unable to intervene in the event that a tasker and taskee have a dispute.",
             "point5": "See our detailed",
-            "escrow_link": "escrow page"
+            "escrow_link": "secure payments page"
         },
         "ip": {
             "title": "9. Intellectual Property",

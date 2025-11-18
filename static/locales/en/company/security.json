@@ -55,9 +55,9 @@
             "identity_title": "Decentralized Identity",
             "identity_description": "BitTasker leverages the Nostr protocol for decentralized identity management. Your identity is based on cryptographic key pairs that you control, rather than being stored in a central database.",
             "identity_alert": "Your identity can be portable across applications that support the Nostr protocol. However, the security and reliability of this system depends on the broader Nostr network and relay infrastructure.",
-            "escrow_title": "Escrow System Security",
-            "escrow_description": "Our Bitcoin escrow system uses 2-of-2 multisignature technology designed to ensure that neither party can access funds unilaterally. This system aims to provide security for both taskers and taskees.",
-            "escrow_alert": "While our escrow system is designed with security in mind, users should understand that Bitcoin transactions are irreversible and dispute resolution follows predetermined timelock mechanisms.",
+            "escrow_title": "Secure Payment Contract System Security",
+            "escrow_description": "Our Bitcoin secure payment contract system uses smart contracts on the Rootstock network to ensure that funds are protected and can only be released according to the agreed terms. This system provides security for both taskers and taskees through automated, transparent contract execution.",
+            "escrow_alert": "While our secure payment contract system is designed with security in mind, users should understand that Bitcoin transactions are irreversible and dispute resolution follows predetermined timelock mechanisms.",
             "privacy_title": "Privacy-Focused Communication",
             "privacy_description": "BitTasker implements end-to-end encryption for private messages between users, designed so that BitTasker cannot read your conversations.",
             "privacy_alert": "Message security depends on the proper implementation of encryption protocols and the security of the devices used for communication."

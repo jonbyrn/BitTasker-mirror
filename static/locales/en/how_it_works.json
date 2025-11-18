@@ -11,7 +11,7 @@
         },
         "alert": {
             "title": "New to BitTasker?",
-            "description": "Our platform uses <a href=\"/security\" class=\"link link-primary\">secure passkeys</a> instead of passwords and <a href=\"/escrow\" class=\"link link-primary\">Bitcoin-powered escrow</a> for all payments, providing a safer experience than traditional platforms."
+            "description": "Our platform uses <a href=\"/security\" class=\"link link-primary\">secure passkeys</a> instead of passwords and <a href=\"/secure-payments\" class=\"link link-primary\">Bitcoin-powered secure payment contracts</a> for all payments, providing a safer experience than traditional platforms."
         },
         "steps": {
             "sign_up": "Sign Up",
@@ -75,8 +75,8 @@
                     "description": "Compare skills, ratings, and price quotes to find the perfect match."
                 },
                 "3": {
-                    "title": "Hire and pay through secure escrow",
-                    "description": "Our <a href=\"/escrow\" class=\"link link-primary\">escrow system</a> protects both parties during the transaction."
+                    "title": "Hire and pay through secure payment contracts",
+                    "description": "Our <a href=\"/secure-payments\" class=\"link link-primary\">secure payment contract system</a> protects both parties during the transaction."
                 },
                 "tip": "<strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskees."
             },
@@ -111,7 +111,7 @@
             },
             "milestones": {
                 "title": "Milestone Tracking",
-                "description": "Break projects into manageable milestones with individual escrow payments for each completed phase."
+                "description": "Break projects into manageable milestones with individual secure payment contracts for each completed phase."
             },
             "translation": {
                 "title": "Automatic Translation",
@@ -119,7 +119,7 @@
             },
             "completion": {
                 "title": "Task Completion",
-                "description": "Mark tasks as complete when finished, triggering the escrow release process for payment."
+                "description": "Mark tasks as complete when finished, triggering the secure payment contract release process for payment."
             },
             "warning": "<strong>Important:</strong> Always communicate through the BitTasker platform to ensure protection under our <a href=\"/community-guidelines\" class=\"link link-primary\">community guidelines</a> and dispute resolution process."
         },
@@ -128,8 +128,8 @@
             "description": "BitTasker's flexible payment system supports both Bitcoin and traditional fiat currencies, ensuring taskees receive their earnings securely and promptly with multiple withdrawal options.",
             "features_title": "Key Payment Features",
             "feature_1": {
-                "title": "Secure Escrow System",
-                "description": "Tasker funds are secured in our <a href=\"/escrow\" class=\"link link-primary\">secure escrow system</a> until work is approved, protecting both parties throughout the transaction regardless of payment method."
+                "title": "Secure Payment Contract System",
+                "description": "Tasker funds are secured in our <a href=\"/secure-payments\" class=\"link link-primary\">secure payment contract system</a> until work is approved, protecting both parties throughout the transaction regardless of payment method."
             },
             "feature_2": {
                 "title": "Automatic Payment Release",

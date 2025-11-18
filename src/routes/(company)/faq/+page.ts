@@ -4,13 +4,13 @@
 export async function load({ url }) {
 	const seo = {
 		title: 'BitTasker FAQ - Bitcoin Task Marketplace Questions',
-		description: 'Find answers to frequently asked questions about BitTasker, including how to use our Bitcoin task marketplace, escrow system, fees, and payment process.',
-		keywords: 'BitTasker FAQ, Bitcoin task marketplace questions, Lightning Network FAQ, Bitcoin escrow questions, task marketplace help, cryptocurrency gig economy, Bitcoin payment questions',
+		description: 'Find answers to frequently asked questions about BitTasker, including how to use our Bitcoin task marketplace, secure payment contracts, fees, and payment process.',
+		keywords: 'BitTasker FAQ, Bitcoin task marketplace questions, Lightning Network FAQ, Bitcoin secure payment contracts, task marketplace help, cryptocurrency gig economy, Bitcoin payment questions',
 		canonical: url.href,
 		ogTitle: 'BitTasker FAQ - Your Questions Answered',
-		ogDescription: 'Get answers to common questions about BitTasker\'s Bitcoin task marketplace, including how our escrow system works, fees, and payment process.',
+		ogDescription: 'Get answers to common questions about BitTasker\'s Bitcoin task marketplace, including how our secure payment contract system works, fees, and payment process.',
 		twitterTitle: 'BitTasker FAQ - Common Questions Answered',
-		twitterDescription: 'Find answers to frequently asked questions about using BitTasker\'s Bitcoin-powered task marketplace and escrow system.',
+		twitterDescription: 'Find answers to frequently asked questions about using BitTasker\'s Bitcoin-powered task marketplace and secure payment contract system.',
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'FAQPage',
@@ -25,10 +25,10 @@ export async function load({ url }) {
 				},
 				{
 					'@type': 'Question',
-					name: 'How does BitTasker\'s Bitcoin escrow work?',
+					name: 'How does BitTasker\'s secure payment contract system work?',
 					acceptedAnswer: {
 						'@type': 'Answer',
-						text: 'Our Bitcoin escrow system holds payments in a secure multi-signature wallet until tasks are completed satisfactorily, protecting both task posters and workers.'
+						text: 'Our Bitcoin secure payment contract system uses smart contracts on the Rootstock network to hold payments until tasks are completed satisfactorily, protecting both task posters and workers.'
 					}
 				},
 				{

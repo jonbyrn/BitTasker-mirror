@@ -448,7 +448,7 @@
 						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskers')}</h4>
 						<ul class="space-y-2">
 							<li><a href="/tasker-fees" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.tasker_fees')}</a></li>
-							<li><a href="/escrow" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.escrow')}</a></li>
+							<li><a href="/secure-payments" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.escrow')}</a></li>
 							<li><a href="/faq" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.faq')}</a></li>
 						</ul>
 					</div>

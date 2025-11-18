@@ -204,7 +204,7 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 			{
 				label: 'footer.escrow',
 				icon: IconShieldCheckOutline,
-				href: '/escrow'
+				href: '/secure-payments'
 			},
 			{
 				label: 'footer.faq',

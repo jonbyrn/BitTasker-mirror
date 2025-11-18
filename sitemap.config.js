@@ -10,7 +10,7 @@ const sitemap = createSitemap('https://bittasker.com', {
 		'/tasker-fees',
 		'/community-guidelines',
 		'/contact',
-		'/escrow',
+		'/secure-payments',
 		'/faq',
 		'/how-it-works',
 		'/press',
