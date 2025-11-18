@@ -206,8 +206,8 @@
                 "faq_escrow_time_desc": "Secure payment contracts limited to hours, not days or weeks",
                 "faq_escrow_contracts": "No Smart Contracts:",
                 "faq_escrow_contracts_desc": "Lightning lacks programmable secure payment contract functionality",
-                "faq_escrow_multisig": "No Multisig Support:",
-                "faq_escrow_multisig_desc": "Cannot implement secure multi-signature secure payment contracts",
+                "faq_escrow_multisig": "Limited Contract Functionality:",
+                "faq_escrow_multisig_desc": "Lightning Network lacks the programmable contract features needed for secure payment contracts",
                 "faq_escrow_risks": "Node Risks:",
                 "faq_escrow_risks_desc": "Risk of fund loss if Lightning nodes close or go offline"
             },

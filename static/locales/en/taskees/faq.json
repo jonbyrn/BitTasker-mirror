@@ -101,7 +101,7 @@
             "title": "Trust & Safety",
             "0": {
                 "question": "Is my payment secure?",
-                "answer": "Yes. When a Tasker funds a task, the funds are held in a secure 2-of-2 multisignature secure payment contract. This means neither the Tasker nor the Taskee can move the funds alone. Payment is only released when the task is marked as complete and approved, or when the Tasker and Taskee agree on a different outcome."
+                "answer": "Yes. When a Tasker funds a task, the funds are held in a secure payment contract on the Rootstock network. This smart contract ensures that funds are protected and can only be released according to the agreed terms. Payment is only released when the task is marked as complete and approved, or when the Tasker and Taskee agree on a different outcome."
             },
             "1": {
                 "question": "What happens if something goes wrong?",

@@ -105,7 +105,7 @@
             "title": "Confianza y Seguridad",
             "0": {
                 "question": "¿Es seguro mi pago?",
-                "answer": "Sí. Cuando un Tasker financia una tarea, los fondos se mantienen en un contrato de pago seguro con multifirma 2-de-2. Esto significa que ni el Tasker ni el Taskee pueden mover los fondos por su cuenta. El pago solo se libera cuando la tarea se marca como completada y es aprobada, o cuando ambas partes acuerdan un resultado distinto."
+                "answer": "Sí. Cuando un Tasker financia una tarea, los fondos se mantienen en un contrato de pago seguro en la red Rootstock. Este contrato inteligente asegura que los fondos estén protegidos y solo puedan ser liberados según los términos acordados. El pago solo se libera cuando la tarea se marca como completada y es aprobada, o cuando ambas partes acuerdan un resultado distinto."
             },
             "1": {
                 "question": "¿Qué pasa si algo sale mal?",

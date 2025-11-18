@@ -206,8 +206,8 @@
         "faq_escrow_time_desc": "Contratos de pago seguro limitados a horas, no días o semanas",
         "faq_escrow_contracts": "Sin Contratos Inteligentes:",
         "faq_escrow_contracts_desc": "Lightning carece de funcionalidad de contratos de pago seguro programables",
-        "faq_escrow_multisig": "Sin Soporte Multisig:",
-        "faq_escrow_multisig_desc": "No se puede implementar contratos de pago seguro multi-firma seguros",
+        "faq_escrow_multisig": "Funcionalidad de Contratos Limitada:",
+        "faq_escrow_multisig_desc": "La red Lightning carece de las características de contratos programables necesarias para contratos de pago seguro",
         "faq_escrow_risks": "Riesgos de Nodos:",
         "faq_escrow_risks_desc": "Riesgo de pérdida de fondos si los nodos Lightning se cierran o se desconectan"
       },

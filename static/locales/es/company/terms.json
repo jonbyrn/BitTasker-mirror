@@ -179,7 +179,7 @@
                 "text": "BitTasker no ofrece ninguna garantía con respecto a la información publicada por los usuarios o la calidad de las tareas."
             },
             "point6": "Debido a que BitTasker no puede recuperar fondos enviados a direcciones incorrectas, le recomendamos encarecidamente que verifique todas las transacciones antes de confirmarlas.",
-            "point7": "Los fondos retenidos en un multisig 2:2 solo se pueden liberar con las claves del tasker y del taskee. Si una de las partes pierde sus claves, los fondos no se pueden recuperar."
+            "point7": "Los fondos retenidos en un contrato de pago seguro solo se pueden liberar según los términos acordados en el contrato inteligente. Si una de las partes pierde acceso a su cuenta o claves, los fondos pueden quedar bloqueados según los mecanismos del contrato."
         },
         "forceMajeure": {
             "title": "15. Fuerza Mayor",
