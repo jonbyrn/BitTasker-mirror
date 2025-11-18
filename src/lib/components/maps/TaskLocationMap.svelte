@@ -836,7 +836,7 @@
 			<button
 				onclick={toggleFullscreen}
 				class="{isFullscreen
-					? 'fixed top-4 right-4 z-[1000]'
+					? 'fixed top-4 right-4 z-1000'
 					: 'absolute top-4 right-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
 				aria-label={isFullscreen
 					? $t('task.location_picker.exit_fullscreen')

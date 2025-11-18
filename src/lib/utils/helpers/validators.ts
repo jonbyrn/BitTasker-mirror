@@ -86,6 +86,14 @@ export function validateUsername(username: string): ValidationResult {
 		return { isValid: false, error: 'Username must be less than 64 characters long' };
 	}
 
+	// Validate allowed characters: letters, numbers, and hyphens only
+	// Must start and end with a letter or number (not a hyphen)
+	// Cannot contain spaces or other special characters
+	const usernameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
+	if (!usernameRegex.test(username)) {
+		return { isValid: false, error: 'Invalid characters' };
+	}
+
 	return { isValid: true };
 }
 

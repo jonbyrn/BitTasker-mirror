@@ -35,7 +35,18 @@
 
 		const validation = validateUsername(username);
 		if (!validation.isValid) {
-			usernameError = validation.error!;
+			// Map validation errors to translation keys
+			if (validation.error === 'Username is required') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.required');
+			} else if (validation.error === 'Username must be at least 3 characters long') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.too_short');
+			} else if (validation.error === 'Username must be less than 64 characters long') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.too_long');
+			} else if (validation.error === 'Invalid characters') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.invalid_characters');
+			} else {
+				usernameError = validation.error!;
+			}
 			usernameAvailable = false;
 			onUsernameChange(username, false);
 			return;
@@ -128,10 +139,11 @@
 					class="input input-bordered w-full {usernameError ? 'input-error' : ''}"
 					placeholder={$t('onboarding_auth.form.username_setup.placeholder')}
 					required
+					maxlength="64"
 				/>
-                <div class="label">
-                    <span class="label-text-alt text-base-content/70">
-                        {$t('onboarding_auth.form.username_setup.help_text')}
+                <div class="label flex justify-start">
+                    <span class="label-text-alt {username.length > 64 ? 'text-error' : 'text-base-content/70'}">
+                        {username.length}/64
                     </span>
                 </div>
 				{#if usernameError}
