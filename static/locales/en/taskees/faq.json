@@ -15,7 +15,7 @@
                 "step_2_title": "Review Offers:",
                 "step_2_text": "Receive offers from skilled Taskees. Compare their profiles, ratings, and reviews.",
                 "step_3_title": "Hire & Fund:",
-                "step_3_text": "Choose the best Taskee and fund the task with Bitcoin or fiat. The payment is held securely in our escrow until the task is done.",
+                "step_3_text": "Choose the best Taskee and fund the task with Bitcoin or fiat. The payment is held securely in our secure payment contract until the task is done.",
                 "step_4_title": "Task Complete:",
                 "step_4_text": "Once you're satisfied, release the payment to the Taskee. Leave a review to help the community!"
             }
@@ -28,7 +28,7 @@
             },
             "1": {
                 "question": "How does payment work?",
-                "answer": "When you accept a bid, your payment is immediately secured in our Bitcoin escrow system. Once the taskee completes the work to your satisfaction, you release the payment. If you don't take action within 7 days, the payment is automatically released to the taskee."
+                "answer": "When you accept a bid, your payment is immediately secured in our Bitcoin secure payment contract system. Once the taskee completes the work to your satisfaction, you release the payment. If you don't take action within 7 days, the payment is automatically released to the taskee."
             },
             "2": {
                 "question": "What if I'm not satisfied with the work?",
@@ -51,7 +51,7 @@
             },
             "1": {
                 "question": "How do I get paid?",
-                "answer": "When a tasker accepts your bid, the payment is immediately secured in escrow. Once you complete the work and the tasker approves it, the payment is released to you. If the tasker doesn't respond within 7 days, you're automatically paid."
+                "answer": "When a tasker accepts your bid, the payment is immediately secured in a secure payment contract. Once you complete the work and the tasker approves it, the payment is released to you. If the tasker doesn't respond within 7 days, you're automatically paid."
             },
             "2": {
                 "question": "What if the tasker doesn't approve my work?",
@@ -101,11 +101,11 @@
             "title": "Trust & Safety",
             "0": {
                 "question": "Is my payment secure?",
-                "answer": "Yes. When a Tasker funds a task, the funds are held in a secure 2-of-2 multisignature escrow wallet. This means neither the Tasker nor the Taskee can move the funds alone. Payment is only released when the task is marked as complete and approved, or when the Tasker and Taskee agree on a different outcome."
+                "answer": "Yes. When a Tasker funds a task, the funds are held in a secure 2-of-2 multisignature secure payment contract. This means neither the Tasker nor the Taskee can move the funds alone. Payment is only released when the task is marked as complete and approved, or when the Tasker and Taskee agree on a different outcome."
             },
             "1": {
                 "question": "What happens if something goes wrong?",
-                "answer": "Our automated escrow system has built-in rules for cancellations, changes, and disputes to ensure a fair outcome. If you can’t resolve an issue directly with the other party, the escrow system ensures the fairest outcome."
+                "answer": "Our automated secure payment contract system has built-in rules for cancellations, changes, and disputes to ensure a fair outcome. If you can't resolve an issue directly with the other party, the secure payment contract system ensures the fairest outcome."
             }
         }
     }

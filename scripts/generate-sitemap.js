@@ -21,7 +21,6 @@ const urls = [
 	'/tasker-fees',
 	'/community-guidelines',
 	'/contact',
-	'/escrow',
 	'/faq',
 	'/how-it-works',
 	'/press',

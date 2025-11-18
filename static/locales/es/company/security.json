@@ -55,9 +55,9 @@
             "identity_title": "Identidad Descentralizada",
             "identity_description": "BitTasker utiliza el protocolo Nostr para la gestión descentralizada de identidades. Tu identidad se basa en pares de claves criptográficas que tú controlas, en lugar de almacenarse en una base de datos centralizada.",
             "identity_alert": "Tu identidad puede ser portátil entre aplicaciones que admiten el protocolo Nostr. Sin embargo, la seguridad y confiabilidad de este sistema dependen de la infraestructura de red y relés de Nostr.",
-            "escrow_title": "Seguridad del Sistema de Depósito en Garantía",
-            "escrow_description": "Nuestro sistema de depósito en garantía de Bitcoin utiliza tecnología multisig 2-de-2 diseñada para asegurar que ninguna de las partes pueda acceder a los fondos de forma unilateral. Este sistema busca brindar seguridad tanto a quienes publican tareas como a quienes las realizan.",
-            "escrow_alert": "Aunque nuestro sistema de garantía está diseñado pensando en la seguridad, los usuarios deben entender que las transacciones con Bitcoin son irreversibles y la resolución de disputas sigue mecanismos predefinidos con límite de tiempo.",
+            "escrow_title": "Seguridad del Sistema de Contratos de Pago Seguro",
+            "escrow_description": "Nuestro sistema de contratos de pago seguro de Bitcoin utiliza tecnología multisig 2-de-2 diseñada para asegurar que ninguna de las partes pueda acceder a los fondos de forma unilateral. Este sistema busca brindar seguridad tanto a quienes publican tareas como a quienes las realizan.",
+            "escrow_alert": "Aunque nuestro sistema de contratos de pago seguro está diseñado pensando en la seguridad, los usuarios deben entender que las transacciones con Bitcoin son irreversibles y la resolución de disputas sigue mecanismos predefinidos con límite de tiempo.",
             "privacy_title": "Comunicación Enfocada en la Privacidad",
             "privacy_description": "BitTasker implementa encriptación de extremo a extremo en los mensajes privados entre usuarios, diseñada para que BitTasker no pueda leer tus conversaciones.",
             "privacy_alert": "La seguridad de los mensajes depende de la correcta implementación de los protocolos de encriptación y de la seguridad de los dispositivos utilizados para la comunicación."

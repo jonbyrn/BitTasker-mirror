@@ -104,8 +104,8 @@
                 "description": "Accede a taskees calificados de todo el mundo"
             },
             "escrow": {
-                "title": "Depósito Seguro",
-                "description": "Depósito en garantía basado en multifirma para transacciones seguras con Bitcoin"
+                "title": "Pagos Seguros",
+                "description": "Contratos de pago seguro basados en contratos inteligentes para transacciones seguras"
             }
         },
         "cta": {
@@ -139,8 +139,8 @@
                     "description": "Experimenta pagos instantáneos y casi gratuitos con la Red Lightning. Perfecto para micropagos, propinas y liquidar tareas en el momento en que se completan."
                 },
                 "escrow": {
-                    "title": "Depósito en Garantía Seguro",
-                    "description": "Nuestro sistema de depósito en garantía basado en multifirma protege tanto a clientes como a profesionales. Los fondos se mantienen seguros y se liberan automáticamente solo cuando se aprueba el trabajo."
+                    "title": "Pagos Seguros",
+                    "description": "Nuestro sistema de pagos seguros basado en contratos inteligentes protege tanto a clientes como a profesionales. Los fondos se mantienen seguros y se liberan automáticamente solo cuando se aprueba el trabajo."
                 }
             },
             "howitworks": {
@@ -155,7 +155,7 @@
                 },
                 "step3": {
                     "title": "Paga con Seguridad",
-                    "description": "Una vez que el trabajo esté completo, paga de forma segura con Bitcoin o fiat. Tus fondos están seguros en custodia."
+                    "description": "Una vez que el trabajo esté completo, paga de forma segura con Bitcoin o fiat. Tus fondos están seguros en el contrato de pago seguro."
                 },
                 "learnMore": "Más Información"
             },
@@ -169,8 +169,8 @@
                     "description": "Paga sin problemas con Bitcoin (en la cadena, Lightning) o monedas fiduciarias tradicionales."
                 },
                 "escrow": {
-                    "title": "Custodia No-Centralizada",
-                    "description": "Tú mantienes las llaves de tu Bitcoin y de tu depósito en garantía. Sin intermediarios, sin retrasos, y sin necesidad de confianza."
+                    "title": "Pagos Seguros No-Centralizados",
+                    "description": "Tú mantienes las llaves de tu Bitcoin y de tus contratos de pago seguro. Sin intermediarios, sin retrasos, y sin necesidad de confianza."
                 },
                 "ownership": {
                     "title": "Verdadera Propiedad de los Datos",

@@ -2,7 +2,7 @@ export async function load({ url }) {
 	const seo = {
 		title: 'Secure Payment Contracts - Protected Payments | BitTasker',
 		description: 'Learn about BitTasker\'s secure payment contracts powered by Rootstock smart contracts. Protected payments between clients and freelancers with built-in safeguards, automatic fee handling, and transparent blockchain transactions.',
-		keywords: 'secure payment contracts, Rootstock smart contracts, Bitcoin payments, secure task payments, blockchain escrow, RBTC payments, smart contract escrow, protected payments, Bitcoin task payments, cryptocurrency contracts',
+		keywords: 'secure payment contracts, Rootstock smart contracts, Bitcoin payments, secure task payments, blockchain secure payments, RBTC payments, smart contract payments, protected payments, Bitcoin task payments, cryptocurrency contracts',
 		canonical: url.href,
 		ogTitle: 'Secure Payment Contracts - Protected Payments',
 		ogDescription: 'BitTasker\'s secure payment contracts protect both clients and freelancers using Rootstock smart contracts. Built-in safeguards, automatic payments, and transparent blockchain transactions.',
