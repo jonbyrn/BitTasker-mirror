@@ -51,7 +51,7 @@ export const BITTASKER_SITE_NAVIGATION_JSONLD = {
     'https://bittasker.com/dashboard/find-tasks',
     'https://bittasker.com/dashboard/create-task',
     'https://bittasker.com/tasker-fees',
-    'https://bittasker.com/escrow',
+    'https://bittasker.com/secure-payments',
     'https://bittasker.com/community-guidelines',
     'https://bittasker.com/taskee-fees',
     'https://bittasker.com/tasker-principles'
