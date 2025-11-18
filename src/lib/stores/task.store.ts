@@ -7,6 +7,7 @@ import { TaskTypeEnum, BudgetTypeEnum, TaskStepEnum } from '$lib/utils/enums/tas
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
 import { SimplePool } from 'nostr-tools';
+import { appStore } from './app.store';
 
 const CREATE_STORAGE_KEY = StorageKeys.DRAFT_TASK;
 const EDIT_STORAGE_KEY = StorageKeys.DRAFT_TASK_EDIT;
@@ -279,6 +280,8 @@ export const taskStore = createTaskStore();
 
 // Find tasks store
 export const tasksStore = (() => {
+	const pool = get(appStore).pool;
+
 	const { subscribe, set, update } = writable<{
 		pool: SimplePool,
 		items: Task[],
@@ -287,7 +290,7 @@ export const tasksStore = (() => {
 		currentPage: number,
 		hasMore: boolean
 	}>({
-		pool: new SimplePool(),
+		pool,
 		items: [],
 		loading: false,
 		currentPage: 1,
@@ -296,7 +299,7 @@ export const tasksStore = (() => {
 	});
 
 	return {
-		pool: new SimplePool(),
+		pool,
 		subscribe,
 		set,
 		update

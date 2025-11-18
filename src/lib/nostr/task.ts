@@ -3,7 +3,6 @@ import type { TaskBody, TaskTranslations } from '$lib/types/task';
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { calculatePOW } from '$lib/nostr';
-import { SimplePool } from 'nostr-tools/pool';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { user } from '$lib/stores/user.store';
 import { get } from 'svelte/store';
@@ -15,12 +14,17 @@ import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { TranslationService } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
+import { appStore } from '$lib/stores/app.store';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
-// Initialize a pool for relay connections
-const pool = new SimplePool();
+/**
+ * Get the centralized pool instance from appStore
+ */
+function getPool() {
+	return get(appStore).pool;
+}
 
 // Translation service instance
 const translationService = new TranslationService();
@@ -415,6 +419,7 @@ export async function deleteTask(taskId: string): Promise<string> {
  */
 export async function publishToRelays(event: NostrEvent, relays = RELAYS): Promise<void> {
 	try {
+		const pool = getPool();
 		const pub = pool.publish(relays, event as any); // Type cast to any to bypass type check
 		await Promise.race([
 			Promise.all(pub),
@@ -434,6 +439,7 @@ export function subscribeToTasks(
 	filter: { kinds?: number[]; authors?: string[]; tags?: string[][] } = {},
 	relays = RELAYS
 ): () => void {
+	const pool = getPool();
 	const sub = pool.subscribe(
 		relays,
 		{
@@ -458,6 +464,7 @@ export async function queryTasks(
 	filter: { kinds?: number[]; authors?: string[]; tags?: string[][]; limit?: number } = {},
 	relays = RELAYS
 ): Promise<NostrEvent[]> {
+	const pool = getPool();
 	const query = await pool.querySync(relays, {
 		...filter,
 		kinds: filter.kinds || [KINDS.TASK_CREATION], // Only look for creation events
@@ -484,6 +491,7 @@ export async function getTaskById(
 	relays = RELAYS
 ): Promise<NostrEvent | null> {
 	try {
+		const pool = getPool();
 		const filter: Filter = {
 			kinds: [KINDS.TASK_CREATION], // Only look for creation events
 			ids: [taskId]
@@ -507,11 +515,4 @@ export async function getTaskById(
 		console.error('Failed to get task by ID:', error);
 		throw error;
 	}
-}
-
-/**
- * Close all relay connections
- */
-export function closePool(): void {
-	pool.close(RELAYS);
 }

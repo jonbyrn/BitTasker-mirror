@@ -23,7 +23,9 @@ const KINDS = {
 
     NIP_65_RELAY_LIST: 10002,
 
-    PENDING_SWAPS: 30078
+    PENDING_SWAPS: 30078,
+
+    DIRECT_MESSAGES: 4,
 }
 
 export default KINDS;

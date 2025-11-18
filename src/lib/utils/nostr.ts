@@ -1,12 +1,18 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
-import { SimplePool } from 'nostr-tools/pool';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-import { finalizeEvent, getPublicKey, validateEvent } from 'nostr-tools/pure';
+import { finalizeEvent, validateEvent } from 'nostr-tools/pure';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from './constants/storage';
+import { appStore } from '$lib/stores/app.store';
+import { get } from 'svelte/store';
 
-// Initialize a pool for relay connections
-const pool = new SimplePool();
+/**
+ * Get the centralized pool instance from appStore
+ * This ensures we use a single pool across the entire application
+ */
+function getPool() {
+	return get(appStore).pool;
+}
 
 /**
  * Get a signed event using nostr-tools
@@ -76,8 +82,8 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
  */
 export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string = import.meta.env.VITE_NOSTR_RELAY_URL): Promise<void> {
     try {
-
         const signedEvent = await getSignedEvent(event);
+        const pool = getPool();
 
         // Publish the event using the pool
         const pub = pool.publish([relayUrl], signedEvent);
@@ -101,6 +107,8 @@ export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string 
  * @returns The unsubscribe function
  */
 export function subscribeToEvents(relayUrl: string, filters: Filter[], onEvent: (event: NostrEvent) => void): () => void {
+    const pool = getPool();
+    
     // Subscribe using the pool
     const sub = pool.subscribe([relayUrl], filters[0], {
         onevent: onEvent

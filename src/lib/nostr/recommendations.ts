@@ -1,5 +1,5 @@
 import type { Task, TaskRecommendation, RecommendationParams } from '$lib/types/task.d';
-import { type Event, type Filter, SimplePool } from 'nostr-tools';
+import { type Event, type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -7,6 +7,8 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
+import { appStore } from '$lib/stores/app.store';
+import { get } from 'svelte/store';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -17,8 +19,12 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 // Memory cache
 const cache = new Map<string, { data: Task[]; timestamp: number }>();
 
-// Pool for profile data queries (general Nostr network)
-const pool = new SimplePool();
+/**
+ * Get the centralized pool instance from appStore
+ */
+function getPool() {
+	return get(appStore).pool;
+}
 
 /**
  * Convert a Nostr event to a Task
@@ -277,6 +283,7 @@ async function getProfileData(userNpub: string): Promise<{
             // TODO: Make a funtion to handle multiple tags identifiers for each kind
         }
 
+        const pool = getPool();
         const events = await pool.querySync(RELAYS, eventFilter);
 
         if (events && events.length > 0) {
@@ -334,6 +341,7 @@ async function getUserPreferences(): Promise<{
             limit: 1
         };
 
+        const pool = getPool();
         const preferences = await pool.querySync(RELAYS, preferencesFilter);
         if (preferences && preferences.length > 0 && preferences[0].content) {
             try {
@@ -445,6 +453,7 @@ export async function saveUserPreferences(preferences: {
             ]
         });
 
+        const pool = getPool();
         pool.publish(RELAYS, preferencesEvent);
 
         // Clear cache to force refresh of recommendations
@@ -524,19 +533,4 @@ export async function updatePreferencesFromFeedback(
         console.error('Error updating preferences from feedback:', error);
         throw error;
     }
-}
-
-export async function cleanup(): Promise<void> {
-    // Close task pool
-    pool.close(RELAYS);
-
-    cache.clear();
-}
-
-// Cleanup pool and subscriptions when browser closes
-if (browser) {
-    window.addEventListener('beforeunload', () => {
-        console.log('Cleaning up Nostr connections');
-        cleanup();
-    });
 }
