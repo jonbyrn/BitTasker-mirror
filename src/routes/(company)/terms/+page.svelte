@@ -185,7 +185,7 @@
 				<li>{$t('terms.disputes.point4')}</li>
 				<li>
 					{$t('terms.disputes.point5')}
-					<a href="/escrow" class="link link-primary">{$t('terms.disputes.escrow_link')}</a>.
+					<a href="/secure-payments" class="link link-primary">{$t('terms.disputes.escrow_link')}</a>.
 				</li>
 			</ul>
 		</div>

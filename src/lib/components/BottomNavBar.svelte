@@ -551,7 +551,7 @@
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/escrow" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/secure-payments" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconShieldCheckOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.escrow')}</span>
 								</a>

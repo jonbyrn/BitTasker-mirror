@@ -67,7 +67,7 @@ export const liveTasks: LiveTask[] = [
 	},
 	{
 		id: '9',
-		title: 'Setup multisig Bitcoin wallet for family inheritance',
+		title: 'Setup secure Bitcoin wallet for family inheritance',
 		budget: 400,
 		proposals: 5,
 		timeLeft: '4 days',
@@ -215,7 +215,7 @@ export const featuredTaskees: FeaturedTaskee[] = [
 	{
 		id: '11',
 		name: 'Kevin Patel',
-		skills: 'Bitcoin Security, Cold Storage Setup, Multisig',
+		skills: 'Bitcoin Security, Cold Storage Setup, Smart Contracts',
 		rating: 5.0,
 		reviews: 74,
 		avatar: 'https://randomuser.me/api/portraits/men/62.jpg'
