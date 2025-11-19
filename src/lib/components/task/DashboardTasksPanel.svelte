@@ -7,16 +7,17 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
 	import { goto } from '$app/navigation';
+	import { appStore } from '$lib/stores/app.store';
 	import TaskCard from './TaskCard.svelte';
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
 	import IconCheckCircle from '~icons/mdi/check-circle';
-	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
-	import IconChevronDown from '~icons/mdi/chevron-down';
-	import IconCheck from '~icons/mdi/check';
-	import IconRefresh from '~icons/mdi/refresh';
+import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
+import IconChevronDown from '~icons/mdi/chevron-down';
+import IconCheck from '~icons/mdi/check';
+import IconRefresh from '~icons/mdi/refresh';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -31,11 +32,11 @@
 		| 'tasks_completed' // Terminal states
 		| 'tasks_disputed'; // Dispute states
 
-	let activeFilter = $state<TaskFilterCategory>('waiting_for_bids');
-	let btcPrice = $state<number>(0);
-	let isDropdownOpen = $state<boolean>(false);
-	let isLoading = $state(true);
-	let error = $state<string | null>(null);
+let activeFilter = $state<TaskFilterCategory>('waiting_for_bids');
+let btcPrice = $state<number>(0);
+let isDropdownOpen = $state<boolean>(false);
+let isLoading = $state(true);
+let error = $state<string | null>(null);
 
 	// Background bid checking state
 	let bidStatusMap = $state<Map<string, boolean>>(new Map());
@@ -235,6 +236,14 @@
 	});
 
 	/**
+	 * Select filter option
+	 */
+	function selectFilter(optionId: TaskFilterCategory) {
+		activeFilter = optionId;
+		isDropdownOpen = false;
+	}
+
+	/**
 	 * Toggle dropdown
 	 */
 	function toggleDropdown() {
@@ -253,14 +262,6 @@
 	}
 
 	/**
-	 * Select filter option
-	 */
-	function selectFilter(optionId: TaskFilterCategory) {
-		activeFilter = optionId;
-		isDropdownOpen = false;
-	}
-
-	/**
 	 * Load tasks
 	 */
 	async function loadTasks() {
@@ -271,6 +272,27 @@
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load tasks';
 			console.error('Error loading tasks:', err);
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function handleRefresh() {
+		try {
+			isLoading = true;
+			error = null;
+			await findMyTasks({ page: 1, limit: 100 });
+			await checkBidsInBackground(true);
+			// Show success message only if no error occurred
+			if (!error) {
+				appStore.showSuccessToast($t('dashboard.tasks.refresh_success'), 3000);
+			} else {
+				appStore.showErrorToast($t('dashboard.tasks.refresh_error'), 3000);
+			}
+		} catch (err) {
+			console.error('Error refreshing tasks:', err);
+			error = err instanceof Error ? err.message : 'Failed to refresh tasks';
+			appStore.showErrorToast($t('dashboard.tasks.refresh_error'), 3000);
 		} finally {
 			isLoading = false;
 		}
@@ -347,51 +369,60 @@
 		}
 	}
 
-	onMount(() => {
-		// Add click outside listener for dropdown
-		document.addEventListener('click', handleClickOutside);
+onMount(() => {
+	document.addEventListener('click', handleClickOutside);
 
-		// Load tasks and BTC price
-		(async () => {
-			await loadTasks();
-			await fetchBtcPrice();
-		})();
+	// Load tasks and BTC price
+	(async () => {
+		await loadTasks();
+		await fetchBtcPrice();
+	})();
 
-		// Cleanup on unmount
-		return () => {
-			document.removeEventListener('click', handleClickOutside);
-		};
-	});
+	return () => {
+		document.removeEventListener('click', handleClickOutside);
+	};
+});
 </script>
 
 <div class="space-y-6">
-	<!-- Row 1: Status Filter Buttons (top) -->
-	<div class="mb-4">
-		<!-- Desktop: Button filters -->
-		<div class="hidden sm:block">
-			<div class="mt-3 flex flex-col gap-3 sm:flex-row">
-				{#each filterOptions as option}
-					{@const IconComponent = option.icon}
-					<button
-						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter ===
-						option.id
-							? 'text-primary bg-primary/10'
-							: 'bg-base-100/40 hover:bg-base-100/50 text-base-content/70'}"
-						onclick={() => selectFilter(option.id)}
-						aria-label={option.label}
-					>
-						<IconComponent class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}" />
-						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
+	<!-- Status filter + refresh -->
+	<div class="rounded-3xl border border-base-300/60 bg-base-100/40 p-4 shadow-sm">
+		<!-- Header with title and refresh button -->
+		<div class="mb-3 flex items-center justify-between gap-2">
+			<div class="space-y-1">
+				<p class="text-xs font-semibold uppercase tracking-wide text-base-content/70">
+					{$t('dashboard.tasks.status_heading')}
+				</p>
+				<p class="hidden text-sm text-base-content/70 sm:block">
+					{$t('dashboard.tasks.status_subheading')}
+				</p>
 			</div>
+
+			<!-- Refresh button: icon only on mobile, with text on desktop -->
+			<button
+				class="btn btn-ghost btn-sm gap-2 sm:btn-outline sm:btn-md"
+				onclick={handleRefresh}
+				disabled={isLoading}
+				aria-label={$t('dashboard.tasks.refresh')}
+			>
+				{#if isLoading}
+					<span class="loading loading-spinner loading-xs"></span>
+					<span class="hidden sm:inline">{$t('dashboard.tasks.refreshing')}</span>
+				{:else}
+					<IconRefresh class="h-5 w-5" />
+					<span class="hidden sm:inline">{$t('dashboard.tasks.refresh')}</span> {" "}
+				{/if}
+			</button>
 		</div>
 
-		<!-- Mobile: Custom dropdown -->
-		<div class="block sm:hidden">
-			<div class="status-dropdown-container relative mt-3">
+		<!-- Mobile: Subheading and dropdown -->
+		<div class="mb-3 sm:hidden">
+			<p class="mb-3 text-sm text-base-content/70">
+				{$t('dashboard.tasks.status_subheading')}
+			</p>
+			<div class="status-dropdown-container relative">
 				<button
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full cursor-pointer items-center justify-between rounded-3xl border px-4 py-1 transition-all duration-200"
+					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
 					onclick={toggleDropdown}
 				>
 					<div class="flex items-center gap-2">
@@ -410,15 +441,14 @@
 					/>
 				</button>
 
-				<!-- Dropdown menu -->
 				{#if isDropdownOpen}
 					<div
-						class="border-base-300 bg-base-300 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+						class="border-base-300 bg-base-100 absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
 						{#each filterOptions as option}
 							{@const IconComponent = option.icon}
 							<button
-								class="hover:bg-base-200 flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
+								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
 								option.id
 									? 'bg-primary/10 text-primary'
 									: 'text-base-content'}"
@@ -439,24 +469,25 @@
 				{/if}
 			</div>
 		</div>
-	</div>
 
-	<!-- Row 2: Refresh Button -->
-	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-		<div class="mx-auto flex gap-2">
-			<!-- Refresh Button -->
-			<button
-				class="btn btn-ghost btn-sm rounded-full"
-				onclick={loadTasks}
-				disabled={isLoading}
-				aria-label={$t('dashboard.tasks.refresh')}
-			>
-				{#if isLoading}
-					<span class="loading loading-spinner loading-xs"></span>
-				{:else}
-					<IconRefresh class="h-5 w-5" />
-				{/if}
-			</button>
+		<!-- Desktop filters -->
+		<div class="mt-4 hidden sm:block">
+			<div class="flex flex-col gap-3 sm:flex-row">
+				{#each filterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter ===
+						option.id
+							? 'text-primary bg-primary/10 border border-primary/30'
+							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
+						onclick={() => selectFilter(option.id)}
+						aria-label={option.label}
+					>
+						<IconComponent class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}" />
+						<span class="font-medium">{option.label}</span>
+					</button>
+				{/each}
+			</div>
 		</div>
 	</div>
 

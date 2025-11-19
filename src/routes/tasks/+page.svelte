@@ -536,7 +536,7 @@
 	});
 </script>
 
-<div class="mx-auto max-w-7xl p-4 md:p-0">
+<div class="mx-auto max-w-6xl p-4 md:p-0">
 	<!-- Dashboard Tabs -->
 	<!-- <Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} /> -->
 

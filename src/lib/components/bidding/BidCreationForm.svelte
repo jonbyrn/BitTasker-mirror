@@ -242,19 +242,19 @@
 			}
 		}
 
-		// Validate description - min 50, max 500
+		// Validate description - min 20, max 500
 		if (!description || description.trim() === '') {
 			errors.description = $t('bid_form.errors.description_required');
-		} else if (description.trim().length < 50) {
+		} else if (description.trim().length < 20) {
 			errors.description = $t('bid_form.errors.description_min_length');
 		} else if (description.trim().length > 500) {
 			errors.description = $t('bid_form.errors.description_max_length');
 		}
 
-		// Validate proposed approach - min 50, max 1000
+		// Validate proposed approach - min 20, max 1000
 		if (!proposedApproach || proposedApproach.trim() === '') {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_required');
-		} else if (proposedApproach.trim().length < 50) {
+		} else if (proposedApproach.trim().length < 20) {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_min_length');
 		} else if (proposedApproach.trim().length > 1000) {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_max_length');
@@ -700,9 +700,13 @@
 				></textarea>
 				{#if description.length > 0}
 					<small
-						class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}"
+						class="text-base-content/60 text-xs {description.length < 20
+							? 'text-error'
+							: description.length >= 500
+								? 'text-warning'
+								: ''}"
 					>
-						{description.length}/500 {$t('dashboard.bids.bid_creation.max')}
+						{description.length}/20
 					</small>
 				{/if}
 				{#if bidFormErrors.description}
@@ -736,11 +740,13 @@
 				></textarea>
 				{#if proposedApproach.length > 0}
 					<small
-						class="text-base-content/60 text-xs {proposedApproach.length >= 1000
-							? 'text-warning'
-							: ''}"
+						class="text-base-content/60 text-xs {proposedApproach.length < 20
+							? 'text-error'
+							: proposedApproach.length >= 1000
+								? 'text-warning'
+								: ''}"
 					>
-						{proposedApproach.length}/1000 {$t('dashboard.bids.bid_creation.max')}
+						{proposedApproach.length}/20
 					</small>
 				{/if}
 				{#if bidFormErrors.proposedApproach}
@@ -773,7 +779,7 @@
 					<small
 						class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}"
 					>
-						{coverLetter.length}/800 {$t('dashboard.bids.bid_creation.max')}
+						{coverLetter.length}/20
 					</small>
 				{/if}
 				{#if bidFormErrors.coverLetter}

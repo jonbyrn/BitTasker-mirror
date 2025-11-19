@@ -560,7 +560,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-7xl p-2 md:p-4 lg:p-0">
+<div class="mx-auto max-w-6xl p-2 md:p-4 lg:p-0">
 	<!-- Header -->
 	<div class="mb-6 flex shrink-0 items-center justify-between">
 		<div class="min-w-0 flex-1 space-y-1">

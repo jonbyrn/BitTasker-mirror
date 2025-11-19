@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { t } from 'svelte-i18n';
@@ -15,7 +14,6 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import {
-		formatStandardDateTime,
 		formatStandardDateShort,
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
@@ -165,16 +163,6 @@
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
 
-	// Helper function to truncate description
-	const getTruncatedDescription = (description: string, maxLength: number = 200) => {
-		if (description.length <= maxLength) return description;
-		return description.slice(0, maxLength) + '...';
-	};
-
-
-	// Translation is now handled automatically by TranslatableTask component
-
-
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) {
 			loading = false;
@@ -261,7 +249,7 @@
 	});
 </script>
 
-<div class="mx-auto max-w-7xl p-4 md:p-0">
+<div class="mx-auto max-w-6xl p-4 md:p-0">
 	<div class="mb-2 flex items-start justify-between">
 		<div>
 			<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
