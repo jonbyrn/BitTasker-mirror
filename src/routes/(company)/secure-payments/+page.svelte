@@ -1,12 +1,8 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
-	import IconLock from '~icons/mdi/lock';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconShieldCheck from '~icons/mdi/shield-check';
-	import IconHandshake from '~icons/mdi/handshake';
-	import IconCurrencyBtc from '~icons/mdi/currency-btc';
-	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
