@@ -105,10 +105,9 @@ async function loadEssentialTranslations(currentLocale: SupportedLanguage): Prom
 export function getNamespacesForRoute(route: string): string[] {
 	const namespaces: string[] = [];
 
-	if(route.includes('/tasks')) {
-		namespaces.push('dashboard/dashboard','dashboard/tasks/find','dashboard/bids');
-		// Include wallet namespace for bid-related components
-		namespaces.push('dashboard/wallet');
+	// Check for /taskees BEFORE /tasks to avoid matching conflict
+	if (route.includes('/find-taskees') || route.includes('/taskees')) {
+		namespaces.push('find_taskees');
 	}
 	// Dashboard routes
 	if (route.includes('/dashboard')) {
@@ -131,9 +130,9 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/wallet')) {
 			// Already included above
 		}
-	if (route.includes('/find-tasks')) {
-		namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
-	}
+		if (route.includes('/find-tasks')) {
+			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
+		}
 	if (route.includes('/create-task')) {
 		namespaces.push('dashboard/tasks/create', 'categories');
 	}
@@ -144,6 +143,13 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
 		}
+	}
+
+	// Check for /tasks AFTER /taskees to avoid matching conflict
+	if (route.includes('/tasks') && !route.includes('/taskees')) {
+		namespaces.push('dashboard/dashboard', 'dashboard/tasks/find', 'dashboard/bids');
+		// Include wallet namespace for bid-related components
+		namespaces.push('dashboard/wallet');
 	}
 
 	if (route.includes('/onboarding')) namespaces.push('onboarding');

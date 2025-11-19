@@ -21,12 +21,27 @@
 		type MenuSection
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import { Preferences } from '@capacitor/preferences';
+	import { StorageKeys } from '$lib/utils/constants/storage';
+	import { getProfileUrl } from '$lib/utils/helpers/profile';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
+	import { browser } from '$app/environment';
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);
 
 	// Control logout confirmation modal
 	let showLogoutModal = $state(false);
+
+	// Share modal state
+	let userNpub = $state<string | null>(null);
+	let showShareModal = $state(false);
+	let qrCodeDataUrl = $state<string | null>(null);
+	let qrCodeLoading = $state(false);
+	let qrCodeError = $state<string | null>(null);
+	let copyLinkSuccess = $state(false);
+	let copyNpubSuccess = $state(false);
 
 	// Track if user is logged in
 	let isLoggedIn = $derived($authState.isAuthenticated);
@@ -45,6 +60,9 @@
 				await user.getUserData();
 				// Initialize profile store if not already done
 				if (!$profileStore.data) profileStore.init();
+				// Get user's npub for share functionality
+				const { value } = await Preferences.get({ key: StorageKeys.NPUB });
+				userNpub = value || null;
 			} catch (error) {
 				console.error('Failed to initialize stores:', error);
 			}
@@ -87,6 +105,69 @@
 	function handleMenuItemClick(action?: string) {
 		closeDropdowns();
 		if (action === 'logout') logout();
+		if (action === 'share_profile') openShareModal();
+	}
+
+	// Share functions
+	function openShareModal() {
+		showShareModal = true;
+		isAvatarDropdownOpen = false; // Close dropdown when opening modal
+		qrCodeDataUrl = null;
+		qrCodeError = null;
+		copyLinkSuccess = false;
+		copyNpubSuccess = false;
+		if (browser && userNpub) {
+			generateQrCode();
+		}
+	}
+
+	function closeShareModal() {
+		showShareModal = false;
+		copyLinkSuccess = false;
+		copyNpubSuccess = false;
+	}
+
+	async function generateQrCode() {
+		if (!browser || !userNpub) return;
+
+		try {
+			qrCodeLoading = true;
+			qrCodeError = null;
+
+			const profileUrl = `${window.location.origin}${getProfileUrl(userNpub)}`;
+			const qrUrl = await generateQrCodeUrl(profileUrl);
+			qrCodeDataUrl = qrUrl;
+		} catch (error) {
+			console.error('Failed to generate QR code:', error);
+			qrCodeError = $t('common.profile.qr_generation_failed');
+		} finally {
+			qrCodeLoading = false;
+		}
+	}
+
+	async function copyProfileLink() {
+		if (!browser || !userNpub) return;
+
+		const profileUrl = `${window.location.origin}${getProfileUrl(userNpub)}`;
+		const success = await copyToClipboard(profileUrl);
+		if (success) {
+			copyLinkSuccess = true;
+			setTimeout(() => {
+				copyLinkSuccess = false;
+			}, 2000);
+		}
+	}
+
+	async function copyNpub() {
+		if (!userNpub) return;
+
+		const success = await copyToClipboard(userNpub);
+		if (success) {
+			copyNpubSuccess = true;
+			setTimeout(() => {
+				copyNpubSuccess = false;
+			}, 2000);
+		}
 	}
 
 	function logout() {
@@ -309,6 +390,91 @@
 	onConfirm={confirmedLogout}
 	onCancel={cancelLogout}
 />
+
+<!-- Share Modal -->
+{#if showShareModal}
+	<div class="modal modal-open">
+		<div class="modal-box max-w-md">
+			<div class="mb-6">
+				<h3 class="text-lg font-bold">{$t('common.profile.share_profile')}</h3>
+			</div>
+
+			<div class="space-y-4">
+				<!-- QR Code -->
+				<div class="flex flex-col items-center">
+					{#if qrCodeLoading}
+						<div class="flex h-64 w-64 items-center justify-center">
+							<span class="loading loading-spinner loading-lg"></span>
+						</div>
+					{:else if qrCodeError}
+						<div class="alert alert-error alert-outline">
+							<span>{qrCodeError}</span>
+						</div>
+					{:else if qrCodeDataUrl}
+						<img src={qrCodeDataUrl} alt="Profile QR Code" class="h-64 w-64" />
+					{/if}
+				</div>
+
+				<!-- Copy Link Button -->
+				<button class="btn btn-primary btn-block" onclick={copyProfileLink}>
+					{#if copyLinkSuccess}
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+						{$t('common.profile.copied')}
+					{:else}
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+							/>
+						</svg>
+						{$t('common.profile.copy_link')}
+					{/if}
+				</button>
+
+				<!-- Copy npub Button -->
+				<button class="btn btn-outline btn-block" onclick={copyNpub}>
+					{#if copyNpubSuccess}
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+						{$t('common.profile.copied')}
+					{:else}
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+							/>
+						</svg>
+						{$t('common.profile.copy_npub')}
+					{/if}
+				</button>
+			</div>
+
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeShareModal}>
+					{$t('common.close')}
+				</button>
+			</div>
+		</div>
+		<button class="modal-backdrop" onclick={closeShareModal}>X</button>
+	</div>
+{/if}
 
 <style>
 	.pt-safe {

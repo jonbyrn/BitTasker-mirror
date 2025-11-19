@@ -33,6 +33,7 @@ import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 import IconShieldAccount from '~icons/mdi/shield-account';
 import IconShieldCheck from '~icons/mdi/shield-check';
 import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
+import IconShareOutline from '~icons/mdi/share-outline';
 import IconWalletOutline from '~icons/mdi/wallet-outline';
 
 export interface MenuItem {
@@ -45,7 +46,7 @@ export interface MenuItem {
 	/** Submenu items */
 	children?: MenuItem[];
 	/** Additional click handler */
-	action?: 'logout';
+	action?: 'logout' | 'share_profile';
 	/** Error styling */
 	isError?: boolean;
 	/** Dynamic href based on login state */
@@ -307,6 +308,11 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 		label: 'navbar.messages',
 		icon: IconChatOutline,
 		href: '/dashboard/messages'
+	},
+	{
+		label: 'common.profile.share_profile',
+		icon: IconShareOutline,
+		action: 'share_profile'
 	},
 	{
 		label: 'navbar.settings',

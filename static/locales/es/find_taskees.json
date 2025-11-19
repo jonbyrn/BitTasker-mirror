@@ -1,0 +1,22 @@
+{
+    "find_taskees": {
+        "title": "Buscar Taskees",
+        "description": "Descubre profesionales talentosos listos para ayudarte con tus tareas",
+        "search_placeholder": "Buscar por nombre, habilidades o profesión...",
+        "search_minimum_chars": "Escribe al menos 3 caracteres para buscar",
+        "clear_filters": "Limpiar Filtros",
+        "error_loading": "Error al cargar taskees: {error}. Por favor intenta de nuevo.",
+        "loading_timeout_title": "La carga está tomando más tiempo del esperado",
+        "loading_timeout_message": "Intenta refrescar la página o verifica tu conexión",
+        "refresh": "Refrescar",
+        "no_results_title": "No se encontraron taskees",
+        "no_results_message": "Intenta ajustar tus criterios de búsqueda o filtros",
+        "view_profile": "Ver Perfil",
+        "view_map": "Ver Mapa",
+        "view_list": "Ver Lista",
+        "skills": "Habilidades",
+        "member_since": "Miembro desde",
+        "anonymous": "Usuario Anónimo"
+    }
+}
+

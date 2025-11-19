@@ -433,10 +433,12 @@
 								<!-- See Profile link -->
 								<button
 									class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
-									onclick={() =>
-										goto(
-											`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`
-										)}
+									onclick={() => {
+										const bidderId = bid.userProfile?.user?.id;
+										if (bidderId && bidderId !== 'unknown') {
+											goto(`/npub/${bidderId}`);
+										}
+									}}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"

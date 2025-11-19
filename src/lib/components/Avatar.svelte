@@ -12,7 +12,7 @@
 
 	// Define the component props
 	const props = $props<{
-		size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+		size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 		loading?: boolean;
 		onClick?: () => void;
 		pubkey?: string;
@@ -96,6 +96,8 @@
 				return 'w-16 h-16 text-xl';
 			case 'xl':
 				return 'w-24 h-24 text-2xl';
+			case '2xl':
+				return 'w-32 h-32 text-3xl';
 			default:
 				return 'w-10 h-10 text-base';
 		}
