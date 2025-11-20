@@ -16,7 +16,37 @@
         "view_list": "Ver Lista",
         "skills": "Habilidades",
         "member_since": "Miembro desde",
-        "anonymous": "Usuario Anónimo"
+        "anonymous": "Usuario Anónimo",
+        "filters": "Filtros",
+        "close_dialog": "Cerrar diálogo",
+        "toggle_skills_section": "Alternar sección de habilidades",
+        "add_skills": "Agregar habilidades",
+        "toggle_professional_title_section": "Alternar sección de título profesional",
+        "professional_title": "Título Profesional",
+        "professional_title_placeholder": "ej., Ingeniero de Software, Diseñador, Consultor",
+        "toggle_certifications_section": "Alternar sección de certificaciones",
+        "certifications": "Certificaciones",
+        "has_certifications": "Tiene Certificaciones",
+        "any": "Cualquiera",
+        "toggle_location_section": "Alternar sección de ubicación",
+        "location": "Ubicación",
+        "location_placeholder": "Ingresa ubicación...",
+        "location_mode": {
+            "anywhere": "Cualquier Lugar",
+            "specific_location": "Ubicación Específica"
+        },
+        "search_radius": "Radio de Búsqueda",
+        "toggle_join_date_section": "Alternar sección de fecha de registro",
+        "join_date": "Fecha de Registro",
+        "apply": "Aplicar",
+        "join_date_options": {
+            "any": "Cualquiera",
+            "last_week": "Última Semana",
+            "last_month": "Último Mes",
+            "last_3_months": "Últimos 3 Meses",
+            "last_6_months": "Últimos 6 Meses",
+            "last_year": "Último Año"
+        }
     }
 }
 

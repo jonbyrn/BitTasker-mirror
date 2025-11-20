@@ -291,6 +291,14 @@
 		}
 	}
 
+	// Watch for auth state changes and update owner status
+	$effect(() => {
+		// React to auth state changes
+		if (browser && isAuthenticated !== undefined) {
+			checkOwnerStatus();
+		}
+	});
+
 	// Initialize on mount
 	onMount(async () => {
 		// Validate npub parameter

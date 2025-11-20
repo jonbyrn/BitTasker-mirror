@@ -65,36 +65,73 @@
 
 	// Load Google Maps script
 	async function loadGoogleMapsScript(): Promise<void> {
-		if (scriptLoaded || window.google?.maps) {
-			googleMapsReady = true;
-			return;
-		}
+		return new Promise<void>((resolve, reject) => {
+			try {
+				// Check if script is already loaded and API is available
+				if (window.google?.maps?.Map) {
+					scriptLoaded = true;
+					googleMapsReady = true;
+					resolve();
+					return;
+				}
 
-		return new Promise((resolve, reject) => {
-			const script = document.createElement('script');
-			script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=marker`;
-			script.async = true;
-			script.defer = true;
+				// Check if script is already being loaded
+				const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+				if (existingScript) {
+					// Wait for existing script to load
+					existingScript.addEventListener('load', () => {
+						setTimeout(() => {
+							if (window.google?.maps?.Map) {
+								scriptLoaded = true;
+								googleMapsReady = true;
+								resolve();
+							} else {
+								reject(new Error('Google Maps API not initialized'));
+							}
+						}, 500);
+					});
+					return;
+				}
 
-			script.onload = () => {
-				scriptLoaded = true;
-				googleMapsReady = true;
-				resolve();
-			};
+				const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+				const script = document.createElement('script');
+				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&loading=async&libraries=marker`;
+				script.async = true;
+				script.defer = true;
 
-			script.onerror = () => {
-				hasError = true;
-				error = 'Failed to load Google Maps';
-				reject(new Error('Failed to load Google Maps'));
-			};
+				script.onload = () => {
+					scriptLoaded = true;
+					setTimeout(() => {
+						if (window.google?.maps?.Map) {
+							googleMapsReady = true;
+							resolve();
+						} else {
+							reject(new Error('Google Maps API not initialized'));
+						}
+					}, 500);
+				};
 
-			document.head.appendChild(script);
+				script.onerror = () => {
+					hasError = true;
+					error = 'Failed to load Google Maps';
+					reject(new Error('Failed to load Google Maps'));
+				};
+
+				document.head.appendChild(script);
+			} catch (err) {
+				reject(err);
+			}
 		});
 	}
 
 	// Initialize map
 	async function initMap(): Promise<void> {
 		if (!mapElement || !googleMapsReady) return;
+		
+		// Double-check that Google Maps API is actually available
+		if (!window.google?.maps?.Map) {
+			throw new Error('Google Maps API not available');
+		}
 
 		try {
 			// Get user location for map center
@@ -141,6 +178,8 @@
 	}
 
 	// Update markers on map
+	// Note: Since taskees don't currently have location data, this is a placeholder
+	// When location data is added, we can implement proper marker updates
 	function updateMarkers(): void {
 		if (!map || !markerLibrary || !isMapLoaded) return;
 
@@ -159,13 +198,6 @@
 			// Future: center on taskee location if available
 		}
 	}
-
-	// Watch for changes in taskees or selectedTaskee
-	$effect(() => {
-		if (isMapLoaded) {
-			updateMarkers();
-		}
-	});
 
 	// Initialize on mount
 	onMount(async () => {

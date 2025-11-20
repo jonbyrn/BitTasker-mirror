@@ -9,10 +9,22 @@
 	import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import TaskeeLocationMap from '$lib/components/maps/TaskeeLocationMap.svelte';
 	import { getProfileUrl } from '$lib/utils/helpers/profile';
+	import TaskeeFilterDrawer from '$lib/components/filters/TaskeeFilterDrawer.svelte';
+	import type { SearchTaskeesParams } from '$lib/nostr/findTaskees';
+	import { authState } from '$lib/stores/auth.store';
 
 	// Reactive state for search parameters and UI controls
 	let searchQuery = $state('');
 	let selectedSkills = $state<string[]>([]);
+	let isFilterDrawerOpen = $state(false);
+	
+	// Store current filter params
+	let currentFilters = $state<SearchTaskeesParams>({
+		page: 1,
+		limit: 20,
+		search: undefined,
+		skills: undefined
+	});
 
 	// Loading states
 	let loadingTimeout = $state(false);
@@ -35,6 +47,9 @@
 	// Selected taskee for map display
 	let selectedTaskee = $state<TaskeeProfile | null>(null);
 
+	// Authentication state
+	let isAuthenticated = $derived($authState.isAuthenticated);
+
 	// Debounce function
 	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
 		let timeoutId: ReturnType<typeof setTimeout>;
@@ -46,12 +61,15 @@
 
 	// Debounced function to update search
 	const debouncedSearch = debounce(async () => {
-		const newParams = {
+		const newParams: SearchTaskeesParams = {
+			...currentFilters,
 			page: 1,
 			limit: 20,
 			search: searchQuery.trim() || undefined,
 			skills: selectedSkills.length > 0 ? selectedSkills : undefined
 		};
+
+		currentFilters = newParams;
 
 		// Clear existing taskees when starting a new search
 		taskeeStore.update((state) => ({
@@ -69,10 +87,38 @@
 		}
 	}, 1000);
 
+	// Handle filter drawer apply
+	function handleFilterApply(filters: SearchTaskeesParams) {
+		isFilterDrawerOpen = false;
+		currentFilters = filters;
+
+		// Clear existing taskees when applying new filters
+		taskeeStore.update((state) => ({
+			...state,
+			items: [],
+			currentPage: 1,
+			hasMore: true,
+			error: null
+		}));
+
+		// Update search query and skills from filters
+		searchQuery = filters.search || '';
+		selectedSkills = filters.skills || [];
+
+		// Apply filters
+		findTaskees(filters);
+	}
+
 	// Clear filters
 	function clearFilters() {
 		searchQuery = '';
 		selectedSkills = [];
+		currentFilters = {
+			page: 1,
+			limit: 20,
+			search: undefined,
+			skills: undefined
+		};
 
 		taskeeStore.update((state) => ({
 			...state,
@@ -90,6 +136,7 @@
 		if ($taskeeStore.hasMore && !$taskeeStore.loading) {
 			const nextPage = $taskeeStore.currentPage + 1;
 			await findTaskees({
+				...currentFilters,
 				page: nextPage,
 				limit: 20,
 				search: searchQuery.trim() || undefined,
@@ -270,6 +317,7 @@
 
 	function viewProfile(taskee: TaskeeProfile) {
 		if (taskee.npub) {
+			// Always allow viewing profiles (public route)
 			goto(getProfileUrl(taskee.npub));
 		}
 	}
@@ -350,12 +398,33 @@
 					</div>
 				</div>
 
-				<!-- Clear Filters Button -->
-				{#if searchQuery || selectedSkills.length > 0}
-					<button class="btn btn-sm btn-ghost" onclick={clearFilters}>
-						{$t('find_taskees.clear_filters')}
+				<!-- Filter Buttons -->
+				<div class="flex items-center gap-2">
+					<!-- Advanced Filters Button -->
+					<button class="btn btn-sm btn-primary" onclick={() => (isFilterDrawerOpen = true)}>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-1 h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+							/>
+						</svg>
+						{$t('find_taskees.filters')}
 					</button>
-				{/if}
+					<!-- Clear Filters Button -->
+					{#if searchQuery || selectedSkills.length > 0}
+						<button class="btn btn-sm btn-ghost" onclick={clearFilters}>
+							{$t('find_taskees.clear_filters')}
+						</button>
+					{/if}
+				</div>
 			</div>
 		</div>
 
@@ -620,6 +689,14 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Filter Drawer Component -->
+<TaskeeFilterDrawer
+	isOpen={isFilterDrawerOpen}
+	onClose={() => (isFilterDrawerOpen = false)}
+	onApply={handleFilterApply}
+	initialFilters={currentFilters}
+/>
 
 <style>
 	:global([name='gmp-internal-google-attribution']),

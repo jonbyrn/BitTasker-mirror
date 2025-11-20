@@ -149,14 +149,14 @@
 							</div>
 						{/if}
 					</div>
-					<!-- Action Buttons - Desktop only -->
-					<div class="hidden md:flex md:flex-row md:items-center md:gap-2 lg:flex-row">
-						<button
+					<!-- Action Buttons - Desktop only (hidden on tablet and below) -->
+					<div class="hidden lg:flex lg:flex-row lg:items-center lg:gap-2">
+					<button
 							class="btn btn-primary"
-							onclick={() => goto('/dashboard/profile/edit')}
-						>
-							{$t('profile.page.edit_profile')}
-						</button>
+						onclick={() => goto('/dashboard/profile/edit')}
+					>
+						{$t('profile.page.edit_profile')}
+					</button>
 						<button
 							class="btn btn-outline"
 							onclick={viewPublicProfile}

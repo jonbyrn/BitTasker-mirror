@@ -69,7 +69,29 @@ export async function loadNamespace(locale: SupportedLanguage, namespace: string
 		loadedNamespaces.get(locale)!.add(namespace);
 
 		// Add to svelte-i18n
-		addMessages(locale, data);
+		// For namespaces with slashes (e.g., "dashboard/bids"), create nested structure
+		if (namespace.includes('/')) {
+			const parts = namespace.split('/');
+			const lastPart = parts[parts.length - 1];
+			
+			// If data has a key matching the last namespace part, unwrap it
+			// e.g., if namespace is "dashboard/bids" and data is {"bids": {...}},
+			// unwrap to just {...} before wrapping in namespace path
+			let dataToWrap = data;
+			if (data && typeof data === 'object' && lastPart in data && Object.keys(data).length === 1) {
+				dataToWrap = (data as any)[lastPart];
+			}
+			
+			// Create nested structure from the namespace path
+			// e.g., "dashboard/bids" becomes { "dashboard": { "bids": dataToWrap } }
+			let nestedData: any = dataToWrap;
+			for (let i = parts.length - 1; i >= 0; i--) {
+				nestedData = { [parts[i]]: nestedData };
+			}
+			addMessages(locale, nestedData);
+		} else {
+			addMessages(locale, data);
+		}
 
 		return data;
 	} catch (error) {
@@ -108,6 +130,8 @@ export function getNamespacesForRoute(route: string): string[] {
 	// Check for /taskees BEFORE /tasks to avoid matching conflict
 	if (route.includes('/find-taskees') || route.includes('/taskees')) {
 		namespaces.push('find_taskees');
+		// Load dashboard/bids namespace for map component translations
+		namespaces.push('dashboard/bids');
 	}
 	// Dashboard routes
 	if (route.includes('/dashboard')) {

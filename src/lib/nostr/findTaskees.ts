@@ -23,6 +23,11 @@ export interface SearchTaskeesParams {
 	limit?: number;
 	search?: string;
 	skills?: string[];
+	professionalTitle?: string;
+	location?: string;
+	radius?: number; // Search radius in km
+	minRating?: number;
+	createdAfter?: string; // ISO date string
 }
 
 interface TaskeeStoreState {
@@ -139,6 +144,23 @@ function filterTaskees(taskees: TaskeeProfile[], params: SearchTaskeesParams): T
 		});
 	}
 
+	// Filter by professional title
+	if (params.professionalTitle) {
+		const titleLower = params.professionalTitle.toLowerCase();
+		filtered = filtered.filter((taskee) => {
+			return taskee.professionalTitle?.toLowerCase().includes(titleLower);
+		});
+	}
+
+	// Filter by created date (join date)
+	if (params.createdAfter) {
+		const createdAfterDate = new Date(params.createdAfter);
+		filtered = filtered.filter((taskee) => {
+			if (!taskee.createdAt) return false;
+			return new Date(taskee.createdAt) >= createdAfterDate;
+		});
+	}
+
 	return filtered;
 }
 
@@ -190,7 +212,7 @@ export async function findTaskees(
 				(taskee): taskee is TaskeeProfile => taskee !== null
 			);
 
-			// Filter taskees
+			// Filter taskees (including additional filters)
 			const filteredTaskees = filterTaskees(taskees, params);
 
 			// Update cache

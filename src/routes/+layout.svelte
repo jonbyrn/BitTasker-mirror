@@ -9,6 +9,7 @@
 	import TopBar from '$lib/components/TopBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import { sections } from '$lib/utils/consts';
 	// Social media icon imports
 	import IconFacebook from '~icons/mdi/facebook';
 	import IconInstagram from '~icons/mdi/instagram';
@@ -18,6 +19,16 @@
 	import IconMusicNoteEighth from '~icons/mdi/music-note-eighth';
 	import IconPlay from '~icons/mdi/play';
 	import IconGithub from '~icons/mdi/github';
+	// Sidebar icon imports
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
+	import IconMagnify from '~icons/mdi/magnify';
+	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
+	import IconFileSign from '~icons/mdi/file-sign';
+	import IconWalletOutline from '~icons/mdi/wallet-outline';
+	import IconAccount from '~icons/mdi/account';
+	import IconChatOutline from '~icons/mdi/chat-outline';
+	import IconCog from '~icons/mdi/cog';
 	import '../app.css';
 	import { authState } from '$lib/stores/auth.store';
 	let isLoggedIn = $derived($authState.isAuthenticated);
@@ -42,6 +53,7 @@
 	let breadcrumbList = $state({});
 
 	let devicePlatformValue = $state<string>('web');
+	let width = $state(typeof window !== 'undefined' ? window.innerWidth : 1920);
 	$effect(() => {
 		devicePlatformValue = $devicePlatform;
 	});
@@ -149,8 +161,10 @@
 
 			isOnboardingPage = path.includes('/onboarding');
 
-			// Only show bottom bar in dashboard routes
-			showFooterSection = path.includes('/dashboard');
+			// Only show bottom bar in dashboard routes, or when logged in on tasks/taskees/npub routes
+			// This hides the footer when logged in on these routes
+			showFooterSection = path.includes('/dashboard') || 
+				(isLoggedIn && (path.includes('/tasks') || path.includes('/taskees') || path.includes('/npub')));
 
 			// Generate breadcrumbs - deferred to idle time
             if (path !== '/') {
@@ -193,6 +207,9 @@
 
 		// Setup theme change listener
 		const themeCleanup = setupThemeChangeListener();
+		
+		// Setup window resize listener for sidebar
+		const resizeCleanup = setupWindowResizeListener();
 
 		// Font Awesome is loaded via link tag in the head
 
@@ -223,6 +240,7 @@
 		return () => {
 			clearTimeout(routeChangeTimeout);
 			themeCleanup();
+			resizeCleanup();
 			window.removeEventListener('error', handleError);
 			window.removeEventListener('unhandledrejection', handleError);
 			// No cleanup needed for Font Awesome loaded via link tag
@@ -283,9 +301,64 @@
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
 			{#if devicePlatformValue === 'web' && !isLandingPage}
-				<div class="bg-base-200 flex grow lg:block overflow-hidden">
-					{@render children()}
-				</div>
+				<!-- Check if we should show sidebar (logged in on tasks/taskees/npub routes) -->
+				{#if isLoggedIn && (currentPath.includes('/tasks') || currentPath.includes('/taskees') || currentPath.includes('/npub'))}
+					<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
+						<!-- Fixed Sidebar - Desktop only (hidden on tablet and below) -->
+						{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
+							<div class="hidden xl:block w-full flex-shrink-0 md:w-64">
+								<div class="fixed top-24 left-8 z-10 w-56">
+									<div class="card bg-base-100 rounded-xl shadow-xl">
+										<div class="card-body p-4">
+											<ul class="menu bg-base-100 rounded-box w-full">
+												{#each sections as section}
+													<li class="my-1">
+														<a
+															data-sveltekit-reload="off"
+															href={section.id === 'bids-sent' ? '/dashboard?tab=bids' : section.id === 'contracts' ? '/dashboard?tab=contracts' : section.id === '' ? '/dashboard' : `/dashboard/${section.id}`}
+															class="flex items-center gap-3"
+														>
+															{#if section.icon === 'mdi:format-list-bulleted'}
+																<IconFormatListBulleted class="text-primary" />
+															{:else if section.icon === 'mdi:plus-circle-outline'}
+																<IconPlusCircleOutline class="text-primary" />
+															{:else if section.icon === 'mdi:magnify'}
+																<IconMagnify class="text-primary" />
+															{:else if section.icon === 'mdi:invoice-text-send-outline'}
+																<IconInvoiceTextSendOutline class="text-primary" />
+															{:else if section.icon === 'mdi:file-sign'}
+																<IconFileSign class="text-primary" />
+															{:else if section.icon === 'mdi:wallet-outline'}
+																<IconWalletOutline class="text-primary" />
+															{:else if section.icon === 'mdi:account'}
+																<IconAccount class="text-primary" />
+															{:else if section.icon === 'mdi:chat-outline'}
+																<IconChatOutline class="text-primary" />
+															{:else if section.icon === 'mdi:cog'}
+																<IconCog class="text-primary" />
+															{:else}
+																<IconFormatListBulleted class="text-primary" />
+															{/if}
+															{$t(section.label)}
+														</a>
+													</li>
+												{/each}
+											</ul>
+										</div>
+									</div>
+								</div>
+							</div>
+						{/if}
+						<!-- Main Content with left margin for fixed sidebar when sidebar is visible -->
+						<div class="min-h-0 w-full flex-1">
+							{@render children()}
+						</div>
+					</div>
+				{:else}
+					<div class="bg-base-200 flex grow lg:block overflow-hidden">
+						{@render children()}
+					</div>
+				{/if}
 			{:else}
 				<div
 					class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
