@@ -210,7 +210,7 @@
         "accept_bid_fund_contract": "Aceptar Oferta y Financiar Contrato",
         "accept_fund": "Aceptar y Financiar",
         "contract_information": "Información del Contrato",
-        "base_amount": "Cantidad Base",
+        "base_amount": "Cantidad",
         "base_amount_tooltip": "Cantidad original de la oferta",
         "client_fee": "Tarifa del Cliente ({fee})",
         "fee_tooltip": "Tarifa de la plataforma",

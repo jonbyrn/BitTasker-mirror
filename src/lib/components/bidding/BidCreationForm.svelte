@@ -9,6 +9,7 @@
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
+	import { generateBidTranslations } from '$lib/nostr/bid';
 
 	// Props
 	const {
@@ -318,6 +319,14 @@
 		try {
 			await walletManager.initialize();
 
+			// Generate translations for bid content (description, proposedApproach, coverLetter)
+			// This stores translations in both languages for fast retrieval
+			const bidTranslations = await generateBidTranslations({
+				description,
+				proposedApproach,
+				coverLetter
+			});
+
 			// Create bid data structure with explicit type
 			const bidData = {
 				type: 'bid' as const,
@@ -353,7 +362,10 @@
 				startDateTime: bidType === 'FIXED' ? startDateTime : null,
 				endDateTime: bidType === 'FIXED' ? endDateTime : null,
 
-				messageType: 'bid'
+				messageType: 'bid',
+				
+				// Add translations if available
+				...(bidTranslations && { translations: bidTranslations })
 			};
 
 			// Create custom tags for the nostr event
