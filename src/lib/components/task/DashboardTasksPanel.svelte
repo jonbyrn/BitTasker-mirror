@@ -141,7 +141,15 @@ let error = $state<string | null>(null);
 				}
 			}
 
-			// Update bid status map
+			// Update bid status map - only for current task IDs
+			// First, remove entries for tasks that no longer exist
+			for (const [taskId] of bidStatusMap) {
+				if (!currentTaskIds.has(taskId)) {
+					bidStatusMap.delete(taskId);
+				}
+			}
+			
+			// Then, update entries for current tasks
 			for (const taskId of currentTaskIds) {
 				bidStatusMap.set(taskId, tasksWithBids.has(taskId));
 			}
@@ -156,13 +164,51 @@ let error = $state<string | null>(null);
 	let filteredTasks = $derived.by(() => {
 		let filtered = $myTasksStore.items;
 
+		// Log all tasks without any filter for debugging
+		console.log('[DashboardTasksPanel] All tasks (no filter):', {
+			total: filtered.length,
+			tasks: filtered.map(t => ({
+				id: t.id,
+				title: t.title,
+				status: t.status,
+				hasBidsInMap: bidStatusMap.get(t.id),
+				createdAt: t.createdAt
+			})),
+			activeFilter,
+			bidStatusMapSize: bidStatusMap.size,
+			bidStatusMapEntries: Array.from(bidStatusMap.entries())
+		});
+
 		// Filter by status category (synchronous)
 		switch (activeFilter) {
 			case 'waiting_for_bids':
-				// Filter OPEN tasks, then check bid status (from map)
-				return filtered.filter(
-					(t) => t.status === TaskStatusEnum.OPEN && !bidStatusMap.get(t.id) // No bids (or not checked yet)
+				// Filter OPEN tasks - "waiting for bids" means all OPEN tasks regardless of bid status
+				// This filter shows tasks that are open and waiting to receive bids
+				const waitingTasks = filtered.filter(
+					(t) => {
+						const isOpen = t.status === TaskStatusEnum.OPEN;
+						
+						// Log each task's filter evaluation
+						console.log(`[DashboardTasksPanel] Filtering task ${t.id}:`, {
+							title: t.title,
+							status: t.status,
+							isOpen,
+							hasBidsInMap: bidStatusMap.get(t.id),
+							shouldShow: isOpen,
+							TaskStatusEnum_OPEN: TaskStatusEnum.OPEN
+						});
+						
+						return isOpen;
+					}
 				);
+				
+				console.log('[DashboardTasksPanel] waiting_for_bids filter result:', {
+					inputCount: filtered.length,
+					outputCount: waitingTasks.length,
+					waitingTasks: waitingTasks.map(t => ({ id: t.id, title: t.title, status: t.status }))
+				});
+				
+				return waitingTasks;
 
 			case 'bids_received':
 				// Filter OPEN tasks with bids
@@ -268,7 +314,14 @@ let error = $state<string | null>(null);
 		try {
 			isLoading = true;
 			error = null;
+			
+			// Clear bid status map before loading to avoid stale data
+			bidStatusMap.clear();
+			lastCheckedTaskIds.clear();
+			
 			await findMyTasks({ page: 1, limit: 100 });
+			// Check bids in background after loading tasks
+			await checkBidsInBackground(true);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load tasks';
 			console.error('Error loading tasks:', err);
@@ -281,6 +334,11 @@ let error = $state<string | null>(null);
 		try {
 			isLoading = true;
 			error = null;
+			
+			// Clear bid status map before reloading to avoid stale data
+			bidStatusMap.clear();
+			lastCheckedTaskIds.clear();
+			
 			await findMyTasks({ page: 1, limit: 100 });
 			await checkBidsInBackground(true);
 			// Show success message only if no error occurred
