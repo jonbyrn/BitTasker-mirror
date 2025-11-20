@@ -427,7 +427,7 @@
 				center: { lat: centerLocation.latitude!, lng: centerLocation.longitude! },
 				zoom: zoomLevel,
 				maxZoom: 14, // Máximo zoom de ciudad - no mostrar direcciones exactas
-				minZoom: 8,
+				minZoom: 2, // Permitir zoom out para ver áreas más amplias
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
 				mapTypeControl: true,
 				streetViewControl: false, // Deshabilitar Street View para privacidad

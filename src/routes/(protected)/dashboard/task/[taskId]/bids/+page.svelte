@@ -217,7 +217,7 @@
 	}
 </script>
 
-<div class="mx-auto px-2 md:px-0 py-4">
+<div class="mx-auto max-w-6xl px-2 md:px-0 py-4">
 	<div class="mb-4 sm:mb-6">
 		<h3 class="text-xl font-bold sm:text-2xl">{$t('task.drawer.bids_received')}</h3>
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
