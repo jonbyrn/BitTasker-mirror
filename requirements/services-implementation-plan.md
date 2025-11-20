@@ -1,4 +1,4 @@
-# Service Creation & Display - Implementation Plan
+add# Service Creation & Display - Implementation Plan
 
 ## Executive Summary
 
@@ -113,7 +113,7 @@ export enum ServicePricingType {
  */
 export interface ServicePricing {
   type: ServicePricingType;
-  currency: string; // USD, BTC, L-BTC, LN, SATS, USDT, etc.
+  currency: string; // USD or Sats
   
   // For FIXED pricing
   amount?: number;
@@ -165,7 +165,7 @@ export interface ServiceAvailability {
   serviceArea?: {
     address?: string;
     coordinates?: [number, number]; // [longitude, latitude]
-    radius?: number; // Service radius in km/miles
+    radius?: number; // Service radius in km
   };
   
   // Remote availability
@@ -1416,4 +1416,5 @@ static/
 ---
 
 **End of Implementation Plan**
+
 
