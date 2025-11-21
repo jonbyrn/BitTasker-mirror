@@ -23,6 +23,7 @@
 	import { linear } from 'svelte/easing';
 	import { onMount } from 'svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
+	import { getUserDisplayNameFromProfile } from '$lib/utils/helpers/userDisplayName';
 	// Props
 	const props = $props<{
 		bid: SimplifiedTaskBid;
@@ -277,7 +278,7 @@
 											class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center lg:h-10 lg:w-10"
 										>
 											<span class="text-sm font-semibold lg:text-lg">
-												{(props.bid?.userProfile?.user?.name || 'A').charAt(0).toUpperCase()}
+												{(getUserDisplayNameFromProfile(props.bid?.userProfile) || 'A').charAt(0).toUpperCase()}
 											</span>
 										</div>
 									{/if}
@@ -286,9 +287,9 @@
 
 							<div class="flex min-w-0 flex-1 flex-col">
 								<span class="truncate text-sm font-medium">
-									{props.bid?.userProfile?.user?.name ||
+									{getUserDisplayNameFromProfile(props.bid?.userProfile) ||
 										props.bid?.userProfile?.professionalTitle ||
-										$t('dashboard.bids.bid_acceptance.anonymous')}
+										''}
 								</span>
 
 								<div class="mt-1 flex min-w-0 items-center">

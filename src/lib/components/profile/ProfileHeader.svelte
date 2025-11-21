@@ -5,6 +5,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { t } from 'svelte-i18n';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	// Initialize user store when component mounts
 	onMount(async () => {
@@ -16,7 +17,15 @@
 	});
 
 	// Derived values for reactive updates - prioritize username from database over name
-	let userName = $derived($profileStore.data?.name || $user.name || 'Anonymous');
+	let userName = $derived(
+		getUserDisplayName(
+			{
+				username: $profileStore.data?.username || $user.username,
+				name: $profileStore.data?.name || $user.name
+			},
+			''
+		)
+	);
 
 	// Get the first image from pictures array, or fallback to user.picture or profileStore.data.picture
 	let userPicture = $derived(() => {

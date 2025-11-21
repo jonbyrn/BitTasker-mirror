@@ -4,6 +4,7 @@
 	import type { MyBids$result } from '$houdini';
 	import { t } from 'svelte-i18n';
 	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
+	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	const props = $props<{
 		bid:
@@ -61,7 +62,7 @@
 				<h3 id={`bid-${props.bid.id}-title`} class="card-title text-base">
 					{props.isProvider
 						? `${$t('dashboard.bids.bid_summary.bid_on')} ${props.bid.taskTitle || $t('dashboard.bids.bid_summary.untitled_task')}`
-						: `${$t('dashboard.bids.bid_summary.from')} ${props.bid.freelancer.name || $t('dashboard.bids.bid_summary.anonymous')}`}
+						: `${$t('dashboard.bids.bid_summary.from')} ${getUserDisplayName(props.bid.freelancer, '')}`}
 				</h3>
 				<p class="text-base-content/70 text-sm">{timeAgo()}</p>
 			</div>

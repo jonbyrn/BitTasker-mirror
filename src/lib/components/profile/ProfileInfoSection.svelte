@@ -2,6 +2,7 @@
 	import { profileStore } from '$lib/stores/profile.store';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	let { formatDate, yearsFrom } = $props<{
 		formatDate: (date: string) => string;
@@ -232,7 +233,7 @@
 											</div>
 										</div>
 										<div>
-											<p class="font-medium">{review.from?.name ?? 'Anonymous'}</p>
+											<p class="font-medium">{getUserDisplayName(review.from, '')}</p>
 											<p class="text-base-content/70 text-xs">{formatDate(review.date)}</p>
 										</div>
 									</div>

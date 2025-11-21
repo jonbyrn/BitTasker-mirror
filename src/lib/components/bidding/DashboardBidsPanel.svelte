@@ -376,8 +376,7 @@
 								<!-- Username and Review Stars -->
 								<div class="flex flex-col">
 									<span class="text-sm font-medium">
-										{bid.bid.taskCreatorUsername ||
-											$t('common.components.bidding.dashboard_bids.anonymous')}
+										{bid.bid.taskCreatorUsername || ''}
 									</span>
 									<!-- Review Stars -->
 									<div class="flex items-center">

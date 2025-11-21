@@ -628,7 +628,7 @@
 									<!-- Username and Review Stars -->
 									<div class="flex flex-col">
 										<span class="text-base font-medium">
-											{task.creator.username || $t('dashboard.task_details_by_task.anonymous')}
+											{task.creator.username || task.creator.name || ''}
 										</span>
 										<!-- Review Stars -->
 										<div class="flex items-center">

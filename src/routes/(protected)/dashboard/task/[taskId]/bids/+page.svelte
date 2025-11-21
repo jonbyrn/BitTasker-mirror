@@ -20,6 +20,7 @@
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
+	import { getUserDisplayNameFromProfile } from '$lib/utils/helpers/userDisplayName';
 
 	// State
 	let task = $state<Task | null>(null);
@@ -104,10 +105,11 @@
 						startDateTime: bid.startDateTime,
 						endDateTime: bid.endDateTime,
 						translations: bid.translations, // Incluir traducciones
+						bidderName: bid.bidderName, // Keep bidderName for reference
 						userProfile: {
 							user: {
 								id: bid.bidderId || 'unknown',
-								name: bid.bidderName || 'Anonymous',
+								name: bid.bidderName || '', // Don't use Anonymous, will be handled by display helper
 								avatar: bid.bidderAvatar || '',
 								rating: 0 // Default rating
 							}
@@ -384,7 +386,7 @@
 									<!-- Display name with See Profile (desktop) -->
 									<div class="flex w-full items-center gap-2">
 										<p class="truncate text-base font-semibold sm:text-lg">
-											{bid.userProfile?.user?.name || $t('task.drawer.anonymous')}
+											{getUserDisplayNameFromProfile(bid.userProfile)}
 										</p>
 										<!-- See Profile link - Desktop only -->
 										<button
