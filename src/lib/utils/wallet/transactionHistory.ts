@@ -1,3 +1,7 @@
+/**
+ * @deprecated This file utilities is deprecated in favor of wallet package.
+ */
+
 import type { Transaction } from '$lib/types/wallet';
 import { get } from 'svelte/store';
 import { walletStore } from '$lib/stores/wallet.store';
