@@ -1,4 +1,4 @@
-add# Service Creation & Display - Implementation Plan
+# Service Creation & Display - Implementation Plan
 
 ## Executive Summary
 
@@ -237,7 +237,6 @@ export interface Service {
   // Additional details
   customizationOptions?: string[]; // What can be customized
   termsAndConditions?: string;
-  cancellationPolicy?: string;
   requirements?: string[]; // What client needs to provide
   
   // Metadata
@@ -246,10 +245,8 @@ export interface Service {
   updatedAt: number; // Unix timestamp
   publishedAt?: number; // When service was first published
   
-  // Analytics (client-side only, not stored in Nostr)
-  viewCount?: number;
-  inquiryCount?: number;
-  bookingCount?: number;
+  // Note: Analytics (inquiryCount, bookingCount) are computed from Nostr events
+  // using getServiceAnalytics() helper function, not stored as fields
   
   // Translations
   translations?: ServiceTranslations;
@@ -298,7 +295,6 @@ export interface ServiceBody {
   availability: ServiceAvailability;
   customizationOptions?: string[];
   termsAndConditions?: string;
-  cancellationPolicy?: string;
   requirements?: string[];
   status?: ServiceStatus;
 }
@@ -445,7 +441,8 @@ export const serviceBodySchema = z.object({
 const KINDS = {
     // ... existing kinds
     SERVICE_CREATION: 31010, // Individual service creation/update
-    SERVICE_DELETION: 31011, // Service deletion marker (optional, can use kind 5)
+    SERVICE_INQUIRY: 31012, // Service inquiry/interest event
+    SERVICE_BOOKING: 31013, // Service booking event
 }
 ```
 
@@ -654,6 +651,89 @@ export async function findServices(
  */
 export async function findServicesByNpub(npub: string): Promise<Service[]> {
   // ... implementation
+}
+
+/**
+ * Get inquiry count for a service (computed from Nostr events)
+ * Counts messages and inquiry events that reference the service
+ */
+export async function getServiceInquiryCount(serviceId: string): Promise<number> {
+  try {
+    // Query for service inquiry events (kind 31012)
+    const inquiryEvents = await pool.querySync(RELAYS, {
+      kinds: [KINDS.SERVICE_INQUIRY],
+      '#service': [serviceId]
+    });
+    
+    // Query for messages (kind 4) that reference the service
+    // Messages would have a tag like ['service', serviceId]
+    const messageEvents = await pool.querySync(RELAYS, {
+      kinds: [4],
+      '#service': [serviceId]
+    });
+    
+    // Count unique inquirers (by pubkey) to avoid duplicates
+    const uniqueInquirers = new Set<string>();
+    
+    inquiryEvents.forEach(event => {
+      uniqueInquirers.add(event.pubkey);
+    });
+    
+    messageEvents.forEach(event => {
+      uniqueInquirers.add(event.pubkey);
+    });
+    
+    return uniqueInquirers.size;
+  } catch (error) {
+    console.error('Failed to get service inquiry count:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get booking count for a service (computed from Nostr events)
+ * Counts contract events and booking events that reference the service
+ */
+export async function getServiceBookingCount(serviceId: string): Promise<number> {
+  try {
+    // Query for service booking events (kind 31013)
+    const bookingEvents = await pool.querySync(RELAYS, {
+      kinds: [KINDS.SERVICE_BOOKING],
+      '#service': [serviceId]
+    });
+    
+    // Query for contract events that reference the service
+    // Contracts would have a tag like ['service', serviceId]
+    const contractEvents = await pool.querySync(RELAYS, {
+      kinds: [KINDS.CONTRACT],
+      '#service': [serviceId]
+    });
+    
+    // Count unique bookings (by event, not by user, since one user can have multiple bookings)
+    return bookingEvents.length + contractEvents.length;
+  } catch (error) {
+    console.error('Failed to get service booking count:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get service analytics (inquiry and booking counts)
+ * Returns computed metrics from Nostr events
+ */
+export async function getServiceAnalytics(serviceId: string): Promise<{
+  inquiryCount: number;
+  bookingCount: number;
+}> {
+  const [inquiryCount, bookingCount] = await Promise.all([
+    getServiceInquiryCount(serviceId),
+    getServiceBookingCount(serviceId)
+  ]);
+  
+  return {
+    inquiryCount,
+    bookingCount
+  };
 }
 ```
 
@@ -1220,12 +1300,18 @@ export const serviceStore = createServiceStore();
 
 ### 8. Analytics & Metrics
 
-**Decision**: Client-side only, not stored in Nostr
+**Decision**: Derived from Nostr events, not stored as fields
 
 **Implementation**:
-- Track views, inquiries in localStorage
-- Display in service management
-- Reset on service update (optional)
+- **View Count**: Not tracked (not feasible in decentralized system without central aggregation)
+- **Inquiry Count**: Computed by querying Nostr for:
+  - Messages (kind 4) that reference the service ID in tags (e.g., `['service', serviceId]`)
+  - Service inquiry events (kind 31012) that reference the service
+- **Booking Count**: Computed by querying Nostr for:
+  - Contract events that reference the service ID
+  - Service booking events (kind 31013) that reference the service
+- Metrics computed on-demand when displaying service details
+- Cached client-side for performance (with TTL)
 
 ---
 
