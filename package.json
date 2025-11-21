@@ -29,6 +29,8 @@
 		"build-storybook": "storybook build",
 		"sitemap:generate": "node scripts/generate-sitemap.js",
 		"sitemap:dev": "npm run sitemap:generate && echo 'Sitemap generated for development'",
+		"count-tasks": "npx --yes tsx scripts/count-unexpired-tasks.ts",
+		"count-users": "npx --yes tsx scripts/count-users.ts",
 		"deploy:workers": "npm run build && wrangler deploy --env=staging",
 		"deploy:workers:production": "npm run build && wrangler deploy --env production",
 		"secrets:upload": "bash scripts/upload-secrets.sh staging",
