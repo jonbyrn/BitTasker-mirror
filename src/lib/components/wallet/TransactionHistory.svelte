@@ -20,26 +20,21 @@
 
 	// Filtered transactions (exclude swaps)
 	let filteredTransactions = $derived(
-		$transactions
-			.filter((tx) => {
-				// Always filter out swaps
-				if (tx.type === 'swap') return false;
-
-				if (selectedFilter === 'all') return true;
-				if (selectedFilter === 'rsk' || selectedFilter === 'bsc') {
-					return tx.network === selectedFilter;
-				}
-				if (selectedFilter === 'send' || selectedFilter === 'receive') {
-					return tx.type === selectedFilter;
-				}
-				return true;
-			})
-			.sort((a, b) => b.timestamp - a.timestamp)
+		$transactions.filter((tx) => {
+			if (selectedFilter === 'all') return true;
+			if (selectedFilter === 'rsk' || selectedFilter === 'bsc') {
+				return tx.network === selectedFilter;
+			}
+			if (selectedFilter === 'send' || selectedFilter === 'receive') {
+				return tx.type === selectedFilter;
+			}
+			return true;
+		})
 	);
 
 	// Derived filter counts for performance
 	let filterCounts = $derived({
-		all: $transactions.filter((tx) => tx.type !== 'swap').length,
+		all: $transactions.length,
 		rsk: $transactions.filter((tx) => tx.network === 'rsk' && tx.type !== 'swap').length,
 		bsc: $transactions.filter((tx) => tx.network === 'bsc' && tx.type !== 'swap').length,
 		send: $transactions.filter((tx) => tx.type === 'send').length,
@@ -458,7 +453,7 @@
 
 								<div class="flex-1">
 									<div class="mb-1 flex items-center gap-2">
-										<span class="font-semibold">
+										<span class="font-semibold capitalize">
 											{#if tx.type === 'send'}
 												{$t('wallet.transaction.type.send')}
 											{:else if tx.type === 'receive'}
@@ -493,12 +488,8 @@
 								<div
 									class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
 								>
-									{tx.type === 'receive'
-										? '+'
-										: '-' +
-											weiToSatoshi(BigInt(tx.value)).toLocaleString() +
-											' ' +
-											$t('wallet.sats')}
+									{tx.type === 'receive' ? '+' : '-'}
+									{weiToSatoshi(BigInt(tx.value)).toLocaleString() + ' ' + $t('wallet.sats')}
 								</div>
 								{#if tx.fee}
 									<div class="text-xs opacity-70">
