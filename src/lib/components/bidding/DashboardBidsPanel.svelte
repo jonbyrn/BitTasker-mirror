@@ -475,6 +475,7 @@
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
 												<TranslatableBidContent 
+													bid={bid.bid}
 													content={bid.bid.description} 
 													contentType="description"
 												/>
@@ -489,6 +490,7 @@
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
 												<TranslatableBidContent 
+													bid={bid.bid}
 													content={bid.bid.proposedApproach} 
 													contentType="proposedApproach"
 												/>
@@ -503,6 +505,7 @@
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
 												<TranslatableBidContent 
+													bid={bid.bid}
 													content={bid.bid.coverLetter} 
 													contentType="coverLetter"
 												/>

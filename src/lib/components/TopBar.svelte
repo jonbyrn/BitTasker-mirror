@@ -166,7 +166,7 @@
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
+		<a href={isLoggedIn ? '/dashboard/find-tasks' : '/tasks'} class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -264,8 +264,12 @@
 								<item.icon />
 								{$t(item.label)}
 							</button>
-						{:else if item.href}
-							<a href={item.href} onclick={closeDrawer} class="flex items-center gap-2">
+						{:else}
+							<a
+								href={item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
+								onclick={closeDrawer}
+								class="flex items-center gap-2"
+							>
 								<item.icon />
 								{$t(item.label)}
 							</a>

@@ -78,9 +78,7 @@
 			// Update task status based on existing bids
 			if (task) {
 				// Use optimized bid fetching with caching and efficient deduplication
-				console.log(`[BidsPage] 🚀 Starting getBidsForTaskOptimized for task ${task.id} at ${new Date().toISOString()}`);
 				const dmBids = await getBidsForTaskOptimized(task.id);
-				console.log(`[BidsPage] ✅ Completed getBidsForTaskOptimized for task ${task.id} at ${new Date().toISOString()}, got ${dmBids.length} bids`);
 
 				// Transform to SimplifiedTaskBid format (sync mapping)
 				bids = dmBids.map(({ bid }) => {
@@ -105,6 +103,7 @@
 						createdAt: new Date(bid.timestamp).toISOString(),
 						startDateTime: bid.startDateTime,
 						endDateTime: bid.endDateTime,
+						translations: bid.translations, // Incluir traducciones
 						userProfile: {
 							user: {
 								id: bid.bidderId || 'unknown',
@@ -382,10 +381,36 @@
 								</div>
 								<!-- User info column -->
 								<div class="flex min-w-0 flex-1 flex-col items-start">
-									<!-- Display name -->
-									<p class="w-full truncate text-base font-semibold sm:text-lg">
-										{bid.userProfile?.user?.name || $t('task.drawer.anonymous')}
-									</p>
+									<!-- Display name with See Profile (desktop) -->
+									<div class="flex w-full items-center gap-2">
+										<p class="truncate text-base font-semibold sm:text-lg">
+											{bid.userProfile?.user?.name || $t('task.drawer.anonymous')}
+										</p>
+										<!-- See Profile link - Desktop only -->
+										<button
+											class="btn btn-ghost btn-xs hidden text-primary hover:bg-primary/10 sm:flex"
+											onclick={() =>
+												goto(
+													`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`
+												)}
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-3 w-3"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+												/>
+											</svg>
+											<span>{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
+										</button>
+									</div>
 									<!-- Member since -->
 									<span class="text-base-content/60 text-xs sm:text-sm">
 										{$t('task.drawer.member_since')}
@@ -414,25 +439,11 @@
 								</div>
 							</div>
 
-							<!-- Right side: Status badge and profile link (right-aligned) -->
+							<!-- Right side: See Profile (mobile) and Status badge (right-aligned) -->
 							<div class="flex shrink-0 flex-col items-end gap-2">
-								<!-- Bid Status Badge -->
-								{#if bid.status === 'ACCEPTED'}
-									<div class="badge badge-success badge-sm text-primary-content">
-										{$t('dashboard.bids.bid_acceptance.accepted')}
-									</div>
-								{:else if bid.status === 'REJECTED'}
-									<div class="badge badge-error badge-sm text-primary-content">
-										{$t('dashboard.bids.bid_acceptance.rejected')}
-									</div>
-								{:else if bid.status === 'PENDING'}
-									<div class="badge badge-warning badge-sm text-primary-content">
-										{$t('dashboard.bids.bid_acceptance.pending')}
-									</div>
-								{/if}
-								<!-- See Profile link -->
+								<!-- See Profile link - Mobile only (above status) -->
 								<button
-									class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
+									class="btn btn-ghost btn-xs text-primary hover:bg-primary/10 sm:hidden"
 									onclick={() =>
 										goto(
 											`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`
@@ -452,8 +463,22 @@
 											d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
 										/>
 									</svg>
-									<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
+									<span>{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
 								</button>
+								<!-- Bid Status Badge -->
+								{#if bid.status === 'ACCEPTED'}
+									<div class="badge badge-success badge-sm text-primary-content">
+										{$t('dashboard.bids.bid_acceptance.accepted')}
+									</div>
+								{:else if bid.status === 'REJECTED'}
+									<div class="badge badge-error badge-sm text-primary-content">
+										{$t('dashboard.bids.bid_acceptance.rejected')}
+									</div>
+								{:else if bid.status === 'PENDING'}
+									<div class="badge badge-warning badge-sm text-primary-content">
+										{$t('dashboard.bids.bid_acceptance.pending')}
+									</div>
+								{/if}
 							</div>
 						</div>
 
@@ -461,18 +486,45 @@
 						<div class="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end">
 							<!-- Description column -->
 							<div class="flex-1 min-w-0">
-								<p class="text-base-content/80 wrap-break-words line-clamp-2">{bid.description}</p>
+								<TranslatableBidContent 
+									bid={bid as any}
+									content={bid.description} 
+									contentType="description"
+									fallbackClass="text-base-content/80 wrap-break-words line-clamp-2"
+								/>
 							</div>
-							<!-- Payment info column (aligned right) -->
-							<div class="shrink-0 text-right">
-								<div class="text-xl font-bold sm:text-2xl">
-									${formatNumberWithTwoDecimals(bid.amount)}
+							<!-- Payment info column - 2 columns on mobile, right-aligned on desktop -->
+							<div class="grid shrink-0 grid-cols-2 gap-2 text-left sm:grid-cols-1 sm:text-right lg:text-right">
+								<!-- Mobile: Amount and Sats in 2 columns -->
+								<div class="sm:hidden">
+									<div class="text-base-content/60 text-xs">{$t('dashboard.bids.bid_acceptance.base_amount')}</div>
+									<div class="text-lg font-bold">
+										${formatNumberWithTwoDecimals(bid.amount)}
+									</div>
+									<div class="text-base-content/60 text-xs font-bold">
+										{cachedSatsFromUsd(bid.amount, btcPrice)} Sats
+									</div>
 								</div>
-								<div class="sm:text-md text-base-content/60 text-sm font-bold">
-									{cachedSatsFromUsd(bid.amount, btcPrice)} Sats
+								<div class="sm:hidden">
+									<div class="text-base-content/60 text-xs">{$t('bids.type')} / {$t('bids.duration')}</div>
+									<div class="text-base-content/50 text-xs">
+										{bid.paymentType}
+									</div>
+									<div class="text-base-content/50 text-xs">
+										{bid.estimatedDuration}
+									</div>
 								</div>
-								<div class="text-base-content/50 mt-1 text-xs">
-									{bid.paymentType} • {bid.estimatedDuration}
+								<!-- Desktop: All info in one column, right-aligned -->
+								<div class="hidden sm:block">
+									<div class="text-xl font-bold sm:text-2xl">
+										${formatNumberWithTwoDecimals(bid.amount)}
+									</div>
+									<div class="sm:text-md text-base-content/60 text-sm font-bold">
+										{cachedSatsFromUsd(bid.amount, btcPrice)} Sats
+									</div>
+									<div class="text-base-content/50 mt-1 text-xs">
+										{bid.paymentType} • {bid.estimatedDuration}
+									</div>
 								</div>
 							</div>
 						</div>
@@ -612,6 +664,7 @@
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
 											<TranslatableBidContent 
+												bid={bid as any}
 												content={bid.description} 
 												contentType="description"
 											/>
@@ -627,6 +680,7 @@
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
 											<TranslatableBidContent 
+												bid={bid as any}
 												content={bid.proposedApproach} 
 												contentType="proposedApproach"
 											/>
@@ -642,6 +696,7 @@
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
 											<TranslatableBidContent 
+												bid={bid as any}
 												content={bid.coverLetter} 
 												contentType="coverLetter"
 											/>

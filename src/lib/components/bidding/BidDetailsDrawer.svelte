@@ -3,6 +3,7 @@
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { formatDate } from '$lib/utils/helpers/dateFormatter';
 	import CounterOfferItem from '$lib/components/bidding/CounterOfferItem.svelte';
+	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 	import { t } from 'svelte-i18n';
 
 	// Props using Svelte 5 runes syntax
@@ -116,13 +117,25 @@
 			<!-- Proposal -->
 			<div class="mb-6">
 				<h3 class="mb-2 text-base font-semibold">{$t('dashboard.bids.bid_details.proposal')}</h3>
-				<p class="whitespace-pre-line">{props.bid.description}</p>
+				<div class="whitespace-pre-line">
+					<TranslatableBidContent 
+						bid={props.bid as any}
+						content={props.bid.description} 
+						contentType="description"
+					/>
+				</div>
 			</div>
 
 			<!-- Approach -->
 			<div class="mb-6">
 				<h3 class="mb-2 text-base font-semibold">{$t('dashboard.bids.bid_details.proposed_approach')}</h3>
-				<p class="whitespace-pre-line">{props.bid.proposedApproach}</p>
+				<div class="whitespace-pre-line">
+					<TranslatableBidContent 
+						bid={props.bid as any}
+						content={props.bid.proposedApproach} 
+						contentType="proposedApproach"
+					/>
+				</div>
 			</div>
 
 			<!-- Timeline -->

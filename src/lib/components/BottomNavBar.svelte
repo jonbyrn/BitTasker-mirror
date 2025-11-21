@@ -503,7 +503,7 @@
 					<ul class="menu w-full">
 						<!-- Main menu items - matching desktop nav structure -->
 						<li>
-							<a href="/" onclick={closeMenu} class="min-h-[48px] py-3">
+							<a href="/tasks" onclick={closeMenu} class="min-h-[48px] py-3">
 								<IconHome class="text-primary" />
 								<span class="font-medium">{$t('navbar.home')}</span>
 							</a>
@@ -779,7 +779,7 @@
 	<div class="dock bg-primary/95 border-base-300/70 z-50 border-t text-black backdrop-blur-sm">
 		<!-- Home -->
 		<a
-			href="/"
+			href="/tasks"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'home'
 				? 'dock-active'

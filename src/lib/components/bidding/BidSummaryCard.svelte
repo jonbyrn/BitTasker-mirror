@@ -79,6 +79,7 @@
 		{#if props.bid.description}
 			<div class="mt-2">
 				<TranslatableBidContent 
+					bid={props.bid as any}
 					content={props.bid.description} 
 					contentType="description"
 					showToggle={false}

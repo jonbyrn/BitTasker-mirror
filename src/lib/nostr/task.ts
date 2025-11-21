@@ -40,22 +40,22 @@ async function generateTaskTranslations(
 
 	try {
 		// Detect source language from the combined text (title + description)
-		const combinedText = `${taskData.title} ${taskData.description}`;
+		const combinedText = `${taskData.title} ${taskData.description}`.trim();
+		
+		if (!combinedText) {
+			return undefined;
+		}
+		
 		const detectedLanguage = await translationService.detectLanguage(combinedText);
 		
-		// If we can't detect language or it's not supported, default to 'en'
-		const sourceLanguage = detectedLanguage || 'en';
+		// Determine source language - if detection fails, default to 'en'
+		// but we'll still translate to ensure both languages are available
+		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) 
+			? detectedLanguage 
+			: 'en';
 		
-		// Get all supported languages except the source language
+		// Always translate to the other language to ensure we have translations in both
 		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
-		
-		// If no target languages (task is already in all supported languages), return empty
-		if (targetLanguages.length === 0) {
-			return {
-				sourceLanguage,
-				translations: {}
-			};
-		}
 
 		// Translate title and description to all target languages in parallel
 		const translationPromises = targetLanguages.map(async (targetLang) => {
@@ -90,6 +90,32 @@ async function generateTaskTranslations(
 				};
 			}
 		});
+
+		// If we couldn't detect the language or translation failed, try the reverse
+		// This ensures we always have translations available in both languages
+		if ((!detectedLanguage || !SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) && 
+			Object.keys(translations).length === 0) {
+			// Try translating assuming the text is in Spanish
+			const reverseSource = sourceLanguage === 'en' ? 'es' : 'en';
+			const reverseTarget = reverseSource === 'en' ? 'es' : 'en';
+			
+			const [reverseTitleResult, reverseDescResult] = await Promise.all([
+				translationService.translate(taskData.title, reverseTarget, reverseSource),
+				translationService.translate(taskData.description, reverseTarget, reverseSource)
+			]);
+			
+			if (!('code' in reverseTitleResult) && !('code' in reverseDescResult)) {
+				translations[reverseTarget] = {
+					title: reverseTitleResult.translatedText,
+					description: reverseDescResult.translatedText
+				};
+				// Update source language to match the successful translation
+				return {
+					sourceLanguage: reverseSource,
+					translations
+				};
+			}
+		}
 
 		return {
 			sourceLanguage,

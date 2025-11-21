@@ -164,51 +164,12 @@ let error = $state<string | null>(null);
 	let filteredTasks = $derived.by(() => {
 		let filtered = $myTasksStore.items;
 
-		// Log all tasks without any filter for debugging
-		console.log('[DashboardTasksPanel] All tasks (no filter):', {
-			total: filtered.length,
-			tasks: filtered.map(t => ({
-				id: t.id,
-				title: t.title,
-				status: t.status,
-				hasBidsInMap: bidStatusMap.get(t.id),
-				createdAt: t.createdAt
-			})),
-			activeFilter,
-			bidStatusMapSize: bidStatusMap.size,
-			bidStatusMapEntries: Array.from(bidStatusMap.entries())
-		});
-
 		// Filter by status category (synchronous)
 		switch (activeFilter) {
 			case 'waiting_for_bids':
 				// Filter OPEN tasks - "waiting for bids" means all OPEN tasks regardless of bid status
 				// This filter shows tasks that are open and waiting to receive bids
-				const waitingTasks = filtered.filter(
-					(t) => {
-						const isOpen = t.status === TaskStatusEnum.OPEN;
-						
-						// Log each task's filter evaluation
-						console.log(`[DashboardTasksPanel] Filtering task ${t.id}:`, {
-							title: t.title,
-							status: t.status,
-							isOpen,
-							hasBidsInMap: bidStatusMap.get(t.id),
-							shouldShow: isOpen,
-							TaskStatusEnum_OPEN: TaskStatusEnum.OPEN
-						});
-						
-						return isOpen;
-					}
-				);
-				
-				console.log('[DashboardTasksPanel] waiting_for_bids filter result:', {
-					inputCount: filtered.length,
-					outputCount: waitingTasks.length,
-					waitingTasks: waitingTasks.map(t => ({ id: t.id, title: t.title, status: t.status }))
-				});
-				
-				return waitingTasks;
+				return filtered.filter((t) => t.status === TaskStatusEnum.OPEN);
 
 			case 'bids_received':
 				// Filter OPEN tasks with bids
@@ -392,7 +353,6 @@ let error = $state<string | null>(null);
 						onclick: (e: any) => {
 							e.stopPropagation();
 							// TODO: Implement mark as done functionality
-							console.log('Mark as done:', task.id);
 						},
 						icon: 'mark_as_done'
 					},
@@ -402,7 +362,6 @@ let error = $state<string | null>(null);
 						onclick: (e: any) => {
 							e.stopPropagation();
 							// TODO: Implement rescope functionality
-							console.log('Rescope task:', task.id);
 						},
 						icon: 'rescope'
 					}

@@ -333,7 +333,7 @@ export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
 	{
 		label: 'navbar.home',
 		icon: IconHome,
-		href: '/'
+		getDynamicHref: (isLoggedIn: boolean) => (isLoggedIn ? '/dashboard/find-tasks' : '/tasks')
 	},
 	{
 		label: 'navbar.how_it_works',

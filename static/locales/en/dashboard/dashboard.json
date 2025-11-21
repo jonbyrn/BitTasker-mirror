@@ -143,7 +143,7 @@
         "tasks": "tasks",
         "total_price": "Total Price",
         "bid_price": "Bid Price",
-        "base_amount": "Base Amount:",
+        "base_amount": "Amount:",
         "client_fee": "Fee ({fee}):",
         "total_payment": "Total Payment:",
         "note": "Note:",
