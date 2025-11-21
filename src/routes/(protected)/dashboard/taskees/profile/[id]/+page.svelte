@@ -65,6 +65,11 @@
 	let currentSlide = $state(0);
 	let intervalId: number;
 
+	// Estado para el botón "ver más/ver menos" en la sección "Acerca de"
+	let aboutElement: HTMLParagraphElement | null = $state(null);
+	let isAboutTruncated = $state(false);
+	let showFullAbout = $state(false);
+
 	function nextSlide() {
 		if (userProfile?.portfolio && userProfile.portfolio.length > 0) {
 			currentSlide = (currentSlide + 1) % userProfile.portfolio.length;
@@ -73,6 +78,34 @@
 
 	function goToSlide(index: number) {
 		currentSlide = index;
+	}
+
+	// Verificar si el texto "Acerca de" está truncado
+	function checkIfAboutTruncated() {
+		if (!aboutElement) return;
+		
+		// Crear un clon oculto para medir la altura completa sin afectar el layout
+		const clone = aboutElement.cloneNode(true) as HTMLElement;
+		clone.className = aboutElement.className.replace(/line-clamp-\d+/g, '');
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.height = 'auto';
+		clone.style.width = aboutElement.offsetWidth + 'px';
+		document.body.appendChild(clone);
+		
+		const fullHeight = clone.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(aboutElement).lineHeight) || 20;
+		const maxHeight = lineHeight * 2; // 2 líneas
+		
+		// Limpiar
+		document.body.removeChild(clone);
+		
+		// Solo mostrar el botón si el contenido es realmente más alto que 2 líneas
+		isAboutTruncated = fullHeight > maxHeight + 1; // +1 para un pequeño margen
+	}
+
+	function toggleAbout() {
+		showFullAbout = !showFullAbout;
 	}
 
 	// Función para cargar el perfil del usuario
@@ -108,6 +141,22 @@
 				nextSlide();
 			}
 		}, 3000) as unknown as number;
+	});
+
+	// Efecto para verificar si el texto "Acerca de" está truncado
+	$effect(() => {
+		if (aboutElement && userProfile?.about) {
+			// Resetear estado cuando cambia el contenido
+			showFullAbout = false;
+			isAboutTruncated = false;
+			
+			// Usar requestAnimationFrame para asegurar que el DOM esté renderizado
+			requestAnimationFrame(() => {
+				setTimeout(() => {
+					checkIfAboutTruncated();
+				}, 0);
+			});
+		}
 	});
 
 	// Función para abrir el modal de mensaje
@@ -383,10 +432,23 @@
 					<!-- About and Skills Section -->
 					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 						<div class="card-body p-4">
-							<p class="mb-2 text-xl font-bold">{$t('common.profile.about')}</p>
-							<p class="text-base-content/80 mb-4 text-sm leading-relaxed">
+							<p class=" text-xl font-bold">{$t('common.profile.about')}</p>
+							<p 
+								bind:this={aboutElement}
+								class="text-base-content/80 text-sm leading-relaxed {showFullAbout ? '' : 'line-clamp-2'}"
+							>
 								{userProfile?.about || $t('common.profile.no_description')}
 							</p>
+							{#if isAboutTruncated && userProfile?.about}
+								<div class="text-left">
+									<button 
+										class="btn btn-xs btn-ghost pb-4" 
+										onclick={toggleAbout}
+									>
+										{showFullAbout ? $t('dashboard.task_details_by_task.show_less') : $t('dashboard.task_details_by_task.show_more')}
+									</button>
+								</div>
+							{/if}
 
 							<p class="mb-2 text-xl font-bold">{$t('common.profile.skills_expertise')}</p>
 							<div class="flex flex-wrap gap-2">

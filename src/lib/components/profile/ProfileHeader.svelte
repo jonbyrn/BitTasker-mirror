@@ -20,7 +20,7 @@
 	let userName = $derived(
 		getUserDisplayName(
 			{
-				username: $profileStore.data?.username || $user.username,
+				username: $user.username,
 				name: $profileStore.data?.name || $user.name
 			},
 			''
@@ -50,7 +50,7 @@
 			return '';
 		}
 		// Use current profile page URL for sharing
-		return `${window.location.origin}/dashboard/profile`;
+		return `${window.location.origin}/npub/${$user.npub}`;
 	});
 
 	// Get display name for sharing (professional title if available, otherwise name)

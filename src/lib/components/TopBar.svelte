@@ -10,6 +10,7 @@
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import {
 		LOGGED_IN_MENU_SECTIONS,
@@ -216,6 +217,8 @@
 			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary">{$t('navbar.login')}</a>
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
+			<!-- Notification Center -->
+			<NotificationCenter />
 			<!-- Avatar Dropdown -->
 			<details
 				class="dropdown dropdown-end"
