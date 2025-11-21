@@ -22,4 +22,7 @@ export const load: LayoutLoad = async () => {
 // Disable SSR for public routes in Capacitor
 export const ssr = false;
 
+// Disable prerendering for dynamic routes (not compatible with Capacitor)
+export const prerender = false;
+
 
