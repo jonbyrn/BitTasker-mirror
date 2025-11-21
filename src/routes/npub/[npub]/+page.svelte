@@ -4,17 +4,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 	import { goto } from '$app/navigation';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
-	import { authState } from '$lib/stores/auth.store';
-	import { Preferences } from '@capacitor/preferences';
-	import { StorageKeys } from '$lib/utils/constants/storage';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
-	import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
-	import { locale } from 'svelte-i18n';
-	import { browser } from '$app/environment';
-	import { getProfileUrl } from '$lib/utils/helpers/profile';
 
 	// Get npub from route params
 	let routeNpub = $derived($page.params.npub);
@@ -23,12 +14,7 @@
 	let hexPubkey = $state<string | null>(null);
 	let validationError = $state<string | null>(null);
 
-	// Authentication and owner state
-	let currentUserNpub = $state<string | null>(null);
-	let isOwner = $derived(currentUserNpub !== null && currentUserNpub === routeNpub);
-	let isAuthenticated = $derived($authState.isAuthenticated);
-
-	// Profile data
+	// Estado para los datos del perfil real
 	let userProfile = $state<{
 		name?: string;
 		about?: string;
@@ -70,29 +56,24 @@
 			fileUrl: string;
 		}>;
 		createdAt?: string;
-		nip05?: string;
 	} | null>(null);
 	let loadingProfile = $state(true);
 	let profileError = $state<string | null>(null);
 
-	// Message modal state
+	// Estado para el modal de mensaje
 	let showMessageModal = $state(false);
 	let messageText = $state('');
 	let sendingMessage = $state(false);
 	let messageError = $state('');
 	let messageSuccess = $state(false);
 
-	// Share modal state
-	let showShareModal = $state(false);
-	let qrCodeDataUrl = $state<string | null>(null);
-	let qrCodeLoading = $state(false);
-	let qrCodeError = $state<string | null>(null);
-	let copyLinkSuccess = $state(false);
-	let copyNpubSuccess = $state(false);
-
-	// Portfolio carousel state
 	let currentSlide = $state(0);
 	let intervalId: number;
+
+	// Estado para el botón "ver más/ver menos" en la sección "Acerca de"
+	let aboutElement: HTMLParagraphElement | null = $state(null);
+	let isAboutTruncated = $state(false);
+	let showFullAbout = $state(false);
 
 	// Validate npub parameter
 	function validateNpub(npub: string): { valid: boolean; hexPubkey?: string; error?: string } {
@@ -121,7 +102,45 @@
 		return { valid: false, error: $t('common.profile.invalid_npub_format') };
 	}
 
-	// Load user profile
+	function nextSlide() {
+		if (userProfile?.portfolio && userProfile.portfolio.length > 0) {
+			currentSlide = (currentSlide + 1) % userProfile.portfolio.length;
+		}
+	}
+
+	function goToSlide(index: number) {
+		currentSlide = index;
+	}
+
+	// Verificar si el texto "Acerca de" está truncado
+	function checkIfAboutTruncated() {
+		if (!aboutElement) return;
+		
+		// Crear un clon oculto para medir la altura completa sin afectar el layout
+		const clone = aboutElement.cloneNode(true) as HTMLElement;
+		clone.className = aboutElement.className.replace(/line-clamp-\d+/g, '');
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.height = 'auto';
+		clone.style.width = aboutElement.offsetWidth + 'px';
+		document.body.appendChild(clone);
+		
+		const fullHeight = clone.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(aboutElement).lineHeight) || 20;
+		const maxHeight = lineHeight * 2; // 2 líneas
+		
+		// Limpiar
+		document.body.removeChild(clone);
+		
+		// Solo mostrar el botón si el contenido es realmente más alto que 2 líneas
+		isAboutTruncated = fullHeight > maxHeight + 1; // +1 para un pequeño margen
+	}
+
+	function toggleAbout() {
+		showFullAbout = !showFullAbout;
+	}
+
+	// Función para cargar el perfil del usuario
 	async function loadUserProfile() {
 		if (!hexPubkey) {
 			profileError = $t('common.profile.invalid_npub');
@@ -133,7 +152,9 @@
 			loadingProfile = true;
 			profileError = null;
 
+			// Hacer la petición para obtener el perfil completo
 			const profile = await fetchComprehensiveProfile(hexPubkey);
+
 			userProfile = profile;
 		} catch (error) {
 			profileError = error instanceof Error ? error.message : $t('common.profile.failed_to_load');
@@ -142,48 +163,15 @@
 		}
 	}
 
-	// Check if current user is owner (only if authenticated)
-	async function checkOwnerStatus() {
-		if (!isAuthenticated) {
-			currentUserNpub = null;
-			return;
-		}
-
-		try {
-			// Use direct Preferences read pattern (no biometric prompts)
-			const { value } = await Preferences.get({ key: StorageKeys.NPUB });
-			currentUserNpub = value || null;
-		} catch (error) {
-			console.error('Failed to get current user npub:', error);
-			currentUserNpub = null;
-		}
-	}
-
-	// Portfolio carousel functions
-	function nextSlide() {
-		if (userProfile?.portfolio && userProfile.portfolio.length > 0) {
-			currentSlide = (currentSlide + 1) % userProfile.portfolio.length;
-		}
-	}
-
-	function goToSlide(index: number) {
-		currentSlide = index;
-	}
-
-	// Message functions
+	// Función para abrir el modal de mensaje
 	function openMessageModal() {
-		if (!isAuthenticated) {
-			// Redirect to login with return URL
-			const returnUrl = encodeURIComponent(`/npub/${routeNpub}`);
-			goto(`/auth/login?redirect=${returnUrl}`);
-			return;
-		}
 		showMessageModal = true;
 		messageText = '';
 		messageError = '';
 		messageSuccess = false;
 	}
 
+	// Función para cerrar el modal de mensaje
 	function closeMessageModal() {
 		showMessageModal = false;
 		messageText = '';
@@ -192,9 +180,10 @@
 		sendingMessage = false;
 	}
 
+	// Función para enviar mensaje
 	async function sendMessage() {
 		if (!messageText.trim() || !hexPubkey) {
-			messageError = $t('common.profile.please_enter_message');
+			messageError = $t('common.profile.message_required');
 			return;
 		}
 
@@ -202,86 +191,41 @@
 		messageError = '';
 
 		try {
+			// Importar la función de envío de mensajes
 			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+
+			// Enviar el mensaje
 			await sendDirectMessage(messageText.trim(), hexPubkey);
 
 			messageSuccess = true;
 			messageText = '';
 
+			// Cerrar el modal después de 2 segundos
 			setTimeout(() => {
 				closeMessageModal();
 			}, 2000);
 		} catch (error) {
 			console.error('Error sending message:', error);
-			messageError = $t('common.profile.failed_to_send_message');
+			messageError = $t('common.profile.message_send_error');
 		} finally {
 			sendingMessage = false;
 		}
 	}
 
-	// Share functions
-	function openShareModal() {
-		showShareModal = true;
-		generateQrCode();
-	}
-
-	function closeShareModal() {
-		showShareModal = false;
-		copyLinkSuccess = false;
-		copyNpubSuccess = false;
-	}
-
-	async function generateQrCode() {
-		if (!browser) return;
-
-		try {
-			qrCodeLoading = true;
-			qrCodeError = null;
-
-			const profileUrl = `${window.location.origin}/npub/${routeNpub}`;
-			const qrUrl = await generateQrCodeUrl(profileUrl);
-			qrCodeDataUrl = qrUrl;
-		} catch (error) {
-			console.error('Failed to generate QR code:', error);
-			qrCodeError = $t('common.profile.qr_generation_failed');
-		} finally {
-			qrCodeLoading = false;
+	// Función para navegar directamente al chat
+	function goToChat() {
+		if (hexPubkey) {
+			goto(`/dashboard/messages/to/${hexPubkey}`);
 		}
 	}
 
-	async function copyProfileLink() {
-		if (!browser) return;
-
-		const profileUrl = `${window.location.origin}/npub/${routeNpub}`;
-		const success = await copyToClipboard(profileUrl);
-		if (success) {
-			copyLinkSuccess = true;
-			setTimeout(() => {
-				copyLinkSuccess = false;
-			}, 2000);
-		}
-	}
-
-	async function copyNpub() {
-		if (!routeNpub) return;
-
-		const success = await copyToClipboard(routeNpub);
-		if (success) {
-			copyNpubSuccess = true;
-			setTimeout(() => {
-				copyNpubSuccess = false;
-			}, 2000);
-		}
-	}
-
-	// Format date helper - Month and Year format (e.g., "Sep, 2025")
-	function formatDate(dateString: string | undefined): string {
+	// Función para formatear fecha como "Nov, 2025"
+	function formatMonthYear(dateString: string | undefined): string {
 		if (!dateString) return '';
 		try {
 			const date = new Date(dateString);
 			if (isNaN(date.getTime())) return dateString;
 			
-			// Format as "Month, Year" (e.g., "Sep, 2025" or "Sep, 2025")
 			return new Intl.DateTimeFormat($locale || 'en', {
 				month: 'short',
 				year: 'numeric'
@@ -291,15 +235,23 @@
 		}
 	}
 
-	// Watch for auth state changes and update owner status
-	$effect(() => {
-		// React to auth state changes
-		if (browser && isAuthenticated !== undefined) {
-			checkOwnerStatus();
-		}
-	});
+	// Calcular rating promedio
+	const averageRating = $derived(
+		userProfile?.reviews && userProfile.reviews.length > 0
+			? (userProfile.reviews.reduce((acc, review) => acc + review.rating, 0) / userProfile.reviews.length).toFixed(1)
+			: null
+	);
 
-	// Initialize on mount
+	// Generar nombre de usuario para email (user.name@bittasker.com)
+	const userNameForEmail = $derived(
+		userProfile?.name
+			? userProfile.name
+					.toLowerCase()
+					.replace(/[^a-z0-9\s]/g, '') // Remover caracteres especiales
+					.replace(/\s+/g, '.') // Reemplazar espacios con puntos
+			: ''
+	);
+
 	onMount(async () => {
 		// Validate npub parameter
 		const validation = validateNpub(routeNpub);
@@ -311,17 +263,30 @@
 
 		hexPubkey = validation.hexPubkey || null;
 
-		// Check owner status (only if authenticated)
-		await checkOwnerStatus();
-
-		// Load profile
+		// Cargar el perfil del usuario
 		await loadUserProfile();
 
-		// Auto-advance portfolio slides
-		if (userProfile?.portfolio && userProfile.portfolio.length > 1) {
-			intervalId = setInterval(() => {
+		// Auto-advance slides every 3 seconds (only if portfolio exists)
+		intervalId = setInterval(() => {
+			if (userProfile?.portfolio && userProfile.portfolio.length > 1) {
 				nextSlide();
-			}, 3000) as unknown as number;
+			}
+		}, 3000) as unknown as number;
+	});
+
+	// Efecto para verificar si el texto "Acerca de" está truncado
+	$effect(() => {
+		if (aboutElement && userProfile?.about) {
+			// Resetear estado cuando cambia el contenido
+			showFullAbout = false;
+			isAboutTruncated = false;
+			
+			// Usar requestAnimationFrame para asegurar que el DOM esté renderizado
+			requestAnimationFrame(() => {
+				setTimeout(() => {
+					checkIfAboutTruncated();
+				}, 0);
+			});
 		}
 	});
 
@@ -332,7 +297,8 @@
 	});
 </script>
 
-<div class="bg-base-200 mx-auto px-2 w-full">
+<!-- Skeleton Loading -->
+<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0 pt-6">
 	{#if validationError}
 		<div class="mx-auto py-8">
 			<div class="alert alert-error alert-outline">
@@ -348,49 +314,106 @@
 			</div>
 		</div>
 	{:else if loadingProfile}
-		<!-- Skeleton Loading -->
-		<div class="bg-base-200 mx-auto px-2 md:px-0">
-			<div class="py-6">
-				<div class="mx-auto">
-					<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-4">
-						<div class="lg:col-span-3">
-							<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
-								<div class="card-body p-4">
-									<div class="flex flex-col items-center gap-6 lg:flex-row lg:items-start">
-										<div class="flex-shrink-0">
-											<div class="bg-base-300 h-20 w-20 animate-pulse rounded-full"></div>
-										</div>
-										<div class="flex-1 text-center lg:text-left">
-											<div
-												class="mb-2 flex flex-col items-center gap-2 lg:flex-row lg:items-center lg:justify-between"
-											>
-												<div class="bg-base-300 h-6 w-32 animate-pulse rounded"></div>
-											</div>
-											<div class="bg-base-300 mb-4 h-6 w-24 animate-pulse rounded"></div>
-											<div
-												class="mb-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start"
-											>
-												<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
-												<div class="bg-base-300 h-4 w-20 animate-pulse rounded"></div>
-											</div>
-										</div>
-									</div>
+		<!-- Grid único de 4 columnas -->
+		<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-4">
+			<!-- Columna 1-3: Contenido principal -->
+			<div class="space-y-6 lg:col-span-3">
+				<!-- Información del perfil Skeleton -->
+				<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+					<div class="card-body p-4">
+						<div class="flex flex-col items-center gap-6 lg:flex-row lg:items-start">
+							<div class="shrink-0">
+								<div class="bg-base-300 h-20 w-20 animate-pulse rounded-full"></div>
+							</div>
+							<div class="flex-1 text-center lg:text-left">
+								<div class="mb-2 flex flex-col items-center gap-2 lg:flex-row lg:items-center lg:justify-between">
+									<div class="bg-base-300 h-6 w-32 animate-pulse rounded"></div>
+								</div>
+								<div class="bg-base-300 mb-4 h-6 w-24 animate-pulse rounded"></div>
+								<div class="mb-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+									<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
+									<div class="bg-base-300 h-4 w-20 animate-pulse rounded"></div>
+								</div>
+								<div class="flex flex-wrap justify-center gap-3 md:hidden lg:justify-start">
+									<div class="bg-base-300 h-8 w-24 animate-pulse rounded"></div>
+									<div class="bg-base-300 h-8 w-24 animate-pulse rounded"></div>
 								</div>
 							</div>
 						</div>
-						<div class="lg:col-span-1">
-							<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
-								<div class="card-body p-3">
-									<div class="bg-base-300 mb-2 h-6 w-32 animate-pulse rounded"></div>
-									<div class="space-y-1">
-										{#each Array(4) as _}
-											<div class="flex items-center justify-between">
-												<div class="bg-base-300 h-4 w-20 animate-pulse rounded"></div>
-												<div class="bg-base-300 h-4 w-8 animate-pulse rounded"></div>
-											</div>
-										{/each}
-									</div>
+					</div>
+				</div>
+
+				<!-- About and Skills Section Skeleton -->
+				<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+					<div class="card-body p-4">
+						<div class="bg-base-300 mb-2 h-6 w-16 animate-pulse rounded"></div>
+						<div class="mb-4 space-y-2">
+							<div class="bg-base-300 h-4 w-full animate-pulse rounded"></div>
+							<div class="bg-base-300 h-4 w-3/4 animate-pulse rounded"></div>
+						</div>
+						<div class="bg-base-300 mb-2 h-6 w-32 animate-pulse rounded"></div>
+						<div class="flex flex-wrap gap-2">
+							{#each Array(5) as _}
+								<div class="bg-base-300 h-6 w-16 animate-pulse rounded-full"></div>
+							{/each}
+						</div>
+					</div>
+				</div>
+
+				<!-- Portfolio Section Skeleton -->
+				<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+					<div class="card-body p-4">
+						<div class="bg-base-300 mb-4 h-6 w-20 animate-pulse rounded"></div>
+						<div class="relative overflow-hidden rounded-2xl">
+							<div class="bg-base-300 h-64 w-full animate-pulse"></div>
+							<div class="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+								<div class="h-4 w-4 animate-pulse rounded-full bg-white/50"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Columna 4: Sidebar -->
+			<div class="space-y-6 lg:col-span-1">
+				<!-- Performance Stats Skeleton -->
+				<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+					<div class="card-body p-3">
+						<div class="bg-base-300 mb-2 h-6 w-32 animate-pulse rounded"></div>
+						<div class="space-y-1">
+							{#each Array(4) as _}
+								<div class="flex items-center justify-between">
+									<div class="bg-base-300 h-4 w-20 animate-pulse rounded"></div>
+									<div class="bg-base-300 h-4 w-8 animate-pulse rounded"></div>
 								</div>
+							{/each}
+						</div>
+					</div>
+				</div>
+
+				<!-- Availability Skeleton -->
+				<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+					<div class="card-body p-3">
+						<div class="bg-base-300 mb-2 h-6 w-24 animate-pulse rounded"></div>
+						<div class="space-y-2">
+							{#each Array(3) as _}
+								<div class="flex items-center gap-2">
+									<div class="bg-base-300 h-2 w-2 animate-pulse rounded-full"></div>
+									<div class="bg-base-300 h-3 w-20 animate-pulse rounded"></div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				</div>
+
+				<!-- Quick Actions Skeleton -->
+				<div class="hidden md:block">
+					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+						<div class="card-body p-3">
+							<div class="bg-base-300 mb-2 h-6 w-28 animate-pulse rounded"></div>
+							<div class="space-y-3">
+								<div class="bg-base-300 h-8 w-full animate-pulse rounded"></div>
+								<div class="bg-base-300 h-8 w-full animate-pulse rounded"></div>
 							</div>
 						</div>
 					</div>
@@ -412,236 +435,147 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Hero Section -->
-		<div class="py-6">
-			<div class="mx-auto w-full lg:max-w-7xl">
-				<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-4">
-					<!-- Main Profile Info -->
-					<div class="lg:col-span-3">
-						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
-							<div class="card-body p-4">
-								<div class="flex flex-col items-center gap-6 lg:flex-row lg:items-start">
-									<!-- Avatar -->
-									<div class="flex-shrink-0">
-										<div class="h-32 w-32">
-											<Avatar
-												name={userProfile?.name}
-												picture={userProfile?.picture}
-												size="2xl"
-											/>
-										</div>
+		<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0">
+			<!-- Grid único de 4 columnas -->
+			<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-4">
+				<!-- Columna 1-3: Contenido principal -->
+				<div class="space-y-6 lg:col-span-3">
+					<!-- Información del perfil -->
+					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+						<div class="card-body p-4">
+							<div class="flex flex-col items-center gap-6 lg:flex-row lg:items-center">
+								<!-- Avatar -->
+								<div class="shrink-0">
+									<div class="h-40 w-40">
+										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="2xl" />
 									</div>
+								</div>
 
-									<!-- Profile Info -->
-									<div class="flex-1 text-center lg:text-left">
-										<div
-											class="mb-2 flex flex-col items-center gap-2 lg:flex-row lg:items-center lg:justify-between"
-										>
-											<div class="flex flex-col items-center gap-2 lg:flex-row lg:items-start">
+								<!-- Información del perfil -->
+								<div class="flex-1 text-center lg:text-left">
+									<div
+										class="mb-2 flex flex-col items-center gap-2 lg:flex-row lg:items-center lg:justify-between"
+									>
+										<div class="flex flex-col items-center gap-1 lg:items-start">
+											<div class="flex items-center gap-2">
 												<h3 class="text-base-content font-bold">
 													{userProfile?.name || 'Unknown User'}
 												</h3>
-												<!-- NIP-05 Verification Badge (Mobile: shown here) -->
-												{#if userProfile?.nip05}
-													<div class="badge badge-success badge-sm lg:hidden">
-														✓ {userProfile.nip05}
+												{#if averageRating}
+													<div class="flex items-center gap-1">
+														<span class="text-lg font-bold">{averageRating}</span>
+														<svg class="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+															<path
+																fill-rule="evenodd"
+																d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
+																clip-rule="evenodd"
+															/>
+														</svg>
 													</div>
 												{/if}
 											</div>
-											<!-- Owner Edit Button -->
-											{#if isOwner}
-												<button
-													class="btn btn-primary btn-sm"
-													onclick={() => goto('/dashboard/profile/edit')}
-												>
-													{$t('common.profile.edit_profile')}
-												</button>
+											{#if userNameForEmail}
+												<p class="text-base-content/60 text-sm">
+													{userNameForEmail}@bittasker.com
+												</p>
 											{/if}
 										</div>
-										{#if userProfile?.professionalTitle}
-											<div class="badge badge-primary badge-lg mb-4 px-3 py-1 text-sm">
-												{userProfile.professionalTitle}
+									</div>
+									{#if userProfile?.professionalTitle}
+										<div class="badge badge-primary badge-lg mb-4 px-3 py-1 text-sm">
+											{userProfile.professionalTitle}
+										</div>
+									{/if}
+
+									<!-- Información adicional -->
+									<div
+										class="text-base-content/70 mb-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start"
+									>
+										{#if profileError}
+											<div class="text-error text-sm">⚠️ {profileError}</div>
+										{:else if userProfile?.createdAt}
+											<div class="flex items-center gap-2">
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 01-2 2v12a2 2 0 002 2z"
+													/>
+												</svg>
+												<span>{$t('common.profile.member_since')} {formatMonthYear(userProfile.createdAt)}</span>
 											</div>
 										{/if}
-
-										<!-- Additional Info -->
-										<div
-											class="text-base-content/70 mb-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start"
-										>
-											{#if userProfile?.createdAt}
-												<div class="flex items-center gap-2">
-													<svg
-														class="h-4 w-4"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke="currentColor"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 01-2 2v12a2 2 0 002 2z"
-														/>
-													</svg>
-													<span>{formatDate(userProfile.createdAt)}</span>
-												</div>
-											{/if}
-											{#if userProfile?.website}
-												<a
-													href={userProfile.website}
-													target="_blank"
-													rel="noopener noreferrer"
-													class="hover:text-primary flex items-center gap-2 transition-colors"
-												>
-													<svg
-														class="h-4 w-4"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke="currentColor"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-														/>
-													</svg>
-													{$t('common.profile.website')}
-												</a>
-											{/if}
-										</div>
-
-										<!-- Quick Actions (Mobile & Tablet) -->
-										<div class="flex flex-wrap justify-center gap-3 lg:hidden">
-											{#if isAuthenticated}
-												<button class="btn btn-primary btn-sm" onclick={openMessageModal}>
-													<svg
-														class="h-4 w-4"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke="currentColor"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-														/>
-													</svg>
-													{$t('common.profile.send_message')}
-												</button>
-											{:else}
-												<button class="btn btn-primary btn-sm" onclick={openMessageModal}>
-													{$t('common.profile.sign_in_to_message')}
-												</button>
-											{/if}
-											<button class="btn btn-outline btn-sm" onclick={openShareModal}>
-												<svg
-													class="h-4 w-4"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
+										{#if userProfile?.website}
+											<a
+												href={userProfile.website}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="hover:text-primary flex items-center gap-2 transition-colors"
+											>
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 													<path
 														stroke-linecap="round"
 														stroke-linejoin="round"
 														stroke-width="2"
-														d="M8.684 13.342c-.396 0-.72-.324-.72-.72 0-.396.324-.72.72-.72.396 0 .72.324.72.72 0 .396-.324.72-.72.72zm0-2.829c-.747 0-1.355.608-1.355 1.355 0 .747.608 1.355 1.355 1.355.747 0 1.355-.608 1.355-1.355 0-.747-.608-1.355-1.355-1.355zm6.564 0c-.396 0-.72-.324-.72-.72 0-.396.324-.72.72-.72.396 0 .72.324.72.72 0 .396-.324.72-.72.72zm0-2.829c-.747 0-1.355.608-1.355 1.355 0 .747.608 1.355 1.355 1.355.747 0 1.355-.608 1.355-1.355 0-.747-.608-1.355-1.355-1.355z"
-													/>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+														d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
 													/>
 												</svg>
-												{$t('common.profile.share')}
-											</button>
-										</div>
+												{$t('common.profile.website')}
+											</a>
+										{/if}
+									</div>
+
+									<!-- Botones de acción rápida -->
+									<div class="flex flex-wrap justify-center gap-3 md:hidden lg:justify-start">
+										<button class="btn btn-primary btn-sm" onclick={openMessageModal}>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+												/>
+											</svg>
+											{$t('common.profile.send_message')}
+										</button>
+										<button class="btn btn-outline btn-sm" onclick={goToChat}>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+												/>
+											</svg>
+											{$t('common.profile.go_to_chat')}
+										</button>
 									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-
-					<!-- Sidebar: Performance Stats (Desktop) -->
-					<div class="hidden lg:block lg:col-span-1">
-						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
-							<div class="card-body p-3">
-								<p class="mb-2 text-xl font-bold">{$t('common.profile.performance_stats')}</p>
-								<div class="space-y-1">
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 text-sm"
-											>{$t('common.profile.tasks_completed')}</span
-										>
-										<span class="text-primary text-lg font-bold">
-											{userProfile?.reviews?.length || 0}
-										</span>
-									</div>
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 text-sm">{$t('common.profile.rating')}</span>
-										<div class="flex items-center gap-1">
-											{#if userProfile?.reviews && userProfile.reviews.length > 0}
-												{@const avgRating =
-													userProfile.reviews.reduce((sum, review) => sum + review.rating, 0) /
-													userProfile.reviews.length}
-												<span class="text-lg font-bold">{avgRating.toFixed(1)}</span>
-												<svg
-													class="h-4 w-4 text-yellow-500"
-													fill="currentColor"
-													viewBox="0 0 20 20"
-												>
-													<path
-														fill-rule="evenodd"
-														d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-														clip-rule="evenodd"
-													/>
-												</svg>
-											{:else}
-												<span class="text-base-content/60 text-sm"
-													>{$t('common.profile.no_ratings')}</span
-												>
-											{/if}
-										</div>
-									</div>
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 text-sm">{$t('common.profile.skills')}</span>
-										<span class="text-success text-lg font-bold">
-											{userProfile?.skills?.length || 0}
-										</span>
-									</div>
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 text-sm"
-											>{$t('common.profile.portfolio_items')}</span
-										>
-										<span class="text-info text-lg font-bold">
-											{userProfile?.portfolio?.length || 0}
-										</span>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Main Content -->
-		<div class="mx-auto w-full lg:max-w-7xl">
-			<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
-				<!-- Main Content - 3 columns -->
-				<div class="space-y-6 lg:col-span-3">
-					<!-- About Section -->
+					<!-- About and Skills Section -->
 					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 						<div class="card-body p-4">
-							<p class="mb-2 text-xl font-bold">{$t('common.profile.about')}</p>
-							<p class="text-base-content/80 line-clamp-2 text-sm leading-relaxed">
+							<p class=" text-xl font-bold">{$t('common.profile.about')}</p>
+							<p 
+								bind:this={aboutElement}
+								class="text-base-content/80 text-sm leading-relaxed {showFullAbout ? '' : 'line-clamp-2'}"
+							>
 								{userProfile?.about || $t('common.profile.no_description')}
 							</p>
-						</div>
+							{#if isAboutTruncated && userProfile?.about}
+								<div class="text-left">
+									<button 
+										class="btn btn-xs btn-ghost pb-4" 
+										onclick={toggleAbout}
+									>
+										{showFullAbout ? $t('dashboard.task_details_by_task.show_less') : $t('dashboard.task_details_by_task.show_more')}
+									</button>
+								</div>
+							{/if}
 
-						<!-- Skills Section -->
-						<div class="card-body p-4">
 							<p class="mb-2 text-xl font-bold">{$t('common.profile.skills_expertise')}</p>
 							<div class="flex flex-wrap gap-2">
 								{#if userProfile?.skills && userProfile.skills.length > 0}
@@ -670,7 +604,7 @@
 										style="transform: translateX(-{currentSlide * 100}%)"
 									>
 										{#each userProfile.portfolio as project}
-											<div class="w-full flex-shrink-0">
+											<div class="w-full shrink-0">
 												<div class="relative">
 													{#if project.images && project.images.length > 0}
 														{#if typeof project.images[0] === 'string'}
@@ -678,45 +612,31 @@
 																src={project.images[0]}
 																alt={project.title}
 																class="h-64 w-full object-cover"
-																loading="lazy"
 															/>
 														{:else if project.images[0]?.url}
 															<img
 																src={project.images[0].url}
 																alt={project.title}
 																class="h-64 w-full object-cover"
-																loading="lazy"
 															/>
 														{:else}
-															<div
-																class="bg-base-300 flex h-64 w-full items-center justify-center"
-															>
-																<span class="text-base-content/60"
-																	>{$t('common.profile.no_image_available')}</span
-																>
+															<div class="bg-base-300 flex h-64 w-full items-center justify-center">
+																<span class="text-base-content/60">{$t('common.profile.no_image_available')}</span>
 															</div>
 														{/if}
 													{:else}
 														<div class="bg-base-300 flex h-64 w-full items-center justify-center">
-															<span class="text-base-content/60"
-																>{$t('common.profile.no_image_available')}</span
-															>
+															<span class="text-base-content/60">{$t('common.profile.no_image_available')}</span>
 														</div>
 													{/if}
-													<div
-														class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"
-													></div>
+													<div class="absolute inset-0 bg-linear-to-t from-black/70 to-transparent"></div>
 													<div class="absolute right-4 bottom-4 left-4 text-white">
 														<h3 class="mb-2 text-xl font-bold">{project.title}</h3>
-														<p class="mb-3 line-clamp-2 text-sm opacity-90">
-															{project.description}
-														</p>
+														<p class="mb-3 line-clamp-2 text-sm opacity-90">{project.description}</p>
 														<div class="flex flex-wrap gap-1">
 															{#if project.skills && project.skills.length > 0}
 																{#each project.skills as skill}
-																	<span
-																		class="rounded-full bg-white/20 px-2 py-1 text-xs text-white"
-																	>
+																	<span class="rounded-full bg-white/20 px-2 py-1 text-xs text-white">
 																		{skill}
 																	</span>
 																{/each}
@@ -727,8 +647,7 @@
 											</div>
 										{/each}
 									</div>
-
-									<!-- Slide Indicators -->
+									<!-- Indicadores -->
 									<div class="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
 										{#each userProfile.portfolio as _, index}
 											<button
@@ -737,9 +656,7 @@
 												index
 													? 'bg-white'
 													: 'bg-white/50'}"
-											>
-												{' '}
-											</button>
+											>ñ{" "}</button>
 										{/each}
 									</div>
 								</div>
@@ -755,16 +672,62 @@
 					{/if}
 				</div>
 
-				<!-- Sidebar - 1 column -->
+				<!-- Columna 4: Sidebar -->
 				<div class="space-y-6 lg:col-span-1">
-					<!-- Availability Card (Mobile: shown above, Desktop: in sidebar) -->
+					<!-- Performance Stats -->
+					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+						<div class="card-body p-3">
+							<p class="mb-2 text-xl font-bold">{$t('common.profile.performance_stats')}</p>
+							<div class="space-y-1">
+								<div class="flex items-center justify-between">
+									<span class="text-base-content/70 text-sm">{$t('common.profile.tasks_completed')}</span>
+									<span class="text-primary text-lg font-bold">
+										{userProfile?.reviews?.length || 0}
+									</span>
+								</div>
+								<div class="flex items-center justify-between">
+									<span class="text-base-content/70 text-sm">{$t('common.profile.rating')}</span>
+									<div class="flex items-center gap-1">
+										{#if userProfile?.reviews && userProfile.reviews.length > 0}
+											{@const avgRating =
+												userProfile.reviews.reduce((sum, review) => sum + review.rating, 0) /
+												userProfile.reviews.length}
+											<span class="text-lg font-bold">{avgRating.toFixed(1)}</span>
+											<svg class="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+												<path
+													fill-rule="evenodd"
+													d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
+													clip-rule="evenodd"
+												/>
+											</svg>
+										{:else}
+											<span class="text-base-content/60 text-sm">{$t('common.profile.no_ratings')}</span>
+										{/if}
+									</div>
+								</div>
+								<div class="flex items-center justify-between">
+									<span class="text-base-content/70 text-sm">{$t('common.profile.skills')}</span>
+									<span class="text-success text-lg font-bold">
+										{userProfile?.skills?.length || 0}
+									</span>
+								</div>
+								<div class="flex items-center justify-between">
+									<span class="text-base-content/70 text-sm">{$t('common.profile.portfolio_items')}</span>
+									<span class="text-info text-lg font-bold">
+										{userProfile?.portfolio?.length || 0}
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Availability -->
 					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 						<div class="card-body p-3">
 							<p class="mb-2 text-xl font-bold">{$t('common.profile.availability')}</p>
 							<div class="space-y-2">
 								<div class="flex items-center gap-2">
-									{#if userProfile?.availability?.timeSlots &&
-									userProfile.availability.timeSlots.length > 0}
+									{#if userProfile?.availability?.timeSlots && userProfile.availability.timeSlots.length > 0}
 										<div class="bg-success h-2 w-2 rounded-full"></div>
 										<span class="text-xs">{$t('common.profile.available_projects')}</span>
 									{:else}
@@ -773,12 +736,7 @@
 									{/if}
 								</div>
 								<div class="flex items-center gap-2">
-									<svg
-										class="text-base-content/60 h-3 w-3"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
+									<svg class="text-base-content/60 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 										<path
 											stroke-linecap="round"
 											stroke-linejoin="round"
@@ -796,41 +754,35 @@
 										{/if}
 									</span>
 								</div>
+								<div class="flex items-center gap-2">
+									<svg class="text-base-content/60 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+										/>
+									</svg>
+									<span class="text-xs">
+										{#if userProfile?.createdAt}
+											{$t('common.profile.joined')} {formatMonthYear(userProfile.createdAt)}
+										{:else}
+											{$t('common.profile.member_since_unknown')}
+										{/if}
+									</span>
+								</div>
 							</div>
 						</div>
 					</div>
 
-					<!-- Quick Actions (Desktop) -->
-					<div class="hidden lg:block">
+					<!-- Quick Actions -->
+					<div class="hidden md:block">
 						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 							<div class="card-body p-3">
 								<p class="mb-2 text-xl font-bold">{$t('common.profile.quick_actions')}</p>
 								<div class="space-y-3">
-									{#if isAuthenticated}
-										<button class="btn btn-primary btn-sm w-full" onclick={openMessageModal}>
-											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-												/>
-											</svg>
-											{$t('common.profile.send_message')}
-										</button>
-									{:else}
-										<button class="btn btn-primary btn-sm w-full" onclick={openMessageModal}>
-											{$t('common.profile.sign_in_to_message')}
-										</button>
-									{/if}
-									<button class="btn btn-outline btn-sm w-full" onclick={openShareModal}>
+									<button class="btn btn-primary btn-sm w-full" onclick={openMessageModal}>
 										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M8.684 13.342c-.396 0-.72-.324-.72-.72 0-.396.324-.72.72-.72.396 0 .72.324.72.72 0 .396-.324.72-.72.72zm0-2.829c-.747 0-1.355.608-1.355 1.355 0 .747.608 1.355 1.355 1.355.747 0 1.355-.608 1.355-1.355 0-.747-.608-1.355-1.355-1.355zm6.564 0c-.396 0-.72-.324-.72-.72 0-.396.324-.72.72-.72.396 0 .72.324.72.72 0 .396-.324.72-.72.72zm0-2.829c-.747 0-1.355.608-1.355 1.355 0 .747.608 1.355 1.355 1.355.747 0 1.355-.608 1.355-1.355 0-.747-.608-1.355-1.355-1.355z"
-											/>
 											<path
 												stroke-linecap="round"
 												stroke-linejoin="round"
@@ -838,67 +790,19 @@
 												d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
 											/>
 										</svg>
-										{$t('common.profile.share')}
+										{$t('common.profile.send_message')}
 									</button>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Performance Stats (Mobile: shown above) -->
-					<div class="block lg:hidden">
-						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
-							<div class="card-body p-3">
-								<p class="mb-2 text-xl font-bold">{$t('common.profile.performance_stats')}</p>
-								<div class="space-y-1">
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 text-sm"
-											>{$t('common.profile.tasks_completed')}</span
-										>
-										<span class="text-primary text-lg font-bold">
-											{userProfile?.reviews?.length || 0}
-										</span>
-									</div>
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 text-sm">{$t('common.profile.rating')}</span>
-										<div class="flex items-center gap-1">
-											{#if userProfile?.reviews && userProfile.reviews.length > 0}
-												{@const avgRating =
-													userProfile.reviews.reduce((sum, review) => sum + review.rating, 0) /
-													userProfile.reviews.length}
-												<span class="text-lg font-bold">{avgRating.toFixed(1)}</span>
-												<svg
-													class="h-4 w-4 text-yellow-500"
-													fill="currentColor"
-													viewBox="0 0 20 20"
-												>
-													<path
-														fill-rule="evenodd"
-														d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-														clip-rule="evenodd"
-													/>
-												</svg>
-											{:else}
-												<span class="text-base-content/60 text-sm"
-													>{$t('common.profile.no_ratings')}</span
-												>
-											{/if}
-										</div>
-									</div>
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 text-sm">{$t('common.profile.skills')}</span>
-										<span class="text-success text-lg font-bold">
-											{userProfile?.skills?.length || 0}
-										</span>
-									</div>
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 text-sm"
-											>{$t('common.profile.portfolio_items')}</span
-										>
-										<span class="text-info text-lg font-bold">
-											{userProfile?.portfolio?.length || 0}
-										</span>
-									</div>
+									<button class="btn btn-outline btn-sm w-full" onclick={goToChat}>
+										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+											/>
+										</svg>
+										{$t('common.profile.go_to_chat')}
+									</button>
 								</div>
 							</div>
 						</div>
@@ -909,10 +813,11 @@
 	{/if}
 </div>
 
-<!-- Message Modal -->
+<!-- Modal de mensaje -->
 {#if showMessageModal}
 	<div class="modal modal-open">
 		<div class="modal-box max-w-md">
+			<!-- Header del modal -->
 			<div class="mb-6">
 				<div class="mb-2 flex items-center gap-3">
 					<div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
@@ -934,6 +839,7 @@
 				</div>
 			</div>
 
+			<!-- Formulario de mensaje -->
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
@@ -948,13 +854,14 @@
 					<textarea
 						id="message-text"
 						class="textarea textarea-bordered w-full"
-						placeholder={$t('common.profile.type_message_placeholder')}
+						placeholder="Type your message here..."
 						bind:value={messageText}
 						rows="4"
 						disabled={sendingMessage}
 					></textarea>
 				</div>
 
+				<!-- Mensaje de éxito -->
 				{#if messageSuccess}
 					<div class="alert alert-success alert-outline py-2">
 						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
@@ -969,6 +876,7 @@
 					</div>
 				{/if}
 
+				<!-- Mensaje de error -->
 				{#if messageError}
 					<div class="alert alert-error alert-outline py-2">
 						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
@@ -983,6 +891,7 @@
 					</div>
 				{/if}
 
+				<!-- Botones de acción -->
 				<div class="border-base-300 flex gap-3 border-t pt-6">
 					<button
 						type="button"
@@ -1036,89 +945,3 @@
 		<button class="modal-backdrop" onclick={closeMessageModal}>X</button>
 	</div>
 {/if}
-
-<!-- Share Modal -->
-{#if showShareModal}
-	<div class="modal modal-open">
-		<div class="modal-box max-w-md">
-			<div class="mb-6">
-				<h3 class="text-lg font-bold">{$t('common.profile.share_profile')}</h3>
-			</div>
-
-			<div class="space-y-4">
-				<!-- QR Code -->
-				<div class="flex flex-col items-center">
-					{#if qrCodeLoading}
-						<div class="flex h-64 w-64 items-center justify-center">
-							<span class="loading loading-spinner loading-lg"></span>
-						</div>
-					{:else if qrCodeError}
-						<div class="alert alert-error alert-outline">
-							<span>{qrCodeError}</span>
-						</div>
-					{:else if qrCodeDataUrl}
-						<img src={qrCodeDataUrl} alt="Profile QR Code" class="h-64 w-64" />
-					{/if}
-				</div>
-
-				<!-- Copy Link Button -->
-				<button class="btn btn-primary btn-block" onclick={copyProfileLink}>
-					{#if copyLinkSuccess}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
-						{$t('common.profile.copied')}
-					{:else}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-							/>
-						</svg>
-						{$t('common.profile.copy_link')}
-					{/if}
-				</button>
-
-				<!-- Copy npub Button -->
-				<button class="btn btn-outline btn-block" onclick={copyNpub}>
-					{#if copyNpubSuccess}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
-						{$t('common.profile.copied')}
-					{:else}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-							/>
-						</svg>
-						{$t('common.profile.copy_npub')}
-					{/if}
-				</button>
-			</div>
-
-			<div class="modal-action">
-				<button class="btn btn-ghost" onclick={closeShareModal}>
-					{$t('common.close')}
-				</button>
-			</div>
-		</div>
-		<button class="modal-backdrop" onclick={closeShareModal}>X</button>
-	</div>
-{/if}
-

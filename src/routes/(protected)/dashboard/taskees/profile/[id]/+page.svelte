@@ -4,7 +4,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 	import { goto } from '$app/navigation';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 
 	// Obtener el ID de la URL
 	let userId = $derived($page.params.id);
@@ -213,6 +213,39 @@
 		goto(`/dashboard/messages/to/${userId}`);
 	}
 
+	// Función para formatear fecha como "Nov, 2025"
+	function formatMonthYear(dateString: string | undefined): string {
+		if (!dateString) return '';
+		try {
+			const date = new Date(dateString);
+			if (isNaN(date.getTime())) return dateString;
+			
+			return new Intl.DateTimeFormat($locale || 'en', {
+				month: 'short',
+				year: 'numeric'
+			}).format(date);
+		} catch {
+			return dateString;
+		}
+	}
+
+	// Calcular rating promedio
+	const averageRating = $derived(
+		userProfile?.reviews && userProfile.reviews.length > 0
+			? (userProfile.reviews.reduce((acc, review) => acc + review.rating, 0) / userProfile.reviews.length).toFixed(1)
+			: null
+	);
+
+	// Generar nombre de usuario para email (user.name@bittasker.com)
+	const userNameForEmail = $derived(
+		userProfile?.name
+			? userProfile.name
+					.toLowerCase()
+					.replace(/[^a-z0-9\s]/g, '') // Remover caracteres especiales
+					.replace(/\s+/g, '.') // Reemplazar espacios con puntos
+			: ''
+	);
+
 	onDestroy(() => {
 		if (intervalId) {
 			clearInterval(intervalId);
@@ -338,11 +371,11 @@
 					<!-- Información del perfil -->
 					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 						<div class="card-body p-4">
-							<div class="flex flex-col items-center gap-6 lg:flex-row lg:items-start">
+							<div class="flex flex-col items-center gap-6 lg:flex-row lg:items-center">
 								<!-- Avatar -->
 								<div class="shrink-0">
-									<div class="h-20 w-20">
-										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="lg" />
+									<div class="h-40 w-40">
+										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="2xl" />
 									</div>
 								</div>
 
@@ -351,9 +384,30 @@
 									<div
 										class="mb-2 flex flex-col items-center gap-2 lg:flex-row lg:items-center lg:justify-between"
 									>
-										<h3 class="text-base-content font-bold">
-											{userProfile?.name || 'Unknown User'}
-										</h3>
+										<div class="flex flex-col items-center gap-1 lg:items-start">
+											<div class="flex items-center gap-2">
+												<h3 class="text-base-content font-bold">
+													{userProfile?.name || 'Unknown User'}
+												</h3>
+												{#if averageRating}
+													<div class="flex items-center gap-1">
+														<span class="text-lg font-bold">{averageRating}</span>
+														<svg class="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+															<path
+																fill-rule="evenodd"
+																d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
+																clip-rule="evenodd"
+															/>
+														</svg>
+													</div>
+												{/if}
+											</div>
+											{#if userNameForEmail}
+												<p class="text-base-content/60 text-sm">
+													{userNameForEmail}@bittasker.com
+												</p>
+											{/if}
+										</div>
 									</div>
 									{#if userProfile?.professionalTitle}
 										<div class="badge badge-primary badge-lg mb-4 px-3 py-1 text-sm">
@@ -377,7 +431,7 @@
 														d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 01-2 2v12a2 2 0 002 2z"
 													/>
 												</svg>
-												<span>{$t('common.profile.member_since')} {userProfile.createdAt}</span>
+												<span>{$t('common.profile.member_since')} {formatMonthYear(userProfile.createdAt)}</span>
 											</div>
 										{/if}
 										{#if userProfile?.website}
@@ -639,7 +693,7 @@
 									</svg>
 									<span class="text-xs">
 										{#if userProfile?.createdAt}
-											{$t('common.profile.joined')} {userProfile.createdAt}
+											{$t('common.profile.joined')} {formatMonthYear(userProfile.createdAt)}
 										{:else}
 											{$t('common.profile.member_since_unknown')}
 										{/if}

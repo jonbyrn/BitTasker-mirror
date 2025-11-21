@@ -426,16 +426,16 @@
 
 	<div class="mb-20 space-y-3 md:mb-5">
 		<!-- Action Buttons Row -->
-		<div class="flex justify-end gap-2">
+		<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
 			<!-- Share Button (always visible) -->
 			<button 
-				class="btn btn-outline btn-sm" 
+				class="btn btn-outline btn-sm min-h-[40px] flex-1 sm:flex-none" 
 				onclick={handleShare}
 				title={$t('dashboard.task_details_by_task.share_task')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="mr-1 h-4 w-4"
+					class="mr-1 h-4 w-4 shrink-0"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -451,10 +451,10 @@
 			</button>
 
 			{#if isOwner && task.status === TaskStatusEnum.OPEN}
-				<button class="btn btn-primary btn-sm" onclick={handleEditTask}>
+				<button class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none" onclick={handleEditTask}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="mr-1 h-4 w-4"
+						class="mr-1 h-4 w-4 shrink-0"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -473,7 +473,7 @@
 			<!-- Delete Button (always visible, disabled when canDelete is false) -->
 			{#if isOwner}
 				<button
-					class="btn btn-error btn-sm"
+					class="btn btn-error btn-sm min-h-[40px] flex-1 sm:flex-none"
 					onclick={showDeleteConfirmation}
 					disabled={isDeleting || isCheckingDelete || !canDelete}
 				>
@@ -482,7 +482,7 @@
 					{:else}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="mr-1 h-4 w-4"
+							class="mr-1 h-4 w-4 shrink-0"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"

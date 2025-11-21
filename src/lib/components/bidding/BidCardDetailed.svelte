@@ -6,6 +6,7 @@
 	import { cachedSatsFromUsd } from '$lib/utils/nostr-bid';
 	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 	import type { CounterOffer } from '$lib/types/bid';
+	import { getUserDisplayNameFromProfile } from '$lib/utils/helpers/userDisplayName';
 
 	let {
 		bid,
@@ -46,6 +47,63 @@
 
 	// Internal state for expansion if no callback is provided
 	let internalExpandedBidId = $state<string | null>(null);
+
+	// Estado para el modal de mensaje
+	let showMessageModal = $state(false);
+	let messageText = $state('');
+	let sendingMessage = $state(false);
+	let messageError = $state('');
+	let messageSuccess = $state(false);
+
+	// Función para abrir el modal de mensaje
+	function openMessageModal() {
+		showMessageModal = true;
+		messageText = '';
+		messageError = '';
+		messageSuccess = false;
+	}
+
+	// Función para cerrar el modal de mensaje
+	function closeMessageModal() {
+		showMessageModal = false;
+		messageText = '';
+		messageError = '';
+		messageSuccess = false;
+		sendingMessage = false;
+	}
+
+	// Función para enviar mensaje
+	async function sendMessage() {
+		const bidderId = userProfile().user?.id;
+		if (!messageText.trim() || !bidderId) {
+			messageError = $t('common.profile.message_required');
+			return;
+		}
+
+		sendingMessage = true;
+		messageError = '';
+
+		try {
+			// Importar la función de envío de mensajes
+			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+
+			// Enviar el mensaje
+			await sendDirectMessage(messageText.trim(), bidderId);
+
+			messageSuccess = true;
+			messageText = '';
+
+			// Cerrar el modal después de 2 segundos
+			setTimeout(() => {
+				closeMessageModal();
+			}, 2000);
+		} catch (error) {
+			console.error('Error sending message:', error);
+			messageError = $t('common.profile.message_send_error');
+		} finally {
+			sendingMessage = false;
+		}
+	}
 
 	function toggleBidDetails(bidId: string) {
 		if (onToggleDetails) {
@@ -92,59 +150,103 @@
 		<div class="mb-4 flex w-full items-center justify-between gap-4">
 			<!-- Left side: Avatar + Username on same row, then member since and rating below -->
 			<div class="flex min-w-0 flex-1 items-center gap-4">
-				<!-- Avatar -->
-				<div class="avatar shrink-0">
-					<div
-						class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+				<!-- Avatar - Clickable -->
+				{#if userProfile().user?.id}
+					<button
+						class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80"
+						onclick={() => {
+							const userId = userProfile().user?.id;
+							if (userId) goto(`/dashboard/taskees/profile/${userId}`);
+						}}
 					>
-						{#if userProfile().user?.avatar}
-							<img
-								src={userProfile().user.avatar}
-								alt={$t('task.drawer.avatar_alt')}
-								class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
-							/>
-						{:else}
-							<div
-								class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-							>
-								<span class="text-lg font-semibold sm:text-2xl">
-									{(userProfile().user?.name || 'A').charAt(0).toUpperCase()}
-								</span>
-							</div>
-						{/if}
+						<div
+							class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+						>
+							{#if userProfile().user?.avatar}
+								<img
+									src={userProfile().user.avatar}
+									alt={$t('task.drawer.avatar_alt')}
+									class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
+								/>
+							{:else}
+								<div
+									class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+								>
+									<span class="text-lg font-semibold sm:text-2xl">
+										{(userProfile().user?.name || 'A').charAt(0).toUpperCase()}
+									</span>
+								</div>
+							{/if}
+						</div>
+					</button>
+				{:else}
+					<div class="avatar shrink-0">
+						<div
+							class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+						>
+							{#if userProfile().user?.avatar}
+								<img
+									src={userProfile().user.avatar}
+									alt={$t('task.drawer.avatar_alt')}
+									class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
+								/>
+							{:else}
+								<div
+									class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+								>
+									<span class="text-lg font-semibold sm:text-2xl">
+										{(userProfile().user?.name || 'A').charAt(0).toUpperCase()}
+									</span>
+								</div>
+							{/if}
+						</div>
 					</div>
-				</div>
+				{/if}
 				<!-- User info column -->
 				<div class="flex min-w-0 flex-1 flex-col items-start">
 					<!-- Display name with See Profile (desktop) -->
 					<div class="flex w-full items-center gap-2">
-						<p class="truncate text-base font-semibold sm:text-lg">
-							{userProfile().user?.name || $t('task.drawer.anonymous')}
-						</p>
-						<!-- See Profile link - Desktop only -->
-						<button
-							class="btn btn-ghost btn-xs hidden text-primary hover:bg-primary/10 sm:flex"
-							onclick={() =>
-								goto(
-									`/dashboard/taskees/profile/${userProfile().user?.id || 'unknown'}`
-								)}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-3 w-3"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
+						{#if userProfile().user?.id}
+							<button
+								class="truncate text-left text-base font-semibold cursor-pointer transition-opacity hover:opacity-80 sm:text-lg"
+								onclick={() => {
+									const userId = userProfile().user?.id;
+									if (userId) goto(`/dashboard/taskees/profile/${userId}`);
+								}}
 							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-								/>
-							</svg>
-							<span>{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
-						</button>
+								{userProfile().user?.name || $t('task.drawer.anonymous')}
+							</button>
+						{:else}
+							<p class="truncate text-base font-semibold sm:text-lg">
+								{userProfile().user?.name || $t('task.drawer.anonymous')}
+							</p>
+						{/if}
+						<!-- See Profile link - Desktop only -->
+						{#if userProfile().user?.id}
+							<button
+								class="btn btn-ghost btn-xs hidden text-primary hover:bg-primary/10 sm:flex cursor-pointer"
+								onclick={() => {
+									const userId = userProfile().user?.id;
+									if (userId) goto(`/dashboard/taskees/profile/${userId}`);
+								}}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+									/>
+								</svg>
+								<span>{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
+							</button>
+						{/if}
 					</div>
 					<!-- Member since -->
 					<span class="text-base-content/60 text-xs sm:text-sm">
@@ -177,29 +279,31 @@
 			<!-- Right side: See Profile (mobile) and Status badge (right-aligned) -->
 			<div class="flex shrink-0 flex-col items-end gap-2">
 				<!-- See Profile link - Mobile only (above status) -->
-				<button
-					class="btn btn-ghost btn-xs text-primary hover:bg-primary/10 sm:hidden"
-					onclick={() =>
-						goto(
-							`/dashboard/taskees/profile/${userProfile().user?.id || 'unknown'}`
-						)}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-3 w-3"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
+				{#if userProfile().user?.id}
+					<button
+						class="btn btn-ghost btn-xs text-primary hover:bg-primary/10 sm:hidden cursor-pointer"
+						onclick={() => {
+							const userId = userProfile().user?.id;
+							if (userId) goto(`/dashboard/taskees/profile/${userId}`);
+						}}
 					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-						/>
-					</svg>
-					<span>{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
-				</button>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-3 w-3"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+							/>
+						</svg>
+						<span>{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
+					</button>
+				{/if}
 				<!-- Bid Status Badge -->
 				{#if bidStatus() === 'ACCEPTED'}
 					<div class="badge badge-success badge-sm text-primary-content">
@@ -323,10 +427,32 @@
 					</button>
 				{/if}
 
+				<!-- Send Message Button -->
+				<button
+					class="btn btn-primary btn-outline btn-sm flex-1 py-1 sm:flex-none"
+					onclick={openMessageModal}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+						/>
+					</svg>
+					{$t('common.profile.send_message')}
+				</button>
+
 				<!-- Accept Button -->
 				{#if onAcceptBid}
 					{#if bidStatus() === 'ACCEPTED'}
-						<button class="btn btn-success btn-sm flex-1 py-1 sm:flex-none" disabled={true}>
+						<button class="btn btn-success btn-outline btn-sm flex-1 py-1 sm:flex-none" disabled={true}>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-4 w-4"
@@ -345,7 +471,7 @@
 						</button>
 					{:else}
 						<button
-							class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"
+							class="btn btn-success btn-outline btn-sm flex-1 py-1 sm:flex-none"
 							onclick={() => onAcceptBid(bid)}
 							disabled={bidStatus() === 'REJECTED'}
 						>
@@ -426,4 +552,137 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Modal de mensaje -->
+{#if showMessageModal}
+	<div class="modal modal-open">
+		<div class="modal-box max-w-md">
+			<!-- Header del modal -->
+			<div class="mb-6">
+				<div class="mb-2 flex items-center gap-3">
+					<div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
+						<svg class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+							/>
+						</svg>
+					</div>
+					<div>
+						<h4 class="text-sm font-semibold">{$t('common.profile.send_message')}</h4>
+						<p class="text-base-content/60 text-xs">
+							To: {getUserDisplayNameFromProfile(userProfile()) || 'Unknown User'}
+						</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Formulario de mensaje -->
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					sendMessage();
+				}}
+				class="space-y-4"
+			>
+				<div>
+					<label for="message-text" class="text-base-content mb-2 block text-sm font-medium">
+						{$t('common.profile.send_message')}
+					</label>
+					<textarea
+						id="message-text"
+						class="textarea textarea-bordered w-full"
+						placeholder="Type your message here..."
+						bind:value={messageText}
+						rows="4"
+						disabled={sendingMessage}
+					></textarea>
+				</div>
+
+				<!-- Mensaje de éxito -->
+				{#if messageSuccess}
+					<div class="alert alert-success alert-outline py-2">
+						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+						<span class="text-sm">{$t('common.profile.message_sent_successfully')}</span>
+					</div>
+				{/if}
+
+				<!-- Mensaje de error -->
+				{#if messageError}
+					<div class="alert alert-error alert-outline py-2">
+						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span class="text-sm">{messageError}</span>
+					</div>
+				{/if}
+
+				<!-- Botones de acción -->
+				<div class="border-base-300 flex gap-3 border-t pt-6">
+					<button
+						type="button"
+						class="btn btn-ghost flex-1"
+						onclick={closeMessageModal}
+						disabled={sendingMessage}
+					>
+						<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+						{$t('common.cancel')}
+					</button>
+					<button
+						type="submit"
+						class="btn btn-primary flex-1"
+						disabled={!messageText.trim() || sendingMessage || messageSuccess}
+					>
+						{#if sendingMessage}
+							<span class="loading loading-spinner loading-sm mr-2"></span>
+							{$t('common.processing')}
+						{:else if messageSuccess}
+							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M5 13l4 4L19 7"
+								/>
+							</svg>
+							{$t('common.profile.message_sent_successfully')}
+						{:else}
+							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+								/>
+							</svg>
+							{$t('common.profile.send_message')}
+						{/if}
+					</button>
+				</div>
+			</form>
+		</div>
+		<button class="modal-backdrop" onclick={closeMessageModal}>X</button>
+	</div>
+{/if}
 

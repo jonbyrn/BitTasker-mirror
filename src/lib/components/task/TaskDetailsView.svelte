@@ -118,13 +118,18 @@
 	};
 
 	// Handle copy link functionality
+	let copyLinkSuccess = $state(false);
 	const handleCopyLink = async () => {
 		const link = shareLink();
 		if (!link) return;
 		
 		const success = await copyToClipboard(link);
 		if (success) {
+			copyLinkSuccess = true;
 			appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
+			setTimeout(() => {
+				copyLinkSuccess = false;
+			}, 2000);
 		} else {
 			appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
 		}
@@ -503,48 +508,67 @@
 			{/if}
 		</div>
 		{#if showShareButton}
-			<div class="flex flex-row gap-2 justify-center sm:justify-start sm:flex-col">
+			<div class="flex flex-row gap-2">
+				<!-- Share Button -->
 				<button 
-					class="btn btn-outline btn-sm gap-2" 
+					class="btn btn-ghost btn-sm gap-2 transition-all duration-200 hover:bg-primary/10 hover:text-primary" 
 					onclick={handleShare}
 					title={$t('dashboard.task_details_by_task.share_task')}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
+						class="h-5 w-5"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
+						stroke-width="2"
 					>
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
+							d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.935-2.186 2.25 2.25 0 00-3.935 2.186z"
 						/>
 					</svg>
-					{$t('dashboard.task_details_by_task.share')}
+					<span class="hidden sm:inline">{$t('dashboard.task_details_by_task.share')}</span>
 				</button>
+				<!-- Copy Link Button -->
 				<button 
-					class="btn btn-outline btn-sm gap-2" 
+					class="btn btn-ghost btn-sm gap-2 transition-all duration-200 hover:bg-primary/10 hover:text-primary {copyLinkSuccess ? 'text-success' : ''}" 
 					onclick={handleCopyLink}
 					title={$t('dashboard.task_details_by_task.copy_link')}
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
+					{#if copyLinkSuccess}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
 							stroke-width="2"
-							d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-						/>
-					</svg>
-					{$t('dashboard.task_details_by_task.copy_link')}
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
+							/>
+						</svg>
+					{/if}
+					<span class="hidden sm:inline">{$t('dashboard.task_details_by_task.copy_link')}</span>
 				</button>
 			</div>
 		{/if}
