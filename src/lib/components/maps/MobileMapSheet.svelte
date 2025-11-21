@@ -210,7 +210,7 @@
 									>
 										{$t('dashboard.bids.components.maps.mobile_map_sheet.bid_now')}
 									</button>
-									<a class="btn btn-secondary btn-sm flex-1" href={`/dashboard/task/${task.id}`}
+									<a class="btn btn-secondary btn-sm flex-1" href={`/tasks/${(task as any).uniqueId || task.id}`}
 										>{$t('dashboard.bids.components.maps.mobile_map_sheet.view_task')}</a
 									>
 								</div>

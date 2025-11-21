@@ -139,3 +139,4 @@
 	<!-- Simple layout for non-logged-in users -->
 	<TaskDetailsView {taskId} showShareButton={true} />
 {/if}
+

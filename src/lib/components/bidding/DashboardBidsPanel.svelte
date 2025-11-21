@@ -219,7 +219,10 @@
 								<button
 									onclick={(e) => {
 										e.stopPropagation();
-										goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`);
+										// Use uniqueId if available, fallback to id/taskId for backward compatibility
+										const taskId = bid.bid.task?.id || bid.bid.taskId;
+										const taskIdentifier = (bid.bid.task as any)?.uniqueId || taskId;
+										goto(`/tasks/${taskIdentifier}`);
 									}}
 									class="hover:text-primary cursor-pointer transition-colors"
 								>
@@ -438,7 +441,12 @@
 
 								<button
 									class="btn btn-secondary btn-sm"
-									onclick={() => goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`)}
+									onclick={() => {
+										// Use uniqueId if available, fallback to id/taskId for backward compatibility
+										const taskId = bid.bid.task?.id || bid.bid.taskId;
+										const taskIdentifier = (bid.bid.task as any)?.uniqueId || taskId;
+										goto(`/tasks/${taskIdentifier}`);
+									}}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"

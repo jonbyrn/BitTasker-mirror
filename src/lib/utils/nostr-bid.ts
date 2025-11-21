@@ -210,7 +210,9 @@ export function deduplicateBids(bids: BidMessage[]): BidMessage[] {
 async function getBidStatusMessages(taskId?: string): Promise<{ [bidId: string]: NostrBidStatus }> {
 	try {
 		// Get all people you've exchanged messages with
-		const messagedPeople = await getMessagedPeople();
+		// Use optimized version to avoid multiple auth prompts
+		const { getMessagedPeopleOptimized } = await import('./nostr-message');
+		const messagedPeople = await getMessagedPeopleOptimized();
 		const bidStatuses: { [bidId: string]: NostrBidStatus } = {};
 
 		// Fetch message histories for all conversations in parallel

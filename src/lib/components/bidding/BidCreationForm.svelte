@@ -380,7 +380,7 @@
 				title: 'New Bid Received',
 				body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey}`,
 				type: 'bid_created',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${taskId}`,
+				clickAction: `${import.meta.env.VITE_APP_URL}/tasks/${taskId}`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 

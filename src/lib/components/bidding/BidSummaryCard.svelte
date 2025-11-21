@@ -46,7 +46,8 @@
 
 	function handleViewDetails() {
 		if (props.bid.taskId) {
-			goto(`/dashboard/task/${props.bid.taskId}?tab=bids&bid=${props.bid.id}`);
+			// Use public route - page loader will handle redirect from event ID to UUID if needed
+			goto(`/tasks/${props.bid.taskId}`);
 		}
 	}
 </script>

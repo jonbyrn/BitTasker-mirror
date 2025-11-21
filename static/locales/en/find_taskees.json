@@ -1,0 +1,52 @@
+{
+    "find_taskees": {
+        "title": "Find Taskees",
+        "description": "Discover talented professionals ready to help with your tasks",
+        "search_placeholder": "Search by name, skills, or profession...",
+        "search_minimum_chars": "Type at least 3 characters to search",
+        "clear_filters": "Clear Filters",
+        "error_loading": "Error loading taskees: {error}. Please try again.",
+        "loading_timeout_title": "Loading is taking longer than expected",
+        "loading_timeout_message": "Try refreshing the page or check your connection",
+        "refresh": "Refresh",
+        "no_results_title": "No taskees found",
+        "no_results_message": "Try adjusting your search criteria or filters",
+        "view_profile": "View Profile",
+        "view_map": "View Map",
+        "view_list": "View List",
+        "skills": "Skills",
+        "member_since": "Member since",
+        "anonymous": "Anonymous User",
+        "filters": "Filters",
+        "close_dialog": "Close dialog",
+        "toggle_skills_section": "Toggle skills section",
+        "add_skills": "Add skills",
+        "toggle_professional_title_section": "Toggle professional title section",
+        "professional_title": "Professional Title",
+        "professional_title_placeholder": "e.g., Software Engineer, Designer, Consultant",
+        "toggle_certifications_section": "Toggle certifications section",
+        "certifications": "Certifications",
+        "has_certifications": "Has Certifications",
+        "any": "Any",
+        "toggle_location_section": "Toggle location section",
+        "location": "Location",
+        "location_placeholder": "Enter location...",
+        "location_mode": {
+            "anywhere": "Anywhere",
+            "specific_location": "Specific Location"
+        },
+        "search_radius": "Search Radius",
+        "toggle_join_date_section": "Toggle join date section",
+        "join_date": "Join Date",
+        "apply": "Apply",
+        "join_date_options": {
+            "any": "Any",
+            "last_week": "Last Week",
+            "last_month": "Last Month",
+            "last_3_months": "Last 3 Months",
+            "last_6_months": "Last 6 Months",
+            "last_year": "Last Year"
+        }
+    }
+}
+

@@ -22,6 +22,16 @@
 	import { goto } from '$app/navigation';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import IconAlertCircle from '~icons/mdi/alert-circle';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
+	import { getBidsForTaskOptimized, sendBidStatusUpdate, clearBidCache } from '$lib/utils/nostr-bid';
+	import IconRefresh from '~icons/mdi/refresh';
+	import type { TaskBid, NostrBid } from '$lib/types/bid';
+	import BidCardDetailed from '$lib/components/bidding/BidCardDetailed.svelte';
+	import IconCheckCircle from '~icons/mdi/check-circle';
+	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
+	import Drawer from '$lib/components/Drawer.svelte';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	// Props
 	let { taskId, showShareButton = true } = $props<{
@@ -40,6 +50,13 @@
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(taskId || null);
 	let isSidebarOpen = $state(false);
+
+	// Bids state
+	let bids = $state<TaskBid[]>([]);
+	let bidsLoading = $state(false);
+	let expandedBidId = $state<string | null>(null);
+	let showAcceptanceForm = $state(false);
+	let bidToAccept = $state<TaskBid | null>(null);
 
 	// Check if current user is the task creator
 	const isOwner = $derived(task?.npub === $user?.npub);
@@ -63,10 +80,12 @@
 		return todayDateStr > deadlineDateStr;
 	});
 
-	// Generate share link for public route
+	// Generate share link for public route - always use uniqueId for stable URLs
 	const shareLink = $derived(() => {
-		if (typeof window !== 'undefined' && taskId) {
-			return `${window.location.origin}/tasks/task/${taskId}`;
+		if (typeof window !== 'undefined' && task) {
+			// Always use the uniqueId from the loaded task for stable URLs
+			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
+			return `${window.location.origin}/tasks/${task.uniqueId || task.id}`;
 		}
 		return '';
 	});
@@ -95,6 +114,19 @@
 			} catch (error) {
 				console.error('Failed to copy link:', error);
 			}
+		}
+	};
+
+	// Handle copy link functionality
+	const handleCopyLink = async () => {
+		const link = shareLink();
+		if (!link) return;
+		
+		const success = await copyToClipboard(link);
+		if (success) {
+			appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
+		} else {
+			appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
 		}
 	};
 
@@ -173,7 +205,44 @@
 			loading = true;
 			errorMessage = '';
 
-			const { data: event } = await nostrEventsService.findEventById(taskId);
+			// Check if taskId is an event ID (64 hex chars) or UUID (uniqueId)
+			const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
+			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
+			let event: any = null;
+
+			if (isEventId) {
+				// It's an event ID, use it directly
+				// Note: This should rarely happen as page loader redirects event IDs to uniqueId
+				const result = await nostrEventsService.findEventById(taskId);
+				event = result.data;
+			} else if (isUuid) {
+				// It's a uniqueId (UUID), query by d-tag
+				const dTagValue = `task-${taskId}`;
+				const filter = {
+					kinds: [KINDS.TASK_CREATION],
+					'#d': [dTagValue],
+					limit: 1
+				};
+				
+				const response = await nostrEventsService.requestEvents({
+					filters: [filter]
+				});
+				
+				if (response.data && response.data.length > 0) {
+					event = response.data[0];
+				}
+			} else {
+				// Try as event ID anyway (fallback for edge cases)
+				// Note: The page loader should handle npub conversion and redirect,
+				// but we handle it here as a fallback for robustness
+				try {
+					const result = await nostrEventsService.findEventById(taskId);
+					event = result.data;
+				} catch {
+					errorMessage = $t('bids.task_details.error.failed_to_load');
+					return;
+				}
+			}
 
 			if (!event) {
 				errorMessage = $t('bids.task_details.error.failed_to_load');
@@ -194,9 +263,24 @@
 
 			task = {
 				...taskData,
-				id: event.id,
+				id: event.id, // Always use the event ID from the event
 				npub: event.pubkey // Add the npub from the event to the task object
 			};
+
+			// If we loaded via a different identifier, update the URL to use uniqueId
+			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
+			if (typeof window !== 'undefined' && taskData.uniqueId && taskData.uniqueId !== taskId) {
+				const currentPath = window.location.pathname;
+				const newPath = `/tasks/${taskData.uniqueId}`;
+				if (currentPath !== newPath) {
+					window.history.replaceState({}, '', newPath);
+				}
+			}
+
+			// Load bids if user is logged in and is the task owner
+			if (isLoggedIn && event.id && event.pubkey === $user?.npub) {
+				loadBids(event.id);
+			}
 		} catch (error) {
 			console.error('Failed to load task details:', error);
 			errorMessage = $t('bids.task_details.error.failed_to_load_details');
@@ -218,6 +302,149 @@
 		}
 	}
 
+	// Load bids for the task
+	async function loadBids(taskEventId: string) {
+		if (!isLoggedIn) return;
+
+		try {
+			bidsLoading = true;
+			const dmBids = await getBidsForTaskOptimized(taskEventId);
+
+			// Transform to TaskBid format for BidCard component
+			bids = dmBids.map(({ bid }) => {
+				const bidWithStatus = bid as NostrBid & { bidStatus?: string };
+				const status = bidWithStatus.bidStatus || 'PENDING';
+
+				return {
+					id: bid.bidId,
+					taskId: bid.taskId,
+					freelancerId: 0, // Not available in Nostr bid
+					amount: bid.amount,
+					currency: bid.currency,
+					paymentType: bid.paymentType,
+					hourlyRate: bid.hourlyRate ?? undefined,
+					estimatedHours: bid.estimatedHours ?? undefined,
+					description: bid.description || '',
+					estimatedDuration: bid.estimatedDuration || '',
+					proposedApproach: bid.proposedApproach || '',
+					coverLetter: bid.coverLetter || '',
+					status: (status.toLowerCase() as 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'countered') || 'pending',
+					createdAt: new Date(bid.timestamp).toISOString(),
+					visibility: 'PUBLIC' as const,
+					responseTime: 0,
+					clientViewed: false,
+					clientViewedAt: null,
+					featured: false,
+					clientResponse: null,
+					competitiveScore: null,
+					rank: null,
+					impressions: 0,
+					clicks: 0,
+					isWithdrawn: false,
+					withdrawnReason: null,
+					expiresAt: null,
+					updatedAt: new Date(bid.timestamp).toISOString(),
+					task: {
+						id: 0,
+						title: task?.title || '',
+						description: task?.description || '',
+						status: task?.status || ''
+					},
+					freelancer: {
+						id: 0,
+						userId: 0,
+						professionalTitle: null,
+						bio: null,
+						promotionalVideo: null,
+						yearsExperience: null,
+						specialties: [],
+						standardRates: null,
+						tasksCompleted: 0,
+						bidsSent: 0,
+						successRate: null,
+						rating: 0,
+						verified: false
+					},
+					bidderId: bid.bidderId || '',
+					bidderName: bid.bidderName || 'Anonymous',
+					bidderAvatar: bid.bidderAvatar || '',
+					bidderWalletAddress: bid.bidderWalletAddress || '',
+					dropOffLocation: task?.dropOffLocation || { displayName: '', latitude: 0, longitude: 0 },
+					pickupLocation: task?.pickupLocation || { displayName: '', latitude: 0, longitude: 0 },
+					translations: bid.translations
+				} as TaskBid;
+			});
+		} catch (error) {
+			console.error('Failed to load bids:', error);
+		} finally {
+			bidsLoading = false;
+		}
+	}
+
+	// Handler functions for BidCardDetailed
+	function handleToggleDetails(bidId: string) {
+		expandedBidId = expandedBidId === bidId ? null : bidId;
+	}
+
+	function handleAcceptBid(bid: TaskBid) {
+		// Check if this bid is already accepted or if another bid is already accepted
+		if (bid.status === 'accepted') {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
+		bidToAccept = bid;
+		showAcceptanceForm = true;
+	}
+
+	async function handleRejectBid(bid: TaskBid) {
+		// Prevent rejecting bids that are already accepted or rejected
+		if (bid.status === 'accepted' || bid.status === 'rejected') {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_rejected'));
+			return;
+		}
+
+		try {
+			// Send bid rejection status via encrypted DM to the bidder
+			await sendBidStatusUpdate(
+				bid.id,
+				bid.taskId,
+				bid.bidderId || '', // bidder's pubkey
+				'rejected',
+				$t('dashboard.bids.bid_acceptance.bid_rejected_message') // Optional rejection message
+			);
+
+			// Clear bid cache and refresh task to update status and bids
+			clearBidCache();
+			if (task?.id) {
+				await loadBids(task.id);
+			}
+		} catch (error) {
+			console.error('Error rejecting bid:', error);
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.bid_rejected_error'));
+		}
+	}
+
+	function handleCloseBid() {
+		showAcceptanceForm = false;
+		bidToAccept = null;
+	}
+
+	// Handle refresh bids button
+	async function handleRefreshBids() {
+		if (!task?.id || !isLoggedIn || !isOwner) return;
+		
+		try {
+			// Clear cache to ensure fresh data
+			clearBidCache();
+			await loadBids(task.id);
+			appStore.showSuccessToast($t('dashboard.task_details_by_task.bids_refreshed'));
+		} catch (error) {
+			console.error('Error refreshing bids:', error);
+			appStore.showErrorToast($t('dashboard.task_details_by_task.bids_refresh_error'));
+		}
+	}
+
 	// Translation is now handled automatically by TranslatableTask component
 
 	// Track previous taskId to detect changes
@@ -235,7 +462,7 @@
 	afterNavigate(({ to, from }) => {
 		// Only reload if we're navigating TO a task details route (not away from it)
 		// Check if the current URL matches a task details pattern
-		if (to && taskId && to.url.pathname.includes(`/task/${taskId}`)) {
+		if (to && taskId && to.url.pathname.includes(`/tasks/${taskId}`)) {
 			// Reset state and reload to ensure fresh data
 			task = null;
 			errorMessage = '';
@@ -249,34 +476,77 @@
 	});
 </script>
 
-<div class="mx-auto max-w-6xl p-4 md:p-0">
-	<div class="mb-2 flex items-start justify-between">
+<div class="mx-auto w-full max-w-6xl p-4 md:p-6 lg:p-0">
+	<div class="mb-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 		<div>
-			<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
-			<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
+			{#if task}
+				<h3 class="">
+					<TranslatableTask 
+						{task} 
+						showTitle={true}
+						showDescription={false}
+						titleClass=""
+					/>
+				</h3>
+				<p class="text-base-content/70">
+					<TranslatableTask 
+						{task} 
+						showTitle={false}
+						showDescription={true}
+						showToggle={false}
+						descriptionClass="line-clamp-3"
+					/>
+				</p>
+			{:else}
+				<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
+				<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
+			{/if}
 		</div>
 		{#if showShareButton}
-			<button 
-				class="btn btn-outline btn-sm gap-2" 
-				onclick={handleShare}
-				title={$t('dashboard.task_details_by_task.share_task')}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
+			<div class="flex flex-row gap-2 justify-center sm:justify-start sm:flex-col">
+				<button 
+					class="btn btn-outline btn-sm gap-2" 
+					onclick={handleShare}
+					title={$t('dashboard.task_details_by_task.share_task')}
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
-					/>
-				</svg>
-				{$t('dashboard.task_details_by_task.share')}
-			</button>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
+						/>
+					</svg>
+					{$t('dashboard.task_details_by_task.share')}
+				</button>
+				<button 
+					class="btn btn-outline btn-sm gap-2" 
+					onclick={handleCopyLink}
+					title={$t('dashboard.task_details_by_task.copy_link')}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+						/>
+					</svg>
+					{$t('dashboard.task_details_by_task.copy_link')}
+				</button>
+			</div>
 		{/if}
 	</div>
 	<!-- Loading state -->
@@ -315,45 +585,34 @@
 		<!-- Details Tab -->
 		<div id="panel-details" role="tabpanel" aria-labelledby="tab-details" class="mt-3">
 			<!-- Task details -->
-			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3 w-full">
 				<!-- Main content -->
-				<div class="space-y-4 lg:col-span-2">
-					<!-- Main task info card -->
-					<div class="bg-base-100 border-base-300 rounded-2xl border p-6 shadow-sm">
-						<!-- Header row with title and posted date -->
-						<div class="mb-6 flex flex-row items-start justify-between gap-3">
-							<div class="">
-								<div class="pb-1">
-									<TranslatableTask 
-										{task} 
-										showTitle={true}
-										showDescription={false}
-										titleClass="card-title line-clamp-2 text-lg"
+				<div class="space-y-4 lg:col-span-2 w-full">
+					<!-- Bids Section - Show if user is logged in, is owner, and task has bids -->
+					{#if isLoggedIn && isOwner && bids.length > 0}
+						<div class="bg-base-100 border-base-300 rounded-2xl border p-4 md:p-6 shadow-sm w-full">
+							<h4 class="mb-4 text-xl font-bold">{$t('dashboard.task_details_by_task.bids_section_title')}</h4>
+							<div class="space-y-4">
+								{#each bids as bid (bid.id)}
+									<BidCardDetailed
+										{bid}
+										{btcPrice}
+										expandedBidId={expandedBidId}
+										onAcceptBid={handleAcceptBid}
+										onRejectBid={handleRejectBid}
+										onToggleDetails={handleToggleDetails}
 									/>
-								</div>
-								<div class="text-base-content/60 text-start">
-									{#if task}
-										<TranslatableTask 
-											{task} 
-											showTitle={false}
-											showDescription={true}
-											showToggle={false}
-											descriptionClass="text-sm text-base-content/80 line-clamp-2"
-										/>
-									{/if}
-								</div>
+								{/each}
 							</div>
-							<!-- <div class="flex flex-col text-center">
-								<div class="badge badge-primary badge-outline text-sm font-bold">{task.status}</div>
-							</div> -->
 						</div>
+					{/if}
 
-						<div class="divider"></div>
-
+					<!-- Main task info card -->
+					<div class="bg-base-100 border-base-300 rounded-2xl border p-4 md:p-6 shadow-sm w-full">
 						<!-- Description section -->
-						<div class="mb-6 flex justify-between">
+						<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:justify-between">
 							{#if task.deadline || task.dateRange}
-								<div class="flex max-w-md flex-col gap-2">
+								<div class="flex flex-col gap-2 sm:max-w-md">
 									{#if task.deadline}
 										<div>
 											<h4 class="mb-1 font-semibold">
@@ -379,20 +638,40 @@
 								</div>
 							{/if}
 
-							<div class="text-lg font-bold">
-								${formatNumberWithTwoDecimals(task.budget.amount)}
+							<div class="flex flex-col items-end gap-2">
+								<!-- Refresh bids button - only show for task owner -->
+								{#if isLoggedIn && isOwner}
+									<button
+										class="btn btn-ghost btn-sm gap-2"
+										onclick={handleRefreshBids}
+										disabled={bidsLoading}
+										title={$t('dashboard.task_details_by_task.refresh_bids')}
+										aria-label={$t('dashboard.task_details_by_task.refresh_bids')}
+									>
+										{#if bidsLoading}
+											<span class="loading loading-spinner loading-xs"></span>
+										{:else}
+											<IconRefresh class="h-4 w-4" />
+										{/if}
+										<span class="hidden sm:inline">{$t('dashboard.task_details_by_task.refresh_bids')}</span>
+									</button>
+								{/if}
+								
+								<div class="text-lg font-bold">
+									${formatNumberWithTwoDecimals(task.budget.amount)}
 
-								<div class="text-base-content/60 text-sm">
-									{satsFromUsd(task.budget.amount, btcPrice)}
+									<div class="text-base-content/60 text-sm">
+										{satsFromUsd(task.budget.amount, btcPrice)}
+									</div>
 								</div>
 							</div>
 						</div>
 
 						<!-- Timeline and Requirements in same row -->
-						<div class="mb-2 flex justify-between">
+						<div class="mb-2 flex flex-col gap-4 sm:flex-row sm:justify-between">
 							<!-- Location information -->
 							{#if task.pickupLocation || task.dropOffLocation}
-								<div class="mb-2">
+								<div>
 									<div class="grid grid-cols-1">
 										{#if task.pickupLocation && task.pickupLocation.displayName && task.pickupLocation.displayName.trim() !== ''}
 											<div class="mb-2">
@@ -502,7 +781,7 @@
 
 				<!-- Sidebar -->
 				<div class="lg:col-span-1">
-					<div class="bg-base-100 border-base-300 sticky top-6 rounded-2xl border p-6 shadow-sm">
+					<div class="bg-base-100 border-base-300 sticky top-6 rounded-2xl border p-4 lg:p-6 shadow-sm">
 						<!-- Action buttons -->
 						{#if isDeadlineExpired()}
 							<div class="alert alert-error alert-outline">
@@ -679,3 +958,18 @@
 	onClose={() => (isSidebarOpen = false)}
 	isOpen={isSidebarOpen}
 />
+
+<!-- Bid Acceptance Drawer -->
+<Drawer
+	isOpen={showAcceptanceForm}
+	title={$t('dashboard.bids.bid_acceptance.accept_bid_fund_contract')}
+	onClose={handleCloseBid}
+	position="right"
+	isScrollable={true}
+>
+	{#snippet children()}
+		{#if showAcceptanceForm && bidToAccept && task}
+			<BidAcceptanceForm bid={bidToAccept} {task} {btcPrice} onCancel={handleCloseBid} />
+		{/if}
+	{/snippet}
+</Drawer>

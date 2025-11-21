@@ -144,10 +144,13 @@
 		}
 	}
 
-	// Generate share link for public route
+	// Generate share link for public route - always use uniqueId for stable URLs
 	const shareLink = $derived(() => {
-		if (typeof window !== 'undefined' && task?.id) {
-			return `${window.location.origin}/tasks/task/${task.id}`;
+		if (typeof window !== 'undefined' && task) {
+			// Always use the uniqueId from the task object for stable URLs
+			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
+			const taskIdentifier = (task as any).uniqueId || task.id;
+			return `${window.location.origin}/tasks/${taskIdentifier}`;
 		}
 		return '';
 	});

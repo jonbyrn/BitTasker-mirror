@@ -138,7 +138,7 @@
 
     // Check if we should hide footer for logged-in users on task detail pages
     const shouldHideFooterForLoggedInTaskPage = $derived(
-        isLoggedIn && (currentPath.startsWith('/tasks/task/') || currentPath.startsWith('/dashboard/task/'))
+        isLoggedIn && currentPath.match(/^\/tasks\/[^/]+$/)
     );
 
     // Update layout based on current route - Optimized with debouncing

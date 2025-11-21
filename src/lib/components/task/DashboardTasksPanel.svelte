@@ -337,10 +337,12 @@ let error = $state<string | null>(null);
 					{
 						label: $t('task.actions.view_bids'),
 						class: 'btn-outline btn-sm',
-						onclick: (e: any) => {
-							e.stopPropagation();
-							goto(`/dashboard/task/${task.id}/bids`);
-						},
+					onclick: (e: any) => {
+						e.stopPropagation();
+						// Use uniqueId if available, fallback to id for backward compatibility
+						const taskIdentifier = (task as any).uniqueId || task.id;
+						goto(`/tasks/${taskIdentifier}`);
+					},
 						icon: 'view_bids'
 					}
 				];
