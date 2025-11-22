@@ -153,7 +153,7 @@
 	</div>
 {/snippet}
 
-<div class="mx-auto max-w-7xl p-4">
+<div class="mx-auto max-w-6xl p-4">
 	<div class="mb-4">
 		<div class="flex items-center justify-between">
 			<div>

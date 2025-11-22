@@ -1,38 +1,61 @@
 <script lang="ts">
-	import { taskTranslationService } from '$lib/services/task-translation.service';
+	import { bidTranslationService } from '$lib/services/bid-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
-	import type { TranslationResult, TranslationError } from '$lib/services/translation.service';
+	import type { BidTranslations } from '$lib/types/bid';
+
+	type BidWithTranslations = {
+		translations?: BidTranslations;
+		description?: string;
+		proposedApproach?: string;
+		coverLetter?: string;
+	};
 
 	let {
+		bid,
 		content,
 		contentType = 'description', // 'description', 'proposedApproach', 'coverLetter'
-		showToggle = true,
 		contentClass = 'text-base-content/80 text-sm leading-relaxed',
-		fallbackClass = 'text-base-content/80 line-clamp-2'
+		fallbackClass = 'text-base-content/80 line-clamp-2',
+		showToggle = false
 	} = $props<{
-		content: string;
+		bid?: BidWithTranslations | null; // Objeto bid completo con traducciones
+		content: string; // Contenido original (fallback si no hay bid)
 		contentType?: 'description' | 'proposedApproach' | 'coverLetter';
 		showToggle?: boolean;
 		contentClass?: string;
 		fallbackClass?: string;
 	}>();
 
-	let translatedContent = $state<string | null>(null);
-	let isTranslating = $state(false);
-	let showOriginal = $state(false);
-
-	$effect(() => {
+	// Obtener el contenido a mostrar (traducido o original)
+	const displayContent = $derived.by(() => {
 		const userLang = $currentUserLanguage;
-		if (userLang && content && userLang !== 'en') {
-			isTranslating = true;
-			taskTranslationService.translateText(content, userLang).then(result => {
-				if (result && 'translatedText' in result) {
-					translatedContent = result.translatedText;
-				}
-				isTranslating = false;
-			});
+		
+		// Si tenemos el objeto bid completo con traducciones, usar el servicio
+		if (bid && userLang) {
+			return bidTranslationService.getDisplayContent(bid, contentType, userLang, content);
 		}
+		
+		// Fallback al contenido original
+		return content;
 	});
+
+	// Verificar si hay traducción disponible
+	const hasTranslation = $derived.by(() => {
+		const userLang = $currentUserLanguage;
+		if (!bid || !userLang || !bid.translations) {
+			return false;
+		}
+
+		// Si el idioma del usuario coincide con el idioma fuente, no hay traducción
+		if (bid.translations.sourceLanguage === userLang) {
+			return false;
+		}
+
+		// Verificar si existe traducción para este campo
+		return bidTranslationService.getStoredTranslation(bid, contentType, userLang) !== null;
+	});
+
+	let showOriginal = $state(false);
 
 	function toggleTranslation() {
 		showOriginal = !showOriginal;
@@ -43,31 +66,28 @@
 </script>
 
 <div class="translatable-bid-content">
-	{#if isTranslating}
-		<div class="loading-skeleton animate-pulse">
-			<div class="h-4 bg-gray-200 rounded w-3/4"></div>
-		</div>
-	{:else if translatedContent && !showOriginal}
-		<p class={contentClass}>{translatedContent}</p>
-
+	{#if hasTranslation && !showOriginal}
+		<!-- Mostrar contenido traducido -->
+		<p class={displayClass}>{displayContent}</p>
 		{#if showToggle}
 			<button
-				class="text-xs text-blue-500 hover:text-blue-700 mt-1"
+				class="text-xs text-blue-500 hover:text-blue-700 transition-colors mt-1"
 				onclick={toggleTranslation}
 			>
-				{translatedContent ? 'Ver original' : 'View original'}
+				{$currentUserLanguage === 'es' ? 'Ver original' : 'View original'}
 			</button>
 		{/if}
 	{:else}
+		<!-- Mostrar contenido original -->
 		<p class={displayClass}>{content}</p>
-
-		{#if translatedContent && showToggle}
+		{#if hasTranslation && showToggle}
 			<button
-				class="text-xs text-blue-500 hover:text-blue-700 mt-1"
+				class="text-xs text-blue-500 hover:text-blue-700 transition-colors mt-1"
 				onclick={toggleTranslation}
 			>
-				{translatedContent ? 'Traducir' : 'Translate'}
+				{$currentUserLanguage === 'es' ? 'Ver traducido' : 'View translated'}
 			</button>
 		{/if}
 	{/if}
 </div>
+

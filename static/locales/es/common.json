@@ -53,7 +53,9 @@
       "no_ratings": "No hay calificaciones",
       "website": "Sitio Web",
       "no_image_available": "No hay imagen disponible",
-      "message_sent_successfully": "¡Mensaje enviado exitosamente!"
+      "message_sent_successfully": "¡Mensaje enviado exitosamente!",
+      "message_required": "Por favor ingresa un mensaje",
+      "message_send_error": "Error al enviar el mensaje. Por favor intenta de nuevo."
     },
     "cta_title": "¿Listo para empezar?",
     "cta_description": "Únete a BitTasker hoy y experimenta una mejor manera de encontrar trabajo o contratar a taskees calificados. Nuestra plataforma impulsada por Bitcoin hace que las transacciones sean seguras, sin fronteras y eficientes.",

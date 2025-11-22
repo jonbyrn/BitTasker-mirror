@@ -1,11 +1,92 @@
 <script lang="ts">
 	import { profileStore } from '$lib/stores/profile.store';
 	import { t } from 'svelte-i18n';
+	import { onMount } from 'svelte';
+	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	let { formatDate, yearsFrom } = $props<{
 		formatDate: (date: string) => string;
 		yearsFrom: (date: string) => number;
 	}>();
+
+	// State for expandable description
+	let descriptionElement: HTMLParagraphElement | null = $state(null);
+	let isDescriptionTruncated = $state(false);
+	let showFullDescription = $state(false);
+
+	// Check if description is actually truncated
+	function checkIfTruncated() {
+		if (!descriptionElement) return;
+		
+		// Create a hidden clone to measure full height without affecting layout
+		const clone = descriptionElement.cloneNode(true) as HTMLElement;
+		// Remove line-clamp to see full height
+		clone.className = descriptionElement.className.replace(/line-clamp-\d+/g, '');
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.height = 'auto';
+		clone.style.width = descriptionElement.offsetWidth + 'px';
+		clone.style.whiteSpace = 'pre-line'; // Preserve line breaks
+		clone.style.overflow = 'visible';
+		document.body.appendChild(clone);
+		
+		const fullHeight = clone.scrollHeight;
+		const actualHeight = descriptionElement.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(descriptionElement).lineHeight) || 20;
+		const maxHeight = lineHeight * 2; // 2 lines
+		
+		// Clean up
+		document.body.removeChild(clone);
+		
+		// Check if content is actually taller than 2 lines
+		// The content is truncated if the full height (without line-clamp) is greater than 2 lines
+		// We use a more lenient check: if full height is more than 1.5x the max height, it's truncated
+		const heightCheck = fullHeight > maxHeight * 1.5;
+		
+		// Also check by character count as a fallback
+		// If text is longer than ~25 characters, it's likely to span more than 2 lines on mobile
+		// (Mobile screens are narrower, so text wraps more)
+		const textLength = descriptionElement.textContent?.trim().length || 0;
+		const lengthCheck = textLength > 25;
+		
+		isDescriptionTruncated = heightCheck || lengthCheck;
+	}
+
+	$effect(() => {
+		// React to description changes and element availability
+		const currentDescription = $profileStore.data?.about;
+		
+		if (descriptionElement && currentDescription) {
+			// Reset state when description changes
+			showFullDescription = false;
+			isDescriptionTruncated = false;
+			
+			// Use multiple timeouts to ensure DOM is fully rendered
+			// This is necessary because the element might not have its final dimensions yet
+			const checkTimeout = setTimeout(() => {
+				requestAnimationFrame(() => {
+					setTimeout(() => {
+						checkIfTruncated();
+					}, 50);
+				});
+			}, 200);
+			
+			return () => clearTimeout(checkTimeout);
+		}
+	});
+
+	function toggleDescription() {
+		showFullDescription = !showFullDescription;
+	}
+
+	// Also check on mount to ensure it runs when component is ready
+	onMount(() => {
+		if (descriptionElement && $profileStore.data?.about) {
+			setTimeout(() => {
+				checkIfTruncated();
+			}, 300);
+		}
+	});
 </script>
 
 <!-- Profile Info Section -->
@@ -23,9 +104,21 @@
 		<div class="mb-8">
 			<h3 class="mb-4 text-xl font-semibold">{$t('profile.about')}</h3>
 			{#if $profileStore.data.about}
-				<p class="text-base-content/70 line-clamp-2 whitespace-pre-line">
+				<p 
+					bind:this={descriptionElement}
+					class="text-base-content/70 whitespace-pre-line {showFullDescription ? '' : 'line-clamp-2'}"
+					style="word-break: break-word; overflow-wrap: anywhere;"
+				>
 					{$profileStore.data.about}
 				</p>
+				{#if isDescriptionTruncated}
+					<button 
+						class="btn btn-xs btn-ghost mt-1" 
+						onclick={toggleDescription}
+					>
+						{showFullDescription ? $t('dashboard.task_details_by_task.show_less') : $t('dashboard.task_details_by_task.show_more')}
+					</button>
+				{/if}
 			{:else}
 				<p class="text-base-content/70 line-clamp-2">{$t('profile.noDescription')}</p>
 			{/if}
@@ -140,7 +233,7 @@
 											</div>
 										</div>
 										<div>
-											<p class="font-medium">{review.from?.name ?? 'Anonymous'}</p>
+											<p class="font-medium">{getUserDisplayName(review.from, '')}</p>
 											<p class="text-base-content/70 text-xs">{formatDate(review.date)}</p>
 										</div>
 									</div>

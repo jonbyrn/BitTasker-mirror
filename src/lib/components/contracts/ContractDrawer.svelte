@@ -13,6 +13,7 @@
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
 	import { contractUpdateStore } from '$lib/utils/wallet/escrowEvents';
 	import { getUserContracts } from '$lib/utils/nostr-bid';
+	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	const { contract, isOpen, btcPrice, onClose, onUpdate } = $props<{
 		contract: ContractWithEvents | null;
@@ -72,6 +73,7 @@
 
 	// Taskee profile state
 	let taskeeProfile = $state<{
+		username?: string;
 		name?: string;
 		picture?: string;
 		createdAt?: string;
@@ -350,7 +352,7 @@
 												class="avatar placeholder text-neutral-content bg-primary flex items-center justify-center overflow-hidden rounded-full text-center h-10 w-10"
 											>
 												<span class="text-sm font-semibold">
-													{(taskeeProfile?.name || 'A').charAt(0).toUpperCase()}
+													{(getUserDisplayName(taskeeProfile) || 'A').charAt(0).toUpperCase()}
 												</span>
 											</div>
 										{/if}
@@ -361,8 +363,7 @@
 									<span class="text-sm font-medium truncate">
 										{isLoadingTaskeeProfile
 											? 'Loading...'
-											: taskeeProfile?.name ||
-												$t('dashboard.contracts.anonymous')}
+											: getUserDisplayName(taskeeProfile)}
 									</span>
 
 									<!-- Review Stars -->

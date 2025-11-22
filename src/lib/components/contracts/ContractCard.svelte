@@ -2,8 +2,10 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
+	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	type UserProfile = {
+		username?: string;
 		name?: string;
 		picture?: string;
 		createdAt?: string;
@@ -226,7 +228,7 @@
 								class="avatar placeholder text-neutral-content bg-primary flex items-center justify-center overflow-hidden rounded-full text-center h-6 w-6"
 							>
 								<span class="text-xs font-semibold">
-									{(userProfile?.name || 'A').charAt(0).toUpperCase()}
+									{(getUserDisplayName(userProfile) || 'A').charAt(0).toUpperCase()}
 								</span>
 							</div>
 						{/if}
@@ -240,8 +242,7 @@
 					<span class="text-sm font-medium truncate">
 						{isLoadingUserProfile
 							? 'Loading...'
-							: userProfile?.name ||
-								$t('dashboard.contracts.anonymous')}
+							: getUserDisplayName(userProfile)}
 					</span>
 
 					<!-- Review Stars -->

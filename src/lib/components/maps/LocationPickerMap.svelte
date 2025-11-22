@@ -57,8 +57,40 @@
 				// Check if script is already being loaded
 				const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
 				if (existingScript) {
+					// Check if script is already loaded
+					if (existingScript.getAttribute('data-loaded') === 'true' || window.google?.maps?.Map) {
+						// Script already loaded, just wait a bit for it to be ready
+						setTimeout(() => {
+							if (window.google?.maps?.Map) {
+								scriptLoaded = true;
+								googleMapsReady = true;
+								resolve();
+							} else {
+								// Wait a bit more and try again
+								const checkInterval = setInterval(() => {
+									if (window.google?.maps?.Map) {
+										clearInterval(checkInterval);
+										scriptLoaded = true;
+										googleMapsReady = true;
+										resolve();
+									}
+								}, 100);
+								
+								// Timeout after 5 seconds
+								setTimeout(() => {
+									clearInterval(checkInterval);
+									if (!window.google?.maps?.Map) {
+										reject(new Error('Google Maps API not initialized'));
+									}
+								}, 5000);
+							}
+						}, 500);
+						return;
+					}
+					
 					// Wait for existing script to load
 					existingScript.addEventListener('load', () => {
+						existingScript.setAttribute('data-loaded', 'true');
 						setTimeout(() => {
 							if (window.google?.maps?.Map) {
 								scriptLoaded = true;
@@ -79,13 +111,29 @@
 				script.defer = true;
 
 				script.onload = () => {
+					script.setAttribute('data-loaded', 'true');
 					scriptLoaded = true;
 					setTimeout(() => {
 						if (window.google?.maps?.Map) {
 							googleMapsReady = true;
 							resolve();
 						} else {
-							reject(new Error('Google Maps API not initialized'));
+							// Wait a bit more and try again
+							const checkInterval = setInterval(() => {
+								if (window.google?.maps?.Map) {
+									clearInterval(checkInterval);
+									googleMapsReady = true;
+									resolve();
+								}
+							}, 100);
+							
+							// Timeout after 5 seconds
+							setTimeout(() => {
+								clearInterval(checkInterval);
+								if (!window.google?.maps?.Map) {
+									reject(new Error('Google Maps API not initialized'));
+								}
+							}, 5000);
 						}
 					}, 500);
 					return;
@@ -178,10 +226,26 @@
 		try {
 			const { AdvancedMarkerElement } = markerLibrary;
 
-			// Create marker
+			// Crear un contenedor personalizado para el marcador
+			const markerContainer = document.createElement('div');
+			markerContainer.style.position = 'relative';
+			markerContainer.style.cursor = allowPinDrop ? 'grab' : 'pointer';
+
+			// Usar la imagen personalizada
+			const img = document.createElement('img');
+			img.src = '/map-pin.png';
+			img.style.width = '3.5rem';
+			img.style.height = '3.5rem';
+			img.style.display = 'block';
+			img.style.borderRadius = '50%';
+
+			markerContainer.appendChild(img);
+
+			// Create marker with custom content
 			marker = new AdvancedMarkerElement({
 				position,
 				map,
+				content: markerContainer,
 				gmpDraggable: allowPinDrop
 			});
 
@@ -290,7 +354,16 @@
 		try {
 			// Only proceed if Google Maps is ready and mapElement exists
 			if (!googleMapsReady) {
-				throw new Error('Google Maps not ready');
+				// Don't throw error immediately, wait a bit more
+				setTimeout(() => {
+					if (!googleMapsReady) {
+						console.warn('Google Maps not ready after waiting');
+						error = 'Google Maps API not initialized';
+						hasError = true;
+						isLoading = false;
+					}
+				}, 2000);
+				return;
 			}
 			
 			if (!mapElement) {
@@ -299,6 +372,8 @@
 
 			await initMap();
 			isMapLoaded = true;
+			hasError = false; // Clear any previous errors
+			error = '';
 			
 			// Hide loading after everything is ready
 			setTimeout(() => {
@@ -363,7 +438,11 @@
 			
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
-			error = err instanceof Error ? err.message : 'Error loading Google Maps';
+			// Only show error if it's a real failure, not just initialization delay
+			if (err instanceof Error && err.message.includes('Failed to load')) {
+				error = err.message;
+				hasError = true;
+			}
 			isLoading = false;
 		}
 	});

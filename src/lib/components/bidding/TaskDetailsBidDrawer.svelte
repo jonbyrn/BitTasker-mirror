@@ -10,6 +10,7 @@
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -92,9 +93,15 @@
 			unsubscribe(); // Immediately unsubscribe after getting the current value
 
 			if (userData) {
+				// Prioritize username over name for display
+				const displayName = getUserDisplayName(
+					{ username: userData.username, name: userData.name || userData.displayName },
+					''
+				);
+				
 				loggedInUser = {
 					id: userData.npub || userData.id?.toString() || '',
-					name: userData.name || userData.displayName || userData.username || '',
+					name: displayName,
 					avatar: userData.picture || ''
 				};
 			}

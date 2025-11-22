@@ -670,7 +670,7 @@ class LocalNotificationService {
 		// Determine navigation URL based on message content
 		let navigationUrl = '/dashboard/messages';
 		if ('taskId' in jsonMessage && jsonMessage.taskId) {
-			navigationUrl = `/dashboard/task/${jsonMessage.taskId}/messages`;
+			navigationUrl = `/tasks/${jsonMessage.taskId}`;
 		} else if ('contractId' in jsonMessage && jsonMessage.contractId) {
 			navigationUrl = `/dashboard/contracts/${jsonMessage.contractId}/messages`;
 		}
@@ -711,7 +711,7 @@ class LocalNotificationService {
 		// Create proper navigation URL based on notification type
 		const navigationUrl = userRole === 'taskee' 
 			? `/dashboard/bids/${message.bidId}` // Taskee goes to specific bid page
-			: `/dashboard/task/${message.taskId}/bids`; // Tasker goes to bids page
+			: `/tasks/${message.taskId}`; // Tasker goes to task page
 
 		// Create translation keys based on user role and status
 		let titleKey: string;
@@ -877,7 +877,7 @@ class LocalNotificationService {
 
 		// Create proper navigation URL based on notification type
 		const navigationUrl = userRole === 'tasker' 
-			? `/dashboard/task/${message.taskId}/bids` // Tasker goes to bids page
+			? `/tasks/${message.taskId}` // Tasker goes to task page
 			: `/dashboard/bids/${message.bidId}`; // Taskee goes to specific bid page
 
 		// Create translation keys based on user role

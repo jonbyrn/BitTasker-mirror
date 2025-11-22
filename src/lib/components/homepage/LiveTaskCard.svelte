@@ -8,7 +8,9 @@
 
 	// Handle click to navigate to task details
 	const handleTaskClick = () => {
-		window.location.href = `/tasks/task/${task.id}`;
+		// Use uniqueId if available, fallback to id for backward compatibility
+		const taskIdentifier = (task as any).uniqueId || task.id;
+		window.location.href = `/tasks/${taskIdentifier}`;
 	};
 
 	// Handle keyboard events for accessibility

@@ -2,21 +2,15 @@
 	import type { Location } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { Geolocation } from '@capacitor/geolocation';
-	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
-    import { t } from 'svelte-i18n';
-    import { Capacitor } from '@capacitor/core';
-    import { tick } from 'svelte';
+	import { t } from 'svelte-i18n';
+	import { Capacitor } from '@capacitor/core';
+	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 	import IconCheck from '~icons/mdi/check-circle-outline';
 
 	let { nextStep, prevStep, currentStep, totalSteps } = $props();
 
 	// State
-	let map: google.maps.Map | null = null;
-	let mapElement: HTMLElement;
-	let searchInput: HTMLInputElement;
-	let marker: google.maps.marker.AdvancedMarkerElement | null = null;
-	let circle: google.maps.Circle | null = null;
 	let serviceRadius = $state(10); // Default to 10 km
 	let location = $state<Location>({
 		displayName: '',
@@ -26,601 +20,198 @@
 		locationLoaded: false
 	});
 	let isLoading = $state(false);
-	let isMapLoaded = $state(false);
-	let hasError = $state(false);
-	let error = $state('');
-	let predictions = $state<(google.maps.places.PlacePrediction | null)[]>([]);
-	let showOptions = $state(false);
-	let scriptLoaded = $state(false);
-	let googleMapsReady = $state(false);
-	let isFullscreen = $state(false);
-	let toggleRadius = $state(false);
-	let mapContainerDiv: HTMLElement | null = $state(null);
-	let initRetryCount = $state(0);
-	let maxRetries = 3;
+	let isGettingLocation = $state(false);
+	let radiusPanelCollapsed = $state(false); // Para mobile, colapsar por defecto
+	let locationError = $state<string | null>(null);
 
-	// Function to dynamically load Google Maps script
-	async function loadGoogleMapsScript() {
-		return new Promise<void>((resolve, reject) => {
-			try {
-				// Check if script is already loaded and API is available
-				if (window.google?.maps?.Map) {
-					scriptLoaded = true;
-					googleMapsReady = true;
-					resolve();
-					return;
+	// Función mejorada para obtener ubicación del usuario
+	// Siempre solicita permisos de nuevo
+	async function getUserLocation() {
+		try {
+			isGettingLocation = true;
+			const isNative = Capacitor.isNativePlatform();
+
+			let lat: number | null = null;
+			let lng: number | null = null;
+
+			if (isNative) {
+				// Native (iOS/Android): siempre solicitar permisos explícitamente
+				try {
+					// Siempre solicitar permisos de nuevo, incluso si ya están otorgados
+					// Esto asegura que el usuario vea el diálogo si los había bloqueado
+					const requestResult = await Geolocation.requestPermissions();
+					if (requestResult.location !== 'granted') {
+						throw new Error('Location permission denied');
+					}
+
+					// Obtener posición actual
+					const position = await Geolocation.getCurrentPosition({
+						enableHighAccuracy: true,
+						timeout: 15000
+					});
+					lat = position.coords.latitude;
+					lng = position.coords.longitude;
+				} catch (error) {
+					console.warn('Error getting native location:', error);
+					throw error;
 				}
-
-				const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-				const script = document.createElement('script');
-				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places,marker&loading=async`;
-				script.async = true;
-				script.defer = true;
-
-				script.onload = () => {
-					scriptLoaded = true;
-					// Add a small delay to ensure Google Maps API is fully initialized
-					setTimeout(() => {
-						// Check if the API is actually available
-						if (window.google?.maps?.Map) {
-							googleMapsReady = true;
-							resolve();
-						} else {
-							reject(new Error($t('onboarding_auth.form.google_maps_api_not_initialized')));
+			} else if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+				// Web: llamar directamente a getCurrentPosition
+				// El navegador mostrará automáticamente el diálogo de permisos si están en estado "prompt"
+				// Si están bloqueados, mostrará un error claro
+				const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+					navigator.geolocation.getCurrentPosition(
+						resolve,
+						(error) => {
+							// Si el error es de permisos denegados, dar un mensaje más claro
+							if (error.code === error.PERMISSION_DENIED) {
+								reject(new Error('Location permission denied. Please enable location access in your browser settings and try again.'));
+							} else {
+								reject(error);
+							}
+						},
+						{
+							enableHighAccuracy: true,
+							timeout: 15000,
+							maximumAge: 0 // No usar caché, siempre obtener nueva ubicación
 						}
-					}, 500);
-				};
-
-				script.onerror = () => {
-					reject(new Error($t('onboarding_auth.form.google_maps_script_failed_load')));
-				};
-
-				document.head.appendChild(script);
-			} catch (error) {
-				reject(error);
+					);
+				});
+				lat = position.coords.latitude;
+				lng = position.coords.longitude;
+			} else {
+				throw new Error('Geolocation is not supported in this environment');
 			}
-		});
-	}
 
-	async function initMap() {
-		if (!googleMapsReady || !window.google?.maps?.Map) {
-			throw new Error($t('onboarding_auth.form.google_maps_not_fully_loaded'));
-		}
-
-		try {
-			// Initialize Google Maps
-			map = new google.maps.Map(mapElement, {
-				center: { lat: location.latitude!, lng: location.longitude! },
-				zoom: 12,
-				mapTypeId: google.maps.MapTypeId.ROADMAP,
-				mapTypeControl: false,
-				fullscreenControl: false,
-				streetViewControl: false,
-				mapId: import.meta.env.PROD ? import.meta.env.VITE_GOOGLE_MAPS_ID : 'DEMO_MAP_ID' // Required for AdvancedMarkerElement
-			});
-
-			// Add map click event to place marker
-			map.addListener('click', (event: google.maps.MapMouseEvent) => {
-				const clickedLat = event.latLng?.lat();
-				const clickedLng = event.latLng?.lng();
-				if (clickedLat && clickedLng) {
-					updateLocationWithCoordinates(clickedLat, clickedLng);
+			// Si tenemos coordenadas, actualizar la ubicación
+			if (lat !== null && lng !== null) {
+				// Intentar usar reverse geocoding para obtener el nombre
+				let displayName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+				
+				try {
+					// Si Google Maps está disponible, usar reverse geocoding
+					if (window.google?.maps) {
+						const { Geocoder } = (await google.maps.importLibrary('geocoding')) as google.maps.GeocodingLibrary;
+						const geocoder = new Geocoder();
+						const result = await geocoder.geocode({ location: { lat, lng } });
+						
+						if (result.results && result.results.length > 0) {
+							displayName = result.results[0].formatted_address;
+						}
+					}
+				} catch (geocodeError) {
+					console.warn('Error in reverse geocoding, using coordinates:', geocodeError);
+					// Continuar con coordenadas si falla el geocoding
 				}
-			});
-		} catch (error) {
-			console.error('Error initializing Google Maps:', error);
-			throw error;
-		}
-	}
 
-    async function getUserLocation() {
-		try {
-			isLoading = true;
-            const isNative = Capacitor.isNativePlatform();
+				// Actualizar ubicación
+				const newLocation: Location = {
+					displayName,
+					latitude: lat,
+					longitude: lng,
+					zipCode: '',
+					locationLoaded: true
+				};
 
-            let lat: number | null = null;
-            let lng: number | null = null;
-
-            if (isNative) {
-                // Native (iOS/Android): manage permissions explicitly
-                const permissionStatus = await Geolocation.checkPermissions();
-                if (permissionStatus.location !== 'granted') {
-                    await Geolocation.requestPermissions();
-                }
-
-                const position = await Geolocation.getCurrentPosition({
-                    enableHighAccuracy: true,
-                    timeout: 10000
-                });
-                lat = position.coords.latitude;
-                lng = position.coords.longitude;
-            } else if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-                // Web: browsers prompt implicitly on first call
-                const position = await new Promise<GeolocationPosition>((resolve, reject) =>
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 10000
-                    })
-                );
-                lat = position.coords.latitude;
-                lng = position.coords.longitude;
-            } else {
-                throw new Error('Geolocation is not supported in this environment');
-            }
-
-			// Update map and marker
-            if (lat !== null && lng !== null) {
-                updateLocationWithCoordinates(lat, lng);
-            } else {
-                throw new Error('Failed to read geolocation coordinates');
-            }
-		} catch (error) {
-			// Silently use default location if geolocation fails
-			// Don't show error since we already have a default location set
-			if (map && googleMapsReady) {
-				createMarkerAndCircle(location.latitude!, location.longitude!);
+				// Actualizar estado y notificar al componente hijo
+				location = newLocation;
+				locationError = null; // Limpiar error si se obtuvo la ubicación exitosamente
+				handleLocationSelect(newLocation);
+			} else {
+				throw new Error('Failed to read geolocation coordinates');
 			}
+		} catch (error) {
+			console.warn('Error getting user location:', error);
+			// Mostrar mensaje de error si es de permisos denegados
+			if (error instanceof Error && error.message.includes('permission')) {
+				locationError = $t('onboarding_auth.form.location_setup.errors.permission_denied') || 
+					'Location permission denied. Please enable location access in your browser settings and try again.';
+			} else {
+				locationError = null; // No mostrar error para otros tipos de errores
+			}
+			// El usuario puede seguir usando la búsqueda manual
 		} finally {
-			isLoading = false;
+			isGettingLocation = false;
 		}
 	}
 
-	async function tryInitMap() {
+	// Manejar selección de ubicación desde LocationAutoComplete
+	function handleLocationSelect(selectedLocation: Location) {
+		location = {
+			...selectedLocation,
+			locationLoaded: true
+		};
+		// Limpiar error si había uno
+		locationError = null;
+	}
+
+	// Cargar ubicación guardada al montar
+	onMount(async () => {
 		try {
-			if (initRetryCount >= maxRetries) {
-				// If map fails after retries, use default location silently
-				// Don't show error since we have a default location
-				console.warn('Google Maps failed to load after retries, using default location');
-				isMapLoaded = false;
-				hasError = false; // Don't show error if we have default location
-				if (!location.displayName) {
-					location.displayName = 'Ubicación por defecto'; // Default location name
-				}
-				location.locationLoaded = true; // Allow user to proceed
-				return;
-			}
-
-			// Only proceed if Google Maps is ready
-			if (!googleMapsReady) {
-				initRetryCount++;
-				// Wait a bit and try again
-				setTimeout(tryInitMap, 1000);
-				return;
-			}
-
-			await initMap();
-			isMapLoaded = true;
-			hasError = false;
-
-			// Always create marker and circle with default location first (if map is ready)
-			if (map && googleMapsReady) {
-				createMarkerAndCircle(location.latitude!, location.longitude!);
-			}
-
-			// Then try to get saved location or user's geolocation
+			// Intentar cargar ubicación guardada
 			const savedLocation = await getLatestLocation();
 			if (savedLocation) {
 				location = savedLocation;
-				createMarkerAndCircle(savedLocation.latitude!, savedLocation.longitude!);
 			} else {
-				// Try to get user's geolocation (will fallback to default if it fails)
-				getUserLocation();
+				// Si no hay ubicación guardada, usar ubicación por defecto
+				location = {
+					displayName: $t('onboarding_auth.form.location_setup.default_location'),
+					latitude: 13.6929,
+					longitude: -89.2182,
+					zipCode: '',
+					locationLoaded: true // Marcar como cargado para que el usuario pueda continuar
+				};
 			}
-		} catch (err) {
-			// Always use default location if map initialization fails
-			console.warn('Error initializing map, using default location:', err);
-			hasError = false; // Never show error if we have default location
-			isMapLoaded = false;
-			if (!location.displayName) {
-				location.displayName = 'Ubicación por defecto'; // Default location name
-			}
-			location.locationLoaded = true; // Allow user to proceed with default location
-			
-			// Only try to create marker if map is actually initialized
-			if (map && googleMapsReady && window.google?.maps) {
-				try {
-					createMarkerAndCircle(location.latitude!, location.longitude!);
-					isMapLoaded = true;
-				} catch (markerError) {
-					console.warn('Could not create marker, but default location is set:', markerError);
-				}
-			}
-		}
-	}
-
-	onMount(async () => {
-		try {
-			isLoading = true;
-			hasError = false; // Reset error state
-
-			// Load Google Maps API dynamically if not already loaded
-			try {
-				await loadGoogleMapsScript();
-				// Try to initialize the map
-				await tryInitMap();
-			} catch (mapError) {
-				// If Google Maps fails to load, use default location silently
-				console.warn('Google Maps could not be loaded, using default location:', mapError);
-				// Since we have a default location, we don't show the error
-				// Mark as "loaded" so user can continue
-				hasError = false;
-				isMapLoaded = false; // Map didn't load, but that's okay
-				// Ensure location is marked as loaded so user can proceed
-				if (!location.displayName) {
-					location.displayName = 'Ubicación por defecto'; // Default location name
-				}
-				location.locationLoaded = true;
-			}
-		} catch (err) {
-			// Fallback: always use default location if everything fails
-			console.warn('Error in map initialization, using default location:', err);
-			hasError = false;
-			isMapLoaded = false;
-			if (!location.displayName) {
-				location.displayName = 'Ubicación por defecto'; // Default location name
-			}
-			location.locationLoaded = true; // Allow user to proceed with default location
-		} finally {
-			isLoading = false;
+		} catch (error) {
+			console.warn('Error loading saved location:', error);
+			// Usar ubicación por defecto en caso de error
+			location = {
+				displayName: $t('onboarding_auth.form.location_setup.default_location'),
+				latitude: 13.6929,
+				longitude: -89.2182,
+				zipCode: '',
+				locationLoaded: true
+			};
 		}
 	});
-
-	async function updateLocationWithCoordinates(lat: number, lng: number) {
-		try {
-			// Update marker and circle
-			createMarkerAndCircle(lat, lng);
-
-			// Reverse geocode to get address
-			if (googleMapsReady && window.google?.maps) {
-				const { Geocoder } = (await google.maps.importLibrary(
-					'geocoding'
-				)) as google.maps.GeocodingLibrary;
-				const geocoder = new Geocoder();
-
-				const result = await geocoder.geocode({
-					location: { lat, lng }
-				});
-
-				if (result.results[0]) {
-					const addressComponents = result.results[0].address_components;
-					const zipCode =
-						addressComponents.find((component) => component.types.includes('postal_code'))
-							?.short_name || '';
-
-					// Update location state
-					location = {
-						...location,
-						displayName: result.results[0].formatted_address,
-						latitude: lat,
-						longitude: lng,
-						zipCode,
-						locationLoaded: true
-					};
-				}
-			}
-		} catch (err: unknown) {
-			console.error('Error updating location:', err);
-			error =
-				err instanceof Error ? err.message : $t('onboarding_auth.form.error_updating_location');
-		}
-	}
-
-	async function createMarkerAndCircle(lat: number, lng: number) {
-		if (!map || !googleMapsReady || !window.google?.maps) return;
-
-		const position = { lat, lng };
-
-		// Remove existing marker and circle
-		if (marker) marker.map = null;
-		if (circle) circle.setMap(null);
-
-		try {
-			// Import the marker library
-			const { AdvancedMarkerElement } = (await google.maps.importLibrary(
-				'marker'
-			)) as google.maps.MarkerLibrary;
-
-			// Create new advanced marker
-			marker = new AdvancedMarkerElement({
-				position,
-				map,
-				gmpDraggable: true
-			});
-
-			// Create circle for service radius
-			circle = new google.maps.Circle({
-				strokeColor: '#F7931A',
-				strokeOpacity: 0.8,
-				strokeWeight: 2,
-				fillColor: '#F7931A',
-				fillOpacity: 0.2,
-				map,
-				center: position,
-				radius: serviceRadius * 1000 // Convert km to meters
-			});
-
-			// Add drag event to marker
-			marker.addListener('dragend', () => {
-				const position = marker?.position;
-				if (position) {
-					const newLat = typeof position.lat === 'function' ? position.lat() : position.lat;
-					const newLng = typeof position.lng === 'function' ? position.lng() : position.lng;
-					if (newLat && newLng) {
-						// Update circle position
-						if (circle) circle.setCenter({ lat: newLat, lng: newLng });
-						// Update location data
-						updateLocationWithCoordinates(newLat, newLng);
-					}
-				}
-			});
-
-			// Pan map to new location
-			map.panTo(position);
-		} catch (error) {
-			console.error('Error creating advanced marker:', error);
-		}
-	}
-
-	// Handle service radius change
-	function updateServiceRadius() {
-		if (circle) {
-			circle.setRadius(serviceRadius * 1000); // Convert km to meters
-		}
-	}
-
-	// Place search functionality
-	async function getPredictions() {
-		if (!googleMapsReady || !window.google?.maps) {
-			hasError = true;
-			return;
-		}
-
-		try {
-			if (!searchInput.value) {
-				showOptions = false;
-				return;
-			}
-
-			isLoading = true;
-			const { AutocompleteSessionToken, AutocompleteSuggestion } = (await google.maps.importLibrary(
-				'places'
-			)) as google.maps.PlacesLibrary;
-
-			const token = new AutocompleteSessionToken();
-
-			const request = {
-				input: searchInput.value,
-				language: 'en-US',
-				sessionToken: token
-			};
-
-			const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
-			predictions = suggestions.map((suggestion) => suggestion.placePrediction);
-			showOptions = true;
-		} catch (error) {
-			hasError = true;
-			console.error('Failed to get predictions:', error);
-		} finally {
-			isLoading = false;
-		}
-	}
-
-	// Debounce function for search input
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
-		let timeoutId: ReturnType<typeof setTimeout>;
-		return function (...args: Parameters<T>) {
-			clearTimeout(timeoutId);
-			timeoutId = setTimeout(() => fn.apply(null, args), delay);
-		};
-	}
-
-	async function selectPrediction(prediction: google.maps.places.PlacePrediction) {
-		if (!googleMapsReady || !window.google?.maps) return;
-
-		let place = prediction.toPlace();
-		await place.fetchFields({
-			fields: ['displayName', 'formattedAddress', 'location']
-		});
-
-		const displayName = place.displayName;
-		const lat = place.location?.lat();
-		const lng = place.location?.lng();
-
-		if (!displayName || !lat || !lng) return;
-
-		// Update location
-		updateLocationWithCoordinates(lat, lng);
-
-		// Clear predictions
-		showOptions = false;
-		searchInput.value = displayName;
-	}
-
-	// Fullscreen functionality
-	async function toggleFullscreen() {
-		if (isFullscreen) {
-			await exitFullscreen();
-		} else {
-			await enterFullscreen();
-		}
-	}
-
-    let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
-    let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
-
-    async function enterFullscreen() {
-		isFullscreen = true;
-
-		try {
-			// Try to use Capacitor's native fullscreen if available
-			await ScreenOrientation.lock({ orientation: 'portrait' });
-		} catch (error) {
-			console.log('Using fallback fullscreen method - Capacitor ScreenOrientation not available');
-		}
-
-		// Store original dimensions for restoring later
-        if (mapContainerDiv) {
-			// Apply fullscreen styles
-			mapContainerDiv.style.position = 'fixed';
-			mapContainerDiv.style.top = '0';
-			mapContainerDiv.style.left = '0';
-			mapContainerDiv.style.width = '100vw';
-			mapContainerDiv.style.height = '100vh';
-			mapContainerDiv.style.zIndex = '100'; // Lower z-index so controls stay on top
-			mapContainerDiv.style.backgroundColor = 'white';
-			mapContainerDiv.style.overflow = 'hidden';
-		}
-
-        // Ensure inner map element fills the fullscreen container
-        if (mapElement) {
-            mapElement.style.width = '100%';
-            mapElement.style.height = '100%';
-            mapElement.style.minHeight = '100vh';
-            mapElement.style.borderRadius = '0';
-        }
-
-        // Await DOM flush, then trigger Google Maps resize and re-center
-        await tick();
-        if (map) {
-            google.maps.event.trigger(map, 'resize');
-            if (marker && marker.position) {
-                const position = marker.position;
-                const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
-                const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
-                if (lat && lng) {
-                    map.setCenter({ lat, lng });
-                }
-            }
-            // Force a redraw by toggling zoom
-            const currentZoom = map.getZoom();
-            if (typeof currentZoom === 'number') {
-                map.setZoom(currentZoom);
-            }
-        }
-
-        // Keep size in sync when device UI chrome changes (mobile) or orientation changes
-        fullscreenResizeHandler = () => {
-            if (mapElement) {
-                mapElement.style.height = '100%';
-                mapElement.style.minHeight = '100vh';
-            }
-            if (map) {
-                google.maps.event.trigger(map, 'resize');
-            }
-        };
-        window.addEventListener('resize', fullscreenResizeHandler);
-
-        // Enable ESC to exit fullscreen
-        escKeyHandler = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                exitFullscreen();
-            }
-        };
-        window.addEventListener('keydown', escKeyHandler);
-	}
-
-    async function exitFullscreen() {
-		isFullscreen = false;
-
-		try {
-			// Release orientation lock if we used Capacitor
-			await ScreenOrientation.unlock();
-		} catch (error) {
-			console.log('Capacitor ScreenOrientation not available');
-		}
-
-		// Restore original CSS styles
-        if (mapContainerDiv) {
-			mapContainerDiv.style.position = 'relative';
-			mapContainerDiv.style.top = 'auto';
-			mapContainerDiv.style.left = 'auto';
-			mapContainerDiv.style.width = '100%';
-			mapContainerDiv.style.height = 'auto';
-			mapContainerDiv.style.zIndex = 'auto';
-			mapContainerDiv.style.backgroundColor = 'transparent';
-			mapContainerDiv.style.overflow = 'visible';
-		}
-
-        // Restore map element size
-        if (mapElement) {
-            mapElement.style.width = '100%';
-            mapElement.style.height = '';
-            mapElement.style.minHeight = '24rem'; // 96px = 24rem
-            mapElement.style.borderRadius = '0.5rem'; // rounded-lg
-        }
-
-        // Remove resize listener if present
-        if (fullscreenResizeHandler) {
-            window.removeEventListener('resize', fullscreenResizeHandler);
-            fullscreenResizeHandler = null;
-        }
-
-        if (escKeyHandler) {
-            window.removeEventListener('keydown', escKeyHandler);
-            escKeyHandler = null;
-        }
-
-		// Trigger resize to update map
-        await tick();
-        if (map) {
-            google.maps.event.trigger(map, 'resize');
-            if (marker && marker.position) {
-                const position = marker.position;
-                const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
-                const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
-                if (lat && lng) {
-                    map.setCenter({ lat, lng });
-                }
-            }
-            const currentZoom = map.getZoom();
-            if (typeof currentZoom === 'number') {
-                map.setZoom(currentZoom);
-            }
-        }
-	}
 
 	async function handleSubmit() {
 		try {
 			isLoading = true;
 
-			// Always allow user to proceed with default location if map didn't load
-			if (!isMapLoaded) {
-				console.log('Map not loaded, proceeding with default location');
-				// Use default location
+			// Asegurar que tenemos coordenadas válidas
+			if (!location.latitude || !location.longitude) {
+				// Fallback a ubicación por defecto
+				location = {
+					displayName: $t('onboarding_auth.form.location_setup.default_location'),
+					latitude: 13.6929,
+					longitude: -89.2182,
+					zipCode: '',
+					locationLoaded: true
+				};
+			}
+
+			// Marcar como cargado si no lo está
+			if (!location.locationLoaded) {
 				location.locationLoaded = true;
 			}
 
-			// Ensure we have valid coordinates (should always have default location)
-			if (location.latitude === null || location.longitude === null) {
-				// Fallback to default location
-				location.latitude = 13.6929;
-				location.longitude = -89.2182;
-				if (!location.displayName) {
-					location.displayName = 'Ubicación por defecto'; // Default location name
-				}
-				location.locationLoaded = true;
+			// Intentar publicar ubicación a Nostr
+			try {
+				await publishLocation(location);
+			} catch (publishError) {
+				// Si falla la publicación, continuar de todas formas
+				console.warn('Could not publish location, but continuing:', publishError);
 			}
 
-			// Try to publish location to Nostr (if map was loaded and user selected a location)
-			if (location.locationLoaded) {
-				try {
-					await publishLocation(location);
-				} catch (publishError) {
-					// If publishing fails, still allow user to continue
-					console.warn('Could not publish location, but continuing:', publishError);
-				}
-			}
-
-			// Go to next step
+			// Continuar al siguiente paso
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Error saving location:', err);
-			// Even on error, allow user to proceed with default location
+			// Incluso con error, permitir continuar con ubicación por defecto
 			if (location.latitude && location.longitude) {
 				location.locationLoaded = true;
 				nextStep();
-			} else {
-				error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_saving_location');
 			}
 		} finally {
 			isLoading = false;
@@ -663,137 +254,61 @@
 			<p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.location_setup.find_tasks')}</p>
 		</div>
 	</div>
-	<!-- Constrained Map Wrapper -->
+
+	<!-- Location Search and Map -->
 	<div class="mx-auto w-full max-w-xl">
-		<!-- Map Container -->
-		<div class="map-container relative w-full">
-			<!-- Search bar - using fixed positioning when in fullscreen mode -->
-			<div
-				class={isFullscreen
-					? 'fixed top-6 left-6 right-6 z-1000'
-					: 'absolute top-4 right-0 left-0 z-10 px-4'}
-			>
-                {#if isFullscreen}
-                <div class="pointer-events-auto mb-4 flex w-full items-center justify-center">
-                    <button class="btn btn-md bg-base-100/90 shadow-md border-none text-base-content hover:bg-base-100/90 hover:opacity-100" onclick={exitFullscreen}>
-                        {$t('onboarding_auth.form.exit_fullscreen')}
-                    </button>
-                </div>
-                {/if}
-				<div class="form-control relative w-full">
-					<div class="flex gap-2">
-						<input
-							bind:this={searchInput}
-							type="text"
-							placeholder={$t('onboarding_auth.form.search_location')}
-							oninput={getPredictions}
-							onfocus={() => (showOptions = true)}
-							class="input input-bordered flex-1 mb-2"
-						/>
-						<button
-							aria-label={$t('onboarding_auth.form.use_my_location')}
-							onclick={getUserLocation}
-							class="btn btn-square btn-secondary"
-							disabled={isLoading}
-							title={$t('onboarding_auth.form.use_my_location')}
+		<!-- Location AutoComplete Component -->
+		<div class="mb-4">
+			<LocationAutoComplete
+				placeholder={$t('onboarding_auth.form.search_location')}
+				{location}
+				onLocationSelect={handleLocationSelect}
+				showMap={true}
+				mapHeight="400px"
+				searchRadius={serviceRadius}
+			/>
+
+			<!-- Botón "Mi Ubicación" -->
+			<div class="mt-4 flex flex-col items-center gap-2">
+				<button
+					aria-label={$t('onboarding_auth.form.use_my_location')}
+					onclick={getUserLocation}
+					class="btn btn-secondary"
+					disabled={isGettingLocation}
+					title={$t('onboarding_auth.form.use_my_location')}
+				>
+					{#if isGettingLocation}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<img src="/map-pin.png" alt="Location pin" class="h-5 w-5" />
+					{/if}
+					<span class="ml-2">{$t('onboarding_auth.form.use_my_location')}</span>
+				</button>
+				{#if locationError}
+					<div class="alert alert-warning alert-outline max-w-md">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
+							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
-							>
-								<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-								<circle cx="12" cy="10" r="3" />
-							</svg>
-						</button>
-						
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
+						</svg>
+						<span class="text-sm">{locationError}</span>
 					</div>
-
-					{#if isLoading}
-						<div class="absolute top-1/2 right-20 -translate-y-1/2">
-							<span class="loading loading-spinner loading-sm"></span>
-						</div>
-					{/if}
-
-					{#if showOptions}
-						<div
-							class="predictions-dropdown bg-base-100 absolute z-1000 mt-2 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg border border-base-300"
-						>
-							{#if predictions.length > 0}
-								{#each predictions as prediction}
-									<button
-										class="hover:bg-base-200 w-full cursor-pointer px-4 py-3 text-left border-b border-base-200 last:border-b-0"
-										onclick={() => selectPrediction(prediction!)}
-									>
-										{prediction?.text}
-									</button>
-								{/each}
-							{:else}
-								<div class="text-error px-4 py-3">{$t('onboarding_auth.form.no_places_found')}</div>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<!-- Map Container -->
-			<div bind:this={mapContainerDiv} class="map-container relative w-full">
-				<div bind:this={mapElement} class="h-full min-h-96 w-full overflow-hidden rounded-lg">
-					{#if !isMapLoaded}
-						<div class="bg-base-200 flex h-full min-h-96 w-full items-center justify-center">
-							<span class="loading loading-spinner loading-lg"></span>
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<!-- Fullscreen Button - using fixed positioning when in fullscreen mode -->
-			<button
-				onclick={toggleFullscreen}
-				class="{isFullscreen
-					? 'fixed bottom-4 left-4 z-1000'
-					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 shadow-md hover:bg-base-100"
-				aria-label={isFullscreen
-					? $t('onboarding_auth.form.exit_fullscreen')
-					: $t('onboarding_auth.form.enter_fullscreen')}
-				title={isFullscreen
-					? $t('onboarding_auth.form.exit_fullscreen')
-					: $t('onboarding_auth.form.enter_fullscreen')}
-			>
-				{#if isFullscreen}
-					<!-- Exit fullscreen icon - icono claro de salir -->
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 text-base-content"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-					>
-						<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-					</svg>
-				{:else}
-					<!-- Enter fullscreen icon - icono claro de entrar -->
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 text-base-content"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-					>
-						<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-					</svg>
 				{/if}
-			</button>
+			</div>
+		</div>
 
-			<!-- Service Radius Panel - mejor posicionado y espaciado -->
-			<div
-				class={isFullscreen
-					? 'fixed top-32 right-6 z-1000'
-					: 'absolute top-16 right-4 z-20'}
-			>
+		<!-- Service Radius Panel - Colapsable en mobile -->
+		<div class="mb-4">
+			<!-- Desktop: siempre visible -->
+			<div class="hidden md:block">
 				<div class="bg-base-100/95 rounded-lg p-4 shadow-lg border border-base-300">
 					<div class="mb-3 text-sm font-medium text-base-content">
 						{$t('onboarding_auth.form.location_setup.service_radius')}: {serviceRadius} {$t('onboarding_auth.form.location_setup.km')}
@@ -803,7 +318,6 @@
 						min="1"
 						max="50"
 						bind:value={serviceRadius}
-						onchange={updateServiceRadius}
 						class="range range-sm range-primary mb-2"
 					/>
 					<div class="flex justify-between text-xs text-base-content/70">
@@ -812,80 +326,56 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Mobile: colapsable -->
+			<div class="md:hidden">
+				<div class="collapse collapse-arrow bg-base-100/95 rounded-lg border border-base-300 shadow-lg">
+					<input
+						type="checkbox"
+						bind:checked={radiusPanelCollapsed}
+						class="peer"
+						aria-label={$t('onboarding_auth.form.location_setup.toggle_radius')}
+					/>
+					<div class="collapse-title font-medium text-base-content">
+						{$t('onboarding_auth.form.location_setup.service_radius')}: {serviceRadius} {$t('onboarding_auth.form.location_setup.km')}
+					</div>
+					<div class="collapse-content">
+						<input
+							type="range"
+							min="1"
+							max="50"
+							bind:value={serviceRadius}
+							class="range range-sm range-primary mb-2"
+						/>
+						<div class="flex justify-between text-xs text-base-content/70">
+							<span>1 {$t('onboarding_auth.form.location_setup.km')}</span>
+							<span>50 {$t('onboarding_auth.form.location_setup.km')}</span>
+						</div>
+					</div>
+				</div>
+			</div>
 		</div>
 
-		{#if error && hasError}
-			<div class="alert alert-error alert-outline mx-4 mt-4">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-					><path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/></svg
-				>
-				<span>{error}</span>
-			</div>
-		{/if}
-
+		<!-- Status Message -->
 		{#if location.locationLoaded}
-			<div class="alert alert-success alert-outline mt-4">
+			<div class="alert alert-success alert-outline">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
 					fill="none"
 					viewBox="0 0 24 24"
-					><path
+				>
+					<path
 						stroke-linecap="round"
 						stroke-linejoin="round"
 						stroke-width="2"
 						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/></svg
-				>
+					/>
+				</svg>
 				<span>
 					{$t('onboarding_auth.form.location_setup.location_set')}: 
 					{location.displayName || $t('onboarding_auth.form.location_setup.default_location')}
 				</span>
-			</div>
-		{/if}
-
-		<!-- Retry button for map loading issues - only show if there's a real error and no default location -->
-		{#if hasError && !isMapLoaded && (!location.latitude || !location.longitude)}
-			<div class="alert alert-warning alert-outline mx-4 mt-4">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-					><path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-					/></svg
-				>
-				<div>
-					<h3 class="font-bold">{$t('onboarding_auth.form.map_loading_failed')}</h3>
-					<div class="text-xs">{$t('onboarding_auth.form.try_reloading_the_map')}</div>
-				</div>
-				<button
-					class="btn btn-sm"
-					onclick={() => {
-						hasError = false;
-						initRetryCount = 0;
-						loadGoogleMapsScript().then(() => tryInitMap()).catch(() => {
-							// Silent fail, use default location
-							hasError = false;
-							location.locationLoaded = true;
-						});
-					}}
-				>
-					{$t('onboarding_auth.form.retry')}
-				</button>
 			</div>
 		{/if}
 	</div>
@@ -907,9 +397,3 @@
 		</button>
 	</div>
 </div>
-
-<style>
-	:global(.pac-container) {
-		z-index: 9999;
-	}
-</style>

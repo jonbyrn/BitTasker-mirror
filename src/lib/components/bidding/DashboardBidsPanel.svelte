@@ -219,7 +219,10 @@
 								<button
 									onclick={(e) => {
 										e.stopPropagation();
-										goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`);
+										// Use uniqueId if available, fallback to id/taskId for backward compatibility
+										const taskId = bid.bid.task?.id || bid.bid.taskId;
+										const taskIdentifier = (bid.bid.task as any)?.uniqueId || taskId;
+										goto(`/tasks/${taskIdentifier}`);
 									}}
 									class="hover:text-primary cursor-pointer transition-colors"
 								>
@@ -376,8 +379,7 @@
 								<!-- Username and Review Stars -->
 								<div class="flex flex-col">
 									<span class="text-sm font-medium">
-										{bid.bid.taskCreatorUsername ||
-											$t('common.components.bidding.dashboard_bids.anonymous')}
+										{bid.bid.taskCreatorUsername || ''}
 									</span>
 									<!-- Review Stars -->
 									<div class="flex items-center">
@@ -439,7 +441,12 @@
 
 								<button
 									class="btn btn-secondary btn-sm"
-									onclick={() => goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`)}
+									onclick={() => {
+										// Use uniqueId if available, fallback to id/taskId for backward compatibility
+										const taskId = bid.bid.task?.id || bid.bid.taskId;
+										const taskIdentifier = (bid.bid.task as any)?.uniqueId || taskId;
+										goto(`/tasks/${taskIdentifier}`);
+									}}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -475,6 +482,7 @@
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
 												<TranslatableBidContent 
+													bid={bid.bid}
 													content={bid.bid.description} 
 													contentType="description"
 												/>
@@ -489,6 +497,7 @@
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
 												<TranslatableBidContent 
+													bid={bid.bid}
 													content={bid.bid.proposedApproach} 
 													contentType="proposedApproach"
 												/>
@@ -503,6 +512,7 @@
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
 												<TranslatableBidContent 
+													bid={bid.bid}
 													content={bid.bid.coverLetter} 
 													contentType="coverLetter"
 												/>

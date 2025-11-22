@@ -509,7 +509,7 @@
 	});
 </script>
 
-<div class="mx-auto max-w-7xl p-4 md:p-0">
+<div class="mx-auto max-w-6xl p-4 md:p-0">
 	<!-- Dashboard Tabs -->
 	<!-- <Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} /> -->
 
@@ -903,7 +903,9 @@
 															class="btn btn-secondary btn-sm flex-1 md:flex-none"
 															onclick={(e) => {
 																e.stopPropagation();
-																goto(`/dashboard/task/${task.id}`);
+																// Use uniqueId if available, fallback to id for backward compatibility
+																const taskIdentifier = (task as any).uniqueId || task.id;
+																goto(`/tasks/${taskIdentifier}`);
 															}}
 															aria-label={$t('find_tasks.view_task')}
 														>

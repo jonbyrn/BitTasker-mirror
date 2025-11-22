@@ -136,6 +136,11 @@
     // Track the current path reactively (must read synchronously to create dependency)
     const currentPath = $derived(page.url.pathname);
 
+    // Check if we should hide footer for logged-in users on task detail pages
+    const shouldHideFooterForLoggedInTaskPage = $derived(
+        isLoggedIn && currentPath.match(/^\/tasks\/[^/]+$/)
+    );
+
     // Update layout based on current route - Optimized with debouncing
     let routeChangeTimeout: ReturnType<typeof setTimeout>;
     const updateLayoutBasedOnRoute = (path: string) => {
@@ -295,7 +300,7 @@
 				</div>
 			{/if}
 		</div>
-	{#if !showFooterSection && showTopBar && !isOnboardingPage}
+	{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage}
 		{#if !isLoggedIn}
 			<!-- Section 7: Final Call to Action (CTA) -->
 			<section class="bg-primary text-primary-content py-16">

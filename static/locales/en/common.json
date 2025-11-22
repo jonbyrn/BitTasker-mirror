@@ -53,7 +53,9 @@
             "no_ratings": "No ratings yet",
             "website": "Website",
             "no_image_available": "No image available",
-            "message_sent_successfully": "Message sent successfully!"
+            "message_sent_successfully": "Message sent successfully!",
+            "message_required": "Please enter a message",
+            "message_send_error": "Failed to send message. Please try again."
         },
         "cta_title": "Ready to Get Started?",
         "cta_description": "Join BitTasker today and experience a better way to find work or hire skilled taskees. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.",

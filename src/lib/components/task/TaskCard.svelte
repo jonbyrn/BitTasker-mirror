@@ -56,7 +56,9 @@
 					class="hover:text-primary cursor-pointer transition-colors text-left"
 					onclick={(e) => {
 						e.stopPropagation();
-						goto(`/dashboard/task/${task.id}`);
+						// Use uniqueId if available, fallback to id for backward compatibility
+						const taskIdentifier = (task as any).uniqueId || task.id;
+						goto(`/tasks/${taskIdentifier}`);
 					}}
 				>
 					<TranslatableTask 

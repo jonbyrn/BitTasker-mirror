@@ -233,11 +233,11 @@ class PushNotificationService {
 		} else if (data.type === 'task_match') {
 			targetUrl = data.clickAction || '/dashboard/find-tasks';
 		} else if (data.type === 'new_bid' && data.taskId) {
-			targetUrl = `/dashboard/task/${data.taskId}`;
+			targetUrl = `/tasks/${data.taskId}`;
 		} else if (data.type === 'message' && data.conversationId) {
 			targetUrl = `/dashboard/messages/to/${data.conversationId}`;
 		} else if (data.type === 'task_update' && data.taskId) {
-			targetUrl = `/dashboard/task/${data.taskId}`;
+			targetUrl = `/tasks/${data.taskId}`;
 		} else if (data.url) {
 			targetUrl = data.url;
 		}

@@ -75,6 +75,9 @@ export interface Bid {
 
 	// Negotiation Tracking
 	counterOffers?: CounterOffer[];
+	
+	// Bid translations
+	translations?: BidTranslations;
 }
 
 export interface UserProfileOutput {
@@ -201,6 +204,18 @@ export interface CreateBidParams {
 }
 
 
+// Bid translations structure
+export interface BidTranslations {
+	sourceLanguage: string; // Language of the original content
+	translations: {
+		[language: string]: {
+			description: string;
+			proposedApproach: string;
+			coverLetter: string;
+		};
+	};
+}
+
 // New nostr bid types
 export interface NostrBid {
 	type: 'bid';
@@ -233,6 +248,8 @@ export interface NostrBid {
 	bidderAvatar?: string;
 	// RSK wallet address for escrow funding
 	bidderWalletAddress?: string;
+	// Bid translations
+	translations?: BidTranslations;
 }
 
 export interface BidMessage {
@@ -268,6 +285,8 @@ export interface NostrBidData {
 	startDateTime: string;
 	endDateTime: string;
 	messageType: 'bid';
+	// Bid translations
+	translations?: BidTranslations;
 }
 
 export interface NostrBidMessage {
@@ -301,6 +320,7 @@ export interface SimplifiedTaskBid {
 	createdAt: string;
 	startDateTime: string;
 	endDateTime: string;
+	translations?: BidTranslations; // Incluir traducciones
 	userProfile: {
 		user: {
 			rating: number;
