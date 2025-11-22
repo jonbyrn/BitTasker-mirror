@@ -132,7 +132,7 @@
       },
       "warning_popup": {
         "title": "Advertencia Beta",
-        "message": "Esta app está actualmente en beta, por favor no confíes en esto para negocios serios pero estaremos en vivo pronto y activaremos tus Wallets en vivo. Siéntete libre de usar la plataforma con tu Wallet de testnet",
+        "message": "Esta app está actualmente en beta, por lo que puedes encontrar errores o problemas al usarla. Si tienes algún problema, ¡por favor háznoslo saber!",
         "feedback_text": "Si encuentras algunos errores o tienes sugerencias, por favor", 
         "feedback_link": "háganoslo saber!",
         "feedback_suffix": "Gracias por probar BitTasker!",
