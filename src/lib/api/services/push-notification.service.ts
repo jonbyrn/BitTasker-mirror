@@ -56,10 +56,23 @@ class PushNotificationService {
 			this.currentDeviceId = deviceId;
 		});
 		(async () => {
-			let npub = get(appStore)?.biometricData?.username || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
-			createUserDeviceShortName(npub).then((deviceName) => {
-				this.deviceName = deviceName;
-			});
+			try {
+				// Only access biometric data if user is authenticated
+				const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+				if (token) {
+					// User is authenticated, safe to access biometric data
+					let npub = get(appStore)?.biometricData?.username || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
+					if (npub) {
+						createUserDeviceShortName(npub).then((deviceName) => {
+							this.deviceName = deviceName;
+						});
+					}
+				}
+				// If no token, skip accessing biometric data to avoid using stale data
+			} catch (error) {
+				// Silently fail - device name is optional and will be set when needed
+				console.debug('Failed to initialize device name in push notification service:', error);
+			}
 		})();
 	}
 

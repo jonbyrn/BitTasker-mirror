@@ -19,10 +19,84 @@ const RETRY_DELAY = 1000; // 1 second
 
 // --- Auth memoization to prevent multiple passkey prompts ---
 let authSingleton: Promise<{ nsec: Uint8Array; npub: string }> | null = null;
-export function getAuthOnce(): Promise<{ nsec: Uint8Array; npub: string }> {
-	if (!authSingleton) {
-		authSingleton = getNostrKeyPair();
+let authSingletonTimestamp: number | null = null;
+let authSingletonNpub: string | null = null;
+const AUTH_SINGLETON_MAX_AGE = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Reset the auth singleton - should be called on logout or auth errors
+ * This ensures fresh authentication prompts on next login
+ */
+export function resetAuthSingleton(): void {
+	authSingleton = null;
+	authSingletonTimestamp = null;
+	authSingletonNpub = null;
+}
+
+/**
+ * Validate that the auth singleton is still valid
+ * Checks expiration, access token, and NPUB match
+ */
+async function validateAuthSingleton(): Promise<boolean> {
+	if (!authSingleton || !authSingletonTimestamp) {
+		return false;
 	}
+
+	// Check expiration
+	const age = Date.now() - authSingletonTimestamp;
+	if (age > AUTH_SINGLETON_MAX_AGE) {
+		return false;
+	}
+
+	// Validate against current session
+	try {
+		const { Preferences } = await import('@capacitor/preferences');
+		const { StorageKeys } = await import('./constants/storage');
+
+		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+		if (!token) {
+			return false;
+		}
+
+		// If we have a tracked NPUB, validate it matches
+		if (authSingletonNpub) {
+			const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
+			if (storedNpub && storedNpub !== authSingletonNpub) {
+				return false;
+			}
+		}
+
+		return true;
+	} catch (error) {
+		console.warn('Failed to validate auth singleton:', error);
+		return false;
+	}
+}
+
+export async function getAuthOnce(): Promise<{ nsec: Uint8Array; npub: string }> {
+	// Validate existing singleton before reusing
+	if (authSingleton) {
+		const isValid = await validateAuthSingleton();
+		if (!isValid) {
+			resetAuthSingleton();
+		}
+	}
+
+	if (!authSingleton) {
+		authSingleton = (async () => {
+			try {
+				const result = await getNostrKeyPair();
+				authSingletonTimestamp = Date.now();
+				authSingletonNpub = result.npub;
+				return result;
+			} catch (error) {
+				// Reset on error so next call will try again
+				resetAuthSingleton();
+				throw error;
+			}
+		})();
+	}
+
 	return authSingleton;
 }
 
