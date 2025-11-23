@@ -147,6 +147,13 @@ export async function handleBiometricError(error: any, platform: BiometricPlatfo
 	if (error?.message) {
 		const message = error.message.toLowerCase();
 		
+		// Silently ignore "A request is already pending" errors - return empty string to suppress error display
+		if (message.includes('a request is already pending') || 
+			message.includes('request is already pending') ||
+			(message.includes('operationerror') && message.includes('already pending'))) {
+			return ''; // Return empty string to suppress error display
+		}
+		
 		// Handle passkey account mismatch errors
 		if (message.includes('passkey mismatch')) {
 			return _('login.errors.passkey_mismatch');

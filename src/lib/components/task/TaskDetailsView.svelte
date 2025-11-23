@@ -26,7 +26,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { getBidsForTaskOptimized, sendBidStatusUpdate, clearBidCache } from '$lib/utils/nostr-bid';
 	import IconRefresh from '~icons/mdi/refresh';
-	import type { TaskBid, NostrBid } from '$lib/types/bid';
+	import type { TaskBid, NostrBid, SimplifiedTaskBid } from '$lib/types/bid';
 	import BidCardDetailed from '$lib/components/bidding/BidCardDetailed.svelte';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
@@ -85,7 +85,7 @@
 		if (typeof window !== 'undefined' && task) {
 			// Always use the uniqueId from the loaded task for stable URLs
 			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			return `${window.location.origin}/tasks/${task.uniqueId || task.id}`;
+			return `${window.location.origin}/tasks/${task.id}`;
 		}
 		return '';
 	});
@@ -274,9 +274,9 @@
 
 			// If we loaded via a different identifier, update the URL to use uniqueId
 			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			if (typeof window !== 'undefined' && taskData.uniqueId && taskData.uniqueId !== taskId) {
+			if (typeof window !== 'undefined' && taskData.id && taskData.id !== taskId) {
 				const currentPath = window.location.pathname;
-				const newPath = `/tasks/${taskData.uniqueId}`;
+				const newPath = `/tasks/${taskData.id}`;
 				if (currentPath !== newPath) {
 					window.history.replaceState({}, '', newPath);
 				}
@@ -391,20 +391,20 @@
 		expandedBidId = expandedBidId === bidId ? null : bidId;
 	}
 
-	function handleAcceptBid(bid: TaskBid) {
+	function handleAcceptBid(bid: TaskBid | SimplifiedTaskBid) {
 		// Check if this bid is already accepted or if another bid is already accepted
-		if (bid.status === 'accepted') {
+		if (bid.status === 'ACCEPTED') {
 			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
 			return;
 		}
 
-		bidToAccept = bid;
+		bidToAccept = bid as TaskBid;
 		showAcceptanceForm = true;
 	}
 
 	async function handleRejectBid(bid: TaskBid) {
 		// Prevent rejecting bids that are already accepted or rejected
-		if (bid.status === 'accepted' || bid.status === 'rejected') {
+		if (bid.status === 'ACCEPTED' || bid.status === 'REJECTED') {
 			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_rejected'));
 			return;
 		}
@@ -623,7 +623,7 @@
 										{btcPrice}
 										expandedBidId={expandedBidId}
 										onAcceptBid={handleAcceptBid}
-										onRejectBid={handleRejectBid}
+										onRejectBid={handleRejectBid} 
 										onToggleDetails={handleToggleDetails}
 									/>
 								{/each}
@@ -662,7 +662,7 @@
 								</div>
 							{/if}
 
-							<div class="flex flex-col items-end gap-2">
+							<div class="flex flex-col items-start gap-2 sm:items-end">
 								<!-- Refresh bids button - only show for task owner -->
 								{#if isLoggedIn && isOwner}
 									<button
@@ -931,7 +931,7 @@
 									<!-- Username and Review Stars -->
 									<div class="flex flex-col">
 										<span class="text-base font-medium">
-											{task.creator.username || task.creator.name || ''}
+											{task.creator.username || ''}
 										</span>
 										<!-- Review Stars -->
 										<div class="flex items-center">
@@ -993,7 +993,7 @@
 >
 	{#snippet children()}
 		{#if showAcceptanceForm && bidToAccept && task}
-			<BidAcceptanceForm bid={bidToAccept} {task} {btcPrice} onCancel={handleCloseBid} />
+			<BidAcceptanceForm bid={bidToAccept as any} {task} {btcPrice} onCancel={handleCloseBid} />
 		{/if}
 	{/snippet}
 </Drawer>

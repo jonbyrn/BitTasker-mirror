@@ -316,6 +316,17 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 		}
 	} catch (err) {
 		const platform = authMethod === 'passkey' ? 'mobile-webauthn' : 'mobile-native';
+		
+		// Silently ignore "A request is already pending" errors
+		if (err instanceof Error && (
+			err.message.includes('A request is already pending') ||
+			err.message.includes('request is already pending') ||
+			err.message.includes('OperationError') && err.message.includes('already pending')
+		)) {
+			console.log('Biometric request already in progress, ignoring duplicate request');
+			return null;
+		}
+		
 		console.error('Failed to get biometric data:', err);
 		if (err instanceof Error && err.message.includes('device has been revoked')) {
 			appStore.showInfoToast('Your device access has been revoked');
