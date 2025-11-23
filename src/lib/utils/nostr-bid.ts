@@ -783,6 +783,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 		let contractCount = 0;
 		for (let i = 0; i < messagedPeople.length; i++) {
+			const person = messagedPeople[i];
 			const messageHistory = messageHistories[i];
 
 			// Skip if no messages for this person
