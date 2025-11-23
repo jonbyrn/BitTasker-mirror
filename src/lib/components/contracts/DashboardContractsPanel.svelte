@@ -103,6 +103,18 @@
 
 	// Filtered contracts with deduplication using Svelte's reactivity
 	let filteredContracts = $derived(() => {
+		console.log('[DashboardContractsPanel] filteredContracts() called', {
+			inputContractsCount: contracts.length,
+			statusFilter,
+			roleFilter,
+			inputContracts: contracts.map(c => ({
+				escrowId: c.contract.escrowId,
+				status: c.contract.status,
+				isClient: c.isClient,
+				isFreelancer: !c.isClient
+			}))
+		});
+
 		// First, deduplicate contracts by escrowId using a Map
 		// This leverages Svelte's reactivity to handle deduplication reactively
 		const uniqueContracts = new Map<string, ContractWithEvents>();
@@ -124,17 +136,58 @@
 		// Convert Map to array
 		let filtered = Array.from(uniqueContracts.values());
 
+		console.log('[DashboardContractsPanel] After deduplication', {
+			uniqueContractsCount: filtered.length,
+			uniqueContracts: filtered.map(c => ({
+				escrowId: c.contract.escrowId,
+				status: c.contract.status,
+				isClient: c.isClient
+			}))
+		});
+
 		// Filter by status
 		if (statusFilter !== 'all') {
+			const beforeStatusFilter = filtered.length;
 			filtered = filtered.filter((c) => c.contract.status === statusFilter);
+			console.log('[DashboardContractsPanel] After status filter', {
+				statusFilter,
+				beforeCount: beforeStatusFilter,
+				afterCount: filtered.length,
+				filteredOut: beforeStatusFilter - filtered.length,
+				remainingContracts: filtered.map(c => ({
+					escrowId: c.contract.escrowId,
+					status: c.contract.status
+				}))
+			});
 		}
 
 		// Filter by role
 		if (roleFilter === 'client') {
+			const beforeRoleFilter = filtered.length;
 			filtered = filtered.filter((c) => c.isClient);
+			console.log('[DashboardContractsPanel] After role filter (client)', {
+				beforeCount: beforeRoleFilter,
+				afterCount: filtered.length,
+				filteredOut: beforeRoleFilter - filtered.length
+			});
 		} else if (roleFilter === 'freelancer') {
+			const beforeRoleFilter = filtered.length;
 			filtered = filtered.filter((c) => !c.isClient);
+			console.log('[DashboardContractsPanel] After role filter (freelancer)', {
+				beforeCount: beforeRoleFilter,
+				afterCount: filtered.length,
+				filteredOut: beforeRoleFilter - filtered.length
+			});
 		}
+
+		console.log('[DashboardContractsPanel] Final filtered contracts', {
+			finalCount: filtered.length,
+			finalContracts: filtered.map(c => ({
+				escrowId: c.contract.escrowId,
+				status: c.contract.status,
+				isClient: c.isClient
+			}))
+		});
 
 		return filtered;
 	});

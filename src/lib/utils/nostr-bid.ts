@@ -781,13 +781,29 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 		// Wait for all message histories in parallel (instead of sequential loop)
 		const messageHistories = await Promise.all(messageHistoryPromises);
 
+		console.log('[getUserContracts] Processing conversations', {
+			totalConversations: messagedPeople.length,
+			conversationsWithMessages: messageHistories.filter(h => h && h.length > 0).length,
+			conversationDetails: messagedPeople.map((person, idx) => ({
+				index: idx + 1,
+				pubkey: person.pubkey.substring(0, 16) + '...',
+				messageCount: messageHistories[idx]?.length || 0
+			}))
+		});
+
 		let contractCount = 0;
 		for (let i = 0; i < messagedPeople.length; i++) {
 			const person = messagedPeople[i];
 			const messageHistory = messageHistories[i];
 
 			// Skip if no messages for this person
-			if (!messageHistory || messageHistory.length === 0) continue;
+			if (!messageHistory || messageHistory.length === 0) {
+				console.log(`[getUserContracts] Skipping conversation ${i + 1} - no messages`, {
+					conversationIndex: i + 1,
+					pubkey: person.pubkey.substring(0, 16) + '...'
+				});
+				continue;
+			}
 
 			// Group messages by escrow ID
 			const contractMessages = new Map<
@@ -846,7 +862,33 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 				console.log(`[getUserContracts] Found ${contractMessages.size} unique escrowId(s) in conversation ${i + 1}`, {
 					escrowIds: Array.from(contractMessages.keys()),
 					pubkey: person.pubkey.substring(0, 16) + '...',
-					totalMessages: messageHistory.length
+					totalMessages: messageHistory.length,
+					messagesPerEscrowId: Array.from(contractMessages.entries()).map(([id, msgs]) => ({
+						escrowId: id,
+						messageCount: msgs.length,
+						messageTypes: msgs.map(m => {
+							try {
+								const parsed = JSON.parse(m.plaintext);
+								return parsed?.messageType || 'unknown';
+							} catch {
+								return 'invalid-json';
+							}
+						})
+					}))
+				});
+			} else {
+				console.log(`[getUserContracts] No contract messages found in conversation ${i + 1}`, {
+					conversationIndex: i + 1,
+					pubkey: person.pubkey.substring(0, 16) + '...',
+					totalMessages: messageHistory.length,
+					sampleMessageTypes: messageHistory.slice(0, 5).map(m => {
+						try {
+							const parsed = JSON.parse(m.plaintext);
+							return parsed?.messageType || 'not-json';
+						} catch {
+							return 'invalid-json';
+						}
+					})
 				});
 			}
 
@@ -974,13 +1016,14 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						continue;
 					}
 
-					// CRITICAL: FIRST check ALL messages for key statuses (cancelled, disputed) 
+					// CRITICAL: FIRST check ALL messages for key statuses (cancelled, disputed, task-completed) 
 					// even if they don't pass contractEventId validation
 					// This ensures we detect these statuses even if contractEventId validation fails
 					// We check ALL messages because status events might be filtered out due to contractEventId mismatches
-					// Priority: cancelled > disputed
+					// Priority: cancelled > disputed > task-completed
 					let hasCancelledStatusInAnyMessage = false;
 					let hasDisputeStatusInAnyMessage = false;
+					let hasTaskCompletedInAnyMessage = false;
 					
 					for (const message of messages) {
 						try {
@@ -994,6 +1037,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 									hasCancelledStatusInAnyMessage = true;
 								} else if (action === 'dispute-raised') {
 									hasDisputeStatusInAnyMessage = true;
+								} else if (action === 'task-completed') {
+									hasTaskCompletedInAnyMessage = true;
 								}
 							}
 						} catch {
@@ -1015,14 +1060,14 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					// CRITICAL: Don't set status to 'resolved' here - only blockchain status can determine 'resolved'
 					// 'resolved' means DisputeResolved/DisputeUnresolved on blockchain, not just a payment-released Nostr event
 					// CRITICAL: Don't set status from messages here - wait for blockchain status first
-					// Only use message statuses for cancelled/disputed detection, not for completed
-					// Blockchain status is the source of truth for active/completed/resolved
+					// However, we DO check for task-completed in ALL messages as a fallback if blockchain data is unavailable
+					// Blockchain status is the source of truth for active/completed/resolved when available
 					let currentStatus = contractData.status;
 					let latestNostrStatus = '';
 					
-					// CRITICAL: Only set status from ALL messages for cancelled/disputed (these take absolute priority)
-					// Do NOT set to 'completed' here - blockchain status will determine that
-					// This prevents active contracts from being incorrectly marked as completed
+					// CRITICAL: Only set status from ALL messages for cancelled/disputed/task-completed (these take absolute priority)
+					// Priority: cancelled > disputed > task-completed
+					// Note: task-completed is checked here as a fallback, but blockchain status will override if available
 					if (hasCancelledStatusInAnyMessage) {
 						currentStatus = 'cancelled';
 						// Try to find the actual cancelled action type from messages
@@ -1045,8 +1090,17 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					} else if (hasDisputeStatusInAnyMessage) {
 						currentStatus = 'disputed';
 						latestNostrStatus = 'dispute-raised';
+					} else if (hasTaskCompletedInAnyMessage) {
+						// CRITICAL: Set to 'completed' if task-completed is found in ANY message
+						// This ensures completed contracts are detected even if status events are filtered out
+						// Blockchain status will still override this if escrow data is available
+						currentStatus = 'completed';
+						latestNostrStatus = 'task-completed';
+						console.log(`[getUserContracts] ✅ Found task-completed in ALL messages for escrow ${escrowId}`, {
+							escrowId,
+							statusSetTo: 'completed'
+						});
 					}
-					// Note: We do NOT check for 'task-completed' here - blockchain status (Funded vs Completed) is the source of truth
 					
 					// Then update from filtered status events if available (but don't override cancelled/disputed)
 					// CRITICAL: Don't overwrite latestNostrStatus if we already set it to 'contract-cancelled', 'escrow-cancelled', or 'dispute-raised'
@@ -1404,7 +1458,15 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 			filter,
 			escrowIds: contracts.map(c => c.contract.escrowId),
 			statuses: contracts.map(c => c.contract.status),
-			taskIds: contracts.map(c => c.contract.taskId)
+			taskIds: contracts.map(c => c.contract.taskId),
+			contractsSummary: contracts.map(c => ({
+				escrowId: c.contract.escrowId,
+				status: c.contract.status,
+				taskId: c.contract.taskId,
+				isClient: c.isClient,
+				isFreelancer: !c.isClient,
+				statusEventsCount: c.statusEvents.length
+			}))
 		});
 
 		// Sort by creation time (newest first)
