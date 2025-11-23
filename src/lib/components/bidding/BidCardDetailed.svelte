@@ -5,7 +5,6 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { cachedSatsFromUsd } from '$lib/utils/nostr-bid';
 	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
-	import type { CounterOffer } from '$lib/types/bid';
 	import { getUserDisplayNameFromProfile } from '$lib/utils/helpers/userDisplayName';
 
 	let {
@@ -14,7 +13,6 @@
 		expandedBidId = null,
 		onAcceptBid,
 		onRejectBid,
-		onCounterOffer,
 		onToggleDetails
 	} = $props<{
 		bid: TaskBid | SimplifiedTaskBid;

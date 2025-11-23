@@ -2,7 +2,7 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import type { BidMessage, NostrBid, NostrBidStatus } from '$lib/types/bid';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
-import { sendDirectMessage, getMessageHistory, getMessagedPeople } from './nostr-message';
+import { sendDirectMessage, getMessageHistory } from './nostr-message';
 import type {
 	NostrContract,
 	NostrContractStatus,
@@ -37,7 +37,7 @@ interface ProcessedBidData {
 }
 
 class BidCache {
-	private cache = new Map<string, CacheEntry<any>>();
+	private cache = new Map<string, CacheEntry<unknown>>();
 	private readonly MAX_CACHE_SIZE = 100; // Prevent unbounded growth
 
 	set<T>(key: string, data: T, ttlMinutes: number = 5): void {
@@ -70,7 +70,7 @@ class BidCache {
 			return null;
 		}
 
-		return entry.data;
+		return entry.data as T;
 	}
 
 	// Cache processed bid data with different processing stages
@@ -219,7 +219,7 @@ async function getBidStatusMessages(taskId?: string): Promise<{ [bidId: string]:
 		const messageHistoryPromises = messagedPeople.map(async (person) => {
 			try {
 				return await getMessageHistory(person.pubkey, { limit: 100 });
-			} catch (err) {
+			} catch {
 				return [];
 			}
 		});
@@ -249,15 +249,14 @@ async function getBidStatusMessages(taskId?: string): Promise<{ [bidId: string]:
 							}
 						}
 					}
-				} catch (parseError) {
+				} catch {
 					continue;
 				}
 			}
 		}
 
 		return bidStatuses;
-	} catch (error) {
-		console.error('Error getting bid status messages:', error);
+	} catch {
 		return {};
 	}
 }
@@ -271,10 +270,6 @@ export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessag
 	// Check if we have cached processed data
 	const cachedData = bidCache.getProcessedBidData(cacheKey);
 	if (cachedData) {
-		// Only log in development to reduce console noise
-		if (import.meta.env.DEV) {
-			console.debug('Using cached processed bid data');
-		}
 		return cachedData.transformedBids;
 	}
 
@@ -321,9 +316,8 @@ export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessag
 		);
 
 		return sortedBids;
-	} catch (error) {
+	} catch {
 		// Don't throw - return what we have so the UI doesn't break
-		console.warn('Error getting optimized task bids (returning partial results):', error);
 		// Return empty array if we couldn't load any bids
 		return [];
 	}
@@ -343,10 +337,6 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 		// Check cache first
 		const cachedBids = bidCache.get<BidMessage[]>(cacheKey);
 		if (cachedBids) {
-			// Only log in development to reduce console noise
-			if (import.meta.env.DEV) {
-				console.debug('Using cached task bid data');
-			}
 			return cachedBids;
 		}
 
@@ -360,7 +350,7 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 		const messageHistoryPromises = messagedPeople.map(async (person) => {
 			try {
 				return await getMessageHistory(person.pubkey, { limit: 100 });
-			} catch (err) {
+			} catch {
 				// Return empty array for failed conversations
 				return [];
 			}
@@ -371,7 +361,6 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 
 		// Process all message histories to extract bids
 		for (let i = 0; i < messagedPeople.length; i++) {
-			const person = messagedPeople[i];
 			const messageHistory = messageHistories[i];
 
 			// Filter only messages that contain bids
@@ -405,7 +394,7 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 							});
 						}
 					}
-				} catch (parseError) {
+				} catch {
 					// Not a valid bid, continue
 					continue;
 				}
@@ -419,9 +408,8 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 		bidCache.set(cacheKey, sortedBids, 5);
 
 		return sortedBids;
-	} catch (error) {
+	} catch {
 		// Don't throw - return what we have so the UI doesn't break
-		console.warn('Error getting bids from DMs (returning partial results):', error);
 		// Return empty array if we couldn't load any bids
 		return [];
 	}
@@ -441,10 +429,6 @@ export async function getMyBids(): Promise<BidMessage[]> {
 		// Check cache first
 		const cachedBids = bidCache.get<BidMessage[]>(cacheKey);
 		if (cachedBids) {
-			// Only log in development to reduce console noise
-			if (import.meta.env.DEV) {
-				console.debug('Using cached bid data');
-			}
 			return cachedBids;
 		}
 
@@ -458,9 +442,8 @@ export async function getMyBids(): Promise<BidMessage[]> {
 		const messageHistoryPromises = messagedPeople.map(async (person) => {
 			try {
 				return await getMessageHistory(person.pubkey, { limit: 100 });
-			} catch (err) {
+			} catch {
 				// Skip this conversation if there's an error
-				console.warn('Failed to get message history for pubkey:', person.pubkey, err);
 				return [];
 			}
 		});
@@ -470,7 +453,6 @@ export async function getMyBids(): Promise<BidMessage[]> {
 
 		// Process all message histories to extract bids
 		for (let i = 0; i < messagedPeople.length; i++) {
-			const person = messagedPeople[i];
 			const messageHistory = messageHistories[i];
 
 			for (const message of messageHistory) {
@@ -503,7 +485,7 @@ export async function getMyBids(): Promise<BidMessage[]> {
 							event: message.event
 						});
 					}
-				} catch (parseError) {
+				} catch {
 					continue;
 				}
 			}
@@ -515,9 +497,8 @@ export async function getMyBids(): Promise<BidMessage[]> {
 		bidCache.set(cacheKey, sortedBids, 5);
 
 		return sortedBids;
-	} catch (error) {
+	} catch {
 		// Don't throw - return what we have so the UI doesn't break
-		console.warn('Error getting my bids (returning partial results):', error);
 		// Return empty array if we couldn't load any bids
 		return [];
 	}
@@ -558,11 +539,8 @@ export async function sendBidStatusUpdate(
 
 		// Clear bid cache to ensure fresh data on next load
 		clearBidCache();
-
-		console.log(`Bid status update sent for bid ${bidId}: ${status}`);
-	} catch (error) {
+	} catch {
 		// Log error but don't throw - allow UI to continue
-		console.warn('Error sending bid status update:', error);
 		// Don't throw - let the caller handle the error if needed
 		// The UI should show a warning but not break
 	}
@@ -607,9 +585,8 @@ export async function createContract(params: CreateContractParams): Promise<void
 			['s', 'active'], // Use single char 's' for status
 			['c', 'creation'] // c = contract-type
 		]);
-	} catch (error) {
+	} catch {
 		// Log error but don't throw - allow UI to continue
-		console.warn('Error creating contract:', error);
 		// Don't throw - let the caller handle the error if needed
 		// The UI should show a warning but not break
 	}
@@ -658,11 +635,8 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			['r', params.escrowId], // r = escrow-id
 			['a', params.action] // a = action
 		]);
-
-		console.log(`Status update sent for escrow ${params.escrowId}: ${params.action}`);
-	} catch (error) {
+	} catch {
 		// Log error but don't throw - allow UI to continue
-		console.warn('Error publishing contract status:', error);
 		// Don't throw - let the caller handle the error if needed
 		// The UI should show a warning but not break
 	}
@@ -704,7 +678,7 @@ function determineNostrFallbackStatus(
 	let canPropose = false;
 	let canAcceptProposal = false;
 	let canCancel = false;
-	let canResolveTimelock = false;
+	const canResolveTimelock = false;
 	let canDelete = false;
 
 	// CRITICAL: Check status in priority order: cancelled > disputed > completed > resolved > active
@@ -743,14 +717,10 @@ function determineNostrFallbackStatus(
 		canDelete = false;
 	} else {
 		// Only set to active if not already cancelled, disputed, completed, or resolved
-		if (status !== 'cancelled' && status !== 'disputed' && status !== 'completed' && status !== 'resolved') {
-			status = 'active';
-		}
-		
-		if (status === 'active') {
-			canComplete = isFreelancer;
-			canCancel = true;
-		}
+		// At this point, status can only be 'active' or another value that needs to be set to 'active'
+		status = 'active';
+		canComplete = isFreelancer;
+		canCancel = true;
 		
 		// Determine canDelete based on error type (only in catch block)
 		if (error && isEscrowNotFoundError && isEscrowNotFoundError(error)) {
@@ -781,68 +751,38 @@ function determineNostrFallbackStatus(
 export async function getUserContracts(filter?: ContractFilter): Promise<ContractWithEvents[]> {
 	// Initialize contracts array at the top level so it's always available
 	const contracts: ContractWithEvents[] = [];
-	const startTime = Date.now();
-	console.log('[getUserContracts] Starting contract loading', { filter, timestamp: startTime });
 
 	try {
 		// Use getAuthOnce() to share auth singleton with getMessageHistoryOptimized()
 		// This prevents multiple auth prompts when both are called
-		console.log('[getUserContracts] Getting auth...');
 		const { getAuthOnce } = await import('./nostr-message');
 		const { npub } = await getAuthOnce();
 		const userPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-		console.log('[getUserContracts] Auth obtained', { userPubkey: userPubkey.substring(0, 16) + '...' });
 
 		// OPTIMIZATION 1: Use optimized version that doesn't require decryption
-		console.log('[getUserContracts] Getting messaged people...');
 		const { getMessagedPeopleOptimized } = await import('./nostr-message');
 		const messagedPeople = await getMessagedPeopleOptimized();
-		console.log('[getUserContracts] Found messaged people', { count: messagedPeople.length });
 
 		// OPTIMIZATION 2 & 3: Parallelize message history fetching and use optimized version
 		const { getMessageHistoryOptimized } = await import('./nostr-message');
-		console.log('[getUserContracts] Fetching message histories in parallel...');
-		const messageHistoryPromises = messagedPeople.map(async (person, index) => {
+		const messageHistoryPromises = messagedPeople.map(async (person) => {
 			try {
 				// Use optimized version that batches auth and uses worker
 				const history = await getMessageHistoryOptimized(person.pubkey, { limit: 200 });
-				console.log(`[getUserContracts] Message history ${index + 1}/${messagedPeople.length} fetched`, {
-					pubkey: person.pubkey.substring(0, 16) + '...',
-					messageCount: history.length
-				});
 				return history;
-			} catch (err) {
-				console.warn(`[getUserContracts] Failed to get message history for pubkey ${index + 1}:`, {
-					pubkey: person.pubkey.substring(0, 16) + '...',
-					error: err instanceof Error ? err.message : String(err),
-					stack: err instanceof Error ? err.stack : undefined
-				});
+			} catch {
 				return [];
 			}
 		});
 
 		// Wait for all message histories in parallel (instead of sequential loop)
-		console.log('[getUserContracts] Waiting for all message histories...');
 		const messageHistories = await Promise.all(messageHistoryPromises);
-		console.log('[getUserContracts] All message histories fetched', {
-			totalMessages: messageHistories.reduce((sum, h) => sum + h.length, 0)
-		});
 
-		// Process all conversations with their message histories
-		console.log('[getUserContracts] Processing conversations...');
-
-		let contractCount = 0;
 		for (let i = 0; i < messagedPeople.length; i++) {
-			const person = messagedPeople[i];
 			const messageHistory = messageHistories[i];
 
 			// Skip if no messages for this person
 			if (!messageHistory || messageHistory.length === 0) continue;
-
-			console.log(`[getUserContracts] Processing conversation ${i + 1}/${messagedPeople.length}`, {
-				pubkey: person.pubkey.substring(0, 16) + '...',
-				messageCount: messageHistory.length
-			});
 
 			// Group messages by escrow ID
 			const contractMessages = new Map<
@@ -890,7 +830,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							contractMessages.get(escrowId)!.push(message);
 						}
 					}
-				} catch (parseError) {
+				} catch {
 					// Not a contract message, continue
 					continue;
 				}
@@ -898,11 +838,6 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 			// Process each contract
 			for (const [escrowId, messages] of contractMessages.entries()) {
-				contractCount++;
-				console.log(`[getUserContracts] Processing contract ${contractCount}`, {
-					escrowId,
-					messageCount: messages.length
-				});
 				try {
 					// Find the contract creation message
 					const contractCreationMessage = messages.find((msg) => {
@@ -915,10 +850,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					});
 
 					if (!contractCreationMessage) {
-						console.warn(`[getUserContracts] No contract creation message found for escrow ${escrowId}`);
 						continue;
 					}
-					console.log(`[getUserContracts] Contract creation message found for escrow ${escrowId}`);
 
 					// Validate contract data structure
 					let contractData: NostrContract;
@@ -981,9 +914,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					let statusEvents: ContractStatusEvent[] = [];
 					try {
 						statusEvents = await getContractStatusEventsFromMessages(escrowId, messages);
-					} catch (statusError) {
+					} catch {
 						// Silently handle status event parsing errors
-						console.warn(`Failed to parse status events for escrow ${escrowId}:`, statusError);
 						statusEvents = [];
 					}
 
@@ -1075,24 +1007,9 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 					try {
 						// Get actual escrow data from RSK contract
-						console.log(`[getUserContracts] Fetching escrow data for ${contractData.escrowId}...`);
 						try {
 							escrowData = await escrow.getEscrow(contractData.escrowId);
-							console.log(`[getUserContracts] Escrow data fetched for ${contractData.escrowId}`, {
-								status: escrowData?.status,
-								hasData: !!escrowData
-							});
-						} catch (escrowError) {
-							// Check if this is an expected "Invalid escrow ID" error
-							// Only log it if it's unexpected (has transaction hash or completion events)
-							const { isEscrowNotFoundError } = await import('$lib/utils/errors/escrowErrors');
-							const isInvalidEscrowId = isEscrowNotFoundError(escrowError);
-							
-							// Determine if this error is unexpected
-							const hasTransactionHash = !!contractData.transactionHash;
-							const hasCompletionEvents = latestNostrStatus === 'task-completed' || latestNostrStatus === 'payment-released';
-							const isUnexpected = isInvalidEscrowId && (hasTransactionHash || hasCompletionEvents);
-							
+						} catch {
 							// Silently handle expected "Invalid escrow ID" errors for contracts that were never funded
 							escrowData = null;
 						}
@@ -1101,9 +1018,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						let userAddress: string | null = null;
 						try {
 							userAddress = get(rskAddress);
-						} catch (storeError) {
+						} catch {
 							// Silently handle store access errors
-							console.warn('Failed to get RSK address from store:', storeError);
 							userAddress = null;
 						}
 
@@ -1117,12 +1033,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 									const freelancerAmount = parseFloat(disputeProposal.freelancerAmount);
 									disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
 								}
-							} catch (disputeError) {
+							} catch {
 								// Silently handle dispute proposal fetch errors
-								console.warn(
-									`Failed to load dispute proposal for escrow ${contractData.escrowId}:`,
-									disputeError
-								);
 								disputeProposal = null;
 							}
 						}
@@ -1140,12 +1052,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							if (userAddress) {
 								try {
 									fundingStatus = await escrow.checkEscrowFundingStatus(contractData.escrowId);
-								} catch (fundingError) {
+								} catch {
 									// Silently handle funding status check errors
-									console.warn(
-										`Failed to check funding status for escrow ${contractData.escrowId}:`,
-										fundingError
-									);
 									// Default to conservative values
 									fundingStatus = { wasFunded: false };
 								}
@@ -1156,9 +1064,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							// CRITICAL: Always set status from escrow data first, then adjust based on Nostr events
 							// Note: We check escrowData.status even if userAddress is null, as status is independent of user address
 							// CRITICAL: Preserve cancelled status from Nostr if escrow data shows cancelled - don't override with 'active'
-							const wasCancelledInNostr = currentStatus === 'cancelled';
 							switch (escrowData.status) {
-								case EscrowStatus.Funded: // 0
+								case EscrowStatus.Funded: { // 0
 									// CRITICAL: EscrowStatus.Funded means the contract is active (funded but not completed)
 									// However, check Nostr status events for task-completed - blockchain status might not be updated yet
 									// Always set to 'active' unless cancelled, disputed, or completed (those take priority)
@@ -1199,6 +1106,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 									}
 									canDelete = false; // Cannot delete if funded
 									break;
+								}
 
 								case EscrowStatus.InDispute: // 1
 									// Always set to disputed when escrow is in dispute
@@ -1276,13 +1184,6 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							// No need to recalculate here to avoid overriding correct values
 						} else {
 							// Fallback to Nostr status if RSK data unavailable
-							console.warn('[getUserContracts] RSK escrow data unavailable, falling back to Nostr status', {
-								escrowId: contractData.escrowId,
-								hasUserAddress: !!userAddress,
-								hasEscrowData: !!escrowData,
-								currentStatus,
-								latestNostrStatus
-							});
 
 							const fallback = determineNostrFallbackStatus(
 								currentStatus,
@@ -1304,18 +1205,6 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						}
 					} catch (error) {
 						// Use structured error handling instead of string matching
-						console.error('[getUserContracts] Error processing contract escrow data', {
-							escrowId: contractData.escrowId,
-							error: error instanceof Error ? error.message : String(error),
-							errorType: error?.constructor?.name,
-							stack: error instanceof Error ? error.stack : undefined,
-							contractData: {
-								taskId: contractData.taskId,
-								status: contractData.status,
-								hasTransactionHash: !!contractData.transactionHash
-							}
-						});
-
 						let isEscrowNotFoundError: ((error: unknown) => boolean) | null = null;
 						let isNetworkError: ((error: unknown) => boolean) | null = null;
 
@@ -1323,20 +1212,11 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							const errorUtils = await import('$lib/utils/errors/escrowErrors');
 							isEscrowNotFoundError = errorUtils.isEscrowNotFoundError;
 							isNetworkError = errorUtils.isNetworkError;
-							console.log('[getUserContracts] Error utilities imported successfully');
-						} catch (importError) {
+						} catch {
 							// Silently handle import errors - use fallback logic
-							console.warn('[getUserContracts] Failed to import error utilities, using fallback logic:', {
-								importError: importError instanceof Error ? importError.message : String(importError),
-								stack: importError instanceof Error ? importError.stack : undefined
-							});
 						}
 
 						// If RSK check fails, fall back to Nostr status
-						console.warn('[getUserContracts] Failed to check RSK contract state, using Nostr status', {
-							escrowId: contractData.escrowId,
-							error: error instanceof Error ? error.message : String(error)
-						});
 
 						const fallback = determineNostrFallbackStatus(
 							currentStatus,
@@ -1385,45 +1265,19 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						canResolveTimelock,
 						canDelete
 					});
-				} catch (error) {
-					console.error('[getUserContracts] Failed to parse contract messages', {
-						escrowId,
-						error: error instanceof Error ? error.message : String(error),
-						errorType: error?.constructor?.name,
-						stack: error instanceof Error ? error.stack : undefined,
-						messageCount: messages.length
-					});
+				} catch {
 					continue;
 				}
 			}
 		}
-
-		const endTime = Date.now();
-		const duration = endTime - startTime;
-		console.log('[getUserContracts] Contract loading completed', {
-			contractCount: contracts.length,
-			duration: `${duration}ms`,
-			filter
-		});
 
 		// Sort by creation time (newest first)
 		// Note: Deduplication is handled in the component using Svelte's $derived
 		return contracts.sort(
 			(a: ContractWithEvents, b: ContractWithEvents) => b.contract.createdAt - a.contract.createdAt
 		);
-	} catch (error) {
-		const endTime = Date.now();
-		const duration = endTime - startTime;
+	} catch {
 		// Don't throw - return what we have so the UI doesn't break
-		// Log the error but continue with any contracts we successfully loaded
-		console.error('[getUserContracts] Error getting user contracts (returning partial results)', {
-			error: error instanceof Error ? error.message : String(error),
-			errorType: error?.constructor?.name,
-			stack: error instanceof Error ? error.stack : undefined,
-			contractsLoaded: contracts.length,
-			duration: `${duration}ms`,
-			filter
-		});
 		// Return whatever contracts we managed to load, even if some failed
 		// Note: Deduplication is handled in the component using Svelte's $derived
 		return contracts.sort(
@@ -1450,8 +1304,7 @@ async function getContractMessagesByEscrowId(
 			try {
 				// Use optimized version that batches auth and uses worker
 				return await getMessageHistoryOptimized(person.pubkey, { limit: 200 });
-			} catch (err) {
-				console.warn('Failed to get message history for pubkey:', person.pubkey, err);
+			} catch {
 				return [];
 			}
 		});
@@ -1483,7 +1336,7 @@ async function getContractMessagesByEscrowId(
 					) {
 						contractMessages.push(message);
 					}
-				} catch (parseError) {
+				} catch {
 					// Not a contract message, continue
 					continue;
 				}
@@ -1491,8 +1344,7 @@ async function getContractMessagesByEscrowId(
 		}
 
 		return contractMessages.sort((a, b) => a.event.created_at - b.event.created_at);
-	} catch (error) {
-		console.warn('Error getting contract messages by escrow ID:', error);
+	} catch {
 		return [];
 	}
 }
@@ -1592,16 +1444,14 @@ async function getContractStatusEventsFromMessages(
 						isFromFreelancer
 					});
 				}
-			} catch (error) {
-				console.warn('Failed to parse status message:', error);
+			} catch {
 				continue;
 			}
 		}
 
 		// Sort by timestamp (oldest first for timeline)
 		return processedEvents.sort((a, b) => a.status.timestamp - b.status.timestamp);
-	} catch (error) {
-		console.error('Error getting contract status events from messages:', error);
+	} catch {
 		return [];
 	}
 }
@@ -1616,7 +1466,7 @@ async function getContractStatusEventsFromMessages(
  * @throws EscrowError if deletion is not allowed or fails
  */
 export async function deleteContract(contractEventId: string, escrowId: string): Promise<void> {
-	const { EscrowError, EscrowErrorCode, isEscrowNotFoundError, isEscrowError } = await import(
+	const { EscrowError, EscrowErrorCode, isEscrowError } = await import(
 		'$lib/utils/errors/escrowErrors'
 	);
 
@@ -1660,12 +1510,8 @@ export async function deleteContract(contractEventId: string, escrowId: string):
 							contractData = JSON.parse(contractCreationMessage.plaintext);
 						}
 					}
-				} catch (error) {
+				} catch {
 					// If we can't get contract messages, still prevent deletion since escrow was funded
-					console.warn(
-						'Failed to get contract messages, but escrow was funded - preventing deletion:',
-						error
-					);
 				}
 
 				// Prevent deletion based on escrow status
@@ -1726,9 +1572,8 @@ export async function deleteContract(contractEventId: string, escrowId: string):
 					contractData = JSON.parse(contractCreationMessage.plaintext);
 				}
 			}
-		} catch (error) {
+		} catch {
 			// If we can't get contract messages, be conservative and disallow deletion
-			console.warn('Failed to get contract messages, disallowing deletion for safety:', error);
 			throw new EscrowError(
 				EscrowErrorCode.ESCROW_VERIFICATION_FAILED,
 				'Cannot delete contract: Unable to verify contract status'
@@ -1764,10 +1609,7 @@ export async function deleteContract(contractEventId: string, escrowId: string):
 				'Failed to delete contract: Deletion event was not published'
 			);
 		}
-
-		console.log('Contract deleted successfully');
 	} catch (error) {
-		console.error('Failed to delete contract:', error);
 		// If it's already an EscrowError, re-throw it
 		if (isEscrowError(error)) {
 			throw error;
