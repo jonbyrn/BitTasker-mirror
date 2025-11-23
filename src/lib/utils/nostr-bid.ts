@@ -751,6 +751,9 @@ function determineNostrFallbackStatus(
 export async function getUserContracts(filter?: ContractFilter): Promise<ContractWithEvents[]> {
 	// Initialize contracts array at the top level so it's always available
 	const contracts: ContractWithEvents[] = [];
+	const startTime = Date.now();
+	
+	console.log('[getUserContracts] Starting contract loading', { filter, timestamp: startTime });
 
 	try {
 		// Use getAuthOnce() to share auth singleton with getMessageHistoryOptimized()
@@ -778,6 +781,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 		// Wait for all message histories in parallel (instead of sequential loop)
 		const messageHistories = await Promise.all(messageHistoryPromises);
 
+		let contractCount = 0;
 		for (let i = 0; i < messagedPeople.length; i++) {
 			const messageHistory = messageHistories[i];
 
@@ -836,8 +840,24 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 				}
 			}
 
+			// Log all escrowIds found in this conversation
+			if (contractMessages.size > 0) {
+				console.log(`[getUserContracts] Found ${contractMessages.size} unique escrowId(s) in conversation ${i + 1}`, {
+					escrowIds: Array.from(contractMessages.keys()),
+					pubkey: person.pubkey.substring(0, 16) + '...',
+					totalMessages: messageHistory.length
+				});
+			}
+
 			// Process each contract
 			for (const [escrowId, messages] of contractMessages.entries()) {
+				contractCount++;
+				console.log(`[getUserContracts] Processing contract ${contractCount}`, {
+					escrowId,
+					messageCount: messages.length,
+					conversationIndex: i + 1,
+					pubkey: person.pubkey.substring(0, 16) + '...'
+				});
 				try {
 					// Find the contract creation message
 					const contractCreationMessage = messages.find((msg) => {
@@ -850,14 +870,39 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					});
 
 					if (!contractCreationMessage) {
+						console.warn(`[getUserContracts] ⚠️ No contract creation message found for escrow ${escrowId}`, {
+							escrowId,
+							messageCount: messages.length,
+							messageTypes: messages.map(m => {
+								try {
+									const parsed = JSON.parse(m.plaintext);
+									return parsed?.messageType || 'unknown';
+								} catch {
+									return 'invalid-json';
+								}
+							}),
+							conversationIndex: i + 1,
+							pubkey: person.pubkey.substring(0, 16) + '...'
+						});
 						continue;
 					}
+					console.log(`[getUserContracts] ✅ Contract creation message found for escrow ${escrowId}`, {
+						escrowId,
+						eventId: contractCreationMessage.event.id.substring(0, 16) + '...',
+						createdAt: new Date(contractCreationMessage.event.created_at * 1000).toISOString()
+					});
 
 					// Validate contract data structure
 					let contractData: NostrContract;
 					try {
 						const parsed = JSON.parse(contractCreationMessage.plaintext);
 						if (!parsed || typeof parsed !== 'object' || !parsed.escrowId || !parsed.taskId) {
+							console.warn(`[getUserContracts] ⚠️ Invalid contract structure for escrow ${escrowId}`, {
+								escrowId,
+								hasEscrowId: !!parsed?.escrowId,
+								hasTaskId: !!parsed?.taskId,
+								isObject: typeof parsed === 'object'
+							});
 							continue; // Invalid contract structure
 						}
 						contractData = parsed as NostrContract;
@@ -865,9 +910,18 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						// CRITICAL: Validate that the contract creation message's escrowId matches the map key escrowId
 						// This prevents processing contracts with mismatched escrowIds that may have been incorrectly grouped
 						if (contractData.escrowId !== escrowId) {
+							console.warn(`[getUserContracts] ⚠️ Contract escrowId mismatch for escrow ${escrowId}`, {
+								expectedEscrowId: escrowId,
+								actualEscrowId: contractData.escrowId,
+								taskId: contractData.taskId
+							});
 							continue; // Contract escrowId doesn't match map key - skip this contract
 						}
-					} catch {
+					} catch (parseError) {
+						console.warn(`[getUserContracts] ⚠️ Failed to parse contract data for escrow ${escrowId}`, {
+							escrowId,
+							error: parseError instanceof Error ? parseError.message : String(parseError)
+						});
 						continue; // Invalid JSON
 					}
 
@@ -875,12 +929,49 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					const isClient = contractData.clientPubkey === userPubkey;
 					const isFreelancer = contractData.freelancerPubkey === userPubkey;
 
-					if (!isClient && !isFreelancer) continue;
+					console.log(`[getUserContracts] Checking user involvement for escrow ${escrowId}`, {
+						escrowId,
+						userPubkey: userPubkey.substring(0, 16) + '...',
+						clientPubkey: contractData.clientPubkey.substring(0, 16) + '...',
+						freelancerPubkey: contractData.freelancerPubkey.substring(0, 16) + '...',
+						isClient,
+						isFreelancer
+					});
+
+					if (!isClient && !isFreelancer) {
+						console.warn(`[getUserContracts] ⚠️ User not involved in contract escrow ${escrowId}`, {
+							escrowId,
+							userPubkey: userPubkey.substring(0, 16) + '...',
+							clientPubkey: contractData.clientPubkey.substring(0, 16) + '...',
+							freelancerPubkey: contractData.freelancerPubkey.substring(0, 16) + '...'
+						});
+						continue;
+					}
 
 					// Apply additional filters
-					if (filter?.escrowIds && !filter.escrowIds.includes(contractData.escrowId)) continue;
-					if (filter?.taskIds && !filter.taskIds.includes(contractData.taskId)) continue;
-					if (filter?.statuses && !filter.statuses.includes(contractData.status)) continue;
+					if (filter?.escrowIds && !filter.escrowIds.includes(contractData.escrowId)) {
+						console.log(`[getUserContracts] Contract filtered out by escrowIds filter`, {
+							escrowId: contractData.escrowId,
+							filterEscrowIds: filter.escrowIds
+						});
+						continue;
+					}
+					if (filter?.taskIds && !filter.taskIds.includes(contractData.taskId)) {
+						console.log(`[getUserContracts] Contract filtered out by taskIds filter`, {
+							escrowId: contractData.escrowId,
+							taskId: contractData.taskId,
+							filterTaskIds: filter.taskIds
+						});
+						continue;
+					}
+					if (filter?.statuses && !filter.statuses.includes(contractData.status)) {
+						console.log(`[getUserContracts] Contract filtered out by statuses filter`, {
+							escrowId: contractData.escrowId,
+							contractStatus: contractData.status,
+							filterStatuses: filter.statuses
+						});
+						continue;
+					}
 
 					// CRITICAL: FIRST check ALL messages for key statuses (cancelled, disputed) 
 					// even if they don't pass contractEventId validation
@@ -1007,9 +1098,24 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 					try {
 						// Get actual escrow data from RSK contract
+						console.log(`[getUserContracts] Fetching escrow data for ${contractData.escrowId}...`);
 						try {
 							escrowData = await escrow.getEscrow(contractData.escrowId);
-						} catch {
+							console.log(`[getUserContracts] ✅ Escrow data fetched for ${contractData.escrowId}`, {
+								escrowId: contractData.escrowId,
+								status: escrowData?.status,
+								statusName: escrowData ? EscrowStatus[escrowData.status] : 'null',
+								hasData: !!escrowData,
+								baseAmount: escrowData?.baseAmount,
+								client: escrowData?.client?.substring(0, 16) + '...',
+								freelancer: escrowData?.freelancer?.substring(0, 16) + '...'
+							});
+						} catch (escrowError) {
+							console.warn(`[getUserContracts] ⚠️ Failed to fetch escrow data for ${contractData.escrowId}`, {
+								escrowId: contractData.escrowId,
+								error: escrowError instanceof Error ? escrowError.message : String(escrowError),
+								errorType: escrowError?.constructor?.name
+							});
 							// Silently handle expected "Invalid escrow ID" errors for contracts that were never funded
 							escrowData = null;
 						}
@@ -1251,6 +1357,23 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 					if (disputeProposal) updatedContract.disputeProposal = disputeProposal;
 
+					console.log(`[getUserContracts] ✅ Adding contract to results for escrow ${contractData.escrowId}`, {
+						escrowId: contractData.escrowId,
+						taskId: contractData.taskId,
+						finalStatus: currentStatus,
+						originalStatus: contractData.status,
+						escrowStatus: escrowData?.status,
+						escrowStatusName: escrowData ? EscrowStatus[escrowData.status] : 'null',
+						isClient,
+						isFreelancer,
+						statusEventsCount: statusEvents.length,
+						canComplete,
+						canAccept,
+						canDispute,
+						canCancel,
+						canDelete
+					});
+
 					contracts.push({
 						contract: updatedContract,
 						contractEvent: contractCreationMessage.event,
@@ -1271,12 +1394,34 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 			}
 		}
 
+		const endTime = Date.now();
+		const duration = endTime - startTime;
+		console.log('[getUserContracts] ✅ Contract loading completed', {
+			contractCount: contracts.length,
+			processedCount: contractCount,
+			duration: `${duration}ms`,
+			filter,
+			escrowIds: contracts.map(c => c.contract.escrowId),
+			statuses: contracts.map(c => c.contract.status),
+			taskIds: contracts.map(c => c.contract.taskId)
+		});
+
 		// Sort by creation time (newest first)
 		// Note: Deduplication is handled in the component using Svelte's $derived
 		return contracts.sort(
 			(a: ContractWithEvents, b: ContractWithEvents) => b.contract.createdAt - a.contract.createdAt
 		);
-	} catch {
+	} catch (error) {
+		const endTime = Date.now();
+		const duration = endTime - startTime;
+		console.error('[getUserContracts] ❌ Error getting user contracts (returning partial results)', {
+			error: error instanceof Error ? error.message : String(error),
+			errorType: error?.constructor?.name,
+			stack: error instanceof Error ? error.stack : undefined,
+			contractsLoaded: contracts.length,
+			duration: `${duration}ms`,
+			filter
+		});
 		// Don't throw - return what we have so the UI doesn't break
 		// Return whatever contracts we managed to load, even if some failed
 		// Note: Deduplication is handled in the component using Svelte's $derived
