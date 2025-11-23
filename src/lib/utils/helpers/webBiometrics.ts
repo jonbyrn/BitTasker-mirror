@@ -4,7 +4,12 @@
  */
 
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
-import { createDisplayName, createUserDeviceShortName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
+import {
+	createDisplayName,
+	createUserDeviceShortName,
+	createUserFriendlyName,
+	getDeviceIdentifier
+} from './deviceIdentity';
 import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/encoding';
 import { handleBiometricError } from './biometricErrorHandler';
 import { Preferences } from '@capacitor/preferences';
@@ -60,9 +65,7 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
  * Verify user identity using WebAuthn with automatic credential discovery
  * Returns the credentials if authentication is successful
  */
-export async function verifyIdentity(
-	options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS
-): Promise<boolean> {
+export async function verifyIdentity(): Promise<boolean> {
 	try {
 		if (!(await checkWebBiometricAvailability())) {
 			throw new Error('WebAuthn is not available on this device');
@@ -119,7 +122,9 @@ export async function setWebBiometricKey(
 		// Handle empty/whitespace-only customName by falling back to public key-based name
 		const validCustomName = customName?.trim() || null;
 		const displayName = validCustomName || createUserFriendlyName(publicKey);
-		const userName = validCustomName ? `BitTasker ${validCustomName}` : createDisplayName(publicKey);
+		const userName = validCustomName
+			? `BitTasker ${validCustomName}`
+			: createDisplayName(publicKey);
 
 		// Create registration options
 		const registrationOptions: PublicKeyCredentialCreationOptions = {
@@ -164,7 +169,7 @@ export async function setWebBiometricKey(
 
 /**
  * Get stored credentials after biometric verification
- * @param checkNpub For already logged in users check biometric npub agains localStorage npub 
+ * @param checkNpub For already logged in users check biometric npub agains localStorage npub
  */
 export async function getWebBiometricData(checkNpub: boolean = false): Promise<Credentials | null> {
 	try {
@@ -203,7 +208,7 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 		if (checkNpub) {
 			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
 			if (npub !== publicKey) {
-				throw new Error("Passkey mismatch: Please select the correct one linked to this account.");
+				throw new Error('Passkey mismatch: Please select the correct one linked to this account.');
 			}
 		}
 
@@ -252,7 +257,12 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 		} catch (error) {
 			// Fallback to legacy method if master key endpoint doesn't exist yet
 			console.warn('Master key not available, falling back to legacy:', error);
-			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credential.id, deviceName);
+			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
+				publicKey,
+				deviceId,
+				credential.id,
+				deviceName
+			);
 
 			if (!encryptedPrivateKey) {
 				throw new Error('No encrypted data found');
@@ -260,17 +270,34 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 
 			return {
 				username: publicKey,
-				password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
+				password: JSON.stringify({
+					key: exportedKey,
+					data: encryptedPrivateKey,
+					iv,
+					authTag,
+					salt
+				}),
 				server: deviceId,
 				isLegacyFormat: true
 			};
 		}
 	} catch (err) {
+		// Silently ignore "A request is already pending" errors
+		if (
+			err instanceof Error &&
+			(err.message.includes('A request is already pending') ||
+				err.message.includes('request is already pending') ||
+				(err.message.includes('OperationError') && err.message.includes('already pending')))
+		) {
+			console.log('Biometric request already in progress, ignoring duplicate request');
+			return null;
+		}
+
 		console.error('Failed to get biometric data:', err);
 		if (err instanceof Error && err.message.includes('device has been revoked')) {
 			appStore.showInfoToast('Your device access has been revoked');
 			await authState.logout();
-			goto('/auth/login');
+			await goto('/auth/login'); 
 		}
 		throw new Error(await handleBiometricError(err, 'web'));
 	}

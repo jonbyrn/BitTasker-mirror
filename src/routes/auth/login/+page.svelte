@@ -142,7 +142,13 @@
 
 			// Handle specific WebAuthn cancellation error
 			if (err instanceof Error) {
-				if (err.name === 'NotAllowedError' || err.message.includes('NotAllowedError')) {
+				// Silently ignore "A request is already pending" errors
+				if (err.message.includes('A request is already pending') ||
+					err.message.includes('request is already pending') ||
+					err.message === '') {
+					// Don't show error for pending requests
+					error = '';
+				} else if (err.name === 'NotAllowedError' || err.message.includes('NotAllowedError')) {
 					error = $t('login.errors.cancelled');
 				} else {
 					error = err.message;
