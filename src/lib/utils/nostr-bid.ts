@@ -5,6 +5,8 @@ import { getNpub } from './nostrKeys';
 import { sendDirectMessage, getMessageHistory, getMessagedPeople } from './nostr-message';
 import type {
 	NostrContract,
+	NostrContractV1,
+	NostrContractV2,
 	NostrContractStatus,
 	ContractWithEvents,
 	ContractStatusEvent,
@@ -13,6 +15,7 @@ import type {
 	ContractFilter,
 	ContractStatus
 } from '$lib/types/contract';
+import { ethers } from 'ethers';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import { get } from 'svelte/store';
 import { rskAddress } from '$lib/stores/wallet.store';
@@ -573,14 +576,106 @@ export async function sendBidStatusUpdate(
 // ============================================================================
 
 /**
+ * Parse and validate contract from Nostr message
+ * Handles both v1 (legacy) and v2 (new) formats
+ */
+export function parseNostrContract(raw: unknown): NostrContract {
+	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+		throw new Error('Invalid contract data');
+	}
+	
+	const contract = raw as Record<string, unknown>;
+	
+	// Check version
+	const version = (contract.contractFormatVersion as number | undefined) || 1;
+	
+	if (version === 2) {
+		// Validate v2 required fields
+		const contractAddress = contract.contractAddress as string | undefined;
+		const network = contract.network as string | undefined;
+		const environment = contract.environment as string | undefined;
+		const totalPaymentUsd = contract.totalPaymentUsd as number | undefined | null;
+		const btcPriceAtCreation = contract.btcPriceAtCreation as number | undefined | null;
+		
+		if (!contractAddress) {
+			throw new Error('v2 contract missing required field: contractAddress');
+		}
+		if (!network) {
+			throw new Error('v2 contract missing required field: network');
+		}
+		if (!environment) {
+			throw new Error('v2 contract missing required field: environment');
+		}
+		if (totalPaymentUsd === undefined || totalPaymentUsd === null) {
+			throw new Error('v2 contract missing required field: totalPaymentUsd');
+		}
+		if (btcPriceAtCreation === undefined || btcPriceAtCreation === null) {
+			throw new Error('v2 contract missing required field: btcPriceAtCreation');
+		}
+		
+		// Validate address format
+		try {
+			ethers.getAddress(contractAddress);
+		} catch {
+			throw new Error('Invalid contract address format');
+		}
+		
+		// Validate network/environment values
+		if (!['RSK', 'BSC'].includes(network)) {
+			throw new Error('Invalid network value');
+		}
+		if (!['mainnet', 'testnet'].includes(environment)) {
+			throw new Error('Invalid environment value');
+		}
+		
+		// Validate USD amount
+		if (typeof totalPaymentUsd !== 'number' || totalPaymentUsd <= 0 || isNaN(totalPaymentUsd) || !isFinite(totalPaymentUsd)) {
+			throw new Error('Invalid totalPaymentUsd value');
+		}
+		
+		// Validate BTC price
+		if (typeof btcPriceAtCreation !== 'number' || btcPriceAtCreation <= 0 || isNaN(btcPriceAtCreation) || !isFinite(btcPriceAtCreation)) {
+			throw new Error('Invalid btcPriceAtCreation value');
+		}
+		
+		return contract as NostrContractV2;
+	}
+	
+	// Version 1: Legacy format (no validation needed, backward compatible)
+	return contract as NostrContractV1;
+}
+
+/**
  * Create a new contract event after escrow creation (as encrypted DM)
  */
 export async function createContract(params: CreateContractParams): Promise<void> {
 	try {
+		// Validate required fields for v2 contracts
+		const version = params.contractFormatVersion || 2;
+		
+		if (version === 2) {
+			if (!params.contractAddress) {
+				throw new Error('contractAddress is required for v2 contracts');
+			}
+			if (!params.network) {
+				throw new Error('network is required for v2 contracts');
+			}
+			if (!params.environment) {
+				throw new Error('environment is required for v2 contracts');
+			}
+			if (params.totalPaymentUsd === undefined || params.totalPaymentUsd === null) {
+				throw new Error('totalPaymentUsd is required for v2 contracts');
+			}
+			if (params.btcPriceAtCreation === undefined || params.btcPriceAtCreation === null) {
+				throw new Error('btcPriceAtCreation is required for v2 contracts');
+			}
+		}
+		
 		const npub = await getNpub();
 		const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
-		const contractData: NostrContract = {
+		// Create v2 contract with all required fields
+		const contractData: NostrContractV2 = {
 			escrowId: params.escrowId,
 			taskId: params.taskId,
 			taskTitle: params.taskTitle,
@@ -593,8 +688,14 @@ export async function createContract(params: CreateContractParams): Promise<void
 			createdAt: Date.now(),
 			estimatedStartTime: params.estimatedStartTime,
 			estimatedCompletionTime: params.estimatedCompletionTime,
-			transactionHash: params.transactionHash, // Include transaction hash if provided
-			messageType: 'contract' // Identify as contract message
+			transactionHash: params.transactionHash,
+			messageType: 'contract',
+			contractFormatVersion: 2,
+			contractAddress: params.contractAddress,
+			network: params.network,
+			environment: params.environment,
+			totalPaymentUsd: params.totalPaymentUsd,
+			btcPriceAtCreation: params.btcPriceAtCreation,
 		};
 
 		// Send as encrypted DM to freelancer with single-character tags
@@ -605,7 +706,8 @@ export async function createContract(params: CreateContractParams): Promise<void
 			['e', params.escrowId], // e = escrow-id
 			['t', params.taskId], // t = task-id
 			['s', 'active'], // Use single char 's' for status
-			['c', 'creation'] // c = contract-type
+			['c', 'creation'], // c = contract-type
+			['v', '2'] // Version tag for easy filtering
 		]);
 	} catch (error) {
 		// Log error but don't throw - allow UI to continue
@@ -920,14 +1022,11 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 					}
 					console.log(`[getUserContracts] Contract creation message found for escrow ${escrowId}`);
 
-					// Validate contract data structure
+					// Validate contract data structure using parseNostrContract
 					let contractData: NostrContract;
 					try {
 						const parsed = JSON.parse(contractCreationMessage.plaintext);
-						if (!parsed || typeof parsed !== 'object' || !parsed.escrowId || !parsed.taskId) {
-							continue; // Invalid contract structure
-						}
-						contractData = parsed as NostrContract;
+						contractData = parseNostrContract(parsed);
 						
 						// CRITICAL: Validate that the contract creation message's escrowId matches the map key escrowId
 						// This prevents processing contracts with mismatched escrowIds that may have been incorrectly grouped
@@ -1517,14 +1616,11 @@ async function getContractStatusEventsFromMessages(
 
 		if (!contractCreationMessage) return [];
 
-		// Validate contract data structure
+		// Validate contract data structure using parseNostrContract
 		let contractData: NostrContract;
 		try {
 			const parsed = JSON.parse(contractCreationMessage.plaintext);
-			if (!parsed || typeof parsed !== 'object' || !parsed.escrowId || !parsed.taskId) {
-				return []; // Invalid contract structure
-			}
-			contractData = parsed as NostrContract;
+			contractData = parseNostrContract(parsed);
 			
 			// CRITICAL: Validate that the contract's escrowId matches the expected escrowId
 			// This prevents processing status messages from different contracts

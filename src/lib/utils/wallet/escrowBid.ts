@@ -9,6 +9,8 @@ import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
 import { escrow } from './escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+import { MultiNetworkEscrowManager } from './multiNetworkEscrow';
+import type { EscrowNetwork, NetworkEnvironment } from './multiNetworkEscrow';
 
 export interface BidEscrowDetails {
 	freelancerAddress: string;
@@ -265,6 +267,28 @@ export async function acceptBidAndCreateEscrow(
 			});
 		}
 
+		// Determine environment (mainnet/testnet)
+		const environment: NetworkEnvironment = network === 'RSK' 
+			? (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkEnvironment
+			: (import.meta.env.VITE_BSC_NETWORK || 'testnet') as NetworkEnvironment;
+
+		// Get contract address from network config
+		const escrowManager = new MultiNetworkEscrowManager();
+		const networkConfig = escrowManager.getNetworkConfig(network, environment);
+		const contractAddress = networkConfig.contractAddress;
+
+		if (!contractAddress) {
+			return {
+				success: false,
+				error: `Contract address not configured for ${network} ${environment}. Please set the appropriate environment variable.`
+			};
+		}
+
+		// Calculate total payment in USD (baseAmount + clientFee) * btcPrice
+		const baseAmountRBTC = parseFloat(escrowDetails.baseAmount);
+		const clientFeeRBTC = parseFloat(escrowDetails.clientFee);
+		const totalPaymentUsd = (baseAmountRBTC + clientFeeRBTC) * btcPrice;
+
 		// Create the escrow using multi-network manager
 		const transactionResult = await escrow.createEscrow(
 			escrowDetails.freelancerAddress,
@@ -286,9 +310,15 @@ export async function acceptBidAndCreateEscrow(
 			amount: escrowDetails.baseAmount,
 			estimatedStartTime: adjustedStartTime,
 			estimatedCompletionTime: adjustedCompletionTime,
-			transactionHash: transactionResult.hash
+			transactionHash: transactionResult.hash,
+			// New v2 fields
+			contractAddress: contractAddress,
+			network: network,
+			environment: environment,
+			totalPaymentUsd: totalPaymentUsd,
+			btcPriceAtCreation: btcPrice
 		});
-		console.log('✅ [EscrowBid] Pending contract registered');
+		console.log('✅ [EscrowBid] Pending contract registered with v2 fields');
 
 		return {
 			success: true,

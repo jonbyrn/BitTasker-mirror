@@ -44,6 +44,12 @@ interface PendingContractCreation {
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	transactionHash: string;
+	// REQUIRED: New fields for v2 contracts
+	contractAddress: string;
+	network: 'RSK' | 'BSC';
+	environment: 'mainnet' | 'testnet';
+	totalPaymentUsd: number;
+	btcPriceAtCreation: number; // BTC price at creation time (for historical accuracy)
 }
 
 const pendingContracts = new Map<string, PendingContractCreation>();
@@ -102,7 +108,13 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				amount: pendingContract.amount,
 				estimatedStartTime: pendingContract.estimatedStartTime,
 				estimatedCompletionTime: pendingContract.estimatedCompletionTime,
-				transactionHash: event.transactionHash
+				transactionHash: event.transactionHash,
+				// New v2 fields
+				contractAddress: pendingContract.contractAddress,
+				network: pendingContract.network,
+				environment: pendingContract.environment,
+				totalPaymentUsd: pendingContract.totalPaymentUsd,
+				btcPriceAtCreation: pendingContract.btcPriceAtCreation
 			};
 
 			console.log('Creating Nostr contract with params:', contractParams);

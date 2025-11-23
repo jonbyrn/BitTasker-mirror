@@ -3,6 +3,8 @@
 	import { locale } from 'svelte-i18n';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import type { ContractWithEvents } from '$lib/types/contract';
+	import { isNostrContractV2 } from '$lib/types/contract';
+	import { getTotalPaymentUsd, getBtcPriceAtCreation, resolveContractNetwork } from '$lib/utils/wallet/contractResolver';
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
 
@@ -41,6 +43,32 @@
 				return 'badge-ghost';
 		}
 	}
+
+	// Format USD amount
+	function formatUSD(amount: number): string {
+		return new Intl.NumberFormat('en-US', {
+			style: 'currency',
+			currency: 'USD',
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		}).format(amount);
+	}
+
+	// Copy to clipboard
+	async function copyToClipboard(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			// Could add toast notification here
+		} catch (err) {
+			console.error('Failed to copy:', err);
+		}
+	}
+
+	// Check if contract is v2
+	const isV2Contract = $derived(isNostrContractV2(contract.contract));
+	const totalPaymentUsd = $derived(getTotalPaymentUsd(contract.contract));
+	const btcPriceAtCreation = $derived(getBtcPriceAtCreation(contract.contract));
+	const networkInfo = $derived(resolveContractNetwork(contract.contract));
 
 	// Handle action completion
 	function handleActionComplete() {
@@ -85,7 +113,7 @@
 					<h3 id="contract-modal-title" class="font-bold text-lg mb-2">
 						{contract.contract.taskTitle}
 					</h3>
-					<div class="flex items-center gap-2 mb-3">
+					<div class="flex items-center gap-2 mb-3 flex-wrap">
 						<div class="badge {getStatusBadgeClass(contract.contract.status)}">
 							{$t(`dashboard.contracts.status.${contract.contract.status}`)}
 						</div>
@@ -94,6 +122,14 @@
 								? $t('dashboard.client') 
 								: $t('dashboard.freelancer')}
 						</div>
+						{#if isV2Contract}
+							<div class="badge badge-outline">
+								{contract.contract.network}
+							</div>
+							<div class="badge badge-outline">
+								{contract.contract.environment}
+							</div>
+						{/if}
 					</div>
 				</div>
 				
@@ -121,6 +157,13 @@
 									<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
 									<span class="font-semibold">{formatRBTC(contract.contract.amount)} RBTC</span>
 								</div>
+								
+								{#if totalPaymentUsd !== null}
+									<div class="flex justify-between">
+										<span class="text-base-content/70">{$t('dashboard.contracts.total_payment_usd')}:</span>
+										<span class="font-semibold text-primary">{formatUSD(totalPaymentUsd)}</span>
+									</div>
+								{/if}
 								
 								<div class="flex justify-between">
 									<span class="text-base-content/70">{$t('dashboard.contracts.escrow_id')}:</span>
@@ -218,6 +261,33 @@
 								<span class="text-base-content/60">{$t('dashboard.contracts.currency')}:</span>
 								<div class="mt-1">{contract.contract.currency}</div>
 							</div>
+							{#if isV2Contract}
+								<div>
+									<span class="text-base-content/60">{$t('dashboard.contracts.contract_address')}:</span>
+									<div class="flex items-center gap-2 mt-1">
+										<div class="font-mono break-all flex-1">{contract.contract.contractAddress}</div>
+										<button
+											class="btn btn-xs btn-ghost"
+											onclick={() => copyToClipboard(contract.contract.contractAddress)}
+											aria-label={$t('dashboard.contracts.copy_address')}
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+											</svg>
+										</button>
+									</div>
+								</div>
+								<div>
+									<span class="text-base-content/60">{$t('dashboard.contracts.network')}:</span>
+									<div class="mt-1">{contract.contract.network} ({contract.contract.environment})</div>
+								</div>
+								{#if btcPriceAtCreation !== null}
+									<div>
+										<span class="text-base-content/60">{$t('dashboard.contracts.btc_price_at_creation')}:</span>
+										<div class="mt-1">{formatUSD(btcPriceAtCreation)}</div>
+									</div>
+								{/if}
+							{/if}
 						</div>
 					</div>
 				</details>

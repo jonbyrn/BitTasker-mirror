@@ -22,8 +22,11 @@ export type ContractStatus =
 	| 'resolved'
 	| 'cancelled';
 
-// Main contract event data (now sent as encrypted DM)
-export interface NostrContract {
+// Contract format version
+export type ContractFormatVersion = 1 | 2;
+
+// Base contract fields (common to all versions)
+interface BaseNostrContract {
 	escrowId: string;
 	taskId: string;
 	taskTitle: string;
@@ -47,6 +50,38 @@ export interface NostrContract {
 	disputeProposal?: DisputeProposal;
 	// Completion evidence attachments (images/videos)
 	completionAttachments?: Attachment[];
+}
+
+// Version 1: Legacy format (backward compatibility)
+export interface NostrContractV1 extends BaseNostrContract {
+	contractFormatVersion?: 1; // Optional for backward compatibility
+	// No new required fields
+}
+
+// Version 2: New format with required blockchain metadata
+export interface NostrContractV2 extends BaseNostrContract {
+	contractFormatVersion: 2; // Required discriminator
+	// REQUIRED: Contract address used for this escrow
+	contractAddress: string;
+	// REQUIRED: Network identification
+	network: 'RSK' | 'BSC';
+	environment: 'mainnet' | 'testnet';
+	// REQUIRED: Total payment in USD (including fees)
+	totalPaymentUsd: number;
+	// REQUIRED: BTC price in USD at contract creation (for historical accuracy)
+	btcPriceAtCreation: number;
+}
+
+// Union type for all contract versions
+export type NostrContract = NostrContractV1 | NostrContractV2;
+
+// Type guards for version checking
+export function isNostrContractV2(contract: NostrContract): contract is NostrContractV2 {
+	return contract.contractFormatVersion === 2;
+}
+
+export function isNostrContractV1(contract: NostrContract): contract is NostrContractV1 {
+	return !contract.contractFormatVersion || contract.contractFormatVersion === 1;
 }
 
 // Status update event data (both parties can publish as encrypted DMs)
@@ -102,6 +137,13 @@ export interface CreateContractParams {
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	transactionHash?: string; // Optional transaction hash from escrow creation
+	// REQUIRED for new contracts (v2)
+	contractAddress: string;
+	network: 'RSK' | 'BSC';
+	environment: 'mainnet' | 'testnet';
+	totalPaymentUsd: number;
+	btcPriceAtCreation: number;
+	contractFormatVersion?: ContractFormatVersion; // Defaults to 2
 }
 
 // Status update parameters
