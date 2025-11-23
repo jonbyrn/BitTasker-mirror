@@ -14,13 +14,23 @@ export type ContractAction =
 	| 'escrow-cancelled'
 	| 'timelock-resolved';
 
-// Contract status in Nostr (mirrors RSK EscrowStatus)
+// Contract status - matches Solidity EscrowStatus exactly
 export type ContractStatus = 
-	| 'active'
-	| 'completed'
-	| 'disputed'
-	| 'resolved'
-	| 'cancelled';
+	| 'funded'              // EscrowStatus.Funded (0) - Escrow created and funded
+	| 'in-dispute'          // EscrowStatus.InDispute (1) - Client disputed the work
+	| 'dispute-resolved'    // EscrowStatus.DisputeResolved (2) - Dispute resolved, funds distributed
+	| 'dispute-unresolved'  // EscrowStatus.DisputeUnresolved (3) - Dispute unresolved via timelock
+	| 'completed'           // EscrowStatus.Completed (4) - Freelancer marked task complete
+	| 'cancelled';          // EscrowStatus.Cancelled (5) - Escrow cancelled
+
+// Display status for UI - includes pending states during blockchain processing
+export type DisplayStatus = 
+	| ContractStatus 
+	| 'in-progress'           // Work started (past estimated start time) but not completed
+	| 'pending-funding'       // Transaction submitted, waiting for blockchain confirmation
+	| 'pending-completion'    // Complete action submitted, waiting for confirmation
+	| 'pending-dispute'       // Dispute action submitted, waiting for confirmation
+	| 'pending-cancellation'; // Cancel action submitted, waiting for confirmation
 
 // Main contract event data (now sent as encrypted DM)
 export interface NostrContract {
@@ -36,7 +46,7 @@ export interface NostrContract {
 	createdAt: number;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
-	messageType: 'contract'; // Identify as contract message in DMs
+	type: 'contract'; // Identify as contract message in DMs
 	// References to latest status events
 	latestStatusEventId?: string;
 	latestClientStatusEventId?: string;
@@ -56,7 +66,7 @@ export interface NostrContractStatus {
 	action: ContractAction;
 	message?: string;
 	timestamp: number;
-	messageType: 'contract-status'; // Identify as contract status message in DMs
+	type: 'contract-status'; // Identify as contract status message in DMs
 	// RSK transaction hash if applicable
 	transactionHash?: string;
 	// Dispute resolution data
@@ -72,6 +82,13 @@ export interface ContractWithEvents {
 	contractEvent: NostrEvent;
 	statusEvents: ContractStatusEvent[];
 	isClient: boolean; // true if current user is the client
+	
+	// Blockchain state (source of truth)
+	blockchainStatus: number | null; // EscrowStatus enum value from blockchain, null if not funded
+	displayStatus: DisplayStatus; // Display status for UI (includes pending states)
+	isPending: boolean; // true if blockchain transaction is being processed
+	
+	// Permission flags (determined by blockchain state + contract rules)
 	canComplete: boolean; // freelancer can mark as complete
 	canAccept: boolean; // client can accept completed work
 	canDispute: boolean; // client can dispute
@@ -79,7 +96,7 @@ export interface ContractWithEvents {
 	canAcceptProposal: boolean; // other party can accept proposal
 	canCancel: boolean; // either party can cancel
 	canResolveTimelock: boolean; // either party can resolve after timelock
-	canDelete: boolean; // either party can delete (ONLY if contract was never funded or funding failed)
+	canDelete: boolean; // ONLY if contract was never funded (no blockchain state, no tx hash)
 }
 
 // Status event with metadata

@@ -14,10 +14,11 @@
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
 	import IconCheckCircle from '~icons/mdi/check-circle';
-import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
-import IconChevronDown from '~icons/mdi/chevron-down';
-import IconCheck from '~icons/mdi/check';
-import IconRefresh from '~icons/mdi/refresh';
+	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
+	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconCheck from '~icons/mdi/check';
+	import IconRefresh from '~icons/mdi/refresh';
+	// import { getBidsForTask } from '$lib/utils/nostr-bid';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -130,14 +131,14 @@ let error = $state<string | null>(null);
 
 		try {
 			// Batch check all bids
-			const { getBidsFromDMs } = await import('$lib/utils/nostr-bid');
-			const allBids = await getBidsFromDMs();
+			/* const { getBidsForTask } = await import('$lib/utils/nostr-bid');
+			const allBids = await getBidsForTask(taskId);
 
 			// Create map of task IDs with bids
 			const tasksWithBids = new Set<string>();
 			for (const bid of allBids) {
-				if (bid.bid?.taskId) {
-					tasksWithBids.add(bid.bid.taskId);
+				if (bid?.taskId) {
+					tasksWithBids.add(bid.taskId);
 				}
 			}
 
@@ -152,7 +153,7 @@ let error = $state<string | null>(null);
 			// Then, update entries for current tasks
 			for (const taskId of currentTaskIds) {
 				bidStatusMap.set(taskId, tasksWithBids.has(taskId));
-			}
+			} */
 		} catch (error) {
 			console.error('Error checking bids in background:', error);
 		} finally {

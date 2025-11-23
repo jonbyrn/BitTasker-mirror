@@ -112,18 +112,43 @@
 		switch (status.toLowerCase()) {
 			case 'cancelled':
 				return 'badge-error'; // Red
-			case 'active':
-			case 'in_progress':
 			case 'funded':
 				return 'badge-info'; // Blue
 			case 'completed':
-			case 'resolved':
 				return 'badge-success'; // Green
-			case 'disputed':
-			case 'in_dispute':
+			case 'in-dispute':
+			case 'dispute-resolved':
+			case 'dispute-unresolved':
 				return 'badge-warning'; // Yellow
+			case 'pending-funding':
+			case 'pending-completion':
+			case 'pending-dispute':
+			case 'pending-cancellation':
+				return 'badge-warning'; // Yellow for pending states
 			default:
 				return 'badge-ghost';
+		}
+	}
+	
+	// Get display text for status
+	function getStatusDisplayText(status: string): string {
+		switch (status) {
+			case 'pending-funding':
+				return $t('dashboard.contracts.status.pending_funding');
+			case 'pending-completion':
+				return $t('dashboard.contracts.status.pending_completion');
+			case 'pending-dispute':
+				return $t('dashboard.contracts.status.pending_dispute');
+			case 'pending-cancellation':
+				return $t('dashboard.contracts.status.pending_cancellation');
+			case 'funded':
+				return $t('dashboard.contracts.status.funded'); // Show as "Active"
+			case 'in-dispute':
+				return $t('dashboard.contracts.status.in_dispute');
+			case 'dispute-resolved':
+				return $t('dashboard.contracts.status.dispute_resolved');
+			default:
+				return $t(`dashboard.contracts.status.${status}`);
 		}
 	}
 </script>
@@ -152,8 +177,11 @@
 				<!-- Badges in top right corner -->
 				<div class="flex flex-col items-end gap-2 flex-shrink-0 ml-4">
 					<div class="flex items-center gap-2">
-						<div class="badge {getStatusColorClass(contract.contract.status)} badge-sm">
-							{$t(`dashboard.contracts.status.${contract.contract.status}`)}
+						<div class="badge {getStatusColorClass(contract.displayStatus)} badge-sm">
+							{#if contract.isPending}
+								<span class="loading loading-spinner loading-xs mr-1"></span>
+							{/if}
+							{getStatusDisplayText(contract.displayStatus)}
 						</div>
 						<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
 							{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}

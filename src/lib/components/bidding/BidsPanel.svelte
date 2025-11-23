@@ -4,7 +4,6 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import BidCard from '$lib/components/bidding/BidCard.svelte';
 	import BidDetailsDrawer from '$lib/components/bidding/BidDetailsDrawer.svelte';
-	import bidService from '$lib/api/services/bid.service';
 	import taskService from '$lib/api/services/task.service';
 	import { t } from 'svelte-i18n';
 

@@ -16,7 +16,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { fade, scale } from 'svelte/transition';
 	import TranslatableTask from '../TranslatableTask.svelte';
-	import { getUserContracts } from '$lib/utils/nostr-bid';
+	import { getContracts } from '$lib/utils/nostr-contract';
 	import { escrow } from '$lib/utils/wallet/escrow';
 
 	let { task, isOwner, onClose } = $props<{
@@ -74,7 +74,7 @@
 			isCheckingDelete = true;
 			
 			// Check if task has any contracts (which means it has an escrow)
-			const contracts = await getUserContracts({ taskIds: [task.id] });
+			const contracts = await getContracts({ taskIds: [task.id] });
 			
 			if (contracts.length === 0) {
 				// No contracts found - task was never funded, can delete

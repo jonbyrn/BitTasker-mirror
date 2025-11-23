@@ -2,14 +2,15 @@
 	import type { PaymentType } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
+	import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
-	import { sendDirectMessage } from '$lib/utils/nostr-message';
+	import { publishNostrEvent } from '$lib/utils/nostr';
 	import { walletManager, rskAddress } from '$lib/stores/wallet.store';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
-	import { generateBidTranslations } from '$lib/nostr/bid';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	// Props
 	const {
@@ -26,8 +27,8 @@
 	} = $props<{
 		taskId: string;
 		onClose: () => void;
-		taskTitle?: string; // Add task title prop
-		taskDescription?: string; // Add task description prop
+		taskTitle: string; // Add task title prop
+		taskDescription: string; // Add task description prop
 		taskCreatorPubkey?: string | undefined; // Add task creator pubkey prop
 		taskCreatorUsername?: string; // Add task creator username prop
 		taskCreatorAvatar?: string; // Add task creator avatar prop
@@ -243,19 +244,19 @@
 			}
 		}
 
-		// Validate description - min 20, max 500
+		// Validate description - min 50, max 500
 		if (!description || description.trim() === '') {
 			errors.description = $t('bid_form.errors.description_required');
-		} else if (description.trim().length < 20) {
+		} else if (description.trim().length < 50) {
 			errors.description = $t('bid_form.errors.description_min_length');
 		} else if (description.trim().length > 500) {
 			errors.description = $t('bid_form.errors.description_max_length');
 		}
 
-		// Validate proposed approach - min 20, max 1000
+		// Validate proposed approach - min 50, max 1000
 		if (!proposedApproach || proposedApproach.trim() === '') {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_required');
-		} else if (proposedApproach.trim().length < 20) {
+		} else if (proposedApproach.trim().length < 50) {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_min_length');
 		} else if (proposedApproach.trim().length > 1000) {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_max_length');
@@ -319,21 +320,12 @@
 		try {
 			await walletManager.initialize();
 
-			// Generate translations for bid content (description, proposedApproach, coverLetter)
-			// This stores translations in both languages for fast retrieval
-			const bidTranslations = await generateBidTranslations({
-				description,
-				proposedApproach,
-				coverLetter
-			});
-
 			// Create bid data structure with explicit type
 			const bidData = {
-				type: 'bid' as const,
+				type: 'bid',
 				taskId: taskId,
-				taskTitle: taskTitle || $t('dashboard.bids.bid_creation.untitled_task'),
-				taskDescription:
-					taskDescription || $t('dashboard.bids.bid_creation.no_description_available'), // Add task description
+				taskTitle: taskTitle,
+				taskDescription: taskDescription,
 				amount: amount, // Send USD amount directly
 				currency: 'USD',
 				paymentType: bidType,
@@ -344,7 +336,7 @@
 				proposedApproach,
 				coverLetter: coverLetter,
 				timestamp: Date.now(),
-				bidId: crypto.randomUUID(),
+				bidId: crypto.randomUUID(), // TODO: should be removed in favor of nostr event id property
 
 				taskCreatorPubkey: taskCreatorPubkey,
 				taskCreatorUsername: taskCreatorUsername,
@@ -360,32 +352,28 @@
 
 				// Add new datetime fields
 				startDateTime: bidType === 'FIXED' ? startDateTime : null,
-				endDateTime: bidType === 'FIXED' ? endDateTime : null,
-
-				messageType: 'bid',
-				
-				// Add translations if available
-				...(bidTranslations && { translations: bidTranslations })
+				endDateTime: bidType === 'FIXED' ? endDateTime : null
 			};
 
-			// Create custom tags for the nostr event
-			const customTags: string[][] = [
-				['t', taskId] // Add task ID as a custom tag for filtering
-			];
+			// Create custom tags for the bid event using TAG_PATTERNS
+			const customTags = TAG_PATTERNS.bid(bidData.bidId, taskId, taskCreatorPubkey, bidType);
 
-			// Submit a bid as an encrypted DM to the task creator with custom tags
-			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
+			// Submit a bid as an encrypted event to the task creator with custom tags
+			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), taskCreatorPubkey, customTags);
+
+			// Send notification to task creator
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [taskCreatorPubkey],
 				title: 'New Bid Received',
 				body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey}`,
 				type: 'bid_created',
-				clickAction: `${import.meta.env.VITE_APP_URL}/tasks/${taskId}`,
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${taskId}`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Clear bid cache to ensure fresh data on next load
-			clearBidCache();
+			// Clear bid cache for this specific task
+			// This ensures fresh data on next load without clearing unrelated caches
+			clearBidCache(taskId);
 
 			// Mark bid as submitted
 			bidSubmitted = true;
@@ -712,13 +700,9 @@
 				></textarea>
 				{#if description.length > 0}
 					<small
-						class="text-base-content/60 text-xs {description.length < 20
-							? 'text-error'
-							: description.length >= 500
-								? 'text-warning'
-								: ''}"
+						class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}"
 					>
-						{description.length}/20
+						{description.length}/500 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.description}
@@ -752,13 +736,11 @@
 				></textarea>
 				{#if proposedApproach.length > 0}
 					<small
-						class="text-base-content/60 text-xs {proposedApproach.length < 20
-							? 'text-error'
-							: proposedApproach.length >= 1000
-								? 'text-warning'
-								: ''}"
+						class="text-base-content/60 text-xs {proposedApproach.length >= 1000
+							? 'text-warning'
+							: ''}"
 					>
-						{proposedApproach.length}/20
+						{proposedApproach.length}/1000 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.proposedApproach}
@@ -791,7 +773,7 @@
 					<small
 						class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}"
 					>
-						{coverLetter.length}/20
+						{coverLetter.length}/800 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.coverLetter}

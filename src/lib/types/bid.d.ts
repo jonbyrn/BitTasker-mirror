@@ -1,12 +1,51 @@
 import type { Freelancer } from './freelancer';
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { Location } from './task';
+import type { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 // Legacy bid types
 export type PaymentType = 'FIXED' | 'HOURLY';
 export type Currency = 'USD' | 'BTC' | 'L-BTC' | 'LN' | 'SATS';
 export type Visibility = 'PUBLIC' | 'PRIVATE';
-export type BidStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN' | 'COUNTERED';
+
+// New nostr bid types
+export interface NostrBidContent {
+	type: 'bid';
+	taskId: string;
+	taskTitle: string; // Add task title
+	taskDescription: string; // Add task description
+	amount: number;
+	currency: string;
+	paymentType: PaymentType;
+	hourlyRate?: number | null; // Allow null values
+	estimatedHours?: number | null; // Allow null values
+	description: string;
+	estimatedDuration: string;
+	proposedApproach: string;
+	coverLetter: string;
+	timestamp: number;
+	bidId: string;
+	// Updated datetime fields to match actual data structure
+	startDateTime: string;
+	endDateTime: string;
+
+	taskCreatorUsername?: string;
+	taskCreatorAvatar?: string;
+	taskCreatorPubkey?: string;
+	taskCreatorRating?: number;
+
+	// Bidder information
+	bidderId?: string;
+	bidderName?: string;
+	bidderAvatar?: string;
+	bidderRating?: number;
+
+	// RSK wallet address for escrow funding
+	bidderWalletAddress?: string;
+
+	// Runtime properties added when processing bids
+	status?: BidStatusEnum;
+}
 
 export interface Bid {
 	// Basic Information
@@ -33,7 +72,7 @@ export interface Bid {
 	responseTime: number;
 
 	// Status Information
-	status?: BidStatus;
+	status?: BidStatusEnum;
 	createdAt?: string;
 	updatedAt?: string;
 
@@ -75,9 +114,6 @@ export interface Bid {
 
 	// Negotiation Tracking
 	counterOffers?: CounterOffer[];
-	
-	// Bid translations
-	translations?: BidTranslations;
 }
 
 export interface UserProfileOutput {
@@ -203,106 +239,10 @@ export interface CreateBidParams {
 	responseTime: number;
 }
 
-
-// Bid translations structure
-export interface BidTranslations {
-	sourceLanguage: string; // Language of the original content
-	translations: {
-		[language: string]: {
-			description: string;
-			proposedApproach: string;
-			coverLetter: string;
-		};
-	};
-}
-
-// New nostr bid types
-export interface NostrBid {
-	type: 'bid';
-	taskId: string;
-	taskTitle: string; // Add task title
-	taskDescription: string; // Add task description
-	amount: number;
-	currency: string;
-	paymentType: 'FIXED' | 'HOURLY';
-	hourlyRate?: number | null; // Allow null values
-	estimatedHours?: number | null; // Allow null values
-	description: string;
-	estimatedDuration: string;
-	proposedApproach: string;
-	coverLetter: string;
-	timestamp: number;
-	bidId: string;
-	// Updated datetime fields to match actual data structure
-	startDateTime: string;
-	endDateTime: string;
-	// Add this field to identify it as a bid
-	messageType: 'bid';
-	taskCreatorUsername?: string;
-	taskCreatorAvatar?: string;
-	taskCreatorPubkey?: string;
-	taskCreatorRating?: number;
-	// Bidder information
-	bidderId?: string;
-	bidderName?: string;
-	bidderAvatar?: string;
-	// RSK wallet address for escrow funding
-	bidderWalletAddress?: string;
-	// Bid translations
-	translations?: BidTranslations;
-}
-
-export interface BidMessage {
-	bid: NostrBid; // The bid data
-	senderPubkey: string; // Who sent the bid
-	event: NostrEvent; // The Nostr event
-}
-
-
-export interface NostrBidData {
-	type: 'bid';
-	taskId: string;
-	taskTitle: string;
-	taskDescription: string;
-	amount: number;
-	currency: string;
-	paymentType: 'FIXED' | 'HOURLY';
-	hourlyRate: number | null;
-	estimatedHours: number | null;
-	description: string;
-	estimatedDuration: string;
-	proposedApproach: string;
-	coverLetter: string;
-	timestamp: number;
-	bidId: string;
-	taskCreatorPubkey: string;
-	taskCreatorUsername: string;
-	taskCreatorAvatar: string;
-	bidderId: string;
-	bidderName: string;
-	bidderAvatar: string;
-	bidderWalletAddress: string;
-	startDateTime: string;
-	endDateTime: string;
-	messageType: 'bid';
-	// Bid translations
-	translations?: BidTranslations;
-}
-
-export interface NostrBidMessage {
-	bid: NostrBidData;
-	senderPubkey: string;
-	event: {
-		id: string;
-		pubkey: string;
-		created_at: number;
-		kind: number;
-		tags: string[][];
-		content: string;
-		sig: string;
-	};
-}
-
+/**
+ * @deprecated Use NostrBid instead
+ * This type should no longer be used and will be removed in a future version
+ */
 export interface SimplifiedTaskBid {
 	id: string;
 	taskId: string;
@@ -320,7 +260,6 @@ export interface SimplifiedTaskBid {
 	createdAt: string;
 	startDateTime: string;
 	endDateTime: string;
-	translations?: BidTranslations; // Incluir traducciones
 	userProfile: {
 		user: {
 			rating: number;
@@ -333,10 +272,9 @@ export interface SimplifiedTaskBid {
 
 // Bid status message types for Nostr communication
 export interface NostrBidStatus {
-	messageType: 'bid-status';
-	bidId: string;
+	type: 'bid-status';
 	taskId: string;
-	status: 'accepted' | 'rejected';
+	status: BidStatusEnum;
 	message?: string;
 	timestamp: number;
 	// For accepted bids, include escrow details
@@ -344,8 +282,8 @@ export interface NostrBidStatus {
 	transactionHash?: string;
 }
 
-export interface BidStatusMessage {
-	status: NostrBidStatus;
-	senderPubkey: string;
-	event: NostrEvent;
+interface NostrEventWithFollowup extends NostrEvent {
+	latestStatus?: Omit<NostrEvent, 'content'> & {
+		content: NostrBidStatus;
+	};
 }

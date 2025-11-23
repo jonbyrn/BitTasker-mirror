@@ -273,8 +273,6 @@
         "counter": "Counter"
     },
     "bid_creation": {
-        "untitled_task": "Untitled Task",
-        "no_description_available": "No description available",
         "day": "day",
         "days": "days",
         "hour": "hour",

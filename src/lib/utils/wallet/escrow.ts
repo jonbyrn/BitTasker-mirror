@@ -10,6 +10,7 @@ import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
 import { updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
+import { handleEscrowCancelled, handleEscrowCreated, handleProposalAccepted, handleResolutionProposed, handleTaskAccepted, handleTaskCompleted, handleTaskDisputed, handleTimelockResolved } from '$lib/utils/wallet/escrowEvents';
 
 let contract: ethers.Contract | null = null;
 
@@ -346,7 +347,6 @@ async function createEscrow(
             hash: tx.hash,
             status: 'pending'
         };
-        console.log({result})
 
         // Handle confirmation asynchronously and create Nostr contract directly
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
@@ -392,7 +392,6 @@ async function createEscrow(
                             // Handle escrow created event through our event management system
                             // Wrap in try-catch to prevent import errors from marking transaction as failed
                             try {
-                                const { handleEscrowCreated } = await import('$lib/utils/wallet/escrowEvents');
                                 await handleEscrowCreated({
                                     escrowId,
                                     transactionHash: receipt.hash,
@@ -465,7 +464,6 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
                 // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
                     try {
-                        const { handleTaskCompleted } = await import('$lib/utils/wallet/escrowEvents');
                         await handleTaskCompleted({
                             escrowId,
                             transactionHash: receipt.hash,
@@ -552,7 +550,6 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
                 // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
                     try {
-                        const { handleTaskAccepted } = await import('$lib/utils/wallet/escrowEvents');
                         await handleTaskAccepted({
                             escrowId,
                             transactionHash: receipt.hash,
@@ -619,7 +616,6 @@ async function cancelEscrow(escrowId: string, contractEventId?: string): Promise
                 // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
                     try {
-                        const { handleEscrowCancelled } = await import('$lib/utils/wallet/escrowEvents');
                         await handleEscrowCancelled({
                             escrowId,
                             transactionHash: receipt.hash,
@@ -686,7 +682,6 @@ async function disputeTask(escrowId: string, contractEventId?: string): Promise<
                 // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
                     try {
-                        const { handleTaskDisputed } = await import('$lib/utils/wallet/escrowEvents');
                         await handleTaskDisputed({
                             escrowId,
                             transactionHash: receipt.hash,
@@ -768,7 +763,6 @@ async function proposeResolution(
                 // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
                     try {
-                        const { handleResolutionProposed } = await import('$lib/utils/wallet/escrowEvents');
                         await handleResolutionProposed({
                             escrowId,
                             transactionHash: receipt.hash,
@@ -837,7 +831,6 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
                 // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
                     try {
-                        const { handleProposalAccepted } = await import('$lib/utils/wallet/escrowEvents');
                         await handleProposalAccepted({
                             escrowId,
                             transactionHash: receipt.hash,
@@ -904,7 +897,6 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
                 // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
                     try {
-                        const { handleTimelockResolved } = await import('$lib/utils/wallet/escrowEvents');
                         await handleTimelockResolved({
                             escrowId,
                             transactionHash: receipt.hash,

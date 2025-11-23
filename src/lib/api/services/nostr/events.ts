@@ -9,7 +9,7 @@
  * - Find event by ID
  * - Request events
  */
-import type { NostrEvent } from '$lib/types/nostr';
+import type { NostrEvent } from 'nostr-tools';
 import { ENDPOINTS } from '$lib/api/endpoints';
 import { BaseApiService } from '$lib/api/apiService';
 
@@ -40,17 +40,13 @@ interface RequestEventsVo {
     data: EventEntity[];
 }
 
-interface HandleEventDto extends NostrEvent {
-    sig: string;
-}
-
 class NostrEventsService extends BaseApiService {
     constructor() {
         super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);
     }
 
     // POST /events
-    async publishEvent(event: HandleEventDto): Promise<EventEntity> {
+    async publishEvent(event: NostrEvent): Promise<EventEntity> {
         const response = await this.post(ENDPOINTS.NOSTR.EVENTS, event);
         return response.data;
     }

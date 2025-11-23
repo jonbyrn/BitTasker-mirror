@@ -526,8 +526,8 @@ class LocalNotificationService {
 	private async getUserRoleInContract(contractId: string, currentUserPubkey: string): Promise<UserRole> {
 		try {
 			// Import contract service to check contract details
-			const { getUserContracts } = await import('$lib/utils/nostr-bid');
-			const contracts = await getUserContracts({ escrowIds: [contractId] });
+			const { getContracts } = await import('$lib/utils/nostr-contract');
+			const contracts = await getContracts({ escrowIds: [contractId] });
 			
 			if (contracts.length > 0) {
 				const contract = contracts[0];

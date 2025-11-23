@@ -1,5 +1,5 @@
 import type { Task } from '$lib/types/task';
-import type { SimplifiedTaskBid } from '$lib/types/bid';
+import type { NostrBidContent } from '$lib/types/bid';
 import type { ContractTransactionResult } from '$lib/types/wallet';
 import type { FeeTier } from '$lib/utils/wallet/networkConfig';
 import { FEE_TIERS } from '$lib/utils/wallet/networkConfig';
@@ -34,7 +34,7 @@ export interface BidAcceptanceResult {
  * @param task Task details
  * @param btcPrice Current BTC price in USD (needed to convert USD to rBTC)
  */
-export function calculateBidEscrowDetails(bid: SimplifiedTaskBid, task: Task, btcPrice: number): BidEscrowDetails {
+export function calculateBidEscrowDetails(bid: NostrBidContent, task: Task, btcPrice: number): BidEscrowDetails {
 	// Convert bid amount from USD to rBTC
 	// Ensure minimum amount to avoid parsing issues
 	if (bid.amount <= 0) {
@@ -191,7 +191,7 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
  * Accept bid and create escrow contract
  */
 export async function acceptBidAndCreateEscrow(
-	bid: SimplifiedTaskBid,
+	bid: NostrBidContent,
 	task: Task,
 	btcPrice: number,
 	network: 'RSK' | 'BSC' = 'RSK'
@@ -254,15 +254,6 @@ export async function acceptBidAndCreateEscrow(
 			// Maintain the same duration by adjusting completion time
 			const originalDuration = escrowDetails.estimatedCompletionTime - escrowDetails.estimatedStartTime;
 			adjustedCompletionTime = now + 60 + originalDuration;
-			
-			console.log('⏰ Adjusted start time from past to 1 minute after current time:', {
-				originalStart: escrowDetails.estimatedStartTime,
-				adjustedStart: adjustedStartTime,
-				originalCompletion: escrowDetails.estimatedCompletionTime,
-				adjustedCompletion: adjustedCompletionTime,
-				duration: originalDuration,
-				minutesPast: timeDifferenceMinutes
-			});
 		}
 
 		// Create the escrow using multi-network manager
@@ -274,15 +265,14 @@ export async function acceptBidAndCreateEscrow(
 			escrowDetails.clientFeeTier,
 			escrowDetails.freelancerFeeTier
 		);
-		console.log({transactionResult})
 
 		// Register pending contract creation with our event management system
 		registerPendingContractByTxHash({
 			taskId: task.id,
 			taskTitle: task.title,
-			bidId: bid.id,
+			bidId: bid.bidId,
 			taskDescription: task.description,
-			freelancerPubkey: bid.userProfile?.user?.id || '',
+			freelancerPubkey: bid.bidderId || '',
 			amount: escrowDetails.baseAmount,
 			estimatedStartTime: adjustedStartTime,
 			estimatedCompletionTime: adjustedCompletionTime,

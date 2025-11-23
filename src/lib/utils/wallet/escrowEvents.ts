@@ -2,13 +2,14 @@ import type { ethers } from 'ethers';
 import type { CreateContractParams } from '$lib/types/contract';
 import { writable } from 'svelte/store';
 import type { Attachment } from '$lib/types/task';
-import { createContract, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { createContract, publishContractStatus } from '$lib/utils/nostr-contract';
+import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { escrowStore, getRSKWallet, getEventListeners } from '$lib/stores/wallet.store';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
-import { publishContractStatus } from '$lib/utils/nostr-bid';
+import { pushNotificationService } from '$lib/api/services/push-notification.service';
 
 const _ = get(t);
 
@@ -108,27 +109,14 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			console.log('Creating Nostr contract with params:', contractParams);
 			await createContract(contractParams);
 
-			// Notify backend that contract was created
-			try {
-				const { notifyBackendOfContractAction } = await import('$lib/utils/contract-notification-helper');
-				// Get current user pubkey (task creator)
-				const { getCurrentUserPubkey } = await import('$lib/utils/nostr-message');
-				const taskCreatorPubkey = await getCurrentUserPubkey();
-				
-				await notifyBackendOfContractAction(
-					event.escrowId,
-					'contract-created',
-					`contract-${event.escrowId}`,
-					{
-						taskId: pendingContract.taskId,
-						freelancerPubkey: pendingContract.freelancerPubkey,
-						taskCreatorPubkey: taskCreatorPubkey || '',
-						transactionHash: event.transactionHash
-					}
-				);
-			} catch (error) {
-				console.warn('Failed to notify backend of contract creation:', error);
-			}
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [pendingContract.freelancerPubkey],
+				title: 'New Contract Created',
+				body: `New contract created for task ${pendingContract.taskTitle}`,
+				type: 'contract_created',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
 
 			// Update contract creation store
 			contractCreationStore.set({
@@ -138,7 +126,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 
 			// Publish bid acceptance status via encrypted DM nostr event
 			await sendBidStatusUpdate(
-				pendingContract.bidId,
+				pendingContract.contractEventId, // bidEventId (using bidId as reference)
 				pendingContract.taskId,
 				pendingContract.freelancerPubkey,
 				'accepted',
