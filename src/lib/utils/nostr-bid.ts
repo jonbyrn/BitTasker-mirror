@@ -813,12 +813,68 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 			for (const message of messageHistory) {
 				try {
-					if (!message.plaintext || message.plaintext.trim() === '') continue;
+					if (!message.plaintext || message.plaintext.trim() === '') {
+						console.log(`[getUserContracts] Empty message in conversation ${i + 1}`, {
+							conversationIndex: i + 1,
+							pubkey: person.pubkey.substring(0, 16) + '...',
+							hasPlaintext: !!message.plaintext,
+							plaintextLength: message.plaintext?.length || 0
+						});
+						continue;
+					}
 
-					const parsedContent = JSON.parse(message.plaintext);
+					// DEBUG: Log full decrypted message
+					console.log(`[getUserContracts] Decrypted message in conversation ${i + 1}`, {
+						conversationIndex: i + 1,
+						pubkey: person.pubkey.substring(0, 16) + '...',
+						plaintext: message.plaintext,
+						plaintextLength: message.plaintext.length,
+						senderPubkey: message.senderPubkey.substring(0, 16) + '...',
+						eventId: message.event.id.substring(0, 16) + '...',
+						createdAt: new Date(message.event.created_at * 1000).toISOString()
+					});
+
+					let parsedContent;
+					try {
+						parsedContent = JSON.parse(message.plaintext);
+					} catch (parseError) {
+						// DEBUG: Log messages that fail to parse as JSON
+						console.log(`[getUserContracts] Failed to parse JSON in conversation ${i + 1}`, {
+							conversationIndex: i + 1,
+							pubkey: person.pubkey.substring(0, 16) + '...',
+							plaintext: message.plaintext,
+							plaintextLength: message.plaintext.length,
+							plaintextPreview: message.plaintext.substring(0, 200),
+							parseError: parseError instanceof Error ? parseError.message : String(parseError),
+							senderPubkey: message.senderPubkey.substring(0, 16) + '...',
+							eventId: message.event.id.substring(0, 16) + '...'
+						});
+						continue;
+					}
+
+					// DEBUG: Log parsed content
+					console.log(`[getUserContracts] Parsed message content in conversation ${i + 1}`, {
+						conversationIndex: i + 1,
+						pubkey: person.pubkey.substring(0, 16) + '...',
+						parsedContent,
+						messageType: parsedContent?.messageType,
+						escrowId: parsedContent?.escrowId,
+						action: parsedContent?.action,
+						taskId: parsedContent?.taskId,
+						bidId: parsedContent?.bidId
+					});
 
 					// Validate parsed content structure
-					if (!parsedContent || typeof parsedContent !== 'object') continue;
+					if (!parsedContent || typeof parsedContent !== 'object') {
+						console.log(`[getUserContracts] Invalid parsed content structure in conversation ${i + 1}`, {
+							conversationIndex: i + 1,
+							pubkey: person.pubkey.substring(0, 16) + '...',
+							parsedContent,
+							typeofParsedContent: typeof parsedContent,
+							isObject: typeof parsedContent === 'object'
+						});
+						continue;
+					}
 
 					// Check if it's a contract-related message
 					if (
