@@ -4,6 +4,8 @@ import type { Task } from '$lib/types/task';
 import { nip19 } from 'nostr-tools';
 import { redirect } from '@sveltejs/kit';
 import KINDS from '$lib/utils/constants/kinds';
+import { getFirstTaskImage } from '$lib/utils/helpers/taskImage';
+import { taskTranslationService } from '$lib/services/task-translation.service';
 
 const SITE_URL = 'https://bittasker.com';
 
@@ -116,7 +118,7 @@ async function findTaskByUniqueId(uniqueId: string): Promise<{ data: any } | nul
 	}
 }
 
-export const load: PageLoad = async ({ params, url }) => {
+export const load: PageLoad = async ({ params, url, request }) => {
 	const taskId = params.taskId;
 	let uniqueId = taskId; // Default to using taskId as uniqueId
 	let shouldRedirect = false;
@@ -227,6 +229,35 @@ export const load: PageLoad = async ({ params, url }) => {
 	
 	const canonicalUrl = `${SITE_URL}/tasks/${uniqueId}`;
 	
+	// Detect user's preferred language from Accept-Language header
+	// This will be used to show the task in the user's language when they visit the link
+	const detectUserLanguage = (acceptLanguage: string | null): 'en' | 'es' => {
+		if (!acceptLanguage) return 'en';
+		
+		// Parse Accept-Language header (e.g., "es-ES,es;q=0.9,en;q=0.8")
+		const languages = acceptLanguage
+			.split(',')
+			.map(lang => {
+				const [code, q = 'q=1'] = lang.trim().split(';');
+				const quality = parseFloat(q.replace('q=', ''));
+				return { code: code.split('-')[0].toLowerCase(), quality };
+			})
+			.sort((a, b) => b.quality - a.quality);
+		
+		// Find first supported language
+		for (const lang of languages) {
+			if (lang.code === 'es') return 'es';
+			if (lang.code === 'en') return 'en';
+		}
+		
+		return 'en'; // Default to English
+	};
+	
+	// Get user language from request headers (for SSR)
+	// When scrapers (Facebook, Twitter, etc.) visit the link, they send Accept-Language header
+	const acceptLanguage = request?.headers?.get('accept-language') || null;
+	const userLanguage = detectUserLanguage(acceptLanguage);
+	
 	// Default SEO data
 	let seo = {
 		title: 'Task Details - BitTasker',
@@ -251,9 +282,12 @@ export const load: PageLoad = async ({ params, url }) => {
 			npub: event.pubkey
 		};
 
-		// Generate dynamic SEO data based on task content
-		const taskTitle = task.title || 'Untitled Task';
-		const taskDescription = task.description || 'No description available';
+		// Get translation for user's language if available
+		const translation = taskTranslationService.getStoredTranslation(task, userLanguage);
+		
+		// Use translated content if available, otherwise use original
+		const taskTitle = translation?.translatedTitle || task.title || 'Untitled Task';
+		const taskDescription = translation?.translatedDescription || task.description || 'No description available';
 		const taskBudget = task.budget?.amount ? `$${task.budget.amount}` : 'Price not specified';
 		const taskLocation = task.pickupLocation?.displayName || task.dropOffLocation?.displayName || 'Remote';
 		const taskSkills = task.skills?.join(', ') || '';
@@ -263,6 +297,10 @@ export const load: PageLoad = async ({ params, url }) => {
 			? taskDescription.substring(0, 147) + '...' 
 			: taskDescription;
 
+		// Get first image from task attachments (excluding videos)
+		const firstImage = getFirstTaskImage(task);
+		const ogImageUrl = firstImage || `${SITE_URL}/images/og-task-default.jpg`;
+
 		seo = {
 			title: `${taskTitle} - ${taskBudget} - BitTasker`,
 			description: `${truncatedDescription} | Budget: ${taskBudget} | Location: ${taskLocation} | Skills: ${taskSkills}`,
@@ -270,10 +308,10 @@ export const load: PageLoad = async ({ params, url }) => {
 			canonical: canonicalUrl,
 			ogTitle: `${taskTitle} - ${taskBudget} - BitTasker`,
 			ogDescription: `${truncatedDescription} | Budget: ${taskBudget} | Location: ${taskLocation}`,
-			ogImage: task.attachments?.[0]?.url || `${SITE_URL}/images/og-task-default.jpg`,
+			ogImage: ogImageUrl,
 			twitterTitle: `${taskTitle} - ${taskBudget} - BitTasker`,
 			twitterDescription: `${truncatedDescription} | Budget: ${taskBudget} | Location: ${taskLocation}`,
-			twitterImage: task.attachments?.[0]?.url || `${SITE_URL}/images/og-task-default.jpg`,
+			twitterImage: ogImageUrl,
 			jsonLd: generateTaskJsonLd(task, canonicalUrl),
 			task
 		};

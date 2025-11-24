@@ -86,12 +86,22 @@ export async function getAuthOnce(): Promise<{ nsec: Uint8Array; npub: string }>
 		authSingleton = (async () => {
 			try {
 				const result = await getNostrKeyPair();
+				// If user cancelled biometric authentication, result will be null
+				if (!result) {
+					resetAuthSingleton();
+					// Silently return null instead of throwing - this prevents error toasts
+					return null as any;
+				}
 				authSingletonTimestamp = Date.now();
 				authSingletonNpub = result.npub;
 				return result;
 			} catch (error) {
 				// Reset on error so next call will try again
 				resetAuthSingleton();
+				// Silently ignore "No biometric data found" errors - these occur when user cancels
+				if (error instanceof Error && error.message.includes('No biometric data found')) {
+					return null as any;
+				}
 				throw error;
 			}
 		})();
@@ -689,7 +699,12 @@ export async function sendDirectMessage(
 	additionalTags?: string[][]
 ): Promise<void> {
 	try {
-		const { nsec } = await getNostrKeyPair();
+		const keyPair = await getNostrKeyPair();
+		if (!keyPair) {
+			// User cancelled authentication - silently return
+			return;
+		}
+		const { nsec } = keyPair;
 		const senderPrivkey = bytesToHex(nsec);
 
 		// Convert recipient pubkey to hex if it's in npub format
@@ -759,7 +774,12 @@ export function listenForIncomingMessages(
 		if (isUnsubscribed) return;
 
 		try {
-			const { nsec, npub } = await getAuthOnce();
+			const authResult = await getAuthOnce();
+			if (!authResult) {
+				// User cancelled authentication - silently return
+				return;
+			}
+			const { nsec, npub } = authResult;
 
 			// Validate npub format before attempting to decode
 			if (!npub || typeof npub !== 'string') {
@@ -880,7 +900,12 @@ export async function getMessageHistory(
 	options?: { limit?: number; since?: number; until?: number }
 ): Promise<{ plaintext: string; senderPubkey: string; event: NostrEvent }[]> {
 	try {
-		const { nsec, npub } = await getNostrKeyPair();
+		const keyPair = await getNostrKeyPair();
+		if (!keyPair) {
+			// User cancelled authentication - return empty array
+			return [];
+		}
+		const { nsec, npub } = keyPair;
 		const privkey = bytesToHex(nsec);
 
 		// Validate and convert npub to hex format for relay filters
@@ -1023,7 +1048,12 @@ export async function getMessageHistoryOptimized(
 		const events = await workerPromise;
 
 		// Now prompt for auth and decrypt in batch (deferred until after fetch completes)
-		const { nsec } = await authPromise;
+		const authResult = await authPromise;
+		if (!authResult) {
+			// User cancelled authentication - return empty array
+			return [];
+		}
+		const { nsec } = authResult;
 		const privkey = bytesToHex(nsec);
 
 		const decrypted = await Promise.all(
@@ -1061,7 +1091,12 @@ export async function getThreadMessages(
 	options?: { limit?: number; since?: number; until?: number }
 ): Promise<{ plaintext: string; senderPubkey: string; event: NostrEvent }[]> {
 	try {
-		const { nsec } = await getNostrKeyPair();
+		const keyPair = await getNostrKeyPair();
+		if (!keyPair) {
+			// User cancelled authentication - return empty array
+			return [];
+		}
+		const { nsec } = keyPair;
 		const privkey = bytesToHex(nsec);
 
 		const filter: Filter = {
@@ -1104,7 +1139,12 @@ export async function getMessagedPeople(): Promise<
 	{ pubkey: string; lastEvent: NostrEvent; profile: { name?: string; picture?: string } }[]
 > {
 	try {
-		const { nsec, npub } = await getNostrKeyPair();
+		const keyPair = await getNostrKeyPair();
+		if (!keyPair) {
+			// User cancelled authentication - return empty array
+			return [];
+		}
+		const { nsec, npub } = keyPair;
 		const privkey = bytesToHex(nsec);
 
 		// Validate and convert npub to hex format for relay filters
@@ -1251,8 +1291,12 @@ export async function getMessagedPeopleOptimized(): Promise<
 		if (!npub) {
 			// Use getAuthOnce() to share auth singleton with other functions
 			// This prevents multiple auth prompts when called concurrently
-			const { npub: authNpub } = await getAuthOnce();
-			npub = authNpub;
+			const authResult = await getAuthOnce();
+			if (!authResult) {
+				// User cancelled authentication - return empty array
+				return [];
+			}
+			npub = authResult.npub;
 		}
 
 		if (!npub || typeof npub !== 'string') {

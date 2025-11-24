@@ -207,14 +207,16 @@
 		// Global error handler for uncaught errors
 		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
 			const error = event instanceof ErrorEvent ? event.error : event.reason;
-			console.error('[Global Error Handler] Uncaught error detected:', {
-				error: error instanceof Error ? error.message : String(error),
-				errorType: error?.constructor?.name,
-				stack: error instanceof Error ? error.stack : undefined,
-				eventType: event instanceof ErrorEvent ? 'error' : 'unhandledrejection',
-				timestamp: new Date().toISOString(),
-				url: window.location.href
-			});
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			
+			// Silently ignore "No biometric data found" errors - these occur when user cancels authentication
+			if (errorMessage.includes('No biometric data found')) {
+				if (event instanceof ErrorEvent) {
+					event.preventDefault();
+				}
+				return;
+			}
+		
 			// Prevent default error handling to avoid console spam
 			if (event instanceof ErrorEvent) {
 				event.preventDefault();

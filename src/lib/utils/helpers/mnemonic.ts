@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { appStore } from "$lib/stores/app.store";
 import { get } from "svelte/store";
 import { checkBiometricAvailability, getBiometricData } from "./biometrics";
@@ -61,7 +62,10 @@ export async function getMnemonic(): Promise<string> {
                 biometricData = await getWebBiometricData(true);
             }
 
-            if (!biometricData) throw new Error('No biometric data found');
+            if (!biometricData) {
+                // User cancelled or authentication failed silently - return null instead of throwing
+                return null as any; // Type assertion needed for backward compatibility
+            }
 
             appStore.update((state) => ({ ...state, biometricData }));
             return await decryptWalletMnemonicWithBiometrics(biometricData.password);

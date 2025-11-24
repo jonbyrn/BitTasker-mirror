@@ -20,6 +20,9 @@ export async function publishLocation(location: Location, relays = RELAYS): Prom
     try {
         // Get own public key
         const keyPair = await getNostrKeyPair();
+        if (!keyPair) {
+            throw new Error('Authentication cancelled');
+        }
         const nsec = bytesToHex(keyPair.nsec);
         const npub = keyPair.npub;
 
@@ -68,6 +71,9 @@ export async function subscribeToLocation(
     try {
         // Get nostr keypair
         const keyPair = await getNostrKeyPair();
+        if (!keyPair) {
+            throw new Error('Authentication cancelled');
+        }
         const nsec = bytesToHex(keyPair.nsec);
         const npub = keyPair.npub;
 
@@ -149,6 +155,9 @@ export async function getLatestLocation(
         } else {
             // For passkeys, use the existing logic with getNostrKeyPair
             const keyPair = await getNostrKeyPair();
+            if (!keyPair) {
+                throw new Error('Authentication cancelled');
+            }
             const nsec = bytesToHex(keyPair.nsec);
             npub = keyPair.npub;
 

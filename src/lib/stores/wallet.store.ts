@@ -148,7 +148,12 @@ export async function initializeWallet(): Promise<void> {
 		const mnemonic = await getMnemonic();
 		
 		// Get Nostr keys for swap storage
-		const { nsec } = await getNostrKeyPair();
+		const keyPair = await getNostrKeyPair();
+		if (!keyPair) {
+			// User cancelled authentication - silently return
+			return;
+		}
+		const { nsec } = keyPair;
 		
 		// Get network from environment
 		const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
