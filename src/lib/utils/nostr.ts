@@ -167,10 +167,10 @@ export function getNpubFromEncodedNsec(encodedNsec: string): string {
  * @returns The encrypted message
  */
 async function encryptDM(
+    nsec: Uint8Array,
     plaintext: string,
     recipientNpub: string,
 ): Promise<string> {
-    const { nsec } = await getNostrKeyPair();
     if (!nsec) {
         throw new Error('No private key found');
     }
@@ -192,10 +192,10 @@ async function encryptDM(
  * @returns The decrypted message
  */
 async function decryptDM(
+    nsec: Uint8Array,
     ciphertext: string,
     senderNpub: string,
 ): Promise<string> {
-    const { nsec } = await getNostrKeyPair();
     if (!nsec) {
         throw new Error('No private key found');
     }
@@ -217,26 +217,33 @@ export async function parseDMEvent(
     event: NostrEvent,
     npub: string
 ): Promise<{ plaintext: string; senderPubkey: string }> {
-    if (event.kind !== 4) throw new Error('Not a DM event');
+    try {
+        if (event.kind !== 4) throw new Error('Not a DM event');
 
-    const senderNpub = event.pubkey;
+        const senderNpub = event.pubkey;
 
-    let plaintext: string;
+        let plaintext: string;
 
-    if (senderNpub === npub) {
-        // We are the sender, so we need to decrypt using the recipient's pubkey
-        const recipientTag = event.tags.find((tag) => tag[0] === 'p');
-        if (!recipientTag || !recipientTag[1]) {
-            throw new Error('No recipient found in message tags');
+        const { nsec } = await getNostrKeyPair();
+
+        if (senderNpub === npub) {
+            // We are the sender, so we need to decrypt using the recipient's pubkey
+            const recipientTag = event.tags.find((tag) => tag[0] === 'p');
+            if (!recipientTag || !recipientTag[1]) {
+                throw new Error('No recipient found in message tags');
+            }
+            const recipientNpub = recipientTag[1];
+            plaintext = await decryptDM(nsec, event.content, recipientNpub);
+        } else {
+            // We are the recipient, decrypt using the sender's pubkey
+            plaintext = await decryptDM(nsec, event.content, senderNpub);
         }
-        const recipientNpub = recipientTag[1];
-        plaintext = await decryptDM(event.content, recipientNpub);
-    } else {
-        // We are the recipient, decrypt using the sender's pubkey
-        plaintext = await decryptDM(event.content, senderNpub);
-    }
 
-    return { plaintext, senderPubkey: senderNpub };
+        return { plaintext, senderPubkey: senderNpub };
+    } catch (error) {
+        console.error('Failed to parse DM event:', error);
+        throw error;
+    }
 }
 
 /**
@@ -324,9 +331,11 @@ export async function publishNostrEvent(
             ? (nip19.decode(recipientNpub).data as string)
             : recipientNpub;
 
+        const { nsec } = await getNostrKeyPair();
+
         // Encrypt content if needed
         const eventContent = encryptedKinds.includes(kind)
-            ? await encryptDM(content, recipientPubkeyHex)
+            ? await encryptDM(nsec, content, recipientPubkeyHex)
             : content;
 
         // Create event metadata for signing
@@ -449,6 +458,8 @@ export async function queryNostrEvents(
 
             // Decrypt followup events if needed
             if (followupNeedsDecryption) {
+                const { nsec } = await getNostrKeyPair();
+
                 const decryptedFollowupEvents: NostrEvent[] = [];
 
                 for (const event of followupEvents) {
@@ -465,7 +476,7 @@ export async function queryNostrEvents(
                             otherPubkey = event.pubkey;
                         }
 
-                        const decryptedContent = await decryptDM(event.content, otherPubkey);
+                        const decryptedContent = await decryptDM(nsec, event.content, otherPubkey);
                         decryptedFollowupEvents.push({
                             ...event,
                             content: JSON.parse(decryptedContent)
@@ -543,6 +554,11 @@ export async function queryNostrEvents(
         const decryptedEvents: NostrEvent[] = [];
 
         for (const event of events) {
+            const { nsec } = await getNostrKeyPair();
+            if (!nsec) {
+                throw new Error('No private key found');
+            }
+
             try {
                 // Determine the other party's pubkey for decryption
                 let otherPubkey: string;
@@ -561,7 +577,7 @@ export async function queryNostrEvents(
                 }
 
                 // Decrypt content
-                const decryptedContent = await decryptDM(event.content, otherPubkey);
+                const decryptedContent = await decryptDM(nsec, event.content, otherPubkey);
                 const parsedContent = JSON.parse(decryptedContent);
 
                 // Attach followup event if available

@@ -7,6 +7,8 @@
  * Standard Nostr tags: https://github.com/nostr-protocol/nips/blob/master/01.md
  */
 
+import type { EscrowStatus } from "../enums/wallet.enum";
+
 export const TAGS = {
 	// ============================================================================
 	// STANDARD NOSTR TAGS (NIP-01)
@@ -123,12 +125,12 @@ export const TAG_PATTERNS = {
 		contractEventId: string,
 		escrowId: string,
 		recipientPubkey: string,
-		action: string
+		action: EscrowStatus
 	): string[][] => [
 			[TAGS.E, contractEventId], // References contract
 			[TAGS.R, escrowId], // Escrow reference
 			[TAGS.P, recipientPubkey], // Recipient
-			[TAGS.S, action], // Status action
+			[TAGS.S, action?.toString()], // Status action
 			[TAGS.M, 'contract-status'] // Message type
 		],
 

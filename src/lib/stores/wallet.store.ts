@@ -35,9 +35,6 @@ const initialEscrowState: EscrowState = {
 	disputeProposals: []
 };
 
-// Create escrow store
-export const escrowStore = writable(initialEscrowState);
-
 // Initial state
 const initialState: WalletState = {
 	isInitializing: false,
@@ -680,8 +677,6 @@ export const allAssets = derived(walletStore, $w => $w.assets);
 export const totalBalances = derived(walletStore, $w => $w.totalBalances);
 export const rbtcToBtcRate = derived(walletStore, $w => $w.rbtcToBtcRate);
 export const transactions = derived(walletStore, $w => $w.transactions);
-export const rskEscrows = derived(escrowStore, $e => $e.escrows);
-export const rskDisputeProposals = derived(escrowStore, $e => $e.disputeProposals);
 
 // Wallet manager compatibility object
 export const walletManager = {

@@ -36,7 +36,7 @@ function canClientDispute(escrowData: EscrowData, now: number): boolean {
  * 
  * This implements the EXACT rules from the Solidity contract for each state
  */
-function mapFollowUpStatusToEscrow(
+function mapBlockchainStatusToPermissions(
 	status: EscrowStatus,
 	escrowData: EscrowData,
 	disputeProposal: DisputeProposal | null,
@@ -50,10 +50,10 @@ function mapFollowUpStatusToEscrow(
 	const now = Date.now() / 1000;
 
 	switch (status) {
-		case EscrowStatus.Funded: // 0
+		case EscrowStatus.Funded: // 0 - Escrow funded on blockchain
 			// Check if freelancer submitted completion (pending blockchain update)
 			const hasTaskCompletedEvent = statusEvents.some(e =>
-				e.status.action === 'task-completed' && e.status.transactionHash
+				e.status.action === EscrowStatus.PendingCompletion && e.status.transactionHash
 			);
 
 			if (hasTaskCompletedEvent) {
@@ -61,12 +61,12 @@ function mapFollowUpStatusToEscrow(
 				return {
 					status: EscrowStatus.PendingCompletion,
 					permissions: {
-						canComplete: false, // Already submitted
-						canAccept: false, // Not confirmed yet
+						canComplete: false,
+						canAccept: false,
 						canDispute: false,
 						canPropose: false,
 						canAcceptProposal: false,
-						canCancel: false, // Block during transaction
+						canCancel: false,
 						canResolveTimelock: false,
 						canDelete: false
 					}
@@ -79,7 +79,7 @@ function mapFollowUpStatusToEscrow(
 			return {
 				status: hasStarted ? EscrowStatus.InProgress : EscrowStatus.Funded,
 				permissions: {
-					canComplete: isFreelancer && hasStarted, // Can only complete after start
+					canComplete: isFreelancer && hasStarted,
 					canAccept: false,
 					canDispute: false,
 					canPropose: false,
@@ -93,8 +93,51 @@ function mapFollowUpStatusToEscrow(
 				}
 			};
 
-		case EscrowStatus.Completed: // 4
+		case EscrowStatus.Completed: // 4 - Freelancer marked task complete
 			const completionTimelockExpired = now > escrowData.timelockExpiry;
+			
+			// Check for pending acceptance
+			const hasPendingAcceptance = statusEvents.some(e =>
+				e.status.action === EscrowStatus.PendingAcceptance && e.status.transactionHash
+			);
+
+			if (hasPendingAcceptance) {
+				return {
+					status: EscrowStatus.PendingAcceptance,
+					permissions: {
+						canComplete: false,
+						canAccept: false, // Already being accepted
+						canDispute: false,
+						canPropose: false,
+						canAcceptProposal: false,
+						canCancel: false,
+						canResolveTimelock: false,
+						canDelete: false
+					}
+				};
+			}
+
+			// Check for pending dispute
+			const hasPendingDispute = statusEvents.some(e =>
+				e.status.action === EscrowStatus.PendingDispute && e.status.transactionHash
+			);
+
+			if (hasPendingDispute) {
+				return {
+					status: EscrowStatus.PendingDispute,
+					permissions: {
+						canComplete: false,
+						canAccept: false,
+						canDispute: false, // Already being disputed
+						canPropose: false,
+						canAcceptProposal: false,
+						canCancel: false,
+						canResolveTimelock: false,
+						canDelete: false
+					}
+				};
+			}
+
 			return {
 				status: EscrowStatus.Completed,
 				permissions: {
@@ -109,28 +152,36 @@ function mapFollowUpStatusToEscrow(
 				}
 			};
 
-		case EscrowStatus.InDispute: // 1
+		case EscrowStatus.InDispute: // 1 - Client disputed the task
 			const disputeTimelockExpired = now > escrowData.timelockExpiry;
+			
+			// Check if there's a proposal (Nostr-only state)
+			const hasProposal = !!disputeProposal;
+			
 			return {
-				status: EscrowStatus.InDispute,
+				status: hasProposal ? EscrowStatus.DisputeResolutionProposed : EscrowStatus.InDispute,
 				permissions: {
 					canComplete: false,
 					canAccept: false,
 					canDispute: false,
-					// Only freelancer can propose, only if no proposal exists
-					canPropose: isFreelancer && !disputeProposal,
-					// Only client can accept, only if proposal exists
-					canAcceptProposal: isClient && !!disputeProposal,
+					// Both parties can propose if no proposal exists or if they haven't reached their limit (2 per party)
+					canPropose: !hasProposal, // Simplified: only one active proposal at a time
+					// Other party can accept if proposal exists
+					canAcceptProposal: hasProposal && (
+						(isClient && disputeProposal.proposer.toLowerCase() !== escrowData.client.toLowerCase()) ||
+						(isFreelancer && disputeProposal.proposer.toLowerCase() !== escrowData.freelancer.toLowerCase())
+					),
 					canCancel: false,
 					canResolveTimelock: isClient && disputeTimelockExpired, // Only client after 14 days
 					canDelete: false  // ❌ Cannot delete disputed escrow
 				}
 			};
 
-		case EscrowStatus.DisputeResolved: // 2
-		case EscrowStatus.DisputeUnresolved: // 3
+		case EscrowStatus.DisputeResolved: // 2 - Dispute resolved (FINAL STATE)
+		case EscrowStatus.DisputeUnresolved: // 3 - Dispute unresolved, client refunded (FINAL STATE)
+		case EscrowStatus.FundsReleased: // 10 - Task accepted, funds released (FINAL STATE - Nostr-only)
 			return {
-				status: EscrowStatus.DisputeResolved,
+				status,  // Preserve the specific status
 				permissions: {
 					canComplete: false,
 					canAccept: false,
@@ -139,11 +190,11 @@ function mapFollowUpStatusToEscrow(
 					canAcceptProposal: false,
 					canCancel: false,
 					canResolveTimelock: false,
-					canDelete: false  // ❌ Cannot delete resolved escrow
+					canDelete: false  // ❌ Cannot delete resolved/completed escrow
 				}
 			};
 
-		case EscrowStatus.Cancelled: // 5
+		case EscrowStatus.Cancelled: // 5 - Escrow cancelled (FINAL STATE)
 			return {
 				status: EscrowStatus.Cancelled,
 				permissions: {
@@ -183,6 +234,9 @@ function mapFollowUpStatusToEscrow(
  * 1. Blockchain state (source of truth for funded contracts)
  * 2. Nostr events (for pending states during transaction processing)
  * 3. Contract metadata (for never-funded contracts)
+ * 
+ * KEY PRINCIPLE: Nostr events show "pending" states BEFORE blockchain confirms.
+ * Once blockchain confirms, we use blockchain state as source of truth.
  */
 export function determineContractState(
 	blockchainStatus: EscrowStatus | null,
@@ -199,10 +253,18 @@ export function determineContractState(
 } {
 	// CASE 1: Blockchain state exists (escrow was funded)
 	if (blockchainStatus !== null && escrowData) {
-		return mapFollowUpStatusToEscrow(blockchainStatus, escrowData, disputeProposal, statusEvents, isClient, isFreelancer);
+		return mapBlockchainStatusToPermissions(
+			blockchainStatus, 
+			escrowData, 
+			disputeProposal, 
+			statusEvents, 
+			isClient, 
+			isFreelancer
+		);
 	}
 
 	// CASE 2: Pending funding (transaction hash exists but no blockchain state yet)
+	// This happens immediately after createEscrow() is called but before blockchain confirms
 	if (isPending && contract.transactionHash) {
 		return {
 			status: EscrowStatus.PendingFunding,
@@ -220,13 +282,16 @@ export function determineContractState(
 	}
 
 	// CASE 3: Never funded (no blockchain state, no transaction hash)
-	// Check Nostr status events for any pending actions
+	// This is a Nostr-only contract that was never funded
+	// Check Nostr status events for any pending actions (shouldn't happen, but defensive)
 	const latestStatusEvent = statusEvents.length > 0 ? statusEvents[statusEvents.length - 1] : null;
+	
 	if (latestStatusEvent) {
 		const action = latestStatusEvent.status.action;
 
-		// Check for pending actions in Nostr
-		if (action === 'task-completed' && latestStatusEvent.status.transactionHash) {
+		// These pending states should only exist if blockchain state exists
+		// But we handle them defensively
+		if (action === EscrowStatus.PendingCompletion && latestStatusEvent.status.transactionHash) {
 			return {
 				status: EscrowStatus.PendingCompletion,
 				permissions: {
@@ -242,7 +307,7 @@ export function determineContractState(
 			};
 		}
 
-		if (action === 'dispute-raised' && latestStatusEvent.status.transactionHash) {
+		if (action === EscrowStatus.PendingDispute && latestStatusEvent.status.transactionHash) {
 			return {
 				status: EscrowStatus.PendingDispute,
 				permissions: {
@@ -258,7 +323,7 @@ export function determineContractState(
 			};
 		}
 
-		if ((action === 'contract-cancelled' || action === 'escrow-cancelled') && latestStatusEvent.status.transactionHash) {
+		if (action === EscrowStatus.PendingCancellation && latestStatusEvent.status.transactionHash) {
 			return {
 				status: EscrowStatus.PendingCancellation,
 				permissions: {
@@ -273,9 +338,26 @@ export function determineContractState(
 				}
 			};
 		}
+
+		if (action === EscrowStatus.PendingAcceptance && latestStatusEvent.status.transactionHash) {
+			return {
+				status: EscrowStatus.PendingAcceptance,
+				permissions: {
+					canComplete: false,
+					canAccept: false,  // Already being accepted
+					canDispute: false,
+					canPropose: false,
+					canAcceptProposal: false,
+					canCancel: false,
+					canResolveTimelock: false,
+					canDelete: false
+				}
+			};
+		}
 	}
 
 	// CASE 4: Never funded, no pending actions - allow deletion
+	// This is the ONLY case where deletion is allowed
 	return {
 		status: EscrowStatus.Funded, // Show as funded in UI (contract created but not on blockchain)
 		permissions: {
@@ -290,4 +372,3 @@ export function determineContractState(
 		}
 	};
 }
-

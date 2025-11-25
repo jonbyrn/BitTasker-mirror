@@ -9,8 +9,7 @@ import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
-import { updateCompleteCancelStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
-import { handleEscrowCancelled, handleEscrowCreated, handleProposalAccepted, handleResolutionProposed, handleTaskAccepted, handleTaskCompleted, handleTaskDisputed, handleTimelockResolved } from '$lib/utils/wallet/escrowEvents';
+import * as EscrowNostrEvent from '$lib/utils/wallet/escrowEvents';
 
 let contract: ethers.Contract | null = null;
 
@@ -102,14 +101,14 @@ async function connectToEscrowContract(): Promise<void> {
         const contractAddress = network === 'mainnet'
             ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
             : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
-        
+
         if (!contractAddress) {
-            const envVarName = network === 'mainnet' 
+            const envVarName = network === 'mainnet'
                 ? 'VITE_RSK_CONTRACT_ADDRESS_MAINNET'
                 : 'VITE_RSK_CONTRACT_ADDRESS_TESTNET';
             throw new Error(`Contract address not configured for ${network}. Please set ${envVarName} environment variable.`);
         }
-        
+
         const contractConfig = {
             address: contractAddress.toLowerCase(),
             abi: escrowABI,
@@ -387,21 +386,13 @@ async function createEscrow(
 
                             result.escrowId = escrowId;
 
-                            // Handle escrow created event through our event management system
-                            // Wrap in try-catch to prevent import errors from marking transaction as failed
-                            try {
-                                await handleEscrowCreated({
-                                    escrowId,
-                                    transactionHash: receipt.hash,
-                                    client,
-                                    freelancer,
-                                    amount
-                                });
-                            } catch (importError) {
-                                // Log import error but don't mark transaction as failed
-                                // Transaction already succeeded, this is just event handling
-                                console.warn('Failed to handle escrow created event (transaction still succeeded):', importError);
-                            }
+                            await EscrowNostrEvent.handleEscrowCreated({
+                                escrowId,
+                                transactionHash: receipt.hash,
+                                client,
+                                freelancer,
+                                amount
+                            });
                         }
                     } else {
                         console.warn('EscrowCreated event not found in transaction receipt');
@@ -425,7 +416,7 @@ async function createEscrow(
     }
 }
 
-// Complete task
+// Complete task - Freelancer Only
 async function completeTask(escrowId: string, contractEventId?: string, completionAttachments?: Attachment[]): Promise<ContractTransactionResult> {
     try {
         const { contract, provider } = await ensureEscrowReady();
@@ -449,6 +440,17 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
             status: 'pending'
         };
 
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishPendingCompletion(
+                escrowId,
+                contractEventId,
+                tx.hash,
+                completionAttachments
+            );
+        }
+
         appStore.showInfoToast(get(t)('dashboard.contracts.actions.task_completing_message'));
 
         // Handle confirmation asynchronously using the same pattern as createEscrow
@@ -458,29 +460,18 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Task completion transaction confirmed:', receipt);
 
-                // Handle task completed event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        await handleTaskCompleted({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId,
-                            completionAttachments
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle task completed event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.handleTaskCompleted({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId,
+                        completionAttachments
+                    });
                 }
             } else {
                 result.status = 'failed';
                 console.error('Task completion transaction receipt is null');
-                
-                // Clear cache on failure to allow retry
-                clearCompletionAttempt(escrowId);
-                
+
                 appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
             }
         }).catch((error: unknown) => {
@@ -488,13 +479,7 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
             // Import errors are handled in the try-catch above
             console.error('Task completion transaction failed:', error);
             result.status = 'failed';
-            
-            // Clear cache on failure to allow retry
-            clearCompletionAttempt(escrowId);
-            
-            // Update cache status to failed
-            updateCompleteCancelStatus(escrowId, 'failed');
-            
+
             appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
         });
 
@@ -503,10 +488,7 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
     } catch (error) {
         // Handle immediate errors (before transaction is sent)
         console.error('Error completing task:', error);
-        
-        // Clear cache on error to allow retry
-        clearCompletionAttempt(escrowId);
-        
+
         throw new Error(`Failed to complete task: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
@@ -535,6 +517,12 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
             status: 'pending'
         };
 
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishPendingAcceptance(escrowId, contractEventId, tx.hash);
+        }
+
         appStore.showInfoToast(get(t)('dashboard.contracts.actions.task_accepting_message'));
 
         // Handle confirmation asynchronously using the same pattern as createEscrow
@@ -544,20 +532,12 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Task acceptance transaction confirmed:', receipt);
 
-                // Handle task accepted event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        await handleTaskAccepted({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle task accepted event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.handleTaskAccepted({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -601,6 +581,12 @@ async function cancelEscrow(escrowId: string, contractEventId?: string): Promise
             status: 'pending'
         };
 
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishPendingCancellation(escrowId, contractEventId, tx.hash);
+        }
+
         appStore.showInfoToast(get(t)('dashboard.contracts.actions.escrow_cancelling_message'));
 
         // Handle confirmation asynchronously using the same pattern as createEscrow
@@ -610,20 +596,12 @@ async function cancelEscrow(escrowId: string, contractEventId?: string): Promise
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Escrow cancellation transaction confirmed:', receipt);
 
-                // Handle escrow cancelled event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        await handleEscrowCancelled({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle escrow cancelled event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.handleEscrowCancelled({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -667,6 +645,12 @@ async function disputeTask(escrowId: string, contractEventId?: string): Promise<
             status: 'pending'
         };
 
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishPendingDispute(escrowId, contractEventId, tx.hash);
+        }
+
         appStore.showInfoToast(get(t)('dashboard.contracts.actions.dispute_raising_message'));
 
         // Handle confirmation asynchronously using the same pattern as createEscrow
@@ -676,20 +660,12 @@ async function disputeTask(escrowId: string, contractEventId?: string): Promise<
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Task dispute transaction confirmed:', receipt);
 
-                // Handle task disputed event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        await handleTaskDisputed({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle task disputed event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.handleTaskDisputed({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -736,7 +712,7 @@ async function proposeResolution(
         const tx = await contract.proposeResolution(
             escrowId,
             freelancerAmountWei,
-            { 
+            {
                 gasLimit: gasEstimate + (gasEstimate / 10n),
                 gasPrice: gasPrice
             }
@@ -757,22 +733,14 @@ async function proposeResolution(
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Resolution proposal transaction confirmed:', receipt);
 
-                // Handle resolution proposed event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
-                    try {
-                        await handleResolutionProposed({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId,
-                            proposedClientAmount,
-                            proposedFreelancerAmount
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle resolution proposed event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.handleResolutionProposed({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId,
+                        proposedClientAmount,
+                        proposedFreelancerAmount
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -825,20 +793,12 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Proposal acceptance transaction confirmed:', receipt);
 
-                // Handle proposal accepted event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        await handleProposalAccepted({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle proposal accepted event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.handleProposalAccepted({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -891,20 +851,12 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Timelock resolution transaction confirmed:', receipt);
 
-                // Handle timelock resolved event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        await handleTimelockResolved({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle timelock resolved event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.handleTimelockResolved({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
                 }
             } else {
                 result.status = 'failed';

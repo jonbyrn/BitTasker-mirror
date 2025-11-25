@@ -292,8 +292,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			(a, b) => b.contract.createdAt - a.contract.createdAt
 		);
 	} catch (error) {
-		console.warn('Error getting user contracts (returning partial results):', error);
-		return [];
+		throw error;
 	}
 }
 

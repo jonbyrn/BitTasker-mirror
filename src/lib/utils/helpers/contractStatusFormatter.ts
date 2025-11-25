@@ -6,6 +6,7 @@ import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
  */
 export function getStatusTranslationKey(status: EscrowStatus): string {
 	switch (status) {
+		// Blockchain states (0-5)
 		case EscrowStatus.Funded:
 			return 'dashboard.contracts.status.funded';
 		case EscrowStatus.InDispute:
@@ -18,16 +19,25 @@ export function getStatusTranslationKey(status: EscrowStatus): string {
 			return 'dashboard.contracts.status.completed';
 		case EscrowStatus.Cancelled:
 			return 'dashboard.contracts.status.cancelled';
-		case EscrowStatus.InProgress:
-			return 'dashboard.contracts.status.in_progress';
+		
+		// Nostr states (6+) - Pending & Custom
 		case EscrowStatus.PendingFunding:
 			return 'dashboard.contracts.status.pending_funding';
+		case EscrowStatus.InProgress:
+			return 'dashboard.contracts.status.in_progress';
 		case EscrowStatus.PendingCompletion:
 			return 'dashboard.contracts.status.pending_completion';
-		case EscrowStatus.PendingDispute:
-			return 'dashboard.contracts.status.pending_dispute';
 		case EscrowStatus.PendingCancellation:
 			return 'dashboard.contracts.status.pending_cancellation';
+		case EscrowStatus.FundsReleased:
+			return 'dashboard.contracts.status.funds_released';
+		case EscrowStatus.PendingAcceptance:
+			return 'dashboard.contracts.status.pending_acceptance';
+		case EscrowStatus.DisputeResolutionProposed:
+			return 'dashboard.contracts.status.dispute_resolution_proposed';
+		case EscrowStatus.PendingDispute:
+			return 'dashboard.contracts.status.pending_dispute';
+		
 		default:
 			return 'dashboard.contracts.status.funded';
 	}
@@ -38,23 +48,35 @@ export function getStatusTranslationKey(status: EscrowStatus): string {
  */
 export function getStatusColorClass(status: EscrowStatus): string {
 	switch (status) {
+		// Active/In-Progress states - Primary (Bitcoin orange)
 		case EscrowStatus.Funded:
 		case EscrowStatus.InProgress:
+		case EscrowStatus.PendingFunding:
 			return 'badge-primary';
+		
+		// Completed/Success states - Success (Green)
 		case EscrowStatus.Completed:
-			return 'badge-success';
-		case EscrowStatus.InDispute:
-		case EscrowStatus.PendingDispute:
-			return 'badge-warning';
+		case EscrowStatus.FundsReleased:
 		case EscrowStatus.DisputeResolved:
+			return 'badge-success';
+		
+		// Pending states - Info (Blue)
+		case EscrowStatus.PendingCompletion:
+		case EscrowStatus.PendingAcceptance:
 		case EscrowStatus.DisputeUnresolved:
 			return 'badge-info';
+		
+		// Dispute states - Warning (Yellow)
+		case EscrowStatus.InDispute:
+		case EscrowStatus.PendingDispute:
+		case EscrowStatus.DisputeResolutionProposed:
+			return 'badge-warning';
+		
+		// Cancelled states - Error (Red)
 		case EscrowStatus.Cancelled:
 		case EscrowStatus.PendingCancellation:
 			return 'badge-error';
-		case EscrowStatus.PendingFunding:
-		case EscrowStatus.PendingCompletion:
-			return 'badge-info';
+		
 		default:
 			return 'badge-neutral';
 	}

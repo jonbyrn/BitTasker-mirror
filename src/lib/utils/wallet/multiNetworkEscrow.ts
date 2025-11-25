@@ -1,3 +1,8 @@
+	/**
+	 * @deprecated
+	 * @unused
+	 */
+
 import { ethers } from 'ethers';
 import { get } from 'svelte/store';
 import { walletStore } from '$lib/stores/wallet.store';

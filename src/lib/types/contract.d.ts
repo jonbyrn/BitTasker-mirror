@@ -3,18 +3,6 @@ import type { DisputeProposal } from './wallet';
 import type { Attachment } from './task';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 
-// Contract status actions that can be performed
-export type ContractAction = 
-	| 'contract-created'
-	| 'task-completed'
-	| 'payment-released'
-	| 'dispute-raised'
-	| 'resolution-proposed'
-	| 'proposal-accepted'
-	| 'contract-cancelled'
-	| 'escrow-cancelled'
-	| 'timelock-resolved';
-
 // Contract permissions - grouped for better organization
 export interface ContractPermissions {
 	canComplete: boolean;         // freelancer can mark as complete
@@ -54,22 +42,6 @@ export interface NostrContract {
 	completionAttachments?: Attachment[];
 }
 
-// Status update event data (both parties can publish as encrypted DMs)
-export interface NostrContractStatus {
-	contractEventId: string;
-	escrowId: string;
-	action: ContractAction;
-	message?: string;
-	timestamp: number;
-	type: 'contract-status'; // Identify as contract status message in DMs
-	// RSK transaction hash if applicable
-	transactionHash?: string;
-	// Dispute resolution data
-	proposedClientAmount?: string;
-	proposedFreelancerAmount?: string;
-	// Completion evidence attachments
-	completionAttachments?: Attachment[];
-}
 
 // Full contract with events for UI display
 export interface ContractWithEvents {
@@ -109,11 +81,29 @@ export interface CreateContractParams {
 	transactionHash?: string; // Optional transaction hash from escrow creation
 }
 
+
+// Status update event data (both parties can publish as encrypted DMs)
+export interface NostrContractStatus {
+	contractEventId: string;
+	escrowId: string;
+	action: EscrowStatus;
+	message?: string;
+	timestamp: number;
+	type: 'contract-status'; // Identify as contract status message in DMs
+	// RSK transaction hash if applicable
+	transactionHash?: string;
+	// Dispute resolution data
+	proposedClientAmount?: string;
+	proposedFreelancerAmount?: string;
+	// Completion evidence attachments
+	completionAttachments?: Attachment[];
+}
+
 // Status update parameters
 export interface PublishStatusParams {
 	contractEventId: string;
 	escrowId: string;
-	action: ContractAction;
+	action: EscrowStatus;
 	message?: string;
 	transactionHash?: string;
 	proposedClientAmount?: string;
