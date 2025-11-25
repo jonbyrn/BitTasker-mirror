@@ -65,10 +65,6 @@
 			} else {
 				// Handle passkey/biometric authentication
 				const allKeys = await getAllKeys();
-				if (!allKeys) {
-					// User cancelled authentication - silently return
-					return;
-				}
 
 				// Check if the public key is already in npub format
 				if (allKeys.npub.startsWith('npub')) {

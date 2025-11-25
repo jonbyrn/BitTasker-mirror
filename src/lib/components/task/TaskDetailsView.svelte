@@ -24,7 +24,6 @@
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import { getFirstTaskImage } from '$lib/utils/helpers/taskImage';
 	import { getBidsForTaskOptimized, sendBidStatusUpdate, clearBidCache } from '$lib/utils/nostr-bid';
 	import IconRefresh from '~icons/mdi/refresh';
 	import type { TaskBid, NostrBid, SimplifiedTaskBid } from '$lib/types/bid';
@@ -86,8 +85,7 @@
 		if (typeof window !== 'undefined' && task) {
 			// Always use the uniqueId from the loaded task for stable URLs
 			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			const taskIdentifier = (task as any).uniqueId || task.id;
-			return `${window.location.origin}/tasks/${taskIdentifier}`;
+			return `${window.location.origin}/tasks/${task.id}`;
 		}
 		return '';
 	});
@@ -95,27 +93,15 @@
 	// Handle share functionality
 	const handleShare = async () => {
 		const link = shareLink();
-		if (!link || !task) return;
-		
-		// Get first image from task attachments
-		const firstImage = getFirstTaskImage(task);
+		if (!link) return;
 		
 		if (navigator.share) {
 			try {
-				const shareData: ShareData = {
-					title: task.title || 'Task Details',
-					text: task.description || 'Check out this task',
+				await navigator.share({
+					title: task?.title || 'Task Details',
+					text: task?.description || 'Check out this task',
 					url: link
-				};
-				
-				// Include image if available (some platforms support files array)
-				if (firstImage) {
-					// For Web Share API, we can include the image URL
-					// Note: Some platforms may not support files, so we include it in the URL
-					shareData.url = link;
-				}
-				
-				await navigator.share(shareData);
+				});
 			} catch (error) {
 				// User cancelled sharing or error occurred
 				console.log('Share cancelled or failed:', error);

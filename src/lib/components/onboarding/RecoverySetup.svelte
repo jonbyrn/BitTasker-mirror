@@ -114,10 +114,6 @@
 
 		try {
 			const allKeys = await getAllKeys();
-			if (!allKeys) {
-				// User cancelled authentication - silently return
-				return;
-			}
 			let nsec = '';
 
 			// Convert the private key (Uint8Array) to nsec format

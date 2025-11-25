@@ -759,12 +759,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 		// Use getAuthOnce() to share auth singleton with getMessageHistoryOptimized()
 		// This prevents multiple auth prompts when both are called
 		const { getAuthOnce } = await import('./nostr-message');
-		const authResult = await getAuthOnce();
-		if (!authResult) {
-			// User cancelled authentication - return empty array
-			return [];
-		}
-		const { npub } = authResult;
+		const { npub } = await getAuthOnce();
 		const userPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
 		// OPTIMIZATION 1: Use optimized version that doesn't require decryption

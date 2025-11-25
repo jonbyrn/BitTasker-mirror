@@ -75,10 +75,6 @@
 						// Handle location data
 						try {
 							const keyPair = await getNostrKeyPair();
-							if (!keyPair) {
-								// User cancelled authentication - skip this event
-								return;
-							}
 							const nsec = bytesToHex(keyPair.nsec);
 							const conversationKey = await nip44.getConversationKey(nsec, keyPair.npub);
 							const decryptedContent = await nip44.decrypt(event.content, conversationKey);

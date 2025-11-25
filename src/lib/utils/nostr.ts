@@ -45,11 +45,7 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
         });
         return signedEvent;
     } else {
-        const keyPair = await getNostrKeyPair();
-        if (!keyPair) {
-            throw new Error('Authentication cancelled');
-        }
-        const { npub, nsec } = keyPair;
+        const { npub, nsec } = await getNostrKeyPair();
 
         if (!npub || !nsec) {
             throw new Error('No pubkey or private key found');

@@ -113,12 +113,7 @@
 	onMount(async () => {
 		try {
 			// Clear profile cache to ensure we only show conversations for current user
-			const keyPair = await getNostrKeyPair();
-			if (!keyPair) {
-				// User cancelled authentication - silently return
-				return;
-			}
-			const { nsec, npub } = keyPair;
+			const { nsec, npub } = await getNostrKeyPair();
 			const currentUserPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 			
 			console.log('🧹 Clearing profile cache for user:', currentUserPubkey);

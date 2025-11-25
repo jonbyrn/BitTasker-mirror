@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Credentials } from '$lib/types/auth';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -82,8 +81,7 @@ export const getNpub = async (): Promise<string> => {
     }
 
     if (!biometricData) {
-        // User cancelled or authentication failed silently - return null instead of throwing
-        return null as any; // Type assertion needed for backward compatibility
+        throw new Error('No biometric data found');
     }
 
     const npub = biometricData.username;
@@ -159,9 +157,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
     }
 
     if (!biometricData) {
-        // User cancelled or authentication failed silently - don't throw error
-        // Return null to allow caller to handle gracefully
-        return null as any; // Type assertion needed for backward compatibility
+        throw new Error('No biometric data found');
     }
 
     const sk = await decryptNsecWithBiometrics(biometricData.password);
@@ -244,9 +240,7 @@ export const getAllKeys = async (): Promise<{ npub: string, nsec: Uint8Array, mn
     }
 
     if (!biometricData) {
-        // User cancelled or authentication failed silently - don't throw error
-        // Return null to allow caller to handle gracefully
-        return null as any; // Type assertion needed for backward compatibility
+        throw new Error('No biometric data found');
     }
 
     const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
