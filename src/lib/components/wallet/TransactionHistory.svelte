@@ -18,8 +18,6 @@
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
 
-	console.log($transactions);
-
 	// Filtered transactions (exclude swaps)
 	let filteredTransactions = $derived(
 		$transactions.filter((tx) => {

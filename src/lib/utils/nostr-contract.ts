@@ -216,7 +216,6 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 				try {
 					escrowData = await escrow.getEscrow(contract.escrowId);
-					console.log({ escrowData });
 					if (escrowData) {
 						blockchainStatus = escrowData.status;
 
