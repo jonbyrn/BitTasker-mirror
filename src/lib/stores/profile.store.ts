@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { SimplePool, type NostrEvent } from 'nostr-tools';
+import type { NostrEvent } from 'nostr-tools';
 import type { Profile } from '$lib/types/profile';
+import { appStore } from './app.store';
 import { get, writable } from 'svelte/store';
 import { subscribeToProfileUpdates, closeNostrPool } from '$lib/nostr/profile';
 import KINDS from '$lib/utils/constants/kinds';
-import { appStore } from './app.store';
 
 // Define the profile state type
 type ProfileState = {

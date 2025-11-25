@@ -290,18 +290,6 @@ export function updateCompleteCancelStatus(
 }
 
 /**
- * @deprecated Use updateCompleteCancelStatus instead
- * Kept for backward compatibility
- */
-export function updateCompletionStatus(
-	escrowId: string,
-	status: 'confirmed' | 'failed',
-	transactionHash?: string
-): void {
-	updateCompleteCancelStatus(escrowId, status, transactionHash);
-}
-
-/**
  * Check if completion was already attempted
  */
 export function hasCompletionAttempt(escrowId: string): boolean {

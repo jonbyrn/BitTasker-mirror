@@ -549,7 +549,16 @@
         "completed": "Completado",
         "disputed": "En Disputa",
         "resolved": "Resuelto",
-        "cancelled": "Cancelado"
+        "cancelled": "Cancelado",
+        "funded": "Financiado",
+        "in_dispute": "En Disputa",
+        "in_progress": "En Progreso",
+        "dispute_resolved": "Disputa Resuelta",
+        "dispute_unresolved": "Disputa Sin Resolver",
+        "pending_funding": "Pendiente de Financiamiento",
+        "pending_completion": "Pendiente de Completación",
+        "pending_dispute": "Pendiente de Disputa",
+        "pending_cancellation": "Pendiente de Cancelación"
       },
       "actions": {
         "complete_task": "Marcar Tarea como Completada",

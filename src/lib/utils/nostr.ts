@@ -339,6 +339,8 @@ export async function publishNostrEvent(
         // Sign the event
         const signedEvent = await getSignedEvent(eventMetadata);
 
+        console.log({ signedEvent })
+
         // Publish to relays
         const results = await publishToMultipleRelays(signedEvent, relays);
 

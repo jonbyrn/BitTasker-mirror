@@ -11,16 +11,13 @@ import type {
 	ContractStatusEvent,
 	CreateContractParams,
 	PublishStatusParams,
-	ContractFilter,
-	ContractStatus,
-	DisplayStatus
+	ContractFilter
 } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
-import { get } from 'svelte/store';
-import { rskAddress } from '$lib/stores/wallet.store';
 import { escrow } from '$lib/utils/wallet/escrow';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
-import { getSignedEvent } from './nostr';
+import { getSignedEvent } from '$lib/utils/nostr';
+import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
 
@@ -41,7 +38,7 @@ export async function createContract(params: CreateContractParams): Promise<void
 			clientPubkey,
 			amount: params.amount,
 			currency: 'RBTC',
-			status: 'funded', // Contract is created when escrow is funded
+			status: EscrowStatus.Funded, // Contract is created when escrow is funded
 			createdAt: Date.now(),
 			estimatedStartTime: params.estimatedStartTime,
 			estimatedCompletionTime: params.estimatedCompletionTime,
@@ -131,312 +128,6 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 	}
 }
 
-/**
- * Helper function to determine if client can cancel based on Solidity contract rules
- * Within 1-hour grace period OR >24 hours before start
- */
-function canClientCancel(escrowData: EscrowData, now: number): boolean {
-	const oneHour = 3600;
-	const twentyFourHours = 86400;
-	const timeSinceCreation = now - escrowData.createdAt;
-	const timeUntilStart = escrowData.estimatedStartTime - now;
-
-	// Within 1-hour grace period OR >24 hours before start
-	return timeSinceCreation < oneHour || timeUntilStart > twentyFourHours;
-}
-
-/**
- * Helper function to determine if client can dispute based on Solidity contract rules
- * Within 24h of start time OR after grace period
- */
-function canClientDispute(escrowData: EscrowData, now: number): boolean {
-	const twentyFourHours = 86400;
-	const timeSinceStart = now - escrowData.estimatedStartTime;
-	const timeSinceCreation = now - escrowData.createdAt;
-	const oneHour = 3600;
-
-	// Within 24h of start time OR after grace period
-	return timeSinceStart < twentyFourHours || timeSinceCreation > oneHour;
-}
-
-/**
- * Map blockchain EscrowStatus to DisplayStatus + permissions
- * Based on escrow-solidity.md Outcome Map (lines 36-48)
- * 
- * This implements the EXACT rules from the Solidity contract for each state
- */
-function mapBlockchainStatusToDisplay(
-	status: EscrowStatus,
-	escrowData: EscrowData,
-	disputeProposal: DisputeProposal | null,
-	statusEvents: ContractStatusEvent[],
-	isClient: boolean,
-	isFreelancer: boolean
-): {
-	displayStatus: DisplayStatus;
-	permissions: {
-		canComplete: boolean;
-		canAccept: boolean;
-		canDispute: boolean;
-		canPropose: boolean;
-		canAcceptProposal: boolean;
-		canCancel: boolean;
-		canResolveTimelock: boolean;
-		canDelete: boolean;
-	};
-} {
-	const now = Date.now() / 1000;
-
-	switch (status) {
-		case EscrowStatus.Funded: // 0
-			// Check if freelancer submitted completion (pending blockchain update)
-			const hasTaskCompletedEvent = statusEvents.some(e =>
-				e.status.action === 'task-completed' && e.status.transactionHash
-			);
-
-			if (hasTaskCompletedEvent) {
-				// Show pending completion state during transaction
-				return {
-					displayStatus: 'pending-completion',
-					permissions: {
-						canComplete: false, // Already submitted
-						canAccept: false, // Not confirmed yet
-						canDispute: false,
-						canPropose: false,
-						canAcceptProposal: false,
-						canCancel: false, // Block during transaction
-						canResolveTimelock: false,
-						canDelete: false
-					}
-				};
-			}
-
-			// Check if work has started (past estimated start time)
-			const hasStarted = now > escrowData.estimatedStartTime;
-
-			return {
-				displayStatus: hasStarted ? 'in-progress' : 'funded', // Time-based display
-				permissions: {
-					canComplete: isFreelancer && hasStarted, // Can only complete after start
-					canAccept: false,
-					canDispute: false,
-					canPropose: false,
-					canAcceptProposal: false,
-					// Client has time restrictions, Freelancer can ALWAYS refund
-					canCancel: isClient
-						? canClientCancel(escrowData, now)
-						: true, // Freelancer can always refund
-					canResolveTimelock: false,
-					canDelete: false  // ❌ Cannot delete funded escrow
-				}
-			};
-
-		case EscrowStatus.Completed: // 4
-			const completionTimelockExpired = now > escrowData.timelockExpiry;
-			return {
-				displayStatus: 'completed',
-				permissions: {
-					canComplete: false,
-					canAccept: isClient && !completionTimelockExpired,  // Client can accept before timelock
-					canDispute: isClient && canClientDispute(escrowData, now), // Within 24h of start OR after grace
-					canPropose: false,
-					canAcceptProposal: false,
-					canCancel: false,
-					canResolveTimelock: completionTimelockExpired, // Either party after 7 days
-					canDelete: false  // ❌ Cannot delete completed escrow
-				}
-			};
-
-		case EscrowStatus.InDispute: // 1
-			const disputeTimelockExpired = now > escrowData.timelockExpiry;
-			return {
-				displayStatus: 'in-dispute',
-				permissions: {
-					canComplete: false,
-					canAccept: false,
-					canDispute: false,
-					// Only freelancer can propose, only if no proposal exists
-					canPropose: isFreelancer && !disputeProposal,
-					// Only client can accept, only if proposal exists
-					canAcceptProposal: isClient && !!disputeProposal,
-					canCancel: false,
-					canResolveTimelock: isClient && disputeTimelockExpired, // Only client after 14 days
-					canDelete: false  // ❌ Cannot delete disputed escrow
-				}
-			};
-
-		case EscrowStatus.DisputeResolved: // 2
-		case EscrowStatus.DisputeUnresolved: // 3
-			return {
-				displayStatus: 'dispute-resolved',
-				permissions: {
-					canComplete: false,
-					canAccept: false,
-					canDispute: false,
-					canPropose: false,
-					canAcceptProposal: false,
-					canCancel: false,
-					canResolveTimelock: false,
-					canDelete: false  // ❌ Cannot delete resolved escrow
-				}
-			};
-
-		case EscrowStatus.Cancelled: // 5
-			return {
-				displayStatus: 'cancelled',
-				permissions: {
-					canComplete: false,
-					canAccept: false,
-					canDispute: false,
-					canPropose: false,
-					canAcceptProposal: false,
-					canCancel: false,
-					canResolveTimelock: false,
-					canDelete: false  // ❌ Cannot delete cancelled escrow (was funded)
-				}
-			};
-
-		default:
-			// Fallback for unknown status
-			return {
-				displayStatus: 'funded',
-				permissions: {
-					canComplete: false,
-					canAccept: false,
-					canDispute: false,
-					canPropose: false,
-					canAcceptProposal: false,
-					canCancel: false,
-					canResolveTimelock: false,
-					canDelete: false
-				}
-			};
-	}
-}
-
-/**
- * Determine contract display status and permissions based on blockchain state + Nostr events
- * 
- * PRIORITY ORDER:
- * 1. Blockchain state (source of truth for funded contracts)
- * 2. Nostr events (for pending states during transaction processing)
- * 3. Contract metadata (for never-funded contracts)
- */
-function determineContractState(
-	blockchainStatus: EscrowStatus | null,
-	statusEvents: ContractStatusEvent[],
-	contract: NostrContract,
-	escrowData: EscrowData | null,
-	disputeProposal: DisputeProposal | null,
-	isPending: boolean,
-	isClient: boolean,
-	isFreelancer: boolean
-): {
-	displayStatus: DisplayStatus;
-	permissions: {
-		canComplete: boolean;
-		canAccept: boolean;
-		canDispute: boolean;
-		canPropose: boolean;
-		canAcceptProposal: boolean;
-		canCancel: boolean;
-		canResolveTimelock: boolean;
-		canDelete: boolean;
-	};
-} {
-	// CASE 1: Blockchain state exists (escrow was funded)
-	if (blockchainStatus !== null && escrowData) {
-		return mapBlockchainStatusToDisplay(blockchainStatus, escrowData, disputeProposal, statusEvents, isClient, isFreelancer);
-	}
-
-	// CASE 2: Pending funding (transaction hash exists but no blockchain state yet)
-	if (isPending && contract.transactionHash) {
-		return {
-			displayStatus: 'pending-funding',
-			permissions: {
-				canComplete: false,
-				canAccept: false,
-				canDispute: false,
-				canPropose: false,
-				canAcceptProposal: false,
-				canCancel: false,    // Disabled during pending
-				canResolveTimelock: false,
-				canDelete: false     // Can't delete during funding
-			}
-		};
-	}
-
-	// CASE 3: Never funded (no blockchain state, no transaction hash)
-	// Check Nostr status events for any pending actions
-	const latestStatusEvent = statusEvents.length > 0 ? statusEvents[statusEvents.length - 1] : null;
-	if (latestStatusEvent) {
-		const action = latestStatusEvent.status.action;
-
-		// Check for pending actions in Nostr
-		if (action === 'task-completed' && latestStatusEvent.status.transactionHash) {
-			return {
-				displayStatus: 'pending-completion',
-				permissions: {
-					canComplete: false,
-					canAccept: false,
-					canDispute: false,
-					canPropose: false,
-					canAcceptProposal: false,
-					canCancel: false,
-					canResolveTimelock: false,
-					canDelete: false
-				}
-			};
-		}
-
-		if (action === 'dispute-raised' && latestStatusEvent.status.transactionHash) {
-			return {
-				displayStatus: 'pending-dispute',
-				permissions: {
-					canComplete: false,
-					canAccept: false,
-					canDispute: false,
-					canPropose: false,
-					canAcceptProposal: false,
-					canCancel: false,
-					canResolveTimelock: false,
-					canDelete: false
-				}
-			};
-		}
-
-		if ((action === 'contract-cancelled' || action === 'escrow-cancelled') && latestStatusEvent.status.transactionHash) {
-			return {
-				displayStatus: 'pending-cancellation',
-				permissions: {
-					canComplete: false,
-					canAccept: false,
-					canDispute: false,
-					canPropose: false,
-					canAcceptProposal: false,
-					canCancel: false,
-					canResolveTimelock: false,
-					canDelete: false
-				}
-			};
-		}
-	}
-
-	// CASE 4: Never funded, no pending actions - allow deletion
-	return {
-		displayStatus: 'funded', // Show as funded in UI (contract created but not on blockchain)
-		permissions: {
-			canComplete: false,
-			canAccept: false,
-			canDispute: false,
-			canPropose: false,
-			canAcceptProposal: false,
-			canCancel: false,
-			canResolveTimelock: false,
-			canDelete: true  // ✅ Only case where deletion is allowed
-		}
-	};
-}
 
 /**
  * Get all contracts where the user is either client or freelancer
@@ -507,15 +198,12 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				const mappedStatusEvents: ContractStatusEvent[] = attachedStatusEvents
 					.map((statusEvent: NostrEvent) => {
 						const statusData = statusEvent.content as unknown as NostrContractStatus;
-						const isFromClient = statusEvent.pubkey === contract.clientPubkey;
-						const isFromFreelancer = statusEvent.pubkey === contract.freelancerPubkey;
-
 						return {
 							status: statusData,
 							event: statusEvent,
 							senderPubkey: statusEvent.pubkey,
-							isFromClient,
-							isFromFreelancer
+							isFromClient: statusEvent.pubkey === contract.clientPubkey,
+							isFromFreelancer: statusEvent.pubkey === contract.freelancerPubkey
 						};
 					})
 					.sort((a, b) => a.status.timestamp - b.status.timestamp); // Sort by timestamp
@@ -528,6 +216,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 				try {
 					escrowData = await escrow.getEscrow(contract.escrowId);
+					console.log({ escrowData });
 					if (escrowData) {
 						blockchainStatus = escrowData.status;
 
@@ -554,8 +243,8 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					}
 				}
 
-				// Determine display status and permissions based on blockchain state + Nostr events
-				const { displayStatus, permissions } = determineContractState(
+				// Determine status and permissions based on blockchain state + Nostr events
+				const { status, permissions } = determineContractState(
 					blockchainStatus,
 					mappedStatusEvents,
 					contract,
@@ -581,9 +270,9 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					statusEvents: mappedStatusEvents,
 					isClient,
 					blockchainStatus,
-					displayStatus,
+					status,
 					isPending,
-					...permissions
+					permissions
 				} as ContractWithEvents);
 			} catch (error) {
 				console.error('Failed to process contract event:', event.id, error);
@@ -594,7 +283,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 		let filteredContracts = contractsWithStatuses;
 		if (filter?.statuses) {
 			filteredContracts = contractsWithStatuses.filter(c =>
-				filter.statuses!.includes(c.displayStatus as ContractStatus)
+				filter.statuses!.includes(c.status)
 			);
 		}
 
@@ -695,7 +384,7 @@ async function getContractMessagesByEscrowId(
  */
 export async function deleteContract(contractEventId: string, escrowId: string): Promise<void> {
 	const { EscrowError, EscrowErrorCode, isEscrowError } = await import(
-		'$lib/utils/errors/escrowErrors'
+		'$lib/utils/helpers/escrowErrors'
 	);
 
 	try {
@@ -712,7 +401,7 @@ export async function deleteContract(contractEventId: string, escrowId: string):
 		const contract = contracts[0];
 
 		// Step 2: Check deletion permission (determined by getContracts based on blockchain state)
-		if (!contract.canDelete) {
+		if (!contract.permissions.canDelete) {
 			// Provide specific error based on state
 			if (contract.blockchainStatus !== null) {
 				throw new EscrowError(

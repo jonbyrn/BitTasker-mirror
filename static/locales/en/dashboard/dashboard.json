@@ -549,7 +549,16 @@
         "completed": "Completed",
         "disputed": "Disputed",
         "resolved": "Resolved",
-        "cancelled": "Cancelled"
+        "cancelled": "Cancelled",
+        "funded": "Funded",
+        "in_dispute": "In Dispute",
+        "in_progress": "In Progress",
+        "dispute_resolved": "Dispute Resolved",
+        "dispute_unresolved": "Dispute Unresolved",
+        "pending_funding": "Pending Funding",
+        "pending_completion": "Pending Completion",
+        "pending_dispute": "Pending Dispute",
+        "pending_cancellation": "Pending Cancellation"
       },
       "actions": {
         "complete_task": "Mark Task Complete",

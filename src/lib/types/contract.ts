@@ -1,6 +1,7 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { DisputeProposal } from './wallet';
 import type { Attachment } from './task';
+import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 
 // Contract status actions that can be performed
 export type ContractAction = 
@@ -14,23 +15,17 @@ export type ContractAction =
 	| 'escrow-cancelled'
 	| 'timelock-resolved';
 
-// Contract status - matches Solidity EscrowStatus exactly
-export type ContractStatus = 
-	| 'funded'              // EscrowStatus.Funded (0) - Escrow created and funded
-	| 'in-dispute'          // EscrowStatus.InDispute (1) - Client disputed the work
-	| 'dispute-resolved'    // EscrowStatus.DisputeResolved (2) - Dispute resolved, funds distributed
-	| 'dispute-unresolved'  // EscrowStatus.DisputeUnresolved (3) - Dispute unresolved via timelock
-	| 'completed'           // EscrowStatus.Completed (4) - Freelancer marked task complete
-	| 'cancelled';          // EscrowStatus.Cancelled (5) - Escrow cancelled
-
-// Display status for UI - includes pending states during blockchain processing
-export type DisplayStatus = 
-	| ContractStatus 
-	| 'in-progress'           // Work started (past estimated start time) but not completed
-	| 'pending-funding'       // Transaction submitted, waiting for blockchain confirmation
-	| 'pending-completion'    // Complete action submitted, waiting for confirmation
-	| 'pending-dispute'       // Dispute action submitted, waiting for confirmation
-	| 'pending-cancellation'; // Cancel action submitted, waiting for confirmation
+// Contract permissions - grouped for better organization
+export interface ContractPermissions {
+	canComplete: boolean;         // freelancer can mark as complete
+	canAccept: boolean;           // client can accept completed work
+	canDispute: boolean;          // client can dispute
+	canPropose: boolean;          // either party can propose resolution
+	canAcceptProposal: boolean;   // other party can accept proposal
+	canCancel: boolean;           // either party can cancel
+	canResolveTimelock: boolean;  // either party can resolve after timelock
+	canDelete: boolean;           // ONLY if contract was never funded (no blockchain state, no tx hash)
+}
 
 // Main contract event data (now sent as encrypted DM)
 export interface NostrContract {
@@ -42,7 +37,7 @@ export interface NostrContract {
 	clientPubkey: string;
 	amount: string; // RBTC amount
 	currency: string; // 'RBTC'
-	status: ContractStatus;
+	status: EscrowStatus; // Use enum instead of string
 	createdAt: number;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
@@ -84,19 +79,12 @@ export interface ContractWithEvents {
 	isClient: boolean; // true if current user is the client
 	
 	// Blockchain state (source of truth)
-	blockchainStatus: number | null; // EscrowStatus enum value from blockchain, null if not funded
-	displayStatus: DisplayStatus; // Display status for UI (includes pending states)
+	blockchainStatus: EscrowStatus | null; // EscrowStatus enum value from blockchain, null if not funded
+	status: EscrowStatus; // Unified status (includes pending states from Nostr)
 	isPending: boolean; // true if blockchain transaction is being processed
 	
 	// Permission flags (determined by blockchain state + contract rules)
-	canComplete: boolean; // freelancer can mark as complete
-	canAccept: boolean; // client can accept completed work
-	canDispute: boolean; // client can dispute
-	canPropose: boolean; // either party can propose resolution
-	canAcceptProposal: boolean; // other party can accept proposal
-	canCancel: boolean; // either party can cancel
-	canResolveTimelock: boolean; // either party can resolve after timelock
-	canDelete: boolean; // ONLY if contract was never funded (no blockchain state, no tx hash)
+	permissions: ContractPermissions;
 }
 
 // Status event with metadata
@@ -137,7 +125,7 @@ export interface PublishStatusParams {
 export interface ContractFilter {
 	escrowIds?: string[];
 	taskIds?: string[];
-	statuses?: ContractStatus[];
+	statuses?: EscrowStatus[];
 	userPubkey?: string; // filter by client or freelancer
 	limit?: number;
 	since?: number;

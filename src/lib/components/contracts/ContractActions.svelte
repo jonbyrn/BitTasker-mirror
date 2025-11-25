@@ -16,7 +16,6 @@
 		registerCompleteCancelAttemptAtomic,
 		registerCompleteCancelAttempt,
 		updateCompleteCancelStatus,
-		updateCompletionStatus,
 		getCompleteCancelAttempt,
 		getCompleteAttempt,
 		getCancelAttempt,
@@ -73,7 +72,7 @@
 	// State for actions
 	let isLoading = $state<Record<string, boolean>>({});
 	let showResolutionForm = $state(false);
-	
+
 	// Disable ALL critical actions when transaction is pending
 	const isDisabledDueToPending = $derived(contract.isPending);
 
@@ -197,7 +196,7 @@
 			}
 			// Update cache if we have an attempt
 			if (cached.status === EscrowStatus.Completed && completionAttempt) {
-				updateCompletionStatus(contract.contract.escrowId, 'confirmed');
+				updateCompleteCancelStatus(contract.contract.escrowId, 'confirmed');
 			}
 			return cached.status === EscrowStatus.Completed;
 		}
@@ -223,7 +222,7 @@
 				blockchainCompletionStatus = EscrowStatus.Completed;
 				// Update cache to confirmed if we have an attempt
 				if (completionAttempt) {
-					updateCompletionStatus(contract.contract.escrowId, 'confirmed');
+					updateCompleteCancelStatus(contract.contract.escrowId, 'confirmed');
 				}
 				// Cache result
 				blockchainCheckCache.set(cacheKey, { status, timestamp: now });
@@ -254,8 +253,8 @@
 	}
 
 	// Complete task with attachments (freelancer only)
-	export async function completeTaskWithAttachments(attachments: Attachment[]) {
-		if (!contract.canComplete || !isMounted) return;
+	async function completeTaskWithAttachments(attachments: Attachment[]) {
+		if (!contract.permissions.canComplete || !isMounted) return;
 
 		// Atomic check-and-set: prevents race conditions
 		const wasRegistered = registerCompleteCancelAttemptAtomic(
@@ -349,7 +348,7 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			onActionComplete?.();
+			// onActionComplete?.(); // DISABLED - causes infinite loop
 
 			// Note: Status will be updated to 'confirmed' when transaction confirms
 			// This happens in escrowEvents.ts handleTaskCompleted
@@ -377,7 +376,7 @@
 
 	// Show completion modal
 	function showCompleteTaskModal() {
-		if (!contract.canComplete) return;
+		if (!contract.permissions.canComplete) return;
 		if (useInternalModals) {
 			showCompletionModal = true;
 		} else {
@@ -387,7 +386,7 @@
 
 	// Show accept confirmation
 	function showAcceptConfirmation() {
-		if (!contract.canAccept || isAcceptDisabled) return;
+		if (!contract.permissions.canAccept || isAcceptDisabled) return;
 		if (useInternalModals) {
 			showAcceptConfirm = true;
 		} else {
@@ -396,8 +395,8 @@
 	}
 
 	// Accept task (client only) - called from parent modal
-	export async function acceptTask() {
-		if (!contract.canAccept || !isMounted) return;
+	async function acceptTask() {
+		if (!contract.permissions.canAccept || !isMounted) return;
 
 		// Atomic check-and-set: prevents race conditions
 		const wasRegistered = registerAcceptDisputeAttemptAtomic(contract.contract.escrowId, 'accept');
@@ -472,7 +471,7 @@
 
 	// Show dispute confirmation
 	function showDisputeConfirmation() {
-		if (!contract.canDispute || isDisputeDisabled) return;
+		if (!contract.permissions.canDispute || isDisputeDisabled) return;
 		if (useInternalModals) {
 			showDisputeConfirm = true;
 		} else {
@@ -482,7 +481,7 @@
 
 	// Show cancel confirmation
 	function showCancelConfirmation() {
-		if (!contract.canCancel || isCancelDisabled) return;
+		if (!contract.permissions.canCancel || isCancelDisabled) return;
 
 		// Check time-based restrictions
 		const timeCheck = canCancelBasedOnTime();
@@ -501,8 +500,8 @@
 	}
 
 	// Dispute task (client only) - called from parent modal
-	export async function disputeTask() {
-		if (!contract.canDispute || !isMounted) return;
+	async function disputeTask() {
+		if (!contract.permissions.canDispute || !isMounted) return;
 
 		// Atomic check-and-set: prevents race conditions
 		const wasRegistered = registerAcceptDisputeAttemptAtomic(contract.contract.escrowId, 'dispute');
@@ -580,7 +579,7 @@
 
 	// Propose resolution
 	async function proposeResolution() {
-		if (!contract.canPropose) return;
+		if (!contract.permissions.canPropose) return;
 		if (!proposedFreelancerAmountUSD) {
 			appStore.showErrorToast($t('dashboard.contracts.actions.resolution_amounts_required'));
 			return;
@@ -640,7 +639,7 @@
 
 	// Accept proposal
 	async function acceptProposal() {
-		if (!contract.canAcceptProposal) return;
+		if (!contract.permissions.canAcceptProposal) return;
 
 		setLoading('acceptProposal', true);
 		try {
@@ -670,8 +669,8 @@
 	}
 
 	// Cancel escrow
-	export async function cancelEscrow() {
-		if (!contract.canCancel || !isMounted) return;
+	async function cancelEscrow() {
+		if (!contract.permissions.canCancel || !isMounted) return;
 
 		// Atomic check-and-set: prevents race conditions
 		const wasRegistered = registerCompleteCancelAttemptAtomic(contract.contract.escrowId, 'cancel');
@@ -768,7 +767,7 @@
 
 	// Resolve after timelock
 	async function resolveAfterTimelock() {
-		if (!contract.canResolveTimelock) return;
+		if (!contract.permissions.canResolveTimelock) return;
 
 		setLoading('resolveTimelock', true);
 		try {
@@ -799,7 +798,7 @@
 
 	// Show delete confirmation
 	function showDeleteConfirmation() {
-		if (!contract.canDelete) return;
+		if (!contract.permissions.canDelete) return;
 		if (useInternalModals) {
 			showDeleteConfirm = true;
 		} else {
@@ -809,7 +808,7 @@
 
 	// Delete contract (after confirmation) - called from parent modal
 	async function onDeleteContract() {
-		if (!contract.canDelete) return;
+		if (!contract.permissions.canDelete) return;
 		setLoading('delete', true);
 		try {
 			await deleteContract(contract.contractEvent.id, contract.contract.escrowId);
@@ -818,7 +817,7 @@
 		} catch (error) {
 			console.error('Error deleting contract:', error);
 			// Handle structured EscrowError
-			const { isEscrowError } = await import('$lib/utils/errors/escrowErrors');
+			const { isEscrowError } = await import('$lib/utils/helpers/escrowErrors');
 			const errorMessage = isEscrowError(error)
 				? error.message
 				: error instanceof Error
@@ -831,13 +830,11 @@
 	}
 
 	// Load translations on mount and when locale changes
-	$effect(() => {
-		if (browser && $locale) {
-			loadNamespace($locale as SupportedLanguage, 'dashboard/contracts/actions').catch((error) => {
-				console.warn('Failed to load contract actions translations:', error);
-			});
-		}
-	});
+	if (browser) {
+		loadNamespace($locale as SupportedLanguage, 'dashboard/contracts/actions').catch((error) => {
+			console.warn('Failed to load contract actions translations:', error);
+		});
+	}
 
 	// Set action handlers for parent component
 	// Only re-register when contract escrowId changes to prevent infinite loops
@@ -1041,7 +1038,7 @@
 
 <div class="{containerClass} {containerClass.includes('grid') ? 'w-full' : ''}">
 	<!-- Complete Task (Freelancer) -->
-	{#if contract.canComplete}
+	{#if contract.permissions.canComplete}
 		<button
 			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={showCompleteTaskModal}
@@ -1092,7 +1089,7 @@
 	{/if}
 
 	<!-- Accept Task (Client) -->
-	{#if contract.canAccept}
+	{#if contract.permissions.canAccept}
 		<button
 			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={showAcceptConfirmation}
@@ -1136,7 +1133,7 @@
 	{/if}
 
 	<!-- Dispute Task (Client) -->
-	{#if contract.canDispute}
+	{#if contract.permissions.canDispute}
 		<button
 			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={showDisputeConfirmation}
@@ -1180,7 +1177,7 @@
 	{/if}
 
 	<!-- Propose Resolution -->
-	{#if contract.canPropose}
+	{#if contract.permissions.canPropose}
 		{#if !showResolutionForm}
 			<button
 				class="btn btn-warning btn-sm text-black {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
@@ -1299,7 +1296,7 @@
 	{/if}
 
 	<!-- Accept Proposal -->
-	{#if !isInline && contract.canAcceptProposal}
+	{#if !isInline && contract.permissions.canAcceptProposal}
 		<div class="bg-base-300 w-full space-y-3 rounded-lg p-3">
 			<h5 class="text-sm font-medium">
 				{$t('dashboard.contracts.actions.current_proposal')}
@@ -1379,7 +1376,7 @@
 	{/if}
 
 	<!-- Cancel Escrow -->
-	{#if contract.canCancel}
+	{#if contract.permissions.canCancel}
 		<button
 			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={showCancelConfirmation}
@@ -1423,7 +1420,7 @@
 	{/if}
 
 	<!-- Resolve After Timelock -->
-	{#if contract.canResolveTimelock}
+	{#if contract.permissions.canResolveTimelock}
 		<div class="bg-base-300 space-y-3 rounded-lg p-3">
 			{#if !isInline}
 				<h5 class="text-sm font-medium">
@@ -1467,7 +1464,7 @@
 	<button
 		class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 		onclick={showDeleteConfirmation}
-		disabled={isLoading.delete || !contract.canDelete}
+		disabled={isLoading.delete || !contract.permissions.canDelete}
 	>
 		{#if isLoading.delete}
 			<span class="loading loading-spinner loading-xs"></span>

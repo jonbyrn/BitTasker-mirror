@@ -1,5 +1,5 @@
 import type { Task } from '$lib/types/task';
-import type { NostrBidContent } from '$lib/types/bid';
+import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 import type { ContractTransactionResult } from '$lib/types/wallet';
 import type { FeeTier } from '$lib/utils/wallet/networkConfig';
 import { FEE_TIERS } from '$lib/utils/wallet/networkConfig';
@@ -9,6 +9,7 @@ import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
 import { escrow } from './escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+import type { NostrEvent } from 'nostr-tools';
 
 export interface BidEscrowDetails {
 	freelancerAddress: string;
@@ -191,14 +192,17 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
  * Accept bid and create escrow contract
  */
 export async function acceptBidAndCreateEscrow(
-	bid: NostrBidContent,
-	task: Task,
+	bid: NostrEventWithFollowup,
+	task: NostrEvent,
 	btcPrice: number,
 	network: 'RSK' | 'BSC' = 'RSK'
 ): Promise<BidAcceptanceResult> {
 	try {
+		const bidContent = bid.content as unknown as NostrBidContent;
+		const taskContent = JSON.parse(task.content) as Task;
+		
 		// Calculate escrow details
-		const escrowDetails = calculateBidEscrowDetails(bid, task, btcPrice);
+		const escrowDetails = calculateBidEscrowDetails(bidContent, taskContent, btcPrice);
 
 		// Validate details
 		const validationResult = validateEscrowDetails(escrowDetails);
@@ -268,17 +272,16 @@ export async function acceptBidAndCreateEscrow(
 
 		// Register pending contract creation with our event management system
 		registerPendingContractByTxHash({
+			bidEventId: bid.id,
 			taskId: task.id,
-			taskTitle: task.title,
-			bidId: bid.bidId,
-			taskDescription: task.description,
-			freelancerPubkey: bid.bidderId || '',
+			taskTitle: taskContent.title,
+			taskDescription: taskContent.description,
+			freelancerPubkey: bidContent.bidderId || '',
 			amount: escrowDetails.baseAmount,
 			estimatedStartTime: adjustedStartTime,
 			estimatedCompletionTime: adjustedCompletionTime,
 			transactionHash: transactionResult.hash
 		});
-		console.log('✅ [EscrowBid] Pending contract registered');
 
 		return {
 			success: true,

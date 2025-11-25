@@ -290,7 +290,6 @@ async function getProfileData(userNpub: string): Promise<{
             await Promise.all(events.map(async (event) => {
                 if (event.kind === KINDS.PROFILE_SKILLS) {
                     const content = JSON.parse(event.content);
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     result.skills = content?.map((skill: any) => skill.name);
                 } else if (event.kind === KINDS.PROFILE_LOCATION) {
                     // TODO: Disactivated until location radius filter is implemented

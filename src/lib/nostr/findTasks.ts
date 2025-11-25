@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { SearchTasksParams, Task } from '$lib/types/task.d';
 import { type Event, type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';

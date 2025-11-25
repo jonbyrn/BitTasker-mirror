@@ -347,7 +347,6 @@ function calculateStringSimilarity(str1: string, str2: string): number {
  */
 export function cleanupIndexedTasks(tasks: IndexedTask[]): Task[] {
 	return tasks.map(task => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { _skillsSet, _categoriesSet, _normalizedTitle, _normalizedDescription, _searchableText, ...cleanTask } = task;
 		return cleanTask;
 	});

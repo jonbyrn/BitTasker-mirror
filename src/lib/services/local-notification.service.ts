@@ -1,10 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { writable } from 'svelte/store';
 import type { Notification } from '$lib/stores/notification.store';
 import { listenForIncomingMessages } from '$lib/utils/nostr-message';
 import { getMessagedPeople } from '$lib/utils/nostr-message';
-import { appStore } from '$lib/stores/app.store';
 
 interface JsonMessage {
 	messageType: string;

@@ -10,6 +10,7 @@ import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
+import { BidStatusEnum } from '../enums/bid.enum';
 
 const _ = get(t);
 
@@ -35,10 +36,10 @@ export const contractUpdateStore = writable<string[]>([]);
 
 // Pending contract creation requests
 interface PendingContractCreation {
+	bidEventId: string;
 	escrowId: string;
 	taskId: string;
 	taskTitle: string;
-	bidId: string;
 	taskDescription: string;
 	freelancerPubkey: string;
 	amount: string;
@@ -55,7 +56,7 @@ const pendingContractsByTxHash = new Map<string, PendingContractCreation>();
  */
 export function registerPendingContractByTxHash(params: Omit<PendingContractCreation, 'escrowId'>): void {
 	pendingContractsByTxHash.set(params.transactionHash, params as PendingContractCreation);
-	console.log('Registered pending contract for transaction:', params.transactionHash);
+	console.log('✅ Registered pending contract for transaction:', params.transactionHash);
 }
 
 /**
@@ -90,8 +91,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 	}
 
 	if (pendingContract) {
-		console.log('Found pending contract, creating Nostr contract...');
-
 		try {
 			// Create the contract parameters
 			const contractParams: CreateContractParams = {
@@ -126,15 +125,14 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 
 			// Publish bid acceptance status via encrypted DM nostr event
 			await sendBidStatusUpdate(
-				pendingContract.contractEventId, // bidEventId (using bidId as reference)
+				pendingContract.bidEventId,
 				pendingContract.taskId,
 				pendingContract.freelancerPubkey,
-				'accepted',
+				BidStatusEnum.ACCEPTED,
 				_('dashboard.bids.bid_acceptance.bid_accepted_message'),
 				event.escrowId,
 				event.transactionHash
 			);
-			console.log('✅ Bid status update sent successfully after contract creation');
 
 
 			// Show success toast
@@ -167,9 +165,9 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 /**
  * Handle task completed event - called from transaction confirmation
  */
-export async function handleTaskCompleted(event: { 
-	escrowId: string; 
-	transactionHash: string; 
+export async function handleTaskCompleted(event: {
+	escrowId: string;
+	transactionHash: string;
 	contractEventId: string;
 	completionAttachments?: Attachment[];
 }): Promise<void> {
@@ -182,6 +180,10 @@ export async function handleTaskCompleted(event: {
 		// Update completion cache to confirmed
 		const { updateCompleteCancelStatus } = await import('$lib/stores/completionCache.store');
 		updateCompleteCancelStatus(event.escrowId, 'confirmed', event.transactionHash);
+
+		contractUpdateStore.update(ids =>
+			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
+		);
 
 		// Publish status update to Nostr with completion attachments
 		await publishContractStatus({
@@ -216,7 +218,7 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
 		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
 
 		// Add escrowId to contract update queue (avoid duplicates)
-		contractUpdateStore.update(ids => 
+		contractUpdateStore.update(ids =>
 			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
 		);
 
@@ -253,7 +255,7 @@ export async function handleTaskDisputed(event: { escrowId: string; transactionH
 		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
 
 		// Add escrowId to contract update queue (avoid duplicates)
-		contractUpdateStore.update(ids => 
+		contractUpdateStore.update(ids =>
 			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
 		);
 
@@ -348,7 +350,7 @@ export async function handleEscrowCancelled(event: { escrowId: string; transacti
 		updateCompleteCancelStatus(event.escrowId, 'confirmed', event.transactionHash);
 
 		// Add escrowId to contract update queue (avoid duplicates)
-		contractUpdateStore.update(ids => 
+		contractUpdateStore.update(ids =>
 			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
 		);
 

@@ -9,7 +9,7 @@ import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
-import { updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
+import { updateCompleteCancelStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
 import { handleEscrowCancelled, handleEscrowCreated, handleProposalAccepted, handleResolutionProposed, handleTaskAccepted, handleTaskCompleted, handleTaskDisputed, handleTimelockResolved } from '$lib/utils/wallet/escrowEvents';
 
 let contract: ethers.Contract | null = null;
@@ -350,11 +350,9 @@ async function createEscrow(
 
         // Handle confirmation asynchronously and create Nostr contract directly
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
-            console.log({receipt})
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
-                console.log('Escrow transaction confirmed, extracting escrow ID...', receipt);
 
                 // Extract escrow ID from the EscrowCreated event in the receipt
                 try {
@@ -495,7 +493,7 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
             clearCompletionAttempt(escrowId);
             
             // Update cache status to failed
-            updateCompletionStatus(escrowId, 'failed');
+            updateCompleteCancelStatus(escrowId, 'failed');
             
             appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
         });
@@ -1015,7 +1013,7 @@ async function checkEscrowFundingStatus(escrowId: string): Promise<{
     escrowData: EscrowData | null;
     error?: typeof EscrowError;
 }> {
-    const { createEscrowError, isEscrowNotFoundError, EscrowError, EscrowErrorCode } = await import('$lib/utils/errors/escrowErrors');
+    const { createEscrowError, isEscrowNotFoundError, EscrowError } = await import('$lib/utils/helpers/escrowErrors');
 
     try {
         const escrowData = await loadEscrowDetails(escrowId);

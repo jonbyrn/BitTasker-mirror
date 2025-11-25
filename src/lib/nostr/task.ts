@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TaskBody, TaskTranslations } from '$lib/types/task';
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';

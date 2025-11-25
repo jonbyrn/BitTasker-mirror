@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import cloudflareMediaService from './cloudflare-media.service';
