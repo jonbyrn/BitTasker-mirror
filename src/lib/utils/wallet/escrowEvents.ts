@@ -1,14 +1,16 @@
 import type { ethers } from 'ethers';
+import type { Attachment } from '$lib/types/task';
 import type { CreateContractParams } from '$lib/types/contract';
 import { writable } from 'svelte/store';
-import type { Attachment } from '$lib/types/task';
-import { createContract, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-import { escrowStore, getRSKWallet, getEventListeners } from '$lib/stores/wallet.store';
+import { createContract, publishContractStatus } from '$lib/utils/nostr-contract';
+import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { getRSKWallet, getEventListeners } from '$lib/stores/wallet.store';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
-import { publishContractStatus } from '$lib/utils/nostr-bid';
+import { pushNotificationService } from '$lib/api/services/push-notification.service';
+import { BidStatusEnum } from '../enums/bid.enum';
 
 const _ = get(t);
 
@@ -28,16 +30,14 @@ export interface ContractCreationEvent {
 }
 
 // Stores for escrow events
-export const escrowCreatedStore = writable<EscrowCreatedEvent | null>(null);
 export const contractCreationStore = writable<ContractCreationEvent | null>(null);
-export const contractUpdateStore = writable<string[]>([]);
 
 // Pending contract creation requests
 interface PendingContractCreation {
+	bidEventId: string;
 	escrowId: string;
 	taskId: string;
 	taskTitle: string;
-	bidId: string;
 	taskDescription: string;
 	freelancerPubkey: string;
 	amount: string;
@@ -54,7 +54,7 @@ const pendingContractsByTxHash = new Map<string, PendingContractCreation>();
  */
 export function registerPendingContractByTxHash(params: Omit<PendingContractCreation, 'escrowId'>): void {
 	pendingContractsByTxHash.set(params.transactionHash, params as PendingContractCreation);
-	console.log('Registered pending contract for transaction:', params.transactionHash);
+	console.log('✅ Registered pending contract for transaction:', params.transactionHash);
 }
 
 /**
@@ -69,9 +69,6 @@ export function registerPendingContract(params: PendingContractCreation): void {
  * Handle escrow created event - called from contract event listener
  */
 export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<void> {
-	// Update the store
-	escrowCreatedStore.set(event);
-
 	// Check if we have a pending contract for this escrow (by escrow ID or transaction hash)
 	let pendingContract = pendingContracts.get(event.escrowId);
 
@@ -89,8 +86,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 	}
 
 	if (pendingContract) {
-		console.log('Found pending contract, creating Nostr contract...');
-
 		try {
 			// Create the contract parameters
 			const contractParams: CreateContractParams = {
@@ -108,27 +103,14 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			console.log('Creating Nostr contract with params:', contractParams);
 			await createContract(contractParams);
 
-			// Notify backend that contract was created
-			try {
-				const { notifyBackendOfContractAction } = await import('$lib/utils/contract-notification-helper');
-				// Get current user pubkey (task creator)
-				const { getCurrentUserPubkey } = await import('$lib/utils/nostr-message');
-				const taskCreatorPubkey = await getCurrentUserPubkey();
-				
-				await notifyBackendOfContractAction(
-					event.escrowId,
-					'contract-created',
-					`contract-${event.escrowId}`,
-					{
-						taskId: pendingContract.taskId,
-						freelancerPubkey: pendingContract.freelancerPubkey,
-						taskCreatorPubkey: taskCreatorPubkey || '',
-						transactionHash: event.transactionHash
-					}
-				);
-			} catch (error) {
-				console.warn('Failed to notify backend of contract creation:', error);
-			}
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [pendingContract.freelancerPubkey],
+				title: 'New Contract Created',
+				body: `New contract created for task ${pendingContract.taskTitle}`,
+				type: 'contract_created',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
 
 			// Update contract creation store
 			contractCreationStore.set({
@@ -138,16 +120,14 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 
 			// Publish bid acceptance status via encrypted DM nostr event
 			await sendBidStatusUpdate(
-				pendingContract.bidId,
+				pendingContract.bidEventId,
 				pendingContract.taskId,
 				pendingContract.freelancerPubkey,
-				'accepted',
+				BidStatusEnum.ACCEPTED,
 				_('dashboard.bids.bid_acceptance.bid_accepted_message'),
 				event.escrowId,
 				event.transactionHash
 			);
-			console.log('✅ Bid status update sent successfully after contract creation');
-
 
 			// Show success toast
 			appStore.showSuccessToast(`Contract created successfully! Escrow ID: ${event.escrowId.slice(0, 8)}...`);
@@ -168,8 +148,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			appStore.showErrorToast(
 				`Failed to create contract: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
-
-			// Don't clean up pending contract in case of error - might want to retry
 		}
 	} else {
 		console.log('No pending contract found for escrow:', event.escrowId);
@@ -177,29 +155,47 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 }
 
 /**
- * Handle task completed event - called from transaction confirmation
+ * Publish pending completion status BEFORE transaction is broadcast
+ * This prevents double-submissions during blockchain confirmation (~30s)
  */
-export async function handleTaskCompleted(event: { 
-	escrowId: string; 
-	transactionHash: string; 
+export async function publishPendingCompletion(
+	escrowId: string,
+	contractEventId: string,
+	transactionHash: string,
+	completionAttachments?: Attachment[]
+): Promise<void> {
+	try {
+		await publishContractStatus({
+			contractEventId,
+			escrowId,
+			action: EscrowStatus.PendingCompletion,
+			message: _('dashboard.contracts.actions.task_completing_message'),
+			transactionHash,
+			completionAttachments
+		});
+	} catch (error) {
+		console.error('Failed to publish pending completion:', error);
+	}
+}
+
+/**
+ * Handle task completed event - called from transaction confirmation
+ * Freelancer marks the task as completed
+ */
+export async function handleTaskCompleted(event: {
+	escrowId: string;
+	transactionHash: string;
 	contractEventId: string;
 	completionAttachments?: Attachment[];
 }): Promise<void> {
 	console.log('Handling task completed event:', event);
 
 	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.Completed);
-
-		// Update completion cache to confirmed
-		const { updateCompleteCancelStatus } = await import('$lib/stores/completionCache.store');
-		updateCompleteCancelStatus(event.escrowId, 'confirmed', event.transactionHash);
-
-		// Publish status update to Nostr with completion attachments
+		// Publish confirmed status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
 			escrowId: event.escrowId,
-			action: 'task-completed',
+			action: EscrowStatus.Completed,
 			message: _('dashboard.contracts.actions.task_completed_message'),
 			transactionHash: event.transactionHash,
 			completionAttachments: event.completionAttachments
@@ -214,29 +210,41 @@ export async function handleTaskCompleted(event: {
 }
 
 /**
+ * Publish pending acceptance status BEFORE transaction is broadcast
+ * This prevents double-submissions during blockchain confirmation (~30s)
+ */
+export async function publishPendingAcceptance(
+	escrowId: string,
+	contractEventId: string,
+	transactionHash: string
+): Promise<void> {
+	try {
+		await publishContractStatus({
+			contractEventId,
+			escrowId,
+			action: EscrowStatus.PendingAcceptance,
+			message: _('dashboard.contracts.actions.task_accepting_message'),
+			transactionHash
+		});
+	} catch (error) {
+		console.error('Failed to publish pending acceptance:', error);
+	}
+}
+
+/**
  * Handle task accepted event - called from transaction confirmation
+ * Client accepts the completed task and funds are released to freelancer
  */
 export async function handleTaskAccepted(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
 	console.log('Handling task accepted event:', event);
 
 	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
 
-		// Update accept/dispute cache to confirmed
-		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
-		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
-
-		// Add escrowId to contract update queue (avoid duplicates)
-		contractUpdateStore.update(ids => 
-			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
-		);
-
-		// Publish status update to Nostr
+		// Publish confirmed status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
 			escrowId: event.escrowId,
-			action: 'payment-released',
+			action: EscrowStatus.FundsReleased,
 			message: _('dashboard.contracts.actions.payment_released_message'),
 			transactionHash: event.transactionHash
 		});
@@ -251,29 +259,41 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
 }
 
 /**
+ * Publish pending dispute status BEFORE transaction is broadcast
+ * This prevents double-submissions during blockchain confirmation (~30s)
+ */
+export async function publishPendingDispute(
+	escrowId: string,
+	contractEventId: string,
+	transactionHash: string
+): Promise<void> {
+	try {
+		await publishContractStatus({
+			contractEventId,
+			escrowId,
+			action: EscrowStatus.PendingDispute,
+			message: _('dashboard.contracts.actions.dispute_raising_message'),
+			transactionHash
+		});
+	} catch (error) {
+		console.error('Failed to publish pending dispute:', error);
+	}
+}
+
+/**
  * Handle task disputed event - called from transaction confirmation
+ * Client disputes the completed task
  */
 export async function handleTaskDisputed(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
 	console.log('Handling task disputed event:', event);
 
 	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.InDispute);
 
-		// Update accept/dispute cache to confirmed
-		const { updateAcceptDisputeStatus } = await import('$lib/stores/acceptDisputeCache.store');
-		updateAcceptDisputeStatus(event.escrowId, 'confirmed', event.transactionHash);
-
-		// Add escrowId to contract update queue (avoid duplicates)
-		contractUpdateStore.update(ids => 
-			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
-		);
-
-		// Publish status update to Nostr
+		// Publish confirmed status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
 			escrowId: event.escrowId,
-			action: 'dispute-raised',
+			action: EscrowStatus.InDispute,
 			message: _('dashboard.contracts.actions.dispute_raised_message'),
 			transactionHash: event.transactionHash
 		});
@@ -294,14 +314,11 @@ export async function handleResolutionProposed(event: { escrowId: string; transa
 	console.log('Handling resolution proposed event:', event);
 
 	try {
-		// Update escrow status (should already be InDispute, but ensure it's set)
-		updateEscrowStatus(event.escrowId, EscrowStatus.InDispute);
-
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
 			escrowId: event.escrowId,
-			action: 'resolution-proposed',
+			action: EscrowStatus.DisputeResolutionProposed,
 			message: _('dashboard.contracts.actions.resolution_proposed_message'),
 			transactionHash: event.transactionHash,
 			proposedClientAmount: event.proposedClientAmount,
@@ -324,14 +341,11 @@ export async function handleProposalAccepted(event: { escrowId: string; transact
 	console.log('Handling proposal accepted event:', event);
 
 	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
-
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
 			escrowId: event.escrowId,
-			action: 'proposal-accepted',
+			action: EscrowStatus.DisputeResolved,
 			message: _('dashboard.contracts.actions.proposal_accepted_message'),
 			transactionHash: event.transactionHash
 		});
@@ -346,29 +360,39 @@ export async function handleProposalAccepted(event: { escrowId: string; transact
 }
 
 /**
+ * Publish pending cancellation status BEFORE transaction is broadcast
+ * This prevents double-submissions during blockchain confirmation (~30s)
+ */
+export async function publishPendingCancellation(
+	escrowId: string,
+	contractEventId: string,
+	transactionHash: string
+): Promise<void> {
+	try {
+		await publishContractStatus({
+			contractEventId,
+			escrowId,
+			action: EscrowStatus.PendingCancellation,
+			message: _('dashboard.contracts.actions.escrow_cancelling_message'),
+			transactionHash
+		});
+	} catch (error) {
+		console.error('Failed to publish pending cancellation:', error);
+	}
+}
+
+/**
  * Handle escrow cancelled event - called from transaction confirmation
  */
 export async function handleEscrowCancelled(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
 	console.log('Handling escrow cancelled event:', event);
 
 	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.Cancelled);
-
-		// Update complete/cancel cache to confirmed
-		const { updateCompleteCancelStatus } = await import('$lib/stores/completionCache.store');
-		updateCompleteCancelStatus(event.escrowId, 'confirmed', event.transactionHash);
-
-		// Add escrowId to contract update queue (avoid duplicates)
-		contractUpdateStore.update(ids => 
-			ids.includes(event.escrowId) ? ids : [...ids, event.escrowId]
-		);
-
-		// Publish status update to Nostr
+		// Publish confirmed status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
 			escrowId: event.escrowId,
-			action: 'escrow-cancelled',
+			action: EscrowStatus.Cancelled,
 			message: _('dashboard.contracts.actions.escrow_cancelled_message'),
 			transactionHash: event.transactionHash
 		});
@@ -389,14 +413,11 @@ export async function handleTimelockResolved(event: { escrowId: string; transact
 	console.log('Handling timelock resolved event:', event);
 
 	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
-
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
 			escrowId: event.escrowId,
-			action: 'timelock-resolved',
+			action: EscrowStatus.DisputeResolved,
 			message: _('dashboard.contracts.actions.timelock_resolved_message'),
 			transactionHash: event.transactionHash
 		});
@@ -460,21 +481,9 @@ export function getPendingContractCount(): number {
  * Reset stores (useful for cleanup)
  */
 export function resetStores(): void {
-	escrowCreatedStore.set(null);
 	contractCreationStore.set(null);
 }
 
-// Helper function to update escrow status
-function updateEscrowStatus(escrowId: string, status: EscrowStatus): void {
-	escrowStore.update(state => ({
-		...state,
-		escrows: state.escrows.map(escrow =>
-			escrow.id === escrowId
-				? { ...escrow, status, lastUpdated: Date.now() }
-				: escrow
-		)
-	}));
-}
 
 // Load escrow details from contract (we'll need to import this from escrow.ts)
 async function loadEscrowDetails(escrowId: string): Promise<any> {
@@ -494,6 +503,7 @@ async function loadDisputeProposal(escrowId: string): Promise<any> {
  * Set up contract event listeners
  * Note: This is currently disabled on RSK due to eth_getLogs compatibility issues.
  * Event handling is done directly from transaction receipts instead.
+ * @unused - this function is not used anywhere in the codebase
  */
 export function setupContractEventListeners(contract: ethers.Contract): void {
 	const wallet = getRSKWallet();
@@ -521,10 +531,6 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		// Load and update escrow data
 		loadEscrowDetails(escrowId.toString()).then(escrowData => {
 			if (escrowData) {
-				escrowStore.update(state => ({
-					...state,
-					escrows: [escrowData, ...state.escrows.filter(e => e.id !== escrowData.id)]
-				}));
 			}
 		}).catch(console.error);
 	};
@@ -557,7 +563,6 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		const taskCompletedListener = (escrowId: bigint) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('TaskCompleted event received:', escrowIdStr);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.Completed);
 
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'completed', 'TaskCompleted');
@@ -567,17 +572,15 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		const taskAcceptedListener = (escrowId: bigint) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('TaskAccepted event received:', escrowIdStr);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.DisputeResolved);
 
 			// Handle through event management system
-			handleEscrowStatusUpdate(escrowIdStr, 'resolved', 'TaskAccepted');
+			handleEscrowStatusUpdate(escrowIdStr, 'funds_released', 'TaskAccepted');
 		};
 
 		// Listen for TaskDisputed events
 		const taskDisputedListener = (escrowId: bigint, disputer: string) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('TaskDisputed event received:', escrowIdStr, disputer);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.InDispute);
 
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'disputed', 'TaskDisputed');
@@ -589,10 +592,6 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 			console.log('DisputeProposed event received:', escrowIdStr);
 			loadDisputeProposal(escrowIdStr).then(proposal => {
 				if (proposal) {
-					escrowStore.update(state => ({
-						...state,
-						disputeProposals: [proposal, ...state.disputeProposals.filter(p => p.escrowId !== proposal.escrowId)]
-					}));
 				}
 			}).catch(console.error);
 
@@ -604,12 +603,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		const disputeResolvedListener = (escrowId: bigint, clientAmount: bigint, freelancerAmount: bigint) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('DisputeResolved event received:', escrowIdStr);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.DisputeResolved);
-			// Remove dispute proposal
-			escrowStore.update(state => ({
-				...state,
-				disputeProposals: state.disputeProposals.filter(p => p.escrowId !== escrowIdStr)
-			}));
+
 
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'resolved', 'DisputeResolved');
@@ -619,7 +613,6 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		const escrowCancelledListener = (escrowId: bigint, clientAmount: bigint, freelancerAmount: bigint) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('EscrowCancelled event received:', escrowIdStr);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.Cancelled);
 
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'cancelled', 'EscrowCancelled');

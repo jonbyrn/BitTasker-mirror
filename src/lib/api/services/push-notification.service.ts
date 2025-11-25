@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Token, PushNotificationSchema, ActionPerformed } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
@@ -839,7 +838,10 @@ class PushNotificationService {
 	 */
 	public async sendNotificationToNpubs(notification: SendNotificationToNpubsInput) {
 		try {
-			const result = await this.sendNotificationToNpubsStore.mutate({ input: notification });
+			const result = await this.sendNotificationToNpubsStore.mutate({
+				input: notification
+			});
+
 			if (result.errors) {
 				throw new Error(result.errors[0].message);
 			}

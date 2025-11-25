@@ -15,6 +15,7 @@
 	import { TranslationStore } from '$lib/stores/translation.store';
 	import { TranslationService } from '$lib/services/translation.service';
 	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
+	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 
 	// Props
 	let {
@@ -462,14 +463,15 @@
 		}
 	}
 
-	function setupRealtimeListener() {
+	async function setupRealtimeListener() {
 		// Clean up existing subscription
 		if (unsubscribe) {
 			unsubscribe();
 		}
 
+		const { nsec, npub } = await getNostrKeyPair();
 		// Setup new subscription for real-time messages
-		unsubscribe = listenForIncomingMessages((msg) => {
+		unsubscribe = listenForIncomingMessages(npub, nsec, (msg) => {
 			const { plaintext, senderPubkey, event } = msg;
 
 			// Only add messages that are relevant to this conversation AND are user-to-user messages

@@ -60,6 +60,7 @@
     "copy_public_key": "Copiar clave pública",
     "failed_to_load_chat": "Error al cargar chat",
     "delete_conversation": "Borrar conversación",
-    "confirm_delete_conversation": "¿Estás seguro de que quieres borrar esta conversación? Esta acción no se puede deshacer."
+    "confirm_delete_conversation": "¿Estás seguro de que quieres borrar esta conversación? Esta acción no se puede deshacer.",
+    "retry": "Reintentar"
   }
 }

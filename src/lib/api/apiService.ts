@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import createAxiosInstance from './axios';
 

@@ -1,5 +1,5 @@
 import type { SearchTasksParams, SavedSearch } from '$lib/types/task.d';
-import { SimplePool, type Filter } from 'nostr-tools';
+import { type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { appStore } from '$lib/stores/app.store';
 import { getNpub } from '$lib/utils/nostrKeys';
@@ -12,8 +12,12 @@ import { get as getStore } from 'svelte/store';
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
-// Pool for nostr queries (general Nostr network)
-const pool = new SimplePool();
+/**
+ * Get the centralized pool instance from appStore
+ */
+function getPool() {
+	return getStore(appStore).pool;
+}
 
 /**
  * SAVED SEARCHES - Simplified Nostr Implementation
@@ -67,6 +71,7 @@ export async function saveSearch(
         });
 
         // Publish single event to the relay
+        const pool = getPool();
         await Promise.any(pool.publish(RELAYS, savedSearchEvent));
 
         appStore.showSuccessToast(getStore(t)('profile_task.success.save_search'));
@@ -100,6 +105,7 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
             '#t': ['saved-search'] // Filter by type tag
         };
 
+        const pool = getPool();
         const savedSearchEvents = await pool.querySync(RELAYS, filter);
 
         // Convert events to SavedSearch objects and filter out deleted ones
@@ -134,6 +140,8 @@ export async function updateSavedSearch(
     }>
 ): Promise<SavedSearch> {
     try {
+        const pool = getPool();
+        
         // Get the existing saved search
         const existingFilter = {
             kinds: [KINDS.SAVED_SEARCH],
@@ -233,22 +241,10 @@ export async function deleteSavedSearch(eventId: string): Promise<void> {
         });
 
         // Publish deletion event
+        const pool = getPool();
         await Promise.any(pool.publish(RELAYS, deletionEvent));
     } catch (error) {
         console.error('Error deleting saved search:', error);
         throw error;
     }
-}
-
-export async function cleanup(): Promise<void> {
-    // Close saved search pool
-    pool.close(RELAYS);
-}
-
-// Cleanup pool and subscriptions when browser closes
-if (browser) {
-    window.addEventListener('beforeunload', () => {
-        console.log('Cleaning up Nostr connections');
-        cleanup();
-    });
 }

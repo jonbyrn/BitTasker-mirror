@@ -9,7 +9,6 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
-	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	// Props using Svelte 5 runes syntax

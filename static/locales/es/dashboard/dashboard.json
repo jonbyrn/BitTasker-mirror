@@ -6,11 +6,11 @@
       },
       "dateRange": {
         "label": "Rango de Fechas"
-      }
-      ,"location": {
+      },
+      "location": {
         "details": "Detalles de Ubicación"
-      }
-      ,"type": {
+      },
+      "type": {
         "remote": "Remoto"
       }
     },
@@ -387,14 +387,14 @@
             "end_date": "Fecha de Fin",
             "clear_availability_filters": "Borrar Filtros de Disponibilidad",
             "airdatepicker": {
-                "select_date": "Seleccionar una fecha",
-                "select_date_range": "Seleccionar rango de fechas",
-                "select_datetime": "Seleccionar fecha y hora",
-                "select_time": "Seleccionar hora",
-                "select_start_date": "Seleccionar fecha de inicio",
-                "select_end_date": "Seleccionar fecha de fin",
-                "select_start_datetime": "Seleccionar fecha y hora de inicio",
-                "select_end_datetime": "Seleccionar fecha y hora de fin"
+              "select_date": "Seleccionar una fecha",
+              "select_date_range": "Seleccionar rango de fechas",
+              "select_datetime": "Seleccionar fecha y hora",
+              "select_time": "Seleccionar hora",
+              "select_start_date": "Seleccionar fecha de inicio",
+              "select_end_date": "Seleccionar fecha de fin",
+              "select_start_datetime": "Seleccionar fecha y hora de inicio",
+              "select_end_datetime": "Seleccionar fecha y hora de fin"
             }
           },
           "price_range": {
@@ -549,7 +549,19 @@
         "completed": "Completado",
         "disputed": "En Disputa",
         "resolved": "Resuelto",
-        "cancelled": "Cancelado"
+        "cancelled": "Cancelado",
+        "funded": "Financiado",
+        "in_dispute": "En Disputa",
+        "in_progress": "En Progreso",
+        "dispute_resolved": "Disputa Resuelta",
+        "dispute_unresolved": "Disputa Sin Resolver",
+        "pending_funding": "Pendiente de Financiamiento",
+        "pending_completion": "Pendiente de Completación",
+        "pending_dispute": "Pendiente de Disputa",
+        "pending_cancellation": "Pendiente de Cancelación",
+        "funds_released": "Fondos Liberados",
+        "pending_acceptance": "Pendiente de Aceptación",
+        "dispute_resolution_proposed": "Propuesta de Resolución de Disputa"
       },
       "actions": {
         "complete_task": "Marcar Tarea como Completada",

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import type { SimplifiedTaskBid } from '$lib/types/bid';
+	import type { NostrEvent } from 'nostr-tools';
+	import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
 	import {
 		calculateBidEscrowDetails,
@@ -23,14 +24,17 @@
 	import { linear } from 'svelte/easing';
 	import { onMount } from 'svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
-	import { getUserDisplayNameFromProfile } from '$lib/utils/helpers/userDisplayName';
+
 	// Props
 	const props = $props<{
-		bid: SimplifiedTaskBid;
-		task: Task;
+		bid: NostrEventWithFollowup;
+		task: NostrEvent;
 		btcPrice: number;
 		onCancel: () => void;
 	}>();
+
+	const bidContent = $derived(props.bid.content as unknown as NostrBidContent);
+	const taskContent = $derived(JSON.parse(props.task.content) as Task);
 
 	// Form state
 	let isSubmitting = $state(false);
@@ -39,7 +43,7 @@
 	let balanceErrors = $state<string[]>([]);
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
-	let hasAttemptedConnection = $state(false);
+	let isLoadingWallet = $derived($walletStore.isInitializing || $walletStore.rsk.connecting);
 
 	// Ensure wallet and bids translations are loaded
 	if (browser && $locale) {
@@ -48,7 +52,9 @@
 	}
 
 	// Calculate escrow details from bid
-	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task, props.btcPrice));
+	let bidEscrowDetails = $derived(
+		calculateBidEscrowDetails(bidContent, taskContent, props.btcPrice)
+	);
 
 	// Calculate adjusted times if start time is in the past but within 15 minutes
 	let adjustedTimes = $derived.by(() => {
@@ -99,28 +105,20 @@
 	// Use onMount to prevent reactive loops - only check once when component mounts
 	onMount(async () => {
 		// Read wallet state without creating a reactive subscription
-		if (!$walletStore.rsk.connected && !$walletStore.rsk.connecting && !$walletStore.rsk.error) {
-			hasAttemptedConnection = true;
-			await walletManager.initialize().catch((error: unknown) => {
-				console.error('Auto-initialization of Rootstock wallet failed:', error);
-			});
+		if (!$walletStore.rsk.connected && !isLoadingWallet) {
+			await walletManager.initialize();
 		}
 	});
 
 	// Handle form submission
 	async function handleSubmit() {
-		if (
-			!props.bid?.id ||
-			!props.task ||
-			validationErrors.length !== 0 ||
-			balanceErrors.length !== 0
-		) {
-			return;
+		if (!props.bid || !props.task || validationErrors.length !== 0 || balanceErrors.length !== 0) {
+			return appStore.showErrorToast('Validation errors');
 		}
 
-		isSubmitting = true;
-
 		try {
+			isSubmitting = true;
+
 			// Accept bid and create escrow
 			const result = await acceptBidAndCreateEscrow(props.bid, props.task, props.btcPrice, 'RSK');
 
@@ -132,8 +130,7 @@
 
 				currentScreen = 'success';
 
-				// Note: Bid status update is automatically sent via escrowEvents.ts
-				// after contract creation, so we don't need to send a separate message here
+				// Note: Bid status update is automatically sent via escrowEvents.ts after contract creation
 			} else {
 				// Show error
 				validationErrors = [result.error || 'Failed to create escrow'];
@@ -211,7 +208,7 @@
 	}
 </script>
 
-{#if !props.bid || !props.task}
+{#if !bidContent || !taskContent}
 	<div class="flex items-center justify-center py-12">
 		<div class="text-center">
 			<svg
@@ -248,7 +245,7 @@
 		<div class="bg-base-300 lg:bg-base-200 rounded-2xl">
 			<!-- Task Title Row -->
 			<div class="w-full min-w-0 px-6 pt-3">
-				<h5 class="wrap-break-words line-clamp-2 text-lg font-semibold">{props.task.title}</h5>
+				<h5 class="wrap-break-words line-clamp-2 text-lg font-semibold">{taskContent.title}</h5>
 			</div>
 
 			<!-- Divider (Desktop only) -->
@@ -267,9 +264,9 @@
 								<div
 									class="bg-base-100 flex h-8 w-8 items-center justify-center rounded-full lg:h-10 lg:w-10"
 								>
-									{#if props.bid?.userProfile?.user?.profilePictureUrl}
+									{#if bidContent?.bidderAvatar}
 										<img
-											src={props.bid.userProfile.user.profilePictureUrl}
+											src={bidContent.bidderAvatar}
 											alt={$t('dashboard.bids.bid_acceptance.bidder_avatar')}
 											class="h-8 w-8 rounded-full object-cover lg:h-10 lg:w-10"
 										/>
@@ -278,7 +275,7 @@
 											class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center lg:h-10 lg:w-10"
 										>
 											<span class="text-sm font-semibold lg:text-lg">
-												{(getUserDisplayNameFromProfile(props.bid?.userProfile) || 'A').charAt(0).toUpperCase()}
+												{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
 											</span>
 										</div>
 									{/if}
@@ -287,9 +284,7 @@
 
 							<div class="flex min-w-0 flex-1 flex-col">
 								<span class="truncate text-sm font-medium">
-									{getUserDisplayNameFromProfile(props.bid?.userProfile) ||
-										props.bid?.userProfile?.professionalTitle ||
-										''}
+									{bidContent.bidderName || $t('dashboard.bids.bid_acceptance.anonymous')}
 								</span>
 
 								<div class="mt-1 flex min-w-0 items-center">
@@ -297,7 +292,7 @@
 										{#each Array(5) as _, i}
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3 {i < (props.bid?.userProfile?.averageRating || 0)
+												class="h-3 w-3 {i < (bidContent.bidderRating || 0)
 													? 'text-yellow-400'
 													: 'text-base-content/30'}"
 												fill="currentColor"
@@ -310,9 +305,10 @@
 										{/each}
 									</div>
 									<span class="text-base-content/60 ml-1 truncate text-xs">
-										{(props.bid?.userProfile?.averageRating || 0).toFixed(1)} ({props.bid
-											?.userProfile?.tasksCompleted || 0}
-										{$t('dashboard.bids.bid_acceptance.tasks')})
+										{(bidContent.bidderRating || 0).toFixed(1)}
+										<!-- TODO: Add proper completed tasks display -->
+										<!-- {bidContent?. || 0} -->
+										<!-- {$t('dashboard.bids.bid_acceptance.tasks')} -->
 									</span>
 								</div>
 
@@ -526,7 +522,7 @@
 		<!-- Rootstock Escrow Contract Details -->
 		<div class="mb-4">
 			<!-- Wallet Connection Loading State -->
-			{#if $walletStore.rsk.connecting}
+			{#if isLoadingWallet}
 				<div class="alert alert-outline alert-info mt-4">
 					<div class="flex items-center">
 						<span class="loading loading-spinner loading-sm mr-2"></span>
@@ -534,7 +530,7 @@
 					</div>
 				</div>
 				<!-- Wallet Connection Error (only show if connection failed after attempting) -->
-			{:else if !$walletStore.rsk.connected && (hasAttemptedConnection || $walletStore.rsk.error)}
+			{:else if $walletStore.rsk.error}
 				<div
 					class="alert alert-outline alert-warning mt-4 flex! flex-row! items-center! justify-between! text-black"
 				>
@@ -560,52 +556,13 @@
 					</div>
 					<button
 						class="btn btn-sm btn-primary ml-auto"
-						onclick={async () => {
-							hasAttemptedConnection = true;
-							try {
-								await walletManager.initialize();
-							} catch (error) {
-								console.error('Failed to connect Rootstock wallet:', error);
-							}
-						}}
+						onclick={async () => await walletManager.initialize()}
 						disabled={$walletStore.rsk.connecting}
 					>
 						{$t('dashboard.bids.bid_acceptance.connect_wallet')}
 					</button>
 				</div>
 			{/if}
-
-			<!-- Rootstock Wallet Connection Error -->
-			<!-- {#if $walletStore.rsk.error}
-					<div class="alert alert-outline alert-error mt-4">
-						<div class="flex w-full items-center justify-between">
-							<div class="flex items-center">
-								<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-								</svg>
-                                <span>{$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} {$walletStore.rsk.error}</span>
-							</div>
-							<button 
-								class="btn btn-sm btn-outline"
-								onclick={async () => {
-									try {
-										await walletManager.initialize();
-									} catch (error) {
-										console.error('Failed to retry Rootstock wallet connection:', error);
-									}
-								}}
-								disabled={$walletStore.rsk.connecting}
-							>
-								{#if $walletStore.rsk.connecting}
-									<span class="loading loading-spinner loading-xs"></span>
-                                    {$t('dashboard.bids.bid_acceptance.retrying')}
-								{:else}
-                                    {$t('dashboard.bids.bid_acceptance.retry')}
-								{/if}
-							</button>
-						</div>
-					</div>
-				{/if} -->
 		</div>
 
 		<!-- Insufficient Balance Warning -->
@@ -818,7 +775,7 @@
 											>{$t('dashboard.bids.bid_acceptance.connecting')}</span
 										>
 									</div>
-								{:else if !$walletStore.rsk.connected && (hasAttemptedConnection || $walletStore.rsk.error)}
+								{:else if !$walletStore.rsk.connected || $walletStore.rsk.error}
 									<p class="text-error text-lg font-bold">
 										{$walletStore.rsk.error
 											? `${$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} ${$walletStore.rsk.error}`
