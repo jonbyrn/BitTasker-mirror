@@ -6,6 +6,7 @@
 	import uploadService, { type UploadResult } from '$lib/api/services/upload.service';
 	import { appStore } from '$lib/stores/app.store';
 	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
+	import { contractStore } from '$lib/stores/contract.store';
 
 	const {
 		contract,
@@ -125,10 +126,10 @@
 				<div class="card-body p-4">
 					<h4 class="font-semibold mb-2">{$t('dashboard.contracts.timeline.completion.task_info')}</h4>
 					<p class="text-sm text-base-content/80 mb-2">
-						<strong>{$t('dashboard.contracts.task_description')}:</strong> {contract.contract.taskTitle}
+						<strong>{$t('dashboard.contracts.task_description')}:</strong> {contractStore.getContractKey(contract, 'taskTitle')}
 					</p>
 					<p class="text-sm text-base-content/80">
-						<strong>{$t('dashboard.contracts.amount')}:</strong> {btcPrice > 0 ? formatUSDWithSatsSync(contract.contract.amount, btcPrice) : `${contract.contract.amount} RBTC`}
+						<strong>{$t('dashboard.contracts.amount')}:</strong> {btcPrice > 0 ? formatUSDWithSatsSync(contractStore.getContractKey(contract, 'amount'), btcPrice) : `${contractStore.getContractKey(contract, 'amount')} RBTC`}
 					</p>
 				</div>
 			</div>

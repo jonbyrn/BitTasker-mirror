@@ -138,7 +138,10 @@ export const TAG_PATTERNS = {
 	 * Direct message tags (minimal for privacy)
 	 * @param recipientPubkey - Message recipient
 	 */
-	directMessage: (recipientPubkey: string): string[][] => [[TAGS.P, recipientPubkey]]
+	directMessage: (recipientPubkey: string): string[][] => [
+		[TAGS.P, recipientPubkey],
+		[TAGS.M, 'direct-message']
+	]
 } as const;
 
 /**

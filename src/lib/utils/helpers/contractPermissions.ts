@@ -53,10 +53,11 @@ function mapBlockchainStatusToPermissions(
 		case EscrowStatus.Funded: // 0 - Escrow funded on blockchain
 			// Check if freelancer submitted completion (pending blockchain update)
 			const hasTaskCompletedEvent = statusEvents.some(e =>
-				e.status.action === EscrowStatus.PendingCompletion && e.status.transactionHash
+				e.content.action === EscrowStatus.PendingCompletion && e.content.transactionHash
 			);
 
 			if (hasTaskCompletedEvent) {
+				console.log('hasTaskCompletedEvent', hasTaskCompletedEvent);
 				// Show pending completion state during transaction
 				return {
 					status: EscrowStatus.PendingCompletion,
@@ -76,6 +77,7 @@ function mapBlockchainStatusToPermissions(
 			// Check if work has started (past estimated start time)
 			const hasStarted = now > escrowData.estimatedStartTime;
 
+			console.log('hasStarted', hasStarted);
 			return {
 				status: hasStarted ? EscrowStatus.InProgress : EscrowStatus.Funded,
 				permissions: {
@@ -96,9 +98,31 @@ function mapBlockchainStatusToPermissions(
 		case EscrowStatus.Completed: // 4 - Freelancer marked task complete
 			const completionTimelockExpired = now > escrowData.timelockExpiry;
 			
-			// Check for pending acceptance
+			// PRIORITY 1: Check if funds were released (FINAL STATE - takes precedence over pending states)
+			// This checks blockchain state (via event query in getContracts) or Nostr confirmation
+			const hasFundsReleased = statusEvents?.some(e =>
+				e.content.action === EscrowStatus.FundsReleased
+			);
+
+			if (hasFundsReleased) {
+				return {
+					status: EscrowStatus.FundsReleased,
+					permissions: {
+						canComplete: false,
+						canAccept: false,
+						canDispute: false,
+						canPropose: false,
+						canAcceptProposal: false,
+						canCancel: false,
+						canResolveTimelock: false,
+						canDelete: false  // ❌ FINAL STATE - cannot delete
+					}
+				};
+			}
+			
+			// PRIORITY 2: Check for pending acceptance (transaction in progress)
 			const hasPendingAcceptance = statusEvents.some(e =>
-				e.status.action === EscrowStatus.PendingAcceptance && e.status.transactionHash
+				e.content.action === EscrowStatus.PendingAcceptance && e.content.transactionHash
 			);
 
 			if (hasPendingAcceptance) {
@@ -117,9 +141,9 @@ function mapBlockchainStatusToPermissions(
 				};
 			}
 
-			// Check for pending dispute
+			// PRIORITY 3: Check for pending dispute (transaction in progress)
 			const hasPendingDispute = statusEvents.some(e =>
-				e.status.action === EscrowStatus.PendingDispute && e.status.transactionHash
+				e.content.action === EscrowStatus.PendingDispute && e.content.transactionHash
 			);
 
 			if (hasPendingDispute) {
@@ -138,6 +162,7 @@ function mapBlockchainStatusToPermissions(
 				};
 			}
 
+			// PRIORITY 4: Default completed state (awaiting client action)
 			return {
 				status: EscrowStatus.Completed,
 				permissions: {
@@ -287,11 +312,11 @@ export function determineContractState(
 	const latestStatusEvent = statusEvents.length > 0 ? statusEvents[statusEvents.length - 1] : null;
 	
 	if (latestStatusEvent) {
-		const action = latestStatusEvent.status.action;
+		const action = latestStatusEvent.content.action;
 
 		// These pending states should only exist if blockchain state exists
 		// But we handle them defensively
-		if (action === EscrowStatus.PendingCompletion && latestStatusEvent.status.transactionHash) {
+		if (action === EscrowStatus.PendingCompletion && latestStatusEvent.content.transactionHash) {
 			return {
 				status: EscrowStatus.PendingCompletion,
 				permissions: {
@@ -307,7 +332,7 @@ export function determineContractState(
 			};
 		}
 
-		if (action === EscrowStatus.PendingDispute && latestStatusEvent.status.transactionHash) {
+		if (action === EscrowStatus.PendingDispute && latestStatusEvent.content.transactionHash) {
 			return {
 				status: EscrowStatus.PendingDispute,
 				permissions: {
@@ -323,7 +348,7 @@ export function determineContractState(
 			};
 		}
 
-		if (action === EscrowStatus.PendingCancellation && latestStatusEvent.status.transactionHash) {
+		if (action === EscrowStatus.PendingCancellation && latestStatusEvent.content.transactionHash) {
 			return {
 				status: EscrowStatus.PendingCancellation,
 				permissions: {
@@ -339,7 +364,7 @@ export function determineContractState(
 			};
 		}
 
-		if (action === EscrowStatus.PendingAcceptance && latestStatusEvent.status.transactionHash) {
+		if (action === EscrowStatus.PendingAcceptance && latestStatusEvent.content.transactionHash) {
 			return {
 				status: EscrowStatus.PendingAcceptance,
 				permissions: {

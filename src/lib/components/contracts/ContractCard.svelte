@@ -2,15 +2,15 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { ContractProfile } from '$lib/utils/nostr-profile';
 	import { getStatusTranslationKey, getStatusColorClass } from '$lib/utils/helpers/contractStatusFormatter';
+	import { contractStore } from '$lib/stores/contract.store';
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
 
-	const { contract, btcPrice, userProfile, onclick, onActionComplete } = $props<{
+	const { contract, btcPrice, userProfile, onclick } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
 		userProfile?: ContractProfile;
 		onclick?: () => void;
-		onActionComplete?: () => void;
 	}>();
 
 	// Profile is now passed as prop, no need to fetch
@@ -110,11 +110,11 @@
 								onclick?.();
 							}}
 						>
-							{contract.contract.taskTitle}
+							{contractStore.getContractKey(contract, 'taskTitle')}
 						</button>
 					</small>
 					<div class="text-base-content/60 mt-1 line-clamp-2">
-						{contract.contract.taskDescription}
+						{contractStore.getContractKey(contract, 'taskDescription')}
 					</div>
 				</div>
 
@@ -135,7 +135,7 @@
 					<!-- Price with stacked design -->
 					<div class="text-right">
 						{#if btcPrice > 0}
-							{@const priceData = formatPriceStacked(contract.contract.amount, btcPrice)}
+							{@const priceData = formatPriceStacked(contractStore.getContractKey(contract, 'amount'), btcPrice)}
 							<div class="text-base-content text-lg font-bold">
 								{priceData.usd}
 							</div>
@@ -144,7 +144,7 @@
 							</div>
 						{:else}
 							<div class="text-base-content text-lg font-bold">
-								{formatRBTC(contract.contract.amount)} RBTC
+								{formatRBTC(contractStore.getContractKey(contract, 'amount'))} RBTC
 							</div>
 						{/if}
 					</div>
@@ -174,7 +174,7 @@
 						{$t('dashboard.contracts.deadline')}
 					</small>
 					<span class="text-sm font-medium">
-						{formatDate(contract.contract.estimatedCompletionTime)}
+						{formatDate(contractStore.getContractKey(contract, 'estimatedCompletionTime'))}
 					</span>
 				</div>
 			</div>
@@ -250,7 +250,6 @@
 				{#if getAvailableActionsCount() > 0}
 					<ContractActions
 						{contract}
-						{onActionComplete}
 						containerClass="flex flex-row-reverse flex-wrap gap-2 w-full sm:w-auto"
 						openDrawer={() => onclick?.()}
 						isInline={true}

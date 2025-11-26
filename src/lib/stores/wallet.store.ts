@@ -22,18 +22,6 @@ import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers } from 'ethers';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
-import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
-
-// Escrow management state (separate from main wallet state)
-interface EscrowState {
-	escrows: EscrowData[];
-	disputeProposals: DisputeProposal[];
-}
-
-const initialEscrowState: EscrowState = {
-	escrows: [],
-	disputeProposals: []
-};
 
 // Initial state
 const initialState: WalletState = {

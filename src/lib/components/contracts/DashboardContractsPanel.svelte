@@ -2,12 +2,12 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { getContracts } from '$lib/utils/nostr-contract';
 	import { fetchContractProfile, type ContractProfile } from '$lib/utils/nostr-profile';
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { contractStore } from '$lib/stores/contract.store';
 
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
@@ -22,9 +22,6 @@
 	import IconAccountTieOutline from '~icons/mdi/account-tie-outline';
 
 	// State
-	let contracts = $state<ContractWithEvents[]>([]);
-	let isLoading = $state(true);
-	let error = $state<string | null>(null);
 	let selectedContract = $state<ContractWithEvents | null>(null);
 	let showContractDrawer = $state(false);
 
@@ -93,7 +90,7 @@
 	] as const);
 
 	let filteredContracts = $derived(() => {
-		let filtered = contracts;
+		let filtered = $contractStore.contracts;
 
 		// Filter by status (using unified status enum)
 		if (statusFilter !== 'all') {
@@ -120,55 +117,13 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([loadContracts(), fetchBtcPrice()]);
+		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
 		// Load profiles after contracts are loaded
 		await loadProfilesForContracts();
 	});
 
-	async function loadContracts(escrowIds?: string[]) {
-		try {
-			isLoading = true;
-			error = null;
-
-			const loadedContracts = await getContracts(escrowIds ? { escrowIds } : undefined);
-			console.log({ loadedContracts });
-
-			if (escrowIds && escrowIds.length > 0) {
-				// Targeted reload: merge updated contracts with existing ones
-				// Build a map for O(1) lookup
-				const updatedMap = new Map(loadedContracts.map((c) => [c.contract.escrowId, c]));
-
-				// Update existing contracts or keep them as-is
-				contracts = contracts.map(
-					(existing) => updatedMap.get(existing.contract.escrowId) || existing
-				);
-
-				// Add any completely new contracts that weren't in the list
-				const existingIds = new Set(contracts.map((c) => c.contract.escrowId));
-				const newContracts = loadedContracts.filter((c) => !existingIds.has(c.contract.escrowId));
-
-				if (newContracts.length > 0) {
-					contracts = [...contracts, ...newContracts].sort(
-						(a, b) => b.contract.createdAt - a.contract.createdAt
-					);
-				}
-			} else {
-				// Full reload: replace all contracts
-				contracts = loadedContracts;
-			}
-
-			// Load profiles for new/updated contracts
-			await loadProfilesForContracts(escrowIds);
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load contracts';
-			console.warn('Error loading contracts:', err);
-		} finally {
-			isLoading = false;
-		}
-	}
-
 	// Batch load profiles for all contracts
-	async function loadProfilesForContracts(targetEscrowIds?: string[]) {
+	async function loadProfilesForContracts() {
 		if (isLoadingProfiles) return;
 
 		try {
@@ -176,14 +131,9 @@
 
 			// Collect unique pubkeys from contracts
 			const pubkeysToLoad = new Set<string>();
-			const contractsToProcess = targetEscrowIds
-				? contracts.filter((c) => targetEscrowIds.includes(c.contract.escrowId))
-				: contracts;
 
-			for (const contract of contractsToProcess) {
-				const userPubkey = contract.isClient
-					? contract.contract.freelancerPubkey
-					: contract.contract.clientPubkey;
+			for (const contract of $contractStore.contracts) {
+				const userPubkey = contractStore.getContractKey(contract, 'taskeePubkey');
 
 				// Only load if not already cached
 				if (!profileCache.has(userPubkey)) {
@@ -232,26 +182,6 @@
 		showContractDrawer = false;
 	}
 
-	// Handle contract updates (from drawer) - targeted reload
-	function handleContractUpdate(updatedEscrowId?: string) {
-		if (updatedEscrowId) {
-			// Targeted reload: only reload the specific contract
-			loadContracts([updatedEscrowId]);
-		} else if (selectedContract) {
-			// Fallback: reload the selected contract
-			loadContracts([selectedContract.contract.escrowId]);
-		} else {
-			// Last resort: full reload
-			loadContracts();
-		}
-		closeContractDrawer();
-	}
-
-	// Handle action completion from contract cards - targeted reload
-	function handleActionComplete(escrowId: string) {
-		// Optimistically update: reload only the affected contract
-		loadContracts([escrowId]);
-	}
 
 	function selectStatusFilter(statusId: EscrowStatus | 'all') {
 		statusFilter = statusId;
@@ -300,11 +230,11 @@
 			<!-- Refresh Button -->
 			<button
 				class="btn btn-ghost btn-sm rounded-full"
-				onclick={() => loadContracts()}
-				disabled={isLoading}
+				onclick={() => contractStore.loadContracts()}
+				disabled={$contractStore.isLoading}
 				aria-label={$t('dashboard.contracts.refresh')}
 			>
-				{#if isLoading}
+				{#if $contractStore.isLoading}
 					<span class="loading loading-spinner loading-xs"></span>
 				{:else}
 					<IconRefresh class="h-5 w-5" />
@@ -399,7 +329,7 @@
 	</div>
 
 	<!-- Loading State -->
-	{#if isLoading}
+	{#if $contractStore.isLoading}
 		<div class="flex justify-center py-12">
 			<div class="flex items-center gap-3">
 				<span class="loading loading-spinner loading-md"></span>
@@ -409,7 +339,7 @@
 	{/if}
 
 	<!-- Error State -->
-	{#if error}
+	{#if $contractStore.error}
 		<div class="alert alert-outline alert-error">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -426,16 +356,16 @@
 			</svg>
 			<div>
 				<h3 class="font-bold">{$t('dashboard.contracts.error_title')}</h3>
-				<div class="text-xs">{error}</div>
+				<div class="text-xs">{$contractStore.error}</div>
 			</div>
-			<button class="btn btn-sm btn-outline" onclick={() => loadContracts()}>
+			<button class="btn btn-sm btn-outline" onclick={() => contractStore.loadContracts()}>
 				{$t('dashboard.contracts.retry')}
 			</button>
 		</div>
 	{/if}
 
 	<!-- Contracts List -->
-	{#if !isLoading && !error}
+	{#if !$contractStore.isLoading && !$contractStore.error}
 		{#if filteredContracts().length === 0}
 			<div class="py-12 text-center">
 				<div class="mb-4">
@@ -455,28 +385,25 @@
 					</svg>
 				</div>
 				<h3 class="mb-2 text-lg font-semibold">
-					{contracts.length === 0
+					{$contractStore.contracts.length === 0
 						? $t('dashboard.contracts.no_contracts')
 						: $t('dashboard.contracts.no_filtered_contracts')}
 				</h3>
 				<p class="text-base-content/70">
-					{contracts.length === 0
+					{$contractStore.contracts.length === 0
 						? $t('dashboard.contracts.no_contracts_description')
 						: $t('dashboard.contracts.try_different_filters')}
 				</p>
 			</div>
 		{:else}
-			{#each filteredContracts() as contract (contract.contract.escrowId)}
-				{@const userPubkey = contract.isClient
-					? contract.contract.freelancerPubkey
-					: contract.contract.clientPubkey}
+			{#each filteredContracts() as contract (contractStore.getContractKey(contract, 'escrowId'))}
+				{@const userPubkey = contractStore.getContractKey(contract, 'taskeePubkey')}
 				{@const userProfile = profileCache.get(userPubkey)}
 				<ContractCard
 					{contract}
 					{btcPrice}
 					{userProfile}
 					onclick={() => openContractDrawer(contract)}
-					onActionComplete={() => handleActionComplete(contract.contract.escrowId)}
 				/>
 			{/each}
 		{/if}
@@ -485,18 +412,11 @@
 
 <!-- Contract Drawer - DO Not wrap in a condition for animation to work -->
 <ContractDrawer
-	contract={selectedContract}
-	isOpen={showContractDrawer}
+	bind:contract={selectedContract}
+	bind:isOpen={showContractDrawer}
 	{btcPrice}
-	taskeeProfile={selectedContract
-		? profileCache.get(
-				selectedContract.isClient
-					? selectedContract.contract.freelancerPubkey
-					: selectedContract.contract.clientPubkey
-			)
-		: undefined}
+	taskeeProfile={selectedContract ? profileCache.get(contractStore.getContractKey(selectedContract, 'taskeePubkey')) : undefined}
 	onClose={closeContractDrawer}
-	onUpdate={() => handleContractUpdate(selectedContract?.contract.escrowId)}
 />
 
 <svelte:window onclick={handleClickOutside} />

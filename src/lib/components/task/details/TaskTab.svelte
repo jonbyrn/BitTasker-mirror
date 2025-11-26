@@ -15,9 +15,10 @@
 	import { formatStandardDate, formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { fade, scale } from 'svelte/transition';
-	import TranslatableTask from '../TranslatableTask.svelte';
 	import { getContracts } from '$lib/utils/nostr-contract';
 	import { escrow } from '$lib/utils/wallet/escrow';
+	import { contractStore } from '$lib/stores/contract.store';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -84,7 +85,7 @@
 
 			// Task has contracts - check if any escrow was funded
 			for (const contract of contracts) {
-				const fundingStatus = await escrow.checkEscrowFundingStatus(contract.contract.escrowId);
+				const fundingStatus = await escrow.checkEscrowFundingStatus(contractStore.getContractKey(contract, 'escrowId'));
 				
 				if (fundingStatus.error) {
 					// Error checking escrow - be conservative and disallow deletion

@@ -15,7 +15,7 @@ export interface ContractPermissions {
 	canDelete: boolean;           // ONLY if contract was never funded (no blockchain state, no tx hash)
 }
 
-// Main contract event data (now sent as encrypted DM)
+// Main contract event data (content of KINDS.CONTRACT NostrEvent)
 export interface NostrContract {
 	escrowId: string;
 	taskId: string;
@@ -30,59 +30,11 @@ export interface NostrContract {
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	type: 'contract'; // Identify as contract message in DMs
-	// References to latest status events
-	latestStatusEventId?: string;
-	latestClientStatusEventId?: string;
-	latestFreelancerStatusEventId?: string;
 	// Transaction hash from escrow creation
 	transactionHash?: string;
-	// Dispute proposal
-	disputeProposal?: DisputeProposal;
-	// Completion evidence attachments (images/videos)
-	completionAttachments?: Attachment[];
 }
 
-
-// Full contract with events for UI display
-export interface ContractWithEvents {
-	contract: NostrContract;
-	contractEvent: NostrEvent;
-	statusEvents: ContractStatusEvent[];
-	isClient: boolean; // true if current user is the client
-	
-	// Blockchain state (source of truth)
-	blockchainStatus: EscrowStatus | null; // EscrowStatus enum value from blockchain, null if not funded
-	status: EscrowStatus; // Unified status (includes pending states from Nostr)
-	isPending: boolean; // true if blockchain transaction is being processed
-	
-	// Permission flags (determined by blockchain state + contract rules)
-	permissions: ContractPermissions;
-}
-
-// Status event with metadata
-export interface ContractStatusEvent {
-	status: NostrContractStatus;
-	event: NostrEvent;
-	senderPubkey: string;
-	isFromClient: boolean;
-	isFromFreelancer: boolean;
-}
-
-// Contract creation parameters
-export interface CreateContractParams {
-	escrowId: string;
-	taskId: string;
-	taskTitle: string;
-	taskDescription: string;
-	freelancerPubkey: string;
-	amount: string;
-	estimatedStartTime: number;
-	estimatedCompletionTime: number;
-	transactionHash?: string; // Optional transaction hash from escrow creation
-}
-
-
-// Status update event data (both parties can publish as encrypted DMs)
+// Contract status update event data (content of KINDS.CONTRACT_STATUS NostrEvent)
 export interface NostrContractStatus {
 	contractEventId: string;
 	escrowId: string;
@@ -97,6 +49,50 @@ export interface NostrContractStatus {
 	proposedFreelancerAmount?: string;
 	// Completion evidence attachments
 	completionAttachments?: Attachment[];
+}
+
+// NostrEvent with typed content for CONTRACT events
+export interface ContractEvent extends NostrEvent {
+	content: NostrContract;
+	statusEvents?: ContractStatusEvent[]; // Attached by queryNostrEvents
+}
+
+// NostrEvent with typed content for CONTRACT_STATUS events  
+export interface ContractStatusEvent extends NostrEvent {
+	content: NostrContractStatus;
+}
+
+// Full contract with metadata for UI display
+// Components should extract data from events as needed
+export interface ContractWithEvents {
+	contractEvent: ContractEvent; // Contract NostrEvent (content = NostrContract)
+	statusEvents: ContractStatusEvent[]; // Status NostrEvents (content = NostrContractStatus)
+	isClient: boolean; // true if current user is the client
+	
+	// Blockchain state (source of truth)
+	blockchainStatus: EscrowStatus | null; // EscrowStatus enum value from blockchain, null if not funded
+	status: EscrowStatus; // Unified status (includes pending states from Nostr)
+	isPending: boolean; // true if blockchain transaction is being processed
+	
+	// Permission flags (determined by blockchain state + contract rules)
+	permissions: ContractPermissions;
+	
+	// Computed data from blockchain/Nostr (avoid duplication in events)
+	disputeProposal: DisputeProposal | null; // From blockchain if in dispute
+	completionAttachments: Attachment[] | null; // From latest completion status event
+}
+
+// Contract creation parameters
+export interface CreateContractParams {
+	escrowId: string;
+	taskId: string;
+	taskTitle: string;
+	taskDescription: string;
+	freelancerPubkey: string;
+	amount: string;
+	estimatedStartTime: number;
+	estimatedCompletionTime: number;
+	transactionHash?: string; // Optional transaction hash from escrow creation
 }
 
 // Status update parameters

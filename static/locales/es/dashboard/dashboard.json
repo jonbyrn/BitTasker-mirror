@@ -561,7 +561,8 @@
         "pending_cancellation": "Pendiente de Cancelación",
         "funds_released": "Fondos Liberados",
         "pending_acceptance": "Pendiente de Aceptación",
-        "dispute_resolution_proposed": "Propuesta de Resolución de Disputa"
+        "dispute_resolution_proposed": "Propuesta de Resolución de Disputa",
+        "task_completed": "Tarea Completada"
       },
       "actions": {
         "complete_task": "Marcar Tarea como Completada",

@@ -4,9 +4,11 @@
 	import { locale } from 'svelte-i18n';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { getNpub } from '$lib/utils/nostrKeys';
 
-	const { statusEvents } = $props<{
+	const { statusEvents, contractPubkey } = $props<{
 		statusEvents: ContractStatusEvent[];
+		contractPubkey: string;
 	}>();
 
 	// Format date for timeline
@@ -53,10 +55,10 @@
 	}
 
 	// Get sender role text
-	function getSenderRoleText(event: ContractStatusEvent): string {
-		if (event.isFromClient) {
+	function getSenderRoleText(pubkey: string): string {
+		if (pubkey === contractPubkey) {
 			return $t('dashboard.contracts.timeline.from_client');
-		} else if (event.isFromFreelancer) {
+		} else if (pubkey !== contractPubkey) {
 			return $t('dashboard.contracts.timeline.from_freelancer');
 		}
 		return $t('dashboard.contracts.timeline.from_unknown');
@@ -124,7 +126,7 @@
 	</div>
 {:else}
 	<div class="timeline timeline-snap-icon max-md:timeline-compact timeline-vertical">
-		{#each statusEvents as event, index (event.event.id)}
+		{#each statusEvents as { content, pubkey }, index (index)}
 			<li>
 				<!-- Timeline point -->
 				<div class="timeline-middle">
@@ -138,11 +140,11 @@
 						: 'start'}"
 				>
 					<time class="text-base-content/60 font-mono text-xs italic">
-						{formatTimelineDate(event.status.timestamp)}
+						{formatTimelineDate(content.timestamp)}
 					</time>
 
 					<div class="mt-1 flex items-center gap-2">
-						{#if event.status.action === EscrowStatus.Completed || event.status.action === EscrowStatus.FundsReleased || event.status.action === EscrowStatus.DisputeResolved}
+						{#if content.action === EscrowStatus.Completed || content.action === EscrowStatus.FundsReleased || content.action === EscrowStatus.DisputeResolved}
 							<div
 								class="bg-success text-success-content flex h-5 min-h-5 w-5 min-w-5 shrink-0 items-center justify-center rounded-full"
 							>
@@ -162,19 +164,19 @@
 								</svg>
 							</div>
 						{/if}
-						<div class="text-sm font-semibold {getActionColorClass(event.status.action)}">
-							{getActionDescription(event.status.action)}
+						<div class="text-sm font-semibold {getActionColorClass(content.action)}">
+							{getActionDescription(content.action)}
 						</div>
 					</div>
 
 					<div class="text-base-content/60 mt-1 text-xs">
-						{getSenderRoleText(event)}
+						{getSenderRoleText(pubkey)}
 					</div>
 
-					{#if event.status.transactionHash}
+					{#if content.transactionHash}
 						<div class="text-base-content/60 mt-2 text-xs">
 							<a
-								href={getTransactionUrl(event.status.transactionHash)}
+								href={getTransactionUrl(content.transactionHash)}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="link link-primary inline-flex items-center gap-1"
@@ -198,16 +200,16 @@
 						</div>
 					{/if}
 
-					{#if event.status.proposedClientAmount && event.status.proposedFreelancerAmount}
+					{#if content.proposedClientAmount && content.proposedFreelancerAmount}
 						<div class="text-base-content/80 mt-2 space-y-1 text-xs">
 							<div>
 								<span class="font-medium">{$t('dashboard.contracts.timeline.proposed_split')}:</span
 								>
 							</div>
 							<div class="pl-2">
-								<div>{$t('dashboard.client')}: {event.status.proposedClientAmount} RBTC</div>
+								<div>{$t('dashboard.client')}: {content.proposedClientAmount} RBTC</div>
 								<div>
-									{$t('dashboard.freelancer')}: {event.status.proposedFreelancerAmount} RBTC
+									{$t('dashboard.freelancer')}: {content.proposedFreelancerAmount} RBTC
 								</div>
 							</div>
 						</div>

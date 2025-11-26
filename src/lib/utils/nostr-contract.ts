@@ -9,6 +9,7 @@ import type {
 	NostrContractStatus,
 	ContractWithEvents,
 	ContractStatusEvent,
+	ContractEvent,
 	CreateContractParams,
 	PublishStatusParams,
 	ContractFilter
@@ -185,28 +186,14 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 		for (const event of contractEventsWithStatus) {
 			try {
-				const contract = event.content as unknown as NostrContract;
-
+				const contractEvent = event as unknown as ContractEvent;
 				// Get status events attached by queryNostrEvents (already filtered and decrypted)
-				const attachedStatusEvents = ((event as any).statusEvents as NostrEvent[]) || [];
+				// Cast properly through unknown since NostrEvent has string content by default
+				const statusEvents = contractEvent.statusEvents?.sort((a, b) => a.content.timestamp - b.content.timestamp);
 
 				// Determine if user is client
-				const isClient = contract.clientPubkey === npub;
-				const isFreelancer = contract.freelancerPubkey === npub;
-
-				// Map status events to ContractStatusEvent format
-				const mappedStatusEvents: ContractStatusEvent[] = attachedStatusEvents
-					.map((statusEvent: NostrEvent) => {
-						const statusData = statusEvent.content as unknown as NostrContractStatus;
-						return {
-							status: statusData,
-							event: statusEvent,
-							senderPubkey: statusEvent.pubkey,
-							isFromClient: statusEvent.pubkey === contract.clientPubkey,
-							isFromFreelancer: statusEvent.pubkey === contract.freelancerPubkey
-						};
-					})
-					.sort((a, b) => a.status.timestamp - b.status.timestamp); // Sort by timestamp
+				const isClient = contractEvent.content.clientPubkey === npub;
+				const isFreelancer = contractEvent.content.freelancerPubkey === npub;
 
 				// Query blockchain escrow data (source of truth)
 				let escrowData: EscrowData | null = null;
@@ -215,14 +202,14 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				let disputeProposal: DisputeProposal | null = null;
 
 				try {
-					escrowData = await escrow.getEscrow(contract.escrowId);
+					escrowData = await escrow.getEscrow(contractEvent.content.escrowId);
 					if (escrowData) {
 						blockchainStatus = escrowData.status;
 
 						// Fetch dispute proposal if in dispute
 						if (blockchainStatus === EscrowStatus.InDispute) {
 							try {
-								disputeProposal = await escrow.getDisputeProposal(contract.escrowId);
+								disputeProposal = await escrow.getDisputeProposal(contractEvent.content.escrowId);
 								if (disputeProposal && escrowData) {
 									// Calculate client amount from total - freelancer amount
 									const totalAmount = parseFloat(escrowData.baseAmount);
@@ -230,14 +217,14 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 									disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
 								}
 							} catch (disputeError) {
-								console.warn(`Failed to load dispute proposal for ${contract.escrowId}:`, disputeError);
+								console.warn(`Failed to load dispute proposal for ${contractEvent.content.escrowId}:`, disputeError);
 							}
 						}
 					}
 				} catch (escrowError) {
-					console.warn(`Escrow not found (may be pending): ${contract.escrowId}`);
+					console.warn(`Escrow not found (may be pending): ${contractEvent.content.escrowId}`);
 					// Check if there's a transactionHash in Nostr - indicates pending funding
-					if (contract.transactionHash) {
+					if (contractEvent.content.transactionHash) {
 						isPending = true;
 					}
 				}
@@ -245,8 +232,8 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				// Determine status and permissions based on blockchain state + Nostr events
 				const { status, permissions } = determineContractState(
 					blockchainStatus,
-					mappedStatusEvents,
-					contract,
+					statusEvents || [],
+					contractEvent.content,
 					escrowData,
 					disputeProposal,
 					isPending,
@@ -254,25 +241,23 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					isFreelancer
 				);
 
-				// Extract completion attachments from status events
-				const completionAttachments = mappedStatusEvents
-					.find(e => e.status.completionAttachments)
-					?.status.completionAttachments;
+				// Extract completion attachments from latest status event with attachments
+				const completionAttachments = statusEvents?.slice()
+					.reverse()
+					.find(e => e.content.completionAttachments)
+					?.content.completionAttachments || null;
 
 				contractsWithStatuses.push({
-					contract: {
-						...contract,
-						disputeProposal,
-						completionAttachments
-					},
-					contractEvent: event,
-					statusEvents: mappedStatusEvents,
+					contractEvent,
+					statusEvents: statusEvents || [],
 					isClient,
 					blockchainStatus,
 					status,
 					isPending,
-					permissions
-				} as ContractWithEvents);
+					permissions,
+					disputeProposal,
+					completionAttachments
+				});
 			} catch (error) {
 				console.error('Failed to process contract event:', event.id, error);
 			}
@@ -288,82 +273,10 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 		// Sort by creation time (newest first)
 		return filteredContracts.sort(
-			(a, b) => b.contract.createdAt - a.contract.createdAt
+			(a, b) => b.contractEvent.content.createdAt - a.contractEvent.content.createdAt
 		);
 	} catch (error) {
 		throw error;
-	}
-}
-
-/**
- * @deprecated This function is DEPRECATED and will be removed in a future version.
- * It's used by the legacy getUserContractsLegacy() function and deleteContract().
- * New code should use queryNostrEvents with KINDS.CONTRACT directly.
- * 
- * LEGACY ISSUES:
- * - Fetches ALL messages from conversation (inefficient)
- * - Requires decryption of all messages
- * - Should query KINDS.CONTRACT with #d tag (escrowId) instead
- * 
- * @see getContracts() - Uses direct KINDS.CONTRACT queries
- */
-async function getContractMessagesByEscrowId(
-	escrowId: string
-): Promise<{ plaintext: string; event: NostrEvent; senderPubkey: string }[]> {
-	try {
-		// Use optimized version that doesn't require decryption for better performance
-		const messagedPeople = await getMessagedPeople();
-		const contractMessages: { plaintext: string; event: NostrEvent; senderPubkey: string }[] = [];
-
-		// Fetch message histories for all conversations in parallel (optimization)
-		const messageHistoryPromises = messagedPeople.map(async (person) => {
-			try {
-				// Use optimized version that batches auth and uses worker
-				return await getMessageHistory(person.pubkey, { limit: 200 });
-			} catch (err) {
-				console.warn('Failed to get message history for pubkey:', person.pubkey, err);
-				return [];
-			}
-		});
-
-		// Wait for all message histories in parallel
-		const messageHistories = await Promise.all(messageHistoryPromises);
-
-		// Process all message histories to extract contract messages
-		for (let i = 0; i < messagedPeople.length; i++) {
-			const messageHistory = messageHistories[i];
-
-			if (!messageHistory || messageHistory.length === 0) continue;
-
-			for (const message of messageHistory) {
-				try {
-					if (!message.plaintext || message.plaintext.trim() === '') continue;
-
-					const parsedContent = JSON.parse(message.plaintext);
-
-					// Validate parsed content structure
-					if (!parsedContent || typeof parsedContent !== 'object') continue;
-
-					// Check if it's a contract-related message for this escrow
-					if (
-						(parsedContent.type === 'contract' ||
-							parsedContent.type === 'contract-status') &&
-						parsedContent.escrowId === escrowId &&
-						typeof parsedContent.escrowId === 'string'
-					) {
-						contractMessages.push(message);
-					}
-				} catch (parseError) {
-					// Not a contract message, continue
-					continue;
-				}
-			}
-		}
-
-		return contractMessages.sort((a, b) => a.event.created_at - b.event.created_at);
-	} catch (error) {
-		console.warn('Error getting contract messages by escrow ID:', error);
-		return [];
 	}
 }
 
@@ -408,7 +321,7 @@ export async function deleteContract(contractEventId: string, escrowId: string):
 				);
 			}
 
-			if (contract.isPending || contract.contract.transactionHash) {
+			if (contract.isPending || contract.contractEvent.content.transactionHash) {
 				throw new EscrowError(
 					EscrowErrorCode.ESCROW_FUNDING_IN_PROGRESS,
 					'Cannot delete contract: Funding transaction is in progress'
