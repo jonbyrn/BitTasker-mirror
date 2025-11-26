@@ -676,7 +676,7 @@
 								</div>
 							{:else if $tasksStore.items && $tasksStore.items.length > 0}
 								<div class="space-y-4">
-									{#each $tasksStore.items as task, index}
+									{#each $tasksStore.items as task, index (index)}
 										<div
 											use:registerTaskCard={{ taskId: task.id }}
 											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"

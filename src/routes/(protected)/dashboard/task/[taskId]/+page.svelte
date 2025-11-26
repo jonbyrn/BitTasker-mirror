@@ -15,4 +15,4 @@
 	/>
 </svelte:head>
 
-<TaskDetailsView {taskId} showShareButton={true} />
+<TaskDetailsView {taskId} />
