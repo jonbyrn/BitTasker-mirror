@@ -1,7 +1,7 @@
 import type { GasEstimation } from '@bittasker/wallet-core';
 import type { ContractTransactionResult, DisputeProposal, EscrowData } from "$lib/types/wallet";
 import type { Attachment } from '$lib/types/task';
-import { getProvider, getWallet, walletStore } from "$lib/stores/wallet.store";
+import { getProvider, getWallet } from "$lib/stores/wallet.store";
 import { t } from "svelte-i18n";
 import { get } from "svelte/store";
 import { appStore } from "$lib/stores/app.store";
@@ -12,6 +12,8 @@ import escrowABI from '$lib/utils/constants/escrowABI.json';
 import * as EscrowNostrEvent from '$lib/utils/wallet/escrowEvents';
 
 let contract: ethers.Contract | null = null;
+// Cache for legacy contracts to avoid recreating them
+const legacyContracts = new Map<string, ethers.Contract>();
 
 const getRSKWallet = () => getWallet('rsk');
 const getRSKProvider = () => getProvider('rsk');
@@ -19,8 +21,14 @@ const getRSKProvider = () => getProvider('rsk');
 /**
  * Simple initialization check for escrow operations
  * Ensures wallet, contract, provider are ready and wallet has balance
+ * 
+ * @param contractAddress - Optional contract address for legacy contracts
+ * @param requireBalance - Whether to check wallet balance (default: true for write operations)
  */
-export async function ensureEscrowReady(): Promise<{
+export async function ensureEscrowReady(
+    contractAddress?: string,
+    requireBalance: boolean = true
+): Promise<{
     contract: ethers.Contract;
     wallet: ethers.Wallet;
     provider: ethers.JsonRpcProvider;
@@ -47,21 +55,62 @@ export async function ensureEscrowReady(): Promise<{
         }
     }
 
-    // Check and connect contract if needed
-    if (!contract) {
-        await connectToEscrowContract();
+    // Determine which contract to use/initialize
+    let targetContract: ethers.Contract;
+
+    if (!contractAddress) {
+        // No contract address provided - use default contract
         if (!contract) {
-            throw new Error('Failed to connect to contract');
+            await connectToEscrowContract();
+            if (!contract) {
+                throw new Error('Failed to connect to contract');
+            }
+        }
+        targetContract = contract;
+    } else {
+        // Contract address provided - check if it's default or legacy
+        const defaultAddress = getDefaultContractAddress();
+
+        if (contractAddress.toLowerCase() === defaultAddress?.toLowerCase()) {
+            // Matches default - use default contract
+            if (!contract) {
+                await connectToEscrowContract();
+                if (!contract) {
+                    throw new Error('Failed to connect to contract');
+                }
+            }
+            targetContract = contract;
+        } else {
+            // Legacy contract - check cache or create new instance
+            const normalizedAddress = contractAddress.toLowerCase();
+
+            if (legacyContracts.has(normalizedAddress)) {
+                // Use cached legacy contract
+                targetContract = legacyContracts.get(normalizedAddress)!;
+            } else {
+                // Create new legacy contract instance
+                try {
+                    const checksummedAddress = ethers.getAddress(contractAddress);
+                    targetContract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
+
+                    // Cache it for future use
+                    legacyContracts.set(normalizedAddress, targetContract);
+                } catch (error) {
+                    throw new Error(`Failed to connect to legacy contract at ${contractAddress}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+            }
         }
     }
 
-    // Check wallet balance
-    const balance = await provider.getBalance(wallet.address);
-    if (balance === 0n) {
-        throw new Error('Insufficient balance. Please fund your wallet with RBTC to pay for transaction fees.');
+    // Check wallet balance (only if required - write operations need balance, read operations don't)
+    if (requireBalance) {
+        const balance = await provider.getBalance(wallet.address);
+        if (balance === 0n) {
+            throw new Error('Insufficient balance. Please fund your wallet with RBTC to pay for transaction fees.');
+        }
     }
 
-    return { contract, wallet, provider };
+    return { contract: targetContract, wallet, provider };
 }
 
 // Utility function to calculate fee amount
@@ -82,6 +131,16 @@ export function calculateFreelancerPayout(baseAmount: bigint, freelancerFeeTier:
     return baseAmount - freelancerFee;
 }
 
+/**
+ * Get the default contract address for the current network
+ */
+function getDefaultContractAddress(): string | undefined {
+    const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+    return network === 'mainnet'
+        ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+        : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+}
+
 // Connect to escrow contract
 async function connectToEscrowContract(): Promise<void> {
     const wallet = getRSKWallet();
@@ -98,9 +157,7 @@ async function connectToEscrowContract(): Promise<void> {
 
     try {
         const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-        const contractAddress = network === 'mainnet'
-            ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-            : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+        const contractAddress = getDefaultContractAddress();
 
         if (!contractAddress) {
             const envVarName = network === 'mainnet'
@@ -119,16 +176,6 @@ async function connectToEscrowContract(): Promise<void> {
         const checksummedAddress = ethers.getAddress(contractConfig.address);
 
         contract = new ethers.Contract(checksummedAddress, contractConfig.abi, wallet);
-
-        // Update the unified wallet store with contract connection info
-        walletStore.update(state => ({
-            ...state,
-            rsk: {
-                ...state.rsk,
-                contractAddress: contractConfig.address,
-                contractConnected: true
-            }
-        }));
 
         // Skip event listeners on RSK due to eth_getLogs compatibility issues
         // Event handling is now done directly in transaction receipts
@@ -158,14 +205,14 @@ async function connectToEscrowContract(): Promise<void> {
 }
 
 // Load escrow details from contract
-async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
-    if (!contract) {
-        await ensureEscrowReady();
-        if (!contract) return null;
-    }
-
+async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData | null> {
     try {
-        const escrowData = await contract.getEscrow(escrowId);
+        // Get the appropriate contract instance (no balance check needed for read operations)
+        const { contract: targetContract } = await ensureEscrowReady(contractAddress, false);
+
+        if (!targetContract) throw new Error('Contract not found');
+
+        const escrowData = await targetContract.getEscrow(escrowId);
 
         // Map contract state enum to our EscrowStatus
         const statusMapping: Record<number, EscrowStatus> = {
@@ -206,14 +253,14 @@ async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
 }
 
 // Load dispute proposal details
-async function getDisputeProposal(escrowId: string): Promise<DisputeProposal | null> {
-    if (!contract) {
-        await ensureEscrowReady();
-        if (!contract) return null;
-    }
-
+async function getDisputeProposal(escrowId: string, contractAddress?: string): Promise<DisputeProposal | null> {
     try {
-        const proposalData = await contract.getDisputeProposal(escrowId);
+        // Get the appropriate contract instance (no balance check needed for read operations)
+        const { contract: targetContract } = await ensureEscrowReady(contractAddress, false);
+
+        if (!targetContract) throw new Error('Contract not found');
+
+        const proposalData = await targetContract.getDisputeProposal(escrowId);
 
         // Check if proposal exists (proposer is not zero address)
         if (!proposalData || proposalData.proposer === ethers.ZeroAddress) return null;
@@ -250,14 +297,6 @@ async function loadUserEscrows(): Promise<void> {
             nextEscrowId = await contract.nextEscrowId();
         } catch (error) {
             console.error('Failed to get nextEscrowId - contract may not be deployed correctly:', error);
-            // Set escrows to empty array and return
-            walletStore.update(state => ({
-                ...state,
-                rsk: {
-                    ...state.rsk,
-                    escrows: []
-                }
-            }));
             return;
         }
 
@@ -285,15 +324,6 @@ async function loadUserEscrows(): Promise<void> {
                 continue;
             }
         }
-
-        walletStore.update(state => ({
-            ...state,
-            rsk: {
-                ...state.rsk,
-                escrows: escrows.sort((a, b) => b.createdAt - a.createdAt)
-            }
-        }));
-
     } catch (error) {
         throw new Error(`Failed to load user escrows: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

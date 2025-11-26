@@ -50,6 +50,9 @@ export const TAGS = {
 
 	/** Payment type - FIXED or HOURLY */
 	Y: 'y' as const,
+
+	/** Network - blockchain network (mainnet, testnet) */
+	N: 'n' as const,
 } as const;
 
 /**
@@ -98,18 +101,21 @@ export const TAG_PATTERNS = {
 	 * @param taskId - Associated task
 	 * @param freelancerPubkey - Freelancer's public key
 	 * @param clientPubkey - Client's public key
+	 * @param network - Blockchain network (mainnet, testnet)
 	 */
 	contract: (
 		escrowId: string,
 		taskId: string,
 		freelancerPubkey: string,
 		clientPubkey: string,
+		network: string,
 		status: string = 'active'
 	): string[][] => [
 			[TAGS.D, escrowId], // Unique identifier
 			[TAGS.T, taskId], // Task reference
 			[TAGS.P, freelancerPubkey], // Participant
 			[TAGS.P, clientPubkey], // Participant (can have multiple)
+			[TAGS.N, network], // Network (mainnet/testnet)
 			[TAGS.S, status], // Status
 			[TAGS.M, 'contract'] // Message type
 		],
@@ -167,7 +173,10 @@ export const TAG_FILTERS = {
 	byEvent: (eventId: string) => ({ [`#${TAGS.E}`]: [eventId] }),
 
 	/** Filter events by identifier (for parameterized replaceable) */
-	byIdentifier: (identifier: string) => ({ [`#${TAGS.D}`]: [identifier] })
+	byIdentifier: (identifier: string) => ({ [`#${TAGS.D}`]: [identifier] }),
+
+	/** Filter events by network (mainnet, testnet) */
+	byNetwork: (network: string) => ({ [`#${TAGS.N}`]: [network] })
 } as const;
 
 export default TAGS;

@@ -20,6 +20,7 @@
 	import IconGithub from '~icons/mdi/github';
 	import '../app.css';
 	import { authState } from '$lib/stores/auth.store';
+
 	let isLoggedIn = $derived($authState.isAuthenticated);
 
 	// Global SEO JSON-LD - moved to dynamic injection

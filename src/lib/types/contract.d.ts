@@ -32,6 +32,7 @@ export interface NostrContract {
 	type: 'contract'; // Identify as contract message in DMs
 	// Transaction hash from escrow creation
 	transactionHash?: string;
+	contractAddress?: string;
 }
 
 // Contract status update event data (content of KINDS.CONTRACT_STATUS NostrEvent)

@@ -1,14 +1,12 @@
-import type { Filter, NostrEvent } from 'nostr-tools';
+import type { Filter } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
-import { getMessageHistory, getMessagedPeople } from '$lib/utils/nostr-message';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import type {
 	NostrContract,
 	NostrContractStatus,
 	ContractWithEvents,
-	ContractStatusEvent,
 	ContractEvent,
 	CreateContractParams,
 	PublishStatusParams,
@@ -30,6 +28,9 @@ export async function createContract(params: CreateContractParams): Promise<void
 		const npub = await getNpub();
 		const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
+		const network = import.meta.env.VITE_RSK_NETWORK;
+		const contractAddress = network === 'mainnet' ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+
 		const contractData: NostrContract = {
 			escrowId: params.escrowId,
 			taskId: params.taskId,
@@ -44,7 +45,8 @@ export async function createContract(params: CreateContractParams): Promise<void
 			estimatedStartTime: params.estimatedStartTime,
 			estimatedCompletionTime: params.estimatedCompletionTime,
 			transactionHash: params.transactionHash, // Include transaction hash if provided
-			type: 'contract' // Identify as contract message
+			type: 'contract', // Identify as contract message
+			contractAddress,
 		};
 
 		// Send as encrypted contract event
@@ -53,14 +55,13 @@ export async function createContract(params: CreateContractParams): Promise<void
 			params.escrowId,
 			params.taskId,
 			params.freelancerPubkey,
-			clientPubkey
+			clientPubkey,
+			network
 		);
+
 		await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
 	} catch (error) {
-		// Log error but don't throw - allow UI to continue
 		console.warn('Error creating contract:', error);
-		// Don't throw - let the caller handle the error if needed
-		// The UI should show a warning but not break
 	}
 }
 
@@ -149,10 +150,14 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			npub = nip19.decode(npub).data as string;
 		}
 
+		// Get current network from environment
+		const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
+
 		// Build filter for contract events
 		const nostrFilter: Filter = {
 			kinds: [KINDS.CONTRACT],
 			...TAG_FILTERS.byNpub(npub), // Contracts where user is participant
+			...TAG_FILTERS.byNetwork(currentNetwork), // Filter by current network
 			limit: 100
 		};
 
@@ -202,14 +207,27 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				let disputeProposal: DisputeProposal | null = null;
 
 				try {
-					escrowData = await escrow.getEscrow(contractEvent.content.escrowId);
+					// Check if contract address differs from current environment
+					const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
+					const currentContractAddress = currentNetwork === 'mainnet' 
+						? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET 
+						: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+					
+					// Determine if we need to pass contract address for backwards compatibility
+					const contractAddress = (contractEvent.content.contractAddress && 
+						contractEvent.content.contractAddress.toLowerCase() !== currentContractAddress?.toLowerCase())
+						? contractEvent.content.contractAddress
+						: undefined;
+					
+					escrowData = await escrow.getEscrow(contractEvent.content.escrowId, contractAddress);
+					
 					if (escrowData) {
 						blockchainStatus = escrowData.status;
 
 						// Fetch dispute proposal if in dispute
 						if (blockchainStatus === EscrowStatus.InDispute) {
 							try {
-								disputeProposal = await escrow.getDisputeProposal(contractEvent.content.escrowId);
+								disputeProposal = await escrow.getDisputeProposal(contractEvent.content.escrowId, contractAddress);
 								if (disputeProposal && escrowData) {
 									// Calculate client amount from total - freelancer amount
 									const totalAmount = parseFloat(escrowData.baseAmount);

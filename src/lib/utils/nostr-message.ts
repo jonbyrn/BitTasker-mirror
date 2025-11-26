@@ -8,6 +8,7 @@ import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import { profileCache } from '$lib/utils/profile-cache';
 import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
 
@@ -133,7 +134,7 @@ export async function parseDMEvent(
 	nsec: string,
 	npub: string
 ): Promise<{ plaintext: string; senderPubkey: string }> {
-	if (event.kind !== 4) throw new Error('Not a DM event');
+	if (event.kind !== KINDS.DIRECT_MESSAGES) throw new Error('Not a DM event');
 
 	const senderNpub = event.pubkey;
 
@@ -587,7 +588,9 @@ export async function sendDirectMessage(
 			: recipientPubkey;
 
 		const ciphertext = await encryptDM(message, recipientPubkeyHex, senderPrivkey);
-		const tags: string[][] = [];
+		
+		// Use TAG_PATTERNS for direct messages
+		const tags: string[][] = [...TAG_PATTERNS.directMessage(recipientPubkeyHex)];
 
 		// Add thread root tag if provided
 		if (threadRootId) {
@@ -603,7 +606,7 @@ export async function sendDirectMessage(
 		const eventMetadata: Partial<NostrEvent> = {
 			kind: KINDS.DIRECT_MESSAGES,
 			content: ciphertext,
-			tags: [['p', recipientPubkeyHex], ...tags],
+			tags,
 			created_at: Math.floor(Date.now() / 1000)
 		};
 
@@ -677,7 +680,7 @@ export function listenForIncomingMessages(
 				DEFAULT_RELAYS,
 				{
 					kinds: [KINDS.DIRECT_MESSAGES],
-					'#p': [npub],
+					...TAG_PATTERNS.directMessage(npub),
 					since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60)  // Last 7 days
 				},
 				{
