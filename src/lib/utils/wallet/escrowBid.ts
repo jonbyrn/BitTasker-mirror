@@ -7,7 +7,7 @@ import { walletStore } from '$lib/stores/wallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
-import { escrow } from './escrow';
+import { escrow } from '$lib/utils/wallet/escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import type { NostrEvent } from 'nostr-tools';
 
@@ -233,8 +233,7 @@ export async function acceptBidAndCreateEscrow(
 		// Connect to escrow contract if not already connected
 		if (!walletState.rsk.contractConnected) {
 			try {
-				const { ensureEscrowReady } = await import('$lib/utils/wallet/escrow');
-				await ensureEscrowReady();
+				await escrow.ensureEscrowReady();
 			} catch (error) {
 				return {
 					success: false,

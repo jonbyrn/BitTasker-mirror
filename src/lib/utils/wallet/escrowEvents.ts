@@ -12,6 +12,7 @@ import { appStore } from '$lib/stores/app.store';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import { BidStatusEnum } from '../enums/bid.enum';
 import { contractStore } from '$lib/stores/contract.store';
+import { escrow } from '$lib/utils/wallet/escrow';
 
 const _ = get(t);
 
@@ -515,14 +516,12 @@ export function resetStores(): void {
 // Load escrow details from contract (we'll need to import this from escrow.ts)
 async function loadEscrowDetails(escrowId: string): Promise<any> {
 	// Import the function from escrow.ts to avoid circular dependency
-	const { escrow } = await import('$lib/utils/wallet/escrow');
 	return await escrow.getEscrow(escrowId);
 }
 
 // Load dispute proposal details (we'll need to import this from escrow.ts)
 async function loadDisputeProposal(escrowId: string): Promise<any> {
 	// Import the function from escrow.ts to avoid circular dependency
-	const { escrow } = await import('$lib/utils/wallet/escrow');
 	return await escrow.getDisputeProposal(escrowId);
 }
 

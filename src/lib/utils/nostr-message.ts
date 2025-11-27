@@ -8,7 +8,7 @@ import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import { profileCache } from '$lib/utils/profile-cache';
 import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
-import { TAG_PATTERNS } from '$lib/utils/constants/tags';
+import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
 
@@ -588,7 +588,7 @@ export async function sendDirectMessage(
 			: recipientPubkey;
 
 		const ciphertext = await encryptDM(message, recipientPubkeyHex, senderPrivkey);
-		
+
 		// Use TAG_PATTERNS for direct messages
 		const tags: string[][] = [...TAG_PATTERNS.directMessage(recipientPubkeyHex)];
 
@@ -754,6 +754,7 @@ export async function getMessageHistory(
 			kinds: [4],
 			authors: [withPubkeyHex, pubkeyHex],
 			'#p': [withPubkeyHex, pubkeyHex],
+			...TAG_FILTERS.byMessageType('direct-message'),
 			limit: options?.limit || 25,
 			...(options?.since ? { since: options.since } : {}),
 			...(options?.until ? { until: options.until } : {})
@@ -851,11 +852,13 @@ export async function getMessagedPeople(): Promise<
 			pool.querySync(DEFAULT_RELAYS, {
 				kinds: [4],
 				authors: [pubkeyHex],
+				...TAG_FILTERS.byMessageType('direct-message'),
 				limit: 1000
 			}),
 			pool.querySync(DEFAULT_RELAYS, {
 				kinds: [4],
 				'#p': [pubkeyHex],
+				...TAG_FILTERS.byMessageType('direct-message'),
 				limit: 1000
 			})
 		]);

@@ -199,7 +199,6 @@
 			const people = await getMessagedPeople();
 
 			if (!people.length) {
-				error = 'messages.no_conversations_found';
 				return (isLoading = false);
 			}
 
@@ -233,6 +232,7 @@
 				.sort((a, b) => b.lastEvent.created_at - a.lastEvent.created_at);
 
 			// Setup real-time updates for conversation list
+			console.log('listening for incoming conversations');
 			setupConversationListListener(npub, nsec);
 		} catch (err) {
 			error = 'messages.failed_load_conversations';
