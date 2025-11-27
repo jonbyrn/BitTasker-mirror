@@ -33,11 +33,11 @@
 		| 'tasks_completed' // Terminal states
 		| 'tasks_disputed'; // Dispute states
 
-let activeFilter = $state<TaskFilterCategory>('waiting_for_bids');
-let btcPrice = $state<number>(0);
-let isDropdownOpen = $state<boolean>(false);
-let isLoading = $state(true);
-let error = $state<string | null>(null);
+	let activeFilter = $state<TaskFilterCategory>('waiting_for_bids');
+	let btcPrice = $state<number>(0);
+	let isDropdownOpen = $state<boolean>(false);
+	let isLoading = $state(true);
+	let error = $state<string | null>(null);
 
 	// Background bid checking state
 	let bidStatusMap = $state<Map<string, boolean>>(new Map());
@@ -276,11 +276,11 @@ let error = $state<string | null>(null);
 		try {
 			isLoading = true;
 			error = null;
-			
+
 			// Clear bid status map before loading to avoid stale data
 			bidStatusMap.clear();
 			lastCheckedTaskIds.clear();
-			
+
 			await findMyTasks({ page: 1, limit: 100 });
 			// Check bids in background after loading tasks
 			await checkBidsInBackground(true);
@@ -296,11 +296,11 @@ let error = $state<string | null>(null);
 		try {
 			isLoading = true;
 			error = null;
-			
+
 			// Clear bid status map before reloading to avoid stale data
 			bidStatusMap.clear();
 			lastCheckedTaskIds.clear();
-			
+
 			await findMyTasks({ page: 1, limit: 100 });
 			await checkBidsInBackground(true);
 			// Show success message only if no error occurred
@@ -338,12 +338,10 @@ let error = $state<string | null>(null);
 					{
 						label: $t('task.actions.view_bids'),
 						class: 'btn-outline btn-sm',
-					onclick: (e: any) => {
-						e.stopPropagation();
-						// Use uniqueId if available, fallback to id for backward compatibility
-						const taskIdentifier = (task as any).uniqueId || task.id;
-						goto(`/tasks/${taskIdentifier}`);
-					},
+						onclick: (e: any) => {
+							e.stopPropagation();
+							goto(`/dashboard/task/${task.id}/bids`);
+						},
 						icon: 'view_bids'
 					}
 				];
@@ -389,38 +387,38 @@ let error = $state<string | null>(null);
 		}
 	}
 
-onMount(() => {
-	document.addEventListener('click', handleClickOutside);
+	onMount(() => {
+		document.addEventListener('click', handleClickOutside);
 
-	// Load tasks and BTC price
-	(async () => {
-		await loadTasks();
-		await fetchBtcPrice();
-	})();
+		// Load tasks and BTC price
+		(async () => {
+			await loadTasks();
+			await fetchBtcPrice();
+		})();
 
-	return () => {
-		document.removeEventListener('click', handleClickOutside);
-	};
-});
+		return () => {
+			document.removeEventListener('click', handleClickOutside);
+		};
+	});
 </script>
 
 <div class="space-y-6">
 	<!-- Status filter + refresh -->
-	<div class="rounded-3xl border border-base-300/60 bg-base-100/40 p-4 shadow-sm">
+	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 shadow-sm">
 		<!-- Header with title and refresh button -->
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<div class="space-y-1">
-				<p class="text-xs font-semibold uppercase tracking-wide text-base-content/70">
+				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
 					{$t('dashboard.tasks.status_heading')}
 				</p>
-				<p class="hidden text-sm text-base-content/70 sm:block">
+				<p class="text-base-content/70 hidden text-sm sm:block">
 					{$t('dashboard.tasks.status_subheading')}
 				</p>
 			</div>
 
 			<!-- Refresh button: icon only on mobile, with text on desktop -->
 			<button
-				class="btn btn-ghost btn-sm gap-2 sm:btn-outline sm:btn-md"
+				class="btn btn-ghost btn-sm sm:btn-outline sm:btn-md gap-2"
 				onclick={handleRefresh}
 				disabled={isLoading}
 				aria-label={$t('dashboard.tasks.refresh')}
@@ -430,14 +428,15 @@ onMount(() => {
 					<span class="hidden sm:inline">{$t('dashboard.tasks.refreshing')}</span>
 				{:else}
 					<IconRefresh class="h-5 w-5" />
-					<span class="hidden sm:inline">{$t('dashboard.tasks.refresh')}</span> {" "}
+					<span class="hidden sm:inline">{$t('dashboard.tasks.refresh')}</span>
+					{' '}
 				{/if}
 			</button>
 		</div>
 
 		<!-- Mobile: Subheading and dropdown -->
 		<div class="mb-3 sm:hidden">
-			<p class="mb-3 text-sm text-base-content/70">
+			<p class="text-base-content/70 mb-3 text-sm">
 				{$t('dashboard.tasks.status_subheading')}
 			</p>
 			<div class="status-dropdown-container relative">
@@ -463,7 +462,7 @@ onMount(() => {
 
 				{#if isDropdownOpen}
 					<div
-						class="border-base-300 bg-base-100 absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border shadow-lg"
+						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
 						{#each filterOptions as option}
 							{@const IconComponent = option.icon}
@@ -498,7 +497,7 @@ onMount(() => {
 					<button
 						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter ===
 						option.id
-							? 'text-primary bg-primary/10 border border-primary/30'
+							? 'text-primary bg-primary/10 border-primary/30 border'
 							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
 						onclick={() => selectFilter(option.id)}
 						aria-label={option.label}

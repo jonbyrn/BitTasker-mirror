@@ -3,14 +3,17 @@
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatStandardDateShort,
+		parseDateToLocalMidnight
+	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import TranslatableTask from './TranslatableTask.svelte';
 	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 
-	type TaskFilterCategory = 
+	type TaskFilterCategory =
 		| 'waiting_for_bids'
 		| 'bids_received'
 		| 'tasks_in_progress'
@@ -21,7 +24,10 @@
 		task: Task;
 		btcPrice: number;
 		activeFilter: TaskFilterCategory;
-		getActionButtons: (task: Task, category: TaskFilterCategory) => Array<{
+		getActionButtons: (
+			task: Task,
+			category: TaskFilterCategory
+		) => Array<{
 			label: string;
 			class: string;
 			onclick: (e: any) => void;
@@ -47,13 +53,24 @@
 	}
 </script>
 
-<div class="card bg-base-100 shadow-xl transition-shadow hover:shadow-lg" onclick={onclick} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onclick(); } }}>
+<div
+	class="card bg-base-100 shadow-xl transition-shadow hover:shadow-lg"
+	{onclick}
+	role="button"
+	tabindex="0"
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			onclick();
+		}
+	}}
+>
 	<div class="card-body">
 		<!-- Task Title and Description -->
 		<div class="flex flex-col justify-between gap-2">
 			<div class="card-title line-clamp-1 text-lg">
 				<button
-					class="hover:text-primary cursor-pointer transition-colors text-left"
+					class="hover:text-primary cursor-pointer text-left transition-colors"
 					onclick={(e) => {
 						e.stopPropagation();
 						// Use uniqueId if available, fallback to id for backward compatibility
@@ -61,8 +78,8 @@
 						goto(`/tasks/${taskIdentifier}`);
 					}}
 				>
-					<TranslatableTask 
-						{task} 
+					<TranslatableTask
+						{task}
 						showTitle={true}
 						showDescription={false}
 						showToggle={false}
@@ -71,8 +88,8 @@
 				</button>
 			</div>
 			<div class="text-base-content/60">
-				<TranslatableTask 
-					{task} 
+				<TranslatableTask
+					{task}
 					showTitle={false}
 					showDescription={true}
 					showToggle={false}
@@ -192,4 +209,3 @@
 		</div>
 	</div>
 </div>
-
