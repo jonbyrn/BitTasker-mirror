@@ -13,8 +13,8 @@
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { parseDMEvent } from '$lib/utils/nostr-message';
-	import { subscribeToEvents } from '$lib/utils/nostr';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
+	import { appStore } from '$lib/stores/app.store';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
@@ -383,80 +383,84 @@
 			let searchCompleted = false;
 
 			// First, search for profile events
-			const unsubscribeProfiles = subscribeToEvents(relayUrl, [filter], (event: NostrEvent) => {
-				if (searchCompleted) return;
+			const unsubscribeProfiles = $appStore.pool.subscribe([relayUrl], filter, {
+				onevent: (event: NostrEvent) => {
+					if (searchCompleted) return;
 
-				eventCount++;
+					eventCount++;
 
-				// Stop processing if we've seen too many events
-				if (eventCount > maxEvents) {
-					searchCompleted = true;
-					unsubscribeProfiles();
-					return;
-				}
+					// Stop processing if we've seen too many events
+					if (eventCount > maxEvents) {
+						searchCompleted = true;
+						unsubscribeProfiles.close();
+						return;
+					}
 
-				try {
-					const profileData = JSON.parse(event.content);
+					try {
+						const profileData = JSON.parse(event.content);
 
-					// Check if the profile has a name and it matches our search
-					if (profileData.name) {
-						const profileName = profileData.name.toLowerCase();
-						const searchTerm = username.toLowerCase();
+						// Check if the profile has a name and it matches our search
+						if (profileData.name) {
+							const profileName = profileData.name.toLowerCase();
+							const searchTerm = username.toLowerCase();
 
-						// More flexible matching - check if search term is contained in name
-						// or if name starts with search term
-						if (profileName.includes(searchTerm) || profileName.startsWith(searchTerm)) {
-							// Store profile data in map
-							profileMap.set(event.pubkey, {
-								name: profileData.name,
-								picture: profileData.picture || profileData.banner // Try banner if no picture
-							});
+							// More flexible matching - check if search term is contained in name
+							// or if name starts with search term
+							if (profileName.includes(searchTerm) || profileName.startsWith(searchTerm)) {
+								// Store profile data in map
+								profileMap.set(event.pubkey, {
+									name: profileData.name,
+									picture: profileData.picture || profileData.banner // Try banner if no picture
+								});
 
-							// Update results immediately as we find them
-							usernameSearchResults = Array.from(profileMap.entries())
-								.map(([pubkey, profile]) => ({
-									pubkey,
-									profile
-								}))
-								.slice(0, 5);
+								// Update results immediately as we find them
+								usernameSearchResults = Array.from(profileMap.entries())
+									.map(([pubkey, profile]) => ({
+										pubkey,
+										profile
+									}))
+									.slice(0, 5);
 
-							// Stop searching if we have enough results
-							if (profileMap.size >= 5) {
-								searchCompleted = true;
-								unsubscribeProfiles();
-								isUsernameSearching = false;
+								// Stop searching if we have enough results
+								if (profileMap.size >= 5) {
+									searchCompleted = true;
+									unsubscribeProfiles.close();
+									isUsernameSearching = false;
+								}
 							}
 						}
+					} catch (err) {
+						// Skip invalid profile data
 					}
-				} catch (err) {
-					// Skip invalid profile data
 				}
 			});
 
 			// Also search for image events to get profile pictures
-			const unsubscribeImages = subscribeToEvents(relayUrl, [imageFilter], (event: NostrEvent) => {
-				if (searchCompleted) return;
+			const unsubscribeImages = $appStore.pool.subscribe([relayUrl], imageFilter, {
+				onevent: (event: NostrEvent) => {
+					if (searchCompleted) return;
 
-				try {
-					const imageData = JSON.parse(event.content);
+					try {
+						const imageData = JSON.parse(event.content);
 
-					// If we have a profile for this pubkey, add the image
-					if (profileMap.has(event.pubkey) && imageData.length > 0) {
-						const profile = profileMap.get(event.pubkey);
-						if (profile && !profile.picture) {
-							profile.picture = imageData[0].url;
+						// If we have a profile for this pubkey, add the image
+						if (profileMap.has(event.pubkey) && imageData.length > 0) {
+							const profile = profileMap.get(event.pubkey);
+							if (profile && !profile.picture) {
+								profile.picture = imageData[0].url;
 
-							// Update results with the new image
-							usernameSearchResults = Array.from(profileMap.entries())
-								.map(([pubkey, profile]) => ({
-									pubkey,
-									profile
-								}))
-								.slice(0, 5);
+								// Update results with the new image
+								usernameSearchResults = Array.from(profileMap.entries())
+									.map(([pubkey, profile]) => ({
+										pubkey,
+										profile
+									}))
+									.slice(0, 5);
+							}
 						}
+					} catch (err) {
+						// Skip invalid image data
 					}
-				} catch (err) {
-					// Skip invalid image data
 				}
 			});
 
@@ -464,8 +468,8 @@
 			await new Promise((resolve) => {
 				const timeoutId = setTimeout(() => {
 					searchCompleted = true;
-					unsubscribeProfiles();
-					unsubscribeImages();
+					unsubscribeProfiles.close();
+					unsubscribeImages.close();
 					resolve(undefined);
 				}, 2000); // Reduced to 2 second search duration
 
@@ -475,8 +479,8 @@
 						clearTimeout(timeoutId);
 						clearInterval(checkResults);
 						searchCompleted = true;
-						unsubscribeProfiles();
-						unsubscribeImages();
+						unsubscribeProfiles.close();
+						unsubscribeImages.close();
 						isUsernameSearching = false;
 						resolve(undefined);
 					}

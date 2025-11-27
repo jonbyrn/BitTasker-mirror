@@ -217,7 +217,10 @@
 		setLoading('accept', true);
 		try {
 			// Call RSK escrow acceptTask - this publishes Nostr event with transactionHash
-			const result = await escrow.acceptTask(contractStore.getContractKey(contract, 'escrowId'), contract.contractEvent.id);
+			const result = await escrow.acceptTask(
+				contractStore.getContractKey(contract, 'escrowId'),
+				contract.contractEvent.id
+			);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
@@ -369,7 +372,10 @@
 		setLoading('acceptProposal', true);
 		try {
 			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
-			await escrow.acceptProposal(contractStore.getContractKey(contract, 'escrowId'), contract.contractEvent.id);
+			await escrow.acceptProposal(
+				contractStore.getContractKey(contract, 'escrowId'),
+				contract.contractEvent.id
+			);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
@@ -393,6 +399,7 @@
 
 	// Cancel escrow
 	async function cancelEscrow() {
+		console.log({ contract });
 		if (!contract.permissions.canCancel) return;
 
 		// Check if already pending via Nostr
@@ -405,12 +412,19 @@
 		try {
 			// Call RSK escrow cancelEscrow - this publishes Nostr event with transactionHash
 			const result = await escrow.cancelEscrow(
-				contract.contract.escrowId,
+				contract.escrowData.escrowId,
 				contract.contractEvent.id
 			);
 
+			console.log({ result });
+
+			const isClient = contract.isClient;
+			const npubs = isClient
+				? [contractStore.getContractKey(contract, 'freelancerPubkey')]
+				: [contractStore.getContractKey(contract, 'clientPubkey')];
+
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				npubs,
 				title: 'Escrow Cancelled',
 				body: `An escrow has been cancelled for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'escrow_cancelled',
@@ -437,7 +451,10 @@
 		setLoading('resolveTimelock', true);
 		try {
 			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
-			await escrow.resolveAfterTimelock(contractStore.getContractKey(contract, 'escrowId'), contract.contractEvent.id);
+			await escrow.resolveAfterTimelock(
+				contractStore.getContractKey(contract, 'escrowId'),
+				contract.contractEvent.id
+			);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
@@ -447,7 +464,6 @@
 				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
-
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
 			const errorMessage =
@@ -471,7 +487,10 @@
 		if (!contract.permissions.canDelete) return;
 		setLoading('delete', true);
 		try {
-			await deleteContract(contract.contractEvent.id, contractStore.getContractKey(contract, 'escrowId'));
+			await deleteContract(
+				contract.contractEvent.id,
+				contractStore.getContractKey(contract, 'escrowId')
+			);
 			appStore.showSuccessToast($t('dashboard.contracts.actions.delete_contract_success'));
 		} catch (error) {
 			console.error('Error deleting contract:', error);
@@ -540,7 +559,11 @@
 
 	// Auto-calculate client amount from freelancer amount in USD
 	$effect(() => {
-		if (proposedFreelancerAmountUSD && contractStore.getContractKey(contract, 'amount') && btcPrice > 0) {
+		if (
+			proposedFreelancerAmountUSD &&
+			contractStore.getContractKey(contract, 'amount') &&
+			btcPrice > 0
+		) {
 			const freelancerAmountUSD = parseFloat(proposedFreelancerAmountUSD) || 0;
 			const totalAmountRBTC = parseFloat(contractStore.getContractKey(contract, 'amount'));
 			const totalAmountUSD = totalAmountRBTC * btcPrice;
@@ -809,9 +832,7 @@
 								: $t('dashboard.contracts.actions.your_amount')}:
 						</span>
 						<div class="font-semibold">
-							${(parseFloat(contract.disputeProposal.freelancerAmount) * btcPrice).toFixed(
-								2
-							)}
+							${(parseFloat(contract.disputeProposal.freelancerAmount) * btcPrice).toFixed(2)}
 							({Math.round(
 								parseFloat(contract.disputeProposal.freelancerAmount) * 100_000_000
 							).toLocaleString()} Sats)

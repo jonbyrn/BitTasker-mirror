@@ -178,8 +178,6 @@ export async function publishPendingCompletion(
 			transactionHash,
 			completionAttachments
 		});
-
-		contractStore.updateContractStatus(escrowId, EscrowStatus.PendingCompletion);
 	} catch (error) {
 		console.error('Failed to publish pending completion:', error);
 	}
@@ -210,9 +208,6 @@ export async function handleTaskCompleted(event: {
 
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.task_completed_success'));
-
-		// Update contract status
-		contractStore.updateContractStatus(event.escrowId, EscrowStatus.Completed, EscrowStatus.Completed);
 	} catch (error) {
 		console.error('Failed to handle task completed event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.task_completed_error'));
@@ -236,8 +231,6 @@ export async function publishPendingAcceptance(
 			message: _('dashboard.contracts.actions.task_accepting_message'),
 			transactionHash
 		});
-
-		contractStore.updateContractStatus(escrowId, EscrowStatus.PendingAcceptance);
 	} catch (error) {
 		console.error('Failed to publish pending acceptance:', error);
 	}
@@ -263,9 +256,6 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
 
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.payment_released_success'));
-
-		// Update contract status directly (no need to re-fetch)
-		contractStore.updateContractStatus(event.escrowId, EscrowStatus.FundsReleased, EscrowStatus.FundsReleased);
 	} catch (error) {
 		console.error('Failed to handle task accepted event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.payment_released_error'));
@@ -289,8 +279,6 @@ export async function publishPendingDispute(
 			message: _('dashboard.contracts.actions.dispute_raising_message'),
 			transactionHash
 		});
-
-		contractStore.updateContractStatus(escrowId, EscrowStatus.PendingDispute);
 	} catch (error) {
 		console.error('Failed to publish pending dispute:', error);
 	}
@@ -316,9 +304,6 @@ export async function handleTaskDisputed(event: { escrowId: string; transactionH
 
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.dispute_raised_success'));
-
-		// Update contract status directly (no need to re-fetch)
-		contractStore.updateContractStatus(event.escrowId, EscrowStatus.InDispute, EscrowStatus.InDispute);
 	} catch (error) {
 		console.error('Failed to handle task disputed event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.dispute_raised_error'));
@@ -345,9 +330,6 @@ export async function handleResolutionProposed(event: { escrowId: string; transa
 
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.resolution_proposed_success'));
-
-		// Update contract status directly (no need to re-fetch)
-		contractStore.updateContractStatus(event.escrowId, EscrowStatus.DisputeResolutionProposed);
 	} catch (error) {
 		console.error('Failed to handle resolution proposed event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.resolution_proposed_error'));
@@ -372,9 +354,6 @@ export async function handleProposalAccepted(event: { escrowId: string; transact
 
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.proposal_accepted_success'));
-
-		// Update contract status directly (no need to re-fetch)
-		contractStore.updateContractStatus(event.escrowId, EscrowStatus.DisputeResolved, EscrowStatus.DisputeResolved);
 	} catch (error) {
 		console.error('Failed to handle proposal accepted event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.proposal_accepted_error'));
@@ -398,8 +377,6 @@ export async function publishPendingCancellation(
 			message: _('dashboard.contracts.actions.escrow_cancelling_message'),
 			transactionHash
 		});
-
-		contractStore.updateContractStatus(escrowId, EscrowStatus.PendingCancellation);
 	} catch (error) {
 		console.error('Failed to publish pending cancellation:', error);
 	}
@@ -423,9 +400,6 @@ export async function handleEscrowCancelled(event: { escrowId: string; transacti
 
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.escrow_cancelled_success'));
-
-		// Update contract status directly (no need to re-fetch)
-		contractStore.updateContractStatus(event.escrowId, EscrowStatus.Cancelled, EscrowStatus.Cancelled);
 	} catch (error) {
 		console.error('Failed to handle escrow cancelled event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.escrow_cancelled_error'));
@@ -450,9 +424,6 @@ export async function handleTimelockResolved(event: { escrowId: string; transact
 
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.timelock_resolved_success'));
-
-		// Update contract status directly (no need to re-fetch)
-		contractStore.updateContractStatus(event.escrowId, EscrowStatus.DisputeResolved, EscrowStatus.DisputeResolved);
 	} catch (error) {
 		console.error('Failed to handle timelock resolved event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.timelock_resolved_error'));

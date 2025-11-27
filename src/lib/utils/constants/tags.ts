@@ -23,7 +23,7 @@ export const TAGS = {
 	/** Identifier - unique identifier for parameterized replaceable events (30000-39999) */
 	D: 'd' as const,
 
-	/** Reply marker - marks event as a reply to another event */
+	/** Reply marker - marks event as a reply to another event - Also used for escrow ID */
 	R: 'r' as const,
 
 	// ============================================================================
@@ -176,7 +176,7 @@ export const TAG_FILTERS = {
 	byIdentifier: (identifier: string) => ({ [`#${TAGS.D}`]: [identifier] }),
 
 	/** Filter events by network (mainnet, testnet) */
-	byNetwork: (network: string) => ({ [`#${TAGS.N}`]: [network] })
+	byNetwork: (network: string) => ({ [`#${TAGS.N}`]: [network] }),
 } as const;
 
 export default TAGS;

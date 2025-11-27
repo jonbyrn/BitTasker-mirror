@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { fetchContractProfile, type ContractProfile } from '$lib/utils/nostr-profile';
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
@@ -120,6 +120,13 @@
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
 		// Load profiles after contracts are loaded
 		await loadProfilesForContracts();
+		// Subscribe to real-time updates
+		await contractStore.subscribeToStatusUpdates();
+	});
+
+	onDestroy(() => {
+		// Cleanup subscription when leaving contracts panel
+		contractStore.unsubscribeFromStatusUpdates();
 	});
 
 	// Batch load profiles for all contracts

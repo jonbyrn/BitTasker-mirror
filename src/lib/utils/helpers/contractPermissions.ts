@@ -57,7 +57,6 @@ function mapBlockchainStatusToPermissions(
 			);
 
 			if (hasTaskCompletedEvent) {
-				console.log('hasTaskCompletedEvent', hasTaskCompletedEvent);
 				// Show pending completion state during transaction
 				return {
 					status: EscrowStatus.PendingCompletion,
@@ -77,7 +76,6 @@ function mapBlockchainStatusToPermissions(
 			// Check if work has started (past estimated start time)
 			const hasStarted = now > escrowData.estimatedStartTime;
 
-			console.log('hasStarted', hasStarted);
 			return {
 				status: hasStarted ? EscrowStatus.InProgress : EscrowStatus.Funded,
 				permissions: {

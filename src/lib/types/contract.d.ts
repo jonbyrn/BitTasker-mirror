@@ -1,6 +1,6 @@
 import type { Event as NostrEvent } from 'nostr-tools';
-import type { DisputeProposal } from './wallet';
-import type { Attachment } from './task';
+import type { DisputeProposal, EscrowData } from '$lib/types/wallet';
+import type { Attachment } from '$lib/types/task';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 
 // Contract permissions - grouped for better organization
@@ -72,6 +72,7 @@ export interface ContractWithEvents {
 	
 	// Blockchain state (source of truth)
 	blockchainStatus: EscrowStatus | null; // EscrowStatus enum value from blockchain, null if not funded
+	escrowData: EscrowData | null; // Full escrow data from blockchain, null if not funded
 	status: EscrowStatus; // Unified status (includes pending states from Nostr)
 	isPending: boolean; // true if blockchain transaction is being processed
 	
