@@ -102,6 +102,7 @@ import {
 		const localeCode = $locale || 'en';
 
 		const formatValue = (value: string) => {
+			// Always include time for dateRange in Find Tasks
 			if (hasTimeComponent(value)) {
 				const dateWithTime = new Date(value);
 				if (!Number.isNaN(dateWithTime.getTime())) {
@@ -109,8 +110,9 @@ import {
 				}
 			}
 
+			// If no time component, parse and add time formatting
 			const date = parseDateToLocalMidnight(value);
-			return formatDateWithLocale(date, false, localeCode);
+			return formatDateWithLocale(date, true, localeCode);
 		};
 
 		const startFormatted = formatValue(startDateString);
@@ -745,6 +747,9 @@ import {
 													<!-- Left: Title and Sats -->
 													<TranslatableTask 
 														{task} 
+														showDescription={true}
+														showDescriptionToggle={false}
+														descriptionClass="text-sm text-base-content/80 line-clamp-2"
 														titleClass="card-title line-clamp-2 text-lg font-semibold" 
 													/>
 												</div>

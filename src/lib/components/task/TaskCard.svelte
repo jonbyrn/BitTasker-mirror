@@ -5,6 +5,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import {
 		formatStandardDateShort,
+		formatStandardDateTime,
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
@@ -44,11 +45,20 @@
 	}
 
 	function formatDateRangeReactive(startDateString: string, endDateString: string) {
-		const startDate = parseDateToLocalMidnight(startDateString);
-		const endDate = parseDateToLocalMidnight(endDateString);
-		if (!startDate || !endDate) return '';
-		const start = formatStandardDateShort(startDate, $locale || 'en');
-		const end = formatStandardDateShort(endDate, $locale || 'en');
+		const localeToUse = $locale || 'en';
+		
+		// Parse dates - try to preserve time if present
+		const startDate = new Date(startDateString);
+		const endDate = new Date(endDateString);
+		
+		if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+			return '';
+		}
+		
+		// Format with time using formatStandardDateTime
+		const start = formatStandardDateTime(startDate, localeToUse);
+		const end = formatStandardDateTime(endDate, localeToUse);
+		
 		return `${start} - ${end}`;
 	}
 </script>
@@ -126,7 +136,7 @@
 						</span>
 					{:else if task.dateRange}
 						<small class="text-base-content/60 text-xs">
-							{$t('dashboard.task.dateRange.label')}
+							{$t('dashboard.task_details_by_task.date_range')}
 						</small>
 						<span class="text-sm font-medium">
 							{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}

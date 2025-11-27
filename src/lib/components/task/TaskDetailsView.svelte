@@ -15,6 +15,7 @@ import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import {
 		formatStandardDateShort,
+		formatStandardDateTime,
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
@@ -127,11 +128,20 @@ const shouldShowLocationInfo = $derived(
 	}
 
 	function formatDateRangeReactive(startDateString: string, endDateString: string) {
-		const startDate = parseDateToLocalMidnight(startDateString);
-		const endDate = parseDateToLocalMidnight(endDateString);
-		if (!startDate || !endDate) return '';
-		const start = formatStandardDateShort(startDate, $locale || 'en');
-		const end = formatStandardDateShort(endDate, $locale || 'en');
+		const localeToUse = $locale || 'en';
+		
+		// Parse dates - try to preserve time if present
+		const startDate = new Date(startDateString);
+		const endDate = new Date(endDateString);
+		
+		if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+			return '';
+		}
+		
+		// Format with time using formatStandardDateTime
+		const start = formatStandardDateTime(startDate, localeToUse);
+		const end = formatStandardDateTime(endDate, localeToUse);
+		
 		return `${start} - ${end}`;
 	}
 
