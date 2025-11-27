@@ -85,6 +85,8 @@
       "try_again": "Try Again",
       "location": "Location",
       "location_map_description": "The exact location will be provided after the offer is accepted.",
+      "remote_location_label": "Task location",
+      "remote_location_description": "This task can be completed remotely.",
       "task_attachment": "Task attachment",
       "avatar_alt": "Avatar",
       "sign_up_to_bid": "Sign up to bid",
@@ -113,6 +115,7 @@
       "login": "Login",
       "deadline_expired": "Deadline Expired",
       "deadline_expired_message": "This task's deadline has passed and is no longer accepting bids.",
+      "amount": "Amount",
       "edit_task_confirmation": {
         "title": "Edit Task Confirmation",
         "message": "Are you sure you want to edit this task?",

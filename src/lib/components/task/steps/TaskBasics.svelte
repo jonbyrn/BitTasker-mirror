@@ -14,12 +14,28 @@
 	let selectedCategoryIds = $state([] as string[]);
 	let skillsMultiselectRef: any = $state(null);
 
-	// Set default deadline to today when component loads if no deadline is set
+	const getDefaultDeadlineDate = () => {
+		const futureDate = new Date();
+		futureDate.setDate(futureDate.getDate() + 3);
+		return futureDate;
+	};
+
+	const getDefaultDateRange = () => {
+		const startDate = new Date();
+		const endDate = new Date(startDate);
+		endDate.setDate(endDate.getDate() + 3);
+		return {
+			start: startDate,
+			end: endDate
+		};
+	};
+
+	// Set default deadline to three days from today when component loads if no deadline is set
 	$effect(() => {
 		if (!$store.task.deadline && !$store.task.dateRange) {
-			const today = new Date();
+			const defaultDeadline = getDefaultDeadlineDate();
 			store.updateTask({
-				deadline: normalizeDeadlineToEndOfDay(today) || today.toISOString()
+				deadline: normalizeDeadlineToEndOfDay(defaultDeadline) || defaultDeadline.toISOString()
 			});
 		}
 	});
@@ -114,10 +130,11 @@
 			<button
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 				onclick={() => {
-					const today = new Date();
+					const defaultDeadline = getDefaultDeadlineDate();
 
 					store.updateTask({
-						deadline: normalizeDeadlineToEndOfDay(today) || today.toISOString(),
+						deadline:
+							normalizeDeadlineToEndOfDay(defaultDeadline) || defaultDeadline.toISOString(),
 						dateRange: undefined
 					});
 				}}
@@ -127,15 +144,13 @@
 			<button
 				class="btn {$store.task.dateRange ? 'btn-primary' : 'btn-outline'}"
 				onclick={() => {
-					const today = new Date();
-					const tomorrow = new Date();
-					tomorrow.setDate(tomorrow.getDate() + 1);
+					const defaultRange = getDefaultDateRange();
 
 					store.updateTask({
 						deadline: undefined,
 						dateRange: {
-							start: today.toISOString(),
-							end: tomorrow.toISOString()
+							start: defaultRange.start.toISOString(),
+							end: defaultRange.end.toISOString()
 						}
 					});
 				}}

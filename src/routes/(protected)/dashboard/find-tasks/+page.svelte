@@ -21,10 +21,11 @@
 	// Import performance testing helper in development
 	import '$lib/utils/performance-testing-helper';
 	
-	import {
-		formatStandardDateShort,
-		parseDateToLocalMidnight
-	} from '$lib/utils/helpers/dateFormatter';
+import {
+	formatStandardDateShort,
+	formatStandardDateTime,
+	parseDateToLocalMidnight
+} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 
 	// Function to create initial search parameters
@@ -63,17 +64,65 @@
 	let showSkeleton = $state(true);
 	let selectedLocation = $state<any | null>(null);
 
-	function formatDateTimeReactive(dateString: string) {
-		const date = parseDateToLocalMidnight(dateString);
-		if (!date) return '';
-		// For deadlines, only show date, not time
-		return formatStandardDateShort(date, $locale || 'en');
+	function hasTimeComponent(dateString?: string | null): boolean {
+		if (!dateString) return false;
+		return /T\d{2}:\d{2}/.test(dateString);
 	}
 
-	function formatDateRangeReactive(startDate: Date, endDate: Date) {
-		const start = formatStandardDateShort(startDate, $locale || 'en');
-		const end = formatStandardDateShort(endDate, $locale || 'en');
-		return `${start} - ${end}`;
+	function formatDateWithLocale(
+		dateValue: Date | null,
+		includeTime: boolean,
+		localeCode: string
+	): string {
+		if (!dateValue) return '';
+
+		if (includeTime) {
+			return formatStandardDateTime(dateValue, localeCode);
+		}
+
+		return formatStandardDateShort(dateValue, localeCode);
+	}
+
+	function formatDateTimeReactive(dateString: string) {
+		if (!dateString) return '';
+		const localeCode = $locale || 'en';
+
+		if (hasTimeComponent(dateString)) {
+			const dateWithTime = new Date(dateString);
+			if (!Number.isNaN(dateWithTime.getTime())) {
+				return formatDateWithLocale(dateWithTime, true, localeCode);
+			}
+		}
+
+		const date = parseDateToLocalMidnight(dateString);
+		return formatDateWithLocale(date, false, localeCode);
+	}
+
+	function formatDateRangeReactive(startDateString: string, endDateString: string) {
+		const localeCode = $locale || 'en';
+
+		const formatValue = (value: string) => {
+			// Always include time for dateRange in Find Tasks
+			if (hasTimeComponent(value)) {
+				const dateWithTime = new Date(value);
+				if (!Number.isNaN(dateWithTime.getTime())) {
+					return formatDateWithLocale(dateWithTime, true, localeCode);
+				}
+			}
+
+			// If no time component, parse and add time formatting
+			const date = parseDateToLocalMidnight(value);
+			return formatDateWithLocale(date, true, localeCode);
+		};
+
+		const startFormatted = formatValue(startDateString);
+		const endFormatted = formatValue(endDateString);
+
+		if (startFormatted && endFormatted) {
+			return `${startFormatted} - ${endFormatted}`;
+		}
+
+		return startFormatted || endFormatted || '';
 	}
 
 	// Lazy loading state
@@ -698,6 +747,9 @@
 													<!-- Left: Title and Sats -->
 													<TranslatableTask 
 														{task} 
+														showDescription={true}
+														showDescriptionToggle={false}
+														descriptionClass="text-sm text-base-content/80 line-clamp-2"
 														titleClass="card-title line-clamp-2 text-lg font-semibold" 
 													/>
 												</div>
@@ -735,8 +787,8 @@
 																	>
 																	<span class="text-sm font-medium">
 																		{formatDateRangeReactive(
-																			new Date(task.dateRange.start),
-																			new Date(task.dateRange.end)
+																			task.dateRange.start,
+																			task.dateRange.end
 																		)}
 																	</span>
 																{/if}
