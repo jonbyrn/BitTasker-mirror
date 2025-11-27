@@ -4,7 +4,7 @@
 	import { t } from 'svelte-i18n';
 	import type { Attachment, Task } from '$lib/types/task';
 	import { format } from 'date-fns';
-	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { user } from '$lib/stores/user.store';
@@ -21,9 +21,14 @@
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { goto } from '$app/navigation';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	import IconAlertCircle from '~icons/mdi/alert-circle';
+import IconAlertCircle from '~icons/mdi/alert-circle';
+import IconWalletOutline from '~icons/mdi/wallet-outline';
+import IconCalendarClock from '~icons/mdi/calendar-clock';
+import IconMapMarker from '~icons/mdi/map-marker';
+import IconMapMarkerCheck from '~icons/mdi/map-marker-check';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	// Props
 	let { taskId } = $props<{ taskId: string }>();
@@ -46,6 +51,17 @@
 	// Check if user is logged in - using same validation as navbar
 	const isLoggedIn = $derived($authState.isAuthenticated);
 
+const isRemoteTask = $derived(() => {
+	if (!task?.taskType) return false;
+	const normalizedType =
+		typeof task.taskType === 'string' ? task.taskType.toLowerCase() : task.taskType;
+	return normalizedType === TaskTypeEnum.REMOTE;
+});
+
+const shouldShowLocationInfo = $derived(
+	() => isRemoteTask() || !!task?.pickupLocation || !!task?.dropOffLocation
+);
+
 	// Check if task deadline has expired
 	// Compare dates using date strings to avoid timezone issues
 	// Deadline is expired only if today is AFTER the deadline date (allows bidding through end of deadline day)
@@ -65,7 +81,7 @@
 	// Generate share link for public route
 	const shareLink = $derived(() => {
 		if (typeof window !== 'undefined' && taskId) {
-			return `${window.location.origin}/tasks/task/${taskId}`;
+			return `${window.location.origin}/tasks/${taskId}`;
 		}
 		return '';
 	});
@@ -100,8 +116,14 @@
 	function formatDateTimeReactive(dateString: string) {
 		const date = parseDateToLocalMidnight(dateString);
 		if (!date) return '';
-		// For deadlines, only show date, not time
-		return formatStandardDateShort(date, $locale || 'en');
+		const localeToUse = $locale || 'en';
+		const formattedDate = formatStandardDateShort(date, localeToUse);
+		const formattedTime = date.toLocaleTimeString(localeToUse, {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		});
+		return `${formattedDate} · ${formattedTime}`;
 	}
 
 	function formatDateRangeReactive(startDateString: string, endDateString: string) {
@@ -170,6 +192,29 @@
 
 	// Translation is now handled automatically by TranslatableTask component
 
+	const isEventId = (value: string): boolean => /^[0-9a-f]{64}$/i.test(value);
+	const isUuid = (value: string): boolean =>
+		/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+	async function findTaskEventByUniqueId(uniqueId: string) {
+		try {
+			const dTagValue = `task-${uniqueId}`;
+			const response = await nostrEventsService.requestEvents({
+				filters: [
+					{
+						kinds: [KINDS.TASK_CREATION],
+						'#d': [dTagValue],
+						limit: 1
+					}
+				]
+			});
+			return response.data?.[0] ?? null;
+		} catch (error) {
+			console.error('Failed to load task by unique ID:', error);
+			return null;
+		}
+	}
+
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) {
 			loading = false;
@@ -180,7 +225,18 @@
 			loading = true;
 			errorMessage = '';
 
-			const { data: event } = await nostrEventsService.findEventById(taskId);
+			let event: any = null;
+
+			if (isEventId(taskId)) {
+				const response = await nostrEventsService.findEventById(taskId);
+				event = response.data;
+			} else if (isUuid(taskId)) {
+				event = await findTaskEventByUniqueId(taskId);
+			} else {
+				// Fallback attempt
+				const response = await nostrEventsService.findEventById(taskId);
+				event = response.data;
+			}
 
 			if (!event) {
 				errorMessage = $t('bids.task_details.error.failed_to_load');
@@ -242,7 +298,7 @@
 	afterNavigate(({ to, from }) => {
 		// Only reload if we're navigating TO a task details route (not away from it)
 		// Check if the current URL matches a task details pattern
-		if (to && taskId && to.url.pathname.includes(`/task/${taskId}`)) {
+		if (to && taskId && to.url.pathname.includes(`/tasks/${taskId}`)) {
 			// Reset state and reload to ensure fresh data
 			task = null;
 			errorMessage = '';
@@ -274,44 +330,19 @@
 	};
 </script>
 
-<div class="mx-auto max-w-7xl p-4 md:p-0">
-	<div class="mb-2 flex items-start justify-between">
-		<div>
-			<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
-			<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
-		</div>
-		<div class="flex flex-row gap-2">
-			<!-- Share Button -->
-			<button
-				class="btn btn-ghost btn-sm hover:bg-primary/10 hover:text-primary gap-2 transition-all duration-200"
-				onclick={handleShare}
-				title={$t('dashboard.task_details_by_task.share_task')}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
+<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
+	<div class="rounded-xl pt-4 md:pt-0">
+		<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+			<div class="text-left">
+				<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
+				<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
+			</div>
+			<div class="flex flex-wrap gap-2 md:justify-end">
+				<button
+					class="btn btn-outline btn-sm flex-1 min-w-[140px] gap-2 transition-all duration-200"
+					onclick={handleShare}
+					title={$t('dashboard.task_details_by_task.share_task')}
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.935-2.186 2.25 2.25 0 00-3.935 2.186z"
-					/>
-				</svg>
-				<span class="hidden sm:inline">{$t('dashboard.task_details_by_task.share')}</span>
-			</button>
-			<!-- Copy Link Button -->
-			<button
-				class="btn btn-ghost btn-sm hover:bg-primary/10 hover:text-primary gap-2 transition-all duration-200 {copyLinkSuccess
-					? 'text-success'
-					: ''}"
-				onclick={handleCopyLink}
-				title={$t('dashboard.task_details_by_task.copy_link')}
-			>
-				{#if copyLinkSuccess}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-5 w-5"
@@ -323,28 +354,52 @@
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.935-2.186 2.25 2.25 0 00-3.935 2.186z"
 						/>
 					</svg>
-				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
-						/>
-					</svg>
-				{/if}
-				<span class="hidden sm:inline">{$t('dashboard.task_details_by_task.copy_link')}</span>
-			</button>
-		</div>
+					<span>{$t('dashboard.task_details_by_task.share')}</span>
+				</button>
+				<button
+					class="btn btn-primary btn-sm flex-1 min-w-[140px] gap-2 transition-all duration-200 {copyLinkSuccess
+						? 'btn-success'
+						: ''}"
+					onclick={handleCopyLink}
+					title={$t('dashboard.task_details_by_task.copy_link')}
+				>
+					{#if copyLinkSuccess}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
+							/>
+						</svg>
+					{/if}
+					<span>{$t('dashboard.task_details_by_task.copy_link')}</span>
+				</button>
+			</div>
 	</div>
 	<!-- Loading state -->
 	{#if loading}
@@ -388,7 +443,7 @@
 					<!-- Main task info card -->
 					<div class="bg-base-100 border-base-300 rounded-2xl border p-6 shadow-sm">
 						<!-- Header row with title and posted date -->
-						<div class="mb-6 flex flex-row items-start justify-between gap-3">
+						<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 							<div class="">
 								<div class="pb-1">
 									<TranslatableTask
@@ -418,66 +473,86 @@
 						<div class="divider"></div>
 
 						<!-- Description section -->
-						<div class="mb-6 flex justify-between">
-							{#if task.deadline || task.dateRange}
-								<div class="flex max-w-md flex-col gap-2">
-									{#if task.deadline}
-										<div>
-											<h4 class="mb-1 font-semibold">
-												{$t('dashboard.task_details_by_task.deadline')}
-											</h4>
-											<div class="font-semibold">
-												{formatDateTimeReactive(task.deadline)}
+						<div class="mb-6 flex flex-col gap-4 w-full">
+							<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-8">
+								<div class="flex flex-col gap-2 md:flex-1 md:w-full">
+									{#if task.deadline || task.dateRange}
+										{#if task.deadline}
+											<div class="flex flex-col">
+												<div class="flex items-center gap-2 text-base-content/60 text-sm">
+													<IconCalendarClock class="h-4 w-4" />
+													<span>{$t('dashboard.task_details_by_task.deadline')}</span>
+												</div>
+												<div class="font-semibold">
+													{formatDateTimeReactive(task.deadline)}
+												</div>
 											</div>
-										</div>
-									{:else if task.dateRange}
-										<div>
-											<span class="text-base-content/60 text-sm"
-												>{$t('dashboard.task_details_by_task.date_range')}</span
-											>
-											<div class="font-semibold">
-												{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
+										{:else if task.dateRange}
+											<div class="flex flex-col">
+												<div class="flex items-center gap-2 text-base-content/60 text-sm">
+													<IconCalendarClock class="h-4 w-4" />
+													<span>{$t('dashboard.task_details_by_task.date_range')}</span>
+												</div>
+												<div class="font-semibold">
+													{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
+												</div>
 											</div>
-										</div>
+										{/if}
 									{/if}
 								</div>
-							{/if}
-
-							<div class="text-lg font-bold">
-								${formatNumberWithTwoDecimals(task.budget.amount)}
-
-								<div class="text-base-content/60 text-sm">
-									{satsFromUsd(task.budget.amount, btcPrice)}
+								<div class="flex flex-col gap-2 ">
+									<!-- <div class="flex items-center gap-2 text-base-content/60 text-sm md:justify-end">
+										<IconWalletOutline class="h-4 w-4" />
+										<span>{$t('dashboard.task_details_by_task.amount')}</span>
+									</div> -->
+									<div class="text-2xl font-bold tracking-tight">
+										${formatNumberWithTwoDecimals(task.budget.amount)}
+										<div class="text-base-content/60 text-base">
+											{satsFromUsd(task.budget.amount, btcPrice)}
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>
 
 						<!-- Timeline and Requirements in same row -->
-						<div class="mb-2 flex justify-between">
+						<div class="mb-2 flex flex-col gap-4 sm:flex-row sm:justify-between">
 							<!-- Location information -->
-							{#if task.pickupLocation || task.dropOffLocation}
+							{#if shouldShowLocationInfo()}
 								<div class="mb-2">
 									<div class="grid grid-cols-1">
-										{#if task.pickupLocation && task.pickupLocation.displayName && task.pickupLocation.displayName.trim() !== ''}
+										{#if isRemoteTask()}
 											<div class="mb-2">
-												<span class="text-base-content/60 text-sm"
-													>{$t('dashboard.task_details_by_task.pickup_location')}</span
-												>
-												<div>{task.pickupLocation.displayName}</div>
+												<div class="flex items-center gap-2 text-base-content/60 text-sm">
+													<IconMapMarker class="h-4 w-4" />
+													<span>{$t('dashboard.task_details_by_task.remote_location_label')}</span>
+												</div>
+												<div>{$t('dashboard.task_details_by_task.remote_location_description')}</div>
 											</div>
-										{/if}
-										{#if task.dropOffLocation && task.dropOffLocation.displayName && task.dropOffLocation.displayName.trim() !== ''}
-											<div>
-												<span class="text-base-content/60 text-sm"
-													>{$t('dashboard.task_details_by_task.dropoff_location')}</span
-												>
-												<div>{task.dropOffLocation.displayName}</div>
-											</div>
-										{/if}
-										{#if (!task.pickupLocation || !task.pickupLocation.displayName || task.pickupLocation.displayName.trim() === '') && (!task.dropOffLocation || !task.dropOffLocation.displayName || task.dropOffLocation.displayName.trim() === '')}
-											<div class="text-base-content/60 text-sm">
-												{$t('dashboard.task_details_by_task.remote')}
-											</div>
+										{:else}
+											{#if task.pickupLocation && task.pickupLocation.displayName && task.pickupLocation.displayName.trim() !== ''}
+												<div class="mb-2">
+													<div class="flex items-center gap-2 text-base-content/60 text-sm">
+														<IconMapMarker class="h-4 w-4" />
+														<span>{$t('dashboard.task_details_by_task.pickup_location')}</span>
+													</div>
+													<div>{task.pickupLocation.displayName}</div>
+												</div>
+											{/if}
+											{#if task.dropOffLocation && task.dropOffLocation.displayName && task.dropOffLocation.displayName.trim() !== ''}
+												<div class="mt-3">
+													<div class="flex items-center gap-2 text-base-content/60 text-sm">
+														<IconMapMarkerCheck class="h-4 w-4" />
+														<span>{$t('dashboard.task_details_by_task.dropoff_location')}</span>
+													</div>
+													<div>{task.dropOffLocation.displayName}</div>
+												</div>
+											{/if}
+											{#if (!task.pickupLocation || !task.pickupLocation.displayName || task.pickupLocation.displayName.trim() === '') && (!task.dropOffLocation || !task.dropOffLocation.displayName || task.dropOffLocation.displayName.trim() === '')}
+												<div class="text-base-content/60 text-sm">
+													{$t('dashboard.task_details_by_task.remote')}
+												</div>
+											{/if}
 										{/if}
 									</div>
 								</div>
@@ -492,7 +567,7 @@
 										<h4 class="mb-3 font-semibold">
 											{$t('dashboard.task_details_by_task.required_skills')}
 										</h4>
-										<div class="mt-2 flex flex-wrap gap-2">
+										<div class="pb-4 flex flex-wrap gap-2">
 											{#each task.skills as skill}
 												<span class="badge badge-primary badge-outline badge-sm">{skill}</span>
 											{/each}
@@ -520,7 +595,7 @@
 
 						<!-- Attachments -->
 						{#if task.attachments && task.attachments.length > 0}
-							<div class="my-4">
+							<div class="border-base-300 border-t pt-6 mt-4">
 								<h4 class="mb-1 font-semibold">
 									{$t('dashboard.task_details_by_task.attachments')}
 								</h4>
@@ -566,8 +641,9 @@
 
 				<!-- Sidebar -->
 				<div class="lg:col-span-1">
-					<div class="bg-base-100 border-base-300 sticky top-6 rounded-2xl border p-6 shadow-sm">
+					<div class="bg-base-100 sticky top-6 rounded-2xl p-6 shadow-sm">
 						<!-- Action buttons -->
+						<div class="border-base-300 border-t pt-4">
 						{#if isDeadlineExpired()}
 							<div class="alert alert-error alert-outline">
 								<IconAlertCircle class="h-6 w-6 shrink-0" />
@@ -648,10 +724,11 @@
 								<span>{$t('dashboard.task_details_by_task.you_are_owner')}</span>
 							</div>
 						{/if}
+						</div>
 
 						<!-- Task creator info -->
 						{#if task.creator}
-							<div class="border-base-300 border-t pt-4">
+							<div class="border-base-300 border-t pt-4 mt-4">
 								<h4 class="mb-3 font-semibold">{$t('dashboard.task_details_by_task.tasker')}</h4>
 								<div class="flex items-center gap-3">
 									<!-- Avatar -->
@@ -729,8 +806,8 @@
 							</div>
 						{/if}
 						<!-- Task Location Map - Only show pickup location -->
-						{#if task.pickupLocation}
-							<div class="border-base-300 mt-4 border-t">
+						{#if task.pickupLocation && !isRemoteTask()}
+							<div class="border-base-300 mt-4 border-t pt-4">
 								<h4 class="mt-3 mb-2 font-semibold">
 									{$t('dashboard.task_details_by_task.pickup_location')}
 								</h4>
@@ -745,6 +822,7 @@
 			</div>
 		</div>
 	{/if}
+	</div>
 </div>
 
 <!-- Task Details Bid Drawer -->

@@ -85,6 +85,8 @@
       "try_again": "Intentar de Nuevo",
       "location": "Ubicación",
       "location_map_description": "Se proporcionará la ubicación exacta después de la aceptación de la oferta.",
+      "remote_location_label": "Ubicación de la tarea",
+      "remote_location_description": "Esta tarea se puede completar remotamente.",
       "task_attachment": "Adjunto de tarea",
       "avatar_alt": "Avatar",
       "sign_up_to_bid": "Regístrate para ofertar",
@@ -113,6 +115,7 @@
       "login": "Iniciar Sesión",
       "deadline_expired": "Fecha Límite Expirada",
       "deadline_expired_message": "La fecha límite de esta tarea ha pasado y ya no acepta ofertas.",
+      "amount": "Monto",
       "edit_task_confirmation": {
         "title": "Confirmación de Edición de Tarea",
         "message": "¿Estás seguro de que quieres editar esta tarea?",

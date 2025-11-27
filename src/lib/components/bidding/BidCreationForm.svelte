@@ -10,6 +10,7 @@
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
+	import type { DateRange } from '$lib/types/task';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// Props
@@ -21,6 +22,8 @@
 		taskCreatorAvatar,
 		taskTitle,
 		taskDescription,
+		taskDateRange,
+		taskDeadline,
 		loggedInUserId,
 		loggedInUserName,
 		loggedInUserAvatar
@@ -29,6 +32,8 @@
 		onClose: () => void;
 		taskTitle: string; // Add task title prop
 		taskDescription: string; // Add task description prop
+		taskDateRange?: DateRange | null;
+		taskDeadline?: string | null;
 		taskCreatorPubkey?: string | undefined; // Add task creator pubkey prop
 		taskCreatorUsername?: string; // Add task creator username prop
 		taskCreatorAvatar?: string; // Add task creator avatar prop
@@ -52,7 +57,13 @@
 
 	// New datetime fields for fixed price bids
 	let startDateTime = $state<Date | null>(null);
-	let endDateTime = $state<Date | null>(null);
+let endDateTime = $state<Date | null>(null);
+let scheduleFieldsTouched = $state(false);
+const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
+const DEFAULT_START_OFFSET_DAYS = 1;
+const DEFAULT_DURATION_IN_DAYS = 3;
+const DEFAULT_DURATION_IN_HOURS = DEFAULT_DURATION_IN_DAYS * 24;
+const MS_PER_HOUR = 60 * 60 * 1000;
 
 	// BTC conversion state
 	let btcPrice = $state<number>(0);
@@ -155,6 +166,148 @@
 		return value.replace(/[^0-9.,]/g, '');
 	}
 
+	function parseDate(dateValue?: string | null): Date | null {
+		if (!dateValue) return null;
+		const parsed = new Date(dateValue);
+		return Number.isNaN(parsed.getTime()) ? null : parsed;
+	}
+
+	function roundDateToInterval(
+		date: Date,
+		intervalMs = FIFTEEN_MINUTES_IN_MS,
+		direction: 'ceil' | 'floor' = 'ceil'
+	): Date {
+		const rounded = new Date(date);
+		const remainder = rounded.getTime() % intervalMs;
+		if (remainder === 0) {
+			return rounded;
+		}
+
+		if (direction === 'ceil') {
+			rounded.setTime(rounded.getTime() + (intervalMs - remainder));
+		} else {
+			rounded.setTime(rounded.getTime() - remainder);
+		}
+
+		return rounded;
+	}
+
+	function addDefaultDuration(date: Date, hours = DEFAULT_DURATION_IN_HOURS): Date {
+		const result = new Date(date);
+		result.setHours(result.getHours() + hours);
+		return result;
+	}
+
+	function ensureMinimumDuration(start: Date | null, end: Date | null): Date | null {
+		if (!start) return end;
+		if (!end) return addDefaultDuration(start);
+
+		if (end <= start) {
+			return addDefaultDuration(start);
+		}
+
+		return end;
+	}
+
+	function areDatesEqual(dateA: Date | null, dateB: Date | null): boolean {
+		if (!dateA || !dateB) return false;
+		return dateA.getTime() === dateB.getTime();
+	}
+
+	function addDays(date: Date, days: number): Date {
+		const result = new Date(date);
+		result.setDate(result.getDate() + days);
+		return result;
+	}
+
+	function getDefaultFutureStart(): Date {
+		const now = new Date();
+		const target = addDays(now, DEFAULT_START_OFFSET_DAYS);
+		return roundDateToInterval(target, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	}
+
+	function clampToFuture(date: Date): Date {
+		const nowRounded = roundDateToInterval(new Date(), FIFTEEN_MINUTES_IN_MS, 'ceil');
+		return date < nowRounded ? nowRounded : date;
+	}
+
+	function buildPreferredStartDate(): Date | null {
+		const rangeStart = parseDate(taskDateRange?.start);
+		if (rangeStart) {
+			return clampToFuture(roundDateToInterval(rangeStart, FIFTEEN_MINUTES_IN_MS, 'ceil'));
+		}
+
+		const deadlineDate = parseDate(taskDeadline);
+		let candidate = getDefaultFutureStart();
+
+		if (deadlineDate) {
+			const maxStartBeforeDeadline = new Date(
+				deadlineDate.getTime() - DEFAULT_DURATION_IN_HOURS * MS_PER_HOUR
+			);
+			const roundedMaxStart = roundDateToInterval(
+				maxStartBeforeDeadline,
+				FIFTEEN_MINUTES_IN_MS,
+				'floor'
+			);
+			if (!Number.isNaN(roundedMaxStart.getTime())) {
+				candidate = roundedMaxStart < candidate ? roundedMaxStart : candidate;
+			}
+		}
+
+		return clampToFuture(candidate);
+	}
+
+	function buildPreferredEndDate(startCandidate: Date | null): Date | null {
+		const rangeEnd = parseDate(taskDateRange?.end);
+		if (rangeEnd) {
+			return roundDateToInterval(rangeEnd, FIFTEEN_MINUTES_IN_MS, 'ceil');
+		}
+
+		const deadlineDate = parseDate(taskDeadline);
+		const baseStart = startCandidate ?? getDefaultFutureStart();
+		const preferredEndFromDuration = addDays(baseStart, DEFAULT_DURATION_IN_DAYS);
+
+		let candidate: Date | null = preferredEndFromDuration;
+
+		if (deadlineDate) {
+			// Don't exceed deadline
+			candidate = deadlineDate < preferredEndFromDuration ? deadlineDate : preferredEndFromDuration;
+		}
+
+		if (!candidate) {
+			const fallbackEnd = addDays(new Date(), DEFAULT_START_OFFSET_DAYS + DEFAULT_DURATION_IN_DAYS);
+			candidate = fallbackEnd;
+		}
+
+		// Ensure end is after start
+		if (baseStart && candidate <= baseStart) {
+			candidate = addDays(baseStart, DEFAULT_DURATION_IN_DAYS);
+		}
+
+		return roundDateToInterval(candidate, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	}
+
+	// Prefill schedule fields with task information (if available)
+	$effect(() => {
+		if (scheduleFieldsTouched) {
+			return;
+		}
+
+		const preferredStart = buildPreferredStartDate();
+		const preferredEnd = ensureMinimumDuration(
+			preferredStart,
+			buildPreferredEndDate(preferredStart)
+		);
+
+		if (preferredStart && !areDatesEqual(startDateTime, preferredStart)) {
+			startDateTime = preferredStart;
+		}
+
+		if (preferredEnd && !areDatesEqual(endDateTime, preferredEnd)) {
+			endDateTime = preferredEnd;
+		}
+	});
+
 	// Handle description changes - clear error when user starts typing
 	function handleDescriptionChange() {
 		// Clear error as soon as user starts typing (addresses both "required" and "min length" errors)
@@ -178,6 +331,7 @@
 
 	// Handle datetime changes
 	function handleDateTimeChange() {
+		scheduleFieldsTouched = true;
 		clearFieldError('datetime');
 	}
 
@@ -244,19 +398,19 @@
 			}
 		}
 
-		// Validate description - min 50, max 500
+		// Validate description - min 20, max 500
 		if (!description || description.trim() === '') {
 			errors.description = $t('bid_form.errors.description_required');
-		} else if (description.trim().length < 50) {
+		} else if (description.trim().length < 20) {
 			errors.description = $t('bid_form.errors.description_min_length');
 		} else if (description.trim().length > 500) {
 			errors.description = $t('bid_form.errors.description_max_length');
 		}
 
-		// Validate proposed approach - min 50, max 1000
+		// Validate proposed approach - min 20, max 1000
 		if (!proposedApproach || proposedApproach.trim() === '') {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_required');
-		} else if (proposedApproach.trim().length < 50) {
+		} else if (proposedApproach.trim().length < 20) {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_min_length');
 		} else if (proposedApproach.trim().length > 1000) {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_max_length');
