@@ -20,6 +20,9 @@
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
+	import { getUserDisplayNameFromProfile } from '$lib/utils/helpers/userDisplayName';
+	import { nip19 } from 'nostr-tools';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	// State
 	let task = $state<NostrEvent | null>(null);
@@ -59,7 +62,44 @@
 			errorMessage = '';
 			showRetryButton = false;
 
-			({ data: task } = await nostrEventsService.findEventById(page.params.taskId));
+			// Check if id is an event ID (64 hex chars) or UUID (uniqueId)
+			const id = page.params.taskId;
+			const isEventId = /^[0-9a-fA-F]{64}$/.test(id);
+			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+			let event: any = null;
+
+			if (isEventId) {
+				// It's an event ID, use it directly
+				const result = await nostrEventsService.findEventById(id);
+				event = result.data;
+			} else if (isUuid) {
+				// It's a uniqueId (UUID), query by d-tag
+				const dTagValue = `task-${id}`;
+				const filter = {
+					kinds: [KINDS.TASK_CREATION],
+					'#d': [dTagValue],
+					limit: 1
+				};
+				
+				const response = await nostrEventsService.requestEvents({
+					filters: [filter]
+				});
+				
+				if (response.data && response.data.length > 0) {
+					event = response.data[0];
+				}
+			} else {
+				// Try as event ID anyway (fallback for edge cases)
+				try {
+					const result = await nostrEventsService.findEventById(id);
+					event = result.data;
+				} catch {
+					errorMessage = $t('task.drawer.error.load');
+					return;
+				}
+			}
+
+			task = event;
 
 			if (!task) {
 				errorMessage = $t('task.drawer.error.load');
