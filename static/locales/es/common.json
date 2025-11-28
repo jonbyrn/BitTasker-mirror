@@ -690,6 +690,17 @@
     },
     "layout": {
       "github_aria": "GitHub"
+    },
+    "location": {
+      "address": "Dirección",
+      "get_directions": "Obtener Direcciones",
+      "open_map": "Abrir Mapa",
+      "pickup_location": "Ubicación de Recogida",
+      "dropoff_location": "Ubicación de Entrega",
+      "start_location": "Ubicación de Inicio",
+      "destination_location": "Ubicación de Destino",
+      "task_accepted_congratulations": "¡Felicitaciones! Tu tarea ha sido aceptada.",
+      "location_details_below": "Aquí tienes los detalles de la ubicación:"
     }
   }
 }

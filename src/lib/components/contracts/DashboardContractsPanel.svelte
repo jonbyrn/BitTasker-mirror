@@ -205,79 +205,70 @@
 </script>
 
 <div class="space-y-6">
-	<!-- Row 1: Role Filter Buttons + Refresh Button -->
-	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-		<div class="mx-auto mt-3 flex gap-2">
-			<!-- Role Filter Buttons -->
-			{#each roleFilterOptions as option}
-				{@const IconComponent = option.icon}
-				<button
-					class="btn {roleFilter === option.id
-						? 'btn-primary'
-						: 'btn-secondary'} btn-sm flex items-center gap-2"
-					onclick={() => selectRoleFilter(option.id)}
-					aria-label={option.label}
-				>
-					{#if roleFilter === option.id}
-						<IconCheck class="h-4 w-4" />
-					{:else}
-						<IconComponent class="h-4 w-4" />
-					{/if}
-					<span>{option.label}</span>
-				</button>
-			{/each}
+	<!-- Filters container with same design as TasksPanel -->
+	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 mt-2 shadow-sm">
+		<!-- Header with title and refresh button -->
+		<div class="mb-3 flex items-center justify-between gap-2">
+			<div class="space-y-1">
+				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+					{$t('dashboard.contracts.filter_by_status_and_role')}
+				</p>
+				<p class="text-base-content/70 hidden text-sm sm:block">
+					{$t('dashboard.contracts.filter_description')}
+				</p>
+			</div>
 
-			<!-- Refresh Button -->
+			<!-- Refresh button: icon only on mobile, with text on desktop -->
 			<button
-				class="btn btn-ghost btn-sm rounded-full"
+				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
 				onclick={() => contractStore.loadContracts()}
 				disabled={$contractStore.isLoading}
 				aria-label={$t('dashboard.contracts.refresh')}
 			>
 				{#if $contractStore.isLoading}
 					<span class="loading loading-spinner loading-xs"></span>
+					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
 				{:else}
 					<IconRefresh class="h-5 w-5" />
+					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
 				{/if}
 			</button>
 		</div>
-	</div>
 
-	<!-- Row 2: Status Filter Buttons (above role filter) -->
-	<div class="mb-4">
-		<!-- Desktop: Button filters -->
-		<div class="hidden sm:block">
-			<div class="mt-3 flex flex-col gap-3 sm:flex-row">
-				{#each statusFilterOptions as option}
+		<!-- Mobile: Subheading and dropdowns -->
+		<div class="mb-3 sm:hidden">
+			<p class="text-base-content/70 mb-3 text-sm">
+				{$t('dashboard.contracts.filter_description')}
+			</p>
+			
+			<!-- Role Filter Buttons (Mobile) -->
+			<div class="mb-3 flex gap-2">
+				{#each roleFilterOptions as option}
 					{@const IconComponent = option.icon}
 					<button
-						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {statusFilter ===
-						option.id
-							? 'text-primary bg-primary/10'
-							: 'bg-base-100/40 hover:bg-base-100/50 text-base-content/70'}"
-						onclick={() => selectStatusFilter(option.id)}
+						class="btn {roleFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'} btn-sm flex items-center gap-2"
+						onclick={() => selectRoleFilter(option.id)}
 						aria-label={option.label}
 					>
-						<!-- MDI Icon Component -->
-						<IconComponent class="h-5 w-5 {statusFilter === option.id ? 'text-primary' : ''}" />
-						<span class="font-medium">{option.label}</span>
+						{#if roleFilter === option.id}
+							<IconCheck class="h-4 w-4" />
+						{:else}
+							<IconComponent class="h-4 w-4" />
+						{/if}
+						<span>{option.label}</span>
 					</button>
 				{/each}
 			</div>
-		</div>
 
-		<!-- Mobile: Custom dropdown -->
-		<div class="block sm:hidden">
-			<div class="status-dropdown-container relative mt-3">
+			<!-- Status Filter Dropdown (Mobile) -->
+			<div class="status-dropdown-container relative">
 				<button
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full cursor-pointer items-center justify-between rounded-3xl border px-4 py-1 transition-all duration-200 {statusFilter !==
-					'all'
-						? 'border-primary bg-primary/10 text-primary'
-						: 'border-base-300 bg-base-100/40 text-base-content/70'}"
+					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
 					onclick={toggleStatusDropdown}
 				>
 					<div class="flex items-center gap-2">
-						<!-- MDI Icon Component for selected filter -->
 						{#each statusFilterOptions as option}
 							{#if statusFilter === option.id}
 								{@const IconComponent = option.icon}
@@ -288,7 +279,6 @@
 							{statusFilterOptions.find((opt) => opt.id === statusFilter)?.label}
 						</span>
 					</div>
-					<!-- Dropdown arrow icon -->
 					<IconChevronDown
 						class="h-5 w-5 transition-transform duration-200 {isStatusDropdownOpen
 							? 'rotate-180'
@@ -296,21 +286,19 @@
 					/>
 				</button>
 
-				<!-- Dropdown menu -->
 				{#if isStatusDropdownOpen}
 					<div
-						class="border-base-300 bg-base-300 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
 						{#each statusFilterOptions as option}
 							{@const IconComponent = option.icon}
 							<button
-								class="hover:bg-base-200 flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {statusFilter ===
+								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {statusFilter ===
 								option.id
 									? 'bg-primary/10 text-primary'
 									: 'text-base-content'}"
 								onclick={() => selectStatusFilter(option.id)}
 							>
-								<!-- MDI Icon Component -->
 								<IconComponent
 									class="h-5 w-5 {statusFilter === option.id
 										? 'text-primary'
@@ -324,6 +312,49 @@
 						{/each}
 					</div>
 				{/if}
+			</div>
+		</div>
+
+		<!-- Desktop: Role Filter Buttons -->
+		<div class="mb-4 hidden sm:block">
+			<div class="flex gap-2">
+				{#each roleFilterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn {roleFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'} btn-sm flex items-center gap-2"
+						onclick={() => selectRoleFilter(option.id)}
+						aria-label={option.label}
+					>
+						{#if roleFilter === option.id}
+							<IconCheck class="h-4 w-4" />
+						{:else}
+							<IconComponent class="h-4 w-4" />
+						{/if}
+						<span>{option.label}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<!-- Desktop: Status Filter Buttons -->
+		<div class="mt-4 hidden sm:block">
+			<div class="flex flex-col gap-3 sm:flex-row">
+				{#each statusFilterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="flex btn btn-sm py-4 flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl text-center transition-all duration-200 {statusFilter ===
+						option.id
+							? 'text-primary bg-primary/10 border-primary/30 border'
+							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
+						onclick={() => selectStatusFilter(option.id)}
+						aria-label={option.label}
+					>
+						<IconComponent class="h-5 w-5 {statusFilter === option.id ? 'text-primary' : ''}" />
+						<span class="font-medium">{option.label}</span>
+					</button>
+				{/each}
 			</div>
 		</div>
 	</div>

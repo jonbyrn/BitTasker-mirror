@@ -33,6 +33,82 @@ export function parseMessageContent(plaintext: string): string {
 }
 
 /**
+ * Extract location data from event tags if it contains location information
+ * Returns location data if found, null otherwise
+ */
+export function extractLocationDataFromTags(event: { tags: string[][] }): { 
+	type: 'location'; 
+	location?: any; 
+	locations?: Array<{ location: any; label: string }>;
+	label?: string; 
+	taskId?: string;
+	taskTitle?: string;
+} | null {
+	if (!event || !event.tags) {
+		return null;
+	}
+
+	// Check if event has location_data tag
+	const locationDataTag = event.tags.find((tag) => tag[0] === 'location_data');
+	if (locationDataTag && locationDataTag[1]) {
+		try {
+			const locationData = JSON.parse(locationDataTag[1]);
+			if (locationData.type === 'location' && (locationData.location || locationData.locations)) {
+				return locationData;
+			}
+		} catch (error) {
+			console.error('Error parsing location data from tags:', error);
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Extract location data from a message if it contains location information (legacy support)
+ * Returns location data if found, null otherwise
+ */
+export function extractLocationData(plaintext: string): { 
+	type: 'location'; 
+	location?: any; 
+	locations?: Array<{ location: any; label: string }>;
+	label?: string; 
+	taskId?: string;
+	taskTitle?: string;
+} | null {
+	// Legacy: check if message contains location data marker (for backwards compatibility)
+	if (!plaintext || !plaintext.trim()) {
+		return null;
+	}
+
+	const locationDataMatch = plaintext.match(/\[LOCATION_DATA:([\s\S]+?)\]/);
+	if (locationDataMatch) {
+		try {
+			const locationData = JSON.parse(locationDataMatch[1]);
+			if (locationData.type === 'location' && (locationData.location || locationData.locations)) {
+				return locationData;
+			}
+		} catch (error) {
+			console.error('Error parsing location data:', error);
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Extract human-readable text from a location message (removes location data marker)
+ */
+export function extractLocationMessageText(plaintext: string): string {
+	if (!plaintext || !plaintext.trim()) {
+		return plaintext;
+	}
+
+	// Remove location data marker (including multiline JSON) but keep the rest of the message
+	return plaintext.replace(/\[LOCATION_DATA:[\s\S]+?\]/g, '').trim();
+}
+
+/**
  * Check if a message is a JSON system message (should be filtered out from chat)
  * Returns true for all system/automated messages that shouldn't be shown in user-to-user chat
  * 

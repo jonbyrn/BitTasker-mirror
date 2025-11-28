@@ -404,7 +404,7 @@
 
 <div class="space-y-6">
 	<!-- Status filter + refresh -->
-	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 shadow-sm">
+	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 mt-2 shadow-sm">
 		<!-- Header with title and refresh button -->
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<div class="space-y-1">
@@ -418,7 +418,7 @@
 
 			<!-- Refresh button: icon only on mobile, with text on desktop -->
 			<button
-				class="btn btn-ghost btn-sm sm:btn-outline sm:btn-md gap-2"
+				class="btn btn-ghost btn-sm sm:btn-outline  gap-2"
 				onclick={handleRefresh}
 				disabled={isLoading}
 				aria-label={$t('dashboard.tasks.refresh')}
@@ -495,7 +495,7 @@
 				{#each filterOptions as option}
 					{@const IconComponent = option.icon}
 					<button
-						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter ===
+						class="flex btn btn-sm py-4 flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl text-center transition-all duration-200 {activeFilter ===
 						option.id
 							? 'text-primary bg-primary/10 border-primary/30 border'
 							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
@@ -540,7 +540,7 @@
 				<h3 class="font-bold">{$t('dashboard.tasks.error_title')}</h3>
 				<div class="text-xs">{error}</div>
 			</div>
-			<button class="btn btn-sm btn-outline" onclick={loadTasks}>
+			<button class="btn btn-sm  btn-outline" onclick={loadTasks}>
 				{$t('dashboard.tasks.retry')}
 			</button>
 		</div>
@@ -585,6 +585,7 @@
 						{btcPrice}
 						{activeFilter}
 						{getActionButtons}
+						onclick={() => openTaskDrawer(task, 'details')}
 					/>
 				{/each}
 			</div>

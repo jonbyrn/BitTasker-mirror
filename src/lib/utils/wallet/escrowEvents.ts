@@ -13,6 +13,11 @@ import { pushNotificationService } from '$lib/api/services/push-notification.ser
 import { BidStatusEnum } from '../enums/bid.enum';
 import { contractStore } from '$lib/stores/contract.store';
 import { escrow } from '$lib/utils/wallet/escrow';
+import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
+import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import nostrEventsService from '$lib/api/services/nostr/events';
+import KINDS from '$lib/utils/constants/kinds';
+import type { Task } from '$lib/types/task';
 
 const _ = get(t);
 
@@ -136,6 +141,32 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 
 			// Reload the newly created contract from Nostr to populate the store
 			await contractStore.loadContractByEscrowId(event.escrowId);
+
+			// Send location details to taskee if task is in-person
+			try {
+				// Fetch task data to get locations
+				const taskEvent = await nostrEventsService.findEventById(pendingContract.taskId);
+				if (taskEvent.data) {
+					const taskData = JSON.parse(taskEvent.data.content) as Task;
+					
+					// Only send locations for in-person tasks
+					if (taskData.taskType === TaskTypeEnum.IN_PERSON) {
+						// Send locations to taskee
+						await sendLocationsToTaskee(
+							taskData.pickupLocation || null,
+							taskData.dropOffLocation || null,
+							pendingContract.freelancerPubkey,
+							{
+								taskId: pendingContract.taskId,
+								taskTitle: taskData.title
+							}
+						);
+					}
+				}
+			} catch (locationError) {
+				// Log error but don't fail contract creation if location sending fails
+				console.error('Failed to send location details to taskee:', locationError);
+			}
 
 			// Clean up pending contract
 			pendingContracts.delete(event.escrowId);

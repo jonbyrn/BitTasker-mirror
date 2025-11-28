@@ -6,7 +6,9 @@
 	import MessageReactions from './MessageReactions.svelte';
 	import { TranslationStore } from '$lib/stores/translation.store';
 	import { onMount } from 'svelte';
-	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
+	import { parseMessageContent, extractLocationData, extractLocationDataFromTags, extractLocationMessageText } from '$lib/utils/helpers/messageParser';
+	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
+	import type { Location } from '$lib/types/task';
 
 	// Props
 	let {
@@ -47,11 +49,19 @@
 	// Parse message content to extract readable text (for JSON messages like bid-status)
 	const parsedPlaintext = $derived(parseMessageContent(message.plaintext));
 	
+	// Extract location data from event tags (preferred) or from message text (legacy)
+	const locationData = $derived(
+		extractLocationDataFromTags(message.event) || extractLocationData(message.plaintext)
+	);
+	const locationMessageText = $derived(
+		locationData ? extractLocationMessageText(message.plaintext) : parsedPlaintext
+	);
+	
 	// Get translated text or original
 	const displayText = $derived(
 		showOriginal 
-			? parsedPlaintext 
-			: TranslationStore.getDisplayText(messageId, parsedPlaintext)
+			? locationMessageText 
+			: TranslationStore.getDisplayText(messageId, locationMessageText)
 	);
 
 	// Check if message is translated
@@ -103,7 +113,36 @@
 			class:bg-base-200={!isSender}
 			class:text-base-content={!isSender}
 		>
-			<p class="text-sm leading-relaxed break-all whitespace-pre-wrap">{displayText}</p>
+			{#if locationData && (locationData.location || locationData.locations)}
+				<!-- Location message with card(s) -->
+				<div class="space-y-3">
+					<p class="text-sm leading-relaxed break-all whitespace-pre-wrap mb-3">{displayText}</p>
+					{#if locationData.locations && locationData.locations.length > 0}
+						<!-- Multiple locations -->
+						{#each locationData.locations as { location, label }}
+							{#if location && (location.latitude !== null && location.longitude !== null)}
+								<LocationDetailsCard
+									location={location as Location}
+									{label}
+									showDirections={true}
+									showAddress={true}
+								/>
+							{/if}
+						{/each}
+					{:else if locationData.location && locationData.location.latitude !== null && locationData.location.longitude !== null}
+						<!-- Single location -->
+						<LocationDetailsCard
+							location={locationData.location as Location}
+							label={locationData.label}
+							showDirections={true}
+							showAddress={true}
+						/>
+					{/if}
+				</div>
+			{:else}
+				<!-- Regular text message -->
+				<p class="text-sm leading-relaxed break-all whitespace-pre-wrap">{displayText}</p>
+			{/if}
 			
 			<!-- Translation indicators and controls -->
 			{#if !isSender && parsedPlaintext.trim()}

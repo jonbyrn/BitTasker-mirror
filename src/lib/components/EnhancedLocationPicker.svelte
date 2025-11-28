@@ -99,6 +99,39 @@
 		return DEFAULT_COORDINATES;
 	}
 
+	// Helper function to extract address components from Google Maps address components
+	function extractAddressComponents(
+		components: google.maps.GeocoderAddressComponent[] | google.maps.places.PlaceComponent[]
+	): Location['addressComponents'] {
+		const addressComponents: Location['addressComponents'] = {};
+
+		components.forEach((component) => {
+			const types = component.types;
+			const longName = component.long_name;
+			const shortName = component.short_name;
+
+			if (types.includes('street_number')) {
+				addressComponents.streetNumber = longName;
+			} else if (types.includes('route')) {
+				addressComponents.street = longName;
+			} else if (types.includes('neighborhood')) {
+				addressComponents.neighborhood = longName;
+			} else if (types.includes('sublocality') || types.includes('sublocality_level_1')) {
+				addressComponents.sublocality = longName;
+			} else if (types.includes('locality')) {
+				addressComponents.city = longName;
+			} else if (types.includes('administrative_area_level_1')) {
+				addressComponents.state = longName;
+			} else if (types.includes('country')) {
+				addressComponents.country = longName;
+			} else if (types.includes('postal_code')) {
+				addressComponents.postalCode = shortName || longName;
+			}
+		});
+
+		return addressComponents;
+	}
+
 	// Function to dynamically load Google Maps script
 	async function loadGoogleMapsScript() {
 		return new Promise<void>((resolve, reject) => {
@@ -347,32 +380,21 @@
 				});
 
 				if (result.results[0]) {
-					const addressComponents = result.results[0].address_components;
+					const geocodeResult = result.results[0];
+					const addressComponents = geocodeResult.address_components;
 					const zipCode =
 						addressComponents.find((component) => component.types.includes('postal_code'))
 							?.short_name || '';
 
-					// Extraer ciudad y estado
-					let city = '';
-					let stateRegion = '';
-					let country = '';
-					let neighborhood = '';
-					let sublocality = '';
+					// Extract all address components
+					const extractedComponents = extractAddressComponents(addressComponents);
 
-					addressComponents.forEach((component) => {
-						const types = component.types;
-						if (types.includes('locality')) {
-							city = component.long_name;
-						} else if (types.includes('administrative_area_level_1')) {
-							stateRegion = component.long_name;
-						} else if (types.includes('country')) {
-							country = component.long_name;
-						} else if (types.includes('neighborhood')) {
-							neighborhood = component.long_name;
-						} else if (types.includes('sublocality')) {
-							sublocality = component.long_name;
-						}
-					});
+					// Extraer ciudad y estado para displayName
+					const city = extractedComponents.city || '';
+					const stateRegion = extractedComponents.state || '';
+					const country = extractedComponents.country || '';
+					const neighborhood = extractedComponents.neighborhood || '';
+					const sublocality = extractedComponents.sublocality || '';
 
 					let displayName = '';
 
@@ -399,17 +421,20 @@
 						displayName = country;
 					} else {
 						// Fallback: usar la dirección formateada completa
-						displayName = result.results[0].formatted_address;
+						displayName = geocodeResult.formatted_address;
 					}
 
-					// Update location state
-					const newLocation = {
+					// Update location state with full address details
+					const newLocation: Location = {
 						...currentLocation,
 						displayName: displayName,
 						latitude: lat,
 						longitude: lng,
 						zipCode,
-						locationLoaded: true
+						locationLoaded: true,
+						formattedAddress: geocodeResult.formatted_address,
+						placeId: geocodeResult.place_id,
+						addressComponents: extractedComponents
 					};
 
 					currentLocation = newLocation;
@@ -578,7 +603,7 @@
 
 		let place = prediction.toPlace();
 		await place.fetchFields({
-			fields: ['displayName', 'formattedAddress', 'location', 'addressComponents']
+			fields: ['displayName', 'formattedAddress', 'location', 'addressComponents', 'id']
 		});
 
 		const lat = place.location?.lat();
@@ -589,14 +614,28 @@
 		// Usar directamente el texto de la predicción seleccionada
 		const displayName = prediction.text.text.toString();
 
-		// Update location state directamente sin geocodificación inversa
-		const newLocation = {
+		// Extract address components
+		const addressComponents = place.addressComponents;
+		const extractedComponents = addressComponents
+			? extractAddressComponents(addressComponents)
+			: undefined;
+
+		// Extract postal code
+		const zipCode =
+			addressComponents?.find((component) => component.types.includes('postal_code'))
+				?.short_name || '';
+
+		// Update location state with full address details
+		const newLocation: Location = {
 			...currentLocation,
 			displayName: displayName,
 			latitude: lat || null,
 			longitude: lng || null,
-			zipCode: '',
-			locationLoaded: true
+			zipCode,
+			locationLoaded: true,
+			formattedAddress: place.formattedAddress || displayName,
+			placeId: place.id || undefined,
+			addressComponents: extractedComponents
 		};
 
 		currentLocation = newLocation;

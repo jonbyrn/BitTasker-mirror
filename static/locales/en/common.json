@@ -1034,5 +1034,16 @@
     },
     "layout": {
         "github_aria": "GitHub"
+    },
+    "location": {
+        "address": "Address",
+        "get_directions": "Get Directions",
+        "open_map": "Open Map",
+        "pickup_location": "Pickup Location",
+        "dropoff_location": "Drop-off Location",
+        "start_location": "Start Location",
+        "destination_location": "Destination Location",
+        "task_accepted_congratulations": "Congratulations! Your task has been accepted.",
+        "location_details_below": "Here are the location details:"
     }
 }
