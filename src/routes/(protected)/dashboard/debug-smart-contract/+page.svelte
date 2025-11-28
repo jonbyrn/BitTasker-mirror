@@ -646,7 +646,6 @@
 										permissions={contract.permissions}
 										isClient={contract.isClient}
 										isFreelancer={contract.isFreelancer}
-										currentAddress={group.address}
 										isExpanded={expandedContracts.has(contract.id)}
 										{safetyOverride}
 										{isExecuting}
@@ -666,7 +665,8 @@
 	<!-- Safety Override Toggle -->
 	<div class="mt-8 border-t border-base-300 bg-base-100 p-4">
 		<div class="container mx-auto">
-			<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+			<div class="flex flex-col gap-4">
+				<!-- Toggle Row (fixed layout, never changes) -->
 				<div class="flex items-center gap-3">
 					<label class="label cursor-pointer">
 						<input
@@ -680,8 +680,9 @@
 						</span>
 					</label>
 				</div>
+				<!-- Alert Row (appears/disappears below, no layout shift) -->
 				{#if safetyOverride}
-					<div class="alert alert-outline alert-warning flex-1">
+					<div class="alert alert-outline alert-warning">
 						<span class="text-sm">{$t('debug.smart_contract.safety_override.warning')}</span>
 					</div>
 				{/if}

@@ -37,7 +37,8 @@ export async function loadContractsByAddress(
 			return [];
 		}
 		
-		const { contract } = await escrow.ensureEscrowReady();
+		// Read-only operations don't require balance - pass requireBalance: false
+		const { contract } = await escrow.ensureEscrowReady(undefined, false);
 		const ensureEndTime = performance.now();
 		const ensureDuration = ensureEndTime - ensureStartTime;
 		if (!contract) {
@@ -55,15 +56,15 @@ export async function loadContractsByAddress(
 		try {
 			const nextIdStartTime = performance.now();
 			console.log('[DEBUG] Fetching nextEscrowId...');
-			try {
-				nextEscrowId = await contract.nextEscrowId();
+		try {
+			nextEscrowId = await contract.nextEscrowId();
 			} catch (error: any) {
 				// Check if error is due to destroyed provider
 				if (error?.code === 'UNSUPPORTED_OPERATION' && error?.message?.includes('provider destroyed')) {
 					console.warn('[DEBUG] Provider destroyed during nextEscrowId call, resetting contract and retrying...');
-					// Reset cached contract and retry
+					// Reset cached contract and retry (read-only operation, no balance required)
 					escrow.resetCachedContract();
-					const { contract: retryContract } = await escrow.ensureEscrowReady();
+					const { contract: retryContract } = await escrow.ensureEscrowReady(undefined, false);
 					if (!retryContract) {
 						throw new Error('Failed to get contract after reset');
 					}
@@ -186,7 +187,7 @@ export async function loadContractsByAddress(
 						console.log(`[DEBUG] ✓ Found matching contract: ${escrowData.id}`);
 						contracts.push(escrowData);
 						foundCount++;
-					}
+				}
 				} else {
 					console.log(`[DEBUG] Escrow ${escrowId} returned null/undefined`, {
 						batchIndex: k

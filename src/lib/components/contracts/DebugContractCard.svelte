@@ -1,11 +1,9 @@
 <script lang="ts">
 	import type { EscrowData } from '$lib/types/wallet';
 	import type { ContractPermissions } from '$lib/types/contract';
-	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 	import { getStatusColorClass, getStatusTranslationKey } from '$lib/utils/helpers/contractStatusFormatter';
 	import { t } from 'svelte-i18n';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	import { RSK_NETWORKS, BSC_NETWORKS } from '$lib/utils/wallet/networkConfig';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 
 	const {
@@ -13,7 +11,6 @@
 		permissions,
 		isClient,
 		isFreelancer,
-		currentAddress,
 		isExpanded,
 		safetyOverride,
 		isExecuting = false,
@@ -24,7 +21,6 @@
 		permissions: ContractPermissions;
 		isClient: boolean;
 		isFreelancer: boolean;
-		currentAddress: string;
 		isExpanded: boolean;
 		safetyOverride: boolean;
 		isExecuting?: boolean;
@@ -150,7 +146,6 @@
 		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 		
 		if (network === 'RSK') {
-			const config = RSK_NETWORKS[rskNetwork as keyof typeof RSK_NETWORKS];
 			// RSK explorer uses Blockscout format
 			if (rskNetwork === 'mainnet') {
 				return `https://rootstock.blockscout.com/address/${address}`;
@@ -158,7 +153,6 @@
 				return `https://rootstock-testnet.blockscout.com/address/${address}`;
 			}
 		} else {
-			const config = BSC_NETWORKS[bscNetwork as keyof typeof BSC_NETWORKS];
 			if (bscNetwork === 'mainnet') {
 				return `https://bscscan.com/address/${address}`;
 			} else {
