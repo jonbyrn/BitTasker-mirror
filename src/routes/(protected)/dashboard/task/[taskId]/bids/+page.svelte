@@ -38,11 +38,13 @@
 	let showRetryButton = $state(false);
 	
 	// Message modal state
-	let showMessageModal = $state(false);
-	let messageText = $state('');
-	let sendingMessage = $state(false);
-	let messageError = $state('');
-	let messageSuccess = $state(false);
+	let messageForm = $state({
+		isModalOpen: false,
+		text: '',
+		isSubmitting: false,
+		error: '',
+		success: false
+	});
 	let selectedBidderId = $state<string | null>(null);
 	let selectedBidderName = $state<string>('');
 
@@ -215,52 +217,53 @@
 	function openMessageModal(bidderId: string, bidderName: string) {
 		selectedBidderId = bidderId;
 		selectedBidderName = bidderName;
-		showMessageModal = true;
-		messageText = '';
-		messageError = '';
-		messageSuccess = false;
+		messageForm = {
+			isModalOpen: true,
+			text: '',
+			isSubmitting: false,
+			error: '',
+			success: false
+		};
 	}
 
 	// Función para cerrar el modal de mensaje
 	function closeMessageModal() {
-		showMessageModal = false;
-		messageText = '';
-		messageError = '';
-		messageSuccess = false;
-		sendingMessage = false;
+		messageForm = {
+			isModalOpen: false,
+			text: '',
+			isSubmitting: false,
+			error: '',
+			success: false
+		};
 		selectedBidderId = null;
 		selectedBidderName = '';
 	}
 
 	// Función para enviar mensaje
 	async function sendMessage() {
-		if (!messageText.trim() || !selectedBidderId) {
-			messageError = $t('common.profile.message_required');
+		if (!messageForm.text.trim() || !selectedBidderId) {
+			messageForm.error = $t('common.profile.message_required');
 			return;
 		}
 
-		sendingMessage = true;
-		messageError = '';
+		messageForm.isSubmitting = true;
+		messageForm.error = '';
 
 		try {
 			// Importar la función de envío de mensajes
 			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
 
 			// Enviar el mensaje
-			await sendDirectMessage(messageText.trim(), selectedBidderId);
+			await sendDirectMessage(messageForm.text.trim(), selectedBidderId);
 
-			messageSuccess = true;
-			messageText = '';
-
-			// Cerrar el modal después de 2 segundos
-			setTimeout(() => {
-				closeMessageModal();
-			}, 2000);
+			messageForm.success = true;
+			messageForm.text = '';
+			closeMessageModal();
 		} catch (error) {
 			console.error('Error sending message:', error);
-			messageError = $t('common.profile.message_send_error');
+			messageForm.error = $t('common.profile.message_send_error');
 		} finally {
-			sendingMessage = false;
+			messageForm.isSubmitting = false;
 		}
 	}
 </script>
@@ -877,7 +880,7 @@
 </Drawer>
 
 <!-- Modal de mensaje -->
-{#if showMessageModal}
+{#if messageForm.isModalOpen}
 	<div class="modal modal-open">
 		<div class="modal-box max-w-md">
 			<!-- Header del modal -->
@@ -918,14 +921,14 @@
 						id="message-text"
 						class="textarea textarea-bordered w-full"
 						placeholder={$t('common.profile.message_placeholder') || 'Type your message here...'}
-						bind:value={messageText}
+						bind:value={messageForm.text}
 						rows="4"
-						disabled={sendingMessage}
+						disabled={messageForm.isSubmitting}
 					></textarea>
 				</div>
 
 				<!-- Mensaje de éxito -->
-				{#if messageSuccess}
+				{#if messageForm.success}
 					<div class="alert alert-success alert-outline py-2">
 						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
 							<path
@@ -940,7 +943,7 @@
 				{/if}
 
 				<!-- Mensaje de error -->
-				{#if messageError}
+				{#if messageForm.error}
 					<div class="alert alert-error alert-outline py-2">
 						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
 							<path
@@ -950,7 +953,7 @@
 								d="M6 18L18 6M6 6l12 12"
 							/>
 						</svg>
-						<span class="text-sm">{messageError}</span>
+						<span class="text-sm">{messageForm.error}</span>
 					</div>
 				{/if}
 
@@ -962,12 +965,12 @@
 					<button
 						type="submit"
 						class="btn btn-primary"
-						disabled={!messageText.trim() || sendingMessage || messageSuccess}
+						disabled={!messageForm.text.trim() || messageForm.isSubmitting || messageForm.success}
 					>
-						{#if sendingMessage}
+						{#if messageForm.isSubmitting}
 							<span class="loading loading-spinner loading-sm mr-2"></span>
 							{$t('common.processing')}
-						{:else if messageSuccess}
+						{:else if messageForm.success}
 							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path
 									stroke-linecap="round"
