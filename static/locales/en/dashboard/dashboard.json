@@ -568,8 +568,13 @@
         "pending_acceptance": "Pending Acceptance",
         "dispute_resolution_proposed": "Dispute Resolution Proposed",
         "task_completed": "Task Completed",
-        "dispute_raised": "Dispute Raised",
-        "escrow_cancelled": "Escrow Cancelled"
+        "payment_released": "Payment released",
+        "dispute_raised": "Dispute raised",
+        "resolution_proposed": "Resolution proposed",
+        "proposal_accepted": "Proposal accepted",
+        "escrow_cancelled": "Secure payment contract cancelled",
+        "contract_cancelled": "Contract cancelled",
+        "timelock_resolved": "Resolved after timelock"
       },
       "actions": {
         "complete_task": "Mark Task Complete",

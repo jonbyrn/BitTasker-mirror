@@ -405,7 +405,10 @@ export async function handleStatusEvent(event: NostrEvent) {
 
 		// Decrypt the status event
 		const statusEvent = await decryptStatusEvent(event, userPubkeyHex);
-		if (!statusEvent) return;
+		if (!statusEvent) {
+			console.warn('[handleStatusEvent] ❌ Failed to decrypt status event:', event.id);
+			return;
+		}
 
 		// Extract escrow ID from #r tag (as per existing tag pattern)
 		const escrowIdTag = event.tags.find(tag => tag[0] === TAGS.R);
@@ -426,6 +429,8 @@ export async function handleStatusEvent(event: NostrEvent) {
 			}
 
 			const contract = state.contracts[index];
+
+			console.log({ statusEvent, contract });
 
 			// Add the new status event to the contract's status events
 			const updatedStatusEvents = [...(contract.statusEvents || []), statusEvent]

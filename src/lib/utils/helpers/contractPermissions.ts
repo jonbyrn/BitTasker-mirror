@@ -51,17 +51,37 @@ function mapBlockchainStatusToPermissions(
 
 	switch (status) {
 		case EscrowStatus.Funded: // 0 - Escrow funded on blockchain
-			// Check if freelancer submitted completion (pending blockchain update)
-			const hasTaskCompletedEvent = statusEvents.some(e =>
+			// PRIORITY 1: Check for pending cancellation (transaction in progress)
+			const hasPendingCancellation = statusEvents.some(e =>
+				e.content.action === EscrowStatus.PendingCancellation && e.content.transactionHash
+			);
+
+			if (hasPendingCancellation) {
+				return {
+					status: EscrowStatus.PendingCancellation,
+					permissions: {
+						canComplete: false,
+						canAccept: false,
+						canDispute: false,
+						canPropose: false,
+						canAcceptProposal: false,
+						canCancel: false, // Already being cancelled
+						canResolveTimelock: false,
+						canDelete: false
+					}
+				};
+			}
+
+			// PRIORITY 2: Check for pending completion (transaction in progress)
+			const hasPendingCompletion = statusEvents.some(e =>
 				e.content.action === EscrowStatus.PendingCompletion && e.content.transactionHash
 			);
 
-			if (hasTaskCompletedEvent) {
-				// Show pending completion state during transaction
+			if (hasPendingCompletion) {
 				return {
 					status: EscrowStatus.PendingCompletion,
 					permissions: {
-						canComplete: false,
+						canComplete: false, // Already being completed
 						canAccept: false,
 						canDispute: false,
 						canPropose: false,
@@ -73,7 +93,7 @@ function mapBlockchainStatusToPermissions(
 				};
 			}
 
-			// Check if work has started (past estimated start time)
+			// PRIORITY 3: Default funded state (work not started or in progress)
 			const hasStarted = now > escrowData.estimatedStartTime;
 
 			return {
@@ -178,7 +198,49 @@ function mapBlockchainStatusToPermissions(
 		case EscrowStatus.InDispute: // 1 - Client disputed the task
 			const disputeTimelockExpired = now > escrowData.timelockExpiry;
 			
-			// Check if there's a proposal (Nostr-only state)
+			// PRIORITY 1: Check for pending proposal acceptance (transaction in progress)
+			const hasPendingProposalAcceptance = statusEvents.some(e =>
+				e.content.action === EscrowStatus.PendingProposalAcceptance && e.content.transactionHash
+			);
+
+			if (hasPendingProposalAcceptance) {
+				return {
+					status: EscrowStatus.PendingProposalAcceptance,
+					permissions: {
+						canComplete: false,
+						canAccept: false,
+						canDispute: false,
+						canPropose: false,
+						canAcceptProposal: false, // Already being accepted
+						canCancel: false,
+						canResolveTimelock: false,
+						canDelete: false
+					}
+				};
+			}
+
+			// PRIORITY 2: Check for pending resolution proposal (transaction in progress)
+			const hasPendingResolutionProposal = statusEvents.some(e =>
+				e.content.action === EscrowStatus.PendingResolutionProposal && e.content.transactionHash
+			);
+
+			if (hasPendingResolutionProposal) {
+				return {
+					status: EscrowStatus.PendingResolutionProposal,
+					permissions: {
+						canComplete: false,
+						canAccept: false,
+						canDispute: false,
+						canPropose: false, // Already being proposed
+						canAcceptProposal: false,
+						canCancel: false,
+						canResolveTimelock: false,
+						canDelete: false
+					}
+				};
+			}
+
+			// PRIORITY 3: Check if there's a confirmed proposal (Nostr-only state)
 			const hasProposal = !!disputeProposal;
 			
 			return {

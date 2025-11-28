@@ -122,7 +122,7 @@
 
 	onDestroy(() => {
 		// Cleanup subscription when leaving contracts panel
-		contractStore.unsubscribeFromStatusUpdates();
+		// contractStore.unsubscribeFromStatusUpdates();
 	});
 
 	// Batch load profiles for all contracts
