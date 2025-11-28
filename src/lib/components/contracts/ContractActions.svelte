@@ -15,6 +15,11 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import {
+		ContractModalAction,
+		CONTRACT_MODAL_CONFIGS,
+		initContractModalHandlers
+	} from '$lib/utils/constants/contract-modals';
 
 	const {
 		contract,
@@ -31,16 +36,12 @@
 	// State for actions
 	let isLoading = $state<Record<string, boolean>>({});
 	let showResolutionForm = $state(false);
+	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
 
 	// Disable ALL critical actions when transaction is pending
 	const isDisabledDueToPending = $derived(contract.isPending);
 
-	// Modal state
-	let showCompletionModal = $state(false);
-	let showDeleteConfirm = $state(false);
-	let showAcceptConfirm = $state(false);
-	let showDisputeConfirm = $state(false);
-	let showCancelConfirm = $state(false);
+	// Resolution form state
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
 	let btcPrice = $state<number>(0); // No fallback price
@@ -162,7 +163,7 @@
 		setLoading('complete', true);
 		try {
 			// Call RSK escrow completeTask - this publishes Nostr event with transactionHash
-			const result = await escrow.completeTask(
+			await escrow.completeTask(
 				contractStore.getContractKey(contract, 'escrowId'),
 				contract.contractEvent.id,
 				attachments
@@ -192,19 +193,7 @@
 		}
 	}
 
-	// Show completion modal
-	function showCompleteTaskModal() {
-		if (!contract.permissions.canComplete) return;
-		showCompletionModal = true;
-	}
-
-	// Show accept confirmation
-	function showAcceptConfirmation() {
-		if (!contract.permissions.canAccept || isAcceptDisabled) return;
-		showAcceptConfirm = true;
-	}
-
-	// Accept task (client only) - called from parent modal
+	// Accept task (client only)
 	async function acceptTask() {
 		if (!contract.permissions.canAccept) return;
 
@@ -217,7 +206,7 @@
 		setLoading('accept', true);
 		try {
 			// Call RSK escrow acceptTask - this publishes Nostr event with transactionHash
-			const result = await escrow.acceptTask(
+			await escrow.acceptTask(
 				contractStore.getContractKey(contract, 'escrowId'),
 				contract.contractEvent.id
 			);
@@ -245,29 +234,7 @@
 		}
 	}
 
-	// Show dispute confirmation
-	function showDisputeConfirmation() {
-		if (!contract.permissions.canDispute || isDisputeDisabled) return;
-		showDisputeConfirm = true;
-	}
-
-	// Show cancel confirmation
-	function showCancelConfirmation() {
-		if (!contract.permissions.canCancel || isCancelDisabled) return;
-
-		// Check time-based restrictions
-		const timeCheck = canCancelBasedOnTime();
-		if (!timeCheck.allowed) {
-			appStore.showErrorToast(
-				timeCheck.reason || $t('dashboard.contracts.actions.cancel_time_restriction')
-			);
-			return;
-		}
-
-		showCancelConfirm = true;
-	}
-
-	// Dispute task (client only) - called from parent modal
+	// Dispute task (client only)
 	async function disputeTask() {
 		if (!contract.permissions.canDispute) return;
 
@@ -280,8 +247,8 @@
 		setLoading('dispute', true);
 		try {
 			// Call RSK escrow disputeTask - this publishes Nostr event with transactionHash
-			const result = await escrow.disputeTask(
-				contract.contract.escrowId,
+			await escrow.disputeTask(
+				contractStore.getContractKey(contract, 'escrowId'),
 				contract.contractEvent.id
 			);
 
@@ -334,7 +301,7 @@
 		try {
 			// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
 			await escrow.proposeResolution(
-				contract.contract.escrowId,
+				contractStore.getContractKey(contract, 'escrowId'),
 				freelancerAmountRBTC,
 				contract.contractEvent.id,
 				clientAmountRBTC,
@@ -411,12 +378,11 @@
 		setLoading('cancel', true);
 		try {
 			// Call RSK escrow cancelEscrow - this publishes Nostr event with transactionHash
-			const result = await escrow.cancelEscrow(
-				contract.escrowData.escrowId,
+			// FIX: Use contract.escrowData.escrowId (from blockchain) or contractStore.getContractKey
+			await escrow.cancelEscrow(
+				contractStore.getContractKey(contract, 'escrowId'),
 				contract.contractEvent.id
 			);
-
-			console.log({ result });
 
 			const isClient = contract.isClient;
 			const npubs = isClient
@@ -446,8 +412,6 @@
 
 	// Resolve after timelock
 	async function resolveAfterTimelock() {
-		if (!contract.permissions.canResolveTimelock) return;
-
 		setLoading('resolveTimelock', true);
 		try {
 			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
@@ -476,13 +440,7 @@
 		}
 	}
 
-	// Show delete confirmation
-	function showDeleteConfirmation() {
-		if (!contract.permissions.canDelete) return;
-		showDeleteConfirm = true;
-	}
-
-	// Delete contract (after confirmation) - called from parent modal
+	// Delete contract
 	async function onDeleteContract() {
 		if (!contract.permissions.canDelete) return;
 		setLoading('delete', true);
@@ -506,6 +464,46 @@
 			setLoading('delete', false);
 		}
 	}
+
+	// Modal action handlers - these will be called by the modal configurations
+	function openModal(action: ContractModalAction) {
+		// Special handling for cancel action - check time restrictions
+		if (action === ContractModalAction.Cancel) {
+			const timeCheck = canCancelBasedOnTime();
+			if (!timeCheck.allowed) {
+				appStore.showErrorToast(
+					timeCheck.reason || $t('dashboard.contracts.actions.cancel_time_restriction')
+				);
+				return;
+			}
+		}
+
+		activeModal = action;
+	}
+
+	function closeModal() {
+		activeModal = ContractModalAction.None;
+	}
+
+	// Initialize modal handlers with bound functions
+	initContractModalHandlers({
+		acceptTask: async () => {
+			await acceptTask();
+			closeModal();
+		},
+		disputeTask: async () => {
+			await disputeTask();
+			closeModal();
+		},
+		cancelEscrow: async () => {
+			await cancelEscrow();
+			closeModal();
+		},
+		deleteContract: async () => {
+			await onDeleteContract();
+			closeModal();
+		}
+	});
 
 	// Load translations on mount and when locale changes
 	if (browser) {
@@ -580,7 +578,7 @@
 	{#if contract.permissions.canComplete}
 		<button
 			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-			onclick={showCompleteTaskModal}
+			onclick={() => (activeModal = ContractModalAction.Complete)}
 			disabled={isCompleteDisabled || isDisabledDueToPending}
 			title={blockchainCompletionStatus === EscrowStatus.Completed
 				? $t('dashboard.contracts.actions.task_already_completed_tooltip')
@@ -629,7 +627,7 @@
 	{#if contract.permissions.canAccept}
 		<button
 			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-			onclick={showAcceptConfirmation}
+			onclick={() => openModal(ContractModalAction.Accept)}
 			disabled={isAcceptDisabled || isDisabledDueToPending}
 		>
 			{#if isLoading.accept}
@@ -658,7 +656,7 @@
 	{#if contract.permissions.canDispute}
 		<button
 			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-			onclick={showDisputeConfirmation}
+			onclick={() => openModal(ContractModalAction.Dispute)}
 			disabled={isDisputeDisabled}
 		>
 			{#if isLoading.dispute}
@@ -884,7 +882,7 @@
 	{#if contract.permissions.canCancel}
 		<button
 			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-			onclick={showCancelConfirmation}
+			onclick={() => openModal(ContractModalAction.Cancel)}
 			disabled={isCancelDisabled}
 		>
 			{#if isLoading.cancel}
@@ -953,7 +951,7 @@
 	<!-- Delete Contract (always visible, disabled when canDelete is false) -->
 	<button
 		class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-		onclick={showDeleteConfirmation}
+		onclick={() => openModal(ContractModalAction.Delete)}
 		disabled={isLoading.delete || !contract.permissions.canDelete}
 	>
 		{#if isLoading.delete}
@@ -982,71 +980,30 @@
 <!-- Task Completion Modal -->
 <TaskCompletionModal
 	{contract}
-	isOpen={showCompletionModal}
-	onClose={() => (showCompletionModal = false)}
+	isOpen={activeModal === ContractModalAction.Complete}
+	onClose={closeModal}
 	onComplete={async (attachments) => {
 		await completeTaskWithAttachments(attachments);
-		showCompletionModal = false;
+		closeModal();
 	}}
 	{btcPrice}
 />
 
-<!-- Delete Confirmation Modal -->
-<ConfirmModal
-	isOpen={showDeleteConfirm}
-	title={$t('dashboard.contracts.actions.delete_contract_confirm_title')}
-	message={$t('dashboard.contracts.actions.delete_contract_confirm_message')}
-	confirmText={$t('dashboard.contracts.actions.delete_contract')}
-	cancelText={$t('dashboard.contracts.actions.cancel')}
-	confirmButtonClass="btn-error"
-	onConfirm={async () => {
-		await onDeleteContract();
-		showDeleteConfirm = false;
-	}}
-	onCancel={() => (showDeleteConfirm = false)}
-/>
-
-<!-- Accept Work Confirmation Modal -->
-<ConfirmModal
-	isOpen={showAcceptConfirm}
-	title={$t('dashboard.contracts.actions.accept_work_confirm_title')}
-	message={$t('dashboard.contracts.actions.accept_work_confirm_message')}
-	confirmText={$t('dashboard.contracts.actions.accept_work')}
-	cancelText={$t('dashboard.contracts.actions.cancel')}
-	confirmButtonClass="btn-success"
-	onConfirm={async () => {
-		await acceptTask();
-		showAcceptConfirm = false;
-	}}
-	onCancel={() => (showAcceptConfirm = false)}
-/>
-
-<!-- Dispute Work Confirmation Modal -->
-<ConfirmModal
-	isOpen={showDisputeConfirm}
-	title={$t('dashboard.contracts.actions.dispute_work_confirm_title')}
-	message={$t('dashboard.contracts.actions.dispute_work_confirm_message')}
-	confirmText={$t('dashboard.contracts.actions.dispute_work')}
-	cancelText={$t('dashboard.contracts.actions.cancel')}
-	confirmButtonClass="btn-error"
-	onConfirm={async () => {
-		await disputeTask();
-		showDisputeConfirm = false;
-	}}
-	onCancel={() => (showDisputeConfirm = false)}
-/>
-
-<!-- Cancel Contract Confirmation Modal -->
-<ConfirmModal
-	isOpen={showCancelConfirm}
-	title={$t('dashboard.contracts.actions.cancel_contract_confirm_title')}
-	message={$t('dashboard.contracts.actions.cancel_contract_confirm_message')}
-	confirmText={$t('dashboard.contracts.actions.cancel_contract')}
-	cancelText={$t('dashboard.contracts.actions.cancel')}
-	confirmButtonClass="btn-error"
-	onConfirm={async () => {
-		await cancelEscrow();
-		showCancelConfirm = false;
-	}}
-	onCancel={() => (showCancelConfirm = false)}
-/>
+<!-- Generic Confirmation Modal for Accept/Dispute/Cancel/Delete -->
+{#if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete}
+	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}
+	{#if config}
+		<ConfirmModal
+			isOpen={true}
+			title={$t(config.titleKey)}
+			message={$t(config.messageKey)}
+			confirmText={$t(config.confirmTextKey)}
+			cancelText={$t(config.cancelTextKey)}
+			confirmButtonClass={config.confirmButtonClass}
+			onConfirm={async () => {
+				await config.onConfirm(contract);
+			}}
+			onCancel={closeModal}
+		/>
+	{/if}
+{/if}

@@ -416,8 +416,6 @@ export async function handleStatusEvent(event: NostrEvent) {
 			return;
 		}
 
-		console.log(`[ContractStore] Received status update for escrow ${escrowId}`);
-
 		// Update the contract in the store
 		contractStore.update((state) => {
 			const index = state.contractsMap.get(escrowId);
