@@ -1,3 +1,5 @@
+import { TAGS } from '$lib/utils/constants/tags';
+
 /**
  * Parse message content and extract readable text
  * For JSON messages (like bid-status), extracts the message field
@@ -48,8 +50,8 @@ export function extractLocationDataFromTags(event: { tags: string[][] }): {
 		return null;
 	}
 
-	// Check if event has location_data tag
-	const locationDataTag = event.tags.find((tag) => tag[0] === 'location_data');
+	// Check if event has location data tag (using single-character tag 'l')
+	const locationDataTag = event.tags.find((tag) => tag[0] === TAGS.L);
 	if (locationDataTag && locationDataTag[1]) {
 		try {
 			const locationData = JSON.parse(locationDataTag[1]);

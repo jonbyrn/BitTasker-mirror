@@ -3,8 +3,8 @@ import { sendDirectMessage } from '$lib/utils/nostr-message';
 import { formatLocationAddress, generateGoogleMapsDirectionsLink } from './maps';
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
-import { t, locale } from 'svelte-i18n';
-import { loadNamespace } from '$lib/i18n/i18n';
+import { t } from 'svelte-i18n';
+import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 
 export interface LocationMessageData {
 	type: 'location';
@@ -44,18 +44,15 @@ export async function sendLocationToTaskee(
 		const locationData: LocationMessageData = {
 			type: 'location',
 			location,
-			label: options?.label,
 			taskId: options?.taskId
 		};
 
 		// Create human-readable message
 		const messageText = `📍 ${options?.label || 'Location'}\n\n${formattedAddress}\n\n${directionsLink}\n\n[LOCATION_DATA:${JSON.stringify(locationData)}]`;
 
-		// Send the message
-		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, [
-			['type', 'location'],
-			...(options?.taskId ? [['t', options.taskId]] : [])
-		]);
+		// Send the message using centralized tag patterns
+		const tags = TAG_PATTERNS.location(JSON.stringify(locationData), options?.taskId);
+		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, tags);
 	} catch (error) {
 		console.error('Error sending location to taskee:', error);
 		throw error;
@@ -89,11 +86,7 @@ export async function sendLocationsToTaskee(
 				loc.locationLoaded === true;
 		};
 
-		// Ensure common translations are loaded
-		const currentLocale = get(locale) || 'en';
-		await loadNamespace(currentLocale as 'en' | 'es', 'common');
-
-		// Get translations (call inside function to ensure store is ready)
+		// Get translations (common translations are loaded by default)
 		const _ = get(t);
 
 		// Build locations array - only include valid locations
@@ -140,12 +133,8 @@ export async function sendLocationsToTaskee(
 			messageText += `📍 ${loc.label}\n${formattedAddress}\n${directionsLink}`;
 		});
 
-		// Build tags with location data
-		const tags: string[][] = [
-			['type', 'location'],
-			['location_data', JSON.stringify(locationData)],
-			...(options?.taskId ? [['t', options.taskId]] : [])
-		];
+		// Build tags with location data using centralized tag patterns
+		const tags = TAG_PATTERNS.location(JSON.stringify(locationData), options?.taskId);
 
 		// Send the single message (without JSON in text)
 		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, tags);
