@@ -1,35 +1,22 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { ContractProfile } from '$lib/utils/nostr-profile';
-	import { getStatusTranslationKey, getStatusColorClass } from '$lib/utils/helpers/contractStatusFormatter';
+	import {
+		getStatusTranslationKey,
+		getStatusColorClass
+	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
 
-	const { contract, btcPrice, userProfile, onclick } = $props<{
+	const { contract, btcPrice, userProfile } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
 		userProfile?: ContractProfile;
-		onclick?: () => void;
 	}>();
 
 	// Profile is now passed as prop, no need to fetch
 	const isLoadingUserProfile = $derived(userProfile === undefined);
-
-	// Format member since date
-	function formatMemberSinceDate(dateString: string | undefined): string {
-		if (!dateString) return '';
-		try {
-			const date = new Date(dateString);
-			if (isNaN(date.getTime())) return dateString;
-			return date.toLocaleDateString('en-US', {
-				month: 'short',
-				year: 'numeric'
-			});
-		} catch (error) {
-			return dateString;
-		}
-	}
 
 	// Format RBTC amount
 	function formatRBTC(amount: string): string {
@@ -95,6 +82,11 @@
 		if (contract.permissions.canResolveTimelock) count++;
 		return count;
 	}
+
+	const openDrawer = () => {
+		$contractStore.contract = contract;
+		$contractStore.isDrawerOpen = true;
+	};
 </script>
 
 <div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
@@ -105,10 +97,7 @@
 					<small class="card-title line-clamp-1 text-lg">
 						<button
 							class="hover:text-primary cursor-pointer text-left transition-colors"
-							onclick={(e) => {
-								e.stopPropagation();
-								onclick?.();
-							}}
+							onclick={openDrawer}
 						>
 							{contractStore.getContractKey(contract, 'taskTitle')}
 						</button>
@@ -122,7 +111,7 @@
 				<div class="ml-4 flex shrink-0 flex-col items-end gap-2">
 					<div class="flex items-center gap-2">
 						<div class="badge {getStatusColorClass(contract.status)} badge-sm">
-							{#if contract.isPending}
+							{#if contract?.isPending}
 								<span class="loading loading-spinner loading-xs mr-1"></span>
 							{/if}
 							{$t(getStatusTranslationKey(contract.status))}
@@ -135,7 +124,10 @@
 					<!-- Price with stacked design -->
 					<div class="text-right">
 						{#if btcPrice > 0}
-							{@const priceData = formatPriceStacked(contractStore.getContractKey(contract, 'amount'), btcPrice)}
+							{@const priceData = formatPriceStacked(
+								contractStore.getContractKey(contract, 'amount'),
+								btcPrice
+							)}
 							<div class="text-base-content text-lg font-bold">
 								{priceData.usd}
 							</div>
@@ -251,35 +243,26 @@
 					<ContractActions
 						{contract}
 						containerClass="flex flex-row-reverse flex-wrap gap-2 w-full sm:w-auto"
-						openDrawer={() => onclick?.()}
 						isInline={true}
 					/>
 				{/if}
-				{#if onclick}
-					<button
-						class="btn btn-outline btn-sm w-full sm:w-auto"
-						onclick={(e) => {
-							e.stopPropagation();
-							onclick?.();
-						}}
+				<button class="btn btn-outline btn-sm w-full sm:w-auto" onclick={openDrawer}>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						{$t('dashboard.contracts.view_details')}
-					</button>
-				{/if}
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					{$t('dashboard.contracts.view_details')}
+				</button>
 			</div>
 		</div>
 	</div>

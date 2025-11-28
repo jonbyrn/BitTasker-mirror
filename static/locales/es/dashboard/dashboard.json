@@ -567,7 +567,9 @@
         "funds_released": "Fondos Liberados",
         "pending_acceptance": "Pendiente de Aceptación",
         "dispute_resolution_proposed": "Propuesta de Resolución de Disputa",
-        "task_completed": "Tarea Completada"
+        "task_completed": "Tarea Completada",
+        "dispute_raised": "Disputa Presentada",
+        "escrow_cancelled": "Contrato de Pago Seguro Cancelado"
       },
       "actions": {
         "complete_task": "Marcar Tarea como Completada",

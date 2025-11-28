@@ -408,6 +408,8 @@ export async function publishPendingCancellation(
 			message: _('dashboard.contracts.actions.escrow_cancelling_message'),
 			transactionHash
 		});
+
+		appStore.showInfoToast(_('dashboard.contracts.actions.escrow_cancelling_message'));
 	} catch (error) {
 		console.error('Failed to publish pending cancellation:', error);
 	}

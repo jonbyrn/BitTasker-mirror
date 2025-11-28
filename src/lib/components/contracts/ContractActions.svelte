@@ -17,20 +17,17 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import {
 		ContractModalAction,
-		CONTRACT_MODAL_CONFIGS,
-		initContractModalHandlers
+		CONTRACT_MODAL_CONFIGS
 	} from '$lib/utils/constants/contract-modals';
 
 	const {
 		contract,
 		containerClass = 'space-y-3',
-		openDrawer = () => {},
 		isInline = false
 	} = $props<{
 		contract: ContractWithEvents;
 		containerClass?: string;
 		isInline?: boolean;
-		openDrawer?: () => void;
 	}>();
 
 	// State for actions
@@ -236,7 +233,9 @@
 
 	// Dispute task (client only)
 	async function disputeTask() {
-		if (!contract.permissions.canDispute) return;
+		console.log('Disputing task...', contract.escrowData.id);
+		if (!contract.permissions.canDispute)
+			return console.log('User does not have permission to dispute task', contract);
 
 		// Check if already pending via Nostr
 		if (contract.isPending) {
@@ -367,7 +366,9 @@
 	// Cancel escrow
 	async function cancelEscrow() {
 		console.log({ contract });
-		if (!contract.permissions.canCancel) return;
+		if (!contract.permissions.canCancel) {
+			return appStore.showErrorToast($t('dashboard.contracts.actions.cancel_time_restriction'));
+		}
 
 		// Check if already pending via Nostr
 		if (contract.isPending) {
@@ -377,8 +378,8 @@
 
 		setLoading('cancel', true);
 		try {
+			console.log('Cancelling escrow', contract.escrowData?.id);
 			// Call RSK escrow cancelEscrow - this publishes Nostr event with transactionHash
-			// FIX: Use contract.escrowData.escrowId (from blockchain) or contractStore.getContractKey
 			await escrow.cancelEscrow(
 				contractStore.getContractKey(contract, 'escrowId'),
 				contract.contractEvent.id
@@ -485,25 +486,29 @@
 		activeModal = ContractModalAction.None;
 	}
 
-	// Initialize modal handlers with bound functions
-	initContractModalHandlers({
-		acceptTask: async () => {
-			await acceptTask();
-			closeModal();
-		},
-		disputeTask: async () => {
-			await disputeTask();
-			closeModal();
-		},
-		cancelEscrow: async () => {
-			await cancelEscrow();
-			closeModal();
-		},
-		deleteContract: async () => {
-			await onDeleteContract();
-			closeModal();
+	// Handle modal confirmation based on active modal type
+	async function handleModalConfirm() {
+		console.log('Confirming...', contract.escrowData.id);
+		
+		switch (activeModal) {
+			case ContractModalAction.Accept:
+				await acceptTask();
+				break;
+			case ContractModalAction.Dispute:
+				await disputeTask();
+				break;
+			case ContractModalAction.Cancel:
+				await cancelEscrow();
+				break;
+			case ContractModalAction.Delete:
+				await onDeleteContract();
+				break;
+			default:
+				console.warn('Unknown modal action:', activeModal);
 		}
-	});
+		
+		closeModal();
+	}
 
 	// Load translations on mount and when locale changes
 	if (browser) {
@@ -571,6 +576,12 @@
 			}
 		}
 	});
+
+	const openDrawer = () => {
+		showResolutionForm = true;
+		$contractStore.contract = contract;
+		$contractStore.isDrawerOpen = true;
+	};
 </script>
 
 <div class="{containerClass} {containerClass.includes('grid') ? 'w-full' : ''}">
@@ -686,10 +697,7 @@
 		{#if !showResolutionForm}
 			<button
 				class="btn btn-warning btn-sm text-black {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-				onclick={() => {
-					showResolutionForm = true;
-					openDrawer();
-				}}
+				onclick={openDrawer}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -1000,9 +1008,7 @@
 			confirmText={$t(config.confirmTextKey)}
 			cancelText={$t(config.cancelTextKey)}
 			confirmButtonClass={config.confirmButtonClass}
-			onConfirm={async () => {
-				await config.onConfirm(contract);
-			}}
+			onConfirm={handleModalConfirm}
 			onCancel={closeModal}
 		/>
 	{/if}

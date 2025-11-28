@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { Attachment } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
@@ -15,17 +14,11 @@
 	import { contractStore } from '$lib/stores/contract.store';
 
 	const {
-		contract = $bindable(null),
-		isOpen = $bindable(false),
 		btcPrice,
 		taskeeProfile: taskeeProfileProp,
-		onClose,
 	} = $props<{
-		contract: ContractWithEvents | null;
-		isOpen: boolean;
 		btcPrice: number;
 		taskeeProfile?: ContractProfile;
-		onClose: () => void;
 	}>();
 
 	// Technical details toggle state
@@ -41,9 +34,9 @@
 			// Profile provided by parent - use it directly
 			taskeeProfile = taskeeProfileProp ?? null;
 			isLoadingTaskeeProfile = false;
-		} else if (contract) {
+		} else if ($contractStore.contract) {
 			// Profile not provided - load it ourselves (fallback)
-			loadTaskeeProfile(contractStore.getContractKey(contract, 'taskeePubkey'));
+			loadTaskeeProfile(contractStore.getContractKey($contractStore.contract, 'taskeePubkey'));
 		}
 	});
 
@@ -145,28 +138,33 @@
 	}
 
 	const getAvailableActionsCount = () => {
-		if (!contract) return 0;
+		if (!$contractStore.contract) return 0;
 		let count = 0;
-		if (contract.permissions.canComplete) count++;
-		if (contract.permissions.canAccept) count++;
-		if (contract.permissions.canDispute) count++;
-		if (contract.permissions.canPropose) count++;
-		if (contract.permissions.canAcceptProposal) count++;
-		if (contract.permissions.canCancel) count++;
-		if (contract.permissions.canResolveTimelock) count++;
+		if ($contractStore.contract.permissions.canComplete) count++;
+		if ($contractStore.contract.permissions.canAccept) count++;
+		if ($contractStore.contract.permissions.canDispute) count++;
+		if ($contractStore.contract.permissions.canPropose) count++;
+		if ($contractStore.contract.permissions.canAcceptProposal) count++;
+		if ($contractStore.contract.permissions.canCancel) count++;
+		if ($contractStore.contract.permissions.canResolveTimelock) count++;
 		return count;
 	};
 </script>
 
 <Drawer
-	{isOpen}
-	title={contract?.contract?.taskTitle}
-	{onClose}
+	isOpen={$contractStore.isDrawerOpen}
+	title={$contractStore.contract
+		? contractStore.getContractKey($contractStore.contract, 'taskTitle')
+		: ''}
+	onClose={() => {
+		$contractStore.contract = null;
+		$contractStore.isDrawerOpen = false;
+	}}
 	position="right"
 	isScrollable={true}
 >
 	{#snippet children()}
-		{#if contract}
+		{#if $contractStore.contract}
 			<!-- Contract Details -->
 			<div class="space-y-6">
 				<!-- Contract Info Card -->
@@ -175,11 +173,17 @@
 						<div class="mb-3 flex items-center justify-between gap-2">
 							<h4 class="font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
 							<div class="flex shrink-0 items-center gap-2">
-								<div class="badge {getStatusColorClass(contract.status)}">
-									{$t(getStatusTranslationKey(contract.status))}
+								<div class="badge {getStatusColorClass($contractStore.contract.status)}">
+									{$t(getStatusTranslationKey($contractStore.contract.status))}
 								</div>
-								<div class="badge {contract.isClient ? 'badge-primary' : 'badge-secondary'}">
-									{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
+								<div
+									class="badge {$contractStore.contract.isClient
+										? 'badge-primary'
+										: 'badge-secondary'}"
+								>
+									{$contractStore.contract.isClient
+										? $t('dashboard.client')
+										: $t('dashboard.freelancer')}
 								</div>
 							</div>
 						</div>
@@ -260,8 +264,11 @@
 								<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
 								<span class="font-semibold"
 									>{btcPrice > 0
-										? formatUSDWithSatsSync(contractStore.getContractKey(contract, 'amount'), btcPrice)
-										: `${formatRBTC(contractStore.getContractKey(contract, 'amount'))} RBTC`}</span
+										? formatUSDWithSatsSync(
+												contractStore.getContractKey($contractStore.contract, 'amount'),
+												btcPrice
+											)
+										: `${formatRBTC(contractStore.getContractKey($contractStore.contract, 'amount'))} RBTC`}</span
 								>
 							</div>
 
@@ -270,7 +277,9 @@
 									>{$t('dashboard.contracts.estimated_start')}:</span
 								>
 								<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
-									>{formatDate(contractStore.getContractKey(contract, 'estimatedStartTime'))}</span
+									>{formatDate(
+										contractStore.getContractKey($contractStore.contract, 'estimatedStartTime')
+									)}</span
 								>
 							</div>
 
@@ -279,13 +288,19 @@
 									>{$t('dashboard.contracts.estimated_completion')}:</span
 								>
 								<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
-									>{formatDate(contractStore.getContractKey(contract, 'estimatedCompletionTime'))}</span
+									>{formatDate(
+										contractStore.getContractKey($contractStore.contract, 'estimatedCompletionTime')
+									)}</span
 								>
 							</div>
 
 							<div class="flex justify-between gap-2">
 								<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
-								<span class="text-sm">{formatDate(contractStore.getContractKey(contract, 'createdAt'))}</span>
+								<span class="text-sm"
+									>{formatDate(
+										contractStore.getContractKey($contractStore.contract, 'createdAt')
+									)}</span
+								>
 							</div>
 						</div>
 					</div>
@@ -296,7 +311,7 @@
 					<div class="card-body p-4">
 						<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.task_description')}</h4>
 						<p class="text-base-content/80 text-sm leading-relaxed">
-							{contractStore.getContractKey(contract, 'taskDescription')}
+							{contractStore.getContractKey($contractStore.contract, 'taskDescription')}
 						</p>
 
 						<!-- Original Bid Proposal - Expandable Section -->
@@ -346,8 +361,16 @@
 														>{$t('dashboard.contracts.estimated_duration')}:</span
 													>
 													<p class="text-base-content/80 mt-1 text-xs">
-														{formatDate(contractStore.getContractKey(contract, 'estimatedStartTime'))} - {formatDate(
-															contractStore.getContractKey(contract, 'estimatedCompletionTime')
+														{formatDate(
+															contractStore.getContractKey(
+																$contractStore.contract,
+																'estimatedStartTime'
+															)
+														)} - {formatDate(
+															contractStore.getContractKey(
+																$contractStore.contract,
+																'estimatedCompletionTime'
+															)
 														)}
 													</p>
 												</div>
@@ -357,9 +380,12 @@
 														>{$t('dashboard.contracts.original_amount')}:</span
 													>
 													<p class="text-base-content/80 mt-1 text-xs">
-													{btcPrice > 0
-														? formatUSDWithSatsSync(contractStore.getContractKey(contract, 'amount'), btcPrice)
-														: `${formatRBTC(contractStore.getContractKey(contract, 'amount'))} RBTC`}
+														{btcPrice > 0
+															? formatUSDWithSatsSync(
+																	contractStore.getContractKey($contractStore.contract, 'amount'),
+																	btcPrice
+																)
+															: `${formatRBTC(contractStore.getContractKey($contractStore.contract, 'amount'))} RBTC`}
 													</p>
 												</div>
 											</div>
@@ -374,7 +400,7 @@
 				<!-- Completion Evidence and Status Timeline (side-by-side on desktop) -->
 				<div class="flex flex-col gap-6 lg:flex-row">
 					<!-- Completion Evidence (only show if task is completed and has attachments) -->
-					{#if contract.completionAttachments && contract.completionAttachments.length > 0}
+					{#if $contractStore.contract.completionAttachments && $contractStore.contract.completionAttachments.length > 0}
 						<div class="card bg-base-200 flex-1 overflow-hidden">
 							<div class="card-body p-4">
 								<h4 class="mb-3 font-semibold">
@@ -382,11 +408,11 @@
 								</h4>
 
 								<!-- Images Gallery -->
-								{#if contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+								{#if $contractStore.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
 									<div class="mb-4">
-										{#await prepareGalleryImages(contract.completionAttachments) then galleryImages}
+										{#await prepareGalleryImages($contractStore.contract.completionAttachments) then galleryImages}
 											<Gallery
-												galleryID={`completion-evidence-gallery-${contractStore.getContractKey(contract, 'escrowId')}`}
+												galleryID={`completion-evidence-gallery-${contractStore.getContractKey($contractStore.contract, 'escrowId')}`}
 												images={galleryImages}
 												thumbnailSize="h-40 w-40"
 											/>
@@ -395,9 +421,9 @@
 								{/if}
 
 								<!-- Videos -->
-								{#if contract.completionAttachments.filter( (att: Attachment) => isVideoFile(att.url) ).length > 0}
+								{#if $contractStore.contract.completionAttachments.filter( (att: Attachment) => isVideoFile(att.url) ).length > 0}
 									<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-										{#each contract.completionAttachments.filter( (att: Attachment) => isVideoFile(att.url) ) as attachment}
+										{#each $contractStore.contract.completionAttachments.filter( (att: Attachment) => isVideoFile(att.url) ) as attachment}
 											<div class="group relative">
 												<div class="bg-base-300 aspect-square overflow-hidden rounded-lg">
 													<video
@@ -424,11 +450,11 @@
 					<div class="card bg-base-200 flex-1">
 						<div class="card-body p-4">
 							<div class="mb-3 flex items-center gap-3">
-								{#if contract.statusEvents.length > 0}
+								{#if $contractStore.contract.statusEvents.length > 0}
 									<div
 										class="bg-primary text-primary-content flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full text-base font-semibold"
 									>
-										{contract.statusEvents.length}
+										{$contractStore.contract.statusEvents.length}
 									</div>
 								{/if}
 								<h4 class="font-semibold">
@@ -436,7 +462,13 @@
 								</h4>
 							</div>
 
-							<ContractTimeline statusEvents={contract.statusEvents} contractPubkey={contractStore.getContractKey(contract, 'clientPubkey')} />
+							<ContractTimeline
+								statusEvents={$contractStore.contract.statusEvents}
+								contractPubkey={contractStore.getContractKey(
+									$contractStore.contract,
+									'clientPubkey'
+								)}
+							/>
 						</div>
 					</div>
 				</div>
@@ -467,7 +499,7 @@
 							</div>
 						{/if}
 						<ContractActions
-							{contract}
+							contract={$contractStore.contract}
 							containerClass={getAvailableActionsCount() >= 1
 								? 'grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'
 								: 'flex justify-center items-center'}
@@ -505,7 +537,7 @@
 									<div>
 										<span class="text-base-content/60">{$t('dashboard.contracts.task_id')}:</span>
 										<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-											{contractStore.getContractKey(contract, 'taskId')}
+											{contractStore.getContractKey($contractStore.contract, 'taskId')}
 										</div>
 									</div>
 									<div>
@@ -513,7 +545,7 @@
 											>{$t('dashboard.contracts.client_pubkey')}:</span
 										>
 										<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-											{contractStore.getContractKey(contract, 'clientPubkey')}
+											{contractStore.getContractKey($contractStore.contract, 'clientPubkey')}
 										</div>
 									</div>
 									<div>
@@ -521,7 +553,7 @@
 											>{$t('dashboard.contracts.freelancer_pubkey')}:</span
 										>
 										<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-											{contractStore.getContractKey(contract, 'freelancerPubkey')}
+											{contractStore.getContractKey($contractStore.contract, 'freelancerPubkey')}
 										</div>
 									</div>
 									<div>
@@ -529,12 +561,14 @@
 											>{$t('dashboard.contracts.contract_event_id')}:</span
 										>
 										<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-											{contract.contractEvent.id}
+											{$contractStore.contract.contractEvent.id}
 										</div>
 									</div>
 									<div>
 										<span class="text-base-content/60">{$t('dashboard.contracts.currency')}:</span>
-										<div class="mt-1 font-semibold">{contractStore.getContractKey(contract, 'currency')}</div>
+										<div class="mt-1 font-semibold">
+											{contractStore.getContractKey($contractStore.contract, 'currency')}
+										</div>
 									</div>
 								</div>
 							</div>
