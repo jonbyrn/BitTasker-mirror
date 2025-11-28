@@ -8,22 +8,25 @@ import { nip19 } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import KINDS from '$lib/utils/constants/kinds';
-import { TAG_FILTERS } from '$lib/utils/constants/tags';
 
 // Contract store state
 type ContractStoreState = {
-	contracts: ContractWithEvents[];
+	contract: ContractWithEvents | null; // Current selected contract
+	contracts: ContractWithEvents[]; // All contracts
 	contractsMap: Map<string, number>; // Maps escrowId -> array index for O(1) access
 	isLoading: boolean;
 	error: string | null;
+	isDrawerOpen: boolean;
 };
 
 // Initial state
 const initialState: ContractStoreState = {
 	contracts: [],
+	contract: null,
 	contractsMap: new Map(),
 	isLoading: false,
-	error: null
+	error: null,
+	isDrawerOpen: false
 };
 
 // Subscription management - need TWO subscriptions for OR logic
@@ -98,6 +101,7 @@ function createContractStore() {
 		}
 	}
 	return {
+		set,
 		subscribe,
 		update,
 
@@ -118,9 +122,11 @@ function createContractStore() {
 
 				set({
 					contracts: loadedContracts,
+					contract: null, // Reset selected contract when reloading
 					contractsMap,
 					isLoading: false,
-					error: null
+					error: null,
+					isDrawerOpen: false
 				});
 			} catch (err) {
 				const error = err instanceof Error ? err.message : 'Failed to load contracts';
@@ -219,7 +225,7 @@ function createContractStore() {
 		/**
 		 * Unsubscribe from real-time contract status updates
 		 */
-		unsubscribeFromStatusUpdates,
+		// unsubscribeFromStatusUpdates,
 
 		/**
 		 * Reset store to initial state

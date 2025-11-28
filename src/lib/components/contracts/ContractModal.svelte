@@ -68,7 +68,7 @@
 	}
 </script>
 
-{#if isOpen}
+{#if isOpen && contract}
 	<!-- Modal backdrop -->
 	<div
 		class="modal modal-open"

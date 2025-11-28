@@ -617,8 +617,6 @@ async function cancelEscrow(escrowId: string, contractEventId?: string): Promise
             await EscrowNostrEvent.publishPendingCancellation(escrowId, contractEventId, tx.hash);
         }
 
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.escrow_cancelling_message'));
-
         // Handle confirmation asynchronously using the same pattern as createEscrow
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
@@ -680,8 +678,6 @@ async function disputeTask(escrowId: string, contractEventId?: string): Promise<
         if (contractEventId) {
             await EscrowNostrEvent.publishPendingDispute(escrowId, contractEventId, tx.hash);
         }
-
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.dispute_raising_message'));
 
         // Handle confirmation asynchronously using the same pattern as createEscrow
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
@@ -748,16 +744,26 @@ async function proposeResolution(
             }
         );
 
-        const result: ContractTransactionResult = {
-            hash: tx.hash,
-            escrowId,
-            status: 'pending'
-        };
+		const result: ContractTransactionResult = {
+			hash: tx.hash,
+			escrowId,
+			status: 'pending'
+		};
 
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.resolution_proposing_message'));
+		// CRITICAL: Publish pending status BEFORE showing toast
+		// This prevents double-submissions during ~30s blockchain confirmation
+		if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
+			await EscrowNostrEvent.publishPendingResolutionProposal(
+				escrowId,
+				contractEventId,
+				tx.hash,
+				proposedClientAmount,
+				proposedFreelancerAmount
+			);
+		}
 
-        // Handle confirmation asynchronously using the same pattern as createEscrow
-        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+		// Handle confirmation asynchronously using the same pattern as createEscrow
+		tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
@@ -808,16 +814,20 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
             gasPrice: gasPrice
         });
 
-        const result: ContractTransactionResult = {
-            hash: tx.hash,
-            escrowId,
-            status: 'pending'
-        };
+		const result: ContractTransactionResult = {
+			hash: tx.hash,
+			escrowId,
+			status: 'pending'
+		};
 
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.proposal_accepting_message'));
+		// CRITICAL: Publish pending status BEFORE showing toast
+		// This prevents double-submissions during ~30s blockchain confirmation
+		if (contractEventId) {
+			await EscrowNostrEvent.publishPendingProposalAcceptance(escrowId, contractEventId, tx.hash);
+		}
 
-        // Handle confirmation asynchronously using the same pattern as createEscrow
-        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+		// Handle confirmation asynchronously using the same pattern as createEscrow
+		tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
@@ -849,6 +859,7 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
 }
 
 // Resolve after timelock
+// TODO: Add pending status event
 async function resolveAfterTimelock(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract, provider } = await ensureEscrowReady();

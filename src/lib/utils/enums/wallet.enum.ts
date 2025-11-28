@@ -40,4 +40,6 @@ export enum EscrowStatus {
 	// Dispute-Related States
 	DisputeResolutionProposed = 12, // Proposal exists (Nostr-only, blockchain stays InDispute)
 	PendingDispute = 13,            // BEFORE disputeTask() confirms - prevents double-dispute
+	PendingResolutionProposal = 14, // BEFORE proposeResolution() confirms - prevents double-proposal
+	PendingProposalAcceptance = 15, // BEFORE acceptProposal() confirms - prevents double-acceptance
 }

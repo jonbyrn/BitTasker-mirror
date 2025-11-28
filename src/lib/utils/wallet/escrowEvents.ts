@@ -310,6 +310,8 @@ export async function publishPendingDispute(
 			message: _('dashboard.contracts.actions.dispute_raising_message'),
 			transactionHash
 		});
+
+		appStore.showInfoToast(_('dashboard.contracts.actions.dispute_raising_message'));
 	} catch (error) {
 		console.error('Failed to publish pending dispute:', error);
 	}
@@ -368,6 +370,58 @@ export async function handleResolutionProposed(event: { escrowId: string; transa
 }
 
 /**
+ * Publish pending resolution proposal status BEFORE transaction is broadcast
+ * This prevents double-submissions during blockchain confirmation (~30s)
+ */
+export async function publishPendingResolutionProposal(
+	escrowId: string,
+	contractEventId: string,
+	transactionHash: string,
+	proposedClientAmount: string,
+	proposedFreelancerAmount: string
+): Promise<void> {
+	try {
+		await publishContractStatus({
+			contractEventId,
+			escrowId,
+			action: EscrowStatus.PendingResolutionProposal,
+			message: _('dashboard.contracts.actions.resolution_proposing_message'),
+			transactionHash,
+			proposedClientAmount,
+			proposedFreelancerAmount
+		});
+
+		appStore.showInfoToast(_('dashboard.contracts.actions.resolution_proposing_message'));
+	} catch (error) {
+		console.error('Failed to publish pending resolution proposal:', error);
+	}
+}
+
+/**
+ * Publish pending proposal acceptance status BEFORE transaction is broadcast
+ * This prevents double-submissions during blockchain confirmation (~30s)
+ */
+export async function publishPendingProposalAcceptance(
+	escrowId: string,
+	contractEventId: string,
+	transactionHash: string
+): Promise<void> {
+	try {
+		await publishContractStatus({
+			contractEventId,
+			escrowId,
+			action: EscrowStatus.PendingProposalAcceptance,
+			message: _('dashboard.contracts.actions.proposal_accepting_message'),
+			transactionHash
+		});
+
+		appStore.showInfoToast(_('dashboard.contracts.actions.proposal_accepting_message'));
+	} catch (error) {
+		console.error('Failed to publish pending proposal acceptance:', error);
+	}
+}
+
+/**
  * Handle proposal accepted event - called from transaction confirmation
  */
 export async function handleProposalAccepted(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
@@ -408,6 +462,8 @@ export async function publishPendingCancellation(
 			message: _('dashboard.contracts.actions.escrow_cancelling_message'),
 			transactionHash
 		});
+
+		appStore.showInfoToast(_('dashboard.contracts.actions.escrow_cancelling_message'));
 	} catch (error) {
 		console.error('Failed to publish pending cancellation:', error);
 	}

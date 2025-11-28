@@ -21,10 +21,6 @@
 	import IconAccountOutline from '~icons/mdi/account-outline';
 	import IconAccountTieOutline from '~icons/mdi/account-tie-outline';
 
-	// State
-	let selectedContract = $state<ContractWithEvents | null>(null);
-	let showContractDrawer = $state(false);
-
 	// Filters
 	let statusFilter = $state<EscrowStatus | 'all'>('all');
 	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
@@ -126,7 +122,7 @@
 
 	onDestroy(() => {
 		// Cleanup subscription when leaving contracts panel
-		contractStore.unsubscribeFromStatusUpdates();
+		// contractStore.unsubscribeFromStatusUpdates();
 	});
 
 	// Batch load profiles for all contracts
@@ -179,16 +175,10 @@
 		}
 	}
 
-	function openContractDrawer(contract: ContractWithEvents) {
-		selectedContract = contract;
-		showContractDrawer = true;
-	}
-
 	function closeContractDrawer() {
-		selectedContract = null;
-		showContractDrawer = false;
+		$contractStore.contract = null;
+		$contractStore.isDrawerOpen = false;
 	}
-
 
 	function selectStatusFilter(statusId: EscrowStatus | 'all') {
 		statusFilter = statusId;
@@ -213,7 +203,7 @@
 
 <div class="space-y-6">
 	<!-- Filters container with same design as TasksPanel -->
-	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 mt-2 shadow-sm">
+	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
 		<!-- Header with title and refresh button -->
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<div class="space-y-1">
@@ -247,7 +237,7 @@
 			<p class="text-base-content/70 mb-3 text-sm">
 				{$t('dashboard.contracts.filter_description')}
 			</p>
-			
+
 			<!-- Role Filter Buttons (Mobile) -->
 			<div class="mb-3 flex gap-2">
 				{#each roleFilterOptions as option}
@@ -351,7 +341,7 @@
 				{#each statusFilterOptions as option}
 					{@const IconComponent = option.icon}
 					<button
-						class="flex btn btn-sm py-4 flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl text-center transition-all duration-200 {statusFilter ===
+						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {statusFilter ===
 						option.id
 							? 'text-primary bg-primary/10 border-primary/30 border'
 							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
@@ -437,12 +427,7 @@
 			{#each filteredContracts() as contract (contractStore.getContractKey(contract, 'escrowId'))}
 				{@const userPubkey = contractStore.getContractKey(contract, 'taskeePubkey')}
 				{@const userProfile = profileCache.get(userPubkey)}
-				<ContractCard
-					{contract}
-					{btcPrice}
-					{userProfile}
-					onclick={() => openContractDrawer(contract)}
-				/>
+				<ContractCard {contract} {btcPrice} {userProfile} />
 			{/each}
 		{/if}
 	{/if}
@@ -450,11 +435,10 @@
 
 <!-- Contract Drawer - DO Not wrap in a condition for animation to work -->
 <ContractDrawer
-	bind:contract={selectedContract}
-	bind:isOpen={showContractDrawer}
 	{btcPrice}
-	taskeeProfile={selectedContract ? profileCache.get(contractStore.getContractKey(selectedContract, 'taskeePubkey')) : undefined}
-	onClose={closeContractDrawer}
+	taskeeProfile={$contractStore.contract
+		? profileCache.get(contractStore.getContractKey($contractStore.contract, 'taskeePubkey'))
+		: undefined}
 />
 
 <svelte:window onclick={handleClickOutside} />
