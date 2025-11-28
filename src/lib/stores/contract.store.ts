@@ -1,7 +1,14 @@
 import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
+import type { Filter } from 'nostr-tools';
 import { writable } from 'svelte/store';
-import { getContracts } from '$lib/utils/nostr-contract';
+import { getContracts, handleStatusEvent } from '$lib/utils/nostr-contract';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { getNpub } from '$lib/utils/nostrKeys';
+import { nip19 } from 'nostr-tools';
+import { appStore } from '$lib/stores/app.store';
+import { get } from 'svelte/store';
+import KINDS from '$lib/utils/constants/kinds';
+import { TAG_FILTERS } from '$lib/utils/constants/tags';
 
 // Contract store state
 type ContractStoreState = {
@@ -19,28 +26,96 @@ const initialState: ContractStoreState = {
 	error: null
 };
 
+// Subscription management - need TWO subscriptions for OR logic
+let statusSubscriptionIncoming: { close: () => void } | null = null;
+let statusSubscriptionOutgoing: { close: () => void } | null = null;
+
 // Create the store
 function createContractStore() {
 	const { subscribe, set, update } = writable<ContractStoreState>(initialState);
 
+	/**
+	 * Subscribe to contract status updates
+	 * Note: pool.subscribe only accepts ONE filter at a time, so we need TWO separate subscriptions:
+	 * Subscription 1: Status events TO the user (recipient - #p tag)
+	 * Subscription 2: Status events FROM the user (author - to see own status updates)
+	 */
+	async function subscribeToStatusUpdates() {
+		try {
+			if (statusSubscriptionIncoming && statusSubscriptionOutgoing) {
+				return;
+			}
+
+			const npub = await getNpub();
+			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+			const pool = get(appStore).pool;
+
+			if (!pool) {
+				console.error('[ContractStore] Pool not available');
+				return;
+			}
+
+			const since = Math.floor(Date.now() / 1000);
+
+			// Subscription 1: Status events where user is RECIPIENT
+			statusSubscriptionIncoming = pool.subscribe(
+				[import.meta.env.VITE_NOSTR_RELAY_URL],
+				{
+					kinds: [KINDS.CONTRACT_STATUS],
+					'#p': [userPubkeyHex],
+					since
+				},
+				{ onevent: handleStatusEvent }
+			);
+
+			// Subscription 2: Status events where user is AUTHOR (to see own updates)
+			statusSubscriptionOutgoing = pool.subscribe(
+				[import.meta.env.VITE_NOSTR_RELAY_URL],
+				{
+					kinds: [KINDS.CONTRACT_STATUS],
+					authors: [userPubkeyHex],
+					since
+				},
+				{ onevent: handleStatusEvent }
+			);
+
+		} catch (error) {
+			console.error('[ContractStore] Failed to subscribe:', error);
+		}
+	}
+
+	/**
+	 * Unsubscribe from contract status updates
+	 */
+	function unsubscribeFromStatusUpdates() {
+		if (statusSubscriptionIncoming) {
+			statusSubscriptionIncoming.close();
+			statusSubscriptionIncoming = null;
+		}
+		if (statusSubscriptionOutgoing) {
+			statusSubscriptionOutgoing.close();
+			statusSubscriptionOutgoing = null;
+		}
+	}
 	return {
 		subscribe,
+		update,
 
 		/**
 		 * Load all contracts (initial load)
 		 */
 		async loadContracts() {
 			update(state => ({ ...state, isLoading: true, error: null }));
-			
+
 			try {
 				const loadedContracts = await getContracts();
-				
+
 				// Build index map: escrowId -> array index for O(1) access
 				const contractsMap = new Map<string, number>();
 				loadedContracts.forEach((contract, index) => {
 					contractsMap.set(contract.contractEvent.content.escrowId, index);
 				});
-				
+
 				set({
 					contracts: loadedContracts,
 					contractsMap,
@@ -55,49 +130,6 @@ function createContractStore() {
 		},
 
 		/**
-		 * Update contract status directly (called from blockchain events)
-		 * This updates the contract status without re-fetching from Nostr/blockchain
-		 * 
-		 * @param escrowId - The escrow ID of the contract to update
-		 * @param newStatus - The new unified status
-		 * @param blockchainStatus - The new blockchain status (optional)
-		 */
-		updateContractStatus(
-			escrowId: string, 
-			newStatus: EscrowStatus, 
-			blockchainStatus?: EscrowStatus
-		) {
-			update(state => {
-				const index = state.contractsMap.get(escrowId);
-				
-				if (index === undefined) {
-					console.warn(`[ContractStore] Contract not found for escrowId: ${escrowId}`);
-					return state;
-				}
-
-				// Direct array access - O(1) operation
-				const contract = state.contracts[index];
-				
-				// Create updated contract with new status
-				const updatedContract: ContractWithEvents = {
-					...contract,
-					status: newStatus,
-					blockchainStatus: blockchainStatus ?? contract.blockchainStatus,
-					isPending: false // Clear pending state after blockchain confirmation
-				};
-				
-				// Create new array with updated contract at the same index
-				const newContracts = [...state.contracts];
-				newContracts[index] = updatedContract;
-				
-				return {
-					...state,
-					contracts: newContracts
-				};
-			});
-		},
-
-		/**
 		 * Reload a specific contract from Nostr/blockchain
 		 * Use this sparingly - only when you need to fetch fresh data
 		 * (e.g., new contract created, or need to sync status events)
@@ -105,30 +137,30 @@ function createContractStore() {
 		async loadContractByEscrowId(escrowId: string) {
 			try {
 				const loadedContracts = await getContracts({ escrowIds: [escrowId] });
-				
+
 				if (loadedContracts.length > 0) {
 					const updatedContract = loadedContracts[0];
-					
+
 					update(state => {
 						const index = state.contractsMap.get(escrowId);
-						
+
 						if (index === undefined) {
 							// New contract - add it to the array
 							const newIndex = state.contracts.length;
 							const newContractsMap = new Map(state.contractsMap);
 							newContractsMap.set(escrowId, newIndex);
-							
+
 							return {
 								...state,
 								contracts: [...state.contracts, updatedContract],
 								contractsMap: newContractsMap
 							};
 						}
-						
+
 						// Existing contract - update at index
 						const newContracts = [...state.contracts];
 						newContracts[index] = updatedContract;
-						
+
 						return {
 							...state,
 							contracts: newContracts
@@ -158,26 +190,36 @@ function createContractStore() {
 			if (key === 'contractEventId') {
 				return contract.contractEvent.id;
 			}
-			
+
 			if (key === 'taskeePubkey') {
-				return contract.isClient 
-					? contract.contractEvent.content.freelancerPubkey 
+				return contract.isClient
+					? contract.contractEvent.content.freelancerPubkey
 					: contract.contractEvent.content.clientPubkey;
 			}
-			
+
 			// Direct properties on ContractWithEvents
 			if (key in contract && typeof contract[key as keyof ContractWithEvents] !== 'undefined') {
 				return contract[key as keyof ContractWithEvents];
 			}
-			
+
 			// Properties in contractEvent.content (NostrContract)
 			if (key in contract.contractEvent.content) {
 				return contract.contractEvent.content[key as keyof NostrContract];
 			}
-			
+
 			console.warn(`[ContractStore] Unknown key: ${String(key)}`);
 			return undefined;
 		},
+
+		/**
+		 * Subscribe to real-time contract status updates
+		 */
+		subscribeToStatusUpdates,
+
+		/**
+		 * Unsubscribe from real-time contract status updates
+		 */
+		unsubscribeFromStatusUpdates,
 
 		/**
 		 * Reset store to initial state

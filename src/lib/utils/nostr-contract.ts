@@ -1,8 +1,8 @@
-import type { Filter } from 'nostr-tools';
-import { nip19 } from 'nostr-tools';
-import { getNpub } from './nostrKeys';
+import type { Filter, NostrEvent } from 'nostr-tools';
+import { nip19, nip44 } from 'nostr-tools';
+import { getNostrKeyPair, getNpub } from './nostrKeys';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
-import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
+import TAGS, { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import type {
 	NostrContract,
 	NostrContractStatus,
@@ -10,13 +10,15 @@ import type {
 	ContractEvent,
 	CreateContractParams,
 	PublishStatusParams,
-	ContractFilter
+	ContractFilter,
+	ContractStatusEvent
 } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import { escrow } from '$lib/utils/wallet/escrow';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
+import { contractStore } from '$lib/stores/contract.store';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
 
@@ -209,18 +211,18 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				try {
 					// Check if contract address differs from current environment
 					const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
-					const currentContractAddress = currentNetwork === 'mainnet' 
-						? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET 
+					const currentContractAddress = currentNetwork === 'mainnet'
+						? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
 						: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
-					
+
 					// Determine if we need to pass contract address for backwards compatibility
-					const contractAddress = (contractEvent.content.contractAddress && 
+					const contractAddress = (contractEvent.content.contractAddress &&
 						contractEvent.content.contractAddress.toLowerCase() !== currentContractAddress?.toLowerCase())
 						? contractEvent.content.contractAddress
 						: undefined;
-					
+
 					escrowData = await escrow.getEscrow(contractEvent.content.escrowId, contractAddress);
-					
+
 					if (escrowData) {
 						blockchainStatus = escrowData.status;
 
@@ -240,7 +242,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 						}
 					}
 				} catch (escrowError) {
-					console.warn(`Escrow not found (may be pending): ${contractEvent.content.escrowId}`);
+					console.warn(`Escrow not found: ${contractEvent.content.escrowId}`);
 					// Check if there's a transactionHash in Nostr - indicates pending funding
 					if (contractEvent.content.transactionHash) {
 						isPending = true;
@@ -270,6 +272,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					statusEvents: statusEvents || [],
 					isClient,
 					blockchainStatus,
+					escrowData,
 					status,
 					isPending,
 					permissions,
@@ -389,5 +392,156 @@ export async function deleteContract(contractEventId: string, escrowId: string):
 			`Failed to delete contract: ${error instanceof Error ? error.message : 'Unknown error'}`,
 			error
 		);
+	}
+}
+
+/**
+ * Handle incoming contract status event from subscription
+ */
+export async function handleStatusEvent(event: NostrEvent) {
+	try {
+		const npub = await getNpub();
+		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+
+		// Decrypt the status event
+		const statusEvent = await decryptStatusEvent(event, userPubkeyHex);
+		if (!statusEvent) return;
+
+		// Extract escrow ID from #r tag (as per existing tag pattern)
+		const escrowIdTag = event.tags.find(tag => tag[0] === TAGS.R);
+		const escrowId = escrowIdTag?.[1];
+
+		if (!escrowId) {
+			console.warn('[ContractStore] Status event missing escrow ID');
+			return;
+		}
+
+		// Update the contract in the store
+		contractStore.update((state) => {
+			const index = state.contractsMap.get(escrowId);
+
+			if (index === undefined) {
+				console.warn(`[ContractStore] Contract not found for escrowId: ${escrowId}`);
+				return state;
+			}
+
+			const contract = state.contracts[index];
+
+			// Add the new status event to the contract's status events
+			const updatedStatusEvents = [...(contract.statusEvents || []), statusEvent]
+				.sort((a, b) => a.content.timestamp - b.content.timestamp);
+
+			// Re-determine contract state with new status event
+			const { status, permissions } = determineContractState(
+				contract.blockchainStatus,
+				updatedStatusEvents,
+				contract.contractEvent.content,
+				contract.escrowData,
+				contract.disputeProposal || null,
+				contract.isPending || false,
+				contract.isClient,
+				!contract.isClient
+			);
+
+			// Create updated contract
+			const updatedContract: ContractWithEvents = {
+				...contract,
+				statusEvents: updatedStatusEvents,
+				status,
+				permissions
+			};
+
+			// If blockchain-confirmed action, fetch fresh blockchain data
+			if (statusEvent.content.transactionHash &&
+				[EscrowStatus.Completed, EscrowStatus.FundsReleased, EscrowStatus.InDispute,
+				EscrowStatus.DisputeResolved, EscrowStatus.Cancelled].includes(statusEvent.content.action)) {
+				// Async update blockchain data
+				escrow.getEscrow(escrowId, contract.contractEvent.content.contractAddress)
+					.then(escrowData => {
+						if (escrowData) {
+							const { status: newStatus, permissions: newPermissions } = determineContractState(
+								escrowData.status,
+								updatedStatusEvents,
+								contract.contractEvent.content,
+								escrowData,
+								contract.disputeProposal || null,
+								false,
+								contract.isClient,
+								!contract.isClient
+							);
+
+							contractStore.update((s) => {
+								const idx = s.contractsMap.get(escrowId);
+								if (idx === undefined) return s;
+
+								const newContracts = [...s.contracts];
+								newContracts[idx] = {
+									...newContracts[idx],
+									blockchainStatus: escrowData.status,
+									status: newStatus,
+									permissions: newPermissions,
+									isPending: false
+								};
+
+								return { ...s, contracts: newContracts };
+							});
+						}
+					})
+					.catch(err => {
+						console.error('[ContractStore] Failed to fetch escrow data:', err);
+					});
+			}
+
+			// Update contract in array
+			const newContracts = [...state.contracts];
+			newContracts[index] = updatedContract;
+
+			return {
+				...state,
+				contracts: newContracts
+			};
+		});
+
+	} catch (error) {
+		console.error('[ContractStore] Error handling status event:', error);
+	}
+}
+
+/**
+ * Decrypt a contract status event
+ */
+async function decryptStatusEvent(event: NostrEvent, userPubkeyHex: string): Promise<ContractStatusEvent | null> {
+	try {
+		const { nsec } = await getNostrKeyPair();
+
+		// Determine the other party's pubkey for decryption
+		let otherPubkey: string;
+
+		if (event.pubkey === userPubkeyHex) {
+			// We are the sender, decrypt with recipient's key
+			const recipientTag = event.tags.find((tag) => tag[0] === 'p');
+			if (!recipientTag || !recipientTag[1]) {
+				return null;
+			}
+			otherPubkey = recipientTag[1];
+		} else {
+			// We are the recipient, decrypt with sender's key
+			otherPubkey = event.pubkey;
+		}
+
+		// Get conversation key and decrypt
+		const conversationKey = await nip44.getConversationKey(nsec, otherPubkey);
+		const decryptedContent = nip44.decrypt(event.content, conversationKey);
+
+		return {
+			...event,
+			content: JSON.parse(decryptedContent)
+		} as ContractStatusEvent;
+	} catch (error) {
+		// Skip events that fail to decrypt
+		if (error instanceof Error && !error.message.includes('Invalid MAC')) {
+			console.error('[ContractStore] Failed to decrypt status event:', event.id, error);
+		}
+		return null;
 	}
 }

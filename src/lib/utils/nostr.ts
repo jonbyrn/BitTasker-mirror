@@ -112,27 +112,6 @@ export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string 
     }
 }
 
-/**
- * Subscribe to events from a relay
- * @param relayUrl - The URL of the relay to subscribe to
- * @param filters - The filters for the subscription
- * @param onEvent - The callback to handle the event
- * @returns The unsubscribe function
- */
-export function subscribeToEvents(relayUrl: string, filters: Filter[], onEvent: (event: NostrEvent) => void): () => void {
-    const pool = getPool();
-
-    // Subscribe using the pool
-    const sub = pool.subscribe([relayUrl], filters[0], {
-        onevent: onEvent
-    });
-
-    // Return unsubscribe function
-    return () => {
-        sub.close();
-    };
-}
-
 
 // ================================================================
 // NIP-44 helpers for encryption/decryption
