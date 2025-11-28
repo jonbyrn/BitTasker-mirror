@@ -237,8 +237,18 @@ async function connectToEscrowContract(): Promise<void> {
                 throw new Error(`No contract deployed at address ${checksummedAddress}`);
             }
 
-            // Test if contract has the expected interface
-            await contract.nextEscrowId();
+            // Test if contract has the expected interface (with retry and timeout)
+            const { callContractMethod } = await import('./rpcHelpers');
+            await callContractMethod(
+                contract,
+                'nextEscrowId',
+                [],
+                {
+                    maxRetries: 2,
+                    timeoutMs: 15000, // Shorter timeout for validation
+                    initialDelayMs: 500
+                }
+            );
         } catch (error) {
             console.warn('Contract validation failed, skipping escrow loading:', error);
             // Don't throw here - allow connection to succeed even if contract validation fails
@@ -259,9 +269,20 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 
         let escrowData;
         try {
-            escrowData = await targetContract.getEscrow(escrowId);
+            // Use retry logic with timeout for contract calls
+            const { callContractMethod } = await import('./rpcHelpers');
+            escrowData = await callContractMethod(
+                targetContract,
+                'getEscrow',
+                [escrowId],
+                {
+                    maxRetries: 3,
+                    timeoutMs: 30000, // 30 second timeout
+                    initialDelayMs: 1000
+                }
+            );
         } catch (error: any) {
-            // Check if error is due to destroyed provider
+            // Check if error is due to destroyed provider - reset and retry once more
             if (error?.code === 'UNSUPPORTED_OPERATION' && error?.message?.includes('provider destroyed')) {
                 // Reset the cached contract to force re-initialization on next call
                 if (!contractAddress) {
@@ -270,7 +291,18 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
                 // Retry once with fresh contract
                 const { contract: retryContract } = await ensureEscrowReady(contractAddress, false);
                 if (!retryContract) throw new Error('Contract not found after retry');
-                escrowData = await retryContract.getEscrow(escrowId);
+                
+                const { callContractMethod } = await import('./rpcHelpers');
+                escrowData = await callContractMethod(
+                    retryContract,
+                    'getEscrow',
+                    [escrowId],
+                    {
+                        maxRetries: 2, // Fewer retries on second attempt
+                        timeoutMs: 30000,
+                        initialDelayMs: 1000
+                    }
+                );
             } else {
                 throw error;
             }

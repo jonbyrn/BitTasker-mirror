@@ -3,6 +3,7 @@ import { escrow } from './escrow';
 import { ethers } from 'ethers';
 import { get } from 'svelte/store';
 import { walletStore, getWallet, getProvider } from '$lib/stores/wallet.store';
+import { callContractMethod } from './rpcHelpers';
 
 /**
  * Load all smart contracts for a given wallet address
@@ -51,37 +52,59 @@ export async function loadContractsByAddress(
 			durationMs: ensureDuration.toFixed(2)
 		});
 
-		// Get total number of escrows with retry logic for destroyed provider
+		// Get total number of escrows with retry logic and timeout
 		let nextEscrowId: bigint;
 		try {
 			const nextIdStartTime = performance.now();
 			console.log('[DEBUG] Fetching nextEscrowId...');
-		try {
-			nextEscrowId = await contract.nextEscrowId();
-			} catch (error: any) {
-				// Check if error is due to destroyed provider
-				if (error?.code === 'UNSUPPORTED_OPERATION' && error?.message?.includes('provider destroyed')) {
-					console.warn('[DEBUG] Provider destroyed during nextEscrowId call, resetting contract and retrying...');
-					// Reset cached contract and retry (read-only operation, no balance required)
-					escrow.resetCachedContract();
-					const { contract: retryContract } = await escrow.ensureEscrowReady(undefined, false);
-					if (!retryContract) {
-						throw new Error('Failed to get contract after reset');
-					}
-					nextEscrowId = await retryContract.nextEscrowId();
-				} else {
-					throw error;
+			
+			// Use retry logic with timeout for contract calls
+			nextEscrowId = await callContractMethod<bigint>(
+				contract,
+				'nextEscrowId',
+				[],
+				{
+					maxRetries: 3,
+					timeoutMs: 30000, // 30 second timeout
+					initialDelayMs: 1000
 				}
-			}
+			);
+			
 			const nextIdEndTime = performance.now();
 			const nextIdDuration = nextIdEndTime - nextIdStartTime;
 			console.log('[DEBUG] nextEscrowId:', {
 				value: nextEscrowId.toString(),
 				durationMs: nextIdDuration.toFixed(2)
 			});
-		} catch (error) {
-			console.error('[DEBUG] Failed to get nextEscrowId:', error);
-			return [];
+		} catch (error: any) {
+			// Check if error is due to destroyed provider - reset and retry once more
+			if (error?.code === 'UNSUPPORTED_OPERATION' && error?.message?.includes('provider destroyed')) {
+				console.warn('[DEBUG] Provider destroyed during nextEscrowId call, resetting contract and retrying...');
+				try {
+					// Reset cached contract and retry (read-only operation, no balance required)
+					escrow.resetCachedContract();
+					const { contract: retryContract } = await escrow.ensureEscrowReady(undefined, false);
+					if (!retryContract) {
+						throw new Error('Failed to get contract after reset');
+					}
+					nextEscrowId = await callContractMethod<bigint>(
+						retryContract,
+						'nextEscrowId',
+						[],
+						{
+							maxRetries: 2, // Fewer retries on second attempt
+							timeoutMs: 30000,
+							initialDelayMs: 1000
+						}
+					);
+				} catch (retryError) {
+					console.error('[DEBUG] Failed to get nextEscrowId after provider reset:', retryError);
+					return [];
+				}
+			} else {
+				console.error('[DEBUG] Failed to get nextEscrowId:', error);
+				return [];
+			}
 		}
 
 		const contracts: EscrowData[] = [];
@@ -123,11 +146,13 @@ export async function loadContractsByAddress(
 			const batchIndices: number[] = [];
 
 			// Create promises for all escrows in this batch
+			// Each call will have its own retry logic and timeout via escrow.getEscrow
 			for (let j = i; j < end; j++) {
 				batchIndices.push(j);
 				batch.push(
 					escrow.getEscrow(j.toString()).catch((err) => {
 						// Return error info instead of throwing
+						// This allows the batch to continue even if individual escrows fail
 						return { error: err, escrowId: j.toString() };
 					})
 				);
