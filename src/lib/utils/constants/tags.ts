@@ -53,6 +53,9 @@ export const TAGS = {
 
 	/** Network - blockchain network (mainnet, testnet) */
 	N: 'n' as const,
+
+	/** Location data - JSON-encoded location information */
+	L: 'l' as const,
 } as const;
 
 /**
@@ -147,7 +150,23 @@ export const TAG_PATTERNS = {
 	directMessage: (recipientPubkey: string): string[][] => [
 		[TAGS.P, recipientPubkey],
 		[TAGS.M, 'direct-message']
-	]
+	],
+
+	/**
+	 * Location message tags
+	 * @param locationData - JSON-encoded location data
+	 * @param taskId - Optional task ID reference
+	 */
+	location: (locationData: string, taskId?: string): string[][] => {
+		const tags: string[][] = [
+			[TAGS.M, 'location'], // Message type
+			[TAGS.L, locationData] // Location data (JSON)
+		];
+		if (taskId) {
+			tags.push([TAGS.T, taskId]); // Task reference
+		}
+		return tags;
+	}
 } as const;
 
 /**
@@ -177,6 +196,9 @@ export const TAG_FILTERS = {
 
 	/** Filter events by network (mainnet, testnet) */
 	byNetwork: (network: string) => ({ [`#${TAGS.N}`]: [network] }),
+
+	/** Filter events by location data */
+	byLocation: () => ({ [`#${TAGS.M}`]: ['location'] }),
 } as const;
 
 export default TAGS;

@@ -1,6 +1,7 @@
 {
     "common": {
         "back": "Back to Task",
+        "back_2": "Back",
         "back_to_tasks": "Cancel",
         "redirecting_to_login": "Redirecting to login...",
         "or": "or",
@@ -39,6 +40,7 @@
             "availability": "Availability",
             "quick_actions": "Quick Actions",
             "send_message": "Send Message",
+            "message_placeholder": "Type your message here...",
             "go_to_chat": "Go to Chat",
             "member_since": "Member since",
             "no_skills": "No skills listed yet.",

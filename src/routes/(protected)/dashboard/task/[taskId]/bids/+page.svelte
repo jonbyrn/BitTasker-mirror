@@ -36,6 +36,17 @@
 	let bidToAccept = $state<NostrEventWithFollowup | null>(null);
 	let selectedBid = $state<NostrBidContent | null>(null);
 	let showRetryButton = $state(false);
+	
+	// Message modal state
+	let messageForm = $state({
+		isModalOpen: false,
+		text: '',
+		isSubmitting: false,
+		error: '',
+		success: false
+	});
+	let selectedBidderId = $state<string | null>(null);
+	let selectedBidderName = $state<string>('');
 
 	// Cache for formatted dates to avoid re-computation
 	let dateFormatterCache = $state<Map<string, string>>(new Map());
@@ -201,9 +212,63 @@
 		showAcceptanceForm = false;
 		bidToAccept = null;
 	}
+
+	// Función para abrir el modal de mensaje
+	function openMessageModal(bidderId: string, bidderName: string) {
+		selectedBidderId = bidderId;
+		selectedBidderName = bidderName;
+		messageForm = {
+			isModalOpen: true,
+			text: '',
+			isSubmitting: false,
+			error: '',
+			success: false
+		};
+	}
+
+	// Función para cerrar el modal de mensaje
+	function closeMessageModal() {
+		messageForm = {
+			isModalOpen: false,
+			text: '',
+			isSubmitting: false,
+			error: '',
+			success: false
+		};
+		selectedBidderId = null;
+		selectedBidderName = '';
+	}
+
+	// Función para enviar mensaje
+	async function sendMessage() {
+		if (!messageForm.text.trim() || !selectedBidderId) {
+			messageForm.error = $t('common.profile.message_required');
+			return;
+		}
+
+		messageForm.isSubmitting = true;
+		messageForm.error = '';
+
+		try {
+			// Importar la función de envío de mensajes
+			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+
+			// Enviar el mensaje
+			await sendDirectMessage(messageForm.text.trim(), selectedBidderId);
+
+			messageForm.success = true;
+			messageForm.text = '';
+			closeMessageModal();
+		} catch (error) {
+			console.error('Error sending message:', error);
+			messageForm.error = $t('common.profile.message_send_error');
+		} finally {
+			messageForm.isSubmitting = false;
+		}
+	}
 </script>
 
-<div class="mx-auto px-2 py-4 md:px-0">
+<div class="mx-auto max-w-6xl px-2 py-4 md:px-0">
 	<div class="mb-4 sm:mb-6">
 		<h3 class="text-xl font-bold sm:text-2xl">{$t('task.drawer.bids_received')}</h3>
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
@@ -354,33 +419,69 @@
 							<!-- Left side: Avatar + Username on same row, then member since and rating below -->
 							<div class="flex min-w-0 flex-1 items-center gap-4">
 								<!-- Avatar -->
-								<div class="avatar shrink-0">
-									<div
-										class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+								{#if bidContent.bidderId}
+									<a
+										href="/npub/{bidContent.bidderId}"
+										class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80"
 									>
-										{#if bidContent.bidderAvatar}
-											<img
-												src={bidContent.bidderAvatar}
-												alt={$t('task.drawer.avatar_alt')}
-												class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
-											/>
-										{:else}
-											<div
-												class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-											>
-												<span class="text-lg font-semibold sm:text-2xl">
-													{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
-												</span>
-											</div>
-										{/if}
+										<div
+											class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+										>
+											{#if bidContent.bidderAvatar}
+												<img
+													src={bidContent.bidderAvatar}
+													alt={$t('task.drawer.avatar_alt')}
+													class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
+												/>
+											{:else}
+												<div
+													class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+												>
+													<span class="text-lg font-semibold sm:text-2xl">
+														{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
+													</span>
+												</div>
+											{/if}
+										</div>
+									</a>
+								{:else}
+									<div class="avatar shrink-0">
+										<div
+											class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+										>
+											{#if bidContent.bidderAvatar}
+												<img
+													src={bidContent.bidderAvatar}
+													alt={$t('task.drawer.avatar_alt')}
+													class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
+												/>
+											{:else}
+												<div
+													class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
+												>
+													<span class="text-lg font-semibold sm:text-2xl">
+														{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
+													</span>
+												</div>
+											{/if}
+										</div>
 									</div>
-								</div>
+								{/if}
 								<!-- User info column -->
 								<div class="flex min-w-0 flex-1 flex-col items-start">
 									<!-- Display name -->
-									<p class="w-full truncate text-base font-semibold sm:text-lg">
-										{bidContent.bidderName || $t('task.drawer.anonymous')}
-									</p>
+									{#if bidContent.bidderId}
+										<a
+											href="/npub/{bidContent.bidderId}"
+											class="w-full truncate text-base font-semibold cursor-pointer transition-opacity hover:opacity-80 sm:text-lg"
+										>
+											{bidContent.bidderName || $t('task.drawer.anonymous')}
+										</a>
+									{:else}
+										<p class="w-full truncate text-base font-semibold sm:text-lg">
+											{bidContent.bidderName || $t('task.drawer.anonymous')}
+										</p>
+									{/if}
 									<!-- Member since -->
 									<span class="text-base-content/60 text-xs sm:text-sm">
 										{$t('task.drawer.member_since')}
@@ -427,48 +528,53 @@
 									</div>
 								{/if}
 								<!-- See Profile link -->
-								<button
-									class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
-									onclick={() =>
-										goto(`/dashboard/taskees/profile/${bidContent.bidderId || 'unknown'}`)}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-3 w-3"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
+								{#if bidContent.bidderId}
+									<button
+										class="btn btn-ghost btn-xs text-primary hover:bg-primary/10 cursor-pointer"
+										onclick={() => goto(`/npub/${bidContent.bidderId}`)}
 									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-										/>
-									</svg>
-									<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
-								</button>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-3 w-3"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+											/>
+										</svg>
+										<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
+									</button>
+								{/if}
 							</div>
 						</div>
 
 						<!-- Second row: Description and payment info -->
-						<div class="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end">
-							<!-- Description column -->
+						<div class="mb-4 flex flex-col gap-4">
+							<!-- Description -->
 							<div class="min-w-0 flex-1">
 								<p class="text-base-content/80 wrap-break-words line-clamp-2">
 									{bidContent.description}
 								</p>
 							</div>
-							<!-- Payment info column (aligned right) -->
-							<div class="shrink-0 text-right">
-								<div class="text-xl font-bold sm:text-2xl">
-									${formatNumberWithTwoDecimals(bidContent.amount)}
-								</div>
-								<div class="sm:text-md text-base-content/60 text-sm font-bold">
-									{cachedSatsFromUsd(bidContent.amount, btcPrice)} Sats
-								</div>
-								<div class="text-base-content/50 mt-1 text-xs">
+							<!-- Payment info row: FIXED info on left, price on right (same row for all screen sizes) -->
+							<div class="flex flex-row items-center justify-between gap-2">
+								<!-- Payment type info - left aligned with max-width -->
+								<div class="text-base-content/50 max-w-[50%] flex-1 text-xs wrap-break-word">
 									{bidContent.paymentType} • {bidContent.estimatedDuration}
+								</div>
+								<!-- Payment info column (aligned right) -->
+								<div class="shrink-0 text-right">
+									<div class="text-xl font-bold sm:text-2xl">
+										${formatNumberWithTwoDecimals(bidContent.amount)}
+									</div>
+									<div class="sm:text-md text-base-content/60 text-sm font-bold">
+										{cachedSatsFromUsd(bidContent.amount, btcPrice)} Sats
+									</div>
 								</div>
 							</div>
 						</div>
@@ -533,6 +639,34 @@
 										{$t('dashboard.bids.bid_acceptance.decline')}
 									{/if}
 								</button>
+
+								<!-- Send Message Button -->
+								{#if bidContent.bidderId}
+									<button
+										class="btn btn-primary btn-outline btn-sm flex-1 py-1 sm:flex-none"
+										onclick={() =>
+											openMessageModal(
+												bidContent.bidderId || '',
+												bidContent.bidderName || $t('task.drawer.anonymous')
+											)}
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+											/>
+										</svg>
+										{$t('common.profile.send_message')}
+									</button>
+								{/if}
 								<!-- <button
                                     class="btn btn-info btn-outline btn-sm flex-1 py-1 sm:flex-none"
                                     onclick={() => handleCounterOffer(bid)}
@@ -575,7 +709,7 @@
 									</button>
 								{:else}
 									<button
-										class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"
+										class="btn btn-success btn-sm flex-1 py-1 sm:flex-none"
 										onclick={() => handleAcceptBid(bid)}
 										disabled={bid?.latestStatus?.content?.status?.toLowerCase() ===
 											BidStatusEnum.REJECTED.toLowerCase()}
@@ -744,3 +878,123 @@
 		{/if}
 	{/snippet}
 </Drawer>
+
+<!-- Modal de mensaje -->
+{#if messageForm.isModalOpen}
+	<div class="modal modal-open">
+		<div class="modal-box max-w-md">
+			<!-- Header del modal -->
+			<div class="mb-6">
+				<div class="mb-2 flex items-center gap-3">
+					<div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
+						<svg class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+							/>
+						</svg>
+					</div>
+					<div>
+						<h4 class="text-sm font-semibold">{$t('common.profile.send_message')}</h4>
+						<p class="text-base-content/60 text-xs">
+							To: {selectedBidderName || $t('task.drawer.anonymous')}
+						</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Formulario de mensaje -->
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					sendMessage();
+				}}
+				class="space-y-4"
+			>
+				<div>
+					<label for="message-text" class="text-base-content mb-2 block text-sm font-medium">
+						{$t('common.profile.send_message')}
+					</label>
+					<textarea
+						id="message-text"
+						class="textarea textarea-bordered w-full"
+						placeholder={$t('common.profile.message_placeholder') || 'Type your message here...'}
+						bind:value={messageForm.text}
+						rows="4"
+						disabled={messageForm.isSubmitting}
+					></textarea>
+				</div>
+
+				<!-- Mensaje de éxito -->
+				{#if messageForm.success}
+					<div class="alert alert-success alert-outline py-2">
+						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+						<span class="text-sm">{$t('common.profile.message_sent_successfully')}</span>
+					</div>
+				{/if}
+
+				<!-- Mensaje de error -->
+				{#if messageForm.error}
+					<div class="alert alert-error alert-outline py-2">
+						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+						<span class="text-sm">{messageForm.error}</span>
+					</div>
+				{/if}
+
+				<!-- Botones de acción -->
+				<div class="flex gap-2">
+					<button type="button" class="btn btn-ghost flex-1" onclick={closeMessageModal}>
+						{$t('common.cancel')}
+					</button>
+					<button
+						type="submit"
+						class="btn btn-primary"
+						disabled={!messageForm.text.trim() || messageForm.isSubmitting || messageForm.success}
+					>
+						{#if messageForm.isSubmitting}
+							<span class="loading loading-spinner loading-sm mr-2"></span>
+							{$t('common.processing')}
+						{:else if messageForm.success}
+							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M5 13l4 4L19 7"
+								/>
+							</svg>
+							{$t('common.profile.message_sent_successfully')}
+						{:else}
+							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+								/>
+							</svg>
+							{$t('common.profile.send_message')}
+						{/if}
+					</button>
+				</div>
+			</form>
+		</div>
+		<button class="modal-backdrop" onclick={closeMessageModal}>X</button>
+	</div>
+{/if}
