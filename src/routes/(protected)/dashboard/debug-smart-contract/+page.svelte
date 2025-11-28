@@ -81,6 +81,7 @@
 		contract: EscrowData,
 		userAddress: string
 	): Promise<{ permissions: ContractPermissions; isClient: boolean; isFreelancer: boolean }> {
+		const permStartTime = performance.now();
 		const isClient = contract.client.toLowerCase() === userAddress.toLowerCase();
 		const isFreelancer = contract.freelancer.toLowerCase() === userAddress.toLowerCase();
 
@@ -88,7 +89,13 @@
 		let disputeProposal = null;
 		if (contract.status === EscrowStatus.InDispute) {
 			try {
+				const disputeStartTime = performance.now();
 				disputeProposal = await escrow.getDisputeProposal(contract.id);
+				const disputeEndTime = performance.now();
+				const disputeDuration = disputeEndTime - disputeStartTime;
+				console.log(`[DEBUG] Loaded dispute proposal for contract ${contract.id}`, {
+					durationMs: disputeDuration.toFixed(2)
+				});
 			} catch (error) {
 				console.warn(`Failed to load dispute proposal for ${contract.id}:`, error);
 			}
@@ -112,6 +119,7 @@
 			}
 		};
 
+		const determineStartTime = performance.now();
 		const { permissions } = determineContractState(
 			contract.status,
 			[], // No status events for debug view
@@ -122,12 +130,22 @@
 			isClient,
 			isFreelancer
 		);
+		const determineEndTime = performance.now();
+		const determineDuration = determineEndTime - determineStartTime;
+
+		const permEndTime = performance.now();
+		const totalPermTime = permEndTime - permStartTime;
+		console.log(`[DEBUG] Calculated permissions for contract ${contract.id}`, {
+			totalDurationMs: totalPermTime.toFixed(2),
+			determineStateDurationMs: determineDuration.toFixed(2)
+		});
 
 		return { permissions, isClient, isFreelancer };
 	}
 
 	// Load contracts for a specific address
 	async function loadContractsForAddress(address: string, network: 'RSK' | 'BSC') {
+		const functionStartTime = performance.now();
 		const key = `${network}-${address}`;
 		console.log('[DEBUG] loadContractsForAddress called', { address, network, key });
 
@@ -156,8 +174,11 @@
 		}
 
 		try {
+			const loadContractsStartTime = performance.now();
 			console.log('[DEBUG] Calling loadContractsByAddress...', { address, network });
 			const contracts = await loadContractsByAddress(address, 100, network);
+			const loadContractsEndTime = performance.now();
+			const loadContractsDuration = loadContractsEndTime - loadContractsStartTime;
 			console.log('[DEBUG] loadContractsByAddress returned', {
 				count: contracts.length,
 				contractIds: contracts.map(c => c.id),
@@ -167,9 +188,11 @@
 					freelancer: c.freelancer,
 					status: c.status,
 					baseAmount: c.baseAmount
-				}))
+				})),
+				durationMs: loadContractsDuration.toFixed(2)
 			});
 
+			const permissionsStartTime = performance.now();
 			const contractsWithPermissions: ContractWithPermissions[] = await Promise.all(
 				contracts.map(async (contract) => {
 					const { permissions, isClient, isFreelancer } = await calculatePermissions(contract, address);
@@ -182,6 +205,9 @@
 					};
 				})
 			);
+			const permissionsEndTime = performance.now();
+			const permissionsDuration = permissionsEndTime - permissionsStartTime;
+			const avgPermissionTime = contracts.length > 0 ? permissionsDuration / contracts.length : 0;
 
 			console.log('[DEBUG] Contracts with permissions calculated', {
 				count: contractsWithPermissions.length,
@@ -190,7 +216,12 @@
 					isClient: c.isClient,
 					isFreelancer: c.isFreelancer,
 					status: c.status
-				}))
+				})),
+				timing: {
+					totalPermissionsDurationMs: permissionsDuration.toFixed(2),
+					avgPermissionTimeMs: avgPermissionTime.toFixed(2),
+					note: 'Permissions calculated in parallel with Promise.all'
+				}
 			});
 
 			const updatedGroup = contractsByAddress.get(key);
@@ -204,9 +235,17 @@
 				});
 				// Reassign Map to trigger reactivity
 				contractsByAddress = new Map(contractsByAddress);
+				const functionEndTime = performance.now();
+				const totalFunctionTime = functionEndTime - functionStartTime;
 				console.log('[DEBUG] Updated group with contracts', {
 					key,
-					contractCount: contractsWithPermissions.length
+					contractCount: contractsWithPermissions.length,
+					totalDurationMs: totalFunctionTime.toFixed(2),
+					breakdown: {
+						loadContractsMs: loadContractsDuration.toFixed(2),
+						permissionsMs: permissionsDuration.toFixed(2),
+						otherMs: (totalFunctionTime - loadContractsDuration - permissionsDuration).toFixed(2)
+					}
 				});
 			} else {
 				console.warn('[DEBUG] Group not found after loading contracts', { key });
@@ -234,7 +273,12 @@
 
 	// Load all contracts
 	async function loadAllContracts() {
+		const loadAllStartTime = performance.now();
 		console.log('[DEBUG] loadAllContracts called');
+		
+		// Reset cached contract to ensure fresh provider connection
+		escrow.resetCachedContract();
+		
 		const addresses = getConnectedAddresses();
 
 		if (addresses.length === 0) {
@@ -248,14 +292,23 @@
 		initialLoadComplete = false;
 		
 		try {
+			const loadAddressesStartTime = performance.now();
 			await Promise.all(
 				addresses.map(({ address, network }) => loadContractsForAddress(address, network))
 			);
-			console.log('[DEBUG] All contracts loaded successfully');
+			const loadAddressesEndTime = performance.now();
+			const loadAddressesDuration = loadAddressesEndTime - loadAddressesStartTime;
+			console.log('[DEBUG] All contracts loaded successfully', {
+				addressesLoaded: addresses.length,
+				parallelLoadDurationMs: loadAddressesDuration.toFixed(2),
+				note: 'Addresses loaded in parallel with Promise.all'
+			});
 		} catch (error) {
 			console.error('[DEBUG] Error in loadAllContracts', error);
 		} finally {
 			initialLoadComplete = true;
+			const loadAllEndTime = performance.now();
+			const totalLoadAllTime = loadAllEndTime - loadAllStartTime;
 			console.log('[DEBUG] Initial load complete. Final state:', {
 				contractsByAddressSize: contractsByAddress.size,
 				groups: Array.from(contractsByAddress.entries()).map(([key, group]) => ({
@@ -263,7 +316,8 @@
 					contractCount: group.contracts.length,
 					isLoading: group.isLoading,
 					error: group.error
-				}))
+				})),
+				totalDurationMs: totalLoadAllTime.toFixed(2)
 			});
 		}
 	}

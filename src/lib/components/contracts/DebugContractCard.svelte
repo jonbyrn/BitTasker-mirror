@@ -212,7 +212,7 @@
 <div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 	<div class="card-body">
 		<!-- Header -->
-		<div class="flex items-start justify-between">
+		<div class="flex items-center justify-between">
 			<div class="flex-1">
 				<h3 class="card-title text-lg">
 					{$t('debug.smart_contract.contract_id')}: {contract.id}
@@ -228,9 +228,6 @@
 			</div>
 			<div class="text-right">
 				<div class="text-lg font-bold">{formatSats(contract.baseAmount)} sats</div>
-				<div class="text-sm text-base-content/60">
-					{$t('debug.smart_contract.total_amount')}: {formatSats(contract.totalAmount)} sats
-				</div>
 			</div>
 		</div>
 

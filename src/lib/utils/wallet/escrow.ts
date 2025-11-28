@@ -15,6 +15,13 @@ let contract: ethers.Contract | null = null;
 // Cache for legacy contracts to avoid recreating them
 const legacyContracts = new Map<string, ethers.Contract>();
 
+/**
+ * Force reset the cached contract (useful when provider is destroyed)
+ */
+function resetCachedContract(): void {
+    contract = null;
+}
+
 const getRSKWallet = () => getWallet('rsk');
 const getRSKProvider = () => getProvider('rsk');
 
@@ -60,6 +67,27 @@ export async function ensureEscrowReady(
 
     if (!contractAddress) {
         // No contract address provided - use default contract
+        // Check if contract exists and if its provider is still valid
+        if (contract) {
+            try {
+                // Verify the contract's provider is still valid
+                // Check if provider is destroyed (ethers v6 uses _destroyed property)
+                const contractProvider = (contract as any).provider;
+                if (contractProvider) {
+                    // Check for destroyed state (ethers v6)
+                    if ((contractProvider as any)._destroyed || (contractProvider as any).destroyed) {
+                        // Provider is destroyed, reset contract to force re-initialization
+                        console.warn('[escrow] Cached contract has destroyed provider, resetting...');
+                        contract = null;
+                    }
+                }
+            } catch (error) {
+                // If we can't check the provider, reset contract to be safe
+                console.warn('[escrow] Error checking contract provider, resetting contract:', error);
+                contract = null;
+            }
+        }
+        
         if (!contract) {
             await connectToEscrowContract();
             if (!contract) {
@@ -73,6 +101,26 @@ export async function ensureEscrowReady(
 
         if (contractAddress.toLowerCase() === defaultAddress?.toLowerCase()) {
             // Matches default - use default contract
+            // Check if contract exists and if its provider is still valid
+            if (contract) {
+                try {
+                    // Verify the contract's provider is still valid
+                    const contractProvider = (contract as any).provider;
+                    if (contractProvider) {
+                        // Check for destroyed state (ethers v6)
+                        if ((contractProvider as any)._destroyed || (contractProvider as any).destroyed) {
+                            // Provider is destroyed, reset contract to force re-initialization
+                            console.warn('[escrow] Cached contract has destroyed provider, resetting...');
+                            contract = null;
+                        }
+                    }
+                } catch (error) {
+                    // If we can't check the provider, reset contract to be safe
+                    console.warn('[escrow] Error checking contract provider, resetting contract:', error);
+                    contract = null;
+                }
+            }
+            
             if (!contract) {
                 await connectToEscrowContract();
                 if (!contract) {
@@ -181,7 +229,7 @@ async function connectToEscrowContract(): Promise<void> {
         // Event handling is now done directly in transaction receipts
         // TODO: Setup event listeners
 
-        // Validate contract deployment before loading escrows
+        // Validate contract deployment
         try {
             // Test if contract is deployed by checking if it has code
             const code = await provider.getCode(checksummedAddress);
@@ -191,9 +239,6 @@ async function connectToEscrowContract(): Promise<void> {
 
             // Test if contract has the expected interface
             await contract.nextEscrowId();
-
-            // Load existing escrows for the user
-            await loadUserEscrows();
         } catch (error) {
             console.warn('Contract validation failed, skipping escrow loading:', error);
             // Don't throw here - allow connection to succeed even if contract validation fails
@@ -212,7 +257,24 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 
         if (!targetContract) throw new Error('Contract not found');
 
-        const escrowData = await targetContract.getEscrow(escrowId);
+        let escrowData;
+        try {
+            escrowData = await targetContract.getEscrow(escrowId);
+        } catch (error: any) {
+            // Check if error is due to destroyed provider
+            if (error?.code === 'UNSUPPORTED_OPERATION' && error?.message?.includes('provider destroyed')) {
+                // Reset the cached contract to force re-initialization on next call
+                if (!contractAddress) {
+                    contract = null;
+                }
+                // Retry once with fresh contract
+                const { contract: retryContract } = await ensureEscrowReady(contractAddress, false);
+                if (!retryContract) throw new Error('Contract not found after retry');
+                escrowData = await retryContract.getEscrow(escrowId);
+            } else {
+                throw error;
+            }
+        }
 
         // Map contract state enum to our EscrowStatus
         const statusMapping: Record<number, EscrowStatus> = {
@@ -280,52 +342,6 @@ async function getDisputeProposal(escrowId: string, contractAddress?: string): P
     } catch (error) {
         console.error('Failed to load dispute proposal:', error);
         return null;
-    }
-}
-
-// Load all user escrows
-async function loadUserEscrows(): Promise<void> {
-    const wallet = getRSKWallet();
-    if (!contract || !wallet) return;
-
-    try {
-        const userAddress = wallet.address;
-
-        // Check if contract is properly deployed
-        let nextEscrowId;
-        try {
-            nextEscrowId = await contract.nextEscrowId();
-        } catch (error) {
-            console.error('Failed to get nextEscrowId - contract may not be deployed correctly:', error);
-            return;
-        }
-
-        const escrows: EscrowData[] = [];
-
-        // Load recent escrows (last 50 to avoid too many calls)
-        const startId = Math.max(0, Number(nextEscrowId) - 50);
-
-        for (let i = startId; i < Number(nextEscrowId); i++) {
-            try {
-                const escrowData = await loadEscrowDetails(i.toString());
-                if (escrowData) {
-                    // Ensure all addresses are properly formatted for comparison
-                    const clientAddr = escrowData.client.toLowerCase();
-                    const freelancerAddr = escrowData.freelancer.toLowerCase();
-                    const userAddr = userAddress.toLowerCase();
-
-                    if (clientAddr === userAddr || freelancerAddr === userAddr) {
-                        escrows.push(escrowData);
-                    }
-                }
-            } catch (error) {
-                // Skip failed escrows (might be non-existent IDs)
-                console.warn(`Failed to load escrow ${i}:`, error);
-                continue;
-            }
-        }
-    } catch (error) {
-        throw new Error(`Failed to load user escrows: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
@@ -1082,8 +1098,7 @@ export const escrow = {
     estimateContractGas,
     getEscrow: loadEscrowDetails,
     getDisputeProposal,
-    refreshEscrows: loadUserEscrows,
-    loadUserEscrows,
     isContractPaused,
-    checkEscrowFundingStatus
+    checkEscrowFundingStatus,
+    resetCachedContract
 }
