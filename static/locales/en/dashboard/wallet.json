@@ -9,7 +9,12 @@
     "tab_transactions": "Transactions",
     "total_balance": "Total Balance",
     "liquid_balance": "Liquid Balance",
-    "receive": "Receive",
+    "receive": {
+      "title": "Receive Payment"
+    },
+    "send": {
+      "title": "Send Payment"
+    },
     "send_button": "Send",
     "recent_transactions": "Recent Transactions",
     "type": "Type",
@@ -214,6 +219,8 @@
       "gas": "Gas",
       "block": "Block",
       "copy_hash": "Copy Hash",
+      "copy": "Copy",
+      "hash_copied": "Transaction hash copied",
       "view": "View",
       "refresh": "Refresh",
       "paymaster_manager": "EIP-7702 Paymaster Manager",
@@ -315,6 +322,15 @@
     "no_assets_loaded": "No assets loaded yet",
     "copy_address": "Copy Address",
     "refresh": "Refresh",
+    "network": "Network",
+    "copied": "Copied",
+    "invoice": {
+      "payment_request": "Payment Request",
+      "qr_generation_failed": "Failed to generate QR code",
+      "share": "Share Invoice",
+      "share_title": "Payment Request",
+      "share_text": "Please send {amount} sats to: {address}"
+    },
     "all": "All",
     "failed_to_load_transactions": "Failed to load transactions",
     "no_transactions_yet": "No transactions yet. Start by sending or receiving payments.",
@@ -344,7 +360,51 @@
       "button_liquid_btc": "Send Liquid Bitcoin",
       "button_bitcoin": "Send Bitcoin",
       "button_liquid_usdt": "Send USDT",
-      "button_rootstock": "Send rBTC"
+      "button_rootstock": "Send rBTC",
+      "scan_qr_code": "Scan QR Code",
+      "scan_qr_code_description": "Point your camera at a payment QR code",
+      "enter_payment_details": "Enter Payment Details",
+      "enter_details_instead": "Enter Details Instead",
+      "scan_qr_code_instead": "Scan QR Code Instead",
+      "confirm_payment": "Confirm Payment",
+      "address_or_invoice": "Address or Invoice",
+      "address_placeholder": "Enter address, invoice, or scan QR code",
+      "amount": "Amount",
+      "memo": "Memo",
+      "memo_placeholder": "Optional memo or description",
+      "receiver_gets": "Receiver Gets",
+      "total_to_send": "Total to Send",
+      "authenticate_and_send": "Authenticate & Send",
+      "send": "Send",
+      "invalid_qr_code": "Invalid payment QR code",
+      "failed_to_parse_qr": "Failed to parse QR code",
+      "invalid_address": "Invalid address format",
+      "failed_to_parse_address": "Failed to parse address",
+      "from_invoice": "from invoice",
+      "amount_in_sats": "Amount in Sats",
+      "amount_in_usd": "Amount in USD",
+      "authentication_required": "Authentication required to send",
+      "payment_sent": "Payment sent successfully",
+      "large_amount_warning": {
+        "title": "Large Amount Warning",
+        "message": "You're about to send {amount}. This is a large amount. Did you mean to enter this in sats instead?",
+        "confirm_checkbox": "I confirm this is the correct amount in USD"
+      },
+      "success": {
+        "payment_sent": "Payment Sent!",
+        "sent_to": "sent to",
+        "transaction_hash": "Transaction Hash",
+        "view_on_explorer": "View on Explorer",
+        "transaction_confirmed": "Transaction confirmed"
+      },
+      "error": {
+        "invalid_payment_details": "Invalid payment details",
+        "invalid_address_format": "Invalid address format",
+        "invalid_qr_code": "Invalid payment QR code",
+        "failed_to_parse_qr": "Failed to parse QR code",
+        "failed_to_parse_address": "Failed to parse address",
+        "invalid_form": "Please check your form inputs"
+      }
     },
     "payment_request": "Payment Request",
     "payment_request_description": "Send any amount of Rootstock Bitcoin to this address, or specify an amount below to generate a QR code with the amount.",
@@ -412,6 +472,33 @@
     "refresh_balance": "Refresh Balance",
     "balance_refreshed": "Balance refreshed successfully",
     "refresh_failed": "Failed to refresh balance",
+    "calculator": {
+      "clear": "Clear",
+      "delete": "Delete",
+      "calculation": "Calculation"
+    },
+    "receive": {
+      "title": "Request Payment",
+      "unit_sats": "Sats",
+      "unit_usd": "USD",
+      "network_fees": "Network Fees",
+      "total_received": "Total Received",
+      "cancel": "Cancel",
+      "generate_invoice": "Generate Invoice",
+      "get_paid": "Get Paid",
+      "charge_fees_to_payer": "Charge network fees to payer?",
+      "enter_amount_to_estimate": "Enter amount to estimate fees",
+      "network": "Network"
+    },
+    "send": {
+      "title": "Send Payment"
+    },
+    "initializing": "Initializing wallet...",
+    "error": {
+      "initialization_failed": "Wallet initialization failed",
+      "retry": "Retry",
+      "no_connection": "Wallet not connected"
+    },
     "buy_sell": {
       "title": "Buy & Sell Digital Assets",
       "coming_soon": "Buy & Sell functionality coming soon!",
