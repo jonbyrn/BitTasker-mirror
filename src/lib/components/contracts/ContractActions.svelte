@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ContractWithEvents } from '$lib/types/contract';
+	import type { ContractWithEvents, ContractStatusEvent } from '$lib/types/contract';
 	import type { Attachment } from '$lib/types/task';
 	import type { EscrowData } from '$lib/types/wallet';
 	import { t, locale } from 'svelte-i18n';
@@ -53,6 +53,34 @@
 		{ status: EscrowStatus | null; timestamp: number }
 	>();
 	const BLOCKCHAIN_CACHE_TTL = 30000; // 30 seconds
+
+	// Calculate proposal counts for each party
+	// Use event.pubkey to identify who made each proposal (Nostr pubkey)
+	const clientProposalCount = $derived(
+		contract.statusEvents.filter(
+			(e: ContractStatusEvent) =>
+				e.content.action === EscrowStatus.DisputeResolutionProposed &&
+				e.pubkey.toLowerCase() ===
+					contractStore.getContractKey(contract, 'clientPubkey').toLowerCase()
+		).length
+	);
+
+	const freelancerProposalCount = $derived(
+		contract.statusEvents.filter(
+			(e: ContractStatusEvent) =>
+				e.content.action === EscrowStatus.DisputeResolutionProposed &&
+				e.pubkey.toLowerCase() ===
+					contractStore.getContractKey(contract, 'freelancerPubkey').toLowerCase()
+		).length
+	);
+
+	// Get current user's proposal count
+	const currentUserProposalCount = $derived(
+		contract.isClient ? clientProposalCount : freelancerProposalCount
+	);
+
+	// Check if user has proposals left
+	const hasProposalsLeft = $derived(currentUserProposalCount < 2);
 
 	// Helper to set loading state
 	function setLoading(action: string, loading: boolean) {
@@ -233,7 +261,6 @@
 
 	// Dispute task (client only)
 	async function disputeTask() {
-		console.log('Disputing task...', contract.escrowData.id);
 		if (!contract.permissions.canDispute)
 			return console.log('User does not have permission to dispute task', contract);
 
@@ -365,7 +392,6 @@
 
 	// Cancel escrow
 	async function cancelEscrow() {
-		console.log({ contract });
 		if (!contract.permissions.canCancel) {
 			return appStore.showErrorToast($t('dashboard.contracts.actions.cancel_time_restriction'));
 		}
@@ -378,7 +404,6 @@
 
 		setLoading('cancel', true);
 		try {
-			console.log('Cancelling escrow', contract.escrowData?.id);
 			// Call RSK escrow cancelEscrow - this publishes Nostr event with transactionHash
 			await escrow.cancelEscrow(
 				contractStore.getContractKey(contract, 'escrowId'),
@@ -489,7 +514,7 @@
 	// Handle modal confirmation based on active modal type
 	async function handleModalConfirm() {
 		console.log('Confirming...', contract.escrowData.id);
-		
+
 		switch (activeModal) {
 			case ContractModalAction.Accept:
 				await acceptTask();
@@ -506,7 +531,7 @@
 			default:
 				console.warn('Unknown modal action:', activeModal);
 		}
-		
+
 		closeModal();
 	}
 
@@ -713,7 +738,12 @@
 						d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0h2m-2 0v4l3-3-3-3m2-5a2 2 0 012-2h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m0 0v4l-3-3 3-3"
 					/>
 				</svg>
-				{$t('dashboard.contracts.actions.propose_resolution')}
+				{contract.disputeProposal
+					? $t('dashboard.contracts.actions.counter_proposal')
+					: $t('dashboard.contracts.actions.propose_resolution')}
+				<span class="text-base-content/60 ml-1 text-xs">
+					({currentUserProposalCount}/2)
+				</span>
 			</button>
 		{:else if !isInline}
 			<div class="bg-base-300 col-span-2 w-full space-y-3 rounded-lg p-3">
@@ -858,14 +888,63 @@
 				</div>
 			{/if}
 
-			<button
-				class="btn btn-success btn-sm w-full"
-				onclick={acceptProposal}
-				disabled={isLoading.acceptProposal || !contract.disputeProposal}
-			>
-				{#if isLoading.acceptProposal}
-					<span class="loading loading-spinner loading-xs"></span>
-				{:else}
+			<!-- Action buttons -->
+			<div class="flex flex-col gap-2 sm:flex-row">
+				<!-- Accept Proposal Button -->
+				<button
+					class="btn btn-success btn-sm flex-1"
+					onclick={acceptProposal}
+					disabled={isLoading.acceptProposal || !contract.disputeProposal}
+				>
+					{#if isLoading.acceptProposal}
+						<span class="loading loading-spinner loading-xs"></span>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+					{/if}
+					{$t('dashboard.contracts.actions.accept_proposal')}
+				</button>
+
+				<!-- Counter Proposal Button (if user has proposals left) -->
+				{#if contract.permissions.canPropose && hasProposalsLeft}
+					<button class="btn btn-warning btn-sm flex-1 text-black" onclick={openDrawer}>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0h2m-2 0v4l3-3-3-3m2-5a2 2 0 012-2h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m0 0v4l-3-3 3-3"
+							/>
+						</svg>
+						{$t('dashboard.contracts.actions.counter_proposal')}
+						<span class="text-base-content/60 ml-1 text-xs">
+							({currentUserProposalCount}/2)
+						</span>
+					</button>
+				{/if}
+			</div>
+
+			<!-- Show message if user has no proposals left -->
+			{#if !hasProposalsLeft}
+				<div class="alert alert-outline alert-warning text-xs">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-4 w-4"
@@ -877,12 +956,12 @@
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d="M5 13l4 4L19 7"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
 						/>
 					</svg>
-				{/if}
-				{$t('dashboard.contracts.actions.accept_proposal')}
-			</button>
+					<span>{$t('dashboard.contracts.actions.no_proposals_left')}</span>
+				</div>
+			{/if}
 		</div>
 	{/if}
 

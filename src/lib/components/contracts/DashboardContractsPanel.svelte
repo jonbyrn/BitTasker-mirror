@@ -112,9 +112,8 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
+		await Promise.all([loadProfilesForContracts(), contractStore.loadContracts(), fetchBtcPrice()]);
 		// Load profiles after contracts are loaded
-		await loadProfilesForContracts();
 		// Subscribe to real-time updates
 		await contractStore.subscribeToStatusUpdates();
 	});
@@ -167,6 +166,8 @@
 					profileCache.set(pubkey, profile);
 				}
 			}
+
+			console.log({ profileCache });
 		} catch (error) {
 			console.error('[DashboardContractsPanel] Error loading profiles:', error);
 		} finally {
