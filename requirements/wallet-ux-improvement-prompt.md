@@ -561,7 +561,7 @@ The send payment form uses a two-tab interface:
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h3 class="text-xl font-bold">{$t('wallet.send.enter_payment_details')}</h3>
-      <button 
+        <button
         class="btn btn-ghost btn-sm"
         onclick={() => activeTab = 'scan'}
       >
@@ -603,7 +603,7 @@ The send payment form uses a two-tab interface:
                 <div class="text-xs text-base-content/50 ml-2">
                   {recentAddress.lastUsed ? formatDate(recentAddress.lastUsed) : ''}
                 </div>
-              </button>
+        </button>
             {/each}
           </div>
         {/if}
@@ -655,7 +655,7 @@ The send payment form uses a two-tab interface:
           disabled
         />
       </div>
-    {/if}
+        {/if}
     
     <!-- Fee Display -->
     {#if estimatedFees}
@@ -663,13 +663,13 @@ The send payment form uses a two-tab interface:
         <div class="flex justify-between">
           <span>Network Fees:</span>
           <span>{estimatedFees.toLocaleString()} sats</span>
-        </div>
+      </div>
         <div class="flex justify-between font-bold">
           <span>Total to Send:</span>
           <span>{(detectedAmount || amount) + estimatedFees} sats</span>
-        </div>
-      </div>
-    {/if}
+    </div>
+  </div>
+{/if}
   </div>
 {/if}
 ```
@@ -862,7 +862,7 @@ function handleAddressInput() {
       
       // Recalculate fees when network/amount changes
       calculateFees();
-    } else {
+  } else {
       addressError = 'Invalid address format';
       detectedNetwork = null;
       detectedAmount = null;
@@ -996,7 +996,7 @@ When payment is received, show success screen:
     </a>
     <button class="btn btn-primary" onclick={handleClose}>
       Done
-    </button>
+</button>
   </div>
 </div>
 ```
@@ -1250,12 +1250,12 @@ const amountValidation = $derived(() => {
       {$t('wallet.tab_receive')}
     </button>
     
-    <button 
+<button
       class="btn btn-secondary btn-lg"
       onclick={() => showSendModal = true}
-    >
+>
       {$t('wallet.tab_send')}
-    </button>
+</button>
     
     <button 
       class="btn btn-outline btn-lg"
