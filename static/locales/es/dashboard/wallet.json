@@ -448,6 +448,24 @@
       "failed": "Fallido",
       "processing": "Procesando"
     },
+    "calculator": {
+      "clear": "Limpiar",
+      "delete": "Eliminar",
+      "calculation": "Cálculo"
+    },
+    "receive": {
+      "title": "Solicitar Pago",
+      "unit_sats": "Sats",
+      "unit_usd": "USD",
+      "network_fees": "Tarifas de Red",
+      "total_received": "Total Recibido",
+      "cancel": "Cancelar",
+      "generate_invoice": "Generar Factura",
+      "get_paid": "Cobrar",
+      "charge_fees_to_payer": "¿Cobrar tarifas de red al pagador?",
+      "enter_amount_to_estimate": "Ingrese el monto para estimar las tarifas",
+      "network": "Red"
+    },
     "swap": {
       "title": "Intercambiar Activos Digitales",
       "coming_soon": "¡Funcionalidad de intercambio próximamente!",
