@@ -9,8 +9,8 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
-	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -117,7 +117,41 @@
 			loading = true;
 			errorMessage = '';
 
-			const { data: event } = await nostrEventsService.findEventById(taskId);
+			// Check if taskId is an event ID (64 hex chars) or UUID (uniqueId)
+			const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
+			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
+			let event: any = null;
+
+			if (isEventId) {
+				// It's an event ID, use it directly
+				const result = await nostrEventsService.findEventById(taskId);
+				event = result.data;
+			} else if (isUuid) {
+				// It's a uniqueId (UUID), query by d-tag
+				const dTagValue = `task-${taskId}`;
+				const filter = {
+					kinds: [KINDS.TASK_CREATION],
+					'#d': [dTagValue],
+					limit: 1
+				};
+				
+				const response = await nostrEventsService.requestEvents({
+					filters: [filter]
+				});
+				
+				if (response.data && response.data.length > 0) {
+					event = response.data[0];
+				}
+			} else {
+				// Try as event ID anyway (fallback for edge cases)
+				try {
+					const result = await nostrEventsService.findEventById(taskId);
+					event = result.data;
+				} catch {
+					errorMessage = $t('bids.task_details.error.failed_to_load');
+					return;
+				}
+			}
 
 			if (!event) {
 				errorMessage = $t('bids.task_details.error.failed_to_load');
@@ -291,6 +325,8 @@
 					taskCreatorAvatar={taskCreatorAvatar!}
 					taskTitle={task.title}
 					taskDescription={task.description}
+					taskDateRange={task.dateRange}
+					taskDeadline={task.deadline}
 					loggedInUserId={loggedInUser.id}
 					loggedInUserName={loggedInUser.name}
 					loggedInUserAvatar={loggedInUser.avatar}

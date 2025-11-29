@@ -1,6 +1,6 @@
 import type { UserData } from '$lib/types/auth';
-import { writable } from 'svelte/store';
-import { SimplePool } from 'nostr-tools';
+import { writable, get } from 'svelte/store';
+import { appStore } from './app.store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import KINDS from '$lib/utils/constants/kinds';
 
@@ -18,9 +18,15 @@ const initialProfile: UserData = {
 	updatedAt: new Date()
 };
 
+/**
+ * Get the centralized pool instance from appStore
+ */
+function getPool() {
+	return get(appStore).pool;
+}
+
 const createUserStore = () => {
 	const { subscribe, set, update } = writable<UserData>(initialProfile);
-	const pool = new SimplePool();
 
 	return {
 		subscribe,
@@ -55,6 +61,7 @@ const createUserStore = () => {
 				'#d': ['profile-images']
 			};
 
+			const pool = getPool();
 			const [metadataEvents, imageEvents] = await Promise.all([
 				pool.querySync(RELAYS, metadataFilter),
 				pool.querySync(RELAYS, imagesFilter)

@@ -9,6 +9,7 @@
     showToggle = false, // Por defecto false, solo true en mensajes
     showTitle = true,
     showDescription = true,
+    showDescriptionToggle = true, // Controla si se muestra el botón de mostrar más/menos
     titleClass = "",
     descriptionClass = "text-sm text-base-content/80 line-clamp-2"
   } = $props<{ 
@@ -16,6 +17,7 @@
     showToggle?: boolean;
     showTitle?: boolean;
     showDescription?: boolean;
+    showDescriptionToggle?: boolean;
     titleClass?: string;
     descriptionClass?: string;
   }>();
@@ -105,7 +107,7 @@
       >
         {translatedTask.translatedDescription}
       </p>
-      {#if isDescriptionTruncated && descriptionClass.includes('line-clamp-2')}
+      {#if isDescriptionTruncated && descriptionClass.includes('line-clamp-2') && showDescriptionToggle}
         <button 
           class="btn btn-xs btn-ghost mt-1" 
           onclick={toggleDescription}
@@ -135,7 +137,7 @@
       >
         {task.description}
       </p>
-      {#if isDescriptionTruncated && descriptionClass.includes('line-clamp-2')}
+      {#if isDescriptionTruncated && descriptionClass.includes('line-clamp-2') && showDescriptionToggle}
         <button 
           class="btn btn-xs btn-ghost mt-1" 
           onclick={toggleDescription}

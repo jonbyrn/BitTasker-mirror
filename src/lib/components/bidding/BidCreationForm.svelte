@@ -2,14 +2,16 @@
 	import type { PaymentType } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
+	import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
-	import { sendDirectMessage } from '$lib/utils/nostr-message';
+	import { publishNostrEvent } from '$lib/utils/nostr';
 	import { walletManager, rskAddress } from '$lib/stores/wallet.store';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
-	import { generateBidTranslations } from '$lib/nostr/bid';
+	import type { DateRange } from '$lib/types/task';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	// Props
 	const {
@@ -20,14 +22,18 @@
 		taskCreatorAvatar,
 		taskTitle,
 		taskDescription,
+		taskDateRange,
+		taskDeadline,
 		loggedInUserId,
 		loggedInUserName,
 		loggedInUserAvatar
 	} = $props<{
 		taskId: string;
 		onClose: () => void;
-		taskTitle?: string; // Add task title prop
-		taskDescription?: string; // Add task description prop
+		taskTitle: string; // Add task title prop
+		taskDescription: string; // Add task description prop
+		taskDateRange?: DateRange | null;
+		taskDeadline?: string | null;
 		taskCreatorPubkey?: string | undefined; // Add task creator pubkey prop
 		taskCreatorUsername?: string; // Add task creator username prop
 		taskCreatorAvatar?: string; // Add task creator avatar prop
@@ -51,7 +57,13 @@
 
 	// New datetime fields for fixed price bids
 	let startDateTime = $state<Date | null>(null);
-	let endDateTime = $state<Date | null>(null);
+let endDateTime = $state<Date | null>(null);
+let scheduleFieldsTouched = $state(false);
+const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
+const DEFAULT_START_OFFSET_DAYS = 1;
+const DEFAULT_DURATION_IN_DAYS = 3;
+const DEFAULT_DURATION_IN_HOURS = DEFAULT_DURATION_IN_DAYS * 24;
+const MS_PER_HOUR = 60 * 60 * 1000;
 
 	// BTC conversion state
 	let btcPrice = $state<number>(0);
@@ -154,6 +166,148 @@
 		return value.replace(/[^0-9.,]/g, '');
 	}
 
+	function parseDate(dateValue?: string | null): Date | null {
+		if (!dateValue) return null;
+		const parsed = new Date(dateValue);
+		return Number.isNaN(parsed.getTime()) ? null : parsed;
+	}
+
+	function roundDateToInterval(
+		date: Date,
+		intervalMs = FIFTEEN_MINUTES_IN_MS,
+		direction: 'ceil' | 'floor' = 'ceil'
+	): Date {
+		const rounded = new Date(date);
+		const remainder = rounded.getTime() % intervalMs;
+		if (remainder === 0) {
+			return rounded;
+		}
+
+		if (direction === 'ceil') {
+			rounded.setTime(rounded.getTime() + (intervalMs - remainder));
+		} else {
+			rounded.setTime(rounded.getTime() - remainder);
+		}
+
+		return rounded;
+	}
+
+	function addDefaultDuration(date: Date, hours = DEFAULT_DURATION_IN_HOURS): Date {
+		const result = new Date(date);
+		result.setHours(result.getHours() + hours);
+		return result;
+	}
+
+	function ensureMinimumDuration(start: Date | null, end: Date | null): Date | null {
+		if (!start) return end;
+		if (!end) return addDefaultDuration(start);
+
+		if (end <= start) {
+			return addDefaultDuration(start);
+		}
+
+		return end;
+	}
+
+	function areDatesEqual(dateA: Date | null, dateB: Date | null): boolean {
+		if (!dateA || !dateB) return false;
+		return dateA.getTime() === dateB.getTime();
+	}
+
+	function addDays(date: Date, days: number): Date {
+		const result = new Date(date);
+		result.setDate(result.getDate() + days);
+		return result;
+	}
+
+	function getDefaultFutureStart(): Date {
+		const now = new Date();
+		const target = addDays(now, DEFAULT_START_OFFSET_DAYS);
+		return roundDateToInterval(target, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	}
+
+	function clampToFuture(date: Date): Date {
+		const nowRounded = roundDateToInterval(new Date(), FIFTEEN_MINUTES_IN_MS, 'ceil');
+		return date < nowRounded ? nowRounded : date;
+	}
+
+	function buildPreferredStartDate(): Date | null {
+		const rangeStart = parseDate(taskDateRange?.start);
+		if (rangeStart) {
+			return clampToFuture(roundDateToInterval(rangeStart, FIFTEEN_MINUTES_IN_MS, 'ceil'));
+		}
+
+		const deadlineDate = parseDate(taskDeadline);
+		let candidate = getDefaultFutureStart();
+
+		if (deadlineDate) {
+			const maxStartBeforeDeadline = new Date(
+				deadlineDate.getTime() - DEFAULT_DURATION_IN_HOURS * MS_PER_HOUR
+			);
+			const roundedMaxStart = roundDateToInterval(
+				maxStartBeforeDeadline,
+				FIFTEEN_MINUTES_IN_MS,
+				'floor'
+			);
+			if (!Number.isNaN(roundedMaxStart.getTime())) {
+				candidate = roundedMaxStart < candidate ? roundedMaxStart : candidate;
+			}
+		}
+
+		return clampToFuture(candidate);
+	}
+
+	function buildPreferredEndDate(startCandidate: Date | null): Date | null {
+		const rangeEnd = parseDate(taskDateRange?.end);
+		if (rangeEnd) {
+			return roundDateToInterval(rangeEnd, FIFTEEN_MINUTES_IN_MS, 'ceil');
+		}
+
+		const deadlineDate = parseDate(taskDeadline);
+		const baseStart = startCandidate ?? getDefaultFutureStart();
+		const preferredEndFromDuration = addDays(baseStart, DEFAULT_DURATION_IN_DAYS);
+
+		let candidate: Date | null = preferredEndFromDuration;
+
+		if (deadlineDate) {
+			// Don't exceed deadline
+			candidate = deadlineDate < preferredEndFromDuration ? deadlineDate : preferredEndFromDuration;
+		}
+
+		if (!candidate) {
+			const fallbackEnd = addDays(new Date(), DEFAULT_START_OFFSET_DAYS + DEFAULT_DURATION_IN_DAYS);
+			candidate = fallbackEnd;
+		}
+
+		// Ensure end is after start
+		if (baseStart && candidate <= baseStart) {
+			candidate = addDays(baseStart, DEFAULT_DURATION_IN_DAYS);
+		}
+
+		return roundDateToInterval(candidate, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	}
+
+	// Prefill schedule fields with task information (if available)
+	$effect(() => {
+		if (scheduleFieldsTouched) {
+			return;
+		}
+
+		const preferredStart = buildPreferredStartDate();
+		const preferredEnd = ensureMinimumDuration(
+			preferredStart,
+			buildPreferredEndDate(preferredStart)
+		);
+
+		if (preferredStart && !areDatesEqual(startDateTime, preferredStart)) {
+			startDateTime = preferredStart;
+		}
+
+		if (preferredEnd && !areDatesEqual(endDateTime, preferredEnd)) {
+			endDateTime = preferredEnd;
+		}
+	});
+
 	// Handle description changes - clear error when user starts typing
 	function handleDescriptionChange() {
 		// Clear error as soon as user starts typing (addresses both "required" and "min length" errors)
@@ -177,6 +331,7 @@
 
 	// Handle datetime changes
 	function handleDateTimeChange() {
+		scheduleFieldsTouched = true;
 		clearFieldError('datetime');
 	}
 
@@ -319,21 +474,12 @@
 		try {
 			await walletManager.initialize();
 
-			// Generate translations for bid content (description, proposedApproach, coverLetter)
-			// This stores translations in both languages for fast retrieval
-			const bidTranslations = await generateBidTranslations({
-				description,
-				proposedApproach,
-				coverLetter
-			});
-
 			// Create bid data structure with explicit type
 			const bidData = {
-				type: 'bid' as const,
+				type: 'bid',
 				taskId: taskId,
-				taskTitle: taskTitle || $t('dashboard.bids.bid_creation.untitled_task'),
-				taskDescription:
-					taskDescription || $t('dashboard.bids.bid_creation.no_description_available'), // Add task description
+				taskTitle: taskTitle,
+				taskDescription: taskDescription,
 				amount: amount, // Send USD amount directly
 				currency: 'USD',
 				paymentType: bidType,
@@ -344,7 +490,7 @@
 				proposedApproach,
 				coverLetter: coverLetter,
 				timestamp: Date.now(),
-				bidId: crypto.randomUUID(),
+				bidId: crypto.randomUUID(), // TODO: should be removed in favor of nostr event id property
 
 				taskCreatorPubkey: taskCreatorPubkey,
 				taskCreatorUsername: taskCreatorUsername,
@@ -360,32 +506,28 @@
 
 				// Add new datetime fields
 				startDateTime: bidType === 'FIXED' ? startDateTime : null,
-				endDateTime: bidType === 'FIXED' ? endDateTime : null,
-
-				messageType: 'bid',
-				
-				// Add translations if available
-				...(bidTranslations && { translations: bidTranslations })
+				endDateTime: bidType === 'FIXED' ? endDateTime : null
 			};
 
-			// Create custom tags for the nostr event
-			const customTags: string[][] = [
-				['t', taskId] // Add task ID as a custom tag for filtering
-			];
+			// Create custom tags for the bid event using TAG_PATTERNS
+			const customTags = TAG_PATTERNS.bid(bidData.bidId, taskId, taskCreatorPubkey, bidType);
 
-			// Submit a bid as an encrypted DM to the task creator with custom tags
-			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
+			// Submit a bid as an encrypted event to the task creator with custom tags
+			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), taskCreatorPubkey, customTags);
+
+			// Send notification to task creator
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [taskCreatorPubkey],
 				title: 'New Bid Received',
 				body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey}`,
 				type: 'bid_created',
-				clickAction: `${import.meta.env.VITE_APP_URL}/tasks/${taskId}`,
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${taskId}`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Clear bid cache to ensure fresh data on next load
-			clearBidCache();
+			// Clear bid cache for this specific task
+			// This ensures fresh data on next load without clearing unrelated caches
+			clearBidCache(taskId);
 
 			// Mark bid as submitted
 			bidSubmitted = true;
@@ -712,13 +854,9 @@
 				></textarea>
 				{#if description.length > 0}
 					<small
-						class="text-base-content/60 text-xs {description.length < 20
-							? 'text-error'
-							: description.length >= 500
-								? 'text-warning'
-								: ''}"
+						class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}"
 					>
-						{description.length}/20
+						{description.length}/500 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.description}
@@ -752,13 +890,11 @@
 				></textarea>
 				{#if proposedApproach.length > 0}
 					<small
-						class="text-base-content/60 text-xs {proposedApproach.length < 20
-							? 'text-error'
-							: proposedApproach.length >= 1000
-								? 'text-warning'
-								: ''}"
+						class="text-base-content/60 text-xs {proposedApproach.length >= 1000
+							? 'text-warning'
+							: ''}"
 					>
-						{proposedApproach.length}/20
+						{proposedApproach.length}/1000 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.proposedApproach}
@@ -791,7 +927,7 @@
 					<small
 						class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}"
 					>
-						{coverLetter.length}/20
+						{coverLetter.length}/800 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.coverLetter}

@@ -782,7 +782,7 @@
 					<textarea
 						id="message-text"
 						class="textarea textarea-bordered w-full"
-						placeholder="Type your message here..."
+						placeholder={$t('common.profile.message_placeholder')}
 						bind:value={messageText}
 						rows="4"
 						disabled={sendingMessage}

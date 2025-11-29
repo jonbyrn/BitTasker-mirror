@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { SimplePool, type NostrEvent } from 'nostr-tools';
+import type { NostrEvent } from 'nostr-tools';
 import type { Profile } from '$lib/types/profile';
-import { writable } from 'svelte/store';
+import { appStore } from './app.store';
+import { get, writable } from 'svelte/store';
 import { subscribeToProfileUpdates, closeNostrPool } from '$lib/nostr/profile';
 import KINDS from '$lib/utils/constants/kinds';
 
@@ -54,8 +54,8 @@ function createProfileStore() {
     let cleanup: (() => void) | null = null;
 
     return {
-        pool: new SimplePool(),
-        
+        pool: get(appStore).pool,
+
         subscribe,
 
         // Initialize the store with data from nostr

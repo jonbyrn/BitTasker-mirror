@@ -1,23 +1,22 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import type { Event as NostrEvent, Filter } from 'nostr-tools';
+	import { t } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
+	import { onMount, onDestroy } from 'svelte';
+	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
 	import {
 		fetchProfileMetadata,
 		getMessagedPeople,
-		getMessageHistory,
 		listenForIncomingMessages
 	} from '$lib/utils/nostr-message';
-	import { profileCache } from '$lib/utils/profile-cache';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-	import { subscribeToEvents } from '$lib/utils/nostr';
-	import type { Event as NostrEvent, Filter } from 'nostr-tools';
+	import { bytesToHex } from '@noble/hashes/utils';
+	import { parseDMEvent } from '$lib/utils/nostr-message';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
-	import { conversationManager } from '$lib/utils/conversation-manager';
+	import { appStore } from '$lib/stores/app.store';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { t } from 'svelte-i18n';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
 
 	/**
 	 * Helper function to translate message content if it's a translation key
@@ -33,7 +32,7 @@
 		// Translation keys typically have at least 2 segments separated by dots
 		const translationKeyPattern = /^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i;
 		const trimmedContent = content.trim();
-		
+
 		if (translationKeyPattern.test(trimmedContent)) {
 			try {
 				// Try to translate it using the reactive $t function
@@ -66,23 +65,16 @@
 	// Search state
 	let searchQuery = $state('');
 	let filteredConversations = $derived(
-		conversationManager.searchConversations(
-			conversations.map((c) => ({
-				pubkey: c.pubkey,
-				lastEvent: c.lastEvent,
-				// Use content directly since we've already filtered system messages
-				// Only user-to-user messages are stored in conversations
-				lastMessage: c.lastEvent.content || '',
-				lastMessageTime: c.lastEvent.created_at,
-				profile: c.profile
-			})),
-			searchQuery
-		).sort((a, b) => {
-			// Asegurar que el ordenamiento se mantenga después del filtrado
-			const timeA = a.lastMessageTime || 0;
-			const timeB = b.lastMessageTime || 0;
-			return timeB - timeA; // Más reciente primero
-		})
+		searchQuery.trim() === ''
+			? conversations
+			: conversations.filter((c) => {
+					const query = searchQuery.toLowerCase();
+					return (
+						c.profile.name?.toLowerCase().includes(query) ||
+						c.pubkey.toLowerCase().includes(query) ||
+						c.lastEvent.content?.toLowerCase().includes(query)
+					);
+				})
 	);
 
 	// Modal state
@@ -107,93 +99,9 @@
 	// Real-time subscription for conversation list updates
 	let conversationListUnsubscribe: (() => void) | null = null;
 
-	// Profile subscriptions removed - using props instead
-
 	// Load conversations on mount
 	onMount(async () => {
-		try {
-			// Clear profile cache to ensure we only show conversations for current user
-			const { nsec, npub } = await getNostrKeyPair();
-			const currentUserPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-			
-			console.log('🧹 Clearing profile cache for user:', currentUserPubkey);
-			profileCache.clear(); // Clear all cached profiles
-			
-			// Obtener conversaciones pero excluir las que solo contengan bids
-			const people = await getMessagedPeople();
-
-			// Process conversations in parallel for better performance
-			const conversationPromises = people.map(async (person) => {
-				try {
-					// First, check if the original last event from getMessagedPeople is already a user message
-					// This avoids unnecessary message history fetches
-					if (person.lastEvent?.content && isUserToUserMessage(person.lastEvent.content)) {
-						// The last event is already a user message, use it directly
-						return person;
-					}
-
-					// The last event is a system message, so we need to find the most recent user message
-					// Fetch message history (limit increased to ensure we find user messages)
-					// We need to fetch more messages to account for system messages that will be filtered out
-					const messageHistory = await getMessageHistory(person.pubkey, { limit: 10 });
-
-					// Filter out system messages - only show user-to-user messages
-					const userMessages = messageHistory.filter((msg) => isUserToUserMessage(msg.plaintext));
-
-					// Find the most recent user-to-user message
-					const lastUserMessage = userMessages
-						.sort((a, b) => b.event.created_at - a.event.created_at)[0];
-
-					if (lastUserMessage) {
-						// Use the user message content directly (no need to parse as it's already plain text)
-						return {
-							...person,
-							lastEvent: {
-								...person.lastEvent,
-								content: lastUserMessage.plaintext,
-								created_at: lastUserMessage.event.created_at
-							}
-						};
-					}
-					
-					// If no user messages found in history, exclude this conversation from the list
-					// as it only contains system messages
-					return null;
-				} catch (err) {
-					console.error('Error processing conversation:', err);
-					// Only include conversation if we can verify it has user messages
-					// For safety, check if the original last event is a user message
-					if (person.lastEvent?.content && isUserToUserMessage(person.lastEvent.content)) {
-						return person;
-					}
-					return null;
-				}
-			});
-
-			// Wait for all conversations to be processed
-			const conversationResults = await Promise.all(conversationPromises);
-			// Filter out null conversations (those with only system messages)
-			const filteredConversations = conversationResults.filter((conversation): conversation is NonNullable<typeof conversation> => conversation !== null && conversation !== undefined);
-
-			// Ordenar conversaciones del más reciente al más antiguo
-			conversations = filteredConversations.sort((a, b) => {
-				const timeA = a.lastEvent?.created_at || 0;
-				const timeB = b.lastEvent?.created_at || 0;
-				return timeB - timeA; // Más reciente primero
-			});
-
-			// Setup profile subscriptions for existing conversations
-			for (const conversation of conversations) {
-				// Profile subscription removed - using props instead
-			}
-		} catch (err) {
-			error = 'messages.failed_load_conversations';
-		} finally {
-			isLoading = false;
-		}
-
-		// Setup real-time updates for conversation list
-		setupConversationListListener();
+		await loadConversations();
 	});
 
 	// Cleanup on component destroy
@@ -201,18 +109,16 @@
 		if (conversationListUnsubscribe) {
 			conversationListUnsubscribe();
 		}
-
-		// Profile subscriptions removed
 	});
 
-	function setupConversationListListener() {
+	function setupConversationListListener(npub: string, nsec: Uint8Array) {
 		// Clean up existing subscription
 		if (conversationListUnsubscribe) {
 			conversationListUnsubscribe();
 		}
 
 		// Setup new subscription for real-time conversation updates
-		conversationListUnsubscribe = listenForIncomingMessages(async (msg) => {
+		conversationListUnsubscribe = listenForIncomingMessages(npub, nsec, async (msg) => {
 			const { plaintext, senderPubkey, event } = msg;
 
 			// Filter out system messages - only show user-to-user messages in conversation list
@@ -221,14 +127,32 @@
 				return; // Skip system messages in conversation list
 			}
 
-			// Find or create conversation for this message
-			const existingConversationIndex = conversations.findIndex((c) => c.pubkey === senderPubkey);
+			// Determine the OTHER person in this conversation
+			// If senderPubkey is us (we sent the message), get recipient from #p tag
+			// If senderPubkey is not us (we received the message), senderPubkey IS the other person
+			let otherPubkey: string;
+
+			if (senderPubkey === npub) {
+				// We sent this message, so get the recipient from the #p tag
+				const recipientTag = event.tags.find((tag) => tag[0] === 'p');
+				if (!recipientTag || !recipientTag[1]) {
+					console.error('No recipient found in message tags');
+					return;
+				}
+				otherPubkey = recipientTag[1];
+			} else {
+				// We received this message, so the sender is the other person
+				otherPubkey = senderPubkey;
+			}
+
+			// Find or create conversation for this OTHER person
+			const existingConversationIndex = conversations.findIndex((c) => c.pubkey === otherPubkey);
 
 			if (existingConversationIndex >= 0) {
 				// Update existing conversation
 				const existingConversation = conversations[existingConversationIndex];
 
-				// Only update if this message is newer and not JSON
+				// Only update if this message is newer
 				if (event.created_at > existingConversation.lastEvent.created_at) {
 					const updatedConversation = {
 						...existingConversation,
@@ -246,11 +170,11 @@
 					];
 				}
 			} else {
-				// Create new conversation
+				// Create new conversation with the OTHER person
 				try {
-					const profile = await fetchProfileMetadata(senderPubkey);
+					const profile = await fetchProfileMetadata(otherPubkey);
 					const newConversation = {
-						pubkey: senderPubkey,
+						pubkey: otherPubkey,
 						lastEvent: {
 							...event,
 							content: plaintext // Store decrypted content for display
@@ -260,13 +184,61 @@
 
 					// Add to top of conversations
 					conversations = [newConversation, ...conversations];
-
-					// Setup profile subscription for new conversation
 				} catch (err) {
 					console.error('Failed to fetch profile for new conversation:', err);
 				}
 			}
 		});
+	}
+
+	async function loadConversations() {
+		try {
+			isLoading = true;
+			error = '';
+
+			const people = await getMessagedPeople();
+
+			if (!people.length) {
+				return (isLoading = false);
+			}
+
+			// Decrypt ONLY last messages in parallel
+			const { nsec, npub } = await getNostrKeyPair();
+			const privkey = bytesToHex(nsec);
+
+			const conversationPromises = people.map(async (person) => {
+				try {
+					const { plaintext } = await parseDMEvent(person.lastEvent, privkey, npub);
+
+					// Filter system messages
+					if (!isUserToUserMessage(plaintext)) {
+						return null;
+					}
+
+					return {
+						pubkey: person.pubkey,
+						lastEvent: { ...person.lastEvent, content: plaintext },
+						profile: person.profile
+					};
+				} catch (err) {
+					console.error('Failed to decrypt last message:', err);
+					return null;
+				}
+			});
+
+			const results = await Promise.all(conversationPromises);
+			conversations = results
+				.filter((c) => c !== null)
+				.sort((a, b) => b.lastEvent.created_at - a.lastEvent.created_at);
+
+			// Setup real-time updates for conversation list
+			console.log('listening for incoming conversations');
+			setupConversationListListener(npub, nsec);
+		} catch (err) {
+			error = 'messages.failed_load_conversations';
+		} finally {
+			isLoading = false;
+		}
 	}
 
 	// Profile subscription removed - using props instead
@@ -386,14 +358,12 @@
 		showUsernameResults = true;
 
 		try {
-			const profiles: { pubkey: string; profile: { name?: string; picture?: string } }[] = [];
 			const profileMap = new Map<string, { name?: string; picture?: string }>();
 			const relayUrl = import.meta.env.VITE_NOSTR_RELAY_URL;
 
 			if (!relayUrl) {
 				throw new Error('No relay URL configured');
 			}
-
 
 			// Search for profile events with matching names
 			const filter: Filter = {
@@ -413,77 +383,84 @@
 			let searchCompleted = false;
 
 			// First, search for profile events
-			const unsubscribeProfiles = subscribeToEvents(relayUrl, [filter], (event: NostrEvent) => {
-				if (searchCompleted) return;
+			const unsubscribeProfiles = $appStore.pool.subscribe([relayUrl], filter, {
+				onevent: (event: NostrEvent) => {
+					if (searchCompleted) return;
 
-				eventCount++;
+					eventCount++;
 
-				// Stop processing if we've seen too many events
-				if (eventCount > maxEvents) {
-					searchCompleted = true;
-					unsubscribeProfiles();
-					return;
-				}
+					// Stop processing if we've seen too many events
+					if (eventCount > maxEvents) {
+						searchCompleted = true;
+						unsubscribeProfiles.close();
+						return;
+					}
 
-				try {
-					const profileData = JSON.parse(event.content);
+					try {
+						const profileData = JSON.parse(event.content);
 
-					// Check if the profile has a name and it matches our search
-					if (profileData.name) {
-						const profileName = profileData.name.toLowerCase();
-						const searchTerm = username.toLowerCase();
+						// Check if the profile has a name and it matches our search
+						if (profileData.name) {
+							const profileName = profileData.name.toLowerCase();
+							const searchTerm = username.toLowerCase();
 
-						// More flexible matching - check if search term is contained in name
-						// or if name starts with search term
-						if (profileName.includes(searchTerm) || profileName.startsWith(searchTerm)) {
+							// More flexible matching - check if search term is contained in name
+							// or if name starts with search term
+							if (profileName.includes(searchTerm) || profileName.startsWith(searchTerm)) {
+								// Store profile data in map
+								profileMap.set(event.pubkey, {
+									name: profileData.name,
+									picture: profileData.picture || profileData.banner // Try banner if no picture
+								});
 
-							// Store profile data in map
-							profileMap.set(event.pubkey, {
-								name: profileData.name,
-								picture: profileData.picture || profileData.banner // Try banner if no picture
-							});
+								// Update results immediately as we find them
+								usernameSearchResults = Array.from(profileMap.entries())
+									.map(([pubkey, profile]) => ({
+										pubkey,
+										profile
+									}))
+									.slice(0, 5);
 
-							// Update results immediately as we find them
-							usernameSearchResults = Array.from(profileMap.entries()).map(([pubkey, profile]) => ({
-								pubkey,
-								profile
-							})).slice(0, 5);
-							
-							// Stop searching if we have enough results
-							if (profileMap.size >= 5) {
-								searchCompleted = true;
-								unsubscribeProfiles();
-								isUsernameSearching = false;
+								// Stop searching if we have enough results
+								if (profileMap.size >= 5) {
+									searchCompleted = true;
+									unsubscribeProfiles.close();
+									isUsernameSearching = false;
+								}
 							}
 						}
+					} catch (err) {
+						// Skip invalid profile data
 					}
-				} catch (err) {
-					// Skip invalid profile data
 				}
 			});
 
 			// Also search for image events to get profile pictures
-			const unsubscribeImages = subscribeToEvents(relayUrl, [imageFilter], (event: NostrEvent) => {
-				if (searchCompleted) return;
+			const unsubscribeImages = $appStore.pool.subscribe([relayUrl], imageFilter, {
+				onevent: (event: NostrEvent) => {
+					if (searchCompleted) return;
 
-				try {
-					const imageData = JSON.parse(event.content);
-					
-					// If we have a profile for this pubkey, add the image
-					if (profileMap.has(event.pubkey) && imageData.length > 0) {
-						const profile = profileMap.get(event.pubkey);
-						if (profile && !profile.picture) {
-							profile.picture = imageData[0].url;
-							
-							// Update results with the new image
-							usernameSearchResults = Array.from(profileMap.entries()).map(([pubkey, profile]) => ({
-								pubkey,
-								profile
-							})).slice(0, 5);
+					try {
+						const imageData = JSON.parse(event.content);
+
+						// If we have a profile for this pubkey, add the image
+						if (profileMap.has(event.pubkey) && imageData.length > 0) {
+							const profile = profileMap.get(event.pubkey);
+							if (profile && !profile.picture) {
+								profile.picture = imageData[0].url;
+
+								// Update results with the new image
+								usernameSearchResults = Array.from(profileMap.entries())
+									.map(([pubkey, profile]) => ({
+										pubkey,
+										profile
+									}))
+									.slice(0, 5);
+							}
 						}
+					} catch (err) {
+						// Skip invalid image data
 					}
-				} catch (err) {
-					// Skip invalid image data
 				}
 			});
 
@@ -491,19 +468,19 @@
 			await new Promise((resolve) => {
 				const timeoutId = setTimeout(() => {
 					searchCompleted = true;
-					unsubscribeProfiles();
-					unsubscribeImages();
+					unsubscribeProfiles.close();
+					unsubscribeImages.close();
 					resolve(undefined);
 				}, 2000); // Reduced to 2 second search duration
-				
+
 				// Also resolve if we have enough results
 				const checkResults = setInterval(() => {
 					if (searchCompleted || profileMap.size >= 3) {
 						clearTimeout(timeoutId);
 						clearInterval(checkResults);
 						searchCompleted = true;
-						unsubscribeProfiles();
-						unsubscribeImages();
+						unsubscribeProfiles.close();
+						unsubscribeImages.close();
 						isUsernameSearching = false;
 						resolve(undefined);
 					}
@@ -511,10 +488,12 @@
 			});
 
 			// Final update of results
-			usernameSearchResults = Array.from(profileMap.entries()).map(([pubkey, profile]) => ({
-				pubkey,
-				profile
-			})).slice(0, 5);
+			usernameSearchResults = Array.from(profileMap.entries())
+				.map(([pubkey, profile]) => ({
+					pubkey,
+					profile
+				}))
+				.slice(0, 5);
 
 			if (profileMap.size === 0) {
 				usernameSearchError = 'messages.no_users_found';
@@ -602,9 +581,9 @@
 								></path>
 							</svg>
 						</div>
-                        <div>
-                            <h4 class="text-sm font-semibold">{$t('messages.start_new_message')}</h4>
-                        </div>
+						<div>
+							<h4 class="text-sm font-semibold">{$t('messages.start_new_message')}</h4>
+						</div>
 					</div>
 				</div>
 
@@ -612,12 +591,12 @@
 					<!-- Input Section -->
 					<div class="space-y-3">
 						<div>
-                            <label
-                                for="recipient-pubkey"
-                                class="text-base-content mb-2 block text-sm font-medium"
-                            >
-                                {$t('messages.recipient_label')}
-                            </label>
+							<label
+								for="recipient-pubkey"
+								class="text-base-content mb-2 block text-sm font-medium"
+							>
+								{$t('messages.recipient_label')}
+							</label>
 							<div class="relative">
 								<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 									<svg
@@ -634,20 +613,20 @@
 										></path>
 									</svg>
 								</div>
-                                <input
-                                    id="recipient-pubkey"
-                                    type="text"
-                                    class="input input-bordered focus:input-primary w-full pl-10 text-sm"
-                                    bind:value={newMessagePubkey}
-                                    oninput={handlePubkeyInput}
-                                    placeholder={$t('messages.recipient_placeholder')}
-                                    autocomplete="off"
-                                />
+								<input
+									id="recipient-pubkey"
+									type="text"
+									class="input input-bordered focus:input-primary w-full pl-10 text-sm"
+									bind:value={newMessagePubkey}
+									oninput={handlePubkeyInput}
+									placeholder={$t('messages.recipient_placeholder')}
+									autocomplete="off"
+								/>
 							</div>
 						</div>
 
 						<!-- Help text -->
-                        <div class="bg-base-200/50 rounded-lg p-3">
+						<div class="bg-base-200/50 rounded-lg p-3">
 							<div class="flex items-start gap-2">
 								<svg
 									class="text-info mt-0.5 h-4 w-4 shrink-0"
@@ -662,19 +641,19 @@
 										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 									></path>
 								</svg>
-                                <div class="text-base-content/70 text-xs">
-                                    <p class="mb-1 font-medium">{$t('messages.search_by_username_title')}</p>
-                                    <p class="text-xs">
-                                        {$t('messages.search_by_username_desc')}
-                                    </p>
-                                </div>
+								<div class="text-base-content/70 text-xs">
+									<p class="mb-1 font-medium">{$t('messages.search_by_username_title')}</p>
+									<p class="text-xs">
+										{$t('messages.search_by_username_desc')}
+									</p>
+								</div>
 							</div>
 						</div>
 					</div>
 
 					<!-- Username Search Results -->
 					{#if showUsernameResults && usernameSearchResults.length > 0}
-                        <div class="space-y-3">
+						<div class="space-y-3">
 							<div class="flex items-center gap-2">
 								<svg
 									class="text-success h-4 w-4"
@@ -689,15 +668,15 @@
 										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 									></path>
 								</svg>
-                                <span class="text-sm font-medium">{$t('messages.search_results')}</span>
+								<span class="text-sm font-medium">{$t('messages.search_results')}</span>
 							</div>
 							<div class="border-base-300 max-h-48 space-y-1 overflow-y-auto rounded-lg border p-1">
 								{#each usernameSearchResults as result}
 									<button
 										type="button"
 										class="hover:bg-primary/5 hover:border-primary/20 flex w-full items-center gap-3 rounded-lg border border-transparent p-3 transition-all duration-200"
-                                        onclick={() => selectUserFromSearch(result.pubkey)}
-                                        aria-label={$t('messages.select_user')}
+										onclick={() => selectUserFromSearch(result.pubkey)}
+										aria-label={$t('messages.select_user')}
 									>
 										<div class="user-avatar shrink-0">
 											{#if result.profile.picture}
@@ -710,7 +689,7 @@
 												/>
 											{/if}
 											<div
-												class="avatar-fallback from-primary/20 to-secondary/20 ring-base-300 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ring-2"
+												class="avatar-fallback from-primary/20 to-secondary/20 ring-base-300 flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br ring-2"
 												style="display: {result.profile.picture ? 'none' : 'flex'};"
 											>
 												{#if result.profile.name}
@@ -736,9 +715,9 @@
 											</div>
 										</div>
 										<div class="min-w-0 flex-1 text-left">
-                                            <h5 class="text-base-content truncate text-sm font-medium">
-                                                {result.profile.name || $t('messages.unknown_user')}
-                                            </h5>
+											<h5 class="text-base-content truncate text-sm font-medium">
+												{result.profile.name || $t('messages.unknown_user')}
+											</h5>
 											<p class="text-base-content/60 truncate font-mono text-xs">
 												{result.pubkey.slice(0, 12)}...{result.pubkey.slice(-8)}
 											</p>
@@ -765,8 +744,6 @@
 						</div>
 					{/if}
 
-	
-
 					<!-- Username Search Error -->
 					{#if usernameSearchError}
 						<div class="alert alert-error alert-outline py-2">
@@ -784,8 +761,8 @@
 								/>
 							</svg>
 							<span class="text-sm">
-								{usernameSearchError.startsWith('messages.') 
-									? $t(usernameSearchError) 
+								{usernameSearchError.startsWith('messages.')
+									? $t(usernameSearchError)
 									: usernameSearchError}
 							</span>
 						</div>
@@ -808,9 +785,7 @@
 								/>
 							</svg>
 							<span class="text-sm">
-								{newMessageError.startsWith('messages.') 
-									? $t(newMessageError) 
-									: newMessageError}
+								{newMessageError.startsWith('messages.') ? $t(newMessageError) : newMessageError}
 							</span>
 						</div>
 					{/if}
@@ -831,19 +806,32 @@
 									<img
 										src={newMessageProfile.picture}
 										alt={newMessageProfile.name || $t('messages.unknown_user')}
-										class="h-10 w-10 rounded-full object-cover ring-2 ring-base-300"
+										class="ring-base-300 h-10 w-10 rounded-full object-cover ring-2"
 										width={40}
 										height={40}
 									/>
 								{:else}
-									<div class="bg-gradient-to-br from-primary/20 to-secondary/20 flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-base-300">
+									<div
+										class="from-primary/20 to-secondary/20 ring-base-300 flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br ring-2"
+									>
 										{#if newMessageProfile.name}
-											<span class="text-primary font-semibold text-sm">
+											<span class="text-primary text-sm font-semibold">
 												{newMessageProfile.name.charAt(0).toUpperCase()}
 											</span>
 										{:else}
-											<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="text-primary h-5 w-5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+												/>
 											</svg>
 										{/if}
 									</div>
@@ -876,7 +864,7 @@
 								</svg>
 							</div>
 						</div>
-                    {:else if newMessagePubkey && !newMessageError && !showUsernameResults}
+					{:else if newMessagePubkey && !newMessageError && !showUsernameResults}
 						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
 							<div class="bg-base-300 flex h-10 w-10 items-center justify-center rounded-full">
 								<svg
@@ -894,8 +882,8 @@
 									/>
 								</svg>
 							</div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-base-content/60 font-medium">{$t('messages.no_profile_found')}</p>
+							<div class="min-w-0 flex-1">
+								<p class="text-base-content/60 font-medium">{$t('messages.no_profile_found')}</p>
 								<p class="text-base-content/50 truncate text-xs">
 									{newMessagePubkey.startsWith('npub')
 										? `${newMessagePubkey.slice(0, 16)}...`
@@ -907,7 +895,7 @@
 
 					<!-- Action Buttons -->
 					<div class="border-base-300 flex gap-3 border-t pt-6">
-                        <button type="button" class="btn btn-ghost flex-1" onclick={closeModal}>
+						<button type="button" class="btn btn-ghost flex-1" onclick={closeModal}>
 							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path
 									stroke-linecap="round"
@@ -916,7 +904,7 @@
 									d="M6 18L18 6M6 6l12 12"
 								></path>
 							</svg>
-                            {$t('messages.cancel')}
+							{$t('messages.cancel')}
 						</button>
 						<button
 							type="submit"
@@ -925,7 +913,7 @@
 						>
 							{#if isProfileLoading}
 								<span class="loading loading-spinner loading-sm mr-2"></span>
-                                {$t('messages.loading')}
+								{$t('messages.loading')}
 							{:else}
 								<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path
@@ -935,7 +923,7 @@
 										d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
 									></path>
 								</svg>
-                                {$t('messages.start_chat')}
+								{$t('messages.start_chat')}
 							{/if}
 						</button>
 					</div>
@@ -1025,13 +1013,34 @@
 							/>
 						</svg>
 						<span>{$t(error)}</span>
+						<button
+							aria-label="Retry"
+							class="btn btn-error btn-outline btn-sm"
+							onclick={loadConversations}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+								/>
+							</svg>
+							{$t('messages.retry')}
+						</button>
 					</div>
 				{:else if conversations.length > 0}
 					<!-- Show conversations with optional loading indicator -->
 					<div class="divide-base-300/20 divide-y">
 						{#each filteredConversations as conversation}
 							<button
-								class="flex w-full items-center gap-3 p-4 text-left hover:bg-base-200/50 transition-colors"
+								class="hover:bg-base-200/50 flex w-full items-center gap-3 p-4 text-left transition-colors"
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
 								<!-- Avatar -->
@@ -1046,15 +1055,17 @@
 								<!-- Conversation Info -->
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center justify-between">
-										<h3 class="font-medium truncate">
+										<h3 class="truncate font-medium">
 											{conversation.profile.name || `${conversation.pubkey.slice(0, 8)}...`}
 										</h3>
-										<span class="text-base-content/60 text-xs shrink-0 ml-2">
-											{formatTimeAgo(new Date(conversation.lastMessageTime * 1000))}
+										<span class="text-base-content/60 ml-2 shrink-0 text-xs">
+											{formatTimeAgo(new Date(conversation.lastEvent.created_at * 1000))}
 										</span>
 									</div>
-									<p class="text-base-content/70 text-sm truncate mt-1">
-										{conversation.lastMessage ? translateMessageContent(conversation.lastMessage) : $t('messages.no_messages')}
+									<p class="text-base-content/70 mt-1 truncate text-sm">
+										{conversation.lastEvent.content
+											? translateMessageContent(conversation.lastEvent.content)
+											: $t('messages.no_messages')}
 									</p>
 								</div>
 							</button>
@@ -1121,42 +1132,55 @@
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
 								<!-- Avatar -->
-									<div class="shrink-0">
-										{#if conversation.profile.picture}
-											<img
-												src={conversation.profile.picture}
-												alt={conversation.profile.name || $t('messages.unknown_user')}
-												class="h-10 w-10 rounded-full object-cover ring-2 ring-base-300"
-												width={40}
-												height={40}
-											/>
-										{:else}
-											<div class="bg-gradient-to-br from-primary/20 to-secondary/20 flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-base-300">
-												{#if conversation.profile.name}
-													<span class="text-primary font-semibold text-sm">
-														{conversation.profile.name.charAt(0).toUpperCase()}
-													</span>
-												{:else}
-													<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-													</svg>
-												{/if}
-											</div>
-										{/if}
-									</div>
+								<div class="shrink-0">
+									{#if conversation.profile.picture}
+										<img
+											src={conversation.profile.picture}
+											alt={conversation.profile.name || $t('messages.unknown_user')}
+											class="ring-base-300 h-10 w-10 rounded-full object-cover ring-2"
+											width={40}
+											height={40}
+										/>
+									{:else}
+										<div
+											class="from-primary/20 to-secondary/20 ring-base-300 flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br ring-2"
+										>
+											{#if conversation.profile.name}
+												<span class="text-primary text-sm font-semibold">
+													{conversation.profile.name.charAt(0).toUpperCase()}
+												</span>
+											{:else}
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="text-primary h-5 w-5"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+													/>
+												</svg>
+											{/if}
+										</div>
+									{/if}
+								</div>
 
 								<!-- Content -->
-								<div class="min-w-0 flex-1 text-left pl-2">
+								<div class="min-w-0 flex-1 pl-2 text-left">
 									<div class="mb-2 flex items-center justify-between">
 										<h4 class="truncate text-sm font-medium">
 											{conversation.profile.name}
 										</h4>
 										<span class="text-base-content/50 ml-3 shrink-0 text-xs">
-											{formatTimeAgo(new Date(conversation.lastMessageTime * 1000))}
+											{formatTimeAgo(new Date(conversation.lastEvent.created_at * 1000))}
 										</span>
 									</div>
 									<p class="text-base-content/70 line-clamp-2 text-xs leading-relaxed">
-										{translateMessageContent(conversation.lastMessage)}
+										{translateMessageContent(conversation.lastEvent.content)}
 									</p>
 								</div>
 

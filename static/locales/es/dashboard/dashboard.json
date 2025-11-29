@@ -6,11 +6,11 @@
       },
       "dateRange": {
         "label": "Rango de Fechas"
-      }
-      ,"location": {
+      },
+      "location": {
         "details": "Detalles de Ubicación"
-      }
-      ,"type": {
+      },
+      "type": {
         "remote": "Remoto"
       }
     },
@@ -85,6 +85,8 @@
       "try_again": "Intentar de Nuevo",
       "location": "Ubicación",
       "location_map_description": "Se proporcionará la ubicación exacta después de la aceptación de la oferta.",
+      "remote_location_label": "Ubicación de la tarea",
+      "remote_location_description": "Esta tarea se puede completar remotamente.",
       "task_attachment": "Adjunto de tarea",
       "avatar_alt": "Avatar",
       "sign_up_to_bid": "Regístrate para ofertar",
@@ -113,6 +115,7 @@
       "login": "Iniciar Sesión",
       "deadline_expired": "Fecha Límite Expirada",
       "deadline_expired_message": "La fecha límite de esta tarea ha pasado y ya no acepta ofertas.",
+      "amount": "Monto",
       "edit_task_confirmation": {
         "title": "Confirmación de Edición de Tarea",
         "message": "¿Estás seguro de que quieres editar esta tarea?",
@@ -387,14 +390,14 @@
             "end_date": "Fecha de Fin",
             "clear_availability_filters": "Borrar Filtros de Disponibilidad",
             "airdatepicker": {
-                "select_date": "Seleccionar una fecha",
-                "select_date_range": "Seleccionar rango de fechas",
-                "select_datetime": "Seleccionar fecha y hora",
-                "select_time": "Seleccionar hora",
-                "select_start_date": "Seleccionar fecha de inicio",
-                "select_end_date": "Seleccionar fecha de fin",
-                "select_start_datetime": "Seleccionar fecha y hora de inicio",
-                "select_end_datetime": "Seleccionar fecha y hora de fin"
+              "select_date": "Seleccionar una fecha",
+              "select_date_range": "Seleccionar rango de fechas",
+              "select_datetime": "Seleccionar fecha y hora",
+              "select_time": "Seleccionar hora",
+              "select_start_date": "Seleccionar fecha de inicio",
+              "select_end_date": "Seleccionar fecha de fin",
+              "select_start_datetime": "Seleccionar fecha y hora de inicio",
+              "select_end_datetime": "Seleccionar fecha y hora de fin"
             }
           },
           "price_range": {
@@ -508,7 +511,9 @@
       "try_different_filters": "Intenta ajustar tus filtros para ver más contratos.",
       "filter_by_role": "Filtrar por rol",
       "filter_by_status": "Filtrar por estado",
-      "all_roles": "Todos los roles",
+      "filter_by_status_and_role": "Filtrar por estado y rol",
+      "filter_description": "Elige el estado del contrato y tu rol para revisar.",
+      "all_roles": "Todos",
       "all_statuses": "Todos los estados",
       "as_client": "Como tasker",
       "as_freelancer": "Como taskee",
@@ -549,7 +554,29 @@
         "completed": "Completado",
         "disputed": "En Disputa",
         "resolved": "Resuelto",
-        "cancelled": "Cancelado"
+        "cancelled": "Cancelado",
+        "funded": "Financiado",
+        "in_dispute": "En Disputa",
+        "in_progress": "En Progreso",
+        "dispute_resolved": "Disputa Resuelta",
+        "dispute_unresolved": "Disputa Sin Resolver",
+        "pending_funding": "Pendiente de Financiamiento",
+        "pending_completion": "Pendiente de Completación",
+        "pending_dispute": "Pendiente de Disputa",
+        "pending_cancellation": "Pendiente de Cancelación",
+        "funds_released": "Fondos Liberados",
+        "pending_acceptance": "Pendiente de Aceptación",
+        "dispute_resolution_proposed": "Propuesta de Resolución de Disputa",
+        "task_completed": "Tarea Completada",
+        "payment_released": "Pago liberado",
+        "dispute_raised": "Disputa presentada",
+        "resolution_proposed": "Resolución propuesta",
+        "proposal_accepted": "Propuesta aceptada",
+        "escrow_cancelled": "Contrato de pago seguro cancelado",
+        "contract_cancelled": "Contrato cancelado",
+        "timelock_resolved": "Resuelto después del timelock",
+        "pending_resolution_proposal": "Propuesta de resolución pendiente",
+        "pending_proposal_acceptance": "Aceptación de propuesta pendiente"
       },
       "actions": {
         "complete_task": "Marcar Tarea como Completada",

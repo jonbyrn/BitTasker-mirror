@@ -10,7 +10,9 @@
             "linkedin_aria": "BitTasker en LinkedIn",
             "reddit_aria": "BitTasker en Reddit",
             "tiktok_aria": "BitTasker en TikTok",
-            "rumble_aria": "BitTasker en Rumble"
+            "rumble_aria": "BitTasker en Rumble",
+            "telegram_aria": "BitTasker en Telegram",
+            "whatsapp_aria": "BitTasker en WhatsApp"
         },
         "made_with": "Hecho con",
         "and": "y",

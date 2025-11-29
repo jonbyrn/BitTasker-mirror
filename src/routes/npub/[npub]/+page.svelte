@@ -436,6 +436,22 @@
 		</div>
 	{:else}
 		<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0">
+			<!-- Botón de regresar -->
+			<div class="mb-4">
+				<button
+					class="btn btn-secondary btn-sm"
+					onclick={() => {
+						if (typeof window !== 'undefined') {
+							window.history.back();
+						}
+					}}
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+					</svg>
+					{$t('common.back_2')}
+				</button>
+			</div>
 			<!-- Grid único de 4 columnas -->
 			<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-4">
 				<!-- Columna 1-3: Contenido principal -->
@@ -446,8 +462,13 @@
 							<div class="flex flex-col items-center gap-6 lg:flex-row lg:items-center">
 								<!-- Avatar -->
 								<div class="shrink-0">
-									<div class="h-40 w-40">
-										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="2xl" />
+									<!-- Mobile: tamaño xl (w-24 h-24) -->
+									<div class="block md:hidden">
+										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="xl"  />
+									</div>
+									<!-- Desktop: tamaño 2xl (w-40 h-40) -->
+									<div class="hidden md:block">
+										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="2xl"  />
 									</div>
 								</div>
 
@@ -854,7 +875,7 @@
 					<textarea
 						id="message-text"
 						class="textarea textarea-bordered w-full"
-						placeholder="Type your message here..."
+						placeholder={$t('common.profile.message_placeholder')}
 						bind:value={messageText}
 						rows="4"
 						disabled={sendingMessage}

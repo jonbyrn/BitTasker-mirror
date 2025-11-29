@@ -3,14 +3,18 @@
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatStandardDateShort,
+		formatStandardDateTime,
+		parseDateToLocalMidnight
+	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import TranslatableTask from './TranslatableTask.svelte';
 	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 
-	type TaskFilterCategory = 
+	type TaskFilterCategory =
 		| 'waiting_for_bids'
 		| 'bids_received'
 		| 'tasks_in_progress'
@@ -21,7 +25,10 @@
 		task: Task;
 		btcPrice: number;
 		activeFilter: TaskFilterCategory;
-		getActionButtons: (task: Task, category: TaskFilterCategory) => Array<{
+		getActionButtons: (
+			task: Task,
+			category: TaskFilterCategory
+		) => Array<{
 			label: string;
 			class: string;
 			onclick: (e: any) => void;
@@ -38,22 +45,42 @@
 	}
 
 	function formatDateRangeReactive(startDateString: string, endDateString: string) {
-		const startDate = parseDateToLocalMidnight(startDateString);
-		const endDate = parseDateToLocalMidnight(endDateString);
-		if (!startDate || !endDate) return '';
-		const start = formatStandardDateShort(startDate, $locale || 'en');
-		const end = formatStandardDateShort(endDate, $locale || 'en');
+		const localeToUse = $locale || 'en';
+		
+		// Parse dates - try to preserve time if present
+		const startDate = new Date(startDateString);
+		const endDate = new Date(endDateString);
+		
+		if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+			return '';
+		}
+		
+		// Format with time using formatStandardDateTime
+		const start = formatStandardDateTime(startDate, localeToUse);
+		const end = formatStandardDateTime(endDate, localeToUse);
+		
 		return `${start} - ${end}`;
 	}
 </script>
 
-<div class="card bg-base-100 shadow-xl transition-shadow hover:shadow-lg" onclick={onclick} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onclick(); } }}>
+<div
+	class="card bg-base-100 shadow-xl transition-shadow hover:shadow-lg"
+	{onclick}
+	role="button"
+	tabindex="0"
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			onclick();
+		}
+	}}
+>
 	<div class="card-body">
 		<!-- Task Title and Description -->
 		<div class="flex flex-col justify-between gap-2">
 			<div class="card-title line-clamp-1 text-lg">
 				<button
-					class="hover:text-primary cursor-pointer transition-colors text-left"
+					class="hover:text-primary cursor-pointer text-left transition-colors"
 					onclick={(e) => {
 						e.stopPropagation();
 						// Use uniqueId if available, fallback to id for backward compatibility
@@ -61,8 +88,8 @@
 						goto(`/tasks/${taskIdentifier}`);
 					}}
 				>
-					<TranslatableTask 
-						{task} 
+					<TranslatableTask
+						{task}
 						showTitle={true}
 						showDescription={false}
 						showToggle={false}
@@ -71,8 +98,8 @@
 				</button>
 			</div>
 			<div class="text-base-content/60">
-				<TranslatableTask 
-					{task} 
+				<TranslatableTask
+					{task}
 					showTitle={false}
 					showDescription={true}
 					showToggle={false}
@@ -109,7 +136,7 @@
 						</span>
 					{:else if task.dateRange}
 						<small class="text-base-content/60 text-xs">
-							{$t('dashboard.task.dateRange.label')}
+							{$t('dashboard.task_details_by_task.date_range')}
 						</small>
 						<span class="text-sm font-medium">
 							{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
@@ -192,4 +219,3 @@
 		</div>
 	</div>
 </div>
-

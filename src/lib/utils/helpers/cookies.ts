@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Cookie utility functions for client-side cookie management
  * Uses document.cookie for web and Capacitor Preferences for mobile

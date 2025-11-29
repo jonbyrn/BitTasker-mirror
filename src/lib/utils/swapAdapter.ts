@@ -15,16 +15,21 @@
 import type { SwapStorage, BoltzSwapData, ChainSwapData, SubmarineSwapData } from '@bittasker/wallet-core';
 import { randomBytes } from 'crypto';
 import { Buffer } from 'buffer';
-import { SimplePool } from 'nostr-tools/pool';
 import { getPublicKey, finalizeEvent, type NostrEvent } from 'nostr-tools';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
+import { appStore } from '$lib/stores/app.store';
+import { get } from 'svelte/store';
 
 // Define relay URLs
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
-// Initialize a pool for relay connections
-const pool = new SimplePool();
+/**
+ * Get the centralized pool instance from appStore
+ */
+function getPool() {
+	return get(appStore).pool;
+}
 
 // Swap type tags for filtering
 export type SwapType = 'boltz-swap-reverse' | 'boltz-swap-chain' | 'boltz-swap-submarine';
@@ -148,6 +153,7 @@ async function saveSwapToNostr(
 
 		// Sign and publish
 		const signedEvent = finalizeEvent(eventTemplate, nsec);
+		const pool = getPool();
 		pool.publish(RELAYS, signedEvent);
 
 		console.log('✅ Swap saved to Nostr:', swapData.id);
@@ -167,6 +173,7 @@ async function recoverPendingSwaps(
 ): Promise<PendingSwapData[]> {
 	try {
 		const npub = getPublicKey(nsec);
+		const pool = getPool();
 
 		// Query Nostr for user's swap events with the specified tag
 		const events = await pool.querySync(RELAYS, {
@@ -222,6 +229,7 @@ async function deleteSwapEvent(
 ): Promise<boolean> {
 	try {
 		const npub = getPublicKey(nsec);
+		const pool = getPool();
 
 		console.log('🗑️ Deleting swap:', swapId);
 
@@ -240,7 +248,7 @@ async function deleteSwapEvent(
 
 		// Delete the event
 		const event = events[0];
-		const deletionEventTemplate: Partial<NostrEvent> = {
+		const deletionEventTemplate = {
 			kind: 5,
 			created_at: Math.floor(Date.now() / 1000),
 			tags: [
@@ -250,8 +258,8 @@ async function deleteSwapEvent(
 			content: `Deleting swap ${swapId}`
 		};
 
-		const signedDeletion = finalizeEvent(deletionEventTemplate as any, nsec);
-		pool.publish(RELAYS, signedDeletion as any);
+		const signedDeletion = finalizeEvent(deletionEventTemplate, nsec);
+		pool.publish(RELAYS, signedDeletion);
 
 		console.log('✅ Deleted swap event:', swapId);
 		return true;
@@ -271,6 +279,7 @@ async function deleteAllSwapEvents(
 ): Promise<{ count: number }> {
 	try {
 		const npub = getPublicKey(nsec);
+		const pool = getPool();
 
 		console.log('🗑️ Deleting all swaps. Type:', swapType);
 
@@ -288,7 +297,7 @@ async function deleteAllSwapEvents(
 		// Delete each event (NIP-09)
 		for (const event of events) {
 			try {
-				const deletionEventTemplate: Partial<NostrEvent> = {
+				const deletionEventTemplate = {
 					kind: 5,
 					created_at: Math.floor(Date.now() / 1000),
 					tags: [
@@ -298,8 +307,8 @@ async function deleteAllSwapEvents(
 					content: `Deleting ${swapType} swap data`
 				};
 
-				const signedDeletion = finalizeEvent(deletionEventTemplate as any, nsec);
-				pool.publish(RELAYS, signedDeletion as any);
+				const signedDeletion = finalizeEvent(deletionEventTemplate, nsec);
+				pool.publish(RELAYS, signedDeletion);
 				deleteCount++;
 				console.log(`✅ Deleted event: ${event.id}`);
 			} catch (err) {

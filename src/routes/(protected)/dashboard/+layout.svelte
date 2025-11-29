@@ -3,8 +3,6 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
-	import WarningProvider from '$lib/components/WarningProvider.svelte';
-	// Icon imports for unplugin-icons
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
@@ -14,6 +12,7 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
+	import WarningPopup from '$lib/components/WarningPopup.svelte';
 
 	let { children } = $props();
 
@@ -48,7 +47,7 @@
 	$effect(() => {
 		const section = page.url.pathname.split('/dashboard/')[1] || '';
 		const tabParam = page.url.searchParams.get('tab');
-		
+
 		// Handle special cases for tab-based navigation
 		if (tabParam === 'bids') {
 			activeSection = 'bids-sent';
@@ -70,11 +69,10 @@
 
 <svelte:window bind:innerWidth={width} />
 
-<WarningProvider>
-	<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
+<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
 	{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 		<!-- Fixed Sidebar - Solo en desktop -->
-		<div class="w-full flex-shrink-0 md:w-64">
+		<div class="w-full shrink-0 md:w-64">
 			<div class="fixed top-24 left-8 z-10 w-56">
 				<div class="card bg-base-100 rounded-xl shadow-xl">
 					<div class="card-body p-4">
@@ -83,31 +81,35 @@
 								<li class="my-1">
 									<a
 										data-sveltekit-reload="off"
-										href={section.id === 'bids-sent' ? '/dashboard?tab=bids' : section.id === 'contracts' ? '/dashboard?tab=contracts' : `/dashboard/${section.id}`}
+										href={section.id === 'bids-sent'
+											? '/dashboard?tab=bids'
+											: section.id === 'contracts'
+												? '/dashboard?tab=contracts'
+												: `/dashboard/${section.id}`}
 										class:menu-active={activeSection === section.id}
 										class="flex items-center gap-3"
 									>
-									{#if section.icon === 'mdi:format-list-bulleted'}
-										<IconFormatListBulleted class="text-primary" />
-									{:else if section.icon === 'mdi:plus-circle-outline'}
-										<IconPlusCircleOutline class="text-primary" />
-									{:else if section.icon === 'mdi:magnify'}
-										<IconMagnify class="text-primary" />
-									{:else if section.icon === 'mdi:invoice-text-send-outline'}
-										<IconInvoiceTextSendOutline class="text-primary" />
-									{:else if section.icon === 'mdi:file-sign'}
-										<IconFileSign class="text-primary" />
-									{:else if section.icon === 'mdi:wallet-outline'}
-										<IconWalletOutline class="text-primary" />
-									{:else if section.icon === 'mdi:account'}
-										<IconAccount class="text-primary" />
-									{:else if section.icon === 'mdi:chat-outline'}
-										<IconChatOutline class="text-primary" />
-									{:else if section.icon === 'mdi:cog'}
-										<IconCog class="text-primary" />
-									{:else}
-										<IconFormatListBulleted class="text-primary" />
-									{/if}
+										{#if section.icon === 'mdi:format-list-bulleted'}
+											<IconFormatListBulleted class="text-primary" />
+										{:else if section.icon === 'mdi:plus-circle-outline'}
+											<IconPlusCircleOutline class="text-primary" />
+										{:else if section.icon === 'mdi:magnify'}
+											<IconMagnify class="text-primary" />
+										{:else if section.icon === 'mdi:invoice-text-send-outline'}
+											<IconInvoiceTextSendOutline class="text-primary" />
+										{:else if section.icon === 'mdi:file-sign'}
+											<IconFileSign class="text-primary" />
+										{:else if section.icon === 'mdi:wallet-outline'}
+											<IconWalletOutline class="text-primary" />
+										{:else if section.icon === 'mdi:account'}
+											<IconAccount class="text-primary" />
+										{:else if section.icon === 'mdi:chat-outline'}
+											<IconChatOutline class="text-primary" />
+										{:else if section.icon === 'mdi:cog'}
+											<IconCog class="text-primary" />
+										{:else}
+											<IconFormatListBulleted class="text-primary" />
+										{/if}
 										{$t(section.label)}
 									</a>
 								</li>
@@ -122,8 +124,6 @@
 	<!-- Main Content with left margin for fixed sidebar -->
 	<div class="min-h-0 w-full flex-1">
 		{@render children()}
+		<WarningPopup />
 	</div>
 </div>
-
-	<!-- Toast Notifications -->
-</WarningProvider>

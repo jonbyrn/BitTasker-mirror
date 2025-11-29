@@ -1,15 +1,13 @@
 <script lang="ts">
-	import type { ContractWithEvents } from '$lib/types/contract';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { getUserContracts } from '$lib/utils/nostr-bid';
-	import { contractUpdateStore } from '$lib/utils/wallet/escrowEvents';
-	import { onDestroy } from 'svelte';
+	import { fetchContractProfile, type ContractProfile } from '$lib/utils/nostr-profile';
+	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { contractStore } from '$lib/stores/contract.store';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { fetchProfileMetadata, fetchComprehensiveProfile } from '$lib/utils/nostr-message';
-	
+
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
@@ -22,61 +20,46 @@
 	import IconAccountOutline from '~icons/mdi/account-outline';
 	import IconAccountTieOutline from '~icons/mdi/account-tie-outline';
 
-	// State
-	let contracts = $state<ContractWithEvents[]>([]);
-	let isLoading = $state(true);
-	let error = $state<string | null>(null);
-	let selectedContract = $state<ContractWithEvents | null>(null);
-	let showContractDrawer = $state(false);
-
 	// Filters
-	let statusFilter = $state<string>('all');
+	let statusFilter = $state<EscrowStatus | 'all'>('all');
 	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
 	let isStatusDropdownOpen = $state(false);
 
 	let btcPrice = $state<number>(0);
-	
+
 	// Profile cache - batched profile fetching
-	type UserProfile = {
-		name?: string;
-		picture?: string;
-		createdAt?: string;
-		reviews?: Array<{ id: string; from: string; rating: number; text: string; date: string }>;
-		averageRating?: number;
-		tasksCompleted?: number;
-	};
-	let profileCache = $state<Map<string, UserProfile>>(new Map());
+	let profileCache = $state<Map<string, ContractProfile>>(new Map());
 	let isLoadingProfiles = $state(false);
 
-	// Status filter options - matching My Tasks style
+	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
-		{ 
-			id: 'all', 
+		{
+			id: 'all' as const,
 			label: $t('dashboard.contracts.all_statuses'),
 			icon: IconCheckAll
 		},
-		{ 
-			id: 'active', 
-			label: $t('dashboard.contracts.status.active'),
+		{
+			id: EscrowStatus.Funded,
+			label: $t('dashboard.contracts.status.funded'),
 			icon: IconLightningBolt
 		},
-		{ 
-			id: 'completed', 
+		{
+			id: EscrowStatus.Completed,
 			label: $t('dashboard.contracts.status.completed'),
 			icon: IconCheckCircle
 		},
-		{ 
-			id: 'disputed', 
-			label: $t('dashboard.contracts.status.disputed'),
+		{
+			id: EscrowStatus.InDispute,
+			label: $t('dashboard.contracts.status.in_dispute'),
 			icon: IconAlertCircleOutline
 		},
-		{ 
-			id: 'resolved', 
-			label: $t('dashboard.contracts.status.resolved'),
+		{
+			id: EscrowStatus.DisputeResolved,
+			label: $t('dashboard.contracts.status.dispute_resolved'),
 			icon: IconCheck
 		},
-		{ 
-			id: 'cancelled', 
+		{
+			id: EscrowStatus.Cancelled,
 			label: $t('dashboard.contracts.status.cancelled'),
 			icon: IconCancel
 		}
@@ -84,110 +67,37 @@
 
 	// Role filter options
 	const roleFilterOptions = $derived([
-		{ 
-			id: 'all', 
+		{
+			id: 'all',
 			label: $t('dashboard.contracts.all_roles'),
 			icon: IconAccountOutline
 		},
-		{ 
-			id: 'client', 
+		{
+			id: 'client',
 			label: $t('dashboard.contracts.as_client'),
 			icon: IconAccountTieOutline
 		},
-		{ 
-			id: 'freelancer', 
+		{
+			id: 'freelancer',
 			label: $t('dashboard.contracts.as_freelancer'),
 			icon: IconAccountOutline
 		}
 	] as const);
 
-	// Filtered contracts with deduplication using Svelte's reactivity
 	let filteredContracts = $derived(() => {
-		console.log('[DashboardContractsPanel] filteredContracts() called', {
-			inputContractsCount: contracts.length,
-			statusFilter,
-			roleFilter,
-			inputContracts: contracts.map(c => ({
-				escrowId: c.contract.escrowId,
-				status: c.contract.status,
-				isClient: c.isClient,
-				isFreelancer: !c.isClient
-			}))
-		});
+		let filtered = $contractStore.contracts;
 
-		// First, deduplicate contracts by escrowId using a Map
-		// This leverages Svelte's reactivity to handle deduplication reactively
-		const uniqueContracts = new Map<string, ContractWithEvents>();
-		for (const contract of contracts) {
-			const escrowId = contract.contract.escrowId;
-			const existing = uniqueContracts.get(escrowId);
-			
-			// Keep the contract with the most recent creation time or more status events
-			if (!existing || contract.contract.createdAt > existing.contract.createdAt) {
-				uniqueContracts.set(escrowId, contract);
-			} else if (contract.contract.createdAt === existing.contract.createdAt) {
-				// If same creation time, prefer the one with more status events (more complete)
-				if (contract.statusEvents.length > existing.statusEvents.length) {
-					uniqueContracts.set(escrowId, contract);
-				}
-			}
-		}
-		
-		// Convert Map to array
-		let filtered = Array.from(uniqueContracts.values());
-
-		console.log('[DashboardContractsPanel] After deduplication', {
-			uniqueContractsCount: filtered.length,
-			uniqueContracts: filtered.map(c => ({
-				escrowId: c.contract.escrowId,
-				status: c.contract.status,
-				isClient: c.isClient
-			}))
-		});
-
-		// Filter by status
+		// Filter by status (using unified status enum)
 		if (statusFilter !== 'all') {
-			const beforeStatusFilter = filtered.length;
-			filtered = filtered.filter((c) => c.contract.status === statusFilter);
-			console.log('[DashboardContractsPanel] After status filter', {
-				statusFilter,
-				beforeCount: beforeStatusFilter,
-				afterCount: filtered.length,
-				filteredOut: beforeStatusFilter - filtered.length,
-				remainingContracts: filtered.map(c => ({
-					escrowId: c.contract.escrowId,
-					status: c.contract.status
-				}))
-			});
+			filtered = filtered.filter((c) => c.status === statusFilter);
 		}
 
 		// Filter by role
 		if (roleFilter === 'client') {
-			const beforeRoleFilter = filtered.length;
 			filtered = filtered.filter((c) => c.isClient);
-			console.log('[DashboardContractsPanel] After role filter (client)', {
-				beforeCount: beforeRoleFilter,
-				afterCount: filtered.length,
-				filteredOut: beforeRoleFilter - filtered.length
-			});
 		} else if (roleFilter === 'freelancer') {
-			const beforeRoleFilter = filtered.length;
 			filtered = filtered.filter((c) => !c.isClient);
-			console.log('[DashboardContractsPanel] After role filter (freelancer)', {
-				beforeCount: beforeRoleFilter,
-				afterCount: filtered.length,
-				filteredOut: beforeRoleFilter - filtered.length
-			});
 		}
-
-		console.log('[DashboardContractsPanel] Final filtered contracts', {
-			finalCount: filtered.length,
-			finalContracts: filtered.map(c => ({
-				escrowId: c.contract.escrowId,
-				status: c.contract.status,
-				isClient: c.isClient
-			}))
-		});
 
 		return filtered;
 	});
@@ -201,270 +111,76 @@
 		}
 	}
 
-	let isMounted = $state(true);
-	let isProcessingUpdates = $state(false);
-
 	onMount(async () => {
-		isMounted = true;
-		await Promise.all([
-			loadContracts(),
-			fetchBtcPrice()
-		]);
+		await Promise.all([loadProfilesForContracts(), contractStore.loadContracts(), fetchBtcPrice()]);
 		// Load profiles after contracts are loaded
-		await loadProfilesForContracts();
+		// Subscribe to real-time updates
+		await contractStore.subscribeToStatusUpdates();
 	});
 
 	onDestroy(() => {
-		isMounted = false;
+		// Cleanup subscription when leaving contracts panel
+		contractStore.unsubscribeFromStatusUpdates();
 	});
 
-	async function loadContracts(escrowIds?: string[]) {
-		const startTime = Date.now();
-		console.log('[DashboardContractsPanel] loadContracts() called', {
-			timestamp: startTime,
-			currentContractCount: contracts.length,
-			isLoading,
-			isProcessingUpdates,
-			targetedReload: !!escrowIds
-		});
-		try {
-			isLoading = true;
-			error = null;
-			// getUserContracts now returns partial results instead of throwing
-			// This prevents infinite retry loops when some contracts fail to load
-			console.log('[DashboardContractsPanel] Calling getUserContracts()...');
-			const loadedContracts = await getUserContracts(escrowIds ? { escrowIds } : undefined);
-			
-			if (escrowIds && escrowIds.length > 0) {
-				// Targeted reload: update only specific contracts
-				const updatedEscrowIds = new Set(escrowIds);
-				contracts = contracts.map(existing => {
-					const escrowId = existing.contract.escrowId;
-					if (updatedEscrowIds.has(escrowId)) {
-						// Find the updated contract
-						const updated = loadedContracts.find(c => c.contract.escrowId === escrowId);
-						return updated || existing;
-					}
-					return existing;
-				});
-				
-				// Add any new contracts that weren't in the list
-				for (const newContract of loadedContracts) {
-					if (!contracts.some(c => c.contract.escrowId === newContract.contract.escrowId)) {
-						contracts = [...contracts, newContract];
-					}
-				}
-				
-				// Sort by creation time (newest first)
-				contracts = contracts.sort(
-					(a, b) => b.contract.createdAt - a.contract.createdAt
-				);
-			} else {
-				// Full reload: replace all contracts
-				contracts = loadedContracts;
-			}
-			
-			const duration = Date.now() - startTime;
-			console.log('[DashboardContractsPanel] Contracts loaded successfully', {
-				contractCount: contracts.length,
-				duration: `${duration}ms`,
-				targetedReload: !!escrowIds
-			});
-			
-			// Load profiles for new/updated contracts
-			if (isMounted) {
-				await loadProfilesForContracts(escrowIds);
-			}
-		} catch (err) {
-			const duration = Date.now() - startTime;
-			// This should rarely happen now since getUserContracts doesn't throw
-			// But keep it as a safety net
-			error = err instanceof Error ? err.message : 'Failed to load contracts';
-			console.error('[DashboardContractsPanel] Error loading contracts (non-fatal)', {
-				error: err instanceof Error ? err.message : String(err),
-				errorType: err?.constructor?.name,
-				stack: err instanceof Error ? err.stack : undefined,
-				duration: `${duration}ms`,
-				currentContractCount: contracts.length
-			});
-			// Don't set contracts to empty - keep what we have
-			// contracts = []; // Removed - keep existing contracts
-		} finally {
-			isLoading = false;
-			const duration = Date.now() - startTime;
-			console.log('[DashboardContractsPanel] loadContracts() completed', {
-				duration: `${duration}ms`,
-				contractCount: contracts.length,
-				hasError: !!error
-			});
-		}
-	}
-	
 	// Batch load profiles for all contracts
-	async function loadProfilesForContracts(targetEscrowIds?: string[]) {
-		if (!isMounted || isLoadingProfiles) return;
-		
+	async function loadProfilesForContracts() {
+		if (isLoadingProfiles) return;
+
 		try {
 			isLoadingProfiles = true;
-			
+
 			// Collect unique pubkeys from contracts
 			const pubkeysToLoad = new Set<string>();
-			const contractsToProcess = targetEscrowIds
-				? contracts.filter(c => targetEscrowIds.includes(c.contract.escrowId))
-				: contracts;
-			
-			for (const contract of contractsToProcess) {
-				const userPubkey = contract.isClient
-					? contract.contract.freelancerPubkey
-					: contract.contract.clientPubkey;
-				
+
+			for (const contract of $contractStore.contracts) {
+				const userPubkey = contractStore.getContractKey(contract, 'taskeePubkey');
+
 				// Only load if not already cached
 				if (!profileCache.has(userPubkey)) {
 					pubkeysToLoad.add(userPubkey);
 				}
 			}
-			
+
 			if (pubkeysToLoad.size === 0) {
 				return; // All profiles already cached
 			}
-			
-			console.log('[DashboardContractsPanel] Loading profiles for', pubkeysToLoad.size, 'users');
-			
+
 			// Batch fetch all profiles in parallel
 			const profilePromises = Array.from(pubkeysToLoad).map(async (pubkey) => {
 				try {
-					const [basicProfile, comprehensiveProfile] = await Promise.all([
-						fetchProfileMetadata(pubkey),
-						fetchComprehensiveProfile(pubkey).catch(() => null)
-					]);
-					
-					const avgRating = comprehensiveProfile?.reviews && comprehensiveProfile.reviews.length > 0
-						? comprehensiveProfile.reviews.reduce((sum, review) => sum + review.rating, 0) / comprehensiveProfile.reviews.length
-						: 0;
-					
-					const profile: UserProfile = {
-						name: basicProfile.name,
-						picture: basicProfile.picture,
-						createdAt: basicProfile.createdAt,
-						reviews: comprehensiveProfile?.reviews || [],
-						averageRating: avgRating,
-						tasksCompleted: comprehensiveProfile?.reviews?.length || 0
-					};
-					
+					// Use lightweight fetchContractProfile (only gets name, picture, reviews)
+					const profile = await fetchContractProfile(pubkey);
 					return { pubkey, profile };
 				} catch (error) {
 					console.error(`Failed to load profile for ${pubkey}:`, error);
 					return { pubkey, profile: null };
 				}
 			});
-			
+
 			const results = await Promise.all(profilePromises);
-			
+
 			// Update cache
 			for (const { pubkey, profile } of results) {
-				if (profile && isMounted) {
+				if (profile) {
 					profileCache.set(pubkey, profile);
 				}
 			}
-			
-			console.log('[DashboardContractsPanel] Profiles loaded:', results.filter(r => r.profile).length);
+
+			console.log({ profileCache });
 		} catch (error) {
 			console.error('[DashboardContractsPanel] Error loading profiles:', error);
 		} finally {
-			if (isMounted) {
-				isLoadingProfiles = false;
-			}
+			isLoadingProfiles = false;
 		}
-	}
-
-	// Process contract updates from the store (targeted reload)
-	async function processContractUpdates() {
-		if (!isMounted || isLoading || isProcessingUpdates) return;
-		
-		const escrowIds = $contractUpdateStore;
-		if (escrowIds.length === 0) return;
-		
-		console.log('[DashboardContractsPanel] Processing contract updates', {
-			escrowIdsCount: escrowIds.length,
-			escrowIds: escrowIds.slice(0, 5) // Log first 5 for debugging
-		});
-		
-		// Get the IDs to process and clear the queue immediately
-		const idsToProcess = [...escrowIds];
-		contractUpdateStore.set([]); // Clear immediately to prevent race conditions
-		
-		try {
-			isProcessingUpdates = true;
-			// Targeted reload: only reload the specific contracts that changed
-			await loadContracts(idsToProcess);
-			
-			// Check if any new updates came in while we were loading
-			const remaining = $contractUpdateStore;
-			if (remaining.length > 0 && isMounted && !isLoading) {
-				console.log('[DashboardContractsPanel] Processing remaining contract updates', {
-					remainingCount: remaining.length
-				});
-				// Recursively process remaining updates
-				await processContractUpdates();
-			}
-		} catch (err) {
-			// Silently handle errors - loadContracts already handles them internally
-			console.error('[DashboardContractsPanel] Error processing contract updates (non-fatal)', {
-				error: err instanceof Error ? err.message : String(err),
-				errorType: err?.constructor?.name,
-				stack: err instanceof Error ? err.stack : undefined,
-				escrowIds: idsToProcess
-			});
-		} finally {
-			if (isMounted) {
-				isProcessingUpdates = false;
-			}
-		}
-	}
-
-	// Subscribe to contract update store (queue-based approach)
-	$effect(() => {
-		if (!isMounted || isLoading || isProcessingUpdates) return;
-		
-		const escrowIds = $contractUpdateStore;
-		if (escrowIds.length > 0) {
-			// Process updates asynchronously - flag changes happen inside async function
-			processContractUpdates();
-		}
-	});
-
-	function openContractDrawer(contract: ContractWithEvents) {
-		selectedContract = contract;
-		showContractDrawer = true;
 	}
 
 	function closeContractDrawer() {
-		selectedContract = null;
-		showContractDrawer = false;
+		$contractStore.contract = null;
+		$contractStore.isDrawerOpen = false;
 	}
 
-	// Handle contract updates (from drawer) - targeted reload
-	function handleContractUpdate(updatedEscrowId?: string) {
-		if (updatedEscrowId) {
-			// Targeted reload: only reload the specific contract
-			loadContracts([updatedEscrowId]);
-		} else if (selectedContract) {
-			// Fallback: reload the selected contract
-			loadContracts([selectedContract.contract.escrowId]);
-		} else {
-			// Last resort: full reload
-			loadContracts();
-		}
-		closeContractDrawer();
-	}
-	
-	// Handle action completion from contract cards - targeted reload
-	function handleActionComplete(escrowId: string) {
-		// Optimistically update: reload only the affected contract
-		loadContracts([escrowId]);
-	}
-
-	function selectStatusFilter(statusId: string) {
+	function selectStatusFilter(statusId: EscrowStatus | 'all') {
 		statusFilter = statusId;
 		isStatusDropdownOpen = false;
 	}
@@ -486,78 +202,70 @@
 </script>
 
 <div class="space-y-6">
+	<!-- Filters container with same design as TasksPanel -->
+	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
+		<!-- Header with title and refresh button -->
+		<div class="mb-3 flex items-center justify-between gap-2">
+			<div class="space-y-1">
+				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+					{$t('dashboard.contracts.filter_by_status_and_role')}
+				</p>
+				<p class="text-base-content/70 hidden text-sm sm:block">
+					{$t('dashboard.contracts.filter_description')}
+				</p>
+			</div>
 
-	<!-- Row 1: Role Filter Buttons + Refresh Button -->
-	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-		<div class="flex gap-2 mx-auto mt-3">
-			<!-- Role Filter Buttons -->
-			{#each roleFilterOptions as option}
-				{@const IconComponent = option.icon}
-				<button
-					class="btn {roleFilter === option.id ? 'btn-primary' : 'btn-secondary'} btn-sm flex items-center gap-2"
-					onclick={() => selectRoleFilter(option.id)}
-					aria-label={option.label}
-				>
-					{#if roleFilter === option.id}
-						<IconCheck class="h-4 w-4" />
-					{:else}
-						<IconComponent class="h-4 w-4" />
-					{/if}
-					<span>{option.label}</span>
-				</button>
-			{/each}
-
-			<!-- Refresh Button -->
+			<!-- Refresh button: icon only on mobile, with text on desktop -->
 			<button
-				class="btn btn-ghost btn-sm rounded-full"
-				onclick={() => loadContracts()}
-				disabled={isLoading}
+				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
+				onclick={() => contractStore.loadContracts()}
+				disabled={$contractStore.isLoading}
 				aria-label={$t('dashboard.contracts.refresh')}
 			>
-				{#if isLoading}
+				{#if $contractStore.isLoading}
 					<span class="loading loading-spinner loading-xs"></span>
+					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
 				{:else}
 					<IconRefresh class="h-5 w-5" />
+					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
 				{/if}
 			</button>
 		</div>
-	</div>
-	
-	<!-- Row 2: Status Filter Buttons (above role filter) -->
-	<div class="mb-4">
-		<!-- Desktop: Button filters -->
-		<div class="hidden sm:block">
-			<div class="mt-3 flex flex-col gap-3 sm:flex-row">
-				{#each statusFilterOptions as option}
+
+		<!-- Mobile: Subheading and dropdowns -->
+		<div class="mb-3 sm:hidden">
+			<p class="text-base-content/70 mb-3 text-sm">
+				{$t('dashboard.contracts.filter_description')}
+			</p>
+
+			<!-- Role Filter Buttons (Mobile) -->
+			<div class="mb-3 flex gap-2">
+				{#each roleFilterOptions as option}
 					{@const IconComponent = option.icon}
 					<button
-						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {statusFilter === option.id
-							? 'text-primary bg-primary/10'
-							: 'bg-base-100/40 hover:bg-base-100/50 text-base-content/70'}"
-						onclick={() => selectStatusFilter(option.id)}
+						class="btn {roleFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'} btn-sm flex items-center gap-2"
+						onclick={() => selectRoleFilter(option.id)}
 						aria-label={option.label}
 					>
-						<!-- MDI Icon Component -->
-						<IconComponent 
-							class="h-5 w-5 {statusFilter === option.id ? 'text-primary' : ''}"
-						/>
-						<span class="font-medium">{option.label}</span>
+						{#if roleFilter === option.id}
+							<IconCheck class="h-4 w-4" />
+						{:else}
+							<IconComponent class="h-4 w-4" />
+						{/if}
+						<span>{option.label}</span>
 					</button>
 				{/each}
 			</div>
-		</div>
 
-		<!-- Mobile: Custom dropdown -->
-		<div class="block sm:hidden">
-			<div class="status-dropdown-container relative mt-3">
+			<!-- Status Filter Dropdown (Mobile) -->
+			<div class="status-dropdown-container relative">
 				<button
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full cursor-pointer items-center justify-between rounded-3xl border px-4 py-1 transition-all duration-200 {statusFilter !== 'all'
-						? 'border-primary bg-primary/10 text-primary'
-						: 'border-base-300 bg-base-100/40 text-base-content/70'}"
+					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
 					onclick={toggleStatusDropdown}
 				>
 					<div class="flex items-center gap-2">
-						<!-- MDI Icon Component for selected filter -->
 						{#each statusFilterOptions as option}
 							{#if statusFilter === option.id}
 								{@const IconComponent = option.icon}
@@ -568,28 +276,30 @@
 							{statusFilterOptions.find((opt) => opt.id === statusFilter)?.label}
 						</span>
 					</div>
-					<!-- Dropdown arrow icon -->
-					<IconChevronDown 
-						class="h-5 w-5 transition-transform duration-200 {isStatusDropdownOpen ? 'rotate-180' : ''}"
+					<IconChevronDown
+						class="h-5 w-5 transition-transform duration-200 {isStatusDropdownOpen
+							? 'rotate-180'
+							: ''}"
 					/>
 				</button>
 
-				<!-- Dropdown menu -->
 				{#if isStatusDropdownOpen}
 					<div
-						class="border-base-300 bg-base-300 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
 						{#each statusFilterOptions as option}
 							{@const IconComponent = option.icon}
 							<button
-								class="hover:bg-base-200 flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {statusFilter === option.id
+								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {statusFilter ===
+								option.id
 									? 'bg-primary/10 text-primary'
 									: 'text-base-content'}"
 								onclick={() => selectStatusFilter(option.id)}
 							>
-								<!-- MDI Icon Component -->
-								<IconComponent 
-									class="h-5 w-5 {statusFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+								<IconComponent
+									class="h-5 w-5 {statusFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
 								/>
 								<span class="font-medium">{option.label}</span>
 								{#if statusFilter === option.id}
@@ -601,12 +311,53 @@
 				{/if}
 			</div>
 		</div>
+
+		<!-- Desktop: Role Filter Buttons -->
+		<div class="mb-4 hidden sm:block">
+			<div class="flex gap-2">
+				{#each roleFilterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn {roleFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'} btn-sm flex items-center gap-2"
+						onclick={() => selectRoleFilter(option.id)}
+						aria-label={option.label}
+					>
+						{#if roleFilter === option.id}
+							<IconCheck class="h-4 w-4" />
+						{:else}
+							<IconComponent class="h-4 w-4" />
+						{/if}
+						<span>{option.label}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<!-- Desktop: Status Filter Buttons -->
+		<div class="mt-4 hidden sm:block">
+			<div class="flex flex-col gap-3 sm:flex-row">
+				{#each statusFilterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {statusFilter ===
+						option.id
+							? 'text-primary bg-primary/10 border-primary/30 border'
+							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
+						onclick={() => selectStatusFilter(option.id)}
+						aria-label={option.label}
+					>
+						<IconComponent class="h-5 w-5 {statusFilter === option.id ? 'text-primary' : ''}" />
+						<span class="font-medium">{option.label}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
 	</div>
 
-	
-
 	<!-- Loading State -->
-	{#if isLoading}
+	{#if $contractStore.isLoading}
 		<div class="flex justify-center py-12">
 			<div class="flex items-center gap-3">
 				<span class="loading loading-spinner loading-md"></span>
@@ -616,7 +367,7 @@
 	{/if}
 
 	<!-- Error State -->
-	{#if error}
+	{#if $contractStore.error}
 		<div class="alert alert-outline alert-error">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -633,16 +384,16 @@
 			</svg>
 			<div>
 				<h3 class="font-bold">{$t('dashboard.contracts.error_title')}</h3>
-				<div class="text-xs">{error}</div>
+				<div class="text-xs">{$contractStore.error}</div>
 			</div>
-			<button class="btn btn-sm btn-outline" onclick={() => loadContracts()}>
+			<button class="btn btn-sm btn-outline" onclick={() => contractStore.loadContracts()}>
 				{$t('dashboard.contracts.retry')}
 			</button>
 		</div>
 	{/if}
 
 	<!-- Contracts List -->
-	{#if !isLoading && !error}
+	{#if !$contractStore.isLoading && !$contractStore.error}
 		{#if filteredContracts().length === 0}
 			<div class="py-12 text-center">
 				<div class="mb-4">
@@ -662,39 +413,32 @@
 					</svg>
 				</div>
 				<h3 class="mb-2 text-lg font-semibold">
-					{contracts.length === 0
+					{$contractStore.contracts.length === 0
 						? $t('dashboard.contracts.no_contracts')
 						: $t('dashboard.contracts.no_filtered_contracts')}
 				</h3>
 				<p class="text-base-content/70">
-					{contracts.length === 0
+					{$contractStore.contracts.length === 0
 						? $t('dashboard.contracts.no_contracts_description')
 						: $t('dashboard.contracts.try_different_filters')}
 				</p>
 			</div>
 		{:else}
-			{#each filteredContracts() as contract (contract.contract.escrowId)}
-				{@const userPubkey = contract.isClient ? contract.contract.freelancerPubkey : contract.contract.clientPubkey}
+			{#each filteredContracts() as contract (contractStore.getContractKey(contract, 'escrowId'))}
+				{@const userPubkey = contractStore.getContractKey(contract, 'taskeePubkey')}
 				{@const userProfile = profileCache.get(userPubkey)}
-				<ContractCard
-					{contract}
-					{btcPrice}
-					{userProfile}
-					onclick={() => openContractDrawer(contract)}
-					onActionComplete={() => handleActionComplete(contract.contract.escrowId)}
-				/>
+				<ContractCard {contract} {btcPrice} {userProfile} />
 			{/each}
 		{/if}
 	{/if}
 </div>
 
-<!-- Contract Drawer -->
+<!-- Contract Drawer - DO Not wrap in a condition for animation to work -->
 <ContractDrawer
-	contract={selectedContract}
-	isOpen={showContractDrawer}
 	{btcPrice}
-	onClose={closeContractDrawer}
-	onUpdate={() => handleContractUpdate(selectedContract?.contract.escrowId)}
+	taskeeProfile={$contractStore.contract
+		? profileCache.get(contractStore.getContractKey($contractStore.contract, 'taskeePubkey'))
+		: undefined}
 />
 
 <svelte:window onclick={handleClickOutside} />

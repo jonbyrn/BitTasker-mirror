@@ -1,10 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { writable } from 'svelte/store';
 import type { Notification } from '$lib/stores/notification.store';
 import { listenForIncomingMessages } from '$lib/utils/nostr-message';
 import { getMessagedPeople } from '$lib/utils/nostr-message';
-import { appStore } from '$lib/stores/app.store';
 
 interface JsonMessage {
 	messageType: string;
@@ -526,8 +523,8 @@ class LocalNotificationService {
 	private async getUserRoleInContract(contractId: string, currentUserPubkey: string): Promise<UserRole> {
 		try {
 			// Import contract service to check contract details
-			const { getUserContracts } = await import('$lib/utils/nostr-bid');
-			const contracts = await getUserContracts({ escrowIds: [contractId] });
+			const { getContracts } = await import('$lib/utils/nostr-contract');
+			const contracts = await getContracts({ escrowIds: [contractId] });
 			
 			if (contracts.length > 0) {
 				const contract = contracts[0];

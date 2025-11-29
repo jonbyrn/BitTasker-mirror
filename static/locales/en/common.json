@@ -1,6 +1,7 @@
 {
     "common": {
         "back": "Back to Task",
+        "back_2": "Back",
         "back_to_tasks": "Cancel",
         "redirecting_to_login": "Redirecting to login...",
         "or": "or",
@@ -39,6 +40,7 @@
             "availability": "Availability",
             "quick_actions": "Quick Actions",
             "send_message": "Send Message",
+            "message_placeholder": "Type your message here...",
             "go_to_chat": "Go to Chat",
             "member_since": "Member since",
             "no_skills": "No skills listed yet.",
@@ -1034,5 +1036,16 @@
     },
     "layout": {
         "github_aria": "GitHub"
+    },
+    "location": {
+        "address": "Address",
+        "get_directions": "Get Directions",
+        "open_map": "Open Map",
+        "pickup_location": "Pickup Location",
+        "dropoff_location": "Drop-off Location",
+        "start_location": "Start Location",
+        "destination_location": "Destination Location",
+        "task_accepted_congratulations": "Congratulations! Your task has been accepted.",
+        "location_details_below": "Here are the location details:"
     }
 }

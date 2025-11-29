@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { writable, derived } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 import { localNotificationService } from '$lib/services/local-notification.service';

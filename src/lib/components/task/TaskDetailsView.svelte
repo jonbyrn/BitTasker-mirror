@@ -4,7 +4,7 @@
 	import { t } from 'svelte-i18n';
 	import type { Attachment, Task } from '$lib/types/task';
 	import { format } from 'date-fns';
-	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { user } from '$lib/stores/user.store';
@@ -15,29 +15,24 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import {
 		formatStandardDateShort,
+		formatStandardDateTime,
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { goto } from '$app/navigation';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	import IconAlertCircle from '~icons/mdi/alert-circle';
+import IconAlertCircle from '~icons/mdi/alert-circle';
+import IconWalletOutline from '~icons/mdi/wallet-outline';
+import IconCalendarClock from '~icons/mdi/calendar-clock';
+import IconMapMarker from '~icons/mdi/map-marker';
+import IconMapMarkerCheck from '~icons/mdi/map-marker-check';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import { getBidsForTaskOptimized, sendBidStatusUpdate, clearBidCache } from '$lib/utils/nostr-bid';
-	import IconRefresh from '~icons/mdi/refresh';
-	import type { TaskBid, NostrBid, SimplifiedTaskBid } from '$lib/types/bid';
-	import BidCardDetailed from '$lib/components/bidding/BidCardDetailed.svelte';
-	import IconCheckCircle from '~icons/mdi/check-circle';
-	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
-	import Drawer from '$lib/components/Drawer.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// Props
-	let { taskId, showShareButton = true } = $props<{
-		taskId: string;
-		showShareButton?: boolean;
-	}>();
+	let { taskId } = $props<{ taskId: string }>();
 
 	// State
 	let task = $state<Task | null>(null);
@@ -51,19 +46,23 @@
 	let selectedTaskId = $state<string | null>(taskId || null);
 	let isSidebarOpen = $state(false);
 
-	// Bids state
-	let bids = $state<TaskBid[]>([]);
-	let bidsLoading = $state(false);
-	let expandedBidId = $state<string | null>(null);
-	let showAcceptanceForm = $state(false);
-	let bidToAccept = $state<TaskBid | null>(null);
-
 	// Check if current user is the task creator
 	const isOwner = $derived(task?.npub === $user?.npub);
-	
+
 	// Check if user is logged in - using same validation as navbar
 	const isLoggedIn = $derived($authState.isAuthenticated);
-	
+
+const isRemoteTask = $derived(() => {
+	if (!task?.taskType) return false;
+	const normalizedType =
+		typeof task.taskType === 'string' ? task.taskType.toLowerCase() : task.taskType;
+	return normalizedType === TaskTypeEnum.REMOTE;
+});
+
+const shouldShowLocationInfo = $derived(
+	() => isRemoteTask() || !!task?.pickupLocation || !!task?.dropOffLocation
+);
+
 	// Check if task deadline has expired
 	// Compare dates using date strings to avoid timezone issues
 	// Deadline is expired only if today is AFTER the deadline date (allows bidding through end of deadline day)
@@ -71,30 +70,28 @@
 		if (!task?.deadline) return false;
 		const deadlineDate = new Date(task.deadline);
 		const now = new Date();
-		
+
 		// Compare dates using date strings to avoid timezone issues
 		const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
 		const todayDateStr = now.toISOString().split('T')[0];
-		
+
 		// Deadline is expired only if today is AFTER the deadline date
 		return todayDateStr > deadlineDateStr;
 	});
 
-	// Generate share link for public route - always use uniqueId for stable URLs
+	// Generate share link for public route
 	const shareLink = $derived(() => {
-		if (typeof window !== 'undefined' && task) {
-			// Always use the uniqueId from the loaded task for stable URLs
-			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			return `${window.location.origin}/tasks/${task.id}`;
+		if (typeof window !== 'undefined' && taskId) {
+			return `${window.location.origin}/tasks/${taskId}`;
 		}
 		return '';
 	});
-	
+
 	// Handle share functionality
 	const handleShare = async () => {
 		const link = shareLink();
 		if (!link) return;
-		
+
 		if (navigator.share) {
 			try {
 				await navigator.share({
@@ -117,37 +114,34 @@
 		}
 	};
 
-	// Handle copy link functionality
-	let copyLinkSuccess = $state(false);
-	const handleCopyLink = async () => {
-		const link = shareLink();
-		if (!link) return;
-		
-		const success = await copyToClipboard(link);
-		if (success) {
-			copyLinkSuccess = true;
-			appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
-			setTimeout(() => {
-				copyLinkSuccess = false;
-			}, 2000);
-		} else {
-			appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
-		}
-	};
-
 	function formatDateTimeReactive(dateString: string) {
 		const date = parseDateToLocalMidnight(dateString);
 		if (!date) return '';
-		// For deadlines, only show date, not time
-		return formatStandardDateShort(date, $locale || 'en');
+		const localeToUse = $locale || 'en';
+		const formattedDate = formatStandardDateShort(date, localeToUse);
+		const formattedTime = date.toLocaleTimeString(localeToUse, {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		});
+		return `${formattedDate} · ${formattedTime}`;
 	}
 
 	function formatDateRangeReactive(startDateString: string, endDateString: string) {
-		const startDate = parseDateToLocalMidnight(startDateString);
-		const endDate = parseDateToLocalMidnight(endDateString);
-		if (!startDate || !endDate) return '';
-		const start = formatStandardDateShort(startDate, $locale || 'en');
-		const end = formatStandardDateShort(endDate, $locale || 'en');
+		const localeToUse = $locale || 'en';
+		
+		// Parse dates - try to preserve time if present
+		const startDate = new Date(startDateString);
+		const endDate = new Date(endDateString);
+		
+		if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+			return '';
+		}
+		
+		// Format with time using formatStandardDateTime
+		const start = formatStandardDateTime(startDate, localeToUse);
+		const end = formatStandardDateTime(endDate, localeToUse);
+		
 		return `${start} - ${end}`;
 	}
 
@@ -200,6 +194,37 @@
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
 
+	// Helper function to truncate description
+	const getTruncatedDescription = (description: string, maxLength: number = 200) => {
+		if (description.length <= maxLength) return description;
+		return description.slice(0, maxLength) + '...';
+	};
+
+	// Translation is now handled automatically by TranslatableTask component
+
+	const isEventId = (value: string): boolean => /^[0-9a-f]{64}$/i.test(value);
+	const isUuid = (value: string): boolean =>
+		/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+	async function findTaskEventByUniqueId(uniqueId: string) {
+		try {
+			const dTagValue = `task-${uniqueId}`;
+			const response = await nostrEventsService.requestEvents({
+				filters: [
+					{
+						kinds: [KINDS.TASK_CREATION],
+						'#d': [dTagValue],
+						limit: 1
+					}
+				]
+			});
+			return response.data?.[0] ?? null;
+		} catch (error) {
+			console.error('Failed to load task by unique ID:', error);
+			return null;
+		}
+	}
+
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) {
 			loading = false;
@@ -210,43 +235,17 @@
 			loading = true;
 			errorMessage = '';
 
-			// Check if taskId is an event ID (64 hex chars) or UUID (uniqueId)
-			const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
-			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
 			let event: any = null;
 
-			if (isEventId) {
-				// It's an event ID, use it directly
-				// Note: This should rarely happen as page loader redirects event IDs to uniqueId
-				const result = await nostrEventsService.findEventById(taskId);
-				event = result.data;
-			} else if (isUuid) {
-				// It's a uniqueId (UUID), query by d-tag
-				const dTagValue = `task-${taskId}`;
-				const filter = {
-					kinds: [KINDS.TASK_CREATION],
-					'#d': [dTagValue],
-					limit: 1
-				};
-				
-				const response = await nostrEventsService.requestEvents({
-					filters: [filter]
-				});
-				
-				if (response.data && response.data.length > 0) {
-					event = response.data[0];
-				}
+			if (isEventId(taskId)) {
+				const response = await nostrEventsService.findEventById(taskId);
+				event = response.data;
+			} else if (isUuid(taskId)) {
+				event = await findTaskEventByUniqueId(taskId);
 			} else {
-				// Try as event ID anyway (fallback for edge cases)
-				// Note: The page loader should handle npub conversion and redirect,
-				// but we handle it here as a fallback for robustness
-				try {
-					const result = await nostrEventsService.findEventById(taskId);
-					event = result.data;
-				} catch {
-					errorMessage = $t('bids.task_details.error.failed_to_load');
-					return;
-				}
+				// Fallback attempt
+				const response = await nostrEventsService.findEventById(taskId);
+				event = response.data;
 			}
 
 			if (!event) {
@@ -268,24 +267,9 @@
 
 			task = {
 				...taskData,
-				id: event.id, // Always use the event ID from the event
+				id: event.id,
 				npub: event.pubkey // Add the npub from the event to the task object
 			};
-
-			// If we loaded via a different identifier, update the URL to use uniqueId
-			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			if (typeof window !== 'undefined' && taskData.id && taskData.id !== taskId) {
-				const currentPath = window.location.pathname;
-				const newPath = `/tasks/${taskData.id}`;
-				if (currentPath !== newPath) {
-					window.history.replaceState({}, '', newPath);
-				}
-			}
-
-			// Load bids if user is logged in and is the task owner
-			if (isLoggedIn && event.id && event.pubkey === $user?.npub) {
-				loadBids(event.id);
-			}
 		} catch (error) {
 			console.error('Failed to load task details:', error);
 			errorMessage = $t('bids.task_details.error.failed_to_load_details');
@@ -304,149 +288,6 @@
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		} catch (error) {
 			console.error('Failed to fetch BTC price:', error);
-		}
-	}
-
-	// Load bids for the task
-	async function loadBids(taskEventId: string) {
-		if (!isLoggedIn) return;
-
-		try {
-			bidsLoading = true;
-			const dmBids = await getBidsForTaskOptimized(taskEventId);
-
-			// Transform to TaskBid format for BidCard component
-			bids = dmBids.map(({ bid }) => {
-				const bidWithStatus = bid as NostrBid & { bidStatus?: string };
-				const status = bidWithStatus.bidStatus || 'PENDING';
-
-				return {
-					id: bid.bidId,
-					taskId: bid.taskId,
-					freelancerId: 0, // Not available in Nostr bid
-					amount: bid.amount,
-					currency: bid.currency,
-					paymentType: bid.paymentType,
-					hourlyRate: bid.hourlyRate ?? undefined,
-					estimatedHours: bid.estimatedHours ?? undefined,
-					description: bid.description || '',
-					estimatedDuration: bid.estimatedDuration || '',
-					proposedApproach: bid.proposedApproach || '',
-					coverLetter: bid.coverLetter || '',
-					status: (status.toLowerCase() as 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'countered') || 'pending',
-					createdAt: new Date(bid.timestamp).toISOString(),
-					visibility: 'PUBLIC' as const,
-					responseTime: 0,
-					clientViewed: false,
-					clientViewedAt: null,
-					featured: false,
-					clientResponse: null,
-					competitiveScore: null,
-					rank: null,
-					impressions: 0,
-					clicks: 0,
-					isWithdrawn: false,
-					withdrawnReason: null,
-					expiresAt: null,
-					updatedAt: new Date(bid.timestamp).toISOString(),
-					task: {
-						id: 0,
-						title: task?.title || '',
-						description: task?.description || '',
-						status: task?.status || ''
-					},
-					freelancer: {
-						id: 0,
-						userId: 0,
-						professionalTitle: null,
-						bio: null,
-						promotionalVideo: null,
-						yearsExperience: null,
-						specialties: [],
-						standardRates: null,
-						tasksCompleted: 0,
-						bidsSent: 0,
-						successRate: null,
-						rating: 0,
-						verified: false
-					},
-					bidderId: bid.bidderId || '',
-					bidderName: bid.bidderName || 'Anonymous',
-					bidderAvatar: bid.bidderAvatar || '',
-					bidderWalletAddress: bid.bidderWalletAddress || '',
-					dropOffLocation: task?.dropOffLocation || { displayName: '', latitude: 0, longitude: 0 },
-					pickupLocation: task?.pickupLocation || { displayName: '', latitude: 0, longitude: 0 },
-					translations: bid.translations
-				} as TaskBid;
-			});
-		} catch (error) {
-			console.error('Failed to load bids:', error);
-		} finally {
-			bidsLoading = false;
-		}
-	}
-
-	// Handler functions for BidCardDetailed
-	function handleToggleDetails(bidId: string) {
-		expandedBidId = expandedBidId === bidId ? null : bidId;
-	}
-
-	function handleAcceptBid(bid: TaskBid | SimplifiedTaskBid) {
-		// Check if this bid is already accepted or if another bid is already accepted
-		if (bid.status === 'ACCEPTED') {
-			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
-			return;
-		}
-
-		bidToAccept = bid as TaskBid;
-		showAcceptanceForm = true;
-	}
-
-	async function handleRejectBid(bid: TaskBid) {
-		// Prevent rejecting bids that are already accepted or rejected
-		if (bid.status === 'ACCEPTED' || bid.status === 'REJECTED') {
-			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_rejected'));
-			return;
-		}
-
-		try {
-			// Send bid rejection status via encrypted DM to the bidder
-			await sendBidStatusUpdate(
-				bid.id,
-				bid.taskId,
-				bid.bidderId || '', // bidder's pubkey
-				'rejected',
-				$t('dashboard.bids.bid_acceptance.bid_rejected_message') // Optional rejection message
-			);
-
-			// Clear bid cache and refresh task to update status and bids
-			clearBidCache();
-			if (task?.id) {
-				await loadBids(task.id);
-			}
-		} catch (error) {
-			console.error('Error rejecting bid:', error);
-			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.bid_rejected_error'));
-		}
-	}
-
-	function handleCloseBid() {
-		showAcceptanceForm = false;
-		bidToAccept = null;
-	}
-
-	// Handle refresh bids button
-	async function handleRefreshBids() {
-		if (!task?.id || !isLoggedIn || !isOwner) return;
-		
-		try {
-			// Clear cache to ensure fresh data
-			clearBidCache();
-			await loadBids(task.id);
-			appStore.showSuccessToast($t('dashboard.task_details_by_task.bids_refreshed'));
-		} catch (error) {
-			console.error('Error refreshing bids:', error);
-			appStore.showErrorToast($t('dashboard.task_details_by_task.bids_refresh_error'));
 		}
 	}
 
@@ -479,39 +320,36 @@
 	onMount(() => {
 		fetchBtcPrice();
 	});
+
+	// Handle copy link functionality
+	let copyLinkSuccess = $state(false);
+	const handleCopyLink = async () => {
+		const link = shareLink();
+		if (!link) return;
+
+		const success = await copyToClipboard(link);
+		if (success) {
+			copyLinkSuccess = true;
+			appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
+			setTimeout(() => {
+				copyLinkSuccess = false;
+			}, 2000);
+		} else {
+			appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
+		}
+	};
 </script>
 
-<div class="mx-auto w-full max-w-6xl p-4 md:p-6 lg:p-0">
-	<div class="mb-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-		<div>
-			{#if task}
-				<h3 class="">
-					<TranslatableTask 
-						{task} 
-						showTitle={true}
-						showDescription={false}
-						titleClass=""
-					/>
-				</h3>
-				<p class="text-base-content/70">
-					<TranslatableTask 
-						{task} 
-						showTitle={false}
-						showDescription={true}
-						showToggle={false}
-						descriptionClass="line-clamp-3"
-					/>
-				</p>
-			{:else}
+<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
+	<div class="rounded-xl pt-4 md:pt-0">
+		<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+			<div class="text-left">
 				<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
 				<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
-			{/if}
-		</div>
-		{#if showShareButton}
-			<div class="flex flex-row gap-2">
-				<!-- Share Button -->
-				<button 
-					class="btn btn-ghost btn-sm gap-2 transition-all duration-200 hover:bg-primary/10 hover:text-primary" 
+			</div>
+			<div class="flex flex-wrap gap-2 md:justify-end">
+				<button
+					class="btn btn-outline btn-sm flex-1 min-w-[140px] gap-2 transition-all duration-200"
 					onclick={handleShare}
 					title={$t('dashboard.task_details_by_task.share_task')}
 				>
@@ -529,11 +367,12 @@
 							d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.935-2.186 2.25 2.25 0 00-3.935 2.186z"
 						/>
 					</svg>
-					<span class="hidden sm:inline">{$t('dashboard.task_details_by_task.share')}</span>
+					<span>{$t('dashboard.task_details_by_task.share')}</span>
 				</button>
-				<!-- Copy Link Button -->
-				<button 
-					class="btn btn-ghost btn-sm gap-2 transition-all duration-200 hover:bg-primary/10 hover:text-primary {copyLinkSuccess ? 'text-success' : ''}" 
+				<button
+					class="btn btn-primary btn-sm flex-1 min-w-[140px] gap-2 transition-all duration-200 {copyLinkSuccess
+						? 'btn-success'
+						: ''}"
 					onclick={handleCopyLink}
 					title={$t('dashboard.task_details_by_task.copy_link')}
 				>
@@ -568,10 +407,9 @@
 							/>
 						</svg>
 					{/if}
-					<span class="hidden sm:inline">{$t('dashboard.task_details_by_task.copy_link')}</span>
+					<span>{$t('dashboard.task_details_by_task.copy_link')}</span>
 				</button>
 			</div>
-		{/if}
 	</div>
 	<!-- Loading state -->
 	{#if loading}
@@ -609,83 +447,79 @@
 		<!-- Details Tab -->
 		<div id="panel-details" role="tabpanel" aria-labelledby="tab-details" class="mt-3">
 			<!-- Task details -->
-			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3 w-full">
+			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 				<!-- Main content -->
-				<div class="space-y-4 lg:col-span-2 w-full">
-					<!-- Bids Section - Show if user is logged in, is owner, and task has bids -->
-					{#if isLoggedIn && isOwner && bids.length > 0}
-						<div class="bg-base-100 border-base-300 rounded-2xl border p-4 md:p-6 shadow-sm w-full">
-							<h4 class="mb-4 text-xl font-bold">{$t('dashboard.task_details_by_task.bids_section_title')}</h4>
-							<div class="space-y-4">
-								{#each bids as bid (bid.id)}
-									<BidCardDetailed
-										{bid}
-										{btcPrice}
-										expandedBidId={expandedBidId}
-										onAcceptBid={handleAcceptBid}
-										onRejectBid={handleRejectBid} 
-										onToggleDetails={handleToggleDetails}
-									/>
-								{/each}
-							</div>
-						</div>
-					{/if}
-
+				<div class="space-y-4 lg:col-span-2">
 					<!-- Main task info card -->
-					<div class="bg-base-100 border-base-300 rounded-2xl border p-4 md:p-6 shadow-sm w-full">
-						<!-- Description section -->
-						<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:justify-between">
-							{#if task.deadline || task.dateRange}
-								<div class="flex flex-col gap-2 sm:max-w-md">
-									{#if task.deadline}
-										<div>
-											<h4 class="mb-1 font-semibold">
-												{$t('dashboard.task_details_by_task.deadline')}
-											</h4>
-											<div class="font-semibold">
-												{formatDateTimeReactive(task.deadline)}
-											</div>
-										</div>
-									{:else if task.dateRange}
-										<div>
-											<span class="text-base-content/60 text-sm"
-												>{$t('dashboard.task_details_by_task.date_range')}</span
-											>
-											<div class="font-semibold">
-												{formatDateRangeReactive(
-													task.dateRange.start,
-													task.dateRange.end
-												)}
-											</div>
-										</div>
+					<div class="bg-base-100 border-base-300 rounded-2xl border p-6 shadow-sm">
+						<!-- Header row with title and posted date -->
+						<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+							<div class="">
+								<div class="pb-1">
+									<TranslatableTask
+										{task}
+										showTitle={true}
+										showDescription={false}
+										titleClass="card-title line-clamp-2 text-lg"
+									/>
+								</div>
+								<div class="text-base-content/60 text-start">
+									{#if task}
+										<TranslatableTask
+											{task}
+											showTitle={false}
+											showDescription={true}
+											showToggle={false}
+											descriptionClass="text-sm text-base-content/80 line-clamp-2"
+										/>
 									{/if}
 								</div>
-							{/if}
+							</div>
+							<!-- <div class="flex flex-col text-center">
+								<div class="badge badge-primary badge-outline text-sm font-bold">{task.status}</div>
+							</div> -->
+						</div>
 
-							<div class="flex flex-col items-start gap-2 sm:items-end">
-								<!-- Refresh bids button - only show for task owner -->
-								{#if isLoggedIn && isOwner}
-									<button
-										class="btn btn-ghost btn-sm gap-2"
-										onclick={handleRefreshBids}
-										disabled={bidsLoading}
-										title={$t('dashboard.task_details_by_task.refresh_bids')}
-										aria-label={$t('dashboard.task_details_by_task.refresh_bids')}
-									>
-										{#if bidsLoading}
-											<span class="loading loading-spinner loading-xs"></span>
-										{:else}
-											<IconRefresh class="h-4 w-4" />
+						<div class="divider"></div>
+
+						<!-- Description section -->
+						<div class="mb-6 flex flex-col gap-4 w-full">
+							<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-8">
+								<div class="flex flex-col gap-2 md:flex-1 md:w-full">
+									{#if task.deadline || task.dateRange}
+										{#if task.deadline}
+											<div class="flex flex-col">
+												<div class="flex items-center gap-2 text-base-content/60 text-sm">
+													<IconCalendarClock class="h-4 w-4" />
+													<span>{$t('dashboard.task_details_by_task.deadline')}</span>
+												</div>
+												<div class="font-semibold">
+													{formatDateTimeReactive(task.deadline)}
+												</div>
+											</div>
+										{:else if task.dateRange}
+											<div class="flex flex-col">
+												<div class="flex items-center gap-2 text-base-content/60 text-sm">
+													<IconCalendarClock class="h-4 w-4" />
+													<span>{$t('dashboard.task_details_by_task.date_range')}</span>
+												</div>
+												<div class="font-semibold">
+													{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
+												</div>
+											</div>
 										{/if}
-										<span class="hidden sm:inline">{$t('dashboard.task_details_by_task.refresh_bids')}</span>
-									</button>
-								{/if}
-								
-								<div class="text-lg font-bold">
-									${formatNumberWithTwoDecimals(task.budget.amount)}
-
-									<div class="text-base-content/60 text-sm">
-										{satsFromUsd(task.budget.amount, btcPrice)}
+									{/if}
+								</div>
+								<div class="flex flex-col gap-2 ">
+									<!-- <div class="flex items-center gap-2 text-base-content/60 text-sm md:justify-end">
+										<IconWalletOutline class="h-4 w-4" />
+										<span>{$t('dashboard.task_details_by_task.amount')}</span>
+									</div> -->
+									<div class="text-2xl font-bold tracking-tight">
+										${formatNumberWithTwoDecimals(task.budget.amount)}
+										<div class="text-base-content/60 text-base">
+											{satsFromUsd(task.budget.amount, btcPrice)}
+										</div>
 									</div>
 								</div>
 							</div>
@@ -694,29 +528,41 @@
 						<!-- Timeline and Requirements in same row -->
 						<div class="mb-2 flex flex-col gap-4 sm:flex-row sm:justify-between">
 							<!-- Location information -->
-							{#if task.pickupLocation || task.dropOffLocation}
-								<div>
+							{#if shouldShowLocationInfo()}
+								<div class="mb-2">
 									<div class="grid grid-cols-1">
-										{#if task.pickupLocation && task.pickupLocation.displayName && task.pickupLocation.displayName.trim() !== ''}
+										{#if isRemoteTask()}
 											<div class="mb-2">
-												<span class="text-base-content/60 text-sm"
-													>{$t('dashboard.task_details_by_task.pickup_location')}</span
-												>
-												<div>{task.pickupLocation.displayName}</div>
+												<div class="flex items-center gap-2 text-base-content/60 text-sm">
+													<IconMapMarker class="h-4 w-4" />
+													<span>{$t('dashboard.task_details_by_task.remote_location_label')}</span>
+												</div>
+												<div>{$t('dashboard.task_details_by_task.remote_location_description')}</div>
 											</div>
-										{/if}
-										{#if task.dropOffLocation && task.dropOffLocation.displayName && task.dropOffLocation.displayName.trim() !== ''}
-											<div>
-												<span class="text-base-content/60 text-sm"
-													>{$t('dashboard.task_details_by_task.dropoff_location')}</span
-												>
-												<div>{task.dropOffLocation.displayName}</div>
-											</div>
-										{/if}
-										{#if (!task.pickupLocation || !task.pickupLocation.displayName || task.pickupLocation.displayName.trim() === '') && (!task.dropOffLocation || !task.dropOffLocation.displayName || task.dropOffLocation.displayName.trim() === '')}
-											<div class="text-base-content/60 text-sm">
-												{$t('dashboard.task_details_by_task.remote')}
-											</div>
+										{:else}
+											{#if task.pickupLocation && task.pickupLocation.displayName && task.pickupLocation.displayName.trim() !== ''}
+												<div class="mb-2">
+													<div class="flex items-center gap-2 text-base-content/60 text-sm">
+														<IconMapMarker class="h-4 w-4" />
+														<span>{$t('dashboard.task_details_by_task.pickup_location')}</span>
+													</div>
+													<div>{task.pickupLocation.displayName}</div>
+												</div>
+											{/if}
+											{#if task.dropOffLocation && task.dropOffLocation.displayName && task.dropOffLocation.displayName.trim() !== ''}
+												<div class="mt-3">
+													<div class="flex items-center gap-2 text-base-content/60 text-sm">
+														<IconMapMarkerCheck class="h-4 w-4" />
+														<span>{$t('dashboard.task_details_by_task.dropoff_location')}</span>
+													</div>
+													<div>{task.dropOffLocation.displayName}</div>
+												</div>
+											{/if}
+											{#if (!task.pickupLocation || !task.pickupLocation.displayName || task.pickupLocation.displayName.trim() === '') && (!task.dropOffLocation || !task.dropOffLocation.displayName || task.dropOffLocation.displayName.trim() === '')}
+												<div class="text-base-content/60 text-sm">
+													{$t('dashboard.task_details_by_task.remote')}
+												</div>
+											{/if}
 										{/if}
 									</div>
 								</div>
@@ -731,7 +577,7 @@
 										<h4 class="mb-3 font-semibold">
 											{$t('dashboard.task_details_by_task.required_skills')}
 										</h4>
-										<div class="mt-2 flex flex-wrap gap-2">
+										<div class="pb-4 flex flex-wrap gap-2">
 											{#each task.skills as skill}
 												<span class="badge badge-primary badge-outline badge-sm">{skill}</span>
 											{/each}
@@ -759,7 +605,7 @@
 
 						<!-- Attachments -->
 						{#if task.attachments && task.attachments.length > 0}
-							<div class="my-4">
+							<div class="border-base-300 border-t pt-6 mt-4">
 								<h4 class="mb-1 font-semibold">
 									{$t('dashboard.task_details_by_task.attachments')}
 								</h4>
@@ -805,14 +651,19 @@
 
 				<!-- Sidebar -->
 				<div class="lg:col-span-1">
-					<div class="bg-base-100 border-base-300 sticky top-6 rounded-2xl border p-4 lg:p-6 shadow-sm">
+					<div class="bg-base-100 sticky top-6 rounded-2xl p-6 shadow-sm">
 						<!-- Action buttons -->
+						<div class="border-base-300 border-t pt-4">
 						{#if isDeadlineExpired()}
 							<div class="alert alert-error alert-outline">
 								<IconAlertCircle class="h-6 w-6 shrink-0" />
 								<div>
-									<span class="font-bold">{$t('dashboard.task_details_by_task.deadline_expired')}</span>
-									<div class="text-xs">{$t('dashboard.task_details_by_task.deadline_expired_message')}</div>
+									<span class="font-bold"
+										>{$t('dashboard.task_details_by_task.deadline_expired')}</span
+									>
+									<div class="text-xs">
+										{$t('dashboard.task_details_by_task.deadline_expired_message')}
+									</div>
 								</div>
 							</div>
 						{:else if task.status === TaskStatusEnum.OPEN && !isOwner && isLoggedIn}
@@ -839,10 +690,12 @@
 						{:else if task.status === TaskStatusEnum.OPEN && !isOwner && !isLoggedIn}
 							<div class="mb-6">
 								<h4 class="mb-4">{$t('dashboard.task_details_by_task.interested_in_task')}</h4>
-								
-								
-								<button class="btn btn-primary btn-sm w-full" onclick={() => goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`)}>
-									
+
+								<button
+									class="btn btn-primary btn-sm w-full"
+									onclick={() =>
+										goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`)}
+								>
 									{$t('dashboard.task_details_by_task.login')}
 								</button>
 							</div>
@@ -881,10 +734,11 @@
 								<span>{$t('dashboard.task_details_by_task.you_are_owner')}</span>
 							</div>
 						{/if}
+						</div>
 
 						<!-- Task creator info -->
 						{#if task.creator}
-							<div class="border-base-300 border-t pt-4">
+							<div class="border-base-300 border-t pt-4 mt-4">
 								<h4 class="mb-3 font-semibold">{$t('dashboard.task_details_by_task.tasker')}</h4>
 								<div class="flex items-center gap-3">
 									<!-- Avatar -->
@@ -931,14 +785,16 @@
 									<!-- Username and Review Stars -->
 									<div class="flex flex-col">
 										<span class="text-base font-medium">
-											{task.creator.username || ''}
+											{task.creator.username || $t('dashboard.task_details_by_task.anonymous')}
 										</span>
 										<!-- Review Stars -->
 										<div class="flex items-center">
-											{#each Array(5) as _, i}	
+											{#each Array(5) as _, i}
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
-													class="h-4 w-4 {i < (task.creator?.rating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
+													class="h-4 w-4 {i < (task.creator?.rating || 0)
+														? 'text-yellow-400'
+														: 'text-base-content/30'}"
 													fill="currentColor"
 													viewBox="0 0 24 24"
 												>
@@ -947,7 +803,9 @@
 													/>
 												</svg>
 											{/each}
-											<span class="text-base-content/60 ml-2 text-sm">{task.creator?.rating || 0}</span>
+											<span class="text-base-content/60 ml-2 text-sm"
+												>{task.creator?.rating || 0}</span
+											>
 										</div>
 										<p class="text-base-content/60 text-sm">
 											{$t('dashboard.task_details_by_task.member_since')}
@@ -958,8 +816,8 @@
 							</div>
 						{/if}
 						<!-- Task Location Map - Only show pickup location -->
-						{#if task.pickupLocation}
-							<div class="border-base-300 mt-4 border-t">
+						{#if task.pickupLocation && !isRemoteTask()}
+							<div class="border-base-300 mt-4 border-t pt-4">
 								<h4 class="mt-3 mb-2 font-semibold">
 									{$t('dashboard.task_details_by_task.pickup_location')}
 								</h4>
@@ -974,6 +832,7 @@
 			</div>
 		</div>
 	{/if}
+	</div>
 </div>
 
 <!-- Task Details Bid Drawer -->
@@ -982,18 +841,3 @@
 	onClose={() => (isSidebarOpen = false)}
 	isOpen={isSidebarOpen}
 />
-
-<!-- Bid Acceptance Drawer -->
-<Drawer
-	isOpen={showAcceptanceForm}
-	title={$t('dashboard.bids.bid_acceptance.accept_bid_fund_contract')}
-	onClose={handleCloseBid}
-	position="right"
-	isScrollable={true}
->
-	{#snippet children()}
-		{#if showAcceptanceForm && bidToAccept && task}
-			<BidAcceptanceForm bid={bidToAccept as any} {task} {btcPrice} onCancel={handleCloseBid} />
-		{/if}
-	{/snippet}
-</Drawer>

@@ -20,10 +20,6 @@ const createAuthStore = () => {
 		await Preferences.remove({ key: StorageKeys.AUTH_METHOD });
 		appStore.update((state) => ({ ...state, biometricData: null }));
 		
-		// Reset auth singleton to ensure fresh authentication prompts on next login
-		const { resetAuthSingleton } = await import('$lib/utils/nostr-message');
-		resetAuthSingleton();
-		
 		// Lazy load user store only when needed
 		const { user } = await import('./user.store');
 		user.reset();

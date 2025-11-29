@@ -18,8 +18,11 @@
 	import IconMusicNoteEighth from '~icons/mdi/music-note-eighth';
 	import IconPlay from '~icons/mdi/play';
 	import IconGithub from '~icons/mdi/github';
+	import IconTelegram from '~icons/mdi/telegram';
+	import IconWhatsapp from '~icons/mdi/whatsapp';
 	import '../app.css';
 	import { authState } from '$lib/stores/auth.store';
+
 	let isLoggedIn = $derived($authState.isAuthenticated);
 
 	// Global SEO JSON-LD - moved to dynamic injection
@@ -397,7 +400,7 @@
 									<IconYoutube class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
 								</a>
 							</div>
-							<!-- Second row: LinkedIn, Reddit, TikTok, Rumble -->
+							<!-- Second row: LinkedIn, Reddit, TikTok, Rumble, GitHub -->
 							<div class="flex space-x-8 lg:space-x-4 justify-center lg:justify-start">
 								<a
 									href="https://www.linkedin.com/company/bittasker/"
@@ -443,6 +446,27 @@
 									aria-label="GitHub"
 								>
 									<IconGithub class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
+								</a>
+							</div>
+							<!-- Third row: Telegram, WhatsApp -->
+							<div class="flex space-x-8 lg:space-x-4 justify-center lg:justify-start">
+								<a
+									href="https://t.me/+Y1VVB5B1Z6Q5OGQ1"
+									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+									target="_blank"
+									rel="noopener noreferrer"
+									aria-label="{$t('footer.social.telegram_aria')}"
+								>
+									<IconTelegram class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
+								</a>
+								<a
+									href="https://chat.whatsapp.com/GorZMOrVhOb0KDX6dpKLZ2"
+									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+									target="_blank"
+									rel="noopener noreferrer"
+									aria-label="{$t('footer.social.whatsapp_aria')}"
+								>
+									<IconWhatsapp class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
 								</a>
 							</div>
 						</div>

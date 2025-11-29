@@ -117,10 +117,6 @@ const authPlugin: ClientPlugin = () => {
 						// Remove token from storage
 						await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 
-						// Reset auth singleton to ensure fresh authentication prompts
-						const { resetAuthSingleton } = await import('$lib/utils/nostr-message');
-						resetAuthSingleton();
-
 						// Redirect to auth page
 						const { authState } = await import('$lib/stores/auth.store');
 						authState.logout();

@@ -1,7 +1,7 @@
 import type { GasEstimation } from '@bittasker/wallet-core';
 import type { ContractTransactionResult, DisputeProposal, EscrowData } from "$lib/types/wallet";
 import type { Attachment } from '$lib/types/task';
-import { getProvider, getWallet, walletStore } from "$lib/stores/wallet.store";
+import { getProvider, getWallet } from "$lib/stores/wallet.store";
 import { t } from "svelte-i18n";
 import { get } from "svelte/store";
 import { appStore } from "$lib/stores/app.store";
@@ -9,9 +9,11 @@ import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
-import { updateCompletionStatus, clearCompletionAttempt } from '$lib/stores/completionCache.store';
+import * as EscrowNostrEvent from '$lib/utils/wallet/escrowEvents';
 
 let contract: ethers.Contract | null = null;
+// Cache for legacy contracts to avoid recreating them
+const legacyContracts = new Map<string, ethers.Contract>();
 
 const getRSKWallet = () => getWallet('rsk');
 const getRSKProvider = () => getProvider('rsk');
@@ -19,8 +21,14 @@ const getRSKProvider = () => getProvider('rsk');
 /**
  * Simple initialization check for escrow operations
  * Ensures wallet, contract, provider are ready and wallet has balance
+ * 
+ * @param contractAddress - Optional contract address for legacy contracts
+ * @param requireBalance - Whether to check wallet balance (default: true for write operations)
  */
-export async function ensureEscrowReady(): Promise<{
+export async function ensureEscrowReady(
+    contractAddress?: string,
+    requireBalance: boolean = true
+): Promise<{
     contract: ethers.Contract;
     wallet: ethers.Wallet;
     provider: ethers.JsonRpcProvider;
@@ -47,21 +55,62 @@ export async function ensureEscrowReady(): Promise<{
         }
     }
 
-    // Check and connect contract if needed
-    if (!contract) {
-        await connectToEscrowContract();
+    // Determine which contract to use/initialize
+    let targetContract: ethers.Contract;
+
+    if (!contractAddress) {
+        // No contract address provided - use default contract
         if (!contract) {
-            throw new Error('Failed to connect to contract');
+            await connectToEscrowContract();
+            if (!contract) {
+                throw new Error('Failed to connect to contract');
+            }
+        }
+        targetContract = contract;
+    } else {
+        // Contract address provided - check if it's default or legacy
+        const defaultAddress = getDefaultContractAddress();
+
+        if (contractAddress.toLowerCase() === defaultAddress?.toLowerCase()) {
+            // Matches default - use default contract
+            if (!contract) {
+                await connectToEscrowContract();
+                if (!contract) {
+                    throw new Error('Failed to connect to contract');
+                }
+            }
+            targetContract = contract;
+        } else {
+            // Legacy contract - check cache or create new instance
+            const normalizedAddress = contractAddress.toLowerCase();
+
+            if (legacyContracts.has(normalizedAddress)) {
+                // Use cached legacy contract
+                targetContract = legacyContracts.get(normalizedAddress)!;
+            } else {
+                // Create new legacy contract instance
+                try {
+                    const checksummedAddress = ethers.getAddress(contractAddress);
+                    targetContract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
+
+                    // Cache it for future use
+                    legacyContracts.set(normalizedAddress, targetContract);
+                } catch (error) {
+                    throw new Error(`Failed to connect to legacy contract at ${contractAddress}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+            }
         }
     }
 
-    // Check wallet balance
-    const balance = await provider.getBalance(wallet.address);
-    if (balance === 0n) {
-        throw new Error('Insufficient balance. Please fund your wallet with RBTC to pay for transaction fees.');
+    // Check wallet balance (only if required - write operations need balance, read operations don't)
+    if (requireBalance) {
+        const balance = await provider.getBalance(wallet.address);
+        if (balance === 0n) {
+            throw new Error('Insufficient balance. Please fund your wallet with RBTC to pay for transaction fees.');
+        }
     }
 
-    return { contract, wallet, provider };
+    return { contract: targetContract, wallet, provider };
 }
 
 // Utility function to calculate fee amount
@@ -82,6 +131,16 @@ export function calculateFreelancerPayout(baseAmount: bigint, freelancerFeeTier:
     return baseAmount - freelancerFee;
 }
 
+/**
+ * Get the default contract address for the current network
+ */
+function getDefaultContractAddress(): string | undefined {
+    const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+    return network === 'mainnet'
+        ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+        : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+}
+
 // Connect to escrow contract
 async function connectToEscrowContract(): Promise<void> {
     const wallet = getRSKWallet();
@@ -98,17 +157,15 @@ async function connectToEscrowContract(): Promise<void> {
 
     try {
         const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-        const contractAddress = network === 'mainnet'
-            ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-            : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
-        
+        const contractAddress = getDefaultContractAddress();
+
         if (!contractAddress) {
-            const envVarName = network === 'mainnet' 
+            const envVarName = network === 'mainnet'
                 ? 'VITE_RSK_CONTRACT_ADDRESS_MAINNET'
                 : 'VITE_RSK_CONTRACT_ADDRESS_TESTNET';
             throw new Error(`Contract address not configured for ${network}. Please set ${envVarName} environment variable.`);
         }
-        
+
         const contractConfig = {
             address: contractAddress.toLowerCase(),
             abi: escrowABI,
@@ -119,16 +176,6 @@ async function connectToEscrowContract(): Promise<void> {
         const checksummedAddress = ethers.getAddress(contractConfig.address);
 
         contract = new ethers.Contract(checksummedAddress, contractConfig.abi, wallet);
-
-        // Update the unified wallet store with contract connection info
-        walletStore.update(state => ({
-            ...state,
-            rsk: {
-                ...state.rsk,
-                contractAddress: contractConfig.address,
-                contractConnected: true
-            }
-        }));
 
         // Skip event listeners on RSK due to eth_getLogs compatibility issues
         // Event handling is now done directly in transaction receipts
@@ -158,14 +205,14 @@ async function connectToEscrowContract(): Promise<void> {
 }
 
 // Load escrow details from contract
-async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
-    if (!contract) {
-        await ensureEscrowReady();
-        if (!contract) return null;
-    }
-
+async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData | null> {
     try {
-        const escrowData = await contract.getEscrow(escrowId);
+        // Get the appropriate contract instance (no balance check needed for read operations)
+        const { contract: targetContract } = await ensureEscrowReady(contractAddress, false);
+
+        if (!targetContract) throw new Error('Contract not found');
+
+        const escrowData = await targetContract.getEscrow(escrowId);
 
         // Map contract state enum to our EscrowStatus
         const statusMapping: Record<number, EscrowStatus> = {
@@ -206,14 +253,14 @@ async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
 }
 
 // Load dispute proposal details
-async function getDisputeProposal(escrowId: string): Promise<DisputeProposal | null> {
-    if (!contract) {
-        await ensureEscrowReady();
-        if (!contract) return null;
-    }
-
+async function getDisputeProposal(escrowId: string, contractAddress?: string): Promise<DisputeProposal | null> {
     try {
-        const proposalData = await contract.getDisputeProposal(escrowId);
+        // Get the appropriate contract instance (no balance check needed for read operations)
+        const { contract: targetContract } = await ensureEscrowReady(contractAddress, false);
+
+        if (!targetContract) throw new Error('Contract not found');
+
+        const proposalData = await targetContract.getDisputeProposal(escrowId);
 
         // Check if proposal exists (proposer is not zero address)
         if (!proposalData || proposalData.proposer === ethers.ZeroAddress) return null;
@@ -250,14 +297,6 @@ async function loadUserEscrows(): Promise<void> {
             nextEscrowId = await contract.nextEscrowId();
         } catch (error) {
             console.error('Failed to get nextEscrowId - contract may not be deployed correctly:', error);
-            // Set escrows to empty array and return
-            walletStore.update(state => ({
-                ...state,
-                rsk: {
-                    ...state.rsk,
-                    escrows: []
-                }
-            }));
             return;
         }
 
@@ -285,15 +324,6 @@ async function loadUserEscrows(): Promise<void> {
                 continue;
             }
         }
-
-        walletStore.update(state => ({
-            ...state,
-            rsk: {
-                ...state.rsk,
-                escrows: escrows.sort((a, b) => b.createdAt - a.createdAt)
-            }
-        }));
-
     } catch (error) {
         throw new Error(`Failed to load user escrows: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -346,15 +376,12 @@ async function createEscrow(
             hash: tx.hash,
             status: 'pending'
         };
-        console.log({result})
 
         // Handle confirmation asynchronously and create Nostr contract directly
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
-            console.log({receipt})
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
-                console.log('Escrow transaction confirmed, extracting escrow ID...', receipt);
 
                 // Extract escrow ID from the EscrowCreated event in the receipt
                 try {
@@ -389,22 +416,13 @@ async function createEscrow(
 
                             result.escrowId = escrowId;
 
-                            // Handle escrow created event through our event management system
-                            // Wrap in try-catch to prevent import errors from marking transaction as failed
-                            try {
-                                const { handleEscrowCreated } = await import('$lib/utils/wallet/escrowEvents');
-                                await handleEscrowCreated({
-                                    escrowId,
-                                    transactionHash: receipt.hash,
-                                    client,
-                                    freelancer,
-                                    amount
-                                });
-                            } catch (importError) {
-                                // Log import error but don't mark transaction as failed
-                                // Transaction already succeeded, this is just event handling
-                                console.warn('Failed to handle escrow created event (transaction still succeeded):', importError);
-                            }
+                            await EscrowNostrEvent.handleEscrowCreated({
+                                escrowId,
+                                transactionHash: receipt.hash,
+                                client,
+                                freelancer,
+                                amount
+                            });
                         }
                     } else {
                         console.warn('EscrowCreated event not found in transaction receipt');
@@ -428,7 +446,7 @@ async function createEscrow(
     }
 }
 
-// Complete task
+// Complete task - Freelancer Only
 async function completeTask(escrowId: string, contractEventId?: string, completionAttachments?: Attachment[]): Promise<ContractTransactionResult> {
     try {
         const { contract, provider } = await ensureEscrowReady();
@@ -452,65 +470,49 @@ async function completeTask(escrowId: string, contractEventId?: string, completi
             status: 'pending'
         };
 
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.task_completing_message'));
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingCompletion,
+                completionAttachments
+            });
+        }
 
-        // Handle confirmation asynchronously using the same pattern as createEscrow
+        // Handle confirmation asynchronously
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Task completion transaction confirmed:', receipt);
 
-                // Handle task completed event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        const { handleTaskCompleted } = await import('$lib/utils/wallet/escrowEvents');
-                        await handleTaskCompleted({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId,
-                            completionAttachments
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle task completed event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.publishEscrowStatus({
+                        escrowId,
+                        contractEventId,
+                        transactionHash: receipt.hash,
+                        status: EscrowStatus.Completed,
+                        completionAttachments
+                    });
                 }
             } else {
                 result.status = 'failed';
                 console.error('Task completion transaction receipt is null');
-                
-                // Clear cache on failure to allow retry
-                clearCompletionAttempt(escrowId);
-                
                 appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
             }
         }).catch((error: unknown) => {
-            // Only catch transaction errors, not import errors
-            // Import errors are handled in the try-catch above
             console.error('Task completion transaction failed:', error);
             result.status = 'failed';
-            
-            // Clear cache on failure to allow retry
-            clearCompletionAttempt(escrowId);
-            
-            // Update cache status to failed
-            updateCompletionStatus(escrowId, 'failed');
-            
             appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
         });
 
         return result;
 
     } catch (error) {
-        // Handle immediate errors (before transaction is sent)
         console.error('Error completing task:', error);
-        
-        // Clear cache on error to allow retry
-        clearCompletionAttempt(escrowId);
-        
         throw new Error(`Failed to complete task: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
@@ -539,30 +541,31 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
             status: 'pending'
         };
 
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.task_accepting_message'));
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingAcceptance
+            });
+        }
 
-        // Handle confirmation asynchronously using the same pattern as createEscrow
+        // Handle confirmation asynchronously
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Task acceptance transaction confirmed:', receipt);
 
-                // Handle task accepted event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        const { handleTaskAccepted } = await import('$lib/utils/wallet/escrowEvents');
-                        await handleTaskAccepted({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle task accepted event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.publishEscrowStatus({
+                        escrowId,
+                        contractEventId,
+                        transactionHash: receipt.hash,
+                        status: EscrowStatus.FundsReleased
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -606,30 +609,31 @@ async function cancelEscrow(escrowId: string, contractEventId?: string): Promise
             status: 'pending'
         };
 
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.escrow_cancelling_message'));
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingCancellation
+            });
+        }
 
-        // Handle confirmation asynchronously using the same pattern as createEscrow
+        // Handle confirmation asynchronously
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Escrow cancellation transaction confirmed:', receipt);
 
-                // Handle escrow cancelled event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        const { handleEscrowCancelled } = await import('$lib/utils/wallet/escrowEvents');
-                        await handleEscrowCancelled({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle escrow cancelled event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.publishEscrowStatus({
+                        escrowId,
+                        contractEventId,
+                        transactionHash: receipt.hash,
+                        status: EscrowStatus.Cancelled
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -673,30 +677,31 @@ async function disputeTask(escrowId: string, contractEventId?: string): Promise<
             status: 'pending'
         };
 
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.dispute_raising_message'));
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingDispute
+            });
+        }
 
-        // Handle confirmation asynchronously using the same pattern as createEscrow
+        // Handle confirmation asynchronously
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Task dispute transaction confirmed:', receipt);
 
-                // Handle task disputed event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        const { handleTaskDisputed } = await import('$lib/utils/wallet/escrowEvents');
-                        await handleTaskDisputed({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle task disputed event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.publishEscrowStatus({
+                        escrowId,
+                        contractEventId,
+                        transactionHash: receipt.hash,
+                        status: EscrowStatus.InDispute
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -743,44 +748,47 @@ async function proposeResolution(
         const tx = await contract.proposeResolution(
             escrowId,
             freelancerAmountWei,
-            { 
+            {
                 gasLimit: gasEstimate + (gasEstimate / 10n),
                 gasPrice: gasPrice
             }
         );
 
-        const result: ContractTransactionResult = {
-            hash: tx.hash,
-            escrowId,
-            status: 'pending'
-        };
+		const result: ContractTransactionResult = {
+			hash: tx.hash,
+			escrowId,
+			status: 'pending'
+		};
 
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.resolution_proposing_message'));
+		// CRITICAL: Publish pending status BEFORE showing toast
+		// This prevents double-submissions during ~30s blockchain confirmation
+		if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
+			await EscrowNostrEvent.publishEscrowStatus({
+				escrowId,
+				contractEventId,
+				transactionHash: tx.hash,
+				status: EscrowStatus.PendingResolutionProposal,
+				proposedClientAmount,
+				proposedFreelancerAmount
+			});
+		}
 
-        // Handle confirmation asynchronously using the same pattern as createEscrow
-        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+		// Handle confirmation asynchronously
+		tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Resolution proposal transaction confirmed:', receipt);
 
-                // Handle resolution proposed event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
-                    try {
-                        const { handleResolutionProposed } = await import('$lib/utils/wallet/escrowEvents');
-                        await handleResolutionProposed({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId,
-                            proposedClientAmount,
-                            proposedFreelancerAmount
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle resolution proposed event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.publishEscrowStatus({
+                        escrowId,
+                        contractEventId,
+                        transactionHash: receipt.hash,
+                        status: EscrowStatus.DisputeResolutionProposed,
+                        proposedClientAmount,
+                        proposedFreelancerAmount
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -818,36 +826,37 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
             gasPrice: gasPrice
         });
 
-        const result: ContractTransactionResult = {
-            hash: tx.hash,
-            escrowId,
-            status: 'pending'
-        };
+		const result: ContractTransactionResult = {
+			hash: tx.hash,
+			escrowId,
+			status: 'pending'
+		};
 
-        appStore.showInfoToast(get(t)('dashboard.contracts.actions.proposal_accepting_message'));
+		// CRITICAL: Publish pending status BEFORE showing toast
+		// This prevents double-submissions during ~30s blockchain confirmation
+		if (contractEventId) {
+			await EscrowNostrEvent.publishEscrowStatus({
+				escrowId,
+				contractEventId,
+				transactionHash: tx.hash,
+				status: EscrowStatus.PendingProposalAcceptance
+			});
+		}
 
-        // Handle confirmation asynchronously using the same pattern as createEscrow
-        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+		// Handle confirmation asynchronously
+		tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Proposal acceptance transaction confirmed:', receipt);
 
-                // Handle proposal accepted event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        const { handleProposalAccepted } = await import('$lib/utils/wallet/escrowEvents');
-                        await handleProposalAccepted({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle proposal accepted event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.publishEscrowStatus({
+                        escrowId,
+                        contractEventId,
+                        transactionHash: receipt.hash,
+                        status: EscrowStatus.DisputeResolved
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -868,6 +877,7 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
 }
 
 // Resolve after timelock
+// TODO: Add pending status event
 async function resolveAfterTimelock(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract, provider } = await ensureEscrowReady();
@@ -893,28 +903,20 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
 
         appStore.showInfoToast(get(t)('dashboard.contracts.actions.timelock_resolving_message'));
 
-        // Handle confirmation asynchronously using the same pattern as createEscrow
+        // Handle confirmation asynchronously
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Timelock resolution transaction confirmed:', receipt);
 
-                // Handle timelock resolved event through our event management system
-                // Wrap in try-catch to prevent import errors from marking transaction as failed
                 if (contractEventId) {
-                    try {
-                        const { handleTimelockResolved } = await import('$lib/utils/wallet/escrowEvents');
-                        await handleTimelockResolved({
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            contractEventId
-                        });
-                    } catch (importError) {
-                        // Log import error but don't mark transaction as failed
-                        // Transaction already succeeded, this is just event handling
-                        console.warn('Failed to handle timelock resolved event (transaction still succeeded):', importError);
-                    }
+                    await EscrowNostrEvent.publishEscrowStatus({
+                        escrowId,
+                        contractEventId,
+                        transactionHash: receipt.hash,
+                        status: EscrowStatus.DisputeUnresolved
+                    });
                 }
             } else {
                 result.status = 'failed';
@@ -1023,7 +1025,7 @@ async function checkEscrowFundingStatus(escrowId: string): Promise<{
     escrowData: EscrowData | null;
     error?: typeof EscrowError;
 }> {
-    const { createEscrowError, isEscrowNotFoundError, EscrowError, EscrowErrorCode } = await import('$lib/utils/errors/escrowErrors');
+    const { createEscrowError, isEscrowNotFoundError, EscrowError } = await import('$lib/utils/helpers/escrowErrors');
 
     try {
         const escrowData = await loadEscrowDetails(escrowId);

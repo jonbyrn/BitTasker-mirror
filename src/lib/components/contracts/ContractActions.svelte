@@ -1,556 +1,307 @@
 <script lang="ts">
-	import { t, locale } from 'svelte-i18n';
-	import { untrack } from 'svelte';
-	import type { ContractWithEvents } from '$lib/types/contract';
+	import type { ContractWithEvents, ContractStatusEvent } from '$lib/types/contract';
 	import type { Attachment } from '$lib/types/task';
+	import type { EscrowData } from '$lib/types/wallet';
+	import { t, locale } from 'svelte-i18n';
 	import { escrow } from '$lib/utils/wallet/escrow';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { deleteContract as deleteContractUtil } from '$lib/utils/nostr-bid';
-	import { notifyBackendOfContractAction } from '$lib/utils/contract-notification-helper';
+	import { deleteContract } from '$lib/utils/nostr-contract';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
+	import { contractStore } from '$lib/stores/contract.store';
+	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
-	import { 
-		registerCompleteCancelAttemptAtomic,
-		registerCompleteCancelAttempt,
-		updateCompleteCancelStatus,
-		updateCompletionStatus, 
-		getCompleteCancelAttempt,
-		getCompleteAttempt,
-		getCancelAttempt,
-		clearCompletionAttempt 
-	} from '$lib/stores/completionCache.store';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import {
-		registerAcceptDisputeAttemptAtomic,
-		registerAcceptDisputeAttempt,
-		getAcceptAttempt,
-		getDisputeAttempt,
-		clearAcceptDisputeAttempt,
-		acceptDisputeStore
-	} from '$lib/stores/acceptDisputeCache.store';
-	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
-	import type { EscrowData } from '$lib/types/wallet';
+		ContractModalAction,
+		CONTRACT_MODAL_CONFIGS
+	} from '$lib/utils/constants/contract-modals';
 
 	const {
 		contract,
-		onActionComplete,
 		containerClass = 'space-y-3',
-		openDrawer = () => {},
-		isInline = false,
-		onShowDeleteConfirm = () => {},
-		onShowAcceptConfirm = () => {},
-		onShowDisputeConfirm = () => {},
-		onShowCancelConfirm = () => {},
-		onShowCompletionModal = () => {},
-		onSetAcceptTaskHandler,
-		onSetDisputeTaskHandler,
-		onSetDeleteContractHandler,
-		onSetCancelEscrowHandler,
-		onSetCompleteTaskHandler,
-		useExternalModals = false
+		isInline = false
 	} = $props<{
 		contract: ContractWithEvents;
-		onActionComplete?: () => void;
 		containerClass?: string;
 		isInline?: boolean;
-		openDrawer?: () => void;
-		onShowDeleteConfirm?: () => void;
-		onShowAcceptConfirm?: () => void;
-		onShowDisputeConfirm?: () => void;
-		onShowCancelConfirm?: () => void;
-		onShowCompletionModal?: () => void;
-		onSetAcceptTaskHandler?: (handler: () => Promise<void>) => void;
-		onSetDisputeTaskHandler?: (handler: () => Promise<void>) => void;
-		onSetDeleteContractHandler?: (handler: () => Promise<void>) => void;
-		onSetCancelEscrowHandler?: (handler: () => Promise<void>) => void;
-		onSetCompleteTaskHandler?: (handler: (attachments: Attachment[]) => Promise<void>) => void;
-		useExternalModals?: boolean;
 	}>();
 
 	// State for actions
 	let isLoading = $state<Record<string, boolean>>({});
 	let showResolutionForm = $state(false);
-	
-	// Modal state (only used when callbacks not provided - for ContractCard usage)
-	let showCompletionModal = $state(false);
-	let showDeleteConfirm = $state(false);
-	let showAcceptConfirm = $state(false);
-	let showDisputeConfirm = $state(false);
-	let showCancelConfirm = $state(false);
-	
-	// Determine if we should use internal modals (when external modals not explicitly requested)
-	// useExternalModals is only set to true in ContractDrawer, ContractCard doesn't pass it (defaults to false)
-	const useInternalModals = !useExternalModals;
+	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
+
+	// Disable ALL critical actions when transaction is pending
+	const isDisabledDueToPending = $derived(contract.isPending);
+
+	// Resolution form state
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
 	let btcPrice = $state<number>(0); // No fallback price
-	
-	// Completion cache state
+
+	// Blockchain check cache (KEEP - performance optimization)
 	let isCheckingBlockchain = $state(false);
 	let blockchainCompletionStatus = $state<EscrowStatus | null>(null);
-	let completionAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed'; type: 'complete' | 'cancel' } | null>(null);
-	let cancelAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed'; type: 'complete' | 'cancel' } | null>(null);
-	
-	// Accept/Dispute cache state
-	let acceptAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed'; type: 'accept' | 'dispute' } | null>(null);
-	let disputeAttempt = $state<{ escrowId: string; timestamp: number; transactionHash?: string; status: 'pending' | 'confirmed' | 'failed'; type: 'accept' | 'dispute' } | null>(null);
-	
-	let isMounted = $state(true);
-	
+
 	// Blockchain check cache (30 second TTL)
-	const blockchainCheckCache = new Map<string, { status: EscrowStatus | null; timestamp: number }>();
+	const blockchainCheckCache = new Map<
+		string,
+		{ status: EscrowStatus | null; timestamp: number }
+	>();
 	const BLOCKCHAIN_CACHE_TTL = 30000; // 30 seconds
 
-	// Component unmount protection
-	$effect(() => {
-		isMounted = true;
-		
-		return () => {
-			isMounted = false; // Cleanup on unmount
-		};
-	});
+	// Calculate proposal counts for each party
+	// Use event.pubkey to identify who made each proposal (Nostr pubkey)
+	const clientProposalCount = $derived(
+		contract.statusEvents.filter(
+			(e: ContractStatusEvent) =>
+				e.content.action === EscrowStatus.DisputeResolutionProposed &&
+				e.pubkey.toLowerCase() ===
+					contractStore.getContractKey(contract, 'clientPubkey').toLowerCase()
+		).length
+	);
+
+	const freelancerProposalCount = $derived(
+		contract.statusEvents.filter(
+			(e: ContractStatusEvent) =>
+				e.content.action === EscrowStatus.DisputeResolutionProposed &&
+				e.pubkey.toLowerCase() ===
+					contractStore.getContractKey(contract, 'freelancerPubkey').toLowerCase()
+		).length
+	);
+
+	// Get current user's proposal count
+	const currentUserProposalCount = $derived(
+		contract.isClient ? clientProposalCount : freelancerProposalCount
+	);
+
+	// Check if user has proposals left
+	const hasProposalsLeft = $derived(currentUserProposalCount < 2);
 
 	// Helper to set loading state
 	function setLoading(action: string, loading: boolean) {
 		isLoading = { ...isLoading, [action]: loading };
 	}
-	
+
 	// Check if cancel is allowed based on time restrictions
 	function canCancelBasedOnTime(): { allowed: boolean; reason?: string } {
 		const now = Date.now();
-		const estimatedStartTime = contract.contract.estimatedStartTime;
-		const createdAt = contract.contract.createdAt;
-		
+		const estimatedStartTime = contractStore.getContractKey(contract, 'estimatedStartTime');
+		const createdAt = contractStore.getContractKey(contract, 'createdAt');
+
 		// Convert timestamps to milliseconds if they're in seconds
-		const startTime = estimatedStartTime > 1000000000000 ? estimatedStartTime : estimatedStartTime * 1000;
+		const startTime =
+			estimatedStartTime > 1000000000000 ? estimatedStartTime : estimatedStartTime * 1000;
 		const createdTime = createdAt > 1000000000000 ? createdAt : createdAt * 1000;
-		
+
 		const hoursUntilStart = (startTime - now) / (1000 * 60 * 60);
 		const hoursSinceCreation = (now - createdTime) / (1000 * 60 * 60);
-		
+
 		// Can cancel if more than 24 hours before estimated start time
 		if (hoursUntilStart > 24) {
 			return { allowed: true };
 		}
-		
+
 		// Can cancel if less than 24 hours before start AND less than 1 hour since creation (grace period)
 		if (hoursUntilStart <= 24 && hoursSinceCreation <= 1) {
 			return { allowed: true };
 		}
-		
+
 		// Cannot cancel otherwise
-		return { 
-			allowed: false, 
-			reason: hoursUntilStart <= 24 
-				? $t('dashboard.contracts.actions.cancel_time_restriction_grace_period_expired')
-				: $t('dashboard.contracts.actions.cancel_time_restriction_too_close')
+		return {
+			allowed: false,
+			reason:
+				hoursUntilStart <= 24
+					? $t('dashboard.contracts.actions.cancel_time_restriction_grace_period_expired')
+					: $t('dashboard.contracts.actions.cancel_time_restriction_too_close')
 		};
 	}
-	
+
 	// Check blockchain completion status with caching
 	async function checkBlockchainCompletionStatus(): Promise<boolean> {
-		if (!isMounted) return false;
-		
-		const cacheKey = contract.contract.escrowId;
+		const cacheKey = contractStore.getContractKey(contract, 'escrowId');
 		const cached = blockchainCheckCache.get(cacheKey);
 		const now = Date.now();
-		
+
 		// Use cached result if less than 30 seconds old
-		if (cached && (now - cached.timestamp) < BLOCKCHAIN_CACHE_TTL) {
-			if (isMounted) {
-				blockchainCompletionStatus = cached.status;
-			}
-			// Update cache if we have an attempt
-			if (cached.status === EscrowStatus.Completed && completionAttempt) {
-				updateCompletionStatus(contract.contract.escrowId, 'confirmed');
-			}
+		if (cached && now - cached.timestamp < BLOCKCHAIN_CACHE_TTL) {
+			blockchainCompletionStatus = cached.status;
 			return cached.status === EscrowStatus.Completed;
 		}
-		
+
 		try {
-			if (isMounted) {
-				isCheckingBlockchain = true;
-			}
-			
+			isCheckingBlockchain = true;
+
 			// Add timeout protection (5 seconds)
-			const escrowData = await Promise.race([
-				escrow.getEscrow(contract.contract.escrowId),
-				new Promise<null>((_, reject) => 
+			const escrowData = (await Promise.race([
+				escrow.getEscrow(contractStore.getContractKey(contract, 'escrowId')),
+				new Promise<null>((_, reject) =>
 					setTimeout(() => reject(new Error('Blockchain check timeout')), 5000)
 				)
-			]) as EscrowData | null;
-			
-			if (!isMounted) return false;
-			
+			])) as EscrowData | null;
+
 			const status = escrowData?.status || null;
-			
+
 			if (status === EscrowStatus.Completed) {
 				blockchainCompletionStatus = EscrowStatus.Completed;
-				// Update cache to confirmed if we have an attempt
-				if (completionAttempt) {
-					updateCompletionStatus(contract.contract.escrowId, 'confirmed');
-				}
-				// Cache result
 				blockchainCheckCache.set(cacheKey, { status, timestamp: now });
-				return true; // Already completed
+				return true;
 			}
-			
+
 			blockchainCompletionStatus = status;
-			// Cache result
 			blockchainCheckCache.set(cacheKey, { status, timestamp: now });
-			return false; // Not completed yet
+			return false;
 		} catch (error) {
-			if (!isMounted) return false;
-			
 			if (error instanceof Error && error.message === 'Blockchain check timeout') {
 				console.warn('Blockchain check timeout, allowing transaction to proceed');
-				// Don't block transaction on timeout
 				return false;
 			}
-			
+
 			console.error('Error checking blockchain status:', error);
-			// Fallback: don't block if check fails
 			return false;
 		} finally {
-			if (isMounted) {
-				isCheckingBlockchain = false;
-			}
+			isCheckingBlockchain = false;
 		}
 	}
 
 	// Complete task with attachments (freelancer only)
-	export async function completeTaskWithAttachments(attachments: Attachment[]) {
-		if (!contract.canComplete || !isMounted) return;
-		
-		// Atomic check-and-set: prevents race conditions
-		const wasRegistered = registerCompleteCancelAttemptAtomic(
-			contract.contract.escrowId,
-			'complete'
-		);
-		if (!wasRegistered) {
-			// Already attempted - check if it's a cancel or complete attempt
-			const existingAttempt = getCompleteCancelAttempt(contract.contract.escrowId);
-			if (existingAttempt?.type === 'cancel') {
-				// Cancel was attempted - check status
-				if (existingAttempt.status === 'confirmed') {
-					if (isMounted) {
-						appStore.showErrorToast($t('dashboard.contracts.actions.contract_already_cancelled'));
-					}
-					return;
-				} else if (existingAttempt.status === 'pending') {
-					// Cancel pending - don't allow complete
-					if (isMounted) {
-						appStore.showErrorToast($t('dashboard.contracts.actions.contract_cancellation_pending'));
-					}
-					return;
-				}
-			} else if (existingAttempt?.type === 'complete') {
-				// Complete was attempted - check status
-				if (existingAttempt.status === 'confirmed') {
-					// Already completed - check blockchain to be sure
-					const isCompleted = await checkBlockchainCompletionStatus();
-					if (isCompleted) {
-						if (isMounted) {
-							appStore.showErrorToast(
-								$t('dashboard.contracts.actions.task_already_completed')
-							);
-						}
-						return;
-					}
-				} else if (existingAttempt.status === 'pending') {
-					// Transaction pending - don't allow duplicate
-					if (isMounted) {
-						appStore.showErrorToast(
-							$t('dashboard.contracts.actions.task_completion_pending')
-						);
-					}
-					return;
-				}
-			}
-			// If failed, allow retry
+	async function completeTaskWithAttachments(attachments: Attachment[]) {
+		if (!contract.permissions.canComplete) return;
+
+		// Check if already pending via Nostr
+		if (contract.isPending) {
+			appStore.showErrorToast($t('dashboard.contracts.actions.task_completion_pending'));
+			return;
 		}
-		
-		// Get the attempt (either newly created or existing)
-		completionAttempt = getCompleteAttempt(contract.contract.escrowId);
-		
+
 		// Check blockchain status before submitting (with caching)
 		const isAlreadyCompleted = await checkBlockchainCompletionStatus();
 		if (isAlreadyCompleted) {
-			if (isMounted) {
-				appStore.showErrorToast(
-					$t('dashboard.contracts.actions.task_already_completed')
-				);
-			}
-			// Update cache to confirmed
-			if (completionAttempt) {
-				updateCompleteCancelStatus(contract.contract.escrowId, 'confirmed');
-			}
+			appStore.showErrorToast($t('dashboard.contracts.actions.task_already_completed'));
 			return;
 		}
-		
-		if (!isMounted) return;
-		
+
 		setLoading('complete', true);
 		try {
-			// Call RSK escrow completeTask with contract event ID and attachments
-			const result = await escrow.completeTask(
-				contract.contract.escrowId, 
-				contract.contractEvent.id, 
+			// Call RSK escrow completeTask - this publishes Nostr event with transactionHash
+			await escrow.completeTask(
+				contractStore.getContractKey(contract, 'escrowId'),
+				contract.contractEvent.id,
 				attachments
 			);
-			
-			if (!isMounted) return;
-			
-			// Update cache with transaction hash (status is already 'pending' from registration)
-			if (result.hash && completionAttempt) {
-				// Update the attempt with transaction hash
-				completionAttempt.transactionHash = result.hash;
-				// Update the cache entry (overwrites existing entry with transaction hash)
-				registerCompleteCancelAttempt(contract.contract.escrowId, 'complete', result.hash);
-			}
-			
-			// Notify backend for push notifications
-			await notifyBackendOfContractAction(
-				contract.contract.escrowId,
-				'task-completed',
-				contract.contractEvent.id,
-				{ attachments: attachments.length, transactionHash: result.hash }
-			);
-			
-			onActionComplete?.();
-			
-			// Note: Status will be updated to 'confirmed' when transaction confirms
-			// This happens in escrowEvents.ts handleTaskCompleted
-			// If transaction fails, it will be handled in escrow.ts
+
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [contractStore.getContractKey(contract, 'freelancerPubkey')],
+				title: 'Task Completed',
+				body: `Task ${contractStore.getContractKey(contract, 'taskTitle')} has been marked as completed`,
+				type: 'task_completed',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
+
+			// Note: Status will be updated via blockchain event -> Nostr update
+			// Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
-			if (!isMounted) return;
-			
 			console.error('Error completing task:', error);
-			
-			// Clear attempt on failure to allow retry
-			clearCompletionAttempt(contract.contract.escrowId);
-			completionAttempt = null;
-			
+
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.task_completed_error');
 			appStore.showErrorToast(errorMessage);
-		} finally {
-			if (isMounted) {
-				setLoading('complete', false);
-			}
+
+			setLoading('complete', false);
 		}
 	}
 
-	// Show completion modal
-	function showCompleteTaskModal() {
-		if (!contract.canComplete) return;
-		if (useInternalModals) {
-			showCompletionModal = true;
-		} else {
-			onShowCompletionModal();
-		}
-	}
+	// Accept task (client only)
+	async function acceptTask() {
+		if (!contract.permissions.canAccept) return;
 
-	// Show accept confirmation
-	function showAcceptConfirmation() {
-		if (!contract.canAccept || isAcceptDisabled) return;
-		if (useInternalModals) {
-			showAcceptConfirm = true;
-		} else {
-			onShowAcceptConfirm();
+		// Check if already pending via Nostr
+		if (contract.isPending) {
+			appStore.showErrorToast($t('dashboard.contracts.actions.payment_release_pending'));
+			return;
 		}
-	}
-
-	// Accept task (client only) - called from parent modal
-	export async function acceptTask() {
-		if (!contract.canAccept || !isMounted) return;
-		
-		// Atomic check-and-set: prevents race conditions
-		const wasRegistered = registerAcceptDisputeAttemptAtomic(
-			contract.contract.escrowId,
-			'accept'
-		);
-		if (!wasRegistered) {
-			// Already attempted - check status
-			const attempt = getAcceptAttempt(contract.contract.escrowId);
-			if (attempt?.status === 'confirmed') {
-				if (isMounted) {
-					appStore.showErrorToast($t('dashboard.contracts.actions.payment_already_released'));
-				}
-				return;
-			} else if (attempt?.status === 'pending') {
-				// Transaction pending - don't allow duplicate
-				if (isMounted) {
-					appStore.showErrorToast($t('dashboard.contracts.actions.payment_release_pending'));
-				}
-				return;
-			}
-			// If failed, allow retry
-		}
-		
-		// Get the attempt (either newly created or existing)
-		acceptAttempt = getAcceptAttempt(contract.contract.escrowId);
 
 		setLoading('accept', true);
 		try {
-		// Call RSK escrow acceptTask with contract event ID for proper nostr event publishing
-		const result = await escrow.acceptTask(contract.contract.escrowId, contract.contractEvent.id);
-		
-		if (!isMounted) return;
-		
-		// Update cache with transaction hash (status is already 'pending' from registration)
-		if (result.hash && acceptAttempt) {
-			// Update the attempt with transaction hash
-			acceptAttempt.transactionHash = result.hash;
-			// Update the cache entry (overwrites existing entry with transaction hash)
-			registerAcceptDisputeAttempt(contract.contract.escrowId, 'accept', result.hash);
-		}
-		
-		// Notify backend for push notifications
-		await notifyBackendOfContractAction(
-			contract.contract.escrowId,
-			'payment-released',
-			contract.contractEvent.id,
-			{ transactionHash: result.hash }
-		);
-		
-		// Note: Loading state will remain true until transaction confirms
-			// Status will be updated to 'confirmed' when transaction confirms
-			// This happens in escrowEvents.ts handleTaskAccepted
-			// The reactive effect will clear loading when status becomes 'confirmed'
+			// Call RSK escrow acceptTask - this publishes Nostr event with transactionHash
+			await escrow.acceptTask(
+				contractStore.getContractKey(contract, 'escrowId'),
+				contract.contractEvent.id
+			);
+
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				title: 'Payment Released',
+				body: `Payment has been released for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				type: 'payment_released',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
+
+			// Note: Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
-			if (!isMounted) return;
-			
 			console.error('Error accepting task:', error);
-			
-			// Clear attempt on failure to allow retry
-			clearAcceptDisputeAttempt(contract.contract.escrowId);
-			acceptAttempt = null;
-			
-			// Clear loading on error
-			setLoading('accept', false);
-			
+
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.payment_released_error');
 			appStore.showErrorToast(errorMessage);
+
+			setLoading('accept', false);
 		}
 	}
 
-	// Show dispute confirmation
-	function showDisputeConfirmation() {
-		if (!contract.canDispute || isDisputeDisabled) return;
-		if (useInternalModals) {
-			showDisputeConfirm = true;
-		} else {
-			onShowDisputeConfirm();
-		}
-	}
+	// Dispute task (client only)
+	async function disputeTask() {
+		if (!contract.permissions.canDispute)
+			return console.log('User does not have permission to dispute task', contract);
 
-	// Show cancel confirmation
-	function showCancelConfirmation() {
-		if (!contract.canCancel || isCancelDisabled) return;
-		
-		// Check time-based restrictions
-		const timeCheck = canCancelBasedOnTime();
-		if (!timeCheck.allowed) {
-			appStore.showErrorToast(timeCheck.reason || $t('dashboard.contracts.actions.cancel_time_restriction'));
+		// Check if already pending via Nostr
+		if (contract.isPending) {
+			appStore.showErrorToast($t('dashboard.contracts.actions.dispute_raising_pending'));
 			return;
 		}
-		
-		if (useInternalModals) {
-			showCancelConfirm = true;
-		} else {
-			onShowCancelConfirm();
-		}
-	}
-
-	// Dispute task (client only) - called from parent modal
-	export async function disputeTask() {
-		if (!contract.canDispute || !isMounted) return;
-		
-		// Atomic check-and-set: prevents race conditions
-		const wasRegistered = registerAcceptDisputeAttemptAtomic(
-			contract.contract.escrowId,
-			'dispute'
-		);
-		if (!wasRegistered) {
-			// Already attempted - check status
-			const attempt = getDisputeAttempt(contract.contract.escrowId);
-			if (attempt?.status === 'confirmed') {
-				if (isMounted) {
-					appStore.showErrorToast($t('dashboard.contracts.actions.dispute_already_raised'));
-				}
-				return;
-			} else if (attempt?.status === 'pending') {
-				// Transaction pending - don't allow duplicate
-				if (isMounted) {
-					appStore.showErrorToast($t('dashboard.contracts.actions.dispute_raising_pending'));
-				}
-				return;
-			}
-			// If failed, allow retry
-		}
-		
-		// Get the attempt (either newly created or existing)
-		disputeAttempt = getDisputeAttempt(contract.contract.escrowId);
 
 		setLoading('dispute', true);
 		try {
-		// Call RSK escrow disputeTask with contract event ID for proper nostr event publishing
-		const result = await escrow.disputeTask(contract.contract.escrowId, contract.contractEvent.id);
-		
-		if (!isMounted) return;
-		
-		// Update cache with transaction hash (status is already 'pending' from registration)
-		if (result.hash && disputeAttempt) {
-			// Update the attempt with transaction hash
-			disputeAttempt.transactionHash = result.hash;
-			// Update the cache entry (overwrites existing entry with transaction hash)
-			registerAcceptDisputeAttempt(contract.contract.escrowId, 'dispute', result.hash);
-		}
-		
-		// Notify backend for push notifications
-		await notifyBackendOfContractAction(
-			contract.contract.escrowId,
-			'dispute-raised',
-			contract.contractEvent.id,
-			{ transactionHash: result.hash }
-		);
-		
-		// Note: Loading state will remain true until transaction confirms
-			// Status will be updated to 'confirmed' when transaction confirms
-			// This happens in escrowEvents.ts handleTaskDisputed
-			// The reactive effect will clear loading when status becomes 'confirmed'
+			// Call RSK escrow disputeTask - this publishes Nostr event with transactionHash
+			await escrow.disputeTask(
+				contractStore.getContractKey(contract, 'escrowId'),
+				contract.contractEvent.id
+			);
+
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [contractStore.getContractKey(contract, 'freelancerPubkey')],
+				title: 'Dispute Raised',
+				body: `A dispute has been raised for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				type: 'dispute_raised',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
 		} catch (error) {
-			if (!isMounted) return;
-			
 			console.error('Error disputing task:', error);
-			
-			// Clear attempt on failure to allow retry
-			clearAcceptDisputeAttempt(contract.contract.escrowId);
-			disputeAttempt = null;
-			
-			// Clear loading on error
-			setLoading('dispute', false);
-			
+
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.dispute_raised_error');
 			appStore.showErrorToast(errorMessage);
+
+			setLoading('dispute', false);
 		}
 	}
 
 	// Propose resolution
 	async function proposeResolution() {
-		if (!contract.canPropose) return;
+		if (!contract.permissions.canPropose) return;
 		if (!proposedFreelancerAmountUSD) {
 			appStore.showErrorToast($t('dashboard.contracts.actions.resolution_amounts_required'));
 			return;
@@ -558,7 +309,7 @@
 
 		// Convert USD amounts to RBTC for validation and contract call
 		const freelancerAmountUSD = parseFloat(proposedFreelancerAmountUSD);
-		const totalAmountRBTC = parseFloat(contract.contract.amount);
+		const totalAmountRBTC = parseFloat(contractStore.getContractKey(contract, 'amount'));
 		const totalAmountUSD = totalAmountRBTC * btcPrice;
 
 		// Validate that freelancer amount is not greater than total
@@ -574,30 +325,27 @@
 
 		setLoading('propose', true);
 		try {
-		// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
-		await escrow.proposeResolution(
-			contract.contract.escrowId,
-			freelancerAmountRBTC,
-			contract.contractEvent.id,
-			clientAmountRBTC,
-			freelancerAmountRBTC
-		);
+			// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
+			await escrow.proposeResolution(
+				contractStore.getContractKey(contract, 'escrowId'),
+				freelancerAmountRBTC,
+				contract.contractEvent.id,
+				clientAmountRBTC,
+				freelancerAmountRBTC
+			);
 
-		// Notify backend for push notifications
-		await notifyBackendOfContractAction(
-			contract.contract.escrowId,
-			'resolution-proposed',
-			contract.contractEvent.id,
-			{
-				freelancerAmount: freelancerAmountRBTC,
-				clientAmount: clientAmountRBTC
-			}
-		);
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				title: 'Resolution Proposed',
+				body: `A resolution has been proposed for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				type: 'resolution_proposed',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
 
-		showResolutionForm = false;
-		proposedClientAmountUSD = '';
-		proposedFreelancerAmountUSD = '';
-		onActionComplete?.();
+			showResolutionForm = false;
+			proposedClientAmountUSD = '';
+			proposedFreelancerAmountUSD = '';
 		} catch (error) {
 			console.error('Error proposing resolution:', error);
 			const errorMessage =
@@ -612,21 +360,24 @@
 
 	// Accept proposal
 	async function acceptProposal() {
-		if (!contract.canAcceptProposal) return;
+		if (!contract.permissions.canAcceptProposal) return;
 
 		setLoading('acceptProposal', true);
 		try {
-		// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
-		await escrow.acceptProposal(contract.contract.escrowId, contract.contractEvent.id);
-		
-		// Notify backend for push notifications
-		await notifyBackendOfContractAction(
-			contract.contract.escrowId,
-			'proposal-accepted',
-			contract.contractEvent.id
-		);
-		
-		onActionComplete?.();
+			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
+			await escrow.acceptProposal(
+				contractStore.getContractKey(contract, 'escrowId'),
+				contract.contractEvent.id
+			);
+
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				title: 'Proposal Accepted',
+				body: `A proposal has been accepted for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				type: 'proposal_accepted',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
 			const errorMessage =
@@ -640,116 +391,69 @@
 	}
 
 	// Cancel escrow
-	export async function cancelEscrow() {
-		if (!contract.canCancel || !isMounted) return;
-
-		// Atomic check-and-set: prevents race conditions
-		const wasRegistered = registerCompleteCancelAttemptAtomic(
-			contract.contract.escrowId,
-			'cancel'
-		);
-		if (!wasRegistered) {
-			// Already attempted - check if it's a complete or cancel attempt
-			const existingAttempt = getCompleteCancelAttempt(contract.contract.escrowId);
-			if (existingAttempt?.type === 'complete') {
-				// Complete was attempted - check status
-				if (existingAttempt.status === 'confirmed') {
-					if (isMounted) {
-						appStore.showErrorToast($t('dashboard.contracts.actions.task_already_completed'));
-					}
-					return;
-				} else if (existingAttempt.status === 'pending') {
-					// Complete pending - don't allow cancel
-					if (isMounted) {
-						appStore.showErrorToast($t('dashboard.contracts.actions.task_completion_pending'));
-					}
-					return;
-				}
-			} else if (existingAttempt?.type === 'cancel') {
-				// Cancel was attempted - check status
-				if (existingAttempt.status === 'confirmed') {
-					if (isMounted) {
-						appStore.showErrorToast($t('dashboard.contracts.actions.contract_already_cancelled'));
-					}
-					return;
-				} else if (existingAttempt.status === 'pending') {
-					// Transaction pending - don't allow duplicate
-					if (isMounted) {
-						appStore.showErrorToast($t('dashboard.contracts.actions.contract_cancellation_pending'));
-					}
-					return;
-				}
-			}
-			// If failed, allow retry
+	async function cancelEscrow() {
+		if (!contract.permissions.canCancel) {
+			return appStore.showErrorToast($t('dashboard.contracts.actions.cancel_time_restriction'));
 		}
-		
-		// Get the attempt (either newly created or existing)
-		cancelAttempt = getCancelAttempt(contract.contract.escrowId);
+
+		// Check if already pending via Nostr
+		if (contract.isPending) {
+			appStore.showErrorToast($t('dashboard.contracts.actions.contract_cancellation_pending'));
+			return;
+		}
 
 		setLoading('cancel', true);
 		try {
-		// Call RSK escrow cancelEscrow with contract event ID for proper nostr event publishing
-		const result = await escrow.cancelEscrow(contract.contract.escrowId, contract.contractEvent.id);
-		
-		if (!isMounted) return;
-		
-		// Update cache with transaction hash (status is already 'pending' from registration)
-		if (result.hash && cancelAttempt) {
-			// Update the attempt with transaction hash
-			cancelAttempt.transactionHash = result.hash;
-			// Update the cache entry (overwrites existing entry with transaction hash)
-			registerCompleteCancelAttempt(contract.contract.escrowId, 'cancel', result.hash);
-		}
-		
-		// Notify backend for push notifications
-		await notifyBackendOfContractAction(
-			contract.contract.escrowId,
-			'escrow-cancelled',
-			contract.contractEvent.id,
-			{ transactionHash: result.hash }
-		);
-		
-		// Note: Status will be updated to 'confirmed' when transaction confirms
-			// This happens in escrowEvents.ts handleEscrowCancelled
-			// If transaction fails, it will be handled in escrow.ts
+			// Call RSK escrow cancelEscrow - this publishes Nostr event with transactionHash
+			await escrow.cancelEscrow(
+				contractStore.getContractKey(contract, 'escrowId'),
+				contract.contractEvent.id
+			);
+
+			const isClient = contract.isClient;
+			const npubs = isClient
+				? [contractStore.getContractKey(contract, 'freelancerPubkey')]
+				: [contractStore.getContractKey(contract, 'clientPubkey')];
+
+			pushNotificationService.sendNotificationToNpubs({
+				npubs,
+				title: 'Escrow Cancelled',
+				body: `An escrow has been cancelled for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				type: 'escrow_cancelled',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
 		} catch (error) {
-			if (!isMounted) return;
-			
 			console.error('Error cancelling escrow:', error);
-			
-			// Clear attempt on failure to allow retry
-			clearCompletionAttempt(contract.contract.escrowId);
-			cancelAttempt = null;
-			
+
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.escrow_cancelled_error');
 			appStore.showErrorToast(errorMessage);
-		} finally {
-			if (isMounted) {
-				setLoading('cancel', false);
-			}
+
+			setLoading('cancel', false);
 		}
 	}
 
 	// Resolve after timelock
 	async function resolveAfterTimelock() {
-		if (!contract.canResolveTimelock) return;
-
 		setLoading('resolveTimelock', true);
 		try {
-		// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
-		await escrow.resolveAfterTimelock(contract.contract.escrowId, contract.contractEvent.id);
-		
-		// Notify backend for push notifications
-		await notifyBackendOfContractAction(
-			contract.contract.escrowId,
-			'timelock-resolved',
-			contract.contractEvent.id
-		);
-		
-		onActionComplete?.();
+			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
+			await escrow.resolveAfterTimelock(
+				contractStore.getContractKey(contract, 'escrowId'),
+				contract.contractEvent.id
+			);
+
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				title: 'Timelock Resolved',
+				body: `A timelock has been resolved for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				type: 'timelock_resolved',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
 			const errorMessage =
@@ -762,28 +466,20 @@
 		}
 	}
 
-	// Show delete confirmation
-	function showDeleteConfirmation() {
-		if (!contract.canDelete) return;
-		if (useInternalModals) {
-			showDeleteConfirm = true;
-		} else {
-			onShowDeleteConfirm();
-		}
-	}
-
-	// Delete contract (after confirmation) - called from parent modal
-	export async function deleteContract() {
-		if (!contract.canDelete) return;
+	// Delete contract
+	async function onDeleteContract() {
+		if (!contract.permissions.canDelete) return;
 		setLoading('delete', true);
 		try {
-			await deleteContractUtil(contract.contractEvent.id, contract.contract.escrowId);
+			await deleteContract(
+				contract.contractEvent.id,
+				contractStore.getContractKey(contract, 'escrowId')
+			);
 			appStore.showSuccessToast($t('dashboard.contracts.actions.delete_contract_success'));
-			onActionComplete?.();
 		} catch (error) {
 			console.error('Error deleting contract:', error);
 			// Handle structured EscrowError
-			const { isEscrowError } = await import('$lib/utils/errors/escrowErrors');
+			const { isEscrowError } = await import('$lib/utils/helpers/escrowErrors');
 			const errorMessage = isEscrowError(error)
 				? error.message
 				: error instanceof Error
@@ -795,37 +491,56 @@
 		}
 	}
 
-	// Load translations on mount and when locale changes
-	$effect(() => {
-		if (browser && $locale) {
-			loadNamespace($locale as SupportedLanguage, 'dashboard/contracts/actions').catch((error) => {
-				console.warn('Failed to load contract actions translations:', error);
-			});
+	// Modal action handlers - these will be called by the modal configurations
+	function openModal(action: ContractModalAction) {
+		// Special handling for cancel action - check time restrictions
+		if (action === ContractModalAction.Cancel) {
+			const timeCheck = canCancelBasedOnTime();
+			if (!timeCheck.allowed) {
+				appStore.showErrorToast(
+					timeCheck.reason || $t('dashboard.contracts.actions.cancel_time_restriction')
+				);
+				return;
+			}
 		}
-	});
 
-	// Set action handlers for parent component
-	// Only re-register when contract escrowId changes to prevent infinite loops
-	let lastRegisteredEscrowId = $state<string | null>(null);
-	$effect(() => {
-		// Only register handlers if they exist, component is mounted, and escrowId changed
-		if (!isMounted) return;
-		
-		const currentEscrowId = contract.contract.escrowId;
-		// Only register if this is a new contract (different escrowId)
-		if (lastRegisteredEscrowId === currentEscrowId) return;
-		
-		lastRegisteredEscrowId = currentEscrowId;
-		
-		// Register handlers - use untrack to prevent reactive updates during registration
-		untrack(() => {
-			onSetAcceptTaskHandler?.(acceptTask);
-			onSetDisputeTaskHandler?.(disputeTask);
-			onSetDeleteContractHandler?.(deleteContract);
-			onSetCancelEscrowHandler?.(cancelEscrow);
-			onSetCompleteTaskHandler?.(completeTaskWithAttachments);
+		activeModal = action;
+	}
+
+	function closeModal() {
+		activeModal = ContractModalAction.None;
+	}
+
+	// Handle modal confirmation based on active modal type
+	async function handleModalConfirm() {
+		console.log('Confirming...', contract.escrowData.id);
+
+		switch (activeModal) {
+			case ContractModalAction.Accept:
+				await acceptTask();
+				break;
+			case ContractModalAction.Dispute:
+				await disputeTask();
+				break;
+			case ContractModalAction.Cancel:
+				await cancelEscrow();
+				break;
+			case ContractModalAction.Delete:
+				await onDeleteContract();
+				break;
+			default:
+				console.warn('Unknown modal action:', activeModal);
+		}
+
+		closeModal();
+	}
+
+	// Load translations on mount and when locale changes
+	if (browser) {
+		loadNamespace($locale as SupportedLanguage, 'dashboard/contracts/actions').catch((error) => {
+			console.warn('Failed to load contract actions translations:', error);
 		});
-	});
+	}
 
 	// Fetch BTC price on mount using currency formatter utility
 	$effect(() => {
@@ -839,162 +554,46 @@
 			console.error('Error fetching BTC price:', error);
 		}
 	}
-	
-	// Load completion attempt on mount
+
+	// Clear loading states when contract.isPending changes
 	$effect(() => {
-		if (!isMounted) return;
-		
-		const attempt = getCompleteAttempt(contract.contract.escrowId);
-		if (attempt) {
-			completionAttempt = attempt;
-			// If confirmed, check blockchain status to verify
-			if (attempt.status === 'confirmed') {
-				checkBlockchainCompletionStatus();
+		if (!contract.isPending) {
+			// Clear all loading states when no longer pending
+			if (isLoading.complete || isLoading.accept || isLoading.dispute || isLoading.cancel) {
+				isLoading = {};
 			}
 		}
 	});
-	
-	// Load cancel attempt on mount
-	$effect(() => {
-		if (!isMounted) return;
-		
-		const cancel = getCancelAttempt(contract.contract.escrowId);
-		if (cancel) {
-			cancelAttempt = cancel;
-		}
-	});
-	
-	// Load accept/dispute attempts on mount and watch for status changes
-	$effect(() => {
-		if (!isMounted) return;
-		
-		const accept = getAcceptAttempt(contract.contract.escrowId);
-		if (accept) {
-			acceptAttempt = accept;
-		}
-		
-		const dispute = getDisputeAttempt(contract.contract.escrowId);
-		if (dispute) {
-			disputeAttempt = dispute;
-		}
-	});
-	
-	// Watch for accept/dispute attempt status changes and clear loading when confirmed
-	$effect(() => {
-		if (!isMounted) return;
-		
-		// Subscribe to store changes
-		const unsubscribe = acceptDisputeStore.subscribe((cache) => {
-			if (!isMounted) return;
-			
-			const escrowId = contract.contract.escrowId;
-			const attempt = cache.get(escrowId);
-			
-			if (attempt) {
-				// Update local state
-				if (attempt.type === 'accept') {
-					const previousStatus = acceptAttempt?.status;
-					acceptAttempt = attempt;
-					// Clear loading when status becomes confirmed
-					if (attempt.status === 'confirmed' && previousStatus !== 'confirmed') {
-						setLoading('accept', false);
-					}
-				} else if (attempt.type === 'dispute') {
-					const previousStatus = disputeAttempt?.status;
-					disputeAttempt = attempt;
-					// Clear loading when status becomes confirmed
-					if (attempt.status === 'confirmed' && previousStatus !== 'confirmed') {
-						setLoading('dispute', false);
-					}
-				}
-			}
-		});
-		
-		return () => {
-			unsubscribe();
-		};
-	});
-	
-	// Also watch local state changes to clear loading when status becomes confirmed
-	$effect(() => {
-		if (!isMounted) return;
-		
-		// Clear loading when accept attempt status becomes confirmed
-		if (acceptAttempt?.status === 'confirmed' && isLoading.accept) {
-			setLoading('accept', false);
-		}
-		
-		// Clear loading when dispute attempt status becomes confirmed
-		if (disputeAttempt?.status === 'confirmed' && isLoading.dispute) {
-			setLoading('dispute', false);
-		}
-	});
-	
-	// Derived state for button disabled logic
+
+	// Derived state for button disabled logic (simplified - rely on contract.isPending and permissions)
 	const isCompleteDisabled = $derived(
-		!isMounted ||
 		isLoading.complete ||
-		isLoading.cancel || // Disable if cancel is loading
-		isCheckingBlockchain ||
-		(completionAttempt?.status === 'pending') ||
-		(completionAttempt?.status === 'confirmed') ||
-		(cancelAttempt?.status === 'pending') || // Disable if cancel is pending
-		(cancelAttempt?.status === 'confirmed') || // Disable if cancel is confirmed
-		(blockchainCompletionStatus === EscrowStatus.Completed) ||
-		(blockchainCompletionStatus === EscrowStatus.Cancelled) // Disable if cancelled
+			isCheckingBlockchain ||
+			contract.isPending ||
+			blockchainCompletionStatus === EscrowStatus.Completed ||
+			blockchainCompletionStatus === EscrowStatus.Cancelled
 	);
-	
-	// Derived state for accept/dispute button disabled logic
-	const isAcceptDisabled = $derived(
-		!isMounted ||
-		isLoading.accept ||
-		isLoading.dispute || // Disable if dispute is loading
-		isLoading.cancel || // Disable if cancel is loading
-		(acceptAttempt?.status === 'pending') ||
-		(acceptAttempt?.status === 'confirmed') ||
-		(disputeAttempt?.status === 'pending') ||
-		(disputeAttempt?.status === 'confirmed') ||
-		(cancelAttempt?.status === 'pending') || // Disable if cancel is pending
-		(cancelAttempt?.status === 'confirmed') // Disable if cancel is confirmed
-	);
-	
-	const isDisputeDisabled = $derived(
-		!isMounted ||
-		isLoading.accept || // Disable if accept is loading
-		isLoading.dispute ||
-		isLoading.cancel || // Disable if cancel is loading
-		(acceptAttempt?.status === 'pending') ||
-		(acceptAttempt?.status === 'confirmed') ||
-		(disputeAttempt?.status === 'pending') ||
-		(disputeAttempt?.status === 'confirmed') ||
-		(cancelAttempt?.status === 'pending') || // Disable if cancel is pending
-		(cancelAttempt?.status === 'confirmed') // Disable if cancel is confirmed
-	);
-	
-	// Derived state for cancel button disabled logic
+
+	const isAcceptDisabled = $derived(isLoading.accept || contract.isPending);
+
+	const isDisputeDisabled = $derived(isLoading.dispute || contract.isPending);
+
 	const isCancelDisabled = $derived(
-		!isMounted ||
 		isLoading.cancel ||
-		isLoading.complete || // Disable if complete is loading
-		isLoading.accept || // Disable if accept is loading
-		isLoading.dispute || // Disable if dispute is loading
-		(cancelAttempt?.status === 'pending') ||
-		(cancelAttempt?.status === 'confirmed') ||
-		(completionAttempt?.status === 'pending') || // Disable if complete is pending
-		(completionAttempt?.status === 'confirmed') || // Disable if complete is confirmed
-		(acceptAttempt?.status === 'pending') || // Disable if accept is pending
-		(acceptAttempt?.status === 'confirmed') || // Disable if accept is confirmed
-		(disputeAttempt?.status === 'pending') || // Disable if dispute is pending
-		(disputeAttempt?.status === 'confirmed') || // Disable if dispute is confirmed
-		(blockchainCompletionStatus === EscrowStatus.Cancelled) ||
-		(blockchainCompletionStatus === EscrowStatus.Completed) // Disable if completed
+			contract.isPending ||
+			blockchainCompletionStatus === EscrowStatus.Cancelled ||
+			blockchainCompletionStatus === EscrowStatus.Completed
 	);
 
 	// Auto-calculate client amount from freelancer amount in USD
 	$effect(() => {
-		if (proposedFreelancerAmountUSD && contract.contract.amount && btcPrice > 0) {
+		if (
+			proposedFreelancerAmountUSD &&
+			contractStore.getContractKey(contract, 'amount') &&
+			btcPrice > 0
+		) {
 			const freelancerAmountUSD = parseFloat(proposedFreelancerAmountUSD) || 0;
-			const totalAmountRBTC = parseFloat(contract.contract.amount);
+			const totalAmountRBTC = parseFloat(contractStore.getContractKey(contract, 'amount'));
 			const totalAmountUSD = totalAmountRBTC * btcPrice;
 			const clientAmountUSD = totalAmountUSD - freelancerAmountUSD;
 			if (clientAmountUSD >= 0) {
@@ -1002,24 +601,30 @@
 			}
 		}
 	});
+
+	const openDrawer = () => {
+		showResolutionForm = true;
+		$contractStore.contract = contract;
+		$contractStore.isDrawerOpen = true;
+	};
 </script>
 
 <div class="{containerClass} {containerClass.includes('grid') ? 'w-full' : ''}">
 	<!-- Complete Task (Freelancer) -->
-	{#if contract.canComplete}
+	{#if contract.permissions.canComplete}
 		<button
 			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-			onclick={showCompleteTaskModal}
-			disabled={isCompleteDisabled}
-			title={isCompleteDisabled && (completionAttempt?.status === 'confirmed' || blockchainCompletionStatus === EscrowStatus.Completed)
+			onclick={() => (activeModal = ContractModalAction.Complete)}
+			disabled={isCompleteDisabled || isDisabledDueToPending}
+			title={blockchainCompletionStatus === EscrowStatus.Completed
 				? $t('dashboard.contracts.actions.task_already_completed_tooltip')
-				: isCompleteDisabled && completionAttempt?.status === 'pending'
-				? $t('dashboard.contracts.actions.task_completion_pending_tooltip')
-				: ''}
+				: contract.isPending
+					? $t('dashboard.contracts.actions.task_completion_pending_tooltip')
+					: ''}
 		>
 			{#if isLoading.complete || isCheckingBlockchain}
 				<span class="loading loading-spinner loading-xs"></span>
-			{:else if completionAttempt?.status === 'confirmed' || blockchainCompletionStatus === EscrowStatus.Completed}
+			{:else if blockchainCompletionStatus === EscrowStatus.Completed}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-4 w-4"
@@ -1055,29 +660,14 @@
 	{/if}
 
 	<!-- Accept Task (Client) -->
-	{#if contract.canAccept}
+	{#if contract.permissions.canAccept}
 		<button
 			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-			onclick={showAcceptConfirmation}
-			disabled={isAcceptDisabled}
+			onclick={() => openModal(ContractModalAction.Accept)}
+			disabled={isAcceptDisabled || isDisabledDueToPending}
 		>
-			{#if isLoading.accept || acceptAttempt?.status === 'pending'}
+			{#if isLoading.accept}
 				<span class="loading loading-spinner loading-xs"></span>
-			{:else if acceptAttempt?.status === 'confirmed'}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M5 13l4 4L19 7"
-					/>
-				</svg>
 			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -1099,29 +689,14 @@
 	{/if}
 
 	<!-- Dispute Task (Client) -->
-	{#if contract.canDispute}
+	{#if contract.permissions.canDispute}
 		<button
 			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-			onclick={showDisputeConfirmation}
+			onclick={() => openModal(ContractModalAction.Dispute)}
 			disabled={isDisputeDisabled}
 		>
-			{#if isLoading.dispute || disputeAttempt?.status === 'pending'}
+			{#if isLoading.dispute}
 				<span class="loading loading-spinner loading-xs"></span>
-			{:else if disputeAttempt?.status === 'confirmed'}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M5 13l4 4L19 7"
-					/>
-				</svg>
 			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -1143,14 +718,11 @@
 	{/if}
 
 	<!-- Propose Resolution -->
-	{#if contract.canPropose}
+	{#if contract.permissions.canPropose}
 		{#if !showResolutionForm}
 			<button
 				class="btn btn-warning btn-sm text-black {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-				onclick={() => {
-					showResolutionForm = true;
-					openDrawer();
-				}}
+				onclick={openDrawer}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -1166,7 +738,12 @@
 						d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0h2m-2 0v4l3-3-3-3m2-5a2 2 0 012-2h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m0 0v4l-3-3 3-3"
 					/>
 				</svg>
-				{$t('dashboard.contracts.actions.propose_resolution')}
+				{contract.disputeProposal
+					? $t('dashboard.contracts.actions.counter_proposal')
+					: $t('dashboard.contracts.actions.propose_resolution')}
+				<span class="text-base-content/60 ml-1 text-xs">
+					({currentUserProposalCount}/2)
+				</span>
 			</button>
 		{:else if !isInline}
 			<div class="bg-base-300 col-span-2 w-full space-y-3 rounded-lg p-3">
@@ -1232,9 +809,9 @@
 
 				<div class="text-base-content/60 text-xs">
 					{$t('dashboard.contracts.actions.total_amount')}: ${(
-						parseFloat(contract.contract.amount) * btcPrice
+						parseFloat(contractStore.getContractKey(contract, 'amount')) * btcPrice
 					).toFixed(2)} ({Math.round(
-						parseFloat(contract.contract.amount) * 100_000_000
+						parseFloat(contractStore.getContractKey(contract, 'amount')) * 100_000_000
 					).toLocaleString()} Sats)
 				</div>
 
@@ -1262,13 +839,13 @@
 	{/if}
 
 	<!-- Accept Proposal -->
-	{#if !isInline && contract.canAcceptProposal}
+	{#if !isInline && contract.permissions.canAcceptProposal}
 		<div class="bg-base-300 w-full space-y-3 rounded-lg p-3">
 			<h5 class="text-sm font-medium">
 				{$t('dashboard.contracts.actions.current_proposal')}
 			</h5>
 
-			{#if contract.contract.disputeProposal}
+			{#if contract.disputeProposal}
 				<div class="flex flex-col gap-2 space-y-2 text-xs sm:flex-row">
 					<div class="w-full">
 						<span class="text-base-content/70">
@@ -1277,9 +854,9 @@
 								: $t('dashboard.contracts.actions.client_amount')}:
 						</span>
 						<div class="font-semibold">
-							${(parseFloat(contract.contract.disputeProposal.clientAmount) * btcPrice).toFixed(2)}
+							${(parseFloat(contract.disputeProposal.clientAmount) * btcPrice).toFixed(2)}
 							({Math.round(
-								parseFloat(contract.contract.disputeProposal.clientAmount) * 100_000_000
+								parseFloat(contract.disputeProposal.clientAmount) * 100_000_000
 							).toLocaleString()}
 							Sats)
 						</div>
@@ -1291,11 +868,9 @@
 								: $t('dashboard.contracts.actions.your_amount')}:
 						</span>
 						<div class="font-semibold">
-							${(parseFloat(contract.contract.disputeProposal.freelancerAmount) * btcPrice).toFixed(
-								2
-							)}
+							${(parseFloat(contract.disputeProposal.freelancerAmount) * btcPrice).toFixed(2)}
 							({Math.round(
-								parseFloat(contract.contract.disputeProposal.freelancerAmount) * 100_000_000
+								parseFloat(contract.disputeProposal.freelancerAmount) * 100_000_000
 							).toLocaleString()} Sats)
 						</div>
 					</div>
@@ -1303,9 +878,9 @@
 
 				<div class="text-base-content/60 text-xs">
 					{$t('dashboard.contracts.actions.proposed_by')}:
-					{contract.contract.disputeProposal.proposer.slice(0, 8)}
+					{contract.disputeProposal.proposer.slice(0, 8)}
 					...
-					{contract.contract.disputeProposal.proposer.slice(-6)}
+					{contract.disputeProposal.proposer.slice(-6)}
 				</div>
 			{:else}
 				<div class="text-base-content/60 text-xs">
@@ -1313,14 +888,63 @@
 				</div>
 			{/if}
 
-			<button
-				class="btn btn-success btn-sm w-full"
-				onclick={acceptProposal}
-				disabled={isLoading.acceptProposal || !contract.contract.disputeProposal}
-			>
-				{#if isLoading.acceptProposal}
-					<span class="loading loading-spinner loading-xs"></span>
-				{:else}
+			<!-- Action buttons -->
+			<div class="flex flex-col gap-2 sm:flex-row">
+				<!-- Accept Proposal Button -->
+				<button
+					class="btn btn-success btn-sm flex-1"
+					onclick={acceptProposal}
+					disabled={isLoading.acceptProposal || !contract.disputeProposal}
+				>
+					{#if isLoading.acceptProposal}
+						<span class="loading loading-spinner loading-xs"></span>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+					{/if}
+					{$t('dashboard.contracts.actions.accept_proposal')}
+				</button>
+
+				<!-- Counter Proposal Button (if user has proposals left) -->
+				{#if contract.permissions.canPropose && hasProposalsLeft}
+					<button class="btn btn-warning btn-sm flex-1 text-black" onclick={openDrawer}>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0h2m-2 0v4l3-3-3-3m2-5a2 2 0 012-2h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m0 0v4l-3-3 3-3"
+							/>
+						</svg>
+						{$t('dashboard.contracts.actions.counter_proposal')}
+						<span class="text-base-content/60 ml-1 text-xs">
+							({currentUserProposalCount}/2)
+						</span>
+					</button>
+				{/if}
+			</div>
+
+			<!-- Show message if user has no proposals left -->
+			{#if !hasProposalsLeft}
+				<div class="alert alert-outline alert-warning text-xs">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-4 w-4"
@@ -1332,39 +956,24 @@
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d="M5 13l4 4L19 7"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
 						/>
 					</svg>
-				{/if}
-				{$t('dashboard.contracts.actions.accept_proposal')}
-			</button>
+					<span>{$t('dashboard.contracts.actions.no_proposals_left')}</span>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
 	<!-- Cancel Escrow -->
-	{#if contract.canCancel}
+	{#if contract.permissions.canCancel}
 		<button
 			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-			onclick={showCancelConfirmation}
+			onclick={() => openModal(ContractModalAction.Cancel)}
 			disabled={isCancelDisabled}
 		>
-			{#if isLoading.cancel || cancelAttempt?.status === 'pending'}
+			{#if isLoading.cancel}
 				<span class="loading loading-spinner loading-xs"></span>
-			{:else if cancelAttempt?.status === 'confirmed'}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M5 13l4 4L19 7"
-					/>
-				</svg>
 			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -1386,7 +995,7 @@
 	{/if}
 
 	<!-- Resolve After Timelock -->
-	{#if contract.canResolveTimelock}
+	{#if contract.permissions.canResolveTimelock}
 		<div class="bg-base-300 space-y-3 rounded-lg p-3">
 			{#if !isInline}
 				<h5 class="text-sm font-medium">
@@ -1429,8 +1038,8 @@
 	<!-- Delete Contract (always visible, disabled when canDelete is false) -->
 	<button
 		class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-		onclick={showDeleteConfirmation}
-		disabled={isLoading.delete || !contract.canDelete}
+		onclick={() => openModal(ContractModalAction.Delete)}
+		disabled={isLoading.delete || !contract.permissions.canDelete}
 	>
 		{#if isLoading.delete}
 			<span class="loading loading-spinner loading-xs"></span>
@@ -1454,78 +1063,32 @@
 	</button>
 </div>
 
-<!-- Modals (only rendered when using internal modals - for ContractCard usage) -->
-{#if useInternalModals}
-	<!-- Task Completion Modal -->
-	<TaskCompletionModal
-		{contract}
-		isOpen={showCompletionModal}
-		onClose={() => (showCompletionModal = false)}
-		onComplete={async (attachments) => {
-			await completeTaskWithAttachments(attachments);
-			showCompletionModal = false;
-		}}
-		{btcPrice}
-	/>
+<!-- Modals -->
+<!-- Task Completion Modal -->
+<TaskCompletionModal
+	{contract}
+	isOpen={activeModal === ContractModalAction.Complete}
+	onClose={closeModal}
+	onComplete={async (attachments) => {
+		await completeTaskWithAttachments(attachments);
+		closeModal();
+	}}
+	{btcPrice}
+/>
 
-	<!-- Delete Confirmation Modal -->
-	<ConfirmModal
-		isOpen={showDeleteConfirm}
-		title={$t('dashboard.contracts.actions.delete_contract_confirm_title')}
-		message={$t('dashboard.contracts.actions.delete_contract_confirm_message')}
-		confirmText={$t('dashboard.contracts.actions.delete_contract')}
-		cancelText={$t('dashboard.contracts.actions.cancel')}
-		confirmButtonClass="btn-error"
-		onConfirm={async () => {
-			await deleteContract();
-			showDeleteConfirm = false;
-		}}
-		onCancel={() => (showDeleteConfirm = false)}
-	/>
-
-	<!-- Accept Work Confirmation Modal -->
-	<ConfirmModal
-		isOpen={showAcceptConfirm}
-		title={$t('dashboard.contracts.actions.accept_work_confirm_title')}
-		message={$t('dashboard.contracts.actions.accept_work_confirm_message')}
-		confirmText={$t('dashboard.contracts.actions.accept_work')}
-		cancelText={$t('dashboard.contracts.actions.cancel')}
-		confirmButtonClass="btn-success"
-		onConfirm={async () => {
-			await acceptTask();
-			showAcceptConfirm = false;
-		}}
-		onCancel={() => (showAcceptConfirm = false)}
-	/>
-
-	<!-- Dispute Work Confirmation Modal -->
-	<ConfirmModal
-		isOpen={showDisputeConfirm}
-		title={$t('dashboard.contracts.actions.dispute_work_confirm_title')}
-		message={$t('dashboard.contracts.actions.dispute_work_confirm_message')}
-		confirmText={$t('dashboard.contracts.actions.dispute_work')}
-		cancelText={$t('dashboard.contracts.actions.cancel')}
-		confirmButtonClass="btn-error"
-		onConfirm={async () => {
-			await disputeTask();
-			showDisputeConfirm = false;
-		}}
-		onCancel={() => (showDisputeConfirm = false)}
-	/>
-
-	<!-- Cancel Contract Confirmation Modal -->
-	<ConfirmModal
-		isOpen={showCancelConfirm}
-		title={$t('dashboard.contracts.actions.cancel_contract_confirm_title')}
-		message={$t('dashboard.contracts.actions.cancel_contract_confirm_message')}
-		confirmText={$t('dashboard.contracts.actions.cancel_contract')}
-		cancelText={$t('dashboard.contracts.actions.cancel')}
-		confirmButtonClass="btn-error"
-		onConfirm={async () => {
-			await cancelEscrow();
-			showCancelConfirm = false;
-		}}
-		onCancel={() => (showCancelConfirm = false)}
-	/>
+<!-- Generic Confirmation Modal for Accept/Dispute/Cancel/Delete -->
+{#if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete}
+	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}
+	{#if config}
+		<ConfirmModal
+			isOpen={true}
+			title={$t(config.titleKey)}
+			message={$t(config.messageKey)}
+			confirmText={$t(config.confirmTextKey)}
+			cancelText={$t(config.cancelTextKey)}
+			confirmButtonClass={config.confirmButtonClass}
+			onConfirm={handleModalConfirm}
+			onCancel={closeModal}
+		/>
+	{/if}
 {/if}
-

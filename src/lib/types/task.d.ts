@@ -8,6 +8,19 @@ export interface Location {
 	latitude: number | null;
 	zipCode: string;
 	locationLoaded: boolean;
+	// Full address details for exact location sharing
+	formattedAddress?: string; // Full formatted address from Google Maps
+	placeId?: string; // Google Maps Place ID for precise location
+	addressComponents?: {
+		streetNumber?: string;
+		street?: string; // route
+		neighborhood?: string;
+		sublocality?: string;
+		city?: string; // locality
+		state?: string; // administrative_area_level_1
+		country?: string;
+		postalCode?: string;
+	};
 }
 
 export interface Category {
