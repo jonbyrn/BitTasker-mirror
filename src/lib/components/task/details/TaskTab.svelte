@@ -383,7 +383,7 @@
 				{$t('dashboard.task_details_by_task.attachments')}
 			</small>
 
-			<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+			<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
 				{#each task.attachments as attachment, i}
 					{#if isVideoFile(attachment.url)}
 						<!-- Video -->

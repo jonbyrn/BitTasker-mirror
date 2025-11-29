@@ -1,5 +1,16 @@
 {
     "common": {
+        "location": {
+            "address": "Address",
+            "get_directions": "Get Directions",
+            "open_map": "Open Map",
+            "pickup_location": "Pickup Location",
+            "dropoff_location": "Drop-off Location",
+            "start_location": "Start Location",
+            "destination_location": "Destination Location",
+            "task_accepted_congratulations": "Congratulations! Your task has been accepted.",
+            "location_details_below": "Here are the location details:"
+        },
         "back": "Back to Task",
         "back_2": "Back",
         "back_to_tasks": "Cancel",
@@ -118,7 +129,12 @@
                 "invalid_image": "Invalid image file",
                 "failed_validate_video": "Failed to validate video duration",
                 "failed_load_image": "Failed to load image",
-                "max_size": "Max. {maxSize}MB"
+                "max_size": "Max. {maxSize}MB",
+                "video_file_too_large": "Video file {fileName} is too large. Current size: {actualSize}MB. Maximum allowed size: {maxSize}MB"
+            },
+            "date_input": {
+                "time_rounded_intervals": "Times will be rounded to {timeStep}-minute intervals",
+                "and": "and"
             },
             "modal": {
                 "close": "Close dialog"
@@ -1023,6 +1039,7 @@
                 "details": "Details"
             }
         }
+    
     },
     "airdatepicker": {
         "select_date": "Select a date",
@@ -1036,16 +1053,5 @@
     },
     "layout": {
         "github_aria": "GitHub"
-    },
-    "location": {
-        "address": "Address",
-        "get_directions": "Get Directions",
-        "open_map": "Open Map",
-        "pickup_location": "Pickup Location",
-        "dropoff_location": "Drop-off Location",
-        "start_location": "Start Location",
-        "destination_location": "Destination Location",
-        "task_accepted_congratulations": "Congratulations! Your task has been accepted.",
-        "location_details_below": "Here are the location details:"
     }
 }

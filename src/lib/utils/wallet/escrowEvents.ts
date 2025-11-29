@@ -142,30 +142,30 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			// Reload the newly created contract from Nostr to populate the store
 			await contractStore.loadContractByEscrowId(event.escrowId);
 
-			// Send location details to taskee if task is in-person
+			// Send task acceptance message to taskee (locations for in-person, congratulations/title/description for remote)
 			try {
-				// Fetch task data to get locations
+				// Fetch task data to get locations and task details
 				const taskEvent = await nostrEventsService.findEventById(pendingContract.taskId);
 				if (taskEvent.data) {
 					const taskData = JSON.parse(taskEvent.data.content) as Task;
+					const isRemote = taskData.taskType === TaskTypeEnum.REMOTE;
 					
-					// Only send locations for in-person tasks
-					if (taskData.taskType === TaskTypeEnum.IN_PERSON) {
-						// Send locations to taskee
-						await sendLocationsToTaskee(
-							taskData.pickupLocation || null,
-							taskData.dropOffLocation || null,
-							pendingContract.freelancerPubkey,
-							{
-								taskId: pendingContract.taskId,
-								taskTitle: taskData.title
-							}
-						);
-					}
+					// Send message for both in-person and remote tasks
+					await sendLocationsToTaskee(
+						taskData.pickupLocation || null,
+						taskData.dropOffLocation || null,
+						pendingContract.freelancerPubkey,
+						{
+							taskId: pendingContract.taskId,
+							taskTitle: taskData.title,
+							taskDescription: taskData.description,
+							isRemote
+						}
+					);
 				}
 			} catch (locationError) {
 				// Log error but don't fail contract creation if location sending fails
-				console.error('Failed to send location details to taskee:', locationError);
+				console.error('Failed to send task acceptance message to taskee:', locationError);
 			}
 
 			// Clean up pending contract

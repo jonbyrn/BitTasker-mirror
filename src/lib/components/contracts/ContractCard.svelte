@@ -8,15 +8,41 @@
 	import { contractStore } from '$lib/stores/contract.store';
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
+	import { fetchContractProfile } from '$lib/utils/nostr-profile';
 
-	const { contract, btcPrice, userProfile } = $props<{
+	const { contract, btcPrice, userProfile: userProfileProp } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
 		userProfile?: ContractProfile;
 	}>();
 
-	// Profile is now passed as prop, no need to fetch
-	const isLoadingUserProfile = $derived(userProfile === undefined);
+	let userProfile = $state<ContractProfile | null>(null);
+	let isLoadingUserProfile = $state(false);
+
+	// If profile is passed as prop, use it; otherwise load it
+	$effect(() => {
+		if (userProfileProp !== undefined) {
+			// Profile provided by parent - use it directly
+			userProfile = userProfileProp ?? null;
+			isLoadingUserProfile = false;
+		} else {
+			// Profile not provided - load it ourselves (fallback)
+			const userPubkey = contractStore.getContractKey(contract, 'taskeePubkey');
+			loadUserProfile(userPubkey);
+		}
+	});
+
+	async function loadUserProfile(pubkey: string) {
+		try {
+			isLoadingUserProfile = true;
+			userProfile = await fetchContractProfile(pubkey);
+		} catch (error) {
+			console.error('Failed to load user profile:', error);
+			userProfile = null;
+		} finally {
+			isLoadingUserProfile = false;
+		}
+	}
 
 	// Format RBTC amount
 	function formatRBTC(amount: string): string {
@@ -81,6 +107,21 @@
 		if (contract.permissions.canCancel) count++;
 		if (contract.permissions.canResolveTimelock) count++;
 		return count;
+	}
+
+	// Format member since date
+	function formatMemberSinceDate(dateString: string | undefined): string {
+		if (!dateString) return '';
+		try {
+			const date = new Date(dateString);
+			if (isNaN(date.getTime())) return dateString;
+			return date.toLocaleDateString('en-US', {
+				month: 'short',
+				year: 'numeric'
+			});
+		} catch (error) {
+			return dateString;
+		}
 	}
 
 	const openDrawer = () => {
@@ -181,7 +222,9 @@
 				<!-- Avatar -->
 				<div class="avatar shrink-0">
 					<div class="bg-base-300 flex h-6 w-6 items-center justify-center rounded-full">
-						{#if userProfile?.picture}
+						{#if isLoadingUserProfile}
+							<div class="skeleton h-6 w-6 rounded-full"></div>
+						{:else if userProfile?.picture}
 							<img
 								src={userProfile.picture}
 								alt="User avatar"
@@ -233,6 +276,14 @@
 								{$t('dashboard.contracts.tasks')})
 							</span>
 						</div>
+					{/if}
+
+					<!-- Member Since -->
+					{#if !isLoadingUserProfile && userProfile?.createdAt}
+						<p class="text-base-content/60 mt-1 text-xs">
+							{$t('dashboard.contracts.member_since')}{' '}
+							{formatMemberSinceDate(userProfile.createdAt)}
+						</p>
 					{/if}
 				</div>
 			</div>

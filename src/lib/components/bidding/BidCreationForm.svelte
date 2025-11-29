@@ -260,31 +260,41 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 	function buildPreferredEndDate(startCandidate: Date | null): Date | null {
 		const rangeEnd = parseDate(taskDateRange?.end);
 		if (rangeEnd) {
-			return roundDateToInterval(rangeEnd, FIFTEEN_MINUTES_IN_MS, 'ceil');
+			// Flujo 1: Date range - usar 1 día antes del range end
+			const oneDayBefore = addDays(rangeEnd, -1);
+			return roundDateToInterval(oneDayBefore, FIFTEEN_MINUTES_IN_MS, 'ceil');
 		}
 
 		const deadlineDate = parseDate(taskDeadline);
 		const baseStart = startCandidate ?? getDefaultFutureStart();
-		const preferredEndFromDuration = addDays(baseStart, DEFAULT_DURATION_IN_DAYS);
-
-		let candidate: Date | null = preferredEndFromDuration;
 
 		if (deadlineDate) {
-			// Don't exceed deadline
-			candidate = deadlineDate < preferredEndFromDuration ? deadlineDate : preferredEndFromDuration;
+			// Flujo 2: Con deadline - usar el menor entre (start + 3 días) y (deadline mismo día pero antes de la hora)
+			const defaultEndFromStart = addDays(baseStart, DEFAULT_DURATION_IN_DAYS);
+			
+			// Crear fecha límite: mismo día del deadline pero 1 hora antes de la hora del deadline
+			const deadlineMaxTime = new Date(deadlineDate);
+			deadlineMaxTime.setHours(deadlineDate.getHours(), deadlineDate.getMinutes() - 15, 0, 0);
+			// Si los minutos resultan negativos, ajustar
+			if (deadlineMaxTime.getMinutes() < 0) {
+				deadlineMaxTime.setHours(deadlineDate.getHours() - 1, 45, 0, 0);
+			}
+			
+			// Usar el menor de los dos
+			const candidate = defaultEndFromStart < deadlineMaxTime ? defaultEndFromStart : deadlineMaxTime;
+			
+			// Asegurar que sea después del start
+			if (candidate <= baseStart) {
+				const minEnd = addDays(baseStart, 1);
+				return roundDateToInterval(minEnd < deadlineMaxTime ? minEnd : deadlineMaxTime, FIFTEEN_MINUTES_IN_MS, 'ceil');
+			}
+			
+			return roundDateToInterval(candidate, FIFTEEN_MINUTES_IN_MS, 'ceil');
 		}
 
-		if (!candidate) {
-			const fallbackEnd = addDays(new Date(), DEFAULT_START_OFFSET_DAYS + DEFAULT_DURATION_IN_DAYS);
-			candidate = fallbackEnd;
-		}
-
-		// Ensure end is after start
-		if (baseStart && candidate <= baseStart) {
-			candidate = addDays(baseStart, DEFAULT_DURATION_IN_DAYS);
-		}
-
-		return roundDateToInterval(candidate, FIFTEEN_MINUTES_IN_MS, 'ceil');
+		// Sin deadline - usar start + 3 días
+		const defaultEndFromStart = addDays(baseStart, DEFAULT_DURATION_IN_DAYS);
+		return roundDateToInterval(defaultEndFromStart, FIFTEEN_MINUTES_IN_MS, 'ceil');
 	}
 
 	// Prefill schedule fields with task information (if available)
@@ -382,6 +392,22 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 				errors.datetime = $t('bid_form.errors.datetime_required');
 			} else if (startDateTime >= endDateTime) {
 				errors.datetime = $t('bid_form.errors.datetime_invalid');
+			} else {
+				// Validate that end date/time is before task deadline (same day is OK if time is before)
+				const deadlineDate = parseDate(taskDeadline);
+				if (deadlineDate) {
+					// Allow same day but must be before the deadline time
+					if (endDateTime >= deadlineDate) {
+						errors.datetime = $t('bid_form.errors.end_date_before_deadline');
+					}
+				}
+				const rangeEnd = parseDate(taskDateRange?.end);
+				if (rangeEnd) {
+					// Allow same day but must be before the range end time
+					if (endDateTime >= rangeEnd) {
+						errors.datetime = $t('bid_form.errors.end_date_before_deadline');
+					}
+				}
 			}
 		}
 
@@ -420,8 +446,8 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 		return Object.keys(errors).length === 0;
 	}
 
-	// Helper function to format duration for display
-	function formatDurationForDisplay(): string {
+	// Helper function to format duration for display (reactive)
+	const formatDurationForDisplay = $derived.by(() => {
 		if (bidType === 'FIXED' && startDateTime && endDateTime) {
 			const diffMs = endDateTime.getTime() - startDateTime.getTime();
 			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -456,12 +482,13 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 				return parts[0];
 			}
 
-			// Join with "and" for multiple parts
+			// Join with translated "and"/"y" for multiple parts
 			const lastPart = parts.pop();
-			return `${parts.join(', ')} and ${lastPart}`;
+			const conjunction = $t('common.components.date_input.and');
+			return `${parts.join(', ')} ${conjunction} ${lastPart}`;
 		}
 		return '';
-	}
+	});
 
 	// Handle form submission
 	async function handleBidSubmit(e: Event) {
@@ -486,7 +513,7 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 				hourlyRate: bidType === 'HOURLY' && hourlyRate ? hourlyRate : null, // Send USD hourly rate directly
 				estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : null,
 				description,
-				estimatedDuration: bidType === 'FIXED' ? formatDurationForDisplay() : estimatedDuration,
+				estimatedDuration: bidType === 'FIXED' ? formatDurationForDisplay : estimatedDuration,
 				proposedApproach,
 				coverLetter: coverLetter,
 				timestamp: Date.now(),
@@ -699,7 +726,24 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 								labelKey="bid_form.form.airdatepicker.select_end_datetime"
 								placeholderKey="bid_form.form.airdatepicker.select_end_datetime"
 								minDate={startDateTime || new Date()}
-								maxDate={undefined}
+								maxDate={(() => {
+									const deadlineDate = parseDate(taskDeadline);
+									if (deadlineDate) {
+										// Allow same day but must be before deadline time
+										// Set maxDate to 1 minute before deadline to allow same day
+										const maxEndDate = new Date(deadlineDate);
+										maxEndDate.setMinutes(deadlineDate.getMinutes() - 1);
+										return maxEndDate;
+									}
+									const rangeEnd = parseDate(taskDateRange?.end);
+									if (rangeEnd) {
+										// Allow same day but must be before range end time
+										const maxEndDate = new Date(rangeEnd);
+										maxEndDate.setMinutes(rangeEnd.getMinutes() - 1);
+										return maxEndDate;
+									}
+									return undefined;
+								})()}
 								timeStep={15}
 								onChange={(date: Date | null) => {
 									endDateTime = date;
@@ -718,7 +762,7 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 					{/if}
 					{#if startDateTime && endDateTime}
 						<span class="label-text-alt text-base-content/60 mt-1 block">
-							{$t('bid_form.form.duration')}: {formatDurationForDisplay()}
+							{$t('bid_form.form.duration')}: {formatDurationForDisplay}
 						</span>
 					{/if}
 				</div>

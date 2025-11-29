@@ -168,7 +168,8 @@
             "estimated_completion_time_required": "Se requiere el tiempo estimado de finalización",
             "completion_time_must_be_future": "El tiempo de finalización debe ser en el futuro",
             "datetime_required": "Por favor selecciona fechas de inicio y fin",
-            "datetime_invalid": "La fecha de fin debe ser después de la fecha de inicio"
+            "datetime_invalid": "La fecha de fin debe ser después de la fecha de inicio",
+            "end_date_before_deadline": "La fecha y hora de fin debe ser antes de la fecha y hora límite de la tarea"
         },
         "success": {
             "title": "¡Oferta Enviada Exitosamente!",
@@ -279,6 +280,7 @@
         "minute": "minuto",
         "minutes": "minutos",
         "one_hour": "1 hora",
+        "and": "y",
         "sats": "sats",
         "max": "máx",
         "failed_to_submit_bid": "Error al enviar la oferta"

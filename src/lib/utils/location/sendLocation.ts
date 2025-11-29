@@ -61,6 +61,7 @@ export async function sendLocationToTaskee(
 
 /**
  * Send multiple locations (pickup and dropoff) to taskee in a single message
+ * For remote tasks, always sends congratulations, title, and description even without locations
  */
 export async function sendLocationsToTaskee(
 	pickupLocation: Location | null,
@@ -69,6 +70,8 @@ export async function sendLocationsToTaskee(
 	options?: {
 		taskId?: string;
 		taskTitle?: string;
+		taskDescription?: string;
+		isRemote?: boolean;
 		threadRootId?: string;
 	}
 ): Promise<void> {
@@ -92,22 +95,32 @@ export async function sendLocationsToTaskee(
 		// Build locations array - only include valid locations
 		const locations: Array<{ location: Location; label: string }> = [];
 		if (isValidLocation(pickupLocation)) {
-			locations.push({ location: pickupLocation!, label: _('location.pickup_location') });
+			locations.push({ location: pickupLocation!, label: _('common.location.pickup_location') });
 		}
 		if (isValidLocation(dropoffLocation)) {
-			locations.push({ location: dropoffLocation!, label: _('location.dropoff_location') });
+			locations.push({ location: dropoffLocation!, label: _('common.location.dropoff_location') });
 		}
 
-		// If no valid locations, don't send anything
-		if (locations.length === 0) {
-			console.warn('No valid locations provided to send');
+		const hasValidLocations = locations.length > 0;
+		const isRemote = options?.isRemote === true;
+
+		// For remote tasks, always send message with congratulations, title, and description
+		// For in-person tasks, only send if there are valid locations
+		if (!isRemote && !hasValidLocations) {
+			console.warn('No valid locations provided to send for in-person task');
+			return;
+		}
+
+		// If remote task but no title, don't send anything
+		if (isRemote && !options?.taskTitle) {
+			console.warn('Remote task but no title provided');
 			return;
 		}
 
 		// Create structured message data
 		const locationData: LocationMessageData = {
 			type: 'location',
-			locations,
+			locations: hasValidLocations ? locations : undefined,
 			taskId: options?.taskId,
 			taskTitle: options?.taskTitle
 		};
@@ -115,23 +128,34 @@ export async function sendLocationsToTaskee(
 		// Build human-readable message
 		let messageText = '';
 		
-		// Add congratulations message and task title
+		// Add congratulations message and task title (always for remote, or when title is provided)
 		if (options?.taskTitle) {
-			messageText += `🎉 ${_('location.task_accepted_congratulations')}\n\n`;
+			messageText += `🎉 ${_('common.location.task_accepted_congratulations')}\n\n`;
 			messageText += `📋 ${options.taskTitle}\n\n`;
-			messageText += `${_('location.location_details_below')}\n\n`;
+			
+			// Add task description if provided
+			if (options?.taskDescription) {
+				messageText += `${options.taskDescription}\n\n`;
+			}
+			
+			// Only show location details message if there are valid locations
+			if (hasValidLocations) {
+				messageText += `${_('common.location.location_details_below')}\n\n`;
+			}
 		}
 
 		// Add location details (only valid locations are in the array)
-		locations.forEach((loc, index) => {
-			if (index > 0) messageText += '\n';
-			const formattedAddress = formatLocationAddress(loc.location);
-			const directionsLink = generateGoogleMapsDirectionsLink(loc.location, {
-				origin: 'current',
-				label: loc.label
+		if (hasValidLocations) {
+			locations.forEach((loc, index) => {
+				if (index > 0) messageText += '\n';
+				const formattedAddress = formatLocationAddress(loc.location);
+				const directionsLink = generateGoogleMapsDirectionsLink(loc.location, {
+					origin: 'current',
+					label: loc.label
+				});
+				messageText += `📍 ${loc.label}\n${formattedAddress}\n${directionsLink}`;
 			});
-			messageText += `📍 ${loc.label}\n${formattedAddress}\n${directionsLink}`;
-		});
+		}
 
 		// Build tags with location data using centralized tag patterns
 		const tags = TAG_PATTERNS.location(JSON.stringify(locationData), options?.taskId);
