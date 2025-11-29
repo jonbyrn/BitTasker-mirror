@@ -26,3 +26,31 @@ vi.mock('@capacitor/preferences', () => ({
 		clear: vi.fn()
 	}
 }));
+vi.mock('@capacitor/haptics', () => ({
+	Haptics: {
+		impact: vi.fn().mockResolvedValue(undefined)
+	},
+	ImpactStyle: {
+		Light: 'light',
+		Medium: 'medium',
+		Heavy: 'heavy'
+	}
+}));
+
+vi.mock('@capacitor/core', () => ({
+	Capacitor: {
+		getPlatform: vi.fn(() => 'web')
+	}
+}));
+
+// Mock Web Animations API (not available in jsdom)
+if (typeof window !== 'undefined' && !window.Element.prototype.animate) {
+	window.Element.prototype.animate = vi.fn(() => ({
+		finished: Promise.resolve(),
+		cancel: vi.fn(),
+		pause: vi.fn(),
+		play: vi.fn(),
+		reverse: vi.fn(),
+		updatePlaybackRate: vi.fn()
+	}));
+}
