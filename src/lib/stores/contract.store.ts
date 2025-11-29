@@ -225,7 +225,7 @@ function createContractStore() {
 		/**
 		 * Unsubscribe from real-time contract status updates
 		 */
-		// unsubscribeFromStatusUpdates,
+		unsubscribeFromStatusUpdates,
 
 		/**
 		 * Reset store to initial state

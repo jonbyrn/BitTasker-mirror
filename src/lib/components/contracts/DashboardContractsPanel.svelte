@@ -1,13 +1,12 @@
 <script lang="ts">
-	import type { ContractWithEvents } from '$lib/types/contract';
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { fetchContractProfile, type ContractProfile } from '$lib/utils/nostr-profile';
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { contractStore } from '$lib/stores/contract.store';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { contractStore } from '$lib/stores/contract.store';
 
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
@@ -122,7 +121,7 @@
 
 	onDestroy(() => {
 		// Cleanup subscription when leaving contracts panel
-		// contractStore.unsubscribeFromStatusUpdates();
+		contractStore.unsubscribeFromStatusUpdates();
 	});
 
 	// Batch load profiles for all contracts
