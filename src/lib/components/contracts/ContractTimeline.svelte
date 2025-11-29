@@ -4,12 +4,47 @@
 	import { locale } from 'svelte-i18n';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
-	import { getNpub } from '$lib/utils/nostrKeys';
+	import { getActionDescription } from '$lib/utils/helpers/contractStatusFormatter';
 
 	const { statusEvents, contractPubkey } = $props<{
 		statusEvents: ContractStatusEvent[];
 		contractPubkey: string;
 	}>();
+
+	/**
+	 * Filter to show only blockchain-confirmed events and final states
+	 * Excludes pending/transition states (PendingCompletion, PendingAcceptance, etc.)
+	 * 
+	 * Shows:
+	 * - Blockchain states (0-5): Funded, InDispute, DisputeResolved, DisputeUnresolved, Completed, Cancelled
+	 * - Final Nostr states: FundsReleased (10), InProgress (7), DisputeResolutionProposed (12)
+	 * 
+	 * Hides all pending states (6+, except specific ones) to avoid redundant timeline entries like:
+	 * "Pending completion" → "Task completed" (shows only "Task completed")
+	 */
+	function shouldShowInTimeline(action: EscrowStatus): boolean {
+		// Blockchain-confirmed states (0-5) - always show
+		if (action >= EscrowStatus.Funded && action <= EscrowStatus.Cancelled) {
+			return true;
+		}
+
+		// Important Nostr-only states to show
+		switch (action) {
+			case EscrowStatus.InProgress: // Work started
+			case EscrowStatus.FundsReleased: // Final payment state
+			case EscrowStatus.DisputeResolutionProposed: // Proposal exists
+				return true;
+			
+			// All other states (pending states) should not show
+			default:
+				return false;
+		}
+	}
+
+	// Filter status events to show only meaningful timeline entries
+	const filteredStatusEvents = $derived(
+		statusEvents.filter((event: ContractStatusEvent) => shouldShowInTimeline(event.content.action))
+	);
 
 	// Format date for timeline
 	function formatTimelineDate(timestamp: number): string {
@@ -63,37 +98,7 @@
 		}
 		return $t('dashboard.contracts.timeline.from_unknown');
 	}
-
-	// Get action description based on EscrowStatus enum
-	function getActionDescription(action: EscrowStatus): string {
-		// Map enum values to translation keys
-		switch (action) {
-			case EscrowStatus.Completed:
-				return $t('dashboard.contracts.status.task_completed');
-			case EscrowStatus.PendingCompletion:
-				return $t('dashboard.contracts.status.pending_completion');
-			case EscrowStatus.FundsReleased:
-				return $t('dashboard.contracts.status.funds_released');
-			case EscrowStatus.PendingAcceptance:
-				return $t('dashboard.contracts.status.pending_acceptance');
-			case EscrowStatus.InDispute:
-				return $t('dashboard.contracts.status.dispute_raised');
-			case EscrowStatus.PendingDispute:
-				return $t('dashboard.contracts.status.pending_dispute');
-			case EscrowStatus.DisputeResolutionProposed:
-				return $t('dashboard.contracts.status.resolution_proposed');
-			case EscrowStatus.DisputeResolved:
-				return $t('dashboard.contracts.status.proposal_accepted');
-			case EscrowStatus.Cancelled:
-				return $t('dashboard.contracts.status.escrow_cancelled');
-			case EscrowStatus.PendingCancellation:
-				return $t('dashboard.contracts.status.pending_cancellation');
-			case EscrowStatus.DisputeUnresolved:
-				return $t('dashboard.contracts.status.timelock_resolved');
-			default:
-				return action?.toString();
-		}
-	}
+	
 
 	// Get Rootstock explorer URL for transaction
 	function getTransactionUrl(txHash: string): string {
@@ -106,7 +111,7 @@
 	}
 </script>
 
-{#if statusEvents.length === 0}
+{#if filteredStatusEvents.length === 0}
 	<div class="text-base-content/60 py-4 text-center">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -126,7 +131,7 @@
 	</div>
 {:else}
 	<div class="timeline timeline-snap-icon max-md:timeline-compact timeline-vertical">
-		{#each statusEvents as { content, pubkey }, index (index)}
+		{#each filteredStatusEvents as { content, pubkey }, index (index)}
 			<li>
 				<!-- Timeline point -->
 				<div class="timeline-middle">
@@ -165,7 +170,7 @@
 							</div>
 						{/if}
 						<div class="text-sm font-semibold {getActionColorClass(content.action)}">
-							{getActionDescription(content.action)}
+							{$t(getActionDescription(content.action))}
 						</div>
 					</div>
 
@@ -217,7 +222,7 @@
 				</div>
 
 				<!-- Timeline line (except for last item) -->
-				{#if index < statusEvents.length - 1}
+				{#if index < filteredStatusEvents.length - 1}
 					<hr class="bg-base-300" />
 				{/if}
 			</li>
