@@ -6,10 +6,50 @@ import Icons from 'unplugin-icons/vite';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import type { Plugin } from 'vite';
 import pkg from './package.json';
 
+// Vite plugin to ensure browser condition is prioritized during tests
+// This fixes the "mount(...) is not available on the server" error
+const addBrowserCondition: Plugin = {
+	name: 'vite-plugin-browser-condition',
+	config(config, { mode }) {
+		if (process.env.VITEST || mode === 'test') {
+			if (!config.resolve?.conditions) {
+				if (!config.resolve) {
+					config.resolve = {};
+				}
+				config.resolve.conditions = [];
+			}
+			// Prioritize 'browser' condition for client-side rendering in tests
+			if (!config.resolve.conditions.includes('browser')) {
+				config.resolve.conditions.unshift('browser');
+			}
+		}
+	}
+};
+
 export default defineConfig({
+	test: {
+		environment: 'jsdom',
+		setupFiles: ['./vitest-setup-client.ts'],
+		globals: true
+	},
+	resolve: {
+		conditions: process.env.VITEST ? ['browser', 'development'] : ['browser', 'development'],
+		alias: {
+			buffer: 'buffer',
+			crypto: 'crypto-browserify',
+			stream: 'stream-browserify',
+			// Do NOT alias 'path' as it breaks WASM loading in @vulpemventures/secp256k1-zkp
+			// path: 'path-browserify',
+			path: 'path-browserify',
+			process: 'process/browser',
+			'$app/environment': new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
+		}
+	},
     plugins: [
+		addBrowserCondition,
         nodePolyfills({
             // Whether to polyfill `node:` protocol imports.
             protocolImports: true,
@@ -87,6 +127,7 @@ export default defineConfig({
             'firebase',
             '@capacitor/device',
             '@capacitor/preferences',
+            '@capacitor/haptics',
             /* 'liquidjs-lib',
             'boltz-core',
             '@vulpemventures/secp256k1-zkp' */
@@ -97,6 +138,10 @@ export default defineConfig({
             }
         } */
     },
+    server: {
+        allowedHosts: ['bittasker.com', 'master.bittasker.com', 'dev.bittasker.com', 'local.bittasker.com']
+    }
+});
     resolve: {
         alias: {
             buffer: 'buffer',
