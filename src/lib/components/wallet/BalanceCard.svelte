@@ -5,9 +5,22 @@
 	import { appStore } from '$lib/stores/app.store';
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
+	import IconCashMultiple from '~icons/mdi/cash-multiple';
+	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconHelpCircle from '~icons/mdi/help-circle';
 	import IconRefresh from '~icons/mdi/refresh';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
+
+	interface Props {
+		onReceive?: () => void;
+		onSend?: () => void;
+		onBuySell?: () => void;
+		onSwap?: () => void;
+		onTransactions?: () => void;
+	}
+
+	const props = $props<Props>();
 
 	// Refresh state
 	let isRefreshing = $state(false);
@@ -93,18 +106,66 @@
 	</div>
 
 	<!-- Quick Actions -->
-	<div class="grid grid-cols-2 gap-4 sm:gap-10">
-		<button
-			class="btn btn-outline btn-primary"
-			onclick={() => walletManager.setActiveTab('receive')}
-		>
-			<IconDownload class="mr-2 h-5 w-5" />
-			{$t('wallet.receive')}
-		</button>
-		<button class="btn btn-outline btn-primary" onclick={() => walletManager.setActiveTab('send')}>
-			<IconUpload class="mr-2 h-5 w-5" />
-			{$t('wallet.send_button')}
-		</button>
+	<div class="space-y-3">
+		<!-- Send and Receive Row -->
+		<div class="grid grid-cols-2 gap-4 sm:gap-10">
+			<button
+				class="btn btn-primary"
+				onclick={() => {
+					if (props.onReceive) {
+						props.onReceive();
+					} else {
+						walletManager.setActiveTab('receive');
+					}
+				}}
+			>
+				<IconDownload class="mr-2 h-5 w-5" />
+				{$t('wallet.tab_receive')}
+			</button>
+			<button
+				class="btn btn-secondary"
+				onclick={() => {
+					if (props.onSend) {
+						props.onSend();
+					} else {
+						walletManager.setActiveTab('send');
+					}
+				}}
+			>
+				<IconUpload class="mr-2 h-5 w-5" />
+				{$t('wallet.send_button')}
+			</button>
+		</div>
+
+		<!-- Buy & Sell and Swap Row -->
+		<div class="grid grid-cols-2 gap-4 sm:gap-10">
+			<button
+				class="btn btn-outline"
+				onclick={() => {
+					if (props.onBuySell) {
+						props.onBuySell();
+					} else {
+						walletManager.setActiveTab('buy-sell');
+					}
+				}}
+			>
+				<IconCashMultiple class="mr-2 h-5 w-5" />
+				{$t('wallet.tab_buy_sell')}
+			</button>
+			<button
+				class="btn btn-outline"
+				onclick={() => {
+					if (props.onSwap) {
+						props.onSwap();
+					} else {
+						walletManager.setActiveTab('swap');
+					}
+				}}
+			>
+				<IconSwapHorizontal class="mr-2 h-5 w-5" />
+				{$t('wallet.tab_swap')}
+			</button>
+		</div>
 	</div>
 
 	<!-- Network Breakdown -->
@@ -236,6 +297,23 @@
 				</div>
 			</div>
 		</div>
+	</div>
+
+	<!-- Transactions Button -->
+	<div class="mt-6 flex justify-center">
+		<button
+			class="btn btn-ghost"
+			onclick={() => {
+				if (props.onTransactions) {
+					props.onTransactions();
+				} else {
+					walletManager.setActiveTab('transactions');
+				}
+			}}
+		>
+			<IconFormatListBulleted class="mr-2 h-5 w-5" />
+			{$t('wallet.tab_transactions')}
+		</button>
 	</div>
 
 	<!-- Learn More Section -->

@@ -17,6 +17,9 @@
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
 	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
+	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
+	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
@@ -40,6 +43,13 @@
 	// Reactive state from centralized store
 	let hasErrors = $derived($walletStore.error || $rskConnection.error);
 	let isConnecting = $derived($rskConnection.connecting);
+
+	// Modal state for new UX
+	let showReceiveModal = $state(false);
+	let showSendModal = $state(false);
+	let showBuySellModal = $state(false);
+	let showSwapModal = $state(false);
+	let showTransactionsModal = $state(false);
 </script>
 
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
@@ -173,69 +183,86 @@
 		{/if}
 
 		{#if $walletStore.hasAnyConnection || !hasErrors}
-			<!-- Tab Navigation -->
-			<div class="tabs tabs-bordered mb-6 w-full">
-				<button
-					class="tab {$walletStore.activeTab === 'balance' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('balance')}
-				>
-					{$t('wallet.tab_balance')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'receive' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('receive')}
-				>
-					{$t('wallet.tab_receive')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'send' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('send')}
-				>
-					{$t('wallet.tab_send')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'buy-sell' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('buy-sell')}
-				>
-					{$t('wallet.tab_buy_sell')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'swap' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('swap')}
-				>
-					{$t('wallet.tab_swap')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'transactions' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('transactions')}
-				>
-					{$t('wallet.tab_transactions')}
-				</button>
-			</div>
-
-			<!-- Tab Content -->
+			<!-- Balance Tab - Keep as is -->
 			{#if $walletStore.activeTab === 'balance'}
-				<BalanceCard />
-			{/if}
+				<BalanceCard
+					onReceive={() => {
+						showReceiveModal = true;
+					}}
+					onSend={() => {
+						showSendModal = true;
+					}}
+					onBuySell={() => {
+						showBuySellModal = true;
+					}}
+					onSwap={() => {
+						showSwapModal = true;
+					}}
+					onTransactions={() => {
+						showTransactionsModal = true;
+					}}
+				/>
+			{:else}
+				<!-- Legacy Tab Navigation (for backward compatibility) -->
+				<div class="tabs tabs-bordered mb-6 w-full">
+					<button
+						class="tab {$walletStore.activeTab === 'balance' ? 'active-tab' : ''}"
+						onclick={() => walletManager.setActiveTab('balance')}
+					>
+						{$t('wallet.tab_balance')}
+					</button>
+					<button
+						class="tab {$walletStore.activeTab === 'receive' ? 'active-tab' : ''}"
+						onclick={() => walletManager.setActiveTab('receive')}
+					>
+						{$t('wallet.tab_receive')}
+					</button>
+					<button
+						class="tab {$walletStore.activeTab === 'send' ? 'active-tab' : ''}"
+						onclick={() => walletManager.setActiveTab('send')}
+					>
+						{$t('wallet.tab_send')}
+					</button>
+					<button
+						class="tab {$walletStore.activeTab === 'buy-sell' ? 'active-tab' : ''}"
+						onclick={() => walletManager.setActiveTab('buy-sell')}
+					>
+						{$t('wallet.tab_buy_sell')}
+					</button>
+					<button
+						class="tab {$walletStore.activeTab === 'swap' ? 'active-tab' : ''}"
+						onclick={() => walletManager.setActiveTab('swap')}
+					>
+						{$t('wallet.tab_swap')}
+					</button>
+					<button
+						class="tab {$walletStore.activeTab === 'transactions' ? 'active-tab' : ''}"
+						onclick={() => walletManager.setActiveTab('transactions')}
+					>
+						{$t('wallet.tab_transactions')}
+					</button>
+				</div>
 
-			{#if $walletStore.activeTab === 'receive'}
-				<ReceiveForm />
-			{/if}
+				<!-- Legacy Tab Content -->
+				{#if $walletStore.activeTab === 'receive'}
+					<ReceiveForm />
+				{/if}
 
-			{#if $walletStore.activeTab === 'send'}
-				<SendForm />
-			{/if}
+				{#if $walletStore.activeTab === 'send'}
+					<SendForm />
+				{/if}
 
-			{#if $walletStore.activeTab === 'buy-sell'}
-				<BuySellForm />
-			{/if}
+				{#if $walletStore.activeTab === 'buy-sell'}
+					<BuySellForm />
+				{/if}
 
-			{#if $walletStore.activeTab === 'swap'}
-				<SwapForm />
-			{/if}
+				{#if $walletStore.activeTab === 'swap'}
+					<SwapForm />
+				{/if}
 
-			{#if $walletStore.activeTab === 'transactions'}
-				<TransactionHistory />
+				{#if $walletStore.activeTab === 'transactions'}
+					<TransactionHistory />
+				{/if}
 			{/if}
 		{:else}
 			<!-- No wallets connected - show setup options -->
@@ -269,6 +296,97 @@
 		{/if}
 	</div>
 </div>
+
+<!-- New UX Modals -->
+<WalletPaymentModal isOpen={showReceiveModal} mode="receive" onClose={() => (showReceiveModal = false)}>
+	<ReceivePaymentForm
+		onCancel={() => (showReceiveModal = false)}
+		onInvoiceGenerated={(invoiceData) => {
+			// Handle invoice generation success - could show InvoiceDisplay here
+			console.log('Invoice generated:', invoiceData);
+			appStore.showSuccessToast($t('wallet.invoice_generated'));
+		}}
+	/>
+</WalletPaymentModal>
+
+<WalletPaymentModal isOpen={showSendModal} mode="send" onClose={() => (showSendModal = false)}>
+	<SendPaymentForm
+		onCancel={() => (showSendModal = false)}
+		onSuccess={(txHash, network) => {
+			// Handle send success
+			console.log('Payment sent:', txHash, network);
+			showSendModal = false;
+		}}
+	/>
+</WalletPaymentModal>
+
+<!-- Legacy Modals for Buy/Sell, Swap, Transactions -->
+<!-- These can be converted to modals later if needed -->
+{#if showBuySellModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+		<div class="bg-base-100 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg p-6 shadow-xl">
+			<div class="mb-4 flex items-center justify-between">
+				<h2 class="text-2xl font-bold">{$t('wallet.tab_buy_sell')}</h2>
+				<button class="btn btn-ghost btn-sm btn-circle" onclick={() => (showBuySellModal = false)}>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+			<BuySellForm />
+		</div>
+	</div>
+{/if}
+
+{#if showSwapModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+		<div class="bg-base-100 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg p-6 shadow-xl">
+			<div class="mb-4 flex items-center justify-between">
+				<h2 class="text-2xl font-bold">{$t('wallet.tab_swap')}</h2>
+				<button class="btn btn-ghost btn-sm btn-circle" onclick={() => (showSwapModal = false)}>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+			<SwapForm />
+		</div>
+	</div>
+{/if}
+
+{#if showTransactionsModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+		<div class="bg-base-100 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg p-6 shadow-xl">
+			<div class="mb-4 flex items-center justify-between">
+				<h2 class="text-2xl font-bold">{$t('wallet.tab_transactions')}</h2>
+				<button class="btn btn-ghost btn-sm btn-circle" onclick={() => (showTransactionsModal = false)}>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+			<TransactionHistory />
+		</div>
+	</div>
+{/if}
 
 <style>
 	.tab.active-tab {
