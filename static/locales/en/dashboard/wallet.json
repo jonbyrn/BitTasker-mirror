@@ -12,9 +12,6 @@
     "receive": {
       "title": "Receive Payment"
     },
-    "send": {
-      "title": "Send Payment"
-    },
     "send_button": "Send",
     "recent_transactions": "Recent Transactions",
     "type": "Type",
@@ -364,6 +361,7 @@
     "lbtc_to_rbtc_swap": "L-BTC → rBTC swap claimed",
     "view_all_transactions_tab": "Switch to the transactions tab to see activity",
     "send": {
+      "title": "Send Payment",
       "transaction_sent": "Transaction sent successfully",
       "transaction_failed": "Transaction failed",
       "processing": "Processing...",
@@ -508,9 +506,6 @@
       "enter_amount_to_estimate": "Enter amount to estimate fees",
       "network": "Network",
       "description_characters": "Characters"
-    },
-    "send": {
-      "title": "Send Payment"
     },
     "initializing": "Initializing wallet...",
     "error": {

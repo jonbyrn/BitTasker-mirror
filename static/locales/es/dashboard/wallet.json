@@ -329,6 +329,7 @@
     "lbtc_to_rbtc_swap": "Intercambio L-BTC → rBTC reclamado",
     "view_all_transactions_tab": "Cambia a la pestaña de transacciones para ver actividad",
     "send": {
+      "title": "Enviar Pago",
       "transaction_sent": "Transacción enviada exitosamente",
       "transaction_failed": "La transacción falló",
       "processing": "Procesando...",
@@ -343,7 +344,51 @@
       "button_liquid_btc": "Enviar Liquid Bitcoin",
       "button_bitcoin": "Enviar Bitcoin",
       "button_liquid_usdt": "Enviar USDT",
-      "button_rootstock": "Enviar rBTC"
+      "button_rootstock": "Enviar rBTC",
+      "scan_qr_code": "Escanear Código QR",
+      "scan_qr_code_description": "Apunta tu cámara a un código QR de pago",
+      "enter_payment_details": "Ingresar Detalles de Pago",
+      "enter_details_instead": "Ingresar Detalles en su Lugar",
+      "scan_qr_code_instead": "Escanear Código QR en su Lugar",
+      "confirm_payment": "Confirmar Pago",
+      "address_or_invoice": "Dirección o Factura",
+      "address_placeholder": "Ingresa dirección, factura o escanea código QR",
+      "amount": "Monto",
+      "memo": "Memo",
+      "memo_placeholder": "Memo o descripción opcional",
+      "receiver_gets": "El Receptor Recibe",
+      "total_to_send": "Total a Enviar",
+      "authenticate_and_send": "Autenticar y Enviar",
+      "send": "Enviar",
+      "invalid_qr_code": "Código QR de pago inválido",
+      "failed_to_parse_qr": "Error al analizar código QR",
+      "invalid_address": "Formato de dirección inválido",
+      "failed_to_parse_address": "Error al analizar dirección",
+      "from_invoice": "desde factura",
+      "amount_in_sats": "Monto en Sats",
+      "amount_in_usd": "Monto en USD",
+      "authentication_required": "Se requiere autenticación para enviar",
+      "payment_sent": "Pago enviado exitosamente",
+      "large_amount_warning": {
+        "title": "Advertencia de Monto Grande",
+        "message": "Estás a punto de enviar {amount}. Este es un monto grande. ¿Quisiste ingresar esto en sats en su lugar?",
+        "confirm_checkbox": "Confirmo que este es el monto correcto en USD"
+      },
+      "success": {
+        "payment_sent": "¡Pago Enviado!",
+        "sent_to": "enviado a",
+        "transaction_hash": "Hash de Transacción",
+        "view_on_explorer": "Ver en Explorador",
+        "transaction_confirmed": "Transacción confirmada"
+      },
+      "error": {
+        "invalid_payment_details": "Detalles de pago inválidos",
+        "invalid_address_format": "Formato de dirección inválido",
+        "invalid_qr_code": "Código QR de pago inválido",
+        "failed_to_parse_qr": "Error al analizar código QR",
+        "failed_to_parse_address": "Error al analizar dirección",
+        "invalid_form": "Por favor verifica los campos del formulario"
+      }
     },
     "payment_request": {
       "title": "Solicitud de Pago",
