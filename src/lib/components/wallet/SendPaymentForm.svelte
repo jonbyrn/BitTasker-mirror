@@ -10,18 +10,20 @@
 	import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
-	import CalculatorKeypad from '$lib/components/wallet/CalculatorKeypad.svelte';
 	import AmountDisplay from '$lib/components/wallet/AmountDisplay.svelte';
+	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import TransactionSuccessScreen from '$lib/components/wallet/TransactionSuccessScreen.svelte';
 	import SubmarineSend from '$lib/components/wallet/SubmarineSend.svelte';
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
+	import IconClose from '~icons/mdi/close';
+	import IconSend from '~icons/mdi/send';
 
 	interface Props {
 		onCancel: () => void;
 		onSuccess?: (txHash: string, network: string) => void;
 	}
 
-	const props = $props<Props>();
+	let { onCancel, onSuccess }: Props = $props();
 
 	// Tab state
 	let activeTab = $state<'scan' | 'enter'>('scan'); // Default to 'scan'
@@ -34,8 +36,11 @@
 	let addressInput = $state('');
 	let amount = $state('');
 	let unit = $state<'sats' | 'usd'>('sats');
+	let mathExpression = $state('');
 	let memo = $state('');
+	let descriptionExpanded = $state(false);
 	let btcPrice = $state<number>(0);
+	let calculatorKey = $state(0);
 
 	// Parsed payment data
 	let parsedData = $state<ParsedPaymentAddress | null>(null);
@@ -46,8 +51,18 @@
 	let addressError = $state<string | null>(null);
 
 	// Fee estimation
-	let estimatedFees = $state<number>(0);
+	let estimatedFees = $state<{
+		serviceFee: number; // in sats
+		networkFee: number; // in sats
+		totalFees: number; // in sats
+	} | null>(null);
 	let isLoadingFees = $state(false);
+	let feeError = $state<string | null>(null);
+	let networkFeeExpanded = $state(false); // Accordion state for network fee breakdown
+
+	// Send state
+	let isSending = $state(false);
+	let sendError = $state<string | null>(null);
 
 	// Authentication
 	let authThreshold = $state(0); // Get from user preferences (default: $0 = always require)
@@ -55,7 +70,6 @@
 
 	// Large amount warning
 	const LARGE_AMOUNT_THRESHOLD = 1000; // $1,000 USD
-	let largeAmountConfirmed = $state(false);
 
 	// Recent addresses (simplified - would load from transaction history)
 	let recentAddresses = $state<Array<{ address: string; network: string; label?: string }>>([]);
@@ -82,13 +96,18 @@
 	const showLargeAmountWarning = $derived(amountInUSD > LARGE_AMOUNT_THRESHOLD);
 	const requiresAuth = $derived(amountInUSD >= authThreshold);
 
-	const totalToSend = $derived(amountInSats + estimatedFees);
+	const totalToSend = $derived(amountInSats + (estimatedFees?.totalFees || 0));
 	const receiverGets = $derived(amountInSats);
+	
+	// Total to send in USD
+	const totalToSendUSD = $derived.by(() => {
+		if (totalToSend === 0 || btcPrice === 0) return 0;
+		return (totalToSend / 100_000_000) * btcPrice;
+	});
 
 	const isFormValid = $derived.by(() => {
 		if (!parsedData?.isValid && !addressInput.trim()) return false;
 		if (amountRequired && amountInSats <= 0) return false;
-		if (showLargeAmountWarning && !largeAmountConfirmed) return false;
 		if (requiresAuth && !isAuthenticated) return false;
 		return true;
 	});
@@ -180,11 +199,13 @@
 	// Update fee estimate
 	async function updateFeeEstimate() {
 		if (amountInSats === 0 || !detectedNetwork) {
-			estimatedFees = 0;
+			estimatedFees = null;
+			feeError = null;
 			return;
 		}
 
 		isLoadingFees = true;
+		feeError = null;
 		try {
 			switch (detectedNetwork) {
 				case 'lightning-bitcoin':
@@ -194,9 +215,19 @@
 					if (pair) {
 						const serviceFee = Math.ceil((amountInSats * pair.fees.percentage) / 100);
 						const minerFee = pair.fees.minerFees || 0;
-						estimatedFees = serviceFee + minerFee;
+						estimatedFees = {
+							serviceFee,
+							networkFee: minerFee,
+							totalFees: serviceFee + minerFee
+						};
 					} else {
-						estimatedFees = Math.ceil((amountInSats * 0.1) / 100) + 32; // Fallback
+						const serviceFee = Math.ceil((amountInSats * 0.1) / 100);
+						const networkFee = 32;
+						estimatedFees = {
+							serviceFee,
+							networkFee,
+							totalFees: serviceFee + networkFee
+						};
 					}
 					break;
 				case 'rootstock-bitcoin':
@@ -207,37 +238,70 @@
 							amountRBTC
 						);
 						const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(amountRBTC);
-						estimatedFees = Math.floor(gasFeeRBTC * 100_000_000);
+						const networkFee = Math.floor(gasFeeRBTC * 100_000_000);
+						estimatedFees = {
+							serviceFee: 0,
+							networkFee,
+							totalFees: networkFee
+						};
 					} else {
-						estimatedFees = 3000; // Fallback
+						const networkFee = 3000; // Fallback
+						estimatedFees = {
+							serviceFee: 0,
+							networkFee,
+							totalFees: networkFee
+						};
 					}
 					break;
 				default:
-					estimatedFees = 0;
+					estimatedFees = null;
 			}
 		} catch (error) {
 			console.error('Failed to estimate fees:', error);
-			estimatedFees = 0;
+			feeError = $t('wallet.swap.fee_estimation_failed');
+			estimatedFees = null;
 		} finally {
 			isLoadingFees = false;
 		}
 	}
 
 	// Recalculate fees when amount or network changes
-	$effect(async () => {
+	$effect(() => {
 		amountInSats;
 		detectedNetwork;
-		await updateFeeEstimate();
+		updateFeeEstimate();
 	});
 
-	// Handle calculator input
-	function handleCalculatorInput(value: string) {
-		amount = value;
+	// Handle calculation change from calculator
+	function handleCalculationChange(expression: string, result: number) {
+		mathExpression = expression;
+		if (result > 0 || expression === '') {
+			if (unit === 'sats') {
+				amount = Math.floor(result).toString();
+			} else {
+				amount = result.toFixed(2).replace(/\.?0+$/, '');
+			}
+		}
 	}
 
-	// Handle unit toggle
+	// Handle unit change
+	function handleUnitChange(newUnit: 'sats' | 'usd') {
+		unit = newUnit;
+		amount = '';
+		mathExpression = '';
+		calculatorKey++;
+	}
+
+	// Clear calculator
+	function handleClearCalculator() {
+		amount = '';
+		mathExpression = '';
+		calculatorKey++;
+	}
+
+	// Handle unit toggle (for AmountDisplay compatibility)
 	function handleUnitToggle() {
-		unit = unit === 'sats' ? 'usd' : 'sats';
+		handleUnitChange(unit === 'sats' ? 'usd' : 'sats');
 	}
 
 	// Require authentication
@@ -297,8 +361,7 @@
 			} else if (network === 'rootstock-bitcoin') {
 				// RSK direct send
 				const amountRBTC = finalAmount / 100_000_000;
-				const tx = await walletManager.sendRBTC(recipient, amountRBTC.toFixed(8), memo || '');
-				txHash = tx.hash;
+				txHash = await walletManager.sendRBTC(recipient, amountRBTC.toFixed(8));
 			} else if (network === 'liquid-bitcoin') {
 				// Liquid chain swap send
 				// This would use LBTCChainSwapSend component logic
@@ -309,8 +372,7 @@
 				// BSC USDT send
 				// Convert amount from sats to USDT (assuming 1:1 with USD for simplicity)
 				const usdtAmount = amountInUSD.toFixed(2);
-				const tx = await walletManager.sendBSCUSDT(recipient, usdtAmount, memo || '');
-				txHash = tx.hash;
+				txHash = await walletManager.sendBSCUSDT(recipient, usdtAmount);
 			} else {
 				throw new Error($t('wallet.send.network_not_available'));
 			}
@@ -324,8 +386,8 @@
 				appStore.showSuccessToast($t('wallet.send.transaction_sent'));
 
 				// Call onSuccess callback
-				if (props.onSuccess) {
-					props.onSuccess(txHash, network);
+				if (onSuccess) {
+					onSuccess(txHash, network);
 				}
 			} else {
 				throw new Error($t('wallet.send.transaction_failed'));
@@ -361,6 +423,8 @@
 	<div class="tabs tabs-boxed">
 		<button
 			class="tab flex-1"
+			class:bg-primary={activeTab === 'scan'}
+			class:text-primary-content={activeTab === 'scan'}
 			class:tab-active={activeTab === 'scan'}
 			onclick={() => {
 				activeTab = 'scan';
@@ -371,6 +435,8 @@
 		</button>
 		<button
 			class="tab flex-1"
+			class:bg-primary={activeTab === 'enter'}
+			class:text-primary-content={activeTab === 'enter'}
 			class:tab-active={activeTab === 'enter'}
 			onclick={() => {
 				activeTab = 'enter';
@@ -385,28 +451,33 @@
 		{#if !showConfirmation}
 			<!-- QR Code Scanner -->
 			<div class="flex flex-col items-center gap-4">
-				<h3 class="text-xl font-bold">{$t('wallet.send.scan_qr_code')}</h3>
 				<p class="text-sm text-base-content/70">{$t('wallet.send.scan_qr_code_description')}</p>
 
 				<QrCodeScanner onScan={handleQRScan} onClose={() => (activeTab = 'enter')} />
 
-				<button class="btn btn-ghost btn-sm" onclick={() => (activeTab = 'enter')}>
+				<button class="btn btn-outline" onclick={() => (activeTab = 'enter')}>
 					{$t('wallet.send.enter_details_instead')}
 				</button>
 			</div>
 		{:else}
 			<!-- Confirmation Screen -->
 			<div class="space-y-6">
-				<div class="flex items-center justify-between">
-					<h3 class="text-xl font-bold">{$t('wallet.send.confirm_payment')}</h3>
+				<div class="flex items-center justify-end">
 					<button class="btn btn-ghost btn-sm" onclick={() => (showConfirmation = false)}>
 						{$t('common.back')}
 					</button>
 				</div>
 
 				<!-- Amount Display -->
-				<div class="flex justify-center">
+				<div class="flex flex-col items-center gap-2">
 					<AmountDisplay {amount} {unit} onUnitToggle={handleUnitToggle} {btcPrice} />
+					{#if showLargeAmountWarning}
+						<p class="text-error text-sm text-center">
+							{$t('wallet.send.large_amount_warning.message', {
+								values: { amount: formatUSD(amountInUSD) }
+							})}
+						</p>
+					{/if}
 				</div>
 
 				<!-- Network Display -->
@@ -418,19 +489,22 @@
 
 				<!-- Address Display -->
 				<div class="form-control">
-					<label class="label">
-						<span class="label-text font-semibold">{$t('wallet.address')}</span>
-					</label>
 					<div class="input input-bordered w-full break-all">{addressInput}</div>
 				</div>
 
 				<!-- Conditional Amount Field -->
 				{#if amountRequired}
 					<div class="form-control">
-						<label class="label">
-							<span class="label-text font-semibold">{$t('wallet.send.amount')}</span>
-						</label>
-						<CalculatorKeypad {unit} onInput={handleCalculatorInput} />
+						<AmountInputSection
+							{amount}
+							{unit}
+							{mathExpression}
+							{calculatorKey}
+							onAmountChange={(value) => (amount = value)}
+							onUnitChange={handleUnitChange}
+							onCalculationChange={handleCalculationChange}
+							onClear={handleClearCalculator}
+						/>
 					</div>
 				{/if}
 
@@ -444,67 +518,7 @@
 					</div>
 				{/if}
 
-				<!-- Fee Display -->
-				{#if isLoadingFees}
-					<div class="flex items-center justify-center gap-2 rounded-lg border border-base-300 bg-base-200 p-4">
-						<span class="loading loading-spinner loading-sm"></span>
-						<span class="text-sm">{$t('wallet.swap.loading_fees')}</span>
-					</div>
-				{:else if estimatedFees > 0}
-					<div class="space-y-2 rounded-lg border border-base-300 bg-base-200 p-4">
-						<div class="flex items-center justify-between text-sm">
-							<span class="opacity-70">{$t('wallet.send.receiver_gets')}:</span>
-							<span class="font-semibold">{formatSats(receiverGets)} {$t('wallet.sats')}</span>
-						</div>
-						<div class="flex items-center justify-between text-sm">
-							<span class="opacity-70">{$t('wallet.network_fee')}:</span>
-							<span>{formatSats(estimatedFees)} {$t('wallet.sats')}</span>
-						</div>
-						<div class="divider my-1.5"></div>
-						<div class="flex items-center justify-between font-bold text-lg">
-							<span>{$t('wallet.send.total_to_send')}:</span>
-							<span class="text-primary">{formatSats(totalToSend)} {$t('wallet.sats')}</span>
-						</div>
-					</div>
-				{/if}
 
-				<!-- Large Amount Warning -->
-				{#if showLargeAmountWarning && !largeAmountConfirmed}
-					<div class="alert alert-outline alert-error">
-						<svg class="w-6 h-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-							/>
-						</svg>
-						<div class="flex-1">
-							<h3 class="font-bold">{$t('wallet.send.large_amount_warning.title')}</h3>
-							<div class="text-sm">
-								<p>
-									{$t('wallet.send.large_amount_warning.message', {
-										values: { amount: formatUSD(amountInUSD) }
-									})}
-								</p>
-								<div class="mt-2 space-y-1 rounded bg-base-200 p-2">
-									<div>
-										{$t('wallet.send.amount_in_sats')}: <strong>{formatSats(amountInSats)} {$t('wallet.sats')}</strong>
-									</div>
-									<div>
-										{$t('wallet.send.amount_in_usd')}: <strong>{formatUSD(amountInUSD)}</strong>
-									</div>
-								</div>
-							</div>
-							<div class="form-control mt-4">
-								<label class="label cursor-pointer justify-start gap-2">
-									<input type="checkbox" class="checkbox checkbox-error" bind:checked={largeAmountConfirmed} />
-									<span class="label-text">{$t('wallet.send.large_amount_warning.confirm_checkbox')}</span>
-								</label>
-							</div>
-						</div>
-					</div>
-				{/if}
 
 				<!-- Action Buttons -->
 				<div class="flex gap-3">
@@ -528,18 +542,8 @@
 	{:else}
 		<!-- Enter Payment Details Tab -->
 		<div class="space-y-6">
-			<div class="flex items-center justify-between">
-				<h3 class="text-xl font-bold">{$t('wallet.send.enter_payment_details')}</h3>
-				<button class="btn btn-ghost btn-sm" onclick={() => (activeTab = 'scan')}>
-					{$t('wallet.send.scan_qr_code_instead')}
-				</button>
-			</div>
-
 			<!-- Address Input -->
 			<div class="form-control">
-				<label class="label" for="address-input">
-					<span class="label-text">{$t('wallet.send.address_or_invoice')}</span>
-				</label>
 				<div class="relative">
 					<input
 						id="address-input"
@@ -590,14 +594,33 @@
 
 			<!-- Amount Field (conditional) -->
 			{#if amountRequired}
-				<div class="form-control">
-					<label class="label">
-						<span class="label-text font-semibold">{$t('wallet.send.amount')}</span>
-					</label>
-					<div class="flex justify-center">
-						<AmountDisplay {amount} {unit} onUnitToggle={handleUnitToggle} {btcPrice} />
-					</div>
-					<CalculatorKeypad {unit} onInput={handleCalculatorInput} />
+				<div class="form-control space-y-2">
+					<AmountInputSection
+						{amount}
+						{unit}
+						{mathExpression}
+						{calculatorKey}
+						{memo}
+						{descriptionExpanded}
+						estimatedFees={estimatedFees?.totalFees ?? 0}
+						totalAmount={totalToSend}
+						amountInSats={amountInSats}
+						{btcPrice}
+						isLoadingFees={isLoadingFees}
+						onAmountChange={(value) => (amount = value)}
+						onUnitChange={handleUnitChange}
+						onCalculationChange={handleCalculationChange}
+						onClear={handleClearCalculator}
+						onMemoChange={(value) => (memo = value)}
+						onDescriptionToggle={(expanded) => (descriptionExpanded = expanded)}
+					/>
+					{#if showLargeAmountWarning}
+						<p class="text-error text-sm text-center">
+							{$t('wallet.send.large_amount_warning.message', {
+								values: { amount: formatUSD(amountInUSD) }
+							})}
+						</p>
+					{/if}
 				</div>
 			{:else if detectedAmount}
 				<div class="alert alert-success">
@@ -607,8 +630,8 @@
 				</div>
 			{/if}
 
-			<!-- Memo Field -->
-			{#if detectedMemo || memo}
+			<!-- Memo Field (for detected memo from invoice) -->
+			{#if detectedMemo}
 				<div class="form-control">
 					<label class="label">
 						<span class="label-text">{$t('wallet.send.memo')}</span>
@@ -617,73 +640,101 @@
 						type="text"
 						class="input input-bordered w-full"
 						bind:value={memo}
-						disabled={!!detectedMemo}
+						disabled={true}
 						placeholder={$t('wallet.send.memo_placeholder')}
 					/>
 				</div>
 			{/if}
 
-			<!-- Fee Display -->
+			<!-- Network Fee Accordion -->
 			{#if isLoadingFees}
 				<div class="flex items-center justify-center gap-2 rounded-lg border border-base-300 bg-base-200 p-4">
 					<span class="loading loading-spinner loading-sm"></span>
 					<span class="text-sm">{$t('wallet.swap.loading_fees')}</span>
 				</div>
-			{:else if estimatedFees > 0 && amountInSats > 0}
-				<div class="space-y-2 rounded-lg border border-base-300 bg-base-200 p-4">
-					<div class="flex items-center justify-between text-sm">
-						<span class="opacity-70">{$t('wallet.send.receiver_gets')}:</span>
-						<span class="font-semibold">{formatSats(receiverGets)} {$t('wallet.sats')}</span>
-					</div>
-					<div class="flex items-center justify-between text-sm">
-						<span class="opacity-70">{$t('wallet.network_fee')}:</span>
-						<span>{formatSats(estimatedFees)} {$t('wallet.sats')}</span>
-					</div>
-					<div class="divider my-1.5"></div>
-					<div class="flex items-center justify-between font-bold text-lg">
-						<span>{$t('wallet.send.total_to_send')}:</span>
-						<span class="text-primary">{formatSats(totalToSend)} {$t('wallet.sats')}</span>
+			{:else if feeError}
+				<div class="alert alert-outline alert-error">
+					<span>{feeError}</span>
+				</div>
+			{:else}
+				<div class="collapse collapse-arrow border border-base-300 rounded-lg bg-base-100" class:collapse-open={networkFeeExpanded}>
+					<button
+						type="button"
+						class="collapse-title min-h-0 py-1 px-4 font-medium text-left"
+						onclick={() => {
+							triggerHaptic(ImpactStyle.Light);
+							networkFeeExpanded = !networkFeeExpanded;
+						}}
+					>
+						<div class="flex items-center gap-2 w-full">
+							<span>{$t('wallet.network_fee')}:</span>
+							{#if estimatedFees}
+								<span class="font-semibold">{formatSats(estimatedFees.totalFees)} {$t('wallet.sats')}</span>
+								{#if btcPrice > 0 && estimatedFees.totalFees > 0}
+									<span class="opacity-60">
+										≈ {formatUSD((estimatedFees.totalFees / 100_000_000) * btcPrice)}
+									</span>
+								{/if}
+							{:else}
+								<span class="font-semibold">0 {$t('wallet.sats')}</span>
+							{/if}
+						</div>
+					</button>
+					<div class="collapse-content">
+						<div class="space-y-2 pb-4 px-4">
+							{#if estimatedFees && estimatedFees.serviceFee > 0}
+								<div class="flex items-center justify-between text-xs opacity-70">
+									<span>{$t('wallet.swap.swap_fee')}:</span>
+									<span>{formatSats(estimatedFees.serviceFee)} {$t('wallet.sats')}</span>
+								</div>
+							{/if}
+							{#if estimatedFees && estimatedFees.networkFee > 0}
+								<div class="flex items-center justify-between text-xs opacity-70">
+									<span>{$t('wallet.swap.network_transaction_fee')}:</span>
+									<span>{formatSats(estimatedFees.networkFee)} {$t('wallet.sats')}</span>
+								</div>
+							{/if}
+							{#if !estimatedFees || estimatedFees.totalFees === 0}
+								<div class="text-xs opacity-70 text-center py-2">
+									{$t('wallet.receive.enter_amount_to_estimate')}
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 			{/if}
 
-			<!-- Large Amount Warning -->
-			{#if showLargeAmountWarning && !largeAmountConfirmed}
-				<div class="alert alert-outline alert-error">
-					<svg class="w-6 h-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-						/>
-					</svg>
-					<div class="flex-1">
-						<h3 class="font-bold">{$t('wallet.send.large_amount_warning.title')}</h3>
-						<div class="text-sm">
-							<p>
-								{$t('wallet.send.large_amount_warning.message', {
-									values: { amount: formatUSD(amountInUSD) }
-								})}
-							</p>
-							<div class="mt-2 space-y-1 rounded bg-base-200 p-2">
-								<div>
-									{$t('wallet.send.amount_in_sats')}: <strong>{formatSats(amountInSats)} {$t('wallet.sats')}</strong>
-								</div>
-								<div>
-									{$t('wallet.send.amount_in_usd')}: <strong>{formatUSD(amountInUSD)}</strong>
-								</div>
-							</div>
-						</div>
-						<div class="form-control mt-4">
-							<label class="label cursor-pointer justify-start gap-2">
-								<input type="checkbox" class="checkbox checkbox-error" bind:checked={largeAmountConfirmed} />
-								<span class="label-text">{$t('wallet.send.large_amount_warning.confirm_checkbox')}</span>
-							</label>
-						</div>
+			<!-- Total to Send Card -->
+			<div class="flex flex-col items-center gap-2 rounded-lg border-2 border-primary bg-base-200 p-2">
+				<span class="text-sm opacity-70 text-center">{$t('wallet.send.total_to_send')}</span>
+				{#if totalToSend > 0 && estimatedFees}
+					<div class="flex items-center justify-center gap-2 w-full">
+						{#if unit === 'sats'}
+							<span class="text-2xl font-bold text-primary">
+								{formatSats(totalToSend)} {$t('wallet.sats')}
+							</span>
+							{#if btcPrice > 0}
+								<span class="text-sm opacity-60">
+									≈ {formatUSD(totalToSendUSD)}
+								</span>
+							{/if}
+						{:else}
+							<span class="text-2xl font-bold text-primary">
+								{formatUSD(totalToSendUSD)}
+							</span>
+							{#if btcPrice > 0}
+								<span class="text-sm opacity-60">
+									≈ {formatSats(totalToSend)} {$t('wallet.sats')}
+								</span>
+							{/if}
+						{/if}
 					</div>
-				</div>
-			{/if}
+				{:else}
+					<div class="text-sm opacity-60 text-center">
+						{$t('wallet.receive.enter_amount_to_estimate')}
+					</div>
+				{/if}
+			</div>
 
 			<!-- Action Buttons -->
 			<div class="flex gap-3">
@@ -692,9 +743,10 @@
 					style="-webkit-tap-highlight-color: transparent;"
 					onclick={() => {
 						triggerHaptic(ImpactStyle.Light);
-						props.onCancel();
+						onCancel();
 					}}
 				>
+					<IconClose class="h-5 w-5 mr-2" />
 					{$t('common.cancel')}
 				</button>
 				<button
@@ -706,11 +758,15 @@
 					}}
 					disabled={!isFormValid || isLoadingFees}
 				>
-					{#if requiresAuth && !isAuthenticated}
-						{$t('wallet.send.authenticate_and_send')}
-					{:else}
-						{$t('wallet.send.send')}
-					{/if}
+					<IconSend class="h-5 w-5 mr-2" />
+					{$t('wallet.send.send')}
+				</button>
+			</div>
+
+			<!-- Scan QR Code Instead Button -->
+			<div class="flex justify-center">
+				<button class="btn btn-outline" onclick={() => (activeTab = 'scan')}>
+					{$t('wallet.send.scan_qr_code_instead')}
 				</button>
 			</div>
 		</div>
@@ -725,7 +781,7 @@
 			recipient={parsedData?.address || addressInput}
 			onClose={() => {
 				showSuccessScreen = false;
-				props.onCancel();
+				onCancel();
 			}}
 		/>
 	{/if}
