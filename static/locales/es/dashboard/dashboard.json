@@ -574,7 +574,9 @@
         "proposal_accepted": "Propuesta aceptada",
         "escrow_cancelled": "Contrato de pago seguro cancelado",
         "contract_cancelled": "Contrato cancelado",
-        "timelock_resolved": "Resuelto después del timelock"
+        "timelock_resolved": "Resuelto después del timelock",
+        "pending_resolution_proposal": "Propuesta de resolución pendiente",
+        "pending_proposal_acceptance": "Aceptación de propuesta pendiente"
       },
       "actions": {
         "complete_task": "Marcar Tarea como Completada",

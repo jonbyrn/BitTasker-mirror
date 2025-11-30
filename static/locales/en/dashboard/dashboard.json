@@ -574,7 +574,9 @@
         "proposal_accepted": "Proposal accepted",
         "escrow_cancelled": "Secure payment contract cancelled",
         "contract_cancelled": "Contract cancelled",
-        "timelock_resolved": "Resolved after timelock"
+        "timelock_resolved": "Resolved after timelock",
+        "pending_resolution_proposal": "Pending Resolution Proposal",
+        "pending_proposal_acceptance": "Pending Proposal Acceptance"
       },
       "actions": {
         "complete_task": "Mark Task Complete",
