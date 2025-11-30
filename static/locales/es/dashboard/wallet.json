@@ -525,7 +525,8 @@
       "charge_fees_to_payer": "¿Cobrar tarifas de red al pagador?",
       "enter_amount_to_estimate": "Ingrese el monto para estimar las tarifas",
       "network": "Red",
-      "description_characters": "Caracteres"
+      "description_characters": "Caracteres",
+      "below_swap_minimum": "Monto por debajo del mínimo de intercambio: {minAmount} Sats"
     },
     "swap": {
       "title": "Intercambiar Activos Digitales",

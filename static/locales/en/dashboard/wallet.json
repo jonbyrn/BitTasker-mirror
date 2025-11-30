@@ -503,7 +503,8 @@
       "charge_fees_to_payer": "Charge network fees to payer?",
       "enter_amount_to_estimate": "Enter amount to estimate fees",
       "network": "Network",
-      "description_characters": "Characters"
+      "description_characters": "Characters",
+      "below_swap_minimum": "Amount below swap minimum: {minAmount} Sats"
     },
     "initializing": "Initializing wallet...",
     "error": {

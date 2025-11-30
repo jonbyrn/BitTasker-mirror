@@ -221,44 +221,10 @@
 			ontouchend={handleTouchEnd}
 			transition:scale={{ duration: prefersReducedMotion ? 0 : 300, start: 0.95 }}
 		>
-			<!-- Header (only show for send mode) -->
-			{#if props.mode === 'send'}
-				<div
-					class="flex items-center justify-between p-4 lg:p-6 min-h-[56px] border-b border-base-300 pt-[max(1rem,env(safe-area-inset-top))]"
-				>
-					<h2 id="wallet-modal-title" class="text-2xl md:text-3xl font-bold">
-						{modalTitle}
-					</h2>
-					<button
-						class="btn btn-circle btn-ghost btn-sm min-h-[44px] min-w-[44px] touch-manipulation select-none active:scale-95 transition-transform duration-100"
-						style="-webkit-tap-highlight-color: transparent;"
-						onclick={() => {
-							triggerHaptic(ImpactStyle.Light);
-							props.onClose();
-						}}
-						aria-label={$t('common.components.modal.close')}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
-					</button>
-				</div>
-			{/if}
 
 			<!-- Content Area -->
 			<div
-				class="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6 {props.mode === 'receive' ? 'pt-[max(1rem,env(safe-area-inset-top))]' : ''} pb-[max(1rem,env(safe-area-inset-bottom))]"
+				class="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
 			>
 				<!-- Wallet Error States (only show errors, not initialization) -->
 				{#if $walletStore.error}

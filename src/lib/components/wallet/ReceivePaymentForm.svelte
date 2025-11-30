@@ -64,6 +64,13 @@
 		claimFee: number;
 	} | null>(null);
 
+	// Swap limits (minimum amounts)
+	let swapLimits = $state<{
+		minimal: number;
+		maximal: number;
+	} | null>(null);
+	let isLoadingSwapLimits = $state(false);
+
 	// Derived values
 	const amountInSats = $derived.by(() => {
 		if (unit === 'sats') {
@@ -92,6 +99,15 @@
 			return amountInSats + estimatedFees.totalFees;
 		}
 		return amountInSats;
+	});
+
+	// Check if amount is below swap minimum (for networks that require swaps)
+	const isBelowSwapMinimum = $derived.by(() => {
+		// Only check for networks that require swaps (not rootstock)
+		const networksRequiringSwaps = ['lightning-bitcoin', 'liquid-bitcoin', 'bitcoin'];
+		if (!networksRequiringSwaps.includes(selectedNetwork)) return false;
+		if (!swapLimits || amountPayerPays === 0) return false;
+		return amountPayerPays < swapLimits.minimal;
 	});
 
 	// Total received in USD
@@ -481,6 +497,7 @@
 	async function updateFeeEstimate() {
 		if (amountInSats === 0) {
 			estimatedFees = null;
+			swapLimits = null;
 			return;
 		}
 
@@ -494,6 +511,7 @@
 					break;
 				case 'rootstock-bitcoin':
 					await estimateRootstockFees();
+					swapLimits = null; // Rootstock doesn't need swap limits
 					break;
 				case 'liquid-bitcoin':
 					await estimateLiquidFees();
@@ -505,14 +523,18 @@
 						networkFee: 0, // Will be determined at send time
 						totalFees: 0
 					};
+					// TODO: Fetch swap limits for on-chain Bitcoin if it requires swaps
+					swapLimits = null;
 					break;
 				default:
 					estimatedFees = null;
+					swapLimits = null;
 			}
 		} catch (error) {
 			console.error('Failed to estimate fees:', error);
 			feeError = $t('wallet.swap.error.fee_fetch_failed');
 			estimatedFees = null;
+			swapLimits = null;
 		} finally {
 			isLoadingFees = false;
 		}
@@ -537,6 +559,14 @@
 					networkFee,
 					totalFees: serviceFee + networkFee
 				};
+
+				// Update swap limits
+				if (pair.limits) {
+					swapLimits = {
+						minimal: pair.limits.minimal,
+						maximal: pair.limits.maximal
+					};
+				}
 			} else {
 				// Fallback to default fees
 				estimatedFees = {
@@ -615,6 +645,14 @@
 					networkFee,
 					totalFees: serviceFee + networkFee
 				};
+
+				// Update swap limits
+				if (pair.limits) {
+					swapLimits = {
+						minimal: pair.limits.minimal,
+						maximal: pair.limits.maximal
+					};
+				}
 			} else {
 				// Fallback
 				estimatedFees = {
@@ -1015,7 +1053,7 @@
 				{$t('wallet.description')} ({$t('wallet.optional')})
 			</button>
 			<div class="collapse-content">
-				<div class="form-control pt-2 pb-4 px-4">
+				<div class="form-control">
 					<textarea
 						id="memo-input"
 						class="textarea textarea-bordered w-full"
@@ -1025,7 +1063,7 @@
 						rows="3"
 						maxlength="200"
 					></textarea>
-					<div class="label">
+					<div class="label text-xs">
 						<span class="label-text-alt {memo.length > 200 ? 'text-error' : 'text-base-content/70'}">
 							{memo.length}/200 {$t('wallet.receive.description_characters')}
 						</span>
@@ -1068,8 +1106,8 @@
 						{/if}
 					</div>
 				</button>
-				<div class="collapse-content">
-					<div class="space-y-2 pb-4 px-4">
+				<div class="collapse-content pb-0">
+					<div class="space-y-2 pb-2 px-4">
 						{#if estimatedFees && estimatedFees.serviceFee > 0}
 							<div class="flex items-center justify-between text-xs opacity-70">
 								<span>{$t('wallet.swap.swap_fee')}:</span>
@@ -1120,6 +1158,15 @@
 				</div>
 				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
 			</button>
+		{/if}
+
+		<!-- Swap Minimum Warning -->
+		{#if isBelowSwapMinimum && swapLimits}
+			<p class="text-error text-sm text-center">
+				{$t('wallet.receive.below_swap_minimum', {
+					values: { minAmount: formatSats(swapLimits.minimal) }
+				})}
+			</p>
 		{/if}
 
 		<!-- Total Received Card -->
@@ -1174,7 +1221,7 @@
 					triggerHaptic(ImpactStyle.Medium);
 					handleGenerateInvoice();
 				}}
-				disabled={!isFormValid || isLoadingFees || $walletStore.isInitializing || isGeneratingInvoice}
+				disabled={!isFormValid || isLoadingFees || $walletStore.isInitializing || isGeneratingInvoice || isBelowSwapMinimum}
 			>
 				{#if isLoadingFees || $walletStore.isInitializing || isGeneratingInvoice}
 					<span class="loading loading-spinner loading-sm"></span>
