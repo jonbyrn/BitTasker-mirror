@@ -1162,7 +1162,7 @@
 
 		<!-- Swap Minimum Warning -->
 		{#if isBelowSwapMinimum && swapLimits}
-			<p class="text-error text-sm text-center">
+			<p class="text-error text-sm text-center mb-1">
 				{$t('wallet.receive.below_swap_minimum', {
 					values: { minAmount: formatSats(swapLimits.minimal) }
 				})}
