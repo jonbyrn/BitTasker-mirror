@@ -299,7 +299,6 @@
 		onInvoiceGenerated={(invoiceData) => {
 			// Handle invoice generation success - could show InvoiceDisplay here
 			console.log('Invoice generated:', invoiceData);
-			appStore.showSuccessToast($t('wallet.invoice_generated'));
 		}}
 	/>
 </WalletPaymentModal>

@@ -424,7 +424,7 @@
         "invalid_form": "Please check your form inputs"
       }
     },
-    "payment_request": "Payment Request",
+    "payment_request_label": "Payment Request",
     "payment_request_description": "Send any amount of Rootstock Bitcoin to this address, or specify an amount below to generate a QR code with the amount.",
     "receive_rbtc": "Receive rBTC",
     "your_rsk_address": "Your RSK Address",
@@ -506,7 +506,8 @@
       "get_paid": "Get Paid",
       "charge_fees_to_payer": "Charge network fees to payer?",
       "enter_amount_to_estimate": "Enter amount to estimate fees",
-      "network": "Network"
+      "network": "Network",
+      "description_characters": "Characters"
     },
     "send": {
       "title": "Send Payment"

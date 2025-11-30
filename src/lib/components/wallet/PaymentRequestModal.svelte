@@ -6,8 +6,10 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { walletStore, walletManager, getProvider } from '$lib/stores/wallet.store';
 	import { user } from '$lib/stores/user.store';
+	import { profileStore } from '$lib/stores/profile.store';
 	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 	import { loadNamespace, isI18nLoading } from '$lib/i18n/i18n';
+	import Avatar from '$lib/components/Avatar.svelte';
 	import { locale, isLoading } from 'svelte-i18n';
 	import { get } from 'svelte/store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
@@ -19,15 +21,21 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconCheck from '~icons/mdi/check';
 	import IconExternalLink from '~icons/mdi/open-in-new';
+	import IconPencil from '~icons/mdi/pencil';
+	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconChevronUp from '~icons/mdi/chevron-up';
 
 	interface Props {
 		isOpen: boolean;
-		amount: number; // Amount in sats
+		amount: number; // Amount in sats (receiver's requested amount)
 		network: string;
 		memo?: string;
 		address: string; // Payment address/invoice
 		swapId?: string; // For Lightning swaps, monitor by swap ID
+		chargeFeesToPayer?: boolean; // Whether fees are charged to payer
+		totalFees?: number; // Total fees in sats (if chargeFeesToPayer is true)
 		onClose: () => void;
+		onEdit?: () => void; // Callback to return to edit screen
 	}
 
 	const props = $props();
@@ -40,18 +48,42 @@
 	let confirmationCount = $state(0);
 	let monitoringInterval: ReturnType<typeof setInterval> | null = null;
 	let swapStatus = $state<string | null>(null);
+	let addressExpanded = $state(false); // Track if address is expanded to show full address
 
 	// Get user display name - make reactive to locale changes
+	// Prioritize username from database over name, and include profileStore data
 	const userName = $derived.by(() => {
 		// Access locale to make this reactive to translation changes
 		const currentLocale = $locale;
-		return getUserDisplayName(
+		const displayName = getUserDisplayName(
 			{
 				username: $user.username,
-				name: $user.name
+				name: $profileStore.data?.name || $user.name
 			},
-			$t('wallet.payment_request.you')
+			'' // Empty fallback - Avatar will show initials if name is empty
 		);
+		// If still empty, use npub as fallback
+		if (!displayName && $user.npub) {
+			return `${$user.npub.slice(0, 8)}...${$user.npub.slice(-4)}`;
+		}
+		return displayName || $t('wallet.payment_request.you');
+	});
+
+	// Get user picture with priority: pictures array > user.picture > profileStore.data.picture
+	const userPicture = $derived.by(() => {
+		// First priority: first image from pictures array
+		if ($profileStore.data?.pictures && $profileStore.data.pictures.length > 0) {
+			return $profileStore.data.pictures[0].url;
+		}
+		// Second priority: user store picture
+		if ($user.picture) {
+			return $user.picture;
+		}
+		// Third priority: profile store picture
+		if ($profileStore.data?.picture) {
+			return $profileStore.data.picture;
+		}
+		return undefined;
 	});
 
 	// Format sats with thousand separators
@@ -69,9 +101,18 @@
 		}).format(usd);
 	}
 
+	// Calculate the total amount the payer will pay (including fees if chargeFeesToPayer is true)
+	const payerTotalAmount = $derived.by(() => {
+		if (props.chargeFeesToPayer && props.totalFees) {
+			return props.amount + props.totalFees;
+		}
+		return props.amount;
+	});
+
 	const amountInUSD = $derived.by(() => {
 		if (btcPrice === 0) return 0;
-		return (props.amount / 100_000_000) * btcPrice;
+		// Use payer's total amount (including fees) for USD calculation
+		return (payerTotalAmount / 100_000_000) * btcPrice;
 	});
 
 	// Get network info matching receive form structure - make reactive to locale changes
@@ -218,7 +259,7 @@
 					title: $t('wallet.payment_request.share_title'),
 					text: $t('wallet.payment_request.share_text', {
 						values: {
-							amount: formatSats(props.amount),
+							amount: formatSats(payerTotalAmount),
 							name: userName
 						}
 					}),
@@ -249,6 +290,22 @@
 	// Initialize component
 	onMount(async () => {
 		if (props.isOpen) {
+			// Initialize user data if needed
+			try {
+				await user.getUserData();
+			} catch (error) {
+				console.error('[PaymentRequestModal] Failed to load user data:', error);
+			}
+			
+			// Initialize profile store if needed
+			try {
+				if (!$profileStore.data) {
+					profileStore.init();
+				}
+			} catch (error) {
+				console.error('[PaymentRequestModal] Failed to initialize profile store:', error);
+			}
+			
 			// Pre-load translations
 			try {
 				const currentLocale = get(locale) as 'en' | 'es' || 'en';
@@ -340,7 +397,7 @@
 				<span class="loading loading-spinner loading-lg"></span>
 			</div>
 		{:else}
-		<div class="container mx-auto px-3 py-3 space-y-3">
+		<div class="container mx-auto px-3 py-1 space-y-2">
 
 			<!-- Success State -->
 			{#if isTransactionConfirmed}
@@ -356,7 +413,7 @@
 							{$t('wallet.payment_request.payment_received')}
 						</h3>
 						<p class="text-base-content/70">
-							{formatSats(props.amount)} {$t('wallet.sats')} ({formatUSD(amountInUSD)})
+							{formatSats(payerTotalAmount)} {$t('wallet.sats')} ({formatUSD(amountInUSD)})
 						</p>
 					</div>
 					<button
@@ -374,11 +431,10 @@
 				<!-- Payment Request Content -->
 				<div class="space-y-3">
 					<!-- Total Amount Display (Prominent) -->
-					<div class="flex flex-col items-center gap-2 p-2 bg-primary/10 rounded-2xl border-2 border-primary">
-						<div class="text-sm text-base-content/70">{$t('wallet.payment_request.requesting')}</div>
+					<div class="flex flex-col items-center gap-1 p-2 bg-primary/10 rounded-2xl border-2 border-primary">
 						<div class="flex items-baseline gap-2">
 							<span class="text-4xl md:text-5xl font-bold text-primary tabular-nums">
-								{formatSats(props.amount)}
+								{formatSats(payerTotalAmount)}
 							</span>
 							<span class="text-xl md:text-2xl font-semibold text-primary">{$t('wallet.sats')}</span>
 						</div>
@@ -389,33 +445,36 @@
 						{/if}
 					</div>
 
-					<!-- Network Display - Show icon and translated name -->
-					<div class="flex items-center gap-3 p-3 bg-base-200 rounded-lg">
-						{#if networkInfo.icon}
-							<img src={networkInfo.icon} alt={networkInfo.label} class="h-6 w-6" />
-						{:else if props.network === 'lightning-bitcoin'}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6 text-yellow-500"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M13 10V3L4 14h7v7l9-11h-7z"
-								/>
-							</svg>
+					<!-- Network Display - Show icon, translated name, and status indicator -->
+					<div class="flex items-center justify-between gap-3 p-3 bg-base-200 rounded-lg">
+						<div class="flex items-center gap-3">
+							{#if networkInfo.icon}
+								<img src={networkInfo.icon} alt={networkInfo.label} class="h-6 w-6" />
+							{:else if props.network === 'lightning-bitcoin'}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-6 w-6 text-yellow-500"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13 10V3L4 14h7v7l9-11h-7z"
+									/>
+								</svg>
+							{/if}
+							<span class="text-base font-medium">{networkInfo.label}</span>
+						</div>
+						<!-- Status Indicator (only show when pending) -->
+						{#if !isTransactionConfirmed}
+							<div class="flex items-center gap-2">
+								<span class="loading loading-spinner loading-sm"></span>
+								<span class="badge badge-warning">{$t('wallet.transaction.status.pending')}</span>
+							</div>
 						{/if}
-						<span class="text-base font-medium">{networkInfo.label}</span>
-					</div>
-
-					<!-- User Name -->
-					<div class="text-center">
-						<div class="text-sm text-base-content/70 mb-1">{$t('wallet.payment_request.from')}</div>
-						<div class="text-lg font-semibold">{userName}</div>
 					</div>
 
 					<!-- QR Code (Almost Full Screen Width) -->
@@ -443,85 +502,101 @@
 						{/if}
 					</div>
 
-					<!-- Payment Address/Link (Copyable) - Match description accordion styling -->
-					<div class="space-y-2">
-						<div class="border-2 border-primary rounded-lg bg-base-100 p-2">
-							<div class="flex items-center gap-2">
-								<button
-									class="flex-1 text-left break-all touch-manipulation select-none active:scale-95 transition-transform duration-100"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={copyAddress}
-									aria-label={$t('wallet.copy_address')}
-								>
-									<code class="text-xs leading-relaxed break-all whitespace-normal">{props.address}</code>
-								</button>
+					<!-- Payment Address/Link (Copyable) - One line with expand/collapse -->
+					<div class="border-2 border-primary rounded-lg bg-base-100">
+						<!-- One-line address display -->
+						<div class="flex items-center gap-2 p-2">
+							<!-- Copy icon on the left -->
+							<button
+								class="btn btn-ghost btn-sm btn-circle touch-manipulation select-none active:scale-95 transition-transform duration-100 flex-shrink-0"
+								style="-webkit-tap-highlight-color: transparent;"
+								onclick={copyAddress}
+								aria-label={$t('wallet.copy_address')}
+							>
 								{#if addressCopied}
-									<div class="badge badge-success">
-										<IconCheck class="w-4 h-4" />
-									</div>
+									<IconCheck class="w-5 h-5 text-success" />
 								{:else}
-									<button
-										class="btn btn-ghost btn-sm btn-circle touch-manipulation select-none active:scale-95 transition-transform duration-100"
-										style="-webkit-tap-highlight-color: transparent;"
-										onclick={copyAddress}
-										aria-label={$t('wallet.copy_address')}
-									>
-										<IconContentCopy class="w-5 h-5" />
-									</button>
+									<IconContentCopy class="w-5 h-5" />
 								{/if}
-							</div>
+							</button>
+							
+							<!-- Compressed address in the middle -->
+							<button
+								class="flex-1 text-left min-w-0 touch-manipulation select-none active:scale-95 transition-transform duration-100"
+								style="-webkit-tap-highlight-color: transparent;"
+								onclick={copyAddress}
+								aria-label={$t('wallet.copy_address')}
+							>
+								<code class="text-xs font-mono truncate block">
+									{addressExpanded ? props.address : formatAddress(props.address)}
+								</code>
+							</button>
+							
+							<!-- Dropdown button on the right -->
+							<button
+								class="btn btn-ghost btn-sm btn-circle touch-manipulation select-none active:scale-95 transition-transform duration-100 flex-shrink-0"
+								style="-webkit-tap-highlight-color: transparent;"
+								onclick={() => {
+									triggerHaptic(ImpactStyle.Light);
+									addressExpanded = !addressExpanded;
+								}}
+								aria-label={addressExpanded ? 'Collapse address' : 'Expand address'}
+							>
+								{#if addressExpanded}
+									<IconChevronUp class="w-5 h-5" />
+								{:else}
+									<IconChevronDown class="w-5 h-5" />
+								{/if}
+							</button>
 						</div>
+						
+						<!-- Expanded full address (shown when expanded) -->
+						{#if addressExpanded}
+							<div class="px-2 pb-2 border-t border-primary/20">
+								<code class="text-xs font-mono break-all whitespace-normal block pt-2">
+									{props.address}
+								</code>
+							</div>
+						{/if}
 					</div>
 
 					<!-- Transaction Description (if provided) -->
 					{#if props.memo}
-						<div class="space-y-2">
+						<div class="space-y-1">
 							<label class="label">
-								<span class="label-text font-semibold">{$t('wallet.description')}</span>
+								<span class="label-text font-semibold text-xs">{$t('wallet.description')}</span>
 							</label>
-							<div class="text-base rounded-lg bg-base-200 p-3">{props.memo}</div>
+							<div class="text-base rounded-lg bg-base-200 p-1">{props.memo}</div>
 						</div>
 					{/if}
 
-					<!-- Status (if monitoring) -->
-					{#if props.swapId || swapStatus}
-						<div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
-							<span class="text-sm text-base-content/70">{$t('wallet.tx_status')}:</span>
-							<div class="flex items-center gap-2">
-								{#if isTransactionConfirmed}
-									<span class="badge badge-success">{$t('wallet.transaction.status.confirmed')}</span>
-								{:else}
-									<span class="loading loading-spinner loading-sm"></span>
-									<span class="badge badge-warning">{$t('wallet.transaction.status.pending')}</span>
-								{/if}
-							</div>
-						</div>
-					{/if}
-
-					<!-- Share Button -->
-					{#if Capacitor.getPlatform() !== 'web' || (typeof navigator !== 'undefined' && typeof navigator.share === 'function')}
+					<!-- Cancel and Edit Buttons -->
+					<div class="flex gap-3">
 						<button
-							class="btn btn-outline w-full touch-manipulation select-none active:scale-95 transition-transform duration-100"
+							class="btn btn-error flex-1 touch-manipulation select-none active:scale-95 transition-transform duration-100"
 							style="-webkit-tap-highlight-color: transparent;"
-							onclick={shareInvoice}
+							onclick={() => {
+								triggerHaptic(ImpactStyle.Light);
+								props.onClose();
+							}}
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-								/>
-							</svg>
-							{$t('wallet.invoice.share')}
+							<IconClose class="w-5 h-5" />
+							{$t('wallet.receive.cancel')}
 						</button>
-					{/if}
+						{#if props.onEdit}
+							<button
+								class="btn btn-primary flex-1 touch-manipulation select-none active:scale-95 transition-transform duration-100"
+								style="-webkit-tap-highlight-color: transparent;"
+								onclick={() => {
+									triggerHaptic(ImpactStyle.Medium);
+									props.onEdit?.();
+								}}
+							>
+								<IconPencil class="w-5 h-5" />
+								{$t('common.edit')}
+							</button>
+						{/if}
+					</div>
 				</div>
 			{/if}
 			</div>
