@@ -352,7 +352,7 @@
       "scan_qr_code_instead": "Escanear Código QR en su Lugar",
       "confirm_payment": "Confirmar Pago",
       "address_or_invoice": "Dirección o Factura",
-      "address_placeholder": "Ingresa dirección, factura o escanea código QR",
+      "address_placeholder": "Ingresa dirección o factura",
       "amount": "Monto",
       "memo": "Memo",
       "memo_placeholder": "Memo o descripción opcional",
@@ -370,9 +370,7 @@
       "authentication_required": "Se requiere autenticación para enviar",
       "payment_sent": "Pago enviado exitosamente",
       "large_amount_warning": {
-        "title": "Advertencia de Monto Grande",
-        "message": "Estás a punto de enviar {amount}. Este es un monto grande. ¿Quisiste ingresar esto en sats en su lugar?",
-        "confirm_checkbox": "Confirmo que este es el monto correcto en USD"
+        "message": "Precaución: Enviando monto grande de {amount}"
       },
       "success": {
         "payment_sent": "¡Pago Enviado!",

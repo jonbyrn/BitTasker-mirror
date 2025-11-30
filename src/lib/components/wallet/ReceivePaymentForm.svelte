@@ -9,10 +9,8 @@
 	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
 	import { ethers, type Signer } from 'ethers';
 	import { clickOutside } from '$lib/utils/clickOutside';
-	import CalculatorKeypad from '$lib/components/wallet/CalculatorKeypad.svelte';
+	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
-	import IconCurrencyUsd from '~icons/mdi/currency-usd';
-	import IconCurrencyBtc from '~icons/mdi/currency-btc';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
@@ -823,103 +821,22 @@
 
 <div class="receive-payment-form space-y-6">
 	{#if !invoiceGenerated}
-		<!-- Amount Display (shows calculation and result) -->
-		<div class="flex flex-col items-center gap-2 md:gap-3 p-1 bg-base-200 rounded-lg border-2 border-primary">
-			{#if mathExpression || amount}
-				<div class="flex items-center justify-center gap-2 w-full">
-					{#if unit === 'usd'}
-						<span class="text-lg font-bold text-primary ml-1">$</span>
-					{:else}
-						<IconCurrencyBtc class="w-5 h-5 text-primary" />
-					{/if}
-					<div class="text-lg font-bold text-center flex-1">
-						{mathExpression || amount || '0'}
-					</div>
-					<button
-						type="button"
-						class="btn btn-ghost btn-sm btn-circle min-h-0 h-6 w-6 p-0 text-error hover:bg-error/20 touch-manipulation select-none"
-						style="-webkit-tap-highlight-color: transparent;"
-						onclick={handleClearCalculator}
-						aria-label="Clear calculator"
-					>
-						<IconClose class="w-6 h-6" />
-					</button>
-				</div>
-            {:else}
-				<div class="flex items-center justify-center gap-2 w-full">
-					{#if unit === 'usd'}
-						<span class="text-lg font-bold text-primary ml-1">$</span>
-					{:else}
-						<IconCurrencyBtc class="w-5 h-5 text-primary" />
-					{/if}
-					<div class="text-lg font-bold text-center flex-1">0</div>
-				</div>
-			{/if}
-			<!-- <div class="flex items-baseline gap-2 md:gap-3">
-				{#if unit === 'sats'}
-					<span class="text-4xl md:text-5xl lg:text-6xl font-bold text-base-content tabular-nums">
-						{formatSats(amountInSats)}
-					</span>
-					<span class="text-lg md:text-xl font-semibold text-base-content/70">{$t('wallet.sats')}</span>
-					{#if btcPrice > 0}
-						<span class="text-sm md:text-base text-base-content/60">
-							≈ {formatUSD((amountInSats / 100_000_000) * btcPrice)}
-						</span>
-					{/if}
-				{:else}
-					<span class="text-4xl md:text-5xl lg:text-6xl font-bold text-base-content tabular-nums">
-						{formatUSD(amountInUSD)}
-					</span>
-					{#if btcPrice > 0}
-						<span class="text-sm md:text-base text-base-content/60">
-							≈ {formatSats(amountInSats)} {$t('wallet.sats')}
-						</span>
-					{/if}
-				{/if}
-			</div> -->
-		</div>
-
-		<!-- Calculator Section -->
-		<div class="space-y-2">
-			<!-- Unit Toggle Buttons (at top of calculator section) -->
-			<div class="grid grid-cols-2 border border-base-300 rounded-lg overflow-hidden bg-base-100">
-				<button
-					type="button"
-					class="min-h-[30px] md:min-h-[40px] flex items-center justify-center gap-2 text-lg font-semibold touch-manipulation select-none transition-colors cursor-pointer border-r border-base-300 {unit === 'usd' ? 'bg-primary text-primary-content' : 'bg-base-100 text-base-content active:bg-base-300'}"
-					style="-webkit-tap-highlight-color: transparent;"
-					onclick={() => {
-						triggerHaptic(ImpactStyle.Light);
-						unit = 'usd';
-						amount = '';
-						mathExpression = '';
-					}}
-					aria-label="USD"
-				>
-					<IconCurrencyUsd class="w-5 h-5" />
-					<span>USD</span>
-				</button>
-				<button
-					type="button"
-					class="min-h-[30px] md:min-h-[40px] flex items-center justify-center gap-2 text-lg font-semibold touch-manipulation select-none transition-colors cursor-pointer {unit === 'sats' ? 'bg-primary text-primary-content' : 'bg-base-100 text-base-content active:bg-base-300'}"
-					style="-webkit-tap-highlight-color: transparent;"
-					onclick={() => {
-						triggerHaptic(ImpactStyle.Light);
-						unit = 'sats';
-						amount = '';
-						mathExpression = '';
-					}}
-					aria-label="Sats"
-				>
-					<IconCurrencyBtc class="w-5 h-5" />
-					<span>Sats</span>
-				</button>
-			</div>
-
-			<!-- Calculator -->
-			{#key calculatorKey}
-				<CalculatorKeypad {unit} onInput={handleCalculatorInput} onCalculationChange={handleCalculationChange} />
-			{/key}
-		</div>
+		<!-- Amount Input Section -->
+		<AmountInputSection
+			{amount}
+			{unit}
+			{mathExpression}
+			{calculatorKey}
+			onAmountChange={(value) => (amount = value)}
+			onUnitChange={(newUnit) => {
+				triggerHaptic(ImpactStyle.Light);
+				unit = newUnit;
+				amount = '';
+				mathExpression = '';
+			}}
+			onCalculationChange={handleCalculationChange}
+			onClear={handleClearCalculator}
+		/>
 
 		<!-- Network Selector (DaisyUI Native Dropdown) -->
 		<details 

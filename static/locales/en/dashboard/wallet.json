@@ -384,7 +384,7 @@
       "scan_qr_code_instead": "Scan QR Code Instead",
       "confirm_payment": "Confirm Payment",
       "address_or_invoice": "Address or Invoice",
-      "address_placeholder": "Enter address, invoice, or scan QR code",
+      "address_placeholder": "Enter address or invoice",
       "amount": "Amount",
       "memo": "Memo",
       "memo_placeholder": "Optional memo or description",
@@ -402,9 +402,7 @@
       "authentication_required": "Authentication required to send",
       "payment_sent": "Payment sent successfully",
       "large_amount_warning": {
-        "title": "Large Amount Warning",
-        "message": "You're about to send {amount}. This is a large amount. Did you mean to enter this in sats instead?",
-        "confirm_checkbox": "I confirm this is the correct amount in USD"
+        "message": "Caution: Sending large amount of {amount}"
       },
       "success": {
         "payment_sent": "Payment Sent!",
