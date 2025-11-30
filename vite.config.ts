@@ -142,18 +142,3 @@ export default defineConfig({
         allowedHosts: ['bittasker.com', 'master.bittasker.com', 'dev.bittasker.com', 'local.bittasker.com']
     }
 });
-    resolve: {
-        alias: {
-            buffer: 'buffer',
-            crypto: 'crypto-browserify',
-            stream: 'stream-browserify',
-            // Do NOT alias 'path' as it breaks WASM loading in @vulpemventures/secp256k1-zkp
-            // path: 'path-browserify',
-            path: 'path-browserify',
-            process: 'process/browser'
-        }
-    },
-    server: {
-        allowedHosts: ['bittasker.com', 'master.bittasker.com', 'dev.bittasker.com', 'local.bittasker.com']
-    }
-});

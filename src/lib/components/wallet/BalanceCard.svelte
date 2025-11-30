@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { WalletAsset } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
-	import { allAssets, totalBalances, walletManager, walletStore } from '$lib/stores/wallet.store';
+	import { allAssets, totalBalances, walletManager, walletStore, formatSats } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
@@ -12,15 +12,19 @@
 	import IconRefresh from '~icons/mdi/refresh';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 
-	interface Props {
+	let {
+		onReceive,
+		onSend,
+		onBuySell,
+		onSwap,
+		onTransactions
+	}: {
 		onReceive?: () => void;
 		onSend?: () => void;
 		onBuySell?: () => void;
 		onSwap?: () => void;
 		onTransactions?: () => void;
-	}
-
-	const props = $props<Props>();
+	} = $props();
 
 	// Refresh state
 	let isRefreshing = $state(false);
@@ -108,33 +112,33 @@
 	<!-- Quick Actions -->
 	<div class="space-y-3">
 		<!-- Send and Receive Row -->
-		<div class="grid grid-cols-2 gap-4 sm:gap-10">
-			<button
+	<div class="grid grid-cols-2 gap-4 sm:gap-10">
+		<button
 				class="btn btn-primary"
 				onclick={() => {
-					if (props.onReceive) {
-						props.onReceive();
+					if (onReceive) {
+						onReceive();
 					} else {
 						walletManager.setActiveTab('receive');
 					}
 				}}
-			>
-				<IconDownload class="mr-2 h-5 w-5" />
+		>
+			<IconDownload class="mr-2 h-5 w-5" />
 				{$t('wallet.tab_receive')}
-			</button>
+		</button>
 			<button
 				class="btn btn-secondary"
 				onclick={() => {
-					if (props.onSend) {
-						props.onSend();
+					if (onSend) {
+						onSend();
 					} else {
 						walletManager.setActiveTab('send');
 					}
 				}}
 			>
-				<IconUpload class="mr-2 h-5 w-5" />
-				{$t('wallet.send_button')}
-			</button>
+			<IconUpload class="mr-2 h-5 w-5" />
+			{$t('wallet.send_button')}
+		</button>
 		</div>
 
 		<!-- Buy & Sell and Swap Row -->
@@ -142,8 +146,8 @@
 			<button
 				class="btn btn-outline"
 				onclick={() => {
-					if (props.onBuySell) {
-						props.onBuySell();
+					if (onBuySell) {
+						onBuySell();
 					} else {
 						walletManager.setActiveTab('buy-sell');
 					}
@@ -155,8 +159,8 @@
 			<button
 				class="btn btn-outline"
 				onclick={() => {
-					if (props.onSwap) {
-						props.onSwap();
+					if (onSwap) {
+						onSwap();
 					} else {
 						walletManager.setActiveTab('swap');
 					}
@@ -192,6 +196,7 @@
 						<!-- L2 BTC Entry with Lightning Bolt Icon -->
 						{#if $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc').length > 0}
 							{#each $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc') as asset (asset.assetId)}
+								{@const balanceInSats = Math.floor(asset.balance * 100_000_000)}
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-2">
 										<svg
@@ -211,7 +216,9 @@
 										<span class="font-medium">{$t('wallet.l2_btc')}</span>
 									</div>
 									<div class="text-right">
-										<div class="font-semibold">{asset.formattedBalance}</div>
+										<div class="font-semibold">
+											{formatSats(balanceInSats)} {$t('wallet.sats')}
+										</div>
 										{#if asset.usdValue > 0}
 											<div class="text-xs opacity-70">
 												${asset.usdValue.toFixed(2)}
@@ -240,7 +247,7 @@
 									<span class="font-medium">{$t('wallet.l2_btc')}</span>
 								</div>
 								<div class="text-right">
-									<div class="font-semibold">0.000000</div>
+									<div class="font-semibold">0 {$t('wallet.sats')}</div>
 								</div>
 							</div>
 						{/if}
@@ -304,8 +311,8 @@
 		<button
 			class="btn btn-ghost"
 			onclick={() => {
-				if (props.onTransactions) {
-					props.onTransactions();
+				if (onTransactions) {
+					onTransactions();
 				} else {
 					walletManager.setActiveTab('transactions');
 				}
