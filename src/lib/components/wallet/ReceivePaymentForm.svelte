@@ -2,15 +2,15 @@
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
+	import { appStore } from '$lib/stores/app.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
-	import { ethers } from 'ethers';
+	import { ethers, type Signer } from 'ethers';
+	import { clickOutside } from '$lib/utils/clickOutside';
 	import CalculatorKeypad from '$lib/components/wallet/CalculatorKeypad.svelte';
-	import LightningReceive from '$lib/components/wallet/LightningReceive.svelte';
-	import LBTCReceive from '$lib/components/wallet/LBTCReceive.svelte';
-	import RSKReceive from '$lib/components/wallet/RSKReceive.svelte';
+	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 	import IconCurrencyUsd from '~icons/mdi/currency-usd';
 	import IconCurrencyBtc from '~icons/mdi/currency-btc';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
@@ -33,10 +33,19 @@
 	let btcPrice = $state<number>(0);
 	let invoiceGenerated = $state(false);
 	let descriptionExpanded = $state(false); // Accordion state for description field
-	let networkDropdownOpen = $state(false); // Dropdown state for network selector
+	let networkDropdownElement: HTMLDetailsElement; // Reference to details element for DaisyUI dropdown
 	let networkFeeExpanded = $state(false); // Accordion state for network fee breakdown
 	let calculatorKey = $state(0); // Key to force CalculatorKeypad reset
 	let chargeFeesToPayer = $state(false); // Toggle to charge fees to payer instead of deducting from receiver
+	let showPaymentRequestModal = $state(false); // Show payment request modal
+	let invoiceData = $state<{
+		address: string;
+		amount: number;
+		network: string;
+		memo?: string;
+		swapId?: string;
+	} | null>(null);
+	let isGeneratingInvoice = $state(false);
 	let rootstockGasFee = $state<number | null>(null); // Real-time rootstock gas fee estimate
 
 	// Fee estimation state
@@ -307,12 +316,41 @@
 		await updateFeeEstimate();
 	}, 500); // 500ms debounce
 
-	// Close dropdown when clicking outside
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-		if (!target.closest('.dropdown')) {
-			networkDropdownOpen = false;
+	// Close dropdown using DaisyUI's native details element
+	function closeNetworkDropdown() {
+		if (networkDropdownElement) {
+			networkDropdownElement.removeAttribute('open');
 		}
+	}
+
+	// Update dropdown state for chevron rotation
+	let isNetworkDropdownOpen = $state(false);
+	
+	function updateNetworkDropdownState() {
+		if (networkDropdownElement) {
+			isNetworkDropdownOpen = networkDropdownElement.hasAttribute('open');
+		}
+	}
+	
+	// Watch for changes to the dropdown's open state
+	$effect(() => {
+		if (networkDropdownElement) {
+			updateNetworkDropdownState();
+			// Use MutationObserver to watch for attribute changes
+			const observer = new MutationObserver(() => {
+				updateNetworkDropdownState();
+			});
+			observer.observe(networkDropdownElement, {
+				attributes: true,
+				attributeFilter: ['open']
+			});
+			return () => observer.disconnect();
+		}
+	});
+	
+	function handleNetworkDropdownToggle() {
+		triggerHaptic(ImpactStyle.Light);
+		// State will be updated by the MutationObserver
 	}
 
 	// Fetch BTC price and initialize fees
@@ -325,20 +363,22 @@
 		}
 		await updateFeeEstimate();
 		// Estimate Rootstock gas fee on mount so it's available in the dropdown
-		// The effect will also handle it, but we can start it here too
-		console.log('[RootstockGasFee] Component mounted, starting estimation...');
-		if (!isEstimatingGasFee && rootstockGasFee === null) {
-			await estimateRootstockGasFeePublic();
+		if (!hasStartedEstimation && !isEstimatingGasFee && rootstockGasFee === null) {
+			hasStartedEstimation = true;
+			isEstimatingGasFee = true;
+			await estimateRootstockGasFeePublic().finally(() => {
+				isEstimatingGasFee = false;
+				if (rootstockGasFee === null) {
+					hasStartedEstimation = false;
+				}
+			});
 		}
-		document.addEventListener('click', handleClickOutside);
-	});
-
-	onDestroy(() => {
-		document.removeEventListener('click', handleClickOutside);
 	});
 
 	// Track if estimation is in progress to prevent multiple simultaneous calls
 	let isEstimatingGasFee = $state(false);
+	// Track if we've already started estimation to prevent reactive loops
+	let hasStartedEstimation = $state(false);
 
 	// Update fee estimate when amount or network changes (debounced)
 	$effect(() => {
@@ -351,20 +391,21 @@
 		}
 	});
 
-	// Estimate Rootstock gas fee on mount and keep it updated (show in dropdown even if not selected)
+	// Estimate Rootstock gas fee proactively (only once, or when rootstockGasFee becomes null after error)
+	// Watch for rootstockGasFee becoming null (after error) to retry estimation
 	$effect(() => {
-		// Estimate Rootstock gas fee proactively, regardless of selected network
-		// This allows users to see the fee estimate in the dropdown before selecting Rootstock
-		if (!isEstimatingGasFee && rootstockGasFee === null) {
-			console.log('[RootstockGasFee] Starting proactive estimation (not selected yet)...');
+		const currentGasFee = rootstockGasFee;
+		// Only retry if gas fee becomes null (error case) and we're not already estimating
+		// This prevents the reactive loop by only tracking rootstockGasFee, not isEstimatingGasFee
+		if (currentGasFee === null && !hasStartedEstimation && !isEstimatingGasFee) {
+			hasStartedEstimation = true;
 			isEstimatingGasFee = true;
-			// Use public RPC - works immediately without wallet initialization
 			estimateRootstockGasFeePublic().finally(() => {
-				console.log('[RootstockGasFee] Estimation completed, resetting flag');
 				isEstimatingGasFee = false;
+				if (rootstockGasFee === null) {
+					hasStartedEstimation = false;
+				}
 			});
-		} else {
-			console.log('[RootstockGasFee] Skipping estimation - isEstimatingGasFee:', isEstimatingGasFee, 'rootstockGasFee:', rootstockGasFee);
 		}
 	});
 
@@ -597,9 +638,116 @@
 	});
 
 	// Handle invoice generation
-	function handleGenerateInvoice() {
-		if (!isFormValid) return;
-		invoiceGenerated = true;
+	async function handleGenerateInvoice() {
+		if (!isFormValid || isGeneratingInvoice) return;
+
+		isGeneratingInvoice = true;
+		try {
+			let address = '';
+			let swapId: string | undefined;
+
+			if (selectedNetwork === 'lightning-bitcoin') {
+				// Create Lightning reverse swap
+				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+					appStore.showErrorToast($t('wallet.rsk_not_connected'));
+					return;
+				}
+
+				const result = await walletManager.reverseSwapService.createReverseSwap({
+					amountSats: Math.floor(amountInSats),
+					rbtcAddress: $walletStore.rsk.address,
+					walletSigner: $walletStore.rsk.wallet as Signer
+				});
+
+				address = result.invoice;
+				swapId = result.swapId;
+			} else if (selectedNetwork === 'rootstock-bitcoin') {
+				// Get RSK address and format as payment URI
+				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+					appStore.showErrorToast($t('wallet.rsk_not_connected'));
+					return;
+				}
+
+				address = $walletStore.rsk.address;
+
+				// Add amount and memo as query params
+				const params = new URLSearchParams();
+				if (amountInSats > 0) {
+					// Convert sats to wei: 1 sat = 1e10 wei
+					const amountWei = (amountInSats * 1e10).toString();
+					params.append('value', amountWei);
+				}
+				if (memo) {
+					params.append('message', memo);
+				}
+
+				// Add chain ID for RSK
+				const chainId = RSK_NETWORKS[$appStore.network]?.chainId || 31;
+				params.append('chainId', chainId.toString());
+
+				if (params.toString()) {
+					address += `?${params.toString()}`;
+				}
+			} else if (selectedNetwork === 'liquid-bitcoin') {
+				// Create Liquid chain swap
+				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+					appStore.showErrorToast($t('wallet.rsk_not_connected'));
+					return;
+				}
+
+				const result = await walletManager.chainSwapService.createChainSwap({
+					amountSats: Math.floor(amountInSats),
+					rbtcAddress: $walletStore.rsk.address,
+					walletSigner: $walletStore.rsk.wallet as Signer
+				});
+
+				address = result.liquidUri || '';
+				swapId = result.swapId;
+			} else if (selectedNetwork === 'usdt-bsc' || selectedNetwork === 'bsc') {
+				// Get BSC address
+				if (!$walletStore.bsc.connected || !$walletStore.bsc.address) {
+					appStore.showErrorToast($t('wallet.bsc_not_connected'));
+					return;
+				}
+
+				address = $walletStore.bsc.address;
+			} else {
+				appStore.showErrorToast($t('wallet.receive_form.network_not_available'));
+				return;
+			}
+
+			if (!address) {
+				appStore.showErrorToast($t('wallet.invoice.generation_failed'));
+				return;
+			}
+
+			// Set invoice data and show modal
+			invoiceData = {
+				address,
+				amount: Math.floor(amountInSats),
+				network: selectedNetwork,
+				memo: memo || undefined,
+				swapId
+			};
+
+			showPaymentRequestModal = true;
+
+			// Call callback if provided
+			if (onInvoiceGenerated) {
+				onInvoiceGenerated({
+					address,
+					amount: Math.floor(amountInSats),
+					memo: memo || undefined
+				});
+			}
+		} catch (error) {
+			console.error('Failed to generate invoice:', error);
+			appStore.showErrorToast(
+				error instanceof Error ? error.message : $t('wallet.invoice.generation_failed')
+			);
+		} finally {
+			isGeneratingInvoice = false;
+		}
 	}
 
 	// Reset form
@@ -711,16 +859,15 @@
 			{/key}
 		</div>
 
-		<!-- Network Selector (Custom Dropdown) -->
-		<div class="dropdown dropdown-bottom w-full" class:dropdown-open={networkDropdownOpen}>
-			<button
-				type="button"
-				class="btn btn-outline w-full justify-between border-2 border-primary rounded-lg bg-base-100 py-1"
-				onclick={(e) => {
-					e.stopPropagation();
-					triggerHaptic(ImpactStyle.Light);
-					networkDropdownOpen = !networkDropdownOpen;
-				}}
+		<!-- Network Selector (DaisyUI Native Dropdown) -->
+		<details 
+			class="dropdown dropdown-bottom w-full" 
+			bind:this={networkDropdownElement}
+			use:clickOutside={{ callback: closeNetworkDropdown }}
+		>
+			<summary
+				class="btn btn-outline w-full justify-between border-2 border-primary rounded-lg bg-base-100 py-1 cursor-pointer"
+				onclick={handleNetworkDropdownToggle}
 				aria-label={$t('wallet.receive_form.select_network')}
 			>
 				<div class="flex items-center gap-2">
@@ -753,7 +900,7 @@
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-4 w-4 transition-transform duration-200"
-					class:rotate-180={networkDropdownOpen}
+					class:rotate-180={isNetworkDropdownOpen}
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -761,9 +908,10 @@
 				>
 					<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 				</svg>
-			</button>
+			</summary>
 			<ul
-				class="dropdown-content menu bg-base-100 rounded-lg w-full p-2 shadow-lg border-2 border-primary mt-1 z-[1]"
+				class="dropdown-content menu bg-base-100 rounded-lg w-full p-2 border-2 border-primary mt-1 z-[1]"
+				style="box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);"
 			>
 				{#each networkOptions as network}
 					{@const networkFees = getNetworkFees(network.value)}
@@ -773,13 +921,12 @@
 							type="button"
 							class="flex w-full items-start gap-2 p-1 rounded-lg transition-colors {!network.available ? 'opacity-40 cursor-not-allowed' : 'hover:bg-base-200'} {selectedNetwork === network.value ? 'bg-primary/10' : ''}"
 							disabled={!network.available}
-							onclick={(e) => {
-								e.stopPropagation();
+							onclick={() => {
 								if (network.available) {
 									triggerHaptic(ImpactStyle.Light);
 									console.log('[RootstockGasFee] Network selected:', network.value);
 									selectedNetwork = network.value;
-									networkDropdownOpen = false;
+									closeNetworkDropdown();
 									console.log('[RootstockGasFee] selectedNetwork updated to:', selectedNetwork);
 								}
 							}}
@@ -874,7 +1021,7 @@
 					</li>
 				{/each}
 			</ul>
-		</div>
+		</details>
 
 		<!-- Memo/Description Field (Accordion) -->
 		<div class="collapse collapse-arrow border-2 border-primary rounded-lg bg-base-100" class:collapse-open={descriptionExpanded}>
@@ -1041,9 +1188,9 @@
 					triggerHaptic(ImpactStyle.Medium);
 					handleGenerateInvoice();
 				}}
-				disabled={!isFormValid || isLoadingFees || $walletStore.isInitializing}
+				disabled={!isFormValid || isLoadingFees || $walletStore.isInitializing || isGeneratingInvoice}
 			>
-				{#if isLoadingFees || $walletStore.isInitializing}
+				{#if isLoadingFees || $walletStore.isInitializing || isGeneratingInvoice}
 					<span class="loading loading-spinner loading-sm"></span>
 				{:else}
 					<IconCashMultiple class="w-5 h-5" />
@@ -1059,29 +1206,23 @@
 				<span class="text-sm text-base-content/70">{$t('wallet.initializing')}</span>
 			</div>
 		{/if}
-	{:else}
-		<!-- Invoice Generation - Show appropriate receive component -->
-		<!-- Note: These components have their own forms, so we show them after user clicks Generate Invoice -->
-		<div class="invoice-generation space-y-4">
-			<div class="flex items-center justify-between">
-				<h3 class="text-lg font-semibold">{$t('wallet.payment_request')}</h3>
-				<button class="btn btn-ghost btn-sm" onclick={() => (invoiceGenerated = false)}>
-					{$t('common.back')}
-				</button>
-			</div>
+{/if}
 
-			{#if selectedNetwork === 'lightning-bitcoin'}
-				<LightningReceive />
-			{:else if selectedNetwork === 'rootstock-bitcoin'}
-				<RSKReceive />
-			{:else if selectedNetwork === 'liquid-bitcoin'}
-				<LBTCReceive />
-			{:else}
-				<div class="alert alert-outline alert-info">
-					<span>{$t('wallet.receive_form.network_not_available')}</span>
-				</div>
-			{/if}
-		</div>
-	{/if}
+<!-- Payment Request Modal -->
+{#if invoiceData}
+	<PaymentRequestModal
+		isOpen={showPaymentRequestModal}
+		amount={invoiceData.amount}
+		network={invoiceData.network}
+		memo={invoiceData.memo}
+		address={invoiceData.address}
+		swapId={invoiceData.swapId}
+		onClose={() => {
+			showPaymentRequestModal = false;
+			// Optionally reset form or keep it
+			// invoiceData = null;
+		}}
+	/>
+{/if}
 </div>
 

@@ -61,6 +61,7 @@
     "status_confirmed": "Confirmed",
     "status_pending": "Pending",
     "status_failed": "Failed",
+    "tx_status": "Status",
     "status_confirmations": "Confirmations",
     "transaction": {
       "status": {
@@ -324,6 +325,23 @@
     "refresh": "Refresh",
     "network": "Network",
     "copied": "Copied",
+    "payment_request": {
+      "title": "Payment Request",
+      "requesting": "Requesting",
+      "from": "From",
+      "payment_link": "Payment Link",
+      "payment_received": "Payment Received",
+      "share_title": "Payment Request",
+      "share_text": "Pay {amount} sats to {name}",
+      "you": "You"
+    },
+    "networks": {
+      "lightning": "Lightning Network",
+      "rootstock": "Rootstock",
+      "liquid": "Liquid Network",
+      "bitcoin": "Bitcoin",
+      "bsc": "Binance Smart Chain"
+    },
     "invoice": {
       "payment_request": "Payment Request",
       "qr_generation_failed": "Failed to generate QR code",
