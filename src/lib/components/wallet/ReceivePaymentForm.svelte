@@ -44,6 +44,8 @@
 		network: string;
 		memo?: string;
 		swapId?: string;
+		chargeFeesToPayer?: boolean;
+		totalFees?: number;
 	} | null>(null);
 	let isGeneratingInvoice = $state(false);
 	let rootstockGasFee = $state<number | null>(null); // Real-time rootstock gas fee estimate
@@ -249,7 +251,13 @@
 	// Estimate using wallet (more accurate, requires wallet to be ready)
 	async function estimateRootstockGasFeeWithWallet(): Promise<void> {
 		// This function should only be called when wallet is ready
+		// Double-check to prevent any race conditions
 		if ($walletStore.isInitializing || !$walletStore.rsk.connected || !$walletStore.rsk.address) {
+			console.log('[RootstockGasFee] Skipping wallet estimation - wallet not ready', {
+				isInitializing: $walletStore.isInitializing,
+				connected: $walletStore.rsk.connected,
+				address: $walletStore.rsk.address
+			});
 			return;
 		}
 
@@ -383,7 +391,14 @@
 	// Update fee estimate when amount or network changes (debounced)
 	$effect(() => {
 		amountInSats;
-		selectedNetwork;
+		const network = selectedNetwork;
+		
+		// Reset wallet estimation flag when network changes away from Rootstock
+		if (network !== 'rootstock-bitcoin') {
+			hasAttemptedWalletEstimation = false;
+			lastWalletAddress = null;
+		}
+		
 		if (amountInSats > 0) {
 			debouncedUpdateFeeEstimate();
 		} else {
@@ -416,12 +431,47 @@
 		$walletStore.rsk.address !== null
 	);
 
+	// Track if we've already attempted wallet-based estimation to prevent loops
+	let hasAttemptedWalletEstimation = $state(false);
+	let lastWalletAddress = $state<string | null>(null);
+
 	$effect(() => {
 		const isReady = isWalletReadyForRootstock;
 		const network = selectedNetwork;
+		const currentAddress = $walletStore.rsk.address;
+		const isInitializing = $walletStore.isInitializing;
+		const isConnected = $walletStore.rsk.connected;
 		
-		// If wallet becomes ready and Rootstock is selected, upgrade to wallet-based estimation
-		if (network === 'rootstock-bitcoin' && isReady && !isEstimatingGasFee) {
+		// Reset flags if wallet disconnects
+		if (!isConnected) {
+			hasAttemptedWalletEstimation = false;
+			lastWalletAddress = null;
+			return;
+		}
+		
+		// Skip if wallet is still initializing - wait for it to complete
+		if (isInitializing) {
+			return;
+		}
+		
+		// Skip if we're already estimating
+		if (isEstimatingGasFee) {
+			return;
+		}
+		
+		// Only upgrade to wallet-based estimation if:
+		// 1. Rootstock is selected
+		// 2. Wallet is ready (not initializing, connected, has address)
+		// 3. We haven't already attempted estimation for this wallet address
+		// 4. The wallet address has changed (new wallet connection)
+		if (
+			network === 'rootstock-bitcoin' && 
+			isReady && 
+			currentAddress !== null &&
+			(currentAddress !== lastWalletAddress || !hasAttemptedWalletEstimation)
+		) {
+			hasAttemptedWalletEstimation = true;
+			lastWalletAddress = currentAddress;
 			isEstimatingGasFee = true;
 			estimateRootstockGasFeeWithWallet().finally(() => {
 				isEstimatingGasFee = false;
@@ -512,8 +562,18 @@
 	async function estimateRootstockFees() {
 		try {
 			// Don't estimate if wallet is initializing or not connected
+			// Use the public gas fee estimate if available, otherwise show loading state
 			if ($walletStore.isInitializing || !$walletStore.rsk.connected || !$walletStore.rsk.address) {
-				estimatedFees = null; // Show loading state
+				// If we have a public gas fee estimate, use it
+				if (rootstockGasFee !== null && rootstockGasFee > 0) {
+					estimatedFees = {
+						serviceFee: 0,
+						networkFee: rootstockGasFee,
+						totalFees: rootstockGasFee
+					};
+				} else {
+					estimatedFees = null; // Show loading state
+				}
 				return;
 			}
 
@@ -727,7 +787,9 @@
 				amount: Math.floor(amountInSats),
 				network: selectedNetwork,
 				memo: memo || undefined,
-				swapId
+				swapId,
+				chargeFeesToPayer,
+				totalFees: estimatedFees?.totalFees || 0
 			};
 
 			showPaymentRequestModal = true;
@@ -1040,10 +1102,17 @@
 					<textarea
 						id="memo-input"
 						class="textarea textarea-bordered w-full"
+						class:textarea-error={memo.length > 200}
 						placeholder={$t('wallet.payment_for_placeholder')}
 						bind:value={memo}
 						rows="3"
+						maxlength="200"
 					></textarea>
+					<div class="label">
+						<span class="label-text-alt {memo.length > 200 ? 'text-error' : 'text-base-content/70'}">
+							{memo.length}/200 {$t('wallet.receive.description_characters')}
+						</span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -1217,10 +1286,17 @@
 		memo={invoiceData.memo}
 		address={invoiceData.address}
 		swapId={invoiceData.swapId}
+		chargeFeesToPayer={invoiceData.chargeFeesToPayer}
+		totalFees={invoiceData.totalFees}
 		onClose={() => {
 			showPaymentRequestModal = false;
 			// Optionally reset form or keep it
 			// invoiceData = null;
+		}}
+		onEdit={() => {
+			showPaymentRequestModal = false;
+			// Form data is already preserved in amount, memo, selectedNetwork, etc.
+			// The modal will close and user can edit the form
 		}}
 	/>
 {/if}

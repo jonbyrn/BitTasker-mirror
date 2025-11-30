@@ -75,7 +75,7 @@
 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 	<!-- Payment Request Form -->
 	<div class="space-y-4">
-		<h4 class="font-semibold">{$t('wallet.payment_request')}</h4>
+		<h4 class="font-semibold">{$t('wallet.payment_request_label')}</h4>
 		<p class="text-sm text-base-content/70">
 			{$t('wallet.payment_request_description')}
 		</p>

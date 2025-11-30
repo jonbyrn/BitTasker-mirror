@@ -181,6 +181,17 @@
 
 	// Handle keyboard input
 	function handleKeydown(e: KeyboardEvent) {
+		// Don't intercept keyboard events if user is typing in an input or textarea
+		const activeElement = document.activeElement;
+		if (
+			activeElement &&
+			(activeElement.tagName === 'INPUT' ||
+				activeElement.tagName === 'TEXTAREA' ||
+				activeElement.getAttribute('contenteditable') === 'true')
+		) {
+			return; // Let the input/textarea handle the event normally
+		}
+
 		// Map keyboard keys to calculator buttons
 		const keyMap: Record<string, string> = {
 			'0': '0',
