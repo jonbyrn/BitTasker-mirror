@@ -142,7 +142,7 @@
 		</div>
 
 		<!-- Buy & Sell and Swap Row -->
-		<div class="grid grid-cols-2 gap-4 sm:gap-10">
+		<!-- <div class="grid grid-cols-2 gap-4 sm:gap-10">
 			<button
 				class="btn btn-outline"
 				onclick={() => {
@@ -169,7 +169,7 @@
 				<IconSwapHorizontal class="mr-2 h-5 w-5" />
 				{$t('wallet.tab_swap')}
 			</button>
-		</div>
+		</div> -->
 	</div>
 
 	<!-- Network Breakdown -->
