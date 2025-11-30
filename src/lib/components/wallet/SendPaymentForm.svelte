@@ -418,46 +418,15 @@
 	}
 </script>
 
-<div class="send-payment-form space-y-6">
-	<!-- Tab Navigation -->
-	<div class="tabs tabs-boxed">
-		<button
-			class="tab flex-1"
-			class:bg-primary={activeTab === 'scan'}
-			class:text-primary-content={activeTab === 'scan'}
-			class:tab-active={activeTab === 'scan'}
-			onclick={() => {
-				activeTab = 'scan';
-				showConfirmation = false;
-			}}
-		>
-			{$t('wallet.send.scan_qr_code')}
-		</button>
-		<button
-			class="tab flex-1"
-			class:bg-primary={activeTab === 'enter'}
-			class:text-primary-content={activeTab === 'enter'}
-			class:tab-active={activeTab === 'enter'}
-			onclick={() => {
-				activeTab = 'enter';
-				showConfirmation = false;
-			}}
-		>
-			{$t('wallet.send.enter_payment_details')}
-		</button>
-	</div>
-
-	{#if activeTab === 'scan'}
-		{#if !showConfirmation}
+<div class="send-payment-form flex flex-col h-full">
+	<div class="flex-1 overflow-y-auto space-y-6">
+		{#if activeTab === 'scan'}
+			{#if !showConfirmation}
 			<!-- QR Code Scanner -->
 			<div class="flex flex-col items-center gap-4">
 				<p class="text-sm text-base-content/70">{$t('wallet.send.scan_qr_code_description')}</p>
 
 				<QrCodeScanner onScan={handleQRScan} onClose={() => (activeTab = 'enter')} />
-
-				<button class="btn btn-outline" onclick={() => (activeTab = 'enter')}>
-					{$t('wallet.send.enter_details_instead')}
-				</button>
 			</div>
 		{:else}
 			<!-- Confirmation Screen -->
@@ -763,14 +732,54 @@
 				</button>
 			</div>
 
-			<!-- Scan QR Code Instead Button -->
-			<div class="flex justify-center">
-				<button class="btn btn-outline" onclick={() => (activeTab = 'scan')}>
-					{$t('wallet.send.scan_qr_code_instead')}
-				</button>
-			</div>
 		</div>
 	{/if}
+	</div>
+
+	<!-- Cancel Button (Bottom, only on Scan QR Code tab) -->
+	{#if activeTab === 'scan' && !showConfirmation}
+		<div class="flex justify-center w-full pb-4">
+			<button
+				class="btn btn-error min-h-[48px] md:min-h-[56px] touch-manipulation select-none active:scale-95 transition-transform duration-100"
+				style="-webkit-tap-highlight-color: transparent;"
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					onCancel();
+				}}
+			>
+				<IconClose class="h-5 w-5 mr-2" />
+				{$t('common.cancel')}
+			</button>
+		</div>
+	{/if}
+
+	<!-- Tab Navigation (Bottom) -->
+	<div class="tabs tabs-boxed rounded-lg overflow-hidden mt-auto">
+		<button
+			class="tab flex-1"
+			class:bg-primary={activeTab === 'scan'}
+			class:text-primary-content={activeTab === 'scan'}
+			class:tab-active={activeTab === 'scan'}
+			onclick={() => {
+				activeTab = 'scan';
+				showConfirmation = false;
+			}}
+		>
+			{$t('wallet.send.scan_qr_code')}
+		</button>
+		<button
+			class="tab flex-1"
+			class:bg-primary={activeTab === 'enter'}
+			class:text-primary-content={activeTab === 'enter'}
+			class:tab-active={activeTab === 'enter'}
+			onclick={() => {
+				activeTab = 'enter';
+				showConfirmation = false;
+			}}
+		>
+			{$t('wallet.send.enter_payment_details')}
+		</button>
+	</div>
 
 	<!-- Success Screen -->
 	{#if showSuccessScreen && successTxHash && successNetwork}
