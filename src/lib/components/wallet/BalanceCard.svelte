@@ -159,7 +159,7 @@
 		</div>
 		<!-- Hide/Show Balances Toggle Button (Upper Right) -->
 		<button
-			class="absolute top-2 right-2 rounded-full p-2 min-w-[44px] bg-base-100 text-base-content shadow-2xl border-2 border-base-content/20 hover:bg-base-200 hover:shadow-3xl hover:scale-110 active:scale-95 transition-all duration-200 flex items-center gap-1"
+			class="absolute top-2 right-2 rounded-full p-2 bg-base-100 text-base-content shadow-2xl border-2 border-base-content/20 hover:bg-base-200 hover:shadow-3xl hover:scale-110 active:scale-95 transition-all duration-200 flex items-center gap-1"
 			onclick={toggleBalances}
 			aria-label={balancesHidden ? $t('wallet.show_balances') : $t('wallet.hide_balances')}
 		>
