@@ -83,6 +83,26 @@ const initialState: WalletState = {
 // Create the wallet store
 export const walletStore = writable(initialState);
 
+// Track whether assets have been loaded at least once after connection
+// This prevents showing zero balance during the brief window after initialization
+const hasLoadedAssets = writable(false);
+
+// Derived store to check if we should show loading state
+export const isAssetsLoading = derived(
+	[walletStore, hasLoadedAssets],
+	([$walletStore, $hasLoadedAssets]) => {
+		// Show loading if wallet is initializing/connecting
+		if ($walletStore.isInitializing || $walletStore.isConnecting) {
+			return true;
+		}
+		// Show loading if wallet has connected but assets haven't been loaded yet
+		if ($walletStore.hasAnyConnection && !$hasLoadedAssets) {
+			return true;
+		}
+		return false;
+	}
+);
+
 // SDK wallet manager instance
 let sdkWalletManager: WalletManager | null = null;
 
@@ -235,6 +255,7 @@ export function disconnectWallet(): void {
 	eventListeners.length = 0;
 	
 	walletStore.set(initialState);
+	hasLoadedAssets.set(false); // Reset flag on disconnect
 }
 
 /**
@@ -362,8 +383,12 @@ async function loadAssets(): Promise<void> {
 				bnb: totalBnb
 			}
 		}));
+		
+		// Mark assets as loaded after successful completion
+		hasLoadedAssets.set(true);
 	} catch (error) {
 		console.error('Failed to load assets:', error);
+		// Don't set hasLoadedAssets on error, so loading state persists
 	}
 }
 
