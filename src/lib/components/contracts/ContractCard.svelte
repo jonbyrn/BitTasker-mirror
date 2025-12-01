@@ -15,7 +15,8 @@
 		userProfile?: ContractProfile;
 	}>();
 
-	// Profile is now passed as prop, no need to fetch
+	// Profile is always provided by parent (DashboardContractsPanel)
+	// No need to load it here - parent handles all profile loading
 	const isLoadingUserProfile = $derived(userProfile === undefined);
 
 	// Format RBTC amount
@@ -81,6 +82,21 @@
 		if (contract.permissions.canCancel) count++;
 		if (contract.permissions.canResolveTimelock) count++;
 		return count;
+	}
+
+	// Format member since date
+	function formatMemberSinceDate(dateString: string | undefined): string {
+		if (!dateString) return '';
+		try {
+			const date = new Date(dateString);
+			if (isNaN(date.getTime())) return dateString;
+			return date.toLocaleDateString('en-US', {
+				month: 'short',
+				year: 'numeric'
+			});
+		} catch (error) {
+			return dateString;
+		}
 	}
 
 	const openDrawer = () => {
@@ -181,7 +197,9 @@
 				<!-- Avatar -->
 				<div class="avatar shrink-0">
 					<div class="bg-base-300 flex h-6 w-6 items-center justify-center rounded-full">
-						{#if userProfile?.picture}
+						{#if isLoadingUserProfile}
+							<div class="skeleton h-6 w-6 rounded-full"></div>
+						{:else if userProfile?.picture}
 							<img
 								src={userProfile.picture}
 								alt="User avatar"
@@ -233,6 +251,14 @@
 								{$t('dashboard.contracts.tasks')})
 							</span>
 						</div>
+					{/if}
+
+					<!-- Member Since -->
+					{#if !isLoadingUserProfile && userProfile?.createdAt}
+						<p class="text-base-content/60 mt-1 text-xs">
+							{$t('dashboard.contracts.member_since')}{' '}
+							{formatMemberSinceDate(userProfile.createdAt)}
+						</p>
 					{/if}
 				</div>
 			</div>

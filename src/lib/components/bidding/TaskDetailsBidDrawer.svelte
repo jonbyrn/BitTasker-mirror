@@ -325,6 +325,7 @@
 					taskCreatorAvatar={taskCreatorAvatar!}
 					taskTitle={task.title}
 					taskDescription={task.description}
+					taskTranslations={task.translations}
 					taskDateRange={task.dateRange}
 					taskDeadline={task.deadline}
 					loggedInUserId={loggedInUser.id}

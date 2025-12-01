@@ -128,16 +128,18 @@
 			</div>
 
 			<!-- Approach -->
-			<div class="mb-6">
-				<h3 class="mb-2 text-base font-semibold">{$t('dashboard.bids.bid_details.proposed_approach')}</h3>
-				<div class="whitespace-pre-line">
-					<TranslatableBidContent 
-						bid={props.bid as any}
-						content={props.bid.proposedApproach} 
-						contentType="proposedApproach"
-					/>
+			{#if props.bid.proposedApproach && props.bid.proposedApproach.trim() !== ''}
+				<div class="mb-6">
+					<h3 class="mb-2 text-base font-semibold">{$t('dashboard.bids.bid_details.proposed_approach')}</h3>
+					<div class="whitespace-pre-line">
+						<TranslatableBidContent 
+							bid={props.bid as any}
+							content={props.bid.proposedApproach} 
+							contentType="proposedApproach"
+						/>
+					</div>
 				</div>
-			</div>
+			{/if}
 
 			<!-- Timeline -->
 			<div class="mb-6">

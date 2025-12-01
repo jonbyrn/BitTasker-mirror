@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { NostrEvent } from 'nostr-tools';
 	import type { CounterOffer, NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import {
 		getBidsForTask,
@@ -19,7 +19,6 @@
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
-	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 	import { getUserDisplayNameFromProfile } from '$lib/utils/helpers/userDisplayName';
 	import { nip19 } from 'nostr-tools';
 	import KINDS from '$lib/utils/constants/kinds';
@@ -47,6 +46,35 @@
 	});
 	let selectedBidderId = $state<string | null>(null);
 	let selectedBidderName = $state<string>('');
+
+	// Simple function to get translated bid content (description, proposedApproach, coverLetter)
+	// Reactive to locale changes via $locale
+	function getTranslatedBidContent(
+		bid: NostrBidContent,
+		field: 'description' | 'proposedApproach' | 'coverLetter'
+	): string {
+		const currentLang = $locale || 'en';
+		const originalText = bid[field] || '';
+		
+		// If no translations, return original
+		if (!bid.translations) {
+			return originalText;
+		}
+
+		// If current language is source language, return original
+		if (bid.translations.sourceLanguage === currentLang) {
+			return originalText;
+		}
+
+		// Get translation for current language
+		const translation = bid.translations.translations[currentLang];
+		if (translation) {
+			return translation[field] || originalText;
+		}
+
+		// Fallback to original
+		return originalText;
+	}
 
 	// Cache for formatted dates to avoid re-computation
 	let dateFormatterCache = $state<Map<string, string>>(new Map());
@@ -558,7 +586,7 @@
 							<!-- Description -->
 							<div class="min-w-0 flex-1">
 								<p class="text-base-content/80 wrap-break-words line-clamp-2">
-									{bidContent.description}
+									{getTranslatedBidContent(bidContent, 'description')}
 								</p>
 							</div>
 							<!-- Payment info row: FIXED info on left, price on right (same row for all screen sizes) -->
@@ -746,25 +774,23 @@
 											{$t('bids.your_description')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
-											<TranslatableBidContent
-												content={bidContent.description}
-												contentType="description"
-											/>
+											<p class="text-base-content/80 text-sm leading-relaxed">
+												{getTranslatedBidContent(bidContent, 'description')}
+											</p>
 										</div>
 									</div>
 								{/if}
 
 								<!-- Approach -->
-								{#if bidContent.proposedApproach}
+								{#if bidContent.proposedApproach && bidContent.proposedApproach.trim() !== ''}
 									<div>
 										<p class="text-base-content/60 wrap-break-words mb-2 text-xs font-medium">
 											{$t('bids.your_approach')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
-											<TranslatableBidContent
-												content={bidContent.proposedApproach}
-												contentType="proposedApproach"
-											/>
+											<p class="text-base-content/80 text-sm leading-relaxed">
+												{getTranslatedBidContent(bidContent, 'proposedApproach')}
+											</p>
 										</div>
 									</div>
 								{/if}
@@ -776,10 +802,9 @@
 											{$t('bids.your_cover_letter')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
-											<TranslatableBidContent
-												content={bidContent.coverLetter}
-												contentType="coverLetter"
-											/>
+											<p class="text-base-content/80 text-sm leading-relaxed">
+												{getTranslatedBidContent(bidContent, 'coverLetter')}
+											</p>
 										</div>
 									</div>
 								{/if}
