@@ -534,7 +534,7 @@
 	</div>
 
 	{#if error}
-		<div class="alert alert-error">
+		<div class="alert alert-error alert-outline">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -651,7 +651,7 @@
 									</div>
 								</div>
 								<div
-									class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
+									class="font-semibold mr-4 {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
 								>
 									{tx.type === 'receive' ? '+' : '-'}
 									{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
@@ -680,7 +680,7 @@
 										<div>{formatTime(tx.timestamp)}</div>
 									</div>
 								</div>
-								<div class="flex flex-col items-end gap-1.5 text-right">
+								<div class="flex flex-col items-end gap-1.5 text-right mr-4">
 									{#if tx.fee}
 										<div class="text-xs opacity-70">
 											{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
