@@ -13,6 +13,7 @@
 	import IconRefresh from '~icons/mdi/refresh';
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
+	import IconChevronRight from '~icons/mdi/chevron-right';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 
 	let {
@@ -182,68 +183,6 @@
 		</button>
 	</div>
 
-	<!-- Quick Actions -->
-	<div class="space-y-3">
-		<!-- Send and Receive Row -->
-	<div class="grid grid-cols-2 gap-4 sm:gap-10">
-		<button
-				class="btn btn-primary"
-				onclick={() => {
-					if (onReceive) {
-						onReceive();
-					} else {
-						walletManager.setActiveTab('receive');
-					}
-				}}
-		>
-			<IconDownload class="mr-2 h-5 w-5" />
-				{$t('wallet.tab_receive')}
-		</button>
-			<button
-				class="btn btn-secondary"
-				onclick={() => {
-					if (onSend) {
-						onSend();
-					} else {
-						walletManager.setActiveTab('send');
-					}
-				}}
-			>
-			<IconUpload class="mr-2 h-5 w-5" />
-			{$t('wallet.send_button')}
-		</button>
-		</div>
-
-		<!-- Buy & Sell and Swap Row -->
-		<!-- <div class="grid grid-cols-2 gap-4 sm:gap-10">
-			<button
-				class="btn btn-outline"
-				onclick={() => {
-					if (onBuySell) {
-						onBuySell();
-					} else {
-						walletManager.setActiveTab('buy-sell');
-					}
-				}}
-			>
-				<IconCashMultiple class="mr-2 h-5 w-5" />
-				{$t('wallet.tab_buy_sell')}
-			</button>
-			<button
-				class="btn btn-outline"
-				onclick={() => {
-					if (onSwap) {
-						onSwap();
-					} else {
-						walletManager.setActiveTab('swap');
-					}
-				}}
-			>
-				<IconSwapHorizontal class="mr-2 h-5 w-5" />
-				{$t('wallet.tab_swap')}
-			</button>
-		</div> -->
-	</div>
 
 	<!-- Network Breakdown -->
 	<div class="space-y-4">
@@ -427,9 +366,10 @@
 	</div>
 
 	<!-- Transactions Button -->
-	<div class="mt-6 flex justify-center">
+	<div class="mt-6">
 		<button
-			class="btn btn-ghost"
+			type="button"
+			class="collapse-title min-h-0 py-3 px-4 pr-12 font-medium text-left flex items-center justify-between w-full border-2 border-primary rounded-lg bg-base-100 hover:bg-base-200 transition-colors"
 			onclick={() => {
 				if (onTransactions) {
 					onTransactions();
@@ -438,8 +378,43 @@
 				}
 			}}
 		>
-			<IconFormatListBulleted class="mr-2 h-5 w-5" />
-			{$t('wallet.tab_transactions')}
+			<div class="flex items-center gap-2 flex-1 min-w-0">
+				<IconFormatListBulleted class="h-5 w-5 shrink-0" />
+				<span>{$t('wallet.tab_transactions')}</span>
+			</div>
+			<div class="absolute right-3 flex items-center">
+				<IconChevronRight class="h-6 w-6 shrink-0" />
+			</div>
+		</button>
+	</div>
+
+	<!-- Send and Receive Buttons -->
+	<div class="mt-4 flex flex-col sm:flex-row gap-4">
+		<button
+			class="btn btn-secondary flex-1 py-3 order-1 sm:order-2"
+			onclick={() => {
+				if (onSend) {
+					onSend();
+				} else {
+					walletManager.setActiveTab('send');
+				}
+			}}
+		>
+			<IconUpload class="mr-2 h-5 w-5" />
+			{$t('wallet.send_button')}
+		</button>
+		<button
+			class="btn btn-primary flex-1 py-3 order-2 sm:order-1"
+			onclick={() => {
+				if (onReceive) {
+					onReceive();
+				} else {
+					walletManager.setActiveTab('receive');
+				}
+			}}
+		>
+			<IconDownload class="mr-2 h-5 w-5" />
+			{$t('wallet.tab_receive')}
 		</button>
 	</div>
 
