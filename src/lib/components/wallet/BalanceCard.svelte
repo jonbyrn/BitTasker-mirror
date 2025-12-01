@@ -409,13 +409,13 @@
 						/>
 						<span class="text-base-content/50 font-medium">{$t('wallet.usdt_binance_chain')}</span>
 						<div class="text-base-content/50 ml-auto text-xs">
-							${$walletStore.bsc.formattedUsdtBalance || '0.00'}
+							${parseFloat($walletStore.bsc.formattedUsdtBalance || '0').toFixed(2)}
 						</div>
 					</div>
 					<div class="flex items-center gap-2">
 						<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5 opacity-50" />
 						<span class="text-base-content/50 font-medium">{$t('wallet.usdt_liquid')}</span>
-						<div class="text-base-content/50 ml-auto text-xs">$0.000000</div>
+						<div class="text-base-content/50 ml-auto text-xs">$0.00</div>
 					</div>
 					<div class="mt-4 text-center">
 						<p class="text-base-content/50 font-bold">{$t('wallet.coming_soon')}</p>
