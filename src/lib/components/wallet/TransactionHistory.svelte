@@ -403,7 +403,7 @@
 									alt={selectedOption.label}
 									class="h-5 w-5"
 								/>
-							{:else if selectedOption}
+							{:else if selectedOption && typeof selectedOption.icon !== 'string'}
 								{@const IconComponent = selectedOption.icon}
 								<IconComponent class="h-5 w-5" />
 							{/if}
@@ -431,16 +431,16 @@
 									: 'text-base-content'}"
 								onclick={() => selectNetworkFilter(option.id)}
 							>
-								{#if option.isImage}
-									<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
-								{:else}
-									{@const IconComponent = option.icon}
-									<IconComponent
-										class="h-5 w-5 {networkFilter === option.id
-											? 'text-primary'
-											: 'text-base-content/60'}"
-									/>
-								{/if}
+							{#if option.isImage}
+								<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
+							{:else if typeof option.icon !== 'string'}
+								{@const IconComponent = option.icon}
+								<IconComponent
+									class="h-5 w-5 {networkFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
+								/>
+							{/if}
 								<span class="font-medium">{option.label}</span>
 								{#if networkFilter === option.id}
 									<IconCheck class="text-primary ml-auto h-5 w-5" />
@@ -522,7 +522,7 @@
 								alt={option.label}
 								class="h-5 w-5 {networkFilter === option.id ? 'opacity-100' : 'opacity-60'}"
 							/>
-						{:else}
+						{:else if typeof option.icon !== 'string'}
 							{@const IconComponent = option.icon}
 							<IconComponent class="h-5 w-5 {networkFilter === option.id ? 'text-primary' : ''}" />
 						{/if}

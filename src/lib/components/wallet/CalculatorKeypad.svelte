@@ -9,7 +9,7 @@
 		onCalculationChange?: (mathExpression: string, result: number) => void;
 	}
 
-	const props = $props<Props>();
+	const props: Props = $props();
 
 	// Calculator state
 	let calculatorValue = $state('');
@@ -62,10 +62,9 @@
 	}
 
 	function handleInput(value: string) {
-		triggerHaptic(ImpactStyle.Light);
-
 		if (value === 'C') {
 			// Clear
+			triggerHaptic(ImpactStyle.Light);
 			calculatorValue = '';
 			previousValue = null;
 			operator = null;
@@ -77,18 +76,21 @@
 			}
 		} else if (value === '⌫') {
 			// Delete last character
+			triggerHaptic(ImpactStyle.Light);
 			calculatorValue = calculatorValue.slice(0, -1);
 			props.onInput(calculatorValue);
 			updateMathExpression();
 		} else if (value === '.') {
 			// Decimal point (USD mode only)
-			if (props.unit === 'sats') return; // No decimals for sats
+			if (props.unit === 'sats') return; // No decimals for sats - don't trigger haptic for invalid action
 			if (!calculatorValue.includes('.')) {
+				triggerHaptic(ImpactStyle.Light);
 				calculatorValue += '.';
 				props.onInput(calculatorValue);
 				updateMathExpression();
 			}
 		} else if (['+', '−', '×', '÷'].includes(value)) {
+			triggerHaptic(ImpactStyle.Light);
 			// Operator - auto-calculate if we have a previous value and operator
 			if (previousValue !== null && operator && calculatorValue) {
 				// Auto-calculate previous operation
@@ -127,6 +129,7 @@
 			updateMathExpression();
 		} else if (value === '=') {
 			// Perform calculation
+			triggerHaptic(ImpactStyle.Light);
 			if (previousValue !== null && operator && calculatorValue) {
 				const currentValue = parseFloat(calculatorValue) || 0;
 				let result = 0;
@@ -164,14 +167,17 @@
 			}
 		} else {
 			// Number input
+			// Prevent decimals in sats mode - don't trigger haptic for invalid action
+			if (!waitingForOperand && props.unit === 'sats' && calculatorValue.includes('.')) {
+				return;
+			}
+			
+			triggerHaptic(ImpactStyle.Light);
+			
 			if (waitingForOperand) {
 				calculatorValue = value;
 				waitingForOperand = false;
 			} else {
-				// Prevent decimals in sats mode
-				if (props.unit === 'sats' && calculatorValue.includes('.')) {
-					return;
-				}
 				calculatorValue += value;
 			}
 			props.onInput(calculatorValue);
