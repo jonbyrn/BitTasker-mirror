@@ -16,10 +16,37 @@ let contract: ethers.Contract | null = null;
 const legacyContracts = new Map<string, ethers.Contract>();
 
 /**
+ * Check if a provider is destroyed
+ * @param provider - The provider to check
+ * @returns true if provider is destroyed, false otherwise
+ */
+function isProviderDestroyed(provider: ethers.JsonRpcProvider | null): boolean {
+    if (!provider) return true;
+    try {
+        // Check for destroyed state (ethers v6 uses _destroyed or destroyed property)
+        // Only return true if explicitly set to true (not just if property exists)
+        const isDestroyed = (provider as any)._destroyed === true || (provider as any).destroyed === true;
+        if (isDestroyed) return true;
+
+        // Additional check: try a simple RPC call to see if the provider is responsive
+        // This is a more robust check for a truly "destroyed" or unresponsive provider
+        // However, this can be slow and might trigger rate limits if done too often.
+        // For now, rely on the _destroyed property and the overall error handling.
+        return false;
+    } catch (error) {
+        // If we can't check, assume it's destroyed to be safe
+        console.warn('[escrow] Error checking provider state, assuming destroyed:', error);
+        return true;
+    }
+}
+
+/**
  * Force reset the cached contract (useful when provider is destroyed)
+ * Also clears legacy contract cache
  */
 function resetCachedContract(): void {
     contract = null;
+    legacyContracts.clear(); // Also clear legacy contracts cache
 }
 
 const getRSKWallet = () => getWallet('rsk');
@@ -62,30 +89,33 @@ export async function ensureEscrowReady(
         }
     }
 
+    // Validate provider is not destroyed (only if we have a provider)
+    if (provider && isProviderDestroyed(provider)) {
+        // Provider is destroyed, try to get a fresh one
+        const { walletManager } = await import('$lib/stores/wallet.store');
+        await walletManager.initialize();
+        const freshProvider = getRSKProvider();
+        if (!freshProvider) {
+            throw new Error('Failed to get provider after recovery attempt');
+        }
+        if (isProviderDestroyed(freshProvider)) {
+            throw new Error('Provider is destroyed and cannot be recovered');
+        }
+        provider = freshProvider;
+    }
+
     // Determine which contract to use/initialize
     let targetContract: ethers.Contract;
 
     if (!contractAddress) {
         // No contract address provided - use default contract
-        // Check if contract exists and if its provider is still valid
-        if (contract) {
-            try {
-                // Verify the contract's provider is still valid
-                // Check if provider is destroyed (ethers v6 uses _destroyed property)
-                const contractProvider = (contract as any).provider;
-                if (contractProvider) {
-                    // Check for destroyed state (ethers v6)
-                    if ((contractProvider as any)._destroyed || (contractProvider as any).destroyed) {
-                        // Provider is destroyed, reset contract to force re-initialization
-                        console.warn('[escrow] Cached contract has destroyed provider, resetting...');
-                        contract = null;
-                    }
-                }
-            } catch (error) {
-                // If we can't check the provider, reset contract to be safe
-                console.warn('[escrow] Error checking contract provider, resetting contract:', error);
-                contract = null;
-            }
+        // Check if contract exists and if current provider is still valid
+        // We check the current provider, not the contract's provider, because
+        // the contract's provider might be a different object reference
+        if (contract && isProviderDestroyed(provider)) {
+            // Current provider is destroyed, reset contract to force re-initialization
+            console.warn('[escrow] Provider is destroyed, resetting cached contract...');
+            contract = null;
         }
         
         if (!contract) {
@@ -101,24 +131,11 @@ export async function ensureEscrowReady(
 
         if (contractAddress.toLowerCase() === defaultAddress?.toLowerCase()) {
             // Matches default - use default contract
-            // Check if contract exists and if its provider is still valid
-            if (contract) {
-                try {
-                    // Verify the contract's provider is still valid
-                    const contractProvider = (contract as any).provider;
-                    if (contractProvider) {
-                        // Check for destroyed state (ethers v6)
-                        if ((contractProvider as any)._destroyed || (contractProvider as any).destroyed) {
-                            // Provider is destroyed, reset contract to force re-initialization
-                            console.warn('[escrow] Cached contract has destroyed provider, resetting...');
-                            contract = null;
-                        }
-                    }
-                } catch (error) {
-                    // If we can't check the provider, reset contract to be safe
-                    console.warn('[escrow] Error checking contract provider, resetting contract:', error);
-                    contract = null;
-                }
+            // Check if contract exists and if current provider is still valid
+            if (contract && isProviderDestroyed(provider)) {
+                // Current provider is destroyed, reset contract to force re-initialization
+                console.warn('[escrow] Provider is destroyed, resetting cached contract...');
+                contract = null;
             }
             
             if (!contract) {
@@ -131,22 +148,36 @@ export async function ensureEscrowReady(
         } else {
             // Legacy contract - check cache or create new instance
             const normalizedAddress = contractAddress.toLowerCase();
+            let legacyContract: ethers.Contract | null = null;
 
             if (legacyContracts.has(normalizedAddress)) {
-                // Use cached legacy contract
-                targetContract = legacyContracts.get(normalizedAddress)!;
-            } else {
-                // Create new legacy contract instance
+                // Use cached legacy contract, but check if its provider is destroyed
+                const cachedContract = legacyContracts.get(normalizedAddress)!;
+                const cachedProvider = (cachedContract as any).provider;
+                if (cachedProvider && isProviderDestroyed(cachedProvider)) {
+                    // Cached contract's provider is destroyed, remove from cache and recreate
+                    console.warn('[escrow] Cached legacy contract has destroyed provider, recreating...');
+                    legacyContracts.delete(normalizedAddress);
+                    // Fall through to create new instance
+                } else {
+                    legacyContract = cachedContract;
+                }
+            }
+            
+            // Create new legacy contract instance if not found in cache or if cached one was invalid
+            if (!legacyContract) {
                 try {
                     const checksummedAddress = ethers.getAddress(contractAddress);
-                    targetContract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
+                    legacyContract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
 
                     // Cache it for future use
-                    legacyContracts.set(normalizedAddress, targetContract);
+                    legacyContracts.set(normalizedAddress, legacyContract);
                 } catch (error) {
                     throw new Error(`Failed to connect to legacy contract at ${contractAddress}: ${error instanceof Error ? error.message : 'Unknown error'}`);
                 }
             }
+            
+            targetContract = legacyContract;
         }
     }
 
@@ -1026,6 +1057,8 @@ async function estimateEscrowCreationGas(
 
 // Estimate gas for contract function
 async function estimateContractGas(functionName: string, escrowId: string, ...args: any[]): Promise<GasEstimation> {
+    const GAS_ESTIMATION_TIMEOUT_MS = 30000; // 30 seconds timeout
+    
     try {
         const { contract, provider } = await ensureEscrowReady();
 
@@ -1034,19 +1067,58 @@ async function estimateContractGas(functionName: string, escrowId: string, ...ar
             throw new Error(`Function ${functionName} not found`);
         }
 
-        const gasLimit = await contractFunction.estimateGas(escrowId, ...args);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
         const feeData = await provider.getFeeData();
         const gasPrice = feeData.gasPrice || BigInt(0);
-        const totalCost = gasLimit * gasPrice;
+
+        // Handle proposeResolution specially - convert RBTC string to Wei
+        let processedArgs: any[];
+        if (functionName === 'proposeResolution' && args.length > 0) {
+            // First arg should be freelancerAmount in RBTC (string), convert to Wei
+            const freelancerAmountWei = ethers.parseEther(args[0]);
+            processedArgs = [freelancerAmountWei];
+        } else {
+            processedArgs = args;
+        }
+
+        // Estimate gas with timeout to prevent hanging
+        const gasEstimatePromise = contractFunction.estimateGas(escrowId, ...processedArgs, {
+            gasPrice: gasPrice
+        });
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+                reject(new Error('Gas estimation timeout after 30 seconds'));
+            }, GAS_ESTIMATION_TIMEOUT_MS);
+        });
+
+        // Race between gas estimation and timeout
+        const gasEstimate = await Promise.race([gasEstimatePromise, timeoutPromise]);
+
+        // Add 10% buffer to match actual transaction behavior
+        const gasLimitWithBuffer = gasEstimate + (gasEstimate / 10n);
+        const totalCost = gasLimitWithBuffer * gasPrice;
 
         return {
-            gasLimit: gasLimit.toString(),
+            gasLimit: gasLimitWithBuffer.toString(),
             gasPrice: gasPrice.toString(),
             totalCost: totalCost.toString(),
             totalCostFormatted: ethers.formatEther(totalCost)
         };
 
     } catch (error) {
+        // Preserve original error structure when wrapping
+        // This allows error detection to work properly
+        if (error instanceof Error) {
+            const wrappedError = new Error(`Gas estimation failed: ${error.message}`);
+            // Preserve error code if it exists (ethers.js errors have a code property)
+            if ('code' in error && typeof (error as any).code === 'string') {
+                (wrappedError as any).code = (error as any).code;
+            }
+            // Store original error in cause for error detection
+            (wrappedError as any).cause = error;
+            throw wrappedError;
+        }
         throw new Error(`Gas estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }

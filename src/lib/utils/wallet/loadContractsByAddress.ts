@@ -52,7 +52,7 @@ export async function loadContractsByAddress(
 			durationMs: ensureDuration.toFixed(2)
 		});
 
-		// Get total number of escrows with retry logic and timeout
+		// Get total number of escrows with timeout (no retries - errors will be shown to user)
 		let nextEscrowId: bigint;
 		try {
 			const nextIdStartTime = performance.now();
@@ -64,7 +64,7 @@ export async function loadContractsByAddress(
 				'nextEscrowId',
 				[],
 				{
-					maxRetries: 3,
+					maxRetries: 0, // Disabled retries - show error to user instead
 					timeoutMs: 30000, // 30 second timeout
 					initialDelayMs: 1000
 				}
@@ -77,34 +77,9 @@ export async function loadContractsByAddress(
 				durationMs: nextIdDuration.toFixed(2)
 			});
 		} catch (error: any) {
-			// Check if error is due to destroyed provider - reset and retry once more
-			if (error?.code === 'UNSUPPORTED_OPERATION' && error?.message?.includes('provider destroyed')) {
-				console.warn('[DEBUG] Provider destroyed during nextEscrowId call, resetting contract and retrying...');
-				try {
-					// Reset cached contract and retry (read-only operation, no balance required)
-					escrow.resetCachedContract();
-					const { contract: retryContract } = await escrow.ensureEscrowReady(undefined, false);
-					if (!retryContract) {
-						throw new Error('Failed to get contract after reset');
-					}
-					nextEscrowId = await callContractMethod<bigint>(
-						retryContract,
-						'nextEscrowId',
-						[],
-						{
-							maxRetries: 2, // Fewer retries on second attempt
-							timeoutMs: 30000,
-							initialDelayMs: 1000
-						}
-					);
-				} catch (retryError) {
-					console.error('[DEBUG] Failed to get nextEscrowId after provider reset:', retryError);
-					return [];
-				}
-			} else {
-				console.error('[DEBUG] Failed to get nextEscrowId:', error);
-				return [];
-			}
+			// Removed provider destroyed retry logic - errors will propagate to UI
+			console.error('[DEBUG] Failed to get nextEscrowId:', error);
+			throw error; // Propagate error immediately
 		}
 
 		const contracts: EscrowData[] = [];
