@@ -8,6 +8,8 @@
     "tab_swap": "Swap",
     "tab_transactions": "Transactions",
     "total_balance": "Total Balance",
+    "show_balances": "Show Balances",
+    "hide_balances": "Hide Balances",
     "liquid_balance": "Liquid Balance",
     "receive": {
       "title": "Receive Payment"
@@ -38,6 +40,7 @@
     "available_balance": "Available Balance",
     "transaction_fee": "Transaction Fee",
     "network_fee": "Network Fee",
+    "tx_fee": "Tx Fee",
     "fee_low": "Low",
     "fee_medium": "Medium",
     "fee_high": "High",
@@ -347,6 +350,7 @@
       "share_text": "Please send {amount} sats to: {address}"
     },
     "all": "All",
+    "all_networks": "All Networks",
     "failed_to_load_transactions": "Failed to load transactions",
     "no_transactions_yet": "No transactions yet. Start by sending or receiving payments.",
     "no_transactions_filter": "No transactions match the current filter.",
