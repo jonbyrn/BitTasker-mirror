@@ -10,8 +10,9 @@
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
-	import type { DateRange } from '$lib/types/task';
+	import type { DateRange, TaskTranslations } from '$lib/types/task';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { generateBidTranslations } from '$lib/nostr/bid';
 
 	// Props
 	const {
@@ -22,6 +23,7 @@
 		taskCreatorAvatar,
 		taskTitle,
 		taskDescription,
+		taskTranslations,
 		taskDateRange,
 		taskDeadline,
 		loggedInUserId,
@@ -32,6 +34,7 @@
 		onClose: () => void;
 		taskTitle: string; // Add task title prop
 		taskDescription: string; // Add task description prop
+		taskTranslations?: TaskTranslations; // Add task translations prop
 		taskDateRange?: DateRange | null;
 		taskDeadline?: string | null;
 		taskCreatorPubkey?: string | undefined; // Add task creator pubkey prop
@@ -433,13 +436,13 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 			errors.description = $t('bid_form.errors.description_max_length');
 		}
 
-		// Validate proposed approach - min 20, max 1000
-		if (!proposedApproach || proposedApproach.trim() === '') {
-			errors.proposedApproach = $t('bid_form.errors.proposed_approach_required');
-		} else if (proposedApproach.trim().length < 20) {
-			errors.proposedApproach = $t('bid_form.errors.proposed_approach_min_length');
-		} else if (proposedApproach.trim().length > 1000) {
-			errors.proposedApproach = $t('bid_form.errors.proposed_approach_max_length');
+		// Validate proposed approach - optional, but if provided: min 20, max 1000
+		if (proposedApproach && proposedApproach.trim() !== '') {
+			if (proposedApproach.trim().length < 20) {
+				errors.proposedApproach = $t('bid_form.errors.proposed_approach_min_length');
+			} else if (proposedApproach.trim().length > 1000) {
+				errors.proposedApproach = $t('bid_form.errors.proposed_approach_max_length');
+			}
 		}
 
 		bidFormErrors = errors;
@@ -501,12 +504,20 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 		try {
 			await walletManager.initialize();
 
+			// Generate translations for bid content (description, proposedApproach, coverLetter)
+			const bidTranslations = await generateBidTranslations({
+				description,
+				proposedApproach,
+				coverLetter
+			});
+
 			// Create bid data structure with explicit type
 			const bidData = {
 				type: 'bid',
 				taskId: taskId,
 				taskTitle: taskTitle,
 				taskDescription: taskDescription,
+				taskTranslations: taskTranslations, // Save task translations
 				amount: amount, // Send USD amount directly
 				currency: 'USD',
 				paymentType: bidType,
@@ -533,7 +544,10 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 
 				// Add new datetime fields
 				startDateTime: bidType === 'FIXED' ? startDateTime : null,
-				endDateTime: bidType === 'FIXED' ? endDateTime : null
+				endDateTime: bidType === 'FIXED' ? endDateTime : null,
+
+				// Add bid translations
+				...(bidTranslations && { translations: bidTranslations })
 			};
 
 			// Create custom tags for the bid event using TAG_PATTERNS

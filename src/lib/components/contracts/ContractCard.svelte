@@ -8,41 +8,16 @@
 	import { contractStore } from '$lib/stores/contract.store';
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
-	import { fetchContractProfile } from '$lib/utils/nostr-profile';
 
-	const { contract, btcPrice, userProfile: userProfileProp } = $props<{
+	const { contract, btcPrice, userProfile } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
 		userProfile?: ContractProfile;
 	}>();
 
-	let userProfile = $state<ContractProfile | null>(null);
-	let isLoadingUserProfile = $state(false);
-
-	// If profile is passed as prop, use it; otherwise load it
-	$effect(() => {
-		if (userProfileProp !== undefined) {
-			// Profile provided by parent - use it directly
-			userProfile = userProfileProp ?? null;
-			isLoadingUserProfile = false;
-		} else {
-			// Profile not provided - load it ourselves (fallback)
-			const userPubkey = contractStore.getContractKey(contract, 'taskeePubkey');
-			loadUserProfile(userPubkey);
-		}
-	});
-
-	async function loadUserProfile(pubkey: string) {
-		try {
-			isLoadingUserProfile = true;
-			userProfile = await fetchContractProfile(pubkey);
-		} catch (error) {
-			console.error('Failed to load user profile:', error);
-			userProfile = null;
-		} finally {
-			isLoadingUserProfile = false;
-		}
-	}
+	// Profile is always provided by parent (DashboardContractsPanel)
+	// No need to load it here - parent handles all profile loading
+	const isLoadingUserProfile = $derived(userProfile === undefined);
 
 	// Format RBTC amount
 	function formatRBTC(amount: string): string {

@@ -87,6 +87,7 @@
         "estimated_duration": "Duración Estimada",
         "your_description": "Descripción",
         "your_approach": "Enfoque",
+        "no_approach_provided": "No se proporcionó enfoque",
         "your_cover_letter": "Carta de Presentación",
         "show_more_details": "Mostrar más detalles",
         "show_less": "Mostrar menos",
@@ -124,7 +125,7 @@
                 "placeholder": "Explica por qué eres la persona adecuada para esta tarea"
             },
             "approach": {
-                "label": "Tu Enfoque",
+                "label": "Tu Enfoque (Opcional)",
                 "placeholder": "Describe cómo planeas completar esta tarea"
             },
             "cover_letter": {
