@@ -472,7 +472,7 @@
 						{#if !isTransactionConfirmed}
 							<div class="flex items-center gap-2">
 								<span class="loading loading-spinner loading-sm"></span>
-								<span class="badge badge-warning">{$t('wallet.transaction.status.pending')}</span>
+								<span class="badge badge-warning text-primary-content">{$t('wallet.transaction.status.pending')}</span>
 							</div>
 						{/if}
 					</div>
