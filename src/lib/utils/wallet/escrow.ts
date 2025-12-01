@@ -1025,7 +1025,8 @@ async function estimateEscrowCreationGas(
     freelancerFeeTier: FeeTier
 ): Promise<GasEstimation> {
     try {
-        const { contract, provider } = await ensureEscrowReady();
+        // Gas estimation is a read-only operation, doesn't require balance
+        const { contract, provider } = await ensureEscrowReady(undefined, false);
 
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
@@ -1060,7 +1061,8 @@ async function estimateContractGas(functionName: string, escrowId: string, ...ar
     const GAS_ESTIMATION_TIMEOUT_MS = 30000; // 30 seconds timeout
     
     try {
-        const { contract, provider } = await ensureEscrowReady();
+        // Gas estimation is a read-only operation, doesn't require balance
+        const { contract, provider } = await ensureEscrowReady(undefined, false);
 
         const contractFunction = contract[functionName];
         if (!contractFunction) {
