@@ -102,7 +102,7 @@
 
 <div class="space-y-4">
 	<!-- Total Portfolio Value Card -->
-	<div class="card bg-primary relative bg-linear-to-br text-white shadow-xl">
+	<div class="card bg-primary relative bg-linear-to-br text-white shadow-xl rounded-lg">
 		<div class="card-body p-4">
 			<div class="flex items-center justify-between">
 				<div class="flex-1 min-h-[80px]">

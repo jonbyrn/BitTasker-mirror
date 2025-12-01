@@ -52,25 +52,16 @@
 	let showTransactionsModal = $state(false);
 </script>
 
+<svelte:head>
+	<title>{$t('wallet.title')} | BitTasker</title>
+</svelte:head>
+
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
 	<div transition:fly={{ y: 20, duration: 300, easing: linear }}>
-		<div class="mb-6 flex items-center justify-between">
-			<div class="flex items-center gap-4">
-				<h2 class="text-3xl font-bold">{$t('wallet.title')}</h2>
-				<HelpModal />
-			</div>
-		</div>
 
 		<!-- Connection Status - commented out -->
 
-		{#if $walletStore.isInitializing}
-			<div class="alert alert-outlinealert-info mb-6">
-				<div class="flex items-center">
-					<span class="loading loading-spinner loading-sm mr-2"></span>
-					<span>{$t('wallet.page.initializing')}</span>
-				</div>
-			</div>
-		{:else if isConnecting}
+		{#if isConnecting}
 			<div class="alert alert-outline alert-info mb-6">
 				<div class="flex items-center">
 					<span class="loading loading-spinner loading-sm mr-2"></span>
