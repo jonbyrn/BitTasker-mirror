@@ -558,7 +558,7 @@
 				<div class="card bg-base-200 animate-pulse">
 					<div class="card-body">
 						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-3">
+							<div class="flex items-center gap-1">
 								<div class="bg-base-300 h-8 w-8 rounded-full"></div>
 								<div class="space-y-2">
 									<div class="bg-base-300 h-4 w-32 rounded"></div>
@@ -610,7 +610,7 @@
 						: ''}">
 					<div class="card-body p-4">
 						<!-- Desktop Layout -->
-						<div class="hidden md:flex flex-col gap-3">
+						<div class="hidden md:flex flex-col gap-1">
 							<!-- Top Row: Icon, Text, Checkmark, Amount -->
 							<div class="flex items-center justify-between gap-2 sm:gap-4">
 								<div class="flex items-center gap-3">
@@ -713,7 +713,7 @@
 						</div>
 
 						<!-- Mobile Layout -->
-						<div class="md:hidden flex flex-col gap-3">
+						<div class="md:hidden flex flex-col gap-1">
 							<!-- Top Row: Icon, Text, Checkmark, Amount -->
 							<div class="flex items-center justify-between gap-2 sm:gap-4">
 								<div class="flex items-center gap-3">
@@ -783,7 +783,7 @@
 										<div>{formatTime(tx.timestamp)}</div>
 									</div>
 								</div>
-								<div class="flex flex-col items-end gap-1.5 text-right">
+								<div class="flex flex-col items-end text-right">
 									{#if tx.fee}
 										<div class="text-xs opacity-70">
 											{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
