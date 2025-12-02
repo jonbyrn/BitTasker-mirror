@@ -16,31 +16,6 @@ let contract: ethers.Contract | null = null;
 const legacyContracts = new Map<string, ethers.Contract>();
 
 /**
- * Check if a provider is destroyed
- * @param provider - The provider to check
- * @returns true if provider is destroyed, false otherwise
- */
-function isProviderDestroyed(provider: ethers.JsonRpcProvider | null): boolean {
-    if (!provider) return true;
-    try {
-        // Check for destroyed state (ethers v6 uses _destroyed or destroyed property)
-        // Only return true if explicitly set to true (not just if property exists)
-        const isDestroyed = (provider as any)._destroyed === true || (provider as any).destroyed === true;
-        if (isDestroyed) return true;
-
-        // Additional check: try a simple RPC call to see if the provider is responsive
-        // This is a more robust check for a truly "destroyed" or unresponsive provider
-        // However, this can be slow and might trigger rate limits if done too often.
-        // For now, rely on the _destroyed property and the overall error handling.
-        return false;
-    } catch (error) {
-        // If we can't check, assume it's destroyed to be safe
-        console.warn('[escrow] Error checking provider state, assuming destroyed:', error);
-        return true;
-    }
-}
-
-/**
  * Force reset the cached contract (useful when provider is destroyed)
  * Also clears legacy contract cache
  */
@@ -89,35 +64,11 @@ export async function ensureEscrowReady(
         }
     }
 
-    // Validate provider is not destroyed (only if we have a provider)
-    if (provider && isProviderDestroyed(provider)) {
-        // Provider is destroyed, try to get a fresh one
-        const { walletManager } = await import('$lib/stores/wallet.store');
-        await walletManager.initialize();
-        const freshProvider = getRSKProvider();
-        if (!freshProvider) {
-            throw new Error('Failed to get provider after recovery attempt');
-        }
-        if (isProviderDestroyed(freshProvider)) {
-            throw new Error('Provider is destroyed and cannot be recovered');
-        }
-        provider = freshProvider;
-    }
-
     // Determine which contract to use/initialize
     let targetContract: ethers.Contract;
 
     if (!contractAddress) {
         // No contract address provided - use default contract
-        // Check if contract exists and if current provider is still valid
-        // We check the current provider, not the contract's provider, because
-        // the contract's provider might be a different object reference
-        if (contract && isProviderDestroyed(provider)) {
-            // Current provider is destroyed, reset contract to force re-initialization
-            console.warn('[escrow] Provider is destroyed, resetting cached contract...');
-            contract = null;
-        }
-        
         if (!contract) {
             await connectToEscrowContract();
             if (!contract) {
@@ -131,13 +82,6 @@ export async function ensureEscrowReady(
 
         if (contractAddress.toLowerCase() === defaultAddress?.toLowerCase()) {
             // Matches default - use default contract
-            // Check if contract exists and if current provider is still valid
-            if (contract && isProviderDestroyed(provider)) {
-                // Current provider is destroyed, reset contract to force re-initialization
-                console.warn('[escrow] Provider is destroyed, resetting cached contract...');
-                contract = null;
-            }
-            
             if (!contract) {
                 await connectToEscrowContract();
                 if (!contract) {
@@ -148,36 +92,22 @@ export async function ensureEscrowReady(
         } else {
             // Legacy contract - check cache or create new instance
             const normalizedAddress = contractAddress.toLowerCase();
-            let legacyContract: ethers.Contract | null = null;
 
             if (legacyContracts.has(normalizedAddress)) {
-                // Use cached legacy contract, but check if its provider is destroyed
-                const cachedContract = legacyContracts.get(normalizedAddress)!;
-                const cachedProvider = (cachedContract as any).provider;
-                if (cachedProvider && isProviderDestroyed(cachedProvider)) {
-                    // Cached contract's provider is destroyed, remove from cache and recreate
-                    console.warn('[escrow] Cached legacy contract has destroyed provider, recreating...');
-                    legacyContracts.delete(normalizedAddress);
-                    // Fall through to create new instance
-                } else {
-                    legacyContract = cachedContract;
-                }
-            }
-            
-            // Create new legacy contract instance if not found in cache or if cached one was invalid
-            if (!legacyContract) {
+                // Use cached legacy contract
+                targetContract = legacyContracts.get(normalizedAddress)!;
+            } else {
+                // Create new legacy contract instance
                 try {
                     const checksummedAddress = ethers.getAddress(contractAddress);
-                    legacyContract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
+                    targetContract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
 
                     // Cache it for future use
-                    legacyContracts.set(normalizedAddress, legacyContract);
+                    legacyContracts.set(normalizedAddress, targetContract);
                 } catch (error) {
                     throw new Error(`Failed to connect to legacy contract at ${contractAddress}: ${error instanceof Error ? error.message : 'Unknown error'}`);
                 }
             }
-            
-            targetContract = legacyContract;
         }
     }
 
@@ -259,32 +189,6 @@ async function connectToEscrowContract(): Promise<void> {
         // Skip event listeners on RSK due to eth_getLogs compatibility issues
         // Event handling is now done directly in transaction receipts
         // TODO: Setup event listeners
-
-        // Validate contract deployment
-        try {
-            // Test if contract is deployed by checking if it has code
-            const code = await provider.getCode(checksummedAddress);
-            if (code === '0x') {
-                throw new Error(`No contract deployed at address ${checksummedAddress}`);
-            }
-
-            // Test if contract has the expected interface (with retry and timeout)
-            const { callContractMethod } = await import('./rpcHelpers');
-            await callContractMethod(
-                contract,
-                'nextEscrowId',
-                [],
-                {
-                    maxRetries: 2,
-                    timeoutMs: 15000, // Shorter timeout for validation
-                    initialDelayMs: 500
-                }
-            );
-        } catch (error) {
-            console.warn('Contract validation failed, skipping escrow loading:', error);
-            // Don't throw here - allow connection to succeed even if contract validation fails
-            // This allows the UI to show but with a warning
-        }
     } catch (error) {
         throw new Error(`Failed to connect to contract: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -298,46 +202,7 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 
         if (!targetContract) throw new Error('Contract not found');
 
-        let escrowData;
-        try {
-            // Use retry logic with timeout for contract calls
-            const { callContractMethod } = await import('./rpcHelpers');
-            escrowData = await callContractMethod(
-                targetContract,
-                'getEscrow',
-                [escrowId],
-                {
-                    maxRetries: 3,
-                    timeoutMs: 30000, // 30 second timeout
-                    initialDelayMs: 1000
-                }
-            );
-        } catch (error: any) {
-            // Check if error is due to destroyed provider - reset and retry once more
-            if (error?.code === 'UNSUPPORTED_OPERATION' && error?.message?.includes('provider destroyed')) {
-                // Reset the cached contract to force re-initialization on next call
-                if (!contractAddress) {
-                    contract = null;
-                }
-                // Retry once with fresh contract
-                const { contract: retryContract } = await ensureEscrowReady(contractAddress, false);
-                if (!retryContract) throw new Error('Contract not found after retry');
-                
-                const { callContractMethod } = await import('./rpcHelpers');
-                escrowData = await callContractMethod(
-                    retryContract,
-                    'getEscrow',
-                    [escrowId],
-                    {
-                        maxRetries: 2, // Fewer retries on second attempt
-                        timeoutMs: 30000,
-                        initialDelayMs: 1000
-                    }
-                );
-            } else {
-                throw error;
-            }
-        }
+        const escrowData = await targetContract.getEscrow(escrowId);
 
         // Map contract state enum to our EscrowStatus
         const statusMapping: Record<number, EscrowStatus> = {
@@ -405,6 +270,55 @@ async function getDisputeProposal(escrowId: string, contractAddress?: string): P
     } catch (error) {
         console.error('Failed to load dispute proposal:', error);
         return null;
+    }
+}
+
+/**
+ * Load all user escrows
+ * @deprecated This function is not used
+ */
+async function loadUserEscrows(): Promise<void> {
+    const wallet = getRSKWallet();
+    if (!contract || !wallet) return;
+
+    try {
+        const userAddress = wallet.address;
+
+        // Check if contract is properly deployed
+        let nextEscrowId;
+        try {
+            nextEscrowId = await contract.nextEscrowId();
+        } catch (error) {
+            console.error('Failed to get nextEscrowId - contract may not be deployed correctly:', error);
+            return;
+        }
+
+        const escrows: EscrowData[] = [];
+
+        // Load recent escrows (last 50 to avoid too many calls)
+        const startId = Math.max(0, Number(nextEscrowId) - 50);
+
+        for (let i = startId; i < Number(nextEscrowId); i++) {
+            try {
+                const escrowData = await loadEscrowDetails(i.toString());
+                if (escrowData) {
+                    // Ensure all addresses are properly formatted for comparison
+                    const clientAddr = escrowData.client.toLowerCase();
+                    const freelancerAddr = escrowData.freelancer.toLowerCase();
+                    const userAddr = userAddress.toLowerCase();
+
+                    if (clientAddr === userAddr || freelancerAddr === userAddr) {
+                        escrows.push(escrowData);
+                    }
+                }
+            } catch (error) {
+                // Skip failed escrows (might be non-existent IDs)
+                console.warn(`Failed to load escrow ${i}:`, error);
+                continue;
+            }
+        }
+    } catch (error) {
+        throw new Error(`Failed to load user escrows: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
@@ -833,27 +747,27 @@ async function proposeResolution(
             }
         );
 
-		const result: ContractTransactionResult = {
-			hash: tx.hash,
-			escrowId,
-			status: 'pending'
-		};
+        const result: ContractTransactionResult = {
+            hash: tx.hash,
+            escrowId,
+            status: 'pending'
+        };
 
-		// CRITICAL: Publish pending status BEFORE showing toast
-		// This prevents double-submissions during ~30s blockchain confirmation
-		if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingResolutionProposal,
-				proposedClientAmount,
-				proposedFreelancerAmount
-			});
-		}
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingResolutionProposal,
+                proposedClientAmount,
+                proposedFreelancerAmount
+            });
+        }
 
-		// Handle confirmation asynchronously
-		tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+        // Handle confirmation asynchronously
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
@@ -905,25 +819,25 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
             gasPrice: gasPrice
         });
 
-		const result: ContractTransactionResult = {
-			hash: tx.hash,
-			escrowId,
-			status: 'pending'
-		};
+        const result: ContractTransactionResult = {
+            hash: tx.hash,
+            escrowId,
+            status: 'pending'
+        };
 
-		// CRITICAL: Publish pending status BEFORE showing toast
-		// This prevents double-submissions during ~30s blockchain confirmation
-		if (contractEventId) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingProposalAcceptance
-			});
-		}
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingProposalAcceptance
+            });
+        }
 
-		// Handle confirmation asynchronously
-		tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+        // Handle confirmation asynchronously
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
@@ -1015,7 +929,10 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
     }
 }
 
-// Estimate gas for escrow creation
+/**
+ * Estimate gas for escrow creation
+ * @deprecated This function is not used
+ */
 async function estimateEscrowCreationGas(
     freelancerAddress: string,
     baseAmount: string,
@@ -1056,10 +973,13 @@ async function estimateEscrowCreationGas(
     }
 }
 
-// Estimate gas for contract function
+/**
+ * Estimate gas for contract function
+ * @test This function is used for debugging only
+ */
 async function estimateContractGas(functionName: string, escrowId: string, ...args: any[]): Promise<GasEstimation> {
     const GAS_ESTIMATION_TIMEOUT_MS = 30000; // 30 seconds timeout
-    
+
     try {
         // Gas estimation is a read-only operation, doesn't require balance
         const { contract, provider } = await ensureEscrowReady(undefined, false);
@@ -1280,7 +1200,7 @@ async function checkEscrowPayment(
 
                         if (amountWei > 0n) {
                             // Found a payment - use the most recent one
-                            const timestamp = tx.timestamp 
+                            const timestamp = tx.timestamp
                                 ? (typeof tx.timestamp === 'string' ? parseInt(tx.timestamp) : tx.timestamp) * 1000
                                 : Date.now();
 
@@ -1327,7 +1247,6 @@ async function checkEscrowPayment(
 }
 
 export const escrow = {
-    connectToEscrowContract,
     ensureEscrowReady,
     createEscrow,
     completeTask,
@@ -1337,7 +1256,6 @@ export const escrow = {
     proposeResolution,
     acceptProposal,
     resolveAfterTimelock,
-    estimateEscrowCreationGas,
     estimateContractGas,
     getEscrow: loadEscrowDetails,
     getDisputeProposal,

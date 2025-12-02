@@ -1,3 +1,11 @@
+/**
+ * RPC Helpers
+ * @test This file is used for debugging only
+ *  
+ * This file contains helper functions for making RPC calls with retry and timeout logic.
+ * It is used to make contract calls with retry and timeout logic.
+ */
+
 import { ethers } from 'ethers';
 
 /**
