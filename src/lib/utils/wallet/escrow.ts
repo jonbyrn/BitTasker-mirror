@@ -1189,6 +1189,143 @@ async function checkEscrowFundingStatus(escrowId: string): Promise<{
     }
 }
 
+/**
+ * Check if escrow funds were released by checking for internal transactions
+ * from the escrow contract to the client or freelancer addresses
+ * @param escrowId The escrow ID to check
+ * @param escrowData The escrow data containing client and freelancer addresses
+ * @param contractAddress Optional contract address for legacy contracts
+ * @returns Object with payment information or null if no payment found
+ */
+async function checkEscrowPayment(
+    escrowId: string,
+    escrowData: EscrowData,
+    contractAddress?: string
+): Promise<{
+    paidOut: boolean;
+    recipient: 'client' | 'freelancer' | null;
+    recipientAddress: string | null;
+    amount: string | null;
+    timestamp: number | null;
+} | null> {
+    try {
+        // Get contract address
+        const getDefaultContractAddress = (): string | null => {
+            const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+            return network === 'mainnet'
+                ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+                : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+        };
+
+        const escrowContractAddress = contractAddress || getDefaultContractAddress();
+        if (!escrowContractAddress) {
+            console.warn('[escrow] Contract address not configured, cannot check payment');
+            return null;
+        }
+
+        // Get network configuration
+        const { getRSKConfig } = await import('./networkConfig');
+        const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+        const rskConfig = getRSKConfig(network);
+        const explorerApiUrl = rskConfig.explorerApiUrl;
+
+        // Normalize addresses for comparison
+        const contractAddr = escrowContractAddress.toLowerCase();
+        const clientAddr = escrowData.client.toLowerCase();
+        const freelancerAddr = escrowData.freelancer.toLowerCase();
+
+        // Check internal transactions for both client and freelancer
+        const addressesToCheck = [clientAddr, freelancerAddr];
+        let paymentFound: {
+            recipient: 'client' | 'freelancer';
+            recipientAddress: string;
+            amount: string;
+            timestamp: number;
+        } | null = null;
+
+        for (const recipientAddr of addressesToCheck) {
+            try {
+                // Query internal transactions for the recipient address
+                // The API returns transactions where this address is involved (as sender or recipient)
+                const response = await fetch(
+                    `${explorerApiUrl}/v2/addresses/${recipientAddr}/internal-transactions`,
+                    { signal: AbortSignal.timeout(10000) } // 10 second timeout
+                );
+
+                if (!response.ok) {
+                    console.debug(`[escrow] Failed to fetch internal transactions for ${recipientAddr}:`, response.status);
+                    continue;
+                }
+
+                const data = await response.json();
+                if (!data || !data.items || !Array.isArray(data.items)) {
+                    continue;
+                }
+
+                // Look for transfers from the escrow contract to this recipient
+                for (const tx of data.items) {
+                    const txFrom = (tx.from?.hash || tx.from || '').toLowerCase();
+                    const txTo = (tx.to?.hash || tx.to || '').toLowerCase();
+                    const value = tx.value || '0';
+
+                    // Check if this is a transfer from the escrow contract to the recipient
+                    if (txFrom === contractAddr && txTo === recipientAddr && value !== '0') {
+                        // Parse value
+                        let amountWei: bigint;
+                        if (typeof value === 'string' && value.startsWith('0x')) {
+                            amountWei = BigInt(value);
+                        } else {
+                            amountWei = BigInt(value);
+                        }
+
+                        if (amountWei > 0n) {
+                            // Found a payment - use the most recent one
+                            const timestamp = tx.timestamp 
+                                ? (typeof tx.timestamp === 'string' ? parseInt(tx.timestamp) : tx.timestamp) * 1000
+                                : Date.now();
+
+                            // If we already found a payment, keep the most recent one
+                            if (!paymentFound || (timestamp > (paymentFound.timestamp || 0))) {
+                                paymentFound = {
+                                    recipient: recipientAddr === clientAddr ? 'client' : 'freelancer',
+                                    recipientAddress: recipientAddr,
+                                    amount: ethers.formatEther(amountWei),
+                                    timestamp
+                                };
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.debug(`[escrow] Error checking internal transactions for ${recipientAddr}:`, error);
+                // Continue checking other addresses
+                continue;
+            }
+        }
+
+        if (paymentFound) {
+            return {
+                paidOut: true,
+                recipient: paymentFound.recipient,
+                recipientAddress: paymentFound.recipientAddress,
+                amount: paymentFound.amount,
+                timestamp: paymentFound.timestamp
+            };
+        }
+
+        return {
+            paidOut: false,
+            recipient: null,
+            recipientAddress: null,
+            amount: null,
+            timestamp: null
+        };
+    } catch (error) {
+        console.warn(`[escrow] Failed to check escrow payment for ${escrowId}:`, error);
+        return null;
+    }
+}
+
 export const escrow = {
     connectToEscrowContract,
     ensureEscrowReady,
@@ -1206,5 +1343,6 @@ export const escrow = {
     getDisputeProposal,
     isContractPaused,
     checkEscrowFundingStatus,
+    checkEscrowPayment,
     resetCachedContract
 }

@@ -58,16 +58,35 @@
 	let hasEstimatedGas = $state(false); // Track if initial gas estimation has been done
 	let estimationAbortController = $state<AbortController | null>(null); // Abort controller for race condition prevention
 
-	// Check if contract has zero value
+	// Payment information state
+	let paymentInfo = $state<{
+		paidOut: boolean;
+		recipient: 'client' | 'freelancer' | null;
+		recipientAddress: string | null;
+		amount: string | null;
+		timestamp: number | null;
+	} | null>(null);
+	let checkingPayment = $state(false);
+
+	// Check if contract has zero value or funds were released
 	function hasZeroValue(): boolean {
+		// If funds were paid out, consider it as zero value
+		if (paymentInfo?.paidOut) {
+			return true;
+		}
 		const baseAmount = parseFloat(contract.baseAmount || '0');
 		return baseAmount === 0;
 	}
 
 	// Determine if function button should be disabled
 	function isFunctionDisabled(functionName: string): boolean {
-		// Always disable if contract value is zero
+		// Always disable if contract value is zero or funds were released
 		if (hasZeroValue()) return true;
+
+		// If funds were paid out, disable all buttons (unless safety override)
+		if (paymentInfo?.paidOut && !safetyOverride) {
+			return true;
+		}
 
 		if (safetyOverride) return false; // Override enabled - all functions available (except zero value)
 
@@ -209,7 +228,8 @@
 	async function handleExecuteFunction(functionName: string, ...args: any[]) {
 		if (safetyOverride) {
 			// Skip confirmation if override is enabled
-			await onExecuteFunction(contract.id, functionName, ...args);
+			// onExecuteFunction expects (functionName, ...args) - parent adds contract.id
+			await onExecuteFunction(functionName, ...args);
 		} else {
 			// Show confirmation modal
 			pendingFunction = { name: functionName, args };
@@ -221,7 +241,8 @@
 	async function confirmExecute() {
 		if (pendingFunction) {
 			showConfirmModal = false;
-			await onExecuteFunction(contract.id, pendingFunction.name, ...pendingFunction.args);
+			// onExecuteFunction expects (functionName, ...args) - parent adds contract.id
+			await onExecuteFunction(pendingFunction.name, ...pendingFunction.args);
 			pendingFunction = null;
 		}
 	}
@@ -233,6 +254,18 @@
 			if (btcPrice === 0) {
 				btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 			}
+
+			// Check for payment transactions
+			checkingPayment = true;
+			try {
+				const payment = await escrow.checkEscrowPayment(contract.id, contract);
+				paymentInfo = payment;
+			} catch (error) {
+				console.error('[DEBUG] Failed to check escrow payment:', error);
+			} finally {
+				checkingPayment = false;
+			}
+
 			// Estimate gas for all functions once
 			if (!hasEstimatedGas && btcPrice > 0) {
 				await estimateAllGasFees();
@@ -594,7 +627,19 @@
 				</div>
 			</div>
 			<div class="text-right">
-				<div class="text-lg font-bold">{formatSats(contract.baseAmount)} sats</div>
+				{#if checkingPayment}
+					<div class="text-sm text-base-content/60">Checking payment...</div>
+				{:else if paymentInfo?.paidOut}
+					<div class="text-lg font-bold">0 sats</div>
+					<div class="text-xs text-base-content/60">
+						(was {formatSats(contract.baseAmount)} sats)
+					</div>
+					<div class="text-xs text-base-content/60 mt-1">
+						Paid to: {paymentInfo.recipient === 'client' ? 'Client' : 'Taskee'}
+					</div>
+				{:else}
+					<div class="text-lg font-bold">{formatSats(contract.baseAmount)} sats</div>
+				{/if}
 			</div>
 		</div>
 
@@ -656,7 +701,7 @@
 						class="btn btn-success btn-sm"
 						disabled={isFunctionDisabled('completeTask') || isExecuting}
 						title={isFunctionDisabled('completeTask') ? getDisabledTooltip('completeTask') : ''}
-						onclick={() => handleExecuteFunction('completeTask', contract.id)}
+						onclick={() => handleExecuteFunction('completeTask')}
 					>
 						{#if isExecuting}
 							<span class="loading loading-spinner loading-xs"></span>
@@ -672,7 +717,7 @@
 						class="btn btn-success btn-sm"
 						disabled={isFunctionDisabled('acceptTask') || isExecuting}
 						title={isFunctionDisabled('acceptTask') ? getDisabledTooltip('acceptTask') : ''}
-						onclick={() => handleExecuteFunction('acceptTask', contract.id)}
+						onclick={() => handleExecuteFunction('acceptTask')}
 					>
 						{#if isExecuting}
 							<span class="loading loading-spinner loading-xs"></span>
@@ -688,7 +733,7 @@
 						class="btn btn-error btn-sm"
 						disabled={isFunctionDisabled('cancelEscrow') || isExecuting}
 						title={isFunctionDisabled('cancelEscrow') ? getDisabledTooltip('cancelEscrow') : ''}
-						onclick={() => handleExecuteFunction('cancelEscrow', contract.id)}
+						onclick={() => handleExecuteFunction('cancelEscrow')}
 					>
 						{#if isExecuting}
 							<span class="loading loading-spinner loading-xs"></span>
@@ -704,7 +749,7 @@
 						class="btn btn-error btn-sm"
 						disabled={isFunctionDisabled('disputeTask') || isExecuting}
 						title={isFunctionDisabled('disputeTask') ? getDisabledTooltip('disputeTask') : ''}
-						onclick={() => handleExecuteFunction('disputeTask', contract.id)}
+						onclick={() => handleExecuteFunction('disputeTask')}
 					>
 						{#if isExecuting}
 							<span class="loading loading-spinner loading-xs"></span>
@@ -767,7 +812,7 @@
 						class="btn btn-success btn-sm"
 						disabled={isFunctionDisabled('acceptProposal') || isExecuting}
 						title={isFunctionDisabled('acceptProposal') ? getDisabledTooltip('acceptProposal') : ''}
-						onclick={() => handleExecuteFunction('acceptProposal', contract.id)}
+						onclick={() => handleExecuteFunction('acceptProposal')}
 					>
 						{#if isExecuting}
 							<span class="loading loading-spinner loading-xs"></span>
@@ -783,7 +828,7 @@
 						class="btn btn-info btn-sm"
 						disabled={isFunctionDisabled('resolveAfterTimelock') || isExecuting}
 						title={isFunctionDisabled('resolveAfterTimelock') ? getDisabledTooltip('resolveAfterTimelock') : ''}
-						onclick={() => handleExecuteFunction('resolveAfterTimelock', contract.id)}
+						onclick={() => handleExecuteFunction('resolveAfterTimelock')}
 					>
 						{#if isExecuting}
 							<span class="loading loading-spinner loading-xs"></span>
