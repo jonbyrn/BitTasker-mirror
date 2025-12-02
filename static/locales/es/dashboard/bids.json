@@ -87,6 +87,7 @@
         "estimated_duration": "Duración Estimada",
         "your_description": "Descripción",
         "your_approach": "Enfoque",
+        "no_approach_provided": "No se proporcionó enfoque",
         "your_cover_letter": "Carta de Presentación",
         "show_more_details": "Mostrar más detalles",
         "show_less": "Mostrar menos",
@@ -124,7 +125,7 @@
                 "placeholder": "Explica por qué eres la persona adecuada para esta tarea"
             },
             "approach": {
-                "label": "Tu Enfoque",
+                "label": "Tu Enfoque (Opcional)",
                 "placeholder": "Describe cómo planeas completar esta tarea"
             },
             "cover_letter": {
@@ -168,7 +169,8 @@
             "estimated_completion_time_required": "Se requiere el tiempo estimado de finalización",
             "completion_time_must_be_future": "El tiempo de finalización debe ser en el futuro",
             "datetime_required": "Por favor selecciona fechas de inicio y fin",
-            "datetime_invalid": "La fecha de fin debe ser después de la fecha de inicio"
+            "datetime_invalid": "La fecha de fin debe ser después de la fecha de inicio",
+            "end_date_before_deadline": "La fecha y hora de fin debe ser antes de la fecha y hora límite de la tarea"
         },
         "success": {
             "title": "¡Oferta Enviada Exitosamente!",
@@ -279,6 +281,7 @@
         "minute": "minuto",
         "minutes": "minutos",
         "one_hour": "1 hora",
+        "and": "y",
         "sats": "sats",
         "max": "máx",
         "failed_to_submit_bid": "Error al enviar la oferta"

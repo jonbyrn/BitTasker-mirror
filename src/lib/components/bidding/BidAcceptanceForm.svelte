@@ -24,6 +24,8 @@
 	import { linear } from 'svelte/easing';
 	import { onMount } from 'svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
+	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
+	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 
 	// Props
 	const props = $props<{
@@ -131,6 +133,30 @@
 				currentScreen = 'success';
 
 				// Note: Bid status update is automatically sent via escrowEvents.ts after contract creation
+
+				// Send task acceptance message to taskee (locations for in-person, congratulations/title/description for remote)
+				// This is done in the background without blocking the bid acceptance flow
+				const freelancerPubkey = bidContent.bidderId || '';
+				if (freelancerPubkey) {
+					// Use task data we already have - no need to fetch it again
+					const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
+					
+					// Send message asynchronously in background - don't block UI or fail on error
+					sendLocationsToTaskee(
+						taskContent.pickupLocation || null,
+						taskContent.dropOffLocation || null,
+						freelancerPubkey,
+						{
+							taskId: props.task.id,
+							taskTitle: taskContent.title,
+							taskDescription: taskContent.description,
+							isRemote
+						}
+					).catch((locationError) => {
+						// Log error but don't fail bid acceptance if location sending fails
+						console.error('Failed to send task acceptance message to taskee:', locationError);
+					});
+				}
 			} else {
 				// Show error
 				validationErrors = [result.error || 'Failed to create escrow'];

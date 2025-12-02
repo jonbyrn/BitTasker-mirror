@@ -9,7 +9,64 @@
 	import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
+
+	// Simple function to get translated task title/description
+	// Reactive to locale changes via $locale
+	function getTranslatedTaskText(
+		bid: NostrBidContent,
+		field: 'title' | 'description'
+	): string {
+		const currentLang = $locale || 'en';
+		const originalText = field === 'title' ? bid.taskTitle : bid.taskDescription;
+		
+		// If no translations, return original
+		if (!bid.taskTranslations) {
+			return originalText;
+		}
+
+		// If current language is source language, return original
+		if (bid.taskTranslations.sourceLanguage === currentLang) {
+			return originalText;
+		}
+
+		// Get translation for current language
+		const translation = bid.taskTranslations.translations[currentLang];
+		if (translation) {
+			return translation[field] || originalText;
+		}
+
+		// Fallback to original
+		return originalText;
+	}
+
+	// Simple function to get translated bid content (description, proposedApproach, coverLetter)
+	// Reactive to locale changes via $locale
+	function getTranslatedBidContent(
+		bid: NostrBidContent,
+		field: 'description' | 'proposedApproach' | 'coverLetter'
+	): string {
+		const currentLang = $locale || 'en';
+		const originalText = bid[field] || '';
+		
+		// If no translations, return original
+		if (!bid.translations) {
+			return originalText;
+		}
+
+		// If current language is source language, return original
+		if (bid.translations.sourceLanguage === currentLang) {
+			return originalText;
+		}
+
+		// Get translation for current language
+		const translation = bid.translations.translations[currentLang];
+		if (translation) {
+			return translation[field] || originalText;
+		}
+
+		// Fallback to original
+		return originalText;
+	}
 
 	// State
 	let myBids = $state<NostrEvent[]>([]);
@@ -208,13 +265,13 @@
 		</div>
 	{:else}
 		<!-- Bids List -->
-		<div class="space-y-4">
+		<div class="space-y-4 pt-4">
 			{#each myBids as bidEvent}
 				{@const bid = bidEvent.content as unknown as NostrBidContent}
-				<div class="card bg-base-100 border-base-300 rounded-lg border shadow-sm">
+				<div class="card bg-base-100 border-base-300 rounded-2xl border shadow-sm">
 					<div class="card-body p-4 md:p-6">
 						<!-- Top Row: Title + Price -->
-						<div class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+						<div class="flex flex-col">
 							<!-- Left: Title -->
 							<small class="card-title line-clamp-2 text-lg">
 								<button
@@ -224,13 +281,18 @@
 									}}
 									class="hover:text-primary cursor-pointer transition-colors"
 								>
-									{bid.taskTitle || $t('bids.unknown_task')}
+									{getTranslatedTaskText(bid, 'title') || $t('bids.unknown_task')}
 								</button>
 							</small>
+
+							<div class="text-base-content/60 text-sm line-clamp-2">
+								{getTranslatedTaskText(bid, 'description')}
+							</div>
 						</div>
 
+
 						<!-- Schedule and Sats Row -->
-						<div class="mb-3 flex flex-col gap-4 md:flex-row md:flex-wrap">
+						<div class=" flex flex-col gap-2 md:flex-row md:flex-wrap">
 							<div class="flex w-full items-center justify-between">
 								<!-- Left: Schedule -->
 								<div class="flex items-center gap-2">
@@ -396,7 +458,7 @@
 						<div class="flex flex-col gap-3">
 							<!-- Show more button and View Task button in same row -->
 							<div class="flex items-center justify-between">
-								{#if bid.description || bid.proposedApproach || bid.coverLetter}
+								{#if bid.description || (bid.proposedApproach && bid.proposedApproach.trim() !== '') || bid.coverLetter}
 									<button
 										type="button"
 										onclick={() => toggleBidExpansion(bid.bidId)}
@@ -453,7 +515,7 @@
 							</div>
 
 							<!-- Expandable content - full width -->
-							{#if (bid.description || bid.proposedApproach || bid.coverLetter) && expandedBids.has(bid.bidId)}
+							{#if (bid.description || (bid.proposedApproach && bid.proposedApproach.trim() !== '') || bid.coverLetter) && expandedBids.has(bid.bidId)}
 								<div class="w-full space-y-4">
 									{#if bid.description}
 										<div>
@@ -461,24 +523,22 @@
 												{$t('bids.your_description')}
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
-												<TranslatableBidContent
-													content={bid.description}
-													contentType="description"
-												/>
+												<p class="text-base-content/80 text-sm leading-relaxed">
+													{getTranslatedBidContent(bid, 'description')}
+												</p>
 											</div>
 										</div>
 									{/if}
 
-									{#if bid.proposedApproach}
+									{#if bid.proposedApproach && bid.proposedApproach.trim() !== ''}
 										<div>
 											<p class="text-base-content/60 mb-2 text-xs font-medium">
 												{$t('bids.your_approach')}
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
-												<TranslatableBidContent
-													content={bid.proposedApproach}
-													contentType="proposedApproach"
-												/>
+												<p class="text-base-content/80 text-sm leading-relaxed">
+													{getTranslatedBidContent(bid, 'proposedApproach')}
+												</p>
 											</div>
 										</div>
 									{/if}
@@ -489,10 +549,9 @@
 												{$t('bids.your_cover_letter')}
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
-												<TranslatableBidContent
-													content={bid.coverLetter}
-													contentType="coverLetter"
-												/>
+												<p class="text-base-content/80 text-sm leading-relaxed">
+													{getTranslatedBidContent(bid, 'coverLetter')}
+												</p>
 											</div>
 										</div>
 									{/if}

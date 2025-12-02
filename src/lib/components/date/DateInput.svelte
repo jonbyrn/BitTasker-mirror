@@ -285,7 +285,7 @@
   />
   {#if (type === 'time' || type === 'datetime') && timeStep && timeStep !== 1}
     <div class="text-xs text-base-content/60 mt-1">
-      Times will be rounded to {timeStep}-minute intervals
+      {$t('common.components.date_input.time_rounded_intervals', { values: { timeStep } })}
     </div>
   {/if}
 </div>

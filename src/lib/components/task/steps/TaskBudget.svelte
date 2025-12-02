@@ -129,10 +129,15 @@
 		// Validate video files
 		if (isVideoFile) {
 			const fileSizeMB = file.size / (1024 * 1024);
-			if (fileSizeMB > 200) {
-				error = $t('common.components.media_uploader.file_too_large', { 
-					values: { maxSize: 200, actualSize: fileSizeMB.toFixed(2) } 
-				});
+			const maxSizeMB = 50; // 50MB limit for videos
+			if (fileSizeMB > maxSizeMB) {
+				// Get the translation template
+				const template = $t('common.components.media_uploader.video_file_too_large');
+				// Replace all placeholders manually
+				error = template
+					.replace(/\{fileName\}/g, file.name)
+					.replace(/\{actualSize\}/g, fileSizeMB.toFixed(2))
+					.replace(/\{maxSize\}/g, maxSizeMB.toString());
 				return null;
 			}
 		}
@@ -441,7 +446,7 @@
 	  
 		<!-- File Upload Grid -->
 		<div class="space-y-4">
-			<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-6 justify-start sm:gap-36">
+			<div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-6 justify-start sm:gap-36">
 				{#each allFiles as file, index}
 			  <div class="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32">
 				{#if isVideoFile(file)}

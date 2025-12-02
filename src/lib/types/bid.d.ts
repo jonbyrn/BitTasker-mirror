@@ -2,6 +2,7 @@ import type { Freelancer } from './freelancer';
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { Location } from './task';
 import type { BidStatusEnum } from '$lib/utils/enums/bid.enum';
+import type { BidTranslations } from '$lib/nostr/bid';
 
 // Legacy bid types
 export type PaymentType = 'FIXED' | 'HOURLY';
@@ -14,6 +15,7 @@ export interface NostrBidContent {
 	taskId: string;
 	taskTitle: string; // Add task title
 	taskDescription: string; // Add task description
+	taskTranslations?: import('./task').TaskTranslations; // Task translations for simple display
 	amount: number;
 	currency: string;
 	paymentType: PaymentType;
@@ -45,6 +47,9 @@ export interface NostrBidContent {
 
 	// Runtime properties added when processing bids
 	status?: BidStatusEnum;
+	
+	// Translations (optional, may not be present in older bids)
+	translations?: BidTranslations;
 }
 
 export interface Bid {
