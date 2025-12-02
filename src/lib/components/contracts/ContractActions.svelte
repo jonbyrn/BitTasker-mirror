@@ -19,6 +19,7 @@
 		ContractModalAction,
 		CONTRACT_MODAL_CONFIGS
 	} from '$lib/utils/constants/contract-modals';
+	import { portal } from '$lib/utils/portal';
 
 	const {
 		contract,
@@ -512,8 +513,6 @@
 
 	// Handle modal confirmation based on active modal type
 	async function handleModalConfirm() {
-		console.log('Confirming...', contract.escrowData.id);
-
 		switch (activeModal) {
 			case ContractModalAction.Accept:
 				await acceptTask();
@@ -1070,15 +1069,17 @@
 {#if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete}
 	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}
 	{#if config}
-		<ConfirmModal
-			isOpen={true}
-			title={$t(config.titleKey)}
-			message={$t(config.messageKey)}
-			confirmText={$t(config.confirmTextKey)}
-			cancelText={$t(config.cancelTextKey)}
-			confirmButtonClass={config.confirmButtonClass}
-			onConfirm={handleModalConfirm}
-			onCancel={closeModal}
-		/>
+		<div use:portal={'modals'}>
+			<ConfirmModal
+				isOpen={true}
+				title={$t(config.titleKey)}
+				message={$t(config.messageKey)}
+				confirmText={$t(config.confirmTextKey)}
+				cancelText={$t(config.cancelTextKey)}
+				confirmButtonClass={config.confirmButtonClass}
+				onConfirm={handleModalConfirm}
+				onCancel={closeModal}
+			/>
+		</div>
 	{/if}
 {/if}

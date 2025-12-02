@@ -193,14 +193,14 @@ function createContractStore() {
 		 */
 		getContractKey(
 			contract: ContractWithEvents,
-			key: keyof NostrContract | keyof ContractWithEvents | 'taskeePubkey' | 'contractEventId'
+			key: keyof NostrContract | keyof ContractWithEvents | 'otherPartyNpub' | 'contractEventId'
 		): any {
 			// Handle special computed cases first
 			if (key === 'contractEventId') {
 				return contract.contractEvent.id;
 			}
 
-			if (key === 'taskeePubkey') {
+			if (key === 'otherPartyNpub') {
 				return contract.isClient
 					? contract.contractEvent.content.freelancerPubkey
 					: contract.contractEvent.content.clientPubkey;
