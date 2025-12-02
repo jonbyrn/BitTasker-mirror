@@ -32,7 +32,6 @@
 
 	// State for actions
 	let isLoading = $state<Record<string, boolean>>({});
-	let showResolutionForm = $state(false);
 	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
 
 	// Disable ALL critical actions when transaction is pending
@@ -343,7 +342,7 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			showResolutionForm = false;
+			$contractStore.isResolutionFormOpen = false;
 			proposedClientAmountUSD = '';
 			proposedFreelancerAmountUSD = '';
 		} catch (error) {
@@ -555,16 +554,6 @@
 		}
 	}
 
-	// Clear loading states when contract.isPending changes
-	$effect(() => {
-		if (!contract.isPending) {
-			// Clear all loading states when no longer pending
-			if (isLoading.complete || isLoading.accept || isLoading.dispute || isLoading.cancel) {
-				isLoading = {};
-			}
-		}
-	});
-
 	// Derived state for button disabled logic (simplified - rely on contract.isPending and permissions)
 	const isCompleteDisabled = $derived(
 		isLoading.complete ||
@@ -587,13 +576,9 @@
 
 	// Auto-calculate client amount from freelancer amount in USD
 	$effect(() => {
-		if (
-			proposedFreelancerAmountUSD &&
-			contractStore.getContractKey(contract, 'amount') &&
-			btcPrice > 0
-		) {
+		if (proposedFreelancerAmountUSD && contract.contractEvent.content.amount && btcPrice > 0) {
 			const freelancerAmountUSD = parseFloat(proposedFreelancerAmountUSD) || 0;
-			const totalAmountRBTC = parseFloat(contractStore.getContractKey(contract, 'amount'));
+			const totalAmountRBTC = parseFloat(contract.contractEvent.content.amount);
 			const totalAmountUSD = totalAmountRBTC * btcPrice;
 			const clientAmountUSD = totalAmountUSD - freelancerAmountUSD;
 			if (clientAmountUSD >= 0) {
@@ -602,8 +587,8 @@
 		}
 	});
 
-	const openDrawer = () => {
-		showResolutionForm = true;
+	const openDrawerForResolution = () => {
+		$contractStore.isResolutionFormOpen = true;
 		$contractStore.contract = contract;
 		$contractStore.isDrawerOpen = true;
 	};
@@ -717,12 +702,144 @@
 		</button>
 	{/if}
 
+	<!-- Accept Proposal -->
+	{#if !isInline && contract.permissions.canAcceptProposal}
+		<div class="bg-base-300 col-span-2 w-full space-y-3 rounded-lg p-3">
+			<h5 class="text-sm font-medium">
+				{$t('dashboard.contracts.actions.current_proposal')}
+			</h5>
+
+			{#if contract.disputeProposal}
+				<div class="flex flex-col gap-2 space-y-2 text-xs sm:flex-row">
+					<div class="w-full">
+						<span class="text-base-content/70">
+							{contract.isClient
+								? $t('dashboard.contracts.actions.your_amount')
+								: $t('dashboard.contracts.actions.client_amount')}:
+						</span>
+						<div class="font-semibold">
+							${(parseFloat(contract.disputeProposal.clientAmount) * btcPrice).toFixed(2)}
+							({Math.round(
+								parseFloat(contract.disputeProposal.clientAmount) * 100_000_000
+							).toLocaleString()}
+							Sats)
+						</div>
+					</div>
+					<div class="w-full">
+						<span class="text-base-content/70">
+							{contract.isClient
+								? $t('dashboard.contracts.actions.freelancer_amount')
+								: $t('dashboard.contracts.actions.your_amount')}:
+						</span>
+						<div class="font-semibold">
+							${(parseFloat(contract.disputeProposal.freelancerAmount) * btcPrice).toFixed(2)}
+							({Math.round(
+								parseFloat(contract.disputeProposal.freelancerAmount) * 100_000_000
+							).toLocaleString()} Sats)
+						</div>
+					</div>
+				</div>
+
+				<div class="text-base-content/60 text-xs">
+					{$t('dashboard.contracts.actions.proposed_by')}:
+					{contract.disputeProposal.proposer.slice(0, 8)}
+					...
+					{contract.disputeProposal.proposer.slice(-6)}
+				</div>
+			{:else}
+				<div class="text-base-content/60 text-xs">
+					{$t('dashboard.contracts.actions.loading_proposal')}
+				</div>
+			{/if}
+
+			<!-- Action buttons -->
+			<div class="flex flex-col gap-2 sm:flex-row">
+				<!-- Accept Proposal Button -->
+				<button
+					class="btn btn-success btn-sm flex-1"
+					onclick={acceptProposal}
+					disabled={isLoading.acceptProposal || !contract.disputeProposal}
+				>
+					{#if isLoading.acceptProposal}
+						<span class="loading loading-spinner loading-xs"></span>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 13l4 4L19 7"
+							/>
+						</svg>
+					{/if}
+					{$t('dashboard.contracts.actions.accept_proposal')}
+				</button>
+
+				<!-- Counter Proposal Button (if user has proposals left) -->
+				{#if contract.permissions.canPropose && hasProposalsLeft}
+					<button
+						class="btn btn-warning btn-sm flex-1 text-black"
+						onclick={openDrawerForResolution}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0h2m-2 0v4l3-3-3-3m2-5a2 2 0 012-2h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m0 0v4l-3-3 3-3"
+							/>
+						</svg>
+						{$t('dashboard.contracts.actions.counter_proposal')}
+						<span class="text-base-content/60 ml-1 text-xs">
+							({currentUserProposalCount}/2)
+						</span>
+					</button>
+				{/if}
+			</div>
+
+			<!-- Show message if user has no proposals left -->
+			{#if !hasProposalsLeft}
+				<div class="alert alert-outline alert-warning text-xs">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+						/>
+					</svg>
+					<span>{$t('dashboard.contracts.actions.no_proposals_left')}</span>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Propose Resolution -->
 	{#if contract.permissions.canPropose}
-		{#if !showResolutionForm}
+		{#if isInline || !$contractStore.isResolutionFormOpen}
 			<button
-				class="btn btn-warning btn-sm text-black {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-				onclick={openDrawer}
+				class="btn btn-warning btn-sm w-full text-black"
+				class:sm:w-fit={isInline}
+				class:hidden={!isInline && contract.permissions.canAcceptProposal}
+				onclick={openDrawerForResolution}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -829,140 +946,13 @@
 					</button>
 					<button
 						class="btn btn-ghost btn-outline btn-sm"
-						onclick={() => (showResolutionForm = false)}
+						onclick={() => ($contractStore.isResolutionFormOpen = false)}
 					>
 						{$t('dashboard.contracts.actions.cancel')}
 					</button>
 				</div>
 			</div>
 		{/if}
-	{/if}
-
-	<!-- Accept Proposal -->
-	{#if !isInline && contract.permissions.canAcceptProposal}
-		<div class="bg-base-300 w-full space-y-3 rounded-lg p-3">
-			<h5 class="text-sm font-medium">
-				{$t('dashboard.contracts.actions.current_proposal')}
-			</h5>
-
-			{#if contract.disputeProposal}
-				<div class="flex flex-col gap-2 space-y-2 text-xs sm:flex-row">
-					<div class="w-full">
-						<span class="text-base-content/70">
-							{contract.isClient
-								? $t('dashboard.contracts.actions.your_amount')
-								: $t('dashboard.contracts.actions.client_amount')}:
-						</span>
-						<div class="font-semibold">
-							${(parseFloat(contract.disputeProposal.clientAmount) * btcPrice).toFixed(2)}
-							({Math.round(
-								parseFloat(contract.disputeProposal.clientAmount) * 100_000_000
-							).toLocaleString()}
-							Sats)
-						</div>
-					</div>
-					<div class="w-full">
-						<span class="text-base-content/70">
-							{contract.isClient
-								? $t('dashboard.contracts.actions.freelancer_amount')
-								: $t('dashboard.contracts.actions.your_amount')}:
-						</span>
-						<div class="font-semibold">
-							${(parseFloat(contract.disputeProposal.freelancerAmount) * btcPrice).toFixed(2)}
-							({Math.round(
-								parseFloat(contract.disputeProposal.freelancerAmount) * 100_000_000
-							).toLocaleString()} Sats)
-						</div>
-					</div>
-				</div>
-
-				<div class="text-base-content/60 text-xs">
-					{$t('dashboard.contracts.actions.proposed_by')}:
-					{contract.disputeProposal.proposer.slice(0, 8)}
-					...
-					{contract.disputeProposal.proposer.slice(-6)}
-				</div>
-			{:else}
-				<div class="text-base-content/60 text-xs">
-					{$t('dashboard.contracts.actions.loading_proposal')}
-				</div>
-			{/if}
-
-			<!-- Action buttons -->
-			<div class="flex flex-col gap-2 sm:flex-row">
-				<!-- Accept Proposal Button -->
-				<button
-					class="btn btn-success btn-sm flex-1"
-					onclick={acceptProposal}
-					disabled={isLoading.acceptProposal || !contract.disputeProposal}
-				>
-					{#if isLoading.acceptProposal}
-						<span class="loading loading-spinner loading-xs"></span>
-					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
-					{/if}
-					{$t('dashboard.contracts.actions.accept_proposal')}
-				</button>
-
-				<!-- Counter Proposal Button (if user has proposals left) -->
-				{#if contract.permissions.canPropose && hasProposalsLeft}
-					<button class="btn btn-warning btn-sm flex-1 text-black" onclick={openDrawer}>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0h2m-2 0v4l3-3-3-3m2-5a2 2 0 012-2h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m0 0v4l-3-3 3-3"
-							/>
-						</svg>
-						{$t('dashboard.contracts.actions.counter_proposal')}
-						<span class="text-base-content/60 ml-1 text-xs">
-							({currentUserProposalCount}/2)
-						</span>
-					</button>
-				{/if}
-			</div>
-
-			<!-- Show message if user has no proposals left -->
-			{#if !hasProposalsLeft}
-				<div class="alert alert-outline alert-warning text-xs">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-						/>
-					</svg>
-					<span>{$t('dashboard.contracts.actions.no_proposals_left')}</span>
-				</div>
-			{/if}
-		</div>
 	{/if}
 
 	<!-- Cancel Escrow -->

@@ -17,6 +17,7 @@ type ContractStoreState = {
 	isLoading: boolean;
 	error: string | null;
 	isDrawerOpen: boolean;
+	isResolutionFormOpen: boolean;
 };
 
 // Initial state
@@ -26,7 +27,8 @@ const initialState: ContractStoreState = {
 	contractsMap: new Map(),
 	isLoading: false,
 	error: null,
-	isDrawerOpen: false
+	isDrawerOpen: false,
+	isResolutionFormOpen: false
 };
 
 // Subscription management - need TWO subscriptions for OR logic
@@ -126,7 +128,8 @@ function createContractStore() {
 					contractsMap,
 					isLoading: false,
 					error: null,
-					isDrawerOpen: false
+					isDrawerOpen: false,
+					isResolutionFormOpen: false
 				});
 			} catch (err) {
 				const error = err instanceof Error ? err.message : 'Failed to load contracts';

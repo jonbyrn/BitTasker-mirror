@@ -35,6 +35,7 @@ function canClientDispute(escrowData: EscrowData, now: number): boolean {
  * Based on escrow-solidity.md Outcome Map
  * 
  * This implements the EXACT rules from the Solidity contract for each state
+ * @requires statusEvents to be sorted by timestamp
  */
 function mapBlockchainStatusToPermissions(
 	status: EscrowStatus,
@@ -222,7 +223,12 @@ function mapBlockchainStatusToPermissions(
 
 			// PRIORITY 2: Check for pending resolution proposal (transaction in progress)
 			const hasPendingResolutionProposal = statusEvents.some(e =>
-				e.content.action === EscrowStatus.PendingResolutionProposal && e.content.transactionHash
+				e.content.action === EscrowStatus.PendingResolutionProposal &&
+				e.content.transactionHash &&
+				!statusEvents.some(confirmed =>
+					confirmed.content.action === EscrowStatus.DisputeResolutionProposed &&
+					confirmed.content.transactionHash === e.content.transactionHash
+				)
 			);
 
 			if (hasPendingResolutionProposal) {
@@ -256,11 +262,15 @@ function mapBlockchainStatusToPermissions(
 				e.pubkey.toLowerCase() === contract.freelancerPubkey.toLowerCase()
 			).length;
 
-			// Determine if current user can still propose (haven't reached 2-proposal limit)
+			const lastProposerNpub = statusEvents.filter(e => e.content.action === EscrowStatus.DisputeResolutionProposed).at(-1)?.pubkey;
+
+			// Current user can propose if:
+			// 1. Haven't reached 2-proposal limit AND
+			// 2. They weren't the last one to propose
 			const canCurrentUserPropose = isClient
-				? clientProposalCount < 2
+				? clientProposalCount < 2 && lastProposerNpub !== contract.clientPubkey.toLowerCase()
 				: isFreelancer
-					? freelancerProposalCount < 2
+					? freelancerProposalCount < 2 && lastProposerNpub !== contract.freelancerPubkey.toLowerCase()
 					: false;
 
 			return {
