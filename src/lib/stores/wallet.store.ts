@@ -81,7 +81,7 @@ const initialState: WalletState = {
 };
 
 // Create the wallet store
-export const walletStore = writable(initialState);
+export const walletStore = writable<WalletState>(initialState);
 
 // Track whether assets have been loaded at least once after connection
 // This prevents showing zero balance during the brief window after initialization
@@ -92,7 +92,7 @@ export const isAssetsLoading = derived(
 	[walletStore, hasLoadedAssets],
 	([$walletStore, $hasLoadedAssets]) => {
 		// Show loading if wallet is initializing/connecting
-		if ($walletStore.isInitializing || $walletStore.isConnecting) {
+		if ($walletStore.isInitializing) {
 			return true;
 		}
 		// Show loading if wallet has connected but assets haven't been loaded yet
@@ -394,7 +394,7 @@ async function loadAssets(): Promise<void> {
 				bnb: totalBnb
 			}
 		}));
-		
+
 		// Mark assets as loaded after successful completion
 		hasLoadedAssets.set(true);
 	} catch (error) {
@@ -405,10 +405,19 @@ async function loadAssets(): Promise<void> {
 
 /**
  * Load transactions
+ * @param forceRefresh - If true, bypasses the loading lock to force a refresh
  */
-async function loadTransactions(): Promise<void> {
+async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 	try {
 		const manager = getWalletManager();
+
+		// Check if wallet is connected before attempting to load
+		if (!manager || !manager.rskWallet || !manager.bscWallet) {
+			console.log('[WalletStore] Wallet not connected, skipping transaction load');
+			walletStore.update(s => ({ ...s, isLoadingTransactions: false }));
+			return;
+		}
+
 		const transactions: Transaction[] = [];
 
 		// Load RSK transactions

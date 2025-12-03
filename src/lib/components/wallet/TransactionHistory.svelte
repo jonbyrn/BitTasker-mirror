@@ -15,6 +15,7 @@
 	import IconCheckAll from '~icons/mdi/check-all';
 
 	// State
+	// Use store's isLoadingTransactions instead of local state for single source of truth
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let typeFilter = $state<'all' | 'send' | 'receive'>('all');
@@ -113,6 +114,10 @@
 		document.removeEventListener('click', handleClickOutside);
 	});
 
+	/**
+	 * Load transactions (force refresh if needed)
+	 * @param forceRefresh - If true, bypasses loading lock and always fetches from API
+	 */
 	async function loadTransactions() {
 		isLoading = true;
 		error = null;
@@ -129,6 +134,7 @@
 	}
 
 	async function refreshTransactions() {
+		// Force refresh by bypassing loading lock
 		await loadTransactions();
 	}
 
@@ -302,25 +308,25 @@
 	// Transactions are displayed newest first, so we need to calculate backwards
 	let runningBalances = $derived.by(() => {
 		const balances = new Map<string, number>();
-		
+
 		// Get current balance from wallet store (in sats)
 		const currentBalance = $walletStore.totalBalances.sats;
 		let runningBalance = currentBalance;
-		
+
 		// Sort transactions by timestamp (newest first for display, but we calculate backwards)
 		const sortedTxs = [...filteredTransactions].sort((a, b) => b.timestamp - a.timestamp);
-		
+
 		// Calculate balance after each transaction (working backwards from current)
 		for (const tx of sortedTxs) {
 			const txValueSats = Number(weiToSatoshi(BigInt(tx.value)));
 			const txFeeSats = tx.fee ? Math.floor(tx.fee * 100_000_000) : 0; // Convert fee to sats
-			
+
 			// Store the balance after this transaction
 			const txId = tx.txHash || tx.hash || '';
 			if (txId) {
 				balances.set(txId, runningBalance);
 			}
-			
+
 			// Work backwards: if it was a receive, subtract it; if it was a send, add it back
 			if (tx.type === 'receive') {
 				runningBalance -= txValueSats;
@@ -328,7 +334,7 @@
 				runningBalance += txValueSats + txFeeSats;
 			}
 		}
-		
+
 		return balances;
 	});
 
@@ -476,16 +482,16 @@
 									: 'text-base-content'}"
 								onclick={() => selectNetworkFilter(option.id)}
 							>
-							{#if option.isImage}
-								<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
-							{:else if typeof option.icon !== 'string'}
-								{@const IconComponent = option.icon}
-								<IconComponent
-									class="h-5 w-5 {networkFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-								/>
-							{/if}
+								{#if option.isImage}
+									<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
+								{:else if typeof option.icon !== 'string'}
+									{@const IconComponent = option.icon}
+									<IconComponent
+										class="h-5 w-5 {networkFilter === option.id
+											? 'text-primary'
+											: 'text-base-content/60'}"
+									/>
+								{/if}
 								<span class="font-medium">{option.label}</span>
 								{#if networkFilter === option.id}
 									<IconCheck class="text-primary ml-auto h-5 w-5" />
@@ -650,7 +656,7 @@
 				{@const StatusIcon = getStatusIcon(tx.status || 'pending')}
 				{@const explorerUrl = getExplorerUrl(tx.txHash || tx.hash, tx.network)}
 				{@const cardClasses = `card bg-base-200 hover:bg-base-300 transition-colors ${explorerUrl ? 'cursor-pointer' : ''} ${tx.type === 'receive' ? 'border-2 border-success' : tx.type === 'send' ? 'border-2 border-warning' : ''}`}
-				
+
 				{#snippet transactionCard()}
 					<div class="card-body p-4">
 						<div class="flex flex-col gap-1">
@@ -698,7 +704,8 @@
 										class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
 									>
 										{tx.type === 'receive' ? '+' : '-'}
-										{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
+										{weiToSatoshi(BigInt(tx.value)).toLocaleString()}
+										{$t('wallet.sats')}
 									</div>
 									{#if tx.fee}
 										<div class="text-xs opacity-70">
@@ -732,8 +739,9 @@
 								</div>
 								<div class="text-right">
 									{#if tx.txHash || tx.hash}
-										<div class="text-sm md:text-base font-semibold">
-											{$t('wallet.balance_after')}: {getRunningBalance(tx.txHash || tx.hash)} {$t('wallet.sats')}
+										<div class="text-sm font-semibold md:text-base">
+											{$t('wallet.balance_after')}: {getRunningBalance(tx.txHash || tx.hash)}
+											{$t('wallet.sats')}
 										</div>
 									{/if}
 								</div>
@@ -743,12 +751,7 @@
 				{/snippet}
 
 				{#if explorerUrl}
-					<a
-						href={explorerUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						class={cardClasses}
-					>
+					<a href={explorerUrl} target="_blank" rel="noopener noreferrer" class={cardClasses}>
 						{@render transactionCard()}
 					</a>
 				{:else}
