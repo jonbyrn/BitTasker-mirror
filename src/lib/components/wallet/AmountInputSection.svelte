@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import CalculatorKeypad from '$lib/components/wallet/CalculatorKeypad.svelte';
+	import DescriptionAccordion from '$lib/components/wallet/DescriptionAccordion.svelte';
 	import IconCurrencyUsd from '~icons/mdi/currency-usd';
 	import IconCurrencyBtc from '~icons/mdi/currency-btc';
 	import IconClose from '~icons/mdi/close';
@@ -18,10 +19,15 @@
 		amountInSats?: number; // Amount in sats (for calculations)
 		btcPrice?: number; // BTC price for USD conversions
 		isLoadingFees?: boolean;
+		network?: string | null; // Detected network for balance calculation
+		availableBalance?: number; // Available balance in sats for the network
+		calculatedMaxAmount?: number | null; // Pre-calculated max amount
+		isLoadingMaxCalculation?: boolean; // Loading state for max calculation
 		onAmountChange: (value: string) => void;
 		onUnitChange: (unit: 'sats' | 'usd') => void;
 		onCalculationChange?: (expression: string, result: number) => void;
 		onClear?: () => void;
+		onMaxAmount?: () => Promise<void>; // Callback to calculate and set max amount
 		onMemoChange?: (value: string) => void;
 		onDescriptionToggle?: (expanded: boolean) => void;
 	}
@@ -38,10 +44,15 @@
 		amountInSats = 0,
 		btcPrice = 0,
 		isLoadingFees = false,
+		network = null,
+		availableBalance = 0,
+		calculatedMaxAmount = null,
+		isLoadingMaxCalculation = false,
 		onAmountChange,
 		onUnitChange,
 		onCalculationChange,
 		onClear,
+		onMaxAmount,
 		onMemoChange,
 		onDescriptionToggle
 	}: Props = $props();
@@ -79,12 +90,23 @@
 		}
 	}
 
-	function handleDescriptionToggle() {
-		if (onDescriptionToggle) {
-			triggerHaptic(ImpactStyle.Light);
-			onDescriptionToggle(!descriptionExpanded);
-		}
+	// Check if max button should be disabled
+	const isMaxDisabled = $derived.by(() => {
+		// Disable if no network detected
+		if (!network) return true;
+		// Disable if no available balance
+		if (!availableBalance || availableBalance <= 0) return true;
+		return false;
+	});
+
+	// Handle max button click
+	async function handleMax() {
+		if (isMaxDisabled || !onMaxAmount) return;
+		
+		triggerHaptic(ImpactStyle.Light);
+		await onMaxAmount();
 	}
+
 
 	// Format sats with thousand separators
 	function formatSats(sats: number): string {
@@ -114,48 +136,66 @@
 	});
 </script>
 
-<div class="space-y-2">
-	<!-- Amount Display (shows calculation and result) -->
-	<div class="flex flex-col items-center gap-2 md:gap-3 p-1 bg-base-200 rounded-lg border-2 border-primary">
-		{#if mathExpression || amount}
-			<div class="flex items-center justify-center gap-2 w-full">
-				{#if unit === 'usd'}
-					<span class="text-lg font-bold text-primary ml-1">$</span>
-				{:else}
-					<IconCurrencyBtc class="w-5 h-5 text-primary" />
-				{/if}
-				<div class="text-lg font-bold text-center flex-1">
-					{mathExpression || amount || '0'}
+<div class="space-y-4">
+	<!-- Amount Display (shows calculation and result) with attached Max button -->
+	<div class="flex items-stretch w-full overflow-hidden rounded-lg border-2 border-primary">
+		<!-- Input display area (grey bar) - takes remaining width -->
+		<div class="flex items-center justify-center gap-2 flex-1 bg-base-200 p-1">
+			{#if mathExpression || amount}
+				<div class="flex items-center justify-center gap-2 w-full">
+					{#if unit === 'usd'}
+						<span class="text-lg font-bold text-primary ml-1">$</span>
+					{:else}
+						<IconCurrencyBtc class="w-5 h-5 text-primary" />
+					{/if}
+					<div class="text-lg font-bold text-center flex-1">
+						{mathExpression || amount || '0'}
+					</div>
+					{#if onClear}
+						<button
+							type="button"
+							class="btn btn-ghost btn-sm btn-circle min-h-0 h-6 w-6 p-0 text-error hover:bg-error/20 touch-manipulation select-none"
+							style="-webkit-tap-highlight-color: transparent;"
+							onclick={handleClear}
+							aria-label="Clear calculator"
+						>
+							<IconClose class="w-6 h-6" />
+						</button>
+					{/if}
 				</div>
-				{#if onClear}
-					<button
-						type="button"
-						class="btn btn-ghost btn-sm btn-circle min-h-0 h-6 w-6 p-0 text-error hover:bg-error/20 touch-manipulation select-none"
-						style="-webkit-tap-highlight-color: transparent;"
-						onclick={handleClear}
-						aria-label="Clear calculator"
-					>
-						<IconClose class="w-6 h-6" />
-					</button>
-				{/if}
-			</div>
-		{:else}
-			<div class="flex items-center justify-center gap-2 w-full">
-				{#if unit === 'usd'}
-					<span class="text-lg font-bold text-primary ml-1">$</span>
-				{:else}
-					<IconCurrencyBtc class="w-5 h-5 text-primary" />
-				{/if}
-				<div class="text-lg font-bold text-center flex-1">0</div>
-			</div>
-		{/if}
+			{:else}
+				<div class="flex items-center justify-center gap-2 w-full">
+					{#if unit === 'usd'}
+						<span class="text-lg font-bold text-primary ml-1">$</span>
+					{:else}
+						<IconCurrencyBtc class="w-5 h-5 text-primary" />
+					{/if}
+					<div class="text-lg font-bold text-center flex-1">0</div>
+				</div>
+			{/if}
+		</div>
+		<!-- Max button (orange, pill-shaped) - width of text + px-1, flat left edge, rounded right -->
+		<button
+			type="button"
+			class="bg-primary text-primary-content font-semibold px-3 py-1 touch-manipulation select-none disabled:opacity-50 transition-opacity rounded-r-lg rounded-l-none flex items-center justify-center whitespace-nowrap min-w-[60px]"
+			style="-webkit-tap-highlight-color: transparent;"
+			onclick={handleMax}
+			disabled={isMaxDisabled || isLoadingMaxCalculation}
+			aria-label="Set maximum amount"
+		>
+			{#if isLoadingMaxCalculation}
+				<span class="loading loading-spinner loading-xs"></span>
+			{:else}
+				{$t('wallet.max')}
+			{/if}
+		</button>
 	</div>
 
 	<!-- Unit Toggle Buttons -->
 	<div class="grid grid-cols-2 border border-base-300 rounded-lg overflow-hidden bg-base-100">
 		<button
 			type="button"
-			class="min-h-[30px] md:min-h-[40px] flex items-center justify-center gap-2 text-lg font-semibold touch-manipulation select-none transition-colors cursor-pointer border-r border-base-300 {unit === 'usd' ? 'bg-primary text-primary-content' : 'bg-base-100 text-base-content active:bg-base-300'}"
+			class="flex items-center justify-center gap-2 text-2xl p-2 font-semibold touch-manipulation select-none transition-colors cursor-pointer border-r border-base-300 {unit === 'usd' ? 'bg-primary text-primary-content' : 'bg-base-100 text-base-content active:bg-base-300'}"
 			style="-webkit-tap-highlight-color: transparent;"
 			onclick={() => handleUnitToggle('usd')}
 			aria-label="USD"
@@ -165,7 +205,7 @@
 		</button>
 		<button
 			type="button"
-			class="min-h-[30px] md:min-h-[40px] flex items-center justify-center gap-2 text-lg font-semibold touch-manipulation select-none transition-colors cursor-pointer {unit === 'sats' ? 'bg-primary text-primary-content' : 'bg-base-100 text-base-content active:bg-base-300'}"
+			class="flex items-center justify-center gap-2 text-2xl p-2 font-semibold touch-manipulation select-none transition-colors cursor-pointer {unit === 'sats' ? 'bg-primary text-primary-content' : 'bg-base-100 text-base-content active:bg-base-300'}"
 			style="-webkit-tap-highlight-color: transparent;"
 			onclick={() => handleUnitToggle('sats')}
 			aria-label="Sats"
@@ -182,33 +222,12 @@
 
 	<!-- Memo/Description Field (Accordion) -->
 	{#if onMemoChange}
-		<div class="collapse collapse-arrow border-2 border-primary rounded-lg bg-base-100" class:collapse-open={descriptionExpanded}>
-			<button
-				type="button"
-				class="collapse-title min-h-0 py-1 px-4 font-medium text-left"
-				onclick={handleDescriptionToggle}
-			>
-				{$t('wallet.description')} ({$t('wallet.optional')})
-			</button>
-			<div class="collapse-content">
-				<div class="form-control pt-2 pb-4 px-4">
-					<textarea
-						class="textarea textarea-bordered w-full"
-						class:textarea-error={memo.length > 200}
-						placeholder={$t('wallet.payment_for_placeholder')}
-						bind:value={memo}
-						oninput={(e) => onMemoChange?.(e.currentTarget.value)}
-						rows="3"
-						maxlength="200"
-					></textarea>
-					<div class="label">
-						<span class="label-text-alt {memo.length > 200 ? 'text-error' : 'text-base-content/70'}">
-							{memo.length}/200 {$t('wallet.receive.description_characters')}
-						</span>
-					</div>
-				</div>
-			</div>
-		</div>
+		<DescriptionAccordion
+			{memo}
+			expanded={descriptionExpanded}
+			onMemoChange={(value) => onMemoChange?.(value)}
+			onToggle={(expanded) => onDescriptionToggle?.(expanded)}
+		/>
 	{/if}
 
 	<!-- Calculated Total Box with Network Fees -->

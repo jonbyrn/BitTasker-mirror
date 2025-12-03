@@ -60,6 +60,14 @@
 	let feeError = $state<string | null>(null);
 	let networkFeeExpanded = $state(false); // Accordion state for network fee breakdown
 
+	// Max amount calculation
+	let feeParameters = $state<{
+		percentage?: number; // Fee percentage (e.g., 0.1 for 0.1%)
+		fixedFee?: number; // Fixed fee in sats
+	} | null>(null);
+	let isLoadingMaxCalculation = $state(false);
+	let calculatedMaxAmount = $state<number | null>(null);
+
 	// Send state
 	let isSending = $state(false);
 	let sendError = $state<string | null>(null);
@@ -110,6 +118,50 @@
 		if (amountRequired && amountInSats <= 0) return false;
 		if (requiresAuth && !isAuthenticated) return false;
 		return true;
+	});
+
+	// Calculate available balance based on detected network
+	const availableBalance = $derived.by(() => {
+		if (!detectedNetwork) return 0;
+		
+		const state = $walletStore;
+		
+		switch (detectedNetwork) {
+			case 'rootstock-bitcoin':
+				if (!state.rsk.connected) return 0;
+				// Try formattedBalance first, fallback to raw balance string
+				let rbtcBalance = parseFloat(state.rsk.formattedBalance) || 0;
+				// If formattedBalance is 0 or invalid, try parsing the raw balance (in wei)
+				if (rbtcBalance === 0 && state.rsk.balance) {
+					const balanceWei = BigInt(state.rsk.balance);
+					// Convert wei to RBTC (1 RBTC = 1e18 wei), then to sats
+					rbtcBalance = Number(balanceWei) / 1e18;
+				}
+				return Math.floor(rbtcBalance * 100_000_000);
+			case 'usdt-bsc':
+				if (!state.bsc.connected) return 0;
+				// USDT balance is stored as string in smallest unit (6 decimals)
+				// Convert to USD amount, then to sats using BTC price
+				const usdtBalanceStr = state.bsc.usdtBalance || '0';
+				const usdtBalance = parseFloat(usdtBalanceStr) / 1e6; // USDT has 6 decimals
+				// Convert USD to sats using BTC price
+				if (btcPrice > 0 && usdtBalance > 0) {
+					return Math.floor((usdtBalance / btcPrice) * 100_000_000);
+				}
+				return 0;
+			case 'lightning-bitcoin':
+				// For Lightning, we use RSK balance as it's swapped via submarine swap
+				if (!state.rsk.connected) return 0;
+				let lightningRbtcBalance = parseFloat(state.rsk.formattedBalance) || 0;
+				// Fallback to raw balance if formattedBalance is 0
+				if (lightningRbtcBalance === 0 && state.rsk.balance) {
+					const balanceWei = BigInt(state.rsk.balance);
+					lightningRbtcBalance = Number(balanceWei) / 1e18;
+				}
+				return Math.floor(lightningRbtcBalance * 100_000_000);
+			default:
+				return 0;
+		}
 	});
 
 	// Initialize
@@ -265,6 +317,151 @@
 		}
 	}
 
+	// Fetch fee parameters when network is detected (for max calculation)
+	async function fetchFeeParameters() {
+		if (!detectedNetwork || !availableBalance || availableBalance <= 0) {
+			feeParameters = null;
+			return;
+		}
+
+		try {
+			switch (detectedNetwork) {
+				case 'lightning-bitcoin':
+					// Fetch submarine swap pairs to get fee percentage
+					const pairsData = await walletManager.getSubmarineSwapPairs();
+					const pair = pairsData?.['RBTC']?.['BTC'];
+					if (pair && pair.fees) {
+						feeParameters = {
+							percentage: pair.fees.percentage,
+							fixedFee: pair.fees.minerFees || 32
+						};
+					} else {
+						// Fallback to conservative estimate
+						feeParameters = {
+							percentage: 0.1, // 0.1%
+							fixedFee: 32
+						};
+					}
+					break;
+				case 'rootstock-bitcoin':
+					// For Rootstock, fees are mostly fixed (gas), but we need to estimate
+					// We'll estimate with a high amount to get approximate gas fee
+					if ($walletStore.rsk.connected && $walletStore.rsk.address) {
+						try {
+							// Estimate with 90% of balance to get approximate gas fee
+							const estimateAmountRBTC = ((availableBalance * 0.9) / 100_000_000).toFixed(8);
+							const gasEstimation = await walletManager.estimateRBTCGas(
+								addressInput || $walletStore.rsk.address,
+								estimateAmountRBTC
+							);
+							const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(estimateAmountRBTC);
+							const estimatedGasFee = Math.floor(gasFeeRBTC * 100_000_000);
+							feeParameters = {
+								fixedFee: estimatedGasFee
+							};
+						} catch (error) {
+							console.warn('Failed to estimate gas for max calculation:', error);
+							feeParameters = {
+								fixedFee: 3000 // Conservative fallback
+							};
+						}
+					} else {
+						feeParameters = {
+							fixedFee: 3000
+						};
+					}
+					break;
+				default:
+					feeParameters = null;
+			}
+		} catch (error) {
+			console.error('Failed to fetch fee parameters:', error);
+			feeParameters = null;
+		}
+	}
+
+	// Calculate max amount using mathematical formula for percentage fees
+	function calculateMaxAmount(): number {
+		if (!availableBalance || availableBalance <= 0) return 0;
+		if (!feeParameters) return 0;
+
+		const balance = availableBalance;
+		const safetyMargin = 5; // 5 sats safety margin
+
+		// For percentage-based fees: maxAmount = (balance - fixedFee) / (1 + percentage/100)
+		if (feeParameters.percentage !== undefined) {
+			const fixedFee = feeParameters.fixedFee || 0;
+			const percentage = feeParameters.percentage;
+			const maxBeforeMargin = (balance - fixedFee) / (1 + percentage / 100);
+			return Math.max(0, Math.floor(maxBeforeMargin) - safetyMargin);
+		}
+
+		// For fixed fees only: maxAmount = balance - fixedFee
+		if (feeParameters.fixedFee !== undefined) {
+			return Math.max(0, balance - feeParameters.fixedFee - safetyMargin);
+		}
+
+		return 0;
+	}
+
+	// Refine max amount after fees are estimated
+	let lastRefinedAmount = $state<number | null>(null);
+	let wasMaxClicked = $state(false); // Track if user clicked Max button
+	
+	async function refineMaxAmount() {
+		if (!availableBalance || !estimatedFees) return;
+
+		const refinedMax = Math.max(0, availableBalance - estimatedFees.totalFees - 2); // 2 sats safety margin
+		
+		// Only update if the difference is significant (>10 sats) and we haven't already refined to this value
+		if (lastRefinedAmount === null || Math.abs(refinedMax - lastRefinedAmount) > 10) {
+			lastRefinedAmount = refinedMax;
+			const previousMax = calculatedMaxAmount;
+			calculatedMaxAmount = refinedMax;
+			
+			// Only update amount if user clicked Max (wasMaxClicked flag) or amount matches previous max
+			// This prevents auto-updating when user is manually entering amounts
+			if (wasMaxClicked && previousMax !== null && amountInSats > 0) {
+				// Check if current amount is close to the previous max (within 50 sats)
+				const diff = Math.abs(amountInSats - previousMax);
+				if (diff <= 50) {
+					// User clicked Max, so update to refined value
+					if (unit === 'sats') {
+						amount = refinedMax.toString();
+					} else if (btcPrice > 0) {
+						const usdAmount = (refinedMax / 100_000_000) * btcPrice;
+						amount = usdAmount.toFixed(2).replace(/\.?0+$/, '');
+					}
+				}
+			}
+		}
+	}
+
+	// Calculate max amount when network/balance/fee parameters are ready
+	$effect(() => {
+		if (detectedNetwork && availableBalance > 0) {
+			// Fetch fee parameters in background
+			fetchFeeParameters();
+		} else {
+			feeParameters = null;
+			calculatedMaxAmount = null;
+		}
+	});
+
+	// Calculate max amount when fee parameters are available
+	$effect(() => {
+		if (feeParameters && availableBalance > 0) {
+			calculatedMaxAmount = calculateMaxAmount();
+		}
+	});
+
+	// Refine max amount after fees are estimated
+	$effect(() => {
+		if (estimatedFees && calculatedMaxAmount !== null) {
+			refineMaxAmount();
+		}
+	});
+
 	// Recalculate fees when amount or network changes
 	$effect(() => {
 		amountInSats;
@@ -275,6 +472,7 @@
 	// Handle calculation change from calculator
 	function handleCalculationChange(expression: string, result: number) {
 		mathExpression = expression;
+		wasMaxClicked = false; // User is manually entering amount
 		if (result > 0 || expression === '') {
 			if (unit === 'sats') {
 				amount = Math.floor(result).toString();
@@ -284,12 +482,68 @@
 		}
 	}
 
+	// Handle max amount click
+	async function handleMaxAmount() {
+		if (!detectedNetwork || !availableBalance || availableBalance <= 0) return;
+
+		isLoadingMaxCalculation = true;
+		wasMaxClicked = true;
+		triggerHaptic(ImpactStyle.Light);
+
+		try {
+			// If we have calculated max amount, use it
+			if (calculatedMaxAmount !== null && calculatedMaxAmount > 0) {
+				if (unit === 'sats') {
+					amount = calculatedMaxAmount.toString();
+				} else if (btcPrice > 0) {
+					const usdAmount = (calculatedMaxAmount / 100_000_000) * btcPrice;
+					amount = usdAmount.toFixed(2).replace(/\.?0+$/, '');
+				}
+				
+				// Trigger fee estimation with this amount to refine
+				await updateFeeEstimate();
+			} else {
+				// If we don't have fee parameters yet, fetch them first
+				await fetchFeeParameters();
+				if (feeParameters) {
+					const max = calculateMaxAmount();
+					if (max > 0) {
+						calculatedMaxAmount = max;
+						if (unit === 'sats') {
+							amount = max.toString();
+						} else if (btcPrice > 0) {
+							const usdAmount = (max / 100_000_000) * btcPrice;
+							amount = usdAmount.toFixed(2).replace(/\.?0+$/, '');
+						}
+						// Trigger fee estimation to refine
+						await updateFeeEstimate();
+					}
+				}
+			}
+		} catch (error) {
+			console.error('Failed to calculate max amount:', error);
+		} finally {
+			isLoadingMaxCalculation = false;
+			// Reset flag after a delay to allow refinement
+			setTimeout(() => {
+				wasMaxClicked = false;
+			}, 2000);
+		}
+	}
+
+	// Handle amount change (wrapper to reset max click flag)
+	function handleAmountChange(value: string) {
+		wasMaxClicked = false; // User is manually changing amount
+		amount = value;
+	}
+
 	// Handle unit change
 	function handleUnitChange(newUnit: 'sats' | 'usd') {
 		unit = newUnit;
 		amount = '';
 		mathExpression = '';
 		calculatorKey++;
+		wasMaxClicked = false;
 	}
 
 	// Clear calculator
@@ -416,6 +670,44 @@
 			maximumFractionDigits: 2
 		}).format(usd);
 	}
+
+	// Get network icon
+	function getNetworkIcon(network: string | null): string | null {
+		if (!network) return null;
+		switch (network) {
+			case 'rootstock-bitcoin':
+				return '/images/chains/Bitcoin-Rootstock-logo.webp';
+			case 'lightning-bitcoin':
+				return '/images/chains/lightning.svg';
+			case 'liquid-bitcoin':
+				return '/images/chains/Liquid-Bitcoin.svg';
+			case 'bitcoin':
+				return '/images/chains/Bitcoin.svg';
+			case 'usdt-bsc':
+				return '/images/chains/Binance-logo.svg';
+			default:
+				return null;
+		}
+	}
+
+	// Get network display name
+	function getNetworkDisplayName(network: string | null): string {
+		if (!network) return '';
+		switch (network) {
+			case 'rootstock-bitcoin':
+				return $t('wallet.transaction.network.rootstock_bitcoin');
+			case 'lightning-bitcoin':
+				return $t('wallet.networks.lightning');
+			case 'liquid-bitcoin':
+				return $t('wallet.networks.liquid');
+			case 'bitcoin':
+				return $t('wallet.networks.bitcoin');
+			case 'usdt-bsc':
+				return $t('wallet.transaction.network.binance_smart_chain');
+			default:
+				return network;
+		}
+	}
 </script>
 
 <div class="send-payment-form flex flex-col h-full">
@@ -451,8 +743,17 @@
 
 				<!-- Network Display -->
 				{#if detectedNetwork}
-					<div class="alert alert-info">
-						<span>Network: {detectedNetwork}</span>
+					<div class="rounded-lg border border-base-300 bg-primary/10 p-4">
+						<div class="flex items-center gap-2">
+							{#if getNetworkIcon(detectedNetwork)}
+								<img
+									src={getNetworkIcon(detectedNetwork)}
+									alt={getNetworkDisplayName(detectedNetwork)}
+									class="h-5 w-5"
+								/>
+							{/if}
+							<span class="font-medium">{getNetworkDisplayName(detectedNetwork)}</span>
+						</div>
 					</div>
 				{/if}
 
@@ -469,10 +770,16 @@
 							{unit}
 							{mathExpression}
 							{calculatorKey}
-							onAmountChange={(value) => (amount = value)}
+							network={detectedNetwork}
+							availableBalance={availableBalance}
+							calculatedMaxAmount={calculatedMaxAmount}
+							isLoadingMaxCalculation={isLoadingMaxCalculation}
+							{btcPrice}
+							onAmountChange={handleAmountChange}
 							onUnitChange={handleUnitChange}
 							onCalculationChange={handleCalculationChange}
 							onClear={handleClearCalculator}
+							onMaxAmount={handleMaxAmount}
 						/>
 					</div>
 				{/if}
@@ -510,7 +817,7 @@
 		{/if}
 	{:else}
 		<!-- Enter Payment Details Tab -->
-		<div class="space-y-6">
+		<div class="space-y-4">
 			<!-- Address Input -->
 			<div class="form-control">
 				<div class="relative">
@@ -556,33 +863,47 @@
 
 			<!-- Auto-detected Network Display -->
 			{#if detectedNetwork}
-				<div class="alert alert-info">
-					<span>Network: {detectedNetwork}</span>
+				<div class="rounded-lg border border-base-300 bg-primary/10 p-2">
+					<div class="flex items-center gap-2 pl-2">
+						{#if getNetworkIcon(detectedNetwork)}
+							<img
+								src={getNetworkIcon(detectedNetwork)}
+								alt={getNetworkDisplayName(detectedNetwork)}
+								class="h-5 w-5"
+							/>
+						{/if}
+						<span class="font-medium">{getNetworkDisplayName(detectedNetwork)}</span>
+					</div>
 				</div>
 			{/if}
 
 			<!-- Amount Field (conditional) -->
-			{#if amountRequired}
-				<div class="form-control space-y-2">
-					<AmountInputSection
-						{amount}
-						{unit}
-						{mathExpression}
-						{calculatorKey}
-						{memo}
-						{descriptionExpanded}
-						estimatedFees={estimatedFees?.totalFees ?? 0}
-						totalAmount={totalToSend}
-						amountInSats={amountInSats}
-						{btcPrice}
-						isLoadingFees={isLoadingFees}
-						onAmountChange={(value) => (amount = value)}
-						onUnitChange={handleUnitChange}
-						onCalculationChange={handleCalculationChange}
-						onClear={handleClearCalculator}
-						onMemoChange={(value) => (memo = value)}
-						onDescriptionToggle={(expanded) => (descriptionExpanded = expanded)}
-					/>
+				{#if amountRequired}
+					<div class="form-control space-y-4">
+						<AmountInputSection
+							{amount}
+							{unit}
+							{mathExpression}
+							{calculatorKey}
+							{memo}
+							{descriptionExpanded}
+							estimatedFees={estimatedFees?.totalFees ?? 0}
+							totalAmount={totalToSend}
+							amountInSats={amountInSats}
+							{btcPrice}
+							isLoadingFees={isLoadingFees}
+							network={detectedNetwork}
+							availableBalance={availableBalance}
+							calculatedMaxAmount={calculatedMaxAmount}
+							isLoadingMaxCalculation={isLoadingMaxCalculation}
+							onAmountChange={handleAmountChange}
+							onUnitChange={handleUnitChange}
+							onCalculationChange={handleCalculationChange}
+							onClear={handleClearCalculator}
+							onMaxAmount={handleMaxAmount}
+							onMemoChange={(value) => (memo = value)}
+							onDescriptionToggle={(expanded) => (descriptionExpanded = expanded)}
+						/>
 					{#if showLargeAmountWarning}
 						<p class="text-error text-sm text-center">
 							{$t('wallet.send.large_amount_warning.message', {
@@ -592,7 +913,7 @@
 					{/if}
 				</div>
 			{:else if detectedAmount}
-				<div class="alert alert-success">
+				<div class="alert alert-success alert-outline">
 					<span>
 						{$t('wallet.send.amount')}: {formatSats(detectedAmount)} {$t('wallet.sats')} ({$t('wallet.send.from_invoice')})
 					</span>
