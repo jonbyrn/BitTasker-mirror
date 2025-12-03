@@ -38,6 +38,7 @@
     "recipient_address": "Recipient Address",
     "address_placeholder": "Bitcoin, Lightning, or Liquid address",
     "available_balance": "Available Balance",
+    "balance_after": "Balance",
     "transaction_fee": "Transaction Fee",
     "network_fee": "Network Fee",
     "tx_fee": "Tx Fee",
@@ -119,7 +120,9 @@
       "rpc_endpoint_error": "RPC endpoint error. Please try again or contact support.",
       "retry_liquid": "Retry Liquid",
       "retry_rsk": "Retry RSK",
-      "retry_both_wallets": "Retry Both Wallets"
+      "retry_both_wallets": "Retry Both Wallets",
+      "retry": "Retry",
+      "no_connection": "Wallet not connected"
     },
     "setup": {
       "import_wallet": "Import Wallet",
@@ -511,11 +514,6 @@
       "below_swap_minimum": "Amount below swap minimum: {minAmount} Sats"
     },
     "initializing": "Initializing wallet...",
-    "error": {
-      "initialization_failed": "Wallet initialization failed",
-      "retry": "Retry",
-      "no_connection": "Wallet not connected"
-    },
     "buy_sell": {
       "title": "Buy & Sell Digital Assets",
       "coming_soon": "Buy & Sell functionality coming soon!",

@@ -36,6 +36,7 @@
     "recipient_address": "Dirección de destino",
     "address_placeholder": "Dirección Bitcoin, Lightning o Liquid",
     "available_balance": "Saldo Disponible",
+    "balance_after": "Saldo",
     "transaction_fee": "Comisión de transacción",
     "network_fee": "Comisión de Red",
     "tx_fee": "Tarifa",
@@ -116,7 +117,9 @@
       "rpc_endpoint_error": "Error de endpoint RPC. Por favor intenta de nuevo o contacta soporte.",
       "retry_liquid": "Reintentar Liquid",
       "retry_rsk": "Reintentar RSK",
-      "retry_both_wallets": "Reintentar ambas billeteras"
+      "retry_both_wallets": "Reintentar ambas billeteras",
+      "retry": "Reintentar",
+      "no_connection": "Billetera no conectada"
     },
     "setup": {
       "import_wallet": "Importar billetera",
