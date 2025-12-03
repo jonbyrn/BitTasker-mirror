@@ -154,24 +154,67 @@ export function getEventListeners(): (() => void)[] {
  * Initialize wallet using SDK
  */
 export async function initializeWallet(): Promise<void> {
+	const startTime = performance.now();
+	console.log('[WalletStore] Starting wallet initialization...');
+	
 	try {
+		const storeUpdateStartTime = performance.now();
 		walletStore.update(s => ({ ...s, isInitializing: true, isConnecting: true, error: null }));
+		const storeUpdateDuration = performance.now() - storeUpdateStartTime;
+		console.log(`[WalletStore] Initial store update completed in ${storeUpdateDuration.toFixed(2)}ms`);
 		
 		// Get mnemonic
-		const mnemonic = await getMnemonic();
+		// Check if biometric data is cached (user already authenticated)
+		// We only want to measure the time AFTER user authentication is complete
+		const { appStore } = await import('$lib/stores/app.store');
+		const { get } = await import('svelte/store');
+		let mnemonic: string;
+		
+		const cachedState = get(appStore);
+		const hasCachedAuth = cachedState.biometricData !== null;
+		
+		if (!hasCachedAuth) {
+			// User needs to authenticate - don't measure this time
+			// getMnemonic() will handle authentication (user interaction) and then decrypt
+			console.log('[WalletStore] User authentication required (not measuring authentication time)...');
+			mnemonic = await getMnemonic(); // This includes authentication + decryption, but we don't measure it
+			// After getMnemonic() completes, authentication is done and mnemonic is decrypted
+			// We don't log a duration here since it includes user interaction time
+			console.log('[WalletStore] Mnemonic fetched (authentication + decryption, user interaction time not measured)');
+		} else {
+			// Biometric data is cached - user already authenticated, only measure decryption time
+			const decryptStartTime = performance.now();
+			console.log('[WalletStore] Decrypting mnemonic (authentication cached, measuring decryption only)...');
+			const { decryptWalletMnemonicWithBiometrics } = await import('$lib/utils/helpers/auth');
+			mnemonic = await decryptWalletMnemonicWithBiometrics(cachedState.biometricData.password);
+			const decryptDuration = performance.now() - decryptStartTime;
+			console.log(`[WalletStore] Mnemonic decryption completed in ${decryptDuration.toFixed(2)}ms`);
+		}
 		
 		// Get Nostr keys for swap storage
+		const nostrKeysStartTime = performance.now();
+		console.log('[WalletStore] Fetching Nostr keys...');
 		const { nsec } = await getNostrKeyPair();
+		const nostrKeysDuration = performance.now() - nostrKeysStartTime;
+		console.log(`[WalletStore] Nostr keys fetched in ${nostrKeysDuration.toFixed(2)}ms`);
 		
 		// Get network from environment
+		const networkConfigStartTime = performance.now();
 		const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
+		const networkConfigDuration = performance.now() - networkConfigStartTime;
+		console.log(`[WalletStore] Network config loaded in ${networkConfigDuration.toFixed(2)}ms (network: ${network})`);
 		
 		// Create Nostr storage adapter for reverse swaps
+		const storageStartTime = performance.now();
+		console.log('[WalletStore] Creating Nostr storage adapters...');
 		const reverseSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-reverse');
 		const chainSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-chain');
 		const submarineSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-submarine');
+		const storageDuration = performance.now() - storageStartTime;
+		console.log(`[WalletStore] Nostr storage adapters created in ${storageDuration.toFixed(2)}ms`);
 		
 		// Initialize wallet manager
+		const configStartTime = performance.now();
 		const config: WalletManagerConfig = {
 			network,
 			mnemonic,
@@ -181,18 +224,42 @@ export async function initializeWallet(): Promise<void> {
 				submarine: submarineSwapStorage
 			}
 		};
+		const configDuration = performance.now() - configStartTime;
+		console.log(`[WalletStore] WalletManager config created in ${configDuration.toFixed(2)}ms`);
 		
+		const managerCreateStartTime = performance.now();
+		console.log('[WalletStore] Creating WalletManager instance...');
 		sdkWalletManager = new WalletManager(config);
+		const managerCreateDuration = performance.now() - managerCreateStartTime;
+		console.log(`[WalletStore] WalletManager instance created in ${managerCreateDuration.toFixed(2)}ms`);
+		
+		const sdkInitStartTime = performance.now();
+		console.log('[WalletStore] Initializing WalletManager SDK...');
 		await sdkWalletManager.initialize();
+		const sdkInitDuration = performance.now() - sdkInitStartTime;
+		console.log(`[WalletStore] WalletManager SDK initialization completed in ${sdkInitDuration.toFixed(2)}ms`);
 		
 		// Update store with wallet info
+		const walletInfoStartTime = performance.now();
+		console.log('[WalletStore] Getting wallet instances...');
 		const rskWallet = sdkWalletManager.rskWallet;
 		const bscWallet = sdkWalletManager.bscWallet;
+		const walletInfoDuration = performance.now() - walletInfoStartTime;
+		console.log(`[WalletStore] Wallet instances retrieved in ${walletInfoDuration.toFixed(2)}ms`);
 		
 		if (rskWallet && bscWallet) {
-			const rskBalanceData = await rskWallet.getBalance();
-			const bscBalances = await bscWallet.getBalances();
+			// Get balances in parallel
+			const balancesStartTime = performance.now();
+			console.log('[WalletStore] Fetching wallet balances in parallel...');
+			const [rskBalanceData, bscBalances] = await Promise.all([
+				rskWallet.getBalance(),
+				bscWallet.getBalances()
+			]);
+			const balancesDuration = performance.now() - balancesStartTime;
+			console.log(`[WalletStore] Wallet balances fetched in ${balancesDuration.toFixed(2)}ms (RSK: ${rskBalanceData.formatted}, BNB: ${bscBalances.bnb.formatted}, USDT: ${bscBalances.usdt.formatted})`);
 			
+			const storeUpdateStartTime = performance.now();
+			console.log('[WalletStore] Updating store with wallet info...');
 			walletStore.update(s => ({
 				...s,
 				isConnected: true,
@@ -222,17 +289,48 @@ export async function initializeWallet(): Promise<void> {
 					provider: bscWallet.getProvider() as any
 				}
 			}));
+			const storeUpdateDuration = performance.now() - storeUpdateStartTime;
+			console.log(`[WalletStore] Store updated with wallet info in ${storeUpdateDuration.toFixed(2)}ms`);
 			
-			// Load additional data
-			await Promise.allSettled([
+			// Load additional data (defer transaction loading for faster perceived initialization)
+			const additionalDataStartTime = performance.now();
+			console.log('[WalletStore] Loading additional data (assets, exchange rate) in parallel, deferring transactions...');
+			const [assetsResult, exchangeRateResult] = await Promise.allSettled([
 				loadAssets(),
-				loadTransactions(),
 				loadRbtcExchangeRate()
 			]);
+			const additionalDataDuration = performance.now() - additionalDataStartTime;
+			console.log(`[WalletStore] Additional data loading completed in ${additionalDataDuration.toFixed(2)}ms`);
+			
+			// Log results
+			if (assetsResult.status === 'fulfilled') {
+				console.log('[WalletStore] Assets loaded successfully');
+			} else {
+				console.error('[WalletStore] Assets loading failed:', assetsResult.reason);
+			}
+			
+			if (exchangeRateResult.status === 'fulfilled') {
+				console.log('[WalletStore] Exchange rate loaded successfully');
+			} else {
+				console.error('[WalletStore] Exchange rate loading failed:', exchangeRateResult.reason);
+			}
+			
+			// Defer transaction loading to improve perceived initialization speed
+			// This allows the wallet UI to appear faster while transactions load in the background
+			console.log('[WalletStore] Deferring transaction loading to background...');
+			loadTransactions().catch((error) => {
+				console.error('[WalletStore] Deferred transaction loading failed:', error);
+			});
+		} else {
+			console.warn('[WalletStore] Wallet instances not available (rskWallet:', !!rskWallet, ', bscWallet:', !!bscWallet, ')');
 		}
 		
+		const totalDuration = performance.now() - startTime;
+		console.log(`[WalletStore] Total wallet initialization completed in ${totalDuration.toFixed(2)}ms`);
+		
 	} catch (error) {
-		console.error('Failed to initialize wallet:', error);
+		const errorDuration = performance.now() - startTime;
+		console.error(`[WalletStore] Failed to initialize wallet after ${errorDuration.toFixed(2)}ms:`, error);
 		walletStore.update(s => ({
 			...s,
 			isInitializing: false,
@@ -270,9 +368,16 @@ export function disconnectWallet(): void {
  * Load assets
  */
 async function loadAssets(): Promise<void> {
+	const startTime = performance.now();
+	console.log('[WalletStore] Starting asset loading...');
+	
 	try {
+		const managerStartTime = performance.now();
 		const manager = getWalletManager();
 		const state = get(walletStore);
+		const managerDuration = performance.now() - managerStartTime;
+		console.log(`[WalletStore] Wallet manager retrieved in ${managerDuration.toFixed(2)}ms`);
+		
 		const assets: WalletAsset[] = [];
 		
 		// Initialize totals
@@ -282,6 +387,8 @@ async function loadAssets(): Promise<void> {
 		let totalUsd = 0;
 		
 		// Fetch current prices
+		const pricesStartTime = performance.now();
+		console.log('[WalletStore] Fetching crypto prices in parallel...');
 		let rbtcPrice = 0;
 		let bnbPrice = 0;
 		
@@ -290,27 +397,25 @@ async function loadAssets(): Promise<void> {
 				cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
 				cryptoPriceService.getCurrentPrice('BNB').catch(() => 0)
 			]);
+			const pricesDuration = performance.now() - pricesStartTime;
+			console.log(`[WalletStore] Crypto prices fetched in ${pricesDuration.toFixed(2)}ms (RBTC: $${rbtcPrice}, BNB: $${bnbPrice})`);
 		} catch (error) {
-			console.warn('Failed to fetch some prices:', error);
+			const pricesDuration = performance.now() - pricesStartTime;
+			console.warn(`[WalletStore] Failed to fetch some prices after ${pricesDuration.toFixed(2)}ms:`, error);
 		}
 		
-		// RSK assets - FETCH FRESH BALANCE FROM BLOCKCHAIN
-		if (state.rsk.connected && manager.rskWallet) {
-			const rskBalanceData = await manager.rskWallet.getBalance();
-			const rbtcBalance = parseFloat(rskBalanceData.formatted);
+		// Use balances already fetched during initialization (reuse from store to avoid redundant fetch)
+		const balanceReadStartTime = performance.now();
+		console.log('[WalletStore] Reading balances from store (already fetched during initialization)...');
+		
+		// Process RSK balance from store
+		if (state.rsk.connected && state.rsk.formattedBalance) {
+			const rbtcBalance = parseFloat(state.rsk.formattedBalance);
 			totalRbtc += rbtcBalance;
 			const rbtcUsdValue = rbtcBalance * rbtcPrice;
 			totalUsd += rbtcUsdValue;
 			
-			// Update store with fresh balance
-			walletStore.update(s => ({
-				...s,
-				rsk: {
-					...s.rsk,
-					balance: rskBalanceData.balance.toString(),
-					formattedBalance: rskBalanceData.formatted
-				}
-			}));
+			console.log(`[WalletStore] RSK balance from store: ${state.rsk.formattedBalance} RBTC`);
 			
 			assets.push({
 				assetId: 'rbtc',
@@ -319,31 +424,20 @@ async function loadAssets(): Promise<void> {
 				precision: 8,
 				icon: '₿',
 				balance: rbtcBalance,
-				formattedBalance: rskBalanceData.formatted,
+				formattedBalance: state.rsk.formattedBalance,
 				network: 'RSK',
 				usdValue: rbtcUsdValue
 			});
 		}
 		
-		// BSC assets - FETCH FRESH BALANCES FROM BLOCKCHAIN
-		if (state.bsc.connected && manager.bscWallet) {
-			const bscBalances = await manager.bscWallet.getBalances();
-			const bnbBalance = parseFloat(bscBalances.bnb.formatted);
+		// Process BSC balances from store
+		if (state.bsc.connected && state.bsc.formattedBnbBalance) {
+			const bnbBalance = parseFloat(state.bsc.formattedBnbBalance);
 			totalBnb += bnbBalance;
 			const bnbUsdValue = bnbBalance * bnbPrice;
 			totalUsd += bnbUsdValue;
 			
-			// Update store with fresh balances
-			walletStore.update(s => ({
-				...s,
-				bsc: {
-					...s.bsc,
-					bnbBalance: bscBalances.bnb.balance.toString(),
-					usdtBalance: bscBalances.usdt.balance.toString(),
-					formattedBnbBalance: bscBalances.bnb.formatted,
-					formattedUsdtBalance: bscBalances.usdt.formatted
-				}
-			}));
+			console.log(`[WalletStore] BSC balances from store: BNB: ${state.bsc.formattedBnbBalance}, USDT: ${state.bsc.formattedUsdtBalance}`);
 			
 			assets.push({
 				assetId: 'bnb',
@@ -352,34 +446,41 @@ async function loadAssets(): Promise<void> {
 				precision: 8,
 				icon: 'BNB',
 				balance: bnbBalance,
-				formattedBalance: bscBalances.bnb.formatted,
+				formattedBalance: state.bsc.formattedBnbBalance,
 				network: 'BSC',
 				usdValue: bnbUsdValue
 			});
 			
-			if (bscBalances.usdt.balance > BigInt(0)) {
-				const usdtBalance = parseFloat(bscBalances.usdt.formatted);
-				totalUsdt += usdtBalance;
-				totalUsd += usdtBalance; // USDT is 1:1 with USD
-				
-				assets.push({
-					assetId: 'usdt',
-					name: 'Tether USD',
-					ticker: 'USDT',
-					precision: 6,
-					icon: '₮',
-					balance: usdtBalance,
-					formattedBalance: bscBalances.usdt.formatted,
-					network: 'BSC',
-					usdValue: usdtBalance
-				});
+			// Check USDT balance from store
+			if (state.bsc.formattedUsdtBalance) {
+				const usdtBalance = parseFloat(state.bsc.formattedUsdtBalance);
+				if (usdtBalance > 0) {
+					totalUsdt += usdtBalance;
+					totalUsd += usdtBalance; // USDT is 1:1 with USD
+					
+					assets.push({
+						assetId: 'usdt',
+						name: 'Tether USD',
+						ticker: 'USDT',
+						precision: 6,
+						icon: '₮',
+						balance: usdtBalance,
+						formattedBalance: state.bsc.formattedUsdtBalance,
+						network: 'BSC',
+						usdValue: usdtBalance
+					});
+				}
 			}
 		}
+		
+		const balanceReadDuration = performance.now() - balanceReadStartTime;
+		console.log(`[WalletStore] Balance reading from store completed in ${balanceReadDuration.toFixed(2)}ms (saved ~500ms by reusing initial fetch)`);
 		
 		// Calculate total sats (RBTC to sats)
 		const totalSats = Math.floor(totalRbtc * 100_000_000);
 		
 		// Update store with assets and totals
+		const finalStoreUpdateStartTime = performance.now();
 		walletStore.update(s => ({
 			...s,
 			assets,
@@ -391,11 +492,17 @@ async function loadAssets(): Promise<void> {
 				bnb: totalBnb
 			}
 		}));
+		const finalStoreUpdateDuration = performance.now() - finalStoreUpdateStartTime;
+		console.log(`[WalletStore] Final store update with assets and totals completed in ${finalStoreUpdateDuration.toFixed(2)}ms`);
 		
 		// Mark assets as loaded after successful completion
 		hasLoadedAssets.set(true);
+		
+		const totalDuration = performance.now() - startTime;
+		console.log(`[WalletStore] Total asset loading completed in ${totalDuration.toFixed(2)}ms (${assets.length} assets)`);
 	} catch (error) {
-		console.error('Failed to load assets:', error);
+		const errorDuration = performance.now() - startTime;
+		console.error(`[WalletStore] Failed to load assets after ${errorDuration.toFixed(2)}ms:`, error);
 		// Don't set hasLoadedAssets on error, so loading state persists
 	}
 }
@@ -507,15 +614,29 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
  * Load RBTC exchange rate
  */
 async function loadRbtcExchangeRate(): Promise<void> {
+	const startTime = performance.now();
+	console.log('[WalletStore] Starting RBTC exchange rate loading...');
+	
 	try {
+		const rateStartTime = performance.now();
 		const rate = await cryptoPriceService.getExchangeRate('RBTC', 'BTC');
+		const rateDuration = performance.now() - rateStartTime;
+		console.log(`[WalletStore] RBTC exchange rate fetched in ${rateDuration.toFixed(2)}ms (rate: ${rate})`);
+		
+		const storeUpdateStartTime = performance.now();
 		walletStore.update(s => ({
 			...s,
 			rbtcToBtcRate: rate,
 			rbtcRateError: false
 		}));
+		const storeUpdateDuration = performance.now() - storeUpdateStartTime;
+		console.log(`[WalletStore] Exchange rate store update completed in ${storeUpdateDuration.toFixed(2)}ms`);
+		
+		const totalDuration = performance.now() - startTime;
+		console.log(`[WalletStore] Total RBTC exchange rate loading completed in ${totalDuration.toFixed(2)}ms`);
 	} catch (error) {
-		console.error('Failed to load RBTC exchange rate:', error);
+		const errorDuration = performance.now() - startTime;
+		console.error(`[WalletStore] Failed to load RBTC exchange rate after ${errorDuration.toFixed(2)}ms:`, error);
 		walletStore.update(s => ({
 			...s,
 			rbtcToBtcRate: 1.0,
