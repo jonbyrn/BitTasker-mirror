@@ -16,6 +16,12 @@ import { WalletManager,
 	type CreateSubmarineSwapParams,
 	type SubmarineSwapResult
 } from '@bittasker/wallet-core';
+
+// Extend WalletState to include transaction loading timestamp and loading state
+type ExtendedWalletState = WalletState & {
+	transactionsLastLoaded: number | null;
+	isLoadingTransactions: boolean; // Flag to prevent concurrent loads
+};
 import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
@@ -24,7 +30,7 @@ import { ethers } from 'ethers';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 // Initial state
-const initialState: WalletState = {
+const initialState: ExtendedWalletState = {
 	isInitializing: false,
 	isConnected: false,
 	isConnecting: false,
@@ -64,6 +70,8 @@ const initialState: WalletState = {
 
 	assets: [],
 	transactions: [],
+	transactionsLastLoaded: null, // Timestamp of last transaction load
+	isLoadingTransactions: false, // Flag to prevent concurrent loads
 	totalBalances: {
 		usd: 0,
 		sats: 0,
@@ -81,7 +89,7 @@ const initialState: WalletState = {
 };
 
 // Create the wallet store
-export const walletStore = writable(initialState);
+export const walletStore = writable<ExtendedWalletState>(initialState);
 
 // Track whether assets have been loaded at least once after connection
 // This prevents showing zero balance during the brief window after initialization
@@ -394,37 +402,104 @@ async function loadAssets(): Promise<void> {
 
 /**
  * Load transactions
+ * @param forceRefresh - If true, bypasses the loading lock to force a refresh
  */
-async function loadTransactions(): Promise<void> {
+async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
+	const startTime = performance.now();
+	
+	// Check if already loading to prevent concurrent loads (unless forcing refresh)
+	if (!forceRefresh) {
+		const currentState = get(walletStore);
+		if (currentState.isLoadingTransactions) {
+			console.log('[WalletStore] Transaction load already in progress, skipping duplicate request');
+			return;
+		}
+	} else {
+		console.log('[WalletStore] Force refresh requested, bypassing loading lock');
+	}
+	
+	// Set loading flag
+	walletStore.update(s => ({ ...s, isLoadingTransactions: true }));
+	
+	console.log('[WalletStore] Starting transaction load...');
+	
 	try {
 		const manager = getWalletManager();
+		
+		// Check if wallet is connected before attempting to load
+		if (!manager || !manager.rskWallet || !manager.bscWallet) {
+			console.log('[WalletStore] Wallet not connected, skipping transaction load');
+			walletStore.update(s => ({ ...s, isLoadingTransactions: false }));
+			return;
+		}
+		
 		const transactions: Transaction[] = [];
 		
-		// Load RSK transactions
-		if (manager.rskWallet) {
-			const rskTxs = await manager.rskWallet.loadTransactions();
+		// Load RSK and BSC transactions in parallel
+		const parallelStartTime = performance.now();
+		console.log('[WalletStore] Loading RSK and BSC transactions in parallel...');
+		
+		const [rskResult, bscResult] = await Promise.allSettled([
+			manager.rskWallet ? manager.rskWallet.loadTransactions() : Promise.resolve([]),
+			manager.bscWallet ? manager.bscWallet.loadTransactions() : Promise.resolve([])
+		]);
+		
+		const parallelDuration = performance.now() - parallelStartTime;
+		console.log(`[WalletStore] Parallel network loading completed in ${parallelDuration.toFixed(2)}ms`);
+		
+		// Process RSK transactions
+		if (rskResult.status === 'fulfilled') {
+			const rskTxs = rskResult.value;
+			const mapStartTime = performance.now();
 			transactions.push(...rskTxs.map(tx => ({
 				...tx,
 				network: 'rsk' as const,
 				tokenSymbol: 'RBTC'
 			})));
+			const mapDuration = performance.now() - mapStartTime;
+			console.log(`[WalletStore] RSK transactions loaded: ${rskTxs.length} transactions, mapping completed in ${mapDuration.toFixed(2)}ms`);
+		} else {
+			console.error('[WalletStore] RSK transaction loading failed:', rskResult.reason);
 		}
 		
-		// Load BSC transactions
-		if (manager.bscWallet) {
-			const bscTxs = await manager.bscWallet.loadTransactions();
+		// Process BSC transactions
+		if (bscResult.status === 'fulfilled') {
+			const bscTxs = bscResult.value;
+			const mapStartTime = performance.now();
 			transactions.push(...bscTxs.map(tx => ({
 				...tx,
 				network: 'bsc' as const
 			})));
+			const mapDuration = performance.now() - mapStartTime;
+			console.log(`[WalletStore] BSC transactions loaded: ${bscTxs.length} transactions, mapping completed in ${mapDuration.toFixed(2)}ms`);
+		} else {
+			console.error('[WalletStore] BSC transaction loading failed:', bscResult.reason);
 		}
 		
 		// Sort by timestamp
+		const sortStartTime = performance.now();
 		transactions.sort((a, b) => b.timestamp - a.timestamp);
+		const sortDuration = performance.now() - sortStartTime;
+		console.log(`[WalletStore] Transaction sorting completed in ${sortDuration.toFixed(2)}ms (${transactions.length} transactions)`);
 		
-		walletStore.update(s => ({ ...s, transactions }));
+		const updateStartTime = performance.now();
+		walletStore.update(s => ({ 
+			...s, 
+			transactions,
+			transactionsLastLoaded: Date.now(), // Always update timestamp, even if empty (handles empty transactions case)
+			isLoadingTransactions: false
+		}));
+		const updateDuration = performance.now() - updateStartTime;
+		console.log(`[WalletStore] Store update completed in ${updateDuration.toFixed(2)}ms`);
+		
+		const totalDuration = performance.now() - startTime;
+		console.log(`[WalletStore] Total transaction load completed in ${totalDuration.toFixed(2)}ms (${transactions.length} total transactions)`);
 	} catch (error) {
-		console.error('Failed to load transactions:', error);
+		const errorDuration = performance.now() - startTime;
+		console.error(`[WalletStore] Failed to load transactions after ${errorDuration.toFixed(2)}ms:`, error);
+		
+		// Reset loading flag on error
+		walletStore.update(s => ({ ...s, isLoadingTransactions: false }));
 	}
 }
 
@@ -698,7 +773,7 @@ export const walletManager = {
 	cleanup: disconnectWallet,
 	setActiveTab,
 	loadAssets,
-	loadTransactions,
+	loadTransactions: (forceRefresh?: boolean) => loadTransactions(forceRefresh || false),
 	retryRbtcExchangeRate: loadRbtcExchangeRate,
 	sendRBTC,
 	sendBSCUSDT,

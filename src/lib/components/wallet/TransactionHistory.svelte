@@ -15,7 +15,8 @@
 	import IconCheckAll from '~icons/mdi/check-all';
 
 	// State
-	let isLoading = $state(true);
+	// Use store's isLoadingTransactions instead of local state for single source of truth
+	let isLoading = $derived($walletStore.isLoadingTransactions);
 	let error = $state<string | null>(null);
 	let typeFilter = $state<'all' | 'send' | 'receive'>('all');
 	let networkFilter = $state<'all' | 'rsk' | 'bsc'>('all');
@@ -24,15 +25,21 @@
 	let itemsPerPage = 20;
 
 	// Filtered transactions (exclude swaps)
-	let filteredTransactions = $derived(
-		$transactions.filter((tx) => {
+	let filteredTransactions = $derived.by(() => {
+		const filterStartTime = performance.now();
+		const filtered = $transactions.filter((tx) => {
 			// Filter by type
 			if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
 			// Filter by network
 			if (networkFilter !== 'all' && tx.network !== networkFilter) return false;
 			return true;
-		})
-	);
+		});
+		const filterDuration = performance.now() - filterStartTime;
+		if (filterDuration > 10) { // Only log if it takes more than 10ms
+			console.log(`[TransactionHistory] Filtering completed in ${filterDuration.toFixed(2)}ms (${$transactions.length} → ${filtered.length} transactions)`);
+		}
+		return filtered;
+	});
 
 	// Network filter options
 	const networkFilterOptions = $derived([
@@ -105,31 +112,106 @@
 	let totalPages = $derived(Math.ceil(filteredTransactions.length / itemsPerPage));
 
 	onMount(() => {
-		loadTransactions();
+		loadTransactionsIfNeeded();
 		document.addEventListener('click', handleClickOutside);
 	});
 
 	onDestroy(() => {
 		document.removeEventListener('click', handleClickOutside);
+		
+		// Cleanup: If component unmounts during load, ensure loading flag is reset
+		// This prevents the flag from getting stuck if component is destroyed mid-load
+		if ($walletStore.isLoadingTransactions) {
+			console.log('[TransactionHistory] Component destroyed during load, resetting loading flag');
+			walletStore.update(s => ({ ...s, isLoadingTransactions: false }));
+		}
 	});
 
-	async function loadTransactions() {
-		isLoading = true;
+	/**
+	 * Check if transactions need to be loaded
+	 * Returns true if transactions are empty or stale (older than 5 minutes)
+	 */
+	function shouldLoadTransactions(): boolean {
+		// Check if wallet is connected first
+		if (!$walletStore.hasAnyConnection) {
+			console.log('[TransactionHistory] Wallet not connected, skipping load');
+			return false;
+		}
+		
+		// Check if already loading (prevent concurrent loads)
+		if ($walletStore.isLoadingTransactions) {
+			console.log('[TransactionHistory] Transactions already loading, skipping duplicate request');
+			return false;
+		}
+		
+		const transactions = $walletStore.transactions;
+		const lastLoaded = $walletStore.transactionsLastLoaded;
+		
+		// If we have a timestamp, even with empty transactions, they've been loaded
+		// Only load if we don't have a timestamp (first load) or if stale
+		if (lastLoaded) {
+			// Check if transactions are stale (older than 5 minutes)
+			const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes in milliseconds
+			const age = Date.now() - lastLoaded;
+			
+			if (age > STALE_THRESHOLD) {
+				console.log(`[TransactionHistory] Transactions are stale (${Math.round(age / 1000)}s old), will refresh`);
+				return true;
+			}
+			
+			console.log(`[TransactionHistory] Transactions are fresh (${Math.round(age / 1000)}s old), skipping load`);
+			return false;
+		}
+		
+		// No timestamp means first load (even if transactions array exists from previous session)
+		console.log('[TransactionHistory] No load timestamp found, will load');
+		return true;
+	}
+
+	/**
+	 * Load transactions only if needed (empty or stale)
+	 */
+	async function loadTransactionsIfNeeded() {
+		if (!shouldLoadTransactions()) {
+			// Transactions are already loaded and fresh, or wallet not connected
+			// No need to set isLoading - it's derived from store
+			return;
+		}
+		
+		await loadTransactions(false);
+	}
+
+	/**
+	 * Load transactions (force refresh if needed)
+	 * @param forceRefresh - If true, bypasses loading lock and always fetches from API
+	 */
+	async function loadTransactions(forceRefresh: boolean = false) {
+		const startTime = performance.now();
+		console.log(`[TransactionHistory] Starting transaction load (forceRefresh: ${forceRefresh})...`);
+		
 		error = null;
 
 		try {
 			// Load transactions using the combined wallet manager
-			await walletManager.loadTransactions();
+			// Pass forceRefresh to bypass store's loading lock if needed
+			const loadStartTime = performance.now();
+			await walletManager.loadTransactions(forceRefresh);
+			const loadDuration = performance.now() - loadStartTime;
+			console.log(`[TransactionHistory] Wallet manager loadTransactions completed in ${loadDuration.toFixed(2)}ms`);
+			
+			const totalDuration = performance.now() - startTime;
+			console.log(`[TransactionHistory] Total transaction load completed in ${totalDuration.toFixed(2)}ms`);
 		} catch (err) {
-			console.error('Failed to load transactions:', err);
+			const errorDuration = performance.now() - startTime;
+			console.error(`[TransactionHistory] Failed to load transactions after ${errorDuration.toFixed(2)}ms:`, err);
 			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');
-		} finally {
-			isLoading = false;
 		}
+		// isLoading is derived from store, so no need to set it here
 	}
 
 	async function refreshTransactions() {
-		await loadTransactions();
+		// Force refresh by bypassing loading lock
+		await loadTransactions(true);
 	}
 
 	function getStatusLabel(status: string): string {
@@ -301,6 +383,7 @@
 	// Calculate running balances for transactions
 	// Transactions are displayed newest first, so we need to calculate backwards
 	let runningBalances = $derived.by(() => {
+		const calcStartTime = performance.now();
 		const balances = new Map<string, number>();
 		
 		// Get current balance from wallet store (in sats)
@@ -308,9 +391,13 @@
 		let runningBalance = currentBalance;
 		
 		// Sort transactions by timestamp (newest first for display, but we calculate backwards)
+		const sortStartTime = performance.now();
 		const sortedTxs = [...filteredTransactions].sort((a, b) => b.timestamp - a.timestamp);
+		const sortDuration = performance.now() - sortStartTime;
+		console.log(`[TransactionHistory] Running balance: sorted ${sortedTxs.length} transactions in ${sortDuration.toFixed(2)}ms`);
 		
 		// Calculate balance after each transaction (working backwards from current)
+		const loopStartTime = performance.now();
 		for (const tx of sortedTxs) {
 			const txValueSats = Number(weiToSatoshi(BigInt(tx.value)));
 			const txFeeSats = tx.fee ? Math.floor(tx.fee * 100_000_000) : 0; // Convert fee to sats
@@ -328,6 +415,9 @@
 				runningBalance += txValueSats + txFeeSats;
 			}
 		}
+		const loopDuration = performance.now() - loopStartTime;
+		const totalDuration = performance.now() - calcStartTime;
+		console.log(`[TransactionHistory] Running balance calculation completed in ${totalDuration.toFixed(2)}ms (loop: ${loopDuration.toFixed(2)}ms, ${balances.size} balances calculated)`);
 		
 		return balances;
 	});

@@ -13,9 +13,13 @@ import { ethers } from 'ethers';
  * Identify and include swap transactions (EtherSwap contract interactions)
  */
 export async function loadRSKTransactions(): Promise<Transaction[]> {
+    const startTime = performance.now();
+    console.log('[RSK Transactions] Starting RSK transaction load...');
+    
     try {
         const state = get(walletStore);
         if (!state.rsk.connected || !state.rsk.provider || !state.rsk.wallet) {
+            console.log('[RSK Transactions] RSK wallet not connected, skipping');
             return [];
         }
 
@@ -24,35 +28,65 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
         const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
         // Get network configurations
+        const configStartTime = performance.now();
         const boltzConfig = getBoltzConfig(network);
         const rskConfig = getRSKConfig(network);
+        const configDuration = performance.now() - configStartTime;
+        console.log(`[RSK Transactions] Config loaded in ${configDuration.toFixed(2)}ms`);
 
         // Get EtherSwap contract address for swap detection
         let etherSwapAddress: string | null = null;
+        const etherSwapStartTime = performance.now();
         try {
+            console.log('[RSK Transactions] Fetching EtherSwap contract address...');
             const contractResponse = await fetch(`${boltzConfig.boltzApiUrl}/v2/chain/RBTC/contracts`);
+            const etherSwapFetchTime = performance.now() - etherSwapStartTime;
+            console.log(`[RSK Transactions] EtherSwap contract fetch completed in ${etherSwapFetchTime.toFixed(2)}ms`);
+            
             if (contractResponse.ok) {
                 const contracts = await contractResponse.json();
                 etherSwapAddress = contracts.swapContracts?.EtherSwap?.toLowerCase() || null;
+                console.log(`[RSK Transactions] EtherSwap address: ${etherSwapAddress || 'not found'}`);
             }
         } catch (error) {
-            console.warn('Could not fetch EtherSwap contract address:', error);
+            const etherSwapErrorTime = performance.now() - etherSwapStartTime;
+            console.warn(`[RSK Transactions] Could not fetch EtherSwap contract address after ${etherSwapErrorTime.toFixed(2)}ms:`, error);
         }
 
         // Use RSK Explorer API to get transaction history
         const explorerApiUrl = rskConfig.explorerApiUrl;
 
+        // Fetch regular and internal transactions in parallel
+        const parallelFetchStartTime = performance.now();
+        console.log('[RSK Transactions] Fetching regular and internal transactions in parallel...');
+        
+        const [regularResponse, internalResponse] = await Promise.allSettled([
+            fetch(`${explorerApiUrl}/v2/addresses/${address}/transactions`),
+            fetch(`${explorerApiUrl}/v2/addresses/${address}/internal-transactions`)
+        ]);
+        
+        const parallelFetchDuration = performance.now() - parallelFetchStartTime;
+        console.log(`[RSK Transactions] Parallel API fetching completed in ${parallelFetchDuration.toFixed(2)}ms`);
+
         try {
-            // Fetch transactions from RSK Explorer API
-            const response = await fetch(`${explorerApiUrl}/v2/addresses/${address}/transactions`);
+            // Process regular transactions first (needed for internal transaction processing)
+            if (regularResponse.status === 'fulfilled' && regularResponse.value.ok) {
+                const regularTxStartTime = performance.now();
+                const response = regularResponse.value;
+                console.log(`[RSK Transactions] Regular transactions API call completed (status: ${response.status})`);
 
             if (!response.ok) {
                 throw new Error(`API responded with status: ${response.status}`);
             }
 
+            const parseStartTime = performance.now();
             const data = await response.json();
+            const parseDuration = performance.now() - parseStartTime;
+            console.log(`[RSK Transactions] JSON parsing completed in ${parseDuration.toFixed(2)}ms`);
 
             if (data.items && Array.isArray(data.items)) {
+                const processStartTime = performance.now();
+                console.log(`[RSK Transactions] Processing ${data.items.length} transactions (limiting to 50)...`);
                 for (const tx of data.items.slice(0, 50)) {
                     // Limit to 50 most recent
                     const txTo = (tx.to?.hash || tx.to || '').toLowerCase();
@@ -158,9 +192,15 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                         transactions.push(transaction);
                     }
                 }
+                const processDuration = performance.now() - processStartTime;
+                console.log(`[RSK Transactions] Regular transaction processing completed in ${processDuration.toFixed(2)}ms (${transactions.length} transactions)`);
+            } else if (regularResponse.status === 'rejected') {
+                console.error('[RSK Transactions] Regular transactions fetch failed:', regularResponse.reason);
+            } else if (regularResponse.status === 'fulfilled' && !regularResponse.value.ok) {
+                console.error(`[RSK Transactions] Regular transactions API returned status ${regularResponse.value.status}`);
             }
         } catch (apiError) {
-            console.error('Failed to fetch from RSK explorer API:', apiError);
+            console.error('[RSK Transactions] Failed to process regular transactions:', apiError);
 
             // Try alternative API endpoint format
             try {
@@ -341,17 +381,19 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
             }
         }
 
-        // Fetch internal transactions (transactions from smart contracts)
-        try {
-            const internalResponse = await fetch(
-                `${explorerApiUrl}/v2/addresses/${address}/internal-transactions`
-            );
-
-            if (internalResponse.ok) {
-                const internalData = await internalResponse.json();
+        // Process internal transactions (using data from parallel fetch)
+        if (internalResponse.status === 'fulfilled' && internalResponse.value.ok) {
+            const internalTxStartTime = performance.now();
+            try {
+                console.log(`[RSK Transactions] Processing internal transactions (status: ${internalResponse.value.status})...`);
+                const parseStartTime = performance.now();
+                const internalData = await internalResponse.value.json();
+                const parseDuration = performance.now() - parseStartTime;
+                console.log(`[RSK Transactions] Internal transactions JSON parsing completed in ${parseDuration.toFixed(2)}ms`);
 
                 // Validate API response structure
                 if (internalData && internalData.items && Array.isArray(internalData.items)) {
+                    const setupStartTime = performance.now();
                     // Create Maps for O(1) lookups instead of O(n) find() operations
                     const existingTxIds = new Set(transactions.map(tx => tx.id?.toLowerCase()).filter(Boolean));
                     const existingTxHashes = new Set(transactions.map(tx => tx.hash?.toLowerCase()).filter(Boolean));
@@ -363,9 +405,12 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                             parentTxMap.set(tx.hash.toLowerCase(), tx);
                         }
                     }
+                    const setupDuration = performance.now() - setupStartTime;
+                    console.log(`[RSK Transactions] Internal transaction setup (maps/lookups) completed in ${setupDuration.toFixed(2)}ms`);
 
                     // Cache current block number outside the loop to avoid repeated async calls
                     // This is used for timestamp estimation when block timestamps are not available
+                    const blockInfoStartTime = performance.now();
                     let currentBlockNumber: number | null = null;
                     let currentBlockTimestamp: number | null = null;
                     if (state.rsk.provider) {
@@ -382,11 +427,16 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                             }
                         } catch {
                             // Provider unavailable, will skip timestamp estimation
-                            console.debug('Provider unavailable for block number lookup');
+                            console.debug('[RSK Transactions] Provider unavailable for block number lookup');
                         }
                     }
+                    const blockInfoDuration = performance.now() - blockInfoStartTime;
+                    console.log(`[RSK Transactions] Block info fetch completed in ${blockInfoDuration.toFixed(2)}ms`);
 
                     // Process internal transactions (limit to 100 to match total limit)
+                    const processStartTime = performance.now();
+                    console.log(`[RSK Transactions] Processing ${internalData.items.length} internal transactions (limiting to 100)...`);
+                    const initialTxCount = transactions.length;
                     for (const internalTx of internalData.items.slice(0, 100)) {
                         try {
                             // Validate internal transaction structure
@@ -707,23 +757,33 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                 parentTxMap.set(explorerHash.toLowerCase(), transaction);
                             }
                         } catch (txError) {
-                            console.debug('Error processing internal transaction:', txError);
+                            console.debug('[RSK Transactions] Error processing internal transaction:', txError);
                             // Continue processing other transactions
                             continue;
                         }
                     }
+                    const processDuration = performance.now() - processStartTime;
+                    const addedTxCount = transactions.length - initialTxCount;
+                    const totalInternalTime = performance.now() - internalTxStartTime;
+                    console.log(`[RSK Transactions] Internal transaction processing completed in ${processDuration.toFixed(2)}ms (added ${addedTxCount} transactions, total: ${totalInternalTime.toFixed(2)}ms)`);
                 } else {
-                    console.debug('Invalid internal transactions API response structure:', internalData);
+                    console.debug('[RSK Transactions] Invalid internal transactions API response structure:', internalData);
                 }
-            } else {
-                console.debug(`Internal transactions API returned status ${internalResponse.status}`);
+            } catch (internalError) {
+                const internalErrorTime = performance.now() - internalTxStartTime;
+                console.warn(`[RSK Transactions] Failed to process internal transactions after ${internalErrorTime.toFixed(2)}ms:`, internalError);
+                // Continue even if internal transactions fail - regular transactions are still available
             }
-        } catch (internalError) {
-            console.warn('Failed to fetch internal transactions:', internalError);
+        } else if (internalResponse.status === 'rejected') {
+            console.warn('[RSK Transactions] Internal transactions fetch failed:', internalResponse.reason);
             // Continue even if internal transactions fail - regular transactions are still available
+        } else if (internalResponse.status === 'fulfilled' && !internalResponse.value.ok) {
+            console.debug(`[RSK Transactions] Internal transactions API returned status ${internalResponse.value.status}`);
         }
 
         // Sort all transactions by timestamp (newest first) and remove duplicates
+        const dedupeStartTime = performance.now();
+        console.log(`[RSK Transactions] Starting deduplication and sorting (${transactions.length} transactions)...`);
         // Use Map for O(1) deduplication instead of O(n²) filter
         const uniqueTxMap = new Map<string, Transaction>();
         
@@ -739,14 +799,22 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                 }
             }
         }
+        const dedupeDuration = performance.now() - dedupeStartTime;
+        console.log(`[RSK Transactions] Deduplication completed in ${dedupeDuration.toFixed(2)}ms (${uniqueTxMap.size} unique transactions)`);
         
+        const sortStartTime = performance.now();
         const uniqueTransactions = Array.from(uniqueTxMap.values())
             .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
             .slice(0, 100); // Limit to 100 most recent total
+        const sortDuration = performance.now() - sortStartTime;
+        console.log(`[RSK Transactions] Sorting and limiting completed in ${sortDuration.toFixed(2)}ms (${uniqueTransactions.length} final transactions)`);
 
+        const totalDuration = performance.now() - startTime;
+        console.log(`[RSK Transactions] Total RSK transaction load completed in ${totalDuration.toFixed(2)}ms`);
         return uniqueTransactions;
     } catch (error) {
-        console.error('Failed to load RSK transactions:', error);
+        const errorDuration = performance.now() - startTime;
+        console.error(`[RSK Transactions] Failed to load RSK transactions after ${errorDuration.toFixed(2)}ms:`, error);
         return [];
     }
 }
@@ -780,8 +848,12 @@ async function fetchWithTimeout(url: string, timeoutMs: number = 15000): Promise
  * Includes timeout protection to prevent blocking other operations
  */
 export async function loadBSCTransactions(): Promise<Transaction[]> {
+    const startTime = performance.now();
+    console.log('[BSC Transactions] Starting BSC transaction load...');
+    
     const state = get(walletStore);
     if (!state.bsc.connected || !state.bsc.provider || !state.bsc.wallet) {
+        console.log('[BSC Transactions] BSC wallet not connected, skipping');
         return [];
     }
 
@@ -791,7 +863,10 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
         const network = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 
         // Get network configuration
+        const configStartTime = performance.now();
         const bscConfig = getBSCConfig(network);
+        const configDuration = performance.now() - configStartTime;
+        console.log(`[BSC Transactions] Config loaded in ${configDuration.toFixed(2)}ms`);
 
         // Get BSCScan API key from environment
         const apiKey = import.meta.env.VITE_BSCSCAN_API_KEY;
@@ -799,16 +874,47 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
         // Use BSCScan API to get transaction history
         const explorerApiUrl = bscConfig.explorerApiUrl;
 
-        // Fetch BNB transactions independently - don't let failures block other operations
-        try {
-            const bnbUrl = `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
-            const bnbResponse = await fetchWithTimeout(bnbUrl, 15000); // 15 second timeout
+        // Fetch BNB and USDT transactions in parallel
+        const usdtToken = getUSDTToken(network);
+        const parallelFetchStartTime = performance.now();
+        console.log('[BSC Transactions] Fetching BNB and USDT transactions in parallel...');
+        
+        const bnbUrl = `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
+        const usdtUrl = usdtToken 
+            ? `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=tokentx&contractaddress=${usdtToken.address}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`
+            : null;
+        
+        const fetchPromises: Promise<Response>[] = [
+            fetchWithTimeout(bnbUrl, 15000)
+        ];
+        
+        if (usdtUrl) {
+            fetchPromises.push(fetchWithTimeout(usdtUrl, 15000));
+        }
+        
+        const results = await Promise.allSettled(fetchPromises);
+        const bnbResult = results[0];
+        const usdtResult = usdtUrl ? results[1] : null;
+        const parallelFetchDuration = performance.now() - parallelFetchStartTime;
+        console.log(`[BSC Transactions] Parallel API fetching completed in ${parallelFetchDuration.toFixed(2)}ms`);
+
+        // Process BNB transactions
+        if (bnbResult.status === 'fulfilled') {
+            const bnbStartTime = performance.now();
+            try {
+                const bnbResponse = bnbResult.value;
+                console.log(`[BSC Transactions] Processing BNB transactions (status: ${bnbResponse.status})...`);
 
             if (bnbResponse.ok) {
+                const parseStartTime = performance.now();
                 const bnbData = await bnbResponse.json();
+                const parseDuration = performance.now() - parseStartTime;
+                console.log(`[BSC Transactions] BNB transactions JSON parsing completed in ${parseDuration.toFixed(2)}ms`);
 
                 // Check for API success status (V2 API returns status field)
                 if (bnbData.status === '1' && bnbData.result && Array.isArray(bnbData.result)) {
+                    const processStartTime = performance.now();
+                    console.log(`[BSC Transactions] Processing ${bnbData.result.length} BNB transactions (limiting to 50)...`);
                     for (const tx of bnbData.result.slice(0, 50)) {
                         // Determine transaction type based on user's address
                         const isFromUser = tx.from.toLowerCase() === address;
@@ -865,34 +971,50 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
 
                         transactions.push(transaction);
                     }
+                    const processDuration = performance.now() - processStartTime;
+                    const totalBnbTime = performance.now() - bnbStartTime;
+                    console.log(`[BSC Transactions] BNB transaction processing completed in ${processDuration.toFixed(2)}ms (${transactions.length} transactions, total: ${totalBnbTime.toFixed(2)}ms)`);
                 } else if (bnbData.status === '0') {
-                    console.warn('BSCScan API returned error for BNB transactions:', bnbData.message || bnbData.result);
+                    console.warn('[BSC Transactions] BSCScan API returned error for BNB transactions:', bnbData.message || bnbData.result);
                 }
             } else {
-                console.error('Failed to fetch BNB transactions:', bnbResponse.status, bnbResponse.statusText);
+                console.error(`[BSC Transactions] Failed to process BNB transactions: ${bnbResponse.status} ${bnbResponse.statusText}`);
             }
         } catch (bnbError) {
-            // Log error but continue - don't let BNB fetch failure block USDT fetch
+            const bnbErrorTime = performance.now() - bnbStartTime;
             const errorMessage = bnbError instanceof Error ? bnbError.message : String(bnbError);
             if (errorMessage.includes('timeout')) {
-                console.warn('BSCScan API request timed out for BNB transactions - transaction history may be incomplete');
+                console.warn(`[BSC Transactions] BSCScan API request timed out for BNB transactions after ${bnbErrorTime.toFixed(2)}ms - transaction history may be incomplete`);
             } else {
-                console.error('Failed to fetch BNB transactions from BSCScan API:', bnbError);
+                console.error(`[BSC Transactions] Failed to process BNB transactions after ${bnbErrorTime.toFixed(2)}ms:`, bnbError);
+            }
+        } else if (bnbResult.status === 'rejected') {
+            const errorMessage = bnbResult.reason instanceof Error ? bnbResult.reason.message : String(bnbResult.reason);
+            if (errorMessage.includes('timeout')) {
+                console.warn('[BSC Transactions] BSCScan API request timed out for BNB transactions - transaction history may be incomplete');
+            } else {
+                console.error('[BSC Transactions] Failed to fetch BNB transactions:', bnbResult.reason);
             }
         }
 
-        // Fetch USDT token transactions independently - don't let failures block other operations
-        const usdtToken = getUSDTToken(network);
-        if (usdtToken) {
+        // Process USDT token transactions (from parallel fetch)
+        if (usdtToken && usdtResult !== null && usdtResult.status === 'fulfilled') {
+            const usdtStartTime = performance.now();
             try {
-                const usdtUrl = `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=tokentx&contractaddress=${usdtToken.address}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
-                const usdtResponse = await fetchWithTimeout(usdtUrl, 15000); // 15 second timeout
+                const usdtResponse = usdtResult.value;
+                console.log(`[BSC Transactions] Processing USDT transactions (status: ${usdtResponse.status})...`);
 
                 if (usdtResponse.ok) {
+                    const parseStartTime = performance.now();
                     const usdtData = await usdtResponse.json();
+                    const parseDuration = performance.now() - parseStartTime;
+                    console.log(`[BSC Transactions] USDT transactions JSON parsing completed in ${parseDuration.toFixed(2)}ms`);
 
                     // Check for API success status (V2 API returns status field)
                     if (usdtData.status === '1' && usdtData.result && Array.isArray(usdtData.result)) {
+                        const processStartTime = performance.now();
+                        console.log(`[BSC Transactions] Processing ${usdtData.result.length} USDT transactions (limiting to 50)...`);
+                        const initialTxCount = transactions.length;
                         for (const tx of usdtData.result.slice(0, 50)) {
                             // Determine transaction type based on user's address
                             const isFromUser = tx.from.toLowerCase() === address;
@@ -951,31 +1073,52 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
 
                             transactions.push(transaction);
                         }
+                        const processDuration = performance.now() - processStartTime;
+                        const addedTxCount = transactions.length - initialTxCount;
+                        const totalUsdtTime = performance.now() - usdtStartTime;
+                        console.log(`[BSC Transactions] USDT transaction processing completed in ${processDuration.toFixed(2)}ms (added ${addedTxCount} transactions, total: ${totalUsdtTime.toFixed(2)}ms)`);
                     }
                 }
             } catch (usdtError) {
                 // Log error but continue - don't let USDT fetch failure block return of BNB transactions
+                const usdtErrorTime = performance.now() - usdtStartTime;
                 const errorMessage = usdtError instanceof Error ? usdtError.message : String(usdtError);
                 if (errorMessage.includes('timeout')) {
-                    console.warn('BSCScan API request timed out for USDT transactions - transaction history may be incomplete');
+                    console.warn(`[BSC Transactions] BSCScan API request timed out for USDT transactions after ${usdtErrorTime.toFixed(2)}ms - transaction history may be incomplete`);
                 } else {
-                    console.error('Failed to fetch USDT transactions from BSCScan API:', usdtError);
+                    console.error(`[BSC Transactions] Failed to process USDT transactions after ${usdtErrorTime.toFixed(2)}ms:`, usdtError);
                 }
             }
+        } else if (usdtToken && usdtResult !== null && usdtResult.status === 'rejected') {
+            const errorMessage = usdtResult.reason instanceof Error ? usdtResult.reason.message : String(usdtResult.reason);
+            if (errorMessage.includes('timeout')) {
+                console.warn('[BSC Transactions] BSCScan API request timed out for USDT transactions - transaction history may be incomplete');
+            } else {
+                console.error('[BSC Transactions] Failed to fetch USDT transactions:', usdtResult.reason);
+            }
+        } else if (usdtToken && usdtResult !== null && usdtResult.status === 'fulfilled' && !usdtResult.value.ok) {
+            console.error(`[BSC Transactions] USDT transactions API returned status ${usdtResult.value.status}`);
         }
 
         // Sort transactions by timestamp and remove duplicates
+        const dedupeStartTime = performance.now();
+        console.log(`[BSC Transactions] Starting deduplication and sorting (${transactions.length} transactions)...`);
         const uniqueTransactions = transactions
             .filter((tx, index, self) =>
                 index === self.findIndex(t => t.hash === tx.hash)
             )
             .sort((a, b) => b.timestamp - a.timestamp)
             .slice(0, 100); // Limit to 100 most recent
+        const dedupeDuration = performance.now() - dedupeStartTime;
+        console.log(`[BSC Transactions] Deduplication and sorting completed in ${dedupeDuration.toFixed(2)}ms (${uniqueTransactions.length} final transactions)`);
 
+        const totalDuration = performance.now() - startTime;
+        console.log(`[BSC Transactions] Total BSC transaction load completed in ${totalDuration.toFixed(2)}ms`);
         return uniqueTransactions;
 
     } catch (error) {
-        console.error('Failed to load BSC transaction history:', error);
+        const errorDuration = performance.now() - startTime;
+        console.error(`[BSC Transactions] Failed to load BSC transaction history after ${errorDuration.toFixed(2)}ms:`, error);
         return [];
     }
 }
@@ -983,6 +1126,8 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
 
 /**
  * Update transaction status in the wallet store
+ * Note: This invalidates the transactionsLastLoaded timestamp since we're modifying transactions
+ * This ensures the component will refresh on next open to get the latest data
  */
 export function updateTransactionStatus(network: 'rsk' | 'bsc', hash: string, receipt: any): void {
     if (!receipt) return;
@@ -1006,7 +1151,11 @@ export function updateTransactionStatus(network: 'rsk' | 'bsc', hash: string, re
 
         return {
             ...state,
-            transactions: updatedTransactions
+            transactions: updatedTransactions,
+            // Invalidate timestamp to ensure fresh data on next load
+            // Set to null so component knows to refresh
+            transactionsLastLoaded: null
         };
     });
 }
+
