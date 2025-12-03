@@ -112,7 +112,7 @@
           class="btn btn-xs btn-ghost mt-1" 
           onclick={toggleDescription}
         >
-          {showFullDescription ? $t('dashboard.task_details_by_task.show_less') : $t('dashboard.task_details_by_task.show_more')}
+          {showFullDescription ? $t('common.show_less') : $t('common.show_more')}
         </button>
       {/if}
     {/if}
@@ -142,7 +142,7 @@
           class="btn btn-xs btn-ghost mt-1" 
           onclick={toggleDescription}
         >
-          {showFullDescription ? $t('dashboard.task_details_by_task.show_less') : $t('dashboard.task_details_by_task.show_more')}
+          {showFullDescription ? $t('common.show_less') : $t('common.show_more')}
         </button>
       {/if}
     {/if}

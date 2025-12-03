@@ -19,6 +19,7 @@
 	import { escrow } from '$lib/utils/wallet/escrow';
 	import { contractStore } from '$lib/stores/contract.store';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -314,67 +315,45 @@
 	{/if}
 
 	<!-- Task location -->
-	{#if task.taskType === TaskTypeEnum.IN_PERSON}
-		{#if task.pickupLocation}
-			<div>
-				<small class="text-base-content/60 mb-1 text-sm">
-					{$t('dashboard.task_details_by_task.pickup_location')}
-				</small>
-				<div class="flex items-center gap-1">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/60 h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-						/>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-						/>
-					</svg>
-					<span>{task.pickupLocation.displayName || task.pickupLocation.zipCode}</span>
-				</div>
+	<div class="space-y-3">
+		{#if task.taskType === TaskTypeEnum.REMOTE}
+			<!-- Remote task - show message that it can be completed remotely -->
+			<div class="alert alert-outline alert-info">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<span>{$t('dashboard.task_details_by_task.remote_location_description')}</span>
 			</div>
+		{:else}
+			<!-- In-person task - show pickup and/or dropoff locations -->
+			{#if task.pickupLocation && task.pickupLocation.latitude !== null && task.pickupLocation.longitude !== null && task.pickupLocation.locationLoaded}
+				<LocationDetailsCard
+					location={task.pickupLocation}
+					label={$t('common.location.pickup_location')}
+					showDirections={true}
+					showAddress={true}
+				/>
+			{/if}
+			{#if task.dropOffLocation && task.dropOffLocation.latitude !== null && task.dropOffLocation.longitude !== null && task.dropOffLocation.locationLoaded && task.dropOffLocation.displayName}
+				<LocationDetailsCard
+					location={task.dropOffLocation}
+					label={$t('common.location.dropoff_location')}
+					showDirections={true}
+					showAddress={true}
+				/>
+			{/if}
 		{/if}
-
-		{#if task.dropOffLocation && task.dropOffLocation.displayName}
-			<div>
-				<small class="text-base-content/60 mb-1 text-sm">
-					{$t('dashboard.task_details_by_task.dropoff_location')}
-				</small>
-				<div class="flex items-center gap-1">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/60 h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-						/>
-					</svg>
-					<span>{task.dropOffLocation.displayName || task.dropOffLocation.zipCode}</span>
-				</div>
-			</div>
-		{/if}
-	{:else}
-		<div>
-			<p class="text-base-content/60 mb-1 text-sm">{$t('dashboard.task_details_by_task.remote')}</p>
-		</div>
-	{/if}
+	</div>
 
 	<!-- Task attachments -->
 	{#if task.attachments && task.attachments.length > 0}
@@ -559,7 +538,7 @@
 					</svg>
 					{$t('dashboard.task_details_by_task.edit_task_confirmation.cancel')}
 				</button>
-				<button type="button" class="btn btn-error flex-1" onclick={confirmEditTask}>
+				<button type="button" class="btn btn-error" onclick={confirmEditTask}>
 					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"

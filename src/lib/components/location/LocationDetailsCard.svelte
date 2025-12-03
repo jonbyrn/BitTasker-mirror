@@ -33,8 +33,8 @@
 	// Card styling classes - using subtle gray tones for both
 	const cardClass = $derived(
 		isPickupLocation 
-			? 'card shadow-md bg-info/30' 
-			: 'card shadow-md bg-info/30'
+			? 'card shadow-md bg-secondary' 
+			: 'card shadow-md bg-secondary'
 	);
 
 	function openDirections() {
@@ -43,13 +43,13 @@
 </script>
 
 <div class={cardClass}>
-	<div class="card-body p-4">
+	<div class="p-4">
 		{#if label}
-			<h3 class="card-title text-lg mb-3">{label}</h3>
+			<h4 class="card-title text-md">{label}</h4>
 		{/if}
 
 		{#if showAddress && formattedAddress}
-			<div class="mb-3">
+			<div class="mb-2">
 				<p class={addressLabelClass}>{$t('common.location.address')}</p>
 				<p class={addressTextClass}>{formattedAddress}</p>
 			</div>

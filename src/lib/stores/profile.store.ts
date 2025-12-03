@@ -1,5 +1,5 @@
 import type { NostrEvent } from 'nostr-tools';
-import type { Profile } from '$lib/types/profile';
+import type { NostrProfileImage, NostrSkill,NostrReview, Profile } from '$lib/types/profile';
 import { appStore } from './app.store';
 import { get, writable } from 'svelte/store';
 import { subscribeToProfileUpdates, closeNostrPool } from '$lib/nostr/profile';
@@ -92,7 +92,7 @@ function createProfileStore() {
                                             ...state,
                                             data: {
                                                 ...state.data,
-                                                pictures: content.map((img: any) => ({
+                                                pictures: content.map((img: NostrProfileImage) => ({
                                                     url: img.url,
                                                     type: img.type || 'image/jpeg',
                                                     alt: img.alt || '',
@@ -106,7 +106,7 @@ function createProfileStore() {
                                             ...state,
                                             data: {
                                                 ...state.data,
-                                                skills: content.map((skill: any) => ({
+                                                skills: content.map((skill: NostrSkill) => ({
                                                     name: skill.name,
                                                     level: skill.level,
                                                     verificationStatus: skill.verificationStatus,
@@ -128,7 +128,8 @@ function createProfileStore() {
                                                         description: content.description,
                                                         images: content.images,
                                                         completionDate: content.completionDate,
-                                                        skills: content.skills
+                                                        skills: content.skills,
+                                                        link: content.link
                                                     }
                                                 ]
                                             }
@@ -152,7 +153,7 @@ function createProfileStore() {
                                             ...state,
                                             data: {
                                                 ...state.data,
-                                                reviews: content.map((review: any) => ({
+                                                reviews: content.map((review: NostrReview) => ({
                                                     id: review.id,
                                                     from: review.from,
                                                     rating: review.rating,

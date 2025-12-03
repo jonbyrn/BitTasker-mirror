@@ -25,6 +25,7 @@
     "update": "Actualizar",
     "add": "Añadir",
     "required": "Requerido",
+    "optional": "Opcional",
     "previous": "Anterior",
     "next": "Siguiente",
         "pagination": {
@@ -36,6 +37,8 @@
     "slide": "Diapositiva",
     "view_all": "Ver Todo",
     "view_profile": "Ver Perfil",
+    "show_more": "Mostrar más",
+    "show_less": "Mostrar menos",
         "reviews": "reseñas",
         "uploading": "Subiendo...",
         "uploading_file": "Subiendo archivo",
@@ -66,6 +69,7 @@
       "no_ratings": "No hay calificaciones",
       "website": "Sitio Web",
       "no_image_available": "No hay imagen disponible",
+      "visit_project": "Ver Proyecto",
       "message_sent_successfully": "¡Mensaje enviado exitosamente!",
       "message_required": "Por favor ingresa un mensaje",
       "message_send_error": "Error al enviar el mensaje. Por favor intenta de nuevo."
