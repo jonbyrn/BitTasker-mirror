@@ -11,6 +11,7 @@
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
+	import DescriptionAccordion from '$lib/components/wallet/DescriptionAccordion.svelte';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
@@ -1041,36 +1042,12 @@
 		</details>
 
 		<!-- Memo/Description Field (Accordion) -->
-		<div class="collapse collapse-arrow border-2 border-primary rounded-lg bg-base-100" class:collapse-open={descriptionExpanded}>
-			<button
-				type="button"
-				class="collapse-title min-h-0 py-1 px-4 font-medium text-left"
-				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
-					descriptionExpanded = !descriptionExpanded;
-				}}
-			>
-				{$t('wallet.description')} ({$t('wallet.optional')})
-			</button>
-			<div class="collapse-content">
-				<div class="form-control">
-					<textarea
-						id="memo-input"
-						class="textarea textarea-bordered w-full"
-						class:textarea-error={memo.length > 200}
-						placeholder={$t('wallet.payment_for_placeholder')}
-						bind:value={memo}
-						rows="3"
-						maxlength="200"
-					></textarea>
-					<div class="label text-xs">
-						<span class="label-text-alt {memo.length > 200 ? 'text-error' : 'text-base-content/70'}">
-							{memo.length}/200 {$t('wallet.receive.description_characters')}
-						</span>
-					</div>
-				</div>
-			</div>
-		</div>
+		<DescriptionAccordion
+			{memo}
+			expanded={descriptionExpanded}
+			onMemoChange={(value) => (memo = value)}
+			onToggle={(expanded) => (descriptionExpanded = expanded)}
+		/>
 
 		<!-- Network Fee Accordion (Always Visible) -->
 		{#if isLoadingFees}

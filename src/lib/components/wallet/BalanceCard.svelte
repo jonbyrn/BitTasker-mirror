@@ -127,7 +127,7 @@
 							•••••• {$t('wallet.sats')}
 						</p>
 						<p class="mt-1 text-white opacity-80 text-lg">
-							≈ •••••• {$t('wallet.usd')}
+							≈ $•••••• {$t('wallet.usd')}
 						</p>
 					{:else if totalSats > 0}
 						<!-- Show total sats -->
@@ -228,6 +228,9 @@
 						<div class="font-semibold">
 							•••••• {$t('wallet.sats')}
 						</div>
+						<div class="text-xs opacity-70">
+							$••••••
+						</div>
 					{:else}
 						<div class="font-semibold">
 							{formatSats(bitcoinTotalSats)} {$t('wallet.sats')}
@@ -265,13 +268,22 @@
 									<span class="font-medium">{$t('wallet.l2_btc')}</span>
 								</div>
 								<div class="text-right">
-									<div class="font-semibold">
-										{formatSats(balanceInSats)} {$t('wallet.sats')}
-									</div>
-									{#if asset.usdValue > 0}
-										<div class="text-xs opacity-70">
-											${asset.usdValue.toFixed(2)}
+									{#if balancesHidden}
+										<div class="font-semibold">
+											•••••• {$t('wallet.sats')}
 										</div>
+										<div class="text-xs opacity-70">
+											$••••••
+										</div>
+									{:else}
+										<div class="font-semibold">
+											{formatSats(balanceInSats)} {$t('wallet.sats')}
+										</div>
+										{#if asset.usdValue > 0}
+											<div class="text-xs opacity-70">
+												${asset.usdValue.toFixed(2)}
+											</div>
+										{/if}
 									{/if}
 								</div>
 							</div>
@@ -348,13 +360,23 @@
 						/>
 						<span class="text-base-content/50 font-medium">{$t('wallet.usdt_binance_chain')}</span>
 						<div class="text-base-content/50 ml-auto text-xs">
-							${parseFloat($walletStore.bsc.formattedUsdtBalance || '0').toFixed(2)}
+							{#if balancesHidden}
+								$••••••
+							{:else}
+								${parseFloat($walletStore.bsc.formattedUsdtBalance || '0').toFixed(2)}
+							{/if}
 						</div>
 					</div>
 					<div class="flex items-center gap-2">
 						<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5 opacity-50" />
 						<span class="text-base-content/50 font-medium">{$t('wallet.usdt_liquid')}</span>
-						<div class="text-base-content/50 ml-auto text-xs">$0.00</div>
+						<div class="text-base-content/50 ml-auto text-xs">
+							{#if balancesHidden}
+								$••••••
+							{:else}
+								$0.00
+							{/if}
+						</div>
 					</div>
 					<div class="mt-4 text-center">
 						<p class="text-base-content/50 font-bold">{$t('wallet.coming_soon')}</p>
