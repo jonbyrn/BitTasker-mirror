@@ -322,7 +322,7 @@ async function loadAssets(): Promise<void> {
 				precision: 8,
 				icon: '₿',
 				balance: rbtcBalance,
-				formattedBalance: rskBalanceData.formatted,
+				formattedBalance: state.rsk.formattedBalance,
 				network: 'RSK',
 				usdValue: rbtcUsdValue
 			});
@@ -355,7 +355,7 @@ async function loadAssets(): Promise<void> {
 				precision: 8,
 				icon: 'BNB',
 				balance: bnbBalance,
-				formattedBalance: bscBalances.bnb.formatted,
+				formattedBalance: state.bsc.formattedBnbBalance,
 				network: 'BSC',
 				usdValue: bnbUsdValue
 			});
@@ -394,12 +394,8 @@ async function loadAssets(): Promise<void> {
 				bnb: totalBnb
 			}
 		}));
-
-		// Mark assets as loaded after successful completion
-		hasLoadedAssets.set(true);
 	} catch (error) {
 		console.error('Failed to load assets:', error);
-		// Don't set hasLoadedAssets on error, so loading state persists
 	}
 }
 

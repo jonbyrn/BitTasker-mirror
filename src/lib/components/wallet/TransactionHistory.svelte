@@ -15,7 +15,6 @@
 	import IconCheckAll from '~icons/mdi/check-all';
 
 	// State
-	// Use store's isLoadingTransactions instead of local state for single source of truth
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let typeFilter = $state<'all' | 'send' | 'receive'>('all');
