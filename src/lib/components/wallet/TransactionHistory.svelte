@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
-	import { transactions, walletManager } from '$lib/stores/wallet.store';
+	import { transactions, walletManager, walletStore } from '$lib/stores/wallet.store';
 	import { weiToSatoshi } from '@bittasker/wallet-core';
 	// MDI Icons
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
@@ -267,31 +267,76 @@
 		return `${address.slice(0, 6)}...${address.slice(-4)}`;
 	}
 
-	function openExplorer(txHash?: string, network?: string) {
-		if (!txHash) return;
+	function getExplorerUrl(txHash?: string, network?: string): string | null {
+		if (!txHash) return null;
 
-		let explorerUrl = '';
 		if (network === 'rsk') {
 			// Use the correct RSK explorer based on network (default to testnet for now)
 			const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 			if (rskNetwork === 'mainnet') {
-				explorerUrl = `https://rootstock.blockscout.com/tx/${txHash}`;
+				return `https://rootstock.blockscout.com/tx/${txHash}`;
 			} else {
-				explorerUrl = `https://rootstock-testnet.blockscout.com/tx/${txHash}`;
+				return `https://rootstock-testnet.blockscout.com/tx/${txHash}`;
 			}
 		} else if (network === 'bsc') {
 			// Use BSC explorer based on network
 			const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 			if (bscNetwork === 'mainnet') {
-				explorerUrl = `https://bscscan.com/tx/${txHash}`;
+				return `https://bscscan.com/tx/${txHash}`;
 			} else {
-				explorerUrl = `https://testnet.bscscan.com/tx/${txHash}`;
+				return `https://testnet.bscscan.com/tx/${txHash}`;
 			}
 		}
 
-		if (explorerUrl) {
-			window.open(explorerUrl, '_blank');
+		return null;
+	}
+
+	function openExplorer(txHash?: string, network?: string) {
+		const url = getExplorerUrl(txHash, network);
+		if (url) {
+			window.open(url, '_blank');
 		}
+	}
+
+	// Calculate running balances for transactions
+	// Transactions are displayed newest first, so we need to calculate backwards
+	let runningBalances = $derived.by(() => {
+		const balances = new Map<string, number>();
+		
+		// Get current balance from wallet store (in sats)
+		const currentBalance = $walletStore.totalBalances.sats;
+		let runningBalance = currentBalance;
+		
+		// Sort transactions by timestamp (newest first for display, but we calculate backwards)
+		const sortedTxs = [...filteredTransactions].sort((a, b) => b.timestamp - a.timestamp);
+		
+		// Calculate balance after each transaction (working backwards from current)
+		for (const tx of sortedTxs) {
+			const txValueSats = Number(weiToSatoshi(BigInt(tx.value)));
+			const txFeeSats = tx.fee ? Math.floor(tx.fee * 100_000_000) : 0; // Convert fee to sats
+			
+			// Store the balance after this transaction
+			const txId = tx.txHash || tx.hash || '';
+			if (txId) {
+				balances.set(txId, runningBalance);
+			}
+			
+			// Work backwards: if it was a receive, subtract it; if it was a send, add it back
+			if (tx.type === 'receive') {
+				runningBalance -= txValueSats;
+			} else if (tx.type === 'send') {
+				runningBalance += txValueSats + txFeeSats;
+			}
+		}
+		
+		return balances;
+	});
+
+	function getRunningBalance(txHash?: string): string {
+		if (!txHash) return '';
+		const balance = runningBalances.get(txHash);
+		if (balance === undefined || balance === null) return '';
+		return Math.floor(balance).toLocaleString();
 	}
 
 	function nextPage() {
@@ -603,219 +648,371 @@
 			{#each paginatedTransactions as tx}
 				{@const TypeIcon = getTypeIcon(tx.type)}
 				{@const StatusIcon = getStatusIcon(tx.status || 'pending')}
-				<div class="card bg-base-200 hover:bg-base-300 transition-colors {tx.type === 'receive'
-					? 'border-2 border-success'
-					: tx.type === 'send'
-						? 'border-2 border-warning'
-						: ''}">
-					<div class="card-body p-4">
-						<!-- Desktop Layout -->
-						<div class="hidden md:flex flex-col gap-1">
-							<!-- Top Row: Icon, Text, Checkmark, Amount -->
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<!-- Type Icon -->
-									<div
-										class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
-										'receive'
-											? 'bg-success/20 text-success'
-											: tx.type === 'contract'
-												? 'bg-primary/20 text-primary'
-												: 'bg-warning/20 text-warning'}"
-									>
-										<TypeIcon class="h-5 w-5" />
-									</div>
-									<div class="flex items-center gap-2">
-										<span class="font-semibold capitalize">
-											{#if tx.type === 'send'}
-												{$t('wallet.transaction.type.send')}
-											{:else if tx.type === 'receive'}
-												{$t('wallet.transaction.type.receive')}
-											{:else if tx.type === 'contract'}
-												{$t('wallet.transaction.type.contract')}
-											{:else}
-												{tx.type}
-											{/if}
-										</span>
+				{@const explorerUrl = getExplorerUrl(tx.txHash || tx.hash, tx.network)}
+				{#if explorerUrl}
+					<a
+						href={explorerUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="card bg-base-200 hover:bg-base-300 transition-colors cursor-pointer {tx.type === 'receive'
+							? 'border-2 border-success'
+							: tx.type === 'send'
+								? 'border-2 border-warning'
+								: ''}"
+					>
+						<div class="card-body p-4">
+							<!-- Desktop Layout -->
+							<div class="hidden md:flex flex-col gap-1">
+								<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<!-- Type Icon -->
 										<div
-											class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
-												tx.status || 'pending'
-											)}"
-											title={getStatusLabel(tx.status || 'pending')}
+											class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
+											'receive'
+												? 'bg-success/20 text-success'
+												: tx.type === 'contract'
+													? 'bg-primary/20 text-primary'
+													: 'bg-warning/20 text-warning'}"
 										>
-											<StatusIcon
-												class="h-5 w-5"
-												aria-label={getStatusLabel(tx.status || 'pending')}
-											/>
+											<TypeIcon class="h-5 w-5" />
+										</div>
+										<div class="flex items-center gap-2">
+											<span class="font-semibold capitalize">
+												{#if tx.type === 'send'}
+													{$t('wallet.transaction.type.send')}
+												{:else if tx.type === 'receive'}
+													{$t('wallet.transaction.type.receive')}
+												{:else if tx.type === 'contract'}
+													{$t('wallet.transaction.type.contract')}
+												{:else}
+													{tx.type}
+												{/if}
+											</span>
+											<div
+												class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
+													tx.status || 'pending'
+												)}"
+												title={getStatusLabel(tx.status || 'pending')}
+											>
+												<StatusIcon
+													class="h-5 w-5"
+													aria-label={getStatusLabel(tx.status || 'pending')}
+												/>
+											</div>
 										</div>
 									</div>
+									<div class="flex flex-col items-end mr-4">
+										<div
+											class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
+										>
+											{tx.type === 'receive' ? '+' : '-'}
+											{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
+										</div>
+										{#if tx.fee}
+											<div class="text-xs opacity-70">
+												{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
+											</div>
+										{/if}
+									</div>
 								</div>
-								<div
-									class="font-semibold mr-4 {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
-								>
-									{tx.type === 'receive' ? '+' : '-'}
-									{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
+
+								<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<!-- Network Icon -->
+										<div
+											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+										>
+											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
+												<img
+													src={getNetworkIcon(tx.network || 'rsk')}
+													alt={getNetworkDisplayName(tx.network || 'rsk')}
+													class="h-10 w-10"
+												/>
+											{:else}
+												<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
+											{/if}
+										</div>
+										<div class="text-sm opacity-70">
+											<div>{formatDate(tx.timestamp)}</div>
+											<div>{formatTime(tx.timestamp)}</div>
+										</div>
+									</div>
+									<div class="text-right mr-4">
+										{#if tx.txHash || tx.hash}
+											<div class="text-md font-semibold">
+												{$t('wallet.balance_after')}: {getRunningBalance(tx.txHash || tx.hash)} {$t('wallet.sats')}
+											</div>
+										{/if}
+									</div>
 								</div>
 							</div>
 
-							<!-- Bottom Row: Network Icon, Date/Time, Fee/Explorer -->
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<!-- Network Icon -->
-									<div
-										class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
-									>
-										{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-											<img
-												src={getNetworkIcon(tx.network || 'rsk')}
-												alt={getNetworkDisplayName(tx.network || 'rsk')}
-												class="h-10 w-10"
-											/>
-										{:else}
-											<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
+							<!-- Mobile Layout -->
+							<div class="md:hidden flex flex-col gap-1">
+								<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<!-- Type Icon -->
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
+											'receive'
+												? 'bg-success/20 text-success'
+												: tx.type === 'contract'
+													? 'bg-primary/20 text-primary'
+													: 'bg-warning/20 text-warning'}"
+										>
+											<TypeIcon class="h-5 w-5" />
+										</div>
+										<div class="flex items-center gap-2">
+											<span class="font-semibold">
+												{#if tx.type === 'send'}
+													{$t('wallet.transaction.type.send')}
+												{:else if tx.type === 'receive'}
+													{$t('wallet.transaction.type.receive')}
+												{:else if tx.type === 'contract'}
+													{$t('wallet.transaction.type.contract')}
+												{:else}
+													{tx.type}
+												{/if}
+											</span>
+											<div
+												class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
+													tx.status || 'pending'
+												)}"
+												title={getStatusLabel(tx.status || 'pending')}
+											>
+												<StatusIcon
+													class="h-5 w-5"
+													aria-label={getStatusLabel(tx.status || 'pending')}
+												/>
+											</div>
+										</div>
+									</div>
+									<div class="flex flex-col items-end">
+										<div
+											class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
+										>
+											{tx.type === 'receive' ? '+' : '-'}
+											{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
+										</div>
+										{#if tx.fee}
+											<div class="text-xs opacity-70">
+												{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
+											</div>
 										{/if}
 									</div>
-									<div class="text-sm opacity-70">
-										<div>{formatDate(tx.timestamp)}</div>
-										<div>{formatTime(tx.timestamp)}</div>
-									</div>
 								</div>
-								<div class="flex flex-col items-end gap-1.5 text-right mr-4">
-									{#if tx.fee}
-										<div class="text-xs opacity-70">
-											{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
-										</div>
-									{/if}
-									{#if tx.txHash}
-										<button
-											class="btn btn-ghost btn-xs"
-											onclick={() => openExplorer(tx.txHash, tx.network)}
+
+								<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<!-- Network Icon -->
+										<div
+											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
 										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
+												<img
+													src={getNetworkIcon(tx.network || 'rsk')}
+													alt={getNetworkDisplayName(tx.network || 'rsk')}
+													class="h-10 w-10"
 												/>
-											</svg>
-											{$t('wallet.view_explorer')}
-										</button>
-									{/if}
+											{:else}
+												<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
+											{/if}
+										</div>
+										<div class="text-sm opacity-70">
+											<div>{formatDate(tx.timestamp)}</div>
+											<div>{formatTime(tx.timestamp)}</div>
+										</div>
+									</div>
+									<div class="text-right">
+										{#if tx.txHash || tx.hash}
+											<div class="text-md font-semibold">
+												{$t('wallet.balance_after')}: {getRunningBalance(tx.txHash || tx.hash)} {$t('wallet.sats')}
+											</div>
+										{/if}
+									</div>
 								</div>
 							</div>
 						</div>
-
-						<!-- Mobile Layout -->
-						<div class="md:hidden flex flex-col gap-1">
-							<!-- Top Row: Icon, Text, Checkmark, Amount -->
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<!-- Type Icon -->
-									<div
-										class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
-										'receive'
-											? 'bg-success/20 text-success'
-											: tx.type === 'contract'
-												? 'bg-primary/20 text-primary'
-												: 'bg-warning/20 text-warning'}"
-									>
-										<TypeIcon class="h-5 w-5" />
-									</div>
-									<div class="flex items-center gap-2">
-										<span class="font-semibold">
-											{#if tx.type === 'send'}
-												{$t('wallet.transaction.type.send')}
-											{:else if tx.type === 'receive'}
-												{$t('wallet.transaction.type.receive')}
-											{:else if tx.type === 'contract'}
-												{$t('wallet.transaction.type.contract')}
-											{:else}
-												{tx.type}
-											{/if}
-										</span>
+					</a>
+				{:else}
+					<!-- Fallback for transactions without explorer URL -->
+					<div class="card bg-base-200 hover:bg-base-300 transition-colors {tx.type === 'receive'
+						? 'border-2 border-success'
+						: tx.type === 'send'
+							? 'border-2 border-warning'
+							: ''}">
+						<div class="card-body p-4">
+							<!-- Same layout as above but without link -->
+							<div class="hidden md:flex flex-col gap-1">
+								<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
 										<div
-											class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
-												tx.status || 'pending'
-											)}"
-											title={getStatusLabel(tx.status || 'pending')}
+											class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
+											'receive'
+												? 'bg-success/20 text-success'
+												: tx.type === 'contract'
+													? 'bg-primary/20 text-primary'
+													: 'bg-warning/20 text-warning'}"
 										>
-											<StatusIcon
-												class="h-5 w-5"
-												aria-label={getStatusLabel(tx.status || 'pending')}
-											/>
+											<TypeIcon class="h-5 w-5" />
+										</div>
+										<div class="flex items-center gap-2">
+											<span class="font-semibold capitalize">
+												{#if tx.type === 'send'}
+													{$t('wallet.transaction.type.send')}
+												{:else if tx.type === 'receive'}
+													{$t('wallet.transaction.type.receive')}
+												{:else if tx.type === 'contract'}
+													{$t('wallet.transaction.type.contract')}
+												{:else}
+													{tx.type}
+												{/if}
+											</span>
+											<div
+												class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
+													tx.status || 'pending'
+												)}"
+												title={getStatusLabel(tx.status || 'pending')}
+											>
+												<StatusIcon
+													class="h-5 w-5"
+													aria-label={getStatusLabel(tx.status || 'pending')}
+												/>
+											</div>
 										</div>
 									</div>
-								</div>
-								<div
-									class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
-								>
-									{tx.type === 'receive' ? '+' : '-'}
-									{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
-								</div>
-							</div>
-
-							<!-- Bottom Row: Network Icon, Date/Time, Fee/Explorer -->
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<!-- Network Icon -->
-									<div
-										class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
-									>
-										{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-											<img
-												src={getNetworkIcon(tx.network || 'rsk')}
-												alt={getNetworkDisplayName(tx.network || 'rsk')}
-												class="h-10 w-10"
-											/>
-										{:else}
-											<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
+									<div class="flex flex-col items-end gap-1 mr-4">
+										<div
+											class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
+										>
+											{tx.type === 'receive' ? '+' : '-'}
+											{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
+										</div>
+										{#if tx.fee}
+											<div class="text-xs opacity-70">
+												{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
+											</div>
 										{/if}
 									</div>
-									<div class="text-sm opacity-70">
-										<div>{formatDate(tx.timestamp)}</div>
-										<div>{formatTime(tx.timestamp)}</div>
+								</div>
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<div
+											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+										>
+											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
+												<img
+													src={getNetworkIcon(tx.network || 'rsk')}
+													alt={getNetworkDisplayName(tx.network || 'rsk')}
+													class="h-10 w-10"
+												/>
+											{:else}
+												<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
+											{/if}
+										</div>
+										<div class="text-sm opacity-70">
+											<div>{formatDate(tx.timestamp)}</div>
+											<div>{formatTime(tx.timestamp)}</div>
+										</div>
+									</div>
+									<div class="text-right mr-4">
+										{#if tx.txHash || tx.hash}
+											<div class="text-xs opacity-70">
+												{$t('wallet.balance_after')}: {getRunningBalance(tx.txHash || tx.hash)} {$t('wallet.sats')}
+											</div>
+										{/if}
 									</div>
 								</div>
-								<div class="flex flex-col items-end text-right">
-									{#if tx.fee}
-										<div class="text-xs opacity-70">
-											{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
-										</div>
-									{/if}
-									{#if tx.txHash}
-										<button
-											class="btn btn-ghost btn-xs"
-											onclick={() => openExplorer(tx.txHash, tx.network)}
+							</div>
+							<div class="md:hidden flex flex-col gap-1">
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
+											'receive'
+												? 'bg-success/20 text-success'
+												: tx.type === 'contract'
+													? 'bg-primary/20 text-primary'
+													: 'bg-warning/20 text-warning'}"
 										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
+											<TypeIcon class="h-5 w-5" />
+										</div>
+										<div class="flex items-center gap-2">
+											<span class="font-semibold">
+												{#if tx.type === 'send'}
+													{$t('wallet.transaction.type.send')}
+												{:else if tx.type === 'receive'}
+													{$t('wallet.transaction.type.receive')}
+												{:else if tx.type === 'contract'}
+													{$t('wallet.transaction.type.contract')}
+												{:else}
+													{tx.type}
+												{/if}
+											</span>
+											<div
+												class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
+													tx.status || 'pending'
+												)}"
+												title={getStatusLabel(tx.status || 'pending')}
 											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+												<StatusIcon
+													class="h-5 w-5"
+													aria-label={getStatusLabel(tx.status || 'pending')}
 												/>
-											</svg>
-											{$t('wallet.view_explorer')}
-										</button>
-									{/if}
+											</div>
+										</div>
+									</div>
+									<div class="flex flex-col items-end gap-1">
+										<div
+											class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
+										>
+											{tx.type === 'receive' ? '+' : '-'}
+											{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
+										</div>
+										{#if tx.fee}
+											<div class="text-xs opacity-70">
+												{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
+											</div>
+										{/if}
+									</div>
+								</div>
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<div
+											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+										>
+											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
+												<img
+													src={getNetworkIcon(tx.network || 'rsk')}
+													alt={getNetworkDisplayName(tx.network || 'rsk')}
+													class="h-10 w-10"
+												/>
+											{:else}
+												<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
+											{/if}
+										</div>
+										<div class="text-sm opacity-70">
+											<div>{formatDate(tx.timestamp)}</div>
+											<div>{formatTime(tx.timestamp)}</div>
+										</div>
+									</div>
+									<div class="text-right">
+										{#if tx.txHash || tx.hash}
+											<div class="text-xs opacity-70">
+												{$t('wallet.balance_after')}: {getRunningBalance(tx.txHash || tx.hash)} {$t('wallet.sats')}
+											</div>
+										{/if}
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-				</div>
+				{/if}
 			{/each}
 		</div>
 
