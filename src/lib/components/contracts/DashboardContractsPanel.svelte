@@ -110,19 +110,18 @@
 	onMount(async () => {
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
 		// Load profiles after contracts are loaded
-		// Subscribe to real-time updates
-		await contractStore.subscribeToStatusUpdates();
+		// Subscribe to real-time updates (both status updates and new contracts)
+		await Promise.all([
+			contractStore.subscribeToStatusUpdates(),
+			contractStore.subscribeToNewContracts()
+		]);
 	});
 
 	onDestroy(() => {
-		// Cleanup subscription when leaving contracts panel
+		// Cleanup subscriptions when leaving contracts panel
 		contractStore.unsubscribeFromStatusUpdates();
+		contractStore.unsubscribeFromNewContracts();
 	});
-
-	function closeContractDrawer() {
-		$contractStore.contract = null;
-		$contractStore.isDrawerOpen = false;
-	}
 
 	function selectStatusFilter(statusId: EscrowStatus | 'all') {
 		statusFilter = statusId;
