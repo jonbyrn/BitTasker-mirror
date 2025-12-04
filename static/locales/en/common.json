@@ -25,6 +25,7 @@
         "update": "Update",
         "add": "Add",
         "required": "Required",
+        "optional": "Optional",
         "previous": "Previous",
         "next": "Next",
         "pagination": {
@@ -36,6 +37,8 @@
         "slide": "Slide",
         "view_all": "View All",
         "view_profile": "View Profile",
+        "show_more": "Show more",
+        "show_less": "Show less",
         "reviews": "reviews",
         "uploading": "Uploading...",
         "uploading_file": "Uploading file",
@@ -66,6 +69,7 @@
             "no_ratings": "No ratings yet",
             "website": "Website",
             "no_image_available": "No image available",
+            "visit_project": "Visit Project",
             "message_sent_successfully": "Message sent successfully!",
             "message_required": "Please enter a message",
             "message_send_error": "Failed to send message. Please try again."

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 	import { goto } from '$app/navigation';
 	import { t, locale } from 'svelte-i18n';
@@ -33,6 +33,7 @@
 			  }
 		>;
 		portfolio?: Array<{
+			link?: string;
 			id: string;
 			title: string;
 			description: string;
@@ -67,8 +68,8 @@
 	let messageError = $state('');
 	let messageSuccess = $state(false);
 
-	let currentSlide = $state(0);
-	let intervalId: number;
+	// Estado para el carrusel de imágenes de cada proyecto
+	let projectImageSlides = $state<Record<number, number>>({});
 
 	// Estado para el botón "ver más/ver menos" en la sección "Acerca de"
 	let aboutElement: HTMLParagraphElement | null = $state(null);
@@ -102,14 +103,24 @@
 		return { valid: false, error: $t('common.profile.invalid_npub_format') };
 	}
 
-	function nextSlide() {
-		if (userProfile?.portfolio && userProfile.portfolio.length > 0) {
-			currentSlide = (currentSlide + 1) % userProfile.portfolio.length;
+	// Funciones para el carrusel de imágenes de cada proyecto
+	function nextProjectImage(projectIndex: number, totalImages: number) {
+		if (totalImages > 1) {
+			projectImageSlides[projectIndex] = ((projectImageSlides[projectIndex] || 0) + 1) % totalImages;
+			projectImageSlides = { ...projectImageSlides };
 		}
 	}
 
-	function goToSlide(index: number) {
-		currentSlide = index;
+	function prevProjectImage(projectIndex: number, totalImages: number) {
+		if (totalImages > 1) {
+			projectImageSlides[projectIndex] = ((projectImageSlides[projectIndex] || 0) - 1 + totalImages) % totalImages;
+			projectImageSlides = { ...projectImageSlides };
+		}
+	}
+
+	function goToProjectImage(projectIndex: number, imageIndex: number) {
+		projectImageSlides[projectIndex] = imageIndex;
+		projectImageSlides = { ...projectImageSlides };
 	}
 
 	// Verificar si el texto "Acerca de" está truncado
@@ -265,13 +276,6 @@
 
 		// Cargar el perfil del usuario
 		await loadUserProfile();
-
-		// Auto-advance slides every 3 seconds (only if portfolio exists)
-		intervalId = setInterval(() => {
-			if (userProfile?.portfolio && userProfile.portfolio.length > 1) {
-				nextSlide();
-			}
-		}, 3000) as unknown as number;
 	});
 
 	// Efecto para verificar si el texto "Acerca de" está truncado
@@ -290,11 +294,6 @@
 		}
 	});
 
-	onDestroy(() => {
-		if (intervalId) {
-			clearInterval(intervalId);
-		}
-	});
 </script>
 
 <!-- Skeleton Loading -->
@@ -587,12 +586,12 @@
 								{userProfile?.about || $t('common.profile.no_description')}
 							</p>
 							{#if isAboutTruncated && userProfile?.about}
-								<div class="text-left">
+								<div class="text-left mb-2">
 									<button 
-										class="btn btn-xs btn-ghost pb-4" 
+										class="btn btn-sm btn-secondary p-2" 
 										onclick={toggleAbout}
 									>
-										{showFullAbout ? $t('dashboard.task_details_by_task.show_less') : $t('dashboard.task_details_by_task.show_more')}
+										{showFullAbout ? $t('common.show_less') : $t('common.show_more')}
 									</button>
 								</div>
 							{/if}
@@ -619,67 +618,131 @@
 						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 							<div class="card-body p-4">
 								<p class="mb-4 text-xl font-bold">{$t('common.profile.portfolio')}</p>
-								<div class="relative overflow-hidden rounded-2xl">
-									<div
-										class="flex transition-transform duration-500 ease-in-out"
-										style="transform: translateX(-{currentSlide * 100}%)"
-									>
-										{#each userProfile.portfolio as project}
-											<div class="w-full shrink-0">
-												<div class="relative">
-													{#if project.images && project.images.length > 0}
-														{#if typeof project.images[0] === 'string'}
-															<img
-																src={project.images[0]}
-																alt={project.title}
-																class="h-64 w-full object-cover"
-															/>
-														{:else if project.images[0]?.url}
-															<img
-																src={project.images[0].url}
-																alt={project.title}
-																class="h-64 w-full object-cover"
-															/>
-														{:else}
-															<div class="bg-base-300 flex h-64 w-full items-center justify-center">
-																<span class="text-base-content/60">{$t('common.profile.no_image_available')}</span>
+								<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+									{#each userProfile.portfolio as project, projectIndex}
+										<div class="card bg-base-200 rounded-xl overflow-hidden">
+											<!-- Título, badges y descripción arriba de la imagen -->
+											<div class="card-body p-4 pb-2">
+												<div class="flex items-center justify-between gap-2 mb-2">
+													<span class="card-title text-md line-clamp-1 font-bold">{project.title}</span>
+													{#if project?.link}
+														<a
+															href={project.link}
+															target="_blank"
+															rel="noopener noreferrer"
+															class="btn btn-xs btn-outline shrink-0"
+														>
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																class="mr-1 h-4 w-4"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke="currentColor"
+																stroke-width="2"
+															>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+																/>
+															</svg>
+															{$t('common.profile.visit_project')}
+														</a>
+													{/if}
+												</div>
+												<!-- Skills badges arriba de la descripción -->
+												{#if project.skills && project.skills.length > 0}
+													<div class="flex flex-wrap gap-1 mb-2">
+														{#each project.skills as skill}
+															<span class="badge badge-info badge-outline badge-sm">
+																{skill}
+															</span>
+														{/each}
+													</div>
+												{/if}
+												<p class="text-base-content/70 text-sm line-clamp-2 mb-3">{project.description}</p>
+											</div>
+											
+											<!-- Imagen del proyecto -->
+											<div class="relative">
+												{#if project.images && project.images.length > 0}
+													{@const currentImageIndex = projectImageSlides[projectIndex] || 0}
+													{@const totalImages = project.images.length}
+													{@const hasMultipleImages = totalImages > 1}
+													
+													<!-- Carrusel de imágenes del proyecto -->
+													<div class="relative overflow-hidden">
+														<div
+															class="flex transition-transform duration-500 ease-in-out"
+															style="transform: translateX(-{currentImageIndex * 100}%)"
+														>
+															{#each project.images as image, imgIndex}
+																<div class="w-full shrink-0">
+																	{#if typeof image === 'string'}
+																		<img
+																			src={image}
+																			alt="{project.title} - {imgIndex + 1}"
+																			class="h-48 w-full object-cover"
+																		/>
+																	{:else if image?.url}
+																		<img
+																			src={image.url}
+																			alt={image.alt || `${project.title} - ${imgIndex + 1}`}
+																			class="h-48 w-full object-cover"
+																		/>
+																	{/if}
+																</div>
+															{/each}
+														</div>
+														
+														<!-- Controles de navegación de imágenes (solo si hay más de una) -->
+														{#if hasMultipleImages}
+															<!-- Botón anterior -->
+															<button
+																onclick={() => prevProjectImage(projectIndex, totalImages)}
+																class="absolute left-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm bg-black/80 hover:bg-black border-2 border-white/50 text-white shadow-xl z-10 backdrop-blur-sm"
+																aria-label="Previous image"
+															>
+																<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+																	<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+																</svg>
+															</button>
+															
+															<!-- Botón siguiente -->
+															<button
+																onclick={() => nextProjectImage(projectIndex, totalImages)}
+																class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm bg-black/80 hover:bg-black border-2 border-white/50 text-white shadow-xl z-10 backdrop-blur-sm"
+																aria-label="Next image"
+															>
+																<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+																	<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+																</svg>
+															</button>
+															
+															<!-- Indicadores de imágenes -->
+															<div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+																{#each project.images as _, imgIndex}
+																	<button
+																		onclick={() => goToProjectImage(projectIndex, imgIndex)}
+																		class="h-1.5 w-1.5 rounded-full transition-all duration-300 {currentImageIndex === imgIndex
+																			? 'bg-white w-4'
+																			: 'bg-white/50'}"
+																		aria-label="Go to image {imgIndex + 1}"
+																	></button>
+																{/each}
 															</div>
 														{/if}
-													{:else}
-														<div class="bg-base-300 flex h-64 w-full items-center justify-center">
-															<span class="text-base-content/60">{$t('common.profile.no_image_available')}</span>
-														</div>
-													{/if}
-													<div class="absolute inset-0 bg-linear-to-t from-black/70 to-transparent"></div>
-													<div class="absolute right-4 bottom-4 left-4 text-white">
-														<h3 class="mb-2 text-xl font-bold">{project.title}</h3>
-														<p class="mb-3 line-clamp-2 text-sm opacity-90">{project.description}</p>
-														<div class="flex flex-wrap gap-1">
-															{#if project.skills && project.skills.length > 0}
-																{#each project.skills as skill}
-																	<span class="rounded-full bg-white/20 px-2 py-1 text-xs text-white">
-																		{skill}
-																	</span>
-																{/each}
-															{/if}
-														</div>
 													</div>
-												</div>
+												{:else}
+													<div class="bg-base-300 flex h-48 w-full items-center justify-center">
+														<span class="text-base-content/60 text-sm">{$t('common.profile.no_image_available')}</span>
+													</div>
+												{/if}
 											</div>
-										{/each}
-									</div>
-									<!-- Indicadores -->
-									<div class="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
-										{#each userProfile.portfolio as _, index}
-											<button
-												onclick={() => goToSlide(index)}
-												class="h-4 w-4 cursor-pointer rounded-full transition-all duration-300 {currentSlide ===
-												index
-													? 'bg-white'
-													: 'bg-white/50'}"
-											>ñ{" "}</button>
-										{/each}
-									</div>
+											
+											
+										</div>
+									{/each}
 								</div>
 							</div>
 						</div>
