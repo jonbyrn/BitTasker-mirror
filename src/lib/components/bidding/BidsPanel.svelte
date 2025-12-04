@@ -1,11 +1,10 @@
 <script lang="ts">
 	import type { Bid, CounterOffer, TaskBid } from '$lib/types/bid';
-	import { onMount } from 'svelte';
+	import { t } from 'svelte-i18n';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import BidCard from '$lib/components/bidding/BidCard.svelte';
 	import BidDetailsDrawer from '$lib/components/bidding/BidDetailsDrawer.svelte';
 	import taskService from '$lib/api/services/task.service';
-	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -23,26 +22,8 @@
 	let isDrawerOpen = $state(props.selectedBid ? true : false);
 	let counterOffers = $state<CounterOffer[]>([]);
 
-	// Lifecycle
-	onMount(() => {
-		// If a selected bid was provided and has an ID, load its counter offers
-		// if (selectedBid && selectedBid.id) {
-		// 	counterOffers = bidStore.getCounterOffersForBid(selectedBid.id);
-		// 	// Automatically open the drawer if a selected bid was provided
-		// 	isDrawerOpen = true;
-		// }
-	});
-
 	function handleViewDetails(bid: Bid) {
 		selectedBid = bid;
-
-		// Load counter offers for this bid
-		if (bid.id) {
-			// counterOffers = bidStore.getCounterOffersForBid(bid.id);
-		} else {
-			counterOffers = [];
-		}
-
 		isDrawerOpen = true;
 	}
 
@@ -117,7 +98,13 @@
 		<div>
 			<h2 class="text-xl font-bold">{$t('dashboard.bids.bids_panel.title')}</h2>
 			{#if !isLoading}
-				<p class="text-sm opacity-70">{bids.length} {bids.length !== 1 ? $t('dashboard.bids.bids_panel.bids') : $t('dashboard.bids.bids_panel.bid')} {$t('dashboard.bids.bids_panel.submitted')}</p>
+				<p class="text-sm opacity-70">
+					{bids.length}
+					{bids.length !== 1
+						? $t('dashboard.bids.bids_panel.bids')
+						: $t('dashboard.bids.bids_panel.bid')}
+					{$t('dashboard.bids.bids_panel.submitted')}
+				</p>
 			{/if}
 		</div>
 	</div>

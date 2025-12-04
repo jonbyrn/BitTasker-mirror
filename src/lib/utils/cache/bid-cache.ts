@@ -11,70 +11,6 @@ interface CacheEntry<T> {
 }
 
 /**
- * Legacy BidCache class for backward compatibility
- */
-export class BidCache {
-	private cache = new Map<string, CacheEntry<any>>();
-	private readonly MAX_CACHE_SIZE = 100; // Prevent unbounded growth
-
-	set<T>(key: string, data: T, ttlMinutes: number = 5): void {
-		// Auto-cleanup expired entries before adding new ones
-		this.cleanup();
-
-		// Prevent cache from growing too large
-		if (this.cache.size >= this.MAX_CACHE_SIZE) {
-			// Remove oldest entries (simple FIFO approach)
-			const firstKey = this.cache.keys().next().value;
-			if (firstKey) {
-				this.cache.delete(firstKey);
-			}
-		}
-
-		this.cache.set(key, {
-			data,
-			timestamp: Date.now(),
-			ttl: ttlMinutes * 60 * 1000 // Convert minutes to milliseconds
-		});
-	}
-
-	get<T>(key: string): T | null {
-		const entry = this.cache.get(key);
-		if (!entry) return null;
-
-		// Auto-cleanup expired entries on access
-		if (Date.now() - entry.timestamp > entry.ttl) {
-			this.cache.delete(key);
-			return null;
-		}
-
-		return entry.data;
-	}
-
-	// Cache processed bid data with different processing stages
-	setProcessedBidData(key: string, data: NostrEvent, ttlMinutes: number = 5): void {
-		this.set(`processed-${key}`, data, ttlMinutes);
-	}
-
-	getProcessedBidData(key: string): NostrEvent | null {
-		return this.get<NostrEvent>(`processed-${key}`);
-	}
-
-	clear(): void {
-		this.cache.clear();
-	}
-
-	// Clean up expired entries
-	cleanup(): void {
-		const now = Date.now();
-		for (const [key, entry] of this.cache.entries()) {
-			if (now - entry.timestamp > entry.ttl) {
-				this.cache.delete(key);
-			}
-		}
-	}
-}
-
-/**
  * Smart Bid Cache with Namespaced Selective Invalidation
  * 
  * Provides granular cache control with separate namespaces for different data types.
@@ -346,7 +282,6 @@ export class CurrencyCache {
 }
 
 // Global cache instances
-export const bidCache = new BidCache();
 export const smartCache = new SmartBidCache();
 export const currencyCache = new CurrencyCache();
 

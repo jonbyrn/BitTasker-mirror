@@ -15,6 +15,7 @@ interface AppStore {
 	biometricData: Credentials | null;
 	network: 'mainnet' | 'testnet' | 'regtest';
 	pool: SimplePool;
+	relays: string[];
 }
 
 const createAppStore = () => {
@@ -22,14 +23,15 @@ const createAppStore = () => {
 	// enablePing: sends regular pings to detect disconnections
 	// enableReconnect: automatically reconnects with exponential backoff
 	const pool = new SimplePool();
-	
+
 	const store = writable<AppStore>({
 		isLoading: false,
 		error: null,
 		toasts: [],
 		biometricData: null,
 		network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
-		pool
+		pool,
+		relays: [import.meta.env.VITE_NOSTR_RELAY_URL]
 	});
 
 	const { subscribe, set, update } = store;

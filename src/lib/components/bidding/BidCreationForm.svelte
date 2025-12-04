@@ -1,16 +1,16 @@
 <script lang="ts">
 	import type { PaymentType } from '$lib/types/bid';
+	import type { DateRange, TaskTranslations } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
 	import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 	import { publishNostrEvent } from '$lib/utils/nostr';
-	import { walletManager, rskAddress } from '$lib/stores/wallet.store';
+	import { getRSKAddress } from '$lib/stores/wallet.store';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
-	import type { DateRange, TaskTranslations } from '$lib/types/task';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { generateBidTranslations } from '$lib/nostr/bid';
 
@@ -60,13 +60,13 @@
 
 	// New datetime fields for fixed price bids
 	let startDateTime = $state<Date | null>(null);
-let endDateTime = $state<Date | null>(null);
-let scheduleFieldsTouched = $state(false);
-const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
-const DEFAULT_START_OFFSET_DAYS = 1;
-const DEFAULT_DURATION_IN_DAYS = 3;
-const DEFAULT_DURATION_IN_HOURS = DEFAULT_DURATION_IN_DAYS * 24;
-const MS_PER_HOUR = 60 * 60 * 1000;
+	let endDateTime = $state<Date | null>(null);
+	let scheduleFieldsTouched = $state(false);
+	const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
+	const DEFAULT_START_OFFSET_DAYS = 1;
+	const DEFAULT_DURATION_IN_DAYS = 3;
+	const DEFAULT_DURATION_IN_HOURS = DEFAULT_DURATION_IN_DAYS * 24;
+	const MS_PER_HOUR = 60 * 60 * 1000;
 
 	// BTC conversion state
 	let btcPrice = $state<number>(0);
@@ -274,7 +274,7 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 		if (deadlineDate) {
 			// Flujo 2: Con deadline - usar el menor entre (start + 3 días) y (deadline mismo día pero antes de la hora)
 			const defaultEndFromStart = addDays(baseStart, DEFAULT_DURATION_IN_DAYS);
-			
+
 			// Crear fecha límite: mismo día del deadline pero 1 hora antes de la hora del deadline
 			const deadlineMaxTime = new Date(deadlineDate);
 			deadlineMaxTime.setHours(deadlineDate.getHours(), deadlineDate.getMinutes() - 15, 0, 0);
@@ -282,16 +282,21 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 			if (deadlineMaxTime.getMinutes() < 0) {
 				deadlineMaxTime.setHours(deadlineDate.getHours() - 1, 45, 0, 0);
 			}
-			
+
 			// Usar el menor de los dos
-			const candidate = defaultEndFromStart < deadlineMaxTime ? defaultEndFromStart : deadlineMaxTime;
-			
+			const candidate =
+				defaultEndFromStart < deadlineMaxTime ? defaultEndFromStart : deadlineMaxTime;
+
 			// Asegurar que sea después del start
 			if (candidate <= baseStart) {
 				const minEnd = addDays(baseStart, 1);
-				return roundDateToInterval(minEnd < deadlineMaxTime ? minEnd : deadlineMaxTime, FIFTEEN_MINUTES_IN_MS, 'ceil');
+				return roundDateToInterval(
+					minEnd < deadlineMaxTime ? minEnd : deadlineMaxTime,
+					FIFTEEN_MINUTES_IN_MS,
+					'ceil'
+				);
 			}
-			
+
 			return roundDateToInterval(candidate, FIFTEEN_MINUTES_IN_MS, 'ceil');
 		}
 
@@ -502,7 +507,7 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 		submittingBid = true;
 
 		try {
-			await walletManager.initialize();
+			const rskAddress = await getRSKAddress();
 
 			// Generate translations for bid content (description, proposedApproach, coverLetter)
 			const bidTranslations = await generateBidTranslations({
@@ -540,7 +545,7 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 				bidderAvatar: loggedInUserAvatar,
 
 				// Add RSK wallet address for escrow funding
-				bidderWalletAddress: $rskAddress,
+				bidderWalletAddress: rskAddress,
 
 				// Add new datetime fields
 				startDateTime: bidType === 'FIXED' ? startDateTime : null,

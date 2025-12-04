@@ -1,8 +1,6 @@
 import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
-import type { Filter } from 'nostr-tools';
 import { writable } from 'svelte/store';
 import { getContracts, handleStatusEvent } from '$lib/utils/nostr-contract';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19 } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
