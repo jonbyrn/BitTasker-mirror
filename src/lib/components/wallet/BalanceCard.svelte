@@ -101,7 +101,7 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="space-y-4 flex flex-col h-full">
 	<!-- Total Portfolio Value Card -->
 	<div class="card bg-primary relative bg-linear-to-br text-white shadow-xl rounded-lg">
 		<div class="card-body p-4">
@@ -388,7 +388,7 @@
 	</div>
 
 	<!-- Transactions Button -->
-	<div class="mt-6">
+	<div>
 		<button
 			type="button"
 			class="collapse-title min-h-0 py-3 px-4 pr-12 font-medium text-left flex items-center justify-between w-full border-2 border-primary rounded-lg bg-base-100 hover:bg-base-200 transition-colors"
@@ -408,6 +408,16 @@
 				<IconChevronRight class="h-6 w-6 shrink-0" />
 			</div>
 		</button>
+	</div>
+
+	<!-- Spacer to push buttons to bottom -->
+	<div class="flex-1"></div>
+
+	<!-- Learn More Section - Above buttons on mobile/tablet -->
+	<div class="mt-4 md:hidden flex justify-center">
+		<div class="text-base-content/70 text-sm">
+			<HelpModal />
+		</div>
 	</div>
 
 	<!-- Send and Receive Buttons -->
@@ -440,8 +450,8 @@
 		</button>
 	</div>
 
-	<!-- Learn More Section -->
-	<div class="mt-6 flex justify-center">
+	<!-- Learn More Section - Below buttons on desktop -->
+	<div class="mt-6 hidden md:flex justify-center">
 		<div class="text-base-content/70 text-sm">
 			<HelpModal />
 		</div>

@@ -14,9 +14,11 @@
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import TransactionSuccessScreen from '$lib/components/wallet/TransactionSuccessScreen.svelte';
 	import SubmarineSend from '$lib/components/wallet/SubmarineSend.svelte';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
 	import IconClose from '~icons/mdi/close';
 	import IconSend from '~icons/mdi/send';
+	import IconCheck from '~icons/mdi/check';
 
 	interface Props {
 		onCancel: () => void;
@@ -27,15 +29,20 @@
 
 	// Tab state
 	let activeTab = $state<'scan' | 'enter'>('scan'); // Default to 'scan'
+	let previousTab = $state<'scan' | 'enter' | null>(null);
 	let showConfirmation = $state(false);
+	let previousShowConfirmation = $state(false);
+	let showSendConfirmation = $state(false);
 	let showSuccessScreen = $state(false);
 	let successTxHash = $state<string | null>(null);
 	let successNetwork = $state<string | null>(null);
+	
 
 	// Payment data
 	let addressInput = $state('');
 	let amount = $state('');
-	let unit = $state<'sats' | 'usd'>('sats');
+	// Default to USD when no amount is detected from address
+	let unit = $state<'sats' | 'usd'>('usd');
 	let mathExpression = $state('');
 	let memo = $state('');
 	let descriptionExpanded = $state(false);
@@ -103,6 +110,9 @@
 
 	const showLargeAmountWarning = $derived(amountInUSD > LARGE_AMOUNT_THRESHOLD);
 	const requiresAuth = $derived(amountInUSD >= authThreshold);
+	
+	// Derived disabled state for amount input when amount is detected from address
+	const isAmountInputDisabled = $derived(detectedAmount !== null && detectedAmount > 0);
 
 	const totalToSend = $derived(amountInSats + (estimatedFees?.totalFees || 0));
 	const receiverGets = $derived(amountInSats);
@@ -111,13 +121,6 @@
 	const totalToSendUSD = $derived.by(() => {
 		if (totalToSend === 0 || btcPrice === 0) return 0;
 		return (totalToSend / 100_000_000) * btcPrice;
-	});
-
-	const isFormValid = $derived.by(() => {
-		if (!parsedData?.isValid && !addressInput.trim()) return false;
-		if (amountRequired && amountInSats <= 0) return false;
-		if (requiresAuth && !isAuthenticated) return false;
-		return true;
 	});
 
 	// Calculate available balance based on detected network
@@ -164,6 +167,39 @@
 		}
 	});
 
+	// Check if balance is insufficient
+	const hasInsufficientBalance = $derived(
+		totalToSend > availableBalance && availableBalance > 0 && totalToSend > 0 && estimatedFees !== null
+	);
+	
+	const isFormValid = $derived.by(() => {
+		// Address validation: must have valid parsed data
+		if (!parsedData?.isValid) {
+			return false;
+		}
+		
+		// Amount validation: if amount is required, must have amount > 0
+		// When amount is detected from address, amountRequired is false, so this check is skipped
+		if (amountRequired && amountInSats <= 0) {
+			return false;
+		}
+		
+		// Must have a valid amount (either from input or detected)
+		if (amountInSats <= 0) {
+			return false;
+		}
+		
+		// Note: Authentication is handled in handleSend(), not here
+		// The button should be enabled so the user can click it and authenticate then
+		
+		// Balance check: total (including fees) must not exceed available balance
+		if (totalToSend > availableBalance && availableBalance > 0) {
+			return false;
+		}
+		
+		return true;
+	});
+
 	// Initialize
 	onMount(async () => {
 		try {
@@ -191,9 +227,16 @@
 
 			if (parsed.amount !== null) {
 				amount = parsed.amount.toString();
+				// When amount is detected from QR code, default to sats since that's what's in the invoice
+				unit = 'sats';
+			} else {
+				// When no amount detected, default to USD
+				unit = 'usd';
 			}
 			if (parsed.memo) {
 				memo = parsed.memo;
+				// Auto-expand description accordion when memo is detected
+				descriptionExpanded = true;
 			}
 
 			// Switch to confirmation screen
@@ -214,6 +257,10 @@
 			detectedAmount = null;
 			detectedMemo = null;
 			amountRequired = true;
+			estimatedFees = null;
+			feeError = null;
+			// Reset to USD when address is cleared
+			unit = 'usd';
 			return;
 		}
 
@@ -228,12 +275,35 @@
 
 				if (parsed.amount !== null) {
 					amount = parsed.amount.toString();
+					// When amount is detected from address, default to sats since that's what's in the invoice
+					unit = 'sats';
+				} else {
+					// When no amount detected, default to USD
+					unit = 'usd';
 				}
 				if (parsed.memo) {
 					memo = parsed.memo;
+					// Auto-expand description accordion when memo is detected
+					descriptionExpanded = true;
 				}
 
-				await updateFeeEstimate();
+				// If amount was detected, trigger fee estimation immediately
+				// Set flag to prevent $effect from interfering
+				if (parsed.amount !== null && parsed.amount > 0) {
+					console.log('[SendPaymentForm] Address parsed with amount, triggering fee estimation', {
+						amount: parsed.amount,
+						network: parsed.network
+					});
+					isManuallyEstimating = true;
+					// Use tick() to ensure reactive updates complete
+					const { tick } = await import('svelte');
+					await tick();
+					await updateFeeEstimate();
+					// Reset flag after a short delay to allow $effect to work for future changes
+					setTimeout(() => {
+						isManuallyEstimating = false;
+					}, 100);
+				}
 			} else {
 				addressError = $t('wallet.send.invalid_address');
 				parsedData = null;
@@ -241,16 +311,36 @@
 				detectedAmount = null;
 				detectedMemo = null;
 				amountRequired = true;
+				estimatedFees = null;
+				feeError = null;
+				// Reset to USD when address is invalid
+				unit = 'usd';
 			}
 		} catch (error) {
 			console.error('Failed to parse address:', error);
 			addressError = $t('wallet.send.failed_to_parse_address');
+			estimatedFees = null;
+			feeError = null;
 		}
 	}
 
 	// Update fee estimate
 	async function updateFeeEstimate() {
-		if (amountInSats === 0 || !detectedNetwork) {
+		// Check if we have a network and an amount (either from input or detected from address)
+		// Use detectedAmount if available and amountInSats is 0 (for immediate estimation when address has amount)
+		const amountToUse = amountInSats > 0 ? amountInSats : (detectedAmount !== null && detectedAmount > 0 ? detectedAmount : 0);
+		
+		console.log('[SendPaymentForm] updateFeeEstimate', {
+			amountInSats,
+			detectedAmount,
+			amountToUse,
+			detectedNetwork,
+			hasAmount: amountToUse > 0,
+			hasNetwork: !!detectedNetwork
+		});
+		
+		if (amountToUse === 0 || !detectedNetwork) {
+			console.log('[SendPaymentForm] Skipping fee estimation - missing amount or network');
 			estimatedFees = null;
 			feeError = null;
 			return;
@@ -265,16 +355,47 @@
 					const pairsData = await walletManager.getSubmarineSwapPairs();
 					const pair = pairsData?.['RBTC']?.['BTC'];
 					if (pair) {
-						const serviceFee = Math.ceil((amountInSats * pair.fees.percentage) / 100);
-						const minerFee = pair.fees.minerFees || 0;
+						// Boltz service fee (percentage of amount)
+						const serviceFee = Math.ceil((amountToUse * pair.fees.percentage) / 100);
+						
+						// Estimate Rootstock gas fee for the swap transaction
+						// The minerFees from Boltz API is just a small fixed fee, not the actual gas
+						// We need to estimate the actual gas cost for the on-chain transaction
+						let rootstockGasFee = 0;
+						if ($walletStore.rsk.connected && $walletStore.rsk.address) {
+							try {
+								// Estimate gas for a typical submarine swap transaction
+								// Use a dummy address (Boltz contract) for estimation
+								// The actual gas will be similar regardless of recipient
+								const amountRBTC = (amountToUse / 100_000_000).toFixed(8);
+								// Use a typical Boltz contract address for estimation
+								// This is just an estimate - actual gas may vary slightly
+								const gasEstimation = await walletManager.estimateRBTCGas(
+									$walletStore.rsk.address, // Use own address as recipient for estimation
+									amountRBTC
+								);
+								const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(amountRBTC);
+								rootstockGasFee = Math.floor(gasFeeRBTC * 100_000_000);
+							} catch (error) {
+								console.warn('Failed to estimate Rootstock gas for swap, using fallback:', error);
+								// Fallback: use a conservative estimate (typically 3000-5000 sats for swap transactions)
+								rootstockGasFee = 4000;
+							}
+						} else {
+							// Fallback if wallet not connected
+							rootstockGasFee = 4000;
+						}
+						
+						// Total fees = service fee + Rootstock gas fee
 						estimatedFees = {
 							serviceFee,
-							networkFee: minerFee,
-							totalFees: serviceFee + minerFee
+							networkFee: rootstockGasFee,
+							totalFees: serviceFee + rootstockGasFee
 						};
 					} else {
-						const serviceFee = Math.ceil((amountInSats * 0.1) / 100);
-						const networkFee = 32;
+						// Fallback if Boltz API fails
+						const serviceFee = Math.ceil((amountToUse * 0.1) / 100);
+						const networkFee = 4000; // Conservative gas estimate
 						estimatedFees = {
 							serviceFee,
 							networkFee,
@@ -284,9 +405,20 @@
 					break;
 				case 'rootstock-bitcoin':
 					if ($walletStore.rsk.connected && $walletStore.rsk.address) {
-						const amountRBTC = (amountInSats / 100_000_000).toFixed(8);
+						const amountRBTC = (amountToUse / 100_000_000).toFixed(8);
+						// Use parsed address from parsedData, or extract address from addressInput (remove query params)
+						// This prevents ENS resolution errors when addressInput contains query parameters
+						let recipientAddress = parsedData?.address;
+						if (!recipientAddress && addressInput) {
+							// Extract address part (before ? or #)
+							const addressMatch = addressInput.match(/^([^?#]+)/);
+							recipientAddress = addressMatch ? addressMatch[1] : addressInput;
+						}
+						// Fallback to wallet address if no recipient address found
+						const finalAddress = recipientAddress || $walletStore.rsk.address;
+						
 						const gasEstimation = await walletManager.estimateRBTCGas(
-							addressInput || $walletStore.rsk.address,
+							finalAddress,
 							amountRBTC
 						);
 						const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(amountRBTC);
@@ -310,7 +442,7 @@
 			}
 		} catch (error) {
 			console.error('Failed to estimate fees:', error);
-			feeError = $t('wallet.swap.fee_estimation_failed');
+			feeError = $t('wallet.swap.error.fee_fetch_failed');
 			estimatedFees = null;
 		} finally {
 			isLoadingFees = false;
@@ -463,10 +595,28 @@
 	});
 
 	// Recalculate fees when amount or network changes
+	// Use a flag to prevent duplicate calls when manually triggering
+	let isManuallyEstimating = $state(false);
+	
+	// Log parsedData changes for debugging
 	$effect(() => {
+		console.log('[SendPaymentForm] parsedData changed:', {
+			isValid: parsedData?.isValid,
+			address: parsedData?.address,
+			network: parsedData?.network,
+			amount: parsedData?.amount
+		});
+	});
+	
+	$effect(() => {
+		// Watch all relevant values that affect fee estimation
 		amountInSats;
+		detectedAmount;
 		detectedNetwork;
-		updateFeeEstimate();
+		// Only estimate if we have both network and amount, and we're not manually estimating
+		if (!isManuallyEstimating && detectedNetwork && (amountInSats > 0 || (detectedAmount !== null && detectedAmount > 0))) {
+			updateFeeEstimate();
+		}
 	});
 
 	// Handle calculation change from calculator
@@ -491,6 +641,9 @@
 		triggerHaptic(ImpactStyle.Light);
 
 		try {
+			// Clear math expression so the new amount is displayed
+			mathExpression = '';
+			
 			// If we have calculated max amount, use it
 			if (calculatedMaxAmount !== null && calculatedMaxAmount > 0) {
 				if (unit === 'sats') {
@@ -509,6 +662,8 @@
 					const max = calculateMaxAmount();
 					if (max > 0) {
 						calculatedMaxAmount = max;
+						// Clear math expression so the new amount is displayed
+						mathExpression = '';
 						if (unit === 'sats') {
 							amount = max.toString();
 						} else if (btcPrice > 0) {
@@ -708,19 +863,78 @@
 				return network;
 		}
 	}
+	
+	// Get explorer URL for address based on network
+	function getAddressExplorerUrl(address: string, network: string | null): string | null {
+		if (!address || !network) return null;
+		
+		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
+		
+		if (network === 'rootstock-bitcoin' || network === 'rsk') {
+			return rskNetwork === 'mainnet'
+				? `https://rootstock.blockscout.com/address/${address}`
+				: `https://rootstock-testnet.blockscout.com/address/${address}`;
+		} else if (network === 'usdt-bsc' || network === 'bsc') {
+			return bscNetwork === 'mainnet'
+				? `https://bscscan.com/address/${address}`
+				: `https://testnet.bscscan.com/address/${address}`;
+		} else if (network === 'bitcoin') {
+			return `https://blockstream.info/address/${address}`;
+		} else if (network === 'liquid-bitcoin') {
+			return `https://blockstream.info/liquid/address/${address}`;
+		}
+		
+		return null;
+	}
+	
+	// Get estimated confirmation time in seconds based on network
+	function getEstimatedConfirmationTime(network: string | null): number {
+		if (!network) return 0;
+		
+		switch (network) {
+			case 'rootstock-bitcoin':
+			case 'rsk':
+				return 30; // RSK blocks are ~30 seconds
+			case 'usdt-bsc':
+			case 'bsc':
+				return 3; // BSC blocks are ~3 seconds
+			case 'lightning-bitcoin':
+				return 0; // Lightning is instant
+			case 'liquid-bitcoin':
+				return 60; // Liquid blocks are ~1 minute
+			case 'bitcoin':
+				return 600; // Bitcoin blocks are ~10 minutes
+			default:
+				return 30; // Default to 30 seconds
+		}
+	}
+	
+	// Handle showing send confirmation
+	function showSendConfirmationModal() {
+		showSendConfirmation = true;
+		triggerHaptic(ImpactStyle.Light);
+	}
+	
+	// Handle confirmed send
+	async function handleConfirmedSend() {
+		showSendConfirmation = false;
+		await handleSend();
+	}
 </script>
 
 <div class="send-payment-form flex flex-col h-full">
-	<div class="flex-1 overflow-y-auto space-y-6">
-		{#if activeTab === 'scan'}
-			{#if !showConfirmation}
+	<div class="flex-1 overflow-y-auto space-y-6 relative">
+		{#if activeTab === 'scan' && !showConfirmation}
 			<!-- QR Code Scanner -->
 			<div class="flex flex-col items-center gap-4">
 				<p class="text-sm text-base-content/70">{$t('wallet.send.scan_qr_code_description')}</p>
 
 				<QrCodeScanner onScan={handleQRScan} onClose={() => (activeTab = 'enter')} />
 			</div>
-		{:else}
+		{/if}
+		
+		{#if activeTab === 'scan' && showConfirmation}
 			<!-- Confirmation Screen -->
 			<div class="space-y-6">
 				<div class="flex items-center justify-end">
@@ -784,15 +998,6 @@
 					</div>
 				{/if}
 
-				<!-- Memo Display -->
-				{#if detectedMemo || memo}
-					<div class="form-control">
-						<label class="label">
-							<span class="label-text">{$t('wallet.send.memo')}</span>
-						</label>
-						<input type="text" class="input input-bordered w-full" bind:value={memo} disabled={!!detectedMemo} />
-					</div>
-				{/if}
 
 
 
@@ -815,23 +1020,64 @@
 				</div>
 			</div>
 		{/if}
-	{:else}
-		<!-- Enter Payment Details Tab -->
-		<div class="space-y-4">
+		
+		{#if activeTab === 'enter'}
+			<!-- Enter Payment Details Tab -->
+			<div class="space-y-4">
 			<!-- Address Input -->
 			<div class="form-control">
 				<div class="relative">
-					<input
-						id="address-input"
-						type="text"
-						class="input input-bordered w-full"
-						class:input-error={!!addressError}
-						placeholder={$t('wallet.send.address_placeholder')}
-						bind:value={addressInput}
-						oninput={handleAddressInput}
-						onfocus={() => (showRecentAddresses = recentAddresses.length > 0)}
-						onblur={() => setTimeout(() => (showRecentAddresses = false), 200)}
-					/>
+					<div class="flex items-stretch w-full overflow-hidden rounded-lg border-2 transition-colors"
+						class:border-primary={!parsedData?.isValid && !addressError}
+						class:border-success={parsedData?.isValid && !addressError && addressInput.trim()}
+						class:border-error={!!addressError}
+					>
+						<!-- Input field with validation icons -->
+						<div class="relative flex-1">
+							<input
+								id="address-input"
+								type="text"
+								class="input input-bordered w-full border-0 rounded-l-lg rounded-r-none pl-10 min-h-[44px]"
+								placeholder={$t('wallet.send.address_placeholder')}
+								bind:value={addressInput}
+								oninput={handleAddressInput}
+								onfocus={() => (showRecentAddresses = recentAddresses.length > 0)}
+								onblur={() => setTimeout(() => (showRecentAddresses = false), 200)}
+							/>
+							{#if addressInput.trim()}
+								<div class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-1">
+									{#if parsedData?.isValid && !addressError}
+										<IconCheck class="w-5 h-5 text-success" />
+									{:else if addressError}
+										<IconClose class="w-5 h-5 text-error" />
+									{/if}
+								</div>
+							{/if}
+						</div>
+						<!-- Clear button -->
+						<button
+							type="button"
+							class="bg-primary text-primary-content font-semibold px-4 py-1 touch-manipulation select-none disabled:opacity-50 transition-opacity rounded-r-lg rounded-l-none flex items-center justify-center whitespace-nowrap min-w-[60px] min-h-[44px] text-2xl"
+							style="-webkit-tap-highlight-color: transparent; margin-left: -2px; width: 70px;"
+							onclick={() => {
+								addressInput = '';
+								parsedData = null;
+								detectedNetwork = null;
+								detectedAmount = null;
+								detectedMemo = null;
+								addressError = null;
+								amountRequired = true;
+								estimatedFees = null;
+								feeError = null;
+								showRecentAddresses = false;
+								triggerHaptic(ImpactStyle.Light);
+							}}
+							disabled={!addressInput.trim()}
+							aria-label="Clear address"
+						>
+							⤫<!-- {$t('common.clear')} -->
+						</button>
+					</div>
 					{#if showRecentAddresses && recentAddresses.length > 0}
 						<div
 							class="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-base-300 bg-base-100 shadow-lg"
@@ -864,81 +1110,72 @@
 			<!-- Auto-detected Network Display -->
 			{#if detectedNetwork}
 				<div class="rounded-lg border border-base-300 bg-primary/10 p-2">
-					<div class="flex items-center gap-2 pl-2">
-						{#if getNetworkIcon(detectedNetwork)}
-							<img
-								src={getNetworkIcon(detectedNetwork)}
-								alt={getNetworkDisplayName(detectedNetwork)}
-								class="h-5 w-5"
-							/>
+					<div class="flex items-center justify-between gap-2 pl-2">
+						<div class="flex items-center gap-2">
+							{#if getNetworkIcon(detectedNetwork)}
+								<img
+									src={getNetworkIcon(detectedNetwork)}
+									alt={getNetworkDisplayName(detectedNetwork)}
+									class="h-5 w-5"
+								/>
+							{/if}
+							<span class="font-medium">{getNetworkDisplayName(detectedNetwork)}</span>
+						</div>
+						{#if detectedAmount && detectedAmount > 0}
+							<div class="text-sm text-right">
+								<div class="font-semibold">{formatSats(detectedAmount)} {$t('wallet.sats')}</div>
+								{#if btcPrice > 0}
+									<div class="opacity-70">
+										≈ {formatUSD((detectedAmount / 100_000_000) * btcPrice)}
+									</div>
+								{/if}
+							</div>
 						{/if}
-						<span class="font-medium">{getNetworkDisplayName(detectedNetwork)}</span>
 					</div>
 				</div>
 			{/if}
 
-			<!-- Amount Field (conditional) -->
-				{#if amountRequired}
-					<div class="form-control space-y-4">
-						<AmountInputSection
-							{amount}
-							{unit}
-							{mathExpression}
-							{calculatorKey}
-							{memo}
-							{descriptionExpanded}
-							estimatedFees={estimatedFees?.totalFees ?? 0}
-							totalAmount={totalToSend}
-							amountInSats={amountInSats}
-							{btcPrice}
-							isLoadingFees={isLoadingFees}
-							network={detectedNetwork}
-							availableBalance={availableBalance}
-							calculatedMaxAmount={calculatedMaxAmount}
-							isLoadingMaxCalculation={isLoadingMaxCalculation}
-							onAmountChange={handleAmountChange}
-							onUnitChange={handleUnitChange}
-							onCalculationChange={handleCalculationChange}
-							onClear={handleClearCalculator}
-							onMaxAmount={handleMaxAmount}
-							onMemoChange={(value) => (memo = value)}
-							onDescriptionToggle={(expanded) => (descriptionExpanded = expanded)}
-						/>
-					{#if showLargeAmountWarning}
-						<p class="text-error text-sm text-center">
-							{$t('wallet.send.large_amount_warning.message', {
-								values: { amount: formatUSD(amountInUSD) }
-							})}
-						</p>
-					{/if}
-				</div>
-			{:else if detectedAmount}
-				<div class="alert alert-success alert-outline">
-					<span>
-						{$t('wallet.send.amount')}: {formatSats(detectedAmount)} {$t('wallet.sats')} ({$t('wallet.send.from_invoice')})
-					</span>
-				</div>
-			{/if}
+			<!-- Amount Field (always visible) -->
+			<div class="form-control space-y-4">
+				<AmountInputSection
+					{amount}
+					{unit}
+					{mathExpression}
+					{calculatorKey}
+					{memo}
+					{descriptionExpanded}
+					estimatedFees={estimatedFees?.totalFees ?? 0}
+					amountInSats={amountInSats}
+					{btcPrice}
+					isLoadingFees={isLoadingFees}
+					network={detectedNetwork}
+					availableBalance={availableBalance}
+					calculatedMaxAmount={calculatedMaxAmount}
+					isLoadingMaxCalculation={isLoadingMaxCalculation}
+					disabled={isAmountInputDisabled}
+					onAmountChange={handleAmountChange}
+					onUnitChange={handleUnitChange}
+					onCalculationChange={handleCalculationChange}
+					onClear={handleClearCalculator}
+					onMaxAmount={handleMaxAmount}
+					onMemoChange={(value) => (memo = value)}
+					onDescriptionToggle={(expanded) => (descriptionExpanded = expanded)}
+					descriptionDisabled={!!detectedMemo}
+					descriptionLabelText={detectedMemo ? 'wallet.send.from_invoice' : undefined}
+				/>
+				{#if showLargeAmountWarning}
+					<p class="text-error text-sm text-center">
+						{$t('wallet.send.large_amount_warning.message', {
+							values: { amount: formatUSD(amountInUSD) }
+						})}
+					</p>
+				{/if}
+			</div>
 
-			<!-- Memo Field (for detected memo from invoice) -->
-			{#if detectedMemo}
-				<div class="form-control">
-					<label class="label">
-						<span class="label-text">{$t('wallet.send.memo')}</span>
-					</label>
-					<input
-						type="text"
-						class="input input-bordered w-full"
-						bind:value={memo}
-						disabled={true}
-						placeholder={$t('wallet.send.memo_placeholder')}
-					/>
-				</div>
-			{/if}
 
 			<!-- Network Fee Accordion -->
 			{#if isLoadingFees}
-				<div class="flex items-center justify-center gap-2 rounded-lg border border-base-300 bg-base-200 p-4">
+				<div class="flex items-center justify-center gap-2 rounded-lg border border-base-300 bg-base-200 p-2">
 					<span class="loading loading-spinner loading-sm"></span>
 					<span class="text-sm">{$t('wallet.swap.loading_fees')}</span>
 				</div>
@@ -995,7 +1232,10 @@
 			{/if}
 
 			<!-- Total to Send Card -->
-			<div class="flex flex-col items-center gap-2 rounded-lg border-2 border-primary bg-base-200 p-2">
+			<div class="flex flex-col items-center gap-2 rounded-lg border-2 bg-base-200 p-2"
+				class:border-primary={!hasInsufficientBalance}
+				class:border-error={hasInsufficientBalance}
+			>
 				<span class="text-sm opacity-70 text-center">{$t('wallet.send.total_to_send')}</span>
 				{#if totalToSend > 0 && estimatedFees}
 					<div class="flex items-center justify-center gap-2 w-full">
@@ -1024,9 +1264,20 @@
 						{$t('wallet.receive.enter_amount_to_estimate')}
 					</div>
 				{/if}
+				<!-- Insufficient Balance Error Text -->
+				{#if hasInsufficientBalance}
+					<div class="text-sm text-error text-center mt-1">
+						{$t('wallet.validation.insufficient_balance')}
+					</div>
+				{/if}
 			</div>
+			</div>
+		{/if}
+	</div>
 
-			<!-- Action Buttons -->
+	<!-- Action Buttons (Bottom, only on Enter Payment Details tab) -->
+	{#if activeTab === 'enter'}
+		<div class="flex-shrink-0 border-t border-base-300 pt-4 mb-4">
 			<div class="flex gap-3">
 				<button
 					class="btn btn-error flex-1 min-h-[48px] md:min-h-[56px] touch-manipulation select-none active:scale-95 transition-transform duration-100"
@@ -1042,24 +1293,24 @@
 				<button
 					class="btn btn-primary flex-1 min-h-[48px] md:min-h-[56px] touch-manipulation select-none active:scale-95 transition-transform duration-100"
 					style="-webkit-tap-highlight-color: transparent;"
-					onclick={() => {
-						triggerHaptic(ImpactStyle.Medium);
-						handleSend();
-					}}
+					onclick={showSendConfirmationModal}
 					disabled={!isFormValid || isLoadingFees}
+					onmouseenter={() => {
+						if (!isFormValid || isLoadingFees) {
+							console.log('[Send Button] Disabled - isFormValid:', isFormValid, 'isLoadingFees:', isLoadingFees);
+						}
+					}}
 				>
 					<IconSend class="h-5 w-5 mr-2" />
 					{$t('wallet.send.send')}
 				</button>
 			</div>
-
 		</div>
 	{/if}
-	</div>
 
 	<!-- Cancel Button (Bottom, only on Scan QR Code tab) -->
 	{#if activeTab === 'scan' && !showConfirmation}
-		<div class="flex justify-center w-full pb-4">
+		<div class="flex-shrink-0 flex justify-center w-full pb-4">
 			<button
 				class="btn btn-error min-h-[48px] md:min-h-[56px] touch-manipulation select-none active:scale-95 transition-transform duration-100"
 				style="-webkit-tap-highlight-color: transparent;"
@@ -1104,16 +1355,118 @@
 
 	<!-- Success Screen -->
 	{#if showSuccessScreen && successTxHash && successNetwork}
-		<TransactionSuccessScreen
-			txHash={successTxHash}
-			network={successNetwork}
-			amount={amountInSats}
-			recipient={parsedData?.address || addressInput}
-			onClose={() => {
-				showSuccessScreen = false;
-				onCancel();
-			}}
-		/>
+		<div class="fixed inset-0 z-[110] bg-base-100 flex flex-col">
+			<TransactionSuccessScreen
+				txHash={successTxHash}
+				network={successNetwork}
+				amount={amountInSats}
+				recipient={parsedData?.address || addressInput}
+				onClose={() => {
+					showSuccessScreen = false;
+					onCancel();
+				}}
+			/>
+		</div>
+	{/if}
+	
+	<!-- Send Confirmation Modal -->
+	{#if showSendConfirmation}
+		{@const recipientAddress = parsedData?.address || addressInput.trim()}
+		{@const explorerUrl = getAddressExplorerUrl(recipientAddress, detectedNetwork)}
+		{@const estimatedTime = getEstimatedConfirmationTime(detectedNetwork)}
+		<div class="modal modal-open z-[120]">
+			<div class="modal-box max-w-md">
+				<h3 class="text-lg font-bold">{$t('wallet.send.confirm_payment')}</h3>
+				<div class="py-4 space-y-4">
+					<!-- Address -->
+					<div class="space-y-1">
+						<div class="text-sm font-medium opacity-70">{$t('wallet.send.address_or_invoice')}</div>
+						{#if explorerUrl}
+							<a
+								href={explorerUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="text-primary hover:underline break-all"
+							>
+								{recipientAddress}
+							</a>
+						{:else}
+							<div class="break-all">{recipientAddress}</div>
+						{/if}
+					</div>
+					
+					<!-- Amount -->
+					<div class="space-y-1">
+						<div class="text-sm font-medium opacity-70">{$t('wallet.send.amount')}</div>
+						<div class="font-semibold">
+							{#if unit === 'sats'}
+								{formatSats(amountInSats)} {$t('wallet.sats')}
+								{#if btcPrice > 0}
+									<span class="text-sm opacity-70 ml-2">
+										≈ {formatUSD(amountInUSD)}
+									</span>
+								{/if}
+							{:else}
+								{formatUSD(amountInUSD)}
+								{#if btcPrice > 0}
+									<span class="text-sm opacity-70 ml-2">
+										≈ {formatSats(amountInSats)} {$t('wallet.sats')}
+									</span>
+								{/if}
+							{/if}
+						</div>
+					</div>
+					
+					<!-- Estimated Transaction Fees -->
+					{#if estimatedFees && estimatedFees.totalFees > 0}
+						<div class="space-y-1">
+							<div class="text-sm font-medium opacity-70">{$t('wallet.send.transaction_fee')}</div>
+							<div class="font-semibold">
+								{formatSats(estimatedFees.totalFees)} {$t('wallet.sats')}
+								{#if btcPrice > 0}
+									<span class="text-sm opacity-70 ml-2">
+										≈ {formatUSD((estimatedFees.totalFees / 100_000_000) * btcPrice)}
+									</span>
+								{/if}
+							</div>
+						</div>
+					{/if}
+					
+					<!-- Estimated Time -->
+					<div class="space-y-1">
+						<div class="text-sm font-medium opacity-70">{$t('wallet.send.estimated_confirmation_time')}</div>
+						<div class="font-semibold">
+							{#if estimatedTime > 0}
+								{estimatedTime} {$t('wallet.send.seconds')}
+							{:else}
+								{$t('wallet.send.instant')}
+							{/if}
+						</div>
+					</div>
+					
+					<!-- Warning -->
+					<div class="alert alert-outline alert-warning mt-4">
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+						</svg>
+						<span class="text-sm">{$t('wallet.send.confirmation_warning')}</span>
+					</div>
+				</div>
+				<div class="modal-action">
+					<button class="btn btn-ghost" onclick={() => (showSendConfirmation = false)}>
+						{$t('common.cancel')}
+					</button>
+					<button class="btn btn-primary" onclick={handleConfirmedSend}>
+						{$t('wallet.send.send')}
+					</button>
+				</div>
+			</div>
+			<button
+				class="modal-backdrop"
+				onclick={() => (showSendConfirmation = false)}
+				aria-label="Close modal"
+			></button>
+		</div>
 	{/if}
 </div>
 

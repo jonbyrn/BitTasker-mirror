@@ -41,6 +41,9 @@
 	let isLandingPage = $state(false);
 	let isInitializing = $state(true); // Track initialization state
 	let isOnboardingPage = $state(false);
+	
+	// Check if current route is wallet route (reactive)
+	let isWalletRoute = $derived(page.url.pathname.includes('/dashboard/wallet'));
 
 	let breadcrumbList = $state({});
 
@@ -157,8 +160,9 @@
 
 			isOnboardingPage = path.includes('/onboarding');
 
-			// Only show bottom bar in dashboard routes
-			showFooterSection = path.includes('/dashboard');
+			// Only show bottom bar in dashboard routes (but exclude wallet route which handles its own spacing)
+			const isWalletRoute = path.includes('/dashboard/wallet');
+			showFooterSection = path.includes('/dashboard') && !isWalletRoute;
 
 			// Generate breadcrumbs - deferred to idle time
             if (path !== '/') {
@@ -287,7 +291,7 @@
 		> -->
 
 		<div
-			class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
+			class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden {isWalletRoute ? '' : 'pb-8'}"
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
 			{#if devicePlatformValue === 'web' && !isLandingPage}
@@ -296,14 +300,14 @@
 				</div>
 			{:else}
 				<div
-					class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
+					class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden {isWalletRoute ? '' : 'pb-8'}"
 					style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 				>
 					{@render children()}
 				</div>
 			{/if}
 		</div>
-	{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage}
+	{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !isWalletRoute}
 		{#if !isLoggedIn}
 			<!-- Section 7: Final Call to Action (CTA) -->
 			<section class="bg-primary text-primary-content py-16">
