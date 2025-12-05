@@ -5,11 +5,12 @@
 
 	interface Props {
 		unit: 'sats' | 'usd';
+		disabled?: boolean;
 		onInput: (value: string) => void;
 		onCalculationChange?: (mathExpression: string, result: number) => void;
 	}
 
-	const props: Props = $props();
+	let { unit, disabled = false, onInput, onCalculationChange }: Props = $props();
 
 	// Calculator state
 	let calculatorValue = $state('');
@@ -37,31 +38,32 @@
 					result = currentValue !== 0 ? previousValue / currentValue : 0;
 					break;
 			}
-			const formattedResult = props.unit === 'sats' ? Math.floor(result) : parseFloat(result.toFixed(2));
+			const formattedResult = unit === 'sats' ? Math.floor(result) : parseFloat(result.toFixed(2));
 			mathExpression = `${previousValue} ${operator} ${currentValue} = ${formattedResult}`;
-			if (props.onCalculationChange) {
-				props.onCalculationChange(mathExpression, formattedResult);
+			if (onCalculationChange) {
+				onCalculationChange(mathExpression, formattedResult);
 			}
 		} else if (previousValue !== null && operator) {
 			mathExpression = `${previousValue} ${operator}`;
-			if (props.onCalculationChange) {
-				props.onCalculationChange(mathExpression, previousValue);
+			if (onCalculationChange) {
+				onCalculationChange(mathExpression, previousValue);
 			}
 		} else if (calculatorValue) {
 			mathExpression = calculatorValue;
-			if (props.onCalculationChange) {
+			if (onCalculationChange) {
 				const currentResult = parseFloat(calculatorValue) || 0;
-				props.onCalculationChange(mathExpression, currentResult);
+				onCalculationChange(mathExpression, currentResult);
 			}
 		} else {
 			mathExpression = '';
-			if (props.onCalculationChange) {
-				props.onCalculationChange('', 0);
+			if (onCalculationChange) {
+				onCalculationChange('', 0);
 			}
 		}
 	}
 
 	function handleInput(value: string) {
+		if (disabled) return;
 		if (value === 'C') {
 			// Clear
 			triggerHaptic(ImpactStyle.Light);
@@ -70,23 +72,23 @@
 			operator = null;
 			waitingForOperand = false;
 			mathExpression = '';
-			props.onInput('');
-			if (props.onCalculationChange) {
-				props.onCalculationChange('', 0);
-			}
+		onInput('');
+		if (onCalculationChange) {
+			onCalculationChange('', 0);
+		}
 		} else if (value === '⌫') {
 			// Delete last character
 			triggerHaptic(ImpactStyle.Light);
 			calculatorValue = calculatorValue.slice(0, -1);
-			props.onInput(calculatorValue);
+			onInput(calculatorValue);
 			updateMathExpression();
 		} else if (value === '.') {
 			// Decimal point (USD mode only)
-			if (props.unit === 'sats') return; // No decimals for sats - don't trigger haptic for invalid action
+			if (unit === 'sats') return; // No decimals for sats - don't trigger haptic for invalid action
 			if (!calculatorValue.includes('.')) {
 				triggerHaptic(ImpactStyle.Light);
 				calculatorValue += '.';
-				props.onInput(calculatorValue);
+				onInput(calculatorValue);
 				updateMathExpression();
 			}
 		} else if (['+', '−', '×', '÷'].includes(value)) {
@@ -113,7 +115,7 @@
 				}
 
 				// Update calculator value with result
-				if (props.unit === 'sats') {
+				if (unit === 'sats') {
 					calculatorValue = Math.floor(result).toString();
 				} else {
 					calculatorValue = result.toFixed(2).replace(/\.?0+$/, '');
@@ -150,17 +152,17 @@
 				}
 
 				// Update calculator value with result
-				if (props.unit === 'sats') {
+				if (unit === 'sats') {
 					calculatorValue = Math.floor(result).toString();
 				} else {
 					calculatorValue = result.toFixed(2).replace(/\.?0+$/, '');
 				}
 
 				mathExpression = `${previousValue} ${operator} ${currentValue} = ${calculatorValue}`;
-				props.onInput(calculatorValue);
-				if (props.onCalculationChange) {
-					props.onCalculationChange(mathExpression, parseFloat(calculatorValue) || 0);
-				}
+				onInput(calculatorValue);
+			if (onCalculationChange) {
+				onCalculationChange(mathExpression, parseFloat(calculatorValue) || 0);
+			}
 				previousValue = null;
 				operator = null;
 				waitingForOperand = false;
@@ -168,7 +170,7 @@
 		} else {
 			// Number input
 			// Prevent decimals in sats mode - don't trigger haptic for invalid action
-			if (!waitingForOperand && props.unit === 'sats' && calculatorValue.includes('.')) {
+			if (!waitingForOperand && unit === 'sats' && calculatorValue.includes('.')) {
 				return;
 			}
 			
@@ -180,7 +182,7 @@
 			} else {
 				calculatorValue += value;
 			}
-			props.onInput(calculatorValue);
+			onInput(calculatorValue);
 			updateMathExpression();
 		}
 	}
@@ -231,59 +233,71 @@
 
 	// Reset calculator when unit changes
 	$effect(() => {
-		props.unit;
+		unit;
 		calculatorValue = '';
 		previousValue = null;
 		operator = null;
 		waitingForOperand = false;
 		mathExpression = '';
-		if (props.onCalculationChange) {
-			props.onCalculationChange('', 0);
+		if (onCalculationChange) {
+			onCalculationChange('', 0);
 		}
 	});
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="calculator-keypad grid grid-cols-4 border border-base-300 rounded-lg overflow-hidden bg-base-100">
+<div class="calculator-keypad grid grid-cols-4 border border-base-300 rounded-lg overflow-hidden bg-base-100" class:opacity-50={disabled}>
 	<!-- Row 1: 7, 8, 9, Backspace -->
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('7')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('7')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="7"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('7')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('7')}
 	>
 		7
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('8')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('8')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="8"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('8')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('8')}
 	>
 		8
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('9')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('9')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="9"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('9')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('9')}
 	>
 		9
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-2xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-b border-base-300"
-		onclick={() => handleInput('⌫')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('⌫')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label={$t('wallet.calculator.delete')}
-		onkeydown={(e) => e.key === 'Enter' && handleInput('⌫')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('⌫')}
 	>
 		⌫
 	</div>
@@ -291,41 +305,53 @@
 	<!-- Row 2: 4, 5, 6, Divide -->
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('4')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('4')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="4"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('4')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('4')}
 	>
 		4
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('5')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('5')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="5"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('5')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('5')}
 	>
 		5
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('6')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('6')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="6"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('6')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('6')}
 	>
 		6
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-primary/20 active:text-primary transition-colors cursor-pointer border-b border-base-300 text-primary"
-		onclick={() => handleInput('÷')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('÷')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="Divide"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('÷')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('÷')}
 	>
 		÷
 	</div>
@@ -333,84 +359,107 @@
 	<!-- Row 3: 1, 2, 3, Multiply -->
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('1')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('1')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="1"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('1')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('1')}
 	>
 		1
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('2')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('2')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="2"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('2')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('2')}
 	>
 		2
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('3')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('3')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="3"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('3')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('3')}
 	>
 		3
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-primary/20 active:text-primary transition-colors cursor-pointer border-b border-base-300 text-primary"
-		onclick={() => handleInput('×')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('×')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="Multiply"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('×')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('×')}
 	>
 		×
 	</div>
 
 	<!-- Row 4: Decimal, 0, Add, Subtract -->
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300 {props.unit === 'sats' ? 'opacity-50 cursor-not-allowed' : ''}"
-		onclick={() => props.unit !== 'sats' && handleInput('.')}
+		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300 {unit === 'sats' ? 'opacity-50 cursor-not-allowed' : ''}"
+		class:cursor-not-allowed={disabled || unit === 'sats'}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && unit !== 'sats' && handleInput('.')}
 		role="button"
-		tabindex={props.unit === 'sats' ? -1 : 0}
+		tabindex={disabled || unit === 'sats' ? -1 : 0}
 		aria-label="Decimal point"
-		aria-disabled={props.unit === 'sats'}
-		onkeydown={(e) => e.key === 'Enter' && props.unit !== 'sats' && handleInput('.')}
+		aria-disabled={disabled || unit === 'sats'}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && unit !== 'sats' && handleInput('.')}
 	>
 		.
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
-		onclick={() => handleInput('0')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('0')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="0"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('0')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('0')}
 	>
 		0
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-primary/20 active:text-primary transition-colors cursor-pointer border-r border-b border-base-300 text-primary"
-		onclick={() => handleInput('+')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('+')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="Add"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('+')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('+')}
 	>
 		+
 	</div>
 	<div
 		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-primary/20 active:text-primary transition-colors cursor-pointer border-b border-base-300 text-primary"
-		onclick={() => handleInput('−')}
+		class:cursor-not-allowed={disabled}
+		class:pointer-events-none={disabled}
+		onclick={() => !disabled && handleInput('−')}
 		role="button"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
 		aria-label="Subtract"
-		onkeydown={(e) => e.key === 'Enter' && handleInput('−')}
+		aria-disabled={disabled}
+		onkeydown={(e) => !disabled && e.key === 'Enter' && handleInput('−')}
 	>
 		−
 	</div>

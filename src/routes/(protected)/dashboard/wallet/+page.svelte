@@ -56,8 +56,11 @@
 	<title>{$t('wallet.title')} | BitTasker</title>
 </svelte:head>
 
-<div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
-	<div transition:fly={{ y: 20, duration: 300, easing: linear }}>
+<div 
+	class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg wallet-container"
+	style="height: calc(100dvh - var(--bottom-nav-height, 140px) - 3rem); max-height: calc(100dvh - var(--bottom-nav-height, 140px) - 3rem);"
+>
+	<div transition:fly={{ y: 20, duration: 300, easing: linear }} class="h-full flex flex-col">
 
 		<!-- Connection Status - commented out -->
 
@@ -176,23 +179,25 @@
 		{#if $walletStore.hasAnyConnection || !hasErrors}
 			<!-- Balance Tab - Keep as is -->
 			{#if $walletStore.activeTab === 'balance'}
-				<BalanceCard
-					onReceive={() => {
-						showReceiveModal = true;
-					}}
-					onSend={() => {
-						showSendModal = true;
-					}}
-					onBuySell={() => {
-						showBuySellModal = true;
-					}}
-					onSwap={() => {
-						showSwapModal = true;
-					}}
-					onTransactions={() => {
-						showTransactionsModal = true;
-					}}
-				/>
+				<div class="flex-1 flex flex-col min-h-0">
+					<BalanceCard
+						onReceive={() => {
+							showReceiveModal = true;
+						}}
+						onSend={() => {
+							showSendModal = true;
+						}}
+						onBuySell={() => {
+							showBuySellModal = true;
+						}}
+						onSwap={() => {
+							showSwapModal = true;
+						}}
+						onTransactions={() => {
+							showTransactionsModal = true;
+						}}
+					/>
+				</div>
 			{:else}
 				<!-- Legacy Tab Navigation (for backward compatibility) -->
 			<div class="tabs tabs-bordered mb-6 w-full">
