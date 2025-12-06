@@ -19,6 +19,7 @@
 	let isScanning = $state(false);
 	let errorMessage = $state<string | null>(null);
 	let cameraPermissionGranted = $state(false);
+	let scanCompleted = $state(false); // Track if scan was completed to prevent restart
 
 	const config = {
 		fps: 10,
@@ -51,6 +52,9 @@
 
 	async function startScanning() {
 		if (!html5QrCode) return;
+		
+		// Don't start if scan was already completed
+		if (scanCompleted) return;
 
 		try {
 			// Get available cameras
@@ -66,10 +70,11 @@
 			await html5QrCode.start(
 				cameraId,
 				config,
-				(qrCodeMessage: string, result: Html5QrcodeResult) => {
-					// Successfully scanned QR code
+				async (qrCodeMessage: string, result: Html5QrcodeResult) => {
+					// Successfully scanned QR code - stop scanning immediately
+					scanCompleted = true;
+					await stopScanning();
 					onScan(qrCodeMessage);
-					stopScanning();
 				},
 				(errorMessage: string) => {
 					// Scan error (usually just means no QR code detected yet)
@@ -102,12 +107,29 @@
 		if (!html5QrCode) return;
 
 		try {
-			if (isScanning) {
+			// Always try to stop the scanner to ensure camera is released
+			// The library will handle cases where it's already stopped
+			try {
 				await html5QrCode.stop();
+			} catch (stopError) {
+				// Ignore "already stopped" errors - this is expected if scanner was already stopped
+				if (stopError instanceof Error) {
+					const errorMsg = stopError.message.toLowerCase();
+					if (!errorMsg.includes('already stopped') && !errorMsg.includes('not started')) {
+						console.warn('Error stopping scanner:', stopError);
+					}
+				}
+			}
+			
+			// Always clear to ensure camera is fully released
+			try {
 				await html5QrCode.clear();
+			} catch (clearError) {
+				// Ignore clear errors - they're usually harmless
+				console.warn('Error clearing scanner:', clearError);
 			}
 		} catch (error) {
-			console.error('Error stopping scanner:', error);
+			console.error('Unexpected error stopping scanner:', error);
 		} finally {
 			isScanning = false;
 		}
@@ -120,6 +142,7 @@
 
 	async function handleRetry() {
 		errorMessage = null;
+		scanCompleted = false;
 		await startScanning();
 	}
 </script>

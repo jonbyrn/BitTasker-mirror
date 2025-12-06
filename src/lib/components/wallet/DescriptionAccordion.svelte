@@ -55,11 +55,11 @@
 				maxlength="200"
 			></textarea>
 			{#if !disabled}
-				<div class="label text-xs">
-					<span class="label-text-alt {memo.length > 200 ? 'text-error' : 'text-base-content/70'}">
-						{memo.length}/200 {$t('wallet.receive.description_characters')}
-					</span>
-				</div>
+			<div class="label text-xs">
+				<span class="label-text-alt {memo.length > 200 ? 'text-error' : 'text-base-content/70'}">
+					{memo.length}/200 {$t('wallet.receive.description_characters')}
+				</span>
+			</div>
 			{/if}
 		</div>
 	</div>

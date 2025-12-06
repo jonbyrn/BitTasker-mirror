@@ -75,7 +75,7 @@
 		onInput('');
 		if (onCalculationChange) {
 			onCalculationChange('', 0);
-		}
+			}
 		} else if (value === '⌫') {
 			// Delete last character
 			triggerHaptic(ImpactStyle.Light);
@@ -162,7 +162,7 @@
 				onInput(calculatorValue);
 			if (onCalculationChange) {
 				onCalculationChange(mathExpression, parseFloat(calculatorValue) || 0);
-			}
+				}
 				previousValue = null;
 				operator = null;
 				waitingForOperand = false;
