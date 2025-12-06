@@ -101,7 +101,7 @@
 	}
 </script>
 
-<div class="space-y-4 flex flex-col h-full">
+<div class="space-y-4 flex flex-col h-full overflow-y-auto">
 	<!-- Total Portfolio Value Card -->
 	<div class="card bg-primary relative bg-linear-to-br text-white shadow-xl rounded-lg">
 		<div class="card-body p-4">
