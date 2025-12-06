@@ -1,8 +1,6 @@
 import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
-import type { Filter } from 'nostr-tools';
 import { writable } from 'svelte/store';
-import { getContracts, handleStatusEvent } from '$lib/utils/nostr-contract';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { getContracts, handleStatusEvent, handleContractEvent } from '$lib/utils/nostr-contract';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19 } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
@@ -31,9 +29,13 @@ const initialState: ContractStoreState = {
 	isResolutionFormOpen: false
 };
 
-// Subscription management - need TWO subscriptions for OR logic
+// Subscription management - need TWO subscriptions for OR logic (per event type)
+// Status update subscriptions
 let statusSubscriptionIncoming: { close: () => void } | null = null;
 let statusSubscriptionOutgoing: { close: () => void } | null = null;
+
+// Contract creation subscriptions
+let contractSubscription: { close: () => void } | null = null;
 
 // Create the store
 function createContractStore() {
@@ -90,6 +92,45 @@ function createContractStore() {
 	}
 
 	/**
+	 * Subscribe to new contract creation events
+	 * Note: pool.subscribe only accepts ONE filter at a time, so we need TWO separate subscriptions:
+	 * Subscription 1: Contract events where user is PARTICIPANT (#p tag)
+	 * Subscription 2: Contract events where user is AUTHOR (contracts they create)
+	 */
+	async function subscribeToNewContracts() {
+		try {
+			if (contractSubscription) return;
+
+			const npub = await getNpub();
+			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+			const pool = get(appStore).pool;
+
+			if (!pool) {
+				console.error('[ContractStore] Pool not available');
+				return;
+			}
+
+			const since = Math.floor(Date.now() / 1000);
+			const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
+
+			// Subscription 1: Contract events where user is PARTICIPANT
+			contractSubscription = pool.subscribe(
+				[import.meta.env.VITE_NOSTR_RELAY_URL],
+				{
+					kinds: [KINDS.CONTRACT],
+					'#p': [userPubkeyHex],
+					'#n': [currentNetwork], // Filter by current network
+					since
+				},
+				{ onevent: handleContractEvent }
+			);
+
+		} catch (error) {
+			console.error('[ContractStore] Failed to subscribe to new contracts:', error);
+		}
+	}
+
+	/**
 	 * Unsubscribe from contract status updates
 	 */
 	function unsubscribeFromStatusUpdates() {
@@ -100,6 +141,16 @@ function createContractStore() {
 		if (statusSubscriptionOutgoing) {
 			statusSubscriptionOutgoing.close();
 			statusSubscriptionOutgoing = null;
+		}
+	}
+
+	/**
+	 * Unsubscribe from new contract creation events
+	 */
+	function unsubscribeFromNewContracts() {
+		if (contractSubscription) {
+			contractSubscription.close();
+			contractSubscription = null;
 		}
 	}
 	return {
@@ -229,6 +280,16 @@ function createContractStore() {
 		 * Unsubscribe from real-time contract status updates
 		 */
 		unsubscribeFromStatusUpdates,
+
+		/**
+		 * Subscribe to new contract creation events
+		 */
+		subscribeToNewContracts,
+
+		/**
+		 * Unsubscribe from new contract creation events
+		 */
+		unsubscribeFromNewContracts,
 
 		/**
 		 * Reset store to initial state

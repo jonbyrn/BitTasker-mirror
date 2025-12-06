@@ -5,8 +5,9 @@
  * It maintains backward compatibility with the existing wallet store API.
  */
 
-import { WalletManager, 
-	type WalletManagerConfig, 
+import {
+	WalletManager,
+	type WalletManagerConfig,
 	type WalletAsset,
 	type WalletState,
 	type NetworkType,
@@ -27,7 +28,6 @@ import cryptoPriceService from '$lib/api/services/crypto-price.service';
 const initialState: WalletState = {
 	isInitializing: false,
 	isConnected: false,
-	isConnecting: false,
 	hasAnyConnection: false,
 	error: null,
 
@@ -86,6 +86,13 @@ export const walletStore = writable(initialState);
 // SDK wallet manager instance
 let sdkWalletManager: WalletManager | null = null;
 
+// Cached swap storage instances to avoid re-initialization
+let cachedSwapStorages: {
+	reverse: NostrSwapStorage;
+	chain: NostrSwapStorage;
+	submarine: NostrSwapStorage;
+} | null = null;
+
 // Event listeners cleanup
 const eventListeners: (() => void)[] = [];
 
@@ -126,49 +133,54 @@ export function getEventListeners(): (() => void)[] {
  * Initialize wallet using SDK
  */
 export async function initializeWallet(): Promise<void> {
+	const state = get(walletStore);
+
+	// Skip if already initializing or already connected
+	if (state.isInitializing) return;
+
+	// Skip if already fully initialized
+	if (sdkWalletManager && state.isConnected) return;
+
 	try {
-		walletStore.update(s => ({ ...s, isInitializing: true, isConnecting: true, error: null }));
-		
+		walletStore.update(s => ({ ...s, isInitializing: true, error: null }));
+
 		// Get mnemonic
 		const mnemonic = await getMnemonic();
-		
-		// Get Nostr keys for swap storage
-		const { nsec } = await getNostrKeyPair();
-		
+
 		// Get network from environment
 		const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
-		
-		// Create Nostr storage adapter for reverse swaps
-		const reverseSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-reverse');
-		const chainSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-chain');
-		const submarineSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-submarine');
-		
+
+		// Create or reuse swap storage instances
+		if (!cachedSwapStorages) {
+			const { nsec } = await getNostrKeyPair();
+			cachedSwapStorages = {
+				reverse: new NostrSwapStorage(nsec, 'boltz-swap-reverse'),
+				chain: new NostrSwapStorage(nsec, 'boltz-swap-chain'),
+				submarine: new NostrSwapStorage(nsec, 'boltz-swap-submarine')
+			};
+		}
+
 		// Initialize wallet manager
 		const config: WalletManagerConfig = {
 			network,
 			mnemonic,
-			swapStorages: {
-				reverse: reverseSwapStorage,
-				chain: chainSwapStorage,
-				submarine: submarineSwapStorage
-			}
+			swapStorages: cachedSwapStorages
 		};
-		
+
 		sdkWalletManager = new WalletManager(config);
 		await sdkWalletManager.initialize();
-		
+
 		// Update store with wallet info
 		const rskWallet = sdkWalletManager.rskWallet;
 		const bscWallet = sdkWalletManager.bscWallet;
-		
+
 		if (rskWallet && bscWallet) {
 			const rskBalanceData = await rskWallet.getBalance();
 			const bscBalances = await bscWallet.getBalances();
-			
+
 			walletStore.update(s => ({
 				...s,
 				isConnected: true,
-				isConnecting: false,
 				isInitializing: false,
 				hasAnyConnection: true,
 				rsk: {
@@ -194,7 +206,7 @@ export async function initializeWallet(): Promise<void> {
 					provider: bscWallet.getProvider() as any
 				}
 			}));
-			
+
 			// Load additional data
 			await Promise.allSettled([
 				loadAssets(),
@@ -202,17 +214,37 @@ export async function initializeWallet(): Promise<void> {
 				loadRbtcExchangeRate()
 			]);
 		}
-		
+
 	} catch (error) {
 		console.error('Failed to initialize wallet:', error);
 		walletStore.update(s => ({
 			...s,
 			isInitializing: false,
-			isConnecting: false,
 			error: error instanceof Error ? error.message : 'Failed to initialize wallet'
 		}));
 		throw error;
 	}
+}
+
+/**
+ * Get RSK wallet address, initializing only RSK wallet if needed.
+ * This is a lightweight operation that doesn't require full wallet initialization.
+ * 
+ * @returns The RSK wallet address
+ */
+export async function getRSKAddress(): Promise<string> {
+	const state = get(walletStore);
+
+	// If address already exists, return it
+	if (state.rsk.address) {
+		return state.rsk.address;
+	}
+
+	const address = await initializeWallet().then(() => {
+		return get(walletStore).rsk.address;
+	});
+	
+	return address || '';
 }
 
 /**
@@ -229,11 +261,14 @@ export function disconnectWallet(): void {
 		}
 		sdkWalletManager = null;
 	}
-	
+
+	// Clear cached swap storages
+	cachedSwapStorages = null;
+
 	// Cleanup event listeners
 	eventListeners.forEach(cleanup => cleanup());
 	eventListeners.length = 0;
-	
+
 	walletStore.set(initialState);
 }
 
@@ -245,17 +280,17 @@ async function loadAssets(): Promise<void> {
 		const manager = getWalletManager();
 		const state = get(walletStore);
 		const assets: WalletAsset[] = [];
-		
+
 		// Initialize totals
 		let totalRbtc = 0;
 		let totalBnb = 0;
 		let totalUsdt = 0;
 		let totalUsd = 0;
-		
+
 		// Fetch current prices
 		let rbtcPrice = 0;
 		let bnbPrice = 0;
-		
+
 		try {
 			[rbtcPrice, bnbPrice] = await Promise.all([
 				cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
@@ -264,7 +299,7 @@ async function loadAssets(): Promise<void> {
 		} catch (error) {
 			console.warn('Failed to fetch some prices:', error);
 		}
-		
+
 		// RSK assets - FETCH FRESH BALANCE FROM BLOCKCHAIN
 		if (state.rsk.connected && manager.rskWallet) {
 			const rskBalanceData = await manager.rskWallet.getBalance();
@@ -272,7 +307,7 @@ async function loadAssets(): Promise<void> {
 			totalRbtc += rbtcBalance;
 			const rbtcUsdValue = rbtcBalance * rbtcPrice;
 			totalUsd += rbtcUsdValue;
-			
+
 			// Update store with fresh balance
 			walletStore.update(s => ({
 				...s,
@@ -282,7 +317,7 @@ async function loadAssets(): Promise<void> {
 					formattedBalance: rskBalanceData.formatted
 				}
 			}));
-			
+
 			assets.push({
 				assetId: 'rbtc',
 				name: 'Smart Bitcoin',
@@ -295,7 +330,7 @@ async function loadAssets(): Promise<void> {
 				usdValue: rbtcUsdValue
 			});
 		}
-		
+
 		// BSC assets - FETCH FRESH BALANCES FROM BLOCKCHAIN
 		if (state.bsc.connected && manager.bscWallet) {
 			const bscBalances = await manager.bscWallet.getBalances();
@@ -303,7 +338,7 @@ async function loadAssets(): Promise<void> {
 			totalBnb += bnbBalance;
 			const bnbUsdValue = bnbBalance * bnbPrice;
 			totalUsd += bnbUsdValue;
-			
+
 			// Update store with fresh balances
 			walletStore.update(s => ({
 				...s,
@@ -315,7 +350,7 @@ async function loadAssets(): Promise<void> {
 					formattedUsdtBalance: bscBalances.usdt.formatted
 				}
 			}));
-			
+
 			assets.push({
 				assetId: 'bnb',
 				name: 'BNB',
@@ -327,12 +362,12 @@ async function loadAssets(): Promise<void> {
 				network: 'BSC',
 				usdValue: bnbUsdValue
 			});
-			
+
 			if (bscBalances.usdt.balance > BigInt(0)) {
 				const usdtBalance = parseFloat(bscBalances.usdt.formatted);
 				totalUsdt += usdtBalance;
 				totalUsd += usdtBalance; // USDT is 1:1 with USD
-				
+
 				assets.push({
 					assetId: 'usdt',
 					name: 'Tether USD',
@@ -346,10 +381,10 @@ async function loadAssets(): Promise<void> {
 				});
 			}
 		}
-		
+
 		// Calculate total sats (RBTC to sats)
 		const totalSats = Math.floor(totalRbtc * 100_000_000);
-		
+
 		// Update store with assets and totals
 		walletStore.update(s => ({
 			...s,
@@ -374,7 +409,7 @@ async function loadTransactions(): Promise<void> {
 	try {
 		const manager = getWalletManager();
 		const transactions: Transaction[] = [];
-		
+
 		// Load RSK transactions
 		if (manager.rskWallet) {
 			const rskTxs = await manager.rskWallet.loadTransactions();
@@ -384,7 +419,7 @@ async function loadTransactions(): Promise<void> {
 				tokenSymbol: 'RBTC'
 			})));
 		}
-		
+
 		// Load BSC transactions
 		if (manager.bscWallet) {
 			const bscTxs = await manager.bscWallet.loadTransactions();
@@ -393,10 +428,10 @@ async function loadTransactions(): Promise<void> {
 				network: 'bsc' as const
 			})));
 		}
-		
+
 		// Sort by timestamp
 		transactions.sort((a, b) => b.timestamp - a.timestamp);
-		
+
 		walletStore.update(s => ({ ...s, transactions }));
 	} catch (error) {
 		console.error('Failed to load transactions:', error);
@@ -430,10 +465,10 @@ async function loadRbtcExchangeRate(): Promise<void> {
 export async function sendRBTC(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
 	const txHash = await manager.rskWallet.send(to, amount);
-	
+
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	
+
 	return txHash;
 }
 
@@ -443,10 +478,10 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
 	const txHash = await manager.bscWallet.sendUSDT(to, amount);
-	
+
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	
+
 	return txHash;
 }
 
@@ -456,10 +491,10 @@ export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
 export async function sendBSCBNB(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
 	const txHash = await manager.bscWallet!.sendBNB(to, amount);
-	
+
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	
+
 	return txHash;
 }
 
@@ -470,7 +505,7 @@ export async function createReverseSwap(amountSats: number): Promise<any> {
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
-	
+
 	return await manager.reverseSwapService!.createReverseSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
@@ -485,7 +520,7 @@ export async function createChainSwap(amountSats: number): Promise<any> {
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
-	
+
 	return await manager.chainSwapService!.createChainSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
@@ -506,14 +541,14 @@ export async function getSwapLimits() {
  */
 export async function createSubmarineSwap(invoice: string): Promise<SubmarineSwapResult> {
 	const manager = getWalletManager();
-	
+
 	const params: CreateSubmarineSwapParams = {
 		from: 'RBTC',
 		to: 'BTC', // Lightning (represented as BTC in Boltz API)
 		invoice,
 		signer: manager.getRSKWallet() // Add signer for gas estimation
 	};
-	
+
 	return await manager.submarineSwapService.createSubmarineSwap(params);
 }
 
@@ -523,12 +558,12 @@ export async function createSubmarineSwap(invoice: string): Promise<SubmarineSwa
 export async function lockSubmarineSwapFunds(swapData: SubmarineSwapData): Promise<{ txHash: string }> {
 	const manager = getWalletManager();
 	const signer = manager.rskWallet.getWallet();
-	
+
 	const result = await manager.submarineSwapService.lockFundsEVM(swapData, signer);
-	
+
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	
+
 	return result;
 }
 
@@ -669,6 +704,7 @@ export const transactions = derived(walletStore, $w => $w.transactions);
 // Wallet manager compatibility object
 export const walletManager = {
 	initialize: initializeWallet,
+	getRSKAddress,
 	disconnect: disconnectWallet,
 	cleanup: disconnectWallet,
 	setActiveTab,
