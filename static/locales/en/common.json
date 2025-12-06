@@ -39,6 +39,10 @@
         "add": "Add",
         "required": "Required",
         "optional": "Optional",
+        "buttons": {
+            "cancel": "Cancel",
+            "retry": "Retry"
+        },
         "previous": "Previous",
         "next": "Next",
         "pagination": {
@@ -428,7 +432,9 @@
                 "scan_qr_code": "Scan QR Code",
                 "get_qr_from_settings": "You can get your QR code from your other device by going to <strong>Settings</strong> and tapping the <strong>Show QR Code</strong> button.",
                 "close": "Close",
-                "toggle_torch": "Toggle Torch"
+                "toggle_torch": "Toggle Torch",
+                "no_camera_found": "No camera found. Please ensure your device has a camera.",
+                "camera_permission_denied": "Camera permission denied. Please enable camera access in your browser settings."
             },
             "tags": {
                 "select_tags": "Select tags...",

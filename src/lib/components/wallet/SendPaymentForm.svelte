@@ -9,7 +9,9 @@
 	import { getBiometricData } from '$lib/utils/helpers/biometrics';
 	import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
+	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
 	import AmountDisplay from '$lib/components/wallet/AmountDisplay.svelte';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import TransactionSuccessScreen from '$lib/components/wallet/TransactionSuccessScreen.svelte';
@@ -19,6 +21,7 @@
 	import IconClose from '~icons/mdi/close';
 	import IconSend from '~icons/mdi/send';
 	import IconCheck from '~icons/mdi/check';
+	import IconContentCopy from '~icons/mdi/content-copy';
 
 	interface Props {
 		onCancel: () => void;
@@ -26,6 +29,9 @@
 	}
 
 	let { onCancel, onSuccess }: Props = $props();
+
+	// Platform detection
+	const isWeb = Capacitor.getPlatform() === 'web';
 
 	// Tab state
 	let activeTab = $state<'scan' | 'enter'>('scan'); // Default to 'scan'
@@ -36,6 +42,10 @@
 	let showSuccessScreen = $state(false);
 	let successTxHash = $state<string | null>(null);
 	let successNetwork = $state<string | null>(null);
+	
+	// QR scan error state
+	let qrScanError = $state<string | null>(null);
+	let scannedQrValue = $state<string | null>(null);
 	
 
 	// Payment data
@@ -209,15 +219,25 @@
 		}
 	});
 
-	// Handle QR scan
-	async function handleQRScan(barcode: Barcode) {
+	// Handle QR scan (accepts both Barcode from Capacitor and string from html5-qrcode)
+	async function handleQRScan(barcode: Barcode | string) {
 		try {
-			const parsed = await parsePaymentAddress(barcode.rawValue);
+			const qrValue = typeof barcode === 'string' ? barcode : barcode.rawValue;
+			const parsed = parsePaymentAddress(qrValue);
+			
+			// Clear previous error state
+			qrScanError = null;
+			scannedQrValue = null;
+			
 			if (!parsed.isValid) {
-				appStore.showErrorToast($t('wallet.send.invalid_qr_code'));
+				// Show error with decoded QR code
+				// Use specific error message if available, otherwise use generic message
+				qrScanError = parsed.errorMessage || $t('wallet.send.invalid_qr_code');
+				scannedQrValue = qrValue;
 				return;
 			}
 
+			// Valid address - populate form and switch to Enter Payment Details tab
 			parsedData = parsed;
 			addressInput = parsed.address;
 			detectedNetwork = parsed.network;
@@ -239,12 +259,27 @@
 				descriptionExpanded = true;
 			}
 
-			// Switch to confirmation screen
-			showConfirmation = true;
+			// Switch to Enter Payment Details tab - the form will reactively update
+			activeTab = 'enter';
+			showConfirmation = false;
 			await updateFeeEstimate();
 		} catch (error) {
 			console.error('Failed to parse QR code:', error);
-			appStore.showErrorToast($t('wallet.send.failed_to_parse_qr'));
+			qrScanError = $t('wallet.send.failed_to_parse_qr');
+			scannedQrValue = typeof barcode === 'string' ? barcode : barcode.rawValue;
+		}
+	}
+
+	// Copy scanned QR code to clipboard
+	async function copyScannedQrCode() {
+		if (!scannedQrValue) return;
+		
+		const success = await copyToClipboard(scannedQrValue);
+		if (success) {
+			appStore.showSuccessToast('Text copied to clipboard');
+			triggerHaptic(ImpactStyle.Light);
+		} else {
+			appStore.showErrorToast('Failed to copy to clipboard');
 		}
 	}
 
@@ -265,7 +300,7 @@
 		}
 
 		try {
-			const parsed = await parsePaymentAddress(addressInput);
+			const parsed = parsePaymentAddress(addressInput);
 			if (parsed.isValid) {
 				parsedData = parsed;
 				detectedNetwork = parsed.network;
@@ -305,7 +340,8 @@
 					}, 100);
 				}
 			} else {
-				addressError = $t('wallet.send.invalid_address');
+				// Use specific error message if available, otherwise use generic message
+				addressError = parsed.errorMessage || $t('wallet.send.invalid_address');
 				parsedData = null;
 				detectedNetwork = null;
 				detectedAmount = null;
@@ -927,10 +963,74 @@
 	<div class="flex-1 overflow-y-auto space-y-6 relative">
 		{#if activeTab === 'scan' && !showConfirmation}
 			<!-- QR Code Scanner -->
-			<div class="flex flex-col items-center gap-4">
+			<div class="flex flex-col items-center justify-center gap-4 min-h-full px-4">
 				<p class="text-sm text-base-content/70">{$t('wallet.send.scan_qr_code_description')}</p>
 
-				<QrCodeScanner onScan={handleQRScan} onClose={() => (activeTab = 'enter')} />
+				{#if qrScanError}
+					<!-- Error state with decoded QR code -->
+					<div class="w-full space-y-4">
+						<div class="alert alert-outline alert-error">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span class="text-sm">{qrScanError}</span>
+						</div>
+						
+						<div class="form-control">
+							<label for="scanned-qr-code" class="label">
+								<span class="label-text">{$t('wallet.send.scanned_qr_code')}</span>
+							</label>
+							<div class="relative">
+								<textarea
+									id="scanned-qr-code"
+									class="textarea textarea-bordered textarea-error w-full pr-12 {scannedQrValue ? 'cursor-pointer' : ''}"
+									readonly
+									rows="4"
+									onclick={copyScannedQrCode}
+								>{scannedQrValue || ''}</textarea>
+								<button
+									class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm btn-square"
+									onclick={(e) => {
+										e.stopPropagation();
+										copyScannedQrCode();
+									}}
+									aria-label={$t('wallet.copy_address')}
+								>
+									<IconContentCopy class="w-5 h-5" />
+								</button>
+							</div>
+						</div>
+						
+						<button
+							class="btn btn-primary w-full"
+							onclick={() => {
+								qrScanError = null;
+								scannedQrValue = null;
+							}}
+						>
+							{$t('common.buttons.retry')}
+						</button>
+					</div>
+				{:else}
+					{#if isWeb}
+						<WebQrCodeScanner
+							onScan={(result) => handleQRScan(result)}
+							onClose={() => (activeTab = 'enter')}
+						/>
+					{:else}
+						<QrCodeScanner onScan={handleQRScan} onClose={() => (activeTab = 'enter')} />
+					{/if}
+				{/if}
 			</div>
 		{/if}
 		
@@ -997,9 +1097,6 @@
 						/>
 					</div>
 				{/if}
-
-
-
 
 				<!-- Action Buttons -->
 				<div class="flex gap-3">
