@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Google Translate API service with comprehensive safeguards
  * Only supports English and Spanish translation
@@ -86,6 +87,131 @@ export class TranslationService {
 		} catch (error) {
 			console.error('Error detecting language:', error);
 			return null;
+		}
+	}
+
+	/**
+	 * Translate multiple texts in batch (more efficient)
+	 */
+	async translateBatch(
+		texts: string[],
+		targetLanguage: string,
+		sourceLanguage?: string
+	): Promise<(TranslationResult | TranslationError)[]> {
+		if (!this.isAvailable() || texts.length === 0) {
+			return texts.map(() => ({
+				code: 'NO_API_KEY',
+				message: 'Translation service not available',
+			}));
+		}
+
+		// Validate language codes
+		if (!this.validateLanguage(targetLanguage)) {
+			return texts.map(() => ({
+				code: 'UNSUPPORTED_LANGUAGE',
+				message: 'Only English and Spanish are supported',
+			}));
+		}
+		if (sourceLanguage && !this.validateLanguage(sourceLanguage)) {
+			return texts.map(() => ({
+				code: 'UNSUPPORTED_LANGUAGE',
+				message: 'Only English and Spanish are supported',
+			}));
+		}
+
+		// Filter out empty texts
+		const validTexts = texts.filter(t => t.trim());
+		if (validTexts.length === 0) {
+			return texts.map(() => ({
+				code: 'EMPTY_TEXT',
+				message: 'Empty text',
+			}));
+		}
+
+		try {
+			// Apply rate limiting
+			await this.rateLimit();
+
+			const requestBody: any = {
+				q: validTexts,
+				target: targetLanguage,
+				format: 'text',
+			};
+
+			if (sourceLanguage) {
+				requestBody.source = sourceLanguage;
+			}
+
+			// Add timeout to prevent hanging requests
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => {
+				controller.abort();
+			}, 30000); // 30 second timeout
+
+			const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(requestBody),
+				signal: controller.signal,
+			});
+
+			clearTimeout(timeoutId);
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(
+					errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
+				);
+			}
+
+			const data = await response.json();
+			const translations = data.data?.translations || [];
+
+			// Map results back to original texts array (including empty ones)
+			let validIndex = 0;
+			return texts.map((text) => {
+				if (!text.trim()) {
+					return {
+						code: 'EMPTY_TEXT',
+						message: 'Empty text',
+					};
+				}
+
+				const translation = translations[validIndex++];
+				if (!translation) {
+					return {
+						code: 'TRANSLATION_ERROR',
+						message: 'No translation returned from API',
+					};
+				}
+
+				const result: TranslationResult = {
+					translatedText: translation.translatedText,
+					detectedSourceLanguage: translation.detectedSourceLanguage,
+					originalText: text,
+					targetLanguage,
+				};
+
+				// Cache the result
+				const cacheKey = `${text}-${targetLanguage}-${sourceLanguage || 'auto'}`;
+				this.cache.set(cacheKey, {
+					result,
+					timestamp: Date.now()
+				});
+
+				return result;
+			});
+		} catch (error) {
+			return texts.map(() => ({
+				code: 'TRANSLATION_ERROR',
+				message: error instanceof Error ? error.message : 'Unknown translation error',
+				details: error,
+			}));
+		} finally {
+			// Save cache to localStorage
+			this.saveCacheToStorage();
 		}
 	}
 
