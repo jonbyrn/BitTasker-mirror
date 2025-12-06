@@ -377,52 +377,32 @@
 		}
 	});
 
-	// Auto-save draft when message text changes
+	// Auto-save draft and resize textarea when message text changes
 	$effect(() => {
 		if (newMessageText !== lastSavedDraft && recipientPubkey) {
 			saveDraftDebounced();
 		}
-	});
-
-	// Auto-resize textarea when message text changes
-	$effect(() => {
 		if (newMessageText !== undefined) {
 			autoResizeTextarea();
 		}
 	});
 
-	// Auto-scroll to bottom when new messages arrive (but not when loading more)
-	$effect(() => {
-		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
-			// Use setTimeout to ensure DOM is updated
-			setTimeout(() => {
-				scrollToBottom();
-			}, 100);
-		}
-	});
-
-	// Auto-scroll when new messages are added (not just when array changes)
+	// Auto-scroll to bottom when new messages arrive or translations complete
 	$effect(() => {
 		const currentMessageCount = messages.length;
 		const hasNewMessages = currentMessageCount > previousMessageCount;
+		previousMessageCount = currentMessageCount;
 
 		if (hasNewMessages && messagesContainer && !isLoadingMore) {
 			// Immediate scroll for new messages
 			setTimeout(() => {
 				scrollToBottomImmediate();
 			}, 50);
-		}
-
-		previousMessageCount = currentMessageCount;
-	});
-
-	// Auto-scroll when translations complete
-	$effect(() => {
-		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
+		} else if (messages.length > 0 && messagesContainer && !isLoadingMore) {
 			// Scroll after a short delay to allow translations to render
 			setTimeout(() => {
 				scrollToBottom();
-			}, 500);
+			}, 100);
 		}
 	});
 
@@ -846,8 +826,10 @@
 		let messageContent = newMessageText.trim();
 
 		// Add reply context if replying to a message
+		// Include message ID in reply format: > [messageId] original text
 		if (replyingToMessage) {
-			const replyPrefix = `> ${replyingToMessage.plaintext}\n\n`;
+			const messageId = replyingToMessage.event.id;
+			const replyPrefix = `> [${messageId}] ${replyingToMessage.plaintext}\n\n`;
 			messageContent = replyPrefix + messageContent;
 		}
 
@@ -923,8 +905,24 @@
 		}
 	}
 
-	function scrollToMessage(quotedText: string) {
-		if (!messagesContainer || !quotedText) return;
+	function scrollToMessage(quotedText: string, quotedMessageId?: string | null) {
+		if (!messagesContainer) return;
+		
+		// If we have a message ID, use it directly (most reliable)
+		if (quotedMessageId) {
+			const element = messagesContainer.querySelector(`[data-message-id="${quotedMessageId}"]`);
+			if (element) {
+				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				(element as HTMLElement).classList.add('highlight-message');
+				setTimeout(() => {
+					(element as HTMLElement).classList.remove('highlight-message');
+				}, 2000);
+				return;
+			}
+		}
+		
+		// Fallback to text matching if no ID or ID not found
+		if (!quotedText) return;
 		
 		const quotedTextLower = quotedText.toLowerCase().trim();
 		const messageElements = messagesContainer.querySelectorAll('[data-message-id]');
@@ -1117,7 +1115,7 @@
 						currentUserId={currentUserHex()}
 						onReactionAdd={handleReactionAdd}
 						onReactionRemove={handleReactionRemove}
-						onScrollToMessage={scrollToMessage}
+						onScrollToMessage={(quotedText: string, quotedMessageId?: string | null) => scrollToMessage(quotedText, quotedMessageId)}
 					/>
 				{/each}
 			{/if}

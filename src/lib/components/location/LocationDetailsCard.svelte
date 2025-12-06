@@ -23,16 +23,12 @@
 		generateGoogleMapsDirectionsLink(location, { origin: 'current', label })
 	);
 
-	const cardClass = $derived('card shadow-lg bg-base-100 border border-base-300');
-	const addressLabelClass = $derived('text-sm mb-1 text-base-content/70');
-	const addressTextClass = $derived('font-medium text-base-content');
-
 	function openDirections() {
 		window.open(directionsLink, '_blank', 'noopener,noreferrer');
 	}
 </script>
 
-<div class={cardClass}>
+<div class="card shadow-lg bg-base-100 border border-base-300">
 	<div class="p-4">
 		{#if label}
 			<h4 class="card-title text-base font-semibold text-base-content mb-3">{label}</h4>
@@ -40,8 +36,8 @@
 
 		{#if showAddress && formattedAddress}
 			<div class="mb-4">
-				<p class={addressLabelClass}>{$t('common.location.address')}</p>
-				<p class={addressTextClass}>{formattedAddress}</p>
+				<p class="text-sm mb-1 text-base-content/70">{$t('common.location.address')}</p>
+				<p class="font-medium text-base-content">{formattedAddress}</p>
 			</div>
 		{/if}
 

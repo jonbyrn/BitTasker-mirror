@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Translation store with circuit breaker and comprehensive safeguards
  * Only supports English and Spanish translation
  */
 
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import { translationService, type TranslationResult } from '$lib/services/translation.service';
 import { locale } from 'svelte-i18n';
 import { browser } from '$app/environment';
@@ -174,10 +173,7 @@ const translationSettings = writable<{
 // Update translation settings when preferences change
 translationPreferences.subscribe((prefs) => {
 	// Get current user language from locale
-	let currentLang = 'en';
-	currentUserLanguage.subscribe((lang) => {
-		currentLang = lang || 'en';
-	})();
+	const currentLang = get(currentUserLanguage) || 'en';
 
 	const settings = {
 		enabled: prefs.enabled,
@@ -197,10 +193,7 @@ currentUserLanguage.subscribe((userLang) => {
 
 // Initialize settings on startup
 translationPreferences.subscribe((prefs) => {
-	let currentLang = 'en';
-	currentUserLanguage.subscribe((lang) => {
-		currentLang = lang || 'en';
-	})();
+	const currentLang = get(currentUserLanguage) || 'en';
 
 	const settings = {
 		enabled: prefs.enabled,
@@ -215,10 +208,7 @@ export class TranslationStore {
 	 * Check circuit breaker state
 	 */
 	private static checkCircuitBreaker(): boolean {
-		let breaker: any;
-		circuitBreaker.subscribe((b) => {
-			breaker = b;
-		})();
+		const breaker = get(circuitBreaker);
 
 		const now = Date.now();
 
@@ -275,11 +265,8 @@ export class TranslationStore {
 	 * Get translation for a specific message
 	 */
 	static getMessageTranslation(messageId: string): MessageTranslation | null {
-		let result: MessageTranslation | null = null;
-		messageTranslations.subscribe((translations) => {
-			result = translations.get(messageId) || null;
-		})();
-		return result;
+		const translations = get(messageTranslations);
+		return translations.get(messageId) || null;
 	}
 
 	/**
@@ -293,26 +280,19 @@ export class TranslationStore {
 	 * Get current user's language preference
 	 */
 	static getCurrentUserLanguage(): string {
-		let userLang = 'en';
-		currentUserLanguage.subscribe((lang) => {
-			userLang = lang || 'en';
-		})();
-		return userLang;
+		return get(currentUserLanguage) || 'en';
 	}
 
 	/**
 	 * Get cache statistics
 	 */
 	static getCacheStats(): { size: number; hitRate: number; oldestTranslation?: number } {
-		let translations: Map<string, MessageTranslation>;
-		messageTranslations.subscribe((t) => {
-			translations = t;
-		})();
+		const translations = get(messageTranslations);
 
-		const size = translations!.size;
+		const size = translations.size;
 		let oldestTimestamp = Infinity;
 
-		for (const translation of translations!.values()) {
+		for (const translation of translations.values()) {
 			if (translation.timestamp < oldestTimestamp) {
 				oldestTimestamp = translation.timestamp;
 			}
@@ -340,15 +320,11 @@ export class TranslationStore {
 	 */
 	static clearOldTranslations(daysOld: number = 30): void {
 		const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000;
-		let translations: Map<string, MessageTranslation>;
-
-		messageTranslations.subscribe((t) => {
-			translations = t;
-		})();
+		const translations = get(messageTranslations);
 
 		const filteredTranslations = new Map<string, MessageTranslation>();
 
-		for (const [messageId, translation] of translations!.entries()) {
+		for (const [messageId, translation] of translations.entries()) {
 			if (translation.timestamp > cutoffTime) {
 				filteredTranslations.set(messageId, translation);
 			}
@@ -361,15 +337,12 @@ export class TranslationStore {
 	 * Export translation cache for backup
 	 */
 	static exportCache(): string {
-		let translations: Map<string, MessageTranslation>;
-		messageTranslations.subscribe((t) => {
-			translations = t;
-		})();
+		const translations = get(messageTranslations);
 
 		const exportData = {
 			exportDate: new Date().toISOString(),
 			version: '1.0',
-			translations: Array.from(translations!.entries())
+			translations: Array.from(translations.entries())
 		};
 
 		return JSON.stringify(exportData, null, 2);
@@ -469,10 +442,7 @@ export class TranslationStore {
 		}
 
 		// Check if translation is enabled
-		let settings: any;
-		translationSettings.subscribe((s) => {
-			settings = s;
-		})();
+		const settings = get(translationSettings);
 
 		if (!settings.enabled) {
 			return results;
@@ -643,10 +613,7 @@ export class TranslationStore {
 		}
 
 		// Check if translation is enabled
-		let settings: any;
-		translationSettings.subscribe((s) => {
-			settings = s;
-		})();
+		const settings = get(translationSettings);
 
 		if (!settings.enabled) {
 			return null;
@@ -707,10 +674,7 @@ export class TranslationStore {
 
 		try {
 			// Get settings
-			let settings: any;
-			translationSettings.subscribe((s) => {
-				settings = s;
-			})();
+			const settings = get(translationSettings);
 
 			// Skip language detection - let the API detect automatically
 			// Translate the text (API will detect language automatically)
@@ -840,12 +804,12 @@ export class TranslationStore {
 	/**
 	 * Get current settings
 	 */
-	static getSettings(): any {
-		let settings: any;
-		translationSettings.subscribe((s) => {
-			settings = s;
-		})();
-		return settings;
+	static getSettings(): {
+		enabled: boolean;
+		autoTranslate: boolean;
+		targetLanguage: string;
+	} {
+		return get(translationSettings);
 	}
 }
 

@@ -32,7 +32,7 @@
 		currentUserId?: string;
 		onReactionAdd?: (messageId: string, emoji: string) => void;
 		onReactionRemove?: (messageId: string, emoji: string) => void;
-		onScrollToMessage?: (quotedText: string) => void;
+		onScrollToMessage?: (quotedText: string, quotedMessageId?: string | null) => void;
 	} = $props();
 
 	// Derived timestamp
@@ -76,15 +76,42 @@
 		if (!isReply) return null;
 		const parts = parsedPlaintext.split('\n\n');
 		if (parts.length < 2) return null;
-		const quotedText = parts[0].replace(/^> /, '').trim();
+		
+		// Extract quoted text and message ID if present
+		// Format: > [messageId] quoted text
+		const quotedLine = parts[0].replace(/^> /, '').trim();
+		const messageIdMatch = quotedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
+		
+		let quotedMessageId: string | null = null;
+		let quotedText: string;
+		
+		if (messageIdMatch) {
+			// New format with message ID
+			quotedMessageId = messageIdMatch[1];
+			quotedText = messageIdMatch[2].trim();
+		} else {
+			// Legacy format without message ID (backward compatibility)
+			quotedText = quotedLine;
+		}
+		
 		const actualMessage = parts.slice(1).join('\n\n').trim();
-		return { quotedText, actualMessage };
+		return { quotedText, actualMessage, quotedMessageId };
 	});
 	
 	// Get translated quoted text if available
 	const quotedDisplayText = $derived.by(() => {
 		if (!replyParts) return '';
 		
+		// If we have a message ID, try to find translation by ID first (most reliable)
+		if (replyParts.quotedMessageId) {
+			const translations = $messageTranslations;
+			const translation = translations.get(replyParts.quotedMessageId);
+			if (translation) {
+				return translation.translatedText;
+			}
+		}
+		
+		// Fallback to text matching if no ID or translation not found by ID
 		const translations = $messageTranslations;
 		const quotedTextLower = replyParts.quotedText.toLowerCase().trim();
 		
@@ -164,10 +191,10 @@
 					<!-- Quoted message with vertical line -->
 					<div 
 						class="flex gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-						onclick={() => onScrollToMessage?.(replyParts.quotedText)}
+						onclick={() => onScrollToMessage?.(replyParts.quotedText, replyParts.quotedMessageId)}
 						role="button"
 						tabindex="0"
-						onkeydown={(e) => e.key === 'Enter' && onScrollToMessage?.(replyParts.quotedText)}
+						onkeydown={(e) => e.key === 'Enter' && onScrollToMessage?.(replyParts.quotedText, replyParts.quotedMessageId)}
 					>
 						<div class="w-1 rounded-full shrink-0 bg-info"></div>
 						<div class="flex-1 min-w-0">

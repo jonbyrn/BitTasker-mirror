@@ -21,6 +21,35 @@
 	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
 
 	/**
+	 * Helper function to get display content for a conversation
+	 */
+	function getDisplayContent(conversation: typeof conversations[0]): string {
+		if (!conversation.lastEvent.content) {
+			return $t('messages.no_messages');
+		}
+
+		const messageId = conversation.lastEvent.id;
+		const messageTranslation = $messageTranslations.get(messageId);
+		const parsedContent = parseMessageContent(conversation.lastEvent.content);
+		const isReply = parsedContent.startsWith('> ') && parsedContent.includes('\n\n');
+
+		// If it's a reply, only show the actual message (not the quoted part)
+		if (isReply) {
+			const parts = parsedContent.split('\n\n');
+			const actualMessage = parts.slice(1).join('\n\n').trim();
+			const actualMessageTranslation = $messageTranslations.get(messageId);
+			return actualMessageTranslation ? actualMessageTranslation.translatedText : actualMessage;
+		}
+
+		// For regular messages, show translation if available
+		if (messageTranslation) {
+			return messageTranslation.translatedText;
+		}
+
+		return translateMessageContent(conversation.lastEvent.content);
+	}
+
+	/**
 	 * Helper function to translate message content if it's a translation key
 	 * Translation keys typically follow patterns like: dashboard.bids.bid_acceptance.acceptance_message
 	 * This function is used in the template, so it will be reactive to language changes
@@ -1044,39 +1073,6 @@
 					<!-- Show conversations with optional loading indicator -->
 					<div class="divide-base-300/20 divide-y">
 						{#each filteredConversations as conversation}
-							{@const messageId = conversation.lastEvent.id}
-							{@const messageTranslation = $messageTranslations.get(messageId)}
-							{@const parsedContent = parseMessageContent(conversation.lastEvent.content || '')}
-							{@const isReply = parsedContent.startsWith('> ') && parsedContent.includes('\n\n')}
-							{@const replyQuotedText = isReply ? parsedContent.split('\n\n')[0].replace(/^> /, '').trim() : ''}
-							{@const replyQuotedTranslation = replyQuotedText ? (() => {
-								const quotedTextLower = replyQuotedText.toLowerCase().trim();
-								for (const [msgId, translation] of $messageTranslations.entries()) {
-									const originalText = translation.originalText.toLowerCase().trim();
-									if (originalText.includes(quotedTextLower) || quotedTextLower.includes(originalText)) {
-										return translation.translatedText;
-									}
-								}
-								return null;
-							})() : null}
-							{@const displayContent = (() => {
-								if (!conversation.lastEvent.content) return $t('messages.no_messages');
-								
-								// If it's a reply, only show the actual message (not the quoted part)
-								if (isReply) {
-									const parts = parsedContent.split('\n\n');
-									const actualMessage = parts.slice(1).join('\n\n').trim();
-									const actualMessageTranslation = $messageTranslations.get(messageId);
-									return actualMessageTranslation ? actualMessageTranslation.translatedText : actualMessage;
-								}
-								
-								// For regular messages, show translation if available
-								if (messageTranslation) {
-									return messageTranslation.translatedText;
-								}
-								
-								return translateMessageContent(conversation.lastEvent.content);
-							})()}
 							<button
 								class="group hover:bg-base-200/60 active:bg-base-200 flex w-full items-center gap-4 p-4 text-left transition-all duration-200 md:gap-5 md:p-5"
 								onclick={() => selectConversation(conversation.pubkey)}
@@ -1101,7 +1097,7 @@
 										</span>
 									</div>
 									<p class="text-base-content/60 mt-1.5 line-clamp-2 text-sm leading-relaxed md:text-md">
-										{displayContent}
+										{getDisplayContent(conversation)}
 									</p>
 								</div>
 							</button>

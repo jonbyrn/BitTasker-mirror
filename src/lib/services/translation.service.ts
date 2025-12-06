@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Google Translate API service with comprehensive safeguards
  * Only supports English and Spanish translation
@@ -14,7 +13,7 @@ export interface TranslationResult {
 export interface TranslationError {
 	code: string;
 	message: string;
-	details?: any;
+	details?: unknown;
 }
 
 interface CachedTranslation {
@@ -132,7 +131,12 @@ export class TranslationService {
 			// Apply rate limiting
 			await this.rateLimit();
 
-			const requestBody: any = {
+			const requestBody: {
+				q: string[];
+				target: string;
+				format: string;
+				source?: string;
+			} = {
 				q: validTexts,
 				target: targetLanguage,
 				format: 'text',
@@ -268,7 +272,12 @@ export class TranslationService {
 			// Apply rate limiting
 			await this.rateLimit();
 
-			const requestBody: any = {
+			const requestBody: {
+				q: string;
+				target: string;
+				format: string;
+				source?: string;
+			} = {
 				q: text,
 				target: targetLanguage,
 				format: 'text',
