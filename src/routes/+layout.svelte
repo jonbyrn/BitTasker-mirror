@@ -41,7 +41,7 @@
 	let isLandingPage = $state(false);
 	let isInitializing = $state(true); // Track initialization state
 	let isOnboardingPage = $state(false);
-	
+
 	// Check if current route is wallet route (reactive)
 	let isWalletRoute = $derived(page.url.pathname.includes('/dashboard/wallet'));
 

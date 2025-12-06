@@ -784,19 +784,19 @@
 									</div>
 								</div>
 								<div class="flex flex-col items-end">
-									<div
+								<div
 										class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
-									>
-										{tx.type === 'receive' ? '+' : '-'}
-										{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
-									</div>
+								>
+									{tx.type === 'receive' ? '+' : '-'}
+									{weiToSatoshi(BigInt(tx.value)).toLocaleString()} {$t('wallet.sats')}
+								</div>
 									{#if tx.fee}
 										<div class="text-xs opacity-70">
 											{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
 										</div>
 									{/if}
-								</div>
 							</div>
+						</div>
 
 							<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
 							<div class="flex items-center justify-between gap-2 sm:gap-4">
@@ -844,7 +844,7 @@
 				{:else}
 					<div class={cardClasses}>
 						{@render transactionCard()}
-					</div>
+				</div>
 				{/if}
 			{/each}
 		</div>

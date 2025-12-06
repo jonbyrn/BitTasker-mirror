@@ -183,20 +183,20 @@
 		</div>
 		<!-- Max button (orange, pill-shaped) - only show if onMaxAmount is provided -->
 		{#if onMaxAmount}
-			<button
-				type="button"
+		<button
+			type="button"
 				class="bg-primary text-primary-content font-semibold px-3 py-2 touch-manipulation select-none disabled:opacity-50 transition-opacity rounded-r-lg rounded-l-none flex items-center justify-center whitespace-nowrap min-w-[60px] text-xl"
 				style="-webkit-tap-highlight-color: transparent; margin-right: -2px; width: 72px;"
-				onclick={handleMax}
+			onclick={handleMax}
 				disabled={disabled || isMaxDisabled || isLoadingMaxCalculation}
-				aria-label="Set maximum amount"
-			>
-				{#if isLoadingMaxCalculation}
-					<span class="loading loading-spinner loading-xs"></span>
-				{:else}
-					{$t('wallet.max')}
-				{/if}
-			</button>
+			aria-label="Set maximum amount"
+		>
+			{#if isLoadingMaxCalculation}
+				<span class="loading loading-spinner loading-xs"></span>
+			{:else}
+				{$t('wallet.max')}
+			{/if}
+		</button>
 		{/if}
 	</div>
 

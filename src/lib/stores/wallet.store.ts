@@ -5,8 +5,9 @@
  * It maintains backward compatibility with the existing wallet store API.
  */
 
-import { WalletManager, 
-	type WalletManagerConfig, 
+import {
+	WalletManager,
+	type WalletManagerConfig,
 	type WalletAsset,
 	type WalletState,
 	type NetworkType,
@@ -16,12 +17,6 @@ import { WalletManager,
 	type CreateSubmarineSwapParams,
 	type SubmarineSwapResult
 } from '@bittasker/wallet-core';
-
-// Extend WalletState to include transaction loading timestamp and loading state
-type ExtendedWalletState = WalletState & {
-	transactionsLastLoaded: number | null;
-	isLoadingTransactions: boolean; // Flag to prevent concurrent loads
-};
 import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
@@ -29,11 +24,17 @@ import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers } from 'ethers';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
+// Extend WalletState to include transaction loading timestamp and loading state
+type ExtendedWalletState = WalletState & {
+	transactionsLastLoaded: number | null;
+	isLoadingTransactions: boolean; // Flag to prevent concurrent loads
+};
+
 // Initial state
 const initialState: ExtendedWalletState = {
 	isInitializing: false,
 	isConnected: false,
-	isConnecting: false,
+	isConnecting: false, // Required by WalletState type, but not actively used (dev branch pattern)
 	hasAnyConnection: false,
 	error: null,
 
@@ -99,8 +100,8 @@ const hasLoadedAssets = writable(false);
 export const isAssetsLoading = derived(
 	[walletStore, hasLoadedAssets],
 	([$walletStore, $hasLoadedAssets]) => {
-		// Show loading if wallet is initializing/connecting
-		if ($walletStore.isInitializing || $walletStore.isConnecting) {
+		// Show loading if wallet is initializing
+		if ($walletStore.isInitializing) {
 			return true;
 		}
 		// Show loading if wallet has connected but assets haven't been loaded yet
@@ -114,8 +115,18 @@ export const isAssetsLoading = derived(
 // SDK wallet manager instance
 let sdkWalletManager: WalletManager | null = null;
 
+// Cached swap storage instances to avoid re-initialization
+let cachedSwapStorages: {
+	reverse: NostrSwapStorage;
+	chain: NostrSwapStorage;
+	submarine: NostrSwapStorage;
+} | null = null;
+
 // Event listeners cleanup
 const eventListeners: (() => void)[] = [];
+
+// Promise cache for getRSKAddress() to prevent race conditions
+let rskAddressPromise: Promise<string> | null = null;
 
 /**
  * Get wallet manager instance
@@ -154,26 +165,34 @@ export function getEventListeners(): (() => void)[] {
  * Initialize wallet using SDK
  */
 export async function initializeWallet(): Promise<void> {
+	const state = get(walletStore);
+
+	// Skip if already initializing or already connected
+	if (state.isInitializing) return;
+
+	// Skip if already fully initialized
+	if (sdkWalletManager && state.isConnected) return;
+
 	const startTime = performance.now();
 	console.log('[WalletStore] Starting wallet initialization...');
-	
+
 	try {
 		const storeUpdateStartTime = performance.now();
-		walletStore.update(s => ({ ...s, isInitializing: true, isConnecting: true, error: null }));
+		walletStore.update(s => ({ ...s, isInitializing: true, error: null }));
 		const storeUpdateDuration = performance.now() - storeUpdateStartTime;
 		console.log(`[WalletStore] Initial store update completed in ${storeUpdateDuration.toFixed(2)}ms`);
-		
+
 		// Get mnemonic
 		// Check if biometric data is cached (user already authenticated)
 		// We only want to measure the time AFTER user authentication is complete
 		const { appStore } = await import('$lib/stores/app.store');
 		const { get } = await import('svelte/store');
 		let mnemonic: string;
-		
+
 		const cachedState = get(appStore);
-		const hasCachedAuth = cachedState.biometricData !== null;
-		
-		if (!hasCachedAuth) {
+		const biometricData = cachedState.biometricData;
+
+		if (!biometricData) {
 			// User needs to authenticate - don't measure this time
 			// getMnemonic() will handle authentication (user interaction) and then decrypt
 			console.log('[WalletStore] User authentication required (not measuring authentication time)...');
@@ -186,59 +205,56 @@ export async function initializeWallet(): Promise<void> {
 			const decryptStartTime = performance.now();
 			console.log('[WalletStore] Decrypting mnemonic (authentication cached, measuring decryption only)...');
 			const { decryptWalletMnemonicWithBiometrics } = await import('$lib/utils/helpers/auth');
-			mnemonic = await decryptWalletMnemonicWithBiometrics(cachedState.biometricData.password);
+			mnemonic = await decryptWalletMnemonicWithBiometrics(biometricData.password);
 			const decryptDuration = performance.now() - decryptStartTime;
 			console.log(`[WalletStore] Mnemonic decryption completed in ${decryptDuration.toFixed(2)}ms`);
 		}
-		
-		// Get Nostr keys for swap storage
-		const nostrKeysStartTime = performance.now();
-		console.log('[WalletStore] Fetching Nostr keys...');
-		const { nsec } = await getNostrKeyPair();
-		const nostrKeysDuration = performance.now() - nostrKeysStartTime;
-		console.log(`[WalletStore] Nostr keys fetched in ${nostrKeysDuration.toFixed(2)}ms`);
-		
+
 		// Get network from environment
 		const networkConfigStartTime = performance.now();
 		const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
 		const networkConfigDuration = performance.now() - networkConfigStartTime;
 		console.log(`[WalletStore] Network config loaded in ${networkConfigDuration.toFixed(2)}ms (network: ${network})`);
-		
-		// Create Nostr storage adapter for reverse swaps
+
+		// Create or reuse swap storage instances
 		const storageStartTime = performance.now();
-		console.log('[WalletStore] Creating Nostr storage adapters...');
-		const reverseSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-reverse');
-		const chainSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-chain');
-		const submarineSwapStorage = new NostrSwapStorage(nsec, 'boltz-swap-submarine');
-		const storageDuration = performance.now() - storageStartTime;
-		console.log(`[WalletStore] Nostr storage adapters created in ${storageDuration.toFixed(2)}ms`);
-		
+		if (!cachedSwapStorages) {
+			console.log('[WalletStore] Creating Nostr storage adapters...');
+			const { nsec } = await getNostrKeyPair();
+			cachedSwapStorages = {
+				reverse: new NostrSwapStorage(nsec, 'boltz-swap-reverse'),
+				chain: new NostrSwapStorage(nsec, 'boltz-swap-chain'),
+				submarine: new NostrSwapStorage(nsec, 'boltz-swap-submarine')
+			};
+			const storageDuration = performance.now() - storageStartTime;
+			console.log(`[WalletStore] Nostr storage adapters created in ${storageDuration.toFixed(2)}ms`);
+		} else {
+			const storageDuration = performance.now() - storageStartTime;
+			console.log(`[WalletStore] Reusing cached swap storages (${storageDuration.toFixed(2)}ms)`);
+		}
+
 		// Initialize wallet manager
 		const configStartTime = performance.now();
 		const config: WalletManagerConfig = {
 			network,
 			mnemonic,
-			swapStorages: {
-				reverse: reverseSwapStorage,
-				chain: chainSwapStorage,
-				submarine: submarineSwapStorage
-			}
+			swapStorages: cachedSwapStorages
 		};
 		const configDuration = performance.now() - configStartTime;
 		console.log(`[WalletStore] WalletManager config created in ${configDuration.toFixed(2)}ms`);
-		
+
 		const managerCreateStartTime = performance.now();
 		console.log('[WalletStore] Creating WalletManager instance...');
 		sdkWalletManager = new WalletManager(config);
 		const managerCreateDuration = performance.now() - managerCreateStartTime;
 		console.log(`[WalletStore] WalletManager instance created in ${managerCreateDuration.toFixed(2)}ms`);
-		
+
 		const sdkInitStartTime = performance.now();
 		console.log('[WalletStore] Initializing WalletManager SDK...');
 		await sdkWalletManager.initialize();
 		const sdkInitDuration = performance.now() - sdkInitStartTime;
 		console.log(`[WalletStore] WalletManager SDK initialization completed in ${sdkInitDuration.toFixed(2)}ms`);
-		
+
 		// Update store with wallet info
 		const walletInfoStartTime = performance.now();
 		console.log('[WalletStore] Getting wallet instances...');
@@ -246,7 +262,7 @@ export async function initializeWallet(): Promise<void> {
 		const bscWallet = sdkWalletManager.bscWallet;
 		const walletInfoDuration = performance.now() - walletInfoStartTime;
 		console.log(`[WalletStore] Wallet instances retrieved in ${walletInfoDuration.toFixed(2)}ms`);
-		
+
 		if (rskWallet && bscWallet) {
 			// Get balances in parallel
 			const balancesStartTime = performance.now();
@@ -257,13 +273,12 @@ export async function initializeWallet(): Promise<void> {
 			]);
 			const balancesDuration = performance.now() - balancesStartTime;
 			console.log(`[WalletStore] Wallet balances fetched in ${balancesDuration.toFixed(2)}ms (RSK: ${rskBalanceData.formatted}, BNB: ${bscBalances.bnb.formatted}, USDT: ${bscBalances.usdt.formatted})`);
-			
+
 			const storeUpdateStartTime = performance.now();
 			console.log('[WalletStore] Updating store with wallet info...');
 			walletStore.update(s => ({
 				...s,
 				isConnected: true,
-				isConnecting: false,
 				isInitializing: false,
 				hasAnyConnection: true,
 				rsk: {
@@ -273,8 +288,8 @@ export async function initializeWallet(): Promise<void> {
 					address: rskWallet.getAddress(),
 					balance: rskBalanceData.balance.toString(),
 					formattedBalance: rskBalanceData.formatted,
-					wallet: rskWallet.getWallet() as any,
-					provider: rskWallet.getProvider() as any
+					wallet: rskWallet.getWallet() as ethers.Wallet,
+					provider: rskWallet.getProvider() as ethers.JsonRpcProvider
 				},
 				bsc: {
 					...s.bsc,
@@ -285,13 +300,13 @@ export async function initializeWallet(): Promise<void> {
 					usdtBalance: bscBalances.usdt.balance.toString(),
 					formattedBnbBalance: bscBalances.bnb.formatted,
 					formattedUsdtBalance: bscBalances.usdt.formatted,
-					wallet: bscWallet.getWallet() as any,
-					provider: bscWallet.getProvider() as any
+					wallet: bscWallet.getWallet() as ethers.Wallet,
+					provider: bscWallet.getProvider() as ethers.JsonRpcProvider
 				}
 			}));
 			const storeUpdateDuration = performance.now() - storeUpdateStartTime;
 			console.log(`[WalletStore] Store updated with wallet info in ${storeUpdateDuration.toFixed(2)}ms`);
-			
+
 			// Load additional data (defer transaction loading for faster perceived initialization)
 			const additionalDataStartTime = performance.now();
 			console.log('[WalletStore] Loading additional data (assets, exchange rate) in parallel, deferring transactions...');
@@ -301,20 +316,20 @@ export async function initializeWallet(): Promise<void> {
 			]);
 			const additionalDataDuration = performance.now() - additionalDataStartTime;
 			console.log(`[WalletStore] Additional data loading completed in ${additionalDataDuration.toFixed(2)}ms`);
-			
+
 			// Log results
 			if (assetsResult.status === 'fulfilled') {
 				console.log('[WalletStore] Assets loaded successfully');
 			} else {
 				console.error('[WalletStore] Assets loading failed:', assetsResult.reason);
 			}
-			
+
 			if (exchangeRateResult.status === 'fulfilled') {
 				console.log('[WalletStore] Exchange rate loaded successfully');
 			} else {
 				console.error('[WalletStore] Exchange rate loading failed:', exchangeRateResult.reason);
 			}
-			
+
 			// Defer transaction loading to improve perceived initialization speed
 			// This allows the wallet UI to appear faster while transactions load in the background
 			console.log('[WalletStore] Deferring transaction loading to background...');
@@ -324,17 +339,32 @@ export async function initializeWallet(): Promise<void> {
 		} else {
 			console.warn('[WalletStore] Wallet instances not available (rskWallet:', !!rskWallet, ', bscWallet:', !!bscWallet, ')');
 		}
-		
+
 		const totalDuration = performance.now() - startTime;
 		console.log(`[WalletStore] Total wallet initialization completed in ${totalDuration.toFixed(2)}ms`);
-		
+
 	} catch (error) {
 		const errorDuration = performance.now() - startTime;
 		console.error(`[WalletStore] Failed to initialize wallet after ${errorDuration.toFixed(2)}ms:`, error);
+		
+		// Cleanup SDK manager if it was partially initialized
+		if (sdkWalletManager) {
+			try {
+				if (sdkWalletManager.rskWallet) {
+					sdkWalletManager.rskWallet.disconnect();
+				}
+				if (sdkWalletManager.bscWallet) {
+					sdkWalletManager.bscWallet.disconnect();
+				}
+			} catch (cleanupError) {
+				console.warn('[WalletStore] Error during cleanup after failed initialization:', cleanupError);
+			}
+			sdkWalletManager = null;
+		}
+		
 		walletStore.update(s => ({
 			...s,
 			isInitializing: false,
-			isConnecting: false,
 			error: error instanceof Error ? error.message : 'Failed to initialize wallet'
 		}));
 		throw error;
@@ -342,56 +372,117 @@ export async function initializeWallet(): Promise<void> {
 }
 
 /**
- * Disconnect wallet
+ * Get RSK wallet address, initializing wallet if needed.
+ * Uses a promise cache to prevent race conditions from concurrent calls.
+ * 
+ * @returns The RSK wallet address
+ */
+export async function getRSKAddress(): Promise<string> {
+	const state = get(walletStore);
+
+	// If address already exists, return it immediately
+	if (state.rsk.address) {
+		return state.rsk.address;
+	}
+
+	// If there's already an initialization in progress, return the cached promise
+	if (rskAddressPromise) {
+		return rskAddressPromise;
+	}
+
+	// Create and cache the initialization promise
+	rskAddressPromise = initializeWallet()
+		.then(() => {
+			const address = get(walletStore).rsk.address;
+			// Clear cache after successful initialization
+			rskAddressPromise = null;
+			return address || '';
+		})
+		.catch((error) => {
+			// Clear cache on error so retry is possible
+			rskAddressPromise = null;
+			throw error;
+		});
+	
+	return rskAddressPromise;
+}
+
+/**
+ * Disconnect wallet and clean up all resources
  */
 export function disconnectWallet(): void {
+	// Clear RSK address promise cache
+	rskAddressPromise = null;
+
 	if (sdkWalletManager) {
-		// Disconnect individual wallets
-		if (sdkWalletManager.rskWallet) {
-			sdkWalletManager.rskWallet.disconnect();
+		// Disconnect individual wallets safely
+		try {
+			if (sdkWalletManager.rskWallet) {
+				sdkWalletManager.rskWallet.disconnect();
+			}
+		} catch (error) {
+			console.warn('[WalletStore] Error disconnecting RSK wallet:', error);
 		}
-		if (sdkWalletManager.bscWallet) {
-			sdkWalletManager.bscWallet.disconnect();
+
+		try {
+			if (sdkWalletManager.bscWallet) {
+				sdkWalletManager.bscWallet.disconnect();
+			}
+		} catch (error) {
+			console.warn('[WalletStore] Error disconnecting BSC wallet:', error);
 		}
+
 		sdkWalletManager = null;
 	}
-	
+
+	// Clear cached swap storages
+	cachedSwapStorages = null;
+
 	// Cleanup event listeners
-	eventListeners.forEach(cleanup => cleanup());
+	eventListeners.forEach(cleanup => {
+		try {
+			cleanup();
+		} catch (error) {
+			console.warn('[WalletStore] Error cleaning up event listener:', error);
+		}
+	});
 	eventListeners.length = 0;
-	
+
 	walletStore.set(initialState);
 	hasLoadedAssets.set(false); // Reset flag on disconnect
 }
 
 /**
- * Load assets
+ * Load wallet assets and update balances from blockchain
+ * Fetches fresh balances for RSK and BSC networks and calculates total USD value
+ * 
+ * @throws {Error} If wallet manager is not initialized
  */
 async function loadAssets(): Promise<void> {
 	const startTime = performance.now();
 	console.log('[WalletStore] Starting asset loading...');
-	
+
 	try {
 		const managerStartTime = performance.now();
 		const manager = getWalletManager();
 		const state = get(walletStore);
 		const managerDuration = performance.now() - managerStartTime;
 		console.log(`[WalletStore] Wallet manager retrieved in ${managerDuration.toFixed(2)}ms`);
-		
+
 		const assets: WalletAsset[] = [];
-		
+
 		// Initialize totals
 		let totalRbtc = 0;
 		let totalBnb = 0;
 		let totalUsdt = 0;
 		let totalUsd = 0;
-		
+
 		// Fetch current prices
 		const pricesStartTime = performance.now();
 		console.log('[WalletStore] Fetching crypto prices in parallel...');
 		let rbtcPrice = 0;
 		let bnbPrice = 0;
-		
+
 		try {
 			[rbtcPrice, bnbPrice] = await Promise.all([
 				cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
@@ -403,20 +494,30 @@ async function loadAssets(): Promise<void> {
 			const pricesDuration = performance.now() - pricesStartTime;
 			console.warn(`[WalletStore] Failed to fetch some prices after ${pricesDuration.toFixed(2)}ms:`, error);
 		}
-		
-		// Use balances already fetched during initialization (reuse from store to avoid redundant fetch)
-		const balanceReadStartTime = performance.now();
-		console.log('[WalletStore] Reading balances from store (already fetched during initialization)...');
-		
-		// Process RSK balance from store
-		if (state.rsk.connected && state.rsk.formattedBalance) {
-			const rbtcBalance = parseFloat(state.rsk.formattedBalance);
+
+		// RSK assets - FETCH FRESH BALANCE FROM BLOCKCHAIN
+		const rskBalanceStartTime = performance.now();
+		if (state.rsk.connected && manager.rskWallet) {
+			console.log('[WalletStore] Fetching fresh RSK balance from blockchain...');
+			const rskBalanceData = await manager.rskWallet.getBalance();
+			const rbtcBalance = parseFloat(rskBalanceData.formatted);
 			totalRbtc += rbtcBalance;
 			const rbtcUsdValue = rbtcBalance * rbtcPrice;
 			totalUsd += rbtcUsdValue;
-			
-			console.log(`[WalletStore] RSK balance from store: ${state.rsk.formattedBalance} RBTC`);
-			
+
+			// Update store with fresh balance
+			walletStore.update(s => ({
+				...s,
+				rsk: {
+					...s.rsk,
+					balance: rskBalanceData.balance.toString(),
+					formattedBalance: rskBalanceData.formatted
+				}
+			}));
+
+			const rskBalanceDuration = performance.now() - rskBalanceStartTime;
+			console.log(`[WalletStore] RSK balance fetched in ${rskBalanceDuration.toFixed(2)}ms: ${rskBalanceData.formatted} RBTC`);
+
 			assets.push({
 				assetId: 'rbtc',
 				name: 'Smart Bitcoin',
@@ -424,21 +525,37 @@ async function loadAssets(): Promise<void> {
 				precision: 8,
 				icon: '₿',
 				balance: rbtcBalance,
-				formattedBalance: state.rsk.formattedBalance,
+				formattedBalance: rskBalanceData.formatted,
 				network: 'RSK',
 				usdValue: rbtcUsdValue
 			});
 		}
-		
-		// Process BSC balances from store
-		if (state.bsc.connected && state.bsc.formattedBnbBalance) {
-			const bnbBalance = parseFloat(state.bsc.formattedBnbBalance);
+
+		// BSC assets - FETCH FRESH BALANCES FROM BLOCKCHAIN
+		const bscBalanceStartTime = performance.now();
+		if (state.bsc.connected && manager.bscWallet) {
+			console.log('[WalletStore] Fetching fresh BSC balances from blockchain...');
+			const bscBalances = await manager.bscWallet.getBalances();
+			const bnbBalance = parseFloat(bscBalances.bnb.formatted);
 			totalBnb += bnbBalance;
 			const bnbUsdValue = bnbBalance * bnbPrice;
 			totalUsd += bnbUsdValue;
-			
-			console.log(`[WalletStore] BSC balances from store: BNB: ${state.bsc.formattedBnbBalance}, USDT: ${state.bsc.formattedUsdtBalance}`);
-			
+
+			// Update store with fresh balances
+			walletStore.update(s => ({
+				...s,
+				bsc: {
+					...s.bsc,
+					bnbBalance: bscBalances.bnb.balance.toString(),
+					usdtBalance: bscBalances.usdt.balance.toString(),
+					formattedBnbBalance: bscBalances.bnb.formatted,
+					formattedUsdtBalance: bscBalances.usdt.formatted
+				}
+			}));
+
+			const bscBalanceDuration = performance.now() - bscBalanceStartTime;
+			console.log(`[WalletStore] BSC balances fetched in ${bscBalanceDuration.toFixed(2)}ms: BNB: ${bscBalances.bnb.formatted}, USDT: ${bscBalances.usdt.formatted}`);
+
 			assets.push({
 				assetId: 'bnb',
 				name: 'BNB',
@@ -446,39 +563,33 @@ async function loadAssets(): Promise<void> {
 				precision: 8,
 				icon: 'BNB',
 				balance: bnbBalance,
-				formattedBalance: state.bsc.formattedBnbBalance,
+				formattedBalance: bscBalances.bnb.formatted,
 				network: 'BSC',
 				usdValue: bnbUsdValue
 			});
-			
-			// Check USDT balance from store
-			if (state.bsc.formattedUsdtBalance) {
-				const usdtBalance = parseFloat(state.bsc.formattedUsdtBalance);
-				if (usdtBalance > 0) {
-					totalUsdt += usdtBalance;
-					totalUsd += usdtBalance; // USDT is 1:1 with USD
-					
-					assets.push({
-						assetId: 'usdt',
-						name: 'Tether USD',
-						ticker: 'USDT',
-						precision: 6,
-						icon: '₮',
-						balance: usdtBalance,
-						formattedBalance: state.bsc.formattedUsdtBalance,
-						network: 'BSC',
-						usdValue: usdtBalance
-					});
-				}
+
+			if (bscBalances.usdt.balance > BigInt(0)) {
+				const usdtBalance = parseFloat(bscBalances.usdt.formatted);
+				totalUsdt += usdtBalance;
+				totalUsd += usdtBalance; // USDT is 1:1 with USD
+
+				assets.push({
+					assetId: 'usdt',
+					name: 'Tether USD',
+					ticker: 'USDT',
+					precision: 6,
+					icon: '₮',
+					balance: usdtBalance,
+					formattedBalance: bscBalances.usdt.formatted,
+					network: 'BSC',
+					usdValue: usdtBalance
+				});
 			}
 		}
-		
-		const balanceReadDuration = performance.now() - balanceReadStartTime;
-		console.log(`[WalletStore] Balance reading from store completed in ${balanceReadDuration.toFixed(2)}ms (saved ~500ms by reusing initial fetch)`);
-		
+
 		// Calculate total sats (RBTC to sats)
 		const totalSats = Math.floor(totalRbtc * 100_000_000);
-		
+
 		// Update store with assets and totals
 		const finalStoreUpdateStartTime = performance.now();
 		walletStore.update(s => ({
@@ -494,16 +605,21 @@ async function loadAssets(): Promise<void> {
 		}));
 		const finalStoreUpdateDuration = performance.now() - finalStoreUpdateStartTime;
 		console.log(`[WalletStore] Final store update with assets and totals completed in ${finalStoreUpdateDuration.toFixed(2)}ms`);
-		
+
 		// Mark assets as loaded after successful completion
 		hasLoadedAssets.set(true);
-		
+
 		const totalDuration = performance.now() - startTime;
 		console.log(`[WalletStore] Total asset loading completed in ${totalDuration.toFixed(2)}ms (${assets.length} assets)`);
 	} catch (error) {
 		const errorDuration = performance.now() - startTime;
 		console.error(`[WalletStore] Failed to load assets after ${errorDuration.toFixed(2)}ms:`, error);
-		// Don't set hasLoadedAssets on error, so loading state persists
+		
+		// Reset hasLoadedAssets flag after a delay to allow retry
+		// This prevents infinite loading state while still allowing recovery
+		setTimeout(() => {
+			hasLoadedAssets.set(false);
+		}, 5000); // Reset after 5 seconds to allow retry
 	}
 }
 
@@ -513,7 +629,7 @@ async function loadAssets(): Promise<void> {
  */
 async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 	const startTime = performance.now();
-	
+
 	// Check if already loading to prevent concurrent loads (unless forcing refresh)
 	if (!forceRefresh) {
 		const currentState = get(walletStore);
@@ -524,36 +640,36 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 	} else {
 		console.log('[WalletStore] Force refresh requested, bypassing loading lock');
 	}
-	
+
 	// Set loading flag
 	walletStore.update(s => ({ ...s, isLoadingTransactions: true }));
-	
+
 	console.log('[WalletStore] Starting transaction load...');
-	
+
 	try {
 		const manager = getWalletManager();
-		
+
 		// Check if wallet is connected before attempting to load
 		if (!manager || !manager.rskWallet || !manager.bscWallet) {
 			console.log('[WalletStore] Wallet not connected, skipping transaction load');
 			walletStore.update(s => ({ ...s, isLoadingTransactions: false }));
 			return;
 		}
-		
+
 		const transactions: Transaction[] = [];
-		
+
 		// Load RSK and BSC transactions in parallel
 		const parallelStartTime = performance.now();
 		console.log('[WalletStore] Loading RSK and BSC transactions in parallel...');
-		
+
 		const [rskResult, bscResult] = await Promise.allSettled([
 			manager.rskWallet ? manager.rskWallet.loadTransactions() : Promise.resolve([]),
 			manager.bscWallet ? manager.bscWallet.loadTransactions() : Promise.resolve([])
 		]);
-		
+
 		const parallelDuration = performance.now() - parallelStartTime;
 		console.log(`[WalletStore] Parallel network loading completed in ${parallelDuration.toFixed(2)}ms`);
-		
+
 		// Process RSK transactions
 		if (rskResult.status === 'fulfilled') {
 			const rskTxs = rskResult.value;
@@ -568,7 +684,7 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 		} else {
 			console.error('[WalletStore] RSK transaction loading failed:', rskResult.reason);
 		}
-		
+
 		// Process BSC transactions
 		if (bscResult.status === 'fulfilled') {
 			const bscTxs = bscResult.value;
@@ -582,47 +698,48 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 		} else {
 			console.error('[WalletStore] BSC transaction loading failed:', bscResult.reason);
 		}
-		
+
 		// Sort by timestamp
 		const sortStartTime = performance.now();
 		transactions.sort((a, b) => b.timestamp - a.timestamp);
 		const sortDuration = performance.now() - sortStartTime;
 		console.log(`[WalletStore] Transaction sorting completed in ${sortDuration.toFixed(2)}ms (${transactions.length} transactions)`);
-		
+
 		const updateStartTime = performance.now();
-		walletStore.update(s => ({ 
-			...s, 
+		walletStore.update(s => ({
+			...s,
 			transactions,
 			transactionsLastLoaded: Date.now(), // Always update timestamp, even if empty (handles empty transactions case)
 			isLoadingTransactions: false
 		}));
 		const updateDuration = performance.now() - updateStartTime;
 		console.log(`[WalletStore] Store update completed in ${updateDuration.toFixed(2)}ms`);
-		
+
 		const totalDuration = performance.now() - startTime;
 		console.log(`[WalletStore] Total transaction load completed in ${totalDuration.toFixed(2)}ms (${transactions.length} total transactions)`);
 	} catch (error) {
 		const errorDuration = performance.now() - startTime;
 		console.error(`[WalletStore] Failed to load transactions after ${errorDuration.toFixed(2)}ms:`, error);
-		
+
 		// Reset loading flag on error
 		walletStore.update(s => ({ ...s, isLoadingTransactions: false }));
 	}
 }
 
 /**
- * Load RBTC exchange rate
+ * Load RBTC to BTC exchange rate
+ * Updates the store with the current exchange rate or sets error flag on failure
  */
 async function loadRbtcExchangeRate(): Promise<void> {
 	const startTime = performance.now();
 	console.log('[WalletStore] Starting RBTC exchange rate loading...');
-	
+
 	try {
 		const rateStartTime = performance.now();
 		const rate = await cryptoPriceService.getExchangeRate('RBTC', 'BTC');
 		const rateDuration = performance.now() - rateStartTime;
 		console.log(`[WalletStore] RBTC exchange rate fetched in ${rateDuration.toFixed(2)}ms (rate: ${rate})`);
-		
+
 		const storeUpdateStartTime = performance.now();
 		walletStore.update(s => ({
 			...s,
@@ -631,7 +748,7 @@ async function loadRbtcExchangeRate(): Promise<void> {
 		}));
 		const storeUpdateDuration = performance.now() - storeUpdateStartTime;
 		console.log(`[WalletStore] Exchange rate store update completed in ${storeUpdateDuration.toFixed(2)}ms`);
-		
+
 		const totalDuration = performance.now() - startTime;
 		console.log(`[WalletStore] Total RBTC exchange rate loading completed in ${totalDuration.toFixed(2)}ms`);
 	} catch (error) {
@@ -647,51 +764,70 @@ async function loadRbtcExchangeRate(): Promise<void> {
 
 /**
  * Send RBTC transaction
+ * 
+ * @param to - Recipient address
+ * @param amount - Amount to send in RBTC (as string)
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendRBTC(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
 	const txHash = await manager.rskWallet.send(to, amount);
-	
+
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	
+
 	return txHash;
 }
 
 /**
  * Send BSC USDT transaction
+ * 
+ * @param to - Recipient address
+ * @param amount - Amount to send in USDT (as string)
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
 	const txHash = await manager.bscWallet.sendUSDT(to, amount);
-	
+
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	
+
 	return txHash;
 }
 
 /**
  * Send BSC BNB transaction
+ * 
+ * @param to - Recipient address
+ * @param amount - Amount to send in BNB (as string)
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendBSCBNB(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
 	const txHash = await manager.bscWallet!.sendBNB(to, amount);
-	
+
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	
+
 	return txHash;
 }
 
 /**
  * Create reverse swap (Lightning → RBTC)
+ * 
+ * @param amountSats - Amount in satoshis to swap
+ * @returns Swap data
+ * @throws {Error} If wallet manager is not initialized or swap creation fails
  */
 export async function createReverseSwap(amountSats: number): Promise<any> {
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
-	
+
 	return await manager.reverseSwapService!.createReverseSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
@@ -701,12 +837,16 @@ export async function createReverseSwap(amountSats: number): Promise<any> {
 
 /**
  * Create chain swap (L-BTC → RBTC)
+ * 
+ * @param amountSats - Amount in satoshis to swap
+ * @returns Swap data
+ * @throws {Error} If wallet manager is not initialized or swap creation fails
  */
 export async function createChainSwap(amountSats: number): Promise<any> {
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
-	
+
 	return await manager.chainSwapService!.createChainSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
@@ -715,7 +855,10 @@ export async function createChainSwap(amountSats: number): Promise<any> {
 }
 
 /**
- * Get swap limits
+ * Get swap limits for all supported swap types
+ * 
+ * @returns Swap limits object
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getSwapLimits() {
 	const manager = getWalletManager();
@@ -724,37 +867,48 @@ export async function getSwapLimits() {
 
 /**
  * Create submarine swap (RBTC → Lightning)
+ * 
+ * @param invoice - Lightning invoice to pay
+ * @returns Submarine swap result
+ * @throws {Error} If wallet manager is not initialized or swap creation fails
  */
 export async function createSubmarineSwap(invoice: string): Promise<SubmarineSwapResult> {
 	const manager = getWalletManager();
-	
+
 	const params: CreateSubmarineSwapParams = {
 		from: 'RBTC',
 		to: 'BTC', // Lightning (represented as BTC in Boltz API)
 		invoice,
 		signer: manager.getRSKWallet() // Add signer for gas estimation
 	};
-	
+
 	return await manager.submarineSwapService.createSubmarineSwap(params);
 }
 
 /**
  * Lock funds for submarine swap
+ * 
+ * @param swapData - Submarine swap data
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function lockSubmarineSwapFunds(swapData: SubmarineSwapData): Promise<{ txHash: string }> {
 	const manager = getWalletManager();
 	const signer = manager.rskWallet.getWallet();
-	
+
 	const result = await manager.submarineSwapService.lockFundsEVM(swapData, signer);
-	
+
 	// Refresh data
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	
+
 	return result;
 }
 
 /**
- * Get submarine swap limits
+ * Get submarine swap limits for RBTC to BTC swaps
+ * 
+ * @returns Swap limits with minimal and maximal amounts
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getSubmarineSwapLimits(): Promise<{ minimal: number; maximal: number }> {
 	const manager = getWalletManager();
@@ -762,7 +916,10 @@ export async function getSubmarineSwapLimits(): Promise<{ minimal: number; maxim
 }
 
 /**
- * Get submarine swap pairs with fee information
+ * Get submarine swap pairs with fee information from Boltz API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getSubmarineSwapPairs(): Promise<any> {
 	const manager = getWalletManager();
@@ -770,7 +927,10 @@ export async function getSubmarineSwapPairs(): Promise<any> {
 }
 
 /**
- * Get reverse swap pairs with fee information
+ * Get reverse swap pairs with fee information from Boltz API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getReverseSwapPairs(): Promise<any> {
 	const manager = getWalletManager();
@@ -778,7 +938,10 @@ export async function getReverseSwapPairs(): Promise<any> {
 }
 
 /**
- * Get chain swap pairs with fee information
+ * Get chain swap pairs with fee information from Boltz API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getChainSwapPairs(): Promise<any> {
 	const manager = getWalletManager();
@@ -787,6 +950,11 @@ export async function getChainSwapPairs(): Promise<any> {
 
 /**
  * Estimate gas for RBTC transaction
+ * 
+ * @param to - Recipient address
+ * @param amount - Amount to send in RBTC (as string)
+ * @returns Gas estimation with gas limit, gas price, and total cost
+ * @throws {Error} If RSK wallet is not initialized or gas estimation fails
  */
 export async function estimateRBTCGas(to: string, amount: string): Promise<GasEstimation> {
 	try {
@@ -828,33 +996,62 @@ export async function estimateRBTCGas(to: string, amount: string): Promise<GasEs
 }
 
 /**
- * UI state setters
+ * Set active network in UI
+ * 
+ * @param network - Network to set as active ('liquid' | 'rsk' | 'bsc')
  */
 export function setActiveNetwork(network: 'liquid' | 'rsk' | 'bsc'): void {
 	walletStore.update((state) => ({ ...state, activeNetwork: network }));
 }
 
+/**
+ * Set active tab in wallet UI
+ * 
+ * @param tab - Tab to set as active
+ */
 export function setActiveTab(tab: 'balance' | 'send' | 'receive' | 'transactions' | 'buy-sell' | 'swap'): void {
 	walletStore.update((state) => ({ ...state, activeTab: tab }));
 }
 
+/**
+ * Set selected asset in wallet UI
+ * 
+ * @param asset - Asset identifier to select
+ */
 export function setSelectedAsset(asset: string): void {
 	walletStore.update((state) => ({ ...state, selectedAsset: asset }));
 }
 
 /**
- * Helper functions for backward compatibility
+ * Get wallet instance for specified network (backward compatibility)
+ * 
+ * @param network - Network to get wallet for ('rsk' | 'bsc')
+ * @returns Wallet instance or null if not initialized
  */
 export function getWallet(network: 'rsk' | 'bsc'): ethers.Wallet | null {
 	const state = get(walletStore);
 	return network === 'rsk' ? state.rsk.wallet : state.bsc.wallet;
 }
 
+/**
+ * Get provider instance for specified network (backward compatibility)
+ * 
+ * @param network - Network to get provider for ('rsk' | 'bsc')
+ * @returns Provider instance or null if not initialized
+ */
 export function getProvider(network: 'rsk' | 'bsc'): ethers.JsonRpcProvider | null {
 	const state = get(walletStore);
 	return network === 'rsk' ? state.rsk.provider : state.bsc.provider;
 }
 
+/**
+ * Format address with ellipsis in the middle
+ * 
+ * @param address - Address to format
+ * @param startChars - Number of characters to show at start (default: 6)
+ * @param endChars - Number of characters to show at end (default: 4)
+ * @returns Formatted address string
+ */
 export function formatAddress(address: string, startChars = 6, endChars = 4): string {
 	if (!address || address.length < startChars + endChars) {
 		return address;
@@ -862,10 +1059,22 @@ export function formatAddress(address: string, startChars = 6, endChars = 4): st
 	return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 }
 
+/**
+ * Format satoshis as a number string with thousand separators
+ * 
+ * @param sats - Amount in satoshis
+ * @returns Formatted string
+ */
 export function formatSats(sats: number): string {
 	return new Intl.NumberFormat('en-US').format(sats);
 }
 
+/**
+ * Format amount as USD currency
+ * 
+ * @param amount - Amount to format
+ * @returns Formatted currency string
+ */
 export function formatUsd(amount: number): string {
 	return new Intl.NumberFormat('en-US', {
 		style: 'currency',
@@ -890,6 +1099,7 @@ export const transactions = derived(walletStore, $w => $w.transactions);
 // Wallet manager compatibility object
 export const walletManager = {
 	initialize: initializeWallet,
+	getRSKAddress,
 	disconnect: disconnectWallet,
 	cleanup: disconnectWallet,
 	setActiveTab,
@@ -918,4 +1128,3 @@ export const walletManager = {
 		return getWalletManager().chainSwapService;
 	}
 };
-

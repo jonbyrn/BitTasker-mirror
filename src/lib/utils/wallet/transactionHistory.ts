@@ -768,11 +768,11 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                     console.log(`[RSK Transactions] Internal transaction processing completed in ${processDuration.toFixed(2)}ms (added ${addedTxCount} transactions, total: ${totalInternalTime.toFixed(2)}ms)`);
                 } else {
                     console.debug('[RSK Transactions] Invalid internal transactions API response structure:', internalData);
-                }
-            } catch (internalError) {
+            }
+        } catch (internalError) {
                 const internalErrorTime = performance.now() - internalTxStartTime;
                 console.warn(`[RSK Transactions] Failed to process internal transactions after ${internalErrorTime.toFixed(2)}ms:`, internalError);
-                // Continue even if internal transactions fail - regular transactions are still available
+            // Continue even if internal transactions fail - regular transactions are still available
             }
         } else if (internalResponse.status === 'rejected') {
             console.warn('[RSK Transactions] Internal transactions fetch failed:', internalResponse.reason);
@@ -879,7 +879,7 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
         const parallelFetchStartTime = performance.now();
         console.log('[BSC Transactions] Fetching BNB and USDT transactions in parallel...');
         
-        const bnbUrl = `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
+            const bnbUrl = `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
         const usdtUrl = usdtToken 
             ? `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=tokentx&contractaddress=${usdtToken.address}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`
             : null;
@@ -1095,7 +1095,7 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
                 console.warn('[BSC Transactions] BSCScan API request timed out for USDT transactions - transaction history may be incomplete');
             } else {
                 console.error('[BSC Transactions] Failed to fetch USDT transactions:', usdtResult.reason);
-            }
+                }
         } else if (usdtToken && usdtResult !== null && usdtResult.status === 'fulfilled' && !usdtResult.value.ok) {
             console.error(`[BSC Transactions] USDT transactions API returned status ${usdtResult.value.status}`);
         }
