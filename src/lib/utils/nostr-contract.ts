@@ -21,6 +21,7 @@ import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import { contractStore } from '$lib/stores/contract.store';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import { get } from 'svelte/store';
 
 /**
  * Create a new contract event after escrow creation (as encrypted DM)
@@ -122,13 +123,8 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			params.action
 		);
 		await publishNostrEvent(KINDS.CONTRACT_STATUS, statusMessage, recipientPubkey, tags);
-
-		console.log(`Status update sent for escrow ${params.escrowId}: ${params.action}`);
 	} catch (error) {
-		// Log error but don't throw - allow UI to continue
 		console.warn('Error publishing contract status:', error);
-		// Don't throw - let the caller handle the error if needed
-		// The UI should show a warning but not break
 	}
 }
 
@@ -419,96 +415,334 @@ export async function handleStatusEvent(event: NostrEvent) {
 			return;
 		}
 
-		// Update the contract in the store
-		contractStore.update((state) => {
-			const index = state.contractsMap.get(escrowId);
+		// Get current contract state
+		const contractsStore = get(contractStore);
 
-			if (index === undefined) {
-				console.warn(`[ContractStore] Contract not found for escrowId: ${escrowId}`);
-				return state;
+		const index = contractsStore.contractsMap.get(escrowId);
+		if (index === undefined) {
+			console.warn(`[ContractStore] Contract not found for escrowId: ${escrowId}`);
+			return;
+		}
+
+		const contract = contractsStore.contracts[index];
+
+		// Add the new status event to the contract's status events
+		const updatedStatusEvents = [...(contract.statusEvents || []), statusEvent]
+			.sort((a, b) => a.content.timestamp - b.content.timestamp);
+
+		// Fetch dispute proposal BEFORE updating store (if needed)
+		let freshDisputeProposal = contract.disputeProposal;
+
+		if (statusEvent.content.action === EscrowStatus.DisputeResolutionProposed) {
+			try {
+				const proposal = await escrow.getDisputeProposal(
+					escrowId,
+					contract.contractEvent.content.contractAddress
+				);
+
+				if (proposal && contract.escrowData) {
+					// Calculate client amount from total - freelancer amount
+					const totalAmount = parseFloat(contract.escrowData.baseAmount);
+					const freelancerAmount = parseFloat(proposal.freelancerAmount);
+					proposal.clientAmount = (totalAmount - freelancerAmount).toString();
+					freshDisputeProposal = proposal;
+				}
+			} catch (err) {
+				console.warn(`Failed to load dispute proposal for ${escrowId}:`, err);
 			}
+		}
 
-			const contract = state.contracts[index];
+		// Re-determine contract state with fresh proposal
+		const { status, permissions } = determineContractState(
+			contract.blockchainStatus,
+			updatedStatusEvents,
+			contract.contractEvent.content,
+			contract.escrowData,
+			freshDisputeProposal,
+			contract.isPending || false,
+			contract.isClient,
+			!contract.isClient
+		);
 
-			console.log({ statusEvent, contract });
-
-			// Add the new status event to the contract's status events
-			const updatedStatusEvents = [...(contract.statusEvents || []), statusEvent]
-				.sort((a, b) => a.content.timestamp - b.content.timestamp);
-
-			// Re-determine contract state with new status event
-			const { status, permissions } = determineContractState(
-				contract.blockchainStatus,
-				updatedStatusEvents,
-				contract.contractEvent.content,
-				contract.escrowData,
-				contract.disputeProposal || null,
-				contract.isPending || false,
-				contract.isClient,
-				!contract.isClient
-			);
-
-			// Create updated contract
+		// Update store once with everything
+		contractStore.update((state) => {
 			const updatedContract: ContractWithEvents = {
 				...contract,
 				statusEvents: updatedStatusEvents,
 				status,
-				permissions
+				permissions,
+				disputeProposal: freshDisputeProposal
 			};
 
-			// If blockchain-confirmed action, fetch fresh blockchain data
-			if (statusEvent.content.transactionHash &&
-				[EscrowStatus.Completed, EscrowStatus.FundsReleased, EscrowStatus.InDispute,
-				EscrowStatus.DisputeResolved, EscrowStatus.Cancelled].includes(statusEvent.content.action)) {
-				// Async update blockchain data
-				escrow.getEscrow(escrowId, contract.contractEvent.content.contractAddress)
-					.then(escrowData => {
-						if (escrowData) {
-							const { status: newStatus, permissions: newPermissions } = determineContractState(
-								escrowData.status,
-								updatedStatusEvents,
-								contract.contractEvent.content,
-								escrowData,
-								contract.disputeProposal || null,
-								false,
-								contract.isClient,
-								!contract.isClient
-							);
-
-							contractStore.update((s) => {
-								const idx = s.contractsMap.get(escrowId);
-								if (idx === undefined) return s;
-
-								const newContracts = [...s.contracts];
-								newContracts[idx] = {
-									...newContracts[idx],
-									blockchainStatus: escrowData.status,
-									status: newStatus,
-									permissions: newPermissions,
-									isPending: false
-								};
-
-								return { ...s, contracts: newContracts };
-							});
-						}
-					})
-					.catch(err => {
-						console.error('[ContractStore] Failed to fetch escrow data:', err);
-					});
-			}
-
-			// Update contract in array
 			const newContracts = [...state.contracts];
 			newContracts[index] = updatedContract;
 
 			return {
 				...state,
-				contracts: newContracts
+				contracts: newContracts,
+				contract: state.contract?.contractEvent.content.escrowId === escrowId
+					? updatedContract
+					: state.contract
 			};
 		});
 
+		// If blockchain-confirmed action, fetch fresh blockchain data (async, for other fields)
+		if (statusEvent.content.transactionHash &&
+			[EscrowStatus.Completed, EscrowStatus.FundsReleased, EscrowStatus.InDispute,
+			EscrowStatus.DisputeResolved, EscrowStatus.Cancelled].includes(statusEvent.content.action)) {
+			// Async update blockchain data
+			escrow.getEscrow(escrowId, contract.contractEvent.content.contractAddress)
+				.then(async (escrowData) => {
+					if (escrowData) {
+						// Fetch dispute proposal again if status is InDispute (for blockchain confirmation)
+						let confirmedDisputeProposal = freshDisputeProposal;
+						if (escrowData.status === EscrowStatus.InDispute) {
+							try {
+								const proposal = await escrow.getDisputeProposal(
+									escrowId,
+									contract.contractEvent.content.contractAddress
+								);
+								if (proposal) {
+									const totalAmount = parseFloat(escrowData.baseAmount);
+									const freelancerAmount = parseFloat(proposal.freelancerAmount);
+									proposal.clientAmount = (totalAmount - freelancerAmount).toString();
+									confirmedDisputeProposal = proposal;
+								}
+							} catch (err) {
+								console.warn(`Failed to load dispute proposal during blockchain update for ${escrowId}:`, err);
+							}
+						}
+
+						const { status: newStatus, permissions: newPermissions } = determineContractState(
+							escrowData.status,
+							updatedStatusEvents,
+							contract.contractEvent.content,
+							escrowData,
+							confirmedDisputeProposal,
+							false,
+							contract.isClient,
+							!contract.isClient
+						);
+
+						contractStore.update((s) => {
+							const idx = s.contractsMap.get(escrowId);
+							if (idx === undefined) return s;
+
+							const newContracts = [...s.contracts];
+							newContracts[idx] = {
+								...newContracts[idx],
+								blockchainStatus: escrowData.status,
+								escrowData: escrowData,
+								status: newStatus,
+								permissions: newPermissions,
+								disputeProposal: confirmedDisputeProposal,
+								isPending: false
+							};
+
+							return {
+								...s,
+								contracts: newContracts,
+								contract: s.contract?.contractEvent.content.escrowId === escrowId
+									? newContracts[idx]
+									: s.contract
+							};
+						});
+					}
+				})
+				.catch(err => {
+					console.error('[ContractStore] Failed to fetch escrow data:', err);
+				});
+		}
+
 	} catch (error) {
 		console.error('[ContractStore] Error handling status event:', error);
+	}
+}
+
+/**
+ * Handle incoming contract creation event from subscription
+ */
+export async function handleContractEvent(event: NostrEvent) {
+	try {
+		const npub = await getNpub();
+		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+
+		// Decrypt the contract event
+		const contractEvent = await decryptContractEvent(event, userPubkeyHex);
+		if (!contractEvent) {
+			console.warn('[handleContractEvent] ❌ Failed to decrypt contract event:', event.id);
+			return;
+		}
+
+		// Extract escrow ID from #d tag
+		const escrowIdTag = event.tags.find(tag => tag[0] === TAGS.D);
+		const escrowId = escrowIdTag?.[1];
+
+		if (!escrowId) {
+			console.warn('[ContractStore] Contract event missing escrow ID');
+			return;
+		}
+
+		// Get current contract state
+		const contractsStore = get(contractStore);
+
+		// Check if contract already exists (avoid duplicates)
+		const existingIndex = contractsStore.contractsMap.get(escrowId);
+		if (existingIndex !== undefined) {
+			console.log(`[ContractStore] Contract ${escrowId} already exists, skipping`);
+			return;
+		}
+
+		console.log(`[ContractStore] 🆕 New contract detected: ${escrowId}`);
+
+		// Determine if user is client or freelancer
+		const isClient = contractEvent.content.clientPubkey === userPubkeyHex;
+		const isFreelancer = contractEvent.content.freelancerPubkey === userPubkeyHex;
+
+		// Query blockchain escrow data (source of truth)
+		let escrowData: EscrowData | null = null;
+		let blockchainStatus: EscrowStatus | null = null;
+		let isPending = false;
+		let disputeProposal: DisputeProposal | null = null;
+
+		try {
+			// Check if contract address differs from current environment
+			const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
+			const currentContractAddress = currentNetwork === 'mainnet'
+				? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+				: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+
+			// Determine if we need to pass contract address for backwards compatibility
+			const contractAddress = (contractEvent.content.contractAddress &&
+				contractEvent.content.contractAddress.toLowerCase() !== currentContractAddress?.toLowerCase())
+				? contractEvent.content.contractAddress
+				: undefined;
+
+			escrowData = await escrow.getEscrow(escrowId, contractAddress);
+
+			if (escrowData) {
+				blockchainStatus = escrowData.status;
+
+				// Fetch dispute proposal if in dispute
+				if (blockchainStatus === EscrowStatus.InDispute) {
+					try {
+						disputeProposal = await escrow.getDisputeProposal(escrowId, contractAddress);
+						if (disputeProposal && escrowData) {
+							// Calculate client amount from total - freelancer amount
+							const totalAmount = parseFloat(escrowData.baseAmount);
+							const freelancerAmount = parseFloat(disputeProposal.freelancerAmount);
+							disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
+						}
+					} catch (disputeError) {
+						console.warn(`Failed to load dispute proposal for ${escrowId}:`, disputeError);
+					}
+				}
+			}
+		} catch (escrowError) {
+			console.warn(`Escrow not found: ${escrowId}`);
+			// Check if there's a transactionHash in Nostr - indicates pending funding
+			if (contractEvent.content.transactionHash) {
+				isPending = true;
+			}
+		}
+
+		// Determine status and permissions based on blockchain state
+		const { status, permissions } = determineContractState(
+			blockchainStatus,
+			[], // No status events yet for new contract
+			contractEvent.content,
+			escrowData,
+			disputeProposal,
+			isPending,
+			isClient,
+			isFreelancer
+		);
+
+		// Create the new contract object
+		const newContract: ContractWithEvents = {
+			contractEvent,
+			statusEvents: [],
+			isClient,
+			blockchainStatus,
+			escrowData,
+			status,
+			isPending,
+			permissions,
+			disputeProposal,
+			completionAttachments: null
+		};
+
+		// Add to store
+		contractStore.update((state) => {
+			const newIndex = state.contracts.length;
+			const newContractsMap = new Map(state.contractsMap);
+			newContractsMap.set(escrowId, newIndex);
+
+			// Sort contracts by creation time (newest first) after adding
+			const updatedContracts = [...state.contracts, newContract].sort(
+				(a, b) => b.contractEvent.content.createdAt - a.contractEvent.content.createdAt
+			);
+
+			// Rebuild index map after sorting
+			const sortedContractsMap = new Map<string, number>();
+			updatedContracts.forEach((contract, index) => {
+				sortedContractsMap.set(contract.contractEvent.content.escrowId, index);
+			});
+
+			return {
+				...state,
+				contracts: updatedContracts,
+				contractsMap: sortedContractsMap
+			};
+		});
+
+		console.log(`[ContractStore] ✅ New contract added to store: ${escrowId}`);
+
+	} catch (error) {
+		console.error('[ContractStore] Error handling contract event:', error);
+	}
+}
+
+/**
+ * Decrypt a contract event
+ */
+async function decryptContractEvent(event: NostrEvent, userPubkeyHex: string): Promise<ContractEvent | null> {
+	try {
+		const { nsec } = await getNostrKeyPair();
+
+		// Determine the other party's pubkey for decryption
+		let otherPubkey: string;
+
+		if (event.pubkey === userPubkeyHex) {
+			// We are the sender, decrypt with recipient's key
+			// For contract events, there are two #p tags (client and freelancer)
+			// We need to find the one that's NOT us
+			const recipientTags = event.tags.filter((tag) => tag[0] === 'p');
+			const otherPartyTag = recipientTags.find(tag => tag[1] !== userPubkeyHex);
+			
+			if (!otherPartyTag || !otherPartyTag[1]) {
+				return null;
+			}
+			otherPubkey = otherPartyTag[1];
+		} else {
+			// We are the recipient, decrypt with sender's key
+			otherPubkey = event.pubkey;
+		}
+
+		// Get conversation key and decrypt
+		const conversationKey = await nip44.getConversationKey(nsec, otherPubkey);
+		const decryptedContent = nip44.decrypt(event.content, conversationKey);
+
+		return {
+			...event,
+			content: JSON.parse(decryptedContent)
+		} as ContractEvent;
+	} catch (error) {
+		// Skip events that fail to decrypt
+		if (error instanceof Error && !error.message.includes('Invalid MAC')) {
+			console.error('[ContractStore] Failed to decrypt contract event:', event.id, error);
+		}
+		return null;
 	}
 }
 

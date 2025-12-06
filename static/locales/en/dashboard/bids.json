@@ -88,6 +88,7 @@
         "estimated_duration": "Estimated Duration",
         "your_description": "Description",
         "your_approach": "Approach",
+        "no_approach_provided": "No approach provided",
         "your_cover_letter": "Cover Letter",
         "show_more_details": "Show more details",
         "show_less": "Show less",
@@ -125,7 +126,7 @@
                 "placeholder": "Explain why you're the right person for this task"
             },
             "approach": {
-                "label": "Your Approach",
+                "label": "Your Approach (Optional)",
                 "placeholder": "Describe how you plan to complete this task"
             },
             "cover_letter": {
@@ -169,7 +170,8 @@
             "estimated_completion_time_required": "Estimated completion time is required",
             "completion_time_must_be_future": "Completion time must be in the future",
             "datetime_required": "Please select start and end dates",
-            "datetime_invalid": "End date must be after start date"
+            "datetime_invalid": "End date must be after start date",
+            "end_date_before_deadline": "End date and time must be before the task deadline date and time"
         },
         "success": {
             "title": "Bid Submitted Successfully!",
@@ -280,6 +282,7 @@
         "minute": "minute",
         "minutes": "minutes",
         "one_hour": "1 hour",
+        "and": "and",
         "sats": "sats",
         "max": "max",
         "failed_to_submit_bid": "Failed to submit bid"

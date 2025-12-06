@@ -1,13 +1,12 @@
 <script lang="ts">
-	import type { ContractWithEvents } from '$lib/types/contract';
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { fetchContractProfile, type ContractProfile } from '$lib/utils/nostr-profile';
+	import { createPortal } from '$lib/utils/portal';
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { contractStore } from '$lib/stores/contract.store';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { contractStore } from '$lib/stores/contract.store';
 
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
@@ -27,10 +26,6 @@
 	let isStatusDropdownOpen = $state(false);
 
 	let btcPrice = $state<number>(0);
-
-	// Profile cache - batched profile fetching
-	let profileCache = $state<Map<string, ContractProfile>>(new Map());
-	let isLoadingProfiles = $state(false);
 
 	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
@@ -115,70 +110,18 @@
 	onMount(async () => {
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
 		// Load profiles after contracts are loaded
-		await loadProfilesForContracts();
-		// Subscribe to real-time updates
-		await contractStore.subscribeToStatusUpdates();
+		// Subscribe to real-time updates (both status updates and new contracts)
+		await Promise.all([
+			contractStore.subscribeToStatusUpdates(),
+			contractStore.subscribeToNewContracts()
+		]);
 	});
 
 	onDestroy(() => {
-		// Cleanup subscription when leaving contracts panel
-		// contractStore.unsubscribeFromStatusUpdates();
+		// Cleanup subscriptions when leaving contracts panel
+		contractStore.unsubscribeFromStatusUpdates();
+		contractStore.unsubscribeFromNewContracts();
 	});
-
-	// Batch load profiles for all contracts
-	async function loadProfilesForContracts() {
-		if (isLoadingProfiles) return;
-
-		try {
-			isLoadingProfiles = true;
-
-			// Collect unique pubkeys from contracts
-			const pubkeysToLoad = new Set<string>();
-
-			for (const contract of $contractStore.contracts) {
-				const userPubkey = contractStore.getContractKey(contract, 'taskeePubkey');
-
-				// Only load if not already cached
-				if (!profileCache.has(userPubkey)) {
-					pubkeysToLoad.add(userPubkey);
-				}
-			}
-
-			if (pubkeysToLoad.size === 0) {
-				return; // All profiles already cached
-			}
-
-			// Batch fetch all profiles in parallel
-			const profilePromises = Array.from(pubkeysToLoad).map(async (pubkey) => {
-				try {
-					// Use lightweight fetchContractProfile (only gets name, picture, reviews)
-					const profile = await fetchContractProfile(pubkey);
-					return { pubkey, profile };
-				} catch (error) {
-					console.error(`Failed to load profile for ${pubkey}:`, error);
-					return { pubkey, profile: null };
-				}
-			});
-
-			const results = await Promise.all(profilePromises);
-
-			// Update cache
-			for (const { pubkey, profile } of results) {
-				if (profile) {
-					profileCache.set(pubkey, profile);
-				}
-			}
-		} catch (error) {
-			console.error('[DashboardContractsPanel] Error loading profiles:', error);
-		} finally {
-			isLoadingProfiles = false;
-		}
-	}
-
-	function closeContractDrawer() {
-		$contractStore.contract = null;
-		$contractStore.isDrawerOpen = false;
-	}
 
 	function selectStatusFilter(statusId: EscrowStatus | 'all') {
 		statusFilter = statusId;
@@ -424,21 +367,17 @@
 				</p>
 			</div>
 		{:else}
-			{#each filteredContracts() as contract (contractStore.getContractKey(contract, 'escrowId'))}
-				{@const userPubkey = contractStore.getContractKey(contract, 'taskeePubkey')}
-				{@const userProfile = profileCache.get(userPubkey)}
-				<ContractCard {contract} {btcPrice} {userProfile} />
+			{#each filteredContracts() as contract, index (index)}
+				<ContractCard {contract} {btcPrice} />
 			{/each}
 		{/if}
 	{/if}
 </div>
 
 <!-- Contract Drawer - DO Not wrap in a condition for animation to work -->
-<ContractDrawer
-	{btcPrice}
-	taskeeProfile={$contractStore.contract
-		? profileCache.get(contractStore.getContractKey($contractStore.contract, 'taskeePubkey'))
-		: undefined}
-/>
+<ContractDrawer {btcPrice} />
+
+<!-- Portal target for confirmation modals - outside drawer context -->
+<div use:createPortal={'modals'} style="position: relative; z-index: 9999;"></div>
 
 <svelte:window onclick={handleClickOutside} />

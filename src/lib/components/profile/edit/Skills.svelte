@@ -417,7 +417,7 @@
 										{skill.verificationStatus}
 									</span>
 									<span
-										class="badge badge-outline w-fit leading-tight break-words whitespace-nowrap"
+										class="badge badge-outline w-fit leading-tight wrap-sbreak-words whitespace-nowrap"
 									>
 										{skill.endorsements} {skill.endorsements !== 1 ? $t('profile.skills.endorsements') : $t('profile.skills.endorsement')}
 									</span>

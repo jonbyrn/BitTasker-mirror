@@ -516,7 +516,7 @@
 				{/if}
 
 				<!-- Approach -->
-				{#if bid.proposedApproach}
+				{#if bid.proposedApproach && bid.proposedApproach.trim() !== ''}
 					<div>
 						<p class="text-base-content/60 mb-2 text-xs font-medium wrap-break-words">
 							{$t('bids.your_approach')}

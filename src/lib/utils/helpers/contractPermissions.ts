@@ -35,12 +35,14 @@ function canClientDispute(escrowData: EscrowData, now: number): boolean {
  * Based on escrow-solidity.md Outcome Map
  * 
  * This implements the EXACT rules from the Solidity contract for each state
+ * @requires statusEvents to be sorted by timestamp
  */
 function mapBlockchainStatusToPermissions(
 	status: EscrowStatus,
 	escrowData: EscrowData,
 	disputeProposal: DisputeProposal | null,
 	statusEvents: ContractStatusEvent[],
+	contract: NostrContract,
 	isClient: boolean,
 	isFreelancer: boolean
 ): {
@@ -115,7 +117,7 @@ function mapBlockchainStatusToPermissions(
 
 		case EscrowStatus.Completed: // 4 - Freelancer marked task complete
 			const completionTimelockExpired = now > escrowData.timelockExpiry;
-			
+
 			// PRIORITY 1: Check if funds were released (FINAL STATE - takes precedence over pending states)
 			// This checks blockchain state (via event query in getContracts) or Nostr confirmation
 			const hasFundsReleased = statusEvents?.some(e =>
@@ -137,7 +139,7 @@ function mapBlockchainStatusToPermissions(
 					}
 				};
 			}
-			
+
 			// PRIORITY 2: Check for pending acceptance (transaction in progress)
 			const hasPendingAcceptance = statusEvents.some(e =>
 				e.content.action === EscrowStatus.PendingAcceptance && e.content.transactionHash
@@ -197,7 +199,7 @@ function mapBlockchainStatusToPermissions(
 
 		case EscrowStatus.InDispute: // 1 - Client disputed the task
 			const disputeTimelockExpired = now > escrowData.timelockExpiry;
-			
+
 			// PRIORITY 1: Check for pending proposal acceptance (transaction in progress)
 			const hasPendingProposalAcceptance = statusEvents.some(e =>
 				e.content.action === EscrowStatus.PendingProposalAcceptance && e.content.transactionHash
@@ -221,7 +223,12 @@ function mapBlockchainStatusToPermissions(
 
 			// PRIORITY 2: Check for pending resolution proposal (transaction in progress)
 			const hasPendingResolutionProposal = statusEvents.some(e =>
-				e.content.action === EscrowStatus.PendingResolutionProposal && e.content.transactionHash
+				e.content.action === EscrowStatus.PendingResolutionProposal &&
+				e.content.transactionHash &&
+				!statusEvents.some(confirmed =>
+					confirmed.content.action === EscrowStatus.DisputeResolutionProposed &&
+					confirmed.content.transactionHash === e.content.transactionHash
+				)
 			);
 
 			if (hasPendingResolutionProposal) {
@@ -242,16 +249,39 @@ function mapBlockchainStatusToPermissions(
 
 			// PRIORITY 3: Check if there's a confirmed proposal (Nostr-only state)
 			const hasProposal = !!disputeProposal;
-			
+
+			// Count proposals per party from Nostr status events
+			// Each party can make up to 2 proposals according to the Solidity contract
+			const clientProposalCount = statusEvents.filter(e =>
+				e.content.action === EscrowStatus.DisputeResolutionProposed &&
+				e.pubkey.toLowerCase() === contract.clientPubkey.toLowerCase()
+			).length;
+
+			const freelancerProposalCount = statusEvents.filter(e =>
+				e.content.action === EscrowStatus.DisputeResolutionProposed &&
+				e.pubkey.toLowerCase() === contract.freelancerPubkey.toLowerCase()
+			).length;
+
+			const lastProposerNpub = statusEvents.filter(e => e.content.action === EscrowStatus.DisputeResolutionProposed).at(-1)?.pubkey;
+
+			// Current user can propose if:
+			// 1. Haven't reached 2-proposal limit AND
+			// 2. They weren't the last one to propose
+			const canCurrentUserPropose = isClient
+				? clientProposalCount < 2 && lastProposerNpub !== contract.clientPubkey.toLowerCase()
+				: isFreelancer
+					? freelancerProposalCount < 2 && lastProposerNpub !== contract.freelancerPubkey.toLowerCase()
+					: false;
+
 			return {
 				status: hasProposal ? EscrowStatus.DisputeResolutionProposed : EscrowStatus.InDispute,
 				permissions: {
 					canComplete: false,
 					canAccept: false,
 					canDispute: false,
-					// Both parties can propose if no proposal exists or if they haven't reached their limit (2 per party)
-					canPropose: !hasProposal, // Simplified: only one active proposal at a time
-					// Other party can accept if proposal exists
+					// Party can propose if they haven't reached their 2-proposal limit
+					canPropose: canCurrentUserPropose,
+					// Other party can accept if proposal exists and they're not the proposer
 					canAcceptProposal: hasProposal && (
 						(isClient && disputeProposal.proposer.toLowerCase() !== escrowData.client.toLowerCase()) ||
 						(isFreelancer && disputeProposal.proposer.toLowerCase() !== escrowData.freelancer.toLowerCase())
@@ -339,11 +369,12 @@ export function determineContractState(
 	// CASE 1: Blockchain state exists (escrow was funded)
 	if (blockchainStatus !== null && escrowData) {
 		return mapBlockchainStatusToPermissions(
-			blockchainStatus, 
-			escrowData, 
-			disputeProposal, 
-			statusEvents, 
-			isClient, 
+			blockchainStatus,
+			escrowData,
+			disputeProposal,
+			statusEvents,
+			contract,
+			isClient,
 			isFreelancer
 		);
 	}
@@ -370,7 +401,7 @@ export function determineContractState(
 	// This is a Nostr-only contract that was never funded
 	// Check Nostr status events for any pending actions (shouldn't happen, but defensive)
 	const latestStatusEvent = statusEvents.length > 0 ? statusEvents[statusEvents.length - 1] : null;
-	
+
 	if (latestStatusEvent) {
 		const action = latestStatusEvent.content.action;
 

@@ -1,5 +1,16 @@
 {
   "common": {
+    "location": {
+      "address": "Dirección",
+      "get_directions": "Obtener Direcciones",
+      "open_map": "Abrir Mapa",
+      "pickup_location": "Ubicación de Recogida",
+      "dropoff_location": "Ubicación de Entrega",
+      "start_location": "Ubicación de Inicio",
+      "destination_location": "Ubicación de Destino",
+      "task_accepted_congratulations": "¡Felicitaciones! Tu tarea ha sido aceptada.",
+      "location_details_below": "Aquí tienes los detalles de la ubicación:"
+    },
     "back": "Volver a la tarea",
     "back_2": "Regresar",
     "back_to_tasks": "Regresar",
@@ -18,6 +29,7 @@
         "cancel": "Cancelar",
         "retry": "Reintentar"
     },
+    "optional": "Opcional",
     "previous": "Anterior",
     "next": "Siguiente",
         "pagination": {
@@ -29,6 +41,8 @@
     "slide": "Diapositiva",
     "view_all": "Ver Todo",
     "view_profile": "Ver Perfil",
+    "show_more": "Mostrar más",
+    "show_less": "Mostrar menos",
         "reviews": "reseñas",
         "uploading": "Subiendo...",
         "uploading_file": "Subiendo archivo",
@@ -59,6 +73,7 @@
       "no_ratings": "No hay calificaciones",
       "website": "Sitio Web",
       "no_image_available": "No hay imagen disponible",
+      "visit_project": "Ver Proyecto",
       "message_sent_successfully": "¡Mensaje enviado exitosamente!",
       "message_required": "Por favor ingresa un mensaje",
       "message_send_error": "Error al enviar el mensaje. Por favor intenta de nuevo."
@@ -122,7 +137,12 @@
         "invalid_image": "Archivo de imagen inválido",
         "failed_validate_video": "Error al validar duración del video",
         "failed_load_image": "Error al cargar imagen",
-        "max_size": "Máx. {maxSize} MB"
+        "max_size": "Máx. {maxSize} MB",
+        "video_file_too_large": "El archivo de video {fileName} es demasiado grande. Tamaño actual: {actualSize}MB. Tamaño máximo permitido: {maxSize}MB"
+      },
+      "date_input": {
+        "time_rounded_intervals": "Los tiempos se redondearán a intervalos de {timeStep} minutos",
+        "and": "y"
       },
       "modal": {
         "close": "Cerrar diálogo"
@@ -698,17 +718,6 @@
     },
     "layout": {
       "github_aria": "GitHub"
-    },
-    "location": {
-      "address": "Dirección",
-      "get_directions": "Obtener Direcciones",
-      "open_map": "Abrir Mapa",
-      "pickup_location": "Ubicación de Recogida",
-      "dropoff_location": "Ubicación de Entrega",
-      "start_location": "Ubicación de Inicio",
-      "destination_location": "Ubicación de Destino",
-      "task_accepted_congratulations": "¡Felicitaciones! Tu tarea ha sido aceptada.",
-      "location_details_below": "Aquí tienes los detalles de la ubicación:"
     }
   }
 }

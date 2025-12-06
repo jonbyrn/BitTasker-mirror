@@ -1,0 +1,73 @@
+{
+	"debug": {
+		"smart_contract": {
+			"title": "Vista de Depuración de Contrato Inteligente",
+			"subtitle": "Datos de blockchain sin procesar para todos los contratos inteligentes",
+			"wallet_address": "Dirección de Billetera",
+			"contract_count": "{count} contrato(s)",
+			"loading": "Cargando contratos...",
+			"no_contracts": "No se encontraron contratos para esta dirección",
+			"no_contracts_message": "No se encontraron contratos inteligentes para sus direcciones de billetera conectadas.",
+			"wallet_init_error": "Error al inicializar la billetera: {error}",
+			"refresh": "Actualizar",
+			"copy_address": "Copiar Dirección",
+			"raw_data": "Datos Sin Procesar",
+			"contract_id": "ID de Contrato",
+			"client": "Tasker",
+			"freelancer": "Taskee",
+			"base_amount": "Cantidad Base",
+			"total_amount": "Cantidad Total",
+			"status": "Estado",
+			"created_at": "Creado En",
+			"estimated_start": "Inicio Estimado",
+			"estimated_completion": "Finalización Estimada",
+			"timelock_expiry": "Vencimiento de Timelock",
+			"client_fee_tier": "Nivel de Tarifa del Cliente",
+			"freelancer_fee_tier": "Nivel de Tarifa del Freelancer",
+			"role_client": "Tasker",
+			"role_freelancer": "Taskee",
+			"actions": {
+				"title": "Funciones del Contrato",
+				"complete_task": "Completar Tarea",
+				"accept_task": "Aceptar Tarea",
+				"cancel_contract": "Cancelar Contrato",
+				"dispute_task": "Disputar Tarea",
+				"propose_resolution": "Proponer Resolución",
+				"accept_proposal": "Aceptar Propuesta",
+				"resolve_timelock": "Resolver Timelock",
+				"disabled_tooltip": "Función no disponible: {reason}",
+				"disabled_zero_value": "El contrato tiene valor cero - todas las funciones deshabilitadas",
+				"executing": "Ejecutando...",
+				"success": "Función ejecutada exitosamente",
+				"error": "Error al ejecutar función: {error}",
+				"confirm_execution": "¿Está seguro de que desea ejecutar {function}?",
+				"propose_resolution_form": {
+					"title": "Proponer Resolución",
+					"freelancer_amount": "Cantidad del Taskee (sats)",
+					"client_amount": "Cantidad del Tasker (sats)",
+					"submit": "Enviar Propuesta",
+					"cancel": "Cancelar"
+				}
+			},
+			"safety_override": {
+				"label": "Anulación de Seguridad",
+				"enabled": "Anulación de Seguridad Habilitada",
+				"disabled": "Anulación de Seguridad Deshabilitada",
+				"warning": "Anulación de Seguridad Habilitada: Todas las funciones del contrato están ahora disponibles. Use con precaución - las transacciones pueden fallar o tener consecuencias no deseadas, y requerirán tarifas de transacción de red incluso si las acciones del contrato fallan.",
+				"confirm_enable": "¿Está seguro de que desea habilitar la anulación de seguridad? Esto permitirá ejecutar funciones del contrato independientemente de las restricciones de estado.",
+				"description": "Cuando está habilitada, todos los botones de funciones del contrato están disponibles independientemente del estado o permisos del contrato. Esto es solo para fines de depuración."
+			},
+			"permissions": {
+				"title": "Permisos Disponibles",
+				"can_complete": "Puede Completar",
+				"can_accept": "Puede Aceptar",
+				"can_cancel": "Puede Cancelar",
+				"can_dispute": "Puede Disputar",
+				"can_propose": "Puede Proponer",
+				"can_accept_proposal": "Puede Aceptar Propuesta",
+				"can_resolve_timelock": "Puede Resolver Timelock"
+			}
+		}
+	}
+}
+

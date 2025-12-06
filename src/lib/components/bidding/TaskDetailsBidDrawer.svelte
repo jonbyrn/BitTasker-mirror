@@ -98,7 +98,7 @@
 					{ username: userData.username, name: userData.name || userData.displayName },
 					''
 				);
-				
+
 				loggedInUser = {
 					id: userData.npub || userData.id?.toString() || '',
 					name: displayName,
@@ -134,11 +134,11 @@
 					'#d': [dTagValue],
 					limit: 1
 				};
-				
+
 				const response = await nostrEventsService.requestEvents({
 					filters: [filter]
 				});
-				
+
 				if (response.data && response.data.length > 0) {
 					event = response.data[0];
 				}
@@ -273,7 +273,7 @@
 	{:else if task}
 		<!-- Task details and bid form -->
 		<div class="p-6">
-			<!-- Task Details Section
+			<!-- Task Details Section -->
 			<div class="mb-8">
 				<div class="mb-4">
 					<h3 class="line-clamp-1 text-lg font-medium">{task.title}</h3>
@@ -314,7 +314,7 @@
 					</div>
 				{/if}
 			</div>
- -->
+
 			<!-- Bid Form Section -->
 			{#if task.id && task.status === TaskStatusEnum.OPEN}
 				<BidCreationForm
@@ -325,6 +325,7 @@
 					taskCreatorAvatar={taskCreatorAvatar!}
 					taskTitle={task.title}
 					taskDescription={task.description}
+					taskTranslations={task.translations}
 					taskDateRange={task.dateRange}
 					taskDeadline={task.deadline}
 					loggedInUserId={loggedInUser.id}

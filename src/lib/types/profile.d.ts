@@ -8,6 +8,14 @@ export interface NostrProfileImage {
     size?: number;
 }
 
+export interface NostrReview {
+    id: string;
+    from: string;
+    rating: number;
+    text: string;
+    date: string;
+}
+
 export interface NostrProfile {
     // NIP-01 basic fields
     name?: string;
@@ -87,6 +95,7 @@ export interface Skill {
 }
 
 export interface PortfolioItem {
+	link: string;
     id?: string;
     title: string;
     description: string;
@@ -161,6 +170,7 @@ export type Profile = {
         fileUrl: string;
     }[];
     portfolio?: {
+		link?: string;
         id: string;
         title: string;
         description: string;

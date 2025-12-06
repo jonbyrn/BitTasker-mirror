@@ -169,6 +169,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/tasker-principles')) namespaces.push('taskees/principles');
 	if (route.includes('/faq')) namespaces.push('taskees/faq');
 	if (route.includes('/feedback')) namespaces.push('dashboard/feedback');
+	if (route.includes('/dashboard/debug-smart-contract')) namespaces.push('debug');
 
 	return namespaces;
 }

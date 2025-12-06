@@ -69,16 +69,16 @@ export interface ContractWithEvents {
 	contractEvent: ContractEvent; // Contract NostrEvent (content = NostrContract)
 	statusEvents: ContractStatusEvent[]; // Status NostrEvents (content = NostrContractStatus)
 	isClient: boolean; // true if current user is the client
-	
+
 	// Blockchain state (source of truth)
 	blockchainStatus: EscrowStatus | null; // EscrowStatus enum value from blockchain, null if not funded
 	escrowData: EscrowData | null; // Full escrow data from blockchain, null if not funded
 	status: EscrowStatus; // Unified status (includes pending states from Nostr)
 	isPending: boolean; // true if blockchain transaction is being processed
-	
+
 	// Permission flags (determined by blockchain state + contract rules)
 	permissions: ContractPermissions;
-	
+
 	// Computed data from blockchain/Nostr (avoid duplication in events)
 	disputeProposal: DisputeProposal | null; // From blockchain if in dispute
 	completionAttachments: Attachment[] | null; // From latest completion status event
@@ -118,4 +118,14 @@ export interface ContractFilter {
 	limit?: number;
 	since?: number;
 	until?: number;
+}
+
+export interface PublishContractStatusParams {
+	escrowId: string;
+	contractEventId: string;
+	transactionHash: string;
+	status: EscrowStatus;
+	completionAttachments?: Attachment[];
+	proposedClientAmount?: string;
+	proposedFreelancerAmount?: string;
 }

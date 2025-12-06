@@ -1,15 +1,11 @@
 <script lang="ts">
 	import type { NostrEvent } from 'nostr-tools';
 	import type { CounterOffer, NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
-	import {
-		getBidsForTask,
-		clearBidCache,
-		sendBidStatusUpdate,
-		cachedSatsFromUsd
-	} from '$lib/utils/nostr-bid';
-	import { onMount } from 'svelte';
+	import { bidStore } from '$lib/stores/bid.store';
+	import { sendBidStatusUpdate, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
+	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
@@ -19,24 +15,20 @@
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
-	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
-	import { getUserDisplayNameFromProfile } from '$lib/utils/helpers/userDisplayName';
-	import { nip19 } from 'nostr-tools';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// State
 	let task = $state<NostrEvent | null>(null);
-	let bids = $state<NostrEventWithFollowup[]>([]);
-	let loading = $state(false);
-	let errorMessage = $state('');
 	let btcPrice = $state(0);
 	let expandedBidId = $state<string | null>(null);
 	let showAcceptanceForm = $state(false);
 	let showCounterOfferForm = $state(false);
 	let bidToAccept = $state<NostrEventWithFollowup | null>(null);
 	let selectedBid = $state<NostrBidContent | null>(null);
-	let showRetryButton = $state(false);
-	
+
+	// Derived state from bid store
+	let bids = $derived($bidStore.bids[page.params.taskId] || []);
+
 	// Message modal state
 	let messageForm = $state({
 		isModalOpen: false,
@@ -47,6 +39,35 @@
 	});
 	let selectedBidderId = $state<string | null>(null);
 	let selectedBidderName = $state<string>('');
+
+	// Simple function to get translated bid content (description, proposedApproach, coverLetter)
+	// Reactive to locale changes via $locale
+	function getTranslatedBidContent(
+		bid: NostrBidContent,
+		field: 'description' | 'proposedApproach' | 'coverLetter'
+	): string {
+		const currentLang = $locale || 'en';
+		const originalText = bid[field] || '';
+
+		// If no translations, return original
+		if (!bid.translations) {
+			return originalText;
+		}
+
+		// If current language is source language, return original
+		if (bid.translations.sourceLanguage === currentLang) {
+			return originalText;
+		}
+
+		// Get translation for current language
+		const translation = bid.translations.translations[currentLang];
+		if (translation) {
+			return translation[field] || originalText;
+		}
+
+		// Fallback to original
+		return originalText;
+	}
 
 	// Cache for formatted dates to avoid re-computation
 	let dateFormatterCache = $state<Map<string, string>>(new Map());
@@ -69,21 +90,13 @@
 
 	async function loadTaskDetails() {
 		try {
-			loading = true;
-			errorMessage = '';
-			showRetryButton = false;
+			$bidStore.error = '';
 
 			// Check if id is an event ID (64 hex chars) or UUID (uniqueId)
 			const id = page.params.taskId;
-			const isEventId = /^[0-9a-fA-F]{64}$/.test(id);
 			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-			let event: any = null;
 
-			if (isEventId) {
-				// It's an event ID, use it directly
-				const result = await nostrEventsService.findEventById(id);
-				event = result.data;
-			} else if (isUuid) {
+			if (isUuid) {
 				// It's a uniqueId (UUID), query by d-tag
 				const dTagValue = `task-${id}`;
 				const filter = {
@@ -91,40 +104,39 @@
 					'#d': [dTagValue],
 					limit: 1
 				};
-				
+
 				const response = await nostrEventsService.requestEvents({
 					filters: [filter]
 				});
-				
+
 				if (response.data && response.data.length > 0) {
-					event = response.data[0];
+					task = response.data[0];
 				}
 			} else {
-				// Try as event ID anyway (fallback for edge cases)
 				try {
 					const result = await nostrEventsService.findEventById(id);
-					event = result.data;
+					task = result.data;
 				} catch {
-					errorMessage = $t('task.drawer.error.load');
+					$bidStore.error = $t('task.drawer.error.load');
 					return;
 				}
 			}
 
-			task = event;
-
 			if (!task) {
-				errorMessage = $t('task.drawer.error.load');
+				$bidStore.error = $t('task.drawer.error.load');
 				return;
 			}
-
-			bids = await getBidsForTask(page.params.taskId, true);
 		} catch (error) {
 			console.error('Failed to load task details:', error);
-			errorMessage = $t('task.drawer.error.load');
-			showRetryButton = true;
-		} finally {
-			loading = false;
+			$bidStore.error = $t('task.drawer.error.load');
 		}
+	}
+
+	async function loadBids() {
+		const taskId = page.params.taskId;
+		await bidStore.loadBidsForTask(taskId);
+		// Subscribe to real-time updates
+		await bidStore.subscribeToUpdates(taskId);
 	}
 
 	function toggleBidDetails(bidId: string) {
@@ -180,10 +192,6 @@
 				BidStatusEnum.REJECTED,
 				$t('dashboard.bids.bid_acceptance.bid_rejected_message') // Optional rejection message
 			);
-
-			// Clear bid cache and refresh task to update status and bids
-			clearBidCache(bidContent.taskId);
-			await loadTaskDetails();
 		} catch (error) {
 			console.error('Error rejecting bid:', error);
 			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.bid_rejected_error'));
@@ -200,12 +208,17 @@
 
 	function retryLoadingData() {
 		loadTaskDetails();
+		loadBids();
 		fetchBtcPrice();
 	}
 
 	onMount(async () => {
-		await loadTaskDetails();
-		await fetchBtcPrice();
+		await Promise.all([loadTaskDetails(), loadBids(), fetchBtcPrice()]);
+	});
+
+	onDestroy(() => {
+		// Clean up subscriptions when leaving the page
+		bidStore.unsubscribeFromUpdates();
 	});
 
 	function handleCloseBid() {
@@ -297,7 +310,7 @@
 			</button>
 		</div>
 	</div>
-	{#if loading}
+	{#if $bidStore.isLoading}
 		<div class="space-y-4">
 			{#each Array(1) as _, i}
 				<div class="bg-base-100 border-base-200 rounded-2xl border shadow-sm">
@@ -346,7 +359,7 @@
 				</div>
 			{/each}
 		</div>
-	{:else if errorMessage}
+	{:else if $bidStore.error}
 		<div class="py-12 text-center">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -366,27 +379,25 @@
 				{$t('dashboard.bids.bid_acceptance.error_loading_bids')}
 			</h3>
 			<p class="text-base-content/60 mt-2 mb-4">
-				{errorMessage}
+				{$bidStore.error}
 			</p>
-			{#if showRetryButton}
-				<button class="btn btn-primary" onclick={retryLoadingData}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-2 h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-						/>
-					</svg>
-					{$t('dashboard.bids.bid_acceptance.retry')}
-				</button>
-			{/if}
+			<button class="btn btn-primary" onclick={retryLoadingData}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-2 h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+					/>
+				</svg>
+				{$t('dashboard.bids.bid_acceptance.retry')}
+			</button>
 		</div>
 	{:else if bids.length === 0}
 		<div class="py-12 text-center">
@@ -405,6 +416,23 @@
 				/>
 			</svg>
 			<h3 class="mt-4 text-xl font-semibold">{$t('task.drawer.no_bids')}</h3>
+			<button class="btn btn-primary" onclick={retryLoadingData}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-2 h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+					/>
+				</svg>
+				{$t('dashboard.bids.bid_acceptance.retry')}
+			</button>
 		</div>
 	{:else}
 		<div class="space-y-4">
@@ -473,7 +501,7 @@
 									{#if bidContent.bidderId}
 										<a
 											href="/npub/{bidContent.bidderId}"
-											class="w-full truncate text-base font-semibold cursor-pointer transition-opacity hover:opacity-80 sm:text-lg"
+											class="w-full cursor-pointer truncate text-base font-semibold transition-opacity hover:opacity-80 sm:text-lg"
 										>
 											{bidContent.bidderName || $t('task.drawer.anonymous')}
 										</a>
@@ -558,7 +586,7 @@
 							<!-- Description -->
 							<div class="min-w-0 flex-1">
 								<p class="text-base-content/80 wrap-break-words line-clamp-2">
-									{bidContent.description}
+									{getTranslatedBidContent(bidContent, 'description')}
 								</p>
 							</div>
 							<!-- Payment info row: FIXED info on left, price on right (same row for all screen sizes) -->
@@ -617,7 +645,8 @@
 									disabled={bid?.latestStatus?.content?.status?.toLowerCase() ===
 										BidStatusEnum.ACCEPTED.toLowerCase() ||
 										bid?.latestStatus?.content?.status?.toLowerCase() ===
-											BidStatusEnum.REJECTED.toLowerCase()}
+											BidStatusEnum.REJECTED.toLowerCase() ||
+										$bidStore.processingBidIds.has(bid.id)}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -712,22 +741,27 @@
 										class="btn btn-success btn-sm flex-1 py-1 sm:flex-none"
 										onclick={() => handleAcceptBid(bid)}
 										disabled={bid?.latestStatus?.content?.status?.toLowerCase() ===
-											BidStatusEnum.REJECTED.toLowerCase()}
+											BidStatusEnum.REJECTED.toLowerCase() ||
+											$bidStore.processingBidIds.has(bid.id)}
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-4 w-4"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M5 13l4 4L19 7"
-											/>
-										</svg>
+										{#if $bidStore.processingBidIds.has(bid.id)}
+											<span class="loading loading-spinner loading-xs"></span>
+										{:else}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M5 13l4 4L19 7"
+												/>
+											</svg>
+										{/if}
 										{$t('dashboard.bids.bid_acceptance.accept')}
 									</button>
 								{/if}
@@ -746,25 +780,23 @@
 											{$t('bids.your_description')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
-											<TranslatableBidContent
-												content={bidContent.description}
-												contentType="description"
-											/>
+											<p class="text-base-content/80 text-sm leading-relaxed">
+												{getTranslatedBidContent(bidContent, 'description')}
+											</p>
 										</div>
 									</div>
 								{/if}
 
 								<!-- Approach -->
-								{#if bidContent.proposedApproach}
+								{#if bidContent.proposedApproach && bidContent.proposedApproach.trim() !== ''}
 									<div>
 										<p class="text-base-content/60 wrap-break-words mb-2 text-xs font-medium">
 											{$t('bids.your_approach')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
-											<TranslatableBidContent
-												content={bidContent.proposedApproach}
-												contentType="proposedApproach"
-											/>
+											<p class="text-base-content/80 text-sm leading-relaxed">
+												{getTranslatedBidContent(bidContent, 'proposedApproach')}
+											</p>
 										</div>
 									</div>
 								{/if}
@@ -776,10 +808,9 @@
 											{$t('bids.your_cover_letter')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
-											<TranslatableBidContent
-												content={bidContent.coverLetter}
-												contentType="coverLetter"
-											/>
+											<p class="text-base-content/80 text-sm leading-relaxed">
+												{getTranslatedBidContent(bidContent, 'coverLetter')}
+											</p>
 										</div>
 									</div>
 								{/if}
