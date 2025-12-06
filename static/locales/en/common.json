@@ -14,6 +14,10 @@
         "update": "Update",
         "add": "Add",
         "required": "Required",
+        "buttons": {
+            "cancel": "Cancel",
+            "retry": "Retry"
+        },
         "previous": "Previous",
         "next": "Next",
         "pagination": {
@@ -242,7 +246,9 @@
             "qr_scanner": {
                 "scan_qr_code": "Scan QR Code",
                 "close": "Close",
-                "toggle_torch": "Toggle Torch"
+                "toggle_torch": "Toggle Torch",
+                "no_camera_found": "No camera found. Please ensure your device has a camera.",
+                "camera_permission_denied": "Camera permission denied. Please enable camera access in your browser settings."
             },
             "tags": {
                 "select_tags": "Select tags...",

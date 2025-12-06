@@ -104,9 +104,9 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 	}
 }));
 
-// Mock payment address parser
+// Mock payment address parser (synchronous)
 vi.mock('$lib/utils/helpers/paymentAddressParser', () => ({
-	parsePaymentAddress: vi.fn().mockResolvedValue({
+	parsePaymentAddress: vi.fn().mockReturnValue({
 		isValid: true,
 		address: '0x1234567890123456789012345678901234567890',
 		network: 'rootstock-bitcoin',
@@ -239,7 +239,7 @@ describe('SendPaymentForm Component', () => {
 		});
 
 		it('should show error for invalid address', async () => {
-			vi.mocked(parsePaymentAddress).mockResolvedValueOnce({
+			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
 				isValid: false,
 				address: 'invalid',
 				network: null,
@@ -270,7 +270,7 @@ describe('SendPaymentForm Component', () => {
 
 	describe('Amount Handling', () => {
 		it('should show calculator when amount is required', async () => {
-			vi.mocked(parsePaymentAddress).mockResolvedValueOnce({
+			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
 				network: 'rootstock-bitcoin',
@@ -300,7 +300,7 @@ describe('SendPaymentForm Component', () => {
 		});
 
 		it('should disable amount field when amount is in invoice', async () => {
-			vi.mocked(parsePaymentAddress).mockResolvedValueOnce({
+			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
 				isValid: true,
 				address: 'lnbc1000u1p3...',
 				network: 'lightning-bitcoin',
@@ -331,7 +331,7 @@ describe('SendPaymentForm Component', () => {
 
 	describe('QR Code Scanning', () => {
 		it('should handle QR scan and show confirmation', async () => {
-			vi.mocked(parsePaymentAddress).mockResolvedValueOnce({
+			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
 				network: 'rootstock-bitcoin',
@@ -354,7 +354,7 @@ describe('SendPaymentForm Component', () => {
 
 	describe('Fee Calculation', () => {
 		it('should estimate fees for Rootstock network', async () => {
-			vi.mocked(parsePaymentAddress).mockResolvedValue({
+			vi.mocked(parsePaymentAddress).mockReturnValue({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
 				network: 'rootstock-bitcoin',
@@ -434,7 +434,7 @@ describe('SendPaymentForm Component', () => {
 		});
 
 		it('should validate form when address and amount are provided', async () => {
-			vi.mocked(parsePaymentAddress).mockResolvedValue({
+			vi.mocked(parsePaymentAddress).mockReturnValue({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
 				network: 'rootstock-bitcoin',
@@ -487,7 +487,7 @@ describe('SendPaymentForm Component', () => {
 
 	describe('Large Amount Warning', () => {
 		it('should show warning for amounts over $1,000', async () => {
-			vi.mocked(parsePaymentAddress).mockResolvedValueOnce({
+			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
 				network: 'rootstock-bitcoin',

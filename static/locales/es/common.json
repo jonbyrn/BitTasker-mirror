@@ -14,6 +14,10 @@
     "update": "Actualizar",
     "add": "Añadir",
     "required": "Requerido",
+    "buttons": {
+        "cancel": "Cancelar",
+        "retry": "Reintentar"
+    },
     "previous": "Anterior",
     "next": "Siguiente",
         "pagination": {
@@ -242,7 +246,9 @@
       "qr_scanner": {
         "scan_qr_code": "Escanear Código QR",
         "close": "Cerrar",
-        "toggle_torch": "Alternar Linterna"
+        "toggle_torch": "Alternar Linterna",
+        "no_camera_found": "No se encontró cámara. Por favor, asegúrese de que su dispositivo tenga una cámara.",
+        "camera_permission_denied": "Permiso de cámara denegado. Por favor, habilite el acceso a la cámara en la configuración de su navegador."
       },
       "tags": {
         "select_tags": "Seleccionar etiquetas...",

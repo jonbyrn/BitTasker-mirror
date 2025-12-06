@@ -33,23 +33,24 @@ export function detectLightningType(input: string): 'bolt11' | 'bolt12' | 'light
 }
 
 /**
- * Parse BOLT11 Lightning invoice and extract amount using bolt11 library
+ * Parse BOLT11 Lightning invoice and extract amount and description using bolt11 library
  * @param invoice - The BOLT11 Lightning invoice string
- * @returns Object with amount in satoshis (if present) and whether invoice is valid
+ * @returns Object with amount in satoshis (if present), description/memo, and whether invoice is valid
  */
 export function parseLightningInvoice(invoice: string): {
 	isValid: boolean;
 	amountSats: number | null;
 	hasAmount: boolean;
+	description: string | null;
 } {
 	if (!invoice || typeof invoice !== 'string') {
-		return { isValid: false, amountSats: null, hasAmount: false };
+		return { isValid: false, amountSats: null, hasAmount: false, description: null };
 	}
 
 	// First check if it's actually BOLT11 (not BOLT12)
 	const type = detectLightningType(invoice);
 	if (type !== 'bolt11') {
-		return { isValid: false, amountSats: null, hasAmount: false };
+		return { isValid: false, amountSats: null, hasAmount: false, description: null };
 	}
 
 	try {
@@ -71,12 +72,21 @@ export function parseLightningInvoice(invoice: string): {
 			hasAmount = true;
 		}
 
+		// Extract description/memo from tags (tag with tagName 'description' contains description)
+		let description: string | null = null;
+		if (decoded.tags && Array.isArray(decoded.tags)) {
+			const descriptionTag = decoded.tags.find((tag: any) => tag.tagName === 'description');
+			if (descriptionTag && descriptionTag.data) {
+				description = typeof descriptionTag.data === 'string' ? descriptionTag.data : String(descriptionTag.data);
+			}
+		}
+
 		// Invoice is valid if decode succeeded
-		return { isValid: true, amountSats, hasAmount };
+		return { isValid: true, amountSats, hasAmount, description };
 	} catch (error) {
 		// bolt11.decode() throws on invalid invoices
 		console.error('Failed to decode BOLT11 invoice:', error);
-		return { isValid: false, amountSats: null, hasAmount: false };
+		return { isValid: false, amountSats: null, hasAmount: false, description: null };
 	}
 }
 
