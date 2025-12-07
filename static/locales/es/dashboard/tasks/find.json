@@ -63,6 +63,9 @@
       "no_results_title": "No se encontraron resultados",
       "no_results_message": "Intenta ajustar tus filtros o criterios de búsqueda",
       "view_list": "Ver Lista",
-      "view_map": "Ver Mapa"
+      "view_map": "Ver Mapa",
+      "loading_more": "Cargando más tareas...",
+      "load_more": "Cargar Más Tareas",
+      "search_minimum_chars": "Ingresa al menos 3 caracteres para buscar"
     }
   }
