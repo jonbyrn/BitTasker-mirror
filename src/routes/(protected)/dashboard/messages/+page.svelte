@@ -17,6 +17,37 @@
 	import { appStore } from '$lib/stores/app.store';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { messageTranslations } from '$lib/stores/translation.store';
+	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
+
+	/**
+	 * Helper function to get display content for a conversation
+	 */
+	function getDisplayContent(conversation: typeof conversations[0]): string {
+		if (!conversation.lastEvent.content) {
+			return $t('messages.no_messages');
+		}
+
+		const messageId = conversation.lastEvent.id;
+		const messageTranslation = $messageTranslations.get(messageId);
+		const parsedContent = parseMessageContent(conversation.lastEvent.content);
+		const isReply = parsedContent.startsWith('> ') && parsedContent.includes('\n\n');
+
+		// If it's a reply, only show the actual message (not the quoted part)
+		if (isReply) {
+			const parts = parsedContent.split('\n\n');
+			const actualMessage = parts.slice(1).join('\n\n').trim();
+			const actualMessageTranslation = $messageTranslations.get(messageId);
+			return actualMessageTranslation ? actualMessageTranslation.translatedText : actualMessage;
+		}
+
+		// For regular messages, show translation if available
+		if (messageTranslation) {
+			return messageTranslation.translatedText;
+		}
+
+		return translateMessageContent(conversation.lastEvent.content);
+	}
 
 	/**
 	 * Helper function to translate message content if it's a translation key
@@ -541,13 +572,16 @@
 
 <div class="mx-auto max-w-6xl p-2 md:p-4 lg:p-0">
 	<!-- Header -->
-	<div class="mb-6 flex shrink-0 items-center justify-between">
+	<div class="mb-4 flex shrink-0 items-center justify-between md:mb-6">
 		<div class="min-w-0 flex-1 space-y-1">
-			<h3 class="truncate text-xl font-semibold tracking-tight">{$t('messages.title')}</h3>
-			<p class="text-base-content/70 text-sm">{$t('messages.subtitle')}</p>
+			<h3 class="truncate text-2xl font-bold tracking-tight md:text-3xl">{$t('messages.title')}</h3>
+			<p class="text-base-content/60 text-sm md:text-base">{$t('messages.subtitle')}</p>
 		</div>
-		<button class="btn btn-primary btn-sm flex" onclick={startNewMessage}
-			>{$t('messages.new_message')}
+		<button class="btn btn-primary btn-sm flex gap-2 shadow-md transition-all hover:shadow-lg md:btn-md" onclick={startNewMessage}>
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+			</svg>
+			{$t('messages.new_message')}
 		</button>
 	</div>
 
@@ -948,22 +982,22 @@
 	</style>
 
 	<!-- Main Content - Conversation List Only -->
-	<div class="bg-base-100 flex-1 overflow-hidden rounded-2xl p-2 shadow-lg sm:p-4">
+	<div class="bg-base-100 flex-1 overflow-hidden rounded-2xl shadow-xl border border-base-300/20">
 		<div class="card-body flex h-full flex-col overflow-hidden p-0">
 			<!-- Search Input -->
 			{#if conversations.length > 0}
-				<div class="border-base-300/20 shrink-0 border-b p-3 pb-2 sm:p-4 sm:pb-3">
+				<div class="border-base-300/30 shrink-0 border-b bg-base-200/30 p-4">
 					<div class="relative">
 						<input
 							type="text"
 							placeholder={$t('messages.search_placeholder')}
-							class="input input-bordered bg-base-200/50 border-base-300/50 focus:border-primary focus:bg-base-100 w-full py-2 pr-4 pl-10 text-sm transition-all duration-200"
+							class="input input-bordered bg-base-100 border-base-300/50 focus:border-primary focus:ring-2 focus:ring-primary/20 w-full py-3 pr-4 pl-12 text-sm transition-all duration-200 md:text-base"
 							bind:value={searchQuery}
 						/>
-						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="text-base-content/50 h-4 w-4"
+								class="text-base-content/40 h-5 w-5"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
@@ -1040,7 +1074,7 @@
 					<div class="divide-base-300/20 divide-y">
 						{#each filteredConversations as conversation}
 							<button
-								class="hover:bg-base-200/50 flex w-full items-center gap-3 p-4 text-left transition-colors"
+								class="group hover:bg-base-200/60 active:bg-base-200 flex w-full items-center gap-4 p-4 text-left transition-all duration-200 md:gap-5 md:p-5"
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
 								<!-- Avatar -->
@@ -1053,19 +1087,17 @@
 								</div>
 
 								<!-- Conversation Info -->
-								<div class="min-w-0 flex-1">
-									<div class="flex items-center justify-between">
-										<h3 class="truncate font-medium">
+								<div class="min-w-0 flex-1 cursor-pointer">
+									<div class="flex items-center justify-between gap-2">
+										<span class="line-clamp-1 text-sm md:text-lg truncate font-semibold">
 											{conversation.profile.name || `${conversation.pubkey.slice(0, 8)}...`}
-										</h3>
-										<span class="text-base-content/60 ml-2 shrink-0 text-xs">
+										</span>
+										<span class="text-base-content/50 ml-2 shrink-0 text-xs font-medium">
 											{formatTimeAgo(new Date(conversation.lastEvent.created_at * 1000))}
 										</span>
 									</div>
-									<p class="text-base-content/70 mt-1 truncate text-sm">
-										{conversation.lastEvent.content
-											? translateMessageContent(conversation.lastEvent.content)
-											: $t('messages.no_messages')}
+									<p class="text-base-content/60 mt-1.5 line-clamp-2 text-sm leading-relaxed md:text-md">
+										{getDisplayContent(conversation)}
 									</p>
 								</div>
 							</button>
@@ -1079,130 +1111,56 @@
 					</div>
 				{:else if conversations.length === 0}
 					<!-- Empty State -->
-					<div class="py-12 text-center">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-base-content/30 mx-auto h-12 w-12"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-							/>
-						</svg>
-						<h3 class="mt-4 text-lg font-semibold">{$t('messages.no_messages')}</h3>
-						<p class="text-base-content/60 mt-1">{$t('messages.start_conversation')}</p>
-						<button class="btn btn-primary mt-4" onclick={startNewMessage}>
+					<div class="flex flex-col items-center justify-center py-16 px-4 text-center md:py-24">
+						<div class="bg-primary/10 mb-6 flex h-20 w-20 items-center justify-center rounded-full md:h-24 md:w-24">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-primary h-10 w-10 md:h-12 md:w-12"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+								/>
+							</svg>
+						</div>
+						<h3 class="text-xl font-bold md:text-2xl">{$t('messages.no_messages')}</h3>
+						<p class="text-base-content/60 mt-2 text-sm md:text-base">{$t('messages.start_conversation')}</p>
+						<button class="btn btn-primary mt-6 gap-2 shadow-md transition-all hover:shadow-lg" onclick={startNewMessage}>
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+							</svg>
 							{$t('messages.start_new_message')}
 						</button>
 					</div>
 				{:else if filteredConversations.length === 0}
 					<!-- No Search Results -->
-					<div class="py-12 text-center">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-base-content/30 mx-auto h-12 w-12"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-							/>
-						</svg>
-						<h3 class="mt-4 text-lg font-semibold">{$t('messages.no_conversations_found')}</h3>
-						<p class="text-base-content/60 mt-1">{$t('messages.try_different_search')}</p>
-						<button class="btn btn-ghost mt-4" onclick={() => (searchQuery = '')}>
+					<div class="flex flex-col items-center justify-center py-16 px-4 text-center md:py-24">
+						<div class="bg-base-200/50 mb-6 flex h-20 w-20 items-center justify-center rounded-full md:h-24 md:w-24">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-base-content/40 h-10 w-10 md:h-12 md:w-12"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+								/>
+							</svg>
+						</div>
+						<h3 class="text-xl font-bold md:text-2xl">{$t('messages.no_conversations_found')}</h3>
+						<p class="text-base-content/60 mt-2 text-sm md:text-base">{$t('messages.try_different_search')}</p>
+						<button class="btn btn-ghost mt-6" onclick={() => (searchQuery = '')}>
 							{$t('messages.clear_search')}
 						</button>
-					</div>
-				{:else}
-					<!-- Conversation List -->
-					<div class="divide-base-300/20 divide-y">
-						{#each filteredConversations as conversation}
-							<button
-								class="hover:bg-base-200/50 active:bg-base-200 flex w-full items-center gap-3 px-4 py-3 transition-colors sm:gap-4 sm:px-6 sm:py-4"
-								onclick={() => selectConversation(conversation.pubkey)}
-							>
-								<!-- Avatar -->
-								<div class="shrink-0">
-									{#if conversation.profile.picture}
-										<img
-											src={conversation.profile.picture}
-											alt={conversation.profile.name || $t('messages.unknown_user')}
-											class="ring-base-300 h-10 w-10 rounded-full object-cover ring-2"
-											width={40}
-											height={40}
-										/>
-									{:else}
-										<div
-											class="from-primary/20 to-secondary/20 ring-base-300 flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br ring-2"
-										>
-											{#if conversation.profile.name}
-												<span class="text-primary text-sm font-semibold">
-													{conversation.profile.name.charAt(0).toUpperCase()}
-												</span>
-											{:else}
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="text-primary h-5 w-5"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-													/>
-												</svg>
-											{/if}
-										</div>
-									{/if}
-								</div>
-
-								<!-- Content -->
-								<div class="min-w-0 flex-1 pl-2 text-left">
-									<div class="mb-2 flex items-center justify-between">
-										<h4 class="truncate text-sm font-medium">
-											{conversation.profile.name}
-										</h4>
-										<span class="text-base-content/50 ml-3 shrink-0 text-xs">
-											{formatTimeAgo(new Date(conversation.lastEvent.created_at * 1000))}
-										</span>
-									</div>
-									<p class="text-base-content/70 line-clamp-2 text-xs leading-relaxed">
-										{translateMessageContent(conversation.lastEvent.content)}
-									</p>
-								</div>
-
-								<!-- Arrow indicator -->
-								<div class="shrink-0 pl-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="text-base-content/30 h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 5l7 7-7 7"
-										/>
-									</svg>
-								</div>
-							</button>
-						{/each}
 					</div>
 				{/if}
 			</div>
