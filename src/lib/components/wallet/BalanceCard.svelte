@@ -62,7 +62,7 @@
 								</p>
 								<button
 									class="text-xs text-white underline opacity-80 hover:opacity-100"
-									onclick={() => walletManager.retryRbtcExchangeRate()}
+									onclick={() => walletManager.loadRbtcExchangeRate()}
 								>
 									{$t('wallet.retry')}
 								</button>

@@ -86,7 +86,7 @@
 
 			// Task has contracts - check if any escrow was funded
 			for (const contract of contracts) {
-				const fundingStatus = await escrow.checkEscrowFundingStatus(contractStore.getContractKey(contract, 'escrowId'));
+				const fundingStatus = await escrow.checkEscrowFundingStatus(contract.escrowData.id);
 				
 				if (fundingStatus.error) {
 					// Error checking escrow - be conservative and disallow deletion

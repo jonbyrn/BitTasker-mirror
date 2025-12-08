@@ -1,6 +1,6 @@
 import type { NostrContract, ContractStatusEvent, ContractPermissions } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 
 /**
  * Helper function to determine if client can cancel based on Solidity contract rules
@@ -9,8 +9,17 @@ import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 function canClientCancel(escrowData: EscrowData, now: number): boolean {
 	const oneHour = 3600;
 	const twentyFourHours = 86400;
-	const timeSinceCreation = now - escrowData.createdAt;
-	const timeUntilStart = escrowData.estimatedStartTime - now;
+	
+	// Convert timestamps to seconds if they're in milliseconds
+	const createdAtSeconds = escrowData.createdAt > 1000000000000 
+		? escrowData.createdAt / 1000 
+		: escrowData.createdAt;
+	const startTimeSeconds = escrowData.estimatedStartTime > 1000000000000 
+		? escrowData.estimatedStartTime / 1000 
+		: escrowData.estimatedStartTime;
+	
+	const timeSinceCreation = now - createdAtSeconds;
+	const timeUntilStart = startTimeSeconds - now;
 
 	// Within 1-hour grace period OR >24 hours before start
 	return timeSinceCreation < oneHour || timeUntilStart > twentyFourHours;
@@ -140,7 +149,28 @@ function mapBlockchainStatusToPermissions(
 				};
 			}
 
-			// PRIORITY 2: Check for pending acceptance (transaction in progress)
+			// PRIORITY 2: Check for pending timelock resolution (transaction in progress)
+			const hasPendingTimelockResolution = statusEvents.some(e =>
+				e.content.action === EscrowStatus.PendingTimelockResolution && e.content.transactionHash
+			);
+
+			if (hasPendingTimelockResolution) {
+				return {
+					status: EscrowStatus.PendingTimelockResolution,
+					permissions: {
+						canComplete: false,
+						canAccept: false,
+						canDispute: false,
+						canPropose: false,
+						canAcceptProposal: false,
+						canCancel: false,
+						canResolveTimelock: false, // Already being resolved
+						canDelete: false
+					}
+				};
+			}
+
+			// PRIORITY 3: Check for pending acceptance (transaction in progress)
 			const hasPendingAcceptance = statusEvents.some(e =>
 				e.content.action === EscrowStatus.PendingAcceptance && e.content.transactionHash
 			);
@@ -161,7 +191,7 @@ function mapBlockchainStatusToPermissions(
 				};
 			}
 
-			// PRIORITY 3: Check for pending dispute (transaction in progress)
+			// PRIORITY 4: Check for pending dispute (transaction in progress)
 			const hasPendingDispute = statusEvents.some(e =>
 				e.content.action === EscrowStatus.PendingDispute && e.content.transactionHash
 			);
@@ -182,7 +212,7 @@ function mapBlockchainStatusToPermissions(
 				};
 			}
 
-			// PRIORITY 4: Default completed state (awaiting client action)
+			// PRIORITY 5: Default completed state (awaiting client action)
 			return {
 				status: EscrowStatus.Completed,
 				permissions: {
@@ -200,7 +230,28 @@ function mapBlockchainStatusToPermissions(
 		case EscrowStatus.InDispute: // 1 - Client disputed the task
 			const disputeTimelockExpired = now > escrowData.timelockExpiry;
 
-			// PRIORITY 1: Check for pending proposal acceptance (transaction in progress)
+			// PRIORITY 1: Check for pending timelock resolution (transaction in progress)
+			const hasPendingTimelockResolutionDispute = statusEvents.some(e =>
+				e.content.action === EscrowStatus.PendingTimelockResolution && e.content.transactionHash
+			);
+
+			if (hasPendingTimelockResolutionDispute) {
+				return {
+					status: EscrowStatus.PendingTimelockResolution,
+					permissions: {
+						canComplete: false,
+						canAccept: false,
+						canDispute: false,
+						canPropose: false,
+						canAcceptProposal: false,
+						canCancel: false,
+						canResolveTimelock: false, // Already being resolved
+						canDelete: false
+					}
+				};
+			}
+
+			// PRIORITY 2: Check for pending proposal acceptance (transaction in progress)
 			const hasPendingProposalAcceptance = statusEvents.some(e =>
 				e.content.action === EscrowStatus.PendingProposalAcceptance && e.content.transactionHash
 			);
@@ -221,7 +272,7 @@ function mapBlockchainStatusToPermissions(
 				};
 			}
 
-			// PRIORITY 2: Check for pending resolution proposal (transaction in progress)
+			// PRIORITY 3: Check for pending resolution proposal (transaction in progress)
 			const hasPendingResolutionProposal = statusEvents.some(e =>
 				e.content.action === EscrowStatus.PendingResolutionProposal &&
 				e.content.transactionHash &&
@@ -247,7 +298,7 @@ function mapBlockchainStatusToPermissions(
 				};
 			}
 
-			// PRIORITY 3: Check if there's a confirmed proposal (Nostr-only state)
+			// PRIORITY 4: Check if there's a confirmed proposal (Nostr-only state)
 			const hasProposal = !!disputeProposal;
 
 			// Count proposals per party from Nostr status events

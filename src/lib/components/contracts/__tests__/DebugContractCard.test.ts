@@ -13,7 +13,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import DebugContractCard from '../DebugContractCard.svelte';
 import type { EscrowData } from '$lib/types/wallet';
 import type { ContractPermissions } from '$lib/types/contract';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 
 // Mock translation
 const mockT = (key: string, options?: { values?: Record<string, string> }) => {

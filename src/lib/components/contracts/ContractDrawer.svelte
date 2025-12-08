@@ -203,11 +203,9 @@
 
 							<div class="flex justify-between gap-2">
 								<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
-								<span class="text-sm"
-									>{formatDate(
-										contractStore.getContractKey($contractStore.contract, 'createdAt')
-									)}</span
-								>
+								<span class="text-sm">
+									{formatDate($contractStore.contract.contractEvent.created_at)}
+								</span>
 							</div>
 						</div>
 					</div>

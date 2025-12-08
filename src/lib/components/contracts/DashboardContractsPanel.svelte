@@ -2,8 +2,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { createPortal } from '$lib/utils/portal';
-	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 	import { contractStore } from '$lib/stores/contract.store';
+	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -109,12 +110,19 @@
 
 	onMount(async () => {
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
-		// Load profiles after contracts are loaded
-		// Subscribe to real-time updates (both status updates and new contracts)
-		await Promise.all([
-			contractStore.subscribeToStatusUpdates(),
-			contractStore.subscribeToNewContracts()
-		]);
+
+		// Configure infinite scroll
+		scroll.update((state) => ({
+			...state,
+			hasMore: $contractStore.hasMore,
+			loadMore: async () => {
+				if ($contractStore.hasMore && !$contractStore.isLoadingMore) {
+					await contractStore.loadMoreContracts();
+					// Update hasMore state after loading
+					scroll.update((state) => ({ ...state, hasMore: $contractStore.hasMore }));
+				}
+			}
+		}));
 	});
 
 	onDestroy(() => {
@@ -370,6 +378,25 @@
 			{#each filteredContracts() as contract, index (index)}
 				<ContractCard {contract} {btcPrice} />
 			{/each}
+
+			<!-- Loading more indicator -->
+			{#if $contractStore.isLoadingMore}
+				<div class="flex justify-center">
+					<div class="flex items-center gap-3">
+						<span class="loading loading-spinner loading-md"></span>
+						<span class="text-base-content/70">{$t('dashboard.contracts.loading_more')}</span>
+					</div>
+				</div>
+			{/if}
+
+			<!-- End of list indicator -->
+			{#if !$contractStore.hasMore && $contractStore.contracts.length > 0}
+				<div class="text-center">
+					<p class="text-base-content/50 text-sm">
+						{$t('dashboard.contracts.no_more_contracts')}
+					</p>
+				</div>
+			{/if}
 		{/if}
 	{/if}
 </div>

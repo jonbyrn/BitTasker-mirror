@@ -1,4 +1,4 @@
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 
 /**
  * Status event messages configuration
@@ -107,7 +107,14 @@ export function getStatusMessages(status: EscrowStatus): StatusMessages {
 				errorToast: 'dashboard.contracts.actions.escrow_cancelled_error'
 			};
 
-		// Timelock Resolution
+		// Timelock Resolution Flow
+		case EscrowStatus.PendingTimelockResolution:
+			return {
+				pendingMessage: 'dashboard.contracts.actions.timelock_resolving_message',
+				confirmedMessage: 'dashboard.contracts.actions.timelock_resolved_message',
+				successToast: 'dashboard.contracts.actions.timelock_resolved_success',
+				errorToast: 'dashboard.contracts.actions.timelock_resolved_error'
+			};
 		case EscrowStatus.DisputeUnresolved:
 			return {
 				confirmedMessage: 'dashboard.contracts.actions.timelock_resolved_message',
@@ -165,6 +172,8 @@ export function getStatusTranslationKey(status: EscrowStatus): string {
 			return 'dashboard.contracts.status.pending_resolution_proposal';
 		case EscrowStatus.PendingProposalAcceptance:
 			return 'dashboard.contracts.status.pending_proposal_acceptance';
+		case EscrowStatus.PendingTimelockResolution:
+			return 'dashboard.contracts.status.pending_timelock_resolution';
 
 		default:
 			return 'dashboard.contracts.status.funded';
@@ -193,6 +202,7 @@ export function getStatusColorClass(status: EscrowStatus): string {
 		case EscrowStatus.PendingAcceptance:
 		case EscrowStatus.DisputeUnresolved:
 		case EscrowStatus.PendingProposalAcceptance:
+		case EscrowStatus.PendingTimelockResolution:
 			return 'badge-info';
 
 		// Dispute states - Warning (Yellow)
@@ -244,6 +254,8 @@ export function getActionDescription(action: EscrowStatus): string {
 			return 'dashboard.contracts.status.pending_resolution_proposal';
 		case EscrowStatus.PendingProposalAcceptance:
 			return 'dashboard.contracts.status.pending_proposal_acceptance';
+		case EscrowStatus.PendingTimelockResolution:
+			return 'dashboard.contracts.status.pending_timelock_resolution';
 		default:
 			return action?.toString();
 	}

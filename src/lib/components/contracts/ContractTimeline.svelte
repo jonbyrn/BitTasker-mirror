@@ -3,7 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
-	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 	import { getActionDescription } from '$lib/utils/helpers/contractStatusFormatter';
 
 	const { statusEvents, contractPubkey } = $props<{

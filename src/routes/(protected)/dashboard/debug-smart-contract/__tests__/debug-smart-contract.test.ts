@@ -4,7 +4,7 @@ import DebugSmartContractPage from '../+page.svelte';
 import { escrow } from '$lib/utils/wallet/escrow';
 import { walletStore } from '$lib/stores/wallet.store';
 import { appStore } from '$lib/stores/app.store';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 import type { EscrowData } from '$lib/types/wallet';
 
 // Mock escrow module
