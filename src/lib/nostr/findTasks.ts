@@ -2,6 +2,7 @@ import type { SearchTasksParams, Task } from '$lib/types/task.d';
 import { type Event, type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { tasksStore } from '$lib/stores/task.store';
+import { get } from 'svelte/store';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import {
@@ -15,8 +16,9 @@ import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 
 // Constants
-const BATCH_SIZE = 100; // Default tasks limit per page (increased from 20)
+const BATCH_SIZE = 15; // Default tasks limit per page
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 100; // Maximum number of tasks to keep in cache
 
 // Memory cache with indexed tasks for better performance
 const cache = new Map<string, { data: IndexedTask[]; timestamp: number }>();
@@ -157,27 +159,71 @@ export async function findTasks(
 			const cleanTasks = cleanupIndexedTasks(filteredTasks);
 
 			const limit = params.limit || BATCH_SIZE;
-			// hasMore should check if we got the full limit from the original indexed tasks
-			// not the filtered tasks, because filtering might reduce the count
-			// If we got the full limit of indexed tasks, there might be more
-			const originalCount = cached.data.length;
-			const hasMore = originalCount >= limit;
+			const currentItemsCount = get(tasksStore).items.length;
+			
+			// If we're loading more (page > 1), get the next batch from cache
+			if (params.page && params.page > 1) {
+				const startIndex = currentItemsCount;
+				const endIndex = Math.min(startIndex + limit, cleanTasks.length);
+				const limitedTasks = cleanTasks.slice(startIndex, endIndex);
+				const hasMore = endIndex < cleanTasks.length || cleanTasks.length >= MAX_CACHE_SIZE;
+
+				tasksStore.update((state) => ({
+					...state,
+					items: [...state.items, ...limitedTasks],
+					loading: false,
+					currentPage: params.page || 1,
+					hasMore
+				}));
+
+				return {
+					tasks: limitedTasks,
+					total: limitedTasks.length,
+					hasMore
+				};
+			}
+
+			// For page 1, check if we should use cache or start fresh
+			// If cache has more than what's in store, use cache from current position
+			if (currentItemsCount > 0 && cleanTasks.length > currentItemsCount) {
+				// Continue from where we left off in cache
+				const startIndex = currentItemsCount;
+				const endIndex = Math.min(startIndex + limit, cleanTasks.length);
+				const limitedTasks = cleanTasks.slice(startIndex, endIndex);
+				const hasMore = endIndex < cleanTasks.length || cleanTasks.length >= MAX_CACHE_SIZE;
+
+				tasksStore.update((state) => ({
+					...state,
+					items: [...state.items, ...limitedTasks],
+					loading: false,
+					currentPage: params.page || 1,
+					hasMore
+				}));
+
+				return {
+					tasks: limitedTasks,
+					total: limitedTasks.length,
+					hasMore
+				};
+			}
+
+			// Limit results to requested batch size for initial load
+			const limitedTasks = cleanTasks.slice(0, limit);
+			
+			// hasMore: true if we got the full limit AND there are more tasks available in cache
+			const hasMore = limitedTasks.length >= limit && cleanTasks.length > limit;
 
 			tasksStore.update((state) => ({
 				...state,
-				items: cleanTasks,
+				items: params.page === 1 ? limitedTasks : [...state.items, ...limitedTasks],
 				loading: false,
 				currentPage: params.page || 1,
 				hasMore
 			}));
 
-			console.debug(
-				`[FindTasks] Cache hit - returned ${cleanTasks.length} tasks in ${metrics.filterTime.toFixed(2)}ms`
-			);
-
 			return {
-				tasks: cleanTasks,
-				total: cleanTasks.length,
+				tasks: limitedTasks,
+				total: limitedTasks.length,
 				hasMore
 			};
 		}
@@ -217,34 +263,49 @@ export async function findTasks(
 			const { tasks: filteredTasks, metrics } = filterIndexedTasks(indexedTasks, params);
 			performanceMonitor.addMetric(metrics);
 
-			// Update cache with indexed data for faster subsequent operations
-			cache.set(cacheKey, { data: indexedTasks, timestamp: Date.now() });
+			// Get existing cached data if available
+			const existingCached = cache.get(cacheKey);
+			let allCachedTasks: IndexedTask[] = [];
+			
+			if (existingCached && Date.now() - existingCached.timestamp < CACHE_TTL) {
+				// Merge with existing cache, avoiding duplicates
+				const existingIds = new Set(existingCached.data.map(t => t.id));
+				const newTasks = filteredTasks.filter(t => !existingIds.has(t.id));
+				allCachedTasks = [...existingCached.data, ...newTasks];
+			} else {
+				allCachedTasks = filteredTasks;
+			}
+
+			// Limit cache to MAX_CACHE_SIZE to prevent memory issues
+			if (allCachedTasks.length > MAX_CACHE_SIZE) {
+				allCachedTasks = allCachedTasks.slice(0, MAX_CACHE_SIZE);
+			}
+
+			// Update cache with merged indexed data
+			cache.set(cacheKey, { data: allCachedTasks, timestamp: Date.now() });
 
 			// Convert back to regular Task objects for the store
 			const cleanTasks = cleanupIndexedTasks(filteredTasks);
 
 			const limit = params.limit || BATCH_SIZE;
-			// hasMore should check if we got the full limit from events
-			// If we got fewer events than the limit, there are no more tasks
-			// If we got the full limit, there might be more (even if filtering reduced the count)
+			// Limit results to requested batch size
+			const limitedTasks = cleanTasks.slice(0, limit);
+			
+			// hasMore: true if we got the full limit from API
 			const hasMore = events.length >= limit;
 
 			// Update store - REEMPLAZAR en lugar de concatenar
 			tasksStore.update((state) => ({
 				...state,
-				items: params.page === 1 ? cleanTasks : [...state.items, ...cleanTasks], // Solo concatenar si no es la primera página
+				items: params.page === 1 ? limitedTasks : [...state.items, ...limitedTasks],
 				loading: false,
 				currentPage: params.page || 1,
 				hasMore
 			}));
 
-			console.debug(
-				`[FindTasks] Fresh data - processed ${rawTasks.length} → ${cleanTasks.length} tasks (index: ${metrics.indexTime?.toFixed(2)}ms, filter: ${metrics.filterTime.toFixed(2)}ms)`
-			);
-
 			return {
-				tasks: cleanTasks,
-				total: cleanTasks.length,
+				tasks: limitedTasks,
+				total: limitedTasks.length,
 				hasMore
 			};
 		} catch (apiError) {
@@ -282,7 +343,7 @@ export function getFilterPerformanceReport() {
 	return performanceMonitor.getPerformanceReport();
 }
 
-// Cleanup pool and subscriptions when browser closes
+// Cleanup cache when browser closes
 if (browser) {
 	window.addEventListener('beforeunload', () => {
 		cache.clear();

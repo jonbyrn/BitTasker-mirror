@@ -32,7 +32,7 @@
 			categories: [],
 			skills: [],
 			page: 1,
-			limit: 50, // Increased from 10 to load more tasks initially
+			limit: 15,
 			budget: {
 				tier: undefined,
 				currency: undefined,
@@ -122,6 +122,26 @@
 		if (dataLoaded) return; // Prevent multiple loads
 
 		try {
+			// Clear cache to ensure fresh data
+			cleanup();
+			
+			// Ensure we start with page 1 and limit 15
+			searchParams = {
+				...searchParams,
+				page: 1,
+				limit: 15,
+				until: undefined
+			};
+			
+			// Clear existing tasks before loading
+			tasksStore.update((state) => ({
+				...state,
+				items: [],
+				currentPage: 1,
+				hasMore: true,
+				error: null
+			}));
+			
 			await findTasks(searchParams);
 			dataLoaded = true;
 			showSkeleton = false;
@@ -322,7 +342,7 @@
 				...searchParams,
 				page: nextPage,
 				until: untilTimestamp,
-				limit: searchParams.limit || 50
+				limit: 15
 			};
 			await findTasks(searchParams);
 		} catch (error) {

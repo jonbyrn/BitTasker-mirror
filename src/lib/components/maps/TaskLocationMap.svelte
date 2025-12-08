@@ -44,6 +44,20 @@
 	let mapContainerDiv: HTMLElement | null = $state(null);
 	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
 	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
+	
+	// Action to ensure mapElement is set when DOM is ready
+	function mapElementAction(node: HTMLElement) {
+		mapElement = node;
+		return {
+			update() {
+				mapElement = node;
+			},
+			destroy() {
+				// Cleanup if needed
+			}
+		};
+	}
+	
 	// Function to get user's location
 	async function getUserLocation(): Promise<Location | null> {
 		return new Promise((resolve) => {
@@ -760,13 +774,50 @@
 		}
 	});
 
+	// Function to check if we can initialize the map
+	async function checkAndInitMap(retryCount = 0) {
+		const maxRetries = 10;
+		
+		// Wait for next tick to ensure DOM is updated
+		await tick();
+		
+		// Check if all conditions are met
+		if (isComponentMounted && googleMapsReady && !isMapLoaded && !hasError) {
+			// Try to find the element in the DOM if binding hasn't worked
+			if (!mapElement) {
+				// Try to find it by querying the DOM - use a more specific selector
+				const container = document.querySelector('.task-location-map');
+				if (container) {
+					const element = container.querySelector('.map-container > div');
+					if (element instanceof HTMLElement) {
+						mapElement = element;
+					}
+				}
+			}
+			
+			// If we have the element and it's connected to DOM, initialize
+			if (mapElement && mapElement.isConnected && mapElement.offsetWidth > 0 && mapElement.offsetHeight > 0) {
+				await tryInitMap();
+			} else if (retryCount < maxRetries) {
+				// Retry after a short delay with exponential backoff
+				const delay = Math.min(200 * (retryCount + 1), 1000);
+				setTimeout(() => {
+					checkAndInitMap(retryCount + 1);
+				}, delay);
+			} else {
+				// Max retries reached, show error
+				console.error('Map element not found after multiple attempts');
+				error = 'Map element not found';
+				hasError = true;
+				isLoading = false;
+			}
+		}
+	}
+
 	// Effect to initialize map when component is ready
 	$effect(() => {
-		if (isComponentMounted && googleMapsReady && mapElement && !isMapLoaded && !hasError) {
-			// Use a small delay to ensure DOM is fully ready
-			setTimeout(() => {
-				tryInitMap();
-			}, 300);
+		if (isComponentMounted && googleMapsReady && !isMapLoaded && !hasError) {
+			checkAndInitMap();
 		}
 	});
 
@@ -780,6 +831,12 @@
 
 			// Load Google Maps script
 			await loadGoogleMapsScript();
+			
+			// After script loads, wait a bit and try to initialize
+			// This ensures the DOM is ready
+			setTimeout(() => {
+				checkAndInitMap();
+			}, 100);
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error = err instanceof Error ? err.message : 'Error loading Google Maps';
@@ -800,7 +857,11 @@
 <div class="task-location-map w-full">
 	<!-- Map Container -->
 	<div bind:this={mapContainerDiv} class="map-container relative max-h-[800px] w-full" style="height: {height};">
-		<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
+		<div 
+			bind:this={mapElement} 
+			class="h-full w-full overflow-hidden rounded-lg"
+			use:mapElementAction
+		>
 			{#if isLoading}
 				<div class="bg-base-200 flex h-full w-full items-center justify-center">
 					<div class="text-center">

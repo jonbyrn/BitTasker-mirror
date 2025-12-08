@@ -35,7 +35,7 @@ import {
 			categories: [],
 			skills: [],
 			page: 1,
-			limit: 50, // Increased from 10 to load more tasks initially
+			limit: 15,
 			budget: {
 				tier: undefined,
 				currency: undefined,
@@ -60,6 +60,7 @@ import {
 	let loadingTimeout = $state(false);
 	let isInitialLoad = $state(true);
 	let dataLoaded = $state(false);
+	let lastSearchKey = $state<string>(''); // Track search parameters to detect changes
 	let showSkeleton = $state(true);
 	let selectedLocation = $state<any | null>(null);
 
@@ -128,6 +129,10 @@ import {
 	let taskListRef = $state<HTMLElement | null>(null);
 	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 	let intersectionObserver: IntersectionObserver | null = null;
+	
+	// Infinite scroll state - using scroll listener instead of sentinel
+	let scrollHandler: ((e: Event) => void) | null = null;
+	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
 
 	// Scroll to top button state
 	let showScrollToTop = $state(false);
@@ -193,13 +198,61 @@ import {
 	 * Load Nostr data with proper state management
 	 */
 	async function loadNostrData(): Promise<void> {
-		if (dataLoaded) return; // Prevent multiple loads
+		// Create a key from search params to detect if search changed
+		const currentSearchKey = JSON.stringify(searchParams);
+		const searchChanged = lastSearchKey !== '' && lastSearchKey !== currentSearchKey;
+		
+		// Check if we already have tasks in store (from previous navigation)
+		const hasExistingTasks = $tasksStore.items.length > 0;
+		
+		// If we have existing tasks and search hasn't changed, don't reload - just use what's in the store
+		if (hasExistingTasks && !searchChanged) {
+			// Verify the search key matches (or is empty, meaning first load)
+			if (lastSearchKey === '' || lastSearchKey === currentSearchKey) {
+				dataLoaded = true;
+				showSkeleton = false;
+				lastSearchKey = currentSearchKey; // Update key
+				return;
+			}
+		}
+		
+		// If search params changed, reset dataLoaded to allow reload
+		if (searchChanged) {
+			dataLoaded = false;
+		}
+		
+		if (dataLoaded && !searchChanged) return; // Prevent multiple loads
 
 		try {
+			// Only load if we don't have tasks or search changed
+			searchParams = {
+				...searchParams,
+				page: 1,
+				limit: 15,
+				until: undefined
+			};
+
+			// Clear existing tasks before loading (only if search changed)
+			if (searchChanged || !hasExistingTasks) {
+				tasksStore.update((state) => ({
+					...state,
+					items: [],
+					currentPage: 1,
+					hasMore: true,
+					error: null
+				}));
+			}
+
 			await findTasks(searchParams);
 
 			dataLoaded = true;
 			showSkeleton = false;
+			lastSearchKey = currentSearchKey; // Update key after successful load
+			
+			// Setup infinite scroll after data is loaded
+			if (taskListRef) {
+				setupInfiniteScroll();
+			}
 
 			// Cleanup observers and timers
 			if (intersectionObserver) {
@@ -363,16 +416,20 @@ import {
 
 	// Load more tasks
 	async function loadMoreTasks() {
-		if (!$tasksStore.hasMore || $tasksStore.loading) {
+		// Prevent multiple simultaneous loads
+		if (!$tasksStore.hasMore || $tasksStore.loading || isLoadingMore) {
 			return;
 		}
 
 		try {
+			isLoadingMore = true;
+			
 			const nextPage = $tasksStore.currentPage + 1;
 			const lastItem = $tasksStore.items[$tasksStore.items.length - 1];
 
 			if (!lastItem) {
 				console.warn('[FindTasks] No last item found, cannot load more');
+				isLoadingMore = false;
 				return;
 			}
 
@@ -383,12 +440,78 @@ import {
 				...searchParams,
 				page: nextPage,
 				until: untilTimestamp,
-				limit: searchParams.limit || 50
+				limit: 15
 			};
+			
 			await findTasks(searchParams);
 		} catch (error) {
 			console.error('[FindTasks] Error loading more tasks:', error);
+		} finally {
+			isLoadingMore = false;
 		}
+	}
+
+	/**
+	 * Setup infinite scroll using scroll listener
+	 * Loads more tasks automatically when user scrolls near the end (70% of scroll)
+	 */
+	function setupInfiniteScroll(): void {
+		if (!browser || !taskListRef) return;
+
+		// Cleanup existing handler
+		if (scrollHandler) {
+			taskListRef.removeEventListener('scroll', scrollHandler);
+			scrollHandler = null;
+		}
+
+		// Track last scroll position to prevent duplicate loads
+		let lastScrollTop = 0;
+		let lastLoadScrollTop = 0;
+
+		// Create scroll handler with debouncing
+		let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+		scrollHandler = () => {
+			if (scrollTimeout) {
+				clearTimeout(scrollTimeout);
+			}
+
+			scrollTimeout = setTimeout(() => {
+				if (!taskListRef || !$tasksStore.hasMore || $tasksStore.loading || isLoadingMore) {
+					return;
+				}
+
+				const { scrollTop, scrollHeight, clientHeight } = taskListRef;
+				
+				// Only process if user actually scrolled down (not up)
+				if (scrollTop <= lastScrollTop) {
+					lastScrollTop = scrollTop;
+					return;
+				}
+				
+				lastScrollTop = scrollTop;
+				
+				// Check if we have enough content to scroll
+				if (scrollHeight <= clientHeight) {
+					// Not enough content, but don't auto-load - wait for user to scroll
+					return;
+				}
+
+				const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
+				const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+
+				// Load more when:
+				// 1. User has scrolled 70% of the content
+				// 2. User scrolled at least 200px since last load (to prevent duplicate loads)
+				// 3. User is within 500px of the bottom (ensures they're actually near the end)
+				if (scrollPercentage > 0.7 && (scrollTop - lastLoadScrollTop) > 200 && distanceFromBottom < 500) {
+					lastLoadScrollTop = scrollTop;
+					loadMoreTasks();
+				}
+			}, 200); // Increased debounce to prevent rapid-fire loads
+		};
+
+		// Add scroll listener with passive flag for better performance
+		taskListRef.addEventListener('scroll', scrollHandler, { passive: true });
 	}
 
 	// Get status badge color and text
@@ -438,12 +561,25 @@ import {
 			// Fetch BTC price for USDT conversion (non-critical)
 			fetchBtcPrice();
 
-			// Setup lazy loading for Nostr data
-			setupLazyLoading();
+			// Check if we already have tasks in store from previous navigation
+			// If so, skip loading and use existing tasks
+			if ($tasksStore.items.length > 0) {
+				dataLoaded = true;
+				showSkeleton = false;
+				// Set lastSearchKey to current params to prevent reload
+				lastSearchKey = JSON.stringify(searchParams);
+				// Setup infinite scroll if taskListRef is available
+				if (taskListRef) {
+					setupInfiniteScroll();
+				}
+			} else {
+				// Setup lazy loading for Nostr data only if no tasks exist
+				setupLazyLoading();
+			}
 		}
 	});
 
-	// Cleanup on component destroy
+		// Cleanup on component destroy
 	onDestroy(() => {
 		if (browser) {
 			// Cleanup lazy loading
@@ -455,10 +591,17 @@ import {
 				clearTimeout(fallbackTimer);
 				fallbackTimer = null;
 			}
+			
+			// Cleanup infinite scroll handler
+			if (scrollHandler && taskListRef) {
+				taskListRef.removeEventListener('scroll', scrollHandler);
+				scrollHandler = null;
+			}
 
 			cleanup();
 		}
 	});
+
 
 	// Loading state management effect
 	$effect(() => {
@@ -1029,21 +1172,31 @@ import {
 									{/each}
 								</div>
 
-								<!-- Load More Button -->
-								{#if $tasksStore.hasMore}
-									<div class="flex justify-center py-4">
-										<button
-											class="btn btn-sm btn-outline btn-primary"
-											onclick={loadMoreTasks}
-											disabled={$tasksStore.loading}
-										>
-											{#if $tasksStore.loading}
-												<span class="loading loading-spinner loading-xs"></span>
-												{$t('find_tasks.loading_more') || 'Loading more tasks...'}
-											{:else}
-												{$t('find_tasks.load_more') || 'Load More Tasks'}
-											{/if}
-										</button>
+								<!-- Skeleton Loading for new tasks -->
+								{#if $tasksStore.loading && $tasksStore.items.length > 0 && $tasksStore.hasMore}
+									<div class="space-y-3 pt-3">
+										{#each Array(3) as _}
+											<div class="card bg-base-100 animate-pulse rounded-xl p-4 shadow-md">
+												<div class="flex flex-col gap-3 md:flex-row md:items-center">
+													<div class="bg-base-300 h-6 w-3/4 rounded"></div>
+													<div class="bg-base-300 h-5 w-28 rounded"></div>
+												</div>
+												<div class="my-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+													<div class="bg-base-300 h-5 w-24 rounded"></div>
+													<div class="bg-base-300 h-5 w-32 rounded"></div>
+													<div class="bg-base-300 h-5 w-28 rounded"></div>
+												</div>
+												<div class="flex gap-2">
+													<div class="bg-base-300 h-5 w-16 rounded"></div>
+													<div class="bg-base-300 h-5 w-20 rounded"></div>
+													<div class="bg-base-300 h-5 w-12 rounded"></div>
+												</div>
+												<div class="mt-3 flex items-center justify-between">
+													<div class="bg-base-300 h-5 w-12 rounded"></div>
+													<div class="bg-base-300 h-8 w-20 rounded"></div>
+												</div>
+											</div>
+										{/each}
 									</div>
 								{/if}
 							{:else if !$tasksStore.loading}
@@ -1092,7 +1245,7 @@ import {
 				<!-- Mobile Floating Button - Scroll to Top (only visible on mobile) -->
 				{#if showScrollToTop}
 					<button
-						class="fixed inverted-colors bottom-24 right-4 z-50 flex items-center justify-center transition-all duration-200 rounded-4xl p-1 hover:opacity-70 lg:hidden"
+						class="fixed inverted-colors bottom-24 right-4 z-50 flex items-center justify-center transition-all duration-200 rounded-4xl p-3 hover:opacity-70 lg:hidden"
 						onclick={scrollToTop}
 						title={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
 						aria-label={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
