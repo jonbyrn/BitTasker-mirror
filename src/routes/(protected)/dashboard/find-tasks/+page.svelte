@@ -544,22 +544,16 @@ import {
 		}
 	}
 
-	// Setup scroll listener when taskListRef is available
-	$effect(() => {
-		if (browser && taskListRef) {
-			const element = taskListRef;
-			element.addEventListener('scroll', handleScroll);
-			return () => {
-				element.removeEventListener('scroll', handleScroll);
-			};
-		}
-	});
-
 	// Initial data fetch and setup
 	onMount(() => {
 		if (browser) {
 			// Fetch BTC price for USDT conversion (non-critical)
 			fetchBtcPrice();
+
+			// Setup scroll listener when taskListRef is available
+			if (taskListRef) {
+				taskListRef.addEventListener('scroll', handleScroll);
+			}
 
 			// Check if we already have tasks in store from previous navigation
 			// If so, skip loading and use existing tasks
@@ -582,6 +576,11 @@ import {
 		// Cleanup on component destroy
 	onDestroy(() => {
 		if (browser) {
+			// Cleanup scroll listener
+			if (taskListRef) {
+				taskListRef.removeEventListener('scroll', handleScroll);
+			}
+
 			// Cleanup lazy loading
 			if (intersectionObserver) {
 				intersectionObserver.disconnect();
@@ -896,13 +895,10 @@ import {
 									{#each $tasksStore.items as task, index}
 										<div
 											use:registerTaskCard={{ taskId: task.id }}
-											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
+											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {selectedTask?.id === task.id ? 'bg-base-300 border-primary border-2' : ''}"
 											onclick={() => selectTaskForMap(task)}
 											tabindex="0"
 											role="button"
-											class:bg-base-300={selectedTask?.id === task.id}
-											class:border-primary={selectedTask?.id === task.id}
-											class:border-2={selectedTask?.id === task.id}
 											aria-label={$t('find_tasks.view_task')}
 											aria-pressed={selectedTaskId === task.id.toString()}
 											aria-current={selectedTaskId === task.id.toString()}
