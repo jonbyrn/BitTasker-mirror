@@ -6,7 +6,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
-	import { TaskStatusEnum, TaskTypeEnum, PaginationEnum } from '$lib/utils/enums/task.enum';
+	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
@@ -28,6 +28,9 @@ import {
 } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 
+	// Constants
+	const TASKS_PER_PAGE = 15;
+
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
 		return {
@@ -35,7 +38,7 @@ import {
 			categories: [],
 			skills: [],
 			page: 1,
-			limit: PaginationEnum.TASKS_PER_PAGE,
+			limit: TASKS_PER_PAGE,
 			budget: {
 				tier: undefined,
 				currency: undefined,
@@ -228,7 +231,7 @@ import {
 			const newSearchParams: SearchTasksParams = {
 				...searchParams,
 				page: 1,
-				limit: PaginationEnum.TASKS_PER_PAGE
+				limit: TASKS_PER_PAGE
 			};
 			
 			// Only include until if it has a value
@@ -446,7 +449,7 @@ import {
 				...searchParams,
 				page: nextPage,
 				until: untilTimestamp,
-				limit: PaginationEnum.TASKS_PER_PAGE
+				limit: TASKS_PER_PAGE
 			};
 			
 			await findTasks(searchParams);
