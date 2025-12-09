@@ -6,7 +6,7 @@ import { t } from "svelte-i18n";
 import { get } from "svelte/store";
 import { appStore } from "$lib/stores/app.store";
 import { ethers } from 'ethers';
-import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
+import { EscrowStatus } from "$lib/utils/enums/escrow.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
 import * as EscrowNostrEvent from '$lib/utils/wallet/escrowEvents';
@@ -195,7 +195,7 @@ async function connectToEscrowContract(): Promise<void> {
 }
 
 // Load escrow details from contract
-async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData | null> {
+async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData> {
     try {
         // Get the appropriate contract instance (no balance check needed for read operations)
         const { contract: targetContract } = await ensureEscrowReady(contractAddress, false);
@@ -235,10 +235,7 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 
         return escrow;
     } catch (error) {
-        // Silently handle errors - invalid escrow IDs are expected for contracts that were never funded
-        // This is not a critical error, just log as warning
-        console.warn(`Failed to load escrow details for ID ${escrowId}:`, error);
-        return null;
+        throw new Error(`Failed to load escrow details for ID ${escrowId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
@@ -870,8 +867,7 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
 }
 
 // Resolve after timelock
-// TODO: Add pending status event
-async function resolveAfterTimelock(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
+async function resolveAfterTimelock(escrowId: string, escrowStatus: EscrowStatus, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract, provider } = await ensureEscrowReady();
 
@@ -894,6 +890,17 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
             status: 'pending'
         };
 
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingTimelockResolution
+            });
+        }
+
         appStore.showInfoToast(get(t)('dashboard.contracts.actions.timelock_resolving_message'));
 
         // Handle confirmation asynchronously
@@ -904,11 +911,28 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
                 console.log('Timelock resolution transaction confirmed:', receipt);
 
                 if (contractEventId) {
+                    // CRITICAL: Check blockchain state BEFORE transaction to determine correct final status
+                    // - From Completed (4): Freelancer gets paid → FundsReleased
+                    // - From InDispute (1): Client gets refund → DisputeUnresolved
+                    let finalStatus: EscrowStatus;
+
+                    if (escrowStatus === EscrowStatus.Completed) {
+                        // Outcome #10: Completion timeout - freelancer gets paid
+                        finalStatus = EscrowStatus.FundsReleased;
+                    } else if (escrowStatus === EscrowStatus.InDispute) {
+                        // Outcome #9: Dispute timeout - client gets refund
+                        finalStatus = EscrowStatus.DisputeUnresolved;
+                    } else {
+                        // Fallback (shouldn't happen, but defensive)
+                        console.warn(`Unexpected prior status for timelock resolution: ${escrowStatus}`);
+                        finalStatus = EscrowStatus.DisputeUnresolved;
+                    }
+
                     await EscrowNostrEvent.publishEscrowStatus({
                         escrowId,
                         contractEventId,
                         transactionHash: receipt.hash,
-                        status: EscrowStatus.DisputeUnresolved
+                        status: finalStatus
                     });
                 }
             } else {

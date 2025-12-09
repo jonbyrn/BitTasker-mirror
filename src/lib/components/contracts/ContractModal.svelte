@@ -136,9 +136,9 @@
 
 								<div class="flex justify-between">
 									<span class="text-base-content/70">{$t('dashboard.contracts.escrow_id')}:</span>
-									<span class="font-mono text-sm"
-										>#{contractStore.getContractKey(contract, 'escrowId')}</span
-									>
+									<span class="font-mono text-sm">
+										#{contract.escrowData.id}
+									</span>
 								</div>
 
 								<div class="flex justify-between">
@@ -150,9 +150,7 @@
 
 								<div class="flex justify-between">
 									<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
-									<span class="text-sm"
-										>{formatDate(contractStore.getContractKey(contract, 'createdAt'))}</span
-									>
+									<span class="text-sm">{formatDate(contract.contractEvent.created_at)}</span>
 								</div>
 							</div>
 						</div>

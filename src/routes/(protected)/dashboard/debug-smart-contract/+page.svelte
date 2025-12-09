@@ -9,7 +9,7 @@
 	import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
 	import type { EscrowData } from '$lib/types/wallet';
 	import type { ContractPermissions } from '$lib/types/contract';
-	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import DebugContractCard from '$lib/components/contracts/DebugContractCard.svelte';

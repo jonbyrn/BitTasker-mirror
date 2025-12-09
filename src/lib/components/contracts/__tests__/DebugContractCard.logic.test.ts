@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { EscrowData } from '$lib/types/wallet';
 import type { ContractPermissions } from '$lib/types/contract';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 
 /**
  * Unit tests for DebugContractCard business logic

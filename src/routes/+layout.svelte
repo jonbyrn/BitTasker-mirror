@@ -7,8 +7,16 @@
 	import { darkMode, setDarkMode } from '$lib/stores/theme.store';
 	import { devicePlatform, initializeDevicePlatform } from '$lib/stores/device.store';
 	import TopBar from '$lib/components/TopBar.svelte';
+	import { authState } from '$lib/stores/auth.store';
+	import {
+		BITTASKER_ORG_JSONLD,
+		BITTASKER_WEBSITE_JSONLD,
+		BITTASKER_SITE_NAVIGATION_JSONLD
+	} from '$lib/utils/constants/seo.constants';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
+	import '../app.css';
 	// Social media icon imports
 	import IconFacebook from '~icons/mdi/facebook';
 	import IconInstagram from '~icons/mdi/instagram';
@@ -20,17 +28,10 @@
 	import IconGithub from '~icons/mdi/github';
 	import IconTelegram from '~icons/mdi/telegram';
 	import IconWhatsapp from '~icons/mdi/whatsapp';
-	import '../app.css';
-	import { authState } from '$lib/stores/auth.store';
 
 	let isLoggedIn = $derived($authState.isAuthenticated);
 
 	// Global SEO JSON-LD - moved to dynamic injection
-	import {
-		BITTASKER_ORG_JSONLD,
-		BITTASKER_WEBSITE_JSONLD,
-		BITTASKER_SITE_NAVIGATION_JSONLD
-	} from '$lib/utils/constants/seo.constants';
 
 	const { children } = $props();
 
@@ -52,35 +53,34 @@
 	// Defer device/theme/keyboard helpers to only run on relevant routes and after initial render
 	const deferHelpers = () => {
 		if (typeof requestIdleCallback !== 'undefined') {
-			requestIdleCallback(async () => {
-				const path = page.url.pathname;
-				const isProtected = path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
-				if (isProtected) {
-					const [deviceModule, keyboardModule] = await Promise.all([
-						import('$lib/stores/device.store'),
-						import('$lib/utils/helpers/keyboard')
-					]);
-					await Promise.all([
-						initializeDevicePlatform(),
-						deviceModule.getOnboardingCompleted()
-					]);
-					keyboardModule.setupKeyboardListeners();
-					keyboardModule.setupGlobalInputFocusScroll();
-				}
-			}, { timeout: 2000 });
+			requestIdleCallback(
+				async () => {
+					const path = page.url.pathname;
+					const isProtected =
+						path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
+					if (isProtected) {
+						const [deviceModule, keyboardModule] = await Promise.all([
+							import('$lib/stores/device.store'),
+							import('$lib/utils/helpers/keyboard')
+						]);
+						await Promise.all([initializeDevicePlatform(), deviceModule.getOnboardingCompleted()]);
+						keyboardModule.setupKeyboardListeners();
+						keyboardModule.setupGlobalInputFocusScroll();
+					}
+				},
+				{ timeout: 2000 }
+			);
 		} else {
 			setTimeout(async () => {
 				const path = page.url.pathname;
-				const isProtected = path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
+				const isProtected =
+					path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
 				if (isProtected) {
 					const [deviceModule, keyboardModule] = await Promise.all([
 						import('$lib/stores/device.store'),
 						import('$lib/utils/helpers/keyboard')
 					]);
-					await Promise.all([
-						initializeDevicePlatform(),
-						deviceModule.getOnboardingCompleted()
-					]);
+					await Promise.all([initializeDevicePlatform(), deviceModule.getOnboardingCompleted()]);
 					keyboardModule.setupKeyboardListeners();
 					keyboardModule.setupGlobalInputFocusScroll();
 				}
@@ -136,19 +136,19 @@
 		};
 	};
 
-    // Track the current path reactively (must read synchronously to create dependency)
-    const currentPath = $derived(page.url.pathname);
+	// Track the current path reactively (must read synchronously to create dependency)
+	const currentPath = $derived(page.url.pathname);
 
-    // Check if we should hide footer for logged-in users on task detail pages
-    const shouldHideFooterForLoggedInTaskPage = $derived(
-        isLoggedIn && currentPath.match(/^\/tasks\/[^/]+$/)
-    );
+	// Check if we should hide footer for logged-in users on task detail pages
+	const shouldHideFooterForLoggedInTaskPage = $derived(
+		isLoggedIn && currentPath.match(/^\/tasks\/[^/]+$/)
+	);
 
-    // Update layout based on current route - Optimized with debouncing
-    let routeChangeTimeout: ReturnType<typeof setTimeout>;
-    const updateLayoutBasedOnRoute = (path: string) => {
-        clearTimeout(routeChangeTimeout);
-        routeChangeTimeout = setTimeout(() => {
+	// Update layout based on current route - Optimized with debouncing
+	let routeChangeTimeout: ReturnType<typeof setTimeout>;
+	const updateLayoutBasedOnRoute = (path: string) => {
+		clearTimeout(routeChangeTimeout);
+		routeChangeTimeout = setTimeout(() => {
 			// Determine if on landing page (homepage, how-it-works, etc.)
 			isLandingPage = path === '/' || path === '/how-it-works' || path.startsWith('/auth');
 
@@ -161,7 +161,7 @@
 			showFooterSection = path.includes('/dashboard');
 
 			// Generate breadcrumbs - deferred to idle time
-            if (path !== '/') {
+			if (path !== '/') {
 				const segments = path.split('/').filter(Boolean);
 				breadcrumbList = {
 					'@context': 'https://schema.org',
@@ -179,11 +179,11 @@
 		}, 50); // Small debounce to prevent excessive updates
 	};
 
-    // Optimized effect for route changes
-    $effect(() => {
-        // Reading currentPath here creates a reactive dependency on the URL
-        updateLayoutBasedOnRoute(currentPath);
-    });
+	// Optimized effect for route changes
+	$effect(() => {
+		// Reading currentPath here creates a reactive dependency on the URL
+		updateLayoutBasedOnRoute(currentPath);
+	});
 
 	$effect(() => {
 		setDarkMode($darkMode);
@@ -247,21 +247,25 @@
 	<link rel="manifest" href="/site.webmanifest" />
 
 	<!-- Preload critical images -->
-	<link href="/images/Logos/BitTasker-Logo-dark-mode.svg" as="image" /> 
+	<link href="/images/Logos/BitTasker-Logo-dark-mode.svg" as="image" />
 	<link href="/images/Logos/BitTasker-Logo-light-mode.svg" as="image" />
 
-    <!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
-    {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
-    {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
-    {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
-    {#if page.url.pathname !== '/'}
-	    {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
-    {/if}
-    
-    <!-- Analytics tracking - only load in production -->
-    {#if import.meta.env.MODE === 'production'}
-        <script defer src="https://analyze.bittasker.com/script.js" data-website-id="60d3abf1-1032-4652-8b01-612280814595"></script>
-    {/if}
+	<!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
+	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
+	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
+	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
+	{#if page.url.pathname !== '/'}
+		{@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
+	{/if}
+
+	<!-- Analytics tracking - only load in production -->
+	{#if import.meta.env.MODE === 'production'}
+		<script
+			defer
+			src="https://analyze.bittasker.com/script.js"
+			data-website-id="60d3abf1-1032-4652-8b01-612280814595"
+		></script>
+	{/if}
 </svelte:head>
 
 <svelte:window bind:innerHeight={height} />
@@ -275,7 +279,7 @@
 	<main
 		data-theme={$darkMode ? 'dark' : 'light'}
 		id="main"
-		class="no-horizontal-scroll flex min-h-dvh flex-col bg-base-200"
+		class="no-horizontal-scroll bg-base-200 flex min-h-dvh flex-col"
 	>
 		<!-- Desktop TopBar will be positioned fixed via its own component styles -->
 		{#if showTopBar}
@@ -291,7 +295,7 @@
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
 			{#if devicePlatformValue === 'web' && !isLandingPage}
-				<div class="bg-base-200 flex grow lg:block overflow-hidden">
+				<div class="bg-base-200 flex grow overflow-hidden lg:block">
 					{@render children()}
 				</div>
 			{:else}
@@ -303,227 +307,345 @@
 				</div>
 			{/if}
 		</div>
-	{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage}
-		{#if !isLoggedIn}
-			<!-- Section 7: Final Call to Action (CTA) -->
-			<section class="bg-primary text-primary-content py-16">
-				<div class="container mx-auto px-4 text-center">
-					<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
-					<p class="mx-auto mt-4 max-w-2xl text-lg">{$t('homepage.v2.finalcta.description')}</p>
-					<div class="mt-8 flex flex-col items-center space-y-6">
-						<div class="flex flex-wrap justify-center gap-4">
-							<a
-								href="/tasks"
-								class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800 transition-all duration-300 ease-in-out"
-							>
-								{$t('homepage.v2.finalcta.tasker_cta')}
-							</a>
-							<!-- <a
+		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage}
+			{#if !isLoggedIn}
+				<!-- Section 7: Final Call to Action (CTA) -->
+				<section class="bg-primary text-primary-content py-16">
+					<div class="container mx-auto px-4 text-center">
+						<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
+						<p class="mx-auto mt-4 max-w-2xl text-lg">{$t('homepage.v2.finalcta.description')}</p>
+						<div class="mt-8 flex flex-col items-center space-y-6">
+							<div class="flex flex-wrap justify-center gap-4">
+								<a
+									href="/tasks"
+									class="btn btn-lg border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
+								>
+									{$t('homepage.v2.finalcta.tasker_cta')}
+								</a>
+								<!-- <a
 								href="/dashboard/taskees"
 								class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800 transition-all duration-300 ease-in-out"
 							>
 								{$t('homepage.v2.finalcta.taskee_cta')}
 							</a> -->
-						</div>
-						<div>
-							<a
-								href="/auth/signup"
-								class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg hover:text-white transition-all duration-300 ease-in-out"
-							>
-								{$t('homepage.v2.finalcta.get_started')}
-							</a>
-						</div>
-					</div>
-				</div>
-			</section>
-		{/if}
-		<footer class="bg-base-300 text-base-content/70 py-12">
-			<div class="container mx-auto px-4">
-				<div class="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
-					<!-- Company Info -->
-					<div class="col-span-2 md:col-span-3 lg:col-span-1 px-4 md:px-6 lg:px-0">
-						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
-						<p class="mb-4">{$t('footer.company_description')}</p>
-						<!-- Social media icons -->
-						<div class="flex flex-col space-y-6 lg:space-y-2">
-							<!-- First row: Primal, Twitter, Facebook, Instagram, YouTube -->
-							<div class="col-span-2 md:col-span3 lg:col-span-1 flex lg:space-x-4 space-x-8 justify-center lg:justify-start">
-								<a
-									href="https://primal.net/BitTasker"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									aria-label="Primal"
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									<svg width="24" height="24" viewBox="0 0 36 36" fill="currentColor" class="text-base-content hover:text-primary transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8">
-										<path d="m 21.8684,35.583 c -1.2461,0.2729 -2.5405,0.4167 -3.8685,0.4167 -3.645,0 -7.0369,-1.0834 -9.87134,-2.9457 C 7.42496,32.0476 7.10927,31.4935 6.87899,31.0894 6.76489,30.8892 6.67176,30.7257 6.5628,30.5623 5.48908,28.8355 4.9273,26.6174 4.80479,24.0113 4.42532,15.9363 9.3328,10.7798 14.3461,9.93346 c 3.178,-0.53651 5.7035,0.00682 7.6405,1.04274 -1.7125,-0.4764 -3.754,-0.505 -6.0813,0.1612 -5.6417,1.8184 -7.52244,7.3478 -6.71634,13.4711 1.40684,7.6726 8.92974,10.4226 12.67944,10.9745 z"/>
-										<path d="M 5.79919,31.235 C 4.74978,29.3716 3.79946,26.5912 3.68071,24.0649 3.27786,15.4924 8.51664,9.77741 14.1585,8.82493 21.8491,7.52657 26.1246,12.0794 27.5985,15.4587 27.6602,15.4171 27.6852,15.3348 27.6527,15.264 25.2293,9.99435 20.2169,6.37564 14.4271,6.37564 7.85277,6.37564 1.98661,11.0916 0,18.1005 0.028214,23.2941 2.25599,27.9669 5.79919,31.235 Z"/>
-										<path d="m 28.1246,32.8843 c -1.2983,0.8849 -2.7184,1.6044 -4.23,2.1281 -0.7258,-0.1264 -1.5299,-0.2838 -2.0961,-0.3946 -0.2683,-0.0525 -0.4833,-0.0946 -0.611,-0.118 -3.424,-0.6254 -9.546,-2.8317 -10.8872,-10.0664 -0.3789,-2.909 -0.1075,-5.5868 0.8536,-7.7109 0.9468,-2.0926 2.5809,-3.6968 5.0729,-4.5067 2.8964,-0.7891 5.2966,-0.398 7.0795,0.5595 -0.4389,-0.0925 -0.8925,-0.141 -1.3567,-0.141 -3.8577,0 -6.9851,3.3506 -6.9851,7.4839 0,1.6504 0.4987,3.1761 1.3433,4.4134 0,0 2.4179,4.5673 9,4.1591 5.8689,-0.364 8.9166,-5.6283 9.2798,-7.5728 0.1888,-1.0105 0.2875,-2.0527 0.2875,-3.118 0,-9.31974 -7.5551,-16.87491 -16.8749,-16.87491 -7.0523,0 -13.09415,4.32607 -15.61666,10.46921 -0.85203,1.11 -1.585694,2.3405 -2.176875,3.6711 C 1.52404,6.62202 8.98879,0 18.0002,0 c 9.9411,0 17.9999,8.05884 17.9999,17.9999 0,6.187 -3.1215,11.6445 -7.8755,14.8844 z"/>
-									</svg>
-								</a>
-								<a
-									href="https://twitter.com/BitTaskerdotcom"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.twitter_aria')}"
-								>
-									<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8">
-										<path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-									</svg>
-								</a>
-								<a
-									href="https://www.facebook.com/BitTaskerdotcom/"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.facebook_aria')}"
-								>
-									<IconFacebook class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
-								</a>
-								<a
-									href="https://instagram.com/bittasker"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.instagram_aria')}"
-								>
-									<IconInstagram class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
-								</a>
-								<a
-									href="https://www.youtube.com/@BitTasker"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.youtube_aria')}"
-								>
-									<IconYoutube class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
-								</a>
 							</div>
-							<!-- Second row: LinkedIn, Reddit, TikTok, Rumble, GitHub -->
-							<div class="flex space-x-8 lg:space-x-4 justify-center lg:justify-start">
+							<div>
 								<a
-									href="https://www.linkedin.com/company/bittasker/"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.linkedin_aria')}"
+									href="/auth/signup"
+									class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
 								>
-									<IconLinkedin class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
-								</a>
-								<a
-									href="https://reddit.com/u/BitTasker"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.reddit_aria')}"
-								>
-									<IconReddit class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
-								</a>
-								<a
-									href="https://www.tiktok.com/@bittasker"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.tiktok_aria')}"
-								>
-									<IconMusicNoteEighth class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
-								</a>
-								<a
-									href="https://rumble.com/c/c-7742441"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.rumble_aria')}"
-								>
-									<IconPlay class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
-								</a>
-								<a
-									href="https://github.com/BitTasker"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="GitHub"
-								>
-									<IconGithub class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
-								</a>
-							</div>
-							<!-- Third row: Telegram, WhatsApp -->
-							<div class="flex space-x-8 lg:space-x-4 justify-center lg:justify-start">
-								<a
-									href="https://t.me/+Y1VVB5B1Z6Q5OGQ1"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.telegram_aria')}"
-								>
-									<IconTelegram class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
-								</a>
-								<a
-									href="https://chat.whatsapp.com/GorZMOrVhOb0KDX6dpKLZ2"
-									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="{$t('footer.social.whatsapp_aria')}"
-								>
-									<IconWhatsapp class="transition-colors duration-300 ease-in-out lg:w-6 lg:h-6 w-8 h-8" />
+									{$t('homepage.v2.finalcta.get_started')}
 								</a>
 							</div>
 						</div>
 					</div>
-
-					<!-- For Taskers -->
-					<div class="col-span-1 px-4 md:px-6 lg:px-0">
-						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskers')}</h4>
-						<ul class="space-y-2">
-							<li><a href="/tasker-fees" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.tasker_fees')}</a></li>
-							<li><a href="/secure-payments" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.escrow')}</a></li>
-							<li><a href="/faq" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.faq')}</a></li>
-						</ul>
-					</div>
-
-					<!-- For Taskees -->
-					<div class="col-span-1 px-4 md:px-6 lg:px-0">
-						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskees')}</h4>
-						<ul class="space-y-2">
-							<li>
-								<a href="/tasks" class="hover:text-primary transition-colors duration-300 ease-in-out">
-									{$t('footer.start_earning')}
-								</a>
-							</li>
-							<li>
-								<a href="/community-guidelines" class="hover:text-primary transition-colors duration-300 ease-in-out"
-									>{$t('footer.community_guidelines')}</a
+				</section>
+			{/if}
+			<footer class="bg-base-300 text-base-content/70 py-12">
+				<div class="container mx-auto px-4">
+					<div class="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
+						<!-- Company Info -->
+						<div class="col-span-2 px-4 md:col-span-3 md:px-6 lg:col-span-1 lg:px-0">
+							<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
+							<p class="mb-4">{$t('footer.company_description')}</p>
+							<!-- Social media icons -->
+							<div class="flex flex-col space-y-6 lg:space-y-2">
+								<!-- First row: Primal, Twitter, Facebook, Instagram, YouTube -->
+								<div
+									class="md:col-span3 col-span-2 flex justify-center space-x-8 lg:col-span-1 lg:justify-start lg:space-x-4"
 								>
-							</li>
-							<li>
-								<a href="/taskee-fees" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.taskee_fees')}</a>
-							</li>
-							<li>
-								<a href="/tasker-principles" class="hover:text-primary transition-colors duration-300 ease-in-out"
-									>{$t('footer.tasker_principles')}</a
-								>
-							</li>
-							<li>
-								<a href="/faq" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.tasker_faq')}</a>
-							</li>
-						</ul>
-					</div>
+									<a
+										href="https://primal.net/BitTasker"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										aria-label="Primal"
+										target="_blank"
+										rel="noopener noreferrer"
+									>
+										<svg
+											width="24"
+											height="24"
+											viewBox="0 0 36 36"
+											fill="currentColor"
+											class="text-base-content hover:text-primary h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										>
+											<path
+												d="m 21.8684,35.583 c -1.2461,0.2729 -2.5405,0.4167 -3.8685,0.4167 -3.645,0 -7.0369,-1.0834 -9.87134,-2.9457 C 7.42496,32.0476 7.10927,31.4935 6.87899,31.0894 6.76489,30.8892 6.67176,30.7257 6.5628,30.5623 5.48908,28.8355 4.9273,26.6174 4.80479,24.0113 4.42532,15.9363 9.3328,10.7798 14.3461,9.93346 c 3.178,-0.53651 5.7035,0.00682 7.6405,1.04274 -1.7125,-0.4764 -3.754,-0.505 -6.0813,0.1612 -5.6417,1.8184 -7.52244,7.3478 -6.71634,13.4711 1.40684,7.6726 8.92974,10.4226 12.67944,10.9745 z"
+											/>
+											<path
+												d="M 5.79919,31.235 C 4.74978,29.3716 3.79946,26.5912 3.68071,24.0649 3.27786,15.4924 8.51664,9.77741 14.1585,8.82493 21.8491,7.52657 26.1246,12.0794 27.5985,15.4587 27.6602,15.4171 27.6852,15.3348 27.6527,15.264 25.2293,9.99435 20.2169,6.37564 14.4271,6.37564 7.85277,6.37564 1.98661,11.0916 0,18.1005 0.028214,23.2941 2.25599,27.9669 5.79919,31.235 Z"
+											/>
+											<path
+												d="m 28.1246,32.8843 c -1.2983,0.8849 -2.7184,1.6044 -4.23,2.1281 -0.7258,-0.1264 -1.5299,-0.2838 -2.0961,-0.3946 -0.2683,-0.0525 -0.4833,-0.0946 -0.611,-0.118 -3.424,-0.6254 -9.546,-2.8317 -10.8872,-10.0664 -0.3789,-2.909 -0.1075,-5.5868 0.8536,-7.7109 0.9468,-2.0926 2.5809,-3.6968 5.0729,-4.5067 2.8964,-0.7891 5.2966,-0.398 7.0795,0.5595 -0.4389,-0.0925 -0.8925,-0.141 -1.3567,-0.141 -3.8577,0 -6.9851,3.3506 -6.9851,7.4839 0,1.6504 0.4987,3.1761 1.3433,4.4134 0,0 2.4179,4.5673 9,4.1591 5.8689,-0.364 8.9166,-5.6283 9.2798,-7.5728 0.1888,-1.0105 0.2875,-2.0527 0.2875,-3.118 0,-9.31974 -7.5551,-16.87491 -16.8749,-16.87491 -7.0523,0 -13.09415,4.32607 -15.61666,10.46921 -0.85203,1.11 -1.585694,2.3405 -2.176875,3.6711 C 1.52404,6.62202 8.98879,0 18.0002,0 c 9.9411,0 17.9999,8.05884 17.9999,17.9999 0,6.187 -3.1215,11.6445 -7.8755,14.8844 z"
+											/>
+										</svg>
+									</a>
+									<a
+										href="https://twitter.com/BitTaskerdotcom"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.twitter_aria')}
+									>
+										<svg
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="currentColor"
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										>
+											<path
+												d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+											/>
+										</svg>
+									</a>
+									<a
+										href="https://www.facebook.com/BitTaskerdotcom/"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.facebook_aria')}
+									>
+										<IconFacebook
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+									<a
+										href="https://instagram.com/bittasker"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.instagram_aria')}
+									>
+										<IconInstagram
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+									<a
+										href="https://www.youtube.com/@BitTasker"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.youtube_aria')}
+									>
+										<IconYoutube
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+								</div>
+								<!-- Second row: LinkedIn, Reddit, TikTok, Rumble, GitHub -->
+								<div class="flex justify-center space-x-8 lg:justify-start lg:space-x-4">
+									<a
+										href="https://www.linkedin.com/company/bittasker/"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.linkedin_aria')}
+									>
+										<IconLinkedin
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+									<a
+										href="https://reddit.com/u/BitTasker"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.reddit_aria')}
+									>
+										<IconReddit
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+									<a
+										href="https://www.tiktok.com/@bittasker"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.tiktok_aria')}
+									>
+										<IconMusicNoteEighth
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+									<a
+										href="https://rumble.com/c/c-7742441"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.rumble_aria')}
+									>
+										<IconPlay
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+									<a
+										href="https://github.com/BitTasker"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label="GitHub"
+									>
+										<IconGithub
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+								</div>
+								<!-- Third row: Telegram, WhatsApp -->
+								<div class="flex justify-center space-x-8 lg:justify-start lg:space-x-4">
+									<a
+										href="https://t.me/+Y1VVB5B1Z6Q5OGQ1"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.telegram_aria')}
+									>
+										<IconTelegram
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+									<a
+										href="https://chat.whatsapp.com/GorZMOrVhOb0KDX6dpKLZ2"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.whatsapp_aria')}
+									>
+										<IconWhatsapp
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+								</div>
+							</div>
+						</div>
 
-					<!-- Company -->
-					<div class="col-span-1 px-4 md:px-6 lg:px-0">
-						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company')}</h4>
-						<ul class="space-y-2">
-							<li><a href="/about" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.about_us')}</a></li>
-							<li><a href="/security" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.security')}</a></li>
-							<li><a href="/careers" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.careers')}</a></li>
-							<li><a href="/press" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.press')}</a></li>
-							<li><a href="/terms" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.terms')}</a></li>
-							<li><a href="/privacy" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.privacy')}</a></li>
-							<li><a href="/contact" class="hover:text-primary transition-colors duration-300 ease-in-out">{$t('footer.contact')}</a></li>
-						</ul>
+						<!-- For Taskers -->
+						<div class="col-span-1 px-4 md:px-6 lg:px-0">
+							<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskers')}</h4>
+							<ul class="space-y-2">
+								<li>
+									<a
+										href="/tasker-fees"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.tasker_fees')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/secure-payments"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.escrow')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/faq"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.faq')}</a
+									>
+								</li>
+							</ul>
+						</div>
+
+						<!-- For Taskees -->
+						<div class="col-span-1 px-4 md:px-6 lg:px-0">
+							<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskees')}</h4>
+							<ul class="space-y-2">
+								<li>
+									<a
+										href="/tasks"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+									>
+										{$t('footer.start_earning')}
+									</a>
+								</li>
+								<li>
+									<a
+										href="/community-guidelines"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.community_guidelines')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/taskee-fees"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.taskee_fees')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/tasker-principles"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.tasker_principles')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/faq"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.tasker_faq')}</a
+									>
+								</li>
+							</ul>
+						</div>
+
+						<!-- Company -->
+						<div class="col-span-1 px-4 md:px-6 lg:px-0">
+							<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company')}</h4>
+							<ul class="space-y-2">
+								<li>
+									<a
+										href="/about"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.about_us')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/security"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.security')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/careers"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.careers')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/press"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.press')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/terms"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.terms')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/privacy"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.privacy')}</a
+									>
+								</li>
+								<li>
+									<a
+										href="/contact"
+										class="hover:text-primary transition-colors duration-300 ease-in-out"
+										>{$t('footer.contact')}</a
+									>
+								</li>
+							</ul>
+						</div>
 					</div>
-				</div>
 
 					<div class="border-base-content/10 mt-12 border-t pt-8 text-center">
 						<p>
@@ -567,3 +689,5 @@
 		<Toast />
 	</main>
 {/if}
+
+<InfiniteScroll />

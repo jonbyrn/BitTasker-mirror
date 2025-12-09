@@ -502,6 +502,8 @@
       "title": "Contratos",
       "description": "Gestiona tus contratos activos y acuerdos de pago seguro",
       "loading": "Cargando contratos...",
+      "loading_more": "Cargando más contratos...",
+      "no_more_contracts": "Has llegado al final de tus contratos",
       "error_title": "Error al cargar contratos",
       "retry": "Reintentar",
       "refresh": "Actualizar",
@@ -576,7 +578,8 @@
         "contract_cancelled": "Contrato cancelado",
         "timelock_resolved": "Resuelto después del timelock",
         "pending_resolution_proposal": "Propuesta de resolución pendiente",
-        "pending_proposal_acceptance": "Aceptación de propuesta pendiente"
+        "pending_proposal_acceptance": "Aceptación de propuesta pendiente",
+        "pending_timelock_resolution": "Resolución de Timelock Pendiente"
       },
       "actions": {
         "complete_task": "Marcar Tarea como Completada",

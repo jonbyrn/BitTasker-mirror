@@ -99,27 +99,11 @@ const eventListeners: (() => void)[] = [];
 /**
  * Get wallet manager instance
  */
-export function getWalletManager(): WalletManager {
+function getWalletManager(): WalletManager {
 	if (!sdkWalletManager) {
-		throw new Error('Wallet not initialized. Call initializeWallet() first.');
+		throw new Error('Wallet is not initialized.');
 	}
 	return sdkWalletManager;
-}
-
-/**
- * Get RSK wallet instance (for escrow utilities)
- */
-export function getRSKWallet(): ethers.Wallet | null {
-	const state = get(walletStore);
-	return state.rsk.wallet;
-}
-
-/**
- * Get RSK provider instance (for escrow utilities)
- */
-export function getRSKProvider(): ethers.JsonRpcProvider | null {
-	const state = get(walletStore);
-	return state.rsk.provider;
 }
 
 /**
@@ -132,7 +116,7 @@ export function getEventListeners(): (() => void)[] {
 /**
  * Initialize wallet using SDK
  */
-export async function initializeWallet(): Promise<void> {
+async function initializeWallet(): Promise<void> {
 	const state = get(walletStore);
 
 	// Skip if already initializing or already connected
@@ -206,15 +190,7 @@ export async function initializeWallet(): Promise<void> {
 					provider: bscWallet.getProvider() as any
 				}
 			}));
-
-			// Load additional data
-			await Promise.allSettled([
-				loadAssets(),
-				loadTransactions(),
-				loadRbtcExchangeRate()
-			]);
 		}
-
 	} catch (error) {
 		console.error('Failed to initialize wallet:', error);
 		walletStore.update(s => ({
@@ -243,14 +219,14 @@ export async function getRSKAddress(): Promise<string> {
 	const address = await initializeWallet().then(() => {
 		return get(walletStore).rsk.address;
 	});
-	
+
 	return address || '';
 }
 
 /**
  * Disconnect wallet
  */
-export function disconnectWallet(): void {
+function disconnectWallet(): void {
 	if (sdkWalletManager) {
 		// Disconnect individual wallets
 		if (sdkWalletManager.rskWallet) {
@@ -704,13 +680,12 @@ export const transactions = derived(walletStore, $w => $w.transactions);
 // Wallet manager compatibility object
 export const walletManager = {
 	initialize: initializeWallet,
-	getRSKAddress,
-	disconnect: disconnectWallet,
 	cleanup: disconnectWallet,
+	getRSKAddress,
 	setActiveTab,
 	loadAssets,
 	loadTransactions,
-	retryRbtcExchangeRate: loadRbtcExchangeRate,
+	loadRbtcExchangeRate,
 	sendRBTC,
 	sendBSCUSDT,
 	sendBSCBNB,

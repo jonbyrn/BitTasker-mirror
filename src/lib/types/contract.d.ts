@@ -1,7 +1,7 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { DisputeProposal, EscrowData } from '$lib/types/wallet';
 import type { Attachment } from '$lib/types/task';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 
 // Contract permissions - grouped for better organization
 export interface ContractPermissions {
@@ -26,7 +26,6 @@ export interface NostrContract {
 	amount: string; // RBTC amount
 	currency: string; // 'RBTC'
 	status: EscrowStatus; // Use enum instead of string
-	createdAt: number;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	type: 'contract'; // Identify as contract message in DMs
@@ -72,7 +71,7 @@ export interface ContractWithEvents {
 
 	// Blockchain state (source of truth)
 	blockchainStatus: EscrowStatus | null; // EscrowStatus enum value from blockchain, null if not funded
-	escrowData: EscrowData | null; // Full escrow data from blockchain, null if not funded
+	escrowData: EscrowData; // Full escrow data from blockchain
 	status: EscrowStatus; // Unified status (includes pending states from Nostr)
 	isPending: boolean; // true if blockchain transaction is being processed
 

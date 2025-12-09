@@ -14,6 +14,13 @@
 		btcPrice: number;
 	}>();
 
+	// Check if blockchain query failed (no blockchain status and not pending)
+	const isBlockchainQueryFailed = $derived(
+		contract.blockchainStatus === null &&
+			!contract.isPending &&
+			!contract.contractEvent.content.transactionHash
+	);
+
 	// Format RBTC amount
 	function formatRBTC(amount: string): string {
 		const num = parseFloat(amount);
@@ -85,7 +92,12 @@
 	};
 </script>
 
-<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
+<div
+	class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg {isBlockchainQueryFailed
+		? 'pointer-events-none opacity-60'
+		: ''}"
+	class:cursor-not-allowed={isBlockchainQueryFailed}
+>
 	<div class="card-body">
 		<div class="flex flex-col justify-between gap-2">
 			<div class="flex items-start justify-between">
@@ -106,6 +118,11 @@
 				<!-- Badges in top right corner -->
 				<div class="ml-4 flex shrink-0 flex-col items-end gap-2">
 					<div class="flex items-center gap-2">
+						{#if import.meta.env.DEV}
+							<div class="badge badge-error badge-sm">
+								{contract.escrowData?.id}
+							</div>
+						{/if}
 						<div class="badge {getStatusColorClass(contract.status)} badge-sm">
 							{#if contract?.isPending}
 								<span class="loading loading-spinner loading-xs mr-1"></span>

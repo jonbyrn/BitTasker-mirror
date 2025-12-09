@@ -3,8 +3,8 @@ import type { CreateContractParams, PublishContractStatusParams } from '$lib/typ
 import { writable } from 'svelte/store';
 import { createContract, publishContractStatus } from '$lib/utils/nostr-contract';
 import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-import { getRSKWallet, getEventListeners } from '$lib/stores/wallet.store';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { getWallet, getEventListeners } from '$lib/stores/wallet.store';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
@@ -255,7 +255,7 @@ function handleEscrowStatusUpdate(escrowId: string, status: string, eventType: s
  * @unused - this function is not used anywhere in the codebase
  */
 export function setupContractEventListeners(contract: ethers.Contract): void {
-	const wallet = getRSKWallet();
+	const wallet = getWallet('rsk');
 	if (!contract || !wallet) return;
 
 	// Enable EscrowCreated event listener for contract creation feedback

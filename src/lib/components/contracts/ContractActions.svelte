@@ -10,7 +10,7 @@
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import { contractStore } from '$lib/stores/contract.store';
-	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
@@ -91,7 +91,7 @@
 	function canCancelBasedOnTime(): { allowed: boolean; reason?: string } {
 		const now = Date.now();
 		const estimatedStartTime = contractStore.getContractKey(contract, 'estimatedStartTime');
-		const createdAt = contractStore.getContractKey(contract, 'createdAt');
+		const createdAt = contract.contractEvent.created_at;
 
 		// Convert timestamps to milliseconds if they're in seconds
 		const startTime =
@@ -123,7 +123,7 @@
 
 	// Check blockchain completion status with caching
 	async function checkBlockchainCompletionStatus(): Promise<boolean> {
-		const cacheKey = contractStore.getContractKey(contract, 'escrowId');
+		const cacheKey = contract.escrowData.id;
 		const cached = blockchainCheckCache.get(cacheKey);
 		const now = Date.now();
 
@@ -138,7 +138,7 @@
 
 			// Add timeout protection (5 seconds)
 			const escrowData = (await Promise.race([
-				escrow.getEscrow(contractStore.getContractKey(contract, 'escrowId')),
+				escrow.getEscrow(contract.escrowData.id),
 				new Promise<null>((_, reject) =>
 					setTimeout(() => reject(new Error('Blockchain check timeout')), 5000)
 				)
@@ -189,7 +189,7 @@
 		try {
 			// Call RSK escrow completeTask - this publishes Nostr event with transactionHash
 			await escrow.completeTask(
-				contractStore.getContractKey(contract, 'escrowId'),
+				contract.escrowData.id,
 				contract.contractEvent.id,
 				attachments
 			);
@@ -232,7 +232,7 @@
 		try {
 			// Call RSK escrow acceptTask - this publishes Nostr event with transactionHash
 			await escrow.acceptTask(
-				contractStore.getContractKey(contract, 'escrowId'),
+				contract.escrowData.id,
 				contract.contractEvent.id
 			);
 
@@ -274,7 +274,7 @@
 		try {
 			// Call RSK escrow disputeTask - this publishes Nostr event with transactionHash
 			await escrow.disputeTask(
-				contractStore.getContractKey(contract, 'escrowId'),
+				contract.escrowData.id,
 				contract.contractEvent.id
 			);
 
@@ -327,7 +327,7 @@
 		try {
 			// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
 			await escrow.proposeResolution(
-				contractStore.getContractKey(contract, 'escrowId'),
+				contract.escrowData.id,
 				freelancerAmountRBTC,
 				contract.contractEvent.id,
 				clientAmountRBTC,
@@ -366,7 +366,7 @@
 		try {
 			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
 			await escrow.acceptProposal(
-				contractStore.getContractKey(contract, 'escrowId'),
+				contract.escrowData.id,
 				contract.contractEvent.id
 			);
 
@@ -406,7 +406,7 @@
 		try {
 			// Call RSK escrow cancelEscrow - this publishes Nostr event with transactionHash
 			await escrow.cancelEscrow(
-				contractStore.getContractKey(contract, 'escrowId'),
+				contract.escrowData.id,
 				contract.contractEvent.id
 			);
 
@@ -441,8 +441,14 @@
 		setLoading('resolveTimelock', true);
 		try {
 			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
+			console.log({
+				id: contract.escrowData.id,
+				status: contract.escrowData.status,
+				eventId: contract.contractEvent.id
+			});
 			await escrow.resolveAfterTimelock(
-				contractStore.getContractKey(contract, 'escrowId'),
+				contract.escrowData.id,
+				contract.escrowData.status,
 				contract.contractEvent.id
 			);
 
@@ -473,7 +479,7 @@
 		try {
 			await deleteContract(
 				contract.contractEvent.id,
-				contractStore.getContractKey(contract, 'escrowId')
+				contract.escrowData.id
 			);
 			appStore.showSuccessToast($t('dashboard.contracts.actions.delete_contract_success'));
 		} catch (error) {
@@ -985,7 +991,7 @@
 
 	<!-- Resolve After Timelock -->
 	{#if contract.permissions.canResolveTimelock}
-		<div class="bg-base-300 space-y-3 rounded-lg p-3">
+		<div class="col-span-2 space-y-3 rounded-lg {!isInline ? 'bg-base-300 p-3' : ''}">
 			{#if !isInline}
 				<h5 class="text-sm font-medium">
 					{$t('dashboard.contracts.actions.timelock_resolution')}

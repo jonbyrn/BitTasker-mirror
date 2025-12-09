@@ -15,13 +15,14 @@ import type {
 } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import { escrow } from '$lib/utils/wallet/escrow';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import { contractStore } from '$lib/stores/contract.store';
+import { get } from 'svelte/store';
+import { appStore } from '$lib/stores/app.store';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
-import { get } from 'svelte/store';
 
 /**
  * Create a new contract event after escrow creation (as encrypted DM)
@@ -44,7 +45,6 @@ export async function createContract(params: CreateContractParams): Promise<void
 			amount: params.amount,
 			currency: 'RBTC',
 			status: EscrowStatus.Funded, // Contract is created when escrow is funded
-			createdAt: Date.now(),
 			estimatedStartTime: params.estimatedStartTime,
 			estimatedCompletionTime: params.estimatedCompletionTime,
 			transactionHash: params.transactionHash, // Include transaction hash if provided
@@ -138,6 +138,10 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
  * - Queries KINDS.CONTRACT_STATUS separately with #e tag for event reference
  * - 100x reduction in data fetched and decrypted
  * - Includes comprehensive blockchain integration and status management
+ * 
+ * Supports pagination via until parameter:
+ * - First page: getContracts({ limit: 5 })
+ * - Next page: getContracts({ limit: 5, until: oldestTimestamp })
  */
 export async function getContracts(filter?: ContractFilter): Promise<ContractWithEvents[]> {
 	try {
@@ -156,7 +160,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			kinds: [KINDS.CONTRACT],
 			...TAG_FILTERS.byNpub(npub), // Contracts where user is participant
 			...TAG_FILTERS.byNetwork(currentNetwork), // Filter by current network
-			limit: 100
+			limit: filter?.limit || 5 // Default to 5 for infinite scroll
 		};
 
 		// Add optional filters
@@ -168,6 +172,15 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			nostrFilter['#t'] = filter.taskIds;
 		}
 
+		// Add pagination support
+		if (filter?.until) {
+			nostrFilter.until = filter.until;
+		}
+
+		if (filter?.since) {
+			nostrFilter.since = filter.since;
+		}
+
 		// Note: We don't filter by status here since we need blockchain state to determine true status
 
 		// Query contract events with their status events attached automatically
@@ -176,7 +189,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			nostrFilter,
 			{
 				kinds: [KINDS.CONTRACT_STATUS], // Kind of followup events to query
-				limit: 500 // Limit for status events (enough for all contracts)
+				limit: (filter?.limit || 5) * 20 // limit * (10 ~ status events) * 2 safety margin
 			},
 			{
 				attachAs: 'statusEvents', // Attach status events as array property
@@ -192,7 +205,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				const contractEvent = event as unknown as ContractEvent;
 				// Get status events attached by queryNostrEvents (already filtered and decrypted)
 				// Cast properly through unknown since NostrEvent has string content by default
-				const statusEvents = contractEvent.statusEvents?.sort((a, b) => a.content.timestamp - b.content.timestamp);
+				const statusEvents = contractEvent.statusEvents?.sort((a, b) => a.created_at - b.created_at);
 
 				// Determine if user is client
 				const isClient = contractEvent.content.clientPubkey === npub;
@@ -268,7 +281,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					statusEvents: statusEvents || [],
 					isClient,
 					blockchainStatus,
-					escrowData,
+					escrowData: escrowData!,
 					status,
 					isPending,
 					permissions,
@@ -290,7 +303,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 		// Sort by creation time (newest first)
 		return filteredContracts.sort(
-			(a, b) => b.contractEvent.content.createdAt - a.contractEvent.content.createdAt
+			(a, b) => b.contractEvent.created_at - a.contractEvent.created_at
 		);
 	} catch (error) {
 		throw error;
@@ -406,6 +419,9 @@ export async function handleStatusEvent(event: NostrEvent) {
 			return;
 		}
 
+		console.log({ received: statusEvent })
+		const { action, transactionHash } = statusEvent.content
+
 		// Extract escrow ID from #r tag (as per existing tag pattern)
 		const escrowIdTag = event.tags.find(tag => tag[0] === TAGS.R);
 		const escrowId = escrowIdTag?.[1];
@@ -428,12 +444,12 @@ export async function handleStatusEvent(event: NostrEvent) {
 
 		// Add the new status event to the contract's status events
 		const updatedStatusEvents = [...(contract.statusEvents || []), statusEvent]
-			.sort((a, b) => a.content.timestamp - b.content.timestamp);
+			.sort((a, b) => a.created_at - b.created_at);
 
 		// Fetch dispute proposal BEFORE updating store (if needed)
 		let freshDisputeProposal = contract.disputeProposal;
 
-		if (statusEvent.content.action === EscrowStatus.DisputeResolutionProposed) {
+		if (action === EscrowStatus.DisputeResolutionProposed) {
 			try {
 				const proposal = await escrow.getDisputeProposal(
 					escrowId,
@@ -487,9 +503,9 @@ export async function handleStatusEvent(event: NostrEvent) {
 		});
 
 		// If blockchain-confirmed action, fetch fresh blockchain data (async, for other fields)
-		if (statusEvent.content.transactionHash &&
+		if (transactionHash &&
 			[EscrowStatus.Completed, EscrowStatus.FundsReleased, EscrowStatus.InDispute,
-			EscrowStatus.DisputeResolved, EscrowStatus.Cancelled].includes(statusEvent.content.action)) {
+			EscrowStatus.DisputeResolved, EscrowStatus.Cancelled].includes(action)) {
 			// Async update blockchain data
 			escrow.getEscrow(escrowId, contract.contractEvent.content.contractAddress)
 				.then(async (escrowData) => {
@@ -664,7 +680,7 @@ export async function handleContractEvent(event: NostrEvent) {
 			statusEvents: [],
 			isClient,
 			blockchainStatus,
-			escrowData,
+			escrowData: escrowData!, // Non-null assertion safe here due to check above
 			status,
 			isPending,
 			permissions,
@@ -672,18 +688,12 @@ export async function handleContractEvent(event: NostrEvent) {
 			completionAttachments: null
 		};
 
-		// Add to store
+		// Add to store (prepend to top for newest first)
 		contractStore.update((state) => {
-			const newIndex = state.contracts.length;
-			const newContractsMap = new Map(state.contractsMap);
-			newContractsMap.set(escrowId, newIndex);
+			// Prepend new contract to the beginning
+			const updatedContracts = [newContract, ...state.contracts];
 
-			// Sort contracts by creation time (newest first) after adding
-			const updatedContracts = [...state.contracts, newContract].sort(
-				(a, b) => b.contractEvent.content.createdAt - a.contractEvent.content.createdAt
-			);
-
-			// Rebuild index map after sorting
+			// Rebuild index map after prepending
 			const sortedContractsMap = new Map<string, number>();
 			updatedContracts.forEach((contract, index) => {
 				sortedContractsMap.set(contract.contractEvent.content.escrowId, index);
@@ -698,6 +708,8 @@ export async function handleContractEvent(event: NostrEvent) {
 
 		console.log(`[ContractStore] ✅ New contract added to store: ${escrowId}`);
 
+		// Show notification for new contract (can be handled by UI toast system)
+		appStore.showInfoToast(`New contract received: ${newContract.contractEvent.content.taskTitle}`);
 	} catch (error) {
 		console.error('[ContractStore] Error handling contract event:', error);
 	}
@@ -719,7 +731,7 @@ async function decryptContractEvent(event: NostrEvent, userPubkeyHex: string): P
 			// We need to find the one that's NOT us
 			const recipientTags = event.tags.filter((tag) => tag[0] === 'p');
 			const otherPartyTag = recipientTags.find(tag => tag[1] !== userPubkeyHex);
-			
+
 			if (!otherPartyTag || !otherPartyTag[1]) {
 				return null;
 			}
