@@ -4,7 +4,7 @@
 
 import type { ethers } from 'ethers';
 import type { RSKNetwork } from "$lib/utils/wallet/networkConfig";
-import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
+import { EscrowStatus } from "$lib/utils/enums/escrow.enum";
 
 export type RSKUnit = 'rbtc' | 'wei';
 export type BSCUnit = 'usdt' | 'wei';

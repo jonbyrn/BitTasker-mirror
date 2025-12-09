@@ -20,9 +20,17 @@
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
-	onMount(async () => {
-		// Initialize wallets
+	async function initializeWallet(): Promise<void> {
 		await walletManager.initialize();
+		await Promise.allSettled([
+			walletManager.loadAssets(),
+			walletManager.loadTransactions(),
+			walletManager.loadRbtcExchangeRate()
+		]);
+	}
+
+	onMount(async () => {
+		await initializeWallet();
 	});
 
 	onDestroy(async () => {
@@ -87,10 +95,7 @@
 							</div>
 						</div>
 					</div>
-					<button
-						class="btn btn-outline btn-sm ml-4"
-						onclick={async () => await walletManager.initialize()}
-					>
+					<button class="btn btn-outline btn-sm ml-4" onclick={initializeWallet}>
 						{$t('wallet.page.retry_connection')}
 					</button>
 				</div>
@@ -256,7 +261,7 @@
 					{$t('wallet.error.no_mnemonic.message')}
 				</p>
 				<div class="flex justify-center gap-4">
-					<button class="btn btn-primary" onclick={async () => await walletManager.initialize()}>
+					<button class="btn btn-primary" onclick={initializeWallet}>
 						{$t('wallet.error.no_mnemonic.try_again')}
 					</button>
 				</div>

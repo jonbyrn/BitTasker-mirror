@@ -1,6 +1,6 @@
 import type { Freelancer } from './freelancer';
 import type { Event as NostrEvent } from 'nostr-tools';
-import type { Location } from './task';
+import type { Location, TaskTranslations } from '$lib/types/task';
 import type { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import type { BidTranslations } from '$lib/nostr/bid';
 
@@ -15,7 +15,7 @@ export interface NostrBidContent {
 	taskId: string;
 	taskTitle: string; // Add task title
 	taskDescription: string; // Add task description
-	taskTranslations?: import('./task').TaskTranslations; // Task translations for simple display
+	taskTranslations?: TaskTranslations; // Task translations for simple display
 	amount: number;
 	currency: string;
 	paymentType: PaymentType;
@@ -52,6 +52,10 @@ export interface NostrBidContent {
 	translations?: BidTranslations;
 }
 
+/**
+ * @deprecated
+ * Still used in BidCard.svelte, BidDetailsDrawer.svelte, BidsPanel.svelte, CounterOfferHistory.svelte
+ */
 export interface Bid {
 	// Basic Information
 	id: string;
@@ -287,7 +291,7 @@ export interface NostrBidStatus {
 	transactionHash?: string;
 }
 
-interface NostrEventWithFollowup extends NostrEvent {
+export interface NostrEventWithFollowup extends NostrEvent {
 	latestStatus?: Omit<NostrEvent, 'content'> & {
 		content: NostrBidStatus;
 	};

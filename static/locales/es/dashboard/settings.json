@@ -14,6 +14,10 @@
           "warning": "⚠️ ¡Mantén esto privado! Nunca compartas tu clave privada con nadie.",
           "alby": "ℹ️ Tu clave privada está gestionada de forma segura por la extensión Alby y no se puede acceder directamente.",
           "managed": "Clave privada gestionada por la extensión Alby"
+        },
+        "qrCode": {
+          "generate": "Generar Código QR",
+          "generating": "Generando Código QR..."
         }
       },
       "security": {

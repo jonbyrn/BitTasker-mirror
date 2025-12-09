@@ -1,13 +1,15 @@
+import type { BidStatusEnum } from './enums/bid.enum';
 import type { Filter, NostrEvent } from 'nostr-tools';
 import type { NostrBidStatus } from '$lib/types/bid';
-import { getNpub } from './nostrKeys';
+import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import { smartCache, currencyCache } from '$lib/utils/cache/bid-cache';
-import KINDS from '$lib/utils/constants/kinds';
 import { appStore } from '$lib/stores/app.store';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
-import type { BidStatusEnum } from './enums/bid.enum';
+import { nip19, nip44 } from 'nostr-tools';
+import { bidStore } from '$lib/stores/bid.store';
+import KINDS from '$lib/utils/constants/kinds';
 
 
 /**
@@ -117,7 +119,7 @@ export async function getBidsForTask(taskId: string, includeStatus: boolean = tr
 		return bids;
 	} catch (error) {
 		console.warn('Error getting bids for task:', error);
-		return [];
+		throw error;
 	}
 }
 
@@ -205,6 +207,57 @@ export function getBidStatus(bidEvent: NostrEvent): NostrBidStatus | null {
 }
 
 /**
+ * Decrypt a single bid event
+ * Used for real-time subscription updates to avoid re-fetching all bids
+ * 
+ * @param event - The encrypted bid event from subscription
+ * @returns Decrypted bid event or null if decryption fails
+ */
+export async function decryptBidEvent(event: NostrEvent): Promise<NostrEvent | null> {
+	try {
+		let { npub, nsec } = await getNostrKeyPair();
+		if (!npub || !nsec) {
+			throw new Error('No keys found');
+		}
+
+		if (npub.startsWith('npub')) {
+			npub = nip19.decode(npub).data as string;
+		}
+
+		// Determine the other party's pubkey for decryption
+		let otherPubkey: string;
+
+		if (event.pubkey === npub) {
+			// We are the sender, decrypt with recipient's key
+			const recipientTag = event.tags.find((tag) => tag[0] === 'p');
+			if (!recipientTag || !recipientTag[1]) {
+				console.warn('No recipient found in bid event tags:', event.id);
+				return null;
+			}
+			otherPubkey = recipientTag[1];
+		} else {
+			// We are the recipient, decrypt with sender's key
+			otherPubkey = event.pubkey;
+		}
+
+		// Get conversation key and decrypt
+		const conversationKey = await nip44.getConversationKey(nsec, otherPubkey);
+		const decryptedContent = nip44.decrypt(event.content, conversationKey);
+		const parsedContent = JSON.parse(decryptedContent);
+
+		return {
+			...event,
+			content: parsedContent
+		};
+	} catch (error) {
+		if (error instanceof Error && !error.message.includes('Invalid MAC')) {
+			console.error('Failed to decrypt bid event:', event.id, error);
+		}
+		return null;
+	}
+}
+
+/**
  * Send a bid status update (acceptance or rejection) via encrypted DM
  */
 export async function sendBidStatusUpdate(
@@ -245,6 +298,7 @@ export async function sendBidStatusUpdate(
 			icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 		})
 
+		bidStore.removeProcessingBid(bidEventId);
 		appStore.showInfoToast(`Bid status updated to ${status}`);
 	} catch (error) {
 		// Log error but don't throw - allow UI to continue

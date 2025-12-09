@@ -28,6 +28,9 @@ import {
 } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 
+	// Constants
+	const TASKS_PER_PAGE = 15;
+
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
 		return {
@@ -35,14 +38,13 @@ import {
 			categories: [],
 			skills: [],
 			page: 1,
-			limit: 10,
+			limit: TASKS_PER_PAGE,
 			budget: {
 				tier: undefined,
 				currency: undefined,
 				type: undefined
 			},
-			search: '',
-			status: [TaskStatusEnum.OPEN]
+			search: ''
 		};
 	}
 
@@ -61,6 +63,7 @@ import {
 	let loadingTimeout = $state(false);
 	let isInitialLoad = $state(true);
 	let dataLoaded = $state(false);
+	let lastSearchKey = $state<string>(''); // Track search parameters to detect changes
 	let showSkeleton = $state(true);
 	let selectedLocation = $state<any | null>(null);
 
@@ -129,10 +132,32 @@ import {
 	let taskListRef = $state<HTMLElement | null>(null);
 	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 	let intersectionObserver: IntersectionObserver | null = null;
+	
+	// Infinite scroll state - using scroll listener instead of sentinel
+	let scrollHandler: ((e: Event) => void) | null = null;
+	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
 
-	// Infinite scroll state
-	let infiniteScrollObserver: IntersectionObserver | null = null;
-	let scrollTarget = $state<HTMLElement | null>(null);
+	// Scroll to top button state
+	let showScrollToTop = $state(false);
+
+	// Handle scroll to show/hide scroll to top button
+	function handleScroll() {
+		if (taskListRef) {
+			// Show button when scrolled more than 300px
+			showScrollToTop = taskListRef.scrollTop > 300;
+		}
+	}
+
+	// Scroll to top function
+	function scrollToTop() {
+		if (taskListRef) {
+			taskListRef.scrollTo({
+				top: 0,
+				behavior: 'smooth'
+			});
+		}
+	}
+
 
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(null);
@@ -176,13 +201,67 @@ import {
 	 * Load Nostr data with proper state management
 	 */
 	async function loadNostrData(): Promise<void> {
-		if (dataLoaded) return; // Prevent multiple loads
+		// Create a key from search params to detect if search changed
+		const currentSearchKey = JSON.stringify(searchParams);
+		const searchChanged = lastSearchKey !== '' && lastSearchKey !== currentSearchKey;
+		
+		// Check if we already have tasks in store (from previous navigation)
+		const hasExistingTasks = $tasksStore.items.length > 0;
+		
+		// If we have existing tasks and search hasn't changed, don't reload - just use what's in the store
+		if (hasExistingTasks && !searchChanged) {
+			// Verify the search key matches (or is empty, meaning first load)
+			if (lastSearchKey === '' || lastSearchKey === currentSearchKey) {
+				dataLoaded = true;
+				showSkeleton = false;
+				lastSearchKey = currentSearchKey; // Update key
+				return;
+			}
+		}
+		
+		// If search params changed, reset dataLoaded to allow reload
+		if (searchChanged) {
+			dataLoaded = false;
+		}
+		
+		if (dataLoaded && !searchChanged) return; // Prevent multiple loads
 
 		try {
+			// Only load if we don't have tasks or search changed
+			const newSearchParams: SearchTasksParams = {
+				...searchParams,
+				page: 1,
+				limit: TASKS_PER_PAGE
+			};
+			
+			// Only include until if it has a value
+			if (searchParams.until !== undefined) {
+				newSearchParams.until = searchParams.until;
+			}
+			
+			searchParams = newSearchParams;
+
+			// Clear existing tasks before loading (only if search changed)
+			if (searchChanged || !hasExistingTasks) {
+				tasksStore.update((state) => ({
+					...state,
+					items: [],
+					currentPage: 1,
+					hasMore: true,
+					error: null
+				}));
+			}
+
 			await findTasks(searchParams);
 
 			dataLoaded = true;
 			showSkeleton = false;
+			lastSearchKey = currentSearchKey; // Update key after successful load
+			
+			// Setup infinite scroll after data is loaded
+			if (taskListRef) {
+				setupInfiniteScroll();
+			}
 
 			// Cleanup observers and timers
 			if (intersectionObserver) {
@@ -257,8 +336,7 @@ import {
 			const newParams: SearchTasksParams = {
 				...searchParams,
 				page: 1,
-				search: undefined,
-				status: [TaskStatusEnum.OPEN]
+				search: undefined
 			};
 			searchParams = { ...searchParams, ...newParams };
 
@@ -273,8 +351,7 @@ import {
 		const newParams: SearchTasksParams = {
 			...searchParams,
 			page: 1,
-			search: searchQuery.trim(),
-			status: [TaskStatusEnum.OPEN]
+			search: searchQuery.trim()
 		};
 
 		searchParams = { ...searchParams, ...newParams };
@@ -311,8 +388,7 @@ import {
 		searchParams = {
 			...searchParams,
 			...filters,
-			page: 1,
-			status: [TaskStatusEnum.OPEN]
+			page: 1
 		};
 
 		// Update UI controls based on applied filters
@@ -347,11 +423,24 @@ import {
 		findTasks(searchParams);
 	}
 
-	// Load more tasks (for infinite scroll)
+	// Load more tasks
 	async function loadMoreTasks() {
-		if ($tasksStore.hasMore && !$tasksStore.loading) {
+		// Prevent multiple simultaneous loads
+		if (!$tasksStore.hasMore || $tasksStore.loading || isLoadingMore) {
+			return;
+		}
+
+		try {
+			isLoadingMore = true;
+			
 			const nextPage = $tasksStore.currentPage + 1;
 			const lastItem = $tasksStore.items[$tasksStore.items.length - 1];
+
+			if (!lastItem) {
+				console.warn('[FindTasks] No last item found, cannot load more');
+				isLoadingMore = false;
+				return;
+			}
 
 			// Subtract 1 second from the last item's timestamp to exclude it from the next batch
 			const untilTimestamp = lastItem.createdAt - 1;
@@ -360,49 +449,107 @@ import {
 				...searchParams,
 				page: nextPage,
 				until: untilTimestamp,
-				status: [TaskStatusEnum.OPEN]
+				limit: TASKS_PER_PAGE
 			};
+			
 			await findTasks(searchParams);
+		} catch (error) {
+			console.error('[FindTasks] Error loading more tasks:', error);
+		} finally {
+			isLoadingMore = false;
 		}
 	}
 
-	// Setup intersection observer for infinite scroll
-	function setupInfiniteScroll() {
-		if (!browser) return;
+	/**
+	 * Setup infinite scroll using scroll listener
+	 * Loads more tasks automatically when user scrolls near the end (70% of scroll)
+	 */
+	function setupInfiniteScroll(): void {
+		if (!browser || !taskListRef) return;
 
-		if ('IntersectionObserver' in window) {
-			infiniteScrollObserver = new IntersectionObserver(
-				(entries) => {
-					if (entries[0].isIntersecting && $tasksStore.hasMore && !$tasksStore.loading) {
-						loadMoreTasks();
-					}
-				},
-				{ rootMargin: '200px' }
-			);
+		// Cleanup existing handler
+		if (scrollHandler) {
+			taskListRef.removeEventListener('scroll', scrollHandler);
+			scrollHandler = null;
+		}
 
-			if (scrollTarget) {
-				infiniteScrollObserver.observe(scrollTarget);
+		// Track last scroll position to prevent duplicate loads
+		let lastScrollTop = 0;
+		let lastLoadScrollTop = 0;
+
+		// Create scroll handler with debouncing
+		let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+		scrollHandler = () => {
+			if (scrollTimeout) {
+				clearTimeout(scrollTimeout);
 			}
-		}
+
+			scrollTimeout = setTimeout(() => {
+				if (!taskListRef || !$tasksStore.hasMore || $tasksStore.loading || isLoadingMore) {
+					return;
+				}
+
+				const { scrollTop, scrollHeight, clientHeight } = taskListRef;
+				
+				// Only process if user actually scrolled down (not up)
+				if (scrollTop <= lastScrollTop) {
+					lastScrollTop = scrollTop;
+					return;
+				}
+				
+				lastScrollTop = scrollTop;
+				
+				// Check if we have enough content to scroll
+				if (scrollHeight <= clientHeight) {
+					// Not enough content, but don't auto-load - wait for user to scroll
+					return;
+				}
+
+				const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
+				const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+
+				// Load more when:
+				// 1. User has scrolled 70% of the content
+				// 2. User scrolled at least 200px since last load (to prevent duplicate loads)
+				// 3. User is within 500px of the bottom (ensures they're actually near the end)
+				if (scrollPercentage > 0.7 && (scrollTop - lastLoadScrollTop) > 200 && distanceFromBottom < 500) {
+					lastLoadScrollTop = scrollTop;
+					loadMoreTasks();
+				}
+			}, 200); // Increased debounce to prevent rapid-fire loads
+		};
+
+		// Add scroll listener with passive flag for better performance
+		taskListRef.addEventListener('scroll', scrollHandler, { passive: true });
 	}
 
-	// Cleanup observer
-	function cleanupInfiniteScroll() {
-		tasksStore.update((state) => {
-			return {
-				...state,
-				items: [],
-				currentPage: 1,
-				hasMore: true,
-				error: null
-			};
-		});
-		if (infiniteScrollObserver && scrollTarget) {
-			infiniteScrollObserver.unobserve(scrollTarget);
-		}
-		if (infiniteScrollObserver) {
-			infiniteScrollObserver.disconnect();
-			infiniteScrollObserver = null;
+	// Get status badge color and text
+	function getStatusBadge(status: TaskStatusEnum): { color: string; text: string } {
+		switch (status) {
+			case TaskStatusEnum.OPEN:
+				return { color: 'badge-success', text: 'OPEN' };
+			case TaskStatusEnum.BID_ACCEPTED:
+				return { color: 'badge-info', text: 'BID ACCEPTED' };
+			case TaskStatusEnum.ESCROW_FUNDED:
+				return { color: 'badge-info', text: 'ESCROW FUNDED' };
+			case TaskStatusEnum.IN_PROGRESS:
+				return { color: 'badge-warning', text: 'IN PROGRESS' };
+			case TaskStatusEnum.RESCOPED:
+				return { color: 'badge-warning', text: 'RESCOPED' };
+			case TaskStatusEnum.RESCOPE_ACCEPTED:
+				return { color: 'badge-info', text: 'RESCOPE ACCEPTED' };
+			case TaskStatusEnum.COMPLETED:
+				return { color: 'badge-success', text: 'COMPLETED' };
+			case TaskStatusEnum.CANCELLED:
+				return { color: 'badge-error', text: 'CANCELLED' };
+			case TaskStatusEnum.REFUNDED:
+				return { color: 'badge-error', text: 'REFUNDED' };
+			case TaskStatusEnum.DISPUTED:
+				return { color: 'badge-error', text: 'DISPUTED' };
+			case TaskStatusEnum.DISPUTE_PROPOSAL:
+				return { color: 'badge-warning', text: 'DISPUTE PROPOSAL' };
+			default:
+				return { color: 'badge-neutral', text: status };
 		}
 	}
 
@@ -412,19 +559,37 @@ import {
 			// Fetch BTC price for USDT conversion (non-critical)
 			fetchBtcPrice();
 
-			// Setup lazy loading for Nostr data
-			setupLazyLoading();
+			// Setup scroll listener when taskListRef is available
+			if (taskListRef) {
+				taskListRef.addEventListener('scroll', handleScroll);
+			}
 
-			// Setup infinite scroll - waiting for DOM to be ready
-			setTimeout(() => {
-				setupInfiniteScroll();
-			}, 1000);
+			// Check if we already have tasks in store from previous navigation
+			// If so, skip loading and use existing tasks
+			if ($tasksStore.items.length > 0) {
+				dataLoaded = true;
+				showSkeleton = false;
+				// Set lastSearchKey to current params to prevent reload
+				lastSearchKey = JSON.stringify(searchParams);
+				// Setup infinite scroll if taskListRef is available
+				if (taskListRef) {
+					setupInfiniteScroll();
+				}
+			} else {
+				// Setup lazy loading for Nostr data only if no tasks exist
+				setupLazyLoading();
+			}
 		}
 	});
 
-	// Cleanup on component destroy
+		// Cleanup on component destroy
 	onDestroy(() => {
 		if (browser) {
+			// Cleanup scroll listener
+			if (taskListRef) {
+				taskListRef.removeEventListener('scroll', handleScroll);
+			}
+
 			// Cleanup lazy loading
 			if (intersectionObserver) {
 				intersectionObserver.disconnect();
@@ -434,12 +599,17 @@ import {
 				clearTimeout(fallbackTimer);
 				fallbackTimer = null;
 			}
+			
+			// Cleanup infinite scroll handler
+			if (scrollHandler && taskListRef) {
+				taskListRef.removeEventListener('scroll', scrollHandler);
+				scrollHandler = null;
+			}
 
-			// Cleanup infinite scroll
-			cleanupInfiniteScroll();
 			cleanup();
 		}
 	});
+
 
 	// Loading state management effect
 	$effect(() => {
@@ -667,6 +837,13 @@ import {
 					</div>
 				{/if}
 
+				<!-- Task Count -->
+				{#if $tasksStore.items && $tasksStore.items.length > 0}
+					<div class="mb-4 text-sm text-base-content/70">
+						{$t('find_tasks.showing_tasks', { values: { count: $tasksStore.items.length } }) || `Showing ${$tasksStore.items.length} task${$tasksStore.items.length !== 1 ? 's' : ''}`}
+					</div>
+				{/if}
+
 				<!-- Mobile: Full width list, Desktop: Split with map -->
 				<div class="lg:flex lg:gap-6">
 					<!-- Tasks List -->
@@ -727,11 +904,10 @@ import {
 									{#each $tasksStore.items as task, index}
 										<div
 											use:registerTaskCard={{ taskId: task.id }}
-											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
+											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {selectedTask?.id === task.id ? 'bg-base-300 border-primary border-2' : ''}"
 											onclick={() => selectTaskForMap(task)}
 											tabindex="0"
 											role="button"
-											class:bg-base-300={selectedTask?.id === task.id}
 											aria-label={$t('find_tasks.view_task')}
 											aria-pressed={selectedTaskId === task.id.toString()}
 											aria-current={selectedTaskId === task.id.toString()}
@@ -739,77 +915,39 @@ import {
 											aria-hidden={task.status !== TaskStatusEnum.OPEN}
 											data-task-id={task.id}
 										>
-											<div class="card-body p-4 md:p-4 border-2 border-[#f7931a] rounded-xl">
-												<!-- Top Row: Title + Price -->
+											<div class="card-body p-4 md:p-4 rounded-xl">
+												<!-- Top Row: Title + Status Badge -->
 												<div
-													class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
+													class="mb-1 flex flex-row items-start justify-between gap-2"
 												>
-													<!-- Left: Title and Sats -->
-													<TranslatableTask 
-														{task} 
-														showDescription={true}
-														showDescriptionToggle={false}
-														descriptionClass="text-sm text-base-content/80 line-clamp-2"
-														titleClass="card-title line-clamp-2 text-lg font-semibold" 
-													/>
+													<!-- Left: Title (70% width) -->
+													<div class="w-[70%] pr-2 md:pr-4">
+														<TranslatableTask 
+															{task} 
+															showDescription={true}
+															showDescriptionToggle={false}
+															descriptionClass="text-sm text-base-content/80 line-clamp-2"
+															titleClass="card-title line-clamp-2 text-lg font-semibold" 
+														/>
+													</div>
+													<!-- Right: Status Badge (aligned right) -->
+													<div class="flex w-[30%] shrink-0 justify-end">
+														{#each [task] as taskItem}
+															{@const statusBadge = getStatusBadge(taskItem.status)}
+															<div class="badge {statusBadge.color} badge-outline badge-sm">
+																{$t(`task.status.${taskItem.status.toLowerCase()}`) || statusBadge.text}
+															</div>
+														{/each}
+													</div>
 												</div>
 
 												<!-- Schedule and Sats Row -->
-												<div class="mb-3 flex flex-col gap-4 md:flex-row md:flex-wrap">
-													<div class="flex w-full items-center justify-between">
-														<!-- Left: Schedule -->
-														<div class="flex items-center gap-2">
-															<svg
-																xmlns="http://www.w3.org/2000/svg"
-																class="text-base-content/60 h-4 w-4 shrink-0"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke="currentColor"
-															>
-																<path
-																	stroke-linecap="round"
-																	stroke-linejoin="round"
-																	stroke-width="2"
-																	d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-																/>
-															</svg>
-															<div class="flex flex-col px-2">
-																{#if task.deadline}
-																	<small class="text-base-content/60 text-xs"
-																		>{$t('dashboard.task_details_by_task.deadline')}</small
-																	>
-																	<span class="text-sm font-medium">
-																		{formatDateTimeReactive(task.deadline)}
-																	</span>
-																{:else if task.dateRange}
-																	<small class="text-base-content/60 text-xs"
-																		>{$t('dashboard.task_details_by_task.date_range')}</small
-																	>
-																	<span class="text-sm font-medium">
-																		{formatDateRangeReactive(
-																			task.dateRange.start,
-																			task.dateRange.end
-																		)}
-																	</span>
-																{/if}
-															</div>
-														</div>
-
-														<!-- Right: Sats -->
-														<div class="text-lg font-bold">
-															${formatNumberWithTwoDecimals(task.budget.amount)}
-
-															<div class="text-base-content/60 text-sm">
-																{satsFromUsd(task.budget.amount, btcPrice)}
-															</div>
-														</div>
-													</div>
-
-													<!-- Location -->
-													<div class="flex w-full items-start gap-2">
+												<div class="mb-3 flex flex-row items-center justify-between gap-2">
+													<!-- Left: Schedule (70% width) -->
+													<div class="flex w-[70%] items-center gap-2 pr-2 md:pr-4">
 														<svg
 															xmlns="http://www.w3.org/2000/svg"
-															class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
+															class="text-base-content/60 h-4 w-4 shrink-0"
 															fill="none"
 															viewBox="0 0 24 24"
 															stroke="currentColor"
@@ -818,29 +956,78 @@ import {
 																stroke-linecap="round"
 																stroke-linejoin="round"
 																stroke-width="2"
-																d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-															/>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+																d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
 															/>
 														</svg>
-														<div class="flex min-w-0 flex-1 flex-col">
-															<small class="text-base-content/60 text-xs">
-																{$t('dashboard.task_details_by_task.location_details')}
-															</small>
-															<span class="line-clamp-2 text-sm font-medium">
-																{#if task.dropOffLocation?.displayName}
-																	{task.dropOffLocation.displayName}
-																{:else if task.pickupLocation?.displayName}
-																	{task.pickupLocation.displayName}
-																{:else}
-																	{$t('dashboard.task_details_by_task.remote')}
-																{/if}
-															</span>
+														<div class="flex min-w-0 flex-1 flex-col px-2">
+															{#if task.deadline}
+																<small class="text-base-content/60 text-xs"
+																	>{$t('dashboard.task_details_by_task.deadline')}</small
+																>
+																<span class="line-clamp-2 text-sm font-medium">
+																	{formatDateTimeReactive(task.deadline)}
+																</span>
+															{:else if task.dateRange}
+																<small class="text-base-content/60 text-xs"
+																	>{$t('dashboard.task_details_by_task.date_range')}</small
+																>
+																<span class="line-clamp-2 text-sm font-medium">
+																	{formatDateRangeReactive(
+																		task.dateRange.start,
+																		task.dateRange.end
+																	)}
+																</span>
+															{/if}
 														</div>
+													</div>
+
+													<!-- Right: Sats (30% width, aligned right) -->
+													<div class="flex w-[30%] shrink-0 justify-end">
+														<div class="text-right text-lg font-bold">
+															${formatNumberWithTwoDecimals(task.budget.amount)}
+
+															<div class="text-base-content/60 text-sm">
+																{satsFromUsd(task.budget.amount, btcPrice)}
+															</div>
+														</div>
+													</div>
+												</div>
+
+												<!-- Location -->
+												<div class="flex w-full items-start gap-2">
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+														/>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+														/>
+													</svg>
+													<div class="flex min-w-0 flex-1 flex-col">
+														<small class="text-base-content/60 text-xs">
+															{$t('dashboard.task_details_by_task.location_details')}
+														</small>
+														<span class="line-clamp-2 text-sm font-medium">
+															{#if task.dropOffLocation?.displayName}
+																{task.dropOffLocation.displayName}
+															{:else if task.pickupLocation?.displayName}
+																{task.pickupLocation.displayName}
+															{:else}
+																{$t('dashboard.task_details_by_task.remote')}
+															{/if}
+														</span>
 													</div>
 												</div>
 
@@ -990,9 +1177,33 @@ import {
 									{/each}
 								</div>
 
-								<!-- Infinite Scroll Target -->
-								<!-- svelte-ignore element_invalid_self_closing_tag -->
-								<div bind:this={scrollTarget} class="h-4" />
+								<!-- Skeleton Loading for new tasks -->
+								{#if $tasksStore.loading && $tasksStore.items.length > 0 && $tasksStore.hasMore}
+									<div class="space-y-3 pt-3">
+										{#each Array(3) as _}
+											<div class="card bg-base-100 animate-pulse rounded-xl p-4 shadow-md">
+												<div class="flex flex-col gap-3 md:flex-row md:items-center">
+													<div class="bg-base-300 h-6 w-3/4 rounded"></div>
+													<div class="bg-base-300 h-5 w-28 rounded"></div>
+												</div>
+												<div class="my-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+													<div class="bg-base-300 h-5 w-24 rounded"></div>
+													<div class="bg-base-300 h-5 w-32 rounded"></div>
+													<div class="bg-base-300 h-5 w-28 rounded"></div>
+												</div>
+												<div class="flex gap-2">
+													<div class="bg-base-300 h-5 w-16 rounded"></div>
+													<div class="bg-base-300 h-5 w-20 rounded"></div>
+													<div class="bg-base-300 h-5 w-12 rounded"></div>
+												</div>
+												<div class="mt-3 flex items-center justify-between">
+													<div class="bg-base-300 h-5 w-12 rounded"></div>
+													<div class="bg-base-300 h-8 w-20 rounded"></div>
+												</div>
+											</div>
+										{/each}
+									</div>
+								{/if}
 							{:else if !$tasksStore.loading}
 								<!-- No Results -->
 								<div class="py-8 text-center">
@@ -1035,6 +1246,31 @@ import {
 						/>
 					</div>
 				</div>
+
+				<!-- Mobile Floating Button - Scroll to Top (only visible on mobile) -->
+				{#if showScrollToTop}
+					<button
+						class="fixed inverted-colors bottom-24 right-4 z-50 flex items-center justify-center transition-all duration-200 rounded-4xl p-3 hover:opacity-70 lg:hidden"
+						onclick={scrollToTop}
+						title={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
+						aria-label={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 10l7-7m0 0l7 7m-7-7v18"
+							/>
+						</svg>
+					</button>
+				{/if}
 
 				<!-- Mobile Floating Button - Show Map (only visible on mobile) -->
 				<button

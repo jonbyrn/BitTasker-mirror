@@ -6,7 +6,7 @@ import { t } from "svelte-i18n";
 import { get } from "svelte/store";
 import { appStore } from "$lib/stores/app.store";
 import { ethers } from 'ethers';
-import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
+import { EscrowStatus } from "$lib/utils/enums/escrow.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
 import * as EscrowNostrEvent from '$lib/utils/wallet/escrowEvents';
@@ -14,6 +14,15 @@ import * as EscrowNostrEvent from '$lib/utils/wallet/escrowEvents';
 let contract: ethers.Contract | null = null;
 // Cache for legacy contracts to avoid recreating them
 const legacyContracts = new Map<string, ethers.Contract>();
+
+/**
+ * Force reset the cached contract (useful when provider is destroyed)
+ * Also clears legacy contract cache
+ */
+function resetCachedContract(): void {
+    contract = null;
+    legacyContracts.clear(); // Also clear legacy contracts cache
+}
 
 const getRSKWallet = () => getWallet('rsk');
 const getRSKProvider = () => getProvider('rsk');
@@ -180,32 +189,13 @@ async function connectToEscrowContract(): Promise<void> {
         // Skip event listeners on RSK due to eth_getLogs compatibility issues
         // Event handling is now done directly in transaction receipts
         // TODO: Setup event listeners
-
-        // Validate contract deployment before loading escrows
-        try {
-            // Test if contract is deployed by checking if it has code
-            const code = await provider.getCode(checksummedAddress);
-            if (code === '0x') {
-                throw new Error(`No contract deployed at address ${checksummedAddress}`);
-            }
-
-            // Test if contract has the expected interface
-            await contract.nextEscrowId();
-
-            // Load existing escrows for the user
-            await loadUserEscrows();
-        } catch (error) {
-            console.warn('Contract validation failed, skipping escrow loading:', error);
-            // Don't throw here - allow connection to succeed even if contract validation fails
-            // This allows the UI to show but with a warning
-        }
     } catch (error) {
         throw new Error(`Failed to connect to contract: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
 // Load escrow details from contract
-async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData | null> {
+async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData> {
     try {
         // Get the appropriate contract instance (no balance check needed for read operations)
         const { contract: targetContract } = await ensureEscrowReady(contractAddress, false);
@@ -245,10 +235,7 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 
         return escrow;
     } catch (error) {
-        // Silently handle errors - invalid escrow IDs are expected for contracts that were never funded
-        // This is not a critical error, just log as warning
-        console.warn(`Failed to load escrow details for ID ${escrowId}:`, error);
-        return null;
+        throw new Error(`Failed to load escrow details for ID ${escrowId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
@@ -283,7 +270,10 @@ async function getDisputeProposal(escrowId: string, contractAddress?: string): P
     }
 }
 
-// Load all user escrows
+/**
+ * Load all user escrows
+ * @deprecated This function is not used
+ */
 async function loadUserEscrows(): Promise<void> {
     const wallet = getRSKWallet();
     if (!contract || !wallet) return;
@@ -754,27 +744,27 @@ async function proposeResolution(
             }
         );
 
-		const result: ContractTransactionResult = {
-			hash: tx.hash,
-			escrowId,
-			status: 'pending'
-		};
+        const result: ContractTransactionResult = {
+            hash: tx.hash,
+            escrowId,
+            status: 'pending'
+        };
 
-		// CRITICAL: Publish pending status BEFORE showing toast
-		// This prevents double-submissions during ~30s blockchain confirmation
-		if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingResolutionProposal,
-				proposedClientAmount,
-				proposedFreelancerAmount
-			});
-		}
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingResolutionProposal,
+                proposedClientAmount,
+                proposedFreelancerAmount
+            });
+        }
 
-		// Handle confirmation asynchronously
-		tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+        // Handle confirmation asynchronously
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
@@ -826,25 +816,25 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
             gasPrice: gasPrice
         });
 
-		const result: ContractTransactionResult = {
-			hash: tx.hash,
-			escrowId,
-			status: 'pending'
-		};
+        const result: ContractTransactionResult = {
+            hash: tx.hash,
+            escrowId,
+            status: 'pending'
+        };
 
-		// CRITICAL: Publish pending status BEFORE showing toast
-		// This prevents double-submissions during ~30s blockchain confirmation
-		if (contractEventId) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingProposalAcceptance
-			});
-		}
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingProposalAcceptance
+            });
+        }
 
-		// Handle confirmation asynchronously
-		tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+        // Handle confirmation asynchronously
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
@@ -877,8 +867,7 @@ async function acceptProposal(escrowId: string, contractEventId?: string): Promi
 }
 
 // Resolve after timelock
-// TODO: Add pending status event
-async function resolveAfterTimelock(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
+async function resolveAfterTimelock(escrowId: string, escrowStatus: EscrowStatus, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract, provider } = await ensureEscrowReady();
 
@@ -901,6 +890,17 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
             status: 'pending'
         };
 
+        // CRITICAL: Publish pending status BEFORE showing toast
+        // This prevents double-submissions during ~30s blockchain confirmation
+        if (contractEventId) {
+            await EscrowNostrEvent.publishEscrowStatus({
+                escrowId,
+                contractEventId,
+                transactionHash: tx.hash,
+                status: EscrowStatus.PendingTimelockResolution
+            });
+        }
+
         appStore.showInfoToast(get(t)('dashboard.contracts.actions.timelock_resolving_message'));
 
         // Handle confirmation asynchronously
@@ -911,11 +911,28 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
                 console.log('Timelock resolution transaction confirmed:', receipt);
 
                 if (contractEventId) {
+                    // CRITICAL: Check blockchain state BEFORE transaction to determine correct final status
+                    // - From Completed (4): Freelancer gets paid → FundsReleased
+                    // - From InDispute (1): Client gets refund → DisputeUnresolved
+                    let finalStatus: EscrowStatus;
+
+                    if (escrowStatus === EscrowStatus.Completed) {
+                        // Outcome #10: Completion timeout - freelancer gets paid
+                        finalStatus = EscrowStatus.FundsReleased;
+                    } else if (escrowStatus === EscrowStatus.InDispute) {
+                        // Outcome #9: Dispute timeout - client gets refund
+                        finalStatus = EscrowStatus.DisputeUnresolved;
+                    } else {
+                        // Fallback (shouldn't happen, but defensive)
+                        console.warn(`Unexpected prior status for timelock resolution: ${escrowStatus}`);
+                        finalStatus = EscrowStatus.DisputeUnresolved;
+                    }
+
                     await EscrowNostrEvent.publishEscrowStatus({
                         escrowId,
                         contractEventId,
                         transactionHash: receipt.hash,
-                        status: EscrowStatus.DisputeUnresolved
+                        status: finalStatus
                     });
                 }
             } else {
@@ -936,7 +953,10 @@ async function resolveAfterTimelock(escrowId: string, contractEventId?: string):
     }
 }
 
-// Estimate gas for escrow creation
+/**
+ * Estimate gas for escrow creation
+ * @deprecated This function is not used
+ */
 async function estimateEscrowCreationGas(
     freelancerAddress: string,
     baseAmount: string,
@@ -946,7 +966,8 @@ async function estimateEscrowCreationGas(
     freelancerFeeTier: FeeTier
 ): Promise<GasEstimation> {
     try {
-        const { contract, provider } = await ensureEscrowReady();
+        // Gas estimation is a read-only operation, doesn't require balance
+        const { contract, provider } = await ensureEscrowReady(undefined, false);
 
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
@@ -976,29 +997,74 @@ async function estimateEscrowCreationGas(
     }
 }
 
-// Estimate gas for contract function
+/**
+ * Estimate gas for contract function
+ * @test This function is used for debugging only
+ */
 async function estimateContractGas(functionName: string, escrowId: string, ...args: any[]): Promise<GasEstimation> {
+    const GAS_ESTIMATION_TIMEOUT_MS = 30000; // 30 seconds timeout
+
     try {
-        const { contract, provider } = await ensureEscrowReady();
+        // Gas estimation is a read-only operation, doesn't require balance
+        const { contract, provider } = await ensureEscrowReady(undefined, false);
 
         const contractFunction = contract[functionName];
         if (!contractFunction) {
             throw new Error(`Function ${functionName} not found`);
         }
 
-        const gasLimit = await contractFunction.estimateGas(escrowId, ...args);
+        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
         const feeData = await provider.getFeeData();
         const gasPrice = feeData.gasPrice || BigInt(0);
-        const totalCost = gasLimit * gasPrice;
+
+        // Handle proposeResolution specially - convert RBTC string to Wei
+        let processedArgs: any[];
+        if (functionName === 'proposeResolution' && args.length > 0) {
+            // First arg should be freelancerAmount in RBTC (string), convert to Wei
+            const freelancerAmountWei = ethers.parseEther(args[0]);
+            processedArgs = [freelancerAmountWei];
+        } else {
+            processedArgs = args;
+        }
+
+        // Estimate gas with timeout to prevent hanging
+        const gasEstimatePromise = contractFunction.estimateGas(escrowId, ...processedArgs, {
+            gasPrice: gasPrice
+        });
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+                reject(new Error('Gas estimation timeout after 30 seconds'));
+            }, GAS_ESTIMATION_TIMEOUT_MS);
+        });
+
+        // Race between gas estimation and timeout
+        const gasEstimate = await Promise.race([gasEstimatePromise, timeoutPromise]);
+
+        // Add 10% buffer to match actual transaction behavior
+        const gasLimitWithBuffer = gasEstimate + (gasEstimate / 10n);
+        const totalCost = gasLimitWithBuffer * gasPrice;
 
         return {
-            gasLimit: gasLimit.toString(),
+            gasLimit: gasLimitWithBuffer.toString(),
             gasPrice: gasPrice.toString(),
             totalCost: totalCost.toString(),
             totalCostFormatted: ethers.formatEther(totalCost)
         };
 
     } catch (error) {
+        // Preserve original error structure when wrapping
+        // This allows error detection to work properly
+        if (error instanceof Error) {
+            const wrappedError = new Error(`Gas estimation failed: ${error.message}`);
+            // Preserve error code if it exists (ethers.js errors have a code property)
+            if ('code' in error && typeof (error as any).code === 'string') {
+                (wrappedError as any).code = (error as any).code;
+            }
+            // Store original error in cause for error detection
+            (wrappedError as any).cause = error;
+            throw wrappedError;
+        }
         throw new Error(`Gas estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
@@ -1067,8 +1133,144 @@ async function checkEscrowFundingStatus(escrowId: string): Promise<{
     }
 }
 
+/**
+ * Check if escrow funds were released by checking for internal transactions
+ * from the escrow contract to the client or freelancer addresses
+ * @param escrowId The escrow ID to check
+ * @param escrowData The escrow data containing client and freelancer addresses
+ * @param contractAddress Optional contract address for legacy contracts
+ * @returns Object with payment information or null if no payment found
+ */
+async function checkEscrowPayment(
+    escrowId: string,
+    escrowData: EscrowData,
+    contractAddress?: string
+): Promise<{
+    paidOut: boolean;
+    recipient: 'client' | 'freelancer' | null;
+    recipientAddress: string | null;
+    amount: string | null;
+    timestamp: number | null;
+} | null> {
+    try {
+        // Get contract address
+        const getDefaultContractAddress = (): string | null => {
+            const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+            return network === 'mainnet'
+                ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+                : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+        };
+
+        const escrowContractAddress = contractAddress || getDefaultContractAddress();
+        if (!escrowContractAddress) {
+            console.warn('[escrow] Contract address not configured, cannot check payment');
+            return null;
+        }
+
+        // Get network configuration
+        const { getRSKConfig } = await import('./networkConfig');
+        const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+        const rskConfig = getRSKConfig(network);
+        const explorerApiUrl = rskConfig.explorerApiUrl;
+
+        // Normalize addresses for comparison
+        const contractAddr = escrowContractAddress.toLowerCase();
+        const clientAddr = escrowData.client.toLowerCase();
+        const freelancerAddr = escrowData.freelancer.toLowerCase();
+
+        // Check internal transactions for both client and freelancer
+        const addressesToCheck = [clientAddr, freelancerAddr];
+        let paymentFound: {
+            recipient: 'client' | 'freelancer';
+            recipientAddress: string;
+            amount: string;
+            timestamp: number;
+        } | null = null;
+
+        for (const recipientAddr of addressesToCheck) {
+            try {
+                // Query internal transactions for the recipient address
+                // The API returns transactions where this address is involved (as sender or recipient)
+                const response = await fetch(
+                    `${explorerApiUrl}/v2/addresses/${recipientAddr}/internal-transactions`,
+                    { signal: AbortSignal.timeout(10000) } // 10 second timeout
+                );
+
+                if (!response.ok) {
+                    console.debug(`[escrow] Failed to fetch internal transactions for ${recipientAddr}:`, response.status);
+                    continue;
+                }
+
+                const data = await response.json();
+                if (!data || !data.items || !Array.isArray(data.items)) {
+                    continue;
+                }
+
+                // Look for transfers from the escrow contract to this recipient
+                for (const tx of data.items) {
+                    const txFrom = (tx.from?.hash || tx.from || '').toLowerCase();
+                    const txTo = (tx.to?.hash || tx.to || '').toLowerCase();
+                    const value = tx.value || '0';
+
+                    // Check if this is a transfer from the escrow contract to the recipient
+                    if (txFrom === contractAddr && txTo === recipientAddr && value !== '0') {
+                        // Parse value
+                        let amountWei: bigint;
+                        if (typeof value === 'string' && value.startsWith('0x')) {
+                            amountWei = BigInt(value);
+                        } else {
+                            amountWei = BigInt(value);
+                        }
+
+                        if (amountWei > 0n) {
+                            // Found a payment - use the most recent one
+                            const timestamp = tx.timestamp
+                                ? (typeof tx.timestamp === 'string' ? parseInt(tx.timestamp) : tx.timestamp) * 1000
+                                : Date.now();
+
+                            // If we already found a payment, keep the most recent one
+                            if (!paymentFound || (timestamp > (paymentFound.timestamp || 0))) {
+                                paymentFound = {
+                                    recipient: recipientAddr === clientAddr ? 'client' : 'freelancer',
+                                    recipientAddress: recipientAddr,
+                                    amount: ethers.formatEther(amountWei),
+                                    timestamp
+                                };
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.debug(`[escrow] Error checking internal transactions for ${recipientAddr}:`, error);
+                // Continue checking other addresses
+                continue;
+            }
+        }
+
+        if (paymentFound) {
+            return {
+                paidOut: true,
+                recipient: paymentFound.recipient,
+                recipientAddress: paymentFound.recipientAddress,
+                amount: paymentFound.amount,
+                timestamp: paymentFound.timestamp
+            };
+        }
+
+        return {
+            paidOut: false,
+            recipient: null,
+            recipientAddress: null,
+            amount: null,
+            timestamp: null
+        };
+    } catch (error) {
+        console.warn(`[escrow] Failed to check escrow payment for ${escrowId}:`, error);
+        return null;
+    }
+}
+
 export const escrow = {
-    connectToEscrowContract,
     ensureEscrowReady,
     createEscrow,
     completeTask,
@@ -1078,12 +1280,11 @@ export const escrow = {
     proposeResolution,
     acceptProposal,
     resolveAfterTimelock,
-    estimateEscrowCreationGas,
     estimateContractGas,
     getEscrow: loadEscrowDetails,
     getDisputeProposal,
-    refreshEscrows: loadUserEscrows,
-    loadUserEscrows,
     isContractPaused,
-    checkEscrowFundingStatus
+    checkEscrowFundingStatus,
+    checkEscrowPayment,
+    resetCachedContract
 }

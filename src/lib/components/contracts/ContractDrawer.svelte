@@ -12,45 +12,15 @@
 		getStatusTranslationKey
 	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
+	import UserNostrBadge from '../UserNostrBadge.svelte';
 
-	const {
-		btcPrice,
-		taskeeProfile: taskeeProfileProp,
-	} = $props<{
+	const { btcPrice } = $props<{
 		btcPrice: number;
-		taskeeProfile?: ContractProfile;
 	}>();
 
 	// Technical details toggle state
 	let isTechnicalDetailsOpen = $state(false);
 	let isOriginalBidOpen = $state(false);
-
-	let taskeeProfile = $state<ContractProfile | null>(null);
-	let isLoadingTaskeeProfile = $state(false);
-
-	// If profile is passed as prop, use it; otherwise load it
-	$effect(() => {
-		if (taskeeProfileProp !== undefined) {
-			// Profile provided by parent - use it directly
-			taskeeProfile = taskeeProfileProp ?? null;
-			isLoadingTaskeeProfile = false;
-		} else if ($contractStore.contract) {
-			// Profile not provided - load it ourselves (fallback)
-			loadTaskeeProfile(contractStore.getContractKey($contractStore.contract, 'taskeePubkey'));
-		}
-	});
-
-	async function loadTaskeeProfile(pubkey: string) {
-		try {
-			isLoadingTaskeeProfile = true;
-			taskeeProfile = await fetchContractProfile(pubkey);
-		} catch (error) {
-			console.error('Failed to load taskee profile:', error);
-			taskeeProfile = null;
-		} finally {
-			isLoadingTaskeeProfile = false;
-		}
-	}
 
 	// Format member since date
 	function formatMemberSinceDate(dateString: string | undefined): string {
@@ -190,75 +160,12 @@
 
 						<div class="space-y-3">
 							<!-- Taskee Info -->
-							<div class="border-base-300 mb-4 border-b pb-4">
-								<div class="flex items-center gap-3">
-									<div class="avatar shrink-0">
-										<div
-											class="bg-base-300 flex h-10 w-10 items-center justify-center rounded-full"
-										>
-											{#if isLoadingTaskeeProfile}
-												<div class="skeleton h-10 w-10 rounded-full"></div>
-											{:else if taskeeProfile?.picture}
-												<img
-													src={taskeeProfile.picture}
-													alt="Taskee avatar"
-													class="h-10 w-10 rounded-full object-cover"
-												/>
-											{:else}
-												<div
-													class="avatar placeholder text-neutral-content bg-primary flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-center"
-												>
-													<span class="text-sm font-semibold">
-														{(taskeeProfile?.name || 'A').charAt(0).toUpperCase()}
-													</span>
-												</div>
-											{/if}
-										</div>
-									</div>
-
-									<div class="flex min-w-0 flex-1 flex-col">
-										<span class="truncate text-sm font-medium">
-											{isLoadingTaskeeProfile
-												? 'Loading...'
-												: taskeeProfile?.name || $t('dashboard.contracts.anonymous')}
-										</span>
-
-										<!-- Review Stars -->
-										{#if !isLoadingTaskeeProfile && taskeeProfile}
-											<div class="mt-1 flex min-w-0 items-center">
-												<div class="flex shrink-0">
-													{#each Array(5) as _, i}
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															class="h-3 w-3 {i < (taskeeProfile.averageRating || 0)
-																? 'text-yellow-400'
-																: 'text-base-content/30'}"
-															fill="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-															/>
-														</svg>
-													{/each}
-												</div>
-												<span class="text-base-content/60 ml-1 truncate text-xs">
-													{(taskeeProfile.averageRating || 0).toFixed(1)} ({taskeeProfile.tasksCompleted ||
-														0}
-													{$t('dashboard.contracts.tasks')})
-												</span>
-											</div>
-										{/if}
-
-										{#if !isLoadingTaskeeProfile && taskeeProfile?.createdAt}
-											<p class="text-base-content/60 mt-1 text-xs">
-												{$t('dashboard.contracts.member_since')}{' '}
-												{formatMemberSinceDate(taskeeProfile.createdAt)}
-											</p>
-										{/if}
-									</div>
-								</div>
-							</div>
+							<UserNostrBadge
+								npub={contractStore.getContractKey($contractStore.contract, 'otherPartyNpub')}
+								role={$contractStore.contract.isClient
+									? $t('dashboard.freelancer')
+									: $t('dashboard.client')}
+							/>
 
 							<div class="flex justify-between gap-2">
 								<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
@@ -296,11 +203,9 @@
 
 							<div class="flex justify-between gap-2">
 								<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
-								<span class="text-sm"
-									>{formatDate(
-										contractStore.getContractKey($contractStore.contract, 'createdAt')
-									)}</span
-								>
+								<span class="text-sm">
+									{formatDate($contractStore.contract.contractEvent.created_at)}
+								</span>
 							</div>
 						</div>
 					</div>

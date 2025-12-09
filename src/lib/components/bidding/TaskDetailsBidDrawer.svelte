@@ -98,7 +98,7 @@
 					{ username: userData.username, name: userData.name || userData.displayName },
 					''
 				);
-				
+
 				loggedInUser = {
 					id: userData.npub || userData.id?.toString() || '',
 					name: displayName,
@@ -134,11 +134,11 @@
 					'#d': [dTagValue],
 					limit: 1
 				};
-				
+
 				const response = await nostrEventsService.requestEvents({
 					filters: [filter]
 				});
-				
+
 				if (response.data && response.data.length > 0) {
 					event = response.data[0];
 				}
@@ -271,50 +271,7 @@
 			</button>
 		</div>
 	{:else if task}
-		<!-- Task details and bid form -->
 		<div class="p-6">
-			<!-- Task Details Section
-			<div class="mb-8">
-				<div class="mb-4">
-					<h3 class="line-clamp-1 text-lg font-medium">{task.title}</h3>
-				</div>
-
-				<div class="mb-6">
-					<p class="text-base-content/80 line-clamp-2">{task.description}</p>
-				</div>
-
-				{#if task.attachments && task.attachments.length > 0}
-					<div class="mb-6">
-						<h4 class="text-md mb-3 font-medium">{$t('task.attachments_review')}</h4>
-						<div class="grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
-							{#each task.attachments as attachment}
-								<div class="relative aspect-square h-20 w-20 sm:h-24 sm:w-24">
-									{#if attachment.type?.startsWith('video/')}
-										<video
-											src={attachment.url}
-											class="h-full w-full cursor-pointer rounded-lg object-cover"
-											controls
-											muted={false}
-											autoplay={false}
-											loop={false}
-										>
-											<track kind="captions" />
-										</video>
-									{:else}
-										<img
-											src={attachment.url}
-											alt={attachment.alt}
-											class="h-full w-full rounded-lg object-cover"
-											loading="lazy"
-										/>
-									{/if}
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/if}
-			</div>
- -->
 			<!-- Bid Form Section -->
 			{#if task.id && task.status === TaskStatusEnum.OPEN}
 				<BidCreationForm

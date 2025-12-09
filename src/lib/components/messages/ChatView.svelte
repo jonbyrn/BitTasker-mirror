@@ -12,9 +12,9 @@
 	import { onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
-	import { TranslationStore } from '$lib/stores/translation.store';
+	import { TranslationStore, translationSettings, messageTranslations } from '$lib/stores/translation.store';
 	import { TranslationService } from '$lib/services/translation.service';
-	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
+	import { isUserToUserMessage, parseMessageContent } from '$lib/utils/helpers/messageParser';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 
 	// Props
@@ -27,6 +27,10 @@
 		currentUserPubkey: string;
 		initialProfile: { name?: string; picture?: string } | null;
 	} = $props();
+
+	// Message cache by recipient pubkey to avoid reloading
+	const messageCache = new Map<string, { plaintext: string; senderPubkey: string; event: NostrEvent }[]>();
+	let lastLoadedRecipient = $state<string | null>(null);
 
 	// State
 	let messages = $state<{ plaintext: string; senderPubkey: string; event: NostrEvent }[]>([]);
@@ -63,6 +67,9 @@
 	// References
 	let messagesContainer: HTMLDivElement;
 	let messageInput: HTMLTextAreaElement;
+	let sendButton: HTMLButtonElement | null = $state(null);
+	let inputArea: HTMLDivElement | null = $state(null);
+	let scrollButton: HTMLButtonElement | null = $state(null);
 
 	// Real-time subscriptions
 	let unsubscribe: (() => void) | null = null;
@@ -112,126 +119,290 @@
 	const translationService = new TranslationService();
 
 	// Preload translations for current conversation
+	// Only run once when messages are first loaded, not on every change
+	let lastPreloadedMessageIds = $state<string[]>([]);
 	$effect(() => {
 		if (messages.length > 0) {
 			const messageIds = messages.map((msg) => msg.event.id);
-			TranslationStore.preloadConversationTranslations(messageIds);
+			// Only preload if message IDs have changed
+			const idsString = messageIds.sort().join(',');
+			const lastIdsString = lastPreloadedMessageIds.sort().join(',');
+			if (idsString !== lastIdsString) {
+				lastPreloadedMessageIds = messageIds;
+				TranslationStore.preloadConversationTranslations(messageIds);
+			}
 		}
 	});
 
+	// Track previous recipient to avoid unnecessary reloads
+	let previousRecipient = $state<string | null>(null);
+
 	// Load messages when recipient changes
 	$effect(() => {
-		if (recipientPubkey) {
+		const currentRecipient = recipientPubkey;
+		if (!currentRecipient) {
+			return;
+		}
+		
+		const hex = recipientHex();
+		
+		// Only reload if recipient actually changed
+		if (previousRecipient === hex) {
+			return;
+		}
+		
+		// Update previous recipient BEFORE doing anything else to prevent loops
+		previousRecipient = hex;
+		
+		// Cleanup previous subscriptions first
+		if (unsubscribe) {
+			unsubscribe();
+			unsubscribe = null;
+		}
+		if (profileUnsubscribe) {
+			profileUnsubscribe();
+			profileUnsubscribe = null;
+		}
+		if (currentUserProfileUnsubscribe) {
+			currentUserProfileUnsubscribe();
+			currentUserProfileUnsubscribe = null;
+		}
+		
+		// Check if we already have cached messages for this recipient
+		if (lastLoadedRecipient === hex && messageCache.has(hex)) {
+			// Use cached messages - no need to reload
+			const cachedMessages = messageCache.get(hex)!;
+			// Update state without triggering effects
+			messages = cachedMessages;
+			isLoadingMessages = false;
+			// Mark all cached messages as processed
+			cachedMessages.forEach((message) => {
+				processedMessageIds.add(message.event.id);
+			});
+			// Set initial load as complete since we're using cache
+			isInitialLoadComplete = true;
+		} else {
+			// New recipient or no cache - load messages
 			// Clear processed message IDs when switching conversations
 			processedMessageIds.clear();
+			// Reset initial load flag when switching conversations
+			isInitialLoadComplete = false;
 			// TranslationStore handles message ID tracking internally
 			resetPagination();
 			loadMessages();
-			setupRealtimeListener();
-			setupProfileSubscription();
-			setupCurrentUserProfileSubscription();
-			loadDraft();
 		}
-
-		// Cleanup on recipient change
-		return () => {
-			if (unsubscribe) {
-				unsubscribe();
-				unsubscribe = null;
-			}
-			if (profileUnsubscribe) {
-				profileUnsubscribe();
-				profileUnsubscribe = null;
-			}
-			if (currentUserProfileUnsubscribe) {
-				currentUserProfileUnsubscribe();
-				currentUserProfileUnsubscribe = null;
-			}
-		};
+		
+		// Always setup listeners and subscriptions
+		setupRealtimeListener();
+		setupProfileSubscription();
+		setupCurrentUserProfileSubscription();
+		loadDraft();
 	});
 
 	// Track processed message IDs to avoid re-processing
 	let processedMessageIds = $state(new Set<string>());
+	// Track if initial load is complete to only translate NEW messages in real-time
+	let isInitialLoadComplete = $state(false);
 
-	// Auto-translate only NEW messages when they arrive
+	// Mark initial load as complete after messages are loaded
+	// Only run when messages change AND we haven't completed initial load
+	let lastProcessedMessageCount = $state(0);
 	$effect(() => {
+		// Only process if messages changed and we haven't completed initial load
+		if (messages.length > 0 && !isInitialLoadComplete && messages.length !== lastProcessedMessageCount) {
+			lastProcessedMessageCount = messages.length;
+			// Only mark messages as processed if translation is enabled
+			// If translation is disabled, don't mark them so they can be batch translated later
+			if ($translationSettings.enabled) {
+				messages.forEach((message) => {
+					const messageId = message.event.id;
+					processedMessageIds.add(messageId);
+					// If message is already translated, ensure it's marked as processed
+					if (TranslationStore.isMessageTranslated(messageId)) {
+						processedMessageIds.add(messageId);
+					}
+				});
+			}
+			// Set flag after a short delay to ensure all initial messages are processed
+			setTimeout(() => {
+				isInitialLoadComplete = true;
+			}, 100);
+		}
+	});
+
+	// Track if we need to batch translate untranslated messages when translation is enabled
+	let pendingBatchTranslation = $state(false);
+	let lastTranslationEnabledState = $state(false);
+
+	// Helper function to batch translate untranslated messages
+	async function batchTranslateUntranslatedMessages() {
+		if (pendingBatchTranslation) {
+			return;
+		}
+
+		if (!isInitialLoadComplete) {
+			return;
+		}
+
+		const currentMessages = messages;
+		if (currentMessages.length === 0) {
+			return;
+		}
+
+		// Find all untranslated messages that need translation
+		const untranslatedMessages = currentMessages
+			.filter((message) => {
+				const messageId = message.event.id;
+				const isFromCurrentUser = message.senderPubkey === currentUserHex();
+				const hasText = message.plaintext.trim();
+
+				// Skip if already translated
+				if (TranslationStore.isMessageTranslated(messageId)) {
+					return false;
+				}
+
+				// Skip if already processed (to avoid conflicts with individual translation)
+				if (processedMessageIds.has(messageId)) {
+					return false;
+				}
+
+				// Only translate incoming user-to-user messages with text content
+				return !isFromCurrentUser && hasText && hasText.length > 3 && isUserToUserMessage(message.plaintext);
+			})
+			.map((message) => ({
+				messageId: message.event.id,
+				text: message.plaintext
+			}));
+
+		// If there are untranslated messages, translate them in batch
+		if (untranslatedMessages.length > 0) {
+			pendingBatchTranslation = true;
+			
+			// Mark all as processed IMMEDIATELY to prevent individual translation from processing them
+			untranslatedMessages.forEach(({ messageId }) => {
+				processedMessageIds.add(messageId);
+			});
+
+			// Translate all in batch immediately
+			TranslationStore.translateMessagesBatch(untranslatedMessages)
+				.then(() => {
+					pendingBatchTranslation = false;
+				})
+				.catch((error) => {
+					console.error('Batch translation error:', error);
+					pendingBatchTranslation = false;
+					// On error, unmark as processed so they can be retried
+					untranslatedMessages.forEach(({ messageId }) => {
+						processedMessageIds.delete(messageId);
+					});
+				});
+		}
+	}
+
+	// When translation is enabled, find and translate all untranslated messages in batch
+	$effect(() => {
+		const isEnabled = $translationSettings.enabled;
+		
+		// Track state change
+		const wasJustEnabled = !lastTranslationEnabledState && isEnabled;
+		lastTranslationEnabledState = isEnabled;
+		
+		// Only process when translation is JUST enabled
+		if (wasJustEnabled) {
+			// Use setTimeout to ensure messages are loaded
+			setTimeout(() => {
+				batchTranslateUntranslatedMessages();
+			}, 100);
+		}
+	});
+
+	// Auto-translate only NEW messages that arrive AFTER initial load (real-time only)
+	$effect(() => {
+		// Only translate if translation is enabled
+		if (!$translationSettings.enabled) {
+			return;
+		}
+
+		// Only process if initial load is complete (to avoid translating on load)
+		if (!isInitialLoadComplete) {
+			return;
+		}
+
+		// Skip if batch translation is in progress (to avoid conflicts)
+		if (pendingBatchTranslation) {
+			return;
+		}
+
 		const currentMessages = messages;
 
 		if (currentMessages.length > 0) {
 			// Find only NEW messages that haven't been processed yet
+			// Also exclude messages that are already translated
 			const newMessages = currentMessages.filter((message) => {
 				const messageId = message.event.id;
-				return !processedMessageIds.has(messageId);
+				// Skip if already processed
+				if (processedMessageIds.has(messageId)) {
+					return false;
+				}
+				// Skip if already translated - mark as processed and exclude
+				if (TranslationStore.isMessageTranslated(messageId)) {
+					processedMessageIds.add(messageId);
+					return false;
+				}
+				return true;
 			});
 
-			// Process new messages for translation
+			// For new messages, translate individually (they arrive one by one)
+			// Only mark as processed if translation is enabled, otherwise leave them for batch translation
 			newMessages.forEach(async (message) => {
 				const messageId = message.event.id;
 				const isFromCurrentUser = message.senderPubkey === currentUserHex();
 				const hasText = message.plaintext.trim();
 
-				// Mark as processed immediately to avoid duplicates
-				processedMessageIds.add(messageId);
-
 				// Only translate incoming user-to-user messages with text content
 				if (!isFromCurrentUser && hasText && hasText.length > 3 && isUserToUserMessage(message.plaintext)) {
-					try {
-						// TranslationStore handles duplicate prevention internally
-						const result = await TranslationStore.translateMessage(messageId, message.plaintext);
-					} catch (error) {
-						console.error('Translation error for new message', messageId, ':', error);
+					// Mark as processed immediately to avoid duplicates (only if translation is enabled)
+					if ($translationSettings.enabled) {
+						processedMessageIds.add(messageId);
+						try {
+							// TranslationStore handles duplicate prevention internally
+							const result = await TranslationStore.translateMessage(messageId, message.plaintext);
+						} catch (error) {
+							console.error('Translation error for new message', messageId, ':', error);
+						}
 					}
+					// If translation is disabled, don't mark as processed so they can be batch translated later
 				}
 			});
 		}
 	});
 
-	// Auto-save draft when message text changes
+	// Auto-save draft and resize textarea when message text changes
 	$effect(() => {
 		if (newMessageText !== lastSavedDraft && recipientPubkey) {
 			saveDraftDebounced();
 		}
-	});
-
-	// Auto-resize textarea when message text changes
-	$effect(() => {
 		if (newMessageText !== undefined) {
 			autoResizeTextarea();
 		}
 	});
 
-	// Auto-scroll to bottom when new messages arrive (but not when loading more)
-	$effect(() => {
-		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
-			// Use setTimeout to ensure DOM is updated
-			setTimeout(() => {
-				scrollToBottom();
-			}, 100);
-		}
-	});
-
-	// Auto-scroll when new messages are added (not just when array changes)
+	// Auto-scroll to bottom when new messages arrive or translations complete
 	$effect(() => {
 		const currentMessageCount = messages.length;
 		const hasNewMessages = currentMessageCount > previousMessageCount;
+		previousMessageCount = currentMessageCount;
 
 		if (hasNewMessages && messagesContainer && !isLoadingMore) {
 			// Immediate scroll for new messages
 			setTimeout(() => {
 				scrollToBottomImmediate();
 			}, 50);
-		}
-
-		previousMessageCount = currentMessageCount;
-	});
-
-	// Auto-scroll when translations complete
-	$effect(() => {
-		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
+		} else if (messages.length > 0 && messagesContainer && !isLoadingMore) {
 			// Scroll after a short delay to allow translations to render
 			setTimeout(() => {
 				scrollToBottom();
-			}, 500);
+			}, 100);
 		}
 	});
 
@@ -254,6 +425,61 @@
 
 			messagesContainer.addEventListener('scroll', handleScroll);
 			return () => messagesContainer.removeEventListener('scroll', handleScroll);
+		}
+	});
+
+	// Position scroll button relative to send button
+	$effect(() => {
+		if (sendButton && scrollButton && inputArea && !isAtBottom && messages.length > 0) {
+			const updatePosition = () => {
+				if (sendButton && scrollButton && inputArea) {
+					const sendButtonRect = sendButton.getBoundingClientRect();
+					
+					// Only update if we have valid coordinates
+					if (sendButtonRect.width > 0 && sendButtonRect.height > 0) {
+						// Position scroll button above send button, aligned to the right
+						const topOffset = sendButtonRect.top - sendButtonRect.height - 36; // 36px gap above
+						const rightOffset = window.innerWidth - sendButtonRect.right;
+						
+						// Set position immediately to avoid flash in wrong position
+						scrollButton.style.position = 'fixed';
+						scrollButton.style.top = `${topOffset}px`;
+						scrollButton.style.right = `${rightOffset}px`;
+						scrollButton.style.bottom = 'auto';
+						scrollButton.style.left = 'auto';
+					}
+				}
+			};
+
+			// Hide button initially until position is calculated
+			if (scrollButton) {
+				scrollButton.style.opacity = '0';
+				scrollButton.style.visibility = 'hidden';
+			}
+
+			// Update position immediately and after a short delay
+			updatePosition();
+			const timeoutId = setTimeout(() => {
+				updatePosition();
+				// Show button after position is set
+				if (scrollButton) {
+					scrollButton.style.opacity = '1';
+					scrollButton.style.visibility = 'visible';
+				}
+			}, 50);
+			
+			window.addEventListener('resize', updatePosition);
+			window.addEventListener('scroll', updatePosition);
+
+			return () => {
+				clearTimeout(timeoutId);
+				window.removeEventListener('resize', updatePosition);
+				window.removeEventListener('scroll', updatePosition);
+			};
+		} else if (scrollButton) {
+			// Hide button if conditions aren't met
+			scrollButton.style.opacity = '0';
+			scrollButton.style.visibility = 'hidden';
 		}
 	});
 
@@ -367,6 +593,11 @@
 			// Sort messages by timestamp (oldest first)
 			const sortedMessages = userMessages.sort((a, b) => a.event.created_at - b.event.created_at);
 			messages = sortedMessages;
+			
+			// Cache messages for this recipient
+			const hex = recipientHex();
+			messageCache.set(hex, sortedMessages);
+			lastLoadedRecipient = hex;
 
 			// Update pagination state
 			if (sortedMessages.length > 0) {
@@ -425,6 +656,9 @@
 						(a, b) => a.event.created_at - b.event.created_at
 					);
 					messages = [...sortedOlderMessages, ...messages];
+					// Update cache
+					const hex = recipientHex();
+					messageCache.set(hex, messages);
 
 					// Update oldest timestamp only if we actually added user messages
 					oldestMessageTimestamp = sortedOlderMessages[0].event.created_at;
@@ -520,6 +754,9 @@
 					messages = [...messages, newMessage].sort(
 						(a, b) => a.event.created_at - b.event.created_at
 					);
+					// Update cache
+					const hex = recipientHex();
+					messageCache.set(hex, messages);
 				}
 			} else {
 			}
@@ -589,8 +826,10 @@
 		let messageContent = newMessageText.trim();
 
 		// Add reply context if replying to a message
+		// Include message ID in reply format: > [messageId] original text
 		if (replyingToMessage) {
-			const replyPrefix = `> ${replyingToMessage.plaintext}\n\n`;
+			const messageId = replyingToMessage.event.id;
+			const replyPrefix = `> [${messageId}] ${replyingToMessage.plaintext}\n\n`;
 			messageContent = replyPrefix + messageContent;
 		}
 
@@ -622,6 +861,9 @@
 			messages = [...messages, localMessage].sort(
 				(a, b) => a.event.created_at - b.event.created_at
 			);
+			// Update cache
+			const hex = recipientHex();
+			messageCache.set(hex, messages);
 
 			// Send the message
 			await sendDirectMessage(messageContent, recipientHex());
@@ -663,6 +905,47 @@
 		}
 	}
 
+	function scrollToMessage(quotedText: string, quotedMessageId?: string | null) {
+		if (!messagesContainer) return;
+		
+		// If we have a message ID, use it directly (most reliable)
+		if (quotedMessageId) {
+			const element = messagesContainer.querySelector(`[data-message-id="${quotedMessageId}"]`);
+			if (element) {
+				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				(element as HTMLElement).classList.add('highlight-message');
+				setTimeout(() => {
+					(element as HTMLElement).classList.remove('highlight-message');
+				}, 2000);
+				return;
+			}
+		}
+		
+		// Fallback to text matching if no ID or ID not found
+		if (!quotedText) return;
+		
+		const quotedTextLower = quotedText.toLowerCase().trim();
+		const messageElements = messagesContainer.querySelectorAll('[data-message-id]');
+		
+		for (const element of messageElements) {
+			const messageId = element.getAttribute('data-message-id');
+			if (!messageId) continue;
+			
+			const message = messages.find(m => m.event.id === messageId);
+			if (!message) continue;
+			
+			const messageText = parseMessageContent(message.plaintext).toLowerCase().trim();
+			if (messageText.includes(quotedTextLower) || quotedTextLower.includes(messageText)) {
+				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				(element as HTMLElement).classList.add('highlight-message');
+				setTimeout(() => {
+					(element as HTMLElement).classList.remove('highlight-message');
+				}, 2000);
+				break;
+			}
+		}
+	}
+
 	function handleKeyPress(event: KeyboardEvent) {
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
@@ -701,14 +984,10 @@
 
 	// Function to handle reaction add
 	function handleReactionAdd(messageId: string, emoji: string) {
-		// TODO: Implement reaction storage and sync with Nostr
-		console.log('Add reaction:', messageId, emoji);
 	}
 
 	// Function to handle reaction remove
 	function handleReactionRemove(messageId: string, emoji: string) {
-		// TODO: Implement reaction removal and sync with Nostr
-		console.log('Remove reaction:', messageId, emoji);
 	}
 
 	function handleSubmit(event: Event) {
@@ -732,7 +1011,7 @@
 	<!-- Messages Area - Scrollable -->
 	<div
 		bind:this={messagesContainer}
-		class="relative min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6"
+		class="relative min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-6 md:px-8 md:py-8"
 		role="log"
 		aria-live="polite"
 		aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
@@ -826,8 +1105,6 @@
 					{@const isCurrentUserSender = message.senderPubkey === currentUserHex()}
 					{@const messageProfile = isCurrentUserSender ? currentUserProfile : recipientProfile}
 
-					<!-- Debug logs removed for performance -->
-
 					<ChatMessage
 						{message}
 						isSender={isCurrentUserSender}
@@ -838,56 +1115,61 @@
 						currentUserId={currentUserHex()}
 						onReactionAdd={handleReactionAdd}
 						onReactionRemove={handleReactionRemove}
+						onScrollToMessage={(quotedText: string, quotedMessageId?: string | null) => scrollToMessage(quotedText, quotedMessageId)}
 					/>
 				{/each}
 			{/if}
 		{/if}
-
-		<!-- Scroll to Bottom Button -->
-		{#if !isAtBottom && messages.length > 0}
-			<button
-				class="btn btn-primary btn-circle fixed right-4 bottom-16 sm:right-6 sm:bottom-20 z-10 shadow-lg"
-				onclick={scrollToBottom}
-				aria-label="Scroll to bottom"
-				title="Scroll to latest message"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M19 14l-7 7m0 0l-7-7m7 7V3"
-					/>
-				</svg>
-			</button>
-		{/if}
 	</div>
 
-	<!-- Message Input Area - Fixed at bottom -->
-	<div class="border-base-300/20 bg-base-100 flex-shrink-0 border-t px-4 py-3 sm:px-6 sm:py-4">
+	<!-- Scroll to Bottom Button - Floating above send button -->
+	{#if !isAtBottom && messages.length > 0}
+		<button
+			bind:this={scrollButton}
+			class="btn btn-info btn-circle fixed z-50 shadow-xl transition-all duration-200 hover:scale-110 hover:shadow-2xl"
+			onclick={scrollToBottom}
+			aria-label="Scroll to bottom"
+			title="Scroll to latest message"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-5 w-5"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M19 14l-7 7m0 0l-7-7m7 7V3"
+				/>
+			</svg>
+		</button>
+	{/if}
+
+	<!-- Message Input Area - Fixed at bottom, above navbar -->
+	<div bind:this={inputArea} class="bg-base-100 shrink-0 border-base-300/20 px-4 sm:px-6 relative">
 		<!-- Reply Indicator -->
 		{#if replyingToMessage}
-			<div class="bg-base-200/50 border-base-300/30 mb-3 rounded-lg border p-3">
-				<div class="flex items-start justify-between gap-2">
+			{@const replyMessageId = replyingToMessage.event.id}
+			{@const replyTranslation = $messageTranslations.get(replyMessageId)}
+			{@const replyDisplayText = replyTranslation ? replyTranslation.translatedText : replyingToMessage.plaintext}
+			<div class="bg-base-200 border-base-300 mb-3 rounded-lg border p-3">
+				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0 flex-1">
-						<div class="text-base-content/60 mb-1 text-xs">
+						<div class="text-base-content/60 mb-1.5 text-xs font-medium">
 							Replying to {replyingToMessage.senderPubkey === currentUserHex()
 								? 'yourself'
 								: 'message'}:
 						</div>
-						<div class="text-base-content/80 line-clamp-2 text-sm">
-							{replyingToMessage.plaintext}
+						<div class="text-base-content/80 line-clamp-2 text-sm leading-relaxed">
+							{replyDisplayText}
 						</div>
 					</div>
 					<button
 						type="button"
-						class="btn btn-ghost btn-xs hover:bg-base-300 flex-shrink-0"
+						class="btn btn-ghost btn-xs hover:bg-base-300 shrink-0 transition-colors"
 						onclick={cancelReply}
 						title="Cancel reply"
 						aria-label="Cancel reply"
@@ -912,21 +1194,22 @@
 		{/if}
 
 		<form onsubmit={handleSubmit} class="relative w-full">
+			<!-- Main Input Field with Buttons Inside -->
 			<div
-				class="bg-base-200/50 border-base-300/30 focus-within:border-primary/50 focus-within:bg-base-100 flex items-end gap-2 rounded-lg border p-2 transition-all duration-200 sm:p-3 w-full"
+				class="bg-base-200 rounded-2xl transition-all duration-200 w-full flex items-end gap-2 p-2 sm:p-3"
 			>
-				<!-- Emoji Button -->
+				<!-- Emoji Button - Left Side -->
 				<button
 					type="button"
 					bind:this={emojiButtonRef}
-					class="btn btn-ghost btn-sm hover:bg-base-300 h-8 min-h-0 w-8 flex-shrink-0 p-0 transition-colors sm:h-10 sm:w-10"
+					class="btn btn-ghost btn-sm hover:bg-base-300 h-8 w-8 min-h-0 p-0 shrink-0 transition-colors"
 					onclick={() => (showEmojiPicker = !showEmojiPicker)}
 					title="Add emoji"
 					aria-label="Add emoji"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4 sm:h-5 sm:w-5"
+						class="h-5 w-5"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -948,10 +1231,8 @@
 						bind:value={newMessageText}
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
-						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-1 text-sm leading-5 focus:ring-0 focus:outline-none sm:p-2 sm:text-base"
-						placeholder={$t(
-							'dashboard.bids.components.messages.chat_view.type_message_placeholder'
-						)}
+						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-1 text-sm leading-6 focus:ring-0 focus:outline-none sm:p-1.5 sm:text-base"
+						placeholder="Send a message"
 						rows="1"
 						disabled={isSendingMessage}
 						autofocus
@@ -959,19 +1240,20 @@
 					></textarea>
 				</div>
 
-				<!-- Send Button -->
+				<!-- Send Button (Paper Airplane) - Right Side -->
 				<button
+					bind:this={sendButton}
 					type="submit"
-					class="btn btn-primary btn-sm h-10 w-10 flex-shrink-0 rounded-full shadow-md transition-all duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-10"
+					class="btn btn-info h-8 w-8 min-h-0 p-0 rounded-full shrink-0 transition-all duration-200 hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
 					disabled={!newMessageText.trim() || isSendingMessage}
 					title={$t('dashboard.bids.components.messages.chat_view.send_message')}
 				>
 					{#if isSendingMessage}
-						<span class="loading loading-spinner loading-sm"></span>
+						<span class="loading loading-spinner loading-xs"></span>
 					{:else}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4 sm:h-5 sm:w-5"
+							class="h-4 w-4"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"

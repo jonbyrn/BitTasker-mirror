@@ -502,6 +502,8 @@
       "title": "Contracts",
       "description": "Manage your active contracts and secure payment agreements",
       "loading": "Loading contracts...",
+      "loading_more": "Loading more contracts...",
+      "no_more_contracts": "You've reached the end of your contracts",
       "error_title": "Failed to load contracts",
       "retry": "Retry",
       "refresh": "Refresh",
@@ -576,7 +578,8 @@
         "contract_cancelled": "Contract cancelled",
         "timelock_resolved": "Resolved after timelock",
         "pending_resolution_proposal": "Pending Resolution Proposal",
-        "pending_proposal_acceptance": "Pending Proposal Acceptance"
+        "pending_proposal_acceptance": "Pending Proposal Acceptance",
+        "pending_timelock_resolution": "Pending Timelock Resolution"
       },
       "actions": {
         "complete_task": "Mark Task Complete",

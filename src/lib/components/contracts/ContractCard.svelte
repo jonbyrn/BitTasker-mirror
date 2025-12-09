@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
-	import type { ContractProfile } from '$lib/utils/nostr-profile';
 	import {
 		getStatusTranslationKey,
 		getStatusColorClass
@@ -8,16 +7,19 @@
 	import { contractStore } from '$lib/stores/contract.store';
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
+	import UserNostrBadge from '../UserNostrBadge.svelte';
 
-	const { contract, btcPrice, userProfile } = $props<{
+	const { contract, btcPrice } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
-		userProfile?: ContractProfile;
 	}>();
 
-	// Profile is always provided by parent (DashboardContractsPanel)
-	// No need to load it here - parent handles all profile loading
-	const isLoadingUserProfile = $derived(userProfile === undefined);
+	// Check if blockchain query failed (no blockchain status and not pending)
+	const isBlockchainQueryFailed = $derived(
+		contract.blockchainStatus === null &&
+			!contract.isPending &&
+			!contract.contractEvent.content.transactionHash
+	);
 
 	// Format RBTC amount
 	function formatRBTC(amount: string): string {
@@ -84,28 +86,18 @@
 		return count;
 	}
 
-	// Format member since date
-	function formatMemberSinceDate(dateString: string | undefined): string {
-		if (!dateString) return '';
-		try {
-			const date = new Date(dateString);
-			if (isNaN(date.getTime())) return dateString;
-			return date.toLocaleDateString('en-US', {
-				month: 'short',
-				year: 'numeric'
-			});
-		} catch (error) {
-			return dateString;
-		}
-	}
-
 	const openDrawer = () => {
 		$contractStore.contract = contract;
 		$contractStore.isDrawerOpen = true;
 	};
 </script>
 
-<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
+<div
+	class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg {isBlockchainQueryFailed
+		? 'pointer-events-none opacity-60'
+		: ''}"
+	class:cursor-not-allowed={isBlockchainQueryFailed}
+>
 	<div class="card-body">
 		<div class="flex flex-col justify-between gap-2">
 			<div class="flex items-start justify-between">
@@ -126,6 +118,11 @@
 				<!-- Badges in top right corner -->
 				<div class="ml-4 flex shrink-0 flex-col items-end gap-2">
 					<div class="flex items-center gap-2">
+						{#if import.meta.env.DEV}
+							<div class="badge badge-error badge-sm">
+								{contract.escrowData?.id}
+							</div>
+						{/if}
 						<div class="badge {getStatusColorClass(contract.status)} badge-sm">
 							{#if contract?.isPending}
 								<span class="loading loading-spinner loading-xs mr-1"></span>
@@ -193,75 +190,10 @@
 
 		<div class="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<!-- Left: User Info aligned with buttons -->
-			<div class="flex items-center gap-2 md:flex-row">
-				<!-- Avatar -->
-				<div class="avatar shrink-0">
-					<div class="bg-base-300 flex h-6 w-6 items-center justify-center rounded-full">
-						{#if isLoadingUserProfile}
-							<div class="skeleton h-6 w-6 rounded-full"></div>
-						{:else if userProfile?.picture}
-							<img
-								src={userProfile.picture}
-								alt="User avatar"
-								class="h-6 w-6 rounded-full object-cover"
-							/>
-						{:else}
-							<div
-								class="avatar placeholder text-neutral-content bg-primary flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-center"
-							>
-								<span class="text-xs font-semibold">
-									{(userProfile?.name || 'A').charAt(0).toUpperCase()}
-								</span>
-							</div>
-						{/if}
-					</div>
-				</div>
-
-				<div class="flex min-w-0 flex-1 flex-col">
-					<small class="text-base-content/60 text-xs">
-						{contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
-					</small>
-					<span class="truncate text-sm font-medium">
-						{isLoadingUserProfile
-							? 'Loading...'
-							: userProfile?.name || $t('dashboard.contracts.anonymous')}
-					</span>
-
-					<!-- Review Stars -->
-					{#if !isLoadingUserProfile && userProfile}
-						<div class="mt-1 flex min-w-0 items-center">
-							<div class="flex shrink-0">
-								{#each Array(5) as _, i}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-3 w-3 {i < (userProfile.averageRating || 0)
-											? 'text-yellow-400'
-											: 'text-base-content/30'}"
-										fill="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-										/>
-									</svg>
-								{/each}
-							</div>
-							<span class="text-base-content/60 ml-1 truncate text-xs">
-								{(userProfile.averageRating || 0).toFixed(1)} ({userProfile.tasksCompleted || 0}
-								{$t('dashboard.contracts.tasks')})
-							</span>
-						</div>
-					{/if}
-
-					<!-- Member Since -->
-					{#if !isLoadingUserProfile && userProfile?.createdAt}
-						<p class="text-base-content/60 mt-1 text-xs">
-							{$t('dashboard.contracts.member_since')}{' '}
-							{formatMemberSinceDate(userProfile.createdAt)}
-						</p>
-					{/if}
-				</div>
-			</div>
+			<UserNostrBadge
+				npub={contractStore.getContractKey(contract, 'otherPartyNpub')}
+				role={contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
+			/>
 
 			<!-- Right: Action Buttons -->
 			<div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:w-auto">

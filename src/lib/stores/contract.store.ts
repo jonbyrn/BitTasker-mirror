@@ -1,10 +1,8 @@
 import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
-import type { Filter } from 'nostr-tools';
 import { writable } from 'svelte/store';
-import { getContracts, handleStatusEvent } from '$lib/utils/nostr-contract';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { getContracts, handleStatusEvent, handleContractEvent } from '$lib/utils/nostr-contract';
 import { getNpub } from '$lib/utils/nostrKeys';
-import { nip19 } from 'nostr-tools';
+import { nip19, type NostrEvent } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import KINDS from '$lib/utils/constants/kinds';
@@ -13,10 +11,16 @@ import KINDS from '$lib/utils/constants/kinds';
 type ContractStoreState = {
 	contract: ContractWithEvents | null; // Current selected contract
 	contracts: ContractWithEvents[]; // All contracts
-	contractsMap: Map<string, number>; // Maps escrowId -> array index for O(1) access
+	contractsMap: Map<string, number>; // Maps escrowData.id -> array index for O(1) access
 	isLoading: boolean;
 	error: string | null;
 	isDrawerOpen: boolean;
+	isResolutionFormOpen: boolean;
+	// Infinite scroll state
+	hasMore: boolean; // Whether more contracts can be loaded
+	oldestTimestamp: number | null; // Timestamp of oldest loaded contract for pagination (event.created_at in seconds)
+	isSubscribed: boolean; // Whether real-time subscriptions are active
+	isLoadingMore: boolean; // Whether currently loading more contracts
 };
 
 // Initial state
@@ -26,12 +30,25 @@ const initialState: ContractStoreState = {
 	contractsMap: new Map(),
 	isLoading: false,
 	error: null,
-	isDrawerOpen: false
+	isDrawerOpen: false,
+	isResolutionFormOpen: false,
+	hasMore: true,
+	oldestTimestamp: null,
+	isSubscribed: false,
+	isLoadingMore: false
 };
 
-// Subscription management - need TWO subscriptions for OR logic
+// Pagination configuration
+const CONTRACTS_LIMIT = 5; // Number of contracts to display per page
+const PAGINATION_BUFFER = 5; // Extra contracts to fetch for handling duplicates/collisions
+
+// Subscription management - need TWO subscriptions for OR logic (per event type)
+// Status update subscriptions
 let statusSubscriptionIncoming: { close: () => void } | null = null;
 let statusSubscriptionOutgoing: { close: () => void } | null = null;
+
+// Contract creation subscriptions
+let contractSubscription: { close: () => void } | null = null;
 
 // Create the store
 function createContractStore() {
@@ -46,12 +63,13 @@ function createContractStore() {
 	async function subscribeToStatusUpdates() {
 		try {
 			if (statusSubscriptionIncoming && statusSubscriptionOutgoing) {
-				return;
+				return console.log('[ContractStore] Already subscribed to status updates');
 			}
 
 			const npub = await getNpub();
 			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-			const pool = get(appStore).pool;
+			const _appStore = get(appStore);
+			const pool = _appStore.pool;
 
 			if (!pool) {
 				console.error('[ContractStore] Pool not available');
@@ -62,28 +80,68 @@ function createContractStore() {
 
 			// Subscription 1: Status events where user is RECIPIENT
 			statusSubscriptionIncoming = pool.subscribe(
-				[import.meta.env.VITE_NOSTR_RELAY_URL],
+				_appStore.relays,
 				{
 					kinds: [KINDS.CONTRACT_STATUS],
 					'#p': [userPubkeyHex],
 					since
 				},
-				{ onevent: handleStatusEvent }
+				{ onevent: async (event: NostrEvent) => await handleStatusEvent(event) }
 			);
+
 
 			// Subscription 2: Status events where user is AUTHOR (to see own updates)
 			statusSubscriptionOutgoing = pool.subscribe(
-				[import.meta.env.VITE_NOSTR_RELAY_URL],
+				_appStore.relays,
 				{
 					kinds: [KINDS.CONTRACT_STATUS],
 					authors: [userPubkeyHex],
 					since
 				},
-				{ onevent: handleStatusEvent }
+				{ onevent: async (event: NostrEvent) => await handleStatusEvent(event) }
+			);
+		} catch (error) {
+			console.error('[ContractStore] Failed to subscribe:', error);
+		}
+	}
+
+	/**
+	 * Subscribe to new contract creation events
+	 * Note: pool.subscribe only accepts ONE filter at a time, so we need TWO separate subscriptions:
+	 * Subscription 1: Contract events where user is PARTICIPANT (#p tag)
+	 * Subscription 2: Contract events where user is AUTHOR (contracts they create)
+	 */
+	async function subscribeToNewContracts() {
+		try {
+			if (contractSubscription) return;
+
+			const npub = await getNpub();
+			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+			const _appStore = get(appStore);
+			const pool = _appStore.pool;
+
+			if (!pool) {
+				console.error('[ContractStore] Pool not available');
+				return;
+			}
+
+			const since = Math.floor(Date.now() / 1000);
+			const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
+
+			// Subscription 1: Contract events where user is PARTICIPANT
+			contractSubscription = pool.subscribe(
+				_appStore.relays,
+				{
+					kinds: [KINDS.CONTRACT],
+					'#p': [userPubkeyHex],
+					'#n': [currentNetwork], // Filter by current network
+					since
+				},
+				{ onevent: handleContractEvent }
 			);
 
 		} catch (error) {
-			console.error('[ContractStore] Failed to subscribe:', error);
+			console.error('[ContractStore] Failed to subscribe to new contracts:', error);
 		}
 	}
 
@@ -100,6 +158,16 @@ function createContractStore() {
 			statusSubscriptionOutgoing = null;
 		}
 	}
+
+	/**
+	 * Unsubscribe from new contract creation events
+	 */
+	function unsubscribeFromNewContracts() {
+		if (contractSubscription) {
+			contractSubscription.close();
+			contractSubscription = null;
+		}
+	}
 	return {
 		set,
 		subscribe,
@@ -112,13 +180,21 @@ function createContractStore() {
 			update(state => ({ ...state, isLoading: true, error: null }));
 
 			try {
-				const loadedContracts = await getContracts();
+				const loadedContracts = await getContracts({ limit: CONTRACTS_LIMIT });
 
-				// Build index map: escrowId -> array index for O(1) access
+				// Build index map: escrowData.id -> array index for O(1) access
 				const contractsMap = new Map<string, number>();
 				loadedContracts.forEach((contract, index) => {
-					contractsMap.set(contract.contractEvent.content.escrowId, index);
+					contractsMap.set(contract.escrowData.id, index);
 				});
+
+				// Determine oldest timestamp for pagination (use event.created_at in seconds)
+				const oldestTimestamp = loadedContracts.length > 0
+					? loadedContracts[loadedContracts.length - 1].contractEvent.created_at
+					: null;
+
+				// Determine if more contracts can be loaded
+				const hasMore = loadedContracts.length === CONTRACTS_LIMIT;
 
 				set({
 					contracts: loadedContracts,
@@ -126,8 +202,20 @@ function createContractStore() {
 					contractsMap,
 					isLoading: false,
 					error: null,
-					isDrawerOpen: false
+					isDrawerOpen: false,
+					isResolutionFormOpen: false,
+					hasMore,
+					oldestTimestamp,
+					isSubscribed: false,
+					isLoadingMore: false
 				});
+
+				// Subscribe to real-time updates AFTER initial load
+				await subscribeToStatusUpdates();
+				await subscribeToNewContracts();
+
+				// Mark as subscribed
+				update(state => ({ ...state, isSubscribed: true }));
 			} catch (err) {
 				const error = err instanceof Error ? err.message : 'Failed to load contracts';
 				update(state => ({ ...state, error, isLoading: false }));
@@ -136,7 +224,104 @@ function createContractStore() {
 		},
 
 		/**
-		 * Reload a specific contract from Nostr/blockchain
+		 * Load more contracts (infinite scroll) - Hybrid Pagination Approach
+		 * 
+		 * Strategy:
+		 * 1. Fetch LIMIT + BUFFER contracts to handle timestamp collisions
+		 * 2. Filter out already-loaded contracts by escrowData.id (deduplication)
+		 * 3. Take first LIMIT contracts from filtered results
+		 * 4. Update boundary timestamp and contractsMap
+		 * 5. hasMore = (filtered count > LIMIT)
+		 * 
+		 * This approach handles:
+		 * - Same-second timestamp collisions (escrowData.id dedup)
+		 * - Relay boundary ambiguity (over-fetching compensates)
+		 */
+		async loadMoreContracts() {
+			const state = get(contractStore);
+
+			// Prevent multiple simultaneous loads
+			if (state.isLoadingMore || state.isLoading || !state.hasMore) {
+				return console.log('[ContractStore] Already loading more contracts or no more contracts to load');
+			}
+
+			if (!state.oldestTimestamp) {
+				return console.log('[ContractStore] No oldest timestamp to load more contracts');
+			}
+
+			update(state => ({ ...state, isLoadingMore: true }));
+
+			try {
+				// Fetch with buffer for handling collisions and duplicates
+				const fetchLimit = CONTRACTS_LIMIT + PAGINATION_BUFFER;
+				const fetchedContracts = await getContracts({
+					limit: fetchLimit,
+					until: state.oldestTimestamp
+				});
+
+				// Check if we got any new contracts
+				if (fetchedContracts.length === 0) {
+					update(s => ({ ...s, hasMore: false, isLoadingMore: false }));
+					console.log('[ContractStore] No more contracts available');
+					return;
+				}
+
+				// Filter out already-loaded contracts by escrowData.id (deduplication)
+				const newContracts = fetchedContracts.filter(
+					contract => !state.contractsMap.has(contract.escrowData.id)
+				);
+
+				// Take only the contracts we need (LIMIT)
+				const contractsToAdd = newContracts.slice(0, CONTRACTS_LIMIT);
+
+				if (contractsToAdd.length === 0) {
+					// All fetched contracts were duplicates - try fetching from older timestamp
+					const oldestFetched = fetchedContracts[fetchedContracts.length - 1];
+					console.log('[ContractStore] All contracts were duplicates, updating boundary');
+
+					update(s => ({
+						...s,
+						oldestTimestamp: oldestFetched.contractEvent.created_at,
+						isLoadingMore: false
+					}));
+					return;
+				}
+
+				// Update store with new contracts
+				update(state => {
+					// Merge contracts
+					const allContracts = [...state.contracts, ...contractsToAdd];
+
+					// Rebuild index map
+					const newContractsMap = new Map<string, number>();
+					allContracts.forEach((contract, index) => {
+						newContractsMap.set(contract.escrowData.id, index);
+					});
+
+					// Update boundary timestamp (use last DISPLAYED contract's timestamp)
+					const newOldestTimestamp = contractsToAdd[contractsToAdd.length - 1].contractEvent.created_at;
+
+					// Determine if more contracts might exist
+					// If we got more unique contracts than we needed, there's likely more
+					const hasMore = newContracts.length > CONTRACTS_LIMIT;
+
+					return {
+						...state,
+						contracts: allContracts,
+						contractsMap: newContractsMap,
+						oldestTimestamp: newOldestTimestamp,
+						hasMore,
+						isLoadingMore: false
+					};
+				});
+			} catch (err) {
+				console.error('[ContractStore] Error loading more contracts:', err);
+				update(s => ({ ...s, isLoadingMore: false }));
+			}
+		},
+
+		/**
+		 * Reload a specific contract from Nostr/blockchain by escrowData.id
 		 * Use this sparingly - only when you need to fetch fresh data
 		 * (e.g., new contract created, or need to sync status events)
 		 */
@@ -146,15 +331,16 @@ function createContractStore() {
 
 				if (loadedContracts.length > 0) {
 					const updatedContract = loadedContracts[0];
+					const escrowDataId = updatedContract.escrowData.id;
 
 					update(state => {
-						const index = state.contractsMap.get(escrowId);
+						const index = state.contractsMap.get(escrowDataId);
 
 						if (index === undefined) {
 							// New contract - add it to the array
 							const newIndex = state.contracts.length;
 							const newContractsMap = new Map(state.contractsMap);
-							newContractsMap.set(escrowId, newIndex);
+							newContractsMap.set(escrowDataId, newIndex);
 
 							return {
 								...state,
@@ -190,14 +376,14 @@ function createContractStore() {
 		 */
 		getContractKey(
 			contract: ContractWithEvents,
-			key: keyof NostrContract | keyof ContractWithEvents | 'taskeePubkey' | 'contractEventId'
+			key: keyof NostrContract | keyof ContractWithEvents | 'otherPartyNpub' | 'contractEventId'
 		): any {
 			// Handle special computed cases first
 			if (key === 'contractEventId') {
 				return contract.contractEvent.id;
 			}
 
-			if (key === 'taskeePubkey') {
+			if (key === 'otherPartyNpub') {
 				return contract.isClient
 					? contract.contractEvent.content.freelancerPubkey
 					: contract.contractEvent.content.clientPubkey;
@@ -228,9 +414,22 @@ function createContractStore() {
 		unsubscribeFromStatusUpdates,
 
 		/**
+		 * Subscribe to new contract creation events
+		 */
+		subscribeToNewContracts,
+
+		/**
+		 * Unsubscribe from new contract creation events
+		 */
+		unsubscribeFromNewContracts,
+
+		/**
 		 * Reset store to initial state
 		 */
 		reset() {
+			// Unsubscribe from all subscriptions before reset
+			unsubscribeFromStatusUpdates();
+			unsubscribeFromNewContracts();
 			set(initialState);
 		}
 	};

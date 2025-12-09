@@ -42,4 +42,5 @@ export enum EscrowStatus {
 	PendingDispute = 13,            // BEFORE disputeTask() confirms - prevents double-dispute
 	PendingResolutionProposal = 14, // BEFORE proposeResolution() confirms - prevents double-proposal
 	PendingProposalAcceptance = 15, // BEFORE acceptProposal() confirms - prevents double-acceptance
+	PendingTimelockResolution = 16, // BEFORE resolveAfterTimelock() confirms - prevents double-resolution
 }

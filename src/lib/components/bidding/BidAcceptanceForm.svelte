@@ -26,6 +26,7 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { bidStore } from '$lib/stores/bid.store';
 
 	// Props
 	const props = $props<{
@@ -35,8 +36,8 @@
 		onCancel: () => void;
 	}>();
 
-	const bidContent = $derived(props.bid.content as unknown as NostrBidContent);
-	const taskContent = $derived(JSON.parse(props.task.content) as Task);
+	const bidContent = props.bid.content as unknown as NostrBidContent;
+	const taskContent = JSON.parse(props.task.content) as Task;
 
 	// Form state
 	let isSubmitting = $state(false);
@@ -121,6 +122,9 @@
 		try {
 			isSubmitting = true;
 
+			// Add bid to processing state to prevent duplicate submissions
+			bidStore.addProcessingBid(props.bid.id);
+
 			// Accept bid and create escrow
 			const result = await acceptBidAndCreateEscrow(props.bid, props.task, props.btcPrice, 'RSK');
 
@@ -140,7 +144,7 @@
 				if (freelancerPubkey) {
 					// Use task data we already have - no need to fetch it again
 					const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
-					
+
 					// Send message asynchronously in background - don't block UI or fail on error
 					sendLocationsToTaskee(
 						taskContent.pickupLocation || null,
