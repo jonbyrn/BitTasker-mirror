@@ -23,47 +23,33 @@
 		generateGoogleMapsDirectionsLink(location, { origin: 'current', label })
 	);
 
-	// Derived classes for styling based on label
-	// Check if label matches translated pickup location text
-	const pickupLocationText = $derived($t('common.location.pickup_location'));
-	const isPickupLocation = $derived(label === pickupLocationText || label === 'Pickup Location');
-	const addressLabelClass = $derived('text-sm mb-1 ');
-	const addressTextClass = $derived('font-medium ');
-	
-	// Card styling classes - using subtle gray tones for both
-	const cardClass = $derived(
-		isPickupLocation 
-			? 'card shadow-md bg-secondary' 
-			: 'card shadow-md bg-secondary'
-	);
-
 	function openDirections() {
 		window.open(directionsLink, '_blank', 'noopener,noreferrer');
 	}
 </script>
 
-<div class={cardClass}>
+<div class="card shadow-lg bg-base-100 border border-base-300">
 	<div class="p-4">
 		{#if label}
-			<h4 class="card-title text-md">{label}</h4>
+			<h4 class="card-title text-base font-semibold text-base-content mb-3">{label}</h4>
 		{/if}
 
 		{#if showAddress && formattedAddress}
-			<div class="mb-2">
-				<p class={addressLabelClass}>{$t('common.location.address')}</p>
-				<p class={addressTextClass}>{formattedAddress}</p>
+			<div class="mb-4">
+				<p class="text-sm mb-1 text-base-content/70">{$t('common.location.address')}</p>
+				<p class="font-medium text-base-content">{formattedAddress}</p>
 			</div>
 		{/if}
 
 		{#if showDirections}
 			<div class="flex gap-2 flex-wrap">
 				<button 
-					class="btn btn-sm btn-primary" 
+					class="btn btn-sm btn-info btn-outline rounded-lg font-medium" 
 					onclick={openDirections}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4 mr-1"
+						class="h-4 w-4 mr-1.5"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"

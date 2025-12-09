@@ -61,6 +61,14 @@
     "failed_to_load_chat": "Error al cargar chat",
     "delete_conversation": "Borrar conversación",
     "confirm_delete_conversation": "¿Estás seguro de que quieres borrar esta conversación? Esta acción no se puede deshacer.",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "translation": {
+      "settings_title": "Configuración de Traducción",
+      "enable_translation": "Habilitar Traducción",
+      "info_message": "Los mensajes se traducirán automáticamente a tu idioma seleccionado cuando sean diferentes.",
+      "done": "Hecho",
+      "translating_message": "Traduciendo mensaje...",
+      "translation_error": "Error de Traducción"
+    }
   }
 }

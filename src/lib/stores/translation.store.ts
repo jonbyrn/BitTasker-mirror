@@ -3,8 +3,8 @@
  * Only supports English and Spanish translation
  */
 
-import { writable } from 'svelte/store';
-import { translationService, type TranslationResult, type TranslationError } from '$lib/services/translation.service';
+import { writable, get } from 'svelte/store';
+import { translationService, type TranslationResult } from '$lib/services/translation.service';
 import { locale } from 'svelte-i18n';
 import { browser } from '$app/environment';
 
@@ -30,18 +30,14 @@ const messageTranslations = writable<Map<string, MessageTranslation>>(new Map())
 const translationState = writable<TranslationState>({
 	isTranslating: false,
 	error: null,
-	lastTranslation: null,
+	lastTranslation: null
 });
 
 // Store for user's translation preferences
 const translationPreferences = writable<{
 	enabled: boolean;
-	autoTranslate: boolean;
-	targetLanguage: string;
 }>({
-	enabled: true,
-	autoTranslate: true,
-	targetLanguage: 'en',
+	enabled: false
 });
 
 // Circuit breaker for API failures
@@ -54,7 +50,7 @@ const circuitBreaker = writable<{
 	isOpen: false,
 	failureCount: 0,
 	lastFailureTime: 0,
-	nextAttemptTime: 0,
+	nextAttemptTime: 0
 });
 
 // Track translated message IDs to prevent duplicates
@@ -70,7 +66,7 @@ const translationQueue: Array<{
 	text: string;
 	forceRetranslate: boolean;
 	resolve: (result: MessageTranslation | null) => void;
-	reject: (error: any) => void;
+	reject: (error: unknown) => void;
 }> = [];
 
 // Load preferences and translations from localStorage on browser
@@ -91,7 +87,7 @@ if (browser) {
 	if (savedTranslations) {
 		try {
 			const parsed = JSON.parse(savedTranslations);
-			
+
 			// Handle both old and new cache formats
 			let translations: Array<[string, MessageTranslation]>;
 			if (parsed.translations && Array.isArray(parsed.translations)) {
@@ -103,7 +99,7 @@ if (browser) {
 			} else {
 				throw new Error('Invalid cache format');
 			}
-			
+
 			const translationsMap = new Map<string, MessageTranslation>(translations);
 			messageTranslations.set(translationsMap);
 		} catch (error) {
@@ -115,9 +111,14 @@ if (browser) {
 }
 
 // Save preferences to localStorage when they change
+// Skip saving during initial load to avoid overwriting with defaults
+let isInitialLoad = true;
 translationPreferences.subscribe((prefs) => {
-	if (browser) {
+	if (browser && !isInitialLoad) {
 		localStorage.setItem('translation_preferences', JSON.stringify(prefs));
+	}
+	if (isInitialLoad) {
+		isInitialLoad = false;
 	}
 });
 
@@ -129,7 +130,7 @@ messageTranslations.subscribe((translations) => {
 		if (saveTimeout) {
 			clearTimeout(saveTimeout);
 		}
-		
+
 		saveTimeout = setTimeout(() => {
 			try {
 				const serialized = Array.from(translations.entries());
@@ -143,7 +144,7 @@ messageTranslations.subscribe((translations) => {
 				console.error('Failed to save translations to localStorage:', error);
 				// If localStorage is full, try to clear old translations
 				if (error instanceof Error && error.name === 'QuotaExceededError') {
-						console.log('LocalStorage full, clearing old translations...');
+					console.log('LocalStorage full, clearing old translations...');
 					TranslationStore.clearOldTranslations(7); // Clear translations older than 7 days
 				}
 			}
@@ -158,40 +159,46 @@ locale.subscribe(($locale) => {
 });
 
 // Derived store for translation settings
+// targetLanguage is always the current user's locale from navbar
 const translationSettings = writable<{
 	enabled: boolean;
 	autoTranslate: boolean;
 	targetLanguage: string;
 }>({
-	enabled: true,
-	autoTranslate: true,
-	targetLanguage: 'en',
+	enabled: false,
+	autoTranslate: true, // Always true - messages are auto-translated when enabled
+	targetLanguage: 'en'
 });
 
-// Update translation settings when preferences or language changes
+// Update translation settings when preferences change
 translationPreferences.subscribe((prefs) => {
+	// Get current user language from locale
+	const currentLang = get(currentUserLanguage) || 'en';
+
 	const settings = {
-		...prefs,
-		targetLanguage: prefs.targetLanguage || 'en',
+		enabled: prefs.enabled,
+		autoTranslate: true, // Always auto-translate when enabled
+		targetLanguage: currentLang
 	};
-	// Translation preferences updated
 	translationSettings.set(settings);
 });
 
-// Update translation settings when user language changes
+// Update translation settings when user language changes (navbar language)
 currentUserLanguage.subscribe((userLang) => {
-	translationSettings.update(settings => ({
+	translationSettings.update((settings) => ({
 		...settings,
-		targetLanguage: userLang || 'en',
+		targetLanguage: userLang || 'en'
 	}));
-	// User language updated
 });
 
 // Initialize settings on startup
 translationPreferences.subscribe((prefs) => {
+	const currentLang = get(currentUserLanguage) || 'en';
+
 	const settings = {
-		...prefs,
-		targetLanguage: prefs.targetLanguage || 'en',
+		enabled: prefs.enabled,
+		autoTranslate: true,
+		targetLanguage: currentLang
 	};
 	translationSettings.set(settings);
 })();
@@ -201,13 +208,10 @@ export class TranslationStore {
 	 * Check circuit breaker state
 	 */
 	private static checkCircuitBreaker(): boolean {
-		let breaker: any;
-		circuitBreaker.subscribe((b) => {
-			breaker = b;
-		})();
+		const breaker = get(circuitBreaker);
 
 		const now = Date.now();
-		
+
 		// If circuit is open, check if we should try again
 		if (breaker.isOpen) {
 			if (now < breaker.nextAttemptTime) {
@@ -217,10 +221,10 @@ export class TranslationStore {
 			circuitBreaker.update((b) => ({
 				...b,
 				isOpen: false,
-				failureCount: 0,
+				failureCount: 0
 			}));
 		}
-		
+
 		return true;
 	}
 
@@ -232,14 +236,16 @@ export class TranslationStore {
 		circuitBreaker.update((breaker) => {
 			const newFailureCount = breaker.failureCount + 1;
 			const shouldOpen = newFailureCount >= 5; // Open after 5 failures
-			const nextAttemptTime = shouldOpen ? now + (60000 * Math.pow(2, Math.min(newFailureCount - 5, 6))) : 0; // Exponential backoff
-			
+			const nextAttemptTime = shouldOpen
+				? now + 60000 * Math.pow(2, Math.min(newFailureCount - 5, 6))
+				: 0; // Exponential backoff
+
 			return {
 				...breaker,
 				isOpen: shouldOpen,
 				failureCount: newFailureCount,
 				lastFailureTime: now,
-				nextAttemptTime,
+				nextAttemptTime
 			};
 		});
 	}
@@ -251,7 +257,7 @@ export class TranslationStore {
 		circuitBreaker.update((breaker) => ({
 			...breaker,
 			failureCount: 0,
-			isOpen: false,
+			isOpen: false
 		}));
 	}
 
@@ -259,11 +265,8 @@ export class TranslationStore {
 	 * Get translation for a specific message
 	 */
 	static getMessageTranslation(messageId: string): MessageTranslation | null {
-		let result: MessageTranslation | null = null;
-		messageTranslations.subscribe((translations) => {
-			result = translations.get(messageId) || null;
-		})();
-		return result;
+		const translations = get(messageTranslations);
+		return translations.get(messageId) || null;
 	}
 
 	/**
@@ -277,47 +280,19 @@ export class TranslationStore {
 	 * Get current user's language preference
 	 */
 	static getCurrentUserLanguage(): string {
-		let userLang = 'en';
-		currentUserLanguage.subscribe((lang) => {
-			userLang = lang || 'en';
-		})();
-		return userLang;
-	}
-
-	/**
-	 * Check if translation is needed for a message
-	 */
-	static async shouldTranslateMessage(text: string): Promise<boolean> {
-		if (!translationService.isAvailable()) {
-			return false;
-		}
-
-		try {
-			
-			const sourceLanguage = await translationService.detectLanguage(text);
-			const targetLanguage = this.getCurrentUserLanguage();
-			
-			// Only translate if source language is different from target language
-			return !!sourceLanguage && !!targetLanguage && sourceLanguage !== targetLanguage;
-		} catch (error) {
-			console.log('Language detection failed:', error);
-			return false;
-		}
+		return get(currentUserLanguage) || 'en';
 	}
 
 	/**
 	 * Get cache statistics
 	 */
 	static getCacheStats(): { size: number; hitRate: number; oldestTranslation?: number } {
-		let translations: Map<string, MessageTranslation>;
-		messageTranslations.subscribe((t) => {
-			translations = t;
-		})();
+		const translations = get(messageTranslations);
 
-		const size = translations!.size;
+		const size = translations.size;
 		let oldestTimestamp = Infinity;
-		
-		for (const translation of translations!.values()) {
+
+		for (const translation of translations.values()) {
 			if (translation.timestamp < oldestTimestamp) {
 				oldestTimestamp = translation.timestamp;
 			}
@@ -344,21 +319,14 @@ export class TranslationStore {
 	 * Clear old translations (older than specified days)
 	 */
 	static clearOldTranslations(daysOld: number = 30): void {
-		const cutoffTime = Date.now() - (daysOld * 24 * 60 * 60 * 1000);
-		let translations: Map<string, MessageTranslation>;
-		
-		messageTranslations.subscribe((t) => {
-			translations = t;
-		})();
+		const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000;
+		const translations = get(messageTranslations);
 
 		const filteredTranslations = new Map<string, MessageTranslation>();
-		let removedCount = 0;
 
-		for (const [messageId, translation] of translations!.entries()) {
+		for (const [messageId, translation] of translations.entries()) {
 			if (translation.timestamp > cutoffTime) {
 				filteredTranslations.set(messageId, translation);
-			} else {
-				removedCount++;
 			}
 		}
 
@@ -369,15 +337,12 @@ export class TranslationStore {
 	 * Export translation cache for backup
 	 */
 	static exportCache(): string {
-		let translations: Map<string, MessageTranslation>;
-		messageTranslations.subscribe((t) => {
-			translations = t;
-		})();
+		const translations = get(messageTranslations);
 
 		const exportData = {
 			exportDate: new Date().toISOString(),
 			version: '1.0',
-			translations: Array.from(translations!.entries())
+			translations: Array.from(translations.entries())
 		};
 
 		return JSON.stringify(exportData, null, 2);
@@ -389,14 +354,14 @@ export class TranslationStore {
 	static importCache(backupData: string): boolean {
 		try {
 			const data = JSON.parse(backupData);
-			
+
 			if (!data.translations || !Array.isArray(data.translations)) {
 				throw new Error('Invalid backup format');
 			}
 
 			const translationsMap = new Map<string, MessageTranslation>(data.translations);
 			messageTranslations.set(translationsMap);
-			
+
 			return true;
 		} catch (error) {
 			console.error('Failed to import translation cache:', error);
@@ -413,8 +378,7 @@ export class TranslationStore {
 			translations = t;
 		})();
 
-		 messageIds.filter(id => translations!.has(id));
-		
+		messageIds.filter((id) => translations!.has(id));
 	}
 
 	/**
@@ -429,7 +393,7 @@ export class TranslationStore {
 	 */
 	static getCacheSizeBytes(): number {
 		if (!browser) return 0;
-		
+
 		const cacheData = localStorage.getItem('translation_cache_persistent');
 		return cacheData ? new Blob([cacheData]).size : 0;
 	}
@@ -449,11 +413,7 @@ export class TranslationStore {
 			if (!item) break;
 
 			try {
-				const result = await this.performTranslation(
-					item.messageId,
-					item.text,
-					item.forceRetranslate
-				);
+				const result = await this.performTranslation(item.messageId, item.text);
 				item.resolve(result);
 			} catch (error) {
 				item.reject(error);
@@ -461,11 +421,166 @@ export class TranslationStore {
 
 			// Add delay between translations to respect rate limits
 			if (translationQueue.length > 0) {
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				await new Promise((resolve) => setTimeout(resolve, 1000));
 			}
 		}
 
 		isTranslatingGlobally = false;
+	}
+
+	/**
+	 * Translate multiple messages in batch (more efficient)
+	 */
+	static async translateMessagesBatch(
+		messages: Array<{ messageId: string; text: string }>,
+		forceRetranslate = false
+	): Promise<Map<string, MessageTranslation>> {
+		const results = new Map<string, MessageTranslation>();
+
+		if (messages.length === 0) {
+			return results;
+		}
+
+		// Check if translation is enabled
+		const settings = get(translationSettings);
+
+		if (!settings.enabled) {
+			return results;
+		}
+
+		// Filter messages that need translation
+		const messagesToTranslate = messages.filter(({ messageId, text }) => {
+			// Skip if already translated and not forcing retranslation
+			if (!forceRetranslate && this.isMessageTranslated(messageId)) {
+				return false;
+			}
+
+			// Skip if already being translated
+			if (translatedMessageIds.has(messageId)) {
+				return false;
+			}
+
+			// Skip if message is already in the queue
+			const isInQueue = translationQueue.some((item) => item.messageId === messageId);
+			if (isInQueue) {
+				return false;
+			}
+
+			// Skip if message previously failed (unless forcing retranslate)
+			if (!forceRetranslate && failedMessageIds.has(messageId)) {
+				return false;
+			}
+
+			// Skip empty or very short messages
+			if (!text.trim() || text.trim().length < 3) {
+				return false;
+			}
+
+			return true;
+		});
+
+		if (messagesToTranslate.length === 0) {
+			return results;
+		}
+
+		// Check circuit breaker
+		if (!this.checkCircuitBreaker()) {
+			translationState.update((state) => ({
+				...state,
+				error: 'Translation service temporarily unavailable due to repeated failures'
+			}));
+			return results;
+		}
+
+		// Check if translation service is available
+		if (!translationService.isAvailable()) {
+			translationState.update((state) => ({
+				...state,
+				error: 'Translation service not available - API key missing'
+			}));
+			return results;
+		}
+
+		const targetLanguage = settings.targetLanguage || 'en';
+
+		// Mark all as being translated
+		messagesToTranslate.forEach(({ messageId }) => {
+			translatedMessageIds.add(messageId);
+		});
+
+		// Update state to show we're translating
+		translationState.update((state) => ({
+			...state,
+			isTranslating: true,
+			error: null
+		}));
+
+		try {
+			// Get texts to translate
+			const texts = messagesToTranslate.map((m) => m.text);
+
+			// Translate in batch
+			const translationResults = await translationService.translateBatch(texts, targetLanguage);
+
+			// Process results
+			translationResults.forEach((result, index) => {
+				const { messageId } = messagesToTranslate[index];
+
+				if ('code' in result) {
+					// Translation failed
+					failedMessageIds.add(messageId);
+					translatedMessageIds.delete(messageId);
+				} else {
+					// Translation successful - only store if languages are different
+					// The API returns detectedSourceLanguage, check if it's different from target
+					const sourceLang = result.detectedSourceLanguage || 'auto';
+					if (sourceLang && sourceLang !== targetLanguage) {
+						const translation: MessageTranslation = {
+							messageId,
+							originalText: result.originalText,
+							translatedText: result.translatedText,
+							sourceLanguage: sourceLang,
+							targetLanguage: result.targetLanguage,
+							timestamp: Date.now()
+						};
+
+						messageTranslations.update((translations) => {
+							const newMap = new Map(translations);
+							newMap.set(messageId, translation);
+							return newMap;
+						});
+						results.set(messageId, translation);
+					}
+
+					translatedMessageIds.delete(messageId);
+				}
+			});
+
+			// Update circuit breaker on success
+			this.updateCircuitBreakerOnSuccess();
+		} catch (error) {
+			console.error('Batch translation error:', error);
+			translationState.update((state) => ({
+				...state,
+				error: error instanceof Error ? error.message : 'Translation failed'
+			}));
+
+			// Mark all as failed
+			messagesToTranslate.forEach(({ messageId }) => {
+				failedMessageIds.add(messageId);
+				translatedMessageIds.delete(messageId);
+			});
+
+			// Update circuit breaker on failure
+			this.updateCircuitBreakerOnFailure();
+		} finally {
+			translationState.update((state) => ({
+				...state,
+				isTranslating: false
+			}));
+		}
+
+		return results;
 	}
 
 	/**
@@ -476,7 +591,6 @@ export class TranslationStore {
 		text: string,
 		forceRetranslate = false
 	): Promise<MessageTranslation | null> {
-
 		// Check if already translated and not forcing retranslation
 		if (!forceRetranslate && this.isMessageTranslated(messageId)) {
 			return this.getMessageTranslation(messageId);
@@ -488,7 +602,7 @@ export class TranslationStore {
 		}
 
 		// Check if message is already in the queue
-		const isInQueue = translationQueue.some(item => item.messageId === messageId);
+		const isInQueue = translationQueue.some((item) => item.messageId === messageId);
 		if (isInQueue) {
 			return null;
 		}
@@ -499,12 +613,9 @@ export class TranslationStore {
 		}
 
 		// Check if translation is enabled
-		let settings: any;
-		translationSettings.subscribe((s) => {
-			settings = s;
-		})();
+		const settings = get(translationSettings);
 
-		if (!settings.enabled || !settings.autoTranslate) {
+		if (!settings.enabled) {
 			return null;
 		}
 
@@ -512,7 +623,7 @@ export class TranslationStore {
 		if (!this.checkCircuitBreaker()) {
 			translationState.update((state) => ({
 				...state,
-				error: 'Translation service temporarily unavailable due to repeated failures',
+				error: 'Translation service temporarily unavailable due to repeated failures'
 			}));
 			return null;
 		}
@@ -521,28 +632,13 @@ export class TranslationStore {
 		if (!translationService.isAvailable()) {
 			translationState.update((state) => ({
 				...state,
-				error: 'Translation service not available - API key missing',
+				error: 'Translation service not available - API key missing'
 			}));
 			return null;
 		}
 
-		// Detect source language and check if translation is needed
-		try {
-			const sourceLanguage = await translationService.detectLanguage(text);
-			const targetLanguage = settings.targetLanguage || 'en';
-			
-			// Only translate if source language is different from target language
-			// and both are supported languages
-			if (sourceLanguage && sourceLanguage !== targetLanguage) {
-				// Translation needed - proceed silently
-			} else {
-				// No translation needed - skip silently
-				return null;
-			}
-		} catch (error) {
-			console.log('Language detection failed, proceeding with translation:', error);
-			// Continue with translation even if detection fails
-		}
+		// Skip language detection - let the API detect automatically
+		// This saves one API call per message
 
 		// Mark as being translated
 		translatedMessageIds.add(messageId);
@@ -567,43 +663,22 @@ export class TranslationStore {
 	 */
 	private static async performTranslation(
 		messageId: string,
-		text: string,
-		forceRetranslate = false
+		text: string
 	): Promise<MessageTranslation | null> {
-
 		// Set translating state
 		translationState.update((state) => ({
 			...state,
 			isTranslating: true,
-			error: null,
+			error: null
 		}));
 
 		try {
 			// Get settings
-			let settings: any;
-			translationSettings.subscribe((s) => {
-				settings = s;
-			})();
+			const settings = get(translationSettings);
 
-			// Detect source language first
-			const detectedLanguage = await translationService.detectLanguage(text);
-			
-			// Skip translation if source and target languages are the same
-			if (detectedLanguage && translationService.isSameLanguage(detectedLanguage, settings.targetLanguage)) {
-				translationState.update((state) => ({
-					...state,
-					isTranslating: false,
-				}));
-				translatedMessageIds.delete(messageId);
-				return null;
-			}
-
-			// Translate the text
-			const result = await translationService.translate(
-				text,
-				settings.targetLanguage,
-				detectedLanguage || undefined
-			);
+			// Skip language detection - let the API detect automatically
+			// Translate the text (API will detect language automatically)
+			const result = await translationService.translate(text, settings.targetLanguage);
 
 			// Check if translation was successful
 			if ('code' in result) {
@@ -613,7 +688,7 @@ export class TranslationStore {
 				translationState.update((state) => ({
 					...state,
 					isTranslating: false,
-					error: result.message,
+					error: result.message
 				}));
 				translatedMessageIds.delete(messageId);
 				return null;
@@ -629,9 +704,8 @@ export class TranslationStore {
 				translatedText: result.translatedText,
 				targetLanguage: settings.targetLanguage,
 				sourceLanguage: result.detectedSourceLanguage,
-				timestamp: Date.now(),
+				timestamp: Date.now()
 			};
-
 
 			// Store the translation
 			messageTranslations.update((translations) => {
@@ -645,7 +719,7 @@ export class TranslationStore {
 				...state,
 				isTranslating: false,
 				lastTranslation: result,
-				error: null, // Clear any previous errors
+				error: null // Clear any previous errors
 			}));
 
 			return translation;
@@ -656,7 +730,7 @@ export class TranslationStore {
 			translationState.update((state) => ({
 				...state,
 				isTranslating: false,
-				error: error instanceof Error ? error.message : 'Unknown translation error',
+				error: error instanceof Error ? error.message : 'Unknown translation error'
 			}));
 			return null;
 		} finally {
@@ -693,7 +767,7 @@ export class TranslationStore {
 		translatedMessageIds.clear();
 		failedMessageIds.clear();
 		translationService.clearCache();
-		
+
 		// Clear persistent storage
 		if (browser) {
 			localStorage.removeItem('translation_cache_persistent');
@@ -713,7 +787,7 @@ export class TranslationStore {
 	static updatePreferences(preferences: Partial<typeof translationPreferences>): void {
 		translationPreferences.update((current) => ({
 			...current,
-			...preferences,
+			...preferences
 		}));
 	}
 
@@ -723,43 +797,19 @@ export class TranslationStore {
 	static toggleTranslation(): void {
 		translationPreferences.update((prefs) => ({
 			...prefs,
-			enabled: !prefs.enabled,
-		}));
-	}
-
-	/**
-	 * Toggle auto-translate on/off
-	 */
-	static toggleAutoTranslate(): void {
-		translationPreferences.update((prefs) => ({
-			...prefs,
-			autoTranslate: !prefs.autoTranslate,
-		}));
-	}
-
-	/**
-	 * Set target language - only English and Spanish supported
-	 */
-	static setTargetLanguage(language: string): void {
-		// Only allow English and Spanish
-		const supportedLanguages = ['en', 'es'];
-		const validLanguage = supportedLanguages.includes(language) ? language : 'en';
-		
-		translationPreferences.update((prefs) => ({
-			...prefs,
-			targetLanguage: validLanguage,
+			enabled: !prefs.enabled
 		}));
 	}
 
 	/**
 	 * Get current settings
 	 */
-	static getSettings(): any {
-		let settings: any;
-		translationSettings.subscribe((s) => {
-			settings = s;
-		})();
-		return settings;
+	static getSettings(): {
+		enabled: boolean;
+		autoTranslate: boolean;
+		targetLanguage: string;
+	} {
+		return get(translationSettings);
 	}
 }
 

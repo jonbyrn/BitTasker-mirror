@@ -85,7 +85,7 @@
 	}
 </script>
 
-<div class="bg-base-100 mx-2 md:mx-auto max-w-6xl rounded-2xl shadow-lg mt-8 md:mt-4 overflow-hidden h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)] flex flex-col">
+<div class="bg-base-100 mt-6 md:mt-0  mx-auto max-w-6xl rounded-2xl shadow-xl border border-base-300/20 overflow-hidden h-[calc(75vh)] md:h-[calc(70vh)] flex flex-col">
 	{#if isLoading}
 		<!-- Loading State -->
 		<div class="flex h-full items-center justify-center">
@@ -118,16 +118,16 @@
 		</div>
 	{:else}
 		<!-- Chat Header with Back Button - Fixed Header -->
-		<div class="flex flex-shrink-0 items-center border-b border-base-300/20 p-4">
+		<div class="flex shrink-0 items-center border-b border-base-300/30 bg-base-200/30 px-4 py-3 md:px-6 md:py-4">
 			<!-- Back Button -->
 			<button
-				class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors flex-shrink-0 ml-2"
+				class="btn btn-ghost btn-sm hover:bg-base-300 transition-all duration-200 shrink-0 mr-3"
 				onclick={goBackToMessages}
 				aria-label={$t('messages.go_back_to_messages')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
+					class="h-5 w-5"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -143,24 +143,24 @@
 
 			<!-- Recipient Info -->
 			<div class="flex flex-1 items-center justify-between min-w-0">
-				<div class="flex items-center gap-2 min-w-0 flex-1">
-					<div class="flex-shrink-0">
+				<div class="flex items-center gap-3 min-w-0 flex-1">
+					<div class="shrink-0">
 						{#if recipientProfile?.picture}
 							<img
 								src={recipientProfile.picture}
 								alt={recipientProfile.name || $t('messages.unknown')}
-								class="h-10 w-10 rounded-full object-cover ring-2 ring-base-300"
-								width={40}
-								height={40}
+								class="h-12 w-12 rounded-full object-cover ring-2 ring-base-300 shadow-md md:h-14 md:w-14"
+								width={56}
+								height={56}
 							/>
 						{:else}
-							<div class="bg-gradient-to-br from-primary/20 to-secondary/20 flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-base-300">
+							<div class="bg-linear-to-br from-primary/20 to-secondary/20 flex h-12 w-12 items-center justify-center rounded-full ring-2 ring-base-300 shadow-md md:h-14 md:w-14">
 								{#if recipientProfile?.name}
-									<span class="text-primary font-semibold text-sm">
+									<span class="text-primary font-bold text-base md:text-lg">
 										{recipientProfile.name.charAt(0).toUpperCase()}
 									</span>
 								{:else}
-									<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-6 w-6 md:h-7 md:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
 									</svg>
 								{/if}
@@ -168,20 +168,20 @@
 						{/if}
 					</div>
 					<div class="min-w-0 flex-1">
-						<h4 class="text-base font-medium truncate">
+						<h4 class="text-lg font-bold truncate md:text-xl">
 							{recipientProfile?.name || `${recipientPubkey.slice(0, 8)}...`}
 						</h4>
 					</div>
 				</div>
 
 				<!-- Action Buttons -->
-				<div class="flex items-center gap-2 flex-shrink-0">
+				<div class="flex items-center gap-2 shrink-0">
 					<!-- Translation Settings Button -->
 					<TranslationSettings />
 					
 					<!-- Copy Public Key Button -->
 					<button
-						class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors relative"
+						class="btn btn-ghost btn-sm hover:bg-base-300 transition-all duration-200 relative"
 						onclick={copyPubkey}
 						title={copySuccess ? $t('messages.copied') : $t('messages.copy_public_key')}
 						aria-label={copySuccess ? $t('messages.copied') : $t('messages.copy_public_key')}
@@ -190,7 +190,7 @@
 							<!-- Check icon for success state -->
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4 text-success"
+								class="h-5 w-5 text-success"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
@@ -206,7 +206,7 @@
 							<!-- Copy icon -->
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4"
+								class="h-5 w-5"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
