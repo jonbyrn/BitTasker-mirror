@@ -10,6 +10,7 @@
 	import { goto } from '$app/navigation';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
@@ -87,6 +88,7 @@
 		dateFormatterCache.set(key, formatted);
 		return formatted;
 	}
+
 
 	async function loadTaskDetails() {
 		try {
@@ -589,12 +591,44 @@
 									{getTranslatedBidContent(bidContent, 'description')}
 								</p>
 							</div>
+						
 							<!-- Payment info row: FIXED info on left, price on right (same row for all screen sizes) -->
 							<div class="flex flex-row items-center justify-between gap-2">
 								<!-- Payment type info - left aligned with max-width -->
-								<div class="text-base-content/50 max-w-[50%] flex-1 text-xs wrap-break-word">
+								<!-- <div class="text-base-content/50 max-w-[50%] flex-1 text-xs wrap-break-word">
 									{bidContent.paymentType} • {bidContent.estimatedDuration}
+								</div> -->
+
+									<!-- Estimated date for FIXED bids -->
+							{#if bidContent.paymentType === 'FIXED' && bidContent.startDateTime && bidContent.endDateTime}
+							<div class="flex items-start max-w-[60%] gap-2">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+								<div class="flex min-w-0 flex-1 flex-col">
+									<small class="text-base-content/60 text-xs">
+										{$t('bids.estimated_date')}
+									</small>
+									<span class="text-sm font-medium">
+										{formatStandardDateTime(new Date(bidContent.startDateTime), $locale || 'en')} - {formatStandardDateTime(new Date(bidContent.endDateTime), $locale || 'en')}
+									</span>
+									<span class="text-base-content/60 text-xs">
+										({bidContent.estimatedDuration})
+									</span>
 								</div>
+							</div>
+						{/if}
 								<!-- Payment info column (aligned right) -->
 								<div class="shrink-0 text-right">
 									<div class="text-xl font-bold sm:text-2xl">

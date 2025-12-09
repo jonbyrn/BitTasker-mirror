@@ -61,12 +61,17 @@
         "anonymous": "Anónimo"
       },
       "status": {
-        "in_progress": "En Progreso",
-        "draft": "Borrador",
         "open": "Abierto",
+        "bid_accepted": "Oferta Aceptada",
+        "escrow_funded": "Fondo en Garantía",
+        "in_progress": "En Progreso",
+        "rescoped": "Re-Escopeado",
+        "rescope_accepted": "Re-Escope Aceptado",
         "completed": "Completado",
         "cancelled": "Cancelado",
-        "disputed": "En Disputa"
+        "refunded": "Reembolsado",
+        "disputed": "En Disputa",
+        "dispute_proposal": "Propuesta de Disputa"
       },
       "drawer": {
         "details": "Detalles",
