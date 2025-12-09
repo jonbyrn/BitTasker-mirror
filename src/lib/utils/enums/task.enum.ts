@@ -62,3 +62,7 @@ export enum RecurringFrequencyEnum {
 	MONTHLY = 'MONTHLY',
 	CUSTOM = 'CUSTOM'
 }
+
+export enum PaginationEnum {
+	TASKS_PER_PAGE = 15
+}

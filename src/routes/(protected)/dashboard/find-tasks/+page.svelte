@@ -6,7 +6,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
-	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { TaskStatusEnum, TaskTypeEnum, PaginationEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
@@ -35,7 +35,7 @@ import {
 			categories: [],
 			skills: [],
 			page: 1,
-			limit: 15,
+			limit: PaginationEnum.TASKS_PER_PAGE,
 			budget: {
 				tier: undefined,
 				currency: undefined,
@@ -225,12 +225,18 @@ import {
 
 		try {
 			// Only load if we don't have tasks or search changed
-			searchParams = {
+			const newSearchParams: SearchTasksParams = {
 				...searchParams,
 				page: 1,
-				limit: 15,
-				until: undefined
+				limit: PaginationEnum.TASKS_PER_PAGE
 			};
+			
+			// Only include until if it has a value
+			if (searchParams.until !== undefined) {
+				newSearchParams.until = searchParams.until;
+			}
+			
+			searchParams = newSearchParams;
 
 			// Clear existing tasks before loading (only if search changed)
 			if (searchChanged || !hasExistingTasks) {
@@ -440,7 +446,7 @@ import {
 				...searchParams,
 				page: nextPage,
 				until: untilTimestamp,
-				limit: 15
+				limit: PaginationEnum.TASKS_PER_PAGE
 			};
 			
 			await findTasks(searchParams);
