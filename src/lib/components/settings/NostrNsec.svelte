@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
+	import { linear } from 'svelte/easing';
+	import { fade, fly } from 'svelte/transition';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
 	let {
 		npub,
@@ -17,24 +18,21 @@
 	let showNsec = $state(false);
 	let copySuccess = $state('');
 	let qrCodeDataUrl = $state('');
-
-	function toggleNsecVisibility() {
-		showNsec = !showNsec;
-	}
+	let isGeneratingQr = $state(false);
 
 	async function generateQrCode() {
+		if (qrCodeDataUrl) return;
 		if (nsec && authMethod !== 'alby') {
+			isGeneratingQr = true;
 			try {
 				qrCodeDataUrl = await generateQrCodeUrl(nsec);
 			} catch (err) {
 				console.error('Failed to generate QR code:', err);
+			} finally {
+				isGeneratingQr = false;
 			}
 		}
 	}
-
-	onMount(() => {
-		generateQrCode();
-	});
 
 	async function _copyToClipboard(text: string, type: 'npub' | 'nsec' | 'recovery' | 'confirm') {
 		try {
@@ -74,7 +72,7 @@
 		</p>
 
 		<!-- Desktop Layout: Side by side, Mobile: Stacked -->
-		<div class="flex flex-col lg:flex-row lg:gap-8 items-center">
+		<div class="flex flex-col items-center lg:flex-row lg:gap-8">
 			<!-- Left Column: Keys -->
 			<div class="flex-1 lg:min-w-0">
 				<!-- Public Key (NPub) -->
@@ -152,7 +150,7 @@
 							{#if authMethod !== 'alby'}
 								<button
 									class="absolute inset-y-0 right-2 flex items-center"
-									onclick={toggleNsecVisibility}
+									onclick={() => (showNsec = !showNsec)}
 									disabled={!nsec}
 								>
 									{#if showNsec}
@@ -247,13 +245,55 @@
 						{/if}
 					</div>
 				</div>
+
+				<!-- QR Code Toggle Button -->
+				{#if authMethod !== 'alby'}
+					<button
+						class="btn btn-outline btn-sm flex gap-2 place-self-end"
+						onclick={generateQrCode}
+						disabled={!nsec || isGeneratingQr}
+					>
+						{#if isGeneratingQr}
+							<span class="loading loading-spinner loading-xs"></span>
+							{$t('settings.nostr.qrCode.generating')}
+						{:else}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+								/>
+							</svg>
+							{$t('settings.nostr.qrCode.generate')}
+						{/if}
+					</button>
+				{/if}
 			</div>
 
 			<!-- Right Column: QR Code (Desktop) / Below Keys (Mobile) -->
 			{#if qrCodeDataUrl && authMethod !== 'alby'}
-				<div class="flex-shrink-0 text-center lg:w-80">
-					<div class="mb-4 flex justify-center rounded-lg bg-white p-1 shadow-lg w-fit">
-						<img src={qrCodeDataUrl} alt="Private Key QR Code" class="h-full w-full max-h-48 max-w-48 lg:max-h-64 lg:max-w-64" />
+				<div
+					class="shrink-0 text-center lg:w-80"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: 10
+					}}
+				>
+					<div class="mb-4 flex w-fit justify-center rounded-lg bg-white p-1 shadow-lg">
+						<img
+							src={qrCodeDataUrl}
+							alt="Private Key QR Code"
+							class="h-full max-h-48 w-full max-w-48 lg:max-h-64 lg:max-w-64"
+						/>
 					</div>
 				</div>
 			{/if}
