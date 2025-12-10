@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task, SearchTasksParams } from '$lib/types/task.d';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
@@ -405,6 +405,10 @@
 
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
+		
+		// Reset lastSearchKey to force reload
+		lastSearchKey = '';
+		dataLoaded = false;
 
 		// Clear existing tasks when clearing filters
 		tasksStore.update((state) => ({
@@ -555,6 +559,28 @@
 	// Initial data fetch and setup
 	onMount(() => {
 		if (browser) {
+			// Sync searchQuery with searchParams.search to avoid inconsistent state
+			// This ensures the input field shows the correct value when navigating back
+			if (searchParams.search) {
+				searchQuery = searchParams.search;
+			} else {
+				// If no search in params, ensure searchQuery is empty
+				searchQuery = '';
+				// If no search in params but we have tasks from a previous search, clear them
+				if ($tasksStore.items.length > 0) {
+					tasksStore.update((state) => ({
+						...state,
+						items: [],
+						currentPage: 1,
+						hasMore: true,
+						error: null
+					}));
+					// Reset search key to force fresh load
+					lastSearchKey = '';
+					dataLoaded = false;
+				}
+			}
+
 			// Fetch BTC price for USDT conversion (non-critical)
 			fetchBtcPrice();
 
@@ -564,18 +590,29 @@
 			}
 
 			// Check if we already have tasks in store from previous navigation
-			// If so, skip loading and use existing tasks
-			if ($tasksStore.items.length > 0) {
+			// Only use existing tasks if search params match and searchQuery is not empty
+			const currentSearchKey = JSON.stringify(searchParams);
+			if ($tasksStore.items.length > 0 && lastSearchKey === currentSearchKey && searchQuery.trim().length > 0) {
 				dataLoaded = true;
 				showSkeleton = false;
-				// Set lastSearchKey to current params to prevent reload
-				lastSearchKey = JSON.stringify(searchParams);
 				// Setup infinite scroll if taskListRef is available
 				if (taskListRef) {
 					setupInfiniteScroll();
 				}
 			} else {
-				// Setup lazy loading for Nostr data only if no tasks exist
+				// Reset state if search params don't match or searchQuery is empty
+				if ($tasksStore.items.length > 0 && (lastSearchKey !== currentSearchKey || searchQuery.trim().length === 0)) {
+					tasksStore.update((state) => ({
+						...state,
+						items: [],
+						currentPage: 1,
+						hasMore: true,
+						error: null
+					}));
+					lastSearchKey = '';
+					dataLoaded = false;
+				}
+				// Setup lazy loading for Nostr data
 				setupLazyLoading();
 			}
 		}
@@ -676,15 +713,45 @@
 	}
 
 	// Función para hacer scroll a una card específica
-	function scrollToTaskCard(taskId: string) {
-		// Buscar la card por data attribute
-		const cardElement = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
-		if (cardElement) {
-			cardElement.scrollIntoView({
-				behavior: 'smooth',
-				block: 'center'
-			});
-		}
+	async function scrollToTaskCard(taskId: string) {
+		// Wait for DOM to update, especially important when switching views
+		await tick();
+		
+		// Use requestAnimationFrame to ensure the element is fully rendered
+		requestAnimationFrame(() => {
+			// Try multiple selectors to find the card
+			let cardElement = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
+			
+			// If not found by data attribute, try to find by taskCardRefs
+			if (!cardElement && taskCardRefs.has(taskId)) {
+				cardElement = taskCardRefs.get(taskId) || null;
+			}
+			
+			// If still not found, try to find in the scrollable container
+			if (!cardElement && taskListRef) {
+				cardElement = taskListRef.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
+			}
+			
+			if (cardElement && taskListRef) {
+				// Calculate scroll position relative to the scrollable container
+				const containerRect = taskListRef.getBoundingClientRect();
+				const elementRect = cardElement.getBoundingClientRect();
+				const scrollTop = taskListRef.scrollTop;
+				const elementTop = elementRect.top - containerRect.top + scrollTop;
+				const centerOffset = containerRect.height / 2 - elementRect.height / 2;
+				
+				taskListRef.scrollTo({
+					top: elementTop - centerOffset,
+					behavior: 'smooth'
+				});
+			} else if (cardElement) {
+				// Fallback to scrollIntoView if no container ref
+				cardElement.scrollIntoView({
+					behavior: 'smooth',
+					block: 'center'
+				});
+			}
+		});
 	}
 
 	// Action para registrar las referencias de las cards
@@ -1224,8 +1291,10 @@
 							tasks={$tasksStore.items}
 							height="65vh"
 							{selectedTask}
-							onTaskSelected={(event) => {
+							onTaskSelected={async (event) => {
 								selectedTask = event.task;
+								// Wait a bit for the selection to be visible, then scroll
+								await tick();
 								scrollToTaskCard(event.task.id);
 							}}
 						/>
@@ -1287,10 +1356,14 @@
 					tasks={$tasksStore.items}
 					height="65vh"
 					{selectedTask}
-					onTaskSelected={(event) => {
+					onTaskSelected={async (event) => {
 						selectedTask = event.task;
 						// When a task is selected on the map, switch to list view to show the task
 						viewMode = 'list';
+						// Wait for view mode change to complete before scrolling
+						await tick();
+						// Wait for next frame to ensure DOM is fully updated and taskListRef is available
+						await new Promise(resolve => requestAnimationFrame(resolve));
 						scrollToTaskCard(event.task.id);
 					}}
 				/>
