@@ -115,6 +115,50 @@ class CryptoPriceService {
       throw new Error(`Failed to get price for ${symbol}`);
     }
   }
+
+  /**
+   * Get historical price of Bitcoin for a specific date
+   * @param daysAgo Number of days ago to get the price
+   * @returns Promise resolving to the historical price in USD, or null if unavailable
+   */
+  async getHistoricalPrice(daysAgo: number): Promise<number | null> {
+    const cacheKey = `BTC_HIST_${daysAgo}d`;
+    
+    // Check cache first (cache for 1 hour since historical data doesn't change)
+    if (this.cache[cacheKey] && Date.now() - this.cache[cacheKey].timestamp < 3600000) {
+      return this.cache[cacheKey].price;
+    }
+
+    try {
+      // Use Coinbase API which supports historical prices via date parameter
+      // Calculate the target date
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() - daysAgo);
+      const dateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      // Coinbase API: GET /v2/prices/:currency_pair/spot?date=YYYY-MM-DD
+      const response = await axios.get(
+        `https://api.coinbase.com/v2/prices/BTC-USD/spot?date=${dateStr}`
+      );
+
+      if (response.data && response.data.data && response.data.data.amount) {
+        const price = parseFloat(response.data.data.amount);
+        
+        // Update cache
+        this.cache[cacheKey] = {
+          price,
+          timestamp: Date.now()
+        };
+
+        return price;
+      }
+
+      return null;
+    } catch (error) {
+      console.warn(`[CryptoPriceService] Failed to fetch historical price for ${daysAgo}d ago:`, error);
+      return null;
+    }
+  }
 }
 
 export default new CryptoPriceService();

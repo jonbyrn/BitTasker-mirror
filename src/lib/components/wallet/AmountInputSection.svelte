@@ -150,11 +150,11 @@
 			{#if mathExpression || amount}
 				<div class="flex items-center justify-center gap-2 w-full">
 					{#if unit === 'usd'}
-						<span class="text-lg font-bold text-primary ml-1">$</span>
+						<span class="text-3xl font-bold text-primary ml-1">$</span>
 					{:else}
-						<IconCurrencyBtc class="w-5 h-5 text-primary" />
+						<IconCurrencyBtc class="w-8 h-8 text-primary" />
 					{/if}
-					<div class="text-lg font-bold text-center flex-1">
+					<div class="text-3xl font-bold text-center flex-1">
 						{mathExpression || amount || '0'}
 					</div>
 					{#if onClear}
@@ -166,18 +166,18 @@
 							disabled={disabled}
 							aria-label="Clear calculator"
 						>
-							<IconClose class="w-5 h-5" />
+							<IconClose class="w-8 h-8" />
 						</button>
 					{/if}
 				</div>
 			{:else}
 				<div class="flex items-center justify-center gap-2 w-full">
 					{#if unit === 'usd'}
-						<span class="text-lg font-bold text-primary ml-1">$</span>
+						<span class="text-3xl font-bold text-primary ml-1">$</span>
 					{:else}
-						<IconCurrencyBtc class="w-5 h-5 text-primary" />
+						<IconCurrencyBtc class="w-8 h-8 text-primary" />
 					{/if}
-					<div class="text-lg font-bold text-center flex-1">0</div>
+					<div class="text-3xl font-bold text-center flex-1">0</div>
 				</div>
 			{/if}
 		</div>
@@ -215,7 +215,7 @@
 			aria-label="USD"
 			aria-disabled={disabled}
 		>
-			<IconCurrencyUsd class="w-5 h-5" />
+			<IconCurrencyUsd class="w-8 h-8" />
 			<span>USD</span>
 		</button>
 		<button
@@ -231,7 +231,7 @@
 			aria-label="Sats"
 			aria-disabled={disabled}
 		>
-			<IconCurrencyBtc class="w-5 h-5" />
+			<IconCurrencyBtc class="w-8 h-8" />
 			<span>Sats</span>
 		</button>
 	</div>

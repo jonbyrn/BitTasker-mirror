@@ -10,33 +10,33 @@
 		btcPrice?: number; // Optional BTC price, will fetch if not provided
 	}
 
-	const props = $props<Props>();
+	let { amount, unit, onUnitToggle, btcPrice: btcPriceProp }: Props = $props();
 
 	// Initialize btcPrice from props if provided, otherwise 0
 	// Use nullish coalescing to distinguish between 0 and undefined
 	let btcPrice = $state<number>(
-		props.btcPrice !== undefined && props.btcPrice !== null ? props.btcPrice : 0
+		btcPriceProp !== undefined && btcPriceProp !== null ? btcPriceProp : 0
 	);
 	let isLoadingPrice = $state(false);
 
 	// Derived values
 	const amountInSats = $derived.by(() => {
-		if (props.unit === 'sats') {
-			const parsed = parseFloat(props.amount);
+		if (unit === 'sats') {
+			const parsed = parseFloat(amount);
 			return isNaN(parsed) ? 0 : Math.floor(parsed);
 		} else {
-			const usdAmount = parseFloat(props.amount);
+			const usdAmount = parseFloat(amount);
 			if (isNaN(usdAmount) || btcPrice === 0) return 0;
 			return Math.floor((usdAmount / btcPrice) * 100_000_000);
 		}
 	});
 
 	const amountInUSD = $derived.by(() => {
-		if (props.unit === 'usd') {
-			const parsed = parseFloat(props.amount);
+		if (unit === 'usd') {
+			const parsed = parseFloat(amount);
 			return isNaN(parsed) ? 0 : parsed;
 		} else {
-			const sats = parseFloat(props.amount);
+			const sats = parseFloat(amount);
 			if (isNaN(sats) || btcPrice === 0) return 0;
 			return (sats / 100_000_000) * btcPrice;
 		}
@@ -61,7 +61,7 @@
 
 	// Fetch BTC price if not provided
 	onMount(async () => {
-		if (props.btcPrice === undefined || props.btcPrice === null) {
+		if (btcPriceProp === undefined || btcPriceProp === null) {
 			isLoadingPrice = true;
 			try {
 				btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
@@ -72,14 +72,14 @@
 				isLoadingPrice = false;
 			}
 		} else {
-			btcPrice = props.btcPrice;
+			btcPrice = btcPriceProp;
 		}
 	});
 
 	// Update btcPrice when prop changes
 	$effect(() => {
-		if (props.btcPrice !== undefined && props.btcPrice !== null) {
-			btcPrice = props.btcPrice;
+		if (btcPriceProp !== undefined && btcPriceProp !== null) {
+			btcPrice = btcPriceProp;
 		}
 	});
 </script>
@@ -87,7 +87,7 @@
 <div class="amount-display flex flex-col items-center gap-2 md:gap-3">
 	<!-- Primary Amount Display -->
 	<div class="flex items-baseline gap-2 md:gap-3">
-		{#if props.unit === 'sats'}
+		{#if unit === 'sats'}
 			<span
 				class="text-4xl md:text-5xl lg:text-6xl font-bold text-base-content tabular-nums"
 				data-testid="primary-amount-sats"
@@ -97,7 +97,7 @@
 			<button
 				type="button"
 				class="btn btn-sm btn-ghost text-lg md:text-xl font-semibold px-2 md:px-3 min-h-0 h-auto"
-				onclick={props.onUnitToggle}
+				onclick={onUnitToggle}
 				aria-label={$t('wallet.receive.unit_sats')}
 			>
 				{$t('wallet.receive.unit_sats')}
@@ -112,7 +112,7 @@
 			<button
 				type="button"
 				class="btn btn-sm btn-ghost text-lg md:text-xl font-semibold px-2 md:px-3 min-h-0 h-auto"
-				onclick={props.onUnitToggle}
+				onclick={onUnitToggle}
 				aria-label={$t('wallet.receive.unit_usd')}
 			>
 				{$t('wallet.receive.unit_usd')}
@@ -121,9 +121,9 @@
 	</div>
 
 	<!-- Conversion Display (Secondary) -->
-	{#if props.amount && parseFloat(props.amount) > 0}
+	{#if amount && parseFloat(amount) > 0}
 		<div class="flex items-center gap-2 text-base md:text-lg text-base-content/70">
-			{#if props.unit === 'sats'}
+			{#if unit === 'sats'}
 				{#if isLoadingPrice}
 					<span class="loading loading-spinner loading-sm"></span>
 					<span>{$t('common.loading')}</span>

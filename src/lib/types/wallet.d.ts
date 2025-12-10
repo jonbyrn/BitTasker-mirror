@@ -39,7 +39,7 @@ export interface Transaction {
     blockNumber: number;
     timestamp: number;
     status: 'pending' | 'confirmed' | 'failed';
-    type: 'send' | 'receive' | 'contract' | 'swap';
+    type: 'send' | 'receive' | 'contract' | 'swap' | 'contract-function' | 'contract-send' | 'contract-receive';
     network: 'rsk' | 'bsc'; // Explicitly identify the network
     tokenSymbol?: string; // Optional for token transactions (BSC USDT)
     swapType?: 'chain' | 'reverse'; // Type of swap (chain: L-BTC→RBTC, reverse: Lightning→RBTC)
@@ -50,6 +50,20 @@ export interface Transaction {
     id?: string; // Unique identifier (for UI display)
     address?: string; // Associated address (for UI display)
     txHash?: string; // Transaction hash alias (for UI compatibility)
+    balanceAfter?: number; // Balance after transaction in sats (from blockchain API)
+    // Contract interaction fields
+    contractAddress?: string; // Contract that was interacted with
+    contractFunction?: string; // Function name (e.g., "createEscrow", "transfer")
+    contractMetadata?: {
+        escrowId?: string;
+        taskId?: string;
+        taskTitle?: string;
+        functionName?: string;
+        functionSelector?: string;
+        contractType?: 'escrow' | 'swap' | 'unknown';
+        network?: 'rsk' | 'bsc';
+        environment?: 'mainnet' | 'testnet';
+    };
 }
 
 // Enhanced Escrow types

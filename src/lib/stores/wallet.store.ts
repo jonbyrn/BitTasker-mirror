@@ -422,6 +422,86 @@ async function loadAssets(): Promise<void> {
 }
 
 /**
+ * Extended Transaction type with balanceAfter field
+ */
+type TransactionWithBalance = Transaction & {
+	balanceAfter?: number;
+};
+
+/**
+ * Fetch balances from blockchain for transactions
+ * Gets the balance at the block number after each transaction
+ */
+async function fetchTransactionBalances(
+	transactions: TransactionWithBalance[],
+	manager: WalletManager
+): Promise<void> {
+	const balanceStartTime = performance.now();
+	console.log('[WalletStore] Starting balance fetch for transactions...');
+
+	// Get current wallet state
+	const state = get(walletStore);
+
+	// Process transactions in batches to avoid overwhelming the API
+	const BATCH_SIZE = 10;
+	const batches: TransactionWithBalance[][] = [];
+	for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
+		batches.push(transactions.slice(i, i + BATCH_SIZE));
+	}
+
+	// Process each batch in parallel
+	for (const batch of batches) {
+		await Promise.allSettled(
+			batch.map(async (tx) => {
+				try {
+					// Skip if balance already exists or transaction is pending/failed
+					if (tx.balanceAfter !== undefined || tx.status !== 'confirmed' || !tx.blockNumber) {
+						return;
+					}
+
+					// Get the provider for the transaction's network
+					let provider: ethers.Provider | null = null;
+					let address: string | null = null;
+
+					if (tx.network === 'rsk' && state.rsk.provider && state.rsk.address) {
+						provider = state.rsk.provider;
+						address = state.rsk.address;
+					} else if (tx.network === 'bsc' && state.bsc.provider && state.bsc.address) {
+						provider = state.bsc.provider;
+						address = state.bsc.address;
+					}
+
+					if (!provider || !address) {
+						return;
+					}
+
+					// Get balance at the block number after the transaction
+					// Use blockNumber + 1 to get balance after the transaction was included
+					const balanceBlock = tx.blockNumber + 1;
+					const balanceWei = await provider.getBalance(address, balanceBlock);
+					
+					// Convert wei to sats (1 rBTC = 1e18 wei, 1 rBTC = 100,000,000 sats)
+					const balanceRBTC = parseFloat(ethers.formatEther(balanceWei));
+					const balanceSats = Math.floor(balanceRBTC * 100_000_000);
+
+					// Update transaction with balance
+					tx.balanceAfter = balanceSats;
+				} catch (error) {
+					// Silently fail - we'll fall back to calculated balance
+					console.debug(`[WalletStore] Failed to fetch balance for tx ${tx.hash}:`, error);
+				}
+			})
+		);
+	}
+
+	const balanceDuration = performance.now() - balanceStartTime;
+	const balancesFetched = transactions.filter((tx) => tx.balanceAfter !== undefined).length;
+	console.log(
+		`[WalletStore] Balance fetch completed in ${balanceDuration.toFixed(2)}ms (${balancesFetched}/${transactions.length} balances fetched)`
+	);
+}
+
+/**
  * Load transactions
  * @param forceRefresh - If true, bypasses the loading lock to force a refresh
  */
@@ -436,7 +516,7 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 			return;
 		}
 
-		const transactions: Transaction[] = [];
+		const transactions: TransactionWithBalance[] = [];
 
 		// Load RSK transactions
 		if (manager.rskWallet) {
