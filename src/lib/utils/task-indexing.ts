@@ -56,10 +56,24 @@ export function indexTaskData(tasks: Task[]): IndexedTask[] {
 		const normalizedTitle = task.title?.toLowerCase().trim() || '';
 		const normalizedDescription = task.description?.toLowerCase().trim() || '';
 
-		// Create combined searchable text for full-text search
+		// Include translations in searchable text for multilingual search
+		const translationTexts: string[] = [];
+		if (task.translations?.translations) {
+			Object.values(task.translations.translations).forEach((translation) => {
+				if (translation.title) {
+					translationTexts.push(translation.title.toLowerCase().trim());
+				}
+				if (translation.description) {
+					translationTexts.push(translation.description.toLowerCase().trim());
+				}
+			});
+		}
+
+		// Create combined searchable text for full-text search (includes translations)
 		const searchableText = [
 			normalizedTitle,
 			normalizedDescription,
+			...translationTexts,
 			...Array.from(skillsSet),
 			...Array.from(categoriesSet)
 		].join(' ');
