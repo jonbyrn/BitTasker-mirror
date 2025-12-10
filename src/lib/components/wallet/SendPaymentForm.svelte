@@ -1342,7 +1342,7 @@
 							{/if}
 							{#if !estimatedFees || estimatedFees.totalFees === 0}
 								<div class="text-xs opacity-70 text-center py-2">
-									{$t('wallet.receive.enter_amount_to_estimate')}
+									{$t('wallet.send.enter_address_and_amount_to_estimate')}
 								</div>
 							{/if}
 						</div>
@@ -1380,7 +1380,7 @@
 					</div>
 				{:else}
 					<div class="text-sm opacity-60 text-center">
-						{$t('wallet.receive.enter_amount_to_estimate')}
+						{$t('wallet.send.enter_address_and_amount_to_estimate')}
 					</div>
 				{/if}
 				<!-- Insufficient Balance Error Text -->

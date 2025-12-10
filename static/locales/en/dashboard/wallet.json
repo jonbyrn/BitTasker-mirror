@@ -74,7 +74,19 @@
         "send": "Sent",
         "receive": "Received",
         "contract": "Contract",
+        "contract_function": "Contract Functions",
+        "contract_send": "Contract Send",
+        "contract_receive": "Contract Receive",
         "swap": "Swap"
+      },
+      "contract": {
+        "created_escrow": "Created Escrow",
+        "tasker_released_payment": "Tasker Released Payment",
+        "task_completed": "Task Completed",
+        "contract_cancelled": "Contract Cancelled",
+        "task_disputed": "Task Disputed",
+        "dispute_resolved": "Dispute Resolved",
+        "payment_refunded": "Payment Refunded"
       },
       "description": {
         "rsk_sent": "RSK transaction sent",
@@ -414,6 +426,7 @@
       "amount_in_usd": "Amount in USD",
       "authentication_required": "Authentication required to send",
       "payment_sent": "Payment sent successfully",
+      "enter_address_and_amount_to_estimate": "Enter destination address and amount to estimate fees",
       "large_amount_warning": {
         "message": "Caution: Sending large amount of {amount}"
       },

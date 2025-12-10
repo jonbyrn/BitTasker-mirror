@@ -4,6 +4,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { allAssets, totalBalances, walletManager, walletStore, formatSats, isAssetsLoading } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { ethers } from 'ethers';
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
@@ -43,6 +45,152 @@
 	let totalSats = $derived($totalBalances.sats);
 	let bitcoinExpanded = $state(false);
 	let usdExpanded = $state(false);
+
+	// Historical balance and price tracking
+	let historicalPrices = $state<{ [key: string]: number }>({});
+	let historicalBalances = $state<{ [key: string]: number | null }>({});
+
+	// Helper to convert wei to sats
+	function weiToSatoshi(wei: bigint): number {
+		const rbtc = Number(ethers.formatEther(wei));
+		return Math.floor(rbtc * 100_000_000);
+	}
+
+	// Calculate historical balance from transactions
+	function calculateHistoricalBalance(targetTimestamp: number): number | null {
+		const transactions = $walletStore.transactions;
+		if (transactions.length === 0) return null;
+
+		// Get current balance
+		const currentBalance = totalSats;
+		
+		// Filter transactions that occurred after the target time
+		const relevantTxs = transactions.filter(tx => tx.timestamp > targetTimestamp);
+		if (relevantTxs.length === 0) return currentBalance;
+
+		// Sort by timestamp (oldest first) to work backwards
+		const sortedTxs = [...relevantTxs].sort((a, b) => a.timestamp - b.timestamp);
+		
+		// Work backwards from current balance
+		let historicalBalance = currentBalance;
+		for (const tx of sortedTxs) {
+			const txValueSats = weiToSatoshi(BigInt(tx.value || '0'));
+			const txFeeSats = tx.fee ? Math.floor(tx.fee * 100_000_000) : 0;
+			
+			// Reverse the transaction effect
+			const txType = String((tx as any).type || '');
+			if (txType === 'receive' || txType === 'contract-receive') {
+				historicalBalance -= txValueSats;
+			} else if (txType === 'send' || txType === 'contract-send') {
+				historicalBalance += txValueSats + txFeeSats;
+			}
+		}
+
+		return Math.max(0, historicalBalance);
+	}
+
+	// Fetch historical Bitcoin price using crypto price service
+	async function fetchHistoricalPrice(daysAgo: number): Promise<number | null> {
+		try {
+			const cacheKey = `btc_price_${daysAgo}d`;
+			if (historicalPrices[cacheKey]) {
+				return historicalPrices[cacheKey];
+			}
+
+			// Use the crypto price service which handles CORS properly
+			const price = await cryptoPriceService.getHistoricalPrice(daysAgo);
+			
+			if (price !== null) {
+				historicalPrices[cacheKey] = price;
+			}
+			
+			return price;
+		} catch (error) {
+			console.warn(`[BalanceCard] Error fetching historical price for ${daysAgo}d ago:`, error);
+			return null;
+		}
+	}
+
+	// Calculate balance changes for different periods
+	let balanceChanges = $state<Array<{
+		label: string;
+		satsChange: number | null;
+		usdChange: number | null;
+		satsPercentChange: number | null;
+		usdPercentChange: number | null;
+	}>>([
+		{ label: '24h', satsChange: null, usdChange: null, satsPercentChange: null, usdPercentChange: null },
+		{ label: '7d', satsChange: null, usdChange: null, satsPercentChange: null, usdPercentChange: null },
+		{ label: '30d', satsChange: null, usdChange: null, satsPercentChange: null, usdPercentChange: null }
+	]);
+
+	// Update balance changes when balance or transactions change
+	async function updateBalanceChanges() {
+		if ($isAssetsLoading || isRefreshing || totalSats === undefined || totalUsdValue === undefined) {
+			return;
+		}
+
+		const periods = [
+			{ label: '24h', hours: 24, days: 1 },
+			{ label: '7d', hours: 24 * 7, days: 7 },
+			{ label: '30d', hours: 24 * 30, days: 30 }
+		];
+		
+		const now = Date.now();
+		const results = await Promise.all(periods.map(async (period) => {
+			const targetTimestamp = now - (period.hours * 60 * 60 * 1000);
+			
+			// Calculate historical balance from transactions
+			const historicalBalanceSats = calculateHistoricalBalance(targetTimestamp);
+			
+			// Fetch historical price
+			const historicalPrice = await fetchHistoricalPrice(period.days);
+			
+			if (historicalBalanceSats === null || historicalPrice === null) {
+				return {
+					label: period.label,
+					satsChange: null,
+					usdChange: null,
+					satsPercentChange: null,
+					usdPercentChange: null
+				};
+			}
+
+			// Calculate historical USD value using historical price
+			const historicalUsdValue = (historicalBalanceSats / 100_000_000) * historicalPrice;
+			
+			// Calculate changes
+			const satsChange = totalSats - historicalBalanceSats;
+			const usdChange = totalUsdValue - historicalUsdValue;
+			
+			const satsPercentChange = historicalBalanceSats > 0 
+				? ((satsChange / historicalBalanceSats) * 100) 
+				: (totalSats > 0 ? 100 : 0);
+			const usdPercentChange = historicalUsdValue > 0 
+				? ((usdChange / historicalUsdValue) * 100) 
+				: (totalUsdValue > 0 ? 100 : 0);
+			
+			return {
+				label: period.label,
+				satsChange,
+				usdChange,
+				satsPercentChange,
+				usdPercentChange
+			};
+		}));
+
+		balanceChanges = results as typeof balanceChanges;
+	}
+
+	// Update balance changes when balance or transactions change
+	$effect(() => {
+		// React to balance and transaction changes
+		totalSats;
+		totalUsdValue;
+		$walletStore.transactions.length;
+		
+		updateBalanceChanges();
+	});
 
 	function showBalances() {
 		balancesHidden = false;
@@ -183,6 +331,41 @@
 		</button>
 	</div>
 
+	<!-- Historical Balance Indicators Card -->
+	<div class="border-2 border-primary rounded-lg bg-base-100">
+		<div class="py-3 px-4">
+			<div class="grid grid-cols-3 gap-2 text-sm">
+				{#each balanceChanges as change}
+					<div class="flex flex-col items-center gap-1">
+						<div class="text-base-content/70 font-medium">{change.label}</div>
+						{#if balancesHidden}
+							<div class="text-base-content/50">••••</div>
+							<div class="text-base-content/50">••••</div>
+						{:else if change.satsChange === null}
+							<div class="text-base-content/50">—</div>
+							<div class="text-base-content/50">—</div>
+						{:else}
+							{@const satsChange = change.satsChange ?? 0}
+							{@const usdChange = change.usdChange ?? 0}
+							{@const isZero = satsChange === 0 && usdChange === 0}
+							{@const isBelowThreshold = Math.abs(usdChange) < 0.01}
+							{@const isNeutral = isZero || isBelowThreshold}
+							{@const isPositive = satsChange > 0 && !isNeutral}
+							{@const formattedUsd = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(usdChange))}
+							{@const satsDisplay = isNeutral ? `${formatSats(Math.abs(satsChange))}` : (satsChange > 0 ? `+${formatSats(Math.abs(satsChange))}` : `-${formatSats(Math.abs(satsChange))}`)}
+							{@const usdDisplay = isNeutral ? `$${formattedUsd}` : (usdChange > 0 ? `+$${formattedUsd}` : `-$${formattedUsd}`)}
+							<div class="font-semibold {isNeutral ? 'text-base-content' : (isPositive ? 'text-success' : 'text-error')}">
+								{satsDisplay} {$t('wallet.sats')}
+							</div>
+							<div class="text-base-content/70 {isNeutral ? '' : (isPositive ? 'text-success/80' : 'text-error/80')}">
+								{usdDisplay}
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		</div>
+	</div>
 
 	<!-- Network Breakdown -->
 	<div class="space-y-4">

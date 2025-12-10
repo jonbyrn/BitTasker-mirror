@@ -857,7 +857,7 @@
 	}
 </script>
 
-<div class="receive-payment-form space-y-6">
+<div class="receive-payment-form flex flex-col min-h-full space-y-6">
 	{#if !invoiceGenerated}
 		<!-- Amount Input Section -->
 		<AmountInputSection
@@ -1202,7 +1202,7 @@
 		</div>
 
 		<!-- Action Buttons -->
-		<div class="flex gap-3">
+		<div class="flex gap-3 mt-auto pt-4 md:pt-0 sticky bottom-0 bg-base-100 pb-4 md:pb-0 md:static z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none">
 			<button
 				class="btn btn-error flex-1 min-h-[48px] md:min-h-[56px] touch-manipulation select-none active:scale-95 transition-transform duration-100"
 				style="-webkit-tap-highlight-color: transparent;"

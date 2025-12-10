@@ -7,6 +7,180 @@ import { get } from 'svelte/store';
 import { walletStore } from '$lib/stores/wallet.store';
 import { getUSDTToken, getBoltzConfig, getRSKConfig, getBSCConfig } from '$lib/utils/wallet/networkConfig';
 import { ethers } from 'ethers';
+import { detectContractInteraction, batchCheckContractAddresses } from './contractDetection';
+import { parseFunction } from './functionParsing';
+import { classifyTransactionType } from './transactionClassification';
+import { getTransactionTitle } from './titleGeneration';
+import { getTaskInfoForTransaction, generateTaskLink } from './taskLinking';
+import { setEtherSwapContractAddress, getEtherSwapContractAddress } from './contractRegistry';
+
+type Network = 'rsk' | 'bsc';
+type Environment = 'mainnet' | 'testnet';
+
+/**
+ * Process a single transaction with contract detection and function parsing
+ */
+export async function processTransactionWithContractDetection(
+	tx: {
+		hash: string;
+		from: { hash?: string } | string;
+		to?: { hash?: string } | string | null;
+		value: string;
+		input?: string;
+		data?: string;
+		gas_used?: string;
+		gas_price?: string;
+		gasUsed?: string;
+		gasPrice?: string;
+		block_number?: string;
+		blockNumber?: string;
+		timestamp: string | number;
+		status?: string;
+		method?: string;
+	},
+	userAddress: string,
+	provider: ethers.Provider | null,
+	network: Network,
+	environment: Environment,
+	etherSwapAddress: string | null
+): Promise<Transaction | null> {
+	try {
+		const txFrom = typeof tx.from === 'string' ? tx.from : (tx.from?.hash || '');
+		const txTo = typeof tx.to === 'string' ? tx.to : (tx.to?.hash || null);
+		const txInput = tx.input || tx.data || '';
+		const txValue = tx.value || '0';
+		const txMethod = tx.method?.toLowerCase() || '';
+
+		// Check if this is a swap transaction (preserve existing logic)
+		const isSwapClaim =
+			etherSwapAddress &&
+			txTo?.toLowerCase() === etherSwapAddress &&
+			txFrom.toLowerCase() === userAddress &&
+			(txMethod === 'claim' || txMethod.includes('claim'));
+
+		// Detect contract interaction
+		const contractDetection = await detectContractInteraction(
+			{
+				to: txTo,
+				from: txFrom,
+				input: txInput
+			},
+			provider,
+			network,
+			environment,
+			userAddress
+		);
+
+		// Parse function if it's a contract interaction
+		let parsedFunction = null;
+		let contractFunction: string | undefined;
+		let contractMetadata: Transaction['contractMetadata'] = {
+			network,
+			environment
+		};
+
+		if (contractDetection.isContract) {
+			// Map contractType for parseFunction (etherSwap -> unknown for parsing)
+			const parseContractType = contractDetection.contractType === 'etherSwap' 
+				? 'unknown' 
+				: (contractDetection.contractType || 'unknown');
+			
+			parsedFunction = parseFunction(txInput, parseContractType);
+			
+			if (parsedFunction) {
+				contractFunction = parsedFunction.functionName || undefined;
+				contractMetadata.functionName = parsedFunction.functionName || undefined;
+				contractMetadata.functionSelector = parsedFunction.functionSelector;
+				contractMetadata.escrowId = parsedFunction.escrowId;
+				contractMetadata.contractType = contractDetection.contractType === 'etherSwap' 
+					? 'swap' 
+					: (contractDetection.contractType || 'unknown');
+			}
+		}
+
+		// Classify transaction type
+		const transactionType = classifyTransactionType({
+			from: txFrom,
+			to: txTo || null,
+			value: txValue,
+			isContractInteraction: contractDetection.isContract || false,
+			contractType: contractDetection.contractType === 'etherSwap' ? null : contractDetection.contractType,
+			userAddress,
+			isSwap: isSwapClaim || false
+		});
+
+		// Calculate fee
+		const gasUsed = tx.gas_used || tx.gasUsed || '0';
+		const gasPrice = tx.gas_price || tx.gasPrice || '0';
+		let fee: number | undefined;
+		if (gasUsed && gasUsed !== '0' && gasPrice && gasPrice !== '0') {
+			try {
+				const feeWei = BigInt(gasUsed) * BigInt(gasPrice);
+				fee = parseFloat(ethers.formatEther(feeWei));
+			} catch (error) {
+				console.debug('Failed to calculate transaction fee:', error);
+			}
+		}
+
+		// Convert amount
+		const amount = parseFloat(ethers.formatEther(txValue));
+		const sats = Math.floor(amount * 100_000_000);
+		const formattedSats = sats.toLocaleString();
+
+		// Get task info if escrowId is present
+		const taskInfo = contractMetadata.escrowId
+			? getTaskInfoForTransaction({ contractMetadata })
+			: null;
+
+		if (taskInfo) {
+			contractMetadata.taskId = taskInfo.id;
+			contractMetadata.taskTitle = taskInfo.title;
+		}
+
+		// Generate title
+		const title = getTransactionTitle({
+			type: transactionType,
+			contractFunction,
+			contractMetadata
+		} as Transaction);
+
+		// Build transaction object
+		const transaction: Transaction = {
+			hash: tx.hash,
+			from: txFrom,
+			to: txTo || '0x0000000000000000000000000000000000000000',
+			value: txValue,
+			gasUsed: gasUsed.toString(),
+			gasPrice: gasPrice.toString(),
+			blockNumber: parseInt(tx.block_number || tx.blockNumber || '0'),
+			timestamp: typeof tx.timestamp === 'string' ? new Date(tx.timestamp).getTime() : tx.timestamp,
+			status: tx.status === 'ok' || tx.status === '1' ? 'confirmed' : 'failed',
+			type: transactionType,
+			network,
+			id: tx.hash,
+			asset: network === 'rsk' ? 'rBTC' : 'BNB',
+			formattedAmount: `${formattedSats} Sats`,
+			description: title,
+			fee,
+			address: txTo || '0x0000000000000000000000000000000000000000',
+			txHash: tx.hash,
+			contractAddress: contractDetection.isContract ? (txTo || undefined) : undefined,
+			contractFunction,
+			contractMetadata: Object.keys(contractMetadata).length > 2 ? contractMetadata : undefined
+		};
+
+		// Add swap-specific fields if it's a swap
+		if (isSwapClaim) {
+			transaction.swapType = 'reverse';
+			transaction.tokenSymbol = 'rBTC';
+		}
+
+		return transaction;
+	} catch (error) {
+		console.error('[TransactionProcessing] Failed to process transaction:', error);
+		return null;
+	}
+}
 
 /**
  * Load RSK transaction history using RSK Explorer API
@@ -87,109 +261,22 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
             if (data.items && Array.isArray(data.items)) {
                 const processStartTime = performance.now();
                 console.log(`[RSK Transactions] Processing ${data.items.length} transactions (limiting to 50)...`);
-                for (const tx of data.items.slice(0, 50)) {
-                    // Limit to 50 most recent
-                    const txTo = (tx.to?.hash || tx.to || '').toLowerCase();
-                    const txFrom = (tx.from?.hash || tx.from || '').toLowerCase();
-                    const txMethod = tx.method?.toLowerCase() || '';
+                // Process transactions with contract detection
+                const processPromises = data.items.slice(0, 50).map(async (tx: any) => {
+                    return await processTransactionWithContractDetection(
+                        tx,
+                        address,
+                        state.rsk.provider,
+                        'rsk',
+                        network as Environment,
+                        etherSwapAddress
+                    );
+                });
 
-                    // Check if this is a swap transaction
-                    const isSwapClaim =
-                        etherSwapAddress &&
-                        txTo === etherSwapAddress &&
-                        txFrom === address &&
-                        (txMethod === 'claim' || txMethod.includes('claim'));
-
-                    if (isSwapClaim) {
-                        // This is a swap claim transaction (user received RBTC)
-                        const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-                        // TODO:: Currently we default to 'reverse' type. In the future, we could
-                        // enhance this by analyzing swap details from the transaction data
-                        const swapType: 'chain' | 'reverse' = 'reverse';
-
-                        // Calculate fee
-                        let fee: number | undefined;
-                        if (tx.gas_used && tx.gas_used !== '0' && tx.gas_price && tx.gas_price !== '0') {
-                            try {
-                                const feeWei = BigInt(tx.gas_used) * BigInt(tx.gas_price);
-                                fee = parseFloat(ethers.formatEther(feeWei));
-                            } catch (error) {
-                                console.debug('Failed to calculate swap fee:', error);
-                            }
-                        }
-
-                        // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
-                        const sats = Math.floor(amount * 100_000_000);
-                        const formattedSats = sats.toLocaleString();
-
-                        const transaction: Transaction = {
-                            hash: tx.hash,
-                            from: txFrom,
-                            to: txTo,
-                            value: tx.value || '0',
-                            gasUsed: tx.gas_used?.toString() || '0',
-                            gasPrice: tx.gas_price?.toString() || '0',
-                            blockNumber: parseInt(tx.block_number) || 0,
-                            timestamp: new Date(tx.timestamp).getTime(),
-                            status: tx.status === 'ok' ? 'confirmed' : 'failed',
-                            type: 'swap',
-                            network: 'rsk',
-                            tokenSymbol: 'rBTC',
-                            swapType,
-                            id: tx.hash,
-                            asset: 'rBTC',
-                            formattedAmount: `${formattedSats} Sats`,
-                            // TODO: show generic swap description. Could be enhanced to show
-                            // specific swap type (Lightning/L-BTC) based on transaction analysis
-                            description: 'Swap claimed',
-                            fee,
-                            address: txTo,
-                            txHash: tx.hash
-                        };
-
-                        transactions.push(transaction);
-                    } else {
-                        // Regular RSK transaction
-                        const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-                        const txType = tx.from.hash.toLowerCase() === address ? 'send' : 'receive';
-
-                        // Calculate fee
-                        let fee: number | undefined;
-                        if (tx.gas_used && tx.gas_used !== '0' && tx.gas_price && tx.gas_price !== '0') {
-                            try {
-                                const feeWei = BigInt(tx.gas_used) * BigInt(tx.gas_price);
-                                fee = parseFloat(ethers.formatEther(feeWei));
-                            } catch (error) {
-                                console.debug('Failed to calculate transaction fee:', error);
-                            }
-                        }
-
-                        // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
-                        const sats = Math.floor(amount * 100_000_000);
-                        const formattedSats = sats.toLocaleString();
-
-                        const transaction: Transaction = {
-                            hash: tx.hash,
-                            from: tx.from.hash,
-                            to: tx.to?.hash || '0x0000000000000000000000000000000000000000',
-                            value: tx.value || '0',
-                            gasUsed: tx.gas_used?.toString() || '0',
-                            gasPrice: tx.gas_price?.toString() || '0',
-                            blockNumber: parseInt(tx.block_number) || 0,
-                            timestamp: new Date(tx.timestamp).getTime(),
-                            status: tx.status === 'ok' ? 'confirmed' : 'failed',
-                            type: txType,
-                            network: 'rsk',
-                            id: tx.hash,
-                            asset: 'rBTC',
-                            formattedAmount: `${formattedSats} Sats`,
-                            description: txType === 'send' ? 'RSK transaction sent' : 'RSK payment received',
-                            fee,
-                            address: tx.to?.hash || '0x0000000000000000000000000000000000000000',
-                            txHash: tx.hash
-                        };
-
-                        transactions.push(transaction);
+                const processedTransactions = await Promise.allSettled(processPromises);
+                for (const result of processedTransactions) {
+                    if (result.status === 'fulfilled' && result.value) {
+                        transactions.push(result.value);
                     }
                 }
                 const processDuration = performance.now() - processStartTime;
@@ -213,102 +300,22 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                     const altData = await altResponse.json();
 
                     if (altData.items && Array.isArray(altData.items)) {
-                        for (const tx of altData.items.slice(0, 50)) {
-                            const txTo = (tx.to?.hash || tx.to || '').toLowerCase();
-                            const txFrom = (tx.from?.hash || tx.from || '').toLowerCase();
-                            const txMethod = tx.method?.toLowerCase() || '';
+                        // Process transactions with contract detection
+                        const processPromises = altData.items.slice(0, 50).map(async (tx) => {
+                            return await processTransactionWithContractDetection(
+                                tx,
+                                address,
+                                state.rsk.provider,
+                                'rsk',
+                                network as Environment,
+                                etherSwapAddress
+                            );
+                        });
 
-                            // Check if this is a swap transaction
-                            const isSwapClaim =
-                                etherSwapAddress &&
-                                txTo === etherSwapAddress &&
-                                txFrom === address &&
-                                (txMethod === 'claim' || txMethod.includes('claim'));
-
-                            if (isSwapClaim) {
-                                // Swap transaction
-                                const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-                                const swapType: 'chain' | 'reverse' = 'reverse';
-
-                                let fee: number | undefined;
-                                if (tx.gas_used && tx.gas_used !== '0' && tx.gas_price && tx.gas_price !== '0') {
-                                    try {
-                                        const feeWei = BigInt(tx.gas_used) * BigInt(tx.gas_price);
-                                        fee = parseFloat(ethers.formatEther(feeWei));
-                                    } catch (error) {
-                                        console.debug('Failed to calculate swap fee:', error);
-                                    }
-                                }
-
-                                // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
-                                const sats = Math.floor(amount * 100_000_000);
-                                const formattedSats = sats.toLocaleString();
-
-                                const transaction: Transaction = {
-                                    hash: tx.hash,
-                                    from: txFrom,
-                                    to: txTo,
-                                    value: tx.value || '0',
-                                    gasUsed: tx.gas_used?.toString() || '0',
-                                    gasPrice: tx.gas_price?.toString() || '0',
-                                    blockNumber: parseInt(tx.block_number) || 0,
-                                    timestamp: new Date(tx.timestamp).getTime(),
-                                    status: tx.status === 'ok' ? 'confirmed' : 'failed',
-                                    type: 'swap',
-                                    network: 'rsk',
-                                    tokenSymbol: 'rBTC',
-                                    swapType,
-                                    id: tx.hash,
-                                    asset: 'rBTC',
-                                    formattedAmount: `${formattedSats} Sats`,
-                                    description: 'Swap claimed',
-                                    fee,
-                                    address: txTo,
-                                    txHash: tx.hash
-                                };
-
-                                transactions.push(transaction);
-                            } else {
-                                // Regular transaction
-                                const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-                                const txType = (tx.from?.hash || tx.from)?.toLowerCase() === address ? 'send' : 'receive';
-
-                                let fee: number | undefined;
-                                if (tx.gas_used && tx.gas_used !== '0' && tx.gas_price && tx.gas_price !== '0') {
-                                    try {
-                                        const feeWei = BigInt(tx.gas_used) * BigInt(tx.gas_price);
-                                        fee = parseFloat(ethers.formatEther(feeWei));
-                                    } catch (error) {
-                                        console.debug('Failed to calculate transaction fee:', error);
-                                    }
-                                }
-
-                                // Convert rBTC to sats (1 rBTC = 100,000,000 sats)
-                                const sats = Math.floor(amount * 100_000_000);
-                                const formattedSats = sats.toLocaleString();
-
-                                const transaction: Transaction = {
-                                    hash: tx.hash,
-                                    from: tx.from?.hash || tx.from,
-                                    to: tx.to?.hash || tx.to || '0x0000000000000000000000000000000000000000',
-                                    value: tx.value || '0',
-                                    gasUsed: tx.gas_used?.toString() || '0',
-                                    gasPrice: tx.gas_price?.toString() || '0',
-                                    blockNumber: parseInt(tx.block_number) || 0,
-                                    timestamp: new Date(tx.timestamp).getTime(),
-                                    status: tx.status === 'ok' ? 'confirmed' : 'failed',
-                                    type: txType,
-                                    network: 'rsk',
-                                    id: tx.hash,
-                                    asset: 'rBTC',
-                                    formattedAmount: `${formattedSats} Sats`,
-                                    description: txType === 'send' ? 'RSK transaction sent' : 'RSK payment received',
-                                    fee,
-                                    address: tx.to?.hash || tx.to || '0x0000000000000000000000000000000000000000',
-                                    txHash: tx.hash
-                                };
-
-                                transactions.push(transaction);
+                        const processedTransactions = await Promise.allSettled(processPromises);
+                        for (const result of processedTransactions) {
+                            if (result.status === 'fulfilled' && result.value) {
+                                transactions.push(result.value);
                             }
                         }
                     }
@@ -909,61 +916,42 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
                 if (bnbData.status === '1' && bnbData.result && Array.isArray(bnbData.result)) {
                     const processStartTime = performance.now();
                     console.log(`[BSC Transactions] Processing ${bnbData.result.length} BNB transactions (limiting to 50)...`);
-                    for (const tx of bnbData.result.slice(0, 50)) {
-                        // Determine transaction type based on user's address
-                        const isFromUser = tx.from.toLowerCase() === address;
-                        const isToUser = tx.to && tx.to.toLowerCase() === address;
-
-                        let transactionType: 'send' | 'receive' | 'contract';
-                        if (isFromUser && isToUser) {
-                            // Self-transaction (sending to self)
-                            transactionType = 'send';
-                        } else if (isFromUser) {
-                            // User sent the transaction
-                            transactionType = 'send';
-                        } else if (isToUser) {
-                            // User received the transaction
-                            transactionType = 'receive';
-                        } else {
-                            // Contract interaction or other
-                            transactionType = 'contract';
-                        }
-
-                        const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-
-                        let fee: number | undefined;
-                        if (tx.gasUsed && tx.gasUsed !== '0' && tx.gasPrice && tx.gasPrice !== '0') {
-                            try {
-                                const feeWei = BigInt(tx.gasUsed) * BigInt(tx.gasPrice);
-                                fee = parseFloat(ethers.formatEther(feeWei));
-                            } catch (error) {
-                                console.debug('Failed to calculate BSC transaction fee:', error);
-                            }
-                        }
-
-                        const transaction: Transaction = {
+                    // Process transactions with contract detection
+                    const processPromises = bnbData.result.slice(0, 50).map(async (tx: any) => {
+                        // Convert BSCScan API format to our format
+                        const normalizedTx = {
                             hash: tx.hash,
                             from: tx.from,
-                            to: tx.to || '0x0000000000000000000000000000000000000000',
+                            to: tx.to,
                             value: tx.value || '0',
-                            gasUsed: tx.gasUsed?.toString() || '0',
-                            gasPrice: tx.gasPrice?.toString() || '0',
-                            blockNumber: parseInt(tx.blockNumber) || 0,
+                            input: tx.input,
+                            data: tx.input,
+                            gas_used: tx.gasUsed,
+                            gas_price: tx.gasPrice,
+                            gasUsed: tx.gasUsed,
+                            gasPrice: tx.gasPrice,
+                            block_number: tx.blockNumber,
+                            blockNumber: tx.blockNumber,
                             timestamp: parseInt(tx.timeStamp) * 1000,
-                            status: tx.isError === '0' ? 'confirmed' : 'failed',
-                            type: transactionType,
-                            network: 'bsc',
-                            // UI display fields
-                            id: tx.hash,
-                            asset: 'BNB',
-                            formattedAmount: `${amount.toFixed(6)} BNB`,
-                            description: transactionType === 'send' ? 'BSC BNB sent' : 'BSC BNB received',
-                            fee,
-                            address: tx.to || '0x0000000000000000000000000000000000000000',
-                            txHash: tx.hash
+                            status: tx.isError === '0' ? 'ok' : 'failed',
+                            method: tx.methodID ? `0x${tx.methodID}` : undefined
                         };
+                        
+                        return await processTransactionWithContractDetection(
+                            normalizedTx,
+                            address,
+                            state.bsc.provider,
+                            'bsc',
+                            'mainnet' as Environment,
+                            null // No EtherSwap on BSC
+                        );
+                    });
 
-                        transactions.push(transaction);
+                    const processedTransactions = await Promise.allSettled(processPromises);
+                    for (const result of processedTransactions) {
+                        if (result.status === 'fulfilled' && result.value) {
+                            transactions.push(result.value);
+                        }
                     }
                     const processDuration = performance.now() - processStartTime;
                     const totalBnbTime = performance.now() - bnbStartTime;

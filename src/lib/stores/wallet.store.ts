@@ -23,6 +23,8 @@ import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers } from 'ethers';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { processTransactionWithContractDetection } from '$lib/utils/wallet/transactionHistory';
+import type { Transaction as LocalTransaction } from '$lib/types/wallet';
 
 // Extend WalletState to include transaction loading timestamp and loading state
 type ExtendedWalletState = WalletState & {
@@ -624,6 +626,86 @@ async function loadAssets(): Promise<void> {
 }
 
 /**
+ * Extended Transaction type with balanceAfter field
+ */
+type TransactionWithBalance = Transaction & {
+	balanceAfter?: number;
+};
+
+/**
+ * Fetch balances from blockchain for transactions
+ * Gets the balance at the block number after each transaction
+ */
+async function fetchTransactionBalances(
+	transactions: TransactionWithBalance[],
+	manager: WalletManager
+): Promise<void> {
+	const balanceStartTime = performance.now();
+	console.log('[WalletStore] Starting balance fetch for transactions...');
+
+	// Get current wallet state
+	const state = get(walletStore);
+
+	// Process transactions in batches to avoid overwhelming the API
+	const BATCH_SIZE = 10;
+	const batches: TransactionWithBalance[][] = [];
+	for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
+		batches.push(transactions.slice(i, i + BATCH_SIZE));
+	}
+
+	// Process each batch in parallel
+	for (const batch of batches) {
+		await Promise.allSettled(
+			batch.map(async (tx) => {
+				try {
+					// Skip if balance already exists or transaction is pending/failed
+					if (tx.balanceAfter !== undefined || tx.status !== 'confirmed' || !tx.blockNumber) {
+						return;
+					}
+
+					// Get the provider for the transaction's network
+					let provider: ethers.Provider | null = null;
+					let address: string | null = null;
+
+					if (tx.network === 'rsk' && state.rsk.provider && state.rsk.address) {
+						provider = state.rsk.provider;
+						address = state.rsk.address;
+					} else if (tx.network === 'bsc' && state.bsc.provider && state.bsc.address) {
+						provider = state.bsc.provider;
+						address = state.bsc.address;
+					}
+
+					if (!provider || !address) {
+						return;
+					}
+
+					// Get balance at the block number after the transaction
+					// Use blockNumber + 1 to get balance after the transaction was included
+					const balanceBlock = tx.blockNumber + 1;
+					const balanceWei = await provider.getBalance(address, balanceBlock);
+					
+					// Convert wei to sats (1 rBTC = 1e18 wei, 1 rBTC = 100,000,000 sats)
+					const balanceRBTC = parseFloat(ethers.formatEther(balanceWei));
+					const balanceSats = Math.floor(balanceRBTC * 100_000_000);
+
+					// Update transaction with balance
+					tx.balanceAfter = balanceSats;
+				} catch (error) {
+					// Silently fail - we'll fall back to calculated balance
+					console.debug(`[WalletStore] Failed to fetch balance for tx ${tx.hash}:`, error);
+				}
+			})
+		);
+	}
+
+	const balanceDuration = performance.now() - balanceStartTime;
+	const balancesFetched = transactions.filter((tx) => tx.balanceAfter !== undefined).length;
+	console.log(
+		`[WalletStore] Balance fetch completed in ${balanceDuration.toFixed(2)}ms (${balancesFetched}/${transactions.length} balances fetched)`
+	);
+}
+
+/**
  * Load transactions
  * @param forceRefresh - If true, bypasses the loading lock to force a refresh
  */
@@ -656,7 +738,7 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 			return;
 		}
 
-		const transactions: Transaction[] = [];
+		const transactions: TransactionWithBalance[] = [];
 
 		// Load RSK and BSC transactions in parallel
 		const parallelStartTime = performance.now();
@@ -670,31 +752,165 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 		const parallelDuration = performance.now() - parallelStartTime;
 		console.log(`[WalletStore] Parallel network loading completed in ${parallelDuration.toFixed(2)}ms`);
 
-		// Process RSK transactions
+		// Process RSK transactions with contract detection
 		if (rskResult.status === 'fulfilled') {
 			const rskTxs = rskResult.value;
 			const mapStartTime = performance.now();
-			transactions.push(...rskTxs.map(tx => ({
-				...tx,
-				network: 'rsk' as const,
-				tokenSymbol: 'RBTC'
-			})));
+			const state = get(walletStore);
+			const address = state.rsk.wallet?.address?.toLowerCase() || '';
+			const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+			
+			// Get EtherSwap address for swap detection
+			let etherSwapAddress: string | null = null;
+			try {
+				const { getBoltzConfig } = await import('$lib/utils/wallet/networkConfig');
+				const boltzConfig = getBoltzConfig(network);
+				const contractResponse = await fetch(`${boltzConfig.boltzApiUrl}/v2/chain/RBTC/contracts`);
+				if (contractResponse.ok) {
+					const contracts = await contractResponse.json();
+					etherSwapAddress = contracts.swapContracts?.EtherSwap?.toLowerCase() || null;
+				}
+			} catch (error) {
+				console.warn('[WalletStore] Could not fetch EtherSwap address:', error);
+			}
+			
+			// Process each transaction with contract detection
+			const processPromises = rskTxs.map(async (tx: any) => {
+				try {
+					// Convert wallet-core Transaction to format expected by contract detection
+					const processedTx = await processTransactionWithContractDetection(
+						{
+							hash: tx.hash || tx.txHash || '',
+							from: typeof tx.from === 'string' ? tx.from : (tx.from?.hash || ''),
+							to: typeof tx.to === 'string' ? tx.to : (tx.to?.hash || null),
+							value: tx.value || '0',
+							input: tx.input || tx.data || '',
+							data: tx.data || tx.input || '',
+							gas_used: tx.gasUsed?.toString() || '0',
+							gas_price: tx.gasPrice?.toString() || '0',
+							gasUsed: tx.gasUsed?.toString() || '0',
+							gasPrice: tx.gasPrice?.toString() || '0',
+							block_number: tx.blockNumber?.toString() || '0',
+							blockNumber: tx.blockNumber?.toString() || '0',
+							timestamp: tx.timestamp || Date.now(),
+							status: tx.status === 'confirmed' ? 'ok' : tx.status === 'failed' ? 'failed' : 'ok',
+							method: undefined
+						},
+						address,
+						state.rsk.provider,
+						'rsk',
+						network,
+						etherSwapAddress
+					);
+					
+					if (processedTx) {
+						// Merge processed transaction with original to preserve any wallet-core specific fields
+						return {
+							...tx,
+							...processedTx,
+							network: 'rsk' as const,
+							tokenSymbol: 'RBTC'
+						} as TransactionWithBalance;
+					}
+					
+					// Fallback to original transaction if processing fails
+					return {
+						...tx,
+						network: 'rsk' as const,
+						tokenSymbol: 'RBTC'
+					} as TransactionWithBalance;
+				} catch (error) {
+					console.warn('[WalletStore] Failed to process transaction with contract detection:', error);
+					// Return original transaction on error
+					return {
+						...tx,
+						network: 'rsk' as const,
+						tokenSymbol: 'RBTC'
+					} as TransactionWithBalance;
+				}
+			});
+			
+			const processedTxs = await Promise.allSettled(processPromises);
+			const successfulTxs = processedTxs
+				.filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+				.map(result => result.value);
+			
+			transactions.push(...successfulTxs);
 			const mapDuration = performance.now() - mapStartTime;
-			console.log(`[WalletStore] RSK transactions loaded: ${rskTxs.length} transactions, mapping completed in ${mapDuration.toFixed(2)}ms`);
+			console.log(`[WalletStore] RSK transactions loaded: ${rskTxs.length} transactions, contract detection and mapping completed in ${mapDuration.toFixed(2)}ms`);
 		} else {
 			console.error('[WalletStore] RSK transaction loading failed:', rskResult.reason);
 		}
 
-		// Process BSC transactions
+		// Process BSC transactions with contract detection
 		if (bscResult.status === 'fulfilled') {
 			const bscTxs = bscResult.value;
 			const mapStartTime = performance.now();
-			transactions.push(...bscTxs.map(tx => ({
-				...tx,
-				network: 'bsc' as const
-			})));
+			const state = get(walletStore);
+			const address = state.bsc.wallet?.address?.toLowerCase() || '';
+			const network = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+			
+			// Process each transaction with contract detection
+			const processPromises = bscTxs.map(async (tx: any) => {
+				try {
+					// Convert wallet-core Transaction to format expected by contract detection
+					const processedTx = await processTransactionWithContractDetection(
+						{
+							hash: tx.hash || tx.txHash || '',
+							from: typeof tx.from === 'string' ? tx.from : (tx.from?.hash || ''),
+							to: typeof tx.to === 'string' ? tx.to : (tx.to?.hash || null),
+							value: tx.value || '0',
+							input: tx.input || tx.data || '',
+							data: tx.data || tx.input || '',
+							gas_used: tx.gasUsed?.toString() || '0',
+							gas_price: tx.gasPrice?.toString() || '0',
+							gasUsed: tx.gasUsed?.toString() || '0',
+							gasPrice: tx.gasPrice?.toString() || '0',
+							block_number: tx.blockNumber?.toString() || '0',
+							blockNumber: tx.blockNumber?.toString() || '0',
+							timestamp: tx.timestamp || Date.now(),
+							status: tx.status === 'confirmed' ? 'ok' : tx.status === 'failed' ? 'failed' : 'ok',
+							method: undefined
+						},
+						address,
+						state.bsc.provider,
+						'bsc',
+						'mainnet', // BSC only has mainnet
+						null // No EtherSwap on BSC
+					);
+					
+					if (processedTx) {
+						// Merge processed transaction with original to preserve any wallet-core specific fields
+						return {
+							...tx,
+							...processedTx,
+							network: 'bsc' as const
+						} as TransactionWithBalance;
+					}
+					
+					// Fallback to original transaction if processing fails
+					return {
+						...tx,
+						network: 'bsc' as const
+					} as TransactionWithBalance;
+				} catch (error) {
+					console.warn('[WalletStore] Failed to process transaction with contract detection:', error);
+					// Return original transaction on error
+					return {
+						...tx,
+						network: 'bsc' as const
+					} as TransactionWithBalance;
+				}
+			});
+			
+			const processedTxs = await Promise.allSettled(processPromises);
+			const successfulTxs = processedTxs
+				.filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+				.map(result => result.value);
+			
+			transactions.push(...successfulTxs);
 			const mapDuration = performance.now() - mapStartTime;
-			console.log(`[WalletStore] BSC transactions loaded: ${bscTxs.length} transactions, mapping completed in ${mapDuration.toFixed(2)}ms`);
+			console.log(`[WalletStore] BSC transactions loaded: ${bscTxs.length} transactions, contract detection and mapping completed in ${mapDuration.toFixed(2)}ms`);
 		} else {
 			console.error('[WalletStore] BSC transaction loading failed:', bscResult.reason);
 		}
@@ -704,6 +920,12 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 		transactions.sort((a, b) => b.timestamp - a.timestamp);
 		const sortDuration = performance.now() - sortStartTime;
 		console.log(`[WalletStore] Transaction sorting completed in ${sortDuration.toFixed(2)}ms (${transactions.length} transactions)`);
+
+		// Fetch balances from blockchain for each transaction (in parallel batches)
+		const balanceFetchStartTime = performance.now();
+		await fetchTransactionBalances(transactions, manager);
+		const balanceFetchDuration = performance.now() - balanceFetchStartTime;
+		console.log(`[WalletStore] Balance fetching completed in ${balanceFetchDuration.toFixed(2)}ms`);
 
 		const updateStartTime = performance.now();
 		walletStore.update(s => ({

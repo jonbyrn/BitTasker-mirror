@@ -71,7 +71,19 @@
         "send": "Enviado",
         "receive": "Recibido",
         "contract": "Contrato",
+        "contract_function": "Funciones de Contrato",
+        "contract_send": "Envío de Contrato",
+        "contract_receive": "Recepción de Contrato",
         "swap": "Intercambio"
+      },
+      "contract": {
+        "created_escrow": "Depósito Creado",
+        "tasker_released_payment": "Pago Liberado por Tasker",
+        "task_completed": "Tarea Completada",
+        "contract_cancelled": "Contrato Cancelado",
+        "task_disputed": "Tarea Disputada",
+        "dispute_resolved": "Disputa Resuelta",
+        "payment_refunded": "Pago Reembolsado"
       },
       "description": {
         "rsk_sent": "Transacción RSK enviada",
@@ -382,6 +394,7 @@
       "amount_in_usd": "Monto en USD",
       "authentication_required": "Se requiere autenticación para enviar",
       "payment_sent": "Pago enviado exitosamente",
+      "enter_address_and_amount_to_estimate": "Ingrese la dirección de destino y el monto para estimar las tarifas",
       "large_amount_warning": {
         "message": "Precaución: Enviando monto grande de {amount}"
       },
