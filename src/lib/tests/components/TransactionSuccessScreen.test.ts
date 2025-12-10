@@ -372,9 +372,9 @@ describe('TransactionSuccessScreen Component', () => {
 				.mockResolvedValueOnce(null) // First call returns null (not found yet)
 				.mockResolvedValueOnce({
 					status: 1,
-					blockNumber: 95
+					blockNumber: 95 // Component converts to number for calculation
 				}),
-			getBlockNumber: vi.fn().mockResolvedValue(100)
+			getBlockNumber: vi.fn().mockResolvedValue(100) // Component expects number
 		};
 
 		vi.mocked(getProvider).mockReturnValue(mockProvider as any);
@@ -382,7 +382,7 @@ describe('TransactionSuccessScreen Component', () => {
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();
 
-		// Advance time to trigger first monitoring check
+		// Advance time to trigger first monitoring check (returns null, no confirmation yet)
 		vi.advanceTimersByTime(5000);
 		await tick();
 
@@ -390,15 +390,17 @@ describe('TransactionSuccessScreen Component', () => {
 		vi.advanceTimersByTime(5000);
 		await tick();
 
+		// Wait for confirmation count to be displayed
 		await waitFor(
 			() => {
 				// Check for confirmation count (6 = 100 - 95 + 1)
 				// The component shows confirmation count as a number next to "Confirmations" label
-				const confirmationLabel = screen.queryByText('Confirmations');
-				if (!confirmationLabel) return false;
+				// Use flexible text matching since translation might format it differently
+				const confirmationText = screen.queryByText(/Confirmations/i);
+				if (!confirmationText) return false;
 				
 				// Find the parent container and check for the count value
-				const parent = confirmationLabel.closest('div');
+				const parent = confirmationText.closest('div');
 				if (!parent) return false;
 				
 				const text = parent.textContent || '';
@@ -408,9 +410,11 @@ describe('TransactionSuccessScreen Component', () => {
 		);
 
 		// Verify confirmation count is displayed
-		const confirmationLabel = screen.getByText('Confirmations');
+		const confirmationLabel = screen.getByText(/Confirmations/i);
 		const parent = confirmationLabel.closest('div');
 		expect(parent?.textContent).toContain('6');
+		
+		vi.useRealTimers();
 	});
 
 	it('should handle Lightning network without explorer', async () => {

@@ -228,42 +228,115 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	}
 
 	// 2. Check for Bitcoin address (with optional amount/memo)
-	const btcQueryIndex = trimmed.indexOf('?');
-	const btcAddressPart = btcQueryIndex === -1 ? trimmed : trimmed.substring(0, btcQueryIndex);
+	// Handle Bitcoin URI format: bitcoin:address?amount=...&label=...&message=...
+	const isBitcoinUri = trimmed.startsWith('bitcoin:');
+	let btcAddressPart = trimmed;
+	let btcQueryIndex = -1;
+	
+	if (isBitcoinUri) {
+		// Extract address and query from bitcoin:address?params format
+		const withoutScheme = trimmed.substring(8); // Remove "bitcoin:"
+		btcQueryIndex = withoutScheme.indexOf('?');
+		btcAddressPart = btcQueryIndex === -1 ? withoutScheme : withoutScheme.substring(0, btcQueryIndex);
+	} else {
+		// Plain address, check for query params
+		btcQueryIndex = trimmed.indexOf('?');
+		btcAddressPart = btcQueryIndex === -1 ? trimmed : trimmed.substring(0, btcQueryIndex);
+	}
 	
 	if (validateBitcoinAddress(btcAddressPart).isValid) {
-		try {
+		if (isBitcoinUri) {
 			// Handle Bitcoin URI format: bitcoin:address?amount=...&label=...&message=...
-			const uri = trimmed.includes('://') ? trimmed : `bitcoin:${trimmed}`;
-			const url = new URL(uri);
+			// Parse query string manually since URL constructor doesn't handle bitcoin: protocol well
+			if (btcQueryIndex !== -1) {
+				try {
+					const queryString = trimmed.substring(trimmed.indexOf('?') + 1);
+					const params = new URLSearchParams(queryString);
+					
+					let amount: number | null = null;
+					const amountParam = params.get('amount');
+					if (amountParam) {
+						const btc = parseFloat(amountParam);
+						if (!isNaN(btc) && btc >= 0) {
+							amount = Math.floor(btc * SATS_PER_BTC);
+						}
+					}
 
-			let amount: number | null = null;
-			const amountParam = url.searchParams.get('amount');
-			if (amountParam) {
-				const btc = parseFloat(amountParam);
-				if (!isNaN(btc) && btc >= 0) {
-					amount = Math.floor(btc * SATS_PER_BTC);
+					const memo = params.get('label') || params.get('message') || null;
+
+					return {
+						isValid: true,
+						address: btcAddressPart,
+						network: 'bitcoin',
+						amount,
+						memo
+					};
+				} catch (parseError) {
+					// If query parsing fails, return basic Bitcoin address
+					return {
+						isValid: true,
+						address: btcAddressPart,
+						network: 'bitcoin',
+						amount: null,
+						memo: null
+					};
 				}
+			} else {
+				// No query params, return basic Bitcoin address
+				return {
+					isValid: true,
+					address: btcAddressPart,
+					network: 'bitcoin',
+					amount: null,
+					memo: null
+				};
 			}
+		} else {
+			// Plain Bitcoin address without URI scheme - check for query params manually
+			if (btcQueryIndex !== -1) {
+				try {
+					// Parse query string manually
+					const queryString = trimmed.substring(btcQueryIndex + 1);
+					const params = new URLSearchParams(queryString);
+					
+					let amount: number | null = null;
+					const amountParam = params.get('amount');
+					if (amountParam) {
+						const btc = parseFloat(amountParam);
+						if (!isNaN(btc) && btc >= 0) {
+							amount = Math.floor(btc * SATS_PER_BTC);
+						}
+					}
 
-			const memo = url.searchParams.get('label') || url.searchParams.get('message') || null;
+					const memo = params.get('label') || params.get('message') || null;
 
-			return {
-				isValid: true,
-				address: url.pathname || btcAddressPart,
-				network: 'bitcoin',
-				amount,
-				memo
-			};
-		} catch (error) {
-			// If URL parsing fails, return basic Bitcoin address
-			return {
-				isValid: true,
-				address: btcAddressPart,
-				network: 'bitcoin',
-				amount: null,
-				memo: null
-			};
+					return {
+						isValid: true,
+						address: btcAddressPart,
+						network: 'bitcoin',
+						amount,
+						memo
+					};
+				} catch (error) {
+					// If query parsing fails, return basic Bitcoin address
+					return {
+						isValid: true,
+						address: btcAddressPart,
+						network: 'bitcoin',
+						amount: null,
+						memo: null
+					};
+				}
+			} else {
+				// Plain Bitcoin address without any params
+				return {
+					isValid: true,
+					address: btcAddressPart,
+					network: 'bitcoin',
+					amount: null,
+					memo: null
+				};
+			}
 		}
 	}
 
@@ -445,6 +518,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			}
 		}
 
+		// Always use normalizedAddress (it's already normalized from addressPart)
 		return {
 			isValid: true,
 			address: normalizedAddress,
@@ -455,6 +529,17 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	}
 
 	// Invalid address format
+	// If we got here but addressPart looks like Ethereum address, normalize it anyway
+	if (ETHEREUM_ADDRESS_REGEX.test(addressPart)) {
+		return {
+			isValid: false,
+			address: normalizedAddress || normalizeEthereumAddress(addressPart),
+			network: null,
+			amount: null,
+			memo: null
+		};
+	}
+	
 	return {
 		isValid: false,
 		address: trimmed,

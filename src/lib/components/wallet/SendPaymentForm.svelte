@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
-	import { walletStore, walletManager, allAssets } from '$lib/stores/wallet.store';
+	import { walletStore, walletManager } from '$lib/stores/wallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { parsePaymentAddress, type ParsedPaymentAddress } from '$lib/utils/helpers/paymentAddressParser';
 	import { getBiometricData } from '$lib/utils/helpers/biometrics';
@@ -575,14 +575,22 @@
 	// Refine max amount after fees are estimated
 	let lastRefinedAmount = $state<number | null>(null);
 	let wasMaxClicked = $state(false); // Track if user clicked Max button
+	let isRefining = $state(false); // Guard to prevent infinite loops
 	
 	async function refineMaxAmount() {
-		if (!availableBalance || !estimatedFees) return;
+		if (!availableBalance || !estimatedFees || isRefining) return;
 
 		const refinedMax = Math.max(0, availableBalance - estimatedFees.totalFees - 2); // 2 sats safety margin
 		
 		// Only update if the difference is significant (>10 sats) and we haven't already refined to this value
 		if (lastRefinedAmount === null || Math.abs(refinedMax - lastRefinedAmount) > 10) {
+			// Prevent infinite loops - if we're already very close, stop refining
+			if (lastRefinedAmount !== null && Math.abs(refinedMax - lastRefinedAmount) < 100) {
+				// We're converging, stop to prevent infinite loop
+				return;
+			}
+			
+			isRefining = true;
 			lastRefinedAmount = refinedMax;
 			const previousMax = calculatedMaxAmount;
 			calculatedMaxAmount = refinedMax;
@@ -594,14 +602,28 @@
 				const diff = Math.abs(amountInSats - previousMax);
 				if (diff <= 50) {
 					// User clicked Max, so update to refined value
+					// Use isManuallyEstimating to prevent the $effect from triggering another fee estimate
+					isManuallyEstimating = true;
 					if (unit === 'sats') {
 						amount = refinedMax.toString();
 					} else if (btcPrice > 0) {
 						const usdAmount = (refinedMax / 100_000_000) * btcPrice;
 						amount = usdAmount.toFixed(2).replace(/\.?0+$/, '');
 					}
+					// Reset flag after a short delay
+					setTimeout(() => {
+						isManuallyEstimating = false;
+						isRefining = false;
+					}, 100);
+				} else {
+					isRefining = false;
 				}
+			} else {
+				isRefining = false;
 			}
+		} else {
+			// Already refined to this value, stop
+			isRefining = false;
 		}
 	}
 

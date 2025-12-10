@@ -28,6 +28,9 @@ export default defineConfig({
     
     /* Record video on failure */
     video: 'retain-on-failure',
+
+    /* Load authentication state if available */
+    storageState: process.env.AUTH_STATE_PATH || undefined,
   },
 
   /* Configure projects for major browsers */
@@ -57,6 +60,17 @@ export default defineConfig({
       use: { ...devices['iPhone 12'] },
     },
 
+    /* Authenticated tests - require auth state */
+    {
+      name: 'chromium-authenticated',
+      use: { 
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/e2e/.auth/test-user.json',
+      },
+      dependencies: [], // Don't require other projects
+      testMatch: /.*\.authenticated\.spec\.ts/,
+    },
+
     /* Test against branded browsers. */
     // {
     //   name: 'Microsoft Edge',
@@ -70,9 +84,9 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'bun run dev',
+    command: 'npm run dev',
     url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true, // Always reuse existing server to avoid conflicts
     timeout: 120 * 1000,
   },
 });

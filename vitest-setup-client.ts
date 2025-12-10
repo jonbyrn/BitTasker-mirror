@@ -54,3 +54,80 @@ if (typeof window !== 'undefined' && !window.Element.prototype.animate) {
 		updatePlaybackRate: vi.fn()
 	}));
 }
+
+// Mock MediaStreamTrack (required for QR scanner tests)
+if (typeof global !== 'undefined') {
+	global.MediaStreamTrack = class MediaStreamTrack {
+		stop() {}
+		kind = 'video';
+		id = 'mock-track-id';
+		label = 'Mock Camera Track';
+		enabled = true;
+		readyState = 'live' as MediaStreamTrackState;
+	} as any;
+
+	// Mock crypto.getRandomValues if not already available
+	if (!global.crypto || !global.crypto.getRandomValues) {
+		Object.defineProperty(global, 'crypto', {
+			value: {
+				getRandomValues: vi.fn((arr: Uint8Array) => {
+					for (let i = 0; i < arr.length; i++) {
+						arr[i] = Math.floor(Math.random() * 256);
+					}
+					return arr;
+				})
+			},
+			writable: true,
+			configurable: true,
+			enumerable: true
+		});
+	}
+}
+
+// Mock localStorage (required for some tests)
+if (typeof window !== 'undefined') {
+	const localStorageMock = {
+		getItem: vi.fn((key: string) => {
+			return null;
+		}),
+		setItem: vi.fn((key: string, value: string) => {}),
+		removeItem: vi.fn((key: string) => {}),
+		clear: vi.fn(),
+		length: 0,
+		key: vi.fn((index: number) => null)
+	};
+	
+	Object.defineProperty(window, 'localStorage', {
+		value: localStorageMock,
+		writable: true
+	});
+}
+
+// Mock icon components globally to avoid hoisting issues
+// Use vi.hoisted to create the mock component function
+const createMockIcon = vi.hoisted(() => () => 'svg');
+
+// Common icons used across components
+vi.mock('~icons/mdi/close', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/send', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/check', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/content-copy', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/download', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/upload', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/cash-multiple', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/swap-horizontal', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/format-list-bulleted', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/help-circle', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/refresh', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/eye', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/eye-off', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/chevron-right', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/chevron-down', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/chevron-up', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/arrow-up-bold', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/arrow-down-bold', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/file-document-outline', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/check-circle', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/clock-outline', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/close-circle', () => ({ default: createMockIcon }));
+vi.mock('~icons/mdi/check-all', () => ({ default: createMockIcon }));
