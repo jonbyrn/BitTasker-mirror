@@ -109,7 +109,7 @@
 			throw new Error($t('login.errors.no_token'));
 		}
 
-		authState.setupAuthData(
+		await authState.setupAuthData(
 			response.access_token,
 			authMethod,
 			pubKey,

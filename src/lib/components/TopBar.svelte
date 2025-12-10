@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
-	import { profileStore } from '$lib/stores/profile.store';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
@@ -37,37 +35,6 @@
 
 	// Control avatar dropdown visibility
 	let isAvatarDropdownOpen = $state(false);
-
-	// Initialize stores when component mounts
-	onMount(async () => {
-		if (isLoggedIn) {
-			try {
-				// Initialize user store
-				await user.getUserData();
-				// Initialize profile store if not already done
-				if (!$profileStore.data) profileStore.init();
-			} catch (error) {
-				console.error('Failed to initialize stores:', error);
-			}
-		}
-	});
-
-	// Derived values for avatar - prioritize username from database
-	let userPicture = $derived(() => {
-		// First priority: first image from pictures array
-		if ($profileStore.data?.pictures && $profileStore.data.pictures.length > 0) {
-			return $profileStore.data.pictures[0].url;
-		}
-		// Second priority: user store picture
-		if ($user.picture) {
-			return $user.picture;
-		}
-		// Third priority: profile store picture
-		if ($profileStore.data?.picture) {
-			return $profileStore.data.picture;
-		}
-		return '';
-	});
 
 	// Close drawer
 	function closeDrawer() {
@@ -223,10 +190,10 @@
 			<details
 				class="dropdown dropdown-end"
 				bind:open={isAvatarDropdownOpen}
-				use:clickOutside={{ callback: () => isAvatarDropdownOpen = false }}
+				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 			>
 				<summary class="btn btn-ghost">
-					<Avatar name={$user.picture} picture={userPicture()} size="sm" />
+					<Avatar name={$user.name} picture={$user.picture} size="sm" />
 				</summary>
 				<ul
 					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"

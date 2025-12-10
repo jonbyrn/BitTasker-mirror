@@ -4,23 +4,23 @@ import { redirect } from '@sveltejs/kit';
 import { Preferences } from '@capacitor/preferences';
 import { authState } from '$lib/stores/auth.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { tryCatch } from '$lib/utils/tryCatch';
 import { user } from '$lib/stores/user.store';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
-import { initializeNotificationService } from '$lib/stores/notification.store';
 
 export const load: LayoutLoad = async () => {
-	// Only check authentication on the client side
 	if (browser) {
-		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+		try {
+			const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
-		if (!token || token === null) {
-			throw redirect(303, '/auth/login');
-		} else {
-			await tryCatch(user.getUserData());
-			authState.login();
-			await tryCatch(pushNotificationService.init());
-			await tryCatch(initializeNotificationService());
+			if (!token || token === null) {
+				throw redirect(303, '/auth/login');
+			} else {
+				await authState.login();
+				await user.getUserData();
+				await pushNotificationService.init();
+			}
+		} catch (error) {
+			console.error(error);
 		}
 	}
 };

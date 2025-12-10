@@ -139,11 +139,6 @@
 	}
 
 
-	function getTitleSize(notification: Notification): string {
-		// Make all titles smaller and consistent
-		return 'text-xs sm:text-sm font-medium';
-	}
-
 	function getTranslatedTitle(notification: Notification): string {
 		// If notification is already translated, return as-is
 		if (notification.data?.isTranslated) {
@@ -294,7 +289,7 @@
 								<div class="flex-1 min-w-0">
 									<div class="flex items-start justify-between">
 										<div class="flex-1 min-w-0">
-											<span class="{getTitleSize(notification)} text-base-content truncate">
+											<span class="text-xs sm:text-sm font-medium text-base-content truncate">
 												{getTranslatedTitle(notification)}
 											</span>
 											<p class="mt-1 text-sm text-base-content/80 line-clamp-2">

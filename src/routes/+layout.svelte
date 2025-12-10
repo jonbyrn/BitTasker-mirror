@@ -45,11 +45,6 @@
 
 	let breadcrumbList = $state({});
 
-	let devicePlatformValue = $state<string>('web');
-	$effect(() => {
-		devicePlatformValue = $devicePlatform;
-	});
-
 	// Defer device/theme/keyboard helpers to only run on relevant routes and after initial render
 	const deferHelpers = () => {
 		if (typeof requestIdleCallback !== 'undefined') {
@@ -136,12 +131,9 @@
 		};
 	};
 
-	// Track the current path reactively (must read synchronously to create dependency)
-	const currentPath = $derived(page.url.pathname);
-
 	// Check if we should hide footer for logged-in users on task detail pages
 	const shouldHideFooterForLoggedInTaskPage = $derived(
-		isLoggedIn && currentPath.match(/^\/tasks\/[^/]+$/)
+		isLoggedIn && page.url.pathname.match(/^\/tasks\/[^/]+$/)
 	);
 
 	// Update layout based on current route - Optimized with debouncing
@@ -182,7 +174,7 @@
 	// Optimized effect for route changes
 	$effect(() => {
 		// Reading currentPath here creates a reactive dependency on the URL
-		updateLayoutBasedOnRoute(currentPath);
+		updateLayoutBasedOnRoute(page.url.pathname);
 	});
 
 	$effect(() => {
@@ -286,15 +278,11 @@
 			<TopBar />
 		{/if}
 
-		<!-- <div
-			class="flex flex-1 flex-col overflow-auto {devicePlatformValue === 'web' ? 'lg:pt-16' : ''}"
-		> -->
-
 		<div
 			class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
-			{#if devicePlatformValue === 'web' && !isLandingPage}
+			{#if $devicePlatform === 'web' && !isLandingPage}
 				<div class="bg-base-200 flex grow overflow-hidden lg:block">
 					{@render children()}
 				</div>

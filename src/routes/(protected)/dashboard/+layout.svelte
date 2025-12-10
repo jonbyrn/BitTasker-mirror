@@ -17,46 +17,6 @@
 	let { children } = $props();
 
 	let width = $state(375);
-	let activeSection = $state('');
-
-	// Icon mapping function for dynamic icon rendering
-	function getIconComponent(iconName: string) {
-		const iconMap = {
-			'mdi:format-list-bulleted': IconFormatListBulleted,
-			'mdi:plus-circle-outline': IconPlusCircleOutline,
-			'mdi:magnify': IconMagnify,
-			'mdi:invoice-text-send-outline': IconInvoiceTextSendOutline,
-			'mdi:file-sign': IconFileSign,
-			'mdi:wallet-outline': IconWalletOutline,
-			'mdi:account': IconAccount,
-			'mdi:chat-outline': IconChatOutline,
-			'mdi:cog': IconCog
-		};
-		return iconMap[iconName as keyof typeof iconMap] || IconFormatListBulleted;
-	}
-
-	// Create a reactive component map for Svelte 5 compatibility
-	let iconComponents = $derived.by(() => {
-		const components = new Map();
-		sections.forEach((section) => {
-			components.set(section.icon, getIconComponent(section.icon));
-		});
-		return components;
-	});
-
-	$effect(() => {
-		const section = page.url.pathname.split('/dashboard/')[1] || '';
-		const tabParam = page.url.searchParams.get('tab');
-
-		// Handle special cases for tab-based navigation
-		if (tabParam === 'bids') {
-			activeSection = 'bids-sent';
-		} else if (tabParam === 'contracts') {
-			activeSection = 'contracts';
-		} else {
-			activeSection = section;
-		}
-	});
 </script>
 
 <svelte:head>
@@ -81,12 +41,8 @@
 								<li class="my-1">
 									<a
 										data-sveltekit-reload="off"
-										href={section.id === 'bids-sent'
-											? '/dashboard?tab=bids'
-											: section.id === 'contracts'
-												? '/dashboard?tab=contracts'
-												: `/dashboard/${section.id}`}
-										class:menu-active={activeSection === section.id}
+										href={section.path}
+										class:menu-active={page.url.pathname + page.url.search === section.path}
 										class="flex items-center gap-3"
 									>
 										{#if section.icon === 'mdi:format-list-bulleted'}

@@ -17,36 +17,16 @@
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	
-	// Import performance testing helper in development
-	import '$lib/utils/performance-testing-helper';
-	
-import {
-	formatStandardDateShort,
-	formatStandardDateTime,
-	parseDateToLocalMidnight
-} from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatStandardDateShort,
+		formatStandardDateTime,
+		parseDateToLocalMidnight
+	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
+	import { darkMode } from '$lib/stores/theme.store';
 
 	// Constants
 	const TASKS_PER_PAGE = 15;
-
-	// Function to create initial search parameters
-	function getInitialSearchParams(): SearchTasksParams {
-		return {
-			taskType: undefined,
-			categories: [],
-			skills: [],
-			page: 1,
-			limit: TASKS_PER_PAGE,
-			budget: {
-				tier: undefined,
-				currency: undefined,
-				type: undefined
-			},
-			search: ''
-		};
-	}
 
 	// Reactive state for search parameters and UI controls
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
@@ -67,55 +47,96 @@ import {
 	let showSkeleton = $state(true);
 	let selectedLocation = $state<any | null>(null);
 
+	// Lazy loading state
+	let taskListRef = $state<HTMLElement | null>(null);
+	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+	let intersectionObserver: IntersectionObserver | null = null;
+
+	// Infinite scroll state - using scroll listener instead of sentinel
+	let scrollHandler: ((e: Event) => void) | null = null;
+	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
+
+	// Scroll to top button state
+	let showScrollToTop = $state(false);
+
+	// Bid drawer state
+	let selectedTaskId = $state<string | null>(null);
+	let isSidebarOpen = $state(false);
+
+	// Has active search parameters for save search button
+	let hasActiveParams = $state(false);
+
+	// BTC price for USDT conversion
+	let btcPrice = $state<number>(120000); // Default fallback price
+
+	// View mode state - Airbnb style toggle
+	let viewMode = $state<'list' | 'map'>('list');
+
+	// Selected task for map display
+	let selectedTask = $state<Task | null>(null);
+
+	// Referencias a las cards de las tasks para hacer scroll
+	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
+
+	// Function to create initial search parameters
+	function getInitialSearchParams(): SearchTasksParams {
+		return {
+			taskType: undefined,
+			categories: [],
+			skills: [],
+			page: 1,
+			limit: TASKS_PER_PAGE,
+			budget: {
+				tier: undefined,
+				currency: undefined,
+				type: undefined
+			},
+			search: ''
+		};
+	}
+
 	function hasTimeComponent(dateString?: string | null): boolean {
 		if (!dateString) return false;
 		return /T\d{2}:\d{2}/.test(dateString);
 	}
 
-	function formatDateWithLocale(
-		dateValue: Date | null,
-		includeTime: boolean,
-		localeCode: string
-	): string {
+	function formatDateWithLocale(dateValue: Date | null, includeTime: boolean): string {
 		if (!dateValue) return '';
 
 		if (includeTime) {
-			return formatStandardDateTime(dateValue, localeCode);
+			return formatStandardDateTime(dateValue, $locale || 'en');
 		}
 
-		return formatStandardDateShort(dateValue, localeCode);
+		return formatStandardDateShort(dateValue, $locale || 'en');
 	}
 
 	function formatDateTimeReactive(dateString: string) {
 		if (!dateString) return '';
-		const localeCode = $locale || 'en';
 
 		if (hasTimeComponent(dateString)) {
 			const dateWithTime = new Date(dateString);
 			if (!Number.isNaN(dateWithTime.getTime())) {
-				return formatDateWithLocale(dateWithTime, true, localeCode);
+				return formatDateWithLocale(dateWithTime, true);
 			}
 		}
 
 		const date = parseDateToLocalMidnight(dateString);
-		return formatDateWithLocale(date, false, localeCode);
+		return formatDateWithLocale(date, false);
 	}
 
 	function formatDateRangeReactive(startDateString: string, endDateString: string) {
-		const localeCode = $locale || 'en';
-
 		const formatValue = (value: string) => {
 			// Always include time for dateRange in Find Tasks
 			if (hasTimeComponent(value)) {
 				const dateWithTime = new Date(value);
 				if (!Number.isNaN(dateWithTime.getTime())) {
-					return formatDateWithLocale(dateWithTime, true, localeCode);
+					return formatDateWithLocale(dateWithTime, true);
 				}
 			}
 
 			// If no time component, parse and add time formatting
 			const date = parseDateToLocalMidnight(value);
-			return formatDateWithLocale(date, true, localeCode);
+			return formatDateWithLocale(date, true);
 		};
 
 		const startFormatted = formatValue(startDateString);
@@ -127,18 +148,6 @@ import {
 
 		return startFormatted || endFormatted || '';
 	}
-
-	// Lazy loading state
-	let taskListRef = $state<HTMLElement | null>(null);
-	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
-	let intersectionObserver: IntersectionObserver | null = null;
-	
-	// Infinite scroll state - using scroll listener instead of sentinel
-	let scrollHandler: ((e: Event) => void) | null = null;
-	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
-
-	// Scroll to top button state
-	let showScrollToTop = $state(false);
 
 	// Handle scroll to show/hide scroll to top button
 	function handleScroll() {
@@ -158,13 +167,6 @@ import {
 		}
 	}
 
-
-	// Bid drawer state
-	let selectedTaskId = $state<string | null>(null);
-	let isSidebarOpen = $state(false);
-
-	// Has active search parameters for save search button
-	let hasActiveParams = $state(false);
 	$effect(() => {
 		// Check if there are any meaningful search parameters set
 		hasActiveParams =
@@ -178,12 +180,6 @@ import {
 			!!searchParams.budget?.currency ||
 			!!searchParams.budget?.type;
 	});
-
-	// BTC price for USDT conversion
-	let btcPrice = $state<number>(120000); // Default fallback price
-
-	// View mode state - Airbnb style toggle
-	let viewMode = $state<'list' | 'map'>('list');
 
 	/**
 	 * Fetch current BTC price
@@ -204,10 +200,10 @@ import {
 		// Create a key from search params to detect if search changed
 		const currentSearchKey = JSON.stringify(searchParams);
 		const searchChanged = lastSearchKey !== '' && lastSearchKey !== currentSearchKey;
-		
+
 		// Check if we already have tasks in store (from previous navigation)
 		const hasExistingTasks = $tasksStore.items.length > 0;
-		
+
 		// If we have existing tasks and search hasn't changed, don't reload - just use what's in the store
 		if (hasExistingTasks && !searchChanged) {
 			// Verify the search key matches (or is empty, meaning first load)
@@ -218,12 +214,12 @@ import {
 				return;
 			}
 		}
-		
+
 		// If search params changed, reset dataLoaded to allow reload
 		if (searchChanged) {
 			dataLoaded = false;
 		}
-		
+
 		if (dataLoaded && !searchChanged) return; // Prevent multiple loads
 
 		try {
@@ -233,12 +229,12 @@ import {
 				page: 1,
 				limit: TASKS_PER_PAGE
 			};
-			
+
 			// Only include until if it has a value
 			if (searchParams.until !== undefined) {
 				newSearchParams.until = searchParams.until;
 			}
-			
+
 			searchParams = newSearchParams;
 
 			// Clear existing tasks before loading (only if search changed)
@@ -257,7 +253,7 @@ import {
 			dataLoaded = true;
 			showSkeleton = false;
 			lastSearchKey = currentSearchKey; // Update key after successful load
-			
+
 			// Setup infinite scroll after data is loaded
 			if (taskListRef) {
 				setupInfiniteScroll();
@@ -274,7 +270,6 @@ import {
 			}
 		} catch (error) {
 			console.error('[FindTasks] Error loading Nostr data:', error);
-			// Keep skeleton visible on error
 		}
 	}
 
@@ -432,7 +427,7 @@ import {
 
 		try {
 			isLoadingMore = true;
-			
+
 			const nextPage = $tasksStore.currentPage + 1;
 			const lastItem = $tasksStore.items[$tasksStore.items.length - 1];
 
@@ -451,7 +446,7 @@ import {
 				until: untilTimestamp,
 				limit: TASKS_PER_PAGE
 			};
-			
+
 			await findTasks(searchParams);
 		} catch (error) {
 			console.error('[FindTasks] Error loading more tasks:', error);
@@ -490,15 +485,15 @@ import {
 				}
 
 				const { scrollTop, scrollHeight, clientHeight } = taskListRef;
-				
+
 				// Only process if user actually scrolled down (not up)
 				if (scrollTop <= lastScrollTop) {
 					lastScrollTop = scrollTop;
 					return;
 				}
-				
+
 				lastScrollTop = scrollTop;
-				
+
 				// Check if we have enough content to scroll
 				if (scrollHeight <= clientHeight) {
 					// Not enough content, but don't auto-load - wait for user to scroll
@@ -512,7 +507,11 @@ import {
 				// 1. User has scrolled 70% of the content
 				// 2. User scrolled at least 200px since last load (to prevent duplicate loads)
 				// 3. User is within 500px of the bottom (ensures they're actually near the end)
-				if (scrollPercentage > 0.7 && (scrollTop - lastLoadScrollTop) > 200 && distanceFromBottom < 500) {
+				if (
+					scrollPercentage > 0.7 &&
+					scrollTop - lastLoadScrollTop > 200 &&
+					distanceFromBottom < 500
+				) {
 					lastLoadScrollTop = scrollTop;
 					loadMoreTasks();
 				}
@@ -582,34 +581,31 @@ import {
 		}
 	});
 
-		// Cleanup on component destroy
+	// Cleanup on component destroy
 	onDestroy(() => {
-		if (browser) {
-			// Cleanup scroll listener
-			if (taskListRef) {
-				taskListRef.removeEventListener('scroll', handleScroll);
-			}
-
-			// Cleanup lazy loading
-			if (intersectionObserver) {
-				intersectionObserver.disconnect();
-				intersectionObserver = null;
-			}
-			if (fallbackTimer) {
-				clearTimeout(fallbackTimer);
-				fallbackTimer = null;
-			}
-			
-			// Cleanup infinite scroll handler
-			if (scrollHandler && taskListRef) {
-				taskListRef.removeEventListener('scroll', scrollHandler);
-				scrollHandler = null;
-			}
-
-			cleanup();
+		// Cleanup scroll listener
+		if (taskListRef) {
+			taskListRef.removeEventListener('scroll', handleScroll);
 		}
-	});
 
+		// Cleanup lazy loading
+		if (intersectionObserver) {
+			intersectionObserver.disconnect();
+			intersectionObserver = null;
+		}
+		if (fallbackTimer) {
+			clearTimeout(fallbackTimer);
+			fallbackTimer = null;
+		}
+
+		// Cleanup infinite scroll handler
+		if (scrollHandler && taskListRef) {
+			taskListRef.removeEventListener('scroll', scrollHandler);
+			scrollHandler = null;
+		}
+
+		cleanup();
+	});
 
 	// Loading state management effect
 	$effect(() => {
@@ -668,9 +664,6 @@ import {
 		return baseClass;
 	}
 
-	// Selected task for map display
-	let selectedTask = $state<Task | null>(null);
-
 	// Function to handle task selection for map display
 	function selectTaskForMap(task: Task) {
 		selectedTask = task;
@@ -681,9 +674,6 @@ import {
 			selectedLocation = task.pickupLocation;
 		}
 	}
-
-	// Referencias a las cards de las tasks para hacer scroll
-	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
 
 	// Función para hacer scroll a una card específica
 	function scrollToTaskCard(taskId: string) {
@@ -716,16 +706,6 @@ import {
 	function toggleViewMode() {
 		viewMode = viewMode === 'list' ? 'map' : 'list';
 	}
-
-	// Variable para detectar el tema
-	let isDarkMode = $state(false);
-
-	// Detectar el tema actual
-	$effect(() => {
-		if (browser) {
-			isDarkMode = document.documentElement.classList.contains('dark');
-		}
-	});
 </script>
 
 <div class="mx-auto max-w-6xl p-4 md:p-0">
@@ -839,8 +819,9 @@ import {
 
 				<!-- Task Count -->
 				{#if $tasksStore.items && $tasksStore.items.length > 0}
-					<div class="mb-4 text-sm text-base-content/70">
-						{$t('find_tasks.showing_tasks', { values: { count: $tasksStore.items.length } }) || `Showing ${$tasksStore.items.length} task${$tasksStore.items.length !== 1 ? 's' : ''}`}
+					<div class="text-base-content/70 mb-4 text-sm">
+						{$t('find_tasks.showing_tasks', { values: { count: $tasksStore.items.length } }) ||
+							`Showing ${$tasksStore.items.length} task${$tasksStore.items.length !== 1 ? 's' : ''}`}
 					</div>
 				{/if}
 
@@ -904,7 +885,10 @@ import {
 									{#each $tasksStore.items as task, index}
 										<div
 											use:registerTaskCard={{ taskId: task.id }}
-											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {selectedTask?.id === task.id ? 'bg-base-300 border-primary border-2' : ''}"
+											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {selectedTask?.id ===
+											task.id
+												? 'bg-base-300 border-primary border-2'
+												: ''}"
 											onclick={() => selectTaskForMap(task)}
 											tabindex="0"
 											role="button"
@@ -915,19 +899,17 @@ import {
 											aria-hidden={task.status !== TaskStatusEnum.OPEN}
 											data-task-id={task.id}
 										>
-											<div class="card-body p-4 md:p-4 rounded-xl">
+											<div class="card-body rounded-xl p-4 md:p-4">
 												<!-- Top Row: Title + Status Badge -->
-												<div
-													class="mb-1 flex flex-row items-start justify-between gap-2"
-												>
+												<div class="mb-1 flex flex-row items-start justify-between gap-2">
 													<!-- Left: Title (70% width) -->
 													<div class="w-[70%] pr-2 md:pr-4">
-														<TranslatableTask 
-															{task} 
+														<TranslatableTask
+															{task}
 															showDescription={true}
 															showDescriptionToggle={false}
 															descriptionClass="text-sm text-base-content/80 line-clamp-2"
-															titleClass="card-title line-clamp-2 text-lg font-semibold" 
+															titleClass="card-title line-clamp-2 text-lg font-semibold"
 														/>
 													</div>
 													<!-- Right: Status Badge (aligned right) -->
@@ -935,7 +917,8 @@ import {
 														{#each [task] as taskItem}
 															{@const statusBadge = getStatusBadge(taskItem.status)}
 															<div class="badge {statusBadge.color} badge-outline badge-sm">
-																{$t(`task.status.${taskItem.status.toLowerCase()}`) || statusBadge.text}
+																{$t(`task.status.${taskItem.status.toLowerCase()}`) ||
+																	statusBadge.text}
 															</div>
 														{/each}
 													</div>
@@ -1100,7 +1083,9 @@ import {
 																		/>
 																	</svg>
 																{/each}
-																<span class="text-base-content/60 ml-1 text-xs">{(task.creator as any)?.rating || 0}</span>
+																<span class="text-base-content/60 ml-1 text-xs"
+																	>{(task.creator as any)?.rating || 0}</span
+																>
 															</div>
 														</div>
 													</div>
@@ -1250,7 +1235,7 @@ import {
 				<!-- Mobile Floating Button - Scroll to Top (only visible on mobile) -->
 				{#if showScrollToTop}
 					<button
-						class="fixed inverted-colors bottom-24 right-4 z-50 flex items-center justify-center transition-all duration-200 rounded-4xl p-3 hover:opacity-70 lg:hidden"
+						class="inverted-colors fixed right-4 bottom-24 z-50 flex items-center justify-center rounded-4xl p-3 transition-all duration-200 hover:opacity-70 lg:hidden"
 						onclick={scrollToTop}
 						title={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
 						aria-label={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
@@ -1312,11 +1297,9 @@ import {
 
 				<!-- Mobile Floating Button - Show List -->
 				<button
-					class="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-200 hover:shadow-xl"
-					class:bg-black={!isDarkMode}
-					class:bg-white={isDarkMode}
-					class:text-white={!isDarkMode}
-					class:text-black={isDarkMode}
+					class="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-200 hover:shadow-xl {$darkMode
+						? 'bg-white text-black'
+						: 'bg-black text-white'}"
 					onclick={toggleViewMode}
 					aria-label={$t('find_tasks.view_list')}
 				>

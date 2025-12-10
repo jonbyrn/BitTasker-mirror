@@ -19,7 +19,7 @@ const createAuthStore = () => {
 		await Preferences.remove({ key: StorageKeys.NPUB });
 		await Preferences.remove({ key: StorageKeys.AUTH_METHOD });
 		appStore.update((state) => ({ ...state, biometricData: null }));
-		
+
 		// Lazy load user store only when needed
 		const { user } = await import('./user.store');
 		user.reset();
@@ -31,14 +31,14 @@ const createAuthStore = () => {
 		// TODO: To be removed after getting auth method from the server
 		await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-		
+
 		// Lazy load user store only when needed
 		const { user } = await import('./user.store');
 		if (userData) user.updateProfile(userData);
 		authState.login();
 
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
-		if (redirect) goto('/dashboard/find-tasks');
+		if (redirect) await goto('/dashboard/find-tasks');
 	}
 
 	return {

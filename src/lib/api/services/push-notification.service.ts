@@ -37,6 +37,7 @@ class PushNotificationService {
 	private currentDeviceId: string | null = null;
 	private notificationCounter: number = 0;
 	private deviceName: string | null = null;
+	private isInitialized: boolean = false;
 
 	// Houdini Stores
 	private registerDeviceStore = new RegisterDeviceStore();
@@ -81,6 +82,9 @@ class PushNotificationService {
 	}
 
 	public async init(): Promise<void> {
+		// Skip if already initialized
+		if (this.isInitialized) return;
+		
 		try {
 			if (Capacitor.isNativePlatform()) {
 				this.addListeners();
@@ -91,6 +95,9 @@ class PushNotificationService {
 			} else {
 				await this.initWebPushNotifications();
 			}
+			
+			// Mark as initialized after successful setup
+			this.isInitialized = true;
 		} catch (error) {
 			throw error;
 		}
