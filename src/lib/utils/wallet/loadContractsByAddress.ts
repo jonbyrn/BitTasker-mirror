@@ -77,9 +77,16 @@ export async function loadContractsByAddress(
 				durationMs: nextIdDuration.toFixed(2)
 			});
 		} catch (error: any) {
-			// Removed provider destroyed retry logic - errors will propagate to UI
+			// Return empty array for graceful degradation on RPC errors
+			// This allows the UI to continue functioning even if nextEscrowId fails
 			console.error('[DEBUG] Failed to get nextEscrowId:', error);
-			throw error; // Propagate error immediately
+			const functionEndTime = performance.now();
+			const totalFunctionTime = functionEndTime - functionStartTime;
+			console.log('[DEBUG] loadContractsByAddress completed (empty due to nextEscrowId error)', {
+				totalDurationMs: totalFunctionTime.toFixed(2),
+				contractsFound: 0
+			});
+			return [];
 		}
 
 		const contracts: EscrowData[] = [];

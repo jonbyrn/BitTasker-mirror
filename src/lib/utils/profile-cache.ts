@@ -43,6 +43,13 @@ export class ProfileCache {
 	clear() {
 		this.cache.clear();
 	}
+
+	/**
+	 * Get the current size of the cache
+	 */
+	size(): number {
+		return this.cache.size;
+	}
 }
 
 export const profileCache = new ProfileCache();

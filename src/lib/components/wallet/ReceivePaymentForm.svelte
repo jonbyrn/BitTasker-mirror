@@ -31,7 +31,7 @@
 	let btcPrice = $state<number>(0);
 	let invoiceGenerated = $state(false);
 	let descriptionExpanded = $state(false); // Accordion state for description field
-	let networkDropdownElement: HTMLDetailsElement; // Reference to details element for DaisyUI dropdown
+	let networkDropdownElement = $state.raw<HTMLDetailsElement | undefined>(undefined); // Reference to details element for DaisyUI dropdown
 	let networkFeeExpanded = $state(false); // Accordion state for network fee breakdown
 	let calculatorKey = $state(0); // Key to force CalculatorKeypad reset
 	let chargeFeesToPayer = $state(false); // Toggle to charge fees to payer instead of deducting from receiver

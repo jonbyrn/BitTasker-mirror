@@ -187,9 +187,9 @@
 
 	<!-- Address Display (copyable) -->
 	<div class="address-display">
-		<label class="label">
+		<div class="label">
 			<span class="label-text font-semibold">{$t('wallet.address')}</span>
-		</label>
+		</div>
 		<div class="flex items-center gap-2">
 			<button
 				class="btn btn-outline flex-1 justify-start h-auto min-h-12 p-3 text-left break-all"
@@ -227,9 +227,9 @@
 
 	<!-- Amount Display -->
 	<div class="amount-display">
-		<label class="label">
+		<div class="label">
 			<span class="label-text font-semibold">{$t('wallet.amount')}</span>
-		</label>
+		</div>
 		<div class="text-2xl md:text-3xl font-bold tabular-nums">{formatSats(props.amount)} {$t('wallet.sats')}</div>
 		{#if btcPrice > 0 && amountInUSD > 0}
 			<div class="text-base-content/70 text-lg md:text-xl">
@@ -241,9 +241,9 @@
 	<!-- Memo (if provided) -->
 	{#if props.memo}
 		<div class="memo-display">
-			<label class="label">
+			<div class="label">
 				<span class="label-text font-semibold">{$t('wallet.description')}</span>
-			</label>
+			</div>
 			<div class="text-base rounded-lg bg-base-200 p-3">{props.memo}</div>
 		</div>
 	{/if}
@@ -251,9 +251,9 @@
 	<!-- Network Display (if provided) -->
 	{#if props.network}
 		<div class="network-display">
-			<label class="label">
+			<div class="label">
 				<span class="label-text font-semibold">{$t('wallet.network')}</span>
-			</label>
+			</div>
 			<div class="badge badge-info badge-lg">{props.network}</div>
 		</div>
 	{/if}

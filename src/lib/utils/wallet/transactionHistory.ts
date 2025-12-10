@@ -194,6 +194,7 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                 }
                 const processDuration = performance.now() - processStartTime;
                 console.log(`[RSK Transactions] Regular transaction processing completed in ${processDuration.toFixed(2)}ms (${transactions.length} transactions)`);
+                }
             } else if (regularResponse.status === 'rejected') {
                 console.error('[RSK Transactions] Regular transactions fetch failed:', regularResponse.reason);
             } else if (regularResponse.status === 'fulfilled' && !regularResponse.value.ok) {
@@ -454,8 +455,8 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                             // Normalize and validate value
                             let value: string;
                             let amount: number;
+                            const rawValue = internalTx.value || '0';
                             try {
-                                const rawValue = internalTx.value || '0';
                                 
                                 // Handle hex values (most common format from API)
                                 if (rawValue.startsWith('0x')) {
@@ -507,15 +508,8 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                         // Convert to wei hex string for consistency
                                         // This ensures tx.value is always in wei format (hex string)
                                         const valueWei = ethers.parseEther(valueNum.toString());
-                                        // Convert BigNumber to hex string (not decimal string)
-                                        // Use toHexString() method if available, otherwise toString(16)
-                                        if (typeof valueWei.toHexString === 'function') {
-                                            value = valueWei.toHexString();
-                                        } else {
-                                            // Fallback: convert to BigInt then to hex
-                                            const valueBigInt = BigInt(valueWei.toString());
-                                            value = '0x' + valueBigInt.toString(16);
-                                        }
+                                        // ethers.parseEther() returns a bigint in v6, convert to hex string
+                                        value = '0x' + valueWei.toString(16);
                                     }
                                 }
                                 
@@ -905,7 +899,7 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
                 const bnbResponse = bnbResult.value;
                 console.log(`[BSC Transactions] Processing BNB transactions (status: ${bnbResponse.status})...`);
 
-            if (bnbResponse.ok) {
+                if (bnbResponse.ok) {
                 const parseStartTime = performance.now();
                 const bnbData = await bnbResponse.json();
                 const parseDuration = performance.now() - parseStartTime;
@@ -980,13 +974,14 @@ export async function loadBSCTransactions(): Promise<Transaction[]> {
             } else {
                 console.error(`[BSC Transactions] Failed to process BNB transactions: ${bnbResponse.status} ${bnbResponse.statusText}`);
             }
-        } catch (bnbError) {
-            const bnbErrorTime = performance.now() - bnbStartTime;
-            const errorMessage = bnbError instanceof Error ? bnbError.message : String(bnbError);
-            if (errorMessage.includes('timeout')) {
-                console.warn(`[BSC Transactions] BSCScan API request timed out for BNB transactions after ${bnbErrorTime.toFixed(2)}ms - transaction history may be incomplete`);
-            } else {
-                console.error(`[BSC Transactions] Failed to process BNB transactions after ${bnbErrorTime.toFixed(2)}ms:`, bnbError);
+            } catch (bnbError) {
+                const bnbErrorTime = performance.now() - bnbStartTime;
+                const errorMessage = bnbError instanceof Error ? bnbError.message : String(bnbError);
+                if (errorMessage.includes('timeout')) {
+                    console.warn(`[BSC Transactions] BSCScan API request timed out for BNB transactions after ${bnbErrorTime.toFixed(2)}ms - transaction history may be incomplete`);
+                } else {
+                    console.error(`[BSC Transactions] Failed to process BNB transactions after ${bnbErrorTime.toFixed(2)}ms:`, bnbError);
+                }
             }
         } else if (bnbResult.status === 'rejected') {
             const errorMessage = bnbResult.reason instanceof Error ? bnbResult.reason.message : String(bnbResult.reason);

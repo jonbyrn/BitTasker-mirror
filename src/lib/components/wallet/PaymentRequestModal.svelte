@@ -563,9 +563,9 @@
 					<!-- Transaction Description (if provided) -->
 					{#if props.memo}
 						<div class="space-y-1">
-							<label class="label">
+							<div class="label">
 								<span class="label-text font-semibold text-xs">{$t('wallet.description')}</span>
-							</label>
+							</div>
 							<div class="text-base rounded-lg bg-base-200 p-1">{props.memo}</div>
 						</div>
 					{/if}
