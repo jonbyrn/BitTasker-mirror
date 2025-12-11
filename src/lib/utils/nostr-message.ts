@@ -11,7 +11,7 @@ import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
-import type { NostrProfileImage, NostrReview, NostrSkill, SkillCertification, TimeSlot } from '$lib/types/profile';
+import type { NostrProfileImage, NostrReview, NostrSkill, SkillCertification, TimeSlot, ProfileTranslations } from '$lib/types/profile';
 
 // --- Relay Configuration ---
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
@@ -372,6 +372,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	pictures?: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
 	website?: string;
 	professionalTitle?: string;
+	translations?: ProfileTranslations;
 	skills?: Array<string | {
 		name: string;
 		level: number;
@@ -467,6 +468,9 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 						}
 						if (content.professionalTitle) {
 							profileData.professionalTitle = content.professionalTitle;
+						}
+						if (content.translations) {
+							profileData.translations = content.translations;
 						}
 						// Only set picture from metadata if no pictures array exists (PROFILE_IMAGES has priority)
 						if (content.picture && (!profileData.pictures || profileData.pictures.length === 0)) {

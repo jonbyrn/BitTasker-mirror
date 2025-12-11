@@ -1,4 +1,4 @@
-import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices } from '$lib/types/profile.d';
+import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices, ProfileTranslations } from '$lib/types/profile.d';
 import type { NostrEvent, Filter } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
@@ -7,12 +7,17 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import uploadService from '$lib/api/services/upload.service';
 import KINDS from '$lib/utils/constants/kinds';
+import { TranslationService } from '$lib/services/translation.service';
+import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
+
+// Translation service instance
+const translationService = new TranslationService();
 
 const pool = get(appStore).pool;
 const RELAYS = get(appStore).relays;
 
 // Subscription store for profile updates
-let profileSubscriptions = new Map<string, {
+const profileSubscriptions = new Map<string, {
     sub: any;
     callbacks: Set<(event: NostrEvent) => void>;
     relays: string[];
@@ -25,7 +30,7 @@ export function createSubscriptionKey(npub: string, kindFilters?: { [kind: numbe
     }
     const kinds = Object.keys(kindFilters).sort().join(',');
     const tags = Object.entries(kindFilters)
-        .map(([kind, tagFilters]) => {
+        .map(([ tagFilters]) => {
             if (!tagFilters) return '';
             return Object.entries(tagFilters)
                 .map(([tag, value]) => `${tag}:${value}`)
@@ -139,6 +144,93 @@ export async function subscribeToProfileUpdates(
 }
 
 /**
+ * Generate translations for profile fields
+ * Translates professionalTitle and about to all supported languages
+ */
+export async function generateProfileTranslations(profileData: {
+	professionalTitle?: string;
+	about?: string;
+}): Promise<ProfileTranslations | undefined> {
+	// Only generate translations if translation service is available
+	if (!translationService.isAvailable()) {
+		console.warn('Translation service not available, skipping profile translations');
+		return undefined;
+	}
+
+	try {
+		// Combine all text fields for language detection
+		const combinedText = `${profileData.professionalTitle || ''} ${profileData.about || ''}`.trim();
+		
+		// If all fields are empty, return undefined
+		if (!combinedText) {
+			return undefined;
+		}
+
+		// Detect source language from the combined text
+		const detectedLanguage = await translationService.detectLanguage(combinedText);
+		
+		// If we can't detect language or it's not supported, default to 'en'
+		const sourceLanguage = detectedLanguage || 'en';
+		
+		// Get all supported languages except the source language
+		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		
+		// If no target languages (profile is already in all supported languages), return empty
+		if (targetLanguages.length === 0) {
+			return {
+				sourceLanguage,
+				translations: {}
+			};
+		}
+
+		// Translate all fields to all target languages in parallel
+		const translationPromises = targetLanguages.map(async (targetLang) => {
+			const [titleResult, aboutResult] = await Promise.all([
+				profileData.professionalTitle?.trim()
+					? translationService.translate(profileData.professionalTitle, targetLang, sourceLanguage)
+					: Promise.resolve({ translatedText: '' } as any),
+				profileData.about?.trim()
+					? translationService.translate(profileData.about, targetLang, sourceLanguage)
+					: Promise.resolve({ translatedText: '' } as any)
+			]);
+
+			// Check if translation failed
+			if ('code' in titleResult || 'code' in aboutResult) {
+				console.warn(`Profile translation failed for ${targetLang}`);
+				return null;
+			}
+
+			return {
+				language: targetLang,
+				professionalTitle: titleResult.translatedText || profileData.professionalTitle || '',
+				about: aboutResult.translatedText || profileData.about || ''
+			};
+		});
+
+		const results = await Promise.all(translationPromises);
+		
+		// Build translations object, filtering out failed translations
+		const translations: ProfileTranslations['translations'] = {};
+		results.forEach(result => {
+			if (result) {
+				translations[result.language] = {
+					professionalTitle: result.professionalTitle,
+					about: result.about
+				};
+			}
+		});
+
+		return {
+			sourceLanguage,
+			translations
+		};
+	} catch (error) {
+		console.error('Error generating profile translations:', error);
+		return undefined;
+	}
+}
+
+/**
  * Publish a profile metadata event to Nostr with improved error handling and retries
  */
 export async function publishProfileMetadata(
@@ -162,7 +254,12 @@ export async function publishProfileMetadata(
     if (metadata.lud06 !== undefined) mergedMetadata.lud06 = metadata.lud06;
     if (metadata.professionalTitle !== undefined) mergedMetadata.professionalTitle = metadata.professionalTitle;
     if (metadata.location !== undefined) mergedMetadata.location = metadata.location;
-
+    
+    // Handle translations - if provided in metadata, use them; otherwise preserve existing
+    if (metadata.translations !== undefined) {
+        mergedMetadata.translations = metadata.translations;
+    }
+    
     // Handle legacy pictures field (should not be included in kind 0 events)
     if (metadata.pictures !== undefined) {
         delete mergedMetadata.pictures;

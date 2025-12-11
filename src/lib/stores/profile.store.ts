@@ -81,7 +81,8 @@ function createProfileStore() {
                                                 about: content.about,
                                                 website: content.website,
                                                 professionalTitle: content.professionalTitle,
-                                                picture: content.picture || ''
+                                                picture: content.picture || '',
+                                                translations: content.translations
                                             }
                                         };
                                     case KINDS.PROFILE_IMAGES: // Images

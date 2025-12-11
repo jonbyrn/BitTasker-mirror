@@ -1,12 +1,40 @@
 <script lang="ts">
 	import type { NostrProfile, NostrProfileImage } from '$lib/types/profile.d';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { onDestroy, onMount } from 'svelte';
 	import { publishMultipleImages, subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
 	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
+
+	// Helper function to get translated profile content from metadata
+	function getTranslatedContent(
+		metadata: NostrProfile,
+		field: 'professionalTitle' | 'about'
+	): string {
+		const currentLang = $locale || 'en';
+		const originalText = metadata[field] || '';
+		
+		// If no translations, return original
+		if (!metadata.translations) {
+			return originalText;
+		}
+
+		// If current language is source language, return original
+		if (metadata.translations.sourceLanguage === currentLang) {
+			return originalText;
+		}
+
+		// Get translation for current language
+		const translation = metadata.translations.translations[currentLang];
+		if (translation) {
+			return translation[field] || originalText;
+		}
+
+		// Fallback to original
+		return originalText;
+	}
 
 	let { onComplete, onSave } = $props<{ 
 		onComplete: (completed: boolean) => void;
@@ -52,11 +80,11 @@
 						// Update existing metadata store
 						existingMetadata = { ...existingMetadata, ...metadata };
 						
-						// Update form fields
+						// Update form fields with translated content based on current locale
 						displayName =
 							metadata.display_name || metadata.displayName || metadata.name || displayName;
-						professionalTitle = metadata.professionalTitle || professionalTitle;
-						profileDescription = metadata.about || profileDescription;
+						professionalTitle = getTranslatedContent(metadata, 'professionalTitle') || professionalTitle;
+						profileDescription = getTranslatedContent(metadata, 'about') || profileDescription;
 						website = metadata.website || website;
 					}
 					// Handle image metadata update
@@ -284,13 +312,21 @@
 			// Publish new images event, passing the existing event ID if we have one
 			await publishMultipleImages(existingImages, imageEventId, 'profile-images');
 
+			// Generate translations for profile content (professionalTitle and about)
+			const { generateProfileTranslations } = await import('$lib/nostr/profile');
+			const profileTranslations = await generateProfileTranslations({
+				professionalTitle,
+				about: profileDescription
+			});
+
 			// Prepare profile data - only include fields that are being edited
 			// The publishProfileMetadata function will merge with existing metadata
 			const profileData: NostrProfile = {
 				display_name: displayName,
 				professionalTitle,
 				about: profileDescription,
-				website
+				website,
+				...(profileTranslations && { translations: profileTranslations })
 			};
 
 			// Publish profile metadata with retry logic
