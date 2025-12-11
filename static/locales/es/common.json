@@ -1,5 +1,18 @@
 {
   "common": {
+    "status": {
+      "open": "Abierta",
+      "bid_accepted": "Oferta Aceptada",
+      "escrow_funded": "Fondo Garantizado",
+      "in_progress": "En Progreso",
+      "rescoped": "Replanteada",
+      "rescope_accepted": "Replanteo Aceptado",
+      "completed": "Completada",
+      "cancelled": "Cancelada",
+      "refunded": "Reembolsada",
+      "disputed": "En Disputa",
+      "dispute_proposal": "Propuesta de Disputa"
+    },
     "location": {
       "address": "Dirección",
       "get_directions": "Obtener Direcciones",
