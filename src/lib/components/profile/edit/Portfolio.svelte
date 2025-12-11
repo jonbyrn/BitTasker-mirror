@@ -14,9 +14,8 @@
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete, onSave } = $props<{
-		onComplete: (completed: boolean) => void;
-		onSave?: () => void;
+	let { onComplete } = $props<{
+		onComplete: (completed: boolean, fromSave?: boolean) => void;
 	}>();
 
 	// Local state
@@ -168,10 +167,9 @@
 
 			await publishPortfolioItem(item, tags);
 
-			// Call onSave callback if provided (only when actually saved)
-			if (onSave) {
-				onSave();
-			}
+			// Notify completion change from save (triggers toast in parent)
+			const isComplete = portfolioItems.length > 0;
+			onComplete(isComplete, true);
 
 			// Show success message
 			successMessage = editingItem

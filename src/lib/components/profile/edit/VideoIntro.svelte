@@ -7,9 +7,8 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
-	let { onComplete, onSave } = $props<{ 
-		onComplete: (completed: boolean) => void;
-		onSave?: () => void;
+	let { onComplete } = $props<{ 
+		onComplete: (completed: boolean, fromSave?: boolean) => void;
 	}>();
 
 	// Local state
@@ -196,10 +195,8 @@
 			await publishVideoEvent(videoMetadata);
 			videoData = videoMetadata;
 
-			// Call onSave callback if provided (only when actually saved)
-			if (onSave) {
-				onSave();
-			}
+			// Notify completion change from save (triggers toast in parent)
+			onComplete(!!videoData, true);
 
 			// Cleanup
 			URL.revokeObjectURL(videoUrl);
@@ -345,10 +342,8 @@
 			await publishVideoEvent(videoMetadata);
 			videoData = videoMetadata;
 
-			// Call onSave callback if provided (only when actually saved)
-			if (onSave) {
-				onSave();
-			}
+			// Notify completion change from save (triggers toast in parent)
+			onComplete(!!videoData, true);
 		} catch (err) {
 			console.error('Failed to save recording:', err);
 			error = $t('profile.video.failed_to_save_recording');

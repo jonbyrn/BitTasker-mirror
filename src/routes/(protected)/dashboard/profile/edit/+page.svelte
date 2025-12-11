@@ -43,14 +43,13 @@
 	let isSaving = $state(false);
 	let saveError = $state('');
 
-	// Handle profile section save (called when actually saved, not just when completion changes)
-	function handleProfileSave() {
-		appStore.showSuccessToast($t('profile.page.profile_updated'));
-	}
-
 	// Section completion handlers
-	function handleSectionComplete(section: keyof typeof completedSections, completed: boolean) {
+	function handleSectionComplete(section: keyof typeof completedSections, completed: boolean, fromSave?: boolean) {
 		completedSections[section] = completed;
+		// Show toast only when save occurs, not on every completion change
+		if (fromSave) {
+			appStore.showSuccessToast($t('profile.page.profile_updated'));
+		}
 	}
 
 	// Calculate overall progress
@@ -199,8 +198,7 @@
 				<div class="overflow-hidden" style:height={isCollapsed.personalInfo ? '1px' : 'auto'}>
 					<PersonalInfo
 						bind:this={personalInfoComponent}
-						onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
-						onSave={handleProfileSave}
+						onComplete={(completed, fromSave) => handleSectionComplete('personalInfo', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -213,8 +211,7 @@
 				<div class="overflow-hidden" style:height={isCollapsed.skills ? '0' : 'auto'}>
 					<Skills 
 						bind:this={skillsComponent}
-						onComplete={(completed) => handleSectionComplete('skills', completed)}
-						onSave={handleProfileSave}
+						onComplete={(completed, fromSave) => handleSectionComplete('skills', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -227,8 +224,7 @@
 				<div class="overflow-hidden" style:height={isCollapsed.portfolio ? '0' : 'auto'}>
 					<Portfolio 
 						bind:this={portfolioComponent}
-						onComplete={(completed) => handleSectionComplete('portfolio', completed)}
-						onSave={handleProfileSave}
+						onComplete={(completed, fromSave) => handleSectionComplete('portfolio', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -241,8 +237,7 @@
 				<div class="overflow-hidden" style:height={isCollapsed.videoIntro ? '0' : 'auto'}>
 					<VideoIntro 
 						bind:this={videoIntroComponent}
-						onComplete={(completed) => handleSectionComplete('videoIntro', completed)}
-						onSave={handleProfileSave}
+						onComplete={(completed, fromSave) => handleSectionComplete('videoIntro', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -255,8 +250,7 @@
 				<div class="overflow-hidden" style:height={isCollapsed.availability ? '0' : 'auto'}>
 					<Availability
 						bind:this={availabilityComponent}
-						onComplete={(completed) => handleSectionComplete('availability', completed)}
-						onSave={handleProfileSave}
+						onComplete={(completed, fromSave) => handleSectionComplete('availability', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -269,8 +263,7 @@
 				<div class="overflow-hidden" style:height={isCollapsed.standardServices ? '0' : 'auto'}>
 					<StandardServices
 						bind:this={standardServicesComponent}
-						onComplete={(completed) => handleSectionComplete('standardServices', completed)}
-						onSave={handleProfileSave}
+						onComplete={(completed, fromSave) => handleSectionComplete('standardServices', completed, fromSave)}
 					/>
 				</div>
 			</div>

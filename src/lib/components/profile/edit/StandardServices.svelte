@@ -9,9 +9,8 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete, onSave } = $props<{
-		onComplete: (completed: boolean) => void;
-		onSave?: () => void;
+	let { onComplete } = $props<{
+		onComplete: (completed: boolean, fromSave?: boolean) => void;
 	}>();
 
 	// Local state
@@ -147,10 +146,9 @@
 
 			await publishStandardServices(servicesData, tags);
 
-			// Call onSave callback if provided (only when actually saved)
-			if (onSave) {
-				onSave();
-			}
+			// Notify completion change from save (triggers toast in parent)
+			const isComplete = services.length > 0;
+			onComplete(isComplete, true);
 
 			// Show success message
 			successMessage = editingService

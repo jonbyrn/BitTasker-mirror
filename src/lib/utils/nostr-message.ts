@@ -472,8 +472,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 						if (content.translations) {
 							profileData.translations = content.translations;
 						}
-						// Only set picture from metadata if no pictures array exists (PROFILE_IMAGES has priority)
-						if (content.picture && (!profileData.pictures || profileData.pictures.length === 0)) {
+						// PROFILE_METADATA has priority over PROFILE_IMAGES
+						if (content.picture) {
 							profileData.picture = content.picture;
 						}
 						if (event.created_at) {
@@ -492,8 +492,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 									key: img.key,
 									isPrimary: img.isPrimary || false
 								}));
-								// Always use first image as primary picture (PROFILE_IMAGES has priority over PROFILE_METADATA)
-								if (content.length > 0) {
+								// Only use first image as primary picture if PROFILE_METADATA didn't provide one (PROFILE_METADATA has priority)
+								if (content.length > 0 && !profileData.picture) {
 									profileData.picture = content[0].url;
 								}
 							}

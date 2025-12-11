@@ -36,9 +36,8 @@
 		return originalText;
 	}
 
-	let { onComplete, onSave } = $props<{ 
-		onComplete: (completed: boolean) => void;
-		onSave?: () => void;
+	let { onComplete } = $props<{ 
+		onComplete: (completed: boolean, fromSave?: boolean) => void;
 	}>();
 
 	// Local state
@@ -333,10 +332,8 @@
 			// Pass existing metadata to preserve picture, banner, etc.
 			await publishProfileMetadata(profileData, existingMetadata);
 
-			// Call onSave callback if provided (only when actually saved)
-			if (onSave) {
-				onSave();
-			}
+			// Notify completion change from save (triggers toast in parent)
+			onComplete(isComplete, true);
 
 			// if (imagesToDelete.length > 0) {
 			// 	await Promise.all(imagesToDelete.map((key) => uploadService.deleteFile(key)));
