@@ -31,7 +31,6 @@
 	// Reactive state for search parameters and UI controls
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let searchQuery = $state('');
-	let selectedTaskType = $state({ label: '', value: '' });
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);

@@ -4,8 +4,6 @@ import { redirect } from '@sveltejs/kit';
 import { Preferences } from '@capacitor/preferences';
 import { authState } from '$lib/stores/auth.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { user } from '$lib/stores/user.store';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
 
 export const load: LayoutLoad = async () => {
 	if (browser) {
@@ -16,8 +14,6 @@ export const load: LayoutLoad = async () => {
 				throw redirect(303, '/auth/login');
 			} else {
 				await authState.login();
-				await user.getUserData();
-				await pushNotificationService.init();
 			}
 		} catch (error) {
 			console.error(error);

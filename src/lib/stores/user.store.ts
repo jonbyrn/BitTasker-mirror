@@ -36,14 +36,12 @@ const initialProfile: UserData = {
 	name: '',
 	email: '',
 	npub: '',
-	picture: '',
-	createdAt: new Date(),
-	updatedAt: new Date()
+	picture: ''
 };
 
 const createUserStore = () => {
 	const { subscribe, set, update } = writable<UserData>(initialProfile);
-	
+
 	// Track whether user data has been loaded in this session
 	let isDataLoaded = false;
 
@@ -87,7 +85,7 @@ const createUserStore = () => {
 					limit: 1
 				};
 				metadataEvents = await pool.querySync(relays, metadataFilter);
-				
+
 				// Cache the metadata event
 				if (metadataEvents.length > 0) {
 					cacheEvent(KINDS.PROFILE_METADATA, npub, metadataEvents[0]);
@@ -101,7 +99,7 @@ const createUserStore = () => {
 					const content = JSON.parse(event.content);
 					const picture = content.picture || '';
 					hasPicture = !!picture;
-					
+
 					update((state) => ({
 						...state,
 						name: content.display_name || content.displayName || content.name || '',
@@ -126,7 +124,7 @@ const createUserStore = () => {
 						limit: 1
 					};
 					imageEvents = await pool.querySync(relays, imagesFilter);
-					
+
 					// Cache the images event
 					if (imageEvents.length > 0) {
 						cacheEvent(KINDS.PROFILE_IMAGES, npub, imageEvents[0]);
@@ -152,15 +150,14 @@ const createUserStore = () => {
 					}
 				});
 			}
-			
+
 			// Mark data as loaded after successful fetch
 			isDataLoaded = true;
 		},
-		updateProfile: (profile: Partial<UserData>) =>
+		updateProfile: (data: Partial<UserData>) =>
 			update((state) => ({
 				...state,
-				...profile,
-				updatedAt: new Date()
+				...data
 			})),
 		reset: () => {
 			isDataLoaded = false;
