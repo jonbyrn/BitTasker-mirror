@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { appStore } from '$lib/stores/app.store';
 	import PersonalInfo from '$lib/components/profile/edit/PersonalInfo.svelte';
 	import Skills from '$lib/components/profile/edit/Skills.svelte';
 	import Portfolio from '$lib/components/profile/edit/Portfolio.svelte';
@@ -41,6 +42,11 @@
 	// Global save state
 	let isSaving = $state(false);
 	let saveError = $state('');
+
+	// Handle profile section save (called when actually saved, not just when completion changes)
+	function handleProfileSave() {
+		appStore.showSuccessToast($t('profile.page.profile_updated'));
+	}
 
 	// Section completion handlers
 	function handleSectionComplete(section: keyof typeof completedSections, completed: boolean) {
@@ -194,6 +200,7 @@
 					<PersonalInfo
 						bind:this={personalInfoComponent}
 						onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
+						onSave={handleProfileSave}
 					/>
 				</div>
 			</div>
@@ -206,7 +213,8 @@
 				<div class="overflow-hidden" style:height={isCollapsed.skills ? '0' : 'auto'}>
 					<Skills 
 						bind:this={skillsComponent}
-						onComplete={(completed) => handleSectionComplete('skills', completed)} 
+						onComplete={(completed) => handleSectionComplete('skills', completed)}
+						onSave={handleProfileSave}
 					/>
 				</div>
 			</div>
@@ -219,7 +227,8 @@
 				<div class="overflow-hidden" style:height={isCollapsed.portfolio ? '0' : 'auto'}>
 					<Portfolio 
 						bind:this={portfolioComponent}
-						onComplete={(completed) => handleSectionComplete('portfolio', completed)} 
+						onComplete={(completed) => handleSectionComplete('portfolio', completed)}
+						onSave={handleProfileSave}
 					/>
 				</div>
 			</div>
@@ -232,7 +241,8 @@
 				<div class="overflow-hidden" style:height={isCollapsed.videoIntro ? '0' : 'auto'}>
 					<VideoIntro 
 						bind:this={videoIntroComponent}
-						onComplete={(completed) => handleSectionComplete('videoIntro', completed)} 
+						onComplete={(completed) => handleSectionComplete('videoIntro', completed)}
+						onSave={handleProfileSave}
 					/>
 				</div>
 			</div>
@@ -246,6 +256,7 @@
 					<Availability
 						bind:this={availabilityComponent}
 						onComplete={(completed) => handleSectionComplete('availability', completed)}
+						onSave={handleProfileSave}
 					/>
 				</div>
 			</div>
@@ -259,6 +270,7 @@
 					<StandardServices
 						bind:this={standardServicesComponent}
 						onComplete={(completed) => handleSectionComplete('standardServices', completed)}
+						onSave={handleProfileSave}
 					/>
 				</div>
 			</div>

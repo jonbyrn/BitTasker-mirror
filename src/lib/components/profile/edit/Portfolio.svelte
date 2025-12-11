@@ -14,8 +14,9 @@
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete } = $props<{
+	let { onComplete, onSave } = $props<{
 		onComplete: (completed: boolean) => void;
+		onSave?: () => void;
 	}>();
 
 	// Local state
@@ -166,6 +167,11 @@
 			}
 
 			await publishPortfolioItem(item, tags);
+
+			// Call onSave callback if provided (only when actually saved)
+			if (onSave) {
+				onSave();
+			}
 
 			// Show success message
 			successMessage = editingItem

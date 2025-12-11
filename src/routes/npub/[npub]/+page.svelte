@@ -76,6 +76,14 @@
 	let isAboutTruncated = $state(false);
 	let showFullAbout = $state(false);
 
+	// Get user picture with priority: pictures array > picture field
+	let userPicture = $derived(() => {
+		if (userProfile?.pictures && userProfile.pictures.length > 0) {
+			return userProfile.pictures[0].url;
+		}
+		return userProfile?.picture || '';
+	});
+
 	// Validate npub parameter
 	function validateNpub(npub: string): { valid: boolean; hexPubkey?: string; error?: string } {
 		if (!npub) {
@@ -463,11 +471,11 @@
 								<div class="shrink-0">
 									<!-- Mobile: tamaño xl (w-24 h-24) -->
 									<div class="block md:hidden">
-										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="xl"  />
+										<Avatar name={userProfile?.name} picture={userPicture()} size="xl"  />
 									</div>
 									<!-- Desktop: tamaño 2xl (w-40 h-40) -->
 									<div class="hidden md:block">
-										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="2xl"  />
+										<Avatar name={userProfile?.name} picture={userPicture()} size="2xl"  />
 									</div>
 								</div>
 

@@ -157,7 +157,8 @@
                 "availability": "Disponibilidad",
                 "services": "Servicios Estándar",
                 "error": "Error al cargar los datos del perfil. Por favor, inténtalo de nuevo más tarde."
-            }
+            },
+            "profile_updated": "¡Perfil actualizado exitosamente!"
         },
         "about": "Acerca de",
         "noDescription": "Aún no se ha agregado una descripción.",

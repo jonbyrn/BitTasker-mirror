@@ -8,7 +8,10 @@
 	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
+	let { onComplete, onSave } = $props<{ 
+		onComplete: (completed: boolean) => void;
+		onSave?: () => void;
+	}>();
 
 	// Local state
 	let isInitialLoading = $state(false); // Add loading state for initial data fetch
@@ -293,6 +296,11 @@
 			// Publish profile metadata with retry logic
 			// Pass existing metadata to preserve picture, banner, etc.
 			await publishProfileMetadata(profileData, existingMetadata);
+
+			// Call onSave callback if provided (only when actually saved)
+			if (onSave) {
+				onSave();
+			}
 
 			// if (imagesToDelete.length > 0) {
 			// 	await Promise.all(imagesToDelete.map((key) => uploadService.deleteFile(key)));

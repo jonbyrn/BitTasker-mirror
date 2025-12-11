@@ -7,7 +7,10 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
-	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
+	let { onComplete, onSave } = $props<{ 
+		onComplete: (completed: boolean) => void;
+		onSave?: () => void;
+	}>();
 
 	// Local state
 	let videoData = $state<VideoIntroMetadata | null>(null);
@@ -130,7 +133,12 @@
 			});
 
 			// Upload video
-			const uploadedVideo = await uploadService.uploadSingleFile(videoFile, 'videos-intro');
+			const uploadedVideo = await uploadService.uploadSingleFile(videoFile, {
+				folder: 'videos-intro',
+				metadata: {
+					name: videoFile.name
+				}
+			});
 
 			// Set video to a specific time to avoid black frame
 			video.currentTime = 0.1;
@@ -187,6 +195,11 @@
 			// Publish to Nostr
 			await publishVideoEvent(videoMetadata);
 			videoData = videoMetadata;
+
+			// Call onSave callback if provided (only when actually saved)
+			if (onSave) {
+				onSave();
+			}
 
 			// Cleanup
 			URL.revokeObjectURL(videoUrl);
@@ -256,7 +269,12 @@
 			const videoFile = new File([videoBlob], 'recording.webm', { type: 'video/webm' });
 
 			// Upload video
-			const uploadedVideo = await uploadService.uploadSingleFile(videoFile, 'videos');
+			const uploadedVideo = await uploadService.uploadSingleFile(videoFile, {
+				folder: 'videos',
+				metadata: {
+					name: videoFile.name
+				}
+			});
 
 			// Generate and upload thumbnail
 			const video = document.createElement('video');
@@ -298,7 +316,12 @@
 			});
 
 			const thumbnailFile = new File([thumbnailBlob], 'thumbnail.webp', { type: 'image/webp' });
-			const uploadedThumbnail = await uploadService.uploadSingleFile(thumbnailFile, 'thumbnails');
+			const uploadedThumbnail = await uploadService.uploadSingleFile(thumbnailFile, {
+				folder: 'thumbnails',
+				metadata: {
+					name: thumbnailFile.name
+				}
+			});
 
 			// Update video data
 			const videoMetadata = {
@@ -321,6 +344,11 @@
 			// Publish to Nostr
 			await publishVideoEvent(videoMetadata);
 			videoData = videoMetadata;
+
+			// Call onSave callback if provided (only when actually saved)
+			if (onSave) {
+				onSave();
+			}
 		} catch (err) {
 			console.error('Failed to save recording:', err);
 			error = $t('profile.video.failed_to_save_recording');

@@ -620,7 +620,7 @@
 				>
 					<button
 						type="button"
-						class="btn flex-1 {bidType === 'FIXED' ? 'btn-primary' : 'btn-outline'}"
+						class="btn btn-sm {bidType === 'FIXED' ? 'btn-primary' : 'btn-outline'}"
 						onclick={() => handlePaymentTypeChange('FIXED')}
 						role="radio"
 						aria-checked={bidType === 'FIXED'}
@@ -629,7 +629,7 @@
 					</button>
 					<button
 						type="button"
-						class="btn flex-1 {bidType === 'HOURLY' ? 'btn-primary' : 'btn-outline'}"
+						class="btn btn-sm {bidType === 'HOURLY' ? 'btn-primary' : 'btn-outline'}"
 						onclick={() => handlePaymentTypeChange('HOURLY')}
 						role="radio"
 						aria-checked={bidType === 'HOURLY'}
