@@ -235,6 +235,136 @@
                 "faq_escrow_risks": "Node Risks:",
                 "faq_escrow_risks_desc": "Risk of fund loss if Lightning nodes close or go offline"
             },
+            "error_troubleshooting_modal": {
+                "title": "Error Troubleshooting",
+                "troubleshoot": "Troubleshoot",
+                "button_title": "Get help troubleshooting this error",
+                "error_occurred": "An error occurred",
+                "troubleshooting_steps_title": "Troubleshooting Steps",
+                "biometric_help_title": "Biometric Authentication Help",
+                "biometric_help_description": "If you're having trouble with biometric authentication, try these additional steps:",
+                "biometric_help_point1": "Make sure your device's biometric settings are enabled",
+                "biometric_help_point2": "Clean your fingerprint sensor or face recognition camera",
+                "biometric_help_point3": "Try using your device passcode as an alternative",
+                "device_specific_title": "Device-Specific Troubleshooting",
+                "device_info_platform": "Platform",
+                "device_info_os": "Operating System",
+                "device_info_browser": "Browser",
+                "settings_instructions_title": "How to Open Settings",
+                "settings_instructions": {
+                    "ios_native_biometric_1": "Open Settings app",
+                    "ios_native_biometric_2": "Tap \"Touch ID & Passcode\" or \"Face ID & Passcode\"",
+                    "ios_native_biometric_3": "Set up Touch ID or Face ID if not already configured",
+                    "ios_native_passcode_1": "Open Settings app",
+                    "ios_native_passcode_2": "Tap \"Touch ID & Passcode\" or \"Face ID & Passcode\"",
+                    "ios_native_passcode_3": "Set up a passcode if not already configured",
+                    "ios_native_other_1": "Open Settings app",
+                    "ios_native_other_2": "Navigate to the relevant section",
+                    "android_native_biometric_1": "Open Settings app",
+                    "android_native_biometric_2": "Tap \"Security\" or \"Biometrics and security\"",
+                    "android_native_biometric_3": "Tap \"Screen lock\" or \"Fingerprint\"",
+                    "android_native_biometric_4": "Set up screen lock and biometric authentication",
+                    "android_native_permission_1": "Open Settings app",
+                    "android_native_permission_2": "Tap \"Apps\" or \"Application manager\"",
+                    "android_native_permission_3": "Find BitTasker and tap it",
+                    "android_native_permission_4": "Tap \"Permissions\" and enable required permissions",
+                    "android_native_other_1": "Open Settings app",
+                    "android_native_other_2": "Navigate to the relevant section",
+                    "web_ios_1": "Open Settings app on your iPhone/iPad",
+                    "web_ios_2": "Tap your name at the top",
+                    "web_ios_3": "Tap \"iCloud\" → \"Keychain\"",
+                    "web_ios_4": "Enable iCloud Keychain",
+                    "web_android_1": "Open Settings app on your Android device",
+                    "web_android_2": "Tap \"Security\" or \"Biometrics and security\"",
+                    "web_android_3": "Set up screen lock and enable Google Password Manager",
+                    "web_windows_1": "Open Windows Settings",
+                    "web_windows_2": "Go to \"Accounts\" → \"Sign-in options\"",
+                    "web_windows_3": "Set up Windows Hello (PIN, fingerprint, or face recognition)",
+                    "web_macos_1": "Open System Settings",
+                    "web_macos_2": "Go to \"Touch ID & Password\"",
+                    "web_macos_3": "Set up Touch ID if not already configured"
+                },
+                "device_specific_steps": {
+                    "ios_native_biometric_1": "Ensure Touch ID or Face ID is enabled in Settings > Face ID & Passcode (or Touch ID & Passcode)",
+                    "ios_native_biometric_2": "Make sure you have at least one fingerprint or face enrolled",
+                    "ios_native_biometric_3": "Check that BitTasker has permission to use biometrics in Settings > Privacy & Security > Biometrics",
+                    "ios_native_biometric_4": "If you see a lockout message, unlock your device with your passcode first",
+                    "ios_native_biometric_5": "If your passcode is not set, set up a passcode in Settings > Touch ID & Passcode",
+                    "ios_web_safari_1": "Ensure iCloud Keychain is enabled in Settings > [Your Name] > iCloud > Keychain",
+                    "ios_web_safari_2": "Make sure you're signed in to iCloud on this device",
+                    "ios_web_safari_3": "Check that two-factor authentication is enabled for your Apple ID",
+                    "ios_web_other_1": "Try using Safari instead - it has the best passkey support on iOS",
+                    "ios_web_other_2": "Ensure iCloud Keychain is enabled in Settings",
+                    "android_native_biometric_1": "Ensure fingerprint or face unlock is enabled in Settings > Security",
+                    "android_native_biometric_2": "Make sure you have at least one fingerprint or face enrolled",
+                    "android_native_biometric_3": "Check that the app has permission to use biometrics in Settings > Apps > BitTasker > Permissions",
+                    "android_native_biometric_4": "If you see a lockout message, unlock your device with your screen lock first",
+                    "android_native_biometric_5": "If screen lock is not set, set up a screen lock in Settings > Security",
+                    "android_web_chrome_1": "Ensure Google Password Manager is enabled in Chrome settings",
+                    "android_web_chrome_2": "Make sure you're signed in to your Google account in Chrome",
+                    "android_web_chrome_3": "Check that screen lock is enabled on your device (Settings > Security)",
+                    "android_web_other_1": "Try using Chrome instead - it has the best passkey support on Android",
+                    "android_web_other_2": "Ensure screen lock is enabled on your device",
+                    "windows_edge_1": "Ensure Windows Hello is set up in Settings > Accounts > Sign-in options",
+                    "windows_edge_2": "Make sure you have a PIN, fingerprint, or face recognition configured",
+                    "windows_chrome_1": "Ensure Windows Hello is set up in Settings > Accounts > Sign-in options",
+                    "windows_chrome_2": "Try using Microsoft Edge for better Windows Hello integration",
+                    "macos_safari_1": "Ensure Touch ID is enabled in System Settings > Touch ID & Password",
+                    "macos_safari_2": "If you have an Apple Watch, ensure it's unlocked and nearby",
+                    "macos_chrome_1": "Ensure Touch ID is enabled in System Settings > Touch ID & Password",
+                    "macos_chrome_2": "Try using Safari for better Touch ID integration",
+                    "https_required_1": "WebAuthn requires HTTPS - ensure you're using a secure connection",
+                    "https_required_2": "If testing locally, use localhost or 127.0.0.1",
+                    "webauthn_not_supported_1": "Your browser doesn't support WebAuthn - try updating to the latest version",
+                    "webauthn_not_supported_2": "Consider using Chrome, Edge, Safari, or Firefox (latest versions)"
+                },
+                "still_need_help_title": "Still Need Help?",
+                "still_need_help_description": "If these steps don't resolve the issue, please contact support or try again later.",
+                "got_it_button": "Got It",
+                "retry_button": "Retry",
+                "steps": {
+                    "biometric": {
+                        "step1": "Check that biometrics are enabled and configured on your device",
+                        "step2": "If you see lockout, unlock with your passcode and try again",
+                        "step3": "Clean the biometric sensor or restart your device and try again"
+                    },
+                    "network": {
+                        "step1": "Check your internet connection and switch between Wi-Fi and mobile data",
+                        "step2": "Disable VPN if using one and check other apps",
+                        "step3": "Restart your router or mobile connection and try again"
+                    },
+                    "authentication": {
+                        "step1": "Set up biometric authentication/passkey if not configured",
+                        "step2": "If credential is invalid, set up a new passkey",
+                        "step3": "Clear browser cache or restart the app"
+                    },
+                    "permission": {
+                        "step1": "Check and grant necessary permissions in Settings",
+                        "step2": "Restart the app after granting permissions",
+                        "step3": "Update the app to the latest version"
+                    },
+                    "hardware": {
+                        "step1": "If no biometric hardware, use your device passcode instead",
+                        "step2": "Restart your device if hardware is temporarily unavailable",
+                        "step3": "Update operating system and check for available updates"
+                    },
+                    "timeout": {
+                        "step1": "Complete biometric authentication quickly within the time limit",
+                        "step2": "Check your internet connection and close other apps",
+                        "step3": "Try again immediately or when you have better connection"
+                    },
+                    "unknown": {
+                        "step1": "Refresh the page or restart the app",
+                        "step2": "Clear browser cache and check on other devices",
+                        "step3": "Update the app or contact support if it persists"
+                    },
+                    "generic": {
+                        "step1": "Refresh the page or restart the app",
+                        "step2": "Check your internet connection and device settings",
+                        "step3": "Contact support if the issue persists"
+                    }
+                }
+            },
             "network_selector": {
                 "title": "Choose Secure Payment Network",
                 "subtitle": "Select the blockchain network for your secure payment contract. Each network has different characteristics:",

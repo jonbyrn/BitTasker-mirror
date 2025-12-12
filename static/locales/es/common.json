@@ -235,6 +235,136 @@
         "faq_escrow_risks": "Riesgos de Nodos:",
         "faq_escrow_risks_desc": "Riesgo de pérdida de fondos si los nodos Lightning se cierran o se desconectan"
       },
+      "error_troubleshooting_modal": {
+        "title": "Solución de Problemas de Error",
+        "troubleshoot": "Solucionar",
+        "button_title": "Obtener ayuda para solucionar este error",
+        "error_occurred": "Ocurrió un error",
+        "troubleshooting_steps_title": "Pasos de Solución",
+        "biometric_help_title": "Ayuda de Autenticación Biométrica",
+        "biometric_help_description": "Si tienes problemas con la autenticación biométrica, prueba estos pasos adicionales:",
+        "biometric_help_point1": "Asegúrate de que la configuración biométrica de tu dispositivo esté habilitada",
+        "biometric_help_point2": "Limpia el sensor de huellas dactilares o la cámara de reconocimiento facial",
+        "biometric_help_point3": "Intenta usar el código de acceso de tu dispositivo como alternativa",
+        "device_specific_title": "Solución Específica del Dispositivo",
+        "device_info_platform": "Plataforma",
+        "device_info_os": "Sistema Operativo",
+        "device_info_browser": "Navegador",
+        "settings_instructions_title": "Cómo Abrir Configuración",
+        "settings_instructions": {
+            "ios_native_biometric_1": "Abre la aplicación Configuración",
+            "ios_native_biometric_2": "Toca \"Touch ID y código\" o \"Face ID y código\"",
+            "ios_native_biometric_3": "Configura Touch ID o Face ID si aún no está configurado",
+            "ios_native_passcode_1": "Abre la aplicación Configuración",
+            "ios_native_passcode_2": "Toca \"Touch ID y código\" o \"Face ID y código\"",
+            "ios_native_passcode_3": "Configura un código de acceso si aún no está configurado",
+            "ios_native_other_1": "Abre la aplicación Configuración",
+            "ios_native_other_2": "Navega a la sección relevante",
+            "android_native_biometric_1": "Abre la aplicación Configuración",
+            "android_native_biometric_2": "Toca \"Seguridad\" o \"Biometría y seguridad\"",
+            "android_native_biometric_3": "Toca \"Bloqueo de pantalla\" o \"Huella dactilar\"",
+            "android_native_biometric_4": "Configura el bloqueo de pantalla y la autenticación biométrica",
+            "android_native_permission_1": "Abre la aplicación Configuración",
+            "android_native_permission_2": "Toca \"Aplicaciones\" o \"Administrador de aplicaciones\"",
+            "android_native_permission_3": "Busca BitTasker y tócalo",
+            "android_native_permission_4": "Toca \"Permisos\" y habilita los permisos requeridos",
+            "android_native_other_1": "Abre la aplicación Configuración",
+            "android_native_other_2": "Navega a la sección relevante",
+            "web_ios_1": "Abre la aplicación Configuración en tu iPhone/iPad",
+            "web_ios_2": "Toca tu nombre en la parte superior",
+            "web_ios_3": "Toca \"iCloud\" → \"Llavero\"",
+            "web_ios_4": "Habilita el Llavero de iCloud",
+            "web_android_1": "Abre la aplicación Configuración en tu dispositivo Android",
+            "web_android_2": "Toca \"Seguridad\" o \"Biometría y seguridad\"",
+            "web_android_3": "Configura el bloqueo de pantalla y habilita el Administrador de contraseñas de Google",
+            "web_windows_1": "Abre Configuración de Windows",
+            "web_windows_2": "Ve a \"Cuentas\" → \"Opciones de inicio de sesión\"",
+            "web_windows_3": "Configura Windows Hello (PIN, huella dactilar o reconocimiento facial)",
+            "web_macos_1": "Abre Configuración del Sistema",
+            "web_macos_2": "Ve a \"Touch ID y contraseña\"",
+            "web_macos_3": "Configura Touch ID si aún no está configurado"
+        },
+        "device_specific_steps": {
+            "ios_native_biometric_1": "Asegúrate de que Touch ID o Face ID esté habilitado en Configuración > Face ID y código (o Touch ID y código)",
+            "ios_native_biometric_2": "Asegúrate de tener al menos una huella dactilar o rostro registrado",
+            "ios_native_biometric_3": "Verifica que BitTasker tenga permiso para usar biometría en Configuración > Privacidad y Seguridad > Biometría",
+            "ios_native_biometric_4": "Si ves un mensaje de bloqueo, desbloquea tu dispositivo con tu código de acceso primero",
+            "ios_native_biometric_5": "Si tu código de acceso no está configurado, configura un código en Configuración > Touch ID y código",
+            "ios_web_safari_1": "Asegúrate de que el Llavero de iCloud esté habilitado en Configuración > [Tu Nombre] > iCloud > Llavero",
+            "ios_web_safari_2": "Asegúrate de estar conectado a iCloud en este dispositivo",
+            "ios_web_safari_3": "Verifica que la autenticación de dos factores esté habilitada para tu ID de Apple",
+            "ios_web_other_1": "Intenta usar Safari en su lugar - tiene el mejor soporte de passkey en iOS",
+            "ios_web_other_2": "Asegúrate de que el Llavero de iCloud esté habilitado en Configuración",
+            "android_native_biometric_1": "Asegúrate de que el desbloqueo con huella dactilar o rostro esté habilitado en Configuración > Seguridad",
+            "android_native_biometric_2": "Asegúrate de tener al menos una huella dactilar o rostro registrado",
+            "android_native_biometric_3": "Verifica que la aplicación tenga permiso para usar biometría en Configuración > Aplicaciones > BitTasker > Permisos",
+            "android_native_biometric_4": "Si ves un mensaje de bloqueo, desbloquea tu dispositivo con tu bloqueo de pantalla primero",
+            "android_native_biometric_5": "Si el bloqueo de pantalla no está configurado, configura un bloqueo en Configuración > Seguridad",
+            "android_web_chrome_1": "Asegúrate de que el Administrador de contraseñas de Google esté habilitado en la configuración de Chrome",
+            "android_web_chrome_2": "Asegúrate de estar conectado a tu cuenta de Google en Chrome",
+            "android_web_chrome_3": "Verifica que el bloqueo de pantalla esté habilitado en tu dispositivo (Configuración > Seguridad)",
+            "android_web_other_1": "Intenta usar Chrome en su lugar - tiene el mejor soporte de passkey en Android",
+            "android_web_other_2": "Asegúrate de que el bloqueo de pantalla esté habilitado en tu dispositivo",
+            "windows_edge_1": "Asegúrate de que Windows Hello esté configurado en Configuración > Cuentas > Opciones de inicio de sesión",
+            "windows_edge_2": "Asegúrate de tener un PIN, huella dactilar o reconocimiento facial configurado",
+            "windows_chrome_1": "Asegúrate de que Windows Hello esté configurado en Configuración > Cuentas > Opciones de inicio de sesión",
+            "windows_chrome_2": "Intenta usar Microsoft Edge para una mejor integración con Windows Hello",
+            "macos_safari_1": "Asegúrate de que Touch ID esté habilitado en Configuración del Sistema > Touch ID y contraseña",
+            "macos_safari_2": "Si tienes un Apple Watch, asegúrate de que esté desbloqueado y cerca",
+            "macos_chrome_1": "Asegúrate de que Touch ID esté habilitado en Configuración del Sistema > Touch ID y contraseña",
+            "macos_chrome_2": "Intenta usar Safari para una mejor integración con Touch ID",
+            "https_required_1": "WebAuthn requiere HTTPS - asegúrate de usar una conexión segura",
+            "https_required_2": "Si estás probando localmente, usa localhost o 127.0.0.1",
+            "webauthn_not_supported_1": "Tu navegador no admite WebAuthn - intenta actualizar a la última versión",
+            "webauthn_not_supported_2": "Considera usar Chrome, Edge, Safari o Firefox (últimas versiones)"
+        },
+        "still_need_help_title": "¿Aún Necesitas Ayuda?",
+        "still_need_help_description": "Si estos pasos no resuelven el problema, por favor contacta con soporte o intenta de nuevo más tarde.",
+        "got_it_button": "Entendido",
+        "retry_button": "Reintentar",
+        "steps": {
+          "biometric": {
+            "step1": "Verifica que la biometría esté habilitada y configurada en tu dispositivo",
+            "step2": "Si ves bloqueo, desbloquea con tu código de acceso y vuelve a intentar",
+            "step3": "Limpia el sensor biométrico o reinicia tu dispositivo e intenta de nuevo"
+          },
+          "network": {
+            "step1": "Verifica tu conexión a internet y cambia entre Wi-Fi y datos móviles",
+            "step2": "Desactiva VPN si estás usando uno y verifica otras aplicaciones",
+            "step3": "Reinicia tu router o conexión móvil e intenta de nuevo"
+          },
+          "authentication": {
+            "step1": "Configura la autenticación biométrica/passkey si no está configurada",
+            "step2": "Si la credencial es inválida, configura un nuevo passkey",
+            "step3": "Limpia la caché del navegador o reinicia la aplicación"
+          },
+          "permission": {
+            "step1": "Verifica y concede los permisos necesarios en Configuración",
+            "step2": "Reinicia la aplicación después de conceder permisos",
+            "step3": "Actualiza la aplicación a la última versión"
+          },
+          "hardware": {
+            "step1": "Si no hay hardware biométrico, usa el código de acceso de tu dispositivo",
+            "step2": "Reinicia tu dispositivo si el hardware está temporalmente no disponible",
+            "step3": "Actualiza el sistema operativo y verifica actualizaciones disponibles"
+          },
+          "timeout": {
+            "step1": "Completa la autenticación biométrica rápidamente dentro del límite de tiempo",
+            "step2": "Verifica tu conexión a internet y cierra otras aplicaciones",
+            "step3": "Intenta de nuevo inmediatamente o cuando tengas mejor conexión"
+          },
+          "unknown": {
+            "step1": "Actualiza la página o reinicia la aplicación",
+            "step2": "Limpia la caché del navegador y verifica en otros dispositivos",
+            "step3": "Actualiza la aplicación o contacta con soporte si persiste"
+          },
+          "generic": {
+            "step1": "Actualiza la página o reinicia la aplicación",
+            "step2": "Verifica tu conexión a internet y configuración del dispositivo",
+            "step3": "Contacta con soporte si el problema persiste"
+          }
+        }
+      },
       "network_selector": {
         "title": "Elegir Red de Pago Seguro",
         "subtitle": "Selecciona la red blockchain para tu contrato de pago seguro. Cada red tiene características diferentes:",
