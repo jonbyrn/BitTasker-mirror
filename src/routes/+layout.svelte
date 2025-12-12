@@ -271,22 +271,19 @@
 	<main
 		data-theme={$darkMode ? 'dark' : 'light'}
 		id="main"
-		class="no-horizontal-scroll bg-base-200 flex min-h-dvh flex-col"
+		class="no-horizontal-scroll bg-base-200 min-h-dvh"
 	>
 		<!-- Desktop TopBar will be positioned fixed via its own component styles -->
 		{#if showTopBar}
 			<TopBar />
 		{/if}
 
-		<div
-			class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
-			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
-		>
-			{#if $devicePlatform === 'web' && !isLandingPage}
-				<div class="bg-base-200 flex grow overflow-hidden lg:block">
-					{@render children()}
-				</div>
-			{:else}
+	<div class="bg-base-200 overflow-x-hidden pb-8">
+	{#if $devicePlatform === 'web' && !isLandingPage}
+		<div class="bg-base-200 overflow-x-hidden">
+			{@render children()}
+		</div>
+		{:else}
 				<div
 					class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
 					style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}

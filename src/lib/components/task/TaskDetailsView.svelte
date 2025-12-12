@@ -24,7 +24,8 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
+	import BidForm from '$lib/components/bidding/BidForm.svelte';
+	import Drawer from '$lib/components/Drawer.svelte';
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
 	import IconMapMarker from '~icons/mdi/map-marker';
@@ -37,12 +38,10 @@
 	let task = $state<Task | null>(null);
 	let loading = $state(true);
 	let errorMessage = $state('');
-	let taskCreatorPubkey = $state<string>('');
 	let btcPrice = $state<number>(0); // Default fallback price
 	// TranslatedTask component now handles translations and show more/less automatically
 
 	// Bid drawer state
-	let selectedTaskId = $state<string | null>(taskId || null);
 	let isSidebarOpen = $state(false);
 
 	// Check if current user is the task creator
@@ -190,12 +189,6 @@
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
 
-	// Helper function to truncate description
-	const getTruncatedDescription = (description: string, maxLength: number = 200) => {
-		if (description.length <= maxLength) return description;
-		return description.slice(0, maxLength) + '...';
-	};
-
 	// Translation is now handled automatically by TranslatableTask component
 
 	const isEventId = (value: string): boolean => /^[0-9a-f]{64}$/i.test(value);
@@ -257,9 +250,6 @@
 				errorMessage = $t('bids.task_details.error.task_id_missing');
 				return;
 			}
-
-			// Get the task creator's pubkey from the event
-			taskCreatorPubkey = event.pubkey;
 
 			task = {
 				...taskData,
@@ -839,8 +829,16 @@
 </div>
 
 <!-- Task Details Bid Drawer -->
-<TaskDetailsBidDrawer
-	taskId={selectedTaskId}
-	onClose={() => (isSidebarOpen = false)}
+<Drawer
 	isOpen={isSidebarOpen}
-/>
+	title={$t('bid_form.title')}
+	onClose={() => (isSidebarOpen = false)}
+	position="right"
+	isScrollable={true}
+>
+	{#snippet children()}
+		{#if task}
+			<BidForm {task} onClose={() => (isSidebarOpen = false)} />
+		{/if}
+	{/snippet}
+</Drawer>

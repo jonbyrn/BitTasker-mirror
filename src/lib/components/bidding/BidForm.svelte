@@ -1,48 +1,25 @@
 <script lang="ts">
 	import type { PaymentType } from '$lib/types/bid';
-	import type { DateRange, TaskTranslations } from '$lib/types/task';
+	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
+	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { TAG_PATTERNS } from '$lib/utils/constants/tags';
-	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
+	import { user } from '$lib/stores/user.store';
 	import { publishNostrEvent } from '$lib/utils/nostr';
-	import { getRSKAddress } from '$lib/stores/wallet.store';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
+	import { TAG_PATTERNS } from '$lib/utils/constants/tags';
+	import { getRSKAddress } from '$lib/stores/wallet.store';
+	import { generateBidTranslations } from '$lib/nostr/bid';
+	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { generateBidTranslations } from '$lib/nostr/bid';
 
-	// Props
-	const {
-		taskId,
-		onClose,
-		taskCreatorPubkey,
-		taskCreatorUsername,
-		taskCreatorAvatar,
-		taskTitle,
-		taskDescription,
-		taskTranslations,
-		taskDateRange,
-		taskDeadline,
-		loggedInUserId,
-		loggedInUserName,
-		loggedInUserAvatar
-	} = $props<{
-		taskId: string;
+	// Props - Simplified to just task and onClose
+	const { task, onClose } = $props<{
+		task: Task;
 		onClose: () => void;
-		taskTitle: string; // Add task title prop
-		taskDescription: string; // Add task description prop
-		taskTranslations?: TaskTranslations; // Add task translations prop
-		taskDateRange?: DateRange | null;
-		taskDeadline?: string | null;
-		taskCreatorPubkey?: string | undefined; // Add task creator pubkey prop
-		taskCreatorUsername?: string; // Add task creator username prop
-		taskCreatorAvatar?: string; // Add task creator avatar prop
-		loggedInUserId?: string; // Add logged-in user ID prop
-		loggedInUserName?: string; // Add logged-in user name prop
-		loggedInUserAvatar?: string; // Add logged-in user avatar prop
 	}>();
 
 	// Form state
@@ -235,12 +212,12 @@
 	}
 
 	function buildPreferredStartDate(): Date | null {
-		const rangeStart = parseDate(taskDateRange?.start);
+		const rangeStart = parseDate(task.dateRange?.start);
 		if (rangeStart) {
 			return clampToFuture(roundDateToInterval(rangeStart, FIFTEEN_MINUTES_IN_MS, 'ceil'));
 		}
 
-		const deadlineDate = parseDate(taskDeadline);
+		const deadlineDate = parseDate(task.deadline);
 		let candidate = getDefaultFutureStart();
 
 		if (deadlineDate) {
@@ -261,14 +238,14 @@
 	}
 
 	function buildPreferredEndDate(startCandidate: Date | null): Date | null {
-		const rangeEnd = parseDate(taskDateRange?.end);
+		const rangeEnd = parseDate(task.dateRange?.end);
 		if (rangeEnd) {
 			// Flujo 1: Date range - usar 1 día antes del range end
 			const oneDayBefore = addDays(rangeEnd, -1);
 			return roundDateToInterval(oneDayBefore, FIFTEEN_MINUTES_IN_MS, 'ceil');
 		}
 
-		const deadlineDate = parseDate(taskDeadline);
+		const deadlineDate = parseDate(task.deadline);
 		const baseStart = startCandidate ?? getDefaultFutureStart();
 
 		if (deadlineDate) {
@@ -402,14 +379,14 @@
 				errors.datetime = $t('bid_form.errors.datetime_invalid');
 			} else {
 				// Validate that end date/time is before task deadline (same day is OK if time is before)
-				const deadlineDate = parseDate(taskDeadline);
+				const deadlineDate = parseDate(task.deadline);
 				if (deadlineDate) {
 					// Allow same day but must be before the deadline time
 					if (endDateTime >= deadlineDate) {
 						errors.datetime = $t('bid_form.errors.end_date_before_deadline');
 					}
 				}
-				const rangeEnd = parseDate(taskDateRange?.end);
+				const rangeEnd = parseDate(task.dateRange?.end);
 				if (rangeEnd) {
 					// Allow same day but must be before the range end time
 					if (endDateTime >= rangeEnd) {
@@ -519,10 +496,10 @@
 			// Create bid data structure with explicit type
 			const bidData = {
 				type: 'bid',
-				taskId: taskId,
-				taskTitle: taskTitle,
-				taskDescription: taskDescription,
-				taskTranslations: taskTranslations, // Save task translations
+				taskId: task.id,
+				taskTitle: task.title,
+				taskDescription: task.description,
+				taskTranslations: task.translations, // Save task translations
 				amount: amount, // Send USD amount directly
 				currency: 'USD',
 				paymentType: bidType,
@@ -535,14 +512,14 @@
 				timestamp: Date.now(),
 				bidId: crypto.randomUUID(), // TODO: should be removed in favor of nostr event id property
 
-				taskCreatorPubkey: taskCreatorPubkey,
-				taskCreatorUsername: taskCreatorUsername,
-				taskCreatorAvatar: taskCreatorAvatar,
+				taskCreatorPubkey: task.npub,
+				taskCreatorUsername: task.creator?.username,
+				taskCreatorAvatar: task.creator?.avatar,
 
 				// Add logged-in user information
-				bidderId: loggedInUserId,
-				bidderName: loggedInUserName,
-				bidderAvatar: loggedInUserAvatar,
+				bidderId: $user.npub || $user.id?.toString() || '',
+				bidderName: $user.username || $user.name,
+				bidderAvatar: $user.picture || '',
 
 				// Add RSK wallet address for escrow funding
 				bidderWalletAddress: rskAddress,
@@ -556,24 +533,24 @@
 			};
 
 			// Create custom tags for the bid event using TAG_PATTERNS
-			const customTags = TAG_PATTERNS.bid(bidData.bidId, taskId, taskCreatorPubkey, bidType);
+			const customTags = TAG_PATTERNS.bid(bidData.bidId, task.id, task.npub, bidType);
 
 			// Submit a bid as an encrypted event to the task creator with custom tags
-			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), taskCreatorPubkey, customTags);
+			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
 
 			// Send notification to task creator
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [taskCreatorPubkey],
+				npubs: [task.npub],
 				title: 'New Bid Received',
-				body: `New bid received for task: ${taskTitle || taskId} | taskId:${taskId} | taskCreatorPubkey:${taskCreatorPubkey}`,
+				body: `New bid received for task: ${task.title || task.id} | taskId:${task.id} | task.npub:${task.npub}`,
 				type: 'bid_created',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${taskId}`,
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${task.id}`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
 			// Clear bid cache for this specific task
 			// This ensures fresh data on next load without clearing unrelated caches
-			clearBidCache(taskId);
+			clearBidCache(task.id);
 
 			// Mark bid as submitted
 			bidSubmitted = true;
@@ -588,8 +565,8 @@
 		}
 	}
 
-	// Initialize BTC price on mount
-	$effect(() => {
+	// Initialize BTC price and user data on mount
+	onMount(() => {
 		fetchBtcPrice();
 	});
 </script>
@@ -746,7 +723,7 @@
 								placeholderKey="bid_form.form.airdatepicker.select_end_datetime"
 								minDate={startDateTime || new Date()}
 								maxDate={(() => {
-									const deadlineDate = parseDate(taskDeadline);
+									const deadlineDate = parseDate(task.deadline);
 									if (deadlineDate) {
 										// Allow same day but must be before deadline time
 										// Set maxDate to 1 minute before deadline to allow same day
@@ -754,7 +731,7 @@
 										maxEndDate.setMinutes(deadlineDate.getMinutes() - 1);
 										return maxEndDate;
 									}
-									const rangeEnd = parseDate(taskDateRange?.end);
+									const rangeEnd = parseDate(task.dateRange?.end);
 									if (rangeEnd) {
 										// Allow same day but must be before range end time
 										const maxEndDate = new Date(rangeEnd);
