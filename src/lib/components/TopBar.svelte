@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
+	import { profileStore } from '$lib/stores/profile.store';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
@@ -35,6 +37,52 @@
 
 	// Control avatar dropdown visibility
 	let isAvatarDropdownOpen = $state(false);
+
+	// Toggle avatar dropdown
+	function toggleAvatarDropdown(event: MouseEvent) {
+		// Prevent the default details toggle behavior and handle it manually
+		event.preventDefault();
+		event.stopPropagation();
+		isAvatarDropdownOpen = !isAvatarDropdownOpen;
+	}
+
+	// Initialize stores when component mounts
+	onMount(async () => {
+		if (isLoggedIn) {
+			try {
+				// Initialize user store
+				await user.getUserData();
+				// Initialize profile store if not already done
+				if (!$profileStore.data) profileStore.init();
+			} catch (error) {
+				console.error('Failed to initialize stores:', error);
+			}
+		}
+	});
+
+	// Derived values for avatar - prioritize username from database
+	let userPicture = $derived(() => {
+		// First priority: first image from pictures array
+		if ($profileStore.data?.pictures && $profileStore.data.pictures.length > 0) {
+			return $profileStore.data.pictures[0].url;
+		}
+		// Second priority: user store picture
+		if ($user.picture) {
+			return $user.picture;
+		}
+		// Third priority: profile store picture
+		if ($profileStore.data?.picture) {
+			return $profileStore.data.picture;
+		}
+		return '';
+	});
+
+	// Derived values for user display name
+	let userDisplayName = $derived(
+		$profileStore.data?.name ||
+		$user.name ||
+		''
+	);
 
 	// Close drawer
 	function closeDrawer() {
@@ -192,12 +240,27 @@
 				bind:open={isAvatarDropdownOpen}
 				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 			>
-				<summary class="btn btn-ghost">
-					<Avatar name={$user.name} picture={$user.picture} size="sm" />
+				<summary class="btn btn-ghost" onclick={toggleAvatarDropdown}>
+					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</summary>
 				<ul
 					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
 				>
+					<!-- User Info Header -->
+					{#if userDisplayName}
+						<li class="border-b border-base-300 pb-2 mb-2 pt-3 pointer-events-none">
+							<div class="flex items-center gap-2">
+								<img
+									src="/images/Logos/BitTasker-square-logo.svg"
+									alt="BitTasker"
+									class="h-5 w-5 shrink-0"
+								/>
+								<span class="font-semibold text-sm text-base-content break-words whitespace-normal">
+									{userDisplayName}
+								</span>
+							</div>
+						</li>
+					{/if}
 					{#each AVATAR_MENU_ITEMS as item}
 						{@render menuItem(item)}
 					{/each}

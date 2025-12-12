@@ -335,8 +335,8 @@
 									<p class="text-xs sm:text-sm text-base-content/80 leading-relaxed pt-2">
 										{$t('common.components.error_troubleshooting_modal.passkey_faq.answer5')}
 									</p>
-								</div>
-							</div>
+									</div>
+									</div>
 
 							<!-- FAQ Item 6: Timeout -->
 							<div
@@ -459,7 +459,7 @@
 							await onRetry();
 						} else {
 							// Fallback to page reload if no retry callback provided
-							window.location.reload();
+						window.location.reload();
 						}
 					}}
 				>
