@@ -778,10 +778,10 @@
 							{:else if $tasksStore.items && $tasksStore.items.length > 0}
 								<div class="space-y-4">
 									{#each $tasksStore.items as task, index}
+										{@const isSelected = selectedTask?.id === task.id}
 										<div
 											use:registerTaskCard={{ taskId: task.id }}
-											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {selectedTask?.id ===
-											task.id
+											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {isSelected
 												? 'bg-base-300 border-primary border-2'
 												: ''}"
 											onclick={() => selectTaskForMap(task)}
