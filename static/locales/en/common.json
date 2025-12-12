@@ -318,6 +318,27 @@
                     "webauthn_not_supported_1": "Your browser doesn't support WebAuthn - try updating to the latest version",
                     "webauthn_not_supported_2": "Consider using Chrome, Edge, Safari, or Firefox (latest versions)"
                 },
+                "passkey_overview": {
+                    "title": "What Are Passkeys?",
+                    "description": "Passkeys are a modern, secure way to sign in to BitTasker without using passwords. Instead of remembering a password, you use your device's built-in security (like Face ID, fingerprint, or your device PIN) to unlock your account.",
+                    "benefit1": "More secure than passwords — uses public-key cryptography that's resistant to phishing and data breaches",
+                    "benefit2": "Easier to use — just unlock your device the same way you normally do",
+                    "benefit3": "Private — BitTasker never receives your device password, PIN, or biometric data"
+                },
+                "passkey_faq": {
+                    "question1": "Did you receive a request to unlock your phone, and cancelled the request?",
+                    "answer1": "Rather than using a new password on BitTasker, you unlock your account with your device security, which unlocks the passkey that's used to access BitTasker. BitTasker never receives your device password, or biometric data. When you see the unlock prompt, please complete it to set up your passkey.",
+                    "question2": "Do you have a lock screen on your device?",
+                    "answer2": "You need to use a lock screen on your device to access BitTasker, and keep your account and wallet secure. Passkeys rely on your device's security, so a lock screen (PIN, password, pattern, or biometric) is required. Please set up a lock screen in your device settings if you haven't already.",
+                    "question3": "Is biometric authentication (Face ID, fingerprint, etc.) set up on your device?",
+                    "answer3": "While biometrics make passkeys more convenient, they're not required. If biometrics aren't set up, you can use your device PIN or password instead. However, setting up biometrics will make signing in faster and easier. You can set this up in your device's Settings app.",
+                    "question4": "Have you granted necessary permissions to BitTasker?",
+                    "answer4": "BitTasker needs permission to use your device's security features to create and use passkeys. On mobile devices, check Settings > Apps > BitTasker > Permissions. On web browsers, ensure you allow the browser to access your device's security features when prompted.",
+                    "question5": "Is your browser or app up to date?",
+                    "answer5": "Passkeys require modern browser and app support. Make sure you're using the latest version of your browser (Chrome, Safari, Edge, or Firefox) or the latest version of the BitTasker app. Older versions may not support passkeys properly.",
+                    "question6": "Did the setup process time out?",
+                    "answer6": "If the passkey setup timed out, try again. Make sure you complete the unlock prompt quickly when it appears. Also check your internet connection, as a stable connection is needed for the setup process. If it continues to timeout, try closing other apps or restarting your device."
+                },
                 "still_need_help_title": "Still Need Help?",
                 "still_need_help_description": "If these steps don't resolve the issue, please contact support or try again later.",
                 "got_it_button": "Got It",

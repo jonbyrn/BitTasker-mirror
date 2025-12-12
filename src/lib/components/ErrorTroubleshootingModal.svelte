@@ -26,19 +26,20 @@
 
 	interface Props {
 		onClose?: () => void;
+		onRetry?: () => void | Promise<void>; // Optional retry callback - if provided, will be called instead of page reload
 		errorMessage: string;
 		errorType?: ErrorType;
 		showButton?: boolean;
 		open?: boolean; // Control modal open state programmatically
 	}
 
-	let { onClose, errorMessage, errorType: providedErrorType, showButton = false, open: controlledOpen }: Props = $props();
+	let { onClose, onRetry, errorMessage, errorType: providedErrorType, showButton = false, open: controlledOpen }: Props = $props();
 
 	// Auto-detect error type if not provided
 	const errorType = $derived(providedErrorType || detectErrorType(errorMessage));
 
 	let internalOpen = $state(false);
-	let openStepIndex = $state<number>(-1);
+	let openFaqIndex = $state<number>(-1);
 	let deviceInfo = $state<DeviceInfo | null>(null);
 	let deviceSpecificSteps = $state<string[]>([]);
 	let settingsAction = $state<ReturnType<typeof getSettingsAction> | null>(null);
@@ -105,11 +106,11 @@
 		}
 	}
 
-	function toggleStep(index: number) {
-		if (openStepIndex === index) {
-			openStepIndex = -1; // Close if already open
+	function toggleFaq(index: number) {
+		if (openFaqIndex === index) {
+			openFaqIndex = -1; // Close if already open
 		} else {
-			openStepIndex = index; // Open the new one
+			openFaqIndex = index; // Open the new one
 		}
 	}
 
@@ -210,6 +211,26 @@
 					</div>
 				</div>
 
+				<!-- Passkey Overview Section -->
+				<div class="card bg-base-200 border-2 border-primary/20">
+					<div class="card-body p-4 sm:p-6">
+						<div class="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+							<IconShieldAlert class="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+							<h4 class="card-title text-sm sm:text-base">
+								{$t('common.components.error_troubleshooting_modal.passkey_overview.title')}
+							</h4>
+						</div>
+						<div class="space-y-2 text-xs sm:text-sm text-base-content/80 leading-relaxed">
+							<p>{$t('common.components.error_troubleshooting_modal.passkey_overview.description')}</p>
+							<ul class="list-disc list-inside space-y-1 ml-2">
+								<li>{$t('common.components.error_troubleshooting_modal.passkey_overview.benefit1')}</li>
+								<li>{$t('common.components.error_troubleshooting_modal.passkey_overview.benefit2')}</li>
+								<li>{$t('common.components.error_troubleshooting_modal.passkey_overview.benefit3')}</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+
 				<!-- Troubleshooting Steps -->
 				<div class="card bg-base-200">
 					<div class="card-body p-4 sm:p-6">
@@ -220,17 +241,121 @@
 							</h4>
 						</div>
 
-						<div class="space-y-2 sm:space-y-3">
-							{#each troubleshootingSteps as step, index}
-								<div class="flex items-start gap-2 sm:gap-3">
-									<div class="bg-primary text-primary-content flex h-5 w-5 sm:h-6 sm:w-6 min-h-5 min-w-5 sm:min-h-6 sm:min-w-6 items-center justify-center rounded-full text-xs font-medium shrink-0">
-										{index + 1}
-									</div>
-									<div class="flex-1 min-w-0">
-										<p class="text-xs sm:text-sm text-base-content/80 leading-relaxed">{step}</p>
-									</div>
+						<!-- FAQ Format for Passkey Errors -->
+						<div class="join join-vertical w-full">
+							<!-- FAQ Item 1: Cancelled unlock request -->
+							<div
+								class="collapse-arrow join-item border-base-300 collapse border-b"
+								class:collapse-open={openFaqIndex === 0}
+							>
+								<button
+									type="button"
+									class="collapse-title text-left text-sm sm:text-base font-medium min-h-[44px]"
+									onclick={() => toggleFaq(0)}
+								>
+									{$t('common.components.error_troubleshooting_modal.passkey_faq.question1')}
+								</button>
+								<div class="collapse-content">
+									<p class="text-xs sm:text-sm text-base-content/80 leading-relaxed pt-2">
+										{$t('common.components.error_troubleshooting_modal.passkey_faq.answer1')}
+									</p>
 								</div>
-							{/each}
+							</div>
+
+							<!-- FAQ Item 2: Lock screen -->
+							<div
+								class="collapse-arrow join-item border-base-300 collapse border-b"
+								class:collapse-open={openFaqIndex === 1}
+							>
+								<button
+									type="button"
+									class="collapse-title text-left text-sm sm:text-base font-medium min-h-[44px]"
+									onclick={() => toggleFaq(1)}
+								>
+									{$t('common.components.error_troubleshooting_modal.passkey_faq.question2')}
+								</button>
+								<div class="collapse-content">
+									<p class="text-xs sm:text-sm text-base-content/80 leading-relaxed pt-2">
+										{$t('common.components.error_troubleshooting_modal.passkey_faq.answer2')}
+									</p>
+								</div>
+							</div>
+
+							<!-- FAQ Item 3: Biometric not set up -->
+							<div
+								class="collapse-arrow join-item border-base-300 collapse border-b"
+								class:collapse-open={openFaqIndex === 2}
+							>
+								<button
+									type="button"
+									class="collapse-title text-left text-sm sm:text-base font-medium min-h-[44px]"
+									onclick={() => toggleFaq(2)}
+								>
+									{$t('common.components.error_troubleshooting_modal.passkey_faq.question3')}
+								</button>
+								<div class="collapse-content">
+									<p class="text-xs sm:text-sm text-base-content/80 leading-relaxed pt-2">
+										{$t('common.components.error_troubleshooting_modal.passkey_faq.answer3')}
+									</p>
+								</div>
+							</div>
+
+							<!-- FAQ Item 4: Permissions -->
+							<div
+								class="collapse-arrow join-item border-base-300 collapse border-b"
+								class:collapse-open={openFaqIndex === 3}
+							>
+								<button
+									type="button"
+									class="collapse-title text-left text-sm sm:text-base font-medium min-h-[44px]"
+									onclick={() => toggleFaq(3)}
+								>
+									{$t('common.components.error_troubleshooting_modal.passkey_faq.question4')}
+								</button>
+								<div class="collapse-content">
+									<p class="text-xs sm:text-sm text-base-content/80 leading-relaxed pt-2">
+										{$t('common.components.error_troubleshooting_modal.passkey_faq.answer4')}
+									</p>
+								</div>
+							</div>
+
+							<!-- FAQ Item 5: Browser/App support -->
+							<div
+								class="collapse-arrow join-item border-base-300 collapse border-b"
+								class:collapse-open={openFaqIndex === 4}
+							>
+								<button
+									type="button"
+									class="collapse-title text-left text-sm sm:text-base font-medium min-h-[44px]"
+									onclick={() => toggleFaq(4)}
+								>
+									{$t('common.components.error_troubleshooting_modal.passkey_faq.question5')}
+								</button>
+								<div class="collapse-content">
+									<p class="text-xs sm:text-sm text-base-content/80 leading-relaxed pt-2">
+										{$t('common.components.error_troubleshooting_modal.passkey_faq.answer5')}
+									</p>
+								</div>
+							</div>
+
+							<!-- FAQ Item 6: Timeout -->
+							<div
+								class="collapse-arrow join-item border-base-300 collapse border-b"
+								class:collapse-open={openFaqIndex === 5}
+							>
+								<button
+									type="button"
+									class="collapse-title text-left text-sm sm:text-base font-medium min-h-[44px]"
+									onclick={() => toggleFaq(5)}
+								>
+									{$t('common.components.error_troubleshooting_modal.passkey_faq.question6')}
+								</button>
+								<div class="collapse-content">
+									<p class="text-xs sm:text-sm text-base-content/80 leading-relaxed pt-2">
+										{$t('common.components.error_troubleshooting_modal.passkey_faq.answer6')}
+									</p>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -315,26 +440,31 @@
 			</div>
 
 			<!-- Action Buttons - Fixed at bottom -->
-			<div class="border-t border-base-300 bg-base-100 flex flex-col sm:flex-row gap-2 sm:gap-3 p-3 sm:p-4 shrink-0">
+			<div class="border-t border-base-300 bg-base-100 flex flex-col sm:flex-row gap-3 sm:gap-3 p-4 sm:p-4 shrink-0">
 				<button
 					type="button"
-					class="btn btn-primary flex-1 order-2 sm:order-1"
+					class="btn btn-ghost flex-1 sm:flex-none order-1 sm:order-2 min-h-[44px] h-auto py-3 sm:py-2"
 					onclick={closeModal}
 				>
-					<IconCheckCircle class="mr-2 h-4 w-4 shrink-0" />
-					<span class="text-xs sm:text-sm">{$t('common.components.error_troubleshooting_modal.got_it_button')}</span>
+					<IconCheckCircle class="mr-2 h-4 w-4 sm:h-4 sm:w-4 shrink-0" />
+					<span class="text-sm sm:text-sm font-medium">{$t('common.components.error_troubleshooting_modal.got_it_button')}</span>
 				</button>
 				<button
 					type="button"
-					class="btn btn-ghost flex-1 sm:flex-none order-1 sm:order-2"
-					onclick={() => {
+					class="btn btn-primary flex-1 order-2 sm:order-1 min-h-[44px] h-auto py-3 sm:py-2"
+					onclick={async () => {
 						closeModal();
-						// Reload page to retry
-						window.location.reload();
+						if (onRetry) {
+							// Call the retry callback - it should handle closing modal, clearing error, and retrying the action
+							await onRetry();
+						} else {
+							// Fallback to page reload if no retry callback provided
+							window.location.reload();
+						}
 					}}
 				>
-					<IconRefresh class="mr-2 h-4 w-4 shrink-0" />
-					<span class="text-xs sm:text-sm">{$t('common.components.error_troubleshooting_modal.retry_button')}</span>
+					<IconRefresh class="mr-2 h-4 w-4 sm:h-4 sm:w-4 shrink-0" />
+					<span class="text-sm sm:text-sm font-medium">{$t('common.components.error_troubleshooting_modal.retry_button')}</span>
 				</button>
 			</div>
 		</div>

@@ -318,6 +318,27 @@
             "webauthn_not_supported_1": "Tu navegador no admite WebAuthn - intenta actualizar a la última versión",
             "webauthn_not_supported_2": "Considera usar Chrome, Edge, Safari o Firefox (últimas versiones)"
         },
+        "passkey_overview": {
+            "title": "¿Qué Son las Passkeys?",
+            "description": "Las passkeys son una forma moderna y segura de iniciar sesión en BitTasker sin usar contraseñas. En lugar de recordar una contraseña, usas la seguridad integrada de tu dispositivo (como Face ID, huella dactilar o el PIN de tu dispositivo) para desbloquear tu cuenta.",
+            "benefit1": "Más seguras que las contraseñas — usa criptografía de clave pública resistente a phishing y filtraciones de datos",
+            "benefit2": "Más fáciles de usar — solo desbloquea tu dispositivo de la misma forma que normalmente lo haces",
+            "benefit3": "Privadas — BitTasker nunca recibe tu contraseña del dispositivo, PIN o datos biométricos"
+        },
+        "passkey_faq": {
+            "question1": "¿Recibiste una solicitud para desbloquear tu teléfono y cancelaste la solicitud?",
+            "answer1": "En lugar de usar una nueva contraseña en BitTasker, desbloqueas tu cuenta con la seguridad de tu dispositivo, que desbloquea la passkey que se usa para acceder a BitTasker. BitTasker nunca recibe tu contraseña del dispositivo ni datos biométricos. Cuando veas la solicitud de desbloqueo, por favor complétala para configurar tu passkey.",
+            "question2": "¿Tienes un bloqueo de pantalla en tu dispositivo?",
+            "answer2": "Necesitas usar un bloqueo de pantalla en tu dispositivo para acceder a BitTasker y mantener tu cuenta y billetera seguras. Las passkeys dependen de la seguridad de tu dispositivo, por lo que se requiere un bloqueo de pantalla (PIN, contraseña, patrón o biométrico). Por favor configura un bloqueo de pantalla en la configuración de tu dispositivo si aún no lo has hecho.",
+            "question3": "¿Está configurada la autenticación biométrica (Face ID, huella dactilar, etc.) en tu dispositivo?",
+            "answer3": "Aunque la biometría hace que las passkeys sean más convenientes, no son obligatorias. Si la biometría no está configurada, puedes usar el PIN o contraseña de tu dispositivo en su lugar. Sin embargo, configurar la biometría hará que el inicio de sesión sea más rápido y fácil. Puedes configurarlo en la aplicación Configuración de tu dispositivo.",
+            "question4": "¿Has otorgado los permisos necesarios a BitTasker?",
+            "answer4": "BitTasker necesita permiso para usar las funciones de seguridad de tu dispositivo para crear y usar passkeys. En dispositivos móviles, verifica Configuración > Aplicaciones > BitTasker > Permisos. En navegadores web, asegúrate de permitir que el navegador acceda a las funciones de seguridad de tu dispositivo cuando se solicite.",
+            "question5": "¿Está actualizado tu navegador o aplicación?",
+            "answer5": "Las passkeys requieren soporte de navegador y aplicación modernos. Asegúrate de estar usando la última versión de tu navegador (Chrome, Safari, Edge o Firefox) o la última versión de la aplicación BitTasker. Las versiones anteriores pueden no admitir passkeys correctamente.",
+            "question6": "¿El proceso de configuración se agotó el tiempo de espera?",
+            "answer6": "Si la configuración de la passkey se agotó el tiempo de espera, intenta de nuevo. Asegúrate de completar la solicitud de desbloqueo rápidamente cuando aparezca. También verifica tu conexión a internet, ya que se necesita una conexión estable para el proceso de configuración. Si continúa agotándose el tiempo de espera, intenta cerrar otras aplicaciones o reiniciar tu dispositivo."
+        },
         "still_need_help_title": "¿Aún Necesitas Ayuda?",
         "still_need_help_description": "Si estos pasos no resuelven el problema, por favor contacta con soporte o intenta de nuevo más tarde.",
         "got_it_button": "Entendido",

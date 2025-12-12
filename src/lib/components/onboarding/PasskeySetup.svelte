@@ -17,12 +17,11 @@
 	import authService from '$lib/api/services/auth.service';
 	import { t } from 'svelte-i18n';
 	import { Buffer } from 'buffer';
-	import ErrorTroubleshootingModal from '$lib/components/ErrorTroubleshootingModal.svelte';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import type { BiometricPlatform } from '$lib/utils/helpers/biometricErrorHandler';
 	import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
-	import IconInformation from '~icons/mdi/information';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -56,7 +55,6 @@
 	let isSetupComplete = $state(false);
 	
 	// Error modal state
-	let showErrorModal = $state(false);
 	let errorMessage = $state('');
 	let errorType = $state<ErrorType | undefined>(undefined);
 
@@ -119,11 +117,7 @@
 					errorMessage = msg;
 					errorType = type;
 					
-					// Auto-show modal for critical errors
-					const criticalErrors: ErrorType[] = ['biometric', 'hardware', 'permission'];
-					if (type && criticalErrors.includes(type)) {
-						showErrorModal = true;
-					}
+					// Error state is set, ErrorAlertWithModal will auto-open for passkey errors
 					
 					// Re-throw to stop registration
 					throw biometricError;
@@ -143,11 +137,7 @@
 					errorMessage = msg;
 					errorType = type;
 					
-					// Auto-show modal for critical errors
-					const criticalErrors: ErrorType[] = ['biometric', 'hardware', 'permission'];
-					if (type && criticalErrors.includes(type)) {
-						showErrorModal = true;
-					}
+					// Error state is set, ErrorAlertWithModal will auto-open for passkey errors
 					
 					throw biometricError;
 				}
@@ -250,7 +240,6 @@
 		try {
 			isLoading = true;
 			error = '';
-			showErrorModal = false;
 			errorMessage = '';
 			errorType = undefined;
 
@@ -353,50 +342,19 @@
 				</p>
 
 				{#if error}
-					<div class="alert alert-outline alert-error mx-auto mb-6 max-w-lg">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4 sm:h-5 sm:w-5 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<div class="flex-1 min-w-0">
-							<h4 class="font-bold text-[10px] sm:text-xs whitespace-nowrap mb-1.5">
-								{$t('onboarding_auth.form.passkey_setup.errors.title')}
-							</h4>
-							<div class="text-[10px] sm:text-xs whitespace-normal pr-2">{error}</div>
-						</div>
-						<div class="flex items-start shrink-0 ml-2">
-							<!-- "Get Help" Button - Opens Troubleshooting Modal -->
-							<button
-								class="btn btn-sm btn-primary gap-1.5 sm:gap-2 shadow-sm hover:shadow-md active:scale-95 transition-all cursor-pointer"
-								onclick={() => {
-									if (errorMessage) {
-										showErrorModal = true;
-									} else {
-										// If no errorMessage set, create one from error
-										errorMessage = error;
-										showErrorModal = true;
-									}
-								}}
-								title={$t('common.components.error_troubleshooting_modal.button_title')}
-								type="button"
-							>
-								<IconInformation class="h-4 w-4 shrink-0" />
-								<span class="hidden sm:inline text-xs sm:text-sm font-medium">
-									{$t('common.components.error_troubleshooting_modal.troubleshoot')}
-								</span>
-								<span class="sm:hidden text-xs font-medium">Help</span>
-							</button>
-						</div>
-					</div>
+					<ErrorAlertWithModal
+						{error}
+						errorType={errorType}
+						isPasskeyError={true}
+						autoOpenModal={true}
+						onRetry={async () => {
+							error = '';
+							errorMessage = '';
+							errorType = undefined;
+							await handlePasskeySetup();
+						}}
+						class="mx-auto mb-6 max-w-lg"
+					/>
 				{/if}
 
 				{#if isSetupComplete}
@@ -447,16 +405,3 @@
 		</div>
 	</div>
 </div>
-
-<!-- Error Troubleshooting Modal -->
-{#if showErrorModal && errorMessage}
-	<ErrorTroubleshootingModal
-		{errorMessage}
-		{errorType}
-		showButton={false}
-		open={showErrorModal}
-		onClose={() => {
-			showErrorModal = false;
-		}}
-	/>
-{/if}

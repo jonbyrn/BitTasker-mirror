@@ -21,6 +21,7 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 	import { RevokeAllDevicesStore } from '$houdini';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 
 	const npub = page.params.npub;
 
@@ -41,6 +42,7 @@
 		biometric: false,
 		webAuthn: false
 	});
+	let lastRecoveryAction = $state<'decrypt' | 'complete' | null>(null);
 
 	// Early return if npub is not available
 	if (!npub) {
@@ -88,6 +90,7 @@
 		try {
 			isLoading = true;
 			error = '';
+			lastRecoveryAction = 'decrypt';
 
 			if (!currentPassword || !recoveryData) {
 				error = $t('recovery_npub.errors.password_required');
@@ -114,6 +117,7 @@
 		event.preventDefault();
 
 		try {
+			lastRecoveryAction = 'complete';
 			isLoading = true;
 			error = '';
 			passwordError = '';
@@ -547,22 +551,47 @@
 			{/if}
 
 			{#if error}
-				<div class="alert alert-error alert-outline mt-4">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{error}</span>
-				</div>
+				<ErrorAlertWithModal
+					{error}
+					isPasskeyError={(() => {
+						// Check if error is passkey/biometric related
+						const errorLower = error.toLowerCase();
+						return lastRecoveryAction === 'complete' && (
+							errorLower.includes('passkey') ||
+							errorLower.includes('biometric') ||
+							errorLower.includes('webauthn') ||
+							errorLower.includes('authentication') ||
+							errorLower.includes('credential') ||
+							errorLower.includes('device')
+						);
+					})()}
+					autoOpenModal={(() => {
+						// Auto-open modal for passkey errors
+						const errorLower = error.toLowerCase();
+						return lastRecoveryAction === 'complete' && (
+							errorLower.includes('passkey') ||
+							errorLower.includes('biometric') ||
+							errorLower.includes('webauthn') ||
+							errorLower.includes('authentication') ||
+							errorLower.includes('credential') ||
+							errorLower.includes('device')
+						);
+					})()}
+					onRetry={async () => {
+						error = '';
+						// Create a minimal event object for the form handlers
+						const syntheticEvent = {
+							preventDefault: () => {}
+						} as Event;
+						
+						if (lastRecoveryAction === 'decrypt') {
+							await decryptAccountKeys(syntheticEvent);
+						} else if (lastRecoveryAction === 'complete') {
+							await completeRecovery(syntheticEvent);
+						}
+					}}
+					class="mt-4"
+				/>
 			{/if}
 		</div>
 	</div>
