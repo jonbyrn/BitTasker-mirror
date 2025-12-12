@@ -85,8 +85,7 @@
 	function handleUnitToggle(newUnit: 'sats' | 'usd') {
 		triggerHaptic(ImpactStyle.Light);
 		onUnitChange(newUnit);
-		// Clear amount when switching units
-		onAmountChange('');
+		// Keep amount when switching units - user may have entered amount before selecting unit
 	}
 
 	function handleClear() {

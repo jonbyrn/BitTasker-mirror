@@ -98,6 +98,29 @@ export async function processTransactionWithContractDetection(
 			}
 		}
 
+		// Log transaction details before classification
+		const txValueBigInt = BigInt(txValue || '0');
+		const hasValue = txValueBigInt > BigInt(0);
+		const isFromUser = txFrom.toLowerCase() === userAddress.toLowerCase();
+		const isToUser = txTo?.toLowerCase() === userAddress.toLowerCase();
+		
+		console.log(`[TransactionProcessing] Processing transaction ${tx.hash.substring(0, 10)}...:`, {
+			from: txFrom.substring(0, 10) + '...',
+			to: txTo?.substring(0, 10) + '...' || 'null',
+			userAddress: userAddress.substring(0, 10) + '...',
+			value: txValue,
+			hasValue,
+			isFromUser,
+			isToUser,
+			isContract: contractDetection.isContract,
+			contractType: contractDetection.contractType,
+			contractAddress: contractDetection.isContract ? txTo : null,
+			hasInput: !!txInput && txInput.length > 0,
+			inputLength: txInput?.length || 0,
+			parsedFunction: parsedFunction?.functionName || null,
+			escrowId: contractMetadata.escrowId || null
+		});
+
 		// Classify transaction type
 		const transactionType = classifyTransactionType({
 			from: txFrom,
@@ -108,6 +131,8 @@ export async function processTransactionWithContractDetection(
 			userAddress,
 			isSwap: isSwapClaim || false
 		});
+		
+		console.log(`[TransactionProcessing] Transaction ${tx.hash.substring(0, 10)}... classified as: ${transactionType}`);
 
 		// Calculate fee
 		const gasUsed = tx.gas_used || tx.gasUsed || '0';
@@ -241,6 +266,16 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
         
         const parallelFetchDuration = performance.now() - parallelFetchStartTime;
         console.log(`[RSK Transactions] Parallel API fetching completed in ${parallelFetchDuration.toFixed(2)}ms`);
+        
+        // Log internal transaction fetch status
+        if (internalResponse.status === 'fulfilled') {
+            console.log(`[RSK Transactions] Internal transactions API response status: ${internalResponse.value.status} ${internalResponse.value.ok ? 'OK' : 'FAILED'}`);
+            if (!internalResponse.value.ok) {
+                console.warn(`[RSK Transactions] Internal transactions API returned non-OK status: ${internalResponse.value.status}`);
+            }
+        } else {
+            console.error(`[RSK Transactions] Internal transactions API fetch failed:`, internalResponse.reason);
+        }
 
         try {
             // Process regular transactions first (needed for internal transaction processing)
@@ -398,6 +433,13 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                 const internalData = await internalResponse.value.json();
                 const parseDuration = performance.now() - parseStartTime;
                 console.log(`[RSK Transactions] Internal transactions JSON parsing completed in ${parseDuration.toFixed(2)}ms`);
+                
+                // Log internal transaction count
+                if (internalData && internalData.items && Array.isArray(internalData.items)) {
+                    console.log(`[RSK Transactions] Found ${internalData.items.length} internal transactions from API`);
+                } else {
+                    console.warn(`[RSK Transactions] Internal transactions API response structure unexpected:`, internalData);
+                }
 
                 // Validate API response structure
                 if (internalData && internalData.items && Array.isArray(internalData.items)) {
@@ -445,10 +487,15 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                     const processStartTime = performance.now();
                     console.log(`[RSK Transactions] Processing ${internalData.items.length} internal transactions (limiting to 100)...`);
                     const initialTxCount = transactions.length;
+                    let internalTxIndex = 0;
                     for (const internalTx of internalData.items.slice(0, 100)) {
+                        internalTxIndex++;
                         try {
                             // Validate internal transaction structure
-                            if (!internalTx || typeof internalTx !== 'object') continue;
+                            if (!internalTx || typeof internalTx !== 'object') {
+                                console.log(`[RSK Transactions] Internal transaction ${internalTxIndex}: Skipped - invalid structure`);
+                                continue;
+                            }
 
                             const internalTxTo = (internalTx.to?.hash || internalTx.to || '').toLowerCase();
                             const internalTxFrom = (internalTx.from?.hash || internalTx.from || '').toLowerCase();
@@ -457,7 +504,21 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                             const isUserInvolved = 
                                 internalTxFrom === address || internalTxTo === address;
                             
-                            if (!isUserInvolved) continue;
+                            console.log(`[RSK Transactions] Internal transaction ${internalTxIndex}:`, {
+                               	from: internalTxFrom.substring(0, 10) + '...' || 'unknown',
+                               	to: internalTxTo.substring(0, 10) + '...' || 'unknown',
+                               	userAddress: address.substring(0, 10) + '...',
+                               	value: internalTx.value || '0',
+                               	parentTxHash: internalTx.transaction_hash || internalTx.tx_hash || internalTx.hash || 'unknown',
+                               	isUserInvolved,
+                               	isFromUser: internalTxFrom === address,
+                               	isToUser: internalTxTo === address
+                            });
+                            
+                            if (!isUserInvolved) {
+                                console.log(`[RSK Transactions] Internal transaction ${internalTxIndex}: Skipped - user not involved`);
+                                continue;
+                            }
 
                             // Normalize and validate value
                             let value: string;
@@ -750,6 +811,16 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
                                 txHash: explorerHash // Use actual hash for compatibility
                             };
 
+                            console.log(`[RSK Transactions] Internal transaction ${internalTxIndex}: Created transaction:`, {
+                               	hash: transaction.hash?.substring(0, 10) + '...' || 'unknown',
+                               	type: transaction.type,
+                               	from: transaction.from?.substring(0, 10) + '...' || 'unknown',
+                               	to: transaction.to?.substring(0, 10) + '...' || 'unknown',
+                               	value: transaction.value || '0',
+                               	parentTxHash: (internalTx.transaction_hash || internalTx.tx_hash || internalTx.hash || 'unknown').substring(0, 10) + '...',
+                               	timestamp: new Date(transaction.timestamp).toISOString()
+                            });
+
                             transactions.push(transaction);
                             // Add to lookup maps
                             existingTxIds.add(uniqueId.toLowerCase());
@@ -772,14 +843,17 @@ export async function loadRSKTransactions(): Promise<Transaction[]> {
             }
         } catch (internalError) {
                 const internalErrorTime = performance.now() - internalTxStartTime;
-                console.warn(`[RSK Transactions] Failed to process internal transactions after ${internalErrorTime.toFixed(2)}ms:`, internalError);
+                console.error(`[RSK Transactions] ❌ Failed to process internal transactions after ${internalErrorTime.toFixed(2)}ms:`, internalError);
+                console.error(`[RSK Transactions] ❌ Internal transactions are CRITICAL for contract interactions - missing received transactions may not appear!`);
             // Continue even if internal transactions fail - regular transactions are still available
             }
         } else if (internalResponse.status === 'rejected') {
-            console.warn('[RSK Transactions] Internal transactions fetch failed:', internalResponse.reason);
+            console.error('[RSK Transactions] ❌ Internal transactions fetch failed:', internalResponse.reason);
+            console.error('[RSK Transactions] ❌ Internal transactions are CRITICAL for contract interactions - missing received transactions may not appear!');
             // Continue even if internal transactions fail - regular transactions are still available
         } else if (internalResponse.status === 'fulfilled' && !internalResponse.value.ok) {
-            console.debug(`[RSK Transactions] Internal transactions API returned status ${internalResponse.value.status}`);
+            console.warn(`[RSK Transactions] ⚠️ Internal transactions API returned status ${internalResponse.value.status}`);
+            console.warn(`[RSK Transactions] ⚠️ Internal transactions may not be available - this will cause missing received transactions from contracts!`);
         }
 
         // Sort all transactions by timestamp (newest first) and remove duplicates
