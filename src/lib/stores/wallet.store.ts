@@ -751,14 +751,62 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 
 		const parallelDuration = performance.now() - parallelStartTime;
 		console.log(`[WalletStore] Parallel network loading completed in ${parallelDuration.toFixed(2)}ms`);
+		
+		// Log internal transaction fetch status
+		if (rskResult.status === 'fulfilled') {
+			console.log(`[WalletStore] RSK wallet-core returned ${rskResult.value.length} transactions`);
+			// Check if any transactions have input data
+			const withInput = rskResult.value.filter((tx: any) => tx.input || tx.data);
+			console.log(`[WalletStore] RSK transactions with input data: ${withInput.length}/${rskResult.value.length}`);
+			if (withInput.length === 0 && rskResult.value.length > 0) {
+				console.warn(`[WalletStore] ⚠️ CRITICAL: No RSK transactions have input data! Contract function calls cannot be decoded without input data.`);
+				console.warn(`[WalletStore] ⚠️ This suggests wallet-core's loadTransactions() may not be fetching complete transaction data from the API.`);
+			}
+			
+			// Check for contract interactions that should have input data
+			const contractTxs = rskResult.value.filter((tx: any) => {
+				const to = typeof tx.to === 'string' ? tx.to : (tx.to?.hash || '');
+				// Check if 'to' address looks like a contract (not a regular address pattern)
+				return to && to.startsWith('0x') && to.length === 42;
+			});
+			console.log(`[WalletStore] RSK transactions to contract addresses: ${contractTxs.length}/${rskResult.value.length}`);
+			if (contractTxs.length > 0) {
+				const contractTxsWithoutInput = contractTxs.filter((tx: any) => !(tx.input || tx.data));
+				if (contractTxsWithoutInput.length > 0) {
+					console.error(`[WalletStore] ❌ ERROR: ${contractTxsWithoutInput.length} contract transactions are missing input data!`);
+					console.error(`[WalletStore] ❌ These transactions cannot be properly classified or decoded.`);
+				}
+			}
+		}
 
 		// Process RSK transactions with contract detection
 		if (rskResult.status === 'fulfilled') {
 			const rskTxs = rskResult.value;
+			console.log(`[WalletStore] Loaded ${rskTxs.length} raw RSK transactions from API`);
+			
+			// Log all raw transactions for debugging
+			rskTxs.forEach((tx: any, index: number) => {
+				console.log(`[WalletStore] Raw RSK transaction ${index + 1}/${rskTxs.length}:`, {
+					hash: tx.hash || tx.txHash || 'unknown',
+					from: typeof tx.from === 'string' ? tx.from.substring(0, 10) + '...' : (tx.from?.hash?.substring(0, 10) + '...' || 'unknown'),
+					to: typeof tx.to === 'string' ? tx.to.substring(0, 10) + '...' : (tx.to?.hash?.substring(0, 10) + '...' || 'null'),
+					value: tx.value || '0',
+					hasInput: !!(tx.input || tx.data),
+					inputLength: (tx.input || tx.data || '').length,
+					input: (tx.input || tx.data || '').substring(0, 20) + '...' || 'none',
+					blockNumber: tx.blockNumber || 'unknown',
+					timestamp: tx.timestamp || 'unknown',
+					// Log all available fields to see what wallet-core provides
+					allFields: Object.keys(tx)
+				});
+			});
+			
 			const mapStartTime = performance.now();
 			const state = get(walletStore);
 			const address = state.rsk.wallet?.address?.toLowerCase() || '';
 			const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+			
+			console.log(`[WalletStore] Processing RSK transactions for address: ${address.substring(0, 10)}...`);
 			
 			// Get EtherSwap address for swap detection
 			let etherSwapAddress: string | null = null;
@@ -769,6 +817,7 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 				if (contractResponse.ok) {
 					const contracts = await contractResponse.json();
 					etherSwapAddress = contracts.swapContracts?.EtherSwap?.toLowerCase() || null;
+					console.log(`[WalletStore] EtherSwap address: ${etherSwapAddress || 'not found'}`);
 				}
 			} catch (error) {
 				console.warn('[WalletStore] Could not fetch EtherSwap address:', error);
@@ -804,6 +853,7 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 					);
 					
 					if (processedTx) {
+						console.log(`[WalletStore] Successfully processed transaction ${tx.hash?.substring(0, 10) || 'unknown'}... as type: ${processedTx.type}`);
 						// Merge processed transaction with original to preserve any wallet-core specific fields
 						return {
 							...tx,
@@ -813,6 +863,7 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 						} as TransactionWithBalance;
 					}
 					
+					console.log(`[WalletStore] Transaction ${tx.hash?.substring(0, 10) || 'unknown'}... processing returned null, using fallback`);
 					// Fallback to original transaction if processing fails
 					return {
 						...tx,
@@ -820,7 +871,7 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 						tokenSymbol: 'RBTC'
 					} as TransactionWithBalance;
 				} catch (error) {
-					console.warn('[WalletStore] Failed to process transaction with contract detection:', error);
+					console.error(`[WalletStore] Failed to process transaction ${tx.hash?.substring(0, 10) || 'unknown'}... with contract detection:`, error);
 					// Return original transaction on error
 					return {
 						...tx,
@@ -835,9 +886,33 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 				.filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
 				.map(result => result.value);
 			
+			// Log all successfully processed transactions with their types
+			console.log(`[WalletStore] Successfully processed ${successfulTxs.length} RSK transactions:`);
+			successfulTxs.forEach((tx: any, index: number) => {
+				console.log(`[WalletStore] Processed transaction ${index + 1}/${successfulTxs.length}:`, {
+					hash: tx.hash?.substring(0, 10) + '...' || 'unknown',
+					type: tx.type || 'unknown',
+					from: tx.from?.substring(0, 10) + '...' || 'unknown',
+					to: tx.to?.substring(0, 10) + '...' || 'unknown',
+					value: tx.value || '0',
+					contractAddress: tx.contractAddress?.substring(0, 10) + '...' || null,
+					contractFunction: tx.contractFunction || null,
+					escrowId: tx.contractMetadata?.escrowId || null
+				});
+			});
+			
+			// Log failed transactions
+			const failedTxs = processedTxs.filter(result => result.status === 'rejected');
+			if (failedTxs.length > 0) {
+				console.warn(`[WalletStore] ${failedTxs.length} RSK transactions failed to process:`);
+				failedTxs.forEach((result, index) => {
+					console.error(`[WalletStore] Failed transaction ${index + 1}:`, result.reason);
+				});
+			}
+			
 			transactions.push(...successfulTxs);
 			const mapDuration = performance.now() - mapStartTime;
-			console.log(`[WalletStore] RSK transactions loaded: ${rskTxs.length} transactions, contract detection and mapping completed in ${mapDuration.toFixed(2)}ms`);
+			console.log(`[WalletStore] RSK transactions loaded: ${rskTxs.length} raw → ${successfulTxs.length} processed, contract detection and mapping completed in ${mapDuration.toFixed(2)}ms`);
 		} else {
 			console.error('[WalletStore] RSK transaction loading failed:', rskResult.reason);
 		}
@@ -920,6 +995,36 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 		transactions.sort((a, b) => b.timestamp - a.timestamp);
 		const sortDuration = performance.now() - sortStartTime;
 		console.log(`[WalletStore] Transaction sorting completed in ${sortDuration.toFixed(2)}ms (${transactions.length} transactions)`);
+
+		// Log final transaction summary before balance fetching
+		const finalTypeCounts: Record<string, number> = {};
+		transactions.forEach(tx => {
+			finalTypeCounts[tx.type] = (finalTypeCounts[tx.type] || 0) + 1;
+		});
+		console.log(`[WalletStore] Final transaction summary (${transactions.length} total):`, finalTypeCounts);
+		
+		// Log contract-related transactions specifically
+		const contractTxs = transactions.filter(tx => 
+			tx.type === 'contract-function' || 
+			tx.type === 'contract-send' || 
+			tx.type === 'contract-receive'
+		);
+		if (contractTxs.length > 0) {
+			console.log(`[WalletStore] Found ${contractTxs.length} contract-related transactions:`);
+			contractTxs.forEach((tx, index) => {
+				console.log(`[WalletStore] Contract transaction ${index + 1}/${contractTxs.length}:`, {
+					hash: tx.hash?.substring(0, 10) + '...' || 'unknown',
+					type: tx.type,
+					from: tx.from?.substring(0, 10) + '...' || 'unknown',
+					to: tx.to?.substring(0, 10) + '...' || 'unknown',
+					value: tx.value || '0',
+					contractAddress: tx.contractAddress?.substring(0, 10) + '...' || null,
+					contractFunction: tx.contractFunction || null,
+					escrowId: tx.contractMetadata?.escrowId || null,
+					timestamp: new Date(tx.timestamp).toISOString()
+				});
+			});
+		}
 
 		// Fetch balances from blockchain for each transaction (in parallel batches)
 		const balanceFetchStartTime = performance.now();

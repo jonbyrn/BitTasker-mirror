@@ -231,7 +231,7 @@
 		}
 	}
 
-	// Reset calculator when unit changes
+	// Reset calculator internal state when unit changes (but don't clear parent amount)
 	$effect(() => {
 		unit;
 		calculatorValue = '';
@@ -239,9 +239,7 @@
 		operator = null;
 		waitingForOperand = false;
 		mathExpression = '';
-		if (onCalculationChange) {
-			onCalculationChange('', 0);
-		}
+		// Don't call onCalculationChange - preserve the amount in the parent component
 	});
 </script>
 

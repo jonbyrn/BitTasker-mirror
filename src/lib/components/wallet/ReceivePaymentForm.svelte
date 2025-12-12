@@ -869,8 +869,9 @@
 			onUnitChange={(newUnit) => {
 				triggerHaptic(ImpactStyle.Light);
 				unit = newUnit;
-				amount = '';
+				// Keep amount when switching units - user may have entered amount before selecting unit
 				mathExpression = '';
+				// Don't increment calculatorKey - preserve calculator state and amount
 			}}
 			onCalculationChange={handleCalculationChange}
 			onClear={handleClearCalculator}
@@ -1254,8 +1255,8 @@
 		totalFees={invoiceData.totalFees}
 		onClose={() => {
 			showPaymentRequestModal = false;
-			// Optionally reset form or keep it
-			// invoiceData = null;
+			// Close receive payment form and return to wallet balance screen
+			onCancel();
 		}}
 		onEdit={() => {
 			showPaymentRequestModal = false;

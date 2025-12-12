@@ -27,6 +27,7 @@ export function classifyTransactionType(input: ClassificationInput): Transaction
 	
 	// Preserve existing swap detection
 	if (isSwap && contractType === 'etherSwap') {
+		console.log(`[TransactionClassification] Classified as 'swap': isSwap=${isSwap}, contractType=${contractType}`);
 		return 'swap';
 	}
 
@@ -39,22 +40,40 @@ export function classifyTransactionType(input: ClassificationInput): Transaction
 	const isToUser = normalizedTo === normalizedUserAddress;
 	const hasValue = txValue > BigInt(0);
 
+	// Log classification details for contract interactions
+	if (isContractInteraction) {
+		console.log(`[TransactionClassification] Contract interaction detected:`, {
+			from: normalizedFrom.substring(0, 10) + '...',
+			to: normalizedTo.substring(0, 10) + '...' || 'null',
+			userAddress: normalizedUserAddress.substring(0, 10) + '...',
+			value: value,
+			hasValue,
+			isFromUser,
+			isToUser,
+			contractType
+		});
+	}
+
 	// Contract interactions
 	if (isContractInteraction) {
 		if (hasValue) {
 			if (isFromUser) {
 				// User sending value to contract
+				console.log(`[TransactionClassification] Classified as 'contract-send': user sending value to contract`);
 				return 'contract-send';
 			} else if (isToUser) {
 				// User receiving value from contract (internal transaction)
+				console.log(`[TransactionClassification] Classified as 'contract-receive': user receiving value from contract`);
 				return 'contract-receive';
 			} else {
 				// Contract interaction but user is not directly involved in value transfer
 				// This could be an internal transaction we're tracking
+				console.log(`[TransactionClassification] Classified as 'contract-function': contract interaction without direct user value transfer`);
 				return 'contract-function';
 			}
 		} else {
 			// Contract function call with no value transfer
+			console.log(`[TransactionClassification] Classified as 'contract-function': contract call with no value transfer`);
 			return 'contract-function';
 		}
 	}
@@ -62,16 +81,20 @@ export function classifyTransactionType(input: ClassificationInput): Transaction
 	// Regular transactions
 	if (isFromUser && isToUser) {
 		// Self-transaction
+		console.log(`[TransactionClassification] Classified as 'send': self-transaction`);
 		return 'send';
 	} else if (isFromUser) {
 		// User sending
+		console.log(`[TransactionClassification] Classified as 'send': user sending`);
 		return 'send';
 	} else if (isToUser) {
 		// User receiving
+		console.log(`[TransactionClassification] Classified as 'receive': user receiving`);
 		return 'receive';
 	}
 
 	// Fallback (shouldn't happen in normal cases)
+	console.log(`[TransactionClassification] Classified as 'contract': fallback classification`);
 	return 'contract';
 }
 

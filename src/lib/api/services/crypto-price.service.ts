@@ -24,20 +24,46 @@ class CryptoPriceService {
     }
 
     try {
-      // For rBTC pairs, use CoinGecko API (Coinbase doesn't support rBTC)
+      // For rBTC pairs, use BTC prices from Coinbase (RBTC is pegged 1:1 with BTC)
       if (upperFromSymbol === 'RBTC') {
-        const vsCurrency = upperToSymbol.toLowerCase();
-        const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=rootstock&vs_currencies=${vsCurrency}`);
-
-        if (response.data && response.data.rootstock && response.data.rootstock[vsCurrency]) {
-          const rate = response.data.rootstock[vsCurrency];
-
+        if (upperToSymbol === 'BTC') {
+          // RBTC to BTC is 1:1 pegged
+          const rate = 1.0;
+          this.cache[cacheKey] = {
+            price: rate,
+            timestamp: Date.now()
+          };
+          return rate;
+        } else {
+          // For RBTC to other currencies, get BTC price and target currency price
+          // Get BTC price (check cache first to avoid recursion)
+          let btcPrice: number;
+          const btcCacheKey = 'BTC';
+          if (this.cache[btcCacheKey] && Date.now() - this.cache[btcCacheKey].timestamp < this.cacheExpiration) {
+            btcPrice = this.cache[btcCacheKey].price;
+          } else {
+            const btcResponse = await axios.get('https://api.coinbase.com/v2/prices/BTC-USD/spot');
+            if (btcResponse.data && btcResponse.data.data && btcResponse.data.data.amount) {
+              btcPrice = parseFloat(btcResponse.data.data.amount);
+              this.cache[btcCacheKey] = {
+                price: btcPrice,
+                timestamp: Date.now()
+              };
+            } else {
+              throw new Error('Invalid Coinbase response format for BTC');
+            }
+          }
+          
+          // Get target currency price
+          const toPrice = await this.getCurrentPrice(upperToSymbol);
+          const rate = btcPrice / toPrice;
+          
           // Update cache
           this.cache[cacheKey] = {
             price: rate,
             timestamp: Date.now()
           };
-
+          
           return rate;
         }
       }
@@ -76,23 +102,40 @@ class CryptoPriceService {
     }
 
     try {
-      // For RBTC, use CoinGecko API (Coinbase doesn't support it)
+      // For RBTC, use BTC price from Coinbase (RBTC is pegged 1:1 with BTC)
       if (upperSymbol === 'RBTC') {
-        const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=rootstock&vs_currencies=usd');
-
-        if (response.data && response.data.rootstock && response.data.rootstock.usd) {
-          const price = response.data.rootstock.usd;
-
-          // Update cache
+        // Check if BTC price is already cached
+        const btcCacheKey = 'BTC';
+        if (this.cache[btcCacheKey] && Date.now() - this.cache[btcCacheKey].timestamp < this.cacheExpiration) {
+          const btcPrice = this.cache[btcCacheKey].price;
+          // Update cache with RBTC price (same as BTC)
           this.cache[cacheKey] = {
-            price,
+            price: btcPrice,
+            timestamp: Date.now()
+          };
+          return btcPrice;
+        }
+        
+        // Fetch BTC price directly from Coinbase
+        const response = await axios.get('https://api.coinbase.com/v2/prices/BTC-USD/spot');
+        
+        if (response.data && response.data.data && response.data.data.amount) {
+          const btcPrice = parseFloat(response.data.data.amount);
+          
+          // Cache both BTC and RBTC prices
+          this.cache[btcCacheKey] = {
+            price: btcPrice,
+            timestamp: Date.now()
+          };
+          this.cache[cacheKey] = {
+            price: btcPrice,
             timestamp: Date.now()
           };
 
-          return price;
+          return btcPrice;
         }
 
-        throw new Error('Invalid CoinGecko response format for RBTC');
+        throw new Error('Invalid Coinbase response format for BTC');
       }
 
       // For other cryptocurrencies, fetch from Coinbase public API

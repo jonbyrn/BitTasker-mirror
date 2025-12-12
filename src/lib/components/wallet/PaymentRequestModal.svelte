@@ -49,6 +49,7 @@
 	let monitoringInterval: ReturnType<typeof setInterval> | null = null;
 	let swapStatus = $state<string | null>(null);
 	let addressExpanded = $state(false); // Track if address is expanded to show full address
+	let actualReceivedAmount = $state<number | null>(null); // Actual amount received from swap/transaction
 
 	// Get user display name - make reactive to locale changes
 	// Prioritize username from database over name, and include profileStore data
@@ -109,10 +110,26 @@
 		return props.amount;
 	});
 
+	// Get actual received amount - use actualReceivedAmount if available, otherwise fall back to requested amount
+	const displayAmount = $derived.by(() => {
+		if (actualReceivedAmount !== null && actualReceivedAmount > 0) {
+			return actualReceivedAmount;
+		}
+		// For swaps, try to get onchainAmount from swap data
+		if (props.network === 'lightning-bitcoin' && props.swapId) {
+			const swap = walletManager.reverseSwapService?.getSwap(props.swapId);
+			if (swap && (swap as any).onchainAmount) {
+				return (swap as any).onchainAmount;
+			}
+		}
+		// Fall back to requested amount
+		return payerTotalAmount;
+	});
+
 	const amountInUSD = $derived.by(() => {
 		if (btcPrice === 0) return 0;
-		// Use payer's total amount (including fees) for USD calculation
-		return (payerTotalAmount / 100_000_000) * btcPrice;
+		// Use actual received amount for USD calculation
+		return (displayAmount / 100_000_000) * btcPrice;
 	});
 
 	// Get network info matching receive form structure - make reactive to locale changes
@@ -193,6 +210,10 @@
 							['invoice.settled', 'claimed'].includes(swap.status) ||
 							swap.claimTxHash
 						) {
+							// Get actual received amount from swap
+							if ((swap as any).onchainAmount) {
+								actualReceivedAmount = (swap as any).onchainAmount;
+							}
 							isTransactionConfirmed = true;
 							if (monitoringInterval) {
 								clearInterval(monitoringInterval);
@@ -387,22 +408,21 @@
 
 	<!-- Modal Container - Full screen on mobile/tablet -->
 	<div
-		class="fixed inset-0 lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl z-[101] bg-base-100 shadow-2xl overflow-y-auto pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
+		class="fixed inset-0 lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl z-[101] bg-base-100 shadow-2xl overflow-y-auto pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] flex flex-col"
 		transition:fly={prefersReducedMotion ? undefined : { y: isMobile ? 0 : 100, duration: 300, easing: (t) => 1 - Math.pow(1 - t, 3) }}
 		role="dialog"
 		aria-modal="true"
 	>
 		{#if !isTranslationsReady}
-			<div class="flex items-center justify-center h-full">
+			<div class="flex items-center justify-center flex-1">
 				<span class="loading loading-spinner loading-lg"></span>
 			</div>
 		{:else}
-		<div class="container mx-auto px-3 py-1 space-y-2">
-
+		<div class="container mx-auto px-3 py-1 flex-1 flex flex-col">
 			<!-- Success State -->
 			{#if isTransactionConfirmed}
 				<div
-					class="flex flex-col items-center justify-center space-y-4 py-8"
+					class="flex flex-col items-center justify-center space-y-4 flex-1"
 					transition:scale={prefersReducedMotion ? undefined : { duration: 300, delay: 100 }}
 				>
 					<div class="rounded-full bg-success/20 p-6">
@@ -413,14 +433,45 @@
 							{$t('wallet.payment_request.payment_received')}
 						</h3>
 						<p class="text-base-content/70">
-							{formatSats(payerTotalAmount)} {$t('wallet.sats')} ({formatUSD(amountInUSD)})
+							{formatSats(displayAmount)} {$t('wallet.sats')} ({formatUSD(amountInUSD)})
 						</p>
+						<!-- Network Display -->
+						<div class="rounded-lg border border-base-300 bg-primary/10 p-4 mt-4">
+							<div class="flex items-center gap-2">
+								{#if networkInfo.icon}
+									<img
+										src={networkInfo.icon}
+										alt={networkInfo.label}
+										class="h-5 w-5"
+									/>
+								{:else if props.network === 'lightning-bitcoin'}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5 text-yellow-500"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M13 10V3L4 14h7v7l9-11h-7z"
+										/>
+									</svg>
+								{/if}
+								<span class="font-medium">{networkInfo.label}</span>
+							</div>
+						</div>
 					</div>
 					<button
 						class="btn btn-primary w-full touch-manipulation select-none active:scale-95 transition-transform duration-100"
 						style="-webkit-tap-highlight-color: transparent;"
-						onclick={() => {
+						onclick={async () => {
 							triggerHaptic(ImpactStyle.Medium);
+							// Refresh balance before closing
+							await walletManager.loadAssets();
+							// Close both modals and return to wallet balance screen
 							props.onClose();
 						}}
 					>

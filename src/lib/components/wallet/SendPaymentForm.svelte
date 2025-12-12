@@ -753,9 +753,9 @@
 	// Handle unit change
 	function handleUnitChange(newUnit: 'sats' | 'usd') {
 		unit = newUnit;
-		amount = '';
+		// Keep amount when switching units - user may have entered amount before selecting unit
 		mathExpression = '';
-		calculatorKey++;
+		// Don't increment calculatorKey - preserve calculator state and amount
 		wasMaxClicked = false;
 	}
 

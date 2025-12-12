@@ -32,17 +32,39 @@
 	// Filtered transactions (exclude swaps)
 	let filteredTransactions = $derived.by(() => {
 		const filterStartTime = performance.now();
+		
+		// Log all transactions before filtering
+		console.log(`[TransactionHistory] Filtering ${$transactions.length} transactions with filters: type=${typeFilter}, network=${networkFilter}`);
+		const typeCounts: Record<string, number> = {};
+		$transactions.forEach(tx => {
+			typeCounts[tx.type] = (typeCounts[tx.type] || 0) + 1;
+		});
+		console.log(`[TransactionHistory] Transaction type breakdown:`, typeCounts);
+		
 		const filtered = $transactions.filter((tx) => {
 			// Filter by type
-			if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
+			if (typeFilter !== 'all' && tx.type !== typeFilter) {
+				console.log(`[TransactionHistory] Filtered out transaction ${tx.hash?.substring(0, 10)}...: type mismatch (${tx.type} !== ${typeFilter})`);
+				return false;
+			}
 			// Filter by network
-			if (networkFilter !== 'all' && tx.network !== networkFilter) return false;
+			if (networkFilter !== 'all' && tx.network !== networkFilter) {
+				console.log(`[TransactionHistory] Filtered out transaction ${tx.hash?.substring(0, 10)}...: network mismatch (${tx.network} !== ${networkFilter})`);
+				return false;
+			}
 			return true;
 		});
+		
 		const filterDuration = performance.now() - filterStartTime;
-		if (filterDuration > 10) { // Only log if it takes more than 10ms
-			console.log(`[TransactionHistory] Filtering completed in ${filterDuration.toFixed(2)}ms (${$transactions.length} → ${filtered.length} transactions)`);
-		}
+		console.log(`[TransactionHistory] Filtering completed in ${filterDuration.toFixed(2)}ms (${$transactions.length} → ${filtered.length} transactions)`);
+		
+		// Log filtered transaction types
+		const filteredTypeCounts: Record<string, number> = {};
+		filtered.forEach(tx => {
+			filteredTypeCounts[tx.type] = (filteredTypeCounts[tx.type] || 0) + 1;
+		});
+		console.log(`[TransactionHistory] Filtered transaction type breakdown:`, filteredTypeCounts);
+		
 		return filtered;
 	});
 
@@ -817,7 +839,7 @@
 											</div>
 											{#if OverlayIcon}
 												<div class="absolute top-0 right-0 bg-base-100 rounded-full p-0.5 shadow-sm">
-													<OverlayIcon class="h-5 w-5 {txColor === 'success' ? 'text-success' : 'text-warning'}" />
+													<OverlayIcon class="h-4 w-4 {txColor === 'success' ? 'text-success' : 'text-warning'}" />
 												</div>
 											{/if}
 										</div>
