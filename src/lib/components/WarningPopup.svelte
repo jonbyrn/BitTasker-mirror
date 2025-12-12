@@ -14,7 +14,7 @@
 	let { onClose }: Props = $props();
 
 	let isVisible = $state(false);
-	let showHelpModal = $state(false);
+	let isHelpModalOpen = $state(false);
 
 	onMount(async () => {
 		const hasAcknowledged = await Preferences.get({
@@ -43,12 +43,8 @@
 		goto('/feedback');
 	}
 
-	function handleLearnMoreClick() {
-		showHelpModal = true;
-	}
-
-	function handleHelpModalClose() {
-		showHelpModal = false;
+	function showHelpModal() {
+		isHelpModalOpen = !isHelpModalOpen;
 	}
 </script>
 
@@ -91,7 +87,7 @@
 						{$t('common.components.warning_popup.message')}
 						<button
 							class="text-primary hover:text-primary-focus cursor-pointer underline"
-							onclick={handleLearnMoreClick}
+							onclick={showHelpModal}
 						>
 							{$t('common.components.warning_popup.learn_more')}
 						</button>
@@ -163,6 +159,6 @@
 {/if}
 
 <!-- Help Modal -->
-{#if showHelpModal}
-	<HelpModal onClose={handleHelpModalClose} showButton={false} />
+{#if isHelpModalOpen}
+	<HelpModal onClose={showHelpModal} showButton={false} />
 {/if}

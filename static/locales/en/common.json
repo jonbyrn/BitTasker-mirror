@@ -1,5 +1,18 @@
 {
     "common": {
+        "status": {
+            "open": "Open",
+            "bid_accepted": "Bid Accepted",
+            "escrow_funded": "Escrow Funded",
+            "in_progress": "In Progress",
+            "rescoped": "Rescoped",
+            "rescope_accepted": "Rescope Accepted",
+            "completed": "Completed",
+            "cancelled": "Cancelled",
+            "refunded": "Refunded",
+            "disputed": "Disputed",
+            "dispute_proposal": "Dispute Proposal"
+        },
         "location": {
             "address": "Address",
             "get_directions": "Get Directions",
@@ -1194,7 +1207,6 @@
                 "details": "Details"
             }
         }
-    
     },
     "airdatepicker": {
         "select_date": "Select a date",

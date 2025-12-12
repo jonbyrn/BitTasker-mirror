@@ -6,6 +6,35 @@
 	import { goto } from '$app/navigation';
 	import { t, locale } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
+	import type { ProfileTranslations } from '$lib/types/profile.d';
+
+	// Helper function to get translated profile content
+	// Reactive to locale changes via $locale
+	function getTranslatedProfileContent(
+		field: 'professionalTitle' | 'about'
+	): string {
+		const currentLang = $locale || 'en';
+		const originalText = userProfile?.[field] || '';
+		
+		// If no translations, return original
+		if (!userProfile?.translations) {
+			return originalText;
+		}
+
+		// If current language is source language, return original
+		if (userProfile.translations.sourceLanguage === currentLang) {
+			return originalText;
+		}
+
+		// Get translation for current language
+		const translation = userProfile.translations.translations[currentLang];
+		if (translation) {
+			return translation[field] || originalText;
+		}
+
+		// Fallback to original
+		return originalText;
+	}
 
 	// Get npub from route params
 	let routeNpub = $derived($page.params.npub);
@@ -22,6 +51,7 @@
 		pictures?: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
 		website?: string;
 		professionalTitle?: string;
+		translations?: ProfileTranslations;
 		skills?: Array<
 			| string
 			| {
@@ -76,6 +106,14 @@
 	let isAboutTruncated = $state(false);
 	let showFullAbout = $state(false);
 
+	// Get user picture with priority: pictures array > picture field
+	let userPicture = $derived(() => {
+		if (userProfile?.pictures && userProfile.pictures.length > 0) {
+			return userProfile.pictures[0].url;
+		}
+		return userProfile?.picture || '';
+	});
+
 	// Validate npub parameter
 	function validateNpub(npub: string): { valid: boolean; hexPubkey?: string; error?: string } {
 		if (!npub) {
@@ -123,28 +161,29 @@
 		projectImageSlides = { ...projectImageSlides };
 	}
 
-	// Verificar si el texto "Acerca de" está truncado
+	// Check if about text is actually truncated (same logic as TranslatableTask)
 	function checkIfAboutTruncated() {
 		if (!aboutElement) return;
 		
-		// Crear un clon oculto para medir la altura completa sin afectar el layout
+		// Create a hidden clone to measure full height without affecting layout
 		const clone = aboutElement.cloneNode(true) as HTMLElement;
 		clone.className = aboutElement.className.replace(/line-clamp-\d+/g, '');
 		clone.style.position = 'absolute';
 		clone.style.visibility = 'hidden';
 		clone.style.height = 'auto';
 		clone.style.width = aboutElement.offsetWidth + 'px';
+		clone.style.whiteSpace = 'pre-line'; // Preserve line breaks
 		document.body.appendChild(clone);
 		
 		const fullHeight = clone.scrollHeight;
 		const lineHeight = parseFloat(getComputedStyle(aboutElement).lineHeight) || 20;
-		const maxHeight = lineHeight * 2; // 2 líneas
+		const maxHeight = lineHeight * 2; // 2 lines
 		
-		// Limpiar
+		// Clean up
 		document.body.removeChild(clone);
 		
-		// Solo mostrar el botón si el contenido es realmente más alto que 2 líneas
-		isAboutTruncated = fullHeight > maxHeight + 1; // +1 para un pequeño margen
+		// Only show ellipsis if content is actually taller than 2 lines
+		isAboutTruncated = fullHeight > maxHeight + 1; // +1 for small margin
 	}
 
 	function toggleAbout() {
@@ -276,20 +315,25 @@
 
 		// Cargar el perfil del usuario
 		await loadUserProfile();
+
+		// Initialize truncation check after profile loads
+		if (aboutElement) {
+			requestAnimationFrame(() => {
+				checkIfAboutTruncated();
+			});
+		}
 	});
 
-	// Efecto para verificar si el texto "Acerca de" está truncado
+	// React to description and locale changes
 	$effect(() => {
-		if (aboutElement && userProfile?.about) {
-			// Resetear estado cuando cambia el contenido
+		const currentAbout = getTranslatedProfileContent('about');
+		
+		if (aboutElement && currentAbout) {
 			showFullAbout = false;
 			isAboutTruncated = false;
 			
-			// Usar requestAnimationFrame para asegurar que el DOM esté renderizado
 			requestAnimationFrame(() => {
-				setTimeout(() => {
-					checkIfAboutTruncated();
-				}, 0);
+				checkIfAboutTruncated();
 			});
 		}
 	});
@@ -463,11 +507,11 @@
 								<div class="shrink-0">
 									<!-- Mobile: tamaño xl (w-24 h-24) -->
 									<div class="block md:hidden">
-										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="xl"  />
+										<Avatar name={userProfile?.name} picture={userPicture()} size="xl"  />
 									</div>
 									<!-- Desktop: tamaño 2xl (w-40 h-40) -->
 									<div class="hidden md:block">
-										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="2xl"  />
+										<Avatar name={userProfile?.name} picture={userPicture()} size="2xl"  />
 									</div>
 								</div>
 
@@ -503,7 +547,7 @@
 									</div>
 									{#if userProfile?.professionalTitle}
 										<div class="badge badge-primary badge-lg mb-4 px-3 py-1 text-sm">
-											{userProfile.professionalTitle}
+											{getTranslatedProfileContent('professionalTitle')}
 										</div>
 									{/if}
 
@@ -583,7 +627,7 @@
 								bind:this={aboutElement}
 								class="text-base-content/80 text-sm leading-relaxed {showFullAbout ? '' : 'line-clamp-2'}"
 							>
-								{userProfile?.about || $t('common.profile.no_description')}
+								{getTranslatedProfileContent('about') || $t('common.profile.no_description')}
 							</p>
 							{#if isAboutTruncated && userProfile?.about}
 								<div class="text-left mb-2">

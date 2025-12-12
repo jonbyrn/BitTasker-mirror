@@ -1,8 +1,36 @@
 <script lang="ts">
 	import { profileStore } from '$lib/stores/profile.store';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
+
+	// Helper function to get translated profile content
+	// Reactive to locale changes via $locale
+	function getTranslatedProfileContent(
+		field: 'professionalTitle' | 'about'
+	): string {
+		const currentLang = $locale || 'en';
+		const originalText = $profileStore.data?.[field] || '';
+		
+		// If no translations, return original
+		if (!$profileStore.data?.translations) {
+			return originalText;
+		}
+
+		// If current language is source language, return original
+		if ($profileStore.data.translations.sourceLanguage === currentLang) {
+			return originalText;
+		}
+
+		// Get translation for current language
+		const translation = $profileStore.data.translations.translations[currentLang];
+		if (translation) {
+			return translation[field] || originalText;
+		}
+
+		// Fallback to original
+		return originalText;
+	}
 
 	let { formatDate, yearsFrom } = $props<{
 		formatDate: (date: string) => string;
@@ -17,64 +45,51 @@
 	// Estado para el carrusel de imágenes de cada proyecto
 	let projectImageSlides = $state<Record<string, number>>({});
 
-	// Check if description is actually truncated
+	// Check if description is actually truncated (same logic as TranslatableTask)
 	function checkIfTruncated() {
 		if (!descriptionElement) return;
 		
 		// Create a hidden clone to measure full height without affecting layout
 		const clone = descriptionElement.cloneNode(true) as HTMLElement;
-		// Remove line-clamp to see full height
 		clone.className = descriptionElement.className.replace(/line-clamp-\d+/g, '');
 		clone.style.position = 'absolute';
 		clone.style.visibility = 'hidden';
 		clone.style.height = 'auto';
 		clone.style.width = descriptionElement.offsetWidth + 'px';
 		clone.style.whiteSpace = 'pre-line'; // Preserve line breaks
-		clone.style.overflow = 'visible';
 		document.body.appendChild(clone);
 		
 		const fullHeight = clone.scrollHeight;
-		const actualHeight = descriptionElement.scrollHeight;
 		const lineHeight = parseFloat(getComputedStyle(descriptionElement).lineHeight) || 20;
 		const maxHeight = lineHeight * 2; // 2 lines
 		
 		// Clean up
 		document.body.removeChild(clone);
 		
-		// Check if content is actually taller than 2 lines
-		// The content is truncated if the full height (without line-clamp) is greater than 2 lines
-		// We use a more lenient check: if full height is more than 1.5x the max height, it's truncated
-		const heightCheck = fullHeight > maxHeight * 1.5;
-		
-		// Also check by character count as a fallback
-		// If text is longer than ~25 characters, it's likely to span more than 2 lines on mobile
-		// (Mobile screens are narrower, so text wraps more)
-		const textLength = descriptionElement.textContent?.trim().length || 0;
-		const lengthCheck = textLength > 25;
-		
-		isDescriptionTruncated = heightCheck || lengthCheck;
+		// Only show ellipsis if content is actually taller than 2 lines
+		isDescriptionTruncated = fullHeight > maxHeight + 1; // +1 for small margin
 	}
 
+	// Initialize on mount
+	onMount(() => {
+		if (descriptionElement) {
+			requestAnimationFrame(() => {
+				checkIfTruncated();
+			});
+		}
+	});
+
+	// React to description and locale changes
 	$effect(() => {
-		// React to description changes and element availability
-		const currentDescription = $profileStore.data?.about;
+		const currentDescription = getTranslatedProfileContent('about');
 		
 		if (descriptionElement && currentDescription) {
-			// Reset state when description changes
 			showFullDescription = false;
 			isDescriptionTruncated = false;
 			
-			// Use multiple timeouts to ensure DOM is fully rendered
-			// This is necessary because the element might not have its final dimensions yet
-			const checkTimeout = setTimeout(() => {
-				requestAnimationFrame(() => {
-					setTimeout(() => {
-						checkIfTruncated();
-					}, 50);
-				});
-			}, 200);
-			
-			return () => clearTimeout(checkTimeout);
+			requestAnimationFrame(() => {
+				checkIfTruncated();
+			});
 		}
 	});
 
@@ -105,15 +120,6 @@
 		projectImageSlides[itemId] = imageIndex;
 		projectImageSlides = { ...projectImageSlides };
 	}
-
-	// Also check on mount to ensure it runs when component is ready
-	onMount(() => {
-		if (descriptionElement && $profileStore.data?.about) {
-			setTimeout(() => {
-				checkIfTruncated();
-			}, 300);
-		}
-	});
 </script>
 
 <!-- Profile Info Section -->
@@ -136,7 +142,7 @@
 					class="text-base-content/70 whitespace-pre-line {showFullDescription ? '' : 'line-clamp-2'}"
 					style="word-break: break-word; overflow-wrap: anywhere;"
 				>
-					{$profileStore.data.about}
+					{getTranslatedProfileContent('about')}
 				</p>
 				{#if isDescriptionTruncated}
 					<button 

@@ -288,14 +288,16 @@ export const tasksStore = (() => {
 		loading: boolean,
 		error: string | null,
 		currentPage: number,
-		hasMore: boolean
+		hasMore: boolean,
+		searchParamsKey: string
 	}>({
 		pool,
 		items: [],
 		loading: false,
 		currentPage: 1,
 		hasMore: true,
-		error: null
+		error: null,
+		searchParamsKey: ''
 	});
 
 	return {

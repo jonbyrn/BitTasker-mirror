@@ -161,7 +161,8 @@
                 "availability": "Availability",
                 "services": "Standard Services",
                 "error": "Failed to load profile data. Please try again later."
-            }
+            },
+            "profile_updated": "Profile updated successfully!"
         },
         "about": "About",
         "noDescription": "No description added yet.",

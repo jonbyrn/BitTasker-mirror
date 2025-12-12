@@ -238,10 +238,10 @@
 			<details
 				class="dropdown dropdown-end"
 				bind:open={isAvatarDropdownOpen}
-				use:clickOutside={{ callback: () => isAvatarDropdownOpen = false }}
+				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 			>
 				<summary class="btn btn-ghost" onclick={toggleAvatarDropdown}>
-					<Avatar name={$user.picture} picture={userPicture()} size="sm" />
+					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</summary>
 				<ul
 					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
