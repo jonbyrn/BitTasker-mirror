@@ -13,7 +13,9 @@
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
+	let { onComplete } = $props<{ 
+		onComplete: (completed: boolean, fromSave?: boolean) => void;
+	}>();
 
 	// Local state
 	let skills = $state<Skill[]>([]);
@@ -208,7 +210,8 @@
 			// Publish skills update
 			await publishSkillsUpdate(skills);
 
-			appStore.showSuccessToast($t('profile.skills.skills_updated_success'));
+			// Notify completion change from save (triggers toast in parent)
+			onComplete(skills.length > 0, true);
 		} catch (err) {
 			console.error('Failed to save skills:', err);
 			error = err instanceof Error ? err.message : $t('profile.skills.failed_to_save_skills');

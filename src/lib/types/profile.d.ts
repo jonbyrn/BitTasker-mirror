@@ -16,6 +16,16 @@ export interface NostrReview {
     date: string;
 }
 
+export interface ProfileTranslations {
+	sourceLanguage: string; // Language of the original content
+	translations: {
+		[language: string]: {
+			professionalTitle: string;
+			about: string;
+		};
+	};
+}
+
 export interface NostrProfile {
     // NIP-01 basic fields
     name?: string;
@@ -33,6 +43,7 @@ export interface NostrProfile {
     // Additional common fields
     professionalTitle?: string;
     location?: string; // Geographic location
+    translations?: ProfileTranslations; // Translations for all supported languages
     
     // Deprecated/internal fields (for backwards compatibility)
     pictures?: NostrProfileImage[]; // Legacy field, prefer picture
@@ -156,6 +167,7 @@ export type Profile = {
     pictures?: NostrProfileImage[];
     website?: string;
     professionalTitle?: string;
+    translations?: ProfileTranslations;
     skills?: {
         name: string;
         level: number;

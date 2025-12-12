@@ -251,12 +251,20 @@
 			// Upload and publish profile picture if a new file is selected
 			await handleImageUpload();
 
+			// Generate translations for profile content (professionalTitle and about)
+			const { generateProfileTranslations } = await import('$lib/nostr/profile');
+			const profileTranslations = await generateProfileTranslations({
+				professionalTitle,
+				about: profileDescription
+			});
+
 			// Publish profile metadata
 			const profileData: NostrProfile = {
 				name: displayName, // Use 'name' as primary field per NIP-24
 				display_name: displayName,
 				professionalTitle,
-				about: profileDescription
+				about: profileDescription,
+				...(profileTranslations && { translations: profileTranslations })
 			};
 
 			// Include picture URL if available (NIP-24)

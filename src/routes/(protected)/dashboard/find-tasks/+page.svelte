@@ -778,10 +778,10 @@
 							{:else if $tasksStore.items && $tasksStore.items.length > 0}
 								<div class="space-y-4">
 									{#each $tasksStore.items as task, index}
+										{@const isSelected = selectedTask?.id === task.id}
 										<div
 											use:registerTaskCard={{ taskId: task.id }}
-											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {selectedTask?.id ===
-											task.id
+											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {isSelected
 												? 'bg-base-300 border-primary border-2'
 												: ''}"
 											onclick={() => selectTaskForMap(task)}
@@ -988,7 +988,7 @@
 													<!-- Right: Action Buttons -->
 													<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 														<button
-															class="btn btn-primary btn-sm flex-1 md:flex-none"
+															class="btn btn-primary btn-sm md:flex-none"
 															class:btn-disabled={task.status === TaskStatusEnum.CANCELLED ||
 																task.status === TaskStatusEnum.DISPUTED ||
 																task.status === TaskStatusEnum.COMPLETED ||
@@ -1019,7 +1019,7 @@
 														</button>
 
 														<button
-															class="btn btn-secondary btn-sm flex-1 md:flex-none"
+															class="btn btn-secondary btn-sm md:flex-none flex-1"
 															onclick={(e) => {
 																e.stopPropagation();
 																// Use uniqueId if available, fallback to id for backward compatibility

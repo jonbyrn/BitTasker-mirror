@@ -3,9 +3,37 @@
 	import { onMount } from 'svelte';
 	import { profileStore } from '$lib/stores/profile.store';
 	import { user } from '$lib/stores/user.store';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
+
+	// Helper function to get translated profile content
+	// Reactive to locale changes via $locale
+	function getTranslatedProfileContent(
+		field: 'professionalTitle' | 'about'
+	): string {
+		const currentLang = $locale || 'en';
+		const originalText = $profileStore.data?.[field] || '';
+		
+		// If no translations, return original
+		if (!$profileStore.data?.translations) {
+			return originalText;
+		}
+
+		// If current language is source language, return original
+		if ($profileStore.data.translations.sourceLanguage === currentLang) {
+			return originalText;
+		}
+
+		// Get translation for current language
+		const translation = $profileStore.data.translations.translations[currentLang];
+		if (translation) {
+			return translation[field] || originalText;
+		}
+
+		// Fallback to original
+		return originalText;
+	}
 
 	// Initialize user store when component mounts
 	onMount(async () => {
@@ -55,8 +83,9 @@
 
 	// Get display name for sharing (professional title if available, otherwise name)
 	const shareDisplayName = $derived(() => {
-		if ($profileStore.data?.professionalTitle && $profileStore.data.professionalTitle.trim()) {
-			return $profileStore.data.professionalTitle;
+		const translatedTitle = getTranslatedProfileContent('professionalTitle');
+		if (translatedTitle && translatedTitle.trim()) {
+			return translatedTitle;
 		}
 		return userName || 'Professional Profile';
 	});
@@ -68,9 +97,10 @@
 		const displayName = shareDisplayName();
 		let description = '';
 		
-		// Use about description if available
-		if ($profileStore.data.about && $profileStore.data.about.trim()) {
-			description = $profileStore.data.about;
+		// Use about description if available (translated)
+		const translatedAbout = getTranslatedProfileContent('about');
+		if (translatedAbout && translatedAbout.trim()) {
+			description = translatedAbout;
 		}
 		
 		// Build share message - use string replacement for parameters
@@ -140,13 +170,13 @@
 						<h3 class="line-clamp-2 wrap-break-word min-w-0">
 							{userName}
 						</h3>
-						{#if $profileStore.data.professionalTitle}
-							<div
-								class="badge badge-primary mb-2 w-fit leading-tight wrap-break-word whitespace-nowrap"
-							>
-								{$profileStore.data.professionalTitle}
-							</div>
-						{/if}
+					{#if $profileStore.data.professionalTitle}
+						<div
+							class="badge badge-primary mb-2 w-fit leading-tight wrap-break-word whitespace-nowrap"
+						>
+							{getTranslatedProfileContent('professionalTitle')}
+						</div>
+					{/if}
 					</div>
 					<!-- Action buttons - Desktop only -->
 					<div class="hidden md:flex gap-2">

@@ -15,7 +15,7 @@
 	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{
-		onComplete: (completed: boolean) => void;
+		onComplete: (completed: boolean, fromSave?: boolean) => void;
 	}>();
 
 	// Local state
@@ -166,6 +166,10 @@
 			}
 
 			await publishPortfolioItem(item, tags);
+
+			// Notify completion change from save (triggers toast in parent)
+			const isComplete = portfolioItems.length > 0;
+			onComplete(isComplete, true);
 
 			// Show success message
 			successMessage = editingItem
