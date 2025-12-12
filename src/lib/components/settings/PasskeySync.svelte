@@ -10,6 +10,7 @@
 		createUserDeviceShortName
 	} from '$lib/utils/helpers/deviceIdentity';
 	import authService from '$lib/api/services/auth.service';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 
 	let { authMethod }: { authMethod: string } = $props();
 
@@ -21,6 +22,7 @@
 	let hasPasskey = $state(false);
 	let passkeyTestLoading = $state(false);
 	let biometricsAvailable = $state(false);
+	let lastPasskeyAction = $state<'setup' | 'test' | null>(null);
 
 	onMount(async () => {
 		biometricsAvailable = await checkBiometricAvailability();
@@ -32,6 +34,7 @@
 			passkeyLoading = true;
 			passkeyError = '';
 			passkeySuccess = '';
+			lastPasskeyAction = 'setup';
 
 			const biometricData = $appStore.biometricData;
 
@@ -74,6 +77,7 @@
 		try {
 			passkeyTestLoading = true;
 			passkeyError = '';
+			lastPasskeyAction = 'test';
 
 			// Try to authenticate using the passkey
 			const passkeyData = await getBiometricData('passkey', true);
@@ -211,22 +215,20 @@
 			{/if}
 
 			{#if passkeyError}
-				<div class="alert alert-error alert-outline mb-4 overflow-hidden">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span class="overflow-wrap-anywhere break-all whitespace-normal">{passkeyError}</span>
-				</div>
+				<ErrorAlertWithModal
+					error={passkeyError}
+					isPasskeyError={true}
+					autoOpenModal={true}
+					onRetry={async () => {
+						passkeyError = '';
+						if (lastPasskeyAction === 'setup') {
+							await setupPasskey();
+						} else if (lastPasskeyAction === 'test') {
+							await testPasskey();
+						}
+					}}
+					class="mb-4"
+				/>
 			{/if}
 
 			<!-- Information Notice -->

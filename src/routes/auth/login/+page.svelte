@@ -36,6 +36,7 @@
 	import { Buffer } from 'buffer';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -52,6 +53,9 @@
 		biometric: false,
 		webAuthn: false
 	});
+	let isPasskeyError = $state(false);
+	let lastAuthMethod = $state<'biometrics' | 'passkey' | null>(null);
+	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
 
 	onMount(async () => {
 		try {
@@ -122,6 +126,9 @@
 		try {
 			isLoading = true;
 			error = '';
+			isPasskeyError = false;
+			lastAuthMethod = authMethod; // Track which method was attempted
+			lastAction = 'authenticate'; // Track which action was attempted
 
 			const deviceId = await getDeviceIdentifier();
 			let biometricData = null;
@@ -136,6 +143,7 @@
 				await login(biometricData, deviceId, authMethod);
 			} else {
 				error = $t('login.errors.no_account');
+				isPasskeyError = true;
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
@@ -148,13 +156,24 @@
 					err.message === '') {
 					// Don't show error for pending requests
 					error = '';
+					isPasskeyError = false;
 				} else if (err.name === 'NotAllowedError' || err.message.includes('NotAllowedError')) {
 					error = $t('login.errors.cancelled');
+					isPasskeyError = true;
 				} else {
 					error = err.message;
+					// Check if error is related to passkeys/biometrics
+					isPasskeyError = err.message.toLowerCase().includes('passkey') ||
+						err.message.toLowerCase().includes('biometric') ||
+						err.message.toLowerCase().includes('webauthn') ||
+						err.message.toLowerCase().includes('authentication') ||
+						err.name === 'NotAllowedError' ||
+						err.name === 'NotSupportedError' ||
+						err.name === 'SecurityError';
 				}
 			} else {
 				error = $t('login.errors.failed');
+				isPasskeyError = false;
 			}
 		} finally {
 			isLoading = false;
@@ -166,6 +185,8 @@
 		try {
 			isLoading = true;
 			error = '';
+			isPasskeyError = false;
+			lastAction = 'nsecLogin'; // Track which action was attempted
 
 			// Only run in browser environment to avoid Buffer issues
 			if (typeof Buffer === 'undefined') {
@@ -323,6 +344,18 @@
 		} catch (err) {
 			console.error('Error:', err);
 			error = err instanceof Error ? err.message : $t('login.errors.failed');
+			// Check if error is related to passkeys/biometrics (nsec login can involve passkey setup)
+			if (err instanceof Error) {
+				isPasskeyError = err.message.toLowerCase().includes('passkey') ||
+					err.message.toLowerCase().includes('biometric') ||
+					err.message.toLowerCase().includes('webauthn') ||
+					err.message.toLowerCase().includes('authentication') ||
+					err.name === 'NotAllowedError' ||
+					err.name === 'NotSupportedError' ||
+					err.name === 'SecurityError';
+			} else {
+				isPasskeyError = false;
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -421,6 +454,7 @@
 							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
 							onclick={() => {
 								error = '';
+								isPasskeyError = false;
 								isNostrLogin = true;
 							}}
 						>
@@ -533,6 +567,7 @@
 							class="btn btn-block btn-secondary"
 							onclick={() => {
 								error = '';
+								isPasskeyError = false;
 								isNostrLogin = false;
 								nsec = '';
 							}}
@@ -544,22 +579,29 @@
 				{/if}
 
 				{#if error}
-					<div class="alert alert-error alert-outline mt-2">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span class="overflow-wrap-anywhere break-all whitespace-normal">{error}</span>
-					</div>
+					<ErrorAlertWithModal
+						{error}
+						isPasskeyError={true}
+						autoOpenModal={true}
+						onRetry={async () => {
+							// Close modal and clear error state
+							error = '';
+							isPasskeyError = false;
+							// Retry the last action that was attempted
+							if (lastAction === 'nsecLogin') {
+								await handleNsecLogin();
+							} else if (lastAction === 'authenticate' && lastAuthMethod) {
+								await authenticate(lastAuthMethod);
+							} else if (authMethods.webAuthn) {
+								// Default to passkey if available
+								await authenticate('passkey');
+							} else if (authMethods.biometric) {
+								// Fallback to biometrics if available
+								await authenticate('biometrics');
+							}
+						}}
+						class="mt-2"
+					/>
 				{/if}
 
 				<div class="divider my-1">{$t('common.or')}</div>
