@@ -17,7 +17,8 @@
         },
         "qrCode": {
           "generate": "Generate QR Code",
-          "generating": "Generating QR Code..."
+          "generating": "Generating QR Code...",
+          "show": "Show QR Code"
         }
       },
       "security": {
