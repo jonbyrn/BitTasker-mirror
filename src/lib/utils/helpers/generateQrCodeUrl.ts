@@ -16,7 +16,7 @@ export default async function generateQrCodeUrl(data: string): Promise<string> {
         // Generate QR code with higher error correction for logo overlay
         await QRCode.toCanvas(canvas, data, {
             errorCorrectionLevel: 'H', // High error correction for logo overlay
-            margin: 0,
+            margin: 4, // Quiet zone (4 modules) for better scanning reliability
             width: 256,
             color: {
                 dark: '#000000',
