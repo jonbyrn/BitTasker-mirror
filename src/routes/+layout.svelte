@@ -335,7 +335,7 @@
 							<p class="mb-4">{$t('footer.company_description')}</p>
 							<!-- Social media icons -->
 							<div class="flex flex-col space-y-6 lg:space-y-2">
-								<!-- First row: Primal, Twitter, Facebook, Instagram, YouTube -->
+								<!-- First row: Primal, Telegram, WhatsApp, Twitter, Facebook, Instagram -->
 								<div
 									class="md:col-span3 col-span-2 flex justify-center space-x-8 lg:col-span-1 lg:justify-start lg:space-x-4"
 								>
@@ -363,6 +363,28 @@
 												d="m 28.1246,32.8843 c -1.2983,0.8849 -2.7184,1.6044 -4.23,2.1281 -0.7258,-0.1264 -1.5299,-0.2838 -2.0961,-0.3946 -0.2683,-0.0525 -0.4833,-0.0946 -0.611,-0.118 -3.424,-0.6254 -9.546,-2.8317 -10.8872,-10.0664 -0.3789,-2.909 -0.1075,-5.5868 0.8536,-7.7109 0.9468,-2.0926 2.5809,-3.6968 5.0729,-4.5067 2.8964,-0.7891 5.2966,-0.398 7.0795,0.5595 -0.4389,-0.0925 -0.8925,-0.141 -1.3567,-0.141 -3.8577,0 -6.9851,3.3506 -6.9851,7.4839 0,1.6504 0.4987,3.1761 1.3433,4.4134 0,0 2.4179,4.5673 9,4.1591 5.8689,-0.364 8.9166,-5.6283 9.2798,-7.5728 0.1888,-1.0105 0.2875,-2.0527 0.2875,-3.118 0,-9.31974 -7.5551,-16.87491 -16.8749,-16.87491 -7.0523,0 -13.09415,4.32607 -15.61666,10.46921 -0.85203,1.11 -1.585694,2.3405 -2.176875,3.6711 C 1.52404,6.62202 8.98879,0 18.0002,0 c 9.9411,0 17.9999,8.05884 17.9999,17.9999 0,6.187 -3.1215,11.6445 -7.8755,14.8844 z"
 											/>
 										</svg>
+									</a>
+									<a
+										href="https://t.me/+Y1VVB5B1Z6Q5OGQ1"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.telegram_aria')}
+									>
+										<IconTelegram
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
+									</a>
+									<a
+										href="https://chat.whatsapp.com/GorZMOrVhOb0KDX6dpKLZ2"
+										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+										target="_blank"
+										rel="noopener noreferrer"
+										aria-label={$t('footer.social.whatsapp_aria')}
+									>
+										<IconWhatsapp
+											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+										/>
 									</a>
 									<a
 										href="https://twitter.com/BitTaskerdotcom"
@@ -406,6 +428,9 @@
 											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
 										/>
 									</a>
+								</div>
+								<!-- Second row: YouTube, LinkedIn, Reddit, TikTok, Rumble, GitHub -->
+								<div class="flex justify-center space-x-8 lg:justify-start lg:space-x-4">
 									<a
 										href="https://www.youtube.com/@BitTasker"
 										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
@@ -417,9 +442,6 @@
 											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
 										/>
 									</a>
-								</div>
-								<!-- Second row: LinkedIn, Reddit, TikTok, Rumble, GitHub -->
-								<div class="flex justify-center space-x-8 lg:justify-start lg:space-x-4">
 									<a
 										href="https://www.linkedin.com/company/bittasker/"
 										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
@@ -472,31 +494,6 @@
 										aria-label="GitHub"
 									>
 										<IconGithub
-											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
-										/>
-									</a>
-								</div>
-								<!-- Third row: Telegram, WhatsApp -->
-								<div class="flex justify-center space-x-8 lg:justify-start lg:space-x-4">
-									<a
-										href="https://t.me/+Y1VVB5B1Z6Q5OGQ1"
-										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-										target="_blank"
-										rel="noopener noreferrer"
-										aria-label={$t('footer.social.telegram_aria')}
-									>
-										<IconTelegram
-											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
-										/>
-									</a>
-									<a
-										href="https://chat.whatsapp.com/GorZMOrVhOb0KDX6dpKLZ2"
-										class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-										target="_blank"
-										rel="noopener noreferrer"
-										aria-label={$t('footer.social.whatsapp_aria')}
-									>
-										<IconWhatsapp
 											class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
 										/>
 									</a>

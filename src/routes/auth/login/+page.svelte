@@ -35,6 +35,7 @@
 	import { linear } from 'svelte/easing';
 	import { Buffer } from 'buffer';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
+	import LoginQrCodeScannerModal from '$lib/components/LoginQrCodeScannerModal.svelte';
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 
@@ -56,6 +57,8 @@
 	let isPasskeyError = $state(false);
 	let lastAuthMethod = $state<'biometrics' | 'passkey' | null>(null);
 	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
+	let qrScannerModal: LoginQrCodeScannerModal | null = $state(null);
+	let isQrScannerError = $state(false);
 
 	onMount(async () => {
 		try {
@@ -365,6 +368,36 @@
 		nsec = barcode.displayValue;
 		handleNsecLogin();
 	}
+
+	function handleQrCodeScan(scannedText: string) {
+		// Clear any previous errors
+		error = '';
+		isPasskeyError = false;
+		isQrScannerError = false;
+
+		// Validate that the scanned text is an nsec
+		const validation = validateNostrPrivateKey(scannedText);
+		if (!validation.isValid) {
+			error = validation.error || 'Invalid nsec QR code';
+			isQrScannerError = true;
+			return;
+		}
+
+		// Set nsec and trigger login
+		nsec = scannedText;
+		handleNsecLogin();
+	}
+
+	function openQrScanner() {
+		// Clear any previous errors when opening scanner
+		error = '';
+		isPasskeyError = false;
+		isQrScannerError = false;
+
+		if (qrScannerModal) {
+			qrScannerModal.open();
+		}
+	}
 </script>
 
 <div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
@@ -452,11 +485,29 @@
 
 						<button
 							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
+							onclick={openQrScanner}
+							disabled={isLoading}
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
+								<path
+									fill="none"
+									stroke="currentColor"
+									stroke-linejoin="round"
+									d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
+									stroke-width="1"
+								/>
+							</svg>
+							{$t('login.login_with_qr_code')}
+						</button>
+
+						<button
+							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
 							onclick={() => {
 								error = '';
 								isPasskeyError = false;
 								isNostrLogin = true;
 							}}
+							disabled={isLoading}
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="size-6"
 								><path
@@ -579,29 +630,59 @@
 				{/if}
 
 				{#if error}
-					<ErrorAlertWithModal
-						{error}
-						isPasskeyError={true}
-						autoOpenModal={true}
-						onRetry={async () => {
-							// Close modal and clear error state
-							error = '';
-							isPasskeyError = false;
-							// Retry the last action that was attempted
-							if (lastAction === 'nsecLogin') {
-								await handleNsecLogin();
-							} else if (lastAction === 'authenticate' && lastAuthMethod) {
-								await authenticate(lastAuthMethod);
-							} else if (authMethods.webAuthn) {
-								// Default to passkey if available
-								await authenticate('passkey');
-							} else if (authMethods.biometric) {
-								// Fallback to biometrics if available
-								await authenticate('biometrics');
-							}
-						}}
-						class="mt-2"
-					/>
+					{#if isQrScannerError}
+						<!-- QR Scanner errors - simple alert, no passkey retry -->
+						<div class="alert alert-outline alert-error mt-2">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span>{error}</span>
+							<button
+								class="btn btn-sm btn-ghost"
+								onclick={() => {
+									error = '';
+									isQrScannerError = false;
+								}}
+							>
+								{$t('common.close')}
+							</button>
+						</div>
+					{:else}
+						<!-- Passkey/biometric errors - use ErrorAlertWithModal -->
+						<ErrorAlertWithModal
+							{error}
+							isPasskeyError={isPasskeyError}
+							autoOpenModal={isPasskeyError}
+							onRetry={async () => {
+								// Close modal and clear error state
+								error = '';
+								isPasskeyError = false;
+								// Retry the last action that was attempted
+								if (lastAction === 'nsecLogin') {
+									await handleNsecLogin();
+								} else if (lastAction === 'authenticate' && lastAuthMethod) {
+									await authenticate(lastAuthMethod);
+								} else if (authMethods.webAuthn) {
+									// Default to passkey if available
+									await authenticate('passkey');
+								} else if (authMethods.biometric) {
+									// Fallback to biometrics if available
+									await authenticate('biometrics');
+								}
+							}}
+							class="mt-2"
+						/>
+					{/if}
 				{/if}
 
 				<div class="divider my-1">{$t('common.or')}</div>
@@ -618,4 +699,22 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- QR Code Scanner Modal -->
+	<LoginQrCodeScannerModal
+		bind:this={qrScannerModal}
+		onScan={handleQrCodeScan}
+		onError={(err) => {
+			error = err;
+			isQrScannerError = true;
+			isPasskeyError = false;
+		}}
+		onClose={() => {
+			// Clear QR scanner errors when modal closes
+			if (isQrScannerError) {
+				error = '';
+				isQrScannerError = false;
+			}
+		}}
+	/>
 </div>

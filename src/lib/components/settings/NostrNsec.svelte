@@ -72,7 +72,7 @@
 		</p>
 
 		<!-- Desktop Layout: Side by side, Mobile: Stacked -->
-		<div class="flex flex-col items-center lg:flex-row lg:gap-8">
+		<div class="flex flex-col lg:flex-row lg:gap-8">
 			<!-- Left Column: Keys -->
 			<div class="flex-1 lg:min-w-0">
 				<!-- Public Key (NPub) -->
@@ -280,7 +280,7 @@
 			<!-- Right Column: QR Code (Desktop) / Below Keys (Mobile) -->
 			{#if qrCodeDataUrl && authMethod !== 'alby'}
 				<div
-					class="shrink-0 text-center lg:w-80"
+					class="mt-8 shrink-0 w-full text-center lg:mt-0 lg:w-80"
 					in:fly={{
 						duration: 200,
 						easing: linear,
@@ -288,11 +288,11 @@
 						x: 10
 					}}
 				>
-					<div class="mb-4 flex w-fit justify-center rounded-lg bg-white p-1 shadow-lg">
+					<div class="mb-4 w-full rounded-lg bg-white p-1 shadow-lg">
 						<img
 							src={qrCodeDataUrl}
 							alt="Private Key QR Code"
-							class="h-full max-h-48 w-full max-w-48 lg:max-h-64 lg:max-w-64"
+							class="w-full aspect-square"
 						/>
 					</div>
 				</div>
