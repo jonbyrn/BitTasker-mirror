@@ -106,10 +106,9 @@
 					type="button"
 				>
 					<IconInformation class="h-4 w-4 shrink-0" />
-					<span class="hidden sm:inline text-xs sm:text-sm font-medium">
-						{$t('common.components.error_troubleshooting_modal.troubleshoot')}
+					<span class="text-xs sm:text-sm font-medium">
+						{$t('common.components.error_troubleshooting_modal.help')}
 					</span>
-					<span class="sm:hidden text-xs font-medium">Help</span>
 				</button>
 			</div>
 		{/if}

@@ -30,6 +30,8 @@
 		setWebBiometricKey,
 		getWebAuthnProviderDescription
 	} from '$lib/utils/helpers/webBiometrics';
+	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
+	import { Capacitor } from '@capacitor/core';
 	import authService from '$lib/api/services/auth.service';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
@@ -160,19 +162,21 @@
 					// Don't show error for pending requests
 					error = '';
 					isPasskeyError = false;
-				} else if (err.name === 'NotAllowedError' || err.message.includes('NotAllowedError')) {
-					error = $t('login.errors.cancelled');
-					isPasskeyError = true;
 				} else {
-					error = err.message;
+					// Use biometric error handler to translate error messages
+					const platform = Capacitor.getPlatform() === 'web' ? 'web' : 'mobile-webauthn';
+					error = await handleBiometricError(err, platform);
 					// Check if error is related to passkeys/biometrics
-					isPasskeyError = err.message.toLowerCase().includes('passkey') ||
+					isPasskeyError = error !== '' && (
+						err.message.toLowerCase().includes('passkey') ||
 						err.message.toLowerCase().includes('biometric') ||
 						err.message.toLowerCase().includes('webauthn') ||
 						err.message.toLowerCase().includes('authentication') ||
 						err.name === 'NotAllowedError' ||
 						err.name === 'NotSupportedError' ||
-						err.name === 'SecurityError';
+						err.name === 'SecurityError' ||
+						err.name === 'TimeoutError'
+					);
 				}
 			} else {
 				error = $t('login.errors.failed');

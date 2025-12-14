@@ -251,6 +251,7 @@
       "error_troubleshooting_modal": {
         "title": "Solución de Problemas de Error",
         "troubleshoot": "Solucionar",
+        "help": "Ayuda",
         "button_title": "Obtener ayuda para solucionar este error",
         "error_occurred": "Ocurrió un error",
         "troubleshooting_steps_title": "Pasos de Solución",
