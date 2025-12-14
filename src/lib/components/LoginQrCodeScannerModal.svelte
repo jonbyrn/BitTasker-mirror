@@ -67,11 +67,11 @@
 			
 			// Use a function-based qrbox that receives viewfinder dimensions
 			// This ensures the qrbox is calculated based on the actual camera viewfinder size
-			// and matches our visual overlay (60% of the viewfinder)
+			// Set to 80% of the viewfinder for better scanning area
 			const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
-				// Calculate 60% of the smaller dimension to match our visual overlay
+				// Calculate 80% of the smaller dimension
 				const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-				const qrboxSize = Math.max(Math.floor(minEdgeSize * 0.6), 50); // Minimum 50px required
+				const qrboxSize = Math.max(Math.floor(minEdgeSize * 0.8), 50); // Minimum 50px required
 				
 				console.log('[QR Scanner] Viewfinder dimensions:', { viewfinderWidth, viewfinderHeight });
 				console.log('[QR Scanner] Calculated qrbox size:', qrboxSize);
