@@ -426,6 +426,7 @@
             },
             "qr_scanner": {
                 "scan_qr_code": "Scan QR Code",
+                "get_qr_from_settings": "You can get your QR code from your other device by going to <strong>Settings</strong> and tapping the <strong>Show QR Code</strong> button.",
                 "close": "Close",
                 "toggle_torch": "Toggle Torch"
             },

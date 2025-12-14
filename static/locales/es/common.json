@@ -426,6 +426,7 @@
       },
       "qr_scanner": {
         "scan_qr_code": "Escanear Código QR",
+        "get_qr_from_settings": "Puedes obtener tu código QR desde tu otro dispositivo yendo a <strong>Configuración</strong> y tocando el botón <strong>Mostrar Código QR</strong>.",
         "close": "Cerrar",
         "toggle_torch": "Alternar Linterna"
       },
