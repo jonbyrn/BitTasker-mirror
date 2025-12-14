@@ -65,14 +65,28 @@
 
 			html5QrCode = new Html5Qrcode('qr-reader');
 			
-			// Calculate 60% of the container size for the scanning area
-			const containerRect = qrReaderElement.getBoundingClientRect();
-			const qrBoxSize = Math.min(containerRect.width, containerRect.height) * 0.6;
+			// Use a function-based qrbox that receives viewfinder dimensions
+			// This ensures the qrbox is calculated based on the actual camera viewfinder size
+			// and matches our visual overlay (60% of the viewfinder)
+			const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
+				// Calculate 60% of the smaller dimension to match our visual overlay
+				const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+				const qrboxSize = Math.max(Math.floor(minEdgeSize * 0.6), 50); // Minimum 50px required
+				
+				console.log('[QR Scanner] Viewfinder dimensions:', { viewfinderWidth, viewfinderHeight });
+				console.log('[QR Scanner] Calculated qrbox size:', qrboxSize);
+				
+				return {
+					width: qrboxSize,
+					height: qrboxSize
+				};
+			};
 			
 			const config: Html5QrcodeCameraScanConfig = {
-				fps: 10,
-				qrbox: { width: qrBoxSize, height: qrBoxSize },
-				aspectRatio: 1.0
+				fps: 20, // Higher FPS for faster detection and better reliability
+				qrbox: qrboxFunction, // Use function to calculate based on viewfinder dimensions
+				aspectRatio: 1.0,
+				disableFlip: false // Allow flipping for better detection
 			};
 
 			// html5-qrcode will request camera permissions automatically when start() is called
@@ -80,12 +94,20 @@
 				{ facingMode: 'environment' },
 				config,
 				(decodedText) => {
-					// Successfully scanned
-					onScan(decodedText);
+					// Successfully scanned - trim whitespace before passing to handler
+					const trimmedText = decodedText.trim();
+					console.log('[QR Scanner] Scanned text (raw):', decodedText);
+					console.log('[QR Scanner] Scanned text (trimmed):', trimmedText);
+					console.log('[QR Scanner] Text length:', trimmedText.length);
+					onScan(trimmedText);
 					stopScan();
 				},
 				(errorMessage) => {
-					// Ignore scanning errors, just keep scanning
+					// Log scanning errors for debugging, but don't stop scanning
+					// Only log if it's not a common "not found" error
+					if (!errorMessage.includes('No QR code found')) {
+						console.debug('[QR Scanner] Scanning error:', errorMessage);
+					}
 				}
 			);
 		} catch (error) {
@@ -178,7 +200,12 @@
 
 			// Remove listener and call handler
 			listener.remove();
-			onScan(firstBarcode.displayValue);
+			// Trim whitespace from scanned text
+			const scannedText = firstBarcode.displayValue.trim();
+			console.log('[QR Scanner] Scanned text (raw):', firstBarcode.displayValue);
+			console.log('[QR Scanner] Scanned text (trimmed):', scannedText);
+			console.log('[QR Scanner] Text length:', scannedText.length);
+			onScan(scannedText);
 			closeModal();
 		});
 
@@ -281,13 +308,8 @@
 				<!-- Scanner Area -->
 				<div class="relative flex-1 w-full min-h-0">
 					{#if isWeb}
-						<!-- Web: html5-qrcode -->
+						<!-- Web: html5-qrcode (uses its own default scanning box) -->
 						<div id="qr-reader" class="w-full h-full"></div>
-						<!-- Scanning overlay for web -->
-						<div
-							bind:this={squareElement}
-							class="square absolute top-1/2 left-1/2 h-[60%] w-[60%] -translate-x-1/2 -translate-y-1/2 transform rounded-2xl border-4 border-white shadow-[0_0_0_4000px_rgba(0,0,0,0.5)] pointer-events-none z-10"
-						></div>
 					{:else}
 						<!-- Mobile: Capacitor -->
 						<video

@@ -375,16 +375,30 @@
 		isPasskeyError = false;
 		isQrScannerError = false;
 
+		// Trim whitespace from scanned text (extra safety check)
+		const trimmedText = scannedText.trim();
+		console.log('[Login] Processing QR scan - original:', scannedText);
+		console.log('[Login] Processing QR scan - trimmed:', trimmedText);
+
 		// Validate that the scanned text is an nsec
-		const validation = validateNostrPrivateKey(scannedText);
+		const validation = validateNostrPrivateKey(trimmedText);
 		if (!validation.isValid) {
-			error = validation.error || 'Invalid nsec QR code';
+			console.error('[Login] QR code validation failed:', validation.error);
+			console.error('[Login] Scanned text details:', {
+				original: scannedText,
+				trimmed: trimmedText,
+				length: trimmedText.length,
+				startsWithNsec: trimmedText.startsWith('nsec1'),
+				firstChars: trimmedText.substring(0, 10)
+			});
+			error = validation.error || 'Invalid nsec QR code. Please ensure you are scanning a valid Nostr private key (nsec1...)';
 			isQrScannerError = true;
 			return;
 		}
 
+		console.log('[Login] QR code validated successfully, proceeding with login');
 		// Set nsec and trigger login
-		nsec = scannedText;
+		nsec = trimmedText;
 		handleNsecLogin();
 	}
 

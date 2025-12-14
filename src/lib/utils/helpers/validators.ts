@@ -55,19 +55,39 @@ export function validatePassword(password: string): ValidationResult {
 }
 
 export function validateNostrPrivateKey(nsec: string): { isValid: boolean; error?: string } {
+	// Trim whitespace before validation
+	const trimmed = nsec.trim();
+
+	// Check if empty after trimming
+	if (!trimmed) {
+		return { isValid: false, error: 'Nostr private key cannot be empty' };
+	}
+
 	// Check if it's a valid bech32 nsec format
-	if (!nsec.startsWith('nsec1')) {
-		return { isValid: false, error: 'Nostr private key must start with nsec1' };
+	if (!trimmed.startsWith('nsec1')) {
+		return { 
+			isValid: false, 
+			error: `Nostr private key must start with "nsec1". Found: "${trimmed.substring(0, 10)}..."` 
+		};
 	}
 
 	// Bech32 nsec keys are typically around 63 characters
-	if (nsec.length < 60 || nsec.length > 65) {
-		return { isValid: false, error: 'Invalid Nostr private key length' };
+	if (trimmed.length < 60 || trimmed.length > 65) {
+		return { 
+			isValid: false, 
+			error: `Invalid Nostr private key length: ${trimmed.length} characters (expected 60-65)` 
+		};
 	}
 
 	// Only allow valid bech32 characters
-	if (!/^nsec1[023456789acdefghjklmnpqrstuvwxyz]+$/i.test(nsec)) {
-		return { isValid: false, error: 'Invalid characters in Nostr private key' };
+	if (!/^nsec1[023456789acdefghjklmnpqrstuvwxyz]+$/i.test(trimmed)) {
+		// Find the first invalid character for better error reporting
+		const invalidCharMatch = trimmed.match(/[^023456789acdefghjklmnpqrstuvwxyz]/i);
+		const invalidChar = invalidCharMatch ? invalidCharMatch[0] : 'unknown';
+		return { 
+			isValid: false, 
+			error: `Invalid character "${invalidChar}" in Nostr private key. Only bech32 characters are allowed.` 
+		};
 	}
 
 	return { isValid: true };
