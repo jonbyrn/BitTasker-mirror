@@ -72,9 +72,9 @@
 			operator = null;
 			waitingForOperand = false;
 			mathExpression = '';
-		onInput('');
-		if (onCalculationChange) {
-			onCalculationChange('', 0);
+			onInput('');
+			if (onCalculationChange) {
+				onCalculationChange('', 0);
 			}
 		} else if (value === '⌫') {
 			// Delete last character
@@ -124,7 +124,7 @@
 			} else if (calculatorValue) {
 				previousValue = parseFloat(calculatorValue) || 0;
 			}
-			
+
 			operator = value;
 			waitingForOperand = true;
 			calculatorValue = '';
@@ -160,8 +160,8 @@
 
 				mathExpression = `${previousValue} ${operator} ${currentValue} = ${calculatorValue}`;
 				onInput(calculatorValue);
-			if (onCalculationChange) {
-				onCalculationChange(mathExpression, parseFloat(calculatorValue) || 0);
+				if (onCalculationChange) {
+					onCalculationChange(mathExpression, parseFloat(calculatorValue) || 0);
 				}
 				previousValue = null;
 				operator = null;
@@ -173,9 +173,9 @@
 			if (!waitingForOperand && unit === 'sats' && calculatorValue.includes('.')) {
 				return;
 			}
-			
+
 			triggerHaptic(ImpactStyle.Light);
-			
+
 			if (waitingForOperand) {
 				calculatorValue = value;
 				waitingForOperand = false;
@@ -218,10 +218,10 @@
 			'*': '×',
 			'/': '÷',
 			'=': '=',
-			'Enter': '=',
-			'Backspace': '⌫',
-			'Delete': 'C',
-			'Escape': 'C'
+			Enter: '=',
+			Backspace: '⌫',
+			Delete: 'C',
+			Escape: 'C'
 		};
 
 		const mappedKey = keyMap[e.key];
@@ -245,10 +245,13 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="calculator-keypad grid grid-cols-4 border border-base-300 rounded-lg overflow-hidden bg-base-100" class:opacity-50={disabled}>
+<div
+	class="calculator-keypad border-base-300 bg-base-100 grid grid-cols-4 overflow-hidden rounded-lg border"
+	class:opacity-50={disabled}
+>
 	<!-- Row 1: 7, 8, 9, Backspace -->
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('7')}
@@ -261,7 +264,7 @@
 		7
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('8')}
@@ -274,7 +277,7 @@
 		8
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('9')}
@@ -287,7 +290,7 @@
 		9
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-2xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-b text-2xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('⌫')}
@@ -302,7 +305,7 @@
 
 	<!-- Row 2: 4, 5, 6, Divide -->
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('4')}
@@ -315,7 +318,7 @@
 		4
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('5')}
@@ -328,7 +331,7 @@
 		5
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('6')}
@@ -341,7 +344,7 @@
 		6
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-primary/20 active:text-primary transition-colors cursor-pointer border-b border-base-300 text-primary"
+		class="active:bg-primary/20 active:text-primary border-base-300 text-primary flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('÷')}
@@ -356,7 +359,7 @@
 
 	<!-- Row 3: 1, 2, 3, Multiply -->
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('1')}
@@ -369,7 +372,7 @@
 		1
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('2')}
@@ -382,7 +385,7 @@
 		2
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('3')}
@@ -395,7 +398,7 @@
 		3
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-primary/20 active:text-primary transition-colors cursor-pointer border-b border-base-300 text-primary"
+		class="active:bg-primary/20 active:text-primary border-base-300 text-primary flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('×')}
@@ -410,7 +413,10 @@
 
 	<!-- Row 4: Decimal, 0, Add, Subtract -->
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300 {unit === 'sats' ? 'opacity-50 cursor-not-allowed' : ''}"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px] {unit ===
+		'sats'
+			? 'cursor-not-allowed opacity-50'
+			: ''}"
 		class:cursor-not-allowed={disabled || unit === 'sats'}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && unit !== 'sats' && handleInput('.')}
@@ -423,7 +429,7 @@
 		.
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-base-300 transition-colors cursor-pointer border-r border-b border-base-300"
+		class="active:bg-base-300 border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('0')}
@@ -436,7 +442,7 @@
 		0
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-primary/20 active:text-primary transition-colors cursor-pointer border-r border-b border-base-300 text-primary"
+		class="active:bg-primary/20 active:text-primary border-base-300 text-primary flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('+')}
@@ -449,7 +455,7 @@
 		+
 	</div>
 	<div
-		class="min-h-[60px] md:min-h-[70px] flex items-center justify-center text-3xl font-semibold touch-manipulation select-none active:bg-primary/20 active:text-primary transition-colors cursor-pointer border-b border-base-300 text-primary"
+		class="active:bg-primary/20 active:text-primary border-base-300 text-primary flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-b text-3xl font-semibold transition-colors select-none md:min-h-[70px]"
 		class:cursor-not-allowed={disabled}
 		class:pointer-events-none={disabled}
 		onclick={() => !disabled && handleInput('−')}
