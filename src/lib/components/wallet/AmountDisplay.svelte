@@ -10,13 +10,13 @@
 		btcPrice?: number; // Optional BTC price, will fetch if not provided
 	}
 
-	let { amount, unit, onUnitToggle, btcPrice: btcPriceProp }: Props = $props();
+	let {
+		amount,
+		unit,
+		onUnitToggle,
+		btcPrice = 0
+	}: Props = $props();
 
-	// Initialize btcPrice from props if provided, otherwise 0
-	// Use nullish coalescing to distinguish between 0 and undefined
-	let btcPrice = $state<number>(
-		btcPriceProp !== undefined && btcPriceProp !== null ? btcPriceProp : 0
-	);
 	let isLoadingPrice = $state(false);
 
 	// Derived values
@@ -61,7 +61,7 @@
 
 	// Fetch BTC price if not provided
 	onMount(async () => {
-		if (btcPriceProp === undefined || btcPriceProp === null) {
+		if (btcPrice === 0) {
 			isLoadingPrice = true;
 			try {
 				btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
@@ -71,15 +71,6 @@
 			} finally {
 				isLoadingPrice = false;
 			}
-		} else {
-			btcPrice = btcPriceProp;
-		}
-	});
-
-	// Update btcPrice when prop changes
-	$effect(() => {
-		if (btcPriceProp !== undefined && btcPriceProp !== null) {
-			btcPrice = btcPriceProp;
 		}
 	});
 </script>
@@ -89,14 +80,14 @@
 	<div class="flex items-baseline gap-2 md:gap-3">
 		{#if unit === 'sats'}
 			<span
-				class="text-4xl md:text-5xl lg:text-6xl font-bold text-base-content tabular-nums"
+				class="text-base-content text-4xl font-bold tabular-nums md:text-5xl lg:text-6xl"
 				data-testid="primary-amount-sats"
 			>
 				{formatSats(amountInSats)}
 			</span>
 			<button
 				type="button"
-				class="btn btn-sm btn-ghost text-lg md:text-xl font-semibold px-2 md:px-3 min-h-0 h-auto"
+				class="btn btn-sm btn-ghost h-auto min-h-0 px-2 text-lg font-semibold md:px-3 md:text-xl"
 				onclick={onUnitToggle}
 				aria-label={$t('wallet.receive.unit_sats')}
 			>
@@ -104,14 +95,14 @@
 			</button>
 		{:else}
 			<span
-				class="text-4xl md:text-5xl lg:text-6xl font-bold text-base-content tabular-nums"
+				class="text-base-content text-4xl font-bold tabular-nums md:text-5xl lg:text-6xl"
 				data-testid="primary-amount-usd"
 			>
 				{formatUSD(amountInUSD)}
 			</span>
 			<button
 				type="button"
-				class="btn btn-sm btn-ghost text-lg md:text-xl font-semibold px-2 md:px-3 min-h-0 h-auto"
+				class="btn btn-sm btn-ghost h-auto min-h-0 px-2 text-lg font-semibold md:px-3 md:text-xl"
 				onclick={onUnitToggle}
 				aria-label={$t('wallet.receive.unit_usd')}
 			>
@@ -122,7 +113,7 @@
 
 	<!-- Conversion Display (Secondary) -->
 	{#if amount && parseFloat(amount) > 0}
-		<div class="flex items-center gap-2 text-base md:text-lg text-base-content/70">
+		<div class="text-base-content/70 flex items-center gap-2 text-base md:text-lg">
 			{#if unit === 'sats'}
 				{#if isLoadingPrice}
 					<span class="loading loading-spinner loading-sm"></span>
@@ -132,15 +123,15 @@
 				{:else}
 					<span class="text-base-content/50">{$t('wallet.exchange_rate_unavailable')}</span>
 				{/if}
+			{:else if isLoadingPrice}
+				<span class="loading loading-spinner loading-sm"></span>
+				<span>{$t('common.loading')}</span>
+			{:else if btcPrice > 0}
+				<span data-testid="conversion-sats"
+					>≈ {formatSats(amountInSats)} {$t('wallet.receive.unit_sats')}</span
+				>
 			{:else}
-				{#if isLoadingPrice}
-					<span class="loading loading-spinner loading-sm"></span>
-					<span>{$t('common.loading')}</span>
-				{:else if btcPrice > 0}
-					<span data-testid="conversion-sats">≈ {formatSats(amountInSats)} {$t('wallet.receive.unit_sats')}</span>
-				{:else}
-					<span class="text-base-content/50">{$t('wallet.exchange_rate_unavailable')}</span>
-				{/if}
+				<span class="text-base-content/50">{$t('wallet.exchange_rate_unavailable')}</span>
 			{/if}
 		</div>
 	{/if}
@@ -152,4 +143,3 @@
 		font-variant-numeric: tabular-nums;
 	}
 </style>
-
