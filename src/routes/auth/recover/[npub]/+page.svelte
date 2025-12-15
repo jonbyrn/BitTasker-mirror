@@ -228,7 +228,9 @@
 >
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('recovery_npub.title')}</h2>
+			<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight">
+				{$t('recovery_npub.title')}
+			</h3>
 
 			{#if step === 1}
 				<form onsubmit={decryptAccountKeys} class="space-y-4">

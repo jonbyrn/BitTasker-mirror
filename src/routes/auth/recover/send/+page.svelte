@@ -39,7 +39,9 @@
 <div class="bg-base-200 flex flex-grow flex-col items-center justify-center gap-4 px-4">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('recovery_send.title')}</h2>
+			<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight">
+				{$t('recovery_send.title')}
+			</h3>
 
 			<form onsubmit={initiateRecovery} class="space-y-4">
 				<div class="form-control">
@@ -81,7 +83,9 @@
 									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 								></path></svg
 							>
-							<h4 class="font-bold">{$t('recovery_send.success_title')}</h4>
+							<h4 class="text-center font-semibold text-xl sm:text-2xl leading-tight">
+								{$t('recovery_send.success_title')}
+							</h4>
 						</div>
 						<p class="text-sm">
 							{@html $t('recovery_send.success_message', { values: { email } })}

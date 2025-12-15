@@ -43,6 +43,21 @@
 	let emailError = $state('');
 	let passwordError = $state('');
 
+	// Password strength calculation
+	function getPasswordStrength(password: string): 'weak' | 'medium' | 'strong' {
+		const length = password.length;
+		if (length >= 12 && length <= 20) {
+			return 'weak';
+		} else if (length >= 21 && length <= 30) {
+			return 'medium';
+		} else if (length > 30) {
+			return 'strong';
+		}
+		return 'weak';
+	}
+
+	let passwordStrength = $derived(getPasswordStrength(recoveryPassword));
+
 	// Track last emitted recovery state to avoid redundant parent updates
 	let lastRecovery = { email: '', password: '', enabled: false };
 
@@ -307,6 +322,12 @@
 
 					<!-- Recovery Password Field -->
 					<div class="form-control mx-auto max-w-lg">
+						<!-- Generated Password Note -->
+						<div class="mb-2">
+							<p class="text-sm text-base-content/70">
+								{$t('onboarding_auth.form.recovery_setup.generated_password_note')}
+							</p>
+						</div>
 						<label aria-label="Recovery Password" class="label" for="password">
 							<span class="label-text"
 								>{$t('onboarding_auth.form.recovery_setup.recovery_password')}</span
@@ -526,6 +547,39 @@
 							<label class="label" for="confirmPassword">
 								<span class="label-text-alt text-error">{passwordError}</span>
 							</label>
+						{/if}
+
+						<!-- Password Strength Indicator -->
+						{#if recoveryPassword && recoveryPassword.length >= 12}
+							<div class="mt-2">
+								<div class="flex items-center gap-2">
+									<div class="flex-1">
+										<div class="h-2 w-full overflow-hidden rounded-full bg-base-300">
+											<div
+												class="h-full transition-all duration-300 {passwordStrength === 'weak'
+													? 'bg-error'
+													: passwordStrength === 'medium'
+														? 'bg-warning'
+														: 'bg-success'}"
+												style="width: {passwordStrength === 'weak'
+													? '33%'
+													: passwordStrength === 'medium'
+														? '66%'
+														: '100%'}"
+											></div>
+										</div>
+									</div>
+									<span
+										class="text-sm font-medium {passwordStrength === 'weak'
+											? 'text-error'
+											: passwordStrength === 'medium'
+												? 'text-warning'
+												: 'text-success'}"
+									>
+										{$t(`onboarding_auth.form.recovery_setup.password_strength.${passwordStrength}`)}
+									</span>
+								</div>
+							</div>
 						{/if}
 					</div>
 				</div>
