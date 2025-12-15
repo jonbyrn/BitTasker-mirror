@@ -182,16 +182,16 @@
 		class="relative btn btn-ghost btn-sm p-2 hover:bg-base-200 transition-colors"
 		aria-label={$t('notifications.aria_labels.notifications')}
 	>
-		{#if unreadCount > 0 || incomingCount > 0}
+		{#if unreadCount > 0}
 			<IconBellAlert class="w-5 h-5 text-primary" />
 		{:else}
 			<IconBellOutline class="w-5 h-5 text-base-content/70" />
 		{/if}
 		
 		<!-- Unread Badge -->
-		{#if unreadCount > 0 || incomingCount > 0}
+		{#if unreadCount > 0}
 			<span class="absolute -top-1 -right-1 bg-error text-error-content text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold shadow-sm">
-				{unreadCount + incomingCount > 99 ? '99+' : unreadCount + incomingCount}
+				{unreadCount > 99 ? '99+' : unreadCount}
 			</span>
 		{/if}
 	</button>

@@ -224,8 +224,6 @@ export const notificationStore = createNotificationStore();
 let isServiceInitialized = false;
 
 export async function initializeNotificationService() {
-	// Deliberately disable broken notifications center
-	return;
 	if (!isServiceInitialized) {
 		await localNotificationService.init();
 
@@ -239,6 +237,14 @@ export async function initializeNotificationService() {
 			notificationStore.update(state => ({
 				...state,
 				incomingCount
+			}));
+		});
+
+		// Subscribe to unread count
+		localNotificationService.getUnreadCount().subscribe(unreadCount => {
+			notificationStore.update(state => ({
+				...state,
+				unreadCount
 			}));
 		});
 

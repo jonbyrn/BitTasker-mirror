@@ -92,28 +92,33 @@ class LocalNotificationService {
 	private incomingCount = writable(0);
 
 	constructor() {
-		// Load notifications from session storage on initialization
-		this.loadFromStorage();
+		// Don't load from storage - notifications should be real-time only
+		// This prevents cache issues and duplicate notifications
 	}
 
 	/**
 	 * Initialize the notification service
 	 */
 	public async init(): Promise<void> {
-		return;
 		if (this.isInitialized) return;
 
 		try {
 			this.isLoading.set(true);
 			
-			// Clear old notifications on initialization
-			this.clearOldNotifications();
+			// Clear any old notifications from localStorage to prevent cache issues
+			try {
+				if (typeof window !== 'undefined') {
+					localStorage.removeItem('bittasker-notifications');
+				}
+			} catch (error) {
+				console.warn('Failed to clear old notifications from storage:', error);
+			}
 			
 			// Request notification permission
 			await this.requestNotificationPermission();
 			
-			// Set up real-time message listener for JSON notifications
-			this.setupMessageListener();
+			// Set up real-time message listener for JSON notifications and user messages
+			await this.setupMessageListener();
 			
 		this.isInitialized = true;
 		} catch (error) {
@@ -124,27 +129,6 @@ class LocalNotificationService {
 		}
 	}
 
-	/**
-	 * Clear old notifications (older than 7 days)
-	 */
-	private clearOldNotifications(): void {
-		this.notifications.update(notifications => {
-			const sevenDaysAgo = new Date();
-			sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-			
-			const recentNotifications = notifications.filter(n => 
-				n.createdAt > sevenDaysAgo
-			);
-			
-			if (recentNotifications.length !== notifications.length) {
-				console.log(`Cleaned up ${notifications.length - recentNotifications.length} old notifications`);
-				this.saveToStorage(recentNotifications);
-				this.updateUnreadCount(recentNotifications);
-			}
-			
-			return recentNotifications;
-		});
-	}
 
 	/**
 	 * Request notification permission from the user
@@ -181,17 +165,28 @@ class LocalNotificationService {
 	}
 
 	/**
-	 * Set up real-time listener for JSON messages that should become notifications
+	 * Set up real-time listener for JSON messages and user messages that should become notifications
 	 */
-	private setupMessageListener(): void {
-		this.messageUnsubscribe = listenForIncomingMessages((msg) => {
-			const { plaintext, senderPubkey, event } = msg;
+	private async setupMessageListener(): Promise<void> {
+		try {
+			const { getNostrKeyPair } = await import('$lib/utils/nostrKeys');
+			const { nsec, npub } = await getNostrKeyPair();
+			const { isUserToUserMessage } = await import('$lib/utils/helpers/messageParser');
+			
+			this.messageUnsubscribe = listenForIncomingMessages(npub, nsec, async (msg) => {
+				const { plaintext, senderPubkey, event } = msg;
 
-			// Check if this is a JSON message (system notification)
-			if (this.isJsonMessage(plaintext)) {
-				this.handleJsonMessage(plaintext, senderPubkey, event);
-			}
-		});
+				// Check if this is a JSON message (system notification)
+				if (this.isJsonMessage(plaintext)) {
+					await this.handleJsonMessage(plaintext, senderPubkey, event);
+				} else if (isUserToUserMessage(plaintext)) {
+					// Handle regular user-to-user messages
+					await this.handleUserMessage(plaintext, senderPubkey, event);
+				}
+			});
+		} catch (error) {
+			console.error('Failed to setup message listener:', error);
+		}
 	}
 
 	/**
@@ -223,12 +218,75 @@ class LocalNotificationService {
 			
 			if (notification) {
 				this.addNotification(notification);
-				// Only show system notifications, no toast notifications
+				// Show system notification
 				this.showSystemNotification(notification);
-				this.incrementIncomingCount();
+				// Don't increment incomingCount - it's already counted in unreadCount
 			}
 		} catch (error) {
 			console.error('Failed to handle JSON message:', error);
+		}
+	}
+
+	/**
+	 * Handle incoming user-to-user messages and convert them to notifications
+	 */
+	private async handleUserMessage(plaintext: string, senderPubkey: string, event: any): Promise<void> {
+		try {
+			// Get current user's pubkey to check if message is for us
+			const currentUserPubkey = await this.getCurrentUserPubkey();
+			if (!currentUserPubkey) return;
+
+			// Check if message is actually for the current user (not from them)
+			// Messages TO the user will have the user's pubkey in the 'p' tags
+			const isMessageForCurrentUser = event.tags.some(
+				(tag: string[]) => tag[0] === 'p' && tag[1] === currentUserPubkey
+			);
+
+			// Don't create notification if message is from current user
+			if (senderPubkey === currentUserPubkey || !isMessageForCurrentUser) {
+				return;
+			}
+
+			// Get sender profile information
+			const senderName = await this.getSenderName(senderPubkey);
+
+			// Create notification for user message
+			const notification: Notification = {
+				id: event.id || crypto.randomUUID(),
+				userId: currentUserPubkey,
+				type: 'message',
+				title: 'notifications.service_messages.new_message',
+				body: 'notifications.service_messages.new_message_body',
+				priority: 'normal',
+				read: false,
+				delivered: {
+					inApp: true,
+					push: false,
+					email: false,
+					sms: false
+				},
+				createdAt: new Date(event.created_at * 1000),
+				senderPubkey,
+				eventId: event.id,
+				data: {
+					senderName,
+					userRole: 'unknown',
+					messageType: 'user_message',
+					messagePreview: plaintext.length > 100 ? plaintext.substring(0, 100) + '...' : plaintext,
+					titleKey: 'notifications.service_messages.new_message',
+					bodyKey: 'notifications.service_messages.new_message_body'
+				},
+				action: {
+					type: 'navigation',
+					payload: `/dashboard/messages/to/${senderPubkey}`
+				}
+			};
+
+			this.addNotification(notification);
+			this.showSystemNotification(notification);
+			// Don't increment incomingCount - it's already counted in unreadCount
+		} catch (error) {
+			console.error('Failed to handle user message:', error);
 		}
 	}
 
@@ -1096,13 +1154,18 @@ class LocalNotificationService {
 	}
 
 	/**
-	 * Add notification to the store and persist to storage
+	 * Add notification to the store (no persistence to avoid cache issues)
 	 */
 	private addNotification(notification: Notification): void {
 		this.notifications.update(notifications => {
 			// Check if notification already exists (avoid duplicates)
-			const exists = notifications.some(n => n.id === notification.id);
+			// Check by both id and eventId to prevent duplicates from same event
+			const exists = notifications.some(n => 
+				n.id === notification.id || 
+				(n.eventId && notification.eventId && n.eventId === notification.eventId)
+			);
 			if (exists) {
+				console.log('Notification already exists, skipping:', notification.id, notification.eventId);
 				return notifications;
 			}
 
@@ -1118,8 +1181,8 @@ class LocalNotificationService {
 			// Update unread count
 			this.updateUnreadCount(limited);
 			
-			// Persist to storage
-			this.saveToStorage(limited);
+			// Don't persist to storage - notifications should be real-time only
+			// This prevents cache issues and ensures fresh data
 			
 			return limited;
 		});
@@ -1300,7 +1363,7 @@ class LocalNotificationService {
 			);
 			
 			this.updateUnreadCount(updated);
-			this.saveToStorage(updated);
+			// Don't save to storage
 			
 			return updated;
 		});
@@ -1314,7 +1377,7 @@ class LocalNotificationService {
 			const updated = notifications.map(n => ({ ...n, read: true }));
 			
 			this.updateUnreadCount(updated);
-			this.saveToStorage(updated);
+			// Don't save to storage
 			
 			return updated;
 		});
@@ -1328,7 +1391,7 @@ class LocalNotificationService {
 			const updated = notifications.filter(n => n.id !== notificationId);
 			
 			this.updateUnreadCount(updated);
-			this.saveToStorage(updated);
+			// Don't save to storage
 			
 			return updated;
 		});
@@ -1340,7 +1403,9 @@ class LocalNotificationService {
 	public clearAll(): void {
 		this.notifications.set([]);
 		this.unreadCount.set(0);
+		this.incomingCount.set(0);
 		
+		// Clear from storage if it exists (for cleanup)
 		try {
 			if (typeof window !== 'undefined') {
 				localStorage.removeItem('bittasker-notifications');
