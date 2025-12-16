@@ -53,7 +53,9 @@
 		<div class="card-body">
 			{#if isLoading}
 				<div class="text-center">
-					<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('recovery_verify.loading_title')}</h2>
+					<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight">
+						{$t('recovery_verify.loading_title')}
+					</h3>
 					<div class="flex justify-center">
 						<span class="loading loading-spinner loading-lg"></span>
 					</div>
@@ -61,7 +63,9 @@
 				</div>
 			{:else if error}
 				<div class="text-center">
-					<h2 class="card-title mb-6 justify-center text-2xl font-bold text-error">{$t('recovery_verify.error_title')}</h2>
+					<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight text-error">
+						{$t('recovery_verify.error_title')}
+					</h3>
 					<div class="alert alert-error alert-outline mb-4">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -84,7 +88,9 @@
 				</div>
 			{:else if success && recoveryData}
 				<div class="text-center">
-					<h2 class="card-title mb-6 justify-center text-2xl font-bold text-success">{$t('recovery_verify.success_title')}</h2>
+					<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight text-success">
+						{$t('recovery_verify.success_title')}
+					</h3>
 					<div class="alert alert-success alert-outline mb-4">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

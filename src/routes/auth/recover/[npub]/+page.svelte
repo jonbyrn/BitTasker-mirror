@@ -22,6 +22,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { RevokeAllDevicesStore } from '$houdini';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import { debounce } from '$lib/utils/helpers/common';
+	import { locale } from 'svelte-i18n';
 
 	const npub = page.params.npub;
 
@@ -34,6 +36,7 @@
 	let isLoading = $state(false);
 	let error = $state<string>('');
 	let passwordError = $state<string>('');
+	let passwordMismatchError = $state<string>('');
 	let step = $state(1); // 1: Current Password, 2: New Password
 	let recoveryData = $state<NostrRecoveryData>();
 	let showCurrentPassword = $state(false);
@@ -43,6 +46,39 @@
 		webAuthn: false
 	});
 	let lastRecoveryAction = $state<'decrypt' | 'complete' | null>(null);
+
+	// Password strength state
+	let passwordStrength = $state<'weak' | 'medium' | 'strong'>('weak');
+
+	// Password strength calculation
+	function getPasswordStrength(password: string): 'weak' | 'medium' | 'strong' {
+		const length = password.length;
+		if (length >= 12 && length <= 15) {
+			return 'weak';
+		} else if (length > 15 && length <= 20) {
+			return 'medium';
+		} else if (length > 20) {
+			return 'strong';
+		}
+		return 'weak';
+	}
+
+	// Debounced function to update password strength
+	const updatePasswordStrength = debounce((event: Event) => {
+		const target = event.target as HTMLInputElement;
+		if (target) {
+			passwordStrength = getPasswordStrength(target.value);
+		}
+	}, 400);
+
+	// Debounced function to validate password match
+	const validatePasswordMatch = debounce(() => {
+		if (confirmPassword && newPassword && confirmPassword !== newPassword) {
+			passwordMismatchError = $t('recovery_npub.errors.passwords_mismatch');
+		} else {
+			passwordMismatchError = '';
+		}
+	}, 400);
 
 	// Early return if npub is not available
 	if (!npub) {
@@ -71,7 +107,10 @@
 
 			authMethods.biometric = await checkBiometricAvailability();
 			authMethods.webAuthn = await checkWebBiometricAvailability();
-			newPassword = generatePassword();
+			const generatedPassword = generatePassword($locale || 'en');
+			newPassword = generatedPassword;
+			confirmPassword = generatedPassword;
+			passwordStrength = getPasswordStrength(generatedPassword);
 		} catch (err: any) {
 			const message =
 				err instanceof Error ? err.message : $t('recovery_npub.errors.no_recovery_data');
@@ -80,9 +119,13 @@
 		}
 	});
 
-	function regeneratePassword() {
-		newPassword = generatePassword();
-	}
+		function regeneratePassword() {
+			const generatedPassword = generatePassword($locale || 'en');
+			newPassword = generatedPassword;
+			confirmPassword = generatedPassword;
+			passwordStrength = getPasswordStrength(generatedPassword);
+			passwordMismatchError = '';
+		}
 
 	async function decryptAccountKeys(event: Event) {
 		event.preventDefault();
@@ -228,7 +271,9 @@
 >
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('recovery_npub.title')}</h2>
+			<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight">
+				{$t('recovery_npub.title')}
+			</h3>
 
 			{#if step === 1}
 				<form onsubmit={decryptAccountKeys} class="space-y-4">
@@ -338,6 +383,23 @@
 					</div>
 
 					<div class="form-control">
+						<!-- Generated Password Note -->
+						<div class="alert alert-warning alert-outline mb-2">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span class="text-sm">{$t('onboarding_auth.form.recovery_setup.generated_password_note')}</span>
+						</div>
 						<label class="label" for="newPassword">
 							<span class="label-text">{$t('recovery_npub.new_password_label')}</span>
 						</label>
@@ -346,6 +408,10 @@
 								type={showNewPassword ? 'text' : 'password'}
 								id="newPassword"
 								bind:value={newPassword}
+								oninput={(e) => {
+									updatePasswordStrength(e);
+									validatePasswordMatch();
+								}}
 								placeholder={$t('recovery_npub.new_password_placeholder')}
 								class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-20"
 								required
@@ -456,8 +522,9 @@
 								type={showNewPassword ? 'text' : 'password'}
 								id="confirmPassword"
 								bind:value={confirmPassword}
+								oninput={validatePasswordMatch}
 								placeholder={$t('recovery_npub.confirm_password_placeholder')}
-								class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-20"
+								class="input input-bordered w-full {(passwordError || passwordMismatchError) ? 'input-error' : ''} pr-20"
 								required
 							/>
 							<!-- Copy Button -->
@@ -485,38 +552,49 @@
 								</svg>
 							</button>
 						</div>
-						{#if passwordError}
-							<span class="text-error text-sm">{passwordError}</span>
+						{#if passwordMismatchError}
+							<label class="label" for="confirmPassword">
+								<span class="label-text-alt text-error">{passwordMismatchError}</span>
+							</label>
+						{:else if passwordError}
+							<label class="label" for="confirmPassword">
+								<span class="label-text-alt text-error">{passwordError}</span>
+							</label>
+						{/if}
+
+						<!-- Password Strength Indicator -->
+						{#if newPassword && newPassword.length >= 12}
+							<div class="mt-2">
+								<div class="flex items-center gap-2">
+									<div class="flex-1">
+										<div class="h-2 w-full overflow-hidden rounded-full bg-base-300">
+											<div
+												class="h-full transition-all duration-300 {passwordStrength === 'weak'
+													? 'bg-error'
+													: passwordStrength === 'medium'
+														? 'bg-warning'
+														: 'bg-success'}"
+												style="width: {passwordStrength === 'weak'
+													? '33%'
+													: passwordStrength === 'medium'
+														? '66%'
+														: '100%'}"
+											></div>
+										</div>
+									</div>
+									<span
+										class="text-sm font-medium {passwordStrength === 'weak'
+											? 'text-error'
+											: passwordStrength === 'medium'
+												? 'text-warning'
+												: 'text-success'}"
+									>
+										{$t(`onboarding_auth.form.recovery_setup.password_strength.${passwordStrength}`)}
+									</span>
+								</div>
+							</div>
 						{/if}
 					</div>
-
-					<!-- Password Guidelines -->
-					{#if newPassword}
-						<div class="space-y-1 text-sm">
-							<p class="font-medium">{$t('recovery_npub.password_requirements_title')}</p>
-							<div class="flex flex-wrap gap-x-4 gap-y-1">
-								<span class={newPassword.length >= 8 ? 'text-success' : 'text-base-content/60'}>
-									{$t('recovery_npub.password_requirements.min_length')}
-								</span>
-								<span class={/[A-Z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}>
-									{$t('recovery_npub.password_requirements.uppercase')}
-								</span>
-								<span class={/[a-z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}>
-									{$t('recovery_npub.password_requirements.lowercase')}
-								</span>
-								<span class={/[0-9]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}>
-									{$t('recovery_npub.password_requirements.numbers')}
-								</span>
-								<span
-									class={/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
-										? 'text-success'
-										: 'text-base-content/60'}
-								>
-									{$t('recovery_npub.password_requirements.special_chars')}
-								</span>
-							</div>
-						</div>
-					{/if}
 
 					<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
 						{#if isLoading}

@@ -51,6 +51,10 @@ export function validatePassword(password: string): ValidationResult {
 		return { isValid: false, error: 'Password is required' };
 	}
 
+	if (password.length < 12) {
+		return { isValid: false, error: 'Password must be at least 12 characters long' };
+	}
+
 	return { isValid: true };
 }
 
