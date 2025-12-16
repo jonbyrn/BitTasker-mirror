@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { SearchTasksParams, SavedSearch } from '$lib/types/task';
+	import type { SearchTasksParams, SavedSearch, Category } from '$lib/types/task';
 	import { NotificationFrequency } from '$lib/utils/enums/task.enum';
 	import { saveSearch, updateSavedSearch } from '$lib/nostr/savedSearch';
-	import Input from '$lib/components/Input.svelte';
 	import { t } from 'svelte-i18n';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 
 	// Props
 	let {
@@ -20,17 +20,35 @@
 		onSaved?: () => void;
 	}>();
 
-	function getFrequencyLabel(value: NotificationFrequency): string {
-		switch (value) {
-			case NotificationFrequency.INSTANT:
-				return $t('profile_task.notification_frequency.immediate');
-			case NotificationFrequency.DAILY:
-				return $t('profile_task.notification_frequency.daily');
-			case NotificationFrequency.WEEKLY:
-				return $t('profile_task.notification_frequency.weekly');
-			default:
-				return '';
+	// Helper function to get translated category name by ID
+	function getCategoryName(categoryId: string): string {
+		const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+		if (!category) return categoryId;
+		
+		// Use translation with slug, fallback to name if translation not available
+		const translatedName = $t(`categories.${category.slug}.name`);
+		return translatedName.startsWith('categories.') ? category.name : translatedName;
+	}
+	
+	// Helper function to get translated task type
+	function getTaskTypeName(taskType: string | undefined): string {
+		if (!taskType) return '';
+		
+		if (taskType === 'REMOTE') {
+			return $t('find_tasks.remote');
+		} else if (taskType === 'IN_PERSON') {
+			return $t('find_tasks.in_person');
 		}
+		return taskType;
+	}
+	
+	// Helper function to get translated budget tier
+	function getBudgetTierName(tier: string | undefined): string {
+		if (!tier) return '';
+		
+		const translatedTier = $t(`profile_task.budget_tiers.${tier}`);
+		// If translation key is returned (translation not found), return original tier
+		return translatedTier.startsWith('profile_task.budget_tiers.') ? tier : translatedTier;
 	}
 
 	// State
@@ -38,8 +56,8 @@
 	let error = $state<string | null>(null);
 	let searchName = $state('');
 	let notifyOnMatch = $state(true);
-	let isActive = $state(true);
-	let notificationFrequency = $state<NotificationFrequency>(NotificationFrequency.DAILY);
+	// let isActive = $state(true); // Commented out - may be needed later
+	let notificationFrequency = $state<NotificationFrequency>(NotificationFrequency.INSTANT);
 
 	// Computed
 	let isUpdateMode = $derived(!!existingSavedSearch);
@@ -66,7 +84,7 @@
 			!!searchParams.budget?.type;
 	});
 
-	// Initialize form with existing data when in update mode or generate default name
+	// Initialize form when modal opens
 	$effect(() => {
 		if (isOpen) {
 			error = null;
@@ -75,32 +93,12 @@
 				// Update mode - populate with existing data
 				searchName = existingSavedSearch.name;
 				notifyOnMatch = existingSavedSearch.notifyOnMatch ?? true;
-				isActive = existingSavedSearch.isActive ?? true;
-				notificationFrequency =
-					(existingSavedSearch.notificationFrequency as NotificationFrequency) ||
-					NotificationFrequency.DAILY;
+				notificationFrequency = NotificationFrequency.INSTANT;
 			} else {
-				// Create mode - generate default name and reset form
-				let defaultName = '';
-				if (searchParams.search) {
-					defaultName = `${searchParams.search}`;
-				} else if (searchParams.taskType) {
-					defaultName = `${searchParams.taskType} tasks`;
-				} else if (searchParams.location) {
-					defaultName = `Tasks near ${searchParams.location}`;
-				} else if (searchParams.categories && searchParams.categories.length > 0) {
-					const firstCategory = searchParams.categories[0];
-					const categoryName =
-						typeof firstCategory === 'string' ? firstCategory : firstCategory.name;
-					defaultName = `${categoryName} tasks`;
-				} else {
-					defaultName = 'My Search';
-				}
-
-				searchName = defaultName;
+				// Create mode - use search query or empty
+				searchName = searchParams.search || '';
 				notifyOnMatch = true;
-				isActive = true;
-				notificationFrequency = NotificationFrequency.DAILY;
+				notificationFrequency = NotificationFrequency.INSTANT;
 			}
 		}
 	});
@@ -121,37 +119,72 @@
 			isSaving = true;
 			error = null;
 
+			// Prepare search params with search name
+			const cleanParams: SearchTasksParams = { ...searchParams };
+			if (searchName.trim()) {
+				cleanParams.search = searchName.trim();
+			}
+
 			if (isUpdateMode && existingSavedSearch) {
-				// Update existing search
+				// Update existing search - merge params
+				const updatedParams: SearchTasksParams = {
+					...existingSavedSearch.params,
+					...cleanParams
+				};
+				
+				// Clean up undefined values - save ALL filter parameters
+				const finalParams: SearchTasksParams = {};
+				if (updatedParams.search) finalParams.search = updatedParams.search;
+				if (updatedParams.taskType) finalParams.taskType = updatedParams.taskType;
+				if (updatedParams.location) finalParams.location = updatedParams.location;
+				if (updatedParams.status && updatedParams.status.length > 0) finalParams.status = updatedParams.status;
+				if (updatedParams.categories && updatedParams.categories.length > 0) finalParams.categories = updatedParams.categories;
+				if (updatedParams.skills && updatedParams.skills.length > 0) finalParams.skills = updatedParams.skills;
+				// Save budget if it has any values
+				if (updatedParams.budget && (
+					updatedParams.budget.tier || 
+					updatedParams.budget.currency || 
+					updatedParams.budget.type
+				)) {
+					finalParams.budget = updatedParams.budget;
+				}
+				if (updatedParams.deadline) finalParams.deadline = updatedParams.deadline;
+				if (updatedParams.dateRange) finalParams.dateRange = updatedParams.dateRange;
+				if (updatedParams.radius) finalParams.radius = updatedParams.radius;
+				if (updatedParams.locationCoords) finalParams.locationCoords = updatedParams.locationCoords;
+				
 				await updateSavedSearch(existingSavedSearch.id, {
 					name: searchName,
+					params: finalParams,
 					notifyOnMatch,
-					isActive,
+					isActive: true,
 					notificationFrequency
 				});
 			} else {
-				// Create new search
-				// Clean up the search params - remove undefined values
-				const cleanParams: SearchTasksParams = {};
+				// Create new search - save ALL filter parameters
+				const finalParams: SearchTasksParams = {};
+				if (cleanParams.search) finalParams.search = cleanParams.search;
+				if (cleanParams.taskType) finalParams.taskType = cleanParams.taskType;
+				if (cleanParams.location) finalParams.location = cleanParams.location;
+				if (cleanParams.status && cleanParams.status.length > 0) finalParams.status = cleanParams.status;
+				if (cleanParams.categories && cleanParams.categories.length > 0) finalParams.categories = cleanParams.categories;
+				if (cleanParams.skills && cleanParams.skills.length > 0) finalParams.skills = cleanParams.skills;
+				// Save budget if it has any values
+				if (cleanParams.budget && (
+					cleanParams.budget.tier || 
+					cleanParams.budget.currency || 
+					cleanParams.budget.type
+				)) {
+					finalParams.budget = cleanParams.budget;
+				}
+				if (cleanParams.deadline) finalParams.deadline = cleanParams.deadline;
+				if (cleanParams.dateRange) finalParams.dateRange = cleanParams.dateRange;
+				if (cleanParams.radius) finalParams.radius = cleanParams.radius;
+				if (cleanParams.locationCoords) finalParams.locationCoords = cleanParams.locationCoords;
 
-				// Copy defined properties
-				if (searchParams.search) cleanParams.search = searchParams.search;
-				if (searchParams.taskType) cleanParams.taskType = searchParams.taskType;
-				if (searchParams.location) cleanParams.location = searchParams.location;
-				if (searchParams.status) cleanParams.status = searchParams.status;
-				if (searchParams.categories) cleanParams.categories = searchParams.categories;
-				if (searchParams.skills) cleanParams.skills = searchParams.skills;
-				if (searchParams.budget) cleanParams.budget = searchParams.budget;
-				if (searchParams.deadline) cleanParams.deadline = searchParams.deadline;
-				if (searchParams.dateRange) cleanParams.dateRange = searchParams.dateRange;
-				if (searchParams.radius) cleanParams.radius = searchParams.radius;
-				if (searchParams.page) cleanParams.page = searchParams.page;
-				if (searchParams.limit) cleanParams.limit = searchParams.limit;
-
-				// Save new search
-				await saveSearch(searchName, cleanParams, {
+				await saveSearch(searchName, finalParams, {
 					notifyOnMatch,
-					isActive,
+					isActive: true,
 					notificationFrequency
 				});
 			}
@@ -193,38 +226,35 @@
 				</div>
 			{/if}
 
-			<!-- Search Parameters Summary (only show in create mode) -->
-			{#if !isUpdateMode}
-				<div class="bg-base-200 mb-4 rounded-md p-3">
-					<h4 class="mb-2 font-medium">{$t('profile_task.form.criteria_title')}</h4>
-					<div class="mb-2 flex flex-wrap gap-1">
-						{#if searchParams.search}
-							<div class="badge badge-sm">{searchParams.search}</div>
-						{/if}
-
-						{#if searchParams.taskType}
-							<div class="badge badge-sm">{searchParams.taskType}</div>
-						{/if}
-
-						{#if searchParams.location}
-							<div class="badge badge-sm">{searchParams.location}</div>
-						{/if}
-
+			<!-- Search Parameters Summary (show categories and skills as badges) -->
+			{#if (searchParams.categories && searchParams.categories.length > 0) || (searchParams.skills && searchParams.skills.length > 0) || searchParams.taskType || searchParams.location || searchParams.budget?.tier}
+				<div class="mb-4">
+					<div class="flex flex-wrap gap-2">
 						{#if searchParams.categories && searchParams.categories.length > 0}
-							<div class="badge badge-sm">
-								{searchParams.categories
-									.map((cat: any) => (typeof cat === 'string' ? cat : (cat as any).name))
-									.join(', ')}
-							</div>
+							{#each searchParams.categories as category}
+								{@const categoryId = typeof category === 'string' ? category : (category as any).id}
+								{@const categoryName = getCategoryName(categoryId)}
+								<div class="badge badge-primary badge-sm">{categoryName}</div>
+							{/each}
 						{/if}
 
 						{#if searchParams.skills && searchParams.skills.length > 0}
-							<div class="badge badge-sm">{searchParams.skills.join(', ')}</div>
+							{#each searchParams.skills as skill}
+								<div class="badge badge-secondary badge-sm">{skill}</div>
+							{/each}
+						{/if}
+
+						{#if searchParams.taskType}
+							<div class="badge badge-accent badge-sm">{getTaskTypeName(searchParams.taskType)}</div>
+						{/if}
+
+						{#if searchParams.location}
+							<div class="badge badge-info badge-sm">{searchParams.location}</div>
 						{/if}
 
 						{#if searchParams.budget?.tier}
-							<div class="badge badge-sm">
-								{$t('profile_task.budget_tier_label')}: {searchParams.budget.tier}
+							<div class="badge badge-success badge-sm">
+								{$t('profile_task.budget_tier_label')}: {getBudgetTierName(searchParams.budget.tier)}
 							</div>
 						{/if}
 					</div>
@@ -262,7 +292,8 @@
 				</label>
 			</div>
 
-			<div class="form-control mb-4">
+			<!-- Búsqueda activa - comentado por si lo necesitamos más adelante -->
+			<!-- <div class="form-control mb-4">
 				<label class="label flex cursor-pointer justify-start gap-2" for="isActive">
 					<input
 						id="isActive"
@@ -278,35 +309,25 @@
 						{$t('profile_task.form.inactive_hint')}
 					</span>
 				</label>
-			</div>
+			</div> -->
 
-			{#if notifyOnMatch}
-				<div class="form-control mb-4">
-					<label class="label" for="notificationFrequency">
-						<span class="label-text">{$t('profile_task.form.notification_frequency_label')}</span>
-					</label>
-					<Input
-						type="select"
-						value={getFrequencyLabel(notificationFrequency)}
-						placeholder={$t('profile_task.form.select_frequency_placeholder')}
-						options={[
-							{
-								label: getFrequencyLabel(NotificationFrequency.INSTANT),
-								value: NotificationFrequency.INSTANT
-							},
-							{
-								label: getFrequencyLabel(NotificationFrequency.DAILY),
-								value: NotificationFrequency.DAILY
-							},
-							{
-								label: getFrequencyLabel(NotificationFrequency.WEEKLY),
-								value: NotificationFrequency.WEEKLY
-							}
-						]}
-						onChange={({ value }) => (notificationFrequency = value as NotificationFrequency)}
-					/>
-				</div>
-			{/if}
+			<!-- Info alert about filters -->
+			<div class="alert alert-outline alert-info mb-4">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					class="h-6 w-6 shrink-0 stroke-current"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					></path>
+				</svg>
+				<span>{$t('profile_task.form.filters_info') || 'Si quieres agregar más parámetros de búsqueda, puedes buscarlos en la opción de filtros.'}</span>
+			</div>
 
 			<!-- Action Buttons -->
 			<div class="modal-action">

@@ -163,9 +163,17 @@
       "new_matching_tasks": "New matching tasks",
       "unread_new_label": "new",
       "budget_tier_label": "Budget tier",
+      "budget_tiers": {
+        "micro": "Micro",
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large",
+        "enterprise": "Enterprise"
+      },
       "created_label": "Created",
       "notifications_off": "Notifications off",
       "notifications_on": "Notifications on",
+      "notifications_activated": "Notifications activated",
       "actions": {
         "edit_saved_search": "Edit saved search",
         "delete_saved_search": "Delete saved search"
@@ -208,6 +216,7 @@
         "inactive_hint": "Inactive searches won't appear in your dashboard",
         "notification_frequency_label": "Notification Frequency",
         "select_frequency_placeholder": "Select frequency",
+        "filters_info": "If you want to add more search parameters, you can find them in the filters option.",
         "cancel": "Cancel",
         "saving": "Saving...",
         "errors": {

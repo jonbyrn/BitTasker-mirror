@@ -8,12 +8,18 @@
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
-	let { onAvailabilityChange = () => {} } = $props<{
+	let { 
+		onAvailabilityChange = () => {},
+		initialDateRange,
+		initialDeadline
+	} = $props<{
 		onAvailabilityChange?: (
 			filterMode: 'date_range' | 'deadline',
 			start: string,
 			end: string
 		) => void;
+		initialDateRange?: { start: string; end: string } | undefined;
+		initialDeadline?: string | undefined;
 	}>();
 
 	// State
@@ -31,8 +37,32 @@
 		{ value: 'evening', label: 'Evening (6pm-10pm)' }
 	]);
 
-	// Deadline filter modes
-	let filterMode = $state<'date_range' | 'deadline'>('deadline');
+	// Deadline filter modes - determine initial mode based on what's provided
+	let filterMode = $state<'date_range' | 'deadline'>(
+		initialDateRange ? 'date_range' : (initialDeadline ? 'deadline' : 'deadline')
+	);
+
+	// Track if component is initialized to avoid calling onAvailabilityChange during init
+	let isInitialized = $state(false);
+
+	// Initialize from props - only run once on mount
+	$effect(() => {
+		if (isInitialized) return;
+		
+		if (initialDateRange) {
+			filterMode = 'date_range';
+			dateRange.start = initialDateRange.start ? new Date(initialDateRange.start) : null;
+			dateRange.end = initialDateRange.end ? new Date(initialDateRange.end) : null;
+		} else if (initialDeadline) {
+			filterMode = 'deadline';
+			deadline = new Date(initialDeadline);
+		}
+		
+		// Mark as initialized after a tick to allow DOM to settle
+		setTimeout(() => {
+			isInitialized = true;
+		}, 0);
+	});
 
 	// Toggle time preference
 	function toggleTimePreference(value: string) {
@@ -49,24 +79,47 @@
 		dateRange.end = null;
 		deadline = null;
 		timePreferences = [];
+		// Apply changes after clearing
+		if (isInitialized) {
+			applyChanges();
+		}
 	}
 
 	// Apply availability filter changes
 	function applyChanges() {
+		if (!isInitialized) return;
+		
 		if (filterMode === 'date_range') {
 			const startStr = dateRange.start ? dateRange.start.toISOString().split('T')[0] : '';
 			const endStr = dateRange.end ? dateRange.end.toISOString().split('T')[0] : '';
-			return onAvailabilityChange('date_range', startStr, endStr);
+			onAvailabilityChange('date_range', startStr, endStr);
 		} else if (filterMode === 'deadline') {
 			const deadlineStr = deadline ? deadline.toISOString().split('T')[0] : '';
-			return onAvailabilityChange('deadline', deadlineStr);
+			onAvailabilityChange('deadline', deadlineStr, '');
 		}
 	}
 
-	// Update parent when our filters change
-	$effect(() => {
-		applyChanges();
-	});
+	// Handle date changes explicitly to avoid infinite loops
+	function handleStartDateChange(date: Date | null) {
+		dateRange.start = date;
+		if (isInitialized) {
+			applyChanges();
+		}
+	}
+
+	function handleEndDateChange(date: Date | null) {
+		dateRange.end = date;
+		if (isInitialized) {
+			applyChanges();
+		}
+	}
+
+	function handleDeadlineChange(date: Date | null) {
+		deadline = date;
+		if (isInitialized) {
+			applyChanges();
+		}
+	}
 </script>
 
 <div class="space-y-4">
@@ -79,14 +132,29 @@
 			<button
 				class="btn btn-sm"
 				class:btn-primary={filterMode === 'date_range'}
-				onclick={() => (filterMode = 'date_range')}
+				onclick={() => {
+					filterMode = 'date_range';
+					// Clear deadline when switching to date range
+					deadline = null;
+					if (isInitialized) {
+						applyChanges();
+					}
+				}}
 			>
 				{$t('dashboard.bids.components.filters.availability.date_range')}
 			</button>
 			<button
 				class="btn btn-sm"
 				class:btn-primary={filterMode === 'deadline'}
-				onclick={() => (filterMode = 'deadline')}
+				onclick={() => {
+					filterMode = 'deadline';
+					// Clear date range when switching to deadline
+					dateRange.start = null;
+					dateRange.end = null;
+					if (isInitialized) {
+						applyChanges();
+					}
+				}}
 			>
 				{$t('dashboard.bids.components.filters.availability.deadline')}
 			</button>
@@ -107,7 +175,7 @@
 					placeholderKey="dashboard.bids.components.filters.availability.airdatepicker.select_start_date"
 					minDate={new Date()}
 					maxDate={undefined}
-					onChange={(date: Date | null) => dateRange.start = date}
+					onChange={handleStartDateChange}
 				/>
 				<DateInput
 					bind:value={dateRange.end}
@@ -116,7 +184,7 @@
 					placeholderKey="dashboard.bids.components.filters.availability.airdatepicker.select_end_date"
 					minDate={dateRange.start || new Date()}
 					maxDate={undefined}
-					onChange={(date: Date | null) => dateRange.end = date}
+					onChange={handleEndDateChange}
 				/>
 			</div>
 		</div>
@@ -150,7 +218,7 @@
 				placeholderKey="dashboard.bids.components.filters.availability.airdatepicker.select_date"
 				minDate={new Date()}
 				maxDate={undefined}
-				onChange={(date: Date | null) => deadline = date}
+				onChange={handleDeadlineChange}
 			/>
 		</div>
 	{/if}

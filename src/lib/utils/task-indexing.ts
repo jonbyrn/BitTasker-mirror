@@ -24,6 +24,18 @@ export interface FilterPerformanceMetrics {
 }
 
 /**
+ * Normalize text by removing accents and converting to lowercase
+ * This ensures searches work regardless of accent usage
+ */
+function normalizeText(text: string): string {
+	return text
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
+		.toLowerCase()
+		.trim();
+}
+
+/**
  * Pre-index task data to enable fast filtering operations
  * This converts arrays to Sets and normalizes text for O(1) lookups
  */
@@ -31,17 +43,15 @@ export function indexTaskData(tasks: Task[]): IndexedTask[] {
 	const startTime = performance.now();
 
 	const normalizeToKey = (value: unknown): string => {
-		if (typeof value === 'string') return value.toLowerCase().trim();
+		if (typeof value === 'string') return normalizeText(value);
 		if (value && typeof value === 'object') {
 			const v = value as Record<string, unknown>;
 			if (typeof v.id === 'string' || typeof v.id === 'number')
-				return String(v.id).toLowerCase().trim();
-			if (typeof v.name === 'string') return v.name.toLowerCase().trim();
-			if (typeof v.title === 'string') return v.title.toLowerCase().trim();
+				return normalizeText(String(v.id));
+			if (typeof v.name === 'string') return normalizeText(v.name);
+			if (typeof v.title === 'string') return normalizeText(v.title);
 		}
-		return String(value ?? '')
-			.toLowerCase()
-			.trim();
+		return normalizeText(String(value ?? ''));
 	};
 
 	const indexedTasks = tasks.map((task): IndexedTask => {
@@ -52,19 +62,19 @@ export function indexTaskData(tasks: Task[]): IndexedTask[] {
 			(task.categories || []).map((category) => normalizeToKey(category))
 		);
 
-		// Pre-normalize text fields for search
-		const normalizedTitle = task.title?.toLowerCase().trim() || '';
-		const normalizedDescription = task.description?.toLowerCase().trim() || '';
+		// Pre-normalize text fields for search (with accent normalization)
+		const normalizedTitle = task.title ? normalizeText(task.title) : '';
+		const normalizedDescription = task.description ? normalizeText(task.description) : '';
 
 		// Include translations in searchable text for multilingual search
 		const translationTexts: string[] = [];
 		if (task.translations?.translations) {
 			Object.values(task.translations.translations).forEach((translation) => {
 				if (translation.title) {
-					translationTexts.push(translation.title.toLowerCase().trim());
+					translationTexts.push(normalizeText(translation.title));
 				}
 				if (translation.description) {
-					translationTexts.push(translation.description.toLowerCase().trim());
+					translationTexts.push(normalizeText(translation.description));
 				}
 			});
 		}
@@ -118,22 +128,20 @@ export function filterIndexedTasks(
 
 	// Pre-process filter criteria for O(1) lookups
 	const normalizeToKey = (value: unknown): string => {
-		if (typeof value === 'string') return value.toLowerCase().trim();
+		if (typeof value === 'string') return normalizeText(value);
 		if (value && typeof value === 'object') {
 			const v = value as Record<string, unknown>;
 			if (typeof v.id === 'string' || typeof v.id === 'number')
-				return String(v.id).toLowerCase().trim();
-			if (typeof v.name === 'string') return v.name.toLowerCase().trim();
-			if (typeof v.title === 'string') return v.title.toLowerCase().trim();
+				return normalizeText(String(v.id));
+			if (typeof v.name === 'string') return normalizeText(v.name);
+			if (typeof v.title === 'string') return normalizeText(v.title);
 		}
-		return String(value ?? '')
-			.toLowerCase()
-			.trim();
+		return normalizeText(String(value ?? ''));
 	};
 
 	const normalizedSkills = (params.skills || []).map(normalizeToKey);
 	const normalizedCategories = (params.categories || []).map(normalizeToKey);
-	const searchTerm = params.search?.toLowerCase().trim();
+	const searchTerm = params.search ? normalizeText(params.search) : '';
 
 	// Convert to Sets for O(1) lookup performance
 	const skillsFilter = new Set(normalizedSkills);
@@ -267,11 +275,15 @@ function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 function extractCityFromLocation(locationString: string, searchTerm: string): boolean {
 	if (!locationString || !searchTerm) return false;
 
+	// Normalize both strings for accent-insensitive matching
+	const normalizedLocation = normalizeText(locationString);
+	const normalizedSearch = normalizeText(searchTerm);
+
 	// Split by comma and get the first part (usually the city/neighborhood)
-	const parts = locationString.split(',').map((part) => part.trim().toLowerCase());
+	const parts = normalizedLocation.split(',').map((part) => part.trim());
 
 	// Check if any part contains the search term
-	return parts.some((part) => part.includes(searchTerm));
+	return parts.some((part) => part.includes(normalizedSearch));
 }
 
 /**

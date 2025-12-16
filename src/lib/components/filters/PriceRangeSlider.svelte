@@ -2,9 +2,10 @@
 	import { getBudgetTiersForCurrency, getBudgetTiersForRange } from '$lib/utils/helpers/budgetTier';
 	import { t } from 'svelte-i18n';
 	// Props
-	let { onRangeChange, currency = $bindable() } = $props<{
+	let { onRangeChange, currency = $bindable(), initialTier } = $props<{
 		onRangeChange: (tier: string) => void;
 		currency: string | undefined;
+		initialTier?: string | undefined;
 	}>();
 
 	let { minBudget, maxBudget } = $state<{
@@ -15,8 +16,24 @@
 		maxBudget: undefined
 	});
 
-	// Track selected tier
-	let selectedTier = $state<string | undefined>(undefined);
+	// Track selected tier - initialize from prop
+	let selectedTier = $state<string | undefined>(initialTier);
+
+	// Sync with initialTier when it changes
+	$effect(() => {
+		if (initialTier !== undefined) {
+			selectedTier = initialTier;
+			// If we have an initial tier, we need to find the corresponding min/max values
+			if (initialTier) {
+				const tiers = getBudgetTiersForCurrency(currency || 'USD');
+				const tierPreset = tiers.find(t => t.tier === initialTier);
+				if (tierPreset) {
+					minBudget = tierPreset.min;
+					maxBudget = tierPreset.max ?? undefined;
+				}
+			}
+		}
+	});
 
 	// Apply preset range
 	function applyPreset(min: number, max: number | null) {

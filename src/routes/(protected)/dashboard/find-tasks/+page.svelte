@@ -21,7 +21,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 
-	const TASKS_PER_PAGE = 10;
+	const TASKS_PER_PAGE = 15;
 
 	// Lazy loaded components
 	let TaskLocationMap: Component<any> | null = $state(null);
@@ -278,24 +278,18 @@
 
 	// Debounced function to update searchParams
 	const debouncedSearch = debounce(async () => {
-		// Solo buscar si hay al menos 3 caracteres
 		if (searchQuery.trim().length < 3) {
-			// Si la búsqueda es muy corta, limpiar resultados y mostrar todos
 			tasksStore.update((state) => ({
 				...state,
 				items: [],
 				currentPage: 1,
 				hasMore: true,
-				error: null
+				error: null,
+				searchParamsKey: ''
 			}));
 
-			// Buscar sin término de búsqueda
-			const newParams: SearchTasksParams = {
-				...searchParams,
-				page: 1,
-				search: undefined
-			};
-			searchParams = { ...searchParams, ...newParams };
+			searchParams = { ...getInitialSearchParams(), limit: TASKS_PER_PAGE };
+			searchQuery = '';
 
 			try {
 				await findTasks(searchParams);
@@ -311,7 +305,7 @@
 			search: searchQuery.trim()
 		};
 
-		searchParams = { ...searchParams, ...newParams };
+		searchParams = newParams;
 
 		// Clear existing tasks when starting a new search
 		tasksStore.update((state) => ({
@@ -319,7 +313,8 @@
 			items: [],
 			currentPage: 1,
 			hasMore: true,
-			error: null
+			error: null,
+			searchParamsKey: ''
 		}));
 
 		try {
@@ -358,8 +353,7 @@
 	function clearFilters() {
 		searchQuery = '';
 
-		const currentLimit = searchParams.limit;
-		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
+		searchParams = { ...getInitialSearchParams(), limit: TASKS_PER_PAGE };
 
 		// Clear existing tasks when clearing filters
 		tasksStore.update((state) => ({
@@ -712,7 +706,6 @@
 				<button
 					class="btn btn-sm btn-secondary gap-2"
 					onclick={() => (isSaveSearchOpen = true)}
-					disabled={$tasksStore.searchParamsKey === ''}
 					title={$tasksStore.searchParamsKey === ''
 						? $t('find_tasks.save_search_tooltip_disabled')
 						: $t('find_tasks.save_search_tooltip_enabled')}

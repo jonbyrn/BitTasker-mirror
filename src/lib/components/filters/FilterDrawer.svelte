@@ -8,6 +8,8 @@
 	import LocationAutoComplete from '../LocationAutoComplete.svelte';
 	import { t } from 'svelte-i18n';
 
+	const TASKS_PER_PAGE = 15;
+
 	// Props
 	let { onApply, initialFilters } = $props<{
 		onApply: (filters: SearchTasksParams) => void;
@@ -30,7 +32,7 @@
 		deadline: undefined,
 		dateRange: undefined,
 		page: 1,
-		limit: 10
+		limit: TASKS_PER_PAGE
 	});
 
 	// Store selected location coordinates for distance calculation
@@ -78,29 +80,24 @@
 
 	// Clear all filters
 	function clearFilters() {
-		filters.search = undefined;
-		filters.taskType = undefined;
-		filters.categories = [];
-		filters.skills = [];
-		filters.budget = {
-			currency: undefined,
-			type: undefined,
-			tier: undefined
-		};
-		filters.location = undefined;
-		filters.radius = 1.5; // Reset to default radius
-		filters.deadline = undefined;
-		filters.dateRange = undefined;
-		selectedLocationCoords = null;
 
-		// Apply cleared filters and close drawer
-		const cleanFilters = {
-			...filters,
-			categories: [...(filters.categories || [])],
-			skills: [...(filters.skills || [])],
-			locationCoords: null
-		};
-		onApply(cleanFilters);
+		onApply({
+			search: '',
+			taskType: undefined,
+			categories: [],
+			skills: [],
+			budget: {
+				tier: undefined,
+				currency: undefined,
+				type: undefined
+			},
+			location: undefined,
+			radius: 1.5,
+			deadline: undefined,
+			dateRange: undefined,
+			page: 1,
+			limit: TASKS_PER_PAGE
+		});
 	}
 
 	// Apply filters
@@ -213,6 +210,7 @@
 			<PriceRangeSlider
 				onRangeChange={handlePriceRangeChange}
 				currency={filters.budget?.currency}
+				initialTier={filters.budget?.tier}
 			/>
 
 			<div class="mt-8">
@@ -319,7 +317,11 @@
 			{$t('find_tasks.availability')}
 		</div>
 		<div class="collapse-content">
-			<AvailabilityFilter onAvailabilityChange={handleAvailabilityChange} />
+			<AvailabilityFilter 
+				onAvailabilityChange={handleAvailabilityChange}
+				initialDateRange={filters.dateRange}
+				initialDeadline={filters.deadline}
+			/>
 		</div>
 	</div>
 

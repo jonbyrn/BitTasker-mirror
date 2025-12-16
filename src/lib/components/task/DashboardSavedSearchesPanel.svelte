@@ -3,12 +3,12 @@
 	import {
 		getSavedSearches,
 		deleteSavedSearch,
-		updateNotificationPreferences,
 		markNotificationsAsRead
 	} from '$lib/nostr/savedSearch';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	// State
 	let savedSearches = $state<SavedSearch[]>([]);
 	let isLoading = $state(true);
@@ -33,12 +33,15 @@
 		}
 	}
 
-	// Format date for display (convert from unix timestamp)
+	// Format date for display (convert from unix timestamp) with time
 	function formatDate(timestamp: number): string {
-		return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+		const date = new Date(timestamp * 1000);
+		return date.toLocaleDateString($locale || 'en', {
 			year: 'numeric',
 			month: 'short',
-			day: 'numeric'
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
 		});
 	}
 
@@ -75,22 +78,43 @@
 		}
 	}
 
-	// Toggle notifications
-	async function toggleNotifications(search: SavedSearch) {
+	// Helper function to get category name by ID (translated)
+	function getCategoryName(categoryId: string): string {
+		const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+		if (!category) return categoryId;
+		
+		// Try to get translated name using slug (same as CategoryMultiselect)
 		try {
-			await updateNotificationPreferences(
-				search.id,
-				!search.notifyOnMatch,
-				search.notificationFrequency || 'DAILY'
-			);
-
-			// Update local state
-			savedSearches = savedSearches.map((s) =>
-				s.id === search.id ? { ...s, notifyOnMatch: !s.notifyOnMatch } : s
-			);
-		} catch (err) {
-			console.error('Error toggling notifications:', err);
-			error = 'profile_task.errors.update_notification_settings';
+			const translatedName = $t(`categories.${category.slug}.name`);
+			// If translation key is returned (translation not loaded), use default name
+			return translatedName.startsWith('categories.') ? category.name : translatedName;
+		} catch {
+			return category.name;
+		}
+	}
+	
+	// Helper function to get translated task type
+	function getTaskTypeName(taskType: string | undefined): string {
+		if (!taskType) return '';
+		
+		if (taskType === 'REMOTE') {
+			return $t('find_tasks.remote');
+		} else if (taskType === 'IN_PERSON') {
+			return $t('find_tasks.in_person');
+		}
+		return taskType;
+	}
+	
+	// Helper function to get translated budget tier
+	function getBudgetTierName(tier: string | undefined): string {
+		if (!tier) return '';
+		
+		try {
+			const translatedTier = $t(`profile_task.budget_tiers.${tier}`);
+			// If translation key is returned (translation not found), return original tier
+			return translatedTier.startsWith('profile_task.budget_tiers.') ? tier : translatedTier;
+		} catch {
+			return tier;
 		}
 	}
 
@@ -133,50 +157,40 @@
 	{/if}
 
 	{#if isLoading}
-		<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 animate-pulse">
-			{#each Array(1) as _}
-				<div class="card border-base-content/10 rounded-xl border shadow-sm">
-					<div class="card-body p-4">
+		<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 animate-pulse">
+			{#each Array(3) as _}
+				<div class="card bg-base-200 border-base-content/10 rounded-xl border shadow-sm">
+					<div class="card-body p-3">
 						<!-- Header with name and notification indicator skeleton -->
-						<div class="flex items-start justify-between">
+						<div class="flex items-start justify-between gap-2">
 							<!-- Search name skeleton -->
-							<div class="bg-base-300 h-6 w-32 rounded"></div>
+							<div class="bg-base-300 h-5 w-32 rounded flex-1"></div>
 							
 							<!-- Notification badge skeleton (optional) -->
-							<div class="bg-base-300 h-5 w-8 rounded-full"></div>
+							<div class="bg-base-300 h-4 w-8 rounded-full shrink-0"></div>
 						</div>
 
 						<!-- Search criteria summary skeleton -->
 						<div class="mt-1">
 							<!-- Badges skeleton -->
 							<div class="flex flex-wrap gap-1">
-								<div class="bg-base-300 h-5 w-16 rounded-full"></div>
-								<div class="bg-base-300 h-5 w-20 rounded-full"></div>
-								<div class="bg-base-300 h-5 w-24 rounded-full"></div>
-							</div>
-							
-							<!-- Budget tier skeleton -->
-							<div class="mt-1">
-								<div class="bg-base-300 h-4 w-28 rounded"></div>
+								<div class="bg-base-300 h-4 w-16 rounded-full"></div>
+								<div class="bg-base-300 h-4 w-20 rounded-full"></div>
+								<div class="bg-base-300 h-4 w-24 rounded-full"></div>
 							</div>
 						</div>
 
 						<!-- Created date skeleton -->
-						<div class="mt-2">
+						<div class="mt-1">
 							<div class="bg-base-300 h-3 w-24 rounded"></div>
 						</div>
 
 						<!-- Action buttons skeleton -->
-						<div class="card-actions mt-3 justify-between">
-							<!-- Notification toggle skeleton -->
-							<div class="flex items-center">
-								<div class="bg-base-300 h-6 w-20 rounded"></div>
-							</div>
-
+						<div class="card-actions mt-2 justify-end">
 							<!-- Edit and delete buttons skeleton -->
-							<div class="flex gap-2">
-								<div class="bg-base-300 h-8 w-8 rounded"></div>
-								<div class="bg-base-300 h-8 w-8 rounded"></div>
+							<div class="flex gap-1">
+								<div class="bg-base-300 h-6 w-6 rounded"></div>
+								<div class="bg-base-300 h-6 w-6 rounded"></div>
 							</div>
 						</div>
 					</div>
@@ -225,17 +239,17 @@
 			</button>
 		</div>
 	{:else}
-		<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+		<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 			{#each savedSearches as search}
-				<div class="card border-base-content/10 rounded-xl border shadow-sm">
-					<div class="card-body p-4">
+				<div class="card bg-base-200 border-base-content/10 rounded-xl border shadow-sm">
+					<div class="card-body p-3">
 						<!-- Header with name and notification indicator -->
-						<div class="flex items-start justify-between">
-							<h3 class="card-title text-md">{search.name}</h3>
+						<div class="flex items-start justify-between gap-2">
+							<span class="text-sm line-clamp-1">{search.name}</span>
 
 							{#if (search.unreadNotifications ?? 0) > 0}
 								<button
-									class="badge badge-primary tooltip"
+									class="badge badge-primary badge-sm tooltip shrink-0"
 									data-tip={$t('profile_task.new_matching_tasks')}
 									onclick={() => markNotificationsAsReadForSearch(search.id)}
 								>
@@ -245,92 +259,53 @@
 							{/if}
 						</div>
 
-						<!-- Search criteria summary -->
-						<div class="mt-1 text-sm">
+						<!-- Search criteria summary with badges -->
+						<div class="mt-1">
 							<div class="flex flex-wrap gap-1">
-								{#if search.params.search}
-									<div class="badge badge-outline badge-sm">{search.params.search}</div>
+								{#if search.params.categories && search.params.categories.length > 0}
+									{#each search.params.categories as category}
+										{@const categoryId = typeof category === 'string' ? category : (category as any).id}
+										{@const categoryName = getCategoryName(categoryId)}
+										<div class="badge badge-primary badge-sm max-w-[120px] truncate" title={categoryName}>{categoryName}</div>
+									{/each}
+								{/if}
+
+								{#if search.params.skills && search.params.skills.length > 0}
+									{#each search.params.skills as skill}
+										<div class="badge badge-secondary badge-sm max-w-[120px] truncate" title={skill}>{skill}</div>
+									{/each}
 								{/if}
 
 								{#if search.params.taskType}
-									<div class="badge badge-outline badge-sm">{search.params.taskType}</div>
+									<div class="badge badge-accent badge-sm">{getTaskTypeName(search.params.taskType)}</div>
 								{/if}
 
 								{#if search.params.location}
-									<div class="badge badge-outline badge-sm">{search.params.location}</div>
+									<div class="badge badge-info badge-sm max-w-[120px] truncate" title={search.params.location}>{search.params.location}</div>
+								{/if}
+
+								{#if search.params.budget?.tier}
+									<div class="badge badge-success badge-sm">
+										{$t('profile_task.budget_tier_label')}: {getBudgetTierName(search.params.budget.tier)}
+									</div>
 								{/if}
 							</div>
-
-							{#if search.params.budget?.tier}
-								<div class="mt-1">
-									{$t('profile_task.budget_tier_label')}: {search.params.budget.tier}
-								</div>
-							{/if}
 						</div>
 
-						<div class="mt-2 text-xs text-white/90">
-							{$t('profile_task.created_label')}: {formatDate(search.createdAt)}
-						</div>
-
-						<!-- Action buttons -->
-						<div class="card-actions mt-3 justify-between">
-							<div class="flex items-center">
-								<label class="swap swap-flip">
-									<input
-										type="checkbox"
-										checked={search.notifyOnMatch ?? false}
-										onclick={() => toggleNotifications(search)}
-									/>
-
-									<!-- Notifications OFF icon -->
-									<div class="swap-off flex items-center text-gray-500">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="mr-1 h-5 w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M6 18L18 6M6 6l12 12"
-											/>
-										</svg>
-										<span class="text-xs">{$t('profile_task.notifications_off')}</span>
-									</div>
-
-									<!-- Notifications ON icon -->
-									<div class="swap-on text-primary flex items-center">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="mr-1 h-5 w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-											/>
-										</svg>
-										<span class="text-xs">{$t('profile_task.notifications_on')}</span>
-									</div>
-								</label>
+						<!-- Date and action buttons in the same row -->
+						<div class="mt-2 flex items-center justify-between gap-2">
+							<div class="text-xs text-base-content/70 flex-1 min-w-0">
+								{$t('profile_task.created_label')}: {formatDate(search.createdAt)}
 							</div>
-
-							<div class="flex gap-2">
+							<div class="flex gap-1 shrink-0">
 								<button
 									aria-label={$t('profile_task.actions.edit_saved_search')}
-									class="btn btn-sm btn-ghost btn-square"
+									class="btn btn-xs btn-ghost btn-square"
 									onclick={() => openEditForm(search)}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
+										class="h-3.5 w-3.5"
 										fill="none"
 										viewBox="0 0 24 24"
 										stroke="currentColor"
@@ -346,12 +321,12 @@
 
 								<button
 									aria-label={$t('profile_task.actions.delete_saved_search')}
-									class="btn btn-sm btn-ghost btn-square text-error"
+									class="btn btn-xs btn-ghost btn-square text-error"
 									onclick={() => (confirmDeleteId = search.id)}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
+										class="h-3.5 w-3.5"
 										fill="none"
 										viewBox="0 0 24 24"
 										stroke="currentColor"
