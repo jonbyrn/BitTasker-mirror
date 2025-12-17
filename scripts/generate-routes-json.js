@@ -27,7 +27,6 @@ const routesConfig = {
 		'/favicon.ico',
 		'/favicon.svg',
 		'/favicon-96x96.png',
-		'/robots.txt',
 		'/sitemap.xml',
 		'/manifest.json',
 		'/site.webmanifest',
