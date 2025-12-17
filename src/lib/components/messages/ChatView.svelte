@@ -9,7 +9,7 @@
 	} from '$lib/utils/nostr-message';
 	import ChatMessage from './ChatMessage.svelte';
 	import { nip19 } from 'nostr-tools';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 	import { TranslationStore, translationSettings, messageTranslations } from '$lib/stores/translation.store';
@@ -384,6 +384,18 @@
 		}
 		if (newMessageText !== undefined) {
 			autoResizeTextarea();
+		}
+	});
+
+	// Restore focus when sending completes
+	$effect(() => {
+		if (!isSendingMessage && messageInput) {
+			// Use tick to ensure DOM is updated
+			tick().then(() => {
+				if (messageInput && document.activeElement !== messageInput) {
+					messageInput.focus();
+				}
+			});
 		}
 	});
 
@@ -868,7 +880,10 @@
 			// Send the message
 			await sendDirectMessage(messageContent, recipientHex());
 
-			// Focus back on input
+			// Wait for DOM to update before restoring focus
+			await tick();
+			
+			// Restore focus after DOM update
 			if (messageInput) {
 				messageInput.focus();
 			}
@@ -878,6 +893,14 @@
 			newMessageText = messageContent;
 			error = 'dashboard.bids.components.messages.chat_view.failed_send_message';
 			console.error('Error sending message:', err);
+
+			// Wait for DOM to update before restoring focus
+			await tick();
+			
+			// Restore focus after error
+			if (messageInput) {
+				messageInput.focus();
+			}
 
 			// Clear error after 5 seconds
 			setTimeout(() => {
