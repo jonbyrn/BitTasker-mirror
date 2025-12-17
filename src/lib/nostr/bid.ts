@@ -3,7 +3,7 @@
  * Generates translations for bid content (description, proposedApproach, coverLetter)
  */
 
-import { TranslationService } from '$lib/services/translation.service';
+import { TranslationService, type TranslationResult } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
 
 // Translation service instance
@@ -69,13 +69,13 @@ export async function generateBidTranslations(bidData: {
 			const [descResult, approachResult, coverResult] = await Promise.all([
 				bidData.description.trim()
 					? translationService.translate(bidData.description, targetLang, sourceLanguage)
-					: Promise.resolve({ translatedText: '' } as any),
+					: Promise.resolve({ translatedText: '' } as TranslationResult),
 				bidData.proposedApproach.trim()
 					? translationService.translate(bidData.proposedApproach, targetLang, sourceLanguage)
-					: Promise.resolve({ translatedText: '' } as any),
+					: Promise.resolve({ translatedText: '' } as TranslationResult),
 				bidData.coverLetter.trim()
 					? translationService.translate(bidData.coverLetter, targetLang, sourceLanguage)
-					: Promise.resolve({ translatedText: '' } as any)
+					: Promise.resolve({ translatedText: '' } as TranslationResult)
 			]);
 
 			// Check if translation failed

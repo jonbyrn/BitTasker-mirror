@@ -1,6 +1,5 @@
 import type { SearchTasksParams, SavedSearch } from '$lib/types/task.d';
 import { type Filter } from 'nostr-tools';
-import { browser } from '$app/environment';
 import { appStore } from '$lib/stores/app.store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';

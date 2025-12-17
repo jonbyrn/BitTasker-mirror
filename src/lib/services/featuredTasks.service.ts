@@ -1,4 +1,4 @@
-import type { Task } from '$lib/types/task.d';
+import type { Budget, Task } from '$lib/types/task.d';
 import type { LiveTask } from '$lib/types/homepage';
 import { findTasks } from '$lib/nostr/findTasks';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -186,7 +186,7 @@ export class FeaturedTasksService {
 	/**
 	 * Get budget amount in USD
 	 */
-	private static getBudgetAmount(budget: any): number {
+	private static getBudgetAmount(budget: Budget): number {
 		if (!budget || !budget.amount) {
 			return 0;
 		}
