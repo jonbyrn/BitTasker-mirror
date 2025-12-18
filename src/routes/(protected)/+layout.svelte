@@ -8,8 +8,11 @@
 	const { children } = $props();
 
 	onMount(async () => {
-		await user.getUserData();
-		await pushNotificationService.init();
+		// Only fetch user data and init push notifications if authenticated
+		if ($authState.isAuthenticated) {
+			await user.getUserData();
+			await pushNotificationService.init();
+		}
 	});
 </script>
 
