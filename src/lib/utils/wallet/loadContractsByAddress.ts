@@ -167,7 +167,7 @@ export async function loadContractsByAddress(
 				const escrowFetchDuration = batchDuration / batchResults.length; // Approximate per-escrow time
 				escrowFetchTimes.push(escrowFetchDuration);
 
-				if (escrowData) {
+				if (escrowData && escrowData.client && escrowData.freelancer) {
 					// Check if user is client or freelancer
 					const clientAddr = escrowData.client.toLowerCase();
 					const freelancerAddr = escrowData.freelancer.toLowerCase();
