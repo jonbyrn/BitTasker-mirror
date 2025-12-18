@@ -225,6 +225,11 @@ textarea {
 	@apply focus:outline-none;
 }
 
+/* Match alert border radius to accordion/collapse components */
+.alert {
+	border-radius: 0.5rem !important;
+}
+
 /* Override input field border radius to be more square while keeping buttons pill-shaped */
 .input,
 .textarea {
