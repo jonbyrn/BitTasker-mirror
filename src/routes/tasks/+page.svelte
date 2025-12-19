@@ -1250,6 +1250,7 @@
 	isOpen={isFilterDrawerOpen}
 	onClose={() => (isFilterDrawerOpen = false)}
 	onApply={handleFilterApply}
+	initialFilters={searchParams}
 />
 
 <style>
