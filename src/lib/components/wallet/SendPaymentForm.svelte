@@ -94,7 +94,7 @@
 
 	// Grouped State: UI State
 	let uiState = $state({
-		activeTab: 'scan' as 'scan' | 'enter',
+		activeTab: 'enter' as 'scan' | 'enter',
 		showConfirmation: false,
 		showSendConfirmation: false,
 		showSuccessScreen: false,
@@ -479,7 +479,7 @@
 					// Fallback to wallet address if no recipient address found
 					const finalAddress = recipientAddress || $walletStore.rsk.address;
 
-					const gasEstimation = await walletManager.estimateRBTCGas(finalAddress, amountRBTC);
+					const gasEstimation = await walletManager.estimateRBTCGas(finalAddress!, amountRBTC);
 					const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(amountRBTC);
 					const networkFee = Math.floor(gasFeeRBTC * 100_000_000);
 					feeState.estimated = {

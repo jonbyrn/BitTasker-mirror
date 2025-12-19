@@ -20,9 +20,16 @@
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 
+	let isLoading = $state(false);
+
 	async function initializeWallet(): Promise<void> {
-		await walletManager.initialize();
-		await Promise.allSettled([walletManager.loadAssets(), walletManager.loadRbtcExchangeRate()]);
+		try {
+			isLoading = true;
+			await walletManager.initialize();
+			await Promise.allSettled([walletManager.loadAssets(), walletManager.loadRbtcExchangeRate()]);
+		} finally {
+			isLoading = false;
+		}
 	}
 
 	onMount(async () => {
@@ -163,7 +170,7 @@
 		{#if $walletStore.isConnected || !hasErrors}
 			<div class="flex h-full flex-col space-y-4 overflow-y-auto">
 				<!-- Balance Card with History and Accordions -->
-				<BalanceCard />
+				<BalanceCard {isLoading} />
 
 				<!-- Transactions Button -->
 				<div>

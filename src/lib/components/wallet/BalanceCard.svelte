@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import {
 		allAssets,
 		totalBalances,
@@ -14,6 +14,8 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
+
+	const { isLoading = false } = $props();
 
 	// Refresh state
 	let isRefreshing = $state(false);
@@ -69,12 +71,6 @@
 		}
 	}
 
-	onDestroy(() => {
-		if (countdownInterval) {
-			clearInterval(countdownInterval);
-		}
-	});
-
 	async function handleRefresh() {
 		if (isRefreshing) return;
 
@@ -89,6 +85,12 @@
 			isRefreshing = false;
 		}
 	}
+
+	onDestroy(() => {
+		if (countdownInterval) {
+			clearInterval(countdownInterval);
+		}
+	});
 </script>
 
 <div class="flex flex-col space-y-4">
@@ -99,7 +101,7 @@
 				<div class="min-h-[80px] flex-1">
 					<p class="card-title text-white">{$t('wallet.total_balance')}</p>
 
-					{#if $walletStore.isInitializing || isRefreshing}
+					{#if isLoading || isRefreshing}
 						<!-- Loading state with reserved space -->
 						<div class="flex items-center gap-2">
 							<span class="loading loading-spinner loading-md"></span>
@@ -107,10 +109,6 @@
 								{isRefreshing ? $t('wallet.rsk.refreshing') : $t('wallet.page.initializing')}
 							</p>
 						</div>
-						<!-- USD field with spinner -->
-						<p class="mt-1 flex items-center text-lg text-white opacity-80">
-							<span class="loading loading-spinner loading-sm ml-1"></span>
-						</p>
 					{:else if balancesHidden}
 						<!-- Hidden balances state -->
 						<p class="text-3xl font-bold text-white">
@@ -214,7 +212,7 @@
 					</div>
 				</div>
 				<div class="ml-2 shrink-0 text-right">
-					{#if $walletStore.isInitializing || isRefreshing}
+					{#if isLoading || isRefreshing}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else if balancesHidden}
 						<div class="font-semibold">

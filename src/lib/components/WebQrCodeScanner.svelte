@@ -20,6 +20,7 @@
 	let errorMessage = $state<string | null>(null);
 	let cameraPermissionGranted = $state(false);
 	let scanCompleted = $state(false); // Track if scan was completed to prevent restart
+	let isLoading = $state(false);
 
 	const config = {
 		fps: 10,
@@ -37,22 +38,26 @@
 		}
 
 		try {
+			isLoading = true;
 			html5QrCode = new Html5Qrcode('qr-reader');
 			await startScanning();
 		} catch (error) {
 			console.error('Failed to initialize QR scanner:', error);
 			errorMessage = error instanceof Error ? error.message : String(error);
 			onError(errorMessage);
+		} finally {
+			isLoading = false;
 		}
 	});
 
 	onDestroy(async () => {
 		await stopScanning();
+		onClose();
 	});
 
 	async function startScanning() {
 		if (!html5QrCode) return;
-		
+
 		// Don't start if scan was already completed
 		if (scanCompleted) return;
 
@@ -88,7 +93,7 @@
 		} catch (error) {
 			console.error('Failed to start scanning:', error);
 			const errorMsg = error instanceof Error ? error.message : String(error);
-			
+
 			// Check if it's a permission error
 			if (errorMsg.includes('Permission denied') || errorMsg.includes('NotAllowedError')) {
 				errorMessage = $t('common.components.qr_scanner.camera_permission_denied');
@@ -97,7 +102,7 @@
 			} else {
 				errorMessage = errorMsg;
 			}
-			
+
 			onError(errorMessage);
 			isScanning = false;
 		}
@@ -120,7 +125,7 @@
 					}
 				}
 			}
-			
+
 			// Always clear to ensure camera is fully released
 			try {
 				await html5QrCode.clear();
@@ -135,11 +140,6 @@
 		}
 	}
 
-	async function handleClose() {
-		await stopScanning();
-		onClose();
-	}
-
 	async function handleRetry() {
 		errorMessage = null;
 		scanCompleted = false;
@@ -147,7 +147,10 @@
 	}
 </script>
 
-<div class="web-qr-scanner flex flex-col items-center justify-center gap-4 w-full min-h-full">
+<div class="web-qr-scanner flex min-h-full w-full flex-col items-center justify-center gap-4">
+	{#if isLoading}
+		<div class="loading loading-spinner loading-lg"></div>
+	{/if}
 	<div id="qr-reader" bind:this={scannerContainer} class="w-full max-w-md"></div>
 
 	{#if errorMessage}
@@ -191,4 +194,3 @@
 		display: none !important;
 	}
 </style>
-

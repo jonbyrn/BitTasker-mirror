@@ -266,15 +266,7 @@ export async function getRSKAddress(): Promise<string> {
  */
 function disconnectWallet(): void {
 	if (sdkWalletManager) {
-		// Disconnect individual wallets
-		if (sdkWalletManager.rskWallet) {
-			sdkWalletManager.rskWallet.disconnect();
-		}
-
-		if (sdkWalletManager.bscWallet) {
-			sdkWalletManager.bscWallet.disconnect();
-		}
-
+		sdkWalletManager.dispose();
 		sdkWalletManager = null;
 	}
 
@@ -326,7 +318,7 @@ async function loadAssets(): Promise<void> {
 			totalRbtc += rbtcBalance;
 			const rbtcUsdValue = rbtcBalance * rbtcPrice;
 			totalUsd += rbtcUsdValue;
-			
+
 			// Update store with fresh balance
 			walletStore.update(s => ({
 				...s,
@@ -454,7 +446,7 @@ async function loadTransactions(): Promise<void> {
 
 		// Get current escrow contract address for contract detection
 		const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-		const escrowAddress = (rskNetwork === 'mainnet' 
+		const escrowAddress = (rskNetwork === 'mainnet'
 			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
 			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET
 		)?.toLowerCase();
@@ -463,30 +455,30 @@ async function loadTransactions(): Promise<void> {
 		const enrichedTransactions: EnrichedTransaction[] = transactions.map(tx => {
 			// Check if transaction is to escrow contract
 			const isEscrowTx = escrowAddress && tx.to?.toLowerCase() === escrowAddress;
-			
+
 			// Check if it's a contract interaction
-			const isContractCall = tx.isContract && 
-			                      tx.transactionTypes?.includes('contract_call');
-			
+			const isContractCall = tx.isContract &&
+				tx.transactionTypes?.includes('contract_call');
+
 			// Parse contract function if it's an escrow transaction with contract interaction
 			let contractMetadata: EnrichedTransaction['contractMetadata'] = undefined;
 			let transactionType: EnrichedTransaction['type'] = tx.type;
-			
+
 			if (isEscrowTx && isContractCall && tx.rawInput) {
 				// Use the method field directly from wallet-core (already extracted)
 				const selector = tx.method;
 				const parsedFunction = parseFunction(tx.rawInput, 'escrow');
-				
+
 				if (parsedFunction && parsedFunction.functionName) {
 					// Check if transaction has value transfer
 					const txValue = BigInt(tx.value || '0');
 					const hasValue = txValue > 0n;
-					
+
 					// Functions that send money TO contract (user loses money)
 					const sendFunctions = ['createEscrow'];
 					// Functions that send money FROM contract (user receives money)
 					const receiveFunctions = ['acceptTask', 'cancelEscrow', 'refundClient'];
-					
+
 					// Classify transaction type based on value transfer and function
 					if (hasValue) {
 						if (sendFunctions.includes(parsedFunction.functionName)) {
@@ -501,7 +493,7 @@ async function loadTransactions(): Promise<void> {
 						// No value transfer - pure contract interaction
 						transactionType = 'contract-function';
 					}
-					
+
 					contractMetadata = {
 						functionName: parsedFunction.functionName,
 						functionSelector: selector ?? undefined,
@@ -514,7 +506,7 @@ async function loadTransactions(): Promise<void> {
 					};
 				}
 			}
-			
+
 			// Convert fee to sats
 			// fee is now an object { type: string, value: string } in wei
 			let feeSats: number | undefined = undefined;
@@ -523,28 +515,28 @@ async function loadTransactions(): Promise<void> {
 				const feeInNativeUnits = Number(ethers.formatEther(tx.fee.value));
 				feeSats = Math.floor(feeInNativeUnits * 100_000_000);
 			}
-			
+
 			// Extract actual swap amount from decodedInput for swap transactions
 			// For swap claim transactions, the amount is in the function parameters, not tx.value
 			let actualValue = tx.value;
 			let formattedAmount = tx.formattedAmount;
-			
+
 			if (tx.type === 'swap' && tx.decodedInput?.parameters) {
 				// Look for 'amount' parameter in decoded input
 				const amountParam = tx.decodedInput.parameters.find(
 					(p: any) => p.name === 'amount' && p.type === 'uint256'
 				);
-				
+
 				if (amountParam && amountParam.value) {
 					// Update the actual value to use the amount from parameters
 					actualValue = amountParam.value.toString();
-					
+
 					// Recalculate formatted amount using the correct value
 					const amountInRBTC = parseFloat(ethers.formatEther(actualValue));
 					formattedAmount = `${amountInRBTC.toFixed(8)} ${tx.tokenSymbol || 'rBTC'}`;
 				}
 			}
-			
+
 			const enriched: EnrichedTransaction = {
 				...tx,
 				value: actualValue, // Use the corrected value for swap transactions
@@ -555,21 +547,21 @@ async function loadTransactions(): Promise<void> {
 				contractMetadata,
 				feeSats
 			};
-			
+
 			return enriched;
 		});
 
 		// Calculate running balances (one pass, stored with transactions)
 		const currentBalanceSats = get(walletStore).totalBalances.sats;
 		let runningBalance = currentBalanceSats;
-		
+
 		enrichedTransactions.forEach(tx => {
 			const txValueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
 			const txFeeSats = tx.feeSats || 0;
-			
+
 			// Store balance after this transaction
 			tx.balanceAfter = runningBalance;
-			
+
 			// Work backwards: if it was a receive, subtract it; if it was a send, add it back
 			const txType = tx.type;
 			if (txType === 'receive' || txType === 'contract-receive' || txType === 'swap') {
@@ -781,12 +773,12 @@ export async function getSubmarineSwapPairs(): Promise<any> {
  */
 export async function getCachedSubmarineSwapPairs(): Promise<any> {
 	const now = Date.now();
-	
+
 	// Return cached data if valid
 	if (cachedSwapPairs.submarine && (now - cachedSwapPairs.submarine.timestamp) < cachedSwapPairs.submarine.ttl) {
 		return cachedSwapPairs.submarine.data;
 	}
-	
+
 	// Fetch fresh data
 	const data = await getSubmarineSwapPairs();
 	cachedSwapPairs.submarine = { data, timestamp: now, ttl: SWAP_PAIRS_CACHE_TTL };
@@ -813,12 +805,12 @@ export async function getReverseSwapPairs(): Promise<any> {
  */
 export async function getCachedReverseSwapPairs(): Promise<any> {
 	const now = Date.now();
-	
+
 	// Return cached data if valid
 	if (cachedSwapPairs.reverse && (now - cachedSwapPairs.reverse.timestamp) < cachedSwapPairs.reverse.ttl) {
 		return cachedSwapPairs.reverse.data;
 	}
-	
+
 	// Fetch fresh data
 	const data = await getReverseSwapPairs();
 	cachedSwapPairs.reverse = { data, timestamp: now, ttl: SWAP_PAIRS_CACHE_TTL };
@@ -845,12 +837,12 @@ export async function getChainSwapPairs(): Promise<any> {
  */
 export async function getCachedChainSwapPairs(): Promise<any> {
 	const now = Date.now();
-	
+
 	// Return cached data if valid
 	if (cachedSwapPairs.chain && (now - cachedSwapPairs.chain.timestamp) < cachedSwapPairs.chain.ttl) {
 		return cachedSwapPairs.chain.data;
 	}
-	
+
 	// Fetch fresh data
 	const data = await getChainSwapPairs();
 	cachedSwapPairs.chain = { data, timestamp: now, ttl: SWAP_PAIRS_CACHE_TTL };
