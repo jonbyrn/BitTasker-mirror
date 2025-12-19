@@ -15,20 +15,46 @@ import {
 	type GasEstimation,
 	type SubmarineSwapData,
 	type CreateSubmarineSwapParams,
-	type SubmarineSwapResult
+	type SubmarineSwapResult,
+	weiToSatoshi
 } from '@bittasker/wallet-core';
+import type { SwapPairsCache } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers } from 'ethers';
+import { parseFunction } from '$lib/utils/wallet/functionParsing';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
+// Enriched transaction type that extends SDK transaction with our metadata
+type EnrichedTransaction = Omit<Transaction, 'type'> & {
+	type: 'send' | 'receive' | 'contract' | 'swap' | 'contract-function' | 'contract-send' | 'contract-receive';
+	contractAddress?: string;
+	contractFunction?: string;
+	contractMetadata?: {
+		functionName?: string;
+		functionSelector?: string;
+		contractType: 'escrow' | 'swap' | 'unknown';
+		network: 'rsk' | 'bsc';
+		environment: 'mainnet' | 'testnet';
+		hasValue: boolean;
+		isContract: boolean;
+		transactionTypes: string[];
+	};
+	feeSats?: number;
+	balanceAfter?: number;
+};
+
+// Extended wallet state with enriched transactions
+type WalletStateExtended = Omit<WalletState, 'transactions'> & {
+	transactions: EnrichedTransaction[];
+};
+
 // Initial state
-const initialState: WalletState = {
+const initialState: WalletStateExtended = {
 	isInitializing: false,
 	isConnected: false,
-	hasAnyConnection: false,
 	error: null,
 
 	rsk: {
@@ -76,32 +102,11 @@ const initialState: WalletState = {
 	rbtcRateError: false,
 
 	activeNetwork: 'rsk',
-	activeTab: 'balance',
 	selectedAsset: 'rBTC'
 };
 
 // Create the wallet store
-export const walletStore = writable<WalletState>(initialState);
-
-// Track whether assets have been loaded at least once after connection
-// This prevents showing zero balance during the brief window after initialization
-const hasLoadedAssets = writable(false);
-
-// Derived store to check if we should show loading state
-export const isAssetsLoading = derived(
-	[walletStore, hasLoadedAssets],
-	([$walletStore, $hasLoadedAssets]) => {
-		// Show loading if wallet is initializing
-		if ($walletStore.isInitializing) {
-			return true;
-		}
-		// Show loading if wallet has connected but assets haven't been loaded yet
-		if ($walletStore.hasAnyConnection && !$hasLoadedAssets) {
-			return true;
-		}
-		return false;
-	}
-);
+export const walletStore = writable<WalletStateExtended>(initialState);
 
 // SDK wallet manager instance
 let sdkWalletManager: WalletManager | null = null;
@@ -116,8 +121,19 @@ let cachedSwapStorages: {
 // Event listeners cleanup
 const eventListeners: (() => void)[] = [];
 
-// Promise cache for getRSKAddress() to prevent race conditions
-let rskAddressPromise: Promise<string> | null = null;
+// Cache instances for each swap type
+let cachedSwapPairs: {
+	submarine: SwapPairsCache | null;
+	reverse: SwapPairsCache | null;
+	chain: SwapPairsCache | null;
+} = {
+	submarine: null,
+	reverse: null,
+	chain: null
+};
+
+// Cache TTL: 1 hour (swap pair data rarely changes)
+const SWAP_PAIRS_CACHE_TTL = 3600000; // 1 hour in milliseconds
 
 /**
  * Get wallet manager instance
@@ -189,7 +205,6 @@ async function initializeWallet(): Promise<void> {
 				...s,
 				isConnected: true,
 				isInitializing: false,
-				hasAnyConnection: true,
 				rsk: {
 					...s.rsk,
 					connected: true,
@@ -251,21 +266,13 @@ export async function getRSKAddress(): Promise<string> {
  */
 function disconnectWallet(): void {
 	if (sdkWalletManager) {
-		// Disconnect individual wallets safely
-		try {
-			if (sdkWalletManager.rskWallet) {
-				sdkWalletManager.rskWallet.disconnect();
-			}
-		} catch (error) {
-			console.warn('[WalletStore] Error disconnecting RSK wallet:', error);
+		// Disconnect individual wallets
+		if (sdkWalletManager.rskWallet) {
+			sdkWalletManager.rskWallet.disconnect();
 		}
 
-		try {
-			if (sdkWalletManager.bscWallet) {
-				sdkWalletManager.bscWallet.disconnect();
-			}
-		} catch (error) {
-			console.warn('[WalletStore] Error disconnecting BSC wallet:', error);
+		if (sdkWalletManager.bscWallet) {
+			sdkWalletManager.bscWallet.disconnect();
 		}
 
 		sdkWalletManager = null;
@@ -275,17 +282,10 @@ function disconnectWallet(): void {
 	cachedSwapStorages = null;
 
 	// Cleanup event listeners
-	eventListeners.forEach(cleanup => {
-		try {
-			cleanup();
-		} catch (error) {
-			console.warn('[WalletStore] Error cleaning up event listener:', error);
-		}
-	});
+	eventListeners.forEach(cleanup => cleanup());
 	eventListeners.length = 0;
 
 	walletStore.set(initialState);
-	hasLoadedAssets.set(false); // Reset flag on disconnect
 }
 
 /**
@@ -326,7 +326,7 @@ async function loadAssets(): Promise<void> {
 			totalRbtc += rbtcBalance;
 			const rbtcUsdValue = rbtcBalance * rbtcPrice;
 			totalUsd += rbtcUsdValue;
-
+			
 			// Update store with fresh balance
 			walletStore.update(s => ({
 				...s,
@@ -422,101 +422,13 @@ async function loadAssets(): Promise<void> {
 }
 
 /**
- * Extended Transaction type with balanceAfter field
- */
-type TransactionWithBalance = Transaction & {
-	balanceAfter?: number;
-};
-
-/**
- * Fetch balances from blockchain for transactions
- * Gets the balance at the block number after each transaction
- */
-async function fetchTransactionBalances(
-	transactions: TransactionWithBalance[],
-	manager: WalletManager
-): Promise<void> {
-	const balanceStartTime = performance.now();
-	console.log('[WalletStore] Starting balance fetch for transactions...');
-
-	// Get current wallet state
-	const state = get(walletStore);
-
-	// Process transactions in batches to avoid overwhelming the API
-	const BATCH_SIZE = 10;
-	const batches: TransactionWithBalance[][] = [];
-	for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
-		batches.push(transactions.slice(i, i + BATCH_SIZE));
-	}
-
-	// Process each batch in parallel
-	for (const batch of batches) {
-		await Promise.allSettled(
-			batch.map(async (tx) => {
-				try {
-					// Skip if balance already exists or transaction is pending/failed
-					if (tx.balanceAfter !== undefined || tx.status !== 'confirmed' || !tx.blockNumber) {
-						return;
-					}
-
-					// Get the provider for the transaction's network
-					let provider: ethers.Provider | null = null;
-					let address: string | null = null;
-
-					if (tx.network === 'rsk' && state.rsk.provider && state.rsk.address) {
-						provider = state.rsk.provider;
-						address = state.rsk.address;
-					} else if (tx.network === 'bsc' && state.bsc.provider && state.bsc.address) {
-						provider = state.bsc.provider;
-						address = state.bsc.address;
-					}
-
-					if (!provider || !address) {
-						return;
-					}
-
-					// Get balance at the block number after the transaction
-					// Use blockNumber + 1 to get balance after the transaction was included
-					const balanceBlock = tx.blockNumber + 1;
-					const balanceWei = await provider.getBalance(address, balanceBlock);
-					
-					// Convert wei to sats (1 rBTC = 1e18 wei, 1 rBTC = 100,000,000 sats)
-					const balanceRBTC = parseFloat(ethers.formatEther(balanceWei));
-					const balanceSats = Math.floor(balanceRBTC * 100_000_000);
-
-					// Update transaction with balance
-					tx.balanceAfter = balanceSats;
-				} catch (error) {
-					// Silently fail - we'll fall back to calculated balance
-					console.debug(`[WalletStore] Failed to fetch balance for tx ${tx.hash}:`, error);
-				}
-			})
-		);
-	}
-
-	const balanceDuration = performance.now() - balanceStartTime;
-	const balancesFetched = transactions.filter((tx) => tx.balanceAfter !== undefined).length;
-	console.log(
-		`[WalletStore] Balance fetch completed in ${balanceDuration.toFixed(2)}ms (${balancesFetched}/${transactions.length} balances fetched)`
-	);
-}
-
-/**
  * Load transactions
- * @param forceRefresh - If true, bypasses the loading lock to force a refresh
  */
-async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
+async function loadTransactions(): Promise<void> {
 	try {
 		const manager = getWalletManager();
 
-		// Check if wallet is connected before attempting to load
-		if (!manager || !manager.rskWallet || !manager.bscWallet) {
-			console.log('[WalletStore] Wallet not connected, skipping transaction load');
-			walletStore.update(s => ({ ...s, isLoadingTransactions: false }));
-			return;
-		}
-
-		const transactions: TransactionWithBalance[] = [];
+		const transactions: Transaction[] = [];
 
 		// Load RSK transactions
 		if (manager.rskWallet) {
@@ -537,10 +449,138 @@ async function loadTransactions(forceRefresh: boolean = false): Promise<void> {
 			})));
 		}
 
-		// Sort by timestamp
+		// Sort by timestamp (newest first)
 		transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-		walletStore.update(s => ({ ...s, transactions }));
+		// Get current escrow contract address for contract detection
+		const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+		const escrowAddress = (rskNetwork === 'mainnet' 
+			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET
+		)?.toLowerCase();
+
+		// Enrich each transaction with contract metadata and fee in sats
+		const enrichedTransactions: EnrichedTransaction[] = transactions.map(tx => {
+			// Check if transaction is to escrow contract
+			const isEscrowTx = escrowAddress && tx.to?.toLowerCase() === escrowAddress;
+			
+			// Check if it's a contract interaction
+			const isContractCall = tx.isContract && 
+			                      tx.transactionTypes?.includes('contract_call');
+			
+			// Parse contract function if it's an escrow transaction with contract interaction
+			let contractMetadata: EnrichedTransaction['contractMetadata'] = undefined;
+			let transactionType: EnrichedTransaction['type'] = tx.type;
+			
+			if (isEscrowTx && isContractCall && tx.rawInput) {
+				// Use the method field directly from wallet-core (already extracted)
+				const selector = tx.method;
+				const parsedFunction = parseFunction(tx.rawInput, 'escrow');
+				
+				if (parsedFunction && parsedFunction.functionName) {
+					// Check if transaction has value transfer
+					const txValue = BigInt(tx.value || '0');
+					const hasValue = txValue > 0n;
+					
+					// Functions that send money TO contract (user loses money)
+					const sendFunctions = ['createEscrow'];
+					// Functions that send money FROM contract (user receives money)
+					const receiveFunctions = ['acceptTask', 'cancelEscrow', 'refundClient'];
+					
+					// Classify transaction type based on value transfer and function
+					if (hasValue) {
+						if (sendFunctions.includes(parsedFunction.functionName)) {
+							transactionType = 'contract-send';
+						} else if (receiveFunctions.includes(parsedFunction.functionName)) {
+							transactionType = 'contract-receive';
+						} else {
+							// Unknown function with value - default to contract-send
+							transactionType = 'contract-send';
+						}
+					} else {
+						// No value transfer - pure contract interaction
+						transactionType = 'contract-function';
+					}
+					
+					contractMetadata = {
+						functionName: parsedFunction.functionName,
+						functionSelector: selector ?? undefined,
+						contractType: 'escrow',
+						network: tx.network,
+						environment: rskNetwork,
+						hasValue: hasValue,
+						isContract: tx.isContract,
+						transactionTypes: tx.transactionTypes
+					};
+				}
+			}
+			
+			// Convert fee to sats
+			// fee is now an object { type: string, value: string } in wei
+			let feeSats: number | undefined = undefined;
+			if (tx.fee && typeof tx.fee === 'object' && 'value' in tx.fee) {
+				// fee.value is in wei, convert to native units then to sats
+				const feeInNativeUnits = Number(ethers.formatEther(tx.fee.value));
+				feeSats = Math.floor(feeInNativeUnits * 100_000_000);
+			}
+			
+			// Extract actual swap amount from decodedInput for swap transactions
+			// For swap claim transactions, the amount is in the function parameters, not tx.value
+			let actualValue = tx.value;
+			let formattedAmount = tx.formattedAmount;
+			
+			if (tx.type === 'swap' && tx.decodedInput?.parameters) {
+				// Look for 'amount' parameter in decoded input
+				const amountParam = tx.decodedInput.parameters.find(
+					(p: any) => p.name === 'amount' && p.type === 'uint256'
+				);
+				
+				if (amountParam && amountParam.value) {
+					// Update the actual value to use the amount from parameters
+					actualValue = amountParam.value.toString();
+					
+					// Recalculate formatted amount using the correct value
+					const amountInRBTC = parseFloat(ethers.formatEther(actualValue));
+					formattedAmount = `${amountInRBTC.toFixed(8)} ${tx.tokenSymbol || 'rBTC'}`;
+				}
+			}
+			
+			const enriched: EnrichedTransaction = {
+				...tx,
+				value: actualValue, // Use the corrected value for swap transactions
+				formattedAmount, // Use the corrected formatted amount
+				type: transactionType,
+				contractAddress: isEscrowTx ? tx.to : undefined,
+				contractFunction: contractMetadata?.functionName,
+				contractMetadata,
+				feeSats
+			};
+			
+			return enriched;
+		});
+
+		// Calculate running balances (one pass, stored with transactions)
+		const currentBalanceSats = get(walletStore).totalBalances.sats;
+		let runningBalance = currentBalanceSats;
+		
+		enrichedTransactions.forEach(tx => {
+			const txValueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
+			const txFeeSats = tx.feeSats || 0;
+			
+			// Store balance after this transaction
+			tx.balanceAfter = runningBalance;
+			
+			// Work backwards: if it was a receive, subtract it; if it was a send, add it back
+			const txType = tx.type;
+			if (txType === 'receive' || txType === 'contract-receive' || txType === 'swap') {
+				// For swaps (reverse swaps), user receives RBTC, so subtract when going backwards
+				runningBalance -= txValueSats;
+			} else if (txType === 'send' || txType === 'contract-send' || txType === 'contract-function') {
+				runningBalance += txValueSats + txFeeSats;
+			}
+		});
+
+		walletStore.update(s => ({ ...s, transactions: enrichedTransactions }));
 	} catch (error) {
 		console.error('Failed to load transactions:', error);
 	}
@@ -733,6 +773,27 @@ export async function getSubmarineSwapPairs(): Promise<any> {
 }
 
 /**
+ * Get cached submarine swap pairs (1 hour TTL)
+ * Returns cached data if available and fresh, otherwise fetches from API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized or API call fails
+ */
+export async function getCachedSubmarineSwapPairs(): Promise<any> {
+	const now = Date.now();
+	
+	// Return cached data if valid
+	if (cachedSwapPairs.submarine && (now - cachedSwapPairs.submarine.timestamp) < cachedSwapPairs.submarine.ttl) {
+		return cachedSwapPairs.submarine.data;
+	}
+	
+	// Fetch fresh data
+	const data = await getSubmarineSwapPairs();
+	cachedSwapPairs.submarine = { data, timestamp: now, ttl: SWAP_PAIRS_CACHE_TTL };
+	return data;
+}
+
+/**
  * Get reverse swap pairs with fee information from Boltz API
  * 
  * @returns Swap pairs data
@@ -744,6 +805,27 @@ export async function getReverseSwapPairs(): Promise<any> {
 }
 
 /**
+ * Get cached reverse swap pairs (1 hour TTL)
+ * Returns cached data if available and fresh, otherwise fetches from API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized or API call fails
+ */
+export async function getCachedReverseSwapPairs(): Promise<any> {
+	const now = Date.now();
+	
+	// Return cached data if valid
+	if (cachedSwapPairs.reverse && (now - cachedSwapPairs.reverse.timestamp) < cachedSwapPairs.reverse.ttl) {
+		return cachedSwapPairs.reverse.data;
+	}
+	
+	// Fetch fresh data
+	const data = await getReverseSwapPairs();
+	cachedSwapPairs.reverse = { data, timestamp: now, ttl: SWAP_PAIRS_CACHE_TTL };
+	return data;
+}
+
+/**
  * Get chain swap pairs with fee information from Boltz API
  * 
  * @returns Swap pairs data
@@ -752,6 +834,37 @@ export async function getReverseSwapPairs(): Promise<any> {
 export async function getChainSwapPairs(): Promise<any> {
 	const manager = getWalletManager();
 	return await manager.boltzClient.getChainSwapPairs();
+}
+
+/**
+ * Get cached chain swap pairs (1 hour TTL)
+ * Returns cached data if available and fresh, otherwise fetches from API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized or API call fails
+ */
+export async function getCachedChainSwapPairs(): Promise<any> {
+	const now = Date.now();
+	
+	// Return cached data if valid
+	if (cachedSwapPairs.chain && (now - cachedSwapPairs.chain.timestamp) < cachedSwapPairs.chain.ttl) {
+		return cachedSwapPairs.chain.data;
+	}
+	
+	// Fetch fresh data
+	const data = await getChainSwapPairs();
+	cachedSwapPairs.chain = { data, timestamp: now, ttl: SWAP_PAIRS_CACHE_TTL };
+	return data;
+}
+
+/**
+ * Clear all swap pairs caches
+ * Useful for forcing a refresh of fee data
+ */
+export function clearSwapPairsCache(): void {
+	cachedSwapPairs.submarine = null;
+	cachedSwapPairs.reverse = null;
+	cachedSwapPairs.chain = null;
 }
 
 /**
@@ -923,6 +1036,10 @@ export const walletManager = {
 	getSubmarineSwapPairs,
 	getReverseSwapPairs,
 	getChainSwapPairs,
+	getCachedSubmarineSwapPairs,
+	getCachedReverseSwapPairs,
+	getCachedChainSwapPairs,
+	clearSwapPairsCache,
 	get submarineSwapService() {
 		return getWalletManager().submarineSwapService;
 	},

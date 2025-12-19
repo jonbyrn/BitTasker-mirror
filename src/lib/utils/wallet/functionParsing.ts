@@ -5,12 +5,9 @@
  * and extract parameters from known contract ABIs.
  */
 
-import { ethers, Interface } from 'ethers';
+import { Interface } from 'ethers';
 import escrowABI from '../constants/escrowABI.json';
 import { hasContractInteraction } from './contractDetection';
-
-type Network = 'rsk' | 'bsc';
-type Environment = 'mainnet' | 'testnet';
 
 interface ParsedFunction {
 	functionName: string | null;
@@ -48,8 +45,10 @@ function initializeEscrowInterface(): void {
 				try {
 					const fragment = escrowInterface.getFunction(item.name);
 					// In ethers v6, FunctionFragment has a selector property
-					const selector = fragment.selector;
-					escrowFunctionSelectors.set(selector.toLowerCase(), item.name);
+					const selector = fragment?.selector;
+					if (selector) {
+						escrowFunctionSelectors.set(selector.toLowerCase(), item.name);
+					}
 				} catch (error) {
 					// Skip invalid functions
 				}
@@ -105,7 +104,7 @@ export function parseEscrowFunction(inputData: string): ParsedFunction | null {
 		
 		// Get function fragment to get parameter names
 		const fragment = escrowInterface.getFunction(functionName);
-		fragment.inputs.forEach((input, index) => {
+		fragment?.inputs.forEach((input, index) => {
 			parameters[input.name] = decoded[index];
 		});
 

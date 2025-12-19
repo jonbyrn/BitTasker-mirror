@@ -3,7 +3,7 @@
  */
 
 import type { ethers } from 'ethers';
-import type { RSKNetwork } from "$lib/utils/wallet/networkConfig";
+import type { SwapPairs } from '@bittasker/wallet-core';
 import { EscrowStatus } from "$lib/utils/enums/escrow.enum";
 
 export type RSKUnit = 'rbtc' | 'wei';
@@ -137,3 +137,10 @@ export interface BoltzNetworkConfig {
 		deployVerifier: string;
 	};
 }
+
+// Swap pairs cache structure
+export interface SwapPairsCache {
+	data: SwapPairs;
+	timestamp: number;
+	ttl: number;
+};

@@ -107,137 +107,129 @@
 	// Handle max button click
 	async function handleMax() {
 		if (isMaxDisabled || !onMaxAmount) return;
-		
+
 		triggerHaptic(ImpactStyle.Light);
 		await onMaxAmount();
 	}
-
-
-	// Format sats with thousand separators
-	function formatSats(sats: number): string {
-		return new Intl.NumberFormat('en-US').format(sats);
-	}
-
-	// Format USD
-	function formatUSD(usd: number): string {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		}).format(usd);
-	}
-
-	// Calculate total amount in USD
-	const totalAmountUSD = $derived.by(() => {
-		if (totalAmount === 0 || btcPrice === 0) return 0;
-		return (totalAmount / 100_000_000) * btcPrice;
-	});
-
-	// Calculate amount in USD (without fees)
-	const amountUSD = $derived.by(() => {
-		if (amountInSats === 0 || btcPrice === 0) return 0;
-		return (amountInSats / 100_000_000) * btcPrice;
-	});
 </script>
 
 <div class="space-y-4">
 	<!-- Amount Display (shows calculation and result) with attached Max button -->
-	<div class="flex items-stretch w-full overflow-hidden rounded-lg border-2 border-primary" class:opacity-50={disabled}>
+	<div
+		class="border-primary flex w-full items-stretch overflow-hidden rounded-lg border-2"
+		class:opacity-50={disabled}
+	>
 		<!-- Input display area (grey bar) - takes remaining width -->
-		<div class="flex items-center justify-center gap-2 flex-1 bg-base-200 p-1" class:bg-base-300={disabled}>
+		<div
+			class="bg-base-200 flex flex-1 items-center justify-center gap-2 p-1"
+			class:bg-base-300={disabled}
+		>
 			{#if mathExpression || amount}
-				<div class="flex items-center justify-center gap-2 w-full">
+				<div class="flex w-full items-center justify-center gap-2">
 					{#if unit === 'usd'}
-						<span class="text-3xl font-bold text-primary ml-1">$</span>
+						<span class="text-primary ml-1 text-3xl font-bold">$</span>
 					{:else}
-						<IconCurrencyBtc class="w-8 h-8 text-primary" />
+						<IconCurrencyBtc class="text-primary h-8 w-8" />
 					{/if}
-					<div class="text-3xl font-bold text-center flex-1">
+					<div class="flex-1 text-center text-3xl font-bold">
 						{mathExpression || amount || '0'}
 					</div>
 					{#if onClear}
 						<button
 							type="button"
-							class="btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] h-11 w-11 p-0 text-error hover:bg-error/20 touch-manipulation select-none flex items-center justify-center"
+							class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-11 min-h-[44px] w-11 min-w-[44px] touch-manipulation items-center justify-center p-0 select-none"
 							style="-webkit-tap-highlight-color: transparent;"
 							onclick={handleClear}
-							disabled={disabled}
+							{disabled}
 							aria-label="Clear calculator"
 						>
-							<IconClose class="w-8 h-8" />
+							<IconClose class="h-8 w-8" />
 						</button>
 					{/if}
 				</div>
 			{:else}
-				<div class="flex items-center justify-center gap-2 w-full">
+				<div class="flex w-full items-center justify-center gap-2">
 					{#if unit === 'usd'}
-						<span class="text-3xl font-bold text-primary ml-1">$</span>
+						<span class="text-primary ml-1 text-3xl font-bold">$</span>
 					{:else}
-						<IconCurrencyBtc class="w-8 h-8 text-primary" />
+						<IconCurrencyBtc class="text-primary h-8 w-8" />
 					{/if}
-					<div class="text-3xl font-bold text-center flex-1">0</div>
+					<div class="flex-1 text-center text-3xl font-bold">0</div>
 				</div>
 			{/if}
 		</div>
 		<!-- Max button (orange, pill-shaped) - only show if onMaxAmount is provided -->
 		{#if onMaxAmount}
-		<button
-			type="button"
-				class="bg-primary text-primary-content font-semibold px-3 py-2 touch-manipulation select-none disabled:opacity-50 transition-opacity rounded-r-lg rounded-l-none flex items-center justify-center whitespace-nowrap min-w-[60px] text-xl"
+			<button
+				type="button"
+				class="bg-primary text-primary-content flex min-w-[60px] touch-manipulation items-center justify-center rounded-l-none rounded-r-lg px-3 py-2 text-xl font-semibold whitespace-nowrap transition-opacity select-none disabled:opacity-50"
 				style="-webkit-tap-highlight-color: transparent; margin-right: -2px; width: 72px;"
-			onclick={handleMax}
+				onclick={handleMax}
 				disabled={disabled || isMaxDisabled || isLoadingMaxCalculation}
-			aria-label="Set maximum amount"
-		>
-			{#if isLoadingMaxCalculation}
-				<span class="loading loading-spinner loading-xs"></span>
-			{:else}
-				{$t('wallet.max')}
-			{/if}
-		</button>
+				aria-label="Set maximum amount"
+			>
+				{#if isLoadingMaxCalculation}
+					<span class="loading loading-spinner loading-xs"></span>
+				{:else}
+					{$t('wallet.max')}
+				{/if}
+			</button>
 		{/if}
 	</div>
 
 	<!-- Unit Toggle Buttons -->
-	<div class="grid grid-cols-2 border border-base-300 rounded-lg overflow-hidden bg-base-100" class:opacity-50={disabled}>
+	<div
+		class="border-base-300 bg-base-100 grid grid-cols-2 overflow-hidden rounded-lg border"
+		class:opacity-50={disabled}
+	>
 		<button
 			type="button"
-			class="flex items-center justify-center gap-2 text-2xl p-2 font-semibold touch-manipulation select-none transition-colors cursor-pointer border-r border-base-300 {unit === 'usd' ? 'bg-primary text-primary-content' : 'bg-base-100 text-base-content'}"
+			class="border-base-300 flex cursor-pointer touch-manipulation items-center justify-center gap-2 border-r p-2 text-2xl font-semibold transition-colors select-none {unit ===
+			'usd'
+				? 'bg-primary text-primary-content'
+				: 'bg-base-100 text-base-content'}"
 			class:active:bg-base-300={!disabled}
 			class:cursor-not-allowed={disabled}
 			class:pointer-events-none={disabled}
 			style="-webkit-tap-highlight-color: transparent;"
 			onclick={() => !disabled && handleUnitToggle('usd')}
-			disabled={disabled}
+			{disabled}
 			tabindex={disabled ? -1 : 0}
 			aria-label="USD"
 			aria-disabled={disabled}
 		>
-			<IconCurrencyUsd class="w-8 h-8" />
+			<IconCurrencyUsd class="h-8 w-8" />
 			<span>USD</span>
 		</button>
 		<button
 			type="button"
-			class="flex items-center justify-center gap-2 text-2xl p-2 font-semibold touch-manipulation select-none transition-colors cursor-pointer {unit === 'sats' ? 'bg-primary text-primary-content' : 'bg-base-100 text-base-content'}"
+			class="flex cursor-pointer touch-manipulation items-center justify-center gap-2 p-2 text-2xl font-semibold transition-colors select-none {unit ===
+			'sats'
+				? 'bg-primary text-primary-content'
+				: 'bg-base-100 text-base-content'}"
 			class:active:bg-base-300={!disabled}
 			class:cursor-not-allowed={disabled}
 			class:pointer-events-none={disabled}
 			style="-webkit-tap-highlight-color: transparent;"
 			onclick={() => !disabled && handleUnitToggle('sats')}
-			disabled={disabled}
+			{disabled}
 			tabindex={disabled ? -1 : 0}
 			aria-label="Sats"
 			aria-disabled={disabled}
 		>
-			<IconCurrencyBtc class="w-8 h-8" />
+			<IconCurrencyBtc class="h-8 w-8" />
 			<span>Sats</span>
 		</button>
 	</div>
 
 	<!-- Calculator -->
 	{#key calculatorKey}
-		<CalculatorKeypad {unit} disabled={disabled} onInput={handleCalculatorInput} onCalculationChange={handleCalculationChange} />
+		<CalculatorKeypad
+			{unit}
+			{disabled}
+			onInput={handleCalculatorInput}
+			onCalculationChange={handleCalculationChange}
+		/>
 	{/key}
 
 	<!-- Memo/Description Field (Accordion) -->
@@ -251,6 +243,4 @@
 			onToggle={(expanded) => onDescriptionToggle?.(expanded)}
 		/>
 	{/if}
-
 </div>
-

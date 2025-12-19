@@ -1,14 +1,12 @@
 <script lang="ts">
+	import type { Transaction } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
-	import { onMount, onDestroy } from 'svelte';
-	import { transactions, walletManager, walletStore } from '$lib/stores/wallet.store';
+	import { onMount } from 'svelte';
+	import { transactions, walletManager } from '$lib/stores/wallet.store';
 	import { weiToSatoshi } from '@bittasker/wallet-core';
 	import { getTransactionTitle } from '$lib/utils/wallet/titleGeneration';
 	import { getTaskInfoForTransaction, generateTaskLink } from '$lib/utils/wallet/taskLinking';
 	import { goto } from '$app/navigation';
-	import type { Transaction } from '$lib/types/wallet';
-	import type { Component } from 'svelte';
-	// MDI Icons
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
@@ -20,8 +18,7 @@
 	import IconCheckAll from '~icons/mdi/check-all';
 
 	// State
-	// Use store's isLoadingTransactions instead of local state for single source of truth
-	let isLoading = $derived($walletStore.isLoadingTransactions);
+	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let typeFilter = $state<'all' | 'send' | 'receive' | 'contract-function'>('all');
 	let networkFilter = $state<'all' | 'rsk' | 'bsc'>('all');
@@ -30,43 +27,15 @@
 	let itemsPerPage = 20;
 
 	// Filtered transactions (exclude swaps)
-	let filteredTransactions = $derived.by(() => {
-		const filterStartTime = performance.now();
-		
-		// Log all transactions before filtering
-		console.log(`[TransactionHistory] Filtering ${$transactions.length} transactions with filters: type=${typeFilter}, network=${networkFilter}`);
-		const typeCounts: Record<string, number> = {};
-		$transactions.forEach(tx => {
-			typeCounts[tx.type] = (typeCounts[tx.type] || 0) + 1;
-		});
-		console.log(`[TransactionHistory] Transaction type breakdown:`, typeCounts);
-		
-		const filtered = $transactions.filter((tx) => {
+	let filteredTransactions = $derived(
+		$transactions.filter((tx) => {
 			// Filter by type
-			if (typeFilter !== 'all' && tx.type !== typeFilter) {
-				console.log(`[TransactionHistory] Filtered out transaction ${tx.hash?.substring(0, 10)}...: type mismatch (${tx.type} !== ${typeFilter})`);
-				return false;
-			}
+			if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
 			// Filter by network
-			if (networkFilter !== 'all' && tx.network !== networkFilter) {
-				console.log(`[TransactionHistory] Filtered out transaction ${tx.hash?.substring(0, 10)}...: network mismatch (${tx.network} !== ${networkFilter})`);
-				return false;
-			}
+			if (networkFilter !== 'all' && tx.network !== networkFilter) return false;
 			return true;
-		});
-		
-		const filterDuration = performance.now() - filterStartTime;
-		console.log(`[TransactionHistory] Filtering completed in ${filterDuration.toFixed(2)}ms (${$transactions.length} → ${filtered.length} transactions)`);
-		
-		// Log filtered transaction types
-		const filteredTypeCounts: Record<string, number> = {};
-		filtered.forEach(tx => {
-			filteredTypeCounts[tx.type] = (filteredTypeCounts[tx.type] || 0) + 1;
-		});
-		console.log(`[TransactionHistory] Filtered transaction type breakdown:`, filteredTypeCounts);
-		
-		return filtered;
-	});
+		})
+	);
 
 	// Network filter options
 	const networkFilterOptions = $derived([
@@ -129,13 +98,6 @@
 		isNetworkDropdownOpen = !isNetworkDropdownOpen;
 	}
 
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-		if (!target.closest('.network-dropdown-container')) {
-			isNetworkDropdownOpen = false;
-		}
-	}
-
 	// Paginated transactions
 	let paginatedTransactions = $derived(
 		filteredTransactions.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage)
@@ -144,106 +106,24 @@
 	let totalPages = $derived(Math.ceil(filteredTransactions.length / itemsPerPage));
 
 	onMount(() => {
-		loadTransactionsIfNeeded();
-		document.addEventListener('click', handleClickOutside);
-	});
-
-	onDestroy(() => {
-		document.removeEventListener('click', handleClickOutside);
-		
-		// Cleanup: If component unmounts during load, ensure loading flag is reset
-		// This prevents the flag from getting stuck if component is destroyed mid-load
-		if ($walletStore.isLoadingTransactions) {
-			console.log('[TransactionHistory] Component destroyed during load, resetting loading flag');
-			walletStore.update(s => ({ ...s, isLoadingTransactions: false }));
-		}
+		loadTransactions();
 	});
 
 	/**
-	 * Check if transactions need to be loaded
-	 * Returns true if transactions are empty or stale (older than 5 minutes)
+	 * Load transactions
 	 */
-	function shouldLoadTransactions(): boolean {
-		// Check if wallet is connected first
-		if (!$walletStore.hasAnyConnection) {
-			console.log('[TransactionHistory] Wallet not connected, skipping load');
-			return false;
-		}
-		
-		// Check if already loading (prevent concurrent loads)
-		if ($walletStore.isLoadingTransactions) {
-			console.log('[TransactionHistory] Transactions already loading, skipping duplicate request');
-			return false;
-		}
-		
-		const transactions = $walletStore.transactions;
-		const lastLoaded = $walletStore.transactionsLastLoaded;
-		
-		// If we have a timestamp, even with empty transactions, they've been loaded
-		// Only load if we don't have a timestamp (first load) or if stale
-		if (lastLoaded) {
-			// Check if transactions are stale (older than 5 minutes)
-			const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes in milliseconds
-			const age = Date.now() - lastLoaded;
-			
-			if (age > STALE_THRESHOLD) {
-				console.log(`[TransactionHistory] Transactions are stale (${Math.round(age / 1000)}s old), will refresh`);
-				return true;
-			}
-			
-			console.log(`[TransactionHistory] Transactions are fresh (${Math.round(age / 1000)}s old), skipping load`);
-			return false;
-		}
-		
-		// No timestamp means first load (even if transactions array exists from previous session)
-		console.log('[TransactionHistory] No load timestamp found, will load');
-		return true;
-	}
-
-	/**
-	 * Load transactions only if needed (empty or stale)
-	 */
-	async function loadTransactionsIfNeeded() {
-		if (!shouldLoadTransactions()) {
-			// Transactions are already loaded and fresh, or wallet not connected
-			// No need to set isLoading - it's derived from store
-			return;
-		}
-		
-		await loadTransactions(false);
-	}
-
-	/**
-	 * Load transactions (force refresh if needed)
-	 * @param forceRefresh - If true, bypasses loading lock and always fetches from API
-	 */
-	async function loadTransactions(forceRefresh: boolean = false) {
-		const startTime = performance.now();
-		console.log(`[TransactionHistory] Starting transaction load (forceRefresh: ${forceRefresh})...`);
-		
+	async function loadTransactions() {
+		isLoading = true;
 		error = null;
 
 		try {
-			// Load transactions using the combined wallet manager
-			// Pass forceRefresh to bypass store's loading lock if needed
-			const loadStartTime = performance.now();
-			await walletManager.loadTransactions(forceRefresh);
-			const loadDuration = performance.now() - loadStartTime;
-			console.log(`[TransactionHistory] Wallet manager loadTransactions completed in ${loadDuration.toFixed(2)}ms`);
-			
-			const totalDuration = performance.now() - startTime;
-			console.log(`[TransactionHistory] Total transaction load completed in ${totalDuration.toFixed(2)}ms`);
+			await walletManager.loadTransactions();
 		} catch (err) {
-			const errorDuration = performance.now() - startTime;
-			console.error(`[TransactionHistory] Failed to load transactions after ${errorDuration.toFixed(2)}ms:`, err);
+			console.error('Failed to load transactions:', err);
 			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');
+		} finally {
+			isLoading = false;
 		}
-		// isLoading is derived from store, so no need to set it here
-	}
-
-	async function refreshTransactions() {
-		// Force refresh by bypassing loading lock
-		await loadTransactions(true);
 	}
 
 	function getStatusLabel(status: string): string {
@@ -312,29 +192,32 @@
 		}
 	}
 
-	function getTypeIcon(type: string): { base: typeof IconFileDocumentOutline | typeof IconArrowUpBold | typeof IconArrowDownBold; overlay: typeof IconArrowUpBold | typeof IconArrowDownBold | null } {
+	function getTypeIcon(type: string): {
+		base: typeof IconFileDocumentOutline | typeof IconArrowUpBold | typeof IconArrowDownBold;
+		overlay: typeof IconArrowUpBold | typeof IconArrowDownBold | null;
+	} {
 		if (!type) return { base: IconArrowUpBold, overlay: null };
-		
+
 		// Contract function (non-spend) - contract icon only
 		if (type === 'contract-function') {
 			return { base: IconFileDocumentOutline, overlay: null };
 		}
-		
+
 		// Contract send - contract icon with send overlay
 		if (type === 'contract-send') {
 			return { base: IconFileDocumentOutline, overlay: IconArrowUpBold };
 		}
-		
+
 		// Contract receive - contract icon with receive overlay
 		if (type === 'contract-receive') {
 			return { base: IconFileDocumentOutline, overlay: IconArrowDownBold };
 		}
-		
+
 		// Regular receive
 		if (type === 'receive') {
 			return { base: IconArrowDownBold, overlay: null };
 		}
-		
+
 		// Regular send or default
 		return { base: IconArrowUpBold, overlay: null };
 	}
@@ -352,34 +235,11 @@
 		return 'primary';
 	}
 
-	function formatFee(fee: number, asset: string): string {
+	function formatFee(feeSats: number | undefined): string {
 		try {
-			// Fee is already in native units (rBTC, BNB, etc.) from transactionHistory.ts
-			if (!fee || !isFinite(fee) || isNaN(fee)) return '0';
-			if (!asset) asset = '';
-
-			if (asset === 'rBTC' || asset === 'BTC' || asset === 'L-BTC' || asset.includes('BTC')) {
-				// For Bitcoin-based assets, show in satoshis
-				const sats = Math.floor(fee * 100_000_000);
-				if (sats > 0) {
-					return `${sats.toLocaleString()} ${$t('wallet.sats')}`;
-				}
-				// For very small fees, show in BTC with appropriate decimals
-				return `${fee.toFixed(8)} ${asset}`;
-			} else if (asset === 'BNB' || asset.includes('ETH')) {
-				// For other EVM chains, show in native token (no Gwei conversion)
-				if (fee < 0.00001) {
-					return `${fee.toFixed(10)} ${asset}`;
-				}
-				// For larger fees, show in native token
-				return `${fee.toFixed(8)} ${asset}`;
-			} else {
-				// Fallback for unknown assets
-				if (fee < 0.000001) {
-					return `${fee.toExponential(2)} ${asset}`;
-				}
-				return `${fee.toFixed(8)} ${asset}`;
-			}
+			// Fee is pre-calculated in sats in wallet store
+			if (!feeSats || !isFinite(feeSats) || isNaN(feeSats)) return '0';
+			return `${feeSats.toLocaleString()} ${$t('wallet.sats')}`;
 		} catch (error) {
 			console.error('Error formatting fee:', error);
 			return '0';
@@ -408,11 +268,6 @@
 		}
 	}
 
-	function formatAddress(address?: string): string {
-		if (!address) return '';
-		return `${address.slice(0, 6)}...${address.slice(-4)}`;
-	}
-
 	function getExplorerUrl(txHash?: string, network?: string): string | null {
 		if (!txHash) return null;
 
@@ -437,69 +292,12 @@
 		return null;
 	}
 
-	function openExplorer(txHash?: string, network?: string) {
-		const url = getExplorerUrl(txHash, network);
-		if (url) {
-			window.open(url, '_blank');
-		}
-	}
-
-	// Calculate running balances for transactions
-	// Transactions are displayed newest first, so we need to calculate backwards
-	// IMPORTANT: Use ALL transactions, not filtered ones, to show actual blockchain balance
-	// This matches bank statement behavior where balance reflects all transactions
-	let runningBalances = $derived.by(() => {
-		const calcStartTime = performance.now();
-		const balances = new Map<string, number>();
-		
-		// Get current balance from wallet store (in sats)
-		const currentBalance = $walletStore.totalBalances.sats;
-		let runningBalance = currentBalance;
-		
-		// Sort ALL transactions by timestamp (newest first for display, but we calculate backwards)
-		// Use $transactions instead of filteredTransactions to show actual blockchain balance
-		const sortStartTime = performance.now();
-		const sortedTxs = [...$transactions].sort((a, b) => b.timestamp - a.timestamp);
-		const sortDuration = performance.now() - sortStartTime;
-		console.log(`[TransactionHistory] Running balance: sorted ${sortedTxs.length} transactions in ${sortDuration.toFixed(2)}ms`);
-		
-		// Calculate balance after each transaction (working backwards from current)
-		const loopStartTime = performance.now();
-		for (const tx of sortedTxs) {
-			const txValueSats = Number(weiToSatoshi(BigInt(tx.value)));
-			const txFeeSats = tx.fee ? Math.floor(tx.fee * 100_000_000) : 0; // Convert fee to sats
-			
-			// Store the balance after this transaction
-			const txId = tx.txHash || tx.hash || '';
-			if (txId) {
-				balances.set(txId, runningBalance);
-			}
-			
-			// Work backwards: if it was a receive, subtract it; if it was a send, add it back
-			if (tx.type === 'receive') {
-				runningBalance -= txValueSats;
-			} else if (tx.type === 'send') {
-				runningBalance += txValueSats + txFeeSats;
-			}
-		}
-		const loopDuration = performance.now() - loopStartTime;
-		const totalDuration = performance.now() - calcStartTime;
-		console.log(`[TransactionHistory] Running balance calculation completed in ${totalDuration.toFixed(2)}ms (loop: ${loopDuration.toFixed(2)}ms, ${balances.size} balances calculated)`);
-		
-		return balances;
-	});
-
-	function getRunningBalance(txHash?: string, balanceAfter?: number): string {
-		// Prefer balance from API if available (more accurate, matches blockchain explorer)
+	function getRunningBalance(balanceAfter?: number): string {
+		// Balance is pre-calculated in wallet store
 		if (balanceAfter !== undefined && balanceAfter !== null) {
 			return Math.floor(balanceAfter).toLocaleString();
 		}
-		
-		// Fall back to calculated balance
-		if (!txHash) return '';
-		const balance = runningBalances.get(txHash);
-		if (balance === undefined || balance === null) return '';
-		return Math.floor(balance).toLocaleString();
+		return '';
 	}
 
 	function nextPage() {
@@ -528,7 +326,7 @@
 		<div class="mb-3 flex justify-end sm:hidden">
 			<button
 				class="btn btn-outline btn-sm flex items-center gap-2"
-				onclick={refreshTransactions}
+				onclick={loadTransactions}
 				disabled={isLoading}
 				aria-label={$t('wallet.refresh')}
 			>
@@ -620,16 +418,16 @@
 									: 'text-base-content'}"
 								onclick={() => selectNetworkFilter(option.id)}
 							>
-							{#if option.isImage}
-								<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
-							{:else if typeof option.icon !== 'string'}
-								{@const IconComponent = option.icon}
-								<IconComponent
-									class="h-5 w-5 {networkFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-								/>
-							{/if}
+								{#if option.isImage}
+									<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
+								{:else if typeof option.icon !== 'string'}
+									{@const IconComponent = option.icon}
+									<IconComponent
+										class="h-5 w-5 {networkFilter === option.id
+											? 'text-primary'
+											: 'text-base-content/60'}"
+									/>
+								{/if}
 								<span class="font-medium">{option.label}</span>
 								{#if networkFilter === option.id}
 									<IconCheck class="text-primary ml-auto h-5 w-5" />
@@ -666,7 +464,7 @@
 				<!-- Refresh Button (Desktop) -->
 				<button
 					class="btn btn-outline btn-sm flex items-center gap-2"
-					onclick={refreshTransactions}
+					onclick={loadTransactions}
 					disabled={isLoading}
 					aria-label={$t('wallet.refresh')}
 				>
@@ -759,7 +557,7 @@
 								</div>
 								<div class="flex flex-col items-end">
 									<div class="bg-base-300 h-5 w-20 rounded"></div>
-									<div class="bg-base-300 h-3 w-16 rounded mt-1"></div>
+									<div class="bg-base-300 mt-1 h-3 w-16 rounded"></div>
 								</div>
 							</div>
 							<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
@@ -810,21 +608,16 @@
 				{@const StatusIcon = getStatusIcon(tx.status || 'pending')}
 				{@const explorerUrl = getExplorerUrl(tx.txHash || tx.hash, tx.network)}
 				{@const txColor = getTransactionColor(tx.type)}
-				{@const taskInfo = getTaskInfoForTransaction(tx as Transaction)}
-				{@const txTitle = getTransactionTitle(tx as Transaction)}
+				{@const taskInfo = getTaskInfoForTransaction(tx as unknown as Transaction)}
+				{@const txTitle = getTransactionTitle(tx as unknown as Transaction)}
 				{@const BaseIcon = iconConfig.base}
 				{@const OverlayIcon = iconConfig.overlay}
 				{@const txValueSats = weiToSatoshi(BigInt(tx.value || '0'))}
 				{@const txType = String((tx as any).type)}
 				{@const cardClasses = `card bg-base-200 hover:bg-base-300 transition-colors rounded-lg ${explorerUrl ? 'cursor-pointer' : ''} ${txColor === 'success' ? 'border-2 border-success' : txColor === 'warning' ? 'border-2 border-warning' : txColor === 'info' ? 'border-2 border-info' : ''}`}
-				
+
 				{#if explorerUrl}
-					<a
-						href={explorerUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						class={cardClasses}
-					>
+					<a href={explorerUrl} target="_blank" rel="noopener noreferrer" class={cardClasses}>
 						<div class="card-body p-4">
 							<div class="flex flex-col gap-1">
 								<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
@@ -833,13 +626,26 @@
 										<!-- Type Icon with Overlay -->
 										<div class="relative inline-block">
 											<div
-												class="flex h-10 w-10 items-center justify-center rounded-full {txColor === 'success' ? 'bg-success/20 text-success' : txColor === 'warning' ? 'bg-warning/20 text-warning' : txColor === 'info' ? 'bg-info/20 text-info' : 'bg-primary/20 text-primary'}"
+												class="flex h-10 w-10 items-center justify-center rounded-full {txColor ===
+												'success'
+													? 'bg-success/20 text-success'
+													: txColor === 'warning'
+														? 'bg-warning/20 text-warning'
+														: txColor === 'info'
+															? 'bg-info/20 text-info'
+															: 'bg-primary/20 text-primary'}"
 											>
 												<BaseIcon class="h-6 w-6" />
 											</div>
 											{#if OverlayIcon}
-												<div class="absolute top-0 right-0 bg-base-100 rounded-full p-0.5 shadow-sm">
-													<OverlayIcon class="h-4 w-4 {txColor === 'success' ? 'text-success' : 'text-warning'}" />
+												<div
+													class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm"
+												>
+													<OverlayIcon
+														class="h-4 w-4 {txColor === 'success'
+															? 'text-success'
+															: 'text-warning'}"
+													/>
 												</div>
 											{/if}
 										</div>
@@ -858,26 +664,29 @@
 													aria-label={getStatusLabel(tx.status || 'pending')}
 												/>
 											</div>
+										</div>
 									</div>
-								</div>
-								<div class="flex flex-col items-end">
-									{#if txType === 'contract-receive' || txType === 'receive'}
-										<div class="font-semibold text-success">
-											{#if txValueSats > 0}+{/if}{txValueSats.toLocaleString()} {$t('wallet.sats')}
-										</div>
-									{:else if txType === 'contract-send' || txType === 'send'}
-										<div class="font-semibold text-warning">
-											{#if txValueSats > 0}-{/if}{txValueSats.toLocaleString()} {$t('wallet.sats')}
-										</div>
-									{:else}
-										<!-- Contract function - show 0 Sats if no value transfer -->
-										<div class="font-semibold text-info">
-											{txValueSats.toLocaleString()} {$t('wallet.sats')}
-										</div>
-									{/if}
+									<div class="flex flex-col items-end">
+										{#if txType === 'contract-receive' || txType === 'receive'}
+											<div class="text-success font-semibold">
+												{#if txValueSats > 0}+{/if}{txValueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{:else if txType === 'contract-send' || txType === 'send'}
+											<div class="text-warning font-semibold">
+												{#if txValueSats > 0}-{/if}{txValueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{:else}
+											<!-- Contract function - show 0 Sats if no value transfer -->
+											<div class="text-info font-semibold">
+												{txValueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{/if}
 										{#if tx.fee}
 											<div class="text-xs opacity-70">
-												{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
+												{$t('wallet.tx_fee')}: {formatFee((tx as any).feeSats)}
 											</div>
 										{/if}
 									</div>
@@ -907,23 +716,24 @@
 									</div>
 									<div class="text-right">
 										{#if tx.txHash || tx.hash}
-											<div class="text-sm md:text-base font-semibold">
-												{$t('wallet.balance_after')}: {getRunningBalance(tx.txHash || tx.hash, (tx as any).balanceAfter)} {$t('wallet.sats')}
+											<div class="text-sm font-semibold md:text-base">
+												{$t('wallet.balance_after')}: {getRunningBalance((tx as any).balanceAfter)}
+												{$t('wallet.sats')}
 											</div>
 										{/if}
 									</div>
 								</div>
-								
+
 								<!-- Task Link -->
 								{#if taskInfo}
-									<div class="mt-2 pt-2 border-t border-base-300">
+									<div class="border-base-300 mt-2 border-t pt-2">
 										<button
 											onclick={(e) => {
 												e.preventDefault();
 												e.stopPropagation();
 												goto(generateTaskLink(taskInfo.id));
 											}}
-											class="text-sm text-primary link link-hover text-left"
+											class="text-primary link link-hover text-left text-sm"
 										>
 											Task: {taskInfo.title}
 										</button>
@@ -942,13 +752,26 @@
 										<!-- Type Icon with Overlay -->
 										<div class="relative inline-block">
 											<div
-												class="flex h-10 w-10 items-center justify-center rounded-full {txColor === 'success' ? 'bg-success/20 text-success' : txColor === 'warning' ? 'bg-warning/20 text-warning' : txColor === 'info' ? 'bg-info/20 text-info' : 'bg-primary/20 text-primary'}"
+												class="flex h-10 w-10 items-center justify-center rounded-full {txColor ===
+												'success'
+													? 'bg-success/20 text-success'
+													: txColor === 'warning'
+														? 'bg-warning/20 text-warning'
+														: txColor === 'info'
+															? 'bg-info/20 text-info'
+															: 'bg-primary/20 text-primary'}"
 											>
 												<BaseIcon class="h-6 w-6" />
 											</div>
 											{#if OverlayIcon}
-												<div class="absolute top-0 right-0 bg-base-100 rounded-full p-0.5 shadow-sm">
-													<OverlayIcon class="h-3 w-3 {txColor === 'success' ? 'text-success' : 'text-warning'}" />
+												<div
+													class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm"
+												>
+													<OverlayIcon
+														class="h-3 w-3 {txColor === 'success'
+															? 'text-success'
+															: 'text-warning'}"
+													/>
 												</div>
 											{/if}
 										</div>
@@ -967,26 +790,29 @@
 													aria-label={getStatusLabel(tx.status || 'pending')}
 												/>
 											</div>
+										</div>
 									</div>
-								</div>
-								<div class="flex flex-col items-end">
-									{#if txType === 'contract-receive' || txType === 'receive'}
-										<div class="font-semibold text-success">
-											{#if txValueSats > 0}+{/if}{txValueSats.toLocaleString()} {$t('wallet.sats')}
-										</div>
-									{:else if txType === 'contract-send' || txType === 'send'}
-										<div class="font-semibold text-warning">
-											{#if txValueSats > 0}-{/if}{txValueSats.toLocaleString()} {$t('wallet.sats')}
-										</div>
-									{:else}
-										<!-- Contract function - show 0 Sats if no value transfer -->
-										<div class="font-semibold text-info">
-											{txValueSats.toLocaleString()} {$t('wallet.sats')}
-										</div>
-									{/if}
+									<div class="flex flex-col items-end">
+										{#if txType === 'contract-receive' || txType === 'receive'}
+											<div class="text-success font-semibold">
+												{#if txValueSats > 0}+{/if}{txValueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{:else if txType === 'contract-send' || txType === 'send'}
+											<div class="text-warning font-semibold">
+												{#if txValueSats > 0}-{/if}{txValueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{:else}
+											<!-- Contract function - show 0 Sats if no value transfer -->
+											<div class="text-info font-semibold">
+												{txValueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{/if}
 										{#if tx.fee}
 											<div class="text-xs opacity-70">
-												{$t('wallet.tx_fee')}: {formatFee(tx.fee, tx.asset || '')}
+												{$t('wallet.tx_fee')}: {formatFee((tx as any).feeSats)}
 											</div>
 										{/if}
 									</div>
@@ -1016,23 +842,24 @@
 									</div>
 									<div class="text-right">
 										{#if tx.txHash || tx.hash}
-											<div class="text-sm md:text-base font-semibold">
-												{$t('wallet.balance_after')}: {getRunningBalance(tx.txHash || tx.hash, (tx as any).balanceAfter)} {$t('wallet.sats')}
+											<div class="text-sm font-semibold md:text-base">
+												{$t('wallet.balance_after')}: {getRunningBalance((tx as any).balanceAfter)}
+												{$t('wallet.sats')}
 											</div>
 										{/if}
 									</div>
 								</div>
-								
+
 								<!-- Task Link -->
 								{#if taskInfo}
-									<div class="mt-2 pt-2 border-t border-base-300">
+									<div class="border-base-300 mt-2 border-t pt-2">
 										<button
 											onclick={(e) => {
 												e.preventDefault();
 												e.stopPropagation();
 												goto(generateTaskLink(taskInfo.id));
 											}}
-											class="text-sm text-primary link link-hover text-left"
+											class="text-primary link link-hover text-left text-sm"
 										>
 											Task: {taskInfo.title}
 										</button>

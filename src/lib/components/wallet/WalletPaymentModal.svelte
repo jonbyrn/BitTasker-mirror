@@ -15,7 +15,7 @@
 		children?: Snippet;
 	}
 
-	const props = $props<Props>();
+	const props: Props = $props();
 
 	// Focus trap management
 	let modalElement = $state<HTMLElement | null>(null);
@@ -182,11 +182,6 @@
 			modalElement.style.transition = '';
 		}
 	});
-
-	// Get modal title based on mode
-	const modalTitle = $derived(
-		props.mode === 'receive' ? $t('wallet.receive.title') : $t('wallet.send.title')
-	);
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -194,7 +189,7 @@
 {#if props.isOpen}
 	<!-- Modal Backdrop -->
 	<div
-		class="fixed inset-0 z-[100] bg-black/80 lg:bg-black/50 backdrop-blur-sm lg:backdrop-blur transition-opacity duration-300"
+		class="fixed inset-0 z-100 bg-black/80 lg:bg-black/50 backdrop-blur-sm lg:backdrop-blur transition-opacity duration-300"
 		onclick={handleBackdropClick}
 		role="presentation"
 		transition:fly={{ y: prefersReducedMotion ? 0 : 20, duration: prefersReducedMotion ? 0 : 300 }}
@@ -202,7 +197,7 @@
 
 	<!-- Modal Container -->
 	<div
-		class="fixed inset-0 z-[100] flex items-center justify-center lg:p-4"
+		class="fixed inset-0 z-100 flex items-center justify-center lg:p-4"
 		role="presentation"
 		onclick={handleBackdropClick}
 	>
@@ -247,7 +242,7 @@
 							{$t('wallet.error.retry')}
 						</button>
 					</div>
-				{:else if !$walletStore.hasAnyConnection && !$walletStore.isInitializing}
+				{:else if !$walletStore.isConnected && !$walletStore.isInitializing}
 					<div class="alert alert-warning">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

@@ -11,7 +11,6 @@
     "show_balances": "Mostrar Saldos",
     "hide_balances": "Ocultar Saldos",
     "liquid_balance": "Saldo Liquid",
-    "receive": "Recibir",
     "send_button": "Enviar",
     "recent_transactions": "Transacciones recientes",
     "type": "Tipo",
@@ -77,13 +76,18 @@
         "swap": "Intercambio"
       },
       "contract": {
-        "created_escrow": "Depósito Creado",
-        "tasker_released_payment": "Pago Liberado por Tasker",
+        "contract_funded": "Contrato Financiado",
+        "contract_created": "Contrato Creado",
+        "payment_received": "Pago Recibido",
+        "task_accepted": "Tarea Aceptada",
         "task_completed": "Tarea Completada",
+        "refund_received": "Reembolso Recibido",
         "contract_cancelled": "Contrato Cancelado",
         "task_disputed": "Tarea Disputada",
+        "resolution_proposed": "Resolución Propuesta",
         "dispute_resolved": "Disputa Resuelta",
-        "payment_refunded": "Pago Reembolsado"
+        "refund_processed": "Reembolso Procesado",
+        "contract_function_called": "Función de Contrato Llamada"
       },
       "description": {
         "rsk_sent": "Transacción RSK enviada",
@@ -416,6 +420,7 @@
     },
     "payment_request": {
       "title": "Solicitud de Pago",
+      "description": "Envía cualquier cantidad de Bitcoin Rootstock a esta dirección, o especifica una cantidad a continuación para generar un código QR con la cantidad.",
       "requesting": "Solicitando",
       "from": "De",
       "payment_link": "Enlace de Pago",
@@ -431,8 +436,6 @@
       "bitcoin": "Bitcoin",
       "bsc": "Binance Smart Chain"
     },
-    "payment_request_label": "Solicitud de Pago",
-    "payment_request_description": "Envía cualquier cantidad de Bitcoin Rootstock a esta dirección, o especifica una cantidad a continuación para generar un código QR con la cantidad.",
     "receive_rbtc": "Recibir rBTC",
     "your_rsk_address": "Tu Dirección RSK",
     "generating": "Generando...",

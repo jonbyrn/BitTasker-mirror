@@ -8,34 +8,79 @@
 import type { Transaction } from '$lib/types/wallet';
 
 // Human-readable title mapping for known escrow functions
-const ESCROW_FUNCTION_TITLES: Record<string, string> = {
-	'createEscrow': 'Created Escrow',
-	'completeTask': 'Task Completed',
-	'acceptTask': 'Tasker Released Payment',
-	'cancelEscrow': 'Contract Cancelled',
-	'disputeTask': 'Task Disputed',
-	'proposeResolution': 'Dispute Resolution Proposed',
-	'acceptProposal': 'Dispute Resolved',
-	'resolveAfterTimelock': 'Dispute Resolved',
-	'refundClient': 'Payment Refunded'
+// Different titles based on whether value is transferred
+interface FunctionTitles {
+	send?: string;      // Title when sending money TO contract
+	receive?: string;   // Title when receiving money FROM contract
+	noValue?: string;   // Title when no value transfer (pure function call)
+}
+
+const ESCROW_FUNCTION_TITLES: Record<string, FunctionTitles> = {
+	'createEscrow': {
+		send: 'Contract Funded',
+		noValue: 'Contract Created'
+	},
+	'completeTask': {
+		noValue: 'Task Completed'
+	},
+	'acceptTask': {
+		receive: 'Payment Received',
+		noValue: 'Task Accepted'
+	},
+	'cancelEscrow': {
+		receive: 'Refund Received',
+		noValue: 'Contract Cancelled'
+	},
+	'disputeTask': {
+		noValue: 'Task Disputed'
+	},
+	'proposeResolution': {
+		noValue: 'Resolution Proposed'
+	},
+	'acceptProposal': {
+		noValue: 'Dispute Resolved'
+	},
+	'resolveAfterTimelock': {
+		noValue: 'Dispute Resolved'
+	},
+	'refundClient': {
+		receive: 'Refund Received',
+		noValue: 'Refund Processed'
+	}
 };
 
 /**
  * Generate transaction title with priority:
- * 1. Known function with human-readable name
+ * 1. Known function with value-aware human-readable name
  * 2. Unknown function with decoded name
  * 3. Type-based fallback
  */
 export function getTransactionTitle(tx: Partial<Transaction>): string {
-	// Priority 1: Known contract function with human-readable name
+	// Priority 1: Known contract function with value-aware titles
 	if (tx.contractMetadata?.functionName) {
-		const humanReadable = ESCROW_FUNCTION_TITLES[tx.contractMetadata.functionName];
-		if (humanReadable) {
-			return humanReadable;
+		const titleConfig = ESCROW_FUNCTION_TITLES[tx.contractMetadata.functionName];
+		if (titleConfig) {
+			const hasValue = tx.contractMetadata.hasValue;
+			
+			// Return appropriate title based on transaction type and value
+			if (hasValue && tx.type === 'contract-send' && titleConfig.send) {
+				return titleConfig.send;
+			}
+			if (hasValue && tx.type === 'contract-receive' && titleConfig.receive) {
+				return titleConfig.receive;
+			}
+			if (!hasValue && titleConfig.noValue) {
+				return titleConfig.noValue;
+			}
+			
+			// Fallback if no appropriate title found in config
+			if (titleConfig.send) return titleConfig.send;
+			if (titleConfig.receive) return titleConfig.receive;
+			if (titleConfig.noValue) return titleConfig.noValue;
 		}
 	}
 
-	// Priority 2: Unknown contract function with decoded name
+	// Priority 2: Unknown contract function with decoded name (show function name directly)
 	if (tx.type === 'contract-function' && tx.contractFunction) {
 		return `Contract Function: ${tx.contractFunction}`;
 	}
@@ -54,7 +99,7 @@ export function getTransactionTitle(tx: Partial<Transaction>): string {
 		case 'receive':
 			return 'Received';
 		case 'contract-function':
-			return 'Contract Function';
+			return 'Contract Function Called';
 		case 'swap':
 			return 'Swap Claimed';
 		case 'contract':

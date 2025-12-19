@@ -28,7 +28,7 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.receive.cancel': 'Cancel',
 		'wallet.receive.generate_invoice': 'Generate Invoice',
 		'wallet.receive.get_paid': 'Get Paid',
-		'wallet.payment_request_label': 'Payment Request',
+		'wallet.payment_request.title': 'Payment Request',
 		'wallet.receive.network': 'Network',
 		'wallet.receive.enter_amount_to_estimate': 'Enter amount to estimate fees',
 		'common.back': 'Back',

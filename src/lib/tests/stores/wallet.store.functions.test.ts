@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import { 
-	initializeWallet, 
 	getRSKAddress, 
-	disconnectWallet,
 	walletStore,
 	walletManager
 } from '$lib/stores/wallet.store';
@@ -94,7 +92,6 @@ describe('Wallet Store Functions', () => {
 		walletStore.set({
 			isInitializing: false,
 			isConnected: false,
-			isConnecting: false,
 			hasAnyConnection: false,
 			error: null,
 			rsk: {
@@ -144,13 +141,13 @@ describe('Wallet Store Functions', () => {
 	});
 
 	afterEach(() => {
-		disconnectWallet();
+		walletManager.cleanup();
 	});
 
 	describe('getRSKAddress', () => {
 		it('should return RSK address if wallet is initialized', async () => {
 			// Initialize wallet first
-			await initializeWallet();
+			await walletManager.initialize();
 			
 			// Wait for initialization
 			await new Promise(resolve => setTimeout(resolve, 100));
@@ -192,7 +189,7 @@ describe('Wallet Store Functions', () => {
 
 	describe('initializeWallet', () => {
 		it('should initialize wallet successfully', async () => {
-			await initializeWallet();
+			await walletManager.initialize();
 
 			const state = get(walletStore);
 			expect(state.isConnected).toBe(true);
@@ -204,7 +201,7 @@ describe('Wallet Store Functions', () => {
 			// Set initializing flag
 			walletStore.update(s => ({ ...s, isInitializing: true }));
 
-			await initializeWallet();
+			await walletManager.initialize();
 
 			// Should not have changed state
 			const state = get(walletStore);
@@ -215,7 +212,7 @@ describe('Wallet Store Functions', () => {
 			// Set connected flag
 			walletStore.update(s => ({ ...s, isConnected: true }));
 
-			await initializeWallet();
+			await walletManager.initialize();
 
 			// Should not have re-initialized
 			const state = get(walletStore);
@@ -228,7 +225,7 @@ describe('Wallet Store Functions', () => {
 			vi.mocked(getMnemonic).mockRejectedValueOnce(new Error('Failed to get mnemonic'));
 
 			// initializeWallet catches errors internally and sets error state
-			await initializeWallet();
+			await walletManager.initialize();
 			
 			const state = get(walletStore);
 			// Error may be set or initialization may be reset
@@ -239,7 +236,7 @@ describe('Wallet Store Functions', () => {
 
 	describe('loadAssets', () => {
 		it('should load assets after wallet initialization', async () => {
-			await initializeWallet();
+			await walletManager.initialize();
 			await walletManager.loadAssets();
 
 			const state = get(walletStore);
@@ -247,7 +244,7 @@ describe('Wallet Store Functions', () => {
 		});
 
 		it('should update total balances', async () => {
-			await initializeWallet();
+			await walletManager.initialize();
 			await walletManager.loadAssets();
 
 			const state = get(walletStore);
@@ -255,7 +252,7 @@ describe('Wallet Store Functions', () => {
 		});
 
 		it('should handle load errors gracefully', async () => {
-			await initializeWallet();
+			await walletManager.initialize();
 			
 			// Mock crypto price service to throw error
 			const cryptoPriceService = await import('$lib/api/services/crypto-price.service');
@@ -271,7 +268,7 @@ describe('Wallet Store Functions', () => {
 
 	describe('loadTransactions', () => {
 		it('should load transactions after wallet initialization', async () => {
-			await initializeWallet();
+			await walletManager.initialize();
 			await walletManager.loadTransactions();
 
 			const state = get(walletStore);
@@ -280,7 +277,7 @@ describe('Wallet Store Functions', () => {
 		});
 
 		it('should prevent concurrent transaction loads', async () => {
-			await initializeWallet();
+			await walletManager.initialize();
 			
 			// Start multiple concurrent loads
 			const promises = [
@@ -299,9 +296,9 @@ describe('Wallet Store Functions', () => {
 
 	describe('disconnectWallet', () => {
 		it('should disconnect wallet and reset state', async () => {
-			await initializeWallet();
+			await walletManager.initialize();
 			
-			disconnectWallet();
+			walletManager.cleanup();
 
 			const state = get(walletStore);
 			expect(state.isConnected).toBe(false);
@@ -310,12 +307,12 @@ describe('Wallet Store Functions', () => {
 		});
 
 		it('should clear RSK address promise cache', async () => {
-			await initializeWallet();
+			await walletManager.initialize();
 			
 			// Get address to populate cache
 			await getRSKAddress();
 			
-			disconnectWallet();
+			walletManager.cleanup();
 			
 			// Cache should be cleared
 			const state = get(walletStore);
@@ -323,7 +320,7 @@ describe('Wallet Store Functions', () => {
 		});
 
 		it('should handle disconnect errors gracefully', async () => {
-			await initializeWallet();
+			await walletManager.initialize();
 			
 			// Mock disconnect to throw error
 			const { WalletManager } = await import('@bittasker/wallet-core');
@@ -335,7 +332,7 @@ describe('Wallet Store Functions', () => {
 			}
 
 			// Should not throw
-			expect(() => disconnectWallet()).not.toThrow();
+			expect(() => walletManager.cleanup()).not.toThrow();
 		});
 	});
 });

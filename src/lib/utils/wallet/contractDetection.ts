@@ -44,7 +44,7 @@ export async function isContractAddress(
 
 	try {
 		const code = await provider.getCode(address, blockNumber);
-		const isContract = code && code !== '0x' && code.length > 2;
+		const isContract = code && code !== '0x' && code.length > 2 ? true : false;
 		
 		// Cache result
 		contractCodeCache.set(cacheKey, {

@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onMount, onDestroy } from 'svelte';
-	import { walletStore, walletManager } from '$lib/stores/wallet.store';
+	import { onMount } from 'svelte';
+	import { walletStore, walletManager, formatSats, formatUsd } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
-	import { ethers, type Signer } from 'ethers';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
@@ -22,81 +21,106 @@
 
 	let { onCancel, onInvoiceGenerated }: Props = $props();
 
-	// Form state
-	let amount = $state('');
-	let unit = $state<'sats' | 'usd'>('usd'); // Default to USD
-	let mathExpression = $state(''); // Store the calculation expression
-	let memo = $state('');
-	let selectedNetwork = $state('lightning-bitcoin');
+	// Grouped State: Form Input
+	let formInput = $state({
+		amount: '',
+		unit: 'usd' as 'sats' | 'usd',
+		mathExpression: '',
+		memo: '',
+		selectedNetwork: 'lightning-bitcoin',
+		chargeFeesToPayer: false
+	});
+
+	// Grouped State: UI State
+	let uiState = $state({
+		descriptionExpanded: false,
+		networkFeeExpanded: false,
+		isNetworkDropdownOpen: false,
+		showPaymentRequestModal: false,
+		invoiceGenerated: false,
+		calculatorKey: 0
+	});
+
+	// Grouped State: Fee & Swap Information
+	let feeState = $state<{
+		estimated: {
+			serviceFee: number;
+			networkFee: number;
+			totalFees: number;
+		} | null;
+		isLoading: boolean;
+		error: string | null;
+		swapFees: {
+			percentage: number;
+			lockupFee: number;
+			claimFee: number;
+		} | null;
+		swapLimits: {
+			minimal: number;
+			maximal: number;
+		} | null;
+	}>({
+		estimated: null,
+		isLoading: false,
+		error: null,
+		swapFees: null,
+		swapLimits: null
+	});
+
+	// Grouped State: Invoice Generation
+	let invoiceState = $state<{
+		isGenerating: boolean;
+		data: {
+			address: string;
+			amount: number;
+			network: string;
+			memo?: string;
+			swapId?: string;
+			chargeFeesToPayer?: boolean;
+			totalFees?: number;
+		} | null;
+	}>({
+		isGenerating: false,
+		data: null
+	});
+
+	// Cached data (fetched once on mount)
 	let btcPrice = $state<number>(0);
-	let invoiceGenerated = $state(false);
-	let descriptionExpanded = $state(false); // Accordion state for description field
-	let networkDropdownElement = $state.raw<HTMLDetailsElement | undefined>(undefined); // Reference to details element for DaisyUI dropdown
-	let networkFeeExpanded = $state(false); // Accordion state for network fee breakdown
-	let calculatorKey = $state(0); // Key to force CalculatorKeypad reset
-	let chargeFeesToPayer = $state(false); // Toggle to charge fees to payer instead of deducting from receiver
-	let showPaymentRequestModal = $state(false); // Show payment request modal
-	let invoiceData = $state<{
-		address: string;
-		amount: number;
-		network: string;
-		memo?: string;
-		swapId?: string;
-		chargeFeesToPayer?: boolean;
-		totalFees?: number;
-	} | null>(null);
-	let isGeneratingInvoice = $state(false);
-	let rootstockGasFee = $state<number | null>(null); // Real-time rootstock gas fee estimate
-
-	// Fee estimation state
-	let estimatedFees = $state<{
-		serviceFee: number; // in sats
-		networkFee: number; // in sats
-		totalFees: number; // in sats
-	} | null>(null);
-	let isLoadingFees = $state(false);
-	let feeError = $state<string | null>(null);
-
-	// Swap fees for Lightning and Liquid
-	let swapFees = $state<{
-		percentage: number;
-		lockupFee: number;
-		claimFee: number;
+	let swapPairsInfo = $state<{
+		lightning: any;
+		liquid: any;
+		rootstock: { gasFee: number } | null;
 	} | null>(null);
 
-	// Swap limits (minimum amounts)
-	let swapLimits = $state<{
-		minimal: number;
-		maximal: number;
-	} | null>(null);
-	let isLoadingSwapLimits = $state(false);
+	// UI References
+	let networkDropdownElement = $state.raw<HTMLDetailsElement | undefined>(undefined);
 
 	// Derived values
 	const amountInSats = $derived.by(() => {
-		if (unit === 'sats') {
-			const parsed = parseFloat(amount);
+		if (formInput.unit === 'sats') {
+			const parsed = parseFloat(formInput.amount);
 			return isNaN(parsed) ? 0 : Math.floor(parsed);
 		} else {
-			const usdAmount = parseFloat(amount);
+			const usdAmount = parseFloat(formInput.amount);
 			if (isNaN(usdAmount) || btcPrice === 0) return 0;
 			return Math.floor((usdAmount / btcPrice) * 100_000_000);
 		}
 	});
 
 	const totalReceived = $derived.by(() => {
-		if (!estimatedFees || amountInSats === 0) return 0;
+		if (!feeState.estimated || amountInSats === 0) return 0;
 		// If charging fees to payer, receiver gets full amount; otherwise fees are deducted
-		if (chargeFeesToPayer) {
+		if (formInput.chargeFeesToPayer) {
 			return amountInSats;
 		}
-		return Math.max(0, amountInSats - estimatedFees.totalFees);
+		return Math.max(0, amountInSats - feeState.estimated.totalFees);
 	});
 
 	// Amount payer will pay (includes fees if chargeFeesToPayer is true)
 	const amountPayerPays = $derived.by(() => {
-		if (!estimatedFees || amountInSats === 0) return 0;
-		if (chargeFeesToPayer) {
-			return amountInSats + estimatedFees.totalFees;
+		if (!feeState.estimated || amountInSats === 0) return 0;
+		if (formInput.chargeFeesToPayer) {
+			return amountInSats + feeState.estimated.totalFees;
 		}
 		return amountInSats;
 	});
@@ -105,9 +129,9 @@
 	const isBelowSwapMinimum = $derived.by(() => {
 		// Only check for networks that require swaps (not rootstock)
 		const networksRequiringSwaps = ['lightning-bitcoin', 'liquid-bitcoin', 'bitcoin'];
-		if (!networksRequiringSwaps.includes(selectedNetwork)) return false;
-		if (!swapLimits || amountPayerPays === 0) return false;
-		return amountPayerPays < swapLimits.minimal;
+		if (!networksRequiringSwaps.includes(formInput.selectedNetwork)) return false;
+		if (!feeState.swapLimits || amountPayerPays === 0) return false;
+		return amountPayerPays < feeState.swapLimits.minimal;
 	});
 
 	// Total received in USD
@@ -123,7 +147,7 @@
 			label: $t('wallet.receive_form.networks.lightning_bitcoin.label'),
 			description: $t('wallet.receive_form.networks.lightning_bitcoin.description'),
 			icon: null,
-			available: $walletStore.hasAnyConnection,
+			available: $walletStore.isConnected,
 			swapFeeInfo: '~0.25% swap fee' // Lightning reverse swap fee
 		},
 		{
@@ -131,7 +155,7 @@
 			label: $t('wallet.receive_form.networks.rootstock_bitcoin.label'),
 			description: $t('wallet.receive_form.networks.rootstock_bitcoin.description'),
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-			available: $walletStore.rsk.connected,
+			available: $walletStore.isConnected,
 			swapFeeInfo: 'Network gas fee' // RSK gas fee
 		},
 		{
@@ -139,7 +163,7 @@
 			label: $t('wallet.receive_form.networks.liquid_bitcoin.label'),
 			description: $t('wallet.receive_form.networks.liquid_bitcoin.description'),
 			icon: '/images/chains/Liquid-Bitcoin.svg',
-			available: false, // Disabled - Coming Soon
+			available: $walletStore.isConnected,
 			swapFeeInfo: '~0.1% swap fee' // Liquid chain swap fee
 		},
 		{
@@ -154,183 +178,18 @@
 
 	// Get selected network info
 	const selectedNetworkInfo = $derived(
-		networkOptions.find((network) => network.value === selectedNetwork)
+		networkOptions.find((network) => network.value === formInput.selectedNetwork)
 	);
 
 	// Get estimated fees for a specific network (for dropdown display)
 	// Only shows fees if this network is currently selected and amount is entered
-	function getNetworkFees(networkValue: string): { serviceFee: number; networkFee: number; totalFees: number } | null {
-		if (amountInSats === 0 || selectedNetwork !== networkValue || !estimatedFees) {
+	function getNetworkFees(
+		networkValue: string
+	): { serviceFee: number; networkFee: number; totalFees: number } | null {
+		if (amountInSats === 0 || formInput.selectedNetwork !== networkValue || !feeState.estimated) {
 			return null;
 		}
-		return estimatedFees;
-	}
-
-	// Estimate real-time Rootstock gas fee using public RPC (no wallet required)
-	async function estimateRootstockGasFeePublic(): Promise<void> {
-		console.log('[RootstockGasFee] Starting public RPC estimation...');
-		try {
-			const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-			console.log('[RootstockGasFee] Network:', network);
-			
-			const rpcUrl = RSK_NETWORKS[network]?.rpcUrl;
-			console.log('[RootstockGasFee] RPC URL:', rpcUrl);
-			
-			if (!rpcUrl) {
-				console.error('[RootstockGasFee] RSK RPC URL not found for network:', network);
-				rootstockGasFee = null;
-				return;
-			}
-
-			// Create a public provider (no wallet needed)
-			console.log('[RootstockGasFee] Creating provider...');
-			const provider = new ethers.JsonRpcProvider(rpcUrl);
-			
-			// Test connection
-			console.log('[RootstockGasFee] Testing provider connection...');
-			try {
-				const blockNumber = await provider.getBlockNumber();
-				console.log('[RootstockGasFee] Provider connected, block number:', blockNumber);
-			} catch (connError) {
-				console.error('[RootstockGasFee] Provider connection failed:', connError);
-				throw new Error(`Failed to connect to RSK RPC: ${connError instanceof Error ? connError.message : 'Unknown error'}`);
-			}
-			
-			// Get current gas price first
-			console.log('[RootstockGasFee] Getting fee data...');
-			const feeData = await provider.getFeeData();
-			const gasPrice = feeData.gasPrice || BigInt(0);
-			console.log('[RootstockGasFee] Gas price:', gasPrice.toString());
-			
-			if (gasPrice === BigInt(0)) {
-				console.warn('[RootstockGasFee] Gas price is 0, trying alternative method...');
-				// Try getting gas price directly
-				try {
-					const block = await provider.getBlock('latest');
-					if (block && block.baseFeePerGas) {
-						const baseFee = block.baseFeePerGas;
-						// Use base fee + 20% priority fee estimate
-						const estimatedGasPrice = (baseFee * BigInt(120)) / BigInt(100);
-						console.log('[RootstockGasFee] Using base fee + priority:', estimatedGasPrice.toString());
-						const gasLimit = BigInt(21000); // Standard gas limit for simple transfer
-						const gasCost = gasLimit * estimatedGasPrice;
-						const gasCostRBTC = parseFloat(ethers.formatEther(gasCost));
-						const gasFeeSats = Math.floor(gasCostRBTC * 100_000_000);
-						console.log('[RootstockGasFee] Gas fee (sats):', gasFeeSats);
-						if (gasFeeSats > 0) {
-							rootstockGasFee = gasFeeSats;
-							return;
-						}
-					}
-				} catch (altError) {
-					console.error('[RootstockGasFee] Alternative method failed:', altError);
-				}
-				console.warn('[RootstockGasFee] Gas price is 0, using fallback');
-				rootstockGasFee = null;
-				return;
-			}
-			
-			// Use standard gas limit for simple transfer (21000) instead of estimating
-			// This is more reliable and doesn't require valid addresses
-			const gasLimit = BigInt(21000); // Standard gas limit for ETH/RBTC transfer
-			console.log('[RootstockGasFee] Using standard gas limit:', gasLimit.toString());
-			
-			// Calculate gas cost in RBTC
-			const gasCost = gasLimit * gasPrice;
-			const gasCostRBTC = parseFloat(ethers.formatEther(gasCost));
-			console.log('[RootstockGasFee] Gas cost (RBTC):', gasCostRBTC);
-			
-			// Convert to sats
-			const gasFeeSats = Math.floor(gasCostRBTC * 100_000_000);
-			console.log('[RootstockGasFee] Gas fee (sats):', gasFeeSats);
-			
-			// Only update if we got a valid positive value
-			if (gasFeeSats > 0) {
-				console.log('[RootstockGasFee] Setting rootstockGasFee to:', gasFeeSats);
-				rootstockGasFee = gasFeeSats;
-			} else {
-				console.warn('[RootstockGasFee] Invalid gas fee sats:', gasFeeSats);
-				rootstockGasFee = null;
-			}
-		} catch (error) {
-			console.error('[RootstockGasFee] Failed to estimate Rootstock gas via public RPC:', error);
-			if (error instanceof Error) {
-				console.error('[RootstockGasFee] Error message:', error.message);
-				console.error('[RootstockGasFee] Error stack:', error.stack);
-			}
-			rootstockGasFee = null;
-		}
-	}
-
-	// Estimate using wallet (more accurate, requires wallet to be ready)
-	async function estimateRootstockGasFeeWithWallet(): Promise<void> {
-		// This function should only be called when wallet is ready
-		// Double-check to prevent any race conditions
-		if ($walletStore.isInitializing || !$walletStore.rsk.connected || !$walletStore.rsk.address) {
-			console.log('[RootstockGasFee] Skipping wallet estimation - wallet not ready', {
-				isInitializing: $walletStore.isInitializing,
-				connected: $walletStore.rsk.connected,
-				address: $walletStore.rsk.address
-			});
-			return;
-		}
-
-		try {
-			// Use a small default amount (0.0001 RBTC = 10,000 sats) to estimate gas
-			const defaultAmountRBTC = '0.0001';
-			const gasEstimation = await walletManager.estimateRBTCGas(
-				$walletStore.rsk.address,
-				defaultAmountRBTC
-			);
-
-			const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(defaultAmountRBTC);
-			const gasFeeSats = Math.floor(gasFeeRBTC * 100_000_000);
-			
-			// Only update if we got a valid positive value
-			if (gasFeeSats > 0) {
-				rootstockGasFee = gasFeeSats;
-			} else {
-				rootstockGasFee = null;
-			}
-		} catch (error) {
-			console.error('Failed to estimate Rootstock gas with wallet:', error);
-			// Fall back to public RPC estimation
-			await estimateRootstockGasFeePublic();
-		}
-	}
-
-	// Get default fees for a network when no amount is entered
-	function getDefaultNetworkFees(networkValue: string): { serviceFee: number; networkFee: number; totalFees: number; serviceFeePercent?: number } {
-		switch (networkValue) {
-			case 'lightning-bitcoin':
-				return {
-					serviceFee: 0, // Percentage-based, shown as percentage
-					networkFee: 47, // ~27 lockup + ~20 claim
-					totalFees: 47,
-					serviceFeePercent: 0.25
-				};
-			case 'rootstock-bitcoin':
-				return {
-					serviceFee: 0,
-					networkFee: rootstockGasFee ?? 0, // Use real-time estimate, 0 if null (loading)
-					totalFees: rootstockGasFee ?? 0
-				};
-			case 'liquid-bitcoin':
-				return {
-					serviceFee: 0, // Percentage-based, shown as percentage
-					networkFee: 54, // ~34 lockup + ~20 claim
-					totalFees: 54,
-					serviceFeePercent: 0.1
-				};
-			case 'bitcoin':
-				return {
-					serviceFee: 0,
-					networkFee: 0, // Determined at send time
-					totalFees: 0
-				};
-			default:
-				return { serviceFee: 0, networkFee: 0, totalFees: 0 };
-		}
+		return feeState.estimated;
 	}
 
 	// Debounced fee update function
@@ -342,390 +201,226 @@
 	function closeNetworkDropdown() {
 		if (networkDropdownElement) {
 			networkDropdownElement.removeAttribute('open');
+			uiState.isNetworkDropdownOpen = false;
 		}
 	}
 
-	// Update dropdown state for chevron rotation
-	let isNetworkDropdownOpen = $state(false);
-	
-	function updateNetworkDropdownState() {
-		if (networkDropdownElement) {
-			isNetworkDropdownOpen = networkDropdownElement.hasAttribute('open');
-		}
-	}
-	
-	// Watch for changes to the dropdown's open state
-	$effect(() => {
-		if (networkDropdownElement) {
-			updateNetworkDropdownState();
-			// Use MutationObserver to watch for attribute changes
-			const observer = new MutationObserver(() => {
-				updateNetworkDropdownState();
-			});
-			observer.observe(networkDropdownElement, {
-				attributes: true,
-				attributeFilter: ['open']
-			});
-			return () => observer.disconnect();
-		}
-	});
-	
+	// Handle dropdown toggle - update state manually
 	function handleNetworkDropdownToggle() {
 		triggerHaptic(ImpactStyle.Light);
-		// State will be updated by the MutationObserver
+		// Toggle state based on current element state
+		if (networkDropdownElement) {
+			uiState.isNetworkDropdownOpen = !networkDropdownElement.hasAttribute('open');
+		}
 	}
 
-	// Fetch BTC price and initialize fees
+	// Fetch BTC price and initialize swap pairs info
 	onMount(async () => {
-		console.log('[RootstockGasFee] Component mounted, selectedNetwork:', selectedNetwork);
 		try {
+			// Fetch BTC price
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Failed to fetch BTC price:', error);
-		}
-		await updateFeeEstimate();
-		// Estimate Rootstock gas fee on mount so it's available in the dropdown
-		if (!hasStartedEstimation && !isEstimatingGasFee && rootstockGasFee === null) {
-			hasStartedEstimation = true;
-			isEstimatingGasFee = true;
-			await estimateRootstockGasFeePublic().finally(() => {
-				isEstimatingGasFee = false;
-				if (rootstockGasFee === null) {
-					hasStartedEstimation = false;
+
+			// Fetch and cache swap pairs for dropdown display
+			// These are cached with 1-hour TTL, so subsequent calls are fast
+			const [lightning, liquid] = await Promise.all([
+				walletManager.getCachedReverseSwapPairs().catch(() => null),
+				walletManager.getCachedChainSwapPairs().catch(() => null)
+			]);
+
+			// Estimate Rootstock gas fee (wallet is always connected at this point)
+			let rootstockGas: { gasFee: number } | null = null;
+			if ($walletStore.rsk.connected && $walletStore.rsk.address) {
+				try {
+					const gasEstimation = await walletManager.estimateRBTCGas(
+						$walletStore.rsk.address,
+						'0.0001' // Small amount for estimation
+					);
+					const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - 0.0001;
+					const gasFeeSats = Math.floor(gasFeeRBTC * 100_000_000);
+					if (gasFeeSats > 0) {
+						rootstockGas = { gasFee: gasFeeSats };
+					}
+				} catch (error) {
+					console.error('Failed to estimate Rootstock gas:', error);
 				}
-			});
+			}
+
+			swapPairsInfo = {
+				lightning: lightning?.['BTC']?.['RBTC'] || null,
+				liquid: liquid?.['L-BTC']?.['RBTC'] || null,
+				rootstock: rootstockGas
+			};
+		} catch (error) {
+			console.error('Failed to initialize receive form:', error);
 		}
 	});
 
-	// Track if estimation is in progress to prevent multiple simultaneous calls
-	let isEstimatingGasFee = $state(false);
-	// Track if we've already started estimation to prevent reactive loops
-	let hasStartedEstimation = $state(false);
-
-	// Update fee estimate when amount or network changes (debounced)
-	$effect(() => {
-		amountInSats;
-		const network = selectedNetwork;
-		
-		// Reset wallet estimation flag when network changes away from Rootstock
-		if (network !== 'rootstock-bitcoin') {
-			hasAttemptedWalletEstimation = false;
-			lastWalletAddress = null;
-		}
-		
+	// Manual fee update - called when amount or network changes
+	function handleAmountOrNetworkChange() {
 		if (amountInSats > 0) {
 			debouncedUpdateFeeEstimate();
 		} else {
-			estimatedFees = null;
+			feeState.estimated = null;
+			feeState.swapLimits = null;
 		}
-	});
-
-	// Estimate Rootstock gas fee proactively (only once, or when rootstockGasFee becomes null after error)
-	// Watch for rootstockGasFee becoming null (after error) to retry estimation
-	$effect(() => {
-		const currentGasFee = rootstockGasFee;
-		// Only retry if gas fee becomes null (error case) and we're not already estimating
-		// This prevents the reactive loop by only tracking rootstockGasFee, not isEstimatingGasFee
-		if (currentGasFee === null && !hasStartedEstimation && !isEstimatingGasFee) {
-			hasStartedEstimation = true;
-			isEstimatingGasFee = true;
-			estimateRootstockGasFeePublic().finally(() => {
-				isEstimatingGasFee = false;
-				if (rootstockGasFee === null) {
-					hasStartedEstimation = false;
-				}
-			});
-		}
-	});
-
-	// Optionally upgrade to wallet-based estimation when wallet becomes ready (more accurate)
-	const isWalletReadyForRootstock = $derived(
-		!$walletStore.isInitializing && 
-		$walletStore.rsk.connected && 
-		$walletStore.rsk.address !== null
-	);
-
-	// Track if we've already attempted wallet-based estimation to prevent loops
-	let hasAttemptedWalletEstimation = $state(false);
-	let lastWalletAddress = $state<string | null>(null);
-
-	$effect(() => {
-		const isReady = isWalletReadyForRootstock;
-		const network = selectedNetwork;
-		const currentAddress = $walletStore.rsk.address;
-		const isInitializing = $walletStore.isInitializing;
-		const isConnected = $walletStore.rsk.connected;
-		
-		// Reset flags if wallet disconnects
-		if (!isConnected) {
-			hasAttemptedWalletEstimation = false;
-			lastWalletAddress = null;
-			return;
-		}
-		
-		// Skip if wallet is still initializing - wait for it to complete
-		if (isInitializing) {
-			return;
-		}
-		
-		// Skip if we're already estimating
-		if (isEstimatingGasFee) {
-			return;
-		}
-		
-		// Only upgrade to wallet-based estimation if:
-		// 1. Rootstock is selected
-		// 2. Wallet is ready (not initializing, connected, has address)
-		// 3. We haven't already attempted estimation for this wallet address
-		// 4. The wallet address has changed (new wallet connection)
-		if (
-			network === 'rootstock-bitcoin' && 
-			isReady && 
-			currentAddress !== null &&
-			(currentAddress !== lastWalletAddress || !hasAttemptedWalletEstimation)
-		) {
-			hasAttemptedWalletEstimation = true;
-			lastWalletAddress = currentAddress;
-			isEstimatingGasFee = true;
-			estimateRootstockGasFeeWithWallet().finally(() => {
-				isEstimatingGasFee = false;
-			});
-		}
-	});
+	}
 
 	// Update fee estimate based on network
 	async function updateFeeEstimate() {
 		if (amountInSats === 0) {
-			estimatedFees = null;
-			swapLimits = null;
+			feeState.estimated = null;
+			feeState.swapLimits = null;
 			return;
 		}
 
-		isLoadingFees = true;
-		feeError = null;
+		feeState.isLoading = true;
+		feeState.error = null;
 
 		try {
-			switch (selectedNetwork) {
+			switch (formInput.selectedNetwork) {
 				case 'lightning-bitcoin':
 					await estimateLightningFees();
 					break;
 				case 'rootstock-bitcoin':
 					await estimateRootstockFees();
-					swapLimits = null; // Rootstock doesn't need swap limits
+					feeState.swapLimits = null; // Rootstock doesn't need swap limits
 					break;
 				case 'liquid-bitcoin':
 					await estimateLiquidFees();
 					break;
 				case 'bitcoin':
 					// On-chain Bitcoin - minimal fees (just network fees)
-					estimatedFees = {
+					feeState.estimated = {
 						serviceFee: 0,
 						networkFee: 0, // Will be determined at send time
 						totalFees: 0
 					};
 					// TODO: Fetch swap limits for on-chain Bitcoin if it requires swaps
-					swapLimits = null;
+					feeState.swapLimits = null;
 					break;
 				default:
-					estimatedFees = null;
-					swapLimits = null;
+					feeState.estimated = null;
+					feeState.swapLimits = null;
 			}
 		} catch (error) {
 			console.error('Failed to estimate fees:', error);
-			feeError = $t('wallet.swap.error.fee_fetch_failed');
-			estimatedFees = null;
-			swapLimits = null;
+			feeState.error = $t('wallet.swap.error.fee_fetch_failed');
+			feeState.estimated = null;
+			feeState.swapLimits = null;
 		} finally {
-			isLoadingFees = false;
+			feeState.isLoading = false;
 		}
 	}
 
 	// Estimate fees for Lightning reverse swap
 	async function estimateLightningFees() {
-		try {
-			const pairsData = await walletManager.getReverseSwapPairs();
-			const pair = pairsData?.['BTC']?.['RBTC'];
+		const pairsData = await walletManager.getCachedReverseSwapPairs();
+		const pair = pairsData?.['BTC']?.['RBTC'];
 
-			if (pair) {
-				const percentage = pair.fees.percentage;
-				const serviceFee = Math.ceil((amountInSats * percentage) / 100);
-				const lockupFee = pair.fees.minerFees.lockup || 27;
-				const claimFee = pair.fees.minerFees.claim || 20;
-				const networkFee = lockupFee + claimFee;
+		if (!pair) {
+			throw new Error('Lightning swap pair not available');
+		}
 
-				swapFees = { percentage, lockupFee, claimFee };
-				estimatedFees = {
-					serviceFee,
-					networkFee,
-					totalFees: serviceFee + networkFee
-				};
+		const percentage = pair.fees.percentage;
+		const serviceFee = Math.ceil((amountInSats * percentage) / 100);
+		const lockupFee = pair.fees.minerFees.lockup || 0;
+		const claimFee = pair.fees.minerFees.claim || 0;
+		const networkFee = lockupFee + claimFee;
 
-				// Update swap limits
-				if (pair.limits) {
-					swapLimits = {
-						minimal: pair.limits.minimal,
-						maximal: pair.limits.maximal
-					};
-				}
-			} else {
-				// Fallback to default fees
-				estimatedFees = {
-					serviceFee: Math.ceil((amountInSats * 0.25) / 100), // 0.25%
-					networkFee: 47, // ~27 lockup + ~20 claim
-					totalFees: Math.ceil((amountInSats * 0.25) / 100) + 47
-				};
-			}
-		} catch (error) {
-			console.error('Failed to fetch Lightning swap fees:', error);
-			// Fallback
-			estimatedFees = {
-				serviceFee: Math.ceil((amountInSats * 0.25) / 100),
-				networkFee: 47,
-				totalFees: Math.ceil((amountInSats * 0.25) / 100) + 47
+		feeState.swapFees = { percentage, lockupFee, claimFee };
+		feeState.estimated = {
+			serviceFee,
+			networkFee,
+			totalFees: serviceFee + networkFee
+		};
+
+		// Update swap limits
+		if (pair.limits) {
+			feeState.swapLimits = {
+				minimal: pair.limits.minimal,
+				maximal: pair.limits.maximal
 			};
 		}
 	}
 
 	// Estimate fees for Rootstock (gas fees)
 	async function estimateRootstockFees() {
-		try {
-			// Don't estimate if wallet is initializing or not connected
-			// Use the public gas fee estimate if available, otherwise show loading state
-			if ($walletStore.isInitializing || !$walletStore.rsk.connected || !$walletStore.rsk.address) {
-				// If we have a public gas fee estimate, use it
-				if (rootstockGasFee !== null && rootstockGasFee > 0) {
-					estimatedFees = {
-						serviceFee: 0,
-						networkFee: rootstockGasFee,
-						totalFees: rootstockGasFee
-					};
-				} else {
-					estimatedFees = null; // Show loading state
-				}
-				return;
-			}
-
-			// Convert sats to RBTC
-			const amountRBTC = (amountInSats / 100_000_000).toFixed(8);
-			const gasEstimation = await walletManager.estimateRBTCGas(
-				$walletStore.rsk.address,
-				amountRBTC
-			);
-
-			const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(amountRBTC);
-			const gasFeeSats = Math.floor(gasFeeRBTC * 100_000_000);
-
-			estimatedFees = {
-				serviceFee: 0, // No service fee for direct sends
-				networkFee: gasFeeSats,
-				totalFees: gasFeeSats
-			};
-		} catch (error) {
-			console.error('Failed to estimate Rootstock gas:', error);
-			estimatedFees = null; // Show loading/error state instead of fallback
+		// Wallet is always connected at this point
+		if (!$walletStore.rsk.address) {
+			throw new Error('RSK wallet address not available');
 		}
+
+		// Convert sats to RBTC
+		const amountRBTC = (amountInSats / 100_000_000).toFixed(8);
+		const gasEstimation = await walletManager.estimateRBTCGas($walletStore.rsk.address, amountRBTC);
+
+		const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(amountRBTC);
+		const gasFeeSats = Math.floor(gasFeeRBTC * 100_000_000);
+
+		feeState.estimated = {
+			serviceFee: 0, // No service fee for direct sends
+			networkFee: gasFeeSats,
+			totalFees: gasFeeSats
+		};
+		feeState.swapLimits = null; // Rootstock doesn't need swap limits
 	}
 
 	// Estimate fees for Liquid chain swap
 	async function estimateLiquidFees() {
-		try {
-			const pairsData = await walletManager.getChainSwapPairs();
-			const pair = pairsData?.['L-BTC']?.['RBTC'];
+		const pairsData = await walletManager.getCachedChainSwapPairs();
+		const pair = pairsData?.['L-BTC']?.['RBTC'];
 
-			if (pair) {
-				const percentage = pair.fees.percentage;
-				const serviceFee = Math.ceil((amountInSats * percentage) / 100);
-				const lockupFee = pair.fees.minerFees.user?.lockup || 34;
-				const claimFee = pair.fees.minerFees.user?.claim || 20;
-				const networkFee = lockupFee + claimFee;
+		if (!pair) {
+			throw new Error('Liquid swap pair not available');
+		}
 
-				swapFees = { percentage, lockupFee, claimFee };
-				estimatedFees = {
-					serviceFee,
-					networkFee,
-					totalFees: serviceFee + networkFee
-				};
+		const percentage = pair.fees.percentage;
+		const serviceFee = Math.ceil((amountInSats * percentage) / 100);
+		const lockupFee = pair.fees.minerFees.user?.lockup || 0;
+		const claimFee = pair.fees.minerFees.user?.claim || 0;
+		const networkFee = lockupFee + claimFee;
 
-				// Update swap limits
-				if (pair.limits) {
-					swapLimits = {
-						minimal: pair.limits.minimal,
-						maximal: pair.limits.maximal
-					};
-				}
-			} else {
-				// Fallback
-				estimatedFees = {
-					serviceFee: Math.ceil((amountInSats * 0.1) / 100), // 0.1%
-					networkFee: 54, // ~34 lockup + ~20 claim
-					totalFees: Math.ceil((amountInSats * 0.1) / 100) + 54
-				};
-			}
-		} catch (error) {
-			console.error('Failed to fetch Liquid swap fees:', error);
-			// Fallback
-			estimatedFees = {
-				serviceFee: Math.ceil((amountInSats * 0.1) / 100),
-				networkFee: 54,
-				totalFees: Math.ceil((amountInSats * 0.1) / 100) + 54
+		feeState.swapFees = { percentage, lockupFee, claimFee };
+		feeState.estimated = {
+			serviceFee,
+			networkFee,
+			totalFees: serviceFee + networkFee
+		};
+
+		// Update swap limits
+		if (pair.limits) {
+			feeState.swapLimits = {
+				minimal: pair.limits.minimal,
+				maximal: pair.limits.maximal
 			};
 		}
-	}
-
-	// Handle calculator input
-	function handleCalculatorInput(value: string) {
-		amount = value;
 	}
 
 	// Handle calculation change from calculator (auto-update amount and expression)
 	function handleCalculationChange(expression: string, result: number) {
 		// Store the math expression
-		mathExpression = expression;
-		
+		formInput.mathExpression = expression;
+
 		// Update amount with the calculated result
 		if (result > 0 || expression === '') {
-			if (unit === 'sats') {
-				amount = Math.floor(result).toString();
+			if (formInput.unit === 'sats') {
+				formInput.amount = Math.floor(result).toString();
 			} else {
-				amount = result.toFixed(2).replace(/\.?0+$/, '');
+				formInput.amount = result.toFixed(2).replace(/\.?0+$/, '');
 			}
 		}
+
+		// Trigger fee update when amount changes
+		handleAmountOrNetworkChange();
 	}
 
 	// Clear calculator field
 	function handleClearCalculator() {
 		triggerHaptic(ImpactStyle.Light);
-		amount = '';
-		mathExpression = '';
+		formInput.amount = '';
+		formInput.mathExpression = '';
 		// Force CalculatorKeypad to reset by changing its key
-		calculatorKey++;
-	}
-
-	// Format amount in USD
-	const amountInUSD = $derived.by(() => {
-		if (unit === 'usd') {
-			const parsed = parseFloat(amount);
-			return isNaN(parsed) ? 0 : parsed;
-		} else {
-			const sats = parseFloat(amount);
-			if (isNaN(sats) || btcPrice === 0) return 0;
-			return (sats / 100_000_000) * btcPrice;
-		}
-	});
-
-	// Format sats with thousand separators
-	function formatSats(sats: number): string {
-		return new Intl.NumberFormat('en-US').format(sats);
-	}
-
-	// Format USD
-	function formatUSD(usd: number): string {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		}).format(usd);
+		uiState.calculatorKey++;
 	}
 
 	// Validate form
@@ -735,29 +430,25 @@
 
 	// Handle invoice generation
 	async function handleGenerateInvoice() {
-		if (!isFormValid || isGeneratingInvoice) return;
+		if (!isFormValid || invoiceState.isGenerating) return;
 
-		isGeneratingInvoice = true;
+		invoiceState.isGenerating = true;
 		try {
 			let address = '';
 			let swapId: string | undefined;
 
-			if (selectedNetwork === 'lightning-bitcoin') {
+			if (formInput.selectedNetwork === 'lightning-bitcoin') {
 				// Create Lightning reverse swap
 				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
 					appStore.showErrorToast($t('wallet.rsk_not_connected'));
 					return;
 				}
 
-				const result = await walletManager.reverseSwapService.createReverseSwap({
-					amountSats: Math.floor(amountInSats),
-					rbtcAddress: $walletStore.rsk.address,
-					walletSigner: $walletStore.rsk.wallet as Signer
-				});
+				const result = await walletManager.createReverseSwap(Math.floor(amountInSats));
 
 				address = result.invoice;
 				swapId = result.swapId;
-			} else if (selectedNetwork === 'rootstock-bitcoin') {
+			} else if (formInput.selectedNetwork === 'rootstock-bitcoin') {
 				// Get RSK address and format as payment URI
 				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
 					appStore.showErrorToast($t('wallet.rsk_not_connected'));
@@ -773,8 +464,8 @@
 					const amountWei = (amountInSats * 1e10).toString();
 					params.append('value', amountWei);
 				}
-				if (memo) {
-					params.append('message', memo);
+				if (formInput.memo) {
+					params.append('message', formInput.memo);
 				}
 
 				// Add chain ID for RSK
@@ -784,22 +475,19 @@
 				if (params.toString()) {
 					address += `?${params.toString()}`;
 				}
-			} else if (selectedNetwork === 'liquid-bitcoin') {
+			} else if (formInput.selectedNetwork === 'liquid-bitcoin') {
 				// Create Liquid chain swap
 				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
 					appStore.showErrorToast($t('wallet.rsk_not_connected'));
 					return;
 				}
 
-				const result = await walletManager.chainSwapService.createChainSwap({
-					amountSats: Math.floor(amountInSats),
-					rbtcAddress: $walletStore.rsk.address,
-					walletSigner: $walletStore.rsk.wallet as Signer
-				});
+				const result = await walletManager.createChainSwap(Math.floor(amountInSats));
 
 				address = result.liquidUri || '';
+				console.log({ result, address });
 				swapId = result.swapId;
-			} else if (selectedNetwork === 'usdt-bsc' || selectedNetwork === 'bsc') {
+			} else if (formInput.selectedNetwork === 'usdt-bsc' || formInput.selectedNetwork === 'bsc') {
 				// Get BSC address
 				if (!$walletStore.bsc.connected || !$walletStore.bsc.address) {
 					appStore.showErrorToast($t('wallet.bsc_not_connected'));
@@ -818,24 +506,24 @@
 			}
 
 			// Set invoice data and show modal
-			invoiceData = {
+			invoiceState.data = {
 				address,
 				amount: Math.floor(amountInSats),
-				network: selectedNetwork,
-				memo: memo || undefined,
+				network: formInput.selectedNetwork,
+				memo: formInput.memo || undefined,
 				swapId,
-				chargeFeesToPayer,
-				totalFees: estimatedFees?.totalFees || 0
+				chargeFeesToPayer: formInput.chargeFeesToPayer,
+				totalFees: feeState.estimated?.totalFees || 0
 			};
 
-			showPaymentRequestModal = true;
+			uiState.showPaymentRequestModal = true;
 
 			// Call callback if provided
 			if (onInvoiceGenerated) {
 				onInvoiceGenerated({
 					address,
 					amount: Math.floor(amountInSats),
-					memo: memo || undefined
+					memo: formInput.memo || undefined
 				});
 			}
 		} catch (error) {
@@ -844,57 +532,55 @@
 				error instanceof Error ? error.message : $t('wallet.invoice.generation_failed')
 			);
 		} finally {
-			isGeneratingInvoice = false;
+			invoiceState.isGenerating = false;
 		}
 	}
 
 	// Reset form
 	function handleCancel() {
-		amount = '';
-		memo = '';
-		invoiceGenerated = false;
+		formInput.amount = '';
+		formInput.memo = '';
+		uiState.invoiceGenerated = false;
 		onCancel();
 	}
 </script>
 
-<div class="receive-payment-form flex flex-col min-h-full space-y-6">
-	{#if !invoiceGenerated}
+<div class="flex min-h-full flex-col space-y-6">
+	{#if !uiState.invoiceGenerated}
 		<!-- Amount Input Section -->
 		<AmountInputSection
-			{amount}
-			{unit}
-			{mathExpression}
-			{calculatorKey}
-			onAmountChange={(value) => (amount = value)}
+			amount={formInput.amount}
+			unit={formInput.unit}
+			mathExpression={formInput.mathExpression}
+			calculatorKey={uiState.calculatorKey}
+			onAmountChange={(value) => (formInput.amount = value)}
 			onUnitChange={(newUnit) => {
 				triggerHaptic(ImpactStyle.Light);
-				unit = newUnit;
+				formInput.unit = newUnit;
 				// Keep amount when switching units - user may have entered amount before selecting unit
-				mathExpression = '';
+				formInput.mathExpression = '';
 				// Don't increment calculatorKey - preserve calculator state and amount
+				// Trigger fee update when unit changes (amount in sats might change)
+				handleAmountOrNetworkChange();
 			}}
 			onCalculationChange={handleCalculationChange}
 			onClear={handleClearCalculator}
 		/>
 
 		<!-- Network Selector (DaisyUI Native Dropdown) -->
-		<details 
-			class="dropdown dropdown-bottom w-full" 
+		<details
+			class="dropdown dropdown-bottom w-full"
 			bind:this={networkDropdownElement}
 			use:clickOutside={{ callback: closeNetworkDropdown }}
 		>
 			<summary
-				class="btn btn-outline w-full justify-between border-2 border-primary rounded-lg bg-base-100 py-1 cursor-pointer"
+				class="btn btn-outline border-primary bg-base-100 w-full cursor-pointer justify-between rounded-lg border-2 py-1"
 				onclick={handleNetworkDropdownToggle}
 				aria-label={$t('wallet.receive_form.select_network')}
 			>
 				<div class="flex items-center gap-2">
 					{#if selectedNetworkInfo?.icon}
-						<img
-							src={selectedNetworkInfo.icon}
-							alt={selectedNetworkInfo.label}
-							class="h-5 w-5"
-						/>
+						<img src={selectedNetworkInfo.icon} alt={selectedNetworkInfo.label} class="h-5 w-5" />
 					{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -912,13 +598,14 @@
 						</svg>
 					{/if}
 					<span class="font-medium">
-						{selectedNetworkInfo?.label} {$t('wallet.receive.network')}
+						{selectedNetworkInfo?.label}
+						{$t('wallet.receive.network')}
 					</span>
 				</div>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-4 w-4 transition-transform duration-200"
-					class:rotate-180={isNetworkDropdownOpen}
+					class:rotate-180={uiState.isNetworkDropdownOpen}
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -928,24 +615,27 @@
 				</svg>
 			</summary>
 			<ul
-				class="dropdown-content menu bg-base-100 rounded-lg w-full p-2 border-2 border-primary mt-1 z-[1]"
+				class="dropdown-content menu bg-base-100 border-primary z-1 mt-1 w-full rounded-lg border-2 p-2"
 				style="box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);"
 			>
 				{#each networkOptions as network}
 					{@const networkFees = getNetworkFees(network.value)}
-					{@const defaultFees = getDefaultNetworkFees(network.value)}
 					<li>
 						<button
 							type="button"
-							class="flex w-full items-start gap-2 p-1 rounded-lg transition-colors {!network.available ? 'opacity-40 cursor-not-allowed' : 'hover:bg-base-200'} {selectedNetwork === network.value ? 'bg-primary/10' : ''}"
+							class="flex w-full items-start gap-2 rounded-lg p-1 transition-colors {!network.available
+								? 'cursor-not-allowed opacity-40'
+								: 'hover:bg-base-200'} {formInput.selectedNetwork === network.value
+								? 'bg-primary/10'
+								: ''}"
 							disabled={!network.available}
 							onclick={() => {
 								if (network.available) {
 									triggerHaptic(ImpactStyle.Light);
-									console.log('[RootstockGasFee] Network selected:', network.value);
-									selectedNetwork = network.value;
+									formInput.selectedNetwork = network.value;
 									closeNetworkDropdown();
-									console.log('[RootstockGasFee] selectedNetwork updated to:', selectedNetwork);
+									// Trigger fee update when network changes
+									handleAmountOrNetworkChange();
 								}
 							}}
 						>
@@ -969,10 +659,11 @@
 									</svg>
 								{/if}
 							</div>
-							<div class="flex-1 flex flex-col items-start gap-1 min-w-0">
+							<div class="flex min-w-0 flex-1 flex-col items-start gap-1">
 								<div class="flex w-full items-center gap-2">
-									<span class="font-medium text-left">
-										{network.label} {$t('wallet.receive.network')}
+									<span class="text-left font-medium">
+										{network.label}
+										{$t('wallet.receive.network')}
 									</span>
 								</div>
 								{#if !network.available}
@@ -986,52 +677,52 @@
 										<span>{formatSats(networkFees.totalFees)} {$t('wallet.sats')}</span>
 										{#if btcPrice > 0 && networkFees.totalFees > 0}
 											<span class="ml-1">
-												≈ {formatUSD((networkFees.totalFees / 100_000_000) * btcPrice)}
+												≈ {formatUsd((networkFees.totalFees / 100_000_000) * btcPrice)}
 											</span>
 										{/if}
 									</div>
-								{:else if network.value === 'lightning-bitcoin'}
-									<!-- Lightning: Show fee info on one line -->
+								{:else if network.value === 'lightning-bitcoin' && swapPairsInfo?.lightning}
+									<!-- Lightning: Show fee info from cached API data -->
 									<div class="text-xs opacity-70">
-										~0.25% {$t('wallet.swap.swap_fee')} + ~{formatSats(47)} {$t('wallet.sats')} {$t('wallet.network_fee')}
+										~{swapPairsInfo.lightning.fees.percentage}% {$t('wallet.swap.swap_fee')} + ~{formatSats(
+											(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
+												(swapPairsInfo.lightning.fees.minerFees.claim || 0)
+										)}
+										{$t('wallet.sats')}
+										{$t('wallet.network_fee')}
 									</div>
-								{:else if network.value === 'rootstock-bitcoin'}
-									<!-- Rootstock: Show real-time gas fee estimate (always show, even if not selected) -->
+								{:else if network.value === 'rootstock-bitcoin' && swapPairsInfo?.rootstock}
+									<!-- Rootstock: Show gas fee from cached estimate -->
 									<div class="text-xs opacity-70">
-										{#if rootstockGasFee !== null}
-											{formatSats(rootstockGasFee)} {$t('wallet.sats')} {$t('wallet.network_fee')}
-											{#if btcPrice > 0}
-												<span class="ml-1">
-													≈ {formatUSD((rootstockGasFee / 100_000_000) * btcPrice)}
-												</span>
-											{/if}
-										{:else}
-											<span class="loading loading-spinner loading-xs"></span>
-											{$t('wallet.swap.loading_fees')}
+										{formatSats(swapPairsInfo.rootstock.gasFee)}
+										{$t('wallet.sats')}
+										{$t('wallet.network_fee')}
+										{#if btcPrice > 0}
+											<span class="ml-1">
+												≈ {formatUsd((swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice)}
+											</span>
 										{/if}
+									</div>
+								{:else if network.value === 'liquid-bitcoin' && swapPairsInfo?.liquid}
+									<!-- Liquid: Show fee info from cached API data -->
+									<div class="text-xs opacity-70">
+										~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} + ~{formatSats(
+											(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
+												(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)
+										)}
+										{$t('wallet.sats')}
+										{$t('wallet.network_fee')}
+									</div>
+								{:else if network.value === 'bitcoin'}
+									<!-- Bitcoin on-chain: Show placeholder -->
+									<div class="text-xs opacity-70">
+										{$t('wallet.network_fee')} ({$t('wallet.receive.enter_amount_to_estimate')})
 									</div>
 								{:else}
-									<!-- Show default fees for other networks when no amount is entered -->
-									<div class="text-xs opacity-70 space-y-0.5">
-										{#if defaultFees.serviceFeePercent}
-											<div>
-												~{defaultFees.serviceFeePercent}% {$t('wallet.swap.service_fee')}
-											</div>
-										{/if}
-										{#if defaultFees.networkFee > 0}
-											<div>
-												{formatSats(defaultFees.networkFee)} {$t('wallet.sats')} {$t('wallet.network_fee')}
-												{#if btcPrice > 0}
-													<span class="ml-1">
-														≈ {formatUSD((defaultFees.networkFee / 100_000_000) * btcPrice)}
-													</span>
-												{/if}
-											</div>
-										{:else if network.value === 'bitcoin'}
-											<div>
-												{$t('wallet.network_fee')} ({$t('wallet.receive.enter_amount_to_estimate')})
-											</div>
-										{/if}
+									<!-- Loading state -->
+									<div class="text-xs opacity-70">
+										<span class="loading loading-spinner loading-xs"></span>
+										{$t('wallet.swap.loading_fees')}
 									</div>
 								{/if}
 							</div>
@@ -1042,13 +733,16 @@
 		</details>
 
 		<!-- Memo/Description Field (Accordion) -->
-		<div class="collapse collapse-arrow border-2 border-primary rounded-lg bg-base-100" class:collapse-open={descriptionExpanded}>
+		<div
+			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+			class:collapse-open={uiState.descriptionExpanded}
+		>
 			<button
 				type="button"
-				class="collapse-title min-h-0 py-1 px-4 font-medium text-left"
+				class="collapse-title min-h-0 px-4 py-1 text-left font-medium"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
-					descriptionExpanded = !descriptionExpanded;
+					uiState.descriptionExpanded = !uiState.descriptionExpanded;
 				}}
 			>
 				{$t('wallet.description')} ({$t('wallet.optional')})
@@ -1058,15 +752,19 @@
 					<textarea
 						id="memo-input"
 						class="textarea textarea-bordered w-full"
-						class:textarea-error={memo.length > 200}
+						class:textarea-error={formInput.memo.length > 200}
 						placeholder={$t('wallet.payment_for_placeholder')}
-						bind:value={memo}
+						bind:value={formInput.memo}
 						rows="3"
 						maxlength="200"
 					></textarea>
 					<div class="label text-xs">
-						<span class="label-text-alt {memo.length > 200 ? 'text-error' : 'text-base-content/70'}">
-							{memo.length}/200 {$t('wallet.receive.description_characters')}
+						<span
+							class="label-text-alt {formInput.memo.length > 200
+								? 'text-error'
+								: 'text-base-content/70'}"
+						>
+							{formInput.memo.length}/200 {$t('wallet.receive.description_characters')}
 						</span>
 					</div>
 				</div>
@@ -1074,32 +772,39 @@
 		</div>
 
 		<!-- Network Fee Accordion (Always Visible) -->
-		{#if isLoadingFees}
-			<div class="flex items-center justify-center gap-2 rounded-lg border border-base-300 bg-base-200 p-4">
+		{#if feeState.isLoading}
+			<div
+				class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-4"
+			>
 				<span class="loading loading-spinner loading-sm"></span>
 				<span class="text-sm">{$t('wallet.swap.loading_fees')}</span>
 			</div>
-		{:else if feeError}
+		{:else if feeState.error}
 			<div class="alert alert-outline alert-error">
-				<span>{feeError}</span>
+				<span>{feeState.error}</span>
 			</div>
 		{:else}
-			<div class="collapse collapse-arrow border border-base-300 rounded-lg bg-base-100" class:collapse-open={networkFeeExpanded}>
+			<div
+				class="collapse-arrow border-base-300 bg-base-100 collapse rounded-lg border"
+				class:collapse-open={uiState.networkFeeExpanded}
+			>
 				<button
 					type="button"
-					class="collapse-title min-h-0 py-1 px-4 font-medium text-left"
+					class="collapse-title min-h-0 px-4 py-1 text-left font-medium"
 					onclick={() => {
 						triggerHaptic(ImpactStyle.Light);
-						networkFeeExpanded = !networkFeeExpanded;
+						uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
 					}}
 				>
-					<div class="flex items-center gap-2 w-full">
+					<div class="flex w-full items-center gap-2">
 						<span>{$t('wallet.network_fee')}:</span>
-						{#if estimatedFees}
-							<span class="font-semibold">{formatSats(estimatedFees.totalFees)} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0 && estimatedFees.totalFees > 0}
+						{#if feeState.estimated}
+							<span class="font-semibold"
+								>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
+							>
+							{#if btcPrice > 0 && feeState.estimated.totalFees > 0}
 								<span class="opacity-60">
-									≈ {formatUSD((estimatedFees.totalFees / 100_000_000) * btcPrice)}
+									≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
 								</span>
 							{/if}
 						{:else}
@@ -1108,21 +813,21 @@
 					</div>
 				</button>
 				<div class="collapse-content pb-0">
-					<div class="space-y-2 pb-2 px-4">
-						{#if estimatedFees && estimatedFees.serviceFee > 0}
+					<div class="space-y-2 px-4 pb-2">
+						{#if feeState.estimated && feeState.estimated.serviceFee > 0}
 							<div class="flex items-center justify-between text-xs opacity-70">
 								<span>{$t('wallet.swap.swap_fee')}:</span>
-								<span>{formatSats(estimatedFees.serviceFee)} {$t('wallet.sats')}</span>
+								<span>{formatSats(feeState.estimated.serviceFee)} {$t('wallet.sats')}</span>
 							</div>
 						{/if}
-						{#if estimatedFees && estimatedFees.networkFee > 0}
+						{#if feeState.estimated && feeState.estimated.networkFee > 0}
 							<div class="flex items-center justify-between text-xs opacity-70">
 								<span>{$t('wallet.swap.network_transaction_fee')}:</span>
-								<span>{formatSats(estimatedFees.networkFee)} {$t('wallet.sats')}</span>
+								<span>{formatSats(feeState.estimated.networkFee)} {$t('wallet.sats')}</span>
 							</div>
 						{/if}
-						{#if !estimatedFees || estimatedFees.totalFees === 0}
-							<div class="text-xs opacity-70 text-center py-2">
+						{#if !feeState.estimated || feeState.estimated.totalFees === 0}
+							<div class="py-2 text-center text-xs opacity-70">
 								{$t('wallet.receive.enter_amount_to_estimate')}
 							</div>
 						{/if}
@@ -1132,19 +837,28 @@
 		{/if}
 
 		<!-- Charge Fees to Payer Toggle (Always Visible) -->
-		{#if estimatedFees && estimatedFees.totalFees > 0}
+		{#if feeState.estimated && feeState.estimated.totalFees > 0}
 			<button
 				type="button"
-				class="btn w-full justify-center items-center gap-3 py-2 min-h-0 h-auto touch-manipulation select-none transition-colors border-2 border-primary rounded-lg {chargeFeesToPayer ? 'bg-primary text-primary-content hover:bg-primary/90' : 'btn-outline bg-base-100'}"
+				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-3 rounded-lg border-2 py-2 transition-colors select-none {formInput.chargeFeesToPayer
+					? 'bg-primary text-primary-content hover:bg-primary/90'
+					: 'btn-outline bg-base-100'}"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
-					chargeFeesToPayer = !chargeFeesToPayer;
+					formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
 				}}
 			>
-				<div class="flex items-center justify-center w-5 h-5 rounded border-2 {chargeFeesToPayer ? 'border-primary-content bg-primary-content' : 'border-base-content/30'}">
-					{#if chargeFeesToPayer}
-						<IconCheck class="w-4 h-4 text-primary" style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;" />
+				<div
+					class="flex h-5 w-5 items-center justify-center rounded border-2 {formInput.chargeFeesToPayer
+						? 'border-primary-content bg-primary-content'
+						: 'border-base-content/30'}"
+				>
+					{#if formInput.chargeFeesToPayer}
+						<IconCheck
+							class="text-primary h-4 w-4"
+							style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
+						/>
 					{/if}
 				</div>
 				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
@@ -1152,82 +866,93 @@
 		{:else}
 			<button
 				type="button"
-				class="btn btn-outline w-full justify-center items-center gap-3 py-2 min-h-0 h-auto opacity-50 cursor-not-allowed border-2 border-primary rounded-lg"
+				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-3 rounded-lg border-2 py-2 opacity-50"
 				disabled
 			>
-				<div class="flex items-center justify-center w-5 h-5 rounded border-2 border-base-content/30">
-				</div>
+				<div
+					class="border-base-content/30 flex h-5 w-5 items-center justify-center rounded border-2"
+				></div>
 				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
 			</button>
 		{/if}
 
 		<!-- Swap Minimum Warning -->
-		{#if isBelowSwapMinimum && swapLimits}
-			<p class="text-error text-sm text-center mb-1">
+		{#if isBelowSwapMinimum && feeState.swapLimits}
+			<p class="text-error mb-1 text-center text-sm">
 				{$t('wallet.receive.below_swap_minimum', {
-					values: { minAmount: formatSats(swapLimits.minimal) }
+					values: { minAmount: formatSats(feeState.swapLimits.minimal) }
 				})}
 			</p>
 		{/if}
 
 		<!-- Total Received Card -->
-		<div class="flex flex-col items-center gap-2 rounded-lg border-2 border-primary bg-base-200 p-2">
-			<span class="text-sm opacity-70 text-center">{$t('wallet.swap.total_received_est')}</span>
-			{#if totalReceived > 0 && estimatedFees}
-				<div class="flex items-center justify-center gap-2 w-full">
-					{#if unit === 'sats'}
-						<span class="text-2xl font-bold text-primary">
-							{formatSats(totalReceived)} {$t('wallet.sats')}
+		<div
+			class="border-primary bg-base-200 flex flex-col items-center gap-2 rounded-lg border-2 p-2"
+		>
+			<span class="text-center text-sm opacity-70">{$t('wallet.swap.total_received_est')}</span>
+			{#if totalReceived > 0 && feeState.estimated}
+				<div class="flex w-full items-center justify-center gap-2">
+					{#if formInput.unit === 'sats'}
+						<span class="text-primary text-2xl font-bold">
+							{formatSats(totalReceived)}
+							{$t('wallet.sats')}
 						</span>
 						{#if btcPrice > 0}
 							<span class="text-sm opacity-60">
-								≈ {formatUSD(totalReceivedUSD)}
+								≈ {formatUsd(totalReceivedUSD)}
 							</span>
 						{/if}
 					{:else}
-						<span class="text-2xl font-bold text-primary">
-							{formatUSD(totalReceivedUSD)}
+						<span class="text-primary text-2xl font-bold">
+							{formatUsd(totalReceivedUSD)}
 						</span>
 						{#if btcPrice > 0}
 							<span class="text-sm opacity-60">
-								≈ {formatSats(totalReceived)} {$t('wallet.sats')}
+								≈ {formatSats(totalReceived)}
+								{$t('wallet.sats')}
 							</span>
 						{/if}
 					{/if}
 				</div>
 			{:else}
-				<div class="text-sm opacity-60 text-center">
+				<div class="text-center text-sm opacity-60">
 					{$t('wallet.receive.enter_amount_to_estimate')}
 				</div>
 			{/if}
 		</div>
 
 		<!-- Action Buttons -->
-		<div class="flex gap-3 mt-auto pt-4 md:pt-0 sticky bottom-0 bg-base-100 pb-4 md:pb-0 md:static z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none">
+		<div
+			class="bg-base-100 sticky bottom-0 z-10 mt-auto flex gap-3 pt-4 pb-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:static md:pt-0 md:pb-0 md:shadow-none"
+		>
 			<button
-				class="btn btn-error flex-1 min-h-[48px] md:min-h-[56px] touch-manipulation select-none active:scale-95 transition-transform duration-100"
+				class="btn btn-error min-h-[48px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
 					handleCancel();
 				}}
 			>
-				<IconClose class="w-5 h-5" />
+				<IconClose class="h-5 w-5" />
 				{$t('wallet.receive.cancel')}
 			</button>
 			<button
-				class="btn btn-primary flex-1 min-h-[48px] md:min-h-[56px] touch-manipulation select-none active:scale-95 transition-transform duration-100"
+				class="btn btn-primary min-h-[48px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Medium);
 					handleGenerateInvoice();
 				}}
-				disabled={!isFormValid || isLoadingFees || $walletStore.isInitializing || isGeneratingInvoice || isBelowSwapMinimum}
+				disabled={!isFormValid ||
+					feeState.isLoading ||
+					$walletStore.isInitializing ||
+					invoiceState.isGenerating ||
+					isBelowSwapMinimum}
 			>
-				{#if isLoadingFees || $walletStore.isInitializing || isGeneratingInvoice}
+				{#if feeState.isLoading || $walletStore.isInitializing || invoiceState.isGenerating}
 					<span class="loading loading-spinner loading-sm"></span>
 				{:else}
-					<IconCashMultiple class="w-5 h-5" />
+					<IconCashMultiple class="h-5 w-5" />
 					{$t('wallet.receive.get_paid')}
 				{/if}
 			</button>
@@ -1235,35 +960,38 @@
 
 		<!-- Wallet Initialization Message (Bottom) -->
 		{#if $walletStore.isInitializing}
-			<div class="flex items-center justify-center gap-2 py-2 px-4 bg-base-200 rounded-lg border border-base-300">
+			<div
+				class="bg-base-200 border-base-300 flex items-center justify-center gap-2 rounded-lg border px-4 py-2"
+			>
 				<span class="loading loading-spinner loading-xs"></span>
-				<span class="text-sm text-base-content/70">{$t('wallet.initializing')}</span>
+				<span class="text-base-content/70 text-sm">{$t('wallet.initializing')}</span>
 			</div>
 		{/if}
-{/if}
+	{/if}
 
-<!-- Payment Request Modal -->
-{#if invoiceData}
-	<PaymentRequestModal
-		isOpen={showPaymentRequestModal}
-		amount={invoiceData.amount}
-		network={invoiceData.network}
-		memo={invoiceData.memo}
-		address={invoiceData.address}
-		swapId={invoiceData.swapId}
-		chargeFeesToPayer={invoiceData.chargeFeesToPayer}
-		totalFees={invoiceData.totalFees}
-		onClose={() => {
-			showPaymentRequestModal = false;
-			// Close receive payment form and return to wallet balance screen
-			onCancel();
-		}}
-		onEdit={() => {
-			showPaymentRequestModal = false;
-			// Form data is already preserved in amount, memo, selectedNetwork, etc.
-			// The modal will close and user can edit the form
-		}}
-	/>
-{/if}
+	<!-- Payment Request Modal -->
+	{#if invoiceState.data}
+		<PaymentRequestModal
+			isOpen={uiState.showPaymentRequestModal}
+			amount={invoiceState.data.amount}
+			network={invoiceState.data.network}
+			memo={invoiceState.data.memo}
+			address={invoiceState.data.address}
+			swapId={invoiceState.data.swapId}
+			chargeFeesToPayer={invoiceState.data.chargeFeesToPayer}
+			totalFees={invoiceState.data.totalFees}
+			onClose={() => {
+				uiState.showPaymentRequestModal = false;
+				closeNetworkDropdown(); // Close dropdown when modal closes
+				// Close receive payment form and return to wallet balance screen
+				onCancel();
+			}}
+			onEdit={() => {
+				uiState.showPaymentRequestModal = false;
+				closeNetworkDropdown(); // Close dropdown when modal closes
+				// Form data is already preserved in formInput state
+				// The modal will close and user can edit the form
+			}}
+		/>
+	{/if}
 </div>
-

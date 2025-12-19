@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import DebugContractCard from '../DebugContractCard.svelte';
+import DebugContractCard from '$lib/components/contracts/DebugContractCard.svelte';
 import type { EscrowData } from '$lib/types/wallet';
 import type { ContractPermissions } from '$lib/types/contract';
 import { EscrowStatus } from '$lib/utils/enums/escrow.enum';

@@ -15,26 +15,48 @@
 		onClose?: () => void;
 	}
 
-	const props = $props<Props>();
+	const props: Props = $props();
 
 	let qrCodeDataUrl = $state('');
 	let addressCopied = $state(false);
 	let isLoadingQR = $state(true);
 	let btcPrice = $state<number>(0);
+	let previousAddress = $state('');
+
+	// Create formatters once to avoid recreating on every call
+	const satsFormatter = new Intl.NumberFormat('en-US');
+	const usdFormatter = new Intl.NumberFormat('en-US', {
+		style: 'currency',
+		currency: 'USD',
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2
+	});
 
 	// Format sats with thousand separators
 	function formatSats(sats: number): string {
-		return new Intl.NumberFormat('en-US').format(sats);
+		return satsFormatter.format(sats);
 	}
 
 	// Format USD
 	function formatUSD(usd: number): string {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		}).format(usd);
+		return usdFormatter.format(usd);
+	}
+
+	// Generate QR code for a given address
+	async function generateQrCode(address: string): Promise<void> {
+		if (!address) return;
+		
+		isLoadingQR = true;
+		try {
+			qrCodeDataUrl = await generateQrCodeUrl(address);
+			previousAddress = address;
+		} catch (error) {
+			console.error('Failed to generate QR code:', error);
+			appStore.showErrorToast($t('wallet.invoice.qr_generation_failed'));
+			qrCodeDataUrl = '';
+		} finally {
+			isLoadingQR = false;
+		}
 	}
 
 	const amountInUSD = $derived.by(() => {
@@ -42,46 +64,24 @@
 		return (props.amount / 100_000_000) * btcPrice;
 	});
 
-	// Generate QR code when address is available
+	// Fetch BTC price on mount
 	onMount(async () => {
 		try {
-			// Fetch BTC price
-			try {
-				btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-			} catch (error) {
-				console.error('Failed to fetch BTC price:', error);
-			}
-
-			// Generate QR code
-			if (props.address) {
-				isLoadingQR = true;
-				try {
-					qrCodeDataUrl = await generateQrCodeUrl(props.address);
-				} catch (error) {
-					console.error('Failed to generate QR code:', error);
-					appStore.showErrorToast($t('wallet.invoice.qr_generation_failed'));
-				} finally {
-					isLoadingQR = false;
-				}
-			}
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		} catch (error) {
-			console.error('Failed to initialize invoice display:', error);
-			isLoadingQR = false;
+			console.error('Failed to fetch BTC price:', error);
 		}
 	});
 
-	// Regenerate QR code if address changes
-	$effect(async () => {
-		if (props.address && !qrCodeDataUrl) {
-			isLoadingQR = true;
-			try {
-				qrCodeDataUrl = await generateQrCodeUrl(props.address);
-			} catch (error) {
-				console.error('Failed to generate QR code:', error);
-				appStore.showErrorToast($t('wallet.invoice.qr_generation_failed'));
-			} finally {
-				isLoadingQR = false;
-			}
+	// Reactively generate QR code when address changes
+	// This is the appropriate use of $effect for async side effects
+	$effect(() => {
+		// Track the address reactively
+		const currentAddress = props.address;
+		
+		// Only regenerate if address actually changed
+		if (currentAddress && currentAddress !== previousAddress) {
+			generateQrCode(currentAddress);
 		}
 	});
 
@@ -259,7 +259,7 @@
 	{/if}
 
 	<!-- Share Button (mobile) -->
-	{#if Capacitor.getPlatform() !== 'web' || navigator.share}
+	{#if Capacitor.getPlatform() !== 'web' || !navigator.share}
 		<button class="btn btn-outline w-full" onclick={shareInvoice}>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

@@ -11,9 +11,6 @@
     "show_balances": "Show Balances",
     "hide_balances": "Hide Balances",
     "liquid_balance": "Liquid Balance",
-    "receive": {
-      "title": "Receive Payment"
-    },
     "send_button": "Send",
     "recent_transactions": "Recent Transactions",
     "type": "Type",
@@ -62,7 +59,6 @@
     "status_confirmed": "Confirmed",
     "status_pending": "Pending",
     "status_failed": "Failed",
-    "tx_status": "Status",
     "status_confirmations": "Confirmations",
     "transaction": {
       "status": {
@@ -80,13 +76,18 @@
         "swap": "Swap"
       },
       "contract": {
-        "created_escrow": "Created Escrow",
-        "tasker_released_payment": "Tasker Released Payment",
+        "contract_funded": "Contract Funded",
+        "contract_created": "Contract Created",
+        "payment_received": "Payment Received",
+        "task_accepted": "Task Accepted",
         "task_completed": "Task Completed",
+        "refund_received": "Refund Received",
         "contract_cancelled": "Contract Cancelled",
         "task_disputed": "Task Disputed",
+        "resolution_proposed": "Resolution Proposed",
         "dispute_resolved": "Dispute Resolved",
-        "payment_refunded": "Payment Refunded"
+        "refund_processed": "Refund Processed",
+        "contract_function_called": "Contract Function Called"
       },
       "description": {
         "rsk_sent": "RSK transaction sent",
@@ -338,10 +339,10 @@
     "no_assets_loaded": "No assets loaded yet",
     "copy_address": "Copy Address",
     "refresh": "Refresh",
-    "network": "Network",
     "copied": "Copied",
     "payment_request": {
       "title": "Payment Request",
+      "description": "Send any amount of Rootstock Bitcoin to this address, or specify an amount below to generate a QR code with the amount.",
       "requesting": "Requesting",
       "from": "From",
       "payment_link": "Payment Link",
@@ -446,8 +447,6 @@
         "invalid_form": "Please check your form inputs"
       }
     },
-    "payment_request_label": "Payment Request",
-    "payment_request_description": "Send any amount of Rootstock Bitcoin to this address, or specify an amount below to generate a QR code with the amount.",
     "receive_rbtc": "Receive rBTC",
     "your_rsk_address": "Your RSK Address",
     "generating": "Generating...",

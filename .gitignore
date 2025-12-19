@@ -33,7 +33,6 @@ tests/e2e/.auth/
 # Test artifacts (regenerate locally as needed)
 playwright-report/
 test-results/
-.last-run.json
 
 # Vite
 vite.config.js.timestamp-*

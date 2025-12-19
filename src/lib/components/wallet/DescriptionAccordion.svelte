@@ -30,13 +30,9 @@
 <div class="collapse collapse-arrow border-2 border-primary rounded-lg bg-base-100" class:collapse-open={expanded}>
 	<button
 		type="button"
-		class="collapse-title min-h-0 py-1 px-4 font-medium text-left"
-		class:cursor-not-allowed={disabled}
-		class:pointer-events-none={disabled}
-        class:opacity-50={disabled}
+		class="collapse-title min-h-0 py-1 px-4 font-medium text-left {disabled ? 'cursor-not-allowed pointer-events-none opacity-50' : ''}"
 		onclick={handleToggle}
 		disabled={disabled}
-		tabindex={disabled ? -1 : 0}
 		aria-disabled={disabled}
 	>
 		{$t('wallet.description')} {#if labelText}({$t(labelText)}){:else}({$t('wallet.optional')}){/if}

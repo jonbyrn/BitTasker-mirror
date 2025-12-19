@@ -6,11 +6,11 @@ import {
 	detectContractInteraction,
 	batchCheckContractAddresses,
 	clearContractCodeCache
-} from '../contractDetection';
-import * as contractRegistry from '../contractRegistry';
+} from '$lib/utils/wallet/contractDetection';
+import * as contractRegistry from '$lib/utils/wallet/contractRegistry';
 
 // Mock contract registry
-vi.mock('../contractRegistry', () => ({
+vi.mock('$lib/utils/wallet/contractRegistry', () => ({
 	isKnownContract: vi.fn()
 }));
 
