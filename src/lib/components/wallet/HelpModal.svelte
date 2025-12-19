@@ -93,7 +93,7 @@
 					<div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
 						<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-6 w-6" />
 					</div>
-					<h4 class="text-lg font-bold">{$t('common.components.wallet_help_modal.title')}</h4>
+					<h4 class="text-lg font-bold text-base-content">{$t('common.components.wallet_help_modal.title')}</h4>
 				</div>
 				<button 
 					class="btn btn-sm btn-circle btn-ghost hover:bg-white/20"
@@ -125,7 +125,7 @@
 							<div class="card-body p-4 flex flex-col h-full">
 								<div class="flex items-center gap-3 mb-3 h-12">
 									<IconSwapHorizontalCircleOutline class="h-8 w-8 text-primary" />
-									<h4 class="card-title text-base">{$t('common.components.wallet_help_modal.multi_network_title')}</h4>
+									<h4 class="card-title text-base text-base-content">{$t('common.components.wallet_help_modal.multi_network_title')}</h4>
 								</div>
 								<div class="flex-1"></div>
 								<p class="text-sm text-base-content/80">{$t('common.components.wallet_help_modal.multi_network_description')}</p>
@@ -136,7 +136,7 @@
 							<div class="card-body p-4 flex flex-col h-full">
 								<div class="flex items-center gap-3 mb-3 h-12">
 									<IconShieldCheck class="h-8 w-8 text-primary" />
-									<h4 class="card-title text-base">{$t('common.components.wallet_help_modal.security_title')}</h4>
+									<h4 class="card-title text-base text-base-content">{$t('common.components.wallet_help_modal.security_title')}</h4>
 								</div>
 								<div class="flex-1"></div>
 								<p class="text-sm text-base-content/80">{$t('common.components.wallet_help_modal.security_description')}</p>
@@ -147,7 +147,7 @@
 							<div class="card-body p-4 flex flex-col h-full">
 								<div class="flex items-center gap-3 mb-3 h-12">
 									<IconLightningBolt class="h-8 w-8 text-primary" />
-									<h4 class="card-title text-base">{$t('common.components.wallet_help_modal.lightning_title')}</h4>
+									<h4 class="card-title text-base text-base-content">{$t('common.components.wallet_help_modal.lightning_title')}</h4>
 								</div>
 								<div class="flex-1"></div>
 								<p class="text-sm text-base-content/80">{$t('common.components.wallet_help_modal.lightning_description')}</p>
@@ -158,7 +158,7 @@
 							<div class="card-body p-4 flex flex-col h-full">
 								<div class="flex items-center gap-3 mb-3 h-12">
 									<IconLockClock class="h-8 w-8 text-primary" />
-									<h4 class="card-title text-base">{$t('common.components.wallet_help_modal.escrow_title')}</h4>
+									<h4 class="card-title text-base text-base-content">{$t('common.components.wallet_help_modal.escrow_title')}</h4>
 								</div>
 								<div class="flex-1"></div>
 								<p class="text-sm text-base-content/80">{$t('common.components.wallet_help_modal.escrow_description')}</p>
@@ -169,7 +169,7 @@
 					<!-- How It Works -->
 					<div class="card bg-base-200">
 						<div class="card-body">
-							<h4 class="card-title text-base mb-4">
+							<h4 class="card-title text-base text-base-content mb-4">
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -180,21 +180,21 @@
 								<div class="flex items-center gap-3">
 									<div class="bg-primary text-primary-content flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-full text-xs font-medium">1</div>
 									<div>
-										<h5 class="font-medium text-sm">{$t('common.components.wallet_help_modal.step1_title')}</h5>
+										<h5 class="font-medium text-sm text-base-content">{$t('common.components.wallet_help_modal.step1_title')}</h5>
 										<p class="text-xs text-base-content/70">{$t('common.components.wallet_help_modal.step1_description')}</p>
 									</div>
 								</div>
 								<div class="flex items-center gap-3">
 									<div class="bg-primary text-primary-content flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-full text-xs font-medium">2</div>
 									<div>
-										<h5 class="font-medium text-sm">{$t('common.components.wallet_help_modal.step2_title')}</h5>
+										<h5 class="font-medium text-sm text-base-content">{$t('common.components.wallet_help_modal.step2_title')}</h5>
 										<p class="text-xs text-base-content/70">{$t('common.components.wallet_help_modal.step2_description')}</p>
 									</div>
 								</div>
 								<div class="flex items-center gap-3">
 									<div class="bg-primary text-primary-content flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-full text-xs font-medium">3</div>
 									<div>
-										<h5 class="font-medium text-sm">{$t('common.components.wallet_help_modal.step3_title')}</h5>
+										<h5 class="font-medium text-sm text-base-content">{$t('common.components.wallet_help_modal.step3_title')}</h5>
 										<p class="text-xs text-base-content/70">{$t('common.components.wallet_help_modal.step3_description')}</p>
 									</div>
 								</div>
@@ -216,7 +216,7 @@
 					<!-- FAQ Section -->
 					<div class="card bg-base-200">
 						<div class="card-body">
-							<h4 class="card-title text-base mb-4">
+							<h4 class="card-title text-base text-base-content mb-4">
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 								</svg>
@@ -228,7 +228,7 @@
 								<div class="collapse-arrow collapse border border-base-300 rounded-lg" class:collapse-open={openFaqIndex === 0}>
 									<button
 										type="button"
-										class="collapse-title text-left text-base font-medium"
+										class="collapse-title text-left text-base font-medium text-base-content"
 										onclick={() => toggleFaq(0)}
 									>
 										{$t('common.components.wallet_help_modal.faq_rsk_title')}
@@ -253,7 +253,7 @@
 								<div class="collapse-arrow collapse border border-base-300 rounded-lg" class:collapse-open={openFaqIndex === 1}>
 									<button
 										type="button"
-										class="collapse-title text-left text-base font-medium"
+										class="collapse-title text-left text-base font-medium text-base-content"
 										onclick={() => toggleFaq(1)}
 									>
 										{$t('common.components.wallet_help_modal.faq_liquid_title')}
@@ -278,7 +278,7 @@
 								<div class="collapse-arrow collapse border border-base-300 rounded-lg" class:collapse-open={openFaqIndex === 2}>
 									<button
 										type="button"
-										class="collapse-title text-left text-base font-medium"
+										class="collapse-title text-left text-base font-medium text-base-content"
 										onclick={() => toggleFaq(2)}
 									>
 										{$t('common.components.wallet_help_modal.faq_lightning_title')}
@@ -303,7 +303,7 @@
 								<div class="collapse-arrow collapse border border-base-300 rounded-lg" class:collapse-open={openFaqIndex === 3}>
 									<button
 										type="button"
-										class="collapse-title text-left text-base font-medium"
+										class="collapse-title text-left text-base font-medium text-base-content"
 										onclick={() => toggleFaq(3)}
 									>
 										{$t('common.components.wallet_help_modal.faq_escrow_title')}

@@ -1,12 +1,8 @@
 <script lang="ts">
-import { darkMode } from '$lib/stores/theme.store';
+import { darkMode, toggleDarkMode } from '$lib/stores/theme.store';
 import { t } from 'svelte-i18n';
 
 let { className = '', tooltip = '' } = $props();
-
-function toggle() {
-	$darkMode = !$darkMode;
-}
 </script>
 
 <label
@@ -16,7 +12,7 @@ function toggle() {
 	<input 
 		type="checkbox" 
 		checked={$darkMode} 
-		onchange={() => ($darkMode = !$darkMode)}
+		onchange={toggleDarkMode}
 		aria-label={$darkMode ? $t('navbar.tooltip.light_mode') : $t('navbar.tooltip.dark_mode')}
 		aria-describedby="dark-mode-toggle"
 	/>

@@ -6,6 +6,7 @@
 	import {
 		validateRSKAddress,
 		validateBitcoinAddress,
+		validateLiquidAddress,
 		type ValidationResult
 	} from '$lib/utils/helpers/validators';
 	import SubmarineSend from './SubmarineSend.svelte';
@@ -185,8 +186,8 @@
 			selectedNetwork.value === 'liquid-bitcoin' ||
 			selectedNetwork.value === 'liquid-usdt'
 		) {
-			// Liquid uses similar address format to Bitcoin
-			addressValidation = validateBitcoinAddress(recipientAddress);
+			// Use proper Liquid address validation with Bech32 checksum
+			addressValidation = validateLiquidAddress(recipientAddress);
 		} else {
 			addressValidation = { isValid: true };
 		}
