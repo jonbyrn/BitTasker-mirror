@@ -255,7 +255,7 @@
 									alt="BitTasker"
 									class="h-5 w-5 shrink-0"
 								/>
-								<span class="font-semibold text-sm text-base-content break-words whitespace-normal">
+								<span class="font-semibold text-sm text-base-content wrap-break-words whitespace-normal">
 									{userDisplayName}
 								</span>
 							</div>

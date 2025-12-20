@@ -108,6 +108,30 @@
 		onClose();
 	}
 
+	// Helper function to clean and filter search parameters
+	function cleanSearchParams(params: Partial<SearchTasksParams>): SearchTasksParams {
+		const cleaned: SearchTasksParams = {};
+		if (params.search) cleaned.search = params.search;
+		if (params.taskType) cleaned.taskType = params.taskType;
+		if (params.location) cleaned.location = params.location;
+		if (params.status && params.status.length > 0) cleaned.status = params.status;
+		if (params.categories && params.categories.length > 0) cleaned.categories = params.categories;
+		if (params.skills && params.skills.length > 0) cleaned.skills = params.skills;
+		// Save budget if it has any values
+		if (params.budget && (
+			params.budget.tier || 
+			params.budget.currency || 
+			params.budget.type
+		)) {
+			cleaned.budget = params.budget;
+		}
+		if (params.deadline) cleaned.deadline = params.deadline;
+		if (params.dateRange) cleaned.dateRange = params.dateRange;
+		if (params.radius) cleaned.radius = params.radius;
+		if (params.locationCoords) cleaned.locationCoords = params.locationCoords;
+		return cleaned;
+	}
+
 	// Save or update search
 	async function handleSubmit() {
 		if (!searchName.trim()) {
@@ -125,34 +149,15 @@
 				cleanParams.search = searchName.trim();
 			}
 
+			// Merge with existing params if in update mode
+			const paramsToSave = isUpdateMode && existingSavedSearch
+				? { ...existingSavedSearch.params, ...cleanParams }
+				: cleanParams;
+
+			// Clean up undefined values - save ALL filter parameters
+			const finalParams = cleanSearchParams(paramsToSave);
+
 			if (isUpdateMode && existingSavedSearch) {
-				// Update existing search - merge params
-				const updatedParams: SearchTasksParams = {
-					...existingSavedSearch.params,
-					...cleanParams
-				};
-				
-				// Clean up undefined values - save ALL filter parameters
-				const finalParams: SearchTasksParams = {};
-				if (updatedParams.search) finalParams.search = updatedParams.search;
-				if (updatedParams.taskType) finalParams.taskType = updatedParams.taskType;
-				if (updatedParams.location) finalParams.location = updatedParams.location;
-				if (updatedParams.status && updatedParams.status.length > 0) finalParams.status = updatedParams.status;
-				if (updatedParams.categories && updatedParams.categories.length > 0) finalParams.categories = updatedParams.categories;
-				if (updatedParams.skills && updatedParams.skills.length > 0) finalParams.skills = updatedParams.skills;
-				// Save budget if it has any values
-				if (updatedParams.budget && (
-					updatedParams.budget.tier || 
-					updatedParams.budget.currency || 
-					updatedParams.budget.type
-				)) {
-					finalParams.budget = updatedParams.budget;
-				}
-				if (updatedParams.deadline) finalParams.deadline = updatedParams.deadline;
-				if (updatedParams.dateRange) finalParams.dateRange = updatedParams.dateRange;
-				if (updatedParams.radius) finalParams.radius = updatedParams.radius;
-				if (updatedParams.locationCoords) finalParams.locationCoords = updatedParams.locationCoords;
-				
 				await updateSavedSearch(existingSavedSearch.id, {
 					name: searchName,
 					params: finalParams,
@@ -161,27 +166,6 @@
 					notificationFrequency
 				});
 			} else {
-				// Create new search - save ALL filter parameters
-				const finalParams: SearchTasksParams = {};
-				if (cleanParams.search) finalParams.search = cleanParams.search;
-				if (cleanParams.taskType) finalParams.taskType = cleanParams.taskType;
-				if (cleanParams.location) finalParams.location = cleanParams.location;
-				if (cleanParams.status && cleanParams.status.length > 0) finalParams.status = cleanParams.status;
-				if (cleanParams.categories && cleanParams.categories.length > 0) finalParams.categories = cleanParams.categories;
-				if (cleanParams.skills && cleanParams.skills.length > 0) finalParams.skills = cleanParams.skills;
-				// Save budget if it has any values
-				if (cleanParams.budget && (
-					cleanParams.budget.tier || 
-					cleanParams.budget.currency || 
-					cleanParams.budget.type
-				)) {
-					finalParams.budget = cleanParams.budget;
-				}
-				if (cleanParams.deadline) finalParams.deadline = cleanParams.deadline;
-				if (cleanParams.dateRange) finalParams.dateRange = cleanParams.dateRange;
-				if (cleanParams.radius) finalParams.radius = cleanParams.radius;
-				if (cleanParams.locationCoords) finalParams.locationCoords = cleanParams.locationCoords;
-
 				await saveSearch(searchName, finalParams, {
 					notifyOnMatch,
 					isActive: true,
@@ -227,7 +211,7 @@
 			{/if}
 
 			<!-- Search Parameters Summary (show categories and skills as badges) -->
-			{#if (searchParams.categories && searchParams.categories.length > 0) || (searchParams.skills && searchParams.skills.length > 0) || searchParams.taskType || searchParams.location || searchParams.budget?.tier}
+			{#if isUpdateMode || (searchParams.categories && searchParams.categories.length > 0) || (searchParams.skills && searchParams.skills.length > 0) || searchParams.taskType || searchParams.location || searchParams.budget?.tier}
 				<div class="mb-4">
 					<div class="flex flex-wrap gap-2">
 						{#if searchParams.categories && searchParams.categories.length > 0}
@@ -326,7 +310,7 @@
 						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 					></path>
 				</svg>
-				<span>{$t('profile_task.form.filters_info') || 'Si quieres agregar más parámetros de búsqueda, puedes buscarlos en la opción de filtros.'}</span>
+				<span>{$t('profile_task.form.filters_info')}</span>
 			</div>
 
 			<!-- Action Buttons -->

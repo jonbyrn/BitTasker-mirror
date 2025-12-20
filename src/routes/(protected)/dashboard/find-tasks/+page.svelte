@@ -20,8 +20,7 @@
 	import { locale } from 'svelte-i18n';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
-
-	const TASKS_PER_PAGE = 15;
+	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 
 	// Lazy loaded components
 	let TaskLocationMap: Component<any> | null = $state(null);
@@ -288,7 +287,13 @@
 				searchParamsKey: ''
 			}));
 
-			searchParams = { ...getInitialSearchParams(), limit: TASKS_PER_PAGE };
+			// Preserve existing filters, only clear the search term
+			searchParams = {
+				...searchParams,
+				page: 1,
+				search: '',
+				limit: TASKS_PER_PAGE
+			};
 			searchQuery = '';
 
 			try {

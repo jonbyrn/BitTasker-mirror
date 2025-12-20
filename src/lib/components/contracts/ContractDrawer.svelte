@@ -22,21 +22,6 @@
 	let isTechnicalDetailsOpen = $state(false);
 	let isOriginalBidOpen = $state(false);
 
-	// Format member since date
-	function formatMemberSinceDate(dateString: string | undefined): string {
-		if (!dateString) return '';
-		try {
-			const date = new Date(dateString);
-			if (isNaN(date.getTime())) return dateString;
-			return date.toLocaleDateString('en-US', {
-				month: 'short',
-				year: 'numeric'
-			});
-		} catch (error) {
-			return dateString;
-		}
-	}
-
 	// Helper function to detect video files
 	function isVideoFile(url: string): boolean {
 		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];

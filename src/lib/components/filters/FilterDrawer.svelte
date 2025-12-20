@@ -7,8 +7,7 @@
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import LocationAutoComplete from '../LocationAutoComplete.svelte';
 	import { t } from 'svelte-i18n';
-
-	const TASKS_PER_PAGE = 15;
+	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 
 	// Props
 	let { onApply, initialFilters } = $props<{

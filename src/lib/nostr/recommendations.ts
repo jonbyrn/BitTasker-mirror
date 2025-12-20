@@ -10,6 +10,7 @@ import KINDS from '$lib/utils/constants/kinds';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import type { Skill } from '$lib/types/profile';
+import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -111,11 +112,11 @@ function calculateRecommendationScore(
 		score += categoriesScore;
 	}
 
-	// Budget tier match (15% weight) - with null safety
+	// Budget tier match (10% weight) - with null safety
 	if (matches.budgetTier && task.budget) {
 		const taskTier = getBudgetBucket(task.budget.amount, task.budget.currency);
 		if (taskTier === matches.budgetTier) {
-			score += 15;
+			score += TASKS_PER_PAGE;	
 		}
 	}
 

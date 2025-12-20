@@ -387,18 +387,6 @@
 		}
 	});
 
-	// Restore focus when sending completes
-	$effect(() => {
-		if (!isSendingMessage && messageInput) {
-			// Use tick to ensure DOM is updated
-			tick().then(() => {
-				if (messageInput && document.activeElement !== messageInput) {
-					messageInput.focus();
-				}
-			});
-		}
-	});
-
 	// Auto-scroll to bottom when new messages arrive or translations complete
 	$effect(() => {
 		const currentMessageCount = messages.length;
@@ -514,21 +502,36 @@
 	});
 
 	// Cleanup old temporary messages that might have failed to send
+	// Use interval instead of effect to avoid running on every message change
+	let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 	$effect(() => {
-		if (messages.length > 0) {
-			const now = Math.floor(Date.now() / 1000);
-			const cleanedMessages = messages.filter((msg) => {
-				// Remove temporary messages older than 30 seconds
-				if (msg.event.id.startsWith('temp-') && now - msg.event.created_at > 30) {
-					return false;
-				}
-				return true;
-			});
+		// Only setup interval if we have messages
+		if (messages.length > 0 && !cleanupInterval) {
+			cleanupInterval = setInterval(() => {
+				const now = Math.floor(Date.now() / 1000);
+				const cleanedMessages = messages.filter((msg) => {
+					// Remove temporary messages older than 30 seconds
+					if (msg.event.id.startsWith('temp-') && now - msg.event.created_at > 30) {
+						return false;
+					}
+					return true;
+				});
 
-			if (cleanedMessages.length !== messages.length) {
-				messages = cleanedMessages;
-			}
+				if (cleanedMessages.length !== messages.length) {
+					messages = cleanedMessages;
+				}
+			}, 5000); // Check every 5 seconds instead of on every change
+		} else if (messages.length === 0 && cleanupInterval) {
+			clearInterval(cleanupInterval);
+			cleanupInterval = null;
 		}
+
+		return () => {
+			if (cleanupInterval) {
+				clearInterval(cleanupInterval);
+				cleanupInterval = null;
+			}
+		};
 	});
 
 	// --- Draft persistence functions ---
@@ -879,14 +882,6 @@
 
 			// Send the message
 			await sendDirectMessage(messageContent, recipientHex());
-
-			// Wait for DOM to update before restoring focus
-			await tick();
-			
-			// Restore focus after DOM update
-			if (messageInput) {
-				messageInput.focus();
-			}
 		} catch (err) {
 			// On error, remove the temporary message and restore the input
 			messages = messages.filter((msg) => msg.event.id !== tempId);
@@ -894,20 +889,19 @@
 			error = 'dashboard.bids.components.messages.chat_view.failed_send_message';
 			console.error('Error sending message:', err);
 
-			// Wait for DOM to update before restoring focus
-			await tick();
-			
-			// Restore focus after error
-			if (messageInput) {
-				messageInput.focus();
-			}
-
 			// Clear error after 5 seconds
 			setTimeout(() => {
 				error = '';
 			}, 5000);
 		} finally {
 			isSendingMessage = false;
+			// Restore focus after sending completes - use setTimeout to ensure DOM is fully updated
+			setTimeout(async () => {
+				await tick();
+				if (messageInput && document.activeElement !== messageInput) {
+					messageInput.focus();
+				}
+			}, 0);
 		}
 	}
 
@@ -1216,7 +1210,7 @@
 			</div>
 		{/if}
 
-		<form onsubmit={handleSubmit} class="relative w-full">
+		<form onsubmit={handleSubmit} class="relative w-full mb-6">
 			<!-- Main Input Field with Buttons Inside -->
 			<div
 				class="bg-base-200 rounded-2xl transition-all duration-200 w-full flex items-end gap-2 p-2 sm:p-3"
@@ -1254,8 +1248,8 @@
 						bind:value={newMessageText}
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
-						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-1 text-sm leading-6 focus:ring-0 focus:outline-none sm:p-1.5 sm:text-base"
-						placeholder="Send a message"
+						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-none bg-transparent p-1 text-sm leading-6 focus:ring-0 focus:outline-none sm:p-1.5 sm:text-base"
+						placeholder={$t('dashboard.bids.components.messages.chat_view.send_message')}
 						rows="1"
 						disabled={isSendingMessage}
 						autofocus
