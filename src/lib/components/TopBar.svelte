@@ -12,6 +12,8 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
 	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconQrcode from '~icons/mdi/qrcode';
+	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
 	import {
 		LOGGED_IN_MENU_SECTIONS,
 		LOGGED_OUT_MENU_SECTIONS,
@@ -28,6 +30,9 @@
 
 	// Control logout confirmation modal
 	let showLogoutModal = $state(false);
+
+	// Control npub QR code modal
+	let showNpubQrModal = $state(false);
 
 	// Track if user is logged in
 	let isLoggedIn = $derived($authState.isAuthenticated);
@@ -119,6 +124,14 @@
 
 	function cancelLogout() {
 		showLogoutModal = false;
+	}
+
+	function showNpubQrCode() {
+		showNpubQrModal = true;
+	}
+
+	function closeNpubQrModal() {
+		showNpubQrModal = false;
 	}
 </script>
 
@@ -248,17 +261,14 @@
 				>
 					<!-- User Info Header -->
 					{#if userDisplayName}
-						<li class="border-b border-base-300 pb-2 mb-2 pt-3 pointer-events-none">
-							<div class="flex items-center gap-2">
-								<img
-									src="/images/Logos/BitTasker-square-logo.svg"
-									alt="BitTasker"
-									class="h-5 w-5 shrink-0"
-								/>
-								<span class="font-semibold text-sm text-base-content break-words whitespace-normal">
-									{userDisplayName}
-								</span>
-							</div>
+						<li class="border-b border-base-300 pb-2 mb-2">
+							<button
+								onclick={showNpubQrCode}
+								class="flex w-full items-center gap-2 whitespace-nowrap"
+							>
+								<IconQrcode class="text-primary" />
+								<span class="break-words whitespace-normal font-bold">{userDisplayName}</span>
+							</button>
 						</li>
 					{/if}
 					{#each AVATAR_MENU_ITEMS as item}
@@ -346,6 +356,9 @@
 	onConfirm={confirmedLogout}
 	onCancel={cancelLogout}
 />
+
+<!-- NPub QR Code Modal -->
+<NpubQrCodeModal isOpen={showNpubQrModal} onClose={closeNpubQrModal} />
 
 <style>
 	.pt-safe {
