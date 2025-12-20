@@ -9,9 +9,7 @@
 	import { t } from 'svelte-i18n';
 
 	// Props
-	let { isOpen, onClose, onApply, initialFilters } = $props<{
-		isOpen: boolean;
-		onClose: () => void;
+	let { onApply, initialFilters } = $props<{
 		onApply: (filters: SearchTasksParams) => void;
 		initialFilters?: SearchTasksParams;
 	}>();
@@ -38,32 +36,9 @@
 	// Store selected location coordinates for distance calculation
 	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
 
-	// Scroll lock management
-	const disableBodyScroll = () => {
-		document.body.classList.add('overflow-hidden');
-	};
-
-	const enableBodyScroll = () => {
-		document.body.classList.remove('overflow-hidden');
-	};
-
-	// Handle drawer state changes, including scroll locking
+	// Sync with initial filters
 	$effect(() => {
-		if (isOpen) {
-			// Lock scroll when drawer is open
-			disableBodyScroll();
-		} else {
-			// Restore scrolling when drawer is closed
-			enableBodyScroll();
-		}
-
-		// Handle cleanup when component is unmounted
-		return enableBodyScroll;
-	});
-
-	// Sync with initial filters when drawer opens
-	$effect(() => {
-		if (isOpen && initialFilters) {
+		if (initialFilters) {
 			filters.search = initialFilters.search;
 			filters.taskType = initialFilters.taskType;
 			filters.categories = initialFilters.categories ? [...initialFilters.categories] : [];
@@ -118,7 +93,7 @@
 		filters.dateRange = undefined;
 		selectedLocationCoords = null;
 
-		// Apply cleared filters and close drawer
+		// Apply cleared filters
 		const cleanFilters = {
 			...filters,
 			categories: [...(filters.categories || [])],
@@ -126,10 +101,9 @@
 			locationCoords: null
 		};
 		onApply(cleanFilters);
-		onClose();
 	}
 
-	// Apply filters and close drawer
+	// Apply filters
 	function applyFilters() {
 		// Create a clean copy of filters to avoid proxy issues
 		const cleanFilters = {
@@ -140,7 +114,6 @@
 			locationCoords: selectedLocationCoords
 		};
 		onApply(cleanFilters);
-		onClose();
 	}
 
 	// Handle task type change
@@ -184,49 +157,7 @@
 	}
 </script>
 
-<!-- Drawer Overlay -->
-<div
-	class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-in-out"
-	class:opacity-0={!isOpen}
-	class:invisible={!isOpen}
-	onclick={onClose}
-	onkeydown={(e) => e.key === 'Escape' && onClose()}
-	role="dialog"
-	tabindex="-1"
-></div>
-
-<!-- Drawer Panel -->
-<div
-	class="bg-base-100 fixed top-0 right-0 z-50 h-full w-full transform overflow-auto shadow-xl transition-transform duration-300 sm:w-[70%] {isOpen
-		? 'translate-x-0'
-		: 'translate-x-full'}"
->
-	<!-- Header -->
-	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
-		<h3 id="drawer-title" class="text-xl font-bold">{$t('find_tasks.filters')}</h3>
-		<button
-			class="btn btn-ghost btn-circle"
-			onclick={onClose}
-			aria-label={$t('find_tasks.close_dialog')}
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M6 18L18 6M6 6l12 12"
-				/>
-			</svg>
-		</button>
-	</div>
-
-	<div class="px-2">
+<div class="px-2">
 	<!-- Task Type -->
 	<div class="collapse-arrow collapse mb-2">
 		<input
@@ -448,4 +379,3 @@
 			</button>
 		</div>
 	</div>
-</div>

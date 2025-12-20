@@ -8,6 +8,7 @@
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
+	import Drawer from '$lib/components/Drawer.svelte';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
 	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
@@ -1246,12 +1247,17 @@
 </div>
 
 <!-- Advanced Filter Drawer Component -->
-<FilterDrawer
+<Drawer
 	isOpen={isFilterDrawerOpen}
+	title={$t('find_tasks.filters')}
 	onClose={() => (isFilterDrawerOpen = false)}
-	onApply={handleFilterApply}
-	initialFilters={searchParams}
-/>
+	position="right"
+	isScrollable={true}
+>
+	{#snippet children()}
+		<FilterDrawer initialFilters={searchParams} onApply={handleFilterApply} />
+	{/snippet}
+</Drawer>
 
 <style>
 	:global([name='gmp-internal-google-attribution']),
