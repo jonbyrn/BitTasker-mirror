@@ -36,7 +36,7 @@
 	// Store selected location coordinates for distance calculation
 	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
 
-	// Sync with initial filters when they change
+	// Sync with initial filters
 	$effect(() => {
 		if (initialFilters) {
 			filters.search = initialFilters.search;
@@ -93,7 +93,7 @@
 		filters.dateRange = undefined;
 		selectedLocationCoords = null;
 
-		// Apply cleared filters and close drawer
+		// Apply cleared filters
 		const cleanFilters = {
 			...filters,
 			categories: [...(filters.categories || [])],
@@ -365,17 +365,17 @@
 		</div>
 	</div>
 
-	<!-- Filter Actions -->
-	<div class="divider"></div>
-	<div class="mt-8 mb-20 flex justify-between">
-		<button class="btn btn-ghost btn-outline" onclick={clearFilters}>
-			{$t('find_tasks.clear_filters')}
-		</button>
-		<button class="btn btn-primary" onclick={applyFilters}>
-			{$t('find_tasks.apply')}
-			{#if activeFilterCount > 0}
-				<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
-			{/if}
-		</button>
+		<!-- Filter Actions -->
+		<div class="divider"></div>
+		<div class="mt-8 mb-20 flex justify-between">
+			<button class="btn btn-ghost btn-outline" onclick={clearFilters}>
+				{$t('find_tasks.clear_filters')}
+			</button>
+			<button class="btn btn-primary" onclick={applyFilters}>
+				{$t('find_tasks.apply')}
+				{#if activeFilterCount > 0}
+					<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
+				{/if}
+			</button>
+		</div>
 	</div>
-</div>

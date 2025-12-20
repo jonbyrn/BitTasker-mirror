@@ -36,6 +36,87 @@
 		return originalText;
 	}
 
+	// Helper function to get translated skill name
+	function getTranslatedSkillName(skill: string | { name: string; translations?: any }): string {
+		const currentLang = $locale || 'en';
+		
+		// If skill is a string, return as is
+		if (typeof skill === 'string') {
+			return skill;
+		}
+
+		const originalName = skill.name || '';
+		
+		// If no translations, return original
+		if (!skill.translations) {
+			return originalName;
+		}
+
+		// If current language is source language, return original
+		if (skill.translations.sourceLanguage === currentLang) {
+			return originalName;
+		}
+
+		// Get translation for current language
+		const translation = skill.translations.translations[currentLang];
+		if (translation) {
+			return translation.name || originalName;
+		}
+
+		// Fallback to original
+		return originalName;
+	}
+
+	// Helper function to get translated portfolio title
+	function getTranslatedPortfolioTitle(item: { title: string; translations?: any }): string {
+		const currentLang = $locale || 'en';
+		const originalTitle = item.title || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalTitle;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalTitle;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.title || originalTitle;
+		}
+
+		// Fallback to original
+		return originalTitle;
+	}
+
+	// Helper function to get translated portfolio description
+	function getTranslatedPortfolioDescription(item: { description: string; translations?: any }): string {
+		const currentLang = $locale || 'en';
+		const originalDescription = item.description || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalDescription;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalDescription;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.description || originalDescription;
+		}
+
+		// Fallback to original
+		return originalDescription;
+	}
+
 	// Get npub from route params
 	let routeNpub = $derived($page.params.npub);
 
@@ -647,7 +728,7 @@
 										<div
 											class="border-primary text-primary rounded-full border px-3 py-1 text-sm"
 										>
-											{typeof skill === 'string' ? skill : skill.name}
+											{getTranslatedSkillName(skill)}
 										</div>
 									{/each}
 								{:else}
@@ -668,7 +749,7 @@
 											<!-- Título, badges y descripción arriba de la imagen -->
 											<div class="card-body p-4 pb-2">
 												<div class="flex items-center justify-between gap-2 mb-2">
-													<span class="card-title text-md line-clamp-1 font-bold">{project.title}</span>
+													<span class="card-title text-md line-clamp-1 font-bold">{getTranslatedPortfolioTitle(project)}</span>
 													{#if project?.link}
 														<a
 															href={project.link}
@@ -704,7 +785,7 @@
 														{/each}
 													</div>
 												{/if}
-												<p class="text-base-content/70 text-sm line-clamp-2 mb-3">{project.description}</p>
+												<p class="text-base-content/70 text-sm line-clamp-2 mb-3">{getTranslatedPortfolioDescription(project)}</p>
 											</div>
 											
 											<!-- Imagen del proyecto -->

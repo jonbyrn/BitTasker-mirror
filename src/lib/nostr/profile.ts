@@ -1,8 +1,7 @@
-import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices, ProfileTranslations } from '$lib/types/profile.d';
+import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices, ProfileTranslations, SkillTranslations, CertificationTranslations, PortfolioTranslations } from '$lib/types/profile.d';
 import type { NostrEvent, Filter } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
-import { profileStore } from '$lib/stores/profile.store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import uploadService from '$lib/api/services/upload.service';
@@ -220,12 +219,288 @@ export async function generateProfileTranslations(profileData: {
 			}
 		});
 
+	return {
+		sourceLanguage,
+		translations
+	};
+	} catch (error) {
+		console.error('Error generating profile translations:', error);
+		return undefined;
+	}
+}
+
+/**
+ * Generate translations for skills
+ * @param skillName The name of the skill to translate
+ * @param fallbackLocale Optional locale to use if language detection fails or detects unsupported language
+ */
+export async function generateSkillTranslations(
+	skillName: string,
+	fallbackLocale?: string
+): Promise<SkillTranslations | undefined> {
+	// Only generate translations if translation service is available
+	if (!translationService.isAvailable()) {
+		console.warn('Translation service not available, skipping skill translations');
+		return undefined;
+	}
+
+	try {
+		// If skill name is empty, return undefined
+		if (!skillName.trim()) {
+			return undefined;
+		}
+
+		// Detect source language from the skill name
+		const detectedLanguage = await translationService.detectLanguage(skillName);
+		
+		// Determine source language:
+		// 1. If detected language is supported, use it
+		// 2. If fallback locale is provided and supported, use it
+		// 3. Otherwise, default to 'en'
+		let sourceLanguage: string;
+		if (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) {
+			sourceLanguage = detectedLanguage;
+		} else if (fallbackLocale && SUPPORTED_LANGUAGES.includes(fallbackLocale as any)) {
+			sourceLanguage = fallbackLocale;
+		} else {
+			sourceLanguage = 'en';
+		}
+		
+		// Always translate to the other language to ensure we have translations in both
+		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		
+		// If no target languages (skill is already in all supported languages), return empty
+		if (targetLanguages.length === 0) {
+			return {
+				sourceLanguage,
+				translations: {}
+			};
+		}
+
+		// Translate skill name to all target languages in parallel
+		const translationPromises = targetLanguages.map(async (targetLang) => {
+			const result = await translationService.translate(skillName, targetLang, sourceLanguage);
+
+			// Check if translation failed
+			if ('code' in result) {
+				console.warn(`Skill translation failed for ${targetLang}`);
+				return null;
+			}
+
+			return {
+				language: targetLang,
+				name: result.translatedText || skillName
+			};
+		});
+
+		const results = await Promise.all(translationPromises);
+		
+		// Build translations object, filtering out failed translations
+		const translations: SkillTranslations['translations'] = {};
+		results.forEach(result => {
+			if (result) {
+				translations[result.language] = {
+					name: result.name
+				};
+			}
+		});
+
 		return {
 			sourceLanguage,
 			translations
 		};
 	} catch (error) {
-		console.error('Error generating profile translations:', error);
+		console.error('Error generating skill translations:', error);
+		return undefined;
+	}
+}
+
+/**
+ * Generate translations for certifications
+ */
+export async function generateCertificationTranslations(
+	certificationName: string,
+	issuer: string
+): Promise<CertificationTranslations | undefined> {
+	// Only generate translations if translation service is available
+	if (!translationService.isAvailable()) {
+		console.warn('Translation service not available, skipping certification translations');
+		return undefined;
+	}
+
+	try {
+		// Combine name and issuer for language detection
+		const combinedText = `${certificationName || ''} ${issuer || ''}`.trim();
+		
+		// If all fields are empty, return undefined
+		if (!combinedText) {
+			return undefined;
+		}
+
+		// Detect source language from the combined text
+		const detectedLanguage = await translationService.detectLanguage(combinedText);
+		
+		// Determine source language - if detection fails or language is not supported, default to 'en'
+		// but we'll still translate to ensure both languages are available
+		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) 
+			? detectedLanguage 
+			: 'en';
+		
+		// Always translate to the other language to ensure we have translations in both
+		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		
+		// If no target languages (certification is already in all supported languages), return empty
+		if (targetLanguages.length === 0) {
+			return {
+				sourceLanguage,
+				translations: {}
+			};
+		}
+
+		// Translate certification name and issuer to all target languages in parallel
+		const translationPromises = targetLanguages.map(async (targetLang) => {
+			const [nameResult, issuerResult] = await Promise.all([
+				certificationName?.trim()
+					? translationService.translate(certificationName, targetLang, sourceLanguage)
+					: Promise.resolve({ translatedText: '' } as any),
+				issuer?.trim()
+					? translationService.translate(issuer, targetLang, sourceLanguage)
+					: Promise.resolve({ translatedText: '' } as any)
+			]);
+
+			// Check if translation failed
+			if ('code' in nameResult || 'code' in issuerResult) {
+				console.warn(`Certification translation failed for ${targetLang}`);
+				return null;
+			}
+
+			return {
+				language: targetLang,
+				name: nameResult.translatedText || certificationName || '',
+				issuer: issuerResult.translatedText || issuer || ''
+			};
+		});
+
+		const results = await Promise.all(translationPromises);
+		
+		// Build translations object, filtering out failed translations
+		const translations: CertificationTranslations['translations'] = {};
+		results.forEach(result => {
+			if (result) {
+				translations[result.language] = {
+					name: result.name,
+					issuer: result.issuer
+				};
+			}
+		});
+
+		return {
+			sourceLanguage,
+			translations
+		};
+	} catch (error) {
+		console.error('Error generating certification translations:', error);
+		return undefined;
+	}
+}
+
+/**
+ * Generate translations for portfolio items
+ * @param portfolioData The portfolio item data to translate
+ * @param fallbackLocale Optional locale to use if language detection fails or detects unsupported language
+ */
+export async function generatePortfolioTranslations(
+	portfolioData: {
+		title: string;
+		description: string;
+	},
+	fallbackLocale?: string
+): Promise<PortfolioTranslations | undefined> {
+	// Only generate translations if translation service is available
+	if (!translationService.isAvailable()) {
+		console.warn('Translation service not available, skipping portfolio translations');
+		return undefined;
+	}
+
+	try {
+		// Combine title and description for language detection
+		const combinedText = `${portfolioData.title || ''} ${portfolioData.description || ''}`.trim();
+		
+		// If all fields are empty, return undefined
+		if (!combinedText) {
+			return undefined;
+		}
+
+		// Detect source language from the combined text
+		const detectedLanguage = await translationService.detectLanguage(combinedText);
+		
+		// Determine source language:
+		// 1. If detected language is supported, use it
+		// 2. If fallback locale is provided and supported, use it
+		// 3. Otherwise, default to 'en'
+		let sourceLanguage: string;
+		if (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) {
+			sourceLanguage = detectedLanguage;
+		} else if (fallbackLocale && SUPPORTED_LANGUAGES.includes(fallbackLocale as any)) {
+			sourceLanguage = fallbackLocale;
+		} else {
+			sourceLanguage = 'en';
+		}
+		
+		// Always translate to the other language to ensure we have translations in both
+		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		
+		// If no target languages (portfolio is already in all supported languages), return empty
+		if (targetLanguages.length === 0) {
+			return {
+				sourceLanguage,
+				translations: {}
+			};
+		}
+
+		// Translate title and description to all target languages in parallel
+		const translationPromises = targetLanguages.map(async (targetLang) => {
+			const [titleResult, descResult] = await Promise.all([
+				portfolioData.title?.trim()
+					? translationService.translate(portfolioData.title, targetLang, sourceLanguage)
+					: Promise.resolve({ translatedText: '' } as any),
+				portfolioData.description?.trim()
+					? translationService.translate(portfolioData.description, targetLang, sourceLanguage)
+					: Promise.resolve({ translatedText: '' } as any)
+			]);
+
+			// Check if translation failed
+			if ('code' in titleResult || 'code' in descResult) {
+				console.warn(`Portfolio translation failed for ${targetLang}`);
+				return null;
+			}
+
+			return {
+				language: targetLang,
+				title: titleResult.translatedText || portfolioData.title || '',
+				description: descResult.translatedText || portfolioData.description || ''
+			};
+		});
+
+		const results = await Promise.all(translationPromises);
+		
+		// Build translations object, filtering out failed translations
+		const translations: PortfolioTranslations['translations'] = {};
+		results.forEach(result => {
+			if (result) {
+				translations[result.language] = {
+					title: result.title,
+					description: result.description
+				};
+			}
+		});
+
+		return {
+			sourceLanguage,
+			translations
+		};
+	} catch (error) {
+		console.error('Error generating portfolio translations:', error);
 		return undefined;
 	}
 }
@@ -401,12 +676,37 @@ export async function publishSkillsUpdate(
     relays = RELAYS
 ): Promise<void> {
     try {
+        // Get current locale from svelte-i18n if available
+        let currentLocale: string | undefined;
+        try {
+            const { get } = await import('svelte/store');
+            const { locale } = await import('svelte-i18n');
+            currentLocale = get(locale) || undefined;
+        } catch {
+            // If svelte-i18n is not available, continue without locale
+        }
+
+        // Generate translations for skills that don't have them yet
+        const skillsWithTranslations = await Promise.all(
+            skills.map(async (skill) => {
+                // Only generate translations if skill doesn't already have them
+                if (!skill.translations && skill.name.trim()) {
+                    const translations = await generateSkillTranslations(skill.name, currentLocale);
+                    return {
+                        ...skill,
+                        ...(translations && { translations })
+                    };
+                }
+                return skill;
+            })
+        );
+
         // Create skills event (kind 30000 is replaceable)
         const skillsEvent = {
             kind: KINDS.PROFILE_SKILLS,
             created_at: Math.floor(Date.now() / 1000),
             tags: [['d', 'skills']],
-            content: JSON.stringify(skills)
+            content: JSON.stringify(skillsWithTranslations)
         };
 
         const signedSkillsEvent = await getSignedEvent(skillsEvent);
@@ -478,12 +778,40 @@ export async function publishPortfolioItem(
     relays = RELAYS
 ): Promise<void> {
     try {
+        // Get current locale from svelte-i18n if available
+        let currentLocale: string | undefined;
+        try {
+            const { get } = await import('svelte/store');
+            const { locale } = await import('svelte-i18n');
+            currentLocale = get(locale) || undefined;
+        } catch {
+            // If svelte-i18n is not available, continue without locale
+        }
+
+        // Generate translations for portfolio item if it doesn't already have them
+        let itemWithTranslations = item;
+        if (!item.translations && item.title.trim() && item.description.trim()) {
+            const translations = await generatePortfolioTranslations(
+                {
+                    title: item.title,
+                    description: item.description
+                },
+                currentLocale
+            );
+            if (translations) {
+                itemWithTranslations = {
+                    ...item,
+                    translations
+                };
+            }
+        }
+
         // Create portfolio item event
         const itemEvent = {
             kind: KINDS.PROFILE_PORTFOLIO,
             created_at: Math.floor(Date.now() / 1000),
             tags,
-            content: JSON.stringify(item)
+            content: JSON.stringify(itemWithTranslations)
         };
 
         const signedEvent = await getSignedEvent(itemEvent);
