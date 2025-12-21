@@ -26,10 +26,12 @@
 		try {
 			isLoading = true;
 			await walletManager.initialize();
-			await Promise.allSettled([walletManager.loadAssets(), walletManager.loadRbtcExchangeRate()]);
+			await walletManager.loadAssets();
 		} finally {
 			isLoading = false;
 		}
+
+		walletManager.loadRbtcExchangeRate();
 	}
 
 	onMount(async () => {

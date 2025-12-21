@@ -198,9 +198,6 @@ async function initializeWallet(): Promise<void> {
 		const bscWallet = sdkWalletManager.bscWallet;
 
 		if (rskWallet && bscWallet) {
-			const rskBalanceData = await rskWallet.getBalance();
-			const bscBalances = await bscWallet.getBalances();
-
 			walletStore.update(s => ({
 				...s,
 				isConnected: true,
@@ -210,8 +207,6 @@ async function initializeWallet(): Promise<void> {
 					connected: true,
 					connecting: false,
 					address: rskWallet.getAddress(),
-					balance: rskBalanceData.balance.toString(),
-					formattedBalance: rskBalanceData.formatted,
 					wallet: rskWallet.getWallet() as ethers.Wallet,
 					provider: rskWallet.getProvider() as ethers.JsonRpcProvider
 				},
@@ -220,14 +215,32 @@ async function initializeWallet(): Promise<void> {
 					connected: true,
 					connecting: false,
 					address: bscWallet.getAddress(),
-					bnbBalance: bscBalances.bnb.balance.toString(),
-					usdtBalance: bscBalances.usdt.balance.toString(),
-					formattedBnbBalance: bscBalances.bnb.formatted,
-					formattedUsdtBalance: bscBalances.usdt.formatted,
 					wallet: bscWallet.getWallet() as ethers.Wallet,
 					provider: bscWallet.getProvider() as ethers.JsonRpcProvider
 				}
 			}));
+
+			Promise.all([
+				rskWallet.getBalance(),
+				bscWallet.getBalances()
+			]).then(([rskBalance, bscBalances]) => {
+
+				walletStore.update(s => ({
+					...s,
+					rsk: {
+						...s.rsk,
+						balance: rskBalance.balance.toString(),
+						formattedBalance: rskBalance.formatted,
+					},
+					bsc: {
+						...s.bsc,
+						bnbBalance: bscBalances.bnb.balance.toString(),
+						usdtBalance: bscBalances.usdt.balance.toString(),
+						formattedBnbBalance: bscBalances.bnb.formatted,
+						formattedUsdtBalance: bscBalances.usdt.formatted,
+					}
+				}));
+			});
 		}
 	} catch (error) {
 		console.error('Failed to initialize wallet:', error);
