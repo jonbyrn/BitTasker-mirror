@@ -36,7 +36,7 @@
 	}
 </script>
 
-<div class="bg-base-200 flex flex-grow flex-col items-center justify-center gap-4 px-4">
+<div class="bg-base-200 flex grow  flex-col items-center justify-center gap-4 px-4">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight">

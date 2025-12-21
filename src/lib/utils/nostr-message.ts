@@ -503,7 +503,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 
 					case KINDS.PROFILE_SKILLS: // Skills (30000)
 						if (Array.isArray(content)) {
-							profileData.skills = content.map((skill: NostrSkill) => {
+							profileData.skills = content.map((skill: NostrSkill & { translations?: any; id?: string }) => {
 								// Handle both string format and object format
 								if (typeof skill === 'string') {
 									return skill;
@@ -513,7 +513,9 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 										level: skill.level,
 										verificationStatus: skill.verificationStatus,
 										endorsements: skill.endorsements,
-										certifications: skill.certifications || []
+										certifications: skill.certifications || [],
+										translations: skill.translations,
+										id: skill.id
 									};
 								}
 							});
@@ -528,7 +530,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 							images: content.images,
 							completionDate: content.completionDate,
 							skills: content.skills,
-							link: content.link
+							link: content.link,
+							translations: content.translations
 						});
 						break;
 

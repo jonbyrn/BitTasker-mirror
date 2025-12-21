@@ -445,7 +445,13 @@
       "topbar": {
         "logo_alt": "Logo de BitTasker",
         "close_menu": "Cerrar menú",
-        "open_menu": "Abrir menú"
+        "open_menu": "Abrir menú",
+        "npub_qr": {
+          "title": "Clave Pública de Nostr",
+          "npub_label": "Clave Pública (npub)",
+          "generating": "Generando código QR...",
+          "error": "No se pudo cargar la clave pública. Por favor, asegúrate de estar conectado."
+        }
       },
       "uploader": {
         "images": "Imágenes",
