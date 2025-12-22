@@ -26,43 +26,10 @@ export const getNpub = async (): Promise<string> => {
 
     const currentState = get(appStore);
 
-    // Validate cached biometricData before using it
     if (currentState.biometricData) {
-        try {
-            // Check if we have a stored NPUB to validate against
-            const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
-            
-            // If no stored NPUB, user might not be logged in - clear cache and prompt
-            if (!storedNpub) {
-                const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-                if (!token) {
-                    // No token and no stored NPUB - clear cache and prompt
-                    appStore.update((state) => ({ ...state, biometricData: null }));
-                } else {
-                    // Token exists but no stored NPUB - use cached data
-                    const npub = currentState.biometricData.username;
-                    await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-                    return npub;
-                }
-            } else {
-                // Stored NPUB exists - validate it matches cached data
-                if (storedNpub !== currentState.biometricData.username) {
-                    // Mismatch - clear cache and prompt
-                    console.warn('Cached biometricData NPUB does not match stored NPUB, clearing cache');
-                    appStore.update((state) => ({ ...state, biometricData: null }));
-                } else {
-                    // Match - use cached data
-                    const npub = currentState.biometricData.username;
-                    await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-                    return npub;
-                }
-            }
-        } catch (error) {
-            // Validation failed - clear cache and prompt
-            console.warn('Failed to validate cached biometricData in getNpub, clearing cache:', error);
-            appStore.update((state) => ({ ...state, biometricData: null }));
-            // Fall through to prompt
-        }
+        const npub = currentState.biometricData.username;
+        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+        return npub;
     }
 
     let biometricData: Credentials | null = null;
@@ -100,44 +67,13 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
     }
     const currentState = get(appStore);
 
-    // Try to use cached biometricData, but validate and fall back to prompt if invalid
     if (currentState.biometricData) {
-        try {
-            // Validate session before using cached data
-            const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-            if (!token) {
-                // No access token means user is not logged in, clear cache and prompt
-                console.warn('No access token found, clearing cached biometricData');
-                appStore.update((state) => ({ ...state, biometricData: null }));
-            } else {
-                // Validate NPUB match
-                const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
-                if (storedNpub && storedNpub !== currentState.biometricData.username) {
-                    // NPUB mismatch - different user, clear cache and prompt
-                    console.warn('Cached biometricData NPUB does not match stored NPUB, clearing cache');
-                    appStore.update((state) => ({ ...state, biometricData: null }));
-                } else {
-                    // Cached data is valid, try to decrypt
-                    try {
-                        const sk = await decryptNsecWithBiometrics(currentState.biometricData.password);
-                        const nsec: Uint8Array = decodeNsec(sk);
-                        const npub = currentState.biometricData.username;
-                        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-                        return { nsec, npub };
-                    } catch (decryptError) {
-                        // Decryption failed - clear cache and fall through to prompt
-                        console.warn('Failed to decrypt cached biometricData, clearing cache:', decryptError);
-                        appStore.update((state) => ({ ...state, biometricData: null }));
-                        // Fall through to prompt for fresh authentication
-                    }
-                }
-            }
-        } catch (validationError) {
-            // Validation failed - clear cache and fall through to prompt
-            console.warn('Failed to validate cached biometricData, clearing cache:', validationError);
-            appStore.update((state) => ({ ...state, biometricData: null }));
-            // Fall through to prompt for fresh authentication
-        }
+        const sk = await decryptNsecWithBiometrics(currentState.biometricData.password);
+        const nsec: Uint8Array = decodeNsec(sk);
+
+        const npub = currentState.biometricData.username;
+        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+        return { nsec, npub };
     }
 
     let biometricData: Credentials | null = null;
@@ -171,55 +107,18 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
 export const getAllKeys = async (): Promise<{ npub: string, nsec: Uint8Array, mnemonic: string }> => {
     const currentState = get(appStore);
 
-    // Try to use cached biometricData, but validate and fall back to prompt if invalid
     if (currentState.biometricData) {
-        try {
-            // Validate session before using cached data
-            const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-            if (!token) {
-                // No access token means user is not logged in, clear cache and prompt
-                console.warn('No access token found in getAllKeys, clearing cached biometricData');
-                appStore.update((state) => ({ ...state, biometricData: null }));
-            } else {
-                // Validate NPUB match
-                const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
-                if (storedNpub && storedNpub !== currentState.biometricData.username) {
-                    // NPUB mismatch - different user, clear cache and prompt
-                    console.warn('Cached biometricData NPUB does not match stored NPUB in getAllKeys, clearing cache');
-                    appStore.update((state) => ({ ...state, biometricData: null }));
-                } else {
-                    // Cached data is valid, try to decrypt
-                    try {
-                        const parsedData = JSON.parse(currentState.biometricData.password);
-                        
-                        // Validate master key data format
-                        if (!parsedData.masterKeyData) {
-                            throw new Error('Invalid master key data format');
-                        }
-                        
-                        const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
-                            JSON.stringify(parsedData.masterKeyData),
-                            parsedData.key
-                        );
+        const parsedData = JSON.parse(currentState.biometricData.password);
+        const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
+            JSON.stringify(parsedData.masterKeyData),
+            parsedData.key
+        );
 
-                        const nsec: Uint8Array = decodeNsec(sk);
-                        const npub = currentState.biometricData.username;
-                        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-                        return { nsec, npub, mnemonic };
-                    } catch (decryptError) {
-                        // Decryption failed - clear cache and fall through to prompt
-                        console.warn('Failed to decrypt cached biometricData in getAllKeys, clearing cache:', decryptError);
-                        appStore.update((state) => ({ ...state, biometricData: null }));
-                        // Fall through to prompt for fresh authentication
-                    }
-                }
-            }
-        } catch (validationError) {
-            // Validation failed - clear cache and fall through to prompt
-            console.warn('Failed to validate cached biometricData in getAllKeys, clearing cache:', validationError);
-            appStore.update((state) => ({ ...state, biometricData: null }));
-            // Fall through to prompt for fresh authentication
-        }
+        const nsec: Uint8Array = decodeNsec(sk);
+
+        const npub = currentState.biometricData.username;
+        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+        return { nsec, npub, mnemonic };
     }
 
     let biometricData: Credentials | null = null;

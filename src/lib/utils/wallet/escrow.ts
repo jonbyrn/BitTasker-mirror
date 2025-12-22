@@ -216,8 +216,8 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 
         const escrow: EscrowData = {
             id: escrowId,
-            client: escrowData.client.toLowerCase(), // Ensure consistent address format
-            freelancer: escrowData.freelancer.toLowerCase(), // Ensure consistent address format
+            client: escrowData.client?.toLowerCase() || '', // Ensure consistent address format
+            freelancer: escrowData.freelancer?.toLowerCase() || '', // Ensure consistent address format
             baseAmount: ethers.formatEther(escrowData.amount),
             clientFee: '0', // Will be calculated based on fee tier
             freelancerFee: '0', // Will be calculated based on fee tier  

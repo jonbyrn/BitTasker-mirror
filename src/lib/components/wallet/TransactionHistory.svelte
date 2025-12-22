@@ -1,45 +1,178 @@
 <script lang="ts">
+	import type { Transaction } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { transactions, walletManager } from '$lib/stores/wallet.store';
 	import { weiToSatoshi } from '@bittasker/wallet-core';
-	// MDI Icons
+	import { getTransactionTitle } from '$lib/utils/wallet/titleGeneration';
+	import { getTaskInfoForTransaction, generateTaskLink } from '$lib/utils/wallet/taskLinking';
+	import { goto } from '$app/navigation';
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconCloseCircle from '~icons/mdi/close-circle';
+	import IconCheck from '~icons/mdi/check';
+	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconCheckAll from '~icons/mdi/check-all';
 
 	// State
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	let selectedFilter = $state<'all' | 'rsk' | 'bsc' | 'send' | 'receive'>('all');
+	let typeFilter = $state<'all' | 'send' | 'receive' | 'contract-function'>('all');
+	let networkFilter = $state<'all' | 'rsk' | 'bsc'>('all');
+	let isNetworkDropdownOpen = $state(false);
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
 
 	// Filtered transactions (exclude swaps)
 	let filteredTransactions = $derived(
 		$transactions.filter((tx) => {
-			if (selectedFilter === 'all') return true;
-			if (selectedFilter === 'rsk' || selectedFilter === 'bsc') {
-				return tx.network === selectedFilter;
-			}
-			if (selectedFilter === 'send' || selectedFilter === 'receive') {
-				return tx.type === selectedFilter;
-			}
+			// Filter by type
+			if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
+			// Filter by network
+			if (networkFilter !== 'all' && tx.network !== networkFilter) return false;
 			return true;
 		})
 	);
 
-	// Derived filter counts for performance
-	let filterCounts = $derived({
-		all: $transactions.length,
-		rsk: $transactions.filter((tx) => tx.network === 'rsk' && tx.type !== 'swap').length,
-		bsc: $transactions.filter((tx) => tx.network === 'bsc' && tx.type !== 'swap').length,
-		send: $transactions.filter((tx) => tx.type === 'send').length,
-		receive: $transactions.filter((tx) => tx.type === 'receive').length
-	});
+	// Network filter options
+	const networkFilterOptions = [
+		{
+			id: 'all' as const,
+			label: $t('wallet.all_networks'),
+			icon: IconCheckAll,
+			isImage: false
+		},
+		{
+			id: 'rsk' as const,
+			label: $t('wallet.transaction.network.rootstock_bitcoin'),
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+			isImage: true
+		},
+		{
+			id: 'bsc' as const,
+			label: $t('wallet.transaction.network.bsc'),
+			icon: '/images/chains/Binance-logo.svg',
+			isImage: true
+		}
+	];
+
+	// Type filter options
+	const typeFilterOptions = [
+		{
+			id: 'all' as const,
+			label: $t('wallet.all'),
+			icon: IconCheckAll
+		},
+		{
+			id: 'send' as const,
+			label: $t('wallet.sent'),
+			icon: IconArrowUpBold
+		},
+		{
+			id: 'receive' as const,
+			label: $t('wallet.received'),
+			icon: IconArrowDownBold
+		},
+		{
+			id: 'contract-function' as const,
+			label: $t('wallet.transaction.type.contract_function'),
+			icon: IconFileDocumentOutline
+		}
+	];
+
+	const statusUI = {
+		confirmed: {
+			label: $t('wallet.transaction.status.confirmed'),
+			icon: IconCheckCircle,
+			color: 'text-success'
+		},
+		pending: {
+			label: $t('wallet.transaction.status.pending'),
+			icon: IconClockOutline,
+			color: 'text-warning'
+		},
+		failed: {
+			label: $t('wallet.transaction.status.failed'),
+			icon: IconCloseCircle,
+			color: 'text-error'
+		}
+	};
+
+	// Transaction type configuration
+	const transactionTypeConfig = {
+		'contract-function': {
+			color: 'info',
+			borderClass: 'border-2 border-info'
+		},
+		'contract-send': {
+			color: 'warning',
+			borderClass: 'border-2 border-warning'
+		},
+		'contract-receive': {
+			color: 'success',
+			borderClass: 'border-2 border-success'
+		},
+		send: {
+			color: 'warning',
+			borderClass: 'border-2 border-warning'
+		},
+		receive: {
+			color: 'success',
+			borderClass: 'border-2 border-success'
+		},
+		swap: {
+			color: 'success',
+			borderClass: 'border-2 border-success'
+		},
+		default: {
+			color: 'primary',
+			borderClass: ''
+		}
+	};
+
+	// Network configuration
+	const networkConfig = {
+		rsk: {
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+			displayName: $t('wallet.transaction.network.rootstock_bitcoin')
+		},
+		bsc: {
+			icon: '/images/chains/Binance-logo.svg',
+			displayName: $t('wallet.transaction.network.binance_smart_chain')
+		},
+		default: {
+			icon: '/images/chains/Bitcoin.svg',
+			displayName: $t('wallet.transaction.network.unknown_network')
+		}
+	};
+
+	const getStatusUI = (status: string) => {
+		return (
+			statusUI[status as keyof typeof statusUI] || {
+				label: status,
+				icon: IconClockOutline,
+				color: 'text-base-content/60'
+			}
+		);
+	};
+
+	function selectTypeFilter(typeId: 'all' | 'send' | 'receive' | 'contract-function') {
+		typeFilter = typeId;
+		currentPage = 0;
+	}
+
+	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'bsc') {
+		networkFilter = networkId;
+		isNetworkDropdownOpen = false;
+		currentPage = 0;
+	}
+
+	function toggleNetworkDropdown() {
+		isNetworkDropdownOpen = !isNetworkDropdownOpen;
+	}
 
 	// Paginated transactions
 	let paginatedTransactions = $derived(
@@ -52,12 +185,14 @@
 		loadTransactions();
 	});
 
+	/**
+	 * Load transactions
+	 */
 	async function loadTransactions() {
 		isLoading = true;
 		error = null;
 
 		try {
-			// Load transactions using the combined wallet manager
 			await walletManager.loadTransactions();
 		} catch (err) {
 			console.error('Failed to load transactions:', err);
@@ -67,112 +202,41 @@
 		}
 	}
 
-	async function refreshTransactions() {
-		await loadTransactions();
-	}
+	function getTypeIcon(type: string): {
+		base: typeof IconFileDocumentOutline | typeof IconArrowUpBold | typeof IconArrowDownBold;
+		overlay: typeof IconArrowUpBold | typeof IconArrowDownBold | null;
+	} {
+		if (!type) return { base: IconArrowUpBold, overlay: null };
 
-	function getStatusLabel(status: string): string {
-		if (!status) return 'Unknown'; // Fallback for undefined/null
-		switch (status) {
-			case 'confirmed':
-				return $t('wallet.transaction.status.confirmed');
-			case 'pending':
-				return $t('wallet.transaction.status.pending');
-			case 'failed':
-				return $t('wallet.transaction.status.failed');
-			default:
-				return status;
+		// Contract function (non-spend) - contract icon only
+		if (type === 'contract-function') {
+			return { base: IconFileDocumentOutline, overlay: null };
 		}
-	}
 
-	function getStatusIcon(status: string) {
-		if (!status) return IconClockOutline; // Fallback for undefined/null
-		switch (status) {
-			case 'confirmed':
-				return IconCheckCircle;
-			case 'pending':
-				return IconClockOutline;
-			case 'failed':
-				return IconCloseCircle;
-			default:
-				// Default to pending icon for unknown statuses
-				return IconClockOutline;
+		// Contract send - contract icon with send overlay
+		if (type === 'contract-send') {
+			return { base: IconFileDocumentOutline, overlay: IconArrowUpBold };
 		}
-	}
 
-	function getStatusIconColor(status: string): string {
-		if (!status) return 'text-base-content/60'; // Fallback for undefined/null
-		switch (status) {
-			case 'confirmed':
-				return 'text-success';
-			case 'pending':
-				return 'text-warning';
-			case 'failed':
-				return 'text-error';
-			default:
-				// Default to muted color for unknown statuses
-				return 'text-base-content/60';
+		// Contract receive - contract icon with receive overlay
+		if (type === 'contract-receive') {
+			return { base: IconFileDocumentOutline, overlay: IconArrowDownBold };
 		}
-	}
 
-	function getNetworkIcon(network: string): string {
-		switch (network) {
-			case 'rsk':
-				return '/images/chains/Bitcoin-Rootstock-logo.webp';
-			case 'bsc':
-				return '/images/chains/Binance-logo.svg';
-			default:
-				return '/images/chains/Bitcoin.svg';
+		// Regular receive
+		if (type === 'receive') {
+			return { base: IconArrowDownBold, overlay: null };
 		}
+
+		// Regular send or default
+		return { base: IconArrowUpBold, overlay: null };
 	}
 
-	function getNetworkDisplayName(network: string): string {
-		switch (network) {
-			case 'rsk':
-				return $t('wallet.transaction.network.rootstock_bitcoin');
-			case 'bsc':
-				return $t('wallet.transaction.network.binance_smart_chain');
-			default:
-				return $t('wallet.transaction.network.unknown_network');
-		}
-	}
-
-	function getTypeIcon(type: string) {
-		if (!type) return IconArrowUpBold; // Fallback for undefined/null
-		if (type === 'receive') return IconArrowDownBold;
-		if (type === 'contract') return IconFileDocumentOutline;
-		// Default to send icon for 'send' and any other types
-		return IconArrowUpBold;
-	}
-
-	function formatFee(fee: number, asset: string): string {
+	function formatFee(feeSats: number | undefined): string {
 		try {
-			// Fee is already in native units (rBTC, BNB, etc.) from transactionHistory.ts
-			if (!fee || !isFinite(fee) || isNaN(fee)) return '0';
-			if (!asset) asset = '';
-
-			if (asset === 'rBTC' || asset === 'BTC' || asset === 'L-BTC' || asset.includes('BTC')) {
-				// For Bitcoin-based assets, show in satoshis
-				const sats = Math.floor(fee * 100_000_000);
-				if (sats > 0) {
-					return `${sats.toLocaleString()} ${$t('wallet.sats')}`;
-				}
-				// For very small fees, show in BTC with appropriate decimals
-				return `${fee.toFixed(8)} ${asset}`;
-			} else if (asset === 'BNB' || asset.includes('ETH')) {
-				// For other EVM chains, show in native token (no Gwei conversion)
-				if (fee < 0.00001) {
-					return `${fee.toFixed(10)} ${asset}`;
-				}
-				// For larger fees, show in native token
-				return `${fee.toFixed(8)} ${asset}`;
-			} else {
-				// Fallback for unknown assets
-				if (fee < 0.000001) {
-					return `${fee.toExponential(2)} ${asset}`;
-				}
-				return `${fee.toFixed(8)} ${asset}`;
-			}
+			// Fee is pre-calculated in sats in wallet store
+			if (!feeSats || !isFinite(feeSats) || isNaN(feeSats)) return '0';
+			return `${feeSats.toLocaleString()} ${$t('wallet.sats')}`;
 		} catch (error) {
 			console.error('Error formatting fee:', error);
 			return '0';
@@ -201,36 +265,36 @@
 		}
 	}
 
-	function formatAddress(address?: string): string {
-		if (!address) return '';
-		return `${address.slice(0, 6)}...${address.slice(-4)}`;
-	}
+	function getExplorerUrl(txHash?: string, network?: string): string | null {
+		if (!txHash) return null;
 
-	function openExplorer(txHash?: string, network?: string) {
-		if (!txHash) return;
-
-		let explorerUrl = '';
 		if (network === 'rsk') {
 			// Use the correct RSK explorer based on network (default to testnet for now)
 			const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 			if (rskNetwork === 'mainnet') {
-				explorerUrl = `https://rootstock.blockscout.com/tx/${txHash}`;
+				return `https://rootstock.blockscout.com/tx/${txHash}`;
 			} else {
-				explorerUrl = `https://rootstock-testnet.blockscout.com/tx/${txHash}`;
+				return `https://rootstock-testnet.blockscout.com/tx/${txHash}`;
 			}
 		} else if (network === 'bsc') {
 			// Use BSC explorer based on network
 			const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
 			if (bscNetwork === 'mainnet') {
-				explorerUrl = `https://bscscan.com/tx/${txHash}`;
+				return `https://bscscan.com/tx/${txHash}`;
 			} else {
-				explorerUrl = `https://testnet.bscscan.com/tx/${txHash}`;
+				return `https://testnet.bscscan.com/tx/${txHash}`;
 			}
 		}
 
-		if (explorerUrl) {
-			window.open(explorerUrl, '_blank');
+		return null;
+	}
+
+	function getRunningBalance(balanceAfter?: number): string {
+		// Balance is pre-calculated in wallet store
+		if (balanceAfter !== undefined && balanceAfter !== null) {
+			return Math.floor(balanceAfter).toLocaleString();
 		}
+		return '';
 	}
 
 	function nextPage() {
@@ -252,105 +316,209 @@
 	}
 </script>
 
-<div class="space-y-6">
-	<div class="flex flex-wrap items-center gap-4">
-		<h3 class="text-lg font-semibold">{$t('wallet.transaction_history')}</h3>
-		<button
-			class="btn btn-outline btn-sm self-start sm:self-auto"
-			onclick={refreshTransactions}
-			disabled={isLoading}
-		>
-			{#if isLoading}
-				<span class="loading loading-spinner loading-xs"></span>
-			{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-					/>
-				</svg>
-			{/if}
-			{$t('wallet.refresh')}
-		</button>
-	</div>
+<div class="space-y-6 pb-6">
+	<!-- Filters container matching contracts screen design -->
+	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 shadow-sm">
+		<!-- Mobile: Refresh Button (Above Grid) -->
+		<div class="mb-3 flex justify-end sm:hidden">
+			<button
+				class="btn btn-outline btn-sm flex items-center gap-2"
+				onclick={loadTransactions}
+				disabled={isLoading}
+				aria-label={$t('wallet.refresh')}
+			>
+				{#if isLoading}
+					<span class="loading loading-spinner loading-xs"></span>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
+					</svg>
+				{/if}
+				<span>{$t('wallet.refresh')}</span>
+			</button>
+		</div>
 
-	<!-- Filter Tabs -->
-	<div class="overflow-x-auto">
-		<div class="tabs tabs-boxed min-w-max">
-			<button
-				class="tab {selectedFilter === 'all' ? 'tab-active' : ''} whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'all';
-					currentPage = 0;
-				}}
-			>
-				{$t('wallet.all')} ({filterCounts.all})
-			</button>
-			<button
-				class="tab {selectedFilter === 'rsk' ? 'tab-active' : ''} whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'rsk';
-					currentPage = 0;
-				}}
-			>
-				<img
-					src="/images/chains/Bitcoin-Rootstock-logo.webp"
-					alt="Rootstock Bitcoin"
-					class="mr-1 inline h-4 w-4"
-				/>
-				{$t('wallet.transaction.network.rootstock_bitcoin')} ({filterCounts.rsk})
-			</button>
-			<button
-				class="tab {selectedFilter === 'bsc' ? 'tab-active' : ''} whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'bsc';
-					currentPage = 0;
-				}}
-			>
-				<img
-					src="/images/chains/Binance-logo.svg"
-					alt="Binance Smart Chain"
-					class="mr-1 inline h-4 w-4"
-				/>
-				{$t('wallet.transaction.network.bsc')} ({filterCounts.bsc})
-			</button>
-			<button
-				class="tab {selectedFilter === 'send'
-					? 'tab-active'
-					: ''} flex items-center gap-1 whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'send';
-					currentPage = 0;
-				}}
-			>
-				<IconArrowUpBold class="h-4 w-4" />
-				{$t('wallet.sent')} ({filterCounts.send})
-			</button>
-			<button
-				class="tab {selectedFilter === 'receive'
-					? 'tab-active'
-					: ''} flex items-center gap-1 whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'receive';
-					currentPage = 0;
-				}}
-			>
-				<IconArrowDownBold class="h-4 w-4" />
-				{$t('wallet.received')} ({filterCounts.receive})
-			</button>
+		<!-- Mobile: Type Filter Buttons and Network Dropdown -->
+		<div class="mb-3 sm:hidden">
+			<!-- Type Filter Buttons (Mobile) - 2x2 Grid -->
+			<div class="mb-3 grid grid-cols-2 gap-2">
+				{#each typeFilterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn {typeFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'} btn-sm flex items-center justify-center gap-2"
+						onclick={() => selectTypeFilter(option.id)}
+						aria-label={option.label}
+					>
+						{#if typeFilter === option.id}
+							<IconCheck class="h-4 w-4" />
+						{:else}
+							<IconComponent class="h-4 w-4" />
+						{/if}
+						<span>{option.label}</span>
+					</button>
+				{/each}
+			</div>
+
+			<!-- Network Filter Dropdown (Mobile) -->
+			<div class="network-dropdown-container relative">
+				<button
+					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
+					onclick={toggleNetworkDropdown}
+				>
+					<div class="flex items-center gap-2">
+						{#if true}
+							{@const selectedOption = networkFilterOptions.find((opt) => opt.id === networkFilter)}
+							{#if selectedOption?.isImage}
+								<img
+									src={selectedOption.icon as string}
+									alt={selectedOption.label}
+									class="h-5 w-5"
+								/>
+							{:else if selectedOption && typeof selectedOption.icon !== 'string'}
+								{@const IconComponent = selectedOption.icon}
+								<IconComponent class="h-5 w-5" />
+							{/if}
+							<span class="font-medium">
+								{selectedOption?.label}
+							</span>
+						{/if}
+					</div>
+					<IconChevronDown
+						class="h-5 w-5 transition-transform duration-200 {isNetworkDropdownOpen
+							? 'rotate-180'
+							: ''}"
+					/>
+				</button>
+
+				{#if isNetworkDropdownOpen}
+					<div
+						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+					>
+						{#each networkFilterOptions as option}
+							<button
+								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
+								option.id
+									? 'bg-primary/10 text-primary'
+									: 'text-base-content'}"
+								onclick={() => selectNetworkFilter(option.id)}
+							>
+								{#if option.isImage}
+									<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
+								{:else if typeof option.icon !== 'string'}
+									{@const IconComponent = option.icon}
+									<IconComponent
+										class="h-5 w-5 {networkFilter === option.id
+											? 'text-primary'
+											: 'text-base-content/60'}"
+									/>
+								{/if}
+								<span class="font-medium">{option.label}</span>
+								{#if networkFilter === option.id}
+									<IconCheck class="text-primary ml-auto h-5 w-5" />
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Desktop: Type Filter Buttons -->
+		<div class="mb-4 hidden sm:block">
+			<div class="flex items-center justify-between gap-2">
+				<div class="flex gap-2">
+					{#each typeFilterOptions as option}
+						{@const IconComponent = option.icon}
+						<button
+							class="btn {typeFilter === option.id
+								? 'btn-primary'
+								: 'btn-secondary'} btn-sm flex items-center gap-2"
+							onclick={() => selectTypeFilter(option.id)}
+							aria-label={option.label}
+						>
+							{#if typeFilter === option.id}
+								<IconCheck class="h-4 w-4" />
+							{:else}
+								<IconComponent class="h-4 w-4" />
+							{/if}
+							<span>{option.label}</span>
+						</button>
+					{/each}
+				</div>
+				<!-- Refresh Button (Desktop) -->
+				<button
+					class="btn btn-outline btn-sm flex items-center gap-2"
+					onclick={loadTransactions}
+					disabled={isLoading}
+					aria-label={$t('wallet.refresh')}
+				>
+					{#if isLoading}
+						<span class="loading loading-spinner loading-xs"></span>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+							/>
+						</svg>
+					{/if}
+					<span>{$t('wallet.refresh')}</span>
+				</button>
+			</div>
+		</div>
+
+		<!-- Desktop: Network Filter Buttons -->
+		<div class="mt-4 hidden sm:block">
+			<div class="flex flex-col gap-3 sm:flex-row">
+				{#each networkFilterOptions as option}
+					<button
+						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {networkFilter ===
+						option.id
+							? 'text-primary bg-primary/10 border-primary/30 border'
+							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
+						onclick={() => selectNetworkFilter(option.id)}
+						aria-label={option.label}
+					>
+						{#if option.isImage}
+							<img
+								src={option.icon as string}
+								alt={option.label}
+								class="h-5 w-5 {networkFilter === option.id ? 'opacity-100' : 'opacity-60'}"
+							/>
+						{:else if typeof option.icon !== 'string'}
+							{@const IconComponent = option.icon}
+							<IconComponent class="h-5 w-5 {networkFilter === option.id ? 'text-primary' : ''}" />
+						{/if}
+						<span class="font-medium">{option.label}</span>
+					</button>
+				{/each}
+			</div>
 		</div>
 	</div>
 
 	{#if error}
-		<div class="alert alert-error">
+		<div class="alert alert-error alert-outline">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -369,21 +537,37 @@
 	{/if}
 
 	{#if isLoading}
-		<div class="space-y-4">
-			{#each Array(5) as _}
-				<div class="card bg-base-200 animate-pulse">
-					<div class="card-body">
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-3">
-								<div class="bg-base-300 h-8 w-8 rounded-full"></div>
-								<div class="space-y-2">
-									<div class="bg-base-300 h-4 w-32 rounded"></div>
-									<div class="bg-base-300 h-3 w-24 rounded"></div>
+		<div class="space-y-3">
+			{#each Array(3) as _}
+				<div class="card bg-base-200 animate-pulse rounded-lg">
+					<div class="card-body p-4">
+						<div class="flex flex-col gap-1">
+							<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
+								<div class="flex items-center gap-3">
+									<!-- Type Icon -->
+									<div class="bg-base-300 h-10 w-10 rounded-full"></div>
+									<div class="flex items-center gap-2">
+										<div class="bg-base-300 h-5 w-24 rounded"></div>
+										<div class="bg-base-300 h-5 w-5 rounded-full"></div>
+									</div>
+								</div>
+								<div class="flex flex-col items-end">
+									<div class="bg-base-300 h-5 w-20 rounded"></div>
+									<div class="bg-base-300 mt-1 h-3 w-16 rounded"></div>
 								</div>
 							</div>
-							<div class="space-y-2 text-right">
-								<div class="bg-base-300 ml-auto h-4 w-20 rounded"></div>
-								<div class="bg-base-300 ml-auto h-3 w-16 rounded"></div>
+							<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
+								<div class="flex items-center gap-3">
+									<!-- Network Icon -->
+									<div class="bg-base-300 h-10 w-10 rounded-full"></div>
+									<div class="space-y-1">
+										<div class="bg-base-300 h-4 w-24 rounded"></div>
+										<div class="bg-base-300 h-3 w-20 rounded"></div>
+									</div>
+								</div>
+								<div class="bg-base-300 h-4 w-32 rounded"></div>
 							</div>
 						</div>
 					</div>
@@ -408,7 +592,7 @@
 			</svg>
 			<h3 class="mb-2 text-lg font-semibold">{$t('wallet.no_transactions')}</h3>
 			<p class="text-base-content/70">
-				{selectedFilter === 'all'
+				{typeFilter === 'all' && networkFilter === 'all'
 					? $t('wallet.no_transactions_yet')
 					: $t('wallet.no_transactions_filter')}
 			</p>
@@ -417,214 +601,238 @@
 		<!-- Transaction List -->
 		<div class="space-y-3">
 			{#each paginatedTransactions as tx}
-				{@const TypeIcon = getTypeIcon(tx.type)}
-				{@const StatusIcon = getStatusIcon(tx.status || 'pending')}
-				<div class="card bg-base-200 hover:bg-base-300 transition-colors">
-					<div class="card-body p-4">
-						<!-- Desktop Layout -->
-						<div class="hidden items-center justify-between gap-2 sm:gap-4 md:flex">
-							<div class="flex items-center gap-3">
-								<!-- Network and Type Icons -->
-								<div class="flex items-center gap-2">
-									<div
-										class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
-										'receive'
-											? 'bg-success/20 text-success'
-											: tx.type === 'contract'
-												? 'bg-primary/20 text-primary'
-												: 'bg-warning/20 text-warning'}"
-									>
-										<TypeIcon class="h-5 w-5" />
+				{@const iconConfig = getTypeIcon(tx.type)}
+				{@const txConfig =
+					transactionTypeConfig[(tx.type as keyof typeof transactionTypeConfig) || 'default']}
+				{@const networkInfo =
+					networkConfig[(tx.network as keyof typeof networkConfig) || 'default']}
+				{@const explorerUrl = getExplorerUrl(tx.txHash || tx.hash, tx.network)}
+				{@const taskInfo = getTaskInfoForTransaction(tx as unknown as Transaction)}
+
+				{#if explorerUrl}
+					{@const status = getStatusUI(tx.status)}
+					{@const valueSats = weiToSatoshi(BigInt(tx.value || '0'))}
+					<a
+						href={explorerUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="card bg-base-200 hover:bg-base-300 cursor-pointer rounded-lg transition-colors {txConfig.borderClass}"
+					>
+						<div class="card-body p-4">
+							<div class="flex flex-col gap-1">
+								<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<!-- Type Icon with Overlay -->
+										<div class="relative inline-block">
+											<div
+												class="flex h-10 w-10 items-center justify-center rounded-full bg-{txConfig.color}/20 text-{txConfig.color}"
+											>
+												<iconConfig.base class="h-6 w-6" />
+											</div>
+											{#if iconConfig.overlay}
+												<div
+													class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm"
+												>
+													<iconConfig.overlay
+														class="h-4 w-4 text-{txConfig.color === 'success' ||
+														txConfig.color === 'primary'
+															? 'success'
+															: 'warning'}"
+													/>
+												</div>
+											{/if}
+										</div>
+										<div class="flex items-center gap-2">
+											<span class="font-semibold">
+												{getTransactionTitle(tx as unknown as Transaction)}
+											</span>
+											<div
+												class="flex h-5 w-5 items-center justify-center {status.color}"
+												title={status.label}
+											>
+												<status.icon class="h-5 w-5" />
+											</div>
+										</div>
 									</div>
-									<div
-										class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
-									>
-										{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-											<img
-												src={getNetworkIcon(tx.network || 'rsk')}
-												alt={getNetworkDisplayName(tx.network || 'rsk')}
-												class="h-10 w-10"
-											/>
+									<div class="flex flex-col items-end">
+										{#if tx.type === 'contract-receive' || tx.type === 'receive' || tx.type === 'swap'}
+											<div class="text-success font-semibold">
+												{#if valueSats > 0}+{/if}{valueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{:else if tx.type === 'contract-send' || tx.type === 'send'}
+											<div class="text-warning font-semibold">
+												{#if valueSats > 0}-{/if}{valueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
 										{:else}
-											<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
+											<div class="text-info font-semibold">
+												{valueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{/if}
+										{#if tx.fee}
+											<div class="text-xs opacity-70">
+												{$t('wallet.tx_fee')}: {formatFee((tx as any).feeSats)}
+											</div>
 										{/if}
 									</div>
 								</div>
 
-								<div class="flex-1">
-									<div class="mb-1 flex items-center gap-2">
-										<span class="font-semibold capitalize">
-											{#if tx.type === 'send'}
-												{$t('wallet.transaction.type.send')}
-											{:else if tx.type === 'receive'}
-												{$t('wallet.transaction.type.receive')}
-											{:else if tx.type === 'contract'}
-												{$t('wallet.transaction.type.contract')}
-											{:else}
-												{tx.type}
-											{/if}
-										</span>
-										<div
-											class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
-												tx.status || 'pending'
-											)}"
-											title={getStatusLabel(tx.status || 'pending')}
-										>
-											<StatusIcon
-												class="h-5 w-5"
-												aria-label={getStatusLabel(tx.status || 'pending')}
-											/>
-										</div>
-									</div>
-
-									<div class="text-sm opacity-70">
-										<div>{formatDate(tx.timestamp)}</div>
-										<div>{formatTime(tx.timestamp)}</div>
-									</div>
-								</div>
-							</div>
-
-							<div class="flex flex-col items-end gap-1.5 text-right">
-								<div
-									class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
-								>
-									{tx.type === 'receive' ? '+' : '-'}
-									{weiToSatoshi(BigInt(tx.value)).toLocaleString() + ' ' + $t('wallet.sats')}
-								</div>
-								{#if tx.fee}
-									<div class="text-xs opacity-70">
-										{$t('wallet.network_fee')}: {formatFee(tx.fee, tx.asset || '')}
-									</div>
-								{/if}
-								{#if tx.txHash}
-									<button
-										class="btn btn-ghost btn-xs"
-										onclick={() => openExplorer(tx.txHash, tx.network)}
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-3 w-3"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-											/>
-										</svg>
-										{$t('wallet.view_explorer')}
-									</button>
-								{/if}
-							</div>
-						</div>
-
-						<!-- Mobile Layout -->
-						<div class="md:hidden">
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<div class="flex items-center gap-2">
-										<div
-											class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
-											'receive'
-												? 'bg-success/20 text-success'
-												: tx.type === 'contract'
-													? 'bg-primary/20 text-primary'
-													: 'bg-warning/20 text-warning'}"
-										>
-											<TypeIcon class="h-5 w-5" />
-										</div>
+								<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<!-- Network Icon -->
 										<div
 											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
 										>
-											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-												<img
-													src={getNetworkIcon(tx.network || 'rsk')}
-													alt={getNetworkDisplayName(tx.network || 'rsk')}
-													class="h-10 w-10"
-												/>
-											{:else}
-												<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
-											{/if}
-										</div>
-									</div>
-									<div class="flex-1">
-										<div class="mb-1 flex items-center gap-2">
-											<span class="font-semibold">
-												{#if tx.type === 'send'}
-													{$t('wallet.transaction.type.send')}
-												{:else if tx.type === 'receive'}
-													{$t('wallet.transaction.type.receive')}
-												{:else if tx.type === 'contract'}
-													{$t('wallet.transaction.type.contract')}
-												{:else}
-													{tx.type}
-												{/if}
-											</span>
-											<div
-												class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
-													tx.status || 'pending'
-												)}"
-												title={getStatusLabel(tx.status || 'pending')}
-											>
-												<StatusIcon
-													class="h-5 w-5"
-													aria-label={getStatusLabel(tx.status || 'pending')}
-												/>
-											</div>
+											<img src={networkInfo.icon} alt={networkInfo.displayName} class="h-10 w-10" />
 										</div>
 										<div class="text-sm opacity-70">
 											<div>{formatDate(tx.timestamp)}</div>
 											<div>{formatTime(tx.timestamp)}</div>
 										</div>
 									</div>
+									<div class="text-right">
+										{#if tx.txHash || tx.hash}
+											<div class="text-sm font-semibold md:text-base">
+												{$t('wallet.balance_after')}: {getRunningBalance((tx as any).balanceAfter)}
+												{$t('wallet.sats')}
+											</div>
+										{/if}
+									</div>
 								</div>
 
-								<div class="flex flex-col items-end gap-1.5 text-right">
-									<div
-										class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
-									>
-										{tx.type === 'receive'
-											? '+'
-											: '-' +
-												weiToSatoshi(BigInt(tx.value)).toLocaleString() +
-												' ' +
-												$t('wallet.sats')}
-									</div>
-									{#if tx.fee}
-										<div class="text-xs opacity-70">
-											{$t('wallet.network_fee')}: {formatFee(tx.fee, tx.asset || '')}
-										</div>
-									{/if}
-									{#if tx.txHash}
+								<!-- Task Link -->
+								{#if taskInfo}
+									<div class="border-base-300 mt-2 border-t pt-2">
 										<button
-											class="btn btn-ghost btn-xs"
-											onclick={() => openExplorer(tx.txHash, tx.network)}
+											onclick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												goto(generateTaskLink(taskInfo.id));
+											}}
+											class="text-primary link link-hover text-left text-sm"
 										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-												/>
-											</svg>
-											{$t('wallet.view_explorer')}
+											Task: {taskInfo.title}
 										</button>
-									{/if}
+									</div>
+								{/if}
+							</div>
+						</div>
+					</a>
+				{:else}
+					{@const status = getStatusUI(tx.status)}
+					{@const valueSats = weiToSatoshi(BigInt(tx.value || '0'))}
+					<div
+						class="card bg-base-200 hover:bg-base-300 rounded-lg transition-colors {txConfig.borderClass}"
+					>
+						<div class="card-body p-4">
+							<div class="flex flex-col gap-1">
+								<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<!-- Type Icon with Overlay -->
+										<div class="relative inline-block">
+											<div
+												class="flex h-10 w-10 items-center justify-center rounded-full bg-{txConfig.color}/20 text-{txConfig.color}"
+											>
+												<iconConfig.base class="h-6 w-6" />
+											</div>
+											{#if iconConfig.overlay}
+												<div
+													class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm"
+												>
+													<iconConfig.overlay
+														class="h-3 w-3 text-{txConfig.color === 'success' ||
+														txConfig.color === 'primary'
+															? 'success'
+															: 'warning'}"
+													/>
+												</div>
+											{/if}
+										</div>
+										<div class="flex items-center gap-2">
+											<span class="font-semibold">
+												{getTransactionTitle(tx as unknown as Transaction)}
+											</span>
+											<div
+												class="flex h-5 w-5 items-center justify-center {status.color}"
+												title={status.label}
+											>
+												<status.icon class="h-5 w-5" />
+											</div>
+										</div>
+									</div>
+									<div class="flex flex-col items-end">
+										{#if tx.type === 'contract-receive' || tx.type === 'receive' || tx.type === 'swap'}
+											<div class="text-success font-semibold">
+												{#if valueSats > 0}+{/if}{valueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{:else if tx.type === 'contract-send' || tx.type === 'send'}
+											<div class="text-warning font-semibold">
+												{#if valueSats > 0}-{/if}{valueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{:else}
+											<div class="text-info font-semibold">
+												{valueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+										{/if}
+										{#if tx.fee}
+											<div class="text-xs opacity-70">
+												{$t('wallet.tx_fee')}: {formatFee((tx as any).feeSats)}
+											</div>
+										{/if}
+									</div>
 								</div>
+
+								<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+								<div class="flex items-center justify-between gap-2 sm:gap-4">
+									<div class="flex items-center gap-3">
+										<!-- Network Icon -->
+										<div
+											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+										>
+											<img src={networkInfo.icon} alt={networkInfo.displayName} class="h-10 w-10" />
+										</div>
+										<div class="text-sm opacity-70">
+											<div>{formatDate(tx.timestamp)}</div>
+											<div>{formatTime(tx.timestamp)}</div>
+										</div>
+									</div>
+									<div class="text-right">
+										{#if tx.txHash || tx.hash}
+											<div class="text-sm font-semibold md:text-base">
+												{$t('wallet.balance_after')}: {getRunningBalance((tx as any).balanceAfter)}
+												{$t('wallet.sats')}
+											</div>
+										{/if}
+									</div>
+								</div>
+
+								<!-- Task Link -->
+								{#if taskInfo}
+									<div class="border-base-300 mt-2 border-t pt-2">
+										<button
+											onclick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												goto(generateTaskLink(taskInfo.id));
+											}}
+											class="text-primary link link-hover text-left text-sm"
+										>
+											Task: {taskInfo.title}
+										</button>
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>
-				</div>
+				{/if}
 			{/each}
 		</div>
 

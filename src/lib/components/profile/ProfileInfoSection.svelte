@@ -32,6 +32,87 @@
 		return originalText;
 	}
 
+	// Helper function to get translated skill name
+	function getTranslatedSkillName(skill: string | { name: string; translations?: any }): string {
+		const currentLang = $locale || 'en';
+		
+		// If skill is a string, return as is
+		if (typeof skill === 'string') {
+			return skill;
+		}
+
+		const originalName = skill.name || '';
+		
+		// If no translations, return original
+		if (!skill.translations) {
+			return originalName;
+		}
+
+		// If current language is source language, return original
+		if (skill.translations.sourceLanguage === currentLang) {
+			return originalName;
+		}
+
+		// Get translation for current language
+		const translation = skill.translations.translations[currentLang];
+		if (translation) {
+			return translation.name || originalName;
+		}
+
+		// Fallback to original
+		return originalName;
+	}
+
+	// Helper function to get translated portfolio title
+	function getTranslatedPortfolioTitle(item: { title: string; translations?: any }): string {
+		const currentLang = $locale || 'en';
+		const originalTitle = item.title || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalTitle;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalTitle;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.title || originalTitle;
+		}
+
+		// Fallback to original
+		return originalTitle;
+	}
+
+	// Helper function to get translated portfolio description
+	function getTranslatedPortfolioDescription(item: { description: string; translations?: any }): string {
+		const currentLang = $locale || 'en';
+		const originalDescription = item.description || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalDescription;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalDescription;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.description || originalDescription;
+		}
+
+		// Fallback to original
+		return originalDescription;
+	}
+
 	let { formatDate, yearsFrom } = $props<{
 		formatDate: (date: string) => string;
 		yearsFrom: (date: string) => number;
@@ -164,7 +245,7 @@
 				<div class="flex flex-wrap gap-2">
 					{#each $profileStore.data.skills as skill}
 						<div class="border-primary text-primary rounded-full border px-3 py-1 text-sm">
-							{typeof skill === 'string' ? skill : skill.name}
+							{getTranslatedSkillName(skill)}
 						</div>
 					{/each}
 				</div>
@@ -220,7 +301,7 @@
 						<div class="card bg-base-200 rounded-xl">
 							<div class="card-body p-4">
 								<div class="flex items-center justify-between gap-2 mb-2">
-									<h4 class="card-title text-md line-clamp-1 font-bold">{item.title}</h4>
+									<h4 class="card-title text-md line-clamp-1 font-bold">{getTranslatedPortfolioTitle(item)}</h4>
 									{#if item?.link}
 										<a
 											href={item.link}
@@ -246,7 +327,7 @@
 										</a>
 									{/if}
 								</div>
-								<p class="my-2 line-clamp-4">{item.description}</p>
+								<p class="my-2 line-clamp-4">{getTranslatedPortfolioDescription(item)}</p>
 								<!-- Skills badges -->
 								{#if item.skills && item.skills.length > 0}
 									<div class="flex flex-wrap gap-1 mb-2">

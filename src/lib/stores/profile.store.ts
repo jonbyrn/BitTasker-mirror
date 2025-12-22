@@ -104,12 +104,14 @@ function createProfileStore() {
                                             ...state,
                                             data: {
                                                 ...state.data,
-                                                skills: content.map((skill: NostrSkill) => ({
+                                                skills: content.map((skill: NostrSkill & { translations?: any; id?: string }) => ({
                                                     name: skill.name,
                                                     level: skill.level,
                                                     verificationStatus: skill.verificationStatus,
                                                     endorsements: skill.endorsements,
-                                                    certifications: skill.certifications || []
+                                                    certifications: skill.certifications || [],
+                                                    translations: skill.translations,
+                                                    id: skill.id
                                                 }))
                                             }
                                         };
@@ -127,7 +129,8 @@ function createProfileStore() {
                                                         images: content.images,
                                                         completionDate: content.completionDate,
                                                         skills: content.skills,
-                                                        link: content.link
+                                                        link: content.link,
+                                                        translations: content.translations
                                                     }
                                                 ]
                                             }

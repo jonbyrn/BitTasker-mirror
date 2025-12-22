@@ -1,7 +1,57 @@
 <script lang="ts">
 	import type { PortfolioItem, NostrProfileImage, Skill } from '$lib/types/profile.d';
 	import { onDestroy, onMount } from 'svelte';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
+
+	// Helper function to get translated portfolio title
+	function getTranslatedPortfolioTitle(item: PortfolioItem): string {
+		const currentLang = $locale || 'en';
+		const originalTitle = item.title || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalTitle;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalTitle;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.title || originalTitle;
+		}
+
+		// Fallback to original
+		return originalTitle;
+	}
+
+	// Helper function to get translated portfolio description
+	function getTranslatedPortfolioDescription(item: PortfolioItem): string {
+		const currentLang = $locale || 'en';
+		const originalDescription = item.description || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalDescription;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalDescription;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.description || originalDescription;
+		}
+
+		// Fallback to original
+		return originalDescription;
+	}
 	import { appStore } from '$lib/stores/app.store';
 	import {
 		publishPortfolioItem,
@@ -371,8 +421,8 @@
 							{/if}
 						</figure>
 						<div class="card-body">
-							<h2 class="card-title">{item.title}</h2>
-							<p class="text-base-content/70 line-clamp-4">{item.description}</p>
+							<h2 class="card-title">{getTranslatedPortfolioTitle(item)}</h2>
+							<p class="text-base-content/70 line-clamp-4">{getTranslatedPortfolioDescription(item)}</p>
 
 							{#if item.skills && item.skills.length > 0}
 								<div class="mt-4 flex flex-wrap gap-2">
@@ -461,8 +511,7 @@
 					<!-- Title -->
 					<div class="form-control">
 						<label class="label" for="title">
-							<span class="label-text font-medium">{$t('profile.portfolio.project_title')}</span>
-							<span class="label-text-alt">{$t('common.required')}</span>
+							<span class="label-text font-medium">{$t('profile.portfolio.project_title')} <span class="text-error">*</span></span>
 						</label>
 						<input
 							type="text"
@@ -477,8 +526,7 @@
 					<!-- Description -->
 					<div class="form-control">
 						<label class="label block" for="description">
-							<span class="label-text font-medium">{$t('profile.portfolio.description')}</span>
-							<span class="label-text-alt">{$t('common.required')}</span>
+							<span class="label-text font-medium">{$t('profile.portfolio.description')} <span class="text-error">*</span></span>
 						</label>
 						<textarea
 							id="description"
@@ -491,15 +539,18 @@
 
 					<!-- Completion Date -->
 					<div class="form-control">
+						<label class="label" for="completionDate">
+							<span class="label-text font-medium">{$t('profile.portfolio.completion_date')} <span class="text-error">*</span></span>
+						</label>
 						<DateInput
 							value={completionDate ? new Date(completionDate) : null}
 							onChange={(date: Date | null) => (completionDate = date ? date.toISOString() : '')}
 							type="single"
-							labelKey="profile.portfolio.completion_date"
-							placeholderKey="airdatepicker.select_date"
+							labelKey=""
+							placeholderKey="common.airdatepicker.select_date"
 							required
-							minDate={new Date()}
-							maxDate={undefined}
+							minDate={undefined}
+							maxDate={new Date()}
 						/>
 					</div>
 

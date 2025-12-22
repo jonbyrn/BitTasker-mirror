@@ -40,6 +40,12 @@
         "confirmPassword": {
           "placeholder": "Confirma tu contraseña de recuperación"
         },
+        "generated_password_note": "Hemos generado una contraseña segura y fácil de recordar que puedes usar.",
+        "password_strength": {
+          "weak": "Débil",
+          "medium": "Media",
+          "strong": "Fuerte"
+        },
         "requirements-label": "Requisitos de contraseña:",
         "requirements": {
           "length": "8+ caracteres",

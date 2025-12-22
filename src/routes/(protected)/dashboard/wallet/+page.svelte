@@ -7,26 +7,31 @@
 	import { fly } from 'svelte/transition';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	// Icon imports for unplugin-icons
-	import IconContentCopy from '~icons/mdi/content-copy';
 	import { walletManager, rskConnection, walletStore } from '$lib/stores/wallet.store';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
-	import SendForm from '$lib/components/wallet/SendForm.svelte';
-	import ReceiveForm from '$lib/components/wallet/ReceiveForm.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
+	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
+	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
-	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
-	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
+	import IconContentCopy from '~icons/mdi/content-copy';
+	import IconDownload from '~icons/mdi/download';
+	import IconUpload from '~icons/mdi/upload';
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconChevronRight from '~icons/mdi/chevron-right';
 
-	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	let isLoading = $state(false);
 
 	async function initializeWallet(): Promise<void> {
-		await walletManager.initialize();
-		await Promise.allSettled([
-			walletManager.loadAssets(),
-			walletManager.loadTransactions(),
-			walletManager.loadRbtcExchangeRate()
-		]);
+		try {
+			isLoading = true;
+			await walletManager.initialize();
+			await walletManager.loadAssets();
+		} finally {
+			isLoading = false;
+		}
+
+		walletManager.loadRbtcExchangeRate();
 	}
 
 	onMount(async () => {
@@ -39,28 +44,20 @@
 
 	// Reactive state from centralized store
 	let hasErrors = $derived($walletStore.error || $rskConnection.error);
-	let isConnecting = $derived($rskConnection.connecting);
+
+	// Modal state for new UX
+	let showReceiveModal = $state(false);
+	let showSendModal = $state(false);
+	let showTransactionsModal = $state(false);
 </script>
 
-<div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
-	<div transition:fly={{ y: 20, duration: 300, easing: linear }}>
-		<div class="mb-6 flex items-center justify-between">
-			<div class="flex items-center gap-4">
-				<h2 class="text-3xl font-bold">{$t('wallet.title')}</h2>
-				<HelpModal />
-			</div>
-		</div>
+<svelte:head>
+	<title>{$t('wallet.title')} | BitTasker</title>
+</svelte:head>
 
-		<!-- Connection Status - commented out -->
-
-		{#if $walletStore.isInitializing}
-			<div class="alert alert-outlinealert-info mb-6">
-				<div class="flex items-center">
-					<span class="loading loading-spinner loading-sm mr-2"></span>
-					<span>{$t('wallet.page.initializing')}</span>
-				</div>
-			</div>
-		{:else if isConnecting}
+<div class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg p-4 shadow-lg sm:p-6">
+	<div transition:fly={{ y: 20, duration: 300, easing: linear }} class="flex h-full flex-col">
+		{#if $rskConnection.connecting}
 			<div class="alert alert-outline alert-info mb-6">
 				<div class="flex items-center">
 					<span class="loading loading-spinner loading-sm mr-2"></span>
@@ -103,7 +100,7 @@
 		{/if}
 
 		<!-- Testnet Warning Alert -->
-		{#if network === 'testnet'}
+		{#if $appStore.network === 'testnet'}
 			<div class="alert alert-outline alert-warning mb-6">
 				<div class="flex items-center">
 					<svg
@@ -172,71 +169,60 @@
 			</div>
 		{/if}
 
-		{#if $walletStore.hasAnyConnection || !hasErrors}
-			<!-- Tab Navigation -->
-			<div class="tabs tabs-bordered mb-6 w-full">
-				<button
-					class="tab {$walletStore.activeTab === 'balance' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('balance')}
-				>
-					{$t('wallet.tab_balance')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'receive' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('receive')}
-				>
-					{$t('wallet.tab_receive')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'send' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('send')}
-				>
-					{$t('wallet.tab_send')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'buy-sell' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('buy-sell')}
-				>
-					{$t('wallet.tab_buy_sell')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'swap' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('swap')}
-				>
-					{$t('wallet.tab_swap')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'transactions' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('transactions')}
-				>
-					{$t('wallet.tab_transactions')}
-				</button>
+		{#if $walletStore.isConnected || !hasErrors}
+			<div class="flex h-full flex-col space-y-4 overflow-y-auto">
+				<!-- Balance Card with History and Accordions -->
+				<BalanceCard {isLoading} />
+
+				<!-- Transactions Button -->
+				<div>
+					<button
+						type="button"
+						class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-4 py-3 pr-12 text-left font-medium transition-colors"
+						onclick={() => (showTransactionsModal = true)}
+					>
+						<div class="flex min-w-0 flex-1 items-center gap-2">
+							<IconFormatListBulleted class="h-5 w-5 shrink-0" />
+							<span>{$t('wallet.tab_transactions')}</span>
+						</div>
+						<div class="absolute right-3 flex items-center">
+							<IconChevronRight class="h-6 w-6 shrink-0" />
+						</div>
+					</button>
+				</div>
+
+				<!-- Learn More Section - Above buttons on mobile/tablet -->
+				<div class="mt-4 flex justify-center md:hidden">
+					<div class="text-base-content/70 text-sm">
+						<HelpModal />
+					</div>
+				</div>
+
+				<!-- Send and Receive Buttons -->
+				<div class="flex flex-col gap-4 sm:mt-4 sm:flex-row">
+					<button
+						class="btn btn-secondary order-1 flex-1 py-3 sm:order-2"
+						onclick={() => (showSendModal = true)}
+					>
+						<IconUpload class="mr-2 h-5 w-5" />
+						{$t('wallet.send_button')}
+					</button>
+					<button
+						class="btn btn-primary order-2 flex-1 py-3 sm:order-1"
+						onclick={() => (showReceiveModal = true)}
+					>
+						<IconDownload class="mr-2 h-5 w-5" />
+						{$t('wallet.tab_receive')}
+					</button>
+				</div>
+
+				<!-- Learn More Section - Below buttons on desktop -->
+				<div class="hidden justify-center md:flex">
+					<div class="text-base-content/70 text-sm">
+						<HelpModal />
+					</div>
+				</div>
 			</div>
-
-			<!-- Tab Content -->
-			{#if $walletStore.activeTab === 'balance'}
-				<BalanceCard />
-			{/if}
-
-			{#if $walletStore.activeTab === 'receive'}
-				<ReceiveForm />
-			{/if}
-
-			{#if $walletStore.activeTab === 'send'}
-				<SendForm />
-			{/if}
-
-			{#if $walletStore.activeTab === 'buy-sell'}
-				<BuySellForm />
-			{/if}
-
-			{#if $walletStore.activeTab === 'swap'}
-				<SwapForm />
-			{/if}
-
-			{#if $walletStore.activeTab === 'transactions'}
-				<TransactionHistory />
-			{/if}
 		{:else}
 			<!-- No wallets connected - show setup options -->
 			<div class="py-12 text-center">
@@ -270,22 +256,59 @@
 	</div>
 </div>
 
-<style>
-	.tab.active-tab {
-		position: relative;
-		color: hsl(var(--p));
-		background-color: hsl(var(--p) / 0.1);
-		font-weight: 600;
-	}
+<!-- New UX Modals -->
+<WalletPaymentModal
+	isOpen={showReceiveModal}
+	mode="receive"
+	onClose={() => (showReceiveModal = false)}
+>
+	<ReceivePaymentForm
+		onCancel={() => (showReceiveModal = false)}
+		onInvoiceGenerated={(invoiceData) => {
+			// Handle invoice generation success - could show InvoiceDisplay here
+			console.log('Invoice generated:', invoiceData);
+		}}
+	/>
+</WalletPaymentModal>
 
-	.tab.active-tab::after {
-		content: '';
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		width: 100%;
-		height: 2px;
-		background-color: hsl(var(--p));
-		border-radius: 1px;
-	}
-</style>
+<WalletPaymentModal isOpen={showSendModal} mode="send" onClose={() => (showSendModal = false)}>
+	<SendPaymentForm
+		onCancel={() => (showSendModal = false)}
+		onSuccess={(txHash, network) => {
+			// Handle send success
+			console.log('Payment sent:', txHash, network);
+			showSendModal = false;
+		}}
+	/>
+</WalletPaymentModal>
+
+<WalletPaymentModal
+	isOpen={showTransactionsModal}
+	mode="send"
+	onClose={() => (showTransactionsModal = false)}
+>
+	<div class="mb-4 flex items-center justify-between">
+		<h2 class="text-2xl font-bold">{$t('wallet.tab_transactions')}</h2>
+		<button
+			class="btn btn-ghost btn-sm btn-circle"
+			onclick={() => (showTransactionsModal = false)}
+			aria-label="Close transactions modal"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-5 w-5"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M6 18L18 6M6 6l12 12"
+				/>
+			</svg>
+		</button>
+	</div>
+	<TransactionHistory />
+</WalletPaymentModal>

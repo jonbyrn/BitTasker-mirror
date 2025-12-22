@@ -503,12 +503,18 @@
 											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
 											class:bg-base-300={selectedTaskee?.npub === taskee.npub}
 											onclick={() => selectTaskeeForMap(taskee)}
+											onkeydown={(e) => {
+												if (e.key === 'Enter' || e.key === ' ') {
+													e.preventDefault();
+													selectTaskeeForMap(taskee);
+												}
+											}}
 											tabindex="0"
 											role="button"
 											aria-label={$t('find_taskees.view_profile')}
 											data-taskee-npub={taskee.npub}
 										>
-											<div class="card-body rounded-xl border-2 border-[#f7931a] p-4">
+											<div class="card-body rounded-xl border-2 border-primary p-4">
 												<!-- Top Row: Avatar + Name -->
 												<div class="mb-3 flex items-center gap-3">
 													<Avatar name={taskee.name} picture={taskee.picture} size="md" />

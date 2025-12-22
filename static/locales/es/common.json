@@ -32,6 +32,7 @@
     "processing": "Procesando",
     "loading": "Cargando...",
     "close": "Cerrar",
+    "done": "Hecho",
     "edit": "Editar",
     "remove": "Eliminar",
     "cancel": "Cancelar",
@@ -39,6 +40,10 @@
     "add": "Añadir",
     "required": "Requerido",
     "optional": "Opcional",
+    "buttons": {
+        "cancel": "Cancelar",
+        "retry": "Reintentar"
+    },
     "previous": "Anterior",
     "next": "Siguiente",
         "pagination": {
@@ -428,7 +433,9 @@
         "scan_qr_code": "Escanear Código QR",
         "get_qr_from_settings": "Puedes obtener tu código QR desde tu otro dispositivo yendo a <strong>Configuración</strong> y tocando el botón <strong>Mostrar Código QR</strong>.",
         "close": "Cerrar",
-        "toggle_torch": "Alternar Linterna"
+        "toggle_torch": "Alternar Linterna",
+        "no_camera_found": "No se encontró cámara. Por favor, asegúrese de que su dispositivo tenga una cámara.",
+        "camera_permission_denied": "Permiso de cámara denegado. Por favor, habilite el acceso a la cámara en la configuración de su navegador."
       },
       "tags": {
         "select_tags": "Seleccionar etiquetas...",
@@ -438,7 +445,13 @@
       "topbar": {
         "logo_alt": "Logo de BitTasker",
         "close_menu": "Cerrar menú",
-        "open_menu": "Abrir menú"
+        "open_menu": "Abrir menú",
+        "npub_qr": {
+          "title": "Clave Pública de Nostr",
+          "npub_label": "Clave Pública (npub)",
+          "generating": "Generando código QR...",
+          "error": "No se pudo cargar la clave pública. Por favor, asegúrate de estar conectado."
+        }
       },
       "uploader": {
         "images": "Imágenes",

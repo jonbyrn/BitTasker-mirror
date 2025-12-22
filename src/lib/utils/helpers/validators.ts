@@ -3,6 +3,9 @@ export interface ValidationResult {
 	error?: string;
 }
 
+// Import liquidjs-lib for Liquid address validation
+import { address as liquidAddress } from 'liquidjs-lib';
+
 export function isValidEmail(email: string): boolean {
 	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	return emailRegex.test(email);
@@ -49,6 +52,10 @@ export function validateName(name: string): ValidationResult {
 export function validatePassword(password: string): ValidationResult {
 	if (!password) {
 		return { isValid: false, error: 'Password is required' };
+	}
+
+	if (password.length < 12) {
+		return { isValid: false, error: 'Password must be at least 12 characters long' };
 	}
 
 	return { isValid: true };
@@ -197,4 +204,27 @@ export function validateBitcoinAddress(address: string): ValidationResult {
 	}
 
 	return { isValid: false, error: 'Invalid Bitcoin address format' };
+}
+
+/**
+ * Validate Liquid address using liquidjs-lib
+ * Properly validates Bech32 format and checksum for all Liquid address types
+ */
+export function validateLiquidAddress(address: string): ValidationResult {
+	if (!address) {
+		return { isValid: false, error: 'Liquid address is required' };
+	}
+
+	try {
+		// Use liquidjs-lib to validate Bech32 format and checksum
+		// toOutputScript will throw if address is invalid
+		liquidAddress.toOutputScript(address);
+		return { isValid: true };
+	} catch (error) {
+		// Address is invalid (wrong format, bad checksum, or wrong network)
+		return { 
+			isValid: false, 
+			error: 'Invalid Liquid address format or checksum' 
+		};
+	}
 }
