@@ -22,8 +22,7 @@ export async function triggerHaptic(style: ImpactStyle = ImpactStyle.Light): Pro
 		}
 
 		// Dynamic import to avoid bundling issues
-		const hapticsPath = '@capacitor/haptics';
-		const hapticsModule = await import(/* @vite-ignore */ hapticsPath).catch(() => null);
+		const hapticsModule = await import('@capacitor/haptics').catch(() => null);
 
 		if (hapticsModule?.Haptics) {
 			const impactStyleMap: Record<ImpactStyle, string> = {
