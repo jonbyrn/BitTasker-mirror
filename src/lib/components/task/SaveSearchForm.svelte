@@ -51,13 +51,23 @@
 		return translatedTier.startsWith('profile_task.budget_tiers.') ? tier : translatedTier;
 	}
 
+	// Helper function to get translation key for notification frequency
+	function getFrequencyTranslationKey(frequency: NotificationFrequency): string {
+		// INSTANT maps to "immediate" in translations
+		if (frequency === NotificationFrequency.INSTANT) {
+			return 'immediate';
+		}
+		// DAILY and WEEKLY map directly
+		return frequency.toLowerCase();
+	}
+
 	// State
 	let isSaving = $state(false);
 	let error = $state<string | null>(null);
 	let searchName = $state('');
 	let notifyOnMatch = $state(true);
 	// let isActive = $state(true); // Commented out - may be needed later
-	let notificationFrequency = $state<NotificationFrequency>(NotificationFrequency.INSTANT);
+	let notificationFrequency = $state<NotificationFrequency>(NotificationFrequency.WEEKLY);
 
 	// Computed
 	let isUpdateMode = $derived(!!existingSavedSearch);
@@ -93,12 +103,18 @@
 				// Update mode - populate with existing data
 				searchName = existingSavedSearch.name;
 				notifyOnMatch = existingSavedSearch.notifyOnMatch ?? true;
-				notificationFrequency = NotificationFrequency.INSTANT;
+				// Use saved frequency or default to WEEKLY
+				const savedFrequency = existingSavedSearch.notificationFrequency;
+				if (savedFrequency && Object.values(NotificationFrequency).includes(savedFrequency as NotificationFrequency)) {
+					notificationFrequency = savedFrequency as NotificationFrequency;
+				} else {
+					notificationFrequency = NotificationFrequency.WEEKLY;
+				}
 			} else {
 				// Create mode - use search query or empty
 				searchName = searchParams.search || '';
 				notifyOnMatch = true;
-				notificationFrequency = NotificationFrequency.INSTANT;
+				notificationFrequency = NotificationFrequency.WEEKLY;
 			}
 		}
 	});
@@ -275,6 +291,34 @@
 					<span>{$t('profile_task.form.notify_on_match')}</span>
 				</label>
 			</div>
+
+			<!-- Notification Frequency Select -->
+			{#if notifyOnMatch}
+				<div class="form-control mb-4">
+					<label class="label" for="notificationFrequency">
+						<span class="label-text">{$t('profile_task.form.notification_frequency_label')}</span>
+					</label>
+					<select
+						id="notificationFrequency"
+						class="select select-bordered w-full"
+						bind:value={notificationFrequency}
+						disabled={isSaving}
+					>
+						<option value={NotificationFrequency.INSTANT}>
+							{$t(`profile_task.notification_frequency.${getFrequencyTranslationKey(NotificationFrequency.INSTANT)}`)}
+						</option>
+						<option value={NotificationFrequency.DAILY}>
+							{$t(`profile_task.notification_frequency.${getFrequencyTranslationKey(NotificationFrequency.DAILY)}`)}
+						</option>
+						<option value={NotificationFrequency.WEEKLY}>
+							{$t(`profile_task.notification_frequency.${getFrequencyTranslationKey(NotificationFrequency.WEEKLY)}`)}
+						</option>
+						<option value={NotificationFrequency.MONTHLY}>
+							{$t(`profile_task.notification_frequency.${getFrequencyTranslationKey(NotificationFrequency.MONTHLY)}`)}
+						</option>
+					</select>
+				</div>
+			{/if}
 
 			<!-- Búsqueda activa - comentado por si lo necesitamos más adelante -->
 			<!-- <div class="form-control mb-4">

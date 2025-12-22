@@ -201,7 +201,8 @@
       "notification_frequency": {
         "immediate": "Immediate",
         "daily": "Daily Digest",
-        "weekly": "Weekly Digest"
+        "weekly": "Weekly Digest",
+        "monthly": "Monthly Digest"
       },
       "form": {
         "title_update": "Update Saved Search",

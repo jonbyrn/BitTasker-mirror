@@ -14,13 +14,13 @@ export class SavedSearchesService extends BaseApiService {
 	 * @param name The name for the saved search
 	 * @param searchParams The search parameters to save
 	 * @param notifyOnMatch Whether to enable notifications for this search
-	 * @param notificationFrequency The frequency of notifications (INSTANT, DAILY, WEEKLY)
+	 * @param notificationFrequency The frequency of notifications (INSTANT, DAILY, WEEKLY, MONTHLY)
 	 */
 	async createSavedSearch(
 		name: string,
 		searchParams: SearchTasksParams,
 		notifyOnMatch: boolean,
-		notificationFrequency: NotificationFrequency = NotificationFrequency.DAILY
+		notificationFrequency: NotificationFrequency = NotificationFrequency.WEEKLY
 	): Promise<SavedSearch> {
 		const response = await this.post<SavedSearch>(ENDPOINTS.SAVED_SEARCHES.CREATE, {
 			name,

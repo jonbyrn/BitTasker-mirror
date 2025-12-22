@@ -201,7 +201,8 @@
       "notification_frequency": {
         "immediate": "Inmediata",
         "daily": "Resumen diario",
-        "weekly": "Resumen semanal"
+        "weekly": "Resumen semanal",
+        "monthly": "Resumen mensual"
       },
       "form": {
         "title_update": "Actualizar búsqueda guardada",
