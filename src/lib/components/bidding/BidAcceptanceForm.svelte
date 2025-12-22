@@ -109,7 +109,7 @@
 	onMount(async () => {
 		// Read wallet state without creating a reactive subscription
 		if (!$walletStore.rsk.connected && !isLoadingWallet) {
-			await walletManager.initialize();
+			await walletManager.initialize(true);
 		}
 	});
 
@@ -586,7 +586,7 @@
 					</div>
 					<button
 						class="btn btn-sm btn-primary ml-auto"
-						onclick={async () => await walletManager.initialize()}
+						onclick={async () => await walletManager.initialize(true)}
 						disabled={$walletStore.rsk.connecting}
 					>
 						{$t('dashboard.bids.bid_acceptance.connect_wallet')}

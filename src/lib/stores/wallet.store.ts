@@ -154,8 +154,13 @@ export function getEventListeners(): (() => void)[] {
 
 /**
  * Initialize wallet using SDK
+ * 
+ * @param getBalance - Whether to get the balance of the wallet (RSK and BSC)
+ * @returns void
+ * @throws {Error} If the wallet fails to initialize
  */
-async function initializeWallet(): Promise<void> {
+
+async function initializeWallet(getBalance = false): Promise<void> {
 	const state = get(walletStore);
 
 	// Skip if already initializing or already connected
@@ -220,27 +225,28 @@ async function initializeWallet(): Promise<void> {
 				}
 			}));
 
-			Promise.all([
-				rskWallet.getBalance(),
-				bscWallet.getBalances()
-			]).then(([rskBalance, bscBalances]) => {
-
-				walletStore.update(s => ({
-					...s,
-					rsk: {
-						...s.rsk,
-						balance: rskBalance.balance.toString(),
-						formattedBalance: rskBalance.formatted,
-					},
-					bsc: {
-						...s.bsc,
-						bnbBalance: bscBalances.bnb.balance.toString(),
-						usdtBalance: bscBalances.usdt.balance.toString(),
-						formattedBnbBalance: bscBalances.bnb.formatted,
-						formattedUsdtBalance: bscBalances.usdt.formatted,
-					}
-				}));
-			});
+			if (getBalance) {
+				Promise.all([
+					rskWallet.getBalance(),
+					bscWallet.getBalances()
+				]).then(([rskBalance, bscBalances]) => {
+					walletStore.update(s => ({
+						...s,
+						rsk: {
+							...s.rsk,
+							balance: rskBalance.balance.toString(),
+							formattedBalance: rskBalance.formatted,
+						},
+						bsc: {
+							...s.bsc,
+							bnbBalance: bscBalances.bnb.balance.toString(),
+							usdtBalance: bscBalances.usdt.balance.toString(),
+							formattedBnbBalance: bscBalances.bnb.formatted,
+							formattedUsdtBalance: bscBalances.usdt.formatted,
+						}
+					}));
+				});
+			}
 		}
 	} catch (error) {
 		console.error('Failed to initialize wallet:', error);
@@ -311,22 +317,16 @@ async function loadAssets(): Promise<void> {
 		let totalUsdt = 0;
 		let totalUsd = 0;
 
-		// Fetch current prices
-		let rbtcPrice = 0;
-		let bnbPrice = 0;
+		// Fetch ALL data in parallel: prices and balances
+		const [rbtcPrice, bnbPrice, rskBalanceData, bscBalances] = await Promise.all([
+			cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
+			cryptoPriceService.getCurrentPrice('BNB').catch(() => 0),
+			state.rsk.connected && manager.rskWallet ? manager.rskWallet.getBalance() : Promise.resolve(null),
+			state.bsc.connected && manager.bscWallet ? manager.bscWallet.getBalances() : Promise.resolve(null)
+		]);
 
-		try {
-			[rbtcPrice, bnbPrice] = await Promise.all([
-				cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
-				cryptoPriceService.getCurrentPrice('BNB').catch(() => 0)
-			]);
-		} catch (error) {
-			console.warn('Failed to fetch some prices:', error);
-		}
-
-		// RSK assets - FETCH FRESH BALANCE FROM BLOCKCHAIN
-		if (state.rsk.connected && manager.rskWallet) {
-			const rskBalanceData = await manager.rskWallet.getBalance();
+		// Process RSK assets
+		if (rskBalanceData) {
 			const rbtcBalance = parseFloat(rskBalanceData.formatted);
 			totalRbtc += rbtcBalance;
 			const rbtcUsdValue = rbtcBalance * rbtcPrice;
@@ -355,9 +355,8 @@ async function loadAssets(): Promise<void> {
 			});
 		}
 
-		// BSC assets - FETCH FRESH BALANCES FROM BLOCKCHAIN
-		if (state.bsc.connected && manager.bscWallet) {
-			const bscBalances = await manager.bscWallet.getBalances();
+		// Process BSC assets
+		if (bscBalances) {
 			const bnbBalance = parseFloat(bscBalances.bnb.formatted);
 			totalBnb += bnbBalance;
 			const bnbUsdValue = bnbBalance * bnbPrice;

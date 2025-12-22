@@ -9,6 +9,11 @@ interface Toast {
 }
 
 interface AppStore {
+	nostrKeys: {
+		nsec: Uint8Array | null;
+		npub: string | null;
+		mnemonic: string | null;
+	};
 	isLoading: boolean;
 	error: string | null;
 	toasts: Toast[];
@@ -25,6 +30,11 @@ const createAppStore = () => {
 	const pool = new SimplePool();
 
 	const store = writable<AppStore>({
+		nostrKeys: {
+			nsec: null,
+			npub: null,
+			mnemonic: null
+		},
 		isLoading: false,
 		error: null,
 		toasts: [],
