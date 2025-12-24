@@ -545,7 +545,7 @@
 	}
 </script>
 
-<div class="flex min-h-full flex-col space-y-6">
+<div class="flex min-h-full flex-col space-y-4 sm:space-y-6">
 	{#if !uiState.invoiceGenerated}
 		<!-- Amount Input Section -->
 		<AmountInputSection
@@ -574,17 +574,17 @@
 			use:clickOutside={{ callback: closeNetworkDropdown }}
 		>
 			<summary
-				class="btn btn-outline border-primary bg-base-100 w-full cursor-pointer justify-between rounded-lg border-2 py-1"
+				class="btn btn-outline border-primary bg-base-100 w-full cursor-pointer justify-between rounded-lg border-2 py-0.5 text-sm sm:py-1 sm:text-base"
 				onclick={handleNetworkDropdownToggle}
 				aria-label={$t('wallet.receive_form.select_network')}
 			>
-				<div class="flex items-center gap-2">
+				<div class="flex items-center gap-1.5 sm:gap-2">
 					{#if selectedNetworkInfo?.icon}
-						<img src={selectedNetworkInfo.icon} alt={selectedNetworkInfo.label} class="h-5 w-5" />
+						<img src={selectedNetworkInfo.icon} alt={selectedNetworkInfo.label} class="h-4 w-4 sm:h-5 sm:w-5" />
 					{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 text-yellow-500"
+							class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -604,7 +604,7 @@
 				</div>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4 transition-transform duration-200"
+					class="h-3.5 w-3.5 transition-transform duration-200 sm:h-4 sm:w-4"
 					class:rotate-180={uiState.isNetworkDropdownOpen}
 					fill="none"
 					viewBox="0 0 24 24"
@@ -615,7 +615,7 @@
 				</svg>
 			</summary>
 			<ul
-				class="dropdown-content menu bg-base-100 border-primary z-1 mt-1 w-full rounded-lg border-2 p-2"
+				class="dropdown-content menu bg-base-100 border-primary z-1 mt-1 w-full rounded-lg border-2 p-1.5 sm:p-2"
 				style="box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);"
 			>
 				{#each networkOptions as network}
@@ -623,7 +623,7 @@
 					<li>
 						<button
 							type="button"
-							class="flex w-full items-start gap-2 rounded-lg p-1 transition-colors {!network.available
+							class="flex w-full items-start gap-1.5 rounded-lg p-0.5 transition-colors sm:gap-2 sm:p-1 {!network.available
 								? 'cursor-not-allowed opacity-40'
 								: 'hover:bg-base-200'} {formInput.selectedNetwork === network.value
 								? 'bg-primary/10'
@@ -641,11 +641,11 @@
 						>
 							<div class="flex items-center self-center">
 								{#if network.icon}
-									<img src={network.icon} alt={network.label} class="h-5 w-5" />
+									<img src={network.icon} alt={network.label} class="h-4 w-4 sm:h-5 sm:w-5" />
 								{:else if network.value === 'lightning-bitcoin'}
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5 text-yellow-500"
+										class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
 										fill="none"
 										viewBox="0 0 24 24"
 										stroke="currentColor"
@@ -659,9 +659,9 @@
 									</svg>
 								{/if}
 							</div>
-							<div class="flex min-w-0 flex-1 flex-col items-start gap-1">
-								<div class="flex w-full items-center gap-2">
-									<span class="text-left font-medium">
+							<div class="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:gap-1">
+								<div class="flex w-full items-center gap-1.5 sm:gap-2">
+									<span class="text-left text-sm font-medium sm:text-base">
 										{network.label}
 										{$t('wallet.receive.network')}
 									</span>
@@ -682,21 +682,21 @@
 										{/if}
 									</div>
 								{:else if network.value === 'lightning-bitcoin' && swapPairsInfo?.lightning}
-									<!-- Lightning: Show fee info from cached API data -->
+									<!-- Lightning: Show fee info from cached API data (abbreviated on mobile) -->
 									<div class="text-xs opacity-70">
-										~{swapPairsInfo.lightning.fees.percentage}% {$t('wallet.swap.swap_fee')} + ~{formatSats(
+										<span class="hidden sm:inline">~{swapPairsInfo.lightning.fees.percentage}% {$t('wallet.swap.swap_fee')} + </span>~{formatSats(
 											(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
 												(swapPairsInfo.lightning.fees.minerFees.claim || 0)
 										)}
 										{$t('wallet.sats')}
-										{$t('wallet.network_fee')}
+										<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
 									</div>
 								{:else if network.value === 'rootstock-bitcoin' && swapPairsInfo?.rootstock}
 									<!-- Rootstock: Show gas fee from cached estimate -->
 									<div class="text-xs opacity-70">
 										{formatSats(swapPairsInfo.rootstock.gasFee)}
 										{$t('wallet.sats')}
-										{$t('wallet.network_fee')}
+										<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
 										{#if btcPrice > 0}
 											<span class="ml-1">
 												≈ {formatUsd((swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice)}
@@ -704,25 +704,25 @@
 										{/if}
 									</div>
 								{:else if network.value === 'liquid-bitcoin' && swapPairsInfo?.liquid}
-									<!-- Liquid: Show fee info from cached API data -->
+									<!-- Liquid: Show fee info from cached API data (abbreviated on mobile) -->
 									<div class="text-xs opacity-70">
-										~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} + ~{formatSats(
+										<span class="hidden sm:inline">~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} + </span>~{formatSats(
 											(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
 												(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)
 										)}
 										{$t('wallet.sats')}
-										{$t('wallet.network_fee')}
+										<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
 									</div>
 								{:else if network.value === 'bitcoin'}
 									<!-- Bitcoin on-chain: Show placeholder -->
 									<div class="text-xs opacity-70">
-										{$t('wallet.network_fee')} ({$t('wallet.receive.enter_amount_to_estimate')})
+										{$t('wallet.network_fee')}
 									</div>
 								{:else}
 									<!-- Loading state -->
 									<div class="text-xs opacity-70">
 										<span class="loading loading-spinner loading-xs"></span>
-										{$t('wallet.swap.loading_fees')}
+										<span class="hidden sm:inline">{$t('wallet.swap.loading_fees')}</span>
 									</div>
 								{/if}
 							</div>
@@ -739,7 +739,7 @@
 		>
 			<button
 				type="button"
-				class="collapse-title min-h-0 px-4 py-1 text-left font-medium"
+				class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
 					uiState.descriptionExpanded = !uiState.descriptionExpanded;
@@ -751,7 +751,7 @@
 				<div class="form-control">
 					<textarea
 						id="memo-input"
-						class="textarea textarea-bordered w-full"
+						class="textarea textarea-bordered w-full text-sm sm:text-base"
 						class:textarea-error={formInput.memo.length > 200}
 						placeholder={$t('wallet.payment_for_placeholder')}
 						bind:value={formInput.memo}
@@ -774,13 +774,13 @@
 		<!-- Network Fee Accordion (Always Visible) -->
 		{#if feeState.isLoading}
 			<div
-				class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-4"
+				class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-2 sm:p-4"
 			>
 				<span class="loading loading-spinner loading-sm"></span>
-				<span class="text-sm">{$t('wallet.swap.loading_fees')}</span>
+				<span class="text-xs sm:text-sm">{$t('wallet.swap.loading_fees')}</span>
 			</div>
 		{:else if feeState.error}
-			<div class="alert alert-outline alert-error">
+			<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
 				<span>{feeState.error}</span>
 			</div>
 		{:else}
@@ -790,13 +790,13 @@
 			>
 				<button
 					type="button"
-					class="collapse-title min-h-0 px-4 py-1 text-left font-medium"
+					class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
 					onclick={() => {
 						triggerHaptic(ImpactStyle.Light);
 						uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
 					}}
 				>
-					<div class="flex w-full items-center gap-2">
+					<div class="flex w-full items-center gap-1.5 sm:gap-2">
 						<span>{$t('wallet.network_fee')}:</span>
 						{#if feeState.estimated}
 							<span class="font-semibold"
@@ -813,7 +813,7 @@
 					</div>
 				</button>
 				<div class="collapse-content pb-0">
-					<div class="space-y-2 px-4 pb-2">
+					<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
 						{#if feeState.estimated && feeState.estimated.serviceFee > 0}
 							<div class="flex items-center justify-between text-xs opacity-70">
 								<span>{$t('wallet.swap.swap_fee')}:</span>
@@ -840,7 +840,7 @@
 		{#if feeState.estimated && feeState.estimated.totalFees > 0}
 			<button
 				type="button"
-				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-3 rounded-lg border-2 py-2 transition-colors select-none {formInput.chargeFeesToPayer
+				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm transition-colors select-none sm:gap-3 sm:py-2 sm:text-base {formInput.chargeFeesToPayer
 					? 'bg-primary text-primary-content hover:bg-primary/90'
 					: 'btn-outline bg-base-100'}"
 				style="-webkit-tap-highlight-color: transparent;"
@@ -850,13 +850,13 @@
 				}}
 			>
 				<div
-					class="flex h-5 w-5 items-center justify-center rounded border-2 {formInput.chargeFeesToPayer
+					class="flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5 {formInput.chargeFeesToPayer
 						? 'border-primary-content bg-primary-content'
 						: 'border-base-content/30'}"
 				>
 					{#if formInput.chargeFeesToPayer}
 						<IconCheck
-							class="text-primary h-4 w-4"
+							class="text-primary h-3.5 w-3.5 sm:h-4 sm:w-4"
 							style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
 						/>
 					{/if}
@@ -866,11 +866,11 @@
 		{:else}
 			<button
 				type="button"
-				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-3 rounded-lg border-2 py-2 opacity-50"
+				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm opacity-50 sm:gap-3 sm:py-2 sm:text-base"
 				disabled
 			>
 				<div
-					class="border-base-content/30 flex h-5 w-5 items-center justify-center rounded border-2"
+					class="border-base-content/30 flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5"
 				></div>
 				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
 			</button>
@@ -878,7 +878,7 @@
 
 		<!-- Swap Minimum Warning -->
 		{#if isBelowSwapMinimum && feeState.swapLimits}
-			<p class="text-error mb-1 text-center text-sm">
+			<p class="text-error mb-0.5 text-center text-xs sm:mb-1 sm:text-sm">
 				{$t('wallet.receive.below_swap_minimum', {
 					values: { minAmount: formatSats(feeState.swapLimits.minimal) }
 				})}
@@ -887,27 +887,27 @@
 
 		<!-- Total Received Card -->
 		<div
-			class="border-primary bg-base-200 flex flex-col items-center gap-2 rounded-lg border-2 p-2"
+			class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-1.5 sm:gap-2 sm:p-2"
 		>
-			<span class="text-center text-sm opacity-70">{$t('wallet.swap.total_received_est')}</span>
+			<span class="text-center text-xs opacity-70 sm:text-sm">{$t('wallet.swap.total_received_est')}</span>
 			{#if totalReceived > 0 && feeState.estimated}
-				<div class="flex w-full items-center justify-center gap-2">
+				<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
 					{#if formInput.unit === 'sats'}
-						<span class="text-primary text-2xl font-bold">
+						<span class="text-primary text-xl font-bold sm:text-2xl">
 							{formatSats(totalReceived)}
 							{$t('wallet.sats')}
 						</span>
 						{#if btcPrice > 0}
-							<span class="text-sm opacity-60">
+							<span class="text-xs opacity-60 sm:text-sm">
 								≈ {formatUsd(totalReceivedUSD)}
 							</span>
 						{/if}
 					{:else}
-						<span class="text-primary text-2xl font-bold">
+						<span class="text-primary text-xl font-bold sm:text-2xl">
 							{formatUsd(totalReceivedUSD)}
 						</span>
 						{#if btcPrice > 0}
-							<span class="text-sm opacity-60">
+							<span class="text-xs opacity-60 sm:text-sm">
 								≈ {formatSats(totalReceived)}
 								{$t('wallet.sats')}
 							</span>
@@ -915,7 +915,7 @@
 					{/if}
 				</div>
 			{:else}
-				<div class="text-center text-sm opacity-60">
+				<div class="text-center text-xs opacity-60 sm:text-sm">
 					{$t('wallet.receive.enter_amount_to_estimate')}
 				</div>
 			{/if}
@@ -923,21 +923,21 @@
 
 		<!-- Action Buttons -->
 		<div
-			class="bg-base-100 sticky bottom-0 z-10 mt-auto flex gap-3 pt-4 pb-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:static md:pt-0 md:pb-0 md:shadow-none"
+			class="bg-base-100 sticky bottom-0 z-10 mt-auto flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:pt-0 md:pb-0 md:shadow-none"
 		>
 			<button
-				class="btn btn-error min-h-[48px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
+				class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
 					handleCancel();
 				}}
 			>
-				<IconClose class="h-5 w-5" />
-				{$t('wallet.receive.cancel')}
+				<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+				<span class="text-sm sm:text-base">{$t('wallet.receive.cancel')}</span>
 			</button>
 			<button
-				class="btn btn-primary min-h-[48px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
+				class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Medium);
@@ -952,8 +952,8 @@
 				{#if feeState.isLoading || $walletStore.isInitializing || invoiceState.isGenerating}
 					<span class="loading loading-spinner loading-sm"></span>
 				{:else}
-					<IconCashMultiple class="h-5 w-5" />
-					{$t('wallet.receive.get_paid')}
+					<IconCashMultiple class="h-4 w-4 sm:h-5 sm:w-5" />
+					<span class="text-sm sm:text-base">{$t('wallet.receive.get_paid')}</span>
 				{/if}
 			</button>
 		</div>
@@ -961,10 +961,10 @@
 		<!-- Wallet Initialization Message (Bottom) -->
 		{#if $walletStore.isInitializing}
 			<div
-				class="bg-base-200 border-base-300 flex items-center justify-center gap-2 rounded-lg border px-4 py-2"
+				class="bg-base-200 border-base-300 flex items-center justify-center gap-2 rounded-lg border px-3 py-1.5 sm:px-4 sm:py-2"
 			>
 				<span class="loading loading-spinner loading-xs"></span>
-				<span class="text-base-content/70 text-sm">{$t('wallet.initializing')}</span>
+				<span class="text-base-content/70 text-xs sm:text-sm">{$t('wallet.initializing')}</span>
 			</div>
 		{/if}
 	{/if}

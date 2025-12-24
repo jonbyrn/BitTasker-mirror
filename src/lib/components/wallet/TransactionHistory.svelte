@@ -392,7 +392,7 @@
 
 	{#if isLoading}
 		<div class="space-y-3">
-			{#each Array(3) as _}
+			{#each Array(10) as _}
 				<div class="card bg-base-200 animate-pulse rounded-lg">
 					<div class="card-body p-4">
 						<div class="flex flex-col gap-1">

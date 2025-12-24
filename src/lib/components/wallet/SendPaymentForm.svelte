@@ -797,16 +797,16 @@
 </script>
 
 <div class="send-payment-form flex h-full flex-col">
-	<div class="relative flex-1 space-y-6 overflow-y-auto">
+	<div class="relative flex-1 space-y-4 overflow-y-auto sm:space-y-6">
 		{#if uiState.activeTab === 'scan' && !uiState.showConfirmation}
 			<!-- QR Code Scanner -->
-			<div class="flex min-h-full flex-col items-center justify-center gap-4 px-4">
-				<p class="text-base-content/70 text-sm">{$t('wallet.send.scan_qr_code_description')}</p>
+			<div class="flex min-h-full flex-col items-center justify-center gap-3 px-3 sm:gap-4 sm:px-4">
+				<p class="text-base-content/70 text-xs sm:text-sm">{$t('wallet.send.scan_qr_code_description')}</p>
 
 				{#if qrScanState.error}
 					<!-- Error state with decoded QR code -->
-					<div class="w-full space-y-4">
-						<div class="alert alert-outline alert-error">
+					<div class="w-full space-y-3 sm:space-y-4">
+						<div class="alert alert-outline alert-error py-2 sm:py-4">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-6 w-6 shrink-0 stroke-current"
@@ -953,7 +953,7 @@
 
 		{#if uiState.activeTab === 'enter'}
 			<!-- Enter Payment Details Tab -->
-			<div class="space-y-4">
+			<div class="space-y-3 sm:space-y-4">
 				<!-- Address Input -->
 				<div class="form-control">
 					<div class="relative">
@@ -1048,16 +1048,16 @@
 				{#if parsedPayment.detectedNetwork}
 					{@const network =
 						netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
-					<div class="border-base-300 bg-primary/10 rounded-lg border p-2">
-						<div class="flex items-center justify-between gap-2 pl-2">
-							<div class="flex items-center gap-2">
+					<div class="border-base-300 bg-primary/10 rounded-lg border p-1.5 sm:p-2">
+						<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
+							<div class="flex items-center gap-1.5 sm:gap-2">
 								{#if network?.icon}
-									<img src={network?.icon} alt={network?.name} class="h-5 w-5" />
+									<img src={network?.icon} alt={network?.name} class="h-4 w-4 sm:h-5 sm:w-5" />
 								{/if}
-								<span class="font-medium">{network?.name}</span>
+								<span class="text-sm font-medium sm:text-base">{network?.name}</span>
 							</div>
 							{#if parsedPayment.detectedAmount && parsedPayment.detectedAmount > 0}
-								<div class="text-right text-sm">
+								<div class="text-right text-xs sm:text-sm">
 									<div class="font-semibold">
 										{formatSats(parsedPayment.detectedAmount)}
 										{$t('wallet.sats')}
@@ -1074,7 +1074,7 @@
 				{/if}
 
 				<!-- Amount Field (always visible) -->
-				<div class="form-control space-y-4">
+				<div class="form-control space-y-3 sm:space-y-4">
 					<AmountInputSection
 						amount={formInput.amount}
 						unit={formInput.unit}
@@ -1109,13 +1109,13 @@
 				<!-- Network Fee Accordion -->
 				{#if feeState.isLoading}
 					<div
-						class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-2"
+						class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-1.5 sm:p-2"
 					>
 						<span class="loading loading-spinner loading-sm"></span>
-						<span class="text-sm">{$t('wallet.swap.loading_fees')}</span>
+						<span class="text-xs sm:text-sm">{$t('wallet.swap.loading_fees')}</span>
 					</div>
 				{:else if feeState.error}
-					<div class="alert alert-outline alert-error">
+					<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
 						<span>{feeState.error}</span>
 					</div>
 				{:else}
@@ -1125,13 +1125,13 @@
 					>
 						<button
 							type="button"
-							class="collapse-title min-h-0 px-4 py-1 text-left font-medium"
+							class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
 							onclick={() => {
 								triggerHaptic(ImpactStyle.Light);
 								uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
 							}}
 						>
-							<div class="flex w-full items-center gap-2">
+							<div class="flex w-full items-center gap-1.5 sm:gap-2">
 								<span>{$t('wallet.network_fee')}:</span>
 								{#if feeState.estimated}
 									<span class="font-semibold"
@@ -1148,7 +1148,7 @@
 							</div>
 						</button>
 						<div class="collapse-content">
-							<div class="space-y-2 px-4 pb-4">
+							<div class="space-y-1.5 px-3 pb-3 sm:space-y-2 sm:px-4 sm:pb-4">
 								{#if feeState.estimated && feeState.estimated.serviceFee > 0}
 									<div class="flex items-center justify-between text-xs opacity-70">
 										<span>{$t('wallet.swap.swap_fee')}:</span>
@@ -1173,29 +1173,29 @@
 
 				<!-- Total to Send Card -->
 				<div
-					class="bg-base-200 flex flex-col items-center gap-2 rounded-lg border-2 p-2"
+					class="bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-1.5 sm:gap-2 sm:p-2"
 					class:border-primary={!hasInsufficientBalance}
 					class:border-error={hasInsufficientBalance}
 				>
-					<span class="text-center text-sm opacity-70">{$t('wallet.send.total_to_send')}</span>
+					<span class="text-center text-xs opacity-70 sm:text-sm">{$t('wallet.send.total_to_send')}</span>
 					{#if totalToSend > 0 && feeState.estimated}
-						<div class="flex w-full items-center justify-center gap-2">
+						<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
 							{#if formInput.unit === 'sats'}
-								<span class="text-primary text-2xl font-bold">
+								<span class="text-primary text-xl font-bold sm:text-2xl">
 									{formatSats(totalToSend)}
 									{$t('wallet.sats')}
 								</span>
 								{#if btcPrice > 0}
-									<span class="text-sm opacity-60">
+									<span class="text-xs opacity-60 sm:text-sm">
 										≈ {formatUsd(totalToSendUSD)}
 									</span>
 								{/if}
 							{:else}
-								<span class="text-primary text-2xl font-bold">
+								<span class="text-primary text-xl font-bold sm:text-2xl">
 									{formatUsd(totalToSendUSD)}
 								</span>
 								{#if btcPrice > 0}
-									<span class="text-sm opacity-60">
+									<span class="text-xs opacity-60 sm:text-sm">
 										≈ {formatSats(totalToSend)}
 										{$t('wallet.sats')}
 									</span>
@@ -1203,13 +1203,13 @@
 							{/if}
 						</div>
 					{:else}
-						<div class="text-center text-sm opacity-60">
+						<div class="text-center text-xs opacity-60 sm:text-sm">
 							{$t('wallet.send.enter_address_and_amount_to_estimate')}
 						</div>
 					{/if}
 					<!-- Insufficient Balance Error Text -->
 					{#if hasInsufficientBalance}
-						<div class="text-error mt-1 text-center text-sm">
+						<div class="text-error mt-0.5 text-center text-xs sm:mt-1 sm:text-sm">
 							{$t('wallet.validation.insufficient_balance')}
 						</div>
 					{/if}
@@ -1220,8 +1220,8 @@
 
 	<!-- Action Buttons (Bottom, only on Enter Payment Details tab) -->
 	{#if uiState.activeTab === 'enter'}
-		<div class="border-base-300 mb-4 shrink-0 border-t pt-4">
-			<div class="flex gap-3">
+		<div class="border-base-300 mb-3 shrink-0 border-t pt-3 sm:mb-4 sm:pt-4">
+			<div class="flex gap-2 sm:gap-3">
 				<button
 					class="btn btn-error min-h-[48px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"

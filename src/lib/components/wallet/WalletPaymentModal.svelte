@@ -219,7 +219,7 @@
 
 			<!-- Content Area -->
 			<div
-				class="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
+				class="flex-1 overflow-y-auto p-3 space-y-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:space-y-6 sm:p-4 lg:p-6"
 			>
 				<!-- Wallet Error States (only show errors, not initialization) -->
 				{#if $walletStore.error}

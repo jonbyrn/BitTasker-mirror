@@ -55,17 +55,17 @@
 	<title>{$t('wallet.title')} | BitTasker</title>
 </svelte:head>
 
-<div class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg p-4 shadow-lg sm:p-6">
+<div class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg p-3 shadow-lg sm:p-6">
 	<div transition:fly={{ y: 20, duration: 300, easing: linear }} class="flex h-full flex-col">
 		{#if $rskConnection.connecting}
-			<div class="alert alert-outline alert-info mb-6">
+			<div class="alert alert-outline alert-info mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex items-center">
 					<span class="loading loading-spinner loading-sm mr-2"></span>
 					<span>{$t('wallet.connecting')}</span>
 				</div>
 			</div>
 		{:else if hasErrors}
-			<div class="alert alert-outline alert-error mb-6">
+			<div class="alert alert-outline alert-error mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex w-full items-center justify-between">
 					<div class="flex items-center">
 						<svg
@@ -101,11 +101,11 @@
 
 		<!-- Testnet Warning Alert -->
 		{#if $appStore.network === 'testnet'}
-			<div class="alert alert-outline alert-warning mb-6">
+			<div class="alert alert-outline alert-warning mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex items-center">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="mr-3 h-6 w-6 shrink-0 stroke-current"
+						class="mr-2 h-5 w-5 shrink-0 stroke-current sm:mr-3 sm:h-6 sm:w-6"
 						fill="none"
 						viewBox="0 0 24 24"
 					>
@@ -117,17 +117,17 @@
 						/>
 					</svg>
 					<div class="flex-1">
-						<div class="text-warning text-center font-bold">
+						<div class="text-warning text-center text-sm font-bold sm:text-base">
 							{$t('wallet.testnet_warning.title')}
 						</div>
-						<div class="text-sm">
+						<div class="text-xs sm:text-sm">
 							<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong>
 							{$t('wallet.testnet_warning.description')}
 						</div>
 						<!-- User's Testnet Address -->
 						{#if $rskConnection.address}
-							<div class="bg-base-200 mt-3 rounded-lg p-3">
-								<div class="mb-2 text-sm font-medium">
+							<div class="bg-base-200 mt-2 rounded-lg p-2 sm:mt-3 sm:p-3">
+								<div class="mb-1 text-xs font-medium sm:mb-2 sm:text-sm">
 									{$t('wallet.testnet_warning.your_address')}
 								</div>
 								<div class="flex items-center gap-2">
@@ -152,7 +152,7 @@
 							</div>
 						{/if}
 
-						<div class="mt-2 text-sm">
+						<div class="mt-1.5 text-xs sm:mt-2 sm:text-sm">
 							{$t('wallet.testnet_warning.faucet_instruction')}
 							<a
 								href="https://faucet.rootstock.io/"
@@ -170,7 +170,7 @@
 		{/if}
 
 		{#if $walletStore.isConnected || !hasErrors}
-			<div class="flex h-full flex-col space-y-4 overflow-y-auto">
+			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
 				<!-- Balance Card with History and Accordions -->
 				<BalanceCard {isLoading} />
 
@@ -178,47 +178,40 @@
 				<div>
 					<button
 						type="button"
-						class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-4 py-3 pr-12 text-left font-medium transition-colors"
+						class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-3 py-2 pr-10 text-left text-sm font-medium transition-colors sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
 						onclick={() => (showTransactionsModal = true)}
 					>
 						<div class="flex min-w-0 flex-1 items-center gap-2">
-							<IconFormatListBulleted class="h-5 w-5 shrink-0" />
+							<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
 							<span>{$t('wallet.tab_transactions')}</span>
 						</div>
-						<div class="absolute right-3 flex items-center">
-							<IconChevronRight class="h-6 w-6 shrink-0" />
+						<div class="absolute right-2 flex items-center sm:right-3">
+							<IconChevronRight class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
 						</div>
 					</button>
-				</div>
-
-				<!-- Learn More Section - Above buttons on mobile/tablet -->
-				<div class="mt-4 flex justify-center md:hidden">
-					<div class="text-base-content/70 text-sm">
-						<HelpModal />
-					</div>
 				</div>
 
 				<!-- Send and Receive Buttons -->
-				<div class="flex flex-col gap-4 sm:mt-4 sm:flex-row">
+				<div class="flex flex-row gap-2 sm:gap-4">
 					<button
-						class="btn btn-secondary order-1 flex-1 py-3 sm:order-2"
-						onclick={() => (showSendModal = true)}
-					>
-						<IconUpload class="mr-2 h-5 w-5" />
-						{$t('wallet.send_button')}
-					</button>
-					<button
-						class="btn btn-primary order-2 flex-1 py-3 sm:order-1"
+						class="btn btn-primary order-1 flex-1 min-h-[44px] py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
 						onclick={() => (showReceiveModal = true)}
 					>
-						<IconDownload class="mr-2 h-5 w-5" />
+						<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
 						{$t('wallet.tab_receive')}
+					</button>
+					<button
+						class="btn btn-secondary order-2 flex-1 min-h-[44px] py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
+						onclick={() => (showSendModal = true)}
+					>
+						<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+						{$t('wallet.send_button')}
 					</button>
 				</div>
 
-				<!-- Learn More Section - Below buttons on desktop -->
-				<div class="hidden justify-center md:flex">
-					<div class="text-base-content/70 text-sm">
+				<!-- Learn More Section - Below buttons -->
+				<div class="flex justify-center">
+					<div class="text-base-content/70 text-xs sm:text-sm">
 						<HelpModal />
 					</div>
 				</div>

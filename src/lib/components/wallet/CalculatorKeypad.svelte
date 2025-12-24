@@ -266,24 +266,6 @@
 	}
 </script>
 
-{#snippet calculatorKey(key: KeyConfig)}
-	{@const keyDisabled = disabled || (key.type === 'decimal' && unit === 'sats')}
-	<button
-		class="border-base-300 flex min-h-[60px] cursor-pointer touch-manipulation items-center justify-center border-r border-b font-semibold transition-colors select-none md:min-h-[70px] {key.isOperator
-			? 'active:bg-primary/20 active:text-primary text-primary text-3xl'
-			: key.type === 'action'
-				? 'active:bg-base-300 text-2xl'
-				: 'active:bg-base-300 text-3xl'} {keyDisabled ? 'cursor-not-allowed pointer-events-none opacity-50' : ''}"
-		onclick={() => !keyDisabled && handleInput(key.value)}
-		aria-label={key.ariaLabel?.startsWith('wallet.')
-			? $t(key.ariaLabel)
-			: key.ariaLabel || key.label}
-		aria-disabled={keyDisabled}
-	>
-		{key.label}
-	</button>
-{/snippet}
-
 <svelte:window onkeydown={handleKeydown} />
 
 <div
@@ -292,7 +274,23 @@
 >
 	{#each KEYPAD_LAYOUT as row}
 		{#each row as key}
-			{@render calculatorKey(key)}
+			{@const keyDisabled = disabled || (key.type === 'decimal' && unit === 'sats')}
+			<button
+				class="border-base-300 flex min-h-[52px] cursor-pointer touch-manipulation items-center justify-center border-r border-b font-semibold transition-colors select-none sm:min-h-[60px] md:min-h-[70px] {key.isOperator
+					? 'active:bg-primary/20 active:text-primary text-primary text-2xl sm:text-3xl'
+					: key.type === 'action'
+						? 'active:bg-base-300 text-xl sm:text-2xl'
+						: 'active:bg-base-300 text-2xl sm:text-3xl'} {keyDisabled
+					? 'pointer-events-none cursor-not-allowed opacity-50'
+					: ''}"
+				onclick={() => !keyDisabled && handleInput(key.value)}
+				aria-label={key.ariaLabel?.startsWith('wallet.')
+					? $t(key.ariaLabel)
+					: key.ariaLabel || key.label}
+				aria-disabled={keyDisabled}
+			>
+				{key.label}
+			</button>
 		{/each}
 	{/each}
 </div>
