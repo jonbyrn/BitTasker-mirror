@@ -188,8 +188,6 @@
 
 	// Calculate available balance based on detected network
 	const availableBalance = $derived.by(() => {
-		if (!parsedPayment.detectedNetwork) return 0;
-
 		switch (parsedPayment.detectedNetwork) {
 			case 'rootstock-bitcoin':
 			case 'lightning-bitcoin':
@@ -206,7 +204,7 @@
 				}
 				return 0;
 			default:
-				return 0;
+				return $walletStore.totalBalances.sats;
 		}
 	});
 
@@ -598,6 +596,7 @@
 
 	// Handle calculation change from calculator
 	function handleCalculationChange(expression: string, result: number) {
+		console.log({ expression, result });
 		formInput.mathExpression = expression;
 		if (result > 0 || expression === '') {
 			if (formInput.unit === 'sats') {
@@ -612,7 +611,7 @@
 
 	// Handle max amount click (simplified - single-pass calculation)
 	async function handleMaxAmount() {
-		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0) return;
+		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0) return console.log('No network or available balance');
 
 		feeState.maxCalculation.isLoading = true;
 		triggerHaptic(ImpactStyle.Light);
@@ -926,10 +925,7 @@
 							mathExpression={formInput.mathExpression}
 							calculatorKey={uiState.calculatorKey}
 							network={parsedPayment.detectedNetwork}
-							{availableBalance}
-							calculatedMaxAmount={feeState.maxCalculation.amount}
 							isLoadingMaxCalculation={feeState.maxCalculation.isLoading}
-							{btcPrice}
 							onAmountChange={handleAmountInputChange}
 							onUnitChange={handleUnitChange}
 							onCalculationChange={handleCalculationChange}
@@ -1086,13 +1082,7 @@
 						calculatorKey={uiState.calculatorKey}
 						memo={formInput.memo}
 						descriptionExpanded={uiState.descriptionExpanded}
-						estimatedFees={feeState.estimated?.totalFees ?? 0}
-						{amountInSats}
-						{btcPrice}
-						isLoadingFees={feeState.isLoading}
 						network={parsedPayment.detectedNetwork}
-						{availableBalance}
-						calculatedMaxAmount={feeState.maxCalculation.amount}
 						isLoadingMaxCalculation={feeState.maxCalculation.isLoading}
 						disabled={parsedPayment.detectedAmount !== null && parsedPayment.detectedAmount > 0}
 						onAmountChange={handleAmountInputChange}
@@ -1284,7 +1274,7 @@
 	{/if}
 
 	<!-- Tab Navigation (Bottom) -->
-	<div class="tabs tabs-boxed mt-auto overflow-hidden rounded-lg border border-base-300">
+	<div class="tabs tabs-boxed border-base-300 mt-auto overflow-hidden rounded-lg border">
 		<button
 			class="tab flex-1"
 			class:bg-primary={uiState.activeTab === 'scan'}
@@ -1331,7 +1321,8 @@
 	{#if uiState.showSendConfirmation}
 		{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
 		{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
-		{@const estimatedTime = netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]?.confirmationTime}
+		{@const estimatedTime =
+			netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]?.confirmationTime}
 		<div class="modal modal-open z-120">
 			<div class="modal-box max-w-md">
 				<h3 class="text-lg font-bold">{$t('wallet.send.confirm_payment')}</h3>

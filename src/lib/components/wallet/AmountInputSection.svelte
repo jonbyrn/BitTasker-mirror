@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { walletStore } from '$lib/stores/wallet.store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import CalculatorKeypad from '$lib/components/wallet/CalculatorKeypad.svelte';
 	import DescriptionAccordion from '$lib/components/wallet/DescriptionAccordion.svelte';
@@ -14,14 +15,7 @@
 		calculatorKey?: number;
 		memo?: string;
 		descriptionExpanded?: boolean;
-		estimatedFees?: number; // Network fees in sats
-		totalAmount?: number; // Total amount (amount + fees) in sats
-		amountInSats?: number; // Amount in sats (for calculations)
-		btcPrice?: number; // BTC price for USD conversions
-		isLoadingFees?: boolean;
 		network?: string | null; // Detected network for balance calculation
-		availableBalance?: number; // Available balance in sats for the network
-		calculatedMaxAmount?: number | null; // Pre-calculated max amount
 		isLoadingMaxCalculation?: boolean; // Loading state for max calculation
 		disabled?: boolean; // Whether the input and calculator should be disabled
 		onAmountChange: (value: string) => void;
@@ -42,14 +36,7 @@
 		calculatorKey = 0,
 		memo = '',
 		descriptionExpanded = false,
-		estimatedFees = 0,
-		totalAmount = 0,
-		amountInSats = 0,
-		btcPrice = 0,
-		isLoadingFees = false,
 		network = null,
-		availableBalance = 0,
-		calculatedMaxAmount = null,
 		isLoadingMaxCalculation = false,
 		disabled = false,
 		onAmountChange,
@@ -62,10 +49,6 @@
 		descriptionDisabled = false,
 		descriptionLabelText
 	}: Props = $props();
-
-	function handleCalculatorInput(value: string) {
-		onAmountChange(value);
-	}
 
 	function handleCalculationChange(expression: string, result: number) {
 		if (onCalculationChange) {
@@ -100,7 +83,7 @@
 		// Disable if no network detected
 		if (!network) return true;
 		// Disable if no available balance
-		if (!availableBalance || availableBalance <= 0) return true;
+		if ($walletStore.totalBalances.sats <= 0) return true;
 		return false;
 	});
 
@@ -131,7 +114,7 @@
 					{:else}
 						<IconCurrencyBtc class="text-primary h-8 w-8" />
 					{/if}
-					<div class="flex-1 text-center text-3xl font-bold">
+					<div class="flex-1 text-center text-3xl font-bold border-none outline-none">
 						{mathExpression || amount || '0'}
 					</div>
 					{#if onClear}
@@ -162,7 +145,7 @@
 		{#if onMaxAmount}
 			<button
 				type="button"
-				class="bg-primary text-primary-content flex min-w-[60px] touch-manipulation items-center justify-center rounded-l-none rounded-r-lg px-3 py-2 text-xl font-semibold whitespace-nowrap transition-opacity select-none disabled:opacity-50"
+				class="bg-primary text-primary-content flex min-w-[60px] touch-manipulation items-center justify-center rounded-l-none rounded-r-lg px-3 py-2 text-xl font-semibold whitespace-nowrap transition-opacity select-none disabled:opacity-20"
 				style="-webkit-tap-highlight-color: transparent; margin-right: -2px; width: 72px;"
 				onclick={handleMax}
 				disabled={disabled || isMaxDisabled || isLoadingMaxCalculation}
@@ -227,7 +210,7 @@
 		<CalculatorKeypad
 			{unit}
 			{disabled}
-			onInput={handleCalculatorInput}
+			onInput={onAmountChange}
 			onCalculationChange={handleCalculationChange}
 		/>
 	{/key}

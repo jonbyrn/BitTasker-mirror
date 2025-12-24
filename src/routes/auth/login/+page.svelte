@@ -156,9 +156,11 @@
 			// Handle specific WebAuthn cancellation error
 			if (err instanceof Error) {
 				// Silently ignore "A request is already pending" errors
-				if (err.message.includes('A request is already pending') ||
+				if (
+					err.message.includes('A request is already pending') ||
 					err.message.includes('request is already pending') ||
-					err.message === '') {
+					err.message === ''
+				) {
 					// Don't show error for pending requests
 					error = '';
 					isPasskeyError = false;
@@ -167,16 +169,16 @@
 					const platform = Capacitor.getPlatform() === 'web' ? 'web' : 'mobile-webauthn';
 					error = await handleBiometricError(err, platform);
 					// Check if error is related to passkeys/biometrics
-					isPasskeyError = error !== '' && (
-						err.message.toLowerCase().includes('passkey') ||
-						err.message.toLowerCase().includes('biometric') ||
-						err.message.toLowerCase().includes('webauthn') ||
-						err.message.toLowerCase().includes('authentication') ||
-						err.name === 'NotAllowedError' ||
-						err.name === 'NotSupportedError' ||
-						err.name === 'SecurityError' ||
-						err.name === 'TimeoutError'
-					);
+					isPasskeyError =
+						error !== '' &&
+						(err.message.toLowerCase().includes('passkey') ||
+							err.message.toLowerCase().includes('biometric') ||
+							err.message.toLowerCase().includes('webauthn') ||
+							err.message.toLowerCase().includes('authentication') ||
+							err.name === 'NotAllowedError' ||
+							err.name === 'NotSupportedError' ||
+							err.name === 'SecurityError' ||
+							err.name === 'TimeoutError');
 				}
 			} else {
 				error = $t('login.errors.failed');
@@ -274,12 +276,8 @@
 				let credentialId = '';
 
 				// Check if we're in a test environment (E2E tests)
-				const isTestEnvironment = 
-					typeof window !== 'undefined' &&
-					(window.location.hostname === 'localhost' || 
-					 window.location.hostname === '127.0.0.1' ||
-					 process.env.NODE_ENV === 'test' ||
-					 (window as any).__PLAYWRIGHT_TEST__);
+				const isTestEnvironment =
+					typeof window !== 'undefined' && (window as any).__PLAYWRIGHT_TEST__;
 
 				if (!res.isNewUser) {
 					if (
@@ -368,7 +366,8 @@
 			error = err instanceof Error ? err.message : $t('login.errors.failed');
 			// Check if error is related to passkeys/biometrics (nsec login can involve passkey setup)
 			if (err instanceof Error) {
-				isPasskeyError = err.message.toLowerCase().includes('passkey') ||
+				isPasskeyError =
+					err.message.toLowerCase().includes('passkey') ||
 					err.message.toLowerCase().includes('biometric') ||
 					err.message.toLowerCase().includes('webauthn') ||
 					err.message.toLowerCase().includes('authentication') ||
@@ -410,7 +409,9 @@
 				startsWithNsec: trimmedText.startsWith('nsec1'),
 				firstChars: trimmedText.substring(0, 10)
 			});
-			error = validation.error || 'Invalid nsec QR code. Please ensure you are scanning a valid Nostr private key (nsec1...)';
+			error =
+				validation.error ||
+				'Invalid nsec QR code. Please ensure you are scanning a valid Nostr private key (nsec1...)';
 			isQrScannerError = true;
 			return;
 		}
@@ -440,7 +441,7 @@
 				<Logo />
 				<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
 				<br />
-				<p class="text-base-content text-center text-base mb-4">
+				<p class="text-base-content mb-4 text-center text-base">
 					{$t('login.subtitle')}
 				</p>
 				<p class="text-base-content text-center text-base">
@@ -694,7 +695,7 @@
 						<!-- Passkey/biometric errors - use ErrorAlertWithModal -->
 						<ErrorAlertWithModal
 							{error}
-							isPasskeyError={isPasskeyError}
+							{isPasskeyError}
 							autoOpenModal={isPasskeyError}
 							onRetry={async () => {
 								// Close modal and clear error state

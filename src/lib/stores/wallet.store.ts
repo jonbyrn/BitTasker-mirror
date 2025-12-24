@@ -24,31 +24,12 @@ import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers } from 'ethers';
-import { parseFunction } from '$lib/utils/wallet/functionParsing';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { processTransactions, type ProcessedTransaction } from '$lib/utils/wallet/transactionHistory';
 
-// Enriched transaction type that extends SDK transaction with our metadata
-type EnrichedTransaction = Omit<Transaction, 'type'> & {
-	type: 'send' | 'receive' | 'contract' | 'swap' | 'contract-function' | 'contract-send' | 'contract-receive';
-	contractAddress?: string;
-	contractFunction?: string;
-	contractMetadata?: {
-		functionName?: string;
-		functionSelector?: string;
-		contractType: 'escrow' | 'swap' | 'unknown';
-		network: 'rsk' | 'bsc';
-		environment: 'mainnet' | 'testnet';
-		hasValue: boolean;
-		isContract: boolean;
-		transactionTypes: string[];
-	};
-	feeSats?: number;
-	balanceAfter?: number;
-};
-
-// Extended wallet state with enriched transactions
+// Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
-	transactions: EnrichedTransaction[];
+	transactions: ProcessedTransaction[];
 };
 
 // Initial state
@@ -431,160 +412,29 @@ async function loadAssets(): Promise<void> {
 async function loadTransactions(): Promise<void> {
 	try {
 		const manager = getWalletManager();
+		const state = get(walletStore);
 
-		const transactions: Transaction[] = [];
+		// Get current balance for running balance calculation
+		const currentBalanceSats = state.totalBalances.sats;
 
-		// Load RSK transactions
-		if (manager.rskWallet) {
-			const rskTxs = await manager.rskWallet.loadTransactions();
-			transactions.push(...rskTxs.map(tx => ({
-				...tx,
-				network: 'rsk' as const,
-				tokenSymbol: 'RBTC'
-			})));
-		}
+		// Load and process transactions (everything computed in single pass)
+		const [rskTxs, bscTxs] = await Promise.all([
+			manager.rskWallet ? manager.rskWallet.loadTransactions() : Promise.resolve([]),
+			manager.bscWallet ? manager.bscWallet.loadTransactions() : Promise.resolve([])
+		]);
 
-		// Load BSC transactions
-		if (manager.bscWallet) {
-			const bscTxs = await manager.bscWallet.loadTransactions();
-			transactions.push(...bscTxs.map(tx => ({
-				...tx,
-				network: 'bsc' as const
-			})));
-		}
+		// Process both networks in parallel with all properties computed
+		const [processedRskTxs, processedBscTxs] = await Promise.all([
+			processTransactions(rskTxs, state.rsk.address || '', 'rsk', currentBalanceSats),
+			processTransactions(bscTxs, state.bsc.address || '', 'bsc', currentBalanceSats)
+		]);
 
-		// Sort by timestamp (newest first)
-		transactions.sort((a, b) => b.timestamp - a.timestamp);
+		// Combine and sort by timestamp (newest first)
+		const allTransactions = [...processedRskTxs, ...processedBscTxs].sort(
+			(a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime()
+		);
 
-		// Get current escrow contract address for contract detection
-		const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-		const escrowAddress = (rskNetwork === 'mainnet'
-			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET
-		)?.toLowerCase();
-
-		// Enrich each transaction with contract metadata and fee in sats
-		const enrichedTransactions: EnrichedTransaction[] = transactions.map(tx => {
-			// Check if transaction is to escrow contract
-			const isEscrowTx = escrowAddress && tx.to?.toLowerCase() === escrowAddress;
-
-			// Check if it's a contract interaction
-			const isContractCall = tx.isContract &&
-				tx.transactionTypes?.includes('contract_call');
-
-			// Parse contract function if it's an escrow transaction with contract interaction
-			let contractMetadata: EnrichedTransaction['contractMetadata'] = undefined;
-			let transactionType: EnrichedTransaction['type'] = tx.type;
-
-			if (isEscrowTx && isContractCall && tx.rawInput) {
-				// Use the method field directly from wallet-core (already extracted)
-				const selector = tx.method;
-				const parsedFunction = parseFunction(tx.rawInput, 'escrow');
-
-				if (parsedFunction && parsedFunction.functionName) {
-					// Check if transaction has value transfer
-					const txValue = BigInt(tx.value || '0');
-					const hasValue = txValue > 0n;
-
-					// Functions that send money TO contract (user loses money)
-					const sendFunctions = ['createEscrow'];
-					// Functions that send money FROM contract (user receives money)
-					const receiveFunctions = ['acceptTask', 'cancelEscrow', 'refundClient'];
-
-					// Classify transaction type based on value transfer and function
-					if (hasValue) {
-						if (sendFunctions.includes(parsedFunction.functionName)) {
-							transactionType = 'contract-send';
-						} else if (receiveFunctions.includes(parsedFunction.functionName)) {
-							transactionType = 'contract-receive';
-						} else {
-							// Unknown function with value - default to contract-send
-							transactionType = 'contract-send';
-						}
-					} else {
-						// No value transfer - pure contract interaction
-						transactionType = 'contract-function';
-					}
-
-					contractMetadata = {
-						functionName: parsedFunction.functionName,
-						functionSelector: selector ?? undefined,
-						contractType: 'escrow',
-						network: tx.network,
-						environment: rskNetwork,
-						hasValue: hasValue,
-						isContract: tx.isContract,
-						transactionTypes: tx.transactionTypes
-					};
-				}
-			}
-
-			// Convert fee to sats
-			// fee is now an object { type: string, value: string } in wei
-			let feeSats: number | undefined = undefined;
-			if (tx.fee && typeof tx.fee === 'object' && 'value' in tx.fee) {
-				// fee.value is in wei, convert to native units then to sats
-				const feeInNativeUnits = Number(ethers.formatEther(tx.fee.value));
-				feeSats = Math.floor(feeInNativeUnits * 100_000_000);
-			}
-
-			// Extract actual swap amount from decodedInput for swap transactions
-			// For swap claim transactions, the amount is in the function parameters, not tx.value
-			let actualValue = tx.value;
-			let formattedAmount = tx.formattedAmount;
-
-			if (tx.type === 'swap' && tx.decodedInput?.parameters) {
-				// Look for 'amount' parameter in decoded input
-				const amountParam = tx.decodedInput.parameters.find(
-					(p: any) => p.name === 'amount' && p.type === 'uint256'
-				);
-
-				if (amountParam && amountParam.value) {
-					// Update the actual value to use the amount from parameters
-					actualValue = amountParam.value.toString();
-
-					// Recalculate formatted amount using the correct value
-					const amountInRBTC = parseFloat(ethers.formatEther(actualValue));
-					formattedAmount = `${amountInRBTC.toFixed(8)} ${tx.tokenSymbol || 'rBTC'}`;
-				}
-			}
-
-			const enriched: EnrichedTransaction = {
-				...tx,
-				value: actualValue, // Use the corrected value for swap transactions
-				formattedAmount, // Use the corrected formatted amount
-				type: transactionType,
-				contractAddress: isEscrowTx ? tx.to : undefined,
-				contractFunction: contractMetadata?.functionName,
-				contractMetadata,
-				feeSats
-			};
-
-			return enriched;
-		});
-
-		// Calculate running balances (one pass, stored with transactions)
-		const currentBalanceSats = get(walletStore).totalBalances.sats;
-		let runningBalance = currentBalanceSats;
-
-		enrichedTransactions.forEach(tx => {
-			const txValueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
-			const txFeeSats = tx.feeSats || 0;
-
-			// Store balance after this transaction
-			tx.balanceAfter = runningBalance;
-
-			// Work backwards: if it was a receive, subtract it; if it was a send, add it back
-			const txType = tx.type;
-			if (txType === 'receive' || txType === 'contract-receive' || txType === 'swap') {
-				// For swaps (reverse swaps), user receives RBTC, so subtract when going backwards
-				runningBalance -= txValueSats;
-			} else if (txType === 'send' || txType === 'contract-send' || txType === 'contract-function') {
-				runningBalance += txValueSats + txFeeSats;
-			}
-		});
-
-		walletStore.update(s => ({ ...s, transactions: enrichedTransactions }));
+		walletStore.update((s) => ({ ...s, transactions: allTransactions }));
 	} catch (error) {
 		console.error('Failed to load transactions:', error);
 	}
