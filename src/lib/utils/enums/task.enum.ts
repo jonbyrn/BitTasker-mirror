@@ -52,8 +52,7 @@ export enum SortOrderEnum {
 export enum NotificationFrequency {
 	INSTANT = 'INSTANT',
 	DAILY = 'DAILY',
-	WEEKLY = 'WEEKLY',
-	MONTHLY = 'MONTHLY'
+	WEEKLY = 'WEEKLY'
 }
 
 export enum RecurringFrequencyEnum {

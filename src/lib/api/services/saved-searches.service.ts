@@ -14,7 +14,7 @@ export class SavedSearchesService extends BaseApiService {
 	 * @param name The name for the saved search
 	 * @param searchParams The search parameters to save
 	 * @param notifyOnMatch Whether to enable notifications for this search
-	 * @param notificationFrequency The frequency of notifications (INSTANT, DAILY, WEEKLY, MONTHLY)
+	 * @param notificationFrequency The frequency of notifications (INSTANT, DAILY, WEEKLY)
 	 */
 	async createSavedSearch(
 		name: string,

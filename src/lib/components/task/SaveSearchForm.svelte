@@ -66,7 +66,7 @@
 	let error = $state<string | null>(null);
 	let searchName = $state('');
 	let notifyOnMatch = $state(true);
-	// let isActive = $state(true); // Commented out - may be needed later
+	let isActive = $state(true);
 	let notificationFrequency = $state<NotificationFrequency>(NotificationFrequency.WEEKLY);
 
 	// Computed
@@ -103,6 +103,7 @@
 				// Update mode - populate with existing data
 				searchName = existingSavedSearch.name;
 				notifyOnMatch = existingSavedSearch.notifyOnMatch ?? true;
+				isActive = existingSavedSearch.isActive ?? true;
 				// Use saved frequency or default to WEEKLY
 				const savedFrequency = existingSavedSearch.notificationFrequency;
 				if (savedFrequency && Object.values(NotificationFrequency).includes(savedFrequency as NotificationFrequency)) {
@@ -114,6 +115,7 @@
 				// Create mode - use search query or empty
 				searchName = searchParams.search || '';
 				notifyOnMatch = true;
+				isActive = true;
 				notificationFrequency = NotificationFrequency.WEEKLY;
 			}
 		}
@@ -159,32 +161,29 @@
 			isSaving = true;
 			error = null;
 
-			// Prepare search params with search name
-			const cleanParams: SearchTasksParams = { ...searchParams };
+			// Prepare search params - merge with existing if in update mode
+			const paramsToSave = isUpdateMode && existingSavedSearch
+				? { ...existingSavedSearch.params, ...searchParams }
+				: searchParams;
+
+			// Clean up undefined values - save ALL filter parameters
+			const cleanParams = cleanSearchParams(paramsToSave);
 			if (searchName.trim()) {
 				cleanParams.search = searchName.trim();
 			}
 
-			// Merge with existing params if in update mode
-			const paramsToSave = isUpdateMode && existingSavedSearch
-				? { ...existingSavedSearch.params, ...cleanParams }
-				: cleanParams;
-
-			// Clean up undefined values - save ALL filter parameters
-			const finalParams = cleanSearchParams(paramsToSave);
-
 			if (isUpdateMode && existingSavedSearch) {
 				await updateSavedSearch(existingSavedSearch.id, {
 					name: searchName,
-					params: finalParams,
+					params: cleanParams,
 					notifyOnMatch,
-					isActive: true,
+					isActive,
 					notificationFrequency
 				});
 			} else {
-				await saveSearch(searchName, finalParams, {
+				await saveSearch(searchName, cleanParams, {
 					notifyOnMatch,
-					isActive: true,
+					isActive,
 					notificationFrequency
 				});
 			}
@@ -227,7 +226,7 @@
 			{/if}
 
 			<!-- Search Parameters Summary (show categories and skills as badges) -->
-			{#if isUpdateMode || (searchParams.categories && searchParams.categories.length > 0) || (searchParams.skills && searchParams.skills.length > 0) || searchParams.taskType || searchParams.location || searchParams.budget?.tier}
+			{#if isUpdateMode}
 				<div class="mb-4">
 					<div class="flex flex-wrap gap-2">
 						{#if searchParams.categories && searchParams.categories.length > 0}
@@ -310,18 +309,15 @@
 						<option value={NotificationFrequency.DAILY}>
 							{$t(`profile_task.notification_frequency.${getFrequencyTranslationKey(NotificationFrequency.DAILY)}`)}
 						</option>
-						<option value={NotificationFrequency.WEEKLY}>
-							{$t(`profile_task.notification_frequency.${getFrequencyTranslationKey(NotificationFrequency.WEEKLY)}`)}
-						</option>
-						<option value={NotificationFrequency.MONTHLY}>
-							{$t(`profile_task.notification_frequency.${getFrequencyTranslationKey(NotificationFrequency.MONTHLY)}`)}
-						</option>
-					</select>
+					<option value={NotificationFrequency.WEEKLY}>
+						{$t(`profile_task.notification_frequency.${getFrequencyTranslationKey(NotificationFrequency.WEEKLY)}`)}
+					</option>
+				</select>
 				</div>
 			{/if}
 
-			<!-- Búsqueda activa - comentado por si lo necesitamos más adelante -->
-			<!-- <div class="form-control mb-4">
+			<!-- Active Search Toggle -->
+			<div class="form-control mb-4">
 				<label class="label flex cursor-pointer justify-start gap-2" for="isActive">
 					<input
 						id="isActive"
@@ -337,7 +333,7 @@
 						{$t('profile_task.form.inactive_hint')}
 					</span>
 				</label>
-			</div> -->
+			</div>
 
 			<!-- Info alert about filters -->
 			<div class="alert alert-outline alert-info mb-4">

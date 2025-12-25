@@ -206,7 +206,7 @@ export interface SavedSearch {
 	createdAt: number;
 	notifyOnMatch?: boolean;
 	isActive?: boolean;
-	notificationFrequency?: string; // 'INSTANT' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
+	notificationFrequency?: string; // 'INSTANT' | 'DAILY' | 'WEEKLY'
 	unreadNotifications?: number;
 }
 
