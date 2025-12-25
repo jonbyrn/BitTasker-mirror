@@ -336,7 +336,7 @@
 			</div>
 
 			<!-- Info alert about filters -->
-			<div class="alert alert-outline alert-info mb-4">
+			<div class="alert alert-outline alert-info rounded-2xl ">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					fill="none"

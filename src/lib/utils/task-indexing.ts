@@ -233,6 +233,58 @@ export function filterIndexedTasks(
 		});
 	}
 
+	// Apply deadline filter
+	if (params.deadline) {
+		// Parse filter deadline - handle both date-only (YYYY-MM-DD) and ISO datetime formats
+		const filterDeadlineStr = params.deadline;
+		const filterDeadline = new Date(filterDeadlineStr);
+		// If it's a date-only string, set to end of day for comparison
+		const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(filterDeadlineStr);
+		if (isDateOnly) {
+			filterDeadline.setHours(23, 59, 59, 999);
+		}
+		
+		filteredTasks = filteredTasks.filter((task) => {
+			if (!task.deadline) return false;
+			const taskDeadline = new Date(task.deadline);
+			// Show tasks where deadline is on or before the filter deadline
+			return taskDeadline <= filterDeadline;
+		});
+	}
+
+	// Apply date range filter
+	if (params.dateRange?.start && params.dateRange?.end) {
+		// Parse filter dates - handle both date-only (YYYY-MM-DD) and ISO datetime formats
+		const startStr = params.dateRange.start;
+		const endStr = params.dateRange.end;
+		const startDate = new Date(startStr);
+		const endDate = new Date(endStr);
+		
+		// If date-only strings, set start to beginning of day and end to end of day
+		if (/^\d{4}-\d{2}-\d{2}$/.test(startStr)) {
+			startDate.setHours(0, 0, 0, 0);
+		}
+		if (/^\d{4}-\d{2}-\d{2}$/.test(endStr)) {
+			endDate.setHours(23, 59, 59, 999);
+		}
+		
+		filteredTasks = filteredTasks.filter((task) => {
+			// Check if task has dateRange
+			if (task.dateRange?.start && task.dateRange?.end) {
+				const taskStart = new Date(task.dateRange.start);
+				const taskEnd = new Date(task.dateRange.end);
+				// Task date range overlaps with filter date range
+				return taskStart <= endDate && taskEnd >= startDate;
+			}
+			// If task only has deadline, check if it falls within the date range
+			if (task.deadline) {
+				const taskDeadline = new Date(task.deadline);
+				return taskDeadline >= startDate && taskDeadline <= endDate;
+			}
+			return false;
+		});
+	}
+
 	const filterTime = performance.now() - startTime;
 
 	const metrics: FilterPerformanceMetrics = {
@@ -295,7 +347,8 @@ function hasActiveFilters(params: SearchTasksParams): boolean {
 		(params.categories && params.categories.length > 0) ||
 		(params.search && params.search.trim().length > 0) ||
 		(params.location && params.radius) ||
-		true // Always apply deadline filtering
+		params.deadline ||
+		(params.dateRange?.start && params.dateRange?.end)
 	);
 }
 

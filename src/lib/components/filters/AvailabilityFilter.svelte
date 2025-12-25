@@ -7,22 +7,20 @@
 	import { t } from 'svelte-i18n';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
-	// Props
+	// Props with bindable date range and deadline
 	let { 
-		onAvailabilityChange = () => {},
-		initialDateRange,
-		initialDeadline
+		start = $bindable<string | undefined>(),
+		end = $bindable<string | undefined>(),
+		deadlineDate = $bindable<string | undefined>(),
+		filterMode = $bindable<'date_range' | 'deadline'>('deadline')
 	} = $props<{
-		onAvailabilityChange?: (
-			filterMode: 'date_range' | 'deadline',
-			start: string,
-			end: string
-		) => void;
-		initialDateRange?: { start: string; end: string } | undefined;
-		initialDeadline?: string | undefined;
+		start?: string | undefined;
+		end?: string | undefined;
+		deadlineDate?: string | undefined;
+		filterMode?: 'date_range' | 'deadline';
 	}>();
 
-	// State
+	// Internal state for Date objects (derived from bound string props)
 	let dateRange = $state<{ start: Date | null; end: Date | null }>({
 		start: null,
 		end: null
@@ -37,41 +35,31 @@
 		{ value: 'evening', label: 'Evening (6pm-10pm)' }
 	]);
 
-	// Deadline filter modes - determine initial mode based on what's provided
-	let filterMode = $state<'date_range' | 'deadline'>(
-		initialDateRange ? 'date_range' : (initialDeadline ? 'deadline' : 'deadline')
-	);
+	// Track last prop values to prevent unnecessary updates
+	let lastStart = $state<string | undefined>(start);
+	let lastEnd = $state<string | undefined>(end);
+	let lastDeadlineDate = $state<string | undefined>(deadlineDate);
 
-	// Track if component is initialized to avoid calling onAvailabilityChange during init
-	let isInitialized = $state(false);
-
-	// Initialize from props - only run once on mount
+	// Sync internal Date state with bound string props (one-way: props -> internal state)
+	// Only sync when props actually change from parent, not when we update them
 	$effect(() => {
-		if (isInitialized) return;
-		
-		if (initialDateRange) {
-			filterMode = 'date_range';
-			dateRange.start = initialDateRange.start ? new Date(initialDateRange.start) : null;
-			dateRange.end = initialDateRange.end ? new Date(initialDateRange.end) : null;
-		} else if (initialDeadline) {
-			filterMode = 'deadline';
-			deadline = new Date(initialDeadline);
+		if (filterMode === 'date_range') {
+			// Only update if the prop value actually changed (from parent)
+			if (start !== lastStart) {
+				dateRange.start = start ? new Date(start) : null;
+				lastStart = start;
+			}
+			if (end !== lastEnd) {
+				dateRange.end = end ? new Date(end) : null;
+				lastEnd = end;
+			}
+		} else if (filterMode === 'deadline') {
+			if (deadlineDate !== lastDeadlineDate) {
+				deadline = deadlineDate ? new Date(deadlineDate) : null;
+				lastDeadlineDate = deadlineDate;
+			}
 		}
-		
-		// Mark as initialized after a tick to allow DOM to settle
-		setTimeout(() => {
-			isInitialized = true;
-		}, 0);
 	});
-
-	// Toggle time preference
-	function toggleTimePreference(value: string) {
-		if (timePreferences.includes(value)) {
-			timePreferences = timePreferences.filter((item) => item !== value);
-		} else {
-			timePreferences = [...timePreferences, value];
-		}
-	}
 
 	// Clear availability filters
 	function clearAvailability() {
@@ -79,46 +67,33 @@
 		dateRange.end = null;
 		deadline = null;
 		timePreferences = [];
-		// Apply changes after clearing
-		if (isInitialized) {
-			applyChanges();
-		}
+		// Update bound values
+		start = undefined;
+		end = undefined;
+		deadlineDate = undefined;
 	}
 
-	// Apply availability filter changes
-	function applyChanges() {
-		if (!isInitialized) return;
-		
-		if (filterMode === 'date_range') {
-			const startStr = dateRange.start ? dateRange.start.toISOString().split('T')[0] : '';
-			const endStr = dateRange.end ? dateRange.end.toISOString().split('T')[0] : '';
-			onAvailabilityChange('date_range', startStr, endStr);
-		} else if (filterMode === 'deadline') {
-			const deadlineStr = deadline ? deadline.toISOString().split('T')[0] : '';
-			onAvailabilityChange('deadline', deadlineStr, '');
-		}
-	}
-
-	// Handle date changes explicitly to avoid infinite loops
+	// Handle date changes and update bound values
 	function handleStartDateChange(date: Date | null) {
 		dateRange.start = date;
-		if (isInitialized) {
-			applyChanges();
-		}
+		const newValue = date ? date.toISOString().split('T')[0] : undefined;
+		// Update bound value - the effect will check if it changed to prevent loops
+		start = newValue;
+		lastStart = newValue;
 	}
 
 	function handleEndDateChange(date: Date | null) {
 		dateRange.end = date;
-		if (isInitialized) {
-			applyChanges();
-		}
+		const newValue = date ? date.toISOString().split('T')[0] : undefined;
+		end = newValue;
+		lastEnd = newValue;
 	}
 
 	function handleDeadlineChange(date: Date | null) {
 		deadline = date;
-		if (isInitialized) {
-			applyChanges();
-		}
+		const newValue = date ? date.toISOString().split('T')[0] : undefined;
+		deadlineDate = newValue;
+		lastDeadlineDate = newValue;
 	}
 </script>
 
@@ -136,9 +111,7 @@
 					filterMode = 'date_range';
 					// Clear deadline when switching to date range
 					deadline = null;
-					if (isInitialized) {
-						applyChanges();
-					}
+					deadlineDate = undefined;
 				}}
 			>
 				{$t('dashboard.bids.components.filters.availability.date_range')}
@@ -151,9 +124,8 @@
 					// Clear date range when switching to deadline
 					dateRange.start = null;
 					dateRange.end = null;
-					if (isInitialized) {
-						applyChanges();
-					}
+					start = undefined;
+					end = undefined;
 				}}
 			>
 				{$t('dashboard.bids.components.filters.availability.deadline')}

@@ -1,11 +1,15 @@
 <script lang="ts">
 	import { getBudgetTiersForCurrency, getBudgetTiersForRange } from '$lib/utils/helpers/budgetTier';
 	import { t } from 'svelte-i18n';
-	// Props
-	let { onRangeChange, currency = $bindable(), initialTier } = $props<{
-		onRangeChange: (tier: string) => void;
+	// Props with bindable tier
+	let { 
+		onRangeChange, 
+		currency = $bindable(), 
+		tier = $bindable<string | undefined>(undefined)
+	} = $props<{
+		onRangeChange: (tier: string | undefined) => void;
 		currency: string | undefined;
-		initialTier?: string | undefined;
+		tier?: string | undefined;
 	}>();
 
 	let { minBudget, maxBudget } = $state<{
@@ -16,35 +20,26 @@
 		maxBudget: undefined
 	});
 
-	// Track selected tier - initialize from prop
-	let selectedTier = $state<string | undefined>(initialTier);
-
-	// Sync with initialTier when it changes
-	$effect(() => {
-		if (initialTier !== undefined) {
-			selectedTier = initialTier;
-			// If we have an initial tier, we need to find the corresponding min/max values
-			if (initialTier) {
-				const tiers = getBudgetTiersForCurrency(currency || 'USD');
-				const tierPreset = tiers.find(t => t.tier === initialTier);
-				if (tierPreset) {
-					minBudget = tierPreset.min;
-					maxBudget = tierPreset.max ?? undefined;
-				}
-			}
-		}
-	});
+	// Track selected tier - sync with bound tier prop
+	let selectedTier = $state<string | undefined>(tier);
+	
+	// Track last tier value to prevent loops
+	let lastTier = $state<string | undefined>(tier);
 
 	// Apply preset range
 	function applyPreset(min: number, max: number | null) {
 		minBudget = min;
 		maxBudget = max !== null ? max : undefined;
 
-		const tier = getBudgetTiersForRange(minBudget, maxBudget, currency);
-		selectedTier = tier === null ? undefined : tier;
+		const newTier = getBudgetTiersForRange(minBudget, maxBudget, currency);
+		selectedTier = newTier === null ? undefined : newTier;
+		
+		// Update bound tier value
+		tier = newTier === null ? undefined : newTier;
+		lastTier = tier;
 
-		// Notify parent component
-		onRangeChange(tier);
+		// Notify parent component (for backwards compatibility)
+		onRangeChange(newTier === null ? undefined : newTier);
 	}
 
 	// Clear budget tier
@@ -52,6 +47,8 @@
 		minBudget = undefined;
 		maxBudget = undefined;
 		selectedTier = undefined;
+		tier = undefined;
+		lastTier = undefined;
 		onRangeChange(undefined);
 	};
 </script>

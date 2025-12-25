@@ -132,6 +132,24 @@
 			error = 'profile_task.errors.mark_notifications_read';
 		}
 	}
+
+	// Apply saved search - redirect to find-tasks with saved parameters
+	function applySavedSearch(search: SavedSearch) {
+		// Store search params in sessionStorage to be read by find-tasks page
+		if (typeof window !== 'undefined') {
+			sessionStorage.setItem('savedSearchParams', JSON.stringify(search.params));
+		}
+		// Navigate to find-tasks page
+		goto('/dashboard/find-tasks');
+	}
+
+	// Handle keyboard events for accessibility
+	function handleKeydown(event: KeyboardEvent, search: SavedSearch) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			applySavedSearch(search);
+		}
+	}
 </script>
 
 <div class="card bg-base-100 mb-6 rounded-xl p-4">
@@ -241,7 +259,14 @@
 	{:else}
 		<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 			{#each savedSearches as search}
-				<div class="card bg-base-200 border-base-content/10 rounded-xl border shadow-sm">
+				<div 
+					class="card bg-base-200 border-base-content/10 rounded-xl border shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-primary"
+					onclick={() => applySavedSearch(search)}
+					onkeydown={(e) => handleKeydown(e, search)}
+					role="button"
+					tabindex="0"
+					aria-label={`Apply search: ${search.name}`}
+				>
 					<div class="card-body p-3">
 						<!-- Header with name and notification indicator -->
 						<div class="flex items-start justify-between gap-2">
@@ -251,7 +276,10 @@
 								<button
 									class="badge badge-primary badge-sm tooltip shrink-0"
 									data-tip={$t('profile_task.new_matching_tasks')}
-									onclick={() => markNotificationsAsReadForSearch(search.id)}
+									onclick={(e) => {
+										e.stopPropagation();
+										markNotificationsAsReadForSearch(search.id);
+									}}
 								>
 									{search.unreadNotifications}
 									{$t('profile_task.unread_new_label')}
@@ -301,7 +329,10 @@
 								<button
 									aria-label={$t('profile_task.actions.edit_saved_search')}
 									class="btn btn-xs btn-ghost btn-square"
-									onclick={() => openEditForm(search)}
+									onclick={(e) => {
+										e.stopPropagation();
+										openEditForm(search);
+									}}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -322,7 +353,10 @@
 								<button
 									aria-label={$t('profile_task.actions.delete_saved_search')}
 									class="btn btn-xs btn-ghost btn-square text-error"
-									onclick={() => (confirmDeleteId = search.id)}
+									onclick={(e) => {
+										e.stopPropagation();
+										confirmDeleteId = search.id;
+									}}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"

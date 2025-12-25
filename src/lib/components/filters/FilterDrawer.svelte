@@ -37,10 +37,19 @@
 	// Store selected location coordinates for distance calculation
 	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
 
-	// Sync with initial filters
+	// Intermediate state for availability filter bindings
+	let availabilityStart = $state<string | undefined>(undefined);
+	let availabilityEnd = $state<string | undefined>(undefined);
+	let availabilityDeadline = $state<string | undefined>(undefined);
+	let availabilityFilterMode = $state<'date_range' | 'deadline'>('deadline');
+
+	// Track active filter count
+	let activeFilterCount = $state(0);
+
+	// Sync filters with initialFilters when they change
 	$effect(() => {
 		if (initialFilters) {
-			filters.search = initialFilters.search;
+			// Deep merge initialFilters into filters state
 			filters.taskType = initialFilters.taskType;
 			filters.categories = initialFilters.categories ? [...initialFilters.categories] : [];
 			filters.skills = initialFilters.skills ? [...initialFilters.skills] : [];
@@ -50,14 +59,22 @@
 				type: initialFilters.budget?.type
 			};
 			filters.location = initialFilters.location;
-			filters.radius = initialFilters.radius;
+			filters.radius = initialFilters.radius ?? 1.5;
 			filters.deadline = initialFilters.deadline;
 			filters.dateRange = initialFilters.dateRange;
+			filters.search = initialFilters.search;
+			
+			// Sync availability filter state
+			if (initialFilters.dateRange) {
+				availabilityFilterMode = 'date_range';
+				availabilityStart = initialFilters.dateRange.start;
+				availabilityEnd = initialFilters.dateRange.end;
+			} else if (initialFilters.deadline) {
+				availabilityFilterMode = 'deadline';
+				availabilityDeadline = initialFilters.deadline;
+			}
 		}
 	});
-
-	// Track active filter count
-	let activeFilterCount = $state(0);
 
 	$effect(() => {
 		// Calculate active filter count for badge
@@ -101,6 +118,32 @@
 
 	// Apply filters
 	function applyFilters() {
+		// Sync availability filter values with filters object before applying
+		if (availabilityFilterMode === 'date_range') {
+			// Set dateRange if both start and end are provided
+			if (availabilityStart && availabilityEnd) {
+				filters.dateRange = {
+					start: availabilityStart,
+					end: availabilityEnd
+				};
+				filters.deadline = undefined; // Clear deadline when using date range
+			} else {
+				filters.dateRange = undefined;
+			}
+		} else if (availabilityFilterMode === 'deadline') {
+			// Set deadline if provided
+			if (availabilityDeadline) {
+				filters.deadline = availabilityDeadline;
+				filters.dateRange = undefined; // Clear date range when using deadline
+			} else {
+				filters.deadline = undefined;
+			}
+		} else {
+			// Clear both if no mode selected
+			filters.deadline = undefined;
+			filters.dateRange = undefined;
+		}
+
 		// Create a clean copy of filters to avoid proxy issues
 		const cleanFilters = {
 			...filters,
@@ -117,23 +160,11 @@
 		filters.taskType = type;
 	}
 
-	// Handle availability change
-	function handleAvailabilityChange(
-		filterMode: 'date_range' | 'deadline',
-		start: string,
-		end: string
-	) {
-		if (filterMode === 'date_range') {
-			filters.dateRange = { start, end };
+	// Handle price range change (kept for backwards compatibility, but bindable handles updates)
+	function handlePriceRangeChange(tier: string | undefined) {
+		if (filters.budget) {
+			filters.budget.tier = tier;
 		}
-		if (filterMode === 'deadline') {
-			filters.deadline = start;
-		}
-	}
-
-	// Handle price range change
-	function handlePriceRangeChange(tier: string) {
-		filters.budget && (filters.budget.tier = tier);
 	}
 
 	// Handle budget type change
@@ -208,11 +239,11 @@
 		<div class="collapse-content">
 			<PriceRangeSlider
 				onRangeChange={handlePriceRangeChange}
-				currency={filters.budget?.currency}
-				initialTier={filters.budget?.tier}
+			currency={filters.budget?.currency || 'USD'}
+			tier={filters.budget?.tier}
 			/>
 
-			<div class="mt-8">
+		<!-- 	<div class="mt-8">
 				<label class="font-medium" for="budget-type">{$t('find_tasks.budget_type')}</label>
 				<div class="mt-4 flex flex-wrap gap-2">
 					{#each Object.values(BudgetTypeEnum) as type}
@@ -238,7 +269,7 @@
 						{$t('find_tasks.any')}
 					</button>
 				</div>
-			</div>
+			</div> -->
 		</div>
 	</div>
 
@@ -317,9 +348,10 @@
 		</div>
 		<div class="collapse-content">
 			<AvailabilityFilter 
-				onAvailabilityChange={handleAvailabilityChange}
-				initialDateRange={filters.dateRange}
-				initialDeadline={filters.deadline}
+				bind:start={availabilityStart}
+				bind:end={availabilityEnd}
+				bind:deadlineDate={availabilityDeadline}
+				bind:filterMode={availabilityFilterMode}
 			/>
 		</div>
 	</div>
