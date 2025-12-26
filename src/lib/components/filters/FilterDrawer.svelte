@@ -37,7 +37,7 @@
 	// Store selected location coordinates for distance calculation
 	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
 
-	// Intermediate state for availability filter bindings
+	// Intermediate state for availability filter bindings (must be $state for bindable props)
 	let availabilityStart = $state<string | undefined>(undefined);
 	let availabilityEnd = $state<string | undefined>(undefined);
 	let availabilityDeadline = $state<string | undefined>(undefined);
@@ -63,16 +63,28 @@
 			filters.deadline = initialFilters.deadline;
 			filters.dateRange = initialFilters.dateRange;
 			filters.search = initialFilters.search;
-			
-			// Sync availability filter state
-			if (initialFilters.dateRange) {
-				availabilityFilterMode = 'date_range';
-				availabilityStart = initialFilters.dateRange.start;
-				availabilityEnd = initialFilters.dateRange.end;
-			} else if (initialFilters.deadline) {
-				availabilityFilterMode = 'deadline';
-				availabilityDeadline = initialFilters.deadline;
-			}
+		}
+	});
+
+	// Sync availability filter bindings from filters object (single source of truth)
+	// This eliminates redundancy by syncing from filters instead of manually from initialFilters
+	$effect(() => {
+		if (filters.dateRange) {
+			availabilityFilterMode = 'date_range';
+			availabilityStart = filters.dateRange.start;
+			availabilityEnd = filters.dateRange.end;
+			availabilityDeadline = undefined;
+		} else if (filters.deadline) {
+			availabilityFilterMode = 'deadline';
+			availabilityDeadline = filters.deadline;
+			availabilityStart = undefined;
+			availabilityEnd = undefined;
+		} else {
+			// Both are cleared - reset to default state
+			availabilityFilterMode = 'deadline';
+			availabilityStart = undefined;
+			availabilityEnd = undefined;
+			availabilityDeadline = undefined;
 		}
 	});
 
@@ -119,6 +131,8 @@
 	// Apply filters
 	function applyFilters() {
 		// Sync availability filter values with filters object before applying
+		// availabilityStart, availabilityEnd, and availabilityDeadline are derived from filters,
+		// but we need to sync them back when the user changes them in AvailabilityFilter
 		if (availabilityFilterMode === 'date_range') {
 			// Set dateRange if both start and end are provided
 			if (availabilityStart && availabilityEnd) {

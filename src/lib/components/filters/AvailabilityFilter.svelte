@@ -28,19 +28,12 @@
 	let deadline = $state<Date | null>(null);
 
 	let timePreferences = $state<string[]>([]);
-	const timeOptions = $state([
-		{ value: 'morning', label: 'Morning (6am-12pm)' },
-		{ value: 'midday', label: 'Midday (12pm-3pm)' },
-		{ value: 'afternoon', label: 'Afternoon (3pm-6pm)' },
-		{ value: 'evening', label: 'Evening (6pm-10pm)' }
-	]);
 
 	// Track last prop values to prevent unnecessary updates
 	let lastStart = $state<string | undefined>(start);
 	let lastEnd = $state<string | undefined>(end);
 	let lastDeadlineDate = $state<string | undefined>(deadlineDate);
 
-	// Sync internal Date state with bound string props (one-way: props -> internal state)
 	// Only sync when props actually change from parent, not when we update them
 	$effect(() => {
 		if (filterMode === 'date_range') {
@@ -63,11 +56,7 @@
 
 	// Clear availability filters
 	function clearAvailability() {
-		dateRange.start = null;
-		dateRange.end = null;
-		deadline = null;
 		timePreferences = [];
-		// Update bound values
 		start = undefined;
 		end = undefined;
 		deadlineDate = undefined;
@@ -77,7 +66,6 @@
 	function handleStartDateChange(date: Date | null) {
 		dateRange.start = date;
 		const newValue = date ? date.toISOString().split('T')[0] : undefined;
-		// Update bound value - the effect will check if it changed to prevent loops
 		start = newValue;
 		lastStart = newValue;
 	}
@@ -105,13 +93,10 @@
 		</label>
 		<div class="flex flex-wrap gap-2">
 			<button
-				class="btn btn-sm"
+				class="btn btn-sm"	
 				class:btn-primary={filterMode === 'date_range'}
 				onclick={() => {
 					filterMode = 'date_range';
-					// Clear deadline when switching to date range
-					deadline = null;
-					deadlineDate = undefined;
 				}}
 			>
 				{$t('dashboard.bids.components.filters.availability.date_range')}
@@ -121,11 +106,6 @@
 				class:btn-primary={filterMode === 'deadline'}
 				onclick={() => {
 					filterMode = 'deadline';
-					// Clear date range when switching to deadline
-					dateRange.start = null;
-					dateRange.end = null;
-					start = undefined;
-					end = undefined;
 				}}
 			>
 				{$t('dashboard.bids.components.filters.availability.deadline')}
