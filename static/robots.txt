@@ -1,6 +1,0 @@
-User-agent: *
-Disallow: /
-
-# Note: This file is for development only.
-# For production builds, robots.txt is automatically generated during the build process.
-# The generated robots.txt will overwrite this file in the build directory.

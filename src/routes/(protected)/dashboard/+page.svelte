@@ -84,13 +84,13 @@
 			<p class="text-base-content/70 px-1">{$t('dashboard.description')}</p>
 		</div>
 		<a
-			href={activeTab === 'bids' || activeTab === 'saved-searches'
-				? '/dashboard/find-tasks'
-				: activeTab === 'contracts'
-				? '/dashboard/wallet'
-				: '/dashboard/create-task'}
-			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
-		>
+				href={activeTab === 'bids' || activeTab === 'saved-searches'
+					? '/dashboard/find-tasks'
+					: activeTab === 'contracts'
+					? '/dashboard/wallet'
+					: '/dashboard/create-task'}
+				class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
+			>
 			{#if activeTab === 'bids' || activeTab === 'saved-searches'}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

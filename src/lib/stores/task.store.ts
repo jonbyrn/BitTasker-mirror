@@ -12,6 +12,8 @@ import { appStore } from './app.store';
 const CREATE_STORAGE_KEY = StorageKeys.DRAFT_TASK;
 const EDIT_STORAGE_KEY = StorageKeys.DRAFT_TASK_EDIT;
 
+export const TASKS_PER_PAGE = 10;
+
 export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET, TaskStepEnum.REVIEW]);
 
 const getInitialState = () => ({

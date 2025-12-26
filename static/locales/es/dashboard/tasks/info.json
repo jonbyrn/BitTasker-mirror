@@ -163,9 +163,17 @@
       "new_matching_tasks": "Nuevas tareas coincidentes",
       "unread_new_label": "nuevas",
       "budget_tier_label": "Nivel de presupuesto",
+      "budget_tiers": {
+        "micro": "Micro",
+        "small": "Pequeño",
+        "medium": "Mediano",
+        "large": "Grande",
+        "enterprise": "Empresarial"
+      },
       "created_label": "Creada",
       "notifications_off": "Notificaciones desactivadas",
       "notifications_on": "Notificaciones activadas",
+      "notifications_activated": "Notificaciones activadas",
       "actions": {
         "edit_saved_search": "Editar búsqueda guardada",
         "delete_saved_search": "Eliminar búsqueda guardada"
@@ -208,6 +216,7 @@
         "inactive_hint": "Las búsquedas inactivas no aparecerán en tu panel",
         "notification_frequency_label": "Frecuencia de notificaciones",
         "select_frequency_placeholder": "Selecciona la frecuencia",
+        "filters_info": "Si quieres agregar más parámetros de búsqueda, puedes buscarlos en la opción de filtros.",
         "cancel": "Cancelar",
         "saving": "Guardando...",
         "errors": {

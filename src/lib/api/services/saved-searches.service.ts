@@ -20,7 +20,7 @@ export class SavedSearchesService extends BaseApiService {
 		name: string,
 		searchParams: SearchTasksParams,
 		notifyOnMatch: boolean,
-		notificationFrequency: NotificationFrequency = NotificationFrequency.DAILY
+		notificationFrequency: NotificationFrequency = NotificationFrequency.WEEKLY
 	): Promise<SavedSearch> {
 		const response = await this.post<SavedSearch>(ENDPOINTS.SAVED_SEARCHES.CREATE, {
 			name,
