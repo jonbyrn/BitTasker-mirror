@@ -2,7 +2,7 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { myTasksStore } from '$lib/stores/task.store';
+	import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
@@ -281,7 +281,7 @@
 			bidStatusMap.clear();
 			lastCheckedTaskIds.clear();
 
-			await findMyTasks({ page: 1, limit: 100 });
+			await findMyTasks({ page: 1, limit: TASKS_PER_PAGE });
 			// Check bids in background after loading tasks
 			await checkBidsInBackground(true);
 		} catch (err) {
@@ -301,7 +301,7 @@
 			bidStatusMap.clear();
 			lastCheckedTaskIds.clear();
 
-			await findMyTasks({ page: 1, limit: 100 });
+			await findMyTasks({ page: 1, limit: TASKS_PER_PAGE });
 			await checkBidsInBackground(true);
 			// Show success message only if no error occurred
 			if (!error) {

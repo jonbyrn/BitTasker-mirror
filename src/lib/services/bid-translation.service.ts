@@ -1,4 +1,4 @@
-import type { NostrBid, BidTranslations } from '$lib/types/bid';
+import type { BidTranslations } from '$lib/nostr/bid';
 
 /**
  * Tipo para bids que pueden tener traducciones
@@ -36,7 +36,7 @@ export class BidTranslationService {
 		// Obtener traducción almacenada del evento Nostr
 		if (bid.translations.translations && bid.translations.translations[targetLanguage]) {
 			const storedTranslation = bid.translations.translations[targetLanguage];
-			
+
 			// Retornar la traducción del campo específico
 			return storedTranslation[contentType] || null;
 		}
@@ -64,4 +64,3 @@ export class BidTranslationService {
 }
 
 export const bidTranslationService = new BidTranslationService();
-

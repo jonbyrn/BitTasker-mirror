@@ -7,16 +7,20 @@
 	import { t } from 'svelte-i18n';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
-	// Props
-	let { onAvailabilityChange = () => {} } = $props<{
-		onAvailabilityChange?: (
-			filterMode: 'date_range' | 'deadline',
-			start: string,
-			end: string
-		) => void;
+	// Props with bindable date range and deadline
+	let { 
+		start = $bindable<string | undefined>(),
+		end = $bindable<string | undefined>(),
+		deadlineDate = $bindable<string | undefined>(),
+		filterMode = $bindable<'date_range' | 'deadline'>('deadline')
+	} = $props<{
+		start?: string | undefined;
+		end?: string | undefined;
+		deadlineDate?: string | undefined;
+		filterMode?: 'date_range' | 'deadline';
 	}>();
 
-	// State
+	// Internal state for Date objects (derived from bound string props)
 	let dateRange = $state<{ start: Date | null; end: Date | null }>({
 		start: null,
 		end: null
@@ -24,49 +28,61 @@
 	let deadline = $state<Date | null>(null);
 
 	let timePreferences = $state<string[]>([]);
-	const timeOptions = $state([
-		{ value: 'morning', label: 'Morning (6am-12pm)' },
-		{ value: 'midday', label: 'Midday (12pm-3pm)' },
-		{ value: 'afternoon', label: 'Afternoon (3pm-6pm)' },
-		{ value: 'evening', label: 'Evening (6pm-10pm)' }
-	]);
 
-	// Deadline filter modes
-	let filterMode = $state<'date_range' | 'deadline'>('deadline');
+	// Track last prop values to prevent unnecessary updates
+	let lastStart = $state<string | undefined>(start);
+	let lastEnd = $state<string | undefined>(end);
+	let lastDeadlineDate = $state<string | undefined>(deadlineDate);
 
-	// Toggle time preference
-	function toggleTimePreference(value: string) {
-		if (timePreferences.includes(value)) {
-			timePreferences = timePreferences.filter((item) => item !== value);
-		} else {
-			timePreferences = [...timePreferences, value];
+	// Only sync when props actually change from parent, not when we update them
+	$effect(() => {
+		if (filterMode === 'date_range') {
+			// Only update if the prop value actually changed (from parent)
+			if (start !== lastStart) {
+				dateRange.start = start ? new Date(start) : null;
+				lastStart = start;
+			}
+			if (end !== lastEnd) {
+				dateRange.end = end ? new Date(end) : null;
+				lastEnd = end;
+			}
+		} else if (filterMode === 'deadline') {
+			if (deadlineDate !== lastDeadlineDate) {
+				deadline = deadlineDate ? new Date(deadlineDate) : null;
+				lastDeadlineDate = deadlineDate;
+			}
 		}
-	}
+	});
 
 	// Clear availability filters
 	function clearAvailability() {
-		dateRange.start = null;
-		dateRange.end = null;
-		deadline = null;
 		timePreferences = [];
+		start = undefined;
+		end = undefined;
+		deadlineDate = undefined;
 	}
 
-	// Apply availability filter changes
-	function applyChanges() {
-		if (filterMode === 'date_range') {
-			const startStr = dateRange.start ? dateRange.start.toISOString().split('T')[0] : '';
-			const endStr = dateRange.end ? dateRange.end.toISOString().split('T')[0] : '';
-			return onAvailabilityChange('date_range', startStr, endStr);
-		} else if (filterMode === 'deadline') {
-			const deadlineStr = deadline ? deadline.toISOString().split('T')[0] : '';
-			return onAvailabilityChange('deadline', deadlineStr);
-		}
+	// Handle date changes and update bound values
+	function handleStartDateChange(date: Date | null) {
+		dateRange.start = date;
+		const newValue = date ? date.toISOString().split('T')[0] : undefined;
+		start = newValue;
+		lastStart = newValue;
 	}
 
-	// Update parent when our filters change
-	$effect(() => {
-		applyChanges();
-	});
+	function handleEndDateChange(date: Date | null) {
+		dateRange.end = date;
+		const newValue = date ? date.toISOString().split('T')[0] : undefined;
+		end = newValue;
+		lastEnd = newValue;
+	}
+
+	function handleDeadlineChange(date: Date | null) {
+		deadline = date;
+		const newValue = date ? date.toISOString().split('T')[0] : undefined;
+		deadlineDate = newValue;
+		lastDeadlineDate = newValue;
+	}
 </script>
 
 <div class="space-y-4">
@@ -77,16 +93,20 @@
 		</label>
 		<div class="flex flex-wrap gap-2">
 			<button
-				class="btn btn-sm"
+				class="btn btn-sm"	
 				class:btn-primary={filterMode === 'date_range'}
-				onclick={() => (filterMode = 'date_range')}
+				onclick={() => {
+					filterMode = 'date_range';
+				}}
 			>
 				{$t('dashboard.bids.components.filters.availability.date_range')}
 			</button>
 			<button
 				class="btn btn-sm"
 				class:btn-primary={filterMode === 'deadline'}
-				onclick={() => (filterMode = 'deadline')}
+				onclick={() => {
+					filterMode = 'deadline';
+				}}
 			>
 				{$t('dashboard.bids.components.filters.availability.deadline')}
 			</button>
@@ -107,7 +127,7 @@
 					placeholderKey="dashboard.bids.components.filters.availability.airdatepicker.select_start_date"
 					minDate={new Date()}
 					maxDate={undefined}
-					onChange={(date: Date | null) => dateRange.start = date}
+					onChange={handleStartDateChange}
 				/>
 				<DateInput
 					bind:value={dateRange.end}
@@ -116,7 +136,7 @@
 					placeholderKey="dashboard.bids.components.filters.availability.airdatepicker.select_end_date"
 					minDate={dateRange.start || new Date()}
 					maxDate={undefined}
-					onChange={(date: Date | null) => dateRange.end = date}
+					onChange={handleEndDateChange}
 				/>
 			</div>
 		</div>
@@ -150,7 +170,7 @@
 				placeholderKey="dashboard.bids.components.filters.availability.airdatepicker.select_date"
 				minDate={new Date()}
 				maxDate={undefined}
-				onChange={(date: Date | null) => deadline = date}
+				onChange={handleDeadlineChange}
 			/>
 		</div>
 	{/if}

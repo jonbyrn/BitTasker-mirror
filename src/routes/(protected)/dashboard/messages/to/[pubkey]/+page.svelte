@@ -85,7 +85,7 @@
 	}
 </script>
 
-<div class="bg-base-100 mt-6 md:mt-0  mx-auto max-w-6xl rounded-2xl shadow-xl border border-base-300/20 overflow-hidden h-[calc(75vh)] md:h-[calc(70vh)] flex flex-col">
+<div class="bg-base-100 mt-6 md:mt-0  mx-auto max-w-6xl rounded-2xl shadow-xl border border-base-300/20 overflow-hidden h-[calc(60vh)] md:h-[calc(70vh)] flex flex-col">
 	{#if isLoading}
 		<!-- Loading State -->
 		<div class="flex h-full items-center justify-center">

@@ -32,7 +32,7 @@ export async function triggerHaptic(style: ImpactStyle = ImpactStyle.Light): Pro
 			};
 
 			await hapticsModule.Haptics.impact({
-				style: impactStyleMap[style] as any
+				style: impactStyleMap[style] 
 			});
 		}
 	} catch (error) {

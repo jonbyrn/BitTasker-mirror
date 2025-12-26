@@ -267,7 +267,7 @@
 								class="flex w-full items-center gap-2 whitespace-nowrap"
 							>
 								<IconQrcode class="text-primary" />
-								<span class="break-words whitespace-normal font-bold">{userDisplayName}</span>
+								<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
 							</button>
 						</li>
 					{/if}

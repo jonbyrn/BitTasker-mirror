@@ -50,7 +50,7 @@ export class TranslationService {
 	 * Validate language code - only English and Spanish supported
 	 */
 	private validateLanguage(language: string): boolean {
-		return this.SUPPORTED_LANGUAGES.includes(language as any);
+		return this.SUPPORTED_LANGUAGES.includes(language as (typeof this.SUPPORTED_LANGUAGES)[number]);
 	}
 
 	/**
@@ -67,11 +67,11 @@ export class TranslationService {
 			const response = await fetch(`${this.baseUrl}/detect?key=${this.apiKey}`, {
 				method: 'POST',
 				headers: {
-					'Content-Type': 'application/json',
+					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					q: text,
-				}),
+					q: text
+				})
 			});
 
 			if (!response.ok) {
@@ -80,7 +80,7 @@ export class TranslationService {
 
 			const data = await response.json();
 			const detectedLang = data.data?.detections?.[0]?.[0]?.language || null;
-			
+
 			// Only return if it's a supported language
 			return this.validateLanguage(detectedLang) ? detectedLang : null;
 		} catch (error) {
@@ -100,7 +100,7 @@ export class TranslationService {
 		if (!this.isAvailable() || texts.length === 0) {
 			return texts.map(() => ({
 				code: 'NO_API_KEY',
-				message: 'Translation service not available',
+				message: 'Translation service not available'
 			}));
 		}
 
@@ -108,22 +108,22 @@ export class TranslationService {
 		if (!this.validateLanguage(targetLanguage)) {
 			return texts.map(() => ({
 				code: 'UNSUPPORTED_LANGUAGE',
-				message: 'Only English and Spanish are supported',
+				message: 'Only English and Spanish are supported'
 			}));
 		}
 		if (sourceLanguage && !this.validateLanguage(sourceLanguage)) {
 			return texts.map(() => ({
 				code: 'UNSUPPORTED_LANGUAGE',
-				message: 'Only English and Spanish are supported',
+				message: 'Only English and Spanish are supported'
 			}));
 		}
 
 		// Filter out empty texts
-		const validTexts = texts.filter(t => t.trim());
+		const validTexts = texts.filter((t) => t.trim());
 		if (validTexts.length === 0) {
 			return texts.map(() => ({
 				code: 'EMPTY_TEXT',
-				message: 'Empty text',
+				message: 'Empty text'
 			}));
 		}
 
@@ -139,7 +139,7 @@ export class TranslationService {
 			} = {
 				q: validTexts,
 				target: targetLanguage,
-				format: 'text',
+				format: 'text'
 			};
 
 			if (sourceLanguage) {
@@ -155,10 +155,10 @@ export class TranslationService {
 			const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
 				method: 'POST',
 				headers: {
-					'Content-Type': 'application/json',
+					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify(requestBody),
-				signal: controller.signal,
+				signal: controller.signal
 			});
 
 			clearTimeout(timeoutId);
@@ -179,7 +179,7 @@ export class TranslationService {
 				if (!text.trim()) {
 					return {
 						code: 'EMPTY_TEXT',
-						message: 'Empty text',
+						message: 'Empty text'
 					};
 				}
 
@@ -187,7 +187,7 @@ export class TranslationService {
 				if (!translation) {
 					return {
 						code: 'TRANSLATION_ERROR',
-						message: 'No translation returned from API',
+						message: 'No translation returned from API'
 					};
 				}
 
@@ -195,7 +195,7 @@ export class TranslationService {
 					translatedText: translation.translatedText,
 					detectedSourceLanguage: translation.detectedSourceLanguage,
 					originalText: text,
-					targetLanguage,
+					targetLanguage
 				};
 
 				// Cache the result
@@ -211,7 +211,7 @@ export class TranslationService {
 			return texts.map(() => ({
 				code: 'TRANSLATION_ERROR',
 				message: error instanceof Error ? error.message : 'Unknown translation error',
-				details: error,
+				details: error
 			}));
 		} finally {
 			// Save cache to localStorage
@@ -230,7 +230,7 @@ export class TranslationService {
 		if (!this.isAvailable() || !text.trim()) {
 			return {
 				code: 'NO_API_KEY',
-				message: 'Translation service not available',
+				message: 'Translation service not available'
 			};
 		}
 
@@ -238,27 +238,27 @@ export class TranslationService {
 		if (!this.validateLanguage(targetLanguage)) {
 			return {
 				code: 'UNSUPPORTED_LANGUAGE',
-				message: 'Only English and Spanish are supported',
+				message: 'Only English and Spanish are supported'
 			};
 		}
 		if (sourceLanguage && !this.validateLanguage(sourceLanguage)) {
 			return {
 				code: 'UNSUPPORTED_LANGUAGE',
-				message: 'Only English and Spanish are supported',
+				message: 'Only English and Spanish are supported'
 			};
 		}
 
 		// Create cache key
 		const cacheKey = `${text}-${targetLanguage}-${sourceLanguage || 'auto'}`;
-		
+
 		// Check if translation is already pending
 		if (this.pendingTranslations.has(cacheKey)) {
 			return {
 				code: 'PENDING',
-				message: 'Translation already in progress',
+				message: 'Translation already in progress'
 			};
 		}
-		
+
 		// Check cache first
 		const cached = this.cache.get(cacheKey);
 		if (cached && this.isCacheValid(cached)) {
@@ -280,7 +280,7 @@ export class TranslationService {
 			} = {
 				q: text,
 				target: targetLanguage,
-				format: 'text',
+				format: 'text'
 			};
 
 			if (sourceLanguage) {
@@ -296,10 +296,10 @@ export class TranslationService {
 			const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
 				method: 'POST',
 				headers: {
-					'Content-Type': 'application/json',
+					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify(requestBody),
-				signal: controller.signal,
+				signal: controller.signal
 			});
 
 			clearTimeout(timeoutId);
@@ -322,7 +322,7 @@ export class TranslationService {
 				translatedText: translation.translatedText,
 				detectedSourceLanguage: translation.detectedSourceLanguage,
 				originalText: text,
-				targetLanguage,
+				targetLanguage
 			};
 
 			// Cache the result with timestamp
@@ -339,7 +339,7 @@ export class TranslationService {
 			return {
 				code: 'TRANSLATION_ERROR',
 				message: error instanceof Error ? error.message : 'Unknown translation error',
-				details: error,
+				details: error
 			};
 		} finally {
 			// Remove from pending translations
@@ -352,7 +352,7 @@ export class TranslationService {
 	 */
 	private isCacheValid(cached: CachedTranslation): boolean {
 		const now = Date.now();
-		return (now - cached.timestamp) < this.CACHE_DURATION;
+		return now - cached.timestamp < this.CACHE_DURATION;
 	}
 
 	/**
@@ -360,7 +360,7 @@ export class TranslationService {
 	 */
 	private loadCacheFromStorage(): void {
 		if (typeof window === 'undefined') return;
-		
+
 		try {
 			const stored = localStorage.getItem('translation_cache');
 			if (stored) {
@@ -377,7 +377,7 @@ export class TranslationService {
 	 */
 	private saveCacheToStorage(): void {
 		if (typeof window === 'undefined') return;
-		
+
 		try {
 			const serialized = Array.from(this.cache.entries());
 			localStorage.setItem('translation_cache', JSON.stringify(serialized));
@@ -392,11 +392,13 @@ export class TranslationService {
 	private async rateLimit(): Promise<void> {
 		const now = Date.now();
 		const timeSinceLastCall = now - this.lastApiCall;
-		
+
 		if (timeSinceLastCall < this.RATE_LIMIT_DELAY) {
-			await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY - timeSinceLastCall));
+			await new Promise((resolve) =>
+				setTimeout(resolve, this.RATE_LIMIT_DELAY - timeSinceLastCall)
+			);
 		}
-		
+
 		this.lastApiCall = Date.now();
 	}
 

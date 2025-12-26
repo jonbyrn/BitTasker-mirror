@@ -14,9 +14,10 @@ import {
 } from '$lib/utils/task-indexing';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 
 // Constants
-const BATCH_SIZE = 15; // Default tasks limit per page
+const BATCH_SIZE = TASKS_PER_PAGE; // Default tasks limit per page
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 100; // Maximum number of tasks to keep in cache
 
