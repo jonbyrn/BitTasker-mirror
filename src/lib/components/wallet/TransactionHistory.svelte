@@ -9,6 +9,10 @@
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconCheckAll from '~icons/mdi/check-all';
 
+	let { onOpenPaymentRequest } = $props<{
+		onOpenPaymentRequest: (swapId: string) => void;
+	}>();
+
 	// State
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
@@ -75,6 +79,34 @@
 		}
 	];
 
+	const transactionUI = {
+		success: {
+			border: 'border-success',
+			background: 'bg-success/20',
+			text: 'text-success'
+		},
+		warning: {
+			border: 'border-warning',
+			background: 'bg-warning/20',
+			text: 'text-warning'
+		},
+		neutral: {
+			border: 'border-neutral',
+			background: 'bg-neutral/20',
+			text: 'text-neutral'
+		},
+		error: {
+			border: 'border-error',
+			background: 'bg-error/20',
+			text: 'text-error'
+		},
+		info: {
+			border: 'border-info',
+			background: 'bg-info/20',
+			text: 'text-info'
+		}
+	};
+
 	function selectTypeFilter(typeId: 'all' | 'send' | 'receive' | 'contract-function') {
 		typeFilter = typeId;
 		currentPage = 0;
@@ -97,8 +129,8 @@
 
 	let totalPages = $derived(Math.ceil(filteredTransactions.length / itemsPerPage));
 
-	onMount(() => {
-		loadTransactions();
+	onMount(async () => {
+		await loadTransactions();
 	});
 
 	/**
@@ -167,6 +199,36 @@
 		if (page >= 0 && page < totalPages) {
 			currentPage = page;
 		}
+	}
+
+	/**
+	 * Handle transaction click
+	 * Opens swap QR modal for pending swaps (via callback), otherwise opens explorer URL
+	 */
+	async function handleTransactionClick(tx: any) {
+		// Check if this is a swap with a viewQR action
+		if (tx.swap && tx.swap.actions) {
+			const hasViewQRAction = tx.swap.actions.some((action: any) => action.type === 'viewQR');
+
+			if (hasViewQRAction && tx.swap.id) {
+				// Call parent callback to open the modal
+				onOpenPaymentRequest(tx.swap.id);
+				return;
+			}
+		}
+
+		// Default behavior: open explorer URL
+		if (tx.explorerUrl) {
+			window.open(tx.explorerUrl, '_blank');
+		}
+	}
+
+	/**
+	 * Handle viewQR action button click
+	 */
+	async function handleViewQRAction(tx: any, event: Event) {
+		event.stopPropagation(); // Prevent transaction click handler
+		await handleTransactionClick(tx);
 	}
 </script>
 
@@ -456,206 +518,117 @@
 		<div class="space-y-3">
 			{#each paginatedTransactions as tx}
 				{@const valueSats = Number(tx.value)}
-				{@const borderClass =
-					tx.borderColor === 'success'
-						? 'border-success'
-						: tx.borderColor === 'warning'
-							? 'border-warning'
-							: 'border-info'}
-				{@const bgClass =
-					tx.borderColor === 'success'
-						? 'bg-success/20'
-						: tx.borderColor === 'warning'
-							? 'bg-warning/20'
-							: 'bg-info/20'}
-				{@const textClass =
-					tx.borderColor === 'success'
-						? 'text-success'
-						: tx.borderColor === 'warning'
-							? 'text-warning'
-							: 'text-info'}
-				{#if tx.explorerUrl}
-					<a
-						href={tx.explorerUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="card bg-base-200 hover:bg-base-300 cursor-pointer rounded-lg border-2 transition-colors {borderClass}"
-					>
-						<div class="card-body p-4">
-							<div class="flex flex-col gap-1">
-								<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
-								<div class="flex items-center justify-between gap-2 sm:gap-4">
-									<div class="flex items-center gap-3">
-										<!-- Type Icon with Overlay -->
-										<div class="relative inline-block">
-											<div
-												class="flex h-10 w-10 items-center justify-center rounded-full {bgClass} {textClass}"
-											>
-												<tx.iconConfig.base class="h-6 w-6" />
-											</div>
-											{#if tx.iconConfig.overlay}
-												<div
-													class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm"
-												>
-													<tx.iconConfig.overlay
-														class="h-4 w-4 {tx.borderColor === 'success'
-															? 'text-success'
-															: 'text-warning'}"
-													/>
-												</div>
-											{/if}
+				{@const transactionClasses = transactionUI[tx.borderColor]}
+				<div
+					role="button"
+					tabindex="0"
+					onclick={() => handleTransactionClick(tx)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							handleTransactionClick(tx);
+						}
+					}}
+					class="card bg-base-200 hover:bg-base-300 cursor-pointer rounded-lg border-2 transition-colors {transactionClasses.border}"
+				>
+					<div class="card-body p-4">
+						<div class="flex flex-col gap-1">
+							<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
+								<div class="flex items-center gap-3">
+									<!-- Type Icon with Overlay -->
+									<div class="relative inline-block">
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-full {transactionClasses.background} {transactionClasses.text}"
+										>
+											<tx.iconConfig.base class="h-6 w-6" />
 										</div>
-										<div class="flex items-center gap-2">
-											<span class="font-semibold">
-												{$t(tx.title)}
-											</span>
-											<div
-												class="flex h-5 w-5 items-center justify-center {tx.status.color}"
-												title={tx.status.label}
-											>
-												<tx.status.icon class="h-5 w-5" />
-											</div>
-										</div>
-									</div>
-									<div class="flex flex-col items-end">
-										{#if tx.displayType === 'receive' || tx.displayType === 'swap-claim'}
-											<div class="text-success font-semibold">
-												{#if valueSats > 0}+{/if}{valueSats.toLocaleString()}
-												{$t('wallet.sats')}
-											</div>
-										{:else if tx.displayType === 'send'}
-											<div class="text-warning font-semibold">
-												{#if valueSats > 0}-{/if}{valueSats.toLocaleString()}
-												{$t('wallet.sats')}
-											</div>
-										{:else}
-											<div class="text-info font-semibold">
-												{valueSats.toLocaleString()}
-												{$t('wallet.sats')}
+										{#if tx.iconConfig.overlay}
+											<div class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm">
+												<tx.iconConfig.overlay
+													class="h-4 w-4 {tx.borderColor === 'success'
+														? 'text-success'
+														: 'text-warning'}"
+												/>
 											</div>
 										{/if}
-										<div class="text-xs opacity-70">
-											{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
+									</div>
+									<div class="flex items-center gap-2">
+										<span class="font-semibold">
+											{$t(tx.title)}
+										</span>
+										<div
+											class="flex h-5 w-5 items-center justify-center {tx.status.color}"
+											title={tx.status.label}
+										>
+											<tx.status.icon class="h-5 w-5" />
 										</div>
 									</div>
 								</div>
-
-								<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
-								<div class="flex items-center justify-between gap-2 sm:gap-4">
-									<div class="flex items-center gap-3">
-										<!-- Network Icon -->
-										<div
-											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
-										>
-											<img src={tx.networkIcon} alt={tx.networkDisplayName} class="h-10 w-10" />
-										</div>
-										<div class="text-sm opacity-70">
-											<div>{formatDate(tx.timestamp)}</div>
-											<div>{formatTime(tx.timestamp)}</div>
-										</div>
+								<div class="flex flex-col items-end">
+									<div class="{transactionClasses.text} font-semibold">
+										{#if tx.displayType === 'receive' || tx.displayType === 'swap-claim'}
+											{#if valueSats > 0}+{/if}
+										{:else if tx.displayType === 'send'}
+											{#if valueSats > 0}-{/if}
+										{/if}
+										{valueSats.toLocaleString()}
+										{$t('wallet.sats')}
 									</div>
-									<div class="text-right">
-										<div class="text-sm font-semibold md:text-base">
-											{$t('wallet.balance_after')}: {Math.floor(
-												tx.balanceAfter
-											)?.toLocaleString() || '0'}
-											{$t('wallet.sats')}
-										</div>
+									<div class="text-xs opacity-70">
+										{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
 									</div>
 								</div>
 							</div>
-						</div>
-					</a>
-				{:else}
-					<div
-						class="card bg-base-200 hover:bg-base-300 rounded-lg border-2 transition-colors {borderClass}"
-					>
-						<div class="card-body p-4">
-							<div class="flex flex-col gap-1">
-								<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
-								<div class="flex items-center justify-between gap-2 sm:gap-4">
-									<div class="flex items-center gap-3">
-										<!-- Type Icon with Overlay -->
-										<div class="relative inline-block">
-											<div
-												class="flex h-10 w-10 items-center justify-center rounded-full {bgClass} {textClass}"
-											>
-												<tx.iconConfig.base class="h-6 w-6" />
-											</div>
-											{#if tx.iconConfig.overlay}
-												<div
-													class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm"
-												>
-													<tx.iconConfig.overlay
-														class="h-3 w-3 {tx.borderColor === 'success'
-															? 'text-success'
-															: 'text-warning'}"
-													/>
-												</div>
-											{/if}
-										</div>
-										<div class="flex items-center gap-2">
-											<span class="font-semibold">
-												{$t(tx.title)}
-											</span>
-											<div
-												class="flex h-5 w-5 items-center justify-center {tx.status.color}"
-												title={tx.status.label}
-											>
-												<tx.status.icon class="h-5 w-5" />
-											</div>
-										</div>
+
+							<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
+								<div class="flex items-center gap-3">
+									<!-- Network Icon -->
+									<div
+										class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+									>
+										<img src={tx.networkIcon} alt={tx.networkDisplayName} class="h-10 w-10" />
 									</div>
-									<div class="flex flex-col items-end">
-										{#if tx.displayType === 'receive' || tx.displayType === 'swap-claim'}
-											<div class="text-success font-semibold">
-												{#if valueSats > 0}+{/if}{valueSats.toLocaleString()}
-												{$t('wallet.sats')}
-											</div>
-										{:else if tx.displayType === 'send'}
-											<div class="text-warning font-semibold">
-												{#if valueSats > 0}-{/if}{valueSats.toLocaleString()}
-												{$t('wallet.sats')}
-											</div>
-										{:else}
-											<div class="text-info font-semibold">
-												{valueSats.toLocaleString()}
-												{$t('wallet.sats')}
-											</div>
-										{/if}
-										<div class="text-xs opacity-70">
-											{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
-										</div>
+									<div class="text-sm opacity-70">
+										<div>{formatDate(tx.timestamp)}</div>
+										<div>{formatTime(tx.timestamp)}</div>
 									</div>
 								</div>
-
-								<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
-								<div class="flex items-center justify-between gap-2 sm:gap-4">
-									<div class="flex items-center gap-3">
-										<!-- Network Icon -->
-										<div
-											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
-										>
-											<img src={tx.networkIcon} alt={tx.networkDisplayName} class="h-10 w-10" />
-										</div>
-										<div class="text-sm opacity-70">
-											<div>{formatDate(tx.timestamp)}</div>
-											<div>{formatTime(tx.timestamp)}</div>
-										</div>
+								<div class="text-right">
+									<div class="text-sm font-semibold md:text-base">
+										{$t('wallet.balance_after')}: {Math.floor(tx.balanceAfter)?.toLocaleString() ||
+											'0'}
+										{$t('wallet.sats')}
 									</div>
-									<div class="text-right">
-										<div class="text-sm font-semibold md:text-base">
-											{$t('wallet.balance_after')}: {Math.floor(
-												tx.balanceAfter
-											)?.toLocaleString() || '0'}
-											{$t('wallet.sats')}
+									<!-- Swap Action Buttons - Thin, directly below balance -->
+									{#if tx.swap?.actions && tx.swap.actions.length > 0}
+										<div class="flex flex-wrap gap-1.5 justify-end">
+											{#each tx.swap.actions as action}
+												<button
+													class="btn btn-xs"
+													class:btn-warning={action.type === 'refund'}
+													class:btn-primary={action.type === 'renegotiate' ||
+														action.type === 'viewQR'}
+													class:btn-success={action.type === 'claim'}
+													onclick={(e) => {
+														if (action.type === 'viewQR') {
+															handleViewQRAction(tx, e);
+														} else {
+															action.handler();
+														}
+													}}
+												>
+													{$t(action.label)}
+												</button>
+											{/each}
 										</div>
-									</div>
+									{/if}
 								</div>
 							</div>
 						</div>
 					</div>
-				{/if}
+				</div>
 			{/each}
 		</div>
 

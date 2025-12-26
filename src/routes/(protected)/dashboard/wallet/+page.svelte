@@ -7,7 +7,13 @@
 	import { fly } from 'svelte/transition';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import { walletManager, rskConnection, walletStore } from '$lib/stores/wallet.store';
+	import { getSwapType, isSwapCompleted } from '$lib/utils/wallet/swapTransaction';
+	import {
+		walletManager,
+		rskConnection,
+		walletStore,
+		updateSwapTransaction
+	} from '$lib/stores/wallet.store';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
@@ -19,8 +25,10 @@
 	import IconUpload from '~icons/mdi/upload';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconChevronRight from '~icons/mdi/chevron-right';
+	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 
 	let isLoading = $state(false);
+	let unsubscribeFromSwaps: (() => void) | null = null;
 
 	async function initializeWallet(): Promise<void> {
 		try {
@@ -36,10 +44,24 @@
 
 	onMount(async () => {
 		await initializeWallet();
+		// Subscribe to real-time swap updates via WebSocket
+		try {
+			unsubscribeFromSwaps = walletManager.onSwapUpdate((event: any) => {
+				// Determine swap type from swap data
+				const swapType = getSwapType(event.swapData);
+
+				// Update the specific swap transaction
+				updateSwapTransaction(event.swapId, event.swapData, swapType);
+			});
+		} catch (err) {
+			console.error('Failed to subscribe to swap updates:', err);
+		}
 	});
 
 	onDestroy(async () => {
 		await walletManager.cleanup();
+		// Clean up WebSocket subscription
+		unsubscribeFromSwaps?.();
 	});
 
 	// Reactive state from centralized store
@@ -49,6 +71,59 @@
 	let showReceiveModal = $state(false);
 	let showSendModal = $state(false);
 	let showTransactionsModal = $state(false);
+
+	// Centralized Payment Request Modal state
+	let paymentRequestModal = $state<{
+		isOpen: boolean;
+		// Pattern 1: Swap-based
+		swapId?: string | null;
+		// Pattern 2: Direct payment
+		address?: string | null;
+		network?: string | null;
+		amount?: number | null;
+		memo?: string | null;
+		chargeFeesToPayer?: boolean;
+		totalFees?: number | null;
+	}>({
+		isOpen: false,
+		swapId: null,
+		address: null,
+		network: null,
+		amount: null,
+		memo: null,
+		chargeFeesToPayer: false,
+		totalFees: null
+	});
+
+	// Function to open the payment request modal (supports both patterns)
+	function openPaymentRequestModal(data: {
+		swapId?: string;
+		address?: string;
+		network?: string;
+		amount?: number;
+		memo?: string;
+		chargeFeesToPayer?: boolean;
+		totalFees?: number;
+	}) {
+		paymentRequestModal = {
+			isOpen: true,
+			...data
+		};
+	}
+
+	// Function to close the payment request modal
+	function closePaymentRequestModal() {
+		paymentRequestModal = {
+			isOpen: false,
+			swapId: null,
+			address: null,
+			network: null,
+			amount: null,
+			memo: null,
+			chargeFeesToPayer: false,
+			totalFees: null
+		};
+	}
 </script>
 
 <svelte:head>
@@ -194,14 +269,14 @@
 				<!-- Send and Receive Buttons -->
 				<div class="flex flex-row gap-2 sm:gap-4">
 					<button
-						class="btn btn-primary order-1 flex-1 min-h-[44px] py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
+						class="btn btn-primary order-1 min-h-[44px] flex-1 py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
 						onclick={() => (showReceiveModal = true)}
 					>
 						<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
 						{$t('wallet.tab_receive')}
 					</button>
 					<button
-						class="btn btn-secondary order-2 flex-1 min-h-[44px] py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
+						class="btn btn-secondary order-2 min-h-[44px] flex-1 py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
 						onclick={() => (showSendModal = true)}
 					>
 						<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
@@ -257,9 +332,9 @@
 >
 	<ReceivePaymentForm
 		onCancel={() => (showReceiveModal = false)}
-		onInvoiceGenerated={(invoiceData) => {
-			// Handle invoice generation success - could show InvoiceDisplay here
-			console.log('Invoice generated:', invoiceData);
+		onOpenPaymentRequest={(data) => {
+			showReceiveModal = false; // Close receive form
+			openPaymentRequestModal(data); // Open payment request modal
 		}}
 	/>
 </WalletPaymentModal>
@@ -303,5 +378,31 @@
 			</svg>
 		</button>
 	</div>
-	<TransactionHistory />
+	<TransactionHistory
+		onOpenPaymentRequest={(swapId) => {
+			showTransactionsModal = false; // Close transactions modal
+			openPaymentRequestModal({ swapId }); // Open payment request modal with swap
+		}}
+	/>
 </WalletPaymentModal>
+
+<!-- Centralized Payment Request Modal -->
+{#if paymentRequestModal.isOpen && (paymentRequestModal.swapId || paymentRequestModal.address)}
+	<WalletPaymentModal
+		isOpen={paymentRequestModal.isOpen}
+		mode="receive"
+		onClose={closePaymentRequestModal}
+	>
+		<PaymentRequestModal
+			isOpen={paymentRequestModal.isOpen}
+			swapId={paymentRequestModal.swapId ?? undefined}
+			address={paymentRequestModal.address ?? undefined}
+			network={paymentRequestModal.network ?? undefined}
+			amount={paymentRequestModal.amount ?? undefined}
+			memo={paymentRequestModal.memo ?? undefined}
+			chargeFeesToPayer={paymentRequestModal.chargeFeesToPayer}
+			totalFees={paymentRequestModal.totalFees ?? undefined}
+			onClose={closePaymentRequestModal}
+		/>
+	</WalletPaymentModal>
+{/if}

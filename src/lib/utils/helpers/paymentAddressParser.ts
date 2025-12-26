@@ -33,7 +33,8 @@ const ETHEREUM_SCHEME_REGEX = /^(ethereum|bsc|rsk):/i;
 const CHAIN_ID_REGEX = /@(\d+)(?:\?|$)/;
 const ETHEREUM_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/;
 // Liquid address prefix check (for quick filtering before full validation)
-const LIQUID_ADDRESS_PREFIX_REGEX = /^(VJL|ex1|ert1)/i;
+// lq1: Liquid mainnet (Bech32), tex1: Liquid testnet, ert1: Elements regtest, VJL: Legacy P2SH, ex1: Elements
+const LIQUID_ADDRESS_PREFIX_REGEX = /^(lq1|tex1|ert1|VJL|ex1)/i;
 
 /**
  * Validate Ethereum address checksum (EIP-55)
@@ -340,36 +341,65 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 		}
 	}
 
-	// 3. Check for Liquid address (similar to Bitcoin but different prefixes)
-	const liquidQueryIndex = trimmed.indexOf('?');
-	const liquidAddressPart = liquidQueryIndex === -1 ? trimmed : trimmed.substring(0, liquidQueryIndex);
+	// 3. Check for Liquid address (supports: liquid:, liquidnetwork:, or plain address)
+	// Handle Liquid URI schemes: liquid:address or liquidnetwork:address
+	const isLiquidUri = trimmed.startsWith('liquid:') || trimmed.startsWith('liquidnetwork:');
+	let liquidAddressPart = trimmed;
+	let liquidQueryIndex = -1;
+	
+	if (isLiquidUri) {
+		// Extract address and query from liquid:address?params or liquidnetwork:address?params format
+		const withoutScheme = trimmed.startsWith('liquidnetwork:') 
+			? trimmed.substring(14) // Remove "liquidnetwork:"
+			: trimmed.substring(7); // Remove "liquid:"
+		liquidQueryIndex = withoutScheme.indexOf('?');
+		liquidAddressPart = liquidQueryIndex === -1 ? withoutScheme : withoutScheme.substring(0, liquidQueryIndex);
+	} else {
+		// Plain address, check for query params
+		liquidQueryIndex = trimmed.indexOf('?');
+		liquidAddressPart = liquidQueryIndex === -1 ? trimmed : trimmed.substring(0, liquidQueryIndex);
+	}
 	
 	if (validateLiquidAddress(liquidAddressPart)) {
-		try {
-			// Handle Liquid URI format: liquid:address?amount=...&label=...&message=...
-			const uri = trimmed.includes('://') ? trimmed : `liquid:${trimmed}`;
-			const url = new URL(uri);
+		// Parse query parameters if present
+		if (isLiquidUri || liquidQueryIndex !== -1) {
+			try {
+				// Extract query string from original input
+				const queryString = liquidQueryIndex !== -1 
+					? trimmed.substring(trimmed.indexOf('?') + 1)
+					: '';
+				const params = new URLSearchParams(queryString);
 
-			let amount: number | null = null;
-			const amountParam = url.searchParams.get('amount');
-			if (amountParam) {
-				const btc = parseFloat(amountParam);
-				if (!isNaN(btc) && btc >= 0) {
-					amount = Math.floor(btc * SATS_PER_BTC);
+				let amount: number | null = null;
+				const amountParam = params.get('amount');
+				if (amountParam) {
+					const btc = parseFloat(amountParam);
+					if (!isNaN(btc) && btc >= 0) {
+						amount = Math.floor(btc * SATS_PER_BTC);
+					}
 				}
+
+				const memo = params.get('label') || params.get('message') || null;
+
+				return {
+					isValid: true,
+					address: liquidAddressPart,
+					network: 'liquid-bitcoin',
+					amount,
+					memo
+				};
+			} catch (error) {
+				// If query parsing fails, return basic Liquid address
+				return {
+					isValid: true,
+					address: liquidAddressPart,
+					network: 'liquid-bitcoin',
+					amount: null,
+					memo: null
+				};
 			}
-
-			const memo = url.searchParams.get('label') || url.searchParams.get('message') || null;
-
-			return {
-				isValid: true,
-				address: url.pathname || liquidAddressPart,
-				network: 'liquid-bitcoin',
-				amount,
-				memo
-			};
-		} catch (error) {
-			// If URL parsing fails, return basic Liquid address
+		} else {
+			// Plain Liquid address without any params
 			return {
 				isValid: true,
 				address: liquidAddressPart,

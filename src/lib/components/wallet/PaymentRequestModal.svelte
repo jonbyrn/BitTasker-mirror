@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
-	import { walletManager } from '$lib/stores/wallet.store';
+	import { walletManager, transactions } from '$lib/stores/wallet.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
@@ -18,15 +18,19 @@
 
 	interface Props {
 		isOpen: boolean;
-		amount: number; // Amount in sats (receiver's requested amount)
-		network: string;
-		memo?: string;
-		address: string; // Payment address/invoice
-		swapId?: string; // For Lightning swaps, monitor by swap ID
-		chargeFeesToPayer?: boolean; // Whether fees are charged to payer
-		totalFees?: number; // Total fees in sats (if chargeFeesToPayer is true)
 		onClose: () => void;
 		onEdit?: () => void; // Callback to return to edit screen
+		
+		// Pattern 1: Swap-based payment (provide swapId, modal fetches everything)
+		swapId?: string;
+		
+		// Pattern 2: Direct address payment (provide all details for non-swap payments like Rootstock)
+		address?: string;
+		network?: string;
+		amount?: number;
+		memo?: string;
+		chargeFeesToPayer?: boolean; // Whether fees are charged to payer
+		totalFees?: number; // Total fees in sats (if chargeFeesToPayer is true)
 	}
 
 	const props: Props = $props();
@@ -37,19 +41,87 @@
 	let btcPrice = $state<number>(0);
 	let isTransactionConfirmed = $state(false);
 	let addressExpanded = $state(false); // Track if address is expanded to show full address
-	let monitoringStartTime: number | null = null;
 	
-	// Monitoring timeout: 1 hour (3600000 ms)
-	const MONITORING_TIMEOUT_MS = 3600000;
+	// Determine if this is a swap-based payment or direct address payment
+	const isSwapBased = $derived(!!props.swapId);
 	
-	// Reactive swap monitoring - automatically updates when SDK receives WebSocket updates
+	// Find the swap transaction from transactions store (reactive via WebSocket updates)
+	const swapTransaction = $derived.by(() => {
+		if (!props.swapId) return null;
+		return $transactions.find(tx => tx.swap?.id === props.swapId);
+	});
+	
+	// Get status from transaction (reactive and UI-ready with label, icon, color)
+	const swapStatus = $derived.by(() => {
+		if (!swapTransaction) return null;
+		return swapTransaction.status;
+	});
+	
+	// Get swap data from swap services for static data (invoice/address)
+	// This doesn't need to be reactive since invoice/address don't change
 	const currentSwap = $derived.by(() => {
-		if (props.network === 'lightning-bitcoin' && props.swapId) {
-			return walletManager.reverseSwapService?.getSwap(props.swapId);
-		} else if (props.network === 'liquid-bitcoin' && props.swapId) {
-			return walletManager.chainSwapService?.getSwap(props.swapId);
-		}
+		if (!props.swapId) return undefined;
+		
+		// Try to find swap in all swap services
+		const reverseSwap = walletManager.reverseSwapService?.getSwap(props.swapId);
+		if (reverseSwap) return { data: reverseSwap, type: 'reverse' as const };
+		
+		const chainSwap = walletManager.chainSwapService?.getSwap(props.swapId);
+		if (chainSwap) return { data: chainSwap, type: 'chain' as const };
+		
+		const submarineSwap = walletManager.submarineSwapService?.getSwap(props.swapId);
+		if (submarineSwap) return { data: submarineSwap, type: 'submarine' as const };
+		
 		return undefined;
+	});
+	
+	// Derive network - from swap type OR from props
+	const network = $derived.by(() => {
+		if (currentSwap) {
+			// Swap-based: derive from swap type
+			if (currentSwap.type === 'chain') return 'liquid-bitcoin';
+			return 'lightning-bitcoin'; // Both reverse and submarine use Lightning
+		}
+		// Direct payment: use provided network
+		return props.network || 'rootstock-bitcoin';
+	});
+	
+	// Derive address - from swap data OR from props
+	const address = $derived.by(() => {
+		if (currentSwap) {
+			// Swap-based: extract from swap data
+			const swapData = currentSwap.data;
+			
+			if (currentSwap.type === 'reverse') {
+				return (swapData as any).invoice || '';
+			} else if (currentSwap.type === 'chain') {
+				return (swapData as any).liquidUri || '';
+			} else if (currentSwap.type === 'submarine') {
+				return (swapData as any).invoice || '';
+			}
+			return '';
+		}
+		// Direct payment: use provided address
+		return props.address || '';
+	});
+	
+	// Derive amount - from swap data OR from props
+	const amount = $derived.by(() => {
+		if (currentSwap) {
+			// Swap-based: extract from swap data
+			const swapData = currentSwap.data;
+			
+			if (currentSwap.type === 'reverse') {
+				return (swapData as any).amount || 0;
+			} else if (currentSwap.type === 'chain') {
+				return (swapData as any).toAmount || 0;
+			} else if (currentSwap.type === 'submarine') {
+				return (swapData as any).invoiceAmount || 0;
+			}
+			return 0;
+		}
+		// Direct payment: use provided amount
+		return props.amount || 0;
 	});
 
 	// Format sats with thousand separators
@@ -67,22 +139,27 @@
 		}).format(usd);
 	}
 
-	// Calculate the total amount the payer will pay (including fees if chargeFeesToPayer is true)
+	// Calculate the total amount the payer will pay
+	// For swap-based payments: use the amount from swap
+	// For direct payments: include fees if chargeFeesToPayer is true
 	const payerTotalAmount = $derived.by(() => {
-		if (props.chargeFeesToPayer && props.totalFees) {
-			return props.amount + props.totalFees;
+		if (!isSwapBased && props.chargeFeesToPayer && props.totalFees) {
+			return amount + props.totalFees;
 		}
-		return props.amount;
+		return amount;
 	});
 
 	// Get actual received amount - use actualReceivedAmount if available, otherwise fall back to requested amount
 	const displayAmount = $derived.by(() => {
+		if (!currentSwap) return amount;
+		const swapData = currentSwap.data;
+		
 		// Only reverse swaps (Lightning) have onchainAmount property
-		if (currentSwap && 'onchainAmount' in currentSwap && currentSwap.onchainAmount !== undefined && currentSwap.onchainAmount !== null && currentSwap.onchainAmount > 0) {
-			return currentSwap.onchainAmount;
+		if (currentSwap.type === 'reverse' && 'onchainAmount' in swapData && swapData.onchainAmount !== undefined && swapData.onchainAmount !== null && swapData.onchainAmount > 0) {
+			return swapData.onchainAmount;
 		}
 		// Fall back to requested amount
-		return payerTotalAmount;
+		return amount;
 	});
 
 	const amountInUSD = $derived.by(() => {
@@ -128,9 +205,9 @@
 	// Get network info matching receive form structure - make reactive to locale changes
 	const networkInfo = $derived.by(() => {
 		return (
-			networkOptions.find((n) => n.value === props.network) || {
-				value: props.network,
-				label: props.network,
+			networkOptions.find((n) => n.value === network) || {
+				value: network,
+				label: network,
 				icon: null
 			}
 		);
@@ -142,59 +219,48 @@
 		return `${address.slice(0, 10)}...${address.slice(-8)}`;
 	}
 
-	// Reactive effect: Monitor swap status changes (triggered by SDK's WebSocket updates)
+	// Reactive effect: Monitor swap status changes (triggered by SDK's WebSocket updates via transactions store)
+	// Only runs for swap-based payments
 	$effect(() => {
-		// Only monitor if we have a swap and modal is open
-		if (!props.isOpen || !currentSwap) return;
+		// Only check for completion when modal is open and we have a swap transaction
+		if (!props.isOpen || !isSwapBased || !swapTransaction) return;
 		
-		// Initialize monitoring start time on first run
-		if (!monitoringStartTime) {
-			monitoringStartTime = Date.now();
-		}
+		const status = swapTransaction.status.label;
 		
-		// Check for timeout
-		if (monitoringStartTime && Date.now() - monitoringStartTime > MONITORING_TIMEOUT_MS) {
-			console.warn('[PaymentRequestModal] Monitoring timeout reached');
-			monitoringStartTime = null;
-			return;
-		}
-		
-		const status = currentSwap.status;
-		
-		// Check if swap is settled/claimed
-		// Lightning: 'invoice.settled' or 'claimed'
-		// Liquid: 'transaction.claimed'
-		if (['invoice.settled', 'claimed', 'transaction.claimed'].includes(status) || currentSwap.claimTxHash) {
+		// Check if swap is completed (confirmed)
+		if (status === 'wallet.transaction.status.confirmed') {
 			isTransactionConfirmed = true;
-			monitoringStartTime = null; // Stop monitoring
 			triggerHaptic(ImpactStyle.Medium);
 			appStore.showSuccessToast($t('wallet.payment_request.payment_received'));
 			walletManager.loadAssets();
-		} else if (['swap.expired', 'transaction.failed', 'transaction.refunded'].includes(status)) {
-			// Swap failed, expired, or refunded
-			monitoringStartTime = null; // Stop monitoring
+		} else if (status === 'wallet.transaction.status.failed') {
+			// Swap failed - show error message
 			appStore.showErrorToast($t('wallet.swap.swap_failed'));
 		}
 	});
 
 	// Generate QR code
 	async function generateQRCode() {
-		if (!props.address) return;
+		if (!address) {
+			isLoadingQR = false; // Clear loading state if no address
+			return;
+		}
 
 		try {
 			isLoadingQR = true;
-			qrCodeDataUrl = await generateQrCodeUrl(props.address);
+			qrCodeDataUrl = await generateQrCodeUrl(address);
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
 			appStore.showErrorToast($t('wallet.invoice.qr_generation_failed'));
+			qrCodeDataUrl = ''; // Clear QR code on error
 		} finally {
 			isLoadingQR = false;
 		}
 	}
 
 	async function copyAddress() {
-		if (props.address) {
-			await copyToClipboard(props.address);
+		if (address) {
+			await copyToClipboard(address);
 			appStore.showSuccessToast($t('wallet.address_copied'));
 			addressCopied = true;
 			triggerHaptic(ImpactStyle.Light);
@@ -213,11 +279,6 @@
 			}),
 			generateQRCode()
 		]);
-	});
-
-	onDestroy(() => {
-		// Reset monitoring start time on cleanup
-		monitoringStartTime = null;
 	});
 
 	// Check for reduced motion preference
@@ -272,7 +333,7 @@
 								<div class="flex items-center gap-2">
 									{#if networkInfo.icon}
 										<img src={networkInfo.icon} alt={networkInfo.label} class="h-5 w-5" />
-									{:else if props.network === 'lightning-bitcoin'}
+									{:else if network === 'lightning-bitcoin'}
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											class="h-5 w-5 text-yellow-500"
@@ -333,7 +394,7 @@
 							<div class="flex items-center gap-3">
 								{#if networkInfo.icon}
 									<img src={networkInfo.icon} alt={networkInfo.label} class="h-6 w-6" />
-								{:else if props.network === 'lightning-bitcoin'}
+								{:else if network === 'lightning-bitcoin'}
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="h-6 w-6 text-yellow-500"
@@ -349,18 +410,27 @@
 										/>
 									</svg>
 								{/if}
-								<span class="text-base font-medium">{networkInfo.label}</span>
-							</div>
-							<!-- Status Indicator (only show when pending) -->
-							{#if !isTransactionConfirmed}
-								<div class="flex items-center gap-2">
-									<span class="loading loading-spinner loading-sm"></span>
-									<span class="badge badge-warning text-primary-content"
-										>{$t('wallet.transaction.status.pending')}</span
-									>
-								</div>
-							{/if}
-						</div>
+					<span class="text-base font-medium">{networkInfo.label}</span>
+				</div>
+				<!-- Status Indicator (only show for swap-based payments) -->
+				{#if isSwapBased && swapStatus && !isTransactionConfirmed}
+					{@const IconComponent = swapStatus.icon}
+					<div class="flex items-center gap-2">
+						<!-- Only show spinner when actually pending -->
+						{#if swapStatus.label === 'wallet.transaction.status.pending'}
+							<span class="loading loading-spinner loading-sm"></span>
+						{/if}
+						<!-- Dynamic status badge with proper colors -->
+						<span class="badge" 
+							class:badge-warning={swapStatus.label === 'wallet.transaction.status.pending'}
+							class:badge-success={swapStatus.label === 'wallet.transaction.status.confirmed'}
+							class:badge-error={swapStatus.label === 'wallet.transaction.status.failed'}>
+							<IconComponent class="mr-1 h-4 w-4" />
+							{$t(swapStatus.label)}
+						</span>
+					</div>
+				{/if}
+				</div>
 
 						<!-- QR Code (Almost Full Screen Width) -->
 						<div class="flex justify-center px-2">
@@ -413,7 +483,7 @@
 									aria-label={$t('wallet.copy_address')}
 								>
 									<code class="block truncate font-mono text-xs">
-										{addressExpanded ? props.address : formatAddress(props.address)}
+										{addressExpanded ? address : formatAddress(address)}
 									</code>
 								</button>
 
@@ -439,7 +509,7 @@
 							{#if addressExpanded}
 								<div class="border-primary/20 border-t px-2 pb-2">
 									<code class="block pt-2 font-mono text-xs break-all whitespace-normal">
-										{props.address}
+										{address}
 									</code>
 								</div>
 							{/if}

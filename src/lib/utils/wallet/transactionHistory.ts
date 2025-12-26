@@ -21,6 +21,13 @@ import { ESCROW_CONTRACT_ADDRESSES, statusUI } from '$lib/utils/constants/transa
 
 type Component = typeof IconArrowUpBold;
 
+// Swap action interface
+export interface SwapAction {
+    type: 'refund' | 'renegotiate' | 'claim' | 'viewQR';
+    label: string; // Translation key
+    handler: () => Promise<void>;
+}
+
 // Processed transaction type with all display properties
 export interface ProcessedTransaction {
     // Core fields from API (pass-through)
@@ -43,7 +50,7 @@ export interface ProcessedTransaction {
 
     // Display helpers (computed once)
     displayType: 'send' | 'receive' | 'swap-claim' | 'contract-function';
-    borderColor: 'warning' | 'success' | 'info';
+    borderColor: 'warning' | 'success' | 'info' | 'neutral' | 'error';
     iconConfig: {
         base: Component; // Icon component for rendering
         overlay: Component | null; // Overlay icon component (for contract interactions)
@@ -67,6 +74,14 @@ export interface ProcessedTransaction {
 
     // Token info for BSC
     tokenSymbol?: string;
+
+    // Swap-specific fields
+    swap?: {
+        id: string; // Present if this is a swap transaction
+        type: 'submarine' | 'reverse' | 'chain';
+        actions: SwapAction[]; // Available actions for failed swaps
+        rawStatus: string; // Raw Boltz API status for comparison (e.g., 'invoice.expired', 'swap.created')
+    };
 }
 
 // Contract addresses cache
@@ -262,7 +277,7 @@ function determineDisplayProperties(
                 displayType: 'swap-claim',
                 borderColor: 'success',
                 iconConfig: { base: IconArrowDownBold, overlay: null },
-                title: 'wallet.transaction.swap_claimed'
+                title: 'wallet.received'
             };
         }
         // lock is treated as send
@@ -270,9 +285,7 @@ function determineDisplayProperties(
             displayType: 'send',
             borderColor: 'warning',
             iconConfig: { base: IconArrowUpBold, overlay: null },
-            title: methodName
-                ? `wallet.transaction.${methodName.toLowerCase()}`
-                : 'wallet.sent'
+            title: 'wallet.sent'
         };
     }
 

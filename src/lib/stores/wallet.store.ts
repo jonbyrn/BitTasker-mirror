@@ -11,12 +11,12 @@ import {
 	type WalletAsset,
 	type WalletState,
 	type NetworkType,
-	type Transaction,
 	type GasEstimation,
 	type SubmarineSwapData,
 	type CreateSubmarineSwapParams,
 	type SubmarineSwapResult,
-	weiToSatoshi
+	type BoltzSwapData,
+	type ChainSwapData,
 } from '@bittasker/wallet-core';
 import type { SwapPairsCache } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
@@ -26,6 +26,7 @@ import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers } from 'ethers';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import { processTransactions, type ProcessedTransaction } from '$lib/utils/wallet/transactionHistory';
+import { isSwapCompleted, mapSwapToTransaction, shouldShowSwap } from '$lib/utils/wallet/swapTransaction';
 
 // Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
@@ -407,7 +408,7 @@ async function loadAssets(): Promise<void> {
 }
 
 /**
- * Load transactions
+ * Load transactions including pending swaps
  */
 async function loadTransactions(): Promise<void> {
 	try {
@@ -417,20 +418,49 @@ async function loadTransactions(): Promise<void> {
 		// Get current balance for running balance calculation
 		const currentBalanceSats = state.totalBalances.sats;
 
-		// Load and process transactions (everything computed in single pass)
+		// Load blockchain transactions
 		const [rskTxs, bscTxs] = await Promise.all([
 			manager.rskWallet ? manager.rskWallet.loadTransactions() : Promise.resolve([]),
 			manager.bscWallet ? manager.bscWallet.loadTransactions() : Promise.resolve([])
 		]);
 
-		// Process both networks in parallel with all properties computed
+		// Process blockchain transactions
 		const [processedRskTxs, processedBscTxs] = await Promise.all([
 			processTransactions(rskTxs, state.rsk.address || '', 'rsk', currentBalanceSats),
 			processTransactions(bscTxs, state.bsc.address || '', 'bsc', currentBalanceSats)
 		]);
 
+		// Load pending swaps from all services
+		const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
+			manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
+			manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
+			manager.chainSwapService.recoverPendingSwaps().catch(() => [])
+		]);
+
+		// Map swaps to transaction format
+		const swapTransactions = [
+			...submarineSwaps
+				.filter((s) => shouldShowSwap(s.status, 'submarine'))
+				.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
+			...reverseSwaps
+				.filter((s) => shouldShowSwap(s.status, 'reverse'))
+				.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
+			...chainSwaps
+				.filter((s) => shouldShowSwap(s.status, 'chain'))
+				.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
+		];
+
+		// Combine blockchain transactions
+		const allBlockchainTxs = [...processedRskTxs, ...processedBscTxs];
+		const blockchainTxHashes = new Set(allBlockchainTxs.map((tx) => tx.hash));
+
+		// Filter out swaps that have corresponding blockchain transactions
+		const uniqueSwapTxs = swapTransactions.filter((swapTx) => {
+			return !blockchainTxHashes.has(swapTx.hash);
+		});
+
 		// Combine and sort by timestamp (newest first)
-		const allTransactions = [...processedRskTxs, ...processedBscTxs].sort(
+		const allTransactions = [...allBlockchainTxs, ...uniqueSwapTxs].sort(
 			(a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime()
 		);
 
@@ -438,6 +468,70 @@ async function loadTransactions(): Promise<void> {
 	} catch (error) {
 		console.error('Failed to load transactions:', error);
 	}
+}
+
+/**
+ * Update a specific swap transaction in the transactions store
+ * without replacing the entire array
+ * 
+ * @param swapId - Unique identifier for the swap
+ * @param updatedSwap - Updated swap data from Boltz SDK
+ * @param swapType - Type of swap (submarine/reverse/chain)
+ */
+export function updateSwapTransaction(
+	swapId: string,
+	updatedSwap: BoltzSwapData | ChainSwapData | SubmarineSwapData,
+	swapType: 'submarine' | 'reverse' | 'chain'
+): void {
+	const state = get(walletStore);
+	const txIndex = state.transactions.findIndex((tx) => tx.swap?.id === swapId);
+	if (txIndex === -1) return;
+
+	
+	const currentTx = state.transactions[txIndex];
+
+	// Preserve the original balanceAfter to prevent recalculation with current balance
+	// balanceAfter should remain constant for a swap transaction
+	const updatedTx = mapSwapToTransaction(
+		updatedSwap,
+		swapType,
+		currentTx.balanceAfter
+	);
+
+	// Compare the ACTUAL Boltz swap status, not the UI representation
+	// The UI status is derived from the raw status and may have the same label for different states
+	const currentSwapStatus = currentTx.swap?.rawStatus;
+	const newSwapStatus = updatedSwap.status;
+	
+	// Check if actual swap data has changed
+	const hasChanged =
+		currentSwapStatus !== newSwapStatus || // Compare actual Boltz status
+		currentTx.value !== updatedTx.value;   // Or if amount changed
+
+	if (!hasChanged) {
+		// No actual change in swap data - skip update to prevent unnecessary re-renders
+		return;
+	}
+
+	// Check if swap is completed - remove from pending list
+	// (it will appear from blockchain transactions shortly)
+	if (isSwapCompleted(updatedSwap.status)) {
+		walletStore.update((state) => ({
+			...state,
+			transactions: state.transactions.filter((tx) => tx.swap?.id !== swapId)
+		}));
+		return;
+	}
+
+	// Immutably update only the specific transaction
+	walletStore.update((state) => {
+		return {
+			...state,
+			transactions: state.transactions.map((tx, idx) =>
+				idx === txIndex ? updatedTx : tx
+			)
+		};
+	});
 }
 
 /**
@@ -894,6 +988,9 @@ export const walletManager = {
 	getCachedReverseSwapPairs,
 	getCachedChainSwapPairs,
 	clearSwapPairsCache,
+	onSwapUpdate(callback: (event: any) => void): () => void {
+		return getWalletManager().onSwapUpdate(callback);
+	},
 	get submarineSwapService() {
 		return getWalletManager().submarineSwapService;
 	},

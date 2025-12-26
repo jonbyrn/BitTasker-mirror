@@ -2,11 +2,10 @@
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
-	import { walletManager, walletStore } from '$lib/stores/wallet.store';
+	import { walletManager } from '$lib/stores/wallet.store';
 	import { getProvider } from '$lib/stores/wallet.store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
-	import { fly, scale } from 'svelte/transition';
-	import { ethers } from 'ethers';
+	import { scale } from 'svelte/transition';
 
 	interface Props {
 		txHash: string;
