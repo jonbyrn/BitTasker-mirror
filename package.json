@@ -82,7 +82,7 @@
 	},
 	"dependencies": {
 		"@agentdeskai/browser-tools-mcp": "^1.2.1",
-		"@bittasker/wallet-core": "../bittasker-wallet/bittasker-wallet-core-0.1.6.tgz",
+		"@bittasker/wallet-core": "^0.1.6",
 		"@capacitor-mlkit/barcode-scanning": "^7.3.0",
 		"@capacitor/android": "^8.0.0",
 		"@capacitor/app": "^7.0.0",
