@@ -113,6 +113,11 @@ export function validateUsername(username: string): ValidationResult {
 		return { isValid: false, error: 'Username must be less than 64 characters long' };
 	}
 
+	// check for spaces
+	if (username.includes(' ')) {
+		return { isValid: false, error: 'Username cannot contain spaces' };
+	}
+
 	// Validate allowed characters: letters, numbers, and hyphens only
 	// Must start and end with a letter or number (not a hyphen)
 	// Cannot contain spaces or other special characters

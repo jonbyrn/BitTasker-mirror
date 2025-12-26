@@ -213,7 +213,7 @@ describe('Validators', () => {
 		it('should return error for username with spaces', () => {
 			const result = validateUsername('john doe');
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Invalid characters');
+			expect(result.error).toBe('Username cannot contain spaces');
 		});
 
 		it('should return error for username with special characters', () => {

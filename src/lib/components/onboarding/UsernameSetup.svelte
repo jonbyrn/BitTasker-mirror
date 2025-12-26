@@ -24,6 +24,37 @@
 	let isCheckingUsername = $state(false);
 	let usernameError = $state('');
 	let usernameAvailable = $state(false);
+	let spaceErrorTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	//validation function
+	function validateUsernameInput(value: string, skipSpaceCheck = false) {
+		if (!value) {
+			usernameError = '';
+			return;
+		}
+
+		const validation = validateUsername(value);
+		if (!validation.isValid) {
+			// Map validation errors to translation keys
+			if (validation.error === 'Username is required') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.required');
+			} else if (validation.error === 'Username must be at least 3 characters long') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.too_short');
+			} else if (validation.error === 'Username must be less than 64 characters long') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.too_long');
+			} else if (validation.error === 'Username cannot contain spaces') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.no_spaces');
+			} else if (validation.error === 'Invalid characters') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.invalid_characters');
+			} else {
+				usernameError = validation.error!;
+			}
+			usernameAvailable = false;
+			onUsernameChange(value, false);
+		} else if (!skipSpaceCheck) {
+			usernameError = '';
+		}
+	}
 
 	async function checkUsernameAvailability() {
 		if (!username) {
@@ -42,6 +73,8 @@
 				usernameError = $t('onboarding_auth.form.username_setup.errors.too_short');
 			} else if (validation.error === 'Username must be less than 64 characters long') {
 				usernameError = $t('onboarding_auth.form.username_setup.errors.too_long');
+			} else if (validation.error === 'Username cannot contain spaces') {
+				usernameError = $t('onboarding_auth.form.username_setup.errors.no_spaces');
 			} else if (validation.error === 'Invalid characters') {
 				usernameError = $t('onboarding_auth.form.username_setup.errors.invalid_characters');
 			} else {
@@ -140,6 +173,57 @@
 					placeholder={$t('onboarding_auth.form.username_setup.placeholder')}
 					required
 					maxlength="64"
+					onkeydown={(e) => {
+						// Prevent space key from being typed
+						if (e.key === ' ') {
+							e.preventDefault();
+							// Show error immediately when space is attempted
+							usernameError = $t('onboarding_auth.form.username_setup.errors.no_spaces');
+							usernameAvailable = false;
+							onUsernameChange(username, false);
+						}
+					}}
+					oninput={(e) => {
+						const input = e.target as HTMLInputElement;
+						const value = input.value;
+						
+						// Check for spaces first and show error
+						if (value.includes(' ')) {
+							// Show error immediately
+							usernameError = $t('onboarding_auth.form.username_setup.errors.no_spaces');
+							usernameAvailable = false;
+							onUsernameChange(value, false);
+							
+							// Clear any existing timeout
+							if (spaceErrorTimeout) {
+								clearTimeout(spaceErrorTimeout);
+							}
+							
+							// Strip spaces after showing error
+							const cleanedValue = value.replace(/\s/g, '');
+							input.value = cleanedValue;
+							username = cleanedValue;
+							
+							// Keep error visible for 2 seconds, then validate
+							spaceErrorTimeout = setTimeout(() => {
+								if (cleanedValue) {
+									validateUsernameInput(cleanedValue);
+								} else {
+									usernameError = '';
+								}
+								spaceErrorTimeout = null;
+							}, 2000);
+						} else {
+							// Clear timeout if no spaces
+							if (spaceErrorTimeout) {
+								clearTimeout(spaceErrorTimeout);
+								spaceErrorTimeout = null;
+							}
+							// No spaces, validate normally
+							username = value;
+							validateUsernameInput(value);
+						}
+					}}
 				/>
                 <div class="label flex justify-start">
                     <span class="label-text-alt {username.length > 64 ? 'text-error' : 'text-base-content/70'}">
