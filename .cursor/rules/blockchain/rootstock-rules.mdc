@@ -1,6 +1,6 @@
 ---
 description: Rootstock (RSK) blockchain integration for Bitcoin smart contracts and DeFi functionality
-globs: ["**/wallet/**/*", "**/integrations/rootstock/**/*", "**/blockchain/**/*"]
+globs: ["src/**/wallet/**/*", "src/**/integrations/rootstock/**/*", "src/**/blockchain/**/*"]
 alwaysApply: false
 ---
 

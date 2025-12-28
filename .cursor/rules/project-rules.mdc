@@ -554,6 +554,18 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Protocol Libraries**: nostr-tools, nostr-relay
 - **Identity Management**: NIP-01 for basic protocol
 - **Encryption**: NIP-04 for encrypted direct messages
+- **MCP Servers**: Two Nostr MCP servers are available for development:
+  - **Nostrbook MCP Server** (`mcp_Nostrbook_*`): Documentation and reference materials
+    - Read NIP specifications: `mcp_Nostrbook_read_nip({ nip: "99" })`
+    - Understand event kinds: `mcp_Nostrbook_read_kind({ kind: 30402 })`
+    - Review tag formats: `mcp_Nostrbook_read_tag({ tag: "d" })`
+    - Protocol documentation: `mcp_Nostrbook_read_protocol({ doc: "index" })`
+  - **Nostr MCP Server** (`mcp_Nostr_MCP_Server_*`): Utility functions and NIP search
+    - Search for NIPs: `mcp_Nostr_MCP_Server_searchNips({ query: "classified listings" })`
+    - Generate test keypairs: `mcp_Nostr_MCP_Server_createKeypair({ format: "both" })`
+    - Analyze NIP-19 entities: `mcp_Nostr_MCP_Server_analyzeNip19({ input: "npub1..." })`
+    - Convert formats: `mcp_Nostr_MCP_Server_convertNip19({ input: "...", targetType: "hex" })`
+  - **Best Practice**: Always consult NIP specifications via MCP servers before implementing Nostr features
 - **Event Handling**: Custom event subscription system
 - **Relay Management**: Multiple relay support with fallback
 
