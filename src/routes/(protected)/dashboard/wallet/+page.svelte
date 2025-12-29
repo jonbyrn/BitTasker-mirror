@@ -285,7 +285,7 @@
 				</div>
 
 				<!-- Learn More Section - Below buttons -->
-				<div class="flex justify-center">
+				<div class="hidden justify-center sm:flex">
 					<div class="text-base-content/70 text-xs sm:text-sm">
 						<HelpModal />
 					</div>
