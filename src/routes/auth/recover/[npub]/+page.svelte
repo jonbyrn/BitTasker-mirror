@@ -218,7 +218,8 @@
 
 			const deviceName = await createUserDeviceShortName(npub);
 
-			// Register device with server
+			// Create passkey with deviceName first (username not available yet)
+			// After login, username will be available for future passkey creations
 			let credentialId = '';
 			if (isMobileBiometrics) {
 				credentialId = await setBiometricKey(
@@ -237,8 +238,26 @@
 
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
+			// Login with passkey to get user data including username
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			console.log({ response, recoveryResponse });
+			
+			// If username is available from login response, update the passkey with username
+			// Note: For native biometrics, we can update the stored credential
+			// For WebAuthn, we'd need to create a new credential, which is complex
+			// So we'll use deviceName for this passkey, but username will be used for future passkeys
+			if (response && response.access_token && response.user?.username && isMobileBiometrics) {
+				const passkeyName = response.user.username.trim();
+				// Update native biometric credential with username
+				await setBiometricKey(
+					npub,
+					masterKeyData.exportedMasterKey,
+					'biometrics',
+					passkeyName,
+					credentialId
+				);
+			}
+			
 			if (response && response.access_token) {
 				const biometricData = {
 					username: npub,

@@ -408,6 +408,8 @@
 		triggerHaptic(ImpactStyle.Light);
 		formInput.amount = '';
 		formInput.mathExpression = '';
+		// Clear network fee estimate when amount is cleared
+		feeState.estimated = null;
 		// Force CalculatorKeypad to reset by changing its key
 		uiState.calculatorKey++;
 	}

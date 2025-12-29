@@ -2,22 +2,25 @@
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { transactions, walletManager } from '$lib/stores/wallet.store';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
 	import IconCheck from '~icons/mdi/check';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconCheckAll from '~icons/mdi/check-all';
+	import IconClose from '~icons/mdi/close';
 
-	let { onOpenPaymentRequest } = $props<{
+	let { onOpenPaymentRequest, onClose } = $props<{
 		onOpenPaymentRequest: (swapId: string) => void;
+		onClose?: () => void;
 	}>();
 
 	// State
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let typeFilter = $state<'all' | 'send' | 'receive' | 'contract-function'>('all');
-	let networkFilter = $state<'all' | 'rsk' | 'bsc'>('all');
+	let networkFilter = $state<'all' | 'rsk' | 'bsc' | 'lightning'>('all');
 	let isNetworkDropdownOpen = $state(false);
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
@@ -48,6 +51,12 @@
 			isImage: true
 		},
 		{
+			id: 'lightning' as const,
+			label: $t('wallet.transaction.network.lightning_bitcoin'),
+			icon: '/images/chains/lightning.svg',
+			isImage: true
+		},
+		{
 			id: 'bsc' as const,
 			label: $t('wallet.transaction.network.bsc'),
 			icon: '/images/chains/Binance-logo.svg',
@@ -74,7 +83,7 @@
 		},
 		{
 			id: 'contract-function' as const,
-			label: $t('wallet.transaction.type.contract_function'),
+			label: $t('wallet.transaction.type.contracts'),
 			icon: IconFileDocumentOutline
 		}
 	];
@@ -108,17 +117,20 @@
 	};
 
 	function selectTypeFilter(typeId: 'all' | 'send' | 'receive' | 'contract-function') {
+		triggerHaptic(ImpactStyle.Light);
 		typeFilter = typeId;
 		currentPage = 0;
 	}
 
-	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'bsc') {
+	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'bsc' | 'lightning') {
+		triggerHaptic(ImpactStyle.Light);
 		networkFilter = networkId;
 		isNetworkDropdownOpen = false;
 		currentPage = 0;
 	}
 
 	function toggleNetworkDropdown() {
+		triggerHaptic(ImpactStyle.Light);
 		isNetworkDropdownOpen = !isNetworkDropdownOpen;
 	}
 
@@ -184,18 +196,21 @@
 	}
 
 	function nextPage() {
+		triggerHaptic(ImpactStyle.Light);
 		if (currentPage < totalPages - 1) {
 			currentPage++;
 		}
 	}
 
 	function prevPage() {
+		triggerHaptic(ImpactStyle.Light);
 		if (currentPage > 0) {
 			currentPage--;
 		}
 	}
 
 	function goToPage(page: number) {
+		triggerHaptic(ImpactStyle.Light);
 		if (page >= 0 && page < totalPages) {
 			currentPage = page;
 		}
@@ -206,6 +221,7 @@
 	 * Opens swap QR modal for pending swaps (via callback), otherwise opens explorer URL
 	 */
 	async function handleTransactionClick(tx: any) {
+		triggerHaptic(ImpactStyle.Light);
 		// Check if this is a swap with a viewQR action
 		if (tx.swap && tx.swap.actions) {
 			const hasViewQRAction = tx.swap.actions.some((action: any) => action.type === 'viewQR');
@@ -232,43 +248,13 @@
 	}
 </script>
 
-<div class="space-y-6 pb-6">
+<div class="flex flex-col flex-1 min-h-0 -m-3 sm:-m-4 lg:-m-6">
 	<!-- Filters container matching contracts screen design -->
-	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 shadow-sm">
-		<!-- Mobile: Refresh Button (Above Grid) -->
-		<div class="mb-3 flex justify-end sm:hidden">
-			<button
-				class="btn btn-outline btn-sm flex items-center gap-2"
-				onclick={loadTransactions}
-				disabled={isLoading}
-				aria-label={$t('wallet.refresh')}
-			>
-				{#if isLoading}
-					<span class="loading loading-spinner loading-xs"></span>
-				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-						/>
-					</svg>
-				{/if}
-				<span>{$t('wallet.refresh')}</span>
-			</button>
-		</div>
-
-		<!-- Mobile: Type Filter Buttons and Network Dropdown -->
-		<div class="mb-3 sm:hidden">
-			<!-- Type Filter Buttons (Mobile) - 2x2 Grid -->
-			<div class="mb-3 grid grid-cols-2 gap-2">
+	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-2 shadow-sm shrink-0 mx-3 mt-3 sm:mx-4 sm:mt-4 lg:mx-6 lg:mt-6">
+		<!-- Type Filter Buttons -->
+		<div class="mb-4">
+			<!-- Mobile: 2x2 Grid -->
+			<div class="mb-3 grid grid-cols-2 gap-2 sm:hidden">
 				{#each typeFilterOptions as option}
 					{@const IconComponent = option.icon}
 					<button
@@ -287,30 +273,49 @@
 					</button>
 				{/each}
 			</div>
+			<!-- Desktop: Horizontal Row -->
+			<div class="hidden sm:flex sm:items-center sm:gap-2">
+				{#each typeFilterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn {typeFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'} btn-sm flex items-center gap-2"
+						onclick={() => selectTypeFilter(option.id)}
+						aria-label={option.label}
+					>
+						{#if typeFilter === option.id}
+							<IconCheck class="h-4 w-4" />
+						{:else}
+							<IconComponent class="h-4 w-4" />
+						{/if}
+						<span>{option.label}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
 
-			<!-- Network Filter Dropdown (Mobile) -->
-			<div class="network-dropdown-container relative">
+		<!-- Network Filter Dropdown (All Screen Sizes) -->
+		<div class="network-dropdown-container relative">
+			{#each [networkFilterOptions.find((opt) => opt.id === networkFilter)] as selectedOption}
 				<button
 					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
 					onclick={toggleNetworkDropdown}
 				>
 					<div class="flex items-center gap-2">
-						{#if true}
-							{@const selectedOption = networkFilterOptions.find((opt) => opt.id === networkFilter)}
-							{#if selectedOption?.isImage}
-								<img
-									src={selectedOption.icon as string}
-									alt={selectedOption.label}
-									class="h-5 w-5"
-								/>
-							{:else if selectedOption && typeof selectedOption.icon !== 'string'}
-								{@const IconComponent = selectedOption.icon}
-								<IconComponent class="h-5 w-5" />
-							{/if}
-							<span class="font-medium">
-								{selectedOption?.label}
-							</span>
+						{#if selectedOption?.isImage}
+							<img
+								src={selectedOption.icon as string}
+								alt={selectedOption.label}
+								class="h-5 w-5"
+							/>
+						{:else if selectedOption && typeof selectedOption.icon !== 'string'}
+							{@const IconComponent = selectedOption.icon}
+							<IconComponent class="h-5 w-5" />
 						{/if}
+						<span class="font-medium">
+							{selectedOption?.label}
+						</span>
 					</div>
 					<IconChevronDown
 						class="h-5 w-5 transition-transform duration-200 {isNetworkDropdownOpen
@@ -318,141 +323,71 @@
 							: ''}"
 					/>
 				</button>
+			{/each}
 
-				{#if isNetworkDropdownOpen}
-					<div
-						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-					>
-						{#each networkFilterOptions as option}
-							<button
-								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
-								option.id
-									? 'bg-primary/10 text-primary'
-									: 'text-base-content'}"
-								onclick={() => selectNetworkFilter(option.id)}
-							>
-								{#if option.isImage}
-									<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
-								{:else if typeof option.icon !== 'string'}
-									{@const IconComponent = option.icon}
-									<IconComponent
-										class="h-5 w-5 {networkFilter === option.id
-											? 'text-primary'
-											: 'text-base-content/60'}"
-									/>
-								{/if}
-								<span class="font-medium">{option.label}</span>
-								{#if networkFilter === option.id}
-									<IconCheck class="text-primary ml-auto h-5 w-5" />
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Desktop: Type Filter Buttons -->
-		<div class="mb-4 hidden sm:block">
-			<div class="flex items-center justify-between gap-2">
-				<div class="flex gap-2">
-					{#each typeFilterOptions as option}
-						{@const IconComponent = option.icon}
+			{#if isNetworkDropdownOpen}
+				<div
+					class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+				>
+					{#each networkFilterOptions as option}
 						<button
-							class="btn {typeFilter === option.id
-								? 'btn-primary'
-								: 'btn-secondary'} btn-sm flex items-center gap-2"
-							onclick={() => selectTypeFilter(option.id)}
-							aria-label={option.label}
+							class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
+							option.id
+								? 'bg-primary/10 text-primary'
+								: 'text-base-content'}"
+							onclick={() => selectNetworkFilter(option.id)}
 						>
-							{#if typeFilter === option.id}
-								<IconCheck class="h-4 w-4" />
-							{:else}
-								<IconComponent class="h-4 w-4" />
+							{#if option.isImage}
+								<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
+							{:else if typeof option.icon !== 'string'}
+								{@const IconComponent = option.icon}
+								<IconComponent
+									class="h-5 w-5 {networkFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
+								/>
 							{/if}
-							<span>{option.label}</span>
+							<span class="font-medium">{option.label}</span>
+							{#if networkFilter === option.id}
+								<IconCheck class="text-primary ml-auto h-5 w-5" />
+							{/if}
 						</button>
 					{/each}
 				</div>
-				<!-- Refresh Button (Desktop) -->
-				<button
-					class="btn btn-outline btn-sm flex items-center gap-2"
-					onclick={loadTransactions}
-					disabled={isLoading}
-					aria-label={$t('wallet.refresh')}
-				>
-					{#if isLoading}
-						<span class="loading loading-spinner loading-xs"></span>
-					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-							/>
-						</svg>
-					{/if}
-					<span>{$t('wallet.refresh')}</span>
-				</button>
-			</div>
-		</div>
-
-		<!-- Desktop: Network Filter Buttons -->
-		<div class="mt-4 hidden sm:block">
-			<div class="flex flex-col gap-3 sm:flex-row">
-				{#each networkFilterOptions as option}
-					<button
-						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {networkFilter ===
-						option.id
-							? 'text-primary bg-primary/10 border-primary/30 border'
-							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
-						onclick={() => selectNetworkFilter(option.id)}
-						aria-label={option.label}
-					>
-						{#if option.isImage}
-							<img
-								src={option.icon as string}
-								alt={option.label}
-								class="h-5 w-5 {networkFilter === option.id ? 'opacity-100' : 'opacity-60'}"
-							/>
-						{:else if typeof option.icon !== 'string'}
-							{@const IconComponent = option.icon}
-							<IconComponent class="h-5 w-5 {networkFilter === option.id ? 'text-primary' : ''}" />
-						{/if}
-						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
-			</div>
+			{/if}
 		</div>
 	</div>
 
-	{#if error}
-		<div class="alert alert-error alert-outline">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<span>{error}</span>
+	<!-- Total transactions count (above scrollable area) -->
+	{#if !isLoading && filteredTransactions.length > 0}
+		<div class="text-center text-lg p-2 font-bold shrink-0 mx-3 sm:mx-4 lg:mx-6">
+			{filteredTransactions.length} {$t('wallet.total_transactions')}
 		</div>
 	{/if}
 
-	{#if isLoading}
+	<!-- Scrollable transactions area -->
+	<div class="flex-1 overflow-y-auto min-h-0 mx-3 sm:mx-4 lg:mx-6">
+		<div class="space-y-3">
+			{#if error}
+				<div class="alert alert-error alert-outline">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{error}</span>
+				</div>
+			{/if}
+
+			{#if isLoading}
 		<div class="space-y-3">
 			{#each Array(10) as _}
 				<div class="card bg-base-200 animate-pulse rounded-lg">
@@ -612,6 +547,7 @@
 														action.type === 'viewQR'}
 													class:btn-success={action.type === 'claim'}
 													onclick={(e) => {
+														triggerHaptic(ImpactStyle.Light);
 														if (action.type === 'viewQR') {
 															handleViewQRAction(tx, e);
 														} else {
@@ -631,9 +567,14 @@
 				</div>
 			{/each}
 		</div>
+		{/if}
+		</div>
+	</div>
 
-		<!-- Pagination -->
-		{#if totalPages > 1}
+	<!-- Bottom section with pagination and buttons -->
+	<div class="shrink-0 space-y-4 border-t border-base-300 pt-4 lg:pt-6 mt-auto mx-3 mb-3 sm:mx-4 sm:mb-4 lg:mx-6 lg:mb-6">
+		<!-- Pagination controls -->
+		{#if totalPages > 1 && !isLoading && paginatedTransactions.length > 0}
 			<div class="flex justify-center">
 				<div class="join">
 					<button class="join-item btn btn-sm" onclick={prevPage} disabled={currentPage === 0}>
@@ -661,15 +602,53 @@
 					</button>
 				</div>
 			</div>
-
-			<div class="text-center text-sm opacity-70">
-				{$t('wallet.showing_page')}
-				{currentPage + 1}
-				{$t('wallet.of')}
-				{totalPages}
-				({filteredTransactions.length}
-				{$t('wallet.total_transactions')})
-			</div>
 		{/if}
-	{/if}
+
+		<!-- Close and Refresh buttons -->
+		<div class="flex gap-2">
+			{#if onClose}
+				<button
+					class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px]"
+					style="-webkit-tap-highlight-color: transparent;"
+					onclick={() => {
+						triggerHaptic(ImpactStyle.Light);
+						onClose();
+					}}
+					aria-label={$t('common.close')}
+				>
+					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+					<span class="text-sm sm:text-base">{$t('common.close')}</span>
+				</button>
+			{/if}
+			<button
+				class="btn btn-primary flex-1 min-h-[44px] flex items-center justify-center gap-2"
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					loadTransactions();
+				}}
+				disabled={isLoading}
+				aria-label={$t('wallet.refresh')}
+			>
+				{#if isLoading}
+					<span class="loading loading-spinner loading-sm"></span>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
+					</svg>
+				{/if}
+				<span>{$t('wallet.refresh')}</span>
+			</button>
+		</div>
+	</div>
 </div>

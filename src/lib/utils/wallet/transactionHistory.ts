@@ -41,7 +41,7 @@ export interface ProcessedTransaction {
         icon: Component;
         color: string;
     };
-    network: 'rsk' | 'bsc';
+    network: 'rsk' | 'bsc' | 'lightning';
 
     // Computed fields
     type: 'send' | 'receive' | 'swap' | 'contract';
