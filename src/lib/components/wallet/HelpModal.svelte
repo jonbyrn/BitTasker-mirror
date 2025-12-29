@@ -62,10 +62,10 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<!-- Help Button -->
+<!-- Help Button - Always in DOM but hidden on mobile (visible on tablet/desktop) for programmatic access -->
 {#if showButton}
 	<button
-		class="btn btn-ghost gap-2"
+		class="btn btn-ghost gap-2 hidden sm:inline-flex"
 		onclick={openModal}
 		title={$t('common.components.wallet_help_modal.button_title')}
 		data-help-modal
