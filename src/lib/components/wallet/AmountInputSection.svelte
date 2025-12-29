@@ -166,7 +166,7 @@
 >
 	<button
 		type="button"
-		class="border-base-300 flex cursor-pointer touch-manipulation items-center justify-center gap-1.5 border-r p-1.5 text-lg font-semibold transition-colors select-none sm:gap-2 sm:p-2 sm:text-2xl {unit ===
+		class="border-base-300 flex cursor-pointer touch-manipulation items-center justify-center gap-1.5 border-r p-1.5 text-lg font-semibold transition-colors select-none sm:gap-2 {unit ===
 		'usd'
 			? 'bg-primary text-primary-content'
 			: 'bg-base-100 text-base-content'}"
@@ -185,7 +185,7 @@
 	</button>
 	<button
 		type="button"
-		class="flex cursor-pointer touch-manipulation items-center justify-center gap-1.5 p-1.5 text-lg font-semibold transition-colors select-none sm:gap-2 sm:p-2 sm:text-2xl {unit ===
+		class="flex cursor-pointer touch-manipulation items-center justify-center gap-1.5 p-1.5 text-lg font-semibold transition-colors select-none sm:gap-2 {unit ===
 		'sats'
 			? 'bg-primary text-primary-content'
 			: 'bg-base-100 text-base-content'}"

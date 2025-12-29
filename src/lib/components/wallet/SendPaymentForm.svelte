@@ -1294,16 +1294,6 @@
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={showSendConfirmationModal}
 						disabled={!isFormValid || feeState.isLoading}
-						onmouseenter={() => {
-							if (!isFormValid || feeState.isLoading) {
-								console.log(
-									'[Send Button] Disabled - isFormValid:',
-									isFormValid,
-									'isLoadingFees:',
-									feeState.isLoading
-								);
-							}
-						}}
 					>
 						<IconSend class="mr-2 h-5 w-5" />
 						{$t('wallet.send.send')}

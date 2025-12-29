@@ -414,6 +414,7 @@
 
 	// Validate form
 	const isFormValid = $derived.by(() => {
+		if(formInput.selectedNetwork === 'rootstock-bitcoin') return true;
 		return amountInSats > 0;
 	});
 
