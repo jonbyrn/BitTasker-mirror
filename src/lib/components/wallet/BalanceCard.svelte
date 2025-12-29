@@ -296,9 +296,9 @@
 						<div class="text-right">
 							{#if balancesHidden}
 								<div class="text-sm font-semibold sm:text-base">
-									•••••• {$t('wallet.sats')}
+									•••• {$t('wallet.sats')}
 								</div>
-								<div class="text-xs opacity-70">$••••••</div>
+								<div class="text-xs opacity-70">$••••</div>
 							{:else if bitcoinAsset}
 								{@const balanceInSats = Math.floor(bitcoinAsset.balance * 100_000_000)}
 								<div class="text-sm font-semibold sm:text-base">
@@ -365,7 +365,7 @@
 						<span class="text-base-content/50 text-sm font-medium sm:text-base">{$t('wallet.usdt_binance_chain')}</span>
 						<div class="text-base-content/50 ml-auto text-xs">
 							{#if balancesHidden}
-								$••••••
+								$••••
 							{:else if usdtAsset}
 								${usdtAsset.usdValue.toFixed(2)}
 							{:else}
@@ -380,7 +380,7 @@
 						<span class="text-base-content/50 text-sm font-medium sm:text-base">{$t('wallet.usdt_liquid')}</span>
 						<div class="text-base-content/50 ml-auto text-xs">
 							{#if balancesHidden}
-								$••••••
+								$••••
 							{:else}
 								$0.00
 							{/if}
