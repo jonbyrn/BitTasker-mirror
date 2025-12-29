@@ -22,7 +22,7 @@
 	let isRefreshing = $state(false);
 
 	// Balance visibility state - default to hidden
-	let balancesHidden = $state(true);
+	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
 	let countdownSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
