@@ -2,15 +2,18 @@
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { transactions, walletManager } from '$lib/stores/wallet.store';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
 	import IconCheck from '~icons/mdi/check';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconCheckAll from '~icons/mdi/check-all';
+	import IconClose from '~icons/mdi/close';
 
-	let { onOpenPaymentRequest } = $props<{
+	let { onOpenPaymentRequest, onClose } = $props<{
 		onOpenPaymentRequest: (swapId: string) => void;
+		onClose?: () => void;
 	}>();
 
 	// State
@@ -74,7 +77,7 @@
 		},
 		{
 			id: 'contract-function' as const,
-			label: $t('wallet.transaction.type.contract_function'),
+			label: $t('wallet.transaction.type.contracts'),
 			icon: IconFileDocumentOutline
 		}
 	];
@@ -232,39 +235,9 @@
 	}
 </script>
 
-<div class="space-y-6 pb-6">
+<div class="flex flex-col h-full min-h-0">
 	<!-- Filters container matching contracts screen design -->
-	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 shadow-sm">
-		<!-- Mobile: Refresh Button (Above Grid) -->
-		<div class="mb-3 flex justify-end sm:hidden">
-			<button
-				class="btn btn-outline btn-sm flex items-center gap-2"
-				onclick={loadTransactions}
-				disabled={isLoading}
-				aria-label={$t('wallet.refresh')}
-			>
-				{#if isLoading}
-					<span class="loading loading-spinner loading-xs"></span>
-				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-						/>
-					</svg>
-				{/if}
-				<span>{$t('wallet.refresh')}</span>
-			</button>
-		</div>
-
+	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-2 shadow-sm shrink-0">
 		<!-- Mobile: Type Filter Buttons and Network Dropdown -->
 		<div class="mb-3 sm:hidden">
 			<!-- Type Filter Buttons (Mobile) - 2x2 Grid -->
@@ -354,53 +327,24 @@
 
 		<!-- Desktop: Type Filter Buttons -->
 		<div class="mb-4 hidden sm:block">
-			<div class="flex items-center justify-between gap-2">
-				<div class="flex gap-2">
-					{#each typeFilterOptions as option}
-						{@const IconComponent = option.icon}
-						<button
-							class="btn {typeFilter === option.id
-								? 'btn-primary'
-								: 'btn-secondary'} btn-sm flex items-center gap-2"
-							onclick={() => selectTypeFilter(option.id)}
-							aria-label={option.label}
-						>
-							{#if typeFilter === option.id}
-								<IconCheck class="h-4 w-4" />
-							{:else}
-								<IconComponent class="h-4 w-4" />
-							{/if}
-							<span>{option.label}</span>
-						</button>
-					{/each}
-				</div>
-				<!-- Refresh Button (Desktop) -->
-				<button
-					class="btn btn-outline btn-sm flex items-center gap-2"
-					onclick={loadTransactions}
-					disabled={isLoading}
-					aria-label={$t('wallet.refresh')}
-				>
-					{#if isLoading}
-						<span class="loading loading-spinner loading-xs"></span>
-					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-							/>
-						</svg>
-					{/if}
-					<span>{$t('wallet.refresh')}</span>
-				</button>
+			<div class="flex items-center gap-2">
+				{#each typeFilterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn {typeFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'} btn-sm flex items-center gap-2"
+						onclick={() => selectTypeFilter(option.id)}
+						aria-label={option.label}
+					>
+						{#if typeFilter === option.id}
+							<IconCheck class="h-4 w-4" />
+						{:else}
+							<IconComponent class="h-4 w-4" />
+						{/if}
+						<span>{option.label}</span>
+					</button>
+				{/each}
 			</div>
 		</div>
 
@@ -433,26 +377,36 @@
 		</div>
 	</div>
 
-	{#if error}
-		<div class="alert alert-error alert-outline">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<span>{error}</span>
+	<!-- Total transactions count (above scrollable area) -->
+	{#if !isLoading && filteredTransactions.length > 0}
+		<div class="text-center text-lg p-2 font-bold">
+			{filteredTransactions.length} {$t('wallet.total_transactions')}
 		</div>
 	{/if}
 
-	{#if isLoading}
+	<!-- Scrollable transactions area -->
+	<div class="flex-1 overflow-y-auto min-h-0">
+		<div class="space-y-6">
+			{#if error}
+				<div class="alert alert-error alert-outline">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{error}</span>
+				</div>
+			{/if}
+
+			{#if isLoading}
 		<div class="space-y-3">
 			{#each Array(10) as _}
 				<div class="card bg-base-200 animate-pulse rounded-lg">
@@ -631,9 +585,14 @@
 				</div>
 			{/each}
 		</div>
+		{/if}
+		</div>
+	</div>
 
-		<!-- Pagination -->
-		{#if totalPages > 1}
+	<!-- Bottom section with pagination and buttons -->
+	<div class="shrink-0 space-y-4 border-t border-base-300 pt-4 lg:pt-6 mt-auto">
+		<!-- Pagination controls -->
+		{#if totalPages > 1 && !isLoading && paginatedTransactions.length > 0}
 			<div class="flex justify-center">
 				<div class="join">
 					<button class="join-item btn btn-sm" onclick={prevPage} disabled={currentPage === 0}>
@@ -661,15 +620,53 @@
 					</button>
 				</div>
 			</div>
-
-			<div class="text-center text-sm opacity-70">
-				{$t('wallet.showing_page')}
-				{currentPage + 1}
-				{$t('wallet.of')}
-				{totalPages}
-				({filteredTransactions.length}
-				{$t('wallet.total_transactions')})
-			</div>
 		{/if}
-	{/if}
+
+		<!-- Close and Refresh buttons -->
+		<div class="flex gap-2">
+			{#if onClose}
+				<button
+					class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px]"
+					style="-webkit-tap-highlight-color: transparent;"
+					onclick={() => {
+						triggerHaptic(ImpactStyle.Light);
+						onClose();
+					}}
+					aria-label={$t('common.close')}
+				>
+					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+					<span class="text-sm sm:text-base">{$t('common.close')}</span>
+				</button>
+			{/if}
+			<button
+				class="btn btn-primary flex-1 min-h-[44px] flex items-center justify-center gap-2"
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					loadTransactions();
+				}}
+				disabled={isLoading}
+				aria-label={$t('wallet.refresh')}
+			>
+				{#if isLoading}
+					<span class="loading loading-spinner loading-sm"></span>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
+					</svg>
+				{/if}
+				<span>{$t('wallet.refresh')}</span>
+			</button>
+		</div>
+	</div>
 </div>

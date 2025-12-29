@@ -72,6 +72,7 @@
         "receive": "Received",
         "contract": "Contract",
         "contract_function": "Contract Functions",
+        "contracts": "Contracts",
         "contract_send": "Contract Send",
         "contract_receive": "Contract Receive",
         "swap": "Swap"

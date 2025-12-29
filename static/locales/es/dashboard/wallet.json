@@ -72,6 +72,7 @@
         "receive": "Recibido",
         "contract": "Contrato",
         "contract_function": "Funciones de Contrato",
+        "contracts": "Contratos",
         "contract_send": "Envío de Contrato",
         "contract_receive": "Recepción de Contrato",
         "swap": "Intercambio"

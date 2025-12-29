@@ -355,7 +355,7 @@
 	mode="send"
 	onClose={() => (showTransactionsModal = false)}
 >
-	<div class="mb-4 flex items-center justify-between">
+	<div class="mb-4 hidden items-center justify-between lg:flex">
 		<h2 class="text-2xl font-bold">{$t('wallet.tab_transactions')}</h2>
 		<button
 			class="btn btn-ghost btn-sm btn-circle"
@@ -383,6 +383,7 @@
 			showTransactionsModal = false; // Close transactions modal
 			openPaymentRequestModal({ swapId }); // Open payment request modal with swap
 		}}
+		onClose={() => (showTransactionsModal = false)}
 	/>
 </WalletPaymentModal>
 
