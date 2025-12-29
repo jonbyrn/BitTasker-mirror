@@ -204,7 +204,7 @@
 		<!-- Modal Content -->
 		<div
 			bind:this={modalElement}
-			class="fixed inset-0 lg:relative w-full h-full lg:w-[90%] lg:max-w-2xl lg:max-h-[90vh] rounded-none lg:rounded-2xl bg-base-100 shadow-2xl flex flex-col overflow-hidden touch-manipulation"
+			class="fixed inset-0 lg:relative w-full h-full lg:w-[90%] lg:max-w-4xl lg:max-h-[90vh] rounded-none lg:rounded-2xl bg-base-100 shadow-2xl flex flex-col overflow-hidden touch-manipulation"
 			style="will-change: transform; transform: translateZ(0);"
 			role="dialog"
 			aria-modal="true"
@@ -219,7 +219,7 @@
 
 			<!-- Content Area -->
 			<div
-				class="flex-1 overflow-y-auto p-3 space-y-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:space-y-6 sm:p-4 lg:p-6"
+				class="flex-1 overflow-hidden flex flex-col p-3 space-y-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:space-y-6 sm:p-4 lg:p-6 min-h-0"
 			>
 				<!-- Wallet Error States (only show errors, not initialization) -->
 				{#if $walletStore.error}

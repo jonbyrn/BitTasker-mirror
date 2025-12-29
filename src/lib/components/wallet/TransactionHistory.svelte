@@ -20,7 +20,7 @@
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let typeFilter = $state<'all' | 'send' | 'receive' | 'contract-function'>('all');
-	let networkFilter = $state<'all' | 'rsk' | 'bsc'>('all');
+	let networkFilter = $state<'all' | 'rsk' | 'bsc' | 'lightning'>('all');
 	let isNetworkDropdownOpen = $state(false);
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
@@ -48,6 +48,12 @@
 			id: 'rsk' as const,
 			label: $t('wallet.transaction.network.rootstock_bitcoin'),
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+			isImage: true
+		},
+		{
+			id: 'lightning' as const,
+			label: $t('wallet.transaction.network.lightning_bitcoin'),
+			icon: '/images/chains/lightning.svg',
 			isImage: true
 		},
 		{
@@ -116,7 +122,7 @@
 		currentPage = 0;
 	}
 
-	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'bsc') {
+	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'bsc' | 'lightning') {
 		triggerHaptic(ImpactStyle.Light);
 		networkFilter = networkId;
 		isNetworkDropdownOpen = false;
@@ -242,13 +248,13 @@
 	}
 </script>
 
-<div class="flex flex-col h-full min-h-0">
+<div class="flex flex-col flex-1 min-h-0 -m-3 sm:-m-4 lg:-m-6">
 	<!-- Filters container matching contracts screen design -->
-	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-2 shadow-sm shrink-0">
-		<!-- Mobile: Type Filter Buttons and Network Dropdown -->
-		<div class="mb-3 sm:hidden">
-			<!-- Type Filter Buttons (Mobile) - 2x2 Grid -->
-			<div class="mb-3 grid grid-cols-2 gap-2">
+	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-2 shadow-sm shrink-0 mx-3 mt-3 sm:mx-4 sm:mt-4 lg:mx-6 lg:mt-6">
+		<!-- Type Filter Buttons -->
+		<div class="mb-4">
+			<!-- Mobile: 2x2 Grid -->
+			<div class="mb-3 grid grid-cols-2 gap-2 sm:hidden">
 				{#each typeFilterOptions as option}
 					{@const IconComponent = option.icon}
 					<button
@@ -267,74 +273,8 @@
 					</button>
 				{/each}
 			</div>
-
-			<!-- Network Filter Dropdown (Mobile) -->
-			<div class="network-dropdown-container relative">
-				<button
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-					onclick={toggleNetworkDropdown}
-				>
-					<div class="flex items-center gap-2">
-						{#if true}
-							{@const selectedOption = networkFilterOptions.find((opt) => opt.id === networkFilter)}
-							{#if selectedOption?.isImage}
-								<img
-									src={selectedOption.icon as string}
-									alt={selectedOption.label}
-									class="h-5 w-5"
-								/>
-							{:else if selectedOption && typeof selectedOption.icon !== 'string'}
-								{@const IconComponent = selectedOption.icon}
-								<IconComponent class="h-5 w-5" />
-							{/if}
-							<span class="font-medium">
-								{selectedOption?.label}
-							</span>
-						{/if}
-					</div>
-					<IconChevronDown
-						class="h-5 w-5 transition-transform duration-200 {isNetworkDropdownOpen
-							? 'rotate-180'
-							: ''}"
-					/>
-				</button>
-
-				{#if isNetworkDropdownOpen}
-					<div
-						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-					>
-						{#each networkFilterOptions as option}
-							<button
-								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
-								option.id
-									? 'bg-primary/10 text-primary'
-									: 'text-base-content'}"
-								onclick={() => selectNetworkFilter(option.id)}
-							>
-								{#if option.isImage}
-									<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
-								{:else if typeof option.icon !== 'string'}
-									{@const IconComponent = option.icon}
-									<IconComponent
-										class="h-5 w-5 {networkFilter === option.id
-											? 'text-primary'
-											: 'text-base-content/60'}"
-									/>
-								{/if}
-								<span class="font-medium">{option.label}</span>
-								{#if networkFilter === option.id}
-									<IconCheck class="text-primary ml-auto h-5 w-5" />
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Desktop: Type Filter Buttons -->
-		<div class="mb-4 hidden sm:block">
-			<div class="flex items-center gap-2">
+			<!-- Desktop: Horizontal Row -->
+			<div class="hidden sm:flex sm:items-center sm:gap-2">
 				{#each typeFilterOptions as option}
 					{@const IconComponent = option.icon}
 					<button
@@ -355,45 +295,79 @@
 			</div>
 		</div>
 
-		<!-- Desktop: Network Filter Buttons -->
-		<div class="mt-4 hidden sm:block">
-			<div class="flex flex-col gap-3 sm:flex-row">
-				{#each networkFilterOptions as option}
-					<button
-						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {networkFilter ===
-						option.id
-							? 'text-primary bg-primary/10 border-primary/30 border'
-							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
-						onclick={() => selectNetworkFilter(option.id)}
-						aria-label={option.label}
-					>
-						{#if option.isImage}
+		<!-- Network Filter Dropdown (All Screen Sizes) -->
+		<div class="network-dropdown-container relative">
+			{#each [networkFilterOptions.find((opt) => opt.id === networkFilter)] as selectedOption}
+				<button
+					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
+					onclick={toggleNetworkDropdown}
+				>
+					<div class="flex items-center gap-2">
+						{#if selectedOption?.isImage}
 							<img
-								src={option.icon as string}
-								alt={option.label}
-								class="h-5 w-5 {networkFilter === option.id ? 'opacity-100' : 'opacity-60'}"
+								src={selectedOption.icon as string}
+								alt={selectedOption.label}
+								class="h-5 w-5"
 							/>
-						{:else if typeof option.icon !== 'string'}
-							{@const IconComponent = option.icon}
-							<IconComponent class="h-5 w-5 {networkFilter === option.id ? 'text-primary' : ''}" />
+						{:else if selectedOption && typeof selectedOption.icon !== 'string'}
+							{@const IconComponent = selectedOption.icon}
+							<IconComponent class="h-5 w-5" />
 						{/if}
-						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
-			</div>
+						<span class="font-medium">
+							{selectedOption?.label}
+						</span>
+					</div>
+					<IconChevronDown
+						class="h-5 w-5 transition-transform duration-200 {isNetworkDropdownOpen
+							? 'rotate-180'
+							: ''}"
+					/>
+				</button>
+			{/each}
+
+			{#if isNetworkDropdownOpen}
+				<div
+					class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+				>
+					{#each networkFilterOptions as option}
+						<button
+							class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
+							option.id
+								? 'bg-primary/10 text-primary'
+								: 'text-base-content'}"
+							onclick={() => selectNetworkFilter(option.id)}
+						>
+							{#if option.isImage}
+								<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
+							{:else if typeof option.icon !== 'string'}
+								{@const IconComponent = option.icon}
+								<IconComponent
+									class="h-5 w-5 {networkFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
+								/>
+							{/if}
+							<span class="font-medium">{option.label}</span>
+							{#if networkFilter === option.id}
+								<IconCheck class="text-primary ml-auto h-5 w-5" />
+							{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</div>
 
 	<!-- Total transactions count (above scrollable area) -->
 	{#if !isLoading && filteredTransactions.length > 0}
-		<div class="text-center text-lg p-2 font-bold">
+		<div class="text-center text-lg p-2 font-bold shrink-0 mx-3 sm:mx-4 lg:mx-6">
 			{filteredTransactions.length} {$t('wallet.total_transactions')}
 		</div>
 	{/if}
 
 	<!-- Scrollable transactions area -->
-	<div class="flex-1 overflow-y-auto min-h-0">
-		<div class="space-y-6">
+	<div class="flex-1 overflow-y-auto min-h-0 mx-3 sm:mx-4 lg:mx-6">
+		<div class="space-y-3">
 			{#if error}
 				<div class="alert alert-error alert-outline">
 					<svg
@@ -598,7 +572,7 @@
 	</div>
 
 	<!-- Bottom section with pagination and buttons -->
-	<div class="shrink-0 space-y-4 border-t border-base-300 pt-4 lg:pt-6 mt-auto">
+	<div class="shrink-0 space-y-4 border-t border-base-300 pt-4 lg:pt-6 mt-auto mx-3 mb-3 sm:mx-4 sm:mb-4 lg:mx-6 lg:mb-6">
 		<!-- Pagination controls -->
 		{#if totalPages > 1 && !isLoading && paginatedTransactions.length > 0}
 			<div class="flex justify-center">

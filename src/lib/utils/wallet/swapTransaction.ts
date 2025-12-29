@@ -139,6 +139,16 @@ export function mapSwapToTransaction(
     // Get available actions
     const actions = getSwapActions(swap, swapType);
 
+    // Determine network based on swap type
+    // Submarine and reverse swaps involve Lightning, chain swaps are on RSK
+    const network = (swapType === 'submarine' || swapType === 'reverse') ? 'lightning' : 'rsk';
+    const networkIcon = network === 'lightning' 
+        ? '/images/chains/lightning.svg'
+        : '/images/chains/Bitcoin-Rootstock-logo.webp';
+    const networkDisplayName = network === 'lightning'
+        ? 'Lightning Bitcoin'
+        : 'Rootstock (Bitcoin)';
+
     return {
         hash: txHash,
         from: swapType === 'submarine' ? 'user' : 'boltz',
@@ -146,7 +156,7 @@ export function mapSwapToTransaction(
         value,
         timestamp,
         status: swapStatus,
-        network: 'rsk',
+        network,
         type: swapType === 'submarine' ? 'send' : 'receive',
         displayType,
         borderColor,
@@ -155,8 +165,8 @@ export function mapSwapToTransaction(
             overlay: IconSwapHorizontal
         },
         title,
-        networkIcon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-        networkDisplayName: 'Rootstock (Bitcoin)',
+        networkIcon,
+        networkDisplayName,
         explorerUrl: txHash.startsWith('swap-') ? null : `${explorerBaseUrl}/tx/${txHash}`,
         feeSats: 0, // Swap fees are included in the amount
         balanceAfter: currentBalanceSats,

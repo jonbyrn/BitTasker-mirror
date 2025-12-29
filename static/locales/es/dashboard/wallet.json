@@ -124,6 +124,7 @@
         "rootstock_bitcoin": "Bitcoin Rootstock",
         "binance_smart_chain": "Binance Smart Chain",
         "bsc": "BSC",
+        "lightning_bitcoin": "Bitcoin Lightning",
         "unknown_network": "Red Desconocida"
       },
       "toast": {
