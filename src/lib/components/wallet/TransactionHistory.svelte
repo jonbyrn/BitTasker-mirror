@@ -111,17 +111,20 @@
 	};
 
 	function selectTypeFilter(typeId: 'all' | 'send' | 'receive' | 'contract-function') {
+		triggerHaptic(ImpactStyle.Light);
 		typeFilter = typeId;
 		currentPage = 0;
 	}
 
 	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'bsc') {
+		triggerHaptic(ImpactStyle.Light);
 		networkFilter = networkId;
 		isNetworkDropdownOpen = false;
 		currentPage = 0;
 	}
 
 	function toggleNetworkDropdown() {
+		triggerHaptic(ImpactStyle.Light);
 		isNetworkDropdownOpen = !isNetworkDropdownOpen;
 	}
 
@@ -187,18 +190,21 @@
 	}
 
 	function nextPage() {
+		triggerHaptic(ImpactStyle.Light);
 		if (currentPage < totalPages - 1) {
 			currentPage++;
 		}
 	}
 
 	function prevPage() {
+		triggerHaptic(ImpactStyle.Light);
 		if (currentPage > 0) {
 			currentPage--;
 		}
 	}
 
 	function goToPage(page: number) {
+		triggerHaptic(ImpactStyle.Light);
 		if (page >= 0 && page < totalPages) {
 			currentPage = page;
 		}
@@ -209,6 +215,7 @@
 	 * Opens swap QR modal for pending swaps (via callback), otherwise opens explorer URL
 	 */
 	async function handleTransactionClick(tx: any) {
+		triggerHaptic(ImpactStyle.Light);
 		// Check if this is a swap with a viewQR action
 		if (tx.swap && tx.swap.actions) {
 			const hasViewQRAction = tx.swap.actions.some((action: any) => action.type === 'viewQR');
@@ -566,6 +573,7 @@
 														action.type === 'viewQR'}
 													class:btn-success={action.type === 'claim'}
 													onclick={(e) => {
+														triggerHaptic(ImpactStyle.Light);
 														if (action.type === 'viewQR') {
 															handleViewQRAction(tx, e);
 														} else {
