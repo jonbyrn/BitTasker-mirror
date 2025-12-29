@@ -107,7 +107,7 @@
 			return null; // Special handling for loading
 		}
 		if (balancesHidden) {
-			return '••••••';
+			return '••••';
 		}
 		if ($totalBalances.sats > 0) {
 			return formatSats($totalBalances.sats);
@@ -120,7 +120,7 @@
 			return null; // Special handling for loading
 		}
 		if (balancesHidden) {
-			return '••••••';
+			return '••••';
 		}
 		if ($totalBalances.usd > 0) {
 			return $totalBalances.usd.toFixed(2);
@@ -260,7 +260,7 @@
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else if balancesHidden}
 						<div class="text-sm font-semibold sm:text-base">
-							•••••• {$t('wallet.sats')} <span class="opacity-70">(≈ $••••••)</span>
+							•••• {$t('wallet.sats')} <span class="opacity-70">(≈ $••••)</span>
 						</div>
 					{:else}
 						<div class="text-sm font-semibold sm:text-base">
