@@ -14,13 +14,14 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 
 	const { isLoading = false } = $props();
 
 	// Refresh state
 	let isRefreshing = $state(false);
 
-	// Balance visibility state
+	// Balance visibility state - default to hidden
 	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
 	let countdownSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
@@ -64,6 +65,7 @@
 	}
 
 	function toggleBalances() {
+		triggerHaptic(ImpactStyle.Light);
 		if (balancesHidden) {
 			showBalances();
 		} else {
@@ -74,6 +76,7 @@
 	async function handleRefresh() {
 		if (isRefreshing) return;
 
+		triggerHaptic(ImpactStyle.Light);
 		isRefreshing = true;
 		try {
 			await walletManager.loadAssets();
@@ -91,87 +94,124 @@
 			clearInterval(countdownInterval);
 		}
 	});
+
+	function openHelpModal(e: MouseEvent) {
+		e.stopPropagation();
+		triggerHaptic(ImpactStyle.Light);
+		(document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click();
+	}
+
+	// Compute balance display values
+	let satsDisplay = $derived.by(() => {
+		if (isLoading || isRefreshing) {
+			return null; // Special handling for loading
+		}
+		if (balancesHidden) {
+			return '••••';
+		}
+		if ($totalBalances.sats > 0) {
+			return formatSats($totalBalances.sats);
+		}
+		return '0';
+	});
+
+	let usdDisplay = $derived.by(() => {
+		if (isLoading || isRefreshing) {
+			return null; // Special handling for loading
+		}
+		if (balancesHidden) {
+			return '••••';
+		}
+		if ($totalBalances.usd > 0) {
+			return $totalBalances.usd.toFixed(2);
+		}
+		return '0.00';
+	});
 </script>
+
+{#snippet helpButton()}
+	<button
+		type="button"
+		class="shrink-0 cursor-pointer p-0.5 text-white opacity-80 hover:text-white hover:opacity-100 hover:bg-transparent sm:ml-1 sm:p-1"
+		onclick={openHelpModal}
+		aria-label={$t('wallet.learn_more')}
+	>
+		<IconHelpCircle class="h-6 w-6" />
+	</button>
+{/snippet}
+
+{#snippet toggleButton()}
+	<button
+		type="button"
+		class="bg-base-100 text-base-content border-base-content/20 hover:bg-base-200 hover:shadow-3xl shrink-0 flex items-center gap-1 rounded-full border-2 p-1.5 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 sm:p-2"
+		onclick={toggleBalances}
+		aria-label={balancesHidden ? $t('wallet.show_balances') : $t('wallet.hide_balances')}
+	>
+		{#if balancesHidden}
+			<IconEyeOff class="h-6 w-6" />
+			<span class="text-xs font-semibold sm:text-sm">{$t('wallet.show')}</span>
+		{:else}
+			<IconEye class="h-6 w-6" />
+			{#if countdownSeconds > 0}
+				<span class="text-xs font-semibold sm:text-sm">{countdownSeconds}s</span>
+			{/if}
+		{/if}
+	</button>
+{/snippet}
+
+{#snippet refreshButton()}
+	<button
+		type="button"
+		class="bg-base-100 text-base-content border-base-content/20 hover:bg-base-200 hover:shadow-3xl shrink-0 rounded-full border-2 p-1.5 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-2xl sm:p-2"
+		onclick={handleRefresh}
+		disabled={isRefreshing}
+		aria-label={$t('wallet.refresh_balance')}
+	>
+		<IconRefresh class={isRefreshing ? 'h-6 w-6 animate-spin' : 'h-6 w-6'} />
+	</button>
+{/snippet}
 
 <div class="flex flex-col space-y-3 sm:space-y-4">
 	<!-- Total Portfolio Value Card -->
 	<div class="card bg-primary relative rounded-lg bg-linear-to-br text-white shadow-xl">
 		<div class="card-body p-3 sm:p-4">
-			<div class="flex items-center justify-between">
-				<div class="min-h-[70px] flex-1 sm:min-h-[80px]">
-					<p class="card-title text-sm text-white sm:text-base">{$t('wallet.total_balance')}</p>
-
+			<div class="flex flex-col gap-1 sm:gap-0.5">
+				<!-- Balance row with balance and help -->
+				<div class="flex items-center gap-2">
 					{#if isLoading || isRefreshing}
-						<!-- Loading state with reserved space -->
-						<div class="flex items-center gap-2">
-							<span class="loading loading-spinner loading-sm sm:loading-md"></span>
-							<p class="text-xl font-bold text-white opacity-70 sm:text-2xl">
-								{isRefreshing ? $t('wallet.rsk.refreshing') : $t('wallet.page.initializing')}
-							</p>
-						</div>
-					{:else if balancesHidden}
-						<!-- Hidden balances state -->
-						<p class="text-3xl font-bold text-white">
-							•••••• {$t('wallet.sats')}
+						<p class="text-3xl font-bold text-white sm:text-4xl inline-flex items-center gap-2 flex-1">
+							<span class="inline-flex items-center gap-2">
+								<span class="loading loading-spinner loading-sm sm:loading-md"></span>
+								{$t('wallet.sats')}
+							</span>
+							{@render helpButton()}
 						</p>
-						<p class="mt-0.5 text-base text-white opacity-80 sm:mt-1 sm:text-lg">
-							≈ $•••••• {$t('wallet.usd')}
-						</p>
-					{:else if $totalBalances.sats > 0}
-						<!-- Show total sats -->
-						<p class="text-2xl font-bold text-white sm:text-3xl">
-							{formatSats($totalBalances.sats)}
-							{$t('wallet.sats')}
-						</p>
-
-						{#if $totalBalances.usd > 0}
-							<p class="mt-0.5 text-base text-white opacity-80 sm:mt-1 sm:text-lg">
-								≈ ${$totalBalances.usd.toFixed(2)}
-								{$t('wallet.usd')}
-							</p>
-						{:else}
-							<!-- Show $0.00 to avoid layout shift when no assets -->
-							<p class="mt-0.5 text-base text-white opacity-80 sm:mt-1 sm:text-lg">
-								≈ $0.00 {$t('wallet.usd')}
-							</p>
-						{/if}
 					{:else}
-						<!-- Confirmed no assets - show 0 sats and $0.00 USD to avoid layout shift -->
-						<p class="text-2xl font-bold text-white sm:text-3xl">
-							0 {$t('wallet.sats')}
-						</p>
-						<p class="mt-0.5 text-base text-white opacity-80 sm:mt-1 sm:text-lg">
-							≈ $0.00 {$t('wallet.usd')}
+						<p class="text-3xl font-bold text-white sm:text-4xl inline-flex items-center gap-2 flex-1">
+							{satsDisplay} {$t('wallet.sats')}
+							{@render helpButton()}
 						</p>
 					{/if}
 				</div>
+				<!-- USD row with toggle and refresh buttons -->
+				<div class="flex items-center gap-2">
+					{#if isLoading || isRefreshing}
+						<p class="mt-0.5 text-base text-white opacity-80 sm:mt-1 sm:text-xl flex-1">
+							<span class="inline-flex items-center gap-2">
+								≈ $<span class="loading loading-spinner loading-xs sm:loading-sm"></span>
+								{$t('wallet.usd')}
+							</span>
+						</p>
+					{:else}
+						<p class="mt-0.5 text-base text-white opacity-80 sm:mt-1 sm:text-xl flex-1">
+							≈ ${usdDisplay} {$t('wallet.usd')}
+						</p>
+					{/if}
+					{@render toggleButton()}
+					{@render refreshButton()}
+				</div>
 			</div>
 		</div>
-
-		<!-- Hide/Show Balances Toggle Button (Upper Right) -->
-		<button
-			class="bg-base-100 text-base-content border-base-content/20 hover:bg-base-200 hover:shadow-3xl absolute top-1.5 right-1.5 flex items-center gap-1 rounded-full border-2 p-1.5 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 sm:top-2 sm:right-2 sm:p-2"
-			onclick={toggleBalances}
-			aria-label={balancesHidden ? $t('wallet.show_balances') : $t('wallet.hide_balances')}
-		>
-			{#if balancesHidden}
-				<IconEyeOff class="h-4 w-4 sm:h-5 sm:w-5" />
-			{:else}
-				<IconEye class="h-4 w-4 sm:h-5 sm:w-5" />
-				{#if countdownSeconds > 0}
-					<span class="text-xs font-semibold">{countdownSeconds}s</span>
-				{/if}
-			{/if}
-		</button>
-		<!-- Refresh Button (Lower Right) -->
-		<button
-			class="bg-base-100 text-base-content border-base-content/20 hover:bg-base-200 hover:shadow-3xl absolute right-1.5 bottom-1.5 rounded-full border-2 p-1.5 shadow-2xl transition-all duration-200 hover:scale-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-2xl sm:right-2 sm:bottom-2 sm:p-2"
-			onclick={handleRefresh}
-			disabled={isRefreshing}
-			aria-label={$t('wallet.refresh_balance')}
-		>
-			<IconRefresh class={isRefreshing ? 'h-4 w-4 animate-spin sm:h-5 sm:w-5' : 'h-4 w-4 sm:h-5 sm:w-5'} />
-		</button>
 	</div>
 
 	<!-- Historical Balance Indicators -->
@@ -187,7 +227,10 @@
 			<button
 				type="button"
 				class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-				onclick={() => (bitcoinExpanded = !bitcoinExpanded)}
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					bitcoinExpanded = !bitcoinExpanded;
+				}}
 			>
 				<div class="flex min-w-0 flex-1 items-center gap-2">
 					<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
@@ -198,6 +241,7 @@
 						tabindex="0"
 						onclick={(e) => {
 							e.stopPropagation();
+							triggerHaptic(ImpactStyle.Light);
 							(document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click();
 						}}
 						onkeydown={(e) => {
@@ -216,19 +260,15 @@
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else if balancesHidden}
 						<div class="text-sm font-semibold sm:text-base">
-							•••••• {$t('wallet.sats')}
+							•••• {$t('wallet.sats')} <span class="opacity-70">(≈ $••••)</span>
 						</div>
-						<div class="text-xs opacity-70">$••••••</div>
 					{:else}
 						<div class="text-sm font-semibold sm:text-base">
-							{formatSats($totalBalances.sats)}
-							{$t('wallet.sats')}
+							{formatSats($totalBalances.sats)} {$t('wallet.sats')}
+							{#if bitcoinAsset?.usdValue}
+								<span class="opacity-70">(≈ ${bitcoinAsset.usdValue.toFixed(2)})</span>
+							{/if}
 						</div>
-						{#if bitcoinAsset?.usdValue}
-							<div class="text-xs opacity-70">
-								${bitcoinAsset.usdValue.toFixed(2)}
-							</div>
-						{/if}
 					{/if}
 				</div>
 			</button>
@@ -256,9 +296,9 @@
 						<div class="text-right">
 							{#if balancesHidden}
 								<div class="text-sm font-semibold sm:text-base">
-									•••••• {$t('wallet.sats')}
+									•••• {$t('wallet.sats')}
 								</div>
-								<div class="text-xs opacity-70">$••••••</div>
+								<div class="text-xs opacity-70">$••••</div>
 							{:else if bitcoinAsset}
 								{@const balanceInSats = Math.floor(bitcoinAsset.balance * 100_000_000)}
 								<div class="text-sm font-semibold sm:text-base">
@@ -299,6 +339,7 @@
 				type="button"
 				class="collapse-title flex min-h-0 items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
 				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
 					usdExpanded = !usdExpanded;
 				}}
 			>
@@ -324,7 +365,7 @@
 						<span class="text-base-content/50 text-sm font-medium sm:text-base">{$t('wallet.usdt_binance_chain')}</span>
 						<div class="text-base-content/50 ml-auto text-xs">
 							{#if balancesHidden}
-								$••••••
+								$••••
 							{:else if usdtAsset}
 								${usdtAsset.usdValue.toFixed(2)}
 							{:else}
@@ -339,7 +380,7 @@
 						<span class="text-base-content/50 text-sm font-medium sm:text-base">{$t('wallet.usdt_liquid')}</span>
 						<div class="text-base-content/50 ml-auto text-xs">
 							{#if balancesHidden}
-								$••••••
+								$••••
 							{:else}
 								$0.00
 							{/if}

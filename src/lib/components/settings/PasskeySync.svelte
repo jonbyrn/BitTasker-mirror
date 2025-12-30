@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
+	import { user } from '$lib/stores/user.store';
 	import { checkBiometricAvailability } from '$lib/utils/helpers/biometrics';
 	import { getBiometricData, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import { getWebAuthnProviderDescription } from '$lib/utils/helpers/webBiometrics';
@@ -49,16 +50,19 @@
 			// Create a custom name for the passkey
 			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(npub);
+			
+			// Use username from user store if available, fallback to deviceName
+			const passkeyName = $user.username?.trim() || deviceName;
 
 			// Set up the WebAuthn passkey using the existing keys
 			const credentialId = await setBiometricKey(
 				npub,
 				masterKeyData.exportedMasterKey,
 				'passkey',
-				deviceName
+				passkeyName
 			);
 			// Device credential id will be updated in backend, so we need to register a new native passkey
-			await setBiometricKey(npub, masterKeyData.exportedMasterKey, 'biometrics', deviceName, credentialId);
+			await setBiometricKey(npub, masterKeyData.exportedMasterKey, 'biometrics', passkeyName, credentialId);
 
 			// Register the passkey device with the backend
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);

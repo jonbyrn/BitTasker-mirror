@@ -1,6 +1,6 @@
 ---
 description: API service layer architecture, endpoints, types, and service patterns
-globs: ["**/api/**/*", "**/services/**/*"]
+globs: ["src/**/api/**/*", "src/**/services/**/*"]
 alwaysApply: false
 ---
 # BitTasker API Service Layer Documentation

@@ -1,6 +1,6 @@
 ---
 description: Data models and type definitions for BitTasker entities
-globs: ["**/types/**/*", "**/models/**/*"]
+globs: ["src/**/types/**/*", "src/**/models/**/*"]
 alwaysApply: false
 ---
 

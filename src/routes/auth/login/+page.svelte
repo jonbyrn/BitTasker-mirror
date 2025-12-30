@@ -273,6 +273,8 @@
 
 			if (res.access_token) {
 				const deviceName = await createUserDeviceShortName(npub);
+				// Use username from response if available, fallback to deviceName
+				const passkeyName = res.user.username?.trim() || deviceName;
 				let credentialId = '';
 
 				// Check if we're in a test environment (E2E tests)
@@ -299,13 +301,13 @@
 									npub,
 									masterKeyData.exportedMasterKey,
 									'biometrics',
-									deviceName
+									passkeyName
 								);
 							} else if (authMethods.webAuthn) {
 								credentialId = await setWebBiometricKey(
 									npub,
 									masterKeyData.exportedMasterKey,
-									deviceName
+									passkeyName
 								);
 							}
 						}
@@ -321,13 +323,13 @@
 							npub,
 							masterKeyData.exportedMasterKey,
 							'biometrics',
-							deviceName
+							passkeyName
 						);
 					} else if (authMethods.webAuthn) {
 						credentialId = await setWebBiometricKey(
 							npub,
 							masterKeyData.exportedMasterKey,
-							deviceName
+							passkeyName
 						);
 					}
 

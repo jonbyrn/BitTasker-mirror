@@ -10,6 +10,7 @@
     "total_balance": "Total Balance",
     "show_balances": "Show Balances",
     "hide_balances": "Hide Balances",
+    "show": "Show",
     "liquid_balance": "Liquid Balance",
     "send_button": "Send",
     "recent_transactions": "Recent Transactions",
@@ -71,6 +72,7 @@
         "receive": "Received",
         "contract": "Contract",
         "contract_function": "Contract Functions",
+        "contracts": "Contracts",
         "contract_send": "Contract Send",
         "contract_receive": "Contract Receive",
         "swap": "Swap"
@@ -121,6 +123,7 @@
         "rootstock_bitcoin": "Rootstock Bitcoin",
         "binance_smart_chain": "Binance Smart Chain",
         "bsc": "BSC",
+        "lightning_bitcoin": "Lightning Bitcoin",
         "unknown_network": "Unknown Network"
       },
       "toast": {

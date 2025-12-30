@@ -103,40 +103,62 @@
 >
 	<!-- Input display area (grey bar) - takes remaining width -->
 	<div
-		class="bg-base-200 flex flex-1 items-center justify-center gap-1.5 p-1 sm:gap-2"
+		class="bg-base-200 relative flex flex-1 items-center justify-center p-1 sm:p-2"
 		class:bg-base-300={disabled}
 	>
 		{#if mathExpression || amount}
-			<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
+			<!-- Currency symbol on left -->
+			<div class="absolute left-2 sm:left-3 flex items-center">
 				{#if unit === 'usd'}
-					<span class="text-primary ml-0.5 text-2xl font-bold sm:ml-1 sm:text-3xl">$</span>
+					<span class="text-primary text-2xl font-bold sm:text-3xl">$</span>
 				{:else}
 					<IconCurrencyBtc class="text-primary h-6 w-6 sm:h-8 sm:w-8" />
-				{/if}
-				<div class="flex-1 border-none text-center text-2xl font-bold outline-none sm:text-3xl">
-					{mathExpression || amount || '0'}
-				</div>
-				{#if onClear}
-					<button
-						type="button"
-						class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
-						style="-webkit-tap-highlight-color: transparent;"
-						onclick={handleClear}
-						{disabled}
-						aria-label="Clear calculator"
-					>
-						<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
-					</button>
 				{/if}
 			</div>
+			<!-- Amount centered -->
+			<div class="w-full text-center text-2xl font-bold sm:text-3xl">
+				{mathExpression || amount || '0'}
+			</div>
+			<!-- Clear button on right (if present) -->
+			{#if onClear}
+				<button
+					type="button"
+					class="absolute right-2 sm:right-3 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+					style="-webkit-tap-highlight-color: transparent;"
+					onclick={handleClear}
+					{disabled}
+					aria-label="Clear calculator"
+				>
+					<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
+				</button>
+			{:else}
+				<!-- Spacer to balance symbol on left when no clear button -->
+				<div class="absolute right-2 sm:right-3">
+					{#if unit === 'usd'}
+						<span class="text-primary text-2xl font-bold opacity-0 sm:text-3xl">$</span>
+					{:else}
+						<IconCurrencyBtc class="text-primary h-6 w-6 opacity-0 sm:h-8 sm:w-8" />
+					{/if}
+				</div>
+			{/if}
 		{:else}
-			<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
+			<!-- Currency symbol on left -->
+			<div class="absolute left-2 sm:left-3 flex items-center">
 				{#if unit === 'usd'}
-					<span class="text-primary ml-0.5 text-2xl font-bold sm:ml-1 sm:text-3xl">$</span>
+					<span class="text-primary text-2xl font-bold sm:text-3xl">$</span>
 				{:else}
 					<IconCurrencyBtc class="text-primary h-6 w-6 sm:h-8 sm:w-8" />
 				{/if}
-				<div class="flex-1 text-center text-2xl font-bold sm:text-3xl">0</div>
+			</div>
+			<!-- Amount centered -->
+			<div class="w-full text-center text-2xl font-bold sm:text-3xl">0</div>
+			<!-- Spacer to balance symbol on left -->
+			<div class="absolute right-2 sm:right-3">
+				{#if unit === 'usd'}
+					<span class="text-primary text-2xl font-bold opacity-0 sm:text-3xl">$</span>
+				{:else}
+					<IconCurrencyBtc class="text-primary h-6 w-6 opacity-0 sm:h-8 sm:w-8" />
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -166,7 +188,7 @@
 >
 	<button
 		type="button"
-		class="border-base-300 flex cursor-pointer touch-manipulation items-center justify-center gap-1.5 border-r p-1.5 text-lg font-semibold transition-colors select-none sm:gap-2 sm:p-2 sm:text-2xl {unit ===
+		class="border-base-300 flex cursor-pointer touch-manipulation items-center justify-center gap-1.5 border-r p-1.5 text-lg font-semibold transition-colors select-none sm:gap-2 {unit ===
 		'usd'
 			? 'bg-primary text-primary-content'
 			: 'bg-base-100 text-base-content'}"
@@ -185,7 +207,7 @@
 	</button>
 	<button
 		type="button"
-		class="flex cursor-pointer touch-manipulation items-center justify-center gap-1.5 p-1.5 text-lg font-semibold transition-colors select-none sm:gap-2 sm:p-2 sm:text-2xl {unit ===
+		class="flex cursor-pointer touch-manipulation items-center justify-center gap-1.5 p-1.5 text-lg font-semibold transition-colors select-none sm:gap-2 {unit ===
 		'sats'
 			? 'bg-primary text-primary-content'
 			: 'bg-base-100 text-base-content'}"

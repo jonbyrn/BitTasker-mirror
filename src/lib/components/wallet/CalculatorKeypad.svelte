@@ -276,11 +276,11 @@
 		{#each row as key}
 			{@const keyDisabled = disabled || (key.type === 'decimal' && unit === 'sats')}
 			<button
-				class="border-base-300 flex min-h-[52px] cursor-pointer touch-manipulation items-center justify-center border-r border-b font-semibold transition-colors select-none sm:min-h-[60px] md:min-h-[70px] {key.isOperator
-					? 'active:bg-primary/20 active:text-primary text-primary text-2xl sm:text-3xl'
+				class="border-base-300 flex min-h-[52px] cursor-pointer touch-manipulation items-center justify-center border-r border-b font-semibold transition-colors select-none {key.isOperator
+					? 'active:bg-primary/20 active:text-primary text-primary text-2xl'
 					: key.type === 'action'
-						? 'active:bg-base-300 text-xl sm:text-2xl'
-						: 'active:bg-base-300 text-2xl sm:text-3xl'} {keyDisabled
+						? 'active:bg-base-300 text-xl'
+						: 'active:bg-base-300 text-2xl'} {keyDisabled
 					? 'pointer-events-none cursor-not-allowed opacity-50'
 					: ''}"
 				onclick={() => !keyDisabled && handleInput(key.value)}

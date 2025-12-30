@@ -41,7 +41,7 @@ export interface ProcessedTransaction {
         icon: Component;
         color: string;
     };
-    network: 'rsk' | 'bsc';
+    network: 'rsk' | 'bsc' | 'lightning';
 
     // Computed fields
     type: 'send' | 'receive' | 'swap' | 'contract';
@@ -166,32 +166,76 @@ function isEscrowContract(address: string, escrowAddresses: string[]): boolean {
  * Get network information based on network and environment
  * Computes explorer URL dynamically based on environment
  */
-function getNetworkInfo(network: 'rsk' | 'bsc'): {
-    icon: string;
-    displayName: string;
-    explorerBaseUrl: string;
-} {
-    if (network === 'rsk') {
-        const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-        return {
-            icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-            displayName: 'Rootstock (Bitcoin)',
-            explorerBaseUrl: rskNetwork === 'mainnet'
-                ? 'https://rootstock.blockscout.com/tx/'
-                : 'https://rootstock-testnet.blockscout.com/tx/'
-        };
-    } else {
-        const bscNetwork = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-        return {
-            icon: '/images/chains/Binance-logo.svg',
-            displayName: 'Binance Smart Chain',
-            explorerBaseUrl: bscNetwork === 'mainnet'
-                ? 'https://bscscan.com/tx/'
-                : 'https://testnet.bscscan.com/tx/'
-        };
+const rskExplorerBaseUrl = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet' === 'mainnet'
+    ? 'https://rootstock.blockscout.com/tx/'
+    : 'https://rootstock-testnet.blockscout.com/tx/';
+
+const bscExplorerBaseUrl = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet' === 'mainnet'
+    ? 'https://bscscan.com/tx/'
+    : 'https://testnet.bscscan.com/tx/';
+
+const networks = {
+    rsk: {
+        icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+        displayName: 'Rootstock (Bitcoin)',
+        explorerBaseUrl: rskExplorerBaseUrl
+    },
+    bsc: {
+        icon: '/images/chains/Binance-logo.svg',
+        displayName: 'Binance Smart Chain',
+        explorerBaseUrl: bscExplorerBaseUrl
+    },
+    lightning: {
+        icon: '/images/chains/lightning.svg',
+        displayName: 'Lightning Bitcoin',
+        explorerBaseUrl: rskExplorerBaseUrl
     }
 }
 
+
+/**
+ * Determine Boltz swap type based on method and caller
+ * 
+ * Submarine Swap (Chain → Lightning): User locks RBTC to receive Lightning
+ * Reverse Swap (Lightning → Chain): User claims RBTC after paying Lightning
+ * Chain Swap (Chain → Chain): Cross-chain swaps (e.g., L-BTC ↔ RBTC)
+ */
+function determineBoltzSwapType(
+    method: string | undefined,
+    fromAddress: string,
+    userAddress: string
+): 'submarine' | 'reverse' | 'chain' | undefined {
+    if (!method) return undefined;
+
+    const methodLower = method.toLowerCase();
+    const isFromUser = fromAddress === userAddress;
+
+    // Chain swaps use 'lockup' method
+    if (methodLower.includes('lockup')) {
+        return 'chain';
+    }
+
+    // Submarine vs Reverse detection for lock/claim/refund
+    if (methodLower.includes('lock')) {
+        // lock called by user = submarine (user locking to get Lightning)
+        // lock called by Boltz = reverse (Boltz locking for user to claim)
+        return isFromUser ? 'submarine' : 'reverse';
+    }
+
+    if (methodLower.includes('claim')) {
+        // claim called by user = reverse (user claiming Lightning → RBTC)
+        // claim called by Boltz = submarine (Boltz claiming after user paid Lightning)
+        return isFromUser ? 'reverse' : 'submarine';
+    }
+
+    if (methodLower.includes('refund')) {
+        // Refunds can happen for both submarine and reverse swaps
+        // We'll default to reverse since user typically refunds their own failed swaps
+        return 'reverse';
+    }
+
+    return undefined;
+}
 
 /**
  * Detect transaction type based on contract interaction
@@ -204,6 +248,7 @@ function detectTransactionType(
     type: 'send' | 'receive' | 'swap' | 'contract';
     subType?: 'lock' | 'claim' | 'refund';
     methodName?: string;
+    swapType?: 'submarine' | 'reverse' | 'chain';
 } {
     const toAddress = tx.to.hash.toLowerCase();
     const fromAddress = tx.from.hash.toLowerCase();
@@ -238,10 +283,14 @@ function detectTransactionType(
             subType = 'refund';
         }
 
+        // Determine Boltz swap type (submarine, reverse, or chain)
+        const swapType = determineBoltzSwapType(methodName, fromAddress, userAddr);
+
         return {
             type: 'swap',
             subType,
             methodName,
+            swapType,
         };
     }
 
@@ -388,19 +437,28 @@ export async function processTransactions(
     // Fetch contract addresses once
     const contractAddresses = await getContractAddresses();
 
-    // Get network information once
-    const networkInfo = getNetworkInfo(network);
-
     // Process all transactions in single iteration
     const processed = rawTransactions.map((tx) => {
         // Detect transaction type
-        const { type, subType, methodName } = detectTransactionType(
+        const { type, subType, methodName, swapType } = detectTransactionType(
             tx,
             userAddress,
             contractAddresses
         );
 
-        const valueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
+        // Extract transaction value
+        // For swap claims/refunds, the value field is 0, but the actual amount is in decoded_input.parameters
+        let valueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
+
+        // Special handling for swap claims and refunds - extract amount from decoded input
+        if (type === 'swap' && (subType === 'claim' || subType === 'refund')) {
+            if (tx.decoded_input?.parameters) {
+                const amountParam = tx.decoded_input.parameters.find((p) => p.name === 'amount');
+                if (amountParam?.value) {
+                    valueSats = Number(weiToSatoshi(BigInt(amountParam.value)));
+                }
+            }
+        }
 
         // Check if transaction has value
         const hasValue = valueSats > 0;
@@ -416,6 +474,11 @@ export async function processTransactions(
         // Calculate fee in sats
         const feeSats = Number(weiToSatoshi(BigInt(tx.fee.value || '0')));
 
+        // Determine network - Lightning for submarine/reverse swaps, otherwise use provided network
+        // Get network information once
+        const isLightningSwap = type === 'swap' && (swapType === 'submarine' || swapType === 'reverse');
+        const networkInfo = networks[isLightningSwap ? 'lightning' : network];
+
         // Build explorer URL
         const explorerUrl = tx.hash ? `${networkInfo.explorerBaseUrl}${tx.hash}` : null;
 
@@ -428,7 +491,7 @@ export async function processTransactions(
             value: valueSats.toString(),
             timestamp: tx.timestamp,
             status: statusUI[normalizeStatus(tx.status) as keyof typeof statusUI],
-            network,
+            network: isLightningSwap ? 'lightning' : network,
 
             // Computed fields
             type,

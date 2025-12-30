@@ -1,6 +1,6 @@
 ---
 description: Translation system guidelines for internationalization and localization
-globs: ["**/*.svelte", "**/*.ts", "**/locales/**/*"]
+globs: ["src/**/*.svelte", "src/**/*.ts", "src/**/locales/**/*"]
 alwaysApply: true
 ---
 
