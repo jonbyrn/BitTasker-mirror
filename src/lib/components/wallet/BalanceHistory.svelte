@@ -68,13 +68,17 @@
 	<div class="py-3 px-4">
 		<div class="grid grid-cols-3 gap-2 text-sm">
 			{#await balanceChangesPromise}
-				<!-- Loading state -->
-				{#each [1, 2, 3] as _}
+				<!-- Loading state - matching loaded state dimensions to prevent layout shift -->
+				{#each ['24h', '7d', '30d'] as label}
 					<div class="flex flex-col items-center gap-1">
-						<div class="text-base-content/70 font-medium">...</div>
-						<div class="flex flex-col items-center gap-1">
+						<div class="text-base-content/70 font-medium">{label}</div>
+						<!-- Sats amount placeholder with spinner - matching loaded state dimensions -->
+						<div class="font-semibold text-base-content inline-flex items-center gap-1 min-w-[5rem] justify-center">
 							<span class="loading loading-spinner loading-xs text-primary"></span>
-							<span class="text-base-content/50 text-xs">{$t('common.loading')}</span>
+						</div>
+						<!-- USD amount placeholder with spinner - matching loaded state dimensions -->
+						<div class="text-base-content/70 inline-flex items-center gap-1 min-w-[4rem] justify-center">
+							<span class="loading loading-spinner loading-xs text-primary"></span>
 						</div>
 					</div>
 				{/each}
@@ -87,10 +91,12 @@
 							<div class="text-base-content/50">••••</div>
 							<div class="text-base-content/50">••••</div>
 						{:else if change.satsChange === null}
-							<!-- Loading indicator -->
-							<div class="flex flex-col items-center gap-1">
+							<!-- Loading indicator - matching loaded state dimensions -->
+							<div class="font-semibold text-base-content inline-flex items-center gap-1 min-w-[5rem] justify-center">
 								<span class="loading loading-spinner loading-xs text-primary"></span>
-								<span class="text-base-content/50 text-xs">{$t('common.loading')}</span>
+							</div>
+							<div class="text-base-content/70 inline-flex items-center gap-1 min-w-[4rem] justify-center">
+								<span class="loading loading-spinner loading-xs text-primary"></span>
 							</div>
 						{:else}
 							{@const formatted = formatBalanceChange(change.satsChange, change.usdChange)}
