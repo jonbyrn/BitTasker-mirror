@@ -22,7 +22,9 @@
             "start_location": "Start Location",
             "destination_location": "Destination Location",
             "task_accepted_congratulations": "Congratulations! Your task has been accepted.",
-            "location_details_below": "Here are the location details:"
+            "location_details_below": "Here are the location details:",
+            "task_completed_message": "Task Completed",
+            "task_completed_review_message": "The task has been marked as completed. Please review the work and confirm if it's ready."
         },
         "back": "Back",
         "back_2": "Back",
