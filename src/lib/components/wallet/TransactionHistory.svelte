@@ -293,29 +293,29 @@
 					</button>
 				{/each}
 			</div>
-		</div>
+			</div>
 
 		<!-- Network Filter Dropdown (All Screen Sizes) -->
-		<div class="network-dropdown-container relative">
+			<div class="network-dropdown-container relative">
 			{#each [networkFilterOptions.find((opt) => opt.id === networkFilter)] as selectedOption}
 				<button
 					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
 					onclick={toggleNetworkDropdown}
 				>
 					<div class="flex items-center gap-2">
-						{#if selectedOption?.isImage}
-							<img
-								src={selectedOption.icon as string}
-								alt={selectedOption.label}
-								class="h-5 w-5"
-							/>
-						{:else if selectedOption && typeof selectedOption.icon !== 'string'}
-							{@const IconComponent = selectedOption.icon}
-							<IconComponent class="h-5 w-5" />
-						{/if}
-						<span class="font-medium">
-							{selectedOption?.label}
-						</span>
+							{#if selectedOption?.isImage}
+								<img
+									src={selectedOption.icon as string}
+									alt={selectedOption.label}
+									class="h-5 w-5"
+								/>
+							{:else if selectedOption && typeof selectedOption.icon !== 'string'}
+								{@const IconComponent = selectedOption.icon}
+								<IconComponent class="h-5 w-5" />
+							{/if}
+							<span class="font-medium">
+								{selectedOption?.label}
+							</span>
 					</div>
 					<IconChevronDown
 						class="h-5 w-5 transition-transform duration-200 {isNetworkDropdownOpen
@@ -325,69 +325,69 @@
 				</button>
 			{/each}
 
-			{#if isNetworkDropdownOpen}
-				<div
-					class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-				>
-					{#each networkFilterOptions as option}
-						<button
-							class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
-							option.id
-								? 'bg-primary/10 text-primary'
-								: 'text-base-content'}"
-							onclick={() => selectNetworkFilter(option.id)}
-						>
-							{#if option.isImage}
-								<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
-							{:else if typeof option.icon !== 'string'}
-								{@const IconComponent = option.icon}
-								<IconComponent
-									class="h-5 w-5 {networkFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-								/>
-							{/if}
-							<span class="font-medium">{option.label}</span>
-							{#if networkFilter === option.id}
-								<IconCheck class="text-primary ml-auto h-5 w-5" />
-							{/if}
-						</button>
-					{/each}
-				</div>
-			{/if}
+				{#if isNetworkDropdownOpen}
+					<div
+						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+					>
+						{#each networkFilterOptions as option}
+							<button
+								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
+								option.id
+									? 'bg-primary/10 text-primary'
+									: 'text-base-content'}"
+								onclick={() => selectNetworkFilter(option.id)}
+							>
+								{#if option.isImage}
+									<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
+								{:else if typeof option.icon !== 'string'}
+									{@const IconComponent = option.icon}
+									<IconComponent
+										class="h-5 w-5 {networkFilter === option.id
+											? 'text-primary'
+											: 'text-base-content/60'}"
+									/>
+								{/if}
+								<span class="font-medium">{option.label}</span>
+								{#if networkFilter === option.id}
+									<IconCheck class="text-primary ml-auto h-5 w-5" />
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</div>
-	</div>
 
 	<!-- Total transactions count (above scrollable area) -->
 	{#if !isLoading && filteredTransactions.length > 0}
 		<div class="text-center text-lg p-2 font-bold shrink-0 mx-3 sm:mx-4 lg:mx-6">
 			{filteredTransactions.length} {$t('wallet.total_transactions')}
 		</div>
-	{/if}
+						{/if}
 
 	<!-- Scrollable transactions area -->
 	<div class="flex-1 overflow-y-auto min-h-0 mx-3 sm:mx-4 lg:mx-6">
 		<div class="space-y-3">
-			{#if error}
-				<div class="alert alert-error alert-outline">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{error}</span>
-				</div>
-			{/if}
+	{#if error}
+		<div class="alert alert-error alert-outline">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
+			</svg>
+			<span>{error}</span>
+		</div>
+	{/if}
 
-			{#if isLoading}
+	{#if isLoading}
 		<div class="space-y-3">
 			{#each Array(10) as _}
 				<div class="card bg-base-200 animate-pulse rounded-lg">
@@ -569,7 +569,7 @@
 		</div>
 		{/if}
 		</div>
-	</div>
+		</div>
 
 	<!-- Bottom section with pagination and buttons -->
 	<div class="shrink-0 space-y-4 border-t border-base-300 pt-4 lg:pt-6 mt-auto mx-3 mb-3 sm:mx-4 sm:mb-4 lg:mx-6 lg:mb-6">
@@ -646,7 +646,7 @@
 							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
 						/>
 					</svg>
-				{/if}
+	{/if}
 				<span>{$t('wallet.refresh')}</span>
 			</button>
 		</div>

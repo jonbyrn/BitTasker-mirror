@@ -579,7 +579,8 @@
       "enter_amount_to_estimate": "Ingrese el monto para estimar las tarifas",
       "network": "Red",
       "description_characters": "Caracteres",
-      "below_swap_minimum": "Monto por debajo del mínimo de intercambio: {minAmount} Sats"
+      "below_swap_minimum": "Monto por debajo del mínimo de intercambio: {minAmount} Sats",
+      "invoice_total": "Total de la factura"
     },
     "swap": {
       "title": "Intercambiar Activos Digitales",

@@ -22,7 +22,7 @@
 	let isRefreshing = $state(false);
 
 	// Balance visibility state - default to hidden
-	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
+	let balancesHidden = $state(true);
 	let countdownSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -236,7 +236,7 @@
 					<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
 					<span>{$t('wallet.bitcoin')}</span>
 					<div
-						class="btn btn-ghost btn-xs ml-1 shrink-0 cursor-pointer p-0.5 sm:ml-2 sm:p-1"
+						class="btn btn-ghost btn-xs shrink-0 cursor-pointer p-0.5 sm:p-1"
 						role="button"
 						tabindex="0"
 						onclick={(e) => {
@@ -252,23 +252,31 @@
 							}
 						}}
 					>
-						<IconHelpCircle class="text-base-content/70 hover:text-base-content h-4 w-4 sm:h-5 sm:w-5" />
+						<IconHelpCircle class="text-base-content/70 hover:text-base-content h-5 w-5" />
 					</div>
 				</div>
 				<div class="ml-2 shrink-0 text-right">
 					{#if isLoading || isRefreshing}
-						<span class="loading loading-spinner loading-sm"></span>
+						<!-- Loading state - single spinner matching two-line height to prevent layout shift -->
+						<div class="flex flex-col items-end gap-0.5 h-9 w-9 justify-center">
+							<span class="loading loading-spinner loading-md"></span>
+						</div>
 					{:else if balancesHidden}
 						<div class="text-sm font-semibold sm:text-base">
-							•••• {$t('wallet.sats')} <span class="opacity-70">(≈ $••••)</span>
+							•••• {$t('wallet.sats')}
+						</div>
+						<div class="text-xs opacity-70 sm:text-sm">
+							≈ $••••
 						</div>
 					{:else}
 						<div class="text-sm font-semibold sm:text-base">
 							{formatSats($totalBalances.sats)} {$t('wallet.sats')}
-							{#if bitcoinAsset?.usdValue}
-								<span class="opacity-70">(≈ ${bitcoinAsset.usdValue.toFixed(2)})</span>
-							{/if}
 						</div>
+						{#if bitcoinAsset?.usdValue}
+							<div class="text-xs opacity-70 sm:text-sm">
+								≈ ${bitcoinAsset.usdValue.toFixed(2)}
+							</div>
+						{/if}
 					{/if}
 				</div>
 			</button>

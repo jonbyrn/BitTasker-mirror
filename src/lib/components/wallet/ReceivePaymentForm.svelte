@@ -41,7 +41,8 @@
 		descriptionExpanded: false,
 		networkFeeExpanded: false,
 		isNetworkDropdownOpen: false,
-		calculatorKey: 0
+		calculatorKey: 0,
+		currentStep: 1 as 1 | 2 // Step 1: Amount, Step 2: Details
 	});
 
 	// Grouped State: Fee & Swap Information
@@ -506,34 +507,111 @@
 	function handleCancel() {
 		formInput.amount = '';
 		formInput.memo = '';
+		uiState.currentStep = 1; // Reset to step 1
 		onCancel();
+	}
+
+	// Handle step navigation
+	function handleNextStep() {
+		if (amountInSats > 0 || formInput.selectedNetwork === 'rootstock-bitcoin') {
+			triggerHaptic(ImpactStyle.Light);
+			uiState.currentStep = 2;
+		}
+	}
+
+	function handleBackStep() {
+		triggerHaptic(ImpactStyle.Light);
+		uiState.currentStep = 1;
 	}
 </script>
 
-<div class="flex min-h-full flex-col space-y-4 sm:space-y-6">
-	<!-- Amount Input Section -->
-	<AmountInputSection
-		amount={formInput.amount}
-		unit={formInput.unit}
-		mathExpression={formInput.mathExpression}
-		calculatorKey={uiState.calculatorKey}
-		onAmountChange={(value) => (formInput.amount = value)}
-		onUnitChange={(newUnit) => {
-			triggerHaptic(ImpactStyle.Light);
-			formInput.unit = newUnit;
-			// Keep amount when switching units - user may have entered amount before selecting unit
-			formInput.mathExpression = '';
-			// Don't increment calculatorKey - preserve calculator state and amount
-			// Trigger fee update when unit changes (amount in sats might change)
-			handleAmountOrNetworkChange();
-		}}
-		onCalculationChange={handleCalculationChange}
-		onClear={handleClearCalculator}
-	/>
+<div class="flex min-h-full flex-col space-y-3 sm:space-y-4">
+	<!-- Step 1: Amount Input (Mobile Only) -->
+	<div class="block sm:hidden space-y-2">
+		{#if uiState.currentStep === 1}
+			<!-- Amount Input Section -->
+			<AmountInputSection
+				amount={formInput.amount}
+				unit={formInput.unit}
+				mathExpression={formInput.mathExpression}
+				calculatorKey={uiState.calculatorKey}
+				onAmountChange={(value) => (formInput.amount = value)}
+				onUnitChange={(newUnit) => {
+					triggerHaptic(ImpactStyle.Light);
+					formInput.unit = newUnit;
+					// Keep amount when switching units - user may have entered amount before selecting unit
+					formInput.mathExpression = '';
+					// Don't increment calculatorKey - preserve calculator state and amount
+					// Trigger fee update when unit changes (amount in sats might change)
+					handleAmountOrNetworkChange();
+				}}
+				onCalculationChange={handleCalculationChange}
+				onClear={handleClearCalculator}
+			/>
+		{/if}
+	</div>
 
-	<!-- Network Selector (DaisyUI Native Dropdown) -->
-	<details
-		class="dropdown dropdown-bottom w-full"
+	<!-- Desktop: Always show amount input -->
+	<div class="hidden sm:block">
+		<AmountInputSection
+			amount={formInput.amount}
+			unit={formInput.unit}
+			mathExpression={formInput.mathExpression}
+			calculatorKey={uiState.calculatorKey}
+			onAmountChange={(value) => (formInput.amount = value)}
+			onUnitChange={(newUnit) => {
+				triggerHaptic(ImpactStyle.Light);
+				formInput.unit = newUnit;
+				// Keep amount when switching units - user may have entered amount before selecting unit
+				formInput.mathExpression = '';
+				// Don't increment calculatorKey - preserve calculator state and amount
+				// Trigger fee update when unit changes (amount in sats might change)
+				handleAmountOrNetworkChange();
+			}}
+			onCalculationChange={handleCalculationChange}
+			onClear={handleClearCalculator}
+		/>
+	</div>
+
+	<!-- Step 2 Content (Mobile Only) - All fields except amount -->
+	<div class="block sm:hidden space-y-2">
+		{#if uiState.currentStep === 2}
+			<!-- Amount Display (Read-only) -->
+			<div class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 mb-2">
+				<span class="text-center text-xs opacity-70">{$t('wallet.receive.invoice_total')}</span>
+				<div class="flex w-full items-center justify-center gap-1.5">
+					{#if formInput.unit === 'sats'}
+						<span class="text-primary text-xl font-bold">
+							{formatSats(amountInSats)}
+							{$t('wallet.sats')}
+						</span>
+						{#if btcPrice > 0 && amountInSats > 0}
+							<span class="text-xs opacity-60">
+								≈ {formatUsd((amountInSats / 100_000_000) * btcPrice)}
+							</span>
+						{/if}
+					{:else}
+						<span class="text-primary text-xl font-bold">
+							{formatUsd(parseFloat(formInput.amount) || 0)}
+						</span>
+						{#if btcPrice > 0 && amountInSats > 0}
+							<span class="text-xs opacity-60">
+								≈ {formatSats(amountInSats)} {$t('wallet.sats')}
+							</span>
+						{/if}
+					{/if}
+				</div>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Network Selector and other fields - Hidden on mobile step 1, visible on step 2 and desktop -->
+	<div class="block sm:hidden">
+		{#if uiState.currentStep === 2}
+			<div class="flex flex-col space-y-2">
+				<!-- Network Selector (DaisyUI Native Dropdown) -->
+				<details
+			class="dropdown dropdown-bottom w-full"
 		bind:this={networkDropdownElement}
 		use:clickOutside={{ callback: closeNetworkDropdown }}
 	>
@@ -702,9 +780,9 @@
 				</li>
 			{/each}
 		</ul>
-	</details>
+		</details>
 
-	<!-- Memo/Description Field (Accordion) -->
+		<!-- Memo/Description Field (Accordion) -->
 	<div
 		class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
 		class:collapse-open={uiState.descriptionExpanded}
@@ -807,100 +885,528 @@
 			</div>
 		</div>
 	{/if}
-
-	<!-- Charge Fees to Payer Toggle (Always Visible) -->
-	{#if feeState.estimated && feeState.estimated.totalFees > 0}
-		<button
-			type="button"
-			class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm transition-colors select-none sm:gap-3 sm:py-2 sm:text-base {formInput.chargeFeesToPayer
-				? 'bg-primary text-primary-content hover:bg-primary/90'
-				: 'btn-outline bg-base-100'}"
-			style="-webkit-tap-highlight-color: transparent;"
-			onclick={() => {
-				triggerHaptic(ImpactStyle.Light);
-				formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
-			}}
-		>
-			<div
-				class="flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5 {formInput.chargeFeesToPayer
-					? 'border-primary-content bg-primary-content'
-					: 'border-base-content/30'}"
+		<!-- Charge Fees to Payer Toggle (Mobile Step 2) -->
+		{#if feeState.estimated && feeState.estimated.totalFees > 0}
+			<button
+				type="button"
+				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm transition-colors select-none {formInput.chargeFeesToPayer
+					? 'bg-primary text-primary-content hover:bg-primary/90'
+					: 'btn-outline bg-base-100'}"
+				style="-webkit-tap-highlight-color: transparent;"
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
+				}}
 			>
-				{#if formInput.chargeFeesToPayer}
-					<IconCheck
-						class="text-primary h-3.5 w-3.5 sm:h-4 sm:w-4"
-						style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
-					/>
-				{/if}
-			</div>
-			<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
-		</button>
-	{:else}
-		<button
-			type="button"
-			class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm opacity-50 sm:gap-3 sm:py-2 sm:text-base"
-			disabled
-		>
-			<div
-				class="border-base-content/30 flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5"
-			></div>
-			<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
-		</button>
-	{/if}
-
-	<!-- Swap Minimum Warning -->
-	{#if isBelowSwapMinimum && feeState.swapLimits}
-		<p class="text-error mb-0.5 text-center text-xs sm:mb-1 sm:text-sm">
-			{$t('wallet.receive.below_swap_minimum', {
-				values: { minAmount: formatSats(feeState.swapLimits.minimal) }
-			})}
-		</p>
-	{/if}
-
-	<!-- Total Received Card -->
-	<div
-		class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-1.5 sm:gap-2 sm:p-2"
-	>
-		<span class="text-center text-xs opacity-70 sm:text-sm"
-			>{$t('wallet.swap.total_received_est')}</span
-		>
-		{#if totalReceived > 0 && feeState.estimated}
-			<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
-				{#if formInput.unit === 'sats'}
-					<span class="text-primary text-xl font-bold sm:text-2xl">
-						{formatSats(totalReceived)}
-						{$t('wallet.sats')}
-					</span>
-					{#if btcPrice > 0}
-						<span class="text-xs opacity-60 sm:text-sm">
-							≈ {formatUsd(totalReceivedUSD)}
-						</span>
+				<div
+					class="flex h-4 w-4 items-center justify-center rounded border-2 {formInput.chargeFeesToPayer
+						? 'border-primary-content bg-primary-content'
+						: 'border-base-content/30'}"
+				>
+					{#if formInput.chargeFeesToPayer}
+						<IconCheck
+							class="text-primary h-3.5 w-3.5"
+							style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
+						/>
 					{/if}
-				{:else}
-					<span class="text-primary text-xl font-bold sm:text-2xl">
-						{formatUsd(totalReceivedUSD)}
-					</span>
-					{#if btcPrice > 0}
-						<span class="text-xs opacity-60 sm:text-sm">
-							≈ {formatSats(totalReceived)}
+				</div>
+				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
+			</button>
+		{:else}
+			<button
+				type="button"
+				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm opacity-50"
+				disabled
+			>
+				<div
+					class="border-base-content/30 flex h-4 w-4 items-center justify-center rounded border-2"
+				></div>
+				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
+			</button>
+		{/if}
+
+		<!-- Swap Minimum Warning (Mobile Step 2) -->
+		{#if isBelowSwapMinimum && feeState.swapLimits}
+			<p class="text-error mb-0.5 text-center text-xs">
+				{$t('wallet.receive.below_swap_minimum', {
+					values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+				})}
+			</p>
+		{/if}
+
+		<!-- Total Received Card (Mobile Step 2) -->
+		<div
+			class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-1.5"
+		>
+			<span class="text-center text-xs opacity-70">{$t('wallet.swap.total_received_est')}</span>
+			{#if totalReceived > 0 && feeState.estimated}
+				<div class="flex w-full items-center justify-center gap-1.5">
+					{#if formInput.unit === 'sats'}
+						<span class="text-primary text-xl font-bold">
+							{formatSats(totalReceived)}
 							{$t('wallet.sats')}
 						</span>
+						{#if btcPrice > 0}
+							<span class="text-xs opacity-60">
+								≈ {formatUsd(totalReceivedUSD)}
+							</span>
+						{/if}
+					{:else}
+						<span class="text-primary text-xl font-bold">
+							{formatUsd(totalReceivedUSD)}
+						</span>
+						{#if btcPrice > 0}
+							<span class="text-xs opacity-60">
+								≈ {formatSats(totalReceived)}
+								{$t('wallet.sats')}
+							</span>
+						{/if}
 					{/if}
-				{/if}
-			</div>
-		{:else}
-			<div class="text-center text-xs opacity-60 sm:text-sm">
-				{$t('wallet.receive.enter_amount_to_estimate')}
+				</div>
+			{:else}
+				<div class="text-center text-xs opacity-60">
+					{$t('wallet.receive.enter_amount_to_estimate')}
+				</div>
+			{/if}
+		</div>
 			</div>
 		{/if}
+	</div>
+
+	<!-- Desktop: All fields always visible -->
+	<div class="hidden sm:block">
+		<div class="flex flex-col space-y-2">
+			<!-- Network Selector (DaisyUI Native Dropdown) -->
+		<details
+			class="dropdown dropdown-bottom w-full"
+			bind:this={networkDropdownElement}
+			use:clickOutside={{ callback: closeNetworkDropdown }}
+		>
+			<summary
+				class="btn btn-outline border-primary bg-base-100 w-full cursor-pointer justify-between rounded-lg border-2 py-0.5 text-sm sm:py-1 sm:text-base"
+				onclick={handleNetworkDropdownToggle}
+				aria-label={$t('wallet.receive_form.select_network')}
+			>
+				<div class="flex items-center gap-1.5 sm:gap-2">
+					{#if selectedNetworkInfo?.icon}
+						<img
+							src={selectedNetworkInfo.icon}
+							alt={selectedNetworkInfo.label}
+							class="h-4 w-4 sm:h-5 sm:w-5"
+						/>
+					{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 10V3L4 14h7v7l9-11h-7z"
+							/>
+						</svg>
+					{/if}
+					<span class="font-medium">
+						{selectedNetworkInfo?.label}
+						{$t('wallet.receive.network')}
+					</span>
+				</div>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-3.5 w-3.5 transition-transform duration-200 sm:h-4 sm:w-4"
+					class:rotate-180={uiState.isNetworkDropdownOpen}
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+				</svg>
+			</summary>
+			<ul
+				class="dropdown-content menu bg-base-100 border-primary z-1 mt-1 w-full rounded-lg border-2 p-1.5 sm:p-2"
+				style="box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);"
+			>
+				{#each networkOptions as network}
+					{@const networkFees = getNetworkFees(network.value)}
+					<li>
+						<button
+							type="button"
+							class="flex w-full items-start gap-1.5 rounded-lg p-0.5 transition-colors sm:gap-2 sm:p-1 {!network.available
+								? 'cursor-not-allowed opacity-40'
+								: 'hover:bg-base-200'} {formInput.selectedNetwork === network.value
+								? 'bg-primary/10'
+								: ''}"
+							disabled={!network.available}
+							onclick={() => {
+								if (network.available) {
+									triggerHaptic(ImpactStyle.Light);
+									formInput.selectedNetwork = network.value;
+									closeNetworkDropdown();
+									// Trigger fee update when network changes
+									handleAmountOrNetworkChange();
+								}
+							}}
+						>
+							<div class="flex items-center self-center">
+								{#if network.icon}
+									<img src={network.icon} alt={network.label} class="h-4 w-4 sm:h-5 sm:w-5" />
+								{:else if network.value === 'lightning-bitcoin'}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M13 10V3L4 14h7v7l9-11h-7z"
+										/>
+									</svg>
+								{/if}
+							</div>
+							<div class="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:gap-1">
+								<div class="flex w-full items-center gap-1.5 sm:gap-2">
+									<span class="text-left text-sm font-medium sm:text-base">
+										{network.label}
+										{$t('wallet.receive.network')}
+									</span>
+								</div>
+								{#if !network.available}
+									<!-- Show "Coming Soon" for disabled networks -->
+									<div class="text-xs opacity-70">
+										{$t('wallet.coming_soon')}
+									</div>
+								{:else if networkFees && amountInSats > 0}
+									<!-- Show estimated fees when amount is entered -->
+									<div class="text-xs opacity-70">
+										<span>{formatSats(networkFees.totalFees)} {$t('wallet.sats')}</span>
+										{#if btcPrice > 0 && networkFees.totalFees > 0}
+											<span class="ml-1">
+												≈ {formatUsd((networkFees.totalFees / 100_000_000) * btcPrice)}
+											</span>
+										{/if}
+									</div>
+								{:else if network.value === 'lightning-bitcoin' && swapPairsInfo?.lightning}
+									<!-- Lightning: Show fee info from cached API data (abbreviated on mobile) -->
+									<div class="text-xs opacity-70">
+										<span class="hidden sm:inline"
+											>~{swapPairsInfo.lightning.fees.percentage}% {$t('wallet.swap.swap_fee')} +
+										</span>~{formatSats(
+											(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
+												(swapPairsInfo.lightning.fees.minerFees.claim || 0)
+										)}
+										{$t('wallet.sats')}
+										<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+									</div>
+								{:else if network.value === 'rootstock-bitcoin' && swapPairsInfo?.rootstock}
+									<!-- Rootstock: Show gas fee from cached estimate -->
+									<div class="text-xs opacity-70">
+										{formatSats(swapPairsInfo.rootstock.gasFee)}
+										{$t('wallet.sats')}
+										<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+										{#if btcPrice > 0}
+											<span class="ml-1">
+												≈ {formatUsd((swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice)}
+											</span>
+										{/if}
+									</div>
+								{:else if network.value === 'liquid-bitcoin' && swapPairsInfo?.liquid}
+									<!-- Liquid: Show fee info from cached API data (abbreviated on mobile) -->
+									<div class="text-xs opacity-70">
+										<span class="hidden sm:inline"
+											>~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} +
+										</span>~{formatSats(
+											(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
+												(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)
+										)}
+										{$t('wallet.sats')}
+										<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+									</div>
+								{:else if network.value === 'bitcoin'}
+									<!-- Bitcoin on-chain: Show placeholder -->
+									<div class="text-xs opacity-70">
+										{$t('wallet.network_fee')}
+									</div>
+								{:else}
+									<!-- Loading state -->
+									<div class="text-xs opacity-70">
+										<span class="loading loading-spinner loading-xs"></span>
+										<span class="hidden sm:inline">{$t('wallet.swap.loading_fees')}</span>
+									</div>
+								{/if}
+							</div>
+						</button>
+					</li>
+				{/each}
+			</ul>
+		</details>
+
+		<!-- Memo/Description Field (Accordion) -->
+		<div
+			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+			class:collapse-open={uiState.descriptionExpanded}
+		>
+			<button
+				type="button"
+				class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					uiState.descriptionExpanded = !uiState.descriptionExpanded;
+				}}
+			>
+				{$t('wallet.description')} ({$t('wallet.optional')})
+			</button>
+			<div class="collapse-content">
+				<div class="form-control">
+					<textarea
+						id="memo-input-desktop"
+						class="textarea textarea-bordered w-full text-sm sm:text-base"
+						class:textarea-error={formInput.memo.length > 200}
+						placeholder={$t('wallet.payment_for_placeholder')}
+						bind:value={formInput.memo}
+						rows="3"
+						maxlength="200"
+					></textarea>
+					<div class="label text-xs">
+						<span
+							class="label-text-alt {formInput.memo.length > 200
+								? 'text-error'
+								: 'text-base-content/70'}"
+						>
+							{formInput.memo.length}/200 {$t('wallet.receive.description_characters')}
+						</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Network Fee Accordion (Always Visible) -->
+		{#if feeState.isLoading}
+			<div
+				class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-2 sm:p-4"
+			>
+				<span class="loading loading-spinner loading-sm"></span>
+				<span class="text-xs sm:text-sm">{$t('wallet.swap.loading_fees')}</span>
+			</div>
+		{:else if feeState.error}
+			<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
+				<span>{feeState.error}</span>
+			</div>
+		{:else}
+			<div
+				class="collapse-arrow border-base-300 bg-base-100 collapse rounded-lg border"
+				class:collapse-open={uiState.networkFeeExpanded}
+			>
+				<button
+					type="button"
+					class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
+					onclick={() => {
+						triggerHaptic(ImpactStyle.Light);
+						uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
+					}}
+				>
+					<div class="flex w-full items-center gap-1.5 sm:gap-2">
+						<span>{$t('wallet.network_fee')}:</span>
+						{#if feeState.estimated}
+							<span class="font-semibold"
+								>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
+							>
+							{#if btcPrice > 0 && feeState.estimated.totalFees > 0}
+								<span class="opacity-60">
+									≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
+								</span>
+							{/if}
+						{:else}
+							<span class="font-semibold">0 {$t('wallet.sats')}</span>
+						{/if}
+					</div>
+				</button>
+				<div class="collapse-content pb-0">
+					<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
+						{#if feeState.estimated && feeState.estimated.serviceFee > 0}
+							<div class="flex items-center justify-between text-xs opacity-70">
+								<span>{$t('wallet.swap.swap_fee')}:</span>
+								<span>{formatSats(feeState.estimated.serviceFee)} {$t('wallet.sats')}</span>
+							</div>
+						{/if}
+						{#if feeState.estimated && feeState.estimated.networkFee > 0}
+							<div class="flex items-center justify-between text-xs opacity-70">
+								<span>{$t('wallet.swap.network_transaction_fee')}:</span>
+								<span>{formatSats(feeState.estimated.networkFee)} {$t('wallet.sats')}</span>
+							</div>
+						{/if}
+						{#if !feeState.estimated || feeState.estimated.totalFees === 0}
+							<div class="py-2 text-center text-xs opacity-70">
+								{$t('wallet.receive.enter_amount_to_estimate')}
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Charge Fees to Payer Toggle (Desktop) -->
+		{#if feeState.estimated && feeState.estimated.totalFees > 0}
+			<button
+				type="button"
+				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm transition-colors select-none sm:gap-3 sm:py-2 sm:text-base {formInput.chargeFeesToPayer
+					? 'bg-primary text-primary-content hover:bg-primary/90'
+					: 'btn-outline bg-base-100'}"
+				style="-webkit-tap-highlight-color: transparent;"
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
+				}}
+			>
+				<div
+					class="flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5 {formInput.chargeFeesToPayer
+						? 'border-primary-content bg-primary-content'
+						: 'border-base-content/30'}"
+				>
+					{#if formInput.chargeFeesToPayer}
+						<IconCheck
+							class="text-primary h-3.5 w-3.5 sm:h-4 sm:w-4"
+							style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
+						/>
+					{/if}
+				</div>
+				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
+			</button>
+		{:else}
+			<button
+				type="button"
+				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm opacity-50 sm:gap-3 sm:py-2 sm:text-base"
+				disabled
+			>
+				<div
+					class="border-base-content/30 flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5"
+				></div>
+				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
+			</button>
+		{/if}
+
+		<!-- Swap Minimum Warning (Desktop) -->
+		{#if isBelowSwapMinimum && feeState.swapLimits}
+			<p class="text-error mb-0.5 text-center text-xs sm:mb-1 sm:text-sm">
+				{$t('wallet.receive.below_swap_minimum', {
+					values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+				})}
+			</p>
+		{/if}
+
+		<!-- Total Received Card (Desktop) -->
+		<div
+			class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-1.5 sm:gap-2 sm:p-2"
+		>
+			<span class="text-center text-xs opacity-70 sm:text-sm"
+				>{$t('wallet.swap.total_received_est')}</span
+			>
+			{#if totalReceived > 0 && feeState.estimated}
+				<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
+					{#if formInput.unit === 'sats'}
+						<span class="text-primary text-xl font-bold sm:text-2xl">
+							{formatSats(totalReceived)}
+							{$t('wallet.sats')}
+						</span>
+						{#if btcPrice > 0}
+							<span class="text-xs opacity-60 sm:text-sm">
+								≈ {formatUsd(totalReceivedUSD)}
+							</span>
+						{/if}
+					{:else}
+						<span class="text-primary text-xl font-bold sm:text-2xl">
+							{formatUsd(totalReceivedUSD)}
+						</span>
+						{#if btcPrice > 0}
+							<span class="text-xs opacity-60 sm:text-sm">
+								≈ {formatSats(totalReceived)}
+								{$t('wallet.sats')}
+							</span>
+						{/if}
+					{/if}
+				</div>
+			{:else}
+				<div class="text-center text-xs opacity-60 sm:text-sm">
+					{$t('wallet.receive.enter_amount_to_estimate')}
+				</div>
+			{/if}
+		</div>
+		</div>
 	</div>
 
 	<!-- Action Buttons -->
 	<div
 		class="bg-base-100 sticky bottom-0 z-10 mt-auto flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:pt-0 md:pb-0 md:shadow-none"
 	>
+		<!-- Mobile Step 1: Cancel and Next -->
+		{#if uiState.currentStep === 1}
+			<button
+				class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
+				style="-webkit-tap-highlight-color: transparent;"
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					handleCancel();
+				}}
+			>
+				<IconClose class="h-4 w-4" />
+				<span class="text-sm">{$t('wallet.receive.cancel')}</span>
+			</button>
+			<button
+				class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
+				style="-webkit-tap-highlight-color: transparent;"
+				onclick={handleNextStep}
+				disabled={!isFormValid || feeState.isLoading || $walletStore.isInitializing}
+			>
+				{#if feeState.isLoading || $walletStore.isInitializing}
+					<span class="loading loading-spinner loading-sm"></span>
+				{:else}
+					<span class="text-sm">{$t('common.next')}</span>
+				{/if}
+			</button>
+		{/if}
+
+		<!-- Mobile Step 2: Back and Get Paid -->
+		{#if uiState.currentStep === 2}
+			<button
+				class="btn btn-ghost min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
+				style="-webkit-tap-highlight-color: transparent;"
+				onclick={handleBackStep}
+			>
+				<span class="text-sm">{$t('common.back')}</span>
+			</button>
+			<button
+				class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
+				style="-webkit-tap-highlight-color: transparent;"
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Medium);
+					handleGenerateInvoice();
+				}}
+				disabled={!isFormValid ||
+					feeState.isLoading ||
+					$walletStore.isInitializing ||
+					isGenerating ||
+					isBelowSwapMinimum}
+			>
+				{#if feeState.isLoading || $walletStore.isInitializing || isGenerating}
+					<span class="loading loading-spinner loading-sm"></span>
+				{:else}
+					<IconCashMultiple class="h-4 w-4" />
+					<span class="text-sm">{$t('wallet.receive.get_paid')}</span>
+				{/if}
+			</button>
+		{/if}
+
+		<!-- Desktop: Always show Cancel and Get Paid -->
 		<button
-			class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
+			class="btn btn-error min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 			style="-webkit-tap-highlight-color: transparent;"
 			onclick={() => {
 				triggerHaptic(ImpactStyle.Light);
@@ -911,7 +1417,7 @@
 			<span class="text-sm sm:text-base">{$t('wallet.receive.cancel')}</span>
 		</button>
 		<button
-			class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
+			class="btn btn-primary min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 			style="-webkit-tap-highlight-color: transparent;"
 			onclick={() => {
 				triggerHaptic(ImpactStyle.Medium);

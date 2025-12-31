@@ -96,6 +96,7 @@
 	}
 </script>
 
+<div class="flex flex-col space-y-2">
 <!-- Amount Display (shows calculation and result) with attached Max button -->
 <div
 	class="border-primary flex w-full items-stretch overflow-hidden rounded-lg border-2"
@@ -247,3 +248,4 @@
 		onToggle={(expanded) => onDescriptionToggle?.(expanded)}
 	/>
 {/if}
+</div>

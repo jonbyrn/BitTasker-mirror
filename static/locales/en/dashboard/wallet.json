@@ -552,7 +552,8 @@
       "enter_amount_to_estimate": "Enter amount to estimate fees",
       "network": "Network",
       "description_characters": "Characters",
-      "below_swap_minimum": "Amount below swap minimum: {minAmount} Sats"
+      "below_swap_minimum": "Amount below swap minimum: {minAmount} Sats",
+      "invoice_total": "Invoice total"
     },
     "initializing": "Initializing wallet...",
     "buy_sell": {
