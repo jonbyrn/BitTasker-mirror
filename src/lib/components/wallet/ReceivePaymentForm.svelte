@@ -529,25 +529,25 @@
 	<!-- Step 1: Amount Input (Mobile Only) -->
 	<div class="block sm:hidden space-y-2">
 		{#if uiState.currentStep === 1}
-			<!-- Amount Input Section -->
-			<AmountInputSection
-				amount={formInput.amount}
-				unit={formInput.unit}
-				mathExpression={formInput.mathExpression}
-				calculatorKey={uiState.calculatorKey}
-				onAmountChange={(value) => (formInput.amount = value)}
-				onUnitChange={(newUnit) => {
-					triggerHaptic(ImpactStyle.Light);
-					formInput.unit = newUnit;
-					// Keep amount when switching units - user may have entered amount before selecting unit
-					formInput.mathExpression = '';
-					// Don't increment calculatorKey - preserve calculator state and amount
-					// Trigger fee update when unit changes (amount in sats might change)
-					handleAmountOrNetworkChange();
-				}}
-				onCalculationChange={handleCalculationChange}
-				onClear={handleClearCalculator}
-			/>
+	<!-- Amount Input Section -->
+	<AmountInputSection
+		amount={formInput.amount}
+		unit={formInput.unit}
+		mathExpression={formInput.mathExpression}
+		calculatorKey={uiState.calculatorKey}
+		onAmountChange={(value) => (formInput.amount = value)}
+		onUnitChange={(newUnit) => {
+			triggerHaptic(ImpactStyle.Light);
+			formInput.unit = newUnit;
+			// Keep amount when switching units - user may have entered amount before selecting unit
+			formInput.mathExpression = '';
+			// Don't increment calculatorKey - preserve calculator state and amount
+			// Trigger fee update when unit changes (amount in sats might change)
+			handleAmountOrNetworkChange();
+		}}
+		onCalculationChange={handleCalculationChange}
+		onClear={handleClearCalculator}
+	/>
 		{/if}
 	</div>
 
@@ -577,7 +577,7 @@
 	<div class="block sm:hidden space-y-2">
 		{#if uiState.currentStep === 2}
 			<!-- Amount Display (Read-only) -->
-			<div class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 mb-2">
+			<div class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4">
 				<span class="text-center text-xs opacity-70">{$t('wallet.receive.invoice_total')}</span>
 				<div class="flex w-full items-center justify-center gap-1.5">
 					{#if formInput.unit === 'sats'}
@@ -609,14 +609,14 @@
 	<div class="block sm:hidden">
 		{#if uiState.currentStep === 2}
 			<div class="flex flex-col space-y-2">
-				<!-- Network Selector (DaisyUI Native Dropdown) -->
-				<details
-			class="dropdown dropdown-bottom w-full"
+	<!-- Network Selector (DaisyUI Native Dropdown) -->
+	<details
+		class="dropdown dropdown-bottom w-full"
 		bind:this={networkDropdownElement}
 		use:clickOutside={{ callback: closeNetworkDropdown }}
 	>
 		<summary
-			class="btn btn-outline border-primary bg-base-100 w-full cursor-pointer justify-between rounded-lg border-2 py-0.5 text-sm sm:py-1 sm:text-base"
+			class="btn btn-outline border-primary bg-base-100 w-full cursor-pointer justify-between rounded-lg border-2 pr-4 pl-3 py-2 text-sm sm:text-base"
 			onclick={handleNetworkDropdownToggle}
 			aria-label={$t('wallet.receive_form.select_network')}
 		>
@@ -650,12 +650,12 @@
 			</div>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
-				class="h-3.5 w-3.5 transition-transform duration-200 sm:h-4 sm:w-4"
+				class="h-4 w-4 -ml-0.5 transition-transform duration-200"
 				class:rotate-180={uiState.isNetworkDropdownOpen}
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
-				stroke-width="2"
+				stroke-width="2.5"
 			>
 				<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 			</svg>
@@ -780,16 +780,16 @@
 				</li>
 			{/each}
 		</ul>
-		</details>
+	</details>
 
-		<!-- Memo/Description Field (Accordion) -->
+	<!-- Memo/Description Field (Accordion) -->
 	<div
 		class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
 		class:collapse-open={uiState.descriptionExpanded}
 	>
 		<button
 			type="button"
-			class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
+			class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
 			onclick={() => {
 				triggerHaptic(ImpactStyle.Light);
 				uiState.descriptionExpanded = !uiState.descriptionExpanded;
@@ -798,7 +798,7 @@
 			{$t('wallet.description')} ({$t('wallet.optional')})
 		</button>
 		<div class="collapse-content">
-			<div class="form-control">
+			<div class="form-control px-3 py-2 sm:px-4">
 				<textarea
 					id="memo-input"
 					class="textarea textarea-bordered w-full text-sm sm:text-base"
@@ -822,14 +822,7 @@
 	</div>
 
 	<!-- Network Fee Accordion (Always Visible) -->
-	{#if feeState.isLoading}
-		<div
-			class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-2 sm:p-4"
-		>
-			<span class="loading loading-spinner loading-sm"></span>
-			<span class="text-xs sm:text-sm">{$t('wallet.swap.loading_fees')}</span>
-		</div>
-	{:else if feeState.error}
+	{#if feeState.error}
 		<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
 			<span>{feeState.error}</span>
 		</div>
@@ -840,15 +833,20 @@
 		>
 			<button
 				type="button"
-				class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
+				class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
 					uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
 				}}
+				disabled={feeState.isLoading}
 			>
 				<div class="flex w-full items-center gap-1.5 sm:gap-2">
 					<span>{$t('wallet.network_fee')}:</span>
-					{#if feeState.estimated}
+					{#if feeState.isLoading}
+						<span class="font-semibold inline-flex items-center gap-1.5 min-w-[5rem] sm:gap-2">
+							<span class="loading loading-spinner loading-xs"></span>
+						</span>
+					{:else if feeState.estimated}
 						<span class="font-semibold"
 							>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
 						>
@@ -889,7 +887,7 @@
 		{#if feeState.estimated && feeState.estimated.totalFees > 0}
 			<button
 				type="button"
-				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm transition-colors select-none {formInput.chargeFeesToPayer
+				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-colors select-none {formInput.chargeFeesToPayer
 					? 'bg-primary text-primary-content hover:bg-primary/90'
 					: 'btn-outline bg-base-100'}"
 				style="-webkit-tap-highlight-color: transparent;"
@@ -915,7 +913,7 @@
 		{:else}
 			<button
 				type="button"
-				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm opacity-50"
+				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm opacity-50"
 				disabled
 			>
 				<div
@@ -923,7 +921,7 @@
 				></div>
 				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
 			</button>
-		{/if}
+	{/if}
 
 		<!-- Swap Minimum Warning (Mobile Step 2) -->
 		{#if isBelowSwapMinimum && feeState.swapLimits}
@@ -1156,7 +1154,7 @@
 		>
 			<button
 				type="button"
-				class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
+				class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
 					uiState.descriptionExpanded = !uiState.descriptionExpanded;
@@ -1165,7 +1163,7 @@
 				{$t('wallet.description')} ({$t('wallet.optional')})
 			</button>
 			<div class="collapse-content">
-				<div class="form-control">
+				<div class="form-control px-3 pb-1.5 sm:px-4 sm:pb-2">
 					<textarea
 						id="memo-input-desktop"
 						class="textarea textarea-bordered w-full text-sm sm:text-base"
@@ -1189,14 +1187,7 @@
 		</div>
 
 		<!-- Network Fee Accordion (Always Visible) -->
-		{#if feeState.isLoading}
-			<div
-				class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-2 sm:p-4"
-			>
-				<span class="loading loading-spinner loading-sm"></span>
-				<span class="text-xs sm:text-sm">{$t('wallet.swap.loading_fees')}</span>
-			</div>
-		{:else if feeState.error}
+		{#if feeState.error}
 			<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
 				<span>{feeState.error}</span>
 			</div>
@@ -1207,15 +1198,20 @@
 			>
 				<button
 					type="button"
-					class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
+					class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
 					onclick={() => {
 						triggerHaptic(ImpactStyle.Light);
 						uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
 					}}
+					disabled={feeState.isLoading}
 				>
 					<div class="flex w-full items-center gap-1.5 sm:gap-2">
 						<span>{$t('wallet.network_fee')}:</span>
-						{#if feeState.estimated}
+						{#if feeState.isLoading}
+							<span class="font-semibold inline-flex items-center gap-1.5 min-w-[5rem] sm:gap-2">
+								<span class="loading loading-spinner loading-xs"></span>
+							</span>
+						{:else if feeState.estimated}
 							<span class="font-semibold"
 								>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
 							>
@@ -1254,90 +1250,90 @@
 		{/if}
 
 		<!-- Charge Fees to Payer Toggle (Desktop) -->
-		{#if feeState.estimated && feeState.estimated.totalFees > 0}
-			<button
-				type="button"
-				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm transition-colors select-none sm:gap-3 sm:py-2 sm:text-base {formInput.chargeFeesToPayer
-					? 'bg-primary text-primary-content hover:bg-primary/90'
-					: 'btn-outline bg-base-100'}"
-				style="-webkit-tap-highlight-color: transparent;"
-				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
-					formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
-				}}
+	{#if feeState.estimated && feeState.estimated.totalFees > 0}
+		<button
+			type="button"
+				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-colors select-none sm:gap-3 sm:text-base {formInput.chargeFeesToPayer
+				? 'bg-primary text-primary-content hover:bg-primary/90'
+				: 'btn-outline bg-base-100'}"
+			style="-webkit-tap-highlight-color: transparent;"
+			onclick={() => {
+				triggerHaptic(ImpactStyle.Light);
+				formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
+			}}
+		>
+			<div
+				class="flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5 {formInput.chargeFeesToPayer
+					? 'border-primary-content bg-primary-content'
+					: 'border-base-content/30'}"
 			>
-				<div
-					class="flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5 {formInput.chargeFeesToPayer
-						? 'border-primary-content bg-primary-content'
-						: 'border-base-content/30'}"
-				>
-					{#if formInput.chargeFeesToPayer}
-						<IconCheck
-							class="text-primary h-3.5 w-3.5 sm:h-4 sm:w-4"
-							style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
-						/>
-					{/if}
-				</div>
-				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
-			</button>
-		{:else}
-			<button
-				type="button"
-				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 py-1.5 text-sm opacity-50 sm:gap-3 sm:py-2 sm:text-base"
-				disabled
-			>
-				<div
-					class="border-base-content/30 flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5"
-				></div>
-				<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
-			</button>
-		{/if}
+				{#if formInput.chargeFeesToPayer}
+					<IconCheck
+						class="text-primary h-3.5 w-3.5 sm:h-4 sm:w-4"
+						style="stroke: currentColor; stroke-width: 1.5; fill: currentColor;"
+					/>
+				{/if}
+			</div>
+			<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
+		</button>
+	{:else}
+		<button
+			type="button"
+				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm opacity-50 sm:gap-3 sm:text-base"
+			disabled
+		>
+			<div
+				class="border-base-content/30 flex h-4 w-4 items-center justify-center rounded border-2 sm:h-5 sm:w-5"
+			></div>
+			<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
+		</button>
+	{/if}
 
 		<!-- Swap Minimum Warning (Desktop) -->
-		{#if isBelowSwapMinimum && feeState.swapLimits}
-			<p class="text-error mb-0.5 text-center text-xs sm:mb-1 sm:text-sm">
-				{$t('wallet.receive.below_swap_minimum', {
-					values: { minAmount: formatSats(feeState.swapLimits.minimal) }
-				})}
-			</p>
-		{/if}
+	{#if isBelowSwapMinimum && feeState.swapLimits}
+		<p class="text-error mb-0.5 text-center text-xs sm:mb-1 sm:text-sm">
+			{$t('wallet.receive.below_swap_minimum', {
+				values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+			})}
+		</p>
+	{/if}
 
 		<!-- Total Received Card (Desktop) -->
-		<div
-			class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-1.5 sm:gap-2 sm:p-2"
+	<div
+		class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:gap-2 sm:p-4"
+	>
+		<span class="text-center text-xs opacity-70 sm:text-sm"
+			>{$t('wallet.swap.total_received_est')}</span
 		>
-			<span class="text-center text-xs opacity-70 sm:text-sm"
-				>{$t('wallet.swap.total_received_est')}</span
-			>
-			{#if totalReceived > 0 && feeState.estimated}
-				<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
-					{#if formInput.unit === 'sats'}
-						<span class="text-primary text-xl font-bold sm:text-2xl">
-							{formatSats(totalReceived)}
+		{#if totalReceived > 0 && feeState.estimated}
+			<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
+				{#if formInput.unit === 'sats'}
+					<span class="text-primary text-xl font-bold sm:text-2xl">
+						{formatSats(totalReceived)}
+						{$t('wallet.sats')}
+					</span>
+					{#if btcPrice > 0}
+						<span class="text-xs opacity-60 sm:text-sm">
+							≈ {formatUsd(totalReceivedUSD)}
+						</span>
+					{/if}
+				{:else}
+					<span class="text-primary text-xl font-bold sm:text-2xl">
+						{formatUsd(totalReceivedUSD)}
+					</span>
+					{#if btcPrice > 0}
+						<span class="text-xs opacity-60 sm:text-sm">
+							≈ {formatSats(totalReceived)}
 							{$t('wallet.sats')}
 						</span>
-						{#if btcPrice > 0}
-							<span class="text-xs opacity-60 sm:text-sm">
-								≈ {formatUsd(totalReceivedUSD)}
-							</span>
-						{/if}
-					{:else}
-						<span class="text-primary text-xl font-bold sm:text-2xl">
-							{formatUsd(totalReceivedUSD)}
-						</span>
-						{#if btcPrice > 0}
-							<span class="text-xs opacity-60 sm:text-sm">
-								≈ {formatSats(totalReceived)}
-								{$t('wallet.sats')}
-							</span>
-						{/if}
 					{/if}
-				</div>
-			{:else}
-				<div class="text-center text-xs opacity-60 sm:text-sm">
-					{$t('wallet.receive.enter_amount_to_estimate')}
-				</div>
-			{/if}
+				{/if}
+			</div>
+		{:else}
+			<div class="text-center text-xs opacity-60 sm:text-sm">
+				{$t('wallet.receive.enter_amount_to_estimate')}
+			</div>
+		{/if}
 		</div>
 		</div>
 	</div>
@@ -1348,7 +1344,7 @@
 	>
 		<!-- Mobile Step 1: Cancel and Next -->
 		{#if uiState.currentStep === 1}
-			<button
+		<button
 				class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => {
