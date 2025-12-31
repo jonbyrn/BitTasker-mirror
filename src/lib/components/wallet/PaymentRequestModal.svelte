@@ -369,13 +369,13 @@
 					</div>
 				{:else}
 					<!-- Payment Request Content -->
-					<div class="space-y-3">
+					<div class="space-y-2">
 						<!-- Total Amount Display (Prominent) -->
 						<div
 							class="bg-primary/10 border-primary flex flex-col items-center gap-1 rounded-2xl border-2 p-2"
 						>
 							<div class="flex items-baseline gap-2">
-								<span class="text-primary text-4xl font-bold tabular-nums md:text-5xl">
+								<span class="text-primary text-3xl font-bold tabular-nums md:text-4xl">
 									{formatSats(payerTotalAmount)}
 								</span>
 								<span class="text-primary text-xl font-semibold md:text-2xl"
@@ -390,7 +390,7 @@
 						</div>
 
 						<!-- Network Display - Show icon, translated name, and status indicator -->
-						<div class="bg-base-200 flex items-center justify-between gap-3 rounded-lg p-3">
+						<div class="bg-base-200 flex items-center justify-between gap-3 rounded-lg p-2">
 							<div class="flex items-center gap-3">
 								{#if networkInfo.icon}
 									<img src={networkInfo.icon} alt={networkInfo.label} class="h-6 w-6" />
