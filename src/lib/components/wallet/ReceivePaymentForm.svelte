@@ -797,8 +797,8 @@
 		>
 			{$t('wallet.description')} ({$t('wallet.optional')})
 		</button>
-		<div class="collapse-content">
-			<div class="form-control px-3 py-2 sm:px-4">
+		<div class="collapse-content pb-0">
+			<div class="form-control px-2 py-2 sm:px-4">
 				<textarea
 					id="memo-input"
 					class="textarea textarea-bordered w-full text-sm sm:text-base"
