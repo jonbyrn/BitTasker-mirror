@@ -84,6 +84,15 @@
 		memo?: string | null;
 		chargeFeesToPayer?: boolean;
 		totalFees?: number | null;
+		// Form state for restoration
+		formState?: {
+			amount: string;
+			unit: 'sats' | 'usd';
+			mathExpression: string;
+			memo: string;
+			selectedNetwork: string;
+			chargeFeesToPayer: boolean;
+		} | null;
 	}>({
 		isOpen: false,
 		swapId: null,
@@ -92,7 +101,8 @@
 		amount: null,
 		memo: null,
 		chargeFeesToPayer: false,
-		totalFees: null
+		totalFees: null,
+		formState: null
 	});
 
 	// Function to open the payment request modal (supports both patterns)
@@ -104,6 +114,14 @@
 		memo?: string;
 		chargeFeesToPayer?: boolean;
 		totalFees?: number;
+		formState?: {
+			amount: string;
+			unit: 'sats' | 'usd';
+			mathExpression: string;
+			memo: string;
+			selectedNetwork: string;
+			chargeFeesToPayer: boolean;
+		};
 	}) {
 		paymentRequestModal = {
 			isOpen: true,
@@ -121,9 +139,20 @@
 			amount: null,
 			memo: null,
 			chargeFeesToPayer: false,
-			totalFees: null
+			totalFees: null,
+			formState: null
 		};
 	}
+
+	// Store receive form state for restoration
+	let receiveFormState = $state<{
+		amount: string;
+		unit: 'sats' | 'usd';
+		mathExpression: string;
+		memo: string;
+		selectedNetwork: string;
+		chargeFeesToPayer: boolean;
+	} | null>(null);
 </script>
 
 <svelte:head>
@@ -331,11 +360,22 @@
 	onClose={() => (showReceiveModal = false)}
 >
 	<ReceivePaymentForm
-		onCancel={() => (showReceiveModal = false)}
+		onCancel={() => {
+			showReceiveModal = false;
+			receiveFormState = null; // Clear form state on cancel
+		}}
 		onOpenPaymentRequest={(data) => {
+			// Store form state for restoration
+			if (data.formState) {
+				receiveFormState = data.formState;
+			}
 			showReceiveModal = false; // Close receive form
 			openPaymentRequestModal(data); // Open payment request modal
 		}}
+		initialFormState={receiveFormState ? {
+			...receiveFormState,
+			currentStep: 2 as const // On mobile, go to step 2 (details screen); desktop ignores this
+		} : undefined}
 	/>
 </WalletPaymentModal>
 
@@ -404,6 +444,15 @@
 			chargeFeesToPayer={paymentRequestModal.chargeFeesToPayer}
 			totalFees={paymentRequestModal.totalFees ?? undefined}
 			onClose={closePaymentRequestModal}
+			onEdit={() => {
+				// Close payment request modal and reopen receive form with saved state
+				// Form state is already stored in paymentRequestModal.formState
+				if (paymentRequestModal.formState) {
+					receiveFormState = paymentRequestModal.formState;
+				}
+				closePaymentRequestModal();
+				showReceiveModal = true;
+			}}
 		/>
 	</WalletPaymentModal>
 {/if}

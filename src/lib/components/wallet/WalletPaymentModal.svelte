@@ -189,7 +189,7 @@
 {#if props.isOpen}
 	<!-- Modal Backdrop -->
 	<div
-		class="fixed inset-0 z-100 bg-black/80 lg:bg-black/50 backdrop-blur-sm lg:backdrop-blur transition-opacity duration-300"
+		class="fixed inset-0 z-[99] bg-black/80 lg:bg-black/50 backdrop-blur-sm lg:backdrop-blur transition-opacity duration-300"
 		onclick={handleBackdropClick}
 		role="presentation"
 		transition:fly={{ y: prefersReducedMotion ? 0 : 20, duration: prefersReducedMotion ? 0 : 300 }}
@@ -197,14 +197,13 @@
 
 	<!-- Modal Container -->
 	<div
-		class="fixed inset-0 z-100 flex items-center justify-center lg:p-4"
+		class="fixed inset-0 z-[100] flex items-center justify-center lg:p-4 pointer-events-none"
 		role="presentation"
-		onclick={handleBackdropClick}
 	>
 		<!-- Modal Content -->
 		<div
 			bind:this={modalElement}
-			class="fixed inset-0 lg:relative w-full h-full lg:w-[90%] lg:max-w-4xl lg:max-h-[90vh] rounded-none lg:rounded-2xl bg-base-100 shadow-2xl flex flex-col overflow-hidden touch-manipulation"
+			class="fixed inset-0 lg:relative w-full h-full lg:w-[90%] lg:max-w-4xl lg:max-h-[90vh] rounded-none lg:rounded-2xl bg-base-100 shadow-2xl flex flex-col overflow-hidden touch-manipulation pointer-events-auto isolate"
 			style="will-change: transform; transform: translateZ(0);"
 			role="dialog"
 			aria-modal="true"
@@ -214,6 +213,7 @@
 			ontouchstart={handleTouchStart}
 			ontouchmove={handleTouchMove}
 			ontouchend={handleTouchEnd}
+			onclick={(e) => e.stopPropagation()}
 			transition:scale={{ duration: prefersReducedMotion ? 0 : 300, start: 0.95 }}
 		>
 

@@ -6,14 +6,15 @@
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
-	import { clickOutside } from '$lib/utils/clickOutside';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
+	import IconChevronLeft from '~icons/mdi/chevron-left';
+	import IconChevronRight from '~icons/mdi/chevron-right';
 
-	let { onCancel, onOpenPaymentRequest } = $props<{
+	let { onCancel, onOpenPaymentRequest, initialFormState } = $props<{
 		onCancel: () => void;
 		onOpenPaymentRequest: (data: {
 			swapId?: string;
@@ -23,7 +24,24 @@
 			network?: string;
 			chargeFeesToPayer?: boolean;
 			totalFees?: number;
+			formState?: {
+				amount: string;
+				unit: 'sats' | 'usd';
+				mathExpression: string;
+				memo: string;
+				selectedNetwork: string;
+				chargeFeesToPayer: boolean;
+			};
 		}) => void; // Callback to parent to open modal with either swap or direct payment data
+		initialFormState?: {
+			amount: string;
+			unit: 'sats' | 'usd';
+			mathExpression: string;
+			memo: string;
+			selectedNetwork: string;
+			chargeFeesToPayer: boolean;
+			currentStep?: 1 | 2;
+		};
 	}>();
 
 	// Grouped State: Form Input
@@ -40,7 +58,7 @@
 	let uiState = $state({
 		descriptionExpanded: false,
 		networkFeeExpanded: false,
-		isNetworkDropdownOpen: false,
+		networkExpanded: false,
 		calculatorKey: 0,
 		currentStep: 1 as 1 | 2 // Step 1: Amount, Step 2: Details
 	});
@@ -82,8 +100,6 @@
 		rootstock: { gasFee: number } | null;
 	} | null>(null);
 
-	// UI References
-	let networkDropdownElement = $state.raw<HTMLDetailsElement | undefined>(undefined);
 
 	// Derived values
 	const amountInSats = $derived.by(() => {
@@ -108,7 +124,9 @@
 
 	// Amount payer will pay (includes fees if chargeFeesToPayer is true)
 	const amountPayerPays = $derived.by(() => {
-		if (!feeState.estimated || amountInSats === 0) return 0;
+		if (amountInSats === 0) return 0;
+		// If fees not estimated yet, return base amount (will update when fees load)
+		if (!feeState.estimated) return amountInSats;
 		if (formInput.chargeFeesToPayer) {
 			return amountInSats + feeState.estimated.totalFees;
 		}
@@ -187,22 +205,24 @@
 		await updateFeeEstimate();
 	}, 500); // 500ms debounce
 
-	// Close dropdown using DaisyUI's native details element
-	function closeNetworkDropdown() {
-		if (networkDropdownElement) {
-			networkDropdownElement.removeAttribute('open');
-			uiState.isNetworkDropdownOpen = false;
+	// Restore form state when initialFormState prop is provided
+	$effect(() => {
+		if (initialFormState) {
+			formInput.amount = initialFormState.amount;
+			formInput.unit = initialFormState.unit;
+			formInput.mathExpression = initialFormState.mathExpression;
+			formInput.memo = initialFormState.memo;
+			formInput.selectedNetwork = initialFormState.selectedNetwork;
+			formInput.chargeFeesToPayer = initialFormState.chargeFeesToPayer;
+			if (initialFormState.currentStep) {
+				uiState.currentStep = initialFormState.currentStep;
+			}
+			// Trigger fee estimation after restoring state
+			if (amountInSats > 0) {
+				handleAmountOrNetworkChange();
+			}
 		}
-	}
-
-	// Handle dropdown toggle - update state manually
-	function handleNetworkDropdownToggle() {
-		triggerHaptic(ImpactStyle.Light);
-		// Toggle state based on current element state
-		if (networkDropdownElement) {
-			uiState.isNetworkDropdownOpen = !networkDropdownElement.hasAttribute('open');
-		}
-	}
+	});
 
 	// Fetch BTC price and initialize swap pairs info
 	onMount(async () => {
@@ -427,6 +447,11 @@
 
 		isGenerating = true;
 		try {
+			// Calculate invoice amount: use amountPayerPays when charging fees to payer, otherwise use amountInSats
+			const invoiceAmount = formInput.chargeFeesToPayer && feeState.estimated
+				? amountPayerPays
+				: amountInSats;
+
 			if (formInput.selectedNetwork === 'lightning-bitcoin') {
 				// Create Lightning reverse swap
 				if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
@@ -434,10 +459,20 @@
 					return;
 				}
 
-				const result = await walletManager.createReverseSwap(Math.floor(amountInSats));
+				const result = await walletManager.createReverseSwap(Math.floor(invoiceAmount));
 
-				// Call parent callback with swap data
-				onOpenPaymentRequest({ swapId: result.swapId });
+				// Call parent callback with swap data and form state for restoration
+				onOpenPaymentRequest({ 
+					swapId: result.swapId,
+					formState: {
+						amount: formInput.amount,
+						unit: formInput.unit,
+						mathExpression: formInput.mathExpression,
+						memo: formInput.memo,
+						selectedNetwork: formInput.selectedNetwork,
+						chargeFeesToPayer: formInput.chargeFeesToPayer
+					}
+				});
 				onCancel(); // Close the receive form
 			} else if (formInput.selectedNetwork === 'rootstock-bitcoin') {
 				// Rootstock direct payment - generate address with payment URI
@@ -450,9 +485,9 @@
 
 				// Add amount and memo as query params
 				const params = new URLSearchParams();
-				if (amountInSats > 0) {
+				if (invoiceAmount > 0) {
 					// Convert sats to wei: 1 sat = 1e10 wei
-					const amountWei = (amountInSats * 1e10).toString();
+					const amountWei = (invoiceAmount * 1e10).toString();
 					params.append('value', amountWei);
 				}
 				if (formInput.memo) {
@@ -467,14 +502,24 @@
 					address += `?${params.toString()}`;
 				}
 
-				// Call parent callback with direct payment data
+				// Call parent callback with direct payment data and form state for restoration
+				// For Rootstock: URI contains invoiceAmount (base + fees when chargeFeesToPayer is true)
+				// So pass invoiceAmount to modal and set chargeFeesToPayer to false to avoid double-adding fees
 				onOpenPaymentRequest({
 					address,
 					network: 'rootstock-bitcoin',
-					amount: Math.floor(amountInSats),
+					amount: Math.floor(invoiceAmount),
 					memo: formInput.memo || undefined,
-					chargeFeesToPayer: formInput.chargeFeesToPayer,
-					totalFees: feeState.estimated?.totalFees
+					chargeFeesToPayer: false, // Amount already includes fees in URI
+					totalFees: 0, // Fees already included in amount
+					formState: {
+						amount: formInput.amount,
+						unit: formInput.unit,
+						mathExpression: formInput.mathExpression,
+						memo: formInput.memo,
+						selectedNetwork: formInput.selectedNetwork,
+						chargeFeesToPayer: formInput.chargeFeesToPayer
+					}
 				});
 				onCancel(); // Close the receive form
 			} else if (formInput.selectedNetwork === 'liquid-bitcoin') {
@@ -484,10 +529,20 @@
 					return;
 				}
 
-				const result = await walletManager.createChainSwap(Math.floor(amountInSats));
+				const result = await walletManager.createChainSwap(Math.floor(invoiceAmount));
 
-				// Call parent callback with swap data
-				onOpenPaymentRequest({ swapId: result.swapId });
+				// Call parent callback with swap data and form state for restoration
+				onOpenPaymentRequest({ 
+					swapId: result.swapId,
+					formState: {
+						amount: formInput.amount,
+						unit: formInput.unit,
+						mathExpression: formInput.mathExpression,
+						memo: formInput.memo,
+						selectedNetwork: formInput.selectedNetwork,
+						chargeFeesToPayer: formInput.chargeFeesToPayer
+					}
+				});
 				onCancel(); // Close the receive form
 			} else {
 				appStore.showErrorToast($t('wallet.receive_form.network_not_available'));
@@ -525,8 +580,10 @@
 	}
 </script>
 
-<div class="flex min-h-full flex-col space-y-3 sm:space-y-4">
-	<!-- Step 1: Amount Input (Mobile Only) -->
+<div class="flex flex-1 flex-col min-h-0">
+	<!-- Scrollable Content Area -->
+	<div class="flex-1 overflow-y-auto min-h-0 space-y-3 sm:space-y-4">
+		<!-- Step 1: Amount Input (Mobile Only) -->
 	<div class="block sm:hidden space-y-2">
 		{#if uiState.currentStep === 1}
 	<!-- Amount Input Section -->
@@ -579,28 +636,31 @@
 			<!-- Amount Display (Read-only) -->
 			<div class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4">
 				<span class="text-center text-xs opacity-70">{$t('wallet.receive.invoice_total')}</span>
-				<div class="flex w-full items-center justify-center gap-1.5">
-					{#if formInput.unit === 'sats'}
-						<span class="text-primary text-xl font-bold">
-							{formatSats(amountInSats)}
-							{$t('wallet.sats')}
-						</span>
-						{#if btcPrice > 0 && amountInSats > 0}
-							<span class="text-xs opacity-60">
-								≈ {formatUsd((amountInSats / 100_000_000) * btcPrice)}
+				{#if true}
+					{@const invoiceAmount = formInput.chargeFeesToPayer && feeState.estimated ? amountPayerPays : amountInSats}
+					<div class="flex w-full items-center justify-center gap-1.5">
+						{#if formInput.unit === 'sats'}
+							<span class="text-primary text-xl font-bold">
+								{formatSats(invoiceAmount)}
+								{$t('wallet.sats')}
 							</span>
-						{/if}
-					{:else}
-						<span class="text-primary text-xl font-bold">
-							{formatUsd(parseFloat(formInput.amount) || 0)}
-						</span>
-						{#if btcPrice > 0 && amountInSats > 0}
-							<span class="text-xs opacity-60">
-								≈ {formatSats(amountInSats)} {$t('wallet.sats')}
+							{#if btcPrice > 0 && invoiceAmount > 0}
+								<span class="text-xs opacity-60">
+									≈ {formatUsd((invoiceAmount / 100_000_000) * btcPrice)}
+								</span>
+							{/if}
+						{:else}
+							<span class="text-primary text-xl font-bold">
+								{formatUsd(formInput.chargeFeesToPayer && feeState.estimated && btcPrice > 0 ? (invoiceAmount / 100_000_000) * btcPrice : parseFloat(formInput.amount) || 0)}
 							</span>
+							{#if btcPrice > 0 && invoiceAmount > 0}
+								<span class="text-xs opacity-60">
+									≈ {formatSats(invoiceAmount)} {$t('wallet.sats')}
+								</span>
+							{/if}
 						{/if}
-					{/if}
-				</div>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -609,86 +669,27 @@
 	<div class="block sm:hidden">
 		{#if uiState.currentStep === 2}
 			<div class="flex flex-col space-y-2">
-	<!-- Network Selector (DaisyUI Native Dropdown) -->
-	<details
-		class="dropdown dropdown-bottom w-full"
-		bind:this={networkDropdownElement}
-		use:clickOutside={{ callback: closeNetworkDropdown }}
-	>
-		<summary
-			class="btn btn-outline border-primary bg-base-100 w-full cursor-pointer justify-between rounded-lg border-2 pr-4 pl-3 py-2 text-sm sm:text-base"
-			onclick={handleNetworkDropdownToggle}
-			aria-label={$t('wallet.receive_form.select_network')}
-		>
-			<div class="flex items-center gap-1.5 sm:gap-2">
-				{#if selectedNetworkInfo?.icon}
-					<img
-						src={selectedNetworkInfo.icon}
-						alt={selectedNetworkInfo.label}
-						class="h-4 w-4 sm:h-5 sm:w-5"
-					/>
-				{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M13 10V3L4 14h7v7l9-11h-7z"
-						/>
-					</svg>
-				{/if}
-				<span class="font-medium">
-					{selectedNetworkInfo?.label}
-					{$t('wallet.receive.network')}
-				</span>
-			</div>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-4 w-4 -ml-0.5 transition-transform duration-200"
-				class:rotate-180={uiState.isNetworkDropdownOpen}
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2.5"
-			>
-				<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-			</svg>
-		</summary>
-		<ul
-			class="dropdown-content menu bg-base-100 border-primary z-1 mt-1 w-full rounded-lg border-2 p-1.5 sm:p-2"
-			style="box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);"
-		>
-			{#each networkOptions as network}
-				{@const networkFees = getNetworkFees(network.value)}
-				<li>
+				<!-- Network Selector (Accordion) -->
+				<div
+					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+					class:collapse-open={uiState.networkExpanded}
+				>
 					<button
 						type="button"
-						class="flex w-full items-start gap-1.5 rounded-lg p-0.5 transition-colors sm:gap-2 sm:p-1 {!network.available
-							? 'cursor-not-allowed opacity-40'
-							: 'hover:bg-base-200'} {formInput.selectedNetwork === network.value
-							? 'bg-primary/10'
-							: ''}"
-						disabled={!network.available}
+						class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
 						onclick={() => {
-							if (network.available) {
-								triggerHaptic(ImpactStyle.Light);
-								formInput.selectedNetwork = network.value;
-								closeNetworkDropdown();
-								// Trigger fee update when network changes
-								handleAmountOrNetworkChange();
-							}
+							triggerHaptic(ImpactStyle.Light);
+							uiState.networkExpanded = !uiState.networkExpanded;
 						}}
 					>
-						<div class="flex items-center self-center">
-							{#if network.icon}
-								<img src={network.icon} alt={network.label} class="h-4 w-4 sm:h-5 sm:w-5" />
-							{:else if network.value === 'lightning-bitcoin'}
+						<div class="flex items-center gap-1.5 sm:gap-2">
+							{#if selectedNetworkInfo?.icon}
+								<img
+									src={selectedNetworkInfo.icon}
+									alt={selectedNetworkInfo.label}
+									class="h-4 w-4 sm:h-5 sm:w-5"
+								/>
+							{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
@@ -704,83 +705,128 @@
 									/>
 								</svg>
 							{/if}
-						</div>
-						<div class="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:gap-1">
-							<div class="flex w-full items-center gap-1.5 sm:gap-2">
-								<span class="text-left text-sm font-medium sm:text-base">
-									{network.label}
-									{$t('wallet.receive.network')}
-								</span>
-							</div>
-							{#if !network.available}
-								<!-- Show "Coming Soon" for disabled networks -->
-								<div class="text-xs opacity-70">
-									{$t('wallet.coming_soon')}
-								</div>
-							{:else if networkFees && amountInSats > 0}
-								<!-- Show estimated fees when amount is entered -->
-								<div class="text-xs opacity-70">
-									<span>{formatSats(networkFees.totalFees)} {$t('wallet.sats')}</span>
-									{#if btcPrice > 0 && networkFees.totalFees > 0}
-										<span class="ml-1">
-											≈ {formatUsd((networkFees.totalFees / 100_000_000) * btcPrice)}
-										</span>
-									{/if}
-								</div>
-							{:else if network.value === 'lightning-bitcoin' && swapPairsInfo?.lightning}
-								<!-- Lightning: Show fee info from cached API data (abbreviated on mobile) -->
-								<div class="text-xs opacity-70">
-									<span class="hidden sm:inline"
-										>~{swapPairsInfo.lightning.fees.percentage}% {$t('wallet.swap.swap_fee')} +
-									</span>~{formatSats(
-										(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
-											(swapPairsInfo.lightning.fees.minerFees.claim || 0)
-									)}
-									{$t('wallet.sats')}
-									<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
-								</div>
-							{:else if network.value === 'rootstock-bitcoin' && swapPairsInfo?.rootstock}
-								<!-- Rootstock: Show gas fee from cached estimate -->
-								<div class="text-xs opacity-70">
-									{formatSats(swapPairsInfo.rootstock.gasFee)}
-									{$t('wallet.sats')}
-									<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
-									{#if btcPrice > 0}
-										<span class="ml-1">
-											≈ {formatUsd((swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice)}
-										</span>
-									{/if}
-								</div>
-							{:else if network.value === 'liquid-bitcoin' && swapPairsInfo?.liquid}
-								<!-- Liquid: Show fee info from cached API data (abbreviated on mobile) -->
-								<div class="text-xs opacity-70">
-									<span class="hidden sm:inline"
-										>~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} +
-									</span>~{formatSats(
-										(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
-											(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)
-									)}
-									{$t('wallet.sats')}
-									<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
-								</div>
-							{:else if network.value === 'bitcoin'}
-								<!-- Bitcoin on-chain: Show placeholder -->
-								<div class="text-xs opacity-70">
-									{$t('wallet.network_fee')}
-								</div>
-							{:else}
-								<!-- Loading state -->
-								<div class="text-xs opacity-70">
-									<span class="loading loading-spinner loading-xs"></span>
-									<span class="hidden sm:inline">{$t('wallet.swap.loading_fees')}</span>
-								</div>
-							{/if}
+							<span class="font-medium">
+								{selectedNetworkInfo?.label}
+								{$t('wallet.receive.network')}
+							</span>
 						</div>
 					</button>
-				</li>
-			{/each}
-		</ul>
-	</details>
+					<div class="collapse-content px-2 pb-1">
+						<div class="space-y-1.5 sm:space-y-2">
+							{#each networkOptions as network}
+								{@const networkFees = getNetworkFees(network.value)}
+								<button
+									type="button"
+									class="flex w-full items-start gap-1.5 rounded-lg p-2 transition-colors sm:items-center sm:gap-2 {!network.available
+										? 'cursor-not-allowed opacity-40'
+										: 'cursor-pointer hover:bg-base-200'} {formInput.selectedNetwork === network.value
+										? 'bg-primary/10'
+										: ''}"
+									disabled={!network.available}
+									onclick={() => {
+										if (network.available) {
+											triggerHaptic(ImpactStyle.Light);
+											formInput.selectedNetwork = network.value;
+											uiState.networkExpanded = false;
+											// Trigger fee update when network changes
+											handleAmountOrNetworkChange();
+										}
+									}}
+								>
+									<div class="flex items-center self-center shrink-0">
+										{#if network.icon}
+											<img src={network.icon} alt={network.label} class="h-4 w-4 sm:h-5 sm:w-5" />
+										{:else if network.value === 'lightning-bitcoin'}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M13 10V3L4 14h7v7l9-11h-7z"
+												/>
+											</svg>
+										{/if}
+									</div>
+									<div class="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+										<span class="text-left text-sm font-medium sm:text-base">
+											{network.label}
+											{$t('wallet.receive.network')}
+										</span>
+										{#if !network.available}
+											<!-- Show "Coming Soon" for disabled networks -->
+											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+												{$t('wallet.coming_soon')}
+											</span>
+										{:else if networkFees && amountInSats > 0}
+											<!-- Show estimated fees when amount is entered -->
+											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+												{formatSats(networkFees.totalFees)} {$t('wallet.sats')}
+												{#if btcPrice > 0 && networkFees.totalFees > 0}
+													<span class="ml-1">
+														≈ {formatUsd((networkFees.totalFees / 100_000_000) * btcPrice)}
+													</span>
+												{/if}
+											</span>
+										{:else if network.value === 'lightning-bitcoin' && swapPairsInfo?.lightning}
+											<!-- Lightning: Show fee info from cached API data (abbreviated on mobile) -->
+											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+												<span class="hidden sm:inline"
+													>~{swapPairsInfo.lightning.fees.percentage}% {$t('wallet.swap.swap_fee')} +
+												</span>~{formatSats(
+													(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
+														(swapPairsInfo.lightning.fees.minerFees.claim || 0)
+												)}
+												{$t('wallet.sats')}
+												<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+											</span>
+										{:else if network.value === 'rootstock-bitcoin' && swapPairsInfo?.rootstock}
+											<!-- Rootstock: Show gas fee from cached estimate -->
+											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+												{formatSats(swapPairsInfo.rootstock.gasFee)}
+												{$t('wallet.sats')}
+												<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+												{#if btcPrice > 0}
+													<span class="ml-1">
+														≈ {formatUsd((swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice)}
+													</span>
+												{/if}
+											</span>
+										{:else if network.value === 'liquid-bitcoin' && swapPairsInfo?.liquid}
+											<!-- Liquid: Show fee info from cached API data (abbreviated on mobile) -->
+											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+												<span class="hidden sm:inline"
+													>~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} +
+												</span>~{formatSats(
+													(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
+														(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)
+												)}
+												{$t('wallet.sats')}
+												<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+											</span>
+										{:else if network.value === 'bitcoin'}
+											<!-- Bitcoin on-chain: Show placeholder -->
+											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+												{$t('wallet.network_fee')}
+											</span>
+										{:else}
+											<!-- Loading state -->
+											<span class="text-xs opacity-70 sm:ml-auto sm:inline-flex sm:items-center sm:justify-end">
+												<span class="loading loading-spinner loading-xs"></span>
+												<span class="hidden sm:inline">{$t('wallet.swap.loading_fees')}</span>
+											</span>
+										{/if}
+									</div>
+								</button>
+							{/each}
+						</div>
+					</div>
+				</div>
 
 	<!-- Memo/Description Field (Accordion) -->
 	<div
@@ -860,7 +906,7 @@
 					{/if}
 				</div>
 			</button>
-			<div class="collapse-content pb-0">
+			<div class="collapse-content pb-1">
 				<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
 					{#if feeState.estimated && feeState.estimated.serviceFee > 0}
 						<div class="flex items-center justify-between text-xs opacity-70">
@@ -894,6 +940,10 @@
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
 					formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
+					// Trigger fee recalculation when toggling chargeFeesToPayer to update displayed totals
+					if (amountInSats > 0) {
+						handleAmountOrNetworkChange();
+					}
 				}}
 			>
 				<div
@@ -974,178 +1024,164 @@
 	<!-- Desktop: All fields always visible -->
 	<div class="hidden sm:block">
 		<div class="flex flex-col space-y-2">
-			<!-- Network Selector (DaisyUI Native Dropdown) -->
-		<details
-			class="dropdown dropdown-bottom w-full"
-			bind:this={networkDropdownElement}
-			use:clickOutside={{ callback: closeNetworkDropdown }}
-		>
-			<summary
-				class="btn btn-outline border-primary bg-base-100 w-full cursor-pointer justify-between rounded-lg border-2 py-0.5 text-sm sm:py-1 sm:text-base"
-				onclick={handleNetworkDropdownToggle}
-				aria-label={$t('wallet.receive_form.select_network')}
+			<!-- Network Selector (Accordion) -->
+			<div
+				class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+				class:collapse-open={uiState.networkExpanded}
 			>
-				<div class="flex items-center gap-1.5 sm:gap-2">
-					{#if selectedNetworkInfo?.icon}
-						<img
-							src={selectedNetworkInfo.icon}
-							alt={selectedNetworkInfo.label}
-							class="h-4 w-4 sm:h-5 sm:w-5"
-						/>
-					{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 10V3L4 14h7v7l9-11h-7z"
-							/>
-						</svg>
-					{/if}
-					<span class="font-medium">
-						{selectedNetworkInfo?.label}
-						{$t('wallet.receive.network')}
-					</span>
-				</div>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-3.5 w-3.5 transition-transform duration-200 sm:h-4 sm:w-4"
-					class:rotate-180={uiState.isNetworkDropdownOpen}
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
+				<button
+					type="button"
+					class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
+					onclick={() => {
+						triggerHaptic(ImpactStyle.Light);
+						uiState.networkExpanded = !uiState.networkExpanded;
+					}}
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-				</svg>
-			</summary>
-			<ul
-				class="dropdown-content menu bg-base-100 border-primary z-1 mt-1 w-full rounded-lg border-2 p-1.5 sm:p-2"
-				style="box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);"
-			>
-				{#each networkOptions as network}
-					{@const networkFees = getNetworkFees(network.value)}
-					<li>
-						<button
-							type="button"
-							class="flex w-full items-start gap-1.5 rounded-lg p-0.5 transition-colors sm:gap-2 sm:p-1 {!network.available
-								? 'cursor-not-allowed opacity-40'
-								: 'hover:bg-base-200'} {formInput.selectedNetwork === network.value
-								? 'bg-primary/10'
-								: ''}"
-							disabled={!network.available}
-							onclick={() => {
-								if (network.available) {
-									triggerHaptic(ImpactStyle.Light);
-									formInput.selectedNetwork = network.value;
-									closeNetworkDropdown();
-									// Trigger fee update when network changes
-									handleAmountOrNetworkChange();
-								}
-							}}
-						>
-							<div class="flex items-center self-center">
-								{#if network.icon}
-									<img src={network.icon} alt={network.label} class="h-4 w-4 sm:h-5 sm:w-5" />
-								{:else if network.value === 'lightning-bitcoin'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M13 10V3L4 14h7v7l9-11h-7z"
-										/>
-									</svg>
-								{/if}
-							</div>
-							<div class="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:gap-1">
-								<div class="flex w-full items-center gap-1.5 sm:gap-2">
+					<div class="flex items-center gap-1.5 sm:gap-2">
+						{#if selectedNetworkInfo?.icon}
+							<img
+								src={selectedNetworkInfo.icon}
+								alt={selectedNetworkInfo.label}
+								class="h-4 w-4 sm:h-5 sm:w-5"
+							/>
+						{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 10V3L4 14h7v7l9-11h-7z"
+								/>
+							</svg>
+						{/if}
+						<span class="font-medium">
+							{selectedNetworkInfo?.label}
+							{$t('wallet.receive.network')}
+						</span>
+					</div>
+				</button>
+				<div class="collapse-content px-2 pb-1">
+					<div class="space-y-1.5 sm:space-y-2">
+						{#each networkOptions as network}
+							{@const networkFees = getNetworkFees(network.value)}
+							<button
+								type="button"
+								class="flex w-full items-start gap-1.5 rounded-lg p-2 transition-colors sm:items-center sm:gap-2 {!network.available
+									? 'cursor-not-allowed opacity-40'
+									: 'cursor-pointer hover:bg-base-200'} {formInput.selectedNetwork === network.value
+									? 'bg-primary/10'
+									: ''}"
+								disabled={!network.available}
+								onclick={() => {
+									if (network.available) {
+										triggerHaptic(ImpactStyle.Light);
+										formInput.selectedNetwork = network.value;
+										uiState.networkExpanded = false;
+										// Trigger fee update when network changes
+										handleAmountOrNetworkChange();
+									}
+								}}
+							>
+								<div class="flex items-center self-center shrink-0">
+									{#if network.icon}
+										<img src={network.icon} alt={network.label} class="h-4 w-4 sm:h-5 sm:w-5" />
+									{:else if network.value === 'lightning-bitcoin'}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M13 10V3L4 14h7v7l9-11h-7z"
+											/>
+										</svg>
+									{/if}
+								</div>
+								<div class="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
 									<span class="text-left text-sm font-medium sm:text-base">
 										{network.label}
 										{$t('wallet.receive.network')}
 									</span>
+									{#if !network.available}
+										<!-- Show "Coming Soon" for disabled networks -->
+										<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+											{$t('wallet.coming_soon')}
+										</span>
+									{:else if networkFees && amountInSats > 0}
+										<!-- Show estimated fees when amount is entered -->
+										<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+											{formatSats(networkFees.totalFees)} {$t('wallet.sats')}
+											{#if btcPrice > 0 && networkFees.totalFees > 0}
+												<span class="ml-1">
+													≈ {formatUsd((networkFees.totalFees / 100_000_000) * btcPrice)}
+												</span>
+											{/if}
+										</span>
+									{:else if network.value === 'lightning-bitcoin' && swapPairsInfo?.lightning}
+										<!-- Lightning: Show fee info from cached API data (abbreviated on mobile) -->
+										<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+											<span class="hidden sm:inline"
+												>~{swapPairsInfo.lightning.fees.percentage}% {$t('wallet.swap.swap_fee')} +
+											</span>~{formatSats(
+												(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
+													(swapPairsInfo.lightning.fees.minerFees.claim || 0)
+											)}
+											{$t('wallet.sats')}
+											<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+										</span>
+									{:else if network.value === 'rootstock-bitcoin' && swapPairsInfo?.rootstock}
+										<!-- Rootstock: Show gas fee from cached estimate -->
+										<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+											{formatSats(swapPairsInfo.rootstock.gasFee)}
+											{$t('wallet.sats')}
+											<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+											{#if btcPrice > 0}
+												<span class="ml-1">
+													≈ {formatUsd((swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice)}
+												</span>
+											{/if}
+										</span>
+									{:else if network.value === 'liquid-bitcoin' && swapPairsInfo?.liquid}
+										<!-- Liquid: Show fee info from cached API data (abbreviated on mobile) -->
+										<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+											<span class="hidden sm:inline"
+												>~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} +
+											</span>~{formatSats(
+												(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
+													(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)
+											)}
+											{$t('wallet.sats')}
+											<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+										</span>
+									{:else if network.value === 'bitcoin'}
+										<!-- Bitcoin on-chain: Show placeholder -->
+										<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
+											{$t('wallet.network_fee')}
+										</span>
+									{:else}
+										<!-- Loading state -->
+										<span class="text-xs opacity-70 sm:ml-auto sm:inline-flex sm:items-center sm:justify-end">
+											<span class="loading loading-spinner loading-xs"></span>
+											<span class="hidden sm:inline">{$t('wallet.swap.loading_fees')}</span>
+										</span>
+									{/if}
 								</div>
-								{#if !network.available}
-									<!-- Show "Coming Soon" for disabled networks -->
-									<div class="text-xs opacity-70">
-										{$t('wallet.coming_soon')}
-									</div>
-								{:else if networkFees && amountInSats > 0}
-									<!-- Show estimated fees when amount is entered -->
-									<div class="text-xs opacity-70">
-										<span>{formatSats(networkFees.totalFees)} {$t('wallet.sats')}</span>
-										{#if btcPrice > 0 && networkFees.totalFees > 0}
-											<span class="ml-1">
-												≈ {formatUsd((networkFees.totalFees / 100_000_000) * btcPrice)}
-											</span>
-										{/if}
-									</div>
-								{:else if network.value === 'lightning-bitcoin' && swapPairsInfo?.lightning}
-									<!-- Lightning: Show fee info from cached API data (abbreviated on mobile) -->
-									<div class="text-xs opacity-70">
-										<span class="hidden sm:inline"
-											>~{swapPairsInfo.lightning.fees.percentage}% {$t('wallet.swap.swap_fee')} +
-										</span>~{formatSats(
-											(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
-												(swapPairsInfo.lightning.fees.minerFees.claim || 0)
-										)}
-										{$t('wallet.sats')}
-										<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
-									</div>
-								{:else if network.value === 'rootstock-bitcoin' && swapPairsInfo?.rootstock}
-									<!-- Rootstock: Show gas fee from cached estimate -->
-									<div class="text-xs opacity-70">
-										{formatSats(swapPairsInfo.rootstock.gasFee)}
-										{$t('wallet.sats')}
-										<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
-										{#if btcPrice > 0}
-											<span class="ml-1">
-												≈ {formatUsd((swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice)}
-											</span>
-										{/if}
-									</div>
-								{:else if network.value === 'liquid-bitcoin' && swapPairsInfo?.liquid}
-									<!-- Liquid: Show fee info from cached API data (abbreviated on mobile) -->
-									<div class="text-xs opacity-70">
-										<span class="hidden sm:inline"
-											>~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} +
-										</span>~{formatSats(
-											(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
-												(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)
-										)}
-										{$t('wallet.sats')}
-										<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
-									</div>
-								{:else if network.value === 'bitcoin'}
-									<!-- Bitcoin on-chain: Show placeholder -->
-									<div class="text-xs opacity-70">
-										{$t('wallet.network_fee')}
-									</div>
-								{:else}
-									<!-- Loading state -->
-									<div class="text-xs opacity-70">
-										<span class="loading loading-spinner loading-xs"></span>
-										<span class="hidden sm:inline">{$t('wallet.swap.loading_fees')}</span>
-									</div>
-								{/if}
-							</div>
-						</button>
-					</li>
-				{/each}
-			</ul>
-		</details>
+							</button>
+						{/each}
+					</div>
+				</div>
+			</div>
 
 		<!-- Memo/Description Field (Accordion) -->
 		<div
@@ -1260,6 +1296,10 @@
 			onclick={() => {
 				triggerHaptic(ImpactStyle.Light);
 				formInput.chargeFeesToPayer = !formInput.chargeFeesToPayer;
+				// Trigger fee recalculation when toggling chargeFeesToPayer to update displayed totals
+				if (amountInSats > 0) {
+					handleAmountOrNetworkChange();
+				}
 			}}
 		>
 			<div
@@ -1337,10 +1377,11 @@
 		</div>
 		</div>
 	</div>
+	</div>
 
 	<!-- Action Buttons -->
 	<div
-		class="bg-base-100 sticky bottom-0 z-10 mt-auto flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:pt-0 md:pb-0 md:shadow-none"
+		class="bg-base-100 sticky bottom-0 z-10 mt-auto flex-shrink-0 flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:pt-0 md:pb-0 md:shadow-none"
 	>
 		<!-- Mobile Step 1: Cancel and Next -->
 		{#if uiState.currentStep === 1}
@@ -1365,6 +1406,7 @@
 					<span class="loading loading-spinner loading-sm"></span>
 				{:else}
 					<span class="text-sm">{$t('common.next')}</span>
+					<IconChevronRight class="h-5 w-5 sm:h-5 sm:w-5" />
 				{/if}
 			</button>
 		{/if}
@@ -1376,6 +1418,7 @@
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={handleBackStep}
 			>
+				<IconChevronLeft class="h-4 w-4 sm:h-5 sm:w-5" />
 				<span class="text-sm">{$t('common.back')}</span>
 			</button>
 			<button

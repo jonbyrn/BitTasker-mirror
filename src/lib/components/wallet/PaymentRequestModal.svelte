@@ -15,6 +15,7 @@
 	import IconPencil from '~icons/mdi/pencil';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconChevronUp from '~icons/mdi/chevron-up';
+	import IconChevronLeft from '~icons/mdi/chevron-left';
 
 	interface Props {
 		isOpen: boolean;
@@ -160,6 +161,12 @@
 		}
 		// Fall back to requested amount
 		return amount;
+	});
+
+	// Calculate USD for the amount the payer will pay (consistent with payerTotalAmount)
+	const payerTotalAmountUSD = $derived.by(() => {
+		if (btcPrice === 0) return 0;
+		return (payerTotalAmount / 100_000_000) * btcPrice;
 	});
 
 	const amountInUSD = $derived.by(() => {
@@ -310,7 +317,9 @@
 		role="dialog"
 		aria-modal="true"
 	>
-		<div class="container mx-auto flex flex-1 flex-col px-3 py-1">
+		<div class="container mx-auto flex flex-1 flex-col min-h-0 px-3 py-1">
+			<!-- Scrollable Content Area -->
+			<div class="flex-1 overflow-y-auto min-h-0">
 				<!-- Success State -->
 				{#if isTransactionConfirmed}
 					<div
@@ -382,9 +391,9 @@
 									>{$t('wallet.sats')}</span
 								>
 							</div>
-							{#if btcPrice > 0 && amountInUSD > 0}
+							{#if btcPrice > 0 && payerTotalAmountUSD > 0}
 								<div class="text-base-content/70 text-lg font-semibold md:text-xl">
-									≈ {formatUSD(amountInUSD)}
+									≈ {formatUSD(payerTotalAmountUSD)}
 								</div>
 							{/if}
 						</div>
@@ -525,35 +534,43 @@
 							</div>
 						{/if}
 
-						<!-- Cancel and Edit Buttons -->
-						<div class="flex gap-3">
-							<button
-								class="btn btn-error flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-								style="-webkit-tap-highlight-color: transparent;"
-								onclick={() => {
-									triggerHaptic(ImpactStyle.Light);
-									props.onClose();
-								}}
-							>
-								<IconClose class="h-5 w-5" />
-								{$t('wallet.receive.cancel')}
-							</button>
-							{#if props.onEdit}
-								<button
-									class="btn btn-primary flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={() => {
-										triggerHaptic(ImpactStyle.Medium);
-										props.onEdit?.();
-									}}
-								>
-									<IconPencil class="h-5 w-5" />
-									{$t('common.edit')}
-								</button>
-							{/if}
-						</div>
 					</div>
 				{/if}
 			</div>
+
+			<!-- Fixed Action Buttons at Bottom -->
+			<div
+				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex-shrink-0 flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:pt-0 md:pb-0 md:shadow-none"
+			>
+				{#if !isTransactionConfirmed}
+					<!-- Back Button (show if onEdit callback exists) -->
+					{#if props.onEdit}
+						<button
+							class="btn btn-ghost min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
+							style="-webkit-tap-highlight-color: transparent;"
+							onclick={() => {
+								triggerHaptic(ImpactStyle.Light);
+								props.onEdit?.();
+							}}
+						>
+							<IconChevronLeft class="h-4 w-4 sm:h-5 sm:w-5" />
+							<span class="text-sm sm:text-base">{$t('common.back')}</span>
+						</button>
+					{/if}
+					<!-- Cancel Button -->
+					<button
+						class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
+						style="-webkit-tap-highlight-color: transparent;"
+						onclick={() => {
+							triggerHaptic(ImpactStyle.Light);
+							props.onClose();
+						}}
+					>
+						<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+						<span class="text-sm sm:text-base">{$t('wallet.receive.cancel')}</span>
+					</button>
+				{/if}
+			</div>
+		</div>
 	</div>
 {/if}
