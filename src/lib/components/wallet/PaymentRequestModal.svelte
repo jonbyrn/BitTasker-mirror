@@ -21,10 +21,10 @@
 		isOpen: boolean;
 		onClose: () => void;
 		onEdit?: () => void; // Callback to return to edit screen
-		
+
 		// Pattern 1: Swap-based payment (provide swapId, modal fetches everything)
 		swapId?: string;
-		
+
 		// Pattern 2: Direct address payment (provide all details for non-swap payments like Rootstock)
 		address?: string;
 		network?: string;
@@ -42,40 +42,40 @@
 	let btcPrice = $state<number>(0);
 	let isTransactionConfirmed = $state(false);
 	let addressExpanded = $state(false); // Track if address is expanded to show full address
-	
+
 	// Determine if this is a swap-based payment or direct address payment
 	const isSwapBased = $derived(!!props.swapId);
-	
+
 	// Find the swap transaction from transactions store (reactive via WebSocket updates)
 	const swapTransaction = $derived.by(() => {
 		if (!props.swapId) return null;
-		return $transactions.find(tx => tx.swap?.id === props.swapId);
+		return $transactions.find((tx) => tx.swap?.id === props.swapId);
 	});
-	
+
 	// Get status from transaction (reactive and UI-ready with label, icon, color)
 	const swapStatus = $derived.by(() => {
 		if (!swapTransaction) return null;
 		return swapTransaction.status;
 	});
-	
+
 	// Get swap data from swap services for static data (invoice/address)
 	// This doesn't need to be reactive since invoice/address don't change
 	const currentSwap = $derived.by(() => {
 		if (!props.swapId) return undefined;
-		
+
 		// Try to find swap in all swap services
 		const reverseSwap = walletManager.reverseSwapService?.getSwap(props.swapId);
 		if (reverseSwap) return { data: reverseSwap, type: 'reverse' as const };
-		
+
 		const chainSwap = walletManager.chainSwapService?.getSwap(props.swapId);
 		if (chainSwap) return { data: chainSwap, type: 'chain' as const };
-		
+
 		const submarineSwap = walletManager.submarineSwapService?.getSwap(props.swapId);
 		if (submarineSwap) return { data: submarineSwap, type: 'submarine' as const };
-		
+
 		return undefined;
 	});
-	
+
 	// Derive network - from swap type OR from props
 	const network = $derived.by(() => {
 		if (currentSwap) {
@@ -86,13 +86,13 @@
 		// Direct payment: use provided network
 		return props.network || 'rootstock-bitcoin';
 	});
-	
+
 	// Derive address - from swap data OR from props
 	const address = $derived.by(() => {
 		if (currentSwap) {
 			// Swap-based: extract from swap data
 			const swapData = currentSwap.data;
-			
+
 			if (currentSwap.type === 'reverse') {
 				return (swapData as any).invoice || '';
 			} else if (currentSwap.type === 'chain') {
@@ -105,13 +105,13 @@
 		// Direct payment: use provided address
 		return props.address || '';
 	});
-	
+
 	// Derive amount - from swap data OR from props
 	const amount = $derived.by(() => {
 		if (currentSwap) {
 			// Swap-based: extract from swap data
 			const swapData = currentSwap.data;
-			
+
 			if (currentSwap.type === 'reverse') {
 				return (swapData as any).amount || 0;
 			} else if (currentSwap.type === 'chain') {
@@ -154,9 +154,15 @@
 	const displayAmount = $derived.by(() => {
 		if (!currentSwap) return amount;
 		const swapData = currentSwap.data;
-		
+
 		// Only reverse swaps (Lightning) have onchainAmount property
-		if (currentSwap.type === 'reverse' && 'onchainAmount' in swapData && swapData.onchainAmount !== undefined && swapData.onchainAmount !== null && swapData.onchainAmount > 0) {
+		if (
+			currentSwap.type === 'reverse' &&
+			'onchainAmount' in swapData &&
+			swapData.onchainAmount !== undefined &&
+			swapData.onchainAmount !== null &&
+			swapData.onchainAmount > 0
+		) {
 			return swapData.onchainAmount;
 		}
 		// Fall back to requested amount
@@ -231,9 +237,9 @@
 	$effect(() => {
 		// Only check for completion when modal is open and we have a swap transaction
 		if (!props.isOpen || !isSwapBased || !swapTransaction) return;
-		
+
 		const status = swapTransaction.status.label;
-		
+
 		// Check if swap is completed (confirmed)
 		if (status === 'wallet.transaction.status.confirmed') {
 			isTransactionConfirmed = true;
@@ -306,7 +312,7 @@
 
 	<!-- Modal Container - Full screen on mobile/tablet -->
 	<div
-		class="bg-base-100 fixed inset-0 z-101 flex flex-col overflow-y-auto pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl"
+		class="bg-base-100 fixed inset-0 z-101 flex flex-col overflow-y-auto py-1 shadow-2xl lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl"
 		transition:fly={prefersReducedMotion
 			? undefined
 			: {
@@ -317,9 +323,9 @@
 		role="dialog"
 		aria-modal="true"
 	>
-		<div class="container mx-auto flex flex-1 flex-col min-h-0 px-3 py-1">
+		<div class="container mx-auto flex min-h-0 flex-1 flex-col px-3 py-1">
 			<!-- Scrollable Content Area -->
-			<div class="flex-1 overflow-y-auto min-h-0">
+			<div class="min-h-0 flex-1 overflow-y-auto">
 				<!-- Success State -->
 				{#if isTransactionConfirmed}
 					<div
@@ -419,27 +425,29 @@
 										/>
 									</svg>
 								{/if}
-					<span class="text-base font-medium">{networkInfo.label}</span>
-				</div>
-				<!-- Status Indicator (only show for swap-based payments) -->
-				{#if isSwapBased && swapStatus && !isTransactionConfirmed}
-					{@const IconComponent = swapStatus.icon}
-					<div class="flex items-center gap-2">
-						<!-- Only show spinner when actually pending -->
-						{#if swapStatus.label === 'wallet.transaction.status.pending'}
-							<span class="loading loading-spinner loading-sm"></span>
-						{/if}
-						<!-- Dynamic status badge with proper colors -->
-						<span class="badge" 
-							class:badge-warning={swapStatus.label === 'wallet.transaction.status.pending'}
-							class:badge-success={swapStatus.label === 'wallet.transaction.status.confirmed'}
-							class:badge-error={swapStatus.label === 'wallet.transaction.status.failed'}>
-							<IconComponent class="mr-1 h-4 w-4" />
-							{$t(swapStatus.label)}
-						</span>
-					</div>
-				{/if}
-				</div>
+								<span class="text-base font-medium">{networkInfo.label}</span>
+							</div>
+							<!-- Status Indicator (only show for swap-based payments) -->
+							{#if isSwapBased && swapStatus && !isTransactionConfirmed}
+								{@const IconComponent = swapStatus.icon}
+								<div class="flex items-center gap-2">
+									<!-- Only show spinner when actually pending -->
+									{#if swapStatus.label === 'wallet.transaction.status.pending'}
+										<span class="loading loading-spinner loading-sm"></span>
+									{/if}
+									<!-- Dynamic status badge with proper colors -->
+									<span
+										class="badge"
+										class:badge-warning={swapStatus.label === 'wallet.transaction.status.pending'}
+										class:badge-success={swapStatus.label === 'wallet.transaction.status.confirmed'}
+										class:badge-error={swapStatus.label === 'wallet.transaction.status.failed'}
+									>
+										<IconComponent class="mr-1 h-4 w-4" />
+										{$t(swapStatus.label)}
+									</span>
+								</div>
+							{/if}
+						</div>
 
 						<!-- QR Code (Almost Full Screen Width) -->
 						<div class="flex justify-center px-2">
@@ -450,7 +458,7 @@
 									<span class="loading loading-spinner loading-lg"></span>
 								</div>
 							{:else if qrCodeDataUrl}
-								<div class="rounded-lg bg-white p-3 shadow-lg">
+								<div class="rounded-lg bg-white p-2 shadow-lg">
 									<div class="w-[calc(100vw-4rem)] max-w-[500px]">
 										<img src={qrCodeDataUrl} alt="Payment QR Code" class="h-full w-full" />
 									</div>
@@ -516,8 +524,8 @@
 
 							<!-- Expanded full address (shown when expanded) -->
 							{#if addressExpanded}
-								<div class="border-primary/20 border-t px-2 pb-2">
-									<code class="block pt-2 font-mono text-xs break-all whitespace-normal">
+								<div class="border-primary/20 border-t px-2 py-2">
+									<code class="block font-mono text-xs break-all whitespace-normal">
 										{address}
 									</code>
 								</div>
@@ -533,14 +541,13 @@
 								<div class="bg-base-200 rounded-lg p-1 text-base">{props.memo}</div>
 							</div>
 						{/if}
-
 					</div>
 				{/if}
 			</div>
 
 			<!-- Fixed Action Buttons at Bottom -->
 			<div
-				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex-shrink-0 flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:pt-0 md:pb-0 md:shadow-none"
+				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex flex-shrink-0 gap-2 pt-2 pb-1 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:py-1 md:static md:py-0 md:shadow-none"
 			>
 				{#if !isTransactionConfirmed}
 					<!-- Back Button (show if onEdit callback exists) -->
