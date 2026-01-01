@@ -37,8 +37,8 @@
 	>
 		{$t('wallet.description')} {#if labelText}({$t(labelText)}){:else}({$t('wallet.optional')}){/if}
 	</button>
-	<div class="collapse-content">
-		<div class="form-control pt-2 pb-2 px-2">
+	<div class="collapse-content px-2">
+		<div class="form-control pt-2 px-2">
 			<textarea
 				class="textarea textarea-bordered w-full text-base-content"
 				class:textarea-error={memo.length > 200 && !disabled}

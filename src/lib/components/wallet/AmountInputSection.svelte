@@ -107,61 +107,43 @@
 		class="bg-base-200 relative flex flex-1 items-center justify-center p-1 sm:p-2"
 		class:bg-base-300={disabled}
 	>
-		{#if mathExpression || amount}
-			<!-- Currency symbol on left -->
-			<div class="absolute left-2 sm:left-3 flex items-center">
+		<!-- Grid layout to ensure proper centering: left spacer, center content, right spacer -->
+		<div class="grid w-full grid-cols-[1fr_auto_1fr] items-center">
+			<!-- Left spacer - matches currency symbol width -->
+			<div class="flex justify-start pl-2">
 				{#if unit === 'usd'}
 					<span class="text-primary text-2xl font-bold sm:text-3xl">$</span>
 				{:else}
 					<IconCurrencyBtc class="text-primary h-6 w-6 sm:h-8 sm:w-8" />
 				{/if}
 			</div>
-			<!-- Amount centered -->
-			<div class="w-full text-center text-2xl font-bold sm:text-3xl">
+			<!-- Amount centered - this will align with calculator center -->
+			<div class="text-center text-2xl font-bold sm:text-3xl">
 				{mathExpression || amount || '0'}
 			</div>
-			<!-- Clear button on right (if present) -->
-			{#if onClear}
-				<button
-					type="button"
-					class="absolute right-2 sm:right-3 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
-					style="-webkit-tap-highlight-color: transparent;"
-					onclick={handleClear}
-					{disabled}
-					aria-label="Clear calculator"
-				>
-					<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
-				</button>
-			{:else}
-				<!-- Spacer to balance symbol on left when no clear button -->
-				<div class="absolute right-2 sm:right-3">
+			<!-- Right spacer - matches left spacer width -->
+			<div class="flex justify-end pr-2 sm:pr-3">
+				{#if onClear && (mathExpression || amount)}
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+						style="-webkit-tap-highlight-color: transparent;"
+						onclick={handleClear}
+						{disabled}
+						aria-label="Clear calculator"
+					>
+						<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
+					</button>
+				{:else}
+					<!-- Invisible spacer to balance left side -->
 					{#if unit === 'usd'}
 						<span class="text-primary text-2xl font-bold opacity-0 sm:text-3xl">$</span>
 					{:else}
 						<IconCurrencyBtc class="text-primary h-6 w-6 opacity-0 sm:h-8 sm:w-8" />
 					{/if}
-				</div>
-			{/if}
-		{:else}
-			<!-- Currency symbol on left -->
-			<div class="absolute left-2 sm:left-3 flex items-center">
-				{#if unit === 'usd'}
-					<span class="text-primary text-2xl font-bold sm:text-3xl">$</span>
-				{:else}
-					<IconCurrencyBtc class="text-primary h-6 w-6 sm:h-8 sm:w-8" />
 				{/if}
 			</div>
-			<!-- Amount centered -->
-			<div class="w-full text-center text-2xl font-bold sm:text-3xl">0</div>
-			<!-- Spacer to balance symbol on left -->
-			<div class="absolute right-2 sm:right-3">
-				{#if unit === 'usd'}
-					<span class="text-primary text-2xl font-bold opacity-0 sm:text-3xl">$</span>
-				{:else}
-					<IconCurrencyBtc class="text-primary h-6 w-6 opacity-0 sm:h-8 sm:w-8" />
-				{/if}
-			</div>
-		{/if}
+		</div>
 	</div>
 	<!-- Max button (orange, pill-shaped) - only show if onMaxAmount is provided -->
 	{#if onMaxAmount}

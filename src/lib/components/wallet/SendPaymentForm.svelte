@@ -997,52 +997,57 @@
 								class:border-error={!!parsedPayment.addressError}
 							>
 								<!-- Input field with validation icons -->
-								<div class="relative flex-1">
-									<input
-										id="address-input"
-										type="text"
-										class="input input-bordered min-h-[44px] w-full rounded-l-lg rounded-r-none border-0 pl-10"
-										placeholder={$t('wallet.send.address_placeholder')}
-										bind:value={formInput.addressInput}
-										oninput={handleAddressInput}
-										onfocus={() => (uiState.showRecentAddresses = recentAddresses.length > 0)}
-										onblur={() => setTimeout(() => (uiState.showRecentAddresses = false), 200)}
-									/>
+								<div
+									class="bg-base-200 relative flex flex-1 items-center p-2"
+								>
+									<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
+										<input
+											id="address-input"
+											type="text"
+											class="w-full bg-transparent pl-6 text-base text-sm focus:outline-none placeholder:text-base-content/50"
+											placeholder={$t('wallet.send.address_placeholder')}
+											bind:value={formInput.addressInput}
+											oninput={handleAddressInput}
+											onfocus={() => (uiState.showRecentAddresses = recentAddresses.length > 0)}
+											onblur={() => setTimeout(() => (uiState.showRecentAddresses = false), 200)}
+										/>
+										{#if formInput.addressInput.trim()}
+											<div
+												class="pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-1"
+											>
+												{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
+													<IconCheck class="text-success h-5 w-5" />
+												{:else if parsedPayment.addressError}
+													<IconClose class="text-error h-5 w-5" />
+												{/if}
+											</div>
+										{/if}
+									</div>
+									<!-- Clear button -->
 									{#if formInput.addressInput.trim()}
-										<div
-											class="pointer-events-none absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1"
+										<button
+											type="button"
+											class="absolute right-2 sm:right-2 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+											style="-webkit-tap-highlight-color: transparent;"
+											onclick={() => {
+												formInput.addressInput = '';
+												parsedPayment.data = null;
+												parsedPayment.detectedNetwork = null;
+												parsedPayment.detectedAmount = null;
+												parsedPayment.detectedMemo = null;
+												parsedPayment.addressError = null;
+												parsedPayment.amountRequired = true;
+												feeState.estimated = null;
+												feeState.error = null;
+												uiState.showRecentAddresses = false;
+												triggerHaptic(ImpactStyle.Light);
+											}}
+											aria-label="Clear address"
 										>
-											{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
-												<IconCheck class="text-success h-5 w-5" />
-											{:else if parsedPayment.addressError}
-												<IconClose class="text-error h-5 w-5" />
-											{/if}
-										</div>
+											<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
+										</button>
 									{/if}
 								</div>
-								<!-- Clear button -->
-								<button
-									type="button"
-									class="bg-primary text-primary-content flex min-h-[44px] min-w-[60px] touch-manipulation items-center justify-center rounded-l-none rounded-r-lg px-4 py-1 text-2xl font-semibold whitespace-nowrap transition-opacity select-none disabled:opacity-50"
-									style="-webkit-tap-highlight-color: transparent; margin-left: -2px; width: 70px;"
-									onclick={() => {
-										formInput.addressInput = '';
-										parsedPayment.data = null;
-										parsedPayment.detectedNetwork = null;
-										parsedPayment.detectedAmount = null;
-										parsedPayment.detectedMemo = null;
-										parsedPayment.addressError = null;
-										parsedPayment.amountRequired = true;
-										feeState.estimated = null;
-										feeState.error = null;
-										uiState.showRecentAddresses = false;
-										triggerHaptic(ImpactStyle.Light);
-									}}
-									disabled={!formInput.addressInput.trim()}
-									aria-label="Clear address"
-								>
-									⤫<!-- {$t('common.clear')} -->
-								</button>
 							</div>
 							{#if uiState.showRecentAddresses && recentAddresses.length > 0}
 								<div
@@ -1138,14 +1143,7 @@
 					</div>
 
 					<!-- Network Fee Accordion -->
-					{#if feeState.isLoading}
-						<div
-							class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-1.5 sm:p-2"
-						>
-							<span class="loading loading-spinner loading-sm"></span>
-							<span class="text-xs sm:text-sm">{$t('wallet.swap.loading_fees')}</span>
-						</div>
-					{:else if feeState.error}
+					{#if feeState.error}
 						<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
 							<span>{feeState.error}</span>
 						</div>
@@ -1156,15 +1154,20 @@
 						>
 							<button
 								type="button"
-								class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium sm:px-4 sm:text-base"
+								class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
 								onclick={() => {
 									triggerHaptic(ImpactStyle.Light);
 									uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
 								}}
+								disabled={feeState.isLoading}
 							>
 								<div class="flex w-full items-center gap-1.5 sm:gap-2">
 									<span>{$t('wallet.network_fee')}:</span>
-									{#if feeState.estimated}
+									{#if feeState.isLoading}
+										<span class="font-semibold inline-flex items-center gap-1.5 min-w-[5rem] sm:gap-2">
+											<span class="loading loading-spinner loading-xs"></span>
+										</span>
+									{:else if feeState.estimated}
 										<span class="font-semibold"
 											>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
 										>
@@ -1179,7 +1182,7 @@
 								</div>
 							</button>
 							<div class="collapse-content">
-								<div class="space-y-1.5 px-3 pb-3 sm:space-y-2 sm:px-4 sm:pb-4">
+								<div class="space-y-1.5 px-3 sm:space-y-2 sm:px-4">
 									{#if feeState.estimated && feeState.estimated.serviceFee > 0}
 										<div class="flex items-center justify-between text-xs opacity-70">
 											<span>{$t('wallet.swap.swap_fee')}:</span>
@@ -1193,7 +1196,7 @@
 										</div>
 									{/if}
 									{#if !feeState.estimated || feeState.estimated.totalFees === 0}
-										<div class="py-2 text-center text-xs opacity-70">
+										<div class="text-center text-xs opacity-70">
 											{$t('wallet.send.enter_address_and_amount_to_estimate')}
 										</div>
 									{/if}
@@ -1343,7 +1346,7 @@
 					uiState.showConfirmation = false;
 				}}
 			>
-				{$t('wallet.send.enter_payment_details')}
+				{$t('wallet.send.payment_details')}
 			</button>
 		</div>
 

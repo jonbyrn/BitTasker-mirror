@@ -422,7 +422,7 @@
       "button_rootstock": "Send rBTC",
       "scan_qr_code": "Scan QR Code",
       "scan_qr_code_description": "Point your camera at a payment QR code",
-      "enter_payment_details": "Enter Payment Details",
+      "payment_details": "Payment Details",
       "enter_details_instead": "Enter Details Instead",
       "scan_qr_code_instead": "Scan QR Code Instead",
       "confirm_payment": "Confirm Payment",
