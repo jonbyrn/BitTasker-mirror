@@ -553,7 +553,7 @@
 					<!-- Back Button (show if onEdit callback exists) -->
 					{#if props.onEdit}
 						<button
-							class="btn btn-ghost min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
+							class="btn btn-outline min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
 							style="-webkit-tap-highlight-color: transparent;"
 							onclick={() => {
 								triggerHaptic(ImpactStyle.Light);
