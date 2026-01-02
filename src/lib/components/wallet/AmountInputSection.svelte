@@ -18,6 +18,7 @@
 		network?: string | null; // Detected network for balance calculation
 		isLoadingMaxCalculation?: boolean; // Loading state for max calculation
 		disabled?: boolean; // Whether the input and calculator should be disabled
+		hasInsufficientBalance?: boolean; // Whether there are insufficient funds
 		onAmountChange: (value: string) => void;
 		onUnitChange: (unit: 'sats' | 'usd') => void;
 		onCalculationChange?: (expression: string, result: number) => void;
@@ -39,6 +40,7 @@
 		network = null,
 		isLoadingMaxCalculation = false,
 		disabled = false,
+		hasInsufficientBalance = false,
 		onAmountChange,
 		onUnitChange,
 		onCalculationChange,
@@ -99,7 +101,9 @@
 <div class="flex flex-col space-y-2">
 <!-- Amount Display (shows calculation and result) with attached Max button -->
 <div
-	class="border-primary flex w-full items-stretch overflow-hidden rounded-lg border-2"
+	class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
+	class:border-primary={!hasInsufficientBalance}
+	class:border-error={hasInsufficientBalance}
 	class:opacity-50={disabled}
 >
 	<!-- Input display area (grey bar) - takes remaining width -->

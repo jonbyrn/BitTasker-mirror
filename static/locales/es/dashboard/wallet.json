@@ -409,6 +409,7 @@
       "send": "Enviar",
       "transaction_fee": "Tarifa de Transacción",
       "estimated_confirmation_time": "Tiempo Estimado de Confirmación",
+      "estimated_time_1_2_minutes": "1 - 2 minutos",
       "seconds": "segundos",
       "instant": "Instantáneo",
       "confirmation_warning": "Esta acción no se puede deshacer. Por favor, verifica todos los detalles antes de confirmar.",

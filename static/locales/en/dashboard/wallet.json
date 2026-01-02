@@ -437,6 +437,7 @@
       "send": "Send",
       "transaction_fee": "Transaction Fee",
       "estimated_confirmation_time": "Estimated Confirmation Time",
+      "estimated_time_1_2_minutes": "1 - 2 minutes",
       "seconds": "seconds",
       "instant": "Instant",
       "confirmation_warning": "This action cannot be undone. Please verify all details before confirming.",
