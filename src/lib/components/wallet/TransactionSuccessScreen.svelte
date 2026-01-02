@@ -28,9 +28,12 @@
 
 		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
+		// Use RSK network setting as the general indicator for mainnet/testnet mode
+		// This is consistent with how the app determines network mode
+		const isMainnet = rskNetwork === 'mainnet';
 
 		if (props.network === 'rootstock-bitcoin' || props.network === 'rsk') {
-			return rskNetwork === 'mainnet'
+			return isMainnet
 				? `https://rootstock.blockscout.com/tx/${props.txHash}`
 				: `https://rootstock-testnet.blockscout.com/tx/${props.txHash}`;
 		} else if (props.network === 'usdt-bsc' || props.network === 'bsc') {
@@ -38,8 +41,15 @@
 				? `https://bscscan.com/tx/${props.txHash}`
 				: `https://testnet.bscscan.com/tx/${props.txHash}`;
 		} else if (props.network === 'bitcoin') {
-			// Bitcoin explorer
-			return `https://blockstream.info/tx/${props.txHash}`;
+			// Bitcoin explorer - supports testnet
+			return isMainnet
+				? `https://blockstream.info/tx/${props.txHash}`
+				: `https://blockstream.info/testnet/tx/${props.txHash}`;
+		} else if (props.network === 'liquid-bitcoin') {
+			// Liquid explorer - supports testnet
+			return isMainnet
+				? `https://blockstream.info/liquid/tx/${props.txHash}`
+				: `https://blockstream.info/liquidtestnet/tx/${props.txHash}`;
 		} else if (props.network === 'lightning-bitcoin') {
 			// Lightning doesn't have traditional explorer, but we can show invoice details
 			return null;

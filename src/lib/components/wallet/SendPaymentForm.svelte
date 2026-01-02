@@ -26,6 +26,7 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconChevronUp from '~icons/mdi/chevron-up';
 	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import { linear } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
 
@@ -831,9 +832,12 @@
 
 		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
+		// Use RSK network setting as the general indicator for mainnet/testnet mode
+		// This is consistent with how the app determines network mode
+		const isMainnet = rskNetwork === 'mainnet';
 
 		if (network === 'rootstock-bitcoin' || network === 'rsk') {
-			return rskNetwork === 'mainnet'
+			return isMainnet
 				? `https://rootstock.blockscout.com/address/${address}`
 				: `https://rootstock-testnet.blockscout.com/address/${address}`;
 		} else if (network === 'usdt-bsc' || network === 'bsc') {
@@ -841,9 +845,13 @@
 				? `https://bscscan.com/address/${address}`
 				: `https://testnet.bscscan.com/address/${address}`;
 		} else if (network === 'bitcoin') {
-			return `https://blockstream.info/address/${address}`;
+			return isMainnet
+				? `https://blockstream.info/address/${address}`
+				: `https://blockstream.info/testnet/address/${address}`;
 		} else if (network === 'liquid-bitcoin') {
-			return `https://blockstream.info/liquid/address/${address}`;
+			return isMainnet
+				? `https://blockstream.info/liquid/address/${address}`
+				: `https://blockstream.info/liquidtestnet/address/${address}`;
 		}
 
 		return null;
@@ -994,12 +1002,29 @@
 						{#if parsedPayment.detectedNetwork}
 							{@const network =
 								netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
+							{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
+							{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
 							<div class="border-base-300 bg-primary/10 rounded-lg border p-4">
-								<div class="flex items-center gap-2">
-									{#if network?.icon}
-										<img src={network?.icon} alt={network?.name} class="h-5 w-5" />
+								<div class="flex items-center justify-between gap-2">
+									<div class="flex items-center gap-2">
+										{#if network?.icon}
+											<img src={network?.icon} alt={network?.name} class="h-5 w-5" />
+										{/if}
+										<span class="font-medium">{network?.name}</span>
+									</div>
+									{#if explorerUrl}
+										<a
+											href={explorerUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
+											style="-webkit-tap-highlight-color: transparent;"
+											aria-label={$t('wallet.view_explorer')}
+											onclick={() => triggerHaptic(ImpactStyle.Light)}
+										>
+											<IconOpenInNew class="h-5 w-5" />
+										</a>
 									{/if}
-									<span class="font-medium">{network?.name}</span>
 								</div>
 							</div>
 						{/if}
@@ -1216,6 +1241,8 @@
 						{#if parsedPayment.detectedNetwork}
 							{@const network =
 								netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
+							{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
+							{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
 							<div class="border-base-300 bg-primary/10 rounded-lg border p-1.5 sm:p-2">
 								<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
 									<div class="flex items-center gap-1.5 sm:gap-2">
@@ -1224,18 +1251,18 @@
 										{/if}
 										<span class="text-sm font-medium sm:text-base">{network?.name}</span>
 									</div>
-									{#if parsedPayment.detectedAmount && parsedPayment.detectedAmount > 0}
-										<div class="text-right text-xs sm:text-sm">
-											<div class="font-semibold">
-												{formatSats(parsedPayment.detectedAmount)}
-												{$t('wallet.sats')}
-											</div>
-											{#if btcPrice > 0}
-												<div class="opacity-70">
-													≈ {formatUsd((parsedPayment.detectedAmount / 100_000_000) * btcPrice)}
-												</div>
-											{/if}
-										</div>
+									{#if explorerUrl}
+										<a
+											href={explorerUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
+											style="-webkit-tap-highlight-color: transparent;"
+											aria-label={$t('wallet.view_explorer')}
+											onclick={() => triggerHaptic(ImpactStyle.Light)}
+										>
+											<IconOpenInNew class="h-4 w-4 sm:h-5 sm:w-5" />
+										</a>
 									{/if}
 								</div>
 							</div>
@@ -1465,6 +1492,8 @@
 					{#if parsedPayment.detectedNetwork}
 						{@const network =
 							netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
+						{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
+						{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
 						<div class="border-base-300 bg-primary/10 rounded-lg border p-1.5 sm:p-2">
 							<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
 								<div class="flex items-center gap-1.5 sm:gap-2">
@@ -1473,18 +1502,18 @@
 									{/if}
 									<span class="text-sm font-medium sm:text-base">{network?.name}</span>
 								</div>
-								{#if parsedPayment.detectedAmount && parsedPayment.detectedAmount > 0}
-									<div class="text-right text-xs sm:text-sm">
-										<div class="font-semibold">
-											{formatSats(parsedPayment.detectedAmount)}
-											{$t('wallet.sats')}
-										</div>
-										{#if btcPrice > 0}
-											<div class="opacity-70">
-												≈ {formatUsd((parsedPayment.detectedAmount / 100_000_000) * btcPrice)}
-											</div>
-										{/if}
-									</div>
+								{#if explorerUrl}
+									<a
+										href={explorerUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
+										style="-webkit-tap-highlight-color: transparent;"
+										aria-label={$t('wallet.view_explorer')}
+										onclick={() => triggerHaptic(ImpactStyle.Light)}
+									>
+										<IconOpenInNew class="h-4 w-4 sm:h-5 sm:w-5" />
+									</a>
 								{/if}
 							</div>
 						</div>
@@ -1856,7 +1885,7 @@
 										href={explorerUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										class="min-w-0 flex-1 text-left text-primary hover:underline"
+										class="min-w-0 flex-1 text-left hover:underline"
 									>
 										<code class="block truncate font-mono text-xs">
 											{uiState.addressExpanded ? recipientAddress : formatAddress(recipientAddress)}
