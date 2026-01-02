@@ -390,14 +390,14 @@
             "end_date": "Fecha de Fin",
             "clear_availability_filters": "Borrar Filtros de Disponibilidad",
             "airdatepicker": {
-              "select_date": "Seleccionar una fecha",
-              "select_date_range": "Seleccionar rango de fechas",
-              "select_datetime": "Seleccionar fecha y hora",
-              "select_time": "Seleccionar hora",
-              "select_start_date": "Seleccionar fecha de inicio",
-              "select_end_date": "Seleccionar fecha de fin",
-              "select_start_datetime": "Seleccionar fecha y hora de inicio",
-              "select_end_datetime": "Seleccionar fecha y hora de fin"
+              "select_date": "Fecha",
+              "select_date_range": "Rango de fechas",
+              "select_datetime": "Fecha y hora",
+              "select_time": "Hora",
+              "select_start_date": "Fecha de inicio",
+              "select_end_date": "Fecha de fin",
+              "select_start_datetime": "Fecha de inicio",
+              "select_end_datetime": "Fecha de fin"
             }
           },
           "price_range": {
