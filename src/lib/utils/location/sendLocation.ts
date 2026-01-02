@@ -73,6 +73,7 @@ export async function sendLocationsToTaskee(
 		taskDescription?: string;
 		isRemote?: boolean;
 		threadRootId?: string;
+		additionalNotes?: string;
 	}
 ): Promise<void> {
 	try {
@@ -155,6 +156,13 @@ export async function sendLocationsToTaskee(
 				});
 				messageText += `📍 ${loc.label}\n${formattedAddress}\n${directionsLink}`;
 			});
+		}
+
+		// Add additional notes if provided
+		if (options?.additionalNotes && options.additionalNotes.trim()) {
+			messageText += '\n\n';
+			messageText += `📝 ${_('dashboard.bids.bid_acceptance.additional_notes_label')}\n`;
+			messageText += `${options.additionalNotes.trim()}`;
 		}
 
 		// Build tags with location data using centralized tag patterns
