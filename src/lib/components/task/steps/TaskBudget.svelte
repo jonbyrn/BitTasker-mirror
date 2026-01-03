@@ -78,6 +78,34 @@
 		}
 	}
 
+	function handleSatsChange(event: Event) {
+		let input = cleanInput((event.target as HTMLInputElement).value);
+		(event.target as HTMLInputElement).value = input;
+
+		const satsValue = parseInt(input.replace(/,/g, ''), 10);
+		if (!isNaN(satsValue) && btcPrice > 0) {
+			// Convert sats to USD
+			const usdValue = (satsValue / SATS_PER_BTC) * btcPrice;
+			store.updateTask({
+				budget: { 
+					...$store.task.budget, 
+					amount: usdValue,
+					currency: 'USD'
+				}
+			});
+			usdAmount = usdValue;
+		} else {
+			store.updateTask({ 
+				budget: { 
+					...$store.task.budget, 
+					amount: 0,
+					currency: 'USD'
+				} 
+			});
+			usdAmount = 0;
+		}
+	}
+
 	function cleanInput(value: string): string {
 		return value.replace(/[^0-9.,]/g, '');
 	}
@@ -371,11 +399,12 @@
 				<input
 					type="text"
 					id="budget-btc"
-					value={formatNumberForInput(Math.round((usdAmount / btcPrice) * SATS_PER_BTC))}
+					value={formatNumberForInput(btcPrice > 0 ? Math.round((usdAmount / btcPrice) * SATS_PER_BTC) : 0)}
+					onchange={handleSatsChange}
+					oninput={handleSatsChange}
 					class="input input-bordered w-full pr-12 {errors.budget ? 'input-error' : ''}"
 					placeholder={$t('task.sats_placeholder')}
 					min="0"
-					readonly
 				/>
 			</div>
 		</div>
@@ -415,20 +444,29 @@
 	{/if}
 
 	<div class="w-full">
-		<label for="description">
-			<span class="label">{$t('task.description')}</span>
-			<textarea
-				id="description"
-				value={$store.task.description}
-				onchange={(e) => {
-					store.updateTask({ description: (e.target as HTMLTextAreaElement).value });
-				}}
-				class="textarea textarea-bordered h-32 w-full rounded-xl {errors.description
-					? 'textarea-error'
-					: ''}"
-				placeholder={$t('task.description_placeholder')}
-			></textarea>
+		<label for="description" class="label">
+			<span class="label-text">{$t('task.description')}</span>
+			{#if $store.task.description.length > 0}
+				<span class="label-text-alt {$store.task.description.length >= 1000 ? 'text-warning' : 'text-base-content/60'}">
+					{$store.task.description.length}/1000 {$t('dashboard.bids.bid_creation.max')}
+				</span>
+			{/if}
 		</label>
+		<textarea
+			id="description"
+			value={$store.task.description}
+			onchange={(e) => {
+				store.updateTask({ description: (e.target as HTMLTextAreaElement).value });
+			}}
+			oninput={(e) => {
+				store.updateTask({ description: (e.target as HTMLTextAreaElement).value });
+			}}
+			class="textarea textarea-bordered h-32 w-full rounded-xl {errors.description
+				? 'textarea-error'
+				: ''}"
+			placeholder={$t('task.description_placeholder')}
+			maxlength="1000"
+		></textarea>
 		{#if errors.description}
 			<span class="label-text-alt text-error">{errors.description}</span>
 		{/if}
