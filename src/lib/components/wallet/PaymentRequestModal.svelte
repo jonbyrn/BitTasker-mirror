@@ -10,12 +10,9 @@
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import IconClose from '~icons/mdi/close';
-	import IconContentCopy from '~icons/mdi/content-copy';
-	import IconCheck from '~icons/mdi/check';
 	import IconPencil from '~icons/mdi/pencil';
-	import IconChevronDown from '~icons/mdi/chevron-down';
-	import IconChevronUp from '~icons/mdi/chevron-up';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
+	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
 
 	interface Props {
 		isOpen: boolean;
@@ -37,11 +34,9 @@
 	const props: Props = $props();
 
 	let qrCodeDataUrl = $state('');
-	let addressCopied = $state(false);
 	let isLoadingQR = $state(true);
 	let btcPrice = $state<number>(0);
 	let isTransactionConfirmed = $state(false);
-	let addressExpanded = $state(false); // Track if address is expanded to show full address
 
 	// Determine if this is a swap-based payment or direct address payment
 	const isSwapBased = $derived(!!props.swapId);
@@ -226,12 +221,6 @@
 		);
 	});
 
-	// Format address (truncate for display)
-	function formatAddress(address: string): string {
-		if (address.length <= 20) return address;
-		return `${address.slice(0, 10)}...${address.slice(-8)}`;
-	}
-
 	// Reactive effect: Monitor swap status changes (triggered by SDK's WebSocket updates via transactions store)
 	// Only runs for swap-based payments
 	$effect(() => {
@@ -271,17 +260,6 @@
 		}
 	}
 
-	async function copyAddress() {
-		if (address) {
-			await copyToClipboard(address);
-			appStore.showSuccessToast($t('wallet.address_copied'));
-			addressCopied = true;
-			triggerHaptic(ImpactStyle.Light);
-			setTimeout(() => {
-				addressCopied = false;
-			}, 2000);
-		}
-	}
 
 	// Initialize component
 	onMount(async () => {
@@ -475,62 +453,7 @@
 						</div>
 
 						<!-- Payment Address/Link (Copyable) - One line with expand/collapse -->
-						<div class="border-primary bg-base-100 rounded-lg border-2">
-							<!-- One-line address display -->
-							<div class="flex items-center gap-2 p-2">
-								<!-- Copy icon on the left -->
-								<button
-									class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={copyAddress}
-									aria-label={$t('wallet.copy_address')}
-								>
-									{#if addressCopied}
-										<IconCheck class="text-success h-5 w-5" />
-									{:else}
-										<IconContentCopy class="h-5 w-5" />
-									{/if}
-								</button>
-
-								<!-- Compressed address in the middle -->
-								<button
-									class="min-w-0 flex-1 touch-manipulation text-left transition-transform duration-100 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={copyAddress}
-									aria-label={$t('wallet.copy_address')}
-								>
-									<code class="block truncate font-mono text-xs">
-										{addressExpanded ? address : formatAddress(address)}
-									</code>
-								</button>
-
-								<!-- Dropdown button on the right -->
-								<button
-									class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={() => {
-										triggerHaptic(ImpactStyle.Light);
-										addressExpanded = !addressExpanded;
-									}}
-									aria-label={addressExpanded ? 'Collapse address' : 'Expand address'}
-								>
-									{#if addressExpanded}
-										<IconChevronUp class="h-5 w-5" />
-									{:else}
-										<IconChevronDown class="h-5 w-5" />
-									{/if}
-								</button>
-							</div>
-
-							<!-- Expanded full address (shown when expanded) -->
-							{#if addressExpanded}
-								<div class="border-primary/20 border-t px-2 py-2">
-									<code class="block font-mono text-xs break-all whitespace-normal">
-										{address}
-									</code>
-								</div>
-							{/if}
-						</div>
+						<AddressAccordion address={address} />
 
 						<!-- Transaction Description (if provided) -->
 						{#if props.memo}

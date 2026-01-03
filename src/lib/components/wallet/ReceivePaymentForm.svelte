@@ -711,7 +711,7 @@
 							</span>
 						</div>
 					</button>
-					<div class="collapse-content px-2 pb-1">
+					<div class="collapse-content px-2">
 						<div class="space-y-1.5 sm:space-y-2">
 							{#each networkOptions as network}
 								{@const networkFees = getNetworkFees(network.value)}
@@ -1066,7 +1066,7 @@
 						</span>
 					</div>
 				</button>
-				<div class="collapse-content px-2 pb-1">
+				<div class="collapse-content px-2">
 					<div class="space-y-1.5 sm:space-y-2">
 						{#each networkOptions as network}
 							{@const networkFees = getNetworkFees(network.value)}

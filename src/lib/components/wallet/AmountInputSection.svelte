@@ -108,7 +108,7 @@
 >
 	<!-- Input display area (grey bar) - takes remaining width -->
 	<div
-		class="bg-base-200 relative flex flex-1 items-center justify-center p-1 sm:p-2"
+		class="bg-base-200 relative flex flex-1 items-center justify-center p-1 sm:p-2 min-h-[3rem] sm:min-h-[3.5rem]"
 		class:bg-base-300={disabled}
 	>
 		<!-- Grid layout to ensure proper centering: left spacer, center content, right spacer -->
@@ -122,7 +122,7 @@
 				{/if}
 			</div>
 			<!-- Amount centered - this will align with calculator center -->
-			<div class="text-center text-2xl font-bold sm:text-3xl">
+			<div class="text-center text-2xl font-bold leading-none sm:text-3xl min-h-[1.5rem] sm:min-h-[1.875rem] flex items-center justify-center">
 				{mathExpression || amount || '0'}
 			</div>
 			<!-- Right spacer - matches left spacer width -->
