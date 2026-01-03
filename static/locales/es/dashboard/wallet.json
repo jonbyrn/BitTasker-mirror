@@ -661,9 +661,16 @@
       "miner_fee": "Tarifa de Minero",
       "action": {
         "refund": "Reembolsar",
-        "renegotiate": "Renegociar",
+        "renegotiate": "Ajustar Cantidad",
         "claim": "Reclamar",
         "view_qr": "Ver QR"
+      },
+      "renegotiation": {
+        "title": "Desajuste de Cantidad Detectado",
+        "original_amount": "Cantidad Esperada",
+        "new_amount": "Cantidad Ajustada",
+        "confirm": "Continuar con Cantidad Ajustada",
+        "time_remaining": "Tiempo Restante"
       },
       "status": {
         "pending": "Intercambio en Progreso",

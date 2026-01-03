@@ -16,6 +16,51 @@ import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 type SwapType = 'submarine' | 'reverse' | 'chain';
 type SwapData = BoltzSwapData | ChainSwapData | SubmarineSwapData;
 
+/**
+ * Swap Status Constants
+ * Based on: https://api.docs.boltz.exchange/lifecycle.html
+ */
+
+// Pending statuses - swap in progress (non-final)
+export const PENDING_STATUSES = [
+    'swap.created',
+    'invoice.set',
+    'transaction.mempool',
+    'transaction.confirmed',
+    'invoice.pending',
+    'transaction.claim.pending',
+    'minerfee.paid',
+    'transaction.server.mempool',
+    'transaction.server.confirmed'
+] as const;
+
+// Completed statuses - swap successful (final states)
+export const COMPLETED_STATUSES = [
+    'transaction.claimed',
+    'invoice.settled',
+    'invoice.paid'
+] as const;
+
+// Failed statuses - swap failed (includes both final and transitional)
+export const FAILED_STATUSES = [
+    'swap.expired',
+    'invoice.failedToPay',
+    'invoice.expired',
+    'transaction.failed',
+    'transaction.refunded',
+    'transaction.lockupFailed' // Transitions to swap.expired but shown as failed
+] as const;
+
+// Final statuses - absolutely cannot change (excludes transaction.lockupFailed)
+export const FINAL_STATUSES = [
+    ...COMPLETED_STATUSES,
+    'swap.expired',
+    'invoice.failedToPay',
+    'invoice.expired',
+    'transaction.failed',
+    'transaction.refunded'
+] as const;
+
 export interface SwapAction {
     type: 'refund' | 'renegotiate' | 'claim' | 'viewQR';
     label: string; // Translation key
@@ -23,29 +68,68 @@ export interface SwapAction {
 }
 
 /**
+ * Check if an expired swap is safe to delete
+ * Based on Boltz API documentation: https://api.docs.boltz.exchange/lifecycle.html
+ * 
+ * Safe to delete if:
+ * - Submarine: expired AND user never locked funds (no lockupTxHash)
+ * - Reverse: expired (invoice was never paid, or Boltz auto-refunded)
+ * - Chain: expired AND user never locked L-BTC (no lockupTxHash) AND server never locked RBTC (no serverLockupTxHash)
+ */
+export function isExpiredSwapSafeToDelete(swap: SwapData, swapType: SwapType): boolean {
+    if (swap.status !== 'swap.expired') {
+        return false;
+    }
+
+    // Submarine swaps: safe to delete if user never locked funds
+    if (swapType === 'submarine') {
+        const submarineSwap = swap as SubmarineSwapData;
+        return !submarineSwap.lockupTxHash;
+    }
+
+    // Reverse swaps: safe to delete if expired
+    // Per Boltz docs: "If the swap expires without the lightning invoice being paid, 
+    // the final status will be swap.expired". If invoice was paid and Boltz locked funds,
+    // the status would be transaction.refunded (Boltz auto-refunds).
+    if (swapType === 'reverse') {
+        return true;
+    }
+
+    // Chain swaps: safe to delete if neither side locked funds
+    if (swapType === 'chain') {
+        const chainSwap = swap as ChainSwapData;
+        const userLockedFunds = !!chainSwap.lockupTxHash;
+        const serverLockedFunds = !!chainSwap.serverLockupTxHash;
+        return !userLockedFunds && !serverLockedFunds;
+    }
+
+    return false;
+}
+
+/**
  * Determine which statuses should be shown in transaction history
  * Exclude completed swaps as they will appear from blockchain
- * 
- * Completed statuses by type:
- * - Submarine: transaction.claimed, invoice.paid
- * - Reverse: invoice.settled
- * - Chain: transaction.claimed
+ * Also exclude expired swaps that are safe to delete (never paid)
  */
-export function shouldShowSwap(status: string, swapType: SwapType): boolean {
-    const completedStatuses = [
-        'transaction.claimed', // Submarine & Chain final state
-        'invoice.settled',     // Reverse final state
-        'invoice.paid'         // Submarine intermediate state (before claim)
-    ];
+export function shouldShowSwap(status: string, swapType: SwapType, swap: SwapData): boolean {
+    // Hide completed swaps (appear from blockchain)
+    if (COMPLETED_STATUSES.includes(status as any)) {
+        return false;
+    }
 
-    return !completedStatuses.includes(status);
+    // Hide expired swaps safe to delete
+    if (status === 'swap.expired' && isExpiredSwapSafeToDelete(swap, swapType)) {
+        return false;
+    }
+
+    return true;
 }
 
 /**
  * Check if swap is in a completed state
  */
 export function isSwapCompleted(status: string): boolean {
-    return ['transaction.claimed', 'invoice.settled', 'invoice.paid'].includes(status);
+    return COMPLETED_STATUSES.includes(status as any);
 }
 
 /**
@@ -142,7 +226,7 @@ export function mapSwapToTransaction(
     // Determine network based on swap type
     // Submarine and reverse swaps involve Lightning, chain swaps are on RSK
     const network = (swapType === 'submarine' || swapType === 'reverse') ? 'lightning' : 'rsk';
-    const networkIcon = network === 'lightning' 
+    const networkIcon = network === 'lightning'
         ? '/images/chains/lightning.svg'
         : '/images/chains/Bitcoin-Rootstock-logo.webp';
     const networkDisplayName = network === 'lightning'
@@ -184,56 +268,17 @@ export function mapSwapToTransaction(
  * Based on: https://api.docs.boltz.exchange/lifecycle.html
  */
 function getSwapStatusDisplay(status: string): ProcessedTransaction['status'] {
-	// Pending statuses (swap in progress)
-	// Submarine: swap.created, invoice.set, transaction.mempool, transaction.confirmed, invoice.pending, transaction.claim.pending
-	// Reverse: swap.created, minerfee.paid, transaction.mempool, transaction.confirmed
-	// Chain: swap.created, transaction.mempool, transaction.confirmed, transaction.server.mempool, transaction.server.confirmed
-	const pendingStatuses = [
-		'swap.created',
-		'invoice.set',
-		'transaction.mempool',
-		'transaction.confirmed',
-		'invoice.pending',
-		'transaction.claim.pending',
-		'minerfee.paid',
-		'transaction.server.mempool',
-		'transaction.server.confirmed'
-	];
-
-	// Failed statuses (swap failed, may need refund)
-	// Submarine: invoice.failedToPay, swap.expired, transaction.lockupFailed
-	// Reverse: invoice.expired, swap.expired, transaction.failed, transaction.refunded
-	// Chain: swap.expired, transaction.lockupFailed, transaction.failed, transaction.refunded
-	const failedStatuses = [
-		'swap.expired',              // All swap types - final
-		'transaction.failed',        // Reverse & Chain swaps - final
-		'invoice.failedToPay',       // Submarine swaps - final
-		'transaction.lockupFailed',  // Submarine & Chain swaps - transitions to swap.expired
-		'invoice.expired',           // Reverse swaps - final
-		'transaction.refunded'       // Reverse & Chain swaps - final
-	];
-
-	// Completed statuses (swap successful)
-	// Submarine: transaction.claimed, invoice.paid
-	// Reverse: invoice.settled
-	// Chain: transaction.claimed
-	const completedStatuses = [
-		'transaction.claimed',
-		'invoice.settled',
-		'invoice.paid'
-	];
-
-	if (pendingStatuses.includes(status)) {
-		return statusUI.pending;
-	} else if (failedStatuses.includes(status)) {
-		return statusUI.failed;
-	} else if (completedStatuses.includes(status)) {
-		return statusUI.confirmed;
-	} else {
-		// Unknown status, default to pending
-		console.warn('Unknown swap status:', status);
-		return statusUI.pending;
-	}
+    if (PENDING_STATUSES.includes(status as any)) {
+        return statusUI.pending;
+    } else if (FAILED_STATUSES.includes(status as any)) {
+        return statusUI.failed;
+    } else if (COMPLETED_STATUSES.includes(status as any)) {
+        return statusUI.confirmed;
+    } else {
+        // Unknown status, default to pending
+        console.warn('Unknown swap status:', status);
+        return statusUI.pending;
+    }
 }
 
 /**
@@ -256,7 +301,7 @@ function getSwapTitle(status: string, swapType: SwapType): string {
                 return 'wallet.swap.pending_send';
         }
     }
-    
+
     // Reverse swaps (Receive: Lightning → RBTC)
     if (swapType === 'reverse') {
         switch (status) {
@@ -272,7 +317,7 @@ function getSwapTitle(status: string, swapType: SwapType): string {
                 return 'wallet.swap.pending_receive';
         }
     }
-    
+
     // Chain swaps (Receive: L-BTC → RBTC)
     switch (status) {
         case 'swap.created':
@@ -293,32 +338,20 @@ function getSwapTitle(status: string, swapType: SwapType): string {
  * Get available actions for a swap based on its status
  */
 export function getSwapActions(swap: SwapData, swapType: SwapType): SwapAction[] {
-	const actions: SwapAction[] = [];
-	const status = swap.status;
+    const actions: SwapAction[] = [];
+    const status = swap.status;
 
-	// Check if swap is not in final state - add viewQR action
-	// Final states per Boltz API: https://api.docs.boltz.exchange/lifecycle.html
-	const finalStatuses = [
-		'invoice.settled',          // Reverse swaps - success
-		'transaction.claimed',      // Submarine & Chain swaps - success
-		'swap.expired',            // All types - failed (final)
-		'transaction.failed',      // Reverse & Chain - failed (final)
-		'transaction.refunded',    // Reverse & Chain - failed (final)
-		'invoice.expired',         // Reverse - failed (final)
-		'invoice.failedToPay'      // Submarine - failed (final)
-		// Note: transaction.lockupFailed is not final - transitions to swap.expired
-	];
-
-	if (!finalStatuses.includes(status)) {
-		actions.push({
-			type: 'viewQR',
-			label: 'wallet.swap.action.view_qr',
-			handler: async () => {
-				// Handler will be overridden in TransactionHistory component
-				console.log('View QR action triggered for swap:', swap.id);
-			}
-		});
-	}
+    // ViewQR action for non-final swaps
+    if (!FINAL_STATUSES.includes(status as any)) {
+        actions.push({
+            type: 'viewQR',
+            label: 'wallet.swap.action.view_qr',
+            handler: async () => {
+                // Handler will be overridden in TransactionHistory component
+                console.log('View QR action triggered for swap:', swap.id);
+            }
+        });
+    }
 
     // Submarine swap actions (DISABLED - not implemented in wallet yet)
     // if (swapType === 'submarine') {
@@ -336,126 +369,37 @@ export function getSwapActions(swap: SwapData, swapType: SwapType): SwapAction[]
     //     }
     // }
 
-    // Chain swap actions (DISABLED - not implemented in wallet yet)
-    // if (swapType === 'chain') {
+    // Chain swap renegotiation (NOW ENABLED)
+    // if (swapType === 'chain' && status === 'transaction.lockupFailed') {
     //     const chainSwap = swap as ChainSwapData;
-    //     if (status === 'transaction.lockupFailed') {
-    //         // Check renegotiation eligibility
-    //         if (canRenegotiate(chainSwap)) {
-    //             actions.push({
-    //                 type: 'renegotiate',
-    //                 label: 'wallet.swap.action.renegotiate',
-    //                 handler: () => renegotiateChainSwap(chainSwap)
-    //             });
-    //         }
+
+    //     // Check if eligible via wallet-core
+    //     if (walletManager.chainSwapService.canRenegotiate(chainSwap)) {
     //         actions.push({
-    //             type: 'refund',
-    //             label: 'wallet.swap.action.refund',
-    //             handler: () => refundChainSwap(chainSwap)
+    //             type: 'renegotiate',
+    //             label: 'wallet.swap.action.renegotiate',
+    //             handler: async () => {
+    //                 // Handler will be overridden in TransactionHistory component
+    //                 console.log('Renegotiate action triggered for swap:', swap.id);
+    //             }
     //         });
     //     }
-    //     if (status === 'swap.expired' && chainSwap.lockupTxHash) {
-    //         actions.push({
-    //             type: 'refund',
-    //             label: 'wallet.swap.action.refund',
-    //             handler: () => refundChainSwap(chainSwap)
-    //         });
-    //     }
+
+    //     // Code commented until refund is implemented by the wallet-core
+    //     // Always show refund option for lockup failed
+    //     // actions.push({
+    //     //     type: 'refund',
+    //     //     label: 'wallet.swap.action.refund',
+    //     //     handler: async () => {
+    //     //         console.log('Refund action triggered for swap:', swap.id);
+    //     //     }
+    //     // });
     // }
 
     // Reverse swaps are handled automatically by wallet-core
     // No manual actions needed
 
     return actions;
-}
-
-/**
- * Check if chain swap can be renegotiated
- */
-function canRenegotiate(swap: ChainSwapData): boolean {
-    const status = swap.status as string;
-    const timeUntilExpiry = (swap.expiresAt || 0) - Date.now();
-    const hasEnoughTime = timeUntilExpiry >= 60 * 60 * 1000; // 60 minutes
-    const hasLockupTx = !!swap.lockupTxHash;
-    const isLockupFailed = status === 'transaction.lockupFailed';
-
-    return hasEnoughTime && hasLockupTx && isLockupFailed;
-}
-
-/**
- * Refund submarine swap
- * TODO: Use wallet-core refund method once available
- */
-async function refundSubmarineSwap(swap: SubmarineSwapData): Promise<void> {
-    try {
-        console.log('Refunding submarine swap:', swap.id);
-        // TODO: Add refund method once available in wallet-core
-    } catch (error) {
-        console.error('Failed to refund submarine swap:', error);
-        throw error;
-    }
-}
-
-/**
- * Refund chain swap
- * TODO: Use wallet-core refund method once available
- */
-async function refundChainSwap(swap: ChainSwapData): Promise<void> {
-    try {
-        console.log('Refunding chain swap:', swap.id);
-        // TODO: Add refund method once available in wallet-core
-    } catch (error) {
-        console.error('Failed to refund chain swap:', error);
-        throw error;
-    }
-}
-
-/**
- * Renegotiate chain swap
- * Calls Boltz API to get new quote and accept it
- */
-async function renegotiateChainSwap(swap: ChainSwapData): Promise<void> {
-    try {
-        console.log('Renegotiating chain swap:', swap.id);
-
-        const boltzApiUrl =
-            import.meta.env.VITE_RSK_NETWORK === 'testnet'
-                ? 'https://api.testnet.boltz.exchange'
-                : 'https://api.boltz.exchange';
-
-        // Get new quote
-        const quoteResponse = await fetch(`${boltzApiUrl}/v2/swap/chain/${swap.id}/quote`);
-        if (!quoteResponse.ok) {
-            throw new Error('Failed to get renegotiation quote');
-        }
-        const quote = await quoteResponse.json();
-
-        // Confirm with user
-        const confirmed = confirm(
-            `Renegotiate swap with new amount: ${quote.amount} sats?\n\nOriginal: ${swap.toAmount} sats\nNew: ${quote.amount} sats`
-        );
-
-        if (!confirmed) {
-            return;
-        }
-
-        // Accept the quote
-        const acceptResponse = await fetch(`${boltzApiUrl}/v2/swap/chain/${swap.id}/quote`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: quote.amount })
-        });
-
-        if (!acceptResponse.ok) {
-            throw new Error('Failed to accept renegotiation quote');
-        }
-
-        // Status will be updated via WebSocket automatically
-        console.log('Swap renegotiated successfully!');
-    } catch (error) {
-        console.error('Failed to renegotiate chain swap:', error);
-        throw error;
-    }
 }
 
 /**
@@ -471,3 +415,16 @@ export function getSwapType(swapData: SwapData): SwapType {
     return 'chain';
 }
 
+/**
+ * Refund submarine swap
+ * TODO: Use wallet-core refund method once available
+ */
+async function refundSubmarineSwap(swap: SubmarineSwapData): Promise<void> {
+    try {
+        console.log('Refunding submarine swap:', swap.id);
+        // TODO: Add refund method once available in wallet-core
+    } catch (error) {
+        console.error('Failed to refund submarine swap:', error);
+        throw error;
+    }
+}

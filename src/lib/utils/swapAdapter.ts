@@ -64,7 +64,8 @@ async function saveSwapToNostr(
 			updatedAt: swapData.updatedAt,
 			expiresAt: swapData.expiresAt,
 			rifRelayUsed: swapData.rifRelayUsed,
-			claimAddress: swapData.claimAddress
+			claimAddress: swapData.claimAddress,
+			description: swapData.description
 		};
 
 		// Add common optional fields if they exist

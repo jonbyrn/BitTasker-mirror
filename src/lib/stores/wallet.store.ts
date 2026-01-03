@@ -430,25 +430,32 @@ async function loadTransactions(): Promise<void> {
 			processTransactions(bscTxs, state.bsc.address || '', 'bsc', currentBalanceSats)
 		]);
 
-		// Load pending swaps from all services
-		const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
-			manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
-			manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
-			manager.chainSwapService.recoverPendingSwaps().catch(() => [])
-		]);
+	// Load pending swaps from all services
+	const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
+		manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
+		manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
+		manager.chainSwapService.recoverPendingSwaps().catch(() => [])
+	]);
 
-		// Map swaps to transaction format
-		const swapTransactions = [
-			...submarineSwaps
-				.filter((s) => shouldShowSwap(s.status, 'submarine'))
-				.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
-			...reverseSwaps
-				.filter((s) => shouldShowSwap(s.status, 'reverse'))
-				.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
-			...chainSwaps
-				.filter((s) => shouldShowSwap(s.status, 'chain'))
-				.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
-		];
+	// Defer expired swap cleanup to allow WebSocket to sync status first
+	// The swaps are recovered from Nostr with potentially stale status (e.g., 'swap.created')
+	// but the WebSocket immediately updates them to current status (e.g., 'swap.expired')
+	setTimeout(() => {
+		cleanupExpiredSwaps(manager, submarineSwaps, reverseSwaps, chainSwaps);
+	}, 2000); // Wait 2 seconds for WebSocket to sync
+
+	// Map swaps to transaction format (updated filter signature)
+	const swapTransactions = [
+		...submarineSwaps
+			.filter((s) => shouldShowSwap(s.status, 'submarine', s))
+			.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
+		...reverseSwaps
+			.filter((s) => shouldShowSwap(s.status, 'reverse', s))
+			.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
+		...chainSwaps
+			.filter((s) => shouldShowSwap(s.status, 'chain', s))
+			.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
+	];
 
 		// Combine blockchain transactions
 		const allBlockchainTxs = [...processedRskTxs, ...processedBscTxs];
@@ -487,7 +494,7 @@ export function updateSwapTransaction(
 	const txIndex = state.transactions.findIndex((tx) => tx.swap?.id === swapId);
 	if (txIndex === -1) return;
 
-	
+
 	const currentTx = state.transactions[txIndex];
 
 	// Preserve the original balanceAfter to prevent recalculation with current balance
@@ -502,7 +509,7 @@ export function updateSwapTransaction(
 	// The UI status is derived from the raw status and may have the same label for different states
 	const currentSwapStatus = currentTx.swap?.rawStatus;
 	const newSwapStatus = updatedSwap.status;
-	
+
 	// Check if actual swap data has changed
 	const hasChanged =
 		currentSwapStatus !== newSwapStatus || // Compare actual Boltz status
@@ -614,18 +621,20 @@ export async function sendBSCBNB(to: string, amount: string): Promise<string> {
  * Create reverse swap (Lightning → RBTC)
  * 
  * @param amountSats - Amount in satoshis to swap
+ * @param description - Optional description for the swap
  * @returns Swap data
  * @throws {Error} If wallet manager is not initialized or swap creation fails
  */
-export async function createReverseSwap(amountSats: number): Promise<any> {
+export async function createReverseSwap(amountSats: number, description?: string): Promise<any> {
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
 
-	return await manager.reverseSwapService!.createReverseSwap({
+	return await manager.reverseSwapService.createReverseSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
-		walletSigner
+		walletSigner,
+		description
 	});
 }
 
@@ -633,10 +642,11 @@ export async function createReverseSwap(amountSats: number): Promise<any> {
  * Create chain swap (L-BTC → RBTC)
  * 
  * @param amountSats - Amount in satoshis to swap
+ * @param description - Optional description for the swap
  * @returns Swap data
  * @throws {Error} If wallet manager is not initialized or swap creation fails
  */
-export async function createChainSwap(amountSats: number): Promise<any> {
+export async function createChainSwap(amountSats: number, description?: string): Promise<any> {
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
@@ -644,7 +654,8 @@ export async function createChainSwap(amountSats: number): Promise<any> {
 	return await manager.chainSwapService!.createChainSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
-		walletSigner
+		walletSigner,
+		description
 	});
 }
 
@@ -663,17 +674,19 @@ export async function getSwapLimits() {
  * Create submarine swap (RBTC → Lightning)
  * 
  * @param invoice - Lightning invoice to pay
+ * @param description - Optional description for the swap
  * @returns Submarine swap result
  * @throws {Error} If wallet manager is not initialized or swap creation fails
  */
-export async function createSubmarineSwap(invoice: string): Promise<SubmarineSwapResult> {
+export async function createSubmarineSwap(invoice: string, description?: string): Promise<SubmarineSwapResult> {
 	const manager = getWalletManager();
 
 	const params: CreateSubmarineSwapParams = {
 		from: 'RBTC',
 		to: 'BTC', // Lightning (represented as BTC in Boltz API)
 		invoice,
-		signer: manager.getRSKWallet() // Add signer for gas estimation
+		signer: manager.getRSKWallet(), // Add signer for gas estimation
+		description
 	};
 
 	return await manager.submarineSwapService.createSubmarineSwap(params);
@@ -964,6 +977,68 @@ export const rbtcToBtcRate = derived(walletStore, $w => $w.rbtcToBtcRate);
 export const transactions = derived(walletStore, $w => $w.transactions);
 
 // Wallet manager compatibility object
+/**
+ * Cleanup expired swaps from Nostr storage
+ * Called after WebSocket has synced swap statuses
+ * 
+ * @param manager - Wallet manager instance
+ * @param submarineSwaps - Submarine swaps to check
+ * @param reverseSwaps - Reverse swaps to check
+ * @param chainSwaps - Chain swaps to check
+ */
+function cleanupExpiredSwaps(
+	manager: any,
+	submarineSwaps: any[],
+	reverseSwaps: any[],
+	chainSwaps: any[]
+): void {
+	// Collect expired swaps to delete based on swap type
+	// See: https://api.docs.boltz.exchange/lifecycle.html
+	const swapsToDelete: Array<{ id: string; type: 'submarine' | 'reverse' | 'chain' }> = [];
+
+	// Submarine swaps: delete if expired and user never locked funds
+	submarineSwaps.forEach((s) => {
+		if (s.status === 'swap.expired' && !s.lockupTxHash) {
+			swapsToDelete.push({ id: s.id, type: 'submarine' });
+		}
+	});
+
+	// Reverse swaps: delete if expired (invoice was never paid or Boltz auto-refunded)
+	reverseSwaps.forEach((s) => {
+		if (s.status === 'swap.expired') {
+			swapsToDelete.push({ id: s.id, type: 'reverse' });
+		}
+	});
+
+	// Chain swaps: delete if expired and neither side locked funds
+	chainSwaps.forEach((s) => {
+		if (s.status === 'swap.expired' && !s.lockupTxHash && !s.serverLockupTxHash) {
+			swapsToDelete.push({ id: s.id, type: 'chain' });
+		}
+	});
+
+	// Delete safe-to-delete expired swaps from Nostr storage
+	if (swapsToDelete.length > 0) {
+		console.log(
+			`Deleting ${swapsToDelete.length} expired swap(s) from Nostr:`,
+			swapsToDelete.map((s) => s.id)
+		);
+		Promise.all(
+			swapsToDelete.map(({ id, type }) => {
+				const service =
+					type === 'submarine'
+						? manager.submarineSwapService
+						: type === 'reverse'
+							? manager.reverseSwapService
+							: manager.chainSwapService;
+				return service.deleteSwap(id);
+			})
+		).catch((error) => {
+			console.error('Failed to delete expired swaps:', error);
+		});
+	}
+}
+
 export const walletManager = {
 	initialize: initializeWallet,
 	cleanup: disconnectWallet,

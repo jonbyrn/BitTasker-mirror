@@ -672,9 +672,16 @@
       "miner_fee": "Miner Fee",
       "action": {
         "refund": "Refund",
-        "renegotiate": "Renegotiate",
+        "renegotiate": "Adjust Amount",
         "claim": "Claim",
         "view_qr": "View QR"
+      },
+      "renegotiation": {
+        "title": "Amount Mismatch Detected",
+        "original_amount": "Expected Amount",
+        "new_amount": "Adjusted Amount",
+        "confirm": "Continue with Adjusted Amount",
+        "time_remaining": "Time Remaining"
       },
       "status": {
         "pending": "Swap in Progress",
