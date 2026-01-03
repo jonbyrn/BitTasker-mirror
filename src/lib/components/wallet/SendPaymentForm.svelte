@@ -1724,7 +1724,7 @@
 				<!-- Mobile Step 2: Back and Send -->
 				{#if uiState.currentStep === 2}
 					<button
-						class="btn btn-ghost min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
+						class="btn btn-outline min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={handleBackStep}
 					>
