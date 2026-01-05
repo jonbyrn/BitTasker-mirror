@@ -10,9 +10,94 @@ import KINDS from './constants/kinds';
 import { 
 	createEscrowCommitment, 
 	getCommitmentProof, 
-	verifyReview
+	verifyReview,
+	getLatestTreeVersion,
+	retrieveMerkleTree
 } from '$lib/services/review-verification.service';
-import type { NostrVerifiedReview, ReviewContentWithRatings } from '$lib/types/review';
+import type { NostrVerifiedReview, ReviewContentWithRatings, TaskeeCategoryRatings, TaskerCategoryRatings } from '$lib/types/review';
+
+/**
+ * Extended review format stored in Nostr events
+ * Includes both SDK format (for verification) and role-specific categories
+ */
+interface ExtendedVerifiedReview extends VerifiedReview {
+	fullContent?: ReviewContentWithRatings;
+}
+
+/**
+ * Parse a review event and extract role-specific categories if available
+ */
+function parseReviewEvent(event: NostrEvent, relayUrl: string): NostrVerifiedReview | null {
+	try {
+		const reviewData = JSON.parse(event.content) as ExtendedVerifiedReview;
+		
+		// If fullContent exists, use it; otherwise use the SDK format
+		let content: ReviewContentWithRatings;
+		
+		if (reviewData.fullContent) {
+			// Use role-specific categories from fullContent
+			content = reviewData.fullContent;
+		} else {
+			// Legacy format: convert SDK format to ReviewContentWithRatings
+			// Try to determine role from tags
+			const roleTag = event.tags.find(t => t[0] === 'role');
+			const revieweeRole = roleTag ? (roleTag[1] as 'tasker' | 'taskee') : undefined;
+			
+			// Convert SDK format to role-specific if we know the role
+			if (revieweeRole === 'taskee') {
+				content = {
+					overallRating: reviewData.content.overallRating,
+					categoryRatings: {
+						workQuality: reviewData.content.categoryRatings.quality,
+						experience: reviewData.content.categoryRatings.professionalism,
+						deliverySpeed: reviewData.content.categoryRatings.timeliness
+					} as TaskeeCategoryRatings,
+					revieweeRole: 'taskee',
+					comment: reviewData.content.comment,
+					photos: reviewData.content.photos
+				};
+			} else if (revieweeRole === 'tasker') {
+				content = {
+					overallRating: reviewData.content.overallRating,
+					categoryRatings: {
+						communication: reviewData.content.categoryRatings.quality,
+						clarity: reviewData.content.categoryRatings.professionalism,
+						paymentTimeliness: reviewData.content.categoryRatings.timeliness
+					} as TaskerCategoryRatings,
+					revieweeRole: 'tasker',
+					comment: reviewData.content.comment,
+					photos: reviewData.content.photos
+				};
+			} else {
+				// Unknown role, use legacy format
+				content = {
+					overallRating: reviewData.content.overallRating,
+					categoryRatings: reviewData.content.categoryRatings,
+					comment: reviewData.content.comment,
+					photos: reviewData.content.photos
+				};
+			}
+		}
+
+		// Create NostrVerifiedReview with role-specific content
+		const nostrReview: NostrVerifiedReview = {
+			commitment: reviewData.commitment,
+			merkleProof: reviewData.merkleProof,
+			reviewerPubkey: reviewData.reviewerPubkey,
+			revieweePubkey: reviewData.revieweePubkey,
+			content: content,
+			createdAt: reviewData.createdAt,
+			eventId: reviewData.eventId,
+			nostrEventId: event.id,
+			nostrRelay: relayUrl
+		};
+
+		return nostrReview;
+	} catch (error) {
+		console.error('Failed to parse review event:', error);
+		return null;
+	}
+}
 import type { VerifiedReview } from '@bittasker/merkle-review-sdk';
 import { escrow } from '$lib/utils/wallet/escrow';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
@@ -78,7 +163,32 @@ export async function publishVerifiedReview(
 			throw new Error('Failed to get reviewer pubkey');
 		}
 
-		// Create verified review
+		// Map role-specific categories to SDK format for verification
+		// The SDK requires: quality, professionalism, timeliness
+		let sdkCategoryRatings: { quality: number; professionalism: number; timeliness: number };
+		
+		if ('workQuality' in content.categoryRatings) {
+			// Taskee categories: map to SDK format
+			const taskeeRatings = content.categoryRatings as { workQuality: number; experience: number; deliverySpeed: number };
+			sdkCategoryRatings = {
+				quality: taskeeRatings.workQuality,
+				professionalism: taskeeRatings.experience,
+				timeliness: taskeeRatings.deliverySpeed
+			};
+		} else if ('communication' in content.categoryRatings) {
+			// Tasker categories: map to SDK format
+			const taskerRatings = content.categoryRatings as { communication: number; clarity: number; paymentTimeliness: number };
+			sdkCategoryRatings = {
+				quality: taskerRatings.communication,
+				professionalism: taskerRatings.clarity,
+				timeliness: taskerRatings.paymentTimeliness
+			};
+		} else {
+			// Legacy format (already in SDK format)
+			sdkCategoryRatings = content.categoryRatings as { quality: number; professionalism: number; timeliness: number };
+		}
+
+		// Create verified review with SDK format for verification
 		const verifiedReview: VerifiedReview = {
 			commitment,
 			merkleProof,
@@ -86,15 +196,21 @@ export async function publishVerifiedReview(
 			revieweePubkey,
 			content: {
 				overallRating: content.overallRating,
-				categoryRatings: {
-					quality: content.categoryRatings.quality,
-					professionalism: content.categoryRatings.professionalism,
-					timeliness: content.categoryRatings.timeliness
-				},
+				categoryRatings: sdkCategoryRatings,
 				comment: content.comment || '',
 				photos: content.photos || []
 			},
 			createdAt: Date.now()
+		};
+
+		// Store the full ReviewContentWithRatings (including role-specific categories) in the Nostr event
+		// This allows us to retrieve role-specific data when reading reviews
+		const fullReviewContent: ReviewContentWithRatings = {
+			overallRating: content.overallRating,
+			categoryRatings: content.categoryRatings, // Keep original role-specific categories
+			revieweeRole: content.revieweeRole,
+			comment: content.comment,
+			photos: content.photos
 		};
 
 		// Verify the review before publishing
@@ -103,17 +219,24 @@ export async function publishVerifiedReview(
 			throw new Error(`Review verification failed: ${verification.error}`);
 		}
 
-		// Create Nostr event
+		// Create Nostr event with extended review data
+		// Store both SDK format (for verification) and full role-specific data
+		const extendedReview = {
+			...verifiedReview,
+			fullContent: fullReviewContent // Store role-specific categories separately
+		};
+
 		const event: Partial<NostrEvent> = {
 			kind: KINDS.REVIEW_VERIFIED,
 			created_at: Math.floor(Date.now() / 1000),
-			content: JSON.stringify(verifiedReview),
+			content: JSON.stringify(extendedReview),
 			tags: [
 				['e', escrowId], // Escrow ID reference
 				['p', revieweePubkey], // Reviewee pubkey
 				['commitment', commitment], // Commitment hash
 				['root', merkleProof.root], // Merkle root
-				['version', latestVersion || ''] // Tree version
+				['version', latestVersion || ''], // Tree version
+				...(content.revieweeRole ? [['role', content.revieweeRole]] : []) // Store role in tags for easy filtering
 			]
 		};
 
@@ -159,6 +282,59 @@ export async function updateVerifiedReview(
 }
 
 /**
+ * Get reviews by a reviewer (where user is the reviewer)
+ */
+export async function getReviewsByReviewer(
+	reviewerPubkey: string,
+	limit: number = 50
+): Promise<NostrVerifiedReview[]> {
+	return new Promise((resolve) => {
+		const reviews: NostrVerifiedReview[] = [];
+		const seenCommitments = new Set<string>();
+
+		const filter: Filter = {
+			kinds: [KINDS.REVIEW_VERIFIED],
+			authors: [reviewerPubkey],
+			limit
+		};
+
+		const relayUrl = DEFAULT_RELAYS[0] || '';
+		if (!relayUrl) {
+			resolve([]);
+			return;
+		}
+
+		const unsubscribe = subscribeToEvents(
+			relayUrl,
+			[filter],
+			(event: NostrEvent) => {
+				const nostrReview = parseReviewEvent(event, relayUrl);
+				if (!nostrReview) return;
+				
+				// Deduplicate by commitment
+				if (seenCommitments.has(nostrReview.commitment)) {
+					return;
+				}
+				seenCommitments.add(nostrReview.commitment);
+
+				reviews.push(nostrReview);
+
+				if (reviews.length >= limit) {
+					unsubscribe();
+					resolve(reviews);
+				}
+			}
+		);
+
+		// Timeout after 10 seconds
+		setTimeout(() => {
+			unsubscribe();
+			resolve(reviews);
+		}, 10000);
+	});
+}
+
+/**
  * Get reviews for a user (reviewee)
  */
 export async function getReviewsForUser(
@@ -185,29 +361,20 @@ export async function getReviewsForUser(
 			relayUrl,
 			[filter],
 			(event: NostrEvent) => {
-				try {
-					const reviewData = JSON.parse(event.content) as VerifiedReview;
-					
-					// Deduplicate by commitment
-					if (seenCommitments.has(reviewData.commitment)) {
-						return;
-					}
-					seenCommitments.add(reviewData.commitment);
+				const nostrReview = parseReviewEvent(event, relayUrl);
+				if (!nostrReview) return;
+				
+				// Deduplicate by commitment
+				if (seenCommitments.has(nostrReview.commitment)) {
+					return;
+				}
+				seenCommitments.add(nostrReview.commitment);
 
-					const nostrReview: NostrVerifiedReview = {
-						...reviewData,
-						nostrEventId: event.id,
-						nostrRelay: relayUrl
-					};
+				reviews.push(nostrReview);
 
-					reviews.push(nostrReview);
-
-					if (reviews.length >= limit) {
-						unsubscribe();
-						resolve(reviews);
-					}
-				} catch (error) {
-					console.error('Failed to parse review event:', error);
+				if (reviews.length >= limit) {
+					unsubscribe();
+					resolve(reviews);
 				}
 			}
 		);
@@ -243,20 +410,9 @@ export async function getReviewByEventId(eventId: string): Promise<NostrVerified
 			(event: NostrEvent) => {
 				if (!found) {
 					found = true;
-					try {
-						const reviewData = JSON.parse(event.content) as VerifiedReview;
-						const nostrReview: NostrVerifiedReview = {
-							...reviewData,
-							nostrEventId: event.id,
-							nostrRelay: relayUrl
-						};
-						unsubscribe();
-						resolve(nostrReview);
-					} catch (error) {
-						console.error('Failed to parse review event:', error);
-						unsubscribe();
-						resolve(null);
-					}
+					const nostrReview = parseReviewEvent(event, relayUrl);
+					unsubscribe();
+					resolve(nostrReview);
 				}
 			}
 		);

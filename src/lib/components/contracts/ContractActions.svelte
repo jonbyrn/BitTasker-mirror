@@ -47,6 +47,7 @@ This file will be removed in a future release.
 		sendPaymentReleasedMessageToTaskee
 	} from '$lib/utils/location/sendLocation';
 	import { SvelteMap } from 'svelte/reactivity';
+	import ReviewPromptModal from '../reviews/ReviewPromptModal.svelte';
 
 	const {
 		contract,
@@ -105,6 +106,10 @@ This file will be removed in a future release.
 	]);
 
 	// Resolution form state
+	let showResolutionForm = $state(false);
+	let showCompletionModal = $state(false);
+	let showReviewModal = $state(false);
+	let reviewEscrowTxHash = $state<string | undefined>(undefined);
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
 	let btcPrice = $state<number>(0); // No fallback price
@@ -287,6 +292,23 @@ This file will be removed in a future release.
 		} finally {
 			isCheckingBlockchain = false;
 		}
+	}
+
+	const openReviewPrompt = (tx: string) => {
+// get tx hash from escrow
+// Store transaction hash for review prompt
+			// if (result.hash) {
+			// 	reviewEscrowTxHash = result.hash;
+			// }
+			
+			// showCompletionModal = false;
+			
+			// // Show review prompt after successful completion
+			// setTimeout(() => {
+			// 	showReviewModal = true;
+			// }, 2000);
+			
+			// onActionComplete?.();
 	}
 
 	// Complete task with attachments (freelancer only)
@@ -914,6 +936,29 @@ This file will be removed in a future release.
 		$contractStore.contract = contract;
 		$contractStore.isDrawerOpen = true;
 	};
+	// Check if contract is completed/resolved
+	const isCompleted = $derived(
+		contract.contract.status === 'completed' || contract.contract.status === 'resolved'
+	);
+
+	// Check if all actions are disabled (contract is truly finished)
+	const hasNoAvailableActions = $derived(
+		!contract.canComplete &&
+		!contract.canAccept &&
+		!contract.canDispute &&
+		!contract.canPropose &&
+		!contract.canAcceptProposal &&
+		!contract.canCancel &&
+		!contract.canResolveTimelock
+	);
+
+	// Show review button only when contract is completed/resolved AND no actions are available
+	const shouldShowReviewButton = $derived(isCompleted && hasNoAvailableActions);
+
+	// Show review modal manually
+	function showReviewPrompt() {
+		showReviewModal = true;
+	}
 </script>
 
 <div class="space-y-3">
@@ -1359,6 +1404,30 @@ This file will be removed in a future release.
 			{/if}
 		{/if}
 	</ContractActionBar>
+
+	<!-- Review Button (for completed contracts) -->
+	{#if shouldShowReviewButton}
+		<button
+			class="btn btn-primary btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			onclick={showReviewPrompt}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-4 w-4"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+				/>
+			</svg>
+			{$t('dashboard.contracts.actions.review_now')}
+		</button>
+	{/if}
 </div>
 
 <!-- Modals -->
@@ -1482,3 +1551,19 @@ This file will be removed in a future release.
 		</div>
 	{/if}
 {/if}
+<!-- Review Prompt Modal -->
+<ReviewPromptModal
+	isOpen={showReviewModal}
+	escrowId={contract.contract.escrowId}
+	escrowTxHash={reviewEscrowTxHash}
+	onClose={() => {
+		showReviewModal = false;
+		reviewEscrowTxHash = undefined;
+	}}
+	onSubmit={(eventId: string) => {
+		console.log('Review submitted:', eventId);
+		appStore.showSuccessToast($t('reviews.form.success'));
+		// Optionally refresh contract data to show updated status
+		onActionComplete?.();
+	}}
+/>

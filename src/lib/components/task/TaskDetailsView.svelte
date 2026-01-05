@@ -32,6 +32,7 @@
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import UsdSatsDisplay from '../shared/UsdSatsDisplay.svelte';
+	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
 
 	// Props
 	let { taskId } = $props<{ taskId: string }>();
@@ -560,6 +561,45 @@
 									</div>
 								</div>
 							{/if}
+
+							<!-- Username and Review Stars -->
+							<div class="flex flex-col">
+								<span class="text-base font-medium">
+									{task.creator.username || $t('dashboard.task_details_by_task.anonymous')}
+								</span>
+								<!-- Review Stars from Review System -->
+								{#if task.npub}
+									<div class="flex items-center gap-2">
+										<UserRatingDisplay userPubkey={task.npub} size="md" showCount={true} />
+										<a
+											href="/dashboard/profile?user={task.npub}&tab=reviews"
+											class="text-xs text-primary hover:underline"
+										>
+											{$t('reviews.view_all')}
+										</a>
+									</div>
+								{:else}
+									<div class="flex items-center">
+										{#each Array(5) as _, i}	
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4 text-base-content/30"
+												fill="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+												/>
+											</svg>
+										{/each}
+										<span class="text-base-content/60 ml-2 text-sm">0</span>
+									</div>
+								{/if}
+								<p class="text-base-content/60 text-sm">
+									{$t('dashboard.task_details_by_task.member_since')}
+									{formatDateString(task.createdAt)}
+								</p>
+							</div>
 
 							<!-- Categories -->
 							{#if task.categories?.length > 0}

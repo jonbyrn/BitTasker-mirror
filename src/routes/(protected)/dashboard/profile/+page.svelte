@@ -4,6 +4,8 @@
 	import { profileStore } from '$lib/stores/profile.store';
 	import ProfileHeader from '$lib/components/profile/ProfileHeader.svelte';
 	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
+	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
+	import ProfileReviewsSection from '$lib/components/profile/ProfileReviewsSection.svelte';
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -20,6 +22,9 @@
 	onDestroy(() => {
 		profileStore.destroy();
 	});
+
+	// Tab management
+	let activeTab = $state<'overview' | 'reviews'>('overview');
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
@@ -30,6 +35,38 @@
 	<div class="bg-base-100 rounded-xl p-4 shadow-lg sm:p-6 md:p-8">
 		<ProfileHeader />
 
-		<ProfileInfoSection {formatDate} />
+		<ProfileStats
+			stats={$profileStore.stats}
+			serviceCountState={$profileStore.servicesLoading
+				? 'loading'
+				: $profileStore.servicesError
+					? 'error'
+					: 'ready'}
+		/>
+		<ProfileServicesSection />
+
+		<!-- Profile Tabs -->
+		<div class="tabs tabs-boxed bg-base-200 mb-6">
+			<button
+				class="tab {activeTab === 'overview' ? 'tab-active' : ''}"
+				onclick={() => activeTab = 'overview'}
+			>
+				{$t('profile.tabs.overview')}
+			</button>
+			<button
+				class="tab {activeTab === 'reviews' ? 'tab-active' : ''}"
+				onclick={() => activeTab = 'reviews'}
+			>
+				{$t('profile.tabs.reviews')}
+			</button>
+		</div>
+
+		<!-- Tab Content -->
+		{#if activeTab === 'overview'}
+			<ProfileInfoSection {formatDate} {yearsFrom} />
+			<ProfileSidebar {formatDate} />
+		{:else if activeTab === 'reviews'}
+			<ProfileReviewsSection isCurrentUser={true} />
+		{/if}
 	</div>
 </div>
