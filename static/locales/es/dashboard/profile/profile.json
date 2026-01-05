@@ -151,6 +151,10 @@
                 "error": "Error al cargar los datos del perfil. Por favor, inténtalo de nuevo más tarde."
             }
         },
+        "tabs": {
+            "overview": "Resumen",
+            "reviews": "Reseñas"
+        },
         "about": "Acerca de",
         "noDescription": "Aún no se ha agregado una descripción.",
         "skills2": "Habilidades",

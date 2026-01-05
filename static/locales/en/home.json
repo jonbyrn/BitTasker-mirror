@@ -82,7 +82,8 @@
         "feedback": "Feedback",
         "bids": "My Bids",
         "bids_sent": "Bids Sent",
-        "contracts": "Contracts"
+        "contracts": "Contracts",
+        "reviews": "Reviews"
     },
     "homepage": {
         "title": "Hello, World!",

@@ -8,6 +8,7 @@ import type { NostrVerifiedReview, ReviewStats } from '$lib/types/review';
 
 /**
  * Calculate review statistics from a list of reviews
+ * Handles both role-specific and legacy category formats
  */
 export function calculateReviewStats(reviews: NostrVerifiedReview[]): ReviewStats {
 	if (reviews.length === 0) {
@@ -29,17 +30,63 @@ export function calculateReviewStats(reviews: NostrVerifiedReview[]): ReviewStat
 
 	const totalReviews = reviews.length;
 	let totalOverall = 0;
+	
+	// Legacy categories (for backward compatibility)
 	let totalQuality = 0;
 	let totalProfessionalism = 0;
 	let totalTimeliness = 0;
+	
+	// Taskee-specific categories
+	let totalWorkQuality = 0;
+	let totalExperience = 0;
+	let totalDeliverySpeed = 0;
+	let taskeeCount = 0;
+	
+	// Tasker-specific categories
+	let totalCommunication = 0;
+	let totalClarity = 0;
+	let totalPaymentTimeliness = 0;
+	let taskerCount = 0;
+	
 	const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 
 	for (const review of reviews) {
 		const overall = review.content.overallRating;
 		totalOverall += overall;
-		totalQuality += review.content.categoryRatings.quality;
-		totalProfessionalism += review.content.categoryRatings.professionalism;
-		totalTimeliness += review.content.categoryRatings.timeliness;
+
+		const categoryRatings = review.content.categoryRatings;
+		const revieweeRole = review.content.revieweeRole;
+
+		// Handle role-specific categories
+		if (revieweeRole === 'taskee' && 'workQuality' in categoryRatings) {
+			const taskeeRatings = categoryRatings as { workQuality: number; experience: number; deliverySpeed: number };
+			totalWorkQuality += taskeeRatings.workQuality;
+			totalExperience += taskeeRatings.experience;
+			totalDeliverySpeed += taskeeRatings.deliverySpeed;
+			taskeeCount++;
+			
+			// Also map to legacy for compatibility
+			totalQuality += taskeeRatings.workQuality;
+			totalProfessionalism += taskeeRatings.experience;
+			totalTimeliness += taskeeRatings.deliverySpeed;
+		} else if (revieweeRole === 'tasker' && 'communication' in categoryRatings) {
+			const taskerRatings = categoryRatings as { communication: number; clarity: number; paymentTimeliness: number };
+			totalCommunication += taskerRatings.communication;
+			totalClarity += taskerRatings.clarity;
+			totalPaymentTimeliness += taskerRatings.paymentTimeliness;
+			taskerCount++;
+			
+			// Also map to legacy for compatibility
+			totalQuality += taskerRatings.communication;
+			totalProfessionalism += taskerRatings.clarity;
+			totalTimeliness += taskerRatings.paymentTimeliness;
+		} else if ('quality' in categoryRatings) {
+			// Legacy format
+			const legacyRatings = categoryRatings as { quality: number; professionalism: number; timeliness: number };
+			totalQuality += legacyRatings.quality;
+			totalProfessionalism += legacyRatings.professionalism;
+			totalTimeliness += legacyRatings.timeliness;
+		}
 
 		// Round to nearest integer for distribution
 		const roundedRating = Math.round(overall);
@@ -48,7 +95,7 @@ export function calculateReviewStats(reviews: NostrVerifiedReview[]): ReviewStat
 		}
 	}
 
-	return {
+	const stats: ReviewStats = {
 		totalReviews,
 		averageRating: totalOverall / totalReviews,
 		averageQuality: totalQuality / totalReviews,
@@ -56,6 +103,21 @@ export function calculateReviewStats(reviews: NostrVerifiedReview[]): ReviewStat
 		averageTimeliness: totalTimeliness / totalReviews,
 		ratingDistribution
 	};
+
+	// Add role-specific averages if we have reviews for that role
+	if (taskeeCount > 0) {
+		stats.averageWorkQuality = totalWorkQuality / taskeeCount;
+		stats.averageExperience = totalExperience / taskeeCount;
+		stats.averageDeliverySpeed = totalDeliverySpeed / taskeeCount;
+	}
+
+	if (taskerCount > 0) {
+		stats.averageCommunication = totalCommunication / taskerCount;
+		stats.averageClarity = totalClarity / taskerCount;
+		stats.averagePaymentTimeliness = totalPaymentTimeliness / taskerCount;
+	}
+
+	return stats;
 }
 
 /**

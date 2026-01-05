@@ -155,6 +155,10 @@
                 "error": "Failed to load profile data. Please try again later."
             }
         },
+        "tabs": {
+            "overview": "Overview",
+            "reviews": "Reviews"
+        },
         "about": "About",
         "noDescription": "No description added yet.",
         "skills2": "Skills",

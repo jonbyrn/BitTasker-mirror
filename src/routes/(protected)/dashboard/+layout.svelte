@@ -14,6 +14,7 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
+	import IconStarOutline from '~icons/mdi/star-outline';
 
 	let { children } = $props();
 
@@ -29,6 +30,7 @@
 			'mdi:invoice-text-send-outline': IconInvoiceTextSendOutline,
 			'mdi:file-sign': IconFileSign,
 			'mdi:wallet-outline': IconWalletOutline,
+			'mdi:star-outline': IconStarOutline,
 			'mdi:account': IconAccount,
 			'mdi:chat-outline': IconChatOutline,
 			'mdi:cog': IconCog
@@ -99,6 +101,8 @@
 										<IconFileSign class="text-primary" />
 									{:else if section.icon === 'mdi:wallet-outline'}
 										<IconWalletOutline class="text-primary" />
+									{:else if section.icon === 'mdi:star-outline'}
+										<IconStarOutline class="text-primary" />
 									{:else if section.icon === 'mdi:account'}
 										<IconAccount class="text-primary" />
 									{:else if section.icon === 'mdi:chat-outline'}

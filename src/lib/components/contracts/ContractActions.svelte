@@ -7,6 +7,7 @@
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
+	import ReviewPromptModal from '../reviews/ReviewPromptModal.svelte';
 
 	const {
 		contract,
@@ -26,6 +27,8 @@
 	let isLoading = $state<Record<string, boolean>>({});
 	let showResolutionForm = $state(false);
 	let showCompletionModal = $state(false);
+	let showReviewModal = $state(false);
+	let reviewEscrowTxHash = $state<string | undefined>(undefined);
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
 	let btcPrice = $state<number>(0); // No fallback price
@@ -42,8 +45,20 @@
 		setLoading('complete', true);
 		try {
 			// Call RSK escrow completeTask with contract event ID and attachments for proper nostr event publishing
-			await escrow.completeTask(contract.contract.escrowId, contract.contractEvent.id, attachments);
+			const result = await escrow.completeTask(contract.contract.escrowId, contract.contractEvent.id, attachments);
+			
+			// Store transaction hash for review prompt
+			if (result.hash) {
+				reviewEscrowTxHash = result.hash;
+			}
+			
 			showCompletionModal = false;
+			
+			// Show review prompt after successful completion
+			setTimeout(() => {
+				showReviewModal = true;
+			}, 2000);
+			
 			onActionComplete?.();
 		} catch (error) {
 			console.error('Error completing task:', error);
@@ -70,7 +85,18 @@
 		setLoading('accept', true);
 		try {
 			// Call RSK escrow acceptTask with contract event ID for proper nostr event publishing
-			await escrow.acceptTask(contract.contract.escrowId, contract.contractEvent.id);
+			const result = await escrow.acceptTask(contract.contract.escrowId, contract.contractEvent.id);
+			
+			// Store transaction hash for review prompt
+			if (result.hash) {
+				reviewEscrowTxHash = result.hash;
+			}
+			
+			// Show review prompt after successful acceptance
+			setTimeout(() => {
+				showReviewModal = true;
+			}, 1000);
+			
 			onActionComplete?.();
 		} catch (error) {
 			console.error('Error accepting task:', error);
@@ -163,7 +189,18 @@
 		setLoading('acceptProposal', true);
 		try {
 			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
-			await escrow.acceptProposal(contract.contract.escrowId, contract.contractEvent.id);
+			const result = await escrow.acceptProposal(contract.contract.escrowId, contract.contractEvent.id);
+			
+			// Store transaction hash for review prompt
+			if (result.hash) {
+				reviewEscrowTxHash = result.hash;
+			}
+			
+			// Show review prompt after successful proposal acceptance (dispute resolved)
+			setTimeout(() => {
+				showReviewModal = true;
+			}, 1000);
+			
 			onActionComplete?.();
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
@@ -205,7 +242,18 @@
 		setLoading('resolveTimelock', true);
 		try {
 			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
-			await escrow.resolveAfterTimelock(contract.contract.escrowId, contract.contractEvent.id);
+			const result = await escrow.resolveAfterTimelock(contract.contract.escrowId, contract.contractEvent.id);
+			
+			// Store transaction hash for review prompt
+			if (result.hash) {
+				reviewEscrowTxHash = result.hash;
+			}
+			
+			// Show review prompt after successful timelock resolution
+			setTimeout(() => {
+				showReviewModal = true;
+			}, 1000);
+			
 			onActionComplete?.();
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
@@ -244,6 +292,30 @@
 			}
 		}
 	});
+
+	// Check if contract is completed/resolved
+	const isCompleted = $derived(
+		contract.contract.status === 'completed' || contract.contract.status === 'resolved'
+	);
+
+	// Check if all actions are disabled (contract is truly finished)
+	const hasNoAvailableActions = $derived(
+		!contract.canComplete &&
+		!contract.canAccept &&
+		!contract.canDispute &&
+		!contract.canPropose &&
+		!contract.canAcceptProposal &&
+		!contract.canCancel &&
+		!contract.canResolveTimelock
+	);
+
+	// Show review button only when contract is completed/resolved AND no actions are available
+	const shouldShowReviewButton = $derived(isCompleted && hasNoAvailableActions);
+
+	// Show review modal manually
+	function showReviewPrompt() {
+		showReviewModal = true;
+	}
 </script>
 
 <div class={containerClass}>
@@ -602,6 +674,30 @@
 			</button>
 		</div>
 	{/if}
+
+	<!-- Review Button (for completed contracts) -->
+	{#if shouldShowReviewButton}
+		<button
+			class="btn btn-primary btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			onclick={showReviewPrompt}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-4 w-4"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+				/>
+			</svg>
+			{$t('dashboard.contracts.actions.review_now')}
+		</button>
+	{/if}
 </div>
 
 <!-- Task Completion Modal -->
@@ -611,4 +707,21 @@
 	onClose={() => (showCompletionModal = false)}
 	onComplete={completeTaskWithAttachments}
 	{btcPrice}
+/>
+
+<!-- Review Prompt Modal -->
+<ReviewPromptModal
+	isOpen={showReviewModal}
+	escrowId={contract.contract.escrowId}
+	escrowTxHash={reviewEscrowTxHash}
+	onClose={() => {
+		showReviewModal = false;
+		reviewEscrowTxHash = undefined;
+	}}
+	onSubmit={(eventId: string) => {
+		console.log('Review submitted:', eventId);
+		appStore.showSuccessToast($t('reviews.form.success'));
+		// Optionally refresh contract data to show updated status
+		onActionComplete?.();
+	}}
 />

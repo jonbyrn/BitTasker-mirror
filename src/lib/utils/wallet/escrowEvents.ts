@@ -180,6 +180,13 @@ export async function handleTaskCompleted(event: {
 
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.task_completed_success'));
+
+		// Trigger Merkle tree update in background
+		const { triggerTreeUpdate } = await import('$lib/utils/wallet/treeUpdateHelper');
+		triggerTreeUpdate('task-completed').catch((error) => {
+			// Error is logged in triggerTreeUpdate, but don't block the flow
+			console.warn('[Escrow Events] Tree update failed for task-completed:', error);
+		});
 	} catch (error) {
 		console.error('Failed to handle task completed event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.task_completed_error'));
@@ -208,6 +215,11 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.payment_released_success'));
 
+		// Trigger Merkle tree update in background
+		const { triggerTreeUpdate } = await import('$lib/utils/wallet/treeUpdateHelper');
+		triggerTreeUpdate('task-accepted').catch((error) => {
+			console.warn('[Escrow Events] Tree update failed for task-accepted:', error);
+		});
 	} catch (error) {
 		console.error('Failed to handle task accepted event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.payment_released_error'));
@@ -294,6 +306,11 @@ export async function handleProposalAccepted(event: { escrowId: string; transact
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.proposal_accepted_success'));
 
+		// Trigger Merkle tree update in background
+		const { triggerTreeUpdate } = await import('$lib/utils/wallet/treeUpdateHelper');
+		triggerTreeUpdate('proposal-accepted').catch((error) => {
+			console.warn('[Escrow Events] Tree update failed for proposal-accepted:', error);
+		});
 	} catch (error) {
 		console.error('Failed to handle proposal accepted event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.proposal_accepted_error'));
@@ -350,6 +367,11 @@ export async function handleTimelockResolved(event: { escrowId: string; transact
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.timelock_resolved_success'));
 
+		// Trigger Merkle tree update in background
+		const { triggerTreeUpdate } = await import('$lib/utils/wallet/treeUpdateHelper');
+		triggerTreeUpdate('timelock-resolved').catch((error) => {
+			console.warn('[Escrow Events] Tree update failed for timelock-resolved:', error);
+		});
 	} catch (error) {
 		console.error('Failed to handle timelock resolved event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.timelock_resolved_error'));

@@ -4,8 +4,33 @@
 			"title": "Write a Review",
 			"overall_rating": "Overall Rating",
 			"quality": "Quality",
+			"quality_taskee": "Work Quality",
+			"quality_taskee_desc": "Quality of work delivered, deliverables, and results",
+			"quality_tasker": "Requirements Quality",
+			"quality_tasker_desc": "Clarity of requirements, instructions, and feedback provided",
 			"professionalism": "Professionalism",
+			"professionalism_taskee": "Professionalism",
+			"professionalism_taskee_desc": "Professional conduct, communication, and work ethic",
+			"professionalism_tasker": "Professionalism",
+			"professionalism_tasker_desc": "Professional conduct as a client and respectful communication",
 			"timeliness": "Timeliness",
+			"timeliness_taskee": "Delivery Speed",
+			"timeliness_taskee_desc": "How quickly work was completed and deadlines were met",
+			"timeliness_tasker": "Response Speed",
+			"timeliness_tasker_desc": "Response time, approval speed, and payment timeliness",
+			"work_quality": "Work Quality",
+			"work_quality_desc": "Quality of work delivered, deliverables, and results",
+			"experience": "Experience",
+			"experience_desc": "Level of experience, expertise, and skill demonstrated",
+			"delivery_speed": "Delivery Speed",
+			"delivery_speed_desc": "How quickly work was completed and deadlines were met",
+			"communication": "Communication",
+			"communication_desc": "Quality of communication, responsiveness, and clarity in interactions",
+			"clarity": "Clarity",
+			"clarity_desc": "Clarity of requirements, instructions, and feedback provided",
+			"payment_timeliness": "Payment Timeliness",
+			"payment_timeliness_desc": "Speed of payment processing and payment timeliness",
+			"role_unknown": "Unable to determine role. Please ensure contract information is available.",
 			"comment": "Comment (Optional)",
 			"comment_placeholder": "Share your experience...",
 			"submit": "Submit Review",
@@ -13,20 +38,71 @@
 			"success": "Review submitted successfully!",
 			"already_reviewed": "You have already reviewed this escrow. You can update your review by submitting a new one.",
 			"errors": {
-				"overall_rating_required": "Overall rating is required",
-				"quality_rating_required": "Quality rating is required",
-				"professionalism_rating_required": "Professionalism rating is required",
-				"timeliness_rating_required": "Timeliness rating is required",
-				"comment_too_long": "Comment must be 1000 characters or less",
-				"submit_failed": "Failed to submit review. Please try again."
+				"overall_rating_required": "Please provide an overall rating",
+				"quality_rating_required": "Please rate the quality",
+				"professionalism_rating_required": "Please rate the professionalism",
+				"timeliness_rating_required": "Please rate the timeliness",
+				"work_quality_required": "Please rate the work quality",
+				"experience_required": "Please rate the experience",
+				"delivery_speed_required": "Please rate the delivery speed",
+				"communication_required": "Please rate the communication",
+				"clarity_required": "Please rate the clarity",
+				"payment_timeliness_required": "Please rate the payment timeliness",
+				"category_rating_required": "Please rate all categories",
+				"comment_too_long": "Comment cannot exceed 1000 characters",
+				"submit_failed": "Unable to submit review. Please try again."
 			}
 		},
 		"verified": "Verified",
 		"unverified": "Unverified",
 		"reply": "Reply",
+		"reviewed": "Reviewed",
+		"review_pending": "Review Pending",
+		"review_received": "Review Received",
+		"you_reviewed": "You have reviewed this contract",
 		"list": {
 			"load_error": "Failed to load reviews",
 			"no_reviews": "No reviews yet"
+		},
+		"view_all": "View all reviews",
+		"summary": {
+			"title": "Review Summary",
+			"average_rating": "Average Rating",
+			"total_reviews": "Total Reviews",
+			"reviews_received": "Reviews received",
+			"recent_reviews": "Recent Reviews",
+			"last_30_days": "Last 30 days",
+			"rating_distribution": "Rating Distribution",
+			"category_averages": "Category Averages"
+		},
+		"tabs": {
+			"received": "Received",
+			"given": "Given",
+			"pending": "Pending"
+		},
+		"profile": {
+			"no_user": "User information not available"
+		},
+		"pending": {
+			"coming_soon": "Pending reviews feature coming soon",
+			"no_pending": "No pending reviews",
+			"all_caught_up": "You're all caught up! All completed tasks have been reviewed.",
+			"contract": "Contract",
+			"completed": "Completed",
+			"review_for": "Review for",
+			"completed_on": "Completed on",
+			"review_now": "Review Now",
+			"only_current_user": "Pending reviews are only visible to the account owner"
+		},
+		"management": {
+			"title": "Review Management",
+			"description": "Manage your reviews, view pending reviews, and see reviews you've given and received"
+		},
+		"prompt": {
+			"title": "Write a Review",
+			"reviewing": "Reviewing",
+			"missing_info": "Missing required information to submit review",
+			"missing_escrow": "Escrow ID is required to submit a review"
 		}
 	}
 }

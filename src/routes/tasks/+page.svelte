@@ -17,6 +17,7 @@
 	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
 	
 	// Import performance testing helper in development
 	import '$lib/utils/performance-testing-helper';
@@ -703,7 +704,7 @@
 														<div class="flex items-center gap-2">
 															<svg
 																xmlns="http://www.w3.org/2000/svg"
-																class="text-base-content/60 h-4 w-4 flex-shrink-0"
+																class="text-base-content/60 h-4 w-4 shrink-0"
 																fill="none"
 																viewBox="0 0 24 24"
 																stroke="currentColor"
@@ -748,7 +749,7 @@
 													<div class="flex w-full items-start gap-2">
 														<svg
 															xmlns="http://www.w3.org/2000/svg"
-															class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
+															class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
 															fill="none"
 															viewBox="0 0 24 24"
 															stroke="currentColor"
@@ -836,29 +837,31 @@
 																{task.creator?.username ||
 																	$t('dashboard.task_details_by_task.anonymous')}
 															</span>
-															<!-- Review Stars -->
-															<div class="flex items-center">
-																{#each Array(5) as _, i}
-																	<svg
-																		xmlns="http://www.w3.org/2000/svg"
-																		class="h-3 w-3 {i < (task.creator?.rating || 0)
-																			? 'text-yellow-400'
-																			: 'text-base-content/30'}"
-																		fill="currentColor"
-																		viewBox="0 0 24 24"
-																	>
-																		<path
-																			d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-																		/>
-																	</svg>
-																{/each}
-																<span class="text-base-content/60 ml-1 text-xs">{task.creator?.rating || 0}</span>
-															</div>
+															<!-- Review Stars from Review System -->
+															{#if task.npub}
+																<UserRatingDisplay userPubkey={task.npub} size="sm" showCount={false} />
+															{:else}
+																<div class="flex items-center">
+																	{#each Array(5) as _, i}
+																		<svg
+																			xmlns="http://www.w3.org/2000/svg"
+																			class="h-3 w-3 text-base-content/30"
+																			fill="currentColor"
+																			viewBox="0 0 24 24"
+																		>
+																			<path
+																				d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+																			/>
+																		</svg>
+																	{/each}
+																	<span class="text-base-content/60 ml-1 text-xs">0</span>
+																</div>
+															{/if}
 														</div>
 													</div>
 
 													<!-- Right: Action Buttons -->
-													<div class="flex w-full flex-shrink-0 items-center gap-2 md:w-auto">
+													<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 														<button
 															class="btn btn-primary btn-sm flex-1 md:flex-none"
 															class:btn-disabled={task.status !== TaskStatusEnum.OPEN}

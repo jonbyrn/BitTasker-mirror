@@ -515,6 +515,7 @@
         "accept_proposal": "Aceptar Propuesta",
         "cancel_contract": "Cancelar Contrato",
         "resolve_timelock": "Resolver Después del Timelock",
+        "review_now": "Reseñar Ahora",
         "propose": "Proponer",
         "cancel": "Cancelar",
         "resolution_form_title": "Proponer Distribución de Fondos",

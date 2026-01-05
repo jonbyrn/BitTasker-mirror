@@ -8,6 +8,7 @@ export const sections = [
 	{ id: 'bids-sent', label: 'navbar.bids_sent', icon: 'mdi:invoice-text-send-outline', mobile: true },
 	{ id: 'contracts', label: 'navbar.contracts', icon: 'mdi:file-sign', mobile: true },
 	{ id: 'wallet', label: 'navbar.wallet', icon: 'mdi:wallet-outline', mobile: true },
+	{ id: 'reviews', label: 'navbar.reviews', icon: 'mdi:star-outline', mobile: true },
 	{ id: 'profile', label: 'navbar.profile', icon: 'mdi:account', mobile: false },
 	{ id: 'messages', label: 'navbar.messages', icon: 'mdi:chat-outline', mobile: true },
 	{ id: 'settings', label: 'navbar.settings', icon: 'mdi:cog', mobile: false }

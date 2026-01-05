@@ -42,6 +42,7 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
+	import IconStarOutline from '~icons/mdi/star-outline';
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);
@@ -298,6 +299,11 @@ ates to X --
 							<li>
 								<a href="/dashboard/wallet" onclick={closeDropdowns}
 									><IconWalletOutline class="text-primary" /> <span>{$t('navbar.wallet')}</span></a
+								>
+							</li>
+							<li>
+								<a href="/dashboard/reviews" onclick={closeDropdowns}
+									><IconStarOutline class="text-primary" /> <span>{$t('navbar.reviews')}</span></a
 								>
 							</li>
 							<li>
@@ -601,6 +607,11 @@ ates to X --
 					<li>
 						<a href="/dashboard/profile" onclick={closeDropdowns}
 							><IconAccount class="text-primary" /> <span>{$t('navbar.profile')}</span></a
+						>
+					</li>
+					<li>
+						<a href="/dashboard/reviews" onclick={closeDropdowns}
+							><IconStarOutline class="text-primary" /> <span>{$t('navbar.reviews')}</span></a
 						>
 					</li>
 					<li>
