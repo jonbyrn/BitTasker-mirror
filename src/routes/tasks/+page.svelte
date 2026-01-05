@@ -22,6 +22,7 @@
 	import { locale } from 'svelte-i18n';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { authState } from '$lib/stores/auth.store';
 
 	// Import performance testing helper in development
 	import '$lib/utils/performance-testing-helper';
@@ -563,8 +564,15 @@
 
 	const onSelectTask = (task: Task) => {
 		if (task.status === TaskStatusEnum.OPEN) {
-			// Redirect to signup page for public users
-			goto('/auth/signup');
+			// Check if user is authenticated
+			if ($authState.isAuthenticated) {
+				// User is logged in, redirect to task details page
+				const taskIdentifier = (task as any).uniqueId || task.id;
+				goto(`/tasks/${taskIdentifier}`);
+			} else {
+				// User is not logged in, redirect to signup page
+				goto('/auth/signup');
+			}
 		}
 	};
 
@@ -1042,8 +1050,14 @@
 																e.stopPropagation();
 																onSelectTask(task);
 															}}
-															aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') ||
-																'Sign up to bid on this task'}
+															aria-label={
+																task.status === TaskStatusEnum.OPEN
+																	? $authState.isAuthenticated
+																		? $t('dashboard.find_tasks.bid_now') || 'Bid Now'
+																		: $t('dashboard.find_tasks.sign_up_to_bid_aria') ||
+																			'Sign up to bid on this task'
+																	: $t('dashboard.find_tasks.bidding_closed') || 'Bidding closed'
+															}
 														>
 															<svg
 																xmlns="http://www.w3.org/2000/svg"
@@ -1060,7 +1074,9 @@
 																/>
 															</svg>
 															{task.status === TaskStatusEnum.OPEN
-																? $t('dashboard.find_tasks.sign_up_to_bid') || 'Sign up to bid'
+																? $authState.isAuthenticated
+																	? $t('dashboard.find_tasks.bid_now') || 'Bid Now'
+																	: $t('dashboard.find_tasks.sign_up_to_bid') || 'Sign up to bid'
 																: $t('dashboard.find_tasks.bidding_closed') || 'Bidding closed'}
 														</button>
 

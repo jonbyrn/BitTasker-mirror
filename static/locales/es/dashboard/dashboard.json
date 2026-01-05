@@ -143,6 +143,7 @@
     },
     "find_tasks": {
       "sign_up_to_bid": "Regístrate para ofertar",
+      "bid_now": "Ofertar Ahora",
       "bidding_closed": "Ofertas cerradas",
       "sign_up_to_bid_aria": "Regístrate para ofertar en esta tarea",
       "avatar_alt": "Avatar",

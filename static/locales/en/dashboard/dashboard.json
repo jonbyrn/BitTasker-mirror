@@ -143,6 +143,7 @@
     },
     "find_tasks": {
       "sign_up_to_bid": "Sign up to bid",
+      "bid_now": "Bid Now",
       "bidding_closed": "Bidding closed",
       "sign_up_to_bid_aria": "Sign up to bid on this task",
       "avatar_alt": "Avatar",
