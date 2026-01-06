@@ -183,7 +183,8 @@ function createContractStore() {
 				// Build index map: escrowData.id -> array index for O(1) access
 				const contractsMap = new Map<string, number>();
 				loadedContracts.forEach((contract, index) => {
-					contractsMap.set(contract.escrowData.id, index);
+					const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+					contractsMap.set(id, index);
 				});
 
 				// Determine oldest timestamp for pagination (use event.created_at in seconds)
@@ -269,7 +270,10 @@ function createContractStore() {
 
 				// Filter out already-loaded contracts by escrowData.id (deduplication)
 				const newContracts = fetchedContracts.filter(
-					(contract) => !state.contractsMap.has(contract.escrowData.id)
+					(contract) => {
+						const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+						return !state.contractsMap.has(id);
+					}
 				);
 
 				// Take only the contracts we need (LIMIT)
@@ -296,7 +300,8 @@ function createContractStore() {
 					// Rebuild index map
 					const newContractsMap = new Map<string, number>();
 					allContracts.forEach((contract, index) => {
-						newContractsMap.set(contract.escrowData.id, index);
+						const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+						newContractsMap.set(id, index);
 					});
 
 					// Update boundary timestamp (use last DISPLAYED contract's timestamp)
@@ -333,7 +338,7 @@ function createContractStore() {
 
 				if (loadedContracts.length > 0) {
 					const updatedContract = loadedContracts[0];
-					const escrowDataId = updatedContract.escrowData.id;
+					const escrowDataId = updatedContract.escrowData?.id ?? updatedContract.contractEvent.content.escrowId;
 
 					update((state) => {
 						const index = state.contractsMap.get(escrowDataId);

@@ -9,80 +9,26 @@
  * - Running balance calculation
  * - Icon components (ready to render)
  * - Everything needed for UI rendering
+ * - Internal transaction handling (for escrow payouts)
  */
 
 import type { Transaction } from '@bittasker/wallet-core';
+import type { 
+    InternalTransaction, 
+    ExtendedTransaction, 
+    ProcessedTransaction 
+} from '$lib/types/wallet';
+import { ESCROW_CONTRACT_ADDRESSES, statusUI } from '$lib/utils/constants/transactions.constants';
 import { getSwapAddress, weiToSatoshi } from '@bittasker/wallet-core';
 import { parseFunction } from './functionParsing';
 import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
-import { ESCROW_CONTRACT_ADDRESSES, statusUI } from '$lib/utils/constants/transactions.constants';
 
 type Component = typeof IconArrowUpBold;
 
-// Swap action interface
-export interface SwapAction {
-    type: 'refund' | 'renegotiate' | 'claim' | 'viewQR';
-    label: string; // Translation key
-    handler: () => Promise<void>;
-}
-
-// Processed transaction type with all display properties
-export interface ProcessedTransaction {
-    // Core fields from API (pass-through)
-    hash: string;
-    from: string;
-    to: string;
-    value: string; // sats
-    timestamp: string; // API returns ISO 8601
-    status: {
-        label: string;
-        icon: Component;
-        color: string;
-    };
-    network: 'rsk' | 'bsc' | 'lightning';
-
-    // Computed fields
-    type: 'send' | 'receive' | 'swap' | 'contract';
-    subType?: 'lock' | 'claim' | 'refund'; // for swaps
-    methodName?: string; // decoded method name (camelCase from contract)
-
-    // Display helpers (computed once)
-    displayType: 'send' | 'receive' | 'swap-claim' | 'contract-function';
-    borderColor: 'warning' | 'success' | 'info' | 'neutral' | 'error';
-    iconConfig: {
-        base: Component; // Icon component for rendering
-        overlay: Component | null; // Overlay icon component (for contract interactions)
-    };
-    title: string; // Translation key for title (e.g., 'dashboard.wallet.transactions.sent')
-
-    // Network information (computed once)
-    networkIcon: string;
-    networkDisplayName: string;
-    explorerUrl: string | null;
-
-    // Fee in sats (converted once)
-    feeSats: number;
-
-    // Running balance (calculated once)
-    balanceAfter: number;
-
-    // Raw for advanced use
-    rawMethod?: string; // method selector
-    decodedInput?: any;
-
-    // Token info for BSC
-    tokenSymbol?: string;
-
-    // Swap-specific fields
-    swap?: {
-        id: string; // Present if this is a swap transaction
-        type: 'submarine' | 'reverse' | 'chain';
-        actions: SwapAction[]; // Available actions for failed swaps
-        rawStatus: string; // Raw Boltz API status for comparison (e.g., 'invoice.expired', 'swap.created')
-    };
-}
+// Re-export ProcessedTransaction for backward compatibility
+export type { ProcessedTransaction } from '$lib/types/wallet';
 
 // Contract addresses cache
 interface ContractAddresses {
@@ -241,7 +187,7 @@ function determineBoltzSwapType(
  * Detect transaction type based on contract interaction
  */
 function detectTransactionType(
-    tx: Transaction,
+    tx: ExtendedTransaction,
     userAddress: string,
     contractAddresses: ContractAddresses
 ): {
@@ -249,10 +195,56 @@ function detectTransactionType(
     subType?: 'lock' | 'claim' | 'refund';
     methodName?: string;
     swapType?: 'submarine' | 'reverse' | 'chain';
+    isInternalEscrowPayout?: boolean;
 } {
     const toAddress = tx.to.hash.toLowerCase();
     const fromAddress = tx.from.hash.toLowerCase();
     const userAddr = userAddress.toLowerCase();
+
+    // Handle internal transactions
+    if (tx._isInternal) {
+        const isFromEscrow = isEscrowContract(fromAddress, contractAddresses.escrowAddresses);
+        const isToEscrow = isEscrowContract(toAddress, contractAddresses.escrowAddresses);
+        
+        // Internal transaction FROM escrow contract TO user = funds received (taskee getting paid)
+        if (isFromEscrow && toAddress === userAddr) {
+            return {
+                type: 'receive',
+                methodName: 'fundsReleased',
+                isInternalEscrowPayout: true
+            };
+        }
+        
+        // Internal transaction FROM user TO escrow contract = funds sent (shouldn't happen in practice)
+        if (isToEscrow && fromAddress === userAddr) {
+            return {
+                type: 'send',
+                methodName: 'internalEscrowFunding'
+            };
+        }
+        
+        // Other internal transactions (user receiving from non-escrow contract)
+        if (toAddress === userAddr) {
+            return {
+                type: 'receive',
+                methodName: 'internalTransfer'
+            };
+        }
+        
+        // Other internal transactions (user sending via contract)
+        if (fromAddress === userAddr) {
+            return {
+                type: 'send',
+                methodName: 'internalTransfer'
+            };
+        }
+        
+        // Internal transaction not involving user (shouldn't happen as we filter by user address)
+        return {
+            type: 'contract',
+            methodName: 'internalTransaction'
+        };
+    }
 
     // Check if it's a contract interaction
     if (!tx.to.is_contract) {
@@ -309,7 +301,8 @@ function determineDisplayProperties(
     type: 'send' | 'receive' | 'swap' | 'contract',
     subType?: 'lock' | 'claim' | 'refund',
     methodName?: string,
-    hasValue?: boolean
+    hasValue?: boolean,
+    isInternalEscrowPayout?: boolean
 ): {
     displayType: 'send' | 'receive' | 'swap-claim' | 'contract-function';
     borderColor: 'warning' | 'success' | 'info';
@@ -319,6 +312,16 @@ function determineDisplayProperties(
     };
     title: string;
 } {
+    // Internal escrow payout (funds released to taskee)
+    if (isInternalEscrowPayout) {
+        return {
+            displayType: 'receive',
+            borderColor: 'success',
+            iconConfig: { base: IconFileDocumentOutline, overlay: IconArrowDownBold },
+            title: 'wallet.transaction.funds_released'
+        };
+    }
+
     // Swap transactions
     if (type === 'swap') {
         if (subType === 'claim' || subType === 'refund') {
@@ -422,6 +425,8 @@ function normalizeStatus(status: string): 'confirmed' | 'pending' | 'failed' {
  * Process raw transactions into clean, typed format with ALL properties computed
  * Single-pass processing including running balance calculation
  * 
+ * Now includes internal transactions to capture escrow payouts to freelancers
+ * 
  * @param rawTransactions - Raw transactions from blockchain API
  * @param userAddress - User's wallet address
  * @param network - Network type ('rsk' or 'bsc')
@@ -437,11 +442,32 @@ export async function processTransactions(
     // Fetch contract addresses once
     const contractAddresses = await getContractAddresses();
 
+    // Fetch internal transactions
+    const internalTransactions = await fetchInternalTransactions(userAddress, network);
+    
+    // Convert internal transactions to ExtendedTransaction format
+    const convertedInternalTxs = internalTransactions
+        .map(internal => convertInternalToTransaction(internal, contractAddresses.escrowAddresses))
+        .filter((tx): tx is ExtendedTransaction => tx !== null);
+
+    // Merge regular and internal transactions
+    const allTransactions: ExtendedTransaction[] = [...rawTransactions, ...convertedInternalTxs];
+    
+    // Deduplicate by hash + internal index (regular txs don't have _internalIndex)
+    const uniqueTransactions = Array.from(
+        new Map(
+            allTransactions.map(tx => {
+                const key = tx.hash + (tx._isInternal && tx._internalIndex !== undefined ? `-internal-${tx._internalIndex}` : '');
+                return [key, tx];
+            })
+        ).values()
+    );
+
     // Process all transactions in single iteration
-    const processed = rawTransactions.map((tx) => {
+    const processed = uniqueTransactions.map((tx) => {
         // Detect transaction type
-        const { type, subType, methodName, swapType } = detectTransactionType(
-            tx,
+        const { type, subType, methodName, swapType, isInternalEscrowPayout } = detectTransactionType(
+            tx as Transaction & { _isInternal?: boolean },
             userAddress,
             contractAddresses
         );
@@ -468,11 +494,12 @@ export async function processTransactions(
             type,
             subType,
             methodName,
-            hasValue
+            hasValue,
+            isInternalEscrowPayout
         );
 
-        // Calculate fee in sats
-        const feeSats = Number(weiToSatoshi(BigInt(tx.fee.value || '0')));
+        // Calculate fee in sats (internal transactions have no gas fees)
+        const feeSats = tx._isInternal ? 0 : Number(weiToSatoshi(BigInt(tx.fee.value || '0')));
 
         // Determine network - Lightning for submarine/reverse swaps, otherwise use provided network
         // Get network information once
@@ -553,4 +580,138 @@ export async function processTransactions(
     }
 
     return processed;
+}
+
+/**
+ * Get explorer API URL based on network
+ */
+function getExplorerApiUrl(network: 'rsk' | 'bsc'): string {
+    if (network === 'rsk') {
+        const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+        return rskNetwork === 'mainnet'
+            ? 'https://rootstock.blockscout.com/api/v2'
+            : 'https://rootstock-testnet.blockscout.com/api/v2';
+    } else {
+        const bscNetwork = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+        return bscNetwork === 'mainnet'
+            ? 'https://api.bscscan.com/api'
+            : 'https://api-testnet.bscscan.com/api';
+    }
+}
+
+/**
+ * TODO: To be added to wallet-core
+ * Fetch internal transactions from Blockscout API
+ * Internal transactions show value transfers that occur inside smart contract execution
+ * This is crucial for tracking escrow payouts to freelancers
+ */
+async function fetchInternalTransactions(
+    userAddress: string,
+    network: 'rsk' | 'bsc'
+): Promise<InternalTransaction[]> {
+    try {
+        const explorerApiUrl = getExplorerApiUrl(network);
+        const url = `${explorerApiUrl}/addresses/${userAddress}/internal-transactions`;
+
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(10000)
+        });
+
+        if (!response.ok) {
+            console.error(`Failed to fetch internal transactions: ${response.status}`);
+            return [];
+        }
+
+        const data = await response.json();
+        
+        // Blockscout returns { items: [...] }
+        if (!data.items || !Array.isArray(data.items)) {
+            console.error('Invalid internal transactions response format');
+            return [];
+        }
+
+        return data.items;
+    } catch (error) {
+        console.error('Error fetching internal transactions:', error);
+        return [];
+    }
+}
+
+/**
+ * Convert internal transaction to ExtendedTransaction format
+ * This allows internal transactions to be processed alongside regular transactions
+ * 
+ * @param internal - Internal transaction from Blockscout API
+ * @param escrowAddresses - List of escrow contract addresses to filter
+ * @returns ExtendedTransaction or null if should be filtered out
+ */
+function convertInternalToTransaction(
+    internal: InternalTransaction,
+    escrowAddresses: string[]
+): ExtendedTransaction | null {
+    // Only process successful internal transactions
+    if (!internal.success) {
+        return null;
+    }
+
+    // Only process internal transactions involving escrow contracts
+    const fromLower = internal.from.hash.toLowerCase();
+    const toLower = internal.to.hash.toLowerCase();
+    const isFromEscrow = escrowAddresses.some(addr => addr === fromLower);
+    const isToEscrow = escrowAddresses.some(addr => addr === toLower);
+    
+    // Filter: only include transactions that involve escrow contracts
+    if (!isFromEscrow && !isToEscrow) {
+        return null;
+    }
+
+    // Create an ExtendedTransaction object compatible with our processing
+    // For internal transactions, we use data from the internal tx with minimal extras
+    const extendedTx: ExtendedTransaction = {
+        hash: internal.transaction_hash,
+        from: internal.from,
+        to: internal.to,
+        value: internal.value,
+        gas_used: '0',
+        gas_price: '0',
+        gas_limit: internal.gas_limit,
+        block_number: internal.block_number,
+        timestamp: internal.timestamp,
+        status: 'ok',
+        nonce: 0,
+        position: 0,
+        confirmations: 0,
+        raw_input: '0x',
+        method: null,
+        decoded_input: null,
+        transaction_types: ['call'],
+        token_transfers: null,
+        max_fee_per_gas: null,
+        max_priority_fee_per_gas: null,
+        base_fee_per_gas: null,
+        priority_fee: null,
+        transaction_burnt_fee: null,
+        result: 'success',
+        revert_reason: null,
+        created_contract: null,
+        is_pending_update: false,
+        type: 0,
+        has_error_in_internal_transactions: false,
+        fee: {
+            type: 'maximum',
+            value: '0'
+        },
+        exchange_rate: null,
+        historic_exchange_rate: null,
+        confirmation_duration: null,
+        token_transfers_overflow: null,
+        transaction_tag: null,
+        authorization_list: [],
+        actions: [],
+        // Extended fields to identify internal transactions
+        _isInternal: true,
+        _internalIndex: internal.internal_transaction_index
+    };
+
+    return extendedTx;
 }

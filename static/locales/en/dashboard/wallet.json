@@ -97,6 +97,7 @@
       "createescrow": "Contract Funded",
       "completetask": "Task Completed",
       "accepttask": "Funds Released",
+      "funds_released": "Funds Released",
       "disputetask": "Task Disputed",
       "disputeresolved": "Dispute Resolved",
       "disputeunresolved": "Dispute Unresolved",
