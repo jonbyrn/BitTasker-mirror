@@ -592,6 +592,7 @@
 		unit={formInput.unit}
 		mathExpression={formInput.mathExpression}
 		calculatorKey={uiState.calculatorKey}
+		isBelowSwapMinimum={isBelowSwapMinimum}
 		onAmountChange={(value) => (formInput.amount = value)}
 		onUnitChange={(newUnit) => {
 			triggerHaptic(ImpactStyle.Light);
@@ -615,6 +616,7 @@
 			unit={formInput.unit}
 			mathExpression={formInput.mathExpression}
 			calculatorKey={uiState.calculatorKey}
+			isBelowSwapMinimum={isBelowSwapMinimum}
 			onAmountChange={(value) => (formInput.amount = value)}
 			onUnitChange={(newUnit) => {
 				triggerHaptic(ImpactStyle.Light);
@@ -711,7 +713,7 @@
 							</span>
 						</div>
 					</button>
-					<div class="collapse-content px-2 pb-1">
+					<div class="collapse-content px-2">
 						<div class="space-y-1.5 sm:space-y-2">
 							{#each networkOptions as network}
 								{@const networkFees = getNetworkFees(network.value)}
@@ -973,18 +975,11 @@
 			</button>
 	{/if}
 
-		<!-- Swap Minimum Warning (Mobile Step 2) -->
-		{#if isBelowSwapMinimum && feeState.swapLimits}
-			<p class="text-error mb-0.5 text-center text-xs">
-				{$t('wallet.receive.below_swap_minimum', {
-					values: { minAmount: formatSats(feeState.swapLimits.minimal) }
-				})}
-			</p>
-		{/if}
-
 		<!-- Total Received Card (Mobile Step 2) -->
 		<div
-			class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-1.5"
+			class="bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-1.5"
+			class:border-primary={!isBelowSwapMinimum}
+			class:border-error={isBelowSwapMinimum}
 		>
 			<span class="text-center text-xs opacity-70">{$t('wallet.swap.total_received_est')}</span>
 			{#if totalReceived > 0 && feeState.estimated}
@@ -1014,6 +1009,14 @@
 			{:else}
 				<div class="text-center text-xs opacity-60">
 					{$t('wallet.receive.enter_amount_to_estimate')}
+				</div>
+			{/if}
+			<!-- Swap Minimum Warning -->
+			{#if isBelowSwapMinimum && feeState.swapLimits}
+				<div class="text-error mt-0.5 text-center text-xs">
+					{$t('wallet.receive.below_swap_minimum', {
+						values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+					})}
 				</div>
 			{/if}
 		</div>
@@ -1066,7 +1069,7 @@
 						</span>
 					</div>
 				</button>
-				<div class="collapse-content px-2 pb-1">
+				<div class="collapse-content px-2">
 					<div class="space-y-1.5 sm:space-y-2">
 						{#each networkOptions as network}
 							{@const networkFees = getNetworkFees(network.value)}
@@ -1199,7 +1202,7 @@
 				{$t('wallet.description')} ({$t('wallet.optional')})
 			</button>
 			<div class="collapse-content">
-				<div class="form-control px-3 pb-1.5 sm:px-4 sm:pb-2">
+				<div class="form-control px-3 sm:px-4">
 					<textarea
 						id="memo-input-desktop"
 						class="textarea textarea-bordered w-full text-sm sm:text-base"
@@ -1329,18 +1332,11 @@
 		</button>
 	{/if}
 
-		<!-- Swap Minimum Warning (Desktop) -->
-	{#if isBelowSwapMinimum && feeState.swapLimits}
-		<p class="text-error mb-0.5 text-center text-xs sm:mb-1 sm:text-sm">
-			{$t('wallet.receive.below_swap_minimum', {
-				values: { minAmount: formatSats(feeState.swapLimits.minimal) }
-			})}
-		</p>
-	{/if}
-
 		<!-- Total Received Card (Desktop) -->
 	<div
-		class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:gap-2 sm:p-4"
+		class="bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:gap-2 sm:p-4"
+		class:border-primary={!isBelowSwapMinimum}
+		class:border-error={isBelowSwapMinimum}
 	>
 		<span class="text-center text-xs opacity-70 sm:text-sm"
 			>{$t('wallet.swap.total_received_est')}</span
@@ -1374,7 +1370,15 @@
 				{$t('wallet.receive.enter_amount_to_estimate')}
 			</div>
 		{/if}
-		</div>
+		<!-- Swap Minimum Warning -->
+		{#if isBelowSwapMinimum && feeState.swapLimits}
+			<div class="text-error mt-0.5 text-center text-xs sm:mt-1 sm:text-sm">
+				{$t('wallet.receive.below_swap_minimum', {
+					values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+				})}
+			</div>
+		{/if}
+	</div>
 		</div>
 	</div>
 	</div>

@@ -27,6 +27,7 @@
 	import IconChevronUp from '~icons/mdi/chevron-up';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
+	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
 	import { linear } from 'svelte/easing';
 	import { fly, slide } from 'svelte/transition';
 
@@ -102,7 +103,7 @@
 
 	// Grouped State: UI State
 	let uiState = $state({
-		activeTab: 'enter' as 'scan' | 'enter',
+		activeTab: 'scan' as 'scan' | 'enter',
 		showConfirmation: false,
 		showSendConfirmation: false,
 		showSuccessScreen: false,
@@ -110,9 +111,7 @@
 		networkFeeExpanded: false,
 		calculatorKey: 0,
 		showRecentAddresses: false,
-		currentStep: 1 as 1 | 2, // Step 1: Address + Amount, Step 2: Details
-		addressExpanded: false, // Track if address is expanded in confirmation modal
-		addressCopied: false // Track if address was copied in confirmation modal
+		currentStep: 1 as 1 | 2 // Step 1: Address + Amount, Step 2: Details
 	});
 
 	// Grouped State: QR Scan State
@@ -869,28 +868,40 @@
 		await handleSend();
 	}
 
-	// Format address (truncate for display)
-	function formatAddress(address: string): string {
-		if (address.length <= 20) return address;
-		return `${address.slice(0, 10)}...${address.slice(-8)}`;
-	}
-
-	// Copy address in confirmation modal
-	async function copyConfirmationAddress(address: string) {
-		if (address) {
-			await copyToClipboard(address);
-			appStore.showSuccessToast($t('wallet.address_copied'));
-			uiState.addressCopied = true;
-			triggerHaptic(ImpactStyle.Light);
-			setTimeout(() => {
-				uiState.addressCopied = false;
-			}, 2000);
-		}
-	}
 </script>
 
 <div class="flex flex-1 flex-col min-h-0">
 	{#if !sendState.isSending}
+		<!-- Tab Navigation (Top) -->
+		<div class="tabs tabs-boxed border-base-300 mb-3 flex-shrink-0 overflow-hidden rounded-lg border sm:mb-4">
+			<button
+				class="tab flex-1"
+				class:bg-primary={uiState.activeTab === 'scan'}
+				class:text-primary-content={uiState.activeTab === 'scan'}
+				class:tab-active={uiState.activeTab === 'scan'}
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					uiState.activeTab = 'scan';
+					uiState.showConfirmation = false;
+				}}
+			>
+				{$t('wallet.send.scan_qr_code')}
+			</button>
+			<button
+				class="tab flex-1"
+				class:bg-primary={uiState.activeTab === 'enter'}
+				class:text-primary-content={uiState.activeTab === 'enter'}
+				class:tab-active={uiState.activeTab === 'enter'}
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					uiState.activeTab = 'enter';
+					uiState.showConfirmation = false;
+				}}
+			>
+				{$t('wallet.send.payment_details')}
+			</button>
+		</div>
+
 		<!-- Scrollable Content Area -->
 		<div class="flex-1 overflow-y-auto min-h-0 space-y-3 sm:space-y-4">
 			{#if uiState.activeTab === 'scan'}
@@ -1783,34 +1794,6 @@
 			</div>
 		{/if}
 
-		<!-- Tab Navigation (Bottom) -->
-		<div class="tabs tabs-boxed border-base-300 mt-auto overflow-hidden rounded-lg border">
-			<button
-				class="tab flex-1"
-				class:bg-primary={uiState.activeTab === 'scan'}
-				class:text-primary-content={uiState.activeTab === 'scan'}
-				class:tab-active={uiState.activeTab === 'scan'}
-				onclick={() => {
-					uiState.activeTab = 'scan';
-					uiState.showConfirmation = false;
-				}}
-			>
-				{$t('wallet.send.scan_qr_code')}
-			</button>
-			<button
-				class="tab flex-1"
-				class:bg-primary={uiState.activeTab === 'enter'}
-				class:text-primary-content={uiState.activeTab === 'enter'}
-				class:tab-active={uiState.activeTab === 'enter'}
-				onclick={() => {
-					uiState.activeTab = 'enter';
-					uiState.showConfirmation = false;
-				}}
-			>
-				{$t('wallet.send.payment_details')}
-			</button>
-		</div>
-
 		<!-- Loading Overlay (shown while transaction is being sent) -->
 	{:else if !uiState.showSuccessScreen}
 		<div
@@ -1860,93 +1843,11 @@
 				<h3 class="text-lg font-bold">{$t('wallet.send.confirm_payment')}</h3>
 				<div class="space-y-4 py-4">
 					<!-- Address Accordion -->
-					<div class="space-y-1">
-						<div class="text-sm font-medium opacity-70">{$t('wallet.send.address_or_invoice')}</div>
-						<div class="border-primary bg-base-100 rounded-lg border-2">
-							<!-- One-line address display -->
-							<div class="flex items-center gap-2 p-2">
-								<!-- Copy icon on the left -->
-								<button
-									class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={() => copyConfirmationAddress(recipientAddress)}
-									aria-label={$t('wallet.copy_address')}
-								>
-									{#if uiState.addressCopied}
-										<IconCheck class="text-success h-5 w-5" />
-									{:else}
-										<IconContentCopy class="h-5 w-5" />
-									{/if}
-								</button>
-
-								<!-- Compressed address in the middle -->
-								{#if explorerUrl}
-									<a
-										href={explorerUrl}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="min-w-0 flex-1 text-left hover:underline"
-									>
-										<code class="block truncate font-mono text-xs">
-											{uiState.addressExpanded ? recipientAddress : formatAddress(recipientAddress)}
-										</code>
-									</a>
-								{:else}
-									<button
-										class="min-w-0 flex-1 touch-manipulation text-left transition-transform duration-100 select-none active:scale-95"
-										style="-webkit-tap-highlight-color: transparent;"
-										onclick={() => copyConfirmationAddress(recipientAddress)}
-										aria-label={$t('wallet.copy_address')}
-									>
-										<code class="block truncate font-mono text-xs">
-											{uiState.addressExpanded ? recipientAddress : formatAddress(recipientAddress)}
-										</code>
-									</button>
-								{/if}
-
-								<!-- Dropdown button on the right -->
-								<button
-									class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-200 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={() => {
-										triggerHaptic(ImpactStyle.Light);
-										uiState.addressExpanded = !uiState.addressExpanded;
-									}}
-									aria-label={uiState.addressExpanded ? 'Collapse address' : 'Expand address'}
-								>
-									<div class="transition-transform duration-200" class:rotate-180={uiState.addressExpanded}>
-										<IconChevronDown class="h-5 w-5" />
-									</div>
-								</button>
-							</div>
-
-							<!-- Expanded full address (shown when expanded) -->
-							{#if uiState.addressExpanded}
-								<div
-									class="border-primary/20 border-t px-2 py-2"
-									in:slide={{ duration: 200, easing: linear }}
-									out:slide={{ duration: 200, easing: linear }}
-								>
-									{#if explorerUrl}
-										<a
-											href={explorerUrl}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="text-primary hover:underline"
-										>
-											<code class="block font-mono text-xs break-all whitespace-normal">
-												{recipientAddress}
-											</code>
-										</a>
-									{:else}
-										<code class="block font-mono text-xs break-all whitespace-normal">
-											{recipientAddress}
-										</code>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					</div>
+					<AddressAccordion
+						address={recipientAddress}
+						explorerUrl={explorerUrl}
+						label={$t('wallet.send.address_or_invoice')}
+					/>
 
 					<!-- Amount -->
 					<div class="space-y-1">

@@ -10,21 +10,19 @@
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import IconClose from '~icons/mdi/close';
-	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconCheck from '~icons/mdi/check';
 	import IconPencil from '~icons/mdi/pencil';
-	import IconChevronDown from '~icons/mdi/chevron-down';
-	import IconChevronUp from '~icons/mdi/chevron-up';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
+	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
 
 	interface Props {
 		isOpen: boolean;
 		onClose: () => void;
 		onEdit?: () => void; // Callback to return to edit screen
-
+		
 		// Pattern 1: Swap-based payment (provide swapId, modal fetches everything)
 		swapId?: string;
-
+		
 		// Pattern 2: Direct address payment (provide all details for non-swap payments like Rootstock)
 		address?: string;
 		network?: string;
@@ -37,45 +35,43 @@
 	const props: Props = $props();
 
 	let qrCodeDataUrl = $state('');
-	let addressCopied = $state(false);
 	let isLoadingQR = $state(true);
 	let btcPrice = $state<number>(0);
 	let isTransactionConfirmed = $state(false);
-	let addressExpanded = $state(false); // Track if address is expanded to show full address
-
+	
 	// Determine if this is a swap-based payment or direct address payment
 	const isSwapBased = $derived(!!props.swapId);
-
+	
 	// Find the swap transaction from transactions store (reactive via WebSocket updates)
 	const swapTransaction = $derived.by(() => {
 		if (!props.swapId) return null;
 		return $transactions.find((tx) => tx.swap?.id === props.swapId);
 	});
-
+	
 	// Get status from transaction (reactive and UI-ready with label, icon, color)
 	const swapStatus = $derived.by(() => {
 		if (!swapTransaction) return null;
 		return swapTransaction.status;
 	});
-
+	
 	// Get swap data from swap services for static data (invoice/address)
 	// This doesn't need to be reactive since invoice/address don't change
 	const currentSwap = $derived.by(() => {
 		if (!props.swapId) return undefined;
-
+		
 		// Try to find swap in all swap services
 		const reverseSwap = walletManager.reverseSwapService?.getSwap(props.swapId);
 		if (reverseSwap) return { data: reverseSwap, type: 'reverse' as const };
-
+		
 		const chainSwap = walletManager.chainSwapService?.getSwap(props.swapId);
 		if (chainSwap) return { data: chainSwap, type: 'chain' as const };
-
+		
 		const submarineSwap = walletManager.submarineSwapService?.getSwap(props.swapId);
 		if (submarineSwap) return { data: submarineSwap, type: 'submarine' as const };
-
+		
 		return undefined;
 	});
-
+	
 	// Derive network - from swap type OR from props
 	const network = $derived.by(() => {
 		if (currentSwap) {
@@ -86,13 +82,13 @@
 		// Direct payment: use provided network
 		return props.network || 'rootstock-bitcoin';
 	});
-
+	
 	// Derive address - from swap data OR from props
 	const address = $derived.by(() => {
 		if (currentSwap) {
 			// Swap-based: extract from swap data
 			const swapData = currentSwap.data;
-
+			
 			if (currentSwap.type === 'reverse') {
 				return (swapData as any).invoice || '';
 			} else if (currentSwap.type === 'chain') {
@@ -105,13 +101,13 @@
 		// Direct payment: use provided address
 		return props.address || '';
 	});
-
+	
 	// Derive amount - from swap data OR from props
 	const amount = $derived.by(() => {
 		if (currentSwap) {
 			// Swap-based: extract from swap data
 			const swapData = currentSwap.data;
-
+			
 			if (currentSwap.type === 'reverse') {
 				return (swapData as any).amount || 0;
 			} else if (currentSwap.type === 'chain') {
@@ -154,7 +150,7 @@
 	const displayAmount = $derived.by(() => {
 		if (!currentSwap) return amount;
 		const swapData = currentSwap.data;
-
+		
 		// Only reverse swaps (Lightning) have onchainAmount property
 		if (
 			currentSwap.type === 'reverse' &&
@@ -226,20 +222,14 @@
 		);
 	});
 
-	// Format address (truncate for display)
-	function formatAddress(address: string): string {
-		if (address.length <= 20) return address;
-		return `${address.slice(0, 10)}...${address.slice(-8)}`;
-	}
-
 	// Reactive effect: Monitor swap status changes (triggered by SDK's WebSocket updates via transactions store)
 	// Only runs for swap-based payments
 	$effect(() => {
 		// Only check for completion when modal is open and we have a swap transaction
 		if (!props.isOpen || !isSwapBased || !swapTransaction) return;
-
+		
 		const status = swapTransaction.status.label;
-
+		
 		// Check if swap is completed (confirmed)
 		if (status === 'wallet.transaction.status.confirmed') {
 			isTransactionConfirmed = true;
@@ -271,17 +261,6 @@
 		}
 	}
 
-	async function copyAddress() {
-		if (address) {
-			await copyToClipboard(address);
-			appStore.showSuccessToast($t('wallet.address_copied'));
-			addressCopied = true;
-			triggerHaptic(ImpactStyle.Light);
-			setTimeout(() => {
-				addressCopied = false;
-			}, 2000);
-		}
-	}
 
 	// Initialize component
 	onMount(async () => {
@@ -425,29 +404,29 @@
 										/>
 									</svg>
 								{/if}
-								<span class="text-base font-medium">{networkInfo.label}</span>
-							</div>
-							<!-- Status Indicator (only show for swap-based payments) -->
-							{#if isSwapBased && swapStatus && !isTransactionConfirmed}
-								{@const IconComponent = swapStatus.icon}
-								<div class="flex items-center gap-2">
-									<!-- Only show spinner when actually pending -->
-									{#if swapStatus.label === 'wallet.transaction.status.pending'}
-										<span class="loading loading-spinner loading-sm"></span>
-									{/if}
-									<!-- Dynamic status badge with proper colors -->
+					<span class="text-base font-medium">{networkInfo.label}</span>
+				</div>
+				<!-- Status Indicator (only show for swap-based payments) -->
+				{#if isSwapBased && swapStatus && !isTransactionConfirmed}
+					{@const IconComponent = swapStatus.icon}
+					<div class="flex items-center gap-2">
+						<!-- Only show spinner when actually pending -->
+						{#if swapStatus.label === 'wallet.transaction.status.pending'}
+							<span class="loading loading-spinner loading-sm"></span>
+						{/if}
+						<!-- Dynamic status badge with proper colors -->
 									<span
 										class="badge"
-										class:badge-warning={swapStatus.label === 'wallet.transaction.status.pending'}
-										class:badge-success={swapStatus.label === 'wallet.transaction.status.confirmed'}
+							class:badge-warning={swapStatus.label === 'wallet.transaction.status.pending'}
+							class:badge-success={swapStatus.label === 'wallet.transaction.status.confirmed'}
 										class:badge-error={swapStatus.label === 'wallet.transaction.status.failed'}
 									>
-										<IconComponent class="mr-1 h-4 w-4" />
-										{$t(swapStatus.label)}
-									</span>
-								</div>
-							{/if}
-						</div>
+							<IconComponent class="mr-1 h-4 w-4" />
+							{$t(swapStatus.label)}
+						</span>
+					</div>
+				{/if}
+				</div>
 
 						<!-- QR Code (Almost Full Screen Width) -->
 						<div class="flex justify-center px-2">
@@ -475,62 +454,7 @@
 						</div>
 
 						<!-- Payment Address/Link (Copyable) - One line with expand/collapse -->
-						<div class="border-primary bg-base-100 rounded-lg border-2">
-							<!-- One-line address display -->
-							<div class="flex items-center gap-2 p-2">
-								<!-- Copy icon on the left -->
-								<button
-									class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={copyAddress}
-									aria-label={$t('wallet.copy_address')}
-								>
-									{#if addressCopied}
-										<IconCheck class="text-success h-5 w-5" />
-									{:else}
-										<IconContentCopy class="h-5 w-5" />
-									{/if}
-								</button>
-
-								<!-- Compressed address in the middle -->
-								<button
-									class="min-w-0 flex-1 touch-manipulation text-left transition-transform duration-100 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={copyAddress}
-									aria-label={$t('wallet.copy_address')}
-								>
-									<code class="block truncate font-mono text-xs">
-										{addressExpanded ? address : formatAddress(address)}
-									</code>
-								</button>
-
-								<!-- Dropdown button on the right -->
-								<button
-									class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
-									onclick={() => {
-										triggerHaptic(ImpactStyle.Light);
-										addressExpanded = !addressExpanded;
-									}}
-									aria-label={addressExpanded ? 'Collapse address' : 'Expand address'}
-								>
-									{#if addressExpanded}
-										<IconChevronUp class="h-5 w-5" />
-									{:else}
-										<IconChevronDown class="h-5 w-5" />
-									{/if}
-								</button>
-							</div>
-
-							<!-- Expanded full address (shown when expanded) -->
-							{#if addressExpanded}
-								<div class="border-primary/20 border-t px-2 py-2">
-									<code class="block font-mono text-xs break-all whitespace-normal">
-										{address}
-									</code>
-								</div>
-							{/if}
-						</div>
+						<AddressAccordion address={address} />
 
 						<!-- Transaction Description (if provided) -->
 						{#if props.memo}
@@ -565,19 +489,19 @@
 						</button>
 					{/if}
 					<!-- Cancel Button -->
-					<button
+							<button
 						class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
-						style="-webkit-tap-highlight-color: transparent;"
-						onclick={() => {
-							triggerHaptic(ImpactStyle.Light);
-							props.onClose();
-						}}
-					>
+								style="-webkit-tap-highlight-color: transparent;"
+								onclick={() => {
+									triggerHaptic(ImpactStyle.Light);
+									props.onClose();
+								}}
+							>
 						<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
 						<span class="text-sm sm:text-base">{$t('wallet.receive.cancel')}</span>
-					</button>
-				{/if}
+								</button>
+							{/if}
+						</div>
 			</div>
-		</div>
 	</div>
 {/if}
