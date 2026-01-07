@@ -2,50 +2,100 @@
     "find_taskees": {
         "title": "Buscar Taskees",
         "description": "Descubre profesionales talentosos listos para ayudarte con tus tareas",
-        "search_placeholder": "Buscar por nombre, habilidades o profesión...",
-        "search_minimum_chars": "Escribe al menos 3 caracteres para buscar",
-        "clear_filters": "Limpiar Filtros",
-        "error_loading": "Error al cargar taskees: {error}. Por favor intenta de nuevo.",
-        "loading_timeout_title": "La carga está tomando más tiempo del esperado",
-        "loading_timeout_message": "Intenta refrescar la página o verifica tu conexión",
-        "refresh": "Refrescar",
-        "no_results_title": "No se encontraron taskees",
-        "no_results_message": "Intenta ajustar tus criterios de búsqueda o filtros",
-        "view_profile": "Ver Perfil",
-        "view_map": "Ver Mapa",
-        "view_list": "Ver Lista",
-        "skills": "Habilidades",
-        "member_since": "Miembro desde",
-        "anonymous": "Usuario Anónimo",
-        "filters": "Filtros",
-        "close_dialog": "Cerrar diálogo",
-        "toggle_skills_section": "Alternar sección de habilidades",
-        "add_skills": "Agregar habilidades",
-        "toggle_professional_title_section": "Alternar sección de título profesional",
-        "professional_title": "Título Profesional",
-        "professional_title_placeholder": "ej., Ingeniero de Software, Diseñador, Consultor",
-        "toggle_certifications_section": "Alternar sección de certificaciones",
-        "certifications": "Certificaciones",
-        "has_certifications": "Tiene Certificaciones",
-        "any": "Cualquiera",
-        "toggle_location_section": "Alternar sección de ubicación",
-        "location": "Ubicación",
-        "location_placeholder": "Ingresa ubicación...",
-        "location_mode": {
-            "anywhere": "Cualquier Lugar",
-            "specific_location": "Ubicación Específica"
+        "search": {
+            "placeholder": "Buscar por nombre, habilidades o profesión...",
+            "minimum_chars": "Escribe al menos 3 caracteres para buscar",
+            "input_label": "Buscar taskees"
         },
-        "search_radius": "Radio de Búsqueda",
-        "toggle_join_date_section": "Alternar sección de fecha de registro",
-        "join_date": "Fecha de Registro",
-        "apply": "Aplicar",
-        "join_date_options": {
-            "any": "Cualquiera",
-            "last_week": "Última Semana",
-            "last_month": "Último Mes",
-            "last_3_months": "Últimos 3 Meses",
-            "last_6_months": "Últimos 6 Meses",
-            "last_year": "Último Año"
+        "filters": {
+            "title": "Filtros",
+            "clear": "Limpiar Filtros",
+            "apply": "Aplicar",
+            "close_dialog": "Cerrar diálogo",
+            "skills": {
+                "label": "Habilidades",
+                "toggle_section": "Alternar sección de habilidades",
+                "add_skills": "Agregar habilidades",
+                "placeholder": "Seleccionar habilidades..."
+            },
+            "professional_title": {
+                "label": "Título Profesional",
+                "toggle_section": "Alternar sección de título profesional",
+                "placeholder": "ej., Ingeniero de Software, Diseñador, Consultor"
+            },
+            "location": {
+                "label": "Ubicación",
+                "toggle_section": "Alternar sección de ubicación",
+                "placeholder": "Ingresa ubicación...",
+                "mode": {
+                    "anywhere": "Cualquier Lugar",
+                    "specific_location": "Ubicación Específica"
+                },
+                "search_radius": "Radio de Búsqueda",
+                "radius_unit": "km"
+            },
+            "join_date": {
+                "label": "Fecha de Registro",
+                "toggle_section": "Alternar sección de fecha de registro",
+                "options": {
+                    "any": "Cualquiera",
+                    "last_week": "Última Semana",
+                    "last_month": "Último Mes",
+                    "last_3_months": "Últimos 3 Meses",
+                    "last_6_months": "Últimos 6 Meses",
+                    "last_year": "Último Año"
+                }
+            }
+        },
+        "categories": {
+            "title": "Categorías de Servicios",
+            "section_title": "Explorar por Categoría",
+            "assembly": "Ensamblaje",
+            "mounting": "Instalación",
+            "moving": "Mudanzas",
+            "cleaning": "Limpieza",
+            "outdoor_help": "Ayuda al Aire Libre",
+            "home_repairs": "Reparaciones del Hogar",
+            "painting": "Pintura",
+            "trending": "Tendencias",
+            "services_title": "Servicios Disponibles",
+            "no_category_selected": "Selecciona una categoría para ver servicios"
+        },
+        "results": {
+            "no_results_title": "No se encontraron taskees",
+            "no_results_message": "Intenta ajustar tus criterios de búsqueda o filtros",
+            "showing_count": "Mostrando {count} taskee{plural}",
+            "loading": "Cargando taskees...",
+            "error_loading": "Error al cargar taskees: {error}. Por favor intenta de nuevo.",
+            "loading_timeout_title": "La carga está tomando más tiempo del esperado",
+            "loading_timeout_message": "Intenta refrescar la página o verifica tu conexión",
+            "refresh": "Refrescar"
+        },
+        "card": {
+            "view_profile": "Ver Perfil",
+            "invite_to_bid": "Invitar a Ofertar",
+            "contact": "Contactar",
+            "skills_label": "Habilidades",
+            "member_since": "Miembro desde",
+            "rating": "Calificación",
+            "reviews": "Reseñas",
+            "skill_score": "Puntuación de Habilidades",
+            "completion_rate": "Tasa de Finalización",
+            "hourly_rate": "Tarifa por Hora",
+            "per_hour": "por hora",
+            "anonymous": "Usuario Anónimo",
+            "read_more": "más",
+            "about": "Acerca de",
+            "show_more": "Mostrar Más",
+            "show_less": "Mostrar Menos"
+        },
+        "view": {
+            "map": "Ver Mapa",
+            "list": "Ver Lista",
+            "loading_map": "Cargando mapa..."
+        },
+        "modal": {
+            "title": "Detalles del Taskee"
         }
     }
 }

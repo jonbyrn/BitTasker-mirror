@@ -11,11 +11,24 @@ import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 export interface TaskeeProfile {
 	npub: string;
 	name?: string;
+	username?: string;
 	about?: string;
 	picture?: string;
 	professionalTitle?: string;
 	skills?: string[];
 	createdAt?: string;
+	// Extended fields for search results
+	rating?: number; // 0-5 stars
+	reviews?: number; // Total number of reviews
+	skillScore?: number; // 0-10 skill rating
+	completionRate?: number; // 0-100 percentage
+	hourlyRate?: number; // Hourly rate in USD
+	location?: {
+		city?: string;
+		country?: string;
+		countryCode?: string; // For flag display
+	};
+	headline?: string; // Professional headline/tagline
 }
 
 export interface SearchTaskeesParams {

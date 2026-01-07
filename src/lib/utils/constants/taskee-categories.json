@@ -1,0 +1,99 @@
+[
+	{
+		"id": "assembly",
+		"name": "Assembly",
+		"icon": "wrench-screwdriver",
+		"services": [
+			"Furniture Assembly",
+			"Equipment Assembly",
+			"IKEA Assembly",
+			"Bike Assembly",
+			"Playground Assembly"
+		]
+	},
+	{
+		"id": "mounting",
+		"name": "Mounting",
+		"icon": "drill",
+		"services": [
+			"TV Mounting",
+			"Picture Hanging",
+			"Shelf Installation",
+			"Curtain Rod Installation",
+			"Mirror Mounting"
+		]
+	},
+	{
+		"id": "moving",
+		"name": "Moving",
+		"icon": "truck",
+		"services": [
+			"Help Moving",
+			"Truck-Assisted Help Moving",
+			"Trash & Furniture Removal",
+			"Heavy Lifting & Loading",
+			"Rearrange Furniture",
+			"Junk Haul Away"
+		]
+	},
+	{
+		"id": "cleaning",
+		"name": "Cleaning",
+		"icon": "broom",
+		"services": [
+			"House Cleaning",
+			"Deep Cleaning",
+			"Office Cleaning",
+			"Window Cleaning",
+			"Carpet Cleaning"
+		]
+	},
+	{
+		"id": "outdoor-help",
+		"name": "Outdoor Help",
+		"icon": "tree",
+		"services": [
+			"Yard Work",
+			"Gardening",
+			"Lawn Mowing",
+			"Tree Trimming",
+			"Fence Repair"
+		]
+	},
+	{
+		"id": "home-repairs",
+		"name": "Home Repairs",
+		"icon": "hammer",
+		"services": [
+			"Plumbing",
+			"Electrical Work",
+			"Carpentry",
+			"Drywall Repair",
+			"Appliance Repair"
+		]
+	},
+	{
+		"id": "painting",
+		"name": "Painting",
+		"icon": "paint-roller",
+		"services": [
+			"Interior Painting",
+			"Exterior Painting",
+			"Wall Painting",
+			"Furniture Painting",
+			"Touch-up Painting"
+		]
+	},
+	{
+		"id": "trending",
+		"name": "Trending",
+		"icon": "flame",
+		"services": [
+			"Popular Services",
+			"Most Requested",
+			"Featured Services"
+		]
+	}
+]
+
+

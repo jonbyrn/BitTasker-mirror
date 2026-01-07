@@ -130,9 +130,12 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/wallet')) {
 			// Already included above
 		}
-		if (route.includes('/find-tasks')) {
-			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
-		}
+	if (route.includes('/find-tasks')) {
+		namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
+	}
+	if (route.includes('/find-taskees')) {
+		namespaces.push('find_taskees');
+	}
 		if (route.includes('/create-task')) {
 			namespaces.push('dashboard/tasks/create', 'categories');
 		}

@@ -1,0 +1,162 @@
+[
+	{
+		"npub": "npub1avtar1073example",
+		"name": "Avtar S.",
+		"about": "With more than 15+ years in the industry as a 3D Designer. I have wealth of knowledge and experience in creating stunning 3D models, animations, and visualizations. Specialized in product design, architectural visualization, and character modeling.",
+		"picture": "https://i.pravatar.cc/150?img=12",
+		"professionalTitle": "3D Designer & Visual Artist",
+		"skills": ["Graphic Design", "Logo Design", "Engineering", "3D Modeling", "Animation", "Blender", "Maya"],
+		"rating": 5.0,
+		"reviews": 1501,
+		"completionRate": 99,
+		"hourlyRate": 25,
+		"location": {
+			"city": "Mumbai",
+			"country": "India"
+		}
+	},
+	{
+		"npub": "npub1aishaexample",
+		"name": "Aisha",
+		"about": "✓ 10+ years of experience ✓ Completed 500+ projects successfully ✓ The elite top 3% on freelancer platforms. Expert in full-stack development, specializing in PHP, Python, and modern web frameworks. I deliver high-quality, scalable solutions that exceed expectations.",
+		"picture": "https://i.pravatar.cc/150?img=47",
+		"professionalTitle": "Full-Stack Developer",
+		"skills": ["PHP", "Python", "Website Design", "Laravel", "Django", "React", "Node.js"],
+		"rating": 5.0,
+		"reviews": 692,
+		"completionRate": 99,
+		"hourlyRate": 25,
+		"location": {
+			"city": "Karachi",
+			"country": "Pakistan"
+		}
+	},
+	{
+		"npub": "npub1deepakexample",
+		"name": "Deepak K.",
+		"about": "✓ SEO - Get a #1 Ranking on Google. ✓ Result Oriented work ✓ Provide Guaranteed improvements ✓ Link Building Experts with proven track record. I help businesses increase their online visibility and drive organic traffic through strategic SEO campaigns.",
+		"picture": "https://i.pravatar.cc/150?img=33",
+		"professionalTitle": "SEO & Digital Marketing Specialist",
+		"skills": ["PHP", "Website Design", "Graphic Design", "SEO", "SEM", "Content Marketing", "WordPress"],
+		"rating": 5.0,
+		"reviews": 2369,
+		"completionRate": 99,
+		"hourlyRate": 15,
+		"location": {
+			"city": "Jaipur",
+			"country": "India"
+		}
+	},
+	{
+		"npub": "npub1mariagarciaexample",
+		"name": "Maria Garcia",
+		"about": "Professional UI/UX designer with 8+ years of experience creating beautiful and functional digital experiences. Specialized in mobile app design, web interfaces, and brand identity. Passionate about user-centered design and creating products that users love.",
+		"picture": "https://i.pravatar.cc/150?img=45",
+		"professionalTitle": "UI/UX Designer",
+		"skills": ["UI Design", "UX Design", "Figma", "Adobe XD", "Sketch", "Prototyping", "User Research"],
+		"rating": 4.9,
+		"reviews": 842,
+		"completionRate": 98,
+		"hourlyRate": 35,
+		"location": {
+			"city": "Barcelona",
+			"country": "Spain"
+		}
+	},
+	{
+		"npub": "npub1johnsmithexample",
+		"name": "John Smith",
+		"about": "Senior software engineer specializing in blockchain and cryptocurrency development. Expert in Solidity, Web3, and DeFi protocols. Built multiple successful dApps and smart contracts. Always up-to-date with the latest blockchain technologies.",
+		"picture": "https://i.pravatar.cc/150?img=51",
+		"professionalTitle": "Blockchain Developer",
+		"skills": ["Solidity", "Web3", "JavaScript", "TypeScript", "React", "Ethereum", "Smart Contracts"],
+		"rating": 5.0,
+		"reviews": 523,
+		"completionRate": 100,
+		"hourlyRate": 50,
+		"location": {
+			"city": "San Francisco",
+			"country": "United States"
+		}
+	},
+	{
+		"npub": "npub1sophiechenexample",
+		"name": "Sophie Chen",
+		"about": "Professional translator and localization specialist with expertise in multiple languages. Specialized in technical documentation, marketing materials, and software localization. Native Mandarin speaker, fluent in English, Japanese, and Korean.",
+		"picture": "https://i.pravatar.cc/150?img=28",
+		"professionalTitle": "Translator & Localization Specialist",
+		"skills": ["Translation", "Localization", "Chinese", "Japanese", "Korean", "Technical Writing", "Proofreading"],
+		"rating": 4.8,
+		"reviews": 312,
+		"completionRate": 97,
+		"hourlyRate": 20,
+		"location": {
+			"city": "Shanghai",
+			"country": "China"
+		}
+	},
+	{
+		"npub": "npub1carlosrodriguezexample",
+		"name": "Carlos Rodriguez",
+		"about": "Experienced video editor and motion graphics artist. Specialized in corporate videos, promotional content, and social media videos. Expert in Adobe Premiere, After Effects, and DaVinci Resolve. Fast turnaround times without compromising quality.",
+		"picture": "https://i.pravatar.cc/150?img=15",
+		"professionalTitle": "Video Editor & Motion Graphics",
+		"skills": ["Video Editing", "Motion Graphics", "Adobe Premiere", "After Effects", "Color Grading", "Animation"],
+		"rating": 4.9,
+		"reviews": 678,
+		"completionRate": 99,
+		"hourlyRate": 30,
+		"location": {
+			"city": "Mexico City",
+			"country": "Mexico"
+		}
+	},
+	{
+		"npub": "npub1emilyjonesexample",
+		"name": "Emily Jones",
+		"about": "Content writer and copywriter specializing in tech, finance, and SaaS industries. I create engaging, SEO-optimized content that drives conversions. From blog posts to landing pages, I help businesses communicate their message effectively.",
+		"picture": "https://i.pravatar.cc/150?img=32",
+		"professionalTitle": "Content Writer & Copywriter",
+		"skills": ["Content Writing", "Copywriting", "SEO", "Blog Writing", "Technical Writing", "Marketing"],
+		"rating": 4.9,
+		"reviews": 456,
+		"completionRate": 98,
+		"hourlyRate": 28,
+		"location": {
+			"city": "London",
+			"country": "United Kingdom"
+		}
+	},
+	{
+		"npub": "npub1davidkim example",
+		"name": "David Kim",
+		"about": "Data scientist and machine learning engineer with expertise in Python, TensorFlow, and PyTorch. I help businesses leverage data to make informed decisions. Specialized in predictive modeling, NLP, and computer vision.",
+		"picture": "https://i.pravatar.cc/150?img=20",
+		"professionalTitle": "Data Scientist & ML Engineer",
+		"skills": ["Python", "Machine Learning", "TensorFlow", "PyTorch", "Data Analysis", "NLP", "Computer Vision"],
+		"rating": 5.0,
+		"reviews": 289,
+		"completionRate": 100,
+		"hourlyRate": 45,
+		"location": {
+			"city": "Seoul",
+			"country": "South Korea"
+		}
+	},
+	{
+		"npub": "npub1lisamartinezexample",
+		"name": "Lisa Martinez",
+		"about": "Professional photographer specializing in product photography, fashion, and lifestyle photography. I create stunning visuals that tell your brand's story. Expert in studio lighting, post-processing, and retouching.",
+		"picture": "https://i.pravatar.cc/150?img=24",
+		"professionalTitle": "Photographer",
+		"skills": ["Photography", "Photo Editing", "Lightroom", "Photoshop", "Product Photography", "Fashion Photography"],
+		"rating": 4.8,
+		"reviews": 567,
+		"completionRate": 96,
+		"hourlyRate": 40,
+		"location": {
+			"city": "Los Angeles",
+			"country": "United States"
+		}
+	}
+]

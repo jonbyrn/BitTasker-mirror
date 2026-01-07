@@ -236,7 +236,7 @@
 					<div class="text-center">
 						<span class="loading loading-spinner loading-lg mb-2"></span>
 						<p class="text-base-content/70 text-sm">
-							{$t('dashboard.bids.components.maps.task_location_map.loading_map')}
+							{$t('find_taskees.view.loading_map') || 'Loading map...'}
 						</p>
 					</div>
 				</div>
