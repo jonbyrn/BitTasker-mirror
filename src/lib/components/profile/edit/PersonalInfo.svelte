@@ -68,11 +68,10 @@
 
 	// Subscribe to profile updates
 	onMount(async () => {
-		isInitialLoading = true;
-
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
+					isInitialLoading = true;
 					// Handle profile metadata update
 					if (event.kind === KINDS.PROFILE_METADATA) {
 						const metadata = JSON.parse(event.content);
