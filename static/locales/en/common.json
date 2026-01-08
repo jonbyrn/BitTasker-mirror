@@ -448,6 +448,7 @@
                 "open_menu": "Open menu",
                 "npub_qr": {
                     "title": "Nostr Public Key",
+                    "share_profile_title": "Share Profile",
                     "npub_label": "Public Key (npub)",
                     "generating": "Generating QR code...",
                     "error": "Unable to load public key. Please ensure you are logged in."

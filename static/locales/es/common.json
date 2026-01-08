@@ -448,6 +448,7 @@
         "open_menu": "Abrir menú",
         "npub_qr": {
           "title": "Clave Pública de Nostr",
+          "share_profile_title": "Compartir Perfil",
           "npub_label": "Clave Pública (npub)",
           "generating": "Generando código QR...",
           "error": "No se pudo cargar la clave pública. Por favor, asegúrate de estar conectado."
