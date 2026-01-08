@@ -274,23 +274,25 @@
 		<!-- Task Title and Description -->
 		<div class="flex flex-col justify-between gap-2">
 			<div class="card-title line-clamp-1 text-lg flex items-center justify-between gap-2">
-				<button
-					class="hover:text-primary cursor-pointer text-left transition-colors flex-1 min-w-0"
-					onclick={(e) => {
-						e.stopPropagation();
-						// Use uniqueId if available, fallback to id for backward compatibility
-						const taskIdentifier = (task as any).uniqueId || task.id;
-						goto(`/tasks/${taskIdentifier}`);
-					}}
-				>
-					<TranslatableTask
-						{task}
-						showTitle={true}
-						showDescription={false}
-						showToggle={false}
-						titleClass="text-lg font-semibold"
-					/>
-				</button>
+				<div class="flex-1 min-w-0">
+					<button
+						class="hover:text-primary cursor-pointer text-left transition-colors inline-block"
+						onclick={(e) => {
+							e.stopPropagation();
+							// Use uniqueId if available, fallback to id for backward compatibility
+							const taskIdentifier = (task as any).uniqueId || task.id;
+							goto(`/tasks/${taskIdentifier}`);
+						}}
+					>
+						<TranslatableTask
+							{task}
+							showTitle={true}
+							showDescription={false}
+							showToggle={false}
+							titleClass="text-lg font-semibold"
+						/>
+					</button>
+				</div>
 				<!-- Share Button -->
 				<button
 					class="btn btn-ghost btn-sm btn-circle shrink-0 {shareSuccess ? 'btn-success' : ''}"
