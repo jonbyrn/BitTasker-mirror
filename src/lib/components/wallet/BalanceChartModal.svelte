@@ -23,6 +23,7 @@
 	import IconClose from '~icons/mdi/close';
 	import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, startOfYear, subYears, endOfYear, format } from 'date-fns';
 	import { formatStandardDate } from '$lib/utils/helpers/dateFormatter';
+	import { darkMode } from '$lib/stores/theme.store';
 
 	// Register Chart.js components
 	Chart.register(
@@ -258,12 +259,44 @@
 		}
 	});
 	
+	// React to theme changes to update chart colors
+	$effect(() => {
+		$darkMode; // Track theme changes
+		if (chartInstance) {
+			console.log('[BalanceChartModal] Theme changed, updating chart colors');
+			updateChartLabels();
+			chartInstance.update('none');
+		}
+	});
+	
+	// Helper function to get theme-aware colors
+	function getThemeColors() {
+		// Get the actual computed color from CSS variable
+		// This will automatically adapt to the current theme
+		const computedStyle = getComputedStyle(document.documentElement);
+		let textColor = computedStyle.getPropertyValue('--color-base-content').trim();
+		
+		// If CSS variable is empty or invalid, use fallback based on theme
+		if (!textColor || textColor === '') {
+			textColor = $darkMode ? '#ffffff' : '#1a1a1a';
+		}
+		
+		// For axis labels, use the same color as text (it will adapt to theme)
+		const axisTextColor = textColor;
+		
+		// Grid color should be subtle and theme-aware
+		const gridColor = $darkMode 
+			? 'rgba(255, 255, 255, 0.1)'
+			: 'rgba(0, 0, 0, 0.1)';
+		
+		return { textColor, axisTextColor, gridColor };
+	}
+	
 	function updateChartLabels() {
 		if (!chartInstance) return;
 		
-		// Get theme-aware text color for better visibility
-		const textColor = getComputedStyle(document.documentElement).getPropertyValue('--color-base-content').trim() || '#ffffff';
-		const axisTextColor = textColor === '#ffffff' || textColor === 'oklch(100% 0 0)' ? '#e5e5e5' : '#1a1a1a';
+		// Get theme-aware text colors
+		const { textColor, axisTextColor, gridColor } = getThemeColors();
 		
 		// Update axis labels
 		const dateAxisLabel = $t('wallet.balance_chart.chart.date_axis');
@@ -315,6 +348,14 @@
 			}
 		}
 		
+		// Update grid colors
+		if (scales?.x?.grid) {
+			scales.x.grid.color = gridColor;
+		}
+		if (scales?.y?.grid) {
+			scales.y.grid.color = gridColor;
+		}
+		
 		// Update legend colors
 		if (chartInstance.options.plugins?.legend?.labels) {
 			(chartInstance.options.plugins.legend.labels as any).color = textColor;
@@ -342,11 +383,8 @@
 
 		console.log('[BalanceChartModal] Creating chart instance...');
 		
-		// Get theme-aware text color for better visibility
-		const textColor = getComputedStyle(document.documentElement).getPropertyValue('--color-base-content').trim() || '#ffffff';
-		const mutedTextColor = getComputedStyle(document.documentElement).getPropertyValue('--color-base-content').trim() || '#ffffff';
-		// Use a slightly lighter/more visible color for axis labels
-		const axisTextColor = textColor === '#ffffff' || textColor === 'oklch(100% 0 0)' ? '#e5e5e5' : '#1a1a1a';
+		// Get theme-aware text colors
+		const { textColor, axisTextColor, gridColor } = getThemeColors();
 		
 		// Get translations for chart labels
 		const dateAxisLabel = $t('wallet.balance_chart.chart.date_axis');
@@ -440,7 +478,7 @@
 							}
 						},
 						grid: {
-							color: 'rgba(255, 255, 255, 0.1)'
+							color: gridColor
 						}
 					},
 					y: {
@@ -465,7 +503,7 @@
 							}
 						},
 						grid: {
-							color: 'rgba(255, 255, 255, 0.05)'
+							color: gridColor
 						}
 					},
 					y1: {
