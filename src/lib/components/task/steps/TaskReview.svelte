@@ -202,7 +202,7 @@
 				<h5 class="mb-3 text-base font-semibold text-base-content">{$t('task.description_label')}</h5>
 				<div class="bg-base-100 rounded-lg border border-base-300 p-4">
 					<div class="max-h-32 overflow-y-auto">
-						<p class="text-sm leading-relaxed text-base-content">{$store.task.description}</p>
+						<p class="text-sm leading-relaxed text-base-content whitespace-pre-line">{$store.task.description}</p>
 					</div>
 				</div>
 			</div>

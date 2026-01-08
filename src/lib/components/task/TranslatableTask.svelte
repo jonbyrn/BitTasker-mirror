@@ -11,7 +11,7 @@
     showDescription = true,
     showDescriptionToggle = true, // Controla si se muestra el botón de mostrar más/menos
     titleClass = "",
-    descriptionClass = "text-sm text-base-content/80 line-clamp-2"
+    descriptionClass = "text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
   } = $props<{ 
     task: Task; 
     showToggle?: boolean;

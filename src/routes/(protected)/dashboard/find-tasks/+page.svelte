@@ -801,7 +801,7 @@
 															{task}
 															showDescription={true}
 															showDescriptionToggle={false}
-															descriptionClass="text-sm text-base-content/80 line-clamp-2"
+															descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
 															titleClass="card-title line-clamp-2 text-lg font-semibold"
 														/>
 													</div>
