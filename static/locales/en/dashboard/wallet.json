@@ -852,6 +852,32 @@
       "buy_sell_info_3": "Transactions are processed by Changelly partners",
       "buy_sell_info_4": "Processing time: 5-30 minutes for digital assets, 1-3 business days for fiat",
       "buy_sell_info_5": "KYC verification may be required for larger amounts"
+    },
+    "balance_history": {
+      "error": "Failed to load balance history"
+    },
+    "balance_chart": {
+      "title": "Balance History",
+      "open_chart": "View balance history chart",
+      "date_range": "Date Range",
+      "last_7_days": "Last 7 Days",
+      "last_30_days": "Last 30 Days",
+      "this_month": "This Month",
+      "last_month": "Last Month",
+      "last_90_days": "Last 90 Days",
+      "year_to_date": "Year to Date",
+      "last_365_days": "Last 365 Days",
+      "last_year": "Last Year",
+      "no_data": "No data available for the selected date range",
+      "chart": {
+        "date_axis": "Date",
+        "usd_axis": "USD Value",
+        "sats_axis": "Sats",
+        "bitcoin_balance_label": "Bitcoin Balance (sats)",
+        "total_usd_label": "Total USD Value",
+        "tooltip_sats": "sats",
+        "tooltip_na": "N/A"
+      }
     }
   }
 }

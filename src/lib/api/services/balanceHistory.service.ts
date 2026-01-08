@@ -682,6 +682,128 @@ class HistoricalBalanceService {
 			console.error('[BalanceHistoryService] Error clearing old cache formats:', error);
 		}
 	}
+
+	/**
+	 * Get daily balance data for a date range
+	 * Returns array of daily balances with sats and USD values
+	 */
+	async getDailyBalances(
+		startDate: Date,
+		endDate: Date,
+		provider: ethers.Provider | null,
+		address: string | null,
+		currentSats: number = 0,
+		currentUsd: number = 0
+	): Promise<Array<{ date: Date; sats: number; usd: number }>> {
+		if (!provider || !address) {
+			return [];
+		}
+
+		const results: Array<{ date: Date; sats: number; usd: number }> = [];
+		const now = Date.now();
+		const endTimestamp = endDate.getTime();
+		const startTimestamp = startDate.getTime();
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		// Calculate number of days
+		const daysDiff = Math.ceil((endTimestamp - startTimestamp) / (24 * 60 * 60 * 1000));
+		
+		// Limit to reasonable number of days (max 365)
+		const maxDays = Math.min(daysDiff, 365);
+
+		// Get latest block for RPC fallback
+		const latestBlockPromise = this.getCachedLatestBlock(provider, 'rsk');
+
+		// Get current BTC price for today
+		let currentBtcPrice: number | null = null;
+		try {
+			currentBtcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.warn('[BalanceHistoryService] Failed to get current BTC price, will use provided USD value');
+		}
+
+		// Fetch balances for each day
+		const balancePromises: Promise<{ date: Date; sats: number; usd: number }>[] = [];
+		
+		for (let i = 0; i <= maxDays; i++) {
+			const targetDate = new Date(startTimestamp + i * 24 * 60 * 60 * 1000);
+			targetDate.setHours(0, 0, 0, 0);
+			const targetTimestamp = targetDate.getTime();
+			
+			// Skip future dates
+			if (targetTimestamp > now) {
+				continue;
+			}
+
+			// Check if this is today or in the future - use current balance
+			const isTodayOrFuture = targetTimestamp >= today.getTime();
+			
+			if (isTodayOrFuture) {
+				// Use current balance for today and future dates
+				const btcAmount = currentSats / 100_000_000;
+				const usd = currentBtcPrice ? btcAmount * currentBtcPrice : currentUsd;
+				balancePromises.push(Promise.resolve({ date: targetDate, sats: currentSats, usd }));
+				continue;
+			}
+
+			// Get end of day timestamp for this date
+			const endOfDayTimestamp = new Date(targetDate);
+			endOfDayTimestamp.setHours(23, 59, 59, 999);
+			const targetEndOfDay = endOfDayTimestamp.getTime();
+
+			balancePromises.push(
+				(async () => {
+					try {
+						// Get block number for this day
+						const blockNumber = await this.getBlockNumberAtTimestamp(
+							provider,
+							targetEndOfDay,
+							'rsk',
+							latestBlockPromise || undefined
+						);
+
+						if (!blockNumber) {
+							// If we can't get block number, return zero balance for this day
+							// This ensures we still have data points for all days
+							return { date: targetDate, sats: 0, usd: 0 };
+						}
+
+						// Get balance at this block
+						const balanceWei = await provider.getBalance(address, blockNumber);
+						const sats = Number(balanceWei / BigInt(10_000_000_000));
+
+						// Get historical price for this day
+						const daysAgo = Math.floor((now - targetEndOfDay) / (24 * 60 * 60 * 1000));
+						const btcPrice = await this.fetchHistoricalPrice(daysAgo);
+						
+						// Calculate USD value
+						const btcAmount = sats / 100_000_000;
+						const usd = btcPrice ? btcAmount * btcPrice : 0;
+
+						return { date: targetDate, sats, usd };
+					} catch (error) {
+						console.error(`[BalanceHistoryService] Error fetching balance for ${targetDate.toISOString()}:`, error);
+						// Return zero balance instead of failing - ensures we have data points
+						return { date: targetDate, sats: 0, usd: 0 };
+					}
+				})()
+			);
+		}
+
+		// Fetch all balances in parallel (but limit concurrency to avoid overwhelming the API)
+		const batchSize = 10;
+		for (let i = 0; i < balancePromises.length; i += batchSize) {
+			const batch = balancePromises.slice(i, i + batchSize);
+			const batchResults = await Promise.all(batch);
+			results.push(...batchResults);
+		}
+
+		// Sort by date
+		results.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+		return results;
+	}
 }
 
 // Export singleton instance

@@ -8,8 +8,12 @@
 	import { t } from 'svelte-i18n';
 	import { walletStore, totalBalances, formatSats } from '$lib/stores/wallet.store';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
+	import BalanceChartModal from './BalanceChartModal.svelte';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 
 	let { balancesHidden } = $props<{ balancesHidden: boolean }>();
+
+	let showChartModal = $state(false);
 
 	/**
 	 * Create a reactive promise that updates when totalBalances changes
@@ -83,7 +87,23 @@
 </script>
 
 <!-- Historical Balance Indicators Card -->
-<div class="border-2 border-primary rounded-lg bg-base-100">
+<div 
+	class="border-2 border-primary rounded-lg bg-base-100 cursor-pointer hover:bg-base-200 transition-colors"
+	onclick={() => {
+		triggerHaptic(ImpactStyle.Light);
+		showChartModal = true;
+	}}
+	role="button"
+	tabindex="0"
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			triggerHaptic(ImpactStyle.Light);
+			showChartModal = true;
+		}
+	}}
+	aria-label={$t('wallet.balance_chart.open_chart')}
+>
 	<div class="py-3 px-4">
 		<div class="grid grid-cols-3 gap-2 text-sm">
 			{#await balanceChangesPromise}
@@ -140,3 +160,6 @@
 		</div>
 	</div>
 </div>
+
+<!-- Balance Chart Modal -->
+<BalanceChartModal isOpen={showChartModal} onClose={() => showChartModal = false} />
