@@ -90,7 +90,12 @@
       "visit_project": "Ver Proyecto",
       "message_sent_successfully": "¡Mensaje enviado exitosamente!",
       "message_required": "Por favor ingresa un mensaje",
-      "message_send_error": "Error al enviar el mensaje. Por favor intenta de nuevo."
+      "message_send_error": "Error al enviar el mensaje. Por favor intenta de nuevo.",
+      "signup_to_hire": "Regístrate para Contratar",
+      "invalid_npub": "Identificador de perfil inválido",
+      "invalid_npub_format": "Formato de identificador de perfil inválido",
+      "failed_to_load": "Error al cargar el perfil",
+      "no_profile_data": "No se encontraron datos de perfil para este usuario"
     },
     "cta_title": "¿Listo para empezar?",
     "cta_description": "Únete a BitTasker hoy y experimenta una mejor manera de encontrar trabajo o contratar a taskees calificados. Nuestra plataforma impulsada por Bitcoin hace que las transacciones sean seguras, sin fronteras y eficientes.",

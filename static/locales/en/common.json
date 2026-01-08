@@ -90,7 +90,12 @@
             "visit_project": "Visit Project",
             "message_sent_successfully": "Message sent successfully!",
             "message_required": "Please enter a message",
-            "message_send_error": "Failed to send message. Please try again."
+            "message_send_error": "Failed to send message. Please try again.",
+            "signup_to_hire": "Signup to Hire",
+            "invalid_npub": "Invalid profile identifier",
+            "invalid_npub_format": "Invalid profile identifier format",
+            "failed_to_load": "Failed to load profile",
+            "no_profile_data": "No profile data found for this user"
         },
         "cta_title": "Ready to Get Started?",
         "cta_description": "Join BitTasker today and experience a better way to find work or hire skilled taskees. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.",

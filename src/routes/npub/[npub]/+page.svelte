@@ -7,6 +7,7 @@
 	import { t, locale } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
 	import type { ProfileTranslations } from '$lib/types/profile.d';
+	import { authState } from '$lib/stores/auth.store';
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
@@ -132,6 +133,7 @@
 		pictures?: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
 		website?: string;
 		professionalTitle?: string;
+		location?: string; // General location (city, country or city, state)
 		translations?: ProfileTranslations;
 		skills?: Array<
 			| string
@@ -286,9 +288,15 @@
 			// Hacer la petición para obtener el perfil completo
 			const profile = await fetchComprehensiveProfile(hexPubkey);
 
+			// Check if profile is empty (no name and no data)
+			if (!profile || (!profile.name && !profile.about && !profile.picture)) {
+				profileError = $t('common.profile.no_profile_data');
+			}
+
 			userProfile = profile;
 		} catch (error) {
 			profileError = error instanceof Error ? error.message : $t('common.profile.failed_to_load');
+			userProfile = null;
 		} finally {
 			loadingProfile = false;
 		}
@@ -559,7 +567,7 @@
 			</div>
 		</div>
 	{:else}
-		<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0">
+		<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0 {$authState.isAuthenticated ? 'pb-24' : 'pb-8'}">
 			<!-- Botón de regresar -->
 			<div class="mb-4">
 				<button
@@ -651,6 +659,25 @@
 												<span>{$t('common.profile.member_since')} {formatMonthYear(userProfile.createdAt)}</span>
 											</div>
 										{/if}
+										{#if userProfile?.location}
+											<div class="flex items-center gap-2">
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+													/>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+													/>
+												</svg>
+												<span>{userProfile.location}</span>
+											</div>
+										{/if}
 										{#if userProfile?.website}
 											<a
 												href={userProfile.website}
@@ -673,28 +700,34 @@
 
 									<!-- Botones de acción rápida -->
 									<div class="flex flex-wrap justify-center gap-3 md:hidden lg:justify-start">
-										<button class="btn btn-primary btn-sm" onclick={openMessageModal}>
-											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-												/>
-											</svg>
-											{$t('common.profile.send_message')}
-										</button>
-										<button class="btn btn-outline btn-sm" onclick={goToChat}>
-											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-												/>
-											</svg>
-											{$t('common.profile.go_to_chat')}
-										</button>
+										{#if $authState.isAuthenticated}
+											<button class="btn btn-primary btn-sm" onclick={openMessageModal}>
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+													/>
+												</svg>
+												{$t('common.profile.send_message')}
+											</button>
+											<button class="btn btn-outline btn-sm" onclick={goToChat}>
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+													/>
+												</svg>
+												{$t('common.profile.go_to_chat')}
+											</button>
+										{:else}
+											<button class="btn btn-primary btn-sm" onclick={() => goto('/auth/signup')}>
+												{$t('common.profile.signup_to_hire')}
+											</button>
+										{/if}
 									</div>
 								</div>
 							</div>
@@ -990,28 +1023,34 @@
 							<div class="card-body p-3">
 								<p class="mb-2 text-xl font-bold">{$t('common.profile.quick_actions')}</p>
 								<div class="space-y-3">
-									<button class="btn btn-primary btn-sm w-full" onclick={openMessageModal}>
-										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-											/>
-										</svg>
-										{$t('common.profile.send_message')}
-									</button>
-									<button class="btn btn-outline btn-sm w-full" onclick={goToChat}>
-										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-											/>
-										</svg>
-										{$t('common.profile.go_to_chat')}
-									</button>
+									{#if $authState.isAuthenticated}
+										<button class="btn btn-primary btn-sm w-full" onclick={openMessageModal}>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+												/>
+											</svg>
+											{$t('common.profile.send_message')}
+										</button>
+										<button class="btn btn-outline btn-sm w-full" onclick={goToChat}>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+												/>
+											</svg>
+											{$t('common.profile.go_to_chat')}
+										</button>
+									{:else}
+										<button class="btn btn-primary btn-sm w-full" onclick={() => goto('/auth/signup')}>
+											{$t('common.profile.signup_to_hire')}
+										</button>
+									{/if}
 								</div>
 							</div>
 						</div>
