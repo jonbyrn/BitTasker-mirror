@@ -20,6 +20,13 @@
 	// BTC to USD conversion state
 	let usdAmount = $state<number>(0);
 	let btcPrice = $state<number>(0);
+	
+	// Reactive calculation of sats from usdAmount and btcPrice
+	let sats = $derived(
+		formatNumberForInput(
+			btcPrice > 0 ? Math.round((usdAmount / btcPrice) * SATS_PER_BTC) : 0
+		)
+	);
 
 	// File upload state
 	let isUploading = $state(false);
@@ -53,10 +60,9 @@
 	}
 
 	function handleUsdChange(event: Event) {
-		let input = cleanInput((event.target as HTMLInputElement).value);
-		(event.target as HTMLInputElement).value = input;
-
+		const input = cleanInput((event.target as HTMLInputElement).value);
 		const usdValue = parseFloat(input.replace(/,/g, ''));
+		
 		if (!isNaN(usdValue)) {
 			store.updateTask({
 				budget: { 
@@ -79,10 +85,9 @@
 	}
 
 	function handleSatsChange(event: Event) {
-		let input = cleanInput((event.target as HTMLInputElement).value);
-		(event.target as HTMLInputElement).value = input;
-
+		const input = cleanInput((event.target as HTMLInputElement).value);
 		const satsValue = parseInt(input.replace(/,/g, ''), 10);
+		
 		if (!isNaN(satsValue) && btcPrice > 0) {
 			// Convert sats to USD
 			const usdValue = (satsValue / SATS_PER_BTC) * btcPrice;
@@ -94,7 +99,7 @@
 				}
 			});
 			usdAmount = usdValue;
-		} else {
+		} else if (!isNaN(satsValue) && satsValue === 0) {
 			store.updateTask({ 
 				budget: { 
 					...$store.task.budget, 
@@ -386,7 +391,6 @@
 					id="budget-usd"
 					value={formatNumberForInput(usdAmount)}
 					onchange={handleUsdChange}
-					oninput={handleUsdChange}
 					class="input input-bordered w-full pl-7 {errors.budget ? 'input-error' : ''}"
 					placeholder={$t('task.usd_placeholder')}
 					min="0"
@@ -399,9 +403,8 @@
 				<input
 					type="text"
 					id="budget-btc"
-					value={formatNumberForInput(btcPrice > 0 ? Math.round((usdAmount / btcPrice) * SATS_PER_BTC) : 0)}
+					value={sats}
 					onchange={handleSatsChange}
-					oninput={handleSatsChange}
 					class="input input-bordered w-full pr-12 {errors.budget ? 'input-error' : ''}"
 					placeholder={$t('task.sats_placeholder')}
 					min="0"
@@ -456,9 +459,6 @@
 			id="description"
 			value={$store.task.description}
 			onchange={(e) => {
-				store.updateTask({ description: (e.target as HTMLTextAreaElement).value });
-			}}
-			oninput={(e) => {
 				store.updateTask({ description: (e.target as HTMLTextAreaElement).value });
 			}}
 			class="textarea textarea-bordered h-32 w-full rounded-xl {errors.description
