@@ -4,7 +4,6 @@
 	import { deleteTask } from '$lib/nostr/task';
 	import { taskStore } from '$lib/stores/task.store';
 	import { myTasksStore } from '$lib/stores/task.store';
-	import { format } from 'date-fns';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -12,7 +11,7 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import { formatStandardDate, formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDate, formatStandardDateShort, formatStandardDateTime, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { fade, scale } from 'svelte/transition';
 	import { getContracts } from '$lib/utils/nostr-contract';
@@ -37,10 +36,12 @@
 	let canDelete = $state(true); // Default to true, will be checked
 	let isCheckingDelete = $state(false);
 
-	const formatDateString = (date: string | number): string => {
+	// Helper function to format date string with time (for timestamps like createdAt)
+	function formatDateStringWithTime(date: string | number): string {
 		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
-		return format(dateObj, 'M/d/yyyy, haaa');
-	};
+		if (!dateObj || isNaN(dateObj.getTime())) return '';
+		return formatStandardDateTime(dateObj, $locale || 'en');
+	}
 
 	// Helper function to detect video files
 	function isVideoFile(url: string): boolean {
@@ -411,8 +412,8 @@
 					{$t('dashboard.task_details_by_task.date_range')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDateShort(new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDateShort(
-						new Date(task.dateRange.end),
+					{formatStandardDate(parseDateToLocalMidnight(task.dateRange.start) || new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDate(
+						parseDateToLocalMidnight(task.dateRange.end) || new Date(task.dateRange.end),
 						$locale || 'en'
 					)}
 				</p>
@@ -423,7 +424,7 @@
 			<small class="text-base-content/60 text-sm"
 				>{$t('dashboard.task_details_by_task.posted')}</small
 			>
-			<p class="font-semibold">{formatDateString(task.createdAt)}</p>
+			<p class="font-semibold">{formatDateStringWithTime(task.createdAt)}</p>
 		</div>
 	</div>
 
