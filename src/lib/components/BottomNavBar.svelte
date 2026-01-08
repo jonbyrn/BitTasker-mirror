@@ -281,7 +281,7 @@
 <!-- Sliding Menu Overlay - Behind the navigation -->
 {#if isMenuOpen || isMenuClosing}
 	<div
-		class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-40 rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
+		class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-[45] rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
 		style="bottom: 64px; max-height: 52rem; overflow: hidden;"
 		class:menu-expand={isMenuExpanding && !isMenuClosing}
 		class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
