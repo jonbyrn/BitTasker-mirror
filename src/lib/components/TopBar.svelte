@@ -101,6 +101,8 @@
 
 	// Toggle dropdown section
 	function toggleSection(sectionId: string) {
+		// If clicking the same section that's already open, close it
+		// Otherwise, open the clicked section
 		openSectionId = openSectionId === sectionId ? null : sectionId;
 	}
 
@@ -164,10 +166,16 @@
 
 <!-- Snippet for rendering a menu section with manual dropdown (logged in) -->
 {#snippet menuSection(section: MenuSection)}
-	<li class="relative" use:clickOutside={{ callback: () => closeDropdowns() }}>
+	{@const buttonId = `menu-button-${section.id}`}
+	<li class="relative">
 		<button
+			id={buttonId}
 			class="btn btn-ghost flex items-center gap-2 hover:shadow-none"
-			onclick={() => toggleSection(section.id)}
+			onclick={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				toggleSection(section.id);
+			}}
 			aria-expanded={openSectionId === section.id}
 			aria-haspopup="true"
 		>
@@ -178,13 +186,22 @@
 			/>
 		</button>
 		{#if openSectionId === section.id}
-			<ul
-				class="menu dropdown-content bg-base-100 rounded-box absolute left-0 z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
+			<div
+				class="absolute left-0 top-full"
+				use:clickOutside={{
+					callback: () => closeDropdowns(),
+					exclude: `#${buttonId}`
+				}}
 			>
-				{#each section.items as item}
-					{@render menuItem(item)}
-				{/each}
-			</ul>
+				<ul
+					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
+					onclick={(e) => e.stopPropagation()}
+				>
+					{#each section.items as item}
+						{@render menuItem(item)}
+					{/each}
+				</ul>
+			</div>
 		{/if}
 	</li>
 {/snippet}
