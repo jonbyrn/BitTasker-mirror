@@ -582,7 +582,7 @@
 					tension: 0.4,
 					yAxisID: 'y',
 					order: 1,
-					pointRadius: 3,
+					pointRadius: 0,
 					pointHoverRadius: 5
 				}
 			]
