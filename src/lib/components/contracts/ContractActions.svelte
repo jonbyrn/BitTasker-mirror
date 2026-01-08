@@ -991,7 +991,7 @@
 
 	<!-- Resolve After Timelock -->
 	{#if contract.permissions.canResolveTimelock}
-		<div class="col-span-2 space-y-3 rounded-lg {!isInline ? 'bg-base-300 p-3' : ''}">
+		<div class="{isInline ? 'w-full sm:w-auto' : 'col-span-2'} space-y-3 rounded-lg {!isInline ? 'bg-base-300 p-3' : ''}">
 			{#if !isInline}
 				<h5 class="text-sm font-medium">
 					{$t('dashboard.contracts.actions.timelock_resolution')}

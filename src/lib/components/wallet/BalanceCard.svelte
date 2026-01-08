@@ -15,6 +15,7 @@
 	import IconEyeOff from '~icons/mdi/eye-off';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 
 	const { isLoading = false } = $props();
 
@@ -79,6 +80,9 @@
 		triggerHaptic(ImpactStyle.Light);
 		isRefreshing = true;
 		try {
+			// Clear balance history cache before refreshing to ensure fresh data
+			balanceHistoryService.clearCaches();
+			
 			await walletManager.loadAssets();
 			appStore.showSuccessToast($t('wallet.balance_refreshed'));
 		} catch (error) {

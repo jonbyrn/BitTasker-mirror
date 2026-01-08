@@ -841,6 +841,32 @@
             "description": "USDT en la red Liquid"
           }
         }
+    },
+    "balance_history": {
+      "error": "Error al cargar el historial de saldo"
+    },
+    "balance_chart": {
+      "title": "Historial de Saldo",
+      "open_chart": "Ver gráfico de historial de saldo",
+      "date_range": "Rango de Fechas",
+      "last_7_days": "Últimos 7 Días",
+      "last_30_days": "Últimos 30 Días",
+      "this_month": "Este Mes",
+      "last_month": "Mes Pasado",
+      "last_90_days": "Últimos 90 Días",
+      "year_to_date": "Año hasta la Fecha",
+      "last_365_days": "Últimos 365 Días",
+      "last_year": "Año Pasado",
+      "no_data": "No hay datos disponibles para el rango de fechas seleccionado",
+      "chart": {
+        "date_axis": "Fecha",
+        "usd_axis": "Valor en USD",
+        "sats_axis": "Sats",
+        "bitcoin_balance_label": "Saldo de Bitcoin (sats)",
+        "total_usd_label": "Valor Total en USD",
+        "tooltip_sats": "sats",
+        "tooltip_na": "N/D"
+      }
     }
   }
 }

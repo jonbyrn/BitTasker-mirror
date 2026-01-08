@@ -31,6 +31,9 @@
 	const shouldHideFooterForLoggedInTaskPage = $derived(
 		$authState.isAuthenticated && currentPath.match(/^\/tasks\/[^/]+$/)
 	);
+	const shouldHideFooterForLoggedInNpubPage = $derived(
+		$authState.isAuthenticated && currentPath.match(/^\/npub\/[^/]+$/)
+	);
 
 	// Generate breadcrumbs from current path
 	const breadcrumbList = $derived.by(() => {
@@ -159,7 +162,7 @@
 			</div>
 		{/if}
 	</div>
-	{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage}
+	{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage}
 		{#if !$authState.isAuthenticated}
 			<!-- Section 7: Final Call to Action (CTA) -->
 			<section class="bg-primary text-primary-content py-16">

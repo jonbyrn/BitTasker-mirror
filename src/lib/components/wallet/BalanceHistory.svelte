@@ -8,8 +8,12 @@
 	import { t } from 'svelte-i18n';
 	import { walletStore, totalBalances, formatSats } from '$lib/stores/wallet.store';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
+	import BalanceChartModal from './BalanceChartModal.svelte';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 
 	let { balancesHidden } = $props<{ balancesHidden: boolean }>();
+
+	let showChartModal = $state(false);
 
 	/**
 	 * Create a reactive promise that updates when totalBalances changes
@@ -34,37 +38,72 @@
 
 		const sats = satsChange;
 		const usd = usdChange;
-		const isZero = sats === 0 && usd === 0;
-		const isBelowThreshold = Math.abs(usd) < 0.01;
-		const isNeutral = isZero || isBelowThreshold;
-		const isPositive = sats > 0 && !isNeutral;
+		
+		// Check if sats is neutral (zero or effectively zero)
+		const satsIsZero = sats === 0;
+		const satsIsNeutral = satsIsZero;
+		
+		// Check if USD is neutral (zero or below threshold)
+		const usdIsZero = usd === 0;
+		const usdIsBelowThreshold = Math.abs(usd) < 0.01;
+		const usdIsNeutral = usdIsZero || usdIsBelowThreshold;
 
 		const formattedUsd = new Intl.NumberFormat('en-US', {
 			minimumFractionDigits: 2,
 			maximumFractionDigits: 2
 		}).format(Math.abs(usd));
 
-		const satsDisplay = isNeutral
+		const satsDisplay = satsIsNeutral
 			? `${formatSats(Math.abs(sats))}`
 			: sats > 0
 				? `+${formatSats(Math.abs(sats))}`
 				: `-${formatSats(Math.abs(sats))}`;
 
-		const usdDisplay = isNeutral ? `$${formattedUsd}` : usd > 0 ? `+$${formattedUsd}` : `-$${formattedUsd}`;
+		const usdDisplay = usdIsNeutral ? `$${formattedUsd}` : usd > 0 ? `+$${formattedUsd}` : `-$${formattedUsd}`;
+
+		// Determine color for sats independently
+		const satsColorClass = satsIsNeutral 
+			? 'text-base-content/70'  // Match label color for neutral
+			: sats > 0 
+				? 'text-success' 
+				: 'text-error';
+
+		// Determine color for USD independently
+		const usdColorClass = usdIsNeutral 
+			? 'text-base-content/70'  // Match label color for neutral
+			: usd > 0 
+				? 'text-success/80' 
+				: 'text-error/80';
 
 		return {
 			satsDisplay,
 			usdDisplay,
-			isNeutral,
-			isPositive,
-			colorClass: isNeutral ? 'text-base-content' : isPositive ? 'text-success' : 'text-error',
-			usdColorClass: isNeutral ? 'text-base-content/70' : isPositive ? 'text-success/80' : 'text-error/80'
+			satsIsNeutral,
+			usdIsNeutral,
+			satsColorClass,
+			usdColorClass
 		};
 	}
 </script>
 
 <!-- Historical Balance Indicators Card -->
-<div class="border-2 border-primary rounded-lg bg-base-100">
+<div 
+	class="border-2 border-primary rounded-lg bg-base-100 cursor-pointer hover:bg-base-200 transition-colors"
+	onclick={() => {
+		triggerHaptic(ImpactStyle.Light);
+		showChartModal = true;
+	}}
+	role="button"
+	tabindex="0"
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			triggerHaptic(ImpactStyle.Light);
+			showChartModal = true;
+		}
+	}}
+	aria-label={$t('wallet.balance_chart.open_chart')}
+>
 	<div class="py-3 px-4">
 		<div class="grid grid-cols-3 gap-2 text-sm">
 			{#await balanceChangesPromise}
@@ -101,7 +140,7 @@
 						{:else}
 							{@const formatted = formatBalanceChange(change.satsChange, change.usdChange)}
 							{#if formatted}
-								<div class="font-semibold {formatted.colorClass}">
+								<div class="font-semibold {formatted.satsColorClass}">
 									{formatted.satsDisplay}
 									{$t('wallet.sats')}
 								</div>
@@ -121,3 +160,6 @@
 		</div>
 	</div>
 </div>
+
+<!-- Balance Chart Modal -->
+<BalanceChartModal isOpen={showChartModal} onClose={() => showChartModal = false} />

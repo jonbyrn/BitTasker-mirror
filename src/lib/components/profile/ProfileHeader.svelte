@@ -6,6 +6,7 @@
 	import { t, locale } from 'svelte-i18n';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
+	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
@@ -34,6 +35,9 @@
 		// Fallback to original
 		return originalText;
 	}
+
+	// Control share modal visibility
+	let showShareModal = $state(false);
 
 	// Initialize user store when component mounts
 	onMount(async () => {
@@ -115,39 +119,14 @@
 		}
 	});
 
-	// Handle share functionality
-	const handleShare = async () => {
-		if (!$profileStore.data) return;
-		
-		const link = shareLink();
-		if (!link) return;
+	// Handle share functionality - open share modal
+	function handleShare() {
+		showShareModal = true;
+	}
 
-		const text = shareText();
-		const displayName = shareDisplayName();
-		const title = `${displayName} - ${$t('profile.page.share_title')}`;
-
-		if (navigator.share) {
-			try {
-				await navigator.share({
-					title: title,
-					text: text,
-					url: link
-				});
-			} catch (error) {
-				// User cancelled sharing or error occurred
-				console.log('Share cancelled or failed:', error);
-			}
-		} else {
-			// Fallback: copy to clipboard with full message
-			try {
-				const fullMessage = `${text}\n\n${link}`;
-				await navigator.clipboard.writeText(fullMessage);
-				// You could add a toast notification here
-			} catch (error) {
-				console.error('Failed to copy link:', error);
-			}
-		}
-	};
+	function closeShareModal() {
+		showShareModal = false;
+	}
 </script>
 
 <!-- Profile Header -->
@@ -290,3 +269,6 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Share Profile Modal -->
+<NpubQrCodeModal isOpen={showShareModal} onClose={closeShareModal} />

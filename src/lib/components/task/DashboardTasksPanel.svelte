@@ -585,7 +585,6 @@
 						{btcPrice}
 						{activeFilter}
 						{getActionButtons}
-						onclick={() => openTaskDrawer(task, 'details')}
 					/>
 				{/each}
 			</div>

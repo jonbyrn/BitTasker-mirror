@@ -179,7 +179,7 @@
 										<TranslatableTask 
 											{task} 
 											titleClass="card-title text-base line-clamp-2"
-											descriptionClass="text-sm text-base-content/80 line-clamp-2"
+											descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
 										/>
 									</div>
 									<div class="text-right">

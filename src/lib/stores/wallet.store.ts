@@ -309,6 +309,13 @@ async function loadAssets(): Promise<void> {
 
 		// Process RSK assets
 		if (rskBalanceData) {
+			// Use integer arithmetic for sats calculation to match historical balance calculation
+			// Convert Wei directly to sats: 1 RBTC = 10^18 Wei, 1 BTC = 10^8 sats
+			// So: sats = Wei / 10^10
+			const balanceWei = BigInt(rskBalanceData.balance.toString());
+			const rbtcBalanceSats = Number(balanceWei / BigInt(10_000_000_000));
+			
+			// Keep formatted balance for display and USD calculations
 			const rbtcBalance = parseFloat(rskBalanceData.formatted);
 			totalRbtc += rbtcBalance;
 			const rbtcUsdValue = rbtcBalance * rbtcPrice;
@@ -387,8 +394,13 @@ async function loadAssets(): Promise<void> {
 			}
 		}
 
-		// Calculate total sats (RBTC to sats)
-		const totalSats = Math.floor(totalRbtc * 100_000_000);
+		// Calculate total sats using integer arithmetic to match historical balance calculation
+		// This ensures consistency between current and historical balance calculations
+		let totalSats = 0;
+		if (rskBalanceData) {
+			const balanceWei = BigInt(rskBalanceData.balance.toString());
+			totalSats = Number(balanceWei / BigInt(10_000_000_000));
+		}
 
 		// Update store with assets and totals
 		walletStore.update(s => ({

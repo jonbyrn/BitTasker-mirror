@@ -126,6 +126,8 @@
 		"buffer": "^6.0.3",
 		"capacitor-native-biometric": "^4.2.2",
 		"capacitor-webauthn": "^0.0.12",
+		"chart.js": "^4.5.1",
+		"chartjs-adapter-date-fns": "^3.0.0",
 		"crypto-browserify": "^3.12.1",
 		"date-fns": "^4.1.0",
 		"ecpair": "^3.0.0",

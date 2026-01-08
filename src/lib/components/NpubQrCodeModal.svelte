@@ -4,6 +4,8 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import { getNpub } from '$lib/utils/nostrKeys';
+	import { appStore } from '$lib/stores/app.store';
+	import IconClose from '~icons/mdi/close';
 
 	let {
 		isOpen,
@@ -17,8 +19,9 @@
 	let qrCodeDataUrl = $state('');
 	let isGeneratingQr = $state(false);
 	let isLoadingNpub = $state(false);
-	let copySuccess = $state(false);
-	let lastNpub = $state('');
+	let shareSuccess = $state(false);
+	let profileUrl = $state('');
+	let lastProfileUrl = $state('');
 
 	// Load npub when modal opens
 	$effect(() => {
@@ -27,12 +30,24 @@
 		}
 	});
 
-	// Generate QR code when modal opens and npub is loaded
+	// Generate profile URL and QR code when modal opens and npub is loaded
 	$effect(() => {
 		if (isOpen && npub) {
-			if (npub !== lastNpub || !qrCodeDataUrl) {
-				lastNpub = npub;
-				generateQrCode();
+			// Build profile URL with UTM parameters
+			if (typeof window !== 'undefined') {
+				const baseUrl = `${window.location.origin}/npub/${npub}`;
+				const utmParams = new URLSearchParams({
+					utm_source: 'bittasker.com',
+					utm_medium: 'qrcode',
+					utm_campaign: 'profile_qrcode'
+				});
+				const newProfileUrl = `${baseUrl}?${utmParams.toString()}`;
+				
+				if (newProfileUrl !== lastProfileUrl || !qrCodeDataUrl) {
+					profileUrl = newProfileUrl;
+					lastProfileUrl = newProfileUrl;
+					generateQrCode();
+				}
 			}
 		}
 	});
@@ -43,8 +58,9 @@
 			// Reset state when modal closes to ensure fresh data on next open
 			npub = '';
 			qrCodeDataUrl = '';
-			lastNpub = '';
-			copySuccess = false;
+			profileUrl = '';
+			lastProfileUrl = '';
+			shareSuccess = false;
 			isGeneratingQr = false;
 			isLoadingNpub = false;
 		}
@@ -74,36 +90,70 @@
 	}
 
 	async function generateQrCode() {
-		if (!npub) return;
+		if (!profileUrl) return;
 		
-		// Only regenerate if npub changed or QR code doesn't exist
-		if (qrCodeDataUrl && npub === lastNpub) {
+		// Only regenerate if profile URL changed or QR code doesn't exist
+		if (qrCodeDataUrl && profileUrl === lastProfileUrl) {
 			return;
 		}
 		
 		isGeneratingQr = true;
 		try {
-			qrCodeDataUrl = await generateQrCodeUrl(npub);
+			qrCodeDataUrl = await generateQrCodeUrl(profileUrl);
 		} catch (err) {
-			console.error('Failed to generate npub QR code:', err);
+			console.error('Failed to generate profile QR code:', err);
 		} finally {
 			isGeneratingQr = false;
 		}
 	}
 
-	async function copyNpub() {
-		if (npub) {
+	// Handle share functionality (similar to task details page)
+	const handleShare = async () => {
+		if (!profileUrl) return;
+
+		if (navigator.share) {
 			try {
-				await copyToClipboard(npub);
-				copySuccess = true;
+				const shareData: ShareData = {
+					title: 'My BitTasker Profile',
+					text: 'Check out my profile on BitTasker',
+					url: profileUrl
+				};
+
+				await navigator.share(shareData);
+				shareSuccess = true;
+				appStore.showSuccessToast($t('dashboard.task_details_by_task.share_success') || 'Profile shared successfully!');
 				setTimeout(() => {
-					copySuccess = false;
+					shareSuccess = false;
 				}, 2000);
-			} catch (err) {
-				console.error('Failed to copy npub:', err);
+			} catch (error) {
+				// User cancelled sharing or error occurred
+				if ((error as Error).name !== 'AbortError') {
+					console.log('Share cancelled or failed:', error);
+					// Fallback to copy link if share fails
+					const success = await copyToClipboard(profileUrl);
+					if (success) {
+						shareSuccess = true;
+						appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
+						setTimeout(() => {
+							shareSuccess = false;
+						}, 2000);
+					}
+				}
+			}
+		} else {
+			// Fallback: copy to clipboard
+			const success = await copyToClipboard(profileUrl);
+			if (success) {
+				shareSuccess = true;
+				appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
+				setTimeout(() => {
+					shareSuccess = false;
+				}, 2000);
+			} else {
+				appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
 			}
 		}
-	}
+	};
 </script>
 
 <!-- NPub QR Code Modal -->
@@ -115,26 +165,13 @@
 			<div class="flex flex-col flex-1 min-h-0">
 				<!-- Header -->
 				<div class="flex items-center justify-between p-4 border-b border-base-300 shrink-0">
-					<h3 class="text-lg font-bold">{$t('common.components.topbar.npub_qr.title')}</h3>
+					<h3 class="text-lg font-bold">{$t('common.components.topbar.npub_qr.share_profile_title')}</h3>
 					<button
 						class="btn btn-sm btn-circle btn-ghost"
 						onclick={onClose}
 						aria-label={$t('common.close')}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
+						<IconClose class="h-5 w-5" />
 					</button>
 				</div>
 
@@ -150,74 +187,69 @@
 							<span class="loading loading-spinner loading-lg"></span>
 							<p class="text-base-content/70">{$t('common.components.topbar.npub_qr.generating')}</p>
 						</div>
-					{:else if npub}
+					{:else if npub && profileUrl}
 						<div class="w-full max-w-md rounded-lg bg-white p-4 shadow-xl">
 							<img
 								src={qrCodeDataUrl}
-								alt="Nostr Public Key QR Code"
+								alt="Profile QR Code"
 								class="w-full aspect-square"
 							/>
 						</div>
 
-						<!-- NPub Address with Copy Button -->
-						<div class="w-full max-w-md mt-6">
-							<label class="label" for="npub-display">
-								<span class="label-text font-semibold"
-									>{$t('common.components.topbar.npub_qr.npub_label')}</span
-								>
-							</label>
-							<div class="flex gap-2">
-								<input
-									type="text"
-									readonly
-									value={npub}
-									id="npub-display"
-									class="input input-bordered bg-base-200 flex-1 font-mono text-sm"
-								/>
-								<button
-									class="btn btn-square btn-outline"
-									onclick={copyNpub}
-									disabled={!npub}
-								>
-									{#if copySuccess}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="text-success h-5 w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M5 13l4 4L19 7"
-											/>
-										</svg>
-									{:else}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-5 w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-											/>
-										</svg>
-									{/if}
-								</button>
-							</div>
-						</div>
+						<!-- Action Buttons -->
+						<div class="flex flex-col gap-2 w-full max-w-md mt-8 sm:flex-row-reverse">
+							<!-- Share Button -->
+							<button
+								class="btn btn-primary btn-sm min-h-[40px] flex-1 transition-all duration-200 {shareSuccess
+									? 'btn-success'
+									: ''}"
+								onclick={handleShare}
+								title={$t('dashboard.task_details_by_task.share_task')}
+							>
+								{#if shareSuccess}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="mr-1 h-4 w-4 shrink-0"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="mr-1 h-4 w-4 shrink-0"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
+										/>
+									</svg>
+								{/if}
+								{$t('dashboard.task_details_by_task.share')}
+							</button>
 
-						<!-- Close Button -->
-						<button class="btn btn-primary mt-8" onclick={onClose}>
-							{$t('common.close')}
-						</button>
+							<!-- Close Button -->
+							<button
+								class="btn btn-error btn-sm min-h-[40px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex-none"
+								style="-webkit-tap-highlight-color: transparent;"
+								onclick={onClose}
+							>
+								<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+								<span class="text-sm sm:text-base">{$t('common.close')}</span>
+							</button>
+						</div>
 					{:else}
 						<div class="alert alert-error">
 							<span>{$t('common.components.topbar.npub_qr.error')}</span>

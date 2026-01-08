@@ -19,8 +19,10 @@ export interface BalanceChange {
 	usdPercentChange: number | null;
 }
 
-interface CacheEntry {
-	data: BalanceChange[];
+interface HistoricalDataCache {
+	historicalBalances: Array<number>;
+	historicalPrices: Array<number | null>;
+	blockNumbers: Array<number | null>;
 	timestamp: number;
 	expiresAt: number; // Next day boundary (00:00 UTC)
 }
@@ -45,6 +47,7 @@ class HistoricalBalanceService {
 	private latestBlockCache: Map<string, { block: ethers.Block | null; timestamp: number }> = new Map();
 	private historicalPricesCache: Map<string, number> = new Map();
 	private bscIndexingUnavailable = true; // BSC historical data not implemented yet
+	private oldCacheFormatsCleared = false; // Track if we've cleared old cache formats
 
 	// Periods to calculate
 	private readonly periods: Period[] = [
@@ -67,41 +70,90 @@ class HistoricalBalanceService {
 			return this.getEmptyBalanceChanges();
 		}
 
-		// Check cache first
-		const cacheKey = this.getCacheKey(address);
-		const cached = this.getCachedData(cacheKey);
-		if (cached) {
-			console.log('[BalanceHistoryService] Returning cached balance changes');
-			return cached;
+		// Clear old cache formats on first use (one-time migration)
+		// This ensures old cache formats are removed immediately
+		if (!this.oldCacheFormatsCleared) {
+			this.clearOldCacheFormats();
+			this.oldCacheFormatsCleared = true;
 		}
 
-		// Fetch fresh data
+		const now = Date.now();
+		const cacheKey = this.getCacheKey(address);
+		
+		// Also check and clear old format for this specific cache key
+		// This handles cases where the cache key might have been created before the migration
+		this.clearOldCacheFormatForKey(cacheKey);
+		
+		// Check cache for historical data (not calculated changes)
+		let historicalBalances: Array<number> | null = null;
+		let historicalPrices: Array<number | null> | null = null;
+		let blockNumbers: Array<number | null> | null = null;
+		
+		const cachedHistoricalData = this.getCachedHistoricalData(cacheKey);
+		if (cachedHistoricalData) {
+			console.log('[BalanceHistoryService] Using cached historical data, recalculating changes with current balance');
+			historicalBalances = cachedHistoricalData.historicalBalances;
+			historicalPrices = cachedHistoricalData.historicalPrices;
+			blockNumbers = cachedHistoricalData.blockNumbers;
+		} else {
+			// Fetch fresh historical data
+			try {
+				// Pre-fetch all historical data in parallel
+				const prefetched = await this.prefetchHistoricalData(
+					this.periods,
+					now,
+					provider
+				);
+				historicalPrices = prefetched.historicalPrices;
+				blockNumbers = prefetched.blockNumbers;
+
+				// Pre-fetch all historical balances in parallel
+				historicalBalances = await this.prefetchHistoricalBalances(
+					blockNumbers,
+					provider,
+					address
+				);
+
+				// Cache historical data (not calculated changes)
+				if (historicalBalances && historicalPrices && blockNumbers) {
+					this.setCachedHistoricalData(cacheKey, {
+						historicalBalances,
+						historicalPrices,
+						blockNumbers,
+						timestamp: now,
+						expiresAt: this.getNextDayBoundary()
+					});
+				}
+			} catch (error) {
+				console.error('[BalanceHistoryService] Error fetching historical data:', error);
+				return this.getEmptyBalanceChanges();
+			}
+		}
+
+		// Validate we have the required data
+		if (!historicalBalances || !historicalPrices || !blockNumbers) {
+			console.error('[BalanceHistoryService] Missing required historical data');
+			return this.getEmptyBalanceChanges();
+		}
+
+		// Validate array lengths match expected periods
+		if (historicalBalances.length !== this.periods.length || 
+		    historicalPrices.length !== this.periods.length || 
+		    blockNumbers.length !== this.periods.length) {
+			console.error('[BalanceHistoryService] Historical data array length mismatch');
+			return this.getEmptyBalanceChanges();
+		}
+
+		// Always recalculate changes using current balance (even with cached historical data)
 		try {
-			const now = Date.now();
-			
-			// Pre-fetch all historical data in parallel
-			const { historicalPrices, blockNumbers } = await this.prefetchHistoricalData(
-				this.periods,
-				now,
-				provider
-			);
-
-			// Pre-fetch all historical balances in parallel
-			const historicalBalances = await this.prefetchHistoricalBalances(
-				blockNumbers,
-				provider,
-				address
-			);
-
-			// Calculate comparisons for all periods
 			const results = await Promise.all(
 				this.periods.map(async (period, index) => {
 					try {
-						const targetTimestamp = now - period.hours * 60 * 60 * 1000; // Convert hours to milliseconds
+						const targetTimestamp = now - period.hours * 60 * 60 * 1000;
 						const historicalBalanceSats = historicalBalances[index];
 						const historicalPrice = historicalPrices[index];
 
-						if (historicalBalanceSats === null || historicalPrice === null) {
+						if (historicalBalanceSats === undefined || historicalPrice === null) {
 							return this.getEmptyBalanceChange(period.label);
 						}
 
@@ -120,12 +172,9 @@ class HistoricalBalanceService {
 				})
 			);
 
-			// Cache results with daily expiration
-			this.setCachedData(cacheKey, results);
-
 			return results;
 		} catch (error) {
-			console.error('[BalanceHistoryService] Error fetching balance changes:', error);
+			console.error('[BalanceHistoryService] Error calculating balance changes:', error);
 			return this.getEmptyBalanceChanges();
 		}
 	}
@@ -405,13 +454,17 @@ class HistoricalBalanceService {
 			if (!rskProvider || !rskAddress || blockNumber === null) {
 				return Promise.resolve(0);
 			}
-			return rskProvider
-				.getBalance(rskAddress, blockNumber)
-				.then((balanceWei) => {
-					const balanceRBTC = parseFloat(ethers.formatEther(balanceWei));
-					return Math.floor(balanceRBTC * 100_000_000);
-				})
-				.catch(() => 0);
+		return rskProvider
+			.getBalance(rskAddress, blockNumber)
+			.then((balanceWei) => {
+				// Convert Wei directly to sats using integer arithmetic to avoid floating point precision issues
+				// 1 RBTC = 10^18 Wei, 1 BTC = 10^8 sats
+				// So: sats = (Wei * 10^8) / 10^18 = Wei / 10^10
+				// balanceWei is already a bigint from ethers, so use it directly
+				const satsBigInt = balanceWei / BigInt(10_000_000_000);
+				return Number(satsBigInt);
+			})
+			.catch(() => 0);
 		});
 
 		return await Promise.all(balancePromises);
@@ -464,19 +517,59 @@ class HistoricalBalanceService {
 	}
 
 	/**
-	 * Get cached data from localStorage
+	 * Get next day boundary (00:00 UTC) as timestamp
 	 */
-	private getCachedData(cacheKey: string): BalanceChange[] | null {
+	private getNextDayBoundary(): number {
+		const now = new Date();
+		const tomorrow = new Date(now);
+		tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+		tomorrow.setUTCHours(0, 0, 0, 0);
+		return tomorrow.getTime();
+	}
+
+	/**
+	 * Get cached historical data from localStorage
+	 */
+	private getCachedHistoricalData(cacheKey: string): HistoricalDataCache | null {
 		try {
 			const cached = localStorage.getItem(cacheKey);
 			if (!cached) return null;
 
-			const entry: CacheEntry = JSON.parse(cached);
+			const entry = JSON.parse(cached);
 			const now = Date.now();
 
+			// Check if this is the old cache format (has 'data' property with BalanceChange[])
+			// If so, clear it and return null to force fresh fetch
+			if (entry.data && Array.isArray(entry.data)) {
+				// Check if it looks like old format (BalanceChange array)
+				if (entry.data.length > 0 && entry.data[0] && typeof entry.data[0] === 'object' && 'satsChange' in entry.data[0]) {
+					console.log('[BalanceHistoryService] Detected old cache format, clearing');
+					localStorage.removeItem(cacheKey);
+					return null;
+				}
+			}
+
+			// Validate new cache format - must have all required properties
+			if (!entry.historicalBalances || !Array.isArray(entry.historicalBalances) ||
+			    !entry.historicalPrices || !Array.isArray(entry.historicalPrices) ||
+			    !entry.blockNumbers || !Array.isArray(entry.blockNumbers)) {
+				console.log('[BalanceHistoryService] Invalid cache format (missing required arrays), clearing');
+				localStorage.removeItem(cacheKey);
+				return null;
+			}
+
+			// Validate array lengths match expected periods
+			if (entry.historicalBalances.length !== this.periods.length ||
+			    entry.historicalPrices.length !== this.periods.length ||
+			    entry.blockNumbers.length !== this.periods.length) {
+				console.log('[BalanceHistoryService] Cache array length mismatch, clearing');
+				localStorage.removeItem(cacheKey);
+				return null;
+			}
+
 			// Check if cache is still valid
-			if (now < entry.expiresAt) {
-				return entry.data;
+			if (entry.expiresAt && now < entry.expiresAt) {
+				return entry as HistoricalDataCache;
 			}
 
 			// Cache expired, remove it
@@ -484,28 +577,22 @@ class HistoricalBalanceService {
 			return null;
 		} catch (error) {
 			console.error('[BalanceHistoryService] Error reading cache:', error);
+			// Clear potentially corrupted cache
+			try {
+				localStorage.removeItem(cacheKey);
+			} catch {
+				// Ignore errors when clearing
+			}
 			return null;
 		}
 	}
 
 	/**
-	 * Set cached data in localStorage with daily expiration
+	 * Set cached historical data in localStorage with daily expiration
 	 */
-	private setCachedData(cacheKey: string, data: BalanceChange[]): void {
+	private setCachedHistoricalData(cacheKey: string, data: HistoricalDataCache): void {
 		try {
-			// Calculate next day boundary (00:00 UTC)
-			const now = new Date();
-			const tomorrow = new Date(now);
-			tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-			tomorrow.setUTCHours(0, 0, 0, 0);
-
-			const entry: CacheEntry = {
-				data,
-				timestamp: Date.now(),
-				expiresAt: tomorrow.getTime()
-			};
-
-			localStorage.setItem(cacheKey, JSON.stringify(entry));
+			localStorage.setItem(cacheKey, JSON.stringify(data));
 		} catch (error) {
 			console.error('[BalanceHistoryService] Error writing cache:', error);
 		}
@@ -550,6 +637,172 @@ class HistoricalBalanceService {
 		} catch (error) {
 			console.error('[BalanceHistoryService] Error clearing localStorage cache:', error);
 		}
+	}
+
+	/**
+	 * Clear old cache format for a specific cache key
+	 */
+	private clearOldCacheFormatForKey(cacheKey: string): void {
+		try {
+			const cached = localStorage.getItem(cacheKey);
+			if (!cached) return;
+
+			const entry = JSON.parse(cached);
+			
+			// Check if this is the old format (has 'data' property with BalanceChange[])
+			if (entry.data && Array.isArray(entry.data)) {
+				if (entry.data.length > 0 && entry.data[0] && typeof entry.data[0] === 'object' && 'satsChange' in entry.data[0]) {
+					console.log('[BalanceHistoryService] Clearing old cache format for key:', cacheKey);
+					localStorage.removeItem(cacheKey);
+				}
+			}
+		} catch (error) {
+			// If parsing fails, remove the cache entry
+			try {
+				localStorage.removeItem(cacheKey);
+			} catch {
+				// Ignore errors when clearing
+			}
+		}
+	}
+
+	/**
+	 * Clear old cache formats (migration helper)
+	 * Call this once to migrate from old cache format to new format
+	 */
+	clearOldCacheFormats(): void {
+		try {
+			const keys = Object.keys(localStorage);
+			keys.forEach((key) => {
+				if (key.startsWith(CACHE_KEY_PREFIX)) {
+					this.clearOldCacheFormatForKey(key);
+				}
+			});
+		} catch (error) {
+			console.error('[BalanceHistoryService] Error clearing old cache formats:', error);
+		}
+	}
+
+	/**
+	 * Get daily balance data for a date range
+	 * Returns array of daily balances with sats and USD values
+	 */
+	async getDailyBalances(
+		startDate: Date,
+		endDate: Date,
+		provider: ethers.Provider | null,
+		address: string | null,
+		currentSats: number = 0,
+		currentUsd: number = 0
+	): Promise<Array<{ date: Date; sats: number; usd: number }>> {
+		if (!provider || !address) {
+			return [];
+		}
+
+		const results: Array<{ date: Date; sats: number; usd: number }> = [];
+		const now = Date.now();
+		const endTimestamp = endDate.getTime();
+		const startTimestamp = startDate.getTime();
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		// Calculate number of days
+		const daysDiff = Math.ceil((endTimestamp - startTimestamp) / (24 * 60 * 60 * 1000));
+		
+		// Limit to reasonable number of days (max 365)
+		const maxDays = Math.min(daysDiff, 365);
+
+		// Get latest block for RPC fallback
+		const latestBlockPromise = this.getCachedLatestBlock(provider, 'rsk');
+
+		// Get current BTC price for today
+		let currentBtcPrice: number | null = null;
+		try {
+			currentBtcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.warn('[BalanceHistoryService] Failed to get current BTC price, will use provided USD value');
+		}
+
+		// Fetch balances for each day
+		const balancePromises: Promise<{ date: Date; sats: number; usd: number }>[] = [];
+		
+		for (let i = 0; i <= maxDays; i++) {
+			const targetDate = new Date(startTimestamp + i * 24 * 60 * 60 * 1000);
+			targetDate.setHours(0, 0, 0, 0);
+			const targetTimestamp = targetDate.getTime();
+			
+			// Skip future dates
+			if (targetTimestamp > now) {
+				continue;
+			}
+
+			// Check if this is today or in the future - use current balance
+			const isTodayOrFuture = targetTimestamp >= today.getTime();
+			
+			if (isTodayOrFuture) {
+				// Use current balance for today and future dates
+				const btcAmount = currentSats / 100_000_000;
+				const usd = currentBtcPrice ? btcAmount * currentBtcPrice : currentUsd;
+				balancePromises.push(Promise.resolve({ date: targetDate, sats: currentSats, usd }));
+				continue;
+			}
+
+			// Get end of day timestamp for this date
+			const endOfDayTimestamp = new Date(targetDate);
+			endOfDayTimestamp.setHours(23, 59, 59, 999);
+			const targetEndOfDay = endOfDayTimestamp.getTime();
+
+			balancePromises.push(
+				(async () => {
+					try {
+						// Get block number for this day
+						const blockNumber = await this.getBlockNumberAtTimestamp(
+							provider,
+							targetEndOfDay,
+							'rsk',
+							latestBlockPromise || undefined
+						);
+
+						if (!blockNumber) {
+							// If we can't get block number, return zero balance for this day
+							// This ensures we still have data points for all days
+							return { date: targetDate, sats: 0, usd: 0 };
+						}
+
+						// Get balance at this block
+						const balanceWei = await provider.getBalance(address, blockNumber);
+						const sats = Number(balanceWei / BigInt(10_000_000_000));
+
+						// Get historical price for this day
+						const daysAgo = Math.floor((now - targetEndOfDay) / (24 * 60 * 60 * 1000));
+						const btcPrice = await this.fetchHistoricalPrice(daysAgo);
+						
+						// Calculate USD value
+						const btcAmount = sats / 100_000_000;
+						const usd = btcPrice ? btcAmount * btcPrice : 0;
+
+						return { date: targetDate, sats, usd };
+					} catch (error) {
+						console.error(`[BalanceHistoryService] Error fetching balance for ${targetDate.toISOString()}:`, error);
+						// Return zero balance instead of failing - ensures we have data points
+						return { date: targetDate, sats: 0, usd: 0 };
+					}
+				})()
+			);
+		}
+
+		// Fetch all balances in parallel (but limit concurrency to avoid overwhelming the API)
+		const batchSize = 10;
+		for (let i = 0; i < balancePromises.length; i += batchSize) {
+			const batch = balancePromises.slice(i, i + batchSize);
+			const batchResults = await Promise.all(batch);
+			results.push(...batchResults);
+		}
+
+		// Sort by date
+		results.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+		return results;
 	}
 }
 

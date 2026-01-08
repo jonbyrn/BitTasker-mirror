@@ -179,7 +179,7 @@
 						{/if}
 					</div>
 
-					<p class="line-clamp-2 text-sm">{item.task.description}</p>
+					<p class="line-clamp-2 text-sm whitespace-pre-line">{item.task.description}</p>
 
 					<div class="mt-2 flex items-center justify-between">
 						<div class="badge badge-outline">

@@ -13,7 +13,7 @@
 	import IconWhatsapp from '~icons/mdi/whatsapp';
 </script>
 
-<footer class="bg-base-300 text-base-content/70 py-12">
+<footer class="bg-base-300 text-base-content/70 py-12 pb-24 md:pb-32 lg:pb-12">
 	<div class="container mx-auto px-4">
 		<div class="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
 			<!-- Company Info -->
@@ -22,7 +22,7 @@
 				<p class="mb-4">{$t('footer.company_description')}</p>
 				<!-- Social media icons -->
 				<div class="flex flex-col space-y-6 lg:space-y-2">
-					<!-- First row: Primal, Twitter, Facebook, Instagram, YouTube -->
+					<!-- First row: Primal, Twitter, WhatsApp, Telegram, Facebook, Instagram -->
 					<div
 						class="md:col-span3 col-span-2 flex justify-center space-x-8 lg:col-span-1 lg:justify-start lg:space-x-4"
 					>
@@ -72,6 +72,28 @@
 							</svg>
 						</a>
 						<a
+							href="https://chat.whatsapp.com/GorZMOrVhOb0KDX6dpKLZ2"
+							class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label={$t('footer.social.whatsapp_aria')}
+						>
+							<IconWhatsapp
+								class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+							/>
+						</a>
+						<a
+							href="https://t.me/+Y1VVB5B1Z6Q5OGQ1"
+							class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label={$t('footer.social.telegram_aria')}
+						>
+							<IconTelegram
+								class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
+							/>
+						</a>
+						<a
 							href="https://www.facebook.com/BitTaskerdotcom/"
 							class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 							target="_blank"
@@ -93,6 +115,9 @@
 								class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
 							/>
 						</a>
+					</div>
+					<!-- Second row: YouTube, LinkedIn, Reddit, TikTok, Rumble, GitHub -->
+					<div class="flex justify-center space-x-8 lg:justify-start lg:space-x-4">
 						<a
 							href="https://www.youtube.com/@BitTasker"
 							class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
@@ -104,9 +129,6 @@
 								class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
 							/>
 						</a>
-					</div>
-					<!-- Second row: LinkedIn, Reddit, TikTok, Rumble, GitHub -->
-					<div class="flex justify-center space-x-8 lg:justify-start lg:space-x-4">
 						<a
 							href="https://www.linkedin.com/company/bittasker/"
 							class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
@@ -157,31 +179,6 @@
 							aria-label="GitHub"
 						>
 							<IconGithub
-								class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
-							/>
-						</a>
-					</div>
-					<!-- Third row: Telegram, WhatsApp -->
-					<div class="flex justify-center space-x-8 lg:justify-start lg:space-x-4">
-						<a
-							href="https://t.me/+Y1VVB5B1Z6Q5OGQ1"
-							class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-							target="_blank"
-							rel="noopener noreferrer"
-							aria-label={$t('footer.social.telegram_aria')}
-						>
-							<IconTelegram
-								class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
-							/>
-						</a>
-						<a
-							href="https://chat.whatsapp.com/GorZMOrVhOb0KDX6dpKLZ2"
-							class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
-							target="_blank"
-							rel="noopener noreferrer"
-							aria-label={$t('footer.social.whatsapp_aria')}
-						>
-							<IconWhatsapp
 								class="h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6"
 							/>
 						</a>

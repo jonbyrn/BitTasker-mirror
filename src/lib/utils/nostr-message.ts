@@ -407,6 +407,20 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	createdAt?: string;
 }> {
 	try {
+		// Ensure pubkey is in hex format (not npub)
+		let hexPubkey = pubkey;
+		if (pubkey.startsWith('npub')) {
+			try {
+				const decoded = nip19.decode(pubkey);
+				if (decoded.type === 'npub') {
+					hexPubkey = decoded.data as string;
+				}
+			} catch (e) {
+				console.error('Failed to decode npub:', e);
+				throw new Error('Invalid npub format');
+			}
+		}
+
 		// Fetch all profile-related events
 		const pool = getPool();
 		const filter: Filter = {
@@ -420,7 +434,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 				KINDS.PROFILE_AVAILABILITY, // Availability (30002)
 				KINDS.PROFILE_REVIEWS // Reviews (30004)
 			],
-			authors: [pubkey],
+			authors: [hexPubkey],
 			limit: 50
 		};
 
@@ -435,6 +449,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 			pictures: [],
 			website: '',
 			professionalTitle: '',
+			location: '',
 			skills: [],
 			portfolio: [],
 			availability: {
@@ -475,6 +490,16 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 						// PROFILE_METADATA has priority over PROFILE_IMAGES
 						if (content.picture) {
 							profileData.picture = content.picture;
+						}
+						if (content.location) {
+							// Location can be a string (city, country or city, state) or an object
+							if (typeof content.location === 'string') {
+								profileData.location = content.location;
+							} else if (content.location.city && content.location.country) {
+								profileData.location = `${content.location.city}, ${content.location.country}`;
+							} else if (content.location.city && content.location.state) {
+								profileData.location = `${content.location.city}, ${content.location.state}`;
+							}
 						}
 						if (event.created_at) {
 							profileData.createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
@@ -575,7 +600,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 		return profileData;
 	} catch (error) {
 		console.error('💥 Failed to fetch comprehensive profile for', pubkey, ':', error);
-		return {};
+		// Return a more informative error structure
+		throw error;
 	}
 }
 
