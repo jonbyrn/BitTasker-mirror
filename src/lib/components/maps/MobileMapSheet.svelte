@@ -179,7 +179,7 @@
 										<TranslatableTask 
 											{task} 
 											titleClass="card-title text-base line-clamp-2"
-											descriptionClass="text-sm text-base-content/80 line-clamp-2"
+											descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
 										/>
 									</div>
 									<div class="text-right">
@@ -210,7 +210,7 @@
 									>
 										{$t('dashboard.bids.components.maps.mobile_map_sheet.bid_now')}
 									</button>
-									<a class="btn btn-secondary btn-sm flex-1" href={`/dashboard/task/${task.id}`}
+									<a class="btn btn-secondary btn-sm flex-1" href={`/tasks/${(task as any).uniqueId || task.id}`}
 										>{$t('dashboard.bids.components.maps.mobile_map_sheet.view_task')}</a
 									>
 								</div>

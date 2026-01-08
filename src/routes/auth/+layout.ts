@@ -4,13 +4,12 @@ import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { CheckOnboardingStatusStore } from '$houdini';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { isCaptchaVerified } from '$lib/stores/auth.store';
+import { authState, isCaptchaVerified } from '$lib/stores/auth.store';
+import { Preferences } from '@capacitor/preferences';
 
 export const load: LayoutLoad = async ({ url }) => {
 	if (!browser) return;
 
-	// Dynamically import Preferences only in the browser
-	const { Preferences } = await import('@capacitor/preferences');
 	const token = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
 	// If user is logged in and not in onboarding, redirect to dashboard
@@ -29,11 +28,8 @@ export const load: LayoutLoad = async ({ url }) => {
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {
-			// TODO: Temporary fix until proper cleanup of resources is implemented - After logout or invalid access token
-			Preferences.remove({ key: StorageKeys.NPUB})
-			if (!get(isCaptchaVerified)) {
-				redirect(303, '/auth/signup');
-			}
+			await authState.logout();
+			if (!get(isCaptchaVerified)) redirect(303, '/auth/signup');
 		}
 	}
 };

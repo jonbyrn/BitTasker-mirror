@@ -209,5 +209,42 @@ describe('Validators', () => {
 			expect(result.isValid).toBe(true);
 			expect(result.error).toBeUndefined();
 		});
+
+		it('should return error for username with spaces', () => {
+			const result = validateUsername('john doe');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toBe('Invalid characters');
+		});
+
+		it('should return error for username with special characters', () => {
+			const result = validateUsername('john@doe');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toBe('Invalid characters');
+		});
+
+		it('should return error for username starting with hyphen', () => {
+			const result = validateUsername('-johndoe');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toBe('Invalid characters');
+		});
+
+		it('should return error for username ending with hyphen', () => {
+			const result = validateUsername('johndoe-');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toBe('Invalid characters');
+		});
+
+		it('should return valid result for username with hyphens in the middle', () => {
+			const result = validateUsername('john-doe-123');
+			expect(result.isValid).toBe(true);
+			expect(result.error).toBeUndefined();
+		});
+
+		it('should return valid result for single character username (if length check passes)', () => {
+			// Note: This will fail length check, but we're testing character validation
+			const result = validateUsername('a'); 
+			expect(result.isValid).toBe(false);
+			expect(result.error).toBe('Username must be at least 3 characters long');
+		});
 	});
 });

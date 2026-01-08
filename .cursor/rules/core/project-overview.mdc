@@ -167,7 +167,6 @@ src/
 │   ├── [...path]/      # Catch-all route for dynamic paths
 │   ├── 404/            # Error page handling
 │   ├── auth/           # Authentication flows (login, signup, recovery)
-│   ├── firebase-config.json/ # Firebase configuration endpoint
 │   ├── tasks/          # Task management and viewing
 │   └── verify-email/   # Email verification process
 └── stories/           # Storybook component stories

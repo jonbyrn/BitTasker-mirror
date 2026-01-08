@@ -11,20 +11,51 @@
             "savingsTitle": "¡Ahorra dinero mientras usas BitTasker!",
             "savingsDescription": "Nuestro sistema de niveles recompensa a los taskers activos con comisiones cada vez más bajas.",
             "label": "Comisión",
+            "usdtLabel": "Tarifa con USDT",
             "tier1": {
                 "title": "Nakamoto<br />Principiante",
                 "description": "Para taskers que publican y completan de 0 a 3 tareas en los últimos 30 días",
-                "example": "Ejemplo: Por una tarea de $100, pagarás un total de $112.50 (más $0.05-$0.10 en comisiones de red, no pagadas a BitTasker)."
+                "example": "Ejemplo: Por una tarea de $100, pagarás un total de $112.50 (más $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).",
+                "bitcoin": {
+                    "label": "Tarifa con Bitcoin",
+                    "rate": "2.5%",
+                    "example": "Bitcoin: Por una tarea de $100, pagarás un total de $102.50 (más ~$0.01 en comisiones de red de Bitcoin, no pagadas a BitTasker)."
+                },
+                "usdt": {
+                    "label": "Tarifa con USDT",
+                    "rate": "3%",
+                    "example": "USDT: Por una tarea de $100, pagarás un total de $103 (más ~$0.01-$0.02 en comisiones de red de USDT, no pagadas a BitTasker)."
+                }
             },
             "tier2": {
                 "title": "Satoshi<br />Acumulador",
                 "description": "Para taskers que publican y completan de 4 a 10 tareas en los últimos 30 días",
-                "example": "Ejemplo: Por una tarea de $100, pagarás un total de $110 (más $0.05-$0.10 en comisiones de red, no pagadas a BitTasker)."
+                "example": "Ejemplo: Por una tarea de $100, pagarás un total de $110 (más $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).",
+                "bitcoin": {
+                    "label": "Tarifa con Bitcoin",
+                    "rate": "2%",
+                    "example": "Bitcoin: Por una tarea de $100, pagarás un total de $102 (más ~$0.01 en comisiones de red de Bitcoin, no pagadas a BitTasker)."
+                },
+                "usdt": {
+                    "label": "Tarifa con USDT",
+                    "rate": "2.5%",
+                    "example": "USDT: Por una tarea de $100, pagarás un total de $102.50 (más ~$0.01-$0.02 en comisiones de red de USDT, no pagadas a BitTasker)."
+                }
             },
             "tier3": {
                 "title": "Hash<br />Master",
                 "description": "Para nuestros taskers más activos que publican y completan 11+ tareas en los últimos 30 días",
-                "example": "Ejemplo: Por una tarea de $100, pagarás un total de $107.50 (más $0.05-$0.10 en comisiones de red, no pagadas a BitTasker)."
+                "example": "Ejemplo: Por una tarea de $100, pagarás un total de $107.50 (más $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).",
+                "bitcoin": {
+                    "label": "Tarifa con Bitcoin",
+                    "rate": "1.5%",
+                    "example": "Bitcoin: Por una tarea de $100, pagarás un total de $101.50 (más ~$0.01 en comisiones de red de Bitcoin, no pagadas a BitTasker)."
+                },
+                "usdt": {
+                    "label": "Tarifa con USDT",
+                    "rate": "2%",
+                    "example": "USDT: Por una tarea de $100, pagarás un total de $102 (más ~$0.01-$0.02 en comisiones de red de USDT, no pagadas a BitTasker)."
+                }
             },
             "btc": {
                 "title": "Pagos con Bitcoin: Comisiones más bajas, el mismo gran servicio",

@@ -1074,7 +1074,6 @@ src/lib/api/
 ├── apiService.ts     # Base API service class
 ├── axios.ts          # Axios instance configuration
 ├── services          # Domain-specific services
-│   ├── bid.service.ts # Bid-specific service
 │   ├── task.service.ts # Task-specific service
 │   ├── user.service.ts # User-specific service
 │   └── [other services] # Domain-specific services

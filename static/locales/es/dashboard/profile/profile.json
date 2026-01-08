@@ -78,6 +78,9 @@
             "images_desc": "Requerido • La primera imagen será la principal",
             "delete_confirm": "¿Estás seguro de que quieres eliminar este proyecto?",
             "completion_date": "Fecha de Finalización",
+            "project_link": "Enlace del Proyecto",
+            "project_link_placeholder": "https://ejemplo.com",
+            "visit_project": "Ver Proyecto",
             "skills_used": "Habilidades Utilizadas",
             "add_images": "Agregar Imágenes",
             "save": "Guardar Proyecto",
@@ -135,6 +138,11 @@
             "title": "Mi Perfil",
             "description": "Gestiona tu información y configuración de perfil",
             "edit_profile": "Editar Perfil",
+            "share": "Compartir",
+            "share_profile": "Compartir este perfil",
+            "share_title": "Perfil de BitTasker",
+            "share_message": "¡Hola! Soy {name}\n\n{description}\n\n¡Échale un vistazo a mi perfil y trabajemos juntos!",
+            "share_message_no_desc": "¡Hola! Soy {name}\n\n¡Échale un vistazo a mi perfil y trabajemos juntos!",
             "logout_profile": "Cerrar sesión",
             "completion": "Completado del Perfil",
             "completion_desc": "Completa tu perfil para aumentar la visibilidad y confianza",
@@ -149,7 +157,8 @@
                 "availability": "Disponibilidad",
                 "services": "Servicios Estándar",
                 "error": "Error al cargar los datos del perfil. Por favor, inténtalo de nuevo más tarde."
-            }
+            },
+            "profile_updated": "¡Perfil actualizado exitosamente!"
         },
         "tabs": {
             "overview": "Resumen",

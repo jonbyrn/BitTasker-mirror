@@ -1,20 +1,21 @@
 <script lang="ts">
-	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { Attachment } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
-	import UserProfile from '$lib/components/UserNostrBadge.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
+	import { fetchContractProfile, type ContractProfile } from '$lib/utils/nostr-profile';
+	import {
+		getStatusColorClass,
+		getStatusTranslationKey
+	} from '$lib/utils/helpers/contractStatusFormatter';
+	import { contractStore } from '$lib/stores/contract.store';
+	import UserNostrBadge from '../UserNostrBadge.svelte';
 
-	const { contract, isOpen, btcPrice, onClose, onUpdate } = $props<{
-		contract: ContractWithEvents | null;
-		isOpen: boolean;
+	const { btcPrice } = $props<{
 		btcPrice: number;
-		onClose: () => void;
-		onUpdate: () => void;
 	}>();
 
 	// Technical details toggle state
@@ -91,374 +92,384 @@
 		});
 	}
 
-	// Handle action completion
-	function handleActionComplete() {
-		onUpdate();
-	}
-
-	/**
-	 * Get status badge color classes based on task status
-	 */
-	export function getStatusColorClass(status: string): string {
-		switch (status.toLowerCase()) {
-			case 'cancelled':
-				return 'badge-error'; // Red
-			case 'active':
-			case 'in_progress':
-			case 'funded':
-				return 'badge-info'; // Blue
-			case 'completed':
-			case 'resolved':
-				return 'badge-success'; // Green
-			case 'disputed':
-			case 'in_dispute':
-				return 'badge-warning'; // Yellow
-			default:
-				return 'badge-ghost';
-		}
-	}
-
 	const getAvailableActionsCount = () => {
+		if (!$contractStore.contract) return 0;
 		let count = 0;
-		if (contract.canComplete) count++;
-		if (contract.canAccept) count++;
-		if (contract.canDispute) count++;
-		if (contract.canPropose) count++;
-		if (contract.canAcceptProposal) count++;
-		if (contract.canCancel) count++;
-		if (contract.canResolveTimelock) count++;
+		if ($contractStore.contract.permissions.canComplete) count++;
+		if ($contractStore.contract.permissions.canAccept) count++;
+		if ($contractStore.contract.permissions.canDispute) count++;
+		if ($contractStore.contract.permissions.canPropose) count++;
+		if ($contractStore.contract.permissions.canAcceptProposal) count++;
+		if ($contractStore.contract.permissions.canCancel) count++;
+		if ($contractStore.contract.permissions.canResolveTimelock) count++;
 		return count;
 	};
 </script>
 
 <Drawer
-	{isOpen}
-	title={contract?.contract?.taskTitle}
-	{onClose}
+	isOpen={$contractStore.isDrawerOpen}
+	title={$contractStore.contract
+		? contractStore.getContractKey($contractStore.contract, 'taskTitle')
+		: ''}
+	onClose={() => {
+		$contractStore.contract = null;
+		$contractStore.isDrawerOpen = false;
+	}}
 	position="right"
 	isScrollable={true}
 >
 	{#snippet children()}
-		<!-- Header with badges -->
-		<div class="mb-6 flex items-center gap-2">
-			<div class="badge {getStatusColorClass(contract.contract.status)}">
-				{$t(`dashboard.contracts.status.${contract.contract.status}`)}
-			</div>
-			<div class="badge {contract.isClient ? 'badge-primary' : 'badge-secondary'}">
-				{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
-			</div>
-		</div>
-
-		<!-- Contract Details -->
-		<div class="space-y-6">
-			<!-- Contract Info Card -->
-			<div class="card bg-base-200">
-				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
-
-					<div class="space-y-3">
-						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
-							<span class="font-semibold"
-								>{btcPrice > 0
-									? formatUSDWithSatsSync(contract.contract.amount, btcPrice)
-									: `${formatRBTC(contract.contract.amount)} RBTC`}</span
-							>
+		{#if $contractStore.contract}
+			<!-- Contract Details -->
+			<div class="space-y-6">
+				<!-- Contract Info Card -->
+				<div class="card bg-base-200">
+					<div class="card-body p-4">
+						<div class="mb-3 flex items-center justify-between gap-2">
+							<h4 class="font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
+							<div class="flex shrink-0 items-center gap-2">
+								<div class="badge {getStatusColorClass($contractStore.contract.status)}">
+									{$t(getStatusTranslationKey($contractStore.contract.status))}
+								</div>
+								<div
+									class="badge {$contractStore.contract.isClient
+										? 'badge-primary'
+										: 'badge-secondary'}"
+								>
+									{$contractStore.contract.isClient
+										? $t('dashboard.client')
+										: $t('dashboard.freelancer')}
+								</div>
+							</div>
 						</div>
 
-						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70 whitespace-nowrap"
-								>{$t('dashboard.contracts.task_id')}:</span
-							>
-							<span class="overflow-wrap-anywhere font-mono text-sm break-all whitespace-normal"
-								>#{contract.contract.taskId}</span
-							>
-						</div>
+						<div class="space-y-3">
+							<!-- Taskee Info -->
+							<UserNostrBadge
+								npub={contractStore.getContractKey($contractStore.contract, 'otherPartyNpub')}
+								role={$contractStore.contract.isClient
+									? $t('dashboard.freelancer')
+									: $t('dashboard.client')}
+							/>
 
-						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
-							<span class="text-sm">{formatDate(contract.contract.createdAt)}</span>
+							<div class="flex justify-between gap-2">
+								<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
+								<span class="font-semibold"
+									>{btcPrice > 0
+										? formatUSDWithSatsSync(
+												contractStore.getContractKey($contractStore.contract, 'amount'),
+												btcPrice
+											)
+										: `${formatRBTC(contractStore.getContractKey($contractStore.contract, 'amount'))} RBTC`}</span
+								>
+							</div>
+
+							<div class="flex justify-between gap-2">
+								<span class="text-base-content/70 whitespace-nowrap"
+									>{$t('dashboard.contracts.estimated_start')}:</span
+								>
+								<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
+									>{formatDate(
+										contractStore.getContractKey($contractStore.contract, 'estimatedStartTime')
+									)}</span
+								>
+							</div>
+
+							<div class="flex justify-between gap-2">
+								<span class="text-base-content/70 whitespace-nowrap"
+									>{$t('dashboard.contracts.estimated_completion')}:</span
+								>
+								<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
+									>{formatDate(
+										contractStore.getContractKey($contractStore.contract, 'estimatedCompletionTime')
+									)}</span
+								>
+							</div>
+
+							<div class="flex justify-between gap-2">
+								<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
+								<span class="text-sm">
+									{formatDate($contractStore.contract.contractEvent.created_at)}
+								</span>
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
 
-			<!-- Timeline Card -->
-			<div class="card bg-base-200">
-				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.label')}</h4>
+				<!-- Task Description Card -->
+				<div class="card bg-base-200 overflow-hidden">
+					<div class="card-body p-4">
+						<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.task_description')}</h4>
+						<p class="text-base-content/80 text-sm leading-relaxed">
+							{contractStore.getContractKey($contractStore.contract, 'taskDescription')}
+						</p>
 
-					<div class="space-y-3">
-						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70 whitespace-nowrap"
-								>{$t('dashboard.contracts.estimated_start')}:</span
-							>
-							<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
-								>{formatDate(contract.contract.estimatedStartTime)}</span
-							>
-						</div>
+						<!-- Original Bid Proposal - Expandable Section -->
+						<div class="mt-4">
+							<div class="bg-transparent">
+								<button
+									class="flex w-full cursor-pointer items-center justify-between px-0 py-2 text-sm font-medium"
+									onclick={() => (isOriginalBidOpen = !isOriginalBidOpen)}
+								>
+									<span>{$t('dashboard.contracts.original_bid_proposal')}</span>
+									<svg
+										class="h-4 w-4 transition-transform duration-200 {isOriginalBidOpen
+											? 'rotate-180'
+											: 'rotate-0'}"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M19 9l-7 7-7-7"
+										/>
+									</svg>
+								</button>
+								{#if isOriginalBidOpen}
+									<div class="px-0 pb-0">
+										<div class="bg-base-300 space-y-2 rounded-lg p-3 text-sm">
+											<div class="text-base-content/60 mb-2 text-xs">
+												{$t('dashboard.contracts.bid_details')}
+											</div>
 
-						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70 whitespace-nowrap"
-								>{$t('dashboard.contracts.estimated_completion')}:</span
-							>
-							<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
-								>{formatDate(contract.contract.estimatedCompletionTime)}</span
-							>
+											<!-- Placeholder for bid information -->
+											<div class="space-y-2">
+												<div>
+													<span class="text-xs font-medium"
+														>{$t('dashboard.contracts.proposed_approach')}:</span
+													>
+													<p class="text-base-content/80 mt-1 text-xs">
+														{$t('dashboard.contracts.bid_info_not_available')}
+													</p>
+												</div>
+
+												<div>
+													<span class="text-xs font-medium"
+														>{$t('dashboard.contracts.estimated_duration')}:</span
+													>
+													<p class="text-base-content/80 mt-1 text-xs">
+														{formatDate(
+															contractStore.getContractKey(
+																$contractStore.contract,
+																'estimatedStartTime'
+															)
+														)} - {formatDate(
+															contractStore.getContractKey(
+																$contractStore.contract,
+																'estimatedCompletionTime'
+															)
+														)}
+													</p>
+												</div>
+
+												<div>
+													<span class="text-xs font-medium"
+														>{$t('dashboard.contracts.original_amount')}:</span
+													>
+													<p class="text-base-content/80 mt-1 text-xs">
+														{btcPrice > 0
+															? formatUSDWithSatsSync(
+																	contractStore.getContractKey($contractStore.contract, 'amount'),
+																	btcPrice
+																)
+															: `${formatRBTC(contractStore.getContractKey($contractStore.contract, 'amount'))} RBTC`}
+													</p>
+												</div>
+											</div>
+										</div>
+									</div>
+								{/if}
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
 
-			<!-- User Info Card -->
-			<div class="card bg-base-200">
-				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">
-						{contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
-					</h4>
-					<UserProfile
-						npub={contract.isClient
-							? contract.contract.freelancerPubkey
-							: contract.contract.clientPubkey}
-						size="md"
-					/>
+				<!-- Completion Evidence and Status Timeline (side-by-side on desktop) -->
+				<div class="flex flex-col gap-6 lg:flex-row">
+					<!-- Completion Evidence (only show if task is completed and has attachments) -->
+					{#if $contractStore.contract.completionAttachments && $contractStore.contract.completionAttachments.length > 0}
+						<div class="card bg-base-200 flex-1 overflow-hidden">
+							<div class="card-body p-4">
+								<h4 class="mb-3 font-semibold">
+									{$t('dashboard.contracts.timeline.completion_evidence')}
+								</h4>
+
+								<!-- Images Gallery -->
+								{#if $contractStore.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+									<div class="mb-4">
+										{#await prepareGalleryImages($contractStore.contract.completionAttachments) then galleryImages}
+											<Gallery
+												galleryID={`completion-evidence-gallery-${contractStore.getContractKey($contractStore.contract, 'escrowId')}`}
+												images={galleryImages}
+												thumbnailSize="h-40 w-40"
+											/>
+										{/await}
+									</div>
+								{/if}
+
+								<!-- Videos -->
+								{#if $contractStore.contract.completionAttachments.filter( (att: Attachment) => isVideoFile(att.url) ).length > 0}
+									<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+										{#each $contractStore.contract.completionAttachments.filter( (att: Attachment) => isVideoFile(att.url) ) as attachment}
+											<div class="group relative">
+												<div class="bg-base-300 aspect-square overflow-hidden rounded-lg">
+													<video
+														src={attachment.url}
+														class="h-full w-full object-cover"
+														controls
+														preload="metadata"
+													>
+														<track kind="captions" src="" label="No captions available" />
+													</video>
+												</div>
+												<div class="text-base-content/60 mt-2 truncate text-xs">
+													{attachment.alt || 'Evidence'}
+												</div>
+											</div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Status Timeline -->
+					<div class="card bg-base-200 flex-1">
+						<div class="card-body p-4">
+							<div class="mb-3 flex items-center gap-3">
+								{#if $contractStore.contract.statusEvents.length > 0}
+									<div
+										class="bg-primary text-primary-content flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full text-base font-semibold"
+									>
+										{$contractStore.contract.statusEvents.length}
+									</div>
+								{/if}
+								<h4 class="font-semibold">
+									{$t('dashboard.contracts.timeline.status_timeline')}
+								</h4>
+							</div>
+
+							<ContractTimeline
+								statusEvents={$contractStore.contract.statusEvents}
+								contractPubkey={contractStore.getContractKey(
+									$contractStore.contract,
+									'clientPubkey'
+								)}
+							/>
+						</div>
+					</div>
 				</div>
-			</div>
 
-			<!-- Task Description Card -->
-			<div class="card bg-base-200 overflow-hidden">
-				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.task_description')}</h4>
-					<p class="text-base-content/80 text-sm leading-relaxed">
-						{contract.contract.taskDescription}
-					</p>
+				<!-- Available Actions -->
+				<div class="card bg-base-200">
+					<div class="card-body p-4">
+						<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.available_actions')}</h4>
 
-					<!-- Original Bid Proposal - Expandable Section -->
-					<div class="mt-4">
-						<div class="bg-transparent">
-							<button
-								class="flex w-full cursor-pointer items-center justify-between px-0 py-2 text-sm font-medium"
-								onclick={() => (isOriginalBidOpen = !isOriginalBidOpen)}
-							>
-								<span>{$t('dashboard.contracts.original_bid_proposal')}</span>
+						<!-- No actions available -->
+						{#if getAvailableActionsCount() === 0}
+							<div class="text-base-content/60 py-4 text-center">
 								<svg
-									class="h-4 w-4 transition-transform duration-200 {isOriginalBidOpen
-										? 'rotate-180'
-										: 'rotate-0'}"
+									xmlns="http://www.w3.org/2000/svg"
+									class="mx-auto mb-2 h-8 w-8 opacity-50"
 									fill="none"
-									stroke="currentColor"
 									viewBox="0 0 24 24"
+									stroke="currentColor"
 								>
 									<path
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
-										d="M19 9l-7 7-7-7"
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 									/>
 								</svg>
-							</button>
-							{#if isOriginalBidOpen}
-								<div class="px-0 pb-0">
-									<div class="bg-base-300 space-y-2 rounded-lg p-3 text-sm">
-										<div class="text-base-content/60 mb-2 text-xs">
-											{$t('dashboard.contracts.bid_details')}
-										</div>
-
-										<!-- Placeholder for bid information -->
-										<div class="space-y-2">
-											<div>
-												<span class="text-xs font-medium"
-													>{$t('dashboard.contracts.proposed_approach')}:</span
-												>
-												<p class="text-base-content/80 mt-1 text-xs">
-													{$t('dashboard.contracts.bid_info_not_available')}
-												</p>
-											</div>
-
-											<div>
-												<span class="text-xs font-medium"
-													>{$t('dashboard.contracts.estimated_duration')}:</span
-												>
-												<p class="text-base-content/80 mt-1 text-xs">
-													{formatDate(contract.contract.estimatedStartTime)} - {formatDate(
-														contract.contract.estimatedCompletionTime
-													)}
-												</p>
-											</div>
-
-											<div>
-												<span class="text-xs font-medium"
-													>{$t('dashboard.contracts.original_amount')}:</span
-												>
-												<p class="text-base-content/80 mt-1 text-xs">
-													{btcPrice > 0
-														? formatUSDWithSatsSync(contract.contract.amount, btcPrice)
-														: `${formatRBTC(contract.contract.amount)} RBTC`}
-												</p>
-											</div>
-										</div>
-									</div>
-								</div>
-							{/if}
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Completion Evidence (only show if task is completed and has attachments) -->
-			{#if contract.contract.status === 'completed' && contract.contract.completionAttachments && contract.contract.completionAttachments.length > 0}
-				<div class="card bg-base-200 overflow-hidden">
-					<div class="card-body p-4">
-						<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.timeline.completion_evidence')}</h4>
-						
-						<!-- Images Gallery -->
-						{#if contract.contract.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
-							<div class="mb-4">
-								{#await prepareGalleryImages(contract.contract.completionAttachments) then galleryImages}
-									<Gallery
-										galleryID="completion-evidence-gallery"
-										images={galleryImages}
-										thumbnailSize="h-40 w-40"
-									/>
-								{/await}
+								<p class="text-sm">{$t('dashboard.contracts.no_actions_available')}</p>
 							</div>
 						{/if}
-
-						<!-- Videos -->
-						{#if contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
-							<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-								{#each contract.contract.completionAttachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
-									<div class="relative group">
-										<div class="aspect-square rounded-lg overflow-hidden bg-base-300">
-											<video 
-												src={attachment.url} 
-												class="w-full h-full object-cover"
-												controls
-												preload="metadata"
-											>
-												<track kind="captions" src="" label="No captions available" />
-											</video>
-										</div>
-										<div class="mt-2 text-xs text-base-content/60 truncate">
-											{attachment.alt || 'Evidence'}
-										</div>
-									</div>
-								{/each}
-							</div>
-						{/if}
+						<ContractActions
+							contract={$contractStore.contract}
+							containerClass={getAvailableActionsCount() >= 1
+								? 'grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'
+								: 'flex justify-center items-center'}
+						/>
 					</div>
 				</div>
-			{/if}
 
-			<!-- Available Actions -->
-			<div class="card bg-base-200">
-				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.available_actions')}</h4>
-
-					<!-- No actions available -->
-					{#if getAvailableActionsCount() === 0}
-						<div class="text-base-content/60 py-4 text-center">
+				<!-- Technical Details -->
+				<div class="card bg-base-200 mb-16 overflow-hidden sm:mb-0">
+					<div class="card-body bg-base-200 p-0">
+						<button
+							class="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium"
+							onclick={() => (isTechnicalDetailsOpen = !isTechnicalDetailsOpen)}
+						>
+							<span>{$t('dashboard.contracts.technical_details')}</span>
 							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="mx-auto mb-2 h-8 w-8 opacity-50"
+								class="h-4 w-4 transition-transform duration-200 {isTechnicalDetailsOpen
+									? 'rotate-180'
+									: 'rotate-0'}"
 								fill="none"
-								viewBox="0 0 24 24"
 								stroke="currentColor"
+								viewBox="0 0 24 24"
 							>
 								<path
 									stroke-linecap="round"
 									stroke-linejoin="round"
 									stroke-width="2"
-									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+									d="M19 9l-7 7-7-7"
 								/>
 							</svg>
-							<p class="text-sm">{$t('dashboard.contracts.no_actions_available')}</p>
-						</div>
-					{/if}
-					<ContractActions
-						{contract}
-						onActionComplete={handleActionComplete}
-						containerClass={getAvailableActionsCount() > 1
-							? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
-							: 'flex justify-center items-center'}
-					/>
-				</div>
-			</div>
-
-			<!-- Status Timeline -->
-			<div class="card bg-base-200">
-				<div class="card-body p-4">
-					<h4 class="mb-3 font-semibold">
-						{$t('dashboard.contracts.timeline.status_timeline')}
-						<span class="badge badge-outline badge-sm ml-2">
-							{contract.statusEvents.length}
-						</span>
-					</h4>
-
-					<ContractTimeline statusEvents={contract.statusEvents} />
-				</div>
-			</div>
-
-			<!-- Technical Details -->
-			<div class="card bg-base-200 mb-16 overflow-hidden sm:mb-0">
-				<div class="card-body bg-base-200 p-0">
-					<button
-						class="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium"
-						onclick={() => (isTechnicalDetailsOpen = !isTechnicalDetailsOpen)}
-					>
-						<span>{$t('dashboard.contracts.technical_details')}</span>
-						<svg
-							class="h-4 w-4 transition-transform duration-200 {isTechnicalDetailsOpen
-								? 'rotate-180'
-								: 'rotate-0'}"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 9l-7 7-7-7"
-							/>
-						</svg>
-					</button>
-					{#if isTechnicalDetailsOpen}
-						<div class="px-4 pb-4">
-							<div class="space-y-3 text-xs">
-								<div>
-									<span class="text-base-content/60"
-										>{$t('dashboard.contracts.client_pubkey')}:</span
-									>
-									<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-										{contract.contract.clientPubkey}
+						</button>
+						{#if isTechnicalDetailsOpen}
+							<div class="px-4 pb-4">
+								<div class="space-y-3 text-xs">
+									<div>
+										<span class="text-base-content/60">{$t('dashboard.contracts.task_id')}:</span>
+										<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
+											{contractStore.getContractKey($contractStore.contract, 'taskId')}
+										</div>
 									</div>
-								</div>
-								<div>
-									<span class="text-base-content/60"
-										>{$t('dashboard.contracts.freelancer_pubkey')}:</span
-									>
-									<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-										{contract.contract.freelancerPubkey}
+									<div>
+										<span class="text-base-content/60"
+											>{$t('dashboard.contracts.client_pubkey')}:</span
+										>
+										<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
+											{contractStore.getContractKey($contractStore.contract, 'clientPubkey')}
+										</div>
 									</div>
-								</div>
-								<div>
-									<span class="text-base-content/60"
-										>{$t('dashboard.contracts.contract_event_id')}:</span
-									>
-									<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
-										{contract.contractEvent.id}
+									<div>
+										<span class="text-base-content/60"
+											>{$t('dashboard.contracts.freelancer_pubkey')}:</span
+										>
+										<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
+											{contractStore.getContractKey($contractStore.contract, 'freelancerPubkey')}
+										</div>
 									</div>
-								</div>
-								<div>
-									<span class="text-base-content/60">{$t('dashboard.contracts.currency')}:</span>
-									<div class="mt-1 font-semibold">{contract.contract.currency}</div>
+									<div>
+										<span class="text-base-content/60"
+											>{$t('dashboard.contracts.contract_event_id')}:</span
+										>
+										<div class="bg-base-300 mt-1 rounded p-2 font-mono text-xs break-all">
+											{$contractStore.contract.contractEvent.id}
+										</div>
+									</div>
+									<div>
+										<span class="text-base-content/60">{$t('dashboard.contracts.currency')}:</span>
+										<div class="mt-1 font-semibold">
+											{contractStore.getContractKey($contractStore.contract, 'currency')}
+										</div>
+									</div>
 								</div>
 							</div>
-						</div>
-					{/if}
+						{/if}
+					</div>
 				</div>
 			</div>
-		</div>
+		{:else}
+			<div class="flex items-center justify-center py-12">
+				<p class="text-base-content/60">{$t('dashboard.contracts.loading')}</p>
+			</div>
+		{/if}
 	{/snippet}
 </Drawer>

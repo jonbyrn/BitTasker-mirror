@@ -8,8 +8,10 @@
     "tab_swap": "Intercambiar",
     "tab_transactions": "Transacciones",
     "total_balance": "Saldo total",
+    "show_balances": "Mostrar Saldos",
+    "hide_balances": "Ocultar Saldos",
+    "show": "Mira",
     "liquid_balance": "Saldo Liquid",
-    "receive": "Recibir",
     "send_button": "Enviar",
     "recent_transactions": "Transacciones recientes",
     "type": "Tipo",
@@ -33,8 +35,11 @@
     "payment_description_placeholder": "¿Para qué es este pago?",
     "recipient_address": "Dirección de destino",
     "address_placeholder": "Dirección Bitcoin, Lightning o Liquid",
-    "available_balance": "Disponible",
+    "available_balance": "Saldo Disponible",
+    "balance_after": "Saldo",
     "transaction_fee": "Comisión de transacción",
+    "network_fee": "Comisión de Red",
+    "tx_fee": "Tarifa",
     "fee_low": "Baja",
     "fee_medium": "Media",
     "fee_high": "Alta",
@@ -56,6 +61,79 @@
     "status_pending": "Pendiente",
     "status_failed": "Fallido",
     "status_confirmations": "Confirmaciones",
+    "transaction": {
+      "status": {
+        "confirmed": "Confirmado",
+        "pending": "Pendiente",
+        "failed": "Fallido"
+      },
+      "type": {
+        "send": "Enviado",
+        "receive": "Recibido",
+        "contract": "Contrato",
+        "contract_function": "Funciones de Contrato",
+        "contracts": "Contratos",
+        "contract_send": "Envío de Contrato",
+        "contract_receive": "Recepción de Contrato",
+        "swap": "Intercambio"
+      },
+      "contract": {
+        "contract_funded": "Contrato Financiado",
+        "contract_created": "Contrato Creado",
+        "payment_received": "Pago Recibido",
+        "task_accepted": "Tarea Aceptada",
+        "task_completed": "Tarea Completada",
+        "refund_received": "Reembolso Recibido",
+        "contract_cancelled": "Contrato Cancelado",
+        "task_disputed": "Tarea Disputada",
+        "resolution_proposed": "Resolución Propuesta",
+        "dispute_resolved": "Disputa Resuelta",
+        "refund_processed": "Reembolso Procesado",
+        "contract_function_called": "Función de Contrato Llamada"
+      },
+      "swap_claimed": "Intercambio Reclamado",
+      "lock": "Intercambio Enviado",
+      "unknown": "Transacción",
+
+      "createescrow": "Contrato Financiado",
+      "completetask": "Completar Tarea",
+      "accepttask": "Fondos Liberados",
+      "funds_released": "Fondos Liberados",
+      "disputetask": "Disputa de Tarea",
+      "disputeresolved": "Disputa Resuelta",
+      "disputeunresolved": "Disputa Sin Resolver",
+      "resolveaftertimelock": "Resolución de Timelock de Contrato",
+      "acceptproposal": "Propuesta Aceptada",
+      "proposeresolution": "Resolución Propuesta",
+      "refundescrow": "Contrato Reembolsado",
+      "disputeescrow": "Contrato Disputado",
+      "resolvedispute": "Resolver Disputa",
+      "cancelescrow": "Contrato Cancelado",
+      "contract_function": "Función de Contrato",
+      "description": {
+        "rsk_sent": "Transacción RSK enviada",
+        "rsk_received": "Pago RSK recibido",
+        "bsc_sent": "Transacción BSC enviada",
+        "bsc_received": "Pago BSC recibido",
+        "bsc_bnb_sent": "BNB BSC enviado",
+        "bsc_bnb_received": "BNB BSC recibido",
+        "bsc_token_sent": "{token} BSC enviado",
+        "bsc_token_received": "{token} BSC recibido",
+        "swap_claimed": "Intercambio reclamado"
+      },
+      "network": {
+        "rootstock_bitcoin": "Bitcoin Rootstock",
+        "binance_smart_chain": "Binance Smart Chain",
+        "bsc": "BSC",
+        "lightning_bitcoin": "Bitcoin Lightning",
+        "unknown_network": "Red Desconocida"
+      },
+      "toast": {
+        "hash_copied": "Hash de transacción copiado",
+        "refreshed": "Transacciones actualizadas",
+        "refresh_failed": "Error al actualizar transacciones"
+      }
+    },
     "error": {
       "no_mnemonic": {
         "title": "No se encontró billetera",
@@ -77,7 +155,9 @@
       "rpc_endpoint_error": "Error de endpoint RPC. Por favor intenta de nuevo o contacta soporte.",
       "retry_liquid": "Reintentar Liquid",
       "retry_rsk": "Reintentar RSK",
-      "retry_both_wallets": "Reintentar ambas billeteras"
+      "retry_both_wallets": "Reintentar ambas billeteras",
+      "retry": "Reintentar",
+      "no_connection": "Billetera no conectada"
     },
     "setup": {
       "import_wallet": "Importar billetera",
@@ -217,8 +297,45 @@
     },
     "multi_network": "Multi-Red",
     "multi_network_support": "Soporte Multi-Red",
-    "select_network": "Seleccionar Red",
-    "select_asset": "Seleccionar Activo",
+      "select_network": "Seleccionar Red",
+      "select_asset": "Seleccionar Activo",
+      "send_form": {
+        "asset": {
+          "bitcoin": "Bitcoin",
+          "bitcoin_description": "Bitcoin y redes basadas en Bitcoin",
+          "usd": "USD",
+          "usd_description": "Stablecoins vinculadas al USD"
+        },
+        "network": {
+          "lightning_bitcoin": "Bitcoin Lightning",
+          "lightning_bitcoin_description": "Pagos de la red Lightning",
+          "rootstock_bitcoin": "Bitcoin Rootstock",
+          "rootstock_bitcoin_description": "rBTC en la red Rootstock",
+          "liquid_bitcoin": "Bitcoin Liquid",
+          "liquid_bitcoin_description": "L-BTC en la red Liquid",
+          "bitcoin": "Bitcoin",
+          "bitcoin_description": "Red nativa de Bitcoin",
+          "liquid_usdt": "USDT Liquid",
+          "liquid_usdt_description": "USDT en la red Liquid"
+        },
+        "coming_soon": "Próximamente",
+        "usd_not_available": "La funcionalidad de envío de USD aún no está disponible.",
+        "network_not_available": "Esta red aún no está disponible para enviar.",
+        "address_placeholder": {
+          "lightning": "Factura Lightning o dirección Lightning",
+          "liquid_bitcoin": "Dirección Liquid",
+          "bitcoin": "Dirección Bitcoin",
+          "liquid_usdt": "Dirección USDT Liquid",
+          "rootstock": "Dirección Rootstock (0x...)"
+        },
+        "send_button": {
+          "lightning_bitcoin": "Enviar Bitcoin Lightning",
+          "liquid_bitcoin": "Enviar Bitcoin Liquid",
+          "bitcoin": "Enviar Bitcoin",
+          "liquid_usdt": "Enviar USDT",
+          "rootstock_bitcoin": "Enviar rBTC"
+        }
+      },
     "rsk_address": "Dirección RSK",
     "rsk_address_placeholder": "Dirección Rootstock (0x...)",
     "liquid_address_desc": "Dirección universal para L-BTC, USDT y Lightning",
@@ -242,6 +359,7 @@
     "copy_address": "Copiar dirección",
     "refresh": "Actualizar",
     "all": "Todos",
+    "all_networks": "Todas las Redes",
     "failed_to_load_transactions": "Error al cargar transacciones",
     "no_transactions_yet": "Aún no hay transacciones. Comienza enviando o recibiendo pagos.",
     "no_transactions_filter": "No hay transacciones que coincidan con el filtro actual.",
@@ -256,11 +374,94 @@
     "lbtc_to_rbtc_swap": "Intercambio L-BTC → rBTC reclamado",
     "view_all_transactions_tab": "Cambia a la pestaña de transacciones para ver actividad",
     "send": {
+      "title": "Enviar Pago",
       "transaction_sent": "Transacción enviada exitosamente",
+      "transaction_sending": "La transacción se está enviando...",
       "transaction_failed": "La transacción falló",
-      "processing": "Procesando..."
+      "processing": "Procesando...",
+      "processing_transaction": "Procesando transacción...",
+      "please_wait": "Por favor espere. Esto puede tomar un momento.",
+      "usd_not_available": "La funcionalidad de envío de USD aún no está disponible.",
+      "network_not_available": "Esta red aún no está disponible para envíos.",
+      "placeholder_lightning": "Factura Lightning o dirección Lightning",
+      "placeholder_liquid_btc": "Dirección Liquid",
+      "placeholder_bitcoin": "Dirección Bitcoin",
+      "placeholder_liquid_usdt": "Dirección USDT Liquid",
+      "placeholder_rootstock": "Dirección Rootstock (0x...)",
+      "button_lightning": "Enviar Lightning Bitcoin",
+      "button_liquid_btc": "Enviar Liquid Bitcoin",
+      "button_bitcoin": "Enviar Bitcoin",
+      "button_liquid_usdt": "Enviar USDT",
+      "button_rootstock": "Enviar rBTC",
+      "scan_qr_code": "Escanear Código QR",
+      "scan_qr_code_description": "Apunta tu cámara a un código QR de pago",
+      "payment_details": "Detalles de Pago",
+      "enter_details_instead": "Ingresar Detalles en su Lugar",
+      "scan_qr_code_instead": "Escanear Código QR en su Lugar",
+      "confirm_payment": "Confirmar Pago",
+      "address_or_invoice": "Dirección o Factura",
+      "address_placeholder": "Ingresa dirección o factura",
+      "amount": "Monto",
+      "memo": "Memo",
+      "memo_placeholder": "Memo o descripción opcional",
+      "receiver_gets": "El Receptor Recibe",
+      "total_to_send": "Total a Enviar",
+      "authenticate_and_send": "Autenticar y Enviar",
+      "send": "Enviar",
+      "transaction_fee": "Tarifa de Transacción",
+      "estimated_confirmation_time": "Tiempo Estimado de Confirmación",
+      "estimated_time_1_2_minutes": "1 - 2 minutos",
+      "seconds": "segundos",
+      "instant": "Instantáneo",
+      "confirmation_warning": "Esta acción no se puede deshacer. Por favor, verifica todos los detalles antes de confirmar.",
+      "invalid_qr_code": "Código QR de pago inválido. Solo se admiten direcciones de Rootstock, Lightning, Liquid, Bitcoin o USDT en BSC.",
+      "scanned_qr_code": "Código QR Escaneado",
+      "failed_to_parse_qr": "Error al analizar código QR",
+      "invalid_address": "Formato de dirección inválido",
+      "failed_to_parse_address": "Error al analizar dirección",
+      "from_invoice": "Desde Factura",
+      "amount_in_sats": "Monto en Sats",
+      "amount_in_usd": "Monto en USD",
+      "authentication_required": "Se requiere autenticación para enviar",
+      "payment_sent": "Pago enviado exitosamente",
+      "enter_address_and_amount_to_estimate": "Ingrese la dirección de destino y el monto para estimar las tarifas",
+      "large_amount_warning": {
+        "message": "Precaución: Enviando monto grande de {amount}"
+      },
+      "success": {
+        "payment_sent": "¡Pago Enviado!",
+        "sent_to": "enviado a",
+        "transaction_hash": "Hash de Transacción",
+        "view_on_explorer": "Ver en Explorador",
+        "transaction_confirmed": "Transacción confirmada"
+      },
+      "error": {
+        "invalid_payment_details": "Detalles de pago inválidos",
+        "invalid_address_format": "Formato de dirección inválido",
+        "invalid_qr_code": "Código QR de pago inválido",
+        "failed_to_parse_qr": "Error al analizar código QR",
+        "failed_to_parse_address": "Error al analizar dirección",
+        "invalid_form": "Por favor verifica los campos del formulario"
+      }
     },
-    "payment_request": "Solicitud de Pago",
+    "payment_request": {
+      "title": "Solicitud de Pago",
+      "description": "Envía cualquier cantidad de Bitcoin Rootstock a esta dirección, o especifica una cantidad a continuación para generar un código QR con la cantidad.",
+      "requesting": "Solicitando",
+      "from": "De",
+      "payment_link": "Enlace de Pago",
+      "payment_received": "Pago Recibido",
+      "share_title": "Solicitud de Pago",
+      "share_text": "Pagar {amount} sats a {name}",
+      "you": "Tú"
+    },
+    "networks": {
+      "lightning": "Red Lightning",
+      "rootstock": "Rootstock",
+      "liquid": "Red Liquid",
+      "bitcoin": "Bitcoin",
+      "bsc": "Binance Smart Chain"
+    },
     "receive_rbtc": "Recibir rBTC",
     "your_rsk_address": "Tu Dirección RSK",
     "generating": "Generando...",
@@ -298,8 +499,15 @@
     },
     "validation": {
       "address_required": "La dirección de destino es requerida",
+      "address_invalid": "Formato de dirección inválido",
       "amount_required": "El monto es requerido",
-      "insufficient_balance": "Saldo insuficiente"
+      "amount_positive": "El monto debe ser mayor que cero",
+      "insufficient_balance": "Fondos insuficientes",
+      "no_balance": "No hay saldo disponible",
+      "invoice_required": "La factura Lightning es requerida",
+      "invoice_invalid": "Formato de factura Lightning inválido",
+      "amount_below_minimum": "Monto por debajo del mínimo ({min} sats)",
+      "amount_above_maximum": "Monto por encima del máximo ({max} sats)"
     },
     "sats": "Sats",
     "rbtc": "rBTC",
@@ -355,6 +563,27 @@
       "failed": "Fallido",
       "processing": "Procesando"
     },
+    "calculator": {
+      "clear": "Limpiar",
+      "delete": "Eliminar",
+      "calculation": "Cálculo"
+    },
+    "receive": {
+      "title": "Solicitar Pago",
+      "unit_sats": "Sats",
+      "unit_usd": "USD",
+      "network_fees": "Tarifas de Red",
+      "total_received": "Total Recibido",
+      "cancel": "Cancelar",
+      "generate_invoice": "Generar Factura",
+      "get_paid": "Cobrar",
+      "charge_fees_to_payer": "¿Cobrar tarifas de red al pagador?",
+      "enter_amount_to_estimate": "Ingrese el monto para estimar las tarifas",
+      "network": "Red",
+      "description_characters": "Caracteres",
+      "below_swap_minimum": "Monto por debajo del mínimo de intercambio: {minAmount} Sats",
+      "invoice_total": "Total de la factura"
+    },
     "swap": {
       "title": "Intercambiar Activos Digitales",
       "coming_soon": "¡Funcionalidad de intercambio próximamente!",
@@ -366,13 +595,24 @@
       "to": "Hacia",
       "amount": "Monto",
       "enter_amount": "Ingresar monto",
+      "pending_send": "Enviando",
+      "pending_receive": "Recibiendo",
+      "failed_send": "Envío Fallido",
+      "failed_receive": "Recepción Fallida",
+      "awaiting_payment": "Esperando Pago",
+      "send_finalizing": "Finalizando envío",
+      "receive_finalizing": "Finalizando recepción",
+      "payment_details": "Detalles de Pago",
+      "expires_in": "Expira en",
+      "lbtc_address": "Dirección L-BTC",
+      "lightning_invoice": "Factura Lightning",
       "swap_rate": "Tasa de Intercambio",
       "estimated_receive": "Recibir Estimado",
       "estimated_total": "Total Estimado",
       "slippage": "Deslizamiento",
       "network_fee": "Comisión de Red",
       "swap_now": "Intercambiar Ahora",
-      "insufficient_balance": "Saldo insuficiente",
+      "insufficient_balance": "Fondos insuficientes",
       "select_token": "Seleccionar Token",
       "usdt_bsc": "USDT (BSC)",
       "rbtc": "rBTC",
@@ -408,24 +648,63 @@
       "invoice_copied": "✅ ¡Factura copiada al portapapeles!",
       "address_copied": "✅ ¡Dirección copiada al portapapeles!",
       "amount_btc": "Cantidad (BTC)",
-      "min_amount": "Mín",
+        "amount_sats": "Cantidad (sats)",
+        "amount_from_invoice": "Cantidad de la factura",
+        "min_amount": "Mín",
+      "fee_breakdown": "Desglose de Tarifas",
+      "swap_fee": "Tarifa de Intercambio",
+      "network_transaction_fee": "Tarifa de Transacción de Red",
+      "total_fees": "Tarifas Totales",
+      "estimated_received": "Estimado a Recibir",
+      "total_received_est": "Total Recibido (est)",
+      "loading_fees": "Calculando tarifas...",
+      "service_fee": "Tarifa de Servicio",
+      "miner_fee": "Tarifa de Minero",
+      "action": {
+        "refund": "Reembolsar",
+        "renegotiate": "Ajustar Cantidad",
+        "claim": "Reclamar",
+        "view_qr": "Ver QR"
+      },
+      "renegotiation": {
+        "title": "Desajuste de Cantidad Detectado",
+        "original_amount": "Cantidad Esperada",
+        "new_amount": "Cantidad Ajustada",
+        "confirm": "Continuar con Cantidad Ajustada",
+        "time_remaining": "Tiempo Restante"
+      },
+      "status": {
+        "pending": "Intercambio en Progreso",
+        "waiting_confirmation": "Esperando Confirmación",
+        "ready_to_claim": "Listo para Reclamar",
+        "failed": "Intercambio Fallido",
+        "expired": "Intercambio Expirado",
+        "lockup_failed": "Desajuste de Cantidad"
+      },
       "error": {
         "auth_required": "Autenticación requerida. Por favor inicia sesión nuevamente.",
         "minimum_amount": "La cantidad mínima es {minAmount} sats ({minBTC} BTC)",
+        "minimum_amount_sats": "La cantidad mínima es {minAmount} sats",
+        "maximum_amount_sats": "La cantidad máxima es {maxAmount} sats",
+        "amount_above_maximum": "Cantidad superior al máximo ({max} sats)",
         "create_failed": "Error al crear intercambio",
         "claim_failed": "Error al reclamar RBTC",
-        "delete_failed": "❌ Error al eliminar intercambio"
+        "delete_failed": "❌ Error al eliminar intercambio",
+        "insufficient_balance_with_fees": "Saldo insuficiente. Necesita {needed} sats, tiene {available} sats (faltante: {shortfall} sats)",
+        "insufficient_balance_with_gas": "Saldo insuficiente. Necesita {swapAmount} sats + {gasAmount} sats gas = {totalNeeded} sats. Disponible: {available} sats. Faltante: {shortfall} sats",
+        "fee_fetch_failed": "Error al obtener estimación de tarifas",
+        "failed_to_load": "Error al cargar datos de intercambio"
       },
       "lightning": {
         "title": "Intercambio Lightning → rBTC",
-        "description": "Recibe pagos Lightning y conviértelos automáticamente a rBTC. Tarifas: ~0.4-0.5%",
+        "description": "Recibe pagos Lightning y conviértelos automáticamente a rBTC. Tarifa de servicio de Boltz: ~0.4-0.5% más tarifas de transacción de red.",
         "invoice_created": "¡Factura Lightning creada!",
         "rbtc_received": "✅ ¡RBTC recibido!",
-        "claiming_gasless": "Reclamando RBTC (sin tarifas de gas requeridas)...",
-        "claimed_success": "✅ ¡RBTC reclamado exitosamente (sin gas)!",
+        "claiming_gasless": "Reclamando RBTC...",
+        "claimed_success": "✅ ¡RBTC reclamado exitosamente!",
         "generate_invoice": "Generar Factura Lightning",
         "view_invoice": "Ver Factura",
-        "claim_now": "Reclamar Ahora (Sin Tarifas de Gas)",
+        "claim_now": "Reclamar Ahora",
         "status": {
           "invoice_ready": "Factura lista - esperando pago",
           "invoice_paid": "¡Factura pagada! Esperando bloqueo...",
@@ -466,7 +745,46 @@
           "send_lbtc": "Envía L-BTC a la dirección de arriba para continuar",
           "lbtc_waiting": "¡L-BTC detectado! Esperando confirmación...",
           "waiting_boltz": "Esperando que Boltz bloquee RBTC...",
-          "claiming_now": "Reclamando RBTC ahora (sin gas)..."
+          "claiming_now": "Reclamando RBTC ahora..."
+        }
+      },
+      "submarine": {
+        "title": "Pagar Factura Lightning (rBTC → Lightning)",
+        "description": "Paga facturas Lightning bloqueando rBTC. Tarifas: ~0.4-0.5%",
+        "invoice_label": "Factura Lightning",
+        "invoice_placeholder": "lnbc... (pegar o escanear código QR)",
+        "scan_qr": "Escanear Código QR",
+        "invoice_created": "Intercambio creado - listo para bloquear fondos",
+        "invoice_breakdown": "Desglose de Factura",
+        "invoice_amount": "Monto de Factura",
+        "lock_funds_button": "Bloquear {amount} rBTC y Pagar Factura",
+        "pay_invoice_button": "Pagar Factura",
+        "locking_funds": "Bloqueando rBTC...",
+        "invoice_paid": "✅ ¡Factura pagada por Boltz!",
+        "generate_swap": "Crear Intercambio",
+        "swap_amount": "Monto del Intercambio",
+        "gas_fees": "Tarifas de Gas (estimadas)",
+        "total_required": "Total Requerido",
+        "swap_complete": "Completado",
+        "error": {
+          "invoice_no_amount": "La factura debe incluir un monto. Las facturas sin monto no son compatibles con intercambios submarine."
+        },
+        "status": {
+          "ready_to_lock": "Listo - bloquea rBTC para pagar la factura",
+          "funds_locked": "Fondos bloqueados - Esperando confirmaciones...",
+          "lockup_confirmed": "Confirmado - Boltz está pagando la factura...",
+          "invoice_paid": "¡Factura pagada exitosamente! ✅",
+          "swap_complete": "¡Intercambio completado! ✓",
+          "expired": "Expirado - Eliminar para quitar",
+          "failed": "Fallido - Eliminar para quitar",
+          "refunded": "Reembolsado",
+          "processing": "Procesando..."
+        },
+        "helper": {
+          "paste_invoice": "Pega o escanea una factura Lightning para comenzar",
+          "lock_to_pay": "Bloquea rBTC para pagar la factura Lightning",
+          "waiting_payment": "Esperando que Boltz pague la factura...",
+          "payment_complete": "¡Factura Lightning pagada exitosamente!"
         }
       }
     },
@@ -482,6 +800,73 @@
       "buy_sell_info_3": "Las transacciones son procesadas por socios de Changelly",
       "buy_sell_info_4": "Tiempo de procesamiento: 5-30 minutos para activos digitales, 1-3 días hábiles para fiat",
       "buy_sell_info_5": "La verificación KYC puede ser requerida para montos más grandes"
+      },
+      "receive_form": {
+        "select_asset": "Seleccionar Activo",
+        "select_network": "Seleccionar Red",
+        "asset_icon": "Icono de activo",
+        "available_balance": "Saldo Disponible",
+        "coming_soon": "Próximamente",
+        "usdt_not_available": "La funcionalidad de recepción de USDT aún no está disponible.",
+        "network_not_available": "Esta red aún no está disponible para recibir.",
+        "assets": {
+          "bitcoin": {
+            "label": "Bitcoin",
+            "description": "Bitcoin y redes basadas en Bitcoin"
+          },
+          "usd": {
+            "label": "USD",
+            "description": "Stablecoins vinculadas al USD"
+          }
+        },
+        "networks": {
+          "lightning_bitcoin": {
+            "label": "Bitcoin Lightning",
+            "description": "Pagos de Lightning Network"
+          },
+          "rootstock_bitcoin": {
+            "label": "Bitcoin Rootstock",
+            "description": "rBTC en la red Rootstock"
+          },
+          "liquid_bitcoin": {
+            "label": "Bitcoin Liquid",
+            "description": "L-BTC en la red Liquid (intercambiar a rBTC)"
+          },
+          "bitcoin": {
+            "label": "Bitcoin",
+            "description": "Red Bitcoin nativa"
+          },
+          "liquid_usdt": {
+            "label": "USDT Liquid",
+            "description": "USDT en la red Liquid"
+          }
+        }
+    },
+    "balance_history": {
+      "error": "Error al cargar el historial de saldo"
+    },
+    "balance_chart": {
+      "title": "Historial de Saldo",
+      "open_chart": "Ver gráfico de historial de saldo",
+      "date_range": "Rango de Fechas",
+      "last_7_days": "Últimos 7 Días",
+      "last_30_days": "Últimos 30 Días",
+      "this_month": "Este Mes",
+      "last_month": "Mes Pasado",
+      "last_90_days": "Últimos 90 Días",
+      "year_to_date": "Año hasta la Fecha",
+      "last_365_days": "Últimos 365 Días",
+      "last_year": "Año Pasado",
+      "no_data": "No hay datos disponibles para el rango de fechas seleccionado",
+      "chart": {
+        "date_axis": "Fecha",
+        "usd_axis": "Valor en USD",
+        "sats_axis": "Sats",
+        "bitcoin_balance_label": "Saldo de Bitcoin (sats)",
+        "total_usd_label": "Valor Total en USD",
+        "tooltip_sats": "sats",
+        "tooltip_na": "N/D"
+      }
     }
   }
 }

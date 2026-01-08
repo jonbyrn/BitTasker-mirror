@@ -26,6 +26,14 @@ Thumbs.db
 !.env.example
 !.env.test
 
+# Test authentication state (contains session data)
+tests/e2e/.auth/
+*.auth.json
+
+# Test artifacts (regenerate locally as needed)
+playwright-report/
+test-results/
+
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

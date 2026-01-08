@@ -1,7 +1,11 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
+	import {
+		getStatusTranslationKey,
+		getStatusColorClass
+	} from '$lib/utils/helpers/contractStatusFormatter';
+	import { contractStore } from '$lib/stores/contract.store';
 	import { t } from 'svelte-i18n';
-	import UserProfile from '$lib/components/UserNostrBadge.svelte';
 	import ContractActions from './ContractActions.svelte';
 	import ReviewPromptModal from '$lib/components/reviews/ReviewPromptModal.svelte';
 	import { hasUserReviewedContract, getOtherPartyPubkey } from '$lib/utils/review-helpers';
@@ -10,12 +14,11 @@
 	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 	// @ts-ignore nostr-tools type definitions issue
 	import { nip19 } from 'nostr-tools';
+	import UserNostrBadge from '../UserNostrBadge.svelte';
 
-	const { contract, btcPrice, onclick, onActionComplete } = $props<{
+	const { contract, btcPrice 	} = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
-		onclick?: () => void;
-		onActionComplete?: () => void;
 	}>();
 
 	// Review status state
@@ -56,10 +59,17 @@
 		}
 	}
 
+	// Check if blockchain query failed (no blockchain status and not pending)
+	const isBlockchainQueryFailed = $derived(
+		contract.blockchainStatus === null &&
+			!contract.isPending &&
+			!contract.contractEvent.content.transactionHash
+	);
+
 	// Check review status for completed contracts
 	$effect(() => {
 		(async () => {
-			const isCompleted = contract.contract.status === 'completed' || contract.contract.status === 'resolved';
+			const isCompleted = contract.status === 'completed' || contract.status === 'resolved';
 			if (!isCompleted) {
 				reviewStatus = { userReviewed: false, otherPartyReviewed: false, isLoading: false };
 				return;
@@ -77,10 +87,10 @@
 				const currentUserPubkey = npubToHex(currentUserNpub);
 
 				// Check if user has reviewed
-				const userReviewed = await hasUserReviewedContract(contract.contract.escrowId);
+				const userReviewed = await hasUserReviewedContract(contract.escrowData.id);
 
 				// Check if other party has reviewed
-				const reviews = await getReviewsForEscrow(contract.contract.escrowId);
+				const reviews = await getReviewsForEscrow(contract.escrowData.id);
 				const otherPartyPubkeyHex = getOtherPartyPubkey(contract, currentUserPubkey);
 				
 				// Convert other party's hex pubkey to npub for comparison with reviews
@@ -122,7 +132,6 @@
 	function handleReviewSubmit(eventId: string) {
 		reviewStatus.userReviewed = true;
 		isReviewModalOpen = false;
-		onActionComplete?.();
 	}
 
 	// Format RBTC amount
@@ -137,13 +146,13 @@
 		if (isNaN(rbtc) || btcPrice <= 0) {
 			return { usd: '$0.00', sats: '0 Sats' };
 		}
-		
+
 		// Convert RBTC to USD (assuming RBTC ≈ BTC)
 		const usdAmount = rbtc * btcPrice;
-		
+
 		// Convert to sats
 		const sats = Math.round(rbtc * 100_000_000);
-		
+
 		return {
 			usd: `$${usdAmount.toFixed(2)}`,
 			sats: `${sats.toLocaleString('en-US')} Sats`
@@ -180,72 +189,65 @@
 	// Get available actions count
 	function getAvailableActionsCount(): number {
 		let count = 0;
-		if (contract.canComplete) count++;
-		if (contract.canAccept) count++;
-		if (contract.canDispute) count++;
-		if (contract.canPropose) count++;
-		if (contract.canAcceptProposal) count++;
-		if (contract.canCancel) count++;
-		if (contract.canResolveTimelock) count++;
+		if (contract.permissions.canComplete) count++;
+		if (contract.permissions.canAccept) count++;
+		if (contract.permissions.canDispute) count++;
+		if (contract.permissions.canPropose) count++;
+		if (contract.permissions.canAcceptProposal) count++;
+		if (contract.permissions.canCancel) count++;
+		if (contract.permissions.canResolveTimelock) count++;
 		return count;
 	}
 
-	/**
-	 * Get status badge color classes based on task status
-	 */
-	export function getStatusColorClass(status: string): string {
-		switch (status.toLowerCase()) {
-			case 'cancelled':
-				return 'badge-error'; // Red
-			case 'active':
-			case 'in_progress':
-			case 'funded':
-				return 'badge-info'; // Blue
-			case 'completed':
-			case 'resolved':
-				return 'badge-success'; // Green
-			case 'disputed':
-			case 'in_dispute':
-				return 'badge-warning'; // Yellow
-			default:
-				return 'badge-ghost';
-		}
-	}
+	const openDrawer = () => {
+		$contractStore.contract = contract;
+		$contractStore.isDrawerOpen = true;
+	};
 </script>
 
-<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
+<div
+	class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg {isBlockchainQueryFailed
+		? 'pointer-events-none opacity-60'
+		: ''}"
+	class:cursor-not-allowed={isBlockchainQueryFailed}
+>
 	<div class="card-body">
 		<div class="flex flex-col justify-between gap-2">
 			<div class="flex items-start justify-between">
 				<div class="min-w-0 flex-1">
 					<small class="card-title line-clamp-1 text-lg">
 						<button
-							class="hover:text-primary cursor-pointer transition-colors text-left"
-							onclick={(e) => {
-								e.stopPropagation();
-								onclick?.();
-							}}
+							class="hover:text-primary cursor-pointer text-left transition-colors"
+							onclick={openDrawer}
 						>
-							{contract.contract.taskTitle}
+							{contractStore.getContractKey(contract, 'taskTitle')}
 						</button>
 					</small>
-					<div class="text-base-content/60 line-clamp-2 mt-1">
-						{contract.contract.taskDescription}
+					<div class="text-base-content/60 mt-1 line-clamp-2">
+						{contractStore.getContractKey(contract, 'taskDescription')}
 					</div>
 				</div>
 
 				<!-- Badges in top right corner -->
-				<div class="flex flex-col items-end gap-2 flex-shrink-0 ml-4">
+				<div class="ml-4 flex shrink-0 flex-col items-end gap-2">
 					<div class="flex items-center gap-2 flex-wrap justify-end">
-						<div class="badge {getStatusColorClass(contract.contract.status)} badge-sm">
-							{$t(`dashboard.contracts.status.${contract.contract.status}`)}
+						{#if import.meta.env.DEV}
+							<div class="badge badge-error badge-sm">
+								{contract.escrowData?.id}
+							</div>
+						{/if}
+						<div class="badge {getStatusColorClass(contract.status)} badge-sm">
+							{#if contract?.isPending}
+								<span class="loading loading-spinner loading-xs mr-1"></span>
+							{/if}
+							{$t(getStatusTranslationKey(contract.status))}
 						</div>
 						<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
 							{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
 						</div>
 						
 						<!-- Review Status Badges -->
-						{#if (contract.contract.status === 'completed' || contract.contract.status === 'resolved') && !reviewStatus.isLoading}
+						{#if (contract.status === 'completed' || contract.status === 'resolved') && !reviewStatus.isLoading}
 							{#if reviewStatus.userReviewed}
 								<div class="badge badge-success badge-sm gap-1" title={$t('reviews.you_reviewed')}>
 									<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -280,20 +282,23 @@
 							<span class="loading loading-spinner loading-xs"></span>
 						{/if}
 					</div>
-					
+
 					<!-- Price with stacked design -->
 					<div class="text-right">
 						{#if btcPrice > 0}
-							{@const priceData = formatPriceStacked(contract.contract.amount, btcPrice)}
-							<div class="text-lg font-bold text-base-content">
+							{@const priceData = formatPriceStacked(
+								contractStore.getContractKey(contract, 'amount'),
+								btcPrice
+							)}
+							<div class="text-base-content text-lg font-bold">
 								{priceData.usd}
 							</div>
-							<div class="text-sm text-base-content/60">
+							<div class="text-base-content/60 text-sm">
 								{priceData.sats}
 							</div>
 						{:else}
-							<div class="text-lg font-bold text-base-content">
-								{formatRBTC(contract.contract.amount)} RBTC
+							<div class="text-base-content text-lg font-bold">
+								{formatRBTC(contractStore.getContractKey(contract, 'amount'))} RBTC
 							</div>
 						{/if}
 					</div>
@@ -306,7 +311,7 @@
 			<div class="flex items-center gap-2">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/60 h-4 w-4 flex-shrink-0"
+					class="text-base-content/60 h-6 w-6 shrink-0"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -323,7 +328,7 @@
 						{$t('dashboard.contracts.deadline')}
 					</small>
 					<span class="text-sm font-medium">
-						{formatDate(contract.contract.estimatedCompletionTime)}
+						{formatDate(contractStore.getContractKey(contract, 'estimatedCompletionTime'))}
 					</span>
 				</div>
 			</div>
@@ -334,59 +339,37 @@
 
 		<div class="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<!-- Left: User Info aligned with buttons -->
-			<div class="flex items-center gap-2 md:flex-row">
-				
-				<div class="flex flex-col">
-					<small class="text-base-content/60 text-xs">
-						{contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
-					</small>
-					<div class="text-sm font-medium">
-						<UserProfile
-							npub={contract.isClient
-								? contract.contract.freelancerPubkey
-								: contract.contract.clientPubkey}
-							size="sm"
-						/>
-					</div>
-				</div>
-			</div>
+			<UserNostrBadge
+				npub={contractStore.getContractKey(contract, 'otherPartyNpub')}
+				role={contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
+			/>
 
 			<!-- Right: Action Buttons -->
 			<div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:w-auto">
 				{#if getAvailableActionsCount() > 0}
-					<ContractActions 
-						{contract} 
-						{onActionComplete}
+					<ContractActions
+						{contract}
 						containerClass="flex flex-row-reverse flex-wrap gap-2 w-full sm:w-auto"
-						openDrawer={() => onclick?.()}
 						isInline={true}
 					/>
 				{/if}
-				{#if onclick}
-					<button
-						class="btn btn-outline btn-sm w-full sm:w-auto"
-						onclick={(e) => {
-							e.stopPropagation();
-							onclick?.();
-						}}
+				<button class="btn btn-outline btn-sm w-full sm:w-auto" onclick={openDrawer}>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						{$t('dashboard.contracts.view_details')}
-					</button>
-				{/if}
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					{$t('dashboard.contracts.view_details')}
+				</button>
 			</div>
 		</div>
 	</div>
@@ -395,9 +378,9 @@
 	{#if isReviewModalOpen && revieweePubkey}
 		<ReviewPromptModal
 			isOpen={isReviewModalOpen}
-			escrowId={contract.contract.escrowId}
+			escrowId={contract.escrowData.id}
 			revieweePubkey={revieweePubkey}
-			escrowTxHash={contract.contract.transactionHash}
+			escrowTxHash={contract.contractEvent.content.transactionHash}
 			onClose={() => {
 				isReviewModalOpen = false;
 			}}

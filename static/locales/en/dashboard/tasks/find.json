@@ -59,6 +59,9 @@
       "no_results_title": "No results found",
       "no_results_message": "Try adjusting your filters or search criteria",
       "view_list": "View List",
-      "view_map": "View Map"
+      "view_map": "View Map",
+      "loading_more": "Loading more tasks...",
+      "load_more": "Load More Tasks",
+      "search_minimum_chars": "Enter at least 3 characters to search"
     }
   }

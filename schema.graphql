@@ -239,6 +239,13 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+type DeviceNotificationResult {
+  deviceId: String!
+  error: String
+  npub: String
+  success: Boolean!
+}
+
 """Device platform types"""
 enum DevicePlatform {
   ANDROID
@@ -315,6 +322,8 @@ type Mutation {
   revokeAllDevices: NotificationResponse!
   revokeDevice(deviceId: String!): NotificationResponse!
   sendNotification(input: SendNotificationInput!): NotificationResponse!
+  sendNotificationToDevice(input: SendNotificationToDeviceInput!): DeviceNotificationResult!
+  sendNotificationToNpubs(input: SendNotificationToNpubsInput!): NpubNotificationResponse!
   subscribeToTopic(input: SubscribeToTopicInput!): NotificationResponse!
   triggerBatchTaskCheck: SavedSearchNotificationResult!
   triggerSavedSearchCheck(task: TaskBodyInput!): SavedSearchNotificationResult!
@@ -339,6 +348,24 @@ enum NotificationFrequency {
 type NotificationResponse {
   message: String!
   success: Boolean!
+}
+
+type NpubNotificationResponse {
+  message: String!
+  overallSuccess: Boolean!
+  results: [NpubNotificationResult!]!
+  successfulDevices: Int!
+  successfulTargets: Int!
+  totalDevices: Int!
+  totalTargets: Int!
+}
+
+type NpubNotificationResult {
+  deviceCount: Int!
+  error: String
+  npub: String!
+  success: Boolean!
+  successfulDevices: Int!
 }
 
 type OnboardingStatusDto {
@@ -486,6 +513,24 @@ input SearchTasksDto {
 input SendNotificationInput {
   body: String!
   deviceId: String
+  title: String!
+  type: String
+}
+
+input SendNotificationToDeviceInput {
+  body: String!
+  clickAction: String
+  deviceId: String!
+  icon: String
+  title: String!
+  type: String
+}
+
+input SendNotificationToNpubsInput {
+  body: String!
+  clickAction: String
+  icon: String
+  npubs: [String!]!
   title: String!
   type: String
 }

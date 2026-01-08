@@ -1,11 +1,34 @@
 import type { UserData } from '$lib/types/auth';
-import { writable } from 'svelte/store';
-import { SimplePool } from 'nostr-tools';
+import type { NostrEvent } from 'nostr-tools';
+import { writable, get } from 'svelte/store';
+import { appStore } from './app.store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import KINDS from '$lib/utils/constants/kinds';
 
-// Define relay URLs with fallbacks
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
+// Cache for Nostr events to prevent redundant fetching
+export const nostrEventCache = new Map<string, { event: NostrEvent; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+
+// Helper to check if cache is valid
+function isCacheValid(timestamp: number): boolean {
+	return Date.now() - timestamp < CACHE_TTL;
+}
+
+// Helper to get cached event
+export function getCachedEvent(kind: number, npub: string): NostrEvent | null {
+	const cacheKey = `${kind}:${npub}`;
+	const cached = nostrEventCache.get(cacheKey);
+	if (cached && isCacheValid(cached.timestamp)) {
+		return cached.event;
+	}
+	return null;
+}
+
+// Helper to cache event
+export function cacheEvent(kind: number, npub: string, event: NostrEvent): void {
+	const cacheKey = `${kind}:${npub}`;
+	nostrEventCache.set(cacheKey, { event, timestamp: Date.now() });
+}
 
 // Initial States
 const initialProfile: UserData = {
@@ -13,20 +36,25 @@ const initialProfile: UserData = {
 	name: '',
 	email: '',
 	npub: '',
-	picture: '',
-	createdAt: new Date(),
-	updatedAt: new Date()
+	picture: ''
 };
 
 const createUserStore = () => {
 	const { subscribe, set, update } = writable<UserData>(initialProfile);
-	const pool = new SimplePool();
+
+	// Track whether user data has been loaded in this session
+	let isDataLoaded = false;
+
+	const relays = get(appStore).relays;
+	const pool = get(appStore).pool;
 
 	return {
 		subscribe,
 		set,
 		update,
 		getUserData: async () => {
+			// Skip if data is already loaded in this session
+			if (isDataLoaded) return;
 			const npub = await getNpub();
 
 			if (!npub) {
@@ -39,65 +67,102 @@ const createUserStore = () => {
 			}));
 
 			// Check if we have any valid relays
-			if (RELAYS.length === 0) {
+			if (relays.length === 0) {
 				throw new Error('No valid relay URLs available');
 			}
 
-			// Fetch both metadata (kind 0) and images (kind 30063)
-			const metadataFilter = {
-				authors: [npub],
-				kinds: [KINDS.PROFILE_METADATA]
-			};
+			// Check cache first for metadata
+			const cachedMetadata = getCachedEvent(KINDS.PROFILE_METADATA, npub);
+			let metadataEvents: NostrEvent[] = [];
 
-			const imagesFilter = {
-				authors: [npub],
-				kinds: [KINDS.PROFILE_IMAGES],
-				'#d': ['profile-images']
-			};
+			if (cachedMetadata) {
+				metadataEvents = [cachedMetadata];
+			} else {
+				// Fetch metadata (kind 0) if not cached
+				const metadataFilter = {
+					authors: [npub],
+					kinds: [KINDS.PROFILE_METADATA],
+					limit: 1
+				};
+				metadataEvents = await pool.querySync(relays, metadataFilter);
 
-			const [metadataEvents, imageEvents] = await Promise.all([
-				pool.querySync(RELAYS, metadataFilter),
-				pool.querySync(RELAYS, imagesFilter)
-			]);
+				// Cache the metadata event
+				if (metadataEvents.length > 0) {
+					cacheEvent(KINDS.PROFILE_METADATA, npub, metadataEvents[0]);
+				}
+			}
 
 			// Process metadata events
+			let hasPicture = false;
 			metadataEvents.forEach((event) => {
 				if (event.kind === KINDS.PROFILE_METADATA) {
 					const content = JSON.parse(event.content);
+					const picture = content.picture || '';
+					hasPicture = !!picture;
+
 					update((state) => ({
 						...state,
 						name: content.display_name || content.displayName || content.name || '',
-						picture: content.picture || '' // This might be empty if using new image system
+						picture: picture
 					}));
 				}
 			});
 
-			// Process image events to get profile picture
-			imageEvents.forEach((event) => {
-				if (event.kind === KINDS.PROFILE_IMAGES) {
-					try {
-						const images = JSON.parse(event.content);
-						if (Array.isArray(images) && images.length > 0) {
-							// Use the first image as the profile picture
-							const primaryImage = images[0];
-							update((state) => ({
-								...state,
-								picture: primaryImage.url || state.picture
-							}));
-						}
-					} catch (err) {
-						console.error('Failed to parse image event content:', err);
+			// Only fetch images if picture is not in metadata
+			if (!hasPicture) {
+				// Check cache for images
+				const cachedImages = getCachedEvent(KINDS.PROFILE_IMAGES, npub);
+				let imageEvents: NostrEvent[] = [];
+
+				if (cachedImages) {
+					imageEvents = [cachedImages];
+				} else {
+					const imagesFilter = {
+						authors: [npub],
+						kinds: [KINDS.PROFILE_IMAGES],
+						'#d': ['profile-images'],
+						limit: 1
+					};
+					imageEvents = await pool.querySync(relays, imagesFilter);
+
+					// Cache the images event
+					if (imageEvents.length > 0) {
+						cacheEvent(KINDS.PROFILE_IMAGES, npub, imageEvents[0]);
 					}
 				}
-			});
+
+				// Process image events to get profile picture
+				imageEvents.forEach((event) => {
+					if (event.kind === KINDS.PROFILE_IMAGES) {
+						try {
+							const images = JSON.parse(event.content);
+							if (Array.isArray(images) && images.length > 0) {
+								// Use the first image as the profile picture
+								const primaryImage = images[0];
+								update((state) => ({
+									...state,
+									picture: primaryImage.url || state.picture
+								}));
+							}
+						} catch (err) {
+							console.error('Failed to parse image event content:', err);
+						}
+					}
+				});
+			}
+
+			// Mark data as loaded after successful fetch
+			isDataLoaded = true;
 		},
-		updateProfile: (profile: Partial<UserData>) =>
+		updateProfile: (data: Partial<UserData>) =>
 			update((state) => ({
 				...state,
-				...profile,
-				updatedAt: new Date()
+				...data
 			})),
-		reset: () => set(initialProfile)
+		reset: () => {
+			isDataLoaded = false;
+			set(initialProfile);
+		}
 	};
 };
 

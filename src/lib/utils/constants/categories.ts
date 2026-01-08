@@ -155,6 +155,12 @@ export const TASK_CATEGORIES: Category[] = [
         description: 'Computer repair, tech support, software development, and digital services'
     },
     {
+        id: '30',
+		slug: 'it-web-development',
+        name: 'IT and Web Development',
+        description: 'Web development, software development, IT services, API integration, database management, and technical solutions'
+    },
+    {
         id: '13',
 		slug: 'creative',
         name: 'Creative & Design',

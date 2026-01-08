@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { SimplePool, type NostrEvent } from 'nostr-tools';
-import type { Profile } from '$lib/types/profile';
+import type { NostrEvent } from 'nostr-tools';
+import type { NostrProfileImage, NostrSkill, NostrReview, Profile } from '$lib/types/profile';
 import { writable } from 'svelte/store';
 import { subscribeToProfileUpdates, closeNostrPool } from '$lib/nostr/profile';
 import KINDS from '$lib/utils/constants/kinds';
@@ -54,8 +53,6 @@ function createProfileStore() {
     let cleanup: (() => void) | null = null;
 
     return {
-        pool: new SimplePool(),
-        
         subscribe,
 
         // Initialize the store with data from nostr
@@ -84,7 +81,8 @@ function createProfileStore() {
                                                 about: content.about,
                                                 website: content.website,
                                                 professionalTitle: content.professionalTitle,
-                                                picture: content.picture || ''
+                                                picture: content.picture || '',
+                                                translations: content.translations
                                             }
                                         };
                                     case KINDS.PROFILE_IMAGES: // Images
@@ -92,7 +90,7 @@ function createProfileStore() {
                                             ...state,
                                             data: {
                                                 ...state.data,
-                                                pictures: content.map((img: any) => ({
+                                                pictures: content.map((img: NostrProfileImage) => ({
                                                     url: img.url,
                                                     type: img.type || 'image/jpeg',
                                                     alt: img.alt || '',
@@ -106,12 +104,14 @@ function createProfileStore() {
                                             ...state,
                                             data: {
                                                 ...state.data,
-                                                skills: content.map((skill: any) => ({
+                                                skills: content.map((skill: NostrSkill & { translations?: any; id?: string }) => ({
                                                     name: skill.name,
                                                     level: skill.level,
                                                     verificationStatus: skill.verificationStatus,
                                                     endorsements: skill.endorsements,
-                                                    certifications: skill.certifications || []
+                                                    certifications: skill.certifications || [],
+                                                    translations: skill.translations,
+                                                    id: skill.id
                                                 }))
                                             }
                                         };
@@ -128,7 +128,9 @@ function createProfileStore() {
                                                         description: content.description,
                                                         images: content.images,
                                                         completionDate: content.completionDate,
-                                                        skills: content.skills
+                                                        skills: content.skills,
+                                                        link: content.link,
+                                                        translations: content.translations
                                                     }
                                                 ]
                                             }
@@ -152,7 +154,7 @@ function createProfileStore() {
                                             ...state,
                                             data: {
                                                 ...state.data,
-                                                reviews: content.map((review: any) => ({
+                                                reviews: content.map((review: NostrReview) => ({
                                                     id: review.id,
                                                     from: review.from,
                                                     rating: review.rating,

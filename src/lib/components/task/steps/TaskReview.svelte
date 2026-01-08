@@ -10,10 +10,9 @@
 		satsFromUsd
 	} from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import { formatStandardDate, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
-	import Gallery from '$lib/components/Gallery.svelte';
+	import { formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import type { Attachment } from '$lib/types/task';
 
 	let { direction } = $props();
@@ -157,7 +156,7 @@
 							</span>
 						{:else if $store.task.deadline}
 							<span class="text-base font-medium text-base-content">
-								{$t('task.complete_by')} {formatStandardDateShort(new Date($store.task.deadline))}
+								{$t('task.complete_by')} {formatStandardDateShort(parseDateToLocalMidnight($store.task.deadline) || new Date($store.task.deadline))}
 							</span>
 						{/if}
 					</div>
@@ -203,7 +202,7 @@
 				<h5 class="mb-3 text-base font-semibold text-base-content">{$t('task.description_label')}</h5>
 				<div class="bg-base-100 rounded-lg border border-base-300 p-4">
 					<div class="max-h-32 overflow-y-auto">
-						<p class="text-sm leading-relaxed text-base-content">{$store.task.description}</p>
+						<p class="text-sm leading-relaxed text-base-content whitespace-pre-line">{$store.task.description}</p>
 					</div>
 				</div>
 			</div>
@@ -246,7 +245,7 @@
 				{$t('dashboard.task_details_by_task.attachments')}
 			</small>
 
-			<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+			<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
 				{#each $store.task.attachments as attachment, i}
 					{#if isVideoFile(attachment.url)}
 						<!-- Video -->

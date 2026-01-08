@@ -1,14 +1,12 @@
 import type { Location } from '$lib/types/task';
 import type { NostrEvent, Filter } from '$lib/types/nostr';
+import { get } from 'svelte/store';
+import { appStore } from '$lib/stores/app.store';
 import { bytesToHex } from '@noble/hashes/utils';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
-import { profileStore } from '$lib/stores/profile.store';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
-
-// Define relay URLs with fallbacks
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 /**
  * Publish encrypted location data to Nostr
@@ -16,8 +14,10 @@ const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove
  * @param relays Optional array of relay URLs
  * @returns Promise resolving to the published event
  */
-export async function publishLocation(location: Location, relays = RELAYS): Promise<NostrEvent> {
+export async function publishLocation(location: Location, relays = get(appStore).relays): Promise<NostrEvent> {
     try {
+        const pool = get(appStore).pool;
+
         // Get own public key
         const keyPair = await getNostrKeyPair();
         const nsec = bytesToHex(keyPair.nsec);
@@ -46,7 +46,7 @@ export async function publishLocation(location: Location, relays = RELAYS): Prom
 
         // Sign and publish event
         const signedEvent = await getSignedEvent(event);
-        profileStore.pool.publish(relays, signedEvent);
+        pool.publish(relays, signedEvent);
 
         return signedEvent;
     } catch (error) {
@@ -63,9 +63,11 @@ export async function publishLocation(location: Location, relays = RELAYS): Prom
  */
 export async function subscribeToLocation(
     callback: (location: Location) => void,
-    relays = RELAYS
+    relays = get(appStore).relays
 ): Promise<() => void> {
     try {
+        const pool = get(appStore).pool;
+
         // Get nostr keypair
         const keyPair = await getNostrKeyPair();
         const nsec = bytesToHex(keyPair.nsec);
@@ -75,7 +77,7 @@ export async function subscribeToLocation(
         const conversationKey = await nip44.getConversationKey(nsec, npub);
 
         // Subscribe to location events
-        const sub = profileStore.pool.subscribe(
+        const sub = pool.subscribe(
             relays,
             {
                 authors: [npub],
@@ -112,9 +114,11 @@ export async function subscribeToLocation(
  * @returns Promise resolving to the location data or null if not found
  */
 export async function getLatestLocation(
-    relays = RELAYS
+    relays = get(appStore).relays
 ): Promise<Location | null> {
     try {
+        const pool = get(appStore).pool;
+
         // Get authentication method to determine decryption approach
         const { Preferences } = await import('@capacitor/preferences');
         const { StorageKeys } = await import('$lib/utils/constants/storage');
@@ -127,7 +131,7 @@ export async function getLatestLocation(
             npub = await getNpub();
 
             // Get latest location event
-            const event = await profileStore.pool.get(
+            const event = await pool.get(
                 relays,
                 {
                     authors: [npub],
@@ -156,7 +160,7 @@ export async function getLatestLocation(
             const conversationKey = await nip44.getConversationKey(nsec, npub);
 
             // Get latest location event
-            const event = await profileStore.pool.get(
+            const event = await pool.get(
                 relays,
                 {
                     authors: [npub],

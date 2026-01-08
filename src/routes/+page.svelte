@@ -287,20 +287,6 @@
 			<div class="mb-8 flex items-center justify-between">
 				<h2>{$t('homepage.v2.livetasks.title')}</h2>
 				<div class="flex items-center gap-2">
-					<button 
-						class="btn btn-ghost btn-sm" 
-						onclick={loadFeaturedTasks}
-						disabled={tasksLoading}
-					>
-						{#if tasksLoading}
-							<span class="loading loading-spinner loading-xs"></span>
-						{:else}
-							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-							</svg>
-						{/if}
-						Refresh
-					</button>
 					<a href="/tasks" class="btn btn-link text-primary"
 						>{$t('common.view_all')}
 						<svg
@@ -339,7 +325,6 @@
 					<div class="flex justify-center items-center py-12">
 						<div class="text-center">
 							<p class="text-base-content/70">No featured tasks available at the moment.</p>
-							<button class="btn btn-primary btn-sm mt-4" onclick={loadFeaturedTasks}>Refresh</button>
 						</div>
 					</div>
 				{:else}

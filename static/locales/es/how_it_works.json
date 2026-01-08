@@ -11,7 +11,7 @@
         },
         "alert": {
             "title": "¿Eres nuevo en BitTasker?",
-            "description": "Nuestra plataforma utiliza <a href=\"/security\" class=\"link link-primary\">llaves de acceso seguras</a> en lugar de contraseñas y un <a href=\"/escrow\" class=\"link link-primary\">sistema de custodia (escrow) impulsado por Bitcoin</a> para todos los pagos, lo que proporciona una experiencia más segura que las plataformas tradicionales."
+            "description": "Nuestra plataforma utiliza <a href=\"/security\" class=\"link link-primary\">llaves de acceso seguras</a> en lugar de contraseñas y <a href=\"/secure-payments\" class=\"link link-primary\">contratos de pago seguro impulsados por Bitcoin</a> para todos los pagos, lo que proporciona una experiencia más segura que las plataformas tradicionales."
         },
         "steps": {
             "sign_up": "Registrarse",
@@ -75,8 +75,8 @@
                     "description": "Compara habilidades, valoraciones y cotizaciones para encontrar la combinación perfecta."
                 },
                 "3": {
-                    "title": "Contrata y paga a través de custodia segura",
-                    "description": "Nuestro <a href=\"/escrow\" class=\"link link-primary\">sistema de custodia (escrow)</a> protege a ambas partes durante la transacción."
+                    "title": "Contrata y paga a través de contratos de pago seguro",
+                    "description": "Nuestro <a href=\"/secure-payments\" class=\"link link-primary\">sistema de contratos de pago seguro</a> protege a ambas partes durante la transacción."
                 },
                 "tip": "<strong>Consejo de presupuesto:</strong> Establece un rango de presupuesto realista para tu proyecto con nuestro modelo de pago de precio fijo. Sé lo más detallado y preciso posible con tus tareas para asegurar ofertas precisas y evitar cambios en el alcance del proyecto por parte de los 'taskees'."
             },
@@ -111,7 +111,7 @@
             },
             "milestones": {
                 "title": "Seguimiento de hitos",
-                "description": "Divide los proyectos en hitos manejables con pagos individuales de custodia para cada fase completada."
+                "description": "Divide los proyectos en hitos manejables con contratos de pago seguro individuales para cada fase completada."
             },
             "translation": {
                 "title": "Traducción Automática",
@@ -119,7 +119,7 @@
             },
             "completion": {
                 "title": "Finalización de la tarea",
-                "description": "Marca las tareas como completadas cuando termines, lo que activa el proceso de liberación del dinero de la custodia para el pago."
+                "description": "Marca las tareas como completadas cuando termines, lo que activa el proceso de liberación del contrato de pago seguro para el pago."
             },
             "warning": "<strong>Importante:</strong> Comunícate siempre a través de la plataforma BitTasker para garantizar la protección bajo nuestras <a href=\"/community-guidelines\" class=\"link link-primary\">pautas de la comunidad</a> y el proceso de resolución de disputas."
         },
@@ -128,8 +128,8 @@
             "description": "El sistema de pago flexible de BitTasker admite tanto Bitcoin como monedas fiduciarias tradicionales, asegurando que los 'taskees' reciban sus ganancias de forma segura y puntual con múltiples opciones de retiro.",
             "features_title": "Características clave de los pagos",
             "feature_1": {
-                "title": "Sistema de custodia segura",
-                "description": "Los fondos del 'tasker' se resguardan en nuestro <a href=\"/escrow\" class=\"link link-primary\">sistema de custodia segura</a> hasta que se apruebe el trabajo, protegiendo a ambas partes durante la transacción, independientemente del método de pago."
+                "title": "Sistema de Contratos de Pago Seguro",
+                "description": "Los fondos del 'tasker' se resguardan en nuestro <a href=\"/secure-payments\" class=\"link link-primary\">sistema de contratos de pago seguro</a> hasta que se apruebe el trabajo, protegiendo a ambas partes durante la transacción, independientemente del método de pago."
             },
             "feature_2": {
                 "title": "Liberación automática de pagos",

@@ -35,7 +35,7 @@
 	let activeTab = $state<'overview' | 'reviews'>('overview');
 </script>
 
-<div class="mx-auto px-2 pt-2  md:px-0">
+<div class="mx-auto max-w-6xl px-2 pt-2  md:px-0">
 	<div class="mb-8">
 		<h3 class="text-2xl font-bold mb-2">{$t('profile.page.title')}</h3>
 		<p class="text-base-content/70 text-lg">{$t('profile.page.description')}</p>

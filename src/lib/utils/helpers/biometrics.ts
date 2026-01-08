@@ -65,7 +65,11 @@ export async function setBiometricKey(
 			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
 			if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
-			const displayName = customName ? `BitTasker ${customName}` : createDisplayName(publicKey);
+			// Handle empty/whitespace-only customName by falling back to public key-based name
+			const validCustomName = customName?.trim() || null;
+			const displayName = validCustomName ? `BitTasker ${validCustomName}` : createDisplayName(publicKey);
+			// Use customName for user.name so it appears in password managers
+			const passkeyUserName = validCustomName ? `BitTasker ${validCustomName}` : createDisplayName(publicKey);
 
 			const registrationOptions: PublicKeyCredentialCreationOptionsJSON = {
 				challenge: generateMobileChallenge(),
@@ -75,7 +79,7 @@ export async function setBiometricKey(
 				},
 				user: {
 					id: packedKeysBase64,
-					name: userName,
+					name: passkeyUserName,
 					displayName: displayName
 				},
 				pubKeyCredParams: [
@@ -312,6 +316,17 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 		}
 	} catch (err) {
 		const platform = authMethod === 'passkey' ? 'mobile-webauthn' : 'mobile-native';
+		
+		// Silently ignore "A request is already pending" errors
+		if (err instanceof Error && (
+			err.message.includes('A request is already pending') ||
+			err.message.includes('request is already pending') ||
+			err.message.includes('OperationError') && err.message.includes('already pending')
+		)) {
+			console.log('Biometric request already in progress, ignoring duplicate request');
+			return null;
+		}
+		
 		console.error('Failed to get biometric data:', err);
 		if (err instanceof Error && err.message.includes('device has been revoked')) {
 			appStore.showInfoToast('Your device access has been revoked');

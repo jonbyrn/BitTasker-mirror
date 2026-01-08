@@ -3,7 +3,9 @@
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { formatDate } from '$lib/utils/helpers/dateFormatter';
 	import CounterOfferItem from '$lib/components/bidding/CounterOfferItem.svelte';
+	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 	import { t } from 'svelte-i18n';
+	import { getBidderDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -69,7 +71,7 @@
 			<div class="mb-6">
 				<div class="flex items-start justify-between">
 					<div>
-						<h3 class="text-lg font-semibold">{props.bid.bidderName || $t('dashboard.bids.bid_details.anonymous')}</h3>
+						<h3 class="text-lg font-semibold">{getBidderDisplayName(props.bid.bidderName, props.bid.userProfile)}</h3>
 						<p class="text-sm opacity-70">
 							{$t('dashboard.bids.bid_details.submitted')} {props.bid?.createdAt ? formatDate(new Date(props.bid.createdAt)) : ''}
 						</p>
@@ -116,14 +118,28 @@
 			<!-- Proposal -->
 			<div class="mb-6">
 				<h3 class="mb-2 text-base font-semibold">{$t('dashboard.bids.bid_details.proposal')}</h3>
-				<p class="whitespace-pre-line">{props.bid.description}</p>
+				<div class="whitespace-pre-line">
+					<TranslatableBidContent 
+						bid={props.bid as any}
+						content={props.bid.description} 
+						contentType="description"
+					/>
+				</div>
 			</div>
 
 			<!-- Approach -->
-			<div class="mb-6">
-				<h3 class="mb-2 text-base font-semibold">{$t('dashboard.bids.bid_details.proposed_approach')}</h3>
-				<p class="whitespace-pre-line">{props.bid.proposedApproach}</p>
-			</div>
+			{#if props.bid.proposedApproach && props.bid.proposedApproach.trim() !== ''}
+				<div class="mb-6">
+					<h3 class="mb-2 text-base font-semibold">{$t('dashboard.bids.bid_details.proposed_approach')}</h3>
+					<div class="whitespace-pre-line">
+						<TranslatableBidContent 
+							bid={props.bid as any}
+							content={props.bid.proposedApproach} 
+							contentType="proposedApproach"
+						/>
+					</div>
+				</div>
+			{/if}
 
 			<!-- Timeline -->
 			<div class="mb-6">

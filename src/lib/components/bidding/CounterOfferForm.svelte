@@ -1,14 +1,14 @@
 <script lang="ts">
-	import type { CounterOffer, Currency, PaymentType, SimplifiedTaskBid } from '$lib/types/bid';
+	import type { CounterOffer, Currency, PaymentType, NostrBidContent } from '$lib/types/bid';
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { t } from 'svelte-i18n';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
 	const props = $props<{
-		bid: SimplifiedTaskBid;
+		bid: NostrBidContent;
 		onSubmit: (
 			bidId: string,
 			counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>

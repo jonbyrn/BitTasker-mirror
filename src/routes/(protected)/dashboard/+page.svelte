@@ -11,6 +11,7 @@
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
+
 	// Tab management - reactive to language changes
 	const availableTabs = $derived([
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
@@ -75,7 +76,7 @@
 	};
 </script>
 
-<div class="mx-auto h-full max-w-7xl px-2 py-6 md:px-0 md:py-0">
+<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
 		<div>
@@ -83,13 +84,13 @@
 			<p class="text-base-content/70 px-1">{$t('dashboard.description')}</p>
 		</div>
 		<a
-			href={activeTab === 'bids' || activeTab === 'saved-searches'
-				? '/dashboard/find-tasks'
-				: activeTab === 'contracts'
-				? '/dashboard/wallet'
-				: '/dashboard/create-task'}
-			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
-		>
+				href={activeTab === 'bids' || activeTab === 'saved-searches'
+					? '/dashboard/find-tasks'
+					: activeTab === 'contracts'
+					? '/dashboard/wallet'
+					: '/dashboard/create-task'}
+				class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
+			>
 			{#if activeTab === 'bids' || activeTab === 'saved-searches'}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

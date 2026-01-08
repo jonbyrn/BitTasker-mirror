@@ -24,6 +24,7 @@
 	--color-base-100: #2d2d2d;
 	--color-base-200: #363636;
 	--color-base-300: #3f3f3f;
+	--color-base-400: #4b4b4b;
 	--color-base-content: #ffffff; /* fallback for oklch(100% 0 0) */
 	--color-primary: #f7931a;
 	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
@@ -59,6 +60,7 @@
 	--color-base-100: #fafafa; /* fallback for oklch(98% 0 0) */
 	--color-base-200: #f1f3f5;
 	--color-base-300: #e5e7eb;
+	--color-base-400: #d1d5db;
 	--color-base-content: #121212;
 	--color-primary: #f7931a;
 	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
@@ -207,9 +209,30 @@ pre {
 	@apply font-mono;
 }
 
+/* Hide number input spinners */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+input[type='number'] {
+	-moz-appearance: textfield;
+}
+
 input,
 textarea {
 	@apply focus:outline-none;
+}
+
+/* Match alert border radius to accordion/collapse components */
+.alert {
+	border-radius: 0.5rem !important;
+}
+
+/* Match dropdown menu border radius to alerts */
+.dropdown-content {
+	border-radius: 0.5rem !important;
 }
 
 /* Override input field border radius to be more square while keeping buttons pill-shaped */
@@ -534,4 +557,17 @@ body {
 
 :root[data-theme='dark'] .inverted-text {
 	color: #000000;
+}
+
+.highlight-message {
+	animation: highlight-pulse 2s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+	0%, 100% {
+		background-color: transparent;
+	}
+	50% {
+		background-color: hsl(var(--p) / 0.2);
+	}
 }

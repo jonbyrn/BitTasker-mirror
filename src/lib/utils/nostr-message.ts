@@ -1,148 +1,118 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
+import type { SubCloser } from 'nostr-tools/abstract-pool';
 import { nip19 } from 'nostr-tools';
-import { getNostrKeyPair, getNpub } from './nostrKeys';
+import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
 import { bytesToHex } from '@noble/hashes/utils';
-import { subscribeToEvents, getSignedEvent } from './nostr';
+import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import { appStore } from '$lib/stores/app.store';
-import { profileCache } from './profile-cache';
-import { formatStandardDateShort } from './helpers/dateFormatter';
+import { get } from 'svelte/store';
+import { profileCache } from '$lib/utils/profile-cache';
+import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
+import type { NostrProfileImage, NostrReview, NostrSkill, SkillCertification, TimeSlot, ProfileTranslations } from '$lib/types/profile';
 
 // --- Relay Configuration ---
-const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
+const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
-const RELAY_TIMEOUT = 10000; // 10 seconds
-const MAX_RETRY_ATTEMPTS = 3;
-const RETRY_DELAY = 1000; // 1 second
-
-// --- Auth memoization to prevent multiple passkey prompts ---
-let authSingleton: Promise<{ nsec: Uint8Array; npub: string }> | null = null;
-function getAuthOnce(): Promise<{ nsec: Uint8Array; npub: string }> {
-	if (!authSingleton) {
-		authSingleton = getNostrKeyPair();
-	}
-	return authSingleton;
+/**
+ * Get the centralized pool instance from appStore
+ * This ensures we use a single pool across the entire application
+ */
+function getPool() {
+	return get(appStore).pool;
 }
 
-// --- Enhanced Relay Management ---
-interface RelayConnectionResult {
-	relay: string;
-	success: boolean;
-	error?: string;
-}
+// --- Batch Profile Fetching ---
+async function fetchProfilesBatch(
+	pubkeys: string[]
+): Promise<Map<string, { name?: string; picture?: string }>> {
+	if (pubkeys.length === 0) return new Map();
 
-async function withRetry<T>(
-	operation: () => Promise<T>,
-	maxAttempts: number = MAX_RETRY_ATTEMPTS,
-	delay: number = RETRY_DELAY
-): Promise<T> {
-	let lastError: Error;
+	const pool = getPool();
+	const filter: Filter = {
+		kinds: [KINDS.PROFILE_METADATA, KINDS.FILE_METADATA, KINDS.PROFILE_IMAGES],
+		authors: pubkeys,
+		limit: pubkeys.length * 3
+	};
 
-	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-		try {
-			return await operation();
-		} catch (error) {
-			lastError = error as Error;
+	const events = await pool.querySync(DEFAULT_RELAYS, filter);
 
-			if (attempt === maxAttempts) {
-				break;
+	const profileMap = new Map<string, { name?: string; picture?: string }>();
+
+	// Sort events by created_at (newest first) to get the latest profile info
+	const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
+
+	for (const event of sortedEvents) {
+		// Skip if we already have a profile for this pubkey (since we sorted by newest first)
+		const existingProfile = profileMap.get(event.pubkey);
+
+		if (event.kind === KINDS.PROFILE_METADATA && event.content) {
+			try {
+				const content = JSON.parse(event.content);
+				const profileData = {
+					name: content.display_name || content.displayName || content.name,
+					picture: existingProfile?.picture || content.picture || content.avatar || content.image
+				};
+				profileMap.set(event.pubkey, profileData);
+				await profileCache.cacheProfile(event.pubkey, profileData);
+			} catch (e) {
+				console.error('Failed to parse profile metadata:', e);
 			}
-
-			// Wait before retrying
-			await new Promise((resolve) => setTimeout(resolve, delay * attempt));
-		}
-	}
-
-	throw lastError!;
-}
-
-async function tryWithTimeout<T>(
-	promise: Promise<T>,
-	timeoutMs: number = RELAY_TIMEOUT
-): Promise<T> {
-	const timeoutPromise = new Promise<never>((_, reject) => {
-		setTimeout(() => reject(new Error('Operation timeout')), timeoutMs);
-	});
-
-	return Promise.race([promise, timeoutPromise]);
-}
-
-async function queryMultipleRelays(relays: string[], filter: Filter): Promise<NostrEvent[]> {
-	const pool = (await import('nostr-tools/pool')).SimplePool;
-	const relayPool = new pool();
-
-	// Try relays in order, return first successful result
-	for (const relay of relays) {
-		try {
-			const events = await tryWithTimeout(relayPool.querySync([relay], filter), RELAY_TIMEOUT);
-
-			if (events && events.length > 0) {
-				return events;
+		} else if (event.kind === KINDS.PROFILE_IMAGES && !existingProfile?.picture) {
+			const dTag = event.tags.find((t) => t[0] === 'd');
+			if (dTag && dTag[1] === 'profile-images') {
+				try {
+					const images = JSON.parse(event.content);
+					if (Array.isArray(images) && images.length > 0) {
+						const currentProfile = profileMap.get(event.pubkey) || {};
+						const updatedProfile = { ...currentProfile, picture: images[0].url };
+						profileMap.set(event.pubkey, updatedProfile);
+						await profileCache.cacheProfile(event.pubkey, updatedProfile);
+					}
+				} catch (e) {
+					console.error('Failed to parse profile images:', e);
+				}
 			}
-		} catch (error) {
-			console.warn(`Failed to query relay ${relay}:`, error);
-			continue;
+		} else if (event.kind === KINDS.FILE_METADATA && !existingProfile?.picture) {
+			const urlTag = event.tags.find((t) => t[0] === 'url');
+			const altTag = event.tags.find((t) => t[0] === 'alt');
+			const mTag = event.tags.find((t) => t[0] === 'm');
+
+			if (urlTag && urlTag[1]) {
+				const alt = altTag && altTag[1] ? altTag[1].toLowerCase() : '';
+				const mime = mTag && mTag[1] ? mTag[1].toLowerCase() : '';
+
+				if (
+					alt.includes('profile') ||
+					alt.includes('avatar') ||
+					mime.startsWith('image/') ||
+					urlTag[1].match(/\.(jpg|jpeg|png|gif|webp)$/i)
+				) {
+					const currentProfile = profileMap.get(event.pubkey) || {};
+					const updatedProfile = { ...currentProfile, picture: urlTag[1] };
+					profileMap.set(event.pubkey, updatedProfile);
+					await profileCache.cacheProfile(event.pubkey, updatedProfile);
+				}
+			}
 		}
 	}
 
-	// If no relay returned results, try them all at once as fallback
-	try {
-		return await tryWithTimeout(relayPool.querySync(relays, filter), RELAY_TIMEOUT * 2);
-	} catch (error) {
-		console.error('All relays failed:', error);
-		throw new Error('Failed to connect to any relay');
-	}
-}
-
-async function publishToMultipleRelays(
-	relays: string[],
-	event: NostrEvent
-): Promise<RelayConnectionResult[]> {
-	const pool = (await import('nostr-tools/pool')).SimplePool;
-	const relayPool = new pool();
-
-	const publishPromises = relays.map(async (relay) => {
-		try {
-			const pubPromises = relayPool.publish([relay], event);
-			await tryWithTimeout(Promise.all(pubPromises), RELAY_TIMEOUT);
-			return { relay, success: true };
-		} catch (error) {
-			return {
-				relay,
-				success: false,
-				error: (error as Error).message
-			};
-		}
-	});
-
-	const results = await Promise.allSettled(publishPromises);
-
-	return results.map((result, index) => {
-		if (result.status === 'fulfilled') {
-			return result.value;
-		} else {
-			return {
-				relay: relays[index],
-				success: false,
-				error: result.reason?.message || 'Unknown error'
-			};
-		}
-	});
+	return profileMap;
 }
 
 // --- Internal helpers ---
 async function encryptDM(
 	plaintext: string,
-	recipientPubkey: string,
-	senderPrivkey: string
+	recipientNpub: string,
+	senderNsec: string
 ): Promise<string> {
 	// Generate 32-byte nonce
 	const nonce = crypto.getRandomValues(new Uint8Array(32));
 
 	// Get conversation key
-	const conversationKey = await nip44.getConversationKey(senderPrivkey, recipientPubkey);
+	const conversationKey = await nip44.getConversationKey(senderNsec, recipientNpub);
 
 	// Encrypt with NIP-44
 	return nip44.encrypt(plaintext, conversationKey, nonce);
@@ -150,11 +120,11 @@ async function encryptDM(
 
 async function decryptDM(
 	ciphertext: string,
-	senderPubkey: string,
-	recipientPrivkey: string
+	senderNpub: string,
+	recipientNsec: string
 ): Promise<string> {
 	// Get conversation key
-	const conversationKey = await nip44.getConversationKey(recipientPrivkey, senderPubkey);
+	const conversationKey = await nip44.getConversationKey(recipientNsec, senderNpub);
 
 	// Decrypt with NIP-44
 	return nip44.decrypt(ciphertext, conversationKey);
@@ -162,33 +132,29 @@ async function decryptDM(
 
 export async function parseDMEvent(
 	event: NostrEvent,
-	currentUserPrivkey: string
+	nsec: string,
+	npub: string
 ): Promise<{ plaintext: string; senderPubkey: string }> {
-	if (event.kind !== 4) throw new Error('Not a DM event');
+	if (event.kind !== KINDS.DIRECT_MESSAGES) throw new Error('Not a DM event');
 
-	const senderPubkey = event.pubkey;
-
-	// Get current user's public key from private key
-	const { getPublicKey } = await import('nostr-tools');
-	const { hexToBytes } = await import('@noble/hashes/utils');
-	const currentUserPubkey = getPublicKey(hexToBytes(currentUserPrivkey));
+	const senderNpub = event.pubkey;
 
 	let plaintext: string;
 
-	if (senderPubkey === currentUserPubkey) {
+	if (senderNpub === npub) {
 		// We are the sender, so we need to decrypt using the recipient's pubkey
 		const recipientTag = event.tags.find((tag) => tag[0] === 'p');
 		if (!recipientTag || !recipientTag[1]) {
 			throw new Error('No recipient found in message tags');
 		}
-		const recipientPubkey = recipientTag[1];
-		plaintext = await decryptDM(event.content, recipientPubkey, currentUserPrivkey);
+		const recipientNpub = recipientTag[1];
+		plaintext = await decryptDM(event.content, recipientNpub, nsec);
 	} else {
 		// We are the recipient, decrypt using the sender's pubkey
-		plaintext = await decryptDM(event.content, senderPubkey, currentUserPrivkey);
+		plaintext = await decryptDM(event.content, senderNpub, nsec);
 	}
 
-	return { plaintext, senderPubkey };
+	return { plaintext, senderPubkey: senderNpub };
 }
 
 /**
@@ -200,11 +166,10 @@ export function subscribeToProfileUpdates(
 	callback: (profile: { name?: string; picture?: string }) => void,
 	relays: string[] = DEFAULT_RELAYS
 ): () => void {
-	let sub: any = null;
+	let sub: SubCloser | null = null;
 
 	const setupSubscription = async () => {
-		const { SimplePool } = await import('nostr-tools/pool');
-		const pool = new SimplePool();
+		const pool = getPool();
 
 		try {
 			// Convert pubkey to hex format if it's in npub format
@@ -292,24 +257,23 @@ export function subscribeToProfileUpdates(
 	};
 }
 
-export async function fetchProfileMetadata(
-	pubkey: string
-): Promise<{ name?: string; picture?: string; createdAt?: string }> {
+export async function fetchProfileMetadata(npub: string): Promise<{ name?: string; picture?: string; createdAt?: string }> {
 	try {
 		// First check cache
-		const cachedProfile = await profileCache.getProfile(pubkey);
+		const cachedProfile = await profileCache.getProfile(npub);
 		if (cachedProfile) {
 			return cachedProfile;
 		}
 
 		// If not in cache, fetch from relays
+		const pool = getPool();
 		const filter: Filter = {
-			kinds: [KINDS.PROFILE_METADATA, KINDS.FILE_METADATA, KINDS.PROFILE_IMAGES, KINDS.NIP_65_RELAY_LIST], // Profile metadata, file metadata, profile images, and NIP-65 relay list
-			authors: [pubkey],
-			limit: 20 // Increased limit to get more profile events
+			kinds: [KINDS.PROFILE_METADATA, KINDS.FILE_METADATA, KINDS.PROFILE_IMAGES, KINDS.NIP_65_RELAY_LIST],
+			authors: [npub],
+			limit: 20
 		};
 
-		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
+		const events = await pool.querySync(DEFAULT_RELAYS, filter);
 
 		let name: string | undefined = undefined;
 		let picture: string | undefined = undefined;
@@ -324,7 +288,7 @@ export async function fetchProfileMetadata(
 					const content = JSON.parse(event.content);
 
 					// Map displayName to name if name is not available
-						name = content?.display_name || content?.displayName || content?.name;
+					name = content?.display_name || content?.displayName || content?.name;
 
 					if (event.created_at) {
 						createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
@@ -387,13 +351,13 @@ export async function fetchProfileMetadata(
 		const profile = { name, picture, createdAt };
 
 		// Cache the result (even if empty, to avoid repeated failed requests)
-		await profileCache.cacheProfile(pubkey, profile);
+		await profileCache.cacheProfile(npub, profile);
 
 		return profile;
 	} catch (error) {
-		console.error('💥 Failed to fetch profile metadata for', pubkey, ':', error);
+		console.error('💥 Failed to fetch profile metadata for', npub, ':', error);
 		// Cache empty result to avoid repeated failed requests
-		await profileCache.cacheProfile(pubkey, {});
+		await profileCache.cacheProfile(npub, {});
 		return {};
 	}
 }
@@ -408,23 +372,25 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	pictures?: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
 	website?: string;
 	professionalTitle?: string;
+	translations?: ProfileTranslations;
 	skills?: Array<string | {
 		name: string;
 		level: number;
 		verificationStatus?: string;
 		endorsements?: number;
-		certifications?: any[];
+		certifications?: SkillCertification[];
 	}>;
 	portfolio?: Array<{
 		id: string;
 		title: string;
 		description: string;
-		images: any[];
+		images: NostrProfileImage[];
 		completionDate: string;
 		skills: string[];
+		link?: string;
 	}>;
 	availability?: {
-		timeSlots: any[];
+		timeSlots: TimeSlot[];
 		timezone: string;
 		noticeHours: number;
 		maxBookingsPerDay: number;
@@ -441,7 +407,22 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	createdAt?: string;
 }> {
 	try {
+		// Ensure pubkey is in hex format (not npub)
+		let hexPubkey = pubkey;
+		if (pubkey.startsWith('npub')) {
+			try {
+				const decoded = nip19.decode(pubkey);
+				if (decoded.type === 'npub') {
+					hexPubkey = decoded.data as string;
+				}
+			} catch (e) {
+				console.error('Failed to decode npub:', e);
+				throw new Error('Invalid npub format');
+			}
+		}
+
 		// Fetch all profile-related events
+		const pool = getPool();
 		const filter: Filter = {
 			kinds: [
 				KINDS.PROFILE_METADATA, // Metadata
@@ -453,20 +434,22 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 				KINDS.PROFILE_AVAILABILITY, // Availability (30002)
 				KINDS.PROFILE_REVIEWS // Reviews (30004)
 			],
-			authors: [pubkey],
-			limit: 50 // Increased limit to get all profile events
+			authors: [hexPubkey],
+			limit: 50
 		};
 
-		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
+		const events = await pool.querySync(DEFAULT_RELAYS, filter);
 
 		// Initialize profile data
 		const profileData: any = {
 			name: '',
+			display_name: '',
 			about: '',
 			picture: '',
 			pictures: [],
 			website: '',
 			professionalTitle: '',
+			location: '',
 			skills: [],
 			portfolio: [],
 			availability: {
@@ -501,8 +484,22 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 						if (content.professionalTitle) {
 							profileData.professionalTitle = content.professionalTitle;
 						}
+						if (content.translations) {
+							profileData.translations = content.translations;
+						}
+						// PROFILE_METADATA has priority over PROFILE_IMAGES
 						if (content.picture) {
 							profileData.picture = content.picture;
+						}
+						if (content.location) {
+							// Location can be a string (city, country or city, state) or an object
+							if (typeof content.location === 'string') {
+								profileData.location = content.location;
+							} else if (content.location.city && content.location.country) {
+								profileData.location = `${content.location.city}, ${content.location.country}`;
+							} else if (content.location.city && content.location.state) {
+								profileData.location = `${content.location.city}, ${content.location.state}`;
+							}
 						}
 						if (event.created_at) {
 							profileData.createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
@@ -513,15 +510,15 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 						const dTag = event.tags.find((t) => t[0] === 'd');
 						if (dTag && dTag[1] === 'profile-images') {
 							if (Array.isArray(content)) {
-								profileData.pictures = content.map((img: any) => ({
+								profileData.pictures = content.map((img: NostrProfileImage) => ({
 									url: img.url,
 									type: img.type || 'image/jpeg',
 									alt: img.alt || '',
 									key: img.key,
 									isPrimary: img.isPrimary || false
 								}));
-								// Use first image as primary picture if no picture set
-								if (!profileData.picture && content.length > 0) {
+								// Only use first image as primary picture if PROFILE_METADATA didn't provide one (PROFILE_METADATA has priority)
+								if (content.length > 0 && !profileData.picture) {
 									profileData.picture = content[0].url;
 								}
 							}
@@ -531,7 +528,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 
 					case KINDS.PROFILE_SKILLS: // Skills (30000)
 						if (Array.isArray(content)) {
-							profileData.skills = content.map((skill: any) => {
+							profileData.skills = content.map((skill: NostrSkill & { translations?: any; id?: string }) => {
 								// Handle both string format and object format
 								if (typeof skill === 'string') {
 									return skill;
@@ -541,7 +538,9 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 										level: skill.level,
 										verificationStatus: skill.verificationStatus,
 										endorsements: skill.endorsements,
-										certifications: skill.certifications || []
+										certifications: skill.certifications || [],
+										translations: skill.translations,
+										id: skill.id
 									};
 								}
 							});
@@ -555,7 +554,9 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 							description: content.description,
 							images: content.images,
 							completionDate: content.completionDate,
-							skills: content.skills
+							skills: content.skills,
+							link: content.link,
+							translations: content.translations
 						});
 						break;
 
@@ -571,7 +572,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 
 					case KINDS.PROFILE_REVIEWS: // Reviews (30004)
 						if (Array.isArray(content)) {
-							profileData.reviews = content.map((review: any) => ({
+							profileData.reviews = content.map((review: NostrReview) => ({
 								id: review.id,
 								from: review.from,
 								rating: review.rating,
@@ -599,7 +600,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 		return profileData;
 	} catch (error) {
 		console.error('💥 Failed to fetch comprehensive profile for', pubkey, ':', error);
-		return {};
+		// Return a more informative error structure
+		throw error;
 	}
 }
 
@@ -624,7 +626,9 @@ export async function sendDirectMessage(
 			: recipientPubkey;
 
 		const ciphertext = await encryptDM(message, recipientPubkeyHex, senderPrivkey);
-		const tags: string[][] = [];
+
+		// Use TAG_PATTERNS for direct messages
+		const tags: string[][] = [...TAG_PATTERNS.directMessage(recipientPubkeyHex)];
 
 		// Add thread root tag if provided
 		if (threadRootId) {
@@ -638,16 +642,16 @@ export async function sendDirectMessage(
 
 		// Create event metadata for signing
 		const eventMetadata: Partial<NostrEvent> = {
-			kind: 4,
+			kind: KINDS.DIRECT_MESSAGES,
 			content: ciphertext,
-			tags: [['p', recipientPubkeyHex], ...tags],
+			tags,
 			created_at: Math.floor(Date.now() / 1000)
 		};
 
 		// Sign the event
 		const signedEvent = await getSignedEvent(eventMetadata);
 
-		const results = await withRetry(() => publishToMultipleRelays(DEFAULT_RELAYS, signedEvent));
+		const results = await publishToMultipleRelays(signedEvent);
 
 		// Check if at least one relay succeeded
 		const successfulRelays = results.filter((r) => r.success);
@@ -669,113 +673,74 @@ export async function sendDirectMessage(
 }
 
 /**
- * Listen for incoming DMs for the current user with auto-reconnection
+ * Listen for incoming DMs for the current user
+ * Uses the centralized pool to subscribe to all relays simultaneously
  * Returns an unsubscribe function
+ * 
+ * Note: pool.subscribe only accepts ONE filter at a time, so we need TWO separate subscriptions:
+ * Subscription 1: Messages TO the user (#p tag contains user's pubkey)
+ * Subscription 2: Messages FROM the user (authors contains user's pubkey)
+ * 
+ * @arg npub - The public key of the user to listen for messages from
+ * @arg nsec - The private key of the user to listen for messages from
+ * @arg callback - The callback function to call when a message is received
  */
 export function listenForIncomingMessages(
+	npub: string, nsec: Uint8Array,
 	callback: (msg: { plaintext: string; senderPubkey: string; event: NostrEvent }) => void
 ): () => void {
-	let privkey: string;
-	let pubkeyHex: string;
-	let unsub: (() => void) | null = null;
-	let reconnectTimeout: NodeJS.Timeout | null = null;
 	let isUnsubscribed = false;
+	let subIncoming: SubCloser | null = null;
+	let subOutgoing: SubCloser | null = null;
 
 	const setupConnection = async () => {
 		if (isUnsubscribed) return;
 
 		try {
-			const { nsec, npub } = await getAuthOnce();
+			const pool = getPool();
+			const privkey = bytesToHex(nsec);
 
-			// Validate npub format before attempting to decode
-			if (!npub || typeof npub !== 'string') {
-				throw new Error('Invalid npub: not a string or empty');
-			}
-
-			privkey = bytesToHex(nsec);
-
-			// Handle both hex and npub formats
-			if (npub.startsWith('npub')) {
-				// It's already in npub format, decode it
+			const eventHandler = async (event: NostrEvent) => {
 				try {
-					const decoded = nip19.decode(npub);
-					if (decoded.type !== 'npub') {
-						throw new Error(`Expected npub type, got: ${decoded.type}`);
+					const { plaintext, senderPubkey } = await parseDMEvent(event, privkey, npub);
+					callback({ plaintext, senderPubkey, event });
+				} catch (err: unknown) {
+					// Silently ignore decryption errors for messages not meant for us
+					// or that we can't decrypt (e.g., corrupted data, wrong encryption)
+					if (err instanceof Error && !err.message.includes('Invalid MAC')) {
+						console.error('Failed to decrypt message:', err);
 					}
-					pubkeyHex = decoded.data as string;
-				} catch (decodeError) {
-					console.error('Failed to decode npub:', decodeError);
-					throw new Error(`Failed to decode npub ${npub}: ${(decodeError as Error).message}`);
 				}
-			} else if (/^[0-9a-fA-F]{64}$/.test(npub)) {
-				// It's a hex string, use it directly
-				pubkeyHex = npub.toLowerCase();
-			} else {
-				throw new Error(
-					`Invalid pubkey format: expected npub or 64-char hex, got: ${npub.substring(0, 20)}...`
-				);
-			}
+			};
 
-			// Listen for both incoming messages (where current user is in #p tag)
-			// and outgoing messages (where current user is the author)
-			const filters: Filter[] = [
+			// Subscribe to messages TO the user (incoming)
+			subIncoming = pool.subscribe(
+				DEFAULT_RELAYS,
 				{
-					kinds: [4],
-					'#p': [pubkeyHex], // Messages TO the current user
-					limit: 100
+					kinds: [KINDS.DIRECT_MESSAGES],
+					...TAG_PATTERNS.directMessage(npub),
+					since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60)  // Last 7 days
 				},
 				{
-					kinds: [4],
-					authors: [pubkeyHex], // Messages FROM the current user
-					limit: 100
+					onevent: eventHandler,
 				}
-			];
+			);
 
-			// Try primary relay first, then fallback to others
-			for (const relay of DEFAULT_RELAYS) {
-				if (isUnsubscribed) return;
-
-				try {
-					unsub = subscribeToEvents(relay, filters, async (event: NostrEvent) => {
-						try {
-							const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
-
-							callback({ plaintext, senderPubkey, event });
-						} catch (err: unknown) {
-							console.error('❌ Failed to decrypt real-time message:', err);
-						}
-					});
-
-					// Successfully connected
-					break;
-				} catch (error) {
-					console.warn(`Failed to connect to relay ${relay}:`, error);
-					continue;
+			// Subscribe to messages FROM the user (outgoing)
+			subOutgoing = pool.subscribe(
+				DEFAULT_RELAYS,
+				{
+					kinds: [KINDS.DIRECT_MESSAGES],
+					authors: [npub],
+					since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60)  // Last 7 days
+				},
+				{
+					onevent: eventHandler,
 				}
-			}
-
-			// If all relays failed, schedule reconnect
-			if (!unsub && !isUnsubscribed) {
-				console.warn('All relays failed, scheduling reconnect...');
-				scheduleReconnect();
-			}
+			);
 		} catch (error) {
 			console.error('Failed to setup message listener:', error);
-			if (!isUnsubscribed) {
-				scheduleReconnect();
-			}
-		}
-	};
-
-	const scheduleReconnect = () => {
-		if (reconnectTimeout) {
-			clearTimeout(reconnectTimeout);
-		}
-
-		if (!isUnsubscribed) {
-			reconnectTimeout = setTimeout(() => {
-				setupConnection();
-			}, 5000); // Reconnect after 5 seconds
+			// Pool will handle reconnection automatically
 		}
 	};
 
@@ -786,14 +751,22 @@ export function listenForIncomingMessages(
 	return () => {
 		isUnsubscribed = true;
 
-		if (unsub) {
-			unsub();
-			unsub = null;
+		if (subIncoming) {
+			try {
+				subIncoming.close();
+			} catch (err) {
+				console.error('Error closing incoming subscription:', err);
+			}
+			subIncoming = null;
 		}
 
-		if (reconnectTimeout) {
-			clearTimeout(reconnectTimeout);
-			reconnectTimeout = null;
+		if (subOutgoing) {
+			try {
+				subOutgoing.close();
+			} catch (err) {
+				console.error('Error closing outgoing subscription:', err);
+			}
+			subOutgoing = null;
 		}
 	};
 }
@@ -808,158 +781,33 @@ export async function getMessageHistory(
 	try {
 		const { nsec, npub } = await getNostrKeyPair();
 		const privkey = bytesToHex(nsec);
-
-		// Validate and convert npub to hex format for relay filters
-		if (!npub || typeof npub !== 'string') {
-			throw new Error('Invalid npub: not a string or empty');
-		}
-
-		let pubkeyHex: string;
-
-		// Handle both hex and npub formats
-		if (npub.startsWith('npub')) {
-			// It's already in npub format, decode it
-			try {
-				const decoded = nip19.decode(npub);
-				if (decoded.type !== 'npub') {
-					throw new Error(`Expected npub type, got: ${decoded.type}`);
-				}
-				pubkeyHex = decoded.data as string;
-			} catch (decodeError) {
-				console.error('Failed to decode npub:', decodeError);
-				throw new Error(`Failed to decode npub ${npub}: ${(decodeError as Error).message}`);
-			}
-		} else if (/^[0-9a-fA-F]{64}$/.test(npub)) {
-			// It's a hex string, use it directly
-			pubkeyHex = npub.toLowerCase();
-		} else {
-			throw new Error(
-				`Invalid pubkey format: expected npub or 64-char hex, got: ${npub.substring(0, 20)}...`
-			);
-		}
-
-		// Convert withPubkey to hex if it's in npub format
+		const pubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 		const withPubkeyHex = withPubkey.startsWith('npub')
 			? (nip19.decode(withPubkey).data as string)
 			: withPubkey;
+
+		const pool = getPool();
 
 		const filter: Filter = {
 			kinds: [4],
 			authors: [withPubkeyHex, pubkeyHex],
 			'#p': [withPubkeyHex, pubkeyHex],
+			...TAG_FILTERS.byMessageType('direct-message'),
 			limit: options?.limit || 25,
 			...(options?.since ? { since: options.since } : {}),
 			...(options?.until ? { until: options.until } : {})
 		};
 
-		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
+		const events = await pool.querySync(DEFAULT_RELAYS, filter);
 
 		const decrypted = await Promise.all(
-			events.map(async (event, index) => {
+			events.map(async (event) => {
 				try {
-					const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
-					return { plaintext, senderPubkey, event };
-				} catch (error) {
-					// Only log detailed errors for non-MAC issues to reduce noise
-					if (error instanceof Error && !error.message.includes('Invalid MAC')) {
-						console.error(`❌ Failed to decrypt event ${index + 1} (${event.id}):`, error);
-					}
-					return null;
-				}
-			})
-		);
-
-		const validMessages = decrypted.filter(Boolean) as {
-			plaintext: string;
-			senderPubkey: string;
-			event: NostrEvent;
-		}[];
-
-		return validMessages;
-	} catch (err: unknown) {
-		console.error('💥 getMessageHistory error:', err);
-		const errorMessage = (err as Error)?.message || 'Failed to fetch message history';
-		appStore.showErrorToast(errorMessage);
-		throw err;
-	}
-}
-
-/**
- * Optimized: Fetch encrypted DM events first (no private key),
- * in parallel warm up auth (get private key), then decrypt in batch.
- * This allows the passkey/extension prompt to occur while network I/O is in flight.
- */
-export async function getMessageHistoryOptimized(
-	withPubkey: string,
-	options?: { limit?: number; since?: number; until?: number }
-): Promise<{ plaintext: string; senderPubkey: string; event: NostrEvent }[]> {
-	try {
-		// Resolve our own pubkey in hex; try cached npub first to avoid prompting
-		let npub: string | null = null;
-		try {
-			const { Preferences } = await import('@capacitor/preferences');
-			const { StorageKeys } = await import('$lib/utils/constants/storage');
-			const { value } = await Preferences.get({ key: StorageKeys.NPUB });
-			if (value) npub = value;
-		} catch {
-			// ignore; will fallback
-		}
-		if (!npub) {
-			npub = await getNpub();
-		}
-		const selfHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-
-		// Convert withPubkey to hex if it's in npub format
-		const withHex = withPubkey.startsWith('npub')
-			? (nip19.decode(withPubkey).data as string)
-			: withPubkey;
-
-		const filter: Filter = {
-			kinds: [4],
-			authors: [withHex, selfHex],
-			'#p': [withHex, selfHex],
-			limit: options?.limit || 25,
-			...(options?.since ? { since: options.since } : {}),
-			...(options?.until ? { until: options.until } : {})
-		};
-
-		// Fetch encrypted events off main thread using a worker to avoid prompt blocking
-		const workerPromise = new Promise<NostrEvent[]>((resolve, reject) => {
-			try {
-				const worker = new Worker(new URL('$lib/workers/nostrDM.worker.ts', import.meta.url), {
-					type: 'module'
-				});
-				worker.onmessage = (e: MessageEvent<any>) => {
-					if (e.data?.type === 'fetched') {
-						resolve(e.data.payload.events || []);
-					} else if (e.data?.type === 'error') {
-						reject(new Error(e.data.payload?.message || 'worker error'));
-					}
-				};
-				worker.onerror = (err) => reject(err);
-				worker.postMessage({ type: 'fetchDMs', payload: { relays: DEFAULT_RELAYS, filter } });
-			} catch (err) {
-				reject(err);
-			}
-		});
-		// Start auth concurrently (do not await yet) so the prompt can show while worker runs
-		const authPromise = getAuthOnce();
-
-		// Wait for worker results first
-		const events = await workerPromise;
-
-		// Now prompt for auth and decrypt in batch (deferred until after fetch completes)
-		const { nsec } = await authPromise;
-		const privkey = bytesToHex(nsec);
-
-		const decrypted = await Promise.all(
-			events.map(async (event, index) => {
-				try {
-					const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
+					const { plaintext, senderPubkey } = await parseDMEvent(event, privkey, npub);
 					return { plaintext, senderPubkey, event };
 				} catch (error) {
 					if (error instanceof Error && !error.message.includes('Invalid MAC')) {
-						console.error(`❌ Failed to decrypt event ${index + 1} (${event.id}):`, error);
+						console.error('Failed to decrypt event:', error);
 					}
 					return null;
 				}
@@ -971,8 +819,8 @@ export async function getMessageHistoryOptimized(
 			senderPubkey: string;
 			event: NostrEvent;
 		}[];
-	} catch (err) {
-		console.error('💥 getMessageHistoryOptimized error:', err);
+	} catch (err: unknown) {
+		console.error('💥 getMessageHistory error:', err);
 		const errorMessage = (err as Error)?.message || 'Failed to fetch message history';
 		appStore.showErrorToast(errorMessage);
 		throw err;
@@ -987,8 +835,10 @@ export async function getThreadMessages(
 	options?: { limit?: number; since?: number; until?: number }
 ): Promise<{ plaintext: string; senderPubkey: string; event: NostrEvent }[]> {
 	try {
-		const { nsec } = await getNostrKeyPair();
+		const { nsec, npub } = await getNostrKeyPair();
 		const privkey = bytesToHex(nsec);
+
+		const pool = getPool();
 
 		const filter: Filter = {
 			kinds: [4],
@@ -998,12 +848,12 @@ export async function getThreadMessages(
 			...(options?.until ? { until: options.until } : {})
 		};
 
-		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
+		const events = await pool.querySync(DEFAULT_RELAYS, filter);
 
 		const decrypted = await Promise.all(
 			events.map(async (event) => {
 				try {
-					const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
+					const { plaintext, senderPubkey } = await parseDMEvent(event, privkey, npub);
 					return { plaintext, senderPubkey, event };
 				} catch {
 					return null;
@@ -1030,224 +880,52 @@ export async function getMessagedPeople(): Promise<
 	{ pubkey: string; lastEvent: NostrEvent; profile: { name?: string; picture?: string } }[]
 > {
 	try {
-		const { nsec, npub } = await getNostrKeyPair();
-		const privkey = bytesToHex(nsec);
+		const npub = await getNpub();
+		const pubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
-		// Validate and convert npub to hex format for relay filters
-		if (!npub || typeof npub !== 'string') {
-			throw new Error('Invalid npub: not a string or empty');
-		}
+		const pool = getPool();
 
-		let pubkeyHex: string;
-
-		// Handle both hex and npub formats
-		if (npub.startsWith('npub')) {
-			// It's already in npub format, decode it
-			try {
-				const decoded = nip19.decode(npub);
-				if (decoded.type !== 'npub') {
-					throw new Error(`Expected npub type, got: ${decoded.type}`);
-				}
-				pubkeyHex = decoded.data as string;
-			} catch (decodeError) {
-				console.error('Failed to decode npub:', decodeError);
-				throw new Error(`Failed to decode npub ${npub}: ${(decodeError as Error).message}`);
-			}
-		} else if (/^[0-9a-fA-F]{64}$/.test(npub)) {
-			// It's a hex string, use it directly
-			pubkeyHex = npub.toLowerCase();
-		} else {
-			throw new Error(
-				`Invalid pubkey format: expected npub or 64-char hex, got: ${npub.substring(0, 20)}...`
-			);
-		}
-
-		const sentFilter: Filter = {
-			kinds: [4],
-			authors: [pubkeyHex],
-			limit: 1000 // adjust as needed for pagination
-		};
-
-		const receivedFilter: Filter = {
-			kinds: [4],
-			'#p': [pubkeyHex],
-			limit: 1000
-		};
-
-		// Fetch both sent and received messages with retry logic
+		// Fetch messages in parallel
 		const [sentEvents, receivedEvents] = await Promise.all([
-			withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, sentFilter)),
-			withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, receivedFilter))
+			pool.querySync(DEFAULT_RELAYS, {
+				kinds: [4],
+				authors: [pubkeyHex],
+				...TAG_FILTERS.byMessageType('direct-message'),
+				limit: 1000
+			}),
+			pool.querySync(DEFAULT_RELAYS, {
+				kinds: [4],
+				'#p': [pubkeyHex],
+				...TAG_FILTERS.byMessageType('direct-message'),
+				limit: 1000
+			})
 		]);
 
-		const allEvents = [...sentEvents, ...receivedEvents];
-
-		// Map: pubkey -> latest event
+		// Build conversation map (NO DECRYPTION)
 		const peopleMap = new Map<string, NostrEvent>();
-
-		for (const event of allEvents) {
-			let otherPubkey: string | undefined;
-			if (event.pubkey === pubkeyHex) {
-				// I am the sender, recipient is in p tag
-				const pTag = event.tags.find((t) => t[0] === 'p');
-				if (pTag && pTag[1]) otherPubkey = pTag[1];
-			} else {
-				// I am the recipient, sender is event.pubkey
-				otherPubkey = event.pubkey;
-			}
+		for (const event of [...sentEvents, ...receivedEvents]) {
+			const otherPubkey =
+				event.pubkey === pubkeyHex ? event.tags.find((t) => t[0] === 'p')?.[1] : event.pubkey;
 
 			if (!otherPubkey || otherPubkey === pubkeyHex) continue;
 
-			const prev = peopleMap.get(otherPubkey);
-			if (!prev || event.created_at > prev.created_at) {
+			const existing = peopleMap.get(otherPubkey);
+			if (!existing || event.created_at > existing.created_at) {
 				peopleMap.set(otherPubkey, event);
 			}
 		}
 
-		// Fetch profiles and decrypt last messages in parallel
-		const results = await Promise.all(
-			Array.from(peopleMap.entries()).map(async ([pubkey, lastEvent]) => {
-				let profile = {
-					name: undefined as string | undefined,
-					picture: undefined as string | undefined
-				};
+		// Batch fetch ALL profiles in ONE query
+		const allPubkeys = Array.from(peopleMap.keys());
+		const profiles = await fetchProfilesBatch(allPubkeys);
 
-				// Decrypt the last message content
-				let decryptedLastEvent = lastEvent;
-				try {
-					const { plaintext } = await parseDMEvent(lastEvent, privkey);
-					// Create a new event object with decrypted content for display
-					decryptedLastEvent = {
-						...lastEvent,
-						content: plaintext
-					};
-				} catch (decryptError) {
-					// Only log detailed errors for non-MAC issues to reduce noise
-					if (decryptError instanceof Error && !decryptError.message.includes('Invalid MAC')) {
-						console.error('Failed to decrypt last message for', pubkey, decryptError);
-					}
-					// Keep the original event but mark content as undecryptable
-					decryptedLastEvent = {
-						...lastEvent,
-						content: '[Unable to decrypt message]'
-					};
-				}
-
-				try {
-					const fetchedProfile = await fetchProfileMetadata(pubkey);
-					profile = {
-						name: fetchedProfile.name || 'Usuario', // Fallback to 'Usuario' instead of undefined
-						picture: fetchedProfile.picture
-					};
-				} catch (e) {
-					console.error('Failed to fetch profile for', pubkey, e);
-					profile = { name: 'Usuario', picture: undefined };
-				}
-
-				return { pubkey, lastEvent: decryptedLastEvent, profile };
-			})
-		);
-
-		return results;
+		// Return with encrypted content (decrypt on demand)
+		return Array.from(peopleMap.entries()).map(([pubkey, lastEvent]) => ({
+			pubkey,
+			lastEvent, // Keep encrypted
+			profile: profiles.get(pubkey) || { name: pubkey.slice(0, 4) + '...' + pubkey.slice(-4) }
+		}));
 	} catch (err: unknown) {
-		const errorMessage = (err as Error)?.message || 'Failed to fetch messaged people';
-		appStore.showErrorToast(errorMessage);
-		throw err;
-	}
-}
-
-/**
- * Optimized variant: build the messaged-people list without requiring private key or decryption.
- * Uses cached NPUB (Preferences) if available to avoid auth prompt.
- */
-export async function getMessagedPeopleOptimized(): Promise<
-	{ pubkey: string; lastEvent: NostrEvent; profile: { name?: string; picture?: string } }[]
-> {
-	try {
-		// Resolve our own npub without prompting if possible
-		let npub: string | null = null;
-		try {
-			const { Preferences } = await import('@capacitor/preferences');
-			const { StorageKeys } = await import('$lib/utils/constants/storage');
-			const { value } = await Preferences.get({ key: StorageKeys.NPUB });
-			if (value) npub = value;
-		} catch {
-			// ignore
-		}
-		if (!npub) {
-			npub = await getNpub();
-		}
-
-		if (!npub || typeof npub !== 'string') {
-			throw new Error('Invalid npub: not a string or empty');
-		}
-
-		let pubkeyHex: string;
-		if (npub.startsWith('npub')) {
-			const decoded = nip19.decode(npub);
-			if (decoded.type !== 'npub') throw new Error(`Expected npub type, got: ${decoded.type}`);
-			pubkeyHex = decoded.data as string;
-		} else if (/^[0-9a-fA-F]{64}$/.test(npub)) {
-			pubkeyHex = npub.toLowerCase();
-		} else {
-			throw new Error(`Invalid pubkey format: ${npub.substring(0, 20)}...`);
-		}
-
-		const sentFilter: Filter = {
-			kinds: [4],
-			authors: [pubkeyHex],
-			limit: 1000
-		};
-		const receivedFilter: Filter = {
-			kinds: [4],
-			'#p': [pubkeyHex],
-			limit: 1000
-		};
-
-		const [sentEvents, receivedEvents] = await Promise.all([
-			withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, sentFilter)),
-			withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, receivedFilter))
-		]);
-
-		const allEvents = [...sentEvents, ...receivedEvents];
-
-		// Map: pubkey -> latest event
-		const peopleMap = new Map<string, NostrEvent>();
-		for (const event of allEvents) {
-			let otherPubkey: string | undefined;
-			if (event.pubkey === pubkeyHex) {
-				const pTag = event.tags.find((t) => t[0] === 'p');
-				if (pTag && pTag[1]) otherPubkey = pTag[1];
-			} else {
-				otherPubkey = event.pubkey;
-			}
-			if (!otherPubkey || otherPubkey === pubkeyHex) continue;
-			const prev = peopleMap.get(otherPubkey);
-			if (!prev || event.created_at > prev.created_at) {
-				peopleMap.set(otherPubkey, event);
-			}
-		}
-
-		// Fetch profiles (no decryption) in parallel
-		const results = await Promise.all(
-			Array.from(peopleMap.entries()).map(async ([pubkey, lastEvent]) => {
-				let profile = {
-					name: undefined as string | undefined,
-					picture: undefined as string | undefined
-				};
-				try {
-					const fetchedProfile = await fetchProfileMetadata(pubkey);
-					profile = { name: fetchedProfile.name, picture: fetchedProfile.picture };
-				} catch (e) {
-					console.error('[People] Failed to fetch profile for', pubkey, e);
-				}
-				return { pubkey, lastEvent, profile };
-			})
-		);
-
-		return results;
-	} catch (err) {
-		console.error('💥 getMessagedPeopleOptimized error:', err);
 		const errorMessage = (err as Error)?.message || 'Failed to fetch messaged people';
 		appStore.showErrorToast(errorMessage);
 		throw err;
@@ -1260,7 +938,7 @@ export async function getMessagedPeopleOptimized(): Promise<
 export function isBidMessage(message: { plaintext: string }): boolean {
 	try {
 		const parsedContent = JSON.parse(message.plaintext);
-		return parsedContent.messageType === 'bid' && parsedContent.type === 'bid';
+		return parsedContent.type === 'bid';
 	} catch {
 		return false;
 	}

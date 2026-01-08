@@ -1,6 +1,5 @@
 import type { SearchTasksParams, SavedSearch } from '$lib/types/task.d';
-import { SimplePool, type Filter } from 'nostr-tools';
-import { browser } from '$app/environment';
+import { type Filter } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
@@ -12,8 +11,12 @@ import { get as getStore } from 'svelte/store';
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
-// Pool for nostr queries (general Nostr network)
-const pool = new SimplePool();
+/**
+ * Get the centralized pool instance from appStore
+ */
+function getPool() {
+	return getStore(appStore).pool;
+}
 
 /**
  * SAVED SEARCHES - Simplified Nostr Implementation
@@ -60,13 +63,14 @@ export async function saveSearch(
                 ['n', name], // name
                 ['m', (options.notifyOnMatch ?? true).toString()], // notifyOnMatch
                 ['a', (options.isActive ?? true).toString()], // isActive
-                ['f', options.notificationFrequency ?? NotificationFrequency.DAILY], // frequency
+                ['f', options.notificationFrequency ?? NotificationFrequency.WEEKLY], // frequency
                 ['u', '0'], // unreadNotifications
                 ['t', 'saved-search'] // type
             ]
         });
 
         // Publish single event to the relay
+        const pool = getPool();
         await Promise.any(pool.publish(RELAYS, savedSearchEvent));
 
         appStore.showSuccessToast(getStore(t)('profile_task.success.save_search'));
@@ -78,7 +82,7 @@ export async function saveSearch(
             createdAt: savedSearchEvent.created_at,
             notifyOnMatch: options.notifyOnMatch ?? true,
             isActive: options.isActive ?? true,
-            notificationFrequency: options.notificationFrequency ?? 'DAILY',
+            notificationFrequency: options.notificationFrequency ?? 'WEEKLY',
             unreadNotifications: 0
         };
     } catch (error) {
@@ -100,6 +104,7 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
             '#t': ['saved-search'] // Filter by type tag
         };
 
+        const pool = getPool();
         const savedSearchEvents = await pool.querySync(RELAYS, filter);
 
         // Convert events to SavedSearch objects and filter out deleted ones
@@ -110,7 +115,7 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
             createdAt: event.created_at,
             notifyOnMatch: event.tags.find(t => t[0] === 'm')?.[1] === 'true',
             isActive: event.tags.find(t => t[0] === 'a')?.[1] !== 'false',
-            notificationFrequency: event.tags.find(t => t[0] === 'f')?.[1] || 'DAILY',
+            notificationFrequency: event.tags.find(t => t[0] === 'f')?.[1] || 'WEEKLY',
             unreadNotifications: parseInt(event.tags.find(t => t[0] === 'u')?.[1] || '0', 10)
         }));
     } catch (error) {
@@ -134,6 +139,8 @@ export async function updateSavedSearch(
     }>
 ): Promise<SavedSearch> {
     try {
+        const pool = getPool();
+        
         // Get the existing saved search
         const existingFilter = {
             kinds: [KINDS.SAVED_SEARCH],
@@ -153,7 +160,7 @@ export async function updateSavedSearch(
         const existingName = existing.tags.find(t => t[0] === 'n')?.[1] || '';
         const existingNotifyOnMatch = existing.tags.find(t => t[0] === 'm')?.[1] === 'true';
         const existingIsActive = existing.tags.find(t => t[0] === 'a')?.[1] !== 'false';
-        const existingNotificationFrequency = existing.tags.find(t => t[0] === 'f')?.[1] || 'DAILY';
+        const existingNotificationFrequency = existing.tags.find(t => t[0] === 'f')?.[1] || 'WEEKLY';
         const existingUnreadNotifications = parseInt(existing.tags.find(t => t[0] === 'u')?.[1] || '0', 10);
 
         // Create updated event
@@ -233,22 +240,10 @@ export async function deleteSavedSearch(eventId: string): Promise<void> {
         });
 
         // Publish deletion event
+        const pool = getPool();
         await Promise.any(pool.publish(RELAYS, deletionEvent));
     } catch (error) {
         console.error('Error deleting saved search:', error);
         throw error;
     }
-}
-
-export async function cleanup(): Promise<void> {
-    // Close saved search pool
-    pool.close(RELAYS);
-}
-
-// Cleanup pool and subscriptions when browser closes
-if (browser) {
-    window.addEventListener('beforeunload', () => {
-        console.log('Cleaning up Nostr connections');
-        cleanup();
-    });
 }

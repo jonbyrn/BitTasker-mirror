@@ -1,7 +1,57 @@
 <script lang="ts">
 	import type { PortfolioItem, NostrProfileImage, Skill } from '$lib/types/profile.d';
 	import { onDestroy, onMount } from 'svelte';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
+
+	// Helper function to get translated portfolio title
+	function getTranslatedPortfolioTitle(item: PortfolioItem): string {
+		const currentLang = $locale || 'en';
+		const originalTitle = item.title || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalTitle;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalTitle;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.title || originalTitle;
+		}
+
+		// Fallback to original
+		return originalTitle;
+	}
+
+	// Helper function to get translated portfolio description
+	function getTranslatedPortfolioDescription(item: PortfolioItem): string {
+		const currentLang = $locale || 'en';
+		const originalDescription = item.description || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalDescription;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalDescription;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.description || originalDescription;
+		}
+
+		// Fallback to original
+		return originalDescription;
+	}
 	import { appStore } from '$lib/stores/app.store';
 	import {
 		publishPortfolioItem,
@@ -15,7 +65,7 @@
 	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{
-		onComplete: (completed: boolean) => void;
+		onComplete: (completed: boolean, fromSave?: boolean) => void;
 	}>();
 
 	// Local state
@@ -23,6 +73,7 @@
 	let title = $state('');
 	let description = $state('');
 	let completionDate = $state('');
+	let projectLink = $state('');
 	let selectedSkills = $state<string[]>([]);
 	let images = $state<(NostrProfileImage | File)[]>([]);
 	let isLoading = $state(false);
@@ -34,6 +85,8 @@
 	let isRemovingItem = $state<string | null>(null);
 	let portfolioForm = $state<HTMLDivElement | null>(null);
 	let isInitialLoading = $state(false);
+	// Estado para el carrusel de imágenes de cada proyecto
+	let projectImageSlides = $state<Record<string, number>>({});
 
 	// Subscribe to portfolio and skills updates
 	let unsubscribePortfolio: (() => void) | undefined;
@@ -105,7 +158,15 @@
 	const uploadImages = async (pictures: (NostrProfileImage | File)[]) => {
 		const uploadPromises = pictures?.map(async (picture, index) => {
 			if (picture instanceof File) {
-				const uploadResult = await uploadService.uploadSingleFile(picture, 'portfolio');
+				const uploadResult = await uploadService.uploadSingleFile(picture, {
+					folder: 'portfolio',
+					useCloudflare: true,
+					enableCompression: true,
+					generateVariants: true,
+					metadata: {
+						uploadedAt: new Date().toISOString()
+					}
+				});
 				return {
 					key: uploadResult.key,
 					url: uploadResult.url,
@@ -135,11 +196,13 @@
 			const uploadedImages = await uploadImages(images);
 
 			const item: PortfolioItem = {
+				link: projectLink.trim(),
 				title,
 				description,
 				completionDate,
 				skills: selectedSkills,
-				images: uploadedImages
+				images: uploadedImages,
+				...(projectLink.trim() && { link: projectLink.trim() })
 			};
 
 			let tags = [];
@@ -153,6 +216,10 @@
 			}
 
 			await publishPortfolioItem(item, tags);
+
+			// Notify completion change from save (triggers toast in parent)
+			const isComplete = portfolioItems.length > 0;
+			onComplete(isComplete, true);
 
 			// Show success message
 			successMessage = editingItem
@@ -198,6 +265,7 @@
 		title = item.title;
 		description = item.description;
 		completionDate = item.completionDate;
+		projectLink = item?.link || '';
 		selectedSkills = [...item.skills];
 		images = [...item.images];
 	}
@@ -209,9 +277,34 @@
 		title = '';
 		description = '';
 		completionDate = '';
+		projectLink = '';
 		selectedSkills = [];
 		images = [];
 		error = '';
+	}
+
+	// Funciones para el carrusel de imágenes de cada proyecto
+	function nextProjectImage(itemId: string, totalImages: number) {
+		if (totalImages > 1) {
+			const currentIndex = projectImageSlides[itemId] || 0;
+			const nextIndex = (currentIndex + 1) % totalImages;
+			projectImageSlides[itemId] = nextIndex;
+			projectImageSlides = { ...projectImageSlides };
+		}
+	}
+
+	function prevProjectImage(itemId: string, totalImages: number) {
+		if (totalImages > 1) {
+			const currentIndex = projectImageSlides[itemId] || 0;
+			const prevIndex = (currentIndex - 1 + totalImages) % totalImages;
+			projectImageSlides[itemId] = prevIndex;
+			projectImageSlides = { ...projectImageSlides };
+		}
+	}
+
+	function goToProjectImage(itemId: string, imageIndex: number) {
+		projectImageSlides[itemId] = imageIndex;
+		projectImageSlides = { ...projectImageSlides };
 	}
 
 	// Track form completion
@@ -259,22 +352,84 @@
 			<div class="grid gap-6 md:grid-cols-2">
 				{#each portfolioItems as item}
 					<div class="card bg-base-200 border-base-200 rounded-xl border shadow-lg">
-						<figure>
-							<img
-								src={item.images.find((img) => img.isPrimary)?.url || item.images[0].url}
-								alt={item.title}
-								class="h-48 w-full object-cover"
-							/>
+						<figure class="relative">
+							{#if item.images && item.images.length > 0}
+								{@const itemId = item.id || item.tags?.[0]?.[1] || 'unknown'}
+								{@const currentImageIndex = projectImageSlides[itemId] || 0}
+								{@const totalImages = item.images.length}
+								{@const hasMultipleImages = totalImages > 1}
+								
+								<!-- Carrusel de imágenes del proyecto -->
+								<div class="relative overflow-hidden">
+									<div
+										class="flex transition-transform duration-500 ease-in-out"
+										style="transform: translateX(-{currentImageIndex * 100}%)"
+									>
+										{#each item.images as image, imgIndex}
+											<div class="w-full shrink-0">
+												<img
+													src={image.url}
+													alt={image.alt || `${item.title} - ${imgIndex + 1}`}
+													class="h-48 w-full object-cover"
+												/>
+											</div>
+										{/each}
+									</div>
+									
+									<!-- Controles de navegación de imágenes (solo si hay más de una) -->
+									{#if hasMultipleImages}
+										<!-- Botón anterior -->
+										<button
+											onclick={() => prevProjectImage(itemId, totalImages)}
+											class="absolute left-4 top-1/2 -translate-y-1/2 btn btn-circle bg-black/80 hover:bg-black border-2 border-white/50 text-white shadow-xl z-20 backdrop-blur-sm"
+											aria-label="Previous image"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+											</svg>
+										</button>
+										
+										<!-- Botón siguiente -->
+										<button
+											onclick={() => nextProjectImage(itemId, totalImages)}
+											class="absolute right-4 top-1/2 -translate-y-1/2 btn btn-circle bg-black/80 hover:bg-black border-2 border-white/50 text-white shadow-xl z-20 backdrop-blur-sm"
+											aria-label="Next image"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+											</svg>
+										</button>
+										
+										<!-- Indicadores de imágenes -->
+										<div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1 z-20">
+											{#each item.images as _, imgIndex}
+												<button
+													onclick={() => goToProjectImage(itemId, imgIndex)}
+													class="h-2 w-2 rounded-full transition-all duration-300 {currentImageIndex === imgIndex
+														? 'bg-white w-6'
+														: 'bg-white/50'}"
+													aria-label="Go to image {imgIndex + 1}"
+												></button>
+											{/each}
+										</div>
+									{/if}
+								</div>
+							{:else}
+								<div class="bg-base-300 flex h-48 w-full items-center justify-center">
+									<span class="text-base-content/60">{$t('common.profile.no_image_available')}</span>
+								</div>
+							{/if}
 						</figure>
 						<div class="card-body">
-							<h2 class="card-title">{item.title}</h2>
-							<p class="text-base-content/70 line-clamp-4">{item.description}</p>
+							<h2 class="card-title">{getTranslatedPortfolioTitle(item)}</h2>
+							<p class="text-base-content/70 line-clamp-4">{getTranslatedPortfolioDescription(item)}</p>
 
-							{#if skills && skills.length > 0 && item.skills && item.skills.length > 0}
+							{#if item.skills && item.skills.length > 0}
 								<div class="mt-4 flex flex-wrap gap-2">
 									{#each item.skills as skill}
+										{@const skillName = skills.find((s) => s.id === skill || s.name === skill)?.name || skill}
 										<span class="badge badge-primary badge-outline">
-											{skills.find((s) => s.id === skill)?.name}
+											{skillName}
 										</span>
 									{/each}
 								</div>
@@ -356,8 +511,7 @@
 					<!-- Title -->
 					<div class="form-control">
 						<label class="label" for="title">
-							<span class="label-text font-medium">{$t('profile.portfolio.project_title')}</span>
-							<span class="label-text-alt">{$t('common.required')}</span>
+							<span class="label-text font-medium">{$t('profile.portfolio.project_title')} <span class="text-error">*</span></span>
 						</label>
 						<input
 							type="text"
@@ -372,8 +526,7 @@
 					<!-- Description -->
 					<div class="form-control">
 						<label class="label block" for="description">
-							<span class="label-text font-medium">{$t('profile.portfolio.description')}</span>
-							<span class="label-text-alt">{$t('common.required')}</span>
+							<span class="label-text font-medium">{$t('profile.portfolio.description')} <span class="text-error">*</span></span>
 						</label>
 						<textarea
 							id="description"
@@ -386,15 +539,33 @@
 
 					<!-- Completion Date -->
 					<div class="form-control">
+						<label class="label" for="completionDate">
+							<span class="label-text font-medium">{$t('profile.portfolio.completion_date')} <span class="text-error">*</span></span>
+						</label>
 						<DateInput
 							value={completionDate ? new Date(completionDate) : null}
 							onChange={(date: Date | null) => (completionDate = date ? date.toISOString() : '')}
 							type="single"
-							labelKey="profile.portfolio.completion_date"
-							placeholderKey="airdatepicker.select_date"
+							labelKey=""
+							placeholderKey="common.airdatepicker.select_date"
 							required
-							minDate={new Date()}
-							maxDate={undefined}
+							minDate={undefined}
+							maxDate={new Date()}
+						/>
+					</div>
+
+					<!-- Project Link -->
+					<div class="form-control">
+						<label class="label" for="projectLink">
+							<span class="label-text font-medium">{$t('profile.portfolio.project_link')}</span>
+							<span class="label-text-alt">{$t('common.optional')}</span>
+						</label>
+						<input
+							type="url"
+							id="projectLink"
+							bind:value={projectLink}
+							class="input input-bordered w-full"
+							placeholder={$t('profile.portfolio.project_link_placeholder')}
 						/>
 					</div>
 

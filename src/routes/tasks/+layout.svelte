@@ -14,7 +14,7 @@
 	/>
 </svelte:head>
 
-<div class="h-full pt-4">
+<div class="h-full pt-4 w-full">
 	<!-- Main content -->
 	<main class="flex-1">
 		{@render children()}

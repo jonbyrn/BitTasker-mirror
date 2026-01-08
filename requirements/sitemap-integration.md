@@ -21,8 +21,7 @@ This document explains the sitemap integration for the BitTasker application, wh
 │   └── sitemap.xml/
 │       └── +server.ts               # Dynamic server route for sitemap
 ├── static/
-│   ├── sitemap.xml                  # Generated sitemap for development
-│   └── robots.txt                   # References the sitemap
+│   └── sitemap.xml                  # Generated sitemap for development
 └── build/
     └── sitemap.xml                  # Generated sitemap for production
 ```
@@ -59,7 +58,6 @@ The sitemap includes the following public URLs:
 The following URLs are intentionally excluded from the sitemap:
 
 - **Protected Routes**: `/dashboard/**` (requires authentication)
-- **Internal Routes**: `/firebase-config.json`
 - **Onboarding**: `/auth/onboarding` (internal flow)
 - **Dynamic Routes**: `/auth/recover/[npub]` (requires parameters)
 - **Sensitive Routes**: `/auth/recover/send` (internal flow)
@@ -138,22 +136,6 @@ changefreq: 'weekly'
 priority: 0.7
 ```
 
-## robots.txt Integration
-
-The sitemap is referenced in `static/robots.txt`:
-
-```
-User-agent: *
-Allow: /
-
-# Disallow private/protected routes
-Disallow: /dashboard/
-Disallow: /auth/onboarding
-
-# Sitemap
-Sitemap: https://bittasker.com/sitemap.xml
-```
-
 ## Development vs Production
 
 ### Development
@@ -194,7 +176,6 @@ Sitemap: https://bittasker.com/sitemap.xml
 - **Crawl Efficiency**: Provides structured information about site hierarchy
 - **Update Frequency**: Indicates how often content changes
 - **Priority Signals**: Helps search engines understand page importance
-- **Robots.txt Integration**: Proper discoverability and indexing control
 
 ## Troubleshooting
 

@@ -5,12 +5,52 @@ import tailwindcss from '@tailwindcss/vite';
 import Icons from 'unplugin-icons/vite';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
-// import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import type { Plugin } from 'vite';
 import pkg from './package.json';
 
+// Vite plugin to ensure browser condition is prioritized during tests
+// This fixes the "mount(...) is not available on the server" error
+const addBrowserCondition: Plugin = {
+	name: 'vite-plugin-browser-condition',
+	config(config, { mode }) {
+		if (process.env.VITEST || mode === 'test') {
+			if (!config.resolve?.conditions) {
+				if (!config.resolve) {
+					config.resolve = {};
+				}
+				config.resolve.conditions = [];
+			}
+			// Prioritize 'browser' condition for client-side rendering in tests
+			if (!config.resolve.conditions.includes('browser')) {
+				config.resolve.conditions.unshift('browser');
+			}
+		}
+	}
+};
+
 export default defineConfig({
+	test: {
+		environment: 'jsdom',
+		setupFiles: ['./vitest-setup-client.ts'],
+		globals: true
+	},
+	resolve: {
+		conditions: process.env.VITEST ? ['browser', 'development'] : ['browser', 'development'],
+		alias: {
+			buffer: 'buffer',
+			crypto: 'crypto-browserify',
+			stream: 'stream-browserify',
+			// Do NOT alias 'path' as it breaks WASM loading in @vulpemventures/secp256k1-zkp
+			// path: 'path-browserify',
+			path: 'path-browserify',
+			process: 'process/browser',
+			'$app/environment': new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
+		}
+	},
     plugins: [
-        /* nodePolyfills({
+		addBrowserCondition,
+        nodePolyfills({
             // Whether to polyfill `node:` protocol imports.
             protocolImports: true,
             // Enable polyfills for specific globals and modules.
@@ -19,12 +59,12 @@ export default defineConfig({
                 global: true,
                 process: true,
             },
-            // Add specific polyfills for modules required by liquidjs-lib
+            // Add specific polyfills for modules required by wallet SDK
             // IMPORTANT: Do NOT include 'fs' or 'path' as they break WASM loading
             include: ['crypto', 'stream', 'buffer', 'util', 'process', 'events'],
             // Explicitly exclude modules that should not be polyfilled
             exclude: ['fs', 'path'],
-        }), */
+        }),
         sveltekit(),
         houdini(),
         tailwindcss(),
@@ -66,10 +106,6 @@ export default defineConfig({
                         if (id.includes('swiper') || id.includes('photoswipe')) {
                             return 'vendor-ui';
                         }
-                        // Breez SDK
-                        if (id.includes('breez')) {
-                            return 'vendor-breez';
-                        }
                         // All other vendor code
                         return 'vendor';
                     }
@@ -89,10 +125,9 @@ export default defineConfig({
         ],
         exclude: [
             'firebase',
-            '@breeztech/breez-sdk-liquid/web',
-            '@breeztech/breez-sdk-liquid',
             '@capacitor/device',
             '@capacitor/preferences',
+            '@capacitor/haptics',
             /* 'liquidjs-lib',
             'boltz-core',
             '@vulpemventures/secp256k1-zkp' */
@@ -102,17 +137,6 @@ export default defineConfig({
                 global: 'globalThis'
             }
         } */
-    },
-    resolve: {
-        alias: {
-            buffer: 'buffer',
-            crypto: 'crypto-browserify',
-            stream: 'stream-browserify',
-            // Do NOT alias 'path' as it breaks WASM loading in @vulpemventures/secp256k1-zkp
-            // path: 'path-browserify',
-            path: 'path-browserify',
-            process: 'process/browser'
-        }
     },
     server: {
         allowedHosts: ['bittasker.com', 'master.bittasker.com', 'dev.bittasker.com', 'local.bittasker.com']

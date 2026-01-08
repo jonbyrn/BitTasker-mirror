@@ -10,7 +10,9 @@
             "linkedin_aria": "BitTasker on LinkedIn",
             "reddit_aria": "BitTasker on Reddit",
             "tiktok_aria": "BitTasker on TikTok",
-            "rumble_aria": "BitTasker on Rumble"
+            "rumble_aria": "BitTasker on Rumble",
+            "telegram_aria": "BitTasker on Telegram",
+            "whatsapp_aria": "BitTasker on WhatsApp"
         },
         "made_with": "Made with",
         "and": "and",
@@ -20,7 +22,7 @@
         "how_it_works": "How It Works",
         "tasker_fees": "Tasker Fees",
         "taskee_fees": "Taskee Fees",
-        "escrow": "Escrow",
+        "escrow": "Secure Payments",
         "faq": "FAQ",
         "for_taskees": "For Taskees",
         "start_earning": "Start Earning",
@@ -105,8 +107,8 @@
                 "description": "Access skilled taskees from around the world"
             },
             "escrow": {
-                "title": "Secure Escrow",
-                "description": "Multisig-based Bitcoin escrow for safe transactions"
+                "title": "Secure Payments",
+                "description": "Smart contract-based secure payment contracts for safe transactions"
             }
         },
         "cta": {
@@ -140,8 +142,8 @@
                     "description": "Experience instant and near-free payments with the Lightning Network. Perfect for micro-payments, tipping, and settling tasks the moment they are completed."
                 },
                 "escrow": {
-                    "title": "Secure Escrow",
-                    "description": "Our multisig-based escrow system protects both taskers and taskees. Funds are held securely and released automatically only when the work is approved."
+                    "title": "Secure Payments",
+                    "description": "Our smart contract-based secure payment system protects both taskers and taskees. Funds are held securely and released automatically only when the work is approved."
                 }
             },
             "howitworks": {
@@ -156,7 +158,7 @@
                 },
                 "step3": {
                     "title": "Pay Securely",
-                    "description": "Once the work is complete, pay securely with Bitcoin or fiat. Your funds are safe in escrow."
+                    "description": "Once the work is complete, pay securely with Bitcoin or fiat. Your funds are safe in the secure payment contract."
                 },
                 "learnMore": "Learn More"
             },
@@ -170,8 +172,8 @@
                     "description": "Seamlessly pay with Bitcoin (on-chain, Lightning) or traditional fiat currencies."
                 },
                 "escrow": {
-                    "title": "Non-Custodial Escrow",
-                    "description": "You hold the keys to your Bitcoin, and to your escrow. No middlemen, no delays, and no trust required."
+                    "title": "Non-Custodial Secure Payments",
+                    "description": "You hold the keys to your Bitcoin, and to your secure payment contracts. No middlemen, no delays, and no trust required."
                 },
                 "ownership": {
                     "title": "True Data Ownership",

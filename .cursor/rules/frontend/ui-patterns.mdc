@@ -1,6 +1,6 @@
 ---
 description: UI/UX patterns, DaisyUI components, Tailwind CSS, and design system guidelines
-globs: ["**/*.svelte", "src/lib/components/**/*", "**/*.css"]
+globs: ["src/**/*.svelte", "src/lib/components/**/*", "src/**/*.css"]
 alwaysApply: true
 ---
 

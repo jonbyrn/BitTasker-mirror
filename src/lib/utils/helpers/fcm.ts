@@ -5,25 +5,45 @@
  * including dynamically updating the service worker with configuration.
  */
 
-/**
- * Registers the Firebase Messaging Service Worker
- * The service worker will fetch its config from /firebase-config.json endpoint
- */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
 	if (!('serviceWorker' in navigator)) {
-		console.warn('Service workers are not supported in this browser');
+		console.warn('⚠️ Service workers are not supported in this browser');
 		return null;
 	}
 
 	try {
-		const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+		const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+			scope: '/'
+		});
+
+		console.log('✅ Service worker registered:', registration.scope);
+
+		// Wait for service worker to be ready
+		if (registration.installing) {
+			await new Promise<void>((resolve) => {
+				registration.installing!.addEventListener('statechange', () => {
+					if (registration.installing?.state === 'activated') {
+						resolve();
+					}
+				});
+			});
+		} else if (registration.waiting) {
+			// Service worker is waiting, activate it
+			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+		}
+
+		// Wait a bit for service worker to be ready
+		await new Promise((resolve) => setTimeout(resolve, 500));
 
 		// Send Firebase config to service worker
-		if (registration.active) {
-			registration.active.postMessage({
+		const activeWorker = registration.active || registration.waiting || registration.installing;
+		if (activeWorker) {
+			activeWorker.postMessage({
 				type: 'FIREBASE_CONFIG',
 				config: getFirebaseWebConfig()
 			});
+		} else {
+			console.warn('⚠️ No active service worker found to send config to');
 		}
 
 		// Set up navigation message handler
@@ -31,7 +51,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 		return registration;
 	} catch (error) {
-		console.error('Service Worker registration failed:', error);
+		console.error('❌ Service Worker registration failed:', error);
 		return null;
 	}
 }
@@ -43,13 +63,10 @@ function setupNavigationHandler(): void {
 	if ('serviceWorker' in navigator) {
 		navigator.serviceWorker.addEventListener('message', async (event) => {
 			if (event.data && event.data.type === 'NAVIGATE') {
-				console.log('🔄 Service worker navigation request:', event.data.url);
-				
 				try {
 					// Use SvelteKit navigation
 					const { goto } = await import('$app/navigation');
 					await goto(event.data.url);
-					console.log('✅ Navigation successful:', event.data.url);
 				} catch (error) {
 					console.error('❌ Navigation error, falling back to window.location:', error);
 					// Fallback to window.location for critical navigation

@@ -1,66 +1,31 @@
 <script lang="ts">
 	import { TranslationStore, translationSettings, translationState } from '$lib/stores/translation.store';
 	import { translationService } from '$lib/services/translation.service';
-	import { onMount } from 'svelte';
+	import { t } from 'svelte-i18n';
+	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 
 	// State
 	let isOpen = $state(false);
-
-	// Get current settings
-	let settings = $state<any>({});
-	translationSettings.subscribe((s) => {
-		settings = s;
-	})();
-
-	// Get translation state
-	let translationStateValue = $state<any>({});
-	translationState.subscribe((s) => {
-		translationStateValue = s;
-	})();
-
-	onMount(() => {
-		// Only support English and Spanish
-		settings = TranslationStore.getSettings();
-	});
 
 	function toggleTranslation() {
 		TranslationStore.toggleTranslation();
 	}
 
-	function toggleAutoTranslate() {
-		TranslationStore.toggleAutoTranslate();
-	}
-
-	function setTargetLanguage(language: string) {
-		TranslationStore.setTargetLanguage(language);
-	}
-
-	function clearAllTranslations() {
-		TranslationStore.clearAllTranslations();
-	}
 
 	function closeModal() {
 		isOpen = false;
 	}
 
-	// Language display names - only English and Spanish
-	const languageNames: Record<string, string> = {
-		en: 'English',
-		es: 'Spanish',
-	};
-
-	function getLanguageName(code: string): string {
-		return languageNames[code] || code.toUpperCase();
-	}
-
-	// Supported languages - only English and Spanish
-	const supportedLanguages = ['en', 'es'];
 </script>
 
 <!-- Translation Settings Button -->
 <button
 	class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors"
-	onclick={() => isOpen = true}
+	onclick={async () => {
+		// Ensure translations are loaded before opening modal
+		await loadPageTranslations('/dashboard/messages');
+		isOpen = true;
+	}}
 	title="Translation Settings"
 	aria-label="Translation Settings"
 >
@@ -74,8 +39,8 @@
 	<div class="modal modal-open">
 		<div class="modal-box max-w-md">
 			<div class="flex items-center justify-between mb-4">
-				<h3 class="text-lg font-semibold">Translation Settings</h3>
-				<button class="btn btn-sm btn-circle btn-ghost" onclick={closeModal} aria-label="Close modal">
+				<h3 class="text-lg font-semibold">{$t('messages.translation.settings_title')}</h3>
+				<button class="btn btn-sm btn-circle btn-ghost" onclick={closeModal} aria-label={$t('messages.close_modal')}>
 					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 					</svg>
@@ -97,85 +62,40 @@
 					<!-- Enable Translation Toggle -->
 					<div class="form-control">
 						<label class="label cursor-pointer">
-							<span class="label-text">Enable Translation</span>
+							<span class="label-text">{$t('messages.translation.enable_translation')}</span>
 							<input
 								type="checkbox"
 								class="toggle toggle-primary"
-								checked={settings.enabled}
+								checked={$translationSettings.enabled}
 								onchange={toggleTranslation}
 							/>
 						</label>
 					</div>
 
-					{#if settings.enabled}
-						<!-- Auto-translate Toggle -->
-						<div class="form-control">
-							<label class="label cursor-pointer">
-								<span class="label-text">Auto-translate incoming messages</span>
-								<input
-									type="checkbox"
-									class="toggle toggle-primary"
-									checked={settings.autoTranslate}
-									onchange={toggleAutoTranslate}
-								/>
-							</label>
-						</div>
+					<!-- Info message -->
+					<div class="alert alert-info alert-outline">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						<span class="text-sm">{$t('messages.translation.info_message')}</span>
+					</div>
 
-						<!-- Target Language Selection -->
-						<div class="form-control">
-							<label class="label" for="target-language-select">
-								<span class="label-text">Target Language</span>
-							</label>
-							<select
-								id="target-language-select"
-								class="select select-bordered w-full"
-								value={settings.targetLanguage}
-								onchange={(e) => setTargetLanguage((e.target as HTMLSelectElement).value)}
-							>
-								{#each supportedLanguages as lang}
-									<option value={lang}>{getLanguageName(lang)}</option>
-								{/each}
-							</select>
-						</div>
-
-						<!-- Translation Status -->
-						{#if translationStateValue.isTranslating}
-							<div class="alert alert-info">
-								<div class="loading loading-spinner loading-sm"></div>
-								<span>Translating message...</span>
+					{#if $translationState.error}
+						<div class="alert alert-error">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							<div>
+								<h4 class="font-bold">{$t('messages.translation.translation_error')}</h4>
+								<p class="text-sm">{$translationState.error}</p>
 							</div>
-						{/if}
-
-						{#if translationStateValue.error}
-							<div class="alert alert-error">
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-								</svg>
-								<div>
-									<h4 class="font-bold">Translation Error</h4>
-									<p class="text-sm">{translationStateValue.error}</p>
-								</div>
-							</div>
-						{/if}
-
-						<!-- Clear Translations Button -->
-						<div class="form-control">
-							<button
-								class="btn btn-outline btn-sm"
-								onclick={clearAllTranslations}
-							>
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-								</svg>
-								Clear All Translations
-							</button>
 						</div>
 					{/if}
 				</div>
 			{/if}
 
 			<div class="modal-action">
-				<button class="btn btn-primary" onclick={closeModal}>Done</button>
+				<button class="btn btn-primary" onclick={closeModal}>{$t('messages.translation.done')}</button>
 			</div>
 		</div>
 		<div class="modal-backdrop" onclick={closeModal} onkeydown={(e) => e.key === 'Escape' && closeModal()} role="button" tabindex="0"></div>

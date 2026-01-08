@@ -6,6 +6,7 @@ import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19 } from 'nostr-tools';
+import { get } from 'svelte/store';
 
 // Constants
 const BATCH_SIZE = 20; // Default tasks limit per page
@@ -91,13 +92,15 @@ export async function findMyTasks(params: {
 
         try {
             const response = await nostrEventsService.findEvents(filter);
-            const events = response.data || [];
+            // Safety check: ensure response.data is an array
+            const events = Array.isArray(response?.data) ? response.data : [];
             const tasks = events.map((event: Event) => convertEventToTask(event));
 
             // Update cache
             cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
 
             // Update store - concatenate for pagination
+            // Only update items if we have a successful response (even if empty)
             myTasksStore.update(state => ({
                 ...state,
                 items: params.page === 1 ? tasks : [...state.items, ...tasks],
@@ -115,21 +118,44 @@ export async function findMyTasks(params: {
             };
         } catch (apiError) {
             console.error('API request failed - ', apiError);
+            
+            // Preserve existing items on API error - don't clear the store
+            // Only update loading state and error message
+            const currentState = get(myTasksStore);
+            myTasksStore.update(state => ({
+                ...state,
+                loading: false,
+                error: apiError instanceof Error ? apiError.message : 'Failed to fetch tasks'
+                // Keep existing items - don't update items on error
+            }));
 
+            // Return current items from store instead of empty array
             return {
-                tasks: [],
-                total: 0,
+                tasks: currentState.items,
+                total: currentState.items.length,
                 hasMore: false
-            }
+            };
         }
     } catch (error) {
         console.error('Error finding my tasks:', error);
+        
+        // Preserve existing items on critical errors (e.g., no public key, invalid npub)
+        // Only update loading state and error message
         myTasksStore.update(state => ({
             ...state,
             loading: false,
             error: error instanceof Error ? error.message : 'Unknown error occurred'
+            // Keep existing items - don't clear on error
         }));
-        throw error;
+        
+        // Return current items from store instead of throwing
+        // This allows the UI to continue showing existing tasks even if refresh fails
+        const currentState = get(myTasksStore);
+        return {
+            tasks: currentState.items,
+            total: currentState.items.length,
+            hasMore: false
+        };
     }
 }
 

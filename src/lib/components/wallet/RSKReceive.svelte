@@ -6,20 +6,18 @@
 	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
+	import { debounce } from '$lib/utils/helpers/common';
 
 	let amount = $state('');
 	let message = $state('');
 	let addressCopied = $state(false);
 	let qrCodeData = $state('');
 	let address = $state($rskConnection.address);
-	let isLoading = $state(false);
 
 	async function paymentRequest(): Promise<void> {
 		address = $rskConnection.address;
 
 		try {
-			isLoading = true;
-
 			if (!address) {
 				appStore.showErrorToast('No RSK address available');
 				return;
@@ -33,7 +31,11 @@
 			const params = new URLSearchParams();
 
 			if (amount) {
-				params.append('value', (parseFloat(amount) * 1e18).toString()); // Convert to wei
+				// Convert sats to wei: 1 sat = 1e10 wei (since 1 BTC = 1e8 sats = 1e18 wei)
+				const amountSats = parseFloat(amount);
+				if (!isNaN(amountSats) && amountSats > 0) {
+					params.append('value', (amountSats * 1e10).toString()); // Convert sats to wei
+				}
 			}
 			if (message) {
 				params.append('message', message);
@@ -51,8 +53,6 @@
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
 			appStore.showErrorToast('Failed to generate QR code');
-		} finally {
-			isLoading = false;
 		}
 	}
 
@@ -70,35 +70,30 @@
 			}, 2000);
 		}
 	}
-
-	// Debounce function
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
-		let timeoutId: ReturnType<typeof setTimeout>;
-		return function (...args: Parameters<T>) {
-			clearTimeout(timeoutId);
-			timeoutId = setTimeout(() => fn.apply(null, args), delay);
-		};
-	}
 </script>
 
 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 	<!-- Payment Request Form -->
 	<div class="space-y-4">
-		<h4 class="font-semibold">{$t('wallet.payment_request')}</h4>
+		<h4 class="font-semibold">{$t('wallet.payment_request.title')}</h4>
+		<p class="text-sm text-base-content/70">
+			{$t('wallet.payment_request.description')}
+		</p>
 
 		<!-- Amount Field for RSK -->
 		<div class="form-control">
 			<label class="label" for="rsk-amount">
 				<span class="label-text">
-					{$t('wallet.amount_rbtc')}
+					{$t('wallet.swap.amount_sats')}
 				</span>
 				<span class="label-text-alt">{$t('wallet.optional')}</span>
 			</label>
 			<input
 				id="rsk-amount"
 				type="number"
-				step="0.000001"
-				placeholder="0.0"
+				step="1"
+				min="0"
+				placeholder="100000"
 				class="input input-bordered w-full"
 				bind:value={amount}
 				oninput={debounce(() => paymentRequest(), 1000)}
@@ -124,10 +119,10 @@
 	</div>
 
 	<!-- QR Code Display or Testnet Alert -->
-	<div class="flex flex-col items-center text-center">
-		<h4 class="mb-4 font-semibold">{$t('wallet.receive_rbtc')}</h4>
+	<div class="flex flex-col items-center text-center w-full">
+		<h4 class="mb-4 font-semibold w-full text-left sm:text-center">{$t('wallet.receive_rbtc')}</h4>
 
-		{#if $appStore.network !== 'testnet'}
+		{#if $appStore.network === 'testnet'}
 			<!-- Abbreviated testnet warning shown instead of QR on testnet -->
 			<div class="alert alert-outline alert-warning w-full max-w-sm">
 				<svg
@@ -182,16 +177,14 @@
 				<span class="text-warning text-center text-xs">{$t('wallet.rsk_wallet_not_connected')}</span
 				>
 			</div>
-		{:else if isLoading}
-			<div class="bg-base-200 flex h-48 w-48 items-center justify-center rounded-lg">
-				<span class="loading loading-spinner loading-lg"></span>
-			</div>
 		{:else}
-			<div class="rounded-lg bg-white p-2 shadow-lg">
-				<img src={qrCodeData} alt="Payment QR Code" class="h-48 w-48" />
+			<div class="rounded-lg bg-white p-2 shadow-lg flex justify-center">
+				<div class="w-full max-w-[200px] sm:max-w-[256px]">
+					<img src={qrCodeData} alt="Payment QR Code" class="h-full w-full" />
+				</div>
 			</div>
 			{#if $rskConnection.address}
-				<div class="col-span-2 mt-4 w-full">
+				<div class="mt-4 w-full sm:col-span-2">
 					<div class="mb-1 text-xs opacity-70 text-start">{$t('wallet.address')}</div>
 					<div class="border-base-300 relative rounded border">
 						<button
@@ -248,7 +241,7 @@
 		{/if}
 	</div>
 
-	<button class="btn btn-primary col-span-2 w-full" onclick={copyAddress} disabled={!address}>
+	<button class="btn btn-primary w-full sm:col-span-2" onclick={copyAddress} disabled={!address}>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			class="h-4 w-4"

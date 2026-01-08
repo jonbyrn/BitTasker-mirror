@@ -7,18 +7,35 @@
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { t } from 'svelte-i18n';
+	import { normalizeDateToUTC, normalizeDeadlineToEndOfDay } from '$lib/utils/helpers/dateFormatter';
 	let { errors, direction } = $props();
 
 	// Use category IDs directly - CategoryMultiselect now handles translation internally
 	let selectedCategoryIds = $state([] as string[]);
 	let skillsMultiselectRef: any = $state(null);
 
-	// Set default deadline to today when component loads if no deadline is set
+	const getDefaultDeadlineDate = () => {
+		const futureDate = new Date();
+		futureDate.setDate(futureDate.getDate() + 3);
+		return futureDate;
+	};
+
+	const getDefaultDateRange = () => {
+		const startDate = new Date();
+		const endDate = new Date(startDate);
+		endDate.setDate(endDate.getDate() + 3);
+		return {
+			start: startDate,
+			end: endDate
+		};
+	};
+
+	// Set default deadline to three days from today when component loads if no deadline is set
 	$effect(() => {
 		if (!$store.task.deadline && !$store.task.dateRange) {
-			const today = new Date();
+			const defaultDeadline = getDefaultDeadlineDate();
 			store.updateTask({
-				deadline: today.toISOString()
+				deadline: normalizeDeadlineToEndOfDay(defaultDeadline) || defaultDeadline.toISOString()
 			});
 		}
 	});
@@ -113,10 +130,11 @@
 			<button
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 				onclick={() => {
-					const today = new Date();
+					const defaultDeadline = getDefaultDeadlineDate();
 
 					store.updateTask({
-						deadline: today.toISOString(),
+						deadline:
+							normalizeDeadlineToEndOfDay(defaultDeadline) || defaultDeadline.toISOString(),
 						dateRange: undefined
 					});
 				}}
@@ -126,15 +144,13 @@
 			<button
 				class="btn {$store.task.dateRange ? 'btn-primary' : 'btn-outline'}"
 				onclick={() => {
-					const today = new Date();
-					const tomorrow = new Date();
-					tomorrow.setDate(tomorrow.getDate() + 1);
+					const defaultRange = getDefaultDateRange();
 
 					store.updateTask({
 						deadline: undefined,
 						dateRange: {
-							start: today.toISOString(),
-							end: tomorrow.toISOString()
+							start: defaultRange.start.toISOString(),
+							end: defaultRange.end.toISOString()
 						}
 					});
 				}}
@@ -153,16 +169,16 @@
 						labelKey="task.start_date"
 						placeholderKey="task.start_date"
 						minDate={new Date().toISOString()}
-						onChange={(date: Date | null) => {
-							if (date && $store.task.dateRange) {
-								store.updateTask({
-									dateRange: {
-										...$store.task.dateRange,
-										start: date.toISOString()
-									}
-								});
-							}
-						}}
+					onChange={(date: Date | null) => {
+						if (date && $store.task.dateRange) {
+							store.updateTask({
+								dateRange: {
+									...$store.task.dateRange,
+									start: normalizeDateToUTC(date) || date.toISOString()
+								}
+							});
+						}
+					}}
 					/>
 				</div>
 				<div class="flex-1">
@@ -173,16 +189,16 @@
 						labelKey="task.end_date"
 						placeholderKey="task.end_date"
 						minDate={$store.task.dateRange.start || new Date().toISOString()}
-						onChange={(date: Date | null) => {
-							if (date && $store.task.dateRange) {
-								store.updateTask({
-									dateRange: {
-										...$store.task.dateRange,
-										end: date.toISOString()
-									}
-								});
-							}
-						}}
+					onChange={(date: Date | null) => {
+						if (date && $store.task.dateRange) {
+							store.updateTask({
+								dateRange: {
+									...$store.task.dateRange,
+									end: normalizeDateToUTC(date) || date.toISOString()
+								}
+							});
+						}
+					}}
 					/>
 				</div>
 			</div>
@@ -197,7 +213,7 @@
 				maxDate={undefined}
 				minDate={new Date().toISOString()}
 				onChange={(date: Date | null) =>
-					store.updateTask({ deadline: date ? date.toISOString() : undefined })}
+					store.updateTask({ deadline: date ? (normalizeDeadlineToEndOfDay(date) || date.toISOString()) : undefined })}
 			/>
 			{#if errors.deadline}
 				<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>

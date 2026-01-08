@@ -56,7 +56,12 @@
         const minutes = String(value.getMinutes()).padStart(2, '0');
         return `${year}-${month}-${day}T${hours}:${minutes}`;
       } else {
-        return value.toISOString().split('T')[0];
+        // For date inputs, use local date components to avoid timezone shifts
+        // This ensures the displayed date matches what the user selected
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
       }
     }
     
@@ -72,7 +77,15 @@
           return `${year}-${month}-${day}T${hours}:${minutes}`;
         }
       } else {
-        return value.split('T')[0];
+        // For date inputs, extract the date part (YYYY-MM-DD) directly from the string
+        // This avoids timezone conversion - we want to display the date as stored
+        const datePart = value.split('T')[0];
+        // If it's already in YYYY-MM-DD format, return it directly
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          return datePart;
+        }
+        // If it's an ISO string, extract the date part
+        return datePart;
       }
     }
     
@@ -106,7 +119,31 @@
       if (!isNaN(date.getTime())) {
         onChange?.({ start: date, end: date });
       }
+    } else if (type === 'single' || type === 'date') {
+      // For date inputs, the inputValue is in YYYY-MM-DD format
+      // We need to extract the date components and create a Date at local midnight
+      // to preserve the selected date regardless of timezone
+      const parts = inputValue.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+        const day = parseInt(parts[2], 10);
+        
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          // Create date at local midnight to preserve the selected date
+          // This ensures Nov 12 stays Nov 12, not Nov 11
+          const date = new Date(year, month, day, 0, 0, 0, 0);
+          onChange?.(date);
+          return;
+        }
+      }
+      // Fallback to standard Date parsing
+      const date = new Date(inputValue);
+      if (!isNaN(date.getTime())) {
+        onChange?.(date);
+      }
     } else {
+      // For datetime and time inputs, use standard Date parsing
       const date = new Date(inputValue);
       if (!isNaN(date.getTime())) {
         onChange?.(date);
@@ -248,7 +285,7 @@
   />
   {#if (type === 'time' || type === 'datetime') && timeStep && timeStep !== 1}
     <div class="text-xs text-base-content/60 mt-1">
-      Times will be rounded to {timeStep}-minute intervals
+      {$t('common.components.date_input.time_rounded_intervals', { values: { timeStep } })}
     </div>
   {/if}
 </div>

@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
 	import IconCheck from '~icons/mdi/check';
+	import { clickOutside } from '$lib/utils/clickOutside';
 
 	export const LANGUAGES = [
 		{ code: 'en', name: 'English' },
@@ -17,7 +18,7 @@
 		showLocaleCode = false,
 		showCheckmark = true,
 		className = '',
-		tooltip = '',
+		tooltip = '', // unused
 		onLanguageChange = null as ((code: SupportedLanguage) => void) | null
 	} = $props();
 
@@ -99,7 +100,7 @@
 	const isLanguageLoading = $derived($isI18nLoading);
 </script>
 
-<details class="dropdown dropdown-end language-dropdown {className}" bind:this={dropdownElement}>
+<details class="dropdown dropdown-end language-dropdown {className}" bind:this={dropdownElement} use:clickOutside={{ callback: () => closeDropdown() }}>
 	<summary
 		class="btn btn-ghost flex items-center gap-2"
 		class:loading={isLanguageLoading}

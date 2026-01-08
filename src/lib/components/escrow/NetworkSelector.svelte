@@ -1,4 +1,9 @@
 <script lang="ts">
+	/**
+	 * @deprecated
+	 * @unused
+	 */
+
 	import { onMount } from 'svelte';
 	import {
 		getAvailableNetworks,
@@ -34,9 +39,7 @@
 	let error = $state('');
 
 	// Network availability check
-	function checkNetworkAvailability(
-		network: EscrowNetwork
-	): boolean {
+	function checkNetworkAvailability(network: EscrowNetwork): boolean {
 		const walletState = get(walletStore);
 
 		if (network === 'RSK') {

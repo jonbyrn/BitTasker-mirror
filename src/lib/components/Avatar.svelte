@@ -5,14 +5,11 @@
 	 * Displays a user's avatar, with fallback to initials in a colored badge if no image is available
 	 * Lazy loads user data and Nostr libraries only when authenticated
 	 */
-	import { profileStore } from '$lib/stores/profile.store';
 	import { user } from '$lib/stores/user.store';
-	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
 
 	// Define the component props
 	const props = $props<{
-		size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+		size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 		loading?: boolean;
 		onClick?: () => void;
 		pubkey?: string;
@@ -27,29 +24,10 @@
 
 	// State for image loading and user data
 	let imageError = $state(false);
-	let userData = $state<{ name: string; picture: string | null } | null>(null);
-	let isLoading = $state(true);
 
 	// Reactive derived values that update when stores change
-	let userName = $derived(props.name || $profileStore.data?.name || $user.name || '');
+	let userName = $derived(props.name || $user.name || '');
 	let userPicture = $derived(props.picture || null);
-
-	// Update userData when derived values change
-	$effect(() => {
-		userData = {
-			name: userName,
-			picture: userPicture
-		};
-	});
-
-	// Initialize userData immediately with props
-	onMount(() => {
-		userData = {
-			name: userName,
-			picture: userPicture
-		};
-		isLoading = false;
-	});
 
 	// Get user initials for badge
 	function getUserInitials(name: string): string {
@@ -96,29 +74,26 @@
 				return 'w-16 h-16 text-xl';
 			case 'xl':
 				return 'w-24 h-24 text-2xl';
+			case '2xl':
+				return 'w-40 h-40 text-4xl';
 			default:
 				return 'w-10 h-10 text-base';
 		}
 	}
 </script>
 
-{#if isLoading}
-	<!-- Loading state -->
-	<div
-		class="overflow-hidden rounded-full {getSizeClass(size)} relative"
-	>
-		<div class="bg-base-300 absolute inset-0 flex animate-pulse items-center justify-center">
-			<div class="loading loading-spinner loading-xs"></div>
-		</div>
+<!-- Loading state -->
+<!-- <div class="overflow-hidden rounded-full {getSizeClass(size)} relative">
+	<div class="bg-base-300 absolute inset-0 flex animate-pulse items-center justify-center">
+		<div class="loading loading-spinner loading-xs"></div>
 	</div>
-{:else if userData?.picture && !imageError}
+</div> -->
+{#if userPicture && !imageError}
 	<!-- Show user image if available and no error -->
-	<div
-		class="overflow-hidden rounded-full {getSizeClass(size)} relative"
-	>
+	<div class="overflow-hidden rounded-full {getSizeClass(size)} relative">
 		<img
-			src={userData.picture}
-			alt={userData.name}
+			src={userPicture}
+			alt={userName}
 			class="h-full w-full object-cover"
 			onerror={() => (imageError = true)}
 		/>
@@ -128,10 +103,10 @@
 	<div
 		class="avatar placeholder text-neutral-content flex h-5 w-5 items-center justify-center overflow-hidden rounded-full text-center {getSizeClass(
 			size
-		)} {getRandomColor(userData?.name || '')}"
+		)} {getRandomColor(userName || '')}"
 	>
-		{#if userData?.name}
-			<span>{getUserInitials(userData.name)}</span>
+		{#if userName}
+			<span>{getUserInitials(userName)}</span>
 		{:else}
 			<svg xmlns="http://www.w3.org/2000/svg" width="50%" height="50%" viewBox="0 0 24 24">
 				<g fill="none" stroke="black" stroke-width="1.5">

@@ -17,6 +17,11 @@
 	import authService from '$lib/api/services/auth.service';
 	import { t } from 'svelte-i18n';
 	import { Buffer } from 'buffer';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import type { BiometricPlatform } from '$lib/utils/helpers/biometricErrorHandler';
+	import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -48,6 +53,10 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let isSetupComplete = $state(false);
+	
+	// Error modal state
+	let errorMessage = $state('');
+	let errorType = $state<ErrorType | undefined>(undefined);
 
 	async function generateKeyPair() {
 		const sk = generateSecretKey();
@@ -65,7 +74,11 @@
 
 			// Only run in browser environment to avoid Buffer issues
 			if (typeof Buffer === 'undefined') {
-				throw new Error('Buffer is not defined');
+				const errorMsg = 'Buffer is not defined';
+				error = errorMsg;
+				errorMessage = errorMsg;
+				errorType = detectErrorType(errorMsg);
+				throw new Error(errorMsg);
 			}
 
 			// Create master key encryption for both Nostr and wallet
@@ -76,21 +89,66 @@
 
 			const deviceName = await createUserDeviceShortName(npub);
 
+			// Validate username and provide fallback to deviceName if invalid
+			// This ensures we always have a valid name for the passkey
+			const passkeyName = username?.trim() || deviceName;
+
 			// Register device with server using master key
+			// Use username for passkey naming so it appears in password managers
 			let credentialId = '';
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(
-					npub,
-					masterKeyData.exportedMasterKey,
-					'biometrics',
-					deviceName
-				);
+				try {
+					credentialId = await setBiometricKey(
+						npub,
+						masterKeyData.exportedMasterKey,
+						'biometrics',
+						passkeyName
+					);
+				} catch (biometricError: any) {
+					// Process error for troubleshooting modal
+					const platform: BiometricPlatform = 'mobile-native';
+					const { errorMessage: msg, errorType: type } = await getErrorModalData({
+						error: biometricError,
+						platform
+					});
+					
+					// Set error state
+					error = msg;
+					errorMessage = msg;
+					errorType = type;
+					
+					// Error state is set, ErrorAlertWithModal will auto-open for passkey errors
+					
+					// Re-throw to stop registration
+					throw biometricError;
+				}
 			} else {
-				credentialId = await setWebBiometricKey(npub, masterKeyData.exportedMasterKey, deviceName);
+				try {
+					credentialId = await setWebBiometricKey(npub, masterKeyData.exportedMasterKey, passkeyName);
+				} catch (biometricError: any) {
+					// Process error for troubleshooting modal
+					const platform: BiometricPlatform = 'web';
+					const { errorMessage: msg, errorType: type } = await getErrorModalData({
+						error: biometricError,
+						platform
+					});
+					
+					error = msg;
+					errorMessage = msg;
+					errorType = type;
+					
+					// Error state is set, ErrorAlertWithModal will auto-open for passkey errors
+					
+					throw biometricError;
+				}
 			}
 
 			if (!credentialId) {
-				throw new Error('Failed to get credential ID');
+				const errorMsg = 'Failed to get credential ID';
+				error = errorMsg;
+				errorMessage = errorMsg;
+				errorType = detectErrorType(errorMsg);
+				throw new Error(errorMsg);
 			}
 
 			// Register with server using master key GraphQL mutation
@@ -135,10 +193,17 @@
 			}
 		} catch (err: unknown) {
 			console.error('Registration failed:', err);
-			error =
-				err instanceof Error
+			// Only set generic error if not already set by biometric error handler
+			if (!error) {
+				const errorMsg = err instanceof Error
 					? err.message
 					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+				error = errorMsg;
+				// For non-biometric errors, also set errorMessage for modal
+				if (!errorMessage) {
+					errorMessage = errorMsg;
+				}
+			}
 			throw new Error(error);
 		}
 	}
@@ -175,6 +240,8 @@
 		try {
 			isLoading = true;
 			error = '';
+			errorMessage = '';
+			errorType = undefined;
 
 			let npub: string;
 			let nsec: string;
@@ -184,7 +251,11 @@
 				// Convert nsec to hex format
 				const { type, data } = nip19.decode(userData.nsec);
 				if (type !== 'nsec') {
-					throw new Error('Invalid nsec format');
+					const errorMsg = 'Invalid nsec format';
+					error = errorMsg;
+					errorMessage = errorMsg;
+					errorType = detectErrorType(errorMsg);
+					throw new Error(errorMsg);
 				}
 				// Convert Uint8Array to hex
 				nsec = bytesToHex(data);
@@ -212,10 +283,19 @@
 			setTimeout(() => nextStep(), 1500);
 		} catch (err: unknown) {
 			console.error('Passkey setup failed:', err);
-			error =
-				err instanceof Error
+			// Error already set by register() function for biometric errors
+			if (!error) {
+				const errorMsg = err instanceof Error
 					? err.message
 					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+				error = errorMsg;
+				// For non-biometric errors, also set errorMessage for modal
+				if (!errorMessage) {
+					errorMessage = errorMsg;
+					// Try to detect error type for non-biometric errors
+					errorType = detectErrorType(errorMsg);
+				}
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -262,22 +342,19 @@
 				</p>
 
 				{#if error}
-					<div class="alert alert-error alert-outline mx-auto mb-6 max-w-lg">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span class="whitespace-normal">{error}</span>
-					</div>
+					<ErrorAlertWithModal
+						{error}
+						errorType={errorType}
+						isPasskeyError={true}
+						autoOpenModal={true}
+						onRetry={async () => {
+							error = '';
+							errorMessage = '';
+							errorType = undefined;
+							await handlePasskeySetup();
+						}}
+						class="mx-auto mb-6 max-w-lg"
+					/>
 				{/if}
 
 				{#if isSetupComplete}

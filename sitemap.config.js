@@ -10,7 +10,7 @@ const sitemap = createSitemap('https://bittasker.com', {
 		'/tasker-fees',
 		'/community-guidelines',
 		'/contact',
-		'/escrow',
+		'/secure-payments',
 		'/faq',
 		'/how-it-works',
 		'/press',
@@ -28,8 +28,6 @@ const sitemap = createSitemap('https://bittasker.com', {
 	ignore: [
 		// Exclude protected routes
 		'/dashboard/**',
-		// Exclude internal routes
-		'/firebase-config.json',
 		// Exclude auth onboarding
 		'/auth/onboarding',
 		// Exclude dynamic routes that require parameters

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
@@ -9,49 +9,47 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
-	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	// Icon imports for unplugin-icons
-	import IconAccountCircle from '~icons/mdi/account-circle';
-	import IconAccountGroup from '~icons/mdi/account-group';
-	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
-	import IconAccountPlus from '~icons/mdi/account-plus';
-	import IconArrowLeft from '~icons/mdi/arrow-left';
-	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
-	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
-	import IconCog from '~icons/mdi/cog';
-	import IconCurrencyUsd from '~icons/mdi/currency-usd';
-	import IconDomain from '~icons/mdi/domain';
-	import IconEmailOutline from '~icons/mdi/email-outline';
-	import IconFileSign from '~icons/mdi/file-sign';
-	import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
-	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
-	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
-	import IconHome from '~icons/mdi/home';
-	import IconInformationOutline from '~icons/mdi/information-outline';
-	import IconLogin from '~icons/mdi/login';
-	import IconLogout from '~icons/mdi/logout';
-	import IconMagnify from '~icons/mdi/magnify';
-	import IconNewspaper from '~icons/mdi/newspaper';
-	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
-	import IconShieldAccount from '~icons/mdi/shield-account';
-	import IconShieldCheck from '~icons/mdi/shield-check';
-	import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
-	import IconChatOutline from '~icons/mdi/chat-outline';
-	import IconWalletOutline from '~icons/mdi/wallet-outline';
-	import IconAccount from '~icons/mdi/account';
-	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
-	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
-	import IconStarOutline from '~icons/mdi/star-outline';
+	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
+	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconQrcode from '~icons/mdi/qrcode';
+	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
+	import {
+		LOGGED_IN_MENU_SECTIONS,
+		LOGGED_OUT_MENU_SECTIONS,
+		AVATAR_MENU_ITEMS,
+		MOBILE_DRAWER_LOGGED_IN,
+		MOBILE_AUTH_BUTTONS,
+		type MenuItem,
+		type MenuSection
+	} from '$lib/utils/constants/menu.constants';
+	import { clickOutside } from '$lib/utils/clickOutside';
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);
-	
+
 	// Control logout confirmation modal
 	let showLogoutModal = $state(false);
 
+	// Control npub QR code modal
+	let showNpubQrModal = $state(false);
+
 	// Track if user is logged in
 	let isLoggedIn = $derived($authState.isAuthenticated);
+
+	// Dropdown state - track which section ID is open
+	let openSectionId = $state<string | null>(null);
+
+	// Control avatar dropdown visibility
+	let isAvatarDropdownOpen = $state(false);
+
+	// Toggle avatar dropdown
+	function toggleAvatarDropdown(event: MouseEvent) {
+		// Prevent the default details toggle behavior and handle it manually
+		event.preventDefault();
+		event.stopPropagation();
+		isAvatarDropdownOpen = !isAvatarDropdownOpen;
+	}
 
 	// Initialize stores when component mounts
 	onMount(async () => {
@@ -59,18 +57,12 @@
 			try {
 				// Initialize user store
 				await user.getUserData();
-				// Initialize database user store
 				// Initialize profile store if not already done
-				if (!$profileStore.data) {
-					profileStore.init();
-				}
+				if (!$profileStore.data) profileStore.init();
 			} catch (error) {
 				console.error('Failed to initialize stores:', error);
 			}
 		}
-
-		// Defer non-critical operations
-		deferNonCriticalOperations();
 	});
 
 	// Derived values for avatar - prioritize username from database
@@ -90,76 +82,35 @@
 		return '';
 	});
 
-	// Defer non-critical operations
-	const deferNonCriticalOperations = () => {
-		if (typeof requestIdleCallback !== 'undefined') {
-			requestIdleCallback(
-				() => {
-					// Add click outside handler for dropdowns
-					if (typeof document !== 'undefined') {
-						document.addEventListener('click', handleClickOutside, { passive: true });
-					}
-				},
-				{ timeout: 1000 }
-			);
-		} else {
-			// Fallback for browsers without requestIdleCallback
-			setTimeout(() => {
-				// Add click outside handler for dropdowns
-				if (typeof document !== 'undefined') {
-					document.addEventListener('click', handleClickOutside, { passive: true });
-				}
-			}, 100);
-		}
-	};
-
-	// Optimize body class management with debouncing
-	let bodyClassTimeout: ReturnType<typeof setTimeout>;
-	$effect(() => {
-		clearTimeout(bodyClassTimeout);
-		bodyClassTimeout = setTimeout(() => {
-			if (typeof document !== 'undefined') {
-				const body = document.body;
-				if (!isLoggedIn) {
-					body.classList.add('bottom-nav-active');
-				} else {
-					body.classList.remove('bottom-nav-active');
-				}
-			}
-		}, 50); // Small debounce to prevent excessive updates
-	});
-
-	// Go back function for the back button
-	function goBack() {
-		window.history.back();
-	}
-
-	// Toggle drawer
-	function toggleDrawer() {
-		isDrawerOpen = !isDrawerOpen;
-	}
+	// Derived values for user display name
+	let userDisplayName = $derived(
+		$profileStore.data?.name ||
+		$user.name ||
+		''
+	);
 
 	// Close drawer
 	function closeDrawer() {
 		isDrawerOpen = false;
 	}
 
-	// Cleanup on component destroy
-	onDestroy(() => {
-		clearTimeout(bodyClassTimeout);
+	// Function to close all dropdown menus
+	function closeDropdowns() {
+		openSectionId = null;
+	}
 
-		if (typeof window !== 'undefined') {
-			// Remove click outside handler
-			if (typeof document !== 'undefined') {
-				document.removeEventListener('click', handleClickOutside);
-			}
-		}
+	// Toggle dropdown section
+	function toggleSection(sectionId: string) {
+		// If clicking the same section that's already open, close it
+		// Otherwise, open the clicked section
+		openSectionId = openSectionId === sectionId ? null : sectionId;
+	}
 
-		// Remove bottom nav class
-		if (typeof document !== 'undefined') {
-			document.body.classList.remove('bottom-nav-active');
-		}
-	});
+	// Handle menu item click
+	function handleMenuItemClick(action?: string) {
+		closeDropdowns();
+		if (action === 'logout') logout();
+	}
 
 	function logout() {
 		closeDrawer();
@@ -177,56 +128,91 @@
 		showLogoutModal = false;
 	}
 
-	// Function to close all dropdown menus - optimized with passive listeners
-	function closeDropdowns() {
-		// Close all details elements (dropdowns)
-		const dropdowns = document.querySelectorAll('details[open]');
-		dropdowns.forEach((dropdown) => {
-			dropdown.removeAttribute('open');
-		});
+	function showNpubQrCode() {
+		showNpubQrModal = true;
 	}
 
-	// Function to close other dropdown menus except the current one
-	function closeOtherDropdowns(currentDropdown: HTMLDetailsElement) {
-		const dropdowns = document.querySelectorAll('details[open]');
-		dropdowns.forEach((dropdown) => {
-			if (dropdown !== currentDropdown) {
-				dropdown.removeAttribute('open');
-			}
-		});
-	}
-
-	// Handle dropdown summary clicks - optimized with passive listeners
-	function handleDropdownClick(event: MouseEvent) {
-		const summary = event.currentTarget as HTMLElement;
-		const dropdown = summary.closest('details') as HTMLDetailsElement;
-
-		// Close other dropdowns when this one is about to open
-		if (dropdown && !dropdown.hasAttribute('open')) {
-			closeOtherDropdowns(dropdown);
-		}
-	}
-
-	// Handle clicks outside dropdowns to close them
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-
-		// Check if click is outside any dropdown
-		const isInsideDropdown = target.closest('details.dropdown');
-
-		if (!isInsideDropdown) {
-			closeDropdowns();
-		}
+	function closeNpubQrModal() {
+		showNpubQrModal = false;
 	}
 </script>
+
+<!-- Snippet for rendering a menu item -->
+{#snippet menuItem(item: MenuItem)}
+	<li>
+		{#if item.action}
+			<!-- Action button (like logout) -->
+			<button
+				onclick={() => handleMenuItemClick(item.action)}
+				class="flex w-full items-center gap-2 whitespace-nowrap"
+				class:text-error={item.isError}
+			>
+				<item.icon class={item.isError ? 'text-error' : 'text-primary'} />
+				<span>{$t(item.label)}</span>
+			</button>
+		{:else}
+			<!-- Regular link -->
+			<a
+				href={item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
+				onclick={() => handleMenuItemClick()}
+				class="flex items-center gap-2 whitespace-nowrap"
+			>
+				<item.icon class="text-primary" />
+				<span>{$t(item.label)}</span>
+			</a>
+		{/if}
+	</li>
+{/snippet}
+
+<!-- Snippet for rendering a menu section with manual dropdown (logged in) -->
+{#snippet menuSection(section: MenuSection)}
+	{@const buttonId = `menu-button-${section.id}`}
+	<li class="relative">
+		<button
+			id={buttonId}
+			class="btn btn-ghost flex items-center gap-2 hover:shadow-none"
+			onclick={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				toggleSection(section.id);
+			}}
+			aria-expanded={openSectionId === section.id}
+			aria-haspopup="true"
+		>
+			<section.icon class="text-primary" />
+			<span>{$t(section.label)}</span>
+			<IconChevronDown
+				class={`transition-all duration-150 ${openSectionId === section.id ? 'rotate-180' : ''}`}
+			/>
+		</button>
+		{#if openSectionId === section.id}
+			<div
+				class="absolute left-0 top-full"
+				use:clickOutside={{
+					callback: () => closeDropdowns(),
+					exclude: `#${buttonId}`
+				}}
+			>
+				<ul
+					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
+					onclick={(e) => e.stopPropagation()}
+				>
+					{#each section.items as item}
+						{@render menuItem(item)}
+					{/each}
+				</ul>
+			</div>
+		{/if}
+	</li>
+{/snippet}
 
 <!-- Main TopBar component -->
 <div
 	class="navbar bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
 >
-	<!-- Hide navbar-start on mobile -->
+	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
+		<a href={isLoggedIn ? '/dashboard/find-tasks' : '/tasks'} class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -237,336 +223,30 @@
 			/>
 		</a>
 		<LanguageDropdown onLanguageChange={closeDropdowns} />
-		<!-- {#if !isLoggedIn}
-			<div class="flex md:hidden items-center">
-				
-				<DarkModeToggle />
-			</div>
-		{/if} -->
-		<!-- g{#if $showBackButton}
-			<!-- Mobile: Back button when applicable --
-			<button class="btn btn-ghost btn-circle" onclick={goBack} aria-label={$t('navbar.back')}>
-				<IconArrowLeft />
-			</button>
-		{/if}
-		{#if !$showBackButton && isLoggedIn}
-			<!-- Mobile logged in: Hamburger menu that anim
-ates to X --
-			<button
-				class="btn btn-ghost btn-circle relative md:hidden"
-				onclick={toggleDrawer}
-				aria-label={isDrawerOpen ? $t('common.components.topbar.close_menu') : $t('common.components.topbar.open_menu')}
-			>
-				<div class="flex h-5 w-5 flex-col items-start justify-center">
-					<span
-						class="block h-0.5 w-5 bg-current transition-transform duration-300 ease-in-out"
-						class:rotate-45={isDrawerOpen}
-						class:translate-y-2={isDrawerOpen}
-					></span>
-					<span
-						class="my-1 block h-0.5 w-3 place-self-start bg-current transition-opacity duration-300"
-						class:opacity-0={isDrawerOpen}
-					></span>
-					<span
-						class="block h-0.5 w-5 bg-current transition-transform duration-300 ease-in-out"
-						class:-rotate-45={isDrawerOpen}
-						class:-translate-y-1={isDrawerOpen}
-					></span>
-				</div>
-			</button>
-		{/if} -->
 	</div>
 
 	<!-- Hide navbar-center on mobile and tablet -->
 	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
 			{#if isLoggedIn}
-				<!-- My Account -->
-				<li>
-					<details class="dropdown">
-						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<IconAccountCircle class="text-primary" />
-							<span>{$t('navbar.my_account')}</span>
-						</summary>
-						<ul
-							class="menu dropdown-content bg-base-100 rounded-box z-1 w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-sm"
-						>
-							<li>
-								<a href="/dashboard/messages" onclick={closeDropdowns}
-									><IconChatOutline class="text-primary" /> <span>{$t('navbar.messages')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/dashboard/wallet" onclick={closeDropdowns}
-									><IconWalletOutline class="text-primary" /> <span>{$t('navbar.wallet')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/dashboard/reviews" onclick={closeDropdowns}
-									><IconStarOutline class="text-primary" /> <span>{$t('navbar.reviews')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/dashboard/profile" onclick={closeDropdowns}
-									><IconAccount class="text-primary" /> <span>{$t('navbar.profile')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/dashboard/settings" onclick={closeDropdowns}
-									><IconCog class="text-primary" /> <span>{$t('navbar.settings')}</span></a
-								>
-							</li>
-							<li>
-								<button onclick={logout} class="text-error flex w-full items-center gap-2"
-									><IconLogout class="text-error" /> <span>{$t('navbar.logout')}</span></button
-								>
-							</li>
-						</ul>
-					</details>
-				</li>
-
-				<!-- Task Management -->
-				<li>
-					<details class="dropdown">
-						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<IconBriefcaseOutline class="text-primary" />
-							<span>{$t('navbar.task_management')}</span>
-						</summary>
-						<ul
-							class="menu dropdown-content bg-base-100 rounded-box z-1 w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-sm"
-						>
-							<li>
-								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeDropdowns}
-									><IconMagnify class="text-primary" /> <span>{$t('navbar.find_tasks')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/dashboard" onclick={closeDropdowns}
-									><IconFormatListBulleted class="text-primary" />
-									<span>{$t('navbar.my_tasks')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/dashboard/create-task" onclick={closeDropdowns}
-									><IconPlusCircleOutline class="text-primary" />
-									<span>{$t('navbar.create_task')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/dashboard?tab=bids" onclick={closeDropdowns}
-									><IconInvoiceTextSendOutline class="text-primary" />
-									<span>{$t('navbar.bids_sent')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/dashboard?tab=contracts" onclick={closeDropdowns}
-									><IconFileSign class="text-primary" />
-									<span>{$t('navbar.contracts')}</span></a
-								>
-							</li>
-						</ul>
-					</details>
-				</li>
-
-				<!-- Support & Help -->
-				<li>
-					<details class="dropdown">
-						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<IconHelpCircleOutline class="text-primary" />
-							<span>{$t('navbar.support_help')}</span>
-						</summary>
-						<ul
-							class="menu dropdown-content bg-base-100 rounded-box z-1 w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-sm"
-						>
-							<li>
-								<a href="/how-it-works" onclick={closeDropdowns}
-									><IconHelpCircleOutline class="text-primary" />
-									<span>{$t('navbar.how_it_works')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/faq" onclick={closeDropdowns}
-									><IconFrequentlyAskedQuestions class="text-primary" />
-									<span>{$t('navbar.faq')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/contact" onclick={closeDropdowns}
-									><IconEmailOutline class="text-primary" />
-									<span>{$t('navbar.contact_support')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/feedback" onclick={closeDropdowns}
-									><IconCommentTextOutline class="text-primary" />
-									<span>{$t('navbar.feedback')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/security" onclick={closeDropdowns}
-									><IconShieldCheck class="text-primary" /> <span>{$t('footer.security')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/about" onclick={closeDropdowns}
-									><IconInformationOutline class="text-primary" />
-									<span>{$t('navbar.about_us')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/terms" onclick={closeDropdowns}
-									><IconFileSign class="text-primary" />
-									<span>{$t('navbar.terms_of_service')}</span></a
-								>
-							</li>
-							<li>
-								<a href="/privacy" onclick={closeDropdowns}
-									><IconShieldAccount class="text-primary" />
-									<span>{$t('navbar.privacy_policy')}</span></a
-								>
-							</li>
-						</ul>
-					</details>
-				</li>
+				<!-- Logged-in menu sections -->
+				{#each LOGGED_IN_MENU_SECTIONS as section}
+					{@render menuSection(section)}
+				{/each}
 			{:else}
+				<!-- Logged-out menu sections -->
+				<!-- First item is standalone link -->
+				{@const firstSection = LOGGED_OUT_MENU_SECTIONS[0]}
 				<li>
 					<a href="/how-it-works" class="btn btn-ghost">
-						<IconHelpCircleOutline class="text-primary" />
+						<firstSection.icon class="text-primary" />
 						<span>{$t('footer.how_it_works')}</span>
 					</a>
 				</li>
-				<li>
-					<details class="dropdown">
-						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-							<IconBriefcaseOutline class="text-primary" />
-							<span>{$t('footer.for_taskers')}</span>
-						</summary>
-						<ul
-							class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm"
-						>
-							<li>
-								<a href="/dashboard/create-task" onclick={closeDropdowns}>
-									<IconPlusCircleOutline class="text-primary" />
-									<span>{$t('footer.post_task')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/tasker-fees" onclick={closeDropdowns}>
-									<IconCurrencyUsd class="text-primary" />
-									<span>{$t('footer.tasker_fees')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/escrow" onclick={closeDropdowns}>
-									<IconShieldCheckOutline class="text-primary" />
-									<span>{$t('footer.escrow')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/faq" onclick={closeDropdowns}>
-									<IconFrequentlyAskedQuestions class="text-primary" />
-									<span>{$t('footer.faq')}</span>
-								</a>
-							</li>
-						</ul>
-					</details>
-				</li>
-				<li>
-					<details class="dropdown">
-						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-							<IconAccountHardHat class="text-primary" />
-							<span>{$t('footer.for_taskees')}</span>
-						</summary>
-						<ul
-							class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm"
-						>
-							<li>
-								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeDropdowns}>
-									<IconMagnify class="text-primary" />
-									<span>{$t('footer.start_earning')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/community-guidelines" onclick={closeDropdowns}>
-									<IconAccountGroup class="text-primary" />
-									<span>{$t('footer.community_guidelines')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/taskee-fees" onclick={closeDropdowns}>
-									<IconCurrencyUsd class="text-primary" />
-									<span>{$t('footer.taskee_fees')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/tasker-principles" onclick={closeDropdowns}>
-									<IconInvoiceTextSendOutline class="text-primary" />
-									<span>{$t('footer.tasker_principles')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/faq" onclick={closeDropdowns}>
-									<IconFrequentlyAskedQuestions class="text-primary" />
-									<span>{$t('footer.tasker_faq')}</span>
-								</a>
-							</li>
-						</ul>
-					</details>
-				</li>
-				<li>
-					<details class="dropdown">
-						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-							<IconDomain class="text-primary" />
-							<span>{$t('footer.company')}</span>
-						</summary>
-						<ul
-							class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm"
-						>
-							<li>
-								<a href="/about" onclick={closeDropdowns}>
-									<IconInformationOutline class="text-primary" />
-									<span>{$t('footer.about_us')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/security" onclick={closeDropdowns}>
-									<IconShieldCheck class="text-primary" />
-									<span>{$t('footer.security')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/careers" onclick={closeDropdowns}>
-									<IconBriefcaseSearch class="text-primary" />
-									<span>{$t('footer.careers')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/press" onclick={closeDropdowns}>
-									<IconNewspaper class="text-primary" />
-									<span>{$t('footer.press')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/terms" onclick={closeDropdowns}>
-									<IconFileSign class="text-primary" />
-									<span>{$t('footer.terms')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/privacy" onclick={closeDropdowns}>
-									<IconShieldAccount class="text-primary" />
-									<span>{$t('footer.privacy')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/contact" onclick={closeDropdowns}>
-									<IconEmailOutline class="text-primary" />
-									<span>{$t('footer.contact')}</span>
-								</a>
-							</li>
-						</ul>
-					</details>
-				</li>
+				<!-- Rest are dropdown sections using DaisyUI details -->
+				{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section}
+					{@render menuSection(section)}
+				{/each}
 			{/if}
 		</ul>
 	</div>
@@ -576,66 +256,48 @@ ates to X --
 		<!-- Dark mode toggle and language dropdown -->
 		<div class="mr-1 items-center md:flex">
 			<DarkModeToggle />
-			<!-- <LanguageDropdown onLanguageChange={closeDropdowns} /> -->
 		</div>
 		<!-- login/signup or notification + avatar -->
 		{#if !isLoggedIn}
 			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary">{$t('navbar.login')}</a>
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
-			<!-- Notification Button -->
+			<!-- Notification Center -->
 			<NotificationCenter />
-			
 			<!-- Avatar Dropdown -->
-			<details class="dropdown dropdown-end">
-				<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-					<Avatar 
-						name={$user.picture}
-						picture={userPicture()} 
-						size="sm" 
-					/>
+			<details
+				class="dropdown dropdown-end"
+				bind:open={isAvatarDropdownOpen}
+				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
+			>
+				<summary class="btn btn-ghost" onclick={toggleAvatarDropdown}>
+					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</summary>
 				<ul
 					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
 				>
-					<li>
-						<a href="/dashboard" onclick={closeDropdowns}
-							><IconFormatListBulleted class="text-primary" />
-							<span>{$t('navbar.my_tasks')}</span></a
-						>
-					</li>
-					<li>
-						<a href="/dashboard/profile" onclick={closeDropdowns}
-							><IconAccount class="text-primary" /> <span>{$t('navbar.profile')}</span></a
-						>
-					</li>
-					<li>
-						<a href="/dashboard/reviews" onclick={closeDropdowns}
-							><IconStarOutline class="text-primary" /> <span>{$t('navbar.reviews')}</span></a
-						>
-					</li>
-					<li>
-						<a href="/dashboard/messages" onclick={closeDropdowns}
-							><IconChatOutline class="text-primary" /> <span>{$t('navbar.messages')}</span></a
-						>
-					</li>
-					<li>
-						<a href="/dashboard/settings" onclick={closeDropdowns}
-							><IconCog class="text-primary" /> <span>{$t('navbar.settings')}</span></a
-						>
-					</li>
-					<li>
-						<button onclick={logout} class="text-error flex items-center gap-2"
-							><IconLogout class="text-error" /> <span>{$t('navbar.logout')}</span></button
-						>
-					</li>
+					<!-- User Info Header -->
+					{#if userDisplayName}
+						<li class="border-b border-base-300 pb-2 mb-2">
+							<button
+								onclick={showNpubQrCode}
+								class="flex w-full items-center gap-2 whitespace-nowrap"
+							>
+								<IconQrcode class="text-primary" />
+								<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+							</button>
+						</li>
+					{/if}
+					{#each AVATAR_MENU_ITEMS as item}
+						{@render menuItem(item)}
+					{/each}
 				</ul>
 			</details>
 		{/if}
 	</div>
 </div>
 
-<!-- Mobile Drawer -->
+<!-- Mobile Drawer - Drawer is @deprecated in favor of BottomNavBar component -->
 <Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" isScrollable={true}>
 	{#snippet children()}
 		<ul class="menu w-full">
@@ -645,64 +307,55 @@ ates to X --
 			<!-- Language submenu -->
 			<li><LanguageDropdown onLanguageChange={closeDrawer} /></li>
 
-			{#if isLoggedIn}
-				<li>
-					<a href="/dashboard/settings" onclick={closeDrawer} class="flex items-center gap-2">
-						<IconCog />
-						{$t('navbar.settings')}
-					</a>
-				</li>
-			{/if}
-
 			<li class="divider"></li>
 
-			<li>
-				<a href="/" onclick={closeDrawer} class="flex items-center gap-2">
-					<IconHome />
-					{$t('navbar.home')}
-				</a>
-			</li>
-			<li>
-				<a href="/how-it-works" onclick={closeDrawer} class="flex items-center gap-2">
-					<IconHelpCircleOutline />
-					{$t('navbar.how_it_works')}
-				</a>
-			</li>
-			<li>
-				<a href="/terms" onclick={closeDrawer} class="flex items-center gap-2">
-					<IconFileSign />
-					{$t('navbar.terms_and_conditions')}
-				</a>
-			</li>
-
-			<li class="divider"></li>
-
-			<!-- Additional menu items -->
-
 			{#if isLoggedIn}
-				<li>
-					<button onclick={logout} class="flex items-center gap-2">
-						<IconLogout />
-						{$t('navbar.logout')}
-					</button>
-				</li>
+				<!-- Logged-in mobile menu -->
+				{#each MOBILE_DRAWER_LOGGED_IN as item}
+					<li>
+						{#if item.action}
+							<button
+								onclick={() => {
+									handleMenuItemClick(item.action);
+									closeDrawer();
+								}}
+								class="flex items-center gap-2"
+							>
+								<item.icon />
+								{$t(item.label)}
+							</button>
+						{:else}
+							<a
+								href={item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
+								onclick={closeDrawer}
+								class="flex items-center gap-2"
+							>
+								<item.icon />
+								{$t(item.label)}
+							</a>
+						{/if}
+					</li>
+				{/each}
 			{:else}
+				<!-- Logged-out mobile menu -->
+				{@const loginBtn = MOBILE_AUTH_BUTTONS.login}
+				{@const signupBtn = MOBILE_AUTH_BUTTONS.signup}
 				<li class="mt-4 flex flex-col gap-2">
 					<a
-						href="/auth/login"
+						href={loginBtn.href}
 						class="btn btn-secondary flex w-full items-center justify-center gap-2"
 						onclick={closeDrawer}
 					>
-						<IconLogin />
-						{$t('navbar.login')}
+						<loginBtn.icon />
+						{$t(loginBtn.label)}
 					</a>
 					<a
-						href="/auth/signup"
+						href={signupBtn.href}
 						class="btn btn-primary flex w-full items-center justify-center gap-2"
 						onclick={closeDrawer}
 					>
-						<IconAccountPlus />
-						{$t('navbar.signup')}
+						<signupBtn.icon />
+						{$t(signupBtn.label)}
 					</a>
 				</li>
 			{/if}
@@ -720,6 +373,9 @@ ates to X --
 	onConfirm={confirmedLogout}
 	onCancel={cancelLogout}
 />
+
+<!-- NPub QR Code Modal -->
+<NpubQrCodeModal isOpen={showNpubQrModal} onClose={closeNpubQrModal} />
 
 <style>
 	.pt-safe {
@@ -755,5 +411,16 @@ ates to X --
 		background: none !important;
 		box-shadow: none !important;
 		color: inherit !important;
+	}
+
+	/* Ensure dropdown positioning works correctly in navbar */
+	:global(.navbar-center .menu.menu-horizontal > li.relative) {
+		position: relative;
+	}
+
+	:global(.navbar-center .dropdown-content) {
+		position: absolute;
+		top: 100%;
+		left: 0;
 	}
 </style>

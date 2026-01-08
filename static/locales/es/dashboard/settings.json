@@ -14,6 +14,11 @@
           "warning": "⚠️ ¡Mantén esto privado! Nunca compartas tu clave privada con nadie.",
           "alby": "ℹ️ Tu clave privada está gestionada de forma segura por la extensión Alby y no se puede acceder directamente.",
           "managed": "Clave privada gestionada por la extensión Alby"
+        },
+        "qrCode": {
+          "generate": "Generar Código QR",
+          "generating": "Generando Código QR...",
+          "show": "Mostrar Código QR"
         }
       },
       "security": {
@@ -34,6 +39,12 @@
         "confirmPassword-label": "Confirmar Contraseña de Recuperación",
         "confirmPassword": {
           "placeholder": "Confirma tu contraseña de recuperación"
+        },
+        "generated_password_note": "Hemos generado una contraseña segura y fácil de recordar que puedes usar.",
+        "password_strength": {
+          "weak": "Débil",
+          "medium": "Media",
+          "strong": "Fuerte"
         },
         "requirements-label": "Requisitos de contraseña:",
         "requirements": {

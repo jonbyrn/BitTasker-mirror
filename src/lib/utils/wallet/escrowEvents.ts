@@ -1,14 +1,18 @@
 import type { ethers } from 'ethers';
-import type { CreateContractParams } from '$lib/types/contract';
+import type { CreateContractParams, PublishContractStatusParams } from '$lib/types/contract';
 import { writable } from 'svelte/store';
-import type { Attachment } from '$lib/types/task';
-import { createContract, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-import { rskWalletStore, getRSKWallet, getEventListeners } from '$lib/stores/rskWallet.store';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { createContract, publishContractStatus } from '$lib/utils/nostr-contract';
+import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { getWallet, getEventListeners } from '$lib/stores/wallet.store';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
-import { publishContractStatus } from '$lib/utils/nostr-bid';
+import { pushNotificationService } from '$lib/api/services/push-notification.service';
+import { BidStatusEnum } from '../enums/bid.enum';
+import { contractStore } from '$lib/stores/contract.store';
+import { escrow } from '$lib/utils/wallet/escrow';
+import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
 
 const _ = get(t);
 
@@ -28,15 +32,15 @@ export interface ContractCreationEvent {
 }
 
 // Stores for escrow events
-export const escrowCreatedStore = writable<EscrowCreatedEvent | null>(null);
+// TODO: Useless store, needs to be removed
 export const contractCreationStore = writable<ContractCreationEvent | null>(null);
 
 // Pending contract creation requests
 interface PendingContractCreation {
+	bidEventId: string;
 	escrowId: string;
 	taskId: string;
 	taskTitle: string;
-	bidId: string;
 	taskDescription: string;
 	freelancerPubkey: string;
 	amount: string;
@@ -53,7 +57,7 @@ const pendingContractsByTxHash = new Map<string, PendingContractCreation>();
  */
 export function registerPendingContractByTxHash(params: Omit<PendingContractCreation, 'escrowId'>): void {
 	pendingContractsByTxHash.set(params.transactionHash, params as PendingContractCreation);
-	console.log('Registered pending contract for transaction:', params.transactionHash);
+	console.log('✅ Registered pending contract for transaction:', params.transactionHash);
 }
 
 /**
@@ -65,12 +69,61 @@ export function registerPendingContract(params: PendingContractCreation): void {
 }
 
 /**
+ * Unified function to publish contract status to Nostr and show appropriate toast
+ * 
+ * Call with PENDING status (e.g., PendingCompletion) BEFORE transaction broadcast
+ * Call with CONFIRMED status (e.g., Completed) AFTER transaction confirmation
+ * 
+ * This function handles:
+ * - Publishing status to Nostr
+ * - Showing appropriate toast (info for pending, success for confirmed, error on failure)
+ * - All message translations
+ * 
+ * @example
+ * // Before transaction
+ * await publishEscrowStatus({ status: EscrowStatus.PendingCompletion, ... });
+ * 
+ * // After confirmation
+ * await publishEscrowStatus({ status: EscrowStatus.Completed, ... });
+ */
+export async function publishEscrowStatus(params: PublishContractStatusParams): Promise<void> {
+	try {
+		const messages = getStatusMessages(params.status);
+		const isPending = params.status >= EscrowStatus.PendingFunding; // Pending states are 6+
+
+		// Publish to Nostr
+		await publishContractStatus({
+			contractEventId: params.contractEventId,
+			escrowId: params.escrowId,
+			action: params.status,
+			message: _(isPending ? (messages.pendingMessage || messages.confirmedMessage) : messages.confirmedMessage),
+			transactionHash: params.transactionHash,
+			completionAttachments: params.completionAttachments,
+			proposedClientAmount: params.proposedClientAmount,
+			proposedFreelancerAmount: params.proposedFreelancerAmount
+		});
+
+		// Show appropriate toast
+		if (isPending) {
+			// Pending states show info toast (if message exists)
+			if (messages.pendingMessage) {
+				appStore.showInfoToast(get(t)(messages.pendingMessage));
+			}
+		} else {
+			// Confirmed states show success toast
+			appStore.showSuccessToast(get(t)(messages.successToast));
+		}
+	} catch (error) {
+		const messages = getStatusMessages(params.status);
+		console.error(`Failed to publish status (${params.status}):`, error);
+		appStore.showErrorToast(get(t)(messages.errorToast));
+	}
+}
+
+/**
  * Handle escrow created event - called from contract event listener
  */
 export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<void> {
-	// Update the store
-	escrowCreatedStore.set(event);
-
 	// Check if we have a pending contract for this escrow (by escrow ID or transaction hash)
 	let pendingContract = pendingContracts.get(event.escrowId);
 
@@ -88,8 +141,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 	}
 
 	if (pendingContract) {
-		console.log('Found pending contract, creating Nostr contract...');
-
 		try {
 			// Create the contract parameters
 			const contractParams: CreateContractParams = {
@@ -107,6 +158,15 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			console.log('Creating Nostr contract with params:', contractParams);
 			await createContract(contractParams);
 
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [pendingContract.freelancerPubkey],
+				title: 'New Contract Created',
+				body: `New contract created for task ${pendingContract.taskTitle}`,
+				type: 'contract_created',
+				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
+
 			// Update contract creation store
 			contractCreationStore.set({
 				escrowId: event.escrowId,
@@ -115,19 +175,24 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 
 			// Publish bid acceptance status via encrypted DM nostr event
 			await sendBidStatusUpdate(
-				pendingContract.bidId,
+				pendingContract.bidEventId,
 				pendingContract.taskId,
 				pendingContract.freelancerPubkey,
-				'accepted',
+				BidStatusEnum.ACCEPTED,
 				_('dashboard.bids.bid_acceptance.bid_accepted_message'),
 				event.escrowId,
 				event.transactionHash
 			);
-			console.log('✅ Bid status update sent successfully after contract creation');
-
 
 			// Show success toast
 			appStore.showSuccessToast(`Contract created successfully! Escrow ID: ${event.escrowId.slice(0, 8)}...`);
+
+			// Reload the newly created contract from Nostr to populate the store
+			await contractStore.loadContractByEscrowId(event.escrowId);
+
+			// Note: Task acceptance message (locations/congratulations) is now sent from BidAcceptanceForm.svelte
+			// after successful acceptBidAndCreateEscrow, not from here. This keeps the flow cleaner and avoids
+			// redundant task fetching since we already have task data in the form.
 
 			// Clean up pending contract
 			pendingContracts.delete(event.escrowId);
@@ -145,8 +210,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			appStore.showErrorToast(
 				`Failed to create contract: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
-
-			// Don't clean up pending contract in case of error - might want to retry
 		}
 	} else {
 		console.log('No pending contract found for escrow:', event.escrowId);
@@ -154,234 +217,10 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 }
 
 /**
- * Handle task completed event - called from transaction confirmation
- */
-export async function handleTaskCompleted(event: { 
-	escrowId: string; 
-	transactionHash: string; 
-	contractEventId: string;
-	completionAttachments?: Attachment[];
-}): Promise<void> {
-	console.log('Handling task completed event:', event);
-
-	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.Completed);
-
-		// Publish status update to Nostr with completion attachments
-		await publishContractStatus({
-			contractEventId: event.contractEventId,
-			escrowId: event.escrowId,
-			action: 'task-completed',
-			message: _('dashboard.contracts.actions.task_completed_message'),
-			transactionHash: event.transactionHash,
-			completionAttachments: event.completionAttachments
-		});
-
-		// Show success toast
-		appStore.showSuccessToast(_('dashboard.contracts.actions.task_completed_success'));
-
-		// Trigger Merkle tree update in background
-		const { triggerTreeUpdate } = await import('$lib/utils/wallet/treeUpdateHelper');
-		triggerTreeUpdate('task-completed').catch((error) => {
-			// Error is logged in triggerTreeUpdate, but don't block the flow
-			console.warn('[Escrow Events] Tree update failed for task-completed:', error);
-		});
-	} catch (error) {
-		console.error('Failed to handle task completed event:', error);
-		appStore.showErrorToast(_('dashboard.contracts.actions.task_completed_error'));
-	}
-}
-
-/**
- * Handle task accepted event - called from transaction confirmation
- */
-export async function handleTaskAccepted(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
-	console.log('Handling task accepted event:', event);
-
-	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
-
-		// Publish status update to Nostr
-		await publishContractStatus({
-			contractEventId: event.contractEventId,
-			escrowId: event.escrowId,
-			action: 'payment-released',
-			message: _('dashboard.contracts.actions.payment_released_message'),
-			transactionHash: event.transactionHash
-		});
-
-		// Show success toast
-		appStore.showSuccessToast(_('dashboard.contracts.actions.payment_released_success'));
-
-		// Trigger Merkle tree update in background
-		const { triggerTreeUpdate } = await import('$lib/utils/wallet/treeUpdateHelper');
-		triggerTreeUpdate('task-accepted').catch((error) => {
-			console.warn('[Escrow Events] Tree update failed for task-accepted:', error);
-		});
-	} catch (error) {
-		console.error('Failed to handle task accepted event:', error);
-		appStore.showErrorToast(_('dashboard.contracts.actions.payment_released_error'));
-	}
-}
-
-/**
- * Handle task disputed event - called from transaction confirmation
- */
-export async function handleTaskDisputed(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
-	console.log('Handling task disputed event:', event);
-
-	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.InDispute);
-
-		// Publish status update to Nostr
-		await publishContractStatus({
-			contractEventId: event.contractEventId,
-			escrowId: event.escrowId,
-			action: 'dispute-raised',
-			message: _('dashboard.contracts.actions.dispute_raised_message'),
-			transactionHash: event.transactionHash
-		});
-
-		// Show success toast
-		appStore.showSuccessToast(_('dashboard.contracts.actions.dispute_raised_success'));
-
-	} catch (error) {
-		console.error('Failed to handle task disputed event:', error);
-		appStore.showErrorToast(_('dashboard.contracts.actions.dispute_raised_error'));
-	}
-}
-
-/**
- * Handle resolution proposed event - called from transaction confirmation
- */
-export async function handleResolutionProposed(event: { escrowId: string; transactionHash: string; contractEventId: string; proposedClientAmount: string; proposedFreelancerAmount: string }): Promise<void> {
-	console.log('Handling resolution proposed event:', event);
-
-	try {
-		// Update escrow status (should already be InDispute, but ensure it's set)
-		updateEscrowStatus(event.escrowId, EscrowStatus.InDispute);
-
-		// Publish status update to Nostr
-		await publishContractStatus({
-			contractEventId: event.contractEventId,
-			escrowId: event.escrowId,
-			action: 'resolution-proposed',
-			message: _('dashboard.contracts.actions.resolution_proposed_message'),
-			transactionHash: event.transactionHash,
-			proposedClientAmount: event.proposedClientAmount,
-			proposedFreelancerAmount: event.proposedFreelancerAmount
-		});
-
-		// Show success toast
-		appStore.showSuccessToast(_('dashboard.contracts.actions.resolution_proposed_success'));
-
-	} catch (error) {
-		console.error('Failed to handle resolution proposed event:', error);
-		appStore.showErrorToast(_('dashboard.contracts.actions.resolution_proposed_error'));
-	}
-}
-
-/**
- * Handle proposal accepted event - called from transaction confirmation
- */
-export async function handleProposalAccepted(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
-	console.log('Handling proposal accepted event:', event);
-
-	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
-
-		// Publish status update to Nostr
-		await publishContractStatus({
-			contractEventId: event.contractEventId,
-			escrowId: event.escrowId,
-			action: 'proposal-accepted',
-			message: _('dashboard.contracts.actions.proposal_accepted_message'),
-			transactionHash: event.transactionHash
-		});
-
-		// Show success toast
-		appStore.showSuccessToast(_('dashboard.contracts.actions.proposal_accepted_success'));
-
-		// Trigger Merkle tree update in background
-		const { triggerTreeUpdate } = await import('$lib/utils/wallet/treeUpdateHelper');
-		triggerTreeUpdate('proposal-accepted').catch((error) => {
-			console.warn('[Escrow Events] Tree update failed for proposal-accepted:', error);
-		});
-	} catch (error) {
-		console.error('Failed to handle proposal accepted event:', error);
-		appStore.showErrorToast(_('dashboard.contracts.actions.proposal_accepted_error'));
-	}
-}
-
-/**
- * Handle escrow cancelled event - called from transaction confirmation
- */
-export async function handleEscrowCancelled(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
-	console.log('Handling escrow cancelled event:', event);
-
-	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.Cancelled);
-
-		// Publish status update to Nostr
-		await publishContractStatus({
-			contractEventId: event.contractEventId,
-			escrowId: event.escrowId,
-			action: 'escrow-cancelled',
-			message: _('dashboard.contracts.actions.escrow_cancelled_message'),
-			transactionHash: event.transactionHash
-		});
-
-		// Show success toast
-		appStore.showSuccessToast(_('dashboard.contracts.actions.escrow_cancelled_success'));
-
-	} catch (error) {
-		console.error('Failed to handle escrow cancelled event:', error);
-		appStore.showErrorToast(_('dashboard.contracts.actions.escrow_cancelled_error'));
-	}
-}
-
-/**
- * Handle timelock resolved event - called from transaction confirmation
- */
-export async function handleTimelockResolved(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
-	console.log('Handling timelock resolved event:', event);
-
-	try {
-		// Update escrow status
-		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
-
-		// Publish status update to Nostr
-		await publishContractStatus({
-			contractEventId: event.contractEventId,
-			escrowId: event.escrowId,
-			action: 'timelock-resolved',
-			message: _('dashboard.contracts.actions.timelock_resolved_message'),
-			transactionHash: event.transactionHash
-		});
-
-		// Show success toast
-		appStore.showSuccessToast(_('dashboard.contracts.actions.timelock_resolved_success'));
-
-		// Trigger Merkle tree update in background
-		const { triggerTreeUpdate } = await import('$lib/utils/wallet/treeUpdateHelper');
-		triggerTreeUpdate('timelock-resolved').catch((error) => {
-			console.warn('[Escrow Events] Tree update failed for timelock-resolved:', error);
-		});
-	} catch (error) {
-		console.error('Failed to handle timelock resolved event:', error);
-		appStore.showErrorToast(_('dashboard.contracts.actions.timelock_resolved_error'));
-	}
-}
-
-/**
  * Handle escrow status updates - called from contract event listeners
+ * @unused - this function is not used anywhere but contract event listeners which is also not used
  */
-export function handleEscrowStatusUpdate(escrowId: string, status: string, eventType: string): void {
+function handleEscrowStatusUpdate(escrowId: string, status: string, eventType: string): void {
 	console.log(`Escrow ${escrowId} status updated:`, { status, eventType });
 
 	// Show appropriate toast based on event type
@@ -410,61 +249,13 @@ export function handleEscrowStatusUpdate(escrowId: string, status: string, event
 }
 
 /**
- * Clear all pending contracts (useful for cleanup)
- */
-export function clearPendingContracts(): void {
-	pendingContracts.clear();
-	pendingContractsByTxHash.clear();
-}
-
-/**
- * Get pending contract count (useful for debugging)
- */
-export function getPendingContractCount(): number {
-	return pendingContracts.size + pendingContractsByTxHash.size;
-}
-
-/**
- * Reset stores (useful for cleanup)
- */
-export function resetStores(): void {
-	escrowCreatedStore.set(null);
-	contractCreationStore.set(null);
-}
-
-// Helper function to update escrow status
-function updateEscrowStatus(escrowId: string, status: EscrowStatus): void {
-	rskWalletStore.update(state => ({
-		...state,
-		escrows: state.escrows.map(escrow =>
-			escrow.id === escrowId
-				? { ...escrow, status, lastUpdated: Date.now() }
-				: escrow
-		)
-	}));
-}
-
-// Load escrow details from contract (we'll need to import this from escrow.ts)
-async function loadEscrowDetails(escrowId: string): Promise<any> {
-	// Import the function from escrow.ts to avoid circular dependency
-	const { escrow } = await import('$lib/utils/wallet/escrow');
-	return await escrow.getEscrow(escrowId);
-}
-
-// Load dispute proposal details (we'll need to import this from escrow.ts)
-async function loadDisputeProposal(escrowId: string): Promise<any> {
-	// Import the function from escrow.ts to avoid circular dependency
-	const { escrow } = await import('$lib/utils/wallet/escrow');
-	return await escrow.getDisputeProposal(escrowId);
-}
-
-/**
  * Set up contract event listeners
  * Note: This is currently disabled on RSK due to eth_getLogs compatibility issues.
  * Event handling is done directly from transaction receipts instead.
+ * @unused - this function is not used anywhere in the codebase
  */
 export function setupContractEventListeners(contract: ethers.Contract): void {
-	const wallet = getRSKWallet();
+	const wallet = getWallet('rsk');
 	if (!contract || !wallet) return;
 
 	// Enable EscrowCreated event listener for contract creation feedback
@@ -487,12 +278,8 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		});
 
 		// Load and update escrow data
-		loadEscrowDetails(escrowId.toString()).then(escrowData => {
+		escrow.getEscrow(escrowId.toString()).then(escrowData => {
 			if (escrowData) {
-				rskWalletStore.update(state => ({
-					...state,
-					escrows: [escrowData, ...state.escrows.filter(e => e.id !== escrowData.id)]
-				}));
 			}
 		}).catch(console.error);
 	};
@@ -525,7 +312,6 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		const taskCompletedListener = (escrowId: bigint) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('TaskCompleted event received:', escrowIdStr);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.Completed);
 
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'completed', 'TaskCompleted');
@@ -535,17 +321,15 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		const taskAcceptedListener = (escrowId: bigint) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('TaskAccepted event received:', escrowIdStr);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.DisputeResolved);
 
 			// Handle through event management system
-			handleEscrowStatusUpdate(escrowIdStr, 'resolved', 'TaskAccepted');
+			handleEscrowStatusUpdate(escrowIdStr, 'funds_released', 'TaskAccepted');
 		};
 
 		// Listen for TaskDisputed events
 		const taskDisputedListener = (escrowId: bigint, disputer: string) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('TaskDisputed event received:', escrowIdStr, disputer);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.InDispute);
 
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'disputed', 'TaskDisputed');
@@ -555,12 +339,8 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		const disputeProposedListener = (escrowId: bigint, proposer: string, clientAmount: bigint, freelancerAmount: bigint) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('DisputeProposed event received:', escrowIdStr);
-			loadDisputeProposal(escrowIdStr).then(proposal => {
+			escrow.getDisputeProposal(escrowIdStr).then(proposal => {
 				if (proposal) {
-					rskWalletStore.update(state => ({
-						...state,
-						disputeProposals: [proposal, ...state.disputeProposals.filter(p => p.escrowId !== proposal.escrowId)]
-					}));
 				}
 			}).catch(console.error);
 
@@ -572,12 +352,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		const disputeResolvedListener = (escrowId: bigint, clientAmount: bigint, freelancerAmount: bigint) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('DisputeResolved event received:', escrowIdStr);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.DisputeResolved);
-			// Remove dispute proposal
-			rskWalletStore.update(state => ({
-				...state,
-				disputeProposals: state.disputeProposals.filter(p => p.escrowId !== escrowIdStr)
-			}));
+
 
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'resolved', 'DisputeResolved');
@@ -587,7 +362,6 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 		const escrowCancelledListener = (escrowId: bigint, clientAmount: bigint, freelancerAmount: bigint) => {
 			const escrowIdStr = escrowId.toString();
 			console.log('EscrowCancelled event received:', escrowIdStr);
-			updateEscrowStatus(escrowIdStr, EscrowStatus.Cancelled);
 
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'cancelled', 'EscrowCancelled');

@@ -1,8 +1,7 @@
 <script lang="ts">
+	import type { BoltzSwapData, ChainSwapData } from '@bittasker/wallet-core';
 	import { t } from 'svelte-i18n';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
-	import type { BoltzSwapData } from '$lib/integrations/boltz/reverseSwapService';
-	import type { ChainSwapData } from '$lib/integrations/boltz/chainSwapService';
 
 	type SwapType = 'lightning' | 'lbtc';
 
@@ -11,7 +10,6 @@
 		swapType,
 		onCopyInvoice,
 		onCopyAddress,
-		onClaimRBTC,
 		onDeleteSwap,
 		expanded = false
 	}: {
@@ -19,10 +17,12 @@
 		swapType: SwapType;
 		onCopyInvoice?: (invoice: string) => Promise<void>;
 		onCopyAddress?: (address: string) => Promise<void>;
-		onClaimRBTC?: (swap: BoltzSwapData) => Promise<void>;
 		onDeleteSwap: (swapId: string) => Promise<void>;
 		expanded?: boolean;
 	} = $props();
+
+	let isDeleting = $state(false); // Local state for deleting button
+	let isExpanded = $state(expanded);
 
 	/**
 	 * Get status display info
@@ -149,21 +149,6 @@
 		}
 	}
 
-	let isClaiming = $state(false); // Local state for claiming button
-	let isDeleting = $state(false); // Local state for deleting button
-	let isExpanded = $state(expanded);
-
-	async function handleClaim() {
-		if (onClaimRBTC && swapType === 'lightning') {
-			isClaiming = true;
-			try {
-				await onClaimRBTC(swap as BoltzSwapData);
-			} finally {
-				isClaiming = false;
-			}
-		}
-	}
-
 	async function handleDelete() {
 		if (onDeleteSwap) {
 			isDeleting = true;
@@ -187,11 +172,6 @@
 		isExpanded = !isExpanded;
 	}
 
-	function closeExpanded(event: MouseEvent) {
-		event.stopPropagation();
-		isExpanded = false;
-	}
-
 	// Determine QR code data based on swap type
 	const qrCodeData = $derived(
 		swapType === 'lightning' ? (swap as BoltzSwapData).invoice : (swap as ChainSwapData).liquidUri
@@ -213,10 +193,6 @@
 		import.meta.env.VITE_RSK_NETWORK === 'testnet'
 			? 'https://explorer.testnet.rsk.co'
 			: 'https://explorer.rsk.co';
-	const liquidExplorerBaseUrl =
-		import.meta.env.VITE_RSK_NETWORK === 'testnet'
-			? 'https://blockstream.info/liquidtestnet'
-			: 'https://blockstream.info/liquid';
 
 	const statusInfo = $derived(getStatusInfo(swap.status));
 </script>
@@ -252,7 +228,7 @@
 					class="ml-2 p-4 transition-transform duration-200 hover:opacity-80 {isExpanded
 						? 'rotate-180'
 						: ''}"
-					onclick={closeExpanded}
+					onclick={toggleExpanded}
 					type="button"
 					aria-label={isExpanded
 						? $t('wallet.swap.collapse_details')
@@ -278,22 +254,22 @@
 			<!-- Collapsible Content -->
 			{#if isExpanded}
 				<div class="border-base-300 border-t p-4">
-					<div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+					<div class="flex flex-col items-center gap-4">
 						<!-- QR Code -->
-						<div class="shrink-0">
+						<div class="w-full flex justify-center sm:max-w-[50%]">
 							{#await generateQrCodeUrl(qrCodeData)}
 								<div class="flex h-44 w-44 items-center justify-center rounded-lg bg-white p-3">
 									<span class="loading loading-spinner loading-md"></span>
 								</div>
 							{:then qrUrl}
-								<div class="rounded-lg bg-white p-1">
-									<img src={qrUrl} alt="QR Code" class="h-full w-full sm:h-44 sm:w-44" />
+								<div class="rounded-lg bg-white p-1 w-full max-w-[176px] sm:max-w-full">
+									<img src={qrUrl} alt="QR Code" class="h-full w-full" />
 								</div>
 							{/await}
 						</div>
 
 						<!-- Payment String/Address -->
-						<div class="w-full sm:flex-1">
+						<div class="w-full">
 							<button
 								class="btn btn-outline btn-sm h-auto min-h-12 w-full justify-start p-3 text-left break-all"
 								onclick={handleCopyPaymentDetails}
@@ -315,10 +291,6 @@
 
 		<!-- Swap Details -->
 		<div class="space-y-1 text-xs">
-			<div class="flex justify-between">
-				<span class="opacity-70">{$t('wallet.swap.destination')}:</span>
-				<code class="truncate">{swap.rbtcAddress.slice(0, 8)}...{swap.rbtcAddress.slice(-6)}</code>
-			</div>
 			{#if lockupTxHash}
 				<div class="flex justify-between">
 					<span class="opacity-70">

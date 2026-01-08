@@ -23,7 +23,9 @@ export class ProfileCache {
 		if (this.cache.size >= this.MAX_CACHE_SIZE) {
 			// Remove the oldest entry
 			const oldestKey = this.cache.keys().next().value;
-			this.cache.delete(oldestKey);
+			if (oldestKey) {
+				this.cache.delete(oldestKey);
+			}
 		}
 
 		this.cache.set(pubkey, {
@@ -40,6 +42,13 @@ export class ProfileCache {
 
 	clear() {
 		this.cache.clear();
+	}
+
+	/**
+	 * Get the current size of the cache
+	 */
+	size(): number {
+		return this.cache.size;
 	}
 }
 

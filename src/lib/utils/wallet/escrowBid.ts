@@ -1,5 +1,5 @@
 import type { Task } from '$lib/types/task';
-import type { SimplifiedTaskBid } from '$lib/types/bid';
+import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 import type { ContractTransactionResult } from '$lib/types/wallet';
 import type { FeeTier } from '$lib/utils/wallet/networkConfig';
 import { FEE_TIERS } from '$lib/utils/wallet/networkConfig';
@@ -7,8 +7,9 @@ import { walletStore } from '$lib/stores/wallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
-import { escrow } from './escrow';
+import { escrow } from '$lib/utils/wallet/escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+import type { NostrEvent } from 'nostr-tools';
 
 export interface BidEscrowDetails {
 	freelancerAddress: string;
@@ -34,7 +35,7 @@ export interface BidAcceptanceResult {
  * @param task Task details
  * @param btcPrice Current BTC price in USD (needed to convert USD to rBTC)
  */
-export function calculateBidEscrowDetails(bid: SimplifiedTaskBid, task: Task, btcPrice: number): BidEscrowDetails {
+export function calculateBidEscrowDetails(bid: NostrBidContent, task: Task, btcPrice: number): BidEscrowDetails {
 	// Convert bid amount from USD to rBTC
 	// Ensure minimum amount to avoid parsing issues
 	if (bid.amount <= 0) {
@@ -140,8 +141,14 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 /**
  * Validate escrow details before creation
  */
-export function validateEscrowDetails(details: BidEscrowDetails): string[] {
+export interface ValidationResult {
+	errors: string[];
+	warnings: string[];
+}
+
+export function validateEscrowDetails(details: BidEscrowDetails): ValidationResult {
 	const errors: string[] = [];
+	const warnings: string[] = [];
 
 	// Validate freelancer address
 	if (!details.freelancerAddress) {
@@ -158,36 +165,51 @@ export function validateEscrowDetails(details: BidEscrowDetails): string[] {
 
 	// Validate timing
 	const now = Math.floor(Date.now() / 1000);
+	const timeDifferenceSeconds = now - details.estimatedStartTime;
+	const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
+
 	if (details.estimatedStartTime <= now) {
-		errors.push('Start time must be in the future');
+		// Check if it's more than 15 minutes past the estimated start time
+		if (timeDifferenceMinutes > 15) {
+			errors.push(`The estimated start time was ${timeDifferenceMinutes} minutes ago. The bid is no longer valid as the Taskee may no longer have this time slot available.`);
+		} else if (timeDifferenceMinutes >= 0) {
+			// Between 0 and 15 minutes past - show warning but allow funding
+			const timeText = timeDifferenceMinutes === 0 
+				? 'just now' 
+				: `${timeDifferenceMinutes} minute${timeDifferenceMinutes !== 1 ? 's' : ''} ago`;
+			warnings.push(`Warning: The estimated start time was ${timeText}. The Taskee may no longer have this time slot available.`);
+		}
 	}
 
 	if (details.estimatedCompletionTime <= details.estimatedStartTime) {
 		errors.push('Completion time must be after start time');
 	}
 
-	return errors;
+	return { errors, warnings };
 }
 
 /**
  * Accept bid and create escrow contract
  */
 export async function acceptBidAndCreateEscrow(
-	bid: SimplifiedTaskBid,
-	task: Task,
+	bid: NostrEventWithFollowup,
+	task: NostrEvent,
 	btcPrice: number,
 	network: 'RSK' | 'BSC' = 'RSK'
 ): Promise<BidAcceptanceResult> {
 	try {
+		const bidContent = bid.content as unknown as NostrBidContent;
+		const taskContent = JSON.parse(task.content) as Task;
+		
 		// Calculate escrow details
-		const escrowDetails = calculateBidEscrowDetails(bid, task, btcPrice);
+		const escrowDetails = calculateBidEscrowDetails(bidContent, taskContent, btcPrice);
 
 		// Validate details
-		const validationErrors = validateEscrowDetails(escrowDetails);
-		if (validationErrors.length > 0) {
+		const validationResult = validateEscrowDetails(escrowDetails);
+		if (validationResult.errors.length > 0) {
 			return {
 				success: false,
-				error: `Validation failed: ${validationErrors.join(', ')}`
+				error: `Validation failed: ${validationResult.errors.join(', ')}`
 			};
 		}
 
@@ -211,8 +233,7 @@ export async function acceptBidAndCreateEscrow(
 		// Connect to escrow contract if not already connected
 		if (!walletState.rsk.contractConnected) {
 			try {
-				const { ensureEscrowReady } = await import('$lib/utils/wallet/escrow');
-				await ensureEscrowReady();
+				await escrow.ensureEscrowReady();
 			} catch (error) {
 				return {
 					success: false,
@@ -221,30 +242,45 @@ export async function acceptBidAndCreateEscrow(
 			}
 		}
 
+		// Adjust estimated start time if it's in the past but within 15 minutes
+		let adjustedStartTime = escrowDetails.estimatedStartTime;
+		let adjustedCompletionTime = escrowDetails.estimatedCompletionTime;
+
+		const now = Math.floor(Date.now() / 1000);
+		const timeDifferenceSeconds = now - escrowDetails.estimatedStartTime;
+		const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
+
+		if (escrowDetails.estimatedStartTime <= now && timeDifferenceMinutes <= 15) {
+			// Start time is in the past but within 15 minutes - adjust to 1 minute after current time
+			adjustedStartTime = now + 60; // 1 minute buffer
+			
+			// Maintain the same duration by adjusting completion time
+			const originalDuration = escrowDetails.estimatedCompletionTime - escrowDetails.estimatedStartTime;
+			adjustedCompletionTime = now + 60 + originalDuration;
+		}
+
 		// Create the escrow using multi-network manager
 		const transactionResult = await escrow.createEscrow(
 			escrowDetails.freelancerAddress,
 			escrowDetails.baseAmount,
-			escrowDetails.estimatedStartTime,
-			escrowDetails.estimatedCompletionTime,
+			adjustedStartTime,
+			adjustedCompletionTime,
 			escrowDetails.clientFeeTier,
 			escrowDetails.freelancerFeeTier
 		);
-		console.log({transactionResult})
 
 		// Register pending contract creation with our event management system
 		registerPendingContractByTxHash({
+			bidEventId: bid.id,
 			taskId: task.id,
-			taskTitle: task.title,
-			bidId: bid.id,
-			taskDescription: task.description,
-			freelancerPubkey: bid.userProfile?.user?.id || '',
+			taskTitle: taskContent.title,
+			taskDescription: taskContent.description,
+			freelancerPubkey: bidContent.bidderId || '',
 			amount: escrowDetails.baseAmount,
-			estimatedStartTime: escrowDetails.estimatedStartTime,
-			estimatedCompletionTime: escrowDetails.estimatedCompletionTime,
+			estimatedStartTime: adjustedStartTime,
+			estimatedCompletionTime: adjustedCompletionTime,
 			transactionHash: transactionResult.hash
 		});
-		console.log('✅ [EscrowBid] Pending contract registered');
 
 		return {
 			success: true,

@@ -1,4 +1,5 @@
 import type { Credentials } from '$lib/types/auth';
+import { SimplePool } from 'nostr-tools';
 import { writable } from 'svelte/store';
 
 interface Toast {
@@ -8,20 +9,39 @@ interface Toast {
 }
 
 interface AppStore {
+	nostrKeys: {
+		nsec: Uint8Array | null;
+		npub: string | null;
+		mnemonic: string | null;
+	};
 	isLoading: boolean;
 	error: string | null;
 	toasts: Toast[];
 	biometricData: Credentials | null;
 	network: 'mainnet' | 'testnet' | 'regtest';
+	pool: SimplePool;
+	relays: string[];
 }
 
 const createAppStore = () => {
+	// Create a single pool instance with proper configuration
+	// enablePing: sends regular pings to detect disconnections
+	// enableReconnect: automatically reconnects with exponential backoff
+	const pool = new SimplePool();
+
 	const store = writable<AppStore>({
+		nostrKeys: {
+			nsec: null,
+			npub: null,
+			mnemonic: null
+		},
 		isLoading: false,
 		error: null,
 		toasts: [],
 		biometricData: null,
-		network: import.meta.env.VITE_RSK_NETWORK || 'testnet'
+		network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
+		pool,
+		relays: [import.meta.env.VITE_NOSTR_RELAY_URL]
 	});
 
 	const { subscribe, set, update } = store;

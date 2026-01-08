@@ -1,6 +1,6 @@
 ---
 description: Centralized error handling patterns, error boundaries, and user feedback systems
-globs: ["**/*.svelte", "**/*.ts", "**/*.js", "**/error/**/*", "**/utils/**/*"]
+globs: ["src/**/*.svelte", "src/**/*.ts", "src/**/*.js", "src/**/error/**/*", "src/**/utils/**/*"]
 alwaysApply: false
 ---
 

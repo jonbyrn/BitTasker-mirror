@@ -281,13 +281,13 @@
 <!-- Sliding Menu Overlay - Behind the navigation -->
 {#if isMenuOpen || isMenuClosing}
 	<div
-		class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-40 rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
+		class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-[45] rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
 		style="bottom: 64px; max-height: 52rem; overflow: hidden;"
 		class:menu-expand={isMenuExpanding && !isMenuClosing}
 		class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
 	>
-		<div class="pb-safe max-h-[52rem] overflow-y-auto pt-4">
-			<div class="p-4">
+		<div class="pb-safe max-h-[52rem] overflow-y-auto pt-2">
+			<div class="p-2">
 				{#if isLoggedIn}
 					<!-- Logged-in user menu -->
 					<ul class="menu w-full">
@@ -478,6 +478,22 @@
 								</a>
 							</li>
 						{/if}
+
+						<!-- Direct icon menu entries in a row -->
+						<li class="!flex !flex-row gap-2 p-0">
+							<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeMenu} class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px] p-0 rounded-lg hover:bg-base-200 transition-colors">
+								<IconMagnify class="text-primary h-6 w-6" />
+								<span class="font-medium text-xs text-center">{$t('navbar.find_tasks')}</span>
+							</a>
+							<a href="/dashboard?tab=contracts" onclick={closeMenu} class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px] p-0 rounded-lg hover:bg-base-200 transition-colors">
+								<IconFileSign class="text-primary h-6 w-6" />
+								<span class="font-medium text-xs text-center">{$t('navbar.contracts')}</span>
+							</a>
+							<a href="/dashboard?tab=bids" onclick={closeMenu} class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px] p-0 rounded-lg hover:bg-base-200 transition-colors">
+								<IconInvoiceTextSendOutline class="text-primary h-6 w-6" />
+								<span class="font-medium text-xs text-center">{$t('navbar.bids_sent')}</span>
+							</a>
+						</li>
 					</ul>
 				{:else}
 					<!-- Logged-out user menu (existing structure) -->
@@ -503,7 +519,7 @@
 					<ul class="menu w-full">
 						<!-- Main menu items - matching desktop nav structure -->
 						<li>
-							<a href="/" onclick={closeMenu} class="min-h-[48px] py-3">
+							<a href="/tasks" onclick={closeMenu} class="min-h-[48px] py-3">
 								<IconHome class="text-primary" />
 								<span class="font-medium">{$t('navbar.home')}</span>
 							</a>
@@ -551,7 +567,7 @@
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/escrow" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/secure-payments" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconShieldCheckOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.escrow')}</span>
 								</a>
@@ -779,7 +795,7 @@
 	<div class="dock bg-primary/95 border-base-300/70 z-50 border-t text-black backdrop-blur-sm">
 		<!-- Home -->
 		<a
-			href="/"
+			href="/tasks"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'home'
 				? 'dock-active'

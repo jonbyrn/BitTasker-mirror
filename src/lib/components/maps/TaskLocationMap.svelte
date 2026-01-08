@@ -44,6 +44,7 @@
 	let mapContainerDiv: HTMLElement | null = $state(null);
 	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
 	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
+	
 	// Function to get user's location
 	async function getUserLocation(): Promise<Location | null> {
 		return new Promise((resolve) => {
@@ -427,7 +428,7 @@
 				center: { lat: centerLocation.latitude!, lng: centerLocation.longitude! },
 				zoom: zoomLevel,
 				maxZoom: 14, // Máximo zoom de ciudad - no mostrar direcciones exactas
-				minZoom: 8,
+				minZoom: 2, // Permitir zoom out para ver áreas más amplias
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
 				mapTypeControl: true,
 				streetViewControl: false, // Deshabilitar Street View para privacidad
@@ -760,15 +761,6 @@
 		}
 	});
 
-	// Effect to initialize map when component is ready
-	$effect(() => {
-		if (isComponentMounted && googleMapsReady && mapElement && !isMapLoaded && !hasError) {
-			// Use a small delay to ensure DOM is fully ready
-			setTimeout(() => {
-				tryInitMap();
-			}, 300);
-		}
-	});
 
 	onMount(async () => {
 		try {
@@ -780,6 +772,14 @@
 
 			// Load Google Maps script
 			await loadGoogleMapsScript();
+			
+			// Wait for DOM to be ready
+			await tick();
+			
+			// Initialize map if all conditions are met
+			if (mapElement && googleMapsReady && !isMapLoaded && !hasError) {
+				await tryInitMap();
+			}
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error = err instanceof Error ? err.message : 'Error loading Google Maps';
@@ -800,7 +800,10 @@
 <div class="task-location-map w-full">
 	<!-- Map Container -->
 	<div bind:this={mapContainerDiv} class="map-container relative max-h-[800px] w-full" style="height: {height};">
-		<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
+		<div 
+			bind:this={mapElement} 
+			class="h-full w-full overflow-hidden rounded-lg"
+		>
 			{#if isLoading}
 				<div class="bg-base-200 flex h-full w-full items-center justify-center">
 					<div class="text-center">
@@ -836,7 +839,7 @@
 			<button
 				onclick={toggleFullscreen}
 				class="{isFullscreen
-					? 'fixed top-4 right-4 z-[1000]'
+					? 'fixed top-4 right-4 z-1000'
 					: 'absolute top-4 right-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
 				aria-label={isFullscreen
 					? $t('task.location_picker.exit_fullscreen')

@@ -4,6 +4,7 @@
 	import { timeAgo } from '$lib/utils/helpers/dateFormatter';
 	import { t } from 'svelte-i18n';
 	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
+	import { getBidderDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -44,7 +45,7 @@
 		<div class="flex items-start justify-between">
 			<!-- Bidder Info -->
 			<div class="flex-1">
-				<p class="text-lg font-semibold">{props.bid.bidderName || $t('dashboard.bids.bid_card.anonymous')}</p>
+				<p class="text-lg font-semibold">{getBidderDisplayName(props.bid.bidderName, props.bid.userProfile)}</p>
 				<div class="text-sm opacity-70">{getFormattedTime()}</div>
 			</div>
 

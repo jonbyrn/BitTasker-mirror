@@ -44,8 +44,8 @@
 		return enableBodyScroll;
 	});
 
-	// Fixed width CSS class
-	const drawerWidthClass = 'w-full sm:w-[80%]';
+	// Fixed width CSS class - 1/3 width on desktop, full width on mobile
+	const drawerWidthClass = 'w-full md:w-1/3';
 
 	// Get CSS classes for position transform
 	function getPositionTransform(position: string) {

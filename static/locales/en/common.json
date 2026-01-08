@@ -1,25 +1,62 @@
 {
     "common": {
-        "back": "Back to Task",
-        "back_to_tasks": "Regresar",
+        "status": {
+            "open": "Open",
+            "bid_accepted": "Bid Accepted",
+            "escrow_funded": "Escrow Funded",
+            "in_progress": "In Progress",
+            "rescoped": "Rescoped",
+            "rescope_accepted": "Rescope Accepted",
+            "completed": "Completed",
+            "cancelled": "Cancelled",
+            "refunded": "Refunded",
+            "disputed": "Disputed",
+            "dispute_proposal": "Dispute Proposal"
+        },
+        "location": {
+            "address": "Address",
+            "get_directions": "Get Directions",
+            "open_map": "Open Map",
+            "pickup_location": "Pickup Location",
+            "dropoff_location": "Drop-off Location",
+            "start_location": "Start Location",
+            "destination_location": "Destination Location",
+            "task_accepted_congratulations": "Congratulations! Your task has been accepted.",
+            "location_details_below": "Here are the location details:"
+        },
+        "back": "Back",
+        "back_2": "Back",
+        "back_to_tasks": "Cancel",
         "redirecting_to_login": "Redirecting to login...",
         "or": "or",
         "processing": "Processing",
         "loading": "Loading...",
         "close": "Close",
+        "done": "Done",
         "edit": "Edit",
         "remove": "Remove",
         "cancel": "Cancel",
         "update": "Update",
         "add": "Add",
         "required": "Required",
+        "optional": "Optional",
+        "buttons": {
+            "cancel": "Cancel",
+            "retry": "Retry"
+        },
         "previous": "Previous",
         "next": "Next",
+        "pagination": {
+            "previous": "Previous",
+            "next": "Next"
+        },
         "today": "Today",
         "clear": "Clear",
         "slide": "Slide",
         "view_all": "View All",
         "view_profile": "View Profile",
+        "show_more": "Show more",
+        "show_less": "Show less",
         "reviews": "reviews",
         "uploading": "Uploading...",
         "uploading_file": "Uploading file",
@@ -35,6 +72,7 @@
             "availability": "Availability",
             "quick_actions": "Quick Actions",
             "send_message": "Send Message",
+            "message_placeholder": "Type your message here...",
             "go_to_chat": "Go to Chat",
             "member_since": "Member since",
             "no_skills": "No skills listed yet.",
@@ -49,7 +87,15 @@
             "no_ratings": "No ratings yet",
             "website": "Website",
             "no_image_available": "No image available",
-            "message_sent_successfully": "Message sent successfully!"
+            "visit_project": "Visit Project",
+            "message_sent_successfully": "Message sent successfully!",
+            "message_required": "Please enter a message",
+            "message_send_error": "Failed to send message. Please try again.",
+            "signup_to_hire": "Signup to Hire",
+            "invalid_npub": "Invalid profile identifier",
+            "invalid_npub_format": "Invalid profile identifier format",
+            "failed_to_load": "Failed to load profile",
+            "no_profile_data": "No profile data found for this user"
         },
         "cta_title": "Ready to Get Started?",
         "cta_description": "Join BitTasker today and experience a better way to find work or hire skilled taskees. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.",
@@ -60,7 +106,7 @@
         "link": {
             "security": "Security",
             "privacy": "Privacy",
-            "escrow": "Escrow System",
+            "escrow": "Secure Payment Contracts",
             "taskee_principles": "Taskee Principles",
             "community_guidelines": "Community Guidelines"
         },
@@ -110,7 +156,12 @@
                 "invalid_image": "Invalid image file",
                 "failed_validate_video": "Failed to validate video duration",
                 "failed_load_image": "Failed to load image",
-                "max_size": "Max. {maxSize}MB"
+                "max_size": "Max. {maxSize}MB",
+                "video_file_too_large": "Video file {fileName} is too large. Current size: {actualSize}MB. Maximum allowed size: {maxSize}MB"
+            },
+            "date_input": {
+                "time_rounded_intervals": "Times will be rounded to {timeStep}-minute intervals",
+                "and": "and"
             },
             "modal": {
                 "close": "Close dialog"
@@ -126,7 +177,7 @@
             },
             "warning_popup": {
                 "title": "Beta Warning",
-                "message": "This app is currently in beta, please don't rely on it for serious business but we will be live soon and will activate your live Wallets. Feel free to use the platform with your testnet Wallet",
+                "message": "This app is currently in beta, so you may encounter bugs or issues when using it. If you have any trouble, please let us know!",
                 "feedback_text": "If you find any bugs or have suggestions, please",
                 "feedback_link": "let us know!",
                 "feedback_suffix": "Thanks for trying BitTasker!",
@@ -135,6 +186,8 @@
             },
             "wallet_help_modal": {
                 "title": "Your Bitcoin Wallet",
+                "learn_more": "Learn More",
+                "button_title": "Learn about your Bitcoin wallet",
                 "start_using_button": "Start Using Wallet",
                 "hero_title": "Your Bitcoin-Powered Wallet",
                 "hero_description": "Send, receive, and manage Bitcoin across multiple networks with complete control of your funds.",
@@ -144,7 +197,7 @@
                 "security_description": "You control your keys. Your funds are never held by BitTasker - only you can move your Bitcoin.",
                 "lightning_title": "Lightning-Fast Payments",
                 "lightning_description": "Instant Bitcoin payments with Lightning Network. No waiting, no delays, just peer-to-peer speed.",
-                "escrow_title": "Smart Escrow",
+                "escrow_title": "Secure Payment Contracts",
                 "escrow_description": "Automatic fund protection with time-locks. Get paid when work is done, refund if it's not.",
                 "how_it_works_title": "How Your Wallet Works",
                 "step1_title": "Automatic Network Conversion",
@@ -161,7 +214,7 @@
                 "faq_rsk_security": "Bitcoin Security:",
                 "faq_rsk_security_desc": "Secured by Bitcoin miners through merge-mining",
                 "faq_rsk_contracts": "Smart Contracts:",
-                "faq_rsk_contracts_desc": "Full EVM compatibility for programmable escrow",
+                "faq_rsk_contracts_desc": "Full EVM compatibility for programmable secure payment contracts",
                 "faq_rsk_settlement": "Fast Settlement:",
                 "faq_rsk_settlement_desc": "~30-second block times for quick confirmations",
                 "faq_rsk_fees": "Low Fees:",
@@ -173,7 +226,7 @@
                 "faq_liquid_settlement": "Fast Settlement:",
                 "faq_liquid_settlement_desc": "1-minute block times for quick transaction confirmations",
                 "faq_liquid_scripting": "Enhanced Scripting:",
-                "faq_liquid_scripting_desc": "Advanced Bitcoin script capabilities for complex escrow",
+                "faq_liquid_scripting_desc": "Advanced Bitcoin script capabilities for complex secure payment contracts",
                 "faq_liquid_assets": "Multi-Asset Support:",
                 "faq_liquid_assets_desc": "Native support for multiple digital assets",
                 "faq_liquid_peg": "Bitcoin Peg:",
@@ -181,33 +234,185 @@
                 "faq_liquid_fees": "Low Fees:",
                 "faq_liquid_fees_desc": "Predictable transaction costs for all job sizes",
                 "faq_lightning_title": "Can I use Lightning Bitcoin?",
-                "faq_lightning_description": "Yes! You can deposit and withdraw using Lightning Bitcoin for instant, low-cost payments. However, for escrow purposes, we automatically convert Lightning payments to Liquid or Rootstock to ensure secure, non-custodial fund protection.",
+                "faq_lightning_description": "Yes! You can deposit and withdraw using Lightning Bitcoin for instant, low-cost payments. However, for secure payment contracts, we automatically convert Lightning payments to Rootstock to ensure secure, non-custodial fund protection.",
                 "faq_lightning_deposits": "Instant Deposits:",
                 "faq_lightning_deposits_desc": "Send Lightning payments that are instantly available",
                 "faq_lightning_fees": "Low Fees:",
                 "faq_lightning_fees_desc": "Pay minimal fees for Lightning transactions",
                 "faq_lightning_conversion": "Automatic Conversion:",
-                "faq_lightning_conversion_desc": "Lightning funds are swapped to L-BTC or rBTC for escrow",
+                "faq_lightning_conversion_desc": "Lightning funds are swapped to rBTC for secure payment contracts",
                 "faq_lightning_withdrawals": "Instant Withdrawals:",
-                "faq_lightning_withdrawals_desc": "Convert escrow funds back to Lightning any time",
+                "faq_lightning_withdrawals_desc": "Convert secure payment contract funds back to Lightning any time",
                 "faq_lightning_adoption": "Wide Adoption:",
                 "faq_lightning_adoption_desc": "Lightning is one of the most widely adopted Bitcoin sidechains",
-                "faq_escrow_title": "Why doesn't BitTasker just use Lightning for escrow?",
-                "faq_escrow_description": "While Lightning excels at instant payments, creating user-friendly, non-custodial escrow on Lightning is still technically complex. We use Liquid and Rootstock for escrow because they provide the security, privacy, and reliability needed for protecting your funds.",
+                "faq_escrow_title": "Why doesn't BitTasker just use Lightning for secure payment contracts?",
+                "faq_escrow_description": "While Lightning excels at instant payments, creating user-friendly, non-custodial secure payment contracts on Lightning is still technically complex. We use Rootstock for secure payment contracts because it provides the security, privacy, and reliability needed for protecting your funds.",
                 "faq_escrow_channels": "Channel Limitations:",
-                "faq_escrow_channels_desc": "Limited number of open channels per node for escrow contracts",
+                "faq_escrow_channels_desc": "Limited number of open channels per node for secure payment contracts",
                 "faq_escrow_time": "Time Constraints:",
-                "faq_escrow_time_desc": "Escrow contracts limited to hours, not days or weeks",
+                "faq_escrow_time_desc": "Secure payment contracts limited to hours, not days or weeks",
                 "faq_escrow_contracts": "No Smart Contracts:",
-                "faq_escrow_contracts_desc": "Lightning lacks programmable escrow functionality",
-                "faq_escrow_multisig": "No Multisig Support:",
-                "faq_escrow_multisig_desc": "Cannot implement secure multi-signature escrow",
+                "faq_escrow_contracts_desc": "Lightning lacks programmable secure payment contract functionality",
+                "faq_escrow_multisig": "Limited Contract Functionality:",
+                "faq_escrow_multisig_desc": "Lightning Network lacks the programmable contract features needed for secure payment contracts",
                 "faq_escrow_risks": "Node Risks:",
                 "faq_escrow_risks_desc": "Risk of fund loss if Lightning nodes close or go offline"
             },
+            "error_troubleshooting_modal": {
+                "title": "Error Troubleshooting",
+                "troubleshoot": "Troubleshoot",
+                "help": "Help",
+                "button_title": "Get help troubleshooting this error",
+                "error_occurred": "An error occurred",
+                "troubleshooting_steps_title": "Troubleshooting Steps",
+                "biometric_help_title": "Biometric Authentication Help",
+                "biometric_help_description": "If you're having trouble with biometric authentication, try these additional steps:",
+                "biometric_help_point1": "Make sure your device's biometric settings are enabled",
+                "biometric_help_point2": "Clean your fingerprint sensor or face recognition camera",
+                "biometric_help_point3": "Try using your device passcode as an alternative",
+                "device_specific_title": "Device-Specific Troubleshooting",
+                "device_info_platform": "Platform",
+                "device_info_os": "Operating System",
+                "device_info_browser": "Browser",
+                "settings_instructions_title": "How to Open Settings",
+                "settings_instructions": {
+                    "ios_native_biometric_1": "Open Settings app",
+                    "ios_native_biometric_2": "Tap \"Touch ID & Passcode\" or \"Face ID & Passcode\"",
+                    "ios_native_biometric_3": "Set up Touch ID or Face ID if not already configured",
+                    "ios_native_passcode_1": "Open Settings app",
+                    "ios_native_passcode_2": "Tap \"Touch ID & Passcode\" or \"Face ID & Passcode\"",
+                    "ios_native_passcode_3": "Set up a passcode if not already configured",
+                    "ios_native_other_1": "Open Settings app",
+                    "ios_native_other_2": "Navigate to the relevant section",
+                    "android_native_biometric_1": "Open Settings app",
+                    "android_native_biometric_2": "Tap \"Security\" or \"Biometrics and security\"",
+                    "android_native_biometric_3": "Tap \"Screen lock\" or \"Fingerprint\"",
+                    "android_native_biometric_4": "Set up screen lock and biometric authentication",
+                    "android_native_permission_1": "Open Settings app",
+                    "android_native_permission_2": "Tap \"Apps\" or \"Application manager\"",
+                    "android_native_permission_3": "Find BitTasker and tap it",
+                    "android_native_permission_4": "Tap \"Permissions\" and enable required permissions",
+                    "android_native_other_1": "Open Settings app",
+                    "android_native_other_2": "Navigate to the relevant section",
+                    "web_ios_1": "Open Settings app on your iPhone/iPad",
+                    "web_ios_2": "Tap your name at the top",
+                    "web_ios_3": "Tap \"iCloud\" → \"Keychain\"",
+                    "web_ios_4": "Enable iCloud Keychain",
+                    "web_android_1": "Open Settings app on your Android device",
+                    "web_android_2": "Tap \"Security\" or \"Biometrics and security\"",
+                    "web_android_3": "Set up screen lock and enable Google Password Manager",
+                    "web_windows_1": "Open Windows Settings",
+                    "web_windows_2": "Go to \"Accounts\" → \"Sign-in options\"",
+                    "web_windows_3": "Set up Windows Hello (PIN, fingerprint, or face recognition)",
+                    "web_macos_1": "Open System Settings",
+                    "web_macos_2": "Go to \"Touch ID & Password\"",
+                    "web_macos_3": "Set up Touch ID if not already configured"
+                },
+                "device_specific_steps": {
+                    "ios_native_biometric_1": "Ensure Touch ID or Face ID is enabled in Settings > Face ID & Passcode (or Touch ID & Passcode)",
+                    "ios_native_biometric_2": "Make sure you have at least one fingerprint or face enrolled",
+                    "ios_native_biometric_3": "Check that BitTasker has permission to use biometrics in Settings > Privacy & Security > Biometrics",
+                    "ios_native_biometric_4": "If you see a lockout message, unlock your device with your passcode first",
+                    "ios_native_biometric_5": "If your passcode is not set, set up a passcode in Settings > Touch ID & Passcode",
+                    "ios_web_safari_1": "Ensure iCloud Keychain is enabled in Settings > [Your Name] > iCloud > Keychain",
+                    "ios_web_safari_2": "Make sure you're signed in to iCloud on this device",
+                    "ios_web_safari_3": "Check that two-factor authentication is enabled for your Apple ID",
+                    "ios_web_other_1": "Try using Safari instead - it has the best passkey support on iOS",
+                    "ios_web_other_2": "Ensure iCloud Keychain is enabled in Settings",
+                    "android_native_biometric_1": "Ensure fingerprint or face unlock is enabled in Settings > Security",
+                    "android_native_biometric_2": "Make sure you have at least one fingerprint or face enrolled",
+                    "android_native_biometric_3": "Check that the app has permission to use biometrics in Settings > Apps > BitTasker > Permissions",
+                    "android_native_biometric_4": "If you see a lockout message, unlock your device with your screen lock first",
+                    "android_native_biometric_5": "If screen lock is not set, set up a screen lock in Settings > Security",
+                    "android_web_chrome_1": "Ensure Google Password Manager is enabled in Chrome settings",
+                    "android_web_chrome_2": "Make sure you're signed in to your Google account in Chrome",
+                    "android_web_chrome_3": "Check that screen lock is enabled on your device (Settings > Security)",
+                    "android_web_other_1": "Try using Chrome instead - it has the best passkey support on Android",
+                    "android_web_other_2": "Ensure screen lock is enabled on your device",
+                    "windows_edge_1": "Ensure Windows Hello is set up in Settings > Accounts > Sign-in options",
+                    "windows_edge_2": "Make sure you have a PIN, fingerprint, or face recognition configured",
+                    "windows_chrome_1": "Ensure Windows Hello is set up in Settings > Accounts > Sign-in options",
+                    "windows_chrome_2": "Try using Microsoft Edge for better Windows Hello integration",
+                    "macos_safari_1": "Ensure Touch ID is enabled in System Settings > Touch ID & Password",
+                    "macos_safari_2": "If you have an Apple Watch, ensure it's unlocked and nearby",
+                    "macos_chrome_1": "Ensure Touch ID is enabled in System Settings > Touch ID & Password",
+                    "macos_chrome_2": "Try using Safari for better Touch ID integration",
+                    "https_required_1": "WebAuthn requires HTTPS - ensure you're using a secure connection",
+                    "https_required_2": "If testing locally, use localhost or 127.0.0.1",
+                    "webauthn_not_supported_1": "Your browser doesn't support WebAuthn - try updating to the latest version",
+                    "webauthn_not_supported_2": "Consider using Chrome, Edge, Safari, or Firefox (latest versions)"
+                },
+                "passkey_overview": {
+                    "title": "What Are Passkeys?",
+                    "description": "Passkeys are a modern, secure way to sign in to BitTasker without using passwords. Instead of remembering a password, you use your device's built-in security (like Face ID, fingerprint, or your device PIN) to unlock your account.",
+                    "benefit1": "More secure than passwords — uses public-key cryptography that's resistant to phishing and data breaches",
+                    "benefit2": "Easier to use — just unlock your device the same way you normally do",
+                    "benefit3": "Private — BitTasker never receives your device password, PIN, or biometric data"
+                },
+                "passkey_faq": {
+                    "question1": "Did you receive a request to unlock your phone, and cancelled the request?",
+                    "answer1": "Rather than using a new password on BitTasker, you unlock your account with your device security, which unlocks the passkey that's used to access BitTasker. BitTasker never receives your device password, or biometric data. When you see the unlock prompt, please complete it to set up your passkey.",
+                    "question2": "Do you have a lock screen on your device?",
+                    "answer2": "You need to use a lock screen on your device to access BitTasker, and keep your account and wallet secure. Passkeys rely on your device's security, so a lock screen (PIN, password, pattern, or biometric) is required. Please set up a lock screen in your device settings if you haven't already.",
+                    "question3": "Is biometric authentication (Face ID, fingerprint, etc.) set up on your device?",
+                    "answer3": "While biometrics make passkeys more convenient, they're not required. If biometrics aren't set up, you can use your device PIN or password instead. However, setting up biometrics will make signing in faster and easier. You can set this up in your device's Settings app.",
+                    "question4": "Have you granted necessary permissions to BitTasker?",
+                    "answer4": "BitTasker needs permission to use your device's security features to create and use passkeys. On mobile devices, check Settings > Apps > BitTasker > Permissions. On web browsers, ensure you allow the browser to access your device's security features when prompted.",
+                    "question5": "Is your browser or app up to date?",
+                    "answer5": "Passkeys require modern browser and app support. Make sure you're using the latest version of your browser (Chrome, Safari, Edge, or Firefox) or the latest version of the BitTasker app. Older versions may not support passkeys properly.",
+                    "question6": "Did the setup process time out?",
+                    "answer6": "If the passkey setup timed out, try again. Make sure you complete the unlock prompt quickly when it appears. Also check your internet connection, as a stable connection is needed for the setup process. If it continues to timeout, try closing other apps or restarting your device."
+                },
+                "still_need_help_title": "Still Need Help?",
+                "still_need_help_description": "If these steps don't resolve the issue, please contact support or try again later.",
+                "got_it_button": "Got It",
+                "retry_button": "Retry",
+                "steps": {
+                    "biometric": {
+                        "step1": "Check that biometrics are enabled and configured on your device",
+                        "step2": "If you see lockout, unlock with your passcode and try again",
+                        "step3": "Clean the biometric sensor or restart your device and try again"
+                    },
+                    "network": {
+                        "step1": "Check your internet connection and switch between Wi-Fi and mobile data",
+                        "step2": "Disable VPN if using one and check other apps",
+                        "step3": "Restart your router or mobile connection and try again"
+                    },
+                    "authentication": {
+                        "step1": "Set up biometric authentication/passkey if not configured",
+                        "step2": "If credential is invalid, set up a new passkey",
+                        "step3": "Clear browser cache or restart the app"
+                    },
+                    "permission": {
+                        "step1": "Check and grant necessary permissions in Settings",
+                        "step2": "Restart the app after granting permissions",
+                        "step3": "Update the app to the latest version"
+                    },
+                    "hardware": {
+                        "step1": "If no biometric hardware, use your device passcode instead",
+                        "step2": "Restart your device if hardware is temporarily unavailable",
+                        "step3": "Update operating system and check for available updates"
+                    },
+                    "timeout": {
+                        "step1": "Complete biometric authentication quickly within the time limit",
+                        "step2": "Check your internet connection and close other apps",
+                        "step3": "Try again immediately or when you have better connection"
+                    },
+                    "unknown": {
+                        "step1": "Refresh the page or restart the app",
+                        "step2": "Clear browser cache and check on other devices",
+                        "step3": "Update the app or contact support if it persists"
+                    },
+                    "generic": {
+                        "step1": "Refresh the page or restart the app",
+                        "step2": "Check your internet connection and device settings",
+                        "step3": "Contact support if the issue persists"
+                    }
+                }
+            },
             "network_selector": {
-                "title": "Choose Escrow Network",
-                "subtitle": "Select the blockchain network for your escrow contract. Each network has different characteristics:",
+                "title": "Choose Secure Payment Network",
+                "subtitle": "Select the blockchain network for your secure payment contract. Each network has different characteristics:",
                 "rsk_description": "Lower fees, Bitcoin security, testnet environment",
                 "bsc_description": "Higher liquidity, Ethereum compatibility, testnet environment",
                 "comparison_title": "Network Comparison",
@@ -231,8 +436,11 @@
             },
             "qr_scanner": {
                 "scan_qr_code": "Scan QR Code",
+                "get_qr_from_settings": "You can get your QR code from your other device by going to <strong>Settings</strong> and tapping the <strong>Show QR Code</strong> button.",
                 "close": "Close",
-                "toggle_torch": "Toggle Torch"
+                "toggle_torch": "Toggle Torch",
+                "no_camera_found": "No camera found. Please ensure your device has a camera.",
+                "camera_permission_denied": "Camera permission denied. Please enable camera access in your browser settings."
             },
             "tags": {
                 "select_tags": "Select tags...",
@@ -242,7 +450,14 @@
             "topbar": {
                 "logo_alt": "BitTasker Logo",
                 "close_menu": "Close menu",
-                "open_menu": "Open menu"
+                "open_menu": "Open menu",
+                "npub_qr": {
+                    "title": "Nostr Public Key",
+                    "share_profile_title": "Share Profile",
+                    "npub_label": "Public Key (npub)",
+                    "generating": "Generating QR code...",
+                    "error": "Unable to load public key. Please ensure you are logged in."
+                }
             },
             "uploader": {
                 "images": "Images",
@@ -277,7 +492,7 @@
                 "escrow_success": {
                     "title": "Transaction Overview",
                     "close_dialog": "Close dialog",
-                    "success_title": "Escrow Funded Successfully",
+                    "success_title": "Secure Payment Contract Funded Successfully",
                     "success_message": "Your contract has been created and funded on the blockchain.",
                     "payment_summary": "Payment Summary",
                     "bid_price": "Bid Price",
@@ -468,7 +683,7 @@
                     "select_asset": "Select Asset",
                     "network": "Network",
                     "available_balance": "Available Balance",
-                    "available_rbtc_balance": "Available rBTC Balance",
+                    "available_rbtc_balance": "Available L2 Bitcoin Balance",
                     "sats": "Sats"
                 },
                 "balance_card": {

@@ -1,549 +1,717 @@
-import type { Transaction } from '$lib/types/wallet';
-import { get } from 'svelte/store';
-import { walletStore } from '$lib/stores/wallet.store';
-import { getUSDTToken, getBoltzConfig, getRSKConfig, getBSCConfig } from '$lib/utils/wallet/networkConfig';
-import { ethers } from 'ethers';
+/**
+ * Transaction History Processing Utility
+ * 
+ * Single-pass processing of blockchain transactions with ALL properties computed:
+ * - Contract detection (Escrow, EtherSwap)
+ * - Transaction type classification
+ * - Display properties (border, icon, title)
+ * - Network information (icon, display name, explorer URL)
+ * - Running balance calculation
+ * - Icon components (ready to render)
+ * - Everything needed for UI rendering
+ * - Internal transaction handling (for escrow payouts)
+ */
+
+import type { Transaction } from '@bittasker/wallet-core';
+import type { 
+    InternalTransaction, 
+    ExtendedTransaction, 
+    ProcessedTransaction 
+} from '$lib/types/wallet';
+import { ESCROW_CONTRACT_ADDRESSES, statusUI } from '$lib/utils/constants/transactions.constants';
+import { getSwapAddress, weiToSatoshi } from '@bittasker/wallet-core';
+import { parseFunction } from './functionParsing';
+import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
+import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
+import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+
+type Component = typeof IconArrowUpBold;
+
+// Re-export ProcessedTransaction for backward compatibility
+export type { ProcessedTransaction } from '$lib/types/wallet';
+
+// Contract addresses cache
+interface ContractAddresses {
+    etherSwap: string | null;
+    escrowAddresses: string[];
+}
+
+let contractAddressesCache: ContractAddresses | null = null;
 
 /**
- * Load RSK transaction history using RSK Explorer API
- * Identify and include swap transactions (EtherSwap contract interactions)
+ * Get contract addresses (cached for session)
  */
-export async function loadRSKTransactions(): Promise<Transaction[]> {
-    try {
-        const state = get(walletStore);
-        if (!state.rsk.connected || !state.rsk.provider || !state.rsk.wallet) {
-            return [];
-        }
-
-        const transactions: Transaction[] = [];
-        const address = state.rsk.wallet.address.toLowerCase();
-        const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-
-        // Get network configurations
-        const boltzConfig = getBoltzConfig(network);
-        const rskConfig = getRSKConfig(network);
-
-        // Get EtherSwap contract address for swap detection
-        let etherSwapAddress: string | null = null;
-        try {
-            const contractResponse = await fetch(`${boltzConfig.boltzApiUrl}/v2/chain/RBTC/contracts`);
-            if (contractResponse.ok) {
-                const contracts = await contractResponse.json();
-                etherSwapAddress = contracts.swapContracts?.EtherSwap?.toLowerCase() || null;
-            }
-        } catch (error) {
-            console.warn('Could not fetch EtherSwap contract address:', error);
-        }
-
-        // Use RSK Explorer API to get transaction history
-        const explorerApiUrl = rskConfig.explorerApiUrl;
-
-        try {
-            // Fetch transactions from RSK Explorer API
-            const response = await fetch(`${explorerApiUrl}/v2/addresses/${address}/transactions`);
-
-            if (!response.ok) {
-                throw new Error(`API responded with status: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (data.items && Array.isArray(data.items)) {
-                for (const tx of data.items.slice(0, 50)) {
-                    // Limit to 50 most recent
-                    const txTo = (tx.to?.hash || tx.to || '').toLowerCase();
-                    const txFrom = (tx.from?.hash || tx.from || '').toLowerCase();
-                    const txMethod = tx.method?.toLowerCase() || '';
-
-                    // Check if this is a swap transaction
-                    const isSwapClaim =
-                        etherSwapAddress &&
-                        txTo === etherSwapAddress &&
-                        txFrom === address &&
-                        (txMethod === 'claim' || txMethod.includes('claim'));
-
-                    if (isSwapClaim) {
-                        // This is a swap claim transaction (user received RBTC)
-                        const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-                        // TODO:: Currently we default to 'reverse' type. In the future, we could
-                        // enhance this by analyzing swap details from the transaction data
-                        const swapType: 'chain' | 'reverse' = 'reverse';
-
-                        // Calculate fee
-                        let fee: number | undefined;
-                        if (tx.gas_used && tx.gas_used !== '0' && tx.gas_price && tx.gas_price !== '0') {
-                            try {
-                                const feeWei = BigInt(tx.gas_used) * BigInt(tx.gas_price);
-                                fee = parseFloat(ethers.formatEther(feeWei));
-                            } catch (error) {
-                                console.debug('Failed to calculate swap fee:', error);
-                            }
-                        }
-
-                        const transaction: Transaction = {
-                            hash: tx.hash,
-                            from: txFrom,
-                            to: txTo,
-                            value: tx.value || '0',
-                            gasUsed: tx.gas_used?.toString() || '0',
-                            gasPrice: tx.gas_price?.toString() || '0',
-                            blockNumber: parseInt(tx.block_number) || 0,
-                            timestamp: new Date(tx.timestamp).getTime(),
-                            status: tx.status === 'ok' ? 'confirmed' : 'failed',
-                            type: 'swap',
-                            network: 'rsk',
-                            tokenSymbol: 'rBTC',
-                            swapType,
-                            id: tx.hash,
-                            asset: 'rBTC',
-                            formattedAmount: `${amount.toFixed(6)} rBTC`,
-                            // TODO: show generic swap description. Could be enhanced to show
-                            // specific swap type (Lightning/L-BTC) based on transaction analysis
-                            description: 'Swap claimed',
-                            fee,
-                            address: txTo,
-                            txHash: tx.hash
-                        };
-
-                        transactions.push(transaction);
-                    } else {
-                        // Regular RSK transaction
-                        const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-                        const txType = tx.from.hash.toLowerCase() === address ? 'send' : 'receive';
-
-                        // Calculate fee
-                        let fee: number | undefined;
-                        if (tx.gas_used && tx.gas_used !== '0' && tx.gas_price && tx.gas_price !== '0') {
-                            try {
-                                const feeWei = BigInt(tx.gas_used) * BigInt(tx.gas_price);
-                                fee = parseFloat(ethers.formatEther(feeWei));
-                            } catch (error) {
-                                console.debug('Failed to calculate transaction fee:', error);
-                            }
-                        }
-
-                        const transaction: Transaction = {
-                            hash: tx.hash,
-                            from: tx.from.hash,
-                            to: tx.to?.hash || '0x0000000000000000000000000000000000000000',
-                            value: tx.value || '0',
-                            gasUsed: tx.gas_used?.toString() || '0',
-                            gasPrice: tx.gas_price?.toString() || '0',
-                            blockNumber: parseInt(tx.block_number) || 0,
-                            timestamp: new Date(tx.timestamp).getTime(),
-                            status: tx.status === 'ok' ? 'confirmed' : 'failed',
-                            type: txType,
-                            network: 'rsk',
-                            id: tx.hash,
-                            asset: 'rBTC',
-                            formattedAmount: `${amount.toFixed(6)} rBTC`,
-                            description: txType === 'send' ? 'RSK transaction sent' : 'RSK payment received',
-                            fee,
-                            address: tx.to?.hash || '0x0000000000000000000000000000000000000000',
-                            txHash: tx.hash
-                        };
-
-                        transactions.push(transaction);
-                    }
-                }
-            }
-        } catch (apiError) {
-            console.error('Failed to fetch from RSK explorer API:', apiError);
-
-            // Try alternative API endpoint format
-            try {
-                const altResponse = await fetch(
-                    `${explorerApiUrl}/v2/addresses/${address}/transactions?type=all`
-                );
-
-                if (altResponse.ok) {
-                    const altData = await altResponse.json();
-
-                    if (altData.items && Array.isArray(altData.items)) {
-                        for (const tx of altData.items.slice(0, 50)) {
-                            const txTo = (tx.to?.hash || tx.to || '').toLowerCase();
-                            const txFrom = (tx.from?.hash || tx.from || '').toLowerCase();
-                            const txMethod = tx.method?.toLowerCase() || '';
-
-                            // Check if this is a swap transaction
-                            const isSwapClaim =
-                                etherSwapAddress &&
-                                txTo === etherSwapAddress &&
-                                txFrom === address &&
-                                (txMethod === 'claim' || txMethod.includes('claim'));
-
-                            if (isSwapClaim) {
-                                // Swap transaction
-                                const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-                                const swapType: 'chain' | 'reverse' = 'reverse';
-
-                                let fee: number | undefined;
-                                if (tx.gas_used && tx.gas_used !== '0' && tx.gas_price && tx.gas_price !== '0') {
-                                    try {
-                                        const feeWei = BigInt(tx.gas_used) * BigInt(tx.gas_price);
-                                        fee = parseFloat(ethers.formatEther(feeWei));
-                                    } catch (error) {
-                                        console.debug('Failed to calculate swap fee:', error);
-                                    }
-                                }
-
-                                const transaction: Transaction = {
-                                    hash: tx.hash,
-                                    from: txFrom,
-                                    to: txTo,
-                                    value: tx.value || '0',
-                                    gasUsed: tx.gas_used?.toString() || '0',
-                                    gasPrice: tx.gas_price?.toString() || '0',
-                                    blockNumber: parseInt(tx.block_number) || 0,
-                                    timestamp: new Date(tx.timestamp).getTime(),
-                                    status: tx.status === 'ok' ? 'confirmed' : 'failed',
-                                    type: 'swap',
-                                    network: 'rsk',
-                                    tokenSymbol: 'rBTC',
-                                    swapType,
-                                    id: tx.hash,
-                                    asset: 'rBTC',
-                                    formattedAmount: `${amount.toFixed(6)} rBTC`,
-                                    description: 'Swap claimed',
-                                    fee,
-                                    address: txTo,
-                                    txHash: tx.hash
-                                };
-
-                                transactions.push(transaction);
-                            } else {
-                                // Regular transaction
-                                const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-                                const txType = (tx.from?.hash || tx.from)?.toLowerCase() === address ? 'send' : 'receive';
-
-                                let fee: number | undefined;
-                                if (tx.gas_used && tx.gas_used !== '0' && tx.gas_price && tx.gas_price !== '0') {
-                                    try {
-                                        const feeWei = BigInt(tx.gas_used) * BigInt(tx.gas_price);
-                                        fee = parseFloat(ethers.formatEther(feeWei));
-                                    } catch (error) {
-                                        console.debug('Failed to calculate transaction fee:', error);
-                                    }
-                                }
-
-                                const transaction: Transaction = {
-                                    hash: tx.hash,
-                                    from: tx.from?.hash || tx.from,
-                                    to: tx.to?.hash || tx.to || '0x0000000000000000000000000000000000000000',
-                                    value: tx.value || '0',
-                                    gasUsed: tx.gas_used?.toString() || '0',
-                                    gasPrice: tx.gas_price?.toString() || '0',
-                                    blockNumber: parseInt(tx.block_number) || 0,
-                                    timestamp: new Date(tx.timestamp).getTime(),
-                                    status: tx.status === 'ok' ? 'confirmed' : 'failed',
-                                    type: txType,
-                                    network: 'rsk',
-                                    id: tx.hash,
-                                    asset: 'rBTC',
-                                    formattedAmount: `${amount.toFixed(6)} rBTC`,
-                                    description: txType === 'send' ? 'RSK transaction sent' : 'RSK payment received',
-                                    fee,
-                                    address: tx.to?.hash || tx.to || '0x0000000000000000000000000000000000000000',
-                                    txHash: tx.hash
-                                };
-
-                                transactions.push(transaction);
-                            }
-                        }
-                    }
-                }
-            } catch (altError) {
-                console.error('Alternative RSK API also failed:', altError);
-
-                // Try v1 API as final fallback
-                try {
-                    const v1Response = await fetch(
-                        `${explorerApiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc`
-                    );
-
-                    if (v1Response.ok) {
-                        const v1Data = await v1Response.json();
-
-                        if (v1Data.result && Array.isArray(v1Data.result)) {
-                            for (const tx of v1Data.result.slice(0, 50)) {
-                                const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-                                const txType = tx.from.toLowerCase() === address ? 'send' : 'receive';
-
-                                let fee: number | undefined;
-                                if (tx.gasUsed && tx.gasUsed !== '0' && tx.gasPrice && tx.gasPrice !== '0') {
-                                    try {
-                                        const feeWei = BigInt(tx.gasUsed) * BigInt(tx.gasPrice);
-                                        fee = parseFloat(ethers.formatEther(feeWei));
-                                    } catch (error) {
-                                        console.debug('Failed to calculate transaction fee:', error);
-                                    }
-                                }
-
-                                const transaction: Transaction = {
-                                    hash: tx.hash,
-                                    from: tx.from,
-                                    to: tx.to || '0x0000000000000000000000000000000000000000',
-                                    value: tx.value || '0',
-                                    gasUsed: tx.gasUsed?.toString() || '0',
-                                    gasPrice: tx.gasPrice?.toString() || '0',
-                                    blockNumber: parseInt(tx.blockNumber) || 0,
-                                    timestamp: parseInt(tx.timeStamp) * 1000, // Convert to milliseconds
-                                    status: tx.isError === '0' ? 'confirmed' : 'failed',
-                                    type: txType,
-                                    network: 'rsk',
-                                    id: tx.hash,
-                                    asset: 'rBTC',
-                                    formattedAmount: `${amount.toFixed(6)} rBTC`,
-                                    description: txType === 'send' ? 'RSK transaction sent' : 'RSK payment received',
-                                    fee,
-                                    address: tx.to || '0x0000000000000000000000000000000000000000',
-                                    txHash: tx.hash
-                                };
-
-                                transactions.push(transaction);
-                            }
-                        }
-                    }
-                } catch (v1Error) {
-                    console.error('V1 RSK API also failed:', v1Error);
-
-                    // Final fallback: Check transaction count
-                    const txCount = await state.rsk.provider.getTransactionCount(state.rsk.wallet.address);
-
-                    if (txCount > 0) {
-                        console.warn(`RSK address has ${txCount} transactions, but all APIs are unavailable`);
-                    }
-                }
-            }
-        }
-
-        return transactions;
-    } catch (error) {
-        console.error('Failed to load RSK transactions:', error);
-        return [];
+async function getContractAddresses(): Promise<ContractAddresses> {
+    if (contractAddressesCache) {
+        return contractAddressesCache;
     }
+
+    // Fetch EtherSwap address from Boltz API
+    const etherSwapAddress = await getSwapAddress();
+
+    // Get Escrow addresses from constants based on network
+    const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+    const escrowAddresses = ESCROW_CONTRACT_ADDRESSES[rskNetwork].map(addr => addr.toLowerCase());
+
+    contractAddressesCache = {
+        etherSwap: etherSwapAddress?.toLowerCase() || null,
+        escrowAddresses
+    };
+
+    return contractAddressesCache;
 }
 
 /**
- * Load BSC transaction history using BSCScan API
+ * Clear contract addresses cache (useful for testing or network changes)
  */
-export async function loadBSCTransactions(): Promise<Transaction[]> {
-    const state = get(walletStore);
-    if (!state.bsc.connected || !state.bsc.provider || !state.bsc.wallet) {
-        return [];
+export function clearContractAddressesCache(): void {
+    contractAddressesCache = null;
+}
+
+/**
+ * Extract human-readable method name from transaction
+ * Uses multiple strategies to get the best method name
+ */
+function extractMethodName(tx: Transaction, isEscrowContract: boolean): string | undefined {
+    // Strategy 1: Use decoded_input.method_call (most reliable, from API)
+    if (tx.decoded_input?.method_call) {
+        // Extract just the function name (before parentheses)
+        const match = tx.decoded_input.method_call.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
+        return match ? match[1] : tx.decoded_input.method_call;
     }
 
-    try {
-        const transactions: Transaction[] = [];
-        const address = state.bsc.wallet.address.toLowerCase();
-        const network = import.meta.env.VITE_BSC_NETWORK || 'testnet';
-
-        // Get network configuration
-        const bscConfig = getBSCConfig(network);
-
-        // Get BSCScan API key from environment
-        const apiKey = import.meta.env.VITE_BSCSCAN_API_KEY;
-
-        // Use BSCScan API to get transaction history
-        const explorerApiUrl = bscConfig.explorerApiUrl;
-
-        try {
-            // Fetch BNB transactions using V2 API
-            const bnbUrl = `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
-
-            const bnbResponse = await fetch(bnbUrl);
-
-            if (bnbResponse.ok) {
-                const bnbData = await bnbResponse.json();
-
-                // Check for API success status (V2 API returns status field)
-                if (bnbData.status === '1' && bnbData.result && Array.isArray(bnbData.result)) {
-                    for (const tx of bnbData.result.slice(0, 50)) {
-                        // Determine transaction type based on user's address
-                        const isFromUser = tx.from.toLowerCase() === address;
-                        const isToUser = tx.to && tx.to.toLowerCase() === address;
-
-                        let transactionType: 'send' | 'receive' | 'contract';
-                        if (isFromUser && isToUser) {
-                            // Self-transaction (sending to self)
-                            transactionType = 'send';
-                        } else if (isFromUser) {
-                            // User sent the transaction
-                            transactionType = 'send';
-                        } else if (isToUser) {
-                            // User received the transaction
-                            transactionType = 'receive';
-                        } else {
-                            // Contract interaction or other
-                            transactionType = 'contract';
-                        }
-
-                        const amount = parseFloat(ethers.formatEther(tx.value || '0'));
-
-                        let fee: number | undefined;
-                        if (tx.gasUsed && tx.gasUsed !== '0' && tx.gasPrice && tx.gasPrice !== '0') {
-                            try {
-                                const feeWei = BigInt(tx.gasUsed) * BigInt(tx.gasPrice);
-                                fee = parseFloat(ethers.formatEther(feeWei));
-                            } catch (error) {
-                                console.debug('Failed to calculate BSC transaction fee:', error);
-                            }
-                        }
-
-                        const transaction: Transaction = {
-                            hash: tx.hash,
-                            from: tx.from,
-                            to: tx.to || '0x0000000000000000000000000000000000000000',
-                            value: tx.value || '0',
-                            gasUsed: tx.gasUsed?.toString() || '0',
-                            gasPrice: tx.gasPrice?.toString() || '0',
-                            blockNumber: parseInt(tx.blockNumber) || 0,
-                            timestamp: parseInt(tx.timeStamp) * 1000,
-                            status: tx.isError === '0' ? 'confirmed' : 'failed',
-                            type: transactionType,
-                            network: 'bsc',
-                            // UI display fields
-                            id: tx.hash,
-                            asset: 'BNB',
-                            formattedAmount: `${amount.toFixed(6)} BNB`,
-                            description: transactionType === 'send' ? 'BSC BNB sent' : 'BSC BNB received',
-                            fee,
-                            address: tx.to || '0x0000000000000000000000000000000000000000',
-                            txHash: tx.hash
-                        };
-
-                        transactions.push(transaction);
-                    }
-                } else if (bnbData.status === '0') {
-                    console.warn('BSCScan API returned error for BNB transactions:', bnbData.message || bnbData.result);
-                }
-            } else {
-                console.error('Failed to fetch BNB transactions:', bnbResponse.status, bnbResponse.statusText);
-            }
-
-            // Fetch USDT token transactions
-            const usdtToken = getUSDTToken(network);
-
-            if (usdtToken) {
-                const usdtResponse = await fetch(
-                    `${explorerApiUrl}?chainid=${bscConfig.chainId}&module=account&action=tokentx&contractaddress=${usdtToken.address}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`
-                );
-
-                if (usdtResponse.ok) {
-                    const usdtData = await usdtResponse.json();
-
-                    // Check for API success status (V2 API returns status field)
-                    if (usdtData.status === '1' && usdtData.result && Array.isArray(usdtData.result)) {
-                        for (const tx of usdtData.result.slice(0, 50)) {
-                            // Determine transaction type based on user's address
-                            const isFromUser = tx.from.toLowerCase() === address;
-                            const isToUser = tx.to && tx.to.toLowerCase() === address;
-
-                            let transactionType: 'send' | 'receive' | 'contract';
-                            if (isFromUser && isToUser) {
-                                // Self-transaction (sending to self)
-                                transactionType = 'send';
-                            } else if (isFromUser) {
-                                // User sent the transaction
-                                transactionType = 'send';
-                            } else if (isToUser) {
-                                // User received the transaction
-                                transactionType = 'receive';
-                            } else {
-                                // Contract interaction or other
-                                transactionType = 'contract';
-                            }
-
-                            const tokenSymbol = tx.tokenSymbol || 'USDT';
-                            const amount = parseFloat(ethers.formatUnits(tx.value || '0', 18));
-
-                            let fee: number | undefined;
-                            if (tx.gasUsed && tx.gasUsed !== '0' && tx.gasPrice && tx.gasPrice !== '0') {
-                                try {
-                                    const feeWei = BigInt(tx.gasUsed) * BigInt(tx.gasPrice);
-                                    fee = parseFloat(ethers.formatEther(feeWei));
-                                } catch (error) {
-                                    console.debug('Failed to calculate BSC USDT transaction fee:', error);
-                                }
-                            }
-
-                            const transaction: Transaction = {
-                                hash: tx.hash,
-                                from: tx.from,
-                                to: tx.to || '0x0000000000000000000000000000000000000000',
-                                value: tx.value || '0',
-                                gasUsed: tx.gasUsed?.toString() || '0',
-                                gasPrice: tx.gasPrice?.toString() || '0',
-                                blockNumber: parseInt(tx.blockNumber) || 0,
-                                timestamp: parseInt(tx.timeStamp) * 1000,
-                                status: tx.isError === '0' ? 'confirmed' : 'failed',
-                                type: transactionType,
-                                network: 'bsc',
-                                tokenSymbol,
-                                // UI display fields
-                                id: tx.hash,
-                                asset: tokenSymbol,
-                                formattedAmount: `${amount.toFixed(6)} ${tokenSymbol}`,
-                                description: transactionType === 'send' ? `BSC ${tokenSymbol} sent` : `BSC ${tokenSymbol} received`,
-                                fee,
-                                address: tx.to || '0x0000000000000000000000000000000000000000',
-                                txHash: tx.hash
-                            };
-
-                            transactions.push(transaction);
-                        }
-                    }
-                }
-            }
-
-        } catch (apiError) {
-            console.error('Failed to fetch from BSCScan API:', apiError);
-            return [];
+    // Strategy 2: Parse raw_input using our function parser (for escrow contracts)
+    if (isEscrowContract && tx.raw_input) {
+        const parsed = parseFunction(tx.raw_input, 'escrow');
+        if (parsed?.functionName) {
+            return parsed.functionName;
         }
+    }
 
-        // Sort transactions by timestamp and remove duplicates
-        const uniqueTransactions = transactions
-            .filter((tx, index, self) =>
-                index === self.findIndex(t => t.hash === tx.hash)
-            )
-            .sort((a, b) => b.timestamp - a.timestamp)
-            .slice(0, 100); // Limit to 100 most recent
+    // Strategy 3: Parse raw_input for unknown contracts
+    if (tx.raw_input) {
+        const parsed = parseFunction(tx.raw_input, 'unknown');
+        if (parsed?.functionName) {
+            return parsed.functionName;
+        }
+    }
 
-        return uniqueTransactions;
+    // No human-readable name available
+    return undefined;
+}
 
-    } catch (error) {
-        console.error('Failed to load BSC transaction history:', error);
-        return [];
+/**
+ * Check if address is an escrow contract
+ */
+function isEscrowContract(address: string, escrowAddresses: string[]): boolean {
+    const lowerAddress = address.toLowerCase();
+    return escrowAddresses.some(escrow => escrow === lowerAddress);
+}
+
+/**
+ * Get network information based on network and environment
+ * Computes explorer URL dynamically based on environment
+ */
+const rskExplorerBaseUrl = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet' === 'mainnet'
+    ? 'https://rootstock.blockscout.com/tx/'
+    : 'https://rootstock-testnet.blockscout.com/tx/';
+
+const bscExplorerBaseUrl = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet' === 'mainnet'
+    ? 'https://bscscan.com/tx/'
+    : 'https://testnet.bscscan.com/tx/';
+
+const networks = {
+    rsk: {
+        icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+        displayName: 'Rootstock (Bitcoin)',
+        explorerBaseUrl: rskExplorerBaseUrl
+    },
+    bsc: {
+        icon: '/images/chains/Binance-logo.svg',
+        displayName: 'Binance Smart Chain',
+        explorerBaseUrl: bscExplorerBaseUrl
+    },
+    lightning: {
+        icon: '/images/chains/lightning.svg',
+        displayName: 'Lightning Bitcoin',
+        explorerBaseUrl: rskExplorerBaseUrl
     }
 }
 
 
 /**
- * Update transaction status in the wallet store
+ * Determine Boltz swap type based on method and caller
+ * 
+ * Submarine Swap (Chain → Lightning): User locks RBTC to receive Lightning
+ * Reverse Swap (Lightning → Chain): User claims RBTC after paying Lightning
+ * Chain Swap (Chain → Chain): Cross-chain swaps (e.g., L-BTC ↔ RBTC)
  */
-export function updateTransactionStatus(network: 'rsk' | 'bsc', hash: string, receipt: any): void {
-    if (!receipt) return;
+function determineBoltzSwapType(
+    method: string | undefined,
+    fromAddress: string,
+    userAddress: string
+): 'submarine' | 'reverse' | 'chain' | undefined {
+    if (!method) return undefined;
 
-    walletStore.update((state) => {
-        // Update transaction in combined transactions array
-        const updatedTransactions = state.transactions.map((tx) => {
-            // Check if this is a Transaction object (not Payment) and matches the hash
-            if ('hash' in tx && tx.hash === hash) {
-                return {
-                    ...tx,
-                    gasUsed: receipt.gasUsed.toString(),
-                    gasPrice: receipt.gasPrice?.toString() || '0',
-                    blockNumber: receipt.blockNumber,
-                    timestamp: Date.now(),
-                    status: receipt.status === 1 ? 'confirmed' : 'failed'
-                } as Transaction;
-            }
-            return tx;
-        });
+    const methodLower = method.toLowerCase();
+    const isFromUser = fromAddress === userAddress;
+
+    // Chain swaps use 'lockup' method
+    if (methodLower.includes('lockup')) {
+        return 'chain';
+    }
+
+    // Submarine vs Reverse detection for lock/claim/refund
+    if (methodLower.includes('lock')) {
+        // lock called by user = submarine (user locking to get Lightning)
+        // lock called by Boltz = reverse (Boltz locking for user to claim)
+        return isFromUser ? 'submarine' : 'reverse';
+    }
+
+    if (methodLower.includes('claim')) {
+        // claim called by user = reverse (user claiming Lightning → RBTC)
+        // claim called by Boltz = submarine (Boltz claiming after user paid Lightning)
+        return isFromUser ? 'reverse' : 'submarine';
+    }
+
+    if (methodLower.includes('refund')) {
+        // Refunds can happen for both submarine and reverse swaps
+        // We'll default to reverse since user typically refunds their own failed swaps
+        return 'reverse';
+    }
+
+    return undefined;
+}
+
+/**
+ * Detect transaction type based on contract interaction
+ */
+function detectTransactionType(
+    tx: ExtendedTransaction,
+    userAddress: string,
+    contractAddresses: ContractAddresses
+): {
+    type: 'send' | 'receive' | 'swap' | 'contract';
+    subType?: 'lock' | 'claim' | 'refund';
+    methodName?: string;
+    swapType?: 'submarine' | 'reverse' | 'chain';
+    isInternalEscrowPayout?: boolean;
+} {
+    const toAddress = tx.to.hash.toLowerCase();
+    const fromAddress = tx.from.hash.toLowerCase();
+    const userAddr = userAddress.toLowerCase();
+
+    // Handle internal transactions
+    if (tx._isInternal) {
+        const isFromEscrow = isEscrowContract(fromAddress, contractAddresses.escrowAddresses);
+        const isToEscrow = isEscrowContract(toAddress, contractAddresses.escrowAddresses);
+        
+        // Internal transaction FROM escrow contract TO user = funds received (taskee getting paid)
+        if (isFromEscrow && toAddress === userAddr) {
+            return {
+                type: 'receive',
+                methodName: 'fundsReleased',
+                isInternalEscrowPayout: true
+            };
+        }
+        
+        // Internal transaction FROM user TO escrow contract = funds sent (shouldn't happen in practice)
+        if (isToEscrow && fromAddress === userAddr) {
+            return {
+                type: 'send',
+                methodName: 'internalEscrowFunding'
+            };
+        }
+        
+        // Other internal transactions (user receiving from non-escrow contract)
+        if (toAddress === userAddr) {
+            return {
+                type: 'receive',
+                methodName: 'internalTransfer'
+            };
+        }
+        
+        // Other internal transactions (user sending via contract)
+        if (fromAddress === userAddr) {
+            return {
+                type: 'send',
+                methodName: 'internalTransfer'
+            };
+        }
+        
+        // Internal transaction not involving user (shouldn't happen as we filter by user address)
+        return {
+            type: 'contract',
+            methodName: 'internalTransaction'
+        };
+    }
+
+    // Check if it's a contract interaction
+    if (!tx.to.is_contract) {
+        // Simple transfer
+        return {
+            type: fromAddress === userAddr ? 'send' : 'receive',
+        };
+    }
+
+    // Check if it's Escrow contract first (for method name extraction)
+    const isEscrow = isEscrowContract(toAddress, contractAddresses.escrowAddresses);
+
+    // Get method name (with escrow flag for better parsing)
+    const methodName = extractMethodName(tx, isEscrow);
+
+    // Check if it's EtherSwap contract (by address OR by contract name from API)
+    const isEtherSwap = (contractAddresses.etherSwap && toAddress === contractAddresses.etherSwap) ||
+        tx.to.name === 'EtherSwap';
+
+    if (isEtherSwap) {
+        // Determine swap subtype
+        let subType: 'lock' | 'claim' | 'refund' | undefined;
+        if (methodName?.toLowerCase().includes('lock')) {
+            subType = 'lock';
+        } else if (methodName?.toLowerCase().includes('claim')) {
+            subType = 'claim';
+        } else if (methodName?.toLowerCase().includes('refund')) {
+            subType = 'refund';
+        }
+
+        // Determine Boltz swap type (submarine, reverse, or chain)
+        const swapType = determineBoltzSwapType(methodName, fromAddress, userAddr);
 
         return {
-            ...state,
-            transactions: updatedTransactions
+            type: 'swap',
+            subType,
+            methodName,
+            swapType,
         };
+    }
+
+    // Return contract type (escrow or unknown)
+    return {
+        type: 'contract',
+        methodName,
+    };
+}
+
+/**
+ * Determine all display properties for UI
+ * Returns icon components directly and translation keys for titles
+ */
+function determineDisplayProperties(
+    type: 'send' | 'receive' | 'swap' | 'contract',
+    subType?: 'lock' | 'claim' | 'refund',
+    methodName?: string,
+    hasValue?: boolean,
+    isInternalEscrowPayout?: boolean
+): {
+    displayType: 'send' | 'receive' | 'swap-claim' | 'contract-function';
+    borderColor: 'warning' | 'success' | 'info';
+    iconConfig: {
+        base: Component;
+        overlay: Component | null;
+    };
+    title: string;
+} {
+    // Internal escrow payout (funds released to taskee)
+    if (isInternalEscrowPayout) {
+        return {
+            displayType: 'receive',
+            borderColor: 'success',
+            iconConfig: { base: IconFileDocumentOutline, overlay: IconArrowDownBold },
+            title: 'wallet.transaction.funds_released'
+        };
+    }
+
+    // Swap transactions
+    if (type === 'swap') {
+        if (subType === 'claim' || subType === 'refund') {
+            return {
+                displayType: 'swap-claim',
+                borderColor: 'success',
+                iconConfig: { base: IconArrowDownBold, overlay: null },
+                title: 'wallet.received'
+            };
+        }
+        // lock is treated as send
+        return {
+            displayType: 'send',
+            borderColor: 'warning',
+            iconConfig: { base: IconArrowUpBold, overlay: null },
+            title: 'wallet.sent'
+        };
+    }
+
+    // Regular receive
+    if (type === 'receive') {
+        return {
+            displayType: 'receive',
+            borderColor: 'success',
+            iconConfig: { base: IconArrowDownBold, overlay: null },
+            title: 'wallet.received'
+        };
+    }
+
+    // Regular send
+    if (type === 'send') {
+        return {
+            displayType: 'send',
+            borderColor: 'warning',
+            iconConfig: { base: IconArrowUpBold, overlay: null },
+            title: 'wallet.sent'
+        };
+    }
+
+    // Contract interactions
+    if (type === 'contract') {
+        // Special handling for escrow functions that transfer value
+        if (hasValue && methodName) {
+            const methodLower = methodName.toLowerCase();
+
+            // createEscrow with value → display as send
+            if (methodLower.includes('createescrow')) {
+                return {
+                    displayType: 'send',
+                    borderColor: 'warning',
+                    iconConfig: { base: IconFileDocumentOutline, overlay: IconArrowUpBold },
+                    title: `wallet.transaction.${methodLower}`
+                };
+            }
+            // acceptTask with value → display as receive
+            if (methodLower.includes('accepttask')) {
+                return {
+                    displayType: 'receive',
+                    borderColor: 'success',
+                    iconConfig: { base: IconFileDocumentOutline, overlay: IconArrowDownBold },
+                    title: `wallet.transaction.${methodLower}`
+                };
+            }
+        }
+
+        // All other contract functions
+        return {
+            displayType: 'contract-function',
+            borderColor: 'info',
+            iconConfig: { base: IconFileDocumentOutline, overlay: null },
+            title: methodName
+                ? `wallet.transaction.${methodName.toLowerCase()}`
+                : 'wallet.transaction.contract_function'
+        };
+    }
+
+    // Default fallback
+    return {
+        displayType: 'contract-function',
+        borderColor: 'info',
+        iconConfig: { base: IconFileDocumentOutline, overlay: null },
+        title: 'wallet.transaction.unknown'
+    };
+}
+
+/**
+ * Convert transaction status from API to our standard format
+ */
+function normalizeStatus(status: string): 'confirmed' | 'pending' | 'failed' {
+    const statusLower = status.toLowerCase();
+    if (statusLower === 'ok' || statusLower === 'success' || statusLower === 'confirmed') {
+        return 'confirmed';
+    }
+    if (statusLower === 'pending') {
+        return 'pending';
+    }
+    return 'failed';
+}
+
+/**
+ * Process raw transactions into clean, typed format with ALL properties computed
+ * Single-pass processing including running balance calculation
+ * 
+ * Now includes internal transactions to capture escrow payouts to freelancers
+ * 
+ * @param rawTransactions - Raw transactions from blockchain API
+ * @param userAddress - User's wallet address
+ * @param network - Network type ('rsk' or 'bsc')
+ * @param currentBalanceSats - Current balance in satoshis (for running balance calculation)
+ * @returns Processed transactions with all display properties and running balances
+ */
+export async function processTransactions(
+    rawTransactions: Transaction[],
+    userAddress: string,
+    network: 'rsk' | 'bsc',
+    currentBalanceSats: number
+): Promise<ProcessedTransaction[]> {
+    // Fetch contract addresses once
+    const contractAddresses = await getContractAddresses();
+
+    // Fetch internal transactions
+    const internalTransactions = await fetchInternalTransactions(userAddress, network);
+    
+    // Convert internal transactions to ExtendedTransaction format
+    const convertedInternalTxs = internalTransactions
+        .map(internal => convertInternalToTransaction(internal, contractAddresses.escrowAddresses))
+        .filter((tx): tx is ExtendedTransaction => tx !== null);
+
+    // Merge regular and internal transactions
+    const allTransactions: ExtendedTransaction[] = [...rawTransactions, ...convertedInternalTxs];
+    
+    // Deduplicate by hash + internal index (regular txs don't have _internalIndex)
+    const uniqueTransactions = Array.from(
+        new Map(
+            allTransactions.map(tx => {
+                const key = tx.hash + (tx._isInternal && tx._internalIndex !== undefined ? `-internal-${tx._internalIndex}` : '');
+                return [key, tx];
+            })
+        ).values()
+    );
+
+    // Process all transactions in single iteration
+    const processed = uniqueTransactions.map((tx) => {
+        // Detect transaction type
+        const { type, subType, methodName, swapType, isInternalEscrowPayout } = detectTransactionType(
+            tx as Transaction & { _isInternal?: boolean },
+            userAddress,
+            contractAddresses
+        );
+
+        // Extract transaction value
+        // For swap claims/refunds, the value field is 0, but the actual amount is in decoded_input.parameters
+        let valueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
+
+        // Special handling for swap claims and refunds - extract amount from decoded input
+        if (type === 'swap' && (subType === 'claim' || subType === 'refund')) {
+            if (tx.decoded_input?.parameters) {
+                const amountParam = tx.decoded_input.parameters.find((p) => p.name === 'amount');
+                if (amountParam?.value) {
+                    valueSats = Number(weiToSatoshi(BigInt(amountParam.value)));
+                }
+            }
+        }
+
+        // Check if transaction has value
+        const hasValue = valueSats > 0;
+
+        // Determine all display properties in one go (including icon config and translation keys)
+        const { displayType, borderColor, iconConfig, title } = determineDisplayProperties(
+            type,
+            subType,
+            methodName,
+            hasValue,
+            isInternalEscrowPayout
+        );
+
+        // Calculate fee in sats (internal transactions have no gas fees)
+        const feeSats = tx._isInternal ? 0 : Number(weiToSatoshi(BigInt(tx.fee.value || '0')));
+
+        // Determine network - Lightning for submarine/reverse swaps, otherwise use provided network
+        // Get network information once
+        const isLightningSwap = type === 'swap' && (swapType === 'submarine' || swapType === 'reverse');
+        const networkInfo = networks[isLightningSwap ? 'lightning' : network];
+
+        // Build explorer URL
+        const explorerUrl = tx.hash ? `${networkInfo.explorerBaseUrl}${tx.hash}` : null;
+
+        // Build processed transaction with all properties computed
+        const processedTx: ProcessedTransaction = {
+            // Core fields
+            hash: tx.hash,
+            from: tx.from.hash,
+            to: tx.to.hash,
+            value: valueSats.toString(),
+            timestamp: tx.timestamp,
+            status: statusUI[normalizeStatus(tx.status) as keyof typeof statusUI],
+            network: isLightningSwap ? 'lightning' : network,
+
+            // Computed fields
+            type,
+            subType,
+            methodName,
+
+            // Display helpers (all computed in one pass)
+            displayType,
+            borderColor,
+            iconConfig, // Pre-computed icon components
+            title, // Translation key for i18n
+
+            // Network information (computed once)
+            networkIcon: networkInfo.icon,
+            networkDisplayName: networkInfo.displayName,
+            explorerUrl,
+
+            // Fee
+            feeSats,
+
+            // Balance (will be calculated below)
+            balanceAfter: 0, // Placeholder, calculated in next step
+
+            // Raw data
+            rawMethod: tx.method || undefined,
+            decodedInput: tx.decoded_input || undefined
+        };
+
+        // Add token symbol for BSC transactions if available
+        if (network === 'bsc' && tx.token_transfers && tx.token_transfers.length > 0) {
+            // For token transfers, use the token symbol
+            processedTx.tokenSymbol = 'USDT'; // Default for now, can be enhanced
+        }
+
+        return processedTx;
     });
+
+    // Sort by timestamp (newest first) - required for balance calculation
+    processed.sort((a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime());
+
+    // Calculate running balances in single pass (working backwards from current balance)
+    let runningBalance = currentBalanceSats;
+
+    for (const tx of processed) {
+        const txValueSats = Number(tx.value);
+        const txFeeSats = tx.feeSats || 0;
+
+        // Store balance after this transaction
+        tx.balanceAfter = runningBalance;
+
+        // Work backwards: if it was a receive, subtract it; if it was a send, add it back
+        if (tx.displayType === 'receive' || tx.displayType === 'swap-claim') {
+            // For receives and swap claims, user received RBTC, so subtract when going backwards
+            runningBalance -= txValueSats;
+        } else if (tx.displayType === 'send' || tx.displayType === 'contract-function') {
+            // For sends and contract functions, user spent RBTC, so add it back when going backwards
+            runningBalance += txValueSats + txFeeSats;
+        }
+    }
+
+    return processed;
+}
+
+/**
+ * Get explorer API URL based on network
+ */
+function getExplorerApiUrl(network: 'rsk' | 'bsc'): string {
+    if (network === 'rsk') {
+        const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+        return rskNetwork === 'mainnet'
+            ? 'https://rootstock.blockscout.com/api/v2'
+            : 'https://rootstock-testnet.blockscout.com/api/v2';
+    } else {
+        const bscNetwork = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+        return bscNetwork === 'mainnet'
+            ? 'https://api.bscscan.com/api'
+            : 'https://api-testnet.bscscan.com/api';
+    }
+}
+
+/**
+ * TODO: To be added to wallet-core
+ * Fetch internal transactions from Blockscout API
+ * Internal transactions show value transfers that occur inside smart contract execution
+ * This is crucial for tracking escrow payouts to freelancers
+ */
+async function fetchInternalTransactions(
+    userAddress: string,
+    network: 'rsk' | 'bsc'
+): Promise<InternalTransaction[]> {
+    try {
+        const explorerApiUrl = getExplorerApiUrl(network);
+        const url = `${explorerApiUrl}/addresses/${userAddress}/internal-transactions`;
+
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(10000)
+        });
+
+        if (!response.ok) {
+            console.error(`Failed to fetch internal transactions: ${response.status}`);
+            return [];
+        }
+
+        const data = await response.json();
+        
+        // Blockscout returns { items: [...] }
+        if (!data.items || !Array.isArray(data.items)) {
+            console.error('Invalid internal transactions response format');
+            return [];
+        }
+
+        return data.items;
+    } catch (error) {
+        console.error('Error fetching internal transactions:', error);
+        return [];
+    }
+}
+
+/**
+ * Convert internal transaction to ExtendedTransaction format
+ * This allows internal transactions to be processed alongside regular transactions
+ * 
+ * @param internal - Internal transaction from Blockscout API
+ * @param escrowAddresses - List of escrow contract addresses to filter
+ * @returns ExtendedTransaction or null if should be filtered out
+ */
+function convertInternalToTransaction(
+    internal: InternalTransaction,
+    escrowAddresses: string[]
+): ExtendedTransaction | null {
+    // Only process successful internal transactions
+    if (!internal.success) {
+        return null;
+    }
+
+    // Only process internal transactions involving escrow contracts
+    const fromLower = internal.from.hash.toLowerCase();
+    const toLower = internal.to.hash.toLowerCase();
+    const isFromEscrow = escrowAddresses.some(addr => addr === fromLower);
+    const isToEscrow = escrowAddresses.some(addr => addr === toLower);
+    
+    // Filter: only include transactions that involve escrow contracts
+    if (!isFromEscrow && !isToEscrow) {
+        return null;
+    }
+
+    // Create an ExtendedTransaction object compatible with our processing
+    // For internal transactions, we use data from the internal tx with minimal extras
+    const extendedTx: ExtendedTransaction = {
+        hash: internal.transaction_hash,
+        from: internal.from,
+        to: internal.to,
+        value: internal.value,
+        gas_used: '0',
+        gas_price: '0',
+        gas_limit: internal.gas_limit,
+        block_number: internal.block_number,
+        timestamp: internal.timestamp,
+        status: 'ok',
+        nonce: 0,
+        position: 0,
+        confirmations: 0,
+        raw_input: '0x',
+        method: null,
+        decoded_input: null,
+        transaction_types: ['call'],
+        token_transfers: null,
+        max_fee_per_gas: null,
+        max_priority_fee_per_gas: null,
+        base_fee_per_gas: null,
+        priority_fee: null,
+        transaction_burnt_fee: null,
+        result: 'success',
+        revert_reason: null,
+        created_contract: null,
+        is_pending_update: false,
+        type: 0,
+        has_error_in_internal_transactions: false,
+        fee: {
+            type: 'maximum',
+            value: '0'
+        },
+        exchange_rate: null,
+        historic_exchange_rate: null,
+        confirmation_duration: null,
+        token_transfers_overflow: null,
+        transaction_tag: null,
+        authorization_list: [],
+        actions: [],
+        // Extended fields to identify internal transactions
+        _isInternal: true,
+        _internalIndex: internal.internal_transaction_index
+    };
+
+    return extendedTx;
 }

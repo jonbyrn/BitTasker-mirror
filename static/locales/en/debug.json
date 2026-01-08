@@ -1,0 +1,73 @@
+{
+	"debug": {
+		"smart_contract": {
+			"title": "Smart Contract Debug View",
+			"subtitle": "Raw blockchain data for all smart contracts",
+			"wallet_address": "Wallet Address",
+			"contract_count": "{count} contract(s)",
+			"loading": "Loading contracts...",
+			"no_contracts": "No contracts found for this address",
+			"no_contracts_message": "No smart contracts found for your connected wallet addresses.",
+			"wallet_init_error": "Failed to initialize wallet: {error}",
+			"refresh": "Refresh",
+			"copy_address": "Copy Address",
+			"raw_data": "Raw Data",
+			"contract_id": "Contract ID",
+			"client": "Tasker",
+			"freelancer": "Taskee",
+			"base_amount": "Base Amount",
+			"total_amount": "Total Amount",
+			"status": "Status",
+			"created_at": "Created At",
+			"estimated_start": "Estimated Start",
+			"estimated_completion": "Estimated Completion",
+			"timelock_expiry": "Timelock Expiry",
+			"client_fee_tier": "Client Fee Tier",
+			"freelancer_fee_tier": "Freelancer Fee Tier",
+			"role_client": "Tasker",
+			"role_freelancer": "Taskee",
+			"actions": {
+				"title": "Contract Functions",
+				"complete_task": "Complete Task",
+				"accept_task": "Accept Task",
+				"cancel_contract": "Cancel Contract",
+				"dispute_task": "Dispute Task",
+				"propose_resolution": "Propose Resolution",
+				"accept_proposal": "Accept Proposal",
+				"resolve_timelock": "Resolve Timelock",
+				"disabled_tooltip": "Function not available: {reason}",
+				"disabled_zero_value": "Contract has zero value - all functions disabled",
+				"executing": "Executing...",
+				"success": "Function executed successfully",
+				"error": "Error executing function: {error}",
+				"confirm_execution": "Are you sure you want to execute {function}?",
+				"propose_resolution_form": {
+					"title": "Propose Resolution",
+					"freelancer_amount": "Taskee Amount (sats)",
+					"client_amount": "Tasker Amount (sats)",
+					"submit": "Submit Proposal",
+					"cancel": "Cancel"
+				}
+			},
+			"safety_override": {
+				"label": "Safety Override",
+				"enabled": "Safety Override Enabled",
+				"disabled": "Safety Override Disabled",
+				"warning": "Safety Override Enabled: All contract functions are now available. Use with caution - transactions may fail or have unintended consequences, and will require network transaction fees even if the contract actions fail.",
+				"confirm_enable": "Are you sure you want to enable safety override? This will allow executing contract functions regardless of state restrictions.",
+				"description": "When enabled, all contract function buttons become available regardless of contract state or permissions. This is for debugging purposes only."
+			},
+			"permissions": {
+				"title": "Available Permissions",
+				"can_complete": "Can Complete",
+				"can_accept": "Can Accept",
+				"can_cancel": "Can Cancel",
+				"can_dispute": "Can Dispute",
+				"can_propose": "Can Propose",
+				"can_accept_proposal": "Can Accept Proposal",
+				"can_resolve_timelock": "Can Resolve Timelock"
+			}
+		}
+	}
+}
+

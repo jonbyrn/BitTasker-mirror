@@ -14,6 +14,11 @@
           "warning": "⚠️ Keep this private! Never share your private key with anyone.",
           "alby": "ℹ️ Your private key is securely managed by the Alby extension and cannot be accessed directly.",
           "managed": "Private key managed by Alby extension"
+        },
+        "qrCode": {
+          "generate": "Generate QR Code",
+          "generating": "Generating QR Code...",
+          "show": "Show QR Code"
         }
       },
       "security": {
@@ -34,6 +39,12 @@
         "confirmPassword-label": "Confirm Recovery Password",
         "confirmPassword": {
           "placeholder": "Confirm your recovery password"
+        },
+        "generated_password_note": "We've generated a secure, easy to remember password for you that you can use.",
+        "password_strength": {
+          "weak": "Weak",
+          "medium": "Medium",
+          "strong": "Strong"
         },
         "requirements-label": "Password requirements:",
         "requirements": {

@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TaskBody, TaskTranslations } from '$lib/types/task';
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { calculatePOW } from '$lib/nostr';
-import { SimplePool } from 'nostr-tools/pool';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { user } from '$lib/stores/user.store';
 import { get } from 'svelte/store';
@@ -15,12 +13,17 @@ import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { TranslationService } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
+import { appStore } from '$lib/stores/app.store';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
-// Initialize a pool for relay connections
-const pool = new SimplePool();
+/**
+ * Get the centralized pool instance from appStore
+ */
+function getPool() {
+	return get(appStore).pool;
+}
 
 // Translation service instance
 const translationService = new TranslationService();
@@ -40,22 +43,22 @@ async function generateTaskTranslations(
 
 	try {
 		// Detect source language from the combined text (title + description)
-		const combinedText = `${taskData.title} ${taskData.description}`;
+		const combinedText = `${taskData.title} ${taskData.description}`.trim();
+		
+		if (!combinedText) {
+			return undefined;
+		}
+		
 		const detectedLanguage = await translationService.detectLanguage(combinedText);
 		
-		// If we can't detect language or it's not supported, default to 'en'
-		const sourceLanguage = detectedLanguage || 'en';
+		// Determine source language - if detection fails, default to 'en'
+		// but we'll still translate to ensure both languages are available
+		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) 
+			? detectedLanguage 
+			: 'en';
 		
-		// Get all supported languages except the source language
+		// Always translate to the other language to ensure we have translations in both
 		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
-		
-		// If no target languages (task is already in all supported languages), return empty
-		if (targetLanguages.length === 0) {
-			return {
-				sourceLanguage,
-				translations: {}
-			};
-		}
 
 		// Translate title and description to all target languages in parallel
 		const translationPromises = targetLanguages.map(async (targetLang) => {
@@ -90,6 +93,32 @@ async function generateTaskTranslations(
 				};
 			}
 		});
+
+		// If we couldn't detect the language or translation failed, try the reverse
+		// This ensures we always have translations available in both languages
+		if ((!detectedLanguage || !SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) && 
+			Object.keys(translations).length === 0) {
+			// Try translating assuming the text is in Spanish
+			const reverseSource = sourceLanguage === 'en' ? 'es' : 'en';
+			const reverseTarget = reverseSource === 'en' ? 'es' : 'en';
+			
+			const [reverseTitleResult, reverseDescResult] = await Promise.all([
+				translationService.translate(taskData.title, reverseTarget, reverseSource),
+				translationService.translate(taskData.description, reverseTarget, reverseSource)
+			]);
+			
+			if (!('code' in reverseTitleResult) && !('code' in reverseDescResult)) {
+				translations[reverseTarget] = {
+					title: reverseTitleResult.translatedText,
+					description: reverseDescResult.translatedText
+				};
+				// Update source language to match the successful translation
+				return {
+					sourceLanguage: reverseSource,
+					translations
+				};
+			}
+		}
 
 		return {
 			sourceLanguage,
@@ -179,7 +208,6 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 		// Verify user is authenticated (has npub)
 		const userData = get(user);
 		const npub = await getNpub();
-		console.log('👤 User data:', userData);
 
 		if (!npub) {
 			throw new Error('User not authenticated');
@@ -187,7 +215,6 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 
 		// Generate a unique identifier for this task
 		const uniqueId = crypto.randomUUID();
-		console.log('🆔 Generated unique ID:', uniqueId);
 
 		// Use user name if available, otherwise use shortened npub as fallback
 		const username =
@@ -199,11 +226,8 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 		};
 
 		// Generate translations for all supported languages
-		console.log('🌐 Generating translations for task...');
 		const translations = await generateTaskTranslations(taskData);
-		if (translations) {
-			console.log('✅ Translations generated:', Object.keys(translations.translations));
-		}
+	
 
 		// Add creation timestamp, unique identifier, and translations to task data
 		const taskDataWithMeta = {
@@ -253,11 +277,8 @@ export async function createRecurringTask(
 		const pow = await calculatePOW(taskData.budget.amount, uniqueId);
 
 		// Generate translations for the recurring task template (same as regular tasks)
-		console.log('🌐 Generating translations for recurring task template...');
 		const translations = await generateTaskTranslations(taskData);
-		if (translations) {
-			console.log('✅ Translations generated for recurring task:', Object.keys(translations.translations));
-		}
+		
 
 		// Include translations in the template
 		const taskDataWithTranslations = {
@@ -298,8 +319,41 @@ export async function createRecurringTask(
  */
 export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
 	try {
-		// Get the original task
-		const { data: originalTask } = await nostrEventsService.findEventById(taskId);
+		// Check if taskId is an event ID (64 hex chars) or UUID (uniqueId)
+		const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
+		const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
+		let originalTask: any = null;
+
+		if (isEventId) {
+			// It's an event ID, use it directly
+			const result = await nostrEventsService.findEventById(taskId);
+			originalTask = result.data;
+		} else if (isUuid) {
+			// It's a uniqueId (UUID), query by d-tag
+			const dTagValue = `task-${taskId}`;
+			const filter = {
+				kinds: [KINDS.TASK_CREATION],
+				'#d': [dTagValue],
+				limit: 1
+			};
+			
+			const response = await nostrEventsService.requestEvents({
+				filters: [filter]
+			});
+			
+			if (response.data && response.data.length > 0) {
+				originalTask = response.data[0];
+			}
+		} else {
+			// Try as event ID anyway (fallback for edge cases)
+			try {
+				const result = await nostrEventsService.findEventById(taskId);
+				originalTask = result.data;
+			} catch {
+				throw new Error('Task not found');
+			}
+		}
+
 		if (!originalTask) {
 			throw new Error('Task not found');
 		}
@@ -327,11 +381,9 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		// Generate new translations if content changed
 		let translations = originalTaskData.translations;
 		if (needsRetranslation) {
-			console.log('🌐 Regenerating translations for updated task...');
 			const newTranslations = await generateTaskTranslations(taskDataForTranslation);
 			if (newTranslations) {
 				translations = newTranslations;
-				console.log('✅ Translations regenerated:', Object.keys(translations.translations));
 			}
 		}
 
@@ -399,6 +451,7 @@ export async function deleteTask(taskId: string): Promise<string> {
  */
 export async function publishToRelays(event: NostrEvent, relays = RELAYS): Promise<void> {
 	try {
+		const pool = getPool();
 		const pub = pool.publish(relays, event as any); // Type cast to any to bypass type check
 		await Promise.race([
 			Promise.all(pub),
@@ -418,6 +471,7 @@ export function subscribeToTasks(
 	filter: { kinds?: number[]; authors?: string[]; tags?: string[][] } = {},
 	relays = RELAYS
 ): () => void {
+	const pool = getPool();
 	const sub = pool.subscribe(
 		relays,
 		{
@@ -442,6 +496,7 @@ export async function queryTasks(
 	filter: { kinds?: number[]; authors?: string[]; tags?: string[][]; limit?: number } = {},
 	relays = RELAYS
 ): Promise<NostrEvent[]> {
+	const pool = getPool();
 	const query = await pool.querySync(relays, {
 		...filter,
 		kinds: filter.kinds || [KINDS.TASK_CREATION], // Only look for creation events
@@ -468,6 +523,7 @@ export async function getTaskById(
 	relays = RELAYS
 ): Promise<NostrEvent | null> {
 	try {
+		const pool = getPool();
 		const filter: Filter = {
 			kinds: [KINDS.TASK_CREATION], // Only look for creation events
 			ids: [taskId]
@@ -491,11 +547,4 @@ export async function getTaskById(
 		console.error('Failed to get task by ID:', error);
 		throw error;
 	}
-}
-
-/**
- * Close all relay connections
- */
-export function closePool(): void {
-	pool.close(RELAYS);
 }
