@@ -24,7 +24,7 @@
 				<!-- Zapstore Badge -->
 				<div class="mb-6">
 					<a
-						href="zapstore:bittasker"
+						href="https://zapstore.dev/apps/naddr1qvzqqqr7pvpzpdxcukch9yuvrpytr66vwlqfe0j2e4nuhdch79r52zmqh9s6tuxcqqgkxmmd9e3xjar5v9ekketj9eshquqj9fac3"
 						target="_blank"
 						rel="noopener noreferrer"
 						class="hover:opacity-80 inline-block transition-opacity"
