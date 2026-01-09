@@ -47,10 +47,11 @@ changelog: CHANGELOG.md
 
 # Screenshots (relative to repository root)
 images:
-  - assets/screenshot1.png
-  - assets/screenshot2.png
-  - assets/screenshot3.png
-  - assets/screenshot4.png
+  - assets/bittasker-app-1-hire-professionals-create-task.png
+  - assets/bittasker-app-2-find-work-find-tasks.png
+  - assets/bittasker-app-3-secure-contracts.png
+  - assets/bittasker-app-4-non-custodial-bitcoin-wallet.png
+  - assets/bittasker-app-5-chat-translation.png
 
 # Tags for discoverability
 tags: bitcoin lightning liquid rootstock nostr gig-economy freelance tasks payments freedom-tech android marketplace

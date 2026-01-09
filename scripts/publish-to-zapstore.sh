@@ -205,13 +205,21 @@ See CHANGELOG.md for full details."
 
 # Check if GitLab CLI is available
 if command -v glab >/dev/null 2>&1; then
-  # Use GitLab CLI
-  glab release create "v${NEW_VERSION_NAME}" \
+  # Use GitLab CLI (but don't fail if it doesn't work)
+  if glab release create "v${NEW_VERSION_NAME}" \
     --repo "$PUBLIC_REPO" \
     --name "BitTasker v${NEW_VERSION_NAME}" \
     --notes "$RELEASE_NOTES" \
-    "$RELEASE_APK"
-  echo -e "${GREEN}✓ GitLab release created${NC}\n"
+    "$RELEASE_APK" 2>/dev/null; then
+    echo -e "${GREEN}✓ GitLab release created${NC}\n"
+  else
+    echo -e "${YELLOW}⚠ GitLab CLI failed (may need token permissions). Continuing anyway...${NC}"
+    echo -e "${YELLOW}  Manual steps to create release:${NC}"
+    echo "  1. Go to https://${PUBLIC_REPO}/-/releases/new"
+    echo "  2. Tag: v${NEW_VERSION_NAME}"
+    echo "  3. Upload: ${RELEASE_APK}"
+    echo ""
+  fi
 else
   echo -e "${YELLOW}⚠ GitLab CLI not found. Manual steps required:${NC}"
   echo "1. Go to https://${PUBLIC_REPO}/-/releases/new"
@@ -220,7 +228,6 @@ else
   echo "4. Release notes:"
   echo "$RELEASE_NOTES"
   echo ""
-  read -p "Press Enter after creating the release manually..."
 fi
 
 # Step 8: Publish to Zapstore (conditional)
