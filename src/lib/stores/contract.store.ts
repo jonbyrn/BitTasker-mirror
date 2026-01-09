@@ -89,7 +89,6 @@ function createContractStore() {
 				{ onevent: async (event: NostrEvent) => await handleStatusEvent(event) }
 			);
 
-
 			// Subscription 2: Status events where user is AUTHOR (to see own updates)
 			statusSubscriptionOutgoing = pool.subscribe(
 				_appStore.relays,
@@ -139,7 +138,6 @@ function createContractStore() {
 				},
 				{ onevent: handleContractEvent }
 			);
-
 		} catch (error) {
 			console.error('[ContractStore] Failed to subscribe to new contracts:', error);
 		}
@@ -177,7 +175,7 @@ function createContractStore() {
 		 * Load all contracts (initial load)
 		 */
 		async loadContracts() {
-			update(state => ({ ...state, isLoading: true, error: null }));
+			update((state) => ({ ...state, isLoading: true, error: null }));
 
 			try {
 				const loadedContracts = await getContracts({ limit: CONTRACTS_LIMIT });
@@ -185,13 +183,15 @@ function createContractStore() {
 				// Build index map: escrowData.id -> array index for O(1) access
 				const contractsMap = new Map<string, number>();
 				loadedContracts.forEach((contract, index) => {
-					contractsMap.set(contract.escrowData.id, index);
+					const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+					contractsMap.set(id, index);
 				});
 
 				// Determine oldest timestamp for pagination (use event.created_at in seconds)
-				const oldestTimestamp = loadedContracts.length > 0
-					? loadedContracts[loadedContracts.length - 1].contractEvent.created_at
-					: null;
+				const oldestTimestamp =
+					loadedContracts.length > 0
+						? loadedContracts[loadedContracts.length - 1].contractEvent.created_at
+						: null;
 
 				// Determine if more contracts can be loaded
 				const hasMore = loadedContracts.length === CONTRACTS_LIMIT;
@@ -215,24 +215,24 @@ function createContractStore() {
 				await subscribeToNewContracts();
 
 				// Mark as subscribed
-				update(state => ({ ...state, isSubscribed: true }));
+				update((state) => ({ ...state, isSubscribed: true }));
 			} catch (err) {
 				const error = err instanceof Error ? err.message : 'Failed to load contracts';
-				update(state => ({ ...state, error, isLoading: false }));
+				update((state) => ({ ...state, error, isLoading: false }));
 				console.error('[ContractStore] Error loading contracts:', err);
 			}
 		},
 
 		/**
 		 * Load more contracts (infinite scroll) - Hybrid Pagination Approach
-		 * 
+		 *
 		 * Strategy:
 		 * 1. Fetch LIMIT + BUFFER contracts to handle timestamp collisions
 		 * 2. Filter out already-loaded contracts by escrowData.id (deduplication)
 		 * 3. Take first LIMIT contracts from filtered results
 		 * 4. Update boundary timestamp and contractsMap
 		 * 5. hasMore = (filtered count > LIMIT)
-		 * 
+		 *
 		 * This approach handles:
 		 * - Same-second timestamp collisions (escrowData.id dedup)
 		 * - Relay boundary ambiguity (over-fetching compensates)
@@ -242,14 +242,16 @@ function createContractStore() {
 
 			// Prevent multiple simultaneous loads
 			if (state.isLoadingMore || state.isLoading || !state.hasMore) {
-				return console.log('[ContractStore] Already loading more contracts or no more contracts to load');
+				return console.log(
+					'[ContractStore] Already loading more contracts or no more contracts to load'
+				);
 			}
 
 			if (!state.oldestTimestamp) {
 				return console.log('[ContractStore] No oldest timestamp to load more contracts');
 			}
 
-			update(state => ({ ...state, isLoadingMore: true }));
+			update((state) => ({ ...state, isLoadingMore: true }));
 
 			try {
 				// Fetch with buffer for handling collisions and duplicates
@@ -261,14 +263,17 @@ function createContractStore() {
 
 				// Check if we got any new contracts
 				if (fetchedContracts.length === 0) {
-					update(s => ({ ...s, hasMore: false, isLoadingMore: false }));
+					update((s) => ({ ...s, hasMore: false, isLoadingMore: false }));
 					console.log('[ContractStore] No more contracts available');
 					return;
 				}
 
 				// Filter out already-loaded contracts by escrowData.id (deduplication)
 				const newContracts = fetchedContracts.filter(
-					contract => !state.contractsMap.has(contract.escrowData.id)
+					(contract) => {
+						const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+						return !state.contractsMap.has(id);
+					}
 				);
 
 				// Take only the contracts we need (LIMIT)
@@ -279,7 +284,7 @@ function createContractStore() {
 					const oldestFetched = fetchedContracts[fetchedContracts.length - 1];
 					console.log('[ContractStore] All contracts were duplicates, updating boundary');
 
-					update(s => ({
+					update((s) => ({
 						...s,
 						oldestTimestamp: oldestFetched.contractEvent.created_at,
 						isLoadingMore: false
@@ -288,18 +293,20 @@ function createContractStore() {
 				}
 
 				// Update store with new contracts
-				update(state => {
+				update((state) => {
 					// Merge contracts
 					const allContracts = [...state.contracts, ...contractsToAdd];
 
 					// Rebuild index map
 					const newContractsMap = new Map<string, number>();
 					allContracts.forEach((contract, index) => {
-						newContractsMap.set(contract.escrowData.id, index);
+						const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+						newContractsMap.set(id, index);
 					});
 
 					// Update boundary timestamp (use last DISPLAYED contract's timestamp)
-					const newOldestTimestamp = contractsToAdd[contractsToAdd.length - 1].contractEvent.created_at;
+					const newOldestTimestamp =
+						contractsToAdd[contractsToAdd.length - 1].contractEvent.created_at;
 
 					// Determine if more contracts might exist
 					// If we got more unique contracts than we needed, there's likely more
@@ -316,7 +323,7 @@ function createContractStore() {
 				});
 			} catch (err) {
 				console.error('[ContractStore] Error loading more contracts:', err);
-				update(s => ({ ...s, isLoadingMore: false }));
+				update((s) => ({ ...s, isLoadingMore: false }));
 			}
 		},
 
@@ -331,9 +338,9 @@ function createContractStore() {
 
 				if (loadedContracts.length > 0) {
 					const updatedContract = loadedContracts[0];
-					const escrowDataId = updatedContract.escrowData.id;
+					const escrowDataId = updatedContract.escrowData?.id ?? updatedContract.contractEvent.content.escrowId;
 
-					update(state => {
+					update((state) => {
 						const index = state.contractsMap.get(escrowDataId);
 
 						if (index === undefined) {
@@ -377,7 +384,7 @@ function createContractStore() {
 		getContractKey(
 			contract: ContractWithEvents,
 			key: keyof NostrContract | keyof ContractWithEvents | 'otherPartyNpub' | 'contractEventId'
-		): any {
+		): string | number | boolean | undefined {
 			// Handle special computed cases first
 			if (key === 'contractEventId') {
 				return contract.contractEvent.id;
@@ -391,7 +398,7 @@ function createContractStore() {
 
 			// Direct properties on ContractWithEvents
 			if (key in contract && typeof contract[key as keyof ContractWithEvents] !== 'undefined') {
-				return contract[key as keyof ContractWithEvents];
+				return contract[key as keyof ContractWithEvents] as string | number | boolean | undefined;
 			}
 
 			// Properties in contractEvent.content (NostrContract)
@@ -437,4 +444,3 @@ function createContractStore() {
 
 // Export the store instance
 export const contractStore = createContractStore();
-

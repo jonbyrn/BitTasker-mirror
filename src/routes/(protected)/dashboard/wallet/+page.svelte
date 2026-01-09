@@ -7,68 +7,169 @@
 	import { fly } from 'svelte/transition';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	// Icon imports for unplugin-icons
-	import IconContentCopy from '~icons/mdi/content-copy';
-	import { walletManager, rskConnection, walletStore } from '$lib/stores/wallet.store';
+	import { getSwapType, isSwapCompleted } from '$lib/utils/wallet/swapTransaction';
+	import {
+		walletManager,
+		rskConnection,
+		walletStore,
+		updateSwapTransaction
+	} from '$lib/stores/wallet.store';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
-	import SendForm from '$lib/components/wallet/SendForm.svelte';
-	import ReceiveForm from '$lib/components/wallet/ReceiveForm.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
+	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
+	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
-	import BuySellForm from '$lib/components/wallet/BuySellForm.svelte';
-	import SwapForm from '$lib/components/wallet/SwapForm.svelte';
+	import IconContentCopy from '~icons/mdi/content-copy';
+	import IconDownload from '~icons/mdi/download';
+	import IconUpload from '~icons/mdi/upload';
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconChevronRight from '~icons/mdi/chevron-right';
+	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 
-	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	let isLoading = $state(false);
+	let unsubscribeFromSwaps: (() => void) | null = null;
 
 	async function initializeWallet(): Promise<void> {
-		await walletManager.initialize();
-		await Promise.allSettled([
-			walletManager.loadAssets(),
-			walletManager.loadTransactions(),
-			walletManager.loadRbtcExchangeRate()
-		]);
+		try {
+			isLoading = true;
+			await walletManager.initialize();
+			await walletManager.loadAssets();
+		} finally {
+			isLoading = false;
+		}
+
+		walletManager.loadRbtcExchangeRate();
 	}
 
 	onMount(async () => {
 		await initializeWallet();
+		// Subscribe to real-time swap updates via WebSocket
+		try {
+			unsubscribeFromSwaps = walletManager.onSwapUpdate((event: any) => {
+				// Determine swap type from swap data
+				const swapType = getSwapType(event.swapData);
+
+				// Update the specific swap transaction
+				updateSwapTransaction(event.swapId, event.swapData, swapType);
+			});
+		} catch (err) {
+			console.error('Failed to subscribe to swap updates:', err);
+		}
 	});
 
 	onDestroy(async () => {
 		await walletManager.cleanup();
+		// Clean up WebSocket subscription
+		unsubscribeFromSwaps?.();
 	});
 
 	// Reactive state from centralized store
 	let hasErrors = $derived($walletStore.error || $rskConnection.error);
-	let isConnecting = $derived($rskConnection.connecting);
+
+	// Modal state for new UX
+	let showReceiveModal = $state(false);
+	let showSendModal = $state(false);
+	let showTransactionsModal = $state(false);
+
+	// Centralized Payment Request Modal state
+	let paymentRequestModal = $state<{
+		isOpen: boolean;
+		// Pattern 1: Swap-based
+		swapId?: string | null;
+		// Pattern 2: Direct payment
+		address?: string | null;
+		network?: string | null;
+		amount?: number | null;
+		memo?: string | null;
+		chargeFeesToPayer?: boolean;
+		totalFees?: number | null;
+		// Form state for restoration
+		formState?: {
+			amount: string;
+			unit: 'sats' | 'usd';
+			mathExpression: string;
+			memo: string;
+			selectedNetwork: string;
+			chargeFeesToPayer: boolean;
+		} | null;
+	}>({
+		isOpen: false,
+		swapId: null,
+		address: null,
+		network: null,
+		amount: null,
+		memo: null,
+		chargeFeesToPayer: false,
+		totalFees: null,
+		formState: null
+	});
+
+	// Function to open the payment request modal (supports both patterns)
+	function openPaymentRequestModal(data: {
+		swapId?: string;
+		address?: string;
+		network?: string;
+		amount?: number;
+		memo?: string;
+		chargeFeesToPayer?: boolean;
+		totalFees?: number;
+		formState?: {
+			amount: string;
+			unit: 'sats' | 'usd';
+			mathExpression: string;
+			memo: string;
+			selectedNetwork: string;
+			chargeFeesToPayer: boolean;
+		};
+	}) {
+		paymentRequestModal = {
+			isOpen: true,
+			...data
+		};
+	}
+
+	// Function to close the payment request modal
+	function closePaymentRequestModal() {
+		paymentRequestModal = {
+			isOpen: false,
+			swapId: null,
+			address: null,
+			network: null,
+			amount: null,
+			memo: null,
+			chargeFeesToPayer: false,
+			totalFees: null,
+			formState: null
+		};
+	}
+
+	// Store receive form state for restoration
+	let receiveFormState = $state<{
+		amount: string;
+		unit: 'sats' | 'usd';
+		mathExpression: string;
+		memo: string;
+		selectedNetwork: string;
+		chargeFeesToPayer: boolean;
+	} | null>(null);
 </script>
 
-<div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
-	<div transition:fly={{ y: 20, duration: 300, easing: linear }}>
-		<div class="mb-6 flex items-center justify-between">
-			<div class="flex items-center gap-4">
-				<h2 class="text-3xl font-bold">{$t('wallet.title')}</h2>
-				<HelpModal />
-			</div>
-		</div>
+<svelte:head>
+	<title>{$t('wallet.title')} | BitTasker</title>
+</svelte:head>
 
-		<!-- Connection Status - commented out -->
-
-		{#if $walletStore.isInitializing}
-			<div class="alert alert-outlinealert-info mb-6">
-				<div class="flex items-center">
-					<span class="loading loading-spinner loading-sm mr-2"></span>
-					<span>{$t('wallet.page.initializing')}</span>
-				</div>
-			</div>
-		{:else if isConnecting}
-			<div class="alert alert-outline alert-info mb-6">
+<div class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg p-3 shadow-lg sm:p-6">
+	<div transition:fly={{ y: 20, duration: 300, easing: linear }} class="flex h-full flex-col">
+		{#if $rskConnection.connecting}
+			<div class="alert alert-outline alert-info mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex items-center">
 					<span class="loading loading-spinner loading-sm mr-2"></span>
 					<span>{$t('wallet.connecting')}</span>
 				</div>
 			</div>
 		{:else if hasErrors}
-			<div class="alert alert-outline alert-error mb-6">
+			<div class="alert alert-outline alert-error mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex w-full items-center justify-between">
 					<div class="flex items-center">
 						<svg
@@ -103,12 +204,12 @@
 		{/if}
 
 		<!-- Testnet Warning Alert -->
-		{#if network === 'testnet'}
-			<div class="alert alert-outline alert-warning mb-6">
+		{#if $appStore.network === 'testnet'}
+			<div class="alert alert-outline alert-warning mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex items-center">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="mr-3 h-6 w-6 shrink-0 stroke-current"
+						class="mr-2 h-5 w-5 shrink-0 stroke-current sm:mr-3 sm:h-6 sm:w-6"
 						fill="none"
 						viewBox="0 0 24 24"
 					>
@@ -120,17 +221,17 @@
 						/>
 					</svg>
 					<div class="flex-1">
-						<div class="text-warning text-center font-bold">
+						<div class="text-warning text-center text-sm font-bold sm:text-base">
 							{$t('wallet.testnet_warning.title')}
 						</div>
-						<div class="text-sm">
+						<div class="text-xs sm:text-sm">
 							<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong>
 							{$t('wallet.testnet_warning.description')}
 						</div>
 						<!-- User's Testnet Address -->
 						{#if $rskConnection.address}
-							<div class="bg-base-200 mt-3 rounded-lg p-3">
-								<div class="mb-2 text-sm font-medium">
+							<div class="bg-base-200 mt-2 rounded-lg p-2 sm:mt-3 sm:p-3">
+								<div class="mb-1 text-xs font-medium sm:mb-2 sm:text-sm">
 									{$t('wallet.testnet_warning.your_address')}
 								</div>
 								<div class="flex items-center gap-2">
@@ -155,7 +256,7 @@
 							</div>
 						{/if}
 
-						<div class="mt-2 text-sm">
+						<div class="mt-1.5 text-xs sm:mt-2 sm:text-sm">
 							{$t('wallet.testnet_warning.faucet_instruction')}
 							<a
 								href="https://faucet.rootstock.io/"
@@ -172,71 +273,53 @@
 			</div>
 		{/if}
 
-		{#if $walletStore.hasAnyConnection || !hasErrors}
-			<!-- Tab Navigation -->
-			<div class="tabs tabs-bordered mb-6 w-full">
-				<button
-					class="tab {$walletStore.activeTab === 'balance' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('balance')}
-				>
-					{$t('wallet.tab_balance')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'receive' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('receive')}
-				>
-					{$t('wallet.tab_receive')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'send' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('send')}
-				>
-					{$t('wallet.tab_send')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'buy-sell' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('buy-sell')}
-				>
-					{$t('wallet.tab_buy_sell')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'swap' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('swap')}
-				>
-					{$t('wallet.tab_swap')}
-				</button>
-				<button
-					class="tab {$walletStore.activeTab === 'transactions' ? 'active-tab' : ''}"
-					onclick={() => walletManager.setActiveTab('transactions')}
-				>
-					{$t('wallet.tab_transactions')}
-				</button>
+		{#if $walletStore.isConnected || !hasErrors}
+			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
+				<!-- Balance Card with History and Accordions -->
+				<BalanceCard {isLoading} />
+
+				<!-- Transactions Button -->
+				<div>
+					<button
+						type="button"
+						class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-3 py-2 pr-10 text-left text-sm font-medium transition-colors sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
+						onclick={() => (showTransactionsModal = true)}
+					>
+						<div class="flex min-w-0 flex-1 items-center gap-2">
+							<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+							<span>{$t('wallet.tab_transactions')}</span>
+						</div>
+						<div class="absolute right-2 flex items-center sm:right-3">
+							<IconChevronRight class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+						</div>
+					</button>
+				</div>
+
+				<!-- Send and Receive Buttons -->
+				<div class="flex flex-row gap-2 sm:gap-4">
+					<button
+						class="btn btn-primary order-1 min-h-[44px] flex-1 py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
+						onclick={() => (showReceiveModal = true)}
+					>
+						<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+						{$t('wallet.tab_receive')}
+					</button>
+					<button
+						class="btn btn-secondary order-2 min-h-[44px] flex-1 py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
+						onclick={() => (showSendModal = true)}
+					>
+						<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+						{$t('wallet.send_button')}
+					</button>
+				</div>
+
+				<!-- Learn More Section - Below buttons -->
+				<div class="flex justify-center">
+					<div class="text-base-content/70 text-xs sm:text-sm">
+						<HelpModal />
+					</div>
+				</div>
 			</div>
-
-			<!-- Tab Content -->
-			{#if $walletStore.activeTab === 'balance'}
-				<BalanceCard />
-			{/if}
-
-			{#if $walletStore.activeTab === 'receive'}
-				<ReceiveForm />
-			{/if}
-
-			{#if $walletStore.activeTab === 'send'}
-				<SendForm />
-			{/if}
-
-			{#if $walletStore.activeTab === 'buy-sell'}
-				<BuySellForm />
-			{/if}
-
-			{#if $walletStore.activeTab === 'swap'}
-				<SwapForm />
-			{/if}
-
-			{#if $walletStore.activeTab === 'transactions'}
-				<TransactionHistory />
-			{/if}
 		{:else}
 			<!-- No wallets connected - show setup options -->
 			<div class="py-12 text-center">
@@ -270,22 +353,106 @@
 	</div>
 </div>
 
-<style>
-	.tab.active-tab {
-		position: relative;
-		color: hsl(var(--p));
-		background-color: hsl(var(--p) / 0.1);
-		font-weight: 600;
-	}
+<!-- New UX Modals -->
+<WalletPaymentModal
+	isOpen={showReceiveModal}
+	mode="receive"
+	onClose={() => (showReceiveModal = false)}
+>
+	<ReceivePaymentForm
+		onCancel={() => {
+			showReceiveModal = false;
+			receiveFormState = null; // Clear form state on cancel
+		}}
+		onOpenPaymentRequest={(data) => {
+			// Store form state for restoration
+			if (data.formState) {
+				receiveFormState = data.formState;
+			}
+			showReceiveModal = false; // Close receive form
+			openPaymentRequestModal(data); // Open payment request modal
+		}}
+		initialFormState={receiveFormState ? {
+			...receiveFormState,
+			currentStep: 2 as const // On mobile, go to step 2 (details screen); desktop ignores this
+		} : undefined}
+	/>
+</WalletPaymentModal>
 
-	.tab.active-tab::after {
-		content: '';
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		width: 100%;
-		height: 2px;
-		background-color: hsl(var(--p));
-		border-radius: 1px;
-	}
-</style>
+<WalletPaymentModal isOpen={showSendModal} mode="send" onClose={() => (showSendModal = false)}>
+	<SendPaymentForm
+		onCancel={() => (showSendModal = false)}
+		onSuccess={(txHash, network) => {
+			// Handle send success
+			console.log('Payment sent:', txHash, network);
+			showSendModal = false;
+		}}
+	/>
+</WalletPaymentModal>
+
+<WalletPaymentModal
+	isOpen={showTransactionsModal}
+	mode="send"
+	onClose={() => (showTransactionsModal = false)}
+>
+	<div class="mb-4 hidden items-center justify-between lg:flex">
+		<h2 class="text-2xl font-bold">{$t('wallet.tab_transactions')}</h2>
+		<button
+			class="btn btn-ghost btn-sm btn-circle"
+			onclick={() => (showTransactionsModal = false)}
+			aria-label="Close transactions modal"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-5 w-5"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M6 18L18 6M6 6l12 12"
+				/>
+			</svg>
+		</button>
+	</div>
+	<TransactionHistory
+		onOpenPaymentRequest={(swapId) => {
+			showTransactionsModal = false; // Close transactions modal
+			openPaymentRequestModal({ swapId }); // Open payment request modal with swap
+		}}
+		onClose={() => (showTransactionsModal = false)}
+	/>
+</WalletPaymentModal>
+
+<!-- Centralized Payment Request Modal -->
+{#if paymentRequestModal.isOpen && (paymentRequestModal.swapId || paymentRequestModal.address)}
+	<WalletPaymentModal
+		isOpen={paymentRequestModal.isOpen}
+		mode="receive"
+		onClose={closePaymentRequestModal}
+	>
+		<PaymentRequestModal
+			isOpen={paymentRequestModal.isOpen}
+			swapId={paymentRequestModal.swapId ?? undefined}
+			address={paymentRequestModal.address ?? undefined}
+			network={paymentRequestModal.network ?? undefined}
+			amount={paymentRequestModal.amount ?? undefined}
+			memo={paymentRequestModal.memo ?? undefined}
+			chargeFeesToPayer={paymentRequestModal.chargeFeesToPayer}
+			totalFees={paymentRequestModal.totalFees ?? undefined}
+			onClose={closePaymentRequestModal}
+			onEdit={() => {
+				// Close payment request modal and reopen receive form with saved state
+				// Form state is already stored in paymentRequestModal.formState
+				if (paymentRequestModal.formState) {
+					receiveFormState = paymentRequestModal.formState;
+				}
+				closePaymentRequestModal();
+				showReceiveModal = true;
+			}}
+		/>
+	</WalletPaymentModal>
+{/if}

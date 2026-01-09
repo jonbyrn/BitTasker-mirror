@@ -299,14 +299,24 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 		href: '/dashboard'
 	},
 	{
-		label: 'navbar.profile',
-		icon: IconAccount,
-		href: '/dashboard/profile'
-	},
-	{
 		label: 'navbar.messages',
 		icon: IconChatOutline,
 		href: '/dashboard/messages'
+	},
+	{
+		label: 'navbar.contracts',
+		icon: IconFileSign,
+		href: '/dashboard?tab=contracts'
+	},
+	{
+		label: 'navbar.wallet',
+		icon: IconWalletOutline,
+		href: '/dashboard/wallet'
+	},
+	{
+		label: 'navbar.profile',
+		icon: IconAccount,
+		href: '/dashboard/profile'
 	},
 	{
 		label: 'navbar.settings',

@@ -1,6 +1,5 @@
 import type { SearchTasksParams, SavedSearch } from '$lib/types/task.d';
 import { type Filter } from 'nostr-tools';
-import { browser } from '$app/environment';
 import { appStore } from '$lib/stores/app.store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
@@ -64,7 +63,7 @@ export async function saveSearch(
                 ['n', name], // name
                 ['m', (options.notifyOnMatch ?? true).toString()], // notifyOnMatch
                 ['a', (options.isActive ?? true).toString()], // isActive
-                ['f', options.notificationFrequency ?? NotificationFrequency.DAILY], // frequency
+                ['f', options.notificationFrequency ?? NotificationFrequency.WEEKLY], // frequency
                 ['u', '0'], // unreadNotifications
                 ['t', 'saved-search'] // type
             ]
@@ -83,7 +82,7 @@ export async function saveSearch(
             createdAt: savedSearchEvent.created_at,
             notifyOnMatch: options.notifyOnMatch ?? true,
             isActive: options.isActive ?? true,
-            notificationFrequency: options.notificationFrequency ?? 'DAILY',
+            notificationFrequency: options.notificationFrequency ?? 'WEEKLY',
             unreadNotifications: 0
         };
     } catch (error) {
@@ -116,7 +115,7 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
             createdAt: event.created_at,
             notifyOnMatch: event.tags.find(t => t[0] === 'm')?.[1] === 'true',
             isActive: event.tags.find(t => t[0] === 'a')?.[1] !== 'false',
-            notificationFrequency: event.tags.find(t => t[0] === 'f')?.[1] || 'DAILY',
+            notificationFrequency: event.tags.find(t => t[0] === 'f')?.[1] || 'WEEKLY',
             unreadNotifications: parseInt(event.tags.find(t => t[0] === 'u')?.[1] || '0', 10)
         }));
     } catch (error) {
@@ -161,7 +160,7 @@ export async function updateSavedSearch(
         const existingName = existing.tags.find(t => t[0] === 'n')?.[1] || '';
         const existingNotifyOnMatch = existing.tags.find(t => t[0] === 'm')?.[1] === 'true';
         const existingIsActive = existing.tags.find(t => t[0] === 'a')?.[1] !== 'false';
-        const existingNotificationFrequency = existing.tags.find(t => t[0] === 'f')?.[1] || 'DAILY';
+        const existingNotificationFrequency = existing.tags.find(t => t[0] === 'f')?.[1] || 'WEEKLY';
         const existingUnreadNotifications = parseInt(existing.tags.find(t => t[0] === 'u')?.[1] || '0', 10);
 
         // Create updated event

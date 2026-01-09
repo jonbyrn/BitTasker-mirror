@@ -3,7 +3,7 @@ import { writable, type Writable } from 'svelte/store';
 interface InfiniteScroll {
     hasMore: boolean;
     threshold: number;
-    elementScroll: any;
+    elementScroll: Element | null;
     page: number;
     horizontal: boolean;
     loadMore: () => void;

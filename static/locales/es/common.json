@@ -1,5 +1,18 @@
 {
   "common": {
+    "status": {
+      "open": "Abierta",
+      "bid_accepted": "Oferta Aceptada",
+      "escrow_funded": "Fondo Garantizado",
+      "in_progress": "En Progreso",
+      "rescoped": "Replanteada",
+      "rescope_accepted": "Replanteo Aceptado",
+      "completed": "Completada",
+      "cancelled": "Cancelada",
+      "refunded": "Reembolsada",
+      "disputed": "En Disputa",
+      "dispute_proposal": "Propuesta de Disputa"
+    },
     "location": {
       "address": "Dirección",
       "get_directions": "Obtener Direcciones",
@@ -9,9 +22,11 @@
       "start_location": "Ubicación de Inicio",
       "destination_location": "Ubicación de Destino",
       "task_accepted_congratulations": "¡Felicitaciones! Tu tarea ha sido aceptada.",
-      "location_details_below": "Aquí tienes los detalles de la ubicación:"
+      "location_details_below": "Aquí tienes los detalles de la ubicación:",
+      "task_completed_message": "Tarea Completada",
+      "task_completed_review_message": "La tarea ha sido marcada como completada. Por favor revisa el trabajo y confirma si está listo."
     },
-    "back": "Volver a la tarea",
+    "back": "Volver",
     "back_2": "Regresar",
     "back_to_tasks": "Regresar",
     "redirecting_to_login": "Redirigiendo al inicio de sesión...",  
@@ -19,6 +34,7 @@
     "processing": "Procesando",
     "loading": "Cargando...",
     "close": "Cerrar",
+    "done": "Hecho",
     "edit": "Editar",
     "remove": "Eliminar",
     "cancel": "Cancelar",
@@ -26,6 +42,10 @@
     "add": "Añadir",
     "required": "Requerido",
     "optional": "Opcional",
+    "buttons": {
+        "cancel": "Cancelar",
+        "retry": "Reintentar"
+    },
     "previous": "Anterior",
     "next": "Siguiente",
         "pagination": {
@@ -72,7 +92,12 @@
       "visit_project": "Ver Proyecto",
       "message_sent_successfully": "¡Mensaje enviado exitosamente!",
       "message_required": "Por favor ingresa un mensaje",
-      "message_send_error": "Error al enviar el mensaje. Por favor intenta de nuevo."
+      "message_send_error": "Error al enviar el mensaje. Por favor intenta de nuevo.",
+      "signup_to_hire": "Regístrate para Contratar",
+      "invalid_npub": "Identificador de perfil inválido",
+      "invalid_npub_format": "Formato de identificador de perfil inválido",
+      "failed_to_load": "Error al cargar el perfil",
+      "no_profile_data": "No se encontraron datos de perfil para este usuario"
     },
     "cta_title": "¿Listo para empezar?",
     "cta_description": "Únete a BitTasker hoy y experimenta una mejor manera de encontrar trabajo o contratar a taskees calificados. Nuestra plataforma impulsada por Bitcoin hace que las transacciones sean seguras, sin fronteras y eficientes.",
@@ -159,7 +184,11 @@
         "feedback_link": "háganoslo saber!",
         "feedback_suffix": "Gracias por probar BitTasker!",
         "acknowledge_button": "Entiendo",
-        "learn_more": "Aprender más"
+        "learn_more": "Aprender más",
+        "zapstore_title": "¡Ahora Disponible en Zapstore!",
+        "zapstore_message": "Descarga BitTasker directamente desde Zapstore para actualizaciones automáticas y una experiencia perfecta. Zapstore es una tienda de aplicaciones descentralizada construida en Nostr.",
+        "zapstore_button": "Obtener en Zapstore",
+        "zapstore_aria": "Descargar BitTasker en Zapstore"
       },
       "wallet_help_modal": {
         "title": "Tu Wallet de Bitcoin",
@@ -211,19 +240,19 @@
         "faq_liquid_fees": "Tarifas Bajas:",
         "faq_liquid_fees_desc": "Costos de transacción predecibles para todos los tamaños de trabajo",
         "faq_lightning_title": "¿Puedo usar Lightning Bitcoin?",
-        "faq_lightning_description": "¡Sí! Puedes depositar y retirar usando Lightning Bitcoin para pagos instantáneos y de bajo costo. Sin embargo, para contratos de pago seguro, convertimos automáticamente los pagos de Lightning a Liquid o Rootstock para asegurar protección de fondos segura y no-custodial.",
+        "faq_lightning_description": "¡Sí! Puedes depositar y retirar usando Lightning Bitcoin para pagos instantáneos y de bajo costo. Sin embargo, para contratos de pago seguro, convertimos automáticamente los pagos de Lightning a Rootstock para asegurar protección de fondos segura y no-custodial.",
         "faq_lightning_deposits": "Depósitos Instantáneos:",
         "faq_lightning_deposits_desc": "Envía pagos Lightning que están instantáneamente disponibles",
         "faq_lightning_fees": "Tarifas Bajas:",
         "faq_lightning_fees_desc": "Paga tarifas mínimas por transacciones Lightning",
         "faq_lightning_conversion": "Conversión Automática:",
-        "faq_lightning_conversion_desc": "Los fondos Lightning se intercambian a L-BTC o rBTC para contratos de pago seguro",
+        "faq_lightning_conversion_desc": "Los fondos Lightning se intercambian a rBTC para contratos de pago seguro",
         "faq_lightning_withdrawals": "Retiros Instantáneos:",
         "faq_lightning_withdrawals_desc": "Convierte fondos de contratos de pago seguro de vuelta a Lightning en cualquier momento",
         "faq_lightning_adoption": "Adopción Amplia:",
         "faq_lightning_adoption_desc": "Lightning es una de las cadenas laterales de Bitcoin más ampliamente adoptadas",
         "faq_escrow_title": "¿Por qué BitTasker no usa solo Lightning para contratos de pago seguro?",
-        "faq_escrow_description": "Aunque Lightning sobresale en pagos instantáneos, crear contratos de pago seguro no-custodiales fáciles de usar en Lightning sigue siendo técnicamente complejo. Usamos Liquid y Rootstock para contratos de pago seguro porque proporcionan la seguridad, privacidad y confiabilidad necesarias para proteger tus fondos.",
+        "faq_escrow_description": "Aunque Lightning sobresale en pagos instantáneos, crear contratos de pago seguro no-custodiales fáciles de usar en Lightning sigue siendo técnicamente complejo. Usamos Rootstock para contratos de pago seguro porque proporciona la seguridad, privacidad y confiabilidad necesarias para proteger tus fondos.",
         "faq_escrow_channels": "Limitaciones de Canales:",
         "faq_escrow_channels_desc": "Número limitado de canales abiertos por nodo para contratos de pago seguro",
         "faq_escrow_time": "Restricciones de Tiempo:",
@@ -234,6 +263,158 @@
         "faq_escrow_multisig_desc": "La red Lightning carece de las características de contratos programables necesarias para contratos de pago seguro",
         "faq_escrow_risks": "Riesgos de Nodos:",
         "faq_escrow_risks_desc": "Riesgo de pérdida de fondos si los nodos Lightning se cierran o se desconectan"
+      },
+      "error_troubleshooting_modal": {
+        "title": "Solución de Problemas de Error",
+        "troubleshoot": "Solucionar",
+        "help": "Ayuda",
+        "button_title": "Obtener ayuda para solucionar este error",
+        "error_occurred": "Ocurrió un error",
+        "troubleshooting_steps_title": "Pasos de Solución",
+        "biometric_help_title": "Ayuda de Autenticación Biométrica",
+        "biometric_help_description": "Si tienes problemas con la autenticación biométrica, prueba estos pasos adicionales:",
+        "biometric_help_point1": "Asegúrate de que la configuración biométrica de tu dispositivo esté habilitada",
+        "biometric_help_point2": "Limpia el sensor de huellas dactilares o la cámara de reconocimiento facial",
+        "biometric_help_point3": "Intenta usar el código de acceso de tu dispositivo como alternativa",
+        "device_specific_title": "Solución Específica del Dispositivo",
+        "device_info_platform": "Plataforma",
+        "device_info_os": "Sistema Operativo",
+        "device_info_browser": "Navegador",
+        "settings_instructions_title": "Cómo Abrir Configuración",
+        "settings_instructions": {
+            "ios_native_biometric_1": "Abre la aplicación Configuración",
+            "ios_native_biometric_2": "Toca \"Touch ID y código\" o \"Face ID y código\"",
+            "ios_native_biometric_3": "Configura Touch ID o Face ID si aún no está configurado",
+            "ios_native_passcode_1": "Abre la aplicación Configuración",
+            "ios_native_passcode_2": "Toca \"Touch ID y código\" o \"Face ID y código\"",
+            "ios_native_passcode_3": "Configura un código de acceso si aún no está configurado",
+            "ios_native_other_1": "Abre la aplicación Configuración",
+            "ios_native_other_2": "Navega a la sección relevante",
+            "android_native_biometric_1": "Abre la aplicación Configuración",
+            "android_native_biometric_2": "Toca \"Seguridad\" o \"Biometría y seguridad\"",
+            "android_native_biometric_3": "Toca \"Bloqueo de pantalla\" o \"Huella dactilar\"",
+            "android_native_biometric_4": "Configura el bloqueo de pantalla y la autenticación biométrica",
+            "android_native_permission_1": "Abre la aplicación Configuración",
+            "android_native_permission_2": "Toca \"Aplicaciones\" o \"Administrador de aplicaciones\"",
+            "android_native_permission_3": "Busca BitTasker y tócalo",
+            "android_native_permission_4": "Toca \"Permisos\" y habilita los permisos requeridos",
+            "android_native_other_1": "Abre la aplicación Configuración",
+            "android_native_other_2": "Navega a la sección relevante",
+            "web_ios_1": "Abre la aplicación Configuración en tu iPhone/iPad",
+            "web_ios_2": "Toca tu nombre en la parte superior",
+            "web_ios_3": "Toca \"iCloud\" → \"Llavero\"",
+            "web_ios_4": "Habilita el Llavero de iCloud",
+            "web_android_1": "Abre la aplicación Configuración en tu dispositivo Android",
+            "web_android_2": "Toca \"Seguridad\" o \"Biometría y seguridad\"",
+            "web_android_3": "Configura el bloqueo de pantalla y habilita el Administrador de contraseñas de Google",
+            "web_windows_1": "Abre Configuración de Windows",
+            "web_windows_2": "Ve a \"Cuentas\" → \"Opciones de inicio de sesión\"",
+            "web_windows_3": "Configura Windows Hello (PIN, huella dactilar o reconocimiento facial)",
+            "web_macos_1": "Abre Configuración del Sistema",
+            "web_macos_2": "Ve a \"Touch ID y contraseña\"",
+            "web_macos_3": "Configura Touch ID si aún no está configurado"
+        },
+        "device_specific_steps": {
+            "ios_native_biometric_1": "Asegúrate de que Touch ID o Face ID esté habilitado en Configuración > Face ID y código (o Touch ID y código)",
+            "ios_native_biometric_2": "Asegúrate de tener al menos una huella dactilar o rostro registrado",
+            "ios_native_biometric_3": "Verifica que BitTasker tenga permiso para usar biometría en Configuración > Privacidad y Seguridad > Biometría",
+            "ios_native_biometric_4": "Si ves un mensaje de bloqueo, desbloquea tu dispositivo con tu código de acceso primero",
+            "ios_native_biometric_5": "Si tu código de acceso no está configurado, configura un código en Configuración > Touch ID y código",
+            "ios_web_safari_1": "Asegúrate de que el Llavero de iCloud esté habilitado en Configuración > [Tu Nombre] > iCloud > Llavero",
+            "ios_web_safari_2": "Asegúrate de estar conectado a iCloud en este dispositivo",
+            "ios_web_safari_3": "Verifica que la autenticación de dos factores esté habilitada para tu ID de Apple",
+            "ios_web_other_1": "Intenta usar Safari en su lugar - tiene el mejor soporte de passkey en iOS",
+            "ios_web_other_2": "Asegúrate de que el Llavero de iCloud esté habilitado en Configuración",
+            "android_native_biometric_1": "Asegúrate de que el desbloqueo con huella dactilar o rostro esté habilitado en Configuración > Seguridad",
+            "android_native_biometric_2": "Asegúrate de tener al menos una huella dactilar o rostro registrado",
+            "android_native_biometric_3": "Verifica que la aplicación tenga permiso para usar biometría en Configuración > Aplicaciones > BitTasker > Permisos",
+            "android_native_biometric_4": "Si ves un mensaje de bloqueo, desbloquea tu dispositivo con tu bloqueo de pantalla primero",
+            "android_native_biometric_5": "Si el bloqueo de pantalla no está configurado, configura un bloqueo en Configuración > Seguridad",
+            "android_web_chrome_1": "Asegúrate de que el Administrador de contraseñas de Google esté habilitado en la configuración de Chrome",
+            "android_web_chrome_2": "Asegúrate de estar conectado a tu cuenta de Google en Chrome",
+            "android_web_chrome_3": "Verifica que el bloqueo de pantalla esté habilitado en tu dispositivo (Configuración > Seguridad)",
+            "android_web_other_1": "Intenta usar Chrome en su lugar - tiene el mejor soporte de passkey en Android",
+            "android_web_other_2": "Asegúrate de que el bloqueo de pantalla esté habilitado en tu dispositivo",
+            "windows_edge_1": "Asegúrate de que Windows Hello esté configurado en Configuración > Cuentas > Opciones de inicio de sesión",
+            "windows_edge_2": "Asegúrate de tener un PIN, huella dactilar o reconocimiento facial configurado",
+            "windows_chrome_1": "Asegúrate de que Windows Hello esté configurado en Configuración > Cuentas > Opciones de inicio de sesión",
+            "windows_chrome_2": "Intenta usar Microsoft Edge para una mejor integración con Windows Hello",
+            "macos_safari_1": "Asegúrate de que Touch ID esté habilitado en Configuración del Sistema > Touch ID y contraseña",
+            "macos_safari_2": "Si tienes un Apple Watch, asegúrate de que esté desbloqueado y cerca",
+            "macos_chrome_1": "Asegúrate de que Touch ID esté habilitado en Configuración del Sistema > Touch ID y contraseña",
+            "macos_chrome_2": "Intenta usar Safari para una mejor integración con Touch ID",
+            "https_required_1": "WebAuthn requiere HTTPS - asegúrate de usar una conexión segura",
+            "https_required_2": "Si estás probando localmente, usa localhost o 127.0.0.1",
+            "webauthn_not_supported_1": "Tu navegador no admite WebAuthn - intenta actualizar a la última versión",
+            "webauthn_not_supported_2": "Considera usar Chrome, Edge, Safari o Firefox (últimas versiones)"
+        },
+        "passkey_overview": {
+            "title": "¿Qué Son las Passkeys?",
+            "description": "Las passkeys son una forma moderna y segura de iniciar sesión en BitTasker sin usar contraseñas. En lugar de recordar una contraseña, usas la seguridad integrada de tu dispositivo (como Face ID, huella dactilar o el PIN de tu dispositivo) para desbloquear tu cuenta.",
+            "benefit1": "Más seguras que las contraseñas — usa criptografía de clave pública resistente a phishing y filtraciones de datos",
+            "benefit2": "Más fáciles de usar — solo desbloquea tu dispositivo de la misma forma que normalmente lo haces",
+            "benefit3": "Privadas — BitTasker nunca recibe tu contraseña del dispositivo, PIN o datos biométricos"
+        },
+        "passkey_faq": {
+            "question1": "¿Recibiste una solicitud para desbloquear tu teléfono y cancelaste la solicitud?",
+            "answer1": "En lugar de usar una nueva contraseña en BitTasker, desbloqueas tu cuenta con la seguridad de tu dispositivo, que desbloquea la passkey que se usa para acceder a BitTasker. BitTasker nunca recibe tu contraseña del dispositivo ni datos biométricos. Cuando veas la solicitud de desbloqueo, por favor complétala para configurar tu passkey.",
+            "question2": "¿Tienes un bloqueo de pantalla en tu dispositivo?",
+            "answer2": "Necesitas usar un bloqueo de pantalla en tu dispositivo para acceder a BitTasker y mantener tu cuenta y billetera seguras. Las passkeys dependen de la seguridad de tu dispositivo, por lo que se requiere un bloqueo de pantalla (PIN, contraseña, patrón o biométrico). Por favor configura un bloqueo de pantalla en la configuración de tu dispositivo si aún no lo has hecho.",
+            "question3": "¿Está configurada la autenticación biométrica (Face ID, huella dactilar, etc.) en tu dispositivo?",
+            "answer3": "Aunque la biometría hace que las passkeys sean más convenientes, no son obligatorias. Si la biometría no está configurada, puedes usar el PIN o contraseña de tu dispositivo en su lugar. Sin embargo, configurar la biometría hará que el inicio de sesión sea más rápido y fácil. Puedes configurarlo en la aplicación Configuración de tu dispositivo.",
+            "question4": "¿Has otorgado los permisos necesarios a BitTasker?",
+            "answer4": "BitTasker necesita permiso para usar las funciones de seguridad de tu dispositivo para crear y usar passkeys. En dispositivos móviles, verifica Configuración > Aplicaciones > BitTasker > Permisos. En navegadores web, asegúrate de permitir que el navegador acceda a las funciones de seguridad de tu dispositivo cuando se solicite.",
+            "question5": "¿Está actualizado tu navegador o aplicación?",
+            "answer5": "Las passkeys requieren soporte de navegador y aplicación modernos. Asegúrate de estar usando la última versión de tu navegador (Chrome, Safari, Edge o Firefox) o la última versión de la aplicación BitTasker. Las versiones anteriores pueden no admitir passkeys correctamente.",
+            "question6": "¿El proceso de configuración se agotó el tiempo de espera?",
+            "answer6": "Si la configuración de la passkey se agotó el tiempo de espera, intenta de nuevo. Asegúrate de completar la solicitud de desbloqueo rápidamente cuando aparezca. También verifica tu conexión a internet, ya que se necesita una conexión estable para el proceso de configuración. Si continúa agotándose el tiempo de espera, intenta cerrar otras aplicaciones o reiniciar tu dispositivo."
+        },
+        "still_need_help_title": "¿Aún Necesitas Ayuda?",
+        "still_need_help_description": "Si estos pasos no resuelven el problema, por favor contacta con soporte o intenta de nuevo más tarde.",
+        "got_it_button": "Entendido",
+        "retry_button": "Reintentar",
+        "steps": {
+          "biometric": {
+            "step1": "Verifica que la biometría esté habilitada y configurada en tu dispositivo",
+            "step2": "Si ves bloqueo, desbloquea con tu código de acceso y vuelve a intentar",
+            "step3": "Limpia el sensor biométrico o reinicia tu dispositivo e intenta de nuevo"
+          },
+          "network": {
+            "step1": "Verifica tu conexión a internet y cambia entre Wi-Fi y datos móviles",
+            "step2": "Desactiva VPN si estás usando uno y verifica otras aplicaciones",
+            "step3": "Reinicia tu router o conexión móvil e intenta de nuevo"
+          },
+          "authentication": {
+            "step1": "Configura la autenticación biométrica/passkey si no está configurada",
+            "step2": "Si la credencial es inválida, configura un nuevo passkey",
+            "step3": "Limpia la caché del navegador o reinicia la aplicación"
+          },
+          "permission": {
+            "step1": "Verifica y concede los permisos necesarios en Configuración",
+            "step2": "Reinicia la aplicación después de conceder permisos",
+            "step3": "Actualiza la aplicación a la última versión"
+          },
+          "hardware": {
+            "step1": "Si no hay hardware biométrico, usa el código de acceso de tu dispositivo",
+            "step2": "Reinicia tu dispositivo si el hardware está temporalmente no disponible",
+            "step3": "Actualiza el sistema operativo y verifica actualizaciones disponibles"
+          },
+          "timeout": {
+            "step1": "Completa la autenticación biométrica rápidamente dentro del límite de tiempo",
+            "step2": "Verifica tu conexión a internet y cierra otras aplicaciones",
+            "step3": "Intenta de nuevo inmediatamente o cuando tengas mejor conexión"
+          },
+          "unknown": {
+            "step1": "Actualiza la página o reinicia la aplicación",
+            "step2": "Limpia la caché del navegador y verifica en otros dispositivos",
+            "step3": "Actualiza la aplicación o contacta con soporte si persiste"
+          },
+          "generic": {
+            "step1": "Actualiza la página o reinicia la aplicación",
+            "step2": "Verifica tu conexión a internet y configuración del dispositivo",
+            "step3": "Contacta con soporte si el problema persiste"
+          }
+        }
       },
       "network_selector": {
         "title": "Elegir Red de Pago Seguro",
@@ -261,8 +442,11 @@
       },
       "qr_scanner": {
         "scan_qr_code": "Escanear Código QR",
+        "get_qr_from_settings": "Puedes obtener tu código QR desde tu otro dispositivo yendo a <strong>Configuración</strong> y tocando el botón <strong>Mostrar Código QR</strong>.",
         "close": "Cerrar",
-        "toggle_torch": "Alternar Linterna"
+        "toggle_torch": "Alternar Linterna",
+        "no_camera_found": "No se encontró cámara. Por favor, asegúrese de que su dispositivo tenga una cámara.",
+        "camera_permission_denied": "Permiso de cámara denegado. Por favor, habilite el acceso a la cámara en la configuración de su navegador."
       },
       "tags": {
         "select_tags": "Seleccionar etiquetas...",
@@ -272,7 +456,14 @@
       "topbar": {
         "logo_alt": "Logo de BitTasker",
         "close_menu": "Cerrar menú",
-        "open_menu": "Abrir menú"
+        "open_menu": "Abrir menú",
+        "npub_qr": {
+          "title": "Clave Pública de Nostr",
+          "share_profile_title": "Compartir Perfil",
+          "npub_label": "Clave Pública (npub)",
+          "generating": "Generando código QR...",
+          "error": "No se pudo cargar la clave pública. Por favor, asegúrate de estar conectado."
+        }
       },
       "uploader": {
         "images": "Imágenes",
@@ -701,14 +892,14 @@
       }
     },
     "airdatepicker": {
-      "select_date": "Seleccionar una fecha",
-      "select_date_range": "Seleccionar rango de fechas",
-      "select_datetime": "Seleccionar fecha y hora",
-      "select_time": "Seleccionar hora",
-      "select_start_date": "Seleccionar fecha de inicio",
-      "select_end_date": "Seleccionar fecha de fin",
-      "select_start_datetime": "Seleccionar fecha y hora de inicio",
-      "select_end_datetime": "Seleccionar fecha y hora de fin"
+      "select_date": "Fecha", 
+      "select_date_range": "Rango de fechas",
+      "select_datetime": "Fecha y hora",
+      "select_time": "Hora",
+      "select_start_date": "Fecha de inicio",
+      "select_end_date": "Fecha de fin",
+      "select_start_datetime": "Fecha de inicio y hora",
+      "select_end_datetime": "Fecha de fin y hora"
     },
     "layout": {
       "github_aria": "GitHub"

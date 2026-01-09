@@ -19,6 +19,7 @@ If you stop, continue automatically.
 - Plan implementation approach
 - Consider edge cases and error handling
 - Search for documentation online and review prior to implementing complex or uncommon functionality, or when working with new software versions
+- **For Nostr features**: Use MCP servers to research NIPs (`mcp_Nostr_MCP_Server_searchNips`), read specifications (`mcp_Nostrbook_read_nip`), and understand event kinds/tags (`mcp_Nostrbook_read_kind`, `mcp_Nostrbook_read_tag`)
 
 ### 2. Implementation Phase
 

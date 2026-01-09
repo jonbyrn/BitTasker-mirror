@@ -12,6 +12,7 @@
 	import type { AccountRecoveryData } from '$lib/types/auth';
 	import authService from '$lib/api/services/auth.service';
 	import { appStore } from '$lib/stores/app.store';
+	import { debounce } from '$lib/utils/helpers/common';
 
 	let {
 		nextStep,
@@ -42,6 +43,40 @@
 	// Error states
 	let emailError = $state('');
 	let passwordError = $state('');
+	let passwordMismatchError = $state('');
+
+	// Password strength state
+	let passwordStrength = $state<'weak' | 'medium' | 'strong'>('weak');
+
+	// Password strength calculation
+	function getPasswordStrength(password: string): 'weak' | 'medium' | 'strong' {
+		const length = password.length;
+		if (length >= 12 && length <= 15) {
+			return 'weak';
+		} else if (length > 15 && length <= 20) {
+			return 'medium';
+		} else if (length > 20) {
+			return 'strong';
+		}
+		return 'weak';
+	}
+
+	// Debounced function to update password strength
+	const updatePasswordStrength = debounce((event: Event) => {
+		const target = event.target as HTMLInputElement;
+		if (target) {
+			passwordStrength = getPasswordStrength(target.value);
+		}
+	}, 400);
+
+	// Debounced function to validate password match
+	const validatePasswordMatch = debounce(() => {
+		if (confirmPassword && recoveryPassword && confirmPassword !== recoveryPassword) {
+			passwordMismatchError = $t('onboarding_auth.form.recovery_setup.errors.passwords_mismatch');
+		} else {
+			passwordMismatchError = '';
+		}
+	}, 400);
 
 	// Track last emitted recovery state to avoid redundant parent updates
 	let lastRecovery = { email: '', password: '', enabled: false };
@@ -52,6 +87,8 @@
 		recoveryPassword = newPassword;
 		confirmPassword = newPassword;
 		passwordError = '';
+		passwordMismatchError = '';
+		passwordStrength = getPasswordStrength(newPassword);
 	}
 
 	// Copy password function with success feedback
@@ -182,6 +219,7 @@
 			}
 			if (recoveryPassword !== '') {
 				recoveryPassword = '';
+				passwordStrength = 'weak';
 				cleared = true;
 			}
 			if (confirmPassword !== '') {
@@ -196,8 +234,11 @@
 				passwordError = '';
 				cleared = true;
 			}
+			if (passwordMismatchError !== '') {
+				passwordMismatchError = '';
+				cleared = true;
+			}
 
-			// If we just cleared fields, allow effect to run again with updated values
 			if (cleared) return;
 		}
 
@@ -307,6 +348,23 @@
 
 					<!-- Recovery Password Field -->
 					<div class="form-control mx-auto max-w-lg">
+						<!-- Generated Password Note -->
+						<div class="alert alert-warning alert-outline mb-2">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span class="text-sm">{$t('onboarding_auth.form.recovery_setup.generated_password_note')}</span>
+						</div>
 						<label aria-label="Recovery Password" class="label" for="password">
 							<span class="label-text"
 								>{$t('onboarding_auth.form.recovery_setup.recovery_password')}</span
@@ -320,7 +378,11 @@
 									type={showPassword ? 'text' : 'password'}
 									id="password"
 									bind:value={recoveryPassword}
-									class="input input-bordered w-full pr-12 {passwordError ? 'input-error' : ''}"
+									oninput={(e) => {
+										updatePasswordStrength(e);
+										validatePasswordMatch();
+									}}
+									class="input input-bordered w-full pr-12 {(passwordError || passwordMismatchError) ? 'input-error' : ''}"
 									placeholder={$t('onboarding_auth.form.recovery_setup.password_placeholder')}
 									required={enableRecovery}
 								/>
@@ -421,7 +483,8 @@
 									type={showConfirmPassword ? 'text' : 'password'}
 									id="confirmPassword"
 									bind:value={confirmPassword}
-									class="input input-bordered w-full pr-12 {passwordError ? 'input-error' : ''}"
+									oninput={validatePasswordMatch}
+									class="input input-bordered w-full pr-12 {(passwordError || passwordMismatchError) ? 'input-error' : ''}"
 									placeholder={$t(
 										'onboarding_auth.form.recovery_setup.confirm_password_placeholder'
 									)}
@@ -522,10 +585,47 @@
 							</button>
 						</div>
 
-						{#if passwordError}
+						{#if passwordMismatchError}
+							<label class="label" for="confirmPassword">
+								<span class="label-text-alt text-error">{passwordMismatchError}</span>
+							</label>
+						{:else if passwordError}
 							<label class="label" for="confirmPassword">
 								<span class="label-text-alt text-error">{passwordError}</span>
 							</label>
+						{/if}
+
+						<!-- Password Strength Indicator -->
+						{#if recoveryPassword && recoveryPassword.length >= 12}
+							<div class="mt-2">
+								<div class="flex items-center gap-2">
+									<div class="flex-1">
+										<div class="h-2 w-full overflow-hidden rounded-full bg-base-300">
+											<div
+												class="h-full transition-all duration-300 {passwordStrength === 'weak'
+													? 'bg-error'
+													: passwordStrength === 'medium'
+														? 'bg-warning'
+														: 'bg-success'}"
+												style="width: {passwordStrength === 'weak'
+													? '33%'
+													: passwordStrength === 'medium'
+														? '66%'
+														: '100%'}"
+											></div>
+										</div>
+									</div>
+									<span
+										class="text-sm font-medium {passwordStrength === 'weak'
+											? 'text-error'
+											: passwordStrength === 'medium'
+												? 'text-warning'
+												: 'text-success'}"
+									>
+										{$t(`onboarding_auth.form.recovery_setup.password_strength.${passwordStrength}`)}
+									</span>
+								</div>
+							</div>
 						{/if}
 					</div>
 				</div>

@@ -1,6 +1,6 @@
 ---
 description: Testing strategy, tools, and quality standards for BitTasker
-globs: ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*"]
+globs: ["src/**/*.test.ts", "src/**/*.spec.ts", "src/**/tests/**/*"]
 alwaysApply: false
 ---
 

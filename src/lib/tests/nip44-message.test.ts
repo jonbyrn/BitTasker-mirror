@@ -64,15 +64,15 @@ describe('NIP-44 Message Utilities', () => {
 			sig: 'test-signature'
 		});
 
-		// Mock crypto.getRandomValues
-		global.crypto = {
-			getRandomValues: vi.fn((arr: Uint8Array) => {
+		// Spy on crypto.getRandomValues (should be available from global setup)
+		if (global.crypto && global.crypto.getRandomValues) {
+			vi.spyOn(global.crypto, 'getRandomValues').mockImplementation((arr: Uint8Array) => {
 				for (let i = 0; i < arr.length; i++) {
 					arr[i] = Math.floor(Math.random() * 256);
 				}
 				return arr;
-			})
-		} as any;
+			});
+		}
 	});
 
 	afterEach(() => {

@@ -1,6 +1,6 @@
 ---
 description: Performance optimization patterns, bundle optimization, and runtime performance best practices
-globs: ["**/*.svelte", "**/*.ts", "**/*.js", "vite.config.ts", "svelte.config.js"]
+globs: ["src/**/*.svelte", "src/**/*.ts", "src/**/*.js", "vite.config.ts", "svelte.config.js"]
 alwaysApply: false
 ---
 

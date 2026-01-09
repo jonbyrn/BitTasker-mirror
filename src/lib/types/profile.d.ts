@@ -16,6 +16,16 @@ export interface NostrReview {
     date: string;
 }
 
+export interface ProfileTranslations {
+	sourceLanguage: string; // Language of the original content
+	translations: {
+		[language: string]: {
+			professionalTitle: string;
+			about: string;
+		};
+	};
+}
+
 export interface NostrProfile {
     // NIP-01 basic fields
     name?: string;
@@ -33,6 +43,7 @@ export interface NostrProfile {
     // Additional common fields
     professionalTitle?: string;
     location?: string; // Geographic location
+    translations?: ProfileTranslations; // Translations for all supported languages
     
     // Deprecated/internal fields (for backwards compatibility)
     pictures?: NostrProfileImage[]; // Legacy field, prefer picture
@@ -80,6 +91,45 @@ export interface SkillCertification {
     date: string;
     verified: boolean;
     fileUrl: string;
+    translations?: CertificationTranslations; // Translations for certification name and issuer
+}
+
+/**
+ * Interface for skill translations
+ */
+export interface SkillTranslations {
+	sourceLanguage: string; // Language of the original content
+	translations: {
+		[language: string]: {
+			name: string;
+		};
+	};
+}
+
+/**
+ * Interface for certification translations
+ */
+export interface CertificationTranslations {
+	sourceLanguage: string; // Language of the original content
+	translations: {
+		[language: string]: {
+			name: string;
+			issuer: string;
+		};
+	};
+}
+
+/**
+ * Interface for portfolio translations
+ */
+export interface PortfolioTranslations {
+	sourceLanguage: string; // Language of the original content
+	translations: {
+		[language: string]: {
+			title: string;
+			description: string;
+		};
+	};
 }
 
 /**
@@ -92,6 +142,7 @@ export interface Skill {
     verificationStatus: 'pending' | 'verified' | 'unverified';
     endorsements: number;
     certifications: string[]; // Array of certification event IDs
+    translations?: SkillTranslations; // Translations for skill name
 }
 
 export interface PortfolioItem {
@@ -104,6 +155,7 @@ export interface PortfolioItem {
     images: NostrProfileImage[];
     tags?: string[][];
     category?: string;
+    translations?: PortfolioTranslations; // Translations for portfolio title and description
 }
 
 export interface TimeSlot {
@@ -156,6 +208,7 @@ export type Profile = {
     pictures?: NostrProfileImage[];
     website?: string;
     professionalTitle?: string;
+    translations?: ProfileTranslations;
     skills?: {
         name: string;
         level: number;

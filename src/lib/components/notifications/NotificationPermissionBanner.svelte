@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { localNotificationService } from '$lib/services/local-notification.service';
-	import { onMount } from 'svelte';
+	import { onMount } from 'svelte';	
 	import { authState } from '$lib/stores/auth.store';
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
@@ -33,7 +32,7 @@
 		}
 		
 		// Check permission status
-		permissionStatus = localNotificationService.getNotificationPermissionStatus();
+		//permissionStatus = localNotificationService.getNotificationPermissionStatus();
 		
 		// Show banner if permission is not granted and not unsupported
 		if (permissionStatus !== 'granted' && permissionStatus !== 'unsupported') {

@@ -2,44 +2,137 @@
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { transactions, walletManager } from '$lib/stores/wallet.store';
-	import { weiToSatoshi } from '@bittasker/wallet-core';
-	// MDI Icons
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
-	import IconCheckCircle from '~icons/mdi/check-circle';
-	import IconClockOutline from '~icons/mdi/clock-outline';
-	import IconCloseCircle from '~icons/mdi/close-circle';
+	import IconCheck from '~icons/mdi/check';
+	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconCheckAll from '~icons/mdi/check-all';
+	import IconClose from '~icons/mdi/close';
+
+	let { onOpenPaymentRequest, onClose } = $props<{
+		onOpenPaymentRequest: (swapId: string) => void;
+		onClose?: () => void;
+	}>();
 
 	// State
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	let selectedFilter = $state<'all' | 'rsk' | 'bsc' | 'send' | 'receive'>('all');
+	let typeFilter = $state<'all' | 'send' | 'receive' | 'contract-function'>('all');
+	let networkFilter = $state<'all' | 'rsk' | 'bsc' | 'lightning'>('all');
+	let isNetworkDropdownOpen = $state(false);
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
 
-	// Filtered transactions (exclude swaps)
+	// Filtered transactions
 	let filteredTransactions = $derived(
 		$transactions.filter((tx) => {
-			if (selectedFilter === 'all') return true;
-			if (selectedFilter === 'rsk' || selectedFilter === 'bsc') {
-				return tx.network === selectedFilter;
-			}
-			if (selectedFilter === 'send' || selectedFilter === 'receive') {
-				return tx.type === selectedFilter;
-			}
+			// Filter by display type
+			if (typeFilter !== 'all' && tx.displayType !== typeFilter) return false;
+			// Filter by network
+			if (networkFilter !== 'all' && tx.network !== networkFilter) return false;
 			return true;
 		})
 	);
 
-	// Derived filter counts for performance
-	let filterCounts = $derived({
-		all: $transactions.length,
-		rsk: $transactions.filter((tx) => tx.network === 'rsk' && tx.type !== 'swap').length,
-		bsc: $transactions.filter((tx) => tx.network === 'bsc' && tx.type !== 'swap').length,
-		send: $transactions.filter((tx) => tx.type === 'send').length,
-		receive: $transactions.filter((tx) => tx.type === 'receive').length
-	});
+	// Network filter options
+	const networkFilterOptions = [
+		{
+			id: 'all' as const,
+			label: $t('wallet.all_networks'),
+			icon: IconCheckAll,
+			isImage: false
+		},
+		{
+			id: 'rsk' as const,
+			label: $t('wallet.transaction.network.rootstock_bitcoin'),
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+			isImage: true
+		},
+		{
+			id: 'lightning' as const,
+			label: $t('wallet.transaction.network.lightning_bitcoin'),
+			icon: '/images/chains/lightning.svg',
+			isImage: true
+		},
+		{
+			id: 'bsc' as const,
+			label: $t('wallet.transaction.network.bsc'),
+			icon: '/images/chains/Binance-logo.svg',
+			isImage: true
+		}
+	];
+
+	// Type filter options
+	const typeFilterOptions = [
+		{
+			id: 'all' as const,
+			label: $t('wallet.all'),
+			icon: IconCheckAll
+		},
+		{
+			id: 'send' as const,
+			label: $t('wallet.sent'),
+			icon: IconArrowUpBold
+		},
+		{
+			id: 'receive' as const,
+			label: $t('wallet.received'),
+			icon: IconArrowDownBold
+		},
+		{
+			id: 'contract-function' as const,
+			label: $t('wallet.transaction.type.contracts'),
+			icon: IconFileDocumentOutline
+		}
+	];
+
+	const transactionUI = {
+		success: {
+			border: 'border-success',
+			background: 'bg-success/20',
+			text: 'text-success'
+		},
+		warning: {
+			border: 'border-warning',
+			background: 'bg-warning/20',
+			text: 'text-warning'
+		},
+		neutral: {
+			border: 'border-neutral',
+			background: 'bg-neutral/20',
+			text: 'text-neutral'
+		},
+		error: {
+			border: 'border-error',
+			background: 'bg-error/20',
+			text: 'text-error'
+		},
+		info: {
+			border: 'border-info',
+			background: 'bg-info/20',
+			text: 'text-info'
+		}
+	};
+
+	function selectTypeFilter(typeId: 'all' | 'send' | 'receive' | 'contract-function') {
+		triggerHaptic(ImpactStyle.Light);
+		typeFilter = typeId;
+		currentPage = 0;
+	}
+
+	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'bsc' | 'lightning') {
+		triggerHaptic(ImpactStyle.Light);
+		networkFilter = networkId;
+		isNetworkDropdownOpen = false;
+		currentPage = 0;
+	}
+
+	function toggleNetworkDropdown() {
+		triggerHaptic(ImpactStyle.Light);
+		isNetworkDropdownOpen = !isNetworkDropdownOpen;
+	}
 
 	// Paginated transactions
 	let paginatedTransactions = $derived(
@@ -48,16 +141,18 @@
 
 	let totalPages = $derived(Math.ceil(filteredTransactions.length / itemsPerPage));
 
-	onMount(() => {
-		loadTransactions();
+	onMount(async () => {
+		await loadTransactions();
 	});
 
+	/**
+	 * Load transactions
+	 */
 	async function loadTransactions() {
 		isLoading = true;
 		error = null;
 
 		try {
-			// Load transactions using the combined wallet manager
 			await walletManager.loadTransactions();
 		} catch (err) {
 			console.error('Failed to load transactions:', err);
@@ -67,121 +162,20 @@
 		}
 	}
 
-	async function refreshTransactions() {
-		await loadTransactions();
-	}
-
-	function getStatusLabel(status: string): string {
-		if (!status) return 'Unknown'; // Fallback for undefined/null
-		switch (status) {
-			case 'confirmed':
-				return $t('wallet.transaction.status.confirmed');
-			case 'pending':
-				return $t('wallet.transaction.status.pending');
-			case 'failed':
-				return $t('wallet.transaction.status.failed');
-			default:
-				return status;
-		}
-	}
-
-	function getStatusIcon(status: string) {
-		if (!status) return IconClockOutline; // Fallback for undefined/null
-		switch (status) {
-			case 'confirmed':
-				return IconCheckCircle;
-			case 'pending':
-				return IconClockOutline;
-			case 'failed':
-				return IconCloseCircle;
-			default:
-				// Default to pending icon for unknown statuses
-				return IconClockOutline;
-		}
-	}
-
-	function getStatusIconColor(status: string): string {
-		if (!status) return 'text-base-content/60'; // Fallback for undefined/null
-		switch (status) {
-			case 'confirmed':
-				return 'text-success';
-			case 'pending':
-				return 'text-warning';
-			case 'failed':
-				return 'text-error';
-			default:
-				// Default to muted color for unknown statuses
-				return 'text-base-content/60';
-		}
-	}
-
-	function getNetworkIcon(network: string): string {
-		switch (network) {
-			case 'rsk':
-				return '/images/chains/Bitcoin-Rootstock-logo.webp';
-			case 'bsc':
-				return '/images/chains/Binance-logo.svg';
-			default:
-				return '/images/chains/Bitcoin.svg';
-		}
-	}
-
-	function getNetworkDisplayName(network: string): string {
-		switch (network) {
-			case 'rsk':
-				return $t('wallet.transaction.network.rootstock_bitcoin');
-			case 'bsc':
-				return $t('wallet.transaction.network.binance_smart_chain');
-			default:
-				return $t('wallet.transaction.network.unknown_network');
-		}
-	}
-
-	function getTypeIcon(type: string) {
-		if (!type) return IconArrowUpBold; // Fallback for undefined/null
-		if (type === 'receive') return IconArrowDownBold;
-		if (type === 'contract') return IconFileDocumentOutline;
-		// Default to send icon for 'send' and any other types
-		return IconArrowUpBold;
-	}
-
-	function formatFee(fee: number, asset: string): string {
+	function formatFee(feeSats: number | undefined): string {
 		try {
-			// Fee is already in native units (rBTC, BNB, etc.) from transactionHistory.ts
-			if (!fee || !isFinite(fee) || isNaN(fee)) return '0';
-			if (!asset) asset = '';
-
-			if (asset === 'rBTC' || asset === 'BTC' || asset === 'L-BTC' || asset.includes('BTC')) {
-				// For Bitcoin-based assets, show in satoshis
-				const sats = Math.floor(fee * 100_000_000);
-				if (sats > 0) {
-					return `${sats.toLocaleString()} ${$t('wallet.sats')}`;
-				}
-				// For very small fees, show in BTC with appropriate decimals
-				return `${fee.toFixed(8)} ${asset}`;
-			} else if (asset === 'BNB' || asset.includes('ETH')) {
-				// For other EVM chains, show in native token (no Gwei conversion)
-				if (fee < 0.00001) {
-					return `${fee.toFixed(10)} ${asset}`;
-				}
-				// For larger fees, show in native token
-				return `${fee.toFixed(8)} ${asset}`;
-			} else {
-				// Fallback for unknown assets
-				if (fee < 0.000001) {
-					return `${fee.toExponential(2)} ${asset}`;
-				}
-				return `${fee.toFixed(8)} ${asset}`;
-			}
+			// Fee is pre-calculated in sats in wallet store
+			if (!feeSats || !isFinite(feeSats) || isNaN(feeSats)) return '0';
+			return `${feeSats.toLocaleString()} ${$t('wallet.sats')}`;
 		} catch (error) {
 			console.error('Error formatting fee:', error);
 			return '0';
 		}
 	}
 
-	function formatDate(timestamp: number): string {
+	function formatDate(timestamp: string): string {
 		try {
-			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
+			if (!timestamp) return '';
 			const date = new Date(timestamp);
 			return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 		} catch (error) {
@@ -190,9 +184,9 @@
 		}
 	}
 
-	function formatTime(timestamp: number): string {
+	function formatTime(timestamp: string): string {
 		try {
-			if (!timestamp || isNaN(timestamp) || !isFinite(timestamp)) return '';
+			if (!timestamp) return '';
 			const date = new Date(timestamp);
 			return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 		} catch (error) {
@@ -201,156 +195,181 @@
 		}
 	}
 
-	function formatAddress(address?: string): string {
-		if (!address) return '';
-		return `${address.slice(0, 6)}...${address.slice(-4)}`;
-	}
-
-	function openExplorer(txHash?: string, network?: string) {
-		if (!txHash) return;
-
-		let explorerUrl = '';
-		if (network === 'rsk') {
-			// Use the correct RSK explorer based on network (default to testnet for now)
-			const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-			if (rskNetwork === 'mainnet') {
-				explorerUrl = `https://rootstock.blockscout.com/tx/${txHash}`;
-			} else {
-				explorerUrl = `https://rootstock-testnet.blockscout.com/tx/${txHash}`;
-			}
-		} else if (network === 'bsc') {
-			// Use BSC explorer based on network
-			const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
-			if (bscNetwork === 'mainnet') {
-				explorerUrl = `https://bscscan.com/tx/${txHash}`;
-			} else {
-				explorerUrl = `https://testnet.bscscan.com/tx/${txHash}`;
-			}
-		}
-
-		if (explorerUrl) {
-			window.open(explorerUrl, '_blank');
-		}
-	}
-
 	function nextPage() {
+		triggerHaptic(ImpactStyle.Light);
 		if (currentPage < totalPages - 1) {
 			currentPage++;
 		}
 	}
 
 	function prevPage() {
+		triggerHaptic(ImpactStyle.Light);
 		if (currentPage > 0) {
 			currentPage--;
 		}
 	}
 
 	function goToPage(page: number) {
+		triggerHaptic(ImpactStyle.Light);
 		if (page >= 0 && page < totalPages) {
 			currentPage = page;
 		}
 	}
+
+	/**
+	 * Handle transaction click
+	 * Opens swap QR modal for pending swaps (via callback), otherwise opens explorer URL
+	 */
+	async function handleTransactionClick(tx: any) {
+		triggerHaptic(ImpactStyle.Light);
+		// Check if this is a swap with a viewQR action
+		if (tx.swap && tx.swap.actions) {
+			const hasViewQRAction = tx.swap.actions.some((action: any) => action.type === 'viewQR');
+
+			if (hasViewQRAction && tx.swap.id) {
+				// Call parent callback to open the modal
+				onOpenPaymentRequest(tx.swap.id);
+				return;
+			}
+		}
+
+		// Default behavior: open explorer URL
+		if (tx.explorerUrl) {
+			window.open(tx.explorerUrl, '_blank');
+		}
+	}
+
+	/**
+	 * Handle viewQR action button click
+	 */
+	async function handleViewQRAction(tx: any, event: Event) {
+		event.stopPropagation(); // Prevent transaction click handler
+		await handleTransactionClick(tx);
+	}
 </script>
 
-<div class="space-y-6">
-	<div class="flex flex-wrap items-center gap-4">
-		<h3 class="text-lg font-semibold">{$t('wallet.transaction_history')}</h3>
-		<button
-			class="btn btn-outline btn-sm self-start sm:self-auto"
-			onclick={refreshTransactions}
-			disabled={isLoading}
-		>
-			{#if isLoading}
-				<span class="loading loading-spinner loading-xs"></span>
-			{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
+<div class="flex flex-col flex-1 min-h-0 -m-3 sm:-m-4 lg:-m-6">
+	<!-- Filters container matching contracts screen design -->
+	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-2 shadow-sm shrink-0 mx-3 mt-3 sm:mx-4 sm:mt-4 lg:mx-6 lg:mt-6">
+		<!-- Type Filter Buttons -->
+		<div class="mb-4">
+			<!-- Mobile: 2x2 Grid -->
+			<div class="mb-3 grid grid-cols-2 gap-2 sm:hidden">
+				{#each typeFilterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn {typeFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'} btn-sm flex items-center justify-center gap-2"
+						onclick={() => selectTypeFilter(option.id)}
+						aria-label={option.label}
+					>
+						{#if typeFilter === option.id}
+							<IconCheck class="h-4 w-4" />
+						{:else}
+							<IconComponent class="h-4 w-4" />
+						{/if}
+						<span>{option.label}</span>
+					</button>
+				{/each}
+			</div>
+			<!-- Desktop: Horizontal Row -->
+			<div class="hidden sm:flex sm:items-center sm:gap-2">
+				{#each typeFilterOptions as option}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn {typeFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'} btn-sm flex items-center gap-2"
+						onclick={() => selectTypeFilter(option.id)}
+						aria-label={option.label}
+					>
+						{#if typeFilter === option.id}
+							<IconCheck class="h-4 w-4" />
+						{:else}
+							<IconComponent class="h-4 w-4" />
+						{/if}
+						<span>{option.label}</span>
+					</button>
+				{/each}
+			</div>
+			</div>
+
+		<!-- Network Filter Dropdown (All Screen Sizes) -->
+			<div class="network-dropdown-container relative">
+			{#each [networkFilterOptions.find((opt) => opt.id === networkFilter)] as selectedOption}
+				<button
+					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
+					onclick={toggleNetworkDropdown}
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+					<div class="flex items-center gap-2">
+							{#if selectedOption?.isImage}
+								<img
+									src={selectedOption.icon as string}
+									alt={selectedOption.label}
+									class="h-5 w-5"
+								/>
+							{:else if selectedOption && typeof selectedOption.icon !== 'string'}
+								{@const IconComponent = selectedOption.icon}
+								<IconComponent class="h-5 w-5" />
+							{/if}
+							<span class="font-medium">
+								{selectedOption?.label}
+							</span>
+					</div>
+					<IconChevronDown
+						class="h-5 w-5 transition-transform duration-200 {isNetworkDropdownOpen
+							? 'rotate-180'
+							: ''}"
 					/>
-				</svg>
-			{/if}
-			{$t('wallet.refresh')}
-		</button>
-	</div>
+				</button>
+			{/each}
 
-	<!-- Filter Tabs -->
-	<div class="overflow-x-auto">
-		<div class="tabs tabs-boxed min-w-max">
-			<button
-				class="tab {selectedFilter === 'all' ? 'tab-active' : ''} whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'all';
-					currentPage = 0;
-				}}
-			>
-				{$t('wallet.all')} ({filterCounts.all})
-			</button>
-			<button
-				class="tab {selectedFilter === 'rsk' ? 'tab-active' : ''} whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'rsk';
-					currentPage = 0;
-				}}
-			>
-				<img
-					src="/images/chains/Bitcoin-Rootstock-logo.webp"
-					alt="Rootstock Bitcoin"
-					class="mr-1 inline h-4 w-4"
-				/>
-				{$t('wallet.transaction.network.rootstock_bitcoin')} ({filterCounts.rsk})
-			</button>
-			<button
-				class="tab {selectedFilter === 'bsc' ? 'tab-active' : ''} whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'bsc';
-					currentPage = 0;
-				}}
-			>
-				<img
-					src="/images/chains/Binance-logo.svg"
-					alt="Binance Smart Chain"
-					class="mr-1 inline h-4 w-4"
-				/>
-				{$t('wallet.transaction.network.bsc')} ({filterCounts.bsc})
-			</button>
-			<button
-				class="tab {selectedFilter === 'send'
-					? 'tab-active'
-					: ''} flex items-center gap-1 whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'send';
-					currentPage = 0;
-				}}
-			>
-				<IconArrowUpBold class="h-4 w-4" />
-				{$t('wallet.sent')} ({filterCounts.send})
-			</button>
-			<button
-				class="tab {selectedFilter === 'receive'
-					? 'tab-active'
-					: ''} flex items-center gap-1 whitespace-nowrap"
-				onclick={() => {
-					selectedFilter = 'receive';
-					currentPage = 0;
-				}}
-			>
-				<IconArrowDownBold class="h-4 w-4" />
-				{$t('wallet.received')} ({filterCounts.receive})
-			</button>
+				{#if isNetworkDropdownOpen}
+					<div
+						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+					>
+						{#each networkFilterOptions as option}
+							<button
+								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
+								option.id
+									? 'bg-primary/10 text-primary'
+									: 'text-base-content'}"
+								onclick={() => selectNetworkFilter(option.id)}
+							>
+								{#if option.isImage}
+									<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
+								{:else if typeof option.icon !== 'string'}
+									{@const IconComponent = option.icon}
+									<IconComponent
+										class="h-5 w-5 {networkFilter === option.id
+											? 'text-primary'
+											: 'text-base-content/60'}"
+									/>
+								{/if}
+								<span class="font-medium">{option.label}</span>
+								{#if networkFilter === option.id}
+									<IconCheck class="text-primary ml-auto h-5 w-5" />
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</div>
-	</div>
 
+	<!-- Total transactions count (above scrollable area) -->
+	{#if !isLoading && filteredTransactions.length > 0}
+		<div class="text-center text-lg p-2 font-bold shrink-0 mx-3 sm:mx-4 lg:mx-6">
+			{filteredTransactions.length} {$t('wallet.total_transactions')}
+		</div>
+						{/if}
+
+	<!-- Scrollable transactions area -->
+	<div class="flex-1 overflow-y-auto min-h-0 mx-3 sm:mx-4 lg:mx-6">
+		<div class="space-y-3">
 	{#if error}
-		<div class="alert alert-error">
+		<div class="alert alert-error alert-outline">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -369,21 +388,37 @@
 	{/if}
 
 	{#if isLoading}
-		<div class="space-y-4">
-			{#each Array(5) as _}
-				<div class="card bg-base-200 animate-pulse">
-					<div class="card-body">
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-3">
-								<div class="bg-base-300 h-8 w-8 rounded-full"></div>
-								<div class="space-y-2">
-									<div class="bg-base-300 h-4 w-32 rounded"></div>
-									<div class="bg-base-300 h-3 w-24 rounded"></div>
+		<div class="space-y-3">
+			{#each Array(10) as _}
+				<div class="card bg-base-200 animate-pulse rounded-lg">
+					<div class="card-body p-4">
+						<div class="flex flex-col gap-1">
+							<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
+								<div class="flex items-center gap-3">
+									<!-- Type Icon -->
+									<div class="bg-base-300 h-10 w-10 rounded-full"></div>
+									<div class="flex items-center gap-2">
+										<div class="bg-base-300 h-5 w-24 rounded"></div>
+										<div class="bg-base-300 h-5 w-5 rounded-full"></div>
+									</div>
+								</div>
+								<div class="flex flex-col items-end">
+									<div class="bg-base-300 h-5 w-20 rounded"></div>
+									<div class="bg-base-300 mt-1 h-3 w-16 rounded"></div>
 								</div>
 							</div>
-							<div class="space-y-2 text-right">
-								<div class="bg-base-300 ml-auto h-4 w-20 rounded"></div>
-								<div class="bg-base-300 ml-auto h-3 w-16 rounded"></div>
+							<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
+								<div class="flex items-center gap-3">
+									<!-- Network Icon -->
+									<div class="bg-base-300 h-10 w-10 rounded-full"></div>
+									<div class="space-y-1">
+										<div class="bg-base-300 h-4 w-24 rounded"></div>
+										<div class="bg-base-300 h-3 w-20 rounded"></div>
+									</div>
+								</div>
+								<div class="bg-base-300 h-4 w-32 rounded"></div>
 							</div>
 						</div>
 					</div>
@@ -408,7 +443,7 @@
 			</svg>
 			<h3 class="mb-2 text-lg font-semibold">{$t('wallet.no_transactions')}</h3>
 			<p class="text-base-content/70">
-				{selectedFilter === 'all'
+				{typeFilter === 'all' && networkFilter === 'all'
 					? $t('wallet.no_transactions_yet')
 					: $t('wallet.no_transactions_filter')}
 			</p>
@@ -417,208 +452,113 @@
 		<!-- Transaction List -->
 		<div class="space-y-3">
 			{#each paginatedTransactions as tx}
-				{@const TypeIcon = getTypeIcon(tx.type)}
-				{@const StatusIcon = getStatusIcon(tx.status || 'pending')}
-				<div class="card bg-base-200 hover:bg-base-300 transition-colors">
+				{@const valueSats = Number(tx.value)}
+				{@const transactionClasses = transactionUI[tx.borderColor]}
+				<div
+					role="button"
+					tabindex="0"
+					onclick={() => handleTransactionClick(tx)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							handleTransactionClick(tx);
+						}
+					}}
+					class="card bg-base-200 hover:bg-base-300 cursor-pointer rounded-lg border-2 transition-colors {transactionClasses.border}"
+				>
 					<div class="card-body p-4">
-						<!-- Desktop Layout -->
-						<div class="hidden items-center justify-between gap-2 sm:gap-4 md:flex">
-							<div class="flex items-center gap-3">
-								<!-- Network and Type Icons -->
-								<div class="flex items-center gap-2">
-									<div
-										class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
-										'receive'
-											? 'bg-success/20 text-success'
-											: tx.type === 'contract'
-												? 'bg-primary/20 text-primary'
-												: 'bg-warning/20 text-warning'}"
-									>
-										<TypeIcon class="h-5 w-5" />
+						<div class="flex flex-col gap-1">
+							<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
+								<div class="flex items-center gap-3">
+									<!-- Type Icon with Overlay -->
+									<div class="relative inline-block">
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-full {transactionClasses.background} {transactionClasses.text}"
+										>
+											<tx.iconConfig.base class="h-6 w-6" />
+										</div>
+										{#if tx.iconConfig.overlay}
+											<div class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm">
+												<tx.iconConfig.overlay
+													class="h-4 w-4 {tx.borderColor === 'success'
+														? 'text-success'
+														: 'text-warning'}"
+												/>
+											</div>
+										{/if}
 									</div>
+									<div class="flex items-center gap-2">
+										<span class="font-semibold">
+											{$t(tx.title)}
+										</span>
+										<div
+											class="flex h-5 w-5 items-center justify-center {tx.status.color}"
+											title={tx.status.label}
+										>
+											<tx.status.icon class="h-5 w-5" />
+										</div>
+									</div>
+								</div>
+								<div class="flex flex-col items-end">
+									<div class="{transactionClasses.text} font-semibold">
+										{#if tx.displayType === 'receive' || tx.displayType === 'swap-claim'}
+											{#if valueSats > 0}+{/if}
+										{:else if tx.displayType === 'send'}
+											{#if valueSats > 0}-{/if}
+										{/if}
+										{valueSats.toLocaleString()}
+										{$t('wallet.sats')}
+									</div>
+									<div class="text-xs opacity-70">
+										{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
+									</div>
+								</div>
+							</div>
+
+							<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+							<div class="flex items-center justify-between gap-2 sm:gap-4">
+								<div class="flex items-center gap-3">
+									<!-- Network Icon -->
 									<div
 										class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
 									>
-										{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-											<img
-												src={getNetworkIcon(tx.network || 'rsk')}
-												alt={getNetworkDisplayName(tx.network || 'rsk')}
-												class="h-10 w-10"
-											/>
-										{:else}
-											<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
-										{/if}
+										<img src={tx.networkIcon} alt={tx.networkDisplayName} class="h-10 w-10" />
 									</div>
-								</div>
-
-								<div class="flex-1">
-									<div class="mb-1 flex items-center gap-2">
-										<span class="font-semibold capitalize">
-											{#if tx.type === 'send'}
-												{$t('wallet.transaction.type.send')}
-											{:else if tx.type === 'receive'}
-												{$t('wallet.transaction.type.receive')}
-											{:else if tx.type === 'contract'}
-												{$t('wallet.transaction.type.contract')}
-											{:else}
-												{tx.type}
-											{/if}
-										</span>
-										<div
-											class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
-												tx.status || 'pending'
-											)}"
-											title={getStatusLabel(tx.status || 'pending')}
-										>
-											<StatusIcon
-												class="h-5 w-5"
-												aria-label={getStatusLabel(tx.status || 'pending')}
-											/>
-										</div>
-									</div>
-
 									<div class="text-sm opacity-70">
 										<div>{formatDate(tx.timestamp)}</div>
 										<div>{formatTime(tx.timestamp)}</div>
 									</div>
 								</div>
-							</div>
-
-							<div class="flex flex-col items-end gap-1.5 text-right">
-								<div
-									class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
-								>
-									{tx.type === 'receive' ? '+' : '-'}
-									{weiToSatoshi(BigInt(tx.value)).toLocaleString() + ' ' + $t('wallet.sats')}
-								</div>
-								{#if tx.fee}
-									<div class="text-xs opacity-70">
-										{$t('wallet.network_fee')}: {formatFee(tx.fee, tx.asset || '')}
+								<div class="text-right">
+									<div class="text-sm font-semibold md:text-base">
+										{$t('wallet.balance_after')}: {Math.floor(tx.balanceAfter)?.toLocaleString() ||
+											'0'}
+										{$t('wallet.sats')}
 									</div>
-								{/if}
-								{#if tx.txHash}
-									<button
-										class="btn btn-ghost btn-xs"
-										onclick={() => openExplorer(tx.txHash, tx.network)}
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-3 w-3"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-											/>
-										</svg>
-										{$t('wallet.view_explorer')}
-									</button>
-								{/if}
-							</div>
-						</div>
-
-						<!-- Mobile Layout -->
-						<div class="md:hidden">
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<div class="flex items-center gap-2">
-										<div
-											class="flex h-10 w-10 items-center justify-center rounded-full {tx.type ===
-											'receive'
-												? 'bg-success/20 text-success'
-												: tx.type === 'contract'
-													? 'bg-primary/20 text-primary'
-													: 'bg-warning/20 text-warning'}"
-										>
-											<TypeIcon class="h-5 w-5" />
+									<!-- Swap Action Buttons - Thin, directly below balance -->
+									{#if tx.swap?.actions && tx.swap.actions.length > 0}
+										<div class="flex flex-wrap gap-1.5 justify-end">
+											{#each tx.swap.actions as action}
+												<button
+													class="btn btn-xs"
+													class:btn-warning={action.type === 'refund'}
+													class:btn-primary={action.type === 'renegotiate' ||
+														action.type === 'viewQR'}
+													class:btn-success={action.type === 'claim'}
+													onclick={(e) => {
+														triggerHaptic(ImpactStyle.Light);
+														if (action.type === 'viewQR') {
+															handleViewQRAction(tx, e);
+														} else {
+															action.handler();
+														}
+													}}
+												>
+													{$t(action.label)}
+												</button>
+											{/each}
 										</div>
-										<div
-											class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
-										>
-											{#if getNetworkIcon(tx.network || 'rsk').startsWith('/')}
-												<img
-													src={getNetworkIcon(tx.network || 'rsk')}
-													alt={getNetworkDisplayName(tx.network || 'rsk')}
-													class="h-10 w-10"
-												/>
-											{:else}
-												<span class="text-xl">{getNetworkIcon(tx.network || 'rsk')}</span>
-											{/if}
-										</div>
-									</div>
-									<div class="flex-1">
-										<div class="mb-1 flex items-center gap-2">
-											<span class="font-semibold">
-												{#if tx.type === 'send'}
-													{$t('wallet.transaction.type.send')}
-												{:else if tx.type === 'receive'}
-													{$t('wallet.transaction.type.receive')}
-												{:else if tx.type === 'contract'}
-													{$t('wallet.transaction.type.contract')}
-												{:else}
-													{tx.type}
-												{/if}
-											</span>
-											<div
-												class="flex h-5 w-5 items-center justify-center {getStatusIconColor(
-													tx.status || 'pending'
-												)}"
-												title={getStatusLabel(tx.status || 'pending')}
-											>
-												<StatusIcon
-													class="h-5 w-5"
-													aria-label={getStatusLabel(tx.status || 'pending')}
-												/>
-											</div>
-										</div>
-										<div class="text-sm opacity-70">
-											<div>{formatDate(tx.timestamp)}</div>
-											<div>{formatTime(tx.timestamp)}</div>
-										</div>
-									</div>
-								</div>
-
-								<div class="flex flex-col items-end gap-1.5 text-right">
-									<div
-										class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}"
-									>
-										{tx.type === 'receive'
-											? '+'
-											: '-' +
-												weiToSatoshi(BigInt(tx.value)).toLocaleString() +
-												' ' +
-												$t('wallet.sats')}
-									</div>
-									{#if tx.fee}
-										<div class="text-xs opacity-70">
-											{$t('wallet.network_fee')}: {formatFee(tx.fee, tx.asset || '')}
-										</div>
-									{/if}
-									{#if tx.txHash}
-										<button
-											class="btn btn-ghost btn-xs"
-											onclick={() => openExplorer(tx.txHash, tx.network)}
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-												/>
-											</svg>
-											{$t('wallet.view_explorer')}
-										</button>
 									{/if}
 								</div>
 							</div>
@@ -627,9 +567,14 @@
 				</div>
 			{/each}
 		</div>
+		{/if}
+		</div>
+		</div>
 
-		<!-- Pagination -->
-		{#if totalPages > 1}
+	<!-- Bottom section with pagination and buttons -->
+	<div class="shrink-0 space-y-4 border-t border-base-300 pt-4 lg:pt-6 mt-auto mx-3 mb-3 sm:mx-4 sm:mb-4 lg:mx-6 lg:mb-6">
+		<!-- Pagination controls -->
+		{#if totalPages > 1 && !isLoading && paginatedTransactions.length > 0}
 			<div class="flex justify-center">
 				<div class="join">
 					<button class="join-item btn btn-sm" onclick={prevPage} disabled={currentPage === 0}>
@@ -657,15 +602,53 @@
 					</button>
 				</div>
 			</div>
-
-			<div class="text-center text-sm opacity-70">
-				{$t('wallet.showing_page')}
-				{currentPage + 1}
-				{$t('wallet.of')}
-				{totalPages}
-				({filteredTransactions.length}
-				{$t('wallet.total_transactions')})
-			</div>
 		{/if}
+
+		<!-- Close and Refresh buttons -->
+		<div class="flex gap-2">
+			{#if onClose}
+				<button
+					class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px]"
+					style="-webkit-tap-highlight-color: transparent;"
+					onclick={() => {
+						triggerHaptic(ImpactStyle.Light);
+						onClose();
+					}}
+					aria-label={$t('common.close')}
+				>
+					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+					<span class="text-sm sm:text-base">{$t('common.close')}</span>
+				</button>
+			{/if}
+			<button
+				class="btn btn-primary flex-1 min-h-[44px] flex items-center justify-center gap-2"
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					loadTransactions();
+				}}
+				disabled={isLoading}
+				aria-label={$t('wallet.refresh')}
+			>
+				{#if isLoading}
+					<span class="loading loading-spinner loading-sm"></span>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
+					</svg>
 	{/if}
+				<span>{$t('wallet.refresh')}</span>
+			</button>
+		</div>
+	</div>
 </div>

@@ -82,8 +82,12 @@
 		userAddress: string
 	): Promise<{ permissions: ContractPermissions; isClient: boolean; isFreelancer: boolean }> {
 		const permStartTime = performance.now();
-		const isClient = contract.client.toLowerCase() === userAddress.toLowerCase();
-		const isFreelancer = contract.freelancer.toLowerCase() === userAddress.toLowerCase();
+		// Defensive check for undefined addresses
+		const clientAddr = contract.client?.toLowerCase() || '';
+		const freelancerAddr = contract.freelancer?.toLowerCase() || '';
+		const userAddr = userAddress?.toLowerCase() || '';
+		const isClient = clientAddr !== '' && clientAddr === userAddr;
+		const isFreelancer = freelancerAddr !== '' && freelancerAddr === userAddr;
 
 		// Load dispute proposal if contract is in dispute
 		let disputeProposal = null;

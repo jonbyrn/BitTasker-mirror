@@ -1,6 +1,6 @@
 ---
 description: Svelte 5 runes, components, events, snippets, and SvelteKit 2 migration patterns
-globs: ["**/*.svelte", "src/routes/**/*", "src/lib/components/**/*"]
+globs: ["src/**/*.svelte", "src/routes/**/*", "src/lib/components/**/*"]
 alwaysApply: true
 ---
 

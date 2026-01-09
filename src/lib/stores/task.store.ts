@@ -12,6 +12,8 @@ import { appStore } from './app.store';
 const CREATE_STORAGE_KEY = StorageKeys.DRAFT_TASK;
 const EDIT_STORAGE_KEY = StorageKeys.DRAFT_TASK_EDIT;
 
+export const TASKS_PER_PAGE = 10;
+
 export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET, TaskStepEnum.REVIEW]);
 
 const getInitialState = () => ({
@@ -288,14 +290,16 @@ export const tasksStore = (() => {
 		loading: boolean,
 		error: string | null,
 		currentPage: number,
-		hasMore: boolean
+		hasMore: boolean,
+		searchParamsKey: string
 	}>({
 		pool,
 		items: [],
 		loading: false,
 		currentPage: 1,
 		hasMore: true,
-		error: null
+		error: null,
+		searchParamsKey: ''
 	});
 
 	return {

@@ -14,7 +14,7 @@
 	let { onClose }: Props = $props();
 
 	let isVisible = $state(false);
-	let showHelpModal = $state(false);
+	let isHelpModalOpen = $state(false);
 
 	onMount(async () => {
 		const hasAcknowledged = await Preferences.get({
@@ -43,12 +43,8 @@
 		goto('/feedback');
 	}
 
-	function handleLearnMoreClick() {
-		showHelpModal = true;
-	}
-
-	function handleHelpModalClose() {
-		showHelpModal = false;
+	function showHelpModal() {
+		isHelpModalOpen = !isHelpModalOpen;
 	}
 </script>
 
@@ -91,11 +87,40 @@
 						{$t('common.components.warning_popup.message')}
 						<button
 							class="text-primary hover:text-primary-focus cursor-pointer underline"
-							onclick={handleLearnMoreClick}
+							onclick={showHelpModal}
 						>
 							{$t('common.components.warning_popup.learn_more')}
 						</button>
 					</p>
+				</div>
+
+				<!-- Zapstore Announcement -->
+				<div class="bg-primary/10 rounded-lg p-4">
+					<div class="mb-3 flex items-center gap-2">
+						<svg class="text-primary h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 10V3L4 14h7v7l9-11h-7z"
+							/>
+						</svg>
+						<h5 class="text-primary text-sm font-semibold">
+							{$t('common.components.warning_popup.zapstore_title')}
+						</h5>
+					</div>
+					<p class="text-base-content/70 mb-3 text-sm">
+						{$t('common.components.warning_popup.zapstore_message')}
+					</p>
+					<a
+						href="zapstore:bittasker"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="btn btn-primary btn-sm"
+						aria-label={$t('common.components.warning_popup.zapstore_aria')}
+					>
+						<img src="/zapstore-badge.svg" alt={$t('common.components.warning_popup.zapstore_button')} class="h-8" />
+					</a>
 				</div>
 
 				<!-- Feedback Information -->
@@ -163,6 +188,6 @@
 {/if}
 
 <!-- Help Modal -->
-{#if showHelpModal}
-	<HelpModal onClose={handleHelpModalClose} showButton={false} />
+{#if isHelpModalOpen}
+	<HelpModal onClose={showHelpModal} showButton={false} />
 {/if}

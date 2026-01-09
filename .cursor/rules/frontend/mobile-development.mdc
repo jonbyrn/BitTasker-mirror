@@ -1,6 +1,6 @@
 ---
 description: Capacitor mobile development patterns, plugin usage, and cross-platform best practices
-globs: ["**/capacitor/**/*", "**/mobile/**/*", "**/ios/**/*", "**/android/**/*"]
+globs: ["src/**/capacitor/**/*", "src/**/mobile/**/*", "ios/**/*", "android/**/*"]
 alwaysApply: false
 ---
 
