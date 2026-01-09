@@ -22,7 +22,9 @@
             "start_location": "Start Location",
             "destination_location": "Destination Location",
             "task_accepted_congratulations": "Congratulations! Your task has been accepted.",
-            "location_details_below": "Here are the location details:"
+            "location_details_below": "Here are the location details:",
+            "task_completed_message": "Task Completed",
+            "task_completed_review_message": "The task has been marked as completed. Please review the work and confirm if it's ready."
         },
         "back": "Back",
         "back_2": "Back",
@@ -182,7 +184,11 @@
                 "feedback_link": "let us know!",
                 "feedback_suffix": "Thanks for trying BitTasker!",
                 "acknowledge_button": "I understand",
-                "learn_more": "Learn more"
+                "learn_more": "Learn more",
+                "zapstore_title": "Now Available on Zapstore!",
+                "zapstore_message": "Download BitTasker directly from Zapstore for automatic updates and a seamless experience. Zapstore is a decentralized app store built on Nostr.",
+                "zapstore_button": "Get it on Zapstore",
+                "zapstore_aria": "Download BitTasker on Zapstore"
             },
             "wallet_help_modal": {
                 "title": "Your Bitcoin Wallet",
@@ -1230,14 +1236,14 @@
         }
     },
     "airdatepicker": {
-        "select_date": "Select a date",
-        "select_date_range": "Select date range",
-        "select_datetime": "Select date and time",
-        "select_time": "Select time",
-        "select_start_date": "Select start date",
-        "select_end_date": "Select end date",
-        "select_start_datetime": "Select start date and time",
-        "select_end_datetime": "Select end date and time"
+        "select_date": "Date",
+        "select_date_range": "Date range",
+        "select_datetime": "Date and time", 
+        "select_time": "Time",
+        "select_start_date": "Start date",
+        "select_end_date": "End date",
+        "select_start_datetime": "Start date and time",
+        "select_end_datetime": "End date and time"
     },
     "layout": {
         "github_aria": "GitHub"
