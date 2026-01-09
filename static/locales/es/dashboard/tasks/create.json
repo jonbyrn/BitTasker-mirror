@@ -49,6 +49,7 @@
       "sats_placeholder": "Ingresa el monto en sats",
       "btc_price": "Precio actual de BTC:",
       "estimated_hours": "Horas estimadas",
+      "hours": "horas",
       "hours_placeholder": "Horas estimadas necesarias",
       "description": "Detalles de la tarea",
       "description_placeholder": "Describe tu tarea en detalle",

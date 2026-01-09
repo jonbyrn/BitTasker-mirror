@@ -136,14 +136,14 @@
                 "placeholder": "Add additional information about your experience and qualifications"
             },
             "airdatepicker": {
-                "select_date": "Select a date",
-                "select_date_range": "Select date range",
-                "select_datetime": "Select date and time",
-                "select_time": "Select time",
-                "select_start_date": "Select start date",
-                "select_end_date": "Select end date",
-                "select_start_datetime": "Select start date and time",
-                "select_end_datetime": "Select end date and time"
+                    "select_date": "Date",
+                "select_date_range": "Date range",
+                "select_datetime": "Date and time",
+                "select_time": "Time",
+                "select_start_date": "Start date",
+                "select_end_date": "End date",
+                "select_start_datetime": "Start date and time",
+                "select_end_datetime": "End date and time"
             },
             "datetime_range": "Scheduled Period",
             "start_datetime": "Start Date & Time",
