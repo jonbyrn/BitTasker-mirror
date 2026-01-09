@@ -184,7 +184,11 @@
         "feedback_link": "háganoslo saber!",
         "feedback_suffix": "Gracias por probar BitTasker!",
         "acknowledge_button": "Entiendo",
-        "learn_more": "Aprender más"
+        "learn_more": "Aprender más",
+        "zapstore_title": "¡Ahora Disponible en Zapstore!",
+        "zapstore_message": "Descarga BitTasker directamente desde Zapstore para actualizaciones automáticas y una experiencia perfecta. Zapstore es una tienda de aplicaciones descentralizada construida en Nostr.",
+        "zapstore_button": "Obtener en Zapstore",
+        "zapstore_aria": "Descargar BitTasker en Zapstore"
       },
       "wallet_help_modal": {
         "title": "Tu Wallet de Bitcoin",
