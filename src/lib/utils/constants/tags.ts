@@ -166,6 +166,22 @@ export const TAG_PATTERNS = {
 			tags.push([TAGS.T, taskId]); // Task reference
 		}
 		return tags;
+	},
+
+	/**
+	 * Task completion message tags
+	 * @param taskId - Task ID reference
+	 * @param escrowId - Optional escrow ID reference
+	 */
+	taskCompletion: (taskId: string, escrowId?: string): string[][] => {
+		const tags: string[][] = [
+			[TAGS.M, 'task-completion'], // Message type
+			[TAGS.T, taskId] // Task reference
+		];
+		if (escrowId) {
+			tags.push([TAGS.R, escrowId]); // Escrow reference
+		}
+		return tags;
 	}
 } as const;
 

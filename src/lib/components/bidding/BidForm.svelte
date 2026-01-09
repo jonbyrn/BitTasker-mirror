@@ -571,7 +571,7 @@
 	});
 </script>
 
-<div class="bg-base-100 relative mx-auto rounded-lg">
+<div class="relative mx-auto flex min-h-0 flex-1 flex-col">
 	{#if bidSubmitted}
 		<div
 			class="p-8 text-center"
@@ -606,7 +606,9 @@
 			</div>
 		</div>
 	{:else}
-		<form class="space-y-4" onsubmit={handleBidSubmit}>
+		<form class="flex min-h-0 flex-1 flex-col" onsubmit={handleBidSubmit}>
+			<!-- Scrollable content area -->
+			<div class="flex-1 space-y-6 pb-4">
 			<!-- Payment Type -->
 			<div class="form-control">
 				<label class="label cursor-pointer" for="payment-type-group">
@@ -681,7 +683,7 @@
 					</div>
 					{#if bidFormErrors.amount}
 						<div class="label">
-							<span class="label-text-alt text-error" id="amount-error" aria-live="polite"
+							<span class="label-text-alt text-error wrap-break-words" id="amount-error" aria-live="polite"
 								>{bidFormErrors.amount}</span
 							>
 						</div>
@@ -751,15 +753,17 @@
 					</div>
 					{#if bidFormErrors.datetime}
 						<div class="label">
-							<span class="label-text-alt text-error" id="datetime-error" aria-live="polite"
+							<span class="label-text-alt text-error wrap-break-words" id="datetime-error" aria-live="polite"
 								>{bidFormErrors.datetime}</span
 							>
 						</div>
 					{/if}
 					{#if startDateTime && endDateTime}
-						<span class="label-text-alt text-base-content/60 mt-1 block">
-							{$t('bid_form.form.duration')}: {formatDurationForDisplay}
-						</span>
+						<div class="mt-3 rounded-lg bg-primary/10 px-3 py-2">
+							<span class="text-sm font-semibold text-primary">
+								{$t('bid_form.form.duration')}: {formatDurationForDisplay}
+							</span>
+						</div>
 					{/if}
 				</div>
 			{:else}
@@ -806,7 +810,7 @@
 					</div>
 					{#if bidFormErrors.hourlyRate}
 						<div class="label">
-							<span class="label-text-alt text-error" id="hourly-rate-error" aria-live="polite"
+							<span class="label-text-alt text-error wrap-break-words" id="hourly-rate-error" aria-live="polite"
 								>{bidFormErrors.hourlyRate}</span
 							>
 						</div>
@@ -839,7 +843,7 @@
 					/>
 					{#if bidFormErrors.estimatedHours}
 						<div class="label">
-							<span class="label-text-alt text-error" id="estimated-hours-error" aria-live="polite"
+							<span class="label-text-alt text-error wrap-break-words" id="estimated-hours-error" aria-live="polite"
 								>{bidFormErrors.estimatedHours}</span
 							>
 						</div>
@@ -902,7 +906,7 @@
 				{#if bidFormErrors.description}
 					<div class="label">
 						<span
-							class="label-text-alt text-error whitespace-break-spaces"
+							class="label-text-alt text-error wrap-break-words"
 							id="description-error"
 							aria-live="polite">{bidFormErrors.description}</span
 						>
@@ -940,7 +944,7 @@
 				{#if bidFormErrors.proposedApproach}
 					<div class="label">
 						<span
-							class="label-text-alt text-error whitespace-break-spaces"
+							class="label-text-alt text-error wrap-break-words"
 							id="proposed-approach-error"
 							aria-live="polite">{bidFormErrors.proposedApproach}</span
 						>
@@ -972,32 +976,35 @@
 				{/if}
 				{#if bidFormErrors.coverLetter}
 					<div class="label">
-						<span class="label-text-alt text-error" id="cover-letter-error" aria-live="polite"
+						<span class="label-text-alt text-error wrap-break-words" id="cover-letter-error" aria-live="polite"
 							>{bidFormErrors.coverLetter}</span
 						>
 					</div>
 				{/if}
 			</div>
+			</div>
 
-			<!-- Submit Buttons -->
-			<button
-				id="bid-submit-btn"
-				type="submit"
-				class="btn btn-primary ml-auto block {bidFormErrors.general ? '' : 'mb-20 lg:mb-4'}"
-				disabled={submittingBid}
-			>
-				{#if submittingBid}
-					<span class="loading loading-spinner loading-sm"></span>
-					{$t('bid_form.form.submitting')}
-				{:else}
-					{$t('bid_form.form.submit_bid')}
+			<!-- Sticky footer with submit button -->
+			<div class="sticky bottom-0 z-10 -mx-4 border-t border-base-300 bg-base-100 px-4 pt-4">
+				{#if bidFormErrors.general}
+					<div class="alert alert-error alert-outline mb-4 wrap-break-words">
+						<span class="wrap-break-words">{bidFormErrors.general}</span>
+					</div>
 				{/if}
-			</button>
-			{#if bidFormErrors.general}
-				<div class="alert alert-error alert-outline mb-20 lg:mb-4">
-					<span>{bidFormErrors.general}</span>
-				</div>
-			{/if}
+				<button
+					id="bid-submit-btn"
+					type="submit"
+					class="btn btn-primary ml-auto mb-4 block w-full sm:w-auto"
+					disabled={submittingBid}
+				>
+					{#if submittingBid}
+						<span class="loading loading-spinner loading-sm"></span>
+						{$t('bid_form.form.submitting')}
+					{:else}
+						{$t('bid_form.form.submit_bid')}
+					{/if}
+				</button>
+			</div>
 		</form>
 	{/if}
 </div>

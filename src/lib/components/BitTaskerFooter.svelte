@@ -20,6 +20,24 @@
 			<div class="col-span-2 px-4 md:col-span-3 md:px-6 lg:col-span-1 lg:px-0">
 				<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
 				<p class="mb-4">{$t('footer.company_description')}</p>
+				
+				<!-- Zapstore Badge -->
+				<div class="mb-6">
+					<a
+						href="zapstore:bittasker"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="hover:opacity-80 inline-block transition-opacity"
+						aria-label={$t('footer.zapstore_aria')}
+					>
+						<img 
+							src="/zapstore-badge.svg" 
+							alt="Get it on Zapstore" 
+							class="h-12"
+						/>
+					</a>
+				</div>
+
 				<!-- Social media icons -->
 				<div class="flex flex-col space-y-6 lg:space-y-2">
 					<!-- First row: Primal, Twitter, WhatsApp, Telegram, Facebook, Instagram -->

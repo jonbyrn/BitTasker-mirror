@@ -20,6 +20,7 @@
 		CONTRACT_MODAL_CONFIGS
 	} from '$lib/utils/constants/contract-modals';
 	import { portal } from '$lib/utils/portal';
+	import { sendTaskCompletionMessageToTasker } from '$lib/utils/location/sendLocation';
 
 	const {
 		contract,
@@ -202,6 +203,24 @@
 				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
+
+			// Send task completion message to tasker (client)
+			// This is done in the background without blocking the task completion flow
+			const clientPubkey = contractStore.getContractKey(contract, 'clientPubkey') as string;
+			if (clientPubkey) {
+				// Send message asynchronously in background - don't block UI or fail on error
+				sendTaskCompletionMessageToTasker(
+					clientPubkey,
+					{
+						taskId: contractStore.getContractKey(contract, 'taskId') as string,
+						taskTitle: contractStore.getContractKey(contract, 'taskTitle') as string,
+						escrowId: contract.escrowData.id
+					}
+				).catch((messageError) => {
+					// Log error but don't fail task completion if message sending fails
+					console.error('Failed to send task completion message to tasker:', messageError);
+				});
+			}
 
 			// Note: Status will be updated via blockchain event -> Nostr update
 			// Loading will be cleared when contract.isPending becomes false
