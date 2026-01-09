@@ -1,3 +1,15 @@
+/**
+ * Nostr Key Management Module
+ * 
+ * This module provides optimized key retrieval functions with a three-tier caching strategy:
+ * 1. In-memory cache (appStore) - fastest, session-scoped
+ * 2. Local storage (Preferences) - fast, persistent across sessions
+ * 3. Biometric authentication - slowest, requires user interaction
+ * 
+ * Each function progressively fetches only what it needs, avoiding unnecessary decryption
+ * operations and biometric prompts.
+ */
+
 import type { Credentials } from '$lib/types/auth';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -7,8 +19,51 @@ import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from './constants/storage';
 import { nip19 } from 'nostr-tools';
 import { decryptNsecWithBiometrics, decryptMasterKeyDataFromBiometrics } from '$lib/utils/helpers/auth';
+import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
+import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 
+/**
+ * Internal helper to retrieve biometric credentials
+ * Attempts native biometric authentication first, falls back to web-based authentication
+ * 
+ * @param authMethod - Authentication method to use ('biometrics' or 'passkey')
+ * @returns Credentials object or null if authentication fails
+ * @internal
+ */
+const getBiometrics = async (authMethod: 'biometrics' | 'passkey' = 'biometrics'): Promise<Credentials | null> => {
+    const isBiometricAvailable = await checkBiometricAvailability();
+    if (isBiometricAvailable) {
+        return await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
+    }
+    return await getWebBiometricData(true);
+}
+
+/**
+ * Get Nostr public key (npub)
+ * 
+ * This function uses a three-tier optimization strategy to minimize latency and avoid
+ * unnecessary biometric prompts:
+ * 
+ * 1. **Memory cache (appStore):** Check if npub exists in session memory (fastest, no I/O)
+ * 2. **Local storage (Preferences):** Check if npub was cached from previous session (fast, local I/O)
+ * 3. **Biometric authentication:** If not cached, prompt user for authentication (slow, requires interaction)
+ * 
+ * Special handling for Alby extension: Retrieves public key from browser extension if using Alby auth
+ * 
+ * @returns The Nostr public key (npub) as a hex string
+ * @throws {Error} If no public key can be retrieved or biometric authentication fails
+ * 
+ * @example
+ * ```typescript
+ * const npub = await getNpub();
+ * console.log('Public key:', npub);
+ * ```
+ */
 export const getNpub = async (): Promise<string> => {
+    const currentState = get(appStore);
+
+    if (currentState.nostrKeys.npub) return currentState.nostrKeys.npub;
+
     const { value } = await Preferences.get({ key: StorageKeys.NPUB });
 
     if (value) return value;
@@ -20,76 +75,61 @@ export const getNpub = async (): Promise<string> => {
         if (!npub) {
             throw new Error('No public key returned from Nostr extension');
         }
+        appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, npub } }));
         await Preferences.set({ key: StorageKeys.NPUB, value: npub });
         return npub;
     }
 
-    const currentState = get(appStore);
-
-    // Validate cached biometricData before using it
     if (currentState.biometricData) {
-        try {
-            // Check if we have a stored NPUB to validate against
-            const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
-            
-            // If no stored NPUB, user might not be logged in - clear cache and prompt
-            if (!storedNpub) {
-                const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-                if (!token) {
-                    // No token and no stored NPUB - clear cache and prompt
-                    appStore.update((state) => ({ ...state, biometricData: null }));
-                } else {
-                    // Token exists but no stored NPUB - use cached data
-                    const npub = currentState.biometricData.username;
-                    await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-                    return npub;
-                }
-            } else {
-                // Stored NPUB exists - validate it matches cached data
-                if (storedNpub !== currentState.biometricData.username) {
-                    // Mismatch - clear cache and prompt
-                    console.warn('Cached biometricData NPUB does not match stored NPUB, clearing cache');
-                    appStore.update((state) => ({ ...state, biometricData: null }));
-                } else {
-                    // Match - use cached data
-                    const npub = currentState.biometricData.username;
-                    await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-                    return npub;
-                }
-            }
-        } catch (error) {
-            // Validation failed - clear cache and prompt
-            console.warn('Failed to validate cached biometricData in getNpub, clearing cache:', error);
-            appStore.update((state) => ({ ...state, biometricData: null }));
-            // Fall through to prompt
-        }
+        const npub = currentState.biometricData.username;
+        appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, npub } }));
+        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+        return npub;
     }
 
-    let biometricData: Credentials | null = null;
+    const biometricData: Credentials | null = await getBiometrics(authMethod as 'biometrics' | 'passkey');
 
-    const { checkBiometricAvailability, getBiometricData } = await import('$lib/utils/helpers/biometrics');
-
-    const isBiometricAvailable = await checkBiometricAvailability();
-
-    if (isBiometricAvailable) {
-        biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
-        appStore.update((state) => ({ ...state, biometricData }));
-    } else {
-        const { getWebBiometricData } = await import('$lib/utils/helpers/webBiometrics');
-        biometricData = await getWebBiometricData(true);
-        appStore.update((state) => ({ ...state, biometricData }));
-    }
-
-    if (!biometricData) {
-        throw new Error('No biometric data found');
-    }
+    if (!biometricData) throw new Error('No biometric data found');
 
     const npub = biometricData.username;
+    appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, npub }, biometricData }));
     await Preferences.set({ key: StorageKeys.NPUB, value: npub });
     return npub;
 };
 
+/**
+ * Get Nostr key pair (both public and private keys)
+ * 
+ * This function retrieves both the private key (nsec) and public key (npub) using an
+ * optimized two-tier strategy:
+ * 
+ * 1. **Memory cache (appStore):** Check if both nsec and npub exist in session memory
+ * 2. **Biometric authentication + decryption:** If not cached, authenticate and decrypt the private key
+ * 
+ * The private key is encrypted in storage and requires biometric authentication to decrypt.
+ * Once decrypted, both keys are cached in memory for the session to avoid repeated decryption.
+ * 
+ * Note: Unlike `getNpub()`, this function cannot use localStorage cache because the private key
+ * must remain encrypted at rest. It always requires decryption when not in memory.
+ * 
+ * @returns Object containing both nsec (Uint8Array) and npub (hex string)
+ * @throws {Error} If biometric authentication fails or key decryption fails
+ * 
+ * @example
+ * ```typescript
+ * const { nsec, npub } = await getNostrKeyPair();
+ * // Use nsec for signing operations
+ * ```
+ */
 export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: string }> => {
+    const currentState = get(appStore);
+    if (currentState.nostrKeys.nsec && currentState.nostrKeys.npub) {
+        return {
+            nsec: currentState.nostrKeys.nsec,
+            npub: currentState.nostrKeys.npub
+        };
+    }
+
     if (process.env.NODE_ENV === 'development') {
         // const npub = "ceda26d39d2e9aeee53c2a475b6b056145213ec6ac6acdb183357f66f8de76b2";
         // Preferences.set({ key: StorageKeys.NPUB, value: npub });
@@ -98,150 +138,86 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
         //     npub: npub
         // }
     }
-    const currentState = get(appStore);
 
-    // Try to use cached biometricData, but validate and fall back to prompt if invalid
     if (currentState.biometricData) {
-        try {
-            // Validate session before using cached data
-            const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-            if (!token) {
-                // No access token means user is not logged in, clear cache and prompt
-                console.warn('No access token found, clearing cached biometricData');
-                appStore.update((state) => ({ ...state, biometricData: null }));
-            } else {
-                // Validate NPUB match
-                const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
-                if (storedNpub && storedNpub !== currentState.biometricData.username) {
-                    // NPUB mismatch - different user, clear cache and prompt
-                    console.warn('Cached biometricData NPUB does not match stored NPUB, clearing cache');
-                    appStore.update((state) => ({ ...state, biometricData: null }));
-                } else {
-                    // Cached data is valid, try to decrypt
-                    try {
-                        const sk = await decryptNsecWithBiometrics(currentState.biometricData.password);
-                        const nsec: Uint8Array = decodeNsec(sk);
-                        const npub = currentState.biometricData.username;
-                        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-                        return { nsec, npub };
-                    } catch (decryptError) {
-                        // Decryption failed - clear cache and fall through to prompt
-                        console.warn('Failed to decrypt cached biometricData, clearing cache:', decryptError);
-                        appStore.update((state) => ({ ...state, biometricData: null }));
-                        // Fall through to prompt for fresh authentication
-                    }
-                }
-            }
-        } catch (validationError) {
-            // Validation failed - clear cache and fall through to prompt
-            console.warn('Failed to validate cached biometricData, clearing cache:', validationError);
-            appStore.update((state) => ({ ...state, biometricData: null }));
-            // Fall through to prompt for fresh authentication
-        }
+        const sk = await decryptNsecWithBiometrics(currentState.biometricData.password);
+        const nsec: Uint8Array = decodeNsec(sk);
+
+        const npub = currentState.biometricData.username;
+        appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub } }));
+        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+        return { nsec, npub };
     }
 
-    let biometricData: Credentials | null = null;
+    const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
+    const biometricData: Credentials | null = await getBiometrics(authMethod as 'biometrics' | 'passkey');
 
-    const { checkBiometricAvailability, getBiometricData } = await import('$lib/utils/helpers/biometrics');
-
-    const isBiometricAvailable = await checkBiometricAvailability();
-
-    if (isBiometricAvailable) {
-        const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
-        biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
-        appStore.update((state) => ({ ...state, biometricData }));
-    } else {
-        const { getWebBiometricData } = await import('$lib/utils/helpers/webBiometrics');
-        biometricData = await getWebBiometricData(true);
-        appStore.update((state) => ({ ...state, biometricData }));
-    }
-
-    if (!biometricData) {
-        throw new Error('No biometric data found');
-    }
+    if (!biometricData) throw new Error('No biometric data found');
 
     const sk = await decryptNsecWithBiometrics(biometricData.password);
     const nsec: Uint8Array = decodeNsec(sk);
 
     const npub = biometricData.username;
+    appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub }, biometricData }));
     await Preferences.set({ key: StorageKeys.NPUB, value: npub });
     return { nsec, npub };
 };
 
+/**
+ * Get all cryptographic keys (public key, private key, and mnemonic)
+ * 
+ * This function retrieves the complete set of user keys using an optimized two-tier strategy:
+ * 
+ * 1. **Memory cache (appStore):** Check if all three keys (nsec, npub, mnemonic) exist in session memory
+ * 2. **Biometric authentication + master key decryption:** If not cached, authenticate and decrypt the master key data
+ * 
+ * The master key data contains both the private key and mnemonic, both encrypted and requiring
+ * biometric authentication to decrypt. This is the most expensive operation as it:
+ * - Requires user biometric authentication
+ * - Decrypts the master key data structure
+ * - Extracts and decodes both nsec and mnemonic
+ * 
+ * All keys are cached in memory after first retrieval to avoid repeated authentication and decryption.
+ * 
+ * @returns Object containing npub (hex string), nsec (Uint8Array), and mnemonic (string)
+ * @throws {Error} If biometric authentication fails, decryption fails, or no biometric data found
+ * 
+ * @example
+ * ```typescript
+ * const { npub, nsec, mnemonic } = await getAllKeys();
+ * // Use mnemonic for wallet recovery or backup
+ * ```
+ */
 export const getAllKeys = async (): Promise<{ npub: string, nsec: Uint8Array, mnemonic: string }> => {
     const currentState = get(appStore);
 
-    // Try to use cached biometricData, but validate and fall back to prompt if invalid
+    if (currentState.nostrKeys.nsec && currentState.nostrKeys.npub && currentState.nostrKeys.mnemonic) {
+        return {
+            npub: currentState.nostrKeys.npub,
+            nsec: currentState.nostrKeys.nsec,
+            mnemonic: currentState.nostrKeys.mnemonic
+        };
+    }
+
     if (currentState.biometricData) {
-        try {
-            // Validate session before using cached data
-            const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-            if (!token) {
-                // No access token means user is not logged in, clear cache and prompt
-                console.warn('No access token found in getAllKeys, clearing cached biometricData');
-                appStore.update((state) => ({ ...state, biometricData: null }));
-            } else {
-                // Validate NPUB match
-                const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
-                if (storedNpub && storedNpub !== currentState.biometricData.username) {
-                    // NPUB mismatch - different user, clear cache and prompt
-                    console.warn('Cached biometricData NPUB does not match stored NPUB in getAllKeys, clearing cache');
-                    appStore.update((state) => ({ ...state, biometricData: null }));
-                } else {
-                    // Cached data is valid, try to decrypt
-                    try {
-                        const parsedData = JSON.parse(currentState.biometricData.password);
-                        
-                        // Validate master key data format
-                        if (!parsedData.masterKeyData) {
-                            throw new Error('Invalid master key data format');
-                        }
-                        
-                        const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
-                            JSON.stringify(parsedData.masterKeyData),
-                            parsedData.key
-                        );
+        const parsedData = JSON.parse(currentState.biometricData.password);
+        const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
+            JSON.stringify(parsedData.masterKeyData),
+            parsedData.key
+        );
 
-                        const nsec: Uint8Array = decodeNsec(sk);
-                        const npub = currentState.biometricData.username;
-                        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
-                        return { nsec, npub, mnemonic };
-                    } catch (decryptError) {
-                        // Decryption failed - clear cache and fall through to prompt
-                        console.warn('Failed to decrypt cached biometricData in getAllKeys, clearing cache:', decryptError);
-                        appStore.update((state) => ({ ...state, biometricData: null }));
-                        // Fall through to prompt for fresh authentication
-                    }
-                }
-            }
-        } catch (validationError) {
-            // Validation failed - clear cache and fall through to prompt
-            console.warn('Failed to validate cached biometricData in getAllKeys, clearing cache:', validationError);
-            appStore.update((state) => ({ ...state, biometricData: null }));
-            // Fall through to prompt for fresh authentication
-        }
+        const nsec: Uint8Array = decodeNsec(sk);
+
+        const npub = currentState.biometricData.username;
+        appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub, mnemonic } }));
+        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+        return { nsec, npub, mnemonic };
     }
 
-    let biometricData: Credentials | null = null;
+    const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
+    const biometricData: Credentials | null = await getBiometrics(authMethod as 'biometrics' | 'passkey');
 
-    const { checkBiometricAvailability, getBiometricData } = await import('$lib/utils/helpers/biometrics');
-
-    const isBiometricAvailable = await checkBiometricAvailability();
-
-    if (isBiometricAvailable) {
-        const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
-
-        biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
-        appStore.update((state) => ({ ...state, biometricData }));
-    } else {
-        const { getWebBiometricData } = await import('$lib/utils/helpers/webBiometrics');
-        biometricData = await getWebBiometricData(true);
-        appStore.update((state) => ({ ...state, biometricData }));
-    }
-
-    if (!biometricData) {
-        throw new Error('No biometric data found');
-    }
+    if (!biometricData) throw new Error('No biometric data found');
 
     const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
         JSON.stringify(JSON.parse(biometricData.password).masterKeyData),
@@ -249,12 +225,39 @@ export const getAllKeys = async (): Promise<{ npub: string, nsec: Uint8Array, mn
     );
 
     const nsec: Uint8Array = decodeNsec(sk);
-
     const npub = biometricData.username;
+
+    appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub, mnemonic }, biometricData }));
     await Preferences.set({ key: StorageKeys.NPUB, value: npub });
     return { nsec, npub, mnemonic };
 };
 
+/**
+ * Decode Nostr secret key from various formats to Uint8Array
+ * 
+ * Supports three input formats:
+ * 1. **NIP-19 nsec format:** Keys starting with 'nsec1' (bech32 encoded)
+ * 2. **Hex format:** 64-character hexadecimal string (with or without '0x' prefix)
+ * 3. **Invalid formats:** Throws descriptive error for unsupported formats
+ * 
+ * @param sk - Secret key string in nsec1 or hex format
+ * @returns Decoded secret key as Uint8Array (32 bytes)
+ * @throws {Error} If the key format is invalid or hex length is incorrect
+ * 
+ * @internal This is an internal helper function used by key retrieval functions
+ * 
+ * @example
+ * ```typescript
+ * // NIP-19 format
+ * const key1 = decodeNsec('nsec1...'); // Uint8Array(32)
+ * 
+ * // Hex format
+ * const key2 = decodeNsec('a1b2c3d4...'); // Uint8Array(32)
+ * 
+ * // Hex with 0x prefix
+ * const key3 = decodeNsec('0xa1b2c3d4...'); // Uint8Array(32)
+ * ```
+ */
 function decodeNsec(sk: string): Uint8Array {
     if (sk.startsWith('nsec1')) {
         const { data } = nip19.decode(sk);

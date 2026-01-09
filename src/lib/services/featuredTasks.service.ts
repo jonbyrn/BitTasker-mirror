@@ -1,13 +1,12 @@
-import type { Task } from '$lib/types/task.d';
+import type { Budget, Task } from '$lib/types/task.d';
 import type { LiveTask } from '$lib/types/homepage';
 import { findTasks } from '$lib/nostr/findTasks';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 /**
  * Service to fetch featured tasks from Nostr relay
- * Filters tasks that have images, are not expired, and are publicly available
- * Prioritizes tasks that are close to expiring (within 24 hours)
- * Only shows tasks with actual image attachments (no fallback images)
+ * Prioritizes recently posted tasks whose deadline hasn't passed
+ * Falls back to recently posted tasks (even expired) if not enough non-expired tasks
  * Proposals count is not displayed as it's not publicly accessible
  */
 export class FeaturedTasksService {
@@ -15,7 +14,8 @@ export class FeaturedTasksService {
 	private static cache: { data: LiveTask[]; timestamp: number } | null = null;
 
 	/**
-	 * Fetch featured tasks with images from Nostr relay
+	 * Fetch featured tasks from Nostr relay
+	 * Prioritizes non-expired tasks, fills remaining slots with expired tasks if needed
 	 */
 	static async getFeaturedTasks(limit: number = 8): Promise<LiveTask[]> {
 		// Check cache first
@@ -27,30 +27,37 @@ export class FeaturedTasksService {
 			// Fetch tasks from Nostr relay
 			const result = await findTasks({
 				status: [TaskStatusEnum.OPEN],
-				limit: 50, // Fetch more to filter for images
+				limit: 50,
 				page: 1
 			});
 
-			// Filter tasks that have images and are not expired
-			const validTasks = result.tasks.filter(task => 
-				this.hasImage(task) && !this.isExpired(task)
-			);
+			// Separate non-expired and expired tasks
+			const nonExpiredTasks = result.tasks.filter(task => !this.isExpired(task));
+			const expiredTasks = result.tasks.filter(task => this.isExpired(task));
 
-			// Sort tasks to prioritize those close to expiring, then by creation date (newest first)
-			const sortedTasks = validTasks.sort((a, b) => {
-				// First priority: tasks close to expiring
+			// Sort non-expired tasks: close to expiring first, then newest
+			const sortedNonExpired = nonExpiredTasks.sort((a, b) => {
 				const aCloseToExpiring = this.isCloseToExpiring(a);
 				const bCloseToExpiring = this.isCloseToExpiring(b);
 				
 				if (aCloseToExpiring && !bCloseToExpiring) return -1;
 				if (!aCloseToExpiring && bCloseToExpiring) return 1;
 				
-				// Second priority: newest tasks first
 				return b.createdAt - a.createdAt;
 			});
 
+			// Sort expired tasks by creation date (newest first)
+			const sortedExpired = expiredTasks.sort((a, b) => b.createdAt - a.createdAt);
+
+			// Take non-expired tasks first, then fill with expired if needed
+			const combinedTasks = [...sortedNonExpired];
+			if (combinedTasks.length < limit) {
+				const remaining = limit - combinedTasks.length;
+				combinedTasks.push(...sortedExpired.slice(0, remaining));
+			}
+
 			// Convert to LiveTask format and limit results
-			const featuredTasks = sortedTasks
+			const featuredTasks = combinedTasks
 				.slice(0, limit)
 				.map(task => this.convertToLiveTask(task));
 
@@ -63,7 +70,6 @@ export class FeaturedTasksService {
 			return featuredTasks;
 		} catch (error) {
 			console.error('Error fetching featured tasks:', error);
-			// Return empty array on error
 			return [];
 		}
 	}
@@ -186,7 +192,7 @@ export class FeaturedTasksService {
 	/**
 	 * Get budget amount in USD
 	 */
-	private static getBudgetAmount(budget: any): number {
+	private static getBudgetAmount(budget: Budget): number {
 		if (!budget || !budget.amount) {
 			return 0;
 		}

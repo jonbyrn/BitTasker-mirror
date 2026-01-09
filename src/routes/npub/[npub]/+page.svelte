@@ -6,6 +6,117 @@
 	import { goto } from '$app/navigation';
 	import { t, locale } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
+	import type { ProfileTranslations } from '$lib/types/profile.d';
+	import { authState } from '$lib/stores/auth.store';
+
+	// Helper function to get translated profile content
+	// Reactive to locale changes via $locale
+	function getTranslatedProfileContent(
+		field: 'professionalTitle' | 'about'
+	): string {
+		const currentLang = $locale || 'en';
+		const originalText = userProfile?.[field] || '';
+		
+		// If no translations, return original
+		if (!userProfile?.translations) {
+			return originalText;
+		}
+
+		// If current language is source language, return original
+		if (userProfile.translations.sourceLanguage === currentLang) {
+			return originalText;
+		}
+
+		// Get translation for current language
+		const translation = userProfile.translations.translations[currentLang];
+		if (translation) {
+			return translation[field] || originalText;
+		}
+
+		// Fallback to original
+		return originalText;
+	}
+
+	// Helper function to get translated skill name
+	function getTranslatedSkillName(skill: string | { name: string; translations?: any }): string {
+		const currentLang = $locale || 'en';
+		
+		// If skill is a string, return as is
+		if (typeof skill === 'string') {
+			return skill;
+		}
+
+		const originalName = skill.name || '';
+		
+		// If no translations, return original
+		if (!skill.translations) {
+			return originalName;
+		}
+
+		// If current language is source language, return original
+		if (skill.translations.sourceLanguage === currentLang) {
+			return originalName;
+		}
+
+		// Get translation for current language
+		const translation = skill.translations.translations[currentLang];
+		if (translation) {
+			return translation.name || originalName;
+		}
+
+		// Fallback to original
+		return originalName;
+	}
+
+	// Helper function to get translated portfolio title
+	function getTranslatedPortfolioTitle(item: { title: string; translations?: any }): string {
+		const currentLang = $locale || 'en';
+		const originalTitle = item.title || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalTitle;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalTitle;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.title || originalTitle;
+		}
+
+		// Fallback to original
+		return originalTitle;
+	}
+
+	// Helper function to get translated portfolio description
+	function getTranslatedPortfolioDescription(item: { description: string; translations?: any }): string {
+		const currentLang = $locale || 'en';
+		const originalDescription = item.description || '';
+		
+		// If no translations, return original
+		if (!item.translations) {
+			return originalDescription;
+		}
+
+		// If current language is source language, return original
+		if (item.translations.sourceLanguage === currentLang) {
+			return originalDescription;
+		}
+
+		// Get translation for current language
+		const translation = item.translations.translations[currentLang];
+		if (translation) {
+			return translation.description || originalDescription;
+		}
+
+		// Fallback to original
+		return originalDescription;
+	}
 
 	// Get npub from route params
 	let routeNpub = $derived($page.params.npub);
@@ -22,6 +133,8 @@
 		pictures?: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
 		website?: string;
 		professionalTitle?: string;
+		location?: string; // General location (city, country or city, state)
+		translations?: ProfileTranslations;
 		skills?: Array<
 			| string
 			| {
@@ -76,6 +189,14 @@
 	let isAboutTruncated = $state(false);
 	let showFullAbout = $state(false);
 
+	// Get user picture with priority: pictures array > picture field
+	let userPicture = $derived(() => {
+		if (userProfile?.pictures && userProfile.pictures.length > 0) {
+			return userProfile.pictures[0].url;
+		}
+		return userProfile?.picture || '';
+	});
+
 	// Validate npub parameter
 	function validateNpub(npub: string): { valid: boolean; hexPubkey?: string; error?: string } {
 		if (!npub) {
@@ -123,28 +244,29 @@
 		projectImageSlides = { ...projectImageSlides };
 	}
 
-	// Verificar si el texto "Acerca de" está truncado
+	// Check if about text is actually truncated (same logic as TranslatableTask)
 	function checkIfAboutTruncated() {
 		if (!aboutElement) return;
 		
-		// Crear un clon oculto para medir la altura completa sin afectar el layout
+		// Create a hidden clone to measure full height without affecting layout
 		const clone = aboutElement.cloneNode(true) as HTMLElement;
 		clone.className = aboutElement.className.replace(/line-clamp-\d+/g, '');
 		clone.style.position = 'absolute';
 		clone.style.visibility = 'hidden';
 		clone.style.height = 'auto';
 		clone.style.width = aboutElement.offsetWidth + 'px';
+		clone.style.whiteSpace = 'pre-line'; // Preserve line breaks
 		document.body.appendChild(clone);
 		
 		const fullHeight = clone.scrollHeight;
 		const lineHeight = parseFloat(getComputedStyle(aboutElement).lineHeight) || 20;
-		const maxHeight = lineHeight * 2; // 2 líneas
+		const maxHeight = lineHeight * 2; // 2 lines
 		
-		// Limpiar
+		// Clean up
 		document.body.removeChild(clone);
 		
-		// Solo mostrar el botón si el contenido es realmente más alto que 2 líneas
-		isAboutTruncated = fullHeight > maxHeight + 1; // +1 para un pequeño margen
+		// Only show ellipsis if content is actually taller than 2 lines
+		isAboutTruncated = fullHeight > maxHeight + 1; // +1 for small margin
 	}
 
 	function toggleAbout() {
@@ -166,9 +288,15 @@
 			// Hacer la petición para obtener el perfil completo
 			const profile = await fetchComprehensiveProfile(hexPubkey);
 
+			// Check if profile is empty (no name and no data)
+			if (!profile || (!profile.name && !profile.about && !profile.picture)) {
+				profileError = $t('common.profile.no_profile_data');
+			}
+
 			userProfile = profile;
 		} catch (error) {
 			profileError = error instanceof Error ? error.message : $t('common.profile.failed_to_load');
+			userProfile = null;
 		} finally {
 			loadingProfile = false;
 		}
@@ -276,20 +404,25 @@
 
 		// Cargar el perfil del usuario
 		await loadUserProfile();
+
+		// Initialize truncation check after profile loads
+		if (aboutElement) {
+			requestAnimationFrame(() => {
+				checkIfAboutTruncated();
+			});
+		}
 	});
 
-	// Efecto para verificar si el texto "Acerca de" está truncado
+	// React to description and locale changes
 	$effect(() => {
-		if (aboutElement && userProfile?.about) {
-			// Resetear estado cuando cambia el contenido
+		const currentAbout = getTranslatedProfileContent('about');
+		
+		if (aboutElement && currentAbout) {
 			showFullAbout = false;
 			isAboutTruncated = false;
 			
-			// Usar requestAnimationFrame para asegurar que el DOM esté renderizado
 			requestAnimationFrame(() => {
-				setTimeout(() => {
-					checkIfAboutTruncated();
-				}, 0);
+				checkIfAboutTruncated();
 			});
 		}
 	});
@@ -434,7 +567,7 @@
 			</div>
 		</div>
 	{:else}
-		<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0">
+		<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0 {$authState.isAuthenticated ? 'pb-24' : 'pb-8'}">
 			<!-- Botón de regresar -->
 			<div class="mb-4">
 				<button
@@ -463,11 +596,11 @@
 								<div class="shrink-0">
 									<!-- Mobile: tamaño xl (w-24 h-24) -->
 									<div class="block md:hidden">
-										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="xl"  />
+										<Avatar name={userProfile?.name} picture={userPicture()} size="xl"  />
 									</div>
 									<!-- Desktop: tamaño 2xl (w-40 h-40) -->
 									<div class="hidden md:block">
-										<Avatar name={userProfile?.name} picture={userProfile?.picture} size="2xl"  />
+										<Avatar name={userProfile?.name} picture={userPicture()} size="2xl"  />
 									</div>
 								</div>
 
@@ -503,7 +636,7 @@
 									</div>
 									{#if userProfile?.professionalTitle}
 										<div class="badge badge-primary badge-lg mb-4 px-3 py-1 text-sm">
-											{userProfile.professionalTitle}
+											{getTranslatedProfileContent('professionalTitle')}
 										</div>
 									{/if}
 
@@ -524,6 +657,25 @@
 													/>
 												</svg>
 												<span>{$t('common.profile.member_since')} {formatMonthYear(userProfile.createdAt)}</span>
+											</div>
+										{/if}
+										{#if userProfile?.location}
+											<div class="flex items-center gap-2">
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+													/>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+													/>
+												</svg>
+												<span>{userProfile.location}</span>
 											</div>
 										{/if}
 										{#if userProfile?.website}
@@ -548,28 +700,34 @@
 
 									<!-- Botones de acción rápida -->
 									<div class="flex flex-wrap justify-center gap-3 md:hidden lg:justify-start">
-										<button class="btn btn-primary btn-sm" onclick={openMessageModal}>
-											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-												/>
-											</svg>
-											{$t('common.profile.send_message')}
-										</button>
-										<button class="btn btn-outline btn-sm" onclick={goToChat}>
-											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-												/>
-											</svg>
-											{$t('common.profile.go_to_chat')}
-										</button>
+										{#if $authState.isAuthenticated}
+											<button class="btn btn-primary btn-sm" onclick={openMessageModal}>
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+													/>
+												</svg>
+												{$t('common.profile.send_message')}
+											</button>
+											<button class="btn btn-outline btn-sm" onclick={goToChat}>
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+													/>
+												</svg>
+												{$t('common.profile.go_to_chat')}
+											</button>
+										{:else}
+											<button class="btn btn-primary btn-sm" onclick={() => goto('/auth/signup')}>
+												{$t('common.profile.signup_to_hire')}
+											</button>
+										{/if}
 									</div>
 								</div>
 							</div>
@@ -583,7 +741,7 @@
 								bind:this={aboutElement}
 								class="text-base-content/80 text-sm leading-relaxed {showFullAbout ? '' : 'line-clamp-2'}"
 							>
-								{userProfile?.about || $t('common.profile.no_description')}
+								{getTranslatedProfileContent('about') || $t('common.profile.no_description')}
 							</p>
 							{#if isAboutTruncated && userProfile?.about}
 								<div class="text-left mb-2">
@@ -603,7 +761,7 @@
 										<div
 											class="border-primary text-primary rounded-full border px-3 py-1 text-sm"
 										>
-											{typeof skill === 'string' ? skill : skill.name}
+											{getTranslatedSkillName(skill)}
 										</div>
 									{/each}
 								{:else}
@@ -624,7 +782,7 @@
 											<!-- Título, badges y descripción arriba de la imagen -->
 											<div class="card-body p-4 pb-2">
 												<div class="flex items-center justify-between gap-2 mb-2">
-													<span class="card-title text-md line-clamp-1 font-bold">{project.title}</span>
+													<span class="card-title text-md line-clamp-1 font-bold">{getTranslatedPortfolioTitle(project)}</span>
 													{#if project?.link}
 														<a
 															href={project.link}
@@ -660,7 +818,7 @@
 														{/each}
 													</div>
 												{/if}
-												<p class="text-base-content/70 text-sm line-clamp-2 mb-3">{project.description}</p>
+												<p class="text-base-content/70 text-sm line-clamp-2 mb-3">{getTranslatedPortfolioDescription(project)}</p>
 											</div>
 											
 											<!-- Imagen del proyecto -->
@@ -865,28 +1023,34 @@
 							<div class="card-body p-3">
 								<p class="mb-2 text-xl font-bold">{$t('common.profile.quick_actions')}</p>
 								<div class="space-y-3">
-									<button class="btn btn-primary btn-sm w-full" onclick={openMessageModal}>
-										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-											/>
-										</svg>
-										{$t('common.profile.send_message')}
-									</button>
-									<button class="btn btn-outline btn-sm w-full" onclick={goToChat}>
-										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-											/>
-										</svg>
-										{$t('common.profile.go_to_chat')}
-									</button>
+									{#if $authState.isAuthenticated}
+										<button class="btn btn-primary btn-sm w-full" onclick={openMessageModal}>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+												/>
+											</svg>
+											{$t('common.profile.send_message')}
+										</button>
+										<button class="btn btn-outline btn-sm w-full" onclick={goToChat}>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+												/>
+											</svg>
+											{$t('common.profile.go_to_chat')}
+										</button>
+									{:else}
+										<button class="btn btn-primary btn-sm w-full" onclick={() => goto('/auth/signup')}>
+											{$t('common.profile.signup_to_hire')}
+										</button>
+									{/if}
 								</div>
 							</div>
 						</div>

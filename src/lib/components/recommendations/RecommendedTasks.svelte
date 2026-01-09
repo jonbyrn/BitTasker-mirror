@@ -10,6 +10,7 @@
 	import { getRecommendedTasks, updatePreferencesFromFeedback } from '$lib/nostr/recommendations';
 	import { t } from 'svelte-i18n';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+
 	let { onSelectTask } = $props<{
 		onSelectTask: (task: Task) => void;
 	}>();
@@ -75,7 +76,9 @@
 			// Fallback to visual feedback only if preference update fails
 			recommendations[index] = {
 				...recommendations[index],
-				reason: isRelevant ? $t('common.components.recommendations.feedback.thanks_simple') : $t('common.components.recommendations.feedback.thanks_fewer')
+				reason: isRelevant
+					? $t('common.components.recommendations.feedback.thanks_simple')
+					: $t('common.components.recommendations.feedback.thanks_fewer')
 			};
 		} finally {
 			loaders.feedbackPositive = false;
@@ -85,7 +88,7 @@
 
 <section class="bg-base-200 mb-8">
 	<div class="mb-4 flex items-center justify-between">
-		<h3 class="">{$t('recommendations.type.title')}</h3> 
+		<h3 class="">{$t('recommendations.type.title')}</h3>
 		<!-- <button class="btn btn-sm btn-ghost" onclick={refreshRecommendations} disabled={loaders.data}>
 			{#if loaders.data}
 				<div class="loading loading-spinner loading-xs"></div>
@@ -126,7 +129,9 @@
 				/>
 			</svg>
 			<span>{error}</span>
-			<button class="btn btn-sm" onclick={loadRecommendations}>{$t('common.components.recommendations.error.generate')}</button>
+			<button class="btn btn-sm" onclick={loadRecommendations}
+				>{$t('common.components.recommendations.error.generate')}</button
+			>
 		</div>
 	{:else if loaders.data}
 		<div class="flex justify-center p-10">
@@ -162,14 +167,19 @@
 				<div class="card-body">
 					<div class="flex items-start justify-between">
 						<div class="card-title text-lg">
-							<TranslatableTask task={item.task} showDescription={false} showToggle={false} titleClass="card-title text-lg" />
+							<TranslatableTask
+								task={item.task}
+								showDescription={false}
+								showToggle={false}
+								titleClass="card-title text-lg"
+							/>
 						</div>
 						{#if item.task.isBoosted}
 							<div class="badge badge-secondary">{$t('recommend.featured')}</div>
 						{/if}
 					</div>
 
-					<p class="line-clamp-2 text-sm">{item.task.description}</p>
+					<p class="line-clamp-2 text-sm whitespace-pre-line">{item.task.description}</p>
 
 					<div class="mt-2 flex items-center justify-between">
 						<div class="badge badge-outline">

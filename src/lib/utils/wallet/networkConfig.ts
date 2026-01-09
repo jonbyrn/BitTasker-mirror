@@ -12,6 +12,8 @@
  * - Liquid Network API endpoints
  * - Blockchain explorer URLs
  * - Fee tier configurations
+ * 
+ * @deprecated This file should no longer be used. Use the types from @bittasker/wallet-core instead.
  */
 
 import type { ERC20Token, NetworkType, PaymasterConfig, BoltzNetworkConfig } from "$lib/types/wallet";

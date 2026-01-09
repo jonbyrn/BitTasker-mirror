@@ -1,6 +1,6 @@
 ---
 description: Nostr protocol integration, event handling, relay management, and identity system
-globs: ["**/nostr/**/*", "**/integrations/nostr/**/*"]
+globs: ["src/**/nostr/**/*", "src/**/integrations/nostr/**/*"]
 alwaysApply: false
 ---
 # Nostr Tools Documentation
@@ -8,6 +8,161 @@ alwaysApply: false
 ## Overview
 
 Nostr Tools is a comprehensive JavaScript/TypeScript library for working with the Nostr protocol. This document provides technical specifications and usage guidelines for the package.
+
+## Using Nostr MCP Servers for Development
+
+BitTasker has two Nostr MCP servers configured that provide comprehensive Nostr documentation and utilities:
+
+### 1. Nostrbook MCP Server (`mcp_Nostrbook_*`)
+
+**Purpose**: Documentation and reference materials for Nostr protocol, NIPs, event kinds, and tags.
+
+**Available Functions**:
+- `mcp_Nostrbook_read_nips_index` - Get complete list of all NIPs with event kinds
+- `mcp_Nostrbook_read_protocol` - Read protocol documentation (index, event, client, relay, filter)
+- `mcp_Nostrbook_read_nip` - Read specific NIP documentation (e.g., `nip: "01"`, `nip: "99"`)
+- `mcp_Nostrbook_read_kind` - Read documentation for specific event kind (e.g., `kind: 1`, `kind: 30402`)
+- `mcp_Nostrbook_read_tag` - Read documentation for specific tag (e.g., `tag: "d"`, `tag: "p"`)
+- `mcp_Nostrbook_read_custom_nip` - Read community NIP documentation via naddr
+
+**When to Use**:
+- Need to understand a specific NIP specification
+- Looking up event kind requirements and conventions
+- Understanding tag formats and usage
+- Getting protocol documentation and best practices
+- Verifying implementation details against NIP specifications
+
+**Example Usage**:
+```typescript
+// Before implementing NIP-99 classified listings, read the spec:
+// Use: mcp_Nostrbook_read_nip with nip: "99"
+
+// When working with addressable events, understand the 'd' tag:
+// Use: mcp_Nostrbook_read_tag with tag: "d"
+
+// When implementing kind 30402 (Classified Listing), check requirements:
+// Use: mcp_Nostrbook_read_kind with kind: 30402
+// Note: If not found, read NIP-99 instead as it documents this kind
+```
+
+### 2. Nostr MCP Server (`mcp_Nostr_MCP_Server_*`)
+
+**Purpose**: Utility functions for Nostr operations, NIP search, and NIP-19 entity handling.
+
+**Available Functions**:
+- `mcp_Nostr_MCP_Server_searchNips` - Search for NIPs by keywords (e.g., "classified listings", "bech32 encoding")
+- `mcp_Nostr_MCP_Server_createKeypair` - Generate test keypairs (hex and npub/nsec formats)
+- `mcp_Nostr_MCP_Server_analyzeNip19` - Analyze NIP-19 entities (npub, nsec, note, nevent, naddr, etc.)
+- `mcp_Nostr_MCP_Server_convertNip19` - Convert between NIP-19 formats (npub ↔ hex, etc.)
+- `mcp_Nostr_MCP_Server_getProfile` - Get Nostr profile by public key
+- `mcp_Nostr_MCP_Server_getKind1Notes` - Get text notes (kind 1) by public key
+- `mcp_Nostr_MCP_Server_getReceivedZaps` - Get zaps received by a public key
+- `mcp_Nostr_MCP_Server_getSentZaps` - Get zaps sent by a public key
+- `mcp_Nostr_MCP_Server_getAllZaps` - Get all zaps (sent and received) for a public key
+- `mcp_Nostr_MCP_Server_getLongFormNotes` - Get long-form notes (kind 30023) by public key
+- `mcp_Nostr_MCP_Server_postAnonymousNote` - Post anonymous note using temporary keypair
+- `mcp_Nostr_MCP_Server_createProfile` - Create a new Nostr profile (kind 0 event)
+- `mcp_Nostr_MCP_Server_updateProfile` - Update existing Nostr profile
+- `mcp_Nostr_MCP_Server_postNote` - Post authenticated note using private key
+- `mcp_Nostr_MCP_Server_createNote` - Create unsigned note event
+- `mcp_Nostr_MCP_Server_signNote` - Sign a note event with private key
+- `mcp_Nostr_MCP_Server_publishNote` - Publish signed note to Nostr relays
+
+**When to Use**:
+- Searching for relevant NIPs when implementing features
+- Generating test keypairs for development/testing
+- Converting between NIP-19 formats (npub, hex, etc.)
+- Analyzing NIP-19 entities to understand their structure
+- Testing Nostr operations without writing code
+- Understanding NIP-19 encoding/decoding requirements
+
+**Example Usage**:
+```typescript
+// When implementing a new feature, search for relevant NIPs:
+// Use: mcp_Nostr_MCP_Server_searchNips with query: "classified listings"
+
+// When testing NIP-19 encoding/decoding:
+// Use: mcp_Nostr_MCP_Server_analyzeNip19 to understand entity structure
+// Use: mcp_Nostr_MCP_Server_convertNip19 to test conversions
+
+// When generating test data:
+// Use: mcp_Nostr_MCP_Server_createKeypair to generate test keypairs
+```
+
+### Best Practices for Using MCP Servers
+
+1. **Before Implementing a Feature**:
+   - Search for relevant NIPs using `mcp_Nostr_MCP_Server_searchNips`
+   - Read the NIP documentation using `mcp_Nostrbook_read_nip`
+   - Understand event kinds using `mcp_Nostrbook_read_kind` or the NIP documentation
+   - Review tag requirements using `mcp_Nostrbook_read_tag`
+
+2. **When Working with NIP-19 Entities**:
+   - Use `mcp_Nostr_MCP_Server_analyzeNip19` to understand entity structure
+   - Use `mcp_Nostr_MCP_Server_convertNip19` to test format conversions
+   - Reference NIP-19 documentation via `mcp_Nostrbook_read_nip` with `nip: "19"`
+
+3. **When Debugging**:
+   - Use `mcp_Nostrbook_read_protocol` to understand protocol flow
+   - Use `mcp_Nostrbook_read_tag` to verify tag formats
+   - Use `mcp_Nostr_MCP_Server_analyzeNip19` to debug NIP-19 encoding issues
+
+4. **When Writing Tests**:
+   - Use `mcp_Nostr_MCP_Server_createKeypair` to generate test keypairs
+   - Use MCP servers to verify expected behavior matches NIP specifications
+
+### Integration with Development Workflow
+
+**When implementing Nostr features in BitTasker**:
+
+1. **Research Phase**:
+   ```typescript
+   // 1. Search for relevant NIPs
+   // mcp_Nostr_MCP_Server_searchNips({ query: "feature name", limit: 5 })
+   
+   // 2. Read NIP documentation
+   // mcp_Nostrbook_read_nip({ nip: "99" })
+   
+   // 3. Understand event kinds
+   // mcp_Nostrbook_read_kind({ kind: 30402 })
+   // Note: If kind not found, check the NIP that defines it
+   
+   // 4. Review tag requirements
+   // mcp_Nostrbook_read_tag({ tag: "d" })
+   ```
+
+2. **Implementation Phase**:
+   ```typescript
+   // Reference NIP documentation while coding
+   // Use MCP servers to verify tag formats, event structures, etc.
+   ```
+
+3. **Testing Phase**:
+   ```typescript
+   // Generate test data
+   // mcp_Nostr_MCP_Server_createKeypair({ format: "both" })
+   
+   // Test NIP-19 conversions
+   // mcp_Nostr_MCP_Server_convertNip19({ input: "...", targetType: "hex" })
+   ```
+
+### Common Use Cases
+
+**Implementing NIP-99 Classified Listings**:
+1. Search: `mcp_Nostr_MCP_Server_searchNips({ query: "classified listings" })`
+2. Read NIP: `mcp_Nostrbook_read_nip({ nip: "99" })`
+3. Understand tags: `mcp_Nostrbook_read_tag({ tag: "d" })`, `mcp_Nostrbook_read_tag({ tag: "price" })`
+4. Review event kind: Check NIP-99 for kind 30402 details
+
+**Working with NIP-19 URLs**:
+1. Read NIP: `mcp_Nostrbook_read_nip({ nip: "19" })`
+2. Analyze entity: `mcp_Nostr_MCP_Server_analyzeNip19({ input: "nservice1..." })`
+3. Convert formats: `mcp_Nostr_MCP_Server_convertNip19({ input: "...", targetType: "hex" })`
+
+**Understanding Parameterized Replaceable Events**:
+1. Search: `mcp_Nostr_MCP_Server_searchNips({ query: "parameterized replaceable events" })`
+2. Read NIP: `mcp_Nostrbook_read_nip({ nip: "33" })` or check NIP-01 (now incorporated)
+3. Understand 'd' tag: `mcp_Nostrbook_read_tag({ tag: "d" })`
 
 ## Core Components
 
@@ -202,6 +357,12 @@ const listingEvent = {
 };
 ```
 
+**💡 Reference**: Always consult the NIP specification when implementing:
+- Use `mcp_Nostrbook_read_nip({ nip: "99" })` for complete NIP-99 specification
+- Use `mcp_Nostrbook_read_tag({ tag: "d" })` to understand addressable event requirements
+- Use `mcp_Nostr_MCP_Server_searchNips({ query: "classified listings" })` to find related NIPs
+- For BitTasker service listings, see the services listing feature plan for implementation details
+
 ### Event Kinds
 
 #### Regular Events (Stored by Relays)
@@ -365,16 +526,23 @@ await Promise.all(pubs);
 
 ### NIPs (Nostr Implementation Possibilities) Support
 
+**💡 Tip**: Before implementing any NIP, use the MCP servers to read the full specification:
+- `mcp_Nostrbook_read_nip({ nip: "01" })` - Read NIP documentation
+- `mcp_Nostr_MCP_Server_searchNips({ query: "feature name" })` - Find relevant NIPs
+
 The library supports various NIPs including:
 
 1. **NIP-01: Basic Protocol Flow**
    - Event creation and verification
    - Relay communication
    - Basic event types
+   - **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "01" })` for full specification
+   - **Protocol Docs**: Use `mcp_Nostrbook_read_protocol({ doc: "index" })` for overview
 
 2. **NIP-02: Contact List and Petnames**
    - Managing contact lists
    - Handling user metadata
+   - **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "02" })` for details
 
 3. **NIP-04: Encrypted Direct Messages**
 
@@ -387,6 +555,8 @@ The library supports various NIPs including:
    // Decrypt message
    const decrypted = await decrypt(privateKey, senderPubkey, encrypted);
    ```
+   
+   **Note**: NIP-04 is deprecated in favor of NIP-17. Use `mcp_Nostrbook_read_nip({ nip: "17" })` for current standard.
 
 4. **NIP-05: DNS-based Verification**
 
@@ -396,6 +566,8 @@ The library supports various NIPs including:
    // Verify NIP-05 identifier
    const isValid = await nip05.queryProfile('username@domain.com');
    ```
+   
+   **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "05" })` for implementation details
 
 5. **NIP-06: Key Generation**
 
@@ -405,6 +577,8 @@ The library supports various NIPs including:
    const mnemonic = generateSeedWords();
    const privateKey = privateKeyFromSeedWords(mnemonic);
    ```
+   
+   **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "06" })` for seed phrase format
 
 6. **NIP-07: Browser Extension Integration**
 
@@ -415,6 +589,8 @@ The library supports various NIPs including:
      const signedEvent = await window.nostr.signEvent(event);
    }
    ```
+   
+   **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "07" })` for API specification
 
 7. **NIP-19: Bech32-Encoded Entities**
 
@@ -428,24 +604,53 @@ The library supports various NIPs including:
    // Decode
    const { type, data } = nip19.decode(npub);
    ```
-
-8. **NIP-57: Lightning Zaps**
-
-   ```typescript
-   import { nip57 } from 'nostr-tools';
    
-   // Create zap request
-   const zapRequest = nip57.makeZapRequest({
-     profile: profileEvent,
-     event: targetEvent,
-     amount: 1000,
-     relays: ['wss://relay.example.com'],
-     comment: 'Great post!'
-   });
-   
-   // Validate zap request
-   const isValid = nip57.validateZapRequest(zapRequest);
-   ```
+   **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "19" })` for encoding details
+   **Testing**: Use `mcp_Nostr_MCP_Server_analyzeNip19()` and `mcp_Nostr_MCP_Server_convertNip19()` to verify implementations
+
+8. **NIP-33: Parameterized Replaceable Events** (now incorporated into NIP-01)
+
+   **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "33" })` or check NIP-01
+   **Understanding**: Use `mcp_Nostrbook_read_tag({ tag: "d" })` for 'd' tag details
+   **Use Case**: BitTasker service updates, task updates
+
+9. **NIP-50: Search Capability**
+
+   **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "50" })` for search filter specification
+   **Use Case**: Implementing service/task search functionality in BitTasker
+
+10. **NIP-51: Lists**
+
+    **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "51" })` for list event kinds
+    **Use Case**: Implementing saved services, bookmarks, etc. in BitTasker
+
+11. **NIP-57: Lightning Zaps**
+
+    ```typescript
+    import { nip57 } from 'nostr-tools';
+    
+    // Create zap request
+    const zapRequest = nip57.makeZapRequest({
+      profile: profileEvent,
+      event: targetEvent,
+      amount: 1000,
+      relays: ['wss://relay.example.com'],
+      comment: 'Great post!'
+    });
+    
+    // Validate zap request
+    const isValid = nip57.validateZapRequest(zapRequest);
+    ```
+    
+    **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "57" })` for zap protocol details
+
+12. **NIP-99: Classified Listings**
+
+    **Reference**: Use `mcp_Nostrbook_read_nip({ nip: "99" })` for service listing specification
+    **Event Kind**: Kind 30402 (active), Kind 30403 (draft)
+    **Use Case**: BitTasker service listings implementation
+    **Tags**: Use `mcp_Nostrbook_read_tag({ tag: "d" })`, `mcp_Nostrbook_read_tag({ tag: "price" })` for tag details
+    **Search**: Use `mcp_Nostr_MCP_Server_searchNips({ query: "classified listings" })` to find related NIPs
 
 ### Advanced Features
 
@@ -480,30 +685,44 @@ const references = parseReferences(event);
    - Use appropriate event kinds for different content types
    - Include relevant tags for better discoverability
    - Follow tag format specifications
+   - **Reference NIPs**: Use `mcp_Nostrbook_read_nip()` to verify tag formats and event structure
+   - **Verify Tags**: Use `mcp_Nostrbook_read_tag()` to understand tag requirements
 
 2. **Relay Management**
    - Use SimplePool for efficient relay connections
    - Handle connection errors gracefully
    - Close subscriptions when no longer needed
    - Use appropriate timeout values
+   - **Protocol Reference**: Use `mcp_Nostrbook_read_protocol({ doc: "relay" })` for relay behavior
 
 3. **Security**
    - Never expose private keys
    - Validate all incoming events
    - Use encryption for sensitive data
    - Implement proper key management
+   - **Test Keypairs**: Use `mcp_Nostr_MCP_Server_createKeypair()` for development/testing only
 
 4. **Performance**
    - Batch related operations when possible
    - Implement proper caching strategies
    - Use appropriate subscription filters
    - Clean up resources when not needed
+   - **Filter Reference**: Use `mcp_Nostrbook_read_protocol({ doc: "filter" })` for filter optimization
 
 5. **Tag Usage**
    - Always include required tags for specific event kinds
    - Use relay URLs in references when possible
    - Follow standard tag formats defined in NIPs
    - Include only relevant tags to keep event size minimal
+   - **Tag Reference**: Use `mcp_Nostrbook_read_tag()` to verify tag formats before implementation
+   - **NIP Reference**: Use `mcp_Nostrbook_read_nip()` to understand tag requirements for specific event kinds
+
+6. **NIP Implementation**
+   - Always read the full NIP specification before implementing
+   - Use `mcp_Nostr_MCP_Server_searchNips()` to find relevant NIPs
+   - Use `mcp_Nostrbook_read_nip()` to understand requirements
+   - Verify event kinds, tags, and content formats match the NIP
+   - Test NIP-19 encoding/decoding using `mcp_Nostr_MCP_Server_analyzeNip19()` and `mcp_Nostr_MCP_Server_convertNip19()`
 
 ### Error Handling
 
@@ -534,6 +753,12 @@ const publicKey = getPublicKey(privateKey);
 const npub = nip19.npubEncode(publicKey);
 const nsec = nip19.nsecEncode(privateKey);
 ```
+
+**💡 Testing NIP-19 Operations**:
+- Use `mcp_Nostr_MCP_Server_analyzeNip19()` to analyze bech32 entities
+- Use `mcp_Nostr_MCP_Server_convertNip19()` to test format conversions
+- Use `mcp_Nostrbook_read_nip({ nip: "19" })` to understand encoding requirements
+- Use `mcp_Nostr_MCP_Server_createKeypair()` to generate test keypairs (development only)
 
 ## Integration with BitTasker
 

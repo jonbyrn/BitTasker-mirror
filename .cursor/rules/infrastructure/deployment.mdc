@@ -1,6 +1,6 @@
 ---
 description: Deployment patterns, infrastructure configuration, and CI/CD best practices
-globs: ["**/deploy/**/*", "**/infrastructure/**/*", "**/.github/**/*", "**/docker/**/*", "wrangler.toml", "Dockerfile"]
+globs: ["src/**/deploy/**/*", ".github/**/*", "docker/**/*", "wrangler.toml", "Dockerfile"]
 alwaysApply: false
 ---
 

@@ -11,24 +11,32 @@ import {
 	type WalletAsset,
 	type WalletState,
 	type NetworkType,
-	type Transaction,
 	type GasEstimation,
 	type SubmarineSwapData,
 	type CreateSubmarineSwapParams,
-	type SubmarineSwapResult
+	type SubmarineSwapResult,
+	type BoltzSwapData,
+	type ChainSwapData,
 } from '@bittasker/wallet-core';
+import type { SwapPairsCache } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers } from 'ethers';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { processTransactions, type ProcessedTransaction } from '$lib/utils/wallet/transactionHistory';
+import { isSwapCompleted, mapSwapToTransaction, shouldShowSwap } from '$lib/utils/wallet/swapTransaction';
+
+// Extended wallet state with processed transactions
+type WalletStateExtended = Omit<WalletState, 'transactions'> & {
+	transactions: ProcessedTransaction[];
+};
 
 // Initial state
-const initialState: WalletState = {
+const initialState: WalletStateExtended = {
 	isInitializing: false,
 	isConnected: false,
-	hasAnyConnection: false,
 	error: null,
 
 	rsk: {
@@ -76,12 +84,11 @@ const initialState: WalletState = {
 	rbtcRateError: false,
 
 	activeNetwork: 'rsk',
-	activeTab: 'balance',
 	selectedAsset: 'rBTC'
 };
 
 // Create the wallet store
-export const walletStore = writable(initialState);
+export const walletStore = writable<WalletStateExtended>(initialState);
 
 // SDK wallet manager instance
 let sdkWalletManager: WalletManager | null = null;
@@ -95,6 +102,20 @@ let cachedSwapStorages: {
 
 // Event listeners cleanup
 const eventListeners: (() => void)[] = [];
+
+// Cache instances for each swap type
+let cachedSwapPairs: {
+	submarine: SwapPairsCache | null;
+	reverse: SwapPairsCache | null;
+	chain: SwapPairsCache | null;
+} = {
+	submarine: null,
+	reverse: null,
+	chain: null
+};
+
+// Cache TTL: 1 hour (swap pair data rarely changes)
+const SWAP_PAIRS_CACHE_TTL = 3600000; // 1 hour in milliseconds
 
 /**
  * Get wallet manager instance
@@ -115,8 +136,13 @@ export function getEventListeners(): (() => void)[] {
 
 /**
  * Initialize wallet using SDK
+ * 
+ * @param getBalance - Whether to get the balance of the wallet (RSK and BSC)
+ * @returns void
+ * @throws {Error} If the wallet fails to initialize
  */
-async function initializeWallet(): Promise<void> {
+
+async function initializeWallet(getBalance = false): Promise<void> {
 	const state = get(walletStore);
 
 	// Skip if already initializing or already connected
@@ -159,37 +185,50 @@ async function initializeWallet(): Promise<void> {
 		const bscWallet = sdkWalletManager.bscWallet;
 
 		if (rskWallet && bscWallet) {
-			const rskBalanceData = await rskWallet.getBalance();
-			const bscBalances = await bscWallet.getBalances();
-
 			walletStore.update(s => ({
 				...s,
 				isConnected: true,
 				isInitializing: false,
-				hasAnyConnection: true,
 				rsk: {
 					...s.rsk,
 					connected: true,
 					connecting: false,
 					address: rskWallet.getAddress(),
-					balance: rskBalanceData.balance.toString(),
-					formattedBalance: rskBalanceData.formatted,
-					wallet: rskWallet.getWallet() as any,
-					provider: rskWallet.getProvider() as any
+					wallet: rskWallet.getWallet() as ethers.Wallet,
+					provider: rskWallet.getProvider() as ethers.JsonRpcProvider
 				},
 				bsc: {
 					...s.bsc,
 					connected: true,
 					connecting: false,
 					address: bscWallet.getAddress(),
-					bnbBalance: bscBalances.bnb.balance.toString(),
-					usdtBalance: bscBalances.usdt.balance.toString(),
-					formattedBnbBalance: bscBalances.bnb.formatted,
-					formattedUsdtBalance: bscBalances.usdt.formatted,
-					wallet: bscWallet.getWallet() as any,
-					provider: bscWallet.getProvider() as any
+					wallet: bscWallet.getWallet() as ethers.Wallet,
+					provider: bscWallet.getProvider() as ethers.JsonRpcProvider
 				}
 			}));
+
+			if (getBalance) {
+				Promise.all([
+					rskWallet.getBalance(),
+					bscWallet.getBalances()
+				]).then(([rskBalance, bscBalances]) => {
+					walletStore.update(s => ({
+						...s,
+						rsk: {
+							...s.rsk,
+							balance: rskBalance.balance.toString(),
+							formattedBalance: rskBalance.formatted,
+						},
+						bsc: {
+							...s.bsc,
+							bnbBalance: bscBalances.bnb.balance.toString(),
+							usdtBalance: bscBalances.usdt.balance.toString(),
+							formattedBnbBalance: bscBalances.bnb.formatted,
+							formattedUsdtBalance: bscBalances.usdt.formatted,
+						}
+					}));
+				});
+			}
 		}
 	} catch (error) {
 		console.error('Failed to initialize wallet:', error);
@@ -228,13 +267,7 @@ export async function getRSKAddress(): Promise<string> {
  */
 function disconnectWallet(): void {
 	if (sdkWalletManager) {
-		// Disconnect individual wallets
-		if (sdkWalletManager.rskWallet) {
-			sdkWalletManager.rskWallet.disconnect();
-		}
-		if (sdkWalletManager.bscWallet) {
-			sdkWalletManager.bscWallet.disconnect();
-		}
+		sdkWalletManager.dispose();
 		sdkWalletManager = null;
 	}
 
@@ -249,7 +282,10 @@ function disconnectWallet(): void {
 }
 
 /**
- * Load assets
+ * Load wallet assets and update balances from blockchain
+ * Fetches fresh balances for RSK and BSC networks and calculates total USD value
+ * 
+ * @throws {Error} If wallet manager is not initialized
  */
 async function loadAssets(): Promise<void> {
 	try {
@@ -263,22 +299,23 @@ async function loadAssets(): Promise<void> {
 		let totalUsdt = 0;
 		let totalUsd = 0;
 
-		// Fetch current prices
-		let rbtcPrice = 0;
-		let bnbPrice = 0;
+		// Fetch ALL data in parallel: prices and balances
+		const [rbtcPrice, bnbPrice, rskBalanceData, bscBalances] = await Promise.all([
+			cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
+			cryptoPriceService.getCurrentPrice('BNB').catch(() => 0),
+			state.rsk.connected && manager.rskWallet ? manager.rskWallet.getBalance() : Promise.resolve(null),
+			state.bsc.connected && manager.bscWallet ? manager.bscWallet.getBalances() : Promise.resolve(null)
+		]);
 
-		try {
-			[rbtcPrice, bnbPrice] = await Promise.all([
-				cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
-				cryptoPriceService.getCurrentPrice('BNB').catch(() => 0)
-			]);
-		} catch (error) {
-			console.warn('Failed to fetch some prices:', error);
-		}
-
-		// RSK assets - FETCH FRESH BALANCE FROM BLOCKCHAIN
-		if (state.rsk.connected && manager.rskWallet) {
-			const rskBalanceData = await manager.rskWallet.getBalance();
+		// Process RSK assets
+		if (rskBalanceData) {
+			// Use integer arithmetic for sats calculation to match historical balance calculation
+			// Convert Wei directly to sats: 1 RBTC = 10^18 Wei, 1 BTC = 10^8 sats
+			// So: sats = Wei / 10^10
+			const balanceWei = BigInt(rskBalanceData.balance.toString());
+			const rbtcBalanceSats = Number(balanceWei / BigInt(10_000_000_000));
+			
+			// Keep formatted balance for display and USD calculations
 			const rbtcBalance = parseFloat(rskBalanceData.formatted);
 			totalRbtc += rbtcBalance;
 			const rbtcUsdValue = rbtcBalance * rbtcPrice;
@@ -307,9 +344,8 @@ async function loadAssets(): Promise<void> {
 			});
 		}
 
-		// BSC assets - FETCH FRESH BALANCES FROM BLOCKCHAIN
-		if (state.bsc.connected && manager.bscWallet) {
-			const bscBalances = await manager.bscWallet.getBalances();
+		// Process BSC assets
+		if (bscBalances) {
 			const bnbBalance = parseFloat(bscBalances.bnb.formatted);
 			totalBnb += bnbBalance;
 			const bnbUsdValue = bnbBalance * bnbPrice;
@@ -358,8 +394,13 @@ async function loadAssets(): Promise<void> {
 			}
 		}
 
-		// Calculate total sats (RBTC to sats)
-		const totalSats = Math.floor(totalRbtc * 100_000_000);
+		// Calculate total sats using integer arithmetic to match historical balance calculation
+		// This ensures consistency between current and historical balance calculations
+		let totalSats = 0;
+		if (rskBalanceData) {
+			const balanceWei = BigInt(rskBalanceData.balance.toString());
+			totalSats = Number(balanceWei / BigInt(10_000_000_000));
+		}
 
 		// Update store with assets and totals
 		walletStore.update(s => ({
@@ -379,43 +420,142 @@ async function loadAssets(): Promise<void> {
 }
 
 /**
- * Load transactions
+ * Load transactions including pending swaps
  */
 async function loadTransactions(): Promise<void> {
 	try {
 		const manager = getWalletManager();
-		const transactions: Transaction[] = [];
+		const state = get(walletStore);
 
-		// Load RSK transactions
-		if (manager.rskWallet) {
-			const rskTxs = await manager.rskWallet.loadTransactions();
-			transactions.push(...rskTxs.map(tx => ({
-				...tx,
-				network: 'rsk' as const,
-				tokenSymbol: 'RBTC'
-			})));
-		}
+		// Get current balance for running balance calculation
+		const currentBalanceSats = state.totalBalances.sats;
 
-		// Load BSC transactions
-		if (manager.bscWallet) {
-			const bscTxs = await manager.bscWallet.loadTransactions();
-			transactions.push(...bscTxs.map(tx => ({
-				...tx,
-				network: 'bsc' as const
-			})));
-		}
+		// Load blockchain transactions
+		const [rskTxs, bscTxs] = await Promise.all([
+			manager.rskWallet ? manager.rskWallet.loadTransactions() : Promise.resolve([]),
+			manager.bscWallet ? manager.bscWallet.loadTransactions() : Promise.resolve([])
+		]);
 
-		// Sort by timestamp
-		transactions.sort((a, b) => b.timestamp - a.timestamp);
+		// Process blockchain transactions
+		const [processedRskTxs, processedBscTxs] = await Promise.all([
+			processTransactions(rskTxs, state.rsk.address || '', 'rsk', currentBalanceSats),
+			processTransactions(bscTxs, state.bsc.address || '', 'bsc', currentBalanceSats)
+		]);
 
-		walletStore.update(s => ({ ...s, transactions }));
+	// Load pending swaps from all services
+	const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
+		manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
+		manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
+		manager.chainSwapService.recoverPendingSwaps().catch(() => [])
+	]);
+
+	// Defer expired swap cleanup to allow WebSocket to sync status first
+	// The swaps are recovered from Nostr with potentially stale status (e.g., 'swap.created')
+	// but the WebSocket immediately updates them to current status (e.g., 'swap.expired')
+	setTimeout(() => {
+		cleanupExpiredSwaps(manager, submarineSwaps, reverseSwaps, chainSwaps);
+	}, 2000); // Wait 2 seconds for WebSocket to sync
+
+	// Map swaps to transaction format (updated filter signature)
+	const swapTransactions = [
+		...submarineSwaps
+			.filter((s) => shouldShowSwap(s.status, 'submarine', s))
+			.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
+		...reverseSwaps
+			.filter((s) => shouldShowSwap(s.status, 'reverse', s))
+			.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
+		...chainSwaps
+			.filter((s) => shouldShowSwap(s.status, 'chain', s))
+			.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
+	];
+
+		// Combine blockchain transactions
+		const allBlockchainTxs = [...processedRskTxs, ...processedBscTxs];
+		const blockchainTxHashes = new Set(allBlockchainTxs.map((tx) => tx.hash));
+
+		// Filter out swaps that have corresponding blockchain transactions
+		const uniqueSwapTxs = swapTransactions.filter((swapTx) => {
+			return !blockchainTxHashes.has(swapTx.hash);
+		});
+
+		// Combine and sort by timestamp (newest first)
+		const allTransactions = [...allBlockchainTxs, ...uniqueSwapTxs].sort(
+			(a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime()
+		);
+
+		walletStore.update((s) => ({ ...s, transactions: allTransactions }));
 	} catch (error) {
 		console.error('Failed to load transactions:', error);
 	}
 }
 
 /**
- * Load RBTC exchange rate
+ * Update a specific swap transaction in the transactions store
+ * without replacing the entire array
+ * 
+ * @param swapId - Unique identifier for the swap
+ * @param updatedSwap - Updated swap data from Boltz SDK
+ * @param swapType - Type of swap (submarine/reverse/chain)
+ */
+export function updateSwapTransaction(
+	swapId: string,
+	updatedSwap: BoltzSwapData | ChainSwapData | SubmarineSwapData,
+	swapType: 'submarine' | 'reverse' | 'chain'
+): void {
+	const state = get(walletStore);
+	const txIndex = state.transactions.findIndex((tx) => tx.swap?.id === swapId);
+	if (txIndex === -1) return;
+
+
+	const currentTx = state.transactions[txIndex];
+
+	// Preserve the original balanceAfter to prevent recalculation with current balance
+	// balanceAfter should remain constant for a swap transaction
+	const updatedTx = mapSwapToTransaction(
+		updatedSwap,
+		swapType,
+		currentTx.balanceAfter
+	);
+
+	// Compare the ACTUAL Boltz swap status, not the UI representation
+	// The UI status is derived from the raw status and may have the same label for different states
+	const currentSwapStatus = currentTx.swap?.rawStatus;
+	const newSwapStatus = updatedSwap.status;
+
+	// Check if actual swap data has changed
+	const hasChanged =
+		currentSwapStatus !== newSwapStatus || // Compare actual Boltz status
+		currentTx.value !== updatedTx.value;   // Or if amount changed
+
+	if (!hasChanged) {
+		// No actual change in swap data - skip update to prevent unnecessary re-renders
+		return;
+	}
+
+	// Check if swap is completed - remove from pending list
+	// (it will appear from blockchain transactions shortly)
+	if (isSwapCompleted(updatedSwap.status)) {
+		walletStore.update((state) => ({
+			...state,
+			transactions: state.transactions.filter((tx) => tx.swap?.id !== swapId)
+		}));
+		return;
+	}
+
+	// Immutably update only the specific transaction
+	walletStore.update((state) => {
+		return {
+			...state,
+			transactions: state.transactions.map((tx, idx) =>
+				idx === txIndex ? updatedTx : tx
+			)
+		};
+	});
+}
+
+/**
+ * Load RBTC to BTC exchange rate
+ * Updates the store with the current exchange rate or sets error flag on failure
  */
 async function loadRbtcExchangeRate(): Promise<void> {
 	try {
@@ -437,6 +577,11 @@ async function loadRbtcExchangeRate(): Promise<void> {
 
 /**
  * Send RBTC transaction
+ * 
+ * @param to - Recipient address
+ * @param amount - Amount to send in RBTC (as string)
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendRBTC(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
@@ -450,6 +595,11 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 
 /**
  * Send BSC USDT transaction
+ * 
+ * @param to - Recipient address
+ * @param amount - Amount to send in USDT (as string)
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
@@ -463,6 +613,11 @@ export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
 
 /**
  * Send BSC BNB transaction
+ * 
+ * @param to - Recipient address
+ * @param amount - Amount to send in BNB (as string)
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendBSCBNB(to: string, amount: string): Promise<string> {
 	const manager = getWalletManager();
@@ -476,23 +631,34 @@ export async function sendBSCBNB(to: string, amount: string): Promise<string> {
 
 /**
  * Create reverse swap (Lightning → RBTC)
+ * 
+ * @param amountSats - Amount in satoshis to swap
+ * @param description - Optional description for the swap
+ * @returns Swap data
+ * @throws {Error} If wallet manager is not initialized or swap creation fails
  */
-export async function createReverseSwap(amountSats: number): Promise<any> {
+export async function createReverseSwap(amountSats: number, description?: string): Promise<any> {
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
 
-	return await manager.reverseSwapService!.createReverseSwap({
+	return await manager.reverseSwapService.createReverseSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
-		walletSigner
+		walletSigner,
+		description
 	});
 }
 
 /**
  * Create chain swap (L-BTC → RBTC)
+ * 
+ * @param amountSats - Amount in satoshis to swap
+ * @param description - Optional description for the swap
+ * @returns Swap data
+ * @throws {Error} If wallet manager is not initialized or swap creation fails
  */
-export async function createChainSwap(amountSats: number): Promise<any> {
+export async function createChainSwap(amountSats: number, description?: string): Promise<any> {
 	const manager = getWalletManager();
 	const rskAddress = manager.rskWallet!.getAddress();
 	const walletSigner = manager.rskWallet!.getWallet();
@@ -500,12 +666,16 @@ export async function createChainSwap(amountSats: number): Promise<any> {
 	return await manager.chainSwapService!.createChainSwap({
 		amountSats,
 		rbtcAddress: rskAddress,
-		walletSigner
+		walletSigner,
+		description
 	});
 }
 
 /**
- * Get swap limits
+ * Get swap limits for all supported swap types
+ * 
+ * @returns Swap limits object
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getSwapLimits() {
 	const manager = getWalletManager();
@@ -514,15 +684,21 @@ export async function getSwapLimits() {
 
 /**
  * Create submarine swap (RBTC → Lightning)
+ * 
+ * @param invoice - Lightning invoice to pay
+ * @param description - Optional description for the swap
+ * @returns Submarine swap result
+ * @throws {Error} If wallet manager is not initialized or swap creation fails
  */
-export async function createSubmarineSwap(invoice: string): Promise<SubmarineSwapResult> {
+export async function createSubmarineSwap(invoice: string, description?: string): Promise<SubmarineSwapResult> {
 	const manager = getWalletManager();
 
 	const params: CreateSubmarineSwapParams = {
 		from: 'RBTC',
 		to: 'BTC', // Lightning (represented as BTC in Boltz API)
 		invoice,
-		signer: manager.getRSKWallet() // Add signer for gas estimation
+		signer: manager.getRSKWallet(), // Add signer for gas estimation
+		description
 	};
 
 	return await manager.submarineSwapService.createSubmarineSwap(params);
@@ -530,6 +706,10 @@ export async function createSubmarineSwap(invoice: string): Promise<SubmarineSwa
 
 /**
  * Lock funds for submarine swap
+ * 
+ * @param swapData - Submarine swap data
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function lockSubmarineSwapFunds(swapData: SubmarineSwapData): Promise<{ txHash: string }> {
 	const manager = getWalletManager();
@@ -544,7 +724,10 @@ export async function lockSubmarineSwapFunds(swapData: SubmarineSwapData): Promi
 }
 
 /**
- * Get submarine swap limits
+ * Get submarine swap limits for RBTC to BTC swaps
+ * 
+ * @returns Swap limits with minimal and maximal amounts
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getSubmarineSwapLimits(): Promise<{ minimal: number; maximal: number }> {
 	const manager = getWalletManager();
@@ -552,7 +735,10 @@ export async function getSubmarineSwapLimits(): Promise<{ minimal: number; maxim
 }
 
 /**
- * Get submarine swap pairs with fee information
+ * Get submarine swap pairs with fee information from Boltz API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getSubmarineSwapPairs(): Promise<any> {
 	const manager = getWalletManager();
@@ -560,7 +746,31 @@ export async function getSubmarineSwapPairs(): Promise<any> {
 }
 
 /**
- * Get reverse swap pairs with fee information
+ * Get cached submarine swap pairs (1 hour TTL)
+ * Returns cached data if available and fresh, otherwise fetches from API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized or API call fails
+ */
+export async function getCachedSubmarineSwapPairs(): Promise<any> {
+	const now = Date.now();
+
+	// Return cached data if valid
+	if (cachedSwapPairs.submarine && (now - cachedSwapPairs.submarine.timestamp) < cachedSwapPairs.submarine.ttl) {
+		return cachedSwapPairs.submarine.data;
+	}
+
+	// Fetch fresh data
+	const data = await getSubmarineSwapPairs();
+	cachedSwapPairs.submarine = { data, timestamp: now, ttl: SWAP_PAIRS_CACHE_TTL };
+	return data;
+}
+
+/**
+ * Get reverse swap pairs with fee information from Boltz API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getReverseSwapPairs(): Promise<any> {
 	const manager = getWalletManager();
@@ -568,7 +778,31 @@ export async function getReverseSwapPairs(): Promise<any> {
 }
 
 /**
- * Get chain swap pairs with fee information
+ * Get cached reverse swap pairs (1 hour TTL)
+ * Returns cached data if available and fresh, otherwise fetches from API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized or API call fails
+ */
+export async function getCachedReverseSwapPairs(): Promise<any> {
+	const now = Date.now();
+
+	// Return cached data if valid
+	if (cachedSwapPairs.reverse && (now - cachedSwapPairs.reverse.timestamp) < cachedSwapPairs.reverse.ttl) {
+		return cachedSwapPairs.reverse.data;
+	}
+
+	// Fetch fresh data
+	const data = await getReverseSwapPairs();
+	cachedSwapPairs.reverse = { data, timestamp: now, ttl: SWAP_PAIRS_CACHE_TTL };
+	return data;
+}
+
+/**
+ * Get chain swap pairs with fee information from Boltz API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized
  */
 export async function getChainSwapPairs(): Promise<any> {
 	const manager = getWalletManager();
@@ -576,7 +810,43 @@ export async function getChainSwapPairs(): Promise<any> {
 }
 
 /**
+ * Get cached chain swap pairs (1 hour TTL)
+ * Returns cached data if available and fresh, otherwise fetches from API
+ * 
+ * @returns Swap pairs data
+ * @throws {Error} If wallet manager is not initialized or API call fails
+ */
+export async function getCachedChainSwapPairs(): Promise<any> {
+	const now = Date.now();
+
+	// Return cached data if valid
+	if (cachedSwapPairs.chain && (now - cachedSwapPairs.chain.timestamp) < cachedSwapPairs.chain.ttl) {
+		return cachedSwapPairs.chain.data;
+	}
+
+	// Fetch fresh data
+	const data = await getChainSwapPairs();
+	cachedSwapPairs.chain = { data, timestamp: now, ttl: SWAP_PAIRS_CACHE_TTL };
+	return data;
+}
+
+/**
+ * Clear all swap pairs caches
+ * Useful for forcing a refresh of fee data
+ */
+export function clearSwapPairsCache(): void {
+	cachedSwapPairs.submarine = null;
+	cachedSwapPairs.reverse = null;
+	cachedSwapPairs.chain = null;
+}
+
+/**
  * Estimate gas for RBTC transaction
+ * 
+ * @param to - Recipient address
+ * @param amount - Amount to send in RBTC (as string)
+ * @returns Gas estimation with gas limit, gas price, and total cost
+ * @throws {Error} If RSK wallet is not initialized or gas estimation fails
  */
 export async function estimateRBTCGas(to: string, amount: string): Promise<GasEstimation> {
 	try {
@@ -618,33 +888,62 @@ export async function estimateRBTCGas(to: string, amount: string): Promise<GasEs
 }
 
 /**
- * UI state setters
+ * Set active network in UI
+ * 
+ * @param network - Network to set as active ('liquid' | 'rsk' | 'bsc')
  */
 export function setActiveNetwork(network: 'liquid' | 'rsk' | 'bsc'): void {
 	walletStore.update((state) => ({ ...state, activeNetwork: network }));
 }
 
+/**
+ * Set active tab in wallet UI
+ * 
+ * @param tab - Tab to set as active
+ */
 export function setActiveTab(tab: 'balance' | 'send' | 'receive' | 'transactions' | 'buy-sell' | 'swap'): void {
 	walletStore.update((state) => ({ ...state, activeTab: tab }));
 }
 
+/**
+ * Set selected asset in wallet UI
+ * 
+ * @param asset - Asset identifier to select
+ */
 export function setSelectedAsset(asset: string): void {
 	walletStore.update((state) => ({ ...state, selectedAsset: asset }));
 }
 
 /**
- * Helper functions for backward compatibility
+ * Get wallet instance for specified network (backward compatibility)
+ * 
+ * @param network - Network to get wallet for ('rsk' | 'bsc')
+ * @returns Wallet instance or null if not initialized
  */
 export function getWallet(network: 'rsk' | 'bsc'): ethers.Wallet | null {
 	const state = get(walletStore);
 	return network === 'rsk' ? state.rsk.wallet : state.bsc.wallet;
 }
 
+/**
+ * Get provider instance for specified network (backward compatibility)
+ * 
+ * @param network - Network to get provider for ('rsk' | 'bsc')
+ * @returns Provider instance or null if not initialized
+ */
 export function getProvider(network: 'rsk' | 'bsc'): ethers.JsonRpcProvider | null {
 	const state = get(walletStore);
 	return network === 'rsk' ? state.rsk.provider : state.bsc.provider;
 }
 
+/**
+ * Format address with ellipsis in the middle
+ * 
+ * @param address - Address to format
+ * @param startChars - Number of characters to show at start (default: 6)
+ * @param endChars - Number of characters to show at end (default: 4)
+ * @returns Formatted address string
+ */
 export function formatAddress(address: string, startChars = 6, endChars = 4): string {
 	if (!address || address.length < startChars + endChars) {
 		return address;
@@ -652,10 +951,22 @@ export function formatAddress(address: string, startChars = 6, endChars = 4): st
 	return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 }
 
+/**
+ * Format satoshis as a number string with thousand separators
+ * 
+ * @param sats - Amount in satoshis
+ * @returns Formatted string
+ */
 export function formatSats(sats: number): string {
 	return new Intl.NumberFormat('en-US').format(sats);
 }
 
+/**
+ * Format amount as USD currency
+ * 
+ * @param amount - Amount to format
+ * @returns Formatted currency string
+ */
 export function formatUsd(amount: number): string {
 	return new Intl.NumberFormat('en-US', {
 		style: 'currency',
@@ -678,6 +989,68 @@ export const rbtcToBtcRate = derived(walletStore, $w => $w.rbtcToBtcRate);
 export const transactions = derived(walletStore, $w => $w.transactions);
 
 // Wallet manager compatibility object
+/**
+ * Cleanup expired swaps from Nostr storage
+ * Called after WebSocket has synced swap statuses
+ * 
+ * @param manager - Wallet manager instance
+ * @param submarineSwaps - Submarine swaps to check
+ * @param reverseSwaps - Reverse swaps to check
+ * @param chainSwaps - Chain swaps to check
+ */
+function cleanupExpiredSwaps(
+	manager: any,
+	submarineSwaps: any[],
+	reverseSwaps: any[],
+	chainSwaps: any[]
+): void {
+	// Collect expired swaps to delete based on swap type
+	// See: https://api.docs.boltz.exchange/lifecycle.html
+	const swapsToDelete: Array<{ id: string; type: 'submarine' | 'reverse' | 'chain' }> = [];
+
+	// Submarine swaps: delete if expired and user never locked funds
+	submarineSwaps.forEach((s) => {
+		if (s.status === 'swap.expired' && !s.lockupTxHash) {
+			swapsToDelete.push({ id: s.id, type: 'submarine' });
+		}
+	});
+
+	// Reverse swaps: delete if expired (invoice was never paid or Boltz auto-refunded)
+	reverseSwaps.forEach((s) => {
+		if (s.status === 'swap.expired') {
+			swapsToDelete.push({ id: s.id, type: 'reverse' });
+		}
+	});
+
+	// Chain swaps: delete if expired and neither side locked funds
+	chainSwaps.forEach((s) => {
+		if (s.status === 'swap.expired' && !s.lockupTxHash && !s.serverLockupTxHash) {
+			swapsToDelete.push({ id: s.id, type: 'chain' });
+		}
+	});
+
+	// Delete safe-to-delete expired swaps from Nostr storage
+	if (swapsToDelete.length > 0) {
+		console.log(
+			`Deleting ${swapsToDelete.length} expired swap(s) from Nostr:`,
+			swapsToDelete.map((s) => s.id)
+		);
+		Promise.all(
+			swapsToDelete.map(({ id, type }) => {
+				const service =
+					type === 'submarine'
+						? manager.submarineSwapService
+						: type === 'reverse'
+							? manager.reverseSwapService
+							: manager.chainSwapService;
+				return service.deleteSwap(id);
+			})
+		).catch((error) => {
+			console.error('Failed to delete expired swaps:', error);
+		});
+	}
+}
+
 export const walletManager = {
 	initialize: initializeWallet,
 	cleanup: disconnectWallet,
@@ -698,6 +1071,13 @@ export const walletManager = {
 	getSubmarineSwapPairs,
 	getReverseSwapPairs,
 	getChainSwapPairs,
+	getCachedSubmarineSwapPairs,
+	getCachedReverseSwapPairs,
+	getCachedChainSwapPairs,
+	clearSwapPairsCache,
+	onSwapUpdate(callback: (event: any) => void): () => void {
+		return getWalletManager().onSwapUpdate(callback);
+	},
 	get submarineSwapService() {
 		return getWalletManager().submarineSwapService;
 	},
@@ -708,4 +1088,3 @@ export const walletManager = {
 		return getWalletManager().chainSwapService;
 	}
 };
-

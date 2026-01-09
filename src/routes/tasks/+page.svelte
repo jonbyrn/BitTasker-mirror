@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task, SearchTasksParams } from '$lib/types/task.d';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { formatDistanceToNow } from 'date-fns';
 	import { tasksStore } from '$lib/stores/task.store';
@@ -8,6 +8,7 @@
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
+	import Drawer from '$lib/components/Drawer.svelte';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
 	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
@@ -80,6 +81,10 @@
 	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 	let intersectionObserver: IntersectionObserver | null = null;
 
+	// Infinite scroll state - using scroll listener instead of sentinel
+	let scrollHandler: ((e: Event) => void) | null = null;
+	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
+
 
 	// Has active search parameters for save search button
 	let hasActiveParams = $state(false);
@@ -145,6 +150,11 @@
 			await findTasks(searchParams);
 			dataLoaded = true;
 			showSkeleton = false;
+
+			// Setup infinite scroll after data is loaded
+			if (taskListRef) {
+				setupInfiniteScroll();
+			}
 
 			// Cleanup observers and timers
 			if (intersectionObserver) {
@@ -322,16 +332,20 @@
 
 	// Load more tasks
 	async function loadMoreTasks() {
-		if (!$tasksStore.hasMore || $tasksStore.loading) {
+		// Prevent multiple simultaneous loads
+		if (!$tasksStore.hasMore || $tasksStore.loading || isLoadingMore) {
 			return;
 		}
 
 		try {
+			isLoadingMore = true;
+
 			const nextPage = $tasksStore.currentPage + 1;
 			const lastItem = $tasksStore.items[$tasksStore.items.length - 1];
 
 			if (!lastItem) {
 				console.warn('[FindTasks] No last item found, cannot load more');
+				isLoadingMore = false;
 				return;
 			}
 
@@ -344,10 +358,80 @@
 				until: untilTimestamp,
 				limit: 15
 			};
+
 			await findTasks(searchParams);
 		} catch (error) {
 			console.error('[FindTasks] Error loading more tasks:', error);
+		} finally {
+			isLoadingMore = false;
 		}
+	}
+
+	/**
+	 * Setup infinite scroll using scroll listener
+	 * Loads more tasks automatically when user scrolls near the end (70% of scroll)
+	 */
+	function setupInfiniteScroll(): void {
+		if (!browser || !taskListRef) return;
+
+		// Cleanup existing handler
+		if (scrollHandler) {
+			taskListRef.removeEventListener('scroll', scrollHandler);
+			scrollHandler = null;
+		}
+
+		// Track last scroll position to prevent duplicate loads
+		let lastScrollTop = 0;
+		let lastLoadScrollTop = 0;
+
+		// Create scroll handler with debouncing
+		let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+		scrollHandler = () => {
+			if (scrollTimeout) {
+				clearTimeout(scrollTimeout);
+			}
+
+			scrollTimeout = setTimeout(() => {
+				if (!taskListRef || !$tasksStore.hasMore || $tasksStore.loading || isLoadingMore) {
+					return;
+				}
+
+				const { scrollTop, scrollHeight, clientHeight } = taskListRef;
+
+				// Only process if user actually scrolled down (not up)
+				if (scrollTop <= lastScrollTop) {
+					lastScrollTop = scrollTop;
+					return;
+				}
+
+				lastScrollTop = scrollTop;
+
+				// Check if we have enough content to scroll
+				if (scrollHeight <= clientHeight) {
+					// Not enough content, but don't auto-load - wait for user to scroll
+					return;
+				}
+
+				const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
+				const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+
+				// Load more when:
+				// 1. User has scrolled 70% of the content
+				// 2. User scrolled at least 200px since last load (to prevent duplicate loads)
+				// 3. User is within 500px of the bottom (ensures they're actually near the end)
+				if (
+					scrollPercentage > 0.7 &&
+					scrollTop - lastLoadScrollTop > 200 &&
+					distanceFromBottom < 500
+				) {
+					lastLoadScrollTop = scrollTop;
+					loadMoreTasks();
+				}
+			}, 200); // Increased debounce to prevent rapid-fire loads
+		};
+
+		// Add scroll listener with passive flag for better performance
+		taskListRef.addEventListener('scroll', scrollHandler, { passive: true });
 	}
 
 	// Get status badge color and text
@@ -413,8 +497,18 @@
 			// Fetch BTC price for USDT conversion (non-critical)
 			fetchBtcPrice();
 
-			// Setup lazy loading for Nostr data
-			setupLazyLoading();
+			// Check if we already have tasks in store from previous navigation
+			if ($tasksStore.items.length > 0) {
+				dataLoaded = true;
+				showSkeleton = false;
+				// Setup infinite scroll if taskListRef is available
+				if (taskListRef) {
+					setupInfiniteScroll();
+				}
+			} else {
+				// Setup lazy loading for Nostr data
+				setupLazyLoading();
+			}
 		}
 	});
 
@@ -429,6 +523,12 @@
 			if (fallbackTimer) {
 				clearTimeout(fallbackTimer);
 				fallbackTimer = null;
+			}
+
+			// Cleanup infinite scroll handler
+			if (scrollHandler && taskListRef) {
+				taskListRef.removeEventListener('scroll', scrollHandler);
+				scrollHandler = null;
 			}
 
 			cleanup();
@@ -507,15 +607,45 @@
 	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
 
 	// Función para hacer scroll a una card específica
-	function scrollToTaskCard(taskId: string) {
-		// Buscar la card por data attribute
-		const cardElement = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
-		if (cardElement) {
-			cardElement.scrollIntoView({
-				behavior: 'smooth',
-				block: 'center'
-			});
-		}
+	async function scrollToTaskCard(taskId: string) {
+		// Wait for DOM to update, especially important when switching views
+		await tick();
+		
+		// Use requestAnimationFrame to ensure the element is fully rendered
+		requestAnimationFrame(() => {
+			// Try multiple selectors to find the card
+			let cardElement = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
+			
+			// If not found by data attribute, try to find by taskCardRefs
+			if (!cardElement && taskCardRefs.has(taskId)) {
+				cardElement = taskCardRefs.get(taskId) as HTMLElement;
+			}
+			
+			// If still not found, try to find in the scrollable container
+			if (!cardElement && taskListRef) {
+				cardElement = taskListRef.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
+			}
+			
+			if (cardElement && taskListRef) {
+				// Calculate scroll position relative to the scrollable container
+				const containerRect = taskListRef.getBoundingClientRect();
+				const elementRect = cardElement.getBoundingClientRect();
+				const scrollTop = taskListRef.scrollTop;
+				const elementTop = elementRect.top - containerRect.top + scrollTop;
+				const centerOffset = containerRect.height / 2 - elementRect.height / 2;
+				
+				taskListRef.scrollTo({
+					top: elementTop - centerOffset,
+					behavior: 'smooth'
+				});
+			} else if (cardElement) {
+				// Fallback to scrollIntoView if no container ref
+				cardElement.scrollIntoView({
+					behavior: 'smooth',
+					block: 'center'
+				});
+			}
+		});
 	}
 
 	// Action para registrar las referencias de las cards
@@ -632,16 +762,18 @@
 					</div>
 				{/if}
 
+				<!-- Task Count -->
+				{#if $tasksStore.items && $tasksStore.items.length > 0}
+					<div class="text-base-content/70 mb-4 text-sm">
+						{$t('find_tasks.showing_tasks', { values: { count: $tasksStore.items.length } }) ||
+							`Showing ${$tasksStore.items.length} task${$tasksStore.items.length !== 1 ? 's' : ''}`}
+					</div>
+				{/if}
+
 				<!-- Mobile: Full width list, Desktop: Split with map -->
 				<div class="lg:flex lg:gap-6">
 					<!-- Tasks List -->
 					<div class="lg:w-1/2">
-						<!-- Task Count -->
-						{#if $tasksStore.items && $tasksStore.items.length > 0}
-							<div class="mb-4 text-sm text-base-content/70">
-								{$t('find_tasks.showing_tasks', { values: { count: $tasksStore.items.length } }) || `Showing ${$tasksStore.items.length} task${$tasksStore.items.length !== 1 ? 's' : ''}`}
-							</div>
-						{/if}
 						<div class="max-h-[calc(65vh)] overflow-y-auto" bind:this={taskListRef}>
 							<!-- Skeleton Loading -->
 							{#if showSkeleton && !dataLoaded}
@@ -728,7 +860,8 @@
 														{#each [task] as taskItem}
 															{@const statusBadge = getStatusBadge(taskItem.status)}
 															<div class="badge {statusBadge.color} badge-outline badge-sm">
-																{$t(`task.status.${taskItem.status.toLowerCase()}`) || statusBadge.text}
+																{$t(`common.status.${taskItem.status.toLowerCase()}`) ||
+																	statusBadge.text}
 															</div>
 														{/each}
 													</div>
@@ -970,21 +1103,31 @@
 									{/each}
 								</div>
 
-								<!-- Load More Button -->
-								{#if $tasksStore.hasMore}
-									<div class="flex justify-center py-6">
-										<button
-											class="btn btn-primary"
-											onclick={loadMoreTasks}
-											disabled={$tasksStore.loading}
-										>
-											{#if $tasksStore.loading}
-												<span class="loading loading-spinner loading-sm"></span>
-												{$t('find_tasks.loading_more') || 'Loading more tasks...'}
-											{:else}
-												{$t('find_tasks.load_more') || 'Load More Tasks'}
-											{/if}
-										</button>
+								<!-- Skeleton Loading for new tasks -->
+								{#if $tasksStore.loading && $tasksStore.items.length > 0 && $tasksStore.hasMore}
+									<div class="space-y-3 pt-3">
+										{#each Array(3) as _}
+											<div class="card bg-base-100 animate-pulse rounded-xl p-4 shadow-md">
+												<div class="flex flex-col gap-3 md:flex-row md:items-center">
+													<div class="bg-base-300 h-6 w-3/4 rounded"></div>
+													<div class="bg-base-300 h-5 w-28 rounded"></div>
+												</div>
+												<div class="my-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+													<div class="bg-base-300 h-5 w-24 rounded"></div>
+													<div class="bg-base-300 h-5 w-32 rounded"></div>
+													<div class="bg-base-300 h-5 w-28 rounded"></div>
+												</div>
+												<div class="flex gap-2">
+													<div class="bg-base-300 h-5 w-16 rounded"></div>
+													<div class="bg-base-300 h-5 w-20 rounded"></div>
+													<div class="bg-base-300 h-5 w-12 rounded"></div>
+												</div>
+												<div class="mt-3 flex items-center justify-between">
+													<div class="bg-base-300 h-5 w-12 rounded"></div>
+													<div class="bg-base-300 h-8 w-20 rounded"></div>
+												</div>
+											</div>
+										{/each}
 									</div>
 								{/if}
 							{:else if !$tasksStore.loading}
@@ -1022,9 +1165,9 @@
 							tasks={$tasksStore.items}
 							height="65vh"
 							{selectedTask}
-							onTaskSelected={(event) => {
+							onTaskSelected={async (event) => {
 								selectedTask = event.task;
-								scrollToTaskCard(event.task.id);
+								await scrollToTaskCard(event.task.id);
 							}}
 						/>
 					</div>
@@ -1060,11 +1203,15 @@
 					tasks={$tasksStore.items}
 					height="65vh"
 					{selectedTask}
-					onTaskSelected={(event) => {
+					onTaskSelected={async (event) => {
 						selectedTask = event.task;
 						// When a task is selected on the map, switch to list view to show the task
 						viewMode = 'list';
-						scrollToTaskCard(event.task.id);
+						// Wait for view mode change to complete before scrolling
+						await tick();
+						// Wait for next frame to ensure DOM is fully updated and taskListRef is available
+						await new Promise(resolve => requestAnimationFrame(resolve));
+						await scrollToTaskCard(event.task.id);
 					}}
 				/>
 
@@ -1100,11 +1247,17 @@
 </div>
 
 <!-- Advanced Filter Drawer Component -->
-<FilterDrawer
+<Drawer
 	isOpen={isFilterDrawerOpen}
+	title={$t('find_tasks.filters')}
 	onClose={() => (isFilterDrawerOpen = false)}
-	onApply={handleFilterApply}
-/>
+	position="right"
+	isScrollable={true}
+>
+	{#snippet children()}
+		<FilterDrawer initialFilters={searchParams} onApply={handleFilterApply} />
+	{/snippet}
+</Drawer>
 
 <style>
 	:global([name='gmp-internal-google-attribution']),

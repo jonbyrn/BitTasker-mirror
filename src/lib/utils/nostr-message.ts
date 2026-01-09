@@ -11,7 +11,7 @@ import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
-import type { NostrProfileImage, NostrReview, NostrSkill, SkillCertification, TimeSlot } from '$lib/types/profile';
+import type { NostrProfileImage, NostrReview, NostrSkill, SkillCertification, TimeSlot, ProfileTranslations } from '$lib/types/profile';
 
 // --- Relay Configuration ---
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
@@ -372,6 +372,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	pictures?: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
 	website?: string;
 	professionalTitle?: string;
+	translations?: ProfileTranslations;
 	skills?: Array<string | {
 		name: string;
 		level: number;
@@ -406,6 +407,20 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	createdAt?: string;
 }> {
 	try {
+		// Ensure pubkey is in hex format (not npub)
+		let hexPubkey = pubkey;
+		if (pubkey.startsWith('npub')) {
+			try {
+				const decoded = nip19.decode(pubkey);
+				if (decoded.type === 'npub') {
+					hexPubkey = decoded.data as string;
+				}
+			} catch (e) {
+				console.error('Failed to decode npub:', e);
+				throw new Error('Invalid npub format');
+			}
+		}
+
 		// Fetch all profile-related events
 		const pool = getPool();
 		const filter: Filter = {
@@ -419,7 +434,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 				KINDS.PROFILE_AVAILABILITY, // Availability (30002)
 				KINDS.PROFILE_REVIEWS // Reviews (30004)
 			],
-			authors: [pubkey],
+			authors: [hexPubkey],
 			limit: 50
 		};
 
@@ -428,11 +443,13 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 		// Initialize profile data
 		const profileData: any = {
 			name: '',
+			display_name: '',
 			about: '',
 			picture: '',
 			pictures: [],
 			website: '',
 			professionalTitle: '',
+			location: '',
 			skills: [],
 			portfolio: [],
 			availability: {
@@ -467,8 +484,22 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 						if (content.professionalTitle) {
 							profileData.professionalTitle = content.professionalTitle;
 						}
+						if (content.translations) {
+							profileData.translations = content.translations;
+						}
+						// PROFILE_METADATA has priority over PROFILE_IMAGES
 						if (content.picture) {
 							profileData.picture = content.picture;
+						}
+						if (content.location) {
+							// Location can be a string (city, country or city, state) or an object
+							if (typeof content.location === 'string') {
+								profileData.location = content.location;
+							} else if (content.location.city && content.location.country) {
+								profileData.location = `${content.location.city}, ${content.location.country}`;
+							} else if (content.location.city && content.location.state) {
+								profileData.location = `${content.location.city}, ${content.location.state}`;
+							}
 						}
 						if (event.created_at) {
 							profileData.createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
@@ -486,8 +517,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 									key: img.key,
 									isPrimary: img.isPrimary || false
 								}));
-								// Use first image as primary picture if no picture set
-								if (!profileData.picture && content.length > 0) {
+								// Only use first image as primary picture if PROFILE_METADATA didn't provide one (PROFILE_METADATA has priority)
+								if (content.length > 0 && !profileData.picture) {
 									profileData.picture = content[0].url;
 								}
 							}
@@ -497,7 +528,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 
 					case KINDS.PROFILE_SKILLS: // Skills (30000)
 						if (Array.isArray(content)) {
-							profileData.skills = content.map((skill: NostrSkill) => {
+							profileData.skills = content.map((skill: NostrSkill & { translations?: any; id?: string }) => {
 								// Handle both string format and object format
 								if (typeof skill === 'string') {
 									return skill;
@@ -507,7 +538,9 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 										level: skill.level,
 										verificationStatus: skill.verificationStatus,
 										endorsements: skill.endorsements,
-										certifications: skill.certifications || []
+										certifications: skill.certifications || [],
+										translations: skill.translations,
+										id: skill.id
 									};
 								}
 							});
@@ -522,7 +555,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 							images: content.images,
 							completionDate: content.completionDate,
 							skills: content.skills,
-							link: content.link
+							link: content.link,
+							translations: content.translations
 						});
 						break;
 
@@ -566,7 +600,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 		return profileData;
 	} catch (error) {
 		console.error('💥 Failed to fetch comprehensive profile for', pubkey, ':', error);
-		return {};
+		// Return a more informative error structure
+		throw error;
 	}
 }
 

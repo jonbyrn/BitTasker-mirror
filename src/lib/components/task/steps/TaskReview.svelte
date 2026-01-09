@@ -148,8 +148,8 @@
 				</div>
 
 				<div class="space-y-1 sm:col-span-2">
-					<span class="text-sm font-medium text-base-content/70">Timeline</span>
-					<div class="flex items-center gap-2">
+					<span class="text-sm font-medium text-base-content/70">{$t('task.timeline')}</span>
+					<div class="flex flex-col gap-1">
 						{#if $store.task.dateRange}
 							<span class="text-base font-medium text-base-content">
 								{$t('task.complete_between')} {formatDateWithoutYear(new Date($store.task.dateRange.start))} {$t('task.and')} {formatStandardDateShort(new Date($store.task.dateRange.end))}
@@ -162,48 +162,52 @@
 					</div>
 				</div>
 			</div>
+		</div>
+	</div>
 
-			<!-- Budget Section -->
-			<div class="mb-6">
-				<h5 class="mb-4 text-base font-semibold text-base-content">{$t('task.budget_details')}</h5>
-				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					<div class="space-y-1">
-						<span class="text-sm font-medium text-base-content/70">{$t('task.budget_type')}</span>
-						<div class="flex items-center gap-2">
-							<span class="badge badge-outline badge-sm">
-								{$store.task.budget.type === BudgetTypeEnum.FIXED
-									? $t('task.budget_fixed')
-									: $t('task.budget_hourly')}
+	<!-- Budget Section -->
+	<div class="card bg-base-200 shadow-sm">
+		<div class="card-body p-6">
+			<h5 class="mb-4 text-base font-semibold text-base-content">{$t('task.budget_details')}</h5>
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<div class="space-y-1">
+					<span class="text-sm font-medium text-base-content/70">{$t('task.budget_type')}</span>
+					<div class="flex items-center gap-2">
+						<span class="badge badge-outline badge-sm">
+							{$store.task.budget.type === BudgetTypeEnum.FIXED
+								? $t('task.budget_fixed')
+								: $t('task.budget_hourly')}
+						</span>
+						{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
+							<span class="text-sm text-base-content/70">
+								({$store.task.budget.estimatedHours} {$t('task.hours')})
 							</span>
-							{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
-								<span class="text-sm text-base-content/70">
-									({$store.task.budget.estimatedHours} {$t('task.hours')})
-								</span>
-							{/if}
-						</div>
+						{/if}
 					</div>
+				</div>
 
-					<div class="space-y-1">
-						<span class="text-sm font-medium text-base-content/70">{$t('task.budget_amount')}</span>
-						<div class="flex flex-col">
-							<span class="text-2xl font-bold text-primary">
-								${formatNumberWithTwoDecimals($store.task.budget.amount)}
-							</span>
-							<span class="text-sm text-base-content/60">
-								{satsFromUsd($store.task.budget.amount, btcPrice)}
-							</span>
-						</div>
+				<div class="space-y-1">
+					<span class="text-sm font-medium text-base-content/70">{$t('task.budget_amount')}</span>
+					<div class="flex flex-col">
+						<span class="text-2xl font-bold text-primary">
+							${formatNumberWithTwoDecimals($store.task.budget.amount)}
+						</span>
+						<span class="text-sm text-base-content/60">
+							{satsFromUsd($store.task.budget.amount, btcPrice)}
+						</span>
 					</div>
 				</div>
 			</div>
+		</div>
+	</div>
 
-			<!-- Description Section -->
-			<div>
-				<h5 class="mb-3 text-base font-semibold text-base-content">{$t('task.description_label')}</h5>
-				<div class="bg-base-100 rounded-lg border border-base-300 p-4">
-					<div class="max-h-32 overflow-y-auto">
-						<p class="text-sm leading-relaxed text-base-content">{$store.task.description}</p>
-					</div>
+	<!-- Description Section -->
+	<div class="card bg-base-200 shadow-sm">
+		<div class="card-body p-6">
+			<h5 class="mb-3 text-base font-semibold text-base-content">{$t('task.description_label')}</h5>
+			<div class="bg-base-100 rounded-lg border border-base-300 p-4">
+				<div class="max-h-32 overflow-y-auto">
+					<p class="text-sm leading-relaxed text-base-content whitespace-pre-wrap">{$store.task.description}</p>
 				</div>
 			</div>
 		</div>

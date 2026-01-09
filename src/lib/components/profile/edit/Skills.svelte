@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Skill, SkillCertification } from '$lib/types/profile.d';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import {
@@ -13,7 +13,35 @@
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
+	// Helper function to get translated skill name
+	function getTranslatedSkillName(skill: Skill): string {
+		const currentLang = $locale || 'en';
+		const originalName = skill.name || '';
+		
+		// If no translations, return original
+		if (!skill.translations) {
+			return originalName;
+		}
+
+		// If current language is source language, return original
+		if (skill.translations.sourceLanguage === currentLang) {
+			return originalName;
+		}
+
+		// Get translation for current language
+		const translation = skill.translations.translations[currentLang];
+		if (translation) {
+			return translation.name || originalName;
+		}
+
+		// Fallback to original
+		return originalName;
+	}
+
+
+	let { onComplete } = $props<{ 
+		onComplete: (completed: boolean, fromSave?: boolean) => void;
+	}>();
 
 	// Local state
 	let skills = $state<Skill[]>([]);
@@ -208,7 +236,8 @@
 			// Publish skills update
 			await publishSkillsUpdate(skills);
 
-			appStore.showSuccessToast($t('profile.skills.skills_updated_success'));
+			// Notify completion change from save (triggers toast in parent)
+			onComplete(skills.length > 0, true);
 		} catch (err) {
 			console.error('Failed to save skills:', err);
 			error = err instanceof Error ? err.message : $t('profile.skills.failed_to_save_skills');
@@ -376,7 +405,7 @@
 						<div class="card border-base-content rounded-2xl border shadow-sm">
 							<div class="card-body p-4">
 								<div class="flex items-start justify-between">
-									<h3 class="card-title">{skill.name}</h3>
+									<h3 class="card-title">{getTranslatedSkillName(skill)}</h3>
 									<button
 										aria-label={$t('profile.skills.delete_confirm')}
 										class="btn btn-circle btn-accent btn-xs"
@@ -403,24 +432,6 @@
 											/>
 										{/each}
 									</div>
-								</div>
-
-								<!-- Status and Endorsements -->
-								<div class="mt-2 flex flex-wrap items-center gap-2">
-									<span
-										class="badge w-fit {skill.verificationStatus === 'verified'
-											? 'badge-success'
-											: skill.verificationStatus === 'pending'
-												? 'badge-warning'
-												: 'badge-ghost badge-outline'}"
-									>
-										{skill.verificationStatus}
-									</span>
-									<span
-										class="badge badge-outline w-fit leading-tight wrap-sbreak-words whitespace-nowrap"
-									>
-										{skill.endorsements} {skill.endorsements !== 1 ? $t('profile.skills.endorsements') : $t('profile.skills.endorsement')}
-									</span>
 								</div>
 
 								<!-- Certifications -->
@@ -479,11 +490,11 @@
 												onChange={(date: Date | null) => {
 													certification.date = date ? date.toISOString() : '';
 												}}
-												minDate={new Date()}
+												minDate={undefined}
 												type="single"
 												labelKey="profile.skills.cert_date"
-												placeholderKey="profile.airdatepicker.select_date"
-												maxDate={undefined}
+												placeholderKey="common.airdatepicker.select_date"
+												maxDate={new Date()}
 											/>
 										</div>
 

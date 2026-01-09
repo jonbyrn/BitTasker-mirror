@@ -73,6 +73,7 @@ export async function sendLocationsToTaskee(
 		taskDescription?: string;
 		isRemote?: boolean;
 		threadRootId?: string;
+		additionalNotes?: string;
 	}
 ): Promise<void> {
 	try {
@@ -157,6 +158,13 @@ export async function sendLocationsToTaskee(
 			});
 		}
 
+		// Add additional notes if provided
+		if (options?.additionalNotes && options.additionalNotes.trim()) {
+			messageText += '\n\n';
+			messageText += `📝 ${_('dashboard.bids.bid_acceptance.additional_notes_label')}\n`;
+			messageText += `${options.additionalNotes.trim()}`;
+		}
+
 		// Build tags with location data using centralized tag patterns
 		const tags = TAG_PATTERNS.location(JSON.stringify(locationData), options?.taskId);
 
@@ -164,6 +172,61 @@ export async function sendLocationsToTaskee(
 		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, tags);
 	} catch (error) {
 		console.error('Error sending locations to taskee:', error);
+		throw error;
+	}
+}
+
+export interface TaskCompletionMessageData {
+	type: 'task-completion';
+	taskId?: string;
+	escrowId?: string;
+	taskTitle?: string;
+}
+
+/**
+ * Send task completion message to tasker
+ * This is called when a taskee marks a task as completed
+ */
+export async function sendTaskCompletionMessageToTasker(
+	recipientPubkey: string,
+	options?: {
+		taskId?: string;
+		taskTitle?: string;
+		escrowId?: string;
+		threadRootId?: string;
+	}
+): Promise<void> {
+	try {
+		// Convert recipient pubkey to hex if needed
+		const recipientPubkeyHex = recipientPubkey.startsWith('npub')
+			? (nip19.decode(recipientPubkey).data as string)
+			: recipientPubkey;
+
+		// Get translations
+		const _ = get(t);
+
+		// Build human-readable message
+		let messageText = '';
+		
+		if (options?.taskTitle) {
+			messageText += `✅ ${_('common.location.task_completed_message')}\n\n`;
+			messageText += `📋 ${options.taskTitle}\n\n`;
+			messageText += `${_('common.location.task_completed_review_message')}\n`;
+		} else {
+			messageText += `✅ ${_('common.location.task_completed_message')}\n\n`;
+			messageText += `${_('common.location.task_completed_review_message')}\n`;
+		}
+
+		// Build tags with completion data using centralized tag patterns
+		const tags = TAG_PATTERNS.taskCompletion(
+			options?.taskId || '',
+			options?.escrowId
+		);
+
+		// Send the message
+		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, tags);
+	} catch (error) {
+		console.error('Error sending task completion message to tasker:', error);
 		throw error;
 	}
 }

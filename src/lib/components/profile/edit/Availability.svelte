@@ -6,7 +6,9 @@
 	import Input from '$lib/components/Input.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
+	let { onComplete } = $props<{ 
+		onComplete: (completed: boolean, fromSave?: boolean) => void;
+	}>();
 
 	// Local state
 	let timeSlots = $state<TimeSlot[]>([]);
@@ -230,6 +232,10 @@
 
 			// Publish availability update to Nostr
 			await publishAvailabilityUpdate(availabilityData);
+
+			// Notify completion change from save (triggers toast in parent)
+			const isComplete = timeSlots.length > 0;
+			onComplete(isComplete, true);
 		} catch (err) {
 			console.error('Availability update failed:', err);
 			error = err instanceof Error ? err.message : $t('profile_availability.failed_to_update');

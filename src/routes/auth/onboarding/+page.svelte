@@ -58,7 +58,7 @@
 	};
 </script>
 
-<div class="flex w-full flex-grow flex-col items-center px-4 py-8" use:autoLoadTranslations>
+<div class="flex w-full grow flex-col items-center px-4 py-8" use:autoLoadTranslations>
 	<div class="w-full max-w-4xl">
 		<div class="mb-8 flex flex-col items-center">
 			<Logo />

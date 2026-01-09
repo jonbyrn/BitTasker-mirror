@@ -1,6 +1,6 @@
 ---
 description: Breez SDK Liquid implementation for Lightning and Bitcoin payments
-globs: ["**/wallet/**/*", "**/integrations/breez/**/*"]
+globs: ["src/**/wallet/**/*", "src/**/integrations/breez/**/*"]
 alwaysApply: false
 ---
 

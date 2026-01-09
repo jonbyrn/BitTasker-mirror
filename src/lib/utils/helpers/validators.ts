@@ -3,6 +3,9 @@ export interface ValidationResult {
 	error?: string;
 }
 
+// Import liquidjs-lib for Liquid address validation
+import { address as liquidAddress } from 'liquidjs-lib';
+
 export function isValidEmail(email: string): boolean {
 	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	return emailRegex.test(email);
@@ -51,23 +54,47 @@ export function validatePassword(password: string): ValidationResult {
 		return { isValid: false, error: 'Password is required' };
 	}
 
+	if (password.length < 12) {
+		return { isValid: false, error: 'Password must be at least 12 characters long' };
+	}
+
 	return { isValid: true };
 }
 
 export function validateNostrPrivateKey(nsec: string): { isValid: boolean; error?: string } {
+	// Trim whitespace before validation
+	const trimmed = nsec.trim();
+
+	// Check if empty after trimming
+	if (!trimmed) {
+		return { isValid: false, error: 'Nostr private key cannot be empty' };
+	}
+
 	// Check if it's a valid bech32 nsec format
-	if (!nsec.startsWith('nsec1')) {
-		return { isValid: false, error: 'Nostr private key must start with nsec1' };
+	if (!trimmed.startsWith('nsec1')) {
+		return { 
+			isValid: false, 
+			error: `Nostr private key must start with "nsec1". Found: "${trimmed.substring(0, 10)}..."` 
+		};
 	}
 
 	// Bech32 nsec keys are typically around 63 characters
-	if (nsec.length < 60 || nsec.length > 65) {
-		return { isValid: false, error: 'Invalid Nostr private key length' };
+	if (trimmed.length < 60 || trimmed.length > 65) {
+		return { 
+			isValid: false, 
+			error: `Invalid Nostr private key length: ${trimmed.length} characters (expected 60-65)` 
+		};
 	}
 
 	// Only allow valid bech32 characters
-	if (!/^nsec1[023456789acdefghjklmnpqrstuvwxyz]+$/i.test(nsec)) {
-		return { isValid: false, error: 'Invalid characters in Nostr private key' };
+	if (!/^nsec1[023456789acdefghjklmnpqrstuvwxyz]+$/i.test(trimmed)) {
+		// Find the first invalid character for better error reporting
+		const invalidCharMatch = trimmed.match(/[^023456789acdefghjklmnpqrstuvwxyz]/i);
+		const invalidChar = invalidCharMatch ? invalidCharMatch[0] : 'unknown';
+		return { 
+			isValid: false, 
+			error: `Invalid character "${invalidChar}" in Nostr private key. Only bech32 characters are allowed.` 
+		};
 	}
 
 	return { isValid: true };
@@ -177,4 +204,27 @@ export function validateBitcoinAddress(address: string): ValidationResult {
 	}
 
 	return { isValid: false, error: 'Invalid Bitcoin address format' };
+}
+
+/**
+ * Validate Liquid address using liquidjs-lib
+ * Properly validates Bech32 format and checksum for all Liquid address types
+ */
+export function validateLiquidAddress(address: string): ValidationResult {
+	if (!address) {
+		return { isValid: false, error: 'Liquid address is required' };
+	}
+
+	try {
+		// Use liquidjs-lib to validate Bech32 format and checksum
+		// toOutputScript will throw if address is invalid
+		liquidAddress.toOutputScript(address);
+		return { isValid: true };
+	} catch (error) {
+		// Address is invalid (wrong format, bad checksum, or wrong network)
+		return { 
+			isValid: false, 
+			error: 'Invalid Liquid address format or checksum' 
+		};
+	}
 }

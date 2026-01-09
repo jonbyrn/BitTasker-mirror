@@ -37,6 +37,7 @@ class PushNotificationService {
 	private currentDeviceId: string | null = null;
 	private notificationCounter: number = 0;
 	private deviceName: string | null = null;
+	private isInitialized: boolean = false;
 
 	// Houdini Stores
 	private registerDeviceStore = new RegisterDeviceStore();
@@ -81,6 +82,9 @@ class PushNotificationService {
 	}
 
 	public async init(): Promise<void> {
+		// Skip if already initialized
+		if (this.isInitialized) return;
+
 		try {
 			if (Capacitor.isNativePlatform()) {
 				this.addListeners();
@@ -91,8 +95,11 @@ class PushNotificationService {
 			} else {
 				await this.initWebPushNotifications();
 			}
+
+			// Mark as initialized after successful setup
+			this.isInitialized = true;
 		} catch (error) {
-			throw error;
+			console.error('Error initializing push notification service:', error);
 		}
 	}
 
@@ -108,6 +115,9 @@ class PushNotificationService {
 				return;
 			}
 
+			// Request permission for web notifications
+			await this.requestWebPermissions();
+
 			const { initializeApp } = await import('firebase/app');
 			const { getMessaging, onMessage } = await import('firebase/messaging');
 
@@ -120,9 +130,6 @@ class PushNotificationService {
 
 			const app = initializeApp(firebaseConfig);
 			this.messaging = getMessaging(app);
-
-			// Request permission for web notifications
-			await this.requestWebPermissions();
 
 			// Get FCM token
 			await this.getWebToken();

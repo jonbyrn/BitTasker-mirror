@@ -30,12 +30,16 @@
 		setWebBiometricKey,
 		getWebAuthnProviderDescription
 	} from '$lib/utils/helpers/webBiometrics';
+	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
+	import { Capacitor } from '@capacitor/core';
 	import authService from '$lib/api/services/auth.service';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { Buffer } from 'buffer';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
+	import LoginQrCodeScannerModal from '$lib/components/LoginQrCodeScannerModal.svelte';
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -52,6 +56,11 @@
 		biometric: false,
 		webAuthn: false
 	});
+	let isPasskeyError = $state(false);
+	let lastAuthMethod = $state<'biometrics' | 'passkey' | null>(null);
+	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
+	let qrScannerModal: LoginQrCodeScannerModal | null = $state(null);
+	let isQrScannerError = $state(false);
 
 	onMount(async () => {
 		try {
@@ -109,7 +118,7 @@
 			throw new Error($t('login.errors.no_token'));
 		}
 
-		authState.setupAuthData(
+		await authState.setupAuthData(
 			response.access_token,
 			authMethod,
 			pubKey,
@@ -122,6 +131,9 @@
 		try {
 			isLoading = true;
 			error = '';
+			isPasskeyError = false;
+			lastAuthMethod = authMethod; // Track which method was attempted
+			lastAction = 'authenticate'; // Track which action was attempted
 
 			const deviceId = await getDeviceIdentifier();
 			let biometricData = null;
@@ -136,6 +148,7 @@
 				await login(biometricData, deviceId, authMethod);
 			} else {
 				error = $t('login.errors.no_account');
+				isPasskeyError = true;
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
@@ -143,18 +156,33 @@
 			// Handle specific WebAuthn cancellation error
 			if (err instanceof Error) {
 				// Silently ignore "A request is already pending" errors
-				if (err.message.includes('A request is already pending') ||
+				if (
+					err.message.includes('A request is already pending') ||
 					err.message.includes('request is already pending') ||
-					err.message === '') {
+					err.message === ''
+				) {
 					// Don't show error for pending requests
 					error = '';
-				} else if (err.name === 'NotAllowedError' || err.message.includes('NotAllowedError')) {
-					error = $t('login.errors.cancelled');
+					isPasskeyError = false;
 				} else {
-					error = err.message;
+					// Use biometric error handler to translate error messages
+					const platform = Capacitor.getPlatform() === 'web' ? 'web' : 'mobile-webauthn';
+					error = await handleBiometricError(err, platform);
+					// Check if error is related to passkeys/biometrics
+					isPasskeyError =
+						error !== '' &&
+						(err.message.toLowerCase().includes('passkey') ||
+							err.message.toLowerCase().includes('biometric') ||
+							err.message.toLowerCase().includes('webauthn') ||
+							err.message.toLowerCase().includes('authentication') ||
+							err.name === 'NotAllowedError' ||
+							err.name === 'NotSupportedError' ||
+							err.name === 'SecurityError' ||
+							err.name === 'TimeoutError');
 				}
 			} else {
 				error = $t('login.errors.failed');
+				isPasskeyError = false;
 			}
 		} finally {
 			isLoading = false;
@@ -166,6 +194,8 @@
 		try {
 			isLoading = true;
 			error = '';
+			isPasskeyError = false;
+			lastAction = 'nsecLogin'; // Track which action was attempted
 
 			// Only run in browser environment to avoid Buffer issues
 			if (typeof Buffer === 'undefined') {
@@ -243,7 +273,13 @@
 
 			if (res.access_token) {
 				const deviceName = await createUserDeviceShortName(npub);
+				// Use username from response if available, fallback to deviceName
+				const passkeyName = res.user.username?.trim() || deviceName;
 				let credentialId = '';
+
+				// Check if we're in a test environment (E2E tests)
+				const isTestEnvironment =
+					typeof window !== 'undefined' && (window as any).__PLAYWRIGHT_TEST__;
 
 				if (!res.isNewUser) {
 					if (
@@ -258,45 +294,52 @@
 							exportedMasterKey: res.user.nostrKey?.exportedMasterKey
 						};
 
-						// Store master key data in biometrics
-						if (authMethods.biometric) {
-							credentialId = await setBiometricKey(
-								npub,
-								masterKeyData.exportedMasterKey,
-								'biometrics',
-								deviceName
-							);
-						} else {
-							credentialId = await setWebBiometricKey(
-								npub,
-								masterKeyData.exportedMasterKey,
-								deviceName
-							);
+						// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
+						if (!isTestEnvironment) {
+							if (authMethods.biometric) {
+								credentialId = await setBiometricKey(
+									npub,
+									masterKeyData.exportedMasterKey,
+									'biometrics',
+									passkeyName
+								);
+							} else if (authMethods.webAuthn) {
+								credentialId = await setWebBiometricKey(
+									npub,
+									masterKeyData.exportedMasterKey,
+									passkeyName
+								);
+							}
 						}
 					} else {
 						await authService.migrateToMasterKey(npub, deviceId, masterKeyData);
 					}
 				}
 
-				// Store master key data in biometrics
-				if (authMethods.biometric) {
-					credentialId = await setBiometricKey(
-						npub,
-						masterKeyData.exportedMasterKey,
-						'biometrics',
-						deviceName
-					);
+				// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
+				if (!isTestEnvironment) {
+					if (authMethods.biometric) {
+						credentialId = await setBiometricKey(
+							npub,
+							masterKeyData.exportedMasterKey,
+							'biometrics',
+							passkeyName
+						);
+					} else if (authMethods.webAuthn) {
+						credentialId = await setWebBiometricKey(
+							npub,
+							masterKeyData.exportedMasterKey,
+							passkeyName
+						);
+					}
+
+					if (!credentialId) throw new Error('Failed to set biometric key');
+
+					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 				} else {
-					credentialId = await setWebBiometricKey(
-						npub,
-						masterKeyData.exportedMasterKey,
-						deviceName
-					);
+					// In test environments, skip passkey creation to avoid browser prompts
+					console.log('[E2E] Skipping passkey creation in test environment');
 				}
-
-				if (!credentialId) throw new Error('Failed to set biometric key');
-
-				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
 				const biometricData = {
 					username: npub,
@@ -323,6 +366,19 @@
 		} catch (err) {
 			console.error('Error:', err);
 			error = err instanceof Error ? err.message : $t('login.errors.failed');
+			// Check if error is related to passkeys/biometrics (nsec login can involve passkey setup)
+			if (err instanceof Error) {
+				isPasskeyError =
+					err.message.toLowerCase().includes('passkey') ||
+					err.message.toLowerCase().includes('biometric') ||
+					err.message.toLowerCase().includes('webauthn') ||
+					err.message.toLowerCase().includes('authentication') ||
+					err.name === 'NotAllowedError' ||
+					err.name === 'NotSupportedError' ||
+					err.name === 'SecurityError';
+			} else {
+				isPasskeyError = false;
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -331,6 +387,52 @@
 	function handleLoginWithQrCode(barcode: Barcode) {
 		nsec = barcode.displayValue;
 		handleNsecLogin();
+	}
+
+	function handleQrCodeScan(scannedText: string) {
+		// Clear any previous errors
+		error = '';
+		isPasskeyError = false;
+		isQrScannerError = false;
+
+		// Trim whitespace from scanned text (extra safety check)
+		const trimmedText = scannedText.trim();
+		console.log('[Login] Processing QR scan - original:', scannedText);
+		console.log('[Login] Processing QR scan - trimmed:', trimmedText);
+
+		// Validate that the scanned text is an nsec
+		const validation = validateNostrPrivateKey(trimmedText);
+		if (!validation.isValid) {
+			console.error('[Login] QR code validation failed:', validation.error);
+			console.error('[Login] Scanned text details:', {
+				original: scannedText,
+				trimmed: trimmedText,
+				length: trimmedText.length,
+				startsWithNsec: trimmedText.startsWith('nsec1'),
+				firstChars: trimmedText.substring(0, 10)
+			});
+			error =
+				validation.error ||
+				'Invalid nsec QR code. Please ensure you are scanning a valid Nostr private key (nsec1...)';
+			isQrScannerError = true;
+			return;
+		}
+
+		console.log('[Login] QR code validated successfully, proceeding with login');
+		// Set nsec and trigger login
+		nsec = trimmedText;
+		handleNsecLogin();
+	}
+
+	function openQrScanner() {
+		// Clear any previous errors when opening scanner
+		error = '';
+		isPasskeyError = false;
+		isQrScannerError = false;
+
+		if (qrScannerModal) {
+			qrScannerModal.open();
+		}
 	}
 </script>
 
@@ -341,7 +443,7 @@
 				<Logo />
 				<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
 				<br />
-				<p class="text-base-content text-center text-base mb-4">
+				<p class="text-base-content mb-4 text-center text-base">
 					{$t('login.subtitle')}
 				</p>
 				<p class="text-base-content text-center text-base">
@@ -419,10 +521,29 @@
 
 						<button
 							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
+							onclick={openQrScanner}
+							disabled={isLoading}
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
+								<path
+									fill="none"
+									stroke="currentColor"
+									stroke-linejoin="round"
+									d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
+									stroke-width="1"
+								/>
+							</svg>
+							{$t('login.login_with_qr_code')}
+						</button>
+
+						<button
+							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
 							onclick={() => {
 								error = '';
+								isPasskeyError = false;
 								isNostrLogin = true;
 							}}
+							disabled={isLoading}
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="size-6"
 								><path
@@ -533,6 +654,7 @@
 							class="btn btn-block btn-secondary"
 							onclick={() => {
 								error = '';
+								isPasskeyError = false;
 								isNostrLogin = false;
 								nsec = '';
 							}}
@@ -544,22 +666,59 @@
 				{/if}
 
 				{#if error}
-					<div class="alert alert-error alert-outline mt-2">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span class="overflow-wrap-anywhere break-all whitespace-normal">{error}</span>
-					</div>
+					{#if isQrScannerError}
+						<!-- QR Scanner errors - simple alert, no passkey retry -->
+						<div class="alert alert-outline alert-error mt-2">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span>{error}</span>
+							<button
+								class="btn btn-sm btn-ghost"
+								onclick={() => {
+									error = '';
+									isQrScannerError = false;
+								}}
+							>
+								{$t('common.close')}
+							</button>
+						</div>
+					{:else}
+						<!-- Passkey/biometric errors - use ErrorAlertWithModal -->
+						<ErrorAlertWithModal
+							{error}
+							{isPasskeyError}
+							autoOpenModal={isPasskeyError}
+							onRetry={async () => {
+								// Close modal and clear error state
+								error = '';
+								isPasskeyError = false;
+								// Retry the last action that was attempted
+								if (lastAction === 'nsecLogin') {
+									await handleNsecLogin();
+								} else if (lastAction === 'authenticate' && lastAuthMethod) {
+									await authenticate(lastAuthMethod);
+								} else if (authMethods.webAuthn) {
+									// Default to passkey if available
+									await authenticate('passkey');
+								} else if (authMethods.biometric) {
+									// Fallback to biometrics if available
+									await authenticate('biometrics');
+								}
+							}}
+							class="mt-2"
+						/>
+					{/if}
 				{/if}
 
 				<div class="divider my-1">{$t('common.or')}</div>
@@ -576,4 +735,22 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- QR Code Scanner Modal -->
+	<LoginQrCodeScannerModal
+		bind:this={qrScannerModal}
+		onScan={handleQrCodeScan}
+		onError={(err) => {
+			error = err;
+			isQrScannerError = true;
+			isPasskeyError = false;
+		}}
+		onClose={() => {
+			// Clear QR scanner errors when modal closes
+			if (isQrScannerError) {
+				error = '';
+				isQrScannerError = false;
+			}
+		}}
+	/>
 </div>

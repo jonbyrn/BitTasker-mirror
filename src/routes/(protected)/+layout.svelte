@@ -1,7 +1,19 @@
 <script lang="ts">
 	import { authState } from '$lib/stores/auth.store';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { user } from '$lib/stores/user.store';
+	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+
 	const { children } = $props();
+
+	onMount(async () => {
+		// Only fetch user data and init push notifications if authenticated
+		if ($authState.isAuthenticated) {
+			await user.getUserData();
+			await pushNotificationService.init();
+		}
+	});
 </script>
 
 {#if $authState.isLoading}

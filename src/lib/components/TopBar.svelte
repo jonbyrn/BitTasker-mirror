@@ -12,6 +12,8 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
 	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconQrcode from '~icons/mdi/qrcode';
+	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
 	import {
 		LOGGED_IN_MENU_SECTIONS,
 		LOGGED_OUT_MENU_SECTIONS,
@@ -29,6 +31,9 @@
 	// Control logout confirmation modal
 	let showLogoutModal = $state(false);
 
+	// Control npub QR code modal
+	let showNpubQrModal = $state(false);
+
 	// Track if user is logged in
 	let isLoggedIn = $derived($authState.isAuthenticated);
 
@@ -37,6 +42,14 @@
 
 	// Control avatar dropdown visibility
 	let isAvatarDropdownOpen = $state(false);
+
+	// Toggle avatar dropdown
+	function toggleAvatarDropdown(event: MouseEvent) {
+		// Prevent the default details toggle behavior and handle it manually
+		event.preventDefault();
+		event.stopPropagation();
+		isAvatarDropdownOpen = !isAvatarDropdownOpen;
+	}
 
 	// Initialize stores when component mounts
 	onMount(async () => {
@@ -69,6 +82,13 @@
 		return '';
 	});
 
+	// Derived values for user display name
+	let userDisplayName = $derived(
+		$profileStore.data?.name ||
+		$user.name ||
+		''
+	);
+
 	// Close drawer
 	function closeDrawer() {
 		isDrawerOpen = false;
@@ -81,6 +101,8 @@
 
 	// Toggle dropdown section
 	function toggleSection(sectionId: string) {
+		// If clicking the same section that's already open, close it
+		// Otherwise, open the clicked section
 		openSectionId = openSectionId === sectionId ? null : sectionId;
 	}
 
@@ -104,6 +126,14 @@
 
 	function cancelLogout() {
 		showLogoutModal = false;
+	}
+
+	function showNpubQrCode() {
+		showNpubQrModal = true;
+	}
+
+	function closeNpubQrModal() {
+		showNpubQrModal = false;
 	}
 </script>
 
@@ -136,10 +166,16 @@
 
 <!-- Snippet for rendering a menu section with manual dropdown (logged in) -->
 {#snippet menuSection(section: MenuSection)}
-	<li class="relative" use:clickOutside={{ callback: () => closeDropdowns() }}>
+	{@const buttonId = `menu-button-${section.id}`}
+	<li class="relative">
 		<button
+			id={buttonId}
 			class="btn btn-ghost flex items-center gap-2 hover:shadow-none"
-			onclick={() => toggleSection(section.id)}
+			onclick={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				toggleSection(section.id);
+			}}
 			aria-expanded={openSectionId === section.id}
 			aria-haspopup="true"
 		>
@@ -150,13 +186,22 @@
 			/>
 		</button>
 		{#if openSectionId === section.id}
-			<ul
-				class="menu dropdown-content bg-base-100 rounded-box absolute left-0 z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
+			<div
+				class="absolute left-0 top-full"
+				use:clickOutside={{
+					callback: () => closeDropdowns(),
+					exclude: `#${buttonId}`
+				}}
 			>
-				{#each section.items as item}
-					{@render menuItem(item)}
-				{/each}
-			</ul>
+				<ul
+					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
+					onclick={(e) => e.stopPropagation()}
+				>
+					{#each section.items as item}
+						{@render menuItem(item)}
+					{/each}
+				</ul>
+			</div>
 		{/if}
 	</li>
 {/snippet}
@@ -223,14 +268,26 @@
 			<details
 				class="dropdown dropdown-end"
 				bind:open={isAvatarDropdownOpen}
-				use:clickOutside={{ callback: () => isAvatarDropdownOpen = false }}
+				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 			>
-				<summary class="btn btn-ghost">
-					<Avatar name={$user.picture} picture={userPicture()} size="sm" />
+				<summary class="btn btn-ghost" onclick={toggleAvatarDropdown}>
+					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</summary>
 				<ul
 					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
 				>
+					<!-- User Info Header -->
+					{#if userDisplayName}
+						<li class="border-b border-base-300 pb-2 mb-2">
+							<button
+								onclick={showNpubQrCode}
+								class="flex w-full items-center gap-2 whitespace-nowrap"
+							>
+								<IconQrcode class="text-primary" />
+								<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+							</button>
+						</li>
+					{/if}
 					{#each AVATAR_MENU_ITEMS as item}
 						{@render menuItem(item)}
 					{/each}
@@ -316,6 +373,9 @@
 	onConfirm={confirmedLogout}
 	onCancel={cancelLogout}
 />
+
+<!-- NPub QR Code Modal -->
+<NpubQrCodeModal isOpen={showNpubQrModal} onClose={closeNpubQrModal} />
 
 <style>
 	.pt-safe {
