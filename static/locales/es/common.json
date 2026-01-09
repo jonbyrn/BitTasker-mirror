@@ -22,7 +22,9 @@
       "start_location": "Ubicación de Inicio",
       "destination_location": "Ubicación de Destino",
       "task_accepted_congratulations": "¡Felicitaciones! Tu tarea ha sido aceptada.",
-      "location_details_below": "Aquí tienes los detalles de la ubicación:"
+      "location_details_below": "Aquí tienes los detalles de la ubicación:",
+      "task_completed_message": "Tarea Completada",
+      "task_completed_review_message": "La tarea ha sido marcada como completada. Por favor revisa el trabajo y confirma si está listo."
     },
     "back": "Volver",
     "back_2": "Regresar",
@@ -182,7 +184,11 @@
         "feedback_link": "háganoslo saber!",
         "feedback_suffix": "Gracias por probar BitTasker!",
         "acknowledge_button": "Entiendo",
-        "learn_more": "Aprender más"
+        "learn_more": "Aprender más",
+        "zapstore_title": "¡Ahora Disponible en Zapstore!",
+        "zapstore_message": "Descarga BitTasker directamente desde Zapstore para actualizaciones automáticas y una experiencia perfecta. Zapstore es una tienda de aplicaciones descentralizada construida en Nostr.",
+        "zapstore_button": "Obtener en Zapstore",
+        "zapstore_aria": "Descargar BitTasker en Zapstore"
       },
       "wallet_help_modal": {
         "title": "Tu Wallet de Bitcoin",
@@ -886,14 +892,14 @@
       }
     },
     "airdatepicker": {
-      "select_date": "Seleccionar una fecha",
-      "select_date_range": "Seleccionar rango de fechas",
-      "select_datetime": "Seleccionar fecha y hora",
-      "select_time": "Seleccionar hora",
-      "select_start_date": "Seleccionar fecha de inicio",
-      "select_end_date": "Seleccionar fecha de fin",
-      "select_start_datetime": "Seleccionar fecha y hora de inicio",
-      "select_end_datetime": "Seleccionar fecha y hora de fin"
+      "select_date": "Fecha", 
+      "select_date_range": "Rango de fechas",
+      "select_datetime": "Fecha y hora",
+      "select_time": "Hora",
+      "select_start_date": "Fecha de inicio",
+      "select_end_date": "Fecha de fin",
+      "select_start_datetime": "Fecha de inicio y hora",
+      "select_end_datetime": "Fecha de fin y hora"
     },
     "layout": {
       "github_aria": "GitHub"

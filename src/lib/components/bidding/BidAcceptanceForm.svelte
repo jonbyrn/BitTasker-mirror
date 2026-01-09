@@ -47,11 +47,14 @@
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
 	let isLoadingWallet = $derived($walletStore.isInitializing || $walletStore.rsk.connecting);
+	let additionalNotes = $state<string>('');
+	let additionalNotesExpanded = $state(false);
 
-	// Ensure wallet and bids translations are loaded
+	// Ensure wallet, bids and dashboard translations are loaded
 	if (browser && $locale) {
 		loadNamespace($locale as SupportedLanguage, 'dashboard/wallet');
 		loadNamespace($locale as SupportedLanguage, 'dashboard/bids');
+		loadNamespace($locale as SupportedLanguage, 'dashboard/dashboard');
 	}
 
 	// Calculate escrow details from bid
@@ -145,21 +148,22 @@
 					// Use task data we already have - no need to fetch it again
 					const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
 
-					// Send message asynchronously in background - don't block UI or fail on error
-					sendLocationsToTaskee(
-						taskContent.pickupLocation || null,
-						taskContent.dropOffLocation || null,
-						freelancerPubkey,
-						{
-							taskId: props.task.id,
-							taskTitle: taskContent.title,
-							taskDescription: taskContent.description,
-							isRemote
-						}
-					).catch((locationError) => {
-						// Log error but don't fail bid acceptance if location sending fails
-						console.error('Failed to send task acceptance message to taskee:', locationError);
-					});
+				// Send message asynchronously in background - don't block UI or fail on error
+				sendLocationsToTaskee(
+					taskContent.pickupLocation || null,
+					taskContent.dropOffLocation || null,
+					freelancerPubkey,
+					{
+						taskId: props.task.id,
+						taskTitle: taskContent.title,
+						taskDescription: taskContent.description,
+						isRemote,
+						additionalNotes: additionalNotes.trim() || ''
+					}
+				).catch((locationError) => {
+					// Log error but don't fail bid acceptance if location sending fails
+					console.error('Failed to send task acceptance message to taskee:', locationError);
+				});
 				}
 			} else {
 				// Show error
@@ -523,6 +527,37 @@
 								</div>
 							</div>
 						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Additional Notes Section -->
+		<div
+			class="collapse-arrow mt-4 border-primary py-2 bg-base-100 collapse rounded-lg border-2"
+			class:collapse-open={additionalNotesExpanded}
+		>
+			<button
+				type="button"
+				class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium text-base-content/80"
+				onclick={() => {
+					additionalNotesExpanded = !additionalNotesExpanded;
+				}}
+			>
+				{$t('dashboard.bids.bid_acceptance.additional_notes_label')} ({$t('common.optional')})
+			</button>
+			<div class="collapse-content">
+				<div class="form-control">
+					<textarea
+						class="textarea textarea-bordered w-full text-sm sm:text-base"
+						placeholder={$t('dashboard.bids.bid_acceptance.additional_notes_placeholder')}
+						bind:value={additionalNotes}
+						rows="4"
+					></textarea>
+					<div class="label text-xs">
+						<span class="label-text-alt text-base-content/70">
+							{$t('dashboard.bids.bid_acceptance.additional_notes_helper')}
+						</span>
 					</div>
 				</div>
 			</div>
