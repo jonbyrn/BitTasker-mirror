@@ -139,20 +139,20 @@ else
 fi
 
 # Step 3: Build web app
-# echo -e "${BLUE}📦 Building web application...${NC}"
-# npm run build
-# echo -e "${GREEN}✓ Web app built${NC}\n"
+echo -e "${BLUE}📦 Building web application...${NC}"
+npm run build
+echo -e "${GREEN}✓ Web app built${NC}\n"
 
 # Step 4: Sync with Capacitor
-# echo -e "${BLUE}🔄 Syncing with Capacitor...${NC}"
-# npx cap sync android
-# echo -e "${GREEN}✓ Capacitor synced${NC}\n"
+echo -e "${BLUE}🔄 Syncing with Capacitor...${NC}"
+npx cap sync android
+echo -e "${GREEN}✓ Capacitor synced${NC}\n"
 
 # Step 5: Build signed APK
-# echo -e "${BLUE}🔨 Building signed APK...${NC}"
-# cd android
-# ./gradlew assembleRelease
-# cd ..
+echo -e "${BLUE}🔨 Building signed APK...${NC}"
+cd android
+./gradlew assembleRelease
+cd ..
 
 # Check if APK was built successfully
 APK_DIR="android/app/build/outputs/apk/release"
