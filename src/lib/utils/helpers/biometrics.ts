@@ -95,6 +95,7 @@ export async function setBiometricKey(
 					residentKey: 'required'
 				}
 			}
+
 			const result = await Webauthn.startRegistration(registrationOptions);
 
 			credentialId = result.id;
@@ -316,7 +317,7 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 		}
 	} catch (err) {
 		const platform = authMethod === 'passkey' ? 'mobile-webauthn' : 'mobile-native';
-		
+
 		// Silently ignore "A request is already pending" errors
 		if (err instanceof Error && (
 			err.message.includes('A request is already pending') ||
@@ -326,7 +327,7 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 			console.log('Biometric request already in progress, ignoring duplicate request');
 			return null;
 		}
-		
+
 		console.error('Failed to get biometric data:', err);
 		if (err instanceof Error && err.message.includes('device has been revoked')) {
 			appStore.showInfoToast('Your device access has been revoked');
