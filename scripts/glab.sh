@@ -2,7 +2,7 @@
 
 # Create GitLab release for BitTasker v1.0.0
 
-RELEASE_NOTES="## BitTasker v1.0.0
+RELEASE_NOTES="## BitTasker v1.0.1
 
 ### Download
 - Universal APK (arm64-v8a + armeabi-v7a): 24M
@@ -15,14 +15,14 @@ RELEASE_NOTES="## BitTasker v1.0.0
 
 ### Verification
 - Package: com.bittasker.app
-- Version: 1.0.0
+- Version: 1.0.1
 - Signed with BitTasker release key
 
 ### Changes
 See CHANGELOG.md for full details."
 
-glab release create "v1.0.0" \
+glab release create "v1.0.1" \
   --repo "bittasker/zapstore" \
-  --name "BitTasker v1.0.0" \
+  --name "BitTasker v1.0.1" \
   --notes "$RELEASE_NOTES" \
-  dist/release/bittasker-v1.0.0-universal.apk
+  dist/release/bittasker-v1.0.1-universal.apk
