@@ -94,6 +94,35 @@
 					</p>
 				</div>
 
+				<!-- Zapstore Announcement -->
+				<div class="bg-primary/10 rounded-lg p-4">
+					<div class="mb-3 flex items-center gap-2">
+						<svg class="text-primary h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 10V3L4 14h7v7l9-11h-7z"
+							/>
+						</svg>
+						<h5 class="text-primary text-sm font-semibold">
+							{$t('common.components.warning_popup.zapstore_title')}
+						</h5>
+					</div>
+					<p class="text-base-content/70 mb-3 text-sm">
+						{$t('common.components.warning_popup.zapstore_message')}
+					</p>
+					<a
+						href="https://zapstore.dev/apps/naddr1qvzqqqr7pvpzpdxcukch9yuvrpytr66vwlqfe0j2e4nuhdch79r52zmqh9s6tuxcqqgkxmmd9e3xjar5v9ekketj9eshquqj9fac3"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="btn btn-primary btn-sm"
+						aria-label={$t('common.components.warning_popup.zapstore_aria')}
+					>
+						<img src="/zapstore-badge.svg" alt={$t('common.components.warning_popup.zapstore_button')} class="h-8" />
+					</a>
+				</div>
+
 				<!-- Feedback Information -->
 				<div class="flex items-start gap-2">
 					<div class="flex h-5 w-5 items-center justify-center rounded-full">

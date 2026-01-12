@@ -255,7 +255,7 @@
 	function formatDateRangeReactive(startDateString: string, endDateString: string) {
 		const localeToUse = $locale || 'en';
 
-		// Parse dates - try to preserve time if present
+		// Parse dates
 		const startDate = new Date(startDateString);
 		const endDate = new Date(endDateString);
 
@@ -263,9 +263,9 @@
 			return '';
 		}
 
-		// Format with time using formatStandardDateTime
-		const start = formatStandardDateTime(startDate, localeToUse);
-		const end = formatStandardDateTime(endDate, localeToUse);
+		// Format with short month name and no time using formatStandardDateShort
+		const start = formatStandardDateShort(startDate, localeToUse);
+		const end = formatStandardDateShort(endDate, localeToUse);
 
 		return `${start} - ${end}`;
 	}

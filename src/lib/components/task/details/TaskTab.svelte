@@ -412,7 +412,7 @@
 					{$t('dashboard.task_details_by_task.date_range')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDate(parseDateToLocalMidnight(task.dateRange.start) || new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDate(
+					{formatStandardDateShort(parseDateToLocalMidnight(task.dateRange.start) || new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDateShort(
 						parseDateToLocalMidnight(task.dateRange.end) || new Date(task.dateRange.end),
 						$locale || 'en'
 					)}

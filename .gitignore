@@ -45,3 +45,12 @@ cert
 .houdini
 
 bun.lock
+
+# Android Keystore (NEVER commit these!)
+android/*.jks
+android/*.keystore
+android/keystore.properties
+
+# Release artifacts
+dist/release/
+dist/*

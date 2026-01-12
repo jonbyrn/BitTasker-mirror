@@ -101,7 +101,7 @@
 
 	// Helper function to extract address components from Google Maps address components
 	function extractAddressComponents(
-		components: google.maps.GeocoderAddressComponent[] | google.maps.places.PlaceComponent[]
+		components: google.maps.GeocoderAddressComponent[] 
 	): Location['addressComponents'] {
 		const addressComponents: Location['addressComponents'] = {};
 
@@ -231,10 +231,10 @@
 			// Create initial marker with safe coordinates
 			await createMarkerAndCircle(safeCoords.lat, safeCoords.lng);
 			
-			// If we have a valid existing location, update the search input
+			// If we have a valid existing location, update the search input with complete address
 			if (isValidCoordinate(currentLocation.latitude, currentLocation.longitude) && currentLocation.displayName) {
 				if (searchInput) {
-					searchInput.value = currentLocation.displayName;
+					searchInput.value = currentLocation.formattedAddress || currentLocation.displayName;
 				}
 			}
 		} catch (error) {
@@ -390,11 +390,11 @@
 					const extractedComponents = extractAddressComponents(addressComponents);
 
 					// Extraer ciudad y estado para displayName
-					const city = extractedComponents.city || '';
-					const stateRegion = extractedComponents.state || '';
-					const country = extractedComponents.country || '';
-					const neighborhood = extractedComponents.neighborhood || '';
-					const sublocality = extractedComponents.sublocality || '';
+					const city = extractedComponents?.city || '';
+					const stateRegion = extractedComponents?.state || '';
+					const country = extractedComponents?.country || '';
+					const neighborhood = extractedComponents?.neighborhood || '';
+					const sublocality = extractedComponents?.sublocality || '';
 
 					let displayName = '';
 
@@ -439,9 +439,9 @@
 
 					currentLocation = newLocation;
 
-					// Update input value
+					// Update input value with complete address (formattedAddress from Google Maps)
 					if (searchInput) {
-						searchInput.value = newLocation.displayName;
+						searchInput.value = newLocation.formattedAddress || newLocation.displayName;
 					}
 
 					// Call callback
@@ -617,13 +617,13 @@
 		// Extract address components
 		const addressComponents = place.addressComponents;
 		const extractedComponents = addressComponents
-			? extractAddressComponents(addressComponents)
+			? extractAddressComponents(addressComponents as any)
 			: undefined;
 
 		// Extract postal code
 		const zipCode =
 			addressComponents?.find((component) => component.types.includes('postal_code'))
-				?.short_name || '';
+				?.longText || '';
 
 		// Update location state with full address details
 		const newLocation: Location = {
@@ -640,9 +640,9 @@
 
 		currentLocation = newLocation;
 
-		// Update input value
+		// Update input value with complete address (formattedAddress from Google Maps)
 		if (searchInput) {
-			searchInput.value = newLocation.displayName;
+			searchInput.value = newLocation.formattedAddress || newLocation.displayName;
 		}
 
 		// Call callback
@@ -807,7 +807,7 @@
 		<!-- Search bar - using fixed positioning when in fullscreen mode -->
 		<div
 			class={isFullscreen
-				? 'fixed top-6 right-6 left-6 z-[1000]'
+				? 'fixed top-6 right-6 left-6 z-1000'
 				: 'absolute top-4 right-0 left-0 z-10 px-4'}
 		>
 			{#if isFullscreen}
@@ -864,7 +864,7 @@
 
 				{#if showOptions}
 					<div
-						class="predictions-dropdown bg-base-100 border-base-300 absolute z-[1000] mt-2 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
+						class="predictions-dropdown bg-base-100 border-base-300 absolute z-1000 mt-2 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 					>
 						{#if predictions.length > 0}
 							{#each predictions as prediction}
@@ -903,7 +903,7 @@
 			<button
 				onclick={toggleFullscreen}
 				class="{isFullscreen
-					? 'fixed bottom-4 left-4 z-[1000]'
+					? 'fixed bottom-4 left-4 z-1000'
 					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
 				aria-label={isFullscreen
 					? $t('task.location_picker.exit_fullscreen')
@@ -942,7 +942,7 @@
 
 		<!-- Service Radius Panel - mejor posicionado y espaciado -->
 		{#if showServiceRadius}
-			<div class={isFullscreen ? 'fixed top-32 right-6 z-[1000]' : 'absolute top-16 right-4 z-20'}>
+			<div class={isFullscreen ? 'fixed top-32 right-6 z-1000' : 'absolute top-16 right-4 z-20'}>
 				<div class="bg-base-100/95 border-base-300 rounded-lg border p-4 shadow-lg">
 					<div class="text-base-content mb-3 text-sm font-medium">
 						{$t('task.location_picker.service_radius')}: {currentServiceRadius}
@@ -998,7 +998,7 @@
 					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/></svg
 			>
-			<span>{$t('task.location_picker.location_set')}: {currentLocation.displayName}</span>
+			<span>{$t('task.location_picker.location_set')}: {currentLocation.formattedAddress || currentLocation.displayName}</span>
 		</div>
 	{/if}
 
