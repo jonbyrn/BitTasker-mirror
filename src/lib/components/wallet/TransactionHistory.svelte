@@ -478,6 +478,13 @@
 										>
 											<tx.iconConfig.base class="h-6 w-6" />
 										</div>
+										<!-- Status Badge on top-left -->
+										<div
+											class="bg-base-100 absolute top-0 left-0 rounded-full p-0.5 shadow-sm"
+											title={tx.status.label}
+										>
+											<tx.status.icon class="h-4 w-4 {tx.status.color}" />
+										</div>
 										{#if tx.iconConfig.overlay}
 											<div class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm">
 												<tx.iconConfig.overlay
@@ -492,12 +499,6 @@
 										<span class="font-semibold">
 											{$t(tx.title)}
 										</span>
-										<div
-											class="flex h-5 w-5 items-center justify-center {tx.status.color}"
-											title={tx.status.label}
-										>
-											<tx.status.icon class="h-5 w-5" />
-										</div>
 									</div>
 								</div>
 								<div class="flex flex-col items-end">
@@ -531,10 +532,11 @@
 									</div>
 								</div>
 								<div class="text-right">
+									<div class="text-xs opacity-70">
+										{$t('wallet.balance_after')}:
+									</div>
 									<div class="text-sm font-semibold md:text-base">
-										{$t('wallet.balance_after')}: {Math.floor(tx.balanceAfter)?.toLocaleString() ||
-											'0'}
-										{$t('wallet.sats')}
+										{Math.floor(tx.balanceAfter)?.toLocaleString() || '0'} {$t('wallet.sats')}
 									</div>
 									<!-- Swap Action Buttons - Thin, directly below balance -->
 									{#if tx.swap?.actions && tx.swap.actions.length > 0}
