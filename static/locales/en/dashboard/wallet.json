@@ -89,7 +89,7 @@
         "resolution_proposed": "Resolution Proposed",
         "dispute_resolved": "Dispute Resolved",
         "refund_processed": "Refund Processed",
-        "contract_function_called": "Contract Function Called"
+        "contract_function_called": "Function Called"
       },
       "swap_claimed": "Swap Claimed",
       "lock": "Swap Sent",
@@ -101,14 +101,14 @@
       "disputetask": "Task Disputed",
       "disputeresolved": "Dispute Resolved",
       "disputeunresolved": "Dispute Unresolved",
-      "resolveaftertimelock": "Contract Timelock Resolved",
+      "resolveaftertimelock": "Timelock Resolved",
       "acceptproposal": "Proposal Accepted",
       "proposeresolution": "Resolution Proposed",
       "refundescrow": "Refund Processed",
       "disputeescrow": "Task Disputed",
       "resolvedispute": "Dispute Resolved",
       "cancelescrow": "Contract Cancelled",
-      "contract_function": "Contract Function Called",
+      "contract_function": "Function Called",
       "description": {
         "rsk_sent": "RSK transaction sent",
         "rsk_received": "RSK payment received",

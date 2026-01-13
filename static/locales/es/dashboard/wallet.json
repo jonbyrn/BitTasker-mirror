@@ -89,7 +89,7 @@
         "resolution_proposed": "Resolución Propuesta",
         "dispute_resolved": "Disputa Resuelta",
         "refund_processed": "Reembolso Procesado",
-        "contract_function_called": "Función de Contrato Llamada"
+        "contract_function_called": "Función Llamada"
       },
       "swap_claimed": "Intercambio Reclamado",
       "lock": "Intercambio Enviado",
@@ -102,14 +102,14 @@
       "disputetask": "Disputa de Tarea",
       "disputeresolved": "Disputa Resuelta",
       "disputeunresolved": "Disputa Sin Resolver",
-      "resolveaftertimelock": "Resolución de Timelock de Contrato",
+      "resolveaftertimelock": "Timelock Resuelto",
       "acceptproposal": "Propuesta Aceptada",
       "proposeresolution": "Resolución Propuesta",
       "refundescrow": "Contrato Reembolsado",
       "disputeescrow": "Contrato Disputado",
       "resolvedispute": "Resolver Disputa",
       "cancelescrow": "Contrato Cancelado",
-      "contract_function": "Función de Contrato",
+      "contract_function": "Función Llamada",
       "description": {
         "rsk_sent": "Transacción RSK enviada",
         "rsk_received": "Pago RSK recibido",
