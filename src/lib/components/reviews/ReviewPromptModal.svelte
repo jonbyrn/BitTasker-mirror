@@ -9,7 +9,7 @@
 	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 	// @ts-ignore nostr-tools type definitions issue
 	import { nip19 } from 'nostr-tools';
-	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 	import VerifiedReviewForm from './VerifiedReviewForm.svelte';
 	// @ts-ignore - Svelte 5 component, no default export needed
 	import Drawer from '../Drawer.svelte';
