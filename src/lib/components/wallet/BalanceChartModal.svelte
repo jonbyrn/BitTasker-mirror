@@ -20,6 +20,7 @@
 	import { walletStore, totalBalances } from '$lib/stores/wallet.store';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 	import { formatSats } from '$lib/stores/wallet.store';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import IconClose from '~icons/mdi/close';
 	import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, startOfYear, subYears, endOfYear, format } from 'date-fns';
 	import { formatStandardDate } from '$lib/utils/helpers/dateFormatter';
@@ -626,7 +627,10 @@
 					<h3 class="text-lg font-bold">{$t('wallet.balance_chart.title')}</h3>
 					<button
 						class="btn btn-sm btn-circle btn-ghost"
-						onclick={onClose}
+						onclick={() => {
+							triggerHaptic(ImpactStyle.Light);
+							onClose();
+						}}
 						aria-label={$t('common.close')}
 					>
 						<IconClose class="h-5 w-5" />
@@ -706,7 +710,10 @@
 		</div>
 		<!-- Modal backdrop -->
 		<form method="dialog" class="modal-backdrop">
-			<button onclick={onClose}>close</button>
+			<button onclick={() => {
+				triggerHaptic(ImpactStyle.Light);
+				onClose();
+			}}>close</button>
 		</form>
 	</div>
 {/if}

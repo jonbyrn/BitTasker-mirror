@@ -142,7 +142,6 @@
 							{#if formatted}
 								<div class="font-semibold {formatted.satsColorClass}">
 									{formatted.satsDisplay}
-									{$t('wallet.sats')}
 								</div>
 								<div class="{formatted.usdColorClass}">
 									{formatted.usdDisplay}
