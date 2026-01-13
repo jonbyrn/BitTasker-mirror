@@ -94,6 +94,10 @@ export default defineConfig({
     },
     build: {
         target: 'es2020',
+        minify: 'oxc',        // Vite 6 default, best balance of speed and compression
+        sourcemap: false,     // Disable in production
+        cssCodeSplit: true,   // Enable CSS code splitting
+        cssMinify: true,      // Explicitly enable CSS minification (default but explicit)
         /* chunkSizeWarningLimit: 1000, // Increase to 1000 kB to reduce noise
         rollupOptions: {
             output: {
