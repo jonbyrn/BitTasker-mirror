@@ -554,11 +554,6 @@
 						bind:value={additionalNotes}
 						rows="4"
 					></textarea>
-					<div class="label text-xs">
-						<span class="label-text-alt text-base-content/70">
-							{$t('dashboard.bids.bid_acceptance.additional_notes_helper')}
-						</span>
-					</div>
 				</div>
 			</div>
 		</div>
