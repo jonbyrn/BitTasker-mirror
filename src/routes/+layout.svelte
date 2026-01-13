@@ -9,7 +9,6 @@
 	import { authState } from '$lib/stores/auth.store';
 	import {
 		BITTASKER_ORG_JSONLD,
-		BITTASKER_WEBSITE_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
 	} from '$lib/utils/constants/seo.constants';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
@@ -122,7 +121,6 @@
 
 	<!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
 	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
-	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
 	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
 	{#if page.url.pathname !== '/'}
 		{@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
