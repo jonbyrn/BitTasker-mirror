@@ -28,9 +28,11 @@
 		"sitemap:dev": "npm run sitemap:generate && echo 'Sitemap generated for development'",
 		"build": "npm run robots:copy && npx --yes svelte-kit sync && vite build && npm run sitemap:generate",
 		"build:production": "npm run robots:copy && npx --yes svelte-kit sync && vite build && npm run sitemap:generate",
-		"deploy:workers": "npm run build && wrangler deploy --env=staging",
+		"postbuild": "node scripts/purge-cache.js",
+		"test:cache-purge": "node scripts/test-cache-purge.js",
+		"deploy:workers": "npm run build && wrangler deploy --env=staging && ENVIRONMENT=staging node scripts/purge-cache.js",
 		"release:zapstore": "bash scripts/publish-to-zapstore.sh",
-		"deploy:workers:production": "npm run build:production && wrangler deploy --env production",
+		"deploy:workers:production": "npm run build:production && wrangler deploy --env production && ENVIRONMENT=production node scripts/purge-cache.js",
 		"secrets:upload": "bash scripts/upload-secrets.sh staging",
 		"secrets:upload:production": "bash scripts/upload-secrets.sh production"
 	},
