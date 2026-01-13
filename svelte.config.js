@@ -32,6 +32,16 @@ const config = {
 
 		alias: {
 			$houdini: ".houdini/"
+		},
+
+		experimental: {
+			tracing: {
+				server: true
+			},
+
+			instrumentation: {
+				server: true
+			}
 		}
 	}
 };
