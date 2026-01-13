@@ -100,7 +100,7 @@ function parseReviewEvent(event: NostrEvent, relayUrl: string): NostrVerifiedRev
 }
 import type { VerifiedReview } from '@bittasker/merkle-review-sdk';
 import { escrow } from '$lib/utils/wallet/escrow';
-import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
