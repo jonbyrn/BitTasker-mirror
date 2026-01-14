@@ -867,6 +867,52 @@
         "tooltip_sats": "sats",
         "tooltip_na": "N/D"
       }
+    },
+    "debug_wallet": {
+      "title": "Billetera de Depuración",
+      "description": "Ver todos los activos en tu billetera Rootstock",
+      "loading": "Cargando activos...",
+      "error": "Error al cargar activos",
+      "refresh": "Actualizar",
+      "refreshing": "Actualizando...",
+      "no_assets": "No se encontraron activos",
+      "no_assets_description": "Aún no tienes activos en tu billetera Rootstock.",
+      "asset_list": {
+        "title": "Todos los Activos",
+        "native_token": "Token Nativo",
+        "erc20_token": "Token ERC-20",
+        "balance": "Saldo",
+        "usd_value": "Valor USD",
+        "send": "Enviar",
+        "address": "Dirección",
+        "decimals": "Decimales",
+        "token_details": "Detalles del Token"
+      },
+      "send_form": {
+        "title": "Enviar {token}",
+        "recipient_address": "Dirección del Destinatario",
+        "recipient_address_placeholder": "Ingresa dirección RSK (0x...)",
+        "amount": "Cantidad",
+        "amount_placeholder": "Ingresa cantidad",
+        "available_balance": "Saldo Disponible",
+        "max": "Máx",
+        "send": "Enviar",
+        "sending": "Enviando...",
+        "transaction_sent": "Transacción enviada exitosamente",
+        "transaction_failed": "Error en la transacción",
+        "invalid_address": "Formato de dirección inválido",
+        "invalid_amount": "Cantidad inválida",
+        "insufficient_balance": "Fondos insuficientes",
+        "insufficient_rbtc_for_gas": "No hay suficiente RBTC para las tarifas de gas",
+        "self_send_error": "No se puede enviar a tu propia dirección",
+        "too_many_decimals": "Demasiados decimales (máx {max})",
+        "amount_required": "La cantidad es requerida",
+        "address_required": "La dirección del destinatario es requerida",
+        "transaction_pending": "Transacción Pendiente",
+        "transaction_successful": "Transacción Exitosa",
+        "estimated_confirmation_time": "Tiempo estimado de confirmación",
+        "estimated_time_remaining": "Tiempo Estimado Restante"
+      }
     }
   }
 }
