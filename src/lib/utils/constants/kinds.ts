@@ -72,6 +72,12 @@ const KINDS = {
 
     /** User-to-user chat messages (NIP-04/NIP-44) */
     DIRECT_MESSAGES: 4,
+
+    /** Service listings (NIP-99) - active services */
+    SERVICE_ACTIVE: 30402,
+    
+    /** Service listings (NIP-99) - draft services */
+    SERVICE_DRAFT: 30403,
 }
 
 export default KINDS;

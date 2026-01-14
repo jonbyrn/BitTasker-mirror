@@ -7,6 +7,18 @@
 	import { Capacitor } from '@capacitor/core';
 	import { tick } from 'svelte';
 
+	// Helper function to get location_picker translations from either namespace
+	function getLocationPickerTranslation(key: string): string {
+		// Try services namespace first, then fallback to tasks namespace
+		const servicesKey = `dashboard.services.create.location.location_picker.${key}`;
+		const tasksKey = `task.location_picker.${key}`;
+		const servicesTranslation = $t(servicesKey);
+		if (servicesTranslation && servicesTranslation !== servicesKey) {
+			return servicesTranslation;
+		}
+		return $t(tasksKey);
+	}
+
 	let {
 		label = '',
 		placeholder = $t('common.components.location_picker.enter_address'),
@@ -159,13 +171,13 @@
 							googleMapsReady = true;
 							resolve();
 						} else {
-							reject(new Error($t('task.location_picker.google_maps_api_not_initialized')));
+							reject(new Error(getLocationPickerTranslation('google_maps_api_not_initialized')));
 						}
 					}, 500);
 				};
 
 				script.onerror = () => {
-					reject(new Error($t('task.location_picker.google_maps_script_failed_load')));
+					reject(new Error(getLocationPickerTranslation('google_maps_script_failed_load')));
 				};
 
 				document.head.appendChild(script);
@@ -190,7 +202,7 @@
 
 	async function initMap() {
 		if (!googleMapsReady || !window.google?.maps?.Map) {
-			throw new Error($t('task.location_picker.google_maps_not_fully_loaded'));
+			throw new Error(getLocationPickerTranslation('google_maps_not_fully_loaded'));
 		}
 
 		// Check if mapElement is available
@@ -297,7 +309,7 @@
 	async function tryInitMap() {
 		try {
 			if (initRetryCount >= maxRetries) {
-				throw new Error($t('task.location_picker.failed_initialize_map_after_multiple_attempts'));
+				throw new Error(getLocationPickerTranslation('failed_initialize_map_after_multiple_attempts'));
 			}
 
 			// Only proceed if Google Maps is ready
@@ -328,7 +340,7 @@
 		} catch (err) {
 			console.error('Error initializing map:', err);
 			error =
-				err instanceof Error ? err.message : $t('task.location_picker.error_initializing_map');
+				err instanceof Error ? err.message : getLocationPickerTranslation('error_initializing_map');
 			hasError = true;
 		}
 	}
@@ -348,7 +360,7 @@
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error =
-				err instanceof Error ? err.message : $t('task.location_picker.error_loading_google_maps');
+				err instanceof Error ? err.message : getLocationPickerTranslation('error_loading_google_maps');
 		} finally {
 			isLoading = false;
 		}
@@ -453,7 +465,7 @@
 		} catch (err: unknown) {
 			console.error('Error updating location:', err);
 			error =
-				err instanceof Error ? err.message : $t('task.location_picker.error_updating_location');
+				err instanceof Error ? err.message : getLocationPickerTranslation('error_updating_location');
 		}
 	}
 
@@ -816,7 +828,7 @@
 						class="btn btn-md bg-base-100/90 text-base-content hover:bg-base-100/90 border-none shadow-md hover:opacity-100"
 						onclick={exitFullscreen}
 					>
-						{$t('task.location_picker.exit_fullscreen')}
+						{getLocationPickerTranslation('exit_fullscreen')}
 					</button>
 				</div>
 			{/if}
@@ -833,11 +845,11 @@
 					/>
 					{#if showGeolocation}
 						<button
-							aria-label={$t('task.location_picker.use_my_location')}
+							aria-label={getLocationPickerTranslation('use_my_location')}
 							onclick={getUserLocation}
 							class="btn btn-square btn-secondary"
 							disabled={isLoading}
-							title={$t('task.location_picker.use_my_location')}
+							title={getLocationPickerTranslation('use_my_location')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -876,7 +888,7 @@
 								</button>
 							{/each}
 						{:else}
-							<div class="text-error px-4 py-3">{$t('task.location_picker.no_places_found')}</div>
+							<div class="text-error px-4 py-3">{getLocationPickerTranslation('no_places_found')}</div>
 						{/if}
 					</div>
 				{/if}
@@ -906,11 +918,11 @@
 					? 'fixed bottom-4 left-4 z-[1000]'
 					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
 				aria-label={isFullscreen
-					? $t('task.location_picker.exit_fullscreen')
-					: $t('task.location_picker.enter_fullscreen')}
+					? getLocationPickerTranslation('exit_fullscreen')
+					: getLocationPickerTranslation('enter_fullscreen')}
 				title={isFullscreen
-					? $t('task.location_picker.exit_fullscreen')
-					: $t('task.location_picker.enter_fullscreen')}
+					? getLocationPickerTranslation('exit_fullscreen')
+					: getLocationPickerTranslation('enter_fullscreen')}
 			>
 				{#if isFullscreen}
 					<!-- Exit fullscreen icon -->
@@ -945,8 +957,8 @@
 			<div class={isFullscreen ? 'fixed top-32 right-6 z-[1000]' : 'absolute top-16 right-4 z-20'}>
 				<div class="bg-base-100/95 border-base-300 rounded-lg border p-4 shadow-lg">
 					<div class="text-base-content mb-3 text-sm font-medium">
-						{$t('task.location_picker.service_radius')}: {currentServiceRadius}
-						{$t('task.location_picker.miles')}
+						{getLocationPickerTranslation('service_radius')}: {currentServiceRadius}{' '}
+						{getLocationPickerTranslation('miles')}
 					</div>
 					<input
 						type="range"
@@ -958,8 +970,8 @@
 						class="range range-sm range-primary mb-2"
 					/>
 					<div class="text-base-content/70 flex justify-between text-xs">
-						<span>0.5 {$t('task.location_picker.miles')}</span>
-						<span>10 {$t('task.location_picker.miles')}</span>
+						<span>0.5 {getLocationPickerTranslation('miles')}</span>
+						<span>10 {getLocationPickerTranslation('miles')}</span>
 					</div>
 				</div>
 			</div>
@@ -998,7 +1010,7 @@
 					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/></svg
 			>
-			<span>{$t('task.location_picker.location_set')}: {currentLocation.displayName}</span>
+			<span>{getLocationPickerTranslation('location_set')}: {currentLocation.displayName}</span>
 		</div>
 	{/if}
 
@@ -1018,8 +1030,8 @@
 				/></svg
 			>
 			<div>
-				<h3 class="font-bold">{$t('task.location_picker.map_loading_failed')}</h3>
-				<div class="text-xs">{$t('task.location_picker.try_reloading_the_map')}</div>
+				<h3 class="font-bold">{getLocationPickerTranslation('map_loading_failed')}</h3>
+				<div class="text-xs">{getLocationPickerTranslation('try_reloading_the_map')}</div>
 			</div>
 			<button
 				class="btn btn-sm"
@@ -1028,7 +1040,7 @@
 					loadGoogleMapsScript().then(() => tryInitMap());
 				}}
 			>
-				{$t('task.location_picker.retry')}
+				{getLocationPickerTranslation('retry')}
 			</button>
 		</div>
 	{/if}

@@ -195,7 +195,6 @@
 			>
 				<ul
 					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
-					onclick={(e) => e.stopPropagation()}
 				>
 					{#each section.items as item}
 						{@render menuItem(item)}

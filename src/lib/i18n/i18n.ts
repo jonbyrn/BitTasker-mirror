@@ -13,7 +13,7 @@ const loadedNamespaces = new Map<string, Set<string>>();
 export const isI18nLoading = writable(false);
 
 // Lazy loading cache
-const translationCache = new Map<string, any>();
+const translationCache = new Map<string, Record<string, string>>();
 
 /**
  * Get the initial locale based on user preference
@@ -42,7 +42,7 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 /**
  * Load a specific namespace for a locale
  */
-export async function loadNamespace(locale: SupportedLanguage, namespace: string): Promise<any> {
+export async function loadNamespace(locale: SupportedLanguage, namespace: string) {
 	const cacheKey = `${locale}-${namespace}`;
 
 	// Return cached if available
@@ -136,13 +136,14 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/create-task')) {
 			namespaces.push('dashboard/tasks/create', 'categories');
 		}
+		if (route.includes('/list-service')) {
+			namespaces.push('dashboard/services/create', 'categories');
+		}
+	}
 
-		if (route.includes('/messages')) {
-			namespaces.push('dashboard/messages');
-		}
-		if (route.includes('/settings')) {
-			namespaces.push('dashboard/settings');
-		}
+	// Services routes (public)
+	if (route.includes('/services') && !route.includes('/services/[')) {
+		namespaces.push('dashboard/services/browse', 'dashboard/services/create', 'categories');
 	}
 
 	if (route.includes('/onboarding')) namespaces.push('onboarding');
