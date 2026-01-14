@@ -18,21 +18,21 @@ describe('TokenBalanceService', () => {
 
 	describe('getRSKTokenBalances', () => {
 		it('should fetch and return token balances from Blockscout API', async () => {
-			const mockResponse = {
-				items: [
-					{
-						token: {
-							address: '0x1234567890123456789012345678901234567890',
-							name: 'Tether USD',
-							symbol: 'USDT',
-							decimals: 18,
-							total_supply: '1000000000000000000000'
-						},
-						value: '1000000000000000000', // 1 USDT
-						token_id: null
-					}
-				]
-			};
+			// API returns array directly
+			const mockResponse = [
+				{
+					token: {
+						address_hash: '0x1234567890123456789012345678901234567890',
+						name: 'Tether USD',
+						symbol: 'USDT',
+						decimals: '18', // API returns as string
+						total_supply: '1000000000000000000000'
+					},
+					value: '1000000000000000000', // 1 USDT
+					token_id: null,
+					token_instance: null
+				}
+			];
 
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
@@ -49,25 +49,27 @@ describe('TokenBalanceService', () => {
 		});
 
 		it('should filter out tokens with zero balance', async () => {
-			const mockResponse = {
-				items: [
-					{
-						token: { address: '0x1', name: 'Token1', symbol: 'T1', decimals: 18, total_supply: '1000' },
-						value: '1000000000000000000', // Non-zero
-						token_id: null
-					},
-					{
-						token: { address: '0x2', name: 'Token2', symbol: 'T2', decimals: 18, total_supply: '1000' },
-						value: '0', // Zero balance - should be filtered
-						token_id: null
-					},
-					{
-						token: { address: '0x3', name: 'Token3', symbol: 'T3', decimals: 18, total_supply: '1000' },
-						value: '500000000000000000', // Non-zero
-						token_id: null
-					}
-				]
-			};
+			// API returns array directly
+			const mockResponse = [
+				{
+					token: { address_hash: '0x1', name: 'Token1', symbol: 'T1', decimals: '18', total_supply: '1000' },
+					value: '1000000000000000000', // Non-zero
+					token_id: null,
+					token_instance: null
+				},
+				{
+					token: { address_hash: '0x2', name: 'Token2', symbol: 'T2', decimals: '18', total_supply: '1000' },
+					value: '0', // Zero balance - should be filtered
+					token_id: null,
+					token_instance: null
+				},
+				{
+					token: { address_hash: '0x3', name: 'Token3', symbol: 'T3', decimals: '18', total_supply: '1000' },
+					value: '500000000000000000', // Non-zero
+					token_id: null,
+					token_instance: null
+				}
+			];
 
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
@@ -100,12 +102,42 @@ describe('TokenBalanceService', () => {
 			expect(result).toEqual([]);
 		});
 
+		it('should handle paginated API responses', async () => {
+			// API can also return paginated format with items property
+			const mockResponse = {
+				items: [
+					{
+						token: {
+							address_hash: '0x1234...',
+							name: 'Token',
+							symbol: 'TKN',
+							decimals: '18',
+							total_supply: '1000'
+						},
+						value: '1000000000000000000',
+						token_id: null,
+						token_instance: null
+					}
+				],
+				next_page_params: { page: 2 }
+			};
+
+			mockFetch.mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await tokenBalanceService.getRSKTokenBalances('0xaddress');
+			expect(result).toHaveLength(1);
+			expect(result[0].symbol).toBe('TKN');
+		});
+
 		it('should use correct API URL for mainnet', async () => {
 			vi.stubEnv('VITE_RSK_NETWORK', 'mainnet');
 
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
-				json: async () => ({ items: [] })
+				json: async () => [] // API returns array directly
 			});
 
 			await tokenBalanceService.getRSKTokenBalances('0xaddress');
@@ -121,7 +153,7 @@ describe('TokenBalanceService', () => {
 
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
-				json: async () => ({ items: [] })
+				json: async () => [] // API returns array directly
 			});
 
 			await tokenBalanceService.getRSKTokenBalances('0xaddress');
@@ -145,21 +177,21 @@ describe('TokenBalanceService', () => {
 		});
 
 		it('should format token balances correctly with different decimals', async () => {
-			const mockResponse = {
-				items: [
-					{
-						token: {
-							address: '0x1234...',
-							name: 'Token',
-							symbol: 'TKN',
-							decimals: 6, // Different decimals
-							total_supply: '1000000'
-						},
-						value: '1000000', // 1 token with 6 decimals
-						token_id: null
-					}
-				]
-			};
+			// API returns array directly
+			const mockResponse = [
+				{
+					token: {
+						address_hash: '0x1234...',
+						name: 'Token',
+						symbol: 'TKN',
+						decimals: '6', // Different decimals, API returns as string
+						total_supply: '1000000'
+					},
+					value: '1000000', // 1 token with 6 decimals
+					token_id: null,
+					token_instance: null
+				}
+			];
 
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
@@ -180,25 +212,25 @@ describe('TokenBalanceService', () => {
 
 			await expect(
 				tokenBalanceService.getRSKTokenBalances('0xaddress')
-			).rejects.toThrow('Blockscout API error: 500');
+			).rejects.toThrow('Blockscout API server error');
 		});
 
 		it('should cache token metadata', async () => {
-			const mockResponse = {
-				items: [
-					{
-						token: {
-							address: '0x1234...',
-							name: 'Test Token',
-							symbol: 'TEST',
-							decimals: 18,
-							total_supply: '1000'
-						},
-						value: '1000000000000000000',
-						token_id: null
-					}
-				]
-			};
+			// API returns array directly
+			const mockResponse = [
+				{
+					token: {
+						address_hash: '0x1234...',
+						name: 'Test Token',
+						symbol: 'TEST',
+						decimals: '18', // API returns as string
+						total_supply: '1000'
+					},
+					value: '1000000000000000000',
+					token_id: null,
+					token_instance: null
+				}
+			];
 
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
@@ -221,21 +253,21 @@ describe('TokenBalanceService', () => {
 		});
 
 		it('should return cached metadata', async () => {
-			const mockResponse = {
-				items: [
-					{
-						token: {
-							address: '0x1234...',
-							name: 'Cached Token',
-							symbol: 'CACHED',
-							decimals: 18,
-							total_supply: '1000'
-						},
-						value: '1000000000000000000',
-						token_id: null
-					}
-				]
-			};
+			// API returns array directly
+			const mockResponse = [
+				{
+					token: {
+						address_hash: '0x1234...',
+						name: 'Cached Token',
+						symbol: 'CACHED',
+						decimals: '18', // API returns as string
+						total_supply: '1000'
+					},
+					value: '1000000000000000000',
+					token_id: null,
+					token_instance: null
+				}
+			];
 
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
@@ -252,21 +284,21 @@ describe('TokenBalanceService', () => {
 
 	describe('clearCache', () => {
 		it('should clear metadata cache', async () => {
-			const mockResponse = {
-				items: [
-					{
-						token: {
-							address: '0x1234...',
-							name: 'Test',
-							symbol: 'TEST',
-							decimals: 18,
-							total_supply: '1000'
-						},
-						value: '1000000000000000000',
-						token_id: null
-					}
-				]
-			};
+			// API returns array directly
+			const mockResponse = [
+				{
+					token: {
+						address_hash: '0x1234...',
+						name: 'Test',
+						symbol: 'TEST',
+						decimals: '18', // API returns as string
+						total_supply: '1000'
+					},
+					value: '1000000000000000000',
+					token_id: null,
+					token_instance: null
+				}
+			];
 
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
