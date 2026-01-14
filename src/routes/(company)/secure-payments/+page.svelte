@@ -9,8 +9,7 @@
 	import IconHandshakeOutline from '~icons/mdi/handshake-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
 
-	let { data } = $props();
-	const seo = data.seo;
+	let { data: seo } = $props();
 
 	// State to track which FAQ section is open
 	let openFaqSection = $state<number>(-1);
@@ -41,7 +40,10 @@
 
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content="Secure Payment Contracts - Protected Payments | BitTasker" />
+	<meta
+		property="og:image:alt"
+		content="Secure Payment Contracts - Protected Payments | BitTasker"
+	/>
 	<meta property="og:site_name" content="BitTasker" />
 
 	<!-- Twitter -->
@@ -81,65 +83,75 @@
 					<div class="space-y-4">
 						<div class="flex items-center gap-4">
 							<div
-								class="border-primary text-primary flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+								class="border-primary text-primary flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 							>
 								1
 							</div>
 							<div>
 								<p class="mb-0.5 font-medium">
-									<strong>{$t('secure_payments.process1Title')}</strong> — {$t('secure_payments.process1Description')}
+									<strong>{$t('secure_payments.process1Title')}</strong> — {$t(
+										'secure_payments.process1Description'
+									)}
 								</p>
 							</div>
 						</div>
 
 						<div class="flex items-center gap-4">
 							<div
-								class="border-primary text-primary flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+								class="border-primary text-primary flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 							>
 								2
 							</div>
 							<div>
 								<p class="mb-0.5 font-medium">
-									<strong>{$t('secure_payments.process2Title')}</strong> — {$t('secure_payments.process2Description')}
+									<strong>{$t('secure_payments.process2Title')}</strong> — {$t(
+										'secure_payments.process2Description'
+									)}
 								</p>
 							</div>
 						</div>
 
 						<div class="flex items-center gap-4">
 							<div
-								class="border-primary text-primary flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+								class="border-primary text-primary flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 							>
 								3
 							</div>
 							<div>
 								<p class="mb-0.5 font-medium">
-									<strong>{$t('secure_payments.process3Title')}</strong> — {$t('secure_payments.process3Description')}
+									<strong>{$t('secure_payments.process3Title')}</strong> — {$t(
+										'secure_payments.process3Description'
+									)}
 								</p>
 							</div>
 						</div>
 
 						<div class="flex items-center gap-4">
 							<div
-								class="border-primary text-primary flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+								class="border-primary text-primary flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 							>
 								4
 							</div>
 							<div>
 								<p class="mb-0.5 font-medium">
-									<strong>{$t('secure_payments.process4Title')}</strong> — {$t('secure_payments.process4Description')}
+									<strong>{$t('secure_payments.process4Title')}</strong> — {$t(
+										'secure_payments.process4Description'
+									)}
 								</p>
 							</div>
 						</div>
 
 						<div class="flex items-center gap-4">
 							<div
-								class="border-primary text-primary flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+								class="border-primary text-primary flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 							>
 								5
 							</div>
 							<div>
 								<p class="mb-0.5 font-medium">
-									<strong>{$t('secure_payments.process5Title')}</strong> — {$t('secure_payments.process5Description')}
+									<strong>{$t('secure_payments.process5Title')}</strong> — {$t(
+										'secure_payments.process5Description'
+									)}
 								</p>
 							</div>
 						</div>
@@ -182,7 +194,7 @@
 
 			<div class="card bg-base-100 mb-4 shadow-lg">
 				<div class="card-body">
-					<ul class="list-inside list-disc space-y-2 mb-4">
+					<ul class="mb-4 list-inside list-disc space-y-2">
 						<li>{$t('secure_payments.step1List1')}</li>
 						<li>{$t('secure_payments.step1List2')}</li>
 						<li>{$t('secure_payments.step1List3')}</li>
@@ -203,7 +215,8 @@
 							></path>
 						</svg>
 						<span>
-							<strong>{$t('secure_payments.step1Fees')}</strong> {$t('secure_payments.step1FeesText')}
+							<strong>{$t('secure_payments.step1Fees')}</strong>
+							{$t('secure_payments.step1FeesText')}
 						</span>
 					</div>
 				</div>
@@ -216,11 +229,11 @@
 				<div class="card-body">
 					<h4 class="mb-4">{$t('secure_payments.afterCreationTitle')}</h4>
 					<p class="mb-4">{$t('secure_payments.afterCreationIntro')}</p>
-					
+
 					<div class="space-y-4">
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.afterCreationTaskerTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.afterCreationTaskerList1')}</li>
 								<li>{$t('secure_payments.afterCreationTaskerList2')}</li>
 								<li>{$t('secure_payments.afterCreationTaskerList3')}</li>
@@ -229,7 +242,7 @@
 
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.afterCreationTaskeeTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.afterCreationTaskeeList1')}</li>
 								<li>{$t('secure_payments.afterCreationTaskeeList2')}</li>
 							</ul>
@@ -255,7 +268,7 @@
 					<div class="space-y-4">
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.step2TaskeeTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.step2TaskeeList1')}</li>
 								<li>{$t('secure_payments.step2TaskeeList2')}</li>
 							</ul>
@@ -263,7 +276,7 @@
 
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.step2TaskerTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.step2TaskerList1')}</li>
 								<li>{$t('secure_payments.step2TaskerList2')}</li>
 								<li>{$t('secure_payments.step2TaskerList3')}</li>
@@ -272,7 +285,7 @@
 
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.step2AutoTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.step2AutoList1')}</li>
 								<li>{$t('secure_payments.step2AutoList2')}</li>
 							</ul>
@@ -298,7 +311,7 @@
 					<div class="space-y-4">
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.step3StartingTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.step3StartingList1')}</li>
 								<li>{$t('secure_payments.step3StartingList2')}</li>
 								<li>{$t('secure_payments.step3StartingList3')}</li>
@@ -307,7 +320,7 @@
 
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.step3ResolvingTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.step3ResolvingList1')}</li>
 								<li>{$t('secure_payments.step3ResolvingList2')}</li>
 								<li>{$t('secure_payments.step3ResolvingList3')}</li>
@@ -317,7 +330,7 @@
 
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.step3NoResolutionTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.step3NoResolutionList1')}</li>
 								<li>{$t('secure_payments.step3NoResolutionList2')}</li>
 								<li>{$t('secure_payments.step3NoResolutionList3')}</li>
@@ -344,7 +357,7 @@
 					<div class="space-y-4">
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.step4TaskerTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.step4TaskerList1')}</li>
 								<li>{$t('secure_payments.step4TaskerList2')}</li>
 								<li>{$t('secure_payments.step4TaskerList3')}</li>
@@ -354,7 +367,7 @@
 
 						<div>
 							<h4 class="mb-2">{$t('secure_payments.step4TaskeeTitle')}</h4>
-							<ul class="list-inside list-disc space-y-1 ml-4">
+							<ul class="ml-4 list-inside list-disc space-y-1">
 								<li>{$t('secure_payments.step4TaskeeList1')}</li>
 								<li>{$t('secure_payments.step4TaskeeList2')}</li>
 								<li>{$t('secure_payments.step4TaskeeList3')}</li>
@@ -374,7 +387,7 @@
 				<div class="card bg-base-100 shadow-lg">
 					<div class="card-body p-6">
 						<h4 class="card-title">{$t('secure_payments.benefitsTaskersTitle')}</h4>
-						<ul class="list-inside list-disc space-y-2 mt-2">
+						<ul class="mt-2 list-inside list-disc space-y-2">
 							<li>{$t('secure_payments.benefitsTaskersList1')}</li>
 							<li>{$t('secure_payments.benefitsTaskersList2')}</li>
 							<li>{$t('secure_payments.benefitsTaskersList3')}</li>
@@ -387,7 +400,7 @@
 				<div class="card bg-base-100 shadow-lg">
 					<div class="card-body p-6">
 						<h4 class="card-title">{$t('secure_payments.benefitsTaskeesTitle')}</h4>
-						<ul class="list-inside list-disc space-y-2 mt-2">
+						<ul class="mt-2 list-inside list-disc space-y-2">
 							<li>{$t('secure_payments.benefitsTaskeesList1')}</li>
 							<li>{$t('secure_payments.benefitsTaskeesList2')}</li>
 							<li>{$t('secure_payments.benefitsTaskeesList3')}</li>
@@ -400,7 +413,7 @@
 				<div class="card bg-base-100 shadow-lg">
 					<div class="card-body p-6">
 						<h4 class="card-title">{$t('secure_payments.benefitsEveryoneTitle')}</h4>
-						<ul class="list-inside list-disc space-y-2 mt-2">
+						<ul class="mt-2 list-inside list-disc space-y-2">
 							<li>{$t('secure_payments.benefitsEveryoneList1')}</li>
 							<li>{$t('secure_payments.benefitsEveryoneList2')}</li>
 							<li>{$t('secure_payments.benefitsEveryoneList3')}</li>
@@ -419,33 +432,43 @@
 					<p class="mb-4">{$t('secure_payments.contractStatesIntro')}</p>
 					<div class="space-y-3">
 						<div class="flex items-center gap-3">
-							<IconWalletOutline class="h-6 w-6 text-primary shrink-0" />
+							<IconWalletOutline class="text-primary h-6 w-6 shrink-0" />
 							<div>
-								<strong>{$t('secure_payments.state1Title')}</strong> — {$t('secure_payments.state1Description')}
+								<strong>{$t('secure_payments.state1Title')}</strong> — {$t(
+									'secure_payments.state1Description'
+								)}
 							</div>
 						</div>
 						<div class="flex items-center gap-3">
-							<IconCheckCircleOutline class="h-6 w-6 text-primary shrink-0" />
+							<IconCheckCircleOutline class="text-primary h-6 w-6 shrink-0" />
 							<div>
-								<strong>{$t('secure_payments.state2Title')}</strong> — {$t('secure_payments.state2Description')}
+								<strong>{$t('secure_payments.state2Title')}</strong> — {$t(
+									'secure_payments.state2Description'
+								)}
 							</div>
 						</div>
 						<div class="flex items-center gap-3">
-							<IconAlertCircleOutline class="h-6 w-6 text-primary shrink-0" />
+							<IconAlertCircleOutline class="text-primary h-6 w-6 shrink-0" />
 							<div>
-								<strong>{$t('secure_payments.state3Title')}</strong> — {$t('secure_payments.state3Description')}
+								<strong>{$t('secure_payments.state3Title')}</strong> — {$t(
+									'secure_payments.state3Description'
+								)}
 							</div>
 						</div>
 						<div class="flex items-center gap-3">
-							<IconHandshakeOutline class="h-6 w-6 text-primary shrink-0" />
+							<IconHandshakeOutline class="text-primary h-6 w-6 shrink-0" />
 							<div>
-								<strong>{$t('secure_payments.state4Title')}</strong> — {$t('secure_payments.state4Description')}
+								<strong>{$t('secure_payments.state4Title')}</strong> — {$t(
+									'secure_payments.state4Description'
+								)}
 							</div>
 						</div>
 						<div class="flex items-center gap-3">
-							<IconCloseCircleOutline class="h-6 w-6 text-primary shrink-0" />
+							<IconCloseCircleOutline class="text-primary h-6 w-6 shrink-0" />
 							<div>
-								<strong>{$t('secure_payments.state5Title')}</strong> — {$t('secure_payments.state5Description')}
+								<strong>{$t('secure_payments.state5Title')}</strong> — {$t(
+									'secure_payments.state5Description'
+								)}
 							</div>
 						</div>
 					</div>
@@ -460,7 +483,7 @@
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 				<div class="card bg-base-200 shadow-sm">
 					<div class="card-body p-6">
-						<div class="flex items-center mb-3">
+						<div class="mb-3 flex items-center">
 							<IconClockOutline class="text-primary mr-3 text-3xl" />
 							<h4 class="card-title mb-0">{$t('secure_payments.reviewPeriodTitle')}</h4>
 						</div>
@@ -474,7 +497,7 @@
 
 				<div class="card bg-base-200 shadow-sm">
 					<div class="card-body p-6">
-						<div class="flex items-center mb-3">
+						<div class="mb-3 flex items-center">
 							<IconShieldCheck class="text-primary mr-3 text-3xl" />
 							<h4 class="card-title mb-0">{$t('secure_payments.disputePeriodTitle')}</h4>
 						</div>
@@ -497,7 +520,7 @@
 				<div class="card bg-base-100 shadow-lg">
 					<div class="card-body">
 						<h4 class="card-title">{$t('secure_payments.exampleSuccessTitle')}</h4>
-						<ol class="list-inside list-decimal space-y-2 ml-4">
+						<ol class="ml-4 list-inside list-decimal space-y-2">
 							<li>{$t('secure_payments.exampleSuccessList1')}</li>
 							<li>{$t('secure_payments.exampleSuccessList2')}</li>
 							<li>{$t('secure_payments.exampleSuccessList3')}</li>
@@ -511,7 +534,7 @@
 				<div class="card bg-base-100 shadow-lg">
 					<div class="card-body">
 						<h4 class="card-title">{$t('secure_payments.exampleDisputeTitle')}</h4>
-						<ol class="list-inside list-decimal space-y-2 ml-4">
+						<ol class="ml-4 list-inside list-decimal space-y-2">
 							<li>{$t('secure_payments.exampleDisputeList1')}</li>
 							<li>{$t('secure_payments.exampleDisputeList2')}</li>
 							<li>{$t('secure_payments.exampleDisputeList3')}</li>
@@ -525,7 +548,7 @@
 				<div class="card bg-base-100 shadow-lg">
 					<div class="card-body">
 						<h4 class="card-title">{$t('secure_payments.exampleAutoTitle')}</h4>
-						<ol class="list-inside list-decimal space-y-2 ml-4">
+						<ol class="ml-4 list-inside list-decimal space-y-2">
 							<li>{$t('secure_payments.exampleAutoList1')}</li>
 							<li>{$t('secure_payments.exampleAutoList2')}</li>
 							<li>{$t('secure_payments.exampleAutoList3')}</li>
@@ -536,7 +559,6 @@
 				</div>
 			</div>
 		</div>
-
 
 		<!-- FAQ -->
 		<div class="mb-8">
@@ -691,7 +713,9 @@
 					<div>
 						<strong>{$t('secure_payments.faqSupportTitle')}</strong>
 						<p class="mt-1">
-							{$t('secure_payments.faqSupportText')} <a href="/contact" class="link link-primary">{$t('secure_payments.faqSupportLink')}</a>.
+							{$t('secure_payments.faqSupportText')}
+							<a href="/contact" class="link link-primary">{$t('secure_payments.faqSupportLink')}</a
+							>.
 						</p>
 					</div>
 				</div>

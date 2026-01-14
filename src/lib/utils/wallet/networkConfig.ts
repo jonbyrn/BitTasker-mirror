@@ -115,7 +115,7 @@ export const RSK_NETWORKS = {
 		explorerUrl: 'https://explorer.rsk.co',
 		explorerApiUrl: 'https://rootstock.blockscout.com/api',
 		currency: {
-			name: 'Smart Bitcoin',
+			name: 'Rootstock Bitcoin',
 			symbol: 'RBTC',
 			decimals: 18
 		},
@@ -147,7 +147,7 @@ export const RSK_NETWORKS = {
 		explorerUrl: 'https://explorer.testnet.rsk.co',
 		explorerApiUrl: 'https://rootstock-testnet.blockscout.com/api',
 		currency: {
-			name: 'Testnet Smart Bitcoin',
+			name: 'Testnet Rootstock Bitcoin',
 			symbol: 'tRBTC',
 			decimals: 18
 		},
@@ -173,7 +173,7 @@ export const RSK_NETWORKS = {
 		explorerUrl: 'http://localhost:4002',
 		explorerApiUrl: 'http://localhost:4002/api',
 		currency: {
-			name: 'Regtest Smart Bitcoin',
+			name: 'Regtest Rootstock Bitcoin',
 			symbol: 'rRBTC',
 			decimals: 18
 		}
