@@ -609,6 +609,12 @@ async function fetchInternalTransactions(
     userAddress: string,
     network: 'rsk' | 'bsc'
 ): Promise<InternalTransaction[]> {
+    // BSCScan API doesn't support Blockscout-style internal transactions endpoint
+    // Only fetch for RSK network which uses Blockscout
+    if (network === 'bsc') {
+        return [];
+    }
+    
     try {
         const explorerApiUrl = getExplorerApiUrl(network);
         const url = `${explorerApiUrl}/addresses/${userAddress}/internal-transactions`;
@@ -618,7 +624,10 @@ async function fetchInternalTransactions(
         });
 
         if (!response.ok) {
-            console.error(`Failed to fetch internal transactions: ${response.status}`);
+            // 404 is expected for addresses without internal transactions - only log in dev mode
+            if (import.meta.env.DEV && response.status !== 404) {
+                console.error(`Failed to fetch internal transactions: ${response.status}`);
+            }
             return [];
         }
 
@@ -626,13 +635,19 @@ async function fetchInternalTransactions(
         
         // Blockscout returns { items: [...] }
         if (!data.items || !Array.isArray(data.items)) {
-            console.error('Invalid internal transactions response format');
+            // Only log in dev mode - API may return unexpected formats
+            if (import.meta.env.DEV) {
+                console.error('Invalid internal transactions response format:', data);
+            }
             return [];
         }
 
         return data.items;
     } catch (error) {
-        console.error('Error fetching internal transactions:', error);
+        // Only log errors in dev mode - network errors are expected
+        if (import.meta.env.DEV) {
+            console.error('Error fetching internal transactions:', error);
+        }
         return [];
     }
 }
