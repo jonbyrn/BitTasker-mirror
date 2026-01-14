@@ -59,7 +59,7 @@
 	}
 
 	// Check if address is valid
-	let isAddressValid = $derived(() => {
+	let isAddressValid = $derived.by(() => {
 		if (!recipientAddress.trim()) return false;
 		const validation = validateRSKAddress(recipientAddress.trim());
 		return validation.isValid && !addressError;
@@ -138,7 +138,7 @@
 	}
 
 	// Check if amount is valid
-	let isAmountValid = $derived(() => {
+	let isAmountValid = $derived.by(() => {
 		return amount.trim() !== '' && !amountError;
 	});
 
