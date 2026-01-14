@@ -44,7 +44,8 @@
     "optional": "Opcional",
     "buttons": {
         "cancel": "Cancelar",
-        "retry": "Reintentar"
+        "retry": "Reintentar",
+        "close": "Cerrar"
     },
     "previous": "Anterior",
     "next": "Siguiente",
