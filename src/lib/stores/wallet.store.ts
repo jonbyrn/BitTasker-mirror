@@ -23,10 +23,13 @@ import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
-import { ethers } from 'ethers';
+import { ethers, type JsonRpcProvider } from 'ethers';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import { processTransactions, type ProcessedTransaction } from '$lib/utils/wallet/transactionHistory';
 import { isSwapCompleted, mapSwapToTransaction, shouldShowSwap } from '$lib/utils/wallet/swapTransaction';
+import tokenBalanceService from '$lib/api/services/token-balance.service';
+import type { TokenBalance } from '$lib/types/wallet';
+import { ERROR_MESSAGES } from '$lib/utils/constants/wallet.constants';
 
 // Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
@@ -121,9 +124,15 @@ const SWAP_PAIRS_CACHE_TTL = 3600000; // 1 hour in milliseconds
  * Get wallet manager instance
  */
 function getWalletManager(): WalletManager {
+	console.log('[WALLET-STORE] getWalletManager() - Checking if wallet manager exists');
+	console.log('[WALLET-STORE] getWalletManager() - sdkWalletManager exists:', !!sdkWalletManager);
+	
 	if (!sdkWalletManager) {
+		console.error('[WALLET-STORE] getWalletManager() - Wallet manager is null, throwing error');
 		throw new Error('Wallet is not initialized.');
 	}
+	
+	console.log('[WALLET-STORE] getWalletManager() - Returning wallet manager');
 	return sdkWalletManager;
 }
 
@@ -145,17 +154,71 @@ export function getEventListeners(): (() => void)[] {
 async function initialize(getBalance = false): Promise<void> {
 	const state = get(walletStore);
 
+	console.log('[WALLET-STORE] initializeWallet() - Starting initialization check');
+	console.log('[WALLET-STORE] initializeWallet() - Current state:', {
+		isInitializing: state.isInitializing,
+		isConnected: state.isConnected,
+		hasSdkWalletManager: !!sdkWalletManager,
+		hasProvider: !!state.rsk?.provider,
+		hasError: !!state.error,
+		error: state.error
+	});
+
 	// Skip if already initializing or already connected
-	if (state.isInitializing) return;
+	if (state.isInitializing) {
+		console.log('[WALLET-STORE] initializeWallet() - Already initializing, skipping');
+		return;
+	}
 
 	// Skip if already fully initialized
-	if (sdkWalletManager && state.isConnected) return;
+	// BUT: Check if provider is actually valid (not destroyed)
+	if (sdkWalletManager && state.isConnected) {
+		console.log('[WALLET-STORE] initializeWallet() - Wallet appears initialized, checking provider validity...');
+		
+		// Test if provider is actually working (not destroyed)
+		const provider = state.rsk?.provider;
+		if (provider) {
+			// Check if provider is destroyed (type-safe check)
+			const providerWithDestroyed = provider as JsonRpcProvider & { _destroyed?: boolean };
+			const isDestroyed = providerWithDestroyed._destroyed === true || (provider as any).destroyed === true;
+			
+			if (isDestroyed) {
+				if (import.meta.env.DEV) {
+					console.log('[WALLET-STORE] initializeWallet() - Provider is marked as destroyed, forcing reinitialization');
+				}
+				// Force cleanup and reinitialize
+				sdkWalletManager = null;
+				walletStore.set(initialState);
+				if (import.meta.env.DEV) {
+					console.log('[WALLET-STORE] initializeWallet() - Cleaned up destroyed provider, proceeding with initialization');
+				}
+				// Continue to initialization below
+			} else {
+				// Provider exists and not marked as destroyed
+				if (import.meta.env.DEV) {
+					console.log('[WALLET-STORE] initializeWallet() - Provider appears valid, skipping initialization');
+				}
+				return;
+			}
+		} else {
+			// No provider but state says connected - inconsistent state, force reinitialization
+			console.warn('[WALLET-STORE] initializeWallet() - No provider but state.isConnected=true, forcing reinitialization');
+			sdkWalletManager = null;
+			walletStore.set(initialState);
+			// Continue to initialization below
+		}
+	}
+	
+	console.log('[WALLET-STORE] initializeWallet() - Proceeding with initialization...');
 
 	try {
 		walletStore.update(s => ({ ...s, isInitializing: true, error: null }));
+		console.log('[WALLET-STORE] initializeWallet() - Set isInitializing=true');
 
 		// Get mnemonic
+		console.log('[WALLET-STORE] initializeWallet() - Getting mnemonic...');
 		const mnemonic = await getMnemonic();
+		console.log('[WALLET-STORE] initializeWallet() - Got mnemonic');
 
 		// Get network from environment
 		const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
@@ -177,12 +240,19 @@ async function initialize(getBalance = false): Promise<void> {
 			swapStorages: cachedSwapStorages
 		};
 
+		console.log('[WALLET-STORE] initializeWallet() - Creating new WalletManager instance...');
 		sdkWalletManager = new WalletManager(config);
+		console.log('[WALLET-STORE] initializeWallet() - Calling sdkWalletManager.initialize()...');
 		await sdkWalletManager.initialize();
+		console.log('[WALLET-STORE] initializeWallet() - SDK wallet manager initialized');
 
 		// Update store with wallet info
 		const rskWallet = sdkWalletManager.rskWallet;
 		const bscWallet = sdkWalletManager.bscWallet;
+		console.log('[WALLET-STORE] initializeWallet() - Got wallets:', {
+			hasRskWallet: !!rskWallet,
+			hasBscWallet: !!bscWallet
+		});
 
 		if (rskWallet && bscWallet) {
 			if (getBalance) {
@@ -231,12 +301,18 @@ async function initialize(getBalance = false): Promise<void> {
 			}));
 		}
 	} catch (error) {
-		console.error('Failed to initialize wallet:', error);
+		console.error('[WALLET-STORE] initializeWallet() - Failed to initialize wallet:', error);
+		const errorMessage = error instanceof Error ? error.message : 'Failed to initialize wallet';
+		console.error('[WALLET-STORE] initializeWallet() - Error details:', {
+			message: errorMessage,
+			stack: error instanceof Error ? error.stack : 'No stack'
+		});
 		walletStore.update(s => ({
 			...s,
 			isInitializing: false,
-			error: error instanceof Error ? error.message : 'Failed to initialize wallet'
+			error: errorMessage
 		}));
+		console.error('[WALLET-STORE] initializeWallet() - Store updated with error, rethrowing...');
 		throw error;
 	}
 }
@@ -266,19 +342,28 @@ export async function getRSKAddress(): Promise<string> {
  * Disconnect wallet
  */
 function disconnectWallet(): void {
+	console.log('[WALLET-STORE] disconnectWallet() - Starting cleanup');
+	console.log('[WALLET-STORE] disconnectWallet() - sdkWalletManager exists:', !!sdkWalletManager);
+	
 	if (sdkWalletManager) {
+		console.log('[WALLET-STORE] disconnectWallet() - Disposing wallet manager...');
 		sdkWalletManager.dispose();
 		sdkWalletManager = null;
+		console.log('[WALLET-STORE] disconnectWallet() - Wallet manager disposed and set to null');
 	}
 
 	// Clear cached swap storages
+	console.log('[WALLET-STORE] disconnectWallet() - Clearing swap storages');
 	cachedSwapStorages = null;
 
 	// Cleanup event listeners
+	console.log('[WALLET-STORE] disconnectWallet() - Cleaning up event listeners (count:', eventListeners.length, ')');
 	eventListeners.forEach(cleanup => cleanup());
 	eventListeners.length = 0;
 
+	console.log('[WALLET-STORE] disconnectWallet() - Resetting wallet store to initial state');
 	walletStore.set(initialState);
+	console.log('[WALLET-STORE] disconnectWallet() - Cleanup complete');
 }
 
 /**
@@ -300,6 +385,8 @@ async function loadAssets(): Promise<void> {
 		let totalUsd = 0;
 
 		// Fetch ALL data in parallel: prices and balances
+		// Note: For debug wallet, we'll load all tokens separately via loadRSKTokenBalances()
+		// This keeps the existing loadAssets() working for main wallet page
 		const [rbtcPrice, bnbPrice, rskBalanceData, bscBalances] = await Promise.all([
 			cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
 			cryptoPriceService.getCurrentPrice('BNB').catch(() => 0),
@@ -333,7 +420,7 @@ async function loadAssets(): Promise<void> {
 
 			assets.push({
 				assetId: 'rbtc',
-				name: 'Smart Bitcoin',
+				name: 'Rootstock Bitcoin',
 				ticker: 'RBTC',
 				precision: 8,
 				icon: '₿',
@@ -576,6 +663,67 @@ async function loadRbtcExchangeRate(): Promise<void> {
 }
 
 /**
+ * Load all RSK token balances from Blockscout API
+ * Includes RBTC (native) and all ERC-20 tokens with non-zero balances
+ * Filters out tokens with zero balance automatically
+ * Uses caching to reduce API calls
+ * 
+ * @param forceRefresh - Force refresh even if cache is valid
+ * @returns Array of token balances (non-zero only)
+ * @throws {Error} If wallet manager is not initialized or API call fails
+ */
+export async function loadRSKTokenBalances(forceRefresh = false): Promise<TokenBalance[]> {
+	if (import.meta.env.DEV) {
+		console.log('[WALLET-STORE] loadRSKTokenBalances() - Starting to load token balances');
+	}
+	try {
+		const manager = getWalletManager();
+		const state = get(walletStore);
+		const address = state.rsk.address;
+
+		if (!address) {
+			if (import.meta.env.DEV) {
+				console.error('[WALLET-STORE] loadRSKTokenBalances() - RSK address not available');
+			}
+			throw new Error(ERROR_MESSAGES.RSK_ADDRESS_NOT_AVAILABLE);
+		}
+
+		// Fetch all ERC-20 token balances (service will filter zero balances and use cache)
+		const tokenBalances = await tokenBalanceService.getRSKTokenBalances(address, forceRefresh);
+
+		// Always include RBTC (even if zero) for consistency
+		const rbtcBalance = await manager.rskWallet.getBalance();
+		const rbtcToken: TokenBalance = {
+			address: 'native', // Special identifier for native token
+			name: 'Smart Bitcoin',
+			symbol: 'RBTC',
+			decimals: 18,
+			balance: rbtcBalance.balance.toString(),
+			formattedBalance: rbtcBalance.formatted,
+			isNative: true,
+			icon: '₿'
+		};
+
+		// Combine RBTC with ERC-20 tokens
+		// Filter out RBTC if balance is zero (optional - you may want to always show it)
+		const allTokens = [rbtcToken, ...tokenBalances];
+
+		// Final filter: remove any tokens with zero balance (except native if you want to keep it)
+		return allTokens.filter(token => {
+			if (token.isNative) {
+				// Always show native token
+				return true;
+			}
+			const balance = BigInt(token.balance);
+			return balance > 0n; // Filter out zero balance ERC-20 tokens
+		});
+	} catch (error) {
+		console.error('Failed to load RSK token balances:', error);
+		throw error;
+	}
+}
+
+/**
  * Send RBTC transaction
  * 
  * @param to - Recipient address
@@ -591,6 +739,92 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
 
 	return txHash;
+}
+
+/**
+ * Send ERC-20 token transaction
+ * 
+ * @param tokenAddress - ERC-20 token contract address
+ * @param to - Recipient address
+ * @param amount - Amount to send in token units (as string)
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
+ */
+export async function sendRSKToken(
+	tokenAddress: string,
+	to: string,
+	amount: string
+): Promise<string> {
+	const manager = getWalletManager();
+	const wallet = manager.rskWallet.getWallet();
+	const provider = manager.rskWallet.getProvider();
+
+	if (!wallet || !provider) {
+		throw new Error('RSK wallet not initialized');
+	}
+
+	// Import ERC20_ABI
+	const { ERC20_ABI } = await import('$lib/utils/wallet/networkConfig');
+
+	// Create ERC-20 contract instance
+	const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
+
+	// Get token decimals
+	const decimals = await tokenContract.decimals();
+
+	// Parse amount with correct decimals
+	const amountWei = ethers.parseUnits(amount, decimals);
+
+	// Send transaction
+	const tx = await tokenContract.transfer(to, amountWei);
+	const receipt = await tx.wait();
+
+	// Refresh data and invalidate token cache
+	await Promise.allSettled([loadAssets(), loadTransactions()]);
+	
+	// Invalidate token balance cache after successful send
+	const state = get(walletStore);
+	if (state.rsk?.address) {
+		tokenBalanceService.clearBalanceCache(state.rsk.address);
+	}
+
+	return receipt.hash;
+}
+
+/**
+ * Get balance for a specific token
+ * 
+ * @param tokenAddress - Token contract address (or 'native' for RBTC)
+ * @returns Token balance or null if not found
+ * @throws {Error} If wallet manager is not initialized
+ */
+export async function getTokenBalance(tokenAddress: string): Promise<TokenBalance | null> {
+	try {
+		const manager = getWalletManager();
+		const state = get(walletStore);
+
+		if (tokenAddress === 'native') {
+			// Return native RBTC balance
+			const rbtcBalance = await manager.rskWallet.getBalance();
+			return {
+				address: 'native',
+				name: 'Rootstock Bitcoin',
+				symbol: 'RBTC',
+				decimals: 18,
+				balance: rbtcBalance.balance.toString(),
+				formattedBalance: rbtcBalance.formatted,
+				isNative: true,
+				icon: '₿'
+			};
+		}
+
+		// Load all tokens and find the one matching the address
+		const allTokens = await loadRSKTokenBalances();
+		return allTokens.find(token => token.address.toLowerCase() === tokenAddress.toLowerCase()) || null;
+	} catch (error) {
+		console.error('Failed to get token balance:', error);
+		return null;
+	}
 }
 
 /**
@@ -841,6 +1075,62 @@ export function clearSwapPairsCache(): void {
 }
 
 /**
+ * Estimate gas for ERC-20 token transfer
+ * 
+ * @param tokenAddress - ERC-20 token contract address
+ * @param to - Recipient address
+ * @param amount - Amount to send in token units (as string)
+ * @returns Gas estimation with gas limit, gas price, and total cost
+ * @throws {Error} If RSK wallet is not initialized or gas estimation fails
+ */
+export async function estimateERC20Gas(
+	tokenAddress: string,
+	to: string,
+	amount: string
+): Promise<GasEstimation> {
+	try {
+		const state = get(walletStore);
+		if (!state.rsk.wallet || !state.rsk.provider) {
+			throw new Error('RSK wallet not initialized');
+		}
+
+		const provider = state.rsk.provider;
+		const wallet = state.rsk.wallet;
+
+		// Import ERC20_ABI
+		const { ERC20_ABI } = await import('$lib/utils/wallet/networkConfig');
+
+		// Create ERC-20 contract instance
+		const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
+
+		// Get token decimals
+		const decimals = await tokenContract.decimals();
+
+		// Parse amount with correct decimals
+		const amountWei = ethers.parseUnits(amount, decimals);
+
+		// Estimate gas for transfer
+		const gasEstimate = await tokenContract.transfer.estimateGas(to, amountWei);
+
+		// Get gas price
+		const feeData = await provider.getFeeData();
+		const gasPrice = feeData.gasPrice || BigInt(0);
+
+		// Calculate total cost (gas only, no value for ERC-20)
+		const gasCost = gasEstimate * gasPrice;
+
+		return {
+			gasLimit: gasEstimate.toString(),
+			gasPrice: gasPrice.toString(),
+			totalCost: gasCost.toString(),
+			totalCostFormatted: ethers.formatEther(gasCost)
+		};
+	} catch (error) {
+		throw new Error(`ERC-20 gas estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+	}
+}
+
+/**
  * Estimate gas for RBTC transaction
  * 
  * @param to - Recipient address
@@ -1060,6 +1350,7 @@ export const walletManager = {
 	loadTransactions,
 	loadRbtcExchangeRate,
 	sendRBTC,
+	sendRSKToken,
 	sendBSCUSDT,
 	sendBSCBNB,
 	createReverseSwap,
@@ -1075,6 +1366,9 @@ export const walletManager = {
 	getCachedReverseSwapPairs,
 	getCachedChainSwapPairs,
 	clearSwapPairsCache,
+	loadRSKTokenBalances,
+	getTokenBalance,
+	estimateERC20Gas,
 	onSwapUpdate(callback: (event: any) => void): () => void {
 		return getWalletManager().onSwapUpdate(callback);
 	},
