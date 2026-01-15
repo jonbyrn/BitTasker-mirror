@@ -142,7 +142,7 @@ export function getEventListeners(): (() => void)[] {
  * @throws {Error} If the wallet fails to initialize
  */
 
-async function initializeWallet(getBalance = false): Promise<void> {
+async function initialize(getBalance = false): Promise<void> {
 	const state = get(walletStore);
 
 	// Skip if already initializing or already connected
@@ -185,6 +185,29 @@ async function initializeWallet(getBalance = false): Promise<void> {
 		const bscWallet = sdkWalletManager.bscWallet;
 
 		if (rskWallet && bscWallet) {
+			if (getBalance) {
+				await Promise.all([
+					rskWallet.getBalance(),
+					bscWallet.getBalances()
+				]).then(([rskBalance, bscBalances]) => {
+					walletStore.update(s => ({
+						...s,
+						rsk: {
+							...s.rsk,
+							balance: rskBalance.balance.toString(),
+							formattedBalance: rskBalance.formatted,
+						},
+						bsc: {
+							...s.bsc,
+							bnbBalance: bscBalances.bnb.balance.toString(),
+							usdtBalance: bscBalances.usdt.balance.toString(),
+							formattedBnbBalance: bscBalances.bnb.formatted,
+							formattedUsdtBalance: bscBalances.usdt.formatted,
+						}
+					}));
+				});
+			}
+
 			walletStore.update(s => ({
 				...s,
 				isConnected: true,
@@ -206,29 +229,6 @@ async function initializeWallet(getBalance = false): Promise<void> {
 					provider: bscWallet.getProvider() as ethers.JsonRpcProvider
 				}
 			}));
-
-			if (getBalance) {
-				Promise.all([
-					rskWallet.getBalance(),
-					bscWallet.getBalances()
-				]).then(([rskBalance, bscBalances]) => {
-					walletStore.update(s => ({
-						...s,
-						rsk: {
-							...s.rsk,
-							balance: rskBalance.balance.toString(),
-							formattedBalance: rskBalance.formatted,
-						},
-						bsc: {
-							...s.bsc,
-							bnbBalance: bscBalances.bnb.balance.toString(),
-							usdtBalance: bscBalances.usdt.balance.toString(),
-							formattedBnbBalance: bscBalances.bnb.formatted,
-							formattedUsdtBalance: bscBalances.usdt.formatted,
-						}
-					}));
-				});
-			}
 		}
 	} catch (error) {
 		console.error('Failed to initialize wallet:', error);
@@ -255,7 +255,7 @@ export async function getRSKAddress(): Promise<string> {
 		return state.rsk.address;
 	}
 
-	const address = await initializeWallet().then(() => {
+	const address = await initialize().then(() => {
 		return get(walletStore).rsk.address;
 	});
 
@@ -314,7 +314,7 @@ async function loadAssets(): Promise<void> {
 			// So: sats = Wei / 10^10
 			const balanceWei = BigInt(rskBalanceData.balance.toString());
 			const rbtcBalanceSats = Number(balanceWei / BigInt(10_000_000_000));
-			
+
 			// Keep formatted balance for display and USD calculations
 			const rbtcBalance = parseFloat(rskBalanceData.formatted);
 			totalRbtc += rbtcBalance;
@@ -442,32 +442,32 @@ async function loadTransactions(): Promise<void> {
 			processTransactions(bscTxs, state.bsc.address || '', 'bsc', currentBalanceSats)
 		]);
 
-	// Load pending swaps from all services
-	const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
-		manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
-		manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
-		manager.chainSwapService.recoverPendingSwaps().catch(() => [])
-	]);
+		// Load pending swaps from all services
+		const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
+			manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
+			manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
+			manager.chainSwapService.recoverPendingSwaps().catch(() => [])
+		]);
 
-	// Defer expired swap cleanup to allow WebSocket to sync status first
-	// The swaps are recovered from Nostr with potentially stale status (e.g., 'swap.created')
-	// but the WebSocket immediately updates them to current status (e.g., 'swap.expired')
-	setTimeout(() => {
-		cleanupExpiredSwaps(manager, submarineSwaps, reverseSwaps, chainSwaps);
-	}, 2000); // Wait 2 seconds for WebSocket to sync
+		// Defer expired swap cleanup to allow WebSocket to sync status first
+		// The swaps are recovered from Nostr with potentially stale status (e.g., 'swap.created')
+		// but the WebSocket immediately updates them to current status (e.g., 'swap.expired')
+		setTimeout(() => {
+			cleanupExpiredSwaps(manager, submarineSwaps, reverseSwaps, chainSwaps);
+		}, 2000); // Wait 2 seconds for WebSocket to sync
 
-	// Map swaps to transaction format (updated filter signature)
-	const swapTransactions = [
-		...submarineSwaps
-			.filter((s) => shouldShowSwap(s.status, 'submarine', s))
-			.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
-		...reverseSwaps
-			.filter((s) => shouldShowSwap(s.status, 'reverse', s))
-			.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
-		...chainSwaps
-			.filter((s) => shouldShowSwap(s.status, 'chain', s))
-			.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
-	];
+		// Map swaps to transaction format (updated filter signature)
+		const swapTransactions = [
+			...submarineSwaps
+				.filter((s) => shouldShowSwap(s.status, 'submarine', s))
+				.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
+			...reverseSwaps
+				.filter((s) => shouldShowSwap(s.status, 'reverse', s))
+				.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
+			...chainSwaps
+				.filter((s) => shouldShowSwap(s.status, 'chain', s))
+				.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
+		];
 
 		// Combine blockchain transactions
 		const allBlockchainTxs = [...processedRskTxs, ...processedBscTxs];
@@ -1052,7 +1052,7 @@ function cleanupExpiredSwaps(
 }
 
 export const walletManager = {
-	initialize: initializeWallet,
+	initialize,
 	cleanup: disconnectWallet,
 	getRSKAddress,
 	setActiveTab,

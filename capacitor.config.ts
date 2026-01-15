@@ -7,8 +7,8 @@ const env = loadEnv('', process.cwd(), '');
 
 const config: CapacitorConfig = {
 	zoomEnabled: false,
-	appId: 'com.bittasker.app',
-	appName: 'BitTasker',
+	appId: env.VITE_APP_ID || 'com.bittasker.app',
+	appName: env.VITE_APP_NAME || 'BitTasker',
 	webDir: 'build',
 	server: {
 		// Load server URL from environment variable, fallback to dev URL

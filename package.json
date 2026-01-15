@@ -7,8 +7,8 @@
 		"node": ">=20.0.0"
 	},
 	"scripts": {
-		"dev": "npm run robots:copy && vite dev --host --port 3000",
-		"dev:app": "npm run robots:copy && vite dev --host --port 3000",
+		"dev": "vite dev --host --port 3000",
+		"dev:app": "vite dev --host --port 3000",
 		"ios": "npx cap run --live-reload ios",
 		"cap:sync": "npx cap sync",
 		"android": "npx cap run --live-reload android",

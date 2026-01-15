@@ -291,7 +291,7 @@
 		</p>
 		<div class="mt-3">
 			<button
-				onclick={() => goto(`/dashboard/task/${page.params.taskId}`)}
+				onclick={() => history.back()}
 				class="btn btn-ghost btn-sm"
 			>
 				<svg
@@ -944,7 +944,7 @@
 	{/snippet}
 </Drawer>
 
-<!-- Modal de mensaje -->
+<!-- Message modal -->
 {#if messageForm.isModalOpen}
 	<div class="modal modal-open">
 		<div class="modal-box max-w-md">
