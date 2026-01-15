@@ -23,10 +23,10 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { onMount } from 'svelte';
-	import IconContentCopy from '~icons/mdi/content-copy';
 	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { bidStore } from '$lib/stores/bid.store';
+	import IconContentCopy from '~icons/mdi/content-copy';
 
 	// Props
 	const props = $props<{

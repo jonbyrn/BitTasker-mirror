@@ -100,7 +100,6 @@
 >
 	<div class="card-body">
 		<div class="flex flex-col justify-between gap-2">
-			<div class="flex items-start justify-between">
 				<div class="min-w-0 flex-1">
 					<small class="card-title line-clamp-1 text-lg">
 						<button
@@ -115,14 +114,9 @@
 					</div>
 				</div>
 
-				<!-- Badges in top right corner -->
-				<div class="ml-4 flex shrink-0 flex-col items-end gap-2">
-					<div class="flex items-center gap-2">
-						{#if import.meta.env.DEV}
-							<div class="badge badge-error badge-sm">
-								{contract.escrowData?.id}
-							</div>
-						{/if}
+			<!-- Badges in top right corner -->
+			<div class="sm:ml-4 flex shrink-0 flex-row sm:flex-col items-start sm:items-end gap-2 justify-between sm:justify-center">
+					<div class="flex flex-col sm:flex-row justify-start items-start sm:items-center gap-2">
 						<div class="badge {getStatusColorClass(contract.status)} badge-sm">
 							{#if contract?.isPending}
 								<span class="loading loading-spinner loading-xs mr-1"></span>
@@ -132,13 +126,18 @@
 						<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
 							{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
 						</div>
+						{#if import.meta.env.DEV}
+							<div class="badge badge-error badge-sm">
+								{contract.escrowData?.id}
+							</div>
+						{/if}
 					</div>
 
 					<!-- Price with stacked design -->
 					<div class="text-right">
 						{#if btcPrice > 0}
 							{@const priceData = formatPriceStacked(
-								contractStore.getContractKey(contract, 'amount'),
+								contractStore.getContractKey(contract, 'amount') as string,
 								btcPrice
 							)}
 							<div class="text-base-content text-lg font-bold">
@@ -149,12 +148,11 @@
 							</div>
 						{:else}
 							<div class="text-base-content text-lg font-bold">
-								{formatRBTC(contractStore.getContractKey(contract, 'amount'))} RBTC
+								{formatRBTC(contractStore.getContractKey(contract, 'amount') as string)} RBTC
 							</div>
 						{/if}
 					</div>
 				</div>
-			</div>
 		</div>
 
 		<div class="flex w-full items-center justify-between">
@@ -179,7 +177,7 @@
 						{$t('dashboard.contracts.deadline')}
 					</small>
 					<span class="text-sm font-medium">
-						{formatDate(contractStore.getContractKey(contract, 'estimatedCompletionTime'))}
+						{formatDate(contractStore.getContractKey(contract, 'estimatedCompletionTime') as number)}
 					</span>
 				</div>
 			</div>
@@ -191,7 +189,7 @@
 		<div class="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<!-- Left: User Info aligned with buttons -->
 			<UserNostrBadge
-				npub={contractStore.getContractKey(contract, 'otherPartyNpub')}
+				npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string}
 				role={contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
 			/>
 
