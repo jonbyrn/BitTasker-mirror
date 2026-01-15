@@ -878,6 +878,52 @@
         "tooltip_sats": "sats",
         "tooltip_na": "N/A"
       }
+    },
+    "debug_wallet": {
+      "title": "Debug Wallet",
+      "description": "View all assets in your Rootstock wallet",
+      "loading": "Loading assets...",
+      "error": "Failed to load assets",
+      "refresh": "Refresh",
+      "refreshing": "Refreshing...",
+      "no_assets": "No assets found",
+      "no_assets_description": "You don't have any assets in your Rootstock wallet yet.",
+      "asset_list": {
+        "title": "All Assets",
+        "native_token": "Native Token",
+        "erc20_token": "ERC-20 Token",
+        "balance": "Balance",
+        "usd_value": "USD Value",
+        "send": "Send",
+        "address": "Address",
+        "decimals": "Decimals",
+        "token_details": "Token Details"
+      },
+      "send_form": {
+        "title": "Send {token}",
+        "recipient_address": "Recipient Address",
+        "recipient_address_placeholder": "Enter RSK address (0x...)",
+        "amount": "Amount",
+        "amount_placeholder": "Enter amount",
+        "available_balance": "Available Balance",
+        "max": "Max",
+        "send": "Send",
+        "sending": "Sending...",
+        "transaction_sent": "Transaction sent successfully",
+        "transaction_failed": "Transaction failed",
+        "invalid_address": "Invalid address format",
+        "invalid_amount": "Invalid amount",
+        "insufficient_balance": "Not enough funds",
+        "insufficient_rbtc_for_gas": "Not enough RBTC for gas fees",
+        "self_send_error": "Cannot send to your own address",
+        "too_many_decimals": "Too many decimal places (max {max})",
+        "amount_required": "Amount is required",
+        "address_required": "Recipient address is required",
+        "transaction_pending": "Transaction Pending",
+        "transaction_successful": "Transaction Successful",
+        "estimated_confirmation_time": "Estimated confirmation time",
+        "estimated_time_remaining": "Estimated Time Remaining"
+      }
     }
   }
 }

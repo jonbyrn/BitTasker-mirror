@@ -80,6 +80,34 @@ export interface AssetMetadata {
 }
 
 /**
+ * Token balance information from Blockscout API
+ * Used for displaying all tokens (native and ERC-20) in debug wallet
+ */
+export interface TokenBalance {
+	address: string; // Token contract address or 'native' for RBTC
+	name: string;
+	symbol: string;
+	decimals: number;
+	balance: string; // Raw balance (BigInt string)
+	formattedBalance: string; // Human-readable balance
+	usdValue?: number; // Optional USD value if price available
+	icon?: string; // Optional token icon
+	isNative?: boolean; // true for RBTC
+}
+
+/**
+ * Token metadata from Blockscout API
+ * Cached to avoid repeated API calls
+ */
+export interface TokenMetadata {
+	address: string;
+	name: string;
+	symbol: string;
+	decimals: number;
+	totalSupply?: string;
+}
+
+/**
  * Boltz and RIF Relay Configuration
  */
 export interface BoltzNetworkConfig {
