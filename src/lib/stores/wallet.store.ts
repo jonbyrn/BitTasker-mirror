@@ -124,15 +124,10 @@ const SWAP_PAIRS_CACHE_TTL = 3600000; // 1 hour in milliseconds
  * Get wallet manager instance
  */
 function getWalletManager(): WalletManager {
-	console.log('[WALLET-STORE] getWalletManager() - Checking if wallet manager exists');
-	console.log('[WALLET-STORE] getWalletManager() - sdkWalletManager exists:', !!sdkWalletManager);
-	
 	if (!sdkWalletManager) {
-		console.error('[WALLET-STORE] getWalletManager() - Wallet manager is null, throwing error');
 		throw new Error('Wallet is not initialized.');
 	}
-	
-	console.log('[WALLET-STORE] getWalletManager() - Returning wallet manager');
+
 	return sdkWalletManager;
 }
 
@@ -146,79 +141,47 @@ export function getEventListeners(): (() => void)[] {
 /**
  * Initialize wallet using SDK
  * 
- * @param getBalance - Whether to get the balance of the wallet (RSK and BSC)
  * @returns void
  * @throws {Error} If the wallet fails to initialize
  */
 
-async function initialize(getBalance = false): Promise<void> {
+async function initialize(): Promise<void> {
 	const state = get(walletStore);
 
-	console.log('[WALLET-STORE] initializeWallet() - Starting initialization check');
-	console.log('[WALLET-STORE] initializeWallet() - Current state:', {
-		isInitializing: state.isInitializing,
-		isConnected: state.isConnected,
-		hasSdkWalletManager: !!sdkWalletManager,
-		hasProvider: !!state.rsk?.provider,
-		hasError: !!state.error,
-		error: state.error
-	});
-
 	// Skip if already initializing or already connected
-	if (state.isInitializing) {
-		console.log('[WALLET-STORE] initializeWallet() - Already initializing, skipping');
-		return;
-	}
+	if (state.isInitializing) return;
 
 	// Skip if already fully initialized
 	// BUT: Check if provider is actually valid (not destroyed)
 	if (sdkWalletManager && state.isConnected) {
-		console.log('[WALLET-STORE] initializeWallet() - Wallet appears initialized, checking provider validity...');
-		
 		// Test if provider is actually working (not destroyed)
 		const provider = state.rsk?.provider;
 		if (provider) {
 			// Check if provider is destroyed (type-safe check)
 			const providerWithDestroyed = provider as JsonRpcProvider & { _destroyed?: boolean };
 			const isDestroyed = providerWithDestroyed._destroyed === true || (provider as any).destroyed === true;
-			
+
 			if (isDestroyed) {
-				if (import.meta.env.DEV) {
-					console.log('[WALLET-STORE] initializeWallet() - Provider is marked as destroyed, forcing reinitialization');
-				}
+				// Provider is marked as destroyed, forcing reinitialization
 				// Force cleanup and reinitialize
 				sdkWalletManager = null;
 				walletStore.set(initialState);
-				if (import.meta.env.DEV) {
-					console.log('[WALLET-STORE] initializeWallet() - Cleaned up destroyed provider, proceeding with initialization');
-				}
-				// Continue to initialization below
 			} else {
-				// Provider exists and not marked as destroyed
-				if (import.meta.env.DEV) {
-					console.log('[WALLET-STORE] initializeWallet() - Provider appears valid, skipping initialization');
-				}
+				// Provider exists and not marked as destroyed - skip initialization
 				return;
 			}
 		} else {
-			// No provider but state says connected - inconsistent state, force reinitialization
-			console.warn('[WALLET-STORE] initializeWallet() - No provider but state.isConnected=true, forcing reinitialization');
+			// No provider but state says connected - inconsistent state - force reinitialization
 			sdkWalletManager = null;
 			walletStore.set(initialState);
-			// Continue to initialization below
 		}
 	}
-	
-	console.log('[WALLET-STORE] initializeWallet() - Proceeding with initialization...');
 
 	try {
 		walletStore.update(s => ({ ...s, isInitializing: true, error: null }));
-		console.log('[WALLET-STORE] initializeWallet() - Set isInitializing=true');
 
 		// Get mnemonic
-		console.log('[WALLET-STORE] initializeWallet() - Getting mnemonic...');
 		const mnemonic = await getMnemonic();
-		console.log('[WALLET-STORE] initializeWallet() - Got mnemonic');
 
 		// Get network from environment
 		const network = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as NetworkType;
@@ -240,44 +203,14 @@ async function initialize(getBalance = false): Promise<void> {
 			swapStorages: cachedSwapStorages
 		};
 
-		console.log('[WALLET-STORE] initializeWallet() - Creating new WalletManager instance...');
 		sdkWalletManager = new WalletManager(config);
-		console.log('[WALLET-STORE] initializeWallet() - Calling sdkWalletManager.initialize()...');
 		await sdkWalletManager.initialize();
-		console.log('[WALLET-STORE] initializeWallet() - SDK wallet manager initialized');
 
 		// Update store with wallet info
 		const rskWallet = sdkWalletManager.rskWallet;
 		const bscWallet = sdkWalletManager.bscWallet;
-		console.log('[WALLET-STORE] initializeWallet() - Got wallets:', {
-			hasRskWallet: !!rskWallet,
-			hasBscWallet: !!bscWallet
-		});
 
 		if (rskWallet && bscWallet) {
-			if (getBalance) {
-				await Promise.all([
-					rskWallet.getBalance(),
-					bscWallet.getBalances()
-				]).then(([rskBalance, bscBalances]) => {
-					walletStore.update(s => ({
-						...s,
-						rsk: {
-							...s.rsk,
-							balance: rskBalance.balance.toString(),
-							formattedBalance: rskBalance.formatted,
-						},
-						bsc: {
-							...s.bsc,
-							bnbBalance: bscBalances.bnb.balance.toString(),
-							usdtBalance: bscBalances.usdt.balance.toString(),
-							formattedBnbBalance: bscBalances.bnb.formatted,
-							formattedUsdtBalance: bscBalances.usdt.formatted,
-						}
-					}));
-				});
-			}
-
 			walletStore.update(s => ({
 				...s,
 				isConnected: true,
@@ -342,28 +275,19 @@ export async function getRSKAddress(): Promise<string> {
  * Disconnect wallet
  */
 function disconnectWallet(): void {
-	console.log('[WALLET-STORE] disconnectWallet() - Starting cleanup');
-	console.log('[WALLET-STORE] disconnectWallet() - sdkWalletManager exists:', !!sdkWalletManager);
-	
 	if (sdkWalletManager) {
-		console.log('[WALLET-STORE] disconnectWallet() - Disposing wallet manager...');
 		sdkWalletManager.dispose();
 		sdkWalletManager = null;
-		console.log('[WALLET-STORE] disconnectWallet() - Wallet manager disposed and set to null');
 	}
 
 	// Clear cached swap storages
-	console.log('[WALLET-STORE] disconnectWallet() - Clearing swap storages');
 	cachedSwapStorages = null;
 
 	// Cleanup event listeners
-	console.log('[WALLET-STORE] disconnectWallet() - Cleaning up event listeners (count:', eventListeners.length, ')');
 	eventListeners.forEach(cleanup => cleanup());
 	eventListeners.length = 0;
 
-	console.log('[WALLET-STORE] disconnectWallet() - Resetting wallet store to initial state');
 	walletStore.set(initialState);
-	console.log('[WALLET-STORE] disconnectWallet() - Cleanup complete');
 }
 
 /**
@@ -781,7 +705,7 @@ export async function sendRSKToken(
 
 	// Refresh data and invalidate token cache
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
-	
+
 	// Invalidate token balance cache after successful send
 	const state = get(walletStore);
 	if (state.rsk?.address) {

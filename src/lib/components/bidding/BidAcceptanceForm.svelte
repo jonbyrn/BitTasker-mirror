@@ -46,9 +46,9 @@
 	let balanceErrors = $state<string[]>([]);
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
-	let isLoadingWallet = $derived($walletStore.isInitializing || $walletStore.rsk.connecting);
 	let additionalNotes = $state<string>('');
 	let additionalNotesExpanded = $state(false);
+	let isLoading = $state(false);
 
 	// Ensure wallet, bids and dashboard translations are loaded
 	if (browser && $locale) {
@@ -100,21 +100,27 @@
 	// Separate effect for balance validation
 	$effect(() => {
 		// Only check balance if wallet is connected and basic validation passes
-		if (bidEscrowDetails && $walletStore.rsk.connected && validationErrors.length === 0) {
+		if (!isLoading && bidEscrowDetails && $walletStore.rsk.connected && validationErrors.length === 0) {
 			balanceErrors = validateSufficientBalance(bidEscrowDetails);
 		} else {
 			balanceErrors = [];
 		}
 	});
 
-	// Auto-initialize Rootstock wallet if not connected
-	// Use onMount to prevent reactive loops - only check once when component mounts
-	onMount(async () => {
-		// Read wallet state without creating a reactive subscription
-		if (!$walletStore.rsk.connected && !isLoadingWallet) {
-			await walletManager.initialize(true);
+	async function initializeWallet() {
+		try {
+			isLoading = true;
+			if(!$walletStore.rsk.connected) {
+				await walletManager.initialize();
+			}
+			// Load fresh balances
+			await walletManager.loadAssets();
+		} finally {
+			isLoading = false;
 		}
-	});
+	}
+
+	onMount(() => initializeWallet());
 
 	// Handle form submission
 	async function handleSubmit() {
@@ -582,7 +588,7 @@
 		<!-- Rootstock Escrow Contract Details -->
 		<div class="mb-4">
 			<!-- Wallet Connection Loading State -->
-			{#if isLoadingWallet}
+			{#if isLoading}
 				<div class="alert alert-outline alert-info mt-4">
 					<div class="flex items-center">
 						<span class="loading loading-spinner loading-sm mr-2"></span>
@@ -616,7 +622,7 @@
 					</div>
 					<button
 						class="btn btn-sm btn-primary ml-auto"
-						onclick={async () => await walletManager.initialize(true)}
+						onclick={async () => await initializeWallet()}
 						disabled={$walletStore.rsk.connecting}
 					>
 						{$t('dashboard.bids.bid_acceptance.connect_wallet')}
