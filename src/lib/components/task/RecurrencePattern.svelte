@@ -23,12 +23,26 @@
 
 	// Use mutable state initialized from the prop
 	let localPattern = $state<RecurrencePatternInput>({
-		frequency: pattern?.frequency ?? RecurringFrequencyEnum.WEEKLY,
-		interval: pattern?.interval ?? 1,
-		daysOfWeek: pattern?.daysOfWeek ?? [1], // Default to Monday if null
-		dayOfMonth: pattern?.dayOfMonth ?? null,
-		endDate: pattern?.endDate ?? null,
-		maxOccurrences: pattern?.maxOccurrences ?? 12
+		frequency: RecurringFrequencyEnum.WEEKLY,
+		interval: 1,
+		daysOfWeek: [1], // Default to Monday
+		dayOfMonth: null,
+		endDate: null,
+		maxOccurrences: 12
+	});
+
+	// Sync localPattern with pattern prop when it changes
+	$effect(() => {
+		if (pattern) {
+			localPattern = {
+				frequency: pattern.frequency ?? RecurringFrequencyEnum.WEEKLY,
+				interval: pattern.interval ?? 1,
+				daysOfWeek: pattern.daysOfWeek ?? [1],
+				dayOfMonth: pattern.dayOfMonth ?? null,
+				endDate: pattern.endDate ?? null,
+				maxOccurrences: pattern.maxOccurrences ?? 12
+			};
+		}
 	});
 
 	// Labels for days of the week

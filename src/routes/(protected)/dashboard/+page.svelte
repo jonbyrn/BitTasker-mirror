@@ -11,7 +11,6 @@
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
-	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 
 	// Tab management - reactive to language changes
 	const availableTabs = $derived([
@@ -75,22 +74,9 @@
 		selectedTask = null;
 		drawerOpen = false;
 	};
-
-	const sendNotification = async () => {
-			console.log('onMount: sending notification');
-			pushNotificationService.sendNotificationToNpubs({
-				npubs: ['npub1emdzd5ua96dwaefu9fr4k6c9v9zjz0kx434vmvvrx4lkd7x7w6eq9lz7ee'],
-				title: 'New Bid Received',
-				body: 'New bid received for task: Task Title ',
-				type: 'bid_created',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard/task/1234567890`,
-				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-			});
-	}
 </script>
 
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-	<button onclick={sendNotification} class="btn btn-primary">Send Notification</button>
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
 		<div>
