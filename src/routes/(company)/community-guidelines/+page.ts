@@ -3,7 +3,7 @@ import type { PageLoad } from './$types';
 
 
 export const load: PageLoad = async ({ url }) => {
-	const seo = {
+	return {
 		title: 'Community Guidelines - BitTasker | Platform Rules',
 		description: 'Learn about BitTasker\'s community guidelines, platform rules, and user safety policies. Understand how to behave properly on our Bitcoin task marketplace.',
 		keywords: 'BitTasker community guidelines, platform rules, user safety, Bitcoin marketplace conduct, task platform policies, community standards, user behavior guidelines',
@@ -27,9 +27,5 @@ export const load: PageLoad = async ({ url }) => {
 				'dateModified': '2024-01-15'
 			}
 		}
-	};
-
-	return {
-		seo
 	};
 };

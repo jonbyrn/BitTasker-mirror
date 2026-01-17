@@ -2,7 +2,7 @@
 
 
 export async function load({ url }) {
-	const seo = {
+	return {
 		title: 'BitTasker FAQ - Bitcoin Task Marketplace Questions',
 		description: 'Find answers to frequently asked questions about BitTasker, including how to use our Bitcoin task marketplace, secure payment contracts, fees, and payment process.',
 		keywords: 'BitTasker FAQ, Bitcoin task marketplace questions, Lightning Network FAQ, Bitcoin secure payment contracts, task marketplace help, cryptocurrency gig economy, Bitcoin payment questions',
@@ -49,9 +49,5 @@ export async function load({ url }) {
 				}
 			]
 		}
-	};
-
-	return {
-		seo
 	};
 }

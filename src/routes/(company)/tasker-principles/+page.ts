@@ -5,7 +5,7 @@ import type { PageLoad } from './$types';
  * Returns the SEO metadata for the page.
  */
 export const load: PageLoad = async ({ url }) => {
-	const seo = {
+	return {
 		title: 'Taskee Principles - BitTasker | Worker Guidelines',
 		description: "Learn about BitTasker's taskee principles, worker guidelines, and platform values. Understand how to be a successful taskee on our Bitcoin task marketplace.",
 		keywords: 'BitTasker taskee principles, worker guidelines, platform values, taskee success, Bitcoin task worker, freelancer principles, gig economy values, worker conduct',
@@ -28,9 +28,5 @@ export const load: PageLoad = async ({ url }) => {
 				dateModified: '2024-01-15'
 			}
 		}
-	};
-
-	return {
-		seo
 	};
 };

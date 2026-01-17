@@ -3,7 +3,7 @@ import type { PageLoad } from './$types';
 
 
 export const load: PageLoad = async ({ url }) => {
-	const seo = {
+	return {
 		title: 'Terms of Service - BitTasker | User Agreement & Legal Terms',
 		description: 'Read BitTasker\'s terms of service, user agreement, and legal terms. Understand your rights and responsibilities when using our Bitcoin task marketplace platform.',
 		keywords: 'BitTasker terms of service, user agreement, legal terms, Bitcoin marketplace terms, platform agreement, user rights, service conditions, legal compliance',
@@ -26,9 +26,5 @@ export const load: PageLoad = async ({ url }) => {
 				'dateModified': '2025-07-13'
 			}
 		}
-	};
-
-	return {
-		seo
 	};
 };

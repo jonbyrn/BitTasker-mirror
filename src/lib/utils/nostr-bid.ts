@@ -294,7 +294,7 @@ export async function sendBidStatusUpdate(
 			title: `Bid Status Updated - ${status}`,
 			body: `Your bid has been ${status}`,
 			type: 'bid_status_updated',
-			clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=/bids`,
+			clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=/bids`,
 			icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 		})
 
