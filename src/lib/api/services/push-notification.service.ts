@@ -281,40 +281,26 @@ class PushNotificationService {
 	}
 
 	/**
-	 * Enhanced handling for foreground notifications using local notifications for better reliability
-	 * Mobile specific
+	 * Enhanced handling for foreground notifications
+	 * Mobile specific - CONSOLIDATED to prevent duplicates (Android only)
 	 */
 	private async handleForegroundNotification(notification: PushNotificationSchema): Promise<void> {
-		// Show both toast and local notification for better UX
-		await this.handleNativeNotification(notification);
+		console.log('📨 Foreground notification received:', notification);
 
-		// Create a local notification that users can tap
-		if (Capacitor.isNativePlatform()) {
-			try {
-				await this.ensureNotificationChannel();
+		// Check if this is a device revocation (handle immediately)
+		if (notification.data?.type === 'device_revoked') {
+			await this.handleDeviceRevocation(notification.data);
+			return;
+		}
 
-				const notificationId = this.generateNotificationId();
-				const localNotificationData = {
-					title: notification.title || 'New Notification',
-					body: notification.body || '',
-					id: notificationId,
-					schedule: { at: new Date(Date.now() + 100) }, // Schedule immediately
-					sound: 'default',
-					attachments: notification.data?.imageUrl ? [{ id: 'image', url: notification.data.imageUrl }] : undefined,
-					actionTypeId: 'tap',
-					extra: {
-						...notification.data,
-						originalNotification: notification,
-						notificationType: 'push'
-					}
-				};
+		try {
+			// Android: System doesn't show alerts in foreground by default
+			// For other platforms (iOS will be handled later)
+			// const platform = Capacitor.getPlatform();
 
-				await LocalNotifications.schedule({
-					notifications: [localNotificationData]
-				});
-			} catch (error) {
-				console.error('❌ Error creating local notification:', error);
-			}
+			await this.showLocalNotification(notification.data);
+		} catch (error) {
+			console.error('❌ Error handling foreground notification:', error);
 		}
 	}
 
@@ -423,66 +409,40 @@ class PushNotificationService {
 		}
 	}
 
-	/**
-	 * Handle native notification received in foreground
-	 * Mobile specific
-	 */
-	private async handleNativeNotification(notification: PushNotificationSchema): Promise<void> {
-		try {
-			// Show a local notification in the notification bar even when app is in foreground
-			await this.showLocalNotification(notification);
-
-			// Also show a subtle toast for immediate feedback
-			appStore.showInfoToast(notification.title || 'New notification received');
-		} catch (error) {
-			console.error('❌ Error showing foreground notification:', error);
-			// Fallback to just showing toast
-			appStore.showInfoToast(notification.title || 'New notification received');
-		}
-	}
 
 	/**
-	 * Create push notification channel for Android
+	 * Create unified notification channel for Android
+	 * Uses ONE channel ID for both push and local notifications to ensure consistency
 	 * Mobile specific
 	 */
 	private async createPushNotificationChannel(): Promise<void> {
 		if (!Capacitor.isNativePlatform()) return;
 
 		try {
-			// Create a push notification channel for Android using PushNotifications plugin
+			// Create a unified notification channel id
+			// Both PushNotifications and LocalNotifications will use this same channel
 			await PushNotifications.createChannel({
-				id: 'bittasker-push',
-				name: 'BitTasker Push Notifications',
-				description: 'Push notifications from BitTasker server',
-				importance: 4, // High importance
-				sound: 'default',
-				vibration: true,
-				lights: true,
-				lightColor: '#FF0000'
-			});
-		} catch {
-			// Channel might already exist, that's fine
-		}
-	}
-
-	/**
-	 * Ensure local notification channel exists for Android
-	 * Mobile specific
-	 */
-	private async ensureNotificationChannel(): Promise<void> {
-		if (!Capacitor.isNativePlatform()) return;
-
-		try {
-			// Create a notification channel for Android using LocalNotifications plugin
-			await LocalNotifications.createChannel({
-				id: 'bittasker-foreground',
+				id: 'bittasker-notification',
 				name: 'BitTasker Notifications',
-				description: 'Local notifications from BitTasker app',
+				description: 'All notifications from BitTasker',
 				importance: 4, // High importance
 				sound: 'default',
 				vibration: true,
 				lights: true,
-				lightColor: '#FF0000'
+				lightColor: '#FF9315' // Bitcoin orange
+			});
+
+			// Also create the channel for LocalNotifications plugin with same ID
+			// This ensures both plugins use the same channel settings
+			await LocalNotifications.createChannel({
+				id: 'bittasker-notification',
+				name: 'BitTasker Notifications',
+				description: 'All notifications from BitTasker',
+				importance: 4, // High importance
+				sound: 'default',
+				vibration: true,
+				lights: true,
+				lightColor: '#FF9315' // Bitcoin orange
 			});
 		} catch (error) {
 			// Channel might already exist, that's fine
@@ -517,17 +477,14 @@ class PushNotificationService {
 				}
 			}
 
-			// Ensure notification channel exists (Android)
-			await this.ensureNotificationChannel();
-
 			// Generate a safe notification ID
 			const notificationId = this.generateNotificationId();
 
-			// Schedule the local notification
+			// Schedule ONE local notification using the unified channel
 			await LocalNotifications.schedule({
 				notifications: [
 					{
-						title: pushNotification.title || 'BitTasker',
+						title: pushNotification.title || 'New Notification',
 						body: pushNotification.body || 'You have a new notification',
 						id: notificationId,
 						sound: 'default',
@@ -535,13 +492,15 @@ class PushNotificationService {
 						extra: pushNotification.data || {},
 						// Show immediately
 						schedule: { at: new Date(Date.now() + 100) },
-						// Auto-dismiss after 10 seconds if not interacted with
 						autoCancel: true,
-						// Use our notification channel on Android
-						channelId: 'bittasker-foreground'
+						// Use unified notification channel id
+						channelId: 'bittasker-notification',
+						smallIcon: 'ic_stat_notify'
 					}
 				]
 			});
+
+			console.log('✅ Local notification scheduled with ID:', notificationId);
 		} catch (error) {
 			console.error('❌ Error scheduling local notification:', error);
 		}

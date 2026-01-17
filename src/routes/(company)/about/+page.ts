@@ -1,7 +1,7 @@
 
 
 export async function load({ url }) {
-	const seo = {
+	return {
 		title: 'About BitTasker - Decentralized Bitcoin Task Marketplace',
 		description: 'Learn about BitTasker\'s mission to empower global earning through Bitcoin and decentralized technology. Discover our censorship-resistant task marketplace.',
 		keywords: 'BitTasker, Bitcoin marketplace, decentralized tasks, cryptocurrency earning, peer-to-peer jobs, Bitcoin Lightning Network, financial freedom, censorship-resistant, task platform, Bitcoin escrow',
@@ -18,9 +18,5 @@ export async function load({ url }) {
 			description: 'Learn about BitTasker\'s mission to empower global earning through Bitcoin and decentralized technology.',
 			url: url.href
 		}
-	};
-
-	return {
-		seo
 	};
 }

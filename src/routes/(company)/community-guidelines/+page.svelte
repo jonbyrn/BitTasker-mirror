@@ -1,9 +1,9 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
+	import type { PageData } from './$types';
 
-	let { data } = $props();
-	const seo = data.seo;
+	let { data: seo }: { data: PageData } = $props();
 
 	let openAccordion = $state({
 		taskers: -1,

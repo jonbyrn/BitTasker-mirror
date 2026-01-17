@@ -200,7 +200,7 @@
 				title: 'Task Completed',
 				body: `Task ${contractStore.getContractKey(contract, 'taskTitle')} has been marked as completed`,
 				type: 'task_completed',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
@@ -260,7 +260,7 @@
 				title: 'Payment Released',
 				body: `Payment has been released for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'payment_released',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
@@ -302,7 +302,7 @@
 				title: 'Dispute Raised',
 				body: `A dispute has been raised for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'dispute_raised',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -358,7 +358,7 @@
 				title: 'Resolution Proposed',
 				body: `A resolution has been proposed for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'resolution_proposed',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
@@ -394,7 +394,7 @@
 				title: 'Proposal Accepted',
 				body: `A proposal has been accepted for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'proposal_accepted',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -439,7 +439,7 @@
 				title: 'Escrow Cancelled',
 				body: `An escrow has been cancelled for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'escrow_cancelled',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -476,7 +476,7 @@
 				title: 'Timelock Resolved',
 				body: `A timelock has been resolved for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'timelock_resolved',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {

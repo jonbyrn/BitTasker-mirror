@@ -163,7 +163,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				title: 'New Contract Created',
 				body: `New contract created for task ${pendingContract.taskTitle}`,
 				type: 'contract_created',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 

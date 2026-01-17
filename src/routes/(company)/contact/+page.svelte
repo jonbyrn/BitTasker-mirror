@@ -2,9 +2,8 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
 	import IconEmailOutline from '~icons/mdi/email-outline';
-
-	let { data } = $props();
-	const seo = data.seo;
+	
+	let { data: seo } = $props();
 
 	// Obfuscate email address to make it harder for simple bots to scrape.
 	// This is constructed on the client-side.

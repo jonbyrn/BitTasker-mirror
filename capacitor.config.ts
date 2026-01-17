@@ -39,7 +39,7 @@ const config: CapacitorConfig = {
 			androidScaleType: 'FIT_CENTER'
 		},
 		PushNotifications: {
-			presentationOptions: ['badge', 'sound', 'alert']
+			presentationOptions: ['badge', 'sound'/* , 'alert' */]
 		}
 		/* SocialLogin: {
 			google: {
