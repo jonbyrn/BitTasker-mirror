@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Task } from '$lib/types/task';
+	import type { Attachment, Task } from '$lib/types/task';
 	import { goto } from '$app/navigation';
 	import { deleteTask } from '$lib/nostr/task';
 	import { taskStore } from '$lib/stores/task.store';
@@ -21,6 +21,8 @@
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { currentUserLanguage } from '$lib/stores/translation.store';
+	import { taskTranslationService } from '$lib/services/task-translation.service';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -204,17 +206,26 @@
 	}
 
 	// Helper function to format share text with task details
+	// Uses translation based on user's selected language, not task's original language
 	function formatShareText(): string {
-		if (!task) return 'Check out this task';
+		if (!task) return $t('common.share.check_out_task');
+		
+		// Get user's current language
+		const userLang = $currentUserLanguage || 'en';
+		
+		// Get translated task content if available
+		const translation = taskTranslationService.getStoredTranslation(task, userLang);
+		
+		// Use translated content if available, otherwise use original
+		const description = translation?.translatedDescription || task.description || '';
 		
 		let text = '';
 		
-		// Add truncated description
-		const description = task.description || '';
+		// Add truncated description (translated if available)
 		if (description) {
 			text += truncateText(description, 200);
 		} else {
-			text += 'Check out this task';
+			text += $t('common.share.check_out_task');
 		}
 		
 		// Collect details
@@ -222,29 +233,29 @@
 		
 		// Budget
 		if (task.budget?.amount) {
-			details.push(`💰 Budget:\n$${formatNumberWithTwoDecimals(task.budget.amount)}`);
+			details.push(`💰 ${$t('common.share.budget')}:\n$${formatNumberWithTwoDecimals(task.budget.amount)}`);
 		}
 		
 		// Deadline
 		if (task.deadline) {
 			const deadlineFormatted = formatDateTimeForShare(task.deadline);
 			if (deadlineFormatted) {
-				details.push(`📅 Deadline:\n${deadlineFormatted}`);
+				details.push(`📅 ${$t('common.share.deadline')}:\n${deadlineFormatted}`);
 			}
 		} else if (task.dateRange) {
 			const dateRangeFormatted = formatDateRangeForShare(task.dateRange.start, task.dateRange.end);
 			if (dateRangeFormatted) {
-				details.push(`📅 Deadline:\n${dateRangeFormatted}`);
+				details.push(`📅 ${$t('common.share.deadline')}:\n${dateRangeFormatted}`);
 			}
 		}
 		
 		// Location
 		if (task.dropOffLocation?.displayName) {
-			details.push(`📍 Location:\n${task.dropOffLocation.displayName}`);
+			details.push(`📍 ${$t('common.share.location')}:\n${task.dropOffLocation.displayName}`);
 		} else if (task.pickupLocation?.displayName) {
-			details.push(`📍 Location:\n${task.pickupLocation.displayName}`);
+			details.push(`📍 ${$t('common.share.location')}:\n${task.pickupLocation.displayName}`);
 		} else if (task.taskType === TaskTypeEnum.REMOTE) {
-			details.push(`📍 Location:\n${$t('dashboard.task_details_by_task.remote')}`);
+			details.push(`📍 ${$t('common.share.location')}:\n${$t('dashboard.task_details_by_task.remote')}`);
 		}
 		
 		// Add details if any exist
@@ -260,7 +271,7 @@
 		if (!task?.attachments || task.attachments.length === 0) return null;
 		
 		// Find first non-video attachment (image)
-		const firstImage = task.attachments.find(att => !isVideoFile(att.url));
+		const firstImage = task.attachments.find((att: Attachment) => !isVideoFile(att.url));
 		if (!firstImage) return null;
 		
 		try {
@@ -312,7 +323,7 @@
 				
 				await navigator.share(shareData);
 				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.share_success') || 'Task shared successfully!');
+				appStore.showSuccessToast($t('common.toast.link_copied'));
 				setTimeout(() => {
 					shareSuccess = false;
 				}, 2000);
@@ -320,11 +331,13 @@
 				// User cancelled sharing or error occurred
 				if ((error as Error).name !== 'AbortError') {
 					console.log('Share cancelled or failed:', error);
-					// Fallback to copy link if share fails
-					const success = await copyToClipboard(link);
+					// Fallback to copy full text with task details if share fails
+					const shareText = formatShareText();
+					const fullText = `${shareText}\n\n${link}`;
+					const success = await copyToClipboard(fullText);
 					if (success) {
 						shareSuccess = true;
-						appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
+						appStore.showSuccessToast($t('common.toast.link_copied'));
 						setTimeout(() => {
 							shareSuccess = false;
 						}, 2000);
@@ -332,16 +345,18 @@
 				}
 			}
 		} else {
-			// Fallback: copy to clipboard
-			const success = await copyToClipboard(link);
+			// Fallback: copy to clipboard with full task details
+			const shareText = formatShareText();
+			const fullText = `${shareText}\n\n${link}`;
+			const success = await copyToClipboard(fullText);
 			if (success) {
 				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
+				appStore.showSuccessToast($t('common.toast.link_copied'));
 				setTimeout(() => {
 					shareSuccess = false;
 				}, 2000);
 			} else {
-				appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
+				appStore.showErrorToast($t('common.toast.link_copy_failed'));
 			}
 		}
 	};

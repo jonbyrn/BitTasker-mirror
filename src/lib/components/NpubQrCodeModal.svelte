@@ -121,7 +121,7 @@
 
 				await navigator.share(shareData);
 				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.share_success') || 'Profile shared successfully!');
+				appStore.showSuccessToast($t('common.toast.share_success'));
 				setTimeout(() => {
 					shareSuccess = false;
 				}, 2000);
@@ -133,7 +133,7 @@
 					const success = await copyToClipboard(profileUrl);
 					if (success) {
 						shareSuccess = true;
-						appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
+						appStore.showSuccessToast($t('common.toast.link_copied'));
 						setTimeout(() => {
 							shareSuccess = false;
 						}, 2000);
@@ -145,12 +145,12 @@
 			const success = await copyToClipboard(profileUrl);
 			if (success) {
 				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
+				appStore.showSuccessToast($t('common.toast.link_copied'));
 				setTimeout(() => {
 					shareSuccess = false;
 				}, 2000);
 			} else {
-				appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
+				appStore.showErrorToast($t('common.toast.link_copy_failed'));
 			}
 		}
 	};
@@ -160,18 +160,21 @@
 {#if isOpen}
 	<div class="modal modal-open">
 		<div
-			class="modal-box w-full h-full max-w-none p-0 bg-base-100 lg:max-w-2xl lg:h-auto lg:max-h-[90vh] flex flex-col"
+			class="modal-box max-w-md max-h-[85vh] p-0 bg-base-100 flex flex-col"
 		>
 			<div class="flex flex-col flex-1 min-h-0">
 				<!-- Header -->
-				<div class="flex items-center justify-between p-4 border-b border-base-300 shrink-0">
-					<h3 class="text-lg font-bold">{$t('common.components.topbar.npub_qr.share_profile_title')}</h3>
+				<div class="flex items-center justify-between bg-base-300 px-3 py-2 rounded-t-lg sm:px-4 sm:py-3 shrink-0">
+					<div class="flex items-center gap-2 sm:gap-3">
+						
+						<h4 class="text-base font-bold text-base-content sm:text-lg">{$t('common.components.topbar.npub_qr.share_profile_title')}</h4>
+					</div>
 					<button
-						class="btn btn-sm btn-circle btn-ghost"
+						class="btn btn-sm btn-circle btn-ghost hover:bg-white/20"
 						onclick={onClose}
 						aria-label={$t('common.close')}
 					>
-						<IconClose class="h-5 w-5" />
+						<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
 					</button>
 				</div>
 
@@ -188,7 +191,7 @@
 							<p class="text-base-content/70">{$t('common.components.topbar.npub_qr.generating')}</p>
 						</div>
 					{:else if npub && profileUrl}
-						<div class="w-full max-w-md rounded-lg bg-white p-4 shadow-xl">
+						<div class="w-full max-w-xs rounded-lg bg-white p-4 shadow-xl">
 							<img
 								src={qrCodeDataUrl}
 								alt="Profile QR Code"

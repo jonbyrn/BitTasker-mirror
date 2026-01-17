@@ -22,26 +22,26 @@
 
 	let isOpen = $state(false);
 	let selectedIndex = $state(-1);
-	let filteredOptions = $state<{ label: string; value: string }[]>(options);
+	
+	// Use $derived to react to options and value changes
+	let filteredOptions = $derived(filterOptions(value));
 
 	function filterOptions(searchTerm: string): { label: string; value: string }[] {
-		if (!options.length || autoComplete === 'off') return options;
-		if (!searchTerm) return options;
+		// Read options directly from props to ensure reactivity
+		const currentOptions = options;
+		if (!currentOptions.length || autoComplete === 'off') return currentOptions;
+		if (!searchTerm) return currentOptions;
 
 		// show filtered options on top of the options
-		const filteredOptions = options.filter((option) =>
+		const filtered = currentOptions.filter((option) =>
 			option.label.toLowerCase().includes(searchTerm.toLowerCase())
 		);
 
 		// show the options that are not in the filtered options
-		const remainingOptions = options.filter((option) => !filteredOptions.includes(option));
+		const remainingOptions = currentOptions.filter((option) => !filtered.includes(option));
 
-		return [...filteredOptions, ...remainingOptions];
+		return [...filtered, ...remainingOptions];
 	}
-
-	$effect(() => {
-		filteredOptions = filterOptions(value);
-	});
 
 	function selectOption(option: { label: string; value: string }) {
 		value = option.label;

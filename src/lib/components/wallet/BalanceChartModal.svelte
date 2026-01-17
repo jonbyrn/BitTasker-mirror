@@ -48,7 +48,6 @@
 
 	let { isOpen, onClose }: Props = $props();
 
-	console.log('[BalanceChartModal] Component initialized, isOpen:', isOpen);
 
 	let chartCanvas: HTMLCanvasElement | null = $state(null);
 	let chartInstance: Chart | null = $state(null);
@@ -619,7 +618,7 @@
 	<!-- BalanceChartModal: isOpen={isOpen} -->
 	<div class="modal modal-open">
 		<div
-			class="modal-box w-full h-full max-w-none p-0 bg-base-100 lg:max-w-4xl lg:h-auto lg:max-h-[90vh] flex flex-col"
+			class="modal-box max-w-4xl max-h-[85vh] p-0 bg-base-100 flex flex-col"
 		>
 			<div class="flex flex-col flex-1 min-h-0">
 				<!-- Header -->

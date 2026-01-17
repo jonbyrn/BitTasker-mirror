@@ -193,14 +193,23 @@
 					exclude: `#${buttonId}`
 				}}
 			>
-				<ul
+				<div
 					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
+					role="menu"
+					tabindex="-1"
 					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => {
+						if (e.key === 'Escape') {
+							closeDropdowns();
+						}
+					}}
 				>
-					{#each section.items as item}
-						{@render menuItem(item)}
-					{/each}
-				</ul>
+					<ul>
+						{#each section.items as item}
+							{@render menuItem(item)}
+						{/each}
+					</ul>
+				</div>
 			</div>
 		{/if}
 	</li>
