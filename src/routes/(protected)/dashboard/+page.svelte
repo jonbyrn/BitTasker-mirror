@@ -77,7 +77,6 @@
 </script>
 
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-	<button onclick={sendNotification} class="btn btn-primary">Send Notification</button>
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
 		<div>
