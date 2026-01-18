@@ -4,6 +4,7 @@
 	import recurringTasksService from '$lib/api/services/recurring-tasks.service';
 	import TaskTemplateCard from '$lib/components/task/TaskTemplateCard.svelte';
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import { t } from 'svelte-i18n';
 	import {
@@ -216,80 +217,58 @@
 		</div>
 
 		{#if showRecurrenceEditor && selectedTemplate}
-			<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-				<div class="card bg-base-100 w-full max-w-2xl shadow-xl">
-					<div class="card-body">
-						<div class="mb-4 flex items-center justify-between">
-							<h3 class="card-title">{$t('common.task.recurring_tasks.update_recurrence_pattern')}</h3>
-							<button
-								class="btn btn-circle btn-ghost btn-sm"
-								onclick={closeRecurrenceEditor}
-								aria-label={$t('common.task.recurring_tasks.close_dialog')}
+			<Modal
+				isOpen={showRecurrenceEditor}
+				title={$t('common.task.recurring_tasks.update_recurrence_pattern')}
+				onClose={closeRecurrenceEditor}
+				size="xl"
+				isScrollable={true}
+			>
+				{#snippet children()}
+					{@const template = selectedTemplate}
+					<p class="mb-4">
+						{$t('common.task.recurring_tasks.updating_for')}
+						<span class="font-semibold">{template?.name || template?.task.title}</span>
+					</p>
+
+					<RecurrencePattern
+						pattern={editablePattern}
+						isEditing
+						onPatternChange={(pattern) => (editablePattern = pattern)}
+					/>
+
+					{#if updateError}
+						<div class="alert alert-outline alert-error my-4">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M6 18L18 6M6 6l12 12"
-									/>
-								</svg>
-							</button>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span>{updateError}</span>
 						</div>
+					{/if}
+				{/snippet}
 
-						<p class="mb-4">
-							{$t('common.task.recurring_tasks.updating_for')} <span class="font-semibold"
-								>{selectedTemplate.name || selectedTemplate.task.title}</span
-							>
-						</p>
-
-						<RecurrencePattern
-							pattern={editablePattern}
-							isEditing
-							onPatternChange={(pattern) => (editablePattern = pattern)}
-						/>
-
-						{#if updateError}
-							<div class="alert alert-outline alert-error my-4">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<span>{updateError}</span>
-							</div>
+				{#snippet footer()}
+					<button class="btn btn-ghost" onclick={closeRecurrenceEditor}>
+						{$t('common.cancel')}
+					</button>
+					<button class="btn btn-primary" onclick={updateRecurrencePattern} disabled={isUpdating}>
+						{#if isUpdating}
+							<span class="loading loading-spinner loading-xs"></span>
 						{/if}
-
-						<div class="card-actions mt-6 justify-end">
-							<button class="btn btn-ghost" onclick={closeRecurrenceEditor}>{$t('common.cancel')}</button>
-							<button
-								class="btn btn-primary"
-								onclick={updateRecurrencePattern}
-								disabled={isUpdating}
-							>
-								{#if isUpdating}
-									<span class="loading loading-spinner loading-xs"></span>
-								{/if}
-								{$t('common.task.recurring_tasks.save_changes')}
-							</button>
-						</div>
-					</div>
-				</div>
-			</div>
+						{$t('common.task.recurring_tasks.save_changes')}
+					</button>
+				{/snippet}
+			</Modal>
 		{/if}
 
 		{#if $taskTemplatesStore.data.taskTemplates.length === 0}

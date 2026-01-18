@@ -929,7 +929,7 @@
 >
 	{#snippet children()}
 		{#if task}
-			<BidForm {task} onClose={() => (isSidebarOpen = false)} />
+			<BidForm {task} onClose={() => (isSidebarOpen = false)} stickySubmit={false} />
 		{/if}
 	{/snippet}
 </Drawer>
