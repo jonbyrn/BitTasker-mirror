@@ -462,6 +462,23 @@ body {
 }
 
 /*
+ * Option A: Keep the bottom navigation IN FLOW inside the app-shell footer.
+ *
+ * DaisyUI's `.dock` is positioned `fixed` by default, which removes it from layout flow
+ * and causes overlap unless pages add padding. When rendered inside `app-shell__footer`,
+ * we override it to be positioned normally so the grid footer row reserves its height.
+ *
+ * This keeps the visual styling identical while eliminating overlap/padding hacks.
+ */
+.app-shell__footer .dock {
+	position: relative !important;
+	inset: auto !important;
+	bottom: auto !important;
+	left: auto !important;
+	right: auto !important;
+}
+
+/*
  * NOTE:
  * We intentionally keep the footer row as `auto` so it sizes to the dock's real height.
  * We still maintain `--app-footer-height` (measured at runtime) for positioning floating UI,
