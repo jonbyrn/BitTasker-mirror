@@ -244,13 +244,13 @@
 
 	<!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
 	<div bind:this={scrollEl} class="app-shell__content bg-base-200">
-		<div class="bg-base-200 overflow-x-hidden pb-8">
+		<div class="bg-base-200 overflow-x-hidden">
 			{#if $devicePlatform === 'web' && !isLandingPage}
 				<div class="bg-base-200 overflow-x-hidden">
 					{@render children()}
 				</div>
 			{:else}
-				<div class="bg-base-200 flex min-h-0 flex-1 flex-col justify-between overflow-x-hidden pb-8">
+				<div class="bg-base-200 flex min-h-0 flex-1 flex-col justify-between overflow-x-hidden">
 					{@render children()}
 				</div>
 			{/if}
