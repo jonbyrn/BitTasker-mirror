@@ -404,7 +404,69 @@ body {
 :root {
 	--bottom-nav-height: 80px;
 	--bottom-nav-height-safe: calc(80px + env(safe-area-inset-bottom, 0));
+	/* Updated at runtime via ResizeObserver */
+	--app-footer-height: var(--bottom-nav-height-safe);
+	/* Standard bottom offset for floating UI above the dock */
+	--app-bottom-fab: calc(var(--app-footer-height, var(--bottom-nav-height-safe)) + 1rem);
 }
+
+/*
+ * App shell layout (header / scrollable content / footer)
+ *
+ * This prevents top/bottom navigation from overlapping content by reserving
+ * layout space for them, and makes the middle area the only scroll container.
+ *
+ * 2026 best-practice notes:
+ * - Use grid auto/1fr/auto
+ * - Ensure the scrollable grid child has min-height: 0
+ * - Use dvh where supported (fallback to vh)
+ */
+html,
+body {
+	height: 100%;
+}
+
+body {
+	overflow: hidden;
+}
+
+.app-shell {
+	display: grid;
+	grid-template-rows: auto 1fr auto;
+	grid-template-areas:
+		'header'
+		'content'
+		'footer';
+	width: 100%;
+	height: 100vh;
+	height: 100dvh;
+	overflow: hidden;
+}
+
+.app-shell__header {
+	grid-area: header;
+	min-height: 0;
+}
+
+.app-shell__content {
+	grid-area: content;
+	min-height: 0; /* critical for scroll inside grid */
+	overflow-y: auto;
+	overflow-x: clip;
+	overscroll-behavior-y: contain;
+}
+
+.app-shell__footer {
+	grid-area: footer;
+	min-height: 0;
+}
+
+/*
+ * NOTE:
+ * We intentionally keep the footer row as `auto` so it sizes to the dock's real height.
+ * We still maintain `--app-footer-height` (measured at runtime) for positioning floating UI,
+ * but we do NOT use it to force layout height (avoids feedback loops and gaps).
+ */
 
 /* Bottom navigation bar spacing - removed body padding since layout handles this */
 @media (max-width: 1024px) {
