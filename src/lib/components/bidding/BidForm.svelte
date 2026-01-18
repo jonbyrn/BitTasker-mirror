@@ -17,9 +17,14 @@
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// Props - Simplified to just task and onClose
-	const { task, onClose } = $props<{
+	const { task, onClose, stickySubmit = true } = $props<{
 		task: Task;
 		onClose: () => void;
+		/**
+		 * When true, the submit button stays visible while scrolling.
+		 * For drawer usage we prefer it to be in normal flow, at the bottom of the drawer.
+		 */
+		stickySubmit?: boolean;
 	}>();
 
 	// Form state
@@ -984,8 +989,12 @@
 			</div>
 			</div>
 
-			<!-- Sticky footer with submit button -->
-			<div class="sticky bottom-0 z-10 -mx-4 border-t border-base-300 bg-base-100 px-4 pt-4">
+			<!-- Submit area -->
+			<div
+				class="-mx-4 border-t border-base-300 bg-base-100 px-4 pt-4 {stickySubmit
+					? 'sticky bottom-0 z-10'
+					: 'mt-auto'}"
+			>
 				{#if bidFormErrors.general}
 					<div class="alert alert-error alert-outline mb-4 wrap-break-words">
 						<span class="wrap-break-words">{bidFormErrors.general}</span>

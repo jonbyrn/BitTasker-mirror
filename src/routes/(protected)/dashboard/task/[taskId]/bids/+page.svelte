@@ -16,6 +16,7 @@
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// State
@@ -915,9 +916,18 @@
 </div>
 
 <!-- Modals -->
-{#if showCounterOfferForm && selectedBid}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-		<div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto">
+<Modal
+	isOpen={!!(showCounterOfferForm && selectedBid)}
+	title={$t('dashboard.bids.counter_offer.title')}
+	size="lg"
+	isScrollable={true}
+	onClose={() => {
+		showCounterOfferForm = false;
+		selectedBid = null;
+	}}
+>
+	{#snippet children()}
+		{#if showCounterOfferForm && selectedBid}
 			<CounterOfferForm
 				bid={selectedBid}
 				onSubmit={submitCounterOffer as any}
@@ -926,9 +936,9 @@
 					selectedBid = null;
 				}}
 			/>
-		</div>
-	</div>
-{/if}
+		{/if}
+	{/snippet}
+</Modal>
 
 <Drawer
 	isOpen={showAcceptanceForm}

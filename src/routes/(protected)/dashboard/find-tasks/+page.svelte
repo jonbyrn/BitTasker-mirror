@@ -1238,7 +1238,7 @@
 		>
 			{#snippet children()}
 				{#if BidForm}
-					<BidForm task={selectedTask} onClose={() => (isBidOpen = false)} />
+					<BidForm task={selectedTask} onClose={() => (isBidOpen = false)} stickySubmit={false} />
 				{/if}
 			{/snippet}
 		</Drawer>
