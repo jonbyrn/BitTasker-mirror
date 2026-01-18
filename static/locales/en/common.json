@@ -47,6 +47,16 @@
             "retry": "Retry",
             "close": "Close"
         },
+        "toast": {
+            "link_copied": "Link copied to clipboard",
+            "link_copy_failed": "Failed to copy link"
+        },
+        "share": {
+            "budget": "Budget",
+            "deadline": "Deadline",
+            "location": "Location",
+            "check_out_task": "Check out this task"
+        },
         "previous": "Previous",
         "next": "Next",
         "pagination": {

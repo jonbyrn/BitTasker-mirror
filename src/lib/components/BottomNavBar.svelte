@@ -878,6 +878,18 @@
 		padding-bottom: env(safe-area-inset-bottom, 0);
 	}
 
+	/* Dock positioning - flex layout with safe area insets */
+	.dock {
+		display: flex;
+		align-items: center;
+		justify-content: space-around;
+		padding: 0.5rem 0;
+		padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0));
+		min-height: 64px;
+		height: auto;
+		width: 100%;
+	}
+
 	/* Menu starts collapsed, expands upward using transform instead of max-height */
 	.bottom-nav-menu {
 		transform: translateY(100%);

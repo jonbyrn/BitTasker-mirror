@@ -402,8 +402,8 @@ body {
 
 /* CSS Custom Properties for bottom navigation */
 :root {
-	--bottom-nav-height: 80px;
-	--bottom-nav-height-safe: calc(80px + env(safe-area-inset-bottom, 0));
+	--bottom-nav-height: 64px;
+	--bottom-nav-height-safe: calc(64px + env(safe-area-inset-bottom, 0));
 }
 
 /* Bottom navigation bar spacing - removed body padding since layout handles this */

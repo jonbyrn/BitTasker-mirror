@@ -123,7 +123,7 @@
 		</div>
 
 		<!-- Content -->
-		<div class="p-4">
+		<div class="p-4 drawer-content">
 			{@render props.children?.()}
 		</div>
 
@@ -135,3 +135,13 @@
 		{/if}
 	{/if}
 </div>
+
+<style>
+	/* Add minimal bottom padding on mobile to account for bottom navigation bar */
+	@media (max-width: 1024px) {
+		.drawer-content {
+			/* Minimal padding for bottom nav - components like BidForm handle their own spacing */
+			padding-bottom: calc(0.25rem + var(--bottom-nav-height-safe, 64px));
+		}
+	}
+</style>

@@ -186,7 +186,7 @@
 />
 {#if isOpen}
 	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
-		<div class="modal-box w-full max-w-3xl max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0 m-4 sm:m-0" transition:fly={{ y: 20, duration: 300 }}>
+		<div class="modal-box max-w-3xl max-h-[85vh] flex flex-col p-0" transition:fly={{ y: 20, duration: 300 }}>
 			<!-- Modal Header -->
 			<div class="flex items-center justify-end bg-error/10 px-3 sm:px-4 py-2 sm:py-3 rounded-t-lg">
 				<button 
