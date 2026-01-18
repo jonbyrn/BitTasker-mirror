@@ -117,7 +117,7 @@
 		<!-- Task found state -->
 		{#if props.task}
 			<!-- Tab content -->
-			<div class="p-4">
+			<div class="p-4 pb-safe" style="padding-bottom: calc(0.5rem + var(--bottom-nav-height-safe, 64px));">
 				<!-- Task Details Tab -->
 				{#if currentTab === 'details'}
 					<TaskTab task={props.task} {isOwner} onClose={handleClose} />
