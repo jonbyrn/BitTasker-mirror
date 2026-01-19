@@ -157,6 +157,6 @@ export default defineConfig({
         // - http://<laptop-lan-ip>:3000 (same Wi‑Fi), or
         // - http://localhost:3000 with `adb reverse`
         // Allowing all hosts prevents Vite from blocking these.
-        allowedHosts: 'all'
+        allowedHosts: true
     }
 });
