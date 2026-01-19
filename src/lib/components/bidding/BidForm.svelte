@@ -542,7 +542,7 @@
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [task.npub],
 				title: 'New Bid Received',
-				body: `New bid received for task: ${task.title || task.id} | taskId:${task.id} | task.npub:${task.npub}`,
+				body: `New bid received ${task.title ? `for task: ${task.title}` : ''}`,
 				type: 'bid_created',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard/task/${task.id}`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
