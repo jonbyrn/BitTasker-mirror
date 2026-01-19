@@ -181,20 +181,20 @@ describe('Validators', () => {
 		it('should return error for empty username', () => {
 			const result = validateUsername('');
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Username is required');
+			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.required');
 		});
 
 		it('should return error for too short username', () => {
 			const result = validateUsername('ab');
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Username must be at least 3 characters long');
+			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.too_short');
 		});
 
 		it('should return error for too long username', () => {
 			const longUsername = 'a'.repeat(65);
 			const result = validateUsername(longUsername);
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Username must be less than 64 characters long');
+			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.too_long');
 		});
 
 		it('should return valid result for exactly 64 characters', () => {
@@ -213,25 +213,25 @@ describe('Validators', () => {
 		it('should return error for username with spaces', () => {
 			const result = validateUsername('john doe');
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Username cannot contain spaces');
+			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.invalid_characters');
 		});
 
 		it('should return error for username with special characters', () => {
 			const result = validateUsername('john@doe');
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Invalid characters');
+			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.invalid_characters');
 		});
 
 		it('should return error for username starting with hyphen', () => {
 			const result = validateUsername('-johndoe');
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Invalid characters');
+			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.invalid_characters');
 		});
 
 		it('should return error for username ending with hyphen', () => {
 			const result = validateUsername('johndoe-');
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Invalid characters');
+			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.invalid_characters');
 		});
 
 		it('should return valid result for username with hyphens in the middle', () => {
@@ -244,7 +244,7 @@ describe('Validators', () => {
 			// Note: This will fail length check, but we're testing character validation
 			const result = validateUsername('a'); 
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Username must be at least 3 characters long');
+			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.too_short');
 		});
 	});
 });
