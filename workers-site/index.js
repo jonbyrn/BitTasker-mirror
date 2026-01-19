@@ -1,4 +1,3 @@
-import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 import puppeteer from '@cloudflare/puppeteer';
 
 const PRERENDER_BYPASS_HEADER = 'x-prerender-bypass';
@@ -193,8 +192,6 @@ async function renderHtmlSnapshot(targetUrl, env) {
 			} catch {
 				// ignore
 			}
-		} catch {
-			// ignore
 		}
 
 		return await page.content();
@@ -213,34 +210,9 @@ async function handleRequest(request, env, ctx) {
 	
 	// Check if this is an asset request (not a page navigation)
 	const isAssetRequest = /\.(js|mjs|cjs|css|map|wasm|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|otf|webp|avif|txt|xml|pdf|zip|gz|br|mp4|webm|mp3|wav|ogg)$/i.test(pathname) && !isDataRequest;
-	
-	// Check if this is an immutable asset (hashed filename in _app/immutable/)
-	const isImmutableAsset = pathname.includes('/_app/immutable/');
-	
-	// Determine cache TTLs
-	const htmlBrowserTTL = 60 * 30;              // 30 minutes for HTML browser cache
-	const htmlEdgeTTL = 60 * 60 * 24 * 7;        // 7 days for HTML edge cache
-	const immutableBrowserTTL = 60 * 60 * 24 * 30; // 30 days for immutable assets browser
-	const immutableEdgeTTL = 60 * 60 * 24 * 30;    // 30 days for immutable assets edge
-	const staticBrowserTTL = 60 * 60 * 24 * 7;     // 7 days for other static assets browser
-	const staticEdgeTTL = 60 * 60 * 24 * 30;       // 30 days for other static assets edge
-	
-	// Determine cache TTL based on file type
-	let browserTTL, edgeTTL;
-	if (isImmutableAsset) {
-		browserTTL = immutableBrowserTTL;
-		edgeTTL = immutableEdgeTTL;
-	} else if (isAssetRequest) {
-		browserTTL = staticBrowserTTL;
-		edgeTTL = staticEdgeTTL;
-	} else {
-		// HTML files
-		browserTTL = htmlBrowserTTL;
-		edgeTTL = htmlEdgeTTL;
-	}
 
 	// Bot-only prerender: serve rendered HTML snapshots with TTL-based edge caching.
-	// This runs BEFORE getAssetFromKV fallback-to-index.html behavior.
+	// This runs BEFORE static-asset fallback behavior.
 	const bypassRequested =
 		request.headers.get(PRERENDER_BYPASS_HEADER) === '1' ||
 		request.headers.get(PRERENDERED_HEADER) === '1';
@@ -321,33 +293,17 @@ async function handleRequest(request, env, ctx) {
 	}
 	
 	try {
-		const cfEvent = {
-			request,
-			waitUntil: (promise) => ctx.waitUntil(promise)
-		};
+		if (!env?.ASSETS) {
+			throw new Error('Static assets binding (env.ASSETS) not configured');
+		}
 
-		// Try to serve the requested asset
-		const response = await getAssetFromKV(cfEvent, {
-			cacheControl: {
-				browserTTL: browserTTL,
-				edgeTTL: edgeTTL,
-				bypassCache: false,
-			},
-		});
-		
-		// Apply compression if supported and not already compressed
-		const compressed = compressResponse(request, response);
-		return debugEnabled
-			? withDebugHeaders(compressed, {
-					'X-Prerender-Decision': 'SKIP',
-					'X-Prerender-Skip-Reason': skipReason || 'unknown',
-					'X-Prerender-Host': url.hostname
-				})
-			: compressed;
-	} catch (error) {
-		// Handle 404 errors
-		if (error.status === 404) {
-			// For SvelteKit __data.json requests that don't exist, return empty object
+		// Try to serve the requested asset from Workers Static Assets
+		let response = await env.ASSETS.fetch(request);
+
+		// If the asset doesn't exist, handle SvelteKit CSR fallbacks
+		if (response.status === 404) {
+			// For SvelteKit __data.json requests that don't exist, return empty object.
+			// This allows CSR-only pages to work.
 			if (isDataRequest) {
 				const r = new Response(JSON.stringify({ type: 'data', nodes: [{}] }), {
 					status: 200,
@@ -364,39 +320,19 @@ async function handleRequest(request, env, ctx) {
 						})
 					: r;
 			}
-			
-			// For non-asset requests (page navigation), serve index.html
-			if (!isAssetRequest) {
-				try {
-					const cfEvent = {
-						request,
-						waitUntil: (promise) => ctx.waitUntil(promise)
-					};
-					const response = await getAssetFromKV(cfEvent, {
-						mapRequestToAsset: (req) => {
-							const url = new URL(req.url);
-							url.pathname = '/index.html';
-							return new Request(url.toString(), req);
-						},
-						cacheControl: {
-							browserTTL: htmlBrowserTTL,
-							edgeTTL: htmlEdgeTTL,
-							bypassCache: false,
-						},
-					});
-					const compressed = compressResponse(request, response);
-					return debugEnabled
-						? withDebugHeaders(compressed, {
-								'X-Prerender-Decision': 'SKIP',
-								'X-Prerender-Skip-Reason': skipReason || 'spa_fallback',
-								'X-Prerender-Host': url.hostname
-							})
-						: compressed;
-				} catch (indexError) {
-					const r = new Response('Application not found. Please ensure the app is built correctly.', { 
-						status: 500,
-						headers: { 'Content-Type': 'text/plain' }
-					});
+
+			// For non-asset navigation requests, serve index.html (SPA fallback)
+			if (!isAssetRequest && isHtmlNavigationRequest(request)) {
+				const indexUrl = new URL(request.url);
+				indexUrl.pathname = '/index.html';
+				response = await env.ASSETS.fetch(new Request(indexUrl.toString(), request));
+
+				// If index.html isn't present, return a helpful 500.
+				if (response.status === 404) {
+					const r = new Response(
+						'Application not found. Please ensure the app is built correctly.',
+						{ status: 500, headers: { 'Content-Type': 'text/plain' } }
+					);
 					return debugEnabled
 						? withDebugHeaders(r, {
 								'X-Prerender-Decision': 'ERROR',
@@ -407,16 +343,28 @@ async function handleRequest(request, env, ctx) {
 				}
 			}
 		}
-		
-		// For actual missing assets, return 404
-		const r = new Response(`Asset not found: ${pathname}`, {
-			status: 404,
+
+		// Apply compression if supported and not already compressed
+		const compressed = compressResponse(request, response);
+		return debugEnabled
+			? withDebugHeaders(compressed, {
+					'X-Prerender-Decision': 'SKIP',
+					'X-Prerender-Skip-Reason': skipReason || 'unknown',
+					'X-Prerender-Host': url.hostname
+				})
+			: compressed;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error('[Asset fetch] failed:', message);
+
+		const r = new Response('Asset handling failed. Please check worker bindings.', {
+			status: 500,
 			headers: { 'Content-Type': 'text/plain' }
 		});
 		return debugEnabled
 			? withDebugHeaders(r, {
-					'X-Prerender-Decision': 'SKIP',
-					'X-Prerender-Skip-Reason': 'asset_404',
+					'X-Prerender-Decision': 'ERROR',
+					'X-Prerender-Skip-Reason': 'asset_fetch_error',
 					'X-Prerender-Host': url.hostname
 				})
 			: r;

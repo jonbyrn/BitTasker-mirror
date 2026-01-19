@@ -13,8 +13,12 @@ enabled = true
 binding = "BROWSER"
 remote = true
 
-[site]
-bucket = "./build"
+# Static assets (Wrangler v4-compatible; replaces deprecated Workers Sites)
+[assets]
+directory = "./build"
+binding = "ASSETS"
+# Ensure our Worker runs first so it can prerender for bots, then fall back to assets.
+run_worker_first = true
 
 # ============================================
 # STAGING Environment (default)
