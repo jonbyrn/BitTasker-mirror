@@ -43,7 +43,7 @@
 		}
 	};
 
-	const config = sizeConfig[size as keyof typeof sizeConfig];
+	const config = $derived(sizeConfig[size as keyof typeof sizeConfig]);
 
 	// Load profile on mount
 	onMount(() => {

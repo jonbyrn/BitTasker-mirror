@@ -36,7 +36,7 @@
 	let showConfirmation = $state(false);
 	let transactionState = $state<'idle' | 'pending' | 'confirmed' | 'error'>('idle');
 	let transactionHash = $state<string | null>(null);
-	let countdownSeconds = $state(30); // RSK block time is ~30 seconds
+	let countdownSeconds = $state(60); // Estimated transaction time is ~60 seconds
 	let monitoringInterval: ReturnType<typeof setInterval> | null = null;
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 	let autoCloseTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -156,12 +156,24 @@
 		try {
 			if (!token.isNative) {
 				// For ERC-20 tokens, estimate gas properly using the contract
+				console.log('[DebugWalletSendForm] estimateGasFee() - Starting ERC-20 gas estimation:', {
+					tokenAddress: token.address,
+					tokenAddressType: typeof token.address,
+					recipientAddress: recipientAddress.trim(),
+					recipientAddressType: typeof recipientAddress,
+					amount: amount.trim(),
+					tokenIsNative: token.isNative
+				});
 				try {
 					const gasEstimation = await estimateERC20Gas(
 						token.address,
 						recipientAddress.trim(),
 						amount.trim()
 					);
+					console.log('[DebugWalletSendForm] estimateGasFee() - ERC-20 gas estimation succeeded:', {
+						gasEstimation,
+						totalCostFormatted: gasEstimation.totalCostFormatted
+					});
 					const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted);
 					estimatedGasFee = gasFeeRBTC;
 					
@@ -504,7 +516,7 @@
 	async function monitorTransaction(txHash: string) {
 		if (monitoringInterval) return; // Already monitoring
 
-		// Start polling after 27 seconds (wait for countdown to reach 3 seconds)
+		// Start polling after 57 seconds (wait for countdown to reach 3 seconds)
 		// This gives the transaction time to be mined before we start checking
 		setTimeout(() => {
 			// Start polling every 1 second
@@ -577,7 +589,7 @@
 					}
 				}
 			}, 1000); // Check every 1 second
-		}, 27000); // Start polling after 27 seconds
+		}, 57000); // Start polling after 57 seconds (3 seconds before countdown ends)
 	}
 
 	// Handle confirmed send
@@ -586,7 +598,7 @@
 		isSending = true;
 		errorMessage = null;
 		transactionState = 'pending';
-		countdownSeconds = 30; // RSK block time is ~30 seconds
+		countdownSeconds = 60; // Estimated transaction time is ~60 seconds
 		
 		// Clear any existing interval first
 		if (countdownInterval) {
@@ -624,11 +636,33 @@
 				// Send ERC-20 token using store function
 				// Type safety: token.address is guaranteed to be a contract address for non-native tokens
 				const tokenAddress = token.address;
+				console.log('[DebugWalletSendForm] handleConfirmedSend() - Preparing ERC-20 transfer:', {
+					tokenAddress,
+					tokenAddressType: typeof tokenAddress,
+					tokenAddressLength: tokenAddress?.length,
+					recipientAddress: recipientAddress.trim(),
+					recipientAddressType: typeof recipientAddress,
+					recipientAddressLength: recipientAddress.trim().length,
+					amount: amount.trim(),
+					token: {
+						address: token.address,
+						symbol: token.symbol,
+						isNative: token.isNative
+					}
+				});
 				if (!tokenAddress || tokenAddress === 'native') {
+					console.error('[DebugWalletSendForm] handleConfirmedSend() - Invalid token address:', {
+						tokenAddress,
+						isNative: tokenAddress === 'native'
+					});
 					throw new Error('Invalid token address for ERC-20 transfer');
 				}
 				// sendRSKToken waits for confirmation, so transaction is already confirmed
+				console.log('[DebugWalletSendForm] handleConfirmedSend() - Calling sendRSKToken()...');
 				txHash = await sendRSKToken(tokenAddress, recipientAddress.trim(), amount.trim());
+				console.log('[DebugWalletSendForm] handleConfirmedSend() - sendRSKToken() succeeded:', {
+					txHash
+				});
 				isERC20 = true;
 			}
 

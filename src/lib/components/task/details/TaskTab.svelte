@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Task } from '$lib/types/task';
+	import type { Attachment, Task } from '$lib/types/task';
 	import { goto } from '$app/navigation';
 	import { deleteTask } from '$lib/nostr/task';
 	import { taskStore } from '$lib/stores/task.store';
@@ -19,8 +19,7 @@
 	import { contractStore } from '$lib/stores/contract.store';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
-	import { appStore } from '$lib/stores/app.store';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import TaskShareButton from '../TaskShareButton.svelte';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -149,202 +148,6 @@
 		}
 	}
 
-	// Generate share link for public route - always use uniqueId for stable URLs
-	const shareLink = $derived(() => {
-		if (typeof window !== 'undefined' && task) {
-			// Always use the uniqueId from the task object for stable URLs
-			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			const taskIdentifier = (task as any).uniqueId || task.id;
-			return `${window.location.origin}/tasks/${taskIdentifier}`;
-		}
-		return '';
-	});
-
-	// Helper function to format date with time for sharing
-	function formatDateTimeForShare(dateString: string): string {
-		const date = parseDateToLocalMidnight(dateString) || new Date(dateString);
-		if (!date || isNaN(date.getTime())) return '';
-		
-		const localeToUse = $locale || 'en';
-		const formattedDate = formatStandardDateShort(date, localeToUse);
-		const formattedTime = date.toLocaleTimeString(localeToUse, {
-			hour: 'numeric',
-			minute: '2-digit',
-			hour12: true
-		});
-		return `${formattedDate} · ${formattedTime}`;
-	}
-
-	// Helper function to format date range for sharing
-	function formatDateRangeForShare(startDateString: string, endDateString: string): string {
-		const localeToUse = $locale || 'en';
-		const startDate = new Date(startDateString);
-		const endDate = new Date(endDateString);
-		
-		if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-			return '';
-		}
-		
-		const start = formatStandardDateShort(startDate, localeToUse);
-		const end = formatStandardDateShort(endDate, localeToUse);
-		return `${start} - ${end}`;
-	}
-
-	// Helper function to truncate text to 200 characters at last complete word
-	function truncateText(text: string, maxLength: number = 200): string {
-		if (!text || text.length <= maxLength) return text;
-		
-		const truncated = text.substring(0, maxLength);
-		const lastSpace = truncated.lastIndexOf(' ');
-		
-		if (lastSpace > 0) {
-			return truncated.substring(0, lastSpace) + '...';
-		}
-		return truncated + '...';
-	}
-
-	// Helper function to format share text with task details
-	function formatShareText(): string {
-		if (!task) return 'Check out this task';
-		
-		let text = '';
-		
-		// Add truncated description
-		const description = task.description || '';
-		if (description) {
-			text += truncateText(description, 200);
-		} else {
-			text += 'Check out this task';
-		}
-		
-		// Collect details
-		const details: string[] = [];
-		
-		// Budget
-		if (task.budget?.amount) {
-			details.push(`💰 Budget:\n$${formatNumberWithTwoDecimals(task.budget.amount)}`);
-		}
-		
-		// Deadline
-		if (task.deadline) {
-			const deadlineFormatted = formatDateTimeForShare(task.deadline);
-			if (deadlineFormatted) {
-				details.push(`📅 Deadline:\n${deadlineFormatted}`);
-			}
-		} else if (task.dateRange) {
-			const dateRangeFormatted = formatDateRangeForShare(task.dateRange.start, task.dateRange.end);
-			if (dateRangeFormatted) {
-				details.push(`📅 Deadline:\n${dateRangeFormatted}`);
-			}
-		}
-		
-		// Location
-		if (task.dropOffLocation?.displayName) {
-			details.push(`📍 Location:\n${task.dropOffLocation.displayName}`);
-		} else if (task.pickupLocation?.displayName) {
-			details.push(`📍 Location:\n${task.pickupLocation.displayName}`);
-		} else if (task.taskType === TaskTypeEnum.REMOTE) {
-			details.push(`📍 Location:\n${$t('dashboard.task_details_by_task.remote')}`);
-		}
-		
-		// Add details if any exist
-		if (details.length > 0) {
-			text += '\n\n' + details.join('\n\n');
-		}
-		
-		return text;
-	}
-
-	// Helper function to fetch first image attachment as File
-	async function getFirstImageFile(): Promise<File | null> {
-		if (!task?.attachments || task.attachments.length === 0) return null;
-		
-		// Find first non-video attachment (image)
-		const firstImage = task.attachments.find(att => !isVideoFile(att.url));
-		if (!firstImage) return null;
-		
-		try {
-			// Fetch the image
-			const response = await fetch(firstImage.url);
-			if (!response.ok) return null;
-			
-			const blob = await response.blob();
-			
-			// Get file extension from URL or use default
-			const urlParts = firstImage.url.split('.');
-			const extension = urlParts.length > 1 ? urlParts[urlParts.length - 1].split('?')[0] : 'jpg';
-			const mimeType = blob.type || `image/${extension}`;
-			
-			// Create File object
-			const fileName = firstImage.alt || `task-image.${extension}`;
-			const file = new File([blob], fileName, { type: mimeType });
-			
-			return file;
-		} catch (error) {
-			console.error('Failed to fetch image for sharing:', error);
-			return null;
-		}
-	}
-
-	// Handle share functionality
-	let shareSuccess = $state(false);
-	const handleShare = async () => {
-		const link = shareLink();
-		if (!link) return;
-
-		if (navigator.share) {
-			try {
-				// Prepare share data
-				const shareData: ShareData = {
-					title: task?.title || 'Task Details',
-					text: formatShareText(),
-					url: link
-				};
-				
-				// Try to add first image if available
-				const imageFile = await getFirstImageFile();
-				if (imageFile) {
-					// Check if files can be shared
-					if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-						shareData.files = [imageFile];
-					}
-				}
-				
-				await navigator.share(shareData);
-				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.share_success') || 'Task shared successfully!');
-				setTimeout(() => {
-					shareSuccess = false;
-				}, 2000);
-			} catch (error) {
-				// User cancelled sharing or error occurred
-				if ((error as Error).name !== 'AbortError') {
-					console.log('Share cancelled or failed:', error);
-					// Fallback to copy link if share fails
-					const success = await copyToClipboard(link);
-					if (success) {
-						shareSuccess = true;
-						appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
-						setTimeout(() => {
-							shareSuccess = false;
-						}, 2000);
-					}
-				}
-			}
-		} else {
-			// Fallback: copy to clipboard
-			const success = await copyToClipboard(link);
-			if (success) {
-				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
-				setTimeout(() => {
-					shareSuccess = false;
-				}, 2000);
-			} else {
-				appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
-			}
-		}
-	};
 
 	onMount(() => {
 		fetchBtcPrice();
@@ -570,46 +373,7 @@
 		<!-- Action Buttons Row -->
 		<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
 			<!-- Share Button (always visible) -->
-			<button 
-				class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none transition-all duration-200 {shareSuccess
-					? 'btn-success'
-					: ''}" 
-				onclick={handleShare}
-				title={$t('dashboard.task_details_by_task.share_task')}
-			>
-				{#if shareSuccess}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-1 h-4 w-4 shrink-0"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-1 h-4 w-4 shrink-0"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
-						/>
-					</svg>
-				{/if}
-				{$t('dashboard.task_details_by_task.share')}
-			</button>
+			<TaskShareButton {task} variant="default" class="min-h-[40px]" />
 
 			{#if isOwner && task.status === TaskStatusEnum.OPEN}
 				<button class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none" onclick={handleEditTask}>

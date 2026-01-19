@@ -146,15 +146,15 @@
 		<TopBar />
 	{/if}
 
-	<div class="bg-base-200 overflow-x-hidden pb-8">
+	<div class="bg-base-200 overflow-x-hidden">
 		{#if $devicePlatform === 'web' && !isLandingPage}
 			<div class="bg-base-200 overflow-x-hidden">
 				{@render children()}
 			</div>
 		{:else}
 			<div
-				class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
-				style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
+				class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
+				style={showTopBar ? 'padding-bottom: var(--bottom-nav-height-safe, 4rem);' : ''}
 			>
 				{@render children()}
 			</div>
@@ -193,7 +193,7 @@
 
 	<!-- BottomNavBar: Show on mobile/tablet (≤1024px) and native platforms -->
 	{#if showTopBar}
-		<div class="pb-safe right-0 bottom-0 left-0 z-50 lg:hidden">
+		<div class="fixed right-0 bottom-0 left-0 z-50 lg:hidden">
 			<BottomNavBar />
 		</div>
 	{/if}
