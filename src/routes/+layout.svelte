@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { afterNavigate, beforeNavigate } from '$app/navigation';
+	import { onMount, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import '$lib/i18n/i18n';
 	import { page } from '$app/state';
@@ -75,6 +76,35 @@
 	}
 
 	onMount(() => {
+		// Global "prerender ready" signal for bot-rendering snapshots.
+		// This helps Browser Rendering know when the SPA finished navigation and head tags are settled.
+		const markNotReady = () => {
+			window.__PRERENDER_READY__ = false;
+			window.__PRERENDER_PATH__ = page.url.pathname;
+		};
+
+		const markReadySoon = async () => {
+			// Allow a full microtask + DOM flush + 2 RAFs so <svelte:head> updates have time to apply.
+			await tick();
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					window.__PRERENDER_READY__ = true;
+					window.__PRERENDER_PATH__ = page.url.pathname;
+				});
+			});
+		};
+
+		markNotReady();
+		markReadySoon();
+
+		beforeNavigate(() => {
+			markNotReady();
+		});
+		afterNavigate(() => {
+			markNotReady();
+			markReadySoon();
+		});
+
 		// Initialize theme from saved preference
 		initializeTheme();
 

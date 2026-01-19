@@ -24,6 +24,15 @@ declare global {
 				};
 			};
 		};
+		/**
+		 * Global signal used by Cloudflare Browser Rendering snapshots.
+		 * Set to true when the SPA finished navigation and head tags should be settled.
+		 */
+		__PRERENDER_READY__?: boolean;
+		/**
+		 * The current path when the prerender signal was last updated.
+		 */
+		__PRERENDER_PATH__?: string;
 	}
 
 	// TypeScript interfaces for Turnstile for type checking

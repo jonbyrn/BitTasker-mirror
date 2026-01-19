@@ -1,11 +1,17 @@
 name = "bittasker-dev-worker"
 main = "workers-site/index.js"
 compatibility_date = "2025-10-07"
+compatibility_flags = ["nodejs_compat"]
 account_id = "0e47af3ee55b77b43b150879938ebbec"
 
 # Logs are enabled for troubleshooting purposes
 [observability.logs]
 enabled = true
+
+# Enable Browser Rendering binding (used for bot-only prerender)
+[browser]
+binding = "BROWSER"
+remote = true
 
 [site]
 bucket = "./build"
