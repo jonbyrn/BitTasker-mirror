@@ -23,6 +23,8 @@ const DEBUG_ALLOWED_HOSTS = new Set([
 	'worker.staging.bittasker.com'
 ]);
 const DEBUG_ALLOWED_HOST_SUFFIXES = ['.pages.dev'];
+// Allow debugging on temporary Workers Dev hostnames (useful for ad-hoc testing)
+DEBUG_ALLOWED_HOST_SUFFIXES.push('.workers.dev');
 
 // Query abuse guards (defense-in-depth)
 const MAX_QUERY_STRING_LENGTH = 512;
