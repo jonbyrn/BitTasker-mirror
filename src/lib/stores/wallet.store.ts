@@ -679,29 +679,155 @@ export async function sendRSKToken(
 	to: string,
 	amount: string
 ): Promise<string> {
+	console.log('[WALLET-STORE] sendRSKToken() - Called with:', {
+		tokenAddress,
+		to,
+		amount,
+		tokenAddressType: typeof tokenAddress,
+		toType: typeof to,
+		tokenAddressLength: tokenAddress?.length,
+		toLength: to?.length
+	});
+
 	const manager = getWalletManager();
 	const wallet = manager.rskWallet.getWallet();
 	const provider = manager.rskWallet.getProvider();
 
 	if (!wallet || !provider) {
+		console.error('[WALLET-STORE] sendRSKToken() - Wallet not initialized:', { hasWallet: !!wallet, hasProvider: !!provider });
 		throw new Error('RSK wallet not initialized');
+	}
+
+	// Normalize addresses to EIP-55 checksum format (required by ethers v6)
+	// Note: getAddress() requires addresses to be lowercase OR correctly checksummed
+	// Convert to lowercase first to handle addresses with invalid checksums
+	let normalizedTokenAddress: string;
+	let normalizedTo: string;
+	try {
+		console.log('[WALLET-STORE] sendRSKToken() - Normalizing addresses...', {
+			originalTokenAddress: tokenAddress,
+			originalTo: to
+		});
+		// Convert to lowercase first, then getAddress() will compute correct checksum
+		normalizedTokenAddress = ethers.getAddress(tokenAddress.toLowerCase());
+		normalizedTo = ethers.getAddress(to.toLowerCase());
+		console.log('[WALLET-STORE] sendRSKToken() - Addresses normalized successfully:', {
+			normalizedTokenAddress,
+			normalizedTo,
+			tokenAddressChanged: normalizedTokenAddress.toLowerCase() !== tokenAddress.toLowerCase(),
+			toAddressChanged: normalizedTo.toLowerCase() !== to.toLowerCase()
+		});
+	} catch (error) {
+		console.error('[WALLET-STORE] sendRSKToken() - Address normalization failed:', {
+			error,
+			errorMessage: error instanceof Error ? error.message : String(error),
+			errorStack: error instanceof Error ? error.stack : undefined,
+			tokenAddress,
+			to,
+			tokenAddressLowerCase: tokenAddress.toLowerCase(),
+			toLowerCase: to.toLowerCase()
+		});
+		throw new Error(`Invalid address format: ${error instanceof Error ? error.message : 'Address must be a valid hex address'}`);
 	}
 
 	// Import ERC20_ABI
 	const { ERC20_ABI } = await import('$lib/utils/wallet/networkConfig');
+	console.log('[WALLET-STORE] sendRSKToken() - ERC20_ABI imported, creating contract...', {
+		normalizedTokenAddress,
+		ABILength: ERC20_ABI?.length
+	});
 
 	// Create ERC-20 contract instance
-	const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
+	let tokenContract: ethers.Contract;
+	try {
+		tokenContract = new ethers.Contract(normalizedTokenAddress, ERC20_ABI, wallet);
+		console.log('[WALLET-STORE] sendRSKToken() - Contract created successfully:', {
+			contractAddress: tokenContract.target,
+			contractAddressType: typeof tokenContract.target
+		});
+	} catch (error) {
+		console.error('[WALLET-STORE] sendRSKToken() - Contract creation failed:', {
+			error,
+			errorMessage: error instanceof Error ? error.message : String(error),
+			errorStack: error instanceof Error ? error.stack : undefined,
+			normalizedTokenAddress,
+			normalizedTokenAddressType: typeof normalizedTokenAddress
+		});
+		throw error;
+	}
 
 	// Get token decimals
-	const decimals = await tokenContract.decimals();
+	let decimals: number;
+	try {
+		decimals = await tokenContract.decimals();
+		console.log('[WALLET-STORE] sendRSKToken() - Token decimals retrieved:', { decimals });
+	} catch (error) {
+		console.error('[WALLET-STORE] sendRSKToken() - Failed to get decimals:', {
+			error,
+			errorMessage: error instanceof Error ? error.message : String(error),
+			contractAddress: tokenContract.target
+		});
+		throw error;
+	}
 
 	// Parse amount with correct decimals
-	const amountWei = ethers.parseUnits(amount, decimals);
+	let amountWei: bigint;
+	try {
+		amountWei = ethers.parseUnits(amount, decimals);
+		console.log('[WALLET-STORE] sendRSKToken() - Amount parsed:', {
+			amount,
+			decimals,
+			amountWei: amountWei.toString()
+		});
+	} catch (error) {
+		console.error('[WALLET-STORE] sendRSKToken() - Failed to parse amount:', {
+			error,
+			errorMessage: error instanceof Error ? error.message : String(error),
+			amount,
+			decimals
+		});
+		throw error;
+	}
 
-	// Send transaction
-	const tx = await tokenContract.transfer(to, amountWei);
+	// Send transaction with normalized address
+	console.log('[WALLET-STORE] sendRSKToken() - Calling transfer() with:', {
+		normalizedTo,
+		normalizedToType: typeof normalizedTo,
+		normalizedToLength: normalizedTo?.length,
+		amountWei: amountWei.toString(),
+		contractAddress: tokenContract.target
+	});
+	let tx: ethers.ContractTransactionResponse;
+	try {
+		tx = await tokenContract.transfer(normalizedTo, amountWei);
+		console.log('[WALLET-STORE] sendRSKToken() - Transfer transaction sent:', {
+			txHash: tx.hash,
+			from: tx.from,
+			to: tx.to
+		});
+	} catch (error) {
+		console.error('[WALLET-STORE] sendRSKToken() - Transfer failed:', {
+			error,
+			errorMessage: error instanceof Error ? error.message : String(error),
+			errorCode: (error as any)?.code,
+			errorArgument: (error as any)?.argument,
+			errorValue: (error as any)?.value,
+			errorStack: error instanceof Error ? error.stack : undefined,
+			normalizedTo,
+			normalizedTokenAddress,
+			amountWei: amountWei.toString()
+		});
+		throw error;
+	}
+
 	const receipt = await tx.wait();
+	if (!receipt) {
+		throw new Error('Transaction receipt is null');
+	}
+	console.log('[WALLET-STORE] sendRSKToken() - Transaction confirmed:', {
+		txHash: receipt.hash,
+		status: receipt.status
+	});
 
 	// Refresh data and invalidate token cache
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
@@ -712,6 +838,7 @@ export async function sendRSKToken(
 		tokenBalanceService.clearBalanceCache(state.rsk.address);
 	}
 
+	console.log('[WALLET-STORE] sendRSKToken() - Completed successfully, returning hash:', receipt.hash);
 	return receipt.hash;
 }
 
@@ -1012,29 +1139,148 @@ export async function estimateERC20Gas(
 	to: string,
 	amount: string
 ): Promise<GasEstimation> {
+	console.log('[WALLET-STORE] estimateERC20Gas() - Called with:', {
+		tokenAddress,
+		to,
+		amount,
+		tokenAddressType: typeof tokenAddress,
+		toType: typeof to,
+		tokenAddressLength: tokenAddress?.length,
+		toLength: to?.length
+	});
+
 	try {
 		const state = get(walletStore);
 		if (!state.rsk.wallet || !state.rsk.provider) {
+			console.error('[WALLET-STORE] estimateERC20Gas() - Wallet not initialized:', {
+				hasWallet: !!state.rsk.wallet,
+				hasProvider: !!state.rsk.provider
+			});
 			throw new Error('RSK wallet not initialized');
 		}
 
 		const provider = state.rsk.provider;
 		const wallet = state.rsk.wallet;
 
+		// Normalize addresses to EIP-55 checksum format (required by ethers v6)
+		// Note: getAddress() requires addresses to be lowercase OR correctly checksummed
+		// Convert to lowercase first to handle addresses with invalid checksums
+		let normalizedTokenAddress: string;
+		let normalizedTo: string;
+		try {
+			console.log('[WALLET-STORE] estimateERC20Gas() - Normalizing addresses...', {
+				originalTokenAddress: tokenAddress,
+				originalTo: to
+			});
+			// Convert to lowercase first, then getAddress() will compute correct checksum
+			normalizedTokenAddress = ethers.getAddress(tokenAddress.toLowerCase());
+			normalizedTo = ethers.getAddress(to.toLowerCase());
+			console.log('[WALLET-STORE] estimateERC20Gas() - Addresses normalized successfully:', {
+				normalizedTokenAddress,
+				normalizedTo,
+				tokenAddressChanged: normalizedTokenAddress.toLowerCase() !== tokenAddress.toLowerCase(),
+				toAddressChanged: normalizedTo.toLowerCase() !== to.toLowerCase()
+			});
+		} catch (error) {
+			console.error('[WALLET-STORE] estimateERC20Gas() - Address normalization failed:', {
+				error,
+				errorMessage: error instanceof Error ? error.message : String(error),
+				errorStack: error instanceof Error ? error.stack : undefined,
+				tokenAddress,
+				to,
+				tokenAddressLowerCase: tokenAddress.toLowerCase(),
+				toLowerCase: to.toLowerCase()
+			});
+			throw new Error(`Invalid address format for gas estimation: ${error instanceof Error ? error.message : 'Address must be a valid hex address'}`);
+		}
+
 		// Import ERC20_ABI
 		const { ERC20_ABI } = await import('$lib/utils/wallet/networkConfig');
+		console.log('[WALLET-STORE] estimateERC20Gas() - ERC20_ABI imported, creating contract...', {
+			normalizedTokenAddress,
+			ABILength: ERC20_ABI?.length
+		});
 
 		// Create ERC-20 contract instance
-		const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
+		let tokenContract: ethers.Contract;
+		try {
+			tokenContract = new ethers.Contract(normalizedTokenAddress, ERC20_ABI, wallet);
+			console.log('[WALLET-STORE] estimateERC20Gas() - Contract created successfully:', {
+				contractAddress: tokenContract.target,
+				contractAddressType: typeof tokenContract.target
+			});
+		} catch (error) {
+			console.error('[WALLET-STORE] estimateERC20Gas() - Contract creation failed:', {
+				error,
+				errorMessage: error instanceof Error ? error.message : String(error),
+				errorStack: error instanceof Error ? error.stack : undefined,
+				normalizedTokenAddress,
+				normalizedTokenAddressType: typeof normalizedTokenAddress
+			});
+			throw error;
+		}
 
 		// Get token decimals
-		const decimals = await tokenContract.decimals();
+		let decimals: number;
+		try {
+			decimals = await tokenContract.decimals();
+			console.log('[WALLET-STORE] estimateERC20Gas() - Token decimals retrieved:', { decimals });
+		} catch (error) {
+			console.error('[WALLET-STORE] estimateERC20Gas() - Failed to get decimals:', {
+				error,
+				errorMessage: error instanceof Error ? error.message : String(error),
+				contractAddress: tokenContract.target
+			});
+			throw error;
+		}
 
 		// Parse amount with correct decimals
-		const amountWei = ethers.parseUnits(amount, decimals);
+		let amountWei: bigint;
+		try {
+			amountWei = ethers.parseUnits(amount, decimals);
+			console.log('[WALLET-STORE] estimateERC20Gas() - Amount parsed:', {
+				amount,
+				decimals,
+				amountWei: amountWei.toString()
+			});
+		} catch (error) {
+			console.error('[WALLET-STORE] estimateERC20Gas() - Failed to parse amount:', {
+				error,
+				errorMessage: error instanceof Error ? error.message : String(error),
+				amount,
+				decimals
+			});
+			throw error;
+		}
 
-		// Estimate gas for transfer
-		const gasEstimate = await tokenContract.transfer.estimateGas(to, amountWei);
+		// Estimate gas for transfer with normalized address
+		console.log('[WALLET-STORE] estimateERC20Gas() - Calling transfer.estimateGas() with:', {
+			normalizedTo,
+			normalizedToType: typeof normalizedTo,
+			normalizedToLength: normalizedTo?.length,
+			amountWei: amountWei.toString(),
+			contractAddress: tokenContract.target
+		});
+		let gasEstimate: bigint;
+		try {
+			gasEstimate = await tokenContract.transfer.estimateGas(normalizedTo, amountWei);
+			console.log('[WALLET-STORE] estimateERC20Gas() - Gas estimated successfully:', {
+				gasEstimate: gasEstimate.toString()
+			});
+		} catch (error) {
+			console.error('[WALLET-STORE] estimateERC20Gas() - Gas estimation failed:', {
+				error,
+				errorMessage: error instanceof Error ? error.message : String(error),
+				errorCode: (error as any)?.code,
+				errorArgument: (error as any)?.argument,
+				errorValue: (error as any)?.value,
+				errorStack: error instanceof Error ? error.stack : undefined,
+				normalizedTo,
+				normalizedTokenAddress,
+				amountWei: amountWei.toString()
+			});
+			throw error;
+		}
 
 		// Get gas price
 		const feeData = await provider.getFeeData();

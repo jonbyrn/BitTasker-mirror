@@ -571,7 +571,7 @@
 	});
 </script>
 
-<div class="relative mx-auto flex min-h-0 flex-1 flex-col">
+<div class="relative mx-auto flex min-h-0 flex-1 flex-col bid-form-container">
 	{#if bidSubmitted}
 		<div
 			class="p-8 text-center"
@@ -608,7 +608,7 @@
 	{:else}
 		<form class="flex min-h-0 flex-1 flex-col" onsubmit={handleBidSubmit}>
 			<!-- Scrollable content area -->
-			<div class="flex-1 space-y-6 pb-4">
+			<div class="flex-1 space-y-4 pb-4">
 			<!-- Payment Type -->
 			<div class="form-control">
 				<label class="label cursor-pointer" for="payment-type-group">
@@ -984,8 +984,8 @@
 			</div>
 			</div>
 
-			<!-- Sticky footer with submit button -->
-			<div class="sticky bottom-0 z-10 -mx-4 border-t border-base-300 bg-base-100 px-4 pt-4">
+			<!-- Sticky footer with submit button - Always visible above bottom nav -->
+			<div class="sticky bottom-0 z-50 -mx-4 border-t border-base-300 bg-base-100 px-4 pt-2 pb-safe">
 				{#if bidFormErrors.general}
 					<div class="alert alert-error alert-outline mb-4 wrap-break-words">
 						<span class="wrap-break-words">{bidFormErrors.general}</span>
@@ -994,7 +994,7 @@
 				<button
 					id="bid-submit-btn"
 					type="submit"
-					class="btn btn-primary ml-auto mb-4 block w-full sm:w-auto"
+					class="btn btn-primary ml-auto mb-6 block w-full sm:w-auto"
 					disabled={submittingBid}
 				>
 					{#if submittingBid}
@@ -1008,3 +1008,21 @@
 		</form>
 	{/if}
 </div>
+
+<style>
+	/* Ensure submit button is always visible above bottom navigation bar on mobile */
+	@media (max-width: 1024px) {
+		.bid-form-container form > div:first-child {
+			/* Add minimal padding to ensure button is accessible when scrolled to bottom */
+			padding-bottom: 0.5rem;
+		}
+		
+		.bid-form-container .sticky {
+			/* Ensure sticky button stays visible above bottom nav */
+			position: sticky;
+			bottom: 0;
+			z-index: 50;
+			background-color: hsl(var(--b1));
+		}
+	}
+</style>

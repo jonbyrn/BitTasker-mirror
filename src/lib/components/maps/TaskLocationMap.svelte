@@ -37,7 +37,7 @@
 	let userLocation: Location | null = $state(null);
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
 	let userCountry: string | null = $state(null);
-	let mapHeight = $state(height); // Add mapHeight variable
+	let mapHeight = $derived(height); // Add mapHeight variable - use $derived to react to prop changes
 
 	// Fullscreen state
 	let isFullscreen = $state(false);

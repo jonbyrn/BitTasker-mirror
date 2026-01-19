@@ -47,6 +47,16 @@
         "retry": "Reintentar",
         "close": "Cerrar"
     },
+    "toast": {
+        "link_copied": "Enlace copiado al portapapeles",
+        "link_copy_failed": "Error al copiar enlace"
+    },
+    "share": {
+        "budget": "Presupuesto",
+        "deadline": "Fecha Límite",
+        "location": "Ubicación",
+        "check_out_task": "Revisa esta tarea"
+    },
     "previous": "Anterior",
     "next": "Siguiente",
         "pagination": {

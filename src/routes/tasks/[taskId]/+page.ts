@@ -4,6 +4,7 @@ import type { Task } from '$lib/types/task';
 import { nip19 } from 'nostr-tools';
 import { redirect } from '@sveltejs/kit';
 import KINDS from '$lib/utils/constants/kinds';
+import type { NostrEvent } from '$lib/types/nostr';
 
 const SITE_URL = 'https://bittasker.com';
 
@@ -49,7 +50,7 @@ function npubToHex(npub: string): string {
 /**
  * Find task event by author (npub or hex pubkey)
  */
-async function findTaskByAuthor(pubkey: string): Promise<{ data: any } | null> {
+async function findTaskByAuthor(pubkey: string): Promise<{ data: NostrEvent } | null> {
 	try {
 		// Query events by author with task creation kind
 		const response = await nostrEventsService.findEvents({
@@ -72,7 +73,7 @@ async function findTaskByAuthor(pubkey: string): Promise<{ data: any } | null> {
 /**
  * Find task event by unique ID using the 'd' tag
  */
-async function findTaskByUniqueId(uniqueId: string): Promise<{ data: any } | null> {
+async function findTaskByUniqueId(uniqueId: string): Promise<{ data: NostrEvent } | null> {
 	try {
 		// The uniqueId is stored in the 'd' tag as 'task-{uniqueId}'
 		const dTagValue = `task-${uniqueId}`;
@@ -116,13 +117,13 @@ async function findTaskByUniqueId(uniqueId: string): Promise<{ data: any } | nul
 	}
 }
 
-export const load: PageLoad = async ({ params, url }) => {
+export const load: PageLoad = async ({ params }) => {
 	const taskId = params.taskId;
 	let uniqueId = taskId; // Default to using taskId as uniqueId
 	let shouldRedirect = false;
 	
 	// Determine if taskId is an event ID, UUID, or npub/pubkey
-	let event: any = null;
+	let event = null;
 	
 	if (isEventId(taskId)) {
 		// It's an event ID, load the event and extract uniqueId for redirect
@@ -239,7 +240,7 @@ export const load: PageLoad = async ({ params, url }) => {
 		twitterTitle: 'Task Details - BitTasker',
 		twitterDescription: 'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
 		twitterImage: `${SITE_URL}/images/og-task-default.jpg`,
-		jsonLd: null as any,
+		jsonLd: null,
 		task: null as Task | null
 	};
 
@@ -250,6 +251,17 @@ export const load: PageLoad = async ({ params, url }) => {
 			id: event.id,
 			npub: event.pubkey
 		};
+
+		// Helper function to check if URL is a video
+		function isVideoFile(url: string): boolean {
+			const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+			const urlLower = url.toLowerCase();
+			return videoExtensions.some((ext) => urlLower.endsWith(ext));
+		}
+
+		// Get first image attachment (not video) for meta tags
+		const firstImage = task.attachments?.find(att => !isVideoFile(att.url));
+		const taskImage = firstImage?.url || `${SITE_URL}/images/og-task-default.jpg`;
 
 		// Generate dynamic SEO data based on task content
 		const taskTitle = task.title || 'Untitled Task';
@@ -270,10 +282,10 @@ export const load: PageLoad = async ({ params, url }) => {
 			canonical: canonicalUrl,
 			ogTitle: `${taskTitle} - ${taskBudget} - BitTasker`,
 			ogDescription: `${truncatedDescription} | Budget: ${taskBudget} | Location: ${taskLocation}`,
-			ogImage: task.attachments?.[0]?.url || `${SITE_URL}/images/og-task-default.jpg`,
+			ogImage: taskImage,
 			twitterTitle: `${taskTitle} - ${taskBudget} - BitTasker`,
 			twitterDescription: `${truncatedDescription} | Budget: ${taskBudget} | Location: ${taskLocation}`,
-			twitterImage: task.attachments?.[0]?.url || `${SITE_URL}/images/og-task-default.jpg`,
+			twitterImage: taskImage,
 			jsonLd: generateTaskJsonLd(task, canonicalUrl),
 			task
 		};
