@@ -16,6 +16,15 @@ const TRACKING_QUERY_PREFIXES = ['utm_'];
 const BOT_UA_RE =
 	/(googlebot|bingbot|duckduckbot|yandex(bot)?|baiduspider|slurp|twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|applebot|embedly|pinterest(bot)?)/i;
 
+// Debug mode allowlist (to avoid leaking internals in production).
+// Enable by sending `X-Prerender-Debug: 1` and hitting an allowlisted hostname.
+const DEBUG_ALLOWED_HOSTS = new Set([
+	// Staging worker hostname(s)
+	'worker.dev.bittasker.com',
+	'worker.staging.bittasker.com'
+]);
+const DEBUG_ALLOWED_HOST_SUFFIXES = ['.pages.dev'];
+
 // Query abuse guards (defense-in-depth)
 const MAX_QUERY_STRING_LENGTH = 512;
 const MAX_QUERY_PARAMS = 12;
@@ -143,6 +152,21 @@ function withAddedHeaders(response, headers) {
 	});
 }
 
+function isDebugEnabled(url, request) {
+	const debugRequested = request.headers.get('X-Prerender-Debug') === '1';
+	if (!debugRequested) return false;
+	const hostname = url.hostname;
+	if (DEBUG_ALLOWED_HOSTS.has(hostname)) return true;
+	return DEBUG_ALLOWED_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
+}
+
+function withDebugHeaders(response, debugInfo) {
+	return withAddedHeaders(response, {
+		'X-Prerender-Debug': '1',
+		...debugInfo
+	});
+}
+
 async function renderHtmlSnapshot(targetUrl, env) {
 	if (!env?.BROWSER) {
 		throw new Error('Browser Rendering binding (env.BROWSER) not configured');
@@ -182,6 +206,7 @@ async function renderHtmlSnapshot(targetUrl, env) {
 async function handleRequest(request, env, ctx) {
 	const url = new URL(request.url);
 	const pathname = url.pathname;
+	const debugEnabled = isDebugEnabled(url, request);
 	
 	// Check if this is a SvelteKit data request (__data.json)
 	const isDataRequest = pathname.includes('/__data.json');
@@ -226,16 +251,20 @@ async function handleRequest(request, env, ctx) {
 	const queryLooksAbusive =
 		rawQuery.length > MAX_QUERY_STRING_LENGTH || rawParamsCount > MAX_QUERY_PARAMS;
 
-	if (
-		!bypassRequested &&
-		!isAssetRequest &&
-		!isDataRequest &&
-		isHtmlNavigationRequest(request) &&
-		isBotRequest(request) &&
-		!hasSensitiveHeaders(request) &&
-		!shouldNeverPrerender(pathname) &&
-		!queryLooksAbusive
-	) {
+	// Determine why we might skip prerender (for debug visibility).
+	let skipReason = null;
+	if (bypassRequested) skipReason = 'bypass';
+	else if (isAssetRequest) skipReason = 'asset';
+	else if (isDataRequest) skipReason = 'data';
+	else if (!isHtmlNavigationRequest(request)) skipReason = 'not_html_accept';
+	else if (!isBotRequest(request)) skipReason = 'not_bot';
+	else if (hasSensitiveHeaders(request)) skipReason = 'sensitive_headers';
+	else if (shouldNeverPrerender(pathname)) skipReason = 'denied_path';
+	else if (queryLooksAbusive) skipReason = 'abusive_query';
+
+	const shouldAttemptPrerender = skipReason === null;
+
+	if (shouldAttemptPrerender) {
 		const ttlSeconds = classifyTtlSeconds(url);
 		const cacheKey = buildPrerenderCacheKey(url);
 
@@ -247,7 +276,13 @@ async function handleRequest(request, env, ctx) {
 				'X-Prerender-TTL': String(ttlSeconds),
 				[PRERENDERED_HEADER]: '1'
 			});
-			return compressResponse(request, hit);
+			const compressed = compressResponse(request, hit);
+			return debugEnabled
+				? withDebugHeaders(compressed, {
+						'X-Prerender-Decision': 'HIT',
+						'X-Prerender-Host': url.hostname
+					})
+				: compressed;
 		}
 
 		try {
@@ -267,11 +302,21 @@ async function handleRequest(request, env, ctx) {
 
 			// Store a clone; Cache API requires the response body be unused.
 			ctx.waitUntil(caches.default.put(cacheKey, responseToCache.clone()));
-			return compressResponse(request, responseToCache);
+			const compressed = compressResponse(request, responseToCache);
+			return debugEnabled
+				? withDebugHeaders(compressed, {
+						'X-Prerender-Decision': 'MISS',
+						'X-Prerender-Host': url.hostname
+					})
+				: compressed;
 		} catch (err) {
 			// If rendering fails, fall back to normal SPA behavior.
 			const message = err instanceof Error ? err.message : String(err);
 			console.error('[Prerender] failed:', message);
+			// In debug mode, surface a short error hint for curl.
+			if (debugEnabled) {
+				skipReason = 'render_error';
+			}
 		}
 	}
 	
@@ -291,19 +336,33 @@ async function handleRequest(request, env, ctx) {
 		});
 		
 		// Apply compression if supported and not already compressed
-		return compressResponse(request, response);
+		const compressed = compressResponse(request, response);
+		return debugEnabled
+			? withDebugHeaders(compressed, {
+					'X-Prerender-Decision': 'SKIP',
+					'X-Prerender-Skip-Reason': skipReason || 'unknown',
+					'X-Prerender-Host': url.hostname
+				})
+			: compressed;
 	} catch (error) {
 		// Handle 404 errors
 		if (error.status === 404) {
 			// For SvelteKit __data.json requests that don't exist, return empty object
 			if (isDataRequest) {
-				return new Response(JSON.stringify({ type: 'data', nodes: [{}] }), {
+				const r = new Response(JSON.stringify({ type: 'data', nodes: [{}] }), {
 					status: 200,
 					headers: {
 						'Content-Type': 'application/json',
 						'Cache-Control': 'no-store'
 					}
 				});
+				return debugEnabled
+					? withDebugHeaders(r, {
+							'X-Prerender-Decision': 'SKIP',
+							'X-Prerender-Skip-Reason': 'data_404_fallback',
+							'X-Prerender-Host': url.hostname
+						})
+					: r;
 			}
 			
 			// For non-asset requests (page navigation), serve index.html
@@ -325,21 +384,42 @@ async function handleRequest(request, env, ctx) {
 							bypassCache: false,
 						},
 					});
-					return compressResponse(request, response);
+					const compressed = compressResponse(request, response);
+					return debugEnabled
+						? withDebugHeaders(compressed, {
+								'X-Prerender-Decision': 'SKIP',
+								'X-Prerender-Skip-Reason': skipReason || 'spa_fallback',
+								'X-Prerender-Host': url.hostname
+							})
+						: compressed;
 				} catch (indexError) {
-					return new Response('Application not found. Please ensure the app is built correctly.', { 
+					const r = new Response('Application not found. Please ensure the app is built correctly.', { 
 						status: 500,
 						headers: { 'Content-Type': 'text/plain' }
 					});
+					return debugEnabled
+						? withDebugHeaders(r, {
+								'X-Prerender-Decision': 'ERROR',
+								'X-Prerender-Skip-Reason': 'index_not_found',
+								'X-Prerender-Host': url.hostname
+							})
+						: r;
 				}
 			}
 		}
 		
 		// For actual missing assets, return 404
-		return new Response(`Asset not found: ${pathname}`, {
+		const r = new Response(`Asset not found: ${pathname}`, {
 			status: 404,
 			headers: { 'Content-Type': 'text/plain' }
 		});
+		return debugEnabled
+			? withDebugHeaders(r, {
+					'X-Prerender-Decision': 'SKIP',
+					'X-Prerender-Skip-Reason': 'asset_404',
+					'X-Prerender-Host': url.hostname
+				})
+			: r;
 	}
 }
 
