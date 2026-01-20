@@ -148,7 +148,10 @@
 
 	<div class="bg-base-200 overflow-x-hidden">
 		{#if $devicePlatform === 'web' && !isLandingPage}
-			<div class="bg-base-200 overflow-x-hidden">
+			<div
+				class="bg-base-200 overflow-x-hidden"
+				style={showTopBar ? 'padding-bottom: var(--bottom-nav-height-safe, 4rem);' : ''}
+			>
 				{@render children()}
 			</div>
 		{:else}
