@@ -183,11 +183,9 @@
 </div>
 
 <style>
-	/* Add minimal bottom padding on mobile to account for bottom navigation bar */
-	@media (max-width: 1024px) {
-		.drawer-content {
-			/* Minimal padding for bottom nav - components like BidForm handle their own spacing */
-			padding-bottom: calc(0.25rem + var(--bottom-nav-height-safe, 64px));
-		}
+	/* Keep content clear of device safe-area insets (not the dock). */
+	.drawer-content {
+		/* Breathing room at bottom for all drawers + safe-area inset */
+		padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
 	}
 </style>
