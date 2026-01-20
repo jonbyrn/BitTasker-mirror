@@ -16,6 +16,8 @@
 	import { TranslationService } from '$lib/services/translation.service';
 	import { isUserToUserMessage, parseMessageContent } from '$lib/utils/helpers/messageParser';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+	import { user } from '$lib/stores/user.store';
 
 	// Props
 	let {
@@ -882,6 +884,16 @@
 
 			// Send the message
 			await sendDirectMessage(messageContent, recipientHex());
+
+			// Send notification to recipient
+			const result = await pushNotificationService.sendNotificationToNpubs({
+				npubs: [recipientPubkey],
+				title: $user.name || $user.npub.slice(0, 6) + '...',
+				body: messageContent?.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
+				type: 'message',
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard/messages/to/${recipientPubkey}`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
 		} catch (err) {
 			// On error, remove the temporary message and restore the input
 			messages = messages.filter((msg) => msg.event.id !== tempId);
