@@ -1114,7 +1114,8 @@
 				<!-- Mobile Floating Button - Scroll to Top (only visible on mobile) -->
 				{#if showScrollToTop}
 					<button
-						class="inverted-colors fixed right-4 bottom-24 z-50 flex items-center justify-center rounded-4xl p-3 transition-all duration-200 hover:opacity-70 lg:hidden"
+						class="inverted-colors fixed right-4 z-50 flex items-center justify-center rounded-4xl p-3 transition-all duration-200 hover:opacity-70 lg:hidden"
+						style="bottom: var(--app-bottom-fab);"
 						onclick={scrollToTop}
 						title={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
 						aria-label={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
@@ -1138,7 +1139,8 @@
 
 				<!-- Mobile Floating Button - Show Map (only visible on mobile) -->
 				<button
-					class="inverted-colors fixed bottom-24 left-1/2 z-40 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-200 hover:shadow-xl lg:hidden"
+					class="inverted-colors fixed left-1/2 z-40 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-200 hover:shadow-xl lg:hidden"
+					style="bottom: var(--app-bottom-fab);"
 					onclick={toggleViewMode}
 					title={$t('find_tasks.view_map')}
 				>
@@ -1184,7 +1186,8 @@
 
 				<!-- Mobile Floating Button - Show List -->
 				<button
-					class="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black shadow-lg transition-all duration-200 hover:shadow-xl"
+					class="fixed left-1/2 z-50 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black shadow-lg transition-all duration-200 hover:shadow-xl"
+					style="bottom: var(--app-bottom-fab);"
 					onclick={toggleViewMode}
 					aria-label={$t('find_tasks.view_list')}
 				>
@@ -1235,7 +1238,7 @@
 		>
 			{#snippet children()}
 				{#if BidForm}
-					<BidForm task={selectedTask} onClose={() => (isBidOpen = false)} />
+					<BidForm task={selectedTask} onClose={() => (isBidOpen = false)} stickySubmit={false} />
 				{/if}
 			{/snippet}
 		</Drawer>
