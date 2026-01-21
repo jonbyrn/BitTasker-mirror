@@ -2,6 +2,7 @@
 	import type { SearchTaskeesParams } from '$lib/nostr/findTaskees';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import LocationAutoComplete from '../LocationAutoComplete.svelte';
+	import Drawer from '$lib/components/Drawer.svelte';
 	import { t } from 'svelte-i18n';
 
 	// Props
@@ -59,29 +60,6 @@
 		if (filters.minRating) count++;
 
 		activeFilterCount = count;
-	});
-
-	// Scroll lock management
-	const disableBodyScroll = () => {
-		document.body.classList.add('overflow-hidden');
-	};
-
-	const enableBodyScroll = () => {
-		document.body.classList.remove('overflow-hidden');
-	};
-
-	// Handle drawer state changes, including scroll locking
-	$effect(() => {
-		if (isOpen) {
-			// Lock scroll when drawer is open
-			disableBodyScroll();
-		} else {
-			// Restore scrolling when drawer is closed
-			enableBodyScroll();
-		}
-
-		// Handle cleanup when component is unmounted
-		return enableBodyScroll;
 	});
 
 	// Clear all filters
@@ -146,47 +124,15 @@
 	}
 </script>
 
-<!-- Drawer Overlay -->
-<div
-	class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-in-out"
-	class:opacity-0={!isOpen}
-	class:invisible={!isOpen}
-	onclick={onClose}
-	onkeydown={(e) => e.key === 'Escape' && onClose()}
-	role="dialog"
-	tabindex="-1"
-></div>
-
-<div
-	class="bg-base-100 fixed top-0 right-0 z-50 h-full w-full transform overflow-auto shadow-xl transition-transform duration-300 sm:w-[70%] {isOpen
-		? 'translate-x-0'
-		: 'translate-x-full'}"
+<Drawer
+	isOpen={isOpen}
+	title={$t('find_taskees.filters')}
+	onClose={onClose}
+	position="right"
+	isScrollable={true}
 >
-	<!-- Header -->
-	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
-		<h3 id="drawer-title" class="text-xl font-bold">{$t('find_taskees.filters')}</h3>
-		<button
-			class="btn btn-ghost btn-circle"
-			onclick={onClose}
-			aria-label={$t('find_taskees.close_dialog')}
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M6 18L18 6M6 6l12 12"
-				/>
-			</svg>
-		</button>
-	</div>
-	<div class="px-2">
+	{#snippet children()}
+		<div class="px-2">
 		<!-- Location -->
 		<div class="collapse-arrow collapse mb-2" style="overflow: visible; z-index: 1000;">
 			<input
@@ -315,7 +261,7 @@
 
 		<!-- Filter Actions -->
 		<div class="divider"></div>
-		<div class="mt-8 mb-20 flex justify-between mx-4">
+		<div class="mt-8 mb-4 flex justify-between mx-4">
 			<button class="btn btn-ghost btn-outline" onclick={clearFilters}>
 				{$t('find_taskees.clear_filters')}
 			</button>
@@ -326,6 +272,7 @@
 				{/if}
 			</button>
 		</div>
-	</div>
-</div>
+		</div>
+	{/snippet}
+</Drawer>
 

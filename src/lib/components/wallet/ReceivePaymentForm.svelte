@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { walletStore, walletManager, formatSats, formatUsd } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
@@ -42,6 +42,8 @@
 			currentStep?: 1 | 2;
 		};
 	}>();
+
+	let lastRestoredSignature = $state<string>('');
 
 	// Grouped State: Form Input
 	let formInput = $state({
@@ -206,7 +208,20 @@
 
 	// Restore form state when initialFormState prop is provided
 	$effect(() => {
-		if (initialFormState) {
+		if (!initialFormState) return;
+		const signature = [
+			initialFormState.amount,
+			initialFormState.unit,
+			initialFormState.mathExpression,
+			initialFormState.memo,
+			initialFormState.selectedNetwork,
+			String(initialFormState.chargeFeesToPayer),
+			String(initialFormState.currentStep ?? '')
+		].join('|');
+
+		if (signature === lastRestoredSignature) return;
+
+		{
 			formInput.amount = initialFormState.amount;
 			formInput.unit = initialFormState.unit;
 			formInput.mathExpression = initialFormState.mathExpression;
@@ -216,10 +231,13 @@
 			if (initialFormState.currentStep) {
 				uiState.currentStep = initialFormState.currentStep;
 			}
+			lastRestoredSignature = signature;
 			// Trigger fee estimation after restoring state
-			if (amountInSats > 0) {
-				handleAmountOrNetworkChange();
-			}
+			untrack(() => {
+				if (amountInSats > 0) {
+					handleAmountOrNetworkChange();
+				}
+			});
 		}
 	});
 
@@ -532,7 +550,12 @@
 
 	// Handle step navigation
 	function handleNextStep() {
-		if (amountInSats > 0 || formInput.selectedNetwork === 'rootstock-bitcoin') {
+		if (formInput.selectedNetwork === 'rootstock-bitcoin') {
+			triggerHaptic(ImpactStyle.Medium);
+			handleGenerateInvoice();
+			return;
+		}
+		if (amountInSats > 0) {
 			triggerHaptic(ImpactStyle.Light);
 			uiState.currentStep = 2;
 		}
@@ -696,7 +719,6 @@
 											uiState.networkExpanded = false;
 											// Trigger fee update when network changes
 											handleAmountOrNetworkChange();
-											if (network.value === 'rootstock-bitcoin') handleGenerateInvoice();
 										}
 									}}
 								>
@@ -1055,7 +1077,6 @@
 										uiState.networkExpanded = false;
 										// Trigger fee update when network changes
 										handleAmountOrNetworkChange();
-										if (network.value === 'rootstock-bitcoin') handleGenerateInvoice();
 									}
 								}}
 							>

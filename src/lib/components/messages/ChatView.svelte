@@ -9,7 +9,7 @@
 	} from '$lib/utils/nostr-message';
 	import ChatMessage from './ChatMessage.svelte';
 	import { nip19 } from 'nostr-tools';
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 	import { TranslationStore, translationSettings, messageTranslations } from '$lib/stores/translation.store';
@@ -17,6 +17,7 @@
 	import { isUserToUserMessage, parseMessageContent } from '$lib/utils/helpers/messageParser';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
+	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { user } from '$lib/stores/user.store';
 
 	// Props
@@ -77,6 +78,16 @@
 	let unsubscribe: (() => void) | null = null;
 	let profileUnsubscribe: (() => void) | null = null;
 	let currentUserProfileUnsubscribe: (() => void) | null = null;
+
+	// App shell scroll container (middle scroll area)
+	let appScrollEl = $state<HTMLElement | null>(null);
+	let unsubscribeAppScroll: (() => void) | null = null;
+
+	onMount(() => {
+		unsubscribeAppScroll = appScrollContainer.subscribe((el) => {
+			appScrollEl = el;
+		});
+	});
 
 	// Configuration
 	const MESSAGES_PER_PAGE = 50;
@@ -470,13 +481,22 @@
 				}
 			}, 50);
 			
-			window.addEventListener('resize', updatePosition);
-			window.addEventListener('scroll', updatePosition);
+			// In app-shell mode, window doesn't scroll; the app scroll container does.
+			const scrollTarget: HTMLElement | Window = appScrollEl ?? window;
+			scrollTarget.addEventListener('scroll', updatePosition as EventListener, { passive: true });
+			window.addEventListener('resize', updatePosition, { passive: true });
+
+			// Virtual keyboard / visual viewport changes can move elements without scroll events.
+			const vv = window.visualViewport;
+			vv?.addEventListener('resize', updatePosition, { passive: true } as AddEventListenerOptions);
+			vv?.addEventListener('scroll', updatePosition, { passive: true } as AddEventListenerOptions);
 
 			return () => {
 				clearTimeout(timeoutId);
+				scrollTarget.removeEventListener('scroll', updatePosition as EventListener);
 				window.removeEventListener('resize', updatePosition);
-				window.removeEventListener('scroll', updatePosition);
+				vv?.removeEventListener('resize', updatePosition as EventListener);
+				vv?.removeEventListener('scroll', updatePosition as EventListener);
 			};
 		} else if (scrollButton) {
 			// Hide button if conditions aren't met
@@ -487,6 +507,7 @@
 
 	// Cleanup on component destroy
 	onDestroy(() => {
+		if (unsubscribeAppScroll) unsubscribeAppScroll();
 		if (unsubscribe) {
 			unsubscribe();
 		}

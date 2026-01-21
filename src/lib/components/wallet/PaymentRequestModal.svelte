@@ -289,7 +289,7 @@
 
 	<!-- Modal Container - Full screen on mobile/tablet -->
 	<div
-		class="bg-base-100 fixed inset-0 z-101 flex flex-col overflow-y-auto py-1 shadow-2xl lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl"
+		class="bg-base-100 fixed inset-0 z-101 flex flex-col overflow-y-auto py-1 shadow-2xl pb-safe lg:pb-0 lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl"
 		transition:fly={prefersReducedMotion
 			? undefined
 			: {
@@ -427,6 +427,21 @@
 					</div>
 				{/if}
 				</div>
+
+						<!-- Invoice Total (Rootstock only, above QR code) -->
+						{#if network === 'rootstock-bitcoin' && payerTotalAmount > 0}
+							<div class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4">
+								<span class="text-center text-xs opacity-70">{$t('wallet.receive.invoice_total')}</span>
+								<div class="flex w-full items-center justify-center gap-1.5">
+									<span class="text-primary text-xl font-bold">
+										{formatSats(payerTotalAmount)} {$t('wallet.sats')}
+									</span>
+									{#if btcPrice > 0 && payerTotalAmountUSD > 0}
+										<span class="text-xs opacity-60">≈ {formatUSD(payerTotalAmountUSD)}</span>
+									{/if}
+								</div>
+							</div>
+						{/if}
 
 						<!-- QR Code (Almost Full Screen Width) -->
 						<div class="flex justify-center px-2">

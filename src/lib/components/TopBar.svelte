@@ -11,6 +11,7 @@
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
+	import { ImpactStyle, triggerHaptic } from '$lib/utils/helpers/haptics';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconQrcode from '~icons/mdi/qrcode';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
@@ -42,6 +43,15 @@
 
 	// Control avatar dropdown visibility
 	let isAvatarDropdownOpen = $state(false);
+
+	function handleTopNavTap(event: MouseEvent) {
+		const target = event.target as HTMLElement | null;
+		if (!target) return;
+		const interactive = target.closest('a,button,summary,[role="button"]');
+		if (!interactive) return;
+		// Fire-and-forget; navigation should not be blocked.
+		void triggerHaptic(ImpactStyle.Light);
+	}
 
 	// Toggle avatar dropdown
 	function toggleAvatarDropdown(event: MouseEvent) {
@@ -218,6 +228,7 @@
 <!-- Main TopBar component -->
 <div
 	class="navbar bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
+	onclickcapture={handleTopNavTap}
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
@@ -393,18 +404,6 @@
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {
 		margin-bottom: 0;
-	}
-
-	/* Add bottom spacing for mobile logged-out users */
-	:global(body.bottom-nav-active) {
-		padding-bottom: 80px;
-	}
-
-	/* Remove bottom padding on large screens */
-	@media (min-width: 1024px) {
-		:global(body.bottom-nav-active) {
-			padding-bottom: 0;
-		}
 	}
 
 	/* Remove hover effect and reduce padding for avatar dropdown summary */

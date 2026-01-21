@@ -450,11 +450,11 @@
 			<span class="label-text">{$t('task.description')}</span>
 			{#if $store.task.description.length > 0}
 				<span
-					class="label-text-alt {$store.task.description.length >= 1000
+					class="label-text-alt {$store.task.description.length >= 10000
 						? 'text-warning'
 						: 'text-base-content/60'}"
 				>
-					{$store.task.description.length}/1000 {$t('dashboard.bids.bid_creation.max')}
+					{$store.task.description.length}/10000 {$t('dashboard.bids.bid_creation.max')}
 				</span>
 			{/if}
 		</label>
@@ -468,7 +468,7 @@
 				? 'textarea-error'
 				: ''}"
 			placeholder={$t('task.description_placeholder')}
-			maxlength="1000"
+			maxlength="10000"
 		></textarea>
 		{#if errors.description}
 			<span class="label-text-alt text-error">{errors.description}</span>
