@@ -290,7 +290,7 @@
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
 			{$t('task.drawer.bids_description')}
 		</p>
-		<div class="mt-3">
+		<div class="mt-3 flex justify-between items-center">
 			<button
 				onclick={() => history.back()}
 				class="btn btn-ghost btn-sm"
@@ -310,6 +310,34 @@
 					/>
 				</svg>
 				{$t('common.back')}
+			</button>
+
+			<button
+				class="btn btn-ghost btn-sm gap-2"
+				onclick={retryLoadingData}
+				disabled={$bidStore.isLoading}
+				aria-label={$t('dashboard.tasks.refresh')}
+			>
+				{#if $bidStore.isLoading}
+					<span class="loading loading-spinner loading-xs"></span>
+					<span class="hidden sm:inline">{$t('dashboard.tasks.refreshing')}</span>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="mr-2 h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
+					</svg>
+					<span>{$t('dashboard.tasks.refresh')}</span>
+				{/if}
 			</button>
 		</div>
 	</div>

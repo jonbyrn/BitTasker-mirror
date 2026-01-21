@@ -5,13 +5,11 @@
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager, transactions } from '$lib/stores/wallet.store';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
-	import IconPencil from '~icons/mdi/pencil';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
 
@@ -365,23 +363,25 @@
 					<!-- Payment Request Content -->
 					<div class="space-y-2">
 						<!-- Total Amount Display (Prominent) -->
-						<div
-							class="bg-primary/10 border-primary flex flex-col items-center gap-1 rounded-2xl border-2 p-2"
-						>
-							<div class="flex items-baseline gap-2">
-								<span class="text-primary text-3xl font-bold tabular-nums md:text-4xl">
-									{formatSats(payerTotalAmount)}
-								</span>
-								<span class="text-primary text-xl font-semibold md:text-2xl"
-									>{$t('wallet.sats')}</span
-								>
-							</div>
-							{#if btcPrice > 0 && payerTotalAmountUSD > 0}
-								<div class="text-base-content/70 text-lg font-semibold md:text-xl">
-									≈ {formatUSD(payerTotalAmountUSD)}
+						{#if network !== 'rootstock-bitcoin'}
+							<div
+								class="bg-primary/10 border-primary flex flex-col items-center gap-1 rounded-2xl border-2 p-2"
+							>
+								<div class="flex items-baseline gap-2">
+									<span class="text-primary text-3xl font-bold tabular-nums md:text-4xl">
+										{formatSats(payerTotalAmount)}
+									</span>
+									<span class="text-primary text-xl font-semibold md:text-2xl"
+										>{$t('wallet.sats')}</span
+									>
 								</div>
-							{/if}
-						</div>
+								{#if btcPrice > 0 && payerTotalAmountUSD > 0}
+									<div class="text-base-content/70 text-lg font-semibold md:text-xl">
+										≈ {formatUSD(payerTotalAmountUSD)}
+									</div>
+								{/if}
+							</div>
+						{/if}
 
 						<!-- Network Display - Show icon, translated name, and status indicator -->
 						<div class="bg-base-200 flex items-center justify-between gap-3 rounded-lg p-2">
@@ -471,7 +471,7 @@
 
 			<!-- Fixed Action Buttons at Bottom -->
 			<div
-				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex flex-shrink-0 gap-2 pt-2 pb-1 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:py-1 md:static md:py-0 md:shadow-none"
+				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex shrink-0 gap-2 pt-2 pb-1 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:py-1 md:static md:py-0 md:shadow-none"
 			>
 				{#if !isTransactionConfirmed}
 					<!-- Back Button (show if onEdit callback exists) -->
