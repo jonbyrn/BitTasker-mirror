@@ -87,7 +87,7 @@
 	},
 	"dependencies": {
 		"@agentdeskai/browser-tools-mcp": "^1.2.1",
-		"@bittasker/wallet-core": "^0.1.7",
+		"@bittasker/wallet-core": "^0.1.8",
 		"@capacitor-mlkit/barcode-scanning": "^7.3.0",
 		"@capacitor/android": "^8.0.0",
 		"@capacitor/app": "^8.0.0",

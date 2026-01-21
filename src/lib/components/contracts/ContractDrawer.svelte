@@ -109,7 +109,7 @@
 <Drawer
 	isOpen={$contractStore.isDrawerOpen}
 	title={$contractStore.contract
-		? contractStore.getContractKey($contractStore.contract, 'taskTitle')
+		? contractStore.getContractKey($contractStore.contract, 'taskTitle') as string
 		: ''}
 	onClose={() => {
 		$contractStore.contract = null;
@@ -125,28 +125,26 @@
 				<!-- Contract Info Card -->
 				<div class="card bg-base-200">
 					<div class="card-body p-4">
-						<div class="mb-3 flex items-center justify-between gap-2">
+						<div class="mb-3 flex items-center justify-between gap-2 flex-wrap">
 							<h4 class="font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
-							<div class="flex shrink-0 items-center gap-2">
-								<div class="badge {getStatusColorClass($contractStore.contract.status)}">
-									{$t(getStatusTranslationKey($contractStore.contract.status))}
-								</div>
-								<div
-									class="badge {$contractStore.contract.isClient
-										? 'badge-primary'
-										: 'badge-secondary'}"
-								>
-									{$contractStore.contract.isClient
-										? $t('dashboard.client')
-										: $t('dashboard.freelancer')}
-								</div>
+							<div class="badge {getStatusColorClass($contractStore.contract.status)}">
+								{$t(getStatusTranslationKey($contractStore.contract.status))}
+							</div>
+							<div
+								class="badge {$contractStore.contract.isClient
+									? 'badge-primary'
+									: 'badge-secondary'}"
+							>
+								{$contractStore.contract.isClient
+									? $t('dashboard.client')
+									: $t('dashboard.freelancer')}
 							</div>
 						</div>
 
 						<div class="space-y-3">
 							<!-- Taskee Info -->
 							<UserNostrBadge
-								npub={contractStore.getContractKey($contractStore.contract, 'otherPartyNpub')}
+								npub={contractStore.getContractKey($contractStore.contract, 'otherPartyNpub') as string}
 								role={$contractStore.contract.isClient
 									? $t('dashboard.freelancer')
 									: $t('dashboard.client')}
@@ -157,10 +155,10 @@
 								<span class="font-semibold"
 									>{btcPrice > 0
 										? formatUSDWithSatsSync(
-												contractStore.getContractKey($contractStore.contract, 'amount'),
+												contractStore.getContractKey($contractStore.contract, 'amount') as string,
 												btcPrice
 											)
-										: `${formatRBTC(contractStore.getContractKey($contractStore.contract, 'amount'))} RBTC`}</span
+										: `${formatRBTC(contractStore.getContractKey($contractStore.contract, 'amount') as string)} RBTC`}</span
 								>
 							</div>
 
@@ -170,7 +168,7 @@
 								>
 								<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
 									>{formatDate(
-										contractStore.getContractKey($contractStore.contract, 'estimatedStartTime')
+										contractStore.getContractKey($contractStore.contract, 'estimatedStartTime') as number
 									)}</span
 								>
 							</div>
@@ -181,7 +179,7 @@
 								>
 								<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
 									>{formatDate(
-										contractStore.getContractKey($contractStore.contract, 'estimatedCompletionTime')
+										contractStore.getContractKey($contractStore.contract, 'estimatedCompletionTime') as number
 									)}</span
 								>
 							</div>
@@ -255,12 +253,12 @@
 															contractStore.getContractKey(
 																$contractStore.contract,
 																'estimatedStartTime'
-															)
+															) as number
 														)} - {formatDate(
 															contractStore.getContractKey(
 																$contractStore.contract,
 																'estimatedCompletionTime'
-															)
+															) as number
 														)}
 													</p>
 												</div>
@@ -272,10 +270,10 @@
 													<p class="text-base-content/80 mt-1 text-xs">
 														{btcPrice > 0
 															? formatUSDWithSatsSync(
-																	contractStore.getContractKey($contractStore.contract, 'amount'),
+																	contractStore.getContractKey($contractStore.contract, 'amount') as string,
 																	btcPrice
 																)
-															: `${formatRBTC(contractStore.getContractKey($contractStore.contract, 'amount'))} RBTC`}
+															: `${formatRBTC(contractStore.getContractKey($contractStore.contract, 'amount') as string)} RBTC`}
 													</p>
 												</div>
 											</div>
@@ -354,10 +352,7 @@
 
 							<ContractTimeline
 								statusEvents={$contractStore.contract.statusEvents}
-								contractPubkey={contractStore.getContractKey(
-									$contractStore.contract,
-									'clientPubkey'
-								)}
+								contractPubkey={contractStore.getContractKey($contractStore.contract, 'clientPubkey') as string}
 							/>
 						</div>
 					</div>

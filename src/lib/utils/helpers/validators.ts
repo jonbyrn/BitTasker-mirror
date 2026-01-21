@@ -3,6 +3,7 @@ export interface ValidationResult {
 	error?: string;
 }
 
+import { ethers } from 'ethers';
 // Import liquidjs-lib for Liquid address validation
 import { address as liquidAddress } from 'liquidjs-lib';
 
@@ -156,6 +157,10 @@ export function validateRSKAddress(address: string): ValidationResult {
 	// Check if address contains only valid hexadecimal characters
 	if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
 		return { isValid: false, error: 'Address must contain only hexadecimal characters (0-9, a-f)' };
+	}
+
+	if(ethers.isAddress(address)) {
+		return { isValid: true };
 	}
 
 	return { isValid: true };

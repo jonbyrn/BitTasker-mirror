@@ -1,6 +1,5 @@
 <script lang="ts">
-	console.log('[BalanceChartModal] Script executing - component file loaded');
-	import { onMount, onDestroy } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { t, locale } from 'svelte-i18n';
 	import {
 		Chart,
@@ -133,26 +132,16 @@
 
 	// Fetch daily balance data
 	async function fetchDailyBalances() {
-		console.log('[BalanceChartModal] fetchDailyBalances called', {
-			isOpen,
-			hasProvider: !!$walletStore.rsk.provider,
-			hasAddress: !!$walletStore.rsk.address,
-			selectedRange
-		});
-
 		if (!isOpen) {
-			console.warn('[BalanceChartModal] Modal not open, skipping fetch');
 			return;
 		}
 
 		if (!$walletStore.rsk.provider) {
-			console.warn('[BalanceChartModal] No RSK provider available');
 			error = 'Wallet provider not available';
 			return;
 		}
 
 		if (!$walletStore.rsk.address) {
-			console.warn('[BalanceChartModal] No RSK address available');
 			error = 'Wallet address not available';
 			return;
 		}
@@ -162,8 +151,6 @@
 
 		try {
 			const { start, end } = getDateRange(selectedRange);
-			console.log('[BalanceChartModal] Fetching balances for range:', selectedRange, 'from', start, 'to', end);
-			console.log('[BalanceChartModal] Current balance:', $totalBalances.sats, 'sats,', $totalBalances.usd, 'USD');
 			
 			const balances = await balanceHistoryService.getDailyBalances(
 				start,
@@ -174,18 +161,13 @@
 				$totalBalances.usd
 			);
 
-			console.log('[BalanceChartModal] Received', balances.length, 'balance data points');
-			
 			// Ensure we have data - if empty, log for debugging
 			if (balances.length === 0) {
-				console.warn('[BalanceChartModal] No balance data returned for date range:', selectedRange);
 				error = 'No data available for the selected date range';
 			} else {
 				dailyBalances = balances;
-				console.log('[BalanceChartModal] Sample balances:', balances.slice(0, 3));
 			}
 		} catch (err) {
-			console.error('Failed to fetch daily balances:', err);
 			error = err instanceof Error ? err.message : 'Failed to load balance data';
 			dailyBalances = [];
 		} finally {
@@ -201,11 +183,8 @@
 		// Track isOpen and chartCanvas to trigger effect
 		const open = isOpen;
 		const canvas = chartCanvas;
-		
-		console.log('[BalanceChartModal] Chart init effect - isOpen:', open, 'chartCanvas:', !!canvas, 'chartInstance:', !!chartInstance);
-		
+				
 		if (open && canvas && !chartInstance) {
-			console.log('[BalanceChartModal] Initializing chart...');
 			initializeChart();
 			isFirstLoad = true;
 		}
@@ -218,29 +197,20 @@
 		const open = isOpen;
 		const instance = chartInstance;
 		
-		console.log('[BalanceChartModal] Effect running - isOpen:', open, 'chartInstance:', !!instance, 'selectedRange:', range);
-		
 		if (open && instance && range) {
-			console.log('[BalanceChartModal] Conditions met, will fetch data for range:', range);
-			
 			// Use a small delay to ensure chart is fully initialized
 			const timeoutId = setTimeout(() => {
 				// Re-check conditions in case they changed
 				if (chartInstance && isOpen && selectedRange === range) {
-					console.log('[BalanceChartModal] Executing fetch for range:', range);
 					fetchDailyBalances();
 					isFirstLoad = false;
 				} else {
-					console.log('[BalanceChartModal] Conditions changed, skipping fetch');
 				}
 			}, 150);
 
 			return () => {
-				console.log('[BalanceChartModal] Cleaning up timeout');
 				clearTimeout(timeoutId);
 			};
-		} else {
-			console.log('[BalanceChartModal] Conditions not met - open:', open, 'instance:', !!instance, 'range:', range);
 		}
 	});
 
@@ -250,11 +220,9 @@
 		const currentLocale = $locale;
 		
 		if (chartInstance && dailyBalances.length > 0 && !isLoading) {
-			console.log('[BalanceChartModal] Updating chart with', dailyBalances.length, 'data points');
 			updateChart();
 		} else if (chartInstance && currentLocale) {
 			// If chart exists but no data, still update labels when language changes
-			console.log('[BalanceChartModal] Language changed, updating chart labels');
 			updateChartLabels();
 		}
 	});
@@ -263,7 +231,6 @@
 	$effect(() => {
 		$darkMode; // Track theme changes
 		if (chartInstance) {
-			console.log('[BalanceChartModal] Theme changed, updating chart colors');
 			updateChartLabels();
 			chartInstance.update('none');
 		}
@@ -377,12 +344,9 @@
 
 	function initializeChart() {
 		if (!chartCanvas) {
-			console.warn('[BalanceChartModal] Cannot initialize chart - no canvas');
 			return;
 		}
 
-		console.log('[BalanceChartModal] Creating chart instance...');
-		
 		// Get theme-aware text colors
 		const { textColor, axisTextColor, gridColor } = getThemeColors();
 		
@@ -555,9 +519,6 @@
 			y: b.usd
 		}));
 
-		console.log('[BalanceChartModal] Updating chart with', dailyBalances.length, 'data points');
-		console.log('[BalanceChartModal] Sample data:', dailyBalances.slice(0, 3));
-
 		// Get translations for dataset labels
 		const bitcoinBalanceLabel = $t('wallet.balance_chart.chart.bitcoin_balance_label');
 		const totalUsdLabel = $t('wallet.balance_chart.chart.total_usd_label');
@@ -649,22 +610,17 @@
 							bind:value={selectedRange}
 							onchange={(e) => {
 								const newValue = (e.target as HTMLSelectElement).value as DateRangeOption;
-								console.log('[BalanceChartModal] Select onchange fired! New value:', newValue, 'selectedRange state:', selectedRange);
 								// bind:value should update selectedRange, but ensure it's set
 								selectedRange = newValue;
 								
 								// If chart isn't initialized yet, try to initialize it first
 								if (!chartInstance && chartCanvas && isOpen) {
-									console.log('[BalanceChartModal] Chart not initialized, initializing now...');
 									initializeChart();
 								}
 								
 								// Fetch data if chart is ready
 								if (chartInstance && isOpen) {
-									console.log('[BalanceChartModal] Calling fetchDailyBalances from onchange handler');
 									fetchDailyBalances();
-								} else {
-									console.log('[BalanceChartModal] Not calling fetchDailyBalances - chartInstance:', !!chartInstance, 'isOpen:', isOpen, 'chartCanvas:', !!chartCanvas);
 								}
 							}}
 						>
