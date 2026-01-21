@@ -56,9 +56,22 @@
 >
 	{#snippet children()}
 		{#if props.task}
-			{#if currentTab === 'details'}
-				<TaskTab task={props.task} {isOwner} onClose={handleClose} onRequestEditConfirm={props.onRequestEditConfirm} onRequestDeleteConfirm={props.onRequestDeleteConfirm} isDeleting={props.isDeleting} />
-			{/if}
+			<!-- Tab content -->
+			<div class="p-4 pb-safe" style="padding-bottom: calc(0.5rem + var(--bottom-nav-height-safe, 64px));">
+				<!-- Task Details Tab -->
+				{#if currentTab === 'details'}
+					<TaskTab
+						task={props.task}
+						{isOwner}
+						onClose={handleClose}
+						onRequestEditConfirm={props.onRequestEditConfirm}
+						onRequestDeleteConfirm={props.onRequestDeleteConfirm}
+						isDeleting={props.isDeleting}
+					/>
+				{/if}
+			</div>
+
+			<!-- Task not found state -->
 		{:else}
 			<div class="p-4 text-center">
 				<svg
