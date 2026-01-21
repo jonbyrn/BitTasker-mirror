@@ -4,6 +4,7 @@
 	import { saveSearch, updateSavedSearch } from '$lib/nostr/savedSearch';
 	import { t } from 'svelte-i18n';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import Modal from '$lib/components/Modal.svelte';
 
 	// Props
 	let {
@@ -199,31 +200,27 @@
 	}
 </script>
 
-<!-- Save Search Modal -->
-{#if isOpen}
-	<div class="bg-opacity-50 fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-		<div class="bg-base-100 w-[95%] max-w-md rounded-lg p-6">
-			<h3 class="mb-4 text-lg font-bold">{modalTitle}</h3>
-
-			{#if error}
-				<div class="alert alert-outline alert-error mb-4">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{$t(error)}</span>
-				</div>
-			{/if}
+<Modal isOpen={isOpen} title={modalTitle} onClose={closeModal} size="md" isScrollable={true}>
+	{#snippet children()}
+		{#if error}
+			<div class="alert alert-outline alert-error mb-4">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<span>{$t(error)}</span>
+			</div>
+		{/if}
 
 			<!-- Search Parameters Summary (show categories and skills as badges) -->
 			{#if isUpdateMode}
@@ -353,24 +350,17 @@
 				<span>{$t('profile_task.form.filters_info')}</span>
 			</div>
 
-			<!-- Action Buttons -->
-			<div class="modal-action">
-				<button class="btn" onclick={closeModal} disabled={isSaving}
-					>{$t('profile_task.form.cancel')}</button
-				>
-				<button
-					class="btn btn-primary"
-					onclick={handleSubmit}
-					disabled={isSaving || !searchName.trim()}
-				>
-					{#if isSaving}
-						<span class="loading loading-spinner loading-sm"></span>
-						{$t('profile_task.form.saving')}
-					{:else}
-						{submitButtonText}
-					{/if}
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
+	{/snippet}
+
+	{#snippet footer()}
+		<button class="btn" onclick={closeModal} disabled={isSaving}>{$t('profile_task.form.cancel')}</button>
+		<button class="btn btn-primary" onclick={handleSubmit} disabled={isSaving || !searchName.trim()}>
+			{#if isSaving}
+				<span class="loading loading-spinner loading-sm"></span>
+				{$t('profile_task.form.saving')}
+			{:else}
+				{submitButtonText}
+			{/if}
+		</button>
+	{/snippet}
+</Modal>

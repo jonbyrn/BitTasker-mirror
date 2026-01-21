@@ -4,18 +4,33 @@ import { appStore } from '$lib/stores/app.store';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { decryptNsecWithBiometrics, decryptMasterKeyDataFromBiometrics } from '$lib/utils/helpers/auth';
+import type { Credentials } from '$lib/types/auth';
 
 // Mock dependencies
 vi.mock('$lib/stores/app.store', () => {
 	const { writable } = require('svelte/store');
-	const mockStore = writable({ biometricData: null });
+
+	// Derive the app store state type from the update() signature (AppStore is not exported).
+	const createState = (biometricData: Credentials | null) => ({
+		nostrKeys: { nsec: null, npub: null, mnemonic: null },
+		isLoading: false,
+		error: null,
+		toasts: [],
+		biometricData,
+		network: 'testnet',
+		pool: {} as any,
+		relays: []
+	});
+
+	const mockStore = writable(createState(null));
 	return {
 		appStore: {
-			get: vi.fn((fn) => fn ? fn(mockStore) : mockStore),
-			update: vi.fn((fn) => {
-				mockStore.update(fn);
-			}),
-			subscribe: mockStore.subscribe
+			subscribe: mockStore.subscribe,
+			set: vi.fn((value) => mockStore.set(value)),
+			update: vi.fn((fn) => mockStore.update(fn)),
+			showSuccessToast: vi.fn(),
+			showErrorToast: vi.fn(),
+			showInfoToast: vi.fn()
 		}
 	};
 });
@@ -54,11 +69,23 @@ vi.mock('$lib/utils/helpers/webBiometrics', () => ({
 }));
 
 describe('Cache Validation Logic', () => {
-	const mockAppStoreGet = vi.mocked(appStore.get);
 	const mockAppStoreUpdate = vi.mocked(appStore.update);
 	const mockPreferencesGet = vi.mocked(Preferences.get);
 	const mockDecryptNsec = vi.mocked(decryptNsecWithBiometrics);
 	const mockDecryptMasterKey = vi.mocked(decryptMasterKeyDataFromBiometrics);
+
+	type AppState = Parameters<Parameters<typeof appStore.update>[0]>[0];
+	const createState = (biometricData: Credentials | null): AppState =>
+		({
+			nostrKeys: { nsec: null, npub: null, mnemonic: null },
+			isLoading: false,
+			error: null,
+			toasts: [],
+			biometricData,
+			network: 'testnet',
+			pool: {} as any,
+			relays: []
+		}) as unknown as AppState;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -66,33 +93,25 @@ describe('Cache Validation Logic', () => {
 
 	describe('getNostrKeyPair', () => {
 		it('should use cached biometricData when valid and session active', async () => {
-			const mockBiometricData = {
+			const mockBiometricData: Credentials = {
 				username: 'test_npub',
-				password: JSON.stringify({ encrypted: 'data' })
+				password: JSON.stringify({ encrypted: 'data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			};
 			// Use valid nsec format
 			const validNsec = 'nsec1test123456789012345678901234567890123456789012345678901234567890';
 
 			// Set up store with biometric data - need to track state changes
-			const { writable } = await import('svelte/store');
-			let currentState = { biometricData: mockBiometricData };
-			const testStore = writable(currentState);
+			let currentState: AppState = createState(mockBiometricData);
+			appStore.set(currentState);
 			
 			// Track if update was called (should not be called for valid cached data)
 			let updateCalled = false;
 			mockAppStoreUpdate.mockImplementation((fn) => {
 				updateCalled = true;
 				currentState = fn(currentState);
-				testStore.set(currentState);
-			});
-			
-			mockAppStoreGet.mockImplementation((fn) => {
-				if (fn) {
-					// get() with function - return the result of calling fn with current state
-					return fn(currentState);
-				}
-				// get() without function - return current state
-				return currentState;
+				appStore.set(currentState);
 			});
 
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
@@ -111,24 +130,19 @@ describe('Cache Validation Logic', () => {
 		});
 
 		it('should clear cache and prompt when access token is missing', async () => {
-			const mockBiometricData = {
+			const mockBiometricData: Credentials = {
 				username: 'test_npub',
-				password: JSON.stringify({ encrypted: 'data' })
+				password: JSON.stringify({ encrypted: 'data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			};
 			const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 
-			// Set up store with biometric data
-			const { writable } = await import('svelte/store');
-			const testStore = writable({ biometricData: mockBiometricData });
-			mockAppStoreGet.mockImplementation((fn) => {
-				if (fn) {
-					let state: any;
-					testStore.subscribe((s) => { state = s; })();
-					return fn(state);
-				}
-				let state: any;
-				testStore.subscribe((s) => { state = s; })();
-				return state;
+			let currentState: AppState = createState(mockBiometricData);
+			appStore.set(currentState);
+			mockAppStoreUpdate.mockImplementation((fn) => {
+				currentState = fn(currentState);
+				appStore.set(currentState);
 			});
 
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
@@ -141,7 +155,9 @@ describe('Cache Validation Logic', () => {
 			const mockGetBiometricData = vi.mocked(getBiometricData);
 			mockGetBiometricData.mockResolvedValue({
 				username: 'new_npub',
-				password: JSON.stringify({ encrypted: 'new_data' })
+				password: JSON.stringify({ encrypted: 'new_data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			});
 			mockDecryptNsec.mockResolvedValue(validNsec);
 
@@ -154,24 +170,19 @@ describe('Cache Validation Logic', () => {
 		});
 
 		it('should clear cache when cached NPUB does not match stored NPUB', async () => {
-			const mockBiometricData = {
+			const mockBiometricData: Credentials = {
 				username: 'cached_npub',
-				password: JSON.stringify({ encrypted: 'data' })
+				password: JSON.stringify({ encrypted: 'data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			};
 			const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 
-			// Set up store with biometric data
-			const { writable } = await import('svelte/store');
-			const testStore = writable({ biometricData: mockBiometricData });
-			mockAppStoreGet.mockImplementation((fn) => {
-				if (fn) {
-					let state: any;
-					testStore.subscribe((s) => { state = s; })();
-					return fn(state);
-				}
-				let state: any;
-				testStore.subscribe((s) => { state = s; })();
-				return state;
+			let currentState: AppState = createState(mockBiometricData);
+			appStore.set(currentState);
+			mockAppStoreUpdate.mockImplementation((fn) => {
+				currentState = fn(currentState);
+				appStore.set(currentState);
 			});
 
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
@@ -184,7 +195,9 @@ describe('Cache Validation Logic', () => {
 			const mockGetBiometricData = vi.mocked(getBiometricData);
 			mockGetBiometricData.mockResolvedValue({
 				username: 'new_npub',
-				password: JSON.stringify({ encrypted: 'new_data' })
+				password: JSON.stringify({ encrypted: 'new_data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			});
 			mockDecryptNsec.mockResolvedValue(validNsec);
 
@@ -197,28 +210,22 @@ describe('Cache Validation Logic', () => {
 		});
 
 		it('should clear cache and prompt when decryption fails', async () => {
-			const mockBiometricData = {
+			const mockBiometricData: Credentials = {
 				username: 'test_npub',
-				password: JSON.stringify({ encrypted: 'data' })
+				password: JSON.stringify({ encrypted: 'data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			};
 			const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 
 			// Set up store with biometric data - need to track state changes
-			const { writable } = await import('svelte/store');
-			let currentState = { biometricData: mockBiometricData };
-			const testStore = writable(currentState);
+			let currentState: AppState = createState(mockBiometricData);
+			appStore.set(currentState);
 			
 			// Update state when store.update is called
 			mockAppStoreUpdate.mockImplementation((fn) => {
 				currentState = fn(currentState);
-				testStore.set(currentState);
-			});
-			
-			mockAppStoreGet.mockImplementation((fn) => {
-				if (fn) {
-					return fn(currentState);
-				}
-				return currentState;
+				appStore.set(currentState);
 			});
 
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
@@ -233,7 +240,9 @@ describe('Cache Validation Logic', () => {
 			const mockGetBiometricData = vi.mocked(getBiometricData);
 			mockGetBiometricData.mockResolvedValue({
 				username: 'new_npub',
-				password: JSON.stringify({ encrypted: 'new_data' })
+				password: JSON.stringify({ encrypted: 'new_data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			});
 			mockDecryptNsec.mockResolvedValueOnce(validNsec);
 
@@ -248,24 +257,15 @@ describe('Cache Validation Logic', () => {
 
 	describe('getNpub', () => {
 		it('should use cached biometricData when valid', async () => {
-			const mockBiometricData = {
+			const mockBiometricData: Credentials = {
 				username: 'test_npub',
-				password: JSON.stringify({ encrypted: 'data' })
+				password: JSON.stringify({ encrypted: 'data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			};
 
-			// Set up store with biometric data
-			const { writable } = await import('svelte/store');
-			const testStore = writable({ biometricData: mockBiometricData });
-			mockAppStoreGet.mockImplementation((fn) => {
-				if (fn) {
-					let state: any;
-					testStore.subscribe((s) => { state = s; })();
-					return fn(state);
-				}
-				let state: any;
-				testStore.subscribe((s) => { state = s; })();
-				return state;
-			});
+			const currentState: AppState = createState(mockBiometricData);
+			appStore.set(currentState);
 
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
 				if (key === StorageKeys.NPUB) return { value: 'test_npub' };
@@ -279,26 +279,20 @@ describe('Cache Validation Logic', () => {
 		});
 
 		it('should clear cache when NPUB mismatch detected', async () => {
-			const mockBiometricData = {
+			const mockBiometricData: Credentials = {
 				username: 'cached_npub',
-				password: JSON.stringify({ encrypted: 'data' })
+				password: JSON.stringify({ encrypted: 'data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			};
 
 			// Set initial state in store - track state changes
-			const { writable } = await import('svelte/store');
-			let currentState = { biometricData: mockBiometricData };
-			const testStore = writable(currentState);
+			let currentState: AppState = createState(mockBiometricData);
+			appStore.set(currentState);
 			
 			mockAppStoreUpdate.mockImplementation((fn) => {
 				currentState = fn(currentState);
-				testStore.set(currentState);
-			});
-			
-			mockAppStoreGet.mockImplementation((fn) => {
-				if (fn) {
-					return fn(currentState);
-				}
-				return currentState;
+				appStore.set(currentState);
 			});
 
 			// Stored NPUB is different from cached, so validation should fail
@@ -312,7 +306,9 @@ describe('Cache Validation Logic', () => {
 			const mockGetBiometricData = vi.mocked(getBiometricData);
 			mockGetBiometricData.mockResolvedValue({
 				username: 'new_npub',
-				password: JSON.stringify({ encrypted: 'new_data' })
+				password: JSON.stringify({ encrypted: 'new_data' }),
+				server: 'test-device',
+				isLegacyFormat: true
 			});
 
 			await getNpub();
@@ -326,32 +322,26 @@ describe('Cache Validation Logic', () => {
 
 	describe('getAllKeys', () => {
 		it('should use cached biometricData when valid and session active', async () => {
-			const mockBiometricData = {
+			const mockBiometricData: Credentials = {
 				username: 'test_npub',
 				password: JSON.stringify({
 					masterKeyData: { encrypted: 'data' },
 					key: 'key'
-				})
+				}),
+				server: 'test-device',
+				isLegacyFormat: false
 			};
 			const validNsec = 'nsec1test123456789012345678901234567890123456789012345678901234567890';
 
 			// Set up store with biometric data - track state changes
-			const { writable } = await import('svelte/store');
-			let currentState = { biometricData: mockBiometricData };
-			const testStore = writable(currentState);
+			let currentState: AppState = createState(mockBiometricData);
+			appStore.set(currentState);
 			
 			let updateCalled = false;
 			mockAppStoreUpdate.mockImplementation((fn) => {
 				updateCalled = true;
 				currentState = fn(currentState);
-				testStore.set(currentState);
-			});
-			
-			mockAppStoreGet.mockImplementation((fn) => {
-				if (fn) {
-					return fn(currentState);
-				}
-				return currentState;
+				appStore.set(currentState);
 			});
 
 			// Ensure NPUB matches to avoid cache clearing
@@ -375,24 +365,19 @@ describe('Cache Validation Logic', () => {
 		});
 
 		it('should clear cache when master key data format is invalid', async () => {
-			const mockBiometricData = {
+			const mockBiometricData: Credentials = {
 				username: 'test_npub',
-				password: JSON.stringify({ invalid: 'format' }) // Missing masterKeyData
+				password: JSON.stringify({ invalid: 'format' }), // Missing masterKeyData
+				server: 'test-device',
+				isLegacyFormat: false
 			};
 			const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 
-			// Set up store with biometric data
-			const { writable } = await import('svelte/store');
-			const testStore = writable({ biometricData: mockBiometricData });
-			mockAppStoreGet.mockImplementation((fn) => {
-				if (fn) {
-					let state: any;
-					testStore.subscribe((s) => { state = s; })();
-					return fn(state);
-				}
-				let state: any;
-				testStore.subscribe((s) => { state = s; })();
-				return state;
+			let currentState: AppState = createState(mockBiometricData);
+			appStore.set(currentState);
+			mockAppStoreUpdate.mockImplementation((fn) => {
+				currentState = fn(currentState);
+				appStore.set(currentState);
 			});
 
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
@@ -408,7 +393,9 @@ describe('Cache Validation Logic', () => {
 				password: JSON.stringify({
 					masterKeyData: { encrypted: 'new_data' },
 					key: 'key'
-				})
+				}),
+				server: 'test-device',
+				isLegacyFormat: false
 			});
 			mockDecryptMasterKey.mockResolvedValue({
 				nsec: validNsec,
