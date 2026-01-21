@@ -4,7 +4,10 @@
 </script>
 
 <!-- Ensure Toast has the highest z-index and is positioned at center bottom -->
-<div class="toast toast-bottom fixed z-99999 left-1/2 transform -translate-x-1/2">
+<div
+	class="toast toast-bottom fixed z-[200] left-1/2 transform -translate-x-1/2"
+	style="bottom: calc(var(--app-footer-height, 0px) + 1rem);"
+>
 	{#each $appStore.toasts as toast (toast.id)}
 		<div
 			class="alert {toast.type === 'success'

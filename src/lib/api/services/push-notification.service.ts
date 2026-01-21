@@ -204,26 +204,15 @@ class PushNotificationService {
 				await this.handleDeviceRevocation(payload.data);
 				return; // Exit early, don't navigate anywhere
 			}
-			// this.handleNotificationData(payload.data);
 
 			// Show notification in foreground (optional, since browser handles this)
-			this.showInAppNotification(payload.data);
-		}
-	}
-
-	/**
-	 * Show in-app notification for web push notifications
-	 * Web specific
-	 */
-	private showInAppNotification(notification: any): void {
-		// You can implement custom in-app notification UI here
-		// For now, we'll use the browser's native notification
-		if (Notification.permission === 'granted') {
-			new Notification(notification.title, {
-				body: notification.body,
-				icon: notification.icon || '/favicon.ico',
-				tag: 'bittasker-notification'
-			});
+			if (Notification.permission === 'granted') {
+				new Notification(payload.data.title, {
+					body: payload.data.body,
+					icon: payload.data.icon || '/favicon.ico',
+					tag: 'bittasker-notification'
+				});
+			}
 		}
 	}
 
@@ -243,22 +232,13 @@ class PushNotificationService {
 		// Determine the target URL based on notification type
 		let targetUrl = '/dashboard';
 
-		// TODO: Only task_match notification is implemented
-		// Check for click_action first (Android-specific), then fallback to other locations
-		if (data.click_action) {
+		// Check for clickAction first, then fallback to other locations
+		if (data.clickAction) {
+			targetUrl = data.clickAction;
+		} else if (data.click_action) {
 			targetUrl = data.click_action;
 		} else if (data.clickAction || data.data?.clickAction) {
 			targetUrl = data.clickAction || data.data.clickAction;
-		} else if (data.type === 'task_match') {
-			targetUrl = data.clickAction || '/dashboard/find-tasks';
-		} else if (data.type === 'new_bid' && data.taskId) {
-			targetUrl = `/tasks/${data.taskId}`;
-		} else if (data.type === 'message' && data.conversationId) {
-			targetUrl = `/dashboard/messages/to/${data.conversationId}`;
-		} else if (data.type === 'task_update' && data.taskId) {
-			targetUrl = `/tasks/${data.taskId}`;
-		} else if (data.url) {
-			targetUrl = data.url;
 		}
 
 		// Navigate using appropriate method for platform
@@ -298,7 +278,44 @@ class PushNotificationService {
 			// For other platforms (iOS will be handled later)
 			// const platform = Capacitor.getPlatform();
 
-			await this.showLocalNotification(notification.data);
+			try {
+				// Request permission for local notifications
+				const permission = await LocalNotifications.checkPermissions();
+				if (permission.display !== 'granted') {
+					const result = await LocalNotifications.requestPermissions();
+					if (result.display !== 'granted') {
+						console.warn('⚠️ Local notification permission not granted');
+						return;
+					}
+				}
+
+				// Generate a safe notification ID
+				const notificationId = this.generateNotificationId(notification?.id);
+
+				// Schedule ONE local notification using the unified channel
+				await LocalNotifications.schedule({
+					notifications: [
+						{
+							title: notification.data.title || 'New Notification',
+							body: notification.data.body || 'You have a new notification',
+							id: notificationId,
+							sound: 'default',
+							actionTypeId: 'OPEN_ACTION',
+							extra: notification.data || {},
+							// Show immediately
+							schedule: { at: new Date(Date.now() + 100) },
+							autoCancel: true,
+							// Use unified notification channel id
+							channelId: 'bittasker-notification',
+							smallIcon: 'ic_stat_notify'
+						}
+					]
+				});
+
+				console.log('✅ Local notification scheduled with ID:', notificationId);
+			} catch (error) {
+				console.error('❌ Error scheduling local notification:', error);
+			}
 		} catch (error) {
 			console.error('❌ Error handling foreground notification:', error);
 		}
@@ -312,17 +329,7 @@ class PushNotificationService {
 		if (!browser) return;
 
 		try {
-			// TODO: Update this navigation for mobile
-			if (Capacitor.isNativePlatform()) {
-				// For native platforms, use SvelteKit navigation
-				// The notification should already bring the app to foreground
-				console.log('📱 Native SPA navigation to:', url);
-				await goto(url);
-			} else {
-				// For web, use SvelteKit navigation
-				console.log('🌐 Web navigation to:', url);
-				await goto(url);
-			}
+			await goto(url);
 		} catch (error) {
 			console.error('❌ Navigation error:', error);
 			// Fallback to window.location for critical navigation
@@ -355,22 +362,28 @@ class PushNotificationService {
 		PushNotifications.addListener(
 			'pushNotificationActionPerformed',
 			(notification: ActionPerformed) => {
-				this.handleNativeNotificationAction(notification);
+				console.log('🔔 Notification tapped!', JSON.stringify(notification, null, 2));
+
+				const data = notification.notification?.data || {};
+
+				const targetUrl = data.clickAction || data.click_action || '/dashboard';
+
+				// Navigate to the target URL
+				window.location.href = targetUrl;
 			}
 		);
 
 		// Add local notification listeners for foreground notifications
-		if (Capacitor.isNativePlatform()) {
-			LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
-				// Handle the local notification tap the same way as push notifications
-				if (notification.notification.extra) {
-					this.handleNotificationData(notification.notification.extra);
-				} else {
-					// Fallback to dashboard if no data
-					this.navigateToUrl('/dashboard');
-				}
-			});
-		}
+		LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
+			console.log('🔔 Local notification action performed:', notification);
+			// Handle the local notification tap the same way as push notifications
+			if (notification.notification.extra) {
+				this.handleNotificationData(notification.notification.extra);
+			} else {
+				// Fallback to dashboard if no data
+				this.navigateToUrl('/dashboard');
+			}
+		});
 	}
 
 	/**
@@ -452,87 +465,19 @@ class PushNotificationService {
 	/**
 	 * Generate a safe notification ID for Android (within Java int range)
 	 */
-	private generateNotificationId(): number {
-		// Increment counter and use modulo to keep within Java int range
-		this.notificationCounter = (this.notificationCounter + 1) % 2147483647;
-		// Add some randomness while keeping it small
-		return Math.floor(Math.random() * 100000) + this.notificationCounter;
-	}
-
-	/**
-	 * Show a local notification for foreground push notifications
-	 * Mobile specific
-	 */
-	private async showLocalNotification(pushNotification: PushNotificationSchema): Promise<void> {
-		if (!Capacitor.isNativePlatform()) return;
-
-		try {
-			// Request permission for local notifications
-			const permission = await LocalNotifications.checkPermissions();
-			if (permission.display !== 'granted') {
-				const result = await LocalNotifications.requestPermissions();
-				if (result.display !== 'granted') {
-					console.warn('⚠️ Local notification permission not granted');
-					return;
-				}
+	private generateNotificationId(fcmId?: string): number {
+		if (fcmId) {
+			let hash = 0;
+			for (let i = 0; i < fcmId.length; i++) {
+				hash = (hash << 5) - hash + fcmId.charCodeAt(i);
+				hash |= 0; // force 32-bit
 			}
-
-			// Generate a safe notification ID
-			const notificationId = this.generateNotificationId();
-
-			// Schedule ONE local notification using the unified channel
-			await LocalNotifications.schedule({
-				notifications: [
-					{
-						title: pushNotification.title || 'New Notification',
-						body: pushNotification.body || 'You have a new notification',
-						id: notificationId,
-						sound: 'default',
-						actionTypeId: 'OPEN_ACTION',
-						extra: pushNotification.data || {},
-						// Show immediately
-						schedule: { at: new Date(Date.now() + 100) },
-						autoCancel: true,
-						// Use unified notification channel id
-						channelId: 'bittasker-notification',
-						smallIcon: 'ic_stat_notify'
-					}
-				]
-			});
-
-			console.log('✅ Local notification scheduled with ID:', notificationId);
-		} catch (error) {
-			console.error('❌ Error scheduling local notification:', error);
-		}
-	}
-
-	/**
-	 * Add listener for local notification actions (more reliable than push notification actions)
-	 * Mobile specific
-	 */
-	private async handleNativeNotificationAction(notification: ActionPerformed): Promise<void> {
-		// Handle when user taps on notification
-
-		// Extract data from different possible locations in the notification
-		let notificationData: any = {};
-
-		// Try different paths where the data might be located
-		if (notification.notification?.data) {
-			notificationData = notification.notification.data;
-		} else if (notification.notification) {
-			notificationData = notification.notification;
-		} else if ((notification as any).data) {
-			notificationData = (notification as any).data;
+			return Math.abs(hash);
 		} else {
-			notificationData = notification;
-		}
-
-		// Navigate to the appropriate screen based on notification data
-		if (notificationData && Object.keys(notificationData).length > 0) {
-			await this.handleNotificationData(notificationData);
-		} else {
-			// Fallback to dashboard if no specific data
-			await this.navigateToUrl('/dashboard');
+			// Increment counter and use modulo to keep within Java int range
+			this.notificationCounter = (this.notificationCounter + 1) % 2147483647;
+			// Add some randomness while keeping it small
+			return Math.floor(Math.random() * 100000) + this.notificationCounter;
 		}
 	}
 
@@ -838,35 +783,6 @@ class PushNotificationService {
 			}
 		} catch (error) {
 			console.warn('⚠️ Could not close existing notifications:', error);
-		}
-	}
-
-	// Method to test notifications (useful for debugging)
-	public async testNotification(): Promise<void> {
-		try {
-			if (Capacitor.isNativePlatform()) {
-				// For native platforms, we'll use the sendNotification mutation
-				const notificationData = {
-					title: 'Test Notification',
-					body: 'This is a test notification from BitTasker',
-					deviceId: this.currentDeviceId!
-				}
-				await this.sendNotification(notificationData);
-			} else {
-				// For web, show a local notification
-				if (Notification.permission === 'granted') {
-					new Notification('Test Notification', {
-						body: 'This is a test notification from BitTasker',
-						icon: '/favicon.ico',
-						tag: 'test-notification'
-					});
-				} else {
-					console.warn('⚠️ Notification permission not granted for local test');
-				}
-			}
-		} catch (error) {
-			console.error('❌ Error testing notification:', error);
-			throw error;
 		}
 	}
 

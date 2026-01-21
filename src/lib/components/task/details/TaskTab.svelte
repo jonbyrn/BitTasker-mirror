@@ -331,7 +331,7 @@
 		</div>
 	{/if}
 
-	<div class="mb-20 space-y-3 md:mb-5">
+	<div class="space-y-3">
 		<!-- Action Buttons Row -->
 		<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
 			<!-- Share Button (always visible) -->
