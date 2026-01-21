@@ -8,7 +8,7 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { appStore } from '$lib/stores/app.store';
-	import { getSwapType, isSwapCompleted } from '$lib/utils/wallet/swapTransaction';
+	import { getSwapType } from '$lib/utils/wallet/swapTransaction';
 	import {
 		walletManager,
 		rskConnection,
@@ -391,7 +391,8 @@
 		}}
 		initialFormState={receiveFormState ? {
 			...receiveFormState,
-			currentStep: 2 as const // On mobile, go to step 2 (details screen); desktop ignores this
+			// For Rootstock, go to step 1 (network selector); for others, go to step 2 (details)
+			currentStep: (receiveFormState.selectedNetwork === 'rootstock-bitcoin' ? 1 : 2) as 1 | 2
 		} : undefined}
 	/>
 </WalletPaymentModal>
