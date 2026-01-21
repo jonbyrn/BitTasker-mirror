@@ -18,18 +18,17 @@ import {
 	type BoltzSwapData,
 	type ChainSwapData,
 } from '@bittasker/wallet-core';
-import type { SwapPairsCache } from '$lib/types/wallet';
+import type { SwapPairsCache, TokenBalance } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers, type JsonRpcProvider } from 'ethers';
-import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import { processTransactions, type ProcessedTransaction } from '$lib/utils/wallet/transactionHistory';
 import { isSwapCompleted, mapSwapToTransaction, shouldShowSwap } from '$lib/utils/wallet/swapTransaction';
-import tokenBalanceService from '$lib/api/services/token-balance.service';
-import type { TokenBalance } from '$lib/types/wallet';
 import { ERROR_MESSAGES } from '$lib/utils/constants/wallet.constants';
+import tokenBalanceService from '$lib/api/services/token-balance.service';
+import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 // Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
@@ -320,12 +319,6 @@ async function loadAssets(): Promise<void> {
 
 		// Process RSK assets
 		if (rskBalanceData) {
-			// Use integer arithmetic for sats calculation to match historical balance calculation
-			// Convert Wei directly to sats: 1 RBTC = 10^18 Wei, 1 BTC = 10^8 sats
-			// So: sats = Wei / 10^10
-			const balanceWei = BigInt(rskBalanceData.balance.toString());
-			const rbtcBalanceSats = Number(balanceWei / BigInt(10_000_000_000));
-
 			// Keep formatted balance for display and USD calculations
 			const rbtcBalance = parseFloat(rskBalanceData.formatted);
 			totalRbtc += rbtcBalance;
@@ -405,13 +398,8 @@ async function loadAssets(): Promise<void> {
 			}
 		}
 
-		// Calculate total sats using integer arithmetic to match historical balance calculation
-		// This ensures consistency between current and historical balance calculations
-		let totalSats = 0;
-		if (rskBalanceData) {
-			const balanceWei = BigInt(rskBalanceData.balance.toString());
-			totalSats = Number(balanceWei / BigInt(10_000_000_000));
-		}
+		// Calculate total sats (RBTC to sats)
+		const totalSats = Math.floor(totalRbtc * 100_000_000);
 
 		// Update store with assets and totals
 		walletStore.update(s => ({
@@ -698,7 +686,7 @@ export async function sendRSKToken(
 
 	// Create ERC-20 contract instance
 	const tokenContract = new ethers.Contract(normalizedTokenAddress, ERC20_ABI, wallet);
-	
+
 	// Get token decimals
 	const decimals = await tokenContract.decimals();
 
