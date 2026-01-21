@@ -6,6 +6,7 @@
 	 * Handles its own body scroll locking/unlocking and accessibility
 	 */
 	import { t } from 'svelte-i18n';
+	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 
 	// Props
 	const props = $props<{
@@ -14,9 +15,23 @@
 		onClose: () => void;
 		size?: 'sm' | 'md' | 'lg' | 'xl';
 		isScrollable?: boolean;
+		/**
+		 * When true (default), the modal will not cover the bottom navigation bar (mobile dock).
+		 * It will instead reserve `bottomOffset` space at the bottom so the dock remains visible.
+		 */
+		respectBottomNav?: boolean;
+		/**
+		 * The CSS bottom offset to reserve when `respectBottomNav` is true.
+		 * Defaults to the globally measured footer height.
+		 */
+		bottomOffset?: string;
 		children?: import('svelte').Snippet;
 		footer?: import('svelte').Snippet;
 	}>();
+
+	const respectBottomNav = props.respectBottomNav ?? true;
+	const bottomOffset = props.bottomOffset ?? 'var(--app-footer-height, 0px)';
+	const effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -27,18 +42,47 @@
 		document.body.classList.remove('overflow-hidden');
 	};
 
+	function lockAppScroll() {
+		const el = $appScrollContainer;
+		if (!el) return;
+		const count = Number(el.dataset.lockCount ?? '0');
+		if (count === 0) {
+			el.dataset.prevOverflowY = el.style.overflowY || '';
+			el.style.overflowY = 'hidden';
+		}
+		el.dataset.lockCount = String(count + 1);
+	}
+
+	function unlockAppScroll() {
+		const el = $appScrollContainer;
+		if (!el) return;
+		const count = Number(el.dataset.lockCount ?? '0');
+		const next = Math.max(0, count - 1);
+		el.dataset.lockCount = String(next);
+		if (next === 0) {
+			el.style.overflowY = el.dataset.prevOverflowY ?? '';
+			delete el.dataset.prevOverflowY;
+			delete el.dataset.lockCount;
+		}
+	}
+
 	// Handle modal state changes, including scroll locking
 	$effect(() => {
 		if (props.isOpen) {
 			// Lock scroll when modal is open
 			disableBodyScroll();
+			lockAppScroll();
 		} else {
 			// Restore scrolling when modal is closed
 			enableBodyScroll();
+			unlockAppScroll();
 		}
 
 		// Handle cleanup when component is unmounted
-		return enableBodyScroll;
+		return () => {
+			enableBodyScroll();
+			unlockAppScroll();
+		};
 	});
 
 	// Escape key handler
@@ -55,11 +99,10 @@
 	<!-- Modal Backdrop/Overlay -->
 	<div
 		class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-in-out"
+		style={`bottom: ${effectiveBottomOffset};`}
 		onclick={props.onClose}
-		onkeydown={(e) => e.key === 'Escape' && props.onClose()}
-		role="dialog"
-		tabindex="-1"
-		aria-modal="true"
+		role="presentation"
+		aria-hidden="true"
 	></div>
 
 	<!-- Modal Container -->
@@ -67,6 +110,7 @@
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 {props.isScrollable
 			? 'overflow-y-auto'
 			: ''}"
+		style={`bottom: ${effectiveBottomOffset};`}
 		onclick={(event) => event.stopPropagation()}
 		onkeydown={(event) => event.stopPropagation()}
 		role="presentation"
@@ -80,11 +124,15 @@
 					: props.size === 'xl'
 						? 'max-w-4xl'
 						: 'max-w-md'}"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="modal-title"
+			tabindex="-1"
 		>
 			<!-- Modal Header -->
 			<div class="card-body">
 				<div class="mb-4 flex items-center justify-between">
-					<h3 class="card-title">{props.title}</h3>
+					<h3 id="modal-title" class="card-title">{props.title}</h3>
 					<button
 						class="btn btn-circle btn-ghost btn-sm"
 						onclick={props.onClose}
@@ -111,7 +159,7 @@
 				{@render props.children?.()}
 
 				<!-- Modal Footer (Optional) -->
-				{#if props.footer?.()}
+				{#if props.footer}
 					<div class="card-actions mt-6 justify-end">
 						{@render props.footer()}
 					</div>

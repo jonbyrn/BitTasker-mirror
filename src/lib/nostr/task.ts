@@ -69,8 +69,13 @@ async function generateTaskTranslations(
 
 			// Check if translation failed
 			if ('code' in titleResult || 'code' in descResult) {
-				console.warn(`Translation failed for ${targetLang}:`, 
-					'code' in titleResult ? titleResult.message : descResult.message);
+				const message =
+					'code' in titleResult
+						? titleResult.message
+						: 'code' in descResult
+							? descResult.message
+							: 'Unknown translation error';
+				console.warn(`Translation failed for ${targetLang}:`, message);
 				return null;
 			}
 
