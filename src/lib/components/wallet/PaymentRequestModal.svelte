@@ -428,6 +428,21 @@
 				{/if}
 				</div>
 
+						<!-- Invoice Total (Rootstock only, above QR code) -->
+						{#if network === 'rootstock-bitcoin' && payerTotalAmount > 0}
+							<div class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4">
+								<span class="text-center text-xs opacity-70">{$t('wallet.receive.invoice_total')}</span>
+								<div class="flex w-full items-center justify-center gap-1.5">
+									<span class="text-primary text-xl font-bold">
+										{formatSats(payerTotalAmount)} {$t('wallet.sats')}
+									</span>
+									{#if btcPrice > 0 && payerTotalAmountUSD > 0}
+										<span class="text-xs opacity-60">≈ {formatUSD(payerTotalAmountUSD)}</span>
+									{/if}
+								</div>
+							</div>
+						{/if}
+
 						<!-- QR Code (Almost Full Screen Width) -->
 						<div class="flex justify-center px-2">
 							{#if isLoadingQR}
