@@ -364,8 +364,7 @@
 		const amountRBTC = (amountInSats / 100_000_000).toFixed(8);
 		const gasEstimation = await walletManager.estimateRBTCGas($walletStore.rsk.address, amountRBTC);
 
-		const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(amountRBTC);
-		const gasFeeSats = Math.floor(gasFeeRBTC * 100_000_000);
+		const gasFeeSats = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
 
 		feeState.estimated = {
 			serviceFee: 0, // No service fee for direct sends
