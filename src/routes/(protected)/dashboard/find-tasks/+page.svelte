@@ -707,7 +707,7 @@
 		style="max-height: 100%;"
 	>
 		<!-- Header row (controls) -->
-		<div class="mb-4 flex flex-nowrap items-center gap-2 md:gap-3">
+		<div class="mb-4 pt-4 flex flex-nowrap items-center gap-2 md:gap-3">
 			<!-- Search Input -->
 			<div class="relative flex-1 min-w-0">
 				<input
@@ -1218,7 +1218,7 @@
 				<!-- Mobile Floating Button - Scroll to Top (only visible on mobile) -->
 				{#if showScrollToTop}
 					<button
-						class="inverted-colors fixed right-4 z-50 flex items-center justify-center rounded-4xl p-3 transition-all duration-200 hover:opacity-70 lg:hidden"
+						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex items-center justify-center rounded-4xl p-3 transition-all duration-300 hover:scale-110 hover:brightness-110 active:scale-95 lg:hidden"
 						style="bottom: var(--app-bottom-fab);"
 						onclick={scrollToTop}
 						title={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
@@ -1450,5 +1450,30 @@
 		.task-list-scroll-container {
 			box-sizing: border-box;
 		}
+	}
+
+	/* Scroll to top button fade-in animation */
+	.scroll-to-top-button {
+		opacity: 0;
+		transform: translateY(10px) scale(0.9);
+		animation: fadeInButton 0.3s ease-out forwards;
+	}
+
+	@keyframes fadeInButton {
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.scroll-to-top-button:hover {
+		opacity: 1;
+		transform: scale(1.1);
+		filter: brightness(1.2);
+	}
+
+	.scroll-to-top-button:active {
+		transform: scale(0.95);
+		opacity: 0.9;
 	}
 </style>

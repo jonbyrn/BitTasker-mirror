@@ -1,30 +1,43 @@
 <script lang="ts">
 	import type { Task, SearchTasksParams } from '$lib/types/task.d';
-	import { onMount, onDestroy, tick } from 'svelte';
+	import { onMount, onDestroy, tick, type Component } from 'svelte';
 	import { browser } from '$app/environment';
-	import { formatDistanceToNow } from 'date-fns';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
-	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import { goto } from '$app/navigation';
-	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import {
-		formatStandardDate,
 		formatStandardDateShort,
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 
 	// Import performance testing helper in development
 	import '$lib/utils/performance-testing-helper';
+
+	// Constants
+	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
+	const INFINITE_SCROLL_TRIGGER_DISTANCE = 300; // px - Load more tasks when within this distance from bottom
+	const SEARCH_DEBOUNCE_DELAY = 1000; // ms - Delay before executing search
+	const SCROLL_DEBOUNCE_DELAY = 200; // ms - Delay for scroll event debouncing
+	const HEADER_CONTROLS_HEIGHT = '12rem'; // Height of header controls (search, filters)
+	const DESKTOP_CONTAINER_PADDING = '10rem'; // Padding for desktop container height calculation
+	const DOM_QUERY_MAX_RETRIES = 10; // Maximum retries for DOM element queries
+
+	// Lazy loaded components
+	let TaskLocationMap: Component<any> | null = $state(null);
+	let FilterDrawer: Component<any> | null = $state(null);
+
+	// Component loading states
+	let drawersLoaded = $state(false);
+	let mapLoaded = $state(false);
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -33,7 +46,7 @@
 			categories: [],
 			skills: [],
 			page: 1,
-			limit: 15,
+			limit: TASKS_PER_PAGE,
 			budget: {
 				tier: undefined,
 				currency: undefined,
@@ -46,7 +59,6 @@
 	// Reactive state for search parameters and UI controls
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let searchQuery = $state('');
-	let selectedTaskType = $state({ label: '', value: '' });
 
 	// Search input focus state for mobile button animation
 	let isSearchFocused = $state(false);
@@ -56,87 +68,16 @@
 
 	// Loading states
 	let loadingTimeout = $state(false);
-	let isInitialLoad = $state(true);
 	let dataLoaded = $state(false);
 	let showSkeleton = $state(true);
 
-	// Reactive date formatting functions using Svelte 5 runes
-	function formatDateReactive(date: Date) {
-		return formatStandardDate(date, $locale || 'en');
-	}
-
-	function formatDateTimeReactive(dateString: string) {
-		const date = parseDateToLocalMidnight(dateString);
-		if (!date) return '';
-		// For deadlines, only show date, not time
-		return formatStandardDateShort(date, $locale || 'en');
-	}
-
-	function formatDateRangeReactive(startDate: string | Date, endDate: string | Date) {
-		const formatValue = (value: string | Date) => {
-			const dateString = value instanceof Date ? value.toISOString() : value;
-			const date = parseDateToLocalMidnight(dateString);
-			if (!date) return '';
-			return formatStandardDateShort(date, $locale || 'en');
-		};
-
-		const startFormatted = formatValue(startDate);
-		const endFormatted = formatValue(endDate);
-
-		if (startFormatted && endFormatted) {
-			return `${startFormatted} - ${endFormatted}`;
-		}
-
-		return startFormatted || endFormatted || '';
-	}
-	let selectedLocation = $state<any | null>(null);
-
-	// Lazy loading state
+	// Scroll state
 	let taskListRef = $state<HTMLElement | null>(null);
-	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
-	let intersectionObserver: IntersectionObserver | null = null;
-
-	// Infinite scroll state - using scroll listener instead of sentinel
 	let scrollHandler: ((e: Event) => void) | null = null;
-	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
+	let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 
-
-	// Add class to app-shell__content to prevent scrolling (avoids :has() flickering)
-	let appShellContent: HTMLElement | null = $state(null);
-
-	onMount(() => {
-		// Find app-shell__content element once on mount
-		// Use multiple attempts to ensure DOM is ready
-		const addClass = () => {
-			const content = document.querySelector('.app-shell__content') as HTMLElement;
-			if (content && !content.classList.contains('find-tasks-no-scroll')) {
-				appShellContent = content;
-				content.classList.add('find-tasks-no-scroll');
-				// Also add data attribute for more specific targeting
-				content.setAttribute('data-find-tasks-page', 'true');
-			} else if (!content) {
-				// Retry if element not found yet
-				requestAnimationFrame(addClass);
-			}
-		};
-		requestAnimationFrame(addClass);
-	});
-
-	// Has active search parameters for save search button
-	let hasActiveParams = $state(false);
-	$effect(() => {
-		// Check if there are any meaningful search parameters set
-		hasActiveParams =
-			!!searchParams.search ||
-			!!searchParams.taskType ||
-			!!searchParams.location ||
-			(searchParams.status && searchParams.status.length > 0) ||
-			(searchParams.categories && searchParams.categories.length > 0) ||
-			(searchParams.skills && searchParams.skills.length > 0) ||
-			!!searchParams.budget?.tier ||
-			!!searchParams.budget?.currency ||
-			!!searchParams.budget?.type;
-	});
+	// Scroll to top button state
+	let showScrollToTop = $state(false);
 
 	// BTC price for USDT conversion
 	let btcPrice = $state<number>(120000); // Default fallback price
@@ -144,8 +85,112 @@
 	// View mode state - Airbnb style toggle
 	let viewMode = $state<'list' | 'map'>('list');
 
+	// Selected task for map display
+	let selectedTask = $state<Task | null>(null);
+	let selectedLocation = $state<any | null>(null);
+
+	// References to task cards for scrolling
+	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
+
+	// Infinite scroll state
+	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
+
+	// Lazy loading state
+	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+	let intersectionObserver: IntersectionObserver | null = null;
+
+	// Add class to app-shell__content to prevent scrolling (avoids :has() flickering)
+	let appShellContent: HTMLElement | null = $state(null);
+
+	function formatDateTimeReactive(dateString: string) {
+		if (!dateString) return '';
+
+		const date = parseDateToLocalMidnight(dateString);
+		if (!date) return '';
+		
+		return formatStandardDateShort(date, $locale || 'en');
+	}
+
+	function formatDateRangeReactive(startDateString: string, endDateString: string) {
+		const formatValue = (value: string) => {
+			const date = parseDateToLocalMidnight(value);
+			if (!date) return '';
+			return formatStandardDateShort(date, $locale || 'en');
+		};
+
+		const startFormatted = formatValue(startDateString);
+		const endFormatted = formatValue(endDateString);
+
+		if (startFormatted && endFormatted) {
+			return `${startFormatted} - ${endFormatted}`;
+		}
+
+		return startFormatted || endFormatted || '';
+	}
+
+	// Handle scroll to show/hide scroll to top button
+	function handleScroll() {
+		if (taskListRef) {
+			// Show button when scrolled more than threshold
+			showScrollToTop = taskListRef.scrollTop > SCROLL_TO_TOP_THRESHOLD;
+		}
+	}
+
+	// Scroll to top function
+	function scrollToTop() {
+		if (taskListRef) {
+			taskListRef.scrollTo({
+				top: 0,
+				behavior: 'smooth'
+			});
+		}
+	}
+
 	/**
-	 * Fetch current BTC price
+	 * Lazy load drawer components after initial render
+	 */
+	async function loadDrawerComponents(): Promise<void> {
+		if (drawersLoaded) return;
+		try {
+			const filterModule = await import('$lib/components/filters/FilterDrawer.svelte');
+			FilterDrawer = filterModule.default;
+			drawersLoaded = true;
+		} catch (error) {
+			console.error('Error loading drawer components:', error);
+		}
+	}
+
+	/**
+	 * Lazy load map component with permission check
+	 */
+	async function loadMapComponent(): Promise<void> {
+		if (mapLoaded) return;
+
+		// Check geolocation permission before loading map
+		if (browser && navigator.permissions) {
+			try {
+				const permission = await navigator.permissions.query({
+					name: 'geolocation' as PermissionName
+				});
+				if (permission.state === 'denied') {
+					console.warn('Geolocation permission denied, map may not work properly');
+				}
+			} catch (error) {
+				// Permission API not supported, continue anyway
+			}
+		}
+
+		try {
+			TaskLocationMap = (await import('$lib/components/maps/TaskLocationMap.svelte')).default;
+			mapLoaded = true;
+		} catch (error) {
+			console.error('Error loading map component:', error);
+		}
+	}
+
+
+	/**
+	 * Fetch current BTC price (deferred)
 	 */
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -160,37 +205,54 @@
 	 * Load Nostr data with proper state management
 	 */
 	async function loadNostrData(): Promise<void> {
-		if (dataLoaded) return; // Prevent multiple loads
+		// Create a key from search params to detect if search changed
+		const currentSearchKey = JSON.stringify(searchParams);
+		const searchChanged =
+			$tasksStore.searchParamsKey !== '' && $tasksStore.searchParamsKey !== currentSearchKey;
+
+		// Check if we already have tasks in store (from previous navigation)
+		const hasExistingTasks = $tasksStore.items.length > 0;
+
+		// If we have existing tasks and search hasn't changed, don't reload - just use what's in the store
+		if (hasExistingTasks && !searchChanged) {
+			$tasksStore.searchParamsKey = currentSearchKey;
+			return;
+		}
+
+		// Prevent multiple loads - if already loading, don't start another
+		if ($tasksStore.loading) return;
 
 		try {
-			// Clear cache to ensure fresh data
-			cleanup();
-			
-			// Ensure we start with page 1 and limit 15
-			searchParams = {
+			// Only load if we don't have tasks or search changed
+			const newSearchParams: SearchTasksParams = {
 				...searchParams,
 				page: 1,
-				limit: 15,
-				until: undefined
+				limit: TASKS_PER_PAGE
 			};
-			
-			// Clear existing tasks before loading
-			tasksStore.update((state) => ({
-				...state,
-				items: [],
-				currentPage: 1,
-				hasMore: true,
-				error: null
-			}));
-			
+
+			// Only include until if it has a value
+			if (searchParams.until !== undefined) {
+				newSearchParams.until = searchParams.until;
+			}
+
+			searchParams = newSearchParams;
+
+			// Clear existing tasks before loading (only if search changed)
+			if (searchChanged || !hasExistingTasks) {
+				tasksStore.update((state) => ({
+					...state,
+					items: [],
+					currentPage: 1,
+					hasMore: true,
+					error: null
+				}));
+			}
+
 			await findTasks(searchParams);
+
+			$tasksStore.searchParamsKey = currentSearchKey;
 			dataLoaded = true;
 			showSkeleton = false;
-
-			// Setup infinite scroll after data is loaded
-			if (taskListRef) {
-				setupInfiniteScroll();
-			}
 
 			// Cleanup observers and timers
 			if (intersectionObserver) {
@@ -250,24 +312,24 @@
 
 	// Debounced function to update searchParams
 	const debouncedSearch = debounce(async () => {
-		// Solo buscar si hay al menos 3 caracteres
 		if (searchQuery.trim().length < 3) {
-			// Si la búsqueda es muy corta, limpiar resultados y mostrar todos
 			tasksStore.update((state) => ({
 				...state,
 				items: [],
 				currentPage: 1,
 				hasMore: true,
-				error: null
+				error: null,
+				searchParamsKey: ''
 			}));
 
-			// Buscar sin término de búsqueda
-			const newParams: SearchTasksParams = {
+			// Preserve existing filters, only clear the search term
+			searchParams = {
 				...searchParams,
 				page: 1,
-				search: undefined
+				search: '',
+				limit: TASKS_PER_PAGE
 			};
-			searchParams = { ...searchParams, ...newParams };
+			searchQuery = '';
 
 			try {
 				await findTasks(searchParams);
@@ -280,10 +342,11 @@
 		const newParams: SearchTasksParams = {
 			...searchParams,
 			page: 1,
-			search: searchQuery.trim()
+			search: searchQuery.trim(),
+			limit: TASKS_PER_PAGE
 		};
 
-		searchParams = { ...searchParams, ...newParams };
+		searchParams = newParams;
 
 		// Clear existing tasks when starting a new search
 		tasksStore.update((state) => ({
@@ -291,7 +354,8 @@
 			items: [],
 			currentPage: 1,
 			hasMore: true,
-			error: null
+			error: null,
+			searchParamsKey: ''
 		}));
 
 		try {
@@ -299,7 +363,7 @@
 		} catch (err) {
 			console.error('[FindTasks] Search fetch error:', err);
 		}
-	}, 1000);
+	}, SEARCH_DEBOUNCE_DELAY);
 
 	// Handle advanced filter drawer apply
 	function handleFilterApply(filters: SearchTasksParams) {
@@ -311,23 +375,19 @@
 			items: [],
 			currentPage: 1,
 			hasMore: true,
-			error: null
+			error: null,
+			searchParamsKey: ''
 		}));
 
 		searchParams = {
 			...searchParams,
 			...filters,
-			page: 1
+			page: 1,
+			limit: TASKS_PER_PAGE
 		};
 
 		// Update UI controls based on applied filters
 		searchQuery = filters.search || '';
-		selectedTaskType = filters.taskType
-			? {
-					label: filters.taskType === TaskTypeEnum.REMOTE ? 'Remote' : 'In Person',
-					value: filters.taskType
-				}
-			: { label: '', value: '' };
 
 		findTasks(searchParams);
 	}
@@ -335,7 +395,6 @@
 	// Clear filters
 	function clearFilters() {
 		searchQuery = '';
-		selectedTaskType = { label: '', value: '' };
 
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
@@ -346,24 +405,11 @@
 			items: [],
 			currentPage: 1,
 			hasMore: true,
-			error: null
+			error: null,
+			searchParamsKey: ''
 		}));
 
 		findTasks(searchParams);
-	}
-
-	// Format date
-	function formatTimeAgo(date: string): string {
-		try {
-			const parsedDate = new Date(date);
-			if (isNaN(parsedDate.getTime())) {
-				return $t('dashboard.find_tasks.invalid_date') || 'Invalid date';
-			}
-			return formatDistanceToNow(parsedDate, { addSuffix: true });
-		} catch (error) {
-			console.error('[FindTasks] Error formatting date:', error);
-			return $t('dashboard.find_tasks.invalid_date') || 'Invalid date';
-		}
 	}
 
 	// Load more tasks
@@ -392,7 +438,7 @@
 				...searchParams,
 				page: nextPage,
 				until: untilTimestamp,
-				limit: 15
+				limit: TASKS_PER_PAGE
 			};
 
 			await findTasks(searchParams);
@@ -405,23 +451,23 @@
 
 	/**
 	 * Setup infinite scroll using scroll listener
-	 * Loads more tasks automatically when user scrolls near the end (70% of scroll)
+	 * Called once on mount to handle loading more tasks on scroll
 	 */
 	function setupInfiniteScroll(): void {
-		if (!browser || !taskListRef) return;
+		if (!taskListRef) return;
 
-		// Cleanup existing handler
-		if (scrollHandler) {
+		// Remove old handler if it exists (cleanup before setting up new one)
+		if (scrollHandler && taskListRef) {
 			taskListRef.removeEventListener('scroll', scrollHandler);
-			scrollHandler = null;
 		}
 
-		// Track last scroll position to prevent duplicate loads
-		let lastScrollTop = 0;
-		let lastLoadScrollTop = 0;
+		// Clear any pending timeout
+		if (scrollTimeout) {
+			clearTimeout(scrollTimeout);
+			scrollTimeout = null;
+		}
 
 		// Create scroll handler with debouncing
-		let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 		scrollHandler = () => {
 			if (scrollTimeout) {
 				clearTimeout(scrollTimeout);
@@ -433,41 +479,32 @@
 				}
 
 				const { scrollTop, scrollHeight, clientHeight } = taskListRef;
-
-				// Only process if user actually scrolled down (not up)
-				if (scrollTop <= lastScrollTop) {
-					lastScrollTop = scrollTop;
-					return;
-				}
-
-				lastScrollTop = scrollTop;
-
-				// Check if we have enough content to scroll
-				if (scrollHeight <= clientHeight) {
-					// Not enough content, but don't auto-load - wait for user to scroll
-					return;
-				}
-
-				const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
 				const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
 
-				// Load more when:
-				// 1. User has scrolled 70% of the content
-				// 2. User scrolled at least 200px since last load (to prevent duplicate loads)
-				// 3. User is within 500px of the bottom (ensures they're actually near the end)
-				if (
-					scrollPercentage > 0.7 &&
-					scrollTop - lastLoadScrollTop > 200 &&
-					distanceFromBottom < 500
-				) {
-					lastLoadScrollTop = scrollTop;
+				// Load more when within trigger distance of bottom
+				if (distanceFromBottom < INFINITE_SCROLL_TRIGGER_DISTANCE) {
 					loadMoreTasks();
 				}
-			}, 200); // Increased debounce to prevent rapid-fire loads
+			}, SCROLL_DEBOUNCE_DELAY);
 		};
 
 		// Add scroll listener with passive flag for better performance
 		taskListRef.addEventListener('scroll', scrollHandler, { passive: true });
+	}
+
+	/**
+	 * Cleanup infinite scroll listener
+	 */
+	function cleanupInfiniteScroll(): void {
+		if (scrollHandler && taskListRef) {
+			taskListRef.removeEventListener('scroll', scrollHandler);
+			scrollHandler = null;
+		}
+
+		if (scrollTimeout) {
+			clearTimeout(scrollTimeout);
+			scrollTimeout = null;
+		}
 	}
 
 	// Get status badge color and text
@@ -503,82 +540,21 @@
 	// Eliminar la variable cardRef que estaba causando conflictos
 	// let cardRef = $state<HTMLElement | null>(null);
 
-	// Task type filter handler
-	function toggleTaskType(type: TaskTypeEnum | undefined) {
-		// Clear existing tasks when changing task type
-		tasksStore.update((state) => ({
-			...state,
-			items: [],
-			currentPage: 1,
-			hasMore: true,
-			error: null
-		}));
-
-		if (!type) {
-			searchParams = { ...searchParams, taskType: undefined, page: 1 };
-		} else {
-			searchParams = {
-				...searchParams,
-				taskType: type,
-				page: 1
+	// Setup scroll listeners when taskListRef is available
+	$effect(() => {
+		const ref = taskListRef;
+		if (ref) {
+			ref.addEventListener('scroll', handleScroll);
+			setupInfiniteScroll();
+			return () => {
+				ref.removeEventListener('scroll', handleScroll);
+				cleanupInfiniteScroll();
 			};
-		}
-
-		findTasks(searchParams);
-	}
-
-	// Initial data fetch and setup
-	onMount(() => {
-		if (browser) {
-			// Fetch BTC price for USDT conversion (non-critical)
-			fetchBtcPrice();
-
-			// Check if we already have tasks in store from previous navigation
-			if ($tasksStore.items.length > 0) {
-				dataLoaded = true;
-				showSkeleton = false;
-				// Setup infinite scroll if taskListRef is available
-				if (taskListRef) {
-					setupInfiniteScroll();
-				}
-			} else {
-				// Setup lazy loading for Nostr data
-				setupLazyLoading();
-			}
-		}
-	});
-
-	// Cleanup on component destroy
-	onDestroy(() => {
-		if (browser) {
-			// Cleanup lazy loading
-			if (intersectionObserver) {
-				intersectionObserver.disconnect();
-				intersectionObserver = null;
-			}
-			if (fallbackTimer) {
-				clearTimeout(fallbackTimer);
-				fallbackTimer = null;
-			}
-
-			// Cleanup infinite scroll handler
-			if (scrollHandler && taskListRef) {
-				taskListRef.removeEventListener('scroll', scrollHandler);
-				scrollHandler = null;
-			}
-
-			cleanup();
 		}
 	});
 
 	// Loading state management effect
 	$effect(() => {
-		// Update initial load flag when data is loaded
-		if (isInitialLoad && dataLoaded) {
-			isInitialLoad = false;
-		}
-
-
 		// Handle loading timeout for Nostr data
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		if ($tasksStore.loading && searchParams.page === 1 && !dataLoaded) {
@@ -597,6 +573,115 @@
 		};
 	});
 
+	// Initial data fetch and setup
+	onMount(() => {
+		// Find app-shell__content element once on mount
+		// Use multiple attempts to ensure DOM is ready with retry limit
+		let retryCount = 0;
+		const addClass = () => {
+			const content = document.querySelector('.app-shell__content') as HTMLElement;
+			if (content && !content.classList.contains('find-tasks-no-scroll')) {
+				appShellContent = content;
+				content.classList.add('find-tasks-no-scroll');
+				// Also add data attribute for more specific targeting
+				content.setAttribute('data-find-tasks-page', 'true');
+			} else if (!content && retryCount < DOM_QUERY_MAX_RETRIES) {
+				// Retry if element not found yet, up to max retries
+				retryCount++;
+				requestAnimationFrame(addClass);
+			}
+		};
+		requestAnimationFrame(addClass);
+
+		// Sync searchQuery with searchParams.search
+		searchQuery = searchParams.search || '';
+
+		// Scroll listeners are set up in $effect when taskListRef is available
+
+		// Check if we have cached tasks that match current search
+		const currentSearchKey = JSON.stringify(searchParams);
+		const hasCachedData =
+			$tasksStore.items.length > 0 &&
+			$tasksStore.searchParamsKey === currentSearchKey;
+
+		// Load data if no cache or cache doesn't match
+		if (!hasCachedData) {
+			// Clear stale cache if exists (before calling loadNostrData)
+			if ($tasksStore.items.length > 0 && $tasksStore.searchParamsKey !== currentSearchKey) {
+				tasksStore.update((state) => ({
+					...state,
+					items: [],
+					currentPage: 1,
+					hasMore: true,
+					error: null,
+					searchParamsKey: ''
+				}));
+			}
+			// Always load if no cached data - loadNostrData will handle the logic
+			loadNostrData();
+		} else {
+			// Use cached data
+			dataLoaded = true;
+			showSkeleton = false;
+		}
+
+		// Defer non-critical operations
+		if (browser) {
+			if (window.requestIdleCallback) {
+				window.requestIdleCallback(() => {
+					fetchBtcPrice();
+					loadDrawerComponents();
+					// Load map on desktop (always visible) or defer on mobile
+					const isDesktop = window.innerWidth >= 1024;
+					if (isDesktop) {
+						loadMapComponent();
+					}
+				});
+			} else {
+				setTimeout(() => {
+					fetchBtcPrice();
+					loadDrawerComponents();
+					const isDesktop = window.innerWidth >= 1024;
+					if (isDesktop) {
+						loadMapComponent();
+					}
+				}, 100);
+			}
+		}
+	});
+
+	// Cleanup on component destroy
+	onDestroy(() => {
+		// Cleanup infinite scroll listeners and timeouts
+		cleanupInfiniteScroll();
+		
+		// Scroll listeners are cleaned up by $effect return function
+		// Remove class from app-shell__content
+		if (appShellContent) {
+			appShellContent.classList.remove('find-tasks-no-scroll');
+			appShellContent.removeAttribute('data-find-tasks-page');
+		} else {
+			// Fallback: try to find and remove even if reference is lost
+			const content = document.querySelector('.app-shell__content') as HTMLElement;
+			if (content) {
+				content.classList.remove('find-tasks-no-scroll');
+				content.removeAttribute('data-find-tasks-page');
+			}
+		}
+
+		// Cleanup lazy loading
+		if (intersectionObserver) {
+			intersectionObserver.disconnect();
+			intersectionObserver = null;
+		}
+		if (fallbackTimer) {
+			clearTimeout(fallbackTimer);
+			fallbackTimer = null;
+		}
+
+		cleanup();
+	});
+
 	const onSelectTask = (task: Task) => {
 		if (task.status === TaskStatusEnum.OPEN) {
 			// Redirect to signup page for public users
@@ -604,7 +689,7 @@
 		}
 	};
 
-	// Función para obtener el placeholder dinámico
+	// Function to get dynamic placeholder
 	function getSearchPlaceholder(): string {
 		if (searchQuery.length > 0 && searchQuery.length < 3) {
 			return $t('find_tasks.search_minimum_chars');
@@ -612,7 +697,7 @@
 		return $t('find_tasks.search_placeholder');
 	}
 
-	// Función para obtener la clase del input de búsqueda
+	// Function to get search input class
 	function getSearchInputClass(): string {
 		let baseClass = 'input input-bordered w-full pl-10';
 
@@ -625,9 +710,6 @@
 		return baseClass;
 	}
 
-	// Selected task for map display
-	let selectedTask = $state<Task | null>(null);
-
 	// Function to handle task selection for map display
 	function selectTaskForMap(task: Task) {
 		selectedTask = task;
@@ -639,10 +721,7 @@
 		}
 	}
 
-	// Referencias a las cards de las tasks para hacer scroll
-	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
-
-	// Función para hacer scroll a una card específica
+	// Function to scroll to a specific task card
 	async function scrollToTaskCard(taskId: string) {
 		// Wait for DOM to update, especially important when switching views
 		await tick();
@@ -684,16 +763,16 @@
 		});
 	}
 
-	// Action para registrar las referencias de las cards
+	// Action to register task card references
 	function registerTaskCard(node: HTMLElement, { taskId }: { taskId: string }) {
-		// Cuando el elemento se monta
+		// When element mounts
 		if (node) {
 			taskCardRefs.set(taskId, node);
 		}
 
 		return {
 			destroy() {
-				// Cuando el elemento se desmonta
+				// When element unmounts
 				taskCardRefs.delete(taskId);
 			}
 		};
@@ -705,7 +784,7 @@
 	}
 </script>
 
-<div class="mx-auto min-h-0 max-w-6xl p-0 find-tasks-container find-tasks-page flex-1 w-full" data-find-tasks-page="true" style="height: auto; min-height: 100%;">
+<div class="mx-auto min-h-0 max-w-6xl px-2 py-0 find-tasks-container find-tasks-page flex-1 w-full" data-find-tasks-page="true" style="height: auto; min-height: 100%;">
 	<!-- Dashboard Tabs -->
 	<!-- <Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} /> -->
 
@@ -942,9 +1021,13 @@
 												<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 													<!-- Left: Title (70% width) -->
 													<div class="w-[70%] pr-2 md:pr-4">
-														<div class="card-title line-clamp-2 text-lg font-semibold">
-															<TranslatableTask {task} />
-														</div>
+														<TranslatableTask
+															{task}
+															showDescription={true}
+															showDescriptionToggle={false}
+															descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
+															titleClass="card-title line-clamp-2 text-lg font-semibold"
+														/>
 													</div>
 													<!-- Right: Status Badge + Price (30% width, aligned right) -->
 													<div class="flex w-[30%] shrink-0 flex-col items-end justify-between gap-4">
@@ -1241,40 +1324,88 @@
 
 					<!-- Desktop Map Sidebar (hidden on mobile) -->
 					<div class="hidden min-h-0 lg:block" style="height: 100%;">
-						<div class="h-full min-h-0">
-							<TaskLocationMap
-								tasks={$tasksStore.items}
-								height="100%"
-								{selectedTask}
-								onTaskSelected={async (event) => {
+						{#if mapLoaded && TaskLocationMap}
+							<div class="h-full min-h-0">
+								<TaskLocationMap
+									tasks={$tasksStore.items}
+									height="100%"
+									{selectedTask}
+								onTaskSelected={async (event: {
+									task: Task;
+									locationType: 'pickup' | 'dropoff';
+								}) => {
 									selectedTask = event.task;
 									await scrollToTaskCard(event.task.id);
 								}}
-							/>
-						</div>
+								/>
+							</div>
+						{:else}
+							<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
+								<span class="loading loading-spinner loading-lg"></span>
+							</div>
+						{/if}
 					</div>
 				</div>
+
+				<!-- Mobile Floating Button - Scroll to Top (only visible on mobile) -->
+				{#if showScrollToTop}
+					<button
+						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex items-center justify-center rounded-4xl p-3 transition-all duration-300 hover:scale-110 hover:brightness-110 active:scale-95 lg:hidden"
+						style="bottom: var(--app-bottom-fab);"
+						onclick={scrollToTop}
+						title={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
+						aria-label={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 10l7-7m0 0l7 7m-7-7v18"
+							/>
+						</svg>
+					</button>
+				{/if}
 			</div>
 		{:else}
 			<!-- Map View - Full Width (Mobile only) -->
 			<div class="relative min-h-0 overflow-hidden lg:hidden" style="height: 100%;">
-				<div class="h-full min-h-0">
-					<TaskLocationMap
-						tasks={$tasksStore.items}
-						height="100%"
-						{selectedTask}
-						onTaskSelected={async (event) => {
-							selectedTask = event.task;
-							// When a task is selected on the map, switch to list view to show the task
-							viewMode = 'list';
-							// Wait for view mode change to complete before scrolling
-							await tick();
-							// Wait for next frame to ensure DOM is fully updated and taskListRef is available
-							await new Promise((resolve) => requestAnimationFrame(resolve));
-							await scrollToTaskCard(event.task.id);
-						}}
-					/>
-				</div>
+				{#if mapLoaded && TaskLocationMap}
+					<div class="h-full min-h-0">
+						<TaskLocationMap
+							tasks={$tasksStore.items}
+							height="100%"
+							{selectedTask}
+							onTaskSelected={async (event: {
+								task: Task;
+								locationType: 'pickup' | 'dropoff';
+							}) => {
+								selectedTask = event.task;
+								// When a task is selected on the map, switch to list view to show the task
+								viewMode = 'list';
+								// Wait for view mode change to complete before scrolling
+								await tick();
+								// Wait for next frame to ensure DOM is fully updated and taskListRef is available
+								await new Promise((resolve) => requestAnimationFrame(resolve));
+								await scrollToTaskCard(event.task.id);
+							}}
+						/>
+					</div>
+				{:else}
+					<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
+						<span class="loading loading-spinner loading-lg"></span>
+					</div>
+					<!-- Load map component when in map view -->
+					{#if !mapLoaded}
+						{loadMapComponent()}
+					{/if}
+				{/if}
 			</div>
 		{/if}
 		</div>
@@ -1290,7 +1421,9 @@
 	isScrollable={true}
 >
 	{#snippet children()}
-		<FilterDrawer initialFilters={searchParams} onApply={handleFilterApply} />
+		{#if FilterDrawer}
+			<FilterDrawer initialFilters={searchParams} onApply={handleFilterApply} />
+		{/if}
 	{/snippet}
 </Drawer>
 
@@ -1522,6 +1655,31 @@
 		.task-list-scroll-container {
 			box-sizing: border-box;
 		}
+	}
+
+	/* Scroll to top button fade-in animation */
+	.scroll-to-top-button {
+		opacity: 0;
+		transform: translateY(10px) scale(0.9);
+		animation: fadeInButton 0.3s ease-out forwards;
+	}
+
+	@keyframes fadeInButton {
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.scroll-to-top-button:hover {
+		opacity: 1;
+		transform: scale(1.1);
+		filter: brightness(1.2);
+	}
+
+	.scroll-to-top-button:active {
+		transform: scale(0.95);
+		opacity: 0.9;
 	}
 </style>
 
