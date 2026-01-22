@@ -89,7 +89,7 @@
       "remote_location_description": "Esta tarea se puede completar remotamente.",
       "task_attachment": "Adjunto de tarea",
       "avatar_alt": "Avatar",
-      "sign_up_to_bid": "Regístrate para ofertar",
+      "sign_up_to_bid": "Ofertar",
       "task_cancelled": "Tarea cancelada",
       "task_disputed": "Tarea en disputa",
       "task_in_progress": "Tarea en progreso",
@@ -142,7 +142,7 @@
       "plus_icon_alt": "Icono de más"
     },
     "find_tasks": {
-      "sign_up_to_bid": "Regístrate para ofertar",
+      "sign_up_to_bid": "Ofertar",
       "bidding_closed": "Ofertas cerradas",
       "sign_up_to_bid_aria": "Regístrate para ofertar en esta tarea",
       "avatar_alt": "Avatar",
