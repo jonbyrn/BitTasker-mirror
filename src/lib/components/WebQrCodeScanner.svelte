@@ -62,18 +62,10 @@
 		if (scanCompleted) return;
 
 		try {
-			// Get available cameras
-			const devices = await Html5Qrcode.getCameras();
-			if (devices.length === 0) {
-				throw new Error($t('common.components.qr_scanner.no_camera_found'));
-			}
-
-			// Use the first available camera (usually the back camera)
-			const cameraId = devices[0].id;
-
-			// Start scanning
+			// Start scanning with back camera (environment facing mode)
+			// This matches the login QR scanner behavior
 			await html5QrCode.start(
-				cameraId,
+				{ facingMode: 'environment' },
 				config,
 				async (qrCodeMessage: string, result: Html5QrcodeResult) => {
 					// Successfully scanned QR code - stop scanning immediately

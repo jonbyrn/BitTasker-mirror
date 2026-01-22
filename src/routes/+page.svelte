@@ -7,8 +7,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 
-	let { data }: { data: PageData } = $props();
-	const seo = data.seo;
+	let { data: seo }: { data: PageData } = $props();
 	
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';

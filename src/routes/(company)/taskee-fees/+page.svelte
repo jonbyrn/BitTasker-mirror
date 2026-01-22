@@ -2,8 +2,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
 
-	let { data } = $props();
-	const seo = data.seo;
+	let { data: seo } = $props();
 
 	// Current date for the "last updated" timestamp
 	const currentDate = new Date().toLocaleDateString('en-US', {

@@ -3,7 +3,7 @@ import type { PageLoad } from './$types';
 
 
 export const load: PageLoad = async ({ url }) => {
-	const seo = {
+	return {
 		title: 'Security & Safety - BitTasker | Bitcoin Platform Security',
 		description: 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
 		keywords: 'BitTasker security, Bitcoin security, platform safety, transaction security, smart contract security, cryptocurrency safety, user protection, secure payments',
@@ -27,9 +27,5 @@ export const load: PageLoad = async ({ url }) => {
 				'dateModified': '2024-01-15'
 			}
 		}
-	};
-
-	return {
-		seo
 	};
 };

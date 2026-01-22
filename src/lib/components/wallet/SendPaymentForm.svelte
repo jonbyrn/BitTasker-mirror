@@ -24,12 +24,10 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
 	import IconChevronRight from '~icons/mdi/chevron-right';
-	import IconChevronUp from '~icons/mdi/chevron-up';
-	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
 	import { linear } from 'svelte/easing';
-	import { fly, slide } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 
 	let { onCancel, onSuccess } = $props<{
 		onCancel: () => void;
@@ -462,9 +460,7 @@
 								$walletStore.rsk.address,
 								amountRBTC
 							);
-							const gasFeeRBTC =
-								parseFloat(gasEstimation.totalCostFormatted) - parseFloat(amountRBTC);
-							rootstockGasFee = Math.max(0, Math.floor(gasFeeRBTC * 100_000_000));
+							rootstockGasFee = Math.max(0, Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000));
 						}
 
 						// Total fees = service fee + miner fee + Rootstock gas fee
@@ -508,8 +504,7 @@
 					const finalAddress = recipientAddress || $walletStore.rsk.address;
 
 					const gasEstimation = await walletManager.estimateRBTCGas(finalAddress!, amountRBTC);
-					const gasFeeRBTC = parseFloat(gasEstimation.totalCostFormatted) - parseFloat(amountRBTC);
-					const networkFee = Math.floor(gasFeeRBTC * 100_000_000);
+					const networkFee = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
 					feeState.estimated = {
 						serviceFee: 0,
 						networkFee,
@@ -559,15 +554,14 @@
 					// We'll estimate with a high amount to get approximate gas fee
 					if ($walletStore.rsk.connected && $walletStore.rsk.address) {
 						try {
-							// Estimate with 90% of balance to get approximate gas fee
-							const estimateAmountRBTC = ((availableBalance * 0.9) / 100_000_000).toFixed(8);
+							// Estimate with 80% of balance (not 90%) to get MORE conservative gas fee estimate
+							// This accounts for the fact that gas estimation may vary with amount
+							const estimateAmountRBTC = ((availableBalance * 0.80) / 100_000_000).toFixed(8);
 							const gasEstimation = await walletManager.estimateRBTCGas(
 								formInput.addressInput || $walletStore.rsk.address,
 								estimateAmountRBTC
 							);
-							const gasFeeRBTC =
-								parseFloat(gasEstimation.totalCostFormatted) - parseFloat(estimateAmountRBTC);
-							const estimatedGasFee = Math.floor(gasFeeRBTC * 100_000_000);
+							const estimatedGasFee = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
 							feeState.parameters = {
 								fixedFee: estimatedGasFee
 							};
@@ -597,20 +591,25 @@
 		if (!availableBalance || availableBalance <= 0) return 0;
 		if (!feeState.parameters) return 0;
 
-		const balance = availableBalance;
-		const safetyMargin = 5; // 5 sats safety margin
+		// Use a percentage-based safety margin (10%) plus absolute minimum
+		// This accounts for gas price fluctuations and estimation variance
+		const marginPercentage = 0.20; // 20% buffer
+		const absoluteMinimum = 20; // 20 sats absolute minimum
 
 		// For percentage-based fees: maxAmount = (balance - fixedFee) / (1 + percentage/100)
 		if (feeState.parameters.percentage !== undefined) {
 			const fixedFee = feeState.parameters.fixedFee || 0;
 			const percentage = feeState.parameters.percentage;
-			const maxBeforeMargin = (balance - fixedFee) / (1 + percentage / 100);
-			return Math.max(0, Math.floor(maxBeforeMargin) - safetyMargin);
+			const feeWithBuffer = Math.ceil(fixedFee * (1 + marginPercentage));
+			const maxBeforeMargin = (availableBalance - feeWithBuffer) / (1 + percentage / 100);
+			return Math.max(0, Math.floor(maxBeforeMargin) - absoluteMinimum);
 		}
 
-		// For fixed fees only: maxAmount = balance - fixedFee
+		// For fixed fees only: maxAmount = balance - fixedFee - buffer
 		if (feeState.parameters.fixedFee !== undefined) {
-			return Math.max(0, balance - feeState.parameters.fixedFee - safetyMargin);
+			const feeWithBuffer = Math.ceil(feeState.parameters.fixedFee * (1 + marginPercentage));
+			const maxAmount = availableBalance - feeWithBuffer - absoluteMinimum;
+			return Math.max(0, maxAmount);
 		}
 
 		return 0;
@@ -688,21 +687,6 @@
 
 				// Trigger fee estimation to get final accurate fees
 				await updateFeeEstimate();
-
-				// Apply final refined amount (one-time adjustment)
-				if (feeState.estimated) {
-					const refinedMax = Math.max(0, availableBalance - feeState.estimated.totalFees - 2);
-					if (Math.abs(refinedMax - max) > 10) {
-						// Only if significant difference
-						feeState.maxCalculation.amount = refinedMax;
-						if (formInput.unit === 'sats') {
-							formInput.amount = refinedMax.toString();
-						} else if (btcPrice > 0) {
-							const usdAmount = (refinedMax / 100_000_000) * btcPrice;
-							formInput.amount = usdAmount.toFixed(2).replace(/\.?0+$/, '');
-						}
-					}
-				}
 			}
 		} catch (error) {
 			console.error('Failed to calculate max amount:', error);
@@ -759,17 +743,15 @@
 
 			let txHash: string | null = null;
 
-		if (network === 'lightning-bitcoin') {
-			// Lightning send via submarine swap
-			const swapResult = await walletManager.createSubmarineSwap(recipient, formInput.memo);
-			const lockResult = await walletManager.lockSubmarineSwapFunds(swapResult.swapData);
-			txHash = lockResult.txHash;
+			if (network === 'lightning-bitcoin') {
+				// Lightning send via submarine swap
+				const swapResult = await walletManager.createSubmarineSwap(recipient, formInput.memo);
+				const lockResult = await walletManager.lockSubmarineSwapFunds(swapResult.swapData);
+				txHash = lockResult.txHash;
 			} else if (network === 'rootstock-bitcoin') {
 				// RSK direct send
 				const amountRBTC = amountInSats / 100_000_000;
-				txHash = await walletManager.sendRBTC(recipient, amountRBTC.toFixed(8)).catch((error) => {
-					throw error;
-				});
+				txHash = await walletManager.sendRBTC(recipient, amountRBTC.toFixed(8))
 				// Show immediate feedback and close form
 				appStore.showSuccessToast($t('wallet.send.transaction_sending'));
 				triggerHaptic(ImpactStyle.Medium);
@@ -873,7 +855,7 @@
 <div class="flex flex-1 flex-col min-h-0">
 	{#if !sendState.isSending}
 		<!-- Tab Navigation (Top) -->
-		<div class="tabs tabs-boxed border-base-300 mb-3 flex-shrink-0 overflow-hidden rounded-lg border sm:mb-4">
+		<div class="tabs tabs-boxed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4">
 			<button
 				class="tab flex-1"
 				class:bg-primary={uiState.activeTab === 'scan'}
@@ -1109,7 +1091,7 @@
 										<input
 											id="address-input"
 											type="text"
-											class="w-full bg-transparent pl-6 text-base text-sm focus:outline-none placeholder:text-base-content/50"
+											class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
 											placeholder={$t('wallet.send.address_placeholder')}
 											bind:value={formInput.addressInput}
 											oninput={handleAddressInput}
@@ -1315,7 +1297,7 @@
 									<div class="flex w-full items-center gap-1.5">
 										<span>{$t('wallet.network_fee')}:</span>
 										{#if feeState.isLoading}
-											<span class="font-semibold inline-flex items-center gap-1.5 min-w-[5rem]">
+											<span class="font-semibold inline-flex items-center gap-1.5 min-w-20">
 												<span class="loading loading-spinner loading-xs"></span>
 											</span>
 										{:else if feeState.estimated}
@@ -1423,7 +1405,7 @@
 										<input
 											id="address-input-desktop"
 											type="text"
-											class="w-full bg-transparent pl-6 text-base text-sm focus:outline-none placeholder:text-base-content/50"
+											class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
 											placeholder={$t('wallet.send.address_placeholder')}
 											bind:value={formInput.addressInput}
 											oninput={handleAddressInput}
@@ -1586,7 +1568,7 @@
 								<div class="flex w-full items-center gap-1.5 sm:gap-2">
 									<span>{$t('wallet.network_fee')}:</span>
 									{#if feeState.isLoading}
-										<span class="font-semibold inline-flex items-center gap-1.5 min-w-[5rem] sm:gap-2">
+										<span class="font-semibold inline-flex items-center gap-1.5 min-w-20 sm:gap-2">
 											<span class="loading loading-spinner loading-xs"></span>
 										</span>
 									{:else if feeState.estimated}
@@ -1702,7 +1684,7 @@
 		<!-- Action Buttons -->
 		{#if uiState.activeTab === 'enter'}
 			<div
-				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex-shrink-0 flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
+				class="bg-base-100 sticky bottom-0 z-10 mt-auto shrink-0 flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
 			>
 				<!-- Mobile Step 1: Cancel and Next -->
 				{#if uiState.currentStep === 1}

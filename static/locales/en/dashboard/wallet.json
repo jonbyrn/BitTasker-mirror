@@ -93,6 +93,7 @@
       },
       "swap_claimed": "Swap Claimed",
       "lock": "Swap Sent",
+      "transfer": "Token Transfer",
       "unknown": "Transaction",
       "createescrow": "Contract Funded",
       "completetask": "Task Completed",

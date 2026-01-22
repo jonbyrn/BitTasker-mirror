@@ -1,10 +1,9 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 	import type { PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
-	const seo = data.seo;
+	let { data: seo }: { data: PageData } = $props();
 </script>
 
 <svelte:head>

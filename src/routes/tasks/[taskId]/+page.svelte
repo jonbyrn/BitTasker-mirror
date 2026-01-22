@@ -16,9 +16,13 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
+	import type { PageData } from './$types';
 
 	// Get taskId from route params
 	const taskId = page.params.taskId;
+	
+	// Get SEO data from page data
+	let { data }: { data: PageData } = $props();
 
 	// Check if user is logged in
 	const isLoggedIn = $derived($authState.isAuthenticated);
@@ -52,8 +56,36 @@
 </script>
 
 <svelte:head>
-	<title>{$t('dashboard.task_details_by_task.page_title')}</title>
-	<meta name="description" content={$t('dashboard.task_details_by_task.page_description')} />
+	<title>{data.seo.title}</title>
+	<meta name="description" content={data.seo.description} />
+	<meta name="keywords" content={data.seo.keywords} />
+	<link rel="canonical" href={data.seo.canonical} />
+
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={data.seo.canonical} />
+	<meta property="og:title" content={data.seo.ogTitle} />
+	<meta property="og:description" content={data.seo.ogDescription} />
+	<meta property="og:image" content={data.seo.ogImage} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content={data.seo.ogTitle} />
+	<meta property="og:site_name" content="BitTasker" />
+
+	<!-- Twitter -->
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content={data.seo.canonical} />
+	<meta property="twitter:title" content={data.seo.twitterTitle} />
+	<meta property="twitter:description" content={data.seo.twitterDescription} />
+	<meta property="twitter:image" content={data.seo.twitterImage} />
+	<meta property="twitter:image:alt" content={data.seo.twitterTitle} />
+	<meta property="twitter:site" content="@BitTaskerdotcom" />
+	<meta property="twitter:creator" content="@BitTaskerdotcom" />
+
+	<!-- Structured Data -->
+	{#if data.seo.jsonLd}
+		{@html `<script type="application/ld+json">${JSON.stringify(data.seo.jsonLd)}</script>`}
+	{/if}
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />

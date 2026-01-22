@@ -236,11 +236,11 @@
 						<!-- Token details (collapsible for ERC-20 tokens) -->
 						{#if !token.isNative}
 							{@const isExpanded = expandedTokens.has(token.address)}
-							<div class="collapse-arrow border-base-300 bg-base-100 collapse rounded-lg border" class:collapse-open={isExpanded}>
+							<div class="collapse-arrow border-base-300 bg-base-100 collapse rounded-lg border" class:collapse-open={isExpanded} style="transition: none !important;">
 								<button
 									type="button"
-									class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium touch-manipulation transition-transform duration-100 select-none active:scale-95"
-									style="-webkit-tap-highlight-color: transparent;"
+									class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium touch-manipulation select-none"
+									style="-webkit-tap-highlight-color: transparent; transition: none !important;"
 									onclick={() => {
 										triggerHaptic(ImpactStyle.Light);
 										const newExpanded = new Set(expandedTokens);
@@ -254,7 +254,7 @@
 								>
 									<span>{$t('wallet.debug_wallet.asset_list.token_details')}</span>
 								</button>
-								<div class="collapse-content">
+								<div class="collapse-content" style="transition: none !important;">
 									<div class="space-y-1.5 px-3 pb-2">
 										<div class="flex items-center justify-between text-xs opacity-70">
 											<span>{$t('wallet.debug_wallet.asset_list.address')}:</span>

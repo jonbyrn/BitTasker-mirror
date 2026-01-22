@@ -155,15 +155,14 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				transactionHash: event.transactionHash
 			};
 
-			console.log('Creating Nostr contract with params:', contractParams);
 			await createContract(contractParams);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [pendingContract.freelancerPubkey],
-				title: 'New Contract Created',
-				body: `New contract created for task ${pendingContract.taskTitle}`,
+				title: `New contract created ${pendingContract.taskTitle ? `for task: ${pendingContract.taskTitle}` : ''}`,
+				body: `Your bid ${pendingContract.taskTitle ? `on task: ${pendingContract.taskTitle}` : ''} has been accepted by the client`,
 				type: 'contract_created',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 

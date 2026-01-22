@@ -67,6 +67,7 @@ function setupBackgroundMessageHandler() {
 	try {
 		messaging.onBackgroundMessage((payload) => {
 			const { notification, data } = payload;
+			console.log('🔕 SW: Background message received:', payload);
 
 
 			// ⚠️ CRITICAL: If notification object exists, FCM already displayed it
@@ -92,7 +93,7 @@ function setupBackgroundMessageHandler() {
 					{
 						action: 'open',
 						title: 'Open',
-						icon: '/web-app-manifest-192x192.png'
+						icon: '/web-app-manifest-192x192.png',
 					},
 					{
 						action: 'close',
@@ -132,35 +133,20 @@ self.addEventListener('notificationclick', (event) => {
 		return;
 	}
 
+	console.log('🔔 Notification clicked:', event.notification);
+
 	// Get the notification data
 	const data = event.notification.data;
 
 	// Determine the URL to open based on notification type
 	let urlToOpen = '/dashboard';
 
-	if (data.type === 'new_bid' && data.taskId) {
-		urlToOpen = `/dashboard/task/${data.taskId}`;
-	} else if (data.type === 'bid_created' && data.taskId) {
-		urlToOpen = `/dashboard/task/${data.taskId}`;
-	} else if (data.type === 'contract_created' && data.taskId) {
-		urlToOpen = `/dashboard/task/${data.taskId}`;
-	} else if (data.type === 'task_completed' && data.taskId) {
-		urlToOpen = `/dashboard/task/${data.taskId}`;
-	} else if (data.type === 'payment_released' && data.taskId) {
-		urlToOpen = `/dashboard/task/${data.taskId}`;
-	} else if (data.type === 'dispute_raised' && data.taskId) {
-		urlToOpen = `/dashboard/task/${data.taskId}`;
-	} else if (data.type === 'contract_cancelled' && data.taskId) {
-		urlToOpen = `/dashboard/task/${data.taskId}`;
-	} else if (data.type === 'message' && data.conversationId) {
-		urlToOpen = `/dashboard/messages/to/${data.conversationId}`;
-	} else if (data.type === 'task_update' && data.taskId) {
-		urlToOpen = `/dashboard/task/${data.taskId}`;
-	} else if (data.url) {
-		urlToOpen = data.url;
-	} else if (data.taskId) {
-		// Fallback: if we have a taskId, navigate to the task
-		urlToOpen = `/dashboard/task/${data.taskId}`;
+	if(data.clickAction) {
+		urlToOpen = data.clickAction;
+	} else if (data.click_action) {
+		urlToOpen = data.click_action;
+	} else if (data.clickAction || data.data?.clickAction) {
+		urlToOpen = data.clickAction || data.data.clickAction;
 	}
 
 	// Open the app/specific page

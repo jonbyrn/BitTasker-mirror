@@ -153,6 +153,10 @@ export default defineConfig({
         } */
     },
     server: {
-        allowedHosts: ['bittasker.com', 'master.bittasker.com', 'dev.bittasker.com', 'local.bittasker.com']
+        // For mobile live-reload (Capacitor on device) we typically load the dev server via:
+        // - http://<laptop-lan-ip>:3000 (same Wi‑Fi), or
+        // - http://localhost:3000 with `adb reverse`
+        // Allowing all hosts prevents Vite from blocking these.
+        allowedHosts: true
     }
 });

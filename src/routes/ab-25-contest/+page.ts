@@ -1,5 +1,5 @@
 export async function load({ url }) {
-	const seo = {
+	return {
 		title: 'Adopting Bitcoin 2025 Contest - Win 1 Million Sats | BitTasker',
 		description: 'Join the BitTasker contest at Adopting Bitcoin 2025! Complete the most tasks and win 1 Million Sats. Follow us on X and Nostr to qualify.',
 		keywords: 'BitTasker, Adopting Bitcoin, contest, 1 million sats, Bitcoin tasks, Bitcoin marketplace, AB25',
@@ -16,10 +16,6 @@ export async function load({ url }) {
 			description: 'BitTasker contest at Adopting Bitcoin 2025 - Win 1 Million Sats',
 			url: url.href
 		}
-	};
-
-	return {
-		seo
 	};
 }
 

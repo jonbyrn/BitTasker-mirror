@@ -6,6 +6,7 @@
 		markNotificationsAsRead
 	} from '$lib/nostr/savedSearch';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
@@ -392,20 +393,23 @@
 />
 
 <!-- Delete Confirmation -->
-{#if confirmDeleteId}
-	<div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-		<div class="bg-base-100 w-[90%] max-w-sm rounded-lg p-6">
-			<h3 class="mb-2 text-lg font-bold">{$t('profile_task.confirm_delete.title')}</h3>
-			<p>{$t('profile_task.confirm_delete.message')}</p>
+<Modal
+	isOpen={!!confirmDeleteId}
+	title={$t('profile_task.confirm_delete.title')}
+	onClose={() => (confirmDeleteId = null)}
+	size="sm"
+	isScrollable={false}
+>
+	{#snippet children()}
+		<p>{$t('profile_task.confirm_delete.message')}</p>
+	{/snippet}
 
-			<div class="modal-action">
-				<button class="btn" onclick={() => (confirmDeleteId = null)}
-					>{$t('profile_task.confirm_delete.cancel')}</button
-				>
-				<button class="btn btn-error" onclick={() => deleteSearch(confirmDeleteId!)}
-					>{$t('profile_task.confirm_delete.delete')}</button
-				>
-			</div>
-		</div>
-	</div>
-{/if}
+	{#snippet footer()}
+		<button class="btn" onclick={() => (confirmDeleteId = null)}>
+			{$t('profile_task.confirm_delete.cancel')}
+		</button>
+		<button class="btn btn-error" onclick={() => confirmDeleteId && deleteSearch(confirmDeleteId)}>
+			{$t('profile_task.confirm_delete.delete')}
+		</button>
+	{/snippet}
+</Modal>
