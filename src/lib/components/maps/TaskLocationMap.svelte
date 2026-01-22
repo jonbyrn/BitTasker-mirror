@@ -797,9 +797,13 @@
 	});
 </script>
 
-<div class="task-location-map w-full">
+<div class="task-location-map h-full min-h-0 w-full">
 	<!-- Map Container -->
-	<div bind:this={mapContainerDiv} class="map-container relative max-h-[800px] w-full" style="height: {height};">
+	<div
+		bind:this={mapContainerDiv}
+		class="map-container relative h-full min-h-0 w-full"
+		style="height: {height};"
+	>
 		<div 
 			bind:this={mapElement} 
 			class="h-full w-full overflow-hidden rounded-lg"
@@ -842,11 +846,11 @@
 					? 'fixed top-4 right-4 z-1000'
 					: 'absolute top-4 right-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
 				aria-label={isFullscreen
-					? $t('task.location_picker.exit_fullscreen')
-					: $t('task.location_picker.enter_fullscreen')}
+					? $t('common.task.location_picker.exit_fullscreen')
+					: $t('common.task.location_picker.enter_fullscreen')}
 				title={isFullscreen
-					? $t('task.location_picker.exit_fullscreen')
-					: $t('task.location_picker.enter_fullscreen')}
+					? $t('common.task.location_picker.exit_fullscreen')
+					: $t('common.task.location_picker.enter_fullscreen')}
 			>
 				{#if isFullscreen}
 					<!-- Exit fullscreen icon -->
