@@ -5,7 +5,7 @@ import type { PageLoad } from './$types';
  * Returns the SEO metadata for the page.
  */
 export const load: PageLoad = async ({ url }) => {
-	const seo = {
+	return {
 		title: 'Privacy Policy - BitTasker | Data Protection & User Privacy',
 		description: "Learn about BitTasker's privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.",
 		keywords: 'BitTasker privacy policy, data protection, user privacy, GDPR, CCPA, personal data, Bitcoin privacy, secure data handling',
@@ -28,9 +28,5 @@ export const load: PageLoad = async ({ url }) => {
 				dateModified: '2025-07-13'
 			}
 		}
-	};
-
-	return {
-		seo
 	};
 };

@@ -91,7 +91,6 @@ class HistoricalBalanceService {
 		
 		const cachedHistoricalData = this.getCachedHistoricalData(cacheKey);
 		if (cachedHistoricalData) {
-			console.log('[BalanceHistoryService] Using cached historical data, recalculating changes with current balance');
 			historicalBalances = cachedHistoricalData.historicalBalances;
 			historicalPrices = cachedHistoricalData.historicalPrices;
 			blockNumbers = cachedHistoricalData.blockNumbers;
@@ -543,7 +542,6 @@ class HistoricalBalanceService {
 			if (entry.data && Array.isArray(entry.data)) {
 				// Check if it looks like old format (BalanceChange array)
 				if (entry.data.length > 0 && entry.data[0] && typeof entry.data[0] === 'object' && 'satsChange' in entry.data[0]) {
-					console.log('[BalanceHistoryService] Detected old cache format, clearing');
 					localStorage.removeItem(cacheKey);
 					return null;
 				}
@@ -553,7 +551,6 @@ class HistoricalBalanceService {
 			if (!entry.historicalBalances || !Array.isArray(entry.historicalBalances) ||
 			    !entry.historicalPrices || !Array.isArray(entry.historicalPrices) ||
 			    !entry.blockNumbers || !Array.isArray(entry.blockNumbers)) {
-				console.log('[BalanceHistoryService] Invalid cache format (missing required arrays), clearing');
 				localStorage.removeItem(cacheKey);
 				return null;
 			}
@@ -562,7 +559,6 @@ class HistoricalBalanceService {
 			if (entry.historicalBalances.length !== this.periods.length ||
 			    entry.historicalPrices.length !== this.periods.length ||
 			    entry.blockNumbers.length !== this.periods.length) {
-				console.log('[BalanceHistoryService] Cache array length mismatch, clearing');
 				localStorage.removeItem(cacheKey);
 				return null;
 			}
@@ -652,7 +648,6 @@ class HistoricalBalanceService {
 			// Check if this is the old format (has 'data' property with BalanceChange[])
 			if (entry.data && Array.isArray(entry.data)) {
 				if (entry.data.length > 0 && entry.data[0] && typeof entry.data[0] === 'object' && 'satsChange' in entry.data[0]) {
-					console.log('[BalanceHistoryService] Clearing old cache format for key:', cacheKey);
 					localStorage.removeItem(cacheKey);
 				}
 			}

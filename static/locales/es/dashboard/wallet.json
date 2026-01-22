@@ -93,6 +93,7 @@
       },
       "swap_claimed": "Intercambio Reclamado",
       "lock": "Intercambio Enviado",
+      "transfer": "Transferencia de Token",
       "unknown": "Transacción",
 
       "createescrow": "Contrato Financiado",

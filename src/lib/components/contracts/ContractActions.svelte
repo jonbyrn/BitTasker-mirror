@@ -62,7 +62,7 @@
 			(e: ContractStatusEvent) =>
 				e.content.action === EscrowStatus.DisputeResolutionProposed &&
 				e.pubkey.toLowerCase() ===
-					contractStore.getContractKey(contract, 'clientPubkey').toLowerCase()
+					(contractStore.getContractKey(contract, 'clientPubkey') as string).toLowerCase()
 		).length
 	);
 
@@ -71,7 +71,7 @@
 			(e: ContractStatusEvent) =>
 				e.content.action === EscrowStatus.DisputeResolutionProposed &&
 				e.pubkey.toLowerCase() ===
-					contractStore.getContractKey(contract, 'freelancerPubkey').toLowerCase()
+					(contractStore.getContractKey(contract, 'otherPartyNpub') as string).toLowerCase()
 		).length
 	);
 
@@ -196,11 +196,11 @@
 			);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'freelancerPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Task Completed',
 				body: `Task ${contractStore.getContractKey(contract, 'taskTitle')} has been marked as completed`,
 				type: 'task_completed',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
@@ -256,11 +256,11 @@
 			);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Payment Released',
 				body: `Payment has been released for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'payment_released',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
@@ -298,11 +298,11 @@
 			);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'freelancerPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Dispute Raised',
 				body: `A dispute has been raised for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'dispute_raised',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -328,7 +328,7 @@
 
 		// Convert USD amounts to RBTC for validation and contract call
 		const freelancerAmountUSD = parseFloat(proposedFreelancerAmountUSD);
-		const totalAmountRBTC = parseFloat(contractStore.getContractKey(contract, 'amount'));
+		const totalAmountRBTC = parseFloat(contractStore.getContractKey(contract, 'amount') as string);
 		const totalAmountUSD = totalAmountRBTC * btcPrice;
 
 		// Validate that freelancer amount is not greater than total
@@ -354,11 +354,11 @@
 			);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Resolution Proposed',
 				body: `A resolution has been proposed for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'resolution_proposed',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
@@ -390,11 +390,11 @@
 			);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Proposal Accepted',
 				body: `A proposal has been accepted for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'proposal_accepted',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -429,17 +429,12 @@
 				contract.contractEvent.id
 			);
 
-			const isClient = contract.isClient;
-			const npubs = isClient
-				? [contractStore.getContractKey(contract, 'freelancerPubkey')]
-				: [contractStore.getContractKey(contract, 'clientPubkey')];
-
 			pushNotificationService.sendNotificationToNpubs({
-				npubs,
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Escrow Cancelled',
 				body: `An escrow has been cancelled for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'escrow_cancelled',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -472,11 +467,11 @@
 			);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Timelock Resolved',
 				body: `A timelock has been resolved for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'timelock_resolved',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -950,9 +945,9 @@
 
 				<div class="text-base-content/60 text-xs">
 					{$t('dashboard.contracts.actions.total_amount')}: ${(
-						parseFloat(contractStore.getContractKey(contract, 'amount')) * btcPrice
+						parseFloat(contractStore.getContractKey(contract, 'amount') as string) * btcPrice
 					).toFixed(2)} ({Math.round(
-						parseFloat(contractStore.getContractKey(contract, 'amount')) * 100_000_000
+						parseFloat(contractStore.getContractKey(contract, 'amount') as string) * 100_000_000
 					).toLocaleString()} Sats)
 				</div>
 

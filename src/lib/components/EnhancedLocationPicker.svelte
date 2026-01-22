@@ -47,8 +47,15 @@
 	let searchInput: HTMLInputElement;
 	let marker: google.maps.marker.AdvancedMarkerElement | null = null;
 	let circle: google.maps.Circle | null = null;
-	let currentServiceRadius = $state(serviceRadius);
-	let currentLocation = $state<Location>(location);
+	// Initialize with default values to avoid capturing initial prop values
+	let currentServiceRadius = $state(1.6);
+	let currentLocation = $state<Location>({
+		displayName: '',
+		longitude: -122.4194,
+		latitude: 37.7749,
+		zipCode: '',
+		locationLoaded: false
+	});
 	let isLoading = $state(false);
 	let isMapLoaded = $state(false);
 	let hasError = $state(false);
@@ -63,9 +70,13 @@
 	let maxRetries = 3;
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
 
-	// Update currentLocation when location prop changes
+	// Update currentLocation and currentServiceRadius when props change
 	$effect(() => {
-		currentLocation = location;
+		// Explicitly track props to ensure reactivity
+		const propLocation = location;
+		const propServiceRadius = serviceRadius;
+		currentLocation = propLocation;
+		currentServiceRadius = propServiceRadius;
 	});
 
 	// Default fallback coordinates (San Francisco)
@@ -903,8 +914,9 @@
 			<button
 				onclick={toggleFullscreen}
 				class="{isFullscreen
-					? 'fixed bottom-4 left-4 z-1000'
+					? 'fixed left-4 z-1000'
 					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				style={isFullscreen ? 'bottom: var(--app-bottom-fab);' : ''}
 				aria-label={isFullscreen
 					? $t('task.location_picker.exit_fullscreen')
 					: $t('task.location_picker.enter_fullscreen')}

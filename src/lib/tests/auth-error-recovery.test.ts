@@ -4,18 +4,32 @@ import { appStore } from '$lib/stores/app.store';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { decryptNsecWithBiometrics } from '$lib/utils/helpers/auth';
+import type { Credentials } from '$lib/types/auth';
 
 // Mock dependencies
 vi.mock('$lib/stores/app.store', () => {
 	const { writable } = require('svelte/store');
-	const mockStore = writable({ biometricData: null });
+
+	const createState = (biometricData: Credentials | null) => ({
+		nostrKeys: { nsec: null, npub: null, mnemonic: null },
+		isLoading: false,
+		error: null,
+		toasts: [],
+		biometricData,
+		network: 'testnet',
+		pool: {} as any,
+		relays: []
+	});
+
+	const mockStore = writable(createState(null));
 	return {
 		appStore: {
-			get: vi.fn((fn) => fn ? fn(mockStore) : mockStore),
-			update: vi.fn((fn) => {
-				mockStore.update(fn);
-			}),
-			subscribe: mockStore.subscribe
+			subscribe: mockStore.subscribe,
+			set: vi.fn((value) => mockStore.set(value)),
+			update: vi.fn((fn) => mockStore.update(fn)),
+			showSuccessToast: vi.fn(),
+			showErrorToast: vi.fn(),
+			showInfoToast: vi.fn()
 		}
 	};
 });
@@ -53,38 +67,44 @@ vi.mock('$lib/utils/helpers/webBiometrics', () => ({
 }));
 
 describe('Error Recovery and Fallback', () => {
-	const mockAppStoreGet = vi.mocked(appStore.get);
 	const mockAppStoreUpdate = vi.mocked(appStore.update);
 	const mockPreferencesGet = vi.mocked(Preferences.get);
 	const mockDecryptNsec = vi.mocked(decryptNsecWithBiometrics);
+
+	type AppState = Parameters<Parameters<typeof appStore.update>[0]>[0];
+	const createState = (biometricData: Credentials | null): AppState =>
+		({
+			nostrKeys: { nsec: null, npub: null, mnemonic: null },
+			isLoading: false,
+			error: null,
+			toasts: [],
+			biometricData,
+			network: 'testnet',
+			pool: {} as any,
+			relays: []
+		}) as unknown as AppState;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
 
 	it('should fall back to authentication prompt when decryption fails', async () => {
-		const mockBiometricData = {
+		const mockBiometricData: Credentials = {
 			username: 'test_npub',
-			password: JSON.stringify({ encrypted: 'data' })
+			password: JSON.stringify({ encrypted: 'data' }),
+			server: 'test-device',
+			isLegacyFormat: true
 		};
 		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 
 		// Set up store with biometric data - need to track state changes
-		const { writable } = await import('svelte/store');
-		let currentState = { biometricData: mockBiometricData };
-		const testStore = writable(currentState);
+		let currentState: AppState = createState(mockBiometricData);
+		appStore.set(currentState);
 		
 		// Update state when store.update is called
 		mockAppStoreUpdate.mockImplementation((fn) => {
 			currentState = fn(currentState);
-			testStore.set(currentState);
-		});
-		
-		mockAppStoreGet.mockImplementation((fn) => {
-			if (fn) {
-				return fn(currentState);
-			}
-			return currentState;
+			appStore.set(currentState);
 		});
 
 		mockPreferencesGet.mockImplementation(async ({ key }) => {
@@ -97,9 +117,11 @@ describe('Error Recovery and Fallback', () => {
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const mockGetBiometricData = vi.mocked(getBiometricData);
-		const freshBiometricData = {
+		const freshBiometricData: Credentials = {
 			username: 'new_npub',
-			password: JSON.stringify({ encrypted: 'new_data' })
+			password: JSON.stringify({ encrypted: 'new_data' }),
+			server: 'test-device',
+			isLegacyFormat: true
 		};
 		mockGetBiometricData.mockResolvedValue(freshBiometricData);
 		mockDecryptNsec.mockResolvedValueOnce(validNsec);
@@ -115,24 +137,19 @@ describe('Error Recovery and Fallback', () => {
 	});
 
 	it('should fall back to authentication prompt when validation fails', async () => {
-		const mockBiometricData = {
+		const mockBiometricData: Credentials = {
 			username: 'test_npub',
-			password: JSON.stringify({ encrypted: 'data' })
+			password: JSON.stringify({ encrypted: 'data' }),
+			server: 'test-device',
+			isLegacyFormat: true
 		};
 		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 
-		// Set up store with biometric data
-		const { writable } = await import('svelte/store');
-		const testStore = writable({ biometricData: mockBiometricData });
-		mockAppStoreGet.mockImplementation((fn) => {
-			if (fn) {
-				let state: any;
-				testStore.subscribe((s) => { state = s; })();
-				return fn(state);
-			}
-			let state: any;
-			testStore.subscribe((s) => { state = s; })();
-			return state;
+		let currentState: AppState = createState(mockBiometricData);
+		appStore.set(currentState);
+		mockAppStoreUpdate.mockImplementation((fn) => {
+			currentState = fn(currentState);
+			appStore.set(currentState);
 		});
 
 		// Simulate validation failure (Preferences.get throws on first call)
@@ -142,9 +159,11 @@ describe('Error Recovery and Fallback', () => {
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const mockGetBiometricData = vi.mocked(getBiometricData);
-		const freshBiometricData = {
+		const freshBiometricData: Credentials = {
 			username: 'new_npub',
-			password: JSON.stringify({ encrypted: 'new_data' })
+			password: JSON.stringify({ encrypted: 'new_data' }),
+			server: 'test-device',
+			isLegacyFormat: true
 		};
 		mockGetBiometricData.mockResolvedValue(freshBiometricData);
 		mockDecryptNsec.mockResolvedValueOnce(validNsec);
@@ -160,18 +179,11 @@ describe('Error Recovery and Fallback', () => {
 	});
 
 	it('should never leave user in unrecoverable authentication state', async () => {
-		// Simulate multiple failures
-		const { writable } = await import('svelte/store');
-		const testStore = writable({ biometricData: null });
-		mockAppStoreGet.mockImplementation((fn) => {
-			if (fn) {
-				let state: any;
-				testStore.subscribe((s) => { state = s; })();
-				return fn(state);
-			}
-			let state: any;
-			testStore.subscribe((s) => { state = s; })();
-			return state;
+		let currentState: AppState = createState(null);
+		appStore.set(currentState);
+		mockAppStoreUpdate.mockImplementation((fn) => {
+			currentState = fn(currentState);
+			appStore.set(currentState);
 		});
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
@@ -181,9 +193,11 @@ describe('Error Recovery and Fallback', () => {
 		mockGetBiometricData.mockRejectedValueOnce(new Error('First failure'));
 		
 		// Second attempt succeeds
-		const freshBiometricData = {
+		const freshBiometricData: Credentials = {
 			username: 'new_npub',
-			password: JSON.stringify({ encrypted: 'new_data' })
+			password: JSON.stringify({ encrypted: 'new_data' }),
+			server: 'test-device',
+			isLegacyFormat: true
 		};
 		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 		mockGetBiometricData.mockResolvedValueOnce(freshBiometricData);
@@ -199,24 +213,19 @@ describe('Error Recovery and Fallback', () => {
 	});
 
 	it('should clear all caches when error occurs', async () => {
-		const mockBiometricData = {
+		const mockBiometricData: Credentials = {
 			username: 'test_npub',
-			password: JSON.stringify({ encrypted: 'data' })
+			password: JSON.stringify({ encrypted: 'data' }),
+			server: 'test-device',
+			isLegacyFormat: true
 		};
 		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 
-		// Set up store with biometric data
-		const { writable } = await import('svelte/store');
-		const testStore = writable({ biometricData: mockBiometricData });
-		mockAppStoreGet.mockImplementation((fn) => {
-			if (fn) {
-				let state: any;
-				testStore.subscribe((s) => { state = s; })();
-				return fn(state);
-			}
-			let state: any;
-			testStore.subscribe((s) => { state = s; })();
-			return state;
+		let currentState: AppState = createState(mockBiometricData);
+		appStore.set(currentState);
+		mockAppStoreUpdate.mockImplementation((fn) => {
+			currentState = fn(currentState);
+			appStore.set(currentState);
 		});
 
 		mockPreferencesGet.mockImplementation(async ({ key }) => {
@@ -231,7 +240,9 @@ describe('Error Recovery and Fallback', () => {
 		const mockGetBiometricData = vi.mocked(getBiometricData);
 		mockGetBiometricData.mockResolvedValue({
 			username: 'new_npub',
-			password: JSON.stringify({ encrypted: 'new_data' })
+			password: JSON.stringify({ encrypted: 'new_data' }),
+			server: 'test-device',
+			isLegacyFormat: true
 		});
 		mockDecryptNsec.mockResolvedValueOnce(validNsec);
 
@@ -242,23 +253,17 @@ describe('Error Recovery and Fallback', () => {
 		
 		// Verify the update function clears biometricData
 		const updateCall = mockAppStoreUpdate.mock.calls[0][0];
-		const state = { biometricData: mockBiometricData };
+		const state: AppState = createState(mockBiometricData);
 		const newState = updateCall(state);
 		expect(newState.biometricData).toBeNull();
 	});
 
 	it('should handle multiple consecutive failures gracefully', async () => {
-		const { writable } = await import('svelte/store');
-		const testStore = writable({ biometricData: null });
-		mockAppStoreGet.mockImplementation((fn) => {
-			if (fn) {
-				let state: any;
-				testStore.subscribe((s) => { state = s; })();
-				return fn(state);
-			}
-			let state: any;
-			testStore.subscribe((s) => { state = s; })();
-			return state;
+		let currentState: AppState = createState(null);
+		appStore.set(currentState);
+		mockAppStoreUpdate.mockImplementation((fn) => {
+			currentState = fn(currentState);
+			appStore.set(currentState);
 		});
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');

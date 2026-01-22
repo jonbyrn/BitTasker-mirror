@@ -1,6 +1,6 @@
 
 export async function load({ url }) {
-	const seo = {
+	return {
 		title: 'Taskee Fees & Earnings - BitTasker | Bitcoin Workers',
 		description: 'Learn about BitTasker\'s taskee fee structure and maximize your Bitcoin earnings. Transparent pricing with loyalty rewards for active workers.',
 		keywords: 'BitTasker taskee fees, Bitcoin earning fees, task worker pricing, cryptocurrency earnings, Bitcoin marketplace fees, decentralized work fees, Lightning Network earnings',
@@ -56,9 +56,5 @@ export async function load({ url }) {
 				]
 			}
 		}
-	};
-
-	return {
-		seo
 	};
 }
