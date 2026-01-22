@@ -59,13 +59,6 @@
             android:value="bittasker-notification"
         />
 
-        <!-- Custom Firebase Messaging Service -->
-        <!-- <service android:name=".MyFirebaseMessagingService" android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service> -->
-
         <!-- Barcode Scanner - To use multiple models: android:value="face,model2,model3" -->
         <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode_ui" />
     </application>
