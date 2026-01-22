@@ -9,6 +9,7 @@ import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
 import { escrow } from '$lib/utils/wallet/escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+import { normalizeRskAddress } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
 
 export interface BidEscrowDetails {
@@ -153,7 +154,8 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
 	// Validate freelancer address
 	if (!details.freelancerAddress) {
 		errors.push('Freelancer address is required');
-	} else if (!ethers.isAddress(details.freelancerAddress)) {
+	} else if(!normalizeRskAddress(details.freelancerAddress)) {
+		// Normalize RSK address checks for valid Hex format and lowercases it
 		errors.push('Invalid freelancer address format');
 	}
 
