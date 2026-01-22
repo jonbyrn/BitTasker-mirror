@@ -48,6 +48,9 @@
 	let searchQuery = $state('');
 	let selectedTaskType = $state({ label: '', value: '' });
 
+	// Search input focus state for mobile button animation
+	let isSearchFocused = $state(false);
+
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
 
@@ -69,10 +72,22 @@
 		return formatStandardDateShort(date, $locale || 'en');
 	}
 
-	function formatDateRangeReactive(startDate: Date, endDate: Date) {
-		const start = formatStandardDateShort(startDate, $locale || 'en');
-		const end = formatStandardDateShort(endDate, $locale || 'en');
-		return `${start} - ${end}`;
+	function formatDateRangeReactive(startDate: string | Date, endDate: string | Date) {
+		const formatValue = (value: string | Date) => {
+			const dateString = value instanceof Date ? value.toISOString() : value;
+			const date = parseDateToLocalMidnight(dateString);
+			if (!date) return '';
+			return formatStandardDateShort(date, $locale || 'en');
+		};
+
+		const startFormatted = formatValue(startDate);
+		const endFormatted = formatValue(endDate);
+
+		if (startFormatted && endFormatted) {
+			return `${startFormatted} - ${endFormatted}`;
+		}
+
+		return startFormatted || endFormatted || '';
 	}
 	let selectedLocation = $state<any | null>(null);
 
@@ -85,6 +100,27 @@
 	let scrollHandler: ((e: Event) => void) | null = null;
 	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
 
+
+	// Add class to app-shell__content to prevent scrolling (avoids :has() flickering)
+	let appShellContent: HTMLElement | null = $state(null);
+
+	onMount(() => {
+		// Find app-shell__content element once on mount
+		// Use multiple attempts to ensure DOM is ready
+		const addClass = () => {
+			const content = document.querySelector('.app-shell__content') as HTMLElement;
+			if (content && !content.classList.contains('find-tasks-no-scroll')) {
+				appShellContent = content;
+				content.classList.add('find-tasks-no-scroll');
+				// Also add data attribute for more specific targeting
+				content.setAttribute('data-find-tasks-page', 'true');
+			} else if (!content) {
+				// Retry if element not found yet
+				requestAnimationFrame(addClass);
+			}
+		};
+		requestAnimationFrame(addClass);
+	});
 
 	// Has active search parameters for save search button
 	let hasActiveParams = $state(false);
@@ -667,35 +703,33 @@
 	function toggleViewMode() {
 		viewMode = viewMode === 'list' ? 'map' : 'list';
 	}
-
-	// Variable para detectar el tema
-	let isDarkMode = $state(false);
-
-	// Detectar el tema actual
-	$effect(() => {
-		if (browser) {
-			isDarkMode = document.documentElement.classList.contains('dark');
-		}
-	});
 </script>
 
-<div class="mx-auto max-w-6xl p-4 md:p-0">
+<div class="mx-auto min-h-0 max-w-6xl p-0 find-tasks-container find-tasks-page flex-1 w-full" data-find-tasks-page="true" style="height: auto; min-height: 100%;">
 	<!-- Dashboard Tabs -->
 	<!-- <Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} /> -->
 
-	<div id="panel-find-tasks" role="tabpanel" aria-labelledby="tab-find-tasks" class="">
+	<div
+		id="panel-find-tasks"
+		role="tabpanel"
+		aria-labelledby="tab-find-tasks"
+		class="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden"
+		style="max-height: 100%;"
+	>
 		<!-- Search and Filter Controls - Full Width at Top -->
 		<div class="mb-4">
 			<!-- Search and Filter Controls in Same Row -->
-			<div class="flex flex-wrap items-center gap-3">
+			<div class="flex flex-nowrap items-center gap-2 md:gap-3">
 				<!-- Search Input -->
-				<div class="relative mt-2 min-w-[200px] flex-1">
+				<div class="relative flex-1 min-w-0">
 					<input
 						type="text"
 						class={getSearchInputClass()}
 						placeholder={getSearchPlaceholder()}
 						bind:value={searchQuery}
 						oninput={debouncedSearch}
+						onfocus={() => (isSearchFocused = true)}
+						onblur={() => (isSearchFocused = false)}
 					/>
 					<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 						<svg
@@ -716,12 +750,24 @@
 				</div>
 
 				<!-- Filter Buttons -->
-				<div class="flex items-center gap-2">
+				<div
+					class="flex items-center shrink-0 transition-all duration-300 ease-in-out"
+					class:gap-1={!isSearchFocused}
+					class:gap-0.5={isSearchFocused}
+					class:md:gap-2={!isSearchFocused}
+					class:md:gap-1={isSearchFocused}
+				>
 					<!-- Advanced Filters Button -->
-					<button class="btn btn-sm btn-primary" onclick={() => (isFilterDrawerOpen = true)}>
+					<button
+						class="btn btn-sm btn-primary search-focus-button transition-all duration-300 ease-in-out"
+						class:search-focused={isSearchFocused}
+						aria-label={$t('find_tasks.filters')}
+						onclick={() => (isFilterDrawerOpen = true)}
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="mr-1 h-4 w-4"
+							class="h-4 w-4 search-button-icon"
+							class:mr-1={!isSearchFocused}
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -733,16 +779,67 @@
 								d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
 							/>
 						</svg>
-						{$t('find_tasks.filters')}
+						<span class="search-button-text transition-all duration-300 ease-in-out">
+							{$t('find_tasks.filters')}
+						</span>
+					</button>
+
+					<!-- Map/List Toggle Button (Mobile/Tablet only) -->
+					<button
+						class="btn btn-sm btn-secondary gap-2 lg:hidden search-focus-button transition-all duration-300 ease-in-out"
+						class:search-focused={isSearchFocused}
+						onclick={toggleViewMode}
+						title={viewMode === 'list' ? $t('find_tasks.view_map') : $t('find_tasks.view_list')}
+					>
+						{#if viewMode === 'list'}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4 search-button-icon"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+								/>
+							</svg>
+						{:else}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4 search-button-icon"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M4 6h16M4 10h16M4 14h16M4 18h16"
+								/>
+							</svg>
+						{/if}
+						<span class="search-button-text transition-all duration-300 ease-in-out">
+							{#if viewMode === 'list'}
+								{$t('find_tasks.map')}
+							{:else}
+								{$t('find_tasks.list')}
+							{/if}
+						</span>
 					</button>
 				</div>
 			</div>
 		</div>
 
+		<!-- Body row (must be height-constrained; only inner list scrolls) -->
+		<div class="min-h-0 flex-1 overflow-hidden" style="height: 100%; max-height: 100%;">
 		<!-- Main Content - Dynamic Layout based on view mode -->
 		{#if viewMode === 'list'}
 			<!-- List View - Responsive Layout -->
-			<div class="relative w-full">
+			<div class="relative grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden" style="max-height: 100%;">
 				<!-- Error Message -->
 				{#if $tasksStore.error}
 					<div class="alert alert-error alert-outline mb-3">
@@ -762,19 +859,15 @@
 					</div>
 				{/if}
 
-				<!-- Task Count -->
-				{#if $tasksStore.items && $tasksStore.items.length > 0}
-					<div class="text-base-content/70 mb-4 text-sm">
-						{$t('find_tasks.showing_tasks', { values: { count: $tasksStore.items.length } }) ||
-							`Showing ${$tasksStore.items.length} task${$tasksStore.items.length !== 1 ? 's' : ''}`}
-					</div>
-				{/if}
 
 				<!-- Mobile: Full width list, Desktop: Split with map -->
-				<div class="lg:flex lg:gap-6">
-					<!-- Tasks List -->
-					<div class="lg:w-1/2">
-						<div class="max-h-[calc(65vh)] overflow-y-auto" bind:this={taskListRef}>
+				<div class="grid min-h-0 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-2" style="height: 100%; max-height: 100%;">
+					<!-- Tasks List (scrolls) - 100% width on mobile/tablet -->
+					<div class="min-h-0 w-full lg:w-auto overflow-hidden" style="height: 100%; max-height: 100%;">
+						<div
+							class="h-full min-h-0 w-full overflow-y-auto task-list-scroll-container"
+							bind:this={taskListRef}
+						>
 							<!-- Skeleton Loading -->
 							{#if showSkeleton && !dataLoaded}
 								<div class="space-y-3">
@@ -826,7 +919,7 @@
 									</button>
 								</div>
 							{:else if $tasksStore.items && $tasksStore.items.length > 0}
-								<div class="space-y-4">
+								<div class="space-y-4 task-list-items">
 									{#each $tasksStore.items as task, index (index)}
 										<div
 											use:registerTaskCard={{ taskId: task.id }}
@@ -844,19 +937,17 @@
 											aria-hidden={task.status !== TaskStatusEnum.OPEN}
 											data-task-id={task.id}
 										>
-											<div class="card-body p-4 md:p-4">
-												<!-- Top Row: Title + Status Badge -->
-												<div
-													class="mb-1 flex flex-row items-start justify-between gap-2"
-												>
+											<div class="card-body rounded-xl p-4 md:p-4">
+												<!-- Top Row: Title + Status Badge + Price -->
+												<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 													<!-- Left: Title (70% width) -->
 													<div class="w-[70%] pr-2 md:pr-4">
-														<div class="card-title line-clamp-2 text-lg">
+														<div class="card-title line-clamp-2 text-lg font-semibold">
 															<TranslatableTask {task} />
 														</div>
 													</div>
-													<!-- Right: Status Badge (aligned right) -->
-													<div class="flex w-[30%] shrink-0 justify-end">
+													<!-- Right: Status Badge + Price (30% width, aligned right) -->
+													<div class="flex w-[30%] shrink-0 flex-col items-end justify-between gap-4">
 														{#each [task] as taskItem}
 															{@const statusBadge = getStatusBadge(taskItem.status)}
 															<div class="badge {statusBadge.color} badge-outline badge-sm">
@@ -864,52 +955,7 @@
 																	statusBadge.text}
 															</div>
 														{/each}
-													</div>
-												</div>
-
-												<!-- Schedule and Sats Row -->
-												<div class="mb-3 flex flex-row items-center justify-between gap-2">
-													<!-- Left: Schedule (70% width) -->
-													<div class="flex w-[70%] items-center gap-2 pr-2 md:pr-4">
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															class="text-base-content/60 h-4 w-4 shrink-0"
-															fill="none"
-															viewBox="0 0 24 24"
-															stroke="currentColor"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-															/>
-														</svg>
-														<div class="flex min-w-0 flex-1 flex-col px-2">
-															{#if task.deadline}
-																<small class="text-base-content/60 text-xs"
-																	>{$t('dashboard.task_details_by_task.deadline')}</small
-																>
-																<span class="line-clamp-2 text-sm font-medium">
-																	{formatDateTimeReactive(task.deadline)}
-																</span>
-															{:else if task.dateRange}
-																<small class="text-base-content/60 text-xs"
-																	>{$t('dashboard.task_details_by_task.date_range')}</small
-																>
-																<span class="line-clamp-2 text-sm font-medium">
-																	{formatDateRangeReactive(
-																		new Date(task.dateRange.start),
-																		new Date(task.dateRange.end)
-																	)}
-																</span>
-															{/if}
-														</div>
-													</div>
-
-													<!-- Right: Sats (30% width, aligned right) -->
-													<div class="flex w-[30%] shrink-0 justify-end">
-														<div class="text-right text-lg font-bold">
+														<div class="text-right text-xl font-bold mt-2">
 															${formatNumberWithTwoDecimals(task.budget.amount)}
 
 															<div class="text-base-content/60 text-sm">
@@ -919,41 +965,75 @@
 													</div>
 												</div>
 
-												<!-- Location -->
-												<div class="flex w-full items-start gap-2">
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke="currentColor"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-														/>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-														/>
-													</svg>
-													<div class="flex min-w-0 flex-1 flex-col">
-														<small class="text-base-content/60 text-xs">
-															{$t('dashboard.task_details_by_task.location_details')}
-														</small>
-														<span class="line-clamp-2 text-sm font-medium">
-															{#if task.dropOffLocation?.displayName}
-																{task.dropOffLocation.displayName}
-															{:else if task.pickupLocation?.displayName}
-																{task.pickupLocation.displayName}
-															{:else}
-																{$t('dashboard.task_details_by_task.remote')}
-															{/if}
-														</span>
+												<!-- Second Row: Deadline + Location -->
+												<div class="mb-3 flex flex-col gap-3">
+													<!-- Deadline -->
+													{#if task.deadline || task.dateRange}
+														<div class="flex items-center gap-2">
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																class="text-primary h-8 w-8 shrink-0"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke="currentColor"
+															>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	stroke-width="2"
+																	d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+																/>
+															</svg>
+															<div class="flex min-w-0 flex-1">
+																{#if task.deadline}
+																	<span class="line-clamp-2 text-sm font-medium">
+																		{formatDateTimeReactive(task.deadline)}
+																	</span>
+																{:else if task.dateRange}
+																<span class="line-clamp-2 text-sm font-medium">
+																	{formatDateRangeReactive(
+																		task.dateRange.start,
+																		task.dateRange.end
+																	)}
+																</span>
+																{/if}
+															</div>
+														</div>
+													{/if}
+
+													<!-- Location -->
+													<div class="flex items-center gap-2">
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															class="text-primary h-8 w-8 shrink-0"
+															fill="none"
+															viewBox="0 0 24 24"
+															stroke="currentColor"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+															/>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+															/>
+														</svg>
+														<div class="flex min-w-0 flex-1">
+															<span class="line-clamp-2 text-sm font-medium">
+																{#if task.dropOffLocation?.displayName}
+																	{task.dropOffLocation.displayName}
+																{:else if task.pickupLocation?.displayName}
+																	{task.pickupLocation.displayName}
+																{:else}
+																	{$t('dashboard.task_details_by_task.remote')}
+																{/if}
+															</span>
+														</div>
 													</div>
 												</div>
 
@@ -1060,7 +1140,7 @@
 																/>
 															</svg>
 															{task.status === TaskStatusEnum.OPEN
-																? $t('dashboard.find_tasks.sign_up_to_bid') || 'Sign up to bid'
+																? $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'
 																: $t('dashboard.find_tasks.bidding_closed') || 'Bidding closed'}
 														</button>
 
@@ -1160,91 +1240,44 @@
 					</div>
 
 					<!-- Desktop Map Sidebar (hidden on mobile) -->
-					<div class="hidden lg:block lg:w-1/2">
-						<TaskLocationMap
-							tasks={$tasksStore.items}
-							height="65vh"
-							{selectedTask}
-							onTaskSelected={async (event) => {
-								selectedTask = event.task;
-								await scrollToTaskCard(event.task.id);
-							}}
-						/>
+					<div class="hidden min-h-0 lg:block" style="height: 100%;">
+						<div class="h-full min-h-0">
+							<TaskLocationMap
+								tasks={$tasksStore.items}
+								height="100%"
+								{selectedTask}
+								onTaskSelected={async (event) => {
+									selectedTask = event.task;
+									await scrollToTaskCard(event.task.id);
+								}}
+							/>
+						</div>
 					</div>
 				</div>
-
-				<!-- Mobile Floating Button - Show Map (only visible on mobile) -->
-				<button
-					class="inverted-colors fixed left-1/2 z-50 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-200 hover:shadow-xl lg:hidden"
-					style="bottom: var(--app-bottom-fab);"
-					onclick={toggleViewMode}
-					title={$t('find_tasks.view_map')}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-						/>
-					</svg>
-					{$t('find_tasks.view_map')}
-				</button>
 			</div>
 		{:else}
 			<!-- Map View - Full Width (Mobile only) -->
-			<div class="relative w-full lg:hidden">
-				<TaskLocationMap
-					tasks={$tasksStore.items}
-					height="65vh"
-					{selectedTask}
-					onTaskSelected={async (event) => {
-						selectedTask = event.task;
-						// When a task is selected on the map, switch to list view to show the task
-						viewMode = 'list';
-						// Wait for view mode change to complete before scrolling
-						await tick();
-						// Wait for next frame to ensure DOM is fully updated and taskListRef is available
-						await new Promise(resolve => requestAnimationFrame(resolve));
-						await scrollToTaskCard(event.task.id);
-					}}
-				/>
-
-				<!-- Mobile Floating Button - Show List -->
-				<button
-					class="fixed left-1/2 z-50 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-200 hover:shadow-xl"
-					style="bottom: var(--app-bottom-fab);"
-					class:bg-black={!isDarkMode}
-					class:bg-white={isDarkMode}
-					class:text-white={!isDarkMode}
-					class:text-black={isDarkMode}
-					onclick={toggleViewMode}
-					aria-label={$t('find_tasks.view_list')}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 6h16M4 10h16M4 14h16M4 18h16"
-						/>
-					</svg>
-					<span class="text-xs">{$t('find_tasks.view_list')}</span>
-				</button>
+			<div class="relative min-h-0 overflow-hidden lg:hidden" style="height: 100%;">
+				<div class="h-full min-h-0">
+					<TaskLocationMap
+						tasks={$tasksStore.items}
+						height="100%"
+						{selectedTask}
+						onTaskSelected={async (event) => {
+							selectedTask = event.task;
+							// When a task is selected on the map, switch to list view to show the task
+							viewMode = 'list';
+							// Wait for view mode change to complete before scrolling
+							await tick();
+							// Wait for next frame to ensure DOM is fully updated and taskListRef is available
+							await new Promise((resolve) => requestAnimationFrame(resolve));
+							await scrollToTaskCard(event.task.id);
+						}}
+					/>
+				</div>
 			</div>
 		{/if}
+		</div>
 	</div>
 </div>
 
@@ -1265,6 +1298,230 @@
 	:global([name='gmp-internal-google-attribution']),
 	:global([name='gmp-internal-dialog']) {
 		display: none !important;
+	}
+
+	/* Prevent app-shell__content from scrolling on find-tasks page only */
+	/* This page handles its own internal scrolling */
+	/* Use class-based selector instead of :has() to avoid flickering */
+	/* On desktop, allow normal page scrolling; on mobile, prevent outer scroll */
+	:global(.app-shell__content.find-tasks-no-scroll) {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+	}
+
+	/* On desktop, allow page to scroll normally when content exceeds viewport */
+	@media (min-width: 1024px) {
+		:global(.app-shell__content.find-tasks-no-scroll) {
+			overflow-y: auto !important; /* Allow page scrolling on desktop */
+			height: auto; /* Allow content to grow beyond viewport */
+			min-height: 100%;
+		}
+	}
+
+	/* COMPLETELY REMOVE overflow-x-hidden behavior - it's causing content to disappear */
+	/* Force the container to expand and show all content */
+	:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden) {
+		overflow: visible !important; /* Remove all overflow restrictions */
+		flex: 1 !important;
+		min-height: 0 !important;
+		display: flex !important;
+		flex-direction: column !important;
+		justify-content: flex-start !important;
+		padding-bottom: 0 !important;
+		margin-bottom: 0 !important;
+		width: 100% !important;
+		position: relative !important;
+		height: auto !important; /* Let it grow with content */
+	}
+
+	/* On mobile, ensure container fills available space */
+	@media (max-width: 1023px) {
+		:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden) {
+			height: 100% !important;
+			min-height: 100% !important;
+		}
+	}
+
+	/* On desktop, allow content to grow naturally */
+	@media (min-width: 1024px) {
+		:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden) {
+			height: auto !important;
+			min-height: 100% !important;
+		}
+	}
+
+	/* Target the nested div that has justify-between - override it aggressively */
+	/* This div is created in +layout.svelte line 254 and pushes content apart */
+	/* REMOVE overflow-x-hidden from this nested div too */
+	:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden > div.flex.flex-col.justify-between),
+	:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden > div.flex.flex-1.flex-col.justify-between),
+	:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden > div.bg-base-200.flex.flex-1.flex-col.justify-between) {
+		overflow: visible !important; /* Remove all overflow restrictions */
+		flex: 1 !important;
+		min-height: 0 !important;
+		justify-content: flex-start !important;
+		padding-bottom: 0 !important;
+		margin-bottom: 0 !important;
+		display: flex !important;
+		flex-direction: column !important;
+		width: 100% !important;
+		height: auto !important; /* Let it grow with content */
+	}
+
+	/* On desktop, allow content to grow naturally */
+	@media (min-width: 1024px) {
+		:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden > div.flex.flex-col.justify-between),
+		:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden > div.flex.flex-1.flex-col.justify-between),
+		:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden > div.bg-base-200.flex.flex-1.flex-col.justify-between) {
+			height: auto !important;
+			min-height: 100% !important;
+		}
+	}
+
+	/* On mobile, ensure nested div fills space */
+	@media (max-width: 1023px) {
+		:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden > div.flex.flex-col.justify-between),
+		:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden > div.flex.flex-1.flex-col.justify-between),
+		:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden > div.bg-base-200.flex.flex-1.flex-col.justify-between) {
+			height: 100% !important;
+			min-height: 100% !important;
+		}
+	}
+
+	/* On mobile/tablet, ensure app-shell__content extends to bottom nav without gap */
+	@media (max-width: 1023px) {
+		:global(.app-shell__content.find-tasks-no-scroll) {
+			/* Grid already handles height via 1fr, ensure no padding/margin creates gap */
+			flex: 1;
+			min-height: 0;
+			padding-bottom: 0 !important;
+			margin-bottom: 0 !important;
+		}
+
+		/* Search focus button animation - hide text and shrink on mobile/tablet */
+		.search-focus-button {
+			overflow: hidden;
+			position: relative;
+		}
+
+		.search-focus-button.search-focused {
+			padding-left: 0.5rem;
+			padding-right: 0.5rem;
+			min-width: 2.5rem;
+			width: auto;
+		}
+
+		.search-button-text {
+			display: inline-block;
+			white-space: nowrap;
+			opacity: 1;
+			width: auto;
+			max-width: 200px;
+			will-change: max-width, opacity, margin, padding;
+			transition: 
+				max-width 0.3s ease-in-out,
+				opacity 0.3s ease-in-out,
+				margin 0.3s ease-in-out,
+				padding 0.3s ease-in-out;
+		}
+
+		.search-focus-button.search-focused .search-button-text {
+			max-width: 0;
+			opacity: 0;
+			overflow: hidden;
+			margin-left: 0;
+			margin-right: 0;
+			padding-left: 0;
+			padding-right: 0;
+		}
+
+		.search-button-icon {
+			flex-shrink: 0;
+		}
+
+		/* Reduce gap between buttons when search is focused */
+		.search-focus-button.search-focused + .search-focus-button.search-focused {
+			margin-left: 0.25rem;
+		}
+	}
+
+	/* Desktop: allow container to grow naturally, don't constrain height */
+	.find-tasks-container {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		overflow: visible; /* Allow content to be visible */
+	}
+
+	@media (min-width: 1024px) {
+		.find-tasks-container {
+			/* On desktop, allow container to grow with content */
+			height: auto;
+			min-height: calc(100vh - 10rem);
+		}
+	}
+
+	/* Mobile: fill available space but allow content to show */
+	@media (max-width: 1023px) {
+		.find-tasks-container {
+			height: 100%;
+			min-height: 100%;
+			overflow: visible; /* Don't hide content on mobile */
+		}
+	}
+
+	/* Ensure scroll container has proper max-height for infinite scroll */
+	.task-list-scroll-container {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+
+	/* On desktop, allow task list to scroll internally when it has many items */
+	@media (min-width: 1024px) {
+		.task-list-scroll-container {
+			/* Allow internal scrolling when list is tall */
+			max-height: 80vh; /* Reasonable max height for task list */
+			height: auto;
+		}
+	}
+
+	/* On mobile, constrain to available space */
+	@media (max-width: 1023px) {
+		.task-list-scroll-container {
+			max-height: 100%;
+			height: 100%;
+		}
+	}
+
+	/* Mobile: constrain scroll container to viewport height minus header/controls and bottom nav */
+	/* Height calculation: 100vh - bottom nav - top header/controls (~12rem for search, filters) */
+	/* Remove any padding/margin that creates gap at bottom */
+	@media (max-width: 1023px) {
+		.task-list-scroll-container {
+			max-height: calc(
+				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 12rem
+			);
+			height: calc(
+				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 12rem
+			);
+			width: 100%;
+			padding-bottom: 0;
+			margin-bottom: 0;
+		}
+
+		/* Remove bottom spacing from task cards container */
+		.task-list-scroll-container .task-list-items {
+			padding-bottom: 0;
+			margin-bottom: 0;
+		}
+
+		/* Ensure the scroll container extends all the way to bottom nav */
+		.task-list-scroll-container {
+			box-sizing: border-box;
+		}
 	}
 </style>
 
