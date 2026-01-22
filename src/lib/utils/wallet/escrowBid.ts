@@ -154,9 +154,13 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
 	// Validate freelancer address
 	if (!details.freelancerAddress) {
 		errors.push('Freelancer address is required');
-	} else if(!normalizeRskAddress(details.freelancerAddress)) {
-		// Normalize RSK address checks for valid Hex format and lowercases it
-		errors.push('Invalid freelancer address format');
+	} else {
+		try {
+			// Normalize RSK address checks for valid Hex format and lowercases it
+			normalizeRskAddress(details.freelancerAddress);
+		} catch (error) {
+			errors.push('Invalid freelancer address format');
+		}
 	}
 
 	// Validate amount

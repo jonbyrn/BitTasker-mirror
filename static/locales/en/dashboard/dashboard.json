@@ -664,7 +664,8 @@
         "nonce_error": "Transaction ordering error. Please try again in a moment.",
         "wallet_error": "Wallet connection error. Please reconnect your wallet and try again.",
         "contract_revert": "Smart contract rejected the transaction. Please verify the transaction details and try again.",
-        "generic_error": "Transaction failed. Please check your wallet balance and network connection."
+        "generic_error": "Transaction failed. Please check your wallet balance and network connection.",
+        "invalid_argument": "Bad address format. Please check the address and try again."
       },
       "timeline": {
         "label": "Timeline",

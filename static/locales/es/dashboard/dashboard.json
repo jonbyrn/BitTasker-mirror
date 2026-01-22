@@ -664,7 +664,8 @@
         "nonce_error": "Error de orden de transacción. Por favor inténtalo de nuevo en un momento.",
         "wallet_error": "Error de conexión de billetera. Por favor reconecta tu billetera e inténtalo de nuevo.",
         "contract_revert": "El contrato inteligente rechazó la transacción. Por favor verifica los detalles de la transacción e inténtalo de nuevo.",
-        "generic_error": "La transacción falló. Por favor verifica el saldo de tu billetera y la conexión de red."
+        "generic_error": "La transacción falló. Por favor verifica el saldo de tu billetera y la conexión de red.",
+        "invalid_argument": "Formato de dirección inválido. Por favor verifica la dirección e inténtalo de nuevo."
       },
       "timeline": {
         "label": "Cronograma",
