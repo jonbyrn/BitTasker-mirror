@@ -1430,10 +1430,10 @@
 	@media (max-width: 1023px) {
 		.task-list-scroll-container {
 			max-height: calc(
-				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 12rem
+				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem
 			);
 			height: calc(
-				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 12rem
+				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem
 			);
 			width: 100%;
 			padding-bottom: 0;
