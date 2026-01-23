@@ -60,8 +60,6 @@
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let searchQuery = $state('');
 
-	// Search input focus state for mobile button animation
-	let isSearchFocused = $state(false);
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
@@ -796,57 +794,69 @@
 		style="max-height: 100%;"
 	>
 		<!-- Search and Filter Controls - Full Width at Top -->
-		<div class="mb-4">
-			<!-- Search and Filter Controls in Same Row -->
-			<div class="flex flex-nowrap items-center gap-2 md:gap-3">
-				<!-- Search Input -->
-				<div class="relative flex-1 min-w-0">
-					<input
-						type="text"
-						class={getSearchInputClass()}
-						placeholder={getSearchPlaceholder()}
-						bind:value={searchQuery}
-						oninput={debouncedSearch}
-						onfocus={() => (isSearchFocused = true)}
-						onblur={() => (isSearchFocused = false)}
-					/>
-					<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 text-gray-400"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-							/>
-						</svg>
-					</div>
+		<div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
+			<!-- Search Input -->
+			<div class="relative flex-1 min-w-0">
+				<input
+					type="text"
+					class={getSearchInputClass()}
+					placeholder={getSearchPlaceholder()}
+					bind:value={searchQuery}
+					oninput={debouncedSearch}
+				/>
+				<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5 text-gray-400"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+						/>
+					</svg>
 				</div>
+			</div>
 
-				<!-- Filter Buttons -->
-				<div
-					class="flex items-center shrink-0 transition-all duration-300 ease-in-out"
-					class:gap-1={!isSearchFocused}
-					class:gap-0.5={isSearchFocused}
-					class:md:gap-2={!isSearchFocused}
-					class:md:gap-1={isSearchFocused}
+			<!-- Buttons: separate row on mobile, same row on tablet+ -->
+			<div class="flex shrink-0 items-center justify-center gap-2 md:justify-end">
+				<!-- Advanced Filters Button -->
+				<button
+					class="btn btn-sm btn-primary"
+					aria-label={$t('find_tasks.filters')}
+					onclick={() => (isFilterDrawerOpen = true)}
 				>
-					<!-- Advanced Filters Button -->
-					<button
-						class="btn btn-sm btn-primary search-focus-button transition-all duration-300 ease-in-out"
-						class:search-focused={isSearchFocused}
-						aria-label={$t('find_tasks.filters')}
-						onclick={() => (isFilterDrawerOpen = true)}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4 mr-1"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
 					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+						/>
+					</svg>
+					<span>{$t('find_tasks.filters')}</span>
+				</button>
+
+				<!-- Map/List Toggle Button (Mobile/Tablet only) -->
+				<button
+					class="btn btn-sm btn-secondary gap-2 lg:hidden"
+					onclick={toggleViewMode}
+					title={viewMode === 'list' ? $t('find_tasks.view_map') : $t('find_tasks.view_list')}
+				>
+					{#if viewMode === 'list'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4 search-button-icon"
-							class:mr-1={!isSearchFocused}
+							class="h-4 w-4"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -855,61 +865,33 @@
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+								d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
 							/>
 						</svg>
-						<span class="search-button-text transition-all duration-300 ease-in-out">
-							{$t('find_tasks.filters')}
-						</span>
-					</button>
-
-					<!-- Map/List Toggle Button (Mobile/Tablet only) -->
-					<button
-						class="btn btn-sm btn-secondary gap-2 lg:hidden search-focus-button transition-all duration-300 ease-in-out"
-						class:search-focused={isSearchFocused}
-						onclick={toggleViewMode}
-						title={viewMode === 'list' ? $t('find_tasks.view_map') : $t('find_tasks.view_list')}
-					>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M4 6h16M4 10h16M4 14h16M4 18h16"
+							/>
+						</svg>
+					{/if}
+					<span>
 						{#if viewMode === 'list'}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4 search-button-icon"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-								/>
-							</svg>
+							{$t('find_tasks.map')}
 						{:else}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4 search-button-icon"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M4 6h16M4 10h16M4 14h16M4 18h16"
-								/>
-							</svg>
+							{$t('find_tasks.list')}
 						{/if}
-						<span class="search-button-text transition-all duration-300 ease-in-out">
-							{#if viewMode === 'list'}
-								{$t('find_tasks.map')}
-							{:else}
-								{$t('find_tasks.list')}
-							{/if}
-						</span>
-					</button>
-				</div>
+					</span>
+				</button>
 			</div>
 		</div>
 
@@ -1533,51 +1515,6 @@
 			margin-bottom: 0 !important;
 		}
 
-		/* Search focus button animation - hide text and shrink on mobile/tablet */
-		.search-focus-button {
-			overflow: hidden;
-			position: relative;
-		}
-
-		.search-focus-button.search-focused {
-			padding-left: 0.5rem;
-			padding-right: 0.5rem;
-			min-width: 2.5rem;
-			width: auto;
-		}
-
-		.search-button-text {
-			display: inline-block;
-			white-space: nowrap;
-			opacity: 1;
-			width: auto;
-			max-width: 200px;
-			will-change: max-width, opacity, margin, padding;
-			transition: 
-				max-width 0.3s ease-in-out,
-				opacity 0.3s ease-in-out,
-				margin 0.3s ease-in-out,
-				padding 0.3s ease-in-out;
-		}
-
-		.search-focus-button.search-focused .search-button-text {
-			max-width: 0;
-			opacity: 0;
-			overflow: hidden;
-			margin-left: 0;
-			margin-right: 0;
-			padding-left: 0;
-			padding-right: 0;
-		}
-
-		.search-button-icon {
-			flex-shrink: 0;
-		}
-
-		/* Reduce gap between buttons when search is focused */
-		.search-focus-button.search-focused + .search-focus-button.search-focused {
-			margin-left: 0.25rem;
-		}
 	}
 
 	/* Desktop: allow container to grow naturally, don't constrain height */
@@ -1635,10 +1572,10 @@
 	@media (max-width: 1023px) {
 		.task-list-scroll-container {
 			max-height: calc(
-				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem
+				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 12rem
 			);
 			height: calc(
-				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem
+				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 12rem
 			);
 			width: 100%;
 			padding-bottom: 0;
