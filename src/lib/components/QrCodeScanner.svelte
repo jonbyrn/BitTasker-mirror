@@ -44,6 +44,13 @@
 
 		const { camera } = await BarcodeScanner.checkPermissions();
 		isPermissionGranted = camera === 'granted';
+
+		// Auto-start if no scanBtn is provided (used in SendPaymentForm)
+		if (!scanBtn) {
+			// Wait a bit for parent component to be ready and DOM to be stable
+			await new Promise(resolve => setTimeout(resolve, 800));
+			await startScan();
+		}
 	});
 
 	onDestroy(() => {
@@ -225,7 +232,7 @@
 				</div>
 			{/if}
 
-			{#if isTorchAvailable}
+			{#if !isWeb && isTorchAvailable}
 				<button
 					aria-label={$t('common.components.qr_scanner.toggle_torch')}
 					class="btn btn-circle absolute top-4 right-4"
