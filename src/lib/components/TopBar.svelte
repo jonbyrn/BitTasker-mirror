@@ -136,10 +136,16 @@
 	}
 
 	// Handle menu item click
-	function handleMenuItemClick(action?: string) {
+	async function handleMenuItemClick(event: MouseEvent, action?: string, href?: string) {
+		event.preventDefault();
+		event.stopPropagation();
 		closeDropdowns();
 		isAvatarDropdownOpen = false;
-		if (action === 'logout') logout();
+		if (action === 'logout') {
+			logout();
+		} else if (href) {
+			await goto(href, { noScroll: false, replaceState: false });
+		}
 	}
 
 	function logout() {
@@ -174,7 +180,7 @@
 		{#if item.action}
 			<!-- Action button (like logout) -->
 			<button
-				onclick={() => handleMenuItemClick(item.action)}
+				onclick={(e) => handleMenuItemClick(e, item.action)}
 				class="flex w-full items-center gap-2 whitespace-nowrap"
 				class:text-error={item.isError}
 			>
@@ -183,9 +189,10 @@
 			</button>
 		{:else}
 			<!-- Regular link -->
+			{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
 			<a
-				href={item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
-				onclick={() => handleMenuItemClick()}
+				href={itemHref}
+				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
 				class="flex items-center gap-2 whitespace-nowrap"
 			>
 				<item.icon class="text-primary" />
@@ -367,8 +374,8 @@
 					<li>
 						{#if item.action}
 							<button
-								onclick={() => {
-									handleMenuItemClick(item.action);
+								onclick={async (e) => {
+									await handleMenuItemClick(e, item.action);
 									closeDrawer();
 								}}
 								class="flex items-center gap-2"
@@ -377,9 +384,10 @@
 								{$t(item.label)}
 							</button>
 						{:else}
+							{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
 							<a
-								href={item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
-								onclick={closeDrawer}
+								href={itemHref}
+								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
 								class="flex items-center gap-2"
 							>
 								<item.icon />
