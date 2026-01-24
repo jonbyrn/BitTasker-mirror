@@ -7,6 +7,7 @@
 	import { devicePlatform } from '$lib/stores/device.store';
 	import TopBar from '$lib/components/TopBar.svelte';
 	import { authState } from '$lib/stores/auth.store';
+	import { user } from '$lib/stores/user.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import {
 		BITTASKER_ORG_JSONLD,
@@ -29,13 +30,13 @@
 	const showTopBar = $derived(!isOnboardingPage);
 	const showFooterSection = $derived(currentPath.includes('/dashboard'));
 	const shouldHideFooterForLoggedInTaskPage = $derived(
-		$authState.isAuthenticated && currentPath.match(/^\/tasks\/[^/]+$/)
+		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/tasks\/[^/]+$/)
 	);
 	const shouldHideFooterForTasksPage = $derived(
-		currentPath === '/tasks'
+		currentPath === '/tasks' && ($authState.isAuthenticated || !!$user?.npub)
 	);
 	const shouldHideFooterForLoggedInNpubPage = $derived(
-		$authState.isAuthenticated && currentPath.match(/^\/npub\/[^/]+$/)
+		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/npub\/[^/]+$/)
 	);
 
 	// Generate breadcrumbs from current path
@@ -260,7 +261,7 @@
 			{/if}
 		</div>
 
-		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage}
+		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage}
 			<div class="tasks-page-footer">
 				{#if !$authState.isAuthenticated}
 					<!-- Section 7: Final Call to Action (CTA) -->

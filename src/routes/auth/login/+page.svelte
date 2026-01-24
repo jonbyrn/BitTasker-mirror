@@ -360,7 +360,7 @@
 					.setupAuthData(res.access_token, 'biometrics', npub, res.user, biometricData, false)
 					.then(() => {
 						if (res.isNewUser) goto('/auth/onboarding');
-						else goto('/dashboard/find-tasks');
+						else goto('/tasks');
 					});
 			}
 		} catch (err) {

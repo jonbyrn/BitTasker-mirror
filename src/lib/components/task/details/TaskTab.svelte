@@ -16,14 +16,17 @@
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import TaskShareButton from '../TaskShareButton.svelte';
+	// Icon imports for unplugin-icons
+	import IconPlus from '~icons/mdi/plus';
 
-	let { task, isOwner, onClose, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting } = $props<{
+	let { task, isOwner, onClose, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } = $props<{
 		task: Task;
 		isOwner: boolean;
 		onClose: () => void;
-		onRequestEditConfirm: () => void;
-		onRequestDeleteConfirm: () => void;
-		isDeleting: boolean;
+		onRequestEditConfirm?: () => void;
+		onRequestDeleteConfirm?: () => void;
+		isDeleting?: boolean;
+		onBid?: () => void;
 	}>();
 
 	let btcPrice = $state<number>(63000); // Default fallback price
@@ -45,7 +48,9 @@
 	}
 
 	function handleEditTask() {
-		onRequestEditConfirm();
+		if (onRequestEditConfirm) {
+			onRequestEditConfirm();
+		}
 	}
 
 	// Check if task can be deleted (similar to contract deletion logic)
@@ -136,7 +141,11 @@
 	</div> -->
 
 	<!-- Task details -->
-	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+	<div class="grid grid-cols-1 gap-4 md:grid-cols-2 relative">
+		<!-- Share Button - Upper Right Corner -->
+		<div class="absolute top-0 right-0 z-10" onclick={(e) => e.stopPropagation()}>
+			<TaskShareButton {task} variant="circle" />
+		</div>
 		<div>
 			<small class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
@@ -331,13 +340,27 @@
 		</div>
 	{/if}
 
-	<div class="space-y-3">
+	<div class="space-y-3 pb-4">
 		<!-- Action Buttons Row -->
 		<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
-			<!-- Share Button (always visible) -->
-			<TaskShareButton {task} variant="default" class="min-h-[40px]" />
+			<!-- Bid Button (shown when task is open and user is not owner) -->
+			{#if task.status === TaskStatusEnum.OPEN && !isOwner && onBid}
+				<button
+					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none gap-2"
+					onclick={async (e) => {
+						e.stopPropagation();
+						if (onBid) {
+							await onBid();
+						}
+					}}
+					aria-label={$t('dashboard.task_details_by_task.bid_now') || 'Bid on this task'}
+				>
+					<IconPlus class="h-4 w-4 shrink-0" />
+					<span>{$t('dashboard.task_details_by_task.bid_now')}</span>
+				</button>
+			{/if}
 
-			{#if isOwner && task.status === TaskStatusEnum.OPEN}
+			{#if isOwner && task.status === TaskStatusEnum.OPEN && onRequestEditConfirm}
 				<button class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none" onclick={handleEditTask}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -357,14 +380,14 @@
 				</button>
 			{/if}
 			
-			<!-- Delete Button (always visible, disabled when canDelete is false) -->
-			{#if isOwner}
+			<!-- Delete Button (only shown when onRequestDeleteConfirm is provided) -->
+			{#if isOwner && onRequestDeleteConfirm}
 				<button
 					class="btn btn-error btn-sm min-h-[40px] flex-1 sm:flex-none"
 					onclick={showDeleteConfirmation}
-					disabled={isDeleting || isCheckingDelete || !canDelete}
+					disabled={(isDeleting ?? false) || isCheckingDelete || !canDelete}
 				>
-					{#if isDeleting || isCheckingDelete}
+					{#if (isDeleting ?? false) || isCheckingDelete}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
 						<svg

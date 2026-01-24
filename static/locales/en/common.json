@@ -1246,7 +1246,8 @@
             },
             "location_picker": {
                 "enter_fullscreen": "Enter fullscreen",
-                "exit_fullscreen": "Exit fullscreen"
+                "exit_fullscreen": "Exit fullscreen",
+                "my_location": "My Location"
             }
         }
     },

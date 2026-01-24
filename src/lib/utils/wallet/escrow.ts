@@ -8,7 +8,7 @@ import { appStore } from "$lib/stores/app.store";
 import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/escrow.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
-import { toEip55ChecksumAddress } from '@bittasker/wallet-core';
+// Use ethers.getAddress for EIP-55 checksum address conversion
 import escrowABI from '$lib/utils/constants/escrowABI.json';
 import * as EscrowNostrEvent from '$lib/utils/wallet/escrowEvents';
 
@@ -334,7 +334,7 @@ async function createEscrow(
 
         // Convert RSK address (EIP-1191) to Ethereum format (EIP-55) for ethers.js
         // This is necessary because RSK uses EIP-1191 checksums while ethers.js expects EIP-55
-        const freelancerAddressEip55 = toEip55ChecksumAddress(freelancerAddress);
+        const freelancerAddressEip55 = ethers.getAddress(freelancerAddress);
 
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);

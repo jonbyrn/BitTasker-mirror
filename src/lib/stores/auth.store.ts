@@ -35,7 +35,7 @@ const createAuthStore = () => {
 
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
-		if (redirect) await goto('/dashboard/find-tasks').then(async () => {
+		if (redirect) await goto('/tasks').then(async () => {
 			// TODO: To be removed after getting auth method from the server
 			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 			const { user } = await import('./user.store');

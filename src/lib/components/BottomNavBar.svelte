@@ -365,14 +365,14 @@
 								</svg>
 							</button>
 						</li>
-						{#if isTaskeesOpen}
-							{@const findTasksHref = isLoggedIn ? '/dashboard/find-tasks' : '/tasks'}
-							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href={findTasksHref} onclick={(e) => handleNavWithMenuClose(e, findTasksHref)} class="min-h-[44px] py-2 pl-6">
-									<IconMagnify class="text-primary" />
-									<span class="font-medium">{$t('navbar.find_tasks')}</span>
-								</a>
-							</li>
+					{#if isTaskeesOpen}
+						{@const findTasksHref = '/tasks'}
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href={findTasksHref} onclick={(e) => handleNavWithMenuClose(e, findTasksHref)} class="min-h-[44px] py-2 pl-6">
+								<IconMagnify class="text-primary" />
+								<span class="font-medium">{$t('navbar.find_tasks')}</span>
+							</a>
+						</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard" onclick={(e) => handleNavWithMenuClose(e, '/dashboard')} class="min-h-[44px] py-2 pl-6">
 									<IconFormatListBulleted class="text-primary" />
@@ -571,14 +571,14 @@
 								</svg>
 							</button>
 						</li>
-						{#if isTaskeesOpen}
-							{@const taskeesHref = isLoggedIn ? '/dashboard/find-tasks' : '/tasks'}
-							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href={taskeesHref} onclick={(e) => handleNavWithMenuClose(e, taskeesHref)} class="min-h-[44px] py-2 pl-6">
-									<IconCurrencyBtc class="text-primary" />
-									<span class="font-medium">{$t('footer.start_earning')}</span>
-								</a>
-							</li>
+					{#if isTaskeesOpen}
+						{@const taskeesHref = '/tasks'}
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href={taskeesHref} onclick={(e) => handleNavWithMenuClose(e, taskeesHref)} class="min-h-[44px] py-2 pl-6">
+								<IconCurrencyBtc class="text-primary" />
+								<span class="font-medium">{$t('footer.start_earning')}</span>
+							</a>
+						</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/community-guidelines" onclick={(e) => handleNavWithMenuClose(e, '/community-guidelines')} class="min-h-[44px] py-2 pl-6">
 									<IconAccountGroup class="text-primary" />
@@ -680,8 +680,8 @@
 				<div class="bottom-nav-quick border-base-300/70 bg-base-100/70 border-t px-2 py-2 backdrop-blur-sm">
 					<div class="flex gap-2">
 						<a
-							href="/dashboard/find-tasks"
-							onclick={(e) => handleNavWithMenuClose(e, '/dashboard/find-tasks')}
+							href="/tasks"
+							onclick={(e) => handleNavWithMenuClose(e, '/tasks')}
 							class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-2 transition-colors"
 						>
 							<IconMagnify class="text-primary h-6 w-6" />

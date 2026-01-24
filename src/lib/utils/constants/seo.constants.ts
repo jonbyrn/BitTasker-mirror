@@ -106,7 +106,7 @@ export const BITTASKER_SITE_NAVIGATION_JSONLD = {
     'https://bittasker.com/privacy',
     'https://bittasker.com/auth/login',
     'https://bittasker.com/auth/signup',
-    'https://bittasker.com/dashboard/find-tasks',
+    'https://bittasker.com/tasks',
     'https://bittasker.com/dashboard/create-task',
     'https://bittasker.com/tasker-fees',
     'https://bittasker.com/secure-payments',

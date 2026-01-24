@@ -20,6 +20,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
+	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 
 	// Constants
 	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
@@ -445,35 +446,6 @@
 		}
 	}
 
-	// Get status badge color and text
-	function getStatusBadge(status: TaskStatusEnum): { color: string; text: string } {
-		switch (status) {
-			case TaskStatusEnum.OPEN:
-				return { color: 'badge-success', text: 'OPEN' };
-			case TaskStatusEnum.BID_ACCEPTED:
-				return { color: 'badge-info', text: 'BID ACCEPTED' };
-			case TaskStatusEnum.ESCROW_FUNDED:
-				return { color: 'badge-info', text: 'ESCROW FUNDED' };
-			case TaskStatusEnum.IN_PROGRESS:
-				return { color: 'badge-warning', text: 'IN PROGRESS' };
-			case TaskStatusEnum.RESCOPED:
-				return { color: 'badge-warning', text: 'RESCOPED' };
-			case TaskStatusEnum.RESCOPE_ACCEPTED:
-				return { color: 'badge-info', text: 'RESCOPE ACCEPTED' };
-			case TaskStatusEnum.COMPLETED:
-				return { color: 'badge-success', text: 'COMPLETED' };
-			case TaskStatusEnum.CANCELLED:
-				return { color: 'badge-error', text: 'CANCELLED' };
-			case TaskStatusEnum.REFUNDED:
-				return { color: 'badge-error', text: 'REFUNDED' };
-			case TaskStatusEnum.DISPUTED:
-				return { color: 'badge-error', text: 'DISPUTED' };
-			case TaskStatusEnum.DISPUTE_PROPOSAL:
-				return { color: 'badge-warning', text: 'DISPUTE PROPOSAL' };
-			default:
-				return { color: 'badge-neutral', text: status };
-		}
-	}
 
 	// Setup scroll listeners when taskListRef is available
 	$effect(() => {

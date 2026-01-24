@@ -131,7 +131,7 @@
 		</div>
 		<a
 				href={activeTab === 'bids' || activeTab === 'saved-searches'
-					? '/dashboard/find-tasks'
+					? '/tasks'
 					: activeTab === 'contracts'
 					? '/dashboard/wallet'
 					: '/dashboard/create-task'}
