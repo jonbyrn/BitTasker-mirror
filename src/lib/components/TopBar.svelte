@@ -262,7 +262,7 @@
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={isLoggedIn ? '/dashboard/find-tasks' : '/tasks'} class="block">
+		<a href="/tasks" class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
 				alt={$t('common.components.topbar.logo_alt')}

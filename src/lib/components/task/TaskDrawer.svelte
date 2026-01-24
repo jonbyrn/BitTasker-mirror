@@ -4,6 +4,8 @@
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import TaskTab from './details/TaskTab.svelte';
+	import { taskTranslationService } from '$lib/services/task-translation.service';
+	import { currentUserLanguage } from '$lib/stores/translation.store';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -11,9 +13,10 @@
 		isOpen: boolean;
 		activeTab: string;
 		onClose: () => void;
-		onRequestEditConfirm: () => void;
-		onRequestDeleteConfirm: () => void;
-		isDeleting: boolean;
+		onRequestEditConfirm?: () => void;
+		onRequestDeleteConfirm?: () => void;
+		isDeleting?: boolean;
+		onBid?: () => void;
 	}>();
 
 	// Define tabs
@@ -22,6 +25,27 @@
 	let currentTab = $state('details'); // 'details' or 'bids'
 	let showCounterOfferForm = $state(false);
 	let isOwner = $state(false); // Track if current user is the task owner
+
+	// Get translated title for drawer
+	const drawerTitle = $derived.by(() => {
+		if (!props.task) {
+			return $t('dashboard.task_details_by_task.title');
+		}
+
+		const userLang = $currentUserLanguage;
+		if (userLang && props.task) {
+			// Check if translation exists and source language doesn't match user language
+			if (props.task.translations?.sourceLanguage !== userLang) {
+				const translation = taskTranslationService.getStoredTranslation(props.task, userLang);
+				if (translation?.translatedTitle) {
+					return translation.translatedTitle;
+				}
+			}
+		}
+
+		// Fallback to original title
+		return props.task.title ?? $t('dashboard.task_details_by_task.title');
+	});
 
 	// Handle drawer state changes
 	$effect(() => {
@@ -49,7 +73,7 @@
 
 <Drawer
 	isOpen={props.isOpen}
-	title={props.task?.title ?? $t('dashboard.task_details_by_task.title')}
+	title={drawerTitle}
 	onClose={handleClose}
 	position="right"
 	isScrollable={!showCounterOfferForm}
@@ -57,7 +81,7 @@
 	{#snippet children()}
 		{#if props.task}
 			<!-- Tab content -->
-			<div class="p-4 pb-safe" style="padding-bottom: calc(0.5rem + var(--bottom-nav-height-safe, 64px));">
+			<div class="p-4">
 				<!-- Task Details Tab -->
 				{#if currentTab === 'details'}
 					<TaskTab
@@ -67,6 +91,7 @@
 						onRequestEditConfirm={props.onRequestEditConfirm}
 						onRequestDeleteConfirm={props.onRequestDeleteConfirm}
 						isDeleting={props.isDeleting}
+						onBid={props.onBid}
 					/>
 				{/if}
 			</div>

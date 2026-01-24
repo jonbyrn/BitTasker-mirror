@@ -105,9 +105,11 @@ export function getNamespacesForRoute(route: string): string[] {
 	const namespaces: string[] = [];
 
 	if(route.includes('/tasks')) {
-		namespaces.push('dashboard/dashboard','dashboard/tasks/find','dashboard/bids');
+		namespaces.push('common', 'dashboard/dashboard','dashboard/tasks/find','dashboard/tasks/info','dashboard/bids');
 		// Include wallet namespace for bid-related components
 		namespaces.push('dashboard/wallet');
+		// Include categories and recommendations for task discovery
+		namespaces.push('dashboard/recomendations', 'categories');
 	}
 	// Dashboard routes
 	if (route.includes('/dashboard')) {
@@ -130,6 +132,8 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/wallet')) {
 			// Already included above
 		}
+		// Note: /find-tasks route redirects to /tasks, so this check is kept for backward compatibility
+		// but /tasks route already loads all necessary namespaces above
 		if (route.includes('/find-tasks')) {
 			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
 		}

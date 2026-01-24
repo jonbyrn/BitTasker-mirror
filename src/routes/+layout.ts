@@ -23,7 +23,7 @@ export const load: LayoutLoad = async ({ url }) => {
 		// Check if the user is logged in
 		if (url.pathname === '/') {
 			const token = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-			if (token.value) redirect(303, '/dashboard/find-tasks');
+			if (token.value) redirect(303, '/tasks');
 		}
 	}
 

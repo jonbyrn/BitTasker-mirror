@@ -112,7 +112,7 @@ Your backend should send notifications with proper data structure:
 ```
 
 Supported notification types:
-- `task_match` - navigates to `/dashboard/find-tasks`
+- `task_match` - navigates to `/tasks`
 - `new_bid` - navigates to `/dashboard/task/{taskId}`
 - `message` - navigates to `/dashboard/messages/to/{conversationId}`
 - `task_update` - navigates to `/dashboard/task/{taskId}`

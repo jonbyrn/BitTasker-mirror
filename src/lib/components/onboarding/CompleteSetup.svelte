@@ -167,13 +167,13 @@
 						{$t('onboarding_auth.form.complete_setup.complete_setup')}
 					</button>
 					<button
-						class="btn btn-secondary w-full"
-						onclick={() => {
-							isContinueLoading = true;
-							goto('/dashboard/find-tasks').finally(() => {
-								isContinueLoading = false;
-							});
-						}}
+					class="btn btn-secondary w-full"
+					onclick={() => {
+						isContinueLoading = true;
+						goto('/tasks').finally(() => {
+							isContinueLoading = false;
+						});
+					}}
 						disabled={isContinueLoading}
 					>
 						{#if isContinueLoading}
@@ -247,13 +247,13 @@
 					</ul>
 				</div>
 				<button
-					class="btn btn-primary mt-6 min-w-10"
-					onclick={() => {
-						isRedirecting = true;
-						goto('/dashboard/find-tasks').finally(() => {
-							isRedirecting = false;
-						});
-					}}
+				class="btn btn-primary mt-6 min-w-10"
+				onclick={() => {
+					isRedirecting = true;
+					goto('/tasks').finally(() => {
+						isRedirecting = false;
+					});
+				}}
 				>
 					{#if isRedirecting}
 						<span class="loading loading-spinner loading-sm"></span>
