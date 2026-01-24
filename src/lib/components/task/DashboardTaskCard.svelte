@@ -9,10 +9,10 @@
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import TranslatableTask from './TranslatableTask.svelte';
 	import TaskShareButton from './TaskShareButton.svelte';
+	import TaskDeadlineDisplay from './TaskDeadlineDisplay.svelte';
+	import TaskLocationDisplay from './TaskLocationDisplay.svelte';
 	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
-	import IconClockOutline from '~icons/mdi/clock-outline';
-	import IconMapMarker from '~icons/mdi/map-marker';
 
 	type TaskFilterCategory = 
 		| 'waiting_for_bids'
@@ -62,7 +62,7 @@
 			</div>
 			<!-- Right: Status Badge + Price (fixed width, aligned right) -->
 			<div class="flex shrink-0 flex-col items-end justify-between gap-4 w-[min(30%,120px)]">
-				<div class="badge {statusBadge.color} badge-outline badge-sm">
+				<div class="badge {statusBadge.color} badge-sm">
 					{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
 				</div>
 				<div class="text-right text-xl font-bold mt-2">
@@ -78,38 +78,21 @@
 		<!-- Second Row: Deadline + Location -->
 		<div class="mb-3 flex flex-col gap-3">
 			<!-- Deadline -->
-			{#if task.deadline || task.dateRange}
-				<div class="flex items-center gap-2">
-					<IconClockOutline class="text-primary h-8 w-8 shrink-0" />
-					<div class="flex min-w-0 flex-1">
-						{#if task.deadline}
-							<span class="line-clamp-2 text-sm font-medium">
-								{formatDateTimeReactive(new Date(task.deadline))}
-							</span>
-						{:else if task.dateRange}
-							<span class="line-clamp-2 text-sm font-medium">
-								{formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end))}
-							</span>
-						{/if}
-					</div>
-				</div>
-			{/if}
+			<TaskDeadlineDisplay
+				deadline={task.deadline}
+				dateRangeStart={task.dateRange?.start}
+				dateRangeEnd={task.dateRange?.end}
+				formattedDeadline={task.deadline ? formatDateTimeReactive(new Date(task.deadline)) : ''}
+				formattedDateRange={task.dateRange ? formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end)) : ''}
+			/>
 
-			<!-- Location + mobile share icon -->
-			<div class="flex items-center gap-2">
-				<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
-				<div class="flex min-w-0 flex-1">
-					<span class="line-clamp-2 text-sm font-medium">
-						{#if task.dropOffLocation?.displayName}
-							{task.dropOffLocation.displayName}
-						{:else if task.pickupLocation?.displayName}
-							{task.pickupLocation.displayName}
-						{:else}
-							{$t('dashboard.task_details_by_task.remote')}
-						{/if}
-					</span>
-				</div>
-				<!-- Share button - mobile: on same row as location -->
+			<!-- Location + mobile share button -->
+			<div class="flex items-center justify-between gap-2">
+				<TaskLocationDisplay
+					dropOffLocation={task.dropOffLocation}
+					pickupLocation={task.pickupLocation}
+				/>
+				<!-- Share button - mobile only: on same row as location, right side -->
 				<span
 					role="presentation"
 					class="inline-block md:hidden shrink-0"
