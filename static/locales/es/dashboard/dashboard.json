@@ -153,7 +153,8 @@
       "task_completed": "Tarea completada",
       "bid_sent": "Oferta enviada",
       "bid_already_sent": "Oferta ya enviada",
-      "cannot_bid_own_task": "No puedes hacer oferta en tu propia tarea"
+      "cannot_bid_own_task": "No puedes hacer oferta en tu propia tarea",
+      "view_task": "Ver Tarea"
     },
     "bids": {
       "bid_acceptance": {

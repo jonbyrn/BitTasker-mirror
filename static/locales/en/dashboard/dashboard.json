@@ -153,7 +153,8 @@
       "task_completed": "Task completed",
       "bid_sent": "Bid sent",
       "cannot_bid_own_task": "Cannot bid on your own task",
-      "bid_already_sent": "Bid already sent"
+      "bid_already_sent": "Bid already sent",
+      "view_task": "View Task"
     },
     "bids": {
       "bid_acceptance": {

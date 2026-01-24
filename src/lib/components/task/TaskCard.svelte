@@ -59,19 +59,21 @@
 	aria-current={isSelected}
 	aria-disabled={!isOpen}
 	data-task-id={taskId}
-	onclick={() => {
+	onclick={async () => {
 		if (isOpen) {
-			onSelectTask(task).catch(() => {
-				// Error handling is done in onSelectTask
-			});
+			if (!drawersLoaded) {
+				await loadDrawerComponents();
+			}
+			await onViewTask(task);
 		}
 	}}
-	onkeydown={(e) => {
+	onkeydown={async (e) => {
 		if ((e.key === 'Enter' || e.key === ' ') && isOpen) {
 			e.preventDefault();
-			onSelectTask(task).catch(() => {
-				// Error handling is done in onSelectTask
-			});
+			if (!drawersLoaded) {
+				await loadDrawerComponents();
+			}
+			await onViewTask(task);
 		}
 	}}
 >
