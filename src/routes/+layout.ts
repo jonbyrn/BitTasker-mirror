@@ -19,12 +19,6 @@ export const load: LayoutLoad = async ({ url }) => {
 		await loadPageTranslations(url.pathname);
 
 		initializeStatusBar();
-
-		// Check if the user is logged in
-		if (url.pathname === '/') {
-			const token = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-			if (token.value) redirect(303, '/dashboard/find-tasks');
-		}
 	}
 
 	return {};

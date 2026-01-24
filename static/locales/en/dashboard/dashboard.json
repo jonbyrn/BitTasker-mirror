@@ -89,7 +89,7 @@
       "remote_location_description": "This task can be completed remotely.",
       "task_attachment": "Task attachment",
       "avatar_alt": "Avatar",
-      "sign_up_to_bid": "Sign up to bid",
+      "sign_up_to_bid": "Bid",
       "task_cancelled": "Task cancelled",
       "task_disputed": "Task disputed",
       "task_in_progress": "Task in progress",
@@ -142,7 +142,7 @@
       "plus_icon_alt": "Plus icon"
     },
     "find_tasks": {
-      "sign_up_to_bid": "Sign up to bid",
+      "sign_up_to_bid": "Bid",
       "bidding_closed": "Bidding closed",
       "sign_up_to_bid_aria": "Sign up to bid on this task",
       "avatar_alt": "Avatar",
@@ -153,7 +153,8 @@
       "task_completed": "Task completed",
       "bid_sent": "Bid sent",
       "cannot_bid_own_task": "Cannot bid on your own task",
-      "bid_already_sent": "Bid already sent"
+      "bid_already_sent": "Bid already sent",
+      "view_task": "View Task"
     },
     "bids": {
       "bid_acceptance": {
@@ -664,7 +665,8 @@
         "nonce_error": "Transaction ordering error. Please try again in a moment.",
         "wallet_error": "Wallet connection error. Please reconnect your wallet and try again.",
         "contract_revert": "Smart contract rejected the transaction. Please verify the transaction details and try again.",
-        "generic_error": "Transaction failed. Please check your wallet balance and network connection."
+        "generic_error": "Transaction failed. Please check your wallet balance and network connection.",
+        "invalid_argument": "Bad address format. Please check the address and try again."
       },
       "timeline": {
         "label": "Timeline",

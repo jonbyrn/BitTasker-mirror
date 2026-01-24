@@ -1243,6 +1243,11 @@
                 "task_not_found": "Task Not Found",
                 "task_not_found_message": "The requested task could not be found or may have been removed.",
                 "details": "Details"
+            },
+            "location_picker": {
+                "enter_fullscreen": "Enter fullscreen",
+                "exit_fullscreen": "Exit fullscreen",
+                "my_location": "My Location"
             }
         }
     },

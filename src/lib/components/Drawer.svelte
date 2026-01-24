@@ -7,6 +7,8 @@
 	 */
 	import { t } from 'svelte-i18n';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
+	import { onMount, tick } from 'svelte';
+	import { browser } from '$app/environment';
 
 	// Props
 	const props = $props<{
@@ -90,15 +92,45 @@
 	// Fixed width CSS class - 1/3 width on desktop, full width on mobile
 	const drawerWidthClass = 'w-full sm:w-[60%]';
 
-	// Get CSS classes for position transform
-	function getPositionTransform(position: string) {
-		if (!props.isOpen) {
-			if (position === 'left') return 'translateX(-100%)';
-			if (position === 'right') return 'translateX(100%)';
-		} else {
-			return 'translateX(0)';
+	// Track if component has mounted to ensure proper initial state
+	let isMounted = $state(false);
+	let drawerPanelRef: HTMLDivElement | null = $state(null);
+	
+	// Track the visual open state (ensures animation on first open)
+	// Start as false to ensure drawer always starts closed visually
+	let visualOpenState = $state(false);
+
+	// Ensure drawer starts closed, then sync with props after mount
+	onMount(async () => {
+		// Ensure drawer starts visually closed
+		visualOpenState = false;
+		
+		// Wait for DOM to be ready and browser to paint initial closed state
+		await tick();
+		await new Promise((resolve) => requestAnimationFrame(resolve));
+		
+		// Now sync with actual prop state and mark as mounted
+		// This will trigger animation if props.isOpen is true
+		visualOpenState = props.isOpen;
+		isMounted = true;
+	});
+
+	// Sync visual state with props after mount (for subsequent opens/closes)
+	$effect(() => {
+		if (!isMounted || !browser) return;
+		
+		// Track props.isOpen to react to changes
+		const shouldBeOpen = props.isOpen;
+		
+		// Only update if state actually changed
+		if (visualOpenState !== shouldBeOpen) {
+			// Force a reflow to ensure browser sees the state change and applies transition
+			if (drawerPanelRef) {
+				void drawerPanelRef.offsetHeight;
+			}
+			visualOpenState = shouldBeOpen;
 		}
-	}
+	});
 
 	// Escape key handler
 	function handleKeydown(e: KeyboardEvent) {
@@ -114,8 +146,9 @@
 <div
 	class="fixed inset-0 z-[60] bg-black/50 transition-opacity duration-300 ease-in-out"
 	style={`bottom: ${effectiveBottomOffset};`}
-	class:opacity-0={!props.isOpen}
-	class:invisible={!props.isOpen}
+	class:opacity-0={!visualOpenState}
+	class:pointer-events-none={!visualOpenState || !props.isOpen}
+	class:invisible={!props.isOpen && !visualOpenState}
 	onclick={props.onClose}
 	role="presentation"
 	aria-hidden="true"
@@ -123,12 +156,16 @@
 
 <!-- Drawer Panel -->
 <div
+	bind:this={drawerPanelRef}
 	class="bg-base-100 fixed top-0 {position === 'left'
 		? 'left-0'
 		: 'right-0'} z-[70] {drawerWidthClass} 
 		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
-		transform shadow-xl transition-transform duration-300"
-	style={`transform: ${getPositionTransform(position)}; bottom: ${effectiveBottomOffset};`}
+		transform shadow-xl transition-transform duration-300 ease-in-out"
+	class:translate-x-0={visualOpenState}
+	class:-translate-x-full={!visualOpenState && position === 'left'}
+	class:translate-x-full={!visualOpenState && position === 'right'}
+	style={`bottom: ${effectiveBottomOffset};`}
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="drawer-title"

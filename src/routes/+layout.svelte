@@ -7,6 +7,7 @@
 	import { devicePlatform } from '$lib/stores/device.store';
 	import TopBar from '$lib/components/TopBar.svelte';
 	import { authState } from '$lib/stores/auth.store';
+	import { user } from '$lib/stores/user.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import {
 		BITTASKER_ORG_JSONLD,
@@ -29,10 +30,13 @@
 	const showTopBar = $derived(!isOnboardingPage);
 	const showFooterSection = $derived(currentPath.includes('/dashboard'));
 	const shouldHideFooterForLoggedInTaskPage = $derived(
-		$authState.isAuthenticated && currentPath.match(/^\/tasks\/[^/]+$/)
+		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/tasks\/[^/]+$/)
+	);
+	const shouldHideFooterForTasksPage = $derived(
+		currentPath === '/tasks' && ($authState.isAuthenticated || !!$user?.npub)
 	);
 	const shouldHideFooterForLoggedInNpubPage = $derived(
-		$authState.isAuthenticated && currentPath.match(/^\/npub\/[^/]+$/)
+		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/npub\/[^/]+$/)
 	);
 
 	// Generate breadcrumbs from current path
@@ -246,7 +250,8 @@
 	<div bind:this={scrollEl} class="app-shell__content bg-base-200">
 		<div class="bg-base-200 overflow-x-hidden">
 			{#if $devicePlatform === 'web' && !isLandingPage}
-				<div class="bg-base-200 overflow-x-hidden">
+				<!-- Ensure web routes can use full-height (no unintended outer scrolling) -->
+				<div class="bg-base-200 flex h-full min-h-0 flex-col overflow-x-hidden">
 					{@render children()}
 				</div>
 			{:else}
@@ -256,37 +261,39 @@
 			{/if}
 		</div>
 
-		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage}
-			{#if !$authState.isAuthenticated}
-				<!-- Section 7: Final Call to Action (CTA) -->
-				<section class="bg-primary text-primary-content py-16">
-					<div class="container mx-auto px-4 text-center">
-						<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
-						<p class="mx-auto mt-4 max-w-2xl text-lg">
-							{$t('homepage.v2.finalcta.description')}
-						</p>
-						<div class="mt-8 flex flex-col items-center space-y-6">
-							<div class="flex flex-wrap justify-center gap-4">
-								<a
-									href="/tasks"
-									class="btn btn-lg border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
-								>
-									{$t('homepage.v2.finalcta.tasker_cta')}
-								</a>
-							</div>
-							<div>
-								<a
-									href="/auth/signup"
-									class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
-								>
-									{$t('homepage.v2.finalcta.get_started')}
-								</a>
+		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage}
+			<div class="tasks-page-footer">
+				{#if !$authState.isAuthenticated}
+					<!-- Section 7: Final Call to Action (CTA) -->
+					<section class="bg-primary text-primary-content py-16">
+						<div class="container mx-auto px-4 text-center">
+							<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
+							<p class="mx-auto mt-4 max-w-2xl text-lg">
+								{$t('homepage.v2.finalcta.description')}
+							</p>
+							<div class="mt-8 flex flex-col items-center space-y-6">
+								<div class="flex flex-wrap justify-center gap-4">
+									<a
+										href="/tasks"
+										class="btn btn-lg border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
+									>
+										{$t('homepage.v2.finalcta.tasker_cta')}
+									</a>
+								</div>
+								<div>
+									<a
+										href="/auth/signup"
+										class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
+									>
+										{$t('homepage.v2.finalcta.get_started')}
+									</a>
+								</div>
 							</div>
 						</div>
-					</div>
-				</section>
-			{/if}
-			<BitTaskerFooter />
+					</section>
+				{/if}
+				<BitTaskerFooter />
+			</div>
 		{/if}
 	</div>
 
@@ -302,3 +309,12 @@
 <Toast />
 
 <InfiniteScroll />
+
+<style>
+	/* Hide footer on mobile/tablet for tasks page */
+	@media (max-width: 1023px) {
+		.tasks-page-footer {
+			display: none !important;
+		}
+	}
+</style>

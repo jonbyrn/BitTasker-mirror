@@ -1,9 +1,11 @@
+import { normalizeRskAddress } from '@bittasker/wallet-core';
+
 export interface ValidationResult {
 	isValid: boolean;
 	error?: string;
 }
 
-import { ethers } from 'ethers';
+
 // Import liquidjs-lib for Liquid address validation
 import { address as liquidAddress } from 'liquidjs-lib';
 
@@ -159,11 +161,14 @@ export function validateRSKAddress(address: string): ValidationResult {
 		return { isValid: false, error: 'Address must contain only hexadecimal characters (0-9, a-f)' };
 	}
 
-	if(ethers.isAddress(address)) {
+	// Try to normalize the RSK address to validate format
+	// normalizeRskAddress will throw if the address is invalid
+	try {
+		normalizeRskAddress(address);
 		return { isValid: true };
+	} catch (error) {
+		return { isValid: false, error: 'Invalid RSK address checksum' };
 	}
-
-	return { isValid: true };
 }
 
 

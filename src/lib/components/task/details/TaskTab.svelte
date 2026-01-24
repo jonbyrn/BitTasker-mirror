@@ -1,9 +1,5 @@
 <script lang="ts">
 	import type { Attachment, Task } from '$lib/types/task';
-	import { goto } from '$app/navigation';
-	import { deleteTask } from '$lib/nostr/task';
-	import { taskStore } from '$lib/stores/task.store';
-	import { myTasksStore } from '$lib/stores/task.store';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -20,18 +16,20 @@
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import TaskShareButton from '../TaskShareButton.svelte';
+	// Icon imports for unplugin-icons
+	import IconPlus from '~icons/mdi/plus';
 
-	let { task, isOwner, onClose } = $props<{
+	let { task, isOwner, onClose, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } = $props<{
 		task: Task;
 		isOwner: boolean;
 		onClose: () => void;
+		onRequestEditConfirm?: () => void;
+		onRequestDeleteConfirm?: () => void;
+		isDeleting?: boolean;
+		onBid?: () => void;
 	}>();
 
-	let isDeleting = $state(false);
-	let errorMessage = $state('');
 	let btcPrice = $state<number>(63000); // Default fallback price
-	let showEditConfirmation = $state(false);
-	let showDeleteConfirm = $state(false);
 	let canDelete = $state(true); // Default to true, will be checked
 	let isCheckingDelete = $state(false);
 
@@ -50,21 +48,9 @@
 	}
 
 	function handleEditTask() {
-		showEditConfirmation = true;
-	}
-
-	function confirmEditTask() {
-		const editTask = { ...task };
-		['id', 'author'].forEach((key) => {
-			delete editTask[key as keyof Task];
-		});
-		taskStore.saveEditTaskDraft(task?.id, task?.uniqueId, editTask);
-		showEditConfirmation = false;
-		goto(`/dashboard/create-task?edit=true`);
-	}
-
-	function cancelEditTask() {
-		showEditConfirmation = false;
+		if (onRequestEditConfirm) {
+			onRequestEditConfirm();
+		}
 	}
 
 	// Check if task can be deleted (similar to contract deletion logic)
@@ -117,26 +103,7 @@
 	// Show delete confirmation
 	function showDeleteConfirmation() {
 		if (!canDelete) return;
-		showDeleteConfirm = true;
-	}
-
-	// Delete task (after confirmation)
-	async function handleDeleteTask() {
-		if (!canDelete) return;
-		
-		showDeleteConfirm = false;
-		try {
-			isDeleting = true;
-			if (!task?.id) return;
-			await deleteTask(task.id);
-			$myTasksStore.items = $myTasksStore.items.filter((t) => t.id !== task.id);
-			onClose();
-		} catch (error) {
-			console.error('Failed to delete task:', error);
-			errorMessage = 'Failed to delete task';
-		} finally {
-			isDeleting = false;
-		}
+		onRequestDeleteConfirm();
 	}
 
 	async function fetchBtcPrice(): Promise<void> {
@@ -174,7 +141,11 @@
 	</div> -->
 
 	<!-- Task details -->
-	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+	<div class="grid grid-cols-1 gap-4 md:grid-cols-2 relative">
+		<!-- Share Button - Upper Right Corner -->
+		<div class="absolute top-0 right-0 z-10" onclick={(e) => e.stopPropagation()}>
+			<TaskShareButton {task} variant="circle" />
+		</div>
 		<div>
 			<small class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
@@ -369,13 +340,27 @@
 		</div>
 	{/if}
 
-	<div class="space-y-3">
+	<div class="space-y-3 pb-4">
 		<!-- Action Buttons Row -->
 		<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
-			<!-- Share Button (always visible) -->
-			<TaskShareButton {task} variant="default" class="min-h-[40px]" />
+			<!-- Bid Button (shown when task is open and user is not owner) -->
+			{#if task.status === TaskStatusEnum.OPEN && !isOwner && onBid}
+				<button
+					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none gap-2"
+					onclick={async (e) => {
+						e.stopPropagation();
+						if (onBid) {
+							await onBid();
+						}
+					}}
+					aria-label={$t('dashboard.task_details_by_task.bid_now') || 'Bid on this task'}
+				>
+					<IconPlus class="h-4 w-4 shrink-0" />
+					<span>{$t('dashboard.task_details_by_task.bid_now')}</span>
+				</button>
+			{/if}
 
-			{#if isOwner && task.status === TaskStatusEnum.OPEN}
+			{#if isOwner && task.status === TaskStatusEnum.OPEN && onRequestEditConfirm}
 				<button class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none" onclick={handleEditTask}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -395,14 +380,14 @@
 				</button>
 			{/if}
 			
-			<!-- Delete Button (always visible, disabled when canDelete is false) -->
-			{#if isOwner}
+			<!-- Delete Button (only shown when onRequestDeleteConfirm is provided) -->
+			{#if isOwner && onRequestDeleteConfirm}
 				<button
 					class="btn btn-error btn-sm min-h-[40px] flex-1 sm:flex-none"
 					onclick={showDeleteConfirmation}
-					disabled={isDeleting || isCheckingDelete || !canDelete}
+					disabled={(isDeleting ?? false) || isCheckingDelete || !canDelete}
 				>
-					{#if isDeleting || isCheckingDelete}
+					{#if (isDeleting ?? false) || isCheckingDelete}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
 						<svg
@@ -426,147 +411,3 @@
 		</div>
 	</div>
 </div>
-
-<!-- Edit Task Confirmation Modal -->
-{#if showEditConfirmation}
-	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
-		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
-			<!-- Modal Header -->
-			<div class="mb-6">
-				<div class="mb-2 flex items-center gap-3">
-					<div class="bg-error/10 flex h-10 w-10 items-center justify-center rounded-full">
-						<svg class="text-error h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-							/>
-						</svg>
-					</div>
-					<div>
-						<h4 class="text-sm font-semibold">{$t('dashboard.task_details_by_task.edit_task_confirmation.title')}</h4>
-					</div>
-				</div>
-			</div>
-
-			<!-- Content -->
-			<div class="space-y-4">
-				<!-- Main Warning Box -->
-				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold mb-2">
-						{$t('dashboard.task_details_by_task.edit_task_confirmation.warning')}
-					</p>
-					<p class="text-sm text-error">
-						{$t('dashboard.task_details_by_task.edit_task_confirmation.details')}
-					</p>
-				</div>
-
-				<!-- Additional Information -->
-				<div class="text-base-content/70 text-sm">
-					<p>
-						{$t('dashboard.task_details_by_task.edit_task_confirmation.message')}
-					</p>
-				</div>
-			</div>
-
-			<!-- Action Buttons -->
-			<div class="border-base-300 flex gap-3 pt-6">
-				<button type="button" class="btn btn-ghost flex-1" onclick={cancelEditTask}>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-					{$t('dashboard.task_details_by_task.edit_task_confirmation.cancel')}
-				</button>
-				<button type="button" class="btn btn-error" onclick={confirmEditTask}>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-						/>
-					</svg>
-					{$t('dashboard.task_details_by_task.edit_task_confirmation.confirm_edit')}
-				</button>
-			</div>
-		</div>
-		<button
-			class="modal-backdrop"
-			onclick={cancelEditTask}
-			aria-label={$t('dashboard.task_details_by_task.edit_task_confirmation.title')}
-		></button>
-	</div>
-{/if}
-
-<!-- Delete Task Confirmation Modal -->
-{#if showDeleteConfirm}
-	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
-		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
-			<!-- Modal Header -->
-			<div class="mb-6">
-				<div class="mb-2 flex items-center gap-3">
-					<div class="bg-error/10 flex h-10 w-10 items-center justify-center rounded-full">
-						<svg class="text-error h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-							/>
-						</svg>
-					</div>
-					<div>
-						<h4 class="text-sm font-semibold">{$t('dashboard.task_details_by_task.delete_task_confirm_title')}</h4>
-					</div>
-				</div>
-			</div>
-
-			<!-- Content -->
-			<div class="space-y-4">
-				<!-- Main Warning Box -->
-				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold">
-						{$t('dashboard.task_details_by_task.delete_task_confirm_message')}
-					</p>
-				</div>
-			</div>
-
-			<!-- Action Buttons -->
-			<div class="border-base-300 flex gap-3 pt-6">
-				<button type="button" class="btn btn-ghost flex-1" onclick={() => (showDeleteConfirm = false)}>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-					{$t('dashboard.task_details_by_task.cancel')}
-				</button>
-				<button type="button" class="btn btn-error flex-1" onclick={handleDeleteTask}>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-						/>
-					</svg>
-					{$t('dashboard.task_details_by_task.delete_task')}
-				</button>
-			</div>
-		</div>
-		<button
-			class="modal-backdrop"
-			onclick={() => (showDeleteConfirm = false)}
-			aria-label={$t('dashboard.task_details_by_task.delete_task_confirm_title')}
-		></button>
-	</div>
-{/if}

@@ -8,6 +8,7 @@ import { appStore } from "$lib/stores/app.store";
 import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/escrow.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
+// Use ethers.getAddress for EIP-55 checksum address conversion
 import escrowABI from '$lib/utils/constants/escrowABI.json';
 import * as EscrowNostrEvent from '$lib/utils/wallet/escrowEvents';
 
@@ -331,6 +332,10 @@ async function createEscrow(
     try {
         const { contract, provider } = await ensureEscrowReady();
 
+        // Convert RSK address (EIP-1191) to Ethereum format (EIP-55) for ethers.js
+        // This is necessary because RSK uses EIP-1191 checksums while ethers.js expects EIP-55
+        const freelancerAddressEip55 = ethers.getAddress(freelancerAddress);
+
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
 
@@ -340,7 +345,7 @@ async function createEscrow(
 
         // Estimate gas with the same gas price that will be used in the transaction
         const gasEstimate = await contract.createEscrow.estimateGas(
-            freelancerAddress,
+            freelancerAddressEip55,
             estimatedStartTime,
             estimatedCompletionTime,
             clientFeeTier,
@@ -349,7 +354,7 @@ async function createEscrow(
         );
 
         const tx = await contract.createEscrow(
-            freelancerAddress,
+            freelancerAddressEip55,
             estimatedStartTime,
             estimatedCompletionTime,
             clientFeeTier,

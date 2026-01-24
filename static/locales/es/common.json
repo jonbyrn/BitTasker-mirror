@@ -899,6 +899,11 @@
           "task_not_found": "Tarea No Encontrada",
           "task_not_found_message": "La tarea solicitada no pudo ser encontrada o puede haber sido eliminada.",
           "details": "Detalles"
+        },
+        "location_picker": {
+          "enter_fullscreen": "Pantalla completa",
+          "exit_fullscreen": "Salir de pantalla completa",
+          "my_location": "Mi Ubicación"
         }
       }
     },
