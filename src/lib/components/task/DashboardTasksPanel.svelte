@@ -8,7 +8,7 @@
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
-	import TaskCard from './TaskCard.svelte';
+	import DashboardTaskCard from './DashboardTaskCard.svelte';
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -580,7 +580,7 @@
 		{:else}
 			<div class="grid grid-cols-1 gap-5">
 				{#each paginatedTasks as task (task.id)}
-					<TaskCard
+					<DashboardTaskCard
 						{task}
 						{btcPrice}
 						{activeFilter}
