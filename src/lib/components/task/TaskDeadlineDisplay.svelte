@@ -1,22 +1,50 @@
 <script lang="ts">
 	import IconClockOutline from '~icons/mdi/clock-outline';
+	import { locale } from 'svelte-i18n';
 
 	const {
 		deadline = null,
 		dateRangeStart = null,
-		dateRangeEnd = null,
-		formattedDeadline = '',
-		formattedDateRange = ''
+		dateRangeEnd = null
 	} = $props<{
 		deadline?: Date | number | string | null;
 		dateRangeStart?: Date | number | string | null;
 		dateRangeEnd?: Date | number | string | null;
-		formattedDeadline?: string;
-		formattedDateRange?: string;
 	}>();
 
+	// Format a date to "Jan 21, 2026" format (no time)
+	function formatDate(value: Date | number | string | null | undefined): string {
+		if (!value) return '';
+		
+		let date: Date;
+		if (value instanceof Date) {
+			date = value;
+		} else if (typeof value === 'number') {
+			// Handle Unix timestamps (seconds vs milliseconds)
+			date = value > 1000000000000 ? new Date(value) : new Date(value * 1000);
+		} else {
+			date = new Date(value);
+		}
+		
+		if (isNaN(date.getTime())) return '';
+		
+		return date.toLocaleDateString($locale || 'en', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
+	}
+
+	// Formatted display values
+	const formattedDeadline = $derived(formatDate(deadline));
+	const formattedDateRange = $derived(
+		dateRangeStart && dateRangeEnd
+			? `${formatDate(dateRangeStart)} - ${formatDate(dateRangeEnd)}`
+			: ''
+	);
+
 	// Determine if we have any date to display
-	const hasDate = $derived(deadline || (dateRangeStart && dateRangeEnd) || formattedDeadline || formattedDateRange);
+	const hasDate = $derived(formattedDeadline || formattedDateRange);
 </script>
 
 {#if hasDate}

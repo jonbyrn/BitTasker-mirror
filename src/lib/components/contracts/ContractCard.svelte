@@ -146,7 +146,7 @@
 			<div class="flex flex-col gap-2 min-w-0 flex-1">
 				<!-- Deadline -->
 				<TaskDeadlineDisplay
-					formattedDeadline={formatDate(contractStore.getContractKey(contract, 'estimatedCompletionTime') as number)}
+					deadline={contractStore.getContractKey(contract, 'estimatedCompletionTime') as number}
 				/>
 
 				<!-- Location (contracts don't have location data, default to Remote) -->
