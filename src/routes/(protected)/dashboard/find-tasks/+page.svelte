@@ -584,14 +584,32 @@ async function loadMyBidTaskIds(): Promise<void> {
 		const bids = await getMyBids(false);
 		const taskIds = new Set<string>();
 		bids.forEach((bidEvent) => {
-			const bidContent = bidEvent.content as { taskId?: string };
-			if (bidContent?.taskId) {
-				taskIds.add(bidContent.taskId);
+			let taskId: string | undefined;
+			if (typeof bidEvent.content === 'string') {
+				try {
+					const parsed = JSON.parse(bidEvent.content) as { taskId?: string };
+					taskId = parsed?.taskId;
+				} catch {
+					// Ignore malformed JSON
+				}
+			} else {
+				taskId = (bidEvent.content as { taskId?: string })?.taskId;
+			}
+
+			if (!taskId) {
+				const taskTag = bidEvent.tags?.find((tag) => tag[0] === 't');
+				taskId = taskTag?.[1];
+			}
+
+			if (taskId) {
+				taskIds.add(taskId);
 			}
 		});
-		myBidTaskIds = taskIds;
+		myBidTaskIds = new Set([...myBidTaskIds, ...taskIds]);
 	} catch (error) {
-		myBidTaskIds = new Set();
+		if (myBidTaskIds.size === 0) {
+			myBidTaskIds = new Set();
+		}
 	}
 }
 

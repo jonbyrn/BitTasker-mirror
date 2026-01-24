@@ -16,7 +16,7 @@ import KINDS from '$lib/utils/constants/kinds';
  * 
  * @param taskId - Optional task ID to clear only that task's bid cache
  */
-export function clearBidCache(taskId?: string): void {
+export function clearBidCache(taskId?: string, userPubkey?: string): void {
 	if (taskId) {
 		// Clear only the specific task's bid cache
 		smartCache.invalidateTaskBids(taskId);
@@ -29,6 +29,13 @@ export function clearBidCache(taskId?: string): void {
 		if (import.meta.env.DEV) {
 			console.debug('Cleared all bid caches');
 		}
+	}
+
+	if (userPubkey) {
+		const normalizedPubkey = userPubkey.startsWith('npub')
+			? (nip19.decode(userPubkey).data as string)
+			: userPubkey;
+		smartCache.invalidateUserBids(normalizedPubkey);
 	}
 	// Currency cache doesn't need to be cleared unless BTC price changes
 	// currencyCache.clear();
@@ -199,7 +206,7 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
  * @returns The bid status or null if no status exists
  */
 export function getBidStatus(bidEvent: NostrEvent): NostrBidStatus | null {
-	const latestStatus = (bidEvent as any).latestStatus;
+	const latestStatus = (bidEvent as { latestStatus?: { content: unknown } }).latestStatus;
 
 	if (!latestStatus) {
 		return null;

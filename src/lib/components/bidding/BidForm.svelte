@@ -557,9 +557,13 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Clear bid cache for this specific task
+			// Clear bid cache for this specific task and current user
 			// This ensures fresh data on next load without clearing unrelated caches
-			clearBidCache(task.id);
+			if ($user?.npub) {
+				clearBidCache(task.id, $user.npub);
+			} else {
+				clearBidCache(task.id);
+			}
 
 			// Mark bid as submitted
 			bidSubmitted = true;

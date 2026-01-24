@@ -324,6 +324,7 @@
 				</button>
 				{#if isAvatarDropdownOpen}
 					<ul
+						role="menu"
 						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
 						style="transform-origin: top right;"
 						onclick={(e) => e.stopPropagation()}

@@ -21,7 +21,6 @@
 	} from '$lib/utils/constants/contract-modals';
 	import { portal } from '$lib/utils/portal';
 import {
-	sendPaymentReleasedMessageToTaskee,
 	sendTaskCompletionMessageToTasker
 } from '$lib/utils/location/sendLocation';
 
@@ -99,10 +98,10 @@ import {
 
 		// Convert timestamps to milliseconds if they're in seconds
 		const startTime =
-			estimatedStartTime > 1000000000000 ? estimatedStartTime : estimatedStartTime * 1000;
-		const createdTime = createdAt > 1000000000000 ? createdAt : createdAt * 1000;
+			Number(estimatedStartTime) > 1000000000000 ? Number(estimatedStartTime) : Number(estimatedStartTime) * 1000;
+		const createdTime = Number(createdAt) > 1000000000000 ? Number(createdAt) : Number(createdAt) * 1000;
 
-		const hoursUntilStart = (startTime - now) / (1000 * 60 * 60);
+		const hoursUntilStart = (Number(startTime) - now) / (1000 * 60 * 60);
 		const hoursSinceCreation = (now - createdTime) / (1000 * 60 * 60);
 
 		// Can cancel if more than 24 hours before estimated start time
@@ -269,7 +268,7 @@ import {
 
 			const freelancerPubkey = contractStore.getContractKey(contract, 'freelancerPubkey') as string;
 			if (freelancerPubkey) {
-				sendPaymentReleasedMessageToTaskee(
+			/* 	sendPaymentReleasedMessageToTaskee(
 					freelancerPubkey,
 					{
 						taskId: contractStore.getContractKey(contract, 'taskId') as string,
@@ -278,7 +277,7 @@ import {
 					}
 				).catch((messageError: any) => {
 					console.error('Failed to send payment released message to taskee:', messageError);
-				});
+				}); */
 			}
 
 			// Note: Loading will be cleared when contract.isPending becomes false
