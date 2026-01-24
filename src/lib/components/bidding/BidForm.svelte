@@ -17,9 +17,10 @@
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// Props - Simplified to just task and onClose
-	const { task, onClose, stickySubmit = true } = $props<{
+	const { task, onClose, onBidSubmitted, stickySubmit = true } = $props<{
 		task: Task;
 		onClose: () => void;
+		onBidSubmitted?: (taskId: string) => void;
 		/**
 		 * When true, the submit button stays visible while scrolling.
 		 * For drawer usage we prefer it to be in normal flow, at the bottom of the drawer.
@@ -498,10 +499,12 @@
 				coverLetter
 			});
 
+			const taskIdentifier = (task as { uniqueId?: string }).uniqueId || task.id;
+
 			// Create bid data structure with explicit type
 			const bidData = {
 				type: 'bid',
-				taskId: task.id,
+				taskId: taskIdentifier,
 				taskTitle: task.title,
 				taskDescription: task.description,
 				taskTranslations: task.translations, // Save task translations
@@ -538,10 +541,11 @@
 			};
 
 			// Create custom tags for the bid event using TAG_PATTERNS
-			const customTags = TAG_PATTERNS.bid(bidData.bidId, task.id, task.npub, bidType);
+			const customTags = TAG_PATTERNS.bid(bidData.bidId, taskIdentifier, task.npub, bidType);
 
 			// Submit a bid as an encrypted event to the task creator with custom tags
-			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
+		await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
+			onBidSubmitted?.(taskIdentifier);
 
 			// Send notification to task creator
 			pushNotificationService.sendNotificationToNpubs({

@@ -1,4 +1,4 @@
-import type { TaskBody, TaskTranslations } from '$lib/types/task';
+import type { Task, TaskBody, TaskTranslations } from '$lib/types/task.d';
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { calculatePOW } from '$lib/nostr';
@@ -14,6 +14,9 @@ import KINDS from '$lib/utils/constants/kinds';
 import { TranslationService } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
 import { appStore } from '$lib/stores/app.store';
+import { tasksStore, myTasksStore } from '$lib/stores/task.store';
+import { cleanup as cleanupTasksCache } from '$lib/nostr/findTasks';
+import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -24,6 +27,8 @@ const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove
 function getPool() {
 	return get(appStore).pool;
 }
+
+type TaskWithIds = Task & { uniqueId?: string; eventId?: string };
 
 // Translation service instance
 const translationService = new TranslationService();
@@ -53,7 +58,9 @@ async function generateTaskTranslations(
 		
 		// Determine source language - if detection fails, default to 'en'
 		// but we'll still translate to ensure both languages are available
-		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) 
+		const sourceLanguage =
+			detectedLanguage &&
+			SUPPORTED_LANGUAGES.includes(detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number])
 			? detectedLanguage 
 			: 'en';
 		
@@ -101,7 +108,11 @@ async function generateTaskTranslations(
 
 		// If we couldn't detect the language or translation failed, try the reverse
 		// This ensures we always have translations available in both languages
-		if ((!detectedLanguage || !SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) && 
+		if (
+			(!detectedLanguage ||
+				!SUPPORTED_LANGUAGES.includes(
+					detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number]
+				)) &&
 			Object.keys(translations).length === 0) {
 			// Try translating assuming the text is in Spanish
 			const reverseSource = sourceLanguage === 'en' ? 'es' : 'en';
@@ -150,13 +161,13 @@ async function generateTaskTags(
 		.filter((skill) => /^[a-z0-9\s-]+$/.test(skill))
 		.slice(0, 10); // Limit to 10 skills
 
-	const tags: [string, ...any][] = [
+	const tags: Array<[string, ...string[]]> = [
 		['c', ...taskData.categories.map((id) => id.toString())],
 		['s', ...normalizedSkills],
 		['p', await getNpub()],
 		['pow', ...pow],
 		['d', `task-${uniqueId}`], // Use uniqueId as the d tag to ensure uniqueness
-		['S', TaskStatusEnum.OPEN] // Default status - OPEN
+		['S', taskData.status ?? TaskStatusEnum.OPEN] // Default status - OPEN
 	];
 
 	if (taskData.deadline) {
@@ -327,7 +338,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		// Check if taskId is an event ID (64 hex chars) or UUID (uniqueId)
 		const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
 		const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
-		let originalTask: any = null;
+		let originalTask: NostrEvent | null = null;
 
 		if (isEventId) {
 			// It's an event ID, use it directly
@@ -416,6 +427,44 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		await nostrEventsService.publishEvent(signedEvent);
 		// await publishToRelays(signedEvent);
 
+		const updatedTask: TaskWithIds = {
+			...(updatedTaskData as Task),
+			id: uniqueId,
+			uniqueId,
+			eventId: signedEvent.id,
+			npub: signedEvent.pubkey,
+			createdAt: updatedTaskData.createdAt ?? originalTask.created_at
+		};
+
+		// Clear caches so next fetch is fresh
+		cleanupTasksCache();
+		cleanupMyTasks();
+
+		// Update in-memory stores to reflect status immediately
+		tasksStore.update((state) => ({
+			...state,
+			items: state.items.map((task) => {
+				const taskWithIds = task as TaskWithIds;
+				return taskWithIds.uniqueId === uniqueId ||
+					taskWithIds.id === uniqueId ||
+					taskWithIds.eventId === originalTask.id
+					? { ...taskWithIds, ...updatedTask }
+					: taskWithIds;
+			})
+		}));
+
+		myTasksStore.update((state) => ({
+			...state,
+			items: state.items.map((task) => {
+				const taskWithIds = task as TaskWithIds;
+				return taskWithIds.uniqueId === uniqueId ||
+					taskWithIds.id === uniqueId ||
+					taskWithIds.eventId === originalTask.id
+					? { ...taskWithIds, ...updatedTask }
+					: taskWithIds;
+			})
+		}));
+
 		return signedEvent.id;
 	} catch (error) {
 		console.error('Failed to update task:', error);
@@ -428,13 +477,36 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
  */
 export async function deleteTask(taskId: string): Promise<string> {
 	try {
+		const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
+		const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
+		let eventId = taskId;
+
+		if (!isEventId && isUuid) {
+			const dTagValue = `task-${taskId}`;
+			const response = await nostrEventsService.requestEvents({
+				filters: [
+					{
+						kinds: [KINDS.TASK_CREATION],
+						'#d': [dTagValue],
+						limit: 1
+					}
+				]
+			});
+
+			if (response.data && response.data.length > 0) {
+				eventId = response.data[0].id;
+			} else {
+				throw new Error('Task not found');
+			}
+		}
+
 		// Create deletion event (kind 5)
 		const event = {
 			kind: 5,
 			created_at: Math.floor(Date.now() / 1000),
 			content: 'Task deleted',
 			tags: [
-				['e', taskId] // Reference to event being deleted
+				['e', eventId] // Reference to event being deleted
 			]
 		};
 
@@ -457,7 +529,7 @@ export async function deleteTask(taskId: string): Promise<string> {
 export async function publishToRelays(event: NostrEvent, relays = RELAYS): Promise<void> {
 	try {
 		const pool = getPool();
-		const pub = pool.publish(relays, event as any); // Type cast to any to bypass type check
+		const pub = pool.publish(relays, event); // Type cast to any to bypass type check
 		await Promise.race([
 			Promise.all(pub),
 			new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))

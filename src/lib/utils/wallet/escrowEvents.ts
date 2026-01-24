@@ -3,6 +3,7 @@ import type { CreateContractParams, PublishContractStatusParams } from '$lib/typ
 import { writable } from 'svelte/store';
 import { createContract, publishContractStatus } from '$lib/utils/nostr-contract';
 import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { updateTask } from '$lib/nostr/task';
 import { getWallet, getEventListeners } from '$lib/stores/wallet.store';
 import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 import { t } from 'svelte-i18n';
@@ -13,8 +14,39 @@ import { BidStatusEnum } from '../enums/bid.enum';
 import { contractStore } from '$lib/stores/contract.store';
 import { escrow } from '$lib/utils/wallet/escrow';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
+import { mapEscrowStatusToTaskStatus } from '$lib/utils/helpers/taskStatusMap';
+import nostrEventsService from '$lib/api/services/nostr/events';
+import KINDS from '$lib/utils/constants/kinds';
 
 const _ = get(t);
+
+
+async function resolveTaskIdByEscrow(escrowId: string): Promise<string | null> {
+	const contractsState = get(contractStore);
+	const index = contractsState.contractsMap.get(escrowId);
+	if (index !== undefined) {
+		return contractsState.contracts[index]?.contractEvent?.content?.taskId ?? null;
+	}
+
+	try {
+		const response = await nostrEventsService.requestEvents({
+			filters: [
+				{
+					kinds: [KINDS.CONTRACT],
+					'#d': [escrowId],
+					limit: 1
+				}
+			]
+		});
+		const contractEvent = response.data?.[0];
+		if (!contractEvent?.content) return null;
+		const parsed = JSON.parse(contractEvent.content) as { taskId?: string };
+		return parsed.taskId ?? null;
+	} catch (error) {
+		console.warn('[EscrowEvents] Failed to resolve taskId:', error);
+		return null;
+	}
+}
 
 // Event types for escrow events
 export interface EscrowCreatedEvent {
@@ -102,6 +134,18 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
 			proposedClientAmount: params.proposedClientAmount,
 			proposedFreelancerAmount: params.proposedFreelancerAmount
 		});
+
+	const nextTaskStatus = mapEscrowStatusToTaskStatus(params.status);
+	if (nextTaskStatus) {
+		const taskId = await resolveTaskIdByEscrow(params.escrowId);
+		if (taskId) {
+			try {
+				await updateTask(taskId, { status: nextTaskStatus });
+			} catch (statusError) {
+				console.warn('Failed to sync task status from escrow status:', statusError);
+			}
+		}
+	}
 
 		// Show appropriate toast
 		if (isPending) {

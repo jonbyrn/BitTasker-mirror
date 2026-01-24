@@ -176,13 +176,16 @@ function createBidStore() {
     /**
      * Subscribe to bid and bid-status updates for a specific task
      */
-    async function subscribeToUpdates(taskId: string) {
+    async function subscribeToUpdates(taskId: string, legacyTaskId?: string) {
         try {
             // Close existing subscriptions if any
             unsubscribeFromUpdates();
 
             const npub = await getNpub();
             const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+            const npubTagValues = npub.startsWith('npub')
+                ? [userPubkeyHex, npub]
+                : [userPubkeyHex, nip19.npubEncode(userPubkeyHex)];
             const pool = get(appStore).pool;
 
             if (!pool) {
@@ -190,6 +193,8 @@ function createBidStore() {
                 return;
             }
 
+            const taskIds =
+                legacyTaskId && legacyTaskId !== taskId ? [taskId, legacyTaskId] : [taskId];
             const since = Math.floor(Date.now() / 1000);
 
             // Subscription 1: New bids for this task (where user is recipient)
@@ -197,8 +202,8 @@ function createBidStore() {
                 [import.meta.env.VITE_NOSTR_RELAY_URL],
                 {
                     kinds: [KINDS.BIDS],
-                    ...TAG_FILTERS.byTask(taskId),
-                    ...TAG_FILTERS.byNpub(userPubkeyHex),
+                    ...TAG_FILTERS.byTask(taskIds),
+                    ...TAG_FILTERS.byNpub(npubTagValues),
                     since
                 },
                 { onevent: handleBidEvent }
@@ -209,8 +214,8 @@ function createBidStore() {
                 get(appStore).relays,
                 {
                     kinds: [KINDS.BID_STATUS],
-                    ...TAG_FILTERS.byTask(taskId),
-                    ...TAG_FILTERS.byNpub(userPubkeyHex),
+                    ...TAG_FILTERS.byTask(taskIds),
+                    ...TAG_FILTERS.byNpub(npubTagValues),
                     since
                 },
                 { onevent: handleBidStatusEvent }
@@ -222,7 +227,7 @@ function createBidStore() {
                 {
                     kinds: [KINDS.BID_STATUS],
                     authors: [userPubkeyHex],
-                    ...TAG_FILTERS.byTask(taskId),
+                    ...TAG_FILTERS.byTask(taskIds),
                     since
                 },
                 { onevent: handleBidStatusEvent }
@@ -258,7 +263,7 @@ function createBidStore() {
         /**
          * Load bids for a specific task (initial load)
          */
-        async loadBidsForTask(taskId: string) {
+        async loadBidsForTask(taskId: string, legacyTaskId?: string) {
             update((state) => ({
                 ...state,
                 isLoading: true,
@@ -267,7 +272,7 @@ function createBidStore() {
             }));
 
             try {
-                const loadedBids = await getBidsForTask(taskId, true);
+                const loadedBids = await getBidsForTask(taskId, true, legacyTaskId);
 
                 update((state) => ({
                     ...state,

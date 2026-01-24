@@ -6,7 +6,6 @@ import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import { smartCache, currencyCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import { nip19, nip44 } from 'nostr-tools';
 import { bidStore } from '$lib/stores/bid.store';
 import KINDS from '$lib/utils/constants/kinds';
@@ -70,8 +69,14 @@ export function batchSatsFromUsd(amounts: number[], btcPrice: number): number[] 
  * @param includeStatus - Whether to query and attach the latest bid status events (default: true)
  * @returns Array of bid messages with their associated status data attached
  */
-export async function getBidsForTask(taskId: string, includeStatus: boolean = true): Promise<NostrEvent[]> {
+export async function getBidsForTask(
+	taskId: string,
+	includeStatus: boolean = true,
+	legacyTaskId?: string
+): Promise<NostrEvent[]> {
 	try {
+		const taskIds =
+			legacyTaskId && legacyTaskId !== taskId ? [taskId, legacyTaskId] : [taskId];
 		// Check smartCache first
 		const cachedBids = smartCache.getBidsForTask(taskId);
 		if (cachedBids) {
@@ -81,26 +86,28 @@ export async function getBidsForTask(taskId: string, includeStatus: boolean = tr
 			return cachedBids;
 		}
 
-		let npub = await getNpub();
-		if (npub.startsWith('npub')) {
-			const { nip19 } = await import('nostr-tools');
-			npub = nip19.decode(npub).data as string;
-		}
+		const npub = await getNpub();
+		const npubHex = npub.startsWith('npub') ? nip19.decode(npub).data as string : npub;
+		const npubTagValues = npub.startsWith('npub')
+			? [npubHex, npub]
+			: [npubHex, nip19.npubEncode(npubHex)];
 
 		// Query bid events with relay-side filtering
 		const filter: Filter = {
 			kinds: [KINDS.BIDS],
-			...TAG_FILTERS.byTask(taskId), // Filter by task ID
-			...TAG_FILTERS.byNpub(npub), // Filter by recipient (user)
+			...TAG_FILTERS.byTask(taskIds), // Filter by task ID(s)
+			...TAG_FILTERS.byNpub(npubTagValues), // Filter by recipient (user)
 			limit: 100
 		};
 
 		// Prepare followup filter for bid status events if requested
-		const followupFilter = includeStatus ? {
-			kinds: [KINDS.BID_STATUS],
-			...TAG_FILTERS.byTask(taskId),
-			limit: 500 // Allow multiple status updates per bid
-		} : undefined;
+		const followupFilter = includeStatus
+			? {
+					kinds: [KINDS.BID_STATUS],
+					...TAG_FILTERS.byTask(taskIds),
+					limit: 500 // Allow multiple status updates per bid
+				}
+			: undefined;
 
 		// Query bids with optional status followup
 		// Status events are automatically linked by parent bid event ID via #e tag
@@ -215,7 +222,8 @@ export function getBidStatus(bidEvent: NostrEvent): NostrBidStatus | null {
  */
 export async function decryptBidEvent(event: NostrEvent): Promise<NostrEvent | null> {
 	try {
-		let { npub, nsec } = await getNostrKeyPair();
+		let { npub } = await getNostrKeyPair();
+		const {nsec} = await getNostrKeyPair();
 		if (!npub || !nsec) {
 			throw new Error('No keys found');
 		}

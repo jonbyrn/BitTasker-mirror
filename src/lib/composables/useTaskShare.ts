@@ -175,7 +175,7 @@ export function getTaskShareLink(task: Task | null, taskId?: string): string {
 		if (task) {
 			// Always use the uniqueId from the task object for stable URLs
 			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			const taskIdentifier = (task as any).uniqueId || task.id;
+			const taskIdentifier = (task).uniqueId || task.id;
 			return `${window.location.origin}/tasks/${taskIdentifier}`;
 		} else if (taskId) {
 			return `${window.location.origin}/tasks/${taskId}`;

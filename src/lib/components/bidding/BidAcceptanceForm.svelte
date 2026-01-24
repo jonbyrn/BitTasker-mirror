@@ -24,8 +24,9 @@
 	import { linear } from 'svelte/easing';
 	import { onMount } from 'svelte';
 	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
-	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { bidStore } from '$lib/stores/bid.store';
+import { updateTask } from '$lib/nostr/task';
 	import IconContentCopy from '~icons/mdi/content-copy';
 
 	// Props
@@ -138,6 +139,13 @@
 			const result = await acceptBidAndCreateEscrow(props.bid, props.task, props.btcPrice, 'RSK');
 
 			if (result.success) {
+				const taskIdentifier = (taskContent as { uniqueId?: string }).uniqueId || props.task.id;
+				try {
+					await updateTask(taskIdentifier, { status: TaskStatusEnum.BID_ACCEPTED });
+				} catch (statusError) {
+					console.warn('Failed to set task status to BID_ACCEPTED:', statusError);
+				}
+
 				escrowDetails = {
 					transactionResult: result.transactionResult,
 					escrowDetails: bidEscrowDetails
