@@ -11,9 +11,11 @@
 	import type { Component } from 'svelte';
 	
 	// Icon imports
-	import IconMapMarker from '~icons/mdi/map-marker';
-	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconPlus from '~icons/mdi/plus';
+	
+	// Reusable display components
+	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
+	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import IconEye from '~icons/mdi/eye';
 	import IconAccount from '~icons/mdi/account';
 	import IconStar from '~icons/mdi/star';
@@ -92,7 +94,7 @@
 			</div>
 			<!-- Right: Status Badge + Price (fixed width, aligned right) -->
 			<div class="flex shrink-0 flex-col items-end justify-between gap-4 w-[min(30%,120px)]">
-				<div class="badge {statusBadge.color} badge-outline badge-sm">
+				<div class="badge {statusBadge.color} badge-sm">
 					{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
 				</div>
 				<div class="text-right text-xl font-bold mt-2">
@@ -108,38 +110,19 @@
 		<!-- Second Row: Deadline + Location -->
 		<div class="mb-3 flex flex-col gap-3">
 			<!-- Deadline -->
-			{#if task.deadline || task.dateRange}
-				<div class="flex items-center gap-2">
-					<IconClockOutline class="text-primary h-8 w-8 shrink-0" />
-					<div class="flex min-w-0 flex-1">
-						{#if task.deadline}
-							<span class="line-clamp-2 text-sm font-medium">
-								{formatDateTimeReactive(task.deadline)}
-							</span>
-						{:else if task.dateRange}
-							<span class="line-clamp-2 text-sm font-medium">
-								{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
-							</span>
-						{/if}
-					</div>
-				</div>
-			{/if}
+			<TaskDeadlineDisplay
+				deadline={task.deadline}
+				dateRangeStart={task.dateRange?.start}
+				dateRangeEnd={task.dateRange?.end}
+				formattedDeadline={task.deadline ? formatDateTimeReactive(task.deadline) : ''}
+				formattedDateRange={task.dateRange ? formatDateRangeReactive(task.dateRange.start, task.dateRange.end) : ''}
+			/>
 
 			<!-- Location -->
-			<div class="flex items-center gap-2">
-				<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
-				<div class="flex min-w-0 flex-1">
-					<span class="line-clamp-2 text-sm font-medium">
-						{#if task.dropOffLocation?.displayName}
-							{task.dropOffLocation.displayName}
-						{:else if task.pickupLocation?.displayName}
-							{task.pickupLocation.displayName}
-						{:else}
-							{$t('dashboard.task_details_by_task.remote')}
-						{/if}
-					</span>
-				</div>
-			</div>
+			<TaskLocationDisplay
+				dropOffLocation={task.dropOffLocation}
+				pickupLocation={task.pickupLocation}
+			/>
 		</div>
 
 		<!-- Bottom Row: Avatar + Action Buttons -->

@@ -12,6 +12,8 @@
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
+	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import {
 		formatStandardDateShort,
 		parseDateToLocalMidnight
@@ -876,7 +878,7 @@
 													<div class="flex w-[30%] shrink-0 flex-col items-end justify-between gap-4">
 														{#each [task] as taskItem}
 															{@const statusBadge = getStatusBadge(taskItem.status)}
-															<div class="badge {statusBadge.color} badge-outline badge-sm">
+															<div class="badge {statusBadge.color} badge-sm">
 																{$t(`task.status.${taskItem.status.toLowerCase()}`) ||
 																	statusBadge.text}
 															</div>
@@ -894,73 +896,19 @@
 												<!-- Second Row: Deadline + Location -->
 												<div class="mb-3 flex flex-col gap-3">
 													<!-- Deadline -->
-													{#if task.deadline || task.dateRange}
-														<div class="flex items-center gap-2">
-															<svg
-																xmlns="http://www.w3.org/2000/svg"
-																class="text-primary h-8 w-8 shrink-0"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke="currentColor"
-															>
-																<path
-																	stroke-linecap="round"
-																	stroke-linejoin="round"
-																	stroke-width="2"
-																	d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-																/>
-															</svg>
-															<div class="flex min-w-0 flex-1">
-																{#if task.deadline}
-																	<span class="line-clamp-2 text-sm font-medium">
-																		{formatDateTimeReactive(task.deadline)}
-																	</span>
-																{:else if task.dateRange}
-																	<span class="line-clamp-2 text-sm font-medium">
-																		{formatDateRangeReactive(
-																			task.dateRange.start,
-																			task.dateRange.end
-																		)}
-																	</span>
-																{/if}
-															</div>
-														</div>
-													{/if}
+													<TaskDeadlineDisplay
+														deadline={task.deadline}
+														dateRangeStart={task.dateRange?.start}
+														dateRangeEnd={task.dateRange?.end}
+														formattedDeadline={task.deadline ? formatDateTimeReactive(task.deadline) : ''}
+														formattedDateRange={task.dateRange ? formatDateRangeReactive(task.dateRange.start, task.dateRange.end) : ''}
+													/>
 
 													<!-- Location -->
-													<div class="flex items-center gap-2">
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															class="text-primary h-8 w-8 shrink-0"
-															fill="none"
-															viewBox="0 0 24 24"
-															stroke="currentColor"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-															/>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-															/>
-														</svg>
-														<div class="flex min-w-0 flex-1">
-															<span class="line-clamp-2 text-sm font-medium">
-																{#if task.dropOffLocation?.displayName}
-																	{task.dropOffLocation.displayName}
-																{:else if task.pickupLocation?.displayName}
-																	{task.pickupLocation.displayName}
-																{:else}
-																	{$t('dashboard.task_details_by_task.remote')}
-																{/if}
-															</span>
-														</div>
-													</div>
+													<TaskLocationDisplay
+														dropOffLocation={task.dropOffLocation}
+														pickupLocation={task.pickupLocation}
+													/>
 												</div>
 
 												<!-- Bottom Row: Avatar + Action Buttons -->
