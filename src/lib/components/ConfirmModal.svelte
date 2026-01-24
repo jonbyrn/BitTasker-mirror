@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 
 	let {
@@ -21,17 +20,6 @@
 		onConfirm?: () => void;
 		onCancel?: () => void;
 	}>();
-
-	let isLoading = $state(false);
-
-	const handleConfirm = () => {
-		isLoading = true;
-		onConfirm?.();
-	};
-
-	onDestroy(() => {
-		isLoading = false;
-	});
 </script>
 
 {#if isOpen}
@@ -43,10 +31,7 @@
 				<button class="btn btn-ghost" onclick={onCancel}>
 					{cancelText}
 				</button>
-				<button class="btn {confirmButtonClass}" onclick={handleConfirm}>
-					{#if isLoading}
-						<span class="loading loading-spinner loading-xs"></span>
-					{/if}
+				<button class="btn {confirmButtonClass}" onclick={onConfirm}>
 					{confirmText}
 				</button>
 			</div>

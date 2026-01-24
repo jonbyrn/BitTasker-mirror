@@ -76,6 +76,22 @@ const createAppStore = () => {
 		},
 		showInfoToast: (message: string, timeout: number = 3000) => {
 			addToast({ type: 'info', message }, timeout);
+		},
+		/**
+		 * Reset user-specific state (nostrKeys, biometricData)
+		 * Called on logout to prevent stale data
+		 */
+		resetUserState: () => {
+			update((state) => ({
+				...state,
+				nostrKeys: {
+					nsec: null,
+					npub: null,
+					mnemonic: null
+				},
+				biometricData: null,
+				error: null
+			}));
 		}
 	};
 };
