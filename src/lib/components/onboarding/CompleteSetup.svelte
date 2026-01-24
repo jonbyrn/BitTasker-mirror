@@ -170,7 +170,7 @@
 					class="btn btn-secondary w-full"
 					onclick={() => {
 						isContinueLoading = true;
-						goto('/tasks').finally(() => {
+						goto('/dashboard').finally(() => {
 							isContinueLoading = false;
 						});
 					}}
@@ -250,7 +250,7 @@
 				class="btn btn-primary mt-6 min-w-10"
 				onclick={() => {
 					isRedirecting = true;
-					goto('/tasks').finally(() => {
+					goto('/dashboard').finally(() => {
 						isRedirecting = false;
 					});
 				}}
