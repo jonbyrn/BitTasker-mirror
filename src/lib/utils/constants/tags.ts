@@ -189,8 +189,10 @@ export const TAG_PATTERNS = {
  * Tag filter helpers for querying events
  */
 export const TAG_FILTERS = {
-	/** Filter events by task ID */
-	byTask: (taskId: string) => ({ [`#${TAGS.T}`]: [taskId] }),
+	/** Filter events by task ID(s) */
+	byTask: (taskId: string | string[]) => ({
+		[`#${TAGS.T}`]: Array.isArray(taskId) ? taskId : [taskId]
+	}),
 
 	/** Filter events by bid ID */
 	byBid: (bidId: string) => ({ [`#${TAGS.B}`]: [bidId] }),
@@ -202,7 +204,9 @@ export const TAG_FILTERS = {
 	byMessageType: (type: string) => ({ [`#${TAGS.M}`]: [type] }),
 
 	/** Filter events by pubkey (recipient or participant) */
-	byNpub: (npub: string) => ({ [`#${TAGS.P}`]: [npub] }),
+	byNpub: (npub: string | string[]) => ({
+		[`#${TAGS.P}`]: Array.isArray(npub) ? npub : [npub]
+	}),
 
 	/** Filter events by event reference */
 	byEvent: (eventId: string) => ({ [`#${TAGS.E}`]: [eventId] }),

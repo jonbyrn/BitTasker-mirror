@@ -20,7 +20,10 @@
 		CONTRACT_MODAL_CONFIGS
 	} from '$lib/utils/constants/contract-modals';
 	import { portal } from '$lib/utils/portal';
-	import { sendTaskCompletionMessageToTasker } from '$lib/utils/location/sendLocation';
+import {
+	sendPaymentReleasedMessageToTaskee,
+	sendTaskCompletionMessageToTasker
+} from '$lib/utils/location/sendLocation';
 
 	const {
 		contract,
@@ -263,6 +266,20 @@
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
+
+			const freelancerPubkey = contractStore.getContractKey(contract, 'freelancerPubkey') as string;
+			if (freelancerPubkey) {
+				sendPaymentReleasedMessageToTaskee(
+					freelancerPubkey,
+					{
+						taskId: contractStore.getContractKey(contract, 'taskId') as string,
+						taskTitle: contractStore.getContractKey(contract, 'taskTitle') as string,
+						escrowId: contract.escrowData.id
+					}
+				).catch((messageError: any) => {
+					console.error('Failed to send payment released message to taskee:', messageError);
+				});
+			}
 
 			// Note: Loading will be cleared when contract.isPending becomes false
 		} catch (error) {

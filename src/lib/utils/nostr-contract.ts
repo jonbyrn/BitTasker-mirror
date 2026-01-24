@@ -21,8 +21,10 @@ import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import { contractStore } from '$lib/stores/contract.store';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
+import { mapEscrowStatusToTaskStatus } from '$lib/utils/helpers/taskStatusMap';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import { updateTask } from '$lib/nostr/task';
 
 /**
  * Create a new contract event after escrow creation (as encrypted DM)
@@ -501,6 +503,15 @@ export async function handleStatusEvent(event: NostrEvent) {
 					: state.contract
 			};
 		});
+
+		const nextTaskStatus = mapEscrowStatusToTaskStatus(action);
+		if (nextTaskStatus) {
+			try {
+				await updateTask(contract.contractEvent.content.taskId, { status: nextTaskStatus });
+			} catch (statusError) {
+				console.warn('Failed to sync task status from escrow status:', statusError);
+			}
+		}
 
 		// If blockchain-confirmed action, fetch fresh blockchain data (async, for other fields)
 		if (transactionHash &&

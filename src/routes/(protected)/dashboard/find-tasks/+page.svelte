@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Task, SearchTasksParams } from '$lib/types/task.d';
+import type { Task, SearchTasksParams } from '$lib/types/task.d';
 	import { onMount, onDestroy, tick, type Component } from 'svelte';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
@@ -20,7 +20,8 @@
 	import { locale } from 'svelte-i18n';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
-	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
+import { TASKS_PER_PAGE } from '$lib/stores/task.store';
+import { getMyBids } from '$lib/utils/nostr-bid';
 
 	// Lazy loaded components
 	let TaskLocationMap: Component<any> | null = $state(null);
@@ -56,8 +57,9 @@
 	let viewMode = $state<'list' | 'map'>('list');
 
 	// Selected task for map display
-	let selectedTask = $state<Task | null>(null);
-	let isBidOpen = $state(false);
+let selectedTask = $state<Task | null>(null);
+let isBidOpen = $state(false);
+let myBidTaskIds = $state<Set<string>>(new Set());
 
 	// Referencias a las cards de las tasks para hacer scroll
 	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
@@ -265,6 +267,7 @@
 			console.error('[FindTasks] Error loading Nostr data:', error);
 		}
 	}
+
 
 	// Debounce function
 	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
@@ -506,6 +509,7 @@
 		if (window.requestIdleCallback) {
 			window.requestIdleCallback(() => {
 				fetchBtcPrice();
+				loadMyBidTaskIds();
 				loadDrawerComponents();
 				// Load map on desktop (always visible) or defer on mobile
 				const isDesktop = window.innerWidth >= 1024;
@@ -516,6 +520,7 @@
 		} else {
 			setTimeout(() => {
 				fetchBtcPrice();
+				loadMyBidTaskIds();
 				loadDrawerComponents();
 				const isDesktop = window.innerWidth >= 1024;
 				if (isDesktop) {
@@ -524,6 +529,7 @@
 			}, 100);
 		}
 	});
+
 
 	// Cleanup on component destroy
 	onDestroy(() => {
@@ -541,8 +547,8 @@
 		cleanup();
 	});
 
-	const onSelectTask = (task: Task) => {
-		if (task.status === TaskStatusEnum.OPEN) {
+const onSelectTask = (task: Task) => {
+	if (canBidTask(task)) {
 			if (task?.npub === $user?.npub) {
 				appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
 			} else {
@@ -551,6 +557,36 @@
 			}
 		}
 	};
+
+function isSelectedTask(task: Task): boolean {
+	return selectedTask?.id === task.id;
+}
+
+async function loadMyBidTaskIds(): Promise<void> {
+	if (!browser) return;
+	try {
+		const bids = await getMyBids(false);
+		const taskIds = new Set<string>();
+		bids.forEach((bidEvent) => {
+			const bidContent = bidEvent.content as { taskId?: string };
+			if (bidContent?.taskId) {
+				taskIds.add(bidContent.taskId);
+			}
+		});
+		myBidTaskIds = taskIds;
+	} catch (error) {
+		myBidTaskIds = new Set();
+	}
+}
+
+function canBidTask(task: Task): boolean {
+	const taskIdentifier = getTaskIdentifier(task);
+	return task.status === TaskStatusEnum.OPEN && !myBidTaskIds.has(taskIdentifier);
+}
+
+function getTaskIdentifier(task: Task): string {
+	return (task as { uniqueId?: string }).uniqueId || task.id;
+}
 
 	// Function to handle task selection for map display
 	function selectTaskForMap(task: Task) {
@@ -776,20 +812,19 @@
 							{:else if $tasksStore.items && $tasksStore.items.length > 0}
 								<div class="space-y-4">
 									{#each $tasksStore.items as task, index}
-										{@const isSelected = selectedTask?.id === task.id}
 										<div
 											use:registerTaskCard={{ taskId: task.id }}
-											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {isSelected
+											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {isSelectedTask(task)
 												? 'bg-base-300 border-primary border-2'
 												: ''}"
 											onclick={() => selectTaskForMap(task)}
 											tabindex="0"
 											role="button"
 											aria-label={$t('find_tasks.view_task')}
-											aria-pressed={selectedTask?.id === task.id}
-											aria-current={selectedTask?.id === task.id}
-											aria-disabled={task.status !== TaskStatusEnum.OPEN}
-											aria-hidden={task.status !== TaskStatusEnum.OPEN}
+											aria-pressed={isSelectedTask(task)}
+											aria-current={isSelectedTask(task)}
+											aria-disabled={!canBidTask(task)}
+											aria-hidden={!canBidTask(task)}
 											data-task-id={task.id}
 										>
 											<div class="card-body rounded-xl p-4 md:p-4">
@@ -806,15 +841,14 @@
 														/>
 													</div>
 													<!-- Right: Status Badge (aligned right) -->
-													<div class="flex w-[30%] shrink-0 justify-end">
-														{#each [task] as taskItem}
-															{@const statusBadge = getStatusBadge(taskItem.status)}
-															<div class="badge {statusBadge.color} badge-outline badge-sm">
-																{$t(`task.status.${taskItem.status.toLowerCase()}`) ||
-																	statusBadge.text}
-															</div>
-														{/each}
+												<div class="flex w-[30%] shrink-0 justify-end">
+													<div
+														class="badge {getStatusBadge(task.status).color} badge-outline badge-sm"
+													>
+														{$t(`task.status.${task.status.toLowerCase()}`) ||
+															getStatusBadge(task.status).text}
 													</div>
+												</div>
 												</div>
 
 												<!-- Schedule and Sats Row -->
@@ -987,10 +1021,7 @@
 													<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 														<button
 															class="btn btn-primary btn-sm md:flex-none"
-															class:btn-disabled={task.status === TaskStatusEnum.CANCELLED ||
-																task.status === TaskStatusEnum.DISPUTED ||
-																task.status === TaskStatusEnum.COMPLETED ||
-																task.status === TaskStatusEnum.IN_PROGRESS}
+															class:btn-disabled={!canBidTask(task)}
 															onclick={(e) => {
 																e.stopPropagation();
 																onSelectTask(task);
@@ -1011,9 +1042,13 @@
 																	d="M12 4v16m8-8H4"
 																/>
 															</svg>
-															{task.status === TaskStatusEnum.OPEN
-																? $t('find_tasks.bid_now')
-																: $t('find_tasks.bidding_closed')}
+															{#if myBidTaskIds.has(getTaskIdentifier(task))}
+																{$t('find_tasks.bid_sent')}
+															{:else if task.status === TaskStatusEnum.OPEN}
+																{$t('find_tasks.bid_now')}
+															{:else}
+																{$t('find_tasks.bidding_closed')}
+															{/if}
 														</button>
 
 														<button
@@ -1021,8 +1056,7 @@
 															onclick={(e) => {
 																e.stopPropagation();
 																// Use uniqueId if available, fallback to id for backward compatibility
-																const taskIdentifier = (task as any).uniqueId || task.id;
-																goto(`/tasks/${taskIdentifier}`);
+																goto(`/tasks/${getTaskIdentifier(task)}`);
 															}}
 															aria-label={$t('find_tasks.view_task')}
 														>
@@ -1238,7 +1272,16 @@
 		>
 			{#snippet children()}
 				{#if BidForm}
-					<BidForm task={selectedTask} onClose={() => (isBidOpen = false)} stickySubmit={false} />
+					<BidForm
+						task={selectedTask}
+						onClose={() => (isBidOpen = false)}
+						onBidSubmitted={(taskId: string) => {
+							const next = new Set(myBidTaskIds);
+							next.add(taskId);
+							myBidTaskIds = next;
+						}}
+						stickySubmit={false}
+					/>
 				{/if}
 			{/snippet}
 		</Drawer>

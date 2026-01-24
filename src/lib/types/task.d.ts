@@ -70,6 +70,8 @@ export interface TaskBody {
 export interface Task {
 	estimatedHours: number;
 	id: string;
+	uniqueId?: string;
+	eventId?: string;
 	npub: string;
 	status: TaskStatusEnum;
 	title: string;
@@ -169,8 +171,8 @@ export interface TaskData extends Task {
 			email: string;
 		};
 	};
-	freelancerAssignments?: any[];
-	bids?: any[];
+	freelancerAssignments?: FreelancerAssignment[];
+	bids?: TaskBid[];
 }
 
 export interface TaskResponse {
