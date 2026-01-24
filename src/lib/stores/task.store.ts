@@ -280,6 +280,16 @@ function createTaskStore() {
 // Create task store
 export const taskStore = createTaskStore();
 
+// Find tasks store initial state
+const tasksStoreInitialState = {
+	items: [] as Task[],
+	loading: false,
+	currentPage: 1,
+	hasMore: true,
+	error: null as string | null,
+	searchParamsKey: ''
+};
+
 // Find tasks store
 export const tasksStore = (() => {
 	const pool = get(appStore).pool;
@@ -294,33 +304,58 @@ export const tasksStore = (() => {
 		searchParamsKey: string
 	}>({
 		pool,
-		items: [],
-		loading: false,
-		currentPage: 1,
-		hasMore: true,
-		error: null,
-		searchParamsKey: ''
+		...tasksStoreInitialState
 	});
 
 	return {
 		pool,
 		subscribe,
 		set,
-		update
+		update,
+		/**
+		 * Reset tasks store to initial state
+		 * Called on logout to prevent stale data
+		 */
+		reset: () => {
+			set({
+				pool,
+				...tasksStoreInitialState
+			});
+		}
 	}
-})()
+})();
 
-// My tasks store
-export const myTasksStore = writable<{
-	items: Task[],
-	loading: boolean,
-	error: string | null,
-	currentPage: number,
-	hasMore: boolean
-}>({
-	items: [],
+// My tasks store initial state
+const myTasksStoreInitialState = {
+	items: [] as Task[],
 	loading: false,
-	error: null,
+	error: null as string | null,
 	currentPage: 1,
 	hasMore: true
-})
+};
+
+// My tasks store
+function createMyTasksStore() {
+	const { subscribe, set, update } = writable<{
+		items: Task[],
+		loading: boolean,
+		error: string | null,
+		currentPage: number,
+		hasMore: boolean
+	}>(myTasksStoreInitialState);
+
+	return {
+		subscribe,
+		set,
+		update,
+		/**
+		 * Reset my tasks store to initial state
+		 * Called on logout to prevent stale data
+		 */
+		reset: () => {
+			set(myTasksStoreInitialState);
+		}
+	};
+}
+
+export const myTasksStore = createMyTasksStore();
