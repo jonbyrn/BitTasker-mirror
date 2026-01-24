@@ -82,8 +82,6 @@
 				deadline={task.deadline}
 				dateRangeStart={task.dateRange?.start}
 				dateRangeEnd={task.dateRange?.end}
-				formattedDeadline={task.deadline ? formatDateTimeReactive(new Date(task.deadline)) : ''}
-				formattedDateRange={task.dateRange ? formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end)) : ''}
 			/>
 
 			<!-- Location + mobile share button -->
