@@ -27,32 +27,8 @@
 	// Check if user is logged in
 	const isLoggedIn = $derived($authState.isAuthenticated);
 
-	// Dashboard layout state
+	// Layout state
 	let width = $state(375);
-	let activeSection = $state('');
-
-	// Update active section based on URL
-	$effect(() => {
-		const path = page.url.pathname;
-
-		// Only set active section if we're on a dashboard route
-		if (path.includes('/dashboard/')) {
-			const section = path.split('/dashboard/')[1] || '';
-			const tabParam = page.url.searchParams.get('tab');
-
-			// Handle special cases for tab-based navigation
-			if (tabParam === 'bids') {
-				activeSection = 'bids-sent';
-			} else if (tabParam === 'contracts') {
-				activeSection = 'contracts';
-			} else {
-				activeSection = section;
-			}
-		} else {
-			// Not on a dashboard route, don't highlight any menu item
-			activeSection = 'none';
-		}
-	});
 </script>
 
 <svelte:head>
@@ -104,12 +80,8 @@
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={section.id === 'bids-sent'
-												? '/dashboard?tab=bids'
-												: section.id === 'contracts'
-													? '/dashboard?tab=contracts'
-													: `/dashboard/${section.id}`}
-											class:menu-active={activeSection === section.id}
+											href={section.path}
+											class:menu-active={page.url.pathname + page.url.search === section.path || (section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks'))}
 											class="flex items-center gap-3"
 										>
 											{#if section.icon === 'mdi:format-list-bulleted'}

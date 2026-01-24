@@ -128,7 +128,8 @@
         "too_many_files": "Solo puedes subir hasta 5 archivos",
         "background_uploading": "Subiendo archivos en segundo plano...",
         "files_uploaded": "¡Archivos subidos correctamente!",
-        "upload_failed": "No se pudieron subir algunos archivos. Puedes intentar subirlos nuevamente en la revisión."
+        "upload_failed": "No se pudieron subir algunos archivos. Puedes intentar subirlos nuevamente en la revisión.",
+        "uploading_files": "Subiendo archivos..."
       },
       "success": {
         "created": "¡Tarea creada correctamente!",

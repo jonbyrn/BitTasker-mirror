@@ -17,16 +17,14 @@
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
-	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
-	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { LRUCache } from '$lib/utils/helpers/lru-cache';
 	import { getTaskId } from '$lib/utils/helpers/task-id';
+import { getMyBids } from '$lib/utils/nostr-bid';
 	import type FilterDrawerComponent from '$lib/components/filters/FilterDrawer.svelte';
 	import type BidFormComponent from '$lib/components/bidding/BidForm.svelte';
 	import type SaveSearchFormComponent from '$lib/components/task/SaveSearchForm.svelte';
@@ -145,6 +143,7 @@
 	
 	// Bid drawer state
 	let isBidOpen = $state(false);
+	let myBidTaskIds = $state<Set<string>>(new Set());
 	
 	// Task details drawer state
 	let selectedTaskForDetails = $state<Task | null>(null);
@@ -867,6 +866,7 @@
 		if (browser) {
 			const deferredOperations = () => {
 				fetchBtcPrice();
+				loadMyBidTaskIds();
 				loadDrawerComponents();
 				// Use reactive windowWidth instead of window.innerWidth
 				// Attempt map preload for desktop (mount reason)
@@ -915,6 +915,45 @@
 		cleanup();
 	});
 
+	function hasBidForTask(task: Task): boolean {
+		return myBidTaskIds.has(getTaskId(task));
+	}
+
+	async function loadMyBidTaskIds(): Promise<void> {
+		if (!browser || !$user?.npub) return;
+		try {
+			const bids = await getMyBids(false);
+			const taskIds = new Set<string>();
+			bids.forEach((bidEvent) => {
+				let taskId: string | undefined;
+				if (typeof bidEvent.content === 'string') {
+					try {
+						const parsed = JSON.parse(bidEvent.content) as { taskId?: string };
+						taskId = parsed?.taskId;
+					} catch {
+						// Ignore malformed JSON
+					}
+				} else {
+					taskId = (bidEvent.content as { taskId?: string })?.taskId;
+				}
+
+				if (!taskId) {
+					const taskTag = bidEvent.tags?.find((tag) => tag[0] === 't');
+					taskId = taskTag?.[1];
+				}
+
+				if (taskId) {
+					taskIds.add(taskId);
+				}
+			});
+			myBidTaskIds = new Set([...myBidTaskIds, ...taskIds]);
+		} catch {
+			if (myBidTaskIds.size === 0) {
+				myBidTaskIds = new Set();
+			}
+		}
+	}
+
 	/**
 	 * Handle task selection for bidding with proper locking to prevent race conditions
 	 */
@@ -924,7 +963,7 @@
 			return;
 		}
 		
-		if (task.status === TaskStatusEnum.OPEN) {
+		if (task.status === TaskStatusEnum.OPEN && !hasBidForTask(task)) {
 			isTaskSelectionInProgress = true;
 			
 			try {
@@ -1192,6 +1231,7 @@
 												{onViewTask}
 												{drawersLoaded}
 												{loadDrawerComponents}
+												hasBid={hasBidForTask(task)}
 											/>
 										</li>
 									{/each}
@@ -1327,7 +1367,16 @@
 >
 	{#snippet children()}
 		{#if drawersLoaded && BidForm && selectedTask}
-			<BidForm task={selectedTask!} onClose={() => (isBidOpen = false)} stickySubmit={false} />
+			<BidForm
+				task={selectedTask!}
+				onClose={() => (isBidOpen = false)}
+				onBidSubmitted={(taskId: string) => {
+					const next = new Set(myBidTaskIds);
+					next.add(taskId);
+					myBidTaskIds = next;
+				}}
+				stickySubmit={false}
+			/>
 		{:else}
 			<div class="flex items-center justify-center p-8">
 				<span class="loading loading-spinner loading-md"></span>
