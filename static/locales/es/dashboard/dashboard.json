@@ -89,7 +89,7 @@
       "remote_location_description": "Esta tarea se puede completar remotamente.",
       "task_attachment": "Adjunto de tarea",
       "avatar_alt": "Avatar",
-      "sign_up_to_bid": "Regístrate para ofertar",
+      "sign_up_to_bid": "Ofertar",
       "task_cancelled": "Tarea cancelada",
       "task_disputed": "Tarea en disputa",
       "task_in_progress": "Tarea en progreso",
@@ -142,7 +142,7 @@
       "plus_icon_alt": "Icono de más"
     },
     "find_tasks": {
-      "sign_up_to_bid": "Regístrate para ofertar",
+      "sign_up_to_bid": "Ofertar",
       "bidding_closed": "Ofertas cerradas",
       "sign_up_to_bid_aria": "Regístrate para ofertar en esta tarea",
       "avatar_alt": "Avatar",
@@ -153,7 +153,8 @@
       "task_completed": "Tarea completada",
       "bid_sent": "Oferta enviada",
       "bid_already_sent": "Oferta ya enviada",
-      "cannot_bid_own_task": "No puedes hacer oferta en tu propia tarea"
+      "cannot_bid_own_task": "No puedes hacer oferta en tu propia tarea",
+      "view_task": "Ver Tarea"
     },
     "bids": {
       "bid_acceptance": {
@@ -664,7 +665,8 @@
         "nonce_error": "Error de orden de transacción. Por favor inténtalo de nuevo en un momento.",
         "wallet_error": "Error de conexión de billetera. Por favor reconecta tu billetera e inténtalo de nuevo.",
         "contract_revert": "El contrato inteligente rechazó la transacción. Por favor verifica los detalles de la transacción e inténtalo de nuevo.",
-        "generic_error": "La transacción falló. Por favor verifica el saldo de tu billetera y la conexión de red."
+        "generic_error": "La transacción falló. Por favor verifica el saldo de tu billetera y la conexión de red.",
+        "invalid_argument": "Formato de dirección inválido. Por favor verifica la dirección e inténtalo de nuevo."
       },
       "timeline": {
         "label": "Cronograma",

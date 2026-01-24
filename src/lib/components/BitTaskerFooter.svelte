@@ -313,7 +313,7 @@
 			</div>
 		</div>
 
-		<div class="border-base-content/10 mt-12 border-t pt-8 text-center">
+		<div class="border-base-content/10 mt-12 border-t pt-8 pb-6 text-center">
 			<p>
 				© {new Date().getFullYear()}
 				{$t('footer.company_name')}. {$t('footer.copyright')}

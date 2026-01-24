@@ -1,150 +1,105 @@
 <script lang="ts">
-	import type { Task } from '$lib/types/task';
+	import type { Task } from '$lib/types/task.d';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
-	import { goto } from '$app/navigation';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import {
-		formatStandardDateShort,
-		formatStandardDateTime,
-		parseDateToLocalMidnight
-	} from '$lib/utils/helpers/dateFormatter';
-	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import TranslatableTask from './TranslatableTask.svelte';
-	import IconInformationOutline from '~icons/mdi/information-outline';
-	import IconEyeOutline from '~icons/mdi/eye-outline';
-	import TaskShareButton from './TaskShareButton.svelte';
+	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import { getTaskId } from '$lib/utils/helpers/task-id';
+	import TaskShareButton from '$lib/components/task/TaskShareButton.svelte';
+	import type { Component } from 'svelte';
+	
+	// Icon imports
+	import IconPlus from '~icons/mdi/plus';
+	
+	// Reusable display components
+	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
+	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
+	import IconEye from '~icons/mdi/eye';
+	import IconAccount from '~icons/mdi/account';
+	import IconStar from '~icons/mdi/star';
 
-	type TaskFilterCategory =
-		| 'waiting_for_bids'
-		| 'bids_received'
-		| 'tasks_in_progress'
-		| 'tasks_completed'
-		| 'tasks_disputed';
-
-	const { task, btcPrice, activeFilter, getActionButtons } = $props<{
+	let {
+		task,
+		selectedTask,
+		btcPrice,
+		formatDateTimeReactive,
+		formatDateRangeReactive,
+		onSelectTask,
+		onViewTask,
+		drawersLoaded,
+		loadDrawerComponents
+	} = $props<{
 		task: Task;
+		selectedTask: Task | null;
 		btcPrice: number;
-		activeFilter: TaskFilterCategory;
-		getActionButtons: (
-			task: Task,
-			category: TaskFilterCategory
-		) => Array<{
-			label: string;
-			class: string;
-			onclick: (e: any) => void;
-			icon: string;
-		}>;
+		formatDateTimeReactive: (dateString: string) => string;
+		formatDateRangeReactive: (start: string, end: string) => string;
+		onSelectTask: (task: Task) => Promise<void>;
+		onViewTask: (task: Task) => Promise<void>;
+		drawersLoaded: boolean;
+		loadDrawerComponents: () => Promise<void>;
 	}>();
 
-	function formatDateTimeReactive(dateString: string) {
-		const date = parseDateToLocalMidnight(dateString);
-		if (!date) return '';
-		// For deadlines, only show date, not time
-		return formatStandardDateShort(date, $locale || 'en');
-	}
-
-	function formatDateRangeReactive(startDateString: string, endDateString: string) {
-		const localeToUse = $locale || 'en';
-		
-		// Parse dates
-		const startDate = new Date(startDateString);
-		const endDate = new Date(endDateString);
-		
-		if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-			return '';
-		}
-		
-		// Format with short month name and no time using formatStandardDateShort
-		const start = formatStandardDateShort(startDate, localeToUse);
-		const end = formatStandardDateShort(endDate, localeToUse);
-		
-		return `${start} - ${end}`;
-	}
-
+	const statusBadge = $derived(getStatusBadge(task.status));
+	const isSelected = $derived(selectedTask && getTaskId(selectedTask) === getTaskId(task));
+	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
+	const taskId = $derived(getTaskId(task));
 </script>
 
 <div
-	class="card bg-base-100 shadow-xl transition-shadow hover:shadow-lg"
+	class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
+	class:bg-base-300={isSelected}
+	class:border-primary={isSelected}
+	class:border-2={isSelected}
+	class:opacity-60={!isOpen}
+	role="button"
+	tabindex={isOpen ? 0 : -1}
+	aria-label={$t('find_tasks.view_task')}
+	aria-pressed={isSelected}
+	aria-current={isSelected}
+	aria-disabled={!isOpen}
+	data-task-id={taskId}
+	onclick={async () => {
+		if (isOpen) {
+			if (!drawersLoaded) {
+				await loadDrawerComponents();
+			}
+			await onViewTask(task);
+		}
+	}}
+	onkeydown={async (e) => {
+		if ((e.key === 'Enter' || e.key === ' ') && isOpen) {
+			e.preventDefault();
+			if (!drawersLoaded) {
+				await loadDrawerComponents();
+			}
+			await onViewTask(task);
+		}
+	}}
 >
-	<div class="card-body">
-		<!-- Task Title and Description -->
-		<div class="flex flex-col justify-between gap-2">
-			<div class="card-title line-clamp-1 text-lg flex items-center justify-between gap-2">
-				<div class="flex-1 min-w-0">
-					<button
-						class="hover:text-primary cursor-pointer text-left transition-colors inline-block"
-						onclick={(e) => {
-							e.stopPropagation();
-							// Use uniqueId if available, fallback to id for backward compatibility
-							const taskIdentifier = (task as any).uniqueId || task.id;
-							goto(`/tasks/${taskIdentifier}`);
-						}}
-					>
-						<TranslatableTask
-							{task}
-							showTitle={true}
-							showDescription={false}
-							showToggle={false}
-							titleClass="text-lg font-semibold"
-						/>
-					</button>
-				</div>
-				<!-- Share Button -->
-				<TaskShareButton {task} variant="circle" />
-			</div>
-			<div class="text-base-content/60">
+	<div class="card-body rounded-xl p-4 md:p-4">
+		<!-- Top Row: Title + Status Badge + Price -->
+		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
+			<!-- Left: Title (flexible, takes available space) -->
+			<div class="flex-1 min-w-0 pr-2 md:pr-4">
 				<TranslatableTask
 					{task}
-					showTitle={false}
 					showDescription={true}
-					showToggle={false}
-					descriptionClass="text-sm text-base-content/60 whitespace-pre-line line-clamp-2"
+					showDescriptionToggle={false}
+					descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
+					titleClass="card-title line-clamp-2 text-lg font-semibold"
 				/>
 			</div>
-		</div>
-
-		<!-- Schedule and Budget -->
-		<div class="flex w-full items-center justify-between">
-			<!-- Left: Schedule -->
-			<div class="flex items-center gap-2">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/60 h-4 w-4 shrink-0"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<div class="flex flex-col">
-					{#if task.deadline}
-						<small class="text-base-content/60 text-xs">
-							{$t('dashboard.task.deadline.label')}
-						</small>
-						<span class="text-sm font-medium">
-							{formatDateTimeReactive(task.deadline)}
-						</span>
-					{:else if task.dateRange}
-						<small class="text-base-content/60 text-xs">
-							{$t('dashboard.task_details_by_task.date_range')}
-						</small>
-						<span class="text-sm font-medium">
-							{formatDateRangeReactive(task.dateRange.start, task.dateRange.end)}
-						</span>
-					{/if}
+			<!-- Right: Status Badge + Price (fixed width, aligned right) -->
+			<div class="flex shrink-0 flex-col items-end justify-between gap-4 w-[min(30%,120px)]">
+				<div class="badge {statusBadge.color} badge-sm">
+					{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
 				</div>
-			</div>
-
-			<!-- Right: Budget -->
-			<div class="">
-				<div class="text-lg font-bold">
+				<div class="text-right text-xl font-bold mt-2">
 					${formatNumberWithTwoDecimals(task.budget.amount)}
+
 					<div class="text-base-content/60 text-sm">
 						{satsFromUsd(task.budget.amount, btcPrice)}
 					</div>
@@ -152,64 +107,131 @@
 			</div>
 		</div>
 
-		<!-- Location -->
-		<div class="flex w-full items-start gap-2">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-				/>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-				/>
-			</svg>
-			<div class="flex min-w-0 flex-1 flex-col">
-				<small class="text-base-content/60 text-xs">{$t('dashboard.task.location.details')}</small>
-				<span class="line-clamp-2 text-sm font-medium">
-					{#if task.dropOffLocation?.displayName}
-						{task.dropOffLocation.displayName}
-					{:else if task.pickupLocation?.displayName}
-						{task.pickupLocation.displayName}
-					{:else}
-						{$t('dashboard.task.type.remote')}
-					{/if}
-				</span>
-			</div>
+		<!-- Second Row: Deadline + Location -->
+		<div class="mb-3 flex flex-col gap-3">
+			<!-- Deadline -->
+			<TaskDeadlineDisplay
+				deadline={task.deadline}
+				dateRangeStart={task.dateRange?.start}
+				dateRangeEnd={task.dateRange?.end}
+			/>
+
+			<!-- Location -->
+			<TaskLocationDisplay
+				dropOffLocation={task.dropOffLocation}
+				pickupLocation={task.pickupLocation}
+			/>
 		</div>
 
-		<!-- Action Buttons -->
-		<div class="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<!-- Left: Empty space on larger screens, full width on mobile -->
-			<div class="hidden md:block"></div>
-
-			<!-- Right: Action Buttons -->
-			<div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:w-auto">
-				{#each getActionButtons(task, activeFilter) as action}
-					<button
-						class="btn {action.class} w-full sm:w-auto"
-						onclick={(e) => {
-							action.onclick(e);
-						}}
-					>
-						{#if action.icon === 'view_details'}
-							<IconInformationOutline class="h-4 w-4" />
-						{:else if action.icon === 'view_bids'}
-							<IconEyeOutline class="h-4 w-4" />
+		<!-- Bottom Row: Avatar + Action Buttons -->
+		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+			<!-- Left: Avatar, Username, Review Stars, and Share Button (mobile) -->
+			<div class="flex min-w-0 flex-1 items-center gap-3">
+				<!-- Avatar -->
+				<div class="avatar">
+					<div class="bg-base-300 flex h-8 w-8 items-center justify-center rounded-full">
+						{#if task.creator?.avatar}
+							<img
+								src={task.creator.avatar}
+								alt={$t('dashboard.find_tasks.avatar_alt') || 'Avatar'}
+								class="h-8 w-8 rounded-full object-cover"
+							/>
+						{:else}
+							<div
+								class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center"
+							>
+								{#if task.creator?.username}
+									<span class="text-lg font-semibold">
+										{task.creator.username.charAt(0).toUpperCase()}
+									</span>
+								{:else}
+									<IconAccount class="text-base-content/60 h-6 w-6" />
+								{/if}
+							</div>
 						{/if}
-						{action.label}
-					</button>
-				{/each}
+					</div>
+				</div>
+
+				<!-- Username and Review Stars -->
+				<div class="flex min-w-0 flex-1 flex-col">
+					<span class="truncate text-sm font-medium">
+						{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
+					</span>
+					<!-- Review Stars -->
+					<div class="flex items-center">
+						{#each Array(5) as _, i}
+							<IconStar
+								class="h-3 w-3 {i < (task.creator?.rating || 0)
+									? 'text-yellow-400'
+									: 'text-base-content/30'}"
+							/>
+						{/each}
+						<span class="text-base-content/60 ml-1 text-xs">{task.creator?.rating || 0}</span>
+					</div>
+				</div>
+				<!-- Share Button - Mobile Only (right side of row) -->
+				<span
+					role="presentation"
+					class="inline-block md:hidden shrink-0"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.stopPropagation();
+						}
+					}}
+				>
+					<TaskShareButton task={task} variant="icon-only" />
+				</span>
+			</div>
+
+			<!-- Right: Share Button (tablet/desktop) + Action Buttons -->
+			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
+				<!-- Share Button - Tablet/Desktop Only -->
+				<span
+					role="presentation"
+					class="hidden md:inline-block"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.stopPropagation();
+						}
+					}}
+				>
+					<TaskShareButton task={task} variant="icon-only" />
+				</span>
+				<button
+					class="btn btn-primary btn-sm flex-1 md:flex-none"
+					class:btn-disabled={!isOpen}
+					disabled={!isOpen}
+					onclick={async (e) => {
+						e.stopPropagation();
+						if (isOpen) {
+							await onSelectTask(task);
+						}
+					}}
+					aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') ||
+						'Sign up to bid on this task'}
+				>
+					<IconPlus class="h-4 w-4" />
+					{isOpen
+						? $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'
+						: $t('dashboard.find_tasks.bidding_closed') || 'Bidding closed'}
+				</button>
+
+				<button
+					class="btn btn-secondary btn-sm flex-1 md:flex-none"
+					onclick={async (e) => {
+						e.stopPropagation();
+						if (!drawersLoaded) {
+							await loadDrawerComponents();
+						}
+						await onViewTask(task);
+					}}
+					aria-label={$t('find_tasks.view_task')}
+				>
+					<IconEye class="h-4 w-4" />
+					{$t('find_tasks.view_task')}
+				</button>
 			</div>
 		</div>
 	</div>

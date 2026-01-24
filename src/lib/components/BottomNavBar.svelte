@@ -4,7 +4,7 @@
 	import { slide } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 	import { page } from '$app/state';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { authState } from '$lib/stores/auth.store';
@@ -177,6 +177,14 @@
 		}
 	}
 
+	// Handle navigation with menu closing for SPA navigation
+	async function handleNavWithMenuClose(event: MouseEvent, href: string) {
+		event.preventDefault();
+		event.stopPropagation();
+		closeMenu();
+		await goto(href, { noScroll: false, replaceState: false });
+	}
+
 	// Close all collapse menus
 	function closeAllCollapses() {
 		isTaskersOpen = false;
@@ -287,49 +295,49 @@
 						</li>
 						{#if isCompanyOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/how-it-works" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/how-it-works" onclick={(e) => handleNavWithMenuClose(e, '/how-it-works')} class="min-h-[44px] py-2 pl-6">
 									<IconHelpCircleOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.how_it_works')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/faq" onclick={(e) => handleNavWithMenuClose(e, '/faq')} class="min-h-[44px] py-2 pl-6">
 									<IconFrequentlyAskedQuestions class="text-primary" />
 									<span class="font-medium">{$t('navbar.faq')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/contact" onclick={(e) => handleNavWithMenuClose(e, '/contact')} class="min-h-[44px] py-2 pl-6">
 									<IconEmailOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.contact_support')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/feedback" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/feedback" onclick={(e) => handleNavWithMenuClose(e, '/feedback')} class="min-h-[44px] py-2 pl-6">
 									<IconCommentTextOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.feedback')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/security" onclick={(e) => handleNavWithMenuClose(e, '/security')} class="min-h-[44px] py-2 pl-6">
 									<IconShieldCheck class="text-primary" />
 									<span class="font-medium">{$t('footer.security')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/about" onclick={(e) => handleNavWithMenuClose(e, '/about')} class="min-h-[44px] py-2 pl-6">
 									<IconInformationOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.about_us')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/terms" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/terms" onclick={(e) => handleNavWithMenuClose(e, '/terms')} class="min-h-[44px] py-2 pl-6">
 									<IconFileDocumentOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.terms_of_service')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/privacy" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/privacy" onclick={(e) => handleNavWithMenuClose(e, '/privacy')} class="min-h-[44px] py-2 pl-6">
 									<IconShieldAccount class="text-primary" />
 									<span class="font-medium">{$t('navbar.privacy_policy')}</span>
 								</a>
@@ -357,33 +365,34 @@
 								</svg>
 							</button>
 						</li>
-						{#if isTaskeesOpen}
+					{#if isTaskeesOpen}
+						{@const findTasksHref = '/tasks'}
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href={findTasksHref} onclick={(e) => handleNavWithMenuClose(e, findTasksHref)} class="min-h-[44px] py-2 pl-6">
+								<IconMagnify class="text-primary" />
+								<span class="font-medium">{$t('navbar.find_tasks')}</span>
+							</a>
+						</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconMagnify class="text-primary" />
-									<span class="font-medium">{$t('navbar.find_tasks')}</span>
-								</a>
-							</li>
-							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/dashboard" onclick={(e) => handleNavWithMenuClose(e, '/dashboard')} class="min-h-[44px] py-2 pl-6">
 									<IconFormatListBulleted class="text-primary" />
 									<span class="font-medium">{$t('navbar.my_tasks')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/dashboard/create-task" onclick={(e) => handleNavWithMenuClose(e, '/dashboard/create-task')} class="min-h-[44px] py-2 pl-6">
 									<IconPlusCircleOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.create_task')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard?tab=bids" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/dashboard?tab=bids" onclick={(e) => handleNavWithMenuClose(e, '/dashboard?tab=bids')} class="min-h-[44px] py-2 pl-6">
 									<IconInvoiceTextSendOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.bids_sent')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard?tab=contracts" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/dashboard?tab=contracts" onclick={(e) => handleNavWithMenuClose(e, '/dashboard?tab=contracts')} class="min-h-[44px] py-2 pl-6">
 									<IconFileSign class="text-primary" />
 									<span class="font-medium">{$t('navbar.contracts')}</span>
 								</a>
@@ -413,26 +422,42 @@
 						</li>
 						{#if isTaskersOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/messages" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a
+									href="/dashboard/messages"
+									onclick={(e) => handleNavWithMenuClose(e, '/dashboard/messages')}
+									class="min-h-[44px] py-2 pl-6"
+								>
 									<IconChatOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.messages')}</span>
 								</a>
 							</li>
 
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/wallet" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a
+									href="/dashboard/wallet"
+									onclick={(e) => handleNavWithMenuClose(e, '/dashboard/wallet')}
+									class="min-h-[44px] py-2 pl-6"
+								>
 									<IconWalletOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.wallet')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/profile" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a
+									href="/dashboard/profile"
+									onclick={(e) => handleNavWithMenuClose(e, '/dashboard/profile')}
+									class="min-h-[44px] py-2 pl-6"
+								>
 									<IconAccount class="text-primary" />
 									<span class="font-medium">{$t('navbar.profile')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/settings" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a
+									href="/dashboard/settings"
+									onclick={(e) => handleNavWithMenuClose(e, '/dashboard/settings')}
+									class="min-h-[44px] py-2 pl-6"
+								>
 									<IconCog class="text-primary" />
 									<span class="font-medium">{$t('navbar.settings')}</span>
 								</a>
@@ -447,7 +472,7 @@
 						<a
 							href="/auth/login"
 							class="btn btn-secondary flex w-[48%] items-center justify-center gap-2"
-							onclick={closeMenu}
+							onclick={(e) => handleNavWithMenuClose(e, '/auth/login')}
 						>
 							<IconLogin />
 							{$t('navbar.login')}
@@ -455,7 +480,7 @@
 						<a
 							href="/auth/signup"
 							class="btn btn-primary flex w-[48%] items-center justify-center gap-2"
-							onclick={closeMenu}
+							onclick={(e) => handleNavWithMenuClose(e, '/auth/signup')}
 						>
 							<IconAccountPlus />
 							{$t('navbar.signup')}
@@ -464,13 +489,13 @@
 					<ul class="menu w-full">
 						<!-- Main menu items - matching desktop nav structure -->
 						<li>
-							<a href="/tasks" onclick={closeMenu} class="min-h-[48px] py-3">
+							<a href="/tasks" onclick={(e) => handleNavWithMenuClose(e, '/tasks')} class="min-h-[48px] py-3">
 								<IconHome class="text-primary" />
 								<span class="font-medium">{$t('navbar.home')}</span>
 							</a>
 						</li>
 						<li>
-							<a href="/how-it-works" onclick={closeMenu} class="min-h-[48px] py-3">
+							<a href="/how-it-works" onclick={(e) => handleNavWithMenuClose(e, '/how-it-works')} class="min-h-[48px] py-3">
 								<IconHelpCircleOutline class="text-primary" />
 								<span class="font-medium">{$t('footer.how_it_works')}</span>
 							</a>
@@ -499,26 +524,26 @@
 						</li>
 						{#if isTaskersOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/dashboard/create-task" onclick={(e) => handleNavWithMenuClose(e, '/dashboard/create-task')} class="min-h-[44px] py-2 pl-6">
 									<IconPlusCircleOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.post_task')}</span>
 								</a>
 							</li>
 
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/taskee-fees" onclick={(e) => handleNavWithMenuClose(e, '/taskee-fees')} class="min-h-[44px] py-2 pl-6">
 									<IconCurrencyUsd class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/secure-payments" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/secure-payments" onclick={(e) => handleNavWithMenuClose(e, '/secure-payments')} class="min-h-[44px] py-2 pl-6">
 									<IconShieldCheckOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.escrow')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/faq" onclick={(e) => handleNavWithMenuClose(e, '/faq')} class="min-h-[44px] py-2 pl-6">
 									<IconFrequentlyAskedQuestions class="text-primary" />
 									<span class="font-medium">{$t('footer.faq')}</span>
 								</a>
@@ -546,33 +571,34 @@
 								</svg>
 							</button>
 						</li>
-						{#if isTaskeesOpen}
+					{#if isTaskeesOpen}
+						{@const taskeesHref = '/tasks'}
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href={taskeesHref} onclick={(e) => handleNavWithMenuClose(e, taskeesHref)} class="min-h-[44px] py-2 pl-6">
+								<IconCurrencyBtc class="text-primary" />
+								<span class="font-medium">{$t('footer.start_earning')}</span>
+							</a>
+						</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconCurrencyBtc class="text-primary" />
-									<span class="font-medium">{$t('footer.start_earning')}</span>
-								</a>
-							</li>
-							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/community-guidelines" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/community-guidelines" onclick={(e) => handleNavWithMenuClose(e, '/community-guidelines')} class="min-h-[44px] py-2 pl-6">
 									<IconAccountGroup class="text-primary" />
 									<span class="font-medium">{$t('footer.community_guidelines')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/taskee-fees" onclick={(e) => handleNavWithMenuClose(e, '/taskee-fees')} class="min-h-[44px] py-2 pl-6">
 									<IconCurrencyUsd class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/tasker-principles" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/tasker-principles" onclick={(e) => handleNavWithMenuClose(e, '/tasker-principles')} class="min-h-[44px] py-2 pl-6">
 									<IconInvoiceTextSendOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_principles')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/faq" onclick={(e) => handleNavWithMenuClose(e, '/faq')} class="min-h-[44px] py-2 pl-6">
 									<IconFrequentlyAskedQuestions class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_faq')}</span>
 								</a>
@@ -602,43 +628,43 @@
 						</li>
 						{#if isCompanyOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/about" onclick={(e) => handleNavWithMenuClose(e, '/about')} class="min-h-[44px] py-2 pl-6">
 									<IconInformationOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.about_us')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/security" onclick={(e) => handleNavWithMenuClose(e, '/security')} class="min-h-[44px] py-2 pl-6">
 									<IconShieldCheck class="text-primary" />
 									<span class="font-medium">{$t('footer.security')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/careers" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/careers" onclick={(e) => handleNavWithMenuClose(e, '/careers')} class="min-h-[44px] py-2 pl-6">
 									<IconBriefcaseSearch class="text-primary" />
 									<span class="font-medium">{$t('footer.careers')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/press" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/press" onclick={(e) => handleNavWithMenuClose(e, '/press')} class="min-h-[44px] py-2 pl-6">
 									<IconNewspaper class="text-primary" />
 									<span class="font-medium">{$t('footer.press')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/terms" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/terms" onclick={(e) => handleNavWithMenuClose(e, '/terms')} class="min-h-[44px] py-2 pl-6">
 									<IconFileDocumentOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.terms')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/privacy" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/privacy" onclick={(e) => handleNavWithMenuClose(e, '/privacy')} class="min-h-[44px] py-2 pl-6">
 									<IconShieldAccount class="text-primary" />
 									<span class="font-medium">{$t('footer.privacy')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/contact" onclick={(e) => handleNavWithMenuClose(e, '/contact')} class="min-h-[44px] py-2 pl-6">
 									<IconEmailOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.contact')}</span>
 								</a>
@@ -654,8 +680,8 @@
 				<div class="bottom-nav-quick border-base-300/70 bg-base-100/70 border-t px-2 py-2 backdrop-blur-sm">
 					<div class="flex gap-2">
 						<a
-							href="/dashboard/find-tasks"
-							onclick={closeMenu}
+							href="/tasks"
+							onclick={(e) => handleNavWithMenuClose(e, '/tasks')}
 							class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-2 transition-colors"
 						>
 							<IconMagnify class="text-primary h-6 w-6" />
@@ -663,7 +689,7 @@
 						</a>
 						<a
 							href="/dashboard?tab=contracts"
-							onclick={closeMenu}
+							onclick={(e) => handleNavWithMenuClose(e, '/dashboard?tab=contracts')}
 							class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-2 transition-colors"
 						>
 							<IconFileSign class="text-primary h-6 w-6" />
@@ -671,7 +697,7 @@
 						</a>
 						<a
 							href="/dashboard?tab=bids"
-							onclick={closeMenu}
+							onclick={(e) => handleNavWithMenuClose(e, '/dashboard?tab=bids')}
 							class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-2 transition-colors"
 						>
 							<IconInvoiceTextSendOutline class="text-primary h-6 w-6" />

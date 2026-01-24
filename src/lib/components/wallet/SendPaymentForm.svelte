@@ -743,11 +743,11 @@
 
 			let txHash: string | null = null;
 
-		if (network === 'lightning-bitcoin') {
-			// Lightning send via submarine swap
-			const swapResult = await walletManager.createSubmarineSwap(recipient, formInput.memo);
-			const lockResult = await walletManager.lockSubmarineSwapFunds(swapResult.swapData);
-			txHash = lockResult.txHash;
+			if (network === 'lightning-bitcoin') {
+				// Lightning send via submarine swap
+				const swapResult = await walletManager.createSubmarineSwap(recipient, formInput.memo);
+				const lockResult = await walletManager.lockSubmarineSwapFunds(swapResult.swapData);
+				txHash = lockResult.txHash;
 			} else if (network === 'rootstock-bitcoin') {
 				// RSK direct send
 				const amountRBTC = amountInSats / 100_000_000;
