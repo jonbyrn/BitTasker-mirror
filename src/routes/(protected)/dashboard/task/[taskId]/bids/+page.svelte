@@ -10,7 +10,7 @@
 	import { goto } from '$app/navigation';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDateTime, formatDurationFromDates } from '$lib/utils/helpers/dateFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
@@ -91,6 +91,21 @@
 		return formatted;
 	}
 
+	// Function to format duration from start and end dates with translations
+	function formatBidDuration(startDateTime: string, endDateTime: string): string {
+		// Get translations reactively
+		const translations = {
+			day: $t('dashboard.bids.bid_creation.day'),
+			days: $t('dashboard.bids.bid_creation.days'),
+			hour: $t('dashboard.bids.bid_creation.hour'),
+			hours: $t('dashboard.bids.bid_creation.hours'),
+			minute: $t('dashboard.bids.bid_creation.minute'),
+			minutes: $t('dashboard.bids.bid_creation.minutes'),
+			oneHour: $t('dashboard.bids.bid_creation.one_hour'),
+			and: $t('common.components.date_input.and')
+		};
+		return formatDurationFromDates(startDateTime, endDateTime, (key) => translations[key as keyof typeof translations] || key);
+	}
 
 	async function loadTaskDetails() {
 		try {
@@ -634,7 +649,7 @@
 										{formatStandardDateTime(new Date(bidContent.startDateTime), $locale || 'en')} - {formatStandardDateTime(new Date(bidContent.endDateTime), $locale || 'en')}
 									</span>
 									<span class="text-base-content/60 text-xs">
-										({bidContent.estimatedDuration})
+										({formatBidDuration(bidContent.startDateTime, bidContent.endDateTime)})
 									</span>
 								</div>
 							</div>
