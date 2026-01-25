@@ -204,11 +204,16 @@ export async function handleTaskShare(
 	const link = getTaskShareLink(task);
 	if (!link) return;
 
+	const userLang = get(currentUserLanguage) || 'en';
+	const translation = taskTranslationService.getStoredTranslation(task, userLang);
+	const shareTitle =
+		translation?.translatedTitle || task?.title || get(t)('dashboard.task_details_by_task.title');
+
 	if (navigator.share) {
 		try {
 			// Prepare share data
 			const shareData: ShareData = {
-				title: task?.title || 'Task Details',
+				title: shareTitle,
 				text: formatShareText(task),
 				url: link
 			};

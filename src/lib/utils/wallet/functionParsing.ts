@@ -6,7 +6,7 @@
  */
 
 import { Interface } from 'ethers';
-import escrowABI from '../constants/escrowABI.json';
+import escrowABI from '$lib/utils/escrow/v1/abi.json';
 import { hasContractInteraction } from './contractDetection';
 
 interface ParsedFunction {
