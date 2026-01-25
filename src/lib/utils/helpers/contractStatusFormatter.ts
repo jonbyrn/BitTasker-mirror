@@ -1,4 +1,4 @@
-import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 
 /**
  * Status event messages configuration

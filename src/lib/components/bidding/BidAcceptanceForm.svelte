@@ -10,10 +10,10 @@
 		acceptBidAndCreateEscrow,
 		getFeePercentageDisplay,
 		formatRBTCAmount
-	} from '$lib/utils/wallet/escrowBid';
+	} from '$lib/utils/escrow/v1/escrowBid';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { goto } from '$app/navigation';
-	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
+	import { contractCreationStore } from '$lib/utils/escrow/v1/escrowEvents';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { locale } from 'svelte-i18n';

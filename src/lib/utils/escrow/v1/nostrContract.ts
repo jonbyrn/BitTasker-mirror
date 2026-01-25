@@ -1,6 +1,6 @@
 import type { Filter, NostrEvent } from 'nostr-tools';
 import { nip19, nip44 } from 'nostr-tools';
-import { getNostrKeyPair, getNpub } from './nostrKeys';
+import { getNostrKeyPair, getNpub } from '../../nostrKeys';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import TAGS, { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import type {
@@ -14,8 +14,8 @@ import type {
 	ContractStatusEvent
 } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
-import { escrow } from '$lib/utils/wallet/escrow';
-import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+import { escrow } from '$lib/utils/escrow/v1/escrow';
+import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import { contractStore } from '$lib/stores/contract.store';

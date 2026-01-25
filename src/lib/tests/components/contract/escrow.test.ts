@@ -30,7 +30,7 @@ vi.mock('$lib/utils/wallet/networkConfig', () => ({
 }));
 
 // Mock escrow ABI
-vi.mock('$lib/utils/constants/escrowABI.json', () => ({
+vi.mock('$lib/utils/escrow/v1/abi.json', () => ({
 	default: [
 		{
 			inputs: [],
