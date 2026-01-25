@@ -26,10 +26,10 @@ head_sampling_rate = 1.0  # 100% sampling for dev/staging (full visibility)
 # - Wall-clock time (including network I/O) is unlimited
 # 
 # For static site serving, default limits are sufficient
+# Setting to 30 seconds (default for paid plan) - sufficient for static file serving
 # Increase only if doing compute-intensive operations
 [limits]
-# cpu_ms = 30_000  # 30 seconds (default for paid plan)
-# Uncomment and adjust if needed for compute-intensive tasks
+cpu_ms = 30_000  # 30 seconds (default for paid plan)
 
 # ============================================
 # SITE CONFIGURATION
