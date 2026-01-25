@@ -9,7 +9,8 @@
 		validateSufficientBalance,
 		acceptBidAndCreateEscrow,
 		getFeePercentageDisplay,
-		formatRBTCAmount
+		formatRBTCAmount,
+		type ValidationWarning
 	} from '$lib/utils/escrow/v1/escrowBid';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { goto } from '$app/navigation';
@@ -42,7 +43,7 @@
 	// Form state
 	let isSubmitting = $state(false);
 	let validationErrors = $state<string[]>([]);
-	let validationWarnings = $state<string[]>([]);
+	let validationWarnings = $state<(string | ValidationWarning)[]>([]);
 	let balanceErrors = $state<string[]>([]);
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
@@ -62,20 +63,23 @@
 		calculateBidEscrowDetails(bidContent, taskContent, props.btcPrice)
 	);
 
-	// Calculate adjusted times if start time is in the past but within 15 minutes
+	// Calculate adjusted times if start time is in the past
 	let adjustedTimes = $derived.by(() => {
 		if (!bidEscrowDetails) return null;
 
 		const now = Math.floor(Date.now() / 1000);
-		const timeDifferenceSeconds = now - bidEscrowDetails.estimatedStartTime;
-		const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
 
-		if (bidEscrowDetails.estimatedStartTime <= now && timeDifferenceMinutes <= 15) {
-			const originalDuration =
-				bidEscrowDetails.estimatedCompletionTime - bidEscrowDetails.estimatedStartTime;
+		if (bidEscrowDetails.estimatedStartTime <= now) {
+			// Start time is in the past - adjust to current time + 1 hour
+			const newStartTime = now + 3600; // 1 hour buffer
+			
+			// Calculate the time shift (how much later the new start time is compared to original)
+			const timeShift = newStartTime - bidEscrowDetails.estimatedStartTime;
+			
+			// Shift the completion time by the same amount
 			return {
-				startTime: now + 60, // 1 minute buffer
-				completionTime: now + 60 + originalDuration,
+				startTime: newStartTime,
+				completionTime: bidEscrowDetails.estimatedCompletionTime + timeShift,
 				wasAdjusted: true,
 				originalStartTime: bidEscrowDetails.estimatedStartTime,
 				originalCompletionTime: bidEscrowDetails.estimatedCompletionTime
@@ -93,6 +97,7 @@
 		if (bidEscrowDetails) {
 			const validationResult = validateEscrowDetails(bidEscrowDetails);
 			validationErrors = validationResult.errors;
+			// Store warnings as-is (can be strings or structured objects)
 			validationWarnings = validationResult.warnings;
 		}
 	});
@@ -694,11 +699,19 @@
 					</svg>
 					<div class="min-w-0 flex-1">
 						{#if validationWarnings.length === 1}
-							<p class="word-break-words">{validationWarnings[0]}</p>
+							<p class="word-break-words">
+								{typeof validationWarnings[0] === 'string' 
+									? validationWarnings[0] 
+									: $t(validationWarnings[0].key, { values: validationWarnings[0].params || {} })}
+							</p>
 						{:else}
 							<ul class="list-inside list-disc space-y-1">
 								{#each validationWarnings as warning}
-									<li class="word-break-words">{warning}</li>
+									<li class="word-break-words">
+										{typeof warning === 'string' 
+											? warning 
+											: $t(warning.key, { values: warning.params || {} })}
+									</li>
 								{/each}
 							</ul>
 						{/if}
