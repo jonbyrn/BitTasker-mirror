@@ -29,6 +29,8 @@
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
 	import IconMapMarker from '~icons/mdi/map-marker';
 	import IconMapMarkerCheck from '~icons/mdi/map-marker-check';
+	import { taskTranslationService } from '$lib/services/task-translation.service';
+	import { currentUserLanguage } from '$lib/stores/translation.store';
 
 	// Props
 	let { taskId } = $props<{ taskId: string }>();
@@ -45,6 +47,29 @@
 
 	// Check if current user is the task creator
 	const isOwner = $derived(task?.npub === $user?.npub);
+
+	// Get translated task title for page title
+	const translatedTaskTitle = $derived.by(() => {
+		if (!task) return $t('dashboard.task_details_by_task.title');
+		
+		const userLang = $currentUserLanguage;
+		if (userLang && task.translations?.sourceLanguage !== userLang) {
+			const translation = taskTranslationService.getStoredTranslation(task, userLang);
+			if (translation?.translatedTitle) {
+				return translation.translatedTitle;
+			}
+		}
+		
+		return task.title || $t('dashboard.task_details_by_task.title');
+	});
+
+	// Page title with translated task title
+	const pageTitle = $derived.by(() => {
+		if (!task) return $t('dashboard.task_details_by_task.title');
+		const budget = task.budget?.amount ? `$${formatNumberWithTwoDecimals(task.budget.amount)}` : '';
+		const title = translatedTaskTitle;
+		return budget ? `${title} - ${budget} - BitTasker` : `${title} - BitTasker`;
+	});
 
 	const isRemoteTask = $derived(() => {
 		if (!task?.taskType) return false;
@@ -274,15 +299,19 @@
 
 </script>
 
-<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
+<svelte:head>
+	<title>{pageTitle}</title>
+</svelte:head>
+
+	<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
 	<div class="rounded-xl pt-4 md:pt-0">
-		<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-			<div class="text-left">
+		<div class="mb-6 flex items-center gap-3">
+			<div class="flex-1 text-left">
 				<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
 				<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
 			</div>
-			<div class="flex flex-wrap gap-2 md:justify-end">
-				<TaskShareButton task={task} variant="default" class="min-w-[140px]" />
+			<div class="shrink-0">
+				<TaskShareButton task={task} variant="icon-only" />
 			</div>
 		</div>
 		<!-- Loading state -->
