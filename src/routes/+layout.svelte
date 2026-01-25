@@ -32,9 +32,7 @@
 	const shouldHideFooterForLoggedInTaskPage = $derived(
 		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/tasks\/[^/]+$/)
 	);
-	const shouldHideFooterForTasksPage = $derived(
-		currentPath === '/tasks' && ($authState.isAuthenticated || !!$user?.npub)
-	);
+	const shouldHideFooterForTasksPage = $derived(currentPath === '/tasks');
 	const shouldHideFooterForLoggedInNpubPage = $derived(
 		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/npub\/[^/]+$/)
 	);
@@ -298,7 +296,7 @@
 	</div>
 
 	<!-- BottomNavBar: Show on mobile/tablet (≤1024px) -->
-	{#if showTopBar}
+	{#if showTopBar && currentPath !== '/tasks'}
 		<footer bind:this={footerEl} class="app-shell__footer lg:hidden">
 			<BottomNavBar />
 		</footer>
