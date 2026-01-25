@@ -1,5 +1,5 @@
 import type { EscrowData } from '$lib/types/wallet';
-import { escrow } from './escrow';
+import { escrow } from '../escrow/v1/escrow';
 import { ethers } from 'ethers';
 import { get } from 'svelte/store';
 import { walletStore, getWallet, getProvider } from '$lib/stores/wallet.store';

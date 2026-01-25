@@ -9,10 +9,8 @@
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { formatStandardDate, formatStandardDateShort, formatStandardDateTime, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { fade, scale } from 'svelte/transition';
-	import { getContracts } from '$lib/utils/nostr-contract';
-	import { escrow } from '$lib/utils/wallet/escrow';
-	import { contractStore } from '$lib/stores/contract.store';
+	import { getContracts } from '$lib/utils/escrow/v1/nostrContract';
+	import { escrow } from '$lib/utils/escrow/v1/escrow';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import TaskShareButton from '../TaskShareButton.svelte';
