@@ -1,4 +1,4 @@
-import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
+import { getAssetFromKV, serveSinglePageApp, NotFoundError } from '@cloudflare/kv-asset-handler';
 
 addEventListener('fetch', (event) => {
 	event.respondWith(handleRequest(event));
@@ -87,8 +87,10 @@ async function handleRequest(event) {
 	try {
 		const kvStartTime = Date.now();
 		
-		// Try to serve the requested asset
+		// Use serveSinglePageApp so "/" and all SPA routes map to index.html before lookup.
+		// This fixes "Asset not found: /" when visiting the root path.
 		const response = await getAssetFromKV(event, {
+			mapRequestToAsset: serveSinglePageApp,
 			cacheControl: {
 				browserTTL: browserTTL,
 				edgeTTL: edgeTTL,
@@ -121,7 +123,7 @@ async function handleRequest(event) {
 		}
 		
 		// Apply compression if supported and not already compressed
-		const compressedResponse = compressResponse(event.request, response);
+		const compressedResponse = await compressResponse(event.request, response);
 		
 		// Log compression if applied
 		if (compressedResponse.headers.get('Content-Encoding')) {
@@ -142,9 +144,10 @@ async function handleRequest(event) {
 		return compressedResponse;
 	} catch (error) {
 		const totalDuration = Date.now() - requestStartTime;
+		const isNotFound = error?.status === 404 || error instanceof NotFoundError;
 		
 		// Handle 404 errors
-		if (error.status === 404) {
+		if (isNotFound) {
 			// For SvelteKit __data.json requests that don't exist, return empty object
 			if (isDataRequest) {
 				logEvent('data_request_missing', {
@@ -163,10 +166,12 @@ async function handleRequest(event) {
 			}
 			
 			// For non-asset requests (page navigation), serve index.html
+			// Note: This should rarely be reached since serveSinglePageApp already maps routes to index.html
+			// This is a safety fallback in case serveSinglePageApp doesn't catch something
 			if (!isAssetRequest) {
 				try {
 					const indexStartTime = Date.now();
-					const response = await getAssetFromKV(event, {
+					const indexResponse = await getAssetFromKV(event, {
 						mapRequestToAsset: (req) => {
 							const url = new URL(req.url);
 							url.pathname = '/index.html';
@@ -189,7 +194,7 @@ async function handleRequest(event) {
 						cfRay
 					});
 					
-					return compressResponse(event.request, response);
+					return await compressResponse(event.request, indexResponse);
 				} catch (indexError) {
 					logError(indexError, {
 						pathname,
@@ -207,14 +212,14 @@ async function handleRequest(event) {
 		}
 		
 		// Log 404 errors for missing assets
-		if (error.status === 404 && isAssetRequest) {
+		if (isNotFound && isAssetRequest) {
 			logEvent('asset_not_found', {
 				pathname,
 				requestType: 'asset',
 				duration_ms: totalDuration,
 				cfRay
 			});
-		} else if (error.status !== 404) {
+		} else if (!isNotFound) {
 			// Log non-404 errors
 			logError(error, {
 				pathname,
@@ -234,14 +239,13 @@ async function handleRequest(event) {
 }
 
 // Compression helper function
-function compressResponse(request, response) {
-	// Check if client supports compression
+async function compressResponse(request, response) {
+	// Check if client supports gzip (Workers CompressionStream supports gzip/deflate only, not Brotli)
 	const acceptEncoding = request.headers.get('Accept-Encoding') || '';
-	const supportsBrotli = acceptEncoding.includes('br');
 	const supportsGzip = acceptEncoding.includes('gzip');
 	
-	// Don't compress if already compressed or if no compression supported
-	if (response.headers.get('Content-Encoding') || (!supportsBrotli && !supportsGzip)) {
+	// Don't compress if already compressed or if no gzip support
+	if (response.headers.get('Content-Encoding') || !supportsGzip) {
 		return response;
 	}
 	
@@ -257,20 +261,44 @@ function compressResponse(request, response) {
 		return response;
 	}
 	
-	// Choose compression format (prefer Brotli)
-	const encoding = supportsBrotli ? 'br' : 'gzip';
-	const compressionStream = new CompressionStream(encoding);
+	// Check if we're in dev mode first (before reading body)
+	// In dev mode (wrangler dev), Miniflare may handle compression differently
+	// Skip compression in dev to avoid double-compression issues
+	const url = new URL(request.url);
+	const isDevMode = url.hostname === 'localhost' || url.hostname.includes('127.0.0.1');
 	
-	// Create new response with compression
-	const compressedBody = response.body.pipeThrough(compressionStream);
+	if (isDevMode) {
+		// In dev mode, return uncompressed to avoid double-compression
+		// Miniflare may pre-compress assets, so we skip our compression
+		return response;
+	}
 	
-	return new Response(compressedBody, {
-		status: response.status,
-		statusText: response.statusText,
-		headers: {
-			...Object.fromEntries(response.headers),
-			'Content-Encoding': encoding,
-			'Vary': 'Accept-Encoding'
-		}
-	});
+	// Production: compress the content
+	// Read body into memory for compression (acceptable for static assets)
+	try {
+		const bodyArrayBuffer = await response.arrayBuffer();
+		const encoding = 'gzip';
+		const compressionStream = new CompressionStream(encoding);
+		const stream = new ReadableStream({
+			start(controller) {
+				controller.enqueue(bodyArrayBuffer);
+				controller.close();
+			}
+		});
+		const compressedBody = stream.pipeThrough(compressionStream);
+		
+		return new Response(compressedBody, {
+			status: response.status,
+			statusText: response.statusText,
+			headers: {
+				...Object.fromEntries(response.headers),
+				'Content-Encoding': 'gzip',
+				'Vary': 'Accept-Encoding'
+			}
+		});
+	} catch (error) {
+		// If check fails, return original response (safer than double-compressing)
+		console.warn('Failed to check/compress response:', error);
+		return response;
+	}
 }
