@@ -1,7 +1,7 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { DisputeProposal, EscrowData } from '$lib/types/wallet';
 import type { Attachment } from '$lib/types/task';
-import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 
 // Contract permissions - grouped for better organization
 export interface ContractPermissions {

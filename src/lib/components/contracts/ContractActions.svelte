@@ -3,14 +3,14 @@
 	import type { Attachment } from '$lib/types/task';
 	import type { EscrowData } from '$lib/types/wallet';
 	import { t, locale } from 'svelte-i18n';
-	import { escrow } from '$lib/utils/wallet/escrow';
+	import { escrow } from '$lib/utils/escrow/v1/escrow';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
-	import { deleteContract } from '$lib/utils/nostr-contract';
+	import { deleteContract } from '$lib/utils/escrow/v1/nostrContract';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import { contractStore } from '$lib/stores/contract.store';
-	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
