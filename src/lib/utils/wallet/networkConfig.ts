@@ -189,9 +189,9 @@ export const BSC_NETWORKS = {
 	mainnet: {
 		name: 'BSC Mainnet',
 		chainId: 56,
-		rpcUrl: 'https://bsc-rpc.publicnode.com',
+		rpcUrl: 'https://bsc-dataseed.binance.org/',
 		explorerUrl: 'https://bscscan.com',
-		explorerApiUrl: 'https://api.etherscan.io/v2/api',
+		explorerApiUrl: null, // No longer using BSCScan API - using free Binance RPC instead
 		currency: {
 			name: 'BNB',
 			symbol: 'BNB',
@@ -221,9 +221,9 @@ export const BSC_NETWORKS = {
 	testnet: {
 		name: 'BSC Testnet',
 		chainId: 97,
-		rpcUrl: 'https://bsc-testnet-rpc.publicnode.com',
+		rpcUrl: 'https://bsc-testnet-dataseed.binance.org/',
 		explorerUrl: 'https://testnet.bscscan.com',
-		explorerApiUrl: 'https://api.etherscan.io/v2/api',
+		explorerApiUrl: null, // No longer using BSCScan API - using free Binance RPC instead
 		currency: {
 			name: 'tBNB',
 			symbol: 'tBNB',
