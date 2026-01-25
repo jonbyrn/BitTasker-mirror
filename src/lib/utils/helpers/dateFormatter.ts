@@ -365,3 +365,55 @@ export function parseDateToLocalMidnight(dateString: string | null | undefined):
 	console.error('Invalid date string provided to parseDateToLocalMidnight:', dateString);
 	return null;
 }
+
+export function formatDurationFromDates(
+	startDateTime: string | Date | number,
+	endDateTime: string | Date | number,
+	getTranslation: (key: string) => string
+): string {
+	try {
+		const start = typeof startDateTime === 'number' 
+			? new Date(startDateTime) 
+			: typeof startDateTime === 'string' 
+				? new Date(startDateTime) 
+				: startDateTime;
+		const end = typeof endDateTime === 'number'
+			? new Date(endDateTime)
+			: typeof endDateTime === 'string'
+				? new Date(endDateTime)
+				: endDateTime;
+		
+		const diffMs = end.getTime() - start.getTime();
+		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+		const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+		const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+		const parts: string[] = [];
+
+		if (diffDays > 0) {
+			parts.push(`${diffDays} ${getTranslation(diffDays === 1 ? 'day' : 'days')}`);
+		}
+
+		if (diffHours > 0) {
+			parts.push(`${diffHours} ${getTranslation(diffHours === 1 ? 'hour' : 'hours')}`);
+		}
+
+		if (diffMinutes > 0 && diffDays === 0) {
+			parts.push(`${diffMinutes} ${getTranslation(diffMinutes === 1 ? 'minute' : 'minutes')}`);
+		}
+
+		if (parts.length === 0) {
+			return getTranslation('oneHour');
+		}
+
+		if (parts.length === 1) {
+			return parts[0];
+		}
+
+		const lastPart = parts.pop()!;
+		return `${parts.join(', ')} ${getTranslation('and')} ${lastPart}`;
+	} catch (error) {
+		console.error('Error formatting duration:', error);
+		return '';
+	}
+}
