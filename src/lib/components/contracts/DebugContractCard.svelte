@@ -5,7 +5,7 @@
 	import { t } from 'svelte-i18n';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
-	import { escrow } from '$lib/utils/wallet/escrow';
+	import { escrow } from '$lib/utils/escrow/v1/escrow';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount, onDestroy } from 'svelte';
 

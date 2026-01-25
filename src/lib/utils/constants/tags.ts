@@ -7,7 +7,7 @@
  * Standard Nostr tags: https://github.com/nostr-protocol/nips/blob/master/01.md
  */
 
-import type { EscrowStatus } from "../enums/escrow.enum";
+import type { EscrowStatus } from "../escrow/v1/escrow.enum";
 
 export const TAGS = {
 	// ============================================================================

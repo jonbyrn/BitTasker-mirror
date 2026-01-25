@@ -6,11 +6,11 @@ import { t } from "svelte-i18n";
 import { get } from "svelte/store";
 import { appStore } from "$lib/stores/app.store";
 import { ethers } from 'ethers';
-import { EscrowStatus } from "$lib/utils/enums/escrow.enum";
+import { EscrowStatus } from "$lib/utils/escrow/v1/escrow.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 // Use ethers.getAddress for EIP-55 checksum address conversion
-import escrowABI from '$lib/utils/constants/escrowABI.json';
-import * as EscrowNostrEvent from '$lib/utils/wallet/escrowEvents';
+import escrowABI from './abi.json';
+import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
 
 let contract: ethers.Contract | null = null;
 // Cache for legacy contracts to avoid recreating them
@@ -1173,7 +1173,7 @@ async function checkEscrowPayment(
         }
 
         // Get network configuration
-        const { getRSKConfig } = await import('./networkConfig');
+        const { getRSKConfig } = await import('../../wallet/networkConfig');
         const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
         const rskConfig = getRSKConfig(network);
         const explorerApiUrl = rskConfig.explorerApiUrl;

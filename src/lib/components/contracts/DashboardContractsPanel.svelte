@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { createPortal } from '$lib/utils/portal';
-	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import ContractCard from './ContractCard.svelte';
