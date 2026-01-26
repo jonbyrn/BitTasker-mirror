@@ -1,4 +1,4 @@
-import type { Task, Attachment } from '$lib/types/task';
+import type { Task } from '$lib/types/task';
 import { locale } from 'svelte-i18n';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -9,15 +9,7 @@ import { appStore } from '$lib/stores/app.store';
 import { currentUserLanguage } from '$lib/stores/translation.store';
 import { taskTranslationService } from '$lib/services/task-translation.service';
 import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
-
-/**
- * Helper function to detect video files
- */
-function isVideoFile(url: string): boolean {
-	const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
-	const urlLower = url.toLowerCase();
-	return videoExtensions.some((ext) => urlLower.endsWith(ext));
-}
+import { Capacitor } from '@capacitor/core';
 
 /**
  * Helper function to truncate text to specified length at last complete word
@@ -131,38 +123,6 @@ function formatShareText(task: Task): string {
 	return text;
 }
 
-/**
- * Helper function to fetch first image attachment as File
- */
-async function getFirstImageFile(task: Task): Promise<File | null> {
-	if (!task?.attachments || task.attachments.length === 0) return null;
-	
-	// Find first non-video attachment (image)
-	const firstImage = task.attachments.find((att: Attachment) => !isVideoFile(att.url));
-	if (!firstImage) return null;
-	
-	try {
-		// Fetch the image
-		const response = await fetch(firstImage.url);
-		if (!response.ok) return null;
-		
-		const blob = await response.blob();
-		
-		// Get file extension from URL or use default
-		const urlParts = firstImage.url.split('.');
-		const extension = urlParts.length > 1 ? urlParts[urlParts.length - 1].split('?')[0] : 'jpg';
-		const mimeType = blob.type || `image/${extension}`;
-		
-		// Create File object
-		const fileName = firstImage.alt || `task-image.${extension}`;
-		const file = new File([blob], fileName, { type: mimeType });
-		
-		return file;
-	} catch (error) {
-		console.error('Failed to fetch image for sharing:', error);
-		return null;
-	}
-}
 
 /**
  * Generate share link for a task
@@ -175,7 +135,7 @@ export function getTaskShareLink(task: Task | null, taskId?: string): string {
 		if (task) {
 			// Always use the uniqueId from the task object for stable URLs
 			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			const taskIdentifier = (task as any).uniqueId || task.id;
+			const taskIdentifier = (task as { uniqueId?: string }).uniqueId || task.id;
 			return `${window.location.origin}/tasks/${taskIdentifier}`;
 		} else if (taskId) {
 			return `${window.location.origin}/tasks/${taskId}`;
@@ -208,24 +168,43 @@ export async function handleTaskShare(
 	const translation = taskTranslationService.getStoredTranslation(task, userLang);
 	const shareTitle =
 		translation?.translatedTitle || task?.title || get(t)('dashboard.task_details_by_task.title');
+	const shareText = formatShareText(task);
 
-	if (navigator.share) {
+	// Priority 1: Try Capacitor Share plugin for native apps (Android/iOS)
+	// This opens the native share modal with all available apps
+	if (Capacitor.isNativePlatform()) {
+		try {
+			const { Share } = await import('@capacitor/share');
+			await Share.share({
+				title: shareTitle,
+				text: shareText,
+				url: link,
+				dialogTitle: shareTitle
+			});
+			onSuccess(true);
+			appStore.showSuccessToast(get(t)('common.toast.link_copied'));
+			setTimeout(() => {
+				onSuccess(false);
+			}, 2000);
+			return; // Exit early if share was successful
+		} catch (error) {
+			// User cancelled sharing - don't do anything, just return
+			if ((error as Error).name === 'AbortError' || (error as Error).message?.includes('cancel')) {
+				return;
+			}
+			// For other errors, fall through to Web Share API
+		}
+	}
+
+	// Priority 2: Try Web Share API (works on mobile browsers and some desktop browsers)
+	if (typeof navigator !== 'undefined' && navigator.share) {
 		try {
 			// Prepare share data
 			const shareData: ShareData = {
 				title: shareTitle,
-				text: formatShareText(task),
+				text: shareText,
 				url: link
 			};
-			
-			// Try to add first image if available
-			const imageFile = await getFirstImageFile(task);
-			if (imageFile) {
-				// Check if files can be shared
-				if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-					shareData.files = [imageFile];
-				}
-			}
 			
 			await navigator.share(shareData);
 			onSuccess(true);
@@ -233,37 +212,27 @@ export async function handleTaskShare(
 			setTimeout(() => {
 				onSuccess(false);
 			}, 2000);
+			return; // Exit early if share was successful
 		} catch (error) {
-				// User cancelled sharing or error occurred
-				if ((error as Error).name !== 'AbortError') {
-					console.log('Share cancelled or failed:', error);
-					// Fallback to copy full text with task details if share fails
-					const shareText = formatShareText(task);
-					const fullText = `${shareText}\n\n${link}`;
-					const success = await copyToClipboard(fullText);
-					if (success) {
-						onSuccess(true);
-						appStore.showSuccessToast(get(t)('common.toast.link_copied'));
-						setTimeout(() => {
-							onSuccess(false);
-						}, 2000);
-					}
-				}
+			// User cancelled sharing - don't do anything, just return
+			if ((error as Error).name === 'AbortError') {
+				return;
 			}
-		} else {
-			// Fallback: copy to clipboard with full task details
-			const shareText = formatShareText(task);
-			const fullText = `${shareText}\n\n${link}`;
-			const success = await copyToClipboard(fullText);
-			if (success) {
-				onSuccess(true);
-				appStore.showSuccessToast(get(t)('common.toast.link_copied'));
-				setTimeout(() => {
-					onSuccess(false);
-				}, 2000);
-			} else {
-				appStore.showErrorToast(get(t)('common.toast.link_copy_failed'));
-			}
+			// For other errors, fall through to copy
 		}
+	}
+	
+	// Priority 3: Fallback - copy to clipboard with full task details
+	const fullText = `${shareText}\n\n${link}`;
+	const success = await copyToClipboard(fullText);
+	if (success) {
+		onSuccess(true);
+		appStore.showSuccessToast(get(t)('common.toast.link_copied'));
+		setTimeout(() => {
+			onSuccess(false);
+		}, 2000);
+	} else {
+		appStore.showErrorToast(get(t)('common.toast.link_copy_failed'));
+	}
 }
 
