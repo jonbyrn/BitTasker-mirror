@@ -23,7 +23,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { bidStore } from '$lib/stores/bid.store';
@@ -169,7 +169,62 @@
 		}
 	}
 
-	onMount(() => initializeWallet());
+	onMount(async () => {
+		await initializeWallet();
+		
+		// Check if we're in success screen and verify transaction status
+		// This handles component state persistence when user navigates away and returns
+		if (currentScreen === 'success' && escrowDetails?.transactionResult?.hash) {
+			try {
+				const { getProvider } = await import('$lib/stores/wallet.store');
+				const provider = getProvider('rsk');
+				if (provider) {
+					const receipt = await provider.getTransactionReceipt(escrowDetails.transactionResult.hash);
+					if (receipt) {
+						// Update status based on receipt
+						if (receipt.status === 0) {
+							// Transaction failed
+							currentScreen = 'form';
+							validationErrors = ['Transaction failed. Please try again.'];
+							escrowDetails = null;
+							// Clean up processing bid
+							if (props.bid?.id) {
+								bidStore.removeProcessingBid(props.bid.id);
+							}
+						} else if (receipt.status === 1) {
+							// Transaction confirmed - ensure we have escrow ID
+							if (!escrowDetails.transactionResult.escrowId && escrowDetails.transactionResult.status !== 'confirmed') {
+								escrowDetails.transactionResult.status = 'confirmed';
+							}
+						}
+					}
+				}
+			} catch (error) {
+				// If we can't verify, assume it's still pending
+				console.warn('Could not verify transaction status on mount:', error);
+			}
+		}
+	});
+
+	// Track any async operations that need cleanup
+	let monitoringInterval: ReturnType<typeof setInterval> | null = null;
+	let isComponentMounted = $state(true);
+
+	// Cleanup on component unmount to prevent memory leaks
+	onDestroy(() => {
+		isComponentMounted = false;
+		
+		// Clean up processing bid if component is destroyed during submission
+		if (props.bid?.id && $bidStore.processingBidIds.has(props.bid.id)) {
+			bidStore.removeProcessingBid(props.bid.id);
+		}
+		
+		// Clean up any transaction monitoring intervals
+		if (monitoringInterval) {
+			clearInterval(monitoringInterval);
+			monitoringInterval = null;
+		}
+	});
 
 	// Handle form submission
 	async function handleSubmit() {
@@ -186,7 +241,22 @@
 			// Accept bid and create escrow
 			const result = await acceptBidAndCreateEscrow(props.bid, props.task, props.btcPrice, 'RSK');
 
-			if (result.success) {
+			// Validate transaction result before showing success
+			if (result.success && result.transactionResult) {
+				// Validate transaction hash exists
+				if (!result.transactionResult.hash) {
+					validationErrors = ['Transaction hash is missing. Please try again.'];
+					bidStore.removeProcessingBid(props.bid.id);
+					return;
+				}
+
+				// Validate transaction status is not failed
+				if (result.transactionResult.status === 'failed') {
+					validationErrors = ['Transaction failed. Please try again.'];
+					bidStore.removeProcessingBid(props.bid.id);
+					return;
+				}
+
 				escrowDetails = {
 					transactionResult: result.transactionResult,
 					escrowDetails: bidEscrowDetails
@@ -223,10 +293,14 @@
 			} else {
 				// Show error
 				validationErrors = [result.error || 'Failed to create escrow'];
+				// Clean up processing bid on failure
+				bidStore.removeProcessingBid(props.bid.id);
 			}
 		} catch (error) {
 			console.error('Failed to accept bid:', error);
 			validationErrors = [error instanceof Error ? error.message : 'Unknown error occurred'];
+			// Clean up processing bid on error
+			bidStore.removeProcessingBid(props.bid.id);
 		} finally {
 			isSubmitting = false;
 		}
