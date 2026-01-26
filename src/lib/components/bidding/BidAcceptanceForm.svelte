@@ -922,48 +922,28 @@
 			{/if}
 		</div>
 
-		<!-- Insufficient Balance Warning -->
+		<!-- Insufficient Balance Error -->
 		{#if balanceErrors.length > 0}
-			<div class="alert alert-outline alert-warning text-black">
-				<div class="flex items-start gap-3">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-						/>
-					</svg>
-					<div class="min-w-0 flex-1">
-						<div class="mb-1 font-semibold">
-							{$t('dashboard.bids.bid_acceptance.insufficient_balance')}
-						</div>
-						{#if balanceErrors.length === 1}
-							<p class="word-break-words text-sm">{balanceErrors[0]}</p>
-						{:else}
-							<ul class="list-inside list-disc space-y-1 text-sm">
-								{#each balanceErrors as error}
-									<li class="word-break-words">{error}</li>
-								{/each}
-							</ul>
-						{/if}
-						<div class="mt-2 text-sm">
-							<p>
-								{$t('dashboard.bids.bid_acceptance.current_balance')}
-								<strong>{$walletStore.rsk.formattedBalance} rBTC</strong>
-							</p>
-							<p class="mt-1 text-xs opacity-80">
-								{$t('dashboard.bids.bid_acceptance.insufficient_balance_help')}
-							</p>
-						</div>
-					</div>
-				</div>
-			</div>
+			<button
+				type="button"
+				class="alert alert-outline alert-error w-full cursor-pointer transition-opacity hover:opacity-80"
+				onclick={() => goto('/dashboard/wallet')}
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+					/>
+				</svg>
+				<span>{$t('dashboard.bids.bid_acceptance.insufficient_balance')}</span>
+			</button>
 		{/if}
 
 		<!-- Validation Errors -->
