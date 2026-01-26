@@ -101,7 +101,7 @@
 
 	// Grouped State: UI State
 	let uiState = $state({
-		activeTab: 'scan' as 'scan' | 'enter',
+		activeTab: 'enter' as 'scan' | 'enter',
 		showConfirmation: false,
 		showSendConfirmation: false,
 		showSuccessScreen: false,
@@ -417,15 +417,6 @@
 					? parsedPayment.detectedAmount
 					: 0;
 
-		console.log('[SendPaymentForm] updateFeeEstimate', {
-			amountInSats,
-			detectedAmount: parsedPayment.detectedAmount,
-			amountToUse,
-			detectedNetwork: parsedPayment.detectedNetwork,
-			hasAmount: amountToUse > 0,
-			hasNetwork: !!parsedPayment.detectedNetwork
-		});
-
 		if (amountToUse === 0 || !parsedPayment.detectedNetwork) {
 			console.log('[SendPaymentForm] Skipping fee estimation - missing amount or network');
 			feeState.estimated = null;
@@ -537,15 +528,38 @@
 					const pairsData = await walletManager.getCachedSubmarineSwapPairs();
 					const pair = pairsData?.['RBTC']?.['BTC'];
 					if (pair && pair.fees) {
+						const minerFee = pair.fees.minerFees || 32;
+						
+						// Estimate Rootstock gas fee for the submarine swap transaction
+						// This is needed because we're sending RBTC on-chain to Boltz
+						let estimatedGasFee = 0;
+						if ($walletStore.rsk.connected && $walletStore.rsk.address) {
+							try {
+								// Use 80% of balance to get a realistic gas fee estimate
+								// This is conservative and accounts for gas price variations
+								const estimateAmountRBTC = ((availableBalance * 0.8) / 100_000_000).toFixed(8);
+								const gasEstimation = await walletManager.estimateRBTCGas(
+									$walletStore.rsk.address,
+									estimateAmountRBTC
+								);
+								estimatedGasFee = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
+							} catch (error) {
+								console.warn('Failed to estimate gas for Lightning max calculation:', error);
+								estimatedGasFee = 3000; // Conservative fallback (100 sats)
+							}
+						} else {
+							estimatedGasFee = 3000; // Conservative fallback when not connected
+						}
+						
 						feeState.parameters = {
 							percentage: pair.fees.percentage,
-							fixedFee: pair.fees.minerFees || 32
+							fixedFee: minerFee + estimatedGasFee // Combine miner fee and gas fee
 						};
 					} else {
 						// Fallback to conservative estimate
 						feeState.parameters = {
 							percentage: 0.1, // 0.1%
-							fixedFee: 32
+							fixedFee: 3000
 						};
 					}
 					break;
@@ -643,7 +657,6 @@
 
 	// Handle calculation change from calculator
 	function handleCalculationChange(expression: string, result: number) {
-		console.log({ expression, result });
 		formInput.mathExpression = expression;
 		if (result > 0 || expression === '') {
 			if (formInput.unit === 'sats') {
