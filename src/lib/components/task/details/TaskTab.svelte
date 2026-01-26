@@ -3,9 +3,11 @@
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
+	import { browser } from '$app/environment';
+	import { tick } from 'svelte';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { formatStandardDate, formatStandardDateShort, formatStandardDateTime, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
@@ -14,6 +16,7 @@
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import TaskShareButton from '../TaskShareButton.svelte';
+	import Gallery from '$lib/components/Gallery.svelte';
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
 
@@ -30,6 +33,11 @@
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let canDelete = $state(true); // Default to true, will be checked
 	let isCheckingDelete = $state(false);
+	
+	// Video lightbox state
+	let selectedVideo = $state<Attachment | null>(null);
+	let isVideoLightboxOpen = $state(false);
+	let lightboxContainer: HTMLDivElement | null = $state(null);
 
 	// Helper function to format date string with time (for timestamps like createdAt)
 	function formatDateStringWithTime(date: string | number): string {
@@ -44,6 +52,101 @@
 		const urlLower = url.toLowerCase();
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
+	
+	// Prepare gallery images for PhotoSwipe lightbox
+	// Note: attachment.url is the full-size/original image URL
+	// The Gallery component uses 'url' for the lightbox href (full-size) and 'thumbnailURL' for the thumbnail display
+	const prepareGalleryImages = async (attachments: Attachment[]) => {
+		const imagePromises = attachments
+			.filter((attachment) => !isVideoFile(attachment.url))
+			.map((attachment) => {
+				return new Promise<{ url: string; largeURL?: string; alt: string; width: number; height: number; size: number }>((resolve) => {
+					const img = new Image();
+					// Use the full-size image URL for both thumbnail and lightbox
+					// attachment.url is the original/full-size image from the upload service
+					const fullSizeUrl = attachment.url;
+					
+					img.onload = () => {
+						resolve({
+							url: fullSizeUrl, // Full-size image URL for lightbox (Gallery uses this in href)
+							largeURL: fullSizeUrl, // Explicitly set largeURL to ensure full-size is used
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
+							width: img.naturalWidth,
+							height: img.naturalHeight,
+							size: attachment.size
+						});
+					};
+					img.onerror = () => {
+						resolve({
+							url: fullSizeUrl,
+							largeURL: fullSizeUrl,
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
+							width: 0,
+							height: 0,
+							size: attachment.size
+						});
+					};
+					img.src = fullSizeUrl;
+				});
+			});
+		
+		return await Promise.all(imagePromises);
+	};
+	
+	// Portal action to render lightbox at body level
+	function portalToBody(node: HTMLElement) {
+		if (!browser) return;
+		
+		// Append to body
+		document.body.appendChild(node);
+		
+		return {
+			destroy() {
+				if (node.parentNode) {
+					node.parentNode.removeChild(node);
+				}
+			}
+		};
+	}
+	
+	// Open video in lightbox
+	function openVideoLightbox(video: Attachment) {
+		selectedVideo = video;
+		isVideoLightboxOpen = true;
+		// Prevent body scroll when lightbox is open
+		if (browser) {
+			document.body.style.overflow = 'hidden';
+		}
+	}
+	
+	// Close video lightbox
+	function closeVideoLightbox() {
+		isVideoLightboxOpen = false;
+		// Restore body scroll
+		if (browser) {
+			document.body.style.overflow = '';
+		}
+		// Clear video after animation
+		setTimeout(() => {
+			selectedVideo = null;
+		}, 300);
+	}
+	
+	// Cleanup on component destroy
+	onDestroy(() => {
+		if (browser) {
+			if (isVideoLightboxOpen) {
+				document.body.style.overflow = '';
+			}
+			// Remove lightbox container from body if it exists
+			if (lightboxContainer) {
+				const parent = lightboxContainer.parentNode;
+				if (parent) {
+					parent.removeChild(lightboxContainer);
+				}
+			}
+		}
+	});
 
 	function handleEditTask() {
 		if (onRequestEditConfirm) {
@@ -301,12 +404,36 @@
 				{$t('dashboard.task_details_by_task.attachments')}
 			</small>
 
-			<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
-				{#each task.attachments as attachment, i}
-					{#if isVideoFile(attachment.url)}
-						<!-- Video -->
-						<div class="bg-base-200 overflow-hidden rounded-lg pb-4">
-							<video class="h-32 w-full object-cover" controls preload="metadata">
+			<!-- Images with Gallery lightbox -->
+			{#if task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+				<div class="mb-6">
+					{#await prepareGalleryImages(task.attachments) then galleryImages}
+						<Gallery
+							galleryID="task-drawer-images-gallery"
+							images={galleryImages}
+							thumbnailSize="h-32 w-full"
+						/>
+					{/await}
+				</div>
+			{/if}
+
+			<!-- Videos with clickable lightbox -->
+			{#if task.attachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
+				<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
+					{#each task.attachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
+						<div 
+							class="bg-base-200 overflow-hidden rounded-lg pb-4 cursor-pointer hover:opacity-90 transition-opacity"
+							onclick={() => openVideoLightbox(attachment)}
+							role="button"
+							tabindex="0"
+							onkeydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									openVideoLightbox(attachment);
+								}
+							}}
+						>
+							<video class="h-32 w-full object-cover pointer-events-none" preload="metadata">
 								<source src={attachment.url} type="video/mp4" />
 								<track kind="captions" src="" label="English" />
 								{$t('dashboard.task_details_by_task.video_not_supported')}
@@ -320,26 +447,9 @@
 								</p>
 							</div>
 						</div>
-					{:else}
-						<!-- Image -->
-						<div class="overflow-hidden rounded-lg pb-4 bg-base-200">
-							<img
-								src={attachment.url}
-								alt={attachment?.alt || 'Attachment'}
-								class="h-32 w-full object-cover"
-							/>
-							<div class="p-3">
-								<p class="truncate text-sm font-medium">
-									{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
-								</p>
-								<p class="text-base-content/60 text-xs">
-									{(attachment.size / 1024 / 1024).toFixed(2)} MB
-								</p>
-							</div>
-						</div>
-					{/if}
-				{/each}
-			</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -414,3 +524,80 @@
 		</div>
 	</div>
 </div>
+
+<!-- Video Lightbox Modal - Rendered at body level via portal to escape drawer stacking context -->
+{#if isVideoLightboxOpen && selectedVideo}
+	<div
+		bind:this={lightboxContainer}
+		use:portalToBody
+		class="fixed inset-0 z-9999 flex items-center justify-center bg-black/90"
+		style="position: fixed; top: 0; left: 0; right: 0; bottom: 0;"
+		onclick={closeVideoLightbox}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') {
+				closeVideoLightbox();
+			}
+		}}
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="video-lightbox-title"
+		tabindex="-1"
+	>
+		<div
+			class="relative w-full h-full flex items-center justify-center p-4"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+			role="none"
+		>
+			<!-- Close button - positioned inside viewport -->
+			<button
+				class="absolute top-4 right-4 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white shadow-lg transition-colors flex items-center justify-center backdrop-blur-sm"
+				onclick={closeVideoLightbox}
+				aria-label={$t('common.close') || 'Close'}
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M6 18L18 6M6 6l12 12"
+					/>
+				</svg>
+			</button>
+			
+			<!-- Video container - centered and responsive -->
+			<div class="relative w-full max-w-5xl max-h-[90vh] flex flex-col items-center justify-center">
+				<div class="w-full bg-black rounded-lg overflow-hidden shadow-2xl">
+					<video
+						class="w-full h-auto max-h-[85vh] object-contain"
+						controls
+						autoplay
+						preload="auto"
+					>
+						<source src={selectedVideo.url} type="video/mp4" />
+						<track kind="captions" src="" label="English" />
+						{$t('dashboard.task_details_by_task.video_not_supported')}
+					</video>
+					{#if selectedVideo.alt || selectedVideo.size}
+						<div class="p-4 bg-black/50 text-white">
+							{#if selectedVideo.alt}
+								<p class="text-base font-medium">{selectedVideo.alt}</p>
+							{/if}
+							{#if selectedVideo.size}
+								<p class="text-white/60 text-sm mt-1">
+									{(selectedVideo.size / 1024 / 1024).toFixed(2)} MB
+								</p>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}

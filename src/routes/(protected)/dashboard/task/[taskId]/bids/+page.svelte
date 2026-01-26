@@ -17,6 +17,7 @@
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// State
@@ -33,13 +34,7 @@
 	let bids = $derived($bidStore.bids[page.params.taskId] || []);
 
 	// Message modal state
-	let messageForm = $state({
-		isModalOpen: false,
-		text: '',
-		isSubmitting: false,
-		error: '',
-		success: false
-	});
+	let showMessageModal = $state(false);
 	let selectedBidderId = $state<string | null>(null);
 	let selectedBidderName = $state<string>('');
 
@@ -259,54 +254,13 @@
 	function openMessageModal(bidderId: string, bidderName: string) {
 		selectedBidderId = bidderId;
 		selectedBidderName = bidderName;
-		messageForm = {
-			isModalOpen: true,
-			text: '',
-			isSubmitting: false,
-			error: '',
-			success: false
-		};
+		showMessageModal = true;
 	}
 
-	// Función para cerrar el modal de mensaje
 	function closeMessageModal() {
-		messageForm = {
-			isModalOpen: false,
-			text: '',
-			isSubmitting: false,
-			error: '',
-			success: false
-		};
+		showMessageModal = false;
 		selectedBidderId = null;
 		selectedBidderName = '';
-	}
-
-	// Función para enviar mensaje
-	async function sendMessage() {
-		if (!messageForm.text.trim() || !selectedBidderId) {
-			messageForm.error = $t('common.profile.message_required');
-			return;
-		}
-
-		messageForm.isSubmitting = true;
-		messageForm.error = '';
-
-		try {
-			// Importar la función de envío de mensajes
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
-
-			// Enviar el mensaje
-			await sendDirectMessage(messageForm.text.trim(), selectedBidderId);
-
-			messageForm.success = true;
-			messageForm.text = '';
-			closeMessageModal();
-		} catch (error) {
-			console.error('Error sending message:', error);
-			messageForm.error = $t('common.profile.message_send_error');
-		} finally {
-			messageForm.isSubmitting = false;
-		}
 	}
 </script>
 
@@ -667,34 +621,87 @@
 						</div>
 
 						<!-- Action buttons - always visible -->
+						{#snippet expandedDetails()}
+							<!-- Description -->
+							{#if bidContent.description}
+								<div>
+									<p class="text-base-content/60 wrap-break-words mb-2 text-xs font-medium">
+										{$t('bids.your_description')}
+									</p>
+									<div class="bg-base-200 rounded-lg p-3">
+										<p class="text-base-content/80 text-sm leading-relaxed">
+											{getTranslatedBidContent(bidContent, 'description')}
+										</p>
+									</div>
+								</div>
+							{/if}
+							<!-- Approach -->
+							{#if bidContent.proposedApproach && bidContent.proposedApproach.trim() !== ''}
+								<div>
+									<p class="text-base-content/60 wrap-break-words mb-2 text-xs font-medium">
+										{$t('bids.your_approach')}
+									</p>
+									<div class="bg-base-200 rounded-lg p-3">
+										<p class="text-base-content/80 text-sm leading-relaxed">
+											{getTranslatedBidContent(bidContent, 'proposedApproach')}
+										</p>
+									</div>
+								</div>
+							{/if}
+							<!-- Cover Letter -->
+							{#if bidContent.coverLetter}
+								<div>
+									<p class="text-base-content/60 wrap-break-words mb-2 text-xs font-medium">
+										{$t('bids.your_cover_letter')}
+									</p>
+									<div class="bg-base-200 rounded-lg p-3">
+										<p class="text-base-content/80 text-sm leading-relaxed">
+											{getTranslatedBidContent(bidContent, 'coverLetter')}
+										</p>
+									</div>
+								</div>
+							{/if}
+						{/snippet}
+
 						<div
 							class="border-base-200 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"
 						>
-							<button
-								class="btn btn-ghost btn-sm w-full sm:w-auto"
-								onclick={() => toggleBidDetails(bidContent.bidId)}
-							>
-								{expandedBidId === bidContent.bidId
-									? $t('dashboard.bids.bid_acceptance.hide_details')
-									: $t('dashboard.bids.bid_acceptance.show_details')}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="ml-1 h-4 w-4 transition-transform duration-200 {expandedBidId ===
-									bidContent.bidId
-										? 'rotate-180'
-										: ''}"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
+							<!-- Left: Show Details + mobile-only expanded (drops down directly below, pushes buttons) -->
+							<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+								<button
+									class="btn btn-ghost btn-sm w-full sm:w-auto"
+									onclick={() => toggleBidDetails(bidContent.bidId)}
 								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 9l-7 7-7-7"
-									/>
-								</svg>
-							</button>
+									{expandedBidId === bidContent.bidId
+										? $t('dashboard.bids.bid_acceptance.hide_details')
+										: $t('dashboard.bids.bid_acceptance.show_details')}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="ml-1 h-4 w-4 transition-transform duration-200 {expandedBidId ===
+										bidContent.bidId
+											? 'rotate-180'
+											: ''}"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M19 9l-7 7-7-7"
+										/>
+									</svg>
+								</button>
+								{#if expandedBidId === bidContent.bidId}
+									<div
+										class="border-base-200 space-y-4 border-t pt-4 sm:hidden"
+										aria-label={$t('dashboard.bids.bid_acceptance.show_details')}
+									>
+										{@render expandedDetails()}
+									</div>
+								{/if}
+							</div>
 
 							<div class="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
 								<!-- Reject Button -->
@@ -827,109 +834,13 @@
 							</div>
 						</div>
 
-						<!-- Expanded details -->
+						<!-- Expanded details: tablet/desktop only (below action row); mobile uses inline block above -->
 						{#if expandedBidId === bidContent.bidId}
 							<div
-								class="border-base-200 mt-4 space-y-4 border-t pt-4 sm:mt-6 sm:space-y-6 sm:pt-6"
+								class="border-base-200 mt-4 hidden space-y-4 border-t pt-4 sm:mt-6 sm:block sm:space-y-6 sm:pt-6"
+								aria-label={$t('dashboard.bids.bid_acceptance.show_details')}
 							>
-								<!-- Description -->
-								{#if bidContent.description}
-									<div>
-										<p class="text-base-content/60 wrap-break-words mb-2 text-xs font-medium">
-											{$t('bids.your_description')}
-										</p>
-										<div class="bg-base-200 rounded-lg p-3">
-											<p class="text-base-content/80 text-sm leading-relaxed">
-												{getTranslatedBidContent(bidContent, 'description')}
-											</p>
-										</div>
-									</div>
-								{/if}
-
-								<!-- Approach -->
-								{#if bidContent.proposedApproach && bidContent.proposedApproach.trim() !== ''}
-									<div>
-										<p class="text-base-content/60 wrap-break-words mb-2 text-xs font-medium">
-											{$t('bids.your_approach')}
-										</p>
-										<div class="bg-base-200 rounded-lg p-3">
-											<p class="text-base-content/80 text-sm leading-relaxed">
-												{getTranslatedBidContent(bidContent, 'proposedApproach')}
-											</p>
-										</div>
-									</div>
-								{/if}
-
-								<!-- Cover Letter -->
-								{#if bidContent.coverLetter}
-									<div>
-										<p class="text-base-content/60 wrap-break-words mb-2 text-xs font-medium">
-											{$t('bids.your_cover_letter')}
-										</p>
-										<div class="bg-base-200 rounded-lg p-3">
-											<p class="text-base-content/80 text-sm leading-relaxed">
-												{getTranslatedBidContent(bidContent, 'coverLetter')}
-											</p>
-										</div>
-									</div>
-								{/if}
-
-								<!-- TODO: Milestones -->
-								<!-- {#if bid.milestones && bid.milestones.length > 0}
-									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium">
-											{$t('dashboard.bids.bid_acceptance.milestones')}
-										</p>
-										<div class="bg-base-200 rounded-lg p-3">
-											<ul class="space-y-2">
-												{#each bidContent.milestones as milestone}
-													<li class="flex items-start gap-2 text-sm">
-														<div class="bg-primary mt-2 h-2 w-2 flex-shrink-0 rounded-full"></div>
-														<span class="text-base-content/80 leading-relaxed"
-															>{milestone?.description}</span
-														>
-													</li>
-												{/each}
-											</ul>
-										</div>
-									</div>
-								{/if} -->
-
-								<!-- TODO: Location -->
-								<!-- {#if bidContent.pickupLocation?.displayName || bidContent.dropOffLocation?.displayName}
-									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium">
-											{$t('dashboard.bids.bid_acceptance.location')}
-										</p>
-										<div class="bg-base-200 rounded-lg p-3">
-											<div class="flex items-start gap-2 text-sm">
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="text-base-content/60 mt-0.5 h-4 w-4 flex-shrink-0"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-													/>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-													/>
-												</svg>
-												<span class="text-base-content/80 leading-relaxed">
-													{bidContent.pickupLocation?.displayName || bidContent.dropOffLocation?.displayName}
-												</span>
-											</div>
-										</div>
-									</div>
-								{/if} -->
+								{@render expandedDetails()}
 							</div>
 						{/if}
 					</div>
@@ -978,122 +889,12 @@
 	{/snippet}
 </Drawer>
 
-<!-- Message modal -->
-{#if messageForm.isModalOpen}
-	<div class="modal modal-open">
-		<div class="modal-box max-w-md">
-			<!-- Header del modal -->
-			<div class="mb-6">
-				<div class="mb-2 flex items-center gap-3">
-					<div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
-						<svg class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-							/>
-						</svg>
-					</div>
-					<div>
-						<h4 class="text-sm font-semibold">{$t('common.profile.send_message')}</h4>
-						<p class="text-base-content/60 text-xs">
-							To: {selectedBidderName || $t('task.drawer.anonymous')}
-						</p>
-					</div>
-				</div>
-			</div>
-
-			<!-- Formulario de mensaje -->
-			<form
-				onsubmit={(e) => {
-					e.preventDefault();
-					sendMessage();
-				}}
-				class="space-y-4"
-			>
-				<div>
-					<label for="message-text" class="text-base-content mb-2 block text-sm font-medium">
-						{$t('common.profile.send_message')}
-					</label>
-					<textarea
-						id="message-text"
-						class="textarea textarea-bordered w-full"
-						placeholder={$t('common.profile.message_placeholder') || 'Type your message here...'}
-						bind:value={messageForm.text}
-						rows="4"
-						disabled={messageForm.isSubmitting}
-					></textarea>
-				</div>
-
-				<!-- Mensaje de éxito -->
-				{#if messageForm.success}
-					<div class="alert alert-success alert-outline py-2">
-						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
-						<span class="text-sm">{$t('common.profile.message_sent_successfully')}</span>
-					</div>
-				{/if}
-
-				<!-- Mensaje de error -->
-				{#if messageForm.error}
-					<div class="alert alert-error alert-outline py-2">
-						<svg class="h-4 w-4 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
-						<span class="text-sm">{messageForm.error}</span>
-					</div>
-				{/if}
-
-				<!-- Botones de acción -->
-				<div class="flex gap-2">
-					<button type="button" class="btn btn-ghost flex-1" onclick={closeMessageModal}>
-						{$t('common.cancel')}
-					</button>
-					<button
-						type="submit"
-						class="btn btn-primary"
-						disabled={!messageForm.text.trim() || messageForm.isSubmitting || messageForm.success}
-					>
-						{#if messageForm.isSubmitting}
-							<span class="loading loading-spinner loading-sm mr-2"></span>
-							{$t('common.processing')}
-						{:else if messageForm.success}
-							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M5 13l4 4L19 7"
-								/>
-							</svg>
-							{$t('common.profile.message_sent_successfully')}
-						{:else}
-							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-								/>
-							</svg>
-							{$t('common.profile.send_message')}
-						{/if}
-					</button>
-				</div>
-			</form>
-		</div>
-		<button class="modal-backdrop" onclick={closeMessageModal}>X</button>
-	</div>
+<!-- Message Modal -->
+{#if selectedBidderId}
+	<MessageModal
+		isOpen={showMessageModal}
+		recipientName={selectedBidderName}
+		recipientPubkey={selectedBidderId}
+		onClose={closeMessageModal}
+	/>
 {/if}
