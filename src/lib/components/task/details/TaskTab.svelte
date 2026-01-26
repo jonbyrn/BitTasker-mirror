@@ -163,6 +163,12 @@
 			return;
 		}
 
+		// Only check if task is open and user is owner
+		if (task.status !== TaskStatusEnum.OPEN || !isOwner) {
+			canEdit = false;
+			return;
+		}
+
 		try {
 			isCheckingEdit = true;
 			
@@ -248,6 +254,13 @@
 		}
 	}
 
+
+	// Re-check edit permission when task or isOwner changes
+	$effect(() => {
+		if (task && isOwner !== undefined) {
+			checkCanEditTask();
+		}
+	});
 
 	onMount(() => {
 		fetchBtcPrice();

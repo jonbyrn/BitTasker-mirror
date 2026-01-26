@@ -8,6 +8,8 @@
 	import { taskStore } from '$lib/stores/task.store';
 	import { deleteTask } from '$lib/nostr/task';
 	import { myTasksStore } from '$lib/stores/task.store';
+	import { getContracts } from '$lib/utils/escrow/v1/nostrContract';
+	import { appStore } from '$lib/stores/app.store';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
@@ -81,9 +83,32 @@
 		activeTaskModal = type;
 	};
 
-	const confirmEditTask = () => {
+	const confirmEditTask = async () => {
 		const taskToEdit = selectedTask;
 		if (!taskToEdit) return;
+
+		// Check if task has contracts - prevent editing if contracts exist
+		try {
+			const contracts = await getContracts({ taskIds: [taskToEdit.id] });
+			if (contracts.length > 0) {
+				appStore.showErrorToast(
+					$t('dashboard.task_details_by_task.cannot_edit_with_contract') ||
+						'Cannot edit task: A contract has been created for this task.'
+				);
+				activeTaskModal = null;
+				return;
+			}
+		} catch (error) {
+			console.error('Error checking contracts before edit:', error);
+			// On error, be conservative and prevent editing
+			appStore.showErrorToast(
+				$t('dashboard.task_details_by_task.cannot_edit_error') ||
+					'Unable to verify if task can be edited. Please try again.'
+			);
+			activeTaskModal = null;
+			return;
+		}
+
 		const uniqueId = (taskToEdit as Task & { uniqueId?: string }).uniqueId ?? taskToEdit.id;
 		const editTask: TaskBody = {
 			title: taskToEdit.title,
