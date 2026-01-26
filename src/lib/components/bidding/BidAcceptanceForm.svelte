@@ -59,7 +59,7 @@
 	
 	// Bitcoin accordion state
 	let bitcoinExpanded = $state(false);
-	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
+	let balancesHidden = $state(false); // Always show actual balances
 	
 	// Get Bitcoin asset (RBTC)
 	let bitcoinAsset = $derived($allAssets.find((a) => a.assetId === 'rbtc'));
