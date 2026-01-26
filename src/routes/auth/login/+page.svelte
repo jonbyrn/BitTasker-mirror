@@ -516,11 +516,6 @@
 								</svg>
 								{isLoading ? $t('common.processing') + '...' : $t('login.continue_passkey')}
 							</button>
-							{#if authMethods.biometric}
-								<p class="text-base-content/60 text-start text-xs">
-									{$t('login.passkey_description')}: {webAuthnProvider}
-								</p>
-							{/if}
 						</div>
 
 						<button
