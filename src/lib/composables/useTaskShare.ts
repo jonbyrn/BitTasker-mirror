@@ -1,4 +1,4 @@
-import type { Task, Attachment } from '$lib/types/task';
+import type { Task } from '$lib/types/task';
 import { locale } from 'svelte-i18n';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -10,15 +10,6 @@ import { currentUserLanguage } from '$lib/stores/translation.store';
 import { taskTranslationService } from '$lib/services/task-translation.service';
 import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import { Capacitor } from '@capacitor/core';
-
-/**
- * Helper function to detect video files
- */
-function isVideoFile(url: string): boolean {
-	const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
-	const urlLower = url.toLowerCase();
-	return videoExtensions.some((ext) => urlLower.endsWith(ext));
-}
 
 /**
  * Helper function to truncate text to specified length at last complete word
@@ -144,7 +135,7 @@ export function getTaskShareLink(task: Task | null, taskId?: string): string {
 		if (task) {
 			// Always use the uniqueId from the task object for stable URLs
 			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			const taskIdentifier = (task as any).uniqueId || task.id;
+			const taskIdentifier = (task as { uniqueId?: string }).uniqueId || task.id;
 			return `${window.location.origin}/tasks/${taskIdentifier}`;
 		} else if (taskId) {
 			return `${window.location.origin}/tasks/${taskId}`;
@@ -198,7 +189,7 @@ export async function handleTaskShare(
 			return; // Exit early if share was successful
 		} catch (error) {
 			// User cancelled sharing - don't do anything, just return
-			if ((error as Error).name === 'AbortError' || (error as any).message?.includes('cancel')) {
+			if ((error as Error).name === 'AbortError' || (error as Error).message?.includes('cancel')) {
 				return;
 			}
 			// For other errors, fall through to Web Share API
