@@ -12,3 +12,6 @@ android/*
 storybook-static/*
 .storybook/*
 build/*
+
+# Config files
+nginx.config.yaml
