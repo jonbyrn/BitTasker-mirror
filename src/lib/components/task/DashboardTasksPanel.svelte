@@ -328,7 +328,7 @@
 				return [
 					{
 						label: $t('task.actions.view_details'),
-						class: 'btn-primary btn-sm',
+						class: 'btn-outline btn-sm',
 						onclick: (e: any) => {
 							e.stopPropagation();
 							openTaskDrawer(task, 'details');
@@ -337,7 +337,7 @@
 					},
 					{
 						label: $t('task.actions.view_bids'),
-						class: 'btn-outline btn-sm',
+						class: 'btn-primary btn-sm',
 						onclick: (e: any) => {
 							e.stopPropagation();
 							goto(`/dashboard/task/${task.id}/bids`);

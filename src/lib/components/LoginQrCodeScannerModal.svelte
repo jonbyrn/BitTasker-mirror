@@ -423,14 +423,6 @@
 		display: none !important;
 	}
 
-	/* Ensure video display - hide native controls from html5-qrcode */
-	video {
-		object-fit: cover !important;
-		width: 100% !important;
-		height: 100% !important;
-		background: transparent !important;
-	}
-
 	/* Hide video controls created by html5-qrcode */
 	:global(#qr-reader video) {
 		pointer-events: none !important;

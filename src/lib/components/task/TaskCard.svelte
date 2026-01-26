@@ -29,7 +29,9 @@
 		onSelectTask,
 		onViewTask,
 		drawersLoaded,
-		loadDrawerComponents
+		loadDrawerComponents,
+		onSelectTaskForMap,
+		isMapVisible
 	} = $props<{
 		task: Task;
 		selectedTask: Task | null;
@@ -40,6 +42,8 @@
 		onViewTask: (task: Task) => Promise<void>;
 		drawersLoaded: boolean;
 		loadDrawerComponents: () => Promise<void>;
+		onSelectTaskForMap?: (task: Task) => void;
+		isMapVisible?: boolean;
 	}>();
 
 	const statusBadge = $derived(getStatusBadge(task.status));
@@ -48,34 +52,31 @@
 	const taskId = $derived(getTaskId(task));
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
+	class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg"
 	class:bg-base-300={isSelected}
 	class:border-primary={isSelected}
 	class:border-2={isSelected}
 	class:opacity-60={!isOpen}
-	role="button"
-	tabindex={isOpen ? 0 : -1}
-	aria-label={$t('find_tasks.view_task')}
-	aria-pressed={isSelected}
-	aria-current={isSelected}
-	aria-disabled={!isOpen}
+	class:cursor-pointer={isMapVisible}
 	data-task-id={taskId}
-	onclick={async () => {
-		if (isOpen) {
-			if (!drawersLoaded) {
-				await loadDrawerComponents();
-			}
-			await onViewTask(task);
+	{...(isMapVisible ? { role: 'button', tabindex: 0 } : {})}
+	onclick={(e) => {
+		// Only handle card click if map is visible and click didn't come from a button
+		if (isMapVisible && onSelectTaskForMap && !(e.target as HTMLElement).closest('button')) {
+			onSelectTaskForMap(task);
 		}
 	}}
-	onkeydown={async (e) => {
-		if ((e.key === 'Enter' || e.key === ' ') && isOpen) {
+	onkeydown={(e) => {
+		// Handle keyboard interaction when map is visible
+		if (isMapVisible && onSelectTaskForMap && (e.key === 'Enter' || e.key === ' ')) {
 			e.preventDefault();
-			if (!drawersLoaded) {
-				await loadDrawerComponents();
+			if (!(e.target as HTMLElement).closest('button')) {
+				onSelectTaskForMap(task);
 			}
-			await onViewTask(task);
 		}
 	}}
 >
