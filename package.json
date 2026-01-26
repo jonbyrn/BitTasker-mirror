@@ -105,6 +105,7 @@
 		"@capacitor/push-notifications": "^8.0.0",
 		"@capacitor/screen-orientation": "^8.0.0",
 		"@capacitor/splash-screen": "^8.0.0",
+		"@capacitor/share": "^8.0.0",
 		"@capacitor/status-bar": "^8.0.0",
 		"@capawesome/capacitor-screen-orientation": "^7.0.1",
 		"@capgo/capacitor-social-login": "^7.4.5",

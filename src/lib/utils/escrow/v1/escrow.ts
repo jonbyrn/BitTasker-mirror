@@ -100,7 +100,8 @@ export async function ensureEscrowReady(
             } else {
                 // Create new legacy contract instance
                 try {
-                    const checksummedAddress = ethers.getAddress(contractAddress);
+                    // Convert to lowercase first to handle addresses with invalid checksums
+                    const checksummedAddress = ethers.getAddress(contractAddress.toLowerCase());
                     targetContract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
 
                     // Cache it for future use
@@ -334,7 +335,9 @@ async function createEscrow(
 
         // Convert RSK address (EIP-1191) to Ethereum format (EIP-55) for ethers.js
         // This is necessary because RSK uses EIP-1191 checksums while ethers.js expects EIP-55
-        const freelancerAddressEip55 = ethers.getAddress(freelancerAddress);
+        // Convert to lowercase first to handle addresses with invalid checksums
+        // getAddress() requires addresses to be lowercase OR correctly checksummed
+        const freelancerAddressEip55 = ethers.getAddress(freelancerAddress.toLowerCase());
 
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
