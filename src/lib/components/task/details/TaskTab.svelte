@@ -33,6 +33,8 @@
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let canDelete = $state(true); // Default to true, will be checked
 	let isCheckingDelete = $state(false);
+	let canEdit = $state(true); // Default to true, will be checked
+	let isCheckingEdit = $state(false);
 	
 	// Video lightbox state
 	let selectedVideo = $state<Attachment | null>(null);
@@ -154,6 +156,36 @@
 		}
 	}
 
+	// Check if task can be edited (cannot edit if contract exists)
+	async function checkCanEditTask(): Promise<void> {
+		if (!task?.id) {
+			canEdit = false;
+			return;
+		}
+
+		try {
+			isCheckingEdit = true;
+			
+			// Check if task has any contracts
+			const contracts = await getContracts({ taskIds: [task.id] });
+			
+			if (contracts.length === 0) {
+				// No contracts found - can edit
+				canEdit = true;
+				return;
+			}
+
+			// Task has contracts - cannot edit
+			canEdit = false;
+		} catch (error) {
+			console.error('Error checking if task can be edited:', error);
+			// On error, be conservative and disallow editing
+			canEdit = false;
+		} finally {
+			isCheckingEdit = false;
+		}
+	}
+
 	// Check if task can be deleted (similar to contract deletion logic)
 	async function checkCanDeleteTask(): Promise<void> {
 		if (!task?.id) {
@@ -219,6 +251,7 @@
 
 	onMount(() => {
 		fetchBtcPrice();
+		checkCanEditTask();
 		checkCanDeleteTask();
 	});
 </script>
@@ -470,22 +503,30 @@
 				</button>
 			{/if}
 
-			{#if isOwner && task.status === TaskStatusEnum.OPEN && onRequestEditConfirm}
-				<button class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none" onclick={handleEditTask}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-1 h-4 w-4 shrink-0"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-						/>
-					</svg>
+			{#if isOwner && task.status === TaskStatusEnum.OPEN && onRequestEditConfirm && canEdit}
+				<button 
+					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none" 
+					onclick={handleEditTask}
+					disabled={isCheckingEdit}
+				>
+					{#if isCheckingEdit}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-1 h-4 w-4 shrink-0"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+							/>
+						</svg>
+					{/if}
 					{$t('dashboard.task_details_by_task.edit_task')}
 				</button>
 			{/if}
