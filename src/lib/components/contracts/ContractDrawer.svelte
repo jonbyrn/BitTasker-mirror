@@ -140,16 +140,16 @@
 
 						<div class="space-y-3">
 							<!-- Taskee Info + Status Badge -->
-							<div class="flex items-center justify-between gap-2">
+							<div class="flex flex-col items-center gap-2 md:flex-row md:items-center md:justify-between">
 								<UserNostrBadge
 									npub={contractStore.getContractKey($contractStore.contract, 'otherPartyNpub') as string}
 								/>
-								<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0">
+								<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0 md:self-auto">
 									{$t(getStatusTranslationKey($contractStore.contract.status))}
 								</div>
 							</div>
 
-							<div class="flex justify-between gap-2">
+							<div class="flex flex-col gap-1 md:flex-row md:justify-between md:gap-2">
 								<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
 								<span class="font-semibold"
 									>{btcPrice > 0
@@ -161,7 +161,7 @@
 								>
 							</div>
 
-							<div class="flex justify-between gap-2">
+							<div class="flex flex-col gap-1 md:flex-row md:justify-between md:gap-2">
 								<span class="text-base-content/70 whitespace-nowrap"
 									>{$t('dashboard.contracts.estimated_start')}:</span
 								>
@@ -172,7 +172,7 @@
 								>
 							</div>
 
-							<div class="flex justify-between gap-2">
+							<div class="flex flex-col gap-1 md:flex-row md:justify-between md:gap-2">
 								<span class="text-base-content/70 whitespace-nowrap"
 									>{$t('dashboard.contracts.estimated_completion')}:</span
 								>
@@ -183,7 +183,7 @@
 								>
 							</div>
 
-							<div class="flex justify-between gap-2">
+							<div class="flex flex-col gap-1 md:flex-row md:justify-between md:gap-2">
 								<span class="text-base-content/70">{$t('dashboard.contracts.created')}:</span>
 								<span class="text-sm">
 									{formatDate($contractStore.contract.contractEvent.created_at)}
