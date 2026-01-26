@@ -1,7 +1,8 @@
 import { Capacitor } from '@capacitor/core';
+import type { ImpactStyle as CapacitorImpactStyle } from '@capacitor/haptics';
 
 /**
- * Impact styles for haptic feedback
+ * Impact styles for haptic feedback (re-exported for convenience)
  */
 export enum ImpactStyle {
 	Light = 'Light',
@@ -24,15 +25,16 @@ export async function triggerHaptic(style: ImpactStyle = ImpactStyle.Light): Pro
 		// Dynamic import to avoid bundling issues
 		const hapticsModule = await import('@capacitor/haptics').catch(() => null);
 
-		if (hapticsModule?.Haptics) {
-			const impactStyleMap: Record<ImpactStyle, string> = {
-				[ImpactStyle.Light]: 'LIGHT',
-				[ImpactStyle.Medium]: 'MEDIUM',
-				[ImpactStyle.Heavy]: 'HEAVY'
+		if (hapticsModule?.Haptics && hapticsModule?.ImpactStyle) {
+			// Map our ImpactStyle to Capacitor's ImpactStyle
+			const styleMap: Record<ImpactStyle, CapacitorImpactStyle> = {
+				[ImpactStyle.Light]: hapticsModule.ImpactStyle.Light,
+				[ImpactStyle.Medium]: hapticsModule.ImpactStyle.Medium,
+				[ImpactStyle.Heavy]: hapticsModule.ImpactStyle.Heavy
 			};
 
 			await hapticsModule.Haptics.impact({
-				style: impactStyleMap[style] 
+				style: styleMap[style]
 			});
 		}
 	} catch (error) {

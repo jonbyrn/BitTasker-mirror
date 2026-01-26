@@ -16,7 +16,7 @@
 	
 	const totalSteps = 6;
 
-	let currentStep = $state(data.currentStep ?? 0);
+	let currentStep = $derived(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
 
 	// Onboarding state management
