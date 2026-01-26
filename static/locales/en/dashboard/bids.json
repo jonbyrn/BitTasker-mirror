@@ -226,7 +226,10 @@
         "estimated_start": "Estimated Start",
         "estimated_completion": "Estimated Completion",
         "estimated_duration": "Estimated Duration",
-        "time_adjusted_note": "Start time adjusted to current time to ensure contract validity",
+        "time_adjusted_note": "Start time adjusted to 1 hour from now. Completion time shifted accordingly.",
+        "warning": {
+            "past_start_time": "The estimated start time was {timeText}. The Taskee may no longer have this time slot available. You may need to contact the Taskee to arrange a new start time."
+        },
         "wallet_not_connected": "Wallet Not Connected",
         "connecting": "Connecting...",
         "connect_wallet": "Connect Wallet",

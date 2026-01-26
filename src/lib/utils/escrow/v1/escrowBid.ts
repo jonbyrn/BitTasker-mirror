@@ -142,14 +142,19 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 /**
  * Validate escrow details before creation
  */
+export interface ValidationWarning {
+	key: string;
+	params?: Record<string, string | number>;
+}
+
 export interface ValidationResult {
 	errors: string[];
-	warnings: string[];
+	warnings: (string | ValidationWarning)[];
 }
 
 export function validateEscrowDetails(details: BidEscrowDetails): ValidationResult {
 	const errors: string[] = [];
-	const warnings: string[] = [];
+	const warnings: (string | ValidationWarning)[] = [];
 
 	// Validate freelancer address
 	if (!details.freelancerAddress) {
@@ -173,18 +178,26 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
 	const now = Math.floor(Date.now() / 1000);
 	const timeDifferenceSeconds = now - details.estimatedStartTime;
 	const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
+	const timeDifferenceHours = Math.floor(timeDifferenceMinutes / 60);
+	const timeDifferenceDays = Math.floor(timeDifferenceHours / 24);
 
 	if (details.estimatedStartTime <= now) {
-		// Check if it's more than 15 minutes past the estimated start time
-		if (timeDifferenceMinutes > 15) {
-			errors.push(`The estimated start time was ${timeDifferenceMinutes} minutes ago. The bid is no longer valid as the Taskee may no longer have this time slot available.`);
-		} else if (timeDifferenceMinutes >= 0) {
-			// Between 0 and 15 minutes past - show warning but allow funding
-			const timeText = timeDifferenceMinutes === 0 
-				? 'just now' 
-				: `${timeDifferenceMinutes} minute${timeDifferenceMinutes !== 1 ? 's' : ''} ago`;
-			warnings.push(`Warning: The estimated start time was ${timeText}. The Taskee may no longer have this time slot available.`);
+		// Show warning for any past start time - tasker should contact taskee to arrange new time
+		let timeText: string;
+		if (timeDifferenceDays > 0) {
+			timeText = `${timeDifferenceDays} day${timeDifferenceDays !== 1 ? 's' : ''} ago`;
+		} else if (timeDifferenceHours > 0) {
+			timeText = `${timeDifferenceHours} hour${timeDifferenceHours !== 1 ? 's' : ''} ago`;
+		} else if (timeDifferenceMinutes > 0) {
+			timeText = `${timeDifferenceMinutes} minute${timeDifferenceMinutes !== 1 ? 's' : ''} ago`;
+		} else {
+			timeText = 'just now';
 		}
+		
+		warnings.push({
+			key: 'dashboard.bids.bid_acceptance.warning.past_start_time',
+			params: { timeText }
+		});
 	}
 
 	if (details.estimatedCompletionTime <= details.estimatedStartTime) {
@@ -248,21 +261,22 @@ export async function acceptBidAndCreateEscrow(
 			}
 		}
 
-		// Adjust estimated start time if it's in the past but within 15 minutes
+		// Adjust estimated start time if it's in the past
 		let adjustedStartTime = escrowDetails.estimatedStartTime;
 		let adjustedCompletionTime = escrowDetails.estimatedCompletionTime;
 
 		const now = Math.floor(Date.now() / 1000);
-		const timeDifferenceSeconds = now - escrowDetails.estimatedStartTime;
-		const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
 
-		if (escrowDetails.estimatedStartTime <= now && timeDifferenceMinutes <= 15) {
-			// Start time is in the past but within 15 minutes - adjust to 1 minute after current time
-			adjustedStartTime = now + 60; // 1 minute buffer
+		if (escrowDetails.estimatedStartTime <= now) {
+			// Start time is in the past - adjust to current time + 1 hour
+			const newStartTime = now + 3600; // 1 hour buffer
 			
-			// Maintain the same duration by adjusting completion time
-			const originalDuration = escrowDetails.estimatedCompletionTime - escrowDetails.estimatedStartTime;
-			adjustedCompletionTime = now + 60 + originalDuration;
+			// Calculate the time shift (how much later the new start time is compared to original)
+			const timeShift = newStartTime - escrowDetails.estimatedStartTime;
+			
+			// Shift the completion time by the same amount
+			adjustedStartTime = newStartTime;
+			adjustedCompletionTime = escrowDetails.estimatedCompletionTime + timeShift;
 		}
 
 		// Create the escrow using multi-network manager
