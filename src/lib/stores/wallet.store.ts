@@ -534,10 +534,12 @@ export function updateSwapTransaction(
 	// Check if swap is completed - remove from pending list
 	// (it will appear from blockchain transactions shortly)
 	if (isSwapCompleted(updatedSwap.status)) {
-		walletStore.update((state) => ({
-			...state,
-			transactions: state.transactions.filter((tx) => tx.swap?.id !== swapId)
-		}));
+		loadTransactions().then(() => {
+			walletStore.update((state) => ({
+				...state,
+				transactions: state.transactions.filter((tx) => tx.swap?.id !== swapId)
+			}));
+		});
 		return;
 	}
 
