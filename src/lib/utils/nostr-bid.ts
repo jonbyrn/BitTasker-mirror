@@ -294,6 +294,9 @@ export async function sendBidStatusUpdate(
 	} catch (error) {
 		// Log error but don't throw - allow UI to continue
 		console.warn('Error sending bid status update:', error);
+		// Ensure cleanup happens even if sending status update fails
+		// This prevents bid from being stuck in processing state
+		bidStore.removeProcessingBid(bidEventId);
 		// Don't throw - let the caller handle the error if needed
 		// The UI should show a warning but not break
 	}

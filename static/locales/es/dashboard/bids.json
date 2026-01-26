@@ -237,7 +237,7 @@
         "wallet_error_prefix": "Error de Cartera:",
         "retrying": "Reintentando...",
         "retry": "Reintentar",
-        "insufficient_balance": "Saldo Insuficiente",
+        "insufficient_balance": "Fondos insuficientes - Agregar más a tu cartera",
         "current_balance": "Saldo Actual:",
         "insufficient_balance_help": "Necesitas más fondos para completar esta transacción. Por favor agrega fondos a tu cartera.",
         "creating_escrow": "Creando Contrato de Pago Seguro...",

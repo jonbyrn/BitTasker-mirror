@@ -51,6 +51,8 @@ interface PendingContractCreation {
 
 const pendingContracts = new Map<string, PendingContractCreation>();
 const pendingContractsByTxHash = new Map<string, PendingContractCreation>();
+// Track contracts currently being processed to prevent race conditions
+const processingContracts = new Set<string>();
 
 /**
  * Register a pending contract creation by transaction hash (before we have escrow ID)
@@ -58,6 +60,24 @@ const pendingContractsByTxHash = new Map<string, PendingContractCreation>();
 export function registerPendingContractByTxHash(params: Omit<PendingContractCreation, 'escrowId'>): void {
 	pendingContractsByTxHash.set(params.transactionHash, params as PendingContractCreation);
 	console.log('✅ Registered pending contract for transaction:', params.transactionHash);
+}
+
+/**
+ * Clean up pending contract by transaction hash (called when transaction fails)
+ * Uses atomic operations to prevent race conditions with handleEscrowCreated
+ */
+export function cleanupPendingContractByTxHash(transactionHash: string): void {
+	// Check if contract is currently being processed
+	if (processingContracts.has(transactionHash)) {
+		console.log('⚠️ Skipping cleanup - contract is currently being processed:', transactionHash);
+		return;
+	}
+	
+	// Atomic check-and-delete to prevent race conditions
+	const removed = pendingContractsByTxHash.delete(transactionHash);
+	if (removed) {
+		console.log('🧹 Cleaned up pending contract for failed transaction:', transactionHash);
+	}
 }
 
 /**
@@ -128,14 +148,26 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 	let pendingContract = pendingContracts.get(event.escrowId);
 
 	// If not found by escrow ID, try to find by transaction hash
+	// Use atomic operations to prevent race conditions with cleanupPendingContractByTxHash
 	if (!pendingContract) {
-		for (const [txHash, contract] of pendingContractsByTxHash.entries()) {
-			if (txHash === event.transactionHash) {
-				pendingContract = contract;
-				// Move from txHash map to escrow ID map
+		const txHash = event.transactionHash;
+		
+		// Atomic check-and-get to prevent race conditions
+		// Mark as processing BEFORE getting to prevent cleanup during processing
+		if (pendingContractsByTxHash.has(txHash)) {
+			processingContracts.add(txHash);
+			
+			// Get the contract (it may have been deleted by cleanup, but we're protected by processingContracts)
+			const contract = pendingContractsByTxHash.get(txHash);
+			if (contract) {
+				// Remove from txHash map and add to escrow ID map
 				pendingContractsByTxHash.delete(txHash);
+				pendingContract = contract;
 				pendingContracts.set(event.escrowId, { ...contract, escrowId: event.escrowId });
-				break;
+				// Keep in processingContracts until we finish processing
+			} else {
+				// Contract was deleted between has() and get() - remove from processing set
+				processingContracts.delete(txHash);
 			}
 		}
 	}
@@ -173,18 +205,27 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			});
 
 			// Publish bid acceptance status via encrypted DM nostr event
-			await sendBidStatusUpdate(
-				pendingContract.bidEventId,
-				pendingContract.taskId,
-				pendingContract.freelancerPubkey,
-				BidStatusEnum.ACCEPTED,
-				_('dashboard.bids.bid_acceptance.bid_accepted_message'),
-				event.escrowId,
-				event.transactionHash
-			);
+			// If this fails, log the error but don't fail the entire contract creation
+			// The escrow is already created, so we should continue even if status update fails
+			try {
+				await sendBidStatusUpdate(
+					pendingContract.bidEventId,
+					pendingContract.taskId,
+					pendingContract.freelancerPubkey,
+					BidStatusEnum.ACCEPTED,
+					_('dashboard.bids.bid_acceptance.bid_accepted_message'),
+					event.escrowId,
+					event.transactionHash
+				);
+			} catch (statusUpdateError) {
+				// Log error but don't throw - escrow is already created
+				console.error('Failed to send bid status update after escrow creation:', statusUpdateError);
+				// Show warning to user that bid status update failed
+				appStore.showErrorToast('Escrow created successfully, but failed to update bid status. The bid status may need to be updated manually.');
+			}
 
-			// Show success toast
-			appStore.showSuccessToast(`Contract created successfully! Escrow ID: ${event.escrowId.slice(0, 8)}...`);
+			// Note: Success toast is shown in BidAcceptanceForm.svelte success screen
+			// No need to show duplicate toast here to avoid double notifications
 
 			// Reload the newly created contract from Nostr to populate the store
 			await contractStore.loadContractByEscrowId(event.escrowId);
@@ -195,9 +236,14 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 
 			// Clean up pending contract
 			pendingContracts.delete(event.escrowId);
+			// Also remove from processing set if it was there
+			processingContracts.delete(event.transactionHash);
 
 		} catch (error) {
 			console.error('Failed to create Nostr contract:', error);
+			
+			// Remove from processing set on error
+			processingContracts.delete(event.transactionHash);
 
 			// Update contract creation store with error
 			contractCreationStore.set({
