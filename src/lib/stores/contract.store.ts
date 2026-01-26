@@ -248,6 +248,7 @@ function createContractStore() {
 			}
 
 			if (!state.oldestTimestamp) {
+				update((state) => ({ ...state, isLoadingMore: false, hasMore: false }));
 				return console.log('[ContractStore] No oldest timestamp to load more contracts');
 			}
 

@@ -1,5 +1,7 @@
 {
   "dashboard": {
+    "title": "My Dashboard",
+    "description": "Manage your tasks and bids.",
     "task": {
       "deadline": {
         "label": "Deadline"
@@ -14,13 +16,9 @@
         "remote": "Remote"
       }
     },
-    "title": "My Dashboard",
-    "description": "Manage your tasks and bids.",
-    "titl": "Dashboard",
     "create_task": "Create Task",
     "find_task": "Find Tasks",
     "manage_wallet": "Manage Wallet",
-    "wallet": "Wallet",
     "client": "Tasker",
     "freelancer": "Taskee",
     "member_since": "Member since",
