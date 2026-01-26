@@ -26,8 +26,8 @@
         "count": "{count} Bids"
       },
       "actions": {
-        "view_details": "View Details",
-        "view_bids": "View Bids",
+        "view_details": "Details",
+        "view_bids": "Bids",
         "mark_as_done": "Mark as Done",
         "rescope": "Rescope",
         "edit": "Edit",
