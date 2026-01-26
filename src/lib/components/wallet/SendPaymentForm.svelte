@@ -101,7 +101,7 @@
 
 	// Grouped State: UI State
 	let uiState = $state({
-		activeTab: 'enter' as 'scan' | 'enter',
+		activeTab: 'scan' as 'scan' | 'enter',
 		showConfirmation: false,
 		showSendConfirmation: false,
 		showSuccessScreen: false,
