@@ -32,6 +32,19 @@
 	// Derived state from bid store
 	let bids = $derived($bidStore.bids[page.params.taskId] || []);
 
+	// Check if any bid has been accepted - disable all accept/decline buttons if true
+	let hasAcceptedBid = $derived(
+		bids.some(
+			(bid) =>
+				bid?.latestStatus?.content?.status?.toLowerCase() === BidStatusEnum.ACCEPTED.toLowerCase()
+		)
+	);
+
+	// Check if any bid is currently being processed - prevents race condition during acceptance
+	let hasProcessingBid = $derived(
+		bids.some((bid) => $bidStore.processingBidIds.has(bid.id))
+	);
+
 	// Message modal state
 	let showMessageModal = $state(false);
 	let selectedBidderId = $state<string | null>(null);
@@ -142,7 +155,19 @@
 	}
 
 	function handleAcceptBid(bid: NostrEventWithFollowup) {
-		// Check if this latest followup bid status is already accepted or if another bid is already accepted
+		// Check if any bid has already been accepted
+		if (hasAcceptedBid) {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
+		// Check if any bid is currently being processed (prevents race condition)
+		if (hasProcessingBid) {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
+		// Check if this specific bid is already accepted
 		if (
 			bid?.latestStatus?.content?.status?.toLowerCase() === BidStatusEnum.ACCEPTED.toLowerCase()
 		) {
@@ -175,6 +200,18 @@
 	}
 
 	async function handleRejectBid(eventId: string, bidContent: NostrBidContent) {
+		// Prevent rejecting bids if any bid has been accepted
+		if (hasAcceptedBid) {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
+		// Prevent rejecting bids if any bid is currently being processed (prevents race condition)
+		if (hasProcessingBid) {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
 		// Prevent rejecting bids that are already accepted or rejected
 		if (bidContent.status === 'ACCEPTED' || bidContent.status === 'REJECTED') {
 			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_rejected'));
@@ -224,13 +261,14 @@
 		bidToAccept = null;
 	}
 
-	// Función para abrir el modal de mensaje
+	// Function to open the message modal
 	function openMessageModal(bidderId: string, bidderName: string) {
 		selectedBidderId = bidderId;
 		selectedBidderName = bidderName;
 		showMessageModal = true;
 	}
 
+	// Function to close the message modal
 	function closeMessageModal() {
 		showMessageModal = false;
 		selectedBidderId = null;
@@ -579,7 +617,7 @@
 							<div class="flex flex-row items-center justify-between gap-2">
 								<!-- Payment type info - left aligned with max-width -->
 								<!-- <div class="text-base-content/50 max-w-[50%] flex-1 text-xs wrap-break-word">
-									{bidContent.paymentType} • {bidContent.estimatedDuration}
+									{bidContent.paymentType} ? {bidContent.estimatedDuration}
 								</div> -->
 
 									<!-- Estimated date for FIXED bids -->
@@ -712,8 +750,10 @@
 								<button
 									class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
 									onclick={() => handleRejectBid(bid.id, bidContent)}
-									disabled={bid?.latestStatus?.content?.status?.toLowerCase() ===
-										BidStatusEnum.ACCEPTED.toLowerCase() ||
+									disabled={hasAcceptedBid ||
+										hasProcessingBid ||
+										bid?.latestStatus?.content?.status?.toLowerCase() ===
+											BidStatusEnum.ACCEPTED.toLowerCase() ||
 										bid?.latestStatus?.content?.status?.toLowerCase() ===
 											BidStatusEnum.REJECTED.toLowerCase() ||
 										$bidStore.processingBidIds.has(bid.id)}
@@ -810,8 +850,10 @@
 									<button
 										class="btn btn-success btn-sm flex-1 py-1 sm:flex-none"
 										onclick={() => handleAcceptBid(bid)}
-										disabled={bid?.latestStatus?.content?.status?.toLowerCase() ===
-											BidStatusEnum.REJECTED.toLowerCase() ||
+										disabled={hasAcceptedBid ||
+											hasProcessingBid ||
+											bid?.latestStatus?.content?.status?.toLowerCase() ===
+												BidStatusEnum.REJECTED.toLowerCase() ||
 											$bidStore.processingBidIds.has(bid.id)}
 									>
 										{#if $bidStore.processingBidIds.has(bid.id)}
