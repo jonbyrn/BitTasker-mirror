@@ -342,19 +342,25 @@ async function createEscrow(
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
 
-        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
-        const feeData = await provider.getFeeData();
-        const gasPrice = feeData.gasPrice || BigInt(0);
+        // Fetch current gas price for gas estimation (RSK uses legacy gasPrice)
+        // Note: We'll fetch it again right before submission to handle price changes
+        const feeDataForEstimate = await provider.getFeeData();
+        const gasPriceForEstimate = feeDataForEstimate.gasPrice || BigInt(0);
 
-        // Estimate gas with the same gas price that will be used in the transaction
+        // Estimate gas with the gas price at estimation time
         const gasEstimate = await contract.createEscrow.estimateGas(
             freelancerAddressEip55,
             estimatedStartTime,
             estimatedCompletionTime,
             clientFeeTier,
             freelancerFeeTier,
-            { value: totalPayment, gasPrice: gasPrice }
+            { value: totalPayment, gasPrice: gasPriceForEstimate }
         );
+
+        // Fetch gas price again right before submission to handle price changes
+        // This ensures we use the most current gas price for the actual transaction
+        const feeDataForTx = await provider.getFeeData();
+        const gasPriceForTx = feeDataForTx.gasPrice || BigInt(0);
 
         const tx = await contract.createEscrow(
             freelancerAddressEip55,
@@ -365,7 +371,7 @@ async function createEscrow(
             {
                 value: totalPayment,
                 gasLimit: gasEstimate + (gasEstimate / 10n), // Add 10% buffer
-                gasPrice: gasPrice
+                gasPrice: gasPriceForTx
             }
         );
 
@@ -376,7 +382,14 @@ async function createEscrow(
         };
 
         // Handle confirmation asynchronously and create Nostr contract directly
-        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+        // Add timeout protection (5 minutes) to prevent hanging forever
+        const TX_WAIT_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+        Promise.race([
+            tx.wait(),
+            new Promise<null>((_, reject) =>
+                setTimeout(() => reject(new Error('Transaction wait timeout after 5 minutes')), TX_WAIT_TIMEOUT)
+            )
+        ]).then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
@@ -424,17 +437,37 @@ async function createEscrow(
                         }
                     } else {
                         console.warn('EscrowCreated event not found in transaction receipt');
+                        // If EscrowCreated event is missing, clean up pending contract
+                        // This handles the case where transaction succeeded but event is missing
+                        EscrowNostrEvent.cleanupPendingContractByTxHash(receipt.hash);
+                        // Notify user that escrow was created but event is missing
+                        const { appStore } = await import('$lib/stores/app.store');
+                        appStore.showErrorToast('Escrow transaction succeeded, but EscrowCreated event was not found. The escrow may need to be verified manually.');
                     }
                 } catch (error) {
                     console.error('Failed to extract escrow ID from receipt:', error);
+                    // Clean up pending contract on error extracting escrow ID
+                    EscrowNostrEvent.cleanupPendingContractByTxHash(receipt.hash);
                 }
             } else {
                 result.status = 'failed';
                 console.error('Transaction receipt is null');
+                // Clean up pending contract on failure (only if hash exists)
+                if (result.hash) {
+                    EscrowNostrEvent.cleanupPendingContractByTxHash(result.hash);
+                }
             }
         }).catch((error: unknown) => {
-            console.error('Transaction failed:', error);
+            console.error('Transaction failed or timed out:', error);
             result.status = 'failed';
+            // Clean up pending contract on failure (only if hash exists)
+            if (result.hash) {
+                EscrowNostrEvent.cleanupPendingContractByTxHash(result.hash);
+            }
+            // If it's a timeout, update the error message
+            if (error instanceof Error && error.message.includes('timeout')) {
+                console.warn('Transaction wait timed out. Transaction may still be pending on the blockchain.');
+            }
         });
 
         return result;
