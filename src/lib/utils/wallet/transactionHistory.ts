@@ -584,6 +584,7 @@ export async function processTransactions(
 
 /**
  * Get explorer API URL based on network
+ * Note: BSC internal transactions are not supported (BSCScan API not used)
  */
 function getExplorerApiUrl(network: 'rsk' | 'bsc'): string {
     if (network === 'rsk') {
@@ -592,10 +593,9 @@ function getExplorerApiUrl(network: 'rsk' | 'bsc'): string {
             ? 'https://rootstock.blockscout.com/api/v2'
             : 'https://rootstock-testnet.blockscout.com/api/v2';
     } else {
-        const bscNetwork = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-        return bscNetwork === 'mainnet'
-            ? 'https://api.bscscan.com/api'
-            : 'https://api-testnet.bscscan.com/api';
+        // BSC: Internal transactions not supported (BSCScan API no longer used)
+        // This function is only called for RSK, but included for type safety
+        return '';
     }
 }
 

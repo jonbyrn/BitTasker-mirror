@@ -323,10 +323,11 @@
 					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</button>
 				{#if isAvatarDropdownOpen}
-					<ul
-						role="menu"
+					<div
 						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
 						style="transform-origin: top right;"
+						role="menu"
+						tabindex="-1"
 						onclick={(e) => e.stopPropagation()}
 						onkeydown={(e) => {
 							if (e.key === 'Escape') {
@@ -335,22 +336,24 @@
 						}}
 						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 					>
-						<!-- User Info Header -->
-						{#if userDisplayName}
-							<li class="border-b border-base-300 pb-2 mb-2">
-								<button
-									onclick={showNpubQrCode}
-									class="flex w-full items-center gap-2 whitespace-nowrap"
-								>
-									<IconQrcode class="text-primary" />
-									<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
-								</button>
-							</li>
-						{/if}
-						{#each AVATAR_MENU_ITEMS as item}
-							{@render menuItem(item)}
-						{/each}
-					</ul>
+						<ul>
+							<!-- User Info Header -->
+							{#if userDisplayName}
+								<li class="border-b border-base-300 pb-2 mb-2">
+									<button
+										onclick={showNpubQrCode}
+										class="flex w-full items-center gap-2 whitespace-nowrap"
+									>
+										<IconQrcode class="text-primary" />
+										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+									</button>
+								</li>
+							{/if}
+							{#each AVATAR_MENU_ITEMS as item}
+								{@render menuItem(item)}
+							{/each}
+						</ul>
+					</div>
 				{/if}
 			</div>
 		{/if}
@@ -439,8 +442,12 @@
 <NpubQrCodeModal isOpen={showNpubQrModal} onClose={closeNpubQrModal} />
 
 <style>
+	/* Use SystemBars fallback pattern for safe area insets
+	 * SystemBars injects --safe-area-inset-* variables for Android WebView < 140
+	 * Fallback order: --safe-area-inset-* (SystemBars) -> env() (native) -> 0px
+	 */
 	.pt-safe {
-		padding-top: env(safe-area-inset-top, 0);
+		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 	}
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {

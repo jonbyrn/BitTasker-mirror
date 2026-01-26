@@ -32,9 +32,7 @@
 	const shouldHideFooterForLoggedInTaskPage = $derived(
 		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/tasks\/[^/]+$/)
 	);
-	const shouldHideFooterForTasksPage = $derived(
-		currentPath === '/tasks' && ($authState.isAuthenticated || !!$user?.npub)
-	);
+	const shouldHideFooterForTasksPage = $derived(currentPath === '/tasks');
 	const shouldHideFooterForLoggedInNpubPage = $derived(
 		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/npub\/[^/]+$/)
 	);
@@ -93,8 +91,26 @@
 		// Global error handler
 		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
 			const error = event instanceof ErrorEvent ? event.error : event.reason;
+			
+			// Skip logging null/undefined errors (often from third-party libraries like SES)
+			if (error === null || error === undefined) {
+				return;
+			}
+			
+			// Only log meaningful errors
+			const errorMessage = error instanceof Error 
+				? error.message 
+				: typeof error === 'string' 
+					? error 
+					: String(error);
+			
+			// Skip empty or meaningless error messages
+			if (!errorMessage || errorMessage === 'null' || errorMessage === 'undefined') {
+				return;
+			}
+			
 			console.error('[Global Error Handler]:', {
-				error: error instanceof Error ? error.message : String(error),
+				error: errorMessage,
 				stack: error instanceof Error ? error.stack : undefined,
 				type: event instanceof ErrorEvent ? 'error' : 'unhandledrejection',
 				timestamp: new Date().toISOString()
