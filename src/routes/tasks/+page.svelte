@@ -140,8 +140,14 @@
 	// View mode state - Airbnb style toggle
 	let viewMode = $state<'list' | 'map'>('list');
 
-	// Selected task for map display
-	let selectedTask = $state<Task | null>(null);
+	// Selected task for map display (separate from bid task to avoid conflicts)
+	let selectedTaskForMap = $state<Task | null>(null);
+	
+	// Selected task for bid drawer (separate from map selection)
+	let selectedTaskForBid = $state<Task | null>(null);
+	
+	// Derived: Check if map is visible (desktop sidebar or mobile map view)
+	const isMapVisible = $derived(mapLoaded && (viewMode === 'list' || viewMode === 'map'));
 	
 	// Bid drawer state
 	let isBidOpen = $state(false);
@@ -149,6 +155,12 @@
 	// Task details drawer state
 	let selectedTaskForDetails = $state<Task | null>(null);
 	let isTaskDetailsOpen = $state(false);
+	
+	// Timeout IDs for drawer close animations (to prevent memory leaks)
+	let drawerCloseTimeouts: Set<ReturnType<typeof setTimeout>> = $state.raw(new Set());
+	
+	// Debounce state for onViewTask
+	let viewTaskDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Infinite scroll state - use atomic flag to prevent race conditions
 	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
@@ -413,32 +425,11 @@
 	}
 
 	/**
-	 * Lazy load map component with permission check
+	 * Lazy load map component
+	 * Permission check removed for faster loading - map component handles geolocation internally
 	 */
 	async function loadMapComponent(): Promise<void> {
 		if (mapLoaded) return;
-
-		// Check geolocation permission before loading map
-		if (browser && navigator.permissions) {
-			try {
-				// Type guard: check if 'geolocation' is a valid PermissionName
-				// Use type assertion only after runtime check
-				const permissionName: PermissionName = 'geolocation' as PermissionName;
-				const permission = await navigator.permissions.query({
-					name: permissionName
-				});
-				if (permission.state === 'denied') {
-					// Silently handle - user can still use map without location
-					// Only log in development
-					if (import.meta.env.DEV) {
-						console.warn('Geolocation permission denied, map may not work properly');
-					}
-				}
-			} catch (error) {
-				// Permission API not supported, continue anyway
-				// This is expected in some browsers/environments
-			}
-		}
 
 		try {
 			TaskLocationMap = (await import('$lib/components/maps/TaskLocationMap.svelte')).default;
@@ -897,6 +888,18 @@
 			mountCleanup.preloadCleanup();
 		}
 		
+		// Cleanup drawer close timeouts to prevent memory leaks
+		drawerCloseTimeouts.forEach(timeoutId => {
+			clearTimeout(timeoutId);
+		});
+		drawerCloseTimeouts.clear();
+		
+		// Cleanup view task debounce timeout
+		if (viewTaskDebounceTimeout) {
+			clearTimeout(viewTaskDebounceTimeout);
+			viewTaskDebounceTimeout = null;
+		}
+		
 		// Scroll listeners are cleaned up by $effect return function
 		// Remove data attribute from app-shell__content
 		if (appShellContent) {
@@ -939,7 +942,7 @@
 							await loadDrawerComponents();
 						}
 						// Open bid drawer for logged-in users
-						selectedTask = task;
+						selectedTaskForBid = task;
 						isBidOpen = true;
 					}
 				} else {
@@ -961,17 +964,33 @@
 	};
 
 	/**
-	 * Handle viewing task details
+	 * Handle viewing task details with debouncing to prevent multiple simultaneous opens
 	 */
 	const onViewTask = async (task: Task) => {
-		// Ensure drawer components are loaded before opening task details drawer
-		if (!drawersLoaded) {
-			await loadDrawerComponents();
+		// Clear any pending view task calls
+		if (viewTaskDebounceTimeout) {
+			clearTimeout(viewTaskDebounceTimeout);
+			viewTaskDebounceTimeout = null;
 		}
-		// Wait a tick to ensure TaskDrawer component is available
-		await tick();
-		selectedTaskForDetails = task;
-		isTaskDetailsOpen = true;
+		
+		// Debounce to prevent rapid clicks from opening multiple drawers
+		viewTaskDebounceTimeout = setTimeout(async () => {
+			viewTaskDebounceTimeout = null;
+			
+			// Prevent opening if already viewing a task or if task details drawer is already open
+			if (isTaskDetailsOpen || selectedTaskForDetails) {
+				return;
+			}
+			
+			// Ensure drawer components are loaded before opening task details drawer
+			if (!drawersLoaded) {
+				await loadDrawerComponents();
+			}
+			// Wait a tick to ensure TaskDrawer component is available
+			await tick();
+			selectedTaskForDetails = task;
+			isTaskDetailsOpen = true;
+		}, 100); // 100ms debounce delay
 	};
 
 	// Function to get dynamic placeholder
@@ -1003,7 +1022,7 @@
 	 * Handle task selection for map display
 	 */
 	function selectTaskForMap(task: Task) {
-		selectedTask = task;
+		selectedTaskForMap = task;
 	}
 	
 	/**
@@ -1184,7 +1203,7 @@
 										<li role="listitem">
 											<TaskCard
 												{task}
-												{selectedTask}
+												selectedTask={selectedTaskForMap}
 												{btcPrice}
 												{formatDateTimeReactive}
 												{formatDateRangeReactive}
@@ -1192,6 +1211,8 @@
 												{onViewTask}
 												{drawersLoaded}
 												{loadDrawerComponents}
+												onSelectTaskForMap={selectTaskForMap}
+												{isMapVisible}
 											/>
 										</li>
 									{/each}
@@ -1231,12 +1252,19 @@
 							<TaskLocationMap
 								tasks={$tasksStore.items}
 								height="100%"
-								{selectedTask}
+								selectedTask={selectedTaskForMap}
+								{btcPrice}
+								{formatDateTimeReactive}
+								{formatDateRangeReactive}
+								{onSelectTask}
+								{onViewTask}
+								{drawersLoaded}
+								{loadDrawerComponents}
 								onTaskSelected={async (event: {
 									task: Task;
 									locationType: 'pickup' | 'dropoff';
 								}) => {
-									selectedTask = event.task;
+									selectedTaskForMap = event.task;
 									await scrollToTaskCard(getTaskId(event.task));
 								}}
 							/>
@@ -1267,12 +1295,19 @@
 					<TaskLocationMap
 						tasks={$tasksStore.items}
 						height="100%"
-						{selectedTask}
+						selectedTask={selectedTaskForMap}
+						{btcPrice}
+						{formatDateTimeReactive}
+						{formatDateRangeReactive}
+						{onSelectTask}
+						{onViewTask}
+						{drawersLoaded}
+						{loadDrawerComponents}
 						onTaskSelected={async (event: {
 							task: Task;
 							locationType: 'pickup' | 'dropoff';
 						}) => {
-							selectedTask = event.task;
+							selectedTaskForMap = event.task;
 							// When a task is selected on the map, switch to list view to show the task
 							viewMode = 'list';
 							// Wait for view mode change to complete before scrolling
@@ -1315,19 +1350,21 @@
 	title={$t('bid_form.title')}
 	onClose={() => {
 		isBidOpen = false;
-		// Clear selected task after animation completes
-		setTimeout(() => {
+		// Clear selected task after animation completes (with cleanup tracking)
+		const timeoutId = setTimeout(() => {
+			drawerCloseTimeouts.delete(timeoutId);
 			if (!isBidOpen) {
-				selectedTask = null;
+				selectedTaskForBid = null;
 			}
 		}, 300);
+		drawerCloseTimeouts.add(timeoutId);
 	}}
 	position="right"
 	isScrollable={true}
 >
 	{#snippet children()}
-		{#if drawersLoaded && BidForm && selectedTask}
-			<BidForm task={selectedTask!} onClose={() => (isBidOpen = false)} stickySubmit={false} />
+		{#if drawersLoaded && BidForm && selectedTaskForBid}
+			<BidForm task={selectedTaskForBid!} onClose={() => (isBidOpen = false)} stickySubmit={false} />
 		{:else}
 			<div class="flex items-center justify-center p-8">
 				<span class="loading loading-spinner loading-md"></span>
@@ -1355,44 +1392,70 @@
 			activeTab="details"
 			onClose={() => {
 				isTaskDetailsOpen = false;
-				// Clear task after animation completes (300ms transition duration)
-				setTimeout(() => {
+				// Clear task after animation completes (300ms transition duration) with cleanup tracking
+				const timeoutId = setTimeout(() => {
+					drawerCloseTimeouts.delete(timeoutId);
 					selectedTaskForDetails = null;
 				}, 300);
+				drawerCloseTimeouts.add(timeoutId);
 			}}
 			onBid={async () => {
+				// Prevent multiple simultaneous bid attempts (race condition protection)
+				if (isTaskSelectionInProgress || isBidOpen) {
+					return;
+				}
+				
+				// Validate task still exists and is still OPEN
+				if (!selectedTaskForDetails) {
+					appStore.showErrorToast($t('find_tasks.task_not_found') || 'Task not found');
+					return;
+				}
+				
+				// Check task status before allowing bid
+				if (selectedTaskForDetails.status !== TaskStatusEnum.OPEN) {
+					appStore.showErrorToast($t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding');
+					return;
+				}
+				
+				isTaskSelectionInProgress = true;
+				
 				try {
 					// Check if user is logged in
 					if ($user?.npub) {
 						// Check if user is trying to bid on their own task
 						if (selectedTaskForDetails?.npub === $user?.npub) {
 							appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
-						} else {
-							// Store the task before closing the details drawer
-							const taskToBid = selectedTaskForDetails;
-							
-							// Close the task details drawer first
-							isTaskDetailsOpen = false;
-							
-							// Wait for the drawer close animation to complete (300ms)
-							await new Promise(resolve => setTimeout(resolve, DRAWER_CLOSE_DELAY_MS));
-							
-							// Ensure drawer components are loaded before opening bid drawer
-							if (!drawersLoaded) {
-								await loadDrawerComponents();
-							}
-							// Wait a tick to ensure BidForm component is available
-							await tick();
-							
-							// Set the selected task for the bid form
-							if (taskToBid) {
-								selectedTask = taskToBid;
-								// Wait another tick to ensure selectedTask is set
-								await tick();
-								// Open bid drawer
-								isBidOpen = true;
-							}
+							return;
 						}
+						
+						// Store the task before closing the details drawer
+						const taskToBid = selectedTaskForDetails;
+						
+						// Close the task details drawer first
+						isTaskDetailsOpen = false;
+						
+						// Wait for the drawer close animation to complete (300ms)
+						await new Promise(resolve => setTimeout(resolve, DRAWER_CLOSE_DELAY_MS));
+						
+						// Double-check task is still valid after delay
+						if (!taskToBid || taskToBid.status !== TaskStatusEnum.OPEN) {
+							appStore.showErrorToast($t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding');
+							return;
+						}
+						
+						// Ensure drawer components are loaded before opening bid drawer
+						if (!drawersLoaded) {
+							await loadDrawerComponents();
+						}
+						// Wait a tick to ensure BidForm component is available
+						await tick();
+						
+						// Set the selected task for the bid form
+						selectedTaskForBid = taskToBid;
+						// Wait another tick to ensure selectedTaskForBid is set
+						await tick();
+						// Open bid drawer
+						isBidOpen = true;
 					} else {
 						// Redirect to signup page for public users
 						try {
@@ -1407,6 +1470,9 @@
 				} catch (error) {
 					console.error('[TaskDrawer] Error opening bid form:', error);
 					appStore.showErrorToast($t('find_tasks.error_opening_bid_form') || 'Error opening bid form');
+				} finally {
+					// Always release lock, even on error
+					isTaskSelectionInProgress = false;
 				}
 			}}
 		/>
@@ -1416,10 +1482,12 @@
 			title={getTranslatedTaskTitle}
 			onClose={() => {
 				isTaskDetailsOpen = false;
-				// Clear task after animation completes (300ms transition duration)
-				setTimeout(() => {
+				// Clear task after animation completes (300ms transition duration) with cleanup tracking
+				const timeoutId = setTimeout(() => {
+					drawerCloseTimeouts.delete(timeoutId);
 					selectedTaskForDetails = null;
 				}, 300);
+				drawerCloseTimeouts.add(timeoutId);
 			}}
 			position="right"
 			isScrollable={true}
