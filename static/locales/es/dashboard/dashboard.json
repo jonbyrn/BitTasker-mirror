@@ -1,5 +1,7 @@
 {
   "dashboard": {
+    "title": "Mi Panel",
+    "description": "Gestiona tus tareas y ofertas.",
     "task": {
       "deadline": {
         "label": "Fecha Límite"
@@ -14,13 +16,9 @@
         "remote": "Remoto"
       }
     },
-    "title": "Mi Panel",
-    "description": "Gestiona tus tareas y ofertas.",
-    "titl": "Panel",
     "create_task": "Crear Tarea",
     "find_task": "Buscar Tareas",
     "manage_wallet": "Gestionar Billetera",
-    "wallet": "Billetera",
     "client": "Tasker",
     "freelancer": "Taskee",
     "member_since": "Miembro desde",

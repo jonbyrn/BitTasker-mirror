@@ -15,15 +15,40 @@
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
 
-	// Tab management - reactive to language changes
-	const availableTabs = $derived([
-		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
-		{ id: 'bids', label: $t('dashboard.tabs.bids') },
-		{ id: 'contracts', label: $t('dashboard.tabs.contracts') },
-		{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') }
-		// { id: 'recurring', label: $t('dashboard.tabs.recurring') }
-	]);
-	let activeTab = $state('');
+	// Tab configuration - reactive to language changes
+	const tabs = [
+		{ 
+			id: 'tasks', 
+			label: $t('dashboard.tabs.tasks'), 
+			buttonLabel: $t('dashboard.create_task'),
+			buttonHref: '/dashboard/create-task',
+			icon: 'plus'
+		},
+		{ 
+			id: 'bids', 
+			label: $t('dashboard.tabs.bids'), 
+			buttonLabel: $t('dashboard.find_task'),
+			buttonHref: '/tasks',
+			icon: 'search'
+		},
+		{ 
+			id: 'contracts', 
+			label: $t('dashboard.tabs.contracts'), 
+			buttonLabel: $t('dashboard.manage_wallet'),
+			buttonHref: '/dashboard/wallet',
+			icon: 'wallet'
+		},
+		{ 
+			id: 'saved-searches', 
+			label: $t('dashboard.tabs.saved_searches'), 
+			buttonLabel: $t('dashboard.find_task'),
+			buttonHref: '/tasks',
+			icon: 'search'
+		}
+		// { id: 'recurring', label: $t('dashboard.tabs.recurring'), buttonLabel: $t('dashboard.create_task'), buttonHref: '/dashboard/create-task', icon: 'plus' }
+	];
+	
+	let activeTab = $state(tabs[0]);
 
 	// Task drawer state
 	let selectedTask = $state<Task | null>(null);
@@ -35,37 +60,32 @@
 	// Set active tab based on URL param
 	onMount(() => {
 		const tabParam = page.url.searchParams.get('tab');
-		if (tabParam && availableTabs.some((tab) => tab.id === tabParam)) {
-			activeTab = tabParam;
-		} else if (!tabParam) {
-			activeTab = 'tasks';
-			// Set default tab in URL if not present
-			updateUrlParam(activeTab);
+		const foundTab = tabs.find(t => t.id === tabParam);
+		if (foundTab) {
+			activeTab = foundTab;
+		} else {
+			page.url.searchParams.set('tab', activeTab.id);
+			goto(page.url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 		}
 	});
 
 	// Watch for URL changes and update active tab
 	$effect(() => {
 		const tabParam = page.url.searchParams.get('tab');
-		if (tabParam && availableTabs.some((tab) => tab.id === tabParam)) {
-			activeTab = tabParam;
-		} else if (!tabParam) {
-			// No tab parameter means default to 'tasks' tab
-			activeTab = 'tasks';
+		const foundTab = tabs.find(t => t.id === tabParam);
+		if (foundTab) {
+			activeTab = foundTab;
 		}
 	});
 
-	// Update URL when tab changes
-	function updateUrlParam(tabId: string) {
-		const url = new URL(window.location.href);
-		url.searchParams.set('tab', tabId);
-		goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-	}
-
 	// Handle tab change
 	function handleTabChange(tabId: string) {
-		activeTab = tabId;
-		updateUrlParam(tabId);
+		const foundTab = tabs.find(t => t.id === tabId);
+		if (foundTab) {
+			activeTab = foundTab;
+			page.url.searchParams.set('tab', tabId);
+			goto(page.url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+		}
 	}
 
 	// Task drawer functions
@@ -129,15 +149,8 @@
 			<h3 class="font-bold">{$t('dashboard.title')}</h3>
 			<p class="text-base-content/70 px-1">{$t('dashboard.description')}</p>
 		</div>
-		<a
-				href={activeTab === 'bids' || activeTab === 'saved-searches'
-					? '/tasks'
-					: activeTab === 'contracts'
-					? '/dashboard/wallet'
-					: '/dashboard/create-task'}
-				class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
-			>
-			{#if activeTab === 'bids' || activeTab === 'saved-searches'}
+		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
+			{#if activeTab.icon === 'search'}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
@@ -148,7 +161,7 @@
 				>
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 				</svg>
-			{:else if activeTab === 'contracts'}
+			{:else if activeTab.icon === 'wallet'}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
@@ -159,7 +172,7 @@
 				>
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
 				</svg>
-			{:else}
+			{:else if activeTab.icon === 'plus'}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
@@ -171,27 +184,14 @@
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
 				</svg>
 			{/if}
-			<span class="hidden sm:inline">
-				{activeTab === 'bids' || activeTab === 'saved-searches'
-					? $t('dashboard.find_task')
-					: activeTab === 'contracts'
-					? $t('dashboard.manage_wallet')
-					: $t('dashboard.create_task')}
-			</span>
-			<span class="sm:hidden">
-				{activeTab === 'bids' || activeTab === 'saved-searches'
-					? $t('dashboard.find_task')
-					: activeTab === 'contracts'
-					? $t('dashboard.wallet')
-					: $t('dashboard.create_task')}
-			</span>
+			<span>{activeTab.buttonLabel}</span>
 		</a>
 	</div>
 
 	<!-- Dashboard Tabs -->
-	<Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} />
+	<Tabs {tabs} activeTab={activeTab.id} onTabChange={handleTabChange} />
 
-	{#if activeTab === 'tasks'}
+	{#if activeTab.id === 'tasks'}
 		<!-- Tasks Panel -->
 		<div
 			id="panel-tasks"
@@ -201,7 +201,7 @@
 		>
 			<DashboardTasksPanel openTaskDrawer={(task, tab = 'details') => setDrawerState(true, task, tab)} />
 		</div>
-	{:else if activeTab === 'saved-searches'}
+	{:else if activeTab.id === 'saved-searches'}
 		<div
 			id="panel-saved-searches"
 			role="tabpanel"
@@ -210,7 +210,7 @@
 		>
 			<DashboardSavedSearchesPanel />
 		</div>
-	{:else if activeTab === 'bids'}
+	{:else if activeTab.id === 'bids'}
 		<div
 			id="panel-bids"
 			role="tabpanel"
@@ -219,7 +219,7 @@
 		>
 			<DashboardBidsPanel />
 		</div>
-	{:else if activeTab === 'contracts'}
+	{:else if activeTab.id === 'contracts'}
 		<div
 			id="panel-contracts"
 			role="tabpanel"
