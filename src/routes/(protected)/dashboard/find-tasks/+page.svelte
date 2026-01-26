@@ -70,9 +70,9 @@ import type { Task, SearchTasksParams } from '$lib/types/task.d';
 	let viewMode = $state<'list' | 'map'>('list');
 
 	// Selected task for map display
-let selectedTask = $state<Task | null>(null);
-let isBidOpen = $state(false);
-let myBidTaskIds = $state<Set<string>>(new Set());
+	let selectedTask = $state<Task | null>(null);
+	let isBidOpen = $state(false);
+	let myBidTaskIds = $state<Set<string>>(new Set());
 
 	// References to task cards for scrolling
 	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
@@ -581,10 +581,15 @@ function isSelectedTask(task: Task): boolean {
 async function loadMyBidTaskIds(): Promise<void> {
 	if (!browser) return;
 	try {
+		// Fetch all bids sent by the current user (without status events for performance)
 		const bids = await getMyBids(false);
 		const taskIds = new Set<string>();
+		
+		// Extract task IDs from each bid event
 		bids.forEach((bidEvent) => {
 			let taskId: string | undefined;
+			
+			// Try to get taskId from bid content (parsed JSON)
 			if (typeof bidEvent.content === 'string') {
 				try {
 					const parsed = JSON.parse(bidEvent.content) as { taskId?: string };
@@ -596,17 +601,23 @@ async function loadMyBidTaskIds(): Promise<void> {
 				taskId = (bidEvent.content as { taskId?: string })?.taskId;
 			}
 
+			// Fallback: extract taskId from 't' tag if not found in content
 			if (!taskId) {
 				const taskTag = bidEvent.tags?.find((tag) => tag[0] === 't');
 				taskId = taskTag?.[1];
 			}
 
+			// Add taskId to Set if found
 			if (taskId) {
 				taskIds.add(taskId);
 			}
 		});
+		
+		// Merge with existing task IDs (in case of multiple loads)
 		myBidTaskIds = new Set([...myBidTaskIds, ...taskIds]);
 	} catch (error) {
+		console.error('Error loading my bid task IDs:', error);
+		// Maintain empty Set if loading fails and no existing data
 		if (myBidTaskIds.size === 0) {
 			myBidTaskIds = new Set();
 		}
