@@ -188,6 +188,22 @@ export async function createUserDeviceShortName(publicKey: string): Promise<stri
 }
 
 /**
+ * Extract the first 6 characters after "npub" from an npub string
+ * Used as a fallback for passkey naming when username and display name are not available
+ * @param npub - Nostr public key in npub format (e.g., "npub1abc123...")
+ * @returns First 6 characters after "npub" prefix, or empty string if not in npub format
+ */
+export function getNpubShortId(npub: string): string {
+	if (npub.startsWith('npub')) {
+		// Remove 'npub' prefix and take first 6 characters
+		const npubPart = npub.slice(4); // Remove 'npub' prefix
+		return npubPart.slice(0, 6);
+	}
+	// If not in npub format, return empty string
+	return '';
+}
+
+/**
  * Create display name with timestamp for uniqueness
  */
 export function createDisplayName(publicKey: string, customName?: string): string {

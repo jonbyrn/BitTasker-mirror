@@ -82,16 +82,21 @@ vi.mock('svelte-i18n', () => ({
 }));
 
 // Mock svelte/store
-vi.mock('svelte/store', () => ({
-	get: vi.fn((store: any) => {
-		if (typeof store === 'function') {
-			return store();
-		}
-		return store;
-	})
-}));
+vi.mock('svelte/store', async () => {
+	const actual = await vi.importActual('svelte/store');
+	return {
+		...actual,
+		get: vi.fn((store: any) => {
+			if (typeof store === 'function') {
+				return store();
+			}
+			return store;
+		})
+	};
+});
 
 // Mock escrowEvents to avoid store dependencies
+const mockCleanupPendingContractByTxHash = vi.fn();
 vi.mock('../escrowEvents', () => ({
 	default: {
 		handleEscrowCreated: vi.fn(),
@@ -105,12 +110,13 @@ vi.mock('../escrowEvents', () => ({
 		handleTaskDisputed: vi.fn(),
 		handleResolutionProposed: vi.fn(),
 		handleProposalAccepted: vi.fn(),
-		handleTimelockResolved: vi.fn()
+		handleTimelockResolved: vi.fn(),
+		cleanupPendingContractByTxHash: mockCleanupPendingContractByTxHash
 	}
 }));
 
 // Now import escrow after mocks
-import { escrow } from '../escrow';
+import { escrow } from '$lib/utils/escrow/v1/escrow';
 import { getWallet, getProvider, walletManager } from '$lib/stores/wallet.store';
 
 // Setup mocks after import

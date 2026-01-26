@@ -216,6 +216,9 @@ export async function acceptBidAndCreateEscrow(
 	btcPrice: number,
 	network: 'RSK' | 'BSC' = 'RSK'
 ): Promise<BidAcceptanceResult> {
+	// Store transaction hash outside try block for cleanup in catch block
+	let transactionHash: string | null = null;
+
 	try {
 		const bidContent = bid.content as unknown as NostrBidContent;
 		const taskContent = JSON.parse(task.content) as Task;
@@ -289,6 +292,17 @@ export async function acceptBidAndCreateEscrow(
 			escrowDetails.freelancerFeeTier
 		);
 
+		// Validate transaction result and hash before proceeding
+		if (!transactionResult || !transactionResult.hash) {
+			return {
+				success: false,
+				error: 'Transaction failed: Missing transaction hash. Please try again.'
+			};
+		}
+
+		// Store transaction hash for potential cleanup in catch block
+		transactionHash = transactionResult.hash;
+
 		// Register pending contract creation with our event management system
 		registerPendingContractByTxHash({
 			bidEventId: bid.id,
@@ -299,7 +313,7 @@ export async function acceptBidAndCreateEscrow(
 			amount: escrowDetails.baseAmount,
 			estimatedStartTime: adjustedStartTime,
 			estimatedCompletionTime: adjustedCompletionTime,
-			transactionHash: transactionResult.hash
+			transactionHash: transactionHash
 		});
 
 		return {
@@ -309,6 +323,19 @@ export async function acceptBidAndCreateEscrow(
 
 	} catch (error) {
 		console.error('Failed to accept bid and create escrow:', error);
+		
+		// Clean up any pending contracts that might have been registered
+		// If transaction was submitted and registered, we need to clean up by transaction hash
+		if (transactionHash) {
+			try {
+				const { cleanupPendingContractByTxHash } = await import('$lib/utils/escrow/v1/escrowEvents');
+				cleanupPendingContractByTxHash(transactionHash);
+			} catch (cleanupError) {
+				// If cleanup fails, log but don't throw - we're already in error handling
+				console.warn('Failed to cleanup pending contract in catch block:', cleanupError);
+			}
+		}
+		
 		return {
 			success: false,
 			error: extractContractError(error).userMessage

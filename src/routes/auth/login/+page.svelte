@@ -9,8 +9,10 @@
 	import { authState } from '$lib/stores/auth.store';
 	import {
 		createUserDeviceShortName,
-		getDeviceIdentifier
+		getDeviceIdentifier,
+		getNpubShortId
 	} from '$lib/utils/helpers/deviceIdentity';
+	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 	import {
 		decryptNsecWithBiometrics,
@@ -272,9 +274,36 @@
 			});
 
 			if (res.access_token) {
+				// Determine passkey name with priority: username → display name → npub short ID
+				let passkeyName: string;
+				
+				// Priority 1: Username from API response
+				if (res.user.username?.trim()) {
+					passkeyName = res.user.username.trim();
+				} else {
+					// Convert hex npub to npub format once for both profile fetch and short ID
+					const npubFormatted = nip19.npubEncode(npub);
+					
+					// Priority 2: Fetch display name from Nostr profile
+					let nostrDisplayName: string | undefined;
+					try {
+						const profile = await fetchProfileMetadata(npubFormatted);
+						nostrDisplayName = profile.name?.trim();
+					} catch (err) {
+						console.warn('Could not fetch Nostr profile for passkey name:', err);
+						// Continue with fallback
+					}
+					
+					if (nostrDisplayName) {
+						passkeyName = nostrDisplayName;
+					} else {
+						// Priority 3: First 6 characters after "npub" from npub
+						const npubShortId = getNpubShortId(npubFormatted);
+						passkeyName = npubShortId || await createUserDeviceShortName(npub);
+					}
+				}
+				
 				const deviceName = await createUserDeviceShortName(npub);
-				// Use username from response if available, fallback to deviceName
-				const passkeyName = res.user.username?.trim() || deviceName;
 				let credentialId = '';
 
 				// Check if we're in a test environment (E2E tests)
@@ -316,8 +345,9 @@
 					}
 				}
 
-				// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
-				if (!isTestEnvironment) {
+				// Store master key data in biometrics for new users or users who just migrated
+				// Only create passkey if it wasn't already created above
+				if (!isTestEnvironment && !credentialId) {
 					if (authMethods.biometric) {
 						credentialId = await setBiometricKey(
 							npub,
@@ -334,9 +364,12 @@
 					}
 
 					if (!credentialId) throw new Error('Failed to set biometric key');
+				}
 
+				// Register passkey device with backend (only if credentialId was created)
+				if (credentialId && !isTestEnvironment) {
 					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-				} else {
+				} else if (isTestEnvironment) {
 					// In test environments, skip passkey creation to avoid browser prompts
 					console.log('[E2E] Skipping passkey creation in test environment');
 				}
