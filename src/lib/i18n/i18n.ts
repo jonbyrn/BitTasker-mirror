@@ -68,7 +68,33 @@ export async function loadNamespace(locale: SupportedLanguage, namespace: string
 		loadedNamespaces.get(locale)!.add(namespace);
 
 		// Add to svelte-i18n
-		addMessages(locale, data);
+		// For namespaced files (e.g., dashboard/bids), we need to nest the content
+		// under the namespace path. The JSON files have a root key matching the last
+		// part of the namespace, so we extract it and nest under the full path.
+		const namespaceParts = namespace.split('/');
+		if (namespaceParts.length > 1) {
+			const rootKey = namespaceParts[namespaceParts.length - 1];
+			const content = data[rootKey];
+			
+			if (content) {
+				// Build nested structure: dashboard/bids -> { dashboard: { bids: content } }
+				let nestedData: any = content;
+				for (let i = namespaceParts.length - 2; i >= 0; i--) {
+					nestedData = { [namespaceParts[i]]: nestedData };
+				}
+				addMessages(locale, nestedData);
+				
+				// Also add the content directly for backward compatibility
+				// This allows wallet.* to work in addition to dashboard.wallet.*
+				addMessages(locale, data);
+			} else {
+				// Fallback: add data as-is if structure doesn't match expected pattern
+				addMessages(locale, data);
+			}
+		} else {
+			// Single-level namespace, add as-is
+			addMessages(locale, data);
+		}
 
 		return data;
 	} catch (error) {
