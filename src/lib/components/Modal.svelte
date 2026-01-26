@@ -25,6 +25,16 @@
 		 * Defaults to the globally measured footer height.
 		 */
 		bottomOffset?: string;
+		/**
+		 * Maximum height for the modal card. Useful when modal is inside drawers or constrained containers.
+		 * Defaults to 85vh.
+		 */
+		maxHeight?: string;
+		/**
+		 * When true, hides the default header (title and close button). Useful when providing custom header in children.
+		 * Defaults to false.
+		 */
+		hideHeader?: boolean;
 		children?: import('svelte').Snippet;
 		footer?: import('svelte').Snippet;
 	}>();
@@ -32,6 +42,7 @@
 	const respectBottomNav = props.respectBottomNav ?? true;
 	const bottomOffset = props.bottomOffset ?? 'var(--app-footer-height, 0px)';
 	const effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
+	const maxHeight = props.maxHeight ?? '85vh';
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -117,50 +128,53 @@
 	>
 		<!-- Modal Content -->
 		<div
-			class="card bg-base-100 w-full shadow-xl {props.size === 'sm'
+			class="card bg-base-100 w-full shadow-xl flex flex-col {props.size === 'sm'
 				? 'max-w-sm'
 				: props.size === 'lg'
 					? 'max-w-2xl'
 					: props.size === 'xl'
 						? 'max-w-4xl'
 						: 'max-w-md'}"
+			style={`max-height: ${maxHeight};`}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="modal-title"
 			tabindex="-1"
 		>
 			<!-- Modal Header -->
-			<div class="card-body">
-				<div class="mb-4 flex items-center justify-between">
-					<h3 id="modal-title" class="card-title">{props.title}</h3>
-					<button
-						class="btn btn-circle btn-ghost btn-sm"
-						onclick={props.onClose}
-						aria-label={$t('common.components.modal.close')}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
+			<div class="card-body flex flex-col min-h-0 overflow-hidden">
+				{#if !props.hideHeader}
+					<div class="mb-4 flex items-center justify-between">
+						<h3 id="modal-title" class="card-title">{props.title}</h3>
+						<button
+							class="btn btn-circle btn-ghost btn-sm"
+							onclick={props.onClose}
+							aria-label={$t('common.components.modal.close')}
 						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
-					</button>
-				</div>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M6 18L18 6M6 6l12 12"
+								/>
+							</svg>
+						</button>
+					</div>
+				{/if}
 
 				<!-- Modal Content (Slot) -->
 				{@render props.children?.()}
 
 				<!-- Modal Footer (Optional) -->
 				{#if props.footer}
-					<div class="card-actions mt-6 justify-end">
+					<div class="card-actions mt-6 justify-end flex-shrink-0">
 						{@render props.footer()}
 					</div>
 				{/if}
