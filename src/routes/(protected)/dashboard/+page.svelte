@@ -110,7 +110,8 @@
 		if (!taskToDelete) return;
 		try {
 			isDeleting = true;
-			await deleteTask(taskToDelete.id);
+			// Pass eventId directly if available to avoid unnecessary request
+			await deleteTask(taskToDelete.id, taskToDelete.eventId);
 			$myTasksStore.items = $myTasksStore.items.filter((t) => t.id !== taskToDelete.id);
 			activeTaskModal = null;
 			setDrawerState(false, null);

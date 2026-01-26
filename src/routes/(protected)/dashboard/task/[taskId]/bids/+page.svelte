@@ -228,16 +228,14 @@
 		}
 	}
 
-	function retryLoadingData() {
-		loadTaskDetails() 
-		loadBids()
-		fetchBtcPrice();
+	async function retryLoadingData() {
+		await loadTaskDetails();
+		await Promise.all([loadBids(), fetchBtcPrice()]);
 	}
 
 	onMount(async () => {
 		await loadTaskDetails();
-		await loadBids();
-		await fetchBtcPrice();
+		await Promise.all([loadBids(), fetchBtcPrice()]);
 	});
 
 	onDestroy(() => {

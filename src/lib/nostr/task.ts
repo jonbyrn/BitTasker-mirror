@@ -474,30 +474,51 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 
 /**
  * Delete a task
+ * @param taskId - The task ID (can be eventId or uniqueId)
+ * @param eventId - Optional eventId to skip the fetch request. If provided, it will be used directly.
  */
-export async function deleteTask(taskId: string): Promise<string> {
+export async function deleteTask(taskId: string, eventId?: string): Promise<string> {
 	try {
-		const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
-		const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
-		let eventId = taskId;
+		let finalEventId = eventId;
 
-		if (!isEventId && isUuid) {
-			const dTagValue = `task-${taskId}`;
-			const response = await nostrEventsService.requestEvents({
-				filters: [
-					{
-						kinds: [KINDS.TASK_CREATION],
-						'#d': [dTagValue],
-						limit: 1
-					}
-				]
-			});
-
-			if (response.data && response.data.length > 0) {
-				eventId = response.data[0].id;
-			} else {
-				throw new Error('Task not found');
+		// If eventId is provided, use it directly (avoids unnecessary request)
+		if (finalEventId) {
+			// Validate that it's a valid event ID format
+			if (!/^[0-9a-fA-F]{64}$/.test(finalEventId)) {
+				throw new Error('Invalid eventId format');
 			}
+		} else {
+			// Fallback: determine eventId from taskId
+			const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
+			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
+			
+			if (isEventId) {
+				finalEventId = taskId;
+			} else if (isUuid) {
+				// Only fetch if we have a UUID and no eventId was provided
+				const dTagValue = `task-${taskId}`;
+				const response = await nostrEventsService.requestEvents({
+					filters: [
+						{
+							kinds: [KINDS.TASK_CREATION],
+							'#d': [dTagValue],
+							limit: 1
+						}
+					]
+				});
+
+				if (response.data && response.data.length > 0) {
+					finalEventId = response.data[0].id;
+				} else {
+					throw new Error('Task not found');
+				}
+			} else {
+				throw new Error('Invalid taskId format');
+			}
+		}
+
+		if (!finalEventId) {
+			throw new Error('Could not determine eventId');
 		}
 
 		// Create deletion event (kind 5)
@@ -506,7 +527,7 @@ export async function deleteTask(taskId: string): Promise<string> {
 			created_at: Math.floor(Date.now() / 1000),
 			content: 'Task deleted',
 			tags: [
-				['e', eventId] // Reference to event being deleted
+				['e', finalEventId] // Reference to event being deleted
 			]
 		};
 

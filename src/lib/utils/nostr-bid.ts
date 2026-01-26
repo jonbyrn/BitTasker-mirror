@@ -6,6 +6,7 @@ import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import { smartCache, currencyCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
+import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import { nip19, nip44 } from 'nostr-tools';
 import { bidStore } from '$lib/stores/bid.store';
 import KINDS from '$lib/utils/constants/kinds';
@@ -16,7 +17,7 @@ import KINDS from '$lib/utils/constants/kinds';
  * 
  * @param taskId - Optional task ID to clear only that task's bid cache
  */
-export function clearBidCache(taskId?: string, userPubkey?: string): void {
+export function clearBidCache(taskId?: string): void {
 	if (taskId) {
 		// Clear only the specific task's bid cache
 		smartCache.invalidateTaskBids(taskId);
@@ -29,13 +30,6 @@ export function clearBidCache(taskId?: string, userPubkey?: string): void {
 		if (import.meta.env.DEV) {
 			console.debug('Cleared all bid caches');
 		}
-	}
-
-	if (userPubkey) {
-		const normalizedPubkey = userPubkey.startsWith('npub')
-			? (nip19.decode(userPubkey).data as string)
-			: userPubkey;
-		smartCache.invalidateUserBids(normalizedPubkey);
 	}
 	// Currency cache doesn't need to be cleared unless BTC price changes
 	// currencyCache.clear();
@@ -76,14 +70,8 @@ export function batchSatsFromUsd(amounts: number[], btcPrice: number): number[] 
  * @param includeStatus - Whether to query and attach the latest bid status events (default: true)
  * @returns Array of bid messages with their associated status data attached
  */
-export async function getBidsForTask(
-	taskId: string,
-	includeStatus: boolean = true,
-	legacyTaskId?: string
-): Promise<NostrEvent[]> {
+export async function getBidsForTask(taskId: string, includeStatus: boolean = true): Promise<NostrEvent[]> {
 	try {
-		const taskIds =
-			legacyTaskId && legacyTaskId !== taskId ? [taskId, legacyTaskId] : [taskId];
 		// Check smartCache first
 		const cachedBids = smartCache.getBidsForTask(taskId);
 		if (cachedBids) {
@@ -93,28 +81,26 @@ export async function getBidsForTask(
 			return cachedBids;
 		}
 
-		const npub = await getNpub();
-		const npubHex = npub.startsWith('npub') ? nip19.decode(npub).data as string : npub;
-		const npubTagValues = npub.startsWith('npub')
-			? [npubHex, npub]
-			: [npubHex, nip19.npubEncode(npubHex)];
+		let npub = await getNpub();
+		if (npub.startsWith('npub')) {
+			const { nip19 } = await import('nostr-tools');
+			npub = nip19.decode(npub).data as string;
+		}
 
 		// Query bid events with relay-side filtering
 		const filter: Filter = {
 			kinds: [KINDS.BIDS],
-			...TAG_FILTERS.byTask(taskIds), // Filter by task ID(s)
-			...TAG_FILTERS.byNpub(npubTagValues), // Filter by recipient (user)
+			...TAG_FILTERS.byTask(taskId), // Filter by task ID
+			...TAG_FILTERS.byNpub(npub), // Filter by recipient (user)
 			limit: 100
 		};
 
 		// Prepare followup filter for bid status events if requested
-		const followupFilter = includeStatus
-			? {
-					kinds: [KINDS.BID_STATUS],
-					...TAG_FILTERS.byTask(taskIds),
-					limit: 500 // Allow multiple status updates per bid
-				}
-			: undefined;
+		const followupFilter = includeStatus ? {
+			kinds: [KINDS.BID_STATUS],
+			...TAG_FILTERS.byTask(taskId),
+			limit: 500 // Allow multiple status updates per bid
+		} : undefined;
 
 		// Query bids with optional status followup
 		// Status events are automatically linked by parent bid event ID via #e tag
@@ -206,7 +192,7 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
  * @returns The bid status or null if no status exists
  */
 export function getBidStatus(bidEvent: NostrEvent): NostrBidStatus | null {
-	const latestStatus = (bidEvent as { latestStatus?: { content: unknown } }).latestStatus;
+	const latestStatus = (bidEvent as any).latestStatus;
 
 	if (!latestStatus) {
 		return null;
@@ -229,8 +215,7 @@ export function getBidStatus(bidEvent: NostrEvent): NostrBidStatus | null {
  */
 export async function decryptBidEvent(event: NostrEvent): Promise<NostrEvent | null> {
 	try {
-		let { npub } = await getNostrKeyPair();
-		const {nsec} = await getNostrKeyPair();
+		let { npub, nsec } = await getNostrKeyPair();
 		if (!npub || !nsec) {
 			throw new Error('No keys found');
 		}
