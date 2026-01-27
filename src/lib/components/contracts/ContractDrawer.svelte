@@ -13,6 +13,8 @@
 	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
 	import UserNostrBadge from '../UserNostrBadge.svelte';
+	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
+	import { locale } from 'svelte-i18n';
 
 	const { btcPrice } = $props<{
 		btcPrice: number;
@@ -68,6 +70,7 @@
 	}
 
 	// Format date with proper timestamp handling
+	// Uses formatStandardDateTime to ensure consistent formatting and proper timezone handling
 	function formatDate(timestamp: number): string {
 		// Handle invalid or zero timestamps
 		if (!timestamp || timestamp <= 0) {
@@ -82,14 +85,9 @@
 			return 'Invalid date';
 		}
 
-		return date.toLocaleDateString('en-US', {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		// Use formatStandardDateTime for consistent formatting across the app
+		// This ensures proper timezone handling and localization
+		return formatStandardDateTime(date, $locale || 'en');
 	}
 
 	const getAvailableActionsCount = () => {

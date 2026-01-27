@@ -11,6 +11,7 @@ import { escrow } from '$lib/utils/escrow/v1/escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { normalizeRskAddress } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
+import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
 export interface BidEscrowDetails {
 	freelancerAddress: string;
@@ -67,9 +68,14 @@ export function calculateBidEscrowDetails(bid: NostrBidContent, task: Task, btcP
 	let completionTime: number | undefined;
 
 	// First check if bid has timing information
+	// Use parseDateWithLocalTime to preserve the user's selected local time
 	if (bid.startDateTime && bid.endDateTime) {
-		startTime = Math.floor(new Date(bid.startDateTime).getTime() / 1000);
-		completionTime = Math.floor(new Date(bid.endDateTime).getTime() / 1000);
+		const startDate = parseDateWithLocalTime(bid.startDateTime);
+		const endDate = parseDateWithLocalTime(bid.endDateTime);
+		if (startDate && endDate) {
+			startTime = Math.floor(startDate.getTime() / 1000);
+			completionTime = Math.floor(endDate.getTime() / 1000);
+		}
 	} else if (task?.dateRange) {
 		// Fallback to task date range
 		startTime = Math.floor(new Date(task.dateRange.start).getTime() / 1000);
