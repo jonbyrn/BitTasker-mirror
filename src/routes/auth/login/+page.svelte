@@ -10,7 +10,7 @@
 	import {
 		createUserDeviceShortName,
 		getDeviceIdentifier,
-		getNpubShortId
+		formatPasskeyName
 	} from '$lib/utils/helpers/deviceIdentity';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
@@ -274,34 +274,20 @@
 			});
 
 			if (res.access_token) {
-				// Determine passkey name with priority: username → display name → npub short ID
-				let passkeyName: string;
-				
-				// Priority 1: Username from API response
-				if (res.user.username?.trim()) {
-					passkeyName = res.user.username.trim();
-				} else {
-					// Convert hex npub to npub format once for both profile fetch and short ID
+				// Fetch display name from Nostr profile for passkey naming
+				let nostrDisplayName: string | undefined;
+				try {
+					// Convert hex npub to npub format for profile fetch
 					const npubFormatted = nip19.npubEncode(npub);
-					
-					// Priority 2: Fetch display name from Nostr profile
-					let nostrDisplayName: string | undefined;
-					try {
-						const profile = await fetchProfileMetadata(npubFormatted);
-						nostrDisplayName = profile.name?.trim();
-					} catch (err) {
-						console.warn('Could not fetch Nostr profile for passkey name:', err);
-						// Continue with fallback
-					}
-					
-					if (nostrDisplayName) {
-						passkeyName = nostrDisplayName;
-					} else {
-						// Priority 3: First 6 characters after "npub" from npub
-						const npubShortId = getNpubShortId(npubFormatted);
-						passkeyName = npubShortId || await createUserDeviceShortName(npub);
-					}
+					const profile = await fetchProfileMetadata(npubFormatted);
+					nostrDisplayName = profile.name?.trim();
+				} catch (err) {
+					console.warn('Could not fetch Nostr profile for passkey name:', err);
+					// Continue without display name
 				}
+				
+				// Format passkey name as email: <username|displayname|first 6 chars of npub>@bittasker.com
+				const passkeyName = await formatPasskeyName(npub, res.user.username, nostrDisplayName);
 				
 				const deviceName = await createUserDeviceShortName(npub);
 				let credentialId = '';
@@ -495,6 +481,12 @@
 						}}
 					>
 						<div class="flex flex-col gap-2">
+							<p class="text-base-content text-sm">
+								{$t('login.passkey_paragraph_1')}
+							</p>
+							<p class="text-base-content text-sm">
+								{$t('login.passkey_paragraph_2')}
+							</p>
 							<button
 								class="btn btn-primary"
 								onclick={() => authenticate('passkey')}

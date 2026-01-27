@@ -8,7 +8,8 @@
 	import { getWebAuthnProviderDescription } from '$lib/utils/helpers/webBiometrics';
 	import {
 		getDeviceIdentifier,
-		createUserDeviceShortName
+		createUserDeviceShortName,
+		formatPasskeyName
 	} from '$lib/utils/helpers/deviceIdentity';
 	import authService from '$lib/api/services/auth.service';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
@@ -51,8 +52,8 @@
 			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(npub);
 			
-			// Use username from user store if available, fallback to deviceName
-			const passkeyName = $user.username?.trim() || deviceName;
+			// Format passkey name as email: <username|displayname|first 6 chars of npub>@bittasker.com
+			const passkeyName = await formatPasskeyName(npub, $user.username);
 
 			// Set up the WebAuthn passkey using the existing keys
 			const credentialId = await setBiometricKey(
