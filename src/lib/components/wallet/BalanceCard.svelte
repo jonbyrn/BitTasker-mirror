@@ -40,7 +40,7 @@
 
 	function showBalances() {
 		balancesHidden = false;
-		countdownSeconds = 60;
+		countdownSeconds = 45;
 
 		// Clear existing interval if any
 		if (countdownInterval) {

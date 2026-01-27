@@ -7,6 +7,7 @@
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
+	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// MDI Icons for filters
@@ -27,6 +28,7 @@
 	let isStatusDropdownOpen = $state(false);
 
 	let btcPrice = $state<number>(0);
+	let btcPriceError = $state<string | null>(null);
 
 	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
@@ -81,7 +83,7 @@
 		}
 	] as const);
 
-	let filteredContracts = $derived(() => {
+	const filteredContracts = $derived.by(() => {
 		let filtered = $contractStore.contracts;
 
 		// Filter by status (using unified status enum)
@@ -102,17 +104,23 @@
 	// Load contracts on mount
 	async function fetchBtcPrice(): Promise<void> {
 		try {
+			btcPriceError = null;
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
+			btcPriceError = error instanceof Error ? error.message : 'Failed to fetch BTC price';
+			// Set fallback price to 0 so UI shows RBTC amount instead
+			btcPrice = 0;
 		}
 	}
 
 	onMount(async () => {
-		const mountStartTime = performance.now();
-		console.log('[DEBUG] [DashboardContractsPanel] onMount - Starting contract load', {
-			timestamp: new Date().toISOString()
-		});
+		const mountStartTime = import.meta.env.DEV ? performance.now() : 0;
+		if (import.meta.env.DEV) {
+			console.log('[DEBUG] [DashboardContractsPanel] onMount - Starting contract load', {
+				timestamp: new Date().toISOString()
+			});
+		}
 
 		// Ensure wallet is initialized BEFORE loading contracts
 		try {
@@ -120,51 +128,61 @@
 			const { get } = await import('svelte/store');
 			let walletState = get(walletStore);
 			
-			console.log('[DEBUG] [DashboardContractsPanel] Wallet state before initialization check', {
-				isConnected: walletState.isConnected,
-				isInitializing: walletState.isInitializing,
-				hasRSKWallet: !!walletState.rsk?.wallet,
-				hasRSKProvider: !!walletState.rsk?.provider,
-				rskConnected: walletState.rsk?.connected,
-				rskAddress: walletState.rsk?.address,
-				timestamp: new Date().toISOString()
-			});
-
-			// Wait for wallet initialization if not already initialized
-			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
-				console.log('[DEBUG] [DashboardContractsPanel] Wallet not ready, initializing...');
-				const walletInitStartTime = performance.now();
-				await walletManager.initialize();
-				const walletInitDuration = performance.now() - walletInitStartTime;
-				
-				// Re-check wallet state after initialization
-				walletState = get(walletStore);
-				console.log('[DEBUG] [DashboardContractsPanel] Wallet initialization completed', {
+			if (import.meta.env.DEV) {
+				console.log('[DEBUG] [DashboardContractsPanel] Wallet state before initialization check', {
 					isConnected: walletState.isConnected,
+					isInitializing: walletState.isInitializing,
 					hasRSKWallet: !!walletState.rsk?.wallet,
 					hasRSKProvider: !!walletState.rsk?.provider,
 					rskConnected: walletState.rsk?.connected,
-					initDurationMs: walletInitDuration.toFixed(2)
+					rskAddress: walletState.rsk?.address,
+					timestamp: new Date().toISOString()
 				});
-			} else {
+			}
+
+			// Wait for wallet initialization if not already initialized
+			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
+				if (import.meta.env.DEV) {
+					console.log('[DEBUG] [DashboardContractsPanel] Wallet not ready, initializing...');
+				}
+				const walletInitStartTime = import.meta.env.DEV ? performance.now() : 0;
+				await walletManager.initialize();
+				
+				// Re-check wallet state after initialization
+				walletState = get(walletStore);
+				if (import.meta.env.DEV) {
+					const walletInitDuration = performance.now() - walletInitStartTime;
+					console.log('[DEBUG] [DashboardContractsPanel] Wallet initialization completed', {
+						isConnected: walletState.isConnected,
+						hasRSKWallet: !!walletState.rsk?.wallet,
+						hasRSKProvider: !!walletState.rsk?.provider,
+						rskConnected: walletState.rsk?.connected,
+						initDurationMs: walletInitDuration.toFixed(2)
+					});
+				}
+			} else if (import.meta.env.DEV) {
 				console.log('[DEBUG] [DashboardContractsPanel] Wallet already initialized');
 			}
 		} catch (walletStateError) {
-			console.error('[DEBUG] [DashboardContractsPanel] Failed to initialize wallet:', walletStateError);
+			if (import.meta.env.DEV) {
+				console.error('[DEBUG] [DashboardContractsPanel] Failed to initialize wallet:', walletStateError);
+			}
 			// Continue anyway - contracts will handle wallet initialization individually
 		}
 
-		const loadStartTime = performance.now();
+		const loadStartTime = import.meta.env.DEV ? performance.now() : 0;
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
-		const loadDuration = performance.now() - loadStartTime;
-		const totalMountDuration = performance.now() - mountStartTime;
-
-		console.log('[DEBUG] [DashboardContractsPanel] Contract load completed', {
-			loadDurationMs: loadDuration.toFixed(2),
-			totalMountDurationMs: totalMountDuration.toFixed(2),
-			contractCount: $contractStore.contracts.length,
-			timestamp: new Date().toISOString()
-		});
+		
+		if (import.meta.env.DEV) {
+			const loadDuration = performance.now() - loadStartTime;
+			const totalMountDuration = performance.now() - mountStartTime;
+			console.log('[DEBUG] [DashboardContractsPanel] Contract load completed', {
+				loadDurationMs: loadDuration.toFixed(2),
+				totalMountDurationMs: totalMountDuration.toFixed(2),
+				contractCount: $contractStore.contracts.length,
+				timestamp: new Date().toISOString()
+			});
+		}
 
 		// Configure infinite scroll
 		scroll.update((state) => ({
@@ -177,6 +195,14 @@
 					scroll.update((state) => ({ ...state, hasMore: $contractStore.hasMore }));
 				}
 			}
+		}));
+	});
+
+	// Keep infinite scroll state in sync reactively
+	$effect(() => {
+		scroll.update((state) => ({
+			...state,
+			hasMore: $contractStore.hasMore
 		}));
 	});
 
@@ -200,11 +226,27 @@
 	}
 
 	function handleClickOutside(event: MouseEvent) {
+		// Only handle clicks when dropdown is open
+		if (!isStatusDropdownOpen) return;
 		const target = event.target as HTMLElement;
 		if (!target.closest('.status-dropdown-container')) {
 			isStatusDropdownOpen = false;
 		}
 	}
+
+	// Handle window clicks for dropdown - use effect to conditionally attach
+	$effect(() => {
+		if (!isStatusDropdownOpen) return;
+		
+		const handler = (event: MouseEvent) => {
+			handleClickOutside(event);
+		};
+		
+		window.addEventListener('click', handler);
+		return () => {
+			window.removeEventListener('click', handler);
+		};
+	});
 </script>
 
 <div class="space-y-6">
@@ -270,6 +312,10 @@
 				<button
 					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
 					onclick={toggleStatusDropdown}
+					aria-expanded={isStatusDropdownOpen}
+					aria-haspopup="true"
+					aria-controls="status-dropdown-menu"
+					aria-label={$t('dashboard.contracts.filter_by_status')}
 				>
 					<div class="flex items-center gap-2">
 						{#each statusFilterOptions as option}
@@ -291,11 +337,16 @@
 
 				{#if isStatusDropdownOpen}
 					<div
+						id="status-dropdown-menu"
+						role="menu"
+						aria-label={$t('dashboard.contracts.status_filter_menu')}
 						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
 						{#each statusFilterOptions as option}
 							{@const IconComponent = option.icon}
 							<button
+								role="menuitemradio"
+								aria-checked={statusFilter === option.id}
 								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {statusFilter ===
 								option.id
 									? 'bg-primary/10 text-primary'
@@ -398,9 +449,9 @@
 		</div>
 	{/if}
 
-	<!-- Contracts List -->
+		<!-- Contracts List -->
 	{#if !$contractStore.isLoading && !$contractStore.error}
-		{#if filteredContracts().length === 0}
+		{#if filteredContracts.length === 0}
 			<div class="py-12 text-center">
 				<div class="mb-4">
 					<svg
@@ -430,7 +481,7 @@
 				</p>
 			</div>
 		{:else}
-			{#each filteredContracts() as contract (contract.escrowData?.id ?? contract.contractEvent.content.escrowId)}
+			{#each filteredContracts as contract (contract.escrowData?.id ?? contract.contractEvent.content.escrowId)}
 				<ContractCard {contract} {btcPrice} />
 			{/each}
 
@@ -445,7 +496,7 @@
 			{/if}
 
 			<!-- End of list indicator -->
-			{#if !$contractStore.hasMore && $contractStore.contracts.length > 0}
+			{#if !$contractStore.hasMore && filteredContracts.length > 0}
 				<div class="text-center">
 					<p class="text-base-content/50 text-sm">
 						{$t('dashboard.contracts.no_more_contracts')}
@@ -454,6 +505,9 @@
 			{/if}
 		{/if}
 	{/if}
+
+	<!-- Infinite Scroll Component -->
+	<InfiniteScroll />
 </div>
 
 <!-- Contract Drawer - DO Not wrap in a condition for animation to work -->
@@ -461,5 +515,3 @@
 
 <!-- Portal target for confirmation modals - outside drawer context -->
 <div use:createPortal={'modals'} style="position: relative; z-index: 9999;"></div>
-
-<svelte:window onclick={handleClickOutside} />

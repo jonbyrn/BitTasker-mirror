@@ -815,12 +815,48 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
                 console.log('Task acceptance transaction confirmed:', receipt);
 
                 if (contractEventId) {
-                    await EscrowNostrEvent.publishEscrowStatus({
-                        escrowId,
-                        contractEventId,
-                        transactionHash: receipt.hash,
-                        status: EscrowStatus.FundsReleased
-                    });
+                    if (import.meta.env.DEV) {
+                        console.log(`[DEBUG] [acceptTask] Publishing FundsReleased event for escrow ${escrowId}`, {
+                            escrowId,
+                            contractEventId,
+                            transactionHash: receipt.hash,
+                            receiptStatus: receipt.status,
+							receiptBlockNumber: receipt.blockNumber,
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                    
+                    try {
+                        await EscrowNostrEvent.publishEscrowStatus({
+                            escrowId,
+                            contractEventId,
+                            transactionHash: receipt.hash,
+                            status: EscrowStatus.FundsReleased
+                        });
+                        
+                        if (import.meta.env.DEV) {
+                            console.log(`[DEBUG] [acceptTask] ✅ FundsReleased event published successfully for escrow ${escrowId}`, {
+                                escrowId,
+                                transactionHash: receipt.hash
+                            });
+                        }
+                    } catch (publishError) {
+                        console.error(`[DEBUG] [acceptTask] ❌ Failed to publish FundsReleased event for escrow ${escrowId}`, {
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            error: publishError instanceof Error ? publishError.message : String(publishError),
+                            errorStack: publishError instanceof Error ? publishError.stack : undefined,
+                            issue: 'FundsReleased event not published - contract will show PendingAcceptance status'
+                        });
+                    }
+                } else {
+                    if (import.meta.env.DEV) {
+                        console.warn(`[DEBUG] [acceptTask] ⚠️ No contractEventId provided, cannot publish FundsReleased event for escrow ${escrowId}`, {
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            issue: 'FundsReleased event will not be published - contract may show incorrect status'
+                        });
+                    }
                 }
             } else {
                 result.status = 'failed';

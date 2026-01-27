@@ -378,7 +378,15 @@
       "title": "Enviar Pago",
       "transaction_sent": "Transacción enviada exitosamente",
       "transaction_sending": "La transacción se está enviando...",
+      "sending_transaction": "Enviando Transacción",
       "transaction_failed": "La transacción falló",
+      "status": {
+        "sending": "Enviando Transacción",
+        "confirming": "Confirmando Transacción",
+        "success": "Transacción Confirmada",
+        "confirmed": "Confirmada",
+        "confirmations": "Confirmaciones"
+      },
       "processing": "Procesando...",
       "processing_transaction": "Procesando transacción...",
       "please_wait": "Por favor espere. Esto puede tomar un momento.",

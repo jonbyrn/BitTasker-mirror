@@ -406,7 +406,15 @@
       "title": "Send Payment",
       "transaction_sent": "Transaction sent successfully",
       "transaction_sending": "Transaction is being sent...",
+      "sending_transaction": "Sending Transaction",
       "transaction_failed": "Transaction failed",
+      "status": {
+        "sending": "Sending Transaction",
+        "confirming": "Confirming Transaction",
+        "success": "Transaction Confirmed",
+        "confirmed": "Confirmed",
+        "confirmations": "Confirmations"
+      },
       "processing": "Processing...",
       "processing_transaction": "Processing transaction...",
       "please_wait": "Please wait. This may take a moment.",
