@@ -16,7 +16,7 @@
 	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
 
 	// Tab configuration - reactive to language changes
-	const tabs = [
+	const tabs = $derived([
 		{ 
 			id: 'tasks', 
 			label: $t('dashboard.tabs.tasks'), 
@@ -46,9 +46,10 @@
 			icon: 'search'
 		}
 		// { id: 'recurring', label: $t('dashboard.tabs.recurring'), buttonLabel: $t('dashboard.create_task'), buttonHref: '/dashboard/create-task', icon: 'plus' }
-	];
+	]);
 	
-	let activeTab = $state(tabs[0]);
+	let activeTabId = $state('tasks');
+	const activeTab = $derived(tabs.find(t => t.id === activeTabId) || tabs[0]);
 
 	// Task drawer state
 	let selectedTask = $state<Task | null>(null);
@@ -60,11 +61,10 @@
 	// Set active tab based on URL param
 	onMount(() => {
 		const tabParam = page.url.searchParams.get('tab');
-		const foundTab = tabs.find(t => t.id === tabParam);
-		if (foundTab) {
-			activeTab = foundTab;
+		if (tabParam && tabs.some(t => t.id === tabParam)) {
+			activeTabId = tabParam;
 		} else {
-			page.url.searchParams.set('tab', activeTab.id);
+			page.url.searchParams.set('tab', activeTabId);
 			goto(page.url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 		}
 	});
@@ -72,17 +72,15 @@
 	// Watch for URL changes and update active tab
 	$effect(() => {
 		const tabParam = page.url.searchParams.get('tab');
-		const foundTab = tabs.find(t => t.id === tabParam);
-		if (foundTab) {
-			activeTab = foundTab;
+		if (tabParam && tabs.some(t => t.id === tabParam)) {
+			activeTabId = tabParam;
 		}
 	});
 
 	// Handle tab change
 	function handleTabChange(tabId: string) {
-		const foundTab = tabs.find(t => t.id === tabId);
-		if (foundTab) {
-			activeTab = foundTab;
+		if (tabs.some(t => t.id === tabId)) {
+			activeTabId = tabId;
 			page.url.searchParams.set('tab', tabId);
 			goto(page.url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 		}
@@ -189,9 +187,9 @@
 	</div>
 
 	<!-- Dashboard Tabs -->
-	<Tabs {tabs} activeTab={activeTab.id} onTabChange={handleTabChange} />
+	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
 
-	{#if activeTab.id === 'tasks'}
+	{#if activeTabId === 'tasks'}
 		<!-- Tasks Panel -->
 		<div
 			id="panel-tasks"
@@ -201,7 +199,7 @@
 		>
 			<DashboardTasksPanel openTaskDrawer={(task, tab = 'details') => setDrawerState(true, task, tab)} />
 		</div>
-	{:else if activeTab.id === 'saved-searches'}
+	{:else if activeTabId === 'saved-searches'}
 		<div
 			id="panel-saved-searches"
 			role="tabpanel"
@@ -210,7 +208,7 @@
 		>
 			<DashboardSavedSearchesPanel />
 		</div>
-	{:else if activeTab.id === 'bids'}
+	{:else if activeTabId === 'bids'}
 		<div
 			id="panel-bids"
 			role="tabpanel"
@@ -219,7 +217,7 @@
 		>
 			<DashboardBidsPanel />
 		</div>
-	{:else if activeTab.id === 'contracts'}
+	{:else if activeTabId === 'contracts'}
 		<div
 			id="panel-contracts"
 			role="tabpanel"
