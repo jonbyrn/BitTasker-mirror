@@ -695,7 +695,7 @@
           "title": "Marcar Tarea como Completada",
           "task_info": "Información de la Tarea",
           "instructions_title": "Subir Evidencia de Completado",
-          "instructions_text": "Por favor sube fotos o videos mostrando que la tarea ha sido completada exitosamente. Esta evidencia será compartida con el tasker.",
+          "instructions_text": "Comparte fotos o video con el Tasker para confirmar tu trabajo",
           "upload_evidence": "Subir Evidencia",
           "upload_placeholder": "Haz clic para subir fotos o videos",
           "upload_limits": "Máx 5 archivos, 10MB cada uno, videos hasta 5 minutos",

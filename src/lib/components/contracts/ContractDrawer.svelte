@@ -145,7 +145,7 @@
 								<UserNostrBadge
 									npub={contractStore.getContractKey($contractStore.contract, 'otherPartyNpub') as string}
 								/>
-								<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0 ml-auto sm:ml-0">
+								<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0 ml-auto">
 									{$t(getStatusTranslationKey($contractStore.contract.status))}
 								</div>
 							</div>
