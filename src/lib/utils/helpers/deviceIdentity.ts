@@ -1,5 +1,6 @@
 import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
+import { nip19 } from 'nostr-tools';
 import { StorageKeys } from '../constants/storage';
 
 /**
@@ -214,4 +215,77 @@ export function createDisplayName(publicKey: string, customName?: string): strin
 	const friendlyId = createUserFriendlyName(publicKey);
 	const date = new Date().toLocaleDateString();
 	return `BitTasker ${friendlyId} (${date})`;
+}
+
+/**
+ * Format passkey name as email-like identifier: <username|displayname|first 6 chars of npub>@bittasker.com
+ * Uses the format but doesn't enforce strict email validation - it's just borrowing the format.
+ * 
+ * @param npub - Nostr public key (hex or npub format)
+ * @param username - Optional username (highest priority)
+ * @param displayName - Optional display name (second priority)
+ * @returns Formatted passkey name in email format (e.g., "John.Doe@bittasker.com")
+ */
+export async function formatPasskeyName(
+	npub: string,
+	username?: string | null,
+	displayName?: string | null
+): Promise<string> {
+	// Validate npub is non-empty and has length > 0
+	if (!npub || npub.length === 0) {
+		// When npub is empty, directly return "Unknown" (no point trying device name)
+		return 'Unknown@bittasker.com';
+	}
+
+	let namePart: string | null = null;
+
+	// Priority 1: Username (keep original case)
+	if (username?.trim()) {
+		namePart = username.trim();
+	} 
+	// Priority 2: Display name (keep original case)
+	else if (displayName?.trim()) {
+		namePart = displayName.trim();
+	} 
+	// Priority 3: First 6 characters of npub
+	else {
+		// Convert hex to npub format if needed
+		if (npub.startsWith('npub')) {
+			const npubShortId = getNpubShortId(npub);
+			if (npubShortId && npubShortId.length > 0) {
+				namePart = npubShortId;
+			} else {
+				// If getNpubShortId returns empty, use slice from npub
+				namePart = npub.length > 10 ? npub.slice(4, 10) : npub.slice(4);
+			}
+		} else {
+			// For hex format, encode it to npub
+			try {
+				const npubFormatted = nip19.npubEncode(npub);
+				const npubShortId = getNpubShortId(npubFormatted);
+				if (npubShortId && npubShortId.length > 0) {
+					namePart = npubShortId;
+				} else {
+					// Fallback: use first 6 chars of hex
+					namePart = npub.length >= 6 ? npub.slice(0, 6) : npub;
+				}
+			} catch {
+				// Fallback: use first 6 chars of hex
+				namePart = npub.length >= 6 ? npub.slice(0, 6) : npub;
+			}
+		}
+	}
+
+	// If we still don't have a valid namePart, fallback to device name
+	if (!namePart || namePart.length === 0) {
+		try {
+			const deviceName = await createUserDeviceShortName(npub);
+			namePart = deviceName;
+		} catch {
+			namePart = 'Unknown';
+		}
+	}
+
+	// Return in email format (no sanitization - keep as is)
+	return `${namePart}@bittasker.com`;
 }

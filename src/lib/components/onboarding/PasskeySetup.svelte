@@ -11,7 +11,8 @@
 	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
 	import {
 		createUserDeviceShortName,
-		getDeviceIdentifier
+		getDeviceIdentifier,
+		formatPasskeyName
 	} from '$lib/utils/helpers/deviceIdentity';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import authService from '$lib/api/services/auth.service';
@@ -89,9 +90,8 @@
 
 			const deviceName = await createUserDeviceShortName(npub);
 
-			// Validate username and provide fallback to deviceName if invalid
-			// This ensures we always have a valid name for the passkey
-			const passkeyName = username?.trim() || deviceName;
+			// Format passkey name as email: <username|displayname|first 6 chars of npub>@bittasker.com
+			const passkeyName = await formatPasskeyName(npub, username);
 
 			// Register device with server using master key
 			// Use username for passkey naming so it appears in password managers
