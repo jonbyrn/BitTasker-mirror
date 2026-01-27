@@ -695,7 +695,7 @@
           "title": "Mark Task as Complete",
           "task_info": "Task Information",
           "instructions_title": "Upload Completion Evidence",
-          "instructions_text": "Please upload photos or videos showing that the task has been completed successfully. This evidence will be shared with the tasker.",
+          "instructions_text": "Share photos or video with the Tasker to confirm your work",
           "upload_evidence": "Upload Evidence",
           "upload_placeholder": "Click to upload photos or videos",
           "upload_limits": "Max 5 files, 10MB each, videos up to 5 minutes",
