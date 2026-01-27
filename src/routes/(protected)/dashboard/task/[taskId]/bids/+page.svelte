@@ -10,7 +10,7 @@
 	import { goto } from '$app/navigation';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDateTime, parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
@@ -642,7 +642,13 @@
 										{$t('bids.estimated_date')}
 									</small>
 									<span class="text-sm font-medium">
-										{formatStandardDateTime(new Date(bidContent.startDateTime), $locale || 'en')} - {formatStandardDateTime(new Date(bidContent.endDateTime), $locale || 'en')}
+										{(() => {
+											const startDate = parseDateWithLocalTime(bidContent.startDateTime);
+											const endDate = parseDateWithLocalTime(bidContent.endDateTime);
+											return startDate && endDate
+												? `${formatStandardDateTime(startDate, $locale || 'en')} - ${formatStandardDateTime(endDate, $locale || 'en')}`
+												: 'N/A';
+										})()}
 									</span>
 									<span class="text-base-content/60 text-xs">
 										({bidContent.estimatedDuration})

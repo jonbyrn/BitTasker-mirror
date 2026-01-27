@@ -365,3 +365,59 @@ export function parseDateToLocalMidnight(dateString: string | null | undefined):
 	console.error('Invalid date string provided to parseDateToLocalMidnight:', dateString);
 	return null;
 }
+
+/**
+ * Serialize a Date object to a string preserving local time (not UTC)
+ * This is used when sending dates through JSON to preserve the user's selected time
+ * Format: "YYYY-MM-DDTHH:mm:ss" (without timezone indicator)
+ * @param date - The Date object to serialize
+ * @returns ISO-like string with local time components (no timezone)
+ */
+export function serializeDateWithLocalTime(date: Date | null | undefined): string | null {
+	if (!date) return null;
+	
+	// Extract local time components to preserve the user's selected time
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(2, '0');
+	const seconds = String(date.getSeconds()).padStart(2, '0');
+	
+	// Return as "YYYY-MM-DDTHH:mm:ss" (no timezone, preserving local time)
+	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * Parse a date string that was serialized with local time (no timezone)
+ * This interprets the string as local time, not UTC
+ * Format: "YYYY-MM-DDTHH:mm:ss" or "YYYY-MM-DDTHH:mm" (without timezone indicator)
+ * @param dateString - The date string to parse (should be in local time format)
+ * @returns Date object representing the local time specified in the string
+ */
+export function parseDateWithLocalTime(dateString: string | null | undefined): Date | null {
+	if (!dateString) return null;
+	
+	// Handle both "YYYY-MM-DDTHH:mm:ss" and "YYYY-MM-DDTHH:mm" formats
+	const dateTimeMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+	
+	if (dateTimeMatch) {
+		const year = parseInt(dateTimeMatch[1], 10);
+		const month = parseInt(dateTimeMatch[2], 10) - 1; // Month is 0-indexed
+		const day = parseInt(dateTimeMatch[3], 10);
+		const hours = parseInt(dateTimeMatch[4], 10);
+		const minutes = parseInt(dateTimeMatch[5], 10);
+		const seconds = dateTimeMatch[6] ? parseInt(dateTimeMatch[6], 10) : 0;
+		
+		if (!isNaN(year) && !isNaN(month) && !isNaN(day) && !isNaN(hours) && !isNaN(minutes)) {
+			// Create Date object using local time components (not UTC)
+			// This preserves the time as the user selected it
+			return new Date(year, month, day, hours, minutes, seconds, 0);
+		}
+	}
+	
+	// Fallback: try standard Date parsing (but this may cause timezone issues)
+	console.warn('Could not parse date with local time format, falling back to standard parsing:', dateString);
+	const parsed = new Date(dateString);
+	return isNaN(parsed.getTime()) ? null : parsed;
+}
