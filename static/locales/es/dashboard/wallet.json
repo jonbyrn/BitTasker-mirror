@@ -379,6 +379,7 @@
       "transaction_sent": "Transacción enviada exitosamente",
       "transaction_sending": "La transacción se está enviando...",
       "sending_transaction": "Enviando Transacción",
+      "can_close_safely": "Puedes cerrar esta pantalla de forma segura y la transacción continuará.",
       "transaction_failed": "La transacción falló",
       "status": {
         "sending": "Enviando Transacción",

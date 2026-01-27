@@ -718,6 +718,13 @@
 			</div>
 		</div>
 
+		<!-- Safe to Close Note -->
+		{#if status === 'sending' || status === 'confirming'}
+			<p class="text-base-content/70 text-center text-sm max-w-md">
+				{$t('wallet.send.can_close_safely')}
+			</p>
+		{/if}
+
 		<!-- Transaction Details Card -->
 		<div class="card bg-base-200 w-full max-w-md p-4 space-y-4">
 			<!-- Amount Display -->
