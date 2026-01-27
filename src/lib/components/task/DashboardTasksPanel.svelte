@@ -8,7 +8,7 @@
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
-	import TaskCard from './TaskCard.svelte';
+	import DashboardTaskCard from './DashboardTaskCard.svelte';
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -328,7 +328,7 @@
 				return [
 					{
 						label: $t('task.actions.view_details'),
-						class: 'btn-primary btn-sm',
+						class: 'btn-outline btn-sm',
 						onclick: (e: any) => {
 							e.stopPropagation();
 							openTaskDrawer(task, 'details');
@@ -337,7 +337,7 @@
 					},
 					{
 						label: $t('task.actions.view_bids'),
-						class: 'btn-outline btn-sm',
+						class: 'btn-primary btn-sm',
 						onclick: (e: any) => {
 							e.stopPropagation();
 							goto(`/dashboard/task/${task.id}/bids`);
@@ -580,7 +580,7 @@
 		{:else}
 			<div class="grid grid-cols-1 gap-5">
 				{#each paginatedTasks as task (task.id)}
-					<TaskCard
+					<DashboardTaskCard
 						{task}
 						{btcPrice}
 						{activeFilter}

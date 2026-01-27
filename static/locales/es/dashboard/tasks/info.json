@@ -26,8 +26,8 @@
         "count": "{count} Ofertas"
       },
       "actions": {
-        "view_details": "Ver Detalles",
-        "view_bids": "Ver Ofertas",
+        "view_details": "Detalles",
+        "view_bids": "Ofertas",
         "mark_as_done": "Marcar como Completado",
         "rescope": "Re-Escopio",
         "edit": "Editar",

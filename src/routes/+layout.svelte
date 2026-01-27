@@ -7,6 +7,7 @@
 	import { devicePlatform } from '$lib/stores/device.store';
 	import TopBar from '$lib/components/TopBar.svelte';
 	import { authState } from '$lib/stores/auth.store';
+	import { user } from '$lib/stores/user.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import {
 		BITTASKER_ORG_JSONLD,
@@ -16,6 +17,7 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
+	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import '../app.css';
 
 	const { children } = $props();
@@ -29,13 +31,11 @@
 	const showTopBar = $derived(!isOnboardingPage);
 	const showFooterSection = $derived(currentPath.includes('/dashboard'));
 	const shouldHideFooterForLoggedInTaskPage = $derived(
-		$authState.isAuthenticated && currentPath.match(/^\/tasks\/[^/]+$/)
+		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/tasks\/[^/]+$/)
 	);
-	const shouldHideFooterForTasksPage = $derived(
-		currentPath === '/tasks'
-	);
+	const shouldHideFooterForTasksPage = $derived(currentPath === '/tasks');
 	const shouldHideFooterForLoggedInNpubPage = $derived(
-		$authState.isAuthenticated && currentPath.match(/^\/npub\/[^/]+$/)
+		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/npub\/[^/]+$/)
 	);
 
 	// Generate breadcrumbs from current path
@@ -79,10 +79,9 @@
 	}
 
 	onMount(() => {
-		// Initialize theme from saved preference
 		initializeTheme();
+		hideSplashScreenWhenReady(300);
 
-		// Setup keyboard helpers for protected routes
 		if (typeof requestIdleCallback !== 'undefined') {
 			requestIdleCallback(() => initializeProtectedRouteHelpers(), { timeout: 2000 });
 		} else {
@@ -92,8 +91,26 @@
 		// Global error handler
 		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
 			const error = event instanceof ErrorEvent ? event.error : event.reason;
+			
+			// Skip logging null/undefined errors (often from third-party libraries like SES)
+			if (error === null || error === undefined) {
+				return;
+			}
+			
+			// Only log meaningful errors
+			const errorMessage = error instanceof Error 
+				? error.message 
+				: typeof error === 'string' 
+					? error 
+					: String(error);
+			
+			// Skip empty or meaningless error messages
+			if (!errorMessage || errorMessage === 'null' || errorMessage === 'undefined') {
+				return;
+			}
+			
 			console.error('[Global Error Handler]:', {
-				error: error instanceof Error ? error.message : String(error),
+				error: errorMessage,
 				stack: error instanceof Error ? error.stack : undefined,
 				type: event instanceof ErrorEvent ? 'error' : 'unhandledrejection',
 				timestamp: new Date().toISOString()
@@ -260,7 +277,7 @@
 			{/if}
 		</div>
 
-		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage}
+		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage}
 			<div class="tasks-page-footer">
 				{#if !$authState.isAuthenticated}
 					<!-- Section 7: Final Call to Action (CTA) -->

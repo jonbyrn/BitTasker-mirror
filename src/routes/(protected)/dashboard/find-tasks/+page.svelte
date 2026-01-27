@@ -12,6 +12,8 @@
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
+	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import {
 		formatStandardDateShort,
 		parseDateToLocalMidnight
@@ -20,6 +22,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
+	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 
 	// Constants
 	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
@@ -44,8 +47,6 @@
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let searchQuery = $state('');
 
-	// Search input focus state for mobile button animation
-	let isSearchFocused = $state(false);
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
@@ -447,35 +448,6 @@
 		}
 	}
 
-	// Get status badge color and text
-	function getStatusBadge(status: TaskStatusEnum): { color: string; text: string } {
-		switch (status) {
-			case TaskStatusEnum.OPEN:
-				return { color: 'badge-success', text: 'OPEN' };
-			case TaskStatusEnum.BID_ACCEPTED:
-				return { color: 'badge-info', text: 'BID ACCEPTED' };
-			case TaskStatusEnum.ESCROW_FUNDED:
-				return { color: 'badge-info', text: 'ESCROW FUNDED' };
-			case TaskStatusEnum.IN_PROGRESS:
-				return { color: 'badge-warning', text: 'IN PROGRESS' };
-			case TaskStatusEnum.RESCOPED:
-				return { color: 'badge-warning', text: 'RESCOPED' };
-			case TaskStatusEnum.RESCOPE_ACCEPTED:
-				return { color: 'badge-info', text: 'RESCOPE ACCEPTED' };
-			case TaskStatusEnum.COMPLETED:
-				return { color: 'badge-success', text: 'COMPLETED' };
-			case TaskStatusEnum.CANCELLED:
-				return { color: 'badge-error', text: 'CANCELLED' };
-			case TaskStatusEnum.REFUNDED:
-				return { color: 'badge-error', text: 'REFUNDED' };
-			case TaskStatusEnum.DISPUTED:
-				return { color: 'badge-error', text: 'DISPUTED' };
-			case TaskStatusEnum.DISPUTE_PROPOSAL:
-				return { color: 'badge-warning', text: 'DISPUTE PROPOSAL' };
-			default:
-				return { color: 'badge-neutral', text: status };
-		}
-	}
 
 	// Setup scroll listeners when taskListRef is available
 	$effect(() => {
@@ -707,7 +679,7 @@
 		style="max-height: 100%;"
 	>
 		<!-- Header row (controls) -->
-		<div class="mb-4 flex flex-nowrap items-center gap-2 md:gap-3">
+		<div class="mb-4 pt-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
 			<!-- Search Input -->
 			<div class="relative flex-1 min-w-0">
 				<input
@@ -717,8 +689,6 @@
 					class:input-warning={searchQuery.length > 0 && searchQuery.length < 3}
 					bind:value={searchQuery}
 					oninput={debouncedSearch}
-					onfocus={() => (isSearchFocused = true)}
-					onblur={() => (isSearchFocused = false)}
 				/>
 				<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 					<svg
@@ -738,25 +708,17 @@
 				</div>
 			</div>
 
-			<!-- Filter Buttons -->
-			<div
-				class="flex items-center shrink-0 transition-all duration-300 ease-in-out"
-				class:gap-1={!isSearchFocused}
-				class:gap-0.5={isSearchFocused}
-				class:md:gap-2={!isSearchFocused}
-				class:md:gap-1={isSearchFocused}
-			>
+			<!-- Buttons: separate row on mobile, same row on tablet+ -->
+			<div class="flex shrink-0 items-center justify-center gap-2 md:justify-end">
 				<!-- Advanced Filters Button -->
 				<button
-					class="btn btn-sm btn-primary search-focus-button transition-all duration-300 ease-in-out"
-					class:search-focused={isSearchFocused}
+					class="btn btn-sm btn-primary"
 					aria-label={$t('find_tasks.filters')}
 					onclick={() => (isFilterDrawerOpen = true)}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4 search-button-icon"
-						class:mr-1={!isSearchFocused}
+						class="h-4 w-4 mr-1"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -768,15 +730,12 @@
 							d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
 						/>
 					</svg>
-					<span class="search-button-text transition-all duration-300 ease-in-out">
-						{$t('find_tasks.filters')}
-					</span>
+					<span>{$t('find_tasks.filters')}</span>
 				</button>
 
 				<!-- Save Button -->
 				<button
-					class="btn btn-sm btn-secondary gap-2 search-focus-button transition-all duration-300 ease-in-out"
-					class:search-focused={isSearchFocused}
+					class="btn btn-sm btn-secondary gap-2"
 					onclick={() => (isSaveSearchOpen = true)}
 					title={$tasksStore.searchParamsKey === ''
 						? $t('find_tasks.save_search_tooltip_disabled')
@@ -784,7 +743,7 @@
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4 search-button-icon"
+						class="h-4 w-4"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -796,22 +755,19 @@
 							d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
 						/>
 					</svg>
-					<span class="search-button-text transition-all duration-300 ease-in-out">
-						{$t('find_tasks.save')}
-					</span>
+					<span>{$t('find_tasks.save')}</span>
 				</button>
 
 				<!-- Map/List Toggle Button (Mobile/Tablet only) -->
 				<button
-					class="btn btn-sm btn-secondary gap-2 lg:hidden search-focus-button transition-all duration-300 ease-in-out"
-					class:search-focused={isSearchFocused}
+					class="btn btn-sm btn-secondary gap-2 lg:hidden"
 					onclick={toggleViewMode}
 					title={viewMode === 'list' ? $t('find_tasks.view_map') : $t('find_tasks.view_list')}
 				>
 					{#if viewMode === 'list'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4 search-button-icon"
+							class="h-4 w-4"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -826,7 +782,7 @@
 					{:else}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4 search-button-icon"
+							class="h-4 w-4"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -839,7 +795,7 @@
 							/>
 						</svg>
 					{/if}
-					<span class="search-button-text transition-all duration-300 ease-in-out">
+					<span>
 						{#if viewMode === 'list'}
 							{$t('find_tasks.map')}
 						{:else}
@@ -922,7 +878,7 @@
 													<div class="flex w-[30%] shrink-0 flex-col items-end justify-between gap-4">
 														{#each [task] as taskItem}
 															{@const statusBadge = getStatusBadge(taskItem.status)}
-															<div class="badge {statusBadge.color} badge-outline badge-sm">
+															<div class="badge {statusBadge.color} badge-sm">
 																{$t(`task.status.${taskItem.status.toLowerCase()}`) ||
 																	statusBadge.text}
 															</div>
@@ -940,73 +896,17 @@
 												<!-- Second Row: Deadline + Location -->
 												<div class="mb-3 flex flex-col gap-3">
 													<!-- Deadline -->
-													{#if task.deadline || task.dateRange}
-														<div class="flex items-center gap-2">
-															<svg
-																xmlns="http://www.w3.org/2000/svg"
-																class="text-primary h-8 w-8 shrink-0"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke="currentColor"
-															>
-																<path
-																	stroke-linecap="round"
-																	stroke-linejoin="round"
-																	stroke-width="2"
-																	d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-																/>
-															</svg>
-															<div class="flex min-w-0 flex-1">
-																{#if task.deadline}
-																	<span class="line-clamp-2 text-sm font-medium">
-																		{formatDateTimeReactive(task.deadline)}
-																	</span>
-																{:else if task.dateRange}
-																	<span class="line-clamp-2 text-sm font-medium">
-																		{formatDateRangeReactive(
-																			task.dateRange.start,
-																			task.dateRange.end
-																		)}
-																	</span>
-																{/if}
-															</div>
-														</div>
-													{/if}
+													<TaskDeadlineDisplay
+														deadline={task.deadline}
+														dateRangeStart={task.dateRange?.start}
+														dateRangeEnd={task.dateRange?.end}
+													/>
 
 													<!-- Location -->
-													<div class="flex items-center gap-2">
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															class="text-primary h-8 w-8 shrink-0"
-															fill="none"
-															viewBox="0 0 24 24"
-															stroke="currentColor"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-															/>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-															/>
-														</svg>
-														<div class="flex min-w-0 flex-1">
-															<span class="line-clamp-2 text-sm font-medium">
-																{#if task.dropOffLocation?.displayName}
-																	{task.dropOffLocation.displayName}
-																{:else if task.pickupLocation?.displayName}
-																	{task.pickupLocation.displayName}
-																{:else}
-																	{$t('dashboard.task_details_by_task.remote')}
-																{/if}
-															</span>
-														</div>
-													</div>
+													<TaskLocationDisplay
+														dropOffLocation={task.dropOffLocation}
+														pickupLocation={task.pickupLocation}
+													/>
 												</div>
 
 												<!-- Bottom Row: Avatar + Action Buttons -->
@@ -1086,9 +986,9 @@
 													</div>
 
 													<!-- Right: Action Buttons -->
-													<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
+													<div class="grid w-full shrink-0 grid-cols-2 gap-2 md:flex md:w-auto md:items-center">
 														<button
-															class="btn btn-primary btn-sm md:flex-none"
+															class="btn btn-primary btn-sm w-full md:w-auto md:flex-none"
 															class:btn-disabled={task.status === TaskStatusEnum.CANCELLED ||
 																task.status === TaskStatusEnum.DISPUTED ||
 																task.status === TaskStatusEnum.COMPLETED ||
@@ -1119,7 +1019,7 @@
 														</button>
 
 														<button
-															class="btn btn-secondary btn-sm md:flex-none flex-1"
+															class="btn btn-secondary btn-sm w-full md:w-auto md:flex-none"
 															onclick={(e) => {
 																e.stopPropagation();
 																// Use uniqueId if available, fallback to id for backward compatibility
@@ -1218,7 +1118,7 @@
 				<!-- Mobile Floating Button - Scroll to Top (only visible on mobile) -->
 				{#if showScrollToTop}
 					<button
-						class="inverted-colors fixed right-4 z-50 flex items-center justify-center rounded-4xl p-3 transition-all duration-200 hover:opacity-70 lg:hidden"
+						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex items-center justify-center rounded-4xl p-3 transition-all duration-300 hover:scale-110 hover:brightness-110 active:scale-95 lg:hidden"
 						style="bottom: var(--app-bottom-fab);"
 						onclick={scrollToTop}
 						title={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
@@ -1359,51 +1259,6 @@
 			margin-bottom: 0 !important;
 		}
 
-		/* Search focus button animation - hide text and shrink on mobile/tablet */
-		.search-focus-button {
-			overflow: hidden;
-			position: relative;
-		}
-
-		.search-focus-button.search-focused {
-			padding-left: 0.5rem;
-			padding-right: 0.5rem;
-			min-width: 2.5rem;
-			width: auto;
-		}
-
-		.search-button-text {
-			display: inline-block;
-			white-space: nowrap;
-			opacity: 1;
-			width: auto;
-			max-width: 200px;
-			will-change: max-width, opacity, margin, padding;
-			transition: 
-				max-width 0.3s ease-in-out,
-				opacity 0.3s ease-in-out,
-				margin 0.3s ease-in-out,
-				padding 0.3s ease-in-out;
-		}
-
-		.search-focus-button.search-focused .search-button-text {
-			max-width: 0;
-			opacity: 0;
-			overflow: hidden;
-			margin-left: 0;
-			margin-right: 0;
-			padding-left: 0;
-			padding-right: 0;
-		}
-
-		.search-button-icon {
-			flex-shrink: 0;
-		}
-
-		/* Reduce gap between buttons when search is focused */
-		.search-focus-button.search-focused + .search-focus-button.search-focused {
-			margin-left: 0.25rem;
-		}
 	}
 
 	/* Desktop: constrain to viewport height with padding */
@@ -1430,10 +1285,10 @@
 	@media (max-width: 1023px) {
 		.task-list-scroll-container {
 			max-height: calc(
-				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 12rem
+				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem
 			);
 			height: calc(
-				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 12rem
+				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem
 			);
 			width: 100%;
 			padding-bottom: 0;
@@ -1450,5 +1305,30 @@
 		.task-list-scroll-container {
 			box-sizing: border-box;
 		}
+	}
+
+	/* Scroll to top button fade-in animation */
+	.scroll-to-top-button {
+		opacity: 0;
+		transform: translateY(10px) scale(0.9);
+		animation: fadeInButton 0.3s ease-out forwards;
+	}
+
+	@keyframes fadeInButton {
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.scroll-to-top-button:hover {
+		opacity: 1;
+		transform: scale(1.1);
+		filter: brightness(1.2);
+	}
+
+	.scroll-to-top-button:active {
+		transform: scale(0.95);
+		opacity: 0.9;
 	}
 </style>

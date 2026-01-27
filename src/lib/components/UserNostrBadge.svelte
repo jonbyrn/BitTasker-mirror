@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
-	import { onMount } from 'svelte';
 
 	const {
 		npub,
@@ -45,11 +44,7 @@
 
 	const config = $derived(sizeConfig[size as keyof typeof sizeConfig]);
 
-	// Load profile on mount
-	onMount(() => {
-		loadProfile();
-	});
-
+	// Load profile reactively when npub changes
 	async function loadProfile() {
 		try {
 			isLoading = true;
@@ -61,6 +56,11 @@
 			isLoading = false;
 		}
 	}
+
+	// React to npub changes using $effect
+	$effect(() => {
+		loadProfile();
+	});
 
 	// Get display name - prioritize username from database over name
 	function getDisplayName(): string {

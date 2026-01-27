@@ -275,6 +275,41 @@
         "faq_escrow_risks": "Riesgos de Nodos:",
         "faq_escrow_risks_desc": "Riesgo de pérdida de fondos si los nodos Lightning se cierran o se desconectan"
       },
+      "secure_payment_contract_modal": {
+        "title": "Contrato de Pago Seguro",
+        "hero_title": "Cómo Funciona Tu Contrato de Pago Seguro",
+        "hero_description": "Tus fondos están bloqueados en un contrato inteligente de blockchain. Solo las reglas del contrato pueden liberarlos—nadie más puede acceder a tu dinero.",
+        "for_taskers_title": "Para Taskers",
+        "for_taskers_locked": "**Fondos bloqueados:** Los fondos permanecen bloqueados hasta que aceptes el trabajo completado.",
+        "for_taskers_review": "**Período de revisión de 7 días:** Tienes 7 días para revisar después de la finalización. Si no respondes, el pago se libera automáticamente.",
+        "for_taskers_grace": "**Período de gracia de 1 hora:** Cancela dentro de 1 hora de la reserva y obtén un reembolso completo automáticamente.",
+        "for_taskers_dispute": "**Derechos de disputa:** Presenta disputas dentro de 7 días de la finalización. Si no se resuelve después de 14 días, obtienes un reembolso completo.",
+        "for_taskers_cancel": "**Cancela en cualquier momento:** Cancela para un reembolso completo en cualquier punto, excepto dentro de 24 horas del tiempo de inicio.",
+        "for_taskers_no_show": "**Protección contra no presentación:** Si el Taskee no comienza a tiempo, márcalo como no presentado. Tienen 24 horas para responder o obtienes un reembolso completo.",
+        "for_taskees_title": "Para Taskees",
+        "for_taskees_guaranteed": "**Pago garantizado:** Una vez que marques el trabajo como completo, el Tasker tiene 7 días para aceptar. Si no responden, se te paga automáticamente después de 7 días.",
+        "for_taskees_upfront": "**Depósitos anticipados:** Puedes solicitar pago parcial por adelantado (reclamable después del período de gracia de 1 hora).",
+        "for_taskees_dispute": "**Derechos de disputa:** Puedes proponer cómo dividir el pago durante las disputas (hasta 2 propuestas).",
+        "for_taskees_refund": "**Reembolso voluntario:** Puedes reembolsar al Tasker en cualquier momento.",
+        "platform_fees_title": "Tarifas de la Plataforma",
+        "platform_fees_both": "**Tarifas:** Ambas partes pagan tarifas a BitTasker cuando el dinero se mueve. Las tarifas se deducen automáticamente, no por adelantado.",
+        "time_limits_title": "Límites de Tiempo Clave",
+        "time_limits_grace": "**Período de gracia de 1 hora:** Cancela gratis dentro de 1 hora de la creación.",
+        "time_limits_cancellation": "**Ventana de cancelación de 24 horas:** Las cancelaciones dentro de 24 horas del tiempo de inicio pueden requerir una tarifa para el Taskee.",
+        "time_limits_review": "**Revisión de finalización de 7 días:** El Tasker tiene 7 días para aceptar o disputar después de que marques como completo.",
+        "time_limits_dispute": "**Resolución de disputa de 14 días:** Si no hay acuerdo después de 14 días, el Tasker obtiene un reembolso completo.",
+        "time_limits_no_show": "**Respuesta de no presentación de 24 horas:** Los Taskees tienen 24 horas para responder a las reclamaciones de no presentación.",
+        "dispute_process_title": "Disputas",
+        "dispute_process_step1": "**Paso 1:** El Tasker presenta una disputa dentro de 7 días de la finalización.",
+        "dispute_process_step2": "**Paso 2:** Cualquier parte puede proponer una división de pago (por ejemplo, 60% para el Taskee, 40% de reembolso para el Tasker).",
+        "dispute_process_step3": "**Paso 3:** La otra parte puede aceptar o contraproponer (hasta 2 propuestas cada uno).",
+        "dispute_process_step4": "**Paso 4:** Si no hay acuerdo después de 14 días, el Tasker obtiene un reembolso completo.",
+        "cancellation_rules_title": "Cancelación",
+        "cancellation_tasker": "**Cancelación del Tasker:** Dentro de 1 hora: Reembolso completo, sin tarifas. Después de 1 hora: Puede aplicarse una tarifa de cancelación. Las cancelaciones dentro de 24 horas del tiempo de inicio pueden requerir una tarifa para el Taskee.",
+        "cancellation_taskee": "**Cancelación del Taskee:** Puede cancelar en cualquier momento; el Tasker obtiene un reembolso completo (sin tarifa de cancelación).",
+        "summary": "**Resumen:** Los fondos están bloqueados por las reglas del contrato. Los límites de tiempo son automáticos. Las tarifas son transparentes. Las disputas tienen negociación justa con reembolsos automáticos si es necesario.",
+        "understand_button": "Entiendo"
+      },
       "error_troubleshooting_modal": {
         "title": "Solución de Problemas de Error",
         "troubleshoot": "Solucionar",
@@ -902,7 +937,8 @@
         },
         "location_picker": {
           "enter_fullscreen": "Pantalla completa",
-          "exit_fullscreen": "Salir de pantalla completa"
+          "exit_fullscreen": "Salir de pantalla completa",
+          "my_location": "Mi Ubicación"
         }
       }
     },

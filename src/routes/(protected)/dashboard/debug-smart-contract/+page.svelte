@@ -4,12 +4,12 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
-	import { escrow } from '$lib/utils/wallet/escrow';
+	import { escrow } from '$lib/utils/escrow/v1/escrow';
 	import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 	import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
 	import type { EscrowData } from '$lib/types/wallet';
 	import type { ContractPermissions } from '$lib/types/contract';
-	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import DebugContractCard from '$lib/components/contracts/DebugContractCard.svelte';
@@ -20,7 +20,6 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	import { RSK_NETWORKS, BSC_NETWORKS } from '$lib/utils/wallet/networkConfig';
 
 	interface ContractWithPermissions extends EscrowData {
 		permissions: ContractPermissions;
