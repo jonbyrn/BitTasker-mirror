@@ -3,13 +3,15 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { formatSats, formatUsd } from '$lib/stores/wallet.store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
-	import { getBlockscoutApiUrl, fetchTransactionStatus as fetchTxStatus, calculateEstimatedTime } from '$lib/utils/wallet/blockscoutTransactionStatus';
-	import { walletManager } from '$lib/stores/wallet.store';
+	// COMMENTED OUT: Unused imports for transaction monitoring
+	// import { getBlockscoutApiUrl, fetchTransactionStatus as fetchTxStatus, calculateEstimatedTime } from '$lib/utils/wallet/blockscoutTransactionStatus';
+	// import { walletManager } from '$lib/stores/wallet.store';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconLoading from '~icons/mdi/loading';
 	import IconClose from '~icons/mdi/close';
-	import IconAlertCircle from '~icons/mdi/alert-circle';
+	// COMMENTED OUT: Unused icon (no longer monitoring for errors)
+	// import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import { fade, scale } from 'svelte/transition';
 
@@ -29,26 +31,13 @@
 	// Transaction status
 	type TransactionStatus = 'sending' | 'confirming' | 'success' | 'error';
 	let status = $state<TransactionStatus>('sending');
-	let confirmations = $state(0);
+	// COMMENTED OUT: Unused variables for transaction monitoring
+	// let confirmations = $state(0);
 	let estimatedTimeRemaining = $state<number | null>(null);
-	let pollingInterval: ReturnType<typeof setInterval> | null = null;
-	let isPolling = $state(false);
-	let errorMessage = $state<string | null>(null);
+	// let pollingInterval: ReturnType<typeof setInterval> | null = null;
+	// let isPolling = $state(false);
+	// let errorMessage = $state<string | null>(null);
 
-	// Debug: Log props to verify they're being passed
-	$effect(() => {
-		console.log('[PendingTransactionScreen] Props updated', {
-			amountSats,
-			amountUSD,
-			address,
-			network,
-			txHash,
-			swapId,
-			hasNetworkOptions: !!networkOptions,
-			networkOptionsKeys: Object.keys(networkOptions),
-			timestamp: new Date().toISOString()
-		});
-	});
 
 	// Get network info
 	const networkInfo = $derived.by(() => {
@@ -85,7 +74,8 @@
 	}
 
 	const explorerUrl = $derived.by(() => getAddressExplorerUrl(address, network));
-	const apiUrl = $derived.by(() => getBlockscoutApiUrl(network));
+	// COMMENTED OUT: Unused API URL for transaction monitoring
+	// const apiUrl = $derived.by(() => getBlockscoutApiUrl(network));
 
 	// Format address (truncate)
 	function formatAddress(address: string): string {
@@ -94,48 +84,31 @@
 	}
 
 
+	// COMMENTED OUT: Transaction monitoring code
 	// Update swap status for lightning transactions
-	async function updateSwapStatus() {
+	/* async function updateSwapStatus() {
 		if (!swapId || network !== 'lightning-bitcoin') return;
 
 		const currentStatusValue: TransactionStatus = status;
 
-		console.log('[PendingTransactionScreen] updateSwapStatus called', {
-			swapId,
-			network,
-			currentStatus: currentStatusValue,
-			timestamp: new Date().toISOString()
-		});
-
 		// Don't poll if already confirmed or error
 		if (currentStatusValue === 'success' || currentStatusValue === 'error') {
-			console.log('[PendingTransactionScreen] Swap already in final state, skipping update');
 			return;
 		}
 
 		if (isPolling) {
-			console.warn('[PendingTransactionScreen] Already polling, skipping update');
 			return;
 		}
 
 		isPolling = true;
-		console.log('[PendingTransactionScreen] Fetching swap status...');
 
 		try {
 			const swap = walletManager.submarineSwapService.getSwap(swapId);
 			
 			if (!swap) {
-				console.warn('[PendingTransactionScreen] Swap not found');
 				isPolling = false;
 				return;
 			}
-
-			console.log('[PendingTransactionScreen] Swap status received', {
-				swapId: swap.id,
-				status: swap.status,
-				lockupTxHash: swap.lockupTxHash,
-				claimTxHash: (swap as any).claimTxHash
-			});
 
 			// Determine status based on swap status
 			let newStatus: TransactionStatus = status;
@@ -146,9 +119,6 @@
 			if (swap.status === 'invoice.paid' || swap.status === 'transaction.claimed') {
 				newStatus = 'success';
 				newEstimatedTime = 0;
-				console.log('[PendingTransactionScreen] Swap completed successfully', {
-					status: swap.status
-				});
 				// Stop polling and countdown
 				if (pollingInterval) {
 					clearInterval(pollingInterval);
@@ -170,10 +140,6 @@
 				} else if (swap.status === 'swap.refunded') {
 					newErrorMessage = $t('wallet.swap.submarine.status.refunded');
 				}
-				console.log('[PendingTransactionScreen] Swap failed', {
-					status: swap.status,
-					errorMessage: newErrorMessage
-				});
 				// Stop polling and countdown
 				if (pollingInterval) {
 					clearInterval(pollingInterval);
@@ -202,10 +168,6 @@
 				} else {
 					newEstimatedTime = 60; // Default estimate
 				}
-				console.log('[PendingTransactionScreen] Swap in progress', {
-					status: swapStatus,
-					estimatedTime: newEstimatedTime
-				});
 			}
 
 			// Update state
@@ -214,18 +176,6 @@
 			const errorChanged = errorMessage !== newErrorMessage;
 
 			if (statusChanged || timeChanged || errorChanged) {
-				console.log('[PendingTransactionScreen] Updating swap state', {
-					statusChanged,
-					oldStatus: status,
-					newStatus,
-					timeChanged,
-					oldTime: estimatedTimeRemaining,
-					newTime: newEstimatedTime,
-					errorChanged,
-					oldError: errorMessage,
-					newError: newErrorMessage
-				});
-
 				status = newStatus;
 				estimatedTimeRemaining = newEstimatedTime;
 				errorMessage = newErrorMessage;
@@ -235,10 +185,10 @@
 		} finally {
 			isPolling = false;
 		}
-	}
+	} */
 
-	// Update transaction status
-	async function updateTransactionStatus() {
+	// COMMENTED OUT: Update transaction status
+	/* async function updateTransactionStatus() {
 		// For lightning, use swap status monitoring instead
 		if (network === 'lightning-bitcoin' && swapId) {
 			await updateSwapStatus();
@@ -247,79 +197,38 @@
 
 		// Capture current status at the start to avoid type narrowing issues
 		const currentStatusValue: TransactionStatus = status;
-		
-		console.log('[PendingTransactionScreen] updateTransactionStatus called', {
-			txHash,
-			apiUrl,
-			network,
-			isPolling,
-			currentStatus: currentStatusValue,
-			currentConfirmations: confirmations,
-			currentEstimatedTime: estimatedTimeRemaining,
-			timestamp: new Date().toISOString()
-		});
 
 		// Don't poll if transaction is already confirmed or errored
 		if (currentStatusValue === 'success' || currentStatusValue === 'error') {
-			console.log('[PendingTransactionScreen] Transaction already in final state, skipping update', {
-				status: currentStatusValue
-			});
 			// Stop polling if still running
 			if (pollingInterval) {
 				clearInterval(pollingInterval);
 				pollingInterval = null;
-				console.log('[PendingTransactionScreen] Polling stopped - transaction in final state');
 			}
 			return;
 		}
 
 		if (!txHash) {
-			console.warn('[PendingTransactionScreen] No txHash provided, skipping update');
 			return;
 		}
 
 		if (!apiUrl) {
-			console.warn('[PendingTransactionScreen] No API URL available, skipping update', {
-				network,
-				hasNetworkInfo: !!networkInfo
-			});
 			return;
 		}
 
 		if (isPolling) {
-			console.warn('[PendingTransactionScreen] Already polling, skipping update');
 			return;
 		}
 
 		isPolling = true;
-		console.log('[PendingTransactionScreen] Starting API fetch...');
 		
-		const fetchStartTime = Date.now();
 		const txData = await fetchTxStatus(txHash, network);
-		const fetchDuration = Date.now() - fetchStartTime;
 		isPolling = false;
 
-		console.log('[PendingTransactionScreen] API fetch completed', {
-			duration: `${fetchDuration}ms`,
-			hasData: !!txData,
-			txData: txData ? {
-				hash: txData.hash,
-				blockNumber: txData.blockNumber,
-				confirmations: txData.confirmations,
-				status: txData.status,
-				timeStamp: txData.timeStamp
-			} : null
-		});
-
 		if (!txData) {
-			console.warn('[PendingTransactionScreen] No transaction data received', {
-				currentStatus: status,
-				willKeepStatus: status === 'sending'
-			});
 			// Transaction not found or API error - keep as "sending"
 			if (status === 'sending') {
 				const fallbackTime = networkInfo?.confirmationTime || 60;
-				console.log('[PendingTransactionScreen] Setting fallback time:', fallbackTime);
 				estimatedTimeRemaining = fallbackTime;
 			}
 			return;
@@ -328,15 +237,6 @@
 		// Update confirmations
 		const oldConfirmations = confirmations;
 		confirmations = txData.confirmations;
-
-		console.log('[PendingTransactionScreen] Processing transaction data', {
-			oldConfirmations,
-			newConfirmations: txData.confirmations,
-			blockNumber: txData.blockNumber,
-			status: txData.status,
-			oldStatus: status,
-			oldEstimatedTime: estimatedTimeRemaining
-		});
 
 		// Determine status based on transaction data
 		let newStatus: TransactionStatus = status as TransactionStatus; // Explicit type to allow all statuses
@@ -353,49 +253,29 @@
 			const blockTime = networkInfo?.confirmationTime || 30;
 			// Estimate: time to get into block + time for first confirmation
 			newEstimatedTime = blockTime + blockTime; // ~60 seconds total
-			console.log('[PendingTransactionScreen] Transaction in mempool', {
-				status: newStatus,
-				estimatedTime: newEstimatedTime,
-				blockTime,
-				calculation: `blockTime (${blockTime}s) + confirmation (${blockTime}s) = ${newEstimatedTime}s`
-			});
 		} else if (txData.status === 0) {
 			// Transaction failed - stop polling and show error
 			newStatus = 'sending'; // Keep as sending for now, could add 'failed' state later
 			newEstimatedTime = 0;
-			console.log('[PendingTransactionScreen] Transaction failed - stopping polling', {
-				status: newStatus,
-				estimatedTime: newEstimatedTime
-			});
 			// Stop polling on error
 			if (pollingInterval) {
 				clearInterval(pollingInterval);
 				pollingInterval = null;
-				console.log('[PendingTransactionScreen] Polling stopped due to transaction error');
 			}
 		} else if (confirmations >= targetConfirmations) {
 			// Transaction has enough confirmations - consider it successful IMMEDIATELY
 			// For Rootstock, 1 confirmation is sufficient
 			newStatus = 'success';
 			newEstimatedTime = 0;
-			console.log('[PendingTransactionScreen] Transaction confirmed - showing success immediately', {
-				status: newStatus,
-				confirmations,
-				targetConfirmations,
-				estimatedTime: newEstimatedTime,
-				isRootstock
-			});
 			// Stop polling once confirmed
 			if (pollingInterval) {
 				clearInterval(pollingInterval);
 				pollingInterval = null;
-				console.log('[PendingTransactionScreen] Polling stopped - transaction confirmed');
 			}
 			// Stop countdown timer as well
 			if (countdownInterval) {
 				clearInterval(countdownInterval);
 				countdownInterval = null;
-				console.log('[PendingTransactionScreen] Countdown stopped - transaction confirmed');
 			}
 		} else {
 			// Transaction in block but not yet confirmed (0 confirmations or status unknown)
@@ -405,16 +285,6 @@
 			// Calculate time needed: (target - current) * blockTime
 			// If we have 0 confirmations and need 1, that's 1 * 30 = 30 seconds
 			newEstimatedTime = calculateEstimatedTime(confirmations, targetConfirmations, blockTime);
-			console.log('[PendingTransactionScreen] Transaction confirming', {
-				status: newStatus,
-				confirmations,
-				targetConfirmations,
-				blockTime,
-				estimatedTime: newEstimatedTime,
-				calculation: `(${targetConfirmations} - ${confirmations}) * ${blockTime}s = ${newEstimatedTime}s`,
-				txStatus: txData.status,
-				isRootstock
-			});
 		}
 
 		// Update state
@@ -429,29 +299,13 @@
 		const errorChanged = errorMessage !== newErrorValue;
 
 		if (statusChanged || timeChanged || confirmationsChanged || errorChanged) {
-			console.log('[PendingTransactionScreen] Updating state', {
-				statusChanged,
-				oldStatus: status,
-				newStatus,
-				timeChanged,
-				oldTime: estimatedTimeRemaining,
-				newTime: newEstimatedTime,
-				confirmationsChanged,
-				oldConfirmations,
-				newConfirmations: confirmations,
-				errorChanged,
-				isErrorStatus
-			});
-
 			status = newStatus;
 			estimatedTimeRemaining = newEstimatedTime;
 			if (isErrorStatus) {
 				errorMessage = newErrorValue;
 			}
-		} else {
-			console.log('[PendingTransactionScreen] No state changes needed');
 		}
-	}
+	} */
 
 	// Derived values for UI
 	const statusConfig = $derived.by(() => {
@@ -477,12 +331,14 @@
 					textColor: 'text-success',
 					title: $t('wallet.send.status.success')
 				};
-			case 'error':
+			// COMMENTED OUT: Error status (no longer monitoring for errors)
+			// Default case to handle any other status (shouldn't happen, but TypeScript needs it)
+			default:
 				return {
-					color: 'error',
-					bgColor: 'bg-error/20',
-					textColor: 'text-error',
-					title: errorMessage || $t('wallet.send.transaction_failed')
+					color: 'primary',
+					bgColor: 'bg-primary/20',
+					textColor: 'text-primary',
+					title: $t('wallet.send.status.sending')
 				};
 		}
 	});
@@ -495,32 +351,16 @@
 
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
-	// Start/restart polling when txHash or swapId becomes valid
-	$effect(() => {
+	// COMMENTED OUT: Start/restart polling when txHash or swapId becomes valid
+	/* $effect(() => {
 		// For lightning, check swapId; for others, check txHash and apiUrl
 		const isLightning = network === 'lightning-bitcoin';
 		const isValidForLightning = isLightning && swapId && txHash && txHash !== 'pending';
 		const isValidForOthers = !isLightning && txHash && txHash !== 'pending' && apiUrl;
 		const shouldPoll = (isValidForLightning || isValidForOthers) && status !== 'success' && status !== 'error';
-		
-		console.log('[PendingTransactionScreen] txHash/swapId effect triggered', {
-			txHash,
-			swapId,
-			network,
-			apiUrl,
-			isLightning,
-			isValidForLightning,
-			isValidForOthers,
-			shouldPoll,
-			hasPollingInterval: !!pollingInterval,
-			hasCountdownInterval: !!countdownInterval,
-			currentStatus: status,
-			timestamp: new Date().toISOString()
-		});
 
 		// Clear existing polling if txHash/swapId changes
 		if (pollingInterval) {
-			console.log('[PendingTransactionScreen] Clearing existing polling interval');
 			clearInterval(pollingInterval);
 			pollingInterval = null;
 		}
@@ -530,17 +370,7 @@
 
 		// Start polling if we have valid data and status is not already success/error
 		if (shouldPoll) {
-			console.log('[PendingTransactionScreen] Starting polling', {
-				txHash,
-				swapId,
-				apiUrl,
-				network,
-				pollInterval: '3000ms',
-				currentStatus: status
-			});
-
 			// Initial fetch immediately
-			console.log('[PendingTransactionScreen] Performing initial fetch...');
 			updateTransactionStatus();
 
 			// Poll every 3 seconds, but only if status is not success/error
@@ -548,9 +378,6 @@
 				// Stop polling if transaction is already confirmed or errored
 				const currentStatus: TransactionStatus = status; // Capture to avoid type narrowing
 				if (currentStatus === 'success' || currentStatus === 'error') {
-					console.log('[PendingTransactionScreen] Polling stopped - transaction in final state', {
-						status: currentStatus
-					});
 					if (pollingInterval) {
 						clearInterval(pollingInterval);
 						pollingInterval = null;
@@ -558,119 +385,60 @@
 					return;
 				}
 				
-				console.log('[PendingTransactionScreen] Polling interval triggered', {
-					timestamp: new Date().toISOString(),
-					currentStatus: status
-				});
 				updateTransactionStatus();
 			}, 3000);
-
-			console.log('[PendingTransactionScreen] Polling interval set', {
-				intervalId: pollingInterval
-			});
-		} else {
-			console.warn('[PendingTransactionScreen] Polling not started', {
-				reason: isLightning 
-					? (!swapId ? 'No swapId' : !txHash || txHash === 'pending' ? 'txHash is pending' : 'Status is final')
-					: (!txHash ? 'No txHash' : txHash === 'pending' ? 'txHash is pending placeholder' : !apiUrl ? 'No API URL' : 'Status is final'),
-				txHash,
-				swapId,
-				apiUrl,
-				network,
-				status
-			});
 		}
 
 		// Cleanup function
 		return () => {
 			if (pollingInterval) {
-				console.log('[PendingTransactionScreen] Cleaning up polling interval from effect');
 				clearInterval(pollingInterval);
 				pollingInterval = null;
 			}
 			if (countdownInterval) {
-				console.log('[PendingTransactionScreen] Cleaning up countdown interval from effect');
 				clearInterval(countdownInterval);
 				countdownInterval = null;
 			}
 		};
-	});
+	}); */
 
 	// Initialize component state
 	onMount(() => {
-		console.log('[PendingTransactionScreen] Component mounted', {
-			txHash,
-			network,
-			apiUrl,
-			hasNetworkInfo: !!networkInfo,
-			networkInfo: networkInfo ? {
-				name: networkInfo.name,
-				confirmationTime: networkInfo.confirmationTime
-			} : null,
-			timestamp: new Date().toISOString()
-		});
-
 		// Initial status
 		status = 'sending';
 		estimatedTimeRemaining = networkInfo?.confirmationTime || 60;
 
-		console.log('[PendingTransactionScreen] Initial state set', {
-			status,
-			estimatedTimeRemaining,
-			txHash,
-			swapId,
-			txHashValid: !!(txHash && txHash !== 'pending'),
-			hasApiUrl: !!apiUrl
-		});
-
-		// Start countdown timer - always runs to show estimated time
-		// The API polling will update estimatedTimeRemaining, and countdown will decrement it
-		console.log('[PendingTransactionScreen] Starting countdown timer');
-		
+		// Start countdown timer - when it reaches 0, show success
 		countdownInterval = setInterval(() => {
-			// Don't countdown if already successful or errored
-			const currentStatus = status; // Capture to avoid type narrowing
-			if (currentStatus === 'success' || currentStatus === 'error') {
+			// Don't countdown if already successful
+			if (status === 'success') {
 				return;
 			}
 			
 			if (estimatedTimeRemaining !== null && estimatedTimeRemaining > 0) {
-				const oldTime = estimatedTimeRemaining;
 				estimatedTimeRemaining = Math.max(0, estimatedTimeRemaining - 1);
-				if (oldTime !== estimatedTimeRemaining && estimatedTimeRemaining % 5 === 0) {
-					// Log every 5 seconds to avoid spam
-					console.log('[PendingTransactionScreen] Countdown updated', {
-						estimatedTimeRemaining,
-						status,
-						confirmations
-					});
+				
+				// When countdown reaches 0, show success
+				if (estimatedTimeRemaining === 0) {
+					status = 'success';
+					if (countdownInterval) {
+						clearInterval(countdownInterval);
+						countdownInterval = null;
+					}
 				}
 			}
 		}, 1000);
-
-		console.log('[PendingTransactionScreen] Countdown interval set', {
-			intervalId: countdownInterval
-		});
 	});
 
 	onDestroy(() => {
-		console.log('[PendingTransactionScreen] Component destroyed', {
-			hasPollingInterval: !!pollingInterval,
-			hasCountdownInterval: !!countdownInterval,
-			finalStatus: status,
-			finalConfirmations: confirmations,
-			finalEstimatedTime: estimatedTimeRemaining
-		});
-
-		if (pollingInterval) {
-			clearInterval(pollingInterval);
-			pollingInterval = null;
-			console.log('[PendingTransactionScreen] Polling interval cleared');
-		}
+		// COMMENTED OUT: Cleanup polling interval (no longer monitoring)
+		// if (pollingInterval) {
+		// 	clearInterval(pollingInterval);
+		// 	pollingInterval = null;
+		// }
 		if (countdownInterval) {
 			clearInterval(countdownInterval);
 			countdownInterval = null;
-			console.log('[PendingTransactionScreen] Countdown interval cleared');
 		}
 	});
 </script>
@@ -690,9 +458,11 @@
 					<IconClockOutline class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
 				{:else if status === 'success'}
 					<IconCheckCircle class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
-				{:else if status === 'error'}
-					<IconAlertCircle class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
 				{/if}
+				<!-- COMMENTED OUT: Error icon (no longer monitoring for errors) -->
+				<!-- {:else if status === 'error'}
+					<IconAlertCircle class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
+				-->
 			</div>
 			<div class="text-center space-y-2">
 				<h3 class="text-xl font-bold sm:text-2xl transition-colors duration-500 {statusConfig.textColor}">
@@ -705,16 +475,8 @@
 					</p>
 				{:else if status === 'success'}
 					<p class="text-base-content/70 text-xs sm:text-sm">{$t('wallet.send.status.confirmed')}</p>
-				{:else if status === 'error'}
-					<p class="text-base-content/70 text-xs sm:text-sm text-error">
-						{errorMessage || $t('wallet.send.transaction_failed')}
-					</p>
 				{/if}
-				{#if confirmations > 0 && network !== 'lightning-bitcoin'}
-					<p class="text-base-content/70 text-xs sm:text-sm">
-						{$t('wallet.send.status.confirmations')}: <span class="font-semibold">{confirmations}</span>
-					</p>
-				{/if}
+				<!-- COMMENTED OUT: Error message and confirmations display (no longer monitoring) -->
 			</div>
 		</div>
 
