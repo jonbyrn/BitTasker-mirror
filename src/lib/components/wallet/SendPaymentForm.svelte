@@ -383,17 +383,9 @@
 				// 1. Amount detected from address, OR
 				// 2. Amount already entered by user (regardless of order)
 				if (parsed.amount !== null && parsed.amount > 0) {
-					console.log('[SendPaymentForm] Address parsed with amount, triggering fee estimation', {
-						amount: parsed.amount,
-						network: parsed.network
-					});
 					await updateFeeEstimate();
 				} else if (amountInSats > 0) {
 					// User entered amount before address - trigger fee estimation now that we have network
-					console.log('[SendPaymentForm] Address parsed, triggering fee estimation for existing amount', {
-						amount: amountInSats,
-						network: parsed.network
-					});
 					await updateFeeEstimate();
 				}
 			} else {
@@ -429,7 +421,6 @@
 					: 0;
 
 		if (amountToUse === 0 || !parsedPayment.detectedNetwork) {
-			console.log('[SendPaymentForm] Skipping fee estimation - missing amount or network');
 			feeState.estimated = null;
 			feeState.error = null;
 			return;
@@ -555,7 +546,6 @@
 								);
 								estimatedGasFee = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
 							} catch (error) {
-								console.warn('Failed to estimate gas for Lightning max calculation:', error);
 								estimatedGasFee = 3000; // Conservative fallback (100 sats)
 							}
 						} else {
@@ -591,7 +581,6 @@
 								fixedFee: estimatedGasFee
 							};
 						} catch (error) {
-							console.warn('Failed to estimate gas for max calculation:', error);
 							feeState.parameters = {
 								fixedFee: 3000 // Conservative fallback
 							};
@@ -683,7 +672,7 @@
 	// Handle max amount click (simplified - single-pass calculation)
 	async function handleMaxAmount() {
 		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0)
-			return console.log('No network or available balance');
+			return;
 
 		feeState.maxCalculation.isLoading = true;
 		triggerHaptic(ImpactStyle.Light);
