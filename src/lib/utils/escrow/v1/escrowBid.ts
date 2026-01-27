@@ -6,11 +6,12 @@ import { FEE_TIERS } from '$lib/utils/wallet/networkConfig';
 import { walletStore } from '$lib/stores/wallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
-import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
-import { escrow } from '$lib/utils/wallet/escrow';
+import { registerPendingContractByTxHash } from '$lib/utils/escrow/v1/escrowEvents';
+import { escrow } from '$lib/utils/escrow/v1/escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { normalizeRskAddress } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
+import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
 export interface BidEscrowDetails {
 	freelancerAddress: string;
@@ -67,9 +68,14 @@ export function calculateBidEscrowDetails(bid: NostrBidContent, task: Task, btcP
 	let completionTime: number | undefined;
 
 	// First check if bid has timing information
+	// Use parseDateWithLocalTime to preserve the user's selected local time
 	if (bid.startDateTime && bid.endDateTime) {
-		startTime = Math.floor(new Date(bid.startDateTime).getTime() / 1000);
-		completionTime = Math.floor(new Date(bid.endDateTime).getTime() / 1000);
+		const startDate = parseDateWithLocalTime(bid.startDateTime);
+		const endDate = parseDateWithLocalTime(bid.endDateTime);
+		if (startDate && endDate) {
+			startTime = Math.floor(startDate.getTime() / 1000);
+			completionTime = Math.floor(endDate.getTime() / 1000);
+		}
 	} else if (task?.dateRange) {
 		// Fallback to task date range
 		startTime = Math.floor(new Date(task.dateRange.start).getTime() / 1000);
@@ -142,14 +148,19 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 /**
  * Validate escrow details before creation
  */
+export interface ValidationWarning {
+	key: string;
+	params?: Record<string, string | number>;
+}
+
 export interface ValidationResult {
 	errors: string[];
-	warnings: string[];
+	warnings: (string | ValidationWarning)[];
 }
 
 export function validateEscrowDetails(details: BidEscrowDetails): ValidationResult {
 	const errors: string[] = [];
-	const warnings: string[] = [];
+	const warnings: (string | ValidationWarning)[] = [];
 
 	// Validate freelancer address
 	if (!details.freelancerAddress) {
@@ -173,18 +184,26 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
 	const now = Math.floor(Date.now() / 1000);
 	const timeDifferenceSeconds = now - details.estimatedStartTime;
 	const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
+	const timeDifferenceHours = Math.floor(timeDifferenceMinutes / 60);
+	const timeDifferenceDays = Math.floor(timeDifferenceHours / 24);
 
 	if (details.estimatedStartTime <= now) {
-		// Check if it's more than 15 minutes past the estimated start time
-		if (timeDifferenceMinutes > 15) {
-			errors.push(`The estimated start time was ${timeDifferenceMinutes} minutes ago. The bid is no longer valid as the Taskee may no longer have this time slot available.`);
-		} else if (timeDifferenceMinutes >= 0) {
-			// Between 0 and 15 minutes past - show warning but allow funding
-			const timeText = timeDifferenceMinutes === 0 
-				? 'just now' 
-				: `${timeDifferenceMinutes} minute${timeDifferenceMinutes !== 1 ? 's' : ''} ago`;
-			warnings.push(`Warning: The estimated start time was ${timeText}. The Taskee may no longer have this time slot available.`);
+		// Show warning for any past start time - tasker should contact taskee to arrange new time
+		let timeText: string;
+		if (timeDifferenceDays > 0) {
+			timeText = `${timeDifferenceDays} day${timeDifferenceDays !== 1 ? 's' : ''} ago`;
+		} else if (timeDifferenceHours > 0) {
+			timeText = `${timeDifferenceHours} hour${timeDifferenceHours !== 1 ? 's' : ''} ago`;
+		} else if (timeDifferenceMinutes > 0) {
+			timeText = `${timeDifferenceMinutes} minute${timeDifferenceMinutes !== 1 ? 's' : ''} ago`;
+		} else {
+			timeText = 'just now';
 		}
+		
+		warnings.push({
+			key: 'dashboard.bids.bid_acceptance.warning.past_start_time',
+			params: { timeText }
+		});
 	}
 
 	if (details.estimatedCompletionTime <= details.estimatedStartTime) {
@@ -203,6 +222,9 @@ export async function acceptBidAndCreateEscrow(
 	btcPrice: number,
 	network: 'RSK' | 'BSC' = 'RSK'
 ): Promise<BidAcceptanceResult> {
+	// Store transaction hash outside try block for cleanup in catch block
+	let transactionHash: string | null = null;
+
 	try {
 		const bidContent = bid.content as unknown as NostrBidContent;
 		const taskContent = JSON.parse(task.content) as Task;
@@ -248,21 +270,22 @@ export async function acceptBidAndCreateEscrow(
 			}
 		}
 
-		// Adjust estimated start time if it's in the past but within 15 minutes
+		// Adjust estimated start time if it's in the past
 		let adjustedStartTime = escrowDetails.estimatedStartTime;
 		let adjustedCompletionTime = escrowDetails.estimatedCompletionTime;
 
 		const now = Math.floor(Date.now() / 1000);
-		const timeDifferenceSeconds = now - escrowDetails.estimatedStartTime;
-		const timeDifferenceMinutes = Math.floor(timeDifferenceSeconds / 60);
 
-		if (escrowDetails.estimatedStartTime <= now && timeDifferenceMinutes <= 15) {
-			// Start time is in the past but within 15 minutes - adjust to 1 minute after current time
-			adjustedStartTime = now + 60; // 1 minute buffer
+		if (escrowDetails.estimatedStartTime <= now) {
+			// Start time is in the past - adjust to current time + 1 hour
+			const newStartTime = now + 3600; // 1 hour buffer
 			
-			// Maintain the same duration by adjusting completion time
-			const originalDuration = escrowDetails.estimatedCompletionTime - escrowDetails.estimatedStartTime;
-			adjustedCompletionTime = now + 60 + originalDuration;
+			// Calculate the time shift (how much later the new start time is compared to original)
+			const timeShift = newStartTime - escrowDetails.estimatedStartTime;
+			
+			// Shift the completion time by the same amount
+			adjustedStartTime = newStartTime;
+			adjustedCompletionTime = escrowDetails.estimatedCompletionTime + timeShift;
 		}
 
 		// Create the escrow using multi-network manager
@@ -275,6 +298,17 @@ export async function acceptBidAndCreateEscrow(
 			escrowDetails.freelancerFeeTier
 		);
 
+		// Validate transaction result and hash before proceeding
+		if (!transactionResult || !transactionResult.hash) {
+			return {
+				success: false,
+				error: 'Transaction failed: Missing transaction hash. Please try again.'
+			};
+		}
+
+		// Store transaction hash for potential cleanup in catch block
+		transactionHash = transactionResult.hash;
+
 		// Register pending contract creation with our event management system
 		registerPendingContractByTxHash({
 			bidEventId: bid.id,
@@ -285,7 +319,7 @@ export async function acceptBidAndCreateEscrow(
 			amount: escrowDetails.baseAmount,
 			estimatedStartTime: adjustedStartTime,
 			estimatedCompletionTime: adjustedCompletionTime,
-			transactionHash: transactionResult.hash
+			transactionHash: transactionHash
 		});
 
 		return {
@@ -295,6 +329,19 @@ export async function acceptBidAndCreateEscrow(
 
 	} catch (error) {
 		console.error('Failed to accept bid and create escrow:', error);
+		
+		// Clean up any pending contracts that might have been registered
+		// If transaction was submitted and registered, we need to clean up by transaction hash
+		if (transactionHash) {
+			try {
+				const { cleanupPendingContractByTxHash } = await import('$lib/utils/escrow/v1/escrowEvents');
+				cleanupPendingContractByTxHash(transactionHash);
+			} catch (cleanupError) {
+				// If cleanup fails, log but don't throw - we're already in error handling
+				console.warn('Failed to cleanup pending contract in catch block:', cleanupError);
+			}
+		}
+		
 		return {
 			success: false,
 			error: extractContractError(error).userMessage

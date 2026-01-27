@@ -8,6 +8,8 @@
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
 	import UserNostrBadge from '../UserNostrBadge.svelte';
+	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
+	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
 
 	const { contract, btcPrice } = $props<{
 		contract: ContractWithEvents;
@@ -93,112 +95,94 @@
 </script>
 
 <div
-	class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg {isBlockchainQueryFailed
+	class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg {isBlockchainQueryFailed
 		? 'pointer-events-none opacity-60'
 		: ''}"
 	class:cursor-not-allowed={isBlockchainQueryFailed}
 >
-	<div class="card-body">
-		<div class="flex flex-col justify-between gap-2">
-				<div class="min-w-0 flex-1">
-					<small class="card-title line-clamp-1 text-lg">
-						<button
-							class="hover:text-primary cursor-pointer text-left transition-colors"
-							onclick={openDrawer}
-						>
-							{contractStore.getContractKey(contract, 'taskTitle')}
-						</button>
-					</small>
-					<div class="text-base-content/60 mt-1 line-clamp-2">
-						{contractStore.getContractKey(contract, 'taskDescription')}
-					</div>
+	<div class="card-body rounded-xl p-4 md:p-4">
+		<!-- Top Row: Title + Description + Badges -->
+		<div class="mb-3 flex flex-row items-start justify-between gap-2">
+			<!-- Left: Title and Description (flexible, takes available space) -->
+			<div class="flex-1 min-w-0 pr-2 md:pr-4">
+				<div class="card-title line-clamp-2 text-lg font-semibold">
+					<button
+						class="hover:text-primary cursor-pointer text-left transition-colors"
+						onclick={openDrawer}
+					>
+						{contractStore.getContractKey(contract, 'taskTitle')}
+					</button>
 				</div>
-
-			<!-- Badges in top right corner -->
-			<div class="sm:ml-4 flex shrink-0 flex-row sm:flex-col items-start sm:items-end gap-2 justify-between sm:justify-center">
-					<div class="flex flex-col sm:flex-row justify-start items-start sm:items-center gap-2">
-						<div class="badge {getStatusColorClass(contract.status)} badge-sm">
-							{#if contract?.isPending}
-								<span class="loading loading-spinner loading-xs mr-1"></span>
-							{/if}
-							{$t(getStatusTranslationKey(contract.status))}
-						</div>
-						<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
-							{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
-						</div>
-						{#if import.meta.env.DEV}
-							<div class="badge badge-error badge-sm">
-								{contract.escrowData?.id}
-							</div>
-						{/if}
-					</div>
-
-					<!-- Price with stacked design -->
-					<div class="text-right">
-						{#if btcPrice > 0}
-							{@const priceData = formatPriceStacked(
-								contractStore.getContractKey(contract, 'amount') as string,
-								btcPrice
-							)}
-							<div class="text-base-content text-lg font-bold">
-								{priceData.usd}
-							</div>
-							<div class="text-base-content/60 text-sm">
-								{priceData.sats}
-							</div>
-						{:else}
-							<div class="text-base-content text-lg font-bold">
-								{formatRBTC(contractStore.getContractKey(contract, 'amount') as string)} RBTC
-							</div>
-						{/if}
-					</div>
-				</div>
-		</div>
-
-		<div class="flex w-full items-center justify-between">
-			<!-- Left: Deadline -->
-			<div class="flex items-center gap-2">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/60 h-6 w-6 shrink-0"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<div class="flex flex-col">
-					<small class="text-base-content/60 text-xs">
-						{$t('dashboard.contracts.deadline')}
-					</small>
-					<span class="text-sm font-medium">
-						{formatDate(contractStore.getContractKey(contract, 'estimatedCompletionTime') as number)}
-					</span>
+				<div class="text-sm text-base-content/80 whitespace-pre-line line-clamp-2 mt-1">
+					{contractStore.getContractKey(contract, 'taskDescription')}
 				</div>
 			</div>
-
-			<!-- Right: Empty space for balance -->
-			<div class=""></div>
+			<!-- Right: Badges -->
+			<div class="flex shrink-0 flex-col items-end self-stretch">
+				<!-- Top row: Role + Dev badge -->
+				<div class="flex flex-wrap justify-end gap-1">
+					<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
+						{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
+					</div>
+					{#if import.meta.env.DEV}
+						<div class="badge badge-error badge-sm">
+							{contract.escrowData?.id}
+						</div>
+					{/if}
+				</div>
+				<!-- Bottom row: Status badge (with min gap from top badges) -->
+				<div class="badge {getStatusColorClass(contract.status)} badge-sm mt-2">
+					{#if contract?.isPending}
+						<span class="loading loading-spinner loading-xs mr-1"></span>
+					{/if}
+					{$t(getStatusTranslationKey(contract.status))}
+				</div>
+			</div>
 		</div>
 
-		<div class="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<!-- Left: User Info aligned with buttons -->
+		<!-- Second Row: Deadline + Location + Price -->
+		<div class="mb-3 flex flex-row items-center justify-between gap-3">
+			<!-- Left: Deadline + Location -->
+			<div class="flex flex-col gap-2 min-w-0 flex-1">
+				<!-- Deadline -->
+				<TaskDeadlineDisplay
+					deadline={contractStore.getContractKey(contract, 'estimatedCompletionTime') as number}
+				/>
+
+				<!-- Location (contracts don't have location data, default to Remote) -->
+				<TaskLocationDisplay />
+			</div>
+
+			<!-- Right: Price -->
+			<div class="text-right shrink-0">
+				{#if btcPrice > 0}
+					{@const priceData = formatPriceStacked(
+						contractStore.getContractKey(contract, 'amount') as string,
+						btcPrice
+					)}
+					<div class="text-2xl font-bold">{priceData.usd}</div>
+					<div class="text-base-content/60 text-base">{priceData.sats}</div>
+				{:else}
+					<div class="text-2xl font-bold">
+						{formatRBTC(contractStore.getContractKey(contract, 'amount') as string)} RBTC
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Bottom Row: User Info + Action Buttons -->
+		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+			<!-- Left: User Info (without role headline) -->
 			<UserNostrBadge
 				npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string}
-				role={contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
 			/>
 
 			<!-- Right: Action Buttons -->
-			<div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:w-auto">
+			<div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:w-auto">
 				{#if getAvailableActionsCount() > 0}
 					<ContractActions
 						{contract}
-						containerClass="flex flex-row-reverse flex-wrap gap-2 w-full sm:w-auto"
+						containerClass="flex flex-col gap-2 sm:flex-row sm:flex-wrap w-full sm:w-auto"
 						isInline={true}
 					/>
 				{/if}

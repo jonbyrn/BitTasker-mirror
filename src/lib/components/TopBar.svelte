@@ -136,10 +136,16 @@
 	}
 
 	// Handle menu item click
-	function handleMenuItemClick(action?: string) {
+	async function handleMenuItemClick(event: MouseEvent, action?: string, href?: string) {
+		event.preventDefault();
+		event.stopPropagation();
 		closeDropdowns();
 		isAvatarDropdownOpen = false;
-		if (action === 'logout') logout();
+		if (action === 'logout') {
+			logout();
+		} else if (href) {
+			await goto(href, { noScroll: false, replaceState: false });
+		}
 	}
 
 	function logout() {
@@ -174,7 +180,7 @@
 		{#if item.action}
 			<!-- Action button (like logout) -->
 			<button
-				onclick={() => handleMenuItemClick(item.action)}
+				onclick={(e) => handleMenuItemClick(e, item.action)}
 				class="flex w-full items-center gap-2 whitespace-nowrap"
 				class:text-error={item.isError}
 			>
@@ -183,9 +189,10 @@
 			</button>
 		{:else}
 			<!-- Regular link -->
+			{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
 			<a
-				href={item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
-				onclick={() => handleMenuItemClick()}
+				href={itemHref}
+				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
 				class="flex items-center gap-2 whitespace-nowrap"
 			>
 				<item.icon class="text-primary" />
@@ -255,7 +262,7 @@
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={isLoggedIn ? '/dashboard/find-tasks' : '/tasks'} class="block">
+		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -316,9 +323,11 @@
 					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</button>
 				{#if isAvatarDropdownOpen}
-					<ul
+					<div
 						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
 						style="transform-origin: top right;"
+						role="menu"
+						tabindex="-1"
 						onclick={(e) => e.stopPropagation()}
 						onkeydown={(e) => {
 							if (e.key === 'Escape') {
@@ -327,22 +336,24 @@
 						}}
 						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 					>
-						<!-- User Info Header -->
-						{#if userDisplayName}
-							<li class="border-b border-base-300 pb-2 mb-2">
-								<button
-									onclick={showNpubQrCode}
-									class="flex w-full items-center gap-2 whitespace-nowrap"
-								>
-									<IconQrcode class="text-primary" />
-									<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
-								</button>
-							</li>
-						{/if}
-						{#each AVATAR_MENU_ITEMS as item}
-							{@render menuItem(item)}
-						{/each}
-					</ul>
+						<ul>
+							<!-- User Info Header -->
+							{#if userDisplayName}
+								<li class="border-b border-base-300 pb-2 mb-2">
+									<button
+										onclick={showNpubQrCode}
+										class="flex w-full items-center gap-2 whitespace-nowrap"
+									>
+										<IconQrcode class="text-primary" />
+										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+									</button>
+								</li>
+							{/if}
+							{#each AVATAR_MENU_ITEMS as item}
+								{@render menuItem(item)}
+							{/each}
+						</ul>
+					</div>
 				{/if}
 			</div>
 		{/if}
@@ -367,8 +378,8 @@
 					<li>
 						{#if item.action}
 							<button
-								onclick={() => {
-									handleMenuItemClick(item.action);
+								onclick={async (e) => {
+									await handleMenuItemClick(e, item.action);
 									closeDrawer();
 								}}
 								class="flex items-center gap-2"
@@ -377,9 +388,10 @@
 								{$t(item.label)}
 							</button>
 						{:else}
+							{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
 							<a
-								href={item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
-								onclick={closeDrawer}
+								href={itemHref}
+								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
 								class="flex items-center gap-2"
 							>
 								<item.icon />
@@ -430,8 +442,12 @@
 <NpubQrCodeModal isOpen={showNpubQrModal} onClose={closeNpubQrModal} />
 
 <style>
+	/* Use SystemBars fallback pattern for safe area insets
+	 * SystemBars injects --safe-area-inset-* variables for Android WebView < 140
+	 * Fallback order: --safe-area-inset-* (SystemBars) -> env() (native) -> 0px
+	 */
 	.pt-safe {
-		padding-top: env(safe-area-inset-top, 0);
+		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 	}
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {

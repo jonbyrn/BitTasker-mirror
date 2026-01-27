@@ -9,8 +9,10 @@
 	import { authState } from '$lib/stores/auth.store';
 	import {
 		createUserDeviceShortName,
-		getDeviceIdentifier
+		getDeviceIdentifier,
+		formatPasskeyName
 	} from '$lib/utils/helpers/deviceIdentity';
+	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 	import {
 		decryptNsecWithBiometrics,
@@ -272,9 +274,22 @@
 			});
 
 			if (res.access_token) {
+				// Fetch display name from Nostr profile for passkey naming
+				let nostrDisplayName: string | undefined;
+				try {
+					// Convert hex npub to npub format for profile fetch
+					const npubFormatted = nip19.npubEncode(npub);
+					const profile = await fetchProfileMetadata(npubFormatted);
+					nostrDisplayName = profile.name?.trim();
+				} catch (err) {
+					console.warn('Could not fetch Nostr profile for passkey name:', err);
+					// Continue without display name
+				}
+				
+				// Format passkey name as email: <username|displayname|first 6 chars of npub>@bittasker.com
+				const passkeyName = await formatPasskeyName(npub, res.user.username, nostrDisplayName);
+				
 				const deviceName = await createUserDeviceShortName(npub);
-				// Use username from response if available, fallback to deviceName
-				const passkeyName = res.user.username?.trim() || deviceName;
 				let credentialId = '';
 
 				// Check if we're in a test environment (E2E tests)
@@ -316,8 +331,9 @@
 					}
 				}
 
-				// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
-				if (!isTestEnvironment) {
+				// Store master key data in biometrics for new users or users who just migrated
+				// Only create passkey if it wasn't already created above
+				if (!isTestEnvironment && !credentialId) {
 					if (authMethods.biometric) {
 						credentialId = await setBiometricKey(
 							npub,
@@ -334,9 +350,12 @@
 					}
 
 					if (!credentialId) throw new Error('Failed to set biometric key');
+				}
 
+				// Register passkey device with backend (only if credentialId was created)
+				if (credentialId && !isTestEnvironment) {
 					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-				} else {
+				} else if (isTestEnvironment) {
 					// In test environments, skip passkey creation to avoid browser prompts
 					console.log('[E2E] Skipping passkey creation in test environment');
 				}
@@ -360,7 +379,7 @@
 					.setupAuthData(res.access_token, 'biometrics', npub, res.user, biometricData, false)
 					.then(() => {
 						if (res.isNewUser) goto('/auth/onboarding');
-						else goto('/dashboard/find-tasks');
+						else goto('/dashboard');
 					});
 			}
 		} catch (err) {
@@ -443,10 +462,10 @@
 				<Logo />
 				<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
 				<br />
-				<p class="text-base-content mb-4 text-center text-base">
+				<p class="text-base-content mb-4 text-center text-sm">
 					{$t('login.subtitle')}
 				</p>
-				<p class="text-base-content text-center text-base">
+				<p class="text-base-content text-center text-sm">
 					{$t('login.passkey_info')}
 				</p>
 			</div>
@@ -483,11 +502,6 @@
 								</svg>
 								{isLoading ? $t('common.processing') + '...' : $t('login.continue_passkey')}
 							</button>
-							{#if authMethods.biometric}
-								<p class="text-base-content/60 text-start text-xs">
-									{$t('login.passkey_description')}: {webAuthnProvider}
-								</p>
-							{/if}
 						</div>
 
 						<button

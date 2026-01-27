@@ -140,8 +140,8 @@
 		if (typeof window !== 'undefined') {
 			sessionStorage.setItem('savedSearchParams', JSON.stringify(search.params));
 		}
-		// Navigate to find-tasks page
-		goto('/dashboard/find-tasks');
+		// Navigate to tasks page
+		goto('/tasks');
 	}
 
 	// Handle keyboard events for accessibility
@@ -236,10 +236,10 @@
 			<p class="mb-4 text-base-content/60">
 				{$t('profile_task.saved_searches_info')}
 			</p>
-			<button
-				class="btn btn-primary gap-2"
-				onclick={() => goto('/dashboard/find-tasks')}
-			>
+		<button
+			class="btn btn-primary gap-2"
+			onclick={() => goto('/tasks')}
+		>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-5 w-5"

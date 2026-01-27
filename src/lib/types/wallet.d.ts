@@ -7,7 +7,7 @@
 
 import type { ethers } from 'ethers';
 import type { SwapPairs, Transaction } from '@bittasker/wallet-core';
-import { EscrowStatus } from "$lib/utils/enums/escrow.enum";
+import { EscrowStatus } from "$lib/utils/escrow/v1/escrow.enum";
 
 export type RSKUnit = 'rbtc' | 'wei';
 export type BSCUnit = 'usdt' | 'wei';

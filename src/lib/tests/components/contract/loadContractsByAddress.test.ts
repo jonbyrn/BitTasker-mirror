@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { EscrowData } from '$lib/types/wallet';
-import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 
 // Mock escrow module before importing loadContractsByAddress
 const mockEnsureEscrowReady = vi.fn();

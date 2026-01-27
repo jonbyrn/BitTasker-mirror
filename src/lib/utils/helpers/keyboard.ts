@@ -38,10 +38,12 @@ export async function setupKeyboardListeners() {
 				Keyboard.addListener('keyboardWillHide', () => {
 					keyboardVisible.set(false);
 					keyboardHeight.set(0);
+					resizeViewport();
 				});
 				Keyboard.addListener('keyboardDidHide', () => {
 					keyboardVisible.set(false);
 					keyboardHeight.set(0);
+					resizeViewport();
 				});
 			}, { timeout: 1000 });
 		} else {
@@ -66,10 +68,12 @@ export async function setupKeyboardListeners() {
 				Keyboard.addListener('keyboardWillHide', () => {
 					keyboardVisible.set(false);
 					keyboardHeight.set(0);
+					resizeViewport();
 				});
 				Keyboard.addListener('keyboardDidHide', () => {
 					keyboardVisible.set(false);
 					keyboardHeight.set(0);
+					resizeViewport();
 				});
 			}, 100);
 		}
@@ -81,6 +85,38 @@ export async function setupKeyboardListeners() {
 function cleanupKeyboardListeners() {
 	if (keyboardShowListener) keyboardShowListener.remove();
 	if (keyboardHideListener) keyboardHideListener.remove();
+}
+
+function resizeViewport() {
+	if (typeof window === 'undefined') return;
+	
+	requestAnimationFrame(() => {
+		window.dispatchEvent(new Event('resize'));
+		
+		const viewport = document.querySelector('meta[name="viewport"]');
+		if (viewport) {
+			const originalContent = viewport.getAttribute('content');
+			viewport.setAttribute('content', originalContent + ', maximum-scale=1.0');
+			setTimeout(() => {
+				if (viewport) {
+					viewport.setAttribute('content', originalContent || '');
+				}
+			}, 100);
+		}
+		
+		const html = document.documentElement;
+		const body = document.body;
+		if (html && body) {
+			const height = window.innerHeight;
+			html.style.height = `${height}px`;
+			body.style.height = `${height}px`;
+			
+			setTimeout(() => {
+				html.style.height = '';
+				body.style.height = '';
+			}, 50);
+		}
+	});
 }
 
 // Utility to scroll an input into view above the keyboard

@@ -53,10 +53,17 @@ export function generateGoogleMapsDirectionsLink(
 	if (options?.origin) {
 		if (options.origin === 'current') {
 			url += '&origin=current+location';
-		} else if ('latitude' in options.origin && 'longitude' in options.origin) {
-			url += `&origin=${options.origin.latitude},${options.origin.longitude}`;
-		} else if (options.origin.latitude && options.origin.longitude) {
-			url += `&origin=${options.origin.latitude},${options.origin.longitude}`;
+		} else {
+			// Type guard: options.origin is now Location | { latitude: number; longitude: number }
+			const origin = options.origin;
+			if ('latitude' in origin && 'longitude' in origin) {
+				const lat = origin.latitude;
+				const lng = origin.longitude;
+				// Handle both Location (which may have null) and coordinate object (which has numbers)
+				if (lat != null && lng != null) {
+					url += `&origin=${lat},${lng}`;
+				}
+			}
 		}
 	} else {
 		// Default to current location
