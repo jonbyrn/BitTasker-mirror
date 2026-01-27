@@ -47,8 +47,15 @@ const config: CapacitorConfig = {
 			resizeOnFullScreen: true
 		},
 		SplashScreen: {
+			launchAutoHide: false,
+			launchShowDuration: 0,
+			backgroundColor: '#FF9315',
+			showSpinner: true,
+			spinnerColor: '#FFFFFF',
 			androidSplashResourceName: 'splash',
-			androidScaleType: 'FIT_CENTER'
+			androidScaleType: 'FIT_CENTER',
+			iosSpinnerStyle: 'small',
+			iosSpinnerColor: '#FFFFFF'
 		},
 		PushNotifications: {
 			presentationOptions: ['badge', 'sound'/* , 'alert' */]
