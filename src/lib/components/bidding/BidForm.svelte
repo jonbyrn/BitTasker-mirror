@@ -15,6 +15,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
 	// Props - Simplified to just task and onClose
 	const { task, onClose, stickySubmit = true } = $props<{
@@ -556,9 +557,9 @@
 				// Add RSK wallet address for escrow funding
 				bidderWalletAddress: rskAddress,
 
-				// Add new datetime fields
-				startDateTime: bidType === 'FIXED' ? startDateTime : null,
-				endDateTime: bidType === 'FIXED' ? endDateTime : null,
+				// Add new datetime fields - serialize with local time to preserve user's selected time
+				startDateTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
+				endDateTime: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
 
 				// Add bid translations
 				...(bidTranslations && { translations: bidTranslations })
