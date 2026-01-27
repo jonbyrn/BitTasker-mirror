@@ -74,6 +74,15 @@
 		if (monitoringInterval) return; // Already monitoring
 
 		monitoringInterval = setInterval(async () => {
+			// Stop polling if already confirmed
+			if (isConfirmed) {
+				if (monitoringInterval) {
+					clearInterval(monitoringInterval);
+					monitoringInterval = null;
+				}
+				return;
+			}
+
 			try {
 				// For RSK transactions, check receipt
 				if (props.network === 'rootstock-bitcoin' || props.network === 'rsk') {
@@ -81,21 +90,36 @@
 					if (provider) {
 						const receipt = await provider.getTransactionReceipt(props.txHash);
 						if (receipt) {
-							isConfirmed = receipt.status === 1;
-							// Get confirmation count by checking current block
-							const currentBlock = await provider.getBlockNumber();
-							confirmationCount = receipt.blockNumber ? currentBlock - receipt.blockNumber + 1 : 0;
-
-							// Stop monitoring after confirmation
-							if (isConfirmed && confirmationCount >= 1) {
+							const receiptStatus = receipt.status === 1;
+							
+							// Check for transaction failure
+							if (receipt.status === 0) {
+								// Transaction failed - stop monitoring
 								if (monitoringInterval) {
 									clearInterval(monitoringInterval);
 									monitoringInterval = null;
 								}
-								triggerHaptic(ImpactStyle.Medium);
-								appStore.showSuccessToast($t('wallet.send.transaction_confirmed'));
-								// Reload assets to update balance
-								await walletManager.loadAssets();
+								// Keep isConfirmed as false to show error state
+								return;
+							}
+							
+							if (receiptStatus) {
+								// Get confirmation count by checking current block
+								const currentBlock = await provider.getBlockNumber();
+								confirmationCount = receipt.blockNumber ? currentBlock - receipt.blockNumber + 1 : 0;
+
+								// Stop monitoring after confirmation
+								if (confirmationCount >= 1) {
+									isConfirmed = true;
+									if (monitoringInterval) {
+										clearInterval(monitoringInterval);
+										monitoringInterval = null;
+									}
+									triggerHaptic(ImpactStyle.Medium);
+									appStore.showSuccessToast($t('wallet.send.transaction_confirmed'));
+									// Reload assets to update balance
+									await walletManager.loadAssets();
+								}
 							}
 						}
 					}
@@ -105,18 +129,33 @@
 					if (provider) {
 						const receipt = await provider.getTransactionReceipt(props.txHash);
 						if (receipt) {
-							isConfirmed = receipt.status === 1;
-							const currentBlock = await provider.getBlockNumber();
-							confirmationCount = receipt.blockNumber ? currentBlock - receipt.blockNumber + 1 : 0;
-
-							if (isConfirmed && confirmationCount >= 1) {
+							const receiptStatus = receipt.status === 1;
+							
+							// Check for transaction failure
+							if (receipt.status === 0) {
+								// Transaction failed - stop monitoring
 								if (monitoringInterval) {
 									clearInterval(monitoringInterval);
 									monitoringInterval = null;
 								}
-								triggerHaptic(ImpactStyle.Medium);
-								appStore.showSuccessToast($t('wallet.send.transaction_confirmed'));
-								await walletManager.loadAssets();
+								// Keep isConfirmed as false to show error state
+								return;
+							}
+							
+							if (receiptStatus) {
+								const currentBlock = await provider.getBlockNumber();
+								confirmationCount = receipt.blockNumber ? currentBlock - receipt.blockNumber + 1 : 0;
+
+								if (confirmationCount >= 1) {
+									isConfirmed = true;
+									if (monitoringInterval) {
+										clearInterval(monitoringInterval);
+										monitoringInterval = null;
+									}
+									triggerHaptic(ImpactStyle.Medium);
+									appStore.showSuccessToast($t('wallet.send.transaction_confirmed'));
+									await walletManager.loadAssets();
+								}
 							}
 						}
 					}

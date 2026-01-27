@@ -173,9 +173,8 @@ export async function setWebBiometricKey(
 		// Handle empty/whitespace-only customName by falling back to public key-based name
 		const validCustomName = customName?.trim() || null;
 		const displayName = validCustomName || createUserFriendlyName(publicKey);
-		const userName = validCustomName
-			? `BitTasker ${validCustomName}`
-			: createDisplayName(publicKey);
+		// Use customName as-is (no prefix) so it appears in password managers
+		const userName = validCustomName || createDisplayName(publicKey);
 
 		// Create registration options
 		// In test environments, use more permissive options to work with virtual authenticators

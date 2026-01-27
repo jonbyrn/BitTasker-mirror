@@ -18,6 +18,7 @@
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import DescriptionAccordion from '$lib/components/wallet/DescriptionAccordion.svelte';
 	import TransactionSuccessScreen from '$lib/components/wallet/TransactionSuccessScreen.svelte';
+	import PendingTransactionScreen from '$lib/components/wallet/PendingTransactionScreen.svelte';
 	import IconClose from '~icons/mdi/close';
 	import IconSend from '~icons/mdi/send';
 	import IconCheck from '~icons/mdi/check';
@@ -155,11 +156,21 @@
 		error: string | null;
 		successTxHash: string | null;
 		successNetwork: string | null;
+		pendingTxHash: string | null;
+		pendingNetwork: string | null;
+		pendingAmount: number | null;
+		pendingAddress: string | null;
+		pendingSwapId: string | null; // For lightning swaps
 	}>({
 		isSending: false,
 		error: null,
 		successTxHash: null,
-		successNetwork: null
+		successNetwork: null,
+		pendingTxHash: null,
+		pendingNetwork: null,
+		pendingAmount: null,
+		pendingAddress: null,
+		pendingSwapId: null
 	});
 
 	// Cached Data
@@ -742,18 +753,24 @@
 	async function handleSend() {
 		if (!isFormValid) return;
 
-		sendState.isSending = true;
+		const recipient = parsedPayment.data?.address || formInput.addressInput.trim();
+		const finalAmount = totalToSend; // Amount including fees
+		const network = parsedPayment.detectedNetwork || 'rootstock-bitcoin';
+
+		if (!recipient || finalAmount <= 0) {
+			throw new Error($t('wallet.send.error.invalid_payment_details'));
+		}
+
+		// Show pending transaction screen immediately (optimistically)
+		// We'll update with txHash once we get it
+		sendState.pendingTxHash = 'pending'; // Temporary value, will be replaced with actual hash
+		sendState.pendingNetwork = network;
+		sendState.pendingAmount = amountInSats;
+		sendState.pendingAddress = recipient;
+		sendState.isSending = false; // Set to false so pending screen shows immediately
 		sendState.error = null;
 
 		try {
-			const recipient = parsedPayment.data?.address || formInput.addressInput.trim();
-			const finalAmount = totalToSend; // Amount including fees
-			const network = parsedPayment.detectedNetwork || 'rootstock-bitcoin';
-
-			if (!recipient || finalAmount <= 0) {
-				throw new Error($t('wallet.send.error.invalid_payment_details'));
-			}
-
 			let txHash: string | null = null;
 
 			if (network === 'lightning-bitcoin') {
@@ -761,18 +778,42 @@
 				const swapResult = await walletManager.createSubmarineSwap(recipient, formInput.memo);
 				const lockResult = await walletManager.lockSubmarineSwapFunds(swapResult.swapData);
 				txHash = lockResult.txHash;
+				
+				// Store pending transaction details immediately and set isSending to false
+				// This will show pending screen instead of loading screen
+				if (txHash) {
+					sendState.pendingTxHash = txHash;
+					sendState.pendingNetwork = network;
+					sendState.pendingAmount = amountInSats;
+					sendState.pendingAddress = recipient;
+					sendState.pendingSwapId = swapResult.swapId; // Store swap ID for monitoring
+					sendState.isSending = false; // Set to false immediately to skip loading screen
+					
+					// Show pending transaction screen
+					appStore.showSuccessToast($t('wallet.send.transaction_sending'));
+					triggerHaptic(ImpactStyle.Medium);
+					
+					// Return early - pending screen will monitor swap status
+					return;
+				}
 			} else if (network === 'rootstock-bitcoin') {
 				// RSK direct send
 				const amountRBTC = amountInSats / 100_000_000;
-				txHash = await walletManager.sendRBTC(recipient, amountRBTC.toFixed(8))
-				// Show immediate feedback and close form
+				txHash = await walletManager.sendRBTC(recipient, amountRBTC.toFixed(8));
+				
+				// Store pending transaction details immediately and set isSending to false
+				// This will show pending screen instead of loading screen
+				sendState.pendingTxHash = txHash;
+				sendState.pendingNetwork = network;
+				sendState.pendingAmount = amountInSats;
+				sendState.pendingAddress = recipient;
+				sendState.isSending = false; // Set to false immediately to skip loading screen
+				
+				// Show pending transaction screen
 				appStore.showSuccessToast($t('wallet.send.transaction_sending'));
 				triggerHaptic(ImpactStyle.Medium);
-
-				// Close the form immediately
-				onCancel();
-
-				// Return early to prevent showing success screen
+				
+				// Return early - pending screen will be shown
 				return;
 			} else if (network === 'liquid-bitcoin') {
 				// Liquid chain swap send
@@ -785,15 +826,30 @@
 				// Convert amount from sats to USDT (assuming 1:1 with USD for simplicity)
 				const usdtAmount = amountInUSD.toFixed(2);
 				txHash = await walletManager.sendBSCUSDT(recipient, usdtAmount);
+				
+				// Store pending transaction details immediately and set isSending to false
+				// This will show pending screen instead of loading screen
+				if (txHash) {
+					sendState.pendingTxHash = txHash;
+					sendState.pendingNetwork = network;
+					sendState.pendingAmount = amountInSats;
+					sendState.pendingAddress = recipient;
+					sendState.isSending = false; // Set to false immediately to skip loading screen
+				}
 			} else {
 				throw new Error($t('wallet.send.network_not_available'));
 			}
 
 			if (txHash) {
-				// Show success screen
-				sendState.successTxHash = txHash;
-				sendState.successNetwork = network;
-				uiState.showSuccessScreen = true;
+				// Store pending transaction details immediately and set isSending to false
+				// This will show pending screen instead of loading screen
+				sendState.pendingTxHash = txHash;
+				sendState.pendingNetwork = network;
+				sendState.pendingAmount = amountInSats;
+				sendState.pendingAddress = recipient;
+				sendState.isSending = false; // Set to false immediately to skip loading screen
+				
+				// Show pending transaction screen
 				triggerHaptic(ImpactStyle.Medium);
 				appStore.showSuccessToast($t('wallet.send.transaction_sent'));
 
@@ -801,12 +857,6 @@
 				if (onSuccess) {
 					onSuccess(txHash, network);
 				}
-
-				// Auto-close modal after showing success for 3 seconds
-				setTimeout(() => {
-					uiState.showSuccessScreen = false;
-					onCancel(); // This closes the parent modal
-				}, 3000);
 			} else {
 				throw new Error($t('wallet.send.transaction_failed'));
 			}
@@ -866,7 +916,45 @@
 </script>
 
 <div class="flex flex-1 flex-col min-h-0">
-	{#if !sendState.isSending}
+	<!-- Pending Transaction Screen (highest priority) -->
+	{#if sendState.pendingTxHash && sendState.pendingNetwork && sendState.pendingAmount !== null && sendState.pendingAddress}
+		<PendingTransactionScreen
+			amountSats={sendState.pendingAmount}
+			amountUSD={amountInUSD}
+			address={sendState.pendingAddress}
+			network={sendState.pendingNetwork}
+			txHash={sendState.pendingTxHash}
+			networkOptions={netwokrOption}
+			swapId={sendState.pendingSwapId}
+			onClose={() => {
+				// Clear pending state
+				sendState.pendingTxHash = null;
+				sendState.pendingNetwork = null;
+				sendState.pendingAmount = null;
+				sendState.pendingAddress = null;
+				sendState.pendingSwapId = null;
+				// Close the form
+				onCancel();
+			}}
+		/>
+
+		<!-- Success Screen -->
+	{:else if sendState.successTxHash && sendState.successNetwork}
+		<div class="bg-base-100 fixed inset-0 z-110 flex flex-col">
+			<TransactionSuccessScreen
+				txHash={sendState.successTxHash}
+				network={sendState.successNetwork}
+				amount={amountInSats}
+				recipient={parsedPayment.data?.address || formInput.addressInput}
+				onClose={() => {
+					uiState.showSuccessScreen = false;
+					onCancel();
+				}}
+			/>
+		</div>
+
+		<!-- Normal Form Content -->
+	{:else}
 		<!-- Tab Navigation (Top) -->
 		<div class="tabs tabs-boxed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4">
 			<button
@@ -1789,42 +1877,6 @@
 			</div>
 		{/if}
 
-		<!-- Loading Overlay (shown while transaction is being sent) -->
-	{:else if !uiState.showSuccessScreen}
-		<div
-			class="flex items-center justify-center"
-			in:fly={{
-				duration: 200,
-				easing: linear,
-				y: 0,
-				x: 20
-			}}
-		>
-			<div class="rounded-lg p-6">
-				<div class="flex flex-col items-center gap-4">
-					<span class="loading loading-spinner loading-lg text-primary"></span>
-					<div class="text-center">
-						<h3 class="text-lg font-semibold">{$t('wallet.send.processing_transaction')}</h3>
-						<p class="text-base-content/70 text-sm">{$t('wallet.send.please_wait')}</p>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Success Screen -->
-	{:else if sendState.successTxHash && sendState.successNetwork}
-		<div class="bg-base-100 fixed inset-0 z-110 flex flex-col">
-			<TransactionSuccessScreen
-				txHash={sendState.successTxHash}
-				network={sendState.successNetwork}
-				amount={amountInSats}
-				recipient={parsedPayment.data?.address || formInput.addressInput}
-				onClose={() => {
-					uiState.showSuccessScreen = false;
-					onCancel();
-				}}
-			/>
-		</div>
 	{/if}
 
 	<!-- Send Confirmation Modal -->

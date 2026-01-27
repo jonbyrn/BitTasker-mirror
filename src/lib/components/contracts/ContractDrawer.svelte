@@ -127,10 +127,11 @@
 					<div class="card-body p-4">
 						<div class="mb-3 flex items-center justify-between gap-2">
 							<h4 class="font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
+							<!-- Right: Role Badge -->
 							<div
 								class="badge {$contractStore.contract.isClient
 									? 'badge-primary'
-									: 'badge-secondary'}"
+									: 'badge-secondary'} shrink-0"
 							>
 								{$contractStore.contract.isClient
 									? $t('dashboard.client')
@@ -139,12 +140,12 @@
 						</div>
 
 						<div class="space-y-3">
-							<!-- Taskee Info + Status Badge -->
-							<div class="flex flex-col items-center gap-2 md:flex-row md:items-center md:justify-between">
+							<!-- Taskee Info + Status Badge - Same row, wraps if needed -->
+							<div class="flex flex-wrap items-center gap-2">
 								<UserNostrBadge
 									npub={contractStore.getContractKey($contractStore.contract, 'otherPartyNpub') as string}
 								/>
-								<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0 md:self-auto">
+								<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0 ml-auto sm:ml-0">
 									{$t(getStatusTranslationKey($contractStore.contract.status))}
 								</div>
 							</div>
