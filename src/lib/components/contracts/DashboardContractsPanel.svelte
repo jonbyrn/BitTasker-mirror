@@ -109,7 +109,62 @@
 	}
 
 	onMount(async () => {
+		const mountStartTime = performance.now();
+		console.log('[DEBUG] [DashboardContractsPanel] onMount - Starting contract load', {
+			timestamp: new Date().toISOString()
+		});
+
+		// Ensure wallet is initialized BEFORE loading contracts
+		try {
+			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
+			const { get } = await import('svelte/store');
+			let walletState = get(walletStore);
+			
+			console.log('[DEBUG] [DashboardContractsPanel] Wallet state before initialization check', {
+				isConnected: walletState.isConnected,
+				isInitializing: walletState.isInitializing,
+				hasRSKWallet: !!walletState.rsk?.wallet,
+				hasRSKProvider: !!walletState.rsk?.provider,
+				rskConnected: walletState.rsk?.connected,
+				rskAddress: walletState.rsk?.address,
+				timestamp: new Date().toISOString()
+			});
+
+			// Wait for wallet initialization if not already initialized
+			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
+				console.log('[DEBUG] [DashboardContractsPanel] Wallet not ready, initializing...');
+				const walletInitStartTime = performance.now();
+				await walletManager.initialize();
+				const walletInitDuration = performance.now() - walletInitStartTime;
+				
+				// Re-check wallet state after initialization
+				walletState = get(walletStore);
+				console.log('[DEBUG] [DashboardContractsPanel] Wallet initialization completed', {
+					isConnected: walletState.isConnected,
+					hasRSKWallet: !!walletState.rsk?.wallet,
+					hasRSKProvider: !!walletState.rsk?.provider,
+					rskConnected: walletState.rsk?.connected,
+					initDurationMs: walletInitDuration.toFixed(2)
+				});
+			} else {
+				console.log('[DEBUG] [DashboardContractsPanel] Wallet already initialized');
+			}
+		} catch (walletStateError) {
+			console.error('[DEBUG] [DashboardContractsPanel] Failed to initialize wallet:', walletStateError);
+			// Continue anyway - contracts will handle wallet initialization individually
+		}
+
+		const loadStartTime = performance.now();
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
+		const loadDuration = performance.now() - loadStartTime;
+		const totalMountDuration = performance.now() - mountStartTime;
+
+		console.log('[DEBUG] [DashboardContractsPanel] Contract load completed', {
+			loadDurationMs: loadDuration.toFixed(2),
+			totalMountDurationMs: totalMountDuration.toFixed(2),
+			contractCount: $contractStore.contracts.length,
+			timestamp: new Date().toISOString()
+		});
 
 		// Configure infinite scroll
 		scroll.update((state) => ({
@@ -375,7 +430,7 @@
 				</p>
 			</div>
 		{:else}
-			{#each filteredContracts() as contract, index (index)}
+			{#each filteredContracts() as contract (contract.escrowData?.id ?? contract.contractEvent.content.escrowId)}
 				<ContractCard {contract} {btcPrice} />
 			{/each}
 

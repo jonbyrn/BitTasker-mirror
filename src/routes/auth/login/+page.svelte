@@ -462,10 +462,10 @@
 				<Logo />
 				<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
 				<br />
-				<p class="text-base-content mb-4 text-center text-base">
+				<p class="text-base-content mb-4 text-center text-sm">
 					{$t('login.subtitle')}
 				</p>
-				<p class="text-base-content text-center text-base">
+				<p class="text-base-content text-center text-sm">
 					{$t('login.passkey_info')}
 				</p>
 			</div>
@@ -481,12 +481,6 @@
 						}}
 					>
 						<div class="flex flex-col gap-2">
-							<p class="text-base-content text-sm">
-								{$t('login.passkey_paragraph_1')}
-							</p>
-							<p class="text-base-content text-sm">
-								{$t('login.passkey_paragraph_2')}
-							</p>
 							<button
 								class="btn btn-primary"
 								onclick={() => authenticate('passkey')}
