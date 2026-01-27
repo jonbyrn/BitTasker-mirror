@@ -17,38 +17,29 @@
 
 	let { direction } = $props();
 
-	// Convert category IDs to translated names for display
-	let translatedCategories = $state<string[]>([]);
-	let lastCategories = $state<(string | any)[]>([]);
-	let lastLanguage = $state('');
-	
-	$effect(() => {
+	// Helper function to translate a single category
+	function translateCategory(category: string | any): string {
 		try {
-			// Only update if categories or language has changed to prevent excessive re-renders
-			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
-			const currentCategories = $store.task.categories;
-			
-			if (JSON.stringify(currentCategories) !== JSON.stringify(lastCategories) || 
-				currentLanguage !== lastLanguage) {
-				lastCategories = [...currentCategories];
-				lastLanguage = currentLanguage;
-				
-				translatedCategories = currentCategories.map(category => {
-					// Extract ID from category (handle both string and object)
-					const categoryId = typeof category === 'string' ? category : (category as any).id;
-					const categoryObj = TASK_CATEGORIES.find(cat => cat.id === categoryId);
-					if (categoryObj) {
-						const translatedName = $t(`categories.${categoryObj.id}.name`);
-						// Fallback to category.name if translation key is returned (translation not loaded)
-						return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
-					}
-					return categoryId;
-				});
+			// Extract ID from category (handle both string and object)
+			const categoryId = typeof category === 'string' ? category : (category as any).id;
+			const categoryObj = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+			if (categoryObj) {
+				// Use slug for translation key (as defined in translation files)
+				const translatedName = $t(`categories.${categoryObj.slug}.name`);
+				// Fallback to category.name if translation key is returned (translation not loaded)
+				return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
 			}
+			return categoryId;
 		} catch (error) {
-			console.error('Error updating translated categories:', error);
+			console.error('Error translating category:', error);
+			return typeof category === 'string' ? category : (category as any).id || '';
 		}
-	});
+	}
+
+	// Convert category IDs to translated names for display (reactive)
+	let translatedCategories = $derived(
+		$store.task.categories.map(translateCategory)
+	);
 
 	// TODO: Refactor by adding to app store global state
 	/**

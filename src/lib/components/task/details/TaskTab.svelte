@@ -17,6 +17,7 @@
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import TaskShareButton from '../TaskShareButton.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
 
@@ -52,6 +53,30 @@
 		const urlLower = url.toLowerCase();
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
+
+	// Helper function to translate a single category
+	function translateCategory(category: string | any): string {
+		try {
+			// Extract ID from category (handle both string and object)
+			const categoryId = typeof category === 'string' ? category : (category as any).id;
+			const categoryObj = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+			if (categoryObj) {
+				// Use slug for translation key (as defined in translation files)
+				const translatedName = $t(`categories.${categoryObj.slug}.name`);
+				// Fallback to category.name if translation key is returned (translation not loaded)
+				return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
+			}
+			return categoryId;
+		} catch (error) {
+			console.error('Error translating category:', error);
+			return typeof category === 'string' ? category : (category as any).id || '';
+		}
+	}
+
+	// Convert category IDs to translated names for display (reactive)
+	let translatedCategories = $derived(
+		task?.categories?.map(translateCategory) || []
+	);
 	
 	// Prepare gallery images for PhotoSwipe lightbox
 	// Note: attachment.url is the full-size/original image URL
@@ -344,9 +369,9 @@
 				{$t('dashboard.task_details_by_task.categories')}
 			</small>
 			<div class="flex flex-wrap gap-1">
-				{#each task.categories as category}
+				{#each translatedCategories as category}
 					<span class="badge badge-outline badge-info pb-[2px]">
-						{typeof category === 'string' ? category : category.name}
+						{category}
 					</span>
 				{/each}
 			</div>
@@ -527,7 +552,7 @@
 	<div
 		bind:this={lightboxContainer}
 		use:portalToBody
-		class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90"
+		class="fixed inset-0 z-9999 flex items-center justify-center bg-black/90"
 		style="position: fixed; top: 0; left: 0; right: 0; bottom: 0;"
 		onclick={closeVideoLightbox}
 		onkeydown={(e) => {
