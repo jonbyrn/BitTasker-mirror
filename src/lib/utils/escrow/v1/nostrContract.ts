@@ -217,6 +217,28 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				let isPending = false;
 				let disputeProposal: DisputeProposal | null = null;
 
+				// Debug: Check wallet state before blockchain check
+				const blockchainCheckStartTime = performance.now();
+				let walletStateBeforeCheck: { hasWallet: boolean; hasProvider: boolean; isConnected: boolean } | null = null;
+				try {
+					const { walletStore } = await import('$lib/stores/wallet.store');
+					const { get } = await import('svelte/store');
+					const state = get(walletStore);
+					walletStateBeforeCheck = {
+						hasWallet: !!state.rsk?.wallet,
+						hasProvider: !!state.rsk?.provider,
+						isConnected: state.rsk?.connected || false
+					};
+					console.log(`[DEBUG] [getContracts] Checking blockchain for escrow ${contractEvent.content.escrowId}`, {
+						escrowId: contractEvent.content.escrowId,
+						hasTransactionHash: !!contractEvent.content.transactionHash,
+						walletState: walletStateBeforeCheck,
+						timestamp: new Date().toISOString()
+					});
+				} catch (walletStateError) {
+					console.warn('[DEBUG] [getContracts] Failed to check wallet state:', walletStateError);
+				}
+
 				try {
 					// Check if contract address differs from current environment
 					const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
@@ -231,9 +253,16 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 						: undefined;
 
 					escrowData = await escrow.getEscrow(contractEvent.content.escrowId, contractAddress);
+					const blockchainCheckDuration = performance.now() - blockchainCheckStartTime;
 
 					if (escrowData) {
 						blockchainStatus = escrowData.status;
+						console.log(`[DEBUG] [getContracts] ✅ Blockchain check succeeded for escrow ${contractEvent.content.escrowId}`, {
+							escrowId: contractEvent.content.escrowId,
+							blockchainStatus,
+							durationMs: blockchainCheckDuration.toFixed(2),
+							walletState: walletStateBeforeCheck
+						});
 
 						// Fetch dispute proposal if in dispute
 						if (blockchainStatus === EscrowStatus.InDispute) {
@@ -251,10 +280,65 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 						}
 					}
 				} catch (escrowError) {
-					console.warn(`Escrow not found: ${contractEvent.content.escrowId}`);
-					// Check if there's a transactionHash in Nostr - indicates pending funding
-					if (contractEvent.content.transactionHash) {
+					const blockchainCheckDuration = performance.now() - blockchainCheckStartTime;
+					const errorMessage = escrowError instanceof Error ? escrowError.message : String(escrowError);
+					const errorStack = escrowError instanceof Error ? escrowError.stack : undefined;
+					
+					// Determine error type
+					const isWalletError = errorMessage.includes('wallet') || 
+					                     errorMessage.includes('Failed to initialize') ||
+					                     errorMessage.includes('not initialized') ||
+					                     errorMessage.includes('not connected');
+					const isProviderError = errorMessage.includes('provider') || 
+					                       errorMessage.includes('Failed to get provider') ||
+					                       errorMessage.includes('provider destroyed');
+					const isContractError = errorMessage.includes('contract') || 
+					                       errorMessage.includes('Failed to connect');
+					const isNetworkError = errorMessage.includes('network') || 
+					                      errorMessage.includes('timeout') ||
+					                      errorMessage.includes('connection') ||
+					                      errorMessage.includes('fetch');
+					const isEscrowNotFound = errorMessage.includes('not found') || 
+					                        errorMessage.includes('does not exist') ||
+					                        (errorMessage.includes('execution reverted') && 
+					                         !isProviderError && !isWalletError && !isContractError);
+
+					const errorType = isWalletError ? 'WALLET_ERROR' : 
+					                 isProviderError ? 'PROVIDER_ERROR' :
+					                 isContractError ? 'CONTRACT_ERROR' :
+					                 isNetworkError ? 'NETWORK_ERROR' :
+					                 isEscrowNotFound ? 'ESCROW_NOT_FOUND' : 'UNKNOWN_ERROR';
+
+					console.error(`[DEBUG] [getContracts] ❌ Blockchain check failed for escrow ${contractEvent.content.escrowId}`, {
+						escrowId: contractEvent.content.escrowId,
+						errorMessage,
+						errorType,
+						durationMs: blockchainCheckDuration.toFixed(2),
+						walletState: walletStateBeforeCheck,
+						hasTransactionHash: !!contractEvent.content.transactionHash,
+						errorStack: errorStack?.split('\n').slice(0, 5).join('\n') // First 5 lines of stack
+					});
+
+					// Only set isPending=true for legitimate "escrow not found" errors
+					// Don't set it for wallet/provider/contract errors - these are infrastructure issues
+					if (isEscrowNotFound && contractEvent.content.transactionHash) {
 						isPending = true;
+						console.warn(`[DEBUG] [getContracts] ⚠️ Setting isPending=true for escrow ${contractEvent.content.escrowId} (escrow not found with transactionHash)`, {
+							escrowId: contractEvent.content.escrowId,
+							transactionHash: contractEvent.content.transactionHash,
+							errorType: 'ESCROW_NOT_FOUND'
+						});
+					} else if (isWalletError || isProviderError || isContractError) {
+						// For infrastructure errors, don't set isPending - these should be retried
+						console.warn(`[DEBUG] [getContracts] ⚠️ Infrastructure error for escrow ${contractEvent.content.escrowId} - NOT setting isPending, skipping contract`, {
+							escrowId: contractEvent.content.escrowId,
+							errorType,
+							hasTransactionHash: !!contractEvent.content.transactionHash,
+							reason: 'Infrastructure error - will retry on next load'
+						});
+						// Skip this contract - don't create it with invalid state
+						// The contract will be retried on next load or via subscription
+						continue; // Skip to next contract in the loop
 					}
 				}
 
@@ -276,12 +360,51 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					.find(e => e.content.completionAttachments)
 					?.content.completionAttachments || null;
 
+				// Skip contracts with null escrowData - these are infrastructure errors that should be retried
+				// Only create contracts with valid escrowData OR legitimate pending state (escrow not found with transactionHash)
+				if (!escrowData && !isPending) {
+					console.warn(`[DEBUG] [getContracts] ⚠️ Skipping contract ${contractEvent.content.escrowId} - escrowData is null and not pending`, {
+						escrowId: contractEvent.content.escrowId,
+						blockchainStatus,
+						hasTransactionHash: !!contractEvent.content.transactionHash,
+						reason: 'Infrastructure error - will retry on next load'
+					});
+					continue; // Skip to next contract in the loop
+				}
+
+				// For pending contracts (escrow not found but has transactionHash), create a minimal escrowData placeholder
+				if (!escrowData && isPending) {
+					console.warn(`[DEBUG] [getContracts] ⚠️ Creating contract ${contractEvent.content.escrowId} with placeholder escrowData (pending funding)`, {
+						escrowId: contractEvent.content.escrowId,
+						transactionHash: contractEvent.content.transactionHash
+					});
+					// Create minimal placeholder escrowData for pending contracts
+					escrowData = {
+						id: contractEvent.content.escrowId,
+						client: contractEvent.content.clientPubkey || '',
+						freelancer: contractEvent.content.freelancerPubkey || '',
+						baseAmount: contractEvent.content.amount || '0',
+						clientFee: '0',
+						freelancerFee: '0',
+						totalAmount: contractEvent.content.amount || '0',
+						status: EscrowStatus.PendingFunding,
+						estimatedStartTime: contractEvent.content.estimatedStartTime || 0,
+						estimatedCompletionTime: contractEvent.content.estimatedCompletionTime || 0,
+						completionTime: 0,
+						timelockExpiry: 0,
+						clientFeeTier: 'standard' as const,
+						freelancerFeeTier: 'standard' as const,
+						createdAt: contractEvent.created_at * 1000,
+						lastUpdated: Date.now()
+					};
+				}
+
 				contractsWithStatuses.push({
 					contractEvent,
 					statusEvents: statusEvents || [],
 					isClient,
 					blockchainStatus,
-					escrowData: escrowData!,
+					escrowData: escrowData, // Now guaranteed to be non-null
 					status,
 					isPending,
 					permissions,

@@ -436,6 +436,25 @@
 		return Object.keys(errors).length === 0;
 	}
 
+	// Helper function to get the first validation error message
+	function getFirstValidationError(): string | null {
+		// Priority order: general error first, then field errors in order of importance
+		if (bidFormErrors.general) {
+			return bidFormErrors.general;
+		}
+
+		// Check field errors in priority order
+		const errorFields = ['amount', 'hourlyRate', 'estimatedHours', 'datetime', 'description', 'proposedApproach', 'coverLetter'];
+		
+		for (const field of errorFields) {
+			if (bidFormErrors[field] && bidFormErrors[field].trim() !== '') {
+				return bidFormErrors[field];
+			}
+		}
+
+		return null;
+	}
+
 	// Helper function to format duration for display (reactive)
 	const formatDurationForDisplay = $derived.by(() => {
 		if (bidType === 'FIXED' && startDateTime && endDateTime) {
@@ -484,7 +503,15 @@
 	async function handleBidSubmit(e: Event) {
 		e.preventDefault();
 
-		if (!validateBidForm()) return;
+		// Clear general error before validation
+		if (bidFormErrors.general) {
+			bidFormErrors = { ...bidFormErrors, general: '' };
+		}
+
+		if (!validateBidForm()) {
+			// Validation failed - errors are already set in bidFormErrors
+			return;
+		}
 
 		submittingBid = true;
 
@@ -995,9 +1022,9 @@
 					? 'sticky bottom-0 z-50'
 					: 'mt-auto'}"
 			>
-				{#if bidFormErrors.general}
-					<div class="alert alert-error alert-outline mb-4 wrap-break-words">
-						<span class="wrap-break-words">{bidFormErrors.general}</span>
+				{#if getFirstValidationError()}
+					<div class="alert alert-outline alert-error mb-4">
+						<span>{getFirstValidationError()}</span>
 					</div>
 				{/if}
 				<button
