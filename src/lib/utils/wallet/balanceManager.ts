@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { walletStore, getWallet, getProvider } from '$lib/stores/wallet.store';
-import { getUSDTToken, ERC20_ABI } from './networkConfig';
+import { getUSDTToken, ERC20_ABI } from '@bittasker/wallet-core';
 
 /**
  * Update BSC wallet balances (BNB and USDT)
@@ -17,8 +17,7 @@ export async function updateBSCBalances(): Promise<void> {
         const formattedBnb = ethers.formatEther(bnbBalance);
 
         // Get USDT contract and balance
-        const network = import.meta.env.VITE_BSC_NETWORK || 'testnet';
-        const usdtToken = getUSDTToken(network);
+        const usdtToken = getUSDTToken();
 
         if (!usdtToken) {
             throw new Error('USDT token not found');

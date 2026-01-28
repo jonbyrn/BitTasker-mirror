@@ -1,35 +1,16 @@
 import type { Task } from '$lib/types/task';
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
-import type { ContractTransactionResult } from '$lib/types/wallet';
-import type { FeeTier } from '$lib/utils/wallet/networkConfig';
-import { FEE_TIERS } from '$lib/utils/wallet/networkConfig';
+import type { BidAcceptanceResult, BidEscrowDetails } from '$lib/types/wallet';
+import { type FeeTier, FEE_TIERS } from '@bittasker/wallet-core';
 import { walletStore } from '$lib/stores/wallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
-import { registerPendingContractByTxHash } from '$lib/utils/escrow/v1/escrowEvents';
-import { escrow } from '$lib/utils/escrow/v1/escrow';
+import { cleanupPendingContractByTxHash, registerPendingContractByTxHash } from './escrowEvents';
+import { escrow } from './escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { normalizeRskAddress } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
-
-export interface BidEscrowDetails {
-	freelancerAddress: string;
-	baseAmount: string;
-	totalAmount: string;
-	clientFee: string;
-	freelancerFee: string;
-	estimatedStartTime: number;
-	estimatedCompletionTime: number;
-	clientFeeTier: FeeTier;
-	freelancerFeeTier: FeeTier;
-}
-
-export interface BidAcceptanceResult {
-	success: boolean;
-	transactionResult?: ContractTransactionResult;
-	error?: string;
-}
 
 /**
  * Calculate escrow details from bid data
@@ -108,10 +89,10 @@ export function calculateBidEscrowDetails(bid: NostrBidContent, task: Task, btcP
  */
 export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 	const errors: string[] = [];
-	
+
 	// Get current wallet state
 	const walletState = get(walletStore);
-	
+
 	if (!walletState.rsk.connected || !walletState.rsk.balance) {
 		errors.push('RSK wallet not connected. Please connect your wallet to check balance.');
 		return errors;
@@ -121,20 +102,20 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 		// Parse current balance (in wei) and required amount
 		const currentBalanceWei = BigInt(walletState.rsk.balance);
 		const requiredAmountWei = ethers.parseEther(details.totalAmount);
-		
+
 		// Estimate gas cost (approximate)
 		const estimatedGasLimit = BigInt(150000); // Conservative estimate for escrow creation
 		const estimatedGasPrice = BigInt(65164000); // 0.065164 gwei (typical RSK gas price)
 		const estimatedGasCost = estimatedGasLimit * estimatedGasPrice;
-		
+
 		// Total required = escrow amount + gas fees
 		const totalRequired = requiredAmountWei + estimatedGasCost;
-		
+
 		if (currentBalanceWei < totalRequired) {
 			const currentBalanceRBTC = ethers.formatEther(currentBalanceWei);
 			const requiredRBTC = ethers.formatEther(totalRequired);
 			const shortfallRBTC = ethers.formatEther(totalRequired - currentBalanceWei);
-			
+
 			errors.push(`Insufficient RBTC balance. You have ${parseFloat(currentBalanceRBTC).toFixed(6)} RBTC but need ${parseFloat(requiredRBTC).toFixed(6)} RBTC (including gas fees). Shortfall: ${parseFloat(shortfallRBTC).toFixed(6)} RBTC.`);
 		}
 	} catch (error) {
@@ -199,7 +180,7 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
 		} else {
 			timeText = 'just now';
 		}
-		
+
 		warnings.push({
 			key: 'dashboard.bids.bid_acceptance.warning.past_start_time',
 			params: { timeText }
@@ -228,7 +209,7 @@ export async function acceptBidAndCreateEscrow(
 	try {
 		const bidContent = bid.content as unknown as NostrBidContent;
 		const taskContent = JSON.parse(task.content) as Task;
-		
+
 		// Calculate escrow details
 		const escrowDetails = calculateBidEscrowDetails(bidContent, taskContent, btcPrice);
 
@@ -279,10 +260,10 @@ export async function acceptBidAndCreateEscrow(
 		if (escrowDetails.estimatedStartTime <= now) {
 			// Start time is in the past - adjust to current time + 1 hour
 			const newStartTime = now + 3600; // 1 hour buffer
-			
+
 			// Calculate the time shift (how much later the new start time is compared to original)
 			const timeShift = newStartTime - escrowDetails.estimatedStartTime;
-			
+
 			// Shift the completion time by the same amount
 			adjustedStartTime = newStartTime;
 			adjustedCompletionTime = escrowDetails.estimatedCompletionTime + timeShift;
@@ -329,19 +310,18 @@ export async function acceptBidAndCreateEscrow(
 
 	} catch (error) {
 		console.error('Failed to accept bid and create escrow:', error);
-		
+
 		// Clean up any pending contracts that might have been registered
 		// If transaction was submitted and registered, we need to clean up by transaction hash
 		if (transactionHash) {
 			try {
-				const { cleanupPendingContractByTxHash } = await import('$lib/utils/escrow/v1/escrowEvents');
 				cleanupPendingContractByTxHash(transactionHash);
 			} catch (cleanupError) {
 				// If cleanup fails, log but don't throw - we're already in error handling
 				console.warn('Failed to cleanup pending contract in catch block:', cleanupError);
 			}
 		}
-		
+
 		return {
 			success: false,
 			error: extractContractError(error).userMessage

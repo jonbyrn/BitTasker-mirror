@@ -5,17 +5,32 @@
  * through the global EscrowManager.
  */
 
-// Export all escrow operations
-export * as escrow from './escrow';
-
-// Export bid operations
-export * as escrowBid from './escrowBid';
-
-// Export Nostr contract operations
-export * as nostrContract from './nostrContract';
-
-// Export event operations
-export * as escrowEvents from './escrowEvents';
+import { escrow as escrowModule } from './escrow';
+import { acceptBidAndCreateEscrow, calculateBidEscrowDetails } from './escrowBid';
+import { publishContractEvent, publishContractStatus, getContracts, deleteContract } from './nostrContract';
+import { publishEscrowStatus } from './escrowEvents';
 
 // Export status enum
 export { EscrowStatus } from './escrow.enum';
+
+// Export the escrow operations handler
+export const escrow = escrowModule;
+
+// Export the bid handler object
+export const escrowBid = {
+    acceptBidAndCreateEscrow,
+    calculateBidEscrowDetails
+};
+
+// Export the nostr contract handler object
+export const nostrContract = {
+    publishContractEvent,
+    publishContractStatus,
+    getContracts,
+    deleteContract
+};
+
+// Export the escrow events handler object
+export const escrowEvents = {
+    publishEscrowStatus
+};

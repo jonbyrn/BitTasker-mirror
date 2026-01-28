@@ -1,6 +1,7 @@
 import type { Filter, NostrEvent } from 'nostr-tools';
+import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import { nip19, nip44 } from 'nostr-tools';
-import { getNostrKeyPair, getNpub } from '../../nostrKeys';
+import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import TAGS, { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import type {
@@ -13,9 +14,8 @@ import type {
 	ContractFilter,
 	ContractStatusEvent
 } from '$lib/types/contract';
-import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
-import { escrow } from '$lib/utils/escrow/v1/escrow';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { escrow } from './escrow';
+import { EscrowStatus } from './escrow.enum';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import { contractStore } from '$lib/stores/contract.store';
@@ -23,11 +23,12 @@ import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import { publishEscrowStatus } from './escrowEvents';
 
 /**
  * Create a new contract event after escrow creation (as encrypted DM)
  */
-export async function createContract(params: CreateContractParams): Promise<void> {
+export async function publishContractEvent(params: CreateContractParams): Promise<void> {
 	try {
 		const npub = await getNpub();
 		const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
@@ -73,7 +74,7 @@ export async function createContract(params: CreateContractParams): Promise<void
  */
 export async function publishContractStatus(params: PublishStatusParams): Promise<void> {
 	const publishStartTime = import.meta.env.DEV ? performance.now() : 0;
-	
+
 	if (import.meta.env.DEV && (params.action === EscrowStatus.FundsReleased || params.action === EscrowStatus.PendingAcceptance)) {
 		console.log(`[DEBUG] [publishContractStatus] Publishing ${EscrowStatus[params.action]} event`, {
 			escrowId: params.escrowId,
@@ -143,7 +144,7 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			recipientPubkey,
 			params.action
 		);
-		
+
 		if (import.meta.env.DEV && (params.action === EscrowStatus.FundsReleased || params.action === EscrowStatus.PendingAcceptance)) {
 			console.log(`[DEBUG] [publishContractStatus] Publishing to Nostr`, {
 				escrowId: params.escrowId,
@@ -155,7 +156,7 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 		}
 
 		await publishNostrEvent(KINDS.CONTRACT_STATUS, statusMessage, recipientPubkey, tags);
-		
+
 		if (import.meta.env.DEV) {
 			const publishDuration = performance.now() - publishStartTime;
 			console.log(`[DEBUG] [publishContractStatus] ✅ Successfully published ${EscrowStatus[params.action]} event`, {
@@ -253,18 +254,18 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				keepLatest: false // Keep ALL status events, not just the latest
 			}
 		);
-		
+
 		if (import.meta.env.DEV) {
 			const queryDuration = performance.now() - queryStartTime;
-			const contractsWithFundsReleased = contractEventsWithStatus.filter((e: any) => 
+			const contractsWithFundsReleased = contractEventsWithStatus.filter((e: any) =>
 				e.statusEvents?.some((se: any) => se.content.action === EscrowStatus.FundsReleased)
 			);
 			const contractsWithPendingAcceptance = contractEventsWithStatus.filter((e: any) =>
-				e.statusEvents?.some((se: any) => 
+				e.statusEvents?.some((se: any) =>
 					se.content.action === EscrowStatus.PendingAcceptance && se.content.transactionHash
 				)
 			);
-			
+
 			console.log(`[DEBUG] [getContracts] Status events query completed`, {
 				contractCount: contractEventsWithStatus.length,
 				queryDurationMs: queryDuration.toFixed(2),
@@ -272,14 +273,14 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				contractsWithPendingAcceptance: contractsWithPendingAcceptance.length,
 				contractsWithBoth: contractEventsWithStatus.filter((e: any) => {
 					const hasFundsReleased = e.statusEvents?.some((se: any) => se.content.action === EscrowStatus.FundsReleased);
-					const hasPendingAcceptance = e.statusEvents?.some((se: any) => 
+					const hasPendingAcceptance = e.statusEvents?.some((se: any) =>
 						se.content.action === EscrowStatus.PendingAcceptance && se.content.transactionHash
 					);
 					return hasFundsReleased && hasPendingAcceptance;
 				}).length,
 				contractsWithPendingButNoFundsReleased: contractEventsWithStatus.filter((e: any) => {
 					const hasFundsReleased = e.statusEvents?.some((se: any) => se.content.action === EscrowStatus.FundsReleased);
-					const hasPendingAcceptance = e.statusEvents?.some((se: any) => 
+					const hasPendingAcceptance = e.statusEvents?.some((se: any) =>
 						se.content.action === EscrowStatus.PendingAcceptance && se.content.transactionHash
 					);
 					return hasPendingAcceptance && !hasFundsReleased;
@@ -308,10 +309,10 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				// DEBUG: Log status events for contracts with Completed status
 				if (import.meta.env.DEV && contractEvent.content.escrowId) {
 					const hasFundsReleased = statusEvents?.some(e => e.content.action === EscrowStatus.FundsReleased);
-					const hasPendingAcceptance = statusEvents?.some(e => 
+					const hasPendingAcceptance = statusEvents?.some(e =>
 						e.content.action === EscrowStatus.PendingAcceptance && e.content.transactionHash
 					);
-					
+
 					if (hasPendingAcceptance || hasFundsReleased) {
 						console.log(`[DEBUG] [getContracts] Status events for escrow ${contractEvent.content.escrowId}`, {
 							escrowId: contractEvent.content.escrowId,
@@ -334,11 +335,11 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 				// RECOVERY: Check for stale PendingAcceptance events and attempt to recover
 				if (statusEvents && contractEvent.content.escrowId) {
-					const pendingAcceptanceEvents = statusEvents.filter(e => 
+					const pendingAcceptanceEvents = statusEvents.filter(e =>
 						e.content.action === EscrowStatus.PendingAcceptance && e.content.transactionHash
 					);
 					const hasFundsReleased = statusEvents.some(e => e.content.action === EscrowStatus.FundsReleased);
-					
+
 					// Check for stale PendingAcceptance (older than 5 minutes) without FundsReleased
 					if (pendingAcceptanceEvents.length > 0 && !hasFundsReleased) {
 						const now = Math.floor(Date.now() / 1000);
@@ -350,7 +351,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 						if (staleEvents.length > 0) {
 							const oldestStaleEvent = staleEvents.sort((a, b) => a.created_at - b.created_at)[0];
 							const transactionHash = oldestStaleEvent.content.transactionHash;
-							
+
 							if (transactionHash && contractEvent.id) {
 								// Attempt to recover by checking if transaction is confirmed
 								recoverMissingFundsReleasedEvent(
@@ -416,7 +417,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 						? contractEvent.content.contractAddress
 						: undefined;
 
-					escrowData = await escrow.getEscrow(contractEvent.content.escrowId, contractAddress);
+					escrowData = await escrow.loadEscrowDetails(contractEvent.content.escrowId, contractAddress);
 					const blockchainCheckDuration = performance.now() - blockchainCheckStartTime;
 
 					if (escrowData) {
@@ -447,31 +448,31 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					const blockchainCheckDuration = performance.now() - blockchainCheckStartTime;
 					const errorMessage = escrowError instanceof Error ? escrowError.message : String(escrowError);
 					const errorStack = escrowError instanceof Error ? escrowError.stack : undefined;
-					
-					// Determine error type
-					const isWalletError = errorMessage.includes('wallet') || 
-					                     errorMessage.includes('Failed to initialize') ||
-					                     errorMessage.includes('not initialized') ||
-					                     errorMessage.includes('not connected');
-					const isProviderError = errorMessage.includes('provider') || 
-					                       errorMessage.includes('Failed to get provider') ||
-					                       errorMessage.includes('provider destroyed');
-					const isContractError = errorMessage.includes('contract') || 
-					                       errorMessage.includes('Failed to connect');
-					const isNetworkError = errorMessage.includes('network') || 
-					                      errorMessage.includes('timeout') ||
-					                      errorMessage.includes('connection') ||
-					                      errorMessage.includes('fetch');
-					const isEscrowNotFound = errorMessage.includes('not found') || 
-					                        errorMessage.includes('does not exist') ||
-					                        (errorMessage.includes('execution reverted') && 
-					                         !isProviderError && !isWalletError && !isContractError);
 
-					const errorType = isWalletError ? 'WALLET_ERROR' : 
-					                 isProviderError ? 'PROVIDER_ERROR' :
-					                 isContractError ? 'CONTRACT_ERROR' :
-					                 isNetworkError ? 'NETWORK_ERROR' :
-					                 isEscrowNotFound ? 'ESCROW_NOT_FOUND' : 'UNKNOWN_ERROR';
+					// Determine error type
+					const isWalletError = errorMessage.includes('wallet') ||
+						errorMessage.includes('Failed to initialize') ||
+						errorMessage.includes('not initialized') ||
+						errorMessage.includes('not connected');
+					const isProviderError = errorMessage.includes('provider') ||
+						errorMessage.includes('Failed to get provider') ||
+						errorMessage.includes('provider destroyed');
+					const isContractError = errorMessage.includes('contract') ||
+						errorMessage.includes('Failed to connect');
+					const isNetworkError = errorMessage.includes('network') ||
+						errorMessage.includes('timeout') ||
+						errorMessage.includes('connection') ||
+						errorMessage.includes('fetch');
+					const isEscrowNotFound = errorMessage.includes('not found') ||
+						errorMessage.includes('does not exist') ||
+						(errorMessage.includes('execution reverted') &&
+							!isProviderError && !isWalletError && !isContractError);
+
+					const errorType = isWalletError ? 'WALLET_ERROR' :
+						isProviderError ? 'PROVIDER_ERROR' :
+							isContractError ? 'CONTRACT_ERROR' :
+								isNetworkError ? 'NETWORK_ERROR' :
+									isEscrowNotFound ? 'ESCROW_NOT_FOUND' : 'UNKNOWN_ERROR';
 
 					console.error(`[DEBUG] [getContracts] ❌ Blockchain check failed for escrow ${contractEvent.content.escrowId}`, {
 						escrowId: contractEvent.content.escrowId,
@@ -521,10 +522,10 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				// DEBUG: Log final status determination for contracts with Completed blockchain status
 				if (import.meta.env.DEV && blockchainStatus === EscrowStatus.Completed) {
 					const hasFundsReleased = statusEvents?.some(e => e.content.action === EscrowStatus.FundsReleased);
-					const hasPendingAcceptance = statusEvents?.some(e => 
+					const hasPendingAcceptance = statusEvents?.some(e =>
 						e.content.action === EscrowStatus.PendingAcceptance && e.content.transactionHash
 					);
-					
+
 					console.log(`[DEBUG] [getContracts] Final status determination for escrow ${contractEvent.content.escrowId}`, {
 						escrowId: contractEvent.content.escrowId,
 						blockchainStatus,
@@ -533,10 +534,10 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 						hasFundsReleasedEvent: hasFundsReleased,
 						hasPendingAcceptanceEvent: hasPendingAcceptance,
 						statusEventsCount: statusEvents?.length || 0,
-						issue: blockchainStatus === EscrowStatus.Completed && 
-						       hasPendingAcceptance && 
-						       !hasFundsReleased && 
-						       status === EscrowStatus.PendingAcceptance
+						issue: blockchainStatus === EscrowStatus.Completed &&
+							hasPendingAcceptance &&
+							!hasFundsReleased &&
+							status === EscrowStatus.PendingAcceptance
 							? '⚠️ ISSUE: Contract shows PendingAcceptance but FundsReleased event is missing - transaction may have confirmed but event not published'
 							: null
 					});
@@ -665,7 +666,7 @@ async function recoverMissingFundsReleasedEvent(
 		// Get provider to check transaction status
 		const { getProvider } = await import('$lib/stores/wallet.store');
 		const provider = await getProvider('rsk');
-		
+
 		if (!provider) {
 			if (import.meta.env.DEV) {
 				console.warn(`[DEBUG] [recoverMissingFundsReleasedEvent] No provider available for escrow ${escrowId}`);
@@ -675,7 +676,7 @@ async function recoverMissingFundsReleasedEvent(
 
 		// Check if transaction is confirmed
 		const receipt = await provider.getTransactionReceipt(transactionHash);
-		
+
 		if (!receipt) {
 			if (import.meta.env.DEV) {
 				console.log(`[DEBUG] [recoverMissingFundsReleasedEvent] Transaction not yet confirmed for escrow ${escrowId}`, {
@@ -714,7 +715,6 @@ async function recoverMissingFundsReleasedEvent(
 
 		// Import and publish the missing event
 		// Import the function directly (escrowEvents exports individual functions, not a namespace)
-		const { publishEscrowStatus } = await import('$lib/utils/escrow/v1/escrowEvents');
 		await publishEscrowStatus({
 			escrowId,
 			contractEventId,
@@ -878,10 +878,10 @@ export async function handleStatusEvent(event: NostrEvent) {
 		// DEBUG: Log when adding status events, especially FundsReleased
 		if (import.meta.env.DEV && (action === EscrowStatus.FundsReleased || action === EscrowStatus.PendingAcceptance)) {
 			const existingFundsReleased = contract.statusEvents?.some(e => e.content.action === EscrowStatus.FundsReleased);
-			const existingPendingAcceptance = contract.statusEvents?.some(e => 
+			const existingPendingAcceptance = contract.statusEvents?.some(e =>
 				e.content.action === EscrowStatus.PendingAcceptance && e.content.transactionHash
 			);
-			
+
 			console.log(`[DEBUG] [handleStatusEvent] Adding ${EscrowStatus[action]} event to contract ${escrowId}`, {
 				escrowId,
 				action,
@@ -961,7 +961,7 @@ export async function handleStatusEvent(event: NostrEvent) {
 			[EscrowStatus.Completed, EscrowStatus.FundsReleased, EscrowStatus.InDispute,
 			EscrowStatus.DisputeResolved, EscrowStatus.Cancelled].includes(action)) {
 			// Async update blockchain data
-			escrow.getEscrow(escrowId, contract.contractEvent.content.contractAddress)
+			escrow.loadEscrowDetails(escrowId, contract.contractEvent.content.contractAddress)
 				.then(async (escrowData) => {
 					if (escrowData) {
 						// Fetch dispute proposal again if status is InDispute (for blockchain confirmation)
@@ -1088,7 +1088,7 @@ export async function handleContractEvent(event: NostrEvent) {
 				? contractEvent.content.contractAddress
 				: undefined;
 
-			escrowData = await escrow.getEscrow(escrowId, contractAddress);
+			escrowData = await escrow.loadEscrowDetails(escrowId, contractAddress);
 
 			if (escrowData) {
 				blockchainStatus = escrowData.status;
