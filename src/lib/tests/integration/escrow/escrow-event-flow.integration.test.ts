@@ -68,7 +68,7 @@ const mockCreateContract = vi.fn();
 const mockPublishContractStatus = vi.fn();
 
 vi.mock('$lib/utils/escrow/v1/nostrContract', () => ({
-	createContract: mockCreateContract,
+	createContractEvent: mockCreateContract,
 	publishContractStatus: mockPublishContractStatus
 }));
 
@@ -118,7 +118,6 @@ vi.mock('svelte/store', () => {
 // Import after mocks
 import { escrow } from '$lib/utils/escrow/v1/escrow';
 import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
-import { createContract, publishContractStatus } from '$lib/utils/escrow/v1/nostrContract';
 
 describe('Escrow Event Flow Integration Tests', () => {
 	let mockContract: any;

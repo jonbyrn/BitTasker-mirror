@@ -27,7 +27,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	}
 }));
 
-vi.mock('$lib/utils/wallet/networkConfig', () => ({
+vi.mock('@bittasker/wallet-core', () => ({
 	FEE_TIERS: {
 		1: { percentage: 250, label: '2.5%' },
 		2: { percentage: 200, label: '2.0%' },

@@ -12,7 +12,7 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 }));
 
 // Mock network config
-vi.mock('$lib/utils/wallet/networkConfig', () => ({
+vi.mock('@bittasker/wallet-core', () => ({
 	RSK_NETWORKS: {
 		mainnet: {
 			explorerApiUrl: 'https://rootstock.blockscout.com/api'

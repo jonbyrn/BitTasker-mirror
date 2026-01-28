@@ -1,8 +1,5 @@
 import type { EscrowData } from '$lib/types/wallet';
 import { escrow } from '../escrow/v1/escrow';
-import { ethers } from 'ethers';
-import { get } from 'svelte/store';
-import { walletStore, getWallet, getProvider } from '$lib/stores/wallet.store';
 import { callContractMethod } from './rpcHelpers';
 
 /**
@@ -29,7 +26,7 @@ export async function loadContractsByAddress(
 		// Ensure escrow contract is ready for the specified network
 		const ensureStartTime = performance.now();
 		console.log(`[DEBUG] Ensuring escrow contract is ready for ${network} network...`);
-		
+
 		// For now, escrow.ensureEscrowReady() only supports RSK
 		// TODO: Add BSC support when multi-network escrow is implemented
 		if (network === 'BSC') {
@@ -37,7 +34,7 @@ export async function loadContractsByAddress(
 			// For now, return empty array for BSC until multi-network support is added
 			return [];
 		}
-		
+
 		// Read-only operations don't require balance - pass requireBalance: false
 		const { contract } = await escrow.ensureEscrowReady(undefined, false);
 		const ensureEndTime = performance.now();
@@ -57,7 +54,7 @@ export async function loadContractsByAddress(
 		try {
 			const nextIdStartTime = performance.now();
 			console.log('[DEBUG] Fetching nextEscrowId...');
-			
+
 			// Use retry logic with timeout for contract calls
 			nextEscrowId = await callContractMethod<bigint>(
 				contract,
@@ -69,7 +66,7 @@ export async function loadContractsByAddress(
 					initialDelayMs: 1000
 				}
 			);
-			
+
 			const nextIdEndTime = performance.now();
 			const nextIdDuration = nextIdEndTime - nextIdStartTime;
 			console.log('[DEBUG] nextEscrowId:', {
@@ -128,11 +125,11 @@ export async function loadContractsByAddress(
 			const batchIndices: number[] = [];
 
 			// Create promises for all escrows in this batch
-			// Each call will have its own retry logic and timeout via escrow.getEscrow
+			// Each call will have its own retry logic and timeout via escrow.loadEscrowDetails
 			for (let j = i; j < end; j++) {
 				batchIndices.push(j);
 				batch.push(
-					escrow.getEscrow(j.toString()).catch((err) => {
+					escrow.loadEscrowDetails(j.toString()).catch((err: any) => {
 						// Return error info instead of throwing
 						// This allows the batch to continue even if individual escrows fail
 						return { error: err, escrowId: j.toString() };
@@ -194,7 +191,7 @@ export async function loadContractsByAddress(
 						console.log(`[DEBUG] ✓ Found matching contract: ${escrowData.id}`);
 						contracts.push(escrowData);
 						foundCount++;
-				}
+					}
 				} else {
 					console.log(`[DEBUG] Escrow ${escrowId} returned null/undefined`, {
 						batchIndex: k
@@ -205,8 +202,8 @@ export async function loadContractsByAddress(
 
 		const escrowFetchEndTime = performance.now();
 		const totalEscrowFetchTime = escrowFetchEndTime - escrowFetchStartTime;
-		const avgEscrowFetchTime = escrowFetchTimes.length > 0 
-			? escrowFetchTimes.reduce((a, b) => a + b, 0) / escrowFetchTimes.length 
+		const avgEscrowFetchTime = escrowFetchTimes.length > 0
+			? escrowFetchTimes.reduce((a, b) => a + b, 0) / escrowFetchTimes.length
 			: 0;
 		const minEscrowFetchTime = escrowFetchTimes.length > 0 ? Math.min(...escrowFetchTimes) : 0;
 		const maxEscrowFetchTime = escrowFetchTimes.length > 0 ? Math.max(...escrowFetchTimes) : 0;
@@ -214,7 +211,7 @@ export async function loadContractsByAddress(
 			? batchTimings.reduce((a, b) => a + b, 0) / batchTimings.length
 			: 0;
 		const totalBatchTime = batchTimings.reduce((a, b) => a + b, 0);
-		
+
 		// Calculate estimated sequential time for comparison
 		const estimatedSequentialTime = avgEscrowFetchTime * checkedCount;
 

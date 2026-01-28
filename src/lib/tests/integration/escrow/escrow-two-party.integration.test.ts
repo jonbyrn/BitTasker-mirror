@@ -63,7 +63,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: {
 		subscribe: vi.fn((callback) => {
 			callback(createMockWalletStore(currentUser));
-			return () => {};
+			return () => { };
 		})
 	},
 	walletManager: {
@@ -102,7 +102,7 @@ vi.mock('$lib/utils/escrow/v1/escrowEvents', async () => {
 // Mock Nostr contract
 const mockCreateContract = vi.fn();
 vi.mock('$lib/utils/escrow/v1/nostrContract', () => ({
-	createContract: mockCreateContract,
+	createContractEvent: mockCreateContract,
 	publishContractStatus: vi.fn()
 }));
 
