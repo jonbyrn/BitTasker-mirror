@@ -331,9 +331,8 @@
 					}
 				}
 
-				// Store master key data in biometrics for new users or users who just migrated
-				// Only create passkey if it wasn't already created above
-				if (!isTestEnvironment && !credentialId) {
+				// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
+				if (!isTestEnvironment) {
 					if (authMethods.biometric) {
 						credentialId = await setBiometricKey(
 							npub,
@@ -350,12 +349,8 @@
 					}
 
 					if (!credentialId) throw new Error('Failed to set biometric key');
-				}
-
-				// Register passkey device with backend (only if credentialId was created)
-				if (credentialId && !isTestEnvironment) {
 					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-				} else if (isTestEnvironment) {
+				} else {
 					// In test environments, skip passkey creation to avoid browser prompts
 					console.log('[E2E] Skipping passkey creation in test environment');
 				}
