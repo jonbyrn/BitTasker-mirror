@@ -115,3 +115,21 @@ export const BITTASKER_SITE_NAVIGATION_JSONLD = {
     'https://bittasker.com/tasker-principles'
   ]
 };
+
+/** Key navigation points for Google Sitelinks (SiteNavigationElement) */
+export const BITTASKER_SITELINKS_NAVIGATION_JSONLD = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  itemListElement: [
+    {
+      '@type': 'SiteNavigationElement',
+      name: 'Tasks',
+      url: 'https://bittasker.com/tasks'
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      name: 'How it Works',
+      url: 'https://bittasker.com/how-it-works'
+    }
+  ]
+};

@@ -1,5 +1,6 @@
+import type { LoadEvent } from '@sveltejs/kit';
 
-export async function load({ url }) {
+export async function load({ url }: LoadEvent) {
 	return {
 		title: 'How BitTasker Works - Bitcoin Task Marketplace Guide',
 		description: 'Discover how BitTasker connects task posters with skilled workers using Bitcoin and Lightning Network. Learn about our secure escrow system and bidding process.',

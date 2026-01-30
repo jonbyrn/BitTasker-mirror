@@ -136,7 +136,7 @@
 		<TaskLocationMap
 			{tasks}
 			{selectedTask}
-			height="100vh"
+			height="100%"
 			onTaskSelected={(event) => {
 				scrollToTaskCard(event.task.id);
 			}}

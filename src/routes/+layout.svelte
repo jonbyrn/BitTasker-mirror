@@ -11,7 +11,10 @@
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import {
 		BITTASKER_ORG_JSONLD,
-		BITTASKER_SITE_NAVIGATION_JSONLD
+		BITTASKER_SITE_NAVIGATION_JSONLD,
+		BITTASKER_SITELINKS_NAVIGATION_JSONLD,
+		BITTASKER_CANONICAL_BASE,
+		generateHomepageWebsiteJsonLd
 	} from '$lib/utils/constants/seo.constants';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
@@ -241,6 +244,10 @@
 	<!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
 	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
 	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
+	<!-- Key navigation for Google Sitelinks: Tasks and How it Works -->
+	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITELINKS_NAVIGATION_JSONLD)}</script>`}
+	<!-- WebSite schema with SearchAction for Sitelinks Searchbox -->
+	{@html `<script type="application/ld+json">${JSON.stringify(generateHomepageWebsiteJsonLd(BITTASKER_CANONICAL_BASE + '/'))}</script>`}
 	{#if page.url.pathname !== '/'}
 		{@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
 	{/if}

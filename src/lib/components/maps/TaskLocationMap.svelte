@@ -26,7 +26,8 @@
 		onSelectTask,
 		onViewTask,
 		drawersLoaded = false,
-		loadDrawerComponents
+		loadDrawerComponents,
+		allowInfoWindowOverflow = false
 	} = $props<{
 		tasks: Task[];
 		height?: string;
@@ -40,6 +41,8 @@
 		onViewTask?: (task: Task) => Promise<void>;
 		drawersLoaded?: boolean;
 		loadDrawerComponents?: () => Promise<void>;
+		/** When true (e.g. mobile full-width map), container overflow is visible so the InfoWindow is not clipped. */
+		allowInfoWindowOverflow?: boolean;
 	}>();
 
 	// State
@@ -319,9 +322,12 @@
 		try {
 			// Create new InfoWindow
 			const content = generateInfoWindowContent(task);
+			const isMobileMap = allowInfoWindowOverflow;
 			infoWindow = new google.maps.InfoWindow({
 				content,
-				maxWidth: 320
+				maxWidth: 320,
+				// On mobile full-width map, push the InfoWindow up so it stays above the bottom nav and isn't clipped
+				...(isMobileMap && { pixelOffset: new google.maps.Size(0, -40) })
 			});
 			
 			// Store reference to marker
@@ -332,6 +338,27 @@
 				anchor: marker,
 				map
 			});
+
+			// On mobile, pan the map so the marker + InfoWindow sit in the upper portion of the visible area
+			if (isMobileMap && map && marker.position) {
+				const pos = marker.position as { lat: () => number; lng: () => number } | { lat: number; lng: number };
+				const lat = typeof (pos as { lat: () => number }).lat === 'function' ? (pos as { lat: () => number }).lat() : (pos as { lat: number }).lat;
+				const lng = typeof (pos as { lng: () => number }).lng === 'function' ? (pos as { lng: () => number }).lng() : (pos as { lng: number }).lng;
+				if (typeof lat === 'number' && typeof lng === 'number') {
+					requestAnimationFrame(() => {
+						if (!map) return;
+						const bounds = map.getBounds();
+						if (bounds) {
+							const ne = bounds.getNorthEast();
+							const sw = bounds.getSouthWest();
+							// Move map down (pan up) so marker is in upper ~40% — leaves room for InfoWindow above nav
+							const latSpan = ne.lat() - sw.lat();
+							const panLat = lat + latSpan * 0.25;
+							map.panTo({ lat: panLat, lng });
+						}
+					});
+				}
+			}
 		} catch (error) {
 			console.error('Error showing InfoWindow:', error);
 		}
@@ -1458,6 +1485,7 @@
 	/**
 	 * Apply calculated height to map container and element
 	 * Batches DOM operations to avoid forced reflows
+	 * When allowInfoWindowOverflow is true (e.g. mobile full-width map), overflow is visible so the InfoWindow is not clipped.
 	 */
 	function applyMapHeight(calculatedHeight: number | string): void {
 		if (!mapContainerDiv || !mapElement) return;
@@ -1468,15 +1496,17 @@
 			
 			// Read all computed styles first (if needed)
 			const heightStr = typeof calculatedHeight === 'number' ? `${calculatedHeight}px` : calculatedHeight;
+			const overflowVal = allowInfoWindowOverflow ? 'visible' : 'hidden';
 			
 			// Batch all style writes
 			mapContainerDiv.style.height = heightStr;
 			mapContainerDiv.style.maxHeight = heightStr; // Prevent expansion beyond set height
 			mapContainerDiv.style.minHeight = heightStr;
-			mapContainerDiv.style.overflow = 'hidden'; // Prevent content from overflowing
+			mapContainerDiv.style.overflow = overflowVal;
 			mapElement.style.height = heightStr;
 			mapElement.style.minHeight = heightStr;
 			mapElement.style.maxHeight = heightStr; // Prevent expansion beyond set height
+			mapElement.style.overflow = overflowVal;
 			
 			// Trigger resize if map is loaded (in next frame to avoid blocking)
 			if (map && isMapLoaded && window.google?.maps) {
@@ -1492,6 +1522,8 @@
 	// Watch for container and map element changes to ensure proper height
 	// Skip height calculations when in fullscreen mode
 	$effect(() => {
+		// Re-run when allowInfoWindowOverflow changes (e.g. switching to mobile map view) so overflow is re-applied
+		void allowInfoWindowOverflow;
 		if (mapElement && mapContainerDiv && !isFullscreen) {
 			// Check if height prop is a fixed pixel value
 			const fixedHeight = parseFixedHeight(height);

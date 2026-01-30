@@ -1144,12 +1144,13 @@
 			</div>
 		{:else}
 			<!-- Map View - Full Width (Mobile only) -->
-			<div class="relative min-h-0 overflow-hidden lg:hidden" style="height: 100%;">
+			<div class="relative min-h-0 overflow-visible lg:hidden" style="height: 100%;">
 				{#if mapLoaded && TaskLocationMap}
 					<div class="h-full min-h-0">
 						<TaskLocationMap
 							tasks={$tasksStore.items}
 							height="100%"
+							allowInfoWindowOverflow={true}
 							{selectedTask}
 							onTaskSelected={async (event: {
 								task: Task;
@@ -1274,21 +1275,33 @@
 		}
 	}
 
+	@supports (height: 100dvh) {
+		@media (max-width: 1023px) {
+			/* Use 100dvh so content doesn't extend under browser chrome or bottom nav (e.g. Android). */
+			.task-list-scroll-container {
+				max-height: calc(
+					100dvh - var(--app-footer-height, var(--bottom-nav-height-safe)) - 9rem
+				);
+				height: calc(
+					100dvh - var(--app-footer-height, var(--bottom-nav-height-safe)) - 9rem
+				);
+			}
+		}
+	}
+
 	/* Ensure scroll container has proper max-height for infinite scroll */
 	.task-list-scroll-container {
 		max-height: 100%;
 	}
 
 	/* Mobile: constrain scroll container to viewport height minus header/controls and bottom nav */
-	/* Height calculation: 100vh - bottom nav - top header/controls (12rem) */
-	/* Remove any padding/margin that creates gap at bottom */
 	@media (max-width: 1023px) {
 		.task-list-scroll-container {
 			max-height: calc(
-				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem
+				100vh - var(--app-footer-height, var(--bottom-nav-height-safe)) - 9rem
 			);
 			height: calc(
-				100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem
+				100vh - var(--app-footer-height, var(--bottom-nav-height-safe)) - 9rem
 			);
 			width: 100%;
 			padding-bottom: 0;

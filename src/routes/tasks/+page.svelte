@@ -1290,12 +1290,13 @@
 				{/if}
 			{:else}
 				<!-- Map View - Full Width (Mobile only) -->
-				<section class="relative min-h-0 w-full map-container-wrapper lg:hidden" data-tasks-map-view>
+				<section class="relative min-h-0 w-full map-container-wrapper map-container-wrapper--mobile-overflow lg:hidden" data-tasks-map-view>
 				{#if mapLoaded && TaskLocationMap}
 					<TaskLocationMap
 						tasks={$tasksStore.items}
 						height="100%"
 						selectedTask={selectedTaskForMap}
+						allowInfoWindowOverflow={true}
 						{btcPrice}
 						{formatDateTimeReactive}
 						{formatDateRangeReactive}
@@ -1532,8 +1533,16 @@
 	 * ============================================================================ */
 	.find-tasks-container {
 		--tasks-content-height-mobile: calc(
-			100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - var(--header-controls-height, 10rem)
+			100vh - var(--app-footer-height, var(--bottom-nav-height-safe)) - var(--header-controls-height, 10rem)
 		);
+	}
+	@supports (height: 100dvh) {
+		.find-tasks-container {
+			/* Use 100dvh so content doesn't extend under browser chrome or bottom nav on mobile (e.g. Android). */
+			--tasks-content-height-mobile: calc(
+				100dvh - var(--app-footer-height, var(--bottom-nav-height-safe)) - var(--header-controls-height, 10rem)
+			);
+		}
 	}
 
 	/* ============================================================================
@@ -1576,6 +1585,11 @@
 			max-height: var(--tasks-content-height-mobile);
 			height: var(--tasks-content-height-mobile);
 			min-height: var(--tasks-content-height-mobile);
+		}
+
+		/* Allow InfoWindow to extend outside map area on mobile map view so it isn't clipped */
+		.map-container-wrapper--mobile-overflow {
+			overflow: visible;
 		}
 
 		.map-container-wrapper > * {

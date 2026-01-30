@@ -4,6 +4,7 @@
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
 	import { user } from '$lib/stores/user.store';
+	import { BITTASKER_CANONICAL_BASE } from '$lib/utils/constants/seo.constants';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
@@ -20,11 +21,12 @@
 </script>
 
 <svelte:head>
-	<title>Tasks - BitTasker</title>
+	<title>Tasks | Bittasker</title>
 	<meta
 		name="description"
-		content="Browse and search for tasks on BitTasker."
+		content="Browse and search for tasks on Bittasker."
 	/>
+	<link rel="canonical" href="{BITTASKER_CANONICAL_BASE}/tasks" />
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
