@@ -1,4 +1,5 @@
 # GitLab CI/CD for BitTasker - Cloudflare Workers Deployment
+# Still a work in progress
 # Branch strategy:
 #   - dev → deploy to staging (staging.bittasker.com)
 #   - main → deploy to production (worker.prod.bittasker.com)
