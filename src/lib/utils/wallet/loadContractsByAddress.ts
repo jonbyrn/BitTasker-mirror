@@ -129,7 +129,7 @@ export async function loadContractsByAddress(
 			for (let j = i; j < end; j++) {
 				batchIndices.push(j);
 				batch.push(
-					escrow.loadEscrowDetails(j.toString()).catch((err: any) => {
+					escrow.loadEscrowDetails(j.toString()).catch((err: unknown) => {
 						// Return error info instead of throwing
 						// This allows the batch to continue even if individual escrows fail
 						return { error: err, escrowId: j.toString() };

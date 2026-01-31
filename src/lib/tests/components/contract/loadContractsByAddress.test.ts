@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { EscrowData } from '$lib/types/wallet';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
 
 // Mock escrow module before importing loadContractsByAddress
 const mockEnsureEscrowReady = vi.fn();
@@ -16,12 +16,11 @@ vi.mock('../escrow', () => ({
 // Mock wallet store
 vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: {
-		subscribe: vi.fn(() => () => {})
+		subscribe: vi.fn(() => () => { })
 	}
 }));
 
-// Now import after mocks are set up
-import { loadContractsByAddress } from '../loadContractsByAddress';
+import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
 
 // Mock ethers Contract
 const mockContract = {

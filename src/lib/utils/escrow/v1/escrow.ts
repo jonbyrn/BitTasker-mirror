@@ -1239,50 +1239,6 @@ async function resolveAfterTimelock(escrowId: string, escrowStatus: EscrowStatus
 }
 
 /**
- * Estimate gas for escrow creation
- * @deprecated This function is not used
- */
-async function estimateEscrowCreationGas(
-    freelancerAddress: string,
-    baseAmount: string,
-    estimatedStartTime: number,
-    estimatedCompletionTime: number,
-    clientFeeTier: FeeTier,
-    freelancerFeeTier: FeeTier
-): Promise<GasEstimation> {
-    try {
-        // Gas estimation is a read-only operation, doesn't require balance
-        const { contract, provider } = await ensureEscrowReady(undefined, false);
-
-        const baseAmountWei = ethers.parseEther(baseAmount);
-        const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
-
-        const gasLimit = await contract.createEscrow.estimateGas(
-            freelancerAddress,
-            estimatedStartTime,
-            estimatedCompletionTime,
-            clientFeeTier,
-            freelancerFeeTier,
-            { value: totalPayment }
-        );
-
-        const feeData = await provider.getFeeData();
-        const gasPrice = feeData.gasPrice || BigInt(0);
-        const totalCost = gasLimit * gasPrice;
-
-        return {
-            gasLimit: gasLimit.toString(),
-            gasPrice: gasPrice.toString(),
-            totalCost: totalCost.toString(),
-            totalCostFormatted: ethers.formatEther(totalCost)
-        };
-
-    } catch (error) {
-        throw new Error(`Gas estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-}
-
-/**
  * Estimate gas for contract function
  * @test This function is used for debugging only
  */

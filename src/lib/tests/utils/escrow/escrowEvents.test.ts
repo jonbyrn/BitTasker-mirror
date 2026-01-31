@@ -1,5 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
+import {
+	registerPendingContractByTxHash,
+	registerPendingContract,
+	publishEscrowStatus,
+	handleEscrowCreated,
+	cleanupPendingContractByTxHash
+} from '$lib/utils/escrow/v1/escrowEvents';
+import { publishContractEvent, publishContractStatus } from '$lib/utils/escrow/v1/nostrContract';
+import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { contractStore } from '$lib/stores/contract.store';
+import { appStore } from '$lib/stores/app.store';
+import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
+import { pushNotificationService } from '$lib/api/services/push-notification.service';
 
 // Mock @bittasker/wallet-core first to avoid EventBus import issues
 vi.mock('@bittasker/wallet-core', () => ({
@@ -8,7 +21,7 @@ vi.mock('@bittasker/wallet-core', () => ({
 
 // Mock dependencies - must be defined before vi.mock calls
 vi.mock('$lib/utils/escrow/v1/nostrContract', () => ({
-	createContractEvent: vi.fn(),
+	publishContractEvent: vi.fn(),
 	publishContractStatus: vi.fn()
 }));
 
@@ -104,22 +117,6 @@ vi.mock('svelte/store', () => {
 		get: mockGet
 	};
 });
-
-import {
-	registerPendingContractByTxHash,
-	registerPendingContract,
-	publishEscrowStatus,
-	handleEscrowCreated,
-	cleanupPendingContractByTxHash
-} from '$lib/utils/escrow/v1/escrowEvents';
-import { createContractEvent, publishContractStatus } from '$lib/utils/escrow/v1/nostrContract';
-import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-import { contractStore } from '$lib/stores/contract.store';
-import { appStore } from '$lib/stores/app.store';
-import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
-import { get } from 'svelte/store';
-import { t } from 'svelte-i18n';
 
 describe('escrowEvents', () => {
 	beforeEach(() => {
@@ -297,13 +294,13 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContractEvent).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
 
-			expect(vi.mocked(createContractEvent)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 			expect(vi.mocked(sendBidStatusUpdate)).toHaveBeenCalled();
 			expect(vi.mocked(contractStore.loadContractByEscrowId)).toHaveBeenCalledWith('123');
 		});
@@ -330,13 +327,13 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContractEvent).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
 
-			expect(vi.mocked(createContractEvent)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 			expect(vi.mocked(sendBidStatusUpdate)).toHaveBeenCalled();
 		});
 
@@ -362,7 +359,7 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContractEvent).mockRejectedValueOnce(new Error('Failed to create contract'));
+			vi.mocked(publishContractEvent).mockRejectedValueOnce(new Error('Failed to create contract'));
 
 			await handleEscrowCreated(event);
 
@@ -381,7 +378,7 @@ describe('escrowEvents', () => {
 			await handleEscrowCreated(event);
 
 			// Should not create contract or send notifications
-			expect(vi.mocked(createContractEvent)).not.toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).not.toHaveBeenCalled();
 			expect(vi.mocked(sendBidStatusUpdate)).not.toHaveBeenCalled();
 		});
 
@@ -407,7 +404,7 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContractEvent).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
@@ -418,7 +415,7 @@ describe('escrowEvents', () => {
 			await handleEscrowCreated(event);
 
 			// Should not create contract again since it was cleaned up
-			expect(vi.mocked(createContractEvent)).not.toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).not.toHaveBeenCalled();
 		});
 
 		it('should clean up pending contract by transaction hash after successful creation', async () => {
@@ -443,7 +440,7 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContractEvent).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
@@ -458,7 +455,7 @@ describe('escrowEvents', () => {
 			await handleEscrowCreated(event2);
 
 			// Should not create contract again since it was cleaned up
-			expect(vi.mocked(createContractEvent)).not.toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).not.toHaveBeenCalled();
 		});
 	});
 
@@ -495,7 +492,7 @@ describe('escrowEvents', () => {
 			handleEscrowCreated(event);
 
 			// Should not create contract since it was cleaned up
-			expect(vi.mocked(createContractEvent)).not.toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).not.toHaveBeenCalled();
 		});
 
 		it('should not throw error when cleaning up non-existent transaction hash', () => {
@@ -533,7 +530,7 @@ describe('escrowEvents', () => {
 				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200
 			});
 
-			vi.mocked(createContractEvent).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
@@ -548,7 +545,7 @@ describe('escrowEvents', () => {
 
 			// Verify that contract was still created despite sendBidStatusUpdate failure
 			// (This is the current behavior - contract creation succeeds even if status update fails)
-			expect(vi.mocked(createContractEvent)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 
 			// The issue is: if sendBidStatusUpdate fails, the error is only logged
 			// but not surfaced to the user or retried. The escrow exists but bid status isn't updated.
@@ -591,14 +588,14 @@ describe('escrowEvents', () => {
 			cleanupPendingContractByTxHash(txHash);
 
 			// Wait for handleEscrowCreated to complete
-			vi.mocked(createContractEvent).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handlePromise;
 
 			// Contract should still have been created despite cleanup attempt
-			expect(vi.mocked(createContractEvent)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 		});
 
 		it('should handle concurrent cleanup and processing gracefully', async () => {
@@ -625,7 +622,7 @@ describe('escrowEvents', () => {
 				amount: '2000000000000000000'
 			};
 
-			vi.mocked(createContractEvent).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
@@ -639,7 +636,7 @@ describe('escrowEvents', () => {
 			expect(result.status).toBe('fulfilled');
 
 			// Contract should have been created
-			expect(vi.mocked(createContractEvent)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 		});
 
 		it('should clean up processingContracts set after successful processing', async () => {
@@ -665,7 +662,7 @@ describe('escrowEvents', () => {
 				amount: '3000000000000000000'
 			};
 
-			vi.mocked(createContractEvent).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
@@ -676,7 +673,7 @@ describe('escrowEvents', () => {
 			cleanupPendingContractByTxHash(txHash);
 
 			// Should not throw and should allow cleanup after processing
-			expect(vi.mocked(createContractEvent)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 		});
 
 		it('should clean up processingContracts set after error', async () => {
@@ -702,8 +699,8 @@ describe('escrowEvents', () => {
 				amount: '4000000000000000000'
 			};
 
-			// Make createContractEvent fail
-			vi.mocked(createContractEvent).mockRejectedValueOnce(new Error('Failed to create contract'));
+			// Make publishContractEvent fail
+			vi.mocked(publishContractEvent).mockRejectedValueOnce(new Error('Failed to create contract'));
 
 			await expect(handleEscrowCreated(event)).resolves.not.toThrow();
 
@@ -711,7 +708,7 @@ describe('escrowEvents', () => {
 			cleanupPendingContractByTxHash(txHash);
 
 			// Should not throw - processingContracts should be cleaned up even on error
-			expect(vi.mocked(createContractEvent)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 		});
 	});
 });

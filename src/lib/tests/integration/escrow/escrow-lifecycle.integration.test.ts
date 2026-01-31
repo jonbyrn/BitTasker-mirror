@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 import type { Task } from '$lib/types/task';
 import type { NostrEvent } from 'nostr-tools';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
 
 // Mock @bittasker/wallet-core
 vi.mock('@bittasker/wallet-core', () => ({

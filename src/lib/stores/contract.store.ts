@@ -1,6 +1,6 @@
 import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
 import { writable } from 'svelte/store';
-import { getContracts, handleStatusEvent, handleContractEvent } from '$lib/utils/escrow/v1/nostrContract';
+import { escrow } from '$lib/utils/escrow';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19, type NostrEvent } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
@@ -86,7 +86,7 @@ function createContractStore() {
 					'#p': [userPubkeyHex],
 					since
 				},
-				{ onevent: async (event: NostrEvent) => await handleStatusEvent(event) }
+				{ onevent: async (event: NostrEvent) => await escrow.contractOps.handleStatusEvent(event) }
 			);
 
 			// Subscription 2: Status events where user is AUTHOR (to see own updates)
@@ -97,7 +97,7 @@ function createContractStore() {
 					authors: [userPubkeyHex],
 					since
 				},
-				{ onevent: async (event: NostrEvent) => await handleStatusEvent(event) }
+				{ onevent: async (event: NostrEvent) => await escrow.contractOps.handleStatusEvent(event) }
 			);
 		} catch (error) {
 			console.error('[ContractStore] Failed to subscribe:', error);
@@ -136,7 +136,7 @@ function createContractStore() {
 					'#n': [currentNetwork], // Filter by current network
 					since
 				},
-				{ onevent: handleContractEvent }
+				{ onevent: escrow.contractOps.handleContractEvent }
 			);
 		} catch (error) {
 			console.error('[ContractStore] Failed to subscribe to new contracts:', error);
@@ -200,7 +200,7 @@ function createContractStore() {
 
 			try {
 				const getContractsStartTime = performance.now();
-				const loadedContracts = await getContracts({ limit: CONTRACTS_LIMIT });
+				const loadedContracts = await escrow.contractOps.getContracts({ limit: CONTRACTS_LIMIT });
 				const getContractsDuration = performance.now() - getContractsStartTime;
 
 				console.log('[DEBUG] [ContractStore] getContracts() completed', {
@@ -319,7 +319,7 @@ function createContractStore() {
 			try {
 				// Fetch with buffer for handling collisions and duplicates
 				const fetchLimit = CONTRACTS_LIMIT + PAGINATION_BUFFER;
-				const fetchedContracts = await getContracts({
+				const fetchedContracts = await escrow.contractOps.getContracts({
 					limit: fetchLimit,
 					until: state.oldestTimestamp
 				});
@@ -397,7 +397,7 @@ function createContractStore() {
 		 */
 		async loadContractByEscrowId(escrowId: string) {
 			try {
-				const loadedContracts = await getContracts({ escrowIds: [escrowId] });
+				const loadedContracts = await escrow.contractOps.getContracts({ escrowIds: [escrowId] });
 
 				if (loadedContracts.length > 0) {
 					const updatedContract = loadedContracts[0];

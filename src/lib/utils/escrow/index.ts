@@ -10,28 +10,35 @@
  * - Capability-based API (UI asks "can I do this?" not "what version?")
  * - Forward compatible (unknown versions default to LATEST)
  * - Infinitely scalable (just add new versions to registry)
+ * - Modular architecture with access patterns for operations
  */
 
-import type { EscrowVersion, IEscrowHandler, IVersionHandler } from './types';
-import type { ContractEvent, ContractFilter, CreateContractParams, PublishStatusParams } from '$lib/types/contract';
+import type { EscrowVersion, IVersionHandler } from './types';
+import type { ContractFilter, ContractWithEvents, CreateContractParams, PublishStatusParams, PublishContractStatusParams, PendingContractCreation } from '$lib/types/contract';
+import type { BidEscrowDetails, ContractTransactionResult, EscrowData } from '$lib/types/wallet';
 
 // Static imports - all versions loaded at startup for optimal performance
-import * as v1 from './v1';
 import type { FeeTier } from '@bittasker/wallet-core';
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 import type { NostrEvent } from 'nostr-tools';
-import type { Task } from '$lib/types/task';
+import type { Attachment, Task } from '$lib/types/task';
+import type { Writable } from 'svelte/store';
+
+import * as v1 from './v1';
 // import * as v2 from './v2';
 // import * as v3 from './v3'; // Future versions
+
+// TODO: Refactor implementation to avoid imports from v1 folder
+import { formatRBTCAmount, getFeePercentageDisplay, validateEscrowDetails, validateSufficientBalance } from './v1/escrowBid';
 
 /**
  * Version Registry
  * Add new versions here as they're implemented
  */
 const VERSION_HANDLERS: Record<string, IVersionHandler> = {
-    'v1': v1 as IVersionHandler,
-    // 'v2': v2 as IVersionHandler,
-    // 'v3': v3 as IVersionHandler, // Just add new versions here
+    'v1': v1,
+    // 'v2': v2,
+    // 'v3': v3, // Just add new versions here
 };
 
 /**
@@ -39,7 +46,7 @@ const VERSION_HANDLERS: Record<string, IVersionHandler> = {
  * Update this when releasing a new version
  * New contracts will always use this version
  */
-const LATEST_VERSION: EscrowVersion = 'v2';
+export const LATEST_ESCROW_VERSION: EscrowVersion = 'v1';
 
 /**
  * Global Escrow Manager Class
@@ -50,27 +57,408 @@ class EscrowManager {
      * Get handler for specific version
      * Defaults to LATEST if version not found (forward compatibility)
      */
-    private getHandler(version?: string): IVersionHandler {
-        if (!version || !(version in VERSION_HANDLERS)) {
-            return VERSION_HANDLERS[LATEST_VERSION];
+    private getHandler(version: string): IVersionHandler {
+        if (!(version in VERSION_HANDLERS)) {
+            return VERSION_HANDLERS[LATEST_ESCROW_VERSION];
         }
         return VERSION_HANDLERS[version];
     }
 
     /**
      * Extract version from contract tags
-     * Defaults to LATEST if no version tag found
+     * Defaults to v1 if no version tag found (backward compatibility)
      */
-    getVersionFromContract(contract: ContractEvent): string {
-        // Check if contract has tags array
-        if (!contract.tags || !Array.isArray(contract.tags)) {
-            return LATEST_VERSION;
+    getVersionFromContract(contract: ContractWithEvents): string {
+        // Check if contract has tags array in contractEvent
+        if (!contract.contractEvent.tags || !Array.isArray(contract.contractEvent.tags)) {
+            return LATEST_ESCROW_VERSION;
         }
 
-        // Look for version tag ['v', 'v2']
-        const versionTag = contract.tags.find((tag: string[]) => tag[0] === 'v');
-        return versionTag?.[1] || LATEST_VERSION;
+        // Look for version tag ['v', 'v1']
+        const versionTag = contract.contractEvent.tags.find((tag: string[]) => tag[0] === 'v');
+        return versionTag?.[1] || LATEST_ESCROW_VERSION;
     }
+
+    // ============================================
+    // MODULAR OPERATION HANDLERS
+    // ============================================
+
+    /**
+     * Escrow Operations Handler
+     * Access pattern: escrow.escrowOps.methodName()
+     */
+    readonly escrowOps = {
+        /**
+         * Create new escrow (always uses LATEST version)
+         */
+        createEscrow: async (
+            freelancerAddress: string,
+            baseAmount: string,
+            estimatedStartTime: number,
+            estimatedCompletionTime: number,
+            clientFeeTier: FeeTier,
+            freelancerFeeTier: FeeTier
+        ): Promise<ContractTransactionResult> => {
+            const handler = this.getHandler(LATEST_ESCROW_VERSION);
+            return handler.escrow.createEscrow(
+                freelancerAddress,
+                baseAmount,
+                estimatedStartTime,
+                estimatedCompletionTime,
+                clientFeeTier,
+                freelancerFeeTier
+            );
+        },
+
+        /**
+         * Load escrow details (version-aware from contract)
+         */
+        loadEscrowDetails: async (contract: ContractWithEvents): Promise<EscrowData> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const escrowId = contract.escrowData.id;
+            const contractAddress = contract.contractEvent.content.contractAddress;
+
+            return handler.escrow.loadEscrowDetails(escrowId, contractAddress);
+        },
+
+        /**
+         * Complete task (version-aware from contract)
+         */
+        completeTask: async (contract: ContractWithEvents, completionAttachments?: Attachment[]): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const escrowId = contract.escrowData.id;
+            const contractEventId = contract.contractEvent.id;
+
+            return handler.escrow.completeTask(escrowId, contractEventId, completionAttachments);
+        },
+
+        /**
+         * Accept task (version-aware from contract)
+         */
+        acceptTask: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const escrowId = contract.escrowData.id;
+            const contractEventId = contract.contractEvent.id;
+
+            return handler.escrow.acceptTask(escrowId, contractEventId);
+        },
+
+        /**
+         * Cancel escrow (version-aware from contract)
+         */
+        cancelEscrow: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const escrowId = contract.escrowData.id;
+            const contractEventId = contract.contractEvent.id;
+
+            return handler.escrow.cancelEscrow(escrowId, contractEventId);
+        },
+
+        /**
+         * Dispute task (version-aware from contract)
+         */
+        disputeTask: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const escrowId = contract.escrowData.id;
+            const contractEventId = contract.contractEvent.id;
+
+            return handler.escrow.disputeTask(escrowId, contractEventId);
+        },
+
+        /**
+         * Propose resolution (version-aware from contract)
+         */
+        proposeResolution: async (
+            contract: ContractWithEvents,
+            freelancerAmountRBTC: string,
+            proposedClientAmount?: string,
+            proposedFreelancerAmount?: string
+        ): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const escrowId = contract.escrowData.id;
+            const contractEventId = contract.contractEvent.id;
+
+            return handler.escrow.proposeResolution(
+                escrowId,
+                freelancerAmountRBTC,
+                contractEventId,
+                proposedClientAmount,
+                proposedFreelancerAmount
+            );
+        },
+
+        /**
+         * Accept proposal (version-aware from contract)
+         */
+        acceptProposal: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const escrowId = contract.escrowData.id;
+            const contractEventId = contract.contractEvent.id;
+
+            return handler.escrow.acceptProposal(escrowId, contractEventId);
+        },
+
+        /**
+         * Resolve after timelock (version-aware from contract)
+         */
+        resolveAfterTimelock: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const escrowId = contract.escrowData.id;
+            const contractEventId = contract.contractEvent.id;
+            const escrowStatus = contract.escrowData.status;
+
+            return handler.escrow.resolveAfterTimelock(escrowId, Number(escrowStatus), contractEventId);
+        },
+
+        // V2+ Operations (with capability checks)
+        markWorkInProgress: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            if (!handler.escrow.markWorkInProgress) {
+                throw new Error('markWorkInProgress not supported for this contract version');
+            }
+
+            const escrowId = contract.escrowData.id;
+            const contractAddress = contract.contractEvent.content.contractAddress;
+
+            return handler.escrow.markWorkInProgress(escrowId, contractAddress);
+        },
+
+        markNoShow: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            if (!handler.escrow.markNoShow) {
+                throw new Error('markNoShow not supported for this contract version');
+            }
+
+            const escrowId = contract.escrowData.id;
+            const contractAddress = contract.contractEvent.content.contractAddress;
+
+            return handler.escrow.markNoShow(escrowId, contractAddress);
+        },
+
+        claimNoShowRefund: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            if (!handler.escrow.claimNoShowRefund) {
+                throw new Error('claimNoShowRefund not supported for this contract version');
+            }
+
+            const escrowId = contract.escrowData.id;
+            const contractAddress = contract.contractEvent.content.contractAddress;
+
+            return handler.escrow.claimNoShowRefund(escrowId, contractAddress);
+        },
+
+        claimUpfrontDeposit: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            if (!handler.escrow.claimUpfrontDeposit) {
+                throw new Error('claimUpfrontDeposit not supported for this contract version');
+            }
+
+            const escrowId = contract.escrowData.id;
+            const contractAddress = contract.contractEvent.content.contractAddress;
+
+            return handler.escrow.claimUpfrontDeposit(escrowId, contractAddress);
+        },
+
+        /**
+         * Check escrow funding status (version-aware from contract)
+         */
+        checkEscrowFundingStatus: async (contract: ContractWithEvents) => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const escrowId = contract.escrowData.id;
+
+            return handler.escrow.checkEscrowFundingStatus(escrowId);
+        }
+    };
+
+    /**
+     * Bid Operations Handler
+     * Access pattern: escrow.bidOps.methodName()
+     */
+    readonly bidOps = {
+        /**
+         * Accept bid and create escrow (always uses LATEST version)
+         */
+        acceptBidAndCreateEscrow: async (
+            bid: NostrEventWithFollowup,
+            task: NostrEvent,
+            btcPrice: number,
+            network: 'RSK' | 'BSC'
+        ) => {
+            const handler = this.getHandler(LATEST_ESCROW_VERSION);
+            return handler.escrowBid.acceptBidAndCreateEscrow(bid, task, btcPrice, network);
+        },
+
+        /**
+         * Calculate bid escrow details (always uses LATEST version)
+         */
+        calculateBidEscrowDetails: (
+            bid: NostrBidContent,
+            task: Task,
+            btcPrice: number
+        ): BidEscrowDetails => {
+            const handler = this.getHandler(LATEST_ESCROW_VERSION);
+            return handler.escrowBid.calculateBidEscrowDetails(bid, task, btcPrice);
+        },
+
+        /**
+         * Validate escrow details (always uses LATEST version)
+         */
+        validateEscrowDetails: (details: BidEscrowDetails) => {
+            return validateEscrowDetails(details);
+        },
+
+        /**
+         * Validate sufficient balance (always uses LATEST version)
+         */
+        validateSufficientBalance: (details: BidEscrowDetails): string[] => {
+            return validateSufficientBalance(details);
+        },
+
+        /**
+         * Get fee percentage display (always uses LATEST version)
+         */
+        getFeePercentageDisplay: (tier: FeeTier): string => {
+            return getFeePercentageDisplay(tier);
+        },
+
+        /**
+         * Format RBTC amount (always uses LATEST version)
+         */
+        formatRBTCAmount: (amount: string): string => {
+            return formatRBTCAmount(amount);
+        }
+    };
+
+    /**
+     * Contract Operations Handler (Nostr)
+     * Access pattern: escrow.contractOps.methodName()
+     */
+    readonly contractOps = {
+        /**
+         * Publish contract event (always uses LATEST version)
+         */
+        publishContractEvent: async (params: CreateContractParams): Promise<void> => {
+            const handler = this.getHandler(LATEST_ESCROW_VERSION);
+            return handler.nostrContract.publishContractEvent(params);
+        },
+
+        /**
+         * Update contract status (version-aware from contract)
+         */
+        publishContractStatus: async (contract: ContractWithEvents, params: PublishStatusParams): Promise<void> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+            return handler.nostrContract.publishContractStatus(params);
+        },
+
+        /**
+         * Get contracts from Nostr (uses LATEST to fetch all, version extracted per contract)
+         */
+        getContracts: async (filter?: ContractFilter): Promise<ContractWithEvents[]> => {
+            const handler = this.getHandler(LATEST_ESCROW_VERSION);
+            return handler.nostrContract.getContracts(filter || {});
+        },
+
+        /**
+         * Delete contract from Nostr (version-aware from contract)
+         */
+        deleteContract: async (contract: ContractWithEvents): Promise<void> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+
+            const contractEventId = contract.contractEvent.id;
+            const escrowId = contract.escrowData.id;
+
+            return handler.nostrContract.deleteContract(contractEventId, escrowId);
+        },
+
+        /**
+         * Handle incoming status update event from Nostr (version extracted from event)
+         */
+        handleStatusEvent: async (event: NostrEvent): Promise<void> => {
+            // Extract version from event tags
+            const versionTag = event.tags?.find((tag: string[]) => tag[0] === 'v');
+            const version = versionTag?.[1] || LATEST_ESCROW_VERSION;
+            const handler = this.getHandler(version);
+            return handler.nostrContract.handleStatusEvent(event);
+        },
+
+        /**
+         * Handle incoming contract creation event from Nostr (version extracted from event)
+         */
+        handleContractEvent: async (event: NostrEvent): Promise<void> => {
+            // Extract version from event tags
+            const versionTag = event.tags?.find((tag: string[]) => tag[0] === 'v');
+            const version = versionTag?.[1] || LATEST_ESCROW_VERSION;
+            const handler = this.getHandler(version);
+            return handler.nostrContract.handleContractEvent(event);
+        }
+    };
+
+    /**
+     * Event Operations Handler (Pending Contracts & Stores)
+     * Access pattern: escrow.eventOps.methodName()
+     */
+    readonly eventOps = {
+        /**
+         * Register pending contract by transaction hash (always uses LATEST)
+         */
+        registerPendingContractByTxHash: (params: Omit<PendingContractCreation, 'escrowId'>): void => {
+            const handler = this.getHandler(LATEST_ESCROW_VERSION);
+            return handler.escrowEvents.registerPendingContractByTxHash(params);
+        },
+
+        /**
+         * Cleanup pending contract by transaction hash (always uses LATEST)
+         */
+        cleanupPendingContractByTxHash: (transactionHash: string): void => {
+            const handler = this.getHandler(LATEST_ESCROW_VERSION);
+            return handler.escrowEvents.cleanupPendingContractByTxHash(transactionHash);
+        },
+
+        /**
+         * Get contract creation store (always uses LATEST)
+         */
+        getContractCreationStore: (): Writable<{ escrowId: string; contractEventId?: string; error?: string } | null> => {
+            const handler = this.getHandler(LATEST_ESCROW_VERSION);
+            return handler.escrowEvents.contractCreationStore;
+        },
+
+        /**
+         * Publish escrow status to Nostr (version-aware from contract)
+         */
+        publishEscrowStatus: async (contract: ContractWithEvents, params: PublishContractStatusParams): Promise<void> => {
+            const version = this.getVersionFromContract(contract);
+            const handler = this.getHandler(version);
+            return handler.escrowEvents.publishEscrowStatus(params);
+        }
+    };
 
     // ============================================
     // CAPABILITY CHECKS (Version-Agnostic)
@@ -79,239 +467,34 @@ class EscrowManager {
     /**
      * Generic capability check
      */
-    hasFeature<K extends keyof IEscrowHandler>(
-        contract: ContractEvent,
-        feature: K
+    hasFeature(
+        contract: ContractWithEvents,
+        feature: string
     ): boolean {
         const version = this.getVersionFromContract(contract);
         const handler = this.getHandler(version);
-        return typeof handler.escrow[feature] === 'function';
+        const escrowHandler = handler.escrow as unknown as Record<string, unknown>;
+        return typeof escrowHandler[feature] === 'function';
     }
 
     // ============================================
-    // CORE ESCROW OPERATIONS
+    // ABI ACCESS
     // ============================================
 
     /**
-     * Create new escrow (always uses LATEST version)
+     * Get ABI for specific version
      */
-    async createEscrow(
-        freelancerAddress: string,
-        baseAmount: string,
-        estimatedStartTime: number,
-        estimatedCompletionTime: number,
-        clientFeeTier: FeeTier,
-        freelancerFeeTier: FeeTier
-    ) {
-        const handler = this.getHandler(LATEST_VERSION);
-        return handler.escrow.createEscrow(
-            freelancerAddress,
-            baseAmount,
-            estimatedStartTime,
-            estimatedCompletionTime,
-            clientFeeTier,
-            freelancerFeeTier
-        );
+    getABI(version?: string) {
+        const handler = this.getHandler(version || LATEST_ESCROW_VERSION);
+        return handler.abi;
     }
 
     /**
-     * Load escrow details (version-aware)
+     * Get ABI for a specific contract (version-aware)
      */
-    async loadEscrowDetails(contractEvent: ContractEvent) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.loadEscrowDetails(contractEvent.content.escrowId, contractEvent.content.contractAddress);
-    }
-
-    /**
-     * Complete task (version-aware)
-     */
-    async completeTask(contractEvent: ContractEvent) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.completeTask(contractEvent.content.escrowId, contractEvent.content.contractAddress);
-    }
-
-    /**
-     * Accept task (version-aware)
-     */
-    async acceptTask(contractEvent: ContractEvent) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.acceptTask(contractEvent.content.escrowId, contractEvent.content.contractAddress);
-    }
-
-    /**
-     * Cancel escrow (version-aware)
-     */
-    async cancelEscrow(contractEvent: ContractEvent) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.cancelEscrow(contractEvent.content.escrowId, contractEvent.content.contractAddress);
-    }
-
-    // ============================================
-    // V2+ OPERATIONS (with capability checks)
-    // ============================================
-
-    /**
-     * Mark work in progress (V2+)
-     * Throws error if not supported by contract version
-     */
-    async markWorkInProgress(contractEvent: ContractEvent) {
-        if (!this.hasFeature(contractEvent, 'markWorkInProgress')) {
-            throw new Error('markWorkInProgress not supported for this contract version');
-        }
-
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.markWorkInProgress!(contractEvent.content.escrowId, contractEvent.content.contractAddress);
-    }
-
-    /**
-     * Mark no show (V2+)
-     */
-    async markNoShow(contractEvent: ContractEvent) {
-        if (!this.hasFeature(contractEvent, 'markNoShow')) {
-            throw new Error('markNoShow not supported for this contract version');
-        }
-
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.markNoShow!(contractEvent.content.escrowId, contractEvent.content.contractAddress);
-    }
-
-    /**
-     * Claim no show refund (V2+)
-     */
-    async claimNoShowRefund(contractEvent: ContractEvent) {
-        if (!this.hasFeature(contractEvent, 'claimNoShowRefund')) {
-            throw new Error('claimNoShowRefund not supported for this contract version');
-        }
-
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.claimNoShowRefund!(contractEvent.content.escrowId, contractEvent.content.contractAddress);
-    }
-
-    /**
-     * Claim upfront deposit (V2+)
-     */
-    async claimUpfrontDeposit(contractEvent: ContractEvent) {
-        if (!this.hasFeature(contractEvent, 'claimUpfrontDeposit')) {
-            throw new Error('claimUpfrontDeposit not supported for this contract version');
-        }
-
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.claimUpfrontDeposit!(contractEvent.content.escrowId, contractEvent.content.contractAddress);
-    }
-
-    // ============================================
-    // DISPUTE OPERATIONS
-    // ============================================
-
-    async disputeTask(contractEvent: ContractEvent, reason: string) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.disputeTask(contractEvent.content.escrowId, reason, contractEvent.content.contractAddress);
-    }
-
-    async proposeResolution(
-        contractEvent: ContractEvent,
-        freelancerAmount: string,
-        proposedClientAmount?: string,
-        proposedFreelancerAmount?: string
-    ) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.proposeResolution(
-            contractEvent.content.escrowId,
-            freelancerAmount,
-            contractEvent.id,
-            proposedClientAmount,
-            proposedFreelancerAmount
-        );
-    }
-
-    async acceptProposal(contractEvent: ContractEvent) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.acceptProposal(contractEvent.content.escrowId, contractEvent.content.contractAddress);
-    }
-
-    async resolveAfterTimelock(contractEvent: ContractEvent, escrowStatus: number) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.escrow.resolveAfterTimelock(contractEvent.content.escrowId, escrowStatus, contractEvent.id);
-    }
-
-    // ============================================
-    // BID OPERATIONS
-    // ============================================
-
-    /**
-     * Accept bid and create escrow (always uses LATEST version)
-     */
-    async acceptBidAndCreateEscrow(
-        bid: NostrEventWithFollowup,
-        task: NostrEvent,
-        btcPrice: number,
-        network: 'RSK' | 'BSC'
-    ) {
-        const handler = this.getHandler(LATEST_VERSION);
-        return handler.escrowBid.acceptBidAndCreateEscrow(bid, task, btcPrice, network);
-    }
-
-    /**
-     * Calculate bid escrow details (always uses LATEST version)
-     */
-    calculateBidEscrowDetails(
-        bid: NostrBidContent,
-        task: Task,
-        btcPrice: number
-    ) {
-        const handler = this.getHandler(LATEST_VERSION);
-        return handler.escrowBid.calculateBidEscrowDetails(bid, task, btcPrice);
-    }
-
-    // ============================================
-    // NOSTR CONTRACT OPERATIONS
-    // ============================================
-
-    /**
-     * Publish contract event (always uses LATEST version)
-     */
-    async publishContractEvent(params: CreateContractParams) {
-        const handler = this.getHandler(LATEST_VERSION);
-        return handler.nostrContract.publishContractEvent(params);
-    }
-
-    /**
-     * Update contract status (version-aware)
-     */
-    async publishContractStatus(contractEvent: ContractEvent, params: PublishStatusParams) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.nostrContract.publishContractStatus(params);
-    }
-
-    /**
-     * Get contracts from Nostr (version-aware)
-     */
-    async getContracts(filter: ContractFilter) {
-        // Use latest handler to get contracts
-        const handler = this.getHandler(LATEST_VERSION);
-        return handler.nostrContract.getContracts(filter);
-    }
-
-    /**
-     * Delete contract from Nostr (version-aware)
-     */
-    async deleteContract(contractEvent: ContractEvent) {
-        const version = this.getVersionFromContract(contractEvent);
-        const handler = this.getHandler(version);
-        return handler.nostrContract.deleteContract(contractEvent.id, contractEvent.content.escrowId);
+    getABIForContract(contract: ContractWithEvents) {
+        const version = this.getVersionFromContract(contract);
+        return this.getABI(version);
     }
 
     // ============================================
@@ -322,7 +505,7 @@ class EscrowManager {
      * Get latest version identifier
      */
     getLatestVersion(): EscrowVersion {
-        return LATEST_VERSION;
+        return LATEST_ESCROW_VERSION;
     }
 
     /**
@@ -341,9 +524,10 @@ class EscrowManager {
 
     /**
      * Get version-specific enum
+     * Returns LATEST version enum if contract is not provided
      */
-    getEscrowStatus(contractEvent: ContractEvent) {
-        const version = this.getVersionFromContract(contractEvent);
+    getEscrowStatus(contract?: ContractWithEvents) {
+        const version = contract ? this.getVersionFromContract(contract) : LATEST_ESCROW_VERSION;
         const handler = this.getHandler(version);
         return handler.EscrowStatus;
     }
@@ -354,8 +538,17 @@ export const escrow = new EscrowManager();
 
 // Export types for external use
 export type { EscrowVersion };
-export { LATEST_VERSION };
 
 // Re-export types
 export type { IVersionHandler, IEscrowHandler, IEscrowBidHandler, INostrContractHandler } from './types';
 
+// Re-export utility types from escrowBid for convenience
+export type { ValidationWarning, ValidationResult } from './v1/escrowBid';
+
+// Re-export EscrowStatus enum from v1 (for backward compatibility and type imports)
+export { EscrowStatus } from './v1/escrow.enum';
+
+// TODO: Implementation not working as expected, fix later
+// Export EscrowStatus as a type derived from the return type of getEscrowStatus
+// This makes the type version-aware and dynamic
+// export type EscrowStatus = ReturnType<typeof escrow.getEscrowStatus>;

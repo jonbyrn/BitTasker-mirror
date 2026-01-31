@@ -1,4 +1,4 @@
-import type { CreateContractParams, PublishContractStatusParams } from '$lib/types/contract';
+import type { ContractCreationEvent, CreateContractParams, PendingContractCreation, PublishContractStatusParams } from '$lib/types/contract';
 import { writable } from 'svelte/store';
 import { publishContractEvent, publishContractStatus } from './nostrContract';
 import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
@@ -22,29 +22,9 @@ export interface EscrowCreatedEvent {
 	amount: string;
 }
 
-export interface ContractCreationEvent {
-	escrowId: string;
-	contractEventId?: string;
-	error?: string;
-}
-
 // Stores for escrow events
 // TODO: Useless store, needs to be removed
 export const contractCreationStore = writable<ContractCreationEvent | null>(null);
-
-// Pending contract creation requests
-interface PendingContractCreation {
-	bidEventId: string;
-	escrowId: string;
-	taskId: string;
-	taskTitle: string;
-	taskDescription: string;
-	freelancerPubkey: string;
-	amount: string;
-	estimatedStartTime: number;
-	estimatedCompletionTime: number;
-	transactionHash: string;
-}
 
 const pendingContracts = new Map<string, PendingContractCreation>();
 const pendingContractsByTxHash = new Map<string, PendingContractCreation>();

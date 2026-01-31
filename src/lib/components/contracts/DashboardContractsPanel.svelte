@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { createPortal } from '$lib/utils/portal';
-	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+	import { EscrowStatus } from '$lib/utils/escrow';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import ContractCard from './ContractCard.svelte';
@@ -127,7 +127,7 @@
 			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
 			const { get } = await import('svelte/store');
 			let walletState = get(walletStore);
-			
+
 			if (import.meta.env.DEV) {
 				console.log('[DEBUG] [DashboardContractsPanel] Wallet state before initialization check', {
 					isConnected: walletState.isConnected,
@@ -147,7 +147,7 @@
 				}
 				const walletInitStartTime = import.meta.env.DEV ? performance.now() : 0;
 				await walletManager.initialize();
-				
+
 				// Re-check wallet state after initialization
 				walletState = get(walletStore);
 				if (import.meta.env.DEV) {
@@ -165,14 +165,17 @@
 			}
 		} catch (walletStateError) {
 			if (import.meta.env.DEV) {
-				console.error('[DEBUG] [DashboardContractsPanel] Failed to initialize wallet:', walletStateError);
+				console.error(
+					'[DEBUG] [DashboardContractsPanel] Failed to initialize wallet:',
+					walletStateError
+				);
 			}
 			// Continue anyway - contracts will handle wallet initialization individually
 		}
 
 		const loadStartTime = import.meta.env.DEV ? performance.now() : 0;
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
-		
+
 		if (import.meta.env.DEV) {
 			const loadDuration = performance.now() - loadStartTime;
 			const totalMountDuration = performance.now() - mountStartTime;
@@ -237,11 +240,11 @@
 	// Handle window clicks for dropdown - use effect to conditionally attach
 	$effect(() => {
 		if (!isStatusDropdownOpen) return;
-		
+
 		const handler = (event: MouseEvent) => {
 			handleClickOutside(event);
 		};
-		
+
 		window.addEventListener('click', handler);
 		return () => {
 			window.removeEventListener('click', handler);
@@ -449,7 +452,7 @@
 		</div>
 	{/if}
 
-		<!-- Contracts List -->
+	<!-- Contracts List -->
 	{#if !$contractStore.isLoading && !$contractStore.error}
 		{#if filteredContracts.length === 0}
 			<div class="py-12 text-center">

@@ -21,9 +21,9 @@ import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import { contractStore } from '$lib/stores/contract.store';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
+import { publishEscrowStatus } from './escrowEvents';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
-import { publishEscrowStatus } from './escrowEvents';
 
 /**
  * Create a new contract event after escrow creation (as encrypted DM)
@@ -60,7 +60,8 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 			params.taskId,
 			params.freelancerPubkey,
 			clientPubkey,
-			network
+			network,
+			'v1'
 		);
 
 		await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
@@ -142,7 +143,8 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			params.contractEventId,
 			params.escrowId,
 			recipientPubkey,
-			params.action
+			params.action,
+			'v1'
 		);
 
 		if (import.meta.env.DEV && (params.action === EscrowStatus.FundsReleased || params.action === EscrowStatus.PendingAcceptance)) {
