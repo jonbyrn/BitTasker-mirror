@@ -13,7 +13,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import DebugContractCard from '$lib/components/contracts/DebugContractCard.svelte';
 import type { EscrowData } from '$lib/types/wallet';
 import type { ContractPermissions } from '$lib/types/contract';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
 
 // Mock translation
 const mockT = (key: string, options?: { values?: Record<string, string> }) => {
@@ -31,10 +31,10 @@ vi.mock('svelte-i18n', () => ({
 	t: {
 		subscribe: (fn: (value: any) => void) => {
 			fn(mockT);
-			return () => {};
+			return () => { };
 		}
 	},
-	locale: { subscribe: vi.fn(() => () => {}) }
+	locale: { subscribe: vi.fn(() => () => { }) }
 }));
 
 // Mock ConfirmModal

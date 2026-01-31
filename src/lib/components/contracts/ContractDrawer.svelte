@@ -107,7 +107,7 @@
 <Drawer
 	isOpen={$contractStore.isDrawerOpen}
 	title={$contractStore.contract
-		? contractStore.getContractKey($contractStore.contract, 'taskTitle') as string
+		? (contractStore.getContractKey($contractStore.contract, 'taskTitle') as string)
 		: ''}
 	onClose={() => {
 		$contractStore.contract = null;
@@ -141,9 +141,16 @@
 							<!-- Taskee Info + Status Badge - Same row, wraps if needed -->
 							<div class="flex flex-wrap items-center gap-2">
 								<UserNostrBadge
-									npub={contractStore.getContractKey($contractStore.contract, 'otherPartyNpub') as string}
+									npub={contractStore.getContractKey(
+										$contractStore.contract,
+										'otherPartyNpub'
+									) as string}
 								/>
-								<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0 ml-auto">
+								<div
+									class="badge {getStatusColorClass(
+										$contractStore.contract.status
+									)} shrink-0 ml-auto"
+								>
 									{$t(getStatusTranslationKey($contractStore.contract.status))}
 								</div>
 							</div>
@@ -166,7 +173,10 @@
 								>
 								<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
 									>{formatDate(
-										contractStore.getContractKey($contractStore.contract, 'estimatedStartTime') as number
+										contractStore.getContractKey(
+											$contractStore.contract,
+											'estimatedStartTime'
+										) as number
 									)}</span
 								>
 							</div>
@@ -177,7 +187,10 @@
 								>
 								<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
 									>{formatDate(
-										contractStore.getContractKey($contractStore.contract, 'estimatedCompletionTime') as number
+										contractStore.getContractKey(
+											$contractStore.contract,
+											'estimatedCompletionTime'
+										) as number
 									)}</span
 								>
 							</div>
@@ -268,7 +281,10 @@
 													<p class="text-base-content/80 mt-1 text-xs">
 														{btcPrice > 0
 															? formatUSDWithSatsSync(
-																	contractStore.getContractKey($contractStore.contract, 'amount') as string,
+																	contractStore.getContractKey(
+																		$contractStore.contract,
+																		'amount'
+																	) as string,
 																	btcPrice
 																)
 															: `${formatRBTC(contractStore.getContractKey($contractStore.contract, 'amount') as string)} RBTC`}
@@ -350,7 +366,10 @@
 
 							<ContractTimeline
 								statusEvents={$contractStore.contract.statusEvents}
-								contractPubkey={contractStore.getContractKey($contractStore.contract, 'clientPubkey') as string}
+								contractPubkey={contractStore.getContractKey(
+									$contractStore.contract,
+									'clientPubkey'
+								) as string}
 							/>
 						</div>
 					</div>

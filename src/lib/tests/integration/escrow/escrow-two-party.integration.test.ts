@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
 
 // Mock dependencies
 vi.mock('@bittasker/wallet-core', () => ({

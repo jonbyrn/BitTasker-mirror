@@ -7,12 +7,15 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { browser } from '$app/environment';
-	import { tick } from 'svelte';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import { formatStandardDate, formatStandardDateShort, formatStandardDateTime, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatStandardDate,
+		formatStandardDateShort,
+		formatStandardDateTime,
+		parseDateToLocalMidnight
+	} from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { getContracts } from '$lib/utils/escrow/v1/nostrContract';
-	import { escrow } from '$lib/utils/escrow/v1/escrow';
+	import { escrow } from '$lib/utils/escrow';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import TaskShareButton from '../TaskShareButton.svelte';
@@ -21,22 +24,23 @@
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
 
-	let { task, isOwner, onClose, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } = $props<{
-		task: Task;
-		isOwner: boolean;
-		onClose: () => void;
-		onRequestEditConfirm?: () => void;
-		onRequestDeleteConfirm?: () => void;
-		isDeleting?: boolean;
-		onBid?: () => void;
-	}>();
+	let { task, isOwner, onClose, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } =
+		$props<{
+			task: Task;
+			isOwner: boolean;
+			onClose: () => void;
+			onRequestEditConfirm?: () => void;
+			onRequestDeleteConfirm?: () => void;
+			isDeleting?: boolean;
+			onBid?: () => void;
+		}>();
 
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let canDelete = $state(true); // Default to true, will be checked
 	let isCheckingDelete = $state(false);
 	let canEdit = $state(true); // Default to true, will be checked
 	let isCheckingEdit = $state(false);
-	
+
 	// Video lightbox state
 	let selectedVideo = $state<Attachment | null>(null);
 	let isVideoLightboxOpen = $state(false);
@@ -61,7 +65,7 @@
 		try {
 			// Extract ID from category (handle both string and object)
 			const categoryId = typeof category === 'string' ? category : (category as any).id;
-			const categoryObj = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+			const categoryObj = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
 			if (categoryObj) {
 				// Use slug for translation key (as defined in translation files)
 				const translatedName = $t(`categories.${categoryObj.slug}.name`);
@@ -76,10 +80,8 @@
 	}
 
 	// Convert category IDs to translated names for display (reactive)
-	let translatedCategories = $derived(
-		task?.categories?.map(translateCategory) || []
-	);
-	
+	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
+
 	// Prepare gallery images for PhotoSwipe lightbox
 	// Note: attachment.url is the full-size/original image URL
 	// The Gallery component uses 'url' for the lightbox href (full-size) and 'thumbnailURL' for the thumbnail display
@@ -87,12 +89,19 @@
 		const imagePromises = attachments
 			.filter((attachment) => !isVideoFile(attachment.url))
 			.map((attachment) => {
-				return new Promise<{ url: string; largeURL?: string; alt: string; width: number; height: number; size: number }>((resolve) => {
+				return new Promise<{
+					url: string;
+					largeURL?: string;
+					alt: string;
+					width: number;
+					height: number;
+					size: number;
+				}>((resolve) => {
 					const img = new Image();
 					// Use the full-size image URL for both thumbnail and lightbox
 					// attachment.url is the original/full-size image from the upload service
 					const fullSizeUrl = attachment.url;
-					
+
 					img.onload = () => {
 						resolve({
 							url: fullSizeUrl, // Full-size image URL for lightbox (Gallery uses this in href)
@@ -116,17 +125,17 @@
 					img.src = fullSizeUrl;
 				});
 			});
-		
+
 		return await Promise.all(imagePromises);
 	};
-	
+
 	// Portal action to render lightbox at body level
 	function portalToBody(node: HTMLElement) {
 		if (!browser) return;
-		
+
 		// Append to body
 		document.body.appendChild(node);
-		
+
 		return {
 			destroy() {
 				if (node.parentNode) {
@@ -135,7 +144,7 @@
 			}
 		};
 	}
-	
+
 	// Open video in lightbox
 	function openVideoLightbox(video: Attachment) {
 		selectedVideo = video;
@@ -145,7 +154,7 @@
 			document.body.style.overflow = 'hidden';
 		}
 	}
-	
+
 	// Close video lightbox
 	function closeVideoLightbox() {
 		isVideoLightboxOpen = false;
@@ -158,7 +167,7 @@
 			selectedVideo = null;
 		}, 300);
 	}
-	
+
 	// Cleanup on component destroy
 	onDestroy(() => {
 		if (browser) {
@@ -196,10 +205,10 @@
 
 		try {
 			isCheckingEdit = true;
-			
+
 			// Check if task has any contracts
-			const contracts = await getContracts({ taskIds: [task.id] });
-			
+			const contracts = await escrow.contractOps.getContracts({ taskIds: [task.id] });
+
 			if (contracts.length === 0) {
 				// No contracts found - can edit
 				canEdit = true;
@@ -226,10 +235,10 @@
 
 		try {
 			isCheckingDelete = true;
-			
+
 			// Check if task has any contracts (which means it has an escrow)
-			const contracts = await getContracts({ taskIds: [task.id] });
-			
+			const contracts = await escrow.contractOps.getContracts({ taskIds: [task.id] });
+
 			if (contracts.length === 0) {
 				// No contracts found - task was never funded, can delete
 				canDelete = true;
@@ -238,21 +247,21 @@
 
 			// Task has contracts - check if any escrow was funded
 			for (const contract of contracts) {
-				const fundingStatus = await escrow.checkEscrowFundingStatus(contract.escrowData.id);
-				
+				const fundingStatus = await escrow.escrowOps.checkEscrowFundingStatus(contract);
+
 				if (fundingStatus.error) {
 					// Error checking escrow - be conservative and disallow deletion
 					canDelete = false;
 					return;
 				}
-				
+
 				if (fundingStatus.wasFunded) {
 					// Escrow was funded - cannot delete
 					canDelete = false;
 					return;
 				}
 			}
-			
+
 			// All escrows were never funded - can delete
 			canDelete = true;
 		} catch (error) {
@@ -278,7 +287,6 @@
 			throw new Error('Unable to fetch Bitcoin price. Please try again later.');
 		}
 	}
-
 
 	// Re-check edit permission when task or isOwner changes
 	$effect(() => {
@@ -351,7 +359,10 @@
 					{$t('dashboard.task_details_by_task.deadline')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDate(parseDateToLocalMidnight(task.deadline) || new Date(task.deadline), $locale || 'en')}
+					{formatStandardDate(
+						parseDateToLocalMidnight(task.deadline) || new Date(task.deadline),
+						$locale || 'en'
+					)}
 				</p>
 			</div>
 		{:else if task.dateRange}
@@ -360,7 +371,10 @@
 					{$t('dashboard.task_details_by_task.date_range')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDateShort(parseDateToLocalMidnight(task.dateRange.start) || new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDateShort(
+					{formatStandardDateShort(
+						parseDateToLocalMidnight(task.dateRange.start) || new Date(task.dateRange.start),
+						$locale || 'en'
+					)} - {formatStandardDateShort(
 						parseDateToLocalMidnight(task.dateRange.end) || new Date(task.dateRange.end),
 						$locale || 'en'
 					)}
@@ -383,8 +397,8 @@
 		>
 		<div class="bg-base-200 rounded-2xl p-3">
 			<div class="max-h-28 overflow-y-auto">
-				<TranslatableTask 
-					{task} 
+				<TranslatableTask
+					{task}
 					showTitle={false}
 					showDescription={true}
 					showToggle={false}
@@ -489,7 +503,7 @@
 			{#if task.attachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
 				<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
 					{#each task.attachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
-						<div 
+						<div
 							class="bg-base-200 overflow-hidden rounded-lg pb-4 cursor-pointer hover:opacity-90 transition-opacity"
 							onclick={() => openVideoLightbox(attachment)}
 							role="button"
@@ -542,8 +556,8 @@
 			{/if}
 
 			{#if isOwner && task.status === TaskStatusEnum.OPEN && onRequestEditConfirm && canEdit}
-				<button 
-					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none" 
+				<button
+					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none"
 					onclick={handleEditTask}
 					disabled={isCheckingEdit}
 				>
@@ -568,7 +582,7 @@
 					{$t('dashboard.task_details_by_task.edit_task')}
 				</button>
 			{/if}
-			
+
 			<!-- Delete Button (only shown when onRequestDeleteConfirm is provided) -->
 			{#if isOwner && onRequestDeleteConfirm}
 				<button
@@ -639,23 +653,14 @@
 					stroke="currentColor"
 					stroke-width="2"
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M6 18L18 6M6 6l12 12"
-					/>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 				</svg>
 			</button>
-			
+
 			<!-- Video container - centered and responsive -->
 			<div class="relative w-full max-w-5xl max-h-[90vh] flex flex-col items-center justify-center">
 				<div class="w-full bg-black rounded-lg overflow-hidden shadow-2xl">
-					<video
-						class="w-full h-auto max-h-[85vh] object-contain"
-						controls
-						autoplay
-						preload="auto"
-					>
+					<video class="w-full h-auto max-h-[85vh] object-contain" controls autoplay preload="auto">
 						<source src={selectedVideo.url} type="video/mp4" />
 						<track kind="captions" src="" label="English" />
 						{$t('dashboard.task_details_by_task.video_not_supported')}

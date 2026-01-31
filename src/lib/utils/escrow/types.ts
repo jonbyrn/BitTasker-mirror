@@ -5,17 +5,18 @@
  * to ensure consistent API across different escrow contract versions.
  */
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
-import type { ContractFilter, ContractWithEvents, CreateContractParams, PublishContractStatusParams, PublishStatusParams } from '$lib/types/contract';
-import type { Task } from '$lib/types/task';
+import type { ContractCreationEvent, ContractFilter, ContractWithEvents, CreateContractParams, PendingContractCreation, PublishContractStatusParams, PublishStatusParams } from '$lib/types/contract';
+import type { Attachment, Task } from '$lib/types/task';
 import type {
 	ContractTransactionResult,
-	DisputeProposal,
 	EscrowData,
 	BidAcceptanceResult,
 	BidEscrowDetails
 } from '$lib/types/wallet';
 import type { FeeTier } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
+import type { Writable } from 'svelte/store';
+import type { EscrowError } from '../helpers/escrowErrors';
 
 /**
  * Supported escrow contract versions
@@ -62,26 +63,27 @@ export interface IEscrowHandler {
 	/**
 	 * Mark task as complete (freelancer action)
 	 * @param escrowId - Unique escrow identifier
-	 * @param contractAddress - Optional contract address for legacy contracts
+	 * @param contractEventId - Optional contract event ID for Nostr publishing
+	 * @param completionAttachments - Optional completion attachments
 	 * @returns Transaction result
 	 */
-	completeTask(escrowId: string, contractAddress?: string): Promise<ContractTransactionResult>;
+	completeTask(escrowId: string, contractEventId?: string, completionAttachments?: Attachment[]): Promise<ContractTransactionResult>;
 
 	/**
 	 * Accept completed task and release funds (client action)
 	 * @param escrowId - Unique escrow identifier
-	 * @param contractAddress - Optional contract address for legacy contracts
+	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @returns Transaction result
 	 */
-	acceptTask(escrowId: string, contractAddress?: string): Promise<ContractTransactionResult>;
+	acceptTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
 
 	/**
 	 * Cancel escrow and refund client
 	 * @param escrowId - Unique escrow identifier
-	 * @param contractAddress - Optional contract address for legacy contracts
+	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @returns Transaction result
 	 */
-	cancelEscrow(escrowId: string, contractAddress?: string): Promise<ContractTransactionResult>;
+	cancelEscrow(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
 
 	// ============================================
 	// Dispute Operations (Required for ALL versions)
@@ -90,11 +92,10 @@ export interface IEscrowHandler {
 	/**
 	 * Initiate dispute on completed task
 	 * @param escrowId - Unique escrow identifier
-	 * @param reason - Dispute reason
-	 * @param contractAddress - Optional contract address for legacy contracts
+	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @returns Transaction result
 	 */
-	disputeTask(escrowId: string, reason: string, contractAddress?: string): Promise<ContractTransactionResult>;
+	disputeTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
 
 	/**
 	 * Propose resolution for dispute
@@ -116,15 +117,15 @@ export interface IEscrowHandler {
 	/**
 	 * Accept proposed resolution
 	 * @param escrowId - Unique escrow identifier
-	 * @param contractAddress - Optional contract address for legacy contracts
+	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @returns Transaction result
 	 */
-	acceptProposal(escrowId: string, contractAddress?: string): Promise<ContractTransactionResult>;
+	acceptProposal(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
 
 	/**
 	 * Resolve dispute after timelock expires
 	 * @param escrowId - Unique escrow identifier
-	 * @param escrowStatus - Current escrow status for Nostr publishing
+	 * @param escrowStatus - Current escrow status (EscrowStatus enum value)
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @returns Transaction result
 	 */
@@ -165,6 +166,17 @@ export interface IEscrowHandler {
 	 * @returns Transaction result
 	 */
 	claimUpfrontDeposit?(escrowId: string, contractAddress?: string): Promise<ContractTransactionResult>;
+
+	/**
+	 * Check escrow funding status
+	 * @param escrowId - Unique escrow identifier
+	 * @returns Object with wasFunded flag and escrow data if it exists
+	 */
+	checkEscrowFundingStatus(escrowId: string): Promise<{
+		wasFunded: boolean;
+		escrowData: EscrowData | null;
+		error?: typeof EscrowError;
+	}>;
 }
 
 /**
@@ -247,6 +259,22 @@ export interface INostrContractHandler {
 	 * @returns Promise that resolves when deletion is complete
 	 */
 	deleteContract(contractEventId: string, escrowId: string): Promise<void>;
+
+	/**
+	 * Handle incoming status update event from Nostr
+	 * Subscribe to websocket status events
+	 * @param event - Nostr event containing status update
+	 * @returns Promise that resolves when event is handled
+	 */
+	handleStatusEvent(event: NostrEvent): Promise<void>;
+
+	/**
+	 * Handle incoming contract creation event from Nostr
+	 * Subscribe to websocket contract events
+	 * @param event - Nostr event containing contract data
+	 * @returns Promise that resolves when event is handled
+	 */
+	handleContractEvent(event: NostrEvent): Promise<void>;
 }
 
 export interface IEscrowNostrEvents {
@@ -269,6 +297,24 @@ export interface IEscrowNostrEvents {
 	 * await publishEscrowStatus({ status: EscrowStatus.Completed, ... });
 	 */
 	publishEscrowStatus(params: PublishContractStatusParams): Promise<void>;
+
+	/**
+	 * Register pending contract by transaction hash (before we have escrow ID)
+	 * @param params - Pending contract parameters
+	 */
+	registerPendingContractByTxHash(params: Omit<PendingContractCreation, 'escrowId'>): void;
+
+	/**
+	 * Cleanup pending contract by transaction hash (called when transaction fails)
+	 * @param transactionHash - Transaction hash to cleanup
+	 */
+	cleanupPendingContractByTxHash(transactionHash: string): void;
+
+	/**
+	 * Contract creation store (Svelte writable)
+	 * Used to track contract creation events
+	 */
+	contractCreationStore: Writable<ContractCreationEvent | null>;
 }
 
 /**
@@ -285,6 +331,7 @@ export interface IVersionHandler {
 	/** Nostr contract operations handler */
 	nostrContract: INostrContractHandler;
 
+	/** Escrow events handler (stores, pending contracts) */
 	escrowEvents: IEscrowNostrEvents;
 
 	/** Version-specific status enum (TypeScript enum type) */
@@ -292,4 +339,7 @@ export interface IVersionHandler {
 		readonly [key: string]: string | number;
 		readonly [key: number]: string;
 	};
+
+	/** ABI JSON for contract interaction */
+	abi: any;
 }
