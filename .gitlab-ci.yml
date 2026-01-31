@@ -4,16 +4,6 @@
 #   - main → deploy to production (worker.prod.bittasker.com)
 #   - Other branches (e.g. feat/*) → validate only (test, lint, build)
 
-default:
-  image: node:22-bookworm-slim
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
-      - .npm/
-
 stages:
   - validate
   - deploy
@@ -22,7 +12,13 @@ stages:
 # VALIDATE - Runs on all branches
 # ============================================
 validate:
+  image: node:22-bookworm-slim
   stage: validate
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+      - .npm/
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run check
@@ -38,7 +34,13 @@ validate:
 # DEPLOY STAGING - dev branch only
 # ============================================
 deploy-staging:
+  image: node:22-bookworm-slim
   stage: deploy
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+      - .npm/
   needs:
     - validate
   script:
@@ -57,7 +59,13 @@ deploy-staging:
 # DEPLOY PRODUCTION - main branch only
 # ============================================
 deploy-production:
+  image: node:22-bookworm-slim
   stage: deploy
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+      - .npm/
   needs:
     - validate
   script:
