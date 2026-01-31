@@ -1,6 +1,6 @@
 import type { NostrContract, ContractStatusEvent, ContractPermissions } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
 
 /**
  * Helper function to determine if client can cancel based on Solidity contract rules
@@ -9,15 +9,15 @@ import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 function canClientCancel(escrowData: EscrowData, now: number): boolean {
 	const oneHour = 3600;
 	const twentyFourHours = 86400;
-	
+
 	// Convert timestamps to seconds if they're in milliseconds
-	const createdAtSeconds = escrowData.createdAt > 1000000000000 
-		? escrowData.createdAt / 1000 
+	const createdAtSeconds = escrowData.createdAt > 1000000000000
+		? escrowData.createdAt / 1000
 		: escrowData.createdAt;
-	const startTimeSeconds = escrowData.estimatedStartTime > 1000000000000 
-		? escrowData.estimatedStartTime / 1000 
+	const startTimeSeconds = escrowData.estimatedStartTime > 1000000000000
+		? escrowData.estimatedStartTime / 1000
 		: escrowData.estimatedStartTime;
-	
+
 	const timeSinceCreation = now - createdAtSeconds;
 	const timeUntilStart = startTimeSeconds - now;
 

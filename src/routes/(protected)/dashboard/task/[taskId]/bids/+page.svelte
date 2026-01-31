@@ -41,9 +41,7 @@
 	);
 
 	// Check if any bid is currently being processed - prevents race condition during acceptance
-	let hasProcessingBid = $derived(
-		bids.some((bid) => $bidStore.processingBidIds.has(bid.id))
-	);
+	let hasProcessingBid = $derived(bids.some((bid) => $bidStore.processingBidIds.has(bid.id)));
 
 	// Message modal state
 	let showMessageModal = $state(false);
@@ -97,7 +95,6 @@
 		dateFormatterCache.set(key, formatted);
 		return formatted;
 	}
-
 
 	async function loadTaskDetails() {
 		try {
@@ -283,10 +280,7 @@
 			{$t('task.drawer.bids_description')}
 		</p>
 		<div class="mt-3 flex justify-between items-center">
-			<button
-				onclick={() => history.back()}
-				class="btn btn-ghost btn-sm"
-			>
+			<button onclick={() => history.back()} class="btn btn-ghost btn-sm">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4"
@@ -612,7 +606,7 @@
 									{getTranslatedBidContent(bidContent, 'description')}
 								</p>
 							</div>
-						
+
 							<!-- Payment info row: FIXED info on left, price on right (same row for all screen sizes) -->
 							<div class="flex flex-row items-center justify-between gap-2">
 								<!-- Payment type info - left aligned with max-width -->
@@ -620,42 +614,42 @@
 									{bidContent.paymentType} ? {bidContent.estimatedDuration}
 								</div> -->
 
-									<!-- Estimated date for FIXED bids -->
-							{#if bidContent.paymentType === 'FIXED' && bidContent.startDateTime && bidContent.endDateTime}
-							<div class="flex items-start max-w-[60%] gap-2">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<div class="flex min-w-0 flex-1 flex-col">
-									<small class="text-base-content/60 text-xs">
-										{$t('bids.estimated_date')}
-									</small>
-									<span class="text-sm font-medium">
-										{(() => {
-											const startDate = parseDateWithLocalTime(bidContent.startDateTime);
-											const endDate = parseDateWithLocalTime(bidContent.endDateTime);
-											return startDate && endDate
-												? `${formatStandardDateTime(startDate, $locale || 'en')} - ${formatStandardDateTime(endDate, $locale || 'en')}`
-												: 'N/A';
-										})()}
-									</span>
-									<span class="text-base-content/60 text-xs">
-										({bidContent.estimatedDuration})
-									</span>
-								</div>
-							</div>
-						{/if}
+								<!-- Estimated date for FIXED bids -->
+								{#if bidContent.paymentType === 'FIXED' && bidContent.startDateTime && bidContent.endDateTime}
+									<div class="flex items-start max-w-[60%] gap-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+											/>
+										</svg>
+										<div class="flex min-w-0 flex-1 flex-col">
+											<small class="text-base-content/60 text-xs">
+												{$t('bids.estimated_date')}
+											</small>
+											<span class="text-sm font-medium">
+												{(() => {
+													const startDate = parseDateWithLocalTime(bidContent.startDateTime);
+													const endDate = parseDateWithLocalTime(bidContent.endDateTime);
+													return startDate && endDate
+														? `${formatStandardDateTime(startDate, $locale || 'en')} - ${formatStandardDateTime(endDate, $locale || 'en')}`
+														: 'N/A';
+												})()}
+											</span>
+											<span class="text-base-content/60 text-xs">
+												({bidContent.estimatedDuration})
+											</span>
+										</div>
+									</div>
+								{/if}
 								<!-- Payment info column (aligned right) -->
 								<div class="shrink-0 text-right">
 									<div class="text-xl font-bold sm:text-2xl">

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
 
 // Mock network config before importing
-vi.mock('$lib/utils/wallet/networkConfig', () => ({
+vi.mock('@bittasker/wallet-core', () => ({
 	FEE_TIERS: {
 		1: { percentage: 250 }, // 2.5%
 		2: { percentage: 200 }, // 2.0%
@@ -16,8 +16,14 @@ vi.mock('@bittasker/wallet-core', () => ({}));
 import {
 	calculateFeeAmount,
 	calculateTotalPayment,
-	calculateFreelancerPayout
 } from '$lib/utils/escrow/v1/escrow';
+import type { FeeTier } from '@bittasker/wallet-core';
+
+// Utility function to calculate freelancer payout (base amount - freelancer fee)
+function calculateFreelancerPayout(baseAmount: bigint, freelancerFeeTier: FeeTier): bigint {
+	const freelancerFee = calculateFeeAmount(baseAmount, freelancerFeeTier);
+	return baseAmount - freelancerFee;
+}
 
 describe('Fee Calculations', () => {
 	describe('calculateFeeAmount', () => {

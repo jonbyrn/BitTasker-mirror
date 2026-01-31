@@ -21,7 +21,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 }));
 
 // Mock environment variables
-vi.mock('$lib/utils/wallet/networkConfig', () => ({
+vi.mock('@bittasker/wallet-core', () => ({
 	FEE_TIERS: {
 		0: { percentage: 150 },
 		1: { percentage: 200 },
@@ -312,8 +312,8 @@ describe('escrow', () => {
 
 			it('should handle default contract address matching legacy address', async () => {
 				// Mock getDefaultContractAddress to return mockLegacyAddress
-				vi.doMock('../networkConfig', () => ({
-					...vi.importActual('../networkConfig'),
+				vi.doMock('@bittasker/wallet-core', () => ({
+					...vi.importActual('@bittasker/wallet-core'),
 					getDefaultContractAddress: () => mockLegacyAddress
 				}));
 

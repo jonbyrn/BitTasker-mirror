@@ -6,7 +6,7 @@
  */
 
 import { Interface } from 'ethers';
-import escrowABI from '$lib/utils/escrow/v1/abi.json';
+import { escrow } from '$lib/utils/escrow';
 import { hasContractInteraction } from './contractDetection';
 
 interface ParsedFunction {
@@ -36,11 +36,12 @@ let escrowFunctionSelectors: Map<string, string> | null = null;
  */
 function initializeEscrowInterface(): void {
 	if (!escrowInterface) {
-		escrowInterface = new Interface(escrowABI);
+		const abi = escrow.getABI();
+		escrowInterface = new Interface(abi);
 		escrowFunctionSelectors = new Map();
-		
+
 		// Build selector map from ABI
-		for (const item of escrowABI) {
+		for (const item of abi) {
 			if (item.type === 'function' && item.name) {
 				try {
 					const fragment = escrowInterface.getFunction(item.name);
@@ -67,7 +68,7 @@ export function extractFunctionSelector(inputData: string | undefined | null): s
 
 	// Remove 0x prefix if present
 	const cleanInput = inputData.startsWith('0x') ? inputData.slice(2) : inputData;
-	
+
 	// Function selector is first 4 bytes (8 hex characters)
 	if (cleanInput.length < 8) {
 		return null;
@@ -82,7 +83,7 @@ export function extractFunctionSelector(inputData: string | undefined | null): s
  */
 export function parseEscrowFunction(inputData: string): ParsedFunction | null {
 	initializeEscrowInterface();
-	
+
 	if (!escrowInterface || !inputData) {
 		return null;
 	}
@@ -101,7 +102,7 @@ export function parseEscrowFunction(inputData: string): ParsedFunction | null {
 		// Decode function parameters
 		const decoded = escrowInterface.decodeFunctionData(functionName, inputData);
 		const parameters: Record<string, any> = {};
-		
+
 		// Get function fragment to get parameter names
 		const fragment = escrowInterface.getFunction(functionName);
 		fragment?.inputs.forEach((input, index) => {

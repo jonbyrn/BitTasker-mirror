@@ -3,14 +3,12 @@
 	import type { Attachment } from '$lib/types/task';
 	import type { EscrowData } from '$lib/types/wallet';
 	import { t, locale } from 'svelte-i18n';
-	import { escrow } from '$lib/utils/escrow/v1/escrow';
+	import { escrow, EscrowStatus } from '$lib/utils/escrow';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
-	import { deleteContract } from '$lib/utils/escrow/v1/nostrContract';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import { contractStore } from '$lib/stores/contract.store';
-	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
@@ -139,7 +137,7 @@
 
 			// Add timeout protection (5 seconds)
 			const escrowData = (await Promise.race([
-				escrow.getEscrow(contract.escrowData.id),
+				escrow.escrowOps.loadEscrowDetails(contract),
 				new Promise<null>((_, reject) =>
 					setTimeout(() => reject(new Error('Blockchain check timeout')), 5000)
 				)
@@ -189,11 +187,7 @@
 		setLoading('complete', true);
 		try {
 			// Call RSK escrow completeTask - this publishes Nostr event with transactionHash
-			await escrow.completeTask(
-				contract.escrowData.id,
-				contract.contractEvent.id,
-				attachments
-			);
+			await escrow.escrowOps.completeTask(contract, attachments);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
@@ -209,14 +203,11 @@
 			const clientPubkey = contractStore.getContractKey(contract, 'clientPubkey') as string;
 			if (clientPubkey) {
 				// Send message asynchronously in background - don't block UI or fail on error
-				sendTaskCompletionMessageToTasker(
-					clientPubkey,
-					{
-						taskId: contractStore.getContractKey(contract, 'taskId') as string,
-						taskTitle: contractStore.getContractKey(contract, 'taskTitle') as string,
-						escrowId: contract.escrowData.id
-					}
-				).catch((messageError) => {
+				sendTaskCompletionMessageToTasker(clientPubkey, {
+					taskId: contractStore.getContractKey(contract, 'taskId') as string,
+					taskTitle: contractStore.getContractKey(contract, 'taskTitle') as string,
+					escrowId: contract.escrowData.id
+				}).catch((messageError) => {
 					// Log error but don't fail task completion if message sending fails
 					console.error('Failed to send task completion message to tasker:', messageError);
 				});
@@ -250,10 +241,7 @@
 		setLoading('accept', true);
 		try {
 			// Call RSK escrow acceptTask - this publishes Nostr event with transactionHash
-			await escrow.acceptTask(
-				contract.escrowData.id,
-				contract.contractEvent.id
-			);
+			await escrow.escrowOps.acceptTask(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
@@ -292,10 +280,7 @@
 		setLoading('dispute', true);
 		try {
 			// Call RSK escrow disputeTask - this publishes Nostr event with transactionHash
-			await escrow.disputeTask(
-				contract.escrowData.id,
-				contract.contractEvent.id
-			);
+			await escrow.escrowOps.disputeTask(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
@@ -345,10 +330,9 @@
 		setLoading('propose', true);
 		try {
 			// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
-			await escrow.proposeResolution(
-				contract.escrowData.id,
+			await escrow.escrowOps.proposeResolution(
+				contract,
 				freelancerAmountRBTC,
-				contract.contractEvent.id,
 				clientAmountRBTC,
 				freelancerAmountRBTC
 			);
@@ -384,10 +368,7 @@
 		setLoading('acceptProposal', true);
 		try {
 			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
-			await escrow.acceptProposal(
-				contract.escrowData.id,
-				contract.contractEvent.id
-			);
+			await escrow.escrowOps.acceptProposal(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
@@ -424,10 +405,7 @@
 		setLoading('cancel', true);
 		try {
 			// Call RSK escrow cancelEscrow - this publishes Nostr event with transactionHash
-			await escrow.cancelEscrow(
-				contract.escrowData.id,
-				contract.contractEvent.id
-			);
+			await escrow.escrowOps.cancelEscrow(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
@@ -460,11 +438,7 @@
 				status: contract.escrowData.status,
 				eventId: contract.contractEvent.id
 			});
-			await escrow.resolveAfterTimelock(
-				contract.escrowData.id,
-				contract.escrowData.status,
-				contract.contractEvent.id
-			);
+			await escrow.escrowOps.resolveAfterTimelock(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
@@ -491,10 +465,7 @@
 		if (!contract.permissions.canDelete) return;
 		setLoading('delete', true);
 		try {
-			await deleteContract(
-				contract.contractEvent.id,
-				contract.escrowData.id
-			);
+			await escrow.contractOps.deleteContract(contract);
 			appStore.showSuccessToast($t('dashboard.contracts.actions.delete_contract_success'));
 		} catch (error) {
 			console.error('Error deleting contract:', error);
@@ -1005,7 +976,11 @@
 
 	<!-- Resolve After Timelock -->
 	{#if contract.permissions.canResolveTimelock}
-		<div class="{isInline ? 'w-full sm:w-auto' : 'col-span-2'} space-y-3 rounded-lg {!isInline ? 'bg-base-300 p-3' : ''}">
+		<div
+			class="{isInline ? 'w-full sm:w-auto' : 'col-span-2'} space-y-3 rounded-lg {!isInline
+				? 'bg-base-300 p-3'
+				: ''}"
+		>
 			{#if !isInline}
 				<h5 class="text-sm font-medium">
 					{$t('dashboard.contracts.actions.timelock_resolution')}

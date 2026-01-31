@@ -1,5 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
+import {
+	registerPendingContractByTxHash,
+	registerPendingContract,
+	publishEscrowStatus,
+	handleEscrowCreated,
+	cleanupPendingContractByTxHash
+} from '$lib/utils/escrow/v1/escrowEvents';
+import { publishContractEvent, publishContractStatus } from '$lib/utils/escrow/v1/nostrContract';
+import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { contractStore } from '$lib/stores/contract.store';
+import { appStore } from '$lib/stores/app.store';
+import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
+import { pushNotificationService } from '$lib/api/services/push-notification.service';
 
 // Mock @bittasker/wallet-core first to avoid EventBus import issues
 vi.mock('@bittasker/wallet-core', () => ({
@@ -8,7 +21,7 @@ vi.mock('@bittasker/wallet-core', () => ({
 
 // Mock dependencies - must be defined before vi.mock calls
 vi.mock('$lib/utils/escrow/v1/nostrContract', () => ({
-	createContract: vi.fn(),
+	publishContractEvent: vi.fn(),
 	publishContractStatus: vi.fn()
 }));
 
@@ -49,7 +62,7 @@ vi.mock('svelte-i18n', () => {
 	// t is a readable store that contains a translation function
 	// When you call get(t), you get the translation function: (key: string) => string
 	const translationFn = (key: string) => key;
-	
+
 	// Make t a callable function that also acts like a store
 	// When get(t) is called, it should return the translation function
 	const mockT = Object.assign(
@@ -60,7 +73,7 @@ vi.mock('svelte-i18n', () => {
 			[Symbol.toPrimitive]: () => translationFn
 		}
 	);
-	
+
 	return {
 		t: mockT
 	};
@@ -70,7 +83,7 @@ vi.mock('svelte/store', () => {
 	// Translation function that get(t) should return
 	// In svelte-i18n, t is a readable store, and get(t) returns the translation function
 	const translationFn = (key: string) => key;
-	
+
 	const mockGet = vi.fn((store: any) => {
 		// When get(t) is called, t is a svelte-i18n readable store
 		// get(t) should return the translation function: (key: string) => string
@@ -91,7 +104,7 @@ vi.mock('svelte/store', () => {
 		// For non-function stores, return as-is
 		return store;
 	});
-	
+
 	return {
 		writable: vi.fn(() => ({
 			set: vi.fn(),
@@ -104,22 +117,6 @@ vi.mock('svelte/store', () => {
 		get: mockGet
 	};
 });
-
-import {
-	registerPendingContractByTxHash,
-	registerPendingContract,
-	publishEscrowStatus,
-	handleEscrowCreated,
-	cleanupPendingContractByTxHash
-} from '$lib/utils/escrow/v1/escrowEvents';
-import { createContract, publishContractStatus } from '$lib/utils/escrow/v1/nostrContract';
-import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-import { contractStore } from '$lib/stores/contract.store';
-import { appStore } from '$lib/stores/app.store';
-import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
-import { get } from 'svelte/store';
-import { t } from 'svelte-i18n';
 
 describe('escrowEvents', () => {
 	beforeEach(() => {
@@ -297,13 +294,13 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContract).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
 
-			expect(vi.mocked(createContract)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 			expect(vi.mocked(sendBidStatusUpdate)).toHaveBeenCalled();
 			expect(vi.mocked(contractStore.loadContractByEscrowId)).toHaveBeenCalledWith('123');
 		});
@@ -330,13 +327,13 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContract).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
 
-			expect(vi.mocked(createContract)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 			expect(vi.mocked(sendBidStatusUpdate)).toHaveBeenCalled();
 		});
 
@@ -362,7 +359,7 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContract).mockRejectedValueOnce(new Error('Failed to create contract'));
+			vi.mocked(publishContractEvent).mockRejectedValueOnce(new Error('Failed to create contract'));
 
 			await handleEscrowCreated(event);
 
@@ -381,7 +378,7 @@ describe('escrowEvents', () => {
 			await handleEscrowCreated(event);
 
 			// Should not create contract or send notifications
-			expect(vi.mocked(createContract)).not.toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).not.toHaveBeenCalled();
 			expect(vi.mocked(sendBidStatusUpdate)).not.toHaveBeenCalled();
 		});
 
@@ -407,7 +404,7 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContract).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
@@ -418,7 +415,7 @@ describe('escrowEvents', () => {
 			await handleEscrowCreated(event);
 
 			// Should not create contract again since it was cleaned up
-			expect(vi.mocked(createContract)).not.toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).not.toHaveBeenCalled();
 		});
 
 		it('should clean up pending contract by transaction hash after successful creation', async () => {
@@ -443,7 +440,7 @@ describe('escrowEvents', () => {
 				transactionHash: '0x123'
 			});
 
-			vi.mocked(createContract).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
@@ -458,7 +455,7 @@ describe('escrowEvents', () => {
 			await handleEscrowCreated(event2);
 
 			// Should not create contract again since it was cleaned up
-			expect(vi.mocked(createContract)).not.toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).not.toHaveBeenCalled();
 		});
 	});
 
@@ -495,7 +492,7 @@ describe('escrowEvents', () => {
 			handleEscrowCreated(event);
 
 			// Should not create contract since it was cleaned up
-			expect(vi.mocked(createContract)).not.toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).not.toHaveBeenCalled();
 		});
 
 		it('should not throw error when cleaning up non-existent transaction hash', () => {
@@ -533,10 +530,10 @@ describe('escrowEvents', () => {
 				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200
 			});
 
-			vi.mocked(createContract).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
-			
+
 			// Make sendBidStatusUpdate fail
 			vi.mocked(sendBidStatusUpdate).mockRejectedValueOnce(new Error('Failed to send bid status update'));
 
@@ -548,18 +545,18 @@ describe('escrowEvents', () => {
 
 			// Verify that contract was still created despite sendBidStatusUpdate failure
 			// (This is the current behavior - contract creation succeeds even if status update fails)
-			expect(vi.mocked(createContract)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 
-		// The issue is: if sendBidStatusUpdate fails, the error is only logged
-		// but not surfaced to the user or retried. The escrow exists but bid status isn't updated.
-		// This test confirms the current behavior - errors are caught but not handled properly.
+			// The issue is: if sendBidStatusUpdate fails, the error is only logged
+			// but not surfaced to the user or retried. The escrow exists but bid status isn't updated.
+			// This test confirms the current behavior - errors are caught but not handled properly.
 		});
 	});
 
 	describe('Issue #3: Race Condition in Pending Contract Cleanup', () => {
 		it('should prevent cleanup when contract is being processed', async () => {
 			const txHash = '0x123';
-			
+
 			// Register pending contract
 			registerPendingContractByTxHash({
 				bidEventId: 'bid-123',
@@ -591,19 +588,19 @@ describe('escrowEvents', () => {
 			cleanupPendingContractByTxHash(txHash);
 
 			// Wait for handleEscrowCreated to complete
-			vi.mocked(createContract).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
-			
+
 			await handlePromise;
 
 			// Contract should still have been created despite cleanup attempt
-			expect(vi.mocked(createContract)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 		});
 
 		it('should handle concurrent cleanup and processing gracefully', async () => {
 			const txHash = '0x456';
-			
+
 			// Register pending contract
 			registerPendingContractByTxHash({
 				bidEventId: 'bid-456',
@@ -625,7 +622,7 @@ describe('escrowEvents', () => {
 				amount: '2000000000000000000'
 			};
 
-			vi.mocked(createContract).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
@@ -637,14 +634,14 @@ describe('escrowEvents', () => {
 
 			// Should not throw errors
 			expect(result.status).toBe('fulfilled');
-			
+
 			// Contract should have been created
-			expect(vi.mocked(createContract)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 		});
 
 		it('should clean up processingContracts set after successful processing', async () => {
 			const txHash = '0x789';
-			
+
 			registerPendingContractByTxHash({
 				bidEventId: 'bid-789',
 				taskId: 'task-789',
@@ -665,7 +662,7 @@ describe('escrowEvents', () => {
 				amount: '3000000000000000000'
 			};
 
-			vi.mocked(createContract).mockResolvedValue(undefined);
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
@@ -674,14 +671,14 @@ describe('escrowEvents', () => {
 			// After successful processing, cleanup should work (processingContracts should be cleared)
 			// This test verifies that the processingContracts set is properly cleaned up
 			cleanupPendingContractByTxHash(txHash);
-			
+
 			// Should not throw and should allow cleanup after processing
-			expect(vi.mocked(createContract)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 		});
 
 		it('should clean up processingContracts set after error', async () => {
 			const txHash = '0x999';
-			
+
 			registerPendingContractByTxHash({
 				bidEventId: 'bid-999',
 				taskId: 'task-999',
@@ -702,16 +699,16 @@ describe('escrowEvents', () => {
 				amount: '4000000000000000000'
 			};
 
-			// Make createContract fail
-			vi.mocked(createContract).mockRejectedValueOnce(new Error('Failed to create contract'));
+			// Make publishContractEvent fail
+			vi.mocked(publishContractEvent).mockRejectedValueOnce(new Error('Failed to create contract'));
 
 			await expect(handleEscrowCreated(event)).resolves.not.toThrow();
 
 			// After error, cleanup should work (processingContracts should be cleared)
 			cleanupPendingContractByTxHash(txHash);
-			
+
 			// Should not throw - processingContracts should be cleaned up even on error
-			expect(vi.mocked(createContract)).toHaveBeenCalled();
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 		});
 	});
 });
