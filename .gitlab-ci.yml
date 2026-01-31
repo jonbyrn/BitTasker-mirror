@@ -1,0 +1,73 @@
+# GitLab CI/CD for BitTasker - Cloudflare Workers Deployment
+# Branch strategy:
+#   - dev → deploy to staging (staging.bittasker.com)
+#   - main → deploy to production (worker.prod.bittasker.com)
+#   - Other branches (e.g. feat/*) → validate only (test, lint, build)
+
+default:
+  image: node:22-bookworm-slim
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+
+stages:
+  - validate
+  - deploy
+
+# ============================================
+# VALIDATE - Runs on all branches
+# ============================================
+validate:
+  stage: validate
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run check
+    - npm run lint
+    - npm run test
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+    expire_in: 1 hour
+
+# ============================================
+# DEPLOY STAGING - dev branch only
+# ============================================
+deploy-staging:
+  stage: deploy
+  needs:
+    - validate
+  script:
+    - npm ci --cache .npm --prefer-offline
+    # Build with staging env vars (set in GitLab CI/CD variables)
+    - npm run build
+    - npx wrangler deploy --env staging
+    - ENVIRONMENT=staging node scripts/purge-cache.js
+  environment:
+    name: staging
+    url: https://staging.bittasker.com
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+
+# ============================================
+# DEPLOY PRODUCTION - main branch only
+# ============================================
+deploy-production:
+  stage: deploy
+  needs:
+    - validate
+  script:
+    - npm ci --cache .npm --prefer-offline
+    # Build with production env vars (set in GitLab CI/CD variables)
+    - npm run build:production
+    - npx wrangler deploy --env production
+    - ENVIRONMENT=production node scripts/purge-cache.js
+  environment:
+    name: production
+    url: https://worker.prod.bittasker.com
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
