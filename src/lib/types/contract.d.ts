@@ -1,7 +1,7 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { DisputeProposal, EscrowData } from '$lib/types/wallet';
 import type { Attachment } from '$lib/types/task';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import type { EscrowStatus } from '$lib/utils/escrow';
 
 // Contract permissions - grouped for better organization
 export interface ContractPermissions {
@@ -127,4 +127,25 @@ export interface PublishContractStatusParams {
 	completionAttachments?: Attachment[];
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
+}
+
+
+export interface ContractCreationEvent {
+	escrowId: string;
+	contractEventId?: string;
+	error?: string;
+}
+
+// Pending contract creation requests
+export interface PendingContractCreation {
+	bidEventId: string;
+	escrowId: string;
+	taskId: string;
+	taskTitle: string;
+	taskDescription: string;
+	freelancerPubkey: string;
+	amount: string;
+	estimatedStartTime: number;
+	estimatedCompletionTime: number;
+	transactionHash: string;
 }

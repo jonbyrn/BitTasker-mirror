@@ -7,7 +7,7 @@
 
 import type { ethers } from 'ethers';
 import type { SwapPairs, Transaction } from '@bittasker/wallet-core';
-import { EscrowStatus } from "$lib/utils/escrow/v1/escrow.enum";
+import { EscrowStatus } from "$lib/utils/escrow";
 
 export type RSKUnit = 'rbtc' | 'wei';
 export type BSCUnit = 'usdt' | 'wei';
@@ -71,12 +71,12 @@ export interface ContractTransactionResult {
 
 // Asset metadata
 export interface AssetMetadata {
-	assetId: string;
-	name: string;
-	ticker: string;
-	precision: number;
-	icon: string;
-	fiatId?: string; // For assets that can pay fees
+    assetId: string;
+    name: string;
+    ticker: string;
+    precision: number;
+    icon: string;
+    fiatId?: string; // For assets that can pay fees
 }
 
 /**
@@ -84,15 +84,15 @@ export interface AssetMetadata {
  * Used for displaying all tokens (native and ERC-20) in debug wallet
  */
 export interface TokenBalance {
-	address: string; // Token contract address or 'native' for RBTC
-	name: string;
-	symbol: string;
-	decimals: number;
-	balance: string; // Raw balance (BigInt string)
-	formattedBalance: string; // Human-readable balance
-	usdValue?: number; // Optional USD value if price available
-	icon?: string; // Optional token icon
-	isNative?: boolean; // true for RBTC
+    address: string; // Token contract address or 'native' for RBTC
+    name: string;
+    symbol: string;
+    decimals: number;
+    balance: string; // Raw balance (BigInt string)
+    formattedBalance: string; // Human-readable balance
+    usdValue?: number; // Optional USD value if price available
+    icon?: string; // Optional token icon
+    isNative?: boolean; // true for RBTC
 }
 
 /**
@@ -100,42 +100,42 @@ export interface TokenBalance {
  * Cached to avoid repeated API calls
  */
 export interface TokenMetadata {
-	address: string;
-	name: string;
-	symbol: string;
-	decimals: number;
-	totalSupply?: string;
+    address: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    totalSupply?: string;
 }
 
 /**
  * Boltz and RIF Relay Configuration
  */
 export interface BoltzNetworkConfig {
-	// Boltz API
-	boltzApiUrl: string;
-	boltzWsUrl: string;
-	
-	// RSK Network
-	rskRpcUrl: string;
-	rskChainId: number;
-	rskExplorerUrl: string;
-	rskExplorerApiUrl: string;
-	
-	// RIF Relay
-	rifRelayServerUrl: string;
-	rifRelayEnabled: boolean;
-	contracts: {
-		deployHeight: number;
-		smartWalletFactory: string;
-		deployVerifier: string;
-	};
+    // Boltz API
+    boltzApiUrl: string;
+    boltzWsUrl: string;
+
+    // RSK Network
+    rskRpcUrl: string;
+    rskChainId: number;
+    rskExplorerUrl: string;
+    rskExplorerApiUrl: string;
+
+    // RIF Relay
+    rifRelayServerUrl: string;
+    rifRelayEnabled: boolean;
+    contracts: {
+        deployHeight: number;
+        smartWalletFactory: string;
+        deployVerifier: string;
+    };
 }
 
 // Swap pairs cache structure
 export interface SwapPairsCache {
-	data: SwapPairs;
-	timestamp: number;
-	ttl: number;
+    data: SwapPairs;
+    timestamp: number;
+    ttl: number;
 };
 
 /**
@@ -152,7 +152,7 @@ export interface InternalTransaction {
     internal_transaction_index: number;
     block_number: number;
     timestamp: string;
-    
+
     // Parties involved
     from: {
         hash: string;
@@ -184,13 +184,13 @@ export interface InternalTransaction {
         reputation: string;
         watchlist_names: string[];
     };
-    
+
     // Transaction details
     value: string; // Wei value transferred
     success: boolean;
     type: 'call' | 'create' | 'reward' | 'selfdestruct'; // Internal transaction type
     gas_limit: string;
-    
+
     // Optional fields that may be present
     error?: string | null;
     created_contract?: {
@@ -286,4 +286,22 @@ export interface SwapAction {
     type: 'refund' | 'renegotiate' | 'claim' | 'viewQR';
     label: string; // Translation key
     handler: () => Promise<void>;
+}
+
+export interface BidEscrowDetails {
+    freelancerAddress: string;
+    baseAmount: string;
+    totalAmount: string;
+    clientFee: string;
+    freelancerFee: string;
+    estimatedStartTime: number;
+    estimatedCompletionTime: number;
+    clientFeeTier: FeeTier;
+    freelancerFeeTier: FeeTier;
+}
+
+export interface BidAcceptanceResult {
+    success: boolean;
+    transactionResult?: ContractTransactionResult;
+    error?: string;
 }
