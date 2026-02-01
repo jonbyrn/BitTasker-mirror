@@ -527,12 +527,10 @@
 				coverLetter
 			});
 
-			const taskIdentifier = (task as { uniqueId?: string }).uniqueId || task.id;
-
 			// Create bid data structure with explicit type
 			const bidData = {
 				type: 'bid',
-				taskId: taskIdentifier,
+				taskId: task.id,
 				taskTitle: task.title,
 				taskDescription: task.description,
 				taskTranslations: task.translations, // Save task translations
@@ -569,11 +567,11 @@
 			};
 
 			// Create custom tags for the bid event using TAG_PATTERNS
-			const customTags = TAG_PATTERNS.bid(bidData.bidId, taskIdentifier, task.npub, bidType);
+			const customTags = TAG_PATTERNS.bid(bidData.bidId, task.id, task.npub, bidType);
 
 			// Submit a bid as an encrypted event to the task creator with custom tags
 		await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
-			onBidSubmitted?.(taskIdentifier);
+			onBidSubmitted?.(task.id);
 
 			// Send notification to task creator
 			pushNotificationService.sendNotificationToNpubs({
@@ -588,7 +586,7 @@
 			// Clear bid cache for this specific task and current user
 			// This ensures fresh data on next load without clearing unrelated caches
 			if ($user?.npub) {
-				clearBidCache(task.id, $user.npub);
+				clearBidCache(task.id);
 			} else {
 				clearBidCache(task.id);
 			}

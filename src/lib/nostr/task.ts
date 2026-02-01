@@ -488,32 +488,14 @@ export async function deleteTask(taskId: string, eventId?: string): Promise<stri
 				throw new Error('Invalid eventId format');
 			}
 		} else {
-			// Fallback: determine eventId from taskId
+			// taskId must be a 64-char hex eventId when eventId is not provided (caller should pass eventId from the already-fetched task)
 			const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
-			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
-			
 			if (isEventId) {
 				finalEventId = taskId;
-			} else if (isUuid) {
-				// Only fetch if we have a UUID and no eventId was provided
-				const dTagValue = `task-${taskId}`;
-				const response = await nostrEventsService.requestEvents({
-					filters: [
-						{
-							kinds: [KINDS.TASK_CREATION],
-							'#d': [dTagValue],
-							limit: 1
-						}
-					]
-				});
-
-				if (response.data && response.data.length > 0) {
-					finalEventId = response.data[0].id;
-				} else {
-					throw new Error('Task not found');
-				}
 			} else {
-				throw new Error('Invalid taskId format');
+				throw new Error(
+					'eventId is required when taskId is a UUID. Pass the task\'s eventId from the already-fetched task.'
+				);
 			}
 		}
 

@@ -24,7 +24,6 @@
 	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { LRUCache } from '$lib/utils/helpers/lru-cache';
 	import { getTaskId } from '$lib/utils/helpers/task-id';
-import { getMyBids } from '$lib/utils/nostr-bid';
 	import type FilterDrawerComponent from '$lib/components/filters/FilterDrawer.svelte';
 	import type BidFormComponent from '$lib/components/bidding/BidForm.svelte';
 	import type SaveSearchFormComponent from '$lib/components/task/SaveSearchForm.svelte';
@@ -149,7 +148,6 @@ import { getMyBids } from '$lib/utils/nostr-bid';
 	
 	// Bid drawer state
 	let isBidOpen = $state(false);
-	let myBidTaskIds = $state<Set<string>>(new Set());
 	
 	// Task details drawer state
 	let selectedTaskForDetails = $state<Task | null>(null);
@@ -857,7 +855,6 @@ import { getMyBids } from '$lib/utils/nostr-bid';
 		if (browser) {
 			const deferredOperations = () => {
 				fetchBtcPrice();
-				loadMyBidTaskIds();
 				loadDrawerComponents();
 				// Use reactive windowWidth instead of window.innerWidth
 				// Attempt map preload for desktop (mount reason)
@@ -918,45 +915,6 @@ import { getMyBids } from '$lib/utils/nostr-bid';
 		cleanup();
 	});
 
-	function hasBidForTask(task: Task): boolean {
-		return myBidTaskIds.has(getTaskId(task));
-	}
-
-	async function loadMyBidTaskIds(): Promise<void> {
-		if (!browser || !$user?.npub) return;
-		try {
-			const bids = await getMyBids(false);
-			const taskIds = new Set<string>();
-			bids.forEach((bidEvent) => {
-				let taskId: string | undefined;
-				if (typeof bidEvent.content === 'string') {
-					try {
-						const parsed = JSON.parse(bidEvent.content) as { taskId?: string };
-						taskId = parsed?.taskId;
-					} catch {
-						// Ignore malformed JSON
-					}
-				} else {
-					taskId = (bidEvent.content as { taskId?: string })?.taskId;
-				}
-
-				if (!taskId) {
-					const taskTag = bidEvent.tags?.find((tag) => tag[0] === 't');
-					taskId = taskTag?.[1];
-				}
-
-				if (taskId) {
-					taskIds.add(taskId);
-				}
-			});
-			myBidTaskIds = new Set([...myBidTaskIds, ...taskIds]);
-		} catch {
-			if (myBidTaskIds.size === 0) {
-				myBidTaskIds = new Set();
-			}
-		}
-	}
-
 	/**
 	 * Handle task selection for bidding with proper locking to prevent race conditions
 	 */
@@ -966,7 +924,7 @@ import { getMyBids } from '$lib/utils/nostr-bid';
 			return;
 		}
 		
-		if (task.status === TaskStatusEnum.OPEN && !hasBidForTask(task)) {
+		if (task.status === TaskStatusEnum.OPEN) {
 			isTaskSelectionInProgress = true;
 			
 			try {
@@ -1252,7 +1210,7 @@ import { getMyBids } from '$lib/utils/nostr-bid';
 												{loadDrawerComponents}
 												onSelectTaskForMap={selectTaskForMap}
 												{isMapVisible}
-												hasBid={hasBidForTask(task)}
+												hasBid={false}
 											/>
 										</li>
 									{/each}
@@ -1407,11 +1365,7 @@ import { getMyBids } from '$lib/utils/nostr-bid';
 			<BidForm
 				task={selectedTaskForBid!}
 				onClose={() => (isBidOpen = false)}
-				onBidSubmitted={(taskId: string) => {
-					const next = new Set(myBidTaskIds);
-					next.add(taskId);
-					myBidTaskIds = next;
-				}}
+				onBidSubmitted={() => {}}
 				stickySubmit={false}
 			/>
 		{:else}

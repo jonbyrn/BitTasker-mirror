@@ -133,10 +133,7 @@ function formatShareText(task: Task): string {
 export function getTaskShareLink(task: Task | null, taskId?: string): string {
 	if (typeof window !== 'undefined') {
 		if (task) {
-			// Always use the uniqueId from the task object for stable URLs
-			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			const taskIdentifier = (task as { uniqueId?: string }).uniqueId || task.id;
-			return `${window.location.origin}/tasks/${taskIdentifier}`;
+			return `${window.location.origin}/tasks/${task.id}`;
 		} else if (taskId) {
 			return `${window.location.origin}/tasks/${taskId}`;
 		}

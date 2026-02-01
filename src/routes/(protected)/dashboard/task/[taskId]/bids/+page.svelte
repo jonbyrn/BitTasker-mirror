@@ -22,7 +22,6 @@
 
 	// State
 	let task = $state<NostrEvent | null>(null);
-	let taskUniqueId = $state<string | null>(null);
 	let btcPrice = $state(0);
 	let expandedBidId = $state<string | null>(null);
 	let showAcceptanceForm = $state(false);
@@ -135,13 +134,6 @@
 				$bidStore.error = $t('task.drawer.error.load');
 				return;
 			}
-
-			try {
-				const taskContent = JSON.parse(task.content) as { uniqueId?: string };
-				taskUniqueId = taskContent.uniqueId ?? null;
-			} catch {
-				taskUniqueId = null;
-			}
 		} catch (error) {
 			console.error('Failed to load task details:', error);
 			$bidStore.error = $t('task.drawer.error.load');
@@ -150,8 +142,8 @@
 
 	async function loadBids() {
 		const taskId = page.params.taskId;
-		const legacyTaskId = taskUniqueId ?? task?.id;
-		await bidStore.loadBidsForTask(taskId, legacyTaskId);
+		const legacyTaskId = task?.id ?? taskId;
+		await bidStore.loadBidsForTask(taskId);
 		// Subscribe to real-time updates
 		await bidStore.subscribeToUpdates(taskId, legacyTaskId);
 	}
@@ -253,8 +245,7 @@
 	}
 
 	onMount(async () => {
-		await loadTaskDetails();
-		await Promise.all([loadBids(), fetchBtcPrice()]);
+		await Promise.all([loadTaskDetails(), loadBids(), fetchBtcPrice()]);
 	});
 
 	onDestroy(() => {

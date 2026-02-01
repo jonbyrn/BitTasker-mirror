@@ -131,7 +131,6 @@
 			return;
 		}
 
-		const uniqueId = (taskToEdit as Task & { uniqueId?: string }).uniqueId ?? taskToEdit.id;
 		const editTask: TaskBody = {
 			title: taskToEdit.title,
 			taskType: taskToEdit.taskType,
@@ -147,7 +146,7 @@
 			status: taskToEdit.status,
 			translations: taskToEdit.translations
 		};
-		taskStore.saveEditTaskDraft(taskToEdit.id, uniqueId, editTask);
+		taskStore.saveEditTaskDraft(taskToEdit.id, taskToEdit.id, editTask);
 		activeTaskModal = null;
 		goto(`/dashboard/create-task?edit=true`);
 	};
@@ -157,8 +156,8 @@
 		if (!taskToDelete) return;
 		try {
 			isDeleting = true;
-			// Pass eventId directly if available to avoid unnecessary request
-			await deleteTask(taskToDelete.id, taskToDelete.eventId);
+			// Pass event id (task.id) to avoid unnecessary fetch
+			await deleteTask(taskToDelete.id, taskToDelete.id);
 			$myTasksStore.items = $myTasksStore.items.filter((t) => t.id !== taskToDelete.id);
 			activeTaskModal = null;
 			setDrawerState(false, null);
