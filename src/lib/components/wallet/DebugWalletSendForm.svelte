@@ -521,6 +521,15 @@
 		setTimeout(() => {
 			// Start polling every 1 second
 			monitoringInterval = setInterval(async () => {
+				// Stop polling if transaction is already confirmed or in error state
+				if (transactionState === 'confirmed' || transactionState === 'error') {
+					if (monitoringInterval) {
+						clearInterval(monitoringInterval);
+						monitoringInterval = null;
+					}
+					return;
+				}
+
 				try {
 					const provider = getProvider('rsk');
 					if (!provider) {
@@ -532,7 +541,7 @@
 						const isConfirmed = receipt.status === 1;
 						
 						if (isConfirmed) {
-							// Transaction confirmed
+							// Transaction confirmed - stop all polling
 							if (monitoringInterval) {
 								clearInterval(monitoringInterval);
 								monitoringInterval = null;
@@ -542,6 +551,7 @@
 								countdownInterval = null;
 							}
 							
+							// Set confirmed state - this will persist
 							transactionState = 'confirmed';
 							triggerHaptic(ImpactStyle.Medium);
 							appStore.showSuccessToast($t('wallet.debug_wallet.send_form.transaction_successful'));
@@ -568,7 +578,7 @@
 								}
 							}, 5000);
 						} else if (receipt.status === 0) {
-							// Transaction failed
+							// Transaction failed - stop polling and show error
 							if (monitoringInterval) {
 								clearInterval(monitoringInterval);
 								monitoringInterval = null;
@@ -578,6 +588,7 @@
 								countdownInterval = null;
 							}
 							
+							// Set error state - this will persist
 							transactionState = 'error';
 							errorMessage = $t('wallet.debug_wallet.send_form.transaction_failed');
 							triggerHaptic(ImpactStyle.Heavy);
@@ -587,6 +598,7 @@
 					if (import.meta.env.DEV) {
 						console.error('Error monitoring transaction:', error);
 					}
+					// Don't stop polling on network errors - only stop on confirmed/error states
 				}
 			}, 1000); // Check every 1 second
 		}, 57000); // Start polling after 57 seconds (3 seconds before countdown ends)

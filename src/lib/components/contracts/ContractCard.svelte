@@ -178,15 +178,15 @@
 			/>
 
 			<!-- Right: Action Buttons -->
-			<div class="flex w-full items-center gap-2 md:w-auto">
+			<div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:w-auto">
 				{#if getAvailableActionsCount() > 0}
 					<ContractActions
 						{contract}
-						containerClass="flex flex-row-reverse flex-wrap gap-2 w-full sm:w-auto"
+						containerClass="flex flex-col gap-2 sm:flex-row sm:flex-wrap w-full sm:w-auto"
 						isInline={true}
 					/>
 				{/if}
-				<button class="btn btn-outline btn-sm flex-1 md:flex-none" onclick={openDrawer}>
+				<button class="btn btn-outline btn-sm w-full sm:w-auto" onclick={openDrawer}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-4 w-4"

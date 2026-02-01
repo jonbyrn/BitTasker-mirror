@@ -10,7 +10,7 @@
 	import { goto } from '$app/navigation';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { formatStandardDateTime, formatDurationFromDates } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDateTime, parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
@@ -32,6 +32,17 @@
 
 	// Derived state from bid store
 	let bids = $derived($bidStore.bids[page.params.taskId] || []);
+
+	// Check if any bid has been accepted - disable all accept/decline buttons if true
+	let hasAcceptedBid = $derived(
+		bids.some(
+			(bid) =>
+				bid?.latestStatus?.content?.status?.toLowerCase() === BidStatusEnum.ACCEPTED.toLowerCase()
+		)
+	);
+
+	// Check if any bid is currently being processed - prevents race condition during acceptance
+	let hasProcessingBid = $derived(bids.some((bid) => $bidStore.processingBidIds.has(bid.id)));
 
 	// Message modal state
 	let showMessageModal = $state(false);
@@ -84,22 +95,6 @@
 
 		dateFormatterCache.set(key, formatted);
 		return formatted;
-	}
-
-	// Function to format duration from start and end dates with translations
-	function formatBidDuration(startDateTime: string, endDateTime: string): string {
-		// Get translations reactively
-		const translations = {
-			day: $t('dashboard.bids.bid_creation.day'),
-			days: $t('dashboard.bids.bid_creation.days'),
-			hour: $t('dashboard.bids.bid_creation.hour'),
-			hours: $t('dashboard.bids.bid_creation.hours'),
-			minute: $t('dashboard.bids.bid_creation.minute'),
-			minutes: $t('dashboard.bids.bid_creation.minutes'),
-			oneHour: $t('dashboard.bids.bid_creation.one_hour'),
-			and: $t('common.components.date_input.and')
-		};
-		return formatDurationFromDates(startDateTime, endDateTime, (key) => translations[key as keyof typeof translations] || key);
 	}
 
 	async function loadTaskDetails() {
@@ -166,7 +161,19 @@
 	}
 
 	function handleAcceptBid(bid: NostrEventWithFollowup) {
-		// Check if this latest followup bid status is already accepted or if another bid is already accepted
+		// Check if any bid has already been accepted
+		if (hasAcceptedBid) {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
+		// Check if any bid is currently being processed (prevents race condition)
+		if (hasProcessingBid) {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
+		// Check if this specific bid is already accepted
 		if (
 			bid?.latestStatus?.content?.status?.toLowerCase() === BidStatusEnum.ACCEPTED.toLowerCase()
 		) {
@@ -199,6 +206,18 @@
 	}
 
 	async function handleRejectBid(eventId: string, bidContent: NostrBidContent) {
+		// Prevent rejecting bids if any bid has been accepted
+		if (hasAcceptedBid) {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
+		// Prevent rejecting bids if any bid is currently being processed (prevents race condition)
+		if (hasProcessingBid) {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
 		// Prevent rejecting bids that are already accepted or rejected
 		if (bidContent.status === 'ACCEPTED' || bidContent.status === 'REJECTED') {
 			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_rejected'));
@@ -248,13 +267,14 @@
 		bidToAccept = null;
 	}
 
-	// Función para abrir el modal de mensaje
+	// Function to open the message modal
 	function openMessageModal(bidderId: string, bidderName: string) {
 		selectedBidderId = bidderId;
 		selectedBidderName = bidderName;
 		showMessageModal = true;
 	}
 
+	// Function to close the message modal
 	function closeMessageModal() {
 		showMessageModal = false;
 		selectedBidderId = null;
@@ -269,10 +289,7 @@
 			{$t('task.drawer.bids_description')}
 		</p>
 		<div class="mt-3 flex justify-between items-center">
-			<button
-				onclick={() => history.back()}
-				class="btn btn-ghost btn-sm"
-			>
+			<button onclick={() => history.back()} class="btn btn-ghost btn-sm">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4"
@@ -568,44 +585,50 @@
 									{getTranslatedBidContent(bidContent, 'description')}
 								</p>
 							</div>
-						
+
 							<!-- Payment info row: FIXED info on left, price on right (same row for all screen sizes) -->
 							<div class="flex flex-row items-center justify-between gap-2">
 								<!-- Payment type info - left aligned with max-width -->
 								<!-- <div class="text-base-content/50 max-w-[50%] flex-1 text-xs wrap-break-word">
-									{bidContent.paymentType} • {bidContent.estimatedDuration}
+									{bidContent.paymentType} ? {bidContent.estimatedDuration}
 								</div> -->
 
-									<!-- Estimated date for FIXED bids -->
-							{#if bidContent.paymentType === 'FIXED' && bidContent.startDateTime && bidContent.endDateTime}
-							<div class="flex items-start max-w-[60%] gap-2">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<div class="flex min-w-0 flex-1 flex-col">
-									<small class="text-base-content/60 text-xs">
-										{$t('bids.estimated_date')}
-									</small>
-									<span class="text-sm font-medium">
-										{formatStandardDateTime(new Date(bidContent.startDateTime), $locale || 'en')} - {formatStandardDateTime(new Date(bidContent.endDateTime), $locale || 'en')}
-									</span>
-									<span class="text-base-content/60 text-xs">
-										({formatBidDuration(bidContent.startDateTime, bidContent.endDateTime)})
-									</span>
-								</div>
-							</div>
-						{/if}
+								<!-- Estimated date for FIXED bids -->
+								{#if bidContent.paymentType === 'FIXED' && bidContent.startDateTime && bidContent.endDateTime}
+									<div class="flex items-start max-w-[60%] gap-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+											/>
+										</svg>
+										<div class="flex min-w-0 flex-1 flex-col">
+											<small class="text-base-content/60 text-xs">
+												{$t('bids.estimated_date')}
+											</small>
+											<span class="text-sm font-medium">
+												{(() => {
+													const startDate = parseDateWithLocalTime(bidContent.startDateTime);
+													const endDate = parseDateWithLocalTime(bidContent.endDateTime);
+													return startDate && endDate
+														? `${formatStandardDateTime(startDate, $locale || 'en')} - ${formatStandardDateTime(endDate, $locale || 'en')}`
+														: 'N/A';
+												})()}
+											</span>
+											<span class="text-base-content/60 text-xs">
+												({bidContent.estimatedDuration})
+											</span>
+										</div>
+									</div>
+								{/if}
 								<!-- Payment info column (aligned right) -->
 								<div class="shrink-0 text-right">
 									<div class="text-xl font-bold sm:text-2xl">
@@ -706,8 +729,10 @@
 								<button
 									class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
 									onclick={() => handleRejectBid(bid.id, bidContent)}
-									disabled={bid?.latestStatus?.content?.status?.toLowerCase() ===
-										BidStatusEnum.ACCEPTED.toLowerCase() ||
+									disabled={hasAcceptedBid ||
+										hasProcessingBid ||
+										bid?.latestStatus?.content?.status?.toLowerCase() ===
+											BidStatusEnum.ACCEPTED.toLowerCase() ||
 										bid?.latestStatus?.content?.status?.toLowerCase() ===
 											BidStatusEnum.REJECTED.toLowerCase() ||
 										$bidStore.processingBidIds.has(bid.id)}
@@ -804,8 +829,10 @@
 									<button
 										class="btn btn-success btn-sm flex-1 py-1 sm:flex-none"
 										onclick={() => handleAcceptBid(bid)}
-										disabled={bid?.latestStatus?.content?.status?.toLowerCase() ===
-											BidStatusEnum.REJECTED.toLowerCase() ||
+										disabled={hasAcceptedBid ||
+											hasProcessingBid ||
+											bid?.latestStatus?.content?.status?.toLowerCase() ===
+												BidStatusEnum.REJECTED.toLowerCase() ||
 											$bidStore.processingBidIds.has(bid.id)}
 									>
 										{#if $bidStore.processingBidIds.has(bid.id)}

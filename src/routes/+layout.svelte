@@ -17,6 +17,7 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
+	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import '../app.css';
 
 	const { children } = $props();
@@ -78,10 +79,9 @@
 	}
 
 	onMount(() => {
-		// Initialize theme from saved preference
 		initializeTheme();
+		hideSplashScreenWhenReady(300);
 
-		// Setup keyboard helpers for protected routes
 		if (typeof requestIdleCallback !== 'undefined') {
 			requestIdleCallback(() => initializeProtectedRouteHelpers(), { timeout: 2000 });
 		} else {

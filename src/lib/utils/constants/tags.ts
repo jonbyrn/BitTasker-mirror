@@ -7,7 +7,7 @@
  * Standard Nostr tags: https://github.com/nostr-protocol/nips/blob/master/01.md
  */
 
-import type { EscrowStatus } from "../escrow/v1/escrow.enum";
+import type { EscrowStatus } from "../escrow";
 
 export const TAGS = {
 	// ============================================================================
@@ -56,6 +56,9 @@ export const TAGS = {
 
 	/** Location data - JSON-encoded location information */
 	L: 'l' as const,
+
+	/** Version - contract/escrow version (v1, v2, v3, etc.) */
+	V: 'v' as const,
 } as const;
 
 /**
@@ -112,6 +115,7 @@ export const TAG_PATTERNS = {
 		freelancerPubkey: string,
 		clientPubkey: string,
 		network: string,
+		version: string = 'v1',
 		status: string = 'active'
 	): string[][] => [
 			[TAGS.D, escrowId], // Unique identifier
@@ -119,6 +123,7 @@ export const TAG_PATTERNS = {
 			[TAGS.P, freelancerPubkey], // Participant
 			[TAGS.P, clientPubkey], // Participant (can have multiple)
 			[TAGS.N, network], // Network (mainnet/testnet)
+			[TAGS.V, version], // Contract version (v1, v2, v3, etc.)
 			[TAGS.S, status], // Status
 			[TAGS.M, 'contract'] // Message type
 		],
@@ -134,12 +139,14 @@ export const TAG_PATTERNS = {
 		contractEventId: string,
 		escrowId: string,
 		recipientPubkey: string,
-		action: EscrowStatus
+		action: EscrowStatus,
+		version: string = 'v1'
 	): string[][] => [
 			[TAGS.E, contractEventId], // References contract
 			[TAGS.R, escrowId], // Escrow reference
 			[TAGS.P, recipientPubkey], // Recipient
 			[TAGS.S, action?.toString()], // Status action
+			[TAGS.V, version], // Contract version (v1, v2, v3, etc.)
 			[TAGS.M, 'contract-status'] // Message type
 		],
 
@@ -216,6 +223,9 @@ export const TAG_FILTERS = {
 
 	/** Filter events by network (mainnet, testnet) */
 	byNetwork: (network: string) => ({ [`#${TAGS.N}`]: [network] }),
+
+	/** Filter events by version (v1, v2, v3, etc.) */
+	byVersion: (version: string) => ({ [`#${TAGS.V}`]: [version] }),
 
 	/** Filter events by location data */
 	byLocation: () => ({ [`#${TAGS.M}`]: ['location'] }),

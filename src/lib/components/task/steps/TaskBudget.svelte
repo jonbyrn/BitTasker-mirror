@@ -53,8 +53,17 @@
 	}
 
 	function handleUsdChange(event: Event) {
-		const input = cleanInput((event.target as HTMLInputElement).value);
-		const usdValue = parseFloat(input.replace(/,/g, ''));
+		const rawValue = (event.target as HTMLInputElement).value;
+		const input = cleanInput(rawValue);
+		
+		// Remove leading zeros (but keep single zero if that's all there is)
+		let cleanedInput = input.replace(/,/g, '');
+		// Remove leading zeros, but allow "0" or "0." or "0.5" etc.
+		if (cleanedInput.length > 1 && cleanedInput.startsWith('0') && cleanedInput[1] !== '.') {
+			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
+		}
+		
+		const usdValue = parseFloat(cleanedInput);
 
 		if (!isNaN(usdValue)) {
 			store.updateTask({
@@ -78,8 +87,17 @@
 	}
 
 	function handleSatsChange(event: Event) {
-		const input = cleanInput((event.target as HTMLInputElement).value);
-		const satsValue = parseInt(input.replace(/,/g, ''), 10);
+		const rawValue = (event.target as HTMLInputElement).value;
+		const input = cleanInput(rawValue);
+		
+		// Remove leading zeros (but keep single zero if that's all there is)
+		let cleanedInput = input.replace(/,/g, '');
+		// Remove leading zeros, but allow "0"
+		if (cleanedInput.length > 1 && cleanedInput.startsWith('0')) {
+			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
+		}
+		
+		const satsValue = parseInt(cleanedInput, 10);
 
 		if (!isNaN(satsValue) && btcPrice > 0) {
 			// Convert sats to USD
@@ -117,6 +135,26 @@
 		direction: 'forward' | 'backward';
 		attachmentsToRemove: Attachment[];
 	}>();
+
+	// Reactive validation for description - clears error when requirement is met
+	// This validates in real-time as the user types
+	let descriptionError = $derived.by(() => {
+		const description = $store.task.description?.trim() || '';
+		
+		// Only validate if there was an error before (from errors prop) or if user has started typing
+		// This prevents showing errors before the user has interacted with the field
+		if (errors.description || description.length > 0) {
+			if (!description) {
+				return $t('task.errors.description_required');
+			}
+			if (description.length < 20) {
+				return $t('task.errors.description_min_length');
+			}
+			// If description meets requirement, return empty string to clear error
+			return '';
+		}
+		return '';
+	});
 
 	// File handling functions
 	async function validateAndProcessFile(file: File): Promise<File | null> {
@@ -389,7 +427,7 @@
 					type="text"
 					id="budget-usd"
 					value={formatNumberForInput(usdAmount)}
-					onchange={handleUsdChange}
+					oninput={handleUsdChange}
 					class="input input-bordered w-full pl-7 {errors.budget ? 'input-error' : ''}"
 					placeholder={$t('task.usd_placeholder')}
 					min="0"
@@ -403,7 +441,7 @@
 					type="text"
 					id="budget-btc"
 					value={sats}
-					onchange={handleSatsChange}
+					oninput={handleSatsChange}
 					class="input input-bordered w-full pr-12 {errors.budget ? 'input-error' : ''}"
 					placeholder={$t('task.sats_placeholder')}
 					min="0"
@@ -461,17 +499,17 @@
 		<textarea
 			id="description"
 			value={$store.task.description}
-			onchange={(e) => {
+			oninput={(e) => {
 				store.updateTask({ description: (e.target as HTMLTextAreaElement).value });
 			}}
-			class="textarea textarea-bordered h-32 w-full rounded-xl {errors.description
+			class="textarea textarea-bordered h-32 w-full rounded-xl {descriptionError
 				? 'textarea-error'
 				: ''}"
 			placeholder={$t('task.description_placeholder')}
 			maxlength="10000"
 		></textarea>
-		{#if errors.description}
-			<span class="label-text-alt text-error">{errors.description}</span>
+		{#if descriptionError}
+			<span class="label-text-alt text-error">{descriptionError}</span>
 		{/if}
 	</div>
 

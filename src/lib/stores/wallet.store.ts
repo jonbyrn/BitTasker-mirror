@@ -17,6 +17,7 @@ import {
 	type SubmarineSwapResult,
 	type BoltzSwapData,
 	type ChainSwapData,
+	ERC20_ABI,
 } from '@bittasker/wallet-core';
 import type { SwapPairsCache, TokenBalance } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
@@ -102,9 +103,6 @@ let cachedSwapStorages: {
 	submarine: NostrSwapStorage;
 } | null = null;
 
-// Event listeners cleanup
-const eventListeners: (() => void)[] = [];
-
 // Cache instances for each swap type
 let cachedSwapPairs: {
 	submarine: SwapPairsCache | null;
@@ -128,13 +126,6 @@ function getWalletManager(): WalletManager {
 	}
 
 	return sdkWalletManager;
-}
-
-/**
- * Get event listeners array (for cleanup management)
- */
-export function getEventListeners(): (() => void)[] {
-	return eventListeners;
 }
 
 /**
@@ -282,10 +273,6 @@ function disconnectWallet(): void {
 	// Clear cached swap storages
 	cachedSwapStorages = null;
 
-	// Cleanup event listeners
-	eventListeners.forEach(cleanup => cleanup());
-	eventListeners.length = 0;
-
 	walletStore.set(initialState);
 }
 
@@ -423,22 +410,97 @@ async function loadAssets(): Promise<void> {
  */
 async function loadTransactions(): Promise<void> {
 	try {
-		const manager = getWalletManager();
 		const state = get(walletStore);
 
+		// Ensure wallet is initialized before loading transactions
+		if (!state.isConnected || !sdkWalletManager) {
+			if (import.meta.env.DEV) {
+				console.log('[DEBUG] [loadTransactions] Wallet not initialized, initializing...', {
+					isConnected: state.isConnected,
+					hasManager: !!sdkWalletManager,
+					timestamp: new Date().toISOString()
+				});
+			}
+
+			// Initialize wallet if not already initialized
+			if (!state.isInitializing) {
+				await initialize();
+			} else {
+				// Wait for initialization to complete
+				// Poll until initialized or timeout after 10 seconds
+				const maxWaitTime = 10000; // 10 seconds
+				const startTime = Date.now();
+				while (state.isInitializing && (Date.now() - startTime) < maxWaitTime) {
+					await new Promise(resolve => setTimeout(resolve, 100));
+					const currentState = get(walletStore);
+					if (currentState.isConnected && sdkWalletManager) {
+						break;
+					}
+				}
+			}
+
+			// Re-check state after initialization attempt
+			const updatedState = get(walletStore);
+			if (!updatedState.isConnected || !sdkWalletManager) {
+				const errorMsg = 'Wallet not initialized. Cannot load transactions.';
+				if (import.meta.env.DEV) {
+					console.error('[DEBUG] [loadTransactions]', errorMsg, {
+						isConnected: updatedState.isConnected,
+						hasManager: !!sdkWalletManager,
+						error: updatedState.error
+					});
+				}
+				throw new Error(errorMsg);
+			}
+		}
+
+		const manager = getWalletManager();
+		const finalState = get(walletStore);
+
+		// Validate wallets exist
+		if (!manager.rskWallet || !manager.bscWallet) {
+			const errorMsg = `Wallets not available. RSK: ${!!manager.rskWallet}, BSC: ${!!manager.bscWallet}`;
+			if (import.meta.env.DEV) {
+				console.error('[DEBUG] [loadTransactions]', errorMsg, {
+					hasRSKWallet: !!manager.rskWallet,
+					hasBSCWallet: !!manager.bscWallet,
+					rskAddress: finalState.rsk.address,
+					bscAddress: finalState.bsc.address
+				});
+			}
+			throw new Error(errorMsg);
+		}
+
 		// Get current balance for running balance calculation
-		const currentBalanceSats = state.totalBalances.sats;
+		const currentBalanceSats = finalState.totalBalances.sats;
+
+		if (import.meta.env.DEV) {
+			console.log('[DEBUG] [loadTransactions] Loading transactions...', {
+				rskAddress: finalState.rsk.address,
+				bscAddress: finalState.bsc.address,
+				currentBalanceSats,
+				timestamp: new Date().toISOString()
+			});
+		}
 
 		// Load blockchain transactions
 		const [rskTxs, bscTxs] = await Promise.all([
-			manager.rskWallet ? manager.rskWallet.loadTransactions() : Promise.resolve([]),
-			manager.bscWallet ? manager.bscWallet.loadTransactions() : Promise.resolve([])
+			manager.rskWallet.loadTransactions(),
+			manager.bscWallet.loadTransactions()
 		]);
+
+		if (import.meta.env.DEV) {
+			console.log('[DEBUG] [loadTransactions] Raw transactions loaded', {
+				rskTxCount: rskTxs.length,
+				bscTxCount: bscTxs.length,
+				timestamp: new Date().toISOString()
+			});
+		}
 
 		// Process blockchain transactions
 		const [processedRskTxs, processedBscTxs] = await Promise.all([
-			processTransactions(rskTxs, state.rsk.address || '', 'rsk', currentBalanceSats),
-			processTransactions(bscTxs, state.bsc.address || '', 'bsc', currentBalanceSats)
+			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk', currentBalanceSats),
+			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBalanceSats)
 		]);
 
 		// Load pending swaps from all services
@@ -482,9 +544,28 @@ async function loadTransactions(): Promise<void> {
 			(a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime()
 		);
 
+		if (import.meta.env.DEV) {
+			console.log('[DEBUG] [loadTransactions] Transactions processed and sorted', {
+				totalTransactions: allTransactions.length,
+				blockchainTxs: allBlockchainTxs.length,
+				swapTxs: uniqueSwapTxs.length,
+				timestamp: new Date().toISOString()
+			});
+		}
+
 		walletStore.update((s) => ({ ...s, transactions: allTransactions }));
 	} catch (error) {
-		console.error('Failed to load transactions:', error);
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		console.error('[loadTransactions] Failed to load transactions:', errorMessage, error);
+
+		// Update store with error for UI to display
+		walletStore.update((s) => ({
+			...s,
+			error: s.error || errorMessage
+		}));
+
+		// Re-throw to allow calling code to handle
+		throw error;
 	}
 }
 
@@ -534,10 +615,12 @@ export function updateSwapTransaction(
 	// Check if swap is completed - remove from pending list
 	// (it will appear from blockchain transactions shortly)
 	if (isSwapCompleted(updatedSwap.status)) {
-		walletStore.update((state) => ({
-			...state,
-			transactions: state.transactions.filter((tx) => tx.swap?.id !== swapId)
-		}));
+		loadTransactions().then(() => {
+			walletStore.update((state) => ({
+				...state,
+				transactions: state.transactions.filter((tx) => tx.swap?.id !== swapId)
+			}));
+		});
 		return;
 	}
 
@@ -680,9 +763,6 @@ export async function sendRSKToken(
 	// Convert to lowercase first, then getAddress() will compute correct checksum
 	normalizedTokenAddress = ethers.getAddress(tokenAddress.toLowerCase());
 	normalizedTo = ethers.getAddress(to.toLowerCase());
-
-	// Import ERC20_ABI
-	const { ERC20_ABI } = await import('$lib/utils/wallet/networkConfig');
 
 	// Create ERC-20 contract instance
 	const tokenContract = new ethers.Contract(normalizedTokenAddress, ERC20_ABI, wallet);
@@ -1030,9 +1110,6 @@ export async function estimateERC20Gas(
 		// Convert to lowercase first, then getAddress() will compute correct checksum
 		normalizedTokenAddress = ethers.getAddress(tokenAddress.toLowerCase());
 		normalizedTo = ethers.getAddress(to.toLowerCase());
-
-		// Import ERC20_ABI
-		const { ERC20_ABI } = await import('$lib/utils/wallet/networkConfig');
 
 		// Create ERC-20 contract instance
 		const tokenContract = new ethers.Contract(normalizedTokenAddress, ERC20_ABI, wallet);

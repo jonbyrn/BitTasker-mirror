@@ -407,14 +407,12 @@
 					<span class="text-base font-medium">{networkInfo.label}</span>
 				</div>
 				<!-- Status Indicator (only show for swap-based payments) -->
-				{#if isSwapBased && swapStatus && !isTransactionConfirmed}
+				<!-- {#if isSwapBased && swapStatus && !isTransactionConfirmed}
 					{@const IconComponent = swapStatus.icon}
 					<div class="flex items-center gap-2">
-						<!-- Only show spinner when actually pending -->
 						{#if swapStatus.label === 'wallet.transaction.status.pending'}
 							<span class="loading loading-spinner loading-sm"></span>
 						{/if}
-						<!-- Dynamic status badge with proper colors -->
 									<span
 										class="badge"
 							class:badge-warning={swapStatus.label === 'wallet.transaction.status.pending'}
@@ -425,7 +423,7 @@
 							{$t(swapStatus.label)}
 						</span>
 					</div>
-				{/if}
+				{/if} -->
 				</div>
 
 						<!-- Invoice Total (Rootstock only, above QR code) -->

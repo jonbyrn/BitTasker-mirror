@@ -1,17 +1,14 @@
-import type { ethers } from 'ethers';
-import type { CreateContractParams, PublishContractStatusParams } from '$lib/types/contract';
+import type { ContractCreationEvent, CreateContractParams, PendingContractCreation, PublishContractStatusParams } from '$lib/types/contract';
 import { writable } from 'svelte/store';
-import { createContract, publishContractStatus } from '$lib/utils/escrow/v1/nostrContract';
+import { publishContractEvent, publishContractStatus } from './nostrContract';
 import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-import { getWallet, getEventListeners } from '$lib/stores/wallet.store';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from './escrow.enum';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
-import { BidStatusEnum } from '../../enums/bid.enum';
+import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { contractStore } from '$lib/stores/contract.store';
-import { escrow } from '$lib/utils/escrow/v1/escrow';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
 const _ = get(t);
 
@@ -24,32 +21,14 @@ export interface EscrowCreatedEvent {
 	amount: string;
 }
 
-export interface ContractCreationEvent {
-	escrowId: string;
-	contractEventId?: string;
-	error?: string;
-}
-
 // Stores for escrow events
 // TODO: Useless store, needs to be removed
 export const contractCreationStore = writable<ContractCreationEvent | null>(null);
 
-// Pending contract creation requests
-interface PendingContractCreation {
-	bidEventId: string;
-	escrowId: string;
-	taskId: string;
-	taskTitle: string;
-	taskDescription: string;
-	freelancerPubkey: string;
-	amount: string;
-	estimatedStartTime: number;
-	estimatedCompletionTime: number;
-	transactionHash: string;
-}
-
 const pendingContracts = new Map<string, PendingContractCreation>();
 const pendingContractsByTxHash = new Map<string, PendingContractCreation>();
+// Track contracts currently being processed to prevent race conditions
+const processingContracts = new Set<string>();
 
 /**
  * Register a pending contract creation by transaction hash (before we have escrow ID)
@@ -57,6 +36,24 @@ const pendingContractsByTxHash = new Map<string, PendingContractCreation>();
 export function registerPendingContractByTxHash(params: Omit<PendingContractCreation, 'escrowId'>): void {
 	pendingContractsByTxHash.set(params.transactionHash, params as PendingContractCreation);
 	console.log('✅ Registered pending contract for transaction:', params.transactionHash);
+}
+
+/**
+ * Clean up pending contract by transaction hash (called when transaction fails)
+ * Uses atomic operations to prevent race conditions with handleEscrowCreated
+ */
+export function cleanupPendingContractByTxHash(transactionHash: string): void {
+	// Check if contract is currently being processed
+	if (processingContracts.has(transactionHash)) {
+		console.log('⚠️ Skipping cleanup - contract is currently being processed:', transactionHash);
+		return;
+	}
+
+	// Atomic check-and-delete to prevent race conditions
+	const removed = pendingContractsByTxHash.delete(transactionHash);
+	if (removed) {
+		console.log('🧹 Cleaned up pending contract for failed transaction:', transactionHash);
+	}
 }
 
 /**
@@ -127,14 +124,26 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 	let pendingContract = pendingContracts.get(event.escrowId);
 
 	// If not found by escrow ID, try to find by transaction hash
+	// Use atomic operations to prevent race conditions with cleanupPendingContractByTxHash
 	if (!pendingContract) {
-		for (const [txHash, contract] of pendingContractsByTxHash.entries()) {
-			if (txHash === event.transactionHash) {
-				pendingContract = contract;
-				// Move from txHash map to escrow ID map
+		const txHash = event.transactionHash;
+
+		// Atomic check-and-get to prevent race conditions
+		// Mark as processing BEFORE getting to prevent cleanup during processing
+		if (pendingContractsByTxHash.has(txHash)) {
+			processingContracts.add(txHash);
+
+			// Get the contract (it may have been deleted by cleanup, but we're protected by processingContracts)
+			const contract = pendingContractsByTxHash.get(txHash);
+			if (contract) {
+				// Remove from txHash map and add to escrow ID map
 				pendingContractsByTxHash.delete(txHash);
+				pendingContract = contract;
 				pendingContracts.set(event.escrowId, { ...contract, escrowId: event.escrowId });
-				break;
+				// Keep in processingContracts until we finish processing
+			} else {
+				// Contract was deleted between has() and get() - remove from processing set
+				processingContracts.delete(txHash);
 			}
 		}
 	}
@@ -154,7 +163,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				transactionHash: event.transactionHash
 			};
 
-			await createContract(contractParams);
+			await publishContractEvent(contractParams);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [pendingContract.freelancerPubkey],
@@ -172,18 +181,27 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			});
 
 			// Publish bid acceptance status via encrypted DM nostr event
-			await sendBidStatusUpdate(
-				pendingContract.bidEventId,
-				pendingContract.taskId,
-				pendingContract.freelancerPubkey,
-				BidStatusEnum.ACCEPTED,
-				_('dashboard.bids.bid_acceptance.bid_accepted_message'),
-				event.escrowId,
-				event.transactionHash
-			);
+			// If this fails, log the error but don't fail the entire contract creation
+			// The escrow is already created, so we should continue even if status update fails
+			try {
+				await sendBidStatusUpdate(
+					pendingContract.bidEventId,
+					pendingContract.taskId,
+					pendingContract.freelancerPubkey,
+					BidStatusEnum.ACCEPTED,
+					_('dashboard.bids.bid_acceptance.bid_accepted_message'),
+					event.escrowId,
+					event.transactionHash
+				);
+			} catch (statusUpdateError) {
+				// Log error but don't throw - escrow is already created
+				console.error('Failed to send bid status update after escrow creation:', statusUpdateError);
+				// Show warning to user that bid status update failed
+				appStore.showErrorToast('Escrow created successfully, but failed to update bid status. The bid status may need to be updated manually.');
+			}
 
-			// Show success toast
-			appStore.showSuccessToast(`Contract created successfully! Escrow ID: ${event.escrowId.slice(0, 8)}...`);
+			// Note: Success toast is shown in BidAcceptanceForm.svelte success screen
+			// No need to show duplicate toast here to avoid double notifications
 
 			// Reload the newly created contract from Nostr to populate the store
 			await contractStore.loadContractByEscrowId(event.escrowId);
@@ -194,9 +212,14 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 
 			// Clean up pending contract
 			pendingContracts.delete(event.escrowId);
+			// Also remove from processing set if it was there
+			processingContracts.delete(event.transactionHash);
 
 		} catch (error) {
 			console.error('Failed to create Nostr contract:', error);
+
+			// Remove from processing set on error
+			processingContracts.delete(event.transactionHash);
 
 			// Update contract creation store with error
 			contractCreationStore.set({
@@ -211,187 +234,5 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 		}
 	} else {
 		console.log('No pending contract found for escrow:', event.escrowId);
-	}
-}
-
-/**
- * Handle escrow status updates - called from contract event listeners
- * @unused - this function is not used anywhere but contract event listeners which is also not used
- */
-function handleEscrowStatusUpdate(escrowId: string, status: string, eventType: string): void {
-	console.log(`Escrow ${escrowId} status updated:`, { status, eventType });
-
-	// Show appropriate toast based on event type
-	switch (eventType) {
-		case 'TaskCompleted':
-			appStore.showInfoToast(`Task completed for escrow ${escrowId.slice(0, 8)}...`);
-			break;
-		case 'TaskAccepted':
-			appStore.showSuccessToast(`Task accepted! Payment released for escrow ${escrowId.slice(0, 8)}...`);
-			break;
-		case 'TaskDisputed':
-			appStore.showErrorToast(`Task disputed for escrow ${escrowId.slice(0, 8)}...`);
-			break;
-		case 'DisputeProposed':
-			appStore.showInfoToast(`Dispute resolution proposed for escrow ${escrowId.slice(0, 8)}...`);
-			break;
-		case 'DisputeResolved':
-			appStore.showSuccessToast(`Dispute resolved for escrow ${escrowId.slice(0, 8)}...`);
-			break;
-		case 'EscrowCancelled':
-			appStore.showInfoToast(`Escrow cancelled: ${escrowId.slice(0, 8)}...`);
-			break;
-		default:
-			console.log('Unknown event type:', eventType);
-	}
-}
-
-/**
- * Set up contract event listeners
- * Note: This is currently disabled on RSK due to eth_getLogs compatibility issues.
- * Event handling is done directly from transaction receipts instead.
- * @unused - this function is not used anywhere in the codebase
- */
-export function setupContractEventListeners(contract: ethers.Contract): void {
-	const wallet = getWallet('rsk');
-	if (!contract || !wallet) return;
-
-	// Enable EscrowCreated event listener for contract creation feedback
-	const userAddress = wallet.address.toLowerCase();
-
-	// Listen for EscrowCreated events - this is essential for getting escrow ID
-	const escrowCreatedListener = (escrowId: bigint, client: string, freelancer: string, amount: bigint, event: any) => {
-		// Only handle events where user is involved
-		if (client.toLowerCase() !== userAddress && freelancer.toLowerCase() !== userAddress) return;
-
-		console.log('EscrowCreated event received:', { escrowId: escrowId.toString(), client, freelancer });
-
-		// Handle escrow created event through our event management system
-		handleEscrowCreated({
-			escrowId: escrowId.toString(),
-			transactionHash: event.transactionHash,
-			client,
-			freelancer,
-			amount: amount.toString()
-		});
-
-		// Load and update escrow data
-		escrow.getEscrow(escrowId.toString()).then(escrowData => {
-			if (escrowData) {
-			}
-		}).catch(console.error);
-	};
-
-	// Set up EscrowCreated event listener
-	try {
-		contract.on('EscrowCreated', escrowCreatedListener);
-		console.log('EscrowCreated event listener set up successfully');
-	} catch (error) {
-		console.warn('Failed to set up EscrowCreated event listener:', error);
-		// Fallback to the current implementation if event listeners fail
-		return;
-	}
-
-	// Store cleanup function
-	const eventListeners = getEventListeners();
-	eventListeners.push(() => {
-		if (contract) {
-			try {
-				contract.off('EscrowCreated', escrowCreatedListener);
-			} catch (error) {
-				console.warn('Error cleaning up EscrowCreated event listener:', error);
-			}
-		}
-	});
-
-	// Enable other essential event listeners for contract management
-	try {
-		// Listen for TaskCompleted events
-		const taskCompletedListener = (escrowId: bigint) => {
-			const escrowIdStr = escrowId.toString();
-			console.log('TaskCompleted event received:', escrowIdStr);
-
-			// Handle through event management system
-			handleEscrowStatusUpdate(escrowIdStr, 'completed', 'TaskCompleted');
-		};
-
-		// Listen for TaskAccepted events
-		const taskAcceptedListener = (escrowId: bigint) => {
-			const escrowIdStr = escrowId.toString();
-			console.log('TaskAccepted event received:', escrowIdStr);
-
-			// Handle through event management system
-			handleEscrowStatusUpdate(escrowIdStr, 'funds_released', 'TaskAccepted');
-		};
-
-		// Listen for TaskDisputed events
-		const taskDisputedListener = (escrowId: bigint, disputer: string) => {
-			const escrowIdStr = escrowId.toString();
-			console.log('TaskDisputed event received:', escrowIdStr, disputer);
-
-			// Handle through event management system
-			handleEscrowStatusUpdate(escrowIdStr, 'disputed', 'TaskDisputed');
-		};
-
-		// Listen for DisputeProposed events
-		const disputeProposedListener = (escrowId: bigint, proposer: string, clientAmount: bigint, freelancerAmount: bigint) => {
-			const escrowIdStr = escrowId.toString();
-			console.log('DisputeProposed event received:', escrowIdStr);
-			escrow.getDisputeProposal(escrowIdStr).then(proposal => {
-				if (proposal) {
-				}
-			}).catch(console.error);
-
-			// Handle through event management system
-			handleEscrowStatusUpdate(escrowIdStr, 'dispute_proposed', 'DisputeProposed');
-		};
-
-		// Listen for DisputeResolved events
-		const disputeResolvedListener = (escrowId: bigint, clientAmount: bigint, freelancerAmount: bigint) => {
-			const escrowIdStr = escrowId.toString();
-			console.log('DisputeResolved event received:', escrowIdStr);
-
-
-			// Handle through event management system
-			handleEscrowStatusUpdate(escrowIdStr, 'resolved', 'DisputeResolved');
-		};
-
-		// Listen for EscrowCancelled events
-		const escrowCancelledListener = (escrowId: bigint, clientAmount: bigint, freelancerAmount: bigint) => {
-			const escrowIdStr = escrowId.toString();
-			console.log('EscrowCancelled event received:', escrowIdStr);
-
-			// Handle through event management system
-			handleEscrowStatusUpdate(escrowIdStr, 'cancelled', 'EscrowCancelled');
-		};
-
-		// Set up additional event listeners
-		contract.on('TaskCompleted', taskCompletedListener);
-		contract.on('TaskAccepted', taskAcceptedListener);
-		contract.on('TaskDisputed', taskDisputedListener);
-		contract.on('DisputeProposed', disputeProposedListener);
-		contract.on('DisputeResolved', disputeResolvedListener);
-		contract.on('EscrowCancelled', escrowCancelledListener);
-
-		console.log('All contract event listeners set up successfully');
-
-		// Add cleanup for additional event listeners
-		eventListeners.push(() => {
-			if (contract) {
-				try {
-					contract.off('TaskCompleted', taskCompletedListener);
-					contract.off('TaskAccepted', taskAcceptedListener);
-					contract.off('TaskDisputed', taskDisputedListener);
-					contract.off('DisputeProposed', disputeProposedListener);
-					contract.off('DisputeResolved', disputeResolvedListener);
-					contract.off('EscrowCancelled', escrowCancelledListener);
-				} catch (error) {
-					console.warn('Error cleaning up additional event listeners:', error);
-				}
-			}
-		});
-
-	} catch (error) {
-		console.warn('Failed to set up additional event listeners (using fallback approach):', error);
 	}
 }

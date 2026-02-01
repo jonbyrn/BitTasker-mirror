@@ -15,6 +15,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
 	// Props - Simplified to just task and onClose
 	const { task, onClose, onBidSubmitted, stickySubmit = true } = $props<{
@@ -437,6 +438,25 @@
 		return Object.keys(errors).length === 0;
 	}
 
+	// Helper function to get the first validation error message
+	function getFirstValidationError(): string | null {
+		// Priority order: general error first, then field errors in order of importance
+		if (bidFormErrors.general) {
+			return bidFormErrors.general;
+		}
+
+		// Check field errors in priority order
+		const errorFields = ['amount', 'hourlyRate', 'estimatedHours', 'datetime', 'description', 'proposedApproach', 'coverLetter'];
+		
+		for (const field of errorFields) {
+			if (bidFormErrors[field] && bidFormErrors[field].trim() !== '') {
+				return bidFormErrors[field];
+			}
+		}
+
+		return null;
+	}
+
 	// Helper function to format duration for display (reactive)
 	const formatDurationForDisplay = $derived.by(() => {
 		if (bidType === 'FIXED' && startDateTime && endDateTime) {
@@ -485,7 +505,15 @@
 	async function handleBidSubmit(e: Event) {
 		e.preventDefault();
 
-		if (!validateBidForm()) return;
+		// Clear general error before validation
+		if (bidFormErrors.general) {
+			bidFormErrors = { ...bidFormErrors, general: '' };
+		}
+
+		if (!validateBidForm()) {
+			// Validation failed - errors are already set in bidFormErrors
+			return;
+		}
 
 		submittingBid = true;
 
@@ -532,9 +560,9 @@
 				// Add RSK wallet address for escrow funding
 				bidderWalletAddress: rskAddress,
 
-				// Add new datetime fields
-				startDateTime: bidType === 'FIXED' ? startDateTime : null,
-				endDateTime: bidType === 'FIXED' ? endDateTime : null,
+				// Add new datetime fields - serialize with local time to preserve user's selected time
+				startDateTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
+				endDateTime: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
 
 				// Add bid translations
 				...(bidTranslations && { translations: bidTranslations })
@@ -1003,9 +1031,9 @@
 					? 'sticky bottom-0 z-50'
 					: 'mt-auto'}"
 			>
-				{#if bidFormErrors.general}
-					<div class="alert alert-error alert-outline mb-4 wrap-break-words">
-						<span class="wrap-break-words">{bidFormErrors.general}</span>
+				{#if getFirstValidationError()}
+					<div class="alert alert-outline alert-error mb-4">
+						<span>{getFirstValidationError()}</span>
 					</div>
 				{/if}
 				<button

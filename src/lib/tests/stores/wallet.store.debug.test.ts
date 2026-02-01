@@ -35,8 +35,8 @@ vi.mock('$lib/api/services/token-balance.service', () => ({
 }));
 
 // Mock ethers Contract - need to mock the module that imports it
-vi.mock('$lib/utils/wallet/networkConfig', async () => {
-	const actual = await vi.importActual('$lib/utils/wallet/networkConfig');
+vi.mock('@bittasker/wallet-core', async () => {
+	const actual = await vi.importActual('@bittasker/wallet-core');
 	return {
 		...actual,
 		ERC20_ABI: ['function transfer(address, uint256) returns (bool)', 'function decimals() view returns (uint8)']
@@ -306,7 +306,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 			};
 
 			// Mock networkConfig to return mock ERC20_ABI
-			const networkConfigModule = await import('$lib/utils/wallet/networkConfig');
+			const networkConfigModule = await import('@bittasker/wallet-core');
 			vi.spyOn(networkConfigModule, 'ERC20_ABI', 'get').mockReturnValue([
 				'function transfer(address, uint256) returns (bool)',
 				'function decimals() view returns (uint8)'

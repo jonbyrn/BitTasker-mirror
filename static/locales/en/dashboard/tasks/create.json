@@ -20,6 +20,7 @@
       "end_date": "End Date",
       "tags_placeholder": "Add tags...",
       "deadline": "Deadline",
+      "deadline_placeholder": "Select a date",
       "complete_by": "Complete by:",
       "complete_between": "Complete between:",
       "and": "and",
