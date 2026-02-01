@@ -7,7 +7,7 @@
  */
 
 import { ethers } from 'ethers';
-import { RSK_NETWORKS, getBSCConfig } from '$lib/utils/wallet/networkConfig';
+import { RSK_NETWORKS, getBSCConfig } from '@bittasker/wallet-core';
 import cryptoPriceService from './crypto-price.service';
 
 // Types
@@ -270,7 +270,7 @@ class HistoricalBalanceService {
 					return null;
 				}
 
-				const bscConfig = getBSCConfig(bscNetwork as 'mainnet' | 'testnet');
+				const bscConfig = getBSCConfig();
 				// Use free Binance public RPC endpoint
 				const rpcUrl = bscConfig.rpcUrl || 'https://bsc-dataseed.binance.org/';
 

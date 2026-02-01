@@ -1,16 +1,14 @@
-import type { GasEstimation } from '@bittasker/wallet-core';
+import { type FeeTier, type RSKNetwork, type GasEstimation, FEE_TIERS } from "@bittasker/wallet-core";
 import type { ContractTransactionResult, DisputeProposal, EscrowData } from "$lib/types/wallet";
 import type { Attachment } from '$lib/types/task';
-import { getProvider, getWallet } from "$lib/stores/wallet.store";
 import { t } from "svelte-i18n";
 import { get } from "svelte/store";
 import { appStore } from "$lib/stores/app.store";
-import { ethers } from 'ethers';
-import { EscrowStatus } from "$lib/utils/escrow/v1/escrow.enum";
-import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
-// Use ethers.getAddress for EIP-55 checksum address conversion
+import { ethers, type JsonRpcProvider } from 'ethers';
+import { EscrowStatus } from "./escrow.enum";
+import { getProvider, getWallet } from "$lib/stores/wallet.store";
+import * as EscrowNostrEvent from './escrowEvents';
 import escrowABI from './abi.json';
-import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
 
 let contract: ethers.Contract | null = null;
 // Cache for legacy contracts to avoid recreating them
@@ -43,25 +41,134 @@ export async function ensureEscrowReady(
     wallet: ethers.Wallet;
     provider: ethers.JsonRpcProvider;
 }> {
+    const ensureStartTime = performance.now();
+    const callStack = new Error().stack?.split('\n').slice(1, 4).map(line => line.trim()).join(' -> ') || 'unknown';
+
+    console.log(`[DEBUG] [ensureEscrowReady] Starting wallet/provider initialization check`, {
+        contractAddress,
+        requireBalance,
+        callStack,
+        timestamp: new Date().toISOString()
+    });
+
     // Check and initialize wallet if needed
     let wallet = getRSKWallet();
     if (!wallet) {
-        const { walletManager } = await import('$lib/stores/wallet.store');
-        await walletManager.initialize();
-        wallet = getRSKWallet();
-        if (!wallet) {
+        console.log(`[DEBUG] [ensureEscrowReady] Wallet not available, initializing...`, {
+            callStack,
+            timestamp: new Date().toISOString()
+        });
+        const initStartTime = performance.now();
+        try {
+            const { walletManager } = await import('$lib/stores/wallet.store');
+            await walletManager.initialize();
+            const initDuration = performance.now() - initStartTime;
+            wallet = getRSKWallet();
+            if (!wallet) {
+                console.error(`[DEBUG] [ensureEscrowReady] ❌ Wallet initialization failed - wallet still null after initialize()`, {
+                    initDurationMs: initDuration.toFixed(2),
+                    callStack
+                });
+                throw new Error('Failed to initialize wallet');
+            }
+            console.log(`[DEBUG] [ensureEscrowReady] ✅ Wallet initialized successfully`, {
+                walletAddress: wallet.address,
+                initDurationMs: initDuration.toFixed(2),
+                callStack
+            });
+        } catch (initError) {
+            const initDuration = performance.now() - initStartTime;
+            console.error(`[DEBUG] [ensureEscrowReady] ❌ Wallet initialization threw error`, {
+                error: initError instanceof Error ? initError.message : String(initError),
+                initDurationMs: initDuration.toFixed(2),
+                callStack
+            });
             throw new Error('Failed to initialize wallet');
         }
+    } else {
+        console.log(`[DEBUG] [ensureEscrowReady] ✅ Wallet already available`, {
+            walletAddress: wallet.address,
+            callStack
+        });
     }
 
     // Check and get provider if needed
     let provider = getRSKProvider();
     if (!provider) {
-        const { walletManager } = await import('$lib/stores/wallet.store');
-        await walletManager.initialize();
-        provider = getRSKProvider();
-        if (!provider) {
+        console.log(`[DEBUG] [ensureEscrowReady] Provider not available, initializing...`, {
+            callStack,
+            timestamp: new Date().toISOString()
+        });
+        const initStartTime = performance.now();
+        try {
+            const { walletManager } = await import('$lib/stores/wallet.store');
+            await walletManager.initialize();
+            const initDuration = performance.now() - initStartTime;
+            provider = getRSKProvider();
+            if (!provider) {
+                console.error(`[DEBUG] [ensureEscrowReady] ❌ Provider initialization failed - provider still null after initialize()`, {
+                    initDurationMs: initDuration.toFixed(2),
+                    callStack
+                });
+                throw new Error('Failed to get provider');
+            }
+            console.log(`[DEBUG] [ensureEscrowReady] ✅ Provider initialized successfully`, {
+                providerUrl: (provider as any)?.connection?.url || 'unknown',
+                initDurationMs: initDuration.toFixed(2),
+                callStack
+            });
+        } catch (initError) {
+            const initDuration = performance.now() - initStartTime;
+            console.error(`[DEBUG] [ensureEscrowReady] ❌ Provider initialization threw error`, {
+                error: initError instanceof Error ? initError.message : String(initError),
+                initDurationMs: initDuration.toFixed(2),
+                callStack
+            });
             throw new Error('Failed to get provider');
+        }
+    } else {
+        // Check if provider is destroyed (can happen during concurrent initialization)
+        const providerWithDestroyed = provider as JsonRpcProvider & { _destroyed?: boolean };
+        const isDestroyed = providerWithDestroyed._destroyed === true || (provider as any).destroyed === true;
+
+        if (isDestroyed) {
+            console.warn(`[DEBUG] [ensureEscrowReady] ⚠️ Provider is destroyed, reinitializing...`, {
+                callStack,
+                timestamp: new Date().toISOString()
+            });
+            const initStartTime = performance.now();
+            try {
+                const { walletManager } = await import('$lib/stores/wallet.store');
+                // Force reinitialization by resetting state
+                await walletManager.initialize();
+                const initDuration = performance.now() - initStartTime;
+                provider = getRSKProvider();
+                if (!provider) {
+                    console.error(`[DEBUG] [ensureEscrowReady] ❌ Provider reinitialization failed`, {
+                        initDurationMs: initDuration.toFixed(2),
+                        callStack
+                    });
+                    throw new Error('Failed to get provider after reinitialization');
+                }
+                console.log(`[DEBUG] [ensureEscrowReady] ✅ Provider reinitialized successfully`, {
+                    providerUrl: (provider as any)?.connection?.url || 'unknown',
+                    initDurationMs: initDuration.toFixed(2),
+                    callStack
+                });
+            } catch (initError) {
+                const initDuration = performance.now() - initStartTime;
+                console.error(`[DEBUG] [ensureEscrowReady] ❌ Provider reinitialization threw error`, {
+                    error: initError instanceof Error ? initError.message : String(initError),
+                    initDurationMs: initDuration.toFixed(2),
+                    callStack
+                });
+                throw new Error('Failed to get provider after reinitialization');
+            }
+        } else {
+            console.log(`[DEBUG] [ensureEscrowReady] ✅ Provider already available`, {
+                providerUrl: (provider as any)?.connection?.url || 'unknown',
+                callStack
+            });
         }
     }
 
@@ -121,6 +228,16 @@ export async function ensureEscrowReady(
         }
     }
 
+    const ensureDuration = performance.now() - ensureStartTime;
+    console.log(`[DEBUG] [ensureEscrowReady] ✅ Completed successfully`, {
+        contractAddress: targetContract.target,
+        walletAddress: wallet.address,
+        hasProvider: !!provider,
+        requireBalance,
+        totalDurationMs: ensureDuration.toFixed(2),
+        callStack
+    });
+
     return { contract: targetContract, wallet, provider };
 }
 
@@ -134,12 +251,6 @@ export function calculateFeeAmount(baseAmount: bigint, feeTier: FeeTier): bigint
 export function calculateTotalPayment(baseAmount: bigint, clientFeeTier: FeeTier): bigint {
     const clientFee = calculateFeeAmount(baseAmount, clientFeeTier);
     return baseAmount + clientFee;
-}
-
-// Utility function to calculate freelancer payout (base amount - freelancer fee)
-export function calculateFreelancerPayout(baseAmount: bigint, freelancerFeeTier: FeeTier): bigint {
-    const freelancerFee = calculateFeeAmount(baseAmount, freelancerFeeTier);
-    return baseAmount - freelancerFee;
 }
 
 /**
@@ -167,14 +278,11 @@ async function connectToEscrowContract(): Promise<void> {
     }
 
     try {
-        const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+        const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK;
         const contractAddress = getDefaultContractAddress();
 
         if (!contractAddress) {
-            const envVarName = network === 'mainnet'
-                ? 'VITE_RSK_CONTRACT_ADDRESS_MAINNET'
-                : 'VITE_RSK_CONTRACT_ADDRESS_TESTNET';
-            throw new Error(`Contract address not configured for ${network}. Please set ${envVarName} environment variable.`);
+            throw new Error(`Contract address not configured for ${network}.`);
         }
 
         const contractConfig = {
@@ -187,10 +295,6 @@ async function connectToEscrowContract(): Promise<void> {
         const checksummedAddress = ethers.getAddress(contractConfig.address);
 
         contract = new ethers.Contract(checksummedAddress, contractConfig.abi, wallet);
-
-        // Skip event listeners on RSK due to eth_getLogs compatibility issues
-        // Event handling is now done directly in transaction receipts
-        // TODO: Setup event listeners
     } catch (error) {
         throw new Error(`Failed to connect to contract: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -198,47 +302,152 @@ async function connectToEscrowContract(): Promise<void> {
 
 // Load escrow details from contract
 async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData> {
-    try {
-        // Get the appropriate contract instance (no balance check needed for read operations)
-        const { contract: targetContract } = await ensureEscrowReady(contractAddress, false);
+    const loadStartTime = performance.now();
+    console.log(`[DEBUG] [loadEscrowDetails] Starting blockchain call for escrow ${escrowId}`, {
+        escrowId,
+        contractAddress,
+        timestamp: new Date().toISOString()
+    });
 
-        if (!targetContract) throw new Error('Contract not found');
+    const MAX_RETRIES = 2;
+    let lastError: Error | null = null;
 
-        const escrowData = await targetContract.getEscrow(escrowId);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            // Get the appropriate contract instance (no balance check needed for read operations)
+            const ensureStartTime = performance.now();
+            const { contract: targetContract } = await ensureEscrowReady(contractAddress, false);
+            const ensureDuration = performance.now() - ensureStartTime;
 
-        // Map contract state enum to our EscrowStatus
-        const statusMapping: Record<number, EscrowStatus> = {
-            0: EscrowStatus.Funded,
-            1: EscrowStatus.InDispute,
-            2: EscrowStatus.DisputeResolved,
-            3: EscrowStatus.DisputeUnresolved,
-            4: EscrowStatus.Completed,
-            5: EscrowStatus.Cancelled
-        };
+            if (!targetContract) {
+                console.error(`[DEBUG] [loadEscrowDetails] ❌ Contract not found after ensureEscrowReady`, {
+                    escrowId,
+                    contractAddress,
+                    ensureDurationMs: ensureDuration.toFixed(2),
+                    attempt
+                });
+                throw new Error('Contract not found');
+            }
 
-        const escrow: EscrowData = {
-            id: escrowId,
-            client: escrowData.client?.toLowerCase() || '', // Ensure consistent address format
-            freelancer: escrowData.freelancer?.toLowerCase() || '', // Ensure consistent address format
-            baseAmount: ethers.formatEther(escrowData.amount),
-            clientFee: '0', // Will be calculated based on fee tier
-            freelancerFee: '0', // Will be calculated based on fee tier  
-            totalAmount: ethers.formatEther(escrowData.amount),
-            status: statusMapping[escrowData.state] || EscrowStatus.Funded,
-            estimatedStartTime: Number(escrowData.estimatedStartTime),
-            estimatedCompletionTime: Number(escrowData.estimatedCompletionTime),
-            completionTime: 0, // Not stored in contract, would need separate call
-            timelockExpiry: Number(escrowData.timelockEnd),
-            clientFeeTier: escrowData.clientFeeTier as FeeTier,
-            freelancerFeeTier: escrowData.freelancerFeeTier as FeeTier,
-            createdAt: Number(escrowData.createdAt) * 1000, // Convert to milliseconds
-            lastUpdated: Date.now()
-        };
+            console.log(`[DEBUG] [loadEscrowDetails] Calling targetContract.getEscrow(${escrowId})`, {
+                escrowId,
+                contractAddress: targetContract.target,
+                ensureDurationMs: ensureDuration.toFixed(2),
+                attempt
+            });
 
-        return escrow;
-    } catch (error) {
-        throw new Error(`Failed to load escrow details for ID ${escrowId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            const contractCallStartTime = performance.now();
+            const escrowData = await targetContract.getEscrow(escrowId);
+            const contractCallDuration = performance.now() - contractCallStartTime;
+            const totalDuration = performance.now() - loadStartTime;
+
+            console.log(`[DEBUG] [loadEscrowDetails] ✅ Blockchain call succeeded for escrow ${escrowId}`, {
+                escrowId,
+                contractCallDurationMs: contractCallDuration.toFixed(2),
+                totalDurationMs: totalDuration.toFixed(2),
+                escrowState: escrowData?.state,
+                attempt
+            });
+
+            // Map contract state enum to our EscrowStatus
+            const statusMapping: Record<number, EscrowStatus> = {
+                0: EscrowStatus.Funded,
+                1: EscrowStatus.InDispute,
+                2: EscrowStatus.DisputeResolved,
+                3: EscrowStatus.DisputeUnresolved,
+                4: EscrowStatus.Completed,
+                5: EscrowStatus.Cancelled
+            };
+
+            const escrow: EscrowData = {
+                id: escrowId,
+                client: escrowData.client?.toLowerCase() || '', // Ensure consistent address format
+                freelancer: escrowData.freelancer?.toLowerCase() || '', // Ensure consistent address format
+                baseAmount: ethers.formatEther(escrowData.amount),
+                clientFee: '0', // Will be calculated based on fee tier
+                freelancerFee: '0', // Will be calculated based on fee tier  
+                totalAmount: ethers.formatEther(escrowData.amount),
+                status: statusMapping[escrowData.state] || EscrowStatus.Funded,
+                estimatedStartTime: Number(escrowData.estimatedStartTime),
+                estimatedCompletionTime: Number(escrowData.estimatedCompletionTime),
+                completionTime: 0, // Not stored in contract, would need separate call
+                timelockExpiry: Number(escrowData.timelockEnd),
+                clientFeeTier: escrowData.clientFeeTier as FeeTier,
+                freelancerFeeTier: escrowData.freelancerFeeTier as FeeTier,
+                createdAt: Number(escrowData.createdAt) * 1000, // Convert to milliseconds
+                lastUpdated: Date.now()
+            };
+
+            return escrow;
+        } catch (error) {
+            const totalDuration = performance.now() - loadStartTime;
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            lastError = error instanceof Error ? error : new Error(String(error));
+
+            // Determine error type for better debugging
+            const isWalletError = errorMessage.includes('wallet') ||
+                errorMessage.includes('Failed to initialize') ||
+                errorMessage.includes('not initialized') ||
+                errorMessage.includes('not connected');
+            const isProviderError = errorMessage.includes('provider') ||
+                errorMessage.includes('Failed to get provider') ||
+                errorMessage.includes('provider destroyed');
+            const isContractError = errorMessage.includes('contract') ||
+                errorMessage.includes('Failed to connect');
+            const isNetworkError = errorMessage.includes('network') ||
+                errorMessage.includes('timeout') ||
+                errorMessage.includes('connection') ||
+                errorMessage.includes('fetch');
+            const isEscrowNotFound = errorMessage.includes('not found') ||
+                errorMessage.includes('does not exist') ||
+                (errorMessage.includes('execution reverted') &&
+                    !isProviderError && !isWalletError && !isContractError);
+
+            const errorType = isWalletError ? 'WALLET_ERROR' :
+                isProviderError ? 'PROVIDER_ERROR' :
+                    isContractError ? 'CONTRACT_ERROR' :
+                        isNetworkError ? 'NETWORK_ERROR' :
+                            isEscrowNotFound ? 'ESCROW_NOT_FOUND' : 'UNKNOWN_ERROR';
+
+            // Retry for provider destruction errors (can happen during concurrent initialization)
+            if (isProviderError && attempt < MAX_RETRIES) {
+                console.warn(`[DEBUG] [loadEscrowDetails] ⚠️ Provider error for escrow ${escrowId}, retrying...`, {
+                    escrowId,
+                    errorType,
+                    attempt: attempt + 1,
+                    maxRetries: MAX_RETRIES,
+                    errorMessage
+                });
+                // Reset cached contract to force reinitialization
+                resetCachedContract();
+                // Wait a bit before retry to allow provider to reinitialize
+                await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+                continue; // Retry
+            }
+
+            // Don't retry for other errors or if max retries reached
+            console.error(`[DEBUG] [loadEscrowDetails] ❌ Blockchain call failed for escrow ${escrowId}`, {
+                escrowId,
+                contractAddress,
+                errorMessage,
+                errorType,
+                totalDurationMs: totalDuration.toFixed(2),
+                attempt,
+                willRetry: isProviderError && attempt < MAX_RETRIES,
+                errorStack: errorStack?.split('\n').slice(0, 5).join('\n') // First 5 lines of stack
+            });
+
+            // Throw error if we've exhausted retries or it's not a retryable error
+            throw new Error(`Failed to load escrow details for ID ${escrowId}: ${errorMessage}`);
+        }
     }
+
+    // Should never reach here, but TypeScript needs it
+    if (lastError) {
+        throw lastError;
+    }
+    throw new Error(`Failed to load escrow details for ID ${escrowId}: Unknown error`);
 }
 
 // Load dispute proposal details
@@ -342,19 +551,25 @@ async function createEscrow(
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
 
-        // Fetch current gas price in real-time (RSK uses legacy gasPrice)
-        const feeData = await provider.getFeeData();
-        const gasPrice = feeData.gasPrice || BigInt(0);
+        // Fetch current gas price for gas estimation (RSK uses legacy gasPrice)
+        // Note: We'll fetch it again right before submission to handle price changes
+        const feeDataForEstimate = await provider.getFeeData();
+        const gasPriceForEstimate = feeDataForEstimate.gasPrice || BigInt(0);
 
-        // Estimate gas with the same gas price that will be used in the transaction
+        // Estimate gas with the gas price at estimation time
         const gasEstimate = await contract.createEscrow.estimateGas(
             freelancerAddressEip55,
             estimatedStartTime,
             estimatedCompletionTime,
             clientFeeTier,
             freelancerFeeTier,
-            { value: totalPayment, gasPrice: gasPrice }
+            { value: totalPayment, gasPrice: gasPriceForEstimate }
         );
+
+        // Fetch gas price again right before submission to handle price changes
+        // This ensures we use the most current gas price for the actual transaction
+        const feeDataForTx = await provider.getFeeData();
+        const gasPriceForTx = feeDataForTx.gasPrice || BigInt(0);
 
         const tx = await contract.createEscrow(
             freelancerAddressEip55,
@@ -365,7 +580,7 @@ async function createEscrow(
             {
                 value: totalPayment,
                 gasLimit: gasEstimate + (gasEstimate / 10n), // Add 10% buffer
-                gasPrice: gasPrice
+                gasPrice: gasPriceForTx
             }
         );
 
@@ -376,7 +591,14 @@ async function createEscrow(
         };
 
         // Handle confirmation asynchronously and create Nostr contract directly
-        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+        // Add timeout protection (5 minutes) to prevent hanging forever
+        const TX_WAIT_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+        Promise.race([
+            tx.wait(),
+            new Promise<null>((_, reject) =>
+                setTimeout(() => reject(new Error('Transaction wait timeout after 5 minutes')), TX_WAIT_TIMEOUT)
+            )
+        ]).then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
@@ -424,17 +646,36 @@ async function createEscrow(
                         }
                     } else {
                         console.warn('EscrowCreated event not found in transaction receipt');
+                        // If EscrowCreated event is missing, clean up pending contract
+                        // This handles the case where transaction succeeded but event is missing
+                        EscrowNostrEvent.cleanupPendingContractByTxHash(receipt.hash);
+                        // Notify user that escrow was created but event is missing
+                        appStore.showErrorToast('Escrow transaction succeeded, but EscrowCreated event was not found. The escrow may need to be verified manually.');
                     }
                 } catch (error) {
                     console.error('Failed to extract escrow ID from receipt:', error);
+                    // Clean up pending contract on error extracting escrow ID
+                    EscrowNostrEvent.cleanupPendingContractByTxHash(receipt.hash);
                 }
             } else {
                 result.status = 'failed';
                 console.error('Transaction receipt is null');
+                // Clean up pending contract on failure (only if hash exists)
+                if (result.hash) {
+                    EscrowNostrEvent.cleanupPendingContractByTxHash(result.hash);
+                }
             }
         }).catch((error: unknown) => {
-            console.error('Transaction failed:', error);
+            console.error('Transaction failed or timed out:', error);
             result.status = 'failed';
+            // Clean up pending contract on failure (only if hash exists)
+            if (result.hash) {
+                EscrowNostrEvent.cleanupPendingContractByTxHash(result.hash);
+            }
+            // If it's a timeout, update the error message
+            if (error instanceof Error && error.message.includes('timeout')) {
+                console.warn('Transaction wait timed out. Transaction may still be pending on the blockchain.');
+            }
         });
 
         return result;
@@ -558,12 +799,48 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
                 console.log('Task acceptance transaction confirmed:', receipt);
 
                 if (contractEventId) {
-                    await EscrowNostrEvent.publishEscrowStatus({
-                        escrowId,
-                        contractEventId,
-                        transactionHash: receipt.hash,
-                        status: EscrowStatus.FundsReleased
-                    });
+                    if (import.meta.env.DEV) {
+                        console.log(`[DEBUG] [acceptTask] Publishing FundsReleased event for escrow ${escrowId}`, {
+                            escrowId,
+                            contractEventId,
+                            transactionHash: receipt.hash,
+                            receiptStatus: receipt.status,
+                            receiptBlockNumber: receipt.blockNumber,
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+
+                    try {
+                        await EscrowNostrEvent.publishEscrowStatus({
+                            escrowId,
+                            contractEventId,
+                            transactionHash: receipt.hash,
+                            status: EscrowStatus.FundsReleased
+                        });
+
+                        if (import.meta.env.DEV) {
+                            console.log(`[DEBUG] [acceptTask] ✅ FundsReleased event published successfully for escrow ${escrowId}`, {
+                                escrowId,
+                                transactionHash: receipt.hash
+                            });
+                        }
+                    } catch (publishError) {
+                        console.error(`[DEBUG] [acceptTask] ❌ Failed to publish FundsReleased event for escrow ${escrowId}`, {
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            error: publishError instanceof Error ? publishError.message : String(publishError),
+                            errorStack: publishError instanceof Error ? publishError.stack : undefined,
+                            issue: 'FundsReleased event not published - contract will show PendingAcceptance status'
+                        });
+                    }
+                } else {
+                    if (import.meta.env.DEV) {
+                        console.warn(`[DEBUG] [acceptTask] ⚠️ No contractEventId provided, cannot publish FundsReleased event for escrow ${escrowId}`, {
+                            escrowId,
+                            transactionHash: receipt.hash,
+                            issue: 'FundsReleased event will not be published - contract may show incorrect status'
+                        });
+                    }
                 }
             } else {
                 result.status = 'failed';
@@ -962,50 +1239,6 @@ async function resolveAfterTimelock(escrowId: string, escrowStatus: EscrowStatus
 }
 
 /**
- * Estimate gas for escrow creation
- * @deprecated This function is not used
- */
-async function estimateEscrowCreationGas(
-    freelancerAddress: string,
-    baseAmount: string,
-    estimatedStartTime: number,
-    estimatedCompletionTime: number,
-    clientFeeTier: FeeTier,
-    freelancerFeeTier: FeeTier
-): Promise<GasEstimation> {
-    try {
-        // Gas estimation is a read-only operation, doesn't require balance
-        const { contract, provider } = await ensureEscrowReady(undefined, false);
-
-        const baseAmountWei = ethers.parseEther(baseAmount);
-        const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
-
-        const gasLimit = await contract.createEscrow.estimateGas(
-            freelancerAddress,
-            estimatedStartTime,
-            estimatedCompletionTime,
-            clientFeeTier,
-            freelancerFeeTier,
-            { value: totalPayment }
-        );
-
-        const feeData = await provider.getFeeData();
-        const gasPrice = feeData.gasPrice || BigInt(0);
-        const totalCost = gasLimit * gasPrice;
-
-        return {
-            gasLimit: gasLimit.toString(),
-            gasPrice: gasPrice.toString(),
-            totalCost: totalCost.toString(),
-            totalCostFormatted: ethers.formatEther(totalCost)
-        };
-
-    } catch (error) {
-        throw new Error(`Gas estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-}
-
-/**
  * Estimate gas for contract function
  * @test This function is used for debugging only
  */
@@ -1141,143 +1374,6 @@ async function checkEscrowFundingStatus(escrowId: string): Promise<{
     }
 }
 
-/**
- * Check if escrow funds were released by checking for internal transactions
- * from the escrow contract to the client or freelancer addresses
- * @param escrowId The escrow ID to check
- * @param escrowData The escrow data containing client and freelancer addresses
- * @param contractAddress Optional contract address for legacy contracts
- * @returns Object with payment information or null if no payment found
- */
-async function checkEscrowPayment(
-    escrowId: string,
-    escrowData: EscrowData,
-    contractAddress?: string
-): Promise<{
-    paidOut: boolean;
-    recipient: 'client' | 'freelancer' | null;
-    recipientAddress: string | null;
-    amount: string | null;
-    timestamp: number | null;
-} | null> {
-    try {
-        // Get contract address
-        const getDefaultContractAddress = (): string | null => {
-            const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-            return network === 'mainnet'
-                ? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-                : import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
-        };
-
-        const escrowContractAddress = contractAddress || getDefaultContractAddress();
-        if (!escrowContractAddress) {
-            console.warn('[escrow] Contract address not configured, cannot check payment');
-            return null;
-        }
-
-        // Get network configuration
-        const { getRSKConfig } = await import('../../wallet/networkConfig');
-        const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-        const rskConfig = getRSKConfig(network);
-        const explorerApiUrl = rskConfig.explorerApiUrl;
-
-        // Normalize addresses for comparison
-        const contractAddr = escrowContractAddress.toLowerCase();
-        const clientAddr = escrowData.client.toLowerCase();
-        const freelancerAddr = escrowData.freelancer.toLowerCase();
-
-        // Check internal transactions for both client and freelancer
-        const addressesToCheck = [clientAddr, freelancerAddr];
-        let paymentFound: {
-            recipient: 'client' | 'freelancer';
-            recipientAddress: string;
-            amount: string;
-            timestamp: number;
-        } | null = null;
-
-        for (const recipientAddr of addressesToCheck) {
-            try {
-                // Query internal transactions for the recipient address
-                // The API returns transactions where this address is involved (as sender or recipient)
-                const response = await fetch(
-                    `${explorerApiUrl}/v2/addresses/${recipientAddr}/internal-transactions`,
-                    { signal: AbortSignal.timeout(10000) } // 10 second timeout
-                );
-
-                if (!response.ok) {
-                    console.debug(`[escrow] Failed to fetch internal transactions for ${recipientAddr}:`, response.status);
-                    continue;
-                }
-
-                const data = await response.json();
-                if (!data || !data.items || !Array.isArray(data.items)) {
-                    continue;
-                }
-
-                // Look for transfers from the escrow contract to this recipient
-                for (const tx of data.items) {
-                    const txFrom = (tx.from?.hash || tx.from || '').toLowerCase();
-                    const txTo = (tx.to?.hash || tx.to || '').toLowerCase();
-                    const value = tx.value || '0';
-
-                    // Check if this is a transfer from the escrow contract to the recipient
-                    if (txFrom === contractAddr && txTo === recipientAddr && value !== '0') {
-                        // Parse value
-                        let amountWei: bigint;
-                        if (typeof value === 'string' && value.startsWith('0x')) {
-                            amountWei = BigInt(value);
-                        } else {
-                            amountWei = BigInt(value);
-                        }
-
-                        if (amountWei > 0n) {
-                            // Found a payment - use the most recent one
-                            const timestamp = tx.timestamp
-                                ? (typeof tx.timestamp === 'string' ? parseInt(tx.timestamp) : tx.timestamp) * 1000
-                                : Date.now();
-
-                            // If we already found a payment, keep the most recent one
-                            if (!paymentFound || (timestamp > (paymentFound.timestamp || 0))) {
-                                paymentFound = {
-                                    recipient: recipientAddr === clientAddr ? 'client' : 'freelancer',
-                                    recipientAddress: recipientAddr,
-                                    amount: ethers.formatEther(amountWei),
-                                    timestamp
-                                };
-                            }
-                        }
-                    }
-                }
-            } catch (error) {
-                console.debug(`[escrow] Error checking internal transactions for ${recipientAddr}:`, error);
-                // Continue checking other addresses
-                continue;
-            }
-        }
-
-        if (paymentFound) {
-            return {
-                paidOut: true,
-                recipient: paymentFound.recipient,
-                recipientAddress: paymentFound.recipientAddress,
-                amount: paymentFound.amount,
-                timestamp: paymentFound.timestamp
-            };
-        }
-
-        return {
-            paidOut: false,
-            recipient: null,
-            recipientAddress: null,
-            amount: null,
-            timestamp: null
-        };
-    } catch (error) {
-        console.warn(`[escrow] Failed to check escrow payment for ${escrowId}:`, error);
-        return null;
-    }
-}
-
 export const escrow = {
     ensureEscrowReady,
     createEscrow,
@@ -1289,10 +1385,9 @@ export const escrow = {
     acceptProposal,
     resolveAfterTimelock,
     estimateContractGas,
-    getEscrow: loadEscrowDetails,
+    loadEscrowDetails,
     getDisputeProposal,
     isContractPaused,
     checkEscrowFundingStatus,
-    checkEscrowPayment,
     resetCachedContract
 }

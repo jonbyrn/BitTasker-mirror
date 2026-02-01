@@ -16,9 +16,8 @@
 	// Reusable display components
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconEye from '~icons/mdi/eye';
-	import IconAccount from '~icons/mdi/account';
-	import IconStar from '~icons/mdi/star';
 
 	let {
 		task,
@@ -131,48 +130,14 @@
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<!-- Left: Avatar, Username, Review Stars, and Share Button (mobile) -->
 			<div class="flex min-w-0 flex-1 items-center gap-3">
-				<!-- Avatar -->
-				<div class="avatar">
-					<div class="bg-base-300 flex h-8 w-8 items-center justify-center rounded-full">
-						{#if task.creator?.avatar}
-							<img
-								src={task.creator.avatar}
-								alt={$t('dashboard.find_tasks.avatar_alt') || 'Avatar'}
-								class="h-8 w-8 rounded-full object-cover"
-							/>
-						{:else}
-							<div
-								class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center"
-							>
-								{#if task.creator?.username}
-									<span class="text-lg font-semibold">
-										{task.creator.username.charAt(0).toUpperCase()}
-									</span>
-								{:else}
-									<IconAccount class="text-base-content/60 h-6 w-6" />
-								{/if}
-							</div>
-						{/if}
-					</div>
-				</div>
-
-				<!-- Username and Review Stars -->
-				<div class="flex min-w-0 flex-1 flex-col">
-					<span class="truncate text-sm font-medium">
-						{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
-					</span>
-					<!-- Review Stars -->
-					<div class="flex items-center">
-						{#each Array(5) as _, i}
-							<IconStar
-								class="h-3 w-3 {i < (task.creator?.rating || 0)
-									? 'text-yellow-400'
-									: 'text-base-content/30'}"
-							/>
-						{/each}
-						<span class="text-base-content/60 ml-1 text-xs">{task.creator?.rating || 0}</span>
-					</div>
-				</div>
+				<UserInfoDisplay
+					avatar={task.creator?.avatar}
+					username={task.creator?.username}
+					rating={task.creator?.rating || 0}
+					size="md"
+					pubkey={task.npub}
+					memberSince={task.createdAt}
+				/>
 				<!-- Share Button - Mobile Only (right side of row) -->
 				<span
 					role="presentation"

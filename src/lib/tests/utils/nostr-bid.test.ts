@@ -1,0 +1,106 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
+import { bidStore } from '$lib/stores/bid.store';
+import { get } from 'svelte/store';
+
+// Mock dependencies
+vi.mock('$lib/utils/nostr', () => ({
+	publishNostrEvent: vi.fn(),
+	queryNostrEvents: vi.fn()
+}));
+
+vi.mock('$lib/utils/constants/tags', () => ({
+	TAG_PATTERNS: {
+		bidStatus: vi.fn(() => [['t', 'bid-status'], ['bid', 'bid-123']])
+	},
+	TAG_FILTERS: {}
+}));
+
+vi.mock('$lib/utils/constants/kinds', () => ({
+	default: {
+		BID_STATUS: 4
+	}
+}));
+
+vi.mock('$lib/stores/bid.store', () => ({
+	bidStore: {
+		removeProcessingBid: vi.fn(),
+		processingBidIds: new Set()
+	}
+}));
+
+vi.mock('$lib/stores/app.store', () => ({
+	appStore: {
+		showInfoToast: vi.fn()
+	}
+}));
+
+vi.mock('$lib/utils/cache/bid-cache', () => ({
+	smartCache: {
+		invalidateTaskBids: vi.fn(),
+		clearBids: vi.fn()
+	},
+	currencyCache: {
+		clear: vi.fn()
+	}
+}));
+
+import { publishNostrEvent } from '$lib/utils/nostr';
+import { smartCache } from '$lib/utils/cache/bid-cache';
+import { appStore } from '$lib/stores/app.store';
+
+describe('sendBidStatusUpdate', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		// Reset processing bid IDs
+		(bidStore as any).processingBidIds = new Set(['bid-123']);
+	});
+
+	it('should remove processing bid on success', async () => {
+		vi.mocked(publishNostrEvent).mockResolvedValue(undefined);
+
+		await sendBidStatusUpdate(
+			'bid-123',
+			'task-123',
+			'npub1test',
+			BidStatusEnum.ACCEPTED,
+			'Bid accepted'
+		);
+
+		expect(bidStore.removeProcessingBid).toHaveBeenCalledWith('bid-123');
+		expect(vi.mocked(smartCache.invalidateTaskBids)).toHaveBeenCalledWith('task-123');
+		expect(appStore.showInfoToast).toHaveBeenCalled();
+	});
+
+	it('should remove processing bid even when publishNostrEvent fails', async () => {
+		const error = new Error('Failed to publish');
+		vi.mocked(publishNostrEvent).mockRejectedValue(error);
+
+		await sendBidStatusUpdate(
+			'bid-123',
+			'task-123',
+			'npub1test',
+			BidStatusEnum.ACCEPTED,
+			'Bid accepted'
+		);
+
+		// Should still cleanup even on error
+		expect(bidStore.removeProcessingBid).toHaveBeenCalledWith('bid-123');
+		// Should not show success toast on error
+		expect(appStore.showInfoToast).not.toHaveBeenCalled();
+	});
+
+	it('should handle multiple cleanup calls gracefully', async () => {
+		vi.mocked(publishNostrEvent).mockRejectedValue(new Error('Network error'));
+
+		// Call multiple times - should not throw
+		await Promise.all([
+			sendBidStatusUpdate('bid-123', 'task-123', 'npub1test', BidStatusEnum.ACCEPTED),
+			sendBidStatusUpdate('bid-123', 'task-123', 'npub1test', BidStatusEnum.ACCEPTED)
+		]);
+
+		// Should have attempted cleanup (may be called multiple times, which is fine)
+		expect(bidStore.removeProcessingBid).toHaveBeenCalled();
+	});
+});

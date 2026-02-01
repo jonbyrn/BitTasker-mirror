@@ -20,6 +20,7 @@
       "end_date": "Fecha de fin",
       "tags_placeholder": "Agregar etiquetas...",
       "deadline": "fecha límite",
+      "deadline_placeholder": "Selecciona una fecha",
       "complete_by": "Completar para:",
       "complete_between": "Completar entre:",
       "and": "y",

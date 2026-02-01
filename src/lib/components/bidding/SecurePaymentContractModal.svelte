@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { fly, fade } from 'svelte/transition';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+	import Modal from '$lib/components/Modal.svelte';
 	import IconClose from '~icons/mdi/close';
 	import IconShieldCheck from '~icons/mdi/shield-check';
 	import IconLock from '~icons/mdi/lock';
@@ -12,9 +12,19 @@
 	interface Props {
 		isOpen: boolean;
 		onClose: () => void;
+		/**
+		 * When true (default), the modal will not cover the bottom navigation bar (mobile dock).
+		 * It will instead reserve `bottomOffset` space at the bottom so the dock remains visible.
+		 */
+		respectBottomNav?: boolean;
+		/**
+		 * The CSS bottom offset to reserve when `respectBottomNav` is true.
+		 * Defaults to the globally measured footer height.
+		 */
+		bottomOffset?: string;
 	}
 
-	let { isOpen, onClose }: Props = $props();
+	let { isOpen, onClose, respectBottomNav = true, bottomOffset }: Props = $props();
 
 	// Helper function to convert markdown-style bold (**text**) to HTML
 	function formatBold(text: string): string {
@@ -25,55 +35,49 @@
 		triggerHaptic(ImpactStyle.Light);
 		onClose();
 	}
-
-	function handleBackdropClick(event: MouseEvent | KeyboardEvent) {
-		if (event.target === event.currentTarget) {
-			closeModal();
-		}
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			closeModal();
-		}
-	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-<!-- Modal -->
-<input
-	type="checkbox"
-	class="modal-toggle"
-	checked={isOpen}
-	style="display:none"
-	readonly
-	aria-label={$t('common.components.secure_payment_contract_modal.title')}
-/>
-{#if isOpen}
-	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
-		<div class="modal-box max-w-4xl max-h-[85vh] flex flex-col p-0" transition:fly={{ y: 20, duration: 300 }}>
-			<!-- Modal Header -->
-			<div class="flex items-center justify-between bg-base-300 px-3 py-2 rounded-t-lg sm:px-4 sm:py-3">
-				<div class="flex items-center gap-2 sm:gap-3">
-					<div class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full sm:h-10 sm:w-10">
-						<IconShieldCheck class="h-5 w-5 text-primary sm:h-6 sm:w-6" />
-					</div>
-					<h4 class="text-base font-bold text-base-content sm:text-lg">
-						{$t('common.components.secure_payment_contract_modal.title')}
-					</h4>
+<Modal
+	isOpen={isOpen}
+	title=""
+	onClose={closeModal}
+	size="xl"
+	isScrollable={true}
+	respectBottomNav={respectBottomNav}
+	bottomOffset={bottomOffset}
+	maxHeight="75vh"
+	hideHeader={true}
+>
+	{#snippet children()}
+		<style>
+			/* Keep footer fixed at bottom */
+			:global([role="dialog"] .card-actions) {
+				flex-shrink: 0 !important;
+				margin-top: auto !important;
+			}
+		</style>
+		
+		<!-- Custom Header with Icon - Fixed -->
+		<div class="mb-4 -mt-6 -mx-6 flex items-center justify-between bg-base-300 px-3 py-2 rounded-t-lg sm:px-4 sm:py-3 shrink-0 z-10">
+			<div class="flex items-center gap-2 sm:gap-3">
+				<div class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full sm:h-10 sm:w-10">
+					<IconShieldCheck class="h-5 w-5 text-primary sm:h-6 sm:w-6" />
 				</div>
-				<button
-					class="btn btn-sm btn-circle btn-ghost hover:bg-white/20"
-					onclick={closeModal}
-					aria-label={$t('common.components.modal.close')}
-				>
-					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
-				</button>
+				<h4 class="text-base font-bold text-base-content sm:text-lg">
+					{$t('common.components.secure_payment_contract_modal.title')}
+				</h4>
 			</div>
+			<button
+				class="btn btn-sm btn-circle btn-ghost hover:bg-white/20"
+				onclick={closeModal}
+				aria-label={$t('common.components.modal.close')}
+			>
+				<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+			</button>
+		</div>
 
-			<!-- Modal Content -->
-			<div class="space-y-4 overflow-y-auto flex-1 p-3 sm:space-y-6 sm:p-6">
+		<!-- Modal Content - Scrollable -->
+		<div class="space-y-4 overflow-y-auto flex-1 min-h-0 sm:space-y-6">
 				<!-- Hero Section -->
 				<div class="text-center">
 					<div class="mb-3 flex justify-center sm:mb-4">
@@ -268,27 +272,24 @@
 					</div>
 				</div>
 
-			</div>
-
-			<!-- Action Buttons - Fixed at bottom -->
-			<div class="border-t border-base-300 bg-base-100 flex gap-2 p-3 shrink-0 sm:gap-3 sm:p-4">
-				<button
-					type="button"
-					class="btn btn-primary flex-1 min-h-[44px] text-sm sm:text-base"
-					onclick={closeModal}
-				>
-					<svg class="mr-1 h-4 w-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					{$t('common.components.secure_payment_contract_modal.understand_button')}
-				</button>
-			</div>
 		</div>
-		<button class="modal-backdrop" onclick={closeModal} aria-label="Close modal"></button>
-	</div>
-{/if}
+	{/snippet}
+
+	{#snippet footer()}
+		<button
+			type="button"
+			class="btn btn-primary flex-1 min-h-[44px] text-sm sm:text-base"
+			onclick={closeModal}
+		>
+			<svg class="mr-1 h-4 w-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
+			</svg>
+			{$t('common.components.secure_payment_contract_modal.understand_button')}
+		</button>
+	{/snippet}
+</Modal>

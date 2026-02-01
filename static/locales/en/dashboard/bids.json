@@ -238,7 +238,7 @@
         "wallet_error_prefix": "Wallet Error:",
         "retrying": "Retrying...",
         "retry": "Retry",
-        "insufficient_balance": "Insufficient Balance",
+        "insufficient_balance": "Not enough funds - Add more to your wallet",
         "current_balance": "Current Balance:",
         "insufficient_balance_help": "You need more funds to complete this transaction. Please add funds to your wallet.",
         "creating_escrow": "Creating Secure Payment Contract...",
