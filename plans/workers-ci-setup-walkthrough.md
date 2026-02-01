@@ -10,6 +10,55 @@ This guide walks through setting up GitLab CI/CD to deploy BitTasker to Cloudfla
 | `dev` | Validate + **Deploy to staging** (staging.bittasker.com) |
 | `main` | Validate + **Deploy to production** (worker.prod.bittasker.com) |
 
+---
+
+## Build on GitLab, Cloudflare Only Receives the Result
+
+**Where the build runs:** All build work happens in **GitLab CI**:
+
+1. **Validate** (every branch): `npm run build` produces the `build/` output and stores it as an artifact. This proves the project builds and tests pass.
+2. **Deploy** (dev/main): The deploy job runs **another** build with the right env (e.g. `VITE_CLIENT_URL`, `VITE_ROBOTS_TXT` for staging vs production), then runs `wrangler deploy`, which **uploads** that `build/` folder and the Worker script to Cloudflare.
+
+**What Cloudflare does:** With **Workers + wrangler**, Cloudflare does **not** run a build. It only receives what GitLab sends:
+
+- GitLab runs the SvelteKit build and gets `build/`.
+- `wrangler deploy` uploads `build/` (and `workers-site/index.js`) to the Worker.
+- Cloudflare serves that uploaded content. No build step runs on Cloudflare.
+
+So the pipeline is: **GitLab builds → GitLab deploys via wrangler → Cloudflare serves.** Cloudflare automation does not need to run any build.
+
+**What to do with existing Cloudflare automation (Pages):** Right now, a **Pages** project is likely connected to the repo (e.g. via webhook), so every push triggers a **full build on Cloudflare**. That is redundant once you use this pipeline. You have two options:
+
+| Option | When to use |
+|--------|-------------|
+| **Disable Pages auto-builds** | When you are ready to rely only on GitLab. In Cloudflare Dashboard → **Workers & Pages** → your **Pages** project → **Settings** → **Builds & deployments** → turn off automatic deployments (or disconnect the GitLab integration). Then only GitLab deploys (via wrangler to Workers); Cloudflare no longer builds on every push. |
+| **Keep Pages as-is for now** | Use this GitLab pipeline only for the **Workers** URLs (e.g. staging.bittasker.com, worker.prod.bittasker.com). Leave the Pages project connected so existing Pages URLs still update on push. When you are ready to fully switch, disable Pages auto-builds and point traffic to the Workers. |
+
+You do **not** need a new Cloudflare “app” for Workers: the same account and Workers are used; only the **source** of deployments changes (GitLab + wrangler instead of Pages building from Git).
+
+---
+
+## What the Existing Worker (`bittasker-dev-worker`) Is
+
+The Worker you see in the dashboard **is** the Worker version of the BitTasker app. It does this:
+
+| Piece | Role |
+|-------|------|
+| **Worker script** (`workers-site/index.js`) | Runs on every request: fetches the requested path from KV, serves `index.html` for SPA routes, adds caching headers, optionally gzip-compresses responses. |
+| **KV namespace** `__STATIC_CONTENT` | Stores the **built** static site (the contents of `build/` after `npm run build`). Wrangler uploads `build/` into this KV when you run `wrangler deploy`. |
+| **Variables & Secrets** | Runtime env (e.g. `VITE_*`) for the Worker; build-time `VITE_*` are baked into the bundle during `npm run build` before upload. |
+
+So: **build** produces `build/` → **wrangler deploy** uploads `build/` to KV and deploys the Worker script → the Worker serves those files from KV at `worker.dev.bittasker.com`. It’s the same app, just served by a Worker instead of Pages.
+
+**Why it triggers on your branch:** In the dashboard, **Build** is “Connect your Worker to a Git repository” with:
+
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy --env=staging`
+
+So **Cloudflare** runs a build and deploy on every push to the connected repo (including your branch). That’s the automation you want to replace with GitLab: run build + tests in GitLab, then only `wrangler deploy` from GitLab, and **disable** this Cloudflare Build so Cloudflare no longer builds on push.
+
+**The gibberish on worker.dev.bittasker.com:** That output is almost certainly **gzip-compressed bytes** being sent without the browser being told they’re gzip (e.g. missing or wrong `Content-Encoding: gzip`), so the browser shows raw bytes as text. The Worker’s `compressResponse()` does gzip; if the response is streamed or modified in a way that drops the header, you get gibberish. To confirm: temporarily disable compression in the Worker (e.g. return the original `response` instead of `compressedResponse`); if the page loads, the bug is in compression. A fix is to ensure `Content-Encoding: gzip` is set when the body is gzip, and that the body is a proper gzip stream. Until then, disabling compression in the Worker is a valid workaround.
+
 ## Prerequisites
 
 - GitLab project with CI/CD enabled
