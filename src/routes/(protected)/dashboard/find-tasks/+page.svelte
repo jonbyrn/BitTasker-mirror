@@ -22,8 +22,7 @@ import type { Task, SearchTasksParams } from '$lib/types/task.d';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
-	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
-	import { getMyBids } from '$lib/utils/nostr-bid';
+import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 
 	// Constants
 	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
@@ -72,7 +71,6 @@ import type { Task, SearchTasksParams } from '$lib/types/task.d';
 	// Selected task for map display
 	let selectedTask = $state<Task | null>(null);
 	let isBidOpen = $state(false);
-	let myBidTaskIds = $state<Set<string>>(new Set());
 
 	// References to task cards for scrolling
 	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
@@ -520,7 +518,6 @@ import type { Task, SearchTasksParams } from '$lib/types/task.d';
 		if (window.requestIdleCallback) {
 			window.requestIdleCallback(() => {
 				fetchBtcPrice();
-				loadMyBidTaskIds();
 				loadDrawerComponents();
 				// Load map on desktop (always visible) or defer on mobile
 				const isDesktop = window.innerWidth >= 1024;
@@ -531,7 +528,6 @@ import type { Task, SearchTasksParams } from '$lib/types/task.d';
 		} else {
 			setTimeout(() => {
 				fetchBtcPrice();
-				loadMyBidTaskIds();
 				loadDrawerComponents();
 				const isDesktop = window.innerWidth >= 1024;
 				if (isDesktop) {
@@ -578,59 +574,12 @@ function isSelectedTask(task: Task): boolean {
 	return selectedTask?.id === task.id;
 }
 
-async function loadMyBidTaskIds(): Promise<void> {
-	if (!browser) return;
-	try {
-		// Fetch all bids sent by the current user (without status events for performance)
-		const bids = await getMyBids(false);
-		const taskIds = new Set<string>();
-		
-		// Extract task IDs from each bid event
-		bids.forEach((bidEvent) => {
-			let taskId: string | undefined;
-			
-			// Try to get taskId from bid content (parsed JSON)
-			if (typeof bidEvent.content === 'string') {
-				try {
-					const parsed = JSON.parse(bidEvent.content) as { taskId?: string };
-					taskId = parsed?.taskId;
-				} catch {
-					// Ignore malformed JSON
-				}
-			} else {
-				taskId = (bidEvent.content as { taskId?: string })?.taskId;
-			}
-
-			// Fallback: extract taskId from 't' tag if not found in content
-			if (!taskId) {
-				const taskTag = bidEvent.tags?.find((tag) => tag[0] === 't');
-				taskId = taskTag?.[1];
-			}
-
-			// Add taskId to Set if found
-			if (taskId) {
-				taskIds.add(taskId);
-			}
-		});
-		
-		// Merge with existing task IDs (in case of multiple loads)
-		myBidTaskIds = new Set([...myBidTaskIds, ...taskIds]);
-	} catch (error) {
-		console.error('Error loading my bid task IDs:', error);
-		// Maintain empty Set if loading fails and no existing data
-		if (myBidTaskIds.size === 0) {
-			myBidTaskIds = new Set();
-		}
-	}
-}
-
 function canBidTask(task: Task): boolean {
-	const taskIdentifier = getTaskIdentifier(task);
-	return task.status === TaskStatusEnum.OPEN && !myBidTaskIds.has(taskIdentifier);
+	return task.status === TaskStatusEnum.OPEN;
 }
 
 function getTaskIdentifier(task: Task): string {
-	return (task as { uniqueId?: string }).uniqueId || task.id;
+	return task.id;
 }
 
 	// Function to handle task selection for map display
@@ -1075,9 +1024,7 @@ function getTaskIdentifier(task: Task): string {
 																	d="M12 4v16m8-8H4"
 																/>
 															</svg>
-															{#if myBidTaskIds.has(getTaskIdentifier(task))}
-																{$t('find_tasks.bid_sent')}
-															{:else if task.status === TaskStatusEnum.OPEN}
+															{#if task.status === TaskStatusEnum.OPEN}
 																{$t('find_tasks.bid_now')}
 															{:else}
 																{$t('find_tasks.bidding_closed')}
@@ -1088,7 +1035,6 @@ function getTaskIdentifier(task: Task): string {
 															class="btn btn-secondary btn-sm w-full md:w-auto md:flex-none"
 															onclick={(e) => {
 																e.stopPropagation();
-																// Use uniqueId if available, fallback to id for backward compatibility
 																goto(`/tasks/${getTaskIdentifier(task)}`);
 															}}
 															aria-label={$t('find_tasks.view_task')}
@@ -1270,11 +1216,7 @@ function getTaskIdentifier(task: Task): string {
 					<BidForm
 						task={selectedTask}
 						onClose={() => (isBidOpen = false)}
-						onBidSubmitted={(taskId: string) => {
-							const next = new Set(myBidTaskIds);
-							next.add(taskId);
-							myBidTaskIds = next;
-						}}
+						onBidSubmitted={() => {}}
 						stickySubmit={false}
 					/>
 				{/if}

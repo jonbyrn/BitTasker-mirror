@@ -183,9 +183,6 @@ function createBidStore() {
 
             const npub = await getNpub();
             const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-            const npubTagValues = npub.startsWith('npub')
-                ? [userPubkeyHex, npub]
-                : [userPubkeyHex, nip19.npubEncode(userPubkeyHex)];
             const pool = get(appStore).pool;
 
             if (!pool) {
@@ -203,7 +200,9 @@ function createBidStore() {
                 {
                     kinds: [KINDS.BIDS],
                     ...TAG_FILTERS.byTask(taskIds),
-                    ...TAG_FILTERS.byNpub(npubTagValues),
+                    ...TAG_FILTERS.byNpub(
+                        npub.startsWith('npub') ? [userPubkeyHex, npub] : [userPubkeyHex, nip19.npubEncode(userPubkeyHex)]
+                    ),
                     since
                 },
                 { onevent: handleBidEvent }
@@ -215,7 +214,9 @@ function createBidStore() {
                 {
                     kinds: [KINDS.BID_STATUS],
                     ...TAG_FILTERS.byTask(taskIds),
-                    ...TAG_FILTERS.byNpub(npubTagValues),
+                    ...TAG_FILTERS.byNpub(
+                        npub.startsWith('npub') ? [userPubkeyHex, npub] : [userPubkeyHex, nip19.npubEncode(userPubkeyHex)]
+                    ),
                     since
                 },
                 { onevent: handleBidStatusEvent }
@@ -263,7 +264,7 @@ function createBidStore() {
         /**
          * Load bids for a specific task (initial load)
          */
-        async loadBidsForTask(taskId: string, legacyTaskId?: string) {
+        async loadBidsForTask(taskId: string) {
             update((state) => ({
                 ...state,
                 isLoading: true,
@@ -272,7 +273,7 @@ function createBidStore() {
             }));
 
             try {
-                const loadedBids = await getBidsForTask(taskId, true, legacyTaskId);
+                const loadedBids = await getBidsForTask(taskId, true);
 
                 update((state) => ({
                     ...state,

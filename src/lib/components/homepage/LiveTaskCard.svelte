@@ -8,9 +8,7 @@
 
 	// Handle click to navigate to task details
 	const handleTaskClick = () => {
-		// Use uniqueId if available, fallback to id for backward compatibility
-		const taskIdentifier = (task as any).uniqueId || task.id;
-		window.location.href = `/tasks/${taskIdentifier}`;
+		window.location.href = `/tasks/${task.id}`;
 	};
 
 	// Handle keyboard events for accessibility
@@ -40,7 +38,7 @@
 	</figure>
 	<div class="card-body flex-1 flex flex-col">
 		<div class="h-14 mb-2"> <!-- Fixed height container for title -->
-			<div class="card-title text-lg line-clamp-2 min-h-[3.5rem]">
+			<div class="card-title text-lg line-clamp-2 min-h-14">
 				<TranslatableTask task={task} showDescription={false} showToggle={false} titleClass="card-title text-lg line-clamp-2 min-h-[3.5rem]" />
 			</div>
 		</div>

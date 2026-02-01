@@ -70,8 +70,6 @@ export interface TaskBody {
 export interface Task {
 	estimatedHours: number;
 	id: string;
-	uniqueId?: string;
-	eventId?: string;
 	npub: string;
 	status: TaskStatusEnum;
 	title: string;
