@@ -229,6 +229,30 @@
 		}
 	}
 
+	/** Find task event by readable d-tag (e.g. slug from SEO URL: titulo-tarea-timestamp-suffix). */
+	async function findTaskEventByDTag(dTagValue: string) {
+		try {
+			const response = await nostrEventsService.requestEvents({
+				filters: [
+					{
+						kinds: [KINDS.TASK_CREATION],
+						'#d': [dTagValue],
+						limit: 1
+					}
+				]
+			});
+			const event = response.data?.[0] ?? null;
+			if (event) {
+				const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd' && tag[1] === dTagValue);
+				if (dTag) return event;
+			}
+			return null;
+		} catch (error) {
+			console.error('Failed to load task by d-tag:', error);
+			return null;
+		}
+	}
+
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) {
 			loading = false;
@@ -247,9 +271,12 @@
 			} else if (isUuid(taskId)) {
 				event = await findTaskEventByUniqueId(taskId);
 			} else {
-				// Fallback attempt
-				const response = await nostrEventsService.findEventById(taskId);
-				event = response.data;
+				// Readable d-tag (SEO slug): find by d-tag first, then fallback to event ID
+				event = await findTaskEventByDTag(taskId);
+				if (!event) {
+					const response = await nostrEventsService.findEventById(taskId);
+					event = response.data;
+				}
 			}
 
 			if (!event) {
@@ -259,6 +286,7 @@
 
 			// Parse task data from nostr event
 			const taskData = JSON.parse(event.content) as Task;
+			const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
 
 			// Ensure we have a valid ID
 			if (!event.id) {
@@ -268,8 +296,8 @@
 
 			task = {
 				...taskData,
-				id: event.id,
-				npub: event.pubkey // Add the npub from the event to the task object
+				id: dTag || event.id,
+				npub: event.pubkey
 			};
 		} catch (error) {
 			console.error('Failed to load task details:', error);
