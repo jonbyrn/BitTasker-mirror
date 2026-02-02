@@ -42,9 +42,15 @@ bucket = "./build"
 # DEV Environment (default)
 # ============================================
 # Worker: bittasker-dev-worker
-# Deploy with: npm run deploy:workers
+# Deploy with: npm run deploy:workers:dev or pipeline (deploy-development)
+# Route required so wrangler deploy works in CI (no workers.dev prompt).
 [env.dev]
 name = "bittasker-dev-worker"
+workers_dev = false
+
+[env.dev.route]
+pattern = "worker.dev.bittasker.com/*"
+zone_name = "bittasker.com"
 
 # Dev Observability: Full logging for debugging
 [env.dev.observability.logs]
@@ -62,9 +68,14 @@ VITE_BSC_NETWORK = "mainnet"
 # STAGING Environment
 # ============================================
 # Worker: bittasker-staging-worker
-# Deploy with: npm run deploy:workers:production
+# Deploy with: npm run deploy:workers or pipeline (deploy-staging)
 [env.staging]
 name = "staging"
+workers_dev = false
+
+[env.staging.route]
+pattern = "staging.bittasker.com/*"
+zone_name = "bittasker.com"
 
 # Staging Observability: Full logging for debugging
 [env.staging.observability.logs]
@@ -85,6 +96,11 @@ VITE_BSC_NETWORK = "mainnet"
 # Deploy with: npm run deploy:workers:production
 [env.production]
 name = "bittasker-prod-worker"
+workers_dev = false
+
+[env.production.route]
+pattern = "worker.prod.bittasker.com/*"
+zone_name = "bittasker.com"
 
 # Production Observability: Optimized sampling for cost efficiency
 # 10% sampling provides good coverage while managing costs
