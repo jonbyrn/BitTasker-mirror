@@ -550,6 +550,12 @@
 				taskCreatorUsername: task.creator?.username,
 				taskCreatorAvatar: task.creator?.avatar,
 
+				// Original task budget — mismo origen que taskTitle/taskDescription: se guarda en la bid
+				// para mostrarlo en Ofertas enviadas (DashboardBidsPanel) sin cargar la tarea de nuevo
+				...(typeof task.budget?.amount === 'number' && {
+					taskBudget: { amount: task.budget.amount, currency: task.budget.currency ?? 'USD' }
+				}),
+
 				// Add logged-in user information
 				bidderId: $user.npub || $user.id?.toString() || '',
 				bidderName: $user.username || $user.name,
