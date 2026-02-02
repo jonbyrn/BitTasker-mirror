@@ -53,8 +53,8 @@ deploy-development:
     paths:
       - node_modules/
       - .npm/
-  needs:
-    - validate
+  #needs:
+    #- validate
   script:
     # Optional: verify key vars are present (no values printed). Set DEBUG_CI_VARS=1 in CI to enable.
     - |
