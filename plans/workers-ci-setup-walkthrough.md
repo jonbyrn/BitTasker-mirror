@@ -2,6 +2,8 @@
 
 This guide walks through setting up GitLab CI/CD to deploy BitTasker to Cloudflare Workers. Use this when working on the `feat/workers-deployment` branch.
 
+**See also:** [workers-pipeline-migration-plan.md](./workers-pipeline-migration-plan.md) for why to use a GitLab pipeline, current vs target state, phased migration, and documentation maintenance.
+
 ## Overview
 
 | Branch | Pipeline Behavior |
@@ -92,6 +94,14 @@ The SvelteKit build bakes these into the client bundle. **Set the values from yo
 - Use GitLab [environment-scoped variables](https://docs.gitlab.com/ee/ci/variables/#add-a-cicd-variable-to-a-project) (scope `VITE_*` to `staging` vs `production`)
 
 **Important:** The `validate` job runs `npm run build` without a local `.env`. Add at least the essential `VITE_*` variables so the build succeeds in CI.
+
+### VITE_CLOUDFLARE_SITEKEY (Turnstile) at worker.bittasker.com
+
+The Turnstile sitekey is **baked into the client bundle at build time**. It is **not** read from Worker secrets at runtime. So:
+
+- **Local deploy:** Run `npm run build` with `VITE_CLOUDFLARE_SITEKEY` in your `.env`, then `wrangler deploy`. The built JS will have the key.
+- **Cloudflare Git Build:** If the Worker is connected to Git, Cloudflare runs `npm run build` in its own environment. **Worker secrets (dashboard Variables & Secrets) are for the Worker runtime, not for the build step.** So the Cloudflare build often runs without `VITE_CLOUDFLARE_SITEKEY`, and the deployed bundle has `undefined`. **Fix:** In Cloudflare Dashboard → **Workers & Pages** → your Worker → **Settings** → **Build** → **Variables and secrets**, add a **build** variable: `VITE_CLOUDFLARE_SITEKEY` (value = your Turnstile site key, or mark as secret). Then trigger a new build (e.g. push a commit or “Retry deployment”). After that, the built assets will have the key inlined.
+- **Cache:** If you deployed a good build but still see “expected string, got undefined”, the browser or edge may be serving old JS. Try hard refresh (Ctrl+Shift+R / Cmd+Shift+R), incognito, or purge the zone cache in Cloudflare.
 
 ### Minimum VITE_ Variables (from wrangler.toml)
 

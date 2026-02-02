@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Purge Cloudflare cache after deployment
- * Requires CLOUDFLARE_CACHE_ZONE_ID and CLOUDFLARE_CACHE_PURGE_TOKEN
- * Only runs in CI/CD environments (CI=true), skips gracefully for local builds
+ * Purge Cloudflare cache after deployment.
+ * - Requires CLOUDFLARE_CACHE_ZONE_ID and CLOUDFLARE_CACHE_PURGE_TOKEN (e.g. in GitLab CI/CD variables).
+ * - Only runs when CI=true (GitLab, Cloudflare Build, etc.); skips for local runs (npm run deploy:workers:dev etc.).
+ * - ENVIRONMENT (dev/staging/production) is used for logging only; purge is zone-wide (purge_everything).
+ *   If worker.dev, staging, and production share the same zone, one purge clears cached assets for all.
  */
 
 import fs from 'fs';

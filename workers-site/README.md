@@ -25,11 +25,17 @@ Dependencies for the worker are managed in the root `package.json` file:
 
 ## Deployment
 
-### Development/Staging Environment
+### Dev Worker (worker.dev.bittasker.com)
+```bash
+npm run deploy:workers:dev
+```
+Builds with dev vars, deploys to worker `bittasker-dev-worker`, then runs cache purge when in CI (skips locally).
+
+### Staging (staging.bittasker.com)
 ```bash
 npm run deploy:workers
 ```
-Deploys to: `worker.dev.bittasker.com` (worker: `bittasker-dev-worker`)
+Deploys to staging worker.
 
 ### Production Environment
 ```bash
