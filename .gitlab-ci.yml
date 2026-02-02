@@ -11,7 +11,7 @@
 # VITE_* must be set in GitLab so "npm run build" bakes them into the client bundle.
 
 stages:
-  #- validate
+  - validate
   - deploy
 
 # ============================================
@@ -31,7 +31,7 @@ validate:
     #- npm run check
     #- npm run lint
     - npx vitest run src/lib/tests/ci-placeholder.test.ts
-    - npm run build
+    #- npm run build
   artifacts:
     paths:
       - build/
@@ -53,8 +53,8 @@ deploy-development:
     paths:
       - node_modules/
       - .npm/
-  #needs:
-    #- validate
+  needs:
+    - validate
   script:
     # Optional: verify key vars are present (no values printed). Set DEBUG_CI_VARS=1 in CI to enable.
     - |
