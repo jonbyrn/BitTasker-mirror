@@ -100,33 +100,29 @@
 		try {
 			$bidStore.error = '';
 
-			// Check if id is an event ID (64 hex chars) or UUID (uniqueId)
+			// Event ID (64 hex) → find by id; otherwise id is d-tag (readable or legacy task-uuid)
 			const id = page.params.taskId;
-			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+			const isEventId = /^[0-9a-fA-F]{64}$/.test(id);
 
-			if (isUuid) {
-				// It's a uniqueId (UUID), query by d-tag
-				const dTagValue = `task-${id}`;
-				const filter = {
-					kinds: [KINDS.TASK_CREATION],
-					'#d': [dTagValue],
-					limit: 1
-				};
-
-				const response = await nostrEventsService.requestEvents({
-					filters: [filter]
-				});
-
-				if (response.data && response.data.length > 0) {
-					task = response.data[0];
-				}
-			} else {
+			if (isEventId) {
 				try {
 					const result = await nostrEventsService.findEventById(id);
 					task = result.data;
 				} catch {
 					$bidStore.error = $t('task.drawer.error.load');
 					return;
+				}
+			} else {
+				const filter = {
+					kinds: [KINDS.TASK_CREATION],
+					'#d': [id],
+					limit: 1
+				};
+				const response = await nostrEventsService.requestEvents({
+					filters: [filter]
+				});
+				if (response.data && response.data.length > 0) {
+					task = response.data[0];
 				}
 			}
 
