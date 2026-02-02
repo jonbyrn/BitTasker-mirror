@@ -29,8 +29,8 @@ head_sampling_rate = 1.0  # 100% sampling for dev/staging (full visibility)
 # For static site serving, default limits are sufficient
 # Setting to 30 seconds (default for paid plan) - sufficient for static file serving
 # Increase only if doing compute-intensive operations
-[limits]
-cpu_ms = 30_000  # 30 seconds (default for paid plan)
+# [limits]
+# cpu_ms = 30_000  # 30 seconds (default for paid plan)
 
 # ============================================
 # SITE CONFIGURATION
