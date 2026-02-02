@@ -44,13 +44,16 @@ bucket = "./build"
 # Worker: bittasker-dev-worker
 # Deploy with: npm run deploy:workers:dev or pipeline (deploy-development)
 # Route required so wrangler deploy works in CI (no workers.dev prompt).
+# Use zone_id (from Cloudflare Dashboard → bittasker.com → Overview → Zone ID) to avoid
+# "Could not find zone for bittasker.com" when the zone is in a different account or token lacks Zone read.
 [env.dev]
 name = "bittasker-dev-worker"
 workers_dev = false
 
 [env.dev.route]
 pattern = "worker.dev.bittasker.com/*"
-zone_name = "bittasker.com"
+# Replace with your Zone ID: Cloudflare Dashboard → bittasker.com → Overview → Zone ID (right sidebar)
+zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 # Dev Observability: Full logging for debugging
 [env.dev.observability.logs]
@@ -75,7 +78,7 @@ workers_dev = false
 
 [env.staging.route]
 pattern = "staging.bittasker.com/*"
-zone_name = "bittasker.com"
+zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
 
 # Staging Observability: Full logging for debugging
 [env.staging.observability.logs]
@@ -100,7 +103,7 @@ workers_dev = false
 
 [env.production.route]
 pattern = "worker.prod.bittasker.com/*"
-zone_name = "bittasker.com"
+zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
 
 # Production Observability: Optimized sampling for cost efficiency
 # 10% sampling provides good coverage while managing costs
