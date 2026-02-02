@@ -32,9 +32,11 @@ function getPool() {
  * Convert a Nostr event to a Task
  */
 function convertEventToTask(event: Event): Task {
+	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+	const taskId = dTag || event.id;
 	return {
 		...JSON.parse(event.content),
-		id: event.id,
+		id: taskId,
 		npub: event.pubkey,
 		createdAt: event.created_at
 	};

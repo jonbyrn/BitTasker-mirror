@@ -2,6 +2,8 @@ import type { ContractCreationEvent, CreateContractParams, PendingContractCreati
 import { writable } from 'svelte/store';
 import { publishContractEvent, publishContractStatus } from './nostrContract';
 import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
+import { updateTask } from '$lib/nostr/task';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { EscrowStatus } from './escrow.enum';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -198,6 +200,16 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				console.error('Failed to send bid status update after escrow creation:', statusUpdateError);
 				// Show warning to user that bid status update failed
 				appStore.showErrorToast('Escrow created successfully, but failed to update bid status. The bid status may need to be updated manually.');
+			}
+
+			// Update task status to BID_ACCEPTED so bidding is closed (Addressable Event: same kind/pubkey/d-tag, latest content)
+			try {
+				await updateTask(pendingContract.taskId, { status: TaskStatusEnum.BID_ACCEPTED });
+			} catch (taskUpdateError) {
+				console.error('Failed to update task status to BID_ACCEPTED:', taskUpdateError);
+				appStore.showErrorToast(
+					'Escrow and bid status updated, but task status could not be updated. Bidding may still appear open.'
+				);
 			}
 
 			// Note: Success toast is shown in BidAcceptanceForm.svelte success screen

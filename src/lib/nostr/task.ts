@@ -22,6 +22,24 @@ import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 /**
+ * Generate a readable d-tag for Nostr Addressable Events (kind:pubkey:d-tag).
+ * Readable format (title + timestamp) for SEO and stable identification.
+ */
+function getReadableDTag(title: string, createdAt: number): string {
+	const slug = title
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, '-')
+		.replace(/[^a-z0-9-]/g, '')
+		.slice(0, 50)
+		|| 'task';
+	const suffix = Array.from(crypto.getRandomValues(new Uint8Array(3)))
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+	return `${slug}-${createdAt}-${suffix}`;
+}
+
+/**
  * Get the centralized pool instance from appStore
  */
 function getPool() {
@@ -147,12 +165,15 @@ async function generateTaskTranslations(
 }
 
 /**
- * Generate tags for a task event
+ * Generate tags for a task event.
+ * @param taskData - Task body
+ * @param pow - Proof-of-work
+ * @param dTagValue - d-tag value (unique identifier; readable format for SEO per Nostr Addressable Events)
  */
 async function generateTaskTags(
 	taskData: TaskBody,
 	pow: [string, string],
-	uniqueId: string
+	dTagValue: string
 ): Promise<string[][]> {
 	// Normalize and validate skills
 	const normalizedSkills = taskData.skills
@@ -166,7 +187,7 @@ async function generateTaskTags(
 		['s', ...normalizedSkills],
 		['p', await getNpub()],
 		['pow', ...pow],
-		['d', `task-${uniqueId}`], // Use uniqueId as the d tag to ensure uniqueness
+		['d', dTagValue], // d-tag: unique identifier (kind:pubkey:d-tag = Addressable Event); readable format for SEO
 		['S', taskData.status ?? TaskStatusEnum.OPEN] // Default status - OPEN
 	];
 
@@ -229,8 +250,9 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 			throw new Error('User not authenticated');
 		}
 
-		// Generate a unique identifier for this task
-		const uniqueId = crypto.randomUUID();
+		const createdAt = Math.floor(Date.now() / 1000);
+		// d-tag: readable format (title + timestamp) for SEO; kind:pubkey:d-tag = Addressable Event identifier
+		const dTagValue = getReadableDTag(taskData.title, createdAt);
 
 		// Use user name if available, otherwise use shortened npub as fallback
 		const username =
@@ -243,33 +265,32 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 
 		// Generate translations for all supported languages
 		const translations = await generateTaskTranslations(taskData);
-	
 
-		// Add creation timestamp, unique identifier, and translations to task data
+		// Add creation timestamp and translations (no uniqueId in content; d-tag in tags is the identifier)
 		const taskDataWithMeta = {
 			...taskData,
 			creator,
-			createdAt: Math.floor(Date.now() / 1000),
-			uniqueId,
+			createdAt,
 			...(translations && { translations })
 		};
 
-		// Calculate POW based on task value and uniqueId
-		const pow = await calculatePOW(taskData.budget.amount, uniqueId);
+		// Calculate POW based on task value and d-tag (stable identifier)
+		const pow = await calculatePOW(taskData.budget.amount, dTagValue);
 
-		// Create event
+		// Create event (Addressable Event: same kind, pubkey, d-tag = replaceable)
 		const event = {
 			kind: KINDS.TASK_CREATION,
-			created_at: Math.floor(Date.now() / 1000),
+			created_at: createdAt,
 			content: JSON.stringify(taskDataWithMeta),
-			tags: await generateTaskTags(taskData, pow, uniqueId)
+			tags: await generateTaskTags(taskData, pow, dTagValue)
 		};
 
 		// Sign and publish
 		const signedEvent = await getSignedEvent(event);
 		await nostrEventsService.publishEvent(signedEvent);
 
-		return signedEvent.id;
+		// Return d-tag (stable, readable identifier) for URLs and Addressable Event coordinate
+		return dTagValue;
 	} catch (error) {
 		console.error('❌ Failed to create task:', error);
 		throw error;
@@ -311,7 +332,7 @@ export async function createRecurringTask(
 				uniqueId
 			}),
 			tags: [
-				...(await generateTaskTags(taskData, pow, uniqueId)),
+				...(await generateTaskTags(taskData, pow, `task-${uniqueId}`)),
 				['t', 'recurring'],
 				['f', schedule.recurrencePattern.frequency],
 				['i', schedule.recurrencePattern.interval.toString()]
@@ -335,38 +356,24 @@ export async function createRecurringTask(
  */
 export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
 	try {
-		// Check if taskId is an event ID (64 hex chars) or UUID (uniqueId)
+		// Event ID (64 hex) → find by id; otherwise taskId is d-tag (readable or legacy task-uuid)
 		const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
-		const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
 		let originalTask: NostrEvent | null = null;
 
 		if (isEventId) {
-			// It's an event ID, use it directly
 			const result = await nostrEventsService.findEventById(taskId);
 			originalTask = result.data;
-		} else if (isUuid) {
-			// It's a uniqueId (UUID), query by d-tag
-			const dTagValue = `task-${taskId}`;
+		} else {
 			const filter = {
 				kinds: [KINDS.TASK_CREATION],
-				'#d': [dTagValue],
+				'#d': [taskId],
 				limit: 1
 			};
-			
 			const response = await nostrEventsService.requestEvents({
 				filters: [filter]
 			});
-			
 			if (response.data && response.data.length > 0) {
 				originalTask = response.data[0];
-			}
-		} else {
-			// Try as event ID anyway (fallback for edge cases)
-			try {
-				const result = await nostrEventsService.findEventById(taskId);
-				originalTask = result.data;
-			} catch {
-				throw new Error('Task not found');
 			}
 		}
 
@@ -377,10 +384,14 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		// Parse original task data
 		const originalTaskData = JSON.parse(originalTask.content);
 
-		// Get the original uniqueId
-		const uniqueId = originalTaskData.uniqueId;
-		if (!uniqueId) {
-			throw new Error('Original task has no uniqueId');
+		// Get d-tag from event tags (Addressable Events: kind:pubkey:d-tag = unique identifier)
+		// Support legacy: if no d tag, fall back to uniqueId in content (task-${uniqueId})
+		const dTagFromTags = originalTask.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+		const dTagValue =
+			dTagFromTags ||
+			(originalTaskData.uniqueId ? `task-${originalTaskData.uniqueId}` : null);
+		if (!dTagValue) {
+			throw new Error('Original task has no d-tag in tags and no uniqueId in content');
 		}
 
 		// Check if title or description changed - if so, regenerate translations
@@ -403,23 +414,22 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 			}
 		}
 
-		// Merge updates with original task data
+		// Merge updates with original task data (preserve uniqueId in content if present for legacy)
 		const updatedTaskData = {
 			...originalTaskData,
 			...updates,
-			uniqueId, // Keep the same uniqueId
+			...(originalTaskData.uniqueId && { uniqueId: originalTaskData.uniqueId }),
 			updatedAt: Math.floor(Date.now() / 1000),
 			...(translations && { translations })
 		};
 
-		// Calculate POW based on updated task value
-		const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, uniqueId);
-		// Create update event using the same kind as creation for proper replacement
+		// Calculate POW based on updated task value (use d-tag for stable identifier)
+		const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, dTagValue);
+		// Create update event: same kind, pubkey, d-tag = replaceable Addressable Event (latest version)
 		const event = {
-			kind: KINDS.TASK_CREATION, // Use same kind as creation
-			// created_at: Math.floor(originalTask.created_at + 0.000001), // Add a microsecond to original timestamp for update
+			kind: KINDS.TASK_CREATION,
 			content: JSON.stringify(updatedTaskData),
-			tags: await generateTaskTags(updatedTaskData, pow, uniqueId)
+			tags: await generateTaskTags(updatedTaskData, pow, dTagValue)
 		};
 
 		// Sign and publish
@@ -429,8 +439,8 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 
 		const updatedTask: TaskWithIds = {
 			...(updatedTaskData as Task),
-			id: uniqueId,
-			uniqueId,
+			id: dTagValue,
+			uniqueId: dTagValue,
 			eventId: signedEvent.id,
 			npub: signedEvent.pubkey,
 			createdAt: updatedTaskData.createdAt ?? originalTask.created_at
@@ -445,8 +455,8 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 			...state,
 			items: state.items.map((task) => {
 				const taskWithIds = task as TaskWithIds;
-				return taskWithIds.uniqueId === uniqueId ||
-					taskWithIds.id === uniqueId ||
+				return taskWithIds.uniqueId === dTagValue ||
+					taskWithIds.id === dTagValue ||
 					taskWithIds.eventId === originalTask.id
 					? { ...taskWithIds, ...updatedTask }
 					: taskWithIds;
@@ -457,8 +467,8 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 			...state,
 			items: state.items.map((task) => {
 				const taskWithIds = task as TaskWithIds;
-				return taskWithIds.uniqueId === uniqueId ||
-					taskWithIds.id === uniqueId ||
+				return taskWithIds.uniqueId === dTagValue ||
+					taskWithIds.id === dTagValue ||
 					taskWithIds.eventId === originalTask.id
 					? { ...taskWithIds, ...updatedTask }
 					: taskWithIds;

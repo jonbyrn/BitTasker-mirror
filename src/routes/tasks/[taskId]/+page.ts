@@ -71,48 +71,29 @@ async function findTaskByAuthor(pubkey: string): Promise<{ data: NostrEvent } | 
 }
 
 /**
- * Find task event by unique ID using the 'd' tag
+ * Find task event by d-tag (Addressable Event: kind:pubkey:d-tag).
+ * Supports legacy task-{uuid} and readable d-tag (slug-timestamp-suffix).
  */
-async function findTaskByUniqueId(uniqueId: string): Promise<{ data: NostrEvent } | null> {
+async function findTaskByDTag(dTagValue: string): Promise<{ data: NostrEvent } | null> {
 	try {
-		// The uniqueId is stored in the 'd' tag as 'task-{uniqueId}'
-		const dTagValue = `task-${uniqueId}`;
-		
-		// Use requestEvents for proper tag filtering
-		// The filter format for Nostr tag queries
 		const filter = {
 			kinds: [KINDS.TASK_CREATION],
 			'#d': [dTagValue],
 			limit: 1
 		};
-		
 		const response = await nostrEventsService.requestEvents({
 			filters: [filter]
 		});
-		
 		if (response.data && response.data.length > 0) {
-			// Verify the event actually has the uniqueId in its content or tags
 			const event = response.data[0];
-			
-			// First check tags for the 'd' tag
 			const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd' && tag[1] === dTagValue);
 			if (dTag) {
 				return { data: event };
 			}
-			
-			// Also check the content for uniqueId
-			try {
-				const taskData = JSON.parse(event.content);
-				if (taskData.uniqueId === uniqueId) {
-					return { data: event };
-				}
-			} catch {
-				// If parsing fails, we already checked tags above
-			}
 		}
 		return null;
 	} catch (error) {
-		console.error('Error finding task by unique ID:', error);
+		console.error('Error finding task by d-tag:', error);
 		return null;
 	}
 }
@@ -147,10 +128,9 @@ export const load: PageLoad = async ({ params }) => {
 			console.error('Error loading task by event ID:', error);
 		}
 	} else if (isUuid(taskId)) {
-		// It's a unique ID (UUID), find task by uniqueId using 'd' tag
-		// No redirect needed - UUID is the stable identifier
+		// Legacy: UUID in URL → d-tag was task-{uuid}
 		try {
-			const result = await findTaskByUniqueId(taskId);
+			const result = await findTaskByDTag(`task-${taskId}`);
 			if (result?.data) {
 				event = result.data;
 			}
@@ -199,25 +179,29 @@ export const load: PageLoad = async ({ params }) => {
 			console.error('Error loading task by pubkey:', error);
 		}
 	} else {
-		// Try as event ID anyway (fallback)
+		// Readable d-tag (slug-timestamp-suffix): query by d-tag
 		try {
-			const result = await nostrEventsService.findEventById(taskId);
-			event = result.data;
-			
-			if (event) {
-				// Extract uniqueId for redirect
-				try {
-					const taskData = JSON.parse(event.content) as Task;
-					if (taskData.uniqueId) {
-						uniqueId = taskData.uniqueId;
-						shouldRedirect = true; // Redirect to UUID URL for stability
-					}
-				} catch (parseError) {
-					console.error('Error parsing task data from event:', parseError);
-				}
+			const result = await findTaskByDTag(taskId);
+			if (result?.data) {
+				event = result.data;
 			}
 		} catch (error) {
-			console.error('Error loading task:', error);
+			console.error('Error loading task by d-tag:', error);
+		}
+		if (!event) {
+			try {
+				const result = await nostrEventsService.findEventById(taskId);
+				event = result.data;
+				if (event) {
+					const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
+					if (dTag && dTag !== taskId) {
+						uniqueId = dTag;
+						shouldRedirect = true;
+					}
+				}
+			} catch {
+				// Ignore
+			}
 		}
 	}
 	
@@ -246,9 +230,10 @@ export const load: PageLoad = async ({ params }) => {
 
 	if (event) {
 		const taskData = JSON.parse(event.content) as Task;
+		const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
 		const task = {
 			...taskData,
-			id: event.id,
+			id: dTag || event.id,
 			npub: event.pubkey
 		};
 
