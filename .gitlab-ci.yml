@@ -42,7 +42,9 @@ validate:
 # ============================================
 # Runs on feat/workers-deployment so you can test validate + deploy without touching staging/production.
 # Uses GitLab "development" environment. Requires CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
-# and dev VITE_* in GitLab CI/CD Variables (or scoped to development).
+# and dev VITE_* in GitLab CI/CD Variables (scoped to "development" or All).
+# Important: If variables are marked "Protected", they are only injected on protected branches.
+# For feat/workers-deployment (unprotected), either uncheck Protected for these vars or protect the branch.
 deploy-development:
   image: node:22-bookworm-slim
   stage: deploy
@@ -54,6 +56,13 @@ deploy-development:
   needs:
     - validate
   script:
+    # Optional: verify key vars are present (no values printed). Set DEBUG_CI_VARS=1 in CI to enable.
+    - |
+      if [ "$DEBUG_CI_VARS" = "1" ]; then
+        echo "CI_VARS_CHECK: CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:+set}"
+        echo "CI_VARS_CHECK: CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:+set}"
+        echo "CI_VARS_CHECK: SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:+set}"
+      fi
     - npm ci --cache .npm --prefer-offline
     - npm run build
     - npx wrangler deploy --env dev
