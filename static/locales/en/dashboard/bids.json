@@ -95,7 +95,15 @@
         "show_more_details": "Show more details",
         "show_less": "Show less",
         "no_task_description": "No description available",
-        "bid_id": "Bid ID"
+        "bid_id": "Bid ID",
+        "section_task": "Task",
+        "section_your_offer": "Your offer",
+        "section_received_offer": "Received offer",
+        "task_original_budget": "Original task budget",
+        "your_offer_amount": "Your offer",
+        "sent_at": "Sent at",
+        "status_countered": "Countered",
+        "status_withdrawn": "Withdrawn"
     },
     "bid_form": {
         "title": "Place Your Bid",
