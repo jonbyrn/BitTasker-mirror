@@ -9,7 +9,7 @@
 # How wrangler deploys from CI: GitLab injects CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
 # from CI/CD Variables into the job env; wrangler uses them (no interactive login). Build-time
 # VITE_* must be set in GitLab so "npm run build" bakes them into the client bundle.
-
+# test new deployment
 stages:
   - validate
   - deploy
