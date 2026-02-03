@@ -24,8 +24,9 @@ const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove
 /**
  * Generate a readable d-tag for Nostr Addressable Events (kind:pubkey:d-tag).
  * Readable format (title + timestamp) for SEO and stable identification.
+ * Suffix: 6 chars from npub (task creator or user) when provided; otherwise random.
  */
-function getReadableDTag(title: string, createdAt: number): string {
+function getReadableDTag(title: string, createdAt: number, npub?: string): string {
 	const slug = title
 		.trim()
 		.toLowerCase()
@@ -33,9 +34,13 @@ function getReadableDTag(title: string, createdAt: number): string {
 		.replace(/[^a-z0-9-]/g, '')
 		.slice(0, 50)
 		|| 'task';
-	const suffix = Array.from(crypto.getRandomValues(new Uint8Array(3)))
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
+	const fromNpub = npub ? npub.replace(/[^a-z0-9]/gi, '').slice(0, 6) : '';
+	const suffix =
+		fromNpub.length >= 6
+			? fromNpub
+			: Array.from(crypto.getRandomValues(new Uint8Array(3)))
+					.map((b) => b.toString(16).padStart(2, '0'))
+					.join('');
 	return `${slug}-${createdAt}-${suffix}`;
 }
 
@@ -251,8 +256,8 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 		}
 
 		const createdAt = Math.floor(Date.now() / 1000);
-		// d-tag: readable format (title + timestamp) for SEO; kind:pubkey:d-tag = Addressable Event identifier
-		const dTagValue = getReadableDTag(taskData.title, createdAt);
+		// d-tag: readable format (title + timestamp) for SEO; kind:pubkey:d-tag = Addressable Event identifier; suffix from npub
+		const dTagValue = getReadableDTag(taskData.title, createdAt, npub);
 
 		// Use user name if available, otherwise use shortened npub as fallback
 		const username =
@@ -310,12 +315,17 @@ export async function createRecurringTask(
 	}
 ): Promise<string> {
 	try {
-		const uniqueId = crypto.randomUUID();
-		const pow = await calculatePOW(taskData.budget.amount, uniqueId);
+		const npub = await getNpub();
+		if (!npub) {
+			throw new Error('User not authenticated');
+		}
+		const createdAt = Math.floor(Date.now() / 1000);
+		// Recurring tasks use same dTagValue format as regular tasks (readable, kind:pubkey:d-tag)
+		const dTagValue = getReadableDTag(taskData.title ?? schedule.name, createdAt, npub);
+		const pow = await calculatePOW(taskData.budget.amount, dTagValue);
 
 		// Generate translations for the recurring task template (same as regular tasks)
 		const translations = await generateTaskTranslations(taskData);
-		
 
 		// Include translations in the template
 		const taskDataWithTranslations = {
@@ -325,14 +335,14 @@ export async function createRecurringTask(
 
 		const event = {
 			kind: KINDS.RECURRING_TASK,
-			created_at: Math.floor(Date.now() / 1000),
+			created_at: createdAt,
 			content: JSON.stringify({
 				template: taskDataWithTranslations,
 				schedule,
-				uniqueId
+				dTagValue
 			}),
 			tags: [
-				...(await generateTaskTags(taskData, pow, `task-${uniqueId}`)),
+				...(await generateTaskTags(taskData, pow, dTagValue)),
 				['t', 'recurring'],
 				['f', schedule.recurrencePattern.frequency],
 				['i', schedule.recurrencePattern.interval.toString()]
@@ -450,30 +460,33 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		cleanupTasksCache();
 		cleanupMyTasks();
 
-		// Update in-memory stores to reflect status immediately
-		tasksStore.update((state) => ({
-			...state,
-			items: state.items.map((task) => {
-				const taskWithIds = task as TaskWithIds;
-				return taskWithIds.uniqueId === dTagValue ||
-					taskWithIds.id === dTagValue ||
-					taskWithIds.eventId === originalTask.id
-					? { ...taskWithIds, ...updatedTask }
-					: taskWithIds;
-			})
-		}));
+		// Update in-memory stores to reflect status immediately (target single task, avoid full array iteration)
+		const isMatchingTask = (t: TaskWithIds) =>
+			t.uniqueId === dTagValue || t.id === dTagValue || t.eventId === originalTask.id;
 
-		myTasksStore.update((state) => ({
-			...state,
-			items: state.items.map((task) => {
-				const taskWithIds = task as TaskWithIds;
-				return taskWithIds.uniqueId === dTagValue ||
-					taskWithIds.id === dTagValue ||
-					taskWithIds.eventId === originalTask.id
-					? { ...taskWithIds, ...updatedTask }
-					: taskWithIds;
-			})
-		}));
+		tasksStore.update((state) => {
+			const index = state.items.findIndex((task) => isMatchingTask(task as TaskWithIds));
+			if (index === -1) return state;
+			const taskWithIds = state.items[index] as TaskWithIds;
+			const items = [
+				...state.items.slice(0, index),
+				{ ...taskWithIds, ...updatedTask },
+				...state.items.slice(index + 1)
+			];
+			return { ...state, items };
+		});
+
+		myTasksStore.update((state) => {
+			const index = state.items.findIndex((task) => isMatchingTask(task as TaskWithIds));
+			if (index === -1) return state;
+			const taskWithIds = state.items[index] as TaskWithIds;
+			const items = [
+				...state.items.slice(0, index),
+				{ ...taskWithIds, ...updatedTask },
+				...state.items.slice(index + 1)
+			];
+			return { ...state, items };
+		});
 
 		return signedEvent.id;
 	} catch (error) {

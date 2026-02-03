@@ -129,29 +129,13 @@
 		expandedBids = new Set(expandedBids);
 	}
 
-	/** Get translated status label for a bid event */
-	function getStatusLabel(bidEvent: NostrEvent): string {
-		const statusData = getBidStatus(bidEvent);
-		const status = statusData?.status?.toUpperCase();
-		if (!status) return $t('bids.pending');
-		if (status === BidStatusEnum.ACCEPTED) return $t('bids.accepted');
-		if (status === BidStatusEnum.REJECTED) return $t('bids.rejected');
-		if (status === BidStatusEnum.COUNTERED) return $t('bids.status_countered');
-		if (status === BidStatusEnum.WITHDRAWN) return $t('bids.status_withdrawn');
-		return $t('bids.pending');
-	}
-
-	/** Get DaisyUI badge class for status */
-	function getStatusBadgeClass(bidEvent: NostrEvent): string {
-		const statusData = getBidStatus(bidEvent);
-		const status = statusData?.status?.toUpperCase();
-		if (!status) return 'badge-warning';
-		if (status === BidStatusEnum.ACCEPTED) return 'badge-success';
-		if (status === BidStatusEnum.REJECTED) return 'badge-error';
-		if (status === BidStatusEnum.COUNTERED) return 'badge-info';
-		if (status === BidStatusEnum.WITHDRAWN) return 'badge-neutral';
-		return 'badge-warning';
-	}
+	/** Status label and badge per status; reactive to locale via $t */
+	const StatusRender = $derived<Record<string, { label: string; badge: string }>>({
+		[BidStatusEnum.ACCEPTED]: { label: $t('bids.accepted'), badge: 'badge-success' },
+		[BidStatusEnum.REJECTED]: { label: $t('bids.rejected'), badge: 'badge-error' },
+		[BidStatusEnum.COUNTERED]: { label: $t('bids.status_countered'), badge: 'badge-info' },
+		[BidStatusEnum.WITHDRAWN]: { label: $t('bids.status_withdrawn'), badge: 'badge-neutral' }
+	});
 
 	/** Format sent-at timestamp (Unix seconds) for display */
 	function formatSentAt(createdAt: number): string {
@@ -308,12 +292,13 @@
 			<!-- bid.content (NostrBidContent) incluye taskTitle, taskDescription, taskBudget, etc. enviados al crear la bid -->
 			{#each myBids as bidEvent}
 				{@const bid = bidEvent.content as unknown as NostrBidContent}
+				{@const status = getBidStatus(bidEvent)?.status?.toUpperCase()}
 				<div class="card bg-base-100 border-base-300 relative rounded-2xl border shadow-sm">
 					<div class="card-body p-4 md:p-6">
 						<!-- Status badge: top-right of card -->
 						<div class="absolute right-4 top-4 z-10">
-							<span class="badge {getStatusBadgeClass(bidEvent)}">
-								{getStatusLabel(bidEvent)}
+							<span class="badge {StatusRender[status ?? '']?.badge ?? 'badge-warning'}">
+								{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
 							</span>
 						</div>
 
@@ -395,7 +380,7 @@
 									<!-- Status, sent-at and price in one row, price on the right -->
 									<div class="flex flex-wrap items-center justify-between gap-3">
 										<div class="flex flex-wrap items-center gap-3">
-											<span class="badge {getStatusBadgeClass(bidEvent)}">{getStatusLabel(bidEvent)}</span>
+											<span class="badge {StatusRender[status ?? '']?.badge ?? 'badge-warning'}">{StatusRender[status ?? '']?.label ?? $t('bids.pending')}</span>
 											<span class="text-base-content/60 text-sm">
 												{$t('bids.sent_at')}: <strong class="text-base-content">{formatSentAt(bidEvent.created_at)}</strong>
 											</span>

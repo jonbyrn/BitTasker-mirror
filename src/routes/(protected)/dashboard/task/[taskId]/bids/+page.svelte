@@ -415,7 +415,9 @@
 				/>
 			</svg>
 			<h3 class="mt-4 text-xl font-semibold">{$t('task.drawer.no_bids')}</h3>
-			
+			<button class="btn btn-primary mt-4" onclick={retryLoadingData}>
+				{$t('dashboard.bids.bid_acceptance.retry')}
+			</button>
 		</div>
 	{:else}
 		<div class="space-y-4">

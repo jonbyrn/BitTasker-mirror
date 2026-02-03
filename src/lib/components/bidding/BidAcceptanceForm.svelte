@@ -272,6 +272,14 @@ import { updateTask } from '$lib/nostr/task';
 
 				currentScreen = 'success';
 
+				// Update task status to BID_ACCEPTED so bidding is closed (Addressable Event: same kind/pubkey/d-tag, latest content)
+				try {
+					await updateTask(props.task.id, { status: TaskStatusEnum.BID_ACCEPTED });
+				} catch (taskUpdateError) {
+					console.error('Failed to update task status to BID_ACCEPTED:', taskUpdateError);
+					appStore.showErrorToast($t('dashboard.bids.bid_acceptance.task_status_update_error'));
+				}
+
 				// Note: Bid status update is automatically sent via escrowEvents.ts after contract creation
 
 				// Send task acceptance message to taskee (locations for in-person, congratulations/title/description for remote)

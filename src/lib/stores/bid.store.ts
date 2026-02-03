@@ -200,9 +200,7 @@ function createBidStore() {
                 {
                     kinds: [KINDS.BIDS],
                     ...TAG_FILTERS.byTask(taskIds),
-                    ...TAG_FILTERS.byNpub(
-                        npub.startsWith('npub') ? [userPubkeyHex, npub] : [userPubkeyHex, nip19.npubEncode(userPubkeyHex)]
-                    ),
+                    ...TAG_FILTERS.byNpub(userPubkeyHex),
                     since
                 },
                 { onevent: handleBidEvent }
@@ -214,9 +212,7 @@ function createBidStore() {
                 {
                     kinds: [KINDS.BID_STATUS],
                     ...TAG_FILTERS.byTask(taskIds),
-                    ...TAG_FILTERS.byNpub(
-                        npub.startsWith('npub') ? [userPubkeyHex, npub] : [userPubkeyHex, nip19.npubEncode(userPubkeyHex)]
-                    ),
+                    ...TAG_FILTERS.byNpub(userPubkeyHex),
                     since
                 },
                 { onevent: handleBidStatusEvent }

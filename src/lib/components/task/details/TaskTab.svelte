@@ -322,15 +322,10 @@
 
 	<!-- Task details -->
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2 relative">
-		<!-- Share Button - Upper Right Corner -->
-		<button
-			type="button"
-			class="absolute top-0 right-0 z-10"
-			onclick={(e) => e.stopPropagation()}
-			aria-label="Share task"
-		>
+		<!-- Share Button - Upper Right Corner (wrapper is div; TaskShareButton handles interactivity) -->
+		<div class="absolute top-0 right-0 z-10">
 			<TaskShareButton {task} variant="circle" />
-		</button>
+		</div>
 		<div>
 			<small class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}

@@ -1365,7 +1365,6 @@
 			<BidForm
 				task={selectedTaskForBid!}
 				onClose={() => (isBidOpen = false)}
-				onBidSubmitted={() => {}}
 				stickySubmit={false}
 			/>
 		{:else}

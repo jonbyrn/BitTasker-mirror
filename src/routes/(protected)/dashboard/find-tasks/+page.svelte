@@ -1216,7 +1216,6 @@ function getTaskIdentifier(task: Task): string {
 					<BidForm
 						task={selectedTask}
 						onClose={() => (isBidOpen = false)}
-						onBidSubmitted={() => {}}
 						stickySubmit={false}
 					/>
 				{/if}

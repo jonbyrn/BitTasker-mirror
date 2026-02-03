@@ -253,6 +253,7 @@
         "creating": "Creating...",
         "accept_and_pay": "Accept & Pay",
         "bid_accepted_message": "Your bid has been accepted!",
+        "task_status_update_error": "Escrow and bid status updated, but task status could not be updated. Bidding may still appear open.",
         "day": "day",
         "days": "days",
         "hour": "hour",
