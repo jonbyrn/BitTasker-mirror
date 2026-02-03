@@ -252,6 +252,7 @@
         "creating": "Creando...",
         "accept_and_pay": "Aceptar y Pagar",
         "bid_accepted_message": "¡Tu oferta ha sido aceptada!",
+        "task_status_update_error": "El contrato de pago y el estado de la oferta se actualizaron, pero no se pudo actualizar el estado de la tarea. Las ofertas pueden seguir apareciendo abiertas.",
         "day": "día",
         "days": "días",
         "hour": "hora",

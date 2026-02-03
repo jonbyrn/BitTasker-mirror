@@ -17,11 +17,10 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
-	// Props - Simplified to just task and onClose
-	const { task, onClose, onBidSubmitted, stickySubmit = true } = $props<{
+	// Props - Simplified to just task, onClose, and stickySubmit
+	const { task, onClose, stickySubmit = true } = $props<{
 		task: Task;
 		onClose: () => void;
-		onBidSubmitted?: (taskId: string) => void;
 		/**
 		 * When true, the submit button stays visible while scrolling.
 		 * For drawer usage we prefer it to be in normal flow, at the bottom of the drawer.
@@ -577,7 +576,6 @@
 
 			// Submit a bid as an encrypted event to the task creator with custom tags
 		await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
-			onBidSubmitted?.(task.id);
 
 			// Send notification to task creator
 			pushNotificationService.sendNotificationToNpubs({
@@ -591,11 +589,7 @@
 
 			// Clear bid cache for this specific task and current user
 			// This ensures fresh data on next load without clearing unrelated caches
-			if ($user?.npub) {
-				clearBidCache(task.id);
-			} else {
-				clearBidCache(task.id);
-			}
+			clearBidCache(task.id);
 
 			// Mark bid as submitted
 			bidSubmitted = true;
