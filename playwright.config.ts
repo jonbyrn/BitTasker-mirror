@@ -1,35 +1,32 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
+ * E2E config: where the app runs and where it calls the API
+ *
+ * - baseURL: where the browser loads the frontend. We always use localhost because we start the app
+ *   via webServer (npm run dev). The browser never opens a deployed URL in our current flow.
+ * - webServer: starts the SvelteKit app so the browser can load it. We pass env into that process:
+ *   - VITE_E2E_TURNSTILE_BYPASS=true so the signup page skips Turnstile in e2e.
+ *   - VITE_API_URL: where the frontend sends API/GraphQL requests. Set this to your dev backend
+ *     (e.g. Cloudflare dev) so the signup-onboarding test can call checkUsernameAvailability etc.
+ *   So: we are not testing against a "local API" — we have no local backend. We run the frontend
+ *   locally and point it at the remote dev API via VITE_API_URL (local and CI).
+ *
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  /* Run tests in files in parallel */
   fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL: E2E_BASE_URL for deployed dev (e.g. CI); default localhost for local + webServer. */
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
+    baseURL: 'http://localhost:3000',
 
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-    
-    /* Take screenshot on failure */
     screenshot: 'only-on-failure',
-    
-    /* Record video on failure */
     video: 'retain-on-failure',
-
-    /* Load authentication state if available */
     storageState: process.env.AUTH_STATE_PATH || undefined,
   },
 
@@ -82,17 +79,15 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests (skipped when E2E_BASE_URL is set). */
-  webServer: process.env.E2E_BASE_URL
-    ? undefined
-    : {
-        command: 'npm run dev',
-        url: 'http://localhost:3000',
-        reuseExistingServer: true,
-        timeout: 120 * 1000,
-        env: {
-          VITE_E2E_TURNSTILE_BYPASS: 'true',
-          ...process.env,
-        },
-      },
+  /* Start the app so the browser can load it. Env is passed to the dev server so the app gets VITE_* and bypass. */
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: true,
+    timeout: 120 * 1000,
+    env: {
+      VITE_E2E_TURNSTILE_BYPASS: 'true',
+      ...process.env,
+    },
+  },
 });
