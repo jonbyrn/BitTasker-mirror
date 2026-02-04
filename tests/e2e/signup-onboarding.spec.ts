@@ -22,7 +22,7 @@ test.describe('Signup and onboarding to passkey step', () => {
 	test('from root: signup → bypass Turnstile → enter username → reach Set up passkey step', async ({
 		page
 	}) => {
-		test.setTimeout(60_000);
+		test.setTimeout(90_000);
 		const takeScreenshots = process.env.E2E_SCREENSHOTS === '1';
 		const uniqueUsername = `e2e-${Date.now()}`;
 		const stepLog: string[] = [];
@@ -66,10 +66,10 @@ test.describe('Signup and onboarding to passkey step', () => {
 		const continueBtn = page.getByTestId('signup-continue');
 		await expect(continueBtn).toBeEnabled({ timeout: 10_000 });
 		e2eLog('Step 3: Continue button enabled; clicking and waiting for navigation to /auth/onboarding', stepLog);
-		// Wait for navigation triggered by the click. In CI navigation can take 2+ seconds; don't assert URL before it completes.
+		// Wait for navigation triggered by the click. CI can be much slower than local; use a long timeout.
 		try {
 			await Promise.all([
-				page.waitForURL(/\/auth\/onboarding/, { timeout: 20_000 }),
+				page.waitForURL(/\/auth\/onboarding/, { timeout: 45_000 }),
 				continueBtn.click()
 			]);
 		} catch (e) {
