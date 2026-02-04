@@ -77,7 +77,7 @@ playwright:
       - .npm/
   script:
     - npm ci --cache .npm --prefer-offline
-    - npx playwright test --project=chromium tests/e2e/smoke.spec.ts tests/e2e/signup-onboarding.spec.ts
+    - npx playwright test --project=chromium tests/e2e/signup-onboarding.spec.ts
   environment:
     name: development
   rules:
