@@ -8,18 +8,58 @@ This guide walks through setting up GitLab CI/CD to deploy BitTasker to Cloudfla
 
 | Branch | Pipeline Behavior |
 |--------|-------------------|
-| `feat/workers-deployment` | **Validate only**: test, lint, check, build |
-| `dev` | Validate + **Deploy to staging** (staging.bittasker.com) |
-| `main` | Validate + **Deploy to production** (worker.prod.bittasker.com) |
+| `feat/workers-deployment` | Validate → **Deploy to development** (worker.dev.bittasker.com). Deploy job runs `npm run build` then `wrangler deploy --env dev`. |
+| `dev` | Validate → **Deploy to staging** (staging.bittasker.com). Deploy job runs `npm run build` then `wrangler deploy --env staging`. |
+| `main` | Validate → **Deploy to production** (worker.prod.bittasker.com). Deploy job runs `npm run build:production` then `wrangler deploy --env production`. |
+| Other branches | **Validate only** (test/lint/check can be enabled; no deploy) |
+
+---
+
+## How wrangler deploys from the pipeline
+
+The pipeline runs in a GitLab runner (container). There is no browser and no interactive `wrangler login`. Wrangler gets credentials from **environment variables** that GitLab injects into the job:
+
+| Variable | Purpose |
+|----------|---------|
+| `CLOUDFLARE_API_TOKEN` | API token with Workers edit permission. Wrangler reads this (or `CF_API_TOKEN`) to authenticate. Set in GitLab CI/CD Variables (masked). |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID. Set in GitLab CI/CD Variables. |
+
+When the deploy job runs:
+
+1. GitLab sets `CI=true` and injects your CI/CD variables into the job env.
+2. The job runs `npm run build` – Vite bakes `VITE_*` from the **same env** into the client bundle, so you must add all required `VITE_*` (including `VITE_CLOUDFLARE_SITEKEY`) in GitLab Variables for the build to produce the right assets.
+3. The job runs `npx wrangler deploy --env dev` (or `staging` / `production`). Wrangler uses `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from the env, uploads `build/` and the Worker script to Cloudflare, and exits. No login step.
+
+So: **add the token and account ID (and all build-time `VITE_*`) in GitLab CI/CD Variables**, and the pipeline can deploy without any interactive step.
+
+---
+
+## GitLab environments: development, staging, production
+
+Create these environments in GitLab (**Settings** → **CI/CD** → **Environments**) and attach them to the deploy jobs so deployments are visible and (optionally) scoped with variables.
+
+| Environment | URL | Branch | Purpose |
+|-------------|-----|--------|---------|
+| **development** | https://worker.dev.bittasker.com | `feat/workers-deployment` (or branch you choose) | Test the **full pipeline path** (validate + deploy) without touching staging or production. Use to verify CI build env (e.g. Turnstile sitekey from GitLab vars), wrangler deploy from CI, and cache purge. |
+| **staging** | https://staging.bittasker.com | `dev` | Pre-production: QA, demos, integration tests. Mirrors production config; deploy from `dev` before merging to `main`. |
+| **production** | https://worker.prod.bittasker.com | `main` | Live site. Deploy only from `main`; protect the branch (e.g. require MR and approvals). |
+
+**Why have all three:**
+
+- **Development:** Lets you prove the pipeline end-to-end (validation + deploy to a real Worker) on a feature branch. You can test that GitLab Variables (including `VITE_CLOUDFLARE_SITEKEY`) are used correctly in the build and that wrangler deploy works in CI before enabling staging/production deploys.
+- **Staging:** Safe place to test changes and share with stakeholders before they go live.
+- **Production:** Single, protected path to the live app.
+
+You can scope CI/CD variables to an environment (e.g. different `VITE_CLIENT_URL` for development vs staging vs production) if needed.
 
 ---
 
 ## Build on GitLab, Cloudflare Only Receives the Result
 
-**Where the build runs:** All build work happens in **GitLab CI**:
+**Where the build runs:** All build work happens in **GitLab CI**. The pipeline has two stages: **validate** and **deploy**.
 
-1. **Validate** (every branch): `npm run build` produces the `build/` output and stores it as an artifact. This proves the project builds and tests pass.
-2. **Deploy** (dev/main): The deploy job runs **another** build with the right env (e.g. `VITE_CLIENT_URL`, `VITE_ROBOTS_TXT` for staging vs production), then runs `wrangler deploy`, which **uploads** that `build/` folder and the Worker script to Cloudflare.
+1. **Validate** (every branch): Runs `npm ci` and tests (currently the CI placeholder test; check, lint, and build can be enabled in `.gitlab-ci.yml`). Does **not** deploy.
+2. **Deploy** (only on deploy branches): Each deploy job (`deploy-development`, `deploy-staging`, `deploy-production`) runs in sequence: `npm ci` → `npm run build` (or `npm run build:production` for production) → `npx wrangler deploy --env <env>` → `node scripts/purge-cache.js`. The build runs **inside** the deploy job; there are no separate build jobs. Wrangler uploads the `build/` folder and the Worker script to Cloudflare.
 
 **What Cloudflare does:** With **Workers + wrangler**, Cloudflare does **not** run a build. It only receives what GitLab sends:
 
@@ -27,7 +67,7 @@ This guide walks through setting up GitLab CI/CD to deploy BitTasker to Cloudfla
 - `wrangler deploy` uploads `build/` (and `workers-site/index.js`) to the Worker.
 - Cloudflare serves that uploaded content. No build step runs on Cloudflare.
 
-So the pipeline is: **GitLab builds → GitLab deploys via wrangler → Cloudflare serves.** Cloudflare automation does not need to run any build.
+So the pipeline is: **GitLab (validate then build+deploy in one job per environment) → wrangler uploads to Cloudflare → Cloudflare serves.** Cloudflare automation does not need to run any build.
 
 **What to do with existing Cloudflare automation (Pages):** Right now, a **Pages** project is likely connected to the repo (e.g. via webhook), so every push triggers a **full build on Cloudflare**. That is redundant once you use this pipeline. You have two options:
 
@@ -73,16 +113,18 @@ So **Cloudflare** runs a build and deploy on every push to the connected repo (i
 
 Go to **GitLab** → **Your Project** → **Settings** → **CI/CD** → **Variables** → **Expand**.
 
-Add these variables. Mark sensitive ones as **Masked** and **Protected** where appropriate.
+**Before deploy works:** In the repo, open `wrangler.toml` and replace every `REPLACE_WITH_BITTASKER_ZONE_ID` with your **Zone ID** from **Cloudflare Dashboard → bittasker.com → Overview → Zone ID** (right sidebar). Use the same Zone ID for dev, staging, and production routes if they all use bittasker.com.
 
-### Required for All Deployments
+Add these variables. Mark sensitive ones as **Masked**. For **Protected**: if a variable is Protected, it is only available on **protected branches** (e.g. `main`, `dev`). For the **development** environment, the deploy job runs on `feat/workers-deployment`, which is usually **not** protected—so either **uncheck Protected** for variables used by deploy-development, or protect that branch. Staging/production can keep Protected if their branches (`dev`, `main`) are protected.
+
+### Required for deploy jobs (development, staging, production)
 
 | Variable | Type | Protected | Masked | Description |
 |----------|------|-----------|--------|-------------|
-| `CLOUDFLARE_API_TOKEN` | Variable | ✅ | ✅ | API token with Workers edit permission |
+| `CLOUDFLARE_API_TOKEN` | Variable | ✅ | ✅ | API token with Workers edit permission. Wrangler uses this in CI (no `wrangler login`). |
 | `CLOUDFLARE_ACCOUNT_ID` | Variable | ❌ | ❌ | Your Cloudflare account ID (also in wrangler.toml) |
-| `CLOUDFLARE_CACHE_ZONE_ID` | Variable | ✅ | ❌ | Zone ID for cache purge (production) |
-| `CLOUDFLARE_CACHE_PURGE_TOKEN` | Variable | ✅ | ✅ | Token with "Purge Cache" permission |
+| `CLOUDFLARE_CACHE_ZONE_ID` | Variable | Optional | ❌ | Zone ID for cache purge (purge-cache.js skips if unset) |
+| `CLOUDFLARE_CACHE_PURGE_TOKEN` | Variable | Optional | ✅ | Token with "Purge Cache" permission (purge-cache.js skips if unset) |
 
 ### Build-Time Variables (VITE_*)
 
@@ -131,48 +173,41 @@ For staging:
 
 ---
 
-## Step 2: Verify Branch Strategy
+## Step 2: Create GitLab environments
 
-Ensure your GitLab project uses:
+In GitLab go to **Settings** → **CI/CD** → **Environments** and ensure you have:
 
-- `dev` for staging deployments
-- `main` for production deployments
+- **development** (URL: https://worker.dev.bittasker.com) – used by `deploy-development`
+- **staging** (URL: https://staging.bittasker.com) – used by `deploy-staging`
+- **production** (URL: https://worker.prod.bittasker.com) – used by `deploy-production`
 
-If you use different branch names (e.g. `develop`, `master`), update the `rules` in `.gitlab-ci.yml`:
-
-```yaml
-# In deploy-staging
-rules:
-  - if: $CI_COMMIT_BRANCH == "develop"  # Change from "dev" if needed
-
-# In deploy-production
-rules:
-  - if: $CI_COMMIT_BRANCH == "master"   # Change from "main" if needed
-```
+If you use different branch names (e.g. `develop`, `master`), update the `rules` in `.gitlab-ci.yml` for each deploy job.
 
 ---
 
-## Step 3: Run Pipeline on feat/workers-deployment
+## Step 3: Test full path – validate + build + deploy to development
 
-1. Commit and push to `feat/workers-deployment`
-2. Go to **CI/CD** → **Pipelines**
-3. The **validate** stage should run (test, lint, build)
-4. **Deploy** stages will not run (only on dev/main)
+1. Ensure **development** has the required variables (or use project-level variables): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and all dev `VITE_*` (including `VITE_CLOUDFLARE_SITEKEY`) so the build and deploy succeed.
+2. Commit and push to `feat/workers-deployment`.
+3. Go to **CI/CD** → **Pipelines** and open the pipeline for that push.
+4. **validate** runs first (currently runs the CI placeholder test; check, lint, and build are commented out in `.gitlab-ci.yml`). Then **deploy-development** runs: `npm run build`, `wrangler deploy --env dev`, purge cache (if zone/token set).
 
-### Expected Output
+### Expected output
 
-- ✅ validate: check, lint, test, build all pass
-- ⏭️ deploy-staging: skipped (branch is not dev)
-- ⏭️ deploy-production: skipped (branch is not main)
+- ✅ validate: passes
+- ✅ deploy-development: runs (branch is feat/workers-deployment), runs build then wrangler deploy to worker.dev.bittasker.com
+- ⏭️ deploy-staging, deploy-production: skipped (branch is not dev/main)
+
+5. Open https://worker.dev.bittasker.com and confirm the app (and e.g. Turnstile on signup) works. That proves the full path: GitLab build env → wrangler deploy from CI → live Worker.
 
 ---
 
-## Step 4: Test Full Deployment (Merge to dev)
+## Step 4: Deploy staging (merge to dev)
 
-1. Merge `feat/workers-deployment` into `dev`
-2. Push to `dev`
-3. Pipeline runs validate + deploy-staging
-4. Verify at https://staging.bittasker.com (or your staging URL)
+1. Merge `feat/workers-deployment` into `dev`.
+2. Push to `dev`.
+3. Pipeline runs validate → deploy-staging (build runs inside deploy-staging; deploy-development is skipped; branch is dev).
+4. Verify at https://staging.bittasker.com (or your staging URL).
 
 ---
 
@@ -189,14 +224,58 @@ After Workers deployment is verified:
 
 ## Troubleshooting
 
+### Environment variables not injected (wrangler "set CLOUDFLARE_API_TOKEN", Sentry "No auth token")
+
+**Symptom:** The deploy job runs with environment "development" and you have variables scoped to "development", but wrangler says `CLOUDFLARE_API_TOKEN` is not set and/or Sentry says no auth token. The job is clearly using the development environment (you see it under Operate → Environments → development).
+
+**Cause:** In GitLab, variables marked **Protected** are only available on **protected branches** (and protected tags). The branch `feat/workers-deployment` is usually **not** protected (only `main` and often `dev` are). So any variable with "Protected" checked is **not** injected when the pipeline runs on `feat/workers-deployment`, even if it is scoped to the development environment.
+
+**Fix (choose one):**
+
+1. **Uncheck "Protected"** for variables used by the development deploy job (e.g. `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `SENTRY_AUTH_TOKEN`, and dev `VITE_*`). They remain **Masked**, so values are not printed in logs. This is the usual approach so feature branches can deploy to development.
+2. **Or** protect the branch `feat/workers-deployment` (Settings → Repository → Protected branches → add `feat/workers-deployment`). Then protected variables are injected when that branch runs. Use only if you want development deploys to require a protected branch.
+
+**Verify:** After changing Protected, re-run the pipeline. Optionally enable debug: in GitLab CI/CD → Variables, add a variable `DEBUG_CI_VARS` = `1` (scope: development). Re-run the deploy-development job; the script will print `CI_VARS_CHECK: CLOUDFLARE_API_TOKEN=set` (or empty) without exposing values. Remove `DEBUG_CI_VARS` when done.
+
+**Environment scope:** Variables scoped to "development" are only available to jobs that have `environment: name: development`. The deploy-development job has that, so scope is correct; the usual issue is Protected + unprotected branch.
+
 ### Build fails with "VITE_* is undefined"
 
 - Add the missing `VITE_*` variable to GitLab CI/CD variables
 - Ensure it is available in the deploy job (not just validate)
+- If scoped to "development", ensure the deploy job uses `environment: development` and (if variable is Protected) the branch is protected or the variable is unchecked Protected
+
+### Wrangler deploy fails with "register a workers.dev subdomain" or "deploy to one or more routes"
+
+**Symptom:** In CI, wrangler says: "You can either deploy your worker to one or more routes by specifying them in your wrangler.toml file, or register a workers.dev subdomain here: ..."
+
+**Cause:** In non-interactive mode (CI), wrangler does not prompt to register workers.dev. If there are no **routes** in wrangler.toml for that environment, wrangler has nowhere to attach the Worker and fails.
+
+**Fix:** In `wrangler.toml`, for each environment (dev, staging, production) that you deploy from CI, add a **route** and set **workers_dev = false** so wrangler doesn’t ask about workers.dev. Use **zone_id** (not zone_name) so CI doesn’t fail with “Could not find zone” (see next section). Replace `REPLACE_WITH_BITTASKER_ZONE_ID` with your Zone ID from **Cloudflare Dashboard → bittasker.com → Overview → Zone ID** (right sidebar):
+
+```toml
+[env.dev.route]
+pattern = "worker.dev.bittasker.com/*"
+zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
+```
+
+After that, `wrangler deploy --env dev` in CI will attach the Worker to that route and succeed.
+
+### Wrangler deploy fails with "Could not find zone for bittasker.com"
+
+**Symptom:** In CI, wrangler says: "Could not find zone for `bittasker.com`. Make sure the domain is set up to be proxied by Cloudflare."
+
+**Cause:** Wrangler looks up the zone by **name** using the API token’s account. That fails if (1) the zone **bittasker.com** is in a **different Cloudflare account** than the one in `CLOUDFLARE_ACCOUNT_ID` (e.g. Worker in one account, zone in another), or (2) the API token doesn’t have **Zone > Zone > Read** permission.
+
+**Fix:**
+
+1. **Use zone_id instead of zone_name** in `wrangler.toml` for each env’s route. Get the Zone ID from **Cloudflare Dashboard → bittasker.com → Overview → Zone ID** (right sidebar). Replace `REPLACE_WITH_BITTASKER_ZONE_ID` in wrangler.toml with that value (same Zone ID for dev, staging, production if they all use bittasker.com).
+2. **Same account:** Ensure the Cloudflare account that has the **Worker** (Workers & Pages) is the **same account** that has the zone **bittasker.com** (Websites / Domain management). If they’re in different accounts, either move the zone to the Worker’s account or use an API token from the account that has the zone, with Workers edit permission for the Worker’s account (if supported).
+3. **Token permissions:** Ensure the API token has **Zone > Zone > Read** and **Zone > Workers Routes > Edit** for the zone (or account) so wrangler can attach the route.
 
 ### Wrangler deploy fails with "Authentication error"
 
-- Verify `CLOUDFLARE_API_TOKEN` is set and valid
+- Verify `CLOUDFLARE_API_TOKEN` is set and valid (and that it is injected: see "Environment variables not injected" above if the branch is not protected)
 - Ensure token has Workers edit permission
 - Check `CLOUDFLARE_ACCOUNT_ID` matches wrangler.toml
 
@@ -218,12 +297,14 @@ After Workers deployment is verified:
 
 ---
 
-## Files Changed in This Setup
+## Files in this setup
 
-| File | Change |
-|------|--------|
-| `.gitlab-ci.yml` | New – defines validate and deploy jobs |
-| `package.json` | Added `wrangler` as devDependency |
+| File | Role |
+|------|------|
+| `.gitlab-ci.yml` | Defines stages: **validate**, **deploy**. Validate runs tests; each deploy job runs `npm run build` (or `build:production`) then `wrangler deploy` and purge. No separate build stage. |
+| `package.json` | Includes `wrangler` and scripts `deploy:workers:dev`, `deploy:workers`, `deploy:workers:production` |
+| `scripts/purge-cache.js` | Runs after deploy in CI (when `CI=true` and zone/token set); skips locally |
 | `plans/workers-ci-setup-walkthrough.md` | This guide |
+| `plans/workers-pipeline-migration-plan.md` | Migration plan and environment rationale |
 
-No changes to `wrangler.toml`, `workers-site/`, or build scripts.
+No changes to `wrangler.toml` or `workers-site/` for the pipeline; they define Worker config and serving logic.
