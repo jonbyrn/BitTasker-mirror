@@ -27,7 +27,8 @@ test.describe('Signup and onboarding to passkey step', () => {
 	test('from root: signup → bypass Turnstile → enter username → reach Set up passkey step', async ({
 		page
 	}) => {
-		test.setTimeout(90_000);
+		// CI warm-up can use 60s for the cold signup→onboarding transition; real test ~30s
+		test.setTimeout(process.env.CI ? 180_000 : 90_000);
 		const isCI = !!process.env.CI;
 		const takeScreenshots = process.env.E2E_SCREENSHOTS === '1';
 		const uniqueUsername = `e2e-${Date.now()}`;
@@ -52,17 +53,30 @@ test.describe('Signup and onboarding to passkey step', () => {
 			});
 		};
 
-		// CI warm-up: first load is "cold" (Vite/SvelteKit compiling), retry is "warm". Do one dummy visit
-		// so the real test runs against a warm app and the first run behaves like the retry.
+		// Wait for SvelteKit to be ready (hydration / network idle) to avoid premature interaction.
+		const gotoOptions = { waitUntil: 'networkidle' as const };
+
+		// CI warm-up: first run is "cold" (root + signup→onboarding path slow), retry is "warm".
+		// 1) Warm root. 2) Warm signup→onboarding (first transition often times out; do it here with long timeout).
 		if (isCI) {
-			e2eLog('CI warm-up: loading / once so the next load is warm', stepLog);
-			await page.goto('/');
+			e2eLog('CI warm-up: loading / once', stepLog);
+			await page.goto('/', gotoOptions);
 			await page.getByTestId('signup-link').waitFor({ state: 'visible', timeout: 30_000 });
+			e2eLog('CI warm-up: doing signup → onboarding once (cold path)', stepLog);
+			await page.getByTestId('signup-link').click();
+			await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
+			await page.waitForLoadState('networkidle');
+			const warmContinue = page.getByTestId('signup-continue');
+			await expect(warmContinue).toBeEnabled({ timeout: 10_000 });
+			await warmContinue.click();
+			await page.getByTestId('onboarding-step-username').waitFor({ state: 'visible', timeout: 60_000 });
+			e2eLog('CI warm-up: onboarding reached, going back to /', stepLog);
+			await page.goto('/', gotoOptions);
 		}
 
 		// 1. Open root page
 		e2eLog(`Step 1: goto / (CI=${isCI})`, stepLog);
-		await page.goto('/');
+		await page.goto('/', gotoOptions);
 		await expect(page).toHaveURL(/\//);
 		const signupLink = page.getByTestId('signup-link');
 		await expect(signupLink).toBeVisible({ timeout: isCI ? 30_000 : 15_000 });
@@ -72,6 +86,7 @@ test.describe('Signup and onboarding to passkey step', () => {
 		// 2. Click signup (hero CTA)
 		e2eLog('Step 2: click signup link', stepLog);
 		await signupLink.click();
+		await page.waitForLoadState('networkidle');
 
 		// 3. Signup page → Continue (bypass)
 		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
