@@ -106,7 +106,11 @@
     },
     "bid_form": {
         "title": "Coloca tu oferta",
+        "help_modal_title": "¿Cómo hacer una oferta?",
+        "help_tooltip": "Indica tu precio (fijo o por hora), fechas y cómo harás la tarea. Es tu propuesta para quedarte con el trabajo. El tasker la revisará y puede aceptarla, rechazarla o enviar una contraoferta. Una descripción clara de tu enfoque ayuda a que destaque tu oferta.",
+        "task_you_are_bidding_on": "Tarea sobre la que ofertas",
         "form": {
+            "suggested_price": "Precio sugerido",
             "payment_type": "Tipo de Pago",
             "fixed_price": "Precio Fijo",
             "hourly_rate": "Tarifa por Hora",

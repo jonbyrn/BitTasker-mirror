@@ -293,48 +293,50 @@
 			{#each myBids as bidEvent}
 				{@const bid = bidEvent.content as unknown as NostrBidContent}
 				{@const status = getBidStatus(bidEvent)?.status?.toUpperCase()}
-				<div class="card bg-base-100 border-base-300 relative rounded-2xl border shadow-sm">
-					<div class="card-body p-4 md:p-6">
-						<!-- Status badge: top-right of card -->
-						<div class="absolute right-4 top-4 z-10">
-							<span class="badge {StatusRender[status ?? '']?.badge ?? 'badge-warning'}">
-								{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
-							</span>
-						</div>
-
-						<!-- Section TAREA (what the task is) -->
+				<div class="card bg-base-100 border-base-300 rounded-xl border shadow-md">
+					<div class="card-body rounded-xl p-4 md:p-4">
+						<!-- Section TAREA: misma estructura que Find Tasks (TaskCard) -->
 						<div class="border-base-200 border-b pb-4">
 							<span class="text-base-content/60 mb-2 block text-xs font-semibold uppercase tracking-wide">
 								{$t('bids.section_task')}
 							</span>
-							<button
-								onclick={(e) => {
-									e.stopPropagation();
-									goto(`/tasks/${bid.taskId}`);
-								}}
-								class="hover:text-primary card-title line-clamp-2 text-left text-lg transition-colors"
-							>
-								{getTranslatedTaskText(bid, 'title') || $t('bids.unknown_task')}
-							</button>
-							<p class="text-base-content/60 mt-1 line-clamp-2 text-sm">
-								{getTranslatedTaskText(bid, 'description')}
-							</p>
-							<div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-								<div class="flex flex-col gap-2">
-									<TaskDeadlineDisplay
-										dateRangeStart={bid.startDateTime}
-										dateRangeEnd={bid.endDateTime}
-									/>
-									<TaskLocationDisplay />
+							<!-- Top row: título + descripción | badge + precio (alineado, sin espacio de más) -->
+							<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
+								<div class="min-w-0 flex-1 pr-2 md:pr-4">
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											goto(`/tasks/${bid.taskId}`);
+										}}
+										class="hover:text-primary card-title line-clamp-2 text-left text-lg font-semibold transition-colors"
+									>
+										{getTranslatedTaskText(bid, 'title') || $t('bids.unknown_task')}
+									</button>
+									<p class="text-base-content/60 mt-1 line-clamp-2 text-sm">
+										{getTranslatedTaskText(bid, 'description')}
+									</p>
 								</div>
-								{#if bid.taskBudget != null}
-									<div class="shrink-0 text-right">
-										<p class="text-lg font-bold">${formatNumberWithTwoDecimals(bid.taskBudget.amount)}</p>
-										<p class="text-base-content/60 text-sm">{cachedSatsFromUsd(bid.taskBudget.amount, btcPrice)} {$t('bids.sats')}</p>
-									</div>
-								{/if}
+								<div class="flex w-[min(30%,120px)] shrink-0 flex-col items-end justify-between gap-1">
+									<span class="badge badge-sm {StatusRender[status ?? '']?.badge ?? 'badge-warning'} max-w-full truncate text-center">
+										{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
+									</span>
+									{#if bid.taskBudget != null}
+										<div class="text-right">
+											<p class="text-xl font-bold">${formatNumberWithTwoDecimals(bid.taskBudget.amount)}</p>
+											<p class="text-base-content/60 text-sm">{cachedSatsFromUsd(bid.taskBudget.amount, btcPrice)} {$t('bids.sats')}</p>
+										</div>
+									{/if}
+								</div>
 							</div>
-							<div class="mt-3">
+							<!-- Fila fecha y dirección (misma estructura que Find Tasks, sin precio a la derecha) -->
+							<div class="mb-3 flex flex-col gap-3">
+								<TaskDeadlineDisplay
+									dateRangeStart={bid.startDateTime}
+									dateRangeEnd={bid.endDateTime}
+								/>
+								<TaskLocationDisplay />
+							</div>
+							<div>
 								<UserInfoDisplay
 									avatar={bid.taskCreatorAvatar}
 									username={bid.taskCreatorUsername}
@@ -377,15 +379,14 @@
 							</button>
 							{#if expandedBids.has(bid.bidId)}
 								<div class="border-base-200 mt-3 space-y-3 rounded-lg border bg-base-200/30 p-3">
-									<!-- Status, sent-at and price in one row, price on the right -->
-									<div class="flex flex-wrap items-center justify-between gap-3">
-										<div class="flex flex-wrap items-center gap-3">
-											<span class="badge {StatusRender[status ?? '']?.badge ?? 'badge-warning'}">{StatusRender[status ?? '']?.label ?? $t('bids.pending')}</span>
+									<!-- Fecha enviado 60% | Precio 40% en la misma fila -->
+									<div class="grid grid-cols-[3fr_2fr] items-center gap-3">
+										<div class="min-w-0">
 											<span class="text-base-content/60 text-sm">
 												{$t('bids.sent_at')}: <strong class="text-base-content">{formatSentAt(bidEvent.created_at)}</strong>
 											</span>
 										</div>
-										<div class="shrink-0 text-right">
+										<div class="min-w-0 text-right">
 											<p class="text-xl font-bold">${formatNumberWithTwoDecimals(bid.amount)}</p>
 											<p class="text-base-content/60 text-sm">{cachedSatsFromUsd(bid.amount, btcPrice)} {$t('bids.sats')}</p>
 										</div>

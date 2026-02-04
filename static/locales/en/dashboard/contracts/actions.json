@@ -62,7 +62,9 @@
 				"cancel_contract_confirm_message": "Are you sure you want to cancel this contract? This will cancel the secure payment contract and refund all funds. Warning: This action cannot be undone.",
 				"cancel_time_restriction": "This contract cannot be cancelled at this time.",
 				"cancel_time_restriction_too_close": "This contract cannot be cancelled because it is less than 24 hours before the estimated start time and the grace period has expired.",
-				"cancel_time_restriction_grace_period_expired": "This contract cannot be cancelled because it is less than 24 hours before the estimated start time and more than 1 hour has passed since contract creation."
+				"cancel_time_restriction_grace_period_expired": "This contract cannot be cancelled because it is less than 24 hours before the estimated start time and more than 1 hour has passed since contract creation.",
+				"notification_payment_released_title": "Payment Released",
+				"notification_payment_released_body": "Payment has been released for task {taskTitle}"
 			}
 		}
 	}

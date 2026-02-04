@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PaymentType } from '$lib/types/bid';
 	import type { Task } from '$lib/types/task';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { user } from '$lib/stores/user.store';
@@ -10,10 +10,12 @@
 	import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 	import { getRSKAddress } from '$lib/stores/wallet.store';
 	import { generateBidTranslations } from '$lib/nostr/bid';
-	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
+	import { formatNumberForInput, satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
@@ -40,6 +42,27 @@
 	let submittingBid = $state(false);
 	let bidFormErrors = $state<Record<string, string>>({});
 	let bidSubmitted = $state(false);
+	let showHelpModal = $state(false);
+
+	// Task title and description in the user's selected language
+	const displayTaskTitle = $derived.by(() => {
+		const currentLang = $locale || 'en';
+		const tr = task.translations?.translations;
+		if (!tr || task.translations?.sourceLanguage === currentLang) {
+			return task.title;
+		}
+		const translation = tr[currentLang];
+		return translation?.title ?? task.title;
+	});
+	const displayTaskDescription = $derived.by(() => {
+		const currentLang = $locale || 'en';
+		const tr = task.translations?.translations;
+		if (!tr || task.translations?.sourceLanguage === currentLang) {
+			return task.description;
+		}
+		const translation = tr[currentLang];
+		return translation?.description ?? task.description;
+	});
 
 	// New datetime fields for fixed price bids
 	let startDateTime = $state<Date | null>(null);
@@ -648,6 +671,29 @@
 		<form class="flex min-h-0 flex-1 flex-col" onsubmit={handleBidSubmit}>
 			<!-- Scrollable content area -->
 			<div class="flex-1 space-y-4 pb-4">
+			<!-- Task context: title, description, help -->
+			<div class="bg-base-200 min-w-0 overflow-hidden rounded-lg border border-base-300/50 p-4">
+				<div class="mb-2 flex min-w-0 items-start justify-between gap-2">
+					<span class="min-w-0 shrink text-sm font-semibold text-base-content/80">
+						{$t('bid_form.task_you_are_bidding_on')}
+					</span>
+					<button
+						type="button"
+						class="btn btn-circle btn-ghost btn-xs shrink-0 text-base-content/60 hover:text-primary"
+						aria-label={$t('bid_form.help_modal_title')}
+						onclick={() => (showHelpModal = true)}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+					</button>
+				</div>
+				<span class="block min-w-0 wrap-break-word font-medium text-base-content line-clamp-2">{displayTaskTitle}</span>
+				{#if displayTaskDescription}
+					<p class="mt-1 text-sm text-base-content/70 wrap-break-word line-clamp-2 whitespace-pre-line">{displayTaskDescription}</p>
+				{/if}
+			</div>
+
 			<!-- Payment Type -->
 			<div class="form-control">
 				<label class="label cursor-pointer" for="payment-type-group">
@@ -684,8 +730,13 @@
 				<!-- Fixed price bid amount - USD and Sats like in create-task -->
 				<div class="form-control">
 					<label class="label" for="bid-amount">
-						<span class="label-text">{$t('bid_form.form.budget')}</span>
+						<span class="label-text">{$t('bid_form.form.budget')}</span> - {#if task.budget?.amount != null && task.budget.amount > 0}
+						<p class="label-text-alt  text-info min-w-0 wrap-break-word">
+							{$t('bid_form.form.suggested_price')}: ${formatNumberWithTwoDecimals(task.budget.amount)}
+						</p>
+					{/if}
 					</label>
+					
 					<div class="flex gap-2">
 						<div class="relative flex-1">
 							<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
@@ -721,8 +772,8 @@
 						</div>
 					</div>
 					{#if bidFormErrors.amount}
-						<div class="label">
-							<span class="label-text-alt text-error wrap-break-words" id="amount-error" aria-live="polite"
+						<div class="label min-w-0 w-full">
+							<span class="label-text-alt text-error wrap-break-word block" id="amount-error" aria-live="polite"
 								>{bidFormErrors.amount}</span
 							>
 						</div>
@@ -735,11 +786,11 @@
 				</div>
 
 				<!-- Date and Time Selection for Fixed Price -->
-				<div class="form-control">
+				<div class="form-control min-w-0">
 					<label class="label" for="datetime-range">
 						<span class="label-text">{$t('bid_form.form.datetime_range')}</span>
 					</label>
-					<div class="flex flex-col gap-4 sm:flex-row">
+					<div class="flex min-w-0 flex-col gap-4 sm:flex-row">
 						<div class="flex-1">
 							<DateInput
 								bind:value={startDateTime}
@@ -749,6 +800,7 @@
 								minDate={new Date()}
 								maxDate={undefined}
 								timeStep={15}
+								hideTimeRoundedHint={true}
 								onChange={(date: Date | null) => {
 									startDateTime = date;
 									handleDateTimeChange();
@@ -782,6 +834,7 @@
 									return undefined;
 								})()}
 								timeStep={15}
+								hideTimeRoundedHint={true}
 								onChange={(date: Date | null) => {
 									endDateTime = date;
 									handleDateTimeChange();
@@ -791,8 +844,8 @@
 						</div>
 					</div>
 					{#if bidFormErrors.datetime}
-						<div class="label">
-							<span class="label-text-alt text-error wrap-break-words" id="datetime-error" aria-live="polite"
+						<div class="label min-w-0 w-full">
+							<span class="label-text-alt text-error wrap-break-word block" id="datetime-error" aria-live="polite"
 								>{bidFormErrors.datetime}</span
 							>
 						</div>
@@ -848,8 +901,8 @@
 						</div>
 					</div>
 					{#if bidFormErrors.hourlyRate}
-						<div class="label">
-							<span class="label-text-alt text-error wrap-break-words" id="hourly-rate-error" aria-live="polite"
+						<div class="label min-w-0 w-full">
+							<span class="label-text-alt text-error wrap-break-word block" id="hourly-rate-error" aria-live="polite"
 								>{bidFormErrors.hourlyRate}</span
 							>
 						</div>
@@ -881,8 +934,8 @@
 						oninput={handleEstimatedHoursChange}
 					/>
 					{#if bidFormErrors.estimatedHours}
-						<div class="label">
-							<span class="label-text-alt text-error wrap-break-words" id="estimated-hours-error" aria-live="polite"
+						<div class="label min-w-0 w-full">
+							<span class="label-text-alt text-error wrap-break-word block" id="estimated-hours-error" aria-live="polite"
 								>{bidFormErrors.estimatedHours}</span
 							>
 						</div>
@@ -943,9 +996,9 @@
 					</small>
 				{/if}
 				{#if bidFormErrors.description}
-					<div class="label">
+					<div class="label min-w-0 w-full">
 						<span
-							class="label-text-alt text-error wrap-break-words"
+							class="label-text-alt text-error wrap-break-word block"
 							id="description-error"
 							aria-live="polite">{bidFormErrors.description}</span
 						>
@@ -981,9 +1034,9 @@
 					</small>
 				{/if}
 				{#if bidFormErrors.proposedApproach}
-					<div class="label">
+					<div class="label min-w-0 w-full">
 						<span
-							class="label-text-alt text-error wrap-break-words"
+							class="label-text-alt text-error wrap-break-word block"
 							id="proposed-approach-error"
 							aria-live="polite">{bidFormErrors.proposedApproach}</span
 						>
@@ -1014,8 +1067,8 @@
 					</small>
 				{/if}
 				{#if bidFormErrors.coverLetter}
-					<div class="label">
-						<span class="label-text-alt text-error wrap-break-words" id="cover-letter-error" aria-live="polite"
+					<div class="label min-w-0 w-full">
+						<span class="label-text-alt text-error wrap-break-word block" id="cover-letter-error" aria-live="polite"
 							>{bidFormErrors.coverLetter}</span
 						>
 					</div>
@@ -1050,6 +1103,16 @@
 			</div>
 		</form>
 	{/if}
+
+	<!-- Help modal -->
+	<Modal
+		isOpen={showHelpModal}
+		title={$t('bid_form.help_modal_title')}
+		onClose={() => (showHelpModal = false)}
+		size="md"
+	>
+		<p class="text-base-content/90 whitespace-pre-line wrap-break-word">{$t('bid_form.help_tooltip')}</p>
+	</Modal>
 </div>
 
 <style>

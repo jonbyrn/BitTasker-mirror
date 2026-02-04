@@ -19,8 +19,11 @@
 	} from '$lib/utils/constants/contract-modals';
 	import { portal } from '$lib/utils/portal';
 import {
-	sendTaskCompletionMessageToTasker
+	sendTaskCompletionMessageToTasker,
+	sendPaymentReleasedMessageToTaskee
 } from '$lib/utils/location/sendLocation';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+	import { updateTask } from '$lib/nostr/task';
 
 	const {
 		contract,
@@ -245,30 +248,41 @@ import {
 			// Call RSK escrow acceptTask - this publishes Nostr event with transactionHash
 			await escrow.escrowOps.acceptTask(contract);
 
+			// Actualizar estado de la tarea a COMPLETED cuando el tasker acepta el trabajo
+			const taskId = contractStore.getContractKey(contract, 'taskId') as string | undefined;
+			if (taskId) {
+				try {
+					await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
+				} catch (taskUpdateError) {
+					console.error('Failed to update task status to COMPLETED:', taskUpdateError);
+				}
+			}
+
+			const taskTitle = contractStore.getContractKey(contract, 'taskTitle') as string;
+			const taskeeNpub = contractStore.getContractKey(contract, 'otherPartyNpub') as string;
+
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: 'Payment Released',
-				body: `Payment has been released for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				npubs: [taskeeNpub],
+				title: $t('dashboard.contracts.actions.notification_payment_released_title'),
+				body: $t('dashboard.contracts.actions.notification_payment_released_body', {
+					values: { taskTitle: taskTitle || '' }
+				}),
 				type: 'payment_released',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			const freelancerPubkey = contractStore.getContractKey(contract, 'freelancerPubkey') as string;
-			if (freelancerPubkey) {
-			/* 	sendPaymentReleasedMessageToTaskee(
-					freelancerPubkey,
-					{
-						taskId: contractStore.getContractKey(contract, 'taskId') as string,
-						taskTitle: contractStore.getContractKey(contract, 'taskTitle') as string,
-						escrowId: contract.escrowData.id
-					}
-				).catch((messageError: any) => {
+			// Enviar DM al taskee: fondos liberados y trabajo aceptado
+			if (taskeeNpub) {
+				sendPaymentReleasedMessageToTaskee(taskeeNpub, {
+					taskId: contractStore.getContractKey(contract, 'taskId') as string,
+					taskTitle: taskTitle || undefined,
+					escrowId: contract.escrowData?.id
+				}).catch((messageError: unknown) => {
 					console.error('Failed to send payment released message to taskee:', messageError);
-				}); */
+				});
 			}
 
-			// Note: Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
 			console.error('Error accepting task:', error);
 
