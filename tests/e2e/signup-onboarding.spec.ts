@@ -18,9 +18,11 @@ function e2eLog(message: string, stepLog: string[]): void {
  * Checkpoint: we assert the user reaches the "Set up passkey" step. Getting there validates we can call the dev backend (username availability check).
  */
 test.describe('Signup and onboarding to passkey step', () => {
+	// CI can be slow: navigation after Continue click may take several seconds; allow time for full flow
 	test('from root: signup → bypass Turnstile → enter username → reach Set up passkey step', async ({
 		page
 	}) => {
+		test.setTimeout(60_000);
 		const takeScreenshots = process.env.E2E_SCREENSHOTS === '1';
 		const uniqueUsername = `e2e-${Date.now()}`;
 		const stepLog: string[] = [];
@@ -63,23 +65,15 @@ test.describe('Signup and onboarding to passkey step', () => {
 		if (takeScreenshots) await page.screenshot({ path: 'test-results/02-signup-page.png' });
 		const continueBtn = page.getByTestId('signup-continue');
 		await expect(continueBtn).toBeEnabled({ timeout: 10_000 });
-		e2eLog('Step 3: Continue button enabled, clicking', stepLog);
-		await continueBtn.click();
-		e2eLog(`Step 3: after click URL=${page.url()}`, stepLog);
-
-		// Poll URL for up to 3s so we see if we ever hit onboarding then get redirected (e.g. auth layout)
-		for (let i = 0; i < 6; i++) {
-			await page.waitForTimeout(500);
-			const u = page.url();
-			e2eLog(`Step 3+${i * 0.5}s: URL=${u}`, stepLog);
-			if (/\/auth\/onboarding/.test(u)) break;
-		}
-
-		// 4. Wait for navigation to onboarding (with diagnostics if it fails)
+		e2eLog('Step 3: Continue button enabled; clicking and waiting for navigation to /auth/onboarding', stepLog);
+		// Wait for navigation triggered by the click. In CI navigation can take 2+ seconds; don't assert URL before it completes.
 		try {
-			await expect(page).toHaveURL(/\/auth\/onboarding/, { timeout: 15_000 });
+			await Promise.all([
+				page.waitForURL(/\/auth\/onboarding/, { timeout: 20_000 }),
+				continueBtn.click()
+			]);
 		} catch (e) {
-			e2eLog(`Step 4 FAILED: still on URL=${page.url()}`, stepLog);
+			e2eLog(`Step 4 FAILED: navigation did not complete. URL=${page.url()}`, stepLog);
 			await attachDiagnostics('signup-to-onboarding-failure');
 			throw e;
 		}
