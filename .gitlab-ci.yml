@@ -9,33 +9,58 @@
 # How wrangler deploys from CI: GitLab injects CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
 # from CI/CD Variables into the job env; wrangler uses them (no interactive login). Build-time
 # VITE_* must be set in GitLab so "npm run build" bakes them into the client bundle.
-# test new deployment
+#
+# -----------------------------------------------------------------------------------------------
+# QUICK FEEDBACK MODE (E2E signup/onboarding testing)
+# -----------------------------------------------------------------------------------------------
+# Currently ONLY the Playwright E2E job runs. The following are COMMENTED OUT for a faster
+# feedback loop:
+#   - validate (Vitest unit tests: test:ci; optional check/lint/build)
+#   - deploy-development (feat/workers-deployment → worker.dev.bittasker.com)
+#   - deploy-staging (dev → staging.bittasker.com)
+#   - deploy-production (main → worker.prod.bittasker.com)
+#
+# TO RESTORE NORMAL PIPELINE (after E2E testing is done):
+#   1. Uncomment the "validate" job: remove the leading "# " from every line of the block that
+#      starts with "# validate:" and ends before "# ============ PLAYWRIGHT".
+#   2. Uncomment the "deploy-development" job: same for the block starting with "# deploy-development:".
+#   3. Uncomment the "deploy-staging" job: same for the block starting with "# deploy-staging:".
+#   4. Uncomment the "deploy-production" job: same for the block starting with "# deploy-production:".
+#   5. Leave the "playwright" job as-is (no needs: validate; it runs in validate stage).
+#   6. In validate, uncomment "npm run check", "npm run lint", "npm run build" if you use them in CI.
+#
+# Quick find: search for "# validate:", "# deploy-development:", "# deploy-staging:", "# deploy-production:"
+# to locate each commented block.
+#
+# For this mode, set VITE_API_URL in GitLab CI/CD Variables to your dev API base URL so the
+# signup-onboarding spec can complete the username step (availability check).
+# -----------------------------------------------------------------------------------------------
 stages:
   - validate
   - deploy
 
 # ============================================
-# VALIDATE - Runs on all branches
+# VALIDATE - Runs on all branches (COMMENTED for quick E2E feedback)
 # ============================================
-# Single test file: replace with a path that passes, or remove the path to run full suite
-validate:
-  image: node:22-bookworm-slim
-  stage: validate
-  cache:
-    key: $CI_COMMIT_REF_SLUG
-    paths:
-      - node_modules/
-      - .npm/
-  script:
-    - npm ci --cache .npm --prefer-offline
-    #- npm run check
-    #- npm run lint
-    - npm run test:ci
-    #- npm run build
-  artifacts:
-    paths:
-      - build/
-    expire_in: 1 hour
+# Uncomment this entire block to restore unit tests in CI.
+# validate:
+#   image: node:22-bookworm-slim
+#   stage: validate
+#   cache:
+#     key: $CI_COMMIT_REF_SLUG
+#     paths:
+#       - node_modules/
+#       - .npm/
+#   script:
+#     - npm ci --cache .npm --prefer-offline
+#     #- npm run check
+#     #- npm run lint
+#     - npm run test:ci
+#     #- npm run build
+#   artifacts:
+#     paths:
+#       - build/
+#     expire_in: 1 hour
 
 # ============================================
 # PLAYWRIGHT E2E - Smoke tests (validate stage)
@@ -67,73 +92,74 @@ playwright:
 # and dev VITE_* in GitLab CI/CD Variables (scoped to "development" or All).
 # Important: If variables are marked "Protected", they are only injected on protected branches.
 # For feat/workers-deployment (unprotected), either uncheck Protected for these vars or protect the branch.
-deploy-development:
-  image: node:22-bookworm-slim
-  stage: deploy
-  cache:
-    key: $CI_COMMIT_REF_SLUG
-    paths:
-      - node_modules/
-      - .npm/
-  needs:
-    - validate
-  script:
-    - npm ci --cache .npm --prefer-offline
-    - npm run build
-    - npx wrangler deploy --env dev
-    - ENVIRONMENT=dev node scripts/purge-cache.js
-  environment:
-    name: development
-    url: https://worker.dev.bittasker.com
-  rules:
-    - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
+# COMMENTED for quick E2E feedback. Uncomment block to restore.
+# deploy-development:
+#   image: node:22-bookworm-slim
+#   stage: deploy
+#   cache:
+#     key: $CI_COMMIT_REF_SLUG
+#     paths:
+#       - node_modules/
+#       - .npm/
+#   needs:
+#     - validate
+#   script:
+#     - npm ci --cache .npm --prefer-offline
+#     - npm run build
+#     - npx wrangler deploy --env dev
+#     - ENVIRONMENT=dev node scripts/purge-cache.js
+#   environment:
+#     name: development
+#     url: https://worker.dev.bittasker.com
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
 
 # ============================================
 # DEPLOY STAGING - dev branch only
 # ============================================
-deploy-staging:
-  image: node:22-bookworm-slim
-  stage: deploy
-  cache:
-    key: $CI_COMMIT_REF_SLUG
-    paths:
-      - node_modules/
-      - .npm/
-  needs:
-    - validate
-  script:
-    - npm ci --cache .npm --prefer-offline
-    # Build with staging env vars (set in GitLab CI/CD variables)
-    - npm run build
-    - npx wrangler deploy --env staging
-    - ENVIRONMENT=staging node scripts/purge-cache.js
-  environment:
-    name: staging
-    url: https://staging.bittasker.com
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev"
+# COMMENTED for quick E2E feedback. Uncomment block to restore.
+# deploy-staging:
+#   image: node:22-bookworm-slim
+#   stage: deploy
+#   cache:
+#     key: $CI_COMMIT_REF_SLUG
+#     paths:
+#       - node_modules/
+#       - .npm/
+#   needs:
+#     - validate
+#   script:
+#     - npm ci --cache .npm --prefer-offline
+#     - npm run build
+#     - npx wrangler deploy --env staging
+#     - ENVIRONMENT=staging node scripts/purge-cache.js
+#   environment:
+#     name: staging
+#     url: https://staging.bittasker.com
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "dev"
 
 # ============================================
 # DEPLOY PRODUCTION - main branch only
 # ============================================
-deploy-production:
-  image: node:22-bookworm-slim
-  stage: deploy
-  cache:
-    key: $CI_COMMIT_REF_SLUG
-    paths:
-      - node_modules/
-      - .npm/
-  needs:
-    - validate
-  script:
-    - npm ci --cache .npm --prefer-offline
-    # Build with production env vars (set in GitLab CI/CD variables)
-    - npm run build:production
-    - npx wrangler deploy --env production
-    - ENVIRONMENT=production node scripts/purge-cache.js
-  environment:
-    name: production
-    url: https://worker.prod.bittasker.com
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+# COMMENTED for quick E2E feedback. Uncomment block to restore.
+# deploy-production:
+#   image: node:22-bookworm-slim
+#   stage: deploy
+#   cache:
+#     key: $CI_COMMIT_REF_SLUG
+#     paths:
+#       - node_modules/
+#       - .npm/
+#   needs:
+#     - validate
+#   script:
+#     - npm ci --cache .npm --prefer-offline
+#     - npm run build:production
+#     - npx wrangler deploy --env production
+#     - ENVIRONMENT=production node scripts/purge-cache.js
+#   environment:
+#     name: production
+#     url: https://worker.prod.bittasker.com
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "main"
