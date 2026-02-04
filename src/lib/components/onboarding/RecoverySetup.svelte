@@ -267,7 +267,7 @@
 	});
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-recovery">
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">

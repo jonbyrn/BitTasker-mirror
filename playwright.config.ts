@@ -3,19 +3,21 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * E2E config: where the app runs and where it calls the API
  *
- * We use build + preview (not dev) so the app is a stable, production-like bundle with no Vite
- * cold start or hydration races. baseURL points at the preview server (port 4173).
+ * - CI: build + preview (port 4173) for a stable bundle and no cold start.
+ * - Local with E2E_USE_DEV_SERVER=1: npm run dev (port 5173) for faster iteration.
  *
- * - webServer: runs "npm run build && npm run preview". Build receives VITE_E2E_TURNSTILE_BYPASS
- *   and VITE_API_URL (and other process.env) so they are baked into the client. Preview serves
- *   the built app on port 4173.
- * - VITE_API_URL: set in env (local and CI) so the built app calls your dev backend for
- *   checkUsernameAvailability etc.
+ * Build/dev receive VITE_E2E_TURNSTILE_BYPASS and VITE_API_URL from env. Set VITE_API_URL
+ * to your dev backend so signup/onboarding (username check, passkey registration) can reach the API.
  *
  * @see https://playwright.dev/docs/test-configuration
  */
 const PREVIEW_PORT = 4173;
+const DEV_PORT = 3000;
 const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
+const DEV_URL = `http://localhost:${DEV_PORT}`;
+
+const useDevServer = process.env.E2E_USE_DEV_SERVER === '1' && !process.env.CI;
+const baseURL = useDevServer ? DEV_URL : PREVIEW_URL;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -30,7 +32,7 @@ export default defineConfig({
       ]
     : 'html',
   use: {
-    baseURL: PREVIEW_URL,
+    baseURL,
 
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
@@ -87,15 +89,26 @@ export default defineConfig({
     // },
   ],
 
-  /* Build + preview: stable bundle, no dev cold start. Env is passed to build so VITE_* are baked in. */
-  webServer: {
-    command: 'npm run build && npm run preview',
-    url: PREVIEW_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 300 * 1000, // 5 min: build can be slow in CI
-    env: {
-      VITE_E2E_TURNSTILE_BYPASS: 'true',
-      ...process.env,
-    },
-  },
+  /* Local: E2E_USE_DEV_SERVER=1 uses dev server (faster). CI always uses build + preview. */
+  webServer: useDevServer
+    ? {
+        command: 'npm run dev',
+        url: DEV_URL,
+        reuseExistingServer: true,
+        timeout: 60 * 1000,
+        env: {
+          VITE_E2E_TURNSTILE_BYPASS: 'true',
+          ...process.env,
+        },
+      }
+    : {
+        command: 'npm run build && npm run preview',
+        url: PREVIEW_URL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 300 * 1000, // 5 min: build can be slow in CI
+        env: {
+          VITE_E2E_TURNSTILE_BYPASS: 'true',
+          ...process.env,
+        },
+      },
 });

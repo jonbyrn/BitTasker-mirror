@@ -2,7 +2,7 @@
 
 This document describes what we need to consider to implement a Playwright e2e test that creates a new user account starting from the root page of the BitTasker app. It does **not** implement the test; it documents the app’s real flow, how the existing e2e auth handling works, and the main challenges.
 
-**Current status (see [e2e-signup-onboarding-plan.md](../../../../../plans/e2e-signup-onboarding-plan.md)):** The signup-onboarding e2e runs in CI (build + preview) and reaches the **“Set up passkey”** step (root → signup → bypass → username → PasskeySetup visible). The **next phase** is to wire the CDP virtual authenticator and complete the passkey creation flow so the test reaches the dashboard (§11 of the plan; §2.2 below for WebAuthn details).
+**Current status (see [e2e-signup-onboarding-plan.md](../../../../../plans/e2e-signup-onboarding-plan.md) and [e2e-passkey-onboarding-phase.md](../../../../../plans/e2e-passkey-onboarding-phase.md)):** The signup-onboarding e2e runs in CI (build + preview) and (1) reaches the **“Set up passkey”** step, and (2) **passkey creation** is implemented: a second test uses the auth fixture (CDP virtual authenticator), clicks “Set up passkey”, and asserts the **Recovery** step is visible (proving credential creation and backend registration + login). Optional next: complete remaining onboarding steps to dashboard.
 
 ---
 
@@ -72,11 +72,11 @@ So creating an account in e2e means: pass the signup gate (Turnstile + store), t
 
 ### 2.2 WebAuthn / passkey in Playwright
 
-- **Current setup:** `src/lib/tests/e2e/fixtures/auth.ts` already configures a **virtual authenticator** via CDP (`WebAuthn.enable`, `WebAuthn.addVirtualAuthenticator`). That allows the **login** flow to use a simulated passkey.
+- **Current setup:** `src/lib/tests/e2e/fixtures/auth.ts` configures a **virtual authenticator** via CDP on the **same page** that the test uses (not a temporary page). CDP virtual authenticators are bound to the frame/target; attaching to a temp page and closing it leaves the test page without an authenticator, so `credentials.create()` would hang. The fixture overrides the **page** fixture: it takes the default page, opens a CDP session from that page, calls `WebAuthn.enable` and `WebAuthn.addVirtualAuthenticator`, then yields the same page to the test.
 - **Account creation:** PasskeySetup calls `setWebBiometricKey` / `setBiometricKey`, which creates a **new** credential. For that to work in e2e we need:
-  - The same CDP virtual authenticator to be active when the **signup** (onboarding) flow runs, so that “create passkey” stores a credential in the virtual authenticator.
+  - The virtual authenticator attached to the **test page** (the one that loads the app and runs `navigator.credentials.create()`).
   - One consistent browser context so that the credential created during onboarding can later be used for login (or we persist auth state and reuse it).
-- **Considerations:** Virtual authenticator is supported in Chromium (CDP). For “create account” e2e we should use the same fixture/context so that registration and subsequent login both use the same virtual device.
+- **Considerations:** Virtual authenticator is supported in Chromium (CDP). Run signup/onboarding e2e with `--project=chromium`. See also [Corbado: Passkeys E2E Playwright Testing](https://corbado.com/blog/passkeys-e2e-playwright-testing-webauthn-virtual-authenticator).
 
 ### 2.3 Backend and network
 
@@ -177,17 +177,16 @@ So creating an account in e2e means: pass the signup gate (Turnstile + store), t
 
 ## 4. Recommended next steps (planning only)
 
-1. **Decide scope:**  
-   - Option A: E2E that only goes “root → signup → onboarding” with Turnstile bypass and virtual passkey (full account creation in one run).  
-   - Option B: E2E that starts **after** signup gate (e.g. inject `isCaptchaVerified` and start at onboarding step 0) and only automates username + passkey steps.  
-   - Option C: Keep “create account” as a manual/setup step and only e2e “with existing account” (current pattern).
+1. ~~**Decide scope**~~ **Done:** E2E goes “root → signup → onboarding” with Turnstile bypass and virtual passkey; account creation (username + passkey) runs in one test; assertion is “Recovery step visible”. See [e2e-passkey-onboarding-phase.md](../../../../../plans/e2e-passkey-onboarding-phase.md).
 
-2. **Turnstile:** Confirm with backend if a test key or bypass exists; otherwise add a test-only bypass (e.g. `VITE_E2E_TURNSTILE_BYPASS` + set `isCaptchaVerified` on signup in e2e build).
+2. ~~**Turnstile**~~ **Done:** Frontend bypass with `VITE_E2E_TURNSTILE_BYPASS` (see e2e-signup-onboarding-plan).
 
-3. **Align routes and selectors:** Update any existing auth e2e to use `/auth/signup` and onboarding step structure; add `data-testid` where needed for stability.
+3. ~~**Align routes and selectors**~~ **Done:** Signup-onboarding spec uses `/auth/signup`, `/auth/onboarding`, and `data-testid` for username, passkey, and recovery steps.
 
-4. **Reuse virtual authenticator for registration:** Ensure the same Playwright context (and CDP WebAuthn config) used for login is used when navigating through PasskeySetup so that “create passkey” registers a credential in the virtual authenticator.
+4. ~~**Reuse virtual authenticator for registration**~~ **Done:** Signup-onboarding spec uses the auth fixture so the same context (with CDP virtual authenticator) is used when PasskeySetup runs `credentials.create()`.
 
-5. **CI and test dir:** Decide whether “account creation” e2e lives in `tests/e2e/` (with smoke) or `src/lib/tests/e2e/`, and update `playwright.config.ts` and `.gitlab-ci.yml` so the chosen test runs in the pipeline (and only when backend/Turnstile strategy is available if needed).
+5. ~~**CI and test dir**~~ **Done:** Account creation e2e lives in `tests/e2e/signup-onboarding.spec.ts`; CI runs it with `--project=chromium`; `VITE_API_URL` set in CI.
+
+6. **Optional:** Extend e2e to complete onboarding (Recovery → Profile → Location → Complete) and assert dashboard; or add a “login with passkey” e2e that reuses the credential created during signup.
 
 This document should be updated when the app’s signup/onboarding flow or backend contracts change.

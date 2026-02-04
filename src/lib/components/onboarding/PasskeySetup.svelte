@@ -342,6 +342,7 @@
 				</p>
 
 				{#if error}
+					<div data-testid="passkey-setup-error">
 					<ErrorAlertWithModal
 						{error}
 						errorType={errorType}
@@ -355,6 +356,7 @@
 						}}
 						class="mx-auto mb-6 max-w-lg"
 					/>
+					</div>
 				{/if}
 
 				{#if isSetupComplete}
