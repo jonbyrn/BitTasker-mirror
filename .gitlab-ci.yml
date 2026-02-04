@@ -9,10 +9,7 @@
 # How wrangler deploys from CI: GitLab injects CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
 # from CI/CD Variables into the job env; wrangler uses them (no interactive login). Build-time
 # VITE_* must be set in GitLab so "npm run build" bakes them into the client bundle.
-#
-# Deployment metadata: scripts/deploy-workers-with-message.sh uses wrangler versions upload/deploy
-# so Cloudflare version history shows message and tag (GitLab commit author, branch, short SHA).
-# "By Unknown" in the dashboard is expected when using API tokens (no Cloudflare user identity).
+# test new deployment
 stages:
   - validate
   - deploy
@@ -59,16 +56,9 @@ deploy-development:
   needs:
     - validate
   script:
-    # Optional: verify key vars are present (no values printed). Set DEBUG_CI_VARS=1 in CI to enable.
-    - |
-      if [ "$DEBUG_CI_VARS" = "1" ]; then
-        echo "CI_VARS_CHECK: CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:+set}"
-        echo "CI_VARS_CHECK: CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:+set}"
-        echo "CI_VARS_CHECK: SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:+set}"
-      fi
     - npm ci --cache .npm --prefer-offline
     - npm run build
-    - bash scripts/deploy-workers-with-message.sh dev
+    - npx wrangler deploy --env dev
     - ENVIRONMENT=dev node scripts/purge-cache.js
   environment:
     name: development
@@ -93,7 +83,7 @@ deploy-staging:
     - npm ci --cache .npm --prefer-offline
     # Build with staging env vars (set in GitLab CI/CD variables)
     - npm run build
-    - bash scripts/deploy-workers-with-message.sh staging
+    - npx wrangler deploy --env staging
     - ENVIRONMENT=staging node scripts/purge-cache.js
   environment:
     name: staging
@@ -118,7 +108,7 @@ deploy-production:
     - npm ci --cache .npm --prefer-offline
     # Build with production env vars (set in GitLab CI/CD variables)
     - npm run build:production
-    - bash scripts/deploy-workers-with-message.sh production
+    - npx wrangler deploy --env production
     - ENVIRONMENT=production node scripts/purge-cache.js
   environment:
     name: production
