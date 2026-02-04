@@ -25,18 +25,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI
-    ? [
-        ['html', { outputFolder: 'playwright-report', open: 'never' }],
-        ['list']
-      ]
-    : 'html',
+  reporter: 'list',
   use: {
     baseURL,
 
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    trace: 'off',
+    screenshot: 'off',
+    video: 'off',
     storageState: process.env.AUTH_STATE_PATH || undefined,
   },
 
