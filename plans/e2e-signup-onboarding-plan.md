@@ -61,7 +61,7 @@ Flow A matches “generic signup” (signup page then onboarding). Flow B matche
   2. **Frontend test bypass** – In e2e/test build only: e.g. `VITE_E2E_TURNSTILE_BYPASS=true` and on `/auth/signup` the app sets `isCaptchaVerified.set(true)` and enables the button without calling Turnstile. Requires a small, guarded code path in the signup page or layout.
   3. **Skip signup page in CI** – E2E starts at `/auth/onboarding` with a test-only route or query that sets `isCaptchaVerified` (e.g. `/auth/onboarding?e2e=1` and layout sets captcha verified when `e2e=1`). Avoids Turnstile entirely but diverges from real user path.
 
-**Decision (implemented):** We use **Option 2 – Frontend bypass**. When `VITE_E2E_TURNSTILE_BYPASS=true`, the signup page sets `isCaptchaVerified.set(true)` in `onMount` and skips loading/using the Turnstile widget. Playwright’s webServer sets this env when starting the dev server, so no backend change is required and the test path matches the real user path (signup page → Continue → onboarding).
+**Decision (implemented):** We use **Option 2 – Frontend bypass**. When `VITE_E2E_TURNSTILE_BYPASS=true`, the signup page sets `isCaptchaVerified.set(true)` in `onMount` and skips loading/using the Turnstile widget. The auth layout also allows onboarding when this env is set (so we don’t rely on store timing). Playwright’s webServer passes this env into the build, so no backend change is required and the test path matches the real user path (signup page → Continue → onboarding).
 
 ### 4.2 WebAuthn / passkey in CI
 
@@ -75,7 +75,7 @@ Flow A matches “generic signup” (signup page then onboarding). Flow B matche
 
 - **Requirement:** Registration and login call real APIs: `verifyTurnstileToken`, `checkUsernameAvailability`, `registerWithMasterKey`, `registerPasskeyDevice`, `loginWithPasskey` (and for nsec flow: `getLoginChallenge`, `loginWithNostr`). So a **live backend** is required for full signup e2e.
 - **Using dev backend:** We use **local app + remote API**: the app runs via Playwright’s webServer and is given `VITE_API_URL` (e.g. your Cloudflare dev API). Set `VITE_API_URL` in the CI job (GitLab variables) and when running locally so the frontend can call the dev backend.
-- **CORS / cookies:** The dev backend must allow the origin `http://localhost:3000` (and the port your dev server uses) so API/GraphQL requests from the app succeed.
+- **CORS / cookies:** The dev backend must allow the origin `http://localhost:4173` (preview server) so API/GraphQL requests from the app succeed.
 - **Availability:** If the dev backend is down or slow, e2e will fail. Consider a simple health check or retry, and document that signup e2e depends on dev backend.
 
 ### 4.4 Test user and isolation
@@ -86,9 +86,9 @@ Flow A matches “generic signup” (signup page then onboarding). Flow B matche
 
 ### 4.5 Flakiness and CI stability
 
-- **Network:** Calls to Cloudflare backend can be slow or transiently failing. Playwright’s `retries: 2` (already used in CI) helps; consider sensible `timeout` for navigation and API-driven steps.
-- **Turnstile / third-party scripts:** If Turnstile is not bypassed, its script load can be flaky in CI. Bypass or test key reduces this.
-- **WebAuthn timing:** Virtual authenticator should respond quickly; if the app has long timeouts or retries, ensure they don’t conflict with Playwright’s timeouts.
+- **Build + preview (adopted):** We run **`npm run build && npm run preview`** instead of `npm run dev`. This removes Vite cold start and hydration timing issues; the signup-onboarding test runs smoothly in CI without retries.
+- **Network:** Calls to Cloudflare backend can be slow or transiently failing. Playwright’s `retries: 2` in CI remains as a safety net.
+- **WebAuthn timing:** Virtual authenticator should respond quickly; if the app has long timeouts or retries, ensure they don’t conflict with Playwright’s timeouts when we add the passkey step.
 
 ### 4.6 Where tests live and what CI runs
 
@@ -152,7 +152,7 @@ This section tracks the **current checkpoint**: root → signup → Turnstile by
 
 ### 6.1 Turnstile bypass decision
 
-We use the **frontend bypass**: when `VITE_E2E_TURNSTILE_BYPASS=true`, the signup page sets `isCaptchaVerified.set(true)` in `onMount` and does not render or rely on the Turnstile widget. Playwright’s webServer sets this env when starting the dev server. No backend Turnstile test key or special API is required.
+We use the **frontend bypass**: when `VITE_E2E_TURNSTILE_BYPASS=true`, the signup page sets `isCaptchaVerified.set(true)` in `onMount` and does not render or rely on the Turnstile widget. The auth layout also allows access to `/auth/onboarding` when this env is set (so we don’t depend on store timing). Playwright’s webServer passes this env into the build. No backend Turnstile test key or special API is required.
 
 ### 6.2 Checklist
 
@@ -162,7 +162,7 @@ We use the **frontend bypass**: when `VITE_E2E_TURNSTILE_BYPASS=true`, the signu
 | 2 | **data-testid on root** | ✅ Done | `signup-link` (homepage hero CTA). |
 | 3 | **data-testid on signup** | ✅ Done | `signup-continue` (Continue button). |
 | 4 | **data-testid on onboarding** | ✅ Done | Username: `onboarding-step-username`, `onboarding-username-input`, `onboarding-username-next`. Passkey: `onboarding-step-passkey`, `passkey-setup-button`. |
-| 5 | **Playwright config** | ✅ Done | `baseURL: 'http://localhost:3000'`; webServer always runs, passes `VITE_E2E_TURNSTILE_BYPASS=true` and `...process.env` (so `VITE_API_URL` works in local and CI). |
+| 5 | **Playwright config** | ✅ Done | **Build + preview:** `webServer: 'npm run build && npm run preview'`, `baseURL: 'http://localhost:4173'`. Env passed into build so `VITE_E2E_TURNSTILE_BYPASS` and `VITE_API_URL` are baked in. |
 | 6 | **Signup-onboarding spec** | ✅ Done | Root → signup → bypass → onboarding username (fill unique name, click Next) → assert PasskeySetup step visible. |
 | 7 | **CI runs signup spec** | ✅ Done | Playwright job runs smoke + signup-onboarding. **CI must set `VITE_API_URL`** to dev backend so username availability check succeeds. |
 | 8 | **Run locally with dev API** | ✅ Supported | `VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/signup-onboarding.spec.ts --project=chromium`. |
@@ -195,7 +195,7 @@ Open the Playwright UI and run the signup test while watching the browser:
 npx playwright test tests/e2e/signup-onboarding.spec.ts --project=chromium --ui
 ```
 
-In the UI you can run a single test, step through, and see the browser. The dev server is still started automatically when you run the test from the UI.
+In the UI you can run a single test, step through, and see the browser. The webServer (build + preview) is started automatically when you run the test from the UI.
 
 **Headed mode (visible browser, no UI)**  
 Run with a visible browser window:
@@ -254,10 +254,10 @@ The report shows which tests ran, traces (when recorded), screenshots on failure
 
 ### Phase 4: CI integration — **Done for checkpoint**
 
-1. **Playwright config:** ✅ Always webServer, `baseURL: localhost:3000`; webServer passes `VITE_E2E_TURNSTILE_BYPASS` and `VITE_API_URL` (from env).
-2. **GitLab:** Optional: add `VITE_API_URL` in CI/CD variables to point the app at dev backend for future steps. Bypass is applied via webServer env, not a separate variable.
-3. **Job:** ✅ Playwright job runs `tests/e2e/smoke.spec.ts` and `tests/e2e/signup-onboarding.spec.ts`.
-4. **Docs:** This plan (§5) documents the checkpoint and how to run locally and in CI.
+1. **Playwright config:** ✅ Build + preview webServer, `baseURL: http://localhost:4173`; build receives `VITE_E2E_TURNSTILE_BYPASS` and `VITE_API_URL` from env.
+2. **GitLab:** Set `VITE_API_URL` in CI/CD variables so the built app calls the dev backend.
+3. **Job:** ✅ Playwright job runs `tests/e2e/smoke.spec.ts` and `tests/e2e/signup-onboarding.spec.ts`. Artifacts (test-results, playwright-report) saved on every run.
+4. **Docs:** This plan documents the checkpoint and how to run locally and in CI.
 
 ### Phase 5 (optional): Flow B and cleanup
 
@@ -268,33 +268,32 @@ The report shows which tests ran, traces (when recorded), screenshots on failure
 
 ## 8. Success Criteria
 
-- [x] **Turnstile:** Decision documented and implemented (frontend bypass with `VITE_E2E_TURNSTILE_BYPASS`).
+- [x] **Turnstile:** Decision documented and implemented (frontend bypass with `VITE_E2E_TURNSTILE_BYPASS`; auth layout also allows onboarding when env set).
+- [x] **Build + preview:** Playwright webServer uses `npm run build && npm run preview`; baseURL `http://localhost:4173`. Tests run stably in CI without retries.
 - [x] **Checkpoint:** One Playwright spec runs root → signup → bypass → username (fill + submit) → **PasskeySetup step** visible. Reaching it validates the dev backend (username availability check).
-- [ ] Full path: signup → onboarding (username + PasskeySetup complete) → dashboard; requires virtual authenticator and backend for `registerWithMasterKey` / `registerPasskeyDevice`.
+- [ ] **Full path (next):** signup → onboarding (username + PasskeySetup complete) → dashboard; requires virtual authenticator and backend for `registerWithMasterKey` / `registerPasskeyDevice`. See §11.
 - [ ] Virtual authenticator is used for both creating and asserting the passkey in the same run.
 - [x] Test runs **locally** with `VITE_API_URL` pointing at dev backend.
-- [x] Test runs in **CI**; CI must set `VITE_API_URL` so the signup-onboarding test can reach the passkey step.
-- [x] Caveats and “how to run” documented in this plan (§2 and §6).
+- [x] Test runs in **CI**; CI sets `VITE_API_URL`; artifacts (test-results, playwright-report) saved.
+- [x] Caveats, retrospective, and “how to run” documented in this plan.
 
 ---
 
-## 9. When to Consider Other Approaches
+## 9. Retrospective: Build + Preview
 
-The current setup (Playwright + local dev server + remote dev backend) can be flaky in CI due to **cold start** (Vite/SvelteKit first load), **hydration timing**, and the **first signup→onboarding transition**. If stabilizing this in CI keeps failing or costs too much, consider these alternatives.
+### What we tried first
 
-| Approach | What it is | Pros | Cons |
-|----------|------------|------|------|
-| **Build + preview instead of dev** | `webServer: { command: 'npm run build && npm run preview', ... }` | No Vite cold start; stable, production-like bundle; no hydration race from dev HMR. | Slower CI (build every run); no live reload for local debugging. |
-| **Smoke-only in CI; signup e2e local / optional** | CI runs only `smoke.spec.ts`. Signup-onboarding runs locally or in a separate job (e.g. nightly, or on release). | Fast, stable CI; full signup e2e still available for manual or scheduled runs. | Signup flow not guarded on every MR. |
-| **Start E2E after the signup gate** | Don’t test “root → signup → Continue” in CI. Start at `/auth/onboarding` with a test-only way to set `isCaptchaVerified` (e.g. query param or route that injects state). E2E then only automates username + passkey steps. | Removes the flaky cold signup→onboarding transition from CI; still validates backend (username check) and onboarding UI. | Slightly less “full journey”; requires a small test-only entry (documented and guarded). |
-| **Test deployed e2e environment** | Playwright runs against a **deployed** app (e.g. `https://e2e.bittasker.com`) and test backend, not localhost. | No local server at all; behavior matches deployed app; no cold start from `npm run dev`. | Requires maintaining a dedicated e2e env and deployment. |
-| **Cover signup with unit/integration instead** | Vitest: test auth layout redirect logic, UsernameSetup (mocked API), PasskeySetup logic with mocks. Rely on E2E only for smoke or login-with-existing-user. | Fast, deterministic CI; no browser or dev server. | No single E2E that runs the full signup journey in a real browser. |
+- **Dev server (`npm run dev`):** Playwright started the app with `npm run dev`. In CI the test was flaky: the first run often failed (timeout or “still on signup”) and the retry passed. Causes included Vite cold start, SvelteKit hydration timing, and the first signup→onboarding transition being slow. We tried longer timeouts, `waitForLoadState('networkidle')`, CI warm-up (dummy visit + dummy signup→onboarding), and waiting for the onboarding element instead of the URL. Flakiness persisted.
 
-**Recommendation:** If CI flakiness for signup-onboarding remains high after retries and warm-up:
+### Decision: Build + preview
 
-1. **Short term:** Run signup-onboarding only **on a schedule or on main** (not every MR), or **only locally**; keep smoke in CI for fast feedback.
-2. **Medium term:** Try **build + preview** for the Playwright webServer so there is no dev cold start.
-3. **Alternative scope:** Implement **“start at onboarding”** (test-only entry) so CI E2E skips the signup page and only tests onboarding steps against the dev backend.
+- We switched the webServer to **`npm run build && npm run preview`** and set `baseURL` to `http://localhost:4173`. The build receives `VITE_E2E_TURNSTILE_BYPASS` and `VITE_API_URL` from env so they are baked into the client.
+- **Outcome:** The signup-onboarding test now runs smoothly in CI without needing a retry. No warm-up or `networkidle` is required; the built app is stable from the first load.
+- **Trade-off:** CI is slower (full build each run). For BitTasker the stability gain was worth it. Local runs also use build + preview when executing the same Playwright config.
+
+### When to consider other approaches
+
+If in the future we need faster CI or different constraints, alternatives are still valid: smoke-only in CI with signup e2e on a schedule; “start at onboarding” test-only entry; or testing against a deployed e2e environment. See the testing-pipeline-improvement-plan for the overall E2E strategy.
 
 ---
 
@@ -306,9 +305,46 @@ The current setup (Playwright + local dev server + remote dev backend) can be fl
 | [testing-pipeline-improvement-plan.md](./testing-pipeline-improvement-plan.md) | CI test set, Playwright dir, E2E consolidation. |
 | [authentication-flow.md](../requirements/details/authentication-flow.md) | Auth flows (passkey, master key, nsec, recovery). |
 | [workers-ci-setup-walkthrough.md](./workers-ci-setup-walkthrough.md) | GitLab CI variables and environments. |
-| `playwright.config.ts` | Current testDir, webServer, projects. |
-| `.gitlab-ci.yml` | Validate stage, playwright job. |
-| `src/lib/tests/e2e/fixtures/auth.ts` | CDP virtual authenticator setup. |
+| `playwright.config.ts` | testDir, webServer (build + preview), baseURL 4173. |
+| `.gitlab-ci.yml` | Validate stage, playwright job, artifacts. |
+| `src/lib/tests/e2e/fixtures/auth.ts` | CDP virtual authenticator setup (for next phase). |
+
+---
+
+## 11. Next: Passkey Challenge
+
+The current checkpoint is **done**: the test reaches the “Set up passkey” step and validates that the dev backend is reachable (username availability check). The next phase is to **complete the passkey flow** so that the e2e creates a real account and reaches the dashboard.
+
+### 11.1 Goal
+
+- Extend the signup-onboarding spec (or add a follow-up spec) so that after the username step we:
+  1. **Attach the CDP virtual authenticator** to the browser context (same context for the whole run).
+  2. **Click “Set up passkey”** (`data-testid="passkey-setup-button"`).
+  3. Let the app call `navigator.credentials.create()`; the virtual authenticator receives the credential.
+  4. Wait for the backend calls (`registerWithMasterKey`, `registerPasskeyDevice`, `loginWithPasskey`) to complete and for the app to redirect to `/dashboard` (or next onboarding step).
+  5. **Assert** the user is on the dashboard (or a defined “account created” state).
+
+### 11.2 Prerequisites
+
+| Prerequisite | Status / Action |
+|--------------|------------------|
+| **Auth fixture** | Reuse or adapt `src/lib/tests/e2e/fixtures/auth.ts` so the signup-onboarding spec runs with the virtual authenticator **enabled before** the test (e.g. `test.extend` with the fixture, or call CDP `WebAuthn.enable` + `addVirtualAuthenticator` in a `beforeEach`). |
+| **Backend** | Dev backend must support `registerWithMasterKey`, `registerPasskeyDevice`, `loginWithPasskey`. Already required for the app; no change for e2e except to ensure `VITE_API_URL` is set. |
+| **Selectors** | PasskeySetup already has `data-testid="passkey-setup-button"`. Add any further `data-testid` for post-passkey steps (e.g. dashboard shell) if needed. |
+| **Chromium only** | Virtual authenticator is CDP-based; keep running this spec with `--project=chromium` in CI. |
+
+### 11.3 Technical notes (PasskeySetup)
+
+- **App flow:** PasskeySetup generates Nostr keypair, master key, then calls WebAuthn `credentials.create()`. The credential is sent to the backend with the username and device id. See [e2e-account-creation-challenge.md](../src/lib/tests/e2e/docs/e2e-account-creation-challenge.md) §1.2 and §2.2 for the exact sequence and fixture requirements.
+- **Device ID:** The app uses `getDeviceIdentifier()`; in Playwright the context has its own storage. Ensure the same context is used for the full run so device id is stable.
+- **Optional:** After reaching the dashboard, we can persist auth state (e.g. `storageState`) and add a separate “login with passkey” e2e that reuses that state to assert the same credential can be used for login.
+
+### 11.4 Suggested implementation order
+
+1. **Wire the auth fixture** into `tests/e2e/signup-onboarding.spec.ts` (or a new `signup-onboarding-full.spec.ts`) so the test runs with the virtual authenticator attached.
+2. **Click “Set up passkey”** and wait for navigation or a visible “success” / dashboard element (with a sensible timeout).
+3. **Debug locally** with `--headed` and `--trace=on` if the credential or backend calls fail.
+4. **CI:** Same job and env; no extra variables needed beyond `VITE_API_URL`.
 
 ---
 

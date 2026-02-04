@@ -2,6 +2,8 @@
 
 This document describes what we need to consider to implement a Playwright e2e test that creates a new user account starting from the root page of the BitTasker app. It does **not** implement the test; it documents the app’s real flow, how the existing e2e auth handling works, and the main challenges.
 
+**Current status (see [e2e-signup-onboarding-plan.md](../../../../../plans/e2e-signup-onboarding-plan.md)):** The signup-onboarding e2e runs in CI (build + preview) and reaches the **“Set up passkey”** step (root → signup → bypass → username → PasskeySetup visible). The **next phase** is to wire the CDP virtual authenticator and complete the passkey creation flow so the test reaches the dashboard (§11 of the plan; §2.2 below for WebAuthn details).
+
 ---
 
 ## 1. What the app actually expects to create a new user account

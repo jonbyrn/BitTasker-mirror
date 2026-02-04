@@ -74,7 +74,7 @@ Use these commands to run each directory independently and fix tests before movi
 | **Unit tests**    | `src/lib/tests/` (remainder)     | ~56   | Vitest    | Run per-directory only |
 | **Integration**   | `src/lib/tests/integration/`     | 8     | Vitest    | Not in CI              |
 | **Component**     | `src/lib/tests/components/`      | ~20   | Vitest    | Not in CI              |
-| **E2E (Playwright)** | `tests/e2e/`                  | 1     | Playwright| ✅ Smoke only          |
+| **E2E (Playwright)** | `tests/e2e/`                  | 2     | Playwright| ✅ Smoke + signup-onboarding (build+preview, stable in CI) |
 | **E2E (orphaned)**   | `src/lib/tests/e2e/`          | 8+    | Playwright| ⚠️ Not wired (wrong dir) |
 
 **Latest run (npm run test):**
@@ -305,11 +305,10 @@ Use Vitest [workspace/projects](https://vitest.dev/guide/workspace) or `include`
 
 3. **Integration tests:** Consider running them in a separate CI job (e.g. `validate:integration`) so they don’t block fast feedback. They can be slower and more flaky.
 
-4. **E2E consolidation:**
-   - Decide: Keep `tests/e2e/` as single Playwright root, or move `src/lib/tests/e2e/*` into `tests/e2e/`.
-   - Update `playwright.config.ts` if needed.
-   - Ensure smoke test stays; add more E2E gradually (e.g. auth, wallet flows).
-   - For **full signup/onboarding e2e** (including passkey creation and CI), see [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md).
+4. **E2E (current state):**
+   - **Consolidated** in `tests/e2e/`: smoke + signup-onboarding. Playwright config uses **build + preview** (no dev server) for stability in CI.
+   - Signup-onboarding reaches the “Set up passkey” step and validates dev backend. **Next:** add virtual authenticator and complete passkey flow to dashboard (see [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md) §11).
+   - Auth fixtures and other e2e specs remain in `src/lib/tests/e2e/` for reference; signup-onboarding lives in `tests/e2e/`.
 
 ---
 
@@ -411,7 +410,7 @@ We use a simpler approach: CI runs `npm run test:ci` which executes `vitest run 
 - [x] `npm run test:ci` for local and CI.
 - [x] `npm run test:unit:<dir>` for each directory.
 - [x] Triage script for pass/fail report.
-- [ ] Playwright smoke test continues to pass.
+- [x] Playwright smoke + signup-onboarding pass in CI (build + preview; see e2e-signup-onboarding-plan).
 - [ ] Expand `ci/` with more directories (formatters, crypto, etc.).
 - [ ] Fix `scripts/playwright.js` stale references.
 - [ ] New features have a documented expectation to add tests.
