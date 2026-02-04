@@ -322,10 +322,8 @@
 
 	<!-- Task details -->
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2 relative">
-		<!-- Share Button - Upper Right Corner -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="absolute top-0 right-0 z-10" onclick={(e) => e.stopPropagation()}>
+		<!-- Share Button - Upper Right Corner (wrapper is div; TaskShareButton handles interactivity) -->
+		<div class="absolute top-0 right-0 z-10">
 			<TaskShareButton {task} variant="circle" />
 		</div>
 		<div>

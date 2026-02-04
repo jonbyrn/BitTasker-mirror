@@ -94,7 +94,15 @@
         "show_more_details": "Mostrar más detalles",
         "show_less": "Mostrar menos",
         "no_task_description": "No hay descripción disponible",
-        "bid_id": "ID de Oferta"
+        "bid_id": "ID de Oferta",
+        "section_task": "Tarea",
+        "section_your_offer": "Tu oferta",
+        "section_received_offer": "Oferta recibida",
+        "task_original_budget": "Presupuesto original de la tarea",
+        "your_offer_amount": "Tu oferta",
+        "sent_at": "Enviado el",
+        "status_countered": "Contraoferta",
+        "status_withdrawn": "Retirada"
     },
     "bid_form": {
         "title": "Coloca tu oferta",
@@ -244,6 +252,7 @@
         "creating": "Creando...",
         "accept_and_pay": "Aceptar y Pagar",
         "bid_accepted_message": "¡Tu oferta ha sido aceptada!",
+        "task_status_update_error": "El contrato de pago y el estado de la oferta se actualizaron, pero no se pudo actualizar el estado de la tarea. Las ofertas pueden seguir apareciendo abiertas.",
         "day": "día",
         "days": "días",
         "hour": "hora",

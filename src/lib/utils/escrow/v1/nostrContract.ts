@@ -958,7 +958,7 @@ export async function handleStatusEvent(event: NostrEvent) {
 			};
 		});
 
-		// If blockchain-confirmed action, fetch fresh blockchain data (async, for other fields)
+	// If blockchain-confirmed action, fetch fresh blockchain data (async, for other fields)
 		if (transactionHash &&
 			[EscrowStatus.Completed, EscrowStatus.FundsReleased, EscrowStatus.InDispute,
 			EscrowStatus.DisputeResolved, EscrowStatus.Cancelled].includes(action)) {

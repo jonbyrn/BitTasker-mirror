@@ -17,7 +17,7 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
-	// Props - Simplified to just task and onClose
+	// Props - Simplified to just task, onClose, and stickySubmit
 	const { task, onClose, stickySubmit = true } = $props<{
 		task: Task;
 		onClose: () => void;
@@ -549,6 +549,12 @@
 				taskCreatorUsername: task.creator?.username,
 				taskCreatorAvatar: task.creator?.avatar,
 
+				// Original task budget — mismo origen que taskTitle/taskDescription: se guarda en la bid
+				// para mostrarlo en Ofertas enviadas (DashboardBidsPanel) sin cargar la tarea de nuevo
+				...(typeof task.budget?.amount === 'number' && {
+					taskBudget: { amount: task.budget.amount, currency: task.budget.currency ?? 'USD' }
+				}),
+
 				// Add logged-in user information
 				bidderId: $user.npub || $user.id?.toString() || '',
 				bidderName: $user.username || $user.name,
@@ -569,7 +575,7 @@
 			const customTags = TAG_PATTERNS.bid(bidData.bidId, task.id, task.npub, bidType);
 
 			// Submit a bid as an encrypted event to the task creator with custom tags
-			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
+		await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
 
 			// Send notification to task creator
 			pushNotificationService.sendNotificationToNpubs({
@@ -581,7 +587,7 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Clear bid cache for this specific task
+			// Clear bid cache for this specific task and current user
 			// This ensures fresh data on next load without clearing unrelated caches
 			clearBidCache(task.id);
 
