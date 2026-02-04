@@ -65,21 +65,23 @@ test.describe('Signup and onboarding to passkey step', () => {
 		if (takeScreenshots) await page.screenshot({ path: 'test-results/02-signup-page.png' });
 		const continueBtn = page.getByTestId('signup-continue');
 		await expect(continueBtn).toBeEnabled({ timeout: 10_000 });
-		e2eLog('Step 3: Continue button enabled; clicking then waiting for navigation to /auth/onboarding', stepLog);
-		// Click first, then wait for URL. With Promise.all([waitForURL, click()]), the click promise can reject
-		// when the page navigates (element detached) even though navigation succeeded — so the test fails
-		// while the replay shows the app working. So we click, then wait for the URL.
+		e2eLog('Step 3: Continue button enabled; clicking then waiting for onboarding content', stepLog);
+		// Click first, then wait for the onboarding page to be ready. We wait for the element we need
+		// (username step) instead of only the URL — in CI the URL can update before SvelteKit finishes
+		// rendering, and waiting for the content avoids flaky "right page but not ready" failures.
 		try {
 			await continueBtn.click();
-			await page.waitForURL(/\/auth\/onboarding/, { timeout: 45_000 });
+			await page.getByTestId('onboarding-step-username').waitFor({ state: 'visible', timeout: 45_000 });
 		} catch (e) {
-			e2eLog(`Step 4 FAILED: navigation did not complete. URL=${page.url()}`, stepLog);
+			e2eLog(`Step 4 FAILED: onboarding not ready. URL=${page.url()}`, stepLog);
 			await attachDiagnostics('signup-to-onboarding-failure');
 			throw e;
 		}
-		e2eLog(`Step 4: on onboarding URL=${page.url()}`, stepLog);
+		await expect(page).toHaveURL(/\/auth\/onboarding/);
+		e2eLog(`Step 4: on onboarding, username step visible. URL=${page.url()}`, stepLog);
 		const usernameStep = page.getByTestId('onboarding-step-username');
-		await expect(usernameStep).toBeVisible({ timeout: 10_000 });
+		// Already visible from waitFor above; keep for clarity and quick re-check
+		await expect(usernameStep).toBeVisible({ timeout: 5_000 });
 		const usernameInput = page.getByTestId('onboarding-username-input');
 		await usernameInput.fill(uniqueUsername);
 		if (takeScreenshots) await page.screenshot({ path: 'test-results/03-onboarding-username-filled.png' });
