@@ -6,6 +6,7 @@ This plan describes how BitTasker will improve its testing practices and integra
 - **Pipeline migration:** [workers-pipeline-migration-plan.md](./workers-pipeline-migration-plan.md) – GitLab CI/CD, deployment flow.
 - **CI setup:** [workers-ci-setup-walkthrough.md](./workers-ci-setup-walkthrough.md) – variables, branch strategy, troubleshooting.
 - **Testing overview:** [../.cursor/rules/testing/testing-overview.mdc](../.cursor/rules/testing/testing-overview.mdc) – testing strategy and patterns.
+- **E2E signup/onboarding:** [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md) – running full signup + onboarding e2e in CI (Turnstile, WebAuthn, dev backend).
 
 ---
 
@@ -308,6 +309,7 @@ Use Vitest [workspace/projects](https://vitest.dev/guide/workspace) or `include`
    - Decide: Keep `tests/e2e/` as single Playwright root, or move `src/lib/tests/e2e/*` into `tests/e2e/`.
    - Update `playwright.config.ts` if needed.
    - Ensure smoke test stays; add more E2E gradually (e.g. auth, wallet flows).
+   - For **full signup/onboarding e2e** (including passkey creation and CI), see [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md).
 
 ---
 

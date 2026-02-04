@@ -302,7 +302,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-passkey">
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
@@ -387,6 +387,7 @@
 				<button
 					type="button"
 					class="btn btn-primary"
+					data-testid="passkey-setup-button"
 					onclick={handlePasskeySetup}
 					disabled={isLoading}
 				>
