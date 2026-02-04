@@ -3,17 +3,20 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * E2E config: where the app runs and where it calls the API
  *
- * - baseURL: where the browser loads the frontend. We always use localhost because we start the app
- *   via webServer (npm run dev). The browser never opens a deployed URL in our current flow.
- * - webServer: starts the SvelteKit app so the browser can load it. We pass env into that process:
- *   - VITE_E2E_TURNSTILE_BYPASS=true so the signup page skips Turnstile in e2e.
- *   - VITE_API_URL: where the frontend sends API/GraphQL requests. Set this to your dev backend
- *     (e.g. Cloudflare dev) so the signup-onboarding test can call checkUsernameAvailability etc.
- *   So: we are not testing against a "local API" — we have no local backend. We run the frontend
- *   locally and point it at the remote dev API via VITE_API_URL (local and CI).
+ * We use build + preview (not dev) so the app is a stable, production-like bundle with no Vite
+ * cold start or hydration races. baseURL points at the preview server (port 4173).
+ *
+ * - webServer: runs "npm run build && npm run preview". Build receives VITE_E2E_TURNSTILE_BYPASS
+ *   and VITE_API_URL (and other process.env) so they are baked into the client. Preview serves
+ *   the built app on port 4173.
+ * - VITE_API_URL: set in env (local and CI) so the built app calls your dev backend for
+ *   checkUsernameAvailability etc.
  *
  * @see https://playwright.dev/docs/test-configuration
  */
+const PREVIEW_PORT = 4173;
+const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -27,7 +30,7 @@ export default defineConfig({
       ]
     : 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: PREVIEW_URL,
 
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
@@ -84,12 +87,12 @@ export default defineConfig({
     // },
   ],
 
-  /* Start the app so the browser can load it. Env is passed to the dev server so the app gets VITE_* and bypass. */
+  /* Build + preview: stable bundle, no dev cold start. Env is passed to build so VITE_* are baked in. */
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: true,
-    timeout: 120 * 1000,
+    command: 'npm run build && npm run preview',
+    url: PREVIEW_URL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 300 * 1000, // 5 min: build can be slow in CI
     env: {
       VITE_E2E_TURNSTILE_BYPASS: 'true',
       ...process.env,

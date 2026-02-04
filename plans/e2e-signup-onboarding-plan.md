@@ -29,14 +29,12 @@ We **do not** test against a local API. There is no local backend. The flow is:
 
 | What | Role |
 |------|------|
-| **Web server** | Playwright starts the **frontend** with `npm run dev` (webServer in config). The browser then loads the app from `http://localhost:3000` (baseURL). So the app always runs locally in e2e; we never open a deployed URL in the browser. |
-| **VITE_API_URL** | Env var passed into that dev server. The **frontend** (SvelteKit) uses it to know where to send API/GraphQL requests. So when the test triggers e.g. username availability check, the app calls your **remote** dev backend (e.g. Cloudflare). Set `VITE_API_URL` locally and in CI to the dev API base URL. |
-| **VITE_E2E_TURNSTILE_BYPASS** | Also passed into the dev server by Playwright’s webServer. The signup page reads it and skips Turnstile when `true`. |
-
-So: **one way to run** — start the app locally, point it at the dev backend with `VITE_API_URL`. No `E2E_BASE_URL`; we don’t “test the deployed site” in this setup. The only variable you need for the backend is **VITE_API_URL**.
+| **Web server** | Playwright runs **`npm run build && npm run preview`** (webServer in config). The build bakes in `VITE_E2E_TURNSTILE_BYPASS` and `VITE_API_URL`; preview serves the built app on **port 4173**. The browser loads from `http://localhost:4173` (baseURL). This avoids Vite dev cold start and hydration flakiness. |
+| **VITE_API_URL** | Set in env when the build runs (local and CI). The **frontend** bundle uses it for API/GraphQL requests (e.g. username availability). Set `VITE_API_URL` to your dev backend base URL. |
+| **VITE_E2E_TURNSTILE_BYPASS** | Passed as env into the build by Playwright’s webServer. The signup page skips Turnstile when `true`. |
 
 - **Local:** `VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/signup-onboarding.spec.ts --project=chromium`
-- **CI:** Set the **VITE_API_URL** CI/CD variable to the dev API base; the Playwright job runs the same (webServer starts the app with that env).
+- **CI:** Set **VITE_API_URL** in CI/CD variables; the Playwright job’s webServer runs build + preview with that env.
 
 ---
 
@@ -137,8 +135,8 @@ The [testing-pipeline-improvement-plan](./testing-pipeline-improvement-plan.md) 
 
 ### 5.4 CI job design
 
-- Playwright **always** starts the app via webServer (`npm run dev`). The browser loads the app from localhost.
-- CI sets **VITE_API_URL** (GitLab CI/CD variable) to the dev API base URL. The webServer passes it into the dev process, so the app calls the dev backend. No other URL variable is needed.
+- Playwright starts the app via webServer: **`npm run build && npm run preview`**. The browser loads the built app from `http://localhost:4173`. Build receives `VITE_E2E_TURNSTILE_BYPASS` and `VITE_API_URL` from webServer env so they are baked into the client.
+- CI sets **VITE_API_URL** (GitLab CI/CD variable) to the dev API base URL. No other URL variable is needed.
 
 ### 5.5 CI pipeline placement
 
@@ -280,7 +278,27 @@ The report shows which tests ran, traces (when recorded), screenshots on failure
 
 ---
 
-## 9. References
+## 9. When to Consider Other Approaches
+
+The current setup (Playwright + local dev server + remote dev backend) can be flaky in CI due to **cold start** (Vite/SvelteKit first load), **hydration timing**, and the **first signup→onboarding transition**. If stabilizing this in CI keeps failing or costs too much, consider these alternatives.
+
+| Approach | What it is | Pros | Cons |
+|----------|------------|------|------|
+| **Build + preview instead of dev** | `webServer: { command: 'npm run build && npm run preview', ... }` | No Vite cold start; stable, production-like bundle; no hydration race from dev HMR. | Slower CI (build every run); no live reload for local debugging. |
+| **Smoke-only in CI; signup e2e local / optional** | CI runs only `smoke.spec.ts`. Signup-onboarding runs locally or in a separate job (e.g. nightly, or on release). | Fast, stable CI; full signup e2e still available for manual or scheduled runs. | Signup flow not guarded on every MR. |
+| **Start E2E after the signup gate** | Don’t test “root → signup → Continue” in CI. Start at `/auth/onboarding` with a test-only way to set `isCaptchaVerified` (e.g. query param or route that injects state). E2E then only automates username + passkey steps. | Removes the flaky cold signup→onboarding transition from CI; still validates backend (username check) and onboarding UI. | Slightly less “full journey”; requires a small test-only entry (documented and guarded). |
+| **Test deployed e2e environment** | Playwright runs against a **deployed** app (e.g. `https://e2e.bittasker.com`) and test backend, not localhost. | No local server at all; behavior matches deployed app; no cold start from `npm run dev`. | Requires maintaining a dedicated e2e env and deployment. |
+| **Cover signup with unit/integration instead** | Vitest: test auth layout redirect logic, UsernameSetup (mocked API), PasskeySetup logic with mocks. Rely on E2E only for smoke or login-with-existing-user. | Fast, deterministic CI; no browser or dev server. | No single E2E that runs the full signup journey in a real browser. |
+
+**Recommendation:** If CI flakiness for signup-onboarding remains high after retries and warm-up:
+
+1. **Short term:** Run signup-onboarding only **on a schedule or on main** (not every MR), or **only locally**; keep smoke in CI for fast feedback.
+2. **Medium term:** Try **build + preview** for the Playwright webServer so there is no dev cold start.
+3. **Alternative scope:** Implement **“start at onboarding”** (test-only entry) so CI E2E skips the signup page and only tests onboarding steps against the dev backend.
+
+---
+
+## 10. References
 
 | Doc | Purpose |
 |-----|--------|
