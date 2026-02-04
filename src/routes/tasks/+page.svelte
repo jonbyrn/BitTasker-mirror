@@ -1111,7 +1111,8 @@
 	});
 </script>
 
-<main class="mx-auto min-h-0 max-w-6xl px-1 md:px-2 py-0 find-tasks-container find-tasks-page flex-1 w-full h-full" data-find-tasks-page="true">
+<!-- Mismas dimensiones que Mi Panel -->
+<main class="find-tasks-container find-tasks-page mx-auto flex-1 w-full h-full min-h-0 max-w-6xl px-2 py-6 md:px-0 md:py-0" data-find-tasks-page="true">
 	<div
 		id="panel-find-tasks"
 		role="tabpanel"

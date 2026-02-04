@@ -173,7 +173,7 @@
 	<div class="mb-6 flex items-center justify-between">
 		<div>
 			<h3 class="font-bold">{$t('dashboard.title')}</h3>
-			<p class="text-base-content/70 px-1">{$t('dashboard.description')}</p>
+			<p class="text-base-content/70">{$t('dashboard.description')}</p>
 		</div>
 		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
 			{#if activeTab.icon === 'search'}
