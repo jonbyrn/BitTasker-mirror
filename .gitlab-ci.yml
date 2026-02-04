@@ -78,6 +78,8 @@ playwright:
   script:
     - npm ci --cache .npm --prefer-offline
     - npx playwright test --project=chromium tests/e2e/smoke.spec.ts tests/e2e/signup-onboarding.spec.ts
+  environment:
+    name: development
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
