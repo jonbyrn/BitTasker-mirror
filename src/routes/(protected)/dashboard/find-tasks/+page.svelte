@@ -684,7 +684,8 @@ function getTaskIdentifier(task: Task): string {
 	</div>
 {/snippet}
 
-<div class="mx-auto h-full min-h-0 max-w-6xl overflow-hidden p-0 find-tasks-container find-tasks-page" data-find-tasks-page="true">
+<!-- Mismas dimensiones que Mi Panel -->
+<div class="find-tasks-container find-tasks-page mx-auto h-full min-h-0 max-w-6xl overflow-hidden px-2 py-6 md:px-0 md:py-0" data-find-tasks-page="true">
 	<div
 		id="panel-find-tasks"
 		role="tabpanel"

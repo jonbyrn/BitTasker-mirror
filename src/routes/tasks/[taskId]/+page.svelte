@@ -67,8 +67,8 @@
 <svelte:window bind:innerWidth={width} />
 
 {#if isLoggedIn}
-	<!-- Dashboard layout for logged-in users -->
-	<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
+	<!-- Mismas dimensiones que Mi Panel -->
+	<div class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4">
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<!-- Fixed Sidebar - Only on desktop -->
 			<div class="w-full shrink-0 md:w-64">
@@ -116,9 +116,11 @@
 			</div>
 		{/if}
 
-		<!-- Main Content with left margin for fixed sidebar -->
-		<div class="min-h-0 w-full flex-1">
-			<TaskDetailsView {taskId} />
+		<!-- Main Content - mismas dimensiones que Mi Panel -->
+		<div class="min-h-0 w-full flex-1 overflow-hidden">
+			<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+				<TaskDetailsView {taskId} />
+			</div>
 		</div>
 	</div>
 	<WarningPopup />

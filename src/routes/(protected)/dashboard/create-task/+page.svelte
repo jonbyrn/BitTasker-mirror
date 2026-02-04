@@ -389,7 +389,8 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl py-4 sm:p-0">
+<!-- Mismas dimensiones que Mi Panel: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
+<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">{$page.url.searchParams.get('edit') === 'true' ? $t('task.edit_title') : $t('task.create_title')}</h3>

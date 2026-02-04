@@ -129,13 +129,13 @@
 		expandedBids = new Set(expandedBids);
 	}
 
-	/** Status label and badge per status; reactive to locale via $t */
-	const StatusRender = $derived<Record<string, { label: string; badge: string }>>({
+	/** Status label and badge per status (constant) */
+	const StatusRender: Record<string, { label: string; badge: string }> = {
 		[BidStatusEnum.ACCEPTED]: { label: $t('bids.accepted'), badge: 'badge-success' },
 		[BidStatusEnum.REJECTED]: { label: $t('bids.rejected'), badge: 'badge-error' },
 		[BidStatusEnum.COUNTERED]: { label: $t('bids.status_countered'), badge: 'badge-info' },
 		[BidStatusEnum.WITHDRAWN]: { label: $t('bids.status_withdrawn'), badge: 'badge-neutral' }
-	});
+	};
 
 	/** Format sent-at timestamp (Unix seconds) for display */
 	function formatSentAt(createdAt: number): string {

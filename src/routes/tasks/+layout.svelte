@@ -33,7 +33,8 @@ const isTaskDetailsRoute = $derived(
 
 <svelte:window bind:innerWidth={width} />
 
-<div class="bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden px-1 md:px-2 md:py-4 tasks-layout">
+<!-- Mismas dimensiones que Mi Panel: px-2 md:py-4, gap-8, sidebar w-60 -->
+<div class="tasks-layout bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden px-2 md:py-4">
 	<div class="flex min-h-0 flex-1 flex-row gap-8 overflow-hidden">
 		{#if $user?.npub && $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200 && !isTaskDetailsRoute}
 			<!-- Fixed Sidebar - Only on desktop when logged in -->
