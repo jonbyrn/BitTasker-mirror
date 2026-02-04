@@ -178,11 +178,13 @@ The test **checkpoint** is: the user has completed signup (bypass) and the **use
 
 ### 6.4 How to run
 
-**Local with dev backend (required for current checkpoint):**
+**Local with dev backend (required for passkey test):**
 ```bash
 VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/signup-onboarding.spec.ts --project=chromium
 ```
-The username step calls `checkUsernameAvailability`; without a live backend the test will not reach the PasskeySetup step.
+The username and passkey steps need a live backend. Without `VITE_API_URL` the test will not reach the PasskeySetup step (or will show a clear error if passkey registration fails).
+
+**Local (faster: use dev server):** Set `E2E_USE_DEV_SERVER=1` to use `npm run dev` instead of build + preview (see `playwright.config.ts`).
 
 **CI:** The GitLab `playwright` job runs both smoke and signup-onboarding. Set a CI/CD variable **`VITE_API_URL`** to the dev API base URL so the signup-onboarding test can reach the passkey step. Without it, the username availability check will fail and the test will not pass.
 
@@ -271,8 +273,9 @@ The report shows which tests ran, traces (when recorded), screenshots on failure
 - [x] **Turnstile:** Decision documented and implemented (frontend bypass with `VITE_E2E_TURNSTILE_BYPASS`; auth layout also allows onboarding when env set).
 - [x] **Build + preview:** Playwright webServer uses `npm run build && npm run preview`; baseURL `http://localhost:4173`. Tests run stably in CI without retries.
 - [x] **Checkpoint:** One Playwright spec runs root → signup → bypass → username (fill + submit) → **PasskeySetup step** visible. Reaching it validates the dev backend (username availability check).
-- [ ] **Full path (next):** signup → onboarding (username + PasskeySetup complete) → dashboard; requires virtual authenticator and backend for `registerWithMasterKey` / `registerPasskeyDevice`. See §11.
-- [ ] Virtual authenticator is used for both creating and asserting the passkey in the same run.
+- [x] **Passkey creation:** signup → username → PasskeySetup (click “Set up passkey”) → Recovery step visible; virtual authenticator + backend used. See §11 and [e2e-passkey-onboarding-phase.md](./e2e-passkey-onboarding-phase.md).
+- [x] Virtual authenticator is used for creating the passkey in the same run (auth fixture).
+- [ ] **Full path (optional):** Complete onboarding (Recovery → Profile → Location → Complete) → dashboard; see e2e-passkey-onboarding-phase.md.
 - [x] Test runs **locally** with `VITE_API_URL` pointing at dev backend.
 - [x] Test runs in **CI**; CI sets `VITE_API_URL`; artifacts (test-results, playwright-report) saved.
 - [x] Caveats, retrospective, and “how to run” documented in this plan.
@@ -345,6 +348,15 @@ The current checkpoint is **done**: the test reaches the “Set up passkey” st
 2. **Click “Set up passkey”** and wait for navigation or a visible “success” / dashboard element (with a sensible timeout).
 3. **Debug locally** with `--headed` and `--trace=on` if the credential or backend calls fail.
 4. **CI:** Same job and env; no extra variables needed beyond `VITE_API_URL`.
+
+### 11.5 Status (passkey phase)
+
+**Implemented (2025-02-04):** See [e2e-passkey-onboarding-phase.md](./e2e-passkey-onboarding-phase.md).
+
+- Signup-onboarding spec now uses the auth fixture (`src/lib/tests/e2e/fixtures/auth.ts`) so the CDP virtual authenticator is attached before any page load.
+- Second test added: “from root: signup → username → create passkey → reach Recovery step”. It clicks “Set up passkey”, waits for the Recovery step (proving credential creation and backend registration + login succeeded).
+- `data-testid="onboarding-step-recovery"` added to RecoverySetup for stable assertion.
+- Run with `--project=chromium` (CI already does). Full flow to dashboard (complete onboarding) remains optional for a later phase.
 
 ---
 
