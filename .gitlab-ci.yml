@@ -63,10 +63,10 @@ stages:
 #     expire_in: 1 hour
 
 # ============================================
-# PLAYWRIGHT E2E - Smoke tests (validate stage)
+# PLAYWRIGHT E2E - Signup & onboarding (validate stage)
 # ============================================
-# Uses Playwright Docker image (Node 20 + browser deps). Starts app via webServer in playwright.config.
-# Run locally: npm run dev then npm run test:playwright run (or npx playwright test)
+# Uses Playwright Docker image. Starts app via webServer in playwright.config.
+# Requires VITE_API_URL in CI/CD Variables. Run locally: VITE_API_URL=... npx playwright test --project=chromium tests/e2e/signup-onboarding.spec.ts
 playwright:
   image: mcr.microsoft.com/playwright:v1.54.0-noble
   stage: validate
@@ -78,15 +78,6 @@ playwright:
   script:
     - npm ci --cache .npm --prefer-offline
     - npx playwright test --project=chromium tests/e2e/signup-onboarding.spec.ts
-  # Download from GitLab: Job → right-hand "Job artifacts" → "Download" (zip). Contains:
-  # - test-results/ : failure screenshots, videos, and custom attachments (step-log, console.txt)
-  # - playwright-report/ : HTML report (open index.html in a browser to inspect traces/screenshots)
-  artifacts:
-    when: always
-    paths:
-      - test-results/
-      - playwright-report/
-    expire_in: 7 days
   environment:
     name: development
   rules:

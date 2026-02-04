@@ -2,7 +2,7 @@
 
 This document describes what we need to consider to implement a Playwright e2e test that creates a new user account starting from the root page of the BitTasker app. It does **not** implement the test; it documents the app’s real flow, how the existing e2e auth handling works, and the main challenges.
 
-**Current status (see [e2e-signup-onboarding-plan.md](../../../../../plans/e2e-signup-onboarding-plan.md) and [e2e-passkey-onboarding-phase.md](../../../../../plans/e2e-passkey-onboarding-phase.md)):** The signup-onboarding e2e runs in CI (build + preview) and (1) reaches the **“Set up passkey”** step, and (2) **passkey creation** is implemented: a second test uses the auth fixture (CDP virtual authenticator), clicks “Set up passkey”, and asserts the **Recovery** step is visible (proving credential creation and backend registration + login). Optional next: complete remaining onboarding steps to dashboard.
+**Current status (see [e2e-signup-onboarding-plan.md](../../../../../plans/e2e-signup-onboarding-plan.md) ):** The signup-onboarding e2e runs in CI (build + preview) and (1) reaches the **“Set up passkey”** step, and (2) **passkey creation** is implemented: one test uses the auth fixture (CDP virtual authenticator), clicks “Set up passkey”, and asserts the **Recovery** step is visible (proving credential creation and backend registration + login). Optional next: complete remaining onboarding steps to dashboard.
 
 ---
 
@@ -107,7 +107,7 @@ So creating an account in e2e means: pass the signup gate (Turnstile + store), t
 
 ### 2.7 Where e2e tests live and what CI runs
 
-- **Smoke (CI):** `tests/e2e/smoke.spec.ts` – runs in GitLab (playwright job). Only checks homepage/app shell.
+- **Signup-onboarding (CI):** `tests/e2e/signup-onboarding.spec.ts` – runs in GitLab (playwright job). Root → signup → username → passkey creation → Recovery.
 - **Playwright config:** `testDir: './tests/e2e'` – so only `tests/e2e/` is run by default; `src/lib/tests/e2e/` is **not** run by current CI.
 - **Auth suite:** Auth fixtures and auth-flow specs live under `src/lib/tests/e2e/`. To run “create account” e2e in CI we must either:
   - Move or duplicate the test under `tests/e2e/` and point CI at it, or
@@ -119,7 +119,7 @@ So creating an account in e2e means: pass the signup gate (Turnstile + store), t
 
 ### 3.1 Auth fixtures (`src/lib/tests/e2e/fixtures/auth.ts`)
 
-- **Context override:** Uses CDP to enable WebAuthn and add a **virtual authenticator** (ctap2, resident key, user verification, automatic presence). This is for **using** a passkey (e.g. login), not necessarily for **creating** one in the same run.
+- **Page override:** Attaches CDP virtual authenticator to the **test page** (same page that runs the app). Overrides `page` fixture: gets default page, `newCDPSession(page)`, `WebAuthn.enable`, `WebAuthn.addVirtualAuthenticator`, yields same page. Supports both **creating** a passkey (PasskeySetup) and **using** it (login).
 - **authHelper:** Injects `AuthHelper` and `authenticatedPage`.
 - **authenticatedPage:** Calls `authHelper.ensureAuthenticated('virtual')` so that each test gets an already-logged-in page.
 
@@ -177,7 +177,7 @@ So creating an account in e2e means: pass the signup gate (Turnstile + store), t
 
 ## 4. Recommended next steps (planning only)
 
-1. ~~**Decide scope**~~ **Done:** E2E goes “root → signup → onboarding” with Turnstile bypass and virtual passkey; account creation (username + passkey) runs in one test; assertion is “Recovery step visible”. See [e2e-passkey-onboarding-phase.md](../../../../../plans/e2e-passkey-onboarding-phase.md).
+1. ~~**Decide scope**~~ **Done:** E2E goes “root → signup → onboarding” with Turnstile bypass and virtual passkey; account creation (username + passkey) runs in one test; assertion is “Recovery step visible”. See [e2e-signup-onboarding-plan.md](../../../../../plans/e2e-signup-onboarding-plan.md).
 
 2. ~~**Turnstile**~~ **Done:** Frontend bypass with `VITE_E2E_TURNSTILE_BYPASS` (see e2e-signup-onboarding-plan).
 
