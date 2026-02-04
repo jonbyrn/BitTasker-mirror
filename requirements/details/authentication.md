@@ -4,6 +4,8 @@
 
 BitTasker implements a modern, secure authentication system using a combination of Nostr keys, biometric authentication, and email verification. This document outlines the authentication flows, security measures, and technical implementation details.
 
+> **Deep dive:** For a detailed, code-level description of the **passkey + Nostr + master key + wallet mnemonic** flow (key derivation, what is stored where, and step-by-step workflows), see [authentication-flow.md](./authentication-flow.md).
+
 ## Authentication Methods
 
 BitTasker supports multiple authentication methods:
