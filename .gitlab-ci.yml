@@ -38,6 +38,28 @@ validate:
     expire_in: 1 hour
 
 # ============================================
+# PLAYWRIGHT E2E - Smoke tests (validate stage)
+# ============================================
+# Uses Playwright Docker image (Node 20 + browser deps). Starts app via webServer in playwright.config.
+# Run locally: npm run dev then npm run test:playwright run (or npx playwright test)
+playwright:
+  image: mcr.microsoft.com/playwright:v1.54.0-noble
+  stage: validate
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+      - .npm/
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npx playwright test --project=chromium tests/e2e/smoke.spec.ts
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
+    - if: $CI_COMMIT_BRANCH == "dev"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ============================================
 # DEPLOY DEVELOPMENT - test full pipeline path (worker.dev.bittasker.com)
 # ============================================
 # Runs on feat/workers-deployment so you can test validate + deploy without touching staging/production.

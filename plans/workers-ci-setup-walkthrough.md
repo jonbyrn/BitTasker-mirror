@@ -297,14 +297,37 @@ After that, `wrangler deploy --env dev` in CI will attach the Worker to that rou
 
 ---
 
+## Playwright E2E (smoke tests)
+
+A **playwright** job runs in the **validate** stage on MRs and on branches `feat/workers-deployment`, `dev`, and `main`. It uses the official Playwright Docker image (Node 20 + Chromium) and runs only the smoke suite:
+
+- **CI:** `npx playwright test --project=chromium tests/e2e/smoke.spec.ts`
+- The app is started automatically by Playwright’s `webServer` (`npm run dev` in `playwright.config.ts`).
+
+**Run locally (one-time setup):**
+
+```bash
+npx playwright install chromium   # install browser
+npm run dev                        # in one terminal
+npm run test:playwright run -- --project=chromium tests/e2e/smoke.spec.ts   # in another
+```
+
+Or let Playwright start the server: `npx playwright test tests/e2e/smoke.spec.ts --project=chromium` (no need to run `npm run dev` separately).
+
+To run Playwright on every branch (not only MRs and deploy branches), remove or relax the `rules` under the `playwright` job in `.gitlab-ci.yml`.
+
+---
+
 ## Files in this setup
 
 | File | Role |
 |------|------|
-| `.gitlab-ci.yml` | Defines stages: **validate**, **deploy**. Validate runs tests; each deploy job runs `npm run build` (or `build:production`) then `wrangler deploy` and purge. No separate build stage. |
+| `.gitlab-ci.yml` | Defines stages: **validate**, **deploy**. Validate runs unit test + optional **playwright** job (smoke E2E). Deploy jobs run `npm run build` (or `build:production`) then `wrangler deploy` and purge. No separate build stage. |
 | `package.json` | Includes `wrangler` and scripts `deploy:workers:dev`, `deploy:workers`, `deploy:workers:production` |
 | `scripts/purge-cache.js` | Runs after deploy in CI (when `CI=true` and zone/token set); skips locally |
 | `plans/workers-ci-setup-walkthrough.md` | This guide |
 | `plans/workers-pipeline-migration-plan.md` | Migration plan and environment rationale |
+| `tests/e2e/smoke.spec.ts` | Playwright smoke tests (homepage load, app shell). Run in CI via **playwright** job. |
+| `playwright.config.ts` | Playwright config; `webServer` starts `npm run dev` for local and CI. |
 
 No changes to `wrangler.toml` or `workers-site/` for the pipeline; they define Worker config and serving logic.
