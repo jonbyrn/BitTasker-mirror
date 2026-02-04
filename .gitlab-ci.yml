@@ -78,6 +78,15 @@ playwright:
   script:
     - npm ci --cache .npm --prefer-offline
     - npx playwright test --project=chromium tests/e2e/signup-onboarding.spec.ts
+  # Download from GitLab: Job → right-hand "Job artifacts" → "Download" (zip). Contains:
+  # - test-results/ : failure screenshots, videos, and custom attachments (step-log, console.txt)
+  # - playwright-report/ : HTML report (open index.html in a browser to inspect traces/screenshots)
+  artifacts:
+    when: always
+    paths:
+      - test-results/
+      - playwright-report/
+    expire_in: 7 days
   environment:
     name: development
   rules:
