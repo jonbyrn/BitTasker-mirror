@@ -231,3 +231,45 @@ export async function sendTaskCompletionMessageToTasker(
 	}
 }
 
+/**
+ * Send payment released message to taskee
+ * This is called when the tasker accepts the work and releases payment (so the taskee receives a DM)
+ */
+export async function sendPaymentReleasedMessageToTaskee(
+	recipientPubkey: string,
+	options?: {
+		taskId?: string;
+		taskTitle?: string;
+		escrowId?: string;
+		threadRootId?: string;
+	}
+): Promise<void> {
+	try {
+		const recipientPubkeyHex = recipientPubkey.startsWith('npub')
+			? (nip19.decode(recipientPubkey).data as string)
+			: recipientPubkey;
+
+		const _ = get(t);
+
+		let messageText = '';
+		if (options?.taskTitle) {
+			messageText += `💰 ${_('common.location.funds_released_message')}\n\n`;
+			messageText += `📋 ${options.taskTitle}\n\n`;
+			messageText += `${_('common.location.funds_released_taskee_message')}\n`;
+		} else {
+			messageText += `💰 ${_('common.location.funds_released_message')}\n\n`;
+			messageText += `${_('common.location.funds_released_taskee_message')}\n`;
+		}
+
+		const tags = TAG_PATTERNS.paymentReleased(
+			options?.taskId || '',
+			options?.escrowId
+		);
+
+		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, tags);
+	} catch (error) {
+		console.error('Error sending payment released message to taskee:', error);
+		throw error;
+	}
+}
+

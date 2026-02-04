@@ -144,7 +144,7 @@
 
 <!-- Drawer Overlay -->
 <div
-	class="fixed inset-0 z-[60] bg-black/50 transition-opacity duration-300 ease-in-out"
+	class="fixed inset-0 z-60 bg-black/50 transition-opacity duration-300 ease-in-out"
 	style={`bottom: ${effectiveBottomOffset};`}
 	class:opacity-0={!visualOpenState}
 	class:pointer-events-none={!visualOpenState || !props.isOpen}
@@ -159,7 +159,7 @@
 	bind:this={drawerPanelRef}
 	class="bg-base-100 fixed top-0 {position === 'left'
 		? 'left-0'
-		: 'right-0'} z-[70] {drawerWidthClass} 
+		: 'right-0'} z-70 {drawerWidthClass} 
 		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
 		transform shadow-xl transition-transform duration-300 ease-in-out"
 	class:translate-x-0={visualOpenState}
@@ -178,7 +178,7 @@
 				? 'bg-base-200'
 				: ''}"
 		>
-			<h4 id="drawer-title" class="text-xl font-bold">
+			<h4 id="drawer-title" class="min-w-0 wrap-break-word pr-2 text-xl font-bold line-clamp-2">
 				{#if props.title}
 					{props.title}
 				{/if}

@@ -107,7 +107,11 @@
     },
     "bid_form": {
         "title": "Place Your Bid",
+        "help_modal_title": "How to place a bid?",
+        "help_tooltip": "Set your price (fixed or hourly), dates, and describe how you'll do the task. This is your proposal to get the job. The tasker will review it and can accept, reject, or send a counteroffer. A clear description of your approach helps your bid stand out.",
+        "task_you_are_bidding_on": "Task you're bidding on",
         "form": {
+            "suggested_price": "Suggested price",
             "payment_type": "Payment Type",
             "fixed_price": "Fixed Price",
             "hourly_rate": "Hourly Rate",
