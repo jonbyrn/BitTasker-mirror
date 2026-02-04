@@ -11,25 +11,14 @@ function e2eLog(message: string, stepLog: string[]): void {
 /**
  * Signup & onboarding E2E: root → signup → Turnstile bypass → username → PasskeySetup step.
  *
- * Requires:
- * - Turnstile bypass: run with local webServer (Playwright config sets VITE_E2E_TURNSTILE_BYPASS=true).
- * - Dev backend: set VITE_API_URL to dev API so checkUsernameAvailability succeeds (e.g. VITE_API_URL=https://api.dev.bittasker.com).
- *
- * Checkpoint: we assert the user reaches the "Set up passkey" step. Getting there validates we can call the dev backend (username availability check).
- *
- * Why the first run often fails and the retry passes (flaky):
- * - First run = "cold": dev server and Vite are just up, first page load compiles and is slow; timeouts can hit.
- * - Retry = "warm": app is already compiled and in memory, so the same steps finish in ~9s like locally.
- * We add a CI warm-up so the first run has time to get ready and behaves like the retry.
+ * Uses build + preview (see playwright.config.ts); no dev cold start, so no CI warm-up needed.
+ * Requires: VITE_E2E_TURNSTILE_BYPASS and VITE_API_URL set at build time (webServer env).
  */
 test.describe('Signup and onboarding to passkey step', () => {
-	// CI can be slow: navigation after Continue click may take several seconds; allow time for full flow
 	test('from root: signup → bypass Turnstile → enter username → reach Set up passkey step', async ({
 		page
 	}) => {
-		// CI warm-up can use 60s for the cold signup→onboarding transition; real test ~30s
-		test.setTimeout(process.env.CI ? 180_000 : 90_000);
-		const isCI = !!process.env.CI;
+		test.setTimeout(90_000);
 		const takeScreenshots = process.env.E2E_SCREENSHOTS === '1';
 		const uniqueUsername = `e2e-${Date.now()}`;
 		const stepLog: string[] = [];
@@ -53,40 +42,22 @@ test.describe('Signup and onboarding to passkey step', () => {
 			});
 		};
 
-		// Wait for SvelteKit to be ready (hydration / network idle) to avoid premature interaction.
-		const gotoOptions = { waitUntil: 'networkidle' as const };
-
-		// CI warm-up: first run is "cold" (root + signup→onboarding path slow), retry is "warm".
-		// 1) Warm root. 2) Warm signup→onboarding (first transition often times out; do it here with long timeout).
-		if (isCI) {
-			e2eLog('CI warm-up: loading / once', stepLog);
-			await page.goto('/', gotoOptions);
-			await page.getByTestId('signup-link').waitFor({ state: 'visible', timeout: 30_000 });
-			e2eLog('CI warm-up: doing signup → onboarding once (cold path)', stepLog);
-			await page.getByTestId('signup-link').click();
-			await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
-			await page.waitForLoadState('networkidle');
-			const warmContinue = page.getByTestId('signup-continue');
-			await expect(warmContinue).toBeEnabled({ timeout: 10_000 });
-			await warmContinue.click();
-			await page.getByTestId('onboarding-step-username').waitFor({ state: 'visible', timeout: 60_000 });
-			e2eLog('CI warm-up: onboarding reached, going back to /', stepLog);
-			await page.goto('/', gotoOptions);
-		}
+		// Built app: waitUntil 'load' is enough; no HMR. Use networkidle only if needed for stability.
+		const gotoOptions = { waitUntil: 'load' as const };
 
 		// 1. Open root page
-		e2eLog(`Step 1: goto / (CI=${isCI})`, stepLog);
+		e2eLog(`Step 1: goto / (CI=${!!process.env.CI})`, stepLog);
 		await page.goto('/', gotoOptions);
 		await expect(page).toHaveURL(/\//);
 		const signupLink = page.getByTestId('signup-link');
-		await expect(signupLink).toBeVisible({ timeout: isCI ? 30_000 : 15_000 });
+		await expect(signupLink).toBeVisible({ timeout: 15_000 });
 		e2eLog(`Step 1 done: URL=${page.url()}`, stepLog);
 		if (takeScreenshots) await page.screenshot({ path: 'test-results/01-root.png' });
 
 		// 2. Click signup (hero CTA)
 		e2eLog('Step 2: click signup link', stepLog);
 		await signupLink.click();
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 
 		// 3. Signup page → Continue (bypass)
 		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
