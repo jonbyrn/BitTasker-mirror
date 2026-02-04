@@ -19,12 +19,14 @@ const cache = new Map<string, { data: Task[]; timestamp: number }>();
  * Convert a Nostr event to a Task
  */
 function convertEventToTask(event: Event): Task {
-    return {
-        ...JSON.parse(event.content),
-        id: event.id,
-        npub: event.pubkey,
-        createdAt: event.created_at
-    }
+	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+	const taskId = dTag || event.id;
+	return {
+		...JSON.parse(event.content),
+		id: taskId,
+		npub: event.pubkey,
+		createdAt: event.created_at
+	};
 }
 
 /**

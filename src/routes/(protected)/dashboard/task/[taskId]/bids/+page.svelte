@@ -100,33 +100,29 @@
 		try {
 			$bidStore.error = '';
 
-			// Check if id is an event ID (64 hex chars) or UUID (uniqueId)
+			// Event ID (64 hex) → find by id; otherwise id is d-tag (readable or legacy task-uuid)
 			const id = page.params.taskId;
-			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+			const isEventId = /^[0-9a-fA-F]{64}$/.test(id);
 
-			if (isUuid) {
-				// It's a uniqueId (UUID), query by d-tag
-				const dTagValue = `task-${id}`;
-				const filter = {
-					kinds: [KINDS.TASK_CREATION],
-					'#d': [dTagValue],
-					limit: 1
-				};
-
-				const response = await nostrEventsService.requestEvents({
-					filters: [filter]
-				});
-
-				if (response.data && response.data.length > 0) {
-					task = response.data[0];
-				}
-			} else {
+			if (isEventId) {
 				try {
 					const result = await nostrEventsService.findEventById(id);
 					task = result.data;
 				} catch {
 					$bidStore.error = $t('task.drawer.error.load');
 					return;
+				}
+			} else {
+				const filter = {
+					kinds: [KINDS.TASK_CREATION],
+					'#d': [id],
+					limit: 1
+				};
+				const response = await nostrEventsService.requestEvents({
+					filters: [filter]
+				});
+				if (response.data && response.data.length > 0) {
+					task = response.data[0];
 				}
 			}
 
@@ -142,9 +138,10 @@
 
 	async function loadBids() {
 		const taskId = page.params.taskId;
+		const legacyTaskId = task?.id ?? taskId;
 		await bidStore.loadBidsForTask(taskId);
 		// Subscribe to real-time updates
-		await bidStore.subscribeToUpdates(taskId);
+		await bidStore.subscribeToUpdates(taskId, legacyTaskId);
 	}
 
 	function toggleBidDetails(bidId: string) {
@@ -238,10 +235,9 @@
 		}
 	}
 
-	function retryLoadingData() {
-		loadTaskDetails();
-		loadBids();
-		fetchBtcPrice();
+	async function retryLoadingData() {
+		await loadTaskDetails();
+		await Promise.all([loadBids(), fetchBtcPrice()]);
 	}
 
 	onMount(async () => {
@@ -273,7 +269,8 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl px-2 py-4 md:px-0">
+<!-- Mismas dimensiones que Mi Panel -->
+<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<div class="mb-4 sm:mb-6">
 		<h3 class="text-xl font-bold sm:text-2xl">{$t('task.drawer.bids_received')}</h3>
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
@@ -299,7 +296,7 @@
 			</button>
 
 			<button
-				class="btn btn-ghost btn-sm gap-2"
+				class="btn btn-secondary btn-sm gap-2"
 				onclick={retryLoadingData}
 				disabled={$bidStore.isLoading}
 				aria-label={$t('dashboard.tasks.refresh')}
@@ -398,23 +395,9 @@
 			<p class="text-base-content/60 mt-2 mb-4">
 				{$bidStore.error}
 			</p>
-			<button class="btn btn-primary" onclick={retryLoadingData}>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-2 h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-					/>
-				</svg>
-				{$t('dashboard.bids.bid_acceptance.retry')}
-			</button>
+				<div class="text-base-content/60 text-sm">
+					{$t('dashboard.bids.bid_acceptance.retry')}
+				</div>
 		</div>
 	{:else if bids.length === 0}
 		<div class="py-12 text-center">
@@ -433,21 +416,7 @@
 				/>
 			</svg>
 			<h3 class="mt-4 text-xl font-semibold">{$t('task.drawer.no_bids')}</h3>
-			<button class="btn btn-primary" onclick={retryLoadingData}>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-2 h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-					/>
-				</svg>
+			<button class="btn btn-primary mt-4" onclick={retryLoadingData}>
 				{$t('dashboard.bids.bid_acceptance.retry')}
 			</button>
 		</div>

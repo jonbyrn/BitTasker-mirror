@@ -16,8 +16,9 @@
 	import { linear } from 'svelte/easing';
 	import { onMount, onDestroy } from 'svelte';
 	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
-	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { bidStore } from '$lib/stores/bid.store';
+import { updateTask } from '$lib/nostr/task';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconMessage from '~icons/mdi/message';
 	import { allAssets, totalBalances, formatSats } from '$lib/stores/wallet.store';
@@ -270,6 +271,14 @@
 				};
 
 				currentScreen = 'success';
+
+				// Update task status to BID_ACCEPTED so bidding is closed (Addressable Event: same kind/pubkey/d-tag, latest content)
+				try {
+					await updateTask(props.task.id, { status: TaskStatusEnum.BID_ACCEPTED });
+				} catch (taskUpdateError) {
+					console.error('Failed to update task status to BID_ACCEPTED:', taskUpdateError);
+					appStore.showErrorToast($t('dashboard.bids.bid_acceptance.task_status_update_error'));
+				}
 
 				// Note: Bid status update is automatically sent via escrowEvents.ts after contract creation
 

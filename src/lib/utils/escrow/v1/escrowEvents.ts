@@ -10,7 +10,6 @@ import { pushNotificationService } from '$lib/api/services/push-notification.ser
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { contractStore } from '$lib/stores/contract.store';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
-
 const _ = get(t);
 
 // Event types for escrow events
@@ -201,6 +200,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				appStore.showErrorToast('Escrow created successfully, but failed to update bid status. The bid status may need to be updated manually.');
 			}
 
+			// Note: Task status update to BID_ACCEPTED is done in BidAcceptanceForm.svelte to keep task logic out of escrow events
 			// Note: Success toast is shown in BidAcceptanceForm.svelte success screen
 			// No need to show duplicate toast here to avoid double notifications
 
