@@ -30,7 +30,7 @@ validate:
     - npm ci --cache .npm --prefer-offline
     #- npm run check
     #- npm run lint
-    - npx vitest run src/lib/tests/ci-placeholder.test.ts
+    - npm run test:ci
     #- npm run build
   artifacts:
     paths:
