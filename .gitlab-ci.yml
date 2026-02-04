@@ -38,10 +38,14 @@ validate:
     expire_in: 1 hour
 
 # ============================================
-# PLAYWRIGHT E2E - Smoke tests (validate stage)
+# PLAYWRIGHT E2E - Smoke + signup/onboarding (validate stage)
 # ============================================
-# Uses Playwright Docker image (Node 20 + browser deps). Starts app via webServer in playwright.config.
-# Run locally: npm run dev then npm run test:playwright run (or npx playwright test)
+# Uses Playwright Docker image. Starts app via webServer in playwright.config (npm run dev).
+# The webServer receives env from this job; VITE_* are baked into the client when the dev server starts.
+# - VITE_E2E_TURNSTILE_BYPASS is set in playwright.config.ts for the webServer.
+# - VITE_API_URL must be set in CI/CD Variables and available to this job (use scope "All" or set
+#   environment: development below so variables scoped to "development" are injected). Otherwise the
+#   app will request /auth/undefined/graph and the signup-onboarding test will fail (username check).
 playwright:
   image: mcr.microsoft.com/playwright:v1.54.0-noble
   stage: validate
@@ -53,6 +57,9 @@ playwright:
   script:
     - npm ci --cache .npm --prefer-offline
     - npx playwright test --project=chromium tests/e2e/smoke.spec.ts tests/e2e/signup-onboarding.spec.ts
+  # Use development environment so CI/CD variables scoped to "development" (e.g. VITE_API_URL) are available to this job
+  environment:
+    name: development
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
