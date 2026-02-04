@@ -65,13 +65,13 @@ test.describe('Signup and onboarding to passkey step', () => {
 		if (takeScreenshots) await page.screenshot({ path: 'test-results/02-signup-page.png' });
 		const continueBtn = page.getByTestId('signup-continue');
 		await expect(continueBtn).toBeEnabled({ timeout: 10_000 });
-		e2eLog('Step 3: Continue button enabled; clicking and waiting for navigation to /auth/onboarding', stepLog);
-		// Wait for navigation triggered by the click. CI can be much slower than local; use a long timeout.
+		e2eLog('Step 3: Continue button enabled; clicking then waiting for navigation to /auth/onboarding', stepLog);
+		// Click first, then wait for URL. With Promise.all([waitForURL, click()]), the click promise can reject
+		// when the page navigates (element detached) even though navigation succeeded — so the test fails
+		// while the replay shows the app working. So we click, then wait for the URL.
 		try {
-			await Promise.all([
-				page.waitForURL(/\/auth\/onboarding/, { timeout: 45_000 }),
-				continueBtn.click()
-			]);
+			await continueBtn.click();
+			await page.waitForURL(/\/auth\/onboarding/, { timeout: 45_000 });
 		} catch (e) {
 			e2eLog(`Step 4 FAILED: navigation did not complete. URL=${page.url()}`, stepLog);
 			await attachDiagnostics('signup-to-onboarding-failure');
