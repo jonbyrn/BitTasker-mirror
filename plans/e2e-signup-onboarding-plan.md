@@ -6,14 +6,16 @@ Single source of truth for the signup-onboarding e2e test: flow, setup, and next
 
 ## 1. Current Checkpoint (Done)
 
-**Test:** `tests/e2e/signup-onboarding.spec.ts` — one test: root → signup → Turnstile bypass → username → **passkey creation** → Recovery step visible.
+**Test:** `tests/e2e/signup-onboarding.spec.ts` — one test: root → signup → Turnstile bypass → username → **passkey creation** → Recovery (skip) → Profile (fill) → Location (default) → Complete (continue without) → **Dashboard**.
+
+See [e2e-full-onboarding-phase.md](./e2e-full-onboarding-phase.md) for full-onboarding scope and checklist.
 
 | What | Status |
 |------|--------|
 | Turnstile bypass | `VITE_E2E_TURNSTILE_BYPASS=true`; signup page sets `isCaptchaVerified` in `onMount`. |
 | Auth fixture | `src/lib/tests/e2e/fixtures/auth.ts` attaches CDP virtual authenticator to the **test page** (same page as app; fixture overrides `page`, not `context`). |
 | Passkey creation | Click “Set up passkey”; virtual authenticator receives `credentials.create()`; backend `registerWithMasterKey`, `registerPasskeyDevice`, `loginWithPasskey`; assert Recovery step. |
-| data-testid | `signup-link`, `signup-continue`, `onboarding-step-username`, `onboarding-username-input`, `onboarding-username-next`, `onboarding-step-passkey`, `passkey-setup-button`, `onboarding-step-recovery`, `passkey-setup-error`. |
+| data-testid | `signup-link`, `signup-continue`, `onboarding-step-username`, `onboarding-username-input`, `onboarding-username-next`, `onboarding-step-passkey`, `passkey-setup-button`, `onboarding-step-recovery`, `passkey-setup-error`, `onboarding-recovery-next`, `onboarding-step-profile`, `onboarding-display-name`, `onboarding-professional-title`, `onboarding-profile-description`, `onboarding-skills`, `onboarding-profile-next`, `onboarding-step-location`, `onboarding-location-next`, `onboarding-step-complete`, `onboarding-continue-without-completing`. |
 | CI | Playwright job runs signup-onboarding with `--project=chromium`. No artifacts (trace/screenshot/video/report disabled to save pipeline time). |
 | Backend | `VITE_API_URL` required (CI/CD variable and local). |
 
@@ -46,7 +48,7 @@ VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/sign
 
 | # | Task | Notes |
 |---|------|-------|
-| 1 | Full onboarding → dashboard | Skip recovery, minimal profile/location, complete → assert `/dashboard`. |
+| 1 | Full onboarding → dashboard | ✅ Done. See [e2e-full-onboarding-phase.md](./e2e-full-onboarding-phase.md). |
 | 2 | Login-with-passkey e2e | Reuse credential created during signup; persist auth state and add separate “login with passkey” test. |
 | 3 | Test user cleanup | Define policy for dev backend (no cleanup vs cleanup endpoint). |
 

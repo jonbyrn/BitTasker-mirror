@@ -1,5 +1,7 @@
 /**
- * Signup & onboarding E2E: root → signup → Turnstile bypass → username → passkey creation → Recovery.
+ * Signup & onboarding E2E: root → signup → Turnstile bypass → username → passkey creation
+ * → Recovery (skip) → Profile (fill) → Location (default) → Complete (continue without)
+ * → Dashboard.
  *
  * Uses build + preview (see playwright.config.ts). Requires VITE_E2E_TURNSTILE_BYPASS and VITE_API_URL.
  * Auth fixture (CDP virtual authenticator) attaches to the test page. Run with --project=chromium.
@@ -13,10 +15,16 @@ function e2eLog(message: string, stepLog: string[]): void {
 	console.log(line);
 }
 
+/** 100+ chars for profile description minimum requirement */
+const E2E_PROFILE_DESCRIPTION =
+	'E2E test user profile. Experienced in various professional domains including software development, testing, and automation. Ready to take on tasks and deliver quality work.';
+
 test.describe('Signup and onboarding', () => {
-	test('from root: signup → username → create passkey → reach Recovery step', async ({ page }) => {
-		test.setTimeout(120_000);
-		const uniqueUsername = `e2e-${Date.now()}`;
+	test('from root: signup → full onboarding → dashboard', async ({ page }) => {
+		test.setTimeout(180_000);
+		const ts = Date.now();
+		const uniqueUsername = `e2e-${ts}`;
+		const displayName = `e2e-user-${ts}`;
 		const stepLog: string[] = [];
 		const consoleMessages: string[] = [];
 		page.on('console', (msg) => {
@@ -89,5 +97,36 @@ test.describe('Signup and onboarding', () => {
 		}
 		e2eLog('Step 6: Recovery step visible (passkey created, backend registration succeeded)', stepLog);
 		await expect(page).toHaveURL(/\/auth\/onboarding/);
+
+		// 7: Skip recovery; click Next
+		await page.getByTestId('onboarding-recovery-next').click();
+		await page.getByTestId('onboarding-step-profile').waitFor({ state: 'visible', timeout: 15_000 });
+		e2eLog('Step 7: Profile step visible', stepLog);
+
+		// 8: Fill profile (display name, professional title, description 100+ chars, 2 skills; no picture)
+		await page.getByTestId('onboarding-display-name').fill(displayName);
+		await page.getByTestId('onboarding-professional-title').fill('E2E Test Professional');
+		await page.getByTestId('onboarding-profile-description').fill(E2E_PROFILE_DESCRIPTION);
+
+		// Add 2 skills via multiselect (type + Enter)
+		const skillsInput = page.getByTestId('onboarding-skills').getByRole('combobox');
+		await skillsInput.fill('JavaScript');
+		await skillsInput.press('Enter');
+		await skillsInput.fill('Testing');
+		await skillsInput.press('Enter');
+
+		await page.getByTestId('onboarding-profile-next').click();
+		await page.getByTestId('onboarding-step-location').waitFor({ state: 'visible', timeout: 30_000 });
+		e2eLog('Step 8: Profile submitted; Location step visible', stepLog);
+
+		// 9: Location step – use default; click Next
+		await page.getByTestId('onboarding-location-next').click();
+		await page.getByTestId('onboarding-step-complete').waitFor({ state: 'visible', timeout: 30_000 });
+		e2eLog('Step 9: Complete step visible', stepLog);
+
+		// 10: Continue without completing (missing picture etc.) → dashboard
+		await page.getByTestId('onboarding-continue-without-completing').click();
+		await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+		e2eLog('Step 10: Navigated to dashboard', stepLog);
 	});
 });

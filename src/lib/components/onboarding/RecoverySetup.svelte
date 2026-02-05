@@ -636,7 +636,7 @@
 				<button type="button" class="btn btn-outline" onclick={prevStep}
 					>{$t('onboarding_auth.form.recovery_setup.back')}</button
 				>
-				<button type="submit" class="btn btn-primary"
+				<button type="submit" class="btn btn-primary" data-testid="onboarding-recovery-next"
 					>{$t('onboarding_auth.form.recovery_setup.next')}</button
 				>
 			</div>
