@@ -219,7 +219,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl p-6">
+<div class="card bg-base-100 w-full shadow-xl p-6" data-testid="onboarding-step-location">
 	<div class="card-body relative">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
@@ -387,6 +387,7 @@
 		<button
 			type="button"
 			class="btn btn-primary"
+			data-testid="onboarding-location-next"
 			onclick={handleSubmit}
 			disabled={isLoading}
 		>

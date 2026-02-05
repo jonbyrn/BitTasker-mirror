@@ -46,6 +46,7 @@ cert
 
 .houdini
 
+npm-debug.log
 bun.lock
 
 # Android Keystore (NEVER commit these!)

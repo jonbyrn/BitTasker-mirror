@@ -105,7 +105,7 @@
 	});
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl p-6">
+<div class="card bg-base-100 w-full shadow-xl p-6" data-testid="onboarding-step-complete">
 	<div class="card-body">
 		{#if isLoading}
 			<div class="flex min-h-96 flex-col items-center justify-center space-y-4 text-center">
@@ -168,6 +168,7 @@
 					</button>
 					<button
 					class="btn btn-secondary w-full"
+					data-testid="onboarding-continue-without-completing"
 					onclick={() => {
 						isContinueLoading = true;
 						goto('/dashboard').finally(() => {
