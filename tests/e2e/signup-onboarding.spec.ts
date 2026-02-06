@@ -1,12 +1,18 @@
 /**
- * Signup & onboarding E2E: root → signup → Turnstile bypass → username → passkey creation
- * → Recovery (skip) → Profile (fill) → Location (default) → Complete (continue without)
- * → Dashboard.
+ * Signup, onboarding & login E2E: two tests sharing the same browser context.
  *
- * Uses build + preview (see playwright.config.ts). Requires VITE_E2E_TURNSTILE_BYPASS and VITE_API_URL.
- * Auth fixture (CDP virtual authenticator) attaches to the test page. Run with --project=chromium.
+ * Test 1: Root → signup → Turnstile bypass → username → passkey creation
+ *   → Recovery (skip) → Profile (fill) → Location (default) → Complete (continue without)
+ *   → Dashboard.
+ *
+ * Test 2: Root (fresh UI) → Login button → passkey login → Dashboard.
+ *
+ * Uses worker-scoped sharedAuthContext so the passkey from Test 1 is available in Test 2.
+ * Requires VITE_E2E_TURNSTILE_BYPASS and VITE_API_URL.
+ *
+ * Run (recommended, dev server): E2E_USE_DEV_SERVER=1 VITE_API_URL=... npx playwright test ... --project=chromium
  */
-import { test, expect } from '../../src/lib/tests/e2e/fixtures/auth';
+import { test, expect } from '../../src/lib/tests/e2e/fixtures/signup-login-auth';
 
 function e2eLog(message: string, stepLog: string[]): void {
 	const line = `[E2E] ${message}`;
@@ -19,7 +25,7 @@ function e2eLog(message: string, stepLog: string[]): void {
 const E2E_PROFILE_DESCRIPTION =
 	'E2E test user profile. Experienced in various professional domains including software development, testing, and automation. Ready to take on tasks and deliver quality work.';
 
-test.describe('Signup and onboarding', () => {
+test.describe.serial('Signup, onboarding and login', () => {
 	test('from root: signup → full onboarding → dashboard', async ({ page }) => {
 		test.setTimeout(180_000);
 		const ts = Date.now();
@@ -128,5 +134,35 @@ test.describe('Signup and onboarding', () => {
 		await page.getByTestId('onboarding-continue-without-completing').click();
 		await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 		e2eLog('Step 10: Navigated to dashboard', stepLog);
+	});
+
+	test('from root: Login → passkey → dashboard', async ({ page }) => {
+		test.setTimeout(60_000);
+		const stepLog: string[] = [];
+		const gotoOptions = { waitUntil: 'load' as const };
+
+		// 1: Load app, clear auth state (simulate fresh user / logout)
+		e2eLog('Step 1: Goto /, clear auth state', stepLog);
+		await page.goto('/', gotoOptions);
+		await page.evaluate(() => {
+			const prefix = 'CapacitorStorage.';
+			['access_token', 'npub', 'auth_method'].forEach((k) =>
+				localStorage.removeItem(prefix + k)
+			);
+		});
+
+		// 2: Root page (logged out) → click Login (not Signup)
+		e2eLog('Step 2: Reload; on root; clicking Login', stepLog);
+		await page.goto('/', gotoOptions);
+		await expect(page).toHaveURL(/\//);
+		await page.getByTestId('login-link').click();
+		await page.waitForLoadState('domcontentloaded');
+		await expect(page).toHaveURL(/\/auth\/login/, { timeout: 10_000 });
+
+		// 3: Click passkey login (uses credential from Test 1)
+		e2eLog('Step 3: Clicking Continue with passkey', stepLog);
+		await page.getByTestId('login-continue-passkey').click();
+		await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+		e2eLog('Step 4: Logged in; navigated to dashboard', stepLog);
 	});
 });
