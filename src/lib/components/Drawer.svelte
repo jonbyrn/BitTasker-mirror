@@ -174,15 +174,15 @@
 	{#if props.isOpen}
 		<!-- Header -->
 		<div
-			class="sticky top-0 z-10 flex items-center justify-between p-4 {props.title
+			class="sticky top-0 z-10 flex items-center justify-between p-2 {props.title
 				? 'bg-base-200'
 				: ''}"
 		>
-			<h4 id="drawer-title" class="min-w-0 wrap-break-word pr-2 text-xl font-bold line-clamp-2">
+			<h5 id="drawer-title" class="min-w-0 wrap-break-word pr-2 text-xl font-bold line-clamp-2">
 				{#if props.title}
 					{props.title}
 				{/if}
-			</h4>
+			</h5>
 			<button
 				class="btn btn-ghost btn-circle"
 				onclick={props.onClose}

@@ -276,8 +276,7 @@ import {
 			if (taskeeNpub) {
 				sendPaymentReleasedMessageToTaskee(taskeeNpub, {
 					taskId: contractStore.getContractKey(contract, 'taskId') as string,
-					taskTitle: taskTitle || undefined,
-					escrowId: contract.escrowData?.id
+					taskTitle: taskTitle || undefined
 				}).catch((messageError: unknown) => {
 					console.error('Failed to send payment released message to taskee:', messageError);
 				});

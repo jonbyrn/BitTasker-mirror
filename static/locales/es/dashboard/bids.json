@@ -107,7 +107,7 @@
     "bid_form": {
         "title": "Coloca tu oferta",
         "help_modal_title": "¿Cómo hacer una oferta?",
-        "help_tooltip": "Indica tu precio (fijo o por hora), fechas y cómo harás la tarea. Es tu propuesta para quedarte con el trabajo. El tasker la revisará y puede aceptarla, rechazarla o enviar una contraoferta. Una descripción clara de tu enfoque ayuda a que destaque tu oferta.",
+        "help_tooltip": "Indica tu precio, fechas y cómo harás la tarea. Es tu propuesta para quedarte con el trabajo. El tasker la revisará y puede aceptarla, rechazarla o enviar una contraoferta",
         "task_you_are_bidding_on": "Tarea sobre la que ofertas",
         "form": {
             "suggested_price": "Precio sugerido",
@@ -115,6 +115,7 @@
             "fixed_price": "Precio Fijo",
             "hourly_rate": "Tarifa por Hora",
             "budget": "Presupuesto",
+            "budget_unavailable": "No disponible",
             "hourly_rate_label": "Tarifa por Hora",
             "estimated_hours": "Horas Estimadas",
             "total_estimated": "Monto Total Estimado",
@@ -135,15 +136,16 @@
                 "placeholder": "Selecciona fecha y hora"
             },
             "description": {
-                "label": "Descripción de la Oferta",
+                "label": "Descripción de tu oferta",
                 "placeholder": "Explica por qué eres la persona adecuada para esta tarea"
             },
+            "additional_info_title": "Información adicional (opcional)",
             "approach": {
-                "label": "Tu Enfoque (Opcional)",
+                "label": "Tu Enfoque",
                 "placeholder": "Describe cómo planeas completar esta tarea"
             },
             "cover_letter": {
-                "label": "Carta de Presentación (Opcional)",
+                "label": "Carta de Presentación",
                 "placeholder": "Añade información adicional sobre tu experiencia y cualificaciones"
             },
             "airdatepicker": {

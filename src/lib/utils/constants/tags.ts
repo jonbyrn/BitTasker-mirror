@@ -194,18 +194,11 @@ export const TAG_PATTERNS = {
 	/**
 	 * Payment released message tags (tasker notifies taskee that work was accepted and funds released)
 	 * @param taskId - Task ID reference
-	 * @param escrowId - Optional escrow ID reference
 	 */
-	paymentReleased: (taskId: string, escrowId?: string): string[][] => {
-		const tags: string[][] = [
-			[TAGS.M, 'payment-released'], // Message type
-			[TAGS.T, taskId] // Task reference
-		];
-		if (escrowId) {
-			tags.push([TAGS.R, escrowId]); // Escrow reference
-		}
-		return tags;
-	}
+	paymentReleased: (taskId: string): string[][] => [
+		[TAGS.M, 'payment-released'], // Message type
+		[TAGS.T, taskId] // Task reference
+	]
 } as const;
 
 /**

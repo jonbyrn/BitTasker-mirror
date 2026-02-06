@@ -240,7 +240,6 @@ export async function sendPaymentReleasedMessageToTaskee(
 	options?: {
 		taskId?: string;
 		taskTitle?: string;
-		escrowId?: string;
 		threadRootId?: string;
 	}
 ): Promise<void> {
@@ -261,10 +260,7 @@ export async function sendPaymentReleasedMessageToTaskee(
 			messageText += `${_('common.location.funds_released_taskee_message')}\n`;
 		}
 
-		const tags = TAG_PATTERNS.paymentReleased(
-			options?.taskId || '',
-			options?.escrowId
-		);
+		const tags = TAG_PATTERNS.paymentReleased(options?.taskId || '');
 
 		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, tags);
 	} catch (error) {
