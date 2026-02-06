@@ -478,6 +478,7 @@
 						<div class="flex flex-col gap-2">
 							<button
 								class="btn btn-primary"
+								data-testid="login-continue-passkey"
 								onclick={() => authenticate('passkey')}
 								disabled={isLoading}
 							>
