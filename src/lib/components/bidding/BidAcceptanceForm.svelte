@@ -4,7 +4,7 @@
 	import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
 	import { escrow, type ValidationWarning } from '$lib/utils/escrow';
-	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDateTime, formatDate } from '$lib/utils/helpers/dateFormatter';
 	import { goto } from '$app/navigation';
 	import { walletStore, walletManager, getProvider } from '$lib/stores/wallet.store';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
@@ -21,9 +21,15 @@ import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import { updateTask } from '$lib/nostr/task';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconMessage from '~icons/mdi/message';
+	import IconCalendarClock from '~icons/mdi/calendar-clock';
+	import IconTimerOutline from '~icons/mdi/timer-outline';
 	import { allAssets, totalBalances, formatSats } from '$lib/stores/wallet.store';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import SecurePaymentContractModal from '$lib/components/bidding/SecurePaymentContractModal.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 
 	// Props
 	const props = $props<{
@@ -57,6 +63,9 @@ import { updateTask } from '$lib/nostr/task';
 
 	// Message modal state
 	let showMessageModal = $state(false);
+
+	// Fund Contract confirmation modal state
+	let showFundConfirmationModal = $state(false);
 
 	// Ensure wallet, bids and dashboard translations are loaded
 	if (browser && $locale) {
@@ -112,12 +121,12 @@ import { updateTask } from '$lib/nostr/task';
 
 		try {
 			const translated = $t(warning.key, { values: warning.params || {} });
-			// If translation returns the key itself (not found), use fallback
-			if (translated === warning.key || translated.startsWith('dashboard.bids')) {
+			// If translation returns the key itself (not found), or is undefined, use fallback
+			if (translated == null || translated === warning.key || String(translated).startsWith('dashboard.bids')) {
 				// Fallback to English text with parameters
 				return `The estimated start time was ${warning.params?.timeText || 'in the past'}. You may need to contact the Taskee to arrange a new start time.`;
 			}
-			return translated;
+			return String(translated);
 		} catch (e) {
 			// Fallback on error
 			return `The estimated start time was ${warning.params?.timeText || 'in the past'}. You may need to contact the Taskee to arrange a new start time.`;
@@ -377,6 +386,25 @@ import { updateTask } from '$lib/nostr/task';
 
 	function getTotalWithGasFee(): number {
 		return bidEscrowDetails ? parseFloat(bidEscrowDetails.totalAmount) * props.btcPrice : 0;
+	}
+
+	/** Open Fund Contract confirmation modal (called when user clicks Accept). */
+	function openFundConfirmationModal() {
+		showFundConfirmationModal = true;
+	}
+
+	/** Called when user clicks Fund in the confirmation modal. Re-checks balance, then closes and submits or shows error. */
+	async function handleFundClick() {
+		triggerHaptic(ImpactStyle.Light);
+		const recheckErrors = bidEscrowDetails
+			? escrow.bidOps.validateSufficientBalance(bidEscrowDetails)
+			: [];
+		if (recheckErrors.length > 0) {
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.insufficient_balance'));
+			return;
+		}
+		showFundConfirmationModal = false;
+		await handleSubmit();
 	}
 </script>
 
@@ -1096,7 +1124,7 @@ import { updateTask } from '$lib/nostr/task';
 						validationErrors.length > 0 ||
 						balanceErrors.length > 0 ||
 						!$walletStore.rsk.connected}
-					onclick={handleSubmit}
+					onclick={openFundConfirmationModal}
 				>
 					{#if isSubmitting}
 						<span class="loading loading-spinner loading-sm"></span>
@@ -1119,7 +1147,7 @@ import { updateTask } from '$lib/nostr/task';
 								d="M5 13l4 4L19 7"
 							/>
 						</svg>
-						{$t('dashboard.bids.bid_acceptance.accept_and_pay')}
+						{$t('dashboard.bids.bid_acceptance.accept')}
 					{/if}
 				</button>
 			</div>
@@ -1137,6 +1165,109 @@ import { updateTask } from '$lib/nostr/task';
 			showMessageModal = false;
 		}}
 	/>
+{/if}
+
+<!-- Fund Contract confirmation modal -->
+{#if showFundConfirmationModal}
+	<div class="modal modal-open z-120">
+		<div class="modal-box max-w-md p-4">
+			<h3 class="text-lg font-bold">{$t('dashboard.bids.bid_acceptance.fund_contract_title')}</h3>
+			<div class="space-y-8 py-3">
+				<!-- Taskee + Total payment in same row: UserInfoDisplay left, Total (label over price) right -->
+				<div class="flex min-w-0 items-center justify-between gap-3">
+					<div class="min-w-0 flex-1">
+						<UserInfoDisplay
+							avatar={bidContent.bidderAvatar}
+							username={bidContent.bidderName}
+							rating={bidContent.bidderRating ?? 0}
+							size="sm"
+							pubkey={bidContent.bidderId ?? null}
+							memberSince={props.bid?.created_at ?? null}
+							anonymousLabel={$t('dashboard.bids.bid_acceptance.anonymous')}
+						/>
+					</div>
+					{#if true}
+						{@const totalUsd = getTotalWithGasFee()}
+						<div class="shrink-0 text-right">
+							<div class="text-xs font-medium opacity-70">
+								{$t('dashboard.bids.bid_acceptance.total_payment')}
+							</div>
+							<div class="text-lg font-bold">
+								{Number.isFinite(totalUsd) ? `$${formatNumberWithTwoDecimals(totalUsd)}` : '—'}
+							</div>
+							<div class="text-base-content/60 text-sm">
+								{props.btcPrice > 0 && Number.isFinite(totalUsd)
+									? satsFromUsd(totalUsd, props.btcPrice)
+									: ''}
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Start + Duration (one row: date left, duration right; short month) -->
+				{#if adjustedTimes}
+					<div class="flex min-w-0 items-center justify-between gap-3 text-sm">
+						<span class="flex min-w-0 items-center gap-1">
+							<IconCalendarClock class="h-6 w-6 shrink-0 text-primary" />
+							<span class="truncate">
+								{formatDate(new Date(adjustedTimes.startTime * 1000))}
+							</span>
+						</span>
+						<span class="flex shrink-0 items-center gap-1">
+							<IconTimerOutline class="h-6 w-6 shrink-0 text-primary" />
+							<span>
+								{formatDuration(adjustedTimes.startTime * 1000, adjustedTimes.completionTime * 1000)}
+							</span>
+						</span>
+					</div>
+				{/if}
+
+				<!-- Insufficient balance message (same key as toast) -->
+				{#if balanceErrors.length > 0}
+					<p class="text-error text-sm">
+						{$t('dashboard.bids.bid_acceptance.insufficient_balance')}
+					</p>
+				{/if}
+
+				<!-- Warning -->
+				<div class="alert alert-outline alert-warning mt-2 py-2">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+						/>
+					</svg>
+					<span class="text-xs">{$t('dashboard.bids.bid_acceptance.fund_confirm_warning')}</span>
+				</div>
+			</div>
+			<div class="modal-action">
+				<button type="button" class="btn btn-ghost" onclick={() => (showFundConfirmationModal = false)}>
+					{$t('common.cancel')}
+				</button>
+				<button
+					type="button"
+					class="btn btn-primary"
+					onclick={handleFundClick}
+					disabled={isSubmitting}
+				>
+					{$t('dashboard.bids.bid_acceptance.fund')}
+				</button>
+			</div>
+		</div>
+		<button
+			type="button"
+			class="modal-backdrop"
+			onclick={() => (showFundConfirmationModal = false)}
+			aria-label="Close modal"
+		></button>
+	</div>
 {/if}
 
 {#if currentScreen === 'success' && escrowDetails}
