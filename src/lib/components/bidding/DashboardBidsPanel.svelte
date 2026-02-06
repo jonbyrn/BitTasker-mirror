@@ -328,7 +328,7 @@
 									{/if}
 								</div>
 							</div>
-							<!-- Fila fecha y dirección (misma estructura que Find Tasks, sin precio a la derecha) -->
+							<!-- Row for date and address (same structure as Find Tasks, without price on the right) -->
 							<div class="mb-3 flex flex-col gap-3">
 								<TaskDeadlineDisplay
 									dateRangeStart={bid.startDateTime}
