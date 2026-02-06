@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * E2E config: where the app runs and where it calls the API
  *
  * - CI: build + preview (port 4173) for a stable bundle and no cold start.
- * - Local with E2E_USE_DEV_SERVER=1: npm run dev (port 5173) for faster iteration.
+ * - Local with E2E_USE_DEV_SERVER=1: npm run dev (port 3000) for faster iteration.
  *
  * Build/dev receive VITE_E2E_TURNSTILE_BYPASS and VITE_API_URL from env. Set VITE_API_URL
  * to your dev backend so signup/onboarding (username check, passkey registration) can reach the API.

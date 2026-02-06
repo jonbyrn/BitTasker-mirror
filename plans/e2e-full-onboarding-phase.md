@@ -4,7 +4,7 @@ Tracks extension of the signup-onboarding e2e test from Recovery step through **
 
 **Parent:** [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md)
 
-**Current checkpoint:** Test reaches Recovery step (passkey creation done). This phase extends it to dashboard and login.
+**Current checkpoint:** Test reaches Recovery step (passkey creation done). This phase extends it to dashboard and login. Credential reuse: see [e2e-passkey-credential-reuse.md](./e2e-passkey-credential-reuse.md).
 
 ---
 
