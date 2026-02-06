@@ -23,7 +23,7 @@
 	let isCollapsed = $state({
 		personalInfo: false,
 		// location: false,
-		skills: true,
+		skills: false, // Expanded so "Add certification" is visible when user has skills
 		portfolio: true,
 		videoIntro: true,
 		availability: true,
@@ -43,6 +43,12 @@
 	let isSaving = $state(false);
 	let saveError = $state('');
 
+	// Registry of save handlers from section components (each returns Promise<void>)
+	const saveHandlers: Record<string, () => Promise<void>> = {};
+	function registerSave(section: string, saveFn: () => Promise<void>) {
+		saveHandlers[section] = saveFn;
+	}
+
 	// Section completion handlers
 	function handleSectionComplete(section: keyof typeof completedSections, completed: boolean, fromSave?: boolean) {
 		completedSections[section] = completed;
@@ -59,39 +65,18 @@
 			100
 	);
 
-	// Save all and exit function
+	// Save all and exit: run each section's save and wait for all to complete before navigating
 	async function saveAllAndExit() {
 		isSaving = true;
 		saveError = '';
 
 		try {
-			// Trigger save for all components by dispatching submit events
-			const components = [
-				personalInfoComponent,
-				skillsComponent,
-				portfolioComponent,
-				videoIntroComponent,
-				availabilityComponent,
-				standardServicesComponent
-			];
+			const fns = Object.values(saveHandlers).filter(Boolean);
+			if (fns.length > 0) {
+				await Promise.all(fns.map((fn) => fn()));
+			}
 
-			// Find all forms in the components and submit them
-			const forms = document.querySelectorAll('form');
-			const submitPromises = Array.from(forms).map(form => {
-				return new Promise<void>((resolve) => {
-					const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-					form.dispatchEvent(submitEvent);
-					// Give a small delay to allow the form submission to process
-					setTimeout(resolve, 100);
-				});
-			});
-
-			await Promise.all(submitPromises);
-
-			// Wait a bit more for all saves to complete
-			await new Promise(resolve => setTimeout(resolve, 1000));
-
-			// Navigate back to profile view
+			// Navigate back to profile view after all saves completed
 			goto('/dashboard/profile');
 		} catch (error) {
 			console.error('Error saving profile:', error);
@@ -200,6 +185,7 @@
 					<PersonalInfo
 						bind:this={personalInfoComponent}
 						onComplete={(completed, fromSave) => handleSectionComplete('personalInfo', completed, fromSave)}
+						onRegisterSave={(fn) => registerSave('personalInfo', fn)}
 					/>
 				</div>
 			</div>
@@ -210,9 +196,10 @@
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.skills'), 'skills')}
 				<div class="overflow-hidden" style:height={isCollapsed.skills ? '0' : 'auto'}>
-					<Skills 
+					<Skills
 						bind:this={skillsComponent}
 						onComplete={(completed, fromSave) => handleSectionComplete('skills', completed, fromSave)}
+						onRegisterSave={(fn) => registerSave('skills', fn)}
 					/>
 				</div>
 			</div>
@@ -223,9 +210,10 @@
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.portfolio'), 'portfolio')}
 				<div class="overflow-hidden" style:height={isCollapsed.portfolio ? '0' : 'auto'}>
-					<Portfolio 
+					<Portfolio
 						bind:this={portfolioComponent}
 						onComplete={(completed, fromSave) => handleSectionComplete('portfolio', completed, fromSave)}
+						onRegisterSave={(fn) => registerSave('portfolio', fn)}
 					/>
 				</div>
 			</div>
@@ -252,6 +240,7 @@
 					<Availability
 						bind:this={availabilityComponent}
 						onComplete={(completed, fromSave) => handleSectionComplete('availability', completed, fromSave)}
+						onRegisterSave={(fn) => registerSave('availability', fn)}
 					/>
 				</div>
 			</div>
@@ -265,6 +254,7 @@
 					<StandardServices
 						bind:this={standardServicesComponent}
 						onComplete={(completed, fromSave) => handleSectionComplete('standardServices', completed, fromSave)}
+						onRegisterSave={(fn) => registerSave('standardServices', fn)}
 					/>
 				</div>
 			</div>

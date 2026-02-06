@@ -1,8 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { profileStore } from '$lib/stores/profile.store';
 	import { t, locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
+	import { ensureAbsoluteVerificationUrl } from '$lib/utils/helpers/verificationUrl';
+
+	function goToEditProfile() {
+		goto('/dashboard/profile/edit');
+	}
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
@@ -281,13 +287,30 @@
 										>({yearsFrom(cert.date)} {$t('profile.years')})</span
 									> -->
 								</p>
+								{#if cert.verificationUrl}
+									<a
+										href={ensureAbsoluteVerificationUrl(cert.verificationUrl)}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="link link-primary link-hover text-sm"
+									>
+										{$t('profile.skills.verify_certification')}
+									</a>
+								{/if}
 							</div>
 						</div>
 					{/each}
 				</div>
 			{:else}
-				<div class="alert alert-outline rounded-xl">
+				<div class="alert alert-outline rounded-xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<span>{$t('profile.noCertifications')}</span>
+					<button
+						type="button"
+						class="btn btn-primary btn-sm"
+						onclick={goToEditProfile}
+					>
+						{$t('common.add_certifications')}
+					</button>
 				</div>
 			{/if}
 		</div>
@@ -407,6 +430,48 @@
 			{:else}
 				<div class="alert alert-outline rounded-xl">
 					<span>{$t('profile.noPortfolio')}</span>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Standard Services Section -->
+		<div class="mb-8">
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.page.sections.services')}</h3>
+			{#if $profileStore.data.standardServices?.services && $profileStore.data.standardServices.services.length > 0}
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+					{#each $profileStore.data.standardServices.services as service}
+						<div class="card bg-base-200 rounded-xl">
+							<div class="card-body p-4">
+								<h4 class="card-title text-base">{service.name}</h4>
+								{#if service.description}
+									<p class="text-base-content/70 text-sm line-clamp-3">{service.description}</p>
+								{/if}
+								<div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+									<span class="badge badge-outline">
+										{service.duration} {$t('profile.services.minutes')}
+									</span>
+									<span class="font-medium">
+										{service.currency === 'Sats'
+											? `${service.price} sats`
+											: new Intl.NumberFormat(undefined, {
+													style: 'currency',
+													currency: service.currency || 'USD'
+												}).format(service.price)}
+									</span>
+									{#if service.isCustomizable}
+										<span class="badge badge-ghost badge-sm">{$t('profile.services.customizable')}</span>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+				{#if $profileStore.data.standardServices.customQuoteAvailable}
+					<p class="text-base-content/70 mt-2 text-sm">{$t('profile.services.custom_quote')}</p>
+				{/if}
+			{:else}
+				<div class="alert alert-outline rounded-xl">
+					<span>{$t('profile.services.no_services')}</span>
 				</div>
 			{/if}
 		</div>

@@ -37,7 +37,8 @@ const initialState: ProfileState = {
             maxBookingsPerDay: 5,
             breakBetweenBookings: 60
         },
-        reviews: []
+        reviews: [],
+        standardServices: { services: [], customQuoteAvailable: false }
     },
     stats: {
         tasksCompleted: 0,
@@ -65,7 +66,8 @@ function createProfileStore() {
                 cleanup = await subscribeToProfileUpdates(
                     (event: NostrEvent) => {
                         update(state => {
-                            if (!state.data) return state;
+                            // Use existing data or default structure so first events from relay populate the store
+                            const currentData = state.data ?? { ...initialState.data! };
 
                             try {
                                 const content = JSON.parse(event.content);
@@ -76,7 +78,7 @@ function createProfileStore() {
                                         return {
                                             ...state,
                                             data: {
-                                                ...state.data,
+                                                ...currentData,
                                                 name: content.display_name || content.name || '',
                                                 about: content.about,
                                                 website: content.website,
@@ -89,7 +91,7 @@ function createProfileStore() {
                                         return {
                                             ...state,
                                             data: {
-                                                ...state.data,
+                                                ...currentData,
                                                 pictures: content.map((img: NostrProfileImage) => ({
                                                     url: img.url,
                                                     type: img.type || 'image/jpeg',
@@ -103,7 +105,7 @@ function createProfileStore() {
                                         return {
                                             ...state,
                                             data: {
-                                                ...state.data,
+                                                ...currentData,
                                                 skills: content.map((skill: NostrSkill & { translations?: any; id?: string }) => ({
                                                     name: skill.name,
                                                     level: skill.level,
@@ -119,9 +121,9 @@ function createProfileStore() {
                                         return {
                                             ...state,
                                             data: {
-                                                ...state.data,
+                                                ...currentData,
                                                 portfolio: [
-                                                    ...(state.data.portfolio || []),
+                                                    ...(currentData.portfolio || []),
                                                     {
                                                         id: event.id,
                                                         title: content.title,
@@ -139,7 +141,7 @@ function createProfileStore() {
                                         return {
                                             ...state,
                                             data: {
-                                                ...state.data,
+                                                ...currentData,
                                                 availability: {
                                                     timeSlots: content.timeSlots || [],
                                                     timezone: content.timezone || '',
@@ -149,11 +151,22 @@ function createProfileStore() {
                                                 }
                                             }
                                         };
+                                    case KINDS.PROFILE_STANDARD_SERVICES: // Standard Services (30003)
+                                        return {
+                                            ...state,
+                                            data: {
+                                                ...currentData,
+                                                standardServices: {
+                                                    services: content.services || [],
+                                                    customQuoteAvailable: !!content.customQuoteAvailable
+                                                }
+                                            }
+                                        };
                                     case KINDS.PROFILE_REVIEWS: // Reviews
                                         return {
                                             ...state,
                                             data: {
-                                                ...state.data,
+                                                ...currentData,
                                                 reviews: content.map((review: NostrReview) => ({
                                                     id: review.id,
                                                     from: review.from,
@@ -167,15 +180,16 @@ function createProfileStore() {
                                         return {
                                             ...state,
                                             data: {
-                                                ...state.data,
+                                                ...currentData,
                                                 certifications: [
-                                                    ...(state.data.certifications || []),
+                                                    ...(currentData.certifications || []),
                                                     {
                                                         name: content.name,
                                                         issuer: content.issuer,
                                                         date: content.date,
                                                         verified: content.verified,
-                                                        fileUrl: content.fileUrl
+                                                        fileUrl: content.fileUrl,
+                                                        ...(content.verificationUrl && { verificationUrl: content.verificationUrl })
                                                     }
                                                 ]
                                             }
@@ -197,15 +211,12 @@ function createProfileStore() {
                         30001: null, // Kind 30001 for portfolio
                         30004: { d: 'reviews' }, // Kind 30004 for reviews
                         30002: { d: 'availability' }, // Kind 30002 for availability
+                        30003: { d: 'standard-services' } // Kind 30003 for standard services
                     }
                 );
 
-                // Update store with initial state
-                set({
-                    ...initialState,
-                    isLoading: false,
-                    error: null
-                });
+                // Only clear loading/error; do not overwrite state - subscription callback populates data
+                update(s => ({ ...s, isLoading: false, error: null }));
             } catch (error) {
                 console.error('Failed to initialize profile store:', error);
                 set({

@@ -750,6 +750,7 @@ export async function uploadCertification(
 		issuer: string;
 		date: string;
 		file: File;
+		verificationUrl?: string;
 	},
 	relays = RELAYS
 ): Promise<string> {
@@ -775,7 +776,8 @@ export async function uploadCertification(
 				issuer: certification.issuer,
 				date: certification.date,
 				fileUrl: uploadResult.url,
-				verified: false
+				verified: false,
+				...(certification.verificationUrl?.trim() && { verificationUrl: certification.verificationUrl.trim() })
 			})
 		};
 

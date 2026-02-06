@@ -9,8 +9,9 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete } = $props<{
+	let { onComplete, onRegisterSave } = $props<{
 		onComplete: (completed: boolean, fromSave?: boolean) => void;
+		onRegisterSave?: (saveFn: () => Promise<void>) => void;
 	}>();
 
 	// Local state
@@ -55,6 +56,10 @@
 	];
 
 	let cleanup: (() => void) | null = null;
+
+	onMount(() => {
+		onRegisterSave?.(() => handleSubmit());
+	});
 
 	onMount(async () => {
 		// Fetch BTC price on mount
@@ -147,7 +152,7 @@
 			await publishStandardServices(servicesData, tags);
 
 			// Notify completion change from save (triggers toast in parent)
-			const isComplete = services.length > 0;
+			const isComplete = updatedServices.length > 0;
 			onComplete(isComplete, true);
 
 			// Show success message

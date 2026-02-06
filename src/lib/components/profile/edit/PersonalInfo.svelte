@@ -36,8 +36,9 @@
 		return originalText;
 	}
 
-	let { onComplete } = $props<{ 
+	let { onComplete, onRegisterSave } = $props<{
 		onComplete: (completed: boolean, fromSave?: boolean) => void;
+		onRegisterSave?: (saveFn: () => Promise<void>) => void;
 	}>();
 
 	// Local state
@@ -65,6 +66,15 @@
 
 	// Combined files for display
 	let allFiles = $derived([...pictures, ...pendingFiles]);
+
+	// Register save handler for "Save all and exit"
+	onMount(() => {
+		onRegisterSave?.(() => {
+			const e = new Event('submit', { bubbles: true, cancelable: true });
+			e.preventDefault = () => {};
+			return handleSubmit(e as SubmitEvent);
+		});
+	});
 
 	// Subscribe to profile updates
 	onMount(async () => {

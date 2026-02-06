@@ -6,8 +6,9 @@
 	import Input from '$lib/components/Input.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete } = $props<{ 
+	let { onComplete, onRegisterSave } = $props<{
 		onComplete: (completed: boolean, fromSave?: boolean) => void;
+		onRegisterSave?: (saveFn: () => Promise<void>) => void;
 	}>();
 
 	// Local state
@@ -40,6 +41,10 @@
 
 	// Available timezones
 	const timezones = Intl.supportedValuesOf('timeZone');
+
+	onMount(() => {
+		onRegisterSave?.(() => handleSubmit());
+	});
 
 	// Subscribe to availability updates
 	onMount(async () => {

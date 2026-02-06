@@ -12,6 +12,7 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { ensureAbsoluteVerificationUrl } from '$lib/utils/helpers/verificationUrl';
 
 	// Helper function to get translated skill name
 	function getTranslatedSkillName(skill: Skill): string {
@@ -39,8 +40,9 @@
 	}
 
 
-	let { onComplete } = $props<{ 
+	let { onComplete, onRegisterSave } = $props<{
 		onComplete: (completed: boolean, fromSave?: boolean) => void;
+		onRegisterSave?: (saveFn: () => Promise<void>) => void;
 	}>();
 
 	// Local state
@@ -59,11 +61,18 @@
 		issuer: string;
 		date: string;
 		file: File | null;
+		verificationUrl: string;
 	}>({
 		name: '',
 		issuer: '',
 		date: '',
-		file: null
+		file: null,
+		verificationUrl: ''
+	});
+
+	// Register save handler for "Save all and exit"
+	onMount(() => {
+		onRegisterSave?.(() => handleSubmit());
 	});
 
 	// Subscribe to skills updates
@@ -85,19 +94,23 @@
 						event.kind === KINDS.FILE_METADATA &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'certification')
 					) {
-						// Handle certification
+						// Handle certification (assign new object so list updates reactively)
 						const certData = JSON.parse(event.content);
 						const skillId = event.tags.find((t) => t[0] === 'skill')?.[1];
 						if (!skillId) return;
 
-						certifications[event.id] = {
-							eventId: event.id,
-							skillId,
-							name: certData.name,
-							issuer: certData.issuer,
-							date: certData.date,
-							fileUrl: certData.fileUrl,
-							verified: false
+						certifications = {
+							...certifications,
+							[event.id]: {
+								eventId: event.id,
+								skillId,
+								name: certData.name,
+								issuer: certData.issuer,
+								date: certData.date,
+								fileUrl: certData.fileUrl,
+								verified: false,
+								...(certData.verificationUrl && { verificationUrl: certData.verificationUrl })
+							}
 						};
 					}
 				} catch (err) {
@@ -172,49 +185,56 @@
 
 	// Add certification to skill
 	async function addCertification() {
-		try {
-		if (!selectedSkill || !selectedSkill.id) {
+		if (!selectedSkill?.id) {
+			error = $t('profile.skills.skill_not_found');
+			return;
+		}
+		if (
+			!certification.name ||
+			!certification.issuer ||
+			!certification.date ||
+			!certification.file
+		) {
+			error = $t('profile.skills.fill_certification_fields');
+			return;
+		}
+
+		const skill = selectedSkill!;
+		const skillIndex = skills.findIndex((s) => s.id === skill.id);
+		if (skillIndex === -1) {
 			error = $t('profile.skills.skill_not_found');
 			return;
 		}
 
-			if (
-				!certification.name ||
-				!certification.issuer ||
-				!certification.date ||
-				!certification.file
-			) {
-				error = $t('profile.skills.fill_certification_fields');
-				return;
-			}
-
-			isLoading = true;
-
-			const skillIndex = skills.findIndex((skill) => skill.id === selectedSkill?.id);
-			if (skillIndex === -1) {
-				error = $t('profile.skills.skill_not_found');
-				return;
-			}
-
-			// Upload certification file and create Nostr event
+		const verificationUrlTrimmed = certification.verificationUrl?.trim() || undefined;
+		isLoading = true;
+		try {
 			const certId = await uploadCertification({
-				skillId: selectedSkill.id,
+				skillId: skill.id,
 				name: certification.name,
 				issuer: certification.issuer,
 				date: certification.date,
-				file: certification.file
+				file: certification.file,
+				...(verificationUrlTrimmed && { verificationUrl: verificationUrlTrimmed })
 			});
 
 			skills[skillIndex].certifications.push(certId);
+			certifications = {
+				...certifications,
+				[certId]: {
+					eventId: certId,
+					skillId: skill.id,
+					name: certification.name,
+					issuer: certification.issuer,
+					date: certification.date,
+					fileUrl: '',
+					verified: false,
+					...(verificationUrlTrimmed && { verificationUrl: verificationUrlTrimmed })
+				}
+			};
 			handleSubmit();
 
-			// Reset form
-			certification = {
-				name: '',
-				issuer: '',
-				date: '',
-				file: null
-			};
+			certification = { name: '', issuer: '', date: '', file: null, verificationUrl: '' };
 			selectedSkill = null;
 			isAddingCertificate = false;
 			appStore.showSuccessToast($t('profile.skills.certification_added_success'));
@@ -248,23 +268,21 @@
 
 	// Remove certification
 	async function removeCertification(certId: string) {
-		try {
 		const cert = certifications[certId];
 		if (!cert) {
-			throw new Error($t('profile.skills.certification_not_found'));
+			error = $t('profile.skills.certification_not_found');
+			appStore.showErrorToast(error);
+			return;
 		}
-
-			// Delete the certification event
+		try {
 			await deleteNostrEvent(cert.eventId, KINDS.FILE_METADATA.toString());
-
-			// Remove from local state
-			delete certifications[certId];
-
+			certifications = Object.fromEntries(
+				Object.entries(certifications).filter(([id]) => id !== certId)
+			);
 			skills = skills.map((skill) => ({
 				...skill,
 				certifications: skill.certifications.filter((id) => id !== certId)
 			}));
-
 			appStore.showSuccessToast($t('profile.skills.certification_removed_success'));
 		} catch (err) {
 			console.error('Failed to remove certification:', err);
@@ -340,6 +358,9 @@
 	</div>
 {:else}
 	<div class="space-y-6">
+		<p class="text-base-content/70 text-sm">
+			{$t('profile.skills.certifications_hint')}
+		</p>
 		<!-- Add New Skill -->
 		<div class=" gap-4">
 			<div class="form-control py-2">
@@ -513,6 +534,21 @@
 											/>
 										</div>
 
+										<!-- Verification URL (e.g. Simple Proof / blockchain proof link) -->
+										<div class="form-control">
+											<label class="label" for="certificationVerificationUrl">
+												<span class="label-text">{$t('profile.skills.verification_url')}</span>
+												<span class="label-text-alt">{$t('profile.skills.verification_url_optional')}</span>
+											</label>
+											<input
+												type="url"
+												id="certificationVerificationUrl"
+												bind:value={certification.verificationUrl}
+												class="input input-bordered w-full"
+												placeholder={$t('profile.skills.verification_url_placeholder')}
+											/>
+										</div>
+
 										<!-- Modal Actions -->
 										<div class="modal-action">
 											<button
@@ -545,16 +581,27 @@
 											{@const cert = certifications[certId]}
 											{#if cert}
 												<div
-													class="bg-base-200 flex flex-row items-center justify-between rounded-lg p-2 text-xs"
+													class="bg-base-200 flex flex-row items-center justify-between gap-2 rounded-lg p-2 text-xs"
 												>
-													<div>
+													<div class="min-w-0 flex-1">
 														<div class="font-medium">{cert.name}</div>
 														<div class="text-base-content/70">
 															{cert.issuer} • {new Date(cert.date).toLocaleDateString()}
 														</div>
+														{#if cert.verificationUrl}
+															<a
+																href={ensureAbsoluteVerificationUrl(cert.verificationUrl)}
+																target="_blank"
+																rel="noopener noreferrer"
+																class="link link-primary link-hover mt-1 inline-block text-xs"
+															>
+																{$t('profile.skills.verify_certification')}
+															</a>
+														{/if}
 													</div>
 													<button
-														class="btn btn-ghost btn-xs btn-circle btn-outline text-error/75"
+														class="btn btn-ghost btn-xs btn-circle btn-outline text-error/75 shrink-0"
+														aria-label={$t('common.remove')}
 														onclick={() => removeCertification(cert.eventId)}
 													>
 														✕

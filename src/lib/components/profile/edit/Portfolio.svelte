@@ -64,8 +64,9 @@
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { onComplete } = $props<{
+	let { onComplete, onRegisterSave } = $props<{
 		onComplete: (completed: boolean, fromSave?: boolean) => void;
+		onRegisterSave?: (saveFn: () => Promise<void>) => void;
 	}>();
 
 	// Local state
@@ -94,6 +95,10 @@
 	let cleanup: (() => void) | null = null;
 
 	let isFormOpen = $derived(addingItem || editingItem);
+
+	onMount(() => {
+		onRegisterSave?.(() => handleSubmit());
+	});
 
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(
@@ -218,7 +223,7 @@
 			await publishPortfolioItem(item, tags);
 
 			// Notify completion change from save (triggers toast in parent)
-			const isComplete = portfolioItems.length > 0;
+			const isComplete = editingItem ? portfolioItems.length > 0 : portfolioItems.length + 1 > 0;
 			onComplete(isComplete, true);
 
 			// Show success message

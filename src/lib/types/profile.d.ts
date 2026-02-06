@@ -91,6 +91,8 @@ export interface SkillCertification {
     date: string;
     verified: boolean;
     fileUrl: string;
+    /** Optional URL to verify the certificate (e.g. Simple Proof / blockchain proof link) */
+    verificationUrl?: string;
     translations?: CertificationTranslations; // Translations for certification name and issuer
 }
 
@@ -221,6 +223,7 @@ export type Profile = {
         date: string;
         verified: boolean;
         fileUrl: string;
+        verificationUrl?: string;
     }[];
     portfolio?: {
 		link?: string;
@@ -252,4 +255,8 @@ export type Profile = {
         text: string;
         date: string;
     }[];
+    standardServices?: {
+        services: StandardService[];
+        customQuoteAvailable: boolean;
+    };
 }; 
