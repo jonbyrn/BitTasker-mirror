@@ -2,7 +2,7 @@
 
 ## E2E migration (src → tests/e2e)
 
-We are migrating E2E specs and fixtures from `src/lib/tests/e2e/` to the project-root **`tests/e2e/`** incrementally. The fixtures and utils used by **signup-onboarding** and **wallet/balance-management** now live under `tests/e2e/fixtures/` and `tests/e2e/utils/`. For current status and import patterns, see **`tests/e2e/MIGRATION.md`** in the repo root. New E2E work should prefer `tests/e2e/` and the fixtures there.
+We are migrating E2E specs and fixtures from `src/lib/tests/e2e/` to **`tests/e2e/`** incrementally. Current auth design (file-based credentials, multi-user, run order): **`plans/e2e-auth-and-credentials.md`**. Status and import patterns: **`tests/e2e/MIGRATION.md`**. New E2E work should use `tests/e2e/` and the fixtures there.
 
 ## Overview
 

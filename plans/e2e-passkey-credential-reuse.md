@@ -51,17 +51,18 @@ Then Test 2’s page has an authenticator that already contains the passkey; `cr
 
 ## 3. Implementation Approach
 
-- **Worker-scoped credential store**: Hold the list of credentials (and optionally authenticatorId) in a fixture that lives for the whole worker.
+- **Worker-scoped credential store**: Hold credentials in a fixture that lives for the whole worker. Teardown writes to file via `writeCredentialSet(label, creds)` for cross-file reuse.
 - **Page fixture (signup-login-auth)**:
-  - **Setup**: Create page → add virtual authenticator. If the worker-scoped store already has credentials (from a previous test), call `addCredential` for each so this page’s authenticator has the passkey.
-  - **Teardown**: After `use(page)`, call `getCredentials(authenticatorId)` and write the result into the worker-scoped store. Then close the page.
+  - **Per-test context**: Each test gets a **new context** (no shared storage). Tests do not inherit auth state from each other.
+  - **Opt-in injection**: Credentials are injected **only** when `injectWebAuthnCredentials: true` (default `false`). Tests that create new users (signup, Nostr) run with an empty authenticator.
+  - **Setup**: Create page from context → add virtual authenticator. If `injectWebAuthnCredentials` is true, read from file or worker store and call `addCredential` for each.
+  - **Teardown**: After `use(page)`, call `getCredentials(authenticatorId)` and write to worker-scoped store and file. Then close the page.
 
 This way:
 
-- Test 1: creates credential → teardown exports it into the store.
-- Test 2: setup reads store and injects credential into the new authenticator → login works.
-
-The same pattern can support more tests (e.g. wallet, transactions): any test that uses this fixture and runs after signup (or after a test that has already exported credentials) will get the passkey injected.
+- Test 1 (signup): empty authenticator → creates credential → teardown exports it.
+- Test 2 (Nostr): empty authenticator → creates new user via nsec → teardown exports.
+- Tests that need login-with-passkey: opt in via `test.use({ injectWebAuthnCredentials: true })` or use the `passkey-auth-from-file` fixture (02-credentials-login).
 
 ---
 

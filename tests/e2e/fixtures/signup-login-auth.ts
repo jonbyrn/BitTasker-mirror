@@ -2,10 +2,10 @@ import type { BrowserContext } from '@playwright/test';
 import { test as authTest, expect } from './auth';
 import {
 	type WebAuthnCredential,
-	writeWebAuthnCredentialsToFile
+	readCredentialSet,
+	writeCredentialSet
 } from '../utils/webauthn-credentials';
 
-/** Re-export for specs that need the type */
 export type { WebAuthnCredential } from '../utils/webauthn-credentials';
 
 const VIRTUAL_AUTHENTICATOR_OPTIONS = {
@@ -19,28 +19,22 @@ const VIRTUAL_AUTHENTICATOR_OPTIONS = {
 };
 
 /**
- * Fixture for signup → login E2E tests. Exports WebAuthn credentials after each test
- * and injects them into the next test's authenticator. Also writes credentials to
- * tests/e2e/.auth/webauthn-credentials.json for cross-file reuse.
+ * Fixture for signup/onboarding E2E tests with explicit credential injection control.
+ *
+ * - injectWebAuthnCredentials (default false): Set to true via test.use() to inject credentials.
+ * - Uses default context (new per test) so each test gets fresh storage; no shared auth state.
+ * - Teardown exports credentials to worker store and file (label from test title: "Nostr" → 'nostr', else 'signup').
+ *
+ * Example:
+ *   test('signup...', async ({ page }) => { ... });           // no injection
+ *   test.use({ injectWebAuthnCredentials: true });
+ *   test('login with passkey', async ({ page }) => { ... });   // injects from store/file
  */
 const test = authTest.extend<
-	object,
-	{ sharedAuthContext: BrowserContext; webauthnCredentialStore: WebAuthnCredential[] }
+	{ injectWebAuthnCredentials: boolean },
+	{ webauthnCredentialStore: WebAuthnCredential[] }
 >({
-	sharedAuthContext: [
-		async ({ browser }, use, testInfo) => {
-			const baseURL = testInfo.project.use.baseURL ?? 'http://localhost:4173';
-			const ctx = await browser.newContext({
-				baseURL,
-				storageState: undefined,
-				viewport: testInfo.project.use.viewport ?? { width: 1280, height: 720 },
-				userAgent: testInfo.project.use.userAgent
-			});
-			await use(ctx);
-			await ctx.close();
-		},
-		{ scope: 'worker' }
-	],
+	injectWebAuthnCredentials: [false, { option: true }],
 
 	webauthnCredentialStore: [
 		async ({}, use) => {
@@ -50,10 +44,14 @@ const test = authTest.extend<
 		{ scope: 'worker' }
 	],
 
-	page: async ({ sharedAuthContext, webauthnCredentialStore }, use) => {
-		const page = await sharedAuthContext.newPage();
+	page: async ({ context, webauthnCredentialStore, injectWebAuthnCredentials }, use, testInfo) => {
+		// Use default context (new per test) so each test gets fresh storage – no shared auth state.
+		const page = await context.newPage();
 		const cdpSession = await page.context().newCDPSession(page);
 		let authenticatorId: string | null = null;
+
+		// Credential label for teardown write: "Nostr" in title → 'nostr', else 'signup'.
+		const credentialLabel = /Nostr|nostr/i.test(testInfo.title) ? 'nostr' : 'signup';
 
 		try {
 			await cdpSession.send('WebAuthn.enable');
@@ -66,21 +64,24 @@ const test = authTest.extend<
 					authenticatorId,
 					enabled: true
 				});
-				if (webauthnCredentialStore.length > 0) {
-					for (const cred of webauthnCredentialStore) {
-						await cdpSession.send('WebAuthn.addCredential', {
-							authenticatorId,
-							credential: cred
-						});
+				// Only inject when explicitly opted in.
+				if (injectWebAuthnCredentials) {
+					const toInject =
+						readCredentialSet(credentialLabel) ??
+						readCredentialSet('signup') ??
+						webauthnCredentialStore;
+					if (toInject.length > 0) {
+						for (const cred of toInject) {
+							await cdpSession.send('WebAuthn.addCredential', {
+								authenticatorId,
+								credential: cred
+							});
+						}
+						console.log('[E2E] Injected', toInject.length, 'credential(s) (injectWebAuthnCredentials=true)');
 					}
-					console.log(
-						'[E2E] Injected',
-						webauthnCredentialStore.length,
-						'credential(s) into virtual authenticator'
-					);
 				}
 			}
-			console.log('[E2E] Virtual authenticator attached (shared context)');
+			console.log('[E2E] Virtual authenticator attached (inject=', injectWebAuthnCredentials, ')');
 		} catch (error) {
 			console.warn('[E2E] Failed to configure virtual authenticator:', error);
 		}
@@ -95,8 +96,8 @@ const test = authTest.extend<
 				webauthnCredentialStore.length = 0;
 				webauthnCredentialStore.push(...(credentials ?? []));
 				if (webauthnCredentialStore.length > 0) {
-					console.log('[E2E] Exported', webauthnCredentialStore.length, 'credential(s) for next test');
-					writeWebAuthnCredentialsToFile(webauthnCredentialStore);
+					writeCredentialSet(credentialLabel, webauthnCredentialStore);
+					console.log('[E2E] Exported', webauthnCredentialStore.length, 'credential(s) (label:', credentialLabel, ')');
 				}
 			} catch (e) {
 				console.warn('[E2E] Failed to export WebAuthn credentials:', e);
