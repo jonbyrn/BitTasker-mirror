@@ -1,20 +1,12 @@
 import type { BrowserContext } from '@playwright/test';
 import { test as authTest, expect } from './auth';
+import {
+	type WebAuthnCredential,
+	writeWebAuthnCredentialsToFile
+} from '../utils/webauthn-credentials';
 
-/** CDP WebAuthn Credential shape (from chromedevtools.github.io/devtools-protocol/tot/WebAuthn) */
-export type WebAuthnCredential = {
-	credentialId: string;
-	isResidentCredential: boolean;
-	rpId: string;
-	privateKey: string;
-	userHandle?: string;
-	signCount: number;
-	largeBlob?: string;
-	backupEligibility?: boolean;
-	backupState?: boolean;
-	userName?: string;
-	userDisplayName?: string;
-};
+/** Re-export for specs that need the type */
+export type { WebAuthnCredential } from '../utils/webauthn-credentials';
 
 /** Virtual authenticator options (same as auth fixture). */
 const VIRTUAL_AUTHENTICATOR_OPTIONS = {
@@ -112,6 +104,8 @@ const test = authTest.extend<
 				webauthnCredentialStore.push(...(credentials ?? []));
 				if (webauthnCredentialStore.length > 0) {
 					console.log('[E2E] Exported', webauthnCredentialStore.length, 'credential(s) for next test');
+					// Persist to file so other spec files (e.g. wallet) can reuse via passkey-auth-from-file
+					writeWebAuthnCredentialsToFile(webauthnCredentialStore);
 				}
 			} catch (e) {
 				console.warn('[E2E] Failed to export WebAuthn credentials:', e);

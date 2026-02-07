@@ -76,12 +76,19 @@ That way one “create account + passkey” step can feed many specs without re-
 
 ---
 
-## 5. References
+## 5. Cross-File Reuse (File-Based)
+
+For reusing credentials across **test files** (e.g. wallet, dashboard specs), see **[e2e-passkey-credential-sharing-plan.md](./e2e-passkey-credential-sharing-plan.md)**. That plan describes persisting credentials to `tests/e2e/.auth/webauthn-credentials.json` and the `passkey-auth-from-file` fixture so any spec can log in with the same passkey.
+
+---
+
+## 6. References
 
 - [Chrome DevTools Protocol – WebAuthn](https://chromedevtools.github.io/devtools-protocol/tot/WebAuthn/)
 - [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md)
+- [e2e-passkey-credential-sharing-plan.md](./e2e-passkey-credential-sharing-plan.md)
 - [authentication-flow.md](../requirements/details/authentication-flow.md)
 
 ---
 
-*Last updated: 2025-02-04*
+*Last updated: 2025-02-07*
