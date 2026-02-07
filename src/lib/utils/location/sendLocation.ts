@@ -93,17 +93,20 @@ export async function sendLocationsToTaskee(
 		// Get translations (common translations are loaded by default)
 		const _ = get(t);
 
-		// Build locations array - only include valid locations
+		const isRemote = options?.isRemote === true;
+
+		// Build locations array - only include valid locations and never for remote tasks
 		const locations: Array<{ location: Location; label: string }> = [];
-		if (isValidLocation(pickupLocation)) {
-			locations.push({ location: pickupLocation!, label: _('common.location.pickup_location') });
-		}
-		if (isValidLocation(dropoffLocation)) {
-			locations.push({ location: dropoffLocation!, label: _('common.location.dropoff_location') });
+		if (!isRemote) {
+			if (isValidLocation(pickupLocation)) {
+				locations.push({ location: pickupLocation!, label: _('common.location.pickup_location') });
+			}
+			if (isValidLocation(dropoffLocation)) {
+				locations.push({ location: dropoffLocation!, label: _('common.location.dropoff_location') });
+			}
 		}
 
 		const hasValidLocations = locations.length > 0;
-		const isRemote = options?.isRemote === true;
 
 		// For remote tasks, always send message with congratulations, title, and description
 		// For in-person tasks, only send if there are valid locations
