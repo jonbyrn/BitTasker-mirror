@@ -3,7 +3,6 @@ import * as path from 'path';
 
 /**
  * CDP WebAuthn credential shape (from chromedevtools.github.io/devtools-protocol/tot/WebAuthn).
- * Used for persisting and loading credentials across E2E test files.
  */
 export type WebAuthnCredential = {
 	credentialId: string;
@@ -19,13 +18,26 @@ export type WebAuthnCredential = {
 	userDisplayName?: string;
 };
 
-/** Persisted file format for cross-file/cross-run reuse. */
-export type WebAuthnCredentialsFile = {
+/** One user's credentials (e.g. one passkey per user). */
+export type CredentialSet = {
+	label: string;
 	credentials: WebAuthnCredential[];
+};
+
+/** File format: supports multiple users (signup, nostr, etc.). */
+export type WebAuthnCredentialsFile = {
+	credentialSets: CredentialSet[];
 	exportedAt?: string;
 };
 
-/** Path to the shared credential file (project-root relative). Used by signup-login-auth and passkey-auth-from-file. */
+/** Legacy format (single list); we migrate on read. */
+type LegacyCredentialsFile = {
+	credentials?: WebAuthnCredential[];
+	exportedAt?: string;
+};
+
+const DEFAULT_LABEL = 'signup';
+
 export function getWebAuthnCredentialsPath(): string {
 	const root = process.cwd();
 	return path.join(root, 'tests', 'e2e', '.auth', 'webauthn-credentials.json');
@@ -40,35 +52,86 @@ export function webauthnCredentialsFileExists(): boolean {
 	}
 }
 
-/**
- * Read credentials from the shared file. Returns null if file is missing or invalid.
- */
-export function readWebAuthnCredentialsFromFile(): WebAuthnCredential[] | null {
+function readRaw(): WebAuthnCredentialsFile | null {
 	try {
 		const p = getWebAuthnCredentialsPath();
 		if (!fs.existsSync(p)) return null;
 		const raw = fs.readFileSync(p, 'utf-8');
-		const data = JSON.parse(raw) as WebAuthnCredentialsFile;
-		if (!Array.isArray(data?.credentials)) return null;
-		return data.credentials;
+		const data = JSON.parse(raw) as WebAuthnCredentialsFile | LegacyCredentialsFile;
+		// Legacy: { credentials: [...] } → one set with default label
+		if (data && 'credentials' in data && Array.isArray((data as LegacyCredentialsFile).credentials)) {
+			const leg = data as LegacyCredentialsFile;
+			return {
+				credentialSets: [{ label: DEFAULT_LABEL, credentials: leg.credentials ?? [] }],
+				exportedAt: leg.exportedAt
+			};
+		}
+		if (data && Array.isArray((data as WebAuthnCredentialsFile).credentialSets)) {
+			return data as WebAuthnCredentialsFile;
+		}
+		return null;
 	} catch {
 		return null;
 	}
 }
 
 /**
- * Write credentials to the shared file. Ensures directory exists.
+ * Read one credential set by label (e.g. 'signup', 'nostr'). Returns null if missing.
  */
-export function writeWebAuthnCredentialsToFile(credentials: WebAuthnCredential[]): void {
+export function readCredentialSet(label: string): WebAuthnCredential[] | null {
+	const file = readRaw();
+	if (!file) return null;
+	const set = file.credentialSets.find((s) => s.label === label);
+	return set?.credentials?.length ? set.credentials : null;
+}
+
+/**
+ * Read first available credential set (for default/first user).
+ */
+export function readFirstCredentialSet(): WebAuthnCredential[] | null {
+	const file = readRaw();
+	if (!file?.credentialSets?.length) return null;
+	const first = file.credentialSets[0];
+	return first?.credentials?.length ? first.credentials : null;
+}
+
+/** All labels in the file. */
+export function getCredentialSetLabels(): string[] {
+	const file = readRaw();
+	if (!file?.credentialSets) return [];
+	return file.credentialSets.map((s) => s.label);
+}
+
+/**
+ * Write or replace one credential set by label. Merges with existing sets.
+ */
+export function writeCredentialSet(label: string, credentials: WebAuthnCredential[]): void {
 	if (credentials.length === 0) return;
-	const p = getWebAuthnCredentialsPath();
-	const dir = path.dirname(p);
+	const dir = path.dirname(getWebAuthnCredentialsPath());
 	if (!fs.existsSync(dir)) {
 		fs.mkdirSync(dir, { recursive: true });
 	}
-	const data: WebAuthnCredentialsFile = {
-		credentials,
+	const existing = readRaw();
+	const sets = existing?.credentialSets ?? [];
+	const without = sets.filter((s) => s.label !== label);
+	const next: WebAuthnCredentialsFile = {
+		credentialSets: [...without, { label, credentials }],
 		exportedAt: new Date().toISOString()
 	};
-	fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
+	fs.writeFileSync(getWebAuthnCredentialsPath(), JSON.stringify(next, null, 2), 'utf-8');
+}
+
+/**
+ * Read credentials (backward compat + default). Prefers first set if no label.
+ */
+export function readWebAuthnCredentialsFromFile(label?: string): WebAuthnCredential[] | null {
+	if (label) return readCredentialSet(label);
+	return readFirstCredentialSet();
+}
+
+/**
+ * Write credentials (backward compat: writes as default label).
+ */
+export function writeWebAuthnCredentialsToFile(credentials: WebAuthnCredential[]): void {
+	writeCredentialSet(DEFAULT_LABEL, credentials);
 }

@@ -519,6 +519,7 @@
 
 						<button
 							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
+							data-testid="login-with-nsec"
 							onclick={() => {
 								error = '';
 								isPasskeyError = false;
@@ -552,6 +553,7 @@
 							<input
 								type={showNsec ? 'text' : 'password'}
 								id="privateKey"
+								data-testid="login-nsec-input"
 								bind:value={nsec}
 								class="input input-bordered w-full pr-10 {error ? 'input-error' : ''}"
 								placeholder={$t('login.nostr_private_key_placeholder')}
@@ -603,6 +605,7 @@
 						</div>
 						<button
 							class="btn btn-block btn-primary"
+							data-testid="login-submit"
 							onclick={handleNsecLogin}
 							disabled={isLoading}
 						>

@@ -1,14 +1,16 @@
 import { test as base, expect } from '@playwright/test';
 import {
-	readWebAuthnCredentialsFromFile,
-	webauthnCredentialsFileExists
+	readCredentialSet,
+	readFirstCredentialSet,
+	webauthnCredentialsFileExists,
+	getCredentialSetLabels
 } from '../utils/webauthn-credentials';
 
-/** Re-export so specs can skip when file is missing */
-export { webauthnCredentialsFileExists };
+/** Re-export so specs can skip when file is missing or pick a user */
+export { webauthnCredentialsFileExists, getCredentialSetLabels };
 
 const CREDENTIALS_MISSING_MESSAGE =
-	'WebAuthn credentials file not found. Run signup-onboarding.spec.ts first to generate tests/e2e/.auth/webauthn-credentials.json';
+	'WebAuthn credentials file not found. Run 01-signup-onboarding.spec.ts first to generate tests/e2e/.auth/webauthn-credentials.json';
 
 const VIRTUAL_AUTHENTICATOR_OPTIONS = {
 	protocol: 'ctap2' as const,
@@ -21,18 +23,26 @@ const VIRTUAL_AUTHENTICATOR_OPTIONS = {
 };
 
 type PasskeyAuthFromFileFixtures = {
+	/** Which credential set to use ('signup' | 'nostr' | etc.). Default 'signup'. */
+	credentialLabel: string;
 	authenticatedPageFromPasskeyFile: import('@playwright/test').Page;
 };
 
 /**
- * Fixture for specs that reuse the passkey created by signup-onboarding.
- * Reads tests/e2e/.auth/webauthn-credentials.json, injects credentials, then performs login.
+ * Fixture for specs that reuse passkeys from the credentials file.
+ * Use credentialLabel to pick a user (e.g. 'signup', 'nostr'). Default is 'signup'.
  */
 const test = base.extend<PasskeyAuthFromFileFixtures>({
-	authenticatedPageFromPasskeyFile: async ({ browser }, use, testInfo) => {
-		const credentials = readWebAuthnCredentialsFromFile();
+	// @ts-expect-error - Playwright option fixture typing
+	credentialLabel: ['signup', { option: true }],
+
+	authenticatedPageFromPasskeyFile: async ({ browser, credentialLabel }, use, testInfo) => {
+		const credentials =
+			readCredentialSet(credentialLabel) ?? readFirstCredentialSet();
 		if (!credentials || credentials.length === 0) {
-			throw new Error(CREDENTIALS_MISSING_MESSAGE);
+			throw new Error(
+				`${CREDENTIALS_MISSING_MESSAGE} (label: ${credentialLabel})`
+			);
 		}
 
 		const baseURL = testInfo.project.use.baseURL ?? 'http://localhost:4173';

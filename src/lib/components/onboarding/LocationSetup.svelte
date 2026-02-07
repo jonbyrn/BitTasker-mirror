@@ -381,7 +381,7 @@
 	</div>
 
 	<div class="mt-6 flex justify-between">
-		<button type="button" class="btn btn-outline" onclick={prevStep}>
+		<button type="button" class="btn btn-outline" data-testid="onboarding-location-back" onclick={prevStep}>
 			{$t('onboarding_auth.form.back')}
 		</button>
 		<button

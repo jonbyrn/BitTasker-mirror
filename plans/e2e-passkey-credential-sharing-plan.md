@@ -1,8 +1,10 @@
 # E2E Passkey Credential Sharing (Cross-File Reuse)
 
-**Goal:** Allow any E2E spec (e.g. wallet, tasks) to reuse the credentials created by the signup-onboarding flow by persisting WebAuthn credentials to a file and injecting them into a virtual authenticator before login.
+**→ Current design and multi-user:** see **[e2e-auth-and-credentials.md](./e2e-auth-and-credentials.md)**.
 
-**Parent docs:** [e2e-passkey-credential-reuse.md](./e2e-passkey-credential-reuse.md), [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md)
+**Goal (historical):** Allow any E2E spec to reuse credentials via a shared file. Now implemented with multi-user labels; file is the single source of truth.
+
+**Parent docs:** [e2e-auth-and-credentials.md](./e2e-auth-and-credentials.md), [e2e-passkey-credential-reuse.md](./e2e-passkey-credential-reuse.md), [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md)
 
 ---
 

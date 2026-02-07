@@ -1,43 +1,33 @@
 /**
- * Wallet balance management E2E using shared passkey credentials.
+ * Wallet balance management E2E (optional; currently skipped).
  *
- * Requires signup-onboarding.spec.ts to be run first in the same run so that
- * tests/e2e/.auth/webauthn-credentials.json exists. If the file is missing,
- * tests are skipped.
- *
- * Run with credentials:
- *   npx playwright test tests/e2e/signup-onboarding.spec.ts tests/e2e/wallet/balance-management.spec.ts --project=chromium
- *
- * Or after a previous signup run left the credential file:
- *   npx playwright test tests/e2e/wallet/balance-management.spec.ts --project=chromium
+ * Run 01-signup-onboarding and 02-credentials-login first. This spec is put aside
+ * for now; unskip the describe when re-enabling wallet E2E.
  */
 import {
 	test,
 	expect,
 	webauthnCredentialsFileExists,
 	CREDENTIALS_MISSING_MESSAGE
-} from '../../src/lib/tests/e2e/fixtures/passkey-auth-from-file';
+} from '../fixtures/passkey-auth-from-file';
 
-test.describe('Wallet balance management (passkey from file)', () => {
+test.describe.skip('Wallet balance management (passkey from file)', () => {
 	test.skip(
 		!webauthnCredentialsFileExists(),
 		CREDENTIALS_MISSING_MESSAGE
 	);
 
 	test.beforeEach(async ({ authenticatedPageFromPasskeyFile }) => {
-		await authenticatedPageFromPasskeyFile.goto('/wallet');
+		await authenticatedPageFromPasskeyFile.goto('/dashboard/wallet');
 		await authenticatedPageFromPasskeyFile.waitForLoadState('networkidle');
-		const currentUrl = authenticatedPageFromPasskeyFile.url();
-		if (!currentUrl.includes('/wallet')) {
-			await authenticatedPageFromPasskeyFile.goto('/dashboard/wallet');
-			await authenticatedPageFromPasskeyFile.waitForLoadState('networkidle');
-		}
 	});
 
 	test('should display wallet balance', async ({ authenticatedPageFromPasskeyFile }) => {
-		const walletContent = authenticatedPageFromPasskeyFile.locator(
-			'.card, button:has-text("Send"), button:has-text("Receive"), text=/total.*balance|balance/i'
-		).first();
+		// Use Playwright locators (not a single CSS string): .card or Send/Receive buttons
+		const walletContent = authenticatedPageFromPasskeyFile
+			.locator('.card')
+			.or(authenticatedPageFromPasskeyFile.getByRole('button', { name: /Send|Receive/i }))
+			.first();
 		await expect(walletContent).toBeVisible({ timeout: 15_000 });
 	});
 

@@ -2,18 +2,20 @@
 
 Single source of truth for the signup-onboarding e2e test: flow, setup, and next steps. See [e2e-account-creation-challenge.md](../src/lib/tests/e2e/docs/e2e-account-creation-challenge.md) for technical details (app flow, WebAuthn, selectors).
 
+**→ Current implementation:** Two files. **01-signup-onboarding.spec.ts** (create two users, write credentials); **02-credentials-login.spec.ts** (load file, validate login). Run order and commands: **[e2e-auth-and-credentials.md](./e2e-auth-and-credentials.md)**.
+
 ---
 
 ## 1. Current Checkpoint (Done)
 
-**Test:** `tests/e2e/signup-onboarding.spec.ts` — two tests sharing a worker-scoped context:
+**File 1:** `tests/e2e/01-signup-onboarding.spec.ts` — two tests, **only** signup/onboarding (no login test in this file):
 
-1. **Test 1:** root → signup → Turnstile bypass → username → **passkey creation** → Recovery (skip) → Profile (fill) → Location (default) → Complete (continue without) → **Dashboard**.
-2. **Test 2:** root (fresh UI) → Login button (not Signup) → **passkey login** → **Dashboard**.
+1. **Test 1:** root → signup → Turnstile bypass → username → **passkey creation** → Recovery (skip) → Profile (fill) → Location (default) → Complete (continue without) → **Dashboard**. Teardown writes credentials with label `signup`.
+2. **Test 2:** root → /auth/login → **Login with nsec** → fill generated nsec → submit → passkey (if new user) + onboarding → **Dashboard**. Teardown writes credentials with label `nostr`.
 
-Proves: (1) account creation works, (2) onboarding completes, (3) login with passkey works (fresh user flow).
+**File 2:** `tests/e2e/02-credentials-login.spec.ts` — loads credentials file and validates each user can log in with passkey and reach dashboard.
 
-Uses `signup-login-auth` fixture (worker-scoped context). See [e2e-full-onboarding-phase.md](./e2e-full-onboarding-phase.md) for scope and checklist.
+Uses `signup-login-auth` fixture (default: no credential injection; opt-in via `injectWebAuthnCredentials: true`). Each test gets a fresh context and empty authenticator unless explicitly opted in. See [e2e-full-onboarding-phase.md](./e2e-full-onboarding-phase.md) for scope and checklist.
 
 | What | Status |
 |------|--------|
@@ -29,17 +31,13 @@ Uses `signup-login-auth` fixture (worker-scoped context). See [e2e-full-onboardi
 
 ## 2. How to Run
 
-**Local (recommended, dev server – faster):**
+Run **01** then **02** with **`--workers=1`** (so the credentials file exists for 02):
+
 ```bash
-E2E_USE_DEV_SERVER=1 VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/signup-onboarding.spec.ts --project=chromium
+E2E_USE_DEV_SERVER=1 VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
 ```
 
-**Local (build + preview):**
-```bash
-VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/signup-onboarding.spec.ts --project=chromium
-```
-
-**CI:** Set `VITE_API_URL` in GitLab CI/CD variables.
+**CI:** Set `VITE_API_URL` in GitLab CI/CD variables. Use the same file list and `--workers=1`.
 
 **If passkey fails:** Test detects `passkey-setup-error` and fails with a clear message + hint to set `VITE_API_URL` and ensure backend is running.
 
@@ -47,7 +45,7 @@ VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/sign
 
 ## 3. Technical Notes
 
-- **Virtual authenticator:** Must be on the **same page** that runs the app (CDP virtual authenticators are per-target). Auth fixture overrides `page`: gets default page, `page.context().newCDPSession(page)`, `WebAuthn.enable`, `WebAuthn.addVirtualAuthenticator`, yields same page. Signup and login tests share a worker-scoped context so the credential created in Test 1 is available in Test 2.
+- **Virtual authenticator:** Must be on the **same page** that runs the app (CDP virtual authenticators are per-target). Signup-login-auth fixture: **one context per test** (no shared state), so each test starts fresh. Credential injection is **opt-in** (`injectWebAuthnCredentials: true`). Test 1 (signup) and Test 2 (Nostr) both run with empty authenticators; teardown exports credentials to file for use by 02-credentials-login.
 - **Build + preview:** CI uses `npm run build && npm run preview` (port 4173) for stability. Local can use `E2E_USE_DEV_SERVER=1` for faster iteration.
 - **Unique username:** `e2e-${Date.now()}` per run to avoid conflicts.
 
@@ -73,7 +71,7 @@ VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/sign
 | `playwright.config.ts` | webServer, baseURL, reporter. |
 | `.gitlab-ci.yml` | Playwright job. |
 | `src/lib/tests/e2e/fixtures/auth.ts` | CDP virtual authenticator (page override). |
-| `src/lib/tests/e2e/fixtures/signup-login-auth.ts` | Worker-scoped context + credential export/import so Test 2 gets passkey from Test 1. |
+| `tests/e2e/fixtures/signup-login-auth.ts` | Per-test context; opt-in credential injection; credential export to file for 02-credentials-login. |
 | [e2e-passkey-credential-reuse.md](./e2e-passkey-credential-reuse.md) | Why Test 2 timed out; CDP getCredentials/addCredential; reuse pattern. |
 | [e2e-passkey-credential-sharing-plan.md](./e2e-passkey-credential-sharing-plan.md) | Cross-file reuse: persist credentials to file; other specs (wallet, etc.) use passkey-auth-from-file. |
 
