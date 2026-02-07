@@ -75,6 +75,7 @@ VITE_API_URL=https://your-dev-api.example.com npx playwright test tests/e2e/sign
 | `src/lib/tests/e2e/fixtures/auth.ts` | CDP virtual authenticator (page override). |
 | `src/lib/tests/e2e/fixtures/signup-login-auth.ts` | Worker-scoped context + credential export/import so Test 2 gets passkey from Test 1. |
 | [e2e-passkey-credential-reuse.md](./e2e-passkey-credential-reuse.md) | Why Test 2 timed out; CDP getCredentials/addCredential; reuse pattern. |
+| [e2e-passkey-credential-sharing-plan.md](./e2e-passkey-credential-sharing-plan.md) | Cross-file reuse: persist credentials to file; other specs (wallet, etc.) use passkey-auth-from-file. |
 
 ---
 

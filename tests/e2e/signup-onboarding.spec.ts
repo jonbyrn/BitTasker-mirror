@@ -12,7 +12,7 @@
  *
  * Run (recommended, dev server): E2E_USE_DEV_SERVER=1 VITE_API_URL=... npx playwright test ... --project=chromium
  */
-import { test, expect } from '../../src/lib/tests/e2e/fixtures/signup-login-auth';
+import { test, expect } from './fixtures/signup-login-auth';
 
 function e2eLog(message: string, stepLog: string[]): void {
 	const line = `[E2E] ${message}`;
