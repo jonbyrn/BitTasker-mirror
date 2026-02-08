@@ -27,5 +27,6 @@ Requires **VITE_E2E_TURNSTILE_BYPASS** and **VITE_API_URL** for 01.
 
 ## Docs
 
-- **E2E pipeline:** `plans/e2e-testing.md`
+- **E2E account creation (challenge + implementation):** `docs/testing/e2e-account-creation.md`
+- **E2E pipeline:** `docs/testing/e2e-testing.md`
 - **Migration from src:** `tests/e2e/MIGRATION.md`

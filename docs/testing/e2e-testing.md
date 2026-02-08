@@ -85,6 +85,7 @@ npm run test:playwright run -- tests/e2e/01-signup-onboarding.spec.ts tests/e2e/
 
 ## 7. References
 
+- **E2E account creation (challenge + implementation):** [e2e-account-creation.md](./e2e-account-creation.md)
 - **Tests README:** `tests/e2e/README.md`
 - **Wallet post-login:** [e2e-wallet-post-login.md](./e2e-wallet-post-login.md)
 - **Migration from src:** `tests/e2e/MIGRATION.md`

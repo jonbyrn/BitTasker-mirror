@@ -13,7 +13,7 @@ We are migrating E2E tests and supporting code from `src/lib/tests/e2e/` to the 
 npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
 ```
 
-See **`plans/e2e-testing.md`** for full design.
+See **`docs/testing/e2e-testing.md`** for full design.
 
 ## Migrated (canonical location: tests/e2e)
 
@@ -27,12 +27,13 @@ See **`plans/e2e-testing.md`** for full design.
 
 ## Still in src/lib/tests/e2e (legacy)
 
-- `src/lib/tests/e2e/fixtures/`, `utils/`, `docs/`, `scripts/`, `README.md` – used by specs still under `src/` until migrated.
+- `src/lib/tests/e2e/fixtures/`, `utils/`, `scripts/`, `README.md` – used by specs still under `src/` until migrated.
+- `src/lib/tests/e2e/docs/e2e-account-creation-challenge.md` – pointer only; full E2E account-creation doc lives at **`docs/testing/e2e-account-creation.md`**.
 
 ## Plan reference
 
-- **E2E pipeline:** `plans/e2e-testing.md`
-- **Plans index:** `plans/README.md`
+- **E2E pipeline:** `docs/testing/e2e-testing.md`
+- **Plans (WIP):** `plans/README.md`
 
 ## Changelog
 

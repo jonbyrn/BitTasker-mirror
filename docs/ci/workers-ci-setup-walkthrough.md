@@ -2,7 +2,7 @@
 
 This guide walks through setting up GitLab CI/CD to deploy BitTasker to Cloudflare Workers. Use this when working on the `feat/workers-deployment` branch.
 
-**See also:** [workers-pipeline-migration-plan.md](./workers-pipeline-migration-plan.md) for why to use a GitLab pipeline, current vs target state, phased migration, and documentation maintenance.
+**See also:** [workers-pipeline-migration.md](./workers-pipeline-migration.md) for why to use a GitLab pipeline, current vs target state, phased migration, and documentation maintenance.
 
 ## Overview
 
@@ -76,7 +76,7 @@ So the pipeline is: **GitLab (validate then build+deploy in one job per environm
 | **Disable Pages auto-builds** | When you are ready to rely only on GitLab. In Cloudflare Dashboard → **Workers & Pages** → your **Pages** project → **Settings** → **Builds & deployments** → turn off automatic deployments (or disconnect the GitLab integration). Then only GitLab deploys (via wrangler to Workers); Cloudflare no longer builds on every push. |
 | **Keep Pages as-is for now** | Use this GitLab pipeline only for the **Workers** URLs (e.g. staging.bittasker.com, worker.prod.bittasker.com). Leave the Pages project connected so existing Pages URLs still update on push. When you are ready to fully switch, disable Pages auto-builds and point traffic to the Workers. |
 
-You do **not** need a new Cloudflare “app” for Workers: the same account and Workers are used; only the **source** of deployments changes (GitLab + wrangler instead of Pages building from Git).
+You do **not** need a new Cloudflare "app" for Workers: the same account and Workers are used; only the **source** of deployments changes (GitLab + wrangler instead of Pages building from Git).
 
 ---
 
@@ -90,16 +90,16 @@ The Worker you see in the dashboard **is** the Worker version of the BitTasker a
 | **KV namespace** `__STATIC_CONTENT` | Stores the **built** static site (the contents of `build/` after `npm run build`). Wrangler uploads `build/` into this KV when you run `wrangler deploy`. |
 | **Variables & Secrets** | Runtime env (e.g. `VITE_*`) for the Worker; build-time `VITE_*` are baked into the bundle during `npm run build` before upload. |
 
-So: **build** produces `build/` → **wrangler deploy** uploads `build/` to KV and deploys the Worker script → the Worker serves those files from KV at `worker.dev.bittasker.com`. It’s the same app, just served by a Worker instead of Pages.
+So: **build** produces `build/` → **wrangler deploy** uploads `build/` to KV and deploys the Worker script → the Worker serves those files from KV at `worker.dev.bittasker.com`. It's the same app, just served by a Worker instead of Pages.
 
-**Why it triggers on your branch:** In the dashboard, **Build** is “Connect your Worker to a Git repository” with:
+**Why it triggers on your branch:** In the dashboard, **Build** is "Connect your Worker to a Git repository" with:
 
 - Build command: `npm run build`
 - Deploy command: `npx wrangler deploy --env=staging`
 
-So **Cloudflare** runs a build and deploy on every push to the connected repo (including your branch). That’s the automation you want to replace with GitLab: run build + tests in GitLab, then only `wrangler deploy` from GitLab, and **disable** this Cloudflare Build so Cloudflare no longer builds on push.
+So **Cloudflare** runs a build and deploy on every push to the connected repo (including your branch). That's the automation you want to replace with GitLab: run build + tests in GitLab, then only `wrangler deploy` from GitLab, and **disable** this Cloudflare Build so Cloudflare no longer builds on push.
 
-**The gibberish on worker.dev.bittasker.com:** That output is almost certainly **gzip-compressed bytes** being sent without the browser being told they’re gzip (e.g. missing or wrong `Content-Encoding: gzip`), so the browser shows raw bytes as text. The Worker’s `compressResponse()` does gzip; if the response is streamed or modified in a way that drops the header, you get gibberish. To confirm: temporarily disable compression in the Worker (e.g. return the original `response` instead of `compressedResponse`); if the page loads, the bug is in compression. A fix is to ensure `Content-Encoding: gzip` is set when the body is gzip, and that the body is a proper gzip stream. Until then, disabling compression in the Worker is a valid workaround.
+**The gibberish on worker.dev.bittasker.com:** That output is almost certainly **gzip-compressed bytes** being sent without the browser being told they're gzip (e.g. missing or wrong `Content-Encoding: gzip`), so the browser shows raw bytes as text. The Worker's `compressResponse()` does gzip; if the response is streamed or modified in a way that drops the header, you get gibberish. To confirm: temporarily disable compression in the Worker (e.g. return the original `response` instead of `compressedResponse`); if the page loads, the bug is in compression. A fix is to ensure `Content-Encoding: gzip` is set when the body is gzip, and that the body is a proper gzip stream. Until then, disabling compression in the Worker is a valid workaround.
 
 ## Prerequisites
 
@@ -142,8 +142,8 @@ The SvelteKit build bakes these into the client bundle. **Set the values from yo
 The Turnstile sitekey is **baked into the client bundle at build time**. It is **not** read from Worker secrets at runtime. So:
 
 - **Local deploy:** Run `npm run build` with `VITE_CLOUDFLARE_SITEKEY` in your `.env`, then `wrangler deploy`. The built JS will have the key.
-- **Cloudflare Git Build:** If the Worker is connected to Git, Cloudflare runs `npm run build` in its own environment. **Worker secrets (dashboard Variables & Secrets) are for the Worker runtime, not for the build step.** So the Cloudflare build often runs without `VITE_CLOUDFLARE_SITEKEY`, and the deployed bundle has `undefined`. **Fix:** In Cloudflare Dashboard → **Workers & Pages** → your Worker → **Settings** → **Build** → **Variables and secrets**, add a **build** variable: `VITE_CLOUDFLARE_SITEKEY` (value = your Turnstile site key, or mark as secret). Then trigger a new build (e.g. push a commit or “Retry deployment”). After that, the built assets will have the key inlined.
-- **Cache:** If you deployed a good build but still see “expected string, got undefined”, the browser or edge may be serving old JS. Try hard refresh (Ctrl+Shift+R / Cmd+Shift+R), incognito, or purge the zone cache in Cloudflare.
+- **Cloudflare Git Build:** If the Worker is connected to Git, Cloudflare runs `npm run build` in its own environment. **Worker secrets (dashboard Variables & Secrets) are for the Worker runtime, not for the build step.** So the Cloudflare build often runs without `VITE_CLOUDFLARE_SITEKEY`, and the deployed bundle has `undefined`. **Fix:** In Cloudflare Dashboard → **Workers & Pages** → your Worker → **Settings** → **Build** → **Variables and secrets**, add a **build** variable: `VITE_CLOUDFLARE_SITEKEY` (value = your Turnstile site key, or mark as secret). Then trigger a new build (e.g. push a commit or "Retry deployment"). After that, the built assets will have the key inlined.
+- **Cache:** If you deployed a good build but still see "expected string, got undefined", the browser or edge may be serving old JS. Try hard refresh (Ctrl+Shift+R / Cmd+Shift+R), incognito, or purge the zone cache in Cloudflare.
 
 ### Minimum VITE_ Variables (from wrangler.toml)
 
@@ -251,7 +251,7 @@ After Workers deployment is verified:
 
 **Cause:** In non-interactive mode (CI), wrangler does not prompt to register workers.dev. If there are no **routes** in wrangler.toml for that environment, wrangler has nowhere to attach the Worker and fails.
 
-**Fix:** In `wrangler.toml`, for each environment (dev, staging, production) that you deploy from CI, add a **route** and set **workers_dev = false** so wrangler doesn’t ask about workers.dev. Use **zone_id** (not zone_name) so CI doesn’t fail with “Could not find zone” (see next section). Replace `REPLACE_WITH_BITTASKER_ZONE_ID` with your Zone ID from **Cloudflare Dashboard → bittasker.com → Overview → Zone ID** (right sidebar):
+**Fix:** In `wrangler.toml`, for each environment (dev, staging, production) that you deploy from CI, add a **route** and set **workers_dev = false** so wrangler doesn't ask about workers.dev. Use **zone_id** (not zone_name) so CI doesn't fail with "Could not find zone" (see next section). Replace `REPLACE_WITH_BITTASKER_ZONE_ID` with your Zone ID from **Cloudflare Dashboard → bittasker.com → Overview → Zone ID** (right sidebar):
 
 ```toml
 [env.dev.route]
@@ -265,12 +265,12 @@ After that, `wrangler deploy --env dev` in CI will attach the Worker to that rou
 
 **Symptom:** In CI, wrangler says: "Could not find zone for `bittasker.com`. Make sure the domain is set up to be proxied by Cloudflare."
 
-**Cause:** Wrangler looks up the zone by **name** using the API token’s account. That fails if (1) the zone **bittasker.com** is in a **different Cloudflare account** than the one in `CLOUDFLARE_ACCOUNT_ID` (e.g. Worker in one account, zone in another), or (2) the API token doesn’t have **Zone > Zone > Read** permission.
+**Cause:** Wrangler looks up the zone by **name** using the API token's account. That fails if (1) the zone **bittasker.com** is in a **different Cloudflare account** than the one in `CLOUDFLARE_ACCOUNT_ID` (e.g. Worker in one account, zone in another), or (2) the API token doesn't have **Zone > Zone > Read** permission.
 
 **Fix:**
 
-1. **Use zone_id instead of zone_name** in `wrangler.toml` for each env’s route. Get the Zone ID from **Cloudflare Dashboard → bittasker.com → Overview → Zone ID** (right sidebar). Replace `REPLACE_WITH_BITTASKER_ZONE_ID` in wrangler.toml with that value (same Zone ID for dev, staging, production if they all use bittasker.com).
-2. **Same account:** Ensure the Cloudflare account that has the **Worker** (Workers & Pages) is the **same account** that has the zone **bittasker.com** (Websites / Domain management). If they’re in different accounts, either move the zone to the Worker’s account or use an API token from the account that has the zone, with Workers edit permission for the Worker’s account (if supported).
+1. **Use zone_id instead of zone_name** in `wrangler.toml` for each env's route. Get the Zone ID from **Cloudflare Dashboard → bittasker.com → Overview → Zone ID** (right sidebar). Replace `REPLACE_WITH_BITTASKER_ZONE_ID` in wrangler.toml with that value (same Zone ID for dev, staging, production if they all use bittasker.com).
+2. **Same account:** Ensure the Cloudflare account that has the **Worker** (Workers & Pages) is the **same account** that has the zone **bittasker.com** (Websites / Domain management). If they're in different accounts, either move the zone to the Worker's account or use an API token from the account that has the zone, with Workers edit permission for the Worker's account (if supported).
 3. **Token permissions:** Ensure the API token has **Zone > Zone > Read** and **Zone > Workers Routes > Edit** for the zone (or account) so wrangler can attach the route.
 
 ### Wrangler deploy fails with "Authentication error"
@@ -302,7 +302,7 @@ After that, `wrangler deploy --env dev` in CI will attach the Worker to that rou
 A **playwright** job runs in the **validate** stage on MRs and on branches `feat/workers-deployment`, `dev`, and `main`. It uses the official Playwright Docker image (Node 20 + Chromium) and runs only the smoke suite:
 
 - **CI:** `npx playwright test --project=chromium tests/e2e/smoke.spec.ts`
-- The app is started automatically by Playwright’s `webServer` (`npm run dev` in `playwright.config.ts`).
+- The app is started automatically by Playwright's `webServer` (`npm run dev` in `playwright.config.ts`).
 
 **Run locally (one-time setup):**
 
@@ -325,8 +325,8 @@ To run Playwright on every branch (not only MRs and deploy branches), remove or 
 | `.gitlab-ci.yml` | Defines stages: **validate**, **deploy**. Validate runs unit test + optional **playwright** job (smoke E2E). Deploy jobs run `npm run build` (or `build:production`) then `wrangler deploy` and purge. No separate build stage. |
 | `package.json` | Includes `wrangler` and scripts `deploy:workers:dev`, `deploy:workers`, `deploy:workers:production` |
 | `scripts/purge-cache.js` | Runs after deploy in CI (when `CI=true` and zone/token set); skips locally |
-| `plans/workers-ci-setup-walkthrough.md` | This guide |
-| `plans/workers-pipeline-migration-plan.md` | Migration plan and environment rationale |
+| `docs/ci/workers-ci-setup-walkthrough.md` | This guide |
+| `docs/ci/workers-pipeline-migration.md` | Migration plan and environment rationale |
 | `tests/e2e/smoke.spec.ts` | Playwright smoke tests (homepage load, app shell). Run in CI via **playwright** job. |
 | `playwright.config.ts` | Playwright config; `webServer` starts `npm run dev` for local and CI. |
 
