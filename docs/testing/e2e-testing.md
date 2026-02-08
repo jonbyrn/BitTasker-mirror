@@ -55,7 +55,7 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 ```
 
 - **Local:** Playwright starts the dev server (port 3000) automatically. Ensure `VITE_API_URL` is set in your environment.
-- **CI:** GitLab CI runs `npm run test:e2e` (full ordered suite). Playwright runs `npm run build && npm run preview` (port 4173). Set **VITE_API_URL** and **VITE_NOSTR_RELAY_URL** (for Messages E2E) in GitLab CI/CD variables. Branch strategy and stages are documented in `.gitlab-ci.yml` (E2E on MRs, feat/workers-deployment, dev, main; deploy-development on feat/workers-deployment, with optional switch to `dev` after merge).
+- **CI:** The pipeline builds the app **once** in a `build` job; the Playwright job receives the `build/` artifact and runs only `npm run preview` (no second build). Set **VITE_API_URL** and **VITE_NOSTR_RELAY_URL** (for Messages E2E) in GitLab CI/CD variables. The build job uses the same variables so the bundle matches the environment. See `.gitlab-ci.yml` for stages and branch strategy.
 
 ---
 

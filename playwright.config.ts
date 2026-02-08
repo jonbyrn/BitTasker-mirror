@@ -1,10 +1,13 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
  * E2E config: where the app runs and where it calls the API
  *
- * - CI (e.g. GitLab CI): build + preview (port 4173) for a stable bundle and no cold start.
  * - Local (CI not set): dev server (port 3000) for faster iteration.
+ * - CI with build/ present (e.g. from pipeline artifact): preview only (port 4173), no second build.
+ * - CI without build/ (e.g. local `CI=1 npm run test:e2e`): build + preview (port 4173).
  *
  * Set VITE_API_URL in the environment so the app can reach the backend (signup/onboarding, passkey).
  * See docs/testing/e2e-testing.md for required environment variables.
@@ -17,6 +20,8 @@ const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
 const DEV_URL = `http://localhost:${DEV_PORT}`;
 
 const useDevServer = !process.env.CI;
+/** In CI, if build/ already exists (pipeline artifact), run preview only to avoid a second build. */
+const previewOnly = !!process.env.CI && existsSync(join(process.cwd(), 'build'));
 const baseURL = useDevServer ? DEV_URL : PREVIEW_URL;
 
 export default defineConfig({
@@ -84,7 +89,7 @@ export default defineConfig({
     // },
   ],
 
-  /* Local: dev server. CI: build + preview. */
+  /* Local: dev server. CI with build/ present: preview only. CI without build/: build + preview. */
   webServer: useDevServer
     ? {
         command: 'npm run dev',
@@ -96,14 +101,25 @@ export default defineConfig({
           ...process.env,
         },
       }
-    : {
-        command: 'npm run build && npm run preview',
-        url: PREVIEW_URL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 300 * 1000, // 5 min: build can be slow in CI
-        env: {
-          VITE_E2E_TURNSTILE_BYPASS: 'true',
-          ...process.env,
+    : previewOnly
+      ? {
+          command: 'npm run preview',
+          url: PREVIEW_URL,
+          reuseExistingServer: false,
+          timeout: 15 * 1000,
+          env: {
+            VITE_E2E_TURNSTILE_BYPASS: 'true',
+            ...process.env,
+          },
+        }
+      : {
+          command: 'npm run build && npm run preview',
+          url: PREVIEW_URL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 300 * 1000, // 5 min: build can be slow in CI
+          env: {
+            VITE_E2E_TURNSTILE_BYPASS: 'true',
+            ...process.env,
+          },
         },
-      },
 });
