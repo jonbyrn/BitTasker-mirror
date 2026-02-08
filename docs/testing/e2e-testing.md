@@ -11,7 +11,7 @@
 | **Framework** | Playwright |
 | **Location** | `tests/e2e/` |
 | **Auth tests** | 01-signup-onboarding (creates users + credentials), 02-credentials-login (validates login with passkey) |
-| **Run order** | 01 first, then 02. Use `--workers=1`. |
+| **Run order** | 01 first (creates credentials), then the rest. Use `npm run test:e2e` for the full ordered run. |
 
 ---
 
@@ -90,6 +90,15 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 - **Per-test context:** No shared storage. Each test starts fresh; Test 2 does not inherit Test 1's auth state.
 - **Fixed labels in 02:** `getCredentialSetLabels()` runs at load time, so the file may not exist. We use `EXPECTED_LABELS = ['signup', 'nostr']` so tests are always discovered.
 - **CI:** When `CI` is set (e.g. GitLab CI), Playwright runs build + preview (port 4173). Set `VITE_API_URL` in GitLab CI/CD variables.
+
+### Ordered run script (`npm run test:e2e`)
+
+The entry point is **`scripts/e2e-ordered.js`** (invoked via `npm run test:e2e`). It runs two phases so that credentials are created first with a single worker, then the rest of the E2E specs can run with more workers for speed:
+
+1. **Phase 1:** `01-signup-onboarding.spec.ts` only, with `--workers=1` (writes `webauthn-credentials.json` once).
+2. **Phase 2:** All other `*.spec.ts` under `tests/e2e/` (discovered automatically), with `--workers=1` in CI and `--workers=2` locally.
+
+New specs under `tests/e2e/` are included in phase 2 without changing the script. The script warns if `VITE_API_URL` or `VITE_E2E_TURNSTILE_BYPASS` are not set; it does not exit, so you can still run (e.g. smoke-only). To change behavior (e.g. switch to a single phase later), edit `scripts/e2e-ordered.js`.
 
 ---
 
