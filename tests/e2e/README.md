@@ -12,13 +12,7 @@
 npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts tests/e2e/03-wallet-post-login.spec.ts --project=chromium --workers=1
 ```
 
-With dev server and API URL:
-
-```bash
-E2E_USE_DEV_SERVER=1 VITE_API_URL=https://your-api.example.com npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts tests/e2e/03-wallet-post-login.spec.ts --project=chromium --workers=1
-```
-
-Requires **VITE_E2E_TURNSTILE_BYPASS** and **VITE_API_URL** for 01.
+**Environment:** Set **VITE_API_URL** (and **VITE_E2E_TURNSTILE_BYPASS** if you start the dev server yourself). See **docs/testing/e2e-testing.md** for the full list of required environment variables. Locally, Playwright starts the dev server automatically; in CI it runs build + preview.
 
 ## Other specs
 

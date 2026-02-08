@@ -26,16 +26,24 @@
 
 ---
 
-## 3. How to Run
+## 3. Environment Variables
 
-**Basic:**
+Set these **before** running Playwright so the app and tests behave correctly:
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| **VITE_API_URL** | Yes | Backend API base URL. The app uses it for signup, onboarding, and passkey registration. Example: `https://your-api.example.com`. In CI, set this in GitLab CI/CD variables. |
+| **VITE_E2E_TURNSTILE_BYPASS** | Yes (for auth tests) | Must be `true` so Turnstile is bypassed in E2E. The Playwright config injects this into the webServer process; if you start the dev server yourself, set it in your environment. |
+
+**Note:** Backend must be running and reachable at `VITE_API_URL` for passkey creation and login tests.
+
+---
+
+## 4. How to Run
+
+**Basic (auth flow):**
 ```bash
 npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
-```
-
-**With dev server (faster):**
-```bash
-E2E_USE_DEV_SERVER=1 VITE_API_URL=https://your-api.example.com npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
 ```
 
 **Via npm script:**
@@ -43,11 +51,12 @@ E2E_USE_DEV_SERVER=1 VITE_API_URL=https://your-api.example.com npx playwright te
 npm run test:playwright run -- tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
 ```
 
-**Requirements:** `VITE_E2E_TURNSTILE_BYPASS`, `VITE_API_URL`. Backend must be running for passkey creation.
+- **Local:** Playwright starts the dev server (port 3000) automatically. Ensure `VITE_API_URL` is set in your environment.
+- **CI:** GitLab CI sets `CI`; Playwright runs `npm run build && npm run preview` (port 4173). Set `VITE_API_URL` in CI/CD variables.
 
 ---
 
-## 4. Credentials File
+## 5. Credentials File
 
 | Item | Details |
 |------|---------|
@@ -58,7 +67,7 @@ npm run test:playwright run -- tests/e2e/01-signup-onboarding.spec.ts tests/e2e/
 
 ---
 
-## 5. Fixtures
+## 6. Fixtures
 
 | Fixture | Used in | Purpose |
 |---------|---------|---------|
@@ -74,16 +83,16 @@ npm run test:playwright run -- tests/e2e/01-signup-onboarding.spec.ts tests/e2e/
 
 ---
 
-## 6. Technical Notes
+## 7. Technical Notes
 
 - **CDP virtual authenticator:** Each page gets its own authenticator. Credentials live per authenticator, not per context. We export via `WebAuthn.getCredentials` and inject via `WebAuthn.addCredential`.
 - **Per-test context:** No shared storage. Each test starts fresh; Test 2 does not inherit Test 1's auth state.
 - **Fixed labels in 02:** `getCredentialSetLabels()` runs at load time, so the file may not exist. We use `EXPECTED_LABELS = ['signup', 'nostr']` so tests are always discovered.
-- **CI:** Playwright job runs build + preview (port 4173). Set `VITE_API_URL` in GitLab CI/CD variables.
+- **CI:** When `CI` is set (e.g. GitLab CI), Playwright runs build + preview (port 4173). Set `VITE_API_URL` in GitLab CI/CD variables.
 
 ---
 
-## 7. References
+## 8. References
 
 - **E2E account creation (challenge + implementation):** [e2e-account-creation.md](./e2e-account-creation.md)
 - **Tests README:** `tests/e2e/README.md`
