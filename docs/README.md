@@ -8,9 +8,10 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 
 | Document | Purpose |
 |----------|---------|
-| [e2e-testing.md](testing/e2e-testing.md) | E2E pipeline: test files (01/02/03), credentials file, fixtures, run order, how to run. |
+| [e2e-testing.md](testing/e2e-testing.md) | E2E pipeline: test files (01–04), credentials file, fixtures, run order, how to run. |
 | [e2e-account-creation.md](testing/e2e-account-creation.md) | E2E account creation: challenges (Turnstile, WebAuthn, backend) and how we implemented signup/onboarding. |
 | [e2e-wallet-post-login.md](testing/e2e-wallet-post-login.md) | Wallet post-login E2E: login with passkey → wallet route → validation; `performPasskeyLogin` helper. |
+| [e2e-messages-start-new-chat.md](testing/e2e-messages-start-new-chat.md) | Messages E2E: Nostr user starts new chat with signup user, send/receive flow, Nostr relay, username lookup. |
 | [pipeline-improvement.md](testing/pipeline-improvement.md) | Testing pipeline improvement: CI curated set, triage, per-directory fixing, workflow. |
 
 ### CI/CD (`docs/ci/`)

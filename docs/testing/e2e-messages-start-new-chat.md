@@ -60,4 +60,3 @@ npm run test:e2e
 
 - **E2E pipeline:** [e2e-testing.md](./e2e-testing.md)
 - **Messages route:** `src/routes/(protected)/dashboard/messages/+page.svelte`
-- **Plan (implementation):** `plans/e2e-messages-start-new-chat.md`
