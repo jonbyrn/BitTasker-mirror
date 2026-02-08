@@ -8,7 +8,7 @@ import { AuthHelper, createAuthHelper } from '../utils/auth-helpers';
  * that the test uses. CDP virtual authenticators are bound to the frame/target; attaching
  * to a temporary page and then closing it leaves the test page without an authenticator,
  * so credentials.create() would hang or fail. See requirements/details/authentication-flow.md
- * and plans/e2e-testing.md.
+ * and docs/testing/e2e-testing.md.
  */
 
 type AuthFixtures = {

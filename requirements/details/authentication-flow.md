@@ -267,7 +267,7 @@ So recovery = **recovery password decrypts nsec + mnemonic**; then re-encrypt fo
 | **Recovery UI** | `src/routes/auth/recover/[npub]/+page.svelte` | Enter recovery password, OTP, new password; decrypt keys; re-encrypt for device; create passkey |
 | **Auth state** | `src/lib/stores/auth.store.ts` | `setupAuthData(accessToken, authMethod, npub, userData, biometricData)`, logout, Preferences (ACCESS_TOKEN, NPUB, AUTH_METHOD) |
 | **Types** | `src/lib/types/auth.d.ts` | `Credentials`, `MasterKeyEncryptedData`, `MasterKeyRegistration`, `NostrLoginData`, `AccountRecoveryData`, `NostrRecoveryData`, etc. |
-| **E2E (Playwright)** | `src/lib/tests/e2e/fixtures/auth.ts` | Virtual WebAuthn authenticator must be attached to the **test page** (same frame as the app), not a temporary page, so `credentials.create()` in PasskeySetup is handled. See `plans/e2e-testing.md` and `src/lib/tests/e2e/docs/e2e-account-creation-challenge.md`. |
+| **E2E (Playwright)** | `src/lib/tests/e2e/fixtures/auth.ts` | Virtual WebAuthn authenticator must be attached to the **test page** (same frame as the app), not a temporary page, so `credentials.create()` in PasskeySetup is handled. See `docs/testing/e2e-testing.md` and `docs/testing/e2e-account-creation.md`. |
 
 ---
 

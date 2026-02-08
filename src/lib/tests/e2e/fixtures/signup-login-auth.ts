@@ -22,7 +22,7 @@ const VIRTUAL_AUTHENTICATOR_OPTIONS = {
 /**
  * Fixture for signup → login E2E tests. Exports WebAuthn credentials after each test
  * and injects them into the next test's authenticator so the passkey from Test 1
- * is available in Test 2 (and later tests). See plans/e2e-testing.md.
+ * is available in Test 2 (and later tests). See docs/testing/e2e-testing.md.
  */
 const test = authTest.extend<
 	object,
