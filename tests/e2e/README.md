@@ -6,8 +6,12 @@
 2. **02-credentials-login.spec.ts** – Loads that file and checks that each user can log in with passkey and reach the dashboard.
 3. **03-wallet-post-login.spec.ts** – Logs in with signup credentials, navigates to wallet, validates page loads.
 
-**You must run 01 before 02 and 03**, and use **`--workers=1`** so the credentials file exists:
+**Recommended:** Run the full ordered suite (credentials first, then the rest) with:
+```bash
+npm run test:e2e
+```
 
+To run files manually (e.g. for debugging), run 01 first with **`--workers=1`** so the credentials file exists, then 02 and 03:
 ```bash
 npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts tests/e2e/03-wallet-post-login.spec.ts --project=chromium --workers=1
 ```
