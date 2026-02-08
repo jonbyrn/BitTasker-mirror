@@ -58,7 +58,7 @@ You can scope CI/CD variables to an environment (e.g. different `VITE_CLIENT_URL
 
 **Where the build runs:** All build work happens in **GitLab CI**. The pipeline has two stages: **validate** and **deploy**.
 
-1. **Validate** (every branch): Runs `npm ci` and tests (currently the CI placeholder test; check, lint, and build can be enabled in `.gitlab-ci.yml`). Does **not** deploy.
+1. **Validate**: Runs Playwright E2E (`npm run test:e2e` — full ordered suite: 01-signup-onboarding, then 02, 03, 04). Unit tests (Vitest) are commented out in `.gitlab-ci.yml`; uncomment to run them. Does **not** deploy.
 2. **Deploy** (only on deploy branches): Each deploy job (`deploy-development`, `deploy-staging`, `deploy-production`) runs in sequence: `npm ci` → `npm run build` (or `npm run build:production` for production) → `npx wrangler deploy --env <env>` → `node scripts/purge-cache.js`. The build runs **inside** the deploy job; there are no separate build jobs. Wrangler uploads the `build/` folder and the Worker script to Cloudflare.
 
 **What Cloudflare does:** With **Workers + wrangler**, Cloudflare does **not** run a build. It only receives what GitLab sends:
@@ -144,6 +144,18 @@ The Turnstile sitekey is **baked into the client bundle at build time**. It is *
 - **Local deploy:** Run `npm run build` with `VITE_CLOUDFLARE_SITEKEY` in your `.env`, then `wrangler deploy`. The built JS will have the key.
 - **Cloudflare Git Build:** If the Worker is connected to Git, Cloudflare runs `npm run build` in its own environment. **Worker secrets (dashboard Variables & Secrets) are for the Worker runtime, not for the build step.** So the Cloudflare build often runs without `VITE_CLOUDFLARE_SITEKEY`, and the deployed bundle has `undefined`. **Fix:** In Cloudflare Dashboard → **Workers & Pages** → your Worker → **Settings** → **Build** → **Variables and secrets**, add a **build** variable: `VITE_CLOUDFLARE_SITEKEY` (value = your Turnstile site key, or mark as secret). Then trigger a new build (e.g. push a commit or "Retry deployment"). After that, the built assets will have the key inlined.
 - **Cache:** If you deployed a good build but still see "expected string, got undefined", the browser or edge may be serving old JS. Try hard refresh (Ctrl+Shift+R / Cmd+Shift+R), incognito, or purge the zone cache in Cloudflare.
+
+### Variables for E2E (Playwright in validate stage)
+
+The pipeline runs the full E2E suite (`npm run test:e2e`) on MRs and on branches `feat/workers-deployment`, `dev`, and `main`. Set these so E2E can reach your backend and Nostr relay:
+
+| Variable | Purpose |
+|----------|---------|
+| `VITE_API_URL` | Backend API base URL (signup, onboarding, passkey). Required for 01–02 and app behavior. |
+| `VITE_NOSTR_RELAY_URL` | Nostr relay URL (e.g. `wss://relay.example.com`). Required for 04-messages (Messages E2E). |
+| `VITE_E2E_TURNSTILE_BYPASS` | Set to `true` to bypass Turnstile in E2E (optional; script may warn if unset). |
+
+See [docs/testing/e2e-testing.md](../testing/e2e-testing.md) for the full list and run order.
 
 ### Minimum VITE_ Variables (from wrangler.toml)
 

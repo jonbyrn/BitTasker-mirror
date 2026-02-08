@@ -35,6 +35,7 @@ Set these **before** running Playwright so the app and tests behave correctly:
 |----------|----------|---------|
 | **VITE_API_URL** | Yes | Backend API base URL. The app uses it for signup, onboarding, and passkey registration. Example: `https://your-api.example.com`. In CI, set this in GitLab CI/CD variables. |
 | **VITE_E2E_TURNSTILE_BYPASS** | Yes (for auth tests) | Must be `true` so Turnstile is bypassed in E2E. The Playwright config injects this into the webServer process; if you start the dev server yourself, set it in your environment. |
+| **VITE_NOSTR_RELAY_URL** | Yes (for 04-messages) | Nostr relay URL (e.g. `wss://relay.example.com`). Required for Messages E2E (user search, send/receive). Set in GitLab CI/CD variables when running the full E2E suite in CI. |
 
 **Note:** Backend must be running and reachable at `VITE_API_URL` for passkey creation and login tests.
 
@@ -54,7 +55,7 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 ```
 
 - **Local:** Playwright starts the dev server (port 3000) automatically. Ensure `VITE_API_URL` is set in your environment.
-- **CI:** GitLab CI sets `CI`; Playwright runs `npm run build && npm run preview` (port 4173). Set `VITE_API_URL` in CI/CD variables. Use `npm run test:e2e` in the pipeline.
+- **CI:** GitLab CI runs `npm run test:e2e` (full ordered suite). Playwright runs `npm run build && npm run preview` (port 4173). Set **VITE_API_URL** and **VITE_NOSTR_RELAY_URL** (for Messages E2E) in GitLab CI/CD variables. Branch strategy and stages are documented in `.gitlab-ci.yml` (E2E on MRs, feat/workers-deployment, dev, main; deploy-development on feat/workers-deployment, with optional switch to `dev` after merge).
 
 ---
 
