@@ -1,14 +1,11 @@
 /**
  * Messages E2E: start new chat, send message, and verify the other user receives it.
  *
- * Test 1 (Nostr user): Opens new message, searches signup user, starts chat,
- * sends a unique test message, writes it to a file, and asserts it appears.
+ * Tests run in order (describe.serial) so the send test always completes before
+ * the receive test runs. Both run in the same worker, so they share messageText.
  *
- * Test 2 (signup user): Reads the message from file, finds that conversation,
- * opens it, and asserts the same message is visible.
- *
- * Run after 01-signup-onboarding (credentials file must exist).
- * Requires Nostr relay reachable.
+ * Test 1 (Nostr user): Sends "E2E test message ${Date.now()}".
+ * Test 2 (signup user): Finds that conversation and asserts the message.
  */
 import {
 	test,
@@ -17,17 +14,19 @@ import {
 	CREDENTIALS_MISSING_MESSAGE
 } from './fixtures/passkey-auth-from-file';
 import { getUsernameForLabel } from './utils/webauthn-credentials';
-import { writeLastE2EMessage, readLastE2EMessage } from './utils/e2e-last-message';
 
-test.describe('Messages start new chat and send (Nostr user)', () => {
-	test.skip(
-		() => !webauthnCredentialsFileExists(),
-		CREDENTIALS_MISSING_MESSAGE
-	);
+/** Set by send test; read by receive test (same worker, describe.serial). */
+let lastE2EMessageText: string | null = null;
 
-	test.use({ credentialLabel: 'nostr' });
+test.describe.serial('Messages send then receive', () => {
+	test.describe('Send (Nostr user)', () => {
+		test.skip(
+			() => !webauthnCredentialsFileExists(),
+			CREDENTIALS_MISSING_MESSAGE
+		);
+		test.use({ credentialLabel: 'nostr' });
 
-	test('Nostr user opens new message, searches signup user, starts chat, sends message, sees it in history', async ({
+		test('Nostr user opens new message, searches signup user, starts chat, sends message, sees it in history', async ({
 		authenticatedPageFromPasskeyFile
 	}) => {
 		const page = authenticatedPageFromPasskeyFile;
@@ -41,9 +40,8 @@ test.describe('Messages start new chat and send (Nostr user)', () => {
 			);
 		}
 
-		// Unique message per run so we assert on the one we just sent (no duplicates from past runs)
 		const messageText = `E2E test message ${Date.now()}`;
-		writeLastE2EMessage(messageText);
+		lastE2EMessageText = messageText;
 
 		await page.goto('/dashboard/messages', { waitUntil: 'load' });
 		await page.waitForLoadState('networkidle');
@@ -97,26 +95,23 @@ test.describe('Messages start new chat and send (Nostr user)', () => {
 			timeout: 15_000
 		});
 	});
-});
+	});
 
-test.describe('Messages receive (signup user)', () => {
-	test.skip(
-		() => !webauthnCredentialsFileExists(),
-		CREDENTIALS_MISSING_MESSAGE
-	);
+	test.describe('Receive (signup user)', () => {
+		test.skip(
+			() => !webauthnCredentialsFileExists(),
+			CREDENTIALS_MISSING_MESSAGE
+		);
+		test.use({ credentialLabel: 'signup' });
 
-	test.use({ credentialLabel: 'signup' });
-
-	test('Signup user opens messages, finds conversation with Nostr user, sees the same test message', async ({
+		test('Signup user opens messages, finds conversation with Nostr user, sees the same test message', async ({
 		authenticatedPageFromPasskeyFile
 	}) => {
 		const page = authenticatedPageFromPasskeyFile;
 
-		const messageText = readLastE2EMessage();
+		const messageText = lastE2EMessageText;
 		if (!messageText) {
-			throw new Error(
-				'Last E2E message not found. Run the Nostr user test first (first test in this file).'
-			);
+			throw new Error('Run the send test first (tests run in order via describe.serial).');
 		}
 
 		await expect(page).toHaveURL(/\/dashboard/);
@@ -141,5 +136,6 @@ test.describe('Messages receive (signup user)', () => {
 		await expect(page.getByText(messageText, { exact: true })).toBeVisible({
 			timeout: 15_000
 		});
+	});
 	});
 });
