@@ -6,7 +6,7 @@ This plan describes how BitTasker will improve its testing practices and integra
 - **Pipeline migration:** [workers-pipeline-migration-plan.md](./workers-pipeline-migration-plan.md) – GitLab CI/CD, deployment flow.
 - **CI setup:** [workers-ci-setup-walkthrough.md](./workers-ci-setup-walkthrough.md) – variables, branch strategy, troubleshooting.
 - **Testing overview:** [../.cursor/rules/testing/testing-overview.mdc](../.cursor/rules/testing/testing-overview.mdc) – testing strategy and patterns.
-- **E2E signup/onboarding:** [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md) – running full signup + onboarding e2e in CI (Turnstile, WebAuthn, dev backend).
+- **E2E testing:** [e2e-testing.md](./e2e-testing.md) – auth flow, signup/onboarding, credentials, fixtures, run order.
 
 ---
 
@@ -306,9 +306,8 @@ Use Vitest [workspace/projects](https://vitest.dev/guide/workspace) or `include`
 3. **Integration tests:** Consider running them in a separate CI job (e.g. `validate:integration`) so they don’t block fast feedback. They can be slower and more flaky.
 
 4. **E2E (current state):**
-   - **Consolidated** in `tests/e2e/`: smoke + signup-onboarding. Playwright config uses **build + preview** (no dev server) for stability in CI.
-   - Signup-onboarding reaches the “Set up passkey” step and validates dev backend. **Next:** add virtual authenticator and complete passkey flow to dashboard (see [e2e-signup-onboarding-plan.md](./e2e-signup-onboarding-plan.md) §11).
-   - Auth fixtures and other e2e specs remain in `src/lib/tests/e2e/` for reference; signup-onboarding lives in `tests/e2e/`.
+   - **Consolidated** in `tests/e2e/`: 01-signup-onboarding, 02-credentials-login. Playwright config uses **build + preview** (no dev server) for stability in CI.
+   - See [e2e-testing.md](./e2e-testing.md) for run commands, fixtures, and credential handling.
 
 ---
 
@@ -410,7 +409,7 @@ We use a simpler approach: CI runs `npm run test:ci` which executes `vitest run 
 - [x] `npm run test:ci` for local and CI.
 - [x] `npm run test:unit:<dir>` for each directory.
 - [x] Triage script for pass/fail report.
-- [x] Playwright smoke + signup-onboarding pass in CI (build + preview; see e2e-signup-onboarding-plan).
+- [x] Playwright 01/02 auth tests pass in CI (build + preview; see e2e-testing.md).
 - [ ] Expand `ci/` with more directories (formatters, crypto, etc.).
 - [ ] Fix `scripts/playwright.js` stale references.
 - [ ] New features have a documented expectation to add tests.
@@ -445,7 +444,8 @@ We use a simpler approach: CI runs `npm run test:ci` which executes `vitest run 
 | `vitest-setup-client.ts` | Global test setup (jest-dom, vi) |
 | `scripts/playwright.js` | Playwright command router; has stale paths |
 | `playwright.config.ts` | E2E config; testDir = tests/e2e |
-| `tests/e2e/smoke.spec.ts` | CI smoke test |
+| `tests/e2e/01-signup-onboarding.spec.ts` | Auth: creates users + credentials |
+| `tests/e2e/02-credentials-login.spec.ts` | Auth: validates passkey login |
 
 ---
 
