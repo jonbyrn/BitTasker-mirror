@@ -58,16 +58,20 @@ You can scope CI/CD variables to an environment (e.g. different `VITE_CLIENT_URL
 
 **Where the build runs:** All build work happens in **GitLab CI**. The pipeline has two stages: **validate** and **deploy**.
 
-1. **Validate**: Runs Playwright E2E (`npm run test:e2e` — full ordered suite: 01-signup-onboarding, then 02, 03, 04). Unit tests (Vitest) are commented out in `.gitlab-ci.yml`; uncomment to run them. Does **not** deploy.
-2. **Deploy** (only on deploy branches): Each deploy job (`deploy-development`, `deploy-staging`, `deploy-production`) runs in sequence: `npm ci` → `npm run build` (or `npm run build:production` for production) → `npx wrangler deploy --env <env>` → `node scripts/purge-cache.js`. The build runs **inside** the deploy job; there are no separate build jobs. Wrangler uploads the `build/` folder and the Worker script to Cloudflare.
+1. **Validate** (stage):
+   - **build**: Runs `npm ci` and `npm run build` once; publishes `build/` as an artifact. Uses CI/CD Variables for `VITE_*` (e.g. development values for dev pipeline).
+   - **playwright**: Needs `build`. Receives the `build/` artifact and runs E2E (`npm run test:e2e`) with **preview only** (no second build). Unit tests (Vitest) are commented out; uncomment to run them in parallel with build if desired.
+2. **Deploy** (only on deploy branches): Each deploy job **reuses** the `build/` artifact from the build job. It runs `npm ci` → `npx wrangler deploy --env <env>` → `node scripts/purge-cache.js`. No `npm run build` in deploy; the same bundle used for E2E is deployed.
 
 **What Cloudflare does:** With **Workers + wrangler**, Cloudflare does **not** run a build. It only receives what GitLab sends:
 
-- GitLab runs the SvelteKit build and gets `build/`.
-- `wrangler deploy` uploads `build/` (and `workers-site/index.js`) to the Worker.
+- GitLab runs the SvelteKit build once in the **build** job and gets `build/`.
+- E2E runs against that bundle via `vite preview`. Deploy uploads the same `build/` to the Worker.
 - Cloudflare serves that uploaded content. No build step runs on Cloudflare.
 
-So the pipeline is: **GitLab (validate then build+deploy in one job per environment) → wrangler uploads to Cloudflare → Cloudflare serves.** Cloudflare automation does not need to run any build.
+So the pipeline is: **GitLab (build once → E2E with preview → deploy reuses build) → wrangler uploads to Cloudflare → Cloudflare serves.**
+
+**Environments and variables:** For development-only pipelines, set `VITE_*` in CI/CD Variables (or scope to the "development" environment). When you add staging/production, use GitLab [environment-scoped variables](https://docs.gitlab.com/ee/ci/variables/#add-a-cicd-variable-to-a-project) so the **build** job gets the right `VITE_*` per branch (e.g. staging vars when branch is `dev`, production vars when branch is `master`), or add separate build jobs per environment (e.g. `build-staging`, `build-production`) if you need different build commands (e.g. `build:production`).
 
 **What to do with existing Cloudflare automation (Pages):** Right now, a **Pages** project is likely connected to the repo (e.g. via webhook), so every push triggers a **full build on Cloudflare**. That is redundant once you use this pipeline. You have two options:
 
