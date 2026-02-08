@@ -23,30 +23,6 @@ const CREDENTIALS_SPEC = '01-signup-onboarding.spec.ts';
 const isCI = !!process.env.CI;
 const phase2Workers = isCI ? 1 : 2;
 
-const ENV_DOCS = 'See docs/testing/e2e-testing.md for required environment variables.';
-
-/** Print warnings if required E2E env vars are missing or invalid. */
-function checkEnv() {
-  const apiUrl = process.env.VITE_API_URL;
-  const turnstile = process.env.VITE_E2E_TURNSTILE_BYPASS;
-
-  if (!apiUrl || apiUrl.trim() === '') {
-    console.warn(
-      '\n⚠ VITE_API_URL is not set. Signup, onboarding, and passkey tests need a running backend.\n  Set it to your API base URL (e.g. https://your-api.example.com).\n  ' +
-        ENV_DOCS +
-        '\n'
-    );
-  }
-
-  if (!turnstile || turnstile.toLowerCase() !== 'true') {
-    console.warn(
-      "\n⚠ VITE_E2E_TURNSTILE_BYPASS is not set to 'true'. The Playwright config injects it when starting the app;\n  if you start the dev server yourself, set VITE_E2E_TURNSTILE_BYPASS=true so Turnstile doesn't block auth tests.\n  " +
-        ENV_DOCS +
-        '\n'
-    );
-  }
-}
-
 /** Collect all .spec.ts paths under dir, relative to cwd. */
 function listSpecFiles(dir) {
   const cwd = process.cwd();
@@ -109,7 +85,9 @@ function runPlaywright(args) {
 }
 
 async function main() {
-  checkEnv();
+  console.log(
+    'Ensure VITE_API_URL is set in .env and points to a live backend for tests to run.\n'
+  );
   const extraArgs = process.argv.slice(2).filter((a) => a !== '--');
   const phases = buildPhases(extraArgs);
 

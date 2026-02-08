@@ -38,7 +38,6 @@
 		"test:unit:components": "vitest run src/lib/tests/components/",
 		"test:unit:integration": "vitest run src/lib/tests/integration/",
 		"test:e2e": "node scripts/e2e-ordered.js",
-		"test:playwright": "node scripts/playwright.js",
 		"storybook": "storybook dev -p 6006 --no-open",
 		"build-storybook": "storybook build",
 		"robots:copy": "node scripts/copy-robots-txt.js",
