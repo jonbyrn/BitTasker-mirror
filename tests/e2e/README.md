@@ -4,17 +4,18 @@
 
 1. **01-signup-onboarding.spec.ts** – Creates two users (signup + Nostr) and writes their passkey credentials to `tests/e2e/.auth/webauthn-credentials.json`.
 2. **02-credentials-login.spec.ts** – Loads that file and checks that each user can log in with passkey and reach the dashboard.
+3. **03-wallet-post-login.spec.ts** – Logs in with signup credentials, navigates to wallet, validates page loads.
 
-**You must run 01 before 02**, and use **`--workers=1`** so the credentials file exists when 02 runs:
+**You must run 01 before 02 and 03**, and use **`--workers=1`** so the credentials file exists:
 
 ```bash
-npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
+npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts tests/e2e/03-wallet-post-login.spec.ts --project=chromium --workers=1
 ```
 
 With dev server and API URL:
 
 ```bash
-E2E_USE_DEV_SERVER=1 VITE_API_URL=https://your-api.example.com npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
+E2E_USE_DEV_SERVER=1 VITE_API_URL=https://your-api.example.com npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts tests/e2e/03-wallet-post-login.spec.ts --project=chromium --workers=1
 ```
 
 Requires **VITE_E2E_TURNSTILE_BYPASS** and **VITE_API_URL** for 01.

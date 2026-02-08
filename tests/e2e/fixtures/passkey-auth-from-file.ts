@@ -36,7 +36,6 @@ type PasskeyAuthFromFileFixtures = {
  *   test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
  */
 const test = base.extend<PasskeyAuthFromFileFixtures>({
-	// @ts-expect-error - Playwright option fixture typing
 	credentialLabel: ['signup', { option: true }],
 
 	authenticatedPageFromPasskeyFile: async ({ browser, credentialLabel }, use, testInfo) => {

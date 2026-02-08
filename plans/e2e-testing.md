@@ -21,6 +21,7 @@
 |------|---------|
 | **01-signup-onboarding.spec.ts** | **Creates** two users and writes passkey credentials. Test 1: signup → onboarding → dashboard (label `signup`). Test 2: Nostr login → passkey + onboarding → dashboard (label `nostr`). |
 | **02-credentials-login.spec.ts** | **Loads** credentials from file and validates each user can log in: inject → /auth/login → Continue with passkey → dashboard. Uses fixed labels `['signup', 'nostr']` so tests are discovered at load time. |
+| **03-wallet-post-login.spec.ts** | Logs in with signup credentials, navigates to `/dashboard/wallet`, validates page loads. See [e2e-wallet-post-login.md](./e2e-wallet-post-login.md). |
 | **wallet/balance-management.spec.ts** | Skipped (`describe.skip`). Re-enable when adding wallet E2E back. |
 
 ---
@@ -62,7 +63,7 @@ npm run test:playwright run -- tests/e2e/01-signup-onboarding.spec.ts tests/e2e/
 | Fixture | Used in | Purpose |
 |---------|---------|---------|
 | **signup-login-auth** | 01-signup-onboarding | Per-test context (no shared state), virtual authenticator, **no credential injection by default**. Opt-in via `test.use({ injectWebAuthnCredentials: true })`. Teardown exports to worker store and file. |
-| **passkey-auth-from-file** | 02-credentials-login | Reads file by `credentialLabel`, injects into authenticator, navigates to login → passkey → dashboard, yields page. |
+| **passkey-auth-from-file** | 02-credentials-login, 03-wallet-post-login | Reads file by `credentialLabel`, injects into authenticator, uses `performPasskeyLogin` helper, yields page. |
 
 ### Credential injection control (signup-login-auth)
 
@@ -85,6 +86,7 @@ npm run test:playwright run -- tests/e2e/01-signup-onboarding.spec.ts tests/e2e/
 ## 7. References
 
 - **Tests README:** `tests/e2e/README.md`
+- **Wallet post-login:** [e2e-wallet-post-login.md](./e2e-wallet-post-login.md)
 - **Migration from src:** `tests/e2e/MIGRATION.md`
 - **Auth requirements:** `requirements/details/authentication-flow.md`
 - **CDP WebAuthn:** [Chrome DevTools Protocol – WebAuthn](https://chromedevtools.github.io/devtools-protocol/tot/WebAuthn/)
