@@ -3,11 +3,11 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * E2E config: where the app runs and where it calls the API
  *
- * - CI: build + preview (port 4173) for a stable bundle and no cold start.
- * - Local with E2E_USE_DEV_SERVER=1: npm run dev (port 3000) for faster iteration.
+ * - CI (e.g. GitLab CI): build + preview (port 4173) for a stable bundle and no cold start.
+ * - Local (CI not set): dev server (port 3000) for faster iteration.
  *
- * Build/dev receive VITE_E2E_TURNSTILE_BYPASS and VITE_API_URL from env. Set VITE_API_URL
- * to your dev backend so signup/onboarding (username check, passkey registration) can reach the API.
+ * Set VITE_API_URL in the environment so the app can reach the backend (signup/onboarding, passkey).
+ * See docs/testing/e2e-testing.md for required environment variables.
  *
  * @see https://playwright.dev/docs/test-configuration
  */
@@ -16,7 +16,7 @@ const DEV_PORT = 3000;
 const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
 const DEV_URL = `http://localhost:${DEV_PORT}`;
 
-const useDevServer = process.env.E2E_USE_DEV_SERVER === '1' && !process.env.CI;
+const useDevServer = !process.env.CI;
 const baseURL = useDevServer ? DEV_URL : PREVIEW_URL;
 
 export default defineConfig({
@@ -84,7 +84,7 @@ export default defineConfig({
     // },
   ],
 
-  /* Local: E2E_USE_DEV_SERVER=1 uses dev server (faster). CI always uses build + preview. */
+  /* Local: dev server. CI: build + preview. */
   webServer: useDevServer
     ? {
         command: 'npm run dev',
