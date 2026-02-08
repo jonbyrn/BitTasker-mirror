@@ -81,6 +81,13 @@ const test = base.extend<PasskeyAuthFromFileFixtures>({
 			await page.getByTestId('login-continue-passkey').click();
 			await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
 
+			// Dismiss Beta Warning modal so it doesn't block navigations (e.g. messages, wallet)
+			const understandBtn = page.getByRole('button', {
+				name: 'I understand',
+				exact: true
+			});
+			await understandBtn.click({ timeout: 5_000 }).catch(() => {});
+
 			await use(page);
 		} finally {
 			await ctx.close();

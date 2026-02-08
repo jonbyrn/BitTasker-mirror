@@ -102,6 +102,24 @@ export function getCredentialSetLabels(): string[] {
 	return file.credentialSets.map((s) => s.label);
 }
 
+const USERNAME_DOMAIN_SUFFIX = '@bittasker.com';
+
+/**
+ * Return the username part for a credential set (e.g. 'signup', 'nostr').
+ * Strips the @bittasker.com suffix from the first credential's userName.
+ * Returns null if the set is missing or userName has no known format.
+ */
+export function getUsernameForLabel(label: string): string | null {
+	const credentials = readCredentialSet(label);
+	if (!credentials?.length) return null;
+	const userName = credentials[0].userName;
+	if (!userName || typeof userName !== 'string') return null;
+	if (userName.endsWith(USERNAME_DOMAIN_SUFFIX)) {
+		return userName.slice(0, -USERNAME_DOMAIN_SUFFIX.length);
+	}
+	return userName;
+}
+
 /**
  * Write or replace one credential set by label. Merges with existing sets.
  */

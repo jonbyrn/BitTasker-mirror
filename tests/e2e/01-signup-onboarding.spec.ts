@@ -32,7 +32,8 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		test.setTimeout(180_000);
 		const ts = Date.now();
 		const uniqueUsername = `e2e-${ts}`;
-		const displayName = `e2e-user-${ts}`;
+		// Use same value as username so Nostr profile "name" matches; messages E2E searches by this
+		const displayName = uniqueUsername;
 		const stepLog: string[] = [];
 		const consoleMessages: string[] = [];
 		page.on('console', (msg) => {

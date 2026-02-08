@@ -22,6 +22,7 @@
 | **01-signup-onboarding.spec.ts** | **Creates** two users and writes passkey credentials. Test 1: signup → onboarding → dashboard (label `signup`). Test 2: Nostr login → passkey + onboarding → dashboard (label `nostr`). |
 | **02-credentials-login.spec.ts** | **Loads** credentials from file and validates each user can log in: inject → /auth/login → Continue with passkey → dashboard. Uses fixed labels `['signup', 'nostr']` so tests are discovered at load time. |
 | **03-wallet-post-login.spec.ts** | Logs in with signup credentials, navigates to `/dashboard/wallet`, validates page loads. See [e2e-wallet-post-login.md](./e2e-wallet-post-login.md). |
+| **04-messages-start-new-chat.spec.ts** | (1) Nostr user: Messages → new message → search signup user → start chat → send test message → assert in history. (2) Signup user: Messages → open conversation with test message → assert same message received. See [e2e-messages-start-new-chat.md](./e2e-messages-start-new-chat.md). Requires Nostr relay. |
 | **wallet/balance-management.spec.ts** | Skipped (`describe.skip`). Re-enable when adding wallet E2E back. |
 
 ---
@@ -64,7 +65,7 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 | **Path** | `tests/e2e/.auth/webauthn-credentials.json` (gitignored) |
 | **Format** | `{ credentialSets: [ { label: "signup", credentials: [...] }, { label: "nostr", credentials: [...] } ], exportedAt }` |
 | **Written by** | 01-signup-onboarding (fixture teardown after each test) |
-| **Read by** | 02-credentials-login, passkey-auth-from-file fixture |
+| **Read by** | 02-credentials-login, 04-messages-start-new-chat, passkey-auth-from-file fixture |
 
 ---
 
@@ -73,7 +74,7 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 | Fixture | Used in | Purpose |
 |---------|---------|---------|
 | **signup-login-auth** | 01-signup-onboarding | Per-test context (no shared state), virtual authenticator, **no credential injection by default**. Opt-in via `test.use({ injectWebAuthnCredentials: true })`. Teardown exports to worker store and file. |
-| **passkey-auth-from-file** | 02-credentials-login, 03-wallet-post-login | Reads file by `credentialLabel`, injects into authenticator, uses `performPasskeyLogin` helper, yields page. |
+| **passkey-auth-from-file** | 02-credentials-login, 03-wallet-post-login, 04-messages-start-new-chat | Reads file by `credentialLabel`, injects into authenticator, uses `performPasskeyLogin` helper, yields page. |
 
 ### Credential injection control (signup-login-auth)
 
@@ -107,6 +108,7 @@ New specs under `tests/e2e/` are included in phase 2 without changing the script
 - **E2E account creation (challenge + implementation):** [e2e-account-creation.md](./e2e-account-creation.md)
 - **Tests README:** `tests/e2e/README.md`
 - **Wallet post-login:** [e2e-wallet-post-login.md](./e2e-wallet-post-login.md)
+- **Messages start new chat:** [e2e-messages-start-new-chat.md](./e2e-messages-start-new-chat.md)
 - **Migration from src:** `tests/e2e/MIGRATION.md`
 - **Auth requirements:** `requirements/details/authentication-flow.md`
 - **CDP WebAuthn:** [Chrome DevTools Protocol – WebAuthn](https://chromedevtools.github.io/devtools-protocol/tot/WebAuthn/)
