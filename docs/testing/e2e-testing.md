@@ -41,18 +41,19 @@ Set these **before** running Playwright so the app and tests behave correctly:
 
 ## 4. How to Run
 
-**Basic (auth flow):**
+**Full E2E (recommended):** Runs credentials phase first (single worker), then the rest with more workers. No need to list files or pass `--workers=1`.
+```bash
+npm run test:e2e
+```
+Optional: pass Playwright args after `--`, e.g. `npm run test:e2e -- --project=firefox`.
+
+**Manual (individual files):** If you need to run a subset or debug order:
 ```bash
 npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
 ```
 
-**Via npm script:**
-```bash
-npm run test:playwright run -- tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
-```
-
 - **Local:** Playwright starts the dev server (port 3000) automatically. Ensure `VITE_API_URL` is set in your environment.
-- **CI:** GitLab CI sets `CI`; Playwright runs `npm run build && npm run preview` (port 4173). Set `VITE_API_URL` in CI/CD variables.
+- **CI:** GitLab CI sets `CI`; Playwright runs `npm run build && npm run preview` (port 4173). Set `VITE_API_URL` in CI/CD variables. Use `npm run test:e2e` in the pipeline.
 
 ---
 
