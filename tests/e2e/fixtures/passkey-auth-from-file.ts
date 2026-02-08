@@ -31,6 +31,9 @@ type PasskeyAuthFromFileFixtures = {
 /**
  * Fixture for specs that reuse passkeys from the credentials file.
  * Use credentialLabel to pick a user (e.g. 'signup', 'nostr'). Default is 'signup'.
+ *
+ * Skip when file is missing; use a function so the condition runs at runtime (after 01 runs):
+ *   test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
  */
 const test = base.extend<PasskeyAuthFromFileFixtures>({
 	// @ts-expect-error - Playwright option fixture typing
