@@ -26,5 +26,5 @@ Requires **VITE_E2E_TURNSTILE_BYPASS** and **VITE_API_URL** for 01.
 
 ## Docs
 
-- **Design & run order:** `plans/e2e-auth-and-credentials.md`
+- **E2E pipeline:** `plans/e2e-testing.md`
 - **Migration from src:** `tests/e2e/MIGRATION.md`

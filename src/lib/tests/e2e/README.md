@@ -2,7 +2,7 @@
 
 ## E2E migration (src → tests/e2e)
 
-We are migrating E2E specs and fixtures from `src/lib/tests/e2e/` to **`tests/e2e/`** incrementally. Current auth design (file-based credentials, multi-user, run order): **`plans/e2e-auth-and-credentials.md`**. Status and import patterns: **`tests/e2e/MIGRATION.md`**. New E2E work should use `tests/e2e/` and the fixtures there.
+We are migrating E2E specs and fixtures from `src/lib/tests/e2e/` to **`tests/e2e/`** incrementally. Current auth design (file-based credentials, multi-user, run order): **`plans/e2e-testing.md`**. Status and import patterns: **`tests/e2e/MIGRATION.md`**. New E2E work should use `tests/e2e/` and the fixtures there.
 
 ## Overview
 
@@ -120,7 +120,7 @@ tests/e2e/
   ```bash
   npx playwright test tests/e2e/signup-onboarding.spec.ts tests/e2e/wallet/ --project=chromium
   ```
-- If the credential file is missing, specs that depend on it will skip (or fail with a clear message). See `plans/e2e-passkey-credential-sharing-plan.md` in the repo root.
+- If the credential file is missing, specs that depend on it will skip (or fail with a clear message). See `plans/e2e-testing.md` in the repo root.
 
 ### 4. Nostr Key Login
 

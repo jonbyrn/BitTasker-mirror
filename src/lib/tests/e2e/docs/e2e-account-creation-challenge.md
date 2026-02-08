@@ -2,7 +2,7 @@
 
 This document describes what we need to consider to implement a Playwright e2e test that creates a new user account starting from the root page of the BitTasker app. It does **not** implement the test; it documents the app’s real flow, how the existing e2e auth handling works, and the main challenges.
 
-**Current status (see [e2e-signup-onboarding-plan.md](../../../../../plans/e2e-signup-onboarding-plan.md) ):** The signup-onboarding e2e runs in CI (build + preview) and (1) reaches the **“Set up passkey”** step, and (2) **passkey creation** is implemented: one test uses the auth fixture (CDP virtual authenticator), clicks “Set up passkey”, and asserts the **Recovery** step is visible (proving credential creation and backend registration + login). Optional next: complete remaining onboarding steps to dashboard.
+**Current status (see [e2e-testing.md](../../../../../plans/e2e-testing.md)):** The signup-onboarding e2e runs in CI (build + preview) and (1) reaches the **“Set up passkey”** step, and (2) **passkey creation** is implemented: one test uses the auth fixture (CDP virtual authenticator), clicks “Set up passkey”, and asserts the **Recovery** step is visible (proving credential creation and backend registration + login). Optional next: complete remaining onboarding steps to dashboard.
 
 ---
 
@@ -177,9 +177,9 @@ So creating an account in e2e means: pass the signup gate (Turnstile + store), t
 
 ## 4. Recommended next steps (planning only)
 
-1. ~~**Decide scope**~~ **Done:** E2E goes “root → signup → onboarding” with Turnstile bypass and virtual passkey; account creation (username + passkey) runs in one test; assertion is “Recovery step visible”. See [e2e-signup-onboarding-plan.md](../../../../../plans/e2e-signup-onboarding-plan.md).
+1. ~~**Decide scope**~~ **Done:** E2E goes “root → signup → onboarding” with Turnstile bypass and virtual passkey; account creation (username + passkey) runs in one test; assertion is “Recovery step visible”. See [e2e-testing.md](../../../../../plans/e2e-testing.md).
 
-2. ~~**Turnstile**~~ **Done:** Frontend bypass with `VITE_E2E_TURNSTILE_BYPASS` (see e2e-signup-onboarding-plan).
+2. ~~**Turnstile**~~ **Done:** Frontend bypass with `VITE_E2E_TURNSTILE_BYPASS` (see e2e-testing.md).
 
 3. ~~**Align routes and selectors**~~ **Done:** Signup-onboarding spec uses `/auth/signup`, `/auth/onboarding`, and `data-testid` for username, passkey, and recovery steps.
 
