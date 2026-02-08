@@ -3,13 +3,16 @@
 /**
  * E2E ordered test run: credentials phase first (single worker), then the rest.
  *
- * Usage: npm run test:e2e [-- playwright-args...]
+ * Usage:
+ *   npm run test:e2e [-- playwright-args...]
+ *   npm run test:e2e:ui   # opens Playwright UI (single run, all specs in order)
  *
- * Phases (easy to collapse to a single phase later by changing PHASES):
+ * Phases (when not using --ui):
  *   1. Run 01-signup-onboarding.spec.ts with --workers=1 (creates credentials file).
  *   2. Run all other specs under tests/e2e/ with workers=1 in CI or 2 locally.
  *
- * Pass extra args after -- to forward to Playwright (e.g. --project=firefox).
+ * With --ui: runs once with all specs in order and --workers=1 so "Run all" in the UI
+ * respects the same order. Pass other args after -- (e.g. npm run test:e2e -- --ui --project=firefox).
  * See docs/testing/e2e-testing.md for env vars (VITE_API_URL, etc.).
  */
 
@@ -88,7 +91,19 @@ async function main() {
   console.log(
     'Ensure VITE_API_URL is set in .env and points to a live backend for tests to run.\n'
   );
-  const extraArgs = process.argv.slice(2).filter((a) => a !== '--');
+  const rawArgs = process.argv.slice(2).filter((a) => a !== '--');
+  const uiMode = rawArgs.includes('--ui');
+  const extraArgs = rawArgs.filter((a) => a !== '--ui');
+
+  if (uiMode) {
+    const allSpecs = listSpecFiles(E2E_DIR);
+    const args = [...allSpecs, '--workers=1', '--project=chromium', '--ui', ...extraArgs];
+    console.log('\n→ E2E UI mode: all specs in order (run 01 first for credentials)\n');
+    await runPlaywright(args);
+    console.log('\n✓ E2E UI run finished\n');
+    return;
+  }
+
   const phases = buildPhases(extraArgs);
 
   for (const phase of phases) {

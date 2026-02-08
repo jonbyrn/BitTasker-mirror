@@ -24,6 +24,14 @@ Tests must run in order so that the credentials file exists before specs that lo
 npm run test:e2e
 ```
 
+**Playwright UI (pick and run tests, watch mode):**
+
+```bash
+npm run test:e2e:ui
+```
+
+This runs Playwright with `--ui` and all specs in order (`--workers=1`). Run 01 first in the UI to create the credentials file, then run any other spec. You can also pass args: `npm run test:e2e -- --ui`.
+
 To run a subset manually (e.g. for debugging), run 01 first with **`--workers=1`**, then the others:
 
 ```bash
