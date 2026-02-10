@@ -33,6 +33,8 @@ tests/e2e/.auth/
 # Test artifacts (regenerate locally as needed)
 playwright-report/
 test-results/
+.test-triage-temp.json
+test-triage-report.json
 
 # Vite
 vite.config.js.timestamp-*
@@ -44,6 +46,7 @@ cert
 
 .houdini
 
+npm-debug.log
 bun.lock
 
 # Android Keystore (NEVER commit these!)

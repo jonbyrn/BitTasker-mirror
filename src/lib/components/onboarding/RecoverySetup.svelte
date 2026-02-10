@@ -267,7 +267,7 @@
 	});
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-recovery">
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
@@ -636,7 +636,7 @@
 				<button type="button" class="btn btn-outline" onclick={prevStep}
 					>{$t('onboarding_auth.form.recovery_setup.back')}</button
 				>
-				<button type="submit" class="btn btn-primary"
+				<button type="submit" class="btn btn-primary" data-testid="onboarding-recovery-next"
 					>{$t('onboarding_auth.form.recovery_setup.next')}</button
 				>
 			</div>

@@ -92,7 +92,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-username">
 	<div class="card-body">
 		<!-- Educational Header -->
         <div class="education-header mb-6 text-center">
@@ -134,6 +134,7 @@
 				<input
 					type="text"
 					id="username"
+					data-testid="onboarding-username-input"
 					bind:value={username}
 					class="input input-bordered w-full {usernameError ? 'input-error' : ''}"
 					placeholder={$t('onboarding_auth.form.username_setup.placeholder')}
@@ -177,7 +178,7 @@
 			<!-- Form Actions -->
 			<div class="mt-6 flex justify-between">
 				<div></div> <!-- Empty div for spacing since there's no back on step 1 -->
-				<button type="submit" class="btn btn-primary" disabled={!username || isCheckingUsername}>
+				<button type="submit" class="btn btn-primary" data-testid="onboarding-username-next" disabled={!username || isCheckingUsername}>
 					{#if isCheckingUsername}
 						<span class="loading loading-spinner loading-sm"></span>
 						{$t('onboarding_auth.form.username_setup.checking')}

@@ -16,6 +16,13 @@
 
 	onMount(async () => {
 		try {
+			// E2E bypass: when running Playwright (or with VITE_E2E_TURNSTILE_BYPASS=true), skip Turnstile and enable Continue
+			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
+				isCaptchaVerified.set(true);
+				// Diagnostic: visible in Playwright page console and CI attachments
+				console.log('[E2E] Turnstile bypass active on signup');
+				return;
+			}
 			// Setup callback for Turnstile
 			window.onloadTurnstileCallback = renderTurnstile;
 		} catch (err) {
@@ -169,6 +176,7 @@
 
 				<button
 					class="btn btn-primary mt-4"
+					data-testid="signup-continue"
 					onclick={() => goto('/auth/onboarding')}
 					disabled={isLoading || !$isCaptchaVerified}
 				>
