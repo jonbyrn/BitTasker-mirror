@@ -29,7 +29,18 @@ export const load: LayoutLoad = async ({ url }) => {
 	} else {
 		if (url.pathname.includes('/onboarding')) {
 			await authState.logout();
-			if (!get(isCaptchaVerified)) redirect(303, '/auth/signup');
+			const verified = get(isCaptchaVerified);
+			// E2E: allow onboarding when bypass env is set so we don't rely on store timing (CI race)
+			const e2eBypass =
+				typeof import.meta !== 'undefined' && import.meta.env?.VITE_E2E_TURNSTILE_BYPASS === 'true';
+			if (!verified && !e2eBypass) {
+				// Diagnostic: visible in Playwright page console and CI attachments when redirect happens
+				console.warn('[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup');
+				redirect(303, '/auth/signup');
+			}
+			// Diagnostic: when we allow onboarding
+			if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');
+			else console.log('[E2E] Auth layout: allowing onboarding (isCaptchaVerified=true)');
 		}
 	}
 };

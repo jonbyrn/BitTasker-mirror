@@ -608,7 +608,7 @@ BitTasker is a Bitcoin platform in the gig economy sector inspired by Airtasker,
 - **Unit Testing**: Vitest for fast, ESM-native unit testing
 - **Component Testing**: Testing Library for Svelte component testing
 - **Integration Testing**: Playwright for browser-based integration tests
-- **E2E Testing**: Playwright for cross-browser end-to-end testing
+- **E2E Testing**: Playwright for cross-browser end-to-end testing (see [docs/testing/e2e-account-creation.md](docs/testing/e2e-account-creation.md) for account-creation flow and [docs/testing/e2e-testing.md](docs/testing/e2e-testing.md) for pipeline)
 - **Performance Testing**: Lighthouse CI for performance metrics
 - **Security Testing**: OWASP ZAP for automated security scanning
 - **Snapshot Testing**: Visual regression testing with Storybook and Chromatic
