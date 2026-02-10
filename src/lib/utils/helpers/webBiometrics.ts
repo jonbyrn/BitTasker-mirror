@@ -60,30 +60,30 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
 	try {
 		// Standard check for platform authenticator
 		const isAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-		
+
 		// If standard check passes, WebAuthn is available
 		if (isAvailable) {
 			return true;
 		}
-		
+
 		// Fallback: Check if we're in a test environment with virtual authenticator
 		// Playwright's virtual authenticator might not be detected by isUserVerifyingPlatformAuthenticatorAvailable
 		// but PublicKeyCredential.create() will still work
 		// We can detect this by checking if PublicKeyCredential exists and we're in a test-like environment
-		const isTestEnvironment = 
+		const isTestEnvironment =
 			typeof navigator !== 'undefined' &&
-			(window.location.hostname === 'localhost' || 
-			 window.location.hostname === '127.0.0.1' ||
-			 process.env.NODE_ENV === 'test' ||
-			 (window as any).__PLAYWRIGHT_TEST__);
-		
+			(window.location.hostname === 'localhost' ||
+				window.location.hostname === '127.0.0.1' ||
+				process.env.NODE_ENV === 'test' ||
+				(window as any).__PLAYWRIGHT_TEST__);
+
 		// If PublicKeyCredential exists and we're in a test environment, assume virtual authenticator is available
 		// This allows E2E tests with Playwright's virtual authenticator to work
 		if (isTestEnvironment && window.PublicKeyCredential) {
 			console.log('[WebAuthn] Test environment detected, assuming virtual authenticator is available');
 			return true;
 		}
-		
+
 		return false;
 	} catch (err) {
 		console.error('WebAuthn not available:', err);
@@ -103,13 +103,13 @@ export async function verifyIdentity(): Promise<boolean> {
 
 		// Use credential discovery - empty allowCredentials enables discovery
 		// In test environments, use more permissive options
-		const isTestEnvironment = 
+		const isTestEnvironment =
 			typeof navigator !== 'undefined' &&
-			(window.location.hostname === 'localhost' || 
-			 window.location.hostname === '127.0.0.1' ||
-			 process.env.NODE_ENV === 'test' ||
-			 (window as any).__PLAYWRIGHT_TEST__);
-		
+			(window.location.hostname === 'localhost' ||
+				window.location.hostname === '127.0.0.1' ||
+				process.env.NODE_ENV === 'test' ||
+				(window as any).__PLAYWRIGHT_TEST__);
+
 		const authOptions: PublicKeyCredentialRequestOptions = {
 			challenge: generateWebChallenge(),
 			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
@@ -155,12 +155,12 @@ export async function setWebBiometricKey(
 		const isAvailable = await checkWebBiometricAvailability();
 		if (!isAvailable) {
 			// In test environments, try anyway (virtual authenticator might work)
-			const isTestEnvironment = 
+			const isTestEnvironment =
 				typeof navigator !== 'undefined' &&
-				(window.location.hostname === 'localhost' || 
-				 window.location.hostname === '127.0.0.1' ||
-				 process.env.NODE_ENV === 'test');
-			
+				(window.location.hostname === 'localhost' ||
+					window.location.hostname === '127.0.0.1' ||
+					process.env.NODE_ENV === 'test');
+
 			if (!isTestEnvironment) {
 				throw new Error('WebAuthn is not available on this device');
 			}
@@ -178,13 +178,13 @@ export async function setWebBiometricKey(
 
 		// Create registration options
 		// In test environments, use more permissive options to work with virtual authenticators
-		const isTestEnvironment = 
+		const isTestEnvironment =
 			typeof navigator !== 'undefined' &&
-			(window.location.hostname === 'localhost' || 
-			 window.location.hostname === '127.0.0.1' ||
-			 process.env.NODE_ENV === 'test' ||
-			 (window as any).__PLAYWRIGHT_TEST__);
-		
+			(window.location.hostname === 'localhost' ||
+				window.location.hostname === '127.0.0.1' ||
+				process.env.NODE_ENV === 'test' ||
+				(window as any).__PLAYWRIGHT_TEST__);
+
 		const registrationOptions: PublicKeyCredentialCreationOptions = {
 			challenge: generateWebChallenge(),
 			rp: {
@@ -244,13 +244,13 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 		const isAvailable = await checkWebBiometricAvailability();
 		if (!isAvailable) {
 			// In test environments, try anyway (virtual authenticator might work)
-			const isTestEnvironment = 
+			const isTestEnvironment =
 				typeof navigator !== 'undefined' &&
-				(window.location.hostname === 'localhost' || 
-				 window.location.hostname === '127.0.0.1' ||
-				 process.env.NODE_ENV === 'test' ||
-				 (window as any).__PLAYWRIGHT_TEST__);
-			
+				(window.location.hostname === 'localhost' ||
+					window.location.hostname === '127.0.0.1' ||
+					process.env.NODE_ENV === 'test' ||
+					(window as any).__PLAYWRIGHT_TEST__);
+
 			if (!isTestEnvironment) {
 				throw new Error('WebAuthn is not available on this device');
 			}
@@ -259,13 +259,13 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 
 		// Use credential discovery
 		// In test environments, use more permissive options
-		const isTestEnvironment = 
+		const isTestEnvironment =
 			typeof navigator !== 'undefined' &&
-			(window.location.hostname === 'localhost' || 
-			 window.location.hostname === '127.0.0.1' ||
-			 process.env.NODE_ENV === 'test' ||
-			 (window as any).__PLAYWRIGHT_TEST__);
-		
+			(window.location.hostname === 'localhost' ||
+				window.location.hostname === '127.0.0.1' ||
+				process.env.NODE_ENV === 'test' ||
+				(window as any).__PLAYWRIGHT_TEST__);
+
 		const authOptions: PublicKeyCredentialRequestOptions = {
 			challenge: generateWebChallenge(),
 			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
@@ -306,68 +306,27 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 
 		// Try to get master key encrypted data first, fallback to legacy
 		try {
-			const { masterKeyData, legacyEncryptedData, isLegacyFormat } =
-				await authService.getMasterKeyEncryptedData(publicKey, deviceId, credential.id, deviceName);
+			const { encryptionData, isLegacyFormat } =
+				await authService.getEncryptedData(publicKey, deviceId, credential.id, deviceName);
 
-			if (!isLegacyFormat && masterKeyData) {
-				// New master key format
+			if (encryptionData) {
 				return {
-					username: publicKey,
-					password: JSON.stringify({
-						key: masterKeyData.exportedMasterKey, // TODO: To be replaced with exportedKey once all legacy users update their passkeys
-						masterKeyData: masterKeyData,
-						// Legacy compatibility fields for backward compatibility
-						data: masterKeyData.nostr.encrypted.data,
-						iv: masterKeyData.nostr.encrypted.iv,
-						authTag: masterKeyData.nostr.encrypted.authTag,
-						salt: masterKeyData.nostr.salt
-					}),
-					server: deviceId,
-					isLegacyFormat: false
-				};
-			} else if (isLegacyFormat && legacyEncryptedData) {
-				// Legacy format
-				return {
-					username: publicKey,
-					password: JSON.stringify({
-						key: exportedKey,
-						data: legacyEncryptedData.encryptedPrivateKey,
-						iv: legacyEncryptedData.iv,
-						authTag: legacyEncryptedData.authTag,
-						salt: legacyEncryptedData.salt
-					}),
-					server: deviceId,
-					isLegacyFormat: true
+					npub: publicKey,
+					encryptedData: encryptionData,
+					// @ts-ignore - Legacy format type check can be ignored as it will be removed in the future
+					exportedKey: isLegacyFormat ? encryptionData.exportedMasterKey : exportedKey,
+					deviceId,
+					deviceName,
+					credentialId: credential.id,
+					isLegacyFormat,
 				};
 			} else {
-				throw new Error('No encrypted data found');
+				throw new Error('We could not find data associated with this passkey.');
 			}
 		} catch (error) {
 			// Fallback to legacy method if master key endpoint doesn't exist yet
 			console.warn('Master key not available, falling back to legacy:', error);
-			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
-				publicKey,
-				deviceId,
-				credential.id,
-				deviceName
-			);
-
-			if (!encryptedPrivateKey) {
-				throw new Error('No encrypted data found');
-			}
-
-			return {
-				username: publicKey,
-				password: JSON.stringify({
-					key: exportedKey,
-					data: encryptedPrivateKey,
-					iv,
-					authTag,
-					salt
-				}),
-				server: deviceId,
-				isLegacyFormat: true
-			};
+			throw new Error('We could not find data associated with this passkey.');
 		}
 	} catch (err) {
 		// Silently ignore "A request is already pending" errors
@@ -385,7 +344,7 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 		if (err instanceof Error && err.message.includes('device has been revoked')) {
 			appStore.showInfoToast('Your device access has been revoked');
 			await authState.logout();
-			await goto('/auth/login'); 
+			await goto('/auth/login');
 		}
 		throw new Error(await handleBiometricError(err, 'web'));
 	}

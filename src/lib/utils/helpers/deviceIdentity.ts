@@ -115,10 +115,10 @@ function getBrowserInfo(): BrowserInfo {
 
 	if (userAgent.indexOf('Edge') > -1) {
 		browser.name = 'Edge';
-	} else if (userAgent.indexOf('Firefox') > -1) {
-		browser.name = 'Firefox';
 	} else if (userAgent.indexOf('Chrome') > -1) {
 		browser.name = 'Chrome';
+	} else if (userAgent.indexOf('Firefox') > -1) {
+		browser.name = 'Firefox';
 	} else if (userAgent.indexOf('Safari') > -1) {
 		browser.name = 'Safari';
 	} else if (userAgent.indexOf('MSIE') > -1 || userAgent.indexOf('Trident/') > -1) {
@@ -227,10 +227,15 @@ export function createDisplayName(publicKey: string, customName?: string): strin
  * @returns Formatted passkey name in email format (e.g., "John.Doe@bittasker.com")
  */
 export async function formatPasskeyName(
-	npub: string,
-	username?: string | null,
-	displayName?: string | null
-): Promise<string> {
+	{
+		npub,
+		username,
+		displayName
+	}: {
+		npub: string;
+		username?: string | null;
+		displayName?: string | null;
+	}): Promise<string> {
 	// Validate npub is non-empty and has length > 0
 	if (!npub || npub.length === 0) {
 		// When npub is empty, directly return "Unknown" (no point trying device name)
@@ -242,11 +247,11 @@ export async function formatPasskeyName(
 	// Priority 1: Username (keep original case)
 	if (username?.trim()) {
 		namePart = username.trim();
-	} 
+	}
 	// Priority 2: Display name (keep original case)
 	else if (displayName?.trim()) {
 		namePart = displayName.trim();
-	} 
+	}
 	// Priority 3: First 6 characters of npub
 	else {
 		// Convert hex to npub format if needed

@@ -165,15 +165,15 @@
 				nsec = $t('onboarding_auth.form.recovery_setup.errors.invalid_private_key');
 			}
 
-			const recoveryData = await encryptMasterKeyData(nsec, allKeys.mnemonic, recoveryPassword);
+			const { encryptedData: recoveryData } = await encryptMasterKeyData(
+				nsec,
+				allKeys.mnemonic,
+				recoveryPassword
+			);
 
 			const data: AccountRecoveryData = {
 				publicKey: allKeys.npub,
-				recoveryData: {
-					nostr: recoveryData.nostr,
-					wallet: recoveryData.wallet,
-					masterSalt: recoveryData.masterSalt
-				},
+				recoveryData,
 				email: recoveryEmail
 			};
 
@@ -363,7 +363,9 @@
 									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
-							<span class="text-sm">{$t('onboarding_auth.form.recovery_setup.generated_password_note')}</span>
+							<span class="text-sm"
+								>{$t('onboarding_auth.form.recovery_setup.generated_password_note')}</span
+							>
 						</div>
 						<label aria-label="Recovery Password" class="label" for="password">
 							<span class="label-text"
@@ -382,7 +384,9 @@
 										updatePasswordStrength(e);
 										validatePasswordMatch();
 									}}
-									class="input input-bordered w-full pr-12 {(passwordError || passwordMismatchError) ? 'input-error' : ''}"
+									class="input input-bordered w-full pr-12 {passwordError || passwordMismatchError
+										? 'input-error'
+										: ''}"
 									placeholder={$t('onboarding_auth.form.recovery_setup.password_placeholder')}
 									required={enableRecovery}
 								/>
@@ -484,7 +488,9 @@
 									id="confirmPassword"
 									bind:value={confirmPassword}
 									oninput={validatePasswordMatch}
-									class="input input-bordered w-full pr-12 {(passwordError || passwordMismatchError) ? 'input-error' : ''}"
+									class="input input-bordered w-full pr-12 {passwordError || passwordMismatchError
+										? 'input-error'
+										: ''}"
 									placeholder={$t(
 										'onboarding_auth.form.recovery_setup.confirm_password_placeholder'
 									)}
@@ -622,7 +628,9 @@
 												? 'text-warning'
 												: 'text-success'}"
 									>
-										{$t(`onboarding_auth.form.recovery_setup.password_strength.${passwordStrength}`)}
+										{$t(
+											`onboarding_auth.form.recovery_setup.password_strength.${passwordStrength}`
+										)}
 									</span>
 								</div>
 							</div>
