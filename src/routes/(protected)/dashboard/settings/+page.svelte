@@ -7,7 +7,6 @@
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import NostrNsec from '$lib/components/settings/NostrNsec.svelte';
 	import AccRecovery from '$lib/components/settings/AccRecovery.svelte';
-	import PasskeySync from '$lib/components/settings/PasskeySync.svelte';
 	import AccActions from '$lib/components/settings/AccActions.svelte';
 	import Devices from '$lib/components/settings/Devices.svelte';
 
@@ -142,7 +141,6 @@
 		<NostrNsec {npub} {nsec} {authMethod} />
 		<Devices {npub} />
 		<AccRecovery {nsec} {npub} {mnemonic} {authMethod} />
-		<PasskeySync {authMethod} />
 		<AccActions />
 	{/if}
 </div>
