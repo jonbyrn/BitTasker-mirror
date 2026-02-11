@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Logo from '$lib/components/Logo.svelte';
-	import type { Credentials, MasterKeyEncryptedData } from '$lib/types/auth';
+	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
+	import type { Credentials, UserData } from '$lib/types/auth';
 	import type { NostrEvent } from '$lib/types/nostr';
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
@@ -10,14 +10,12 @@
 	import {
 		createUserDeviceShortName,
 		getDeviceIdentifier,
-		formatPasskeyName
+		generatePasskeyName
 	} from '$lib/utils/helpers/deviceIdentity';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 	import {
-		decryptNsecWithBiometrics,
-		encryptMasterKeyData,
-		signLoginChallenge
+		decryptMasterKeyDataFromBiometrics,
+		encryptMasterKeyData
 	} from '$lib/utils/helpers/auth';
 	import { generateMnemonic } from 'bip39';
 	import {
@@ -29,8 +27,7 @@
 	import {
 		checkWebBiometricAvailability,
 		getWebBiometricData,
-		setWebBiometricKey,
-		getWebAuthnProviderDescription
+		setWebBiometricKey
 	} from '$lib/utils/helpers/webBiometrics';
 	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
 	import { Capacitor } from '@capacitor/core';
@@ -38,10 +35,12 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { Buffer } from 'buffer';
+	import { decodeNsec } from '$lib/utils/nostr';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import LoginQrCodeScannerModal from '$lib/components/LoginQrCodeScannerModal.svelte';
-	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import migratePasskey from '$lib/utils/helpers/migratePasskey';
+	import Logo from '$lib/components/Logo.svelte';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -53,13 +52,11 @@
 	let isNostrLogin = $state(false);
 	let showNsec = $state(false);
 	let nsec = $state('');
-	let webAuthnProvider = $state('');
 	let authMethods = $state({
 		biometric: false,
 		webAuthn: false
 	});
 	let isPasskeyError = $state(false);
-	let lastAuthMethod = $state<'biometrics' | 'passkey' | null>(null);
 	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
 	let qrScannerModal: LoginQrCodeScannerModal | null = $state(null);
 	let isQrScannerError = $state(false);
@@ -69,7 +66,6 @@
 			// Check available authentication methods
 			authMethods.biometric = await checkBiometricAvailability();
 			authMethods.webAuthn = await checkWebBiometricAvailability();
-			webAuthnProvider = getWebAuthnProviderDescription();
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
 		}
@@ -78,43 +74,60 @@
 	/**
 	 * Login with biometric authentication
 	 */
-	async function login(biometricData: Credentials, deviceId: string, authMethod: string) {
-		const pubKey = biometricData.username;
-		const encryptedData = biometricData.password;
+	async function login(biometricData: Credentials) {
+		const deviceId = await getDeviceIdentifier();
+
+		// Decrypt private key using biometrics
+		const { nsec, mnemonic } = await decryptMasterKeyDataFromBiometrics(
+			biometricData.encryptedData,
+			biometricData.exportedKey
+		);
 
 		// Get login challenge from server
 		const { challenge } = await authService.getLoginChallenge();
 
-		// Decrypt private key using biometrics
-		const privateKey = await decryptNsecWithBiometrics(encryptedData);
+		const event: NostrEvent = {
+			kind: 22242,
+			created_at: Math.floor(Date.now() / 1000),
+			content: challenge,
+			tags: [
+				['relay', window.location.origin],
+				['challenge', challenge],
+				['credential', biometricData.credentialId]
+			],
+			pubkey: biometricData.npub
+		};
 
-		// migrate to master key format if legacy format
+		const decodedNsec = decodeNsec(nsec);
+
+		const signedEvent = finalizeEvent(event, decodedNsec);
+		if (!validateEvent(signedEvent)) {
+			throw new Error('Invalid event');
+		}
+
+		const deviceName = await createUserDeviceShortName(biometricData.npub);
+
+		let response: { user: UserData; access_token: string } | null = null;
 		if (biometricData.isLegacyFormat) {
-			// Generate wallet mnemonic for both new and existing users
-			const walletMnemonic = generateMnemonic();
-
-			const masterKeyData = await encryptMasterKeyData(privateKey, walletMnemonic, deviceId);
-
-			await authService.migrateToMasterKey(pubKey, deviceId, masterKeyData);
-
-			biometricData.password = JSON.stringify({
-				key: masterKeyData.exportedMasterKey,
-				masterKeyData: masterKeyData,
-				data: masterKeyData.nostr.encrypted.data,
-				iv: masterKeyData.nostr.encrypted.iv,
-				authTag: masterKeyData.nostr.encrypted.authTag,
-				salt: masterKeyData.nostr.salt
+			// Migrate passkey
+			response = await migratePasskey({
+				signedEvent,
+				nsec,
+				mnemonic,
+				deviceId,
+				deviceName,
+				platform: authMethods.biometric ? 'mobile' : 'web',
+				oldCredentialId: biometricData.credentialId
+			});
+		} else {
+			// Login with passkey
+			response = await authService.loginWithPasskey({
+				event: signedEvent,
+				deviceId,
+				deviceName,
+				platform: authMethods.biometric ? 'mobile' : 'web'
 			});
 		}
-
-		// Sign the challenge with the private key
-		const signedChallenge = await signLoginChallenge(challenge, privateKey);
-		if (!signedChallenge) {
-			throw new Error($t('login.errors.challenge_signing'));
-		}
-
-		// Login with passkey
-		const response = await authService.loginWithPasskey(pubKey, deviceId);
 
 		if (!response.access_token) {
 			throw new Error($t('login.errors.no_token'));
@@ -122,32 +135,30 @@
 
 		await authState.setupAuthData(
 			response.access_token,
-			authMethod,
-			pubKey,
+			'passkey',
+			biometricData.npub,
 			response.user,
 			biometricData
 		);
 	}
 
-	async function authenticate(authMethod: 'biometrics' | 'passkey') {
+	async function authenticate() {
 		try {
 			isLoading = true;
 			error = '';
 			isPasskeyError = false;
-			lastAuthMethod = authMethod; // Track which method was attempted
 			lastAction = 'authenticate'; // Track which action was attempted
 
-			const deviceId = await getDeviceIdentifier();
 			let biometricData = null;
 
 			if (authMethods.biometric) {
-				biometricData = await getBiometricData(authMethod);
+				biometricData = await getBiometricData();
 			} else if (authMethods.webAuthn) {
 				biometricData = await getWebBiometricData();
 			}
 
 			if (biometricData) {
-				await login(biometricData, deviceId, authMethod);
+				await login(biometricData);
 			} else {
 				error = $t('login.errors.no_account');
 				isPasskeyError = true;
@@ -231,8 +242,8 @@
 				return;
 			}
 
-			if (!npub) {
-				error = 'Invalid private key';
+			if (!privateKey && !npub) {
+				error = 'Invalid nostr keys';
 				return;
 			}
 
@@ -254,124 +265,54 @@
 
 			let deviceId = await getDeviceIdentifier();
 
-			// Use legacy login first to check if user exists and get isNewUser flag
-			// TODO: To be removed once all users are migrated to master key format
-
 			const walletMnemonic = generateMnemonic();
-			let masterKeyData: MasterKeyEncryptedData = await encryptMasterKeyData(
+			let { encryptedData: masterKeyData, exportedKey } = await encryptMasterKeyData(
 				nsec,
 				walletMnemonic,
 				deviceId
 			);
 
+			const deviceName = await createUserDeviceShortName(npub);
+
+			// Check if we're in a test environment (E2E tests)
+			const isTestEnvironment =
+				typeof window !== 'undefined' && (window as any).__PLAYWRIGHT_TEST__;
+
+			let credentialId = '';
+			// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
+			if (!isTestEnvironment) {
+				if (authMethods.biometric) {
+					credentialId = await setBiometricKey(npub, exportedKey);
+				} else if (authMethods.webAuthn) {
+					credentialId = await setWebBiometricKey(npub, exportedKey);
+				}
+			}
+
 			// Login with nostr, register user if it does not exist
 			const res = await authService.loginWithNostr({
-				event: signedEvent,
+				event: signedEvent, // signed event contains user npub
 				challenge,
 				authMethod: 'passkey',
 				deviceId,
-				masterKeyData
+				masterKeyData,
+				deviceName,
+				credentialId,
+				platform: authMethods.biometric ? 'mobile' : 'web'
 			});
 
 			if (res.access_token) {
-				// Fetch display name from Nostr profile for passkey naming
-				let nostrDisplayName: string | undefined;
-				try {
-					// Convert hex npub to npub format for profile fetch
-					const npubFormatted = nip19.npubEncode(npub);
-					const profile = await fetchProfileMetadata(npubFormatted);
-					nostrDisplayName = profile.name?.trim();
-				} catch (err) {
-					console.warn('Could not fetch Nostr profile for passkey name:', err);
-					// Continue without display name
-				}
-				
-				// Format passkey name as email: <username|displayname|first 6 chars of npub>@bittasker.com
-				const passkeyName = await formatPasskeyName(npub, res.user.username, nostrDisplayName);
-				
-				const deviceName = await createUserDeviceShortName(npub);
-				let credentialId = '';
-
-				// Check if we're in a test environment (E2E tests)
-				const isTestEnvironment =
-					typeof window !== 'undefined' && (window as any).__PLAYWRIGHT_TEST__;
-
-				if (!res.isNewUser) {
-					if (
-						res.user.nostrKey &&
-						res.user.nostrKey?.keyDerivationMethod === 'master-key' &&
-						res.user.nostrKey?.masterKeyEncrypted
-					) {
-						masterKeyData = {
-							nostr: res.user.nostrKey?.masterKeyEncrypted.nostr,
-							wallet: res.user.nostrKey?.masterKeyEncrypted.wallet,
-							masterSalt: res.user.nostrKey?.masterSalt,
-							exportedMasterKey: res.user.nostrKey?.exportedMasterKey
-						};
-
-						// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
-						if (!isTestEnvironment) {
-							if (authMethods.biometric) {
-								credentialId = await setBiometricKey(
-									npub,
-									masterKeyData.exportedMasterKey,
-									'biometrics',
-									passkeyName
-								);
-							} else if (authMethods.webAuthn) {
-								credentialId = await setWebBiometricKey(
-									npub,
-									masterKeyData.exportedMasterKey,
-									passkeyName
-								);
-							}
-						}
-					} else {
-						await authService.migrateToMasterKey(npub, deviceId, masterKeyData);
-					}
-				}
-
-				// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
-				if (!isTestEnvironment) {
-					if (authMethods.biometric) {
-						credentialId = await setBiometricKey(
-							npub,
-							masterKeyData.exportedMasterKey,
-							'biometrics',
-							passkeyName
-						);
-					} else if (authMethods.webAuthn) {
-						credentialId = await setWebBiometricKey(
-							npub,
-							masterKeyData.exportedMasterKey,
-							passkeyName
-						);
-					}
-
-					if (!credentialId) throw new Error('Failed to set biometric key');
-					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-				} else {
-					// In test environments, skip passkey creation to avoid browser prompts
-					console.log('[E2E] Skipping passkey creation in test environment');
-				}
-
 				const biometricData = {
-					username: npub,
-					password: JSON.stringify({
-						key: masterKeyData.exportedMasterKey,
-						masterKeyData: masterKeyData,
-						// Legacy compatibility fields
-						data: masterKeyData.nostr.encrypted.data,
-						iv: masterKeyData.nostr.encrypted.iv,
-						authTag: masterKeyData.nostr.encrypted.authTag,
-						salt: masterKeyData.nostr.salt
-					}),
-					server: res.user.nostrKey?.deviceId!,
-					isLegacyFormat: masterKeyData ? false : true
+					npub,
+					deviceId,
+					deviceName,
+					encryptedData: masterKeyData,
+					exportedKey,
+					credentialId,
+					isLegacyFormat: false
 				};
 
 				authState
-					.setupAuthData(res.access_token, 'biometrics', npub, res.user, biometricData, false)
+					.setupAuthData(res.access_token, 'passkey', npub, res.user, biometricData, false)
 					.then(() => {
 						if (res.isNewUser) goto('/auth/onboarding');
 						else goto('/dashboard');
@@ -479,7 +420,7 @@
 							<button
 								class="btn btn-primary"
 								data-testid="login-continue-passkey"
-								onclick={() => authenticate('passkey')}
+								onclick={authenticate}
 								disabled={isLoading}
 							>
 								<svg
@@ -690,14 +631,8 @@
 								// Retry the last action that was attempted
 								if (lastAction === 'nsecLogin') {
 									await handleNsecLogin();
-								} else if (lastAction === 'authenticate' && lastAuthMethod) {
-									await authenticate(lastAuthMethod);
-								} else if (authMethods.webAuthn) {
-									// Default to passkey if available
-									await authenticate('passkey');
-								} else if (authMethods.biometric) {
-									// Fallback to biometrics if available
-									await authenticate('biometrics');
+								} else if (lastAction === 'authenticate') {
+									await authenticate();
 								}
 							}}
 							class="mt-2"

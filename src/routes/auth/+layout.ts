@@ -2,10 +2,10 @@ import type { LayoutLoad } from './$types';
 import { get } from 'svelte/store';
 import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
-import { CheckOnboardingStatusStore } from '$houdini';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { authState, isCaptchaVerified } from '$lib/stores/auth.store';
 import { Preferences } from '@capacitor/preferences';
+import authService from '$lib/api/services/auth.service';
 
 export const load: LayoutLoad = async ({ url }) => {
 	if (!browser) return;
@@ -15,13 +15,19 @@ export const load: LayoutLoad = async ({ url }) => {
 	// If user is logged in and not in onboarding, redirect to dashboard
 	if (token.value) {
 		if (url.pathname.includes('/onboarding')) {
-			const isOnboardingCompleteStore = new CheckOnboardingStatusStore();
-			const { data } = await isOnboardingCompleteStore.fetch();
+			try {
+				const onboardingStatus = await authService.checkOnboardingStatus();
 
-			if (data?.IsOnboardingComplete.isComplete) {
-				redirect(303, '/dashboard');
-			} else {
-				return { currentStep: 4 };
+				if (onboardingStatus.isComplete) {
+					redirect(303, '/dashboard');
+				} else {
+					return { currentStep: 4 };
+				}
+			} catch (error) {
+				console.error('Error checking onboarding status:', error);
+				// If error checking onboarding status, log out user
+				await authState.logout();
+				redirect(303, '/auth/login');
 			}
 		} else {
 			redirect(303, '/dashboard');
