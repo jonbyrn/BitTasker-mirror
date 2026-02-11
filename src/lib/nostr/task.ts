@@ -362,28 +362,33 @@ export async function createRecurringTask(
 }
 
 /**
- * Update an existing task
+ * Update an existing task. taskId = d-tag (preferred) or event id (64 hex).
+ * Busca por backend; si falla por event id, intenta relay (pool).
  */
 export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
 	try {
-		// Event ID (64 hex) → find by id; otherwise taskId is d-tag (readable or legacy task-uuid)
 		const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
 		let originalTask: NostrEvent | null = null;
 
 		if (isEventId) {
-			const result = await nostrEventsService.findEventById(taskId);
-			originalTask = result.data;
+			try {
+				const result = await nostrEventsService.findEventById(taskId);
+				originalTask = result.data as unknown as NostrEvent;
+			} catch {
+				// Fallback: contrato viejo con event id; backend puede no tenerlo → buscar en relay
+				const relays = get(appStore).relays?.length ? get(appStore).relays : RELAYS;
+				originalTask = await getTaskById(taskId, undefined, relays);
+			}
 		} else {
-			const filter = {
-				kinds: [KINDS.TASK_CREATION],
-				'#d': [taskId],
-				limit: 1
-			};
-			const response = await nostrEventsService.requestEvents({
-				filters: [filter]
-			});
-			if (response.data && response.data.length > 0) {
-				originalTask = response.data[0];
+			try {
+				const response = await nostrEventsService.requestEvents({
+					filters: [{ kinds: [KINDS.TASK_CREATION], '#d': [taskId], limit: 1 }]
+				});
+				if (response.data?.length > 0) {
+					originalTask = response.data[0] as unknown as NostrEvent;
+				}
+			} catch {
+				// ignore
 			}
 		}
 

@@ -191,8 +191,15 @@ import {
 
 		setLoading('complete', true);
 		try {
-			// Call RSK escrow completeTask - this publishes Nostr event with transactionHash
 			await escrow.escrowOps.completeTask(contract, attachments);
+
+			// Taskee marca completado y sube evidencia → actualizar estado de la tarea a COMPLETED (solo el taskee puede)
+			const taskId = contractStore.getContractKey(contract, 'taskId') as string | undefined;
+			if (taskId) {
+				updateTask(taskId, { status: TaskStatusEnum.COMPLETED }).catch((err) =>
+					console.error('Failed to update task status to COMPLETED:', err)
+				);
+			}
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
@@ -203,23 +210,16 @@ import {
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Send task completion message to tasker (client)
-			// This is done in the background without blocking the task completion flow
 			const clientPubkey = contractStore.getContractKey(contract, 'clientPubkey') as string;
 			if (clientPubkey) {
-				// Send message asynchronously in background - don't block UI or fail on error
 				sendTaskCompletionMessageToTasker(clientPubkey, {
 					taskId: contractStore.getContractKey(contract, 'taskId') as string,
 					taskTitle: contractStore.getContractKey(contract, 'taskTitle') as string,
 					escrowId: contract.escrowData.id
 				}).catch((messageError) => {
-					// Log error but don't fail task completion if message sending fails
 					console.error('Failed to send task completion message to tasker:', messageError);
 				});
 			}
-
-			// Note: Status will be updated via blockchain event -> Nostr update
-			// Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
 			console.error('Error completing task:', error);
 
@@ -245,18 +245,8 @@ import {
 
 		setLoading('accept', true);
 		try {
-			// Call RSK escrow acceptTask - this publishes Nostr event with transactionHash
+			// Tasker acepta trabajo → libera pago. El estado COMPLETED de la tarea lo pone el taskee al marcar completado.
 			await escrow.escrowOps.acceptTask(contract);
-
-			// Actualizar estado de la tarea a COMPLETED cuando el tasker acepta el trabajo
-			const taskId = contractStore.getContractKey(contract, 'taskId') as string | undefined;
-			if (taskId) {
-				try {
-					await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
-				} catch (taskUpdateError) {
-					console.error('Failed to update task status to COMPLETED:', taskUpdateError);
-				}
-			}
 
 			const taskTitle = contractStore.getContractKey(contract, 'taskTitle') as string;
 			const taskeeNpub = contractStore.getContractKey(contract, 'otherPartyNpub') as string;
