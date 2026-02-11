@@ -16,7 +16,10 @@ import KINDS from '$lib/utils/constants/kinds';
  */
 export async function publishLocation(location: Location, relays = get(appStore)?.relays ?? []): Promise<NostrEvent> {
     try {
-        const pool = get(appStore).pool;
+        const pool = get(appStore)?.pool;
+        if (!pool) {
+            throw new Error('Pool not found');
+        }
 
         // Get own public key
         const keyPair = await getNostrKeyPair();
@@ -66,7 +69,10 @@ export async function subscribeToLocation(
     relays = get(appStore)?.relays ?? []
 ): Promise<() => void> {
     try {
-        const pool = get(appStore).pool;
+        const pool = get(appStore)?.pool;
+        if (!pool) {
+            throw new Error('Pool not found');
+        }
 
         // Get nostr keypair
         const keyPair = await getNostrKeyPair();
@@ -117,7 +123,10 @@ export async function getLatestLocation(
     relays = get(appStore)?.relays ?? []
 ): Promise<Location | null> {
     try {
-        const pool = get(appStore).pool;
+        const pool = get(appStore)?.pool;
+        if (!pool) {
+            throw new Error('Pool not found');
+        }
 
         // Get authentication method to determine decryption approach
         const { Preferences } = await import('@capacitor/preferences');

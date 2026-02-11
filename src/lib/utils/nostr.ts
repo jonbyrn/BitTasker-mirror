@@ -25,7 +25,11 @@ const encryptedKinds = [
  * This ensures we use a single pool across the entire application
  */
 function getPool() {
-    return get(appStore).pool;
+    const pool = get(appStore)?.pool;
+    if (!pool) {
+        throw new Error('Pool not found');
+    }
+    return pool;
 }
 
 /**

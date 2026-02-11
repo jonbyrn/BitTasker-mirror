@@ -119,7 +119,7 @@ function createTaskStore() {
 			if (storeData) {
 				const editingMode = isEditing !== null ? isEditing : storeData.isEditing;
 				const storageKey = getStorageKey(editingMode);
-				
+
 				await Preferences.set({
 					key: storageKey,
 					value: JSON.stringify({
@@ -292,7 +292,10 @@ const tasksStoreInitialState = {
 
 // Find tasks store
 export const tasksStore = (() => {
-	const pool = get(appStore).pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
 
 	const { subscribe, set, update } = writable<{
 		pool: SimplePool,

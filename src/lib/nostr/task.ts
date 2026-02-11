@@ -39,8 +39,8 @@ function getReadableDTag(title: string, createdAt: number, npub?: string): strin
 		fromNpub.length >= 6
 			? fromNpub
 			: Array.from(crypto.getRandomValues(new Uint8Array(3)))
-					.map((b) => b.toString(16).padStart(2, '0'))
-					.join('');
+				.map((b) => b.toString(16).padStart(2, '0'))
+				.join('');
 	return `${slug}-${createdAt}-${suffix}`;
 }
 
@@ -48,7 +48,11 @@ function getReadableDTag(title: string, createdAt: number, npub?: string): strin
  * Get the centralized pool instance from appStore
  */
 function getPool() {
-	return get(appStore).pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
+	return pool;
 }
 
 type TaskWithIds = Task & { uniqueId?: string; eventId?: string };
@@ -72,21 +76,21 @@ async function generateTaskTranslations(
 	try {
 		// Detect source language from the combined text (title + description)
 		const combinedText = `${taskData.title} ${taskData.description}`.trim();
-		
+
 		if (!combinedText) {
 			return undefined;
 		}
-		
+
 		const detectedLanguage = await translationService.detectLanguage(combinedText);
-		
+
 		// Determine source language - if detection fails, default to 'en'
 		// but we'll still translate to ensure both languages are available
 		const sourceLanguage =
 			detectedLanguage &&
-			SUPPORTED_LANGUAGES.includes(detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number])
-			? detectedLanguage 
-			: 'en';
-		
+				SUPPORTED_LANGUAGES.includes(detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number])
+				? detectedLanguage
+				: 'en';
+
 		// Always translate to the other language to ensure we have translations in both
 		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
 
@@ -117,7 +121,7 @@ async function generateTaskTranslations(
 		});
 
 		const results = await Promise.all(translationPromises);
-		
+
 		// Build translations object, filtering out failed translations
 		const translations: TaskTranslations['translations'] = {};
 		results.forEach(result => {
@@ -140,12 +144,12 @@ async function generateTaskTranslations(
 			// Try translating assuming the text is in Spanish
 			const reverseSource = sourceLanguage === 'en' ? 'es' : 'en';
 			const reverseTarget = reverseSource === 'en' ? 'es' : 'en';
-			
+
 			const [reverseTitleResult, reverseDescResult] = await Promise.all([
 				translationService.translate(taskData.title, reverseTarget, reverseSource),
 				translationService.translate(taskData.description, reverseTarget, reverseSource)
 			]);
-			
+
 			if (!('code' in reverseTitleResult) && !('code' in reverseDescResult)) {
 				translations[reverseTarget] = {
 					title: reverseTitleResult.translatedText,
@@ -405,7 +409,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		}
 
 		// Check if title or description changed - if so, regenerate translations
-		const needsRetranslation = 
+		const needsRetranslation =
 			(updates.title && updates.title !== originalTaskData.title) ||
 			(updates.description && updates.description !== originalTaskData.description);
 

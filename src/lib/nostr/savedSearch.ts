@@ -6,7 +6,7 @@ import { getSignedEvent } from '$lib/utils/nostr';
 import { NotificationFrequency } from '$lib/utils/enums/task.enum';
 import KINDS from '$lib/utils/constants/kinds';
 import { t } from 'svelte-i18n';
-import { get as getStore } from 'svelte/store';
+import { get } from 'svelte/store';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -15,7 +15,11 @@ const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove
  * Get the centralized pool instance from appStore
  */
 function getPool() {
-	return getStore(appStore).pool;
+    const pool = get(appStore)?.pool;
+    if (!pool) {
+        throw new Error('Pool not found');
+    }
+    return pool;
 }
 
 /**
@@ -73,7 +77,7 @@ export async function saveSearch(
         const pool = getPool();
         await Promise.any(pool.publish(RELAYS, savedSearchEvent));
 
-        appStore.showSuccessToast(getStore(t)('profile_task.success.save_search'));
+        appStore.showSuccessToast(get(t)('profile_task.success.save_search'));
 
         return {
             id: searchId,
@@ -87,7 +91,7 @@ export async function saveSearch(
         };
     } catch (error) {
         console.error('Error saving search:', error);
-        appStore.showErrorToast(getStore(t)('profile_task.errors.save_search'));
+        appStore.showErrorToast(get(t)('profile_task.errors.save_search'));
         throw error;
     }
 }
@@ -140,7 +144,7 @@ export async function updateSavedSearch(
 ): Promise<SavedSearch> {
     try {
         const pool = getPool();
-        
+
         // Get the existing saved search
         const existingFilter = {
             kinds: [KINDS.SAVED_SEARCH],
