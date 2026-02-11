@@ -58,5 +58,9 @@ export const ENDPOINTS = {
 		WOT_TRUSTED: (pubkey: string) => `${API_PATH}/${API_VERSION}/wot/trusted/${pubkey}`,
 		NIP05: `${API_PATH}/${API_VERSION}/nip-05`,
 		NIP05_BY_NAME: (name: string) => `${API_PATH}/${API_VERSION}/nip-05/${name}`
+	},
+
+	SAVED_SEARCHES: {
+		TRIGGER_CHECK: `${API_PATH}/${API_VERSION}/saved-searches/check-task`,
 	}
 };
