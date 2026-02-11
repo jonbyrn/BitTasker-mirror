@@ -55,7 +55,7 @@ export function createSubscriptionKey(
 export async function subscribeToProfileUpdates(
 	callback: (event: NostrEvent) => void,
 	kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined },
-	relays = get(appStore).relays
+	relays = get(appStore)?.relays ?? []
 ): Promise<() => void> {
 	let npub: string;
 
@@ -515,7 +515,7 @@ export async function generatePortfolioTranslations(
 export async function publishProfileMetadata(
 	metadata: NostrProfile,
 	existingMetadata: NostrProfile = {},
-	relays = get(appStore).relays
+	relays = get(appStore)?.relays ?? []
 ): Promise<NostrEvent> {
 	// Merge new metadata with existing, giving priority to new values
 	// Only override fields that are explicitly provided (not undefined/null/empty)
@@ -607,7 +607,7 @@ export async function publishMultipleImages(
 	images: NostrProfileImage[],
 	eventId: string | null,
 	identifier: string,
-	relays = get(appStore).relays
+	relays = get(appStore)?.relays ?? []
 ): Promise<string[]> {
 	try {
 		// Always use kind 30063 for replaceable events
@@ -642,7 +642,7 @@ export async function publishMultipleImages(
 export async function deleteNostrEvent(
 	eventId: string,
 	eventKind?: string,
-	relays = get(appStore).relays
+	relays = get(appStore)?.relays ?? []
 ): Promise<void> {
 	try {
 		const npub = await getNpub();
@@ -683,8 +683,11 @@ export function closeNostrPool(): void {
 	}
 	profileSubscriptions.clear();
 
+	const relays = get(appStore)?.relays ?? [];
+	const pool = get(appStore).pool;
+
 	// Close pool
-	get(appStore).pool.close(get(appStore).relays);
+	pool.close(relays);
 }
 
 /**
@@ -692,7 +695,7 @@ export function closeNostrPool(): void {
  */
 export async function publishSkillsUpdate(
 	skills: Skill[],
-	relays = get(appStore).relays
+	relays = get(appStore)?.relays ?? []
 ): Promise<void> {
 	try {
 		// Get current locale from svelte-i18n if available
@@ -748,7 +751,7 @@ export async function uploadCertification(
 		date: string;
 		file: File;
 	},
-	relays = get(appStore).relays
+	relays = get(appStore)?.relays ?? []
 ): Promise<string> {
 	try {
 		// Upload file
@@ -794,7 +797,7 @@ export async function uploadCertification(
 export async function publishPortfolioItem(
 	item: PortfolioItem,
 	tags: string[][],
-	relays = get(appStore).relays
+	relays = get(appStore)?.relays ?? []
 ): Promise<void> {
 	try {
 		// Get current locale from svelte-i18n if available
@@ -844,7 +847,7 @@ export async function publishPortfolioItem(
 /**
  * Delete a portfolio item
  */
-export async function deletePortfolioItem(id: string, relays = get(appStore).relays): Promise<void> {
+export async function deletePortfolioItem(id: string, relays = get(appStore)?.relays ?? []): Promise<void> {
 	try {
 		// Create deletion event according to NIP-09
 		const deleteEvent = {
@@ -879,7 +882,7 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
 		};
 
 		const pool = get(appStore).pool;
-		const relays = get(appStore).relays;
+		const relays = get(appStore)?.relays ?? [];
 
 		const signedEvent = await getSignedEvent(event);
 		await Promise.all(pool.publish(relays, signedEvent));
@@ -897,7 +900,7 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
 export async function publishStandardServices(
 	servicesData: NostrStandardServices,
 	tags: string[][],
-	relays = get(appStore).relays
+	relays = get(appStore)?.relays ?? []
 ): Promise<void> {
 	try {
 		const event = {
@@ -919,7 +922,7 @@ export async function publishStandardServices(
  * Deletes a standard service event from Nostr
  * @param eventId The ID of the event to delete
  */
-export async function deleteStandardService(eventId: string, relays = get(appStore).relays): Promise<void> {
+export async function deleteStandardService(eventId: string, relays = get(appStore)?.relays ?? []): Promise<void> {
 	try {
 		const event = {
 			kind: 5,
@@ -945,7 +948,7 @@ export async function deleteStandardService(eventId: string, relays = get(appSto
  * @param relays Optional array of relay URLs
  * @returns Promise resolving to the event or null if not found
  */
-export async function getEventById(eventId: string, relays = get(appStore).relays): Promise<NostrEvent | null> {
+export async function getEventById(eventId: string, relays = get(appStore)?.relays ?? []): Promise<NostrEvent | null> {
 	try {
 		const filter: Filter = {
 			ids: [eventId]
@@ -976,7 +979,7 @@ export async function getProfileMetaData(npub: string): Promise<NostrEvent | nul
 		};
 
 		const pool = get(appStore).pool;
-		const relays = get(appStore).relays;
+		const relays = get(appStore)?.relays ?? [];
 
 		const event = await pool.get(relays, filter);
 		return event || null;

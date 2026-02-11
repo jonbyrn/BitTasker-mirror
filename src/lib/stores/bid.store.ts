@@ -208,7 +208,7 @@ function createBidStore() {
 
             // Subscription 2: Bid status updates TO user (incoming)
             bidStatusSubscriptionIncoming = pool.subscribe(
-                get(appStore).relays,
+                get(appStore)?.relays ?? [],
                 {
                     kinds: [KINDS.BID_STATUS],
                     ...TAG_FILTERS.byTask(taskIds),

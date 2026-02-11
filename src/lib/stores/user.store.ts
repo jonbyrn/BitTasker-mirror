@@ -45,7 +45,7 @@ const createUserStore = () => {
 	// Track whether user data has been loaded in this session
 	let isDataLoaded = false;
 
-	const relays = get(appStore).relays;
+	const relays = get(appStore)?.relays ?? [];
 	const pool = get(appStore).pool;
 
 	return {
