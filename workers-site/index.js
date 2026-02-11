@@ -122,26 +122,10 @@ async function handleRequest(event) {
 			});
 		}
 		
-		// Apply compression if supported and not already compressed
-		const compressedResponse = await compressResponse(event.request, response);
-		
-		// Log compression if applied
-		if (compressedResponse.headers.get('Content-Encoding')) {
-			const compressionRatio = contentLength !== 'unknown' 
-				? ((1 - (compressedResponse.headers.get('Content-Length') || contentLength) / contentLength) * 100).toFixed(2)
-				: 'unknown';
-			
-			if (!isAssetRequest) {
-				logEvent('compression_applied', {
-					pathname,
-					encoding: compressedResponse.headers.get('Content-Encoding'),
-					compressionRatio: compressionRatio !== 'unknown' ? `${compressionRatio}%` : 'unknown',
-					cfRay
-				});
-			}
-		}
-		
-		return compressedResponse;
+		// Skip custom compression: it was causing gibberish (gzip bytes without correct
+		// Content-Encoding). Cloudflare edge can compress; return uncompressed for now.
+		// To re-enable: return await compressResponse(event.request, response);
+		return response;
 	} catch (error) {
 		const totalDuration = Date.now() - requestStartTime;
 		const isNotFound = error?.status === 404 || error instanceof NotFoundError;
@@ -194,7 +178,7 @@ async function handleRequest(event) {
 						cfRay
 					});
 					
-					return await compressResponse(event.request, indexResponse);
+					return indexResponse;
 				} catch (indexError) {
 					logError(indexError, {
 						pathname,

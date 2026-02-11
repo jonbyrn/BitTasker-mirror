@@ -116,8 +116,10 @@ describe('Tasks Page - Unit Tests', () => {
 		});
 
 		it('should handle invalid date string', () => {
+			const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 			const result = formatDateTimeReactive('invalid-date');
 			expect(result).toBe('');
+			consoleErrorSpy.mockRestore();
 		});
 
 		it('should format date with different locales', () => {
@@ -159,8 +161,10 @@ describe('Tasks Page - Unit Tests', () => {
 		});
 
 		it('should return empty string when both dates are invalid', () => {
+			const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 			const result = formatDateRangeReactive('invalid', 'invalid');
 			expect(result).toBe('');
+			consoleErrorSpy.mockRestore();
 		});
 
 		it('should format date range with different locales', () => {
