@@ -1,12 +1,11 @@
 <script lang="ts">
-	import type { Attachment, Task, TaskBody } from '$lib/types/task';
+	import type { Attachment, TaskBody } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
 	import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
-	import { TriggerSavedSearchCheckStore, type TaskBodyInput } from '$houdini';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
 	import {
@@ -21,6 +20,7 @@
 	import TaskRecurring from '$lib/components/task/steps/TaskRecurring.svelte';
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
 	import uploadService from '$lib/api/services/upload.service';
+	import savedSearchService, { type TaskBodyDto } from '$lib/api/services/saved-search.service';
 	import { t } from 'svelte-i18n';
 	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
@@ -32,50 +32,50 @@
 	let attachmentsToRemove = $state<Attachment[]>([]);
 	let taskBudgetRef = $state<any>(); // Reference to TaskBudget component
 	let taskBasicsRef: any = $state(null);
-	// Remover esta línea ya que signedEventId se usará como variable local
-	// let signedEventId = $state<string | null>(null);
-
-	// Houdini store for triggering saved search checks
-	const triggerSavedSearchStore = new TriggerSavedSearchCheckStore();
 
 	// Background function to trigger saved search checks
-	const triggerSavedSearchChecks = async (taskData: TaskBody) => {
+	const triggerSavedSearchChecks = async (taskData: TaskBody, eventId: string) => {
 		try {
-			// Convert taskType value to GraphQL enum key
-			let graphqlTaskType: TaskBodyInput['taskType'] = 'REMOTE';
-			if (taskData.taskType === TaskTypeEnum.IN_PERSON) graphqlTaskType = 'IN_PERSON';
+			// Convert taskType enum to string for API
+			const taskTypeString = taskData.taskType === TaskTypeEnum.IN_PERSON ? 'IN_PERSON' : 'REMOTE';
 
 			const budgetTier = getBudgetBucket(taskData.budget.amount, taskData.budget.currency);
 
-			// Convert the task data to TaskBodyInput format
-			const taskBodyInput: TaskBodyInput = {
-				eventId: '',
+			// Convert the task data to TaskBodyDto format
+			const taskBodyDto: TaskBodyDto = {
+				eventId: eventId,
 				title: taskData.title,
 				description: taskData.description,
-				taskType: graphqlTaskType,
+				taskType: taskTypeString,
 				skills: taskData.skills || [],
-				categories: taskData.categories.map((category) => category.id) || [],		
+				categories: taskData.categories.map((category) => category.id) || [],
 				deadline: taskData.deadline,
-				budget: taskData.budget
+				dateRange: taskData.dateRange,
+				budget: {
+					currency: taskData.budget.currency,
+					type: taskData.budget.type,
+					tier: budgetTier
+				},
+				pickupLocation: taskData.pickupLocation
 					? {
-							currency: taskData.budget.currency,
-							type: taskData.budget.type,
-							tier: budgetTier
+							longitude: taskData.pickupLocation.longitude!,
+							latitude: taskData.pickupLocation.latitude!,
+							displayName: taskData.pickupLocation.displayName
+						}
+					: undefined,
+				dropOffLocation: taskData.dropOffLocation
+					? {
+							longitude: taskData.dropOffLocation.longitude!,
+							latitude: taskData.dropOffLocation.latitude!,
+							displayName: taskData.dropOffLocation.displayName
 						}
 					: undefined
 			};
 
-			const result = await triggerSavedSearchStore.mutate({
-				task: taskBodyInput
-			});
+			const result = await savedSearchService.triggerSavedSearchCheck(taskBodyDto);
 
-			if (result.errors) {
-			} else if (result.data?.triggerSavedSearchCheck.success) {
-				const { matchCount, message } = result.data.triggerSavedSearchCheck;
-
-				if (matchCount && matchCount > 0) {
-					console.log(`📧 ${matchCount} saved search notifications sent`);
-				}
+			if (result.success && result.matchCount > 0) {
+				console.log(`📧 ${result.matchCount} saved search notifications sent`);
 			}
 		} catch (error) {
 			// Silently handle errors in background operation - don't interrupt user flow
@@ -111,11 +111,11 @@
 	onMount(async () => {
 		try {
 			isLoading = true;
-			
+
 			// Check if we're in edit mode
 			const isEditing = $page.url.searchParams.get('edit') === 'true';
 			isEditingMode = isEditing;
-			
+
 			if (isEditing) {
 				// Load the draft for editing (uses EDIT_STORAGE_KEY)
 				await store.loadDraft(true);
@@ -184,14 +184,18 @@
 					const endDate = new Date($store.task.dateRange.end);
 					const endDateStr = endDate.toISOString().split('T')[0];
 
-					if (endDateStr < todayDateStr || startDateStr < todayDateStr || endDateStr < startDateStr) {
+					if (
+						endDateStr < todayDateStr ||
+						startDateStr < todayDateStr ||
+						endDateStr < startDateStr
+					) {
 						errors.deadline = $t('task.errors.date_range_future');
 					}
 				}
 				if ($store.task.deadline) {
 					const deadlineDate = new Date($store.task.deadline);
 					const today = new Date();
-					
+
 					// Compare dates using date strings to avoid timezone issues
 					const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
 					const todayDateStr = today.toISOString().split('T')[0];
@@ -327,7 +331,6 @@
 				status: TaskStatusEnum.OPEN
 			};
 
-		
 			const isUpdating = $page.url.searchParams.get('edit') === 'true';
 
 			if (isUpdating) {
@@ -352,20 +355,16 @@
 
 			// Clear the appropriate draft (creation or edit)
 			await store.clearDraft(isUpdating);
-			
+
 			// Refresh My Tasks list to show new task
 			await refreshMyTasks();
-			
+
 			await goto('/dashboard');
-			
 		} catch (error) {
-			
 			const errorMessage = error instanceof Error ? error.message : $t('task.errors.create_failed');
 			errors.general = errorMessage;
 			appStore.showErrorToast(errorMessage);
-			
 		} finally {
-			
 			isSubmitting = false;
 			if (signedEventId) {
 				const currentTask = {
@@ -382,9 +381,8 @@
 					categories: $store.task.categories,
 					status: TaskStatusEnum.OPEN
 				};
-				triggerSavedSearchChecks(currentTask);
+				triggerSavedSearchChecks(currentTask, signedEventId);
 			}
-			
 		}
 	}
 </script>
@@ -393,8 +391,16 @@
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<!-- Page Header -->
 	<div class="mb-6">
-		<h3 class="">{$page.url.searchParams.get('edit') === 'true' ? $t('task.edit_title') : $t('task.create_title')}</h3>
-		<p class="text-base-content/70">{$page.url.searchParams.get('edit') === 'true' ? $t('task.edit_description') : $t('task.create_description')}</p>
+		<h3 class="">
+			{$page.url.searchParams.get('edit') === 'true'
+				? $t('task.edit_title')
+				: $t('task.create_title')}
+		</h3>
+		<p class="text-base-content/70">
+			{$page.url.searchParams.get('edit') === 'true'
+				? $t('task.edit_description')
+				: $t('task.create_description')}
+		</p>
 	</div>
 	<div class=" bg-base-100 rounded-xl">
 		<div class="card-body">
@@ -417,7 +423,7 @@
 					<div class:hidden={$store.currentStep !== TaskStepEnum.BUDGET}>
 						<TaskBudget {errors} {direction} bind:attachmentsToRemove bind:this={taskBudgetRef} />
 					</div>
-					
+
 					{#if $store.currentStep === TaskStepEnum.BASICS}
 						<TaskBasics {errors} {direction} bind:this={taskBasicsRef} />
 					{:else if $store.currentStep === TaskStepEnum.LOCATION}
@@ -441,10 +447,7 @@
 								{$t('task.back')}
 							</button>
 						{:else}
-							<button
-								class="btn btn-secondary"
-								onclick={handleCancel}
-							>
+							<button class="btn btn-secondary" onclick={handleCancel}>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="mr-1 h-4 w-4"

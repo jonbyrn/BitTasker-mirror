@@ -4,6 +4,7 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { appStore } from './app.store';
+import { resetMigration } from '$lib/utils/helpers/migratePasskey';
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
@@ -43,6 +44,9 @@ const createAuthStore = () => {
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
 		if (redirect) await goto('/dashboard').then(async () => {
+			// Close modal and reset migration state
+			resetMigration();
+
 			// TODO: To be removed after getting auth method from the server
 			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 			const { user } = await import('./user.store');
