@@ -13,9 +13,6 @@ import type { SubCloser } from 'nostr-tools/abstract-pool';
 // Translation service instance
 const translationService = new TranslationService();
 
-const pool = get(appStore).pool;
-const RELAYS = get(appStore).relays;
-
 // Subscription store for profile updates
 const profileSubscriptions = new Map<
 	string,
@@ -58,7 +55,7 @@ export function createSubscriptionKey(
 export async function subscribeToProfileUpdates(
 	callback: (event: NostrEvent) => void,
 	kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined },
-	relays = RELAYS
+	relays = get(appStore).relays
 ): Promise<() => void> {
 	let npub: string;
 
@@ -107,7 +104,7 @@ export async function subscribeToProfileUpdates(
 
 			// Create separate subscriptions for each filter
 			const subs = filters.map((filter) =>
-				pool.subscribe(relays, filter, {
+				get(appStore).pool.subscribe(relays, filter, {
 					onevent(event: NostrEvent) {
 						const subs = profileSubscriptions.get(subscriptionKey);
 						if (subs) {
@@ -518,7 +515,7 @@ export async function generatePortfolioTranslations(
 export async function publishProfileMetadata(
 	metadata: NostrProfile,
 	existingMetadata: NostrProfile = {},
-	relays = RELAYS
+	relays = get(appStore).relays
 ): Promise<NostrEvent> {
 	// Merge new metadata with existing, giving priority to new values
 	// Only override fields that are explicitly provided (not undefined/null/empty)
@@ -568,7 +565,7 @@ export async function publishProfileMetadata(
 				const publishPromises = relays.map(
 					(relay) =>
 						new Promise<void>((resolve, reject) => {
-							const pub = pool.publish([relay], signedEvent);
+							const pub = get(appStore).pool.publish([relay], signedEvent);
 							const timeoutId = setTimeout(() => {
 								reject(new Error(`Publish to ${relay} timed out`));
 							}, timeout);
@@ -610,7 +607,7 @@ export async function publishMultipleImages(
 	images: NostrProfileImage[],
 	eventId: string | null,
 	identifier: string,
-	relays = RELAYS
+	relays = get(appStore).relays
 ): Promise<string[]> {
 	try {
 		// Always use kind 30063 for replaceable events
@@ -628,7 +625,7 @@ export async function publishMultipleImages(
 		}
 
 		const signedEvent = await getSignedEvent(event);
-		const pub = await Promise.all(pool.publish(relays, signedEvent));
+		const pub = await Promise.all(get(appStore).pool.publish(relays, signedEvent));
 
 		return pub;
 	} catch (error) {
@@ -645,7 +642,7 @@ export async function publishMultipleImages(
 export async function deleteNostrEvent(
 	eventId: string,
 	eventKind?: string,
-	relays = RELAYS
+	relays = get(appStore).relays
 ): Promise<void> {
 	try {
 		const npub = await getNpub();
@@ -666,7 +663,7 @@ export async function deleteNostrEvent(
 		};
 
 		const signedEvent = await getSignedEvent(event);
-		await Promise.all(pool.publish(relays, signedEvent));
+		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Error deleting Nostr event:', error);
 		throw error;
@@ -687,7 +684,7 @@ export function closeNostrPool(): void {
 	profileSubscriptions.clear();
 
 	// Close pool
-	pool.close(RELAYS);
+	get(appStore).pool.close(get(appStore).relays);
 }
 
 /**
@@ -695,7 +692,7 @@ export function closeNostrPool(): void {
  */
 export async function publishSkillsUpdate(
 	skills: Skill[],
-	relays = RELAYS
+	relays = get(appStore).relays
 ): Promise<void> {
 	try {
 		// Get current locale from svelte-i18n if available
@@ -733,7 +730,7 @@ export async function publishSkillsUpdate(
 
 		const signedSkillsEvent = await getSignedEvent(skillsEvent);
 
-		pool.publish(relays, signedSkillsEvent);
+		get(appStore).pool.publish(relays, signedSkillsEvent);
 	} catch (error) {
 		console.error('Failed to publish skills update:', error);
 		throw error;
@@ -751,7 +748,7 @@ export async function uploadCertification(
 		date: string;
 		file: File;
 	},
-	relays = RELAYS
+	relays = get(appStore).relays
 ): Promise<string> {
 	try {
 		// Upload file
@@ -782,7 +779,7 @@ export async function uploadCertification(
 		const signedCertEvent = await getSignedEvent(certEvent);
 
 		// Publish event
-		pool.publish(relays, signedCertEvent);
+		get(appStore).pool.publish(relays, signedCertEvent);
 
 		return signedCertEvent.id;
 	} catch (error) {
@@ -797,7 +794,7 @@ export async function uploadCertification(
 export async function publishPortfolioItem(
 	item: PortfolioItem,
 	tags: string[][],
-	relays = RELAYS
+	relays = get(appStore).relays
 ): Promise<void> {
 	try {
 		// Get current locale from svelte-i18n if available
@@ -837,7 +834,7 @@ export async function publishPortfolioItem(
 		};
 
 		const signedEvent = await getSignedEvent(itemEvent);
-		await Promise.all(pool.publish(relays, signedEvent));
+		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to publish portfolio item:', error);
 		throw error;
@@ -847,7 +844,7 @@ export async function publishPortfolioItem(
 /**
  * Delete a portfolio item
  */
-export async function deletePortfolioItem(id: string, relays = RELAYS): Promise<void> {
+export async function deletePortfolioItem(id: string, relays = get(appStore).relays): Promise<void> {
 	try {
 		// Create deletion event according to NIP-09
 		const deleteEvent = {
@@ -861,7 +858,7 @@ export async function deletePortfolioItem(id: string, relays = RELAYS): Promise<
 		};
 
 		const signedEvent = await getSignedEvent(deleteEvent);
-		await Promise.all(pool.publish(relays, signedEvent));
+		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Error deleting portfolio item:', error);
 		throw error;
@@ -881,8 +878,11 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
 			content: JSON.stringify(availability)
 		};
 
+		const pool = get(appStore).pool;
+		const relays = get(appStore).relays;
+
 		const signedEvent = await getSignedEvent(event);
-		await Promise.all(pool.publish(RELAYS, signedEvent));
+		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to publish availability update:', error);
 		throw error;
@@ -897,7 +897,7 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
 export async function publishStandardServices(
 	servicesData: NostrStandardServices,
 	tags: string[][],
-	relays = RELAYS
+	relays = get(appStore).relays
 ): Promise<void> {
 	try {
 		const event = {
@@ -908,7 +908,7 @@ export async function publishStandardServices(
 		};
 
 		const signedEvent = await getSignedEvent(event);
-		await Promise.all(pool.publish(relays, signedEvent));
+		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to publish standard services:', error);
 		throw error;
@@ -919,7 +919,7 @@ export async function publishStandardServices(
  * Deletes a standard service event from Nostr
  * @param eventId The ID of the event to delete
  */
-export async function deleteStandardService(eventId: string, relays = RELAYS): Promise<void> {
+export async function deleteStandardService(eventId: string, relays = get(appStore).relays): Promise<void> {
 	try {
 		const event = {
 			kind: 5,
@@ -932,7 +932,7 @@ export async function deleteStandardService(eventId: string, relays = RELAYS): P
 		};
 
 		const signedEvent = await getSignedEvent(event);
-		await Promise.all(pool.publish(relays, signedEvent));
+		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to delete standard service:', error);
 		throw error;
@@ -945,14 +945,14 @@ export async function deleteStandardService(eventId: string, relays = RELAYS): P
  * @param relays Optional array of relay URLs
  * @returns Promise resolving to the event or null if not found
  */
-export async function getEventById(eventId: string, relays = RELAYS): Promise<NostrEvent | null> {
+export async function getEventById(eventId: string, relays = get(appStore).relays): Promise<NostrEvent | null> {
 	try {
 		const filter: Filter = {
 			ids: [eventId]
 		};
 
 		// Use get method instead of list
-		const event = await pool.get(relays, filter);
+		const event = await get(appStore).pool.get(relays, filter);
 		return event || null;
 	} catch (error) {
 		console.error('Error fetching event by ID:', error);
@@ -975,7 +975,10 @@ export async function getProfileMetaData(npub: string): Promise<NostrEvent | nul
 			limit: 20
 		};
 
-		const event = await pool.get(RELAYS, filter);
+		const pool = get(appStore).pool;
+		const relays = get(appStore).relays;
+
+		const event = await pool.get(relays, filter);
 		return event || null;
 	} catch (error) {
 		console.error('Error fetching profile metadata:', error);
