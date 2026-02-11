@@ -80,7 +80,7 @@ function createContractStore() {
 
 			// Subscription 1: Status events where user is RECIPIENT
 			statusSubscriptionIncoming = pool.subscribe(
-				_appStore.relays,
+				_appStore?.relays ?? [],
 				{
 					kinds: [KINDS.CONTRACT_STATUS],
 					'#p': [userPubkeyHex],
@@ -91,7 +91,7 @@ function createContractStore() {
 
 			// Subscription 2: Status events where user is AUTHOR (to see own updates)
 			statusSubscriptionOutgoing = pool.subscribe(
-				_appStore.relays,
+				_appStore?.relays ?? [],
 				{
 					kinds: [KINDS.CONTRACT_STATUS],
 					authors: [userPubkeyHex],
@@ -129,7 +129,7 @@ function createContractStore() {
 
 			// Subscription 1: Contract events where user is PARTICIPANT
 			contractSubscription = pool.subscribe(
-				_appStore.relays,
+				_appStore?.relays ?? [],
 				{
 					kinds: [KINDS.CONTRACT],
 					'#p': [userPubkeyHex],

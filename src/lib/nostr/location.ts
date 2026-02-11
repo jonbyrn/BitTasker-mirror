@@ -14,7 +14,7 @@ import KINDS from '$lib/utils/constants/kinds';
  * @param relays Optional array of relay URLs
  * @returns Promise resolving to the published event
  */
-export async function publishLocation(location: Location, relays = get(appStore).relays): Promise<NostrEvent> {
+export async function publishLocation(location: Location, relays = get(appStore)?.relays ?? []): Promise<NostrEvent> {
     try {
         const pool = get(appStore).pool;
 
@@ -63,7 +63,7 @@ export async function publishLocation(location: Location, relays = get(appStore)
  */
 export async function subscribeToLocation(
     callback: (location: Location) => void,
-    relays = get(appStore).relays
+    relays = get(appStore)?.relays ?? []
 ): Promise<() => void> {
     try {
         const pool = get(appStore).pool;
@@ -114,7 +114,7 @@ export async function subscribeToLocation(
  * @returns Promise resolving to the location data or null if not found
  */
 export async function getLatestLocation(
-    relays = get(appStore).relays
+    relays = get(appStore)?.relays ?? []
 ): Promise<Location | null> {
     try {
         const pool = get(appStore).pool;

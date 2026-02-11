@@ -179,8 +179,6 @@ export async function setWebBiometricKey(
 			displayName = passkeyName.displayName;
 		}
 
-		console.log({ name, displayName });
-
 		// Create registration options
 		// In test environments, use more permissive options to work with virtual authenticators
 		const isTestEnvironment =

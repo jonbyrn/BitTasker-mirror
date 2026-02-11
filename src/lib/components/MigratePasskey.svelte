@@ -3,19 +3,28 @@
 	import {
 		passkeyMigration,
 		skipCountdown,
-		resetMigration,
-		startMigrationCountdown
+		retryMigration,
+		skipMigration
 	} from '$lib/utils/helpers/migratePasskey';
 	import Modal from '$lib/components/Modal.svelte';
 
-	function handleRetry() {
-		// Reset to info state and restart countdown
-		startMigrationCountdown();
+	async function handleRetry() {
+		try {
+			await retryMigration();
+		} catch (error) {
+			console.error('Retry failed:', error);
+			// Error state is already updated in retryMigration
+		}
 	}
 
-	function handleSkip() {
-		// Close modal and let the old login system handle it
-		resetMigration();
+	async function handleSkip() {
+		try {
+			await skipMigration();
+			// Response will be handled by the login page's auth flow
+		} catch (error) {
+			console.error('Skip failed:', error);
+			// Error state is already updated in skipMigration
+		}
 	}
 </script>
 
