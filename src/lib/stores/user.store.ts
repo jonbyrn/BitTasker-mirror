@@ -46,7 +46,10 @@ const createUserStore = () => {
 	let isDataLoaded = false;
 
 	const relays = get(appStore)?.relays ?? [];
-	const pool = get(appStore).pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
 
 	return {
 		subscribe,

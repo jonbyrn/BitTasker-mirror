@@ -69,7 +69,7 @@ function createContractStore() {
 			const npub = await getNpub();
 			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 			const _appStore = get(appStore);
-			const pool = _appStore.pool;
+			const pool = _appStore?.pool;
 
 			if (!pool) {
 				console.error('[ContractStore] Pool not available');
@@ -117,7 +117,7 @@ function createContractStore() {
 			const npub = await getNpub();
 			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 			const _appStore = get(appStore);
-			const pool = _appStore.pool;
+			const pool = _appStore?.pool;
 
 			if (!pool) {
 				console.error('[ContractStore] Pool not available');

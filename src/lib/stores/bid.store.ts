@@ -183,7 +183,7 @@ function createBidStore() {
 
             const npub = await getNpub();
             const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-            const pool = get(appStore).pool;
+            const pool = get(appStore)?.pool;
 
             if (!pool) {
                 console.error('[BidStore] Pool not available');

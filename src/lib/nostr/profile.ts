@@ -102,9 +102,14 @@ export async function subscribeToProfileUpdates(
 				});
 			}
 
+			const pool = get(appStore)?.pool;
+			if (!pool) {
+				throw new Error('Pool not found');
+			}
+
 			// Create separate subscriptions for each filter
 			const subs = filters.map((filter) =>
-				get(appStore).pool.subscribe(relays, filter, {
+				pool.subscribe(relays, filter, {
 					onevent(event: NostrEvent) {
 						const subs = profileSubscriptions.get(subscriptionKey);
 						if (subs) {
@@ -560,12 +565,17 @@ export async function publishProfileMetadata(
 		const maxRetries = 3;
 		const timeout = 5000; // 5 seconds
 
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+
 		for (let attempt = 1; attempt <= maxRetries; attempt++) {
 			try {
 				const publishPromises = relays.map(
 					(relay) =>
 						new Promise<void>((resolve, reject) => {
-							const pub = get(appStore).pool.publish([relay], signedEvent);
+							const pub = pool.publish([relay], signedEvent);
 							const timeoutId = setTimeout(() => {
 								reject(new Error(`Publish to ${relay} timed out`));
 							}, timeout);
@@ -624,8 +634,12 @@ export async function publishMultipleImages(
 			throw new Error('Event is undefined');
 		}
 
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		const signedEvent = await getSignedEvent(event);
-		const pub = await Promise.all(get(appStore).pool.publish(relays, signedEvent));
+		const pub = await Promise.all(pool.publish(relays, signedEvent));
 
 		return pub;
 	} catch (error) {
@@ -651,6 +665,11 @@ export async function deleteNostrEvent(
 			return;
 		}
 
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+
 		const event: Partial<NostrEvent> = {
 			kind: 5, // Event deletion (NIP-09)
 			created_at: Math.floor(Date.now() / 1000),
@@ -663,7 +682,7 @@ export async function deleteNostrEvent(
 		};
 
 		const signedEvent = await getSignedEvent(event);
-		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
+		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Error deleting Nostr event:', error);
 		throw error;
@@ -684,7 +703,10 @@ export function closeNostrPool(): void {
 	profileSubscriptions.clear();
 
 	const relays = get(appStore)?.relays ?? [];
-	const pool = get(appStore).pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
 
 	// Close pool
 	pool.close(relays);
@@ -733,7 +755,12 @@ export async function publishSkillsUpdate(
 
 		const signedSkillsEvent = await getSignedEvent(skillsEvent);
 
-		get(appStore).pool.publish(relays, signedSkillsEvent);
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+
+		pool.publish(relays, signedSkillsEvent);
 	} catch (error) {
 		console.error('Failed to publish skills update:', error);
 		throw error;
@@ -781,8 +808,13 @@ export async function uploadCertification(
 
 		const signedCertEvent = await getSignedEvent(certEvent);
 
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+
 		// Publish event
-		get(appStore).pool.publish(relays, signedCertEvent);
+		pool.publish(relays, signedCertEvent);
 
 		return signedCertEvent.id;
 	} catch (error) {
@@ -837,7 +869,11 @@ export async function publishPortfolioItem(
 		};
 
 		const signedEvent = await getSignedEvent(itemEvent);
-		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to publish portfolio item:', error);
 		throw error;
@@ -861,7 +897,11 @@ export async function deletePortfolioItem(id: string, relays = get(appStore)?.re
 		};
 
 		const signedEvent = await getSignedEvent(deleteEvent);
-		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Error deleting portfolio item:', error);
 		throw error;
@@ -881,7 +921,10 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
 			content: JSON.stringify(availability)
 		};
 
-		const pool = get(appStore).pool;
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		const relays = get(appStore)?.relays ?? [];
 
 		const signedEvent = await getSignedEvent(event);
@@ -903,6 +946,10 @@ export async function publishStandardServices(
 	relays = get(appStore)?.relays ?? []
 ): Promise<void> {
 	try {
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		const event = {
 			kind: KINDS.PROFILE_STANDARD_SERVICES,
 			created_at: Math.floor(Date.now() / 1000),
@@ -911,7 +958,7 @@ export async function publishStandardServices(
 		};
 
 		const signedEvent = await getSignedEvent(event);
-		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
+		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to publish standard services:', error);
 		throw error;
@@ -924,6 +971,10 @@ export async function publishStandardServices(
  */
 export async function deleteStandardService(eventId: string, relays = get(appStore)?.relays ?? []): Promise<void> {
 	try {
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		const event = {
 			kind: 5,
 			created_at: Math.floor(Date.now() / 1000),
@@ -935,7 +986,7 @@ export async function deleteStandardService(eventId: string, relays = get(appSto
 		};
 
 		const signedEvent = await getSignedEvent(event);
-		await Promise.all(get(appStore).pool.publish(relays, signedEvent));
+		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to delete standard service:', error);
 		throw error;
@@ -955,7 +1006,11 @@ export async function getEventById(eventId: string, relays = get(appStore)?.rela
 		};
 
 		// Use get method instead of list
-		const event = await get(appStore).pool.get(relays, filter);
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+		const event = await pool.get(relays, filter);
 		return event || null;
 	} catch (error) {
 		console.error('Error fetching event by ID:', error);
@@ -978,7 +1033,10 @@ export async function getProfileMetaData(npub: string): Promise<NostrEvent | nul
 			limit: 20
 		};
 
-		const pool = get(appStore).pool;
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		const relays = get(appStore)?.relays ?? [];
 
 		const event = await pool.get(relays, filter);
