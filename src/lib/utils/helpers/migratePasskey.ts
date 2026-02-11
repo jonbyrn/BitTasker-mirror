@@ -131,29 +131,15 @@ async function migratePasskey(
 
         const npub = signedEvent.pubkey;
 
-        // Fetch display name from Nostr profile for passkey naming
-        let username: string | undefined;
-        try {
-            // Convert hex npub to npub format for profile fetch
-            const npubFormatted = nip19.npubEncode(npub);
-            const profile = await fetchProfileMetadata(npubFormatted);
-            username = profile.name?.trim();
-        } catch (err) {
-            console.warn('Could not fetch Nostr profile for passkey name:', err);
-        }
-
-        // Format passkey name as email: <username|displayname|first 6 chars of npub>@bittasker.com
-        const passkeyName = await formatPasskeyName({ npub, username });
-
         const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
         const isMobileBiometrics = await checkBiometricAvailability();
 
         let credentialId = '';
         if (isMobileBiometrics) {
-            credentialId = await setBiometricKey(npub, exportedKey, passkeyName);
+            credentialId = await setBiometricKey(npub, exportedKey);
         } else {
-            credentialId = await setWebBiometricKey(npub, exportedKey, passkeyName);
+            credentialId = await setWebBiometricKey(npub, exportedKey);
         }
 
         const response = await authService.migratePasskey({

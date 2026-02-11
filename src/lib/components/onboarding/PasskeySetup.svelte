@@ -87,15 +87,12 @@
 
 			const deviceName = await createUserDeviceShortName(npub);
 
-			// Format passkey name as email: <username|displayname|first 6 chars of npub>@bittasker.com
-			const passkeyName = await formatPasskeyName({ npub, username });
-
 			// Register device with server using master key
 			// Use username for passkey naming so it appears in password managers
 			let credentialId = '';
 			if (isMobileBiometrics) {
 				try {
-					credentialId = await setBiometricKey(npub, exportedKey, passkeyName);
+					credentialId = await setBiometricKey(npub, exportedKey, username);
 				} catch (biometricError: any) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'mobile-native';
@@ -113,7 +110,7 @@
 				}
 			} else {
 				try {
-					credentialId = await setWebBiometricKey(npub, exportedKey, passkeyName);
+					credentialId = await setWebBiometricKey(npub, exportedKey, username);
 				} catch (biometricError: any) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'web';

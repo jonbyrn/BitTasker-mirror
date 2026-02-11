@@ -187,16 +187,15 @@
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
-			// TODO: Check for display name on nostr first and use it for the passkey
 			const deviceName = await createUserDeviceShortName(npub);
 
 			// Create passkey with deviceName first (username not available yet)
 			// After login, username will be available for future passkey creations
 			let credentialId = '';
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+				credentialId = await setBiometricKey(npub, exportedKey);
 			} else {
-				credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
+				credentialId = await setWebBiometricKey(npub, exportedKey);
 			}
 
 			if (!credentialId) {
