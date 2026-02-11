@@ -23,6 +23,8 @@
 
 	const { children } = $props();
 
+	let mounted = $state(false);
+
 	// Derive layout state from current route
 	const currentPath = $derived(page.url.pathname);
 	const isOnboardingPage = $derived(currentPath.includes('/onboarding'));
@@ -80,6 +82,7 @@
 	}
 
 	onMount(() => {
+		mounted = true;
 		initializeTheme();
 		hideSplashScreenWhenReady(300);
 
@@ -328,7 +331,9 @@
 
 <InfiniteScroll />
 
-<MigratePasskey />
+{#if mounted}
+	<MigratePasskey />
+{/if}
 
 <style>
 	/* Hide footer on mobile/tablet for tasks page */
