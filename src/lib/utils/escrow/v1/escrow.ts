@@ -41,89 +41,24 @@ export async function ensureEscrowReady(
     wallet: ethers.Wallet;
     provider: ethers.JsonRpcProvider;
 }> {
-    const ensureStartTime = performance.now();
-    const callStack = new Error().stack?.split('\n').slice(1, 4).map(line => line.trim()).join(' -> ') || 'unknown';
-
-    console.log(`[DEBUG] [ensureEscrowReady] Starting wallet/provider initialization check`, {
-        contractAddress,
-        requireBalance,
-        callStack,
-        timestamp: new Date().toISOString()
-    });
-
     // Check and initialize wallet if needed
     let wallet = getRSKWallet();
     if (!wallet) {
-        console.log(`[DEBUG] [ensureEscrowReady] Wallet not available, initializing...`, {
-            callStack,
-            timestamp: new Date().toISOString()
-        });
-        const initStartTime = performance.now();
-        try {
-            const { walletManager } = await import('$lib/stores/wallet.store');
-            await walletManager.initialize();
-            const initDuration = performance.now() - initStartTime;
-            wallet = getRSKWallet();
-            if (!wallet) {
-                console.error(`[DEBUG] [ensureEscrowReady] ❌ Wallet initialization failed - wallet still null after initialize()`, {
-                    initDurationMs: initDuration.toFixed(2),
-                    callStack
-                });
-                throw new Error('Failed to initialize wallet');
-            }
-            console.log(`[DEBUG] [ensureEscrowReady] ✅ Wallet initialized successfully`, {
-                walletAddress: wallet.address,
-                initDurationMs: initDuration.toFixed(2),
-                callStack
-            });
-        } catch (initError) {
-            const initDuration = performance.now() - initStartTime;
-            console.error(`[DEBUG] [ensureEscrowReady] ❌ Wallet initialization threw error`, {
-                error: initError instanceof Error ? initError.message : String(initError),
-                initDurationMs: initDuration.toFixed(2),
-                callStack
-            });
+        const { walletManager } = await import('$lib/stores/wallet.store');
+        await walletManager.initialize();
+        wallet = getRSKWallet();
+        if (!wallet) {
             throw new Error('Failed to initialize wallet');
         }
-    } else {
-        console.log(`[DEBUG] [ensureEscrowReady] ✅ Wallet already available`, {
-            walletAddress: wallet.address,
-            callStack
-        });
     }
 
     // Check and get provider if needed
     let provider = getRSKProvider();
     if (!provider) {
-        console.log(`[DEBUG] [ensureEscrowReady] Provider not available, initializing...`, {
-            callStack,
-            timestamp: new Date().toISOString()
-        });
-        const initStartTime = performance.now();
-        try {
-            const { walletManager } = await import('$lib/stores/wallet.store');
-            await walletManager.initialize();
-            const initDuration = performance.now() - initStartTime;
-            provider = getRSKProvider();
-            if (!provider) {
-                console.error(`[DEBUG] [ensureEscrowReady] ❌ Provider initialization failed - provider still null after initialize()`, {
-                    initDurationMs: initDuration.toFixed(2),
-                    callStack
-                });
-                throw new Error('Failed to get provider');
-            }
-            console.log(`[DEBUG] [ensureEscrowReady] ✅ Provider initialized successfully`, {
-                providerUrl: (provider as any)?.connection?.url || 'unknown',
-                initDurationMs: initDuration.toFixed(2),
-                callStack
-            });
-        } catch (initError) {
-            const initDuration = performance.now() - initStartTime;
-            console.error(`[DEBUG] [ensureEscrowReady] ❌ Provider initialization threw error`, {
-                error: initError instanceof Error ? initError.message : String(initError),
-                initDurationMs: initDuration.toFixed(2),
-                callStack
-            });
+        const { walletManager } = await import('$lib/stores/wallet.store');
+        await walletManager.initialize();
+        provider = getRSKProvider();
+        if (!provider) {
             throw new Error('Failed to get provider');
         }
     } else {
@@ -132,43 +67,12 @@ export async function ensureEscrowReady(
         const isDestroyed = providerWithDestroyed._destroyed === true || (provider as any).destroyed === true;
 
         if (isDestroyed) {
-            console.warn(`[DEBUG] [ensureEscrowReady] ⚠️ Provider is destroyed, reinitializing...`, {
-                callStack,
-                timestamp: new Date().toISOString()
-            });
-            const initStartTime = performance.now();
-            try {
-                const { walletManager } = await import('$lib/stores/wallet.store');
-                // Force reinitialization by resetting state
-                await walletManager.initialize();
-                const initDuration = performance.now() - initStartTime;
-                provider = getRSKProvider();
-                if (!provider) {
-                    console.error(`[DEBUG] [ensureEscrowReady] ❌ Provider reinitialization failed`, {
-                        initDurationMs: initDuration.toFixed(2),
-                        callStack
-                    });
-                    throw new Error('Failed to get provider after reinitialization');
-                }
-                console.log(`[DEBUG] [ensureEscrowReady] ✅ Provider reinitialized successfully`, {
-                    providerUrl: (provider as any)?.connection?.url || 'unknown',
-                    initDurationMs: initDuration.toFixed(2),
-                    callStack
-                });
-            } catch (initError) {
-                const initDuration = performance.now() - initStartTime;
-                console.error(`[DEBUG] [ensureEscrowReady] ❌ Provider reinitialization threw error`, {
-                    error: initError instanceof Error ? initError.message : String(initError),
-                    initDurationMs: initDuration.toFixed(2),
-                    callStack
-                });
+            const { walletManager } = await import('$lib/stores/wallet.store');
+            await walletManager.initialize();
+            provider = getRSKProvider();
+            if (!provider) {
                 throw new Error('Failed to get provider after reinitialization');
             }
-        } else {
-            console.log(`[DEBUG] [ensureEscrowReady] ✅ Provider already available`, {
-                providerUrl: (provider as any)?.connection?.url || 'unknown',
-                callStack
-            });
         }
     }
 
@@ -227,16 +131,6 @@ export async function ensureEscrowReady(
             throw new Error('Insufficient balance. Please fund your wallet with RBTC to pay for transaction fees.');
         }
     }
-
-    const ensureDuration = performance.now() - ensureStartTime;
-    console.log(`[DEBUG] [ensureEscrowReady] ✅ Completed successfully`, {
-        contractAddress: targetContract.target,
-        walletAddress: wallet.address,
-        hasProvider: !!provider,
-        requireBalance,
-        totalDurationMs: ensureDuration.toFixed(2),
-        callStack
-    });
 
     return { contract: targetContract, wallet, provider };
 }
@@ -302,52 +196,19 @@ async function connectToEscrowContract(): Promise<void> {
 
 // Load escrow details from contract
 async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData> {
-    const loadStartTime = performance.now();
-    console.log(`[DEBUG] [loadEscrowDetails] Starting blockchain call for escrow ${escrowId}`, {
-        escrowId,
-        contractAddress,
-        timestamp: new Date().toISOString()
-    });
-
     const MAX_RETRIES = 2;
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
             // Get the appropriate contract instance (no balance check needed for read operations)
-            const ensureStartTime = performance.now();
             const { contract: targetContract } = await ensureEscrowReady(contractAddress, false);
-            const ensureDuration = performance.now() - ensureStartTime;
 
             if (!targetContract) {
-                console.error(`[DEBUG] [loadEscrowDetails] ❌ Contract not found after ensureEscrowReady`, {
-                    escrowId,
-                    contractAddress,
-                    ensureDurationMs: ensureDuration.toFixed(2),
-                    attempt
-                });
                 throw new Error('Contract not found');
             }
 
-            console.log(`[DEBUG] [loadEscrowDetails] Calling targetContract.getEscrow(${escrowId})`, {
-                escrowId,
-                contractAddress: targetContract.target,
-                ensureDurationMs: ensureDuration.toFixed(2),
-                attempt
-            });
-
-            const contractCallStartTime = performance.now();
             const escrowData = await targetContract.getEscrow(escrowId);
-            const contractCallDuration = performance.now() - contractCallStartTime;
-            const totalDuration = performance.now() - loadStartTime;
-
-            console.log(`[DEBUG] [loadEscrowDetails] ✅ Blockchain call succeeded for escrow ${escrowId}`, {
-                escrowId,
-                contractCallDurationMs: contractCallDuration.toFixed(2),
-                totalDurationMs: totalDuration.toFixed(2),
-                escrowState: escrowData?.state,
-                attempt
-            });
 
             // Map contract state enum to our EscrowStatus
             const statusMapping: Record<number, EscrowStatus> = {
@@ -380,45 +241,16 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 
             return escrow;
         } catch (error) {
-            const totalDuration = performance.now() - loadStartTime;
             const errorMessage = error instanceof Error ? error.message : String(error);
-            const errorStack = error instanceof Error ? error.stack : undefined;
             lastError = error instanceof Error ? error : new Error(String(error));
 
             // Determine error type for better debugging
-            const isWalletError = errorMessage.includes('wallet') ||
-                errorMessage.includes('Failed to initialize') ||
-                errorMessage.includes('not initialized') ||
-                errorMessage.includes('not connected');
             const isProviderError = errorMessage.includes('provider') ||
                 errorMessage.includes('Failed to get provider') ||
                 errorMessage.includes('provider destroyed');
-            const isContractError = errorMessage.includes('contract') ||
-                errorMessage.includes('Failed to connect');
-            const isNetworkError = errorMessage.includes('network') ||
-                errorMessage.includes('timeout') ||
-                errorMessage.includes('connection') ||
-                errorMessage.includes('fetch');
-            const isEscrowNotFound = errorMessage.includes('not found') ||
-                errorMessage.includes('does not exist') ||
-                (errorMessage.includes('execution reverted') &&
-                    !isProviderError && !isWalletError && !isContractError);
-
-            const errorType = isWalletError ? 'WALLET_ERROR' :
-                isProviderError ? 'PROVIDER_ERROR' :
-                    isContractError ? 'CONTRACT_ERROR' :
-                        isNetworkError ? 'NETWORK_ERROR' :
-                            isEscrowNotFound ? 'ESCROW_NOT_FOUND' : 'UNKNOWN_ERROR';
 
             // Retry for provider destruction errors (can happen during concurrent initialization)
             if (isProviderError && attempt < MAX_RETRIES) {
-                console.warn(`[DEBUG] [loadEscrowDetails] ⚠️ Provider error for escrow ${escrowId}, retrying...`, {
-                    escrowId,
-                    errorType,
-                    attempt: attempt + 1,
-                    maxRetries: MAX_RETRIES,
-                    errorMessage
-                });
                 // Reset cached contract to force reinitialization
                 resetCachedContract();
                 // Wait a bit before retry to allow provider to reinitialize
@@ -426,19 +258,6 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
                 continue; // Retry
             }
 
-            // Don't retry for other errors or if max retries reached
-            console.error(`[DEBUG] [loadEscrowDetails] ❌ Blockchain call failed for escrow ${escrowId}`, {
-                escrowId,
-                contractAddress,
-                errorMessage,
-                errorType,
-                totalDurationMs: totalDuration.toFixed(2),
-                attempt,
-                willRetry: isProviderError && attempt < MAX_RETRIES,
-                errorStack: errorStack?.split('\n').slice(0, 5).join('\n') // First 5 lines of stack
-            });
-
-            // Throw error if we've exhausted retries or it's not a retryable error
             throw new Error(`Failed to load escrow details for ID ${escrowId}: ${errorMessage}`);
         }
     }
@@ -799,17 +618,6 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
                 console.log('Task acceptance transaction confirmed:', receipt);
 
                 if (contractEventId) {
-                    if (import.meta.env.DEV) {
-                        console.log(`[DEBUG] [acceptTask] Publishing FundsReleased event for escrow ${escrowId}`, {
-                            escrowId,
-                            contractEventId,
-                            transactionHash: receipt.hash,
-                            receiptStatus: receipt.status,
-                            receiptBlockNumber: receipt.blockNumber,
-                            timestamp: new Date().toISOString()
-                        });
-                    }
-
                     try {
                         await EscrowNostrEvent.publishEscrowStatus({
                             escrowId,
@@ -817,29 +625,8 @@ async function acceptTask(escrowId: string, contractEventId?: string): Promise<C
                             transactionHash: receipt.hash,
                             status: EscrowStatus.FundsReleased
                         });
-
-                        if (import.meta.env.DEV) {
-                            console.log(`[DEBUG] [acceptTask] ✅ FundsReleased event published successfully for escrow ${escrowId}`, {
-                                escrowId,
-                                transactionHash: receipt.hash
-                            });
-                        }
-                    } catch (publishError) {
-                        console.error(`[DEBUG] [acceptTask] ❌ Failed to publish FundsReleased event for escrow ${escrowId}`, {
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            error: publishError instanceof Error ? publishError.message : String(publishError),
-                            errorStack: publishError instanceof Error ? publishError.stack : undefined,
-                            issue: 'FundsReleased event not published - contract will show PendingAcceptance status'
-                        });
-                    }
-                } else {
-                    if (import.meta.env.DEV) {
-                        console.warn(`[DEBUG] [acceptTask] ⚠️ No contractEventId provided, cannot publish FundsReleased event for escrow ${escrowId}`, {
-                            escrowId,
-                            transactionHash: receipt.hash,
-                            issue: 'FundsReleased event will not be published - contract may show incorrect status'
-                        });
+                    } catch {
+                        // FundsReleased event not published - contract may show PendingAcceptance status
                     }
                 }
             } else {

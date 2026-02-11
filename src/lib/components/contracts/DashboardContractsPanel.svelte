@@ -115,77 +115,22 @@
 	}
 
 	onMount(async () => {
-		const mountStartTime = import.meta.env.DEV ? performance.now() : 0;
-		if (import.meta.env.DEV) {
-			console.log('[DEBUG] [DashboardContractsPanel] onMount - Starting contract load', {
-				timestamp: new Date().toISOString()
-			});
-		}
-
 		// Ensure wallet is initialized BEFORE loading contracts
 		try {
 			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
 			const { get } = await import('svelte/store');
 			let walletState = get(walletStore);
 
-			if (import.meta.env.DEV) {
-				console.log('[DEBUG] [DashboardContractsPanel] Wallet state before initialization check', {
-					isConnected: walletState.isConnected,
-					isInitializing: walletState.isInitializing,
-					hasRSKWallet: !!walletState.rsk?.wallet,
-					hasRSKProvider: !!walletState.rsk?.provider,
-					rskConnected: walletState.rsk?.connected,
-					rskAddress: walletState.rsk?.address,
-					timestamp: new Date().toISOString()
-				});
-			}
-
 			// Wait for wallet initialization if not already initialized
 			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
-				if (import.meta.env.DEV) {
-					console.log('[DEBUG] [DashboardContractsPanel] Wallet not ready, initializing...');
-				}
-				const walletInitStartTime = import.meta.env.DEV ? performance.now() : 0;
 				await walletManager.initialize();
-
-				// Re-check wallet state after initialization
 				walletState = get(walletStore);
-				if (import.meta.env.DEV) {
-					const walletInitDuration = performance.now() - walletInitStartTime;
-					console.log('[DEBUG] [DashboardContractsPanel] Wallet initialization completed', {
-						isConnected: walletState.isConnected,
-						hasRSKWallet: !!walletState.rsk?.wallet,
-						hasRSKProvider: !!walletState.rsk?.provider,
-						rskConnected: walletState.rsk?.connected,
-						initDurationMs: walletInitDuration.toFixed(2)
-					});
-				}
-			} else if (import.meta.env.DEV) {
-				console.log('[DEBUG] [DashboardContractsPanel] Wallet already initialized');
 			}
-		} catch (walletStateError) {
-			if (import.meta.env.DEV) {
-				console.error(
-					'[DEBUG] [DashboardContractsPanel] Failed to initialize wallet:',
-					walletStateError
-				);
-			}
+		} catch {
 			// Continue anyway - contracts will handle wallet initialization individually
 		}
 
-		const loadStartTime = import.meta.env.DEV ? performance.now() : 0;
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
-
-		if (import.meta.env.DEV) {
-			const loadDuration = performance.now() - loadStartTime;
-			const totalMountDuration = performance.now() - mountStartTime;
-			console.log('[DEBUG] [DashboardContractsPanel] Contract load completed', {
-				loadDurationMs: loadDuration.toFixed(2),
-				totalMountDurationMs: totalMountDuration.toFixed(2),
-				contractCount: $contractStore.contracts.length,
-				timestamp: new Date().toISOString()
-			});
-		}
 
 		// Configure infinite scroll
 		scroll.update((state) => ({
