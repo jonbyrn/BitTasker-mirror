@@ -302,7 +302,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-passkey">
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
@@ -342,6 +342,7 @@
 				</p>
 
 				{#if error}
+					<div data-testid="passkey-setup-error">
 					<ErrorAlertWithModal
 						{error}
 						errorType={errorType}
@@ -355,6 +356,7 @@
 						}}
 						class="mx-auto mb-6 max-w-lg"
 					/>
+					</div>
 				{/if}
 
 				{#if isSetupComplete}
@@ -387,6 +389,7 @@
 				<button
 					type="button"
 					class="btn btn-primary"
+					data-testid="passkey-setup-button"
 					onclick={handlePasskeySetup}
 					disabled={isLoading}
 				>
