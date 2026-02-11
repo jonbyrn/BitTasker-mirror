@@ -1,11 +1,9 @@
-import { nip19, type NostrEvent } from "nostr-tools";
+import { type NostrEvent } from "nostr-tools";
 import { encryptMasterKeyData } from "$lib/utils/helpers/auth";
 import { setWebBiometricKey } from "$lib/utils/helpers/webBiometrics";
-import { formatPasskeyName } from "$lib/utils/helpers/deviceIdentity";
 import { checkBiometricAvailability, setBiometricKey } from "$lib/utils/helpers/biometrics";
-import { fetchProfileMetadata } from "$lib/utils/nostr-message";
-import authService from "$lib/api/services/auth.service";
 import { writable, get } from "svelte/store";
+import authService from "$lib/api/services/auth.service";
 
 type MigrationState = 'info' | 'processing' | 'success' | 'error';
 

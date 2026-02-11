@@ -82,7 +82,10 @@
 	}
 
 	onMount(() => {
-		mounted = true;
+		setTimeout(() => {
+			mounted = true;
+		}, 5000); // 5 seconds delay to ensure the app is fully loaded
+
 		initializeTheme();
 		hideSplashScreenWhenReady(300);
 

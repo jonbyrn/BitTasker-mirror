@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
 	import {
 		passkeyMigration,
 		skipCountdown,
@@ -6,7 +7,6 @@
 		startMigrationCountdown
 	} from '$lib/utils/helpers/migratePasskey';
 	import Modal from '$lib/components/Modal.svelte';
-	import { t } from 'svelte-i18n';
 
 	function handleRetry() {
 		// Reset to info state and restart countdown
