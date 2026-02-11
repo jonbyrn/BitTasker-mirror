@@ -3,7 +3,6 @@ import { encryptMasterKeyData } from "$lib/utils/helpers/auth";
 import { setWebBiometricKey } from "$lib/utils/helpers/webBiometrics";
 import { checkBiometricAvailability, setBiometricKey } from "$lib/utils/helpers/biometrics";
 import { writable, get } from "svelte/store";
-import authService from "$lib/api/services/auth.service";
 
 type MigrationState = 'info' | 'processing' | 'success' | 'error';
 
@@ -139,6 +138,9 @@ async function migratePasskey(
         } else {
             credentialId = await setWebBiometricKey(npub, exportedKey);
         }
+
+        // Dynamically import authService to avoid circular dependency
+        const authService = (await import('$lib/api/services/auth.service')).default;
 
         const response = await authService.migratePasskey({
             event: signedEvent,

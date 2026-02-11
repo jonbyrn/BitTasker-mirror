@@ -19,11 +19,8 @@
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
 	import '../app.css';
-	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
 
 	const { children } = $props();
-
-	let mounted = $state(false);
 
 	// Derive layout state from current route
 	const currentPath = $derived(page.url.pathname);
@@ -82,10 +79,6 @@
 	}
 
 	onMount(() => {
-		setTimeout(() => {
-			mounted = true;
-		}, 5000); // 5 seconds delay to ensure the app is fully loaded
-
 		initializeTheme();
 		hideSplashScreenWhenReady(300);
 
@@ -333,10 +326,6 @@
 <Toast />
 
 <InfiniteScroll />
-
-{#if mounted}
-	<MigratePasskey />
-{/if}
 
 <style>
 	/* Hide footer on mobile/tablet for tasks page */
