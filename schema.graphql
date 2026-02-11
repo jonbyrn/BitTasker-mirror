@@ -96,22 +96,10 @@ type BidsWithPaginationDto {
   pagination: BidPaginationDto!
 }
 
-input BudgetInput {
-  currency: String
-  tier: String
-  type: BudgetTypeEnum
-}
-
 enum BudgetType {
   FIXED
   HOURLY
   RANGE
-}
-
-"""The type of budget (fixed or hourly)"""
-enum BudgetTypeEnum {
-  FIXED
-  HOURLY
 }
 
 type Category {
@@ -292,8 +280,6 @@ type Mutation {
   sendNotificationToDevice(input: SendNotificationToDeviceInput!): DeviceNotificationResult!
   sendNotificationToNpubs(input: SendNotificationToNpubsInput!): NpubNotificationResponse!
   subscribeToTopic(input: SubscribeToTopicInput!): NotificationResponse!
-  triggerBatchTaskCheck: SavedSearchNotificationResult!
-  triggerSavedSearchCheck(task: TaskBodyInput!): SavedSearchNotificationResult!
   unsubscribeFromTopic(input: SubscribeToTopicInput!): NotificationResponse!
   updateBid(id: Int!, input: UpdateBidInput!): BidResponse!
   updateDevice(deviceId: String!, input: UpdateDeviceInput!): UserDevice!
@@ -302,13 +288,6 @@ type Mutation {
   updateTaskTemplate(id: Int!, input: UpdateTaskTemplateInput!): TaskTemplateResponse!
   updateUserProfile(input: UpdateUserProfileInput!): User!
   withdrawBid(id: Int!, reason: String): Boolean!
-}
-
-"""The frequency of notifications for saved searches"""
-enum NotificationFrequency {
-  DAILY
-  INSTANT
-  WEEKLY
 }
 
 type NotificationResponse {
@@ -361,7 +340,6 @@ type Query {
   categories: [Category!]!
   category(id: Int!): Category
   deviceStatistics: DeviceStatistics!
-  getUserSavedSearches: [SavedSearchInfo!]!
   myDevices: [UserDevice!]!
   myNotificationPreferences: UserNotificationPreferences
   myTasks: [Task!]!
@@ -416,22 +394,6 @@ input RegisterDeviceInput {
   deviceName: String
   fcmToken: String!
   platform: DevicePlatform!
-}
-
-type SavedSearchInfo {
-  createdAt: String!
-  id: String!
-  isActive: Boolean!
-  name: String!
-  notificationFrequency: NotificationFrequency!
-  notifyOnMatch: Boolean!
-  unreadNotifications: Int!
-}
-
-type SavedSearchNotificationResult {
-  matchCount: Int
-  message: String
-  success: Boolean!
 }
 
 input SearchTasksDto {
@@ -530,20 +492,6 @@ type Task {
   userProfile: UserProfileOutput!
   userProfileId: Int!
   visibility: TaskVisibility!
-}
-
-input TaskBodyInput {
-  budget: BudgetInput
-  categories: [String!]!
-  dateRange: String
-  deadline: String
-  description: String!
-  dropOffLocation: LocationInput
-  eventId: String
-  pickupLocation: LocationInput
-  skills: [String!]!
-  taskType: TaskType!
-  title: String!
 }
 
 enum TaskStatus {
