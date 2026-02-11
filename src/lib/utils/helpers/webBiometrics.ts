@@ -5,9 +5,8 @@
 
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
 import {
-	createDisplayName,
 	createUserDeviceShortName,
-	createUserFriendlyName,
+	generatePasskeyName,
 	getDeviceIdentifier
 } from './deviceIdentity';
 import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/encoding';
@@ -145,9 +144,9 @@ export async function verifyIdentity(): Promise<boolean> {
  * @returns Promise with credential ID
  */
 export async function setWebBiometricKey(
-	publicKey: string,
+	npub: string,
 	exportedKey: string,
-	customName?: string
+	username?: string
 ): Promise<string> {
 	try {
 		// Check availability, but allow test environments to proceed
@@ -167,14 +166,20 @@ export async function setWebBiometricKey(
 			// In test environment, continue - let the actual WebAuthn call determine if it works
 		}
 
-		const packedKeys = packKeys(publicKey, exportedKey);
+		const packedKeys = packKeys(npub, exportedKey);
 
-		// Create descriptive names for the passkey
-		// Handle empty/whitespace-only customName by falling back to public key-based name
-		const validCustomName = customName?.trim() || null;
-		const displayName = validCustomName || createUserFriendlyName(publicKey);
-		// Use customName as-is (no prefix) so it appears in password managers
-		const userName = validCustomName || createDisplayName(publicKey);
+		let name = '';
+		let displayName = '';
+		if (username) {
+			name = username;
+			displayName = username;
+		} else {
+			const passkeyName = await generatePasskeyName(npub);
+			name = passkeyName.name;
+			displayName = passkeyName.displayName;
+		}
+
+		console.log({ name, displayName });
 
 		// Create registration options
 		// In test environments, use more permissive options to work with virtual authenticators
@@ -193,8 +198,8 @@ export async function setWebBiometricKey(
 			},
 			user: {
 				id: packedKeys, // * MAX of 64 bytes
-				name: userName, // Short identifier like "8e52b613...de2612a"
-				displayName: displayName // Full display name like "BitTasker 8e52b613...de2612a (12/20/2024)"
+				name: displayName, // The actual name displayed on the passkey
+				displayName: name // Device name + 8 characters of the npub
 			},
 			pubKeyCredParams: [
 				{ type: 'public-key', alg: -7 }, // ES256

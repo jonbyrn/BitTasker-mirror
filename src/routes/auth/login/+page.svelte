@@ -10,9 +10,8 @@
 	import {
 		createUserDeviceShortName,
 		getDeviceIdentifier,
-		formatPasskeyName
+		generatePasskeyName
 	} from '$lib/utils/helpers/deviceIdentity';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 	import {
 		decryptMasterKeyDataFromBiometrics,
@@ -275,21 +274,6 @@
 
 			const deviceName = await createUserDeviceShortName(npub);
 
-			// Fetch display name from Nostr profile for passkey naming
-			let nostrDisplayName: string | undefined;
-			try {
-				// Convert hex npub to npub format for profile fetch
-				const npubFormatted = nip19.npubEncode(npub);
-				const profile = await fetchProfileMetadata(npubFormatted);
-				nostrDisplayName = profile.name?.trim();
-			} catch (err) {
-				console.warn('Could not fetch Nostr profile for passkey name:', err);
-				// Continue without display name
-			}
-
-			// Format passkey name as email: <username|displayname|first 6 chars of npub>@bittasker.com
-			const passkeyName = await formatPasskeyName({ npub, displayName: nostrDisplayName });
-
 			// Check if we're in a test environment (E2E tests)
 			const isTestEnvironment =
 				typeof window !== 'undefined' && (window as any).__PLAYWRIGHT_TEST__;
@@ -298,9 +282,9 @@
 			// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
 			if (!isTestEnvironment) {
 				if (authMethods.biometric) {
-					credentialId = await setBiometricKey(npub, exportedKey, passkeyName);
+					credentialId = await setBiometricKey(npub, exportedKey);
 				} else if (authMethods.webAuthn) {
-					credentialId = await setWebBiometricKey(npub, exportedKey, passkeyName);
+					credentialId = await setWebBiometricKey(npub, exportedKey);
 				}
 			}
 

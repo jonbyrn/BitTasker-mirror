@@ -1,5 +1,5 @@
 import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices, ProfileTranslations, SkillTranslations, CertificationTranslations, PortfolioTranslations } from '$lib/types/profile.d';
-import type { NostrEvent, Filter } from 'nostr-tools';
+import { type NostrEvent, type Filter, nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
 import { getNpub } from '$lib/utils/nostrKeys';
@@ -67,7 +67,7 @@ export async function subscribeToProfileUpdates(
 		npub = await getNpub();
 		if (!npub) {
 			console.error('No public key found');
-			return () => {};
+			return () => { };
 		}
 
 		// Create a unique subscription key based on npub and filters
@@ -145,7 +145,7 @@ export async function subscribeToProfileUpdates(
 		};
 	} catch (err) {
 		console.error('Failed to get public key:', err);
-		return () => {};
+		return () => { };
 	}
 }
 
@@ -226,10 +226,10 @@ export async function generateProfileTranslations(profileData: {
 			}
 		});
 
-	return {
-		sourceLanguage,
-		translations
-	};
+		return {
+			sourceLanguage,
+			translations
+		};
 	} catch (error) {
 		console.error('Error generating profile translations:', error);
 		return undefined;
@@ -259,7 +259,7 @@ export async function generateSkillTranslations(
 
 		// Detect source language from the skill name
 		const detectedLanguage = await translationService.detectLanguage(skillName);
-		
+
 		// Determine source language:
 		// 1. If detected language is supported, use it
 		// 2. If fallback locale is provided and supported, use it
@@ -272,10 +272,10 @@ export async function generateSkillTranslations(
 		} else {
 			sourceLanguage = 'en';
 		}
-		
+
 		// Always translate to the other language to ensure we have translations in both
 		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
-		
+
 		// If no target languages (skill is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
 			return {
@@ -301,7 +301,7 @@ export async function generateSkillTranslations(
 		});
 
 		const results = await Promise.all(translationPromises);
-		
+
 		// Build translations object, filtering out failed translations
 		const translations: SkillTranslations['translations'] = {};
 		results.forEach(result => {
@@ -338,7 +338,7 @@ export async function generateCertificationTranslations(
 	try {
 		// Combine name and issuer for language detection
 		const combinedText = `${certificationName || ''} ${issuer || ''}`.trim();
-		
+
 		// If all fields are empty, return undefined
 		if (!combinedText) {
 			return undefined;
@@ -346,16 +346,16 @@ export async function generateCertificationTranslations(
 
 		// Detect source language from the combined text
 		const detectedLanguage = await translationService.detectLanguage(combinedText);
-		
+
 		// Determine source language - if detection fails or language is not supported, default to 'en'
 		// but we'll still translate to ensure both languages are available
-		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as SupportedLanguage)) 
-			? detectedLanguage 
+		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as SupportedLanguage))
+			? detectedLanguage
 			: 'en';
-		
+
 		// Always translate to the other language to ensure we have translations in both
 		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
-		
+
 		// If no target languages (certification is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
 			return {
@@ -389,7 +389,7 @@ export async function generateCertificationTranslations(
 		});
 
 		const results = await Promise.all(translationPromises);
-		
+
 		// Build translations object, filtering out failed translations
 		const translations: CertificationTranslations['translations'] = {};
 		results.forEach(result => {
@@ -432,7 +432,7 @@ export async function generatePortfolioTranslations(
 	try {
 		// Combine title and description for language detection
 		const combinedText = `${portfolioData.title || ''} ${portfolioData.description || ''}`.trim();
-		
+
 		// If all fields are empty, return undefined
 		if (!combinedText) {
 			return undefined;
@@ -440,7 +440,7 @@ export async function generatePortfolioTranslations(
 
 		// Detect source language from the combined text
 		const detectedLanguage = await translationService.detectLanguage(combinedText);
-		
+
 		// Determine source language:
 		// 1. If detected language is supported, use it
 		// 2. If fallback locale is provided and supported, use it
@@ -453,10 +453,10 @@ export async function generatePortfolioTranslations(
 		} else {
 			sourceLanguage = 'en';
 		}
-		
+
 		// Always translate to the other language to ensure we have translations in both
 		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
-		
+
 		// If no target languages (portfolio is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
 			return {
@@ -490,7 +490,7 @@ export async function generatePortfolioTranslations(
 		});
 
 		const results = await Promise.all(translationPromises);
-		
+
 		// Build translations object, filtering out failed translations
 		const translations: PortfolioTranslations['translations'] = {};
 		results.forEach(result => {
@@ -694,42 +694,42 @@ export function closeNostrPool(): void {
  * Publish skills update to Nostr
  */
 export async function publishSkillsUpdate(
-    skills: Skill[],
-    relays = RELAYS
+	skills: Skill[],
+	relays = RELAYS
 ): Promise<void> {
-    try {
-        // Get current locale from svelte-i18n if available
-        let currentLocale: string | undefined;
-        try {
-            const { get } = await import('svelte/store');
-            const { locale } = await import('svelte-i18n');
-            currentLocale = get(locale) || undefined;
-        } catch {
-            // If svelte-i18n is not available, continue without locale
-        }
+	try {
+		// Get current locale from svelte-i18n if available
+		let currentLocale: string | undefined;
+		try {
+			const { get } = await import('svelte/store');
+			const { locale } = await import('svelte-i18n');
+			currentLocale = get(locale) || undefined;
+		} catch {
+			// If svelte-i18n is not available, continue without locale
+		}
 
-        // Generate translations for skills that don't have them yet
-        const skillsWithTranslations = await Promise.all(
-            skills.map(async (skill) => {
-                // Only generate translations if skill doesn't already have them
-                if (!skill.translations && skill.name.trim()) {
-                    const translations = await generateSkillTranslations(skill.name, currentLocale);
-                    return {
-                        ...skill,
-                        ...(translations && { translations })
-                    };
-                }
-                return skill;
-            })
-        );
+		// Generate translations for skills that don't have them yet
+		const skillsWithTranslations = await Promise.all(
+			skills.map(async (skill) => {
+				// Only generate translations if skill doesn't already have them
+				if (!skill.translations && skill.name.trim()) {
+					const translations = await generateSkillTranslations(skill.name, currentLocale);
+					return {
+						...skill,
+						...(translations && { translations })
+					};
+				}
+				return skill;
+			})
+		);
 
-        // Create skills event (kind 30000 is replaceable)
-        const skillsEvent = {
-            kind: KINDS.PROFILE_SKILLS,
-            created_at: Math.floor(Date.now() / 1000),
-            tags: [['d', 'skills']],
-            content: JSON.stringify(skillsWithTranslations)
-        };
+		// Create skills event (kind 30000 is replaceable)
+		const skillsEvent = {
+			kind: KINDS.PROFILE_SKILLS,
+			created_at: Math.floor(Date.now() / 1000),
+			tags: [['d', 'skills']],
+			content: JSON.stringify(skillsWithTranslations)
+		};
 
 		const signedSkillsEvent = await getSignedEvent(skillsEvent);
 
@@ -799,42 +799,42 @@ export async function publishPortfolioItem(
 	tags: string[][],
 	relays = RELAYS
 ): Promise<void> {
-    try {
-        // Get current locale from svelte-i18n if available
-        let currentLocale: string | undefined;
-        try {
-            const { get } = await import('svelte/store');
-            const { locale } = await import('svelte-i18n');
-            currentLocale = get(locale) || undefined;
-        } catch {
-            // If svelte-i18n is not available, continue without locale
-        }
+	try {
+		// Get current locale from svelte-i18n if available
+		let currentLocale: string | undefined;
+		try {
+			const { get } = await import('svelte/store');
+			const { locale } = await import('svelte-i18n');
+			currentLocale = get(locale) || undefined;
+		} catch {
+			// If svelte-i18n is not available, continue without locale
+		}
 
-        // Generate translations for portfolio item if it doesn't already have them
-        let itemWithTranslations = item;
-        if (!item.translations && item.title.trim() && item.description.trim()) {
-            const translations = await generatePortfolioTranslations(
-                {
-                    title: item.title,
-                    description: item.description
-                },
-                currentLocale
-            );
-            if (translations) {
-                itemWithTranslations = {
-                    ...item,
-                    translations
-                };
-            }
-        }
+		// Generate translations for portfolio item if it doesn't already have them
+		let itemWithTranslations = item;
+		if (!item.translations && item.title.trim() && item.description.trim()) {
+			const translations = await generatePortfolioTranslations(
+				{
+					title: item.title,
+					description: item.description
+				},
+				currentLocale
+			);
+			if (translations) {
+				itemWithTranslations = {
+					...item,
+					translations
+				};
+			}
+		}
 
-        // Create portfolio item event
-        const itemEvent = {
-            kind: KINDS.PROFILE_PORTFOLIO,
-            created_at: Math.floor(Date.now() / 1000),
-            tags,
-            content: JSON.stringify(itemWithTranslations)
-        };
+		// Create portfolio item event
+		const itemEvent = {
+			kind: KINDS.PROFILE_PORTFOLIO,
+			created_at: Math.floor(Date.now() / 1000),
+			tags,
+			content: JSON.stringify(itemWithTranslations)
+		};
 
 		const signedEvent = await getSignedEvent(itemEvent);
 		await Promise.all(pool.publish(relays, signedEvent));
@@ -957,5 +957,28 @@ export async function getEventById(eventId: string, relays = RELAYS): Promise<No
 	} catch (error) {
 		console.error('Error fetching event by ID:', error);
 		throw error;
+	}
+}
+
+export async function getProfileMetaData(npub: string): Promise<NostrEvent | null> {
+	try {
+		if (npub.startsWith('npub')) {
+			const decoded = nip19.decode(npub);
+			if (decoded.type === 'npub') {
+				npub = decoded.data as string;
+			}
+		}
+
+		const filter: Filter = {
+			authors: [npub],
+			kinds: [KINDS.PROFILE_METADATA],
+			limit: 20
+		};
+
+		const event = await pool.get(RELAYS, filter);
+		return event || null;
+	} catch (error) {
+		console.error('Error fetching profile metadata:', error);
+		return null;
 	}
 }

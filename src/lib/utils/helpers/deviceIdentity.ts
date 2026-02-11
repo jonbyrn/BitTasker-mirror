@@ -2,6 +2,7 @@ import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
 import { nip19 } from 'nostr-tools';
 import { StorageKeys } from '../constants/storage';
+import { getProfileMetaData } from '$lib/nostr/profile';
 
 /**
  * Get unique device identifier for biometric authentication
@@ -202,6 +203,38 @@ export function getNpubShortId(npub: string): string {
 	}
 	// If not in npub format, return empty string
 	return '';
+}
+
+/**
+ * @param npub - Nostr public key in npub format (e.g., "npub1abc123...")
+ * First check for display name in nostr, if not available use device name
+ * @returns Passkey name in email format (e.g., "npub1abc123...@bittasker.com")
+ */
+export async function generatePasskeyName(npub: string): Promise<{
+	displayName: string;
+	name: string;
+}> {
+	let passkeyName = '';
+
+	let decodedNpub = npub; // 64 character hex
+	if (npub.startsWith('npub')) {
+		decodedNpub = nip19.decode(npub).data as string;
+	}
+
+	const metadataEvent = await getProfileMetaData(decodedNpub);
+	if (metadataEvent) {
+		const metadata = JSON.parse(metadataEvent.content);
+		if (metadata.display_name) {
+			passkeyName = metadata.display_name || metadata.displayName || metadata.name;
+		}
+	}
+
+	const deviceShortName = await createUserDeviceShortName(decodedNpub);
+
+	return {
+		displayName: (passkeyName?.trim() || deviceShortName) + '@bittasker.com',
+		name: deviceShortName
+	};
 }
 
 /**

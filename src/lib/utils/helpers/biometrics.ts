@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { handleBiometricError } from './biometricErrorHandler';
 import { packKeysMobile, unPackKeysMobile, generateMobileChallenge } from '$lib/utils/helpers/encoding';
 import { Webauthn, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from 'capacitor-webauthn';
-import { createDisplayName, createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+import { createUserDeviceShortName, generatePasskeyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '../constants/storage';
 import { appStore } from '$lib/stores/app.store';
@@ -27,24 +27,29 @@ export const checkBiometricAvailability = async (): Promise<boolean> => {
  * @returns Promise with credential ID (like WebAuthn)
  */
 export async function setBiometricKey(
-	publicKey: string,
+	npub: string,
 	exportedKey: string,
-	customName?: string,
+	username?: string
 ): Promise<string> {
 	try {
 		let credentialId: string | null = null;
 
 		// Use the same packKeys function as web implementation
-		const packedKeysBase64 = packKeysMobile(publicKey, exportedKey);
+		const packedKeysBase64 = packKeysMobile(npub, exportedKey);
 
 		const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
 		if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
-		// Handle empty/whitespace-only customName by falling back to public key-based name
-		const validCustomName = customName?.trim() || null;
-		const displayName = validCustomName || createDisplayName(publicKey);
-		// Use customName for user.name so it appears in password managers (no prefix)
-		const passkeyUserName = validCustomName || createDisplayName(publicKey);
+		let name = '';
+		let displayName = '';
+		if (username) {
+			name = username;
+			displayName = username;
+		} else {
+			const passkeyName = await generatePasskeyName(npub);
+			name = passkeyName.name;
+			displayName = passkeyName.displayName;
+		}
 
 		const registrationOptions: PublicKeyCredentialCreationOptionsJSON = {
 			challenge: generateMobileChallenge(),
@@ -54,8 +59,8 @@ export async function setBiometricKey(
 			},
 			user: {
 				id: packedKeysBase64,
-				name: passkeyUserName,
-				displayName: displayName
+				name: displayName, // The actual name displayed on the passkey
+				displayName: name // Device name + 8 characters of the npub
 			},
 			pubKeyCredParams: [
 				{ type: 'public-key', alg: -7 }, // ES256
