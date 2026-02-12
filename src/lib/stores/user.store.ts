@@ -45,14 +45,14 @@ const createUserStore = () => {
 	// Track whether user data has been loaded in this session
 	let isDataLoaded = false;
 
-	const relays = get(appStore)?.relays ?? [];
-	const pool = appStore.initializePool();
-
 	return {
 		subscribe,
 		set,
 		update,
 		getUserData: async () => {
+			const relays = get(appStore)?.relays ?? [];
+			const pool = appStore.initializePool();
+
 			// Skip if data is already loaded in this session
 			if (isDataLoaded) return;
 			const npub = await getNpub();
