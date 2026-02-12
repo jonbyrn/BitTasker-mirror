@@ -94,6 +94,15 @@ const createAppStore = () => {
 				biometricData: null,
 				error: null
 			}));
+		},
+		initializePool: () => {
+			if (pool) return pool;
+			const newPool = new SimplePool();
+			update((state) => ({
+				...state,
+				pool: newPool
+			}));
+			return newPool;
 		}
 	};
 };

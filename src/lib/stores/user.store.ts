@@ -46,10 +46,7 @@ const createUserStore = () => {
 	let isDataLoaded = false;
 
 	const relays = get(appStore)?.relays ?? [];
-	const pool = get(appStore)?.pool;
-	if (!pool) {
-		throw new Error('Pool not found');
-	}
+	const pool = appStore.initializePool();
 
 	return {
 		subscribe,
@@ -170,8 +167,3 @@ const createUserStore = () => {
 };
 
 export const user = createUserStore();
-
-// Helper Functions
-export function isProfileComplete(profile: UserData): boolean {
-	return Boolean(profile.name && profile.email);
-}

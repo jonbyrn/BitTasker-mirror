@@ -40,7 +40,7 @@
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import migratePasskey from '$lib/utils/helpers/migratePasskey';
 	import Logo from '$lib/components/Logo.svelte';
-	// import MigratePasskey from '$lib/components/MigratePasskey.svelte';
+	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -674,4 +674,4 @@
 	/>
 </div>
 
-<!-- <MigratePasskey /> -->
+<MigratePasskey />
