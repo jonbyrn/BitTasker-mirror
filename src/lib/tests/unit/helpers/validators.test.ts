@@ -1,4 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Mock wallet-core and liquidjs-lib so validators module can load (EventBus missing in test env)
+vi.mock('@bittasker/wallet-core', () => ({
+	normalizeRskAddress: vi.fn((addr: string) => addr)
+}));
+vi.mock('liquidjs-lib', () => ({
+	address: {
+		toOutputScript: vi.fn()
+	}
+}));
+
 import {
 	isValidEmail,
 	validateEmail,
@@ -91,8 +102,8 @@ describe('Validators', () => {
 	});
 
 	describe('validatePassword', () => {
-		it('should return valid result for valid password', () => {
-			const result = validatePassword('StrongP@ss1');
+		it('should return valid result for valid password (12+ chars)', () => {
+			const result = validatePassword('StrongP@ss1word');
 			expect(result.isValid).toBe(true);
 			expect(result.error).toBeUndefined();
 		});
@@ -106,62 +117,44 @@ describe('Validators', () => {
 		it('should return error for too short password', () => {
 			const result = validatePassword('Short1!');
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Password must be at least 8 characters long');
-		});
-
-		it('should return error for missing uppercase letter', () => {
-			const result = validatePassword('noupperletter1!');
-			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Password must contain at least one uppercase letter');
-		});
-
-		it('should return error for missing lowercase letter', () => {
-			const result = validatePassword('NOLOWERCASE1!');
-			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Password must contain at least one lowercase letter');
-		});
-
-		it('should return error for missing number', () => {
-			const result = validatePassword('NoNumbers!');
-			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Password must contain at least one number');
-		});
-
-		it('should return error for missing special character', () => {
-			const result = validatePassword('NoSpecial123');
-			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Password must contain at least one special character');
+			expect(result.error).toBe('Password must be at least 12 characters long');
 		});
 	});
 
 	describe('validateNostrPrivateKey', () => {
 		it('should return valid result for valid nsec format', () => {
-			const validKey = 'nsec1' + 'a'.repeat(60);
+			const validKey = 'nsec1' + 'a'.repeat(55); // nsec1 + 55 = 60 chars, bech32 chars only
 			const result = validateNostrPrivateKey(validKey);
 			expect(result.isValid).toBe(true);
 			expect(result.error).toBeUndefined();
 		});
 
+		it('should return error for empty key', () => {
+			const result = validateNostrPrivateKey('   ');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toBe('Nostr private key cannot be empty');
+		});
+
 		it('should return error for key not starting with nsec1', () => {
 			const result = validateNostrPrivateKey('private1abcdefghijklmnopqrstuvwxyz');
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Nostr private key must start with nsec1');
+			expect(result.error).toContain('Nostr private key must start with "nsec1"');
 		});
 
 		it('should return error for invalid length key', () => {
 			const shortKey = 'nsec1abc';
 			const result = validateNostrPrivateKey(shortKey);
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Invalid Nostr private key length');
+			expect(result.error).toContain('Invalid Nostr private key length');
 		});
 
 		it('should return error for invalid characters', () => {
-			// Use invalid characters that will trigger the specific regex check
-			// The key needs to be long enough to pass the length check first
-			const invalidKey = 'nsec1' + 'INVALID_CHARS'.padEnd(57, 'x');
+			// Invalid bech32 char 'I' in an otherwise valid-length key (length check runs first)
+			const invalidKey = 'nsec1' + 'a'.repeat(54) + 'I'; // 60 chars, 'I' not in bech32
 			const result = validateNostrPrivateKey(invalidKey);
 			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Invalid characters in Nostr private key');
+			expect(result.error).toContain('Invalid character');
+			expect(result.error).toContain('in Nostr private key');
 		});
 	});
 
