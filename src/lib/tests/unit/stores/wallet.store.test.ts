@@ -86,5 +86,3 @@ describe('Wallet Store Utilities', () => {
 		});
 	});
 });
-
-
