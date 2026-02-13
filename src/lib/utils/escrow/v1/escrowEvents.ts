@@ -200,7 +200,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				appStore.showErrorToast('Escrow created successfully, but failed to update bid status. The bid status may need to be updated manually.');
 			}
 
-			// Note: Task status update to BID_ACCEPTED is done in BidAcceptanceForm.svelte to keep task logic out of escrow events
+			// Note: Task status update to IN_PROGRESS is done in BidAcceptanceForm.svelte to keep task logic out of escrow events
 			// Note: Success toast is shown in BidAcceptanceForm.svelte success screen
 			// No need to show duplicate toast here to avoid double notifications
 

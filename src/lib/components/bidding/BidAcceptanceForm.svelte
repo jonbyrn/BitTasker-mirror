@@ -281,11 +281,11 @@ import { updateTask } from '$lib/nostr/task';
 
 				currentScreen = 'success';
 
-				// Update task status to BID_ACCEPTED so bidding is closed (Addressable Event: same kind/pubkey/d-tag, latest content)
+				// Update task status to IN_PROGRESS so bidding is closed (Addressable Event: same kind/pubkey/d-tag, latest content)
 				try {
-					await updateTask(props.task.id, { status: TaskStatusEnum.BID_ACCEPTED });
+					await updateTask(props.task.id, { status: TaskStatusEnum.IN_PROGRESS });
 				} catch (taskUpdateError) {
-					console.error('Failed to update task status to BID_ACCEPTED:', taskUpdateError);
+					console.error('Failed to update task status to IN_PROGRESS:', taskUpdateError);
 					appStore.showErrorToast($t('dashboard.bids.bid_acceptance.task_status_update_error'));
 				}
 
