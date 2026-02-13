@@ -1,16 +1,27 @@
 <script lang="ts">
-	import type { LocationInput } from '$houdini';
+	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import { subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import nip44 from '$lib/nostr/nip44';
-	import { t } from 'svelte-i18n';
-    import IconWarning from '~icons/mdi/alert-outline';
+	import IconWarning from '~icons/mdi/alert-outline';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { restartSetup, currentStep, totalSteps }: { 
+	type LocationInput = {
+		displayName?: string | null | undefined;
+		latitude?: number | null | undefined;
+		locationLoaded: boolean;
+		longitude?: number | null | undefined;
+		zipCode?: string | null | undefined;
+	};
+
+	let {
+		restartSetup,
+		currentStep,
+		totalSteps
+	}: {
 		restartSetup: () => void;
 		currentStep: number;
 		totalSteps: number;
@@ -43,10 +54,12 @@
 		const missing: string[] = [];
 
 		if (!profile.displayName) missing.push($t('onboarding_auth.form.display_name_field'));
-		if (!profile.professionalTitle) missing.push($t('onboarding_auth.form.professional_title_field'));
+		if (!profile.professionalTitle)
+			missing.push($t('onboarding_auth.form.professional_title_field'));
 		if (!profile.about) missing.push($t('onboarding_auth.form.about_field'));
 		if (!profile.picture) missing.push($t('onboarding_auth.form.profile_picture_field'));
-		if (!profile.location || !profile.location?.locationLoaded) missing.push($t('onboarding_auth.form.location_field'));
+		if (!profile.location || !profile.location?.locationLoaded)
+			missing.push($t('onboarding_auth.form.location_field'));
 
 		missingFields = missing;
 		isComplete = missing.length === 0;
@@ -111,7 +124,9 @@
 			<div class="flex min-h-96 flex-col items-center justify-center space-y-4 text-center">
 				<div>
 					<span class="loading loading-spinner loading-lg"></span>
-					<p class="text-base-content/70">{$t('onboarding_auth.form.checking_your_onboarding_status')}</p>
+					<p class="text-base-content/70">
+						{$t('onboarding_auth.form.checking_your_onboarding_status')}
+					</p>
 				</div>
 			</div>
 		{:else if error}
@@ -134,31 +149,38 @@
 				</div>
 				<h2 class="text-xl font-bold">{$t('onboarding_auth.form.something_went_wrong')}</h2>
 				<p class="text-base-content/70">{error}</p>
-				<button class="btn btn-primary mt-4" onclick={handleRestartSetup}>{$t('onboarding_auth.form.try_again')}</button>
+				<button class="btn btn-primary mt-4" onclick={handleRestartSetup}
+					>{$t('onboarding_auth.form.try_again')}</button
+				>
 			</div>
 		{:else if !isComplete}
 			<div class="items-center space-y-4 text-center">
 				<!-- Educational Header to match flow -->
 				<div class="education-header mb-6 text-center">
 					<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
-						{$t('onboarding_auth.form.complete_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.complete_setup.of')} {totalSteps}
+						{$t('onboarding_auth.form.complete_setup.step')}
+						{currentStep + 1}
+						{$t('onboarding_auth.form.complete_setup.of')}
+						{totalSteps}
 					</div>
 					<h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.complete_setup.title')}</h3>
 					<h5 class="mb-6">{$t('onboarding_auth.form.complete_setup.subtitle')}</h5>
 
-                    {#if missingFields.length > 0}
-                        <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
+					{#if missingFields.length > 0}
+						<div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
 							{#each missingFields as field}
-                                <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                                    <IconWarning class="text-warning min-w-[1.5em]" />
-                                    <span>{field}</span>
-                                </div>
+								<div class="feature-item flex items-center justify-start gap-2 text-lg">
+									<IconWarning class="text-warning min-w-[1.5em]" />
+									<span>{field}</span>
+								</div>
 							{/each}
 						</div>
 					{/if}
 
 					<p class="text-base-content mb-6 text-lg max-w-md mx-auto">
-						{$t('onboarding_auth.form.dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later')}
+						{$t(
+							'onboarding_auth.form.dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later'
+						)}
 					</p>
 				</div>
 
@@ -167,14 +189,14 @@
 						{$t('onboarding_auth.form.complete_setup.complete_setup')}
 					</button>
 					<button
-					class="btn btn-secondary w-full"
-					data-testid="onboarding-continue-without-completing"
-					onclick={() => {
-						isContinueLoading = true;
-						goto('/dashboard').finally(() => {
-							isContinueLoading = false;
-						});
-					}}
+						class="btn btn-secondary w-full"
+						data-testid="onboarding-continue-without-completing"
+						onclick={() => {
+							isContinueLoading = true;
+							goto('/dashboard').finally(() => {
+								isContinueLoading = false;
+							});
+						}}
 						disabled={isContinueLoading}
 					>
 						{#if isContinueLoading}
@@ -189,10 +211,13 @@
 		{:else}
 			<div class="items-center space-y-4 text-center w-full mx-auto">
 				<!-- Educational Header (aligned with other onboarding screens) -->
-                <div class="education-header mb-6 text-center">
-                    				<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
-									{$t('onboarding_auth.form.complete_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.complete_setup.of')} {totalSteps}
-								</div>
+				<div class="education-header mb-6 text-center">
+					<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
+						{$t('onboarding_auth.form.complete_setup.step')}
+						{currentStep + 1}
+						{$t('onboarding_auth.form.complete_setup.of')}
+						{totalSteps}
+					</div>
 					<div class="text-success mt-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -215,32 +240,36 @@
 						{$t('onboarding_auth.form.complete_setup.account_ready')}
 					</p>
 
-                    <!-- Features List -->
+					<!-- Features List -->
 					<div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
-                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                            <IconWarning class="text-warning min-w-[1.5em]" />
-                            <span>{@html $t('onboarding_auth.form.complete_setup.features.decentralized')}</span>
-                        </div>
-                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                            <IconWarning class="text-warning min-w-[1.5em]" />
-                            <span>{@html $t('onboarding_auth.form.complete_setup.features.bitcoin_native')}</span>
-                        </div>
-                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                            <IconWarning class="text-warning min-w-[1.5em]" />
-                            <span>{@html $t('onboarding_auth.form.complete_setup.features.secure')}</span>
-                        </div>
-                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                            <IconWarning class="text-warning min-w-[1.5em]" />
-                            <span>{@html $t('onboarding_auth.form.complete_setup.features.global')}</span>
-                        </div>
+						<div class="feature-item flex items-center justify-start gap-2 text-lg">
+							<IconWarning class="text-warning min-w-[1.5em]" />
+							<span>{@html $t('onboarding_auth.form.complete_setup.features.decentralized')}</span>
+						</div>
+						<div class="feature-item flex items-center justify-start gap-2 text-lg">
+							<IconWarning class="text-warning min-w-[1.5em]" />
+							<span>{@html $t('onboarding_auth.form.complete_setup.features.bitcoin_native')}</span>
+						</div>
+						<div class="feature-item flex items-center justify-start gap-2 text-lg">
+							<IconWarning class="text-warning min-w-[1.5em]" />
+							<span>{@html $t('onboarding_auth.form.complete_setup.features.secure')}</span>
+						</div>
+						<div class="feature-item flex items-center justify-start gap-2 text-lg">
+							<IconWarning class="text-warning min-w-[1.5em]" />
+							<span>{@html $t('onboarding_auth.form.complete_setup.features.global')}</span>
+						</div>
 					</div>
 
-					<p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.complete_setup.jump_in')}</p>
+					<p class="text-primary mb-6 text-lg">
+						{$t('onboarding_auth.form.complete_setup.jump_in')}
+					</p>
 				</div>
-				
+
 				<div class="mt-4 space-y-2">
 					<h5>{$t('onboarding_auth.form.complete_setup.whats_next')}</h5>
-					<ul class="text-base-content list-inside list-disc text-start text-lg space-y-1 w-fit mx-auto">
+					<ul
+						class="text-base-content list-inside list-disc text-start text-lg space-y-1 w-fit mx-auto"
+					>
 						<li>{$t('onboarding_auth.form.complete_setup.next_steps.browse_tasks')}</li>
 						<li>{$t('onboarding_auth.form.complete_setup.next_steps.expand_profile')}</li>
 						<li>{$t('onboarding_auth.form.complete_setup.next_steps.payment_preferences')}</li>
@@ -248,13 +277,13 @@
 					</ul>
 				</div>
 				<button
-				class="btn btn-primary mt-6 min-w-10"
-				onclick={() => {
-					isRedirecting = true;
-					goto('/dashboard').finally(() => {
-						isRedirecting = false;
-					});
-				}}
+					class="btn btn-primary mt-6 min-w-10"
+					onclick={() => {
+						isRedirecting = true;
+						goto('/dashboard').finally(() => {
+							isRedirecting = false;
+						});
+					}}
 				>
 					{#if isRedirecting}
 						<span class="loading loading-spinner loading-sm"></span>

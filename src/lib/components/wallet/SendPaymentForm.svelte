@@ -27,8 +27,6 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
-	import { linear } from 'svelte/easing';
-	import { fly } from 'svelte/transition';
 
 	let { onCancel, onSuccess } = $props<{
 		onCancel: () => void;
@@ -453,7 +451,10 @@
 								$walletStore.rsk.address,
 								amountRBTC
 							);
-							rootstockGasFee = Math.max(0, Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000));
+							rootstockGasFee = Math.max(
+								0,
+								Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000)
+							);
 						}
 
 						// Total fees = service fee + miner fee + Rootstock gas fee
@@ -531,7 +532,7 @@
 					const pair = pairsData?.['RBTC']?.['BTC'];
 					if (pair && pair.fees) {
 						const minerFee = pair.fees.minerFees || 32;
-						
+
 						// Estimate Rootstock gas fee for the submarine swap transaction
 						// This is needed because we're sending RBTC on-chain to Boltz
 						let estimatedGasFee = 0;
@@ -544,14 +545,16 @@
 									$walletStore.rsk.address,
 									estimateAmountRBTC
 								);
-								estimatedGasFee = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
+								estimatedGasFee = Math.floor(
+									parseFloat(gasEstimation.totalCostFormatted) * 100_000_000
+								);
 							} catch (error) {
 								estimatedGasFee = 3000; // Conservative fallback (100 sats)
 							}
 						} else {
 							estimatedGasFee = 3000; // Conservative fallback when not connected
 						}
-						
+
 						feeState.parameters = {
 							percentage: pair.fees.percentage,
 							fixedFee: minerFee + estimatedGasFee // Combine miner fee and gas fee
@@ -571,12 +574,14 @@
 						try {
 							// Estimate with 80% of balance (not 90%) to get MORE conservative gas fee estimate
 							// This accounts for the fact that gas estimation may vary with amount
-							const estimateAmountRBTC = ((availableBalance * 0.80) / 100_000_000).toFixed(8);
+							const estimateAmountRBTC = ((availableBalance * 0.8) / 100_000_000).toFixed(8);
 							const gasEstimation = await walletManager.estimateRBTCGas(
 								formInput.addressInput || $walletStore.rsk.address,
 								estimateAmountRBTC
 							);
-							const estimatedGasFee = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
+							const estimatedGasFee = Math.floor(
+								parseFloat(gasEstimation.totalCostFormatted) * 100_000_000
+							);
 							feeState.parameters = {
 								fixedFee: estimatedGasFee
 							};
@@ -607,7 +612,7 @@
 
 		// Use a percentage-based safety margin (10%) plus absolute minimum
 		// This accounts for gas price fluctuations and estimation variance
-		const marginPercentage = 0.20; // 20% buffer
+		const marginPercentage = 0.2; // 20% buffer
 		const absoluteMinimum = 20; // 20 sats absolute minimum
 
 		// For percentage-based fees: maxAmount = (balance - fixedFee) / (1 + percentage/100)
@@ -643,7 +648,12 @@
 		if (parsedPayment.data?.isValid && !parsedPayment.addressError && amountInSats > 0) {
 			triggerHaptic(ImpactStyle.Light);
 			uiState.currentStep = 2;
-		} else if (parsedPayment.data?.isValid && !parsedPayment.addressError && parsedPayment.detectedAmount && parsedPayment.detectedAmount > 0) {
+		} else if (
+			parsedPayment.data?.isValid &&
+			!parsedPayment.addressError &&
+			parsedPayment.detectedAmount &&
+			parsedPayment.detectedAmount > 0
+		) {
 			// Lightning invoice with amount - can proceed without user entering amount
 			triggerHaptic(ImpactStyle.Light);
 			uiState.currentStep = 2;
@@ -671,8 +681,7 @@
 
 	// Handle max amount click (simplified - single-pass calculation)
 	async function handleMaxAmount() {
-		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0)
-			return;
+		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0) return;
 
 		feeState.maxCalculation.isLoading = true;
 		triggerHaptic(ImpactStyle.Light);
@@ -767,7 +776,7 @@
 				const swapResult = await walletManager.createSubmarineSwap(recipient, formInput.memo);
 				const lockResult = await walletManager.lockSubmarineSwapFunds(swapResult.swapData);
 				txHash = lockResult.txHash;
-				
+
 				// Store pending transaction details immediately and set isSending to false
 				// This will show pending screen instead of loading screen
 				if (txHash) {
@@ -777,11 +786,11 @@
 					sendState.pendingAddress = recipient;
 					sendState.pendingSwapId = swapResult.swapId; // Store swap ID for monitoring
 					sendState.isSending = false; // Set to false immediately to skip loading screen
-					
+
 					// Show pending transaction screen
 					appStore.showSuccessToast($t('wallet.send.transaction_sending'));
 					triggerHaptic(ImpactStyle.Medium);
-					
+
 					// Return early - pending screen will monitor swap status
 					return;
 				}
@@ -789,7 +798,7 @@
 				// RSK direct send
 				const amountRBTC = amountInSats / 100_000_000;
 				txHash = await walletManager.sendRBTC(recipient, amountRBTC.toFixed(8));
-				
+
 				// Store pending transaction details immediately and set isSending to false
 				// This will show pending screen instead of loading screen
 				sendState.pendingTxHash = txHash;
@@ -797,11 +806,11 @@
 				sendState.pendingAmount = amountInSats;
 				sendState.pendingAddress = recipient;
 				sendState.isSending = false; // Set to false immediately to skip loading screen
-				
+
 				// Show pending transaction screen
 				appStore.showSuccessToast($t('wallet.send.transaction_sending'));
 				triggerHaptic(ImpactStyle.Medium);
-				
+
 				// Return early - pending screen will be shown
 				return;
 			} else if (network === 'liquid-bitcoin') {
@@ -815,7 +824,7 @@
 				// Convert amount from sats to USDT (assuming 1:1 with USD for simplicity)
 				const usdtAmount = amountInUSD.toFixed(2);
 				txHash = await walletManager.sendBSCUSDT(recipient, usdtAmount);
-				
+
 				// Store pending transaction details immediately and set isSending to false
 				// This will show pending screen instead of loading screen
 				if (txHash) {
@@ -837,7 +846,7 @@
 				sendState.pendingAmount = amountInSats;
 				sendState.pendingAddress = recipient;
 				sendState.isSending = false; // Set to false immediately to skip loading screen
-				
+
 				// Show pending transaction screen
 				triggerHaptic(ImpactStyle.Medium);
 				appStore.showSuccessToast($t('wallet.send.transaction_sent'));
@@ -901,7 +910,6 @@
 		uiState.showSendConfirmation = false;
 		await handleSend();
 	}
-
 </script>
 
 <div class="flex flex-1 flex-col min-h-0">
@@ -945,7 +953,9 @@
 		<!-- Normal Form Content -->
 	{:else}
 		<!-- Tab Navigation (Top) -->
-		<div class="tabs tabs-boxed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4">
+		<div
+			class="tabs tabs-boxed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4"
+		>
 			<button
 				class="tab flex-1"
 				class:bg-primary={uiState.activeTab === 'scan'}
@@ -1085,8 +1095,12 @@
 						{#if parsedPayment.detectedNetwork}
 							{@const network =
 								netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
-							{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
-							{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
+							{@const recipientAddress =
+								parsedPayment.data?.address || formInput.addressInput.trim()}
+							{@const explorerUrl = getAddressExplorerUrl(
+								recipientAddress,
+								parsedPayment.detectedNetwork
+							)}
 							<div class="border-base-300 bg-primary/10 rounded-lg border p-4">
 								<div class="flex items-center justify-between gap-2">
 									<div class="flex items-center gap-2">
@@ -1120,20 +1134,20 @@
 						<!-- Conditional Amount Field -->
 						{#if parsedPayment.amountRequired}
 							<div class="form-control">
-							<AmountInputSection
-								amount={formInput.amount}
-								unit={formInput.unit}
-								mathExpression={formInput.mathExpression}
-								calculatorKey={uiState.calculatorKey}
-								network={parsedPayment.detectedNetwork}
-								isLoadingMaxCalculation={feeState.maxCalculation.isLoading}
-								hasInsufficientBalance={hasInsufficientBalance && feeState.estimated !== null}
-								onAmountChange={handleAmountInputChange}
-								onUnitChange={handleUnitChange}
-								onCalculationChange={handleCalculationChange}
-								onClear={handleClearCalculator}
-								onMaxAmount={handleMaxAmount}
-							/>
+								<AmountInputSection
+									amount={formInput.amount}
+									unit={formInput.unit}
+									mathExpression={formInput.mathExpression}
+									calculatorKey={uiState.calculatorKey}
+									network={parsedPayment.detectedNetwork}
+									isLoadingMaxCalculation={feeState.maxCalculation.isLoading}
+									hasInsufficientBalance={hasInsufficientBalance && feeState.estimated !== null}
+									onAmountChange={handleAmountInputChange}
+									onUnitChange={handleUnitChange}
+									onCalculationChange={handleCalculationChange}
+									onClear={handleClearCalculator}
+									onMaxAmount={handleMaxAmount}
+								/>
 							</div>
 						{/if}
 
@@ -1164,98 +1178,96 @@
 					{#if uiState.currentStep === 1}
 						<!-- Address Input -->
 						<div class="form-control">
-						<div class="relative">
-							<div
-								class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
-								class:border-primary={!parsedPayment.data?.isValid && !parsedPayment.addressError}
-								class:border-success={parsedPayment.data?.isValid &&
-									!parsedPayment.addressError &&
-									formInput.addressInput.trim()}
-								class:border-error={!!parsedPayment.addressError}
-							>
-								<!-- Input field with validation icons -->
+							<div class="relative">
 								<div
-									class="bg-base-200 relative flex flex-1 items-center p-2"
+									class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
+									class:border-primary={!parsedPayment.data?.isValid && !parsedPayment.addressError}
+									class:border-success={parsedPayment.data?.isValid &&
+										!parsedPayment.addressError &&
+										formInput.addressInput.trim()}
+									class:border-error={!!parsedPayment.addressError}
 								>
-									<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
-										<input
-											id="address-input"
-											type="text"
-											class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
-											placeholder={$t('wallet.send.address_placeholder')}
-											bind:value={formInput.addressInput}
-											oninput={handleAddressInput}
-											onfocus={() => (uiState.showRecentAddresses = recentAddresses.length > 0)}
-											onblur={() => setTimeout(() => (uiState.showRecentAddresses = false), 200)}
-										/>
+									<!-- Input field with validation icons -->
+									<div class="bg-base-200 relative flex flex-1 items-center p-2">
+										<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
+											<input
+												id="address-input"
+												type="text"
+												class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
+												placeholder={$t('wallet.send.address_placeholder')}
+												bind:value={formInput.addressInput}
+												oninput={handleAddressInput}
+												onfocus={() => (uiState.showRecentAddresses = recentAddresses.length > 0)}
+												onblur={() => setTimeout(() => (uiState.showRecentAddresses = false), 200)}
+											/>
+											{#if formInput.addressInput.trim()}
+												<div
+													class="pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-1"
+												>
+													{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
+														<IconCheck class="text-success h-5 w-5" />
+													{:else if parsedPayment.addressError}
+														<IconClose class="text-error h-5 w-5" />
+													{/if}
+												</div>
+											{/if}
+										</div>
+										<!-- Clear button -->
 										{#if formInput.addressInput.trim()}
-											<div
-												class="pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-1"
+											<button
+												type="button"
+												class="absolute right-2 sm:right-2 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+												style="-webkit-tap-highlight-color: transparent;"
+												onclick={() => {
+													formInput.addressInput = '';
+													parsedPayment.data = null;
+													parsedPayment.detectedNetwork = null;
+													parsedPayment.detectedAmount = null;
+													parsedPayment.detectedMemo = null;
+													parsedPayment.addressError = null;
+													parsedPayment.amountRequired = true;
+													feeState.estimated = null;
+													feeState.error = null;
+													uiState.showRecentAddresses = false;
+													triggerHaptic(ImpactStyle.Light);
+												}}
+												aria-label="Clear address"
 											>
-												{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
-													<IconCheck class="text-success h-5 w-5" />
-												{:else if parsedPayment.addressError}
-													<IconClose class="text-error h-5 w-5" />
-												{/if}
-											</div>
+												<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
+											</button>
 										{/if}
 									</div>
-									<!-- Clear button -->
-									{#if formInput.addressInput.trim()}
-										<button
-											type="button"
-											class="absolute right-2 sm:right-2 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
-											style="-webkit-tap-highlight-color: transparent;"
-											onclick={() => {
-												formInput.addressInput = '';
-												parsedPayment.data = null;
-												parsedPayment.detectedNetwork = null;
-												parsedPayment.detectedAmount = null;
-												parsedPayment.detectedMemo = null;
-												parsedPayment.addressError = null;
-												parsedPayment.amountRequired = true;
-												feeState.estimated = null;
-												feeState.error = null;
-												uiState.showRecentAddresses = false;
-												triggerHaptic(ImpactStyle.Light);
-											}}
-											aria-label="Clear address"
-										>
-											<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
-										</button>
-									{/if}
 								</div>
-							</div>
-							{#if uiState.showRecentAddresses && recentAddresses.length > 0}
-								<div
-									class="border-base-300 bg-base-100 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
-								>
-									{#each recentAddresses as recentAddress}
-										<button
-											class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-2 text-left"
-											onclick={() => {
-												formInput.addressInput = recentAddress.address;
-												uiState.showRecentAddresses = false;
-												handleAddressInput();
-											}}
-										>
-											<div class="min-w-0 flex-1">
-												<div class="truncate font-semibold">
-													{recentAddress.label || recentAddress.address.slice(0, 20)}...
+								{#if uiState.showRecentAddresses && recentAddresses.length > 0}
+									<div
+										class="border-base-300 bg-base-100 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
+									>
+										{#each recentAddresses as recentAddress}
+											<button
+												class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-2 text-left"
+												onclick={() => {
+													formInput.addressInput = recentAddress.address;
+													uiState.showRecentAddresses = false;
+													handleAddressInput();
+												}}
+											>
+												<div class="min-w-0 flex-1">
+													<div class="truncate font-semibold">
+														{recentAddress.label || recentAddress.address.slice(0, 20)}...
+													</div>
+													<div class="text-base-content/70 text-xs">{recentAddress.network}</div>
 												</div>
-												<div class="text-base-content/70 text-xs">{recentAddress.network}</div>
-											</div>
-										</button>
-									{/each}
+											</button>
+										{/each}
+									</div>
+								{/if}
+							</div>
+							{#if parsedPayment.addressError}
+								<div class="label">
+									<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
 								</div>
 							{/if}
 						</div>
-						{#if parsedPayment.addressError}
-							<div class="label">
-								<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
-							</div>
-						{/if}
-					</div>
 
 						<!-- Amount Field (Mobile Step 1) -->
 						<div class="form-control">
@@ -1294,7 +1306,9 @@
 				<div class="block sm:hidden space-y-2">
 					{#if uiState.currentStep === 2}
 						<!-- Amount Display (Read-only) -->
-						<div class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4">
+						<div
+							class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4"
+						>
 							<span class="text-center text-xs opacity-70">{$t('wallet.amount')}</span>
 							<div class="flex w-full items-center justify-center gap-1.5">
 								{#if formInput.unit === 'sats'}
@@ -1313,7 +1327,8 @@
 									</span>
 									{#if btcPrice > 0 && amountInSats > 0}
 										<span class="text-xs opacity-60">
-											≈ {formatSats(amountInSats)} {$t('wallet.sats')}
+											≈ {formatSats(amountInSats)}
+											{$t('wallet.sats')}
 										</span>
 									{/if}
 								{/if}
@@ -1324,8 +1339,12 @@
 						{#if parsedPayment.detectedNetwork}
 							{@const network =
 								netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
-							{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
-							{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
+							{@const recipientAddress =
+								parsedPayment.data?.address || formInput.addressInput.trim()}
+							{@const explorerUrl = getAddressExplorerUrl(
+								recipientAddress,
+								parsedPayment.detectedNetwork
+							)}
 							<div class="border-base-300 bg-primary/10 rounded-lg border p-1.5 sm:p-2">
 								<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
 									<div class="flex items-center gap-1.5 sm:gap-2">
@@ -1357,9 +1376,7 @@
 								memo={formInput.memo}
 								expanded={uiState.descriptionExpanded}
 								disabled={!!parsedPayment.detectedMemo}
-								labelText={parsedPayment.detectedMemo
-									? 'wallet.send.from_invoice'
-									: undefined}
+								labelText={parsedPayment.detectedMemo ? 'wallet.send.from_invoice' : undefined}
 								onMemoChange={(value) => (formInput.memo = value)}
 								onToggle={(expanded) => (uiState.descriptionExpanded = expanded)}
 							/>
@@ -1488,9 +1505,7 @@
 								class:border-error={!!parsedPayment.addressError}
 							>
 								<!-- Input field with validation icons -->
-								<div
-									class="bg-base-200 relative flex flex-1 items-center p-2"
-								>
+								<div class="bg-base-200 relative flex flex-1 items-center p-2">
 									<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
 										<input
 											id="address-input-desktop"
@@ -1576,7 +1591,10 @@
 						{@const network =
 							netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
 						{@const recipientAddress = parsedPayment.data?.address || formInput.addressInput.trim()}
-						{@const explorerUrl = getAddressExplorerUrl(recipientAddress, parsedPayment.detectedNetwork)}
+						{@const explorerUrl = getAddressExplorerUrl(
+							recipientAddress,
+							parsedPayment.detectedNetwork
+						)}
 						<div class="border-base-300 bg-primary/10 rounded-lg border p-1.5 sm:p-2">
 							<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
 								<div class="flex items-center gap-1.5 sm:gap-2">
@@ -1865,7 +1883,6 @@
 				</button>
 			</div>
 		{/if}
-
 	{/if}
 
 	<!-- Send Confirmation Modal -->
@@ -1881,7 +1898,7 @@
 					<!-- Address Accordion -->
 					<AddressAccordion
 						address={recipientAddress}
-						explorerUrl={explorerUrl}
+						{explorerUrl}
 						label={$t('wallet.send.address_or_invoice')}
 					/>
 

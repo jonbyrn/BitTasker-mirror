@@ -1,7 +1,0 @@
-mutation TriggerSavedSearchCheck($task: TaskBodyInput!) {
-	triggerSavedSearchCheck(task: $task) {
-		success
-		matchCount
-		message
-	}
-}

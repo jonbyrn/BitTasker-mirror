@@ -5,19 +5,19 @@
 	import { page } from '$app/state';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
 	import { devicePlatform } from '$lib/stores/device.store';
-	import TopBar from '$lib/components/TopBar.svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
+	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import {
 		BITTASKER_ORG_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
 	} from '$lib/utils/constants/seo.constants';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
+	import TopBar from '$lib/components/TopBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
-	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import '../app.css';
 
 	const { children } = $props();
@@ -91,24 +91,21 @@
 		// Global error handler
 		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
 			const error = event instanceof ErrorEvent ? event.error : event.reason;
-			
+
 			// Skip logging null/undefined errors (often from third-party libraries like SES)
 			if (error === null || error === undefined) {
 				return;
 			}
-			
+
 			// Only log meaningful errors
-			const errorMessage = error instanceof Error 
-				? error.message 
-				: typeof error === 'string' 
-					? error 
-					: String(error);
-			
+			const errorMessage =
+				error instanceof Error ? error.message : typeof error === 'string' ? error : String(error);
+
 			// Skip empty or meaningless error messages
 			if (!errorMessage || errorMessage === 'null' || errorMessage === 'undefined') {
 				return;
 			}
-			
+
 			console.error('[Global Error Handler]:', {
 				error: errorMessage,
 				stack: error instanceof Error ? error.stack : undefined,
@@ -182,13 +179,17 @@
 				// If the footer is actually hidden by CSS, 0 is correct.
 				const isHidden =
 					typeof window !== 'undefined' &&
-					(window.getComputedStyle(el).display === 'none' || window.getComputedStyle(el).visibility === 'hidden');
+					(window.getComputedStyle(el).display === 'none' ||
+						window.getComputedStyle(el).visibility === 'hidden');
 				if (isHidden) {
 					document.documentElement.style.setProperty('--app-footer-height', `0px`);
 				} else {
 					// When switching from desktop->mobile, the footer can briefly report 0 before layout stabilizes.
 					// Use the safe fallback immediately so floating UI doesn't get covered by the dock.
-					document.documentElement.style.setProperty('--app-footer-height', `var(--bottom-nav-height-safe)`);
+					document.documentElement.style.setProperty(
+						'--app-footer-height',
+						`var(--bottom-nav-height-safe)`
+					);
 				}
 				return;
 			}

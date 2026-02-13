@@ -17,33 +17,6 @@ export interface UserLocation {
 	longitude: number;
 }
 
-export interface UserInfo {
-	name: string;
-	email: string;
-}
-
-export type UserType = 'CLIENT' | 'FREELANCER' | 'BOTH';
-
-export interface OnboardingRequest {
-	userType: UserType;
-	userInfo: UserInfo;
-	location: UserLocation;
-	profile?: {
-		about?: string;
-		categories?: string[];
-		// Add other profile fields as needed
-	};
-}
-
-export interface OnboardingResponse {
-	id: number;
-	email: string;
-	name: string;
-	userRole: UserType;
-	client: null;
-	freelancer: null;
-}
-
 // ----- Task Types ----- //
 
 export interface Task {

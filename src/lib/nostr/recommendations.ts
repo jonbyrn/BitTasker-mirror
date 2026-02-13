@@ -25,7 +25,11 @@ const cache = new Map<string, { data: Task[]; timestamp: number }>();
  * Get the centralized pool instance from appStore
  */
 function getPool() {
-	return get(appStore).pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
+	return pool;
 }
 
 /**
@@ -118,7 +122,7 @@ function calculateRecommendationScore(
 	if (matches.budgetTier && task.budget) {
 		const taskTier = getBudgetBucket(task.budget.amount, task.budget.currency);
 		if (taskTier === matches.budgetTier) {
-			score += TASKS_PER_PAGE;	
+			score += TASKS_PER_PAGE;
 		}
 	}
 
@@ -307,13 +311,13 @@ async function getProfileData(userNpub: string): Promise<{
 					} else if (event.kind === KINDS.PROFILE_LOCATION) {
 						// TODO: Disactivated until location radius filter is implemented
 						/* // Get own public key
-                    const keyPair = await getNostrKeyPair();
-                    const nsec = bytesToHex(keyPair.nsec);
-                    const npub = keyPair.npub;
-                    const conversationKey = await nip44.getConversationKey(nsec, npub);
-                    const decryptedContent = await nip44.decrypt(event.content, conversationKey);
-                    const location = JSON.parse(decryptedContent);
-                    result.locations.push(location.displayName); */
+					const keyPair = await getNostrKeyPair();
+					const nsec = bytesToHex(keyPair.nsec);
+					const npub = keyPair.npub;
+					const conversationKey = await nip44.getConversationKey(nsec, npub);
+					const decryptedContent = await nip44.decrypt(event.content, conversationKey);
+					const location = JSON.parse(decryptedContent);
+					result.locations.push(location.displayName); */
 					}
 				})
 			);

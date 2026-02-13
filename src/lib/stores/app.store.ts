@@ -41,7 +41,9 @@ const createAppStore = () => {
 		biometricData: null,
 		network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
 		pool,
-		relays: [import.meta.env.VITE_NOSTR_RELAY_URL]
+		relays: import.meta.env.VITE_NOSTR_RELAY_URL
+			? [import.meta.env.VITE_NOSTR_RELAY_URL]
+			: ['wss://relay.bittasker.hedgehackers.finance'] // Fallback relay
 	});
 
 	const { subscribe, set, update } = store;
@@ -92,6 +94,15 @@ const createAppStore = () => {
 				biometricData: null,
 				error: null
 			}));
+		},
+		initializePool: () => {
+			if (pool) return pool;
+			const newPool = new SimplePool();
+			update((state) => ({
+				...state,
+				pool: newPool
+			}));
+			return newPool;
 		}
 	};
 };
