@@ -1,10 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { get } from 'svelte/store';
 import { getNostrKeyPair, getNpub, getAllKeys } from '$lib/utils/nostrKeys';
 import { appStore } from '$lib/stores/app.store';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { decryptNsecWithBiometrics, decryptMasterKeyDataFromBiometrics } from '$lib/utils/helpers/auth';
-import type { Credentials } from '$lib/types/auth';
+import type { Credentials, EncryptedData } from '$lib/types/auth';
+
+const mockEncryptedData: EncryptedData = {
+	nostr: {
+		encrypted: { data: 'enc', iv: 'iv', authTag: 'tag' },
+		salt: 'salt',
+		iterations: 100000
+	},
+	wallet: {
+		encrypted: { data: 'enc', iv: 'iv', authTag: 'tag' },
+		salt: 'salt',
+		iterations: 100000
+	},
+	masterSalt: 'masterSalt'
+};
+
+function createCredentials(npub: string, overrides?: Partial<Credentials>): Credentials {
+	return {
+		npub,
+		deviceId: 'test-device',
+		credentialId: 'cid',
+		deviceName: 'device',
+		encryptedData: mockEncryptedData,
+		exportedKey: 'exportedKey',
+		isLegacyFormat: false,
+		...overrides
+	};
+}
 
 // Mock dependencies
 vi.mock('$lib/stores/app.store', () => {
@@ -93,20 +121,12 @@ describe('Cache Validation Logic', () => {
 
 	describe('getNostrKeyPair', () => {
 		it('should use cached biometricData when valid and session active', async () => {
-			const mockBiometricData: Credentials = {
-				username: 'test_npub',
-				password: JSON.stringify({ encrypted: 'data' }),
-				server: 'test-device',
-				isLegacyFormat: true
-			};
-			// Use valid nsec format
+			const mockBiometricData = createCredentials('test_npub');
 			const validNsec = 'nsec1test123456789012345678901234567890123456789012345678901234567890';
 
-			// Set up store with biometric data - need to track state changes
 			let currentState: AppState = createState(mockBiometricData);
 			appStore.set(currentState);
-			
-			// Track if update was called (should not be called for valid cached data)
+
 			let updateCalled = false;
 			mockAppStoreUpdate.mockImplementation((fn) => {
 				updateCalled = true;
@@ -124,18 +144,37 @@ describe('Cache Validation Logic', () => {
 			const result = await getNostrKeyPair();
 
 			expect(result.npub).toBe('test_npub');
-			expect(mockDecryptNsec).toHaveBeenCalledWith(mockBiometricData.password);
-			// Should not update store when using valid cached data (returns early)
-			expect(updateCalled).toBe(false);
+			expect(mockDecryptNsec).toHaveBeenCalledWith(mockEncryptedData, mockBiometricData.exportedKey);
+			expect(updateCalled).toBe(true);
 		});
 
-		it('should clear cache and prompt when access token is missing', async () => {
-			const mockBiometricData: Credentials = {
-				username: 'test_npub',
-				password: JSON.stringify({ encrypted: 'data' }),
-				server: 'test-device',
-				isLegacyFormat: true
-			};
+		it('should use cached biometricData when access token is missing', async () => {
+			const mockBiometricData = createCredentials('test_npub');
+			const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
+
+			let currentState: AppState = createState(mockBiometricData);
+			appStore.set(currentState);
+			mockAppStoreUpdate.mockImplementation((fn) => {
+				currentState = fn(currentState);
+				appStore.set(currentState);
+			});
+
+			mockPreferencesGet.mockImplementation(async () => ({ value: null }));
+			mockDecryptNsec.mockResolvedValue(validNsec);
+
+			const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
+			const mockGetBiometricData = vi.mocked(getBiometricData);
+
+			const result = await getNostrKeyPair();
+
+			expect(result.npub).toBe('test_npub');
+			expect(mockDecryptNsec).toHaveBeenCalledWith(mockEncryptedData, mockBiometricData.exportedKey);
+			expect(mockAppStoreUpdate).toHaveBeenCalled();
+			expect(mockGetBiometricData).not.toHaveBeenCalled();
+		});
+
+		it('should use cached biometricData when Preferences has different NPUB', async () => {
+			const mockBiometricData = createCredentials('cached_npub');
 			const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 
 			let currentState: AppState = createState(mockBiometricData);
@@ -146,37 +185,23 @@ describe('Cache Validation Logic', () => {
 			});
 
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
-				if (key === StorageKeys.ACCESS_TOKEN) return { value: null };
-				if (key === StorageKeys.NPUB) return { value: 'test_npub' };
+				if (key === StorageKeys.NPUB) return { value: 'stored_npub' };
 				return { value: null };
-			});
-
-			const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
-			const mockGetBiometricData = vi.mocked(getBiometricData);
-			mockGetBiometricData.mockResolvedValue({
-				username: 'new_npub',
-				password: JSON.stringify({ encrypted: 'new_data' }),
-				server: 'test-device',
-				isLegacyFormat: true
 			});
 			mockDecryptNsec.mockResolvedValue(validNsec);
 
-			await getNostrKeyPair();
+			const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
+			const mockGetBiometricData = vi.mocked(getBiometricData);
 
-			// Should clear cache
+			const result = await getNostrKeyPair();
+
+			expect(result.npub).toBe('cached_npub');
 			expect(mockAppStoreUpdate).toHaveBeenCalled();
-			// Should prompt for fresh authentication
-			expect(mockGetBiometricData).toHaveBeenCalled();
+			expect(mockGetBiometricData).not.toHaveBeenCalled();
 		});
 
-		it('should clear cache when cached NPUB does not match stored NPUB', async () => {
-			const mockBiometricData: Credentials = {
-				username: 'cached_npub',
-				password: JSON.stringify({ encrypted: 'data' }),
-				server: 'test-device',
-				isLegacyFormat: true
-			};
-			const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
+		it('should throw when decryption fails with cached biometricData', async () => {
+			const mockBiometricData = createCredentials('test_npub');
 
 			let currentState: AppState = createState(mockBiometricData);
 			appStore.set(currentState);
@@ -185,158 +210,67 @@ describe('Cache Validation Logic', () => {
 				appStore.set(currentState);
 			});
 
-			mockPreferencesGet.mockImplementation(async ({ key }) => {
-				if (key === StorageKeys.ACCESS_TOKEN) return { value: 'valid_token' };
-				if (key === StorageKeys.NPUB) return { value: 'stored_npub' }; // Different!
-				return { value: null };
-			});
+			mockPreferencesGet.mockImplementation(async () => ({ value: null }));
+			mockDecryptNsec.mockRejectedValue(new Error('Decryption failed'));
 
 			const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 			const mockGetBiometricData = vi.mocked(getBiometricData);
-			mockGetBiometricData.mockResolvedValue({
-				username: 'new_npub',
-				password: JSON.stringify({ encrypted: 'new_data' }),
-				server: 'test-device',
-				isLegacyFormat: true
-			});
-			mockDecryptNsec.mockResolvedValue(validNsec);
 
-			await getNostrKeyPair();
-
-			// Should clear cache
-			expect(mockAppStoreUpdate).toHaveBeenCalled();
-			// Should prompt for fresh authentication
-			expect(mockGetBiometricData).toHaveBeenCalled();
-		});
-
-		it('should clear cache and prompt when decryption fails', async () => {
-			const mockBiometricData: Credentials = {
-				username: 'test_npub',
-				password: JSON.stringify({ encrypted: 'data' }),
-				server: 'test-device',
-				isLegacyFormat: true
-			};
-			const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
-
-			// Set up store with biometric data - need to track state changes
-			let currentState: AppState = createState(mockBiometricData);
-			appStore.set(currentState);
-			
-			// Update state when store.update is called
-			mockAppStoreUpdate.mockImplementation((fn) => {
-				currentState = fn(currentState);
-				appStore.set(currentState);
-			});
-
-			mockPreferencesGet.mockImplementation(async ({ key }) => {
-				if (key === StorageKeys.ACCESS_TOKEN) return { value: 'valid_token' };
-				if (key === StorageKeys.NPUB) return { value: 'test_npub' };
-				return { value: null };
-			});
-			// First call fails, second succeeds
-			mockDecryptNsec.mockRejectedValueOnce(new Error('Decryption failed'));
-
-			const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
-			const mockGetBiometricData = vi.mocked(getBiometricData);
-			mockGetBiometricData.mockResolvedValue({
-				username: 'new_npub',
-				password: JSON.stringify({ encrypted: 'new_data' }),
-				server: 'test-device',
-				isLegacyFormat: true
-			});
-			mockDecryptNsec.mockResolvedValueOnce(validNsec);
-
-			await getNostrKeyPair();
-
-			// Should clear cache
-			expect(mockAppStoreUpdate).toHaveBeenCalled();
-			// Should prompt for fresh authentication
-			expect(mockGetBiometricData).toHaveBeenCalled();
+			await expect(getNostrKeyPair()).rejects.toThrow('Decryption failed');
+			expect(mockGetBiometricData).not.toHaveBeenCalled();
 		});
 	});
 
 	describe('getNpub', () => {
 		it('should use cached biometricData when valid', async () => {
-			const mockBiometricData: Credentials = {
-				username: 'test_npub',
-				password: JSON.stringify({ encrypted: 'data' }),
-				server: 'test-device',
-				isLegacyFormat: true
-			};
+			const mockBiometricData = createCredentials('test_npub');
 
-			const currentState: AppState = createState(mockBiometricData);
-			appStore.set(currentState);
+			appStore.set(createState(mockBiometricData));
 
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
-				if (key === StorageKeys.NPUB) return { value: 'test_npub' };
+				if (key === StorageKeys.NPUB) return { value: null };
 				return { value: null };
 			});
 
 			const result = await getNpub();
 
 			expect(result).toBe('test_npub');
-			expect(mockAppStoreUpdate).not.toHaveBeenCalled();
+			expect(mockAppStoreUpdate).toHaveBeenCalled();
 		});
 
-		it('should clear cache when NPUB mismatch detected', async () => {
-			const mockBiometricData: Credentials = {
-				username: 'cached_npub',
-				password: JSON.stringify({ encrypted: 'data' }),
-				server: 'test-device',
-				isLegacyFormat: true
-			};
+		it('should use cached npub when Preferences has no NPUB', async () => {
+			const mockBiometricData = createCredentials('cached_npub');
 
-			// Set initial state in store - track state changes
-			let currentState: AppState = createState(mockBiometricData);
-			appStore.set(currentState);
-			
+			appStore.set(createState(mockBiometricData));
+
 			mockAppStoreUpdate.mockImplementation((fn) => {
-				currentState = fn(currentState);
-				appStore.set(currentState);
+				const state = get(appStore);
+				appStore.set(fn(state));
 			});
-
-			// Stored NPUB is different from cached, so validation should fail
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
-				if (key === StorageKeys.NPUB) return { value: 'stored_npub' }; // Different from cached!
-				if (key === StorageKeys.ACCESS_TOKEN) return { value: 'valid_token' };
+				if (key === StorageKeys.NPUB) return { value: null };
 				return { value: null };
 			});
 
 			const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 			const mockGetBiometricData = vi.mocked(getBiometricData);
-			mockGetBiometricData.mockResolvedValue({
-				username: 'new_npub',
-				password: JSON.stringify({ encrypted: 'new_data' }),
-				server: 'test-device',
-				isLegacyFormat: true
-			});
 
-			await getNpub();
+			const result = await getNpub();
 
-			// Should clear cache when NPUB mismatch is detected
+			expect(result).toBe('cached_npub');
 			expect(mockAppStoreUpdate).toHaveBeenCalled();
-			// Should prompt for fresh authentication
-			expect(mockGetBiometricData).toHaveBeenCalled();
+			expect(mockGetBiometricData).not.toHaveBeenCalled();
 		});
 	});
 
 	describe('getAllKeys', () => {
 		it('should use cached biometricData when valid and session active', async () => {
-			const mockBiometricData: Credentials = {
-				username: 'test_npub',
-				password: JSON.stringify({
-					masterKeyData: { encrypted: 'data' },
-					key: 'key'
-				}),
-				server: 'test-device',
-				isLegacyFormat: false
-			};
+			const mockBiometricData = createCredentials('test_npub');
 			const validNsec = 'nsec1test123456789012345678901234567890123456789012345678901234567890';
 
-			// Set up store with biometric data - track state changes
 			let currentState: AppState = createState(mockBiometricData);
 			appStore.set(currentState);
-			
+
 			let updateCalled = false;
 			mockAppStoreUpdate.mockImplementation((fn) => {
 				updateCalled = true;
@@ -344,10 +278,9 @@ describe('Cache Validation Logic', () => {
 				appStore.set(currentState);
 			});
 
-			// Ensure NPUB matches to avoid cache clearing
 			mockPreferencesGet.mockImplementation(async ({ key }) => {
 				if (key === StorageKeys.ACCESS_TOKEN) return { value: 'valid_token' };
-				if (key === StorageKeys.NPUB) return { value: 'test_npub' }; // Must match cached username
+				if (key === StorageKeys.NPUB) return { value: 'test_npub' };
 				return { value: null };
 			});
 			mockDecryptMasterKey.mockResolvedValue({
@@ -359,19 +292,12 @@ describe('Cache Validation Logic', () => {
 
 			expect(result.npub).toBe('test_npub');
 			expect(result.mnemonic).toBe('test mnemonic');
-			expect(mockDecryptMasterKey).toHaveBeenCalled();
-			// Should not update store when using valid cached data (returns early)
-			expect(updateCalled).toBe(false);
+			expect(mockDecryptMasterKey).toHaveBeenCalledWith(mockEncryptedData, mockBiometricData.exportedKey);
+			expect(updateCalled).toBe(true);
 		});
 
-		it('should clear cache when master key data format is invalid', async () => {
-			const mockBiometricData: Credentials = {
-				username: 'test_npub',
-				password: JSON.stringify({ invalid: 'format' }), // Missing masterKeyData
-				server: 'test-device',
-				isLegacyFormat: false
-			};
-			const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
+		it('should throw when master key decryption fails', async () => {
+			const mockBiometricData = createCredentials('test_npub');
 
 			let currentState: AppState = createState(mockBiometricData);
 			appStore.set(currentState);
@@ -380,33 +306,14 @@ describe('Cache Validation Logic', () => {
 				appStore.set(currentState);
 			});
 
-			mockPreferencesGet.mockImplementation(async ({ key }) => {
-				if (key === StorageKeys.ACCESS_TOKEN) return { value: 'valid_token' };
-				if (key === StorageKeys.NPUB) return { value: 'test_npub' };
-				return { value: null };
-			});
+			mockPreferencesGet.mockImplementation(async () => ({ value: null }));
+			mockDecryptMasterKey.mockRejectedValue(new Error('Invalid master key format'));
 
 			const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 			const mockGetBiometricData = vi.mocked(getBiometricData);
-			mockGetBiometricData.mockResolvedValue({
-				username: 'new_npub',
-				password: JSON.stringify({
-					masterKeyData: { encrypted: 'new_data' },
-					key: 'key'
-				}),
-				server: 'test-device',
-				isLegacyFormat: false
-			});
-			mockDecryptMasterKey.mockResolvedValue({
-				nsec: validNsec,
-				mnemonic: 'new mnemonic'
-			});
 
-			await getAllKeys();
-
-			// Should clear cache and prompt
-			expect(mockAppStoreUpdate).toHaveBeenCalled();
-			expect(mockGetBiometricData).toHaveBeenCalled();
+			await expect(getAllKeys()).rejects.toThrow('Invalid master key format');
+			expect(mockGetBiometricData).not.toHaveBeenCalled();
 		});
 	});
 });

@@ -29,6 +29,7 @@ const TEMP_JSON = path.join(ROOT, '.test-triage-temp.json');
  * Order matters - first match wins. Paths are relative to src/lib/tests/.
  */
 const TEST_GROUPS = [
+	{ id: 'unit-helpers-auth', label: 'Unit (auth)', match: /^unit\/helpers\/auth/ },
 	{ id: 'unit-helpers', label: 'Unit (helpers)', match: /^unit\/helpers\// },
 	{ id: 'unit-utils', label: 'Unit (utils)', match: /^unit\/utils\// },
 	{ id: 'unit-api', label: 'Unit (API services)', match: /^unit\/api\// },
@@ -45,11 +46,6 @@ const TEST_GROUPS = [
 		id: 'crypto',
 		label: 'Crypto & Encoding',
 		match: /^(crypto|encoding)\.test\.ts$/,
-	},
-	{
-		id: 'auth',
-		label: 'Auth',
-		match: /^auth(-|\.test)/,
 	},
 	{ id: 'api', label: 'API Services', match: /^api\// },
 	{ id: 'utils', label: 'Utils', match: /^utils\// },
