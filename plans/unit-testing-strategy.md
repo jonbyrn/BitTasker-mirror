@@ -181,6 +181,17 @@ Phase 1 audit complete. Full file list in Appendix A; per-file details in table 
 
 No new tests required in Phase 2 — only stabilize what exists and establish the structure.
 
+### 5.1 Phase 2 Progress log
+
+*(Append after each chunk so another agent can resume.)*
+
+| Chunk | Date | What was done | Next / notes |
+|-------|------|---------------|--------------|
+| 1 | 2025-02-13 | Removed 2 dead tests: `findTasks.test.ts` (tested non-exported `convertFilterToApiParams`), `stores/user-profile-optimization.test.ts` (empty file, no source module). Added `src/lib/tests/README.md` with run commands and pointer to this plan. | — |
+| 2 | 2025-02-13 | Created `src/lib/tests/unit/helpers/`. Moved `dateFormatter.test.ts` and `encoding.test.ts` from root into `unit/helpers/` (both pass: 12 + 6 tests). Added `unit-helpers` group in `scripts/test-triage.js`. Updated `package.json`: `test:unit:formatters` and `test:unit:crypto` now point at the new paths so existing scripts still work. | Chunk 3: Move remaining root Keep tests (e.g. `profile-cache.test.ts`) into `unit/` or a new subfolder; then api/services, utils, stores in small batches. Update triage and scripts as paths change. |
+
+**If stuck:** Run `npm run test` and `npm run test:triage` to see current state. Triage groups are defined in `scripts/test-triage.js` (array `TEST_GROUPS`); paths are relative to `src/lib/tests/`. When moving a file, add or adjust a `match` regex so the file is still grouped (or leave in "Other" until a later chunk).
+
 ---
 
 ## 6. Phase 3 — Add Tests for Key Parts (Priority Order)
