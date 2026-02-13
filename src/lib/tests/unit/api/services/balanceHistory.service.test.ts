@@ -39,7 +39,7 @@ describe('BalanceHistoryService', () => {
 	beforeEach(() => {
 		// Clear all caches before each test
 		balanceHistoryService.clearCaches();
-		
+
 		// Clear localStorage
 		localStorage.clear();
 
@@ -140,52 +140,52 @@ describe('BalanceHistoryService', () => {
 			);
 
 			expect(result).toHaveLength(3);
-			
+
 			// Check 24h period
 			expect(result[0].label).toBe('24h');
 			expect(result[0].satsChange).toBe(50000000); // 100M - 50M = 50M
 			expect(result[0].satsPercentChange).toBe(100); // 50M/50M * 100 = 100%
-			
+
 			// Check 7d period
 			expect(result[1].label).toBe('7d');
 			expect(result[1].satsChange).toBe(50000000);
-			
+
 			// Check 30d period
 			expect(result[2].label).toBe('30d');
 			expect(result[2].satsChange).toBe(50000000);
 		});
 
-	it('should calculate and return balance changes successfully', async () => {
-		// Mock API to succeed
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				status: '1',
-				result: { blockNumber: '5000' }
-			})
+		it('should calculate and return balance changes successfully', async () => {
+			// Mock API to succeed
+			global.fetch = vi.fn().mockResolvedValue({
+				ok: true,
+				json: async () => ({
+					status: '1',
+					result: { blockNumber: '5000' }
+				})
+			});
+
+			// Mock successful data fetching
+			mockProvider.getBlock.mockResolvedValue({
+				number: 1000,
+				timestamp: Math.floor(Date.now() / 1000)
+			});
+			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5'));
+			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
+
+			const result = await balanceHistoryService.getBalanceChanges(
+				100000000,
+				50000,
+				mockProvider,
+				mockAddress
+			);
+
+			expect(result).toHaveLength(3);
+			expect(result[0].label).toBe('24h');
+			expect(result[0].satsChange).not.toBeNull();
+			expect(result[1].label).toBe('7d');
+			expect(result[2].label).toBe('30d');
 		});
-
-		// Mock successful data fetching
-		mockProvider.getBlock.mockResolvedValue({
-			number: 1000,
-			timestamp: Math.floor(Date.now() / 1000)
-		});
-		mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5'));
-		vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
-
-		const result = await balanceHistoryService.getBalanceChanges(
-			100000000,
-			50000,
-			mockProvider,
-			mockAddress
-		);
-
-		expect(result).toHaveLength(3);
-		expect(result[0].label).toBe('24h');
-		expect(result[0].satsChange).not.toBeNull();
-		expect(result[1].label).toBe('7d');
-		expect(result[2].label).toBe('30d');
-	});
 
 		it('should handle API errors gracefully', async () => {
 			// Mock API to fail
@@ -244,11 +244,11 @@ describe('BalanceHistoryService', () => {
 			// Should call Blockscout API for RSK
 			expect(global.fetch).toHaveBeenCalled();
 			const fetchCalls = vi.mocked(global.fetch).mock.calls;
-			const rskApiCall = fetchCalls.find(call => 
-				typeof call[0] === 'string' && call[0].includes('blockscout.com')
+			const rskApiCall = fetchCalls.find(
+				(call) => typeof call[0] === 'string' && call[0].includes('blockscout.com')
 			);
 			expect(rskApiCall).toBeDefined();
-			
+
 			// Should not call provider.getBlock for historical blocks (only for latest)
 			// Latest block is called once for cache
 			expect(mockProvider.getBlock).toHaveBeenCalledWith('latest');
@@ -261,7 +261,8 @@ describe('BalanceHistoryService', () => {
 			const targetTimestamp = currentTimestamp - 86400; // 24 hours ago
 			const estimatedBlock = currentBlockNumber - Math.floor(86400 / 3); // ~3 second blocks
 
-			global.fetch = vi.fn()
+			global.fetch = vi
+				.fn()
 				// First call: Get current block
 				.mockResolvedValueOnce({
 					ok: true,
@@ -327,7 +328,7 @@ describe('BalanceHistoryService', () => {
 
 			// Should call API first
 			expect(global.fetch).toHaveBeenCalled();
-			
+
 			// Should fall back to provider
 			expect(mockProvider.getBlock).toHaveBeenCalledWith('latest');
 		});
@@ -366,8 +367,8 @@ describe('BalanceHistoryService', () => {
 			const currentBlockNumber = 50000000;
 			const currentTimestamp = Math.floor(Date.now() / 1000);
 			const hoursAgo = 24;
-			const targetTimestamp = currentTimestamp - (hoursAgo * 3600);
-			
+			const targetTimestamp = currentTimestamp - hoursAgo * 3600;
+
 			// BSC blocks are ~3 seconds apart
 			const BSC_BLOCK_TIME = 3;
 			const timeDiff = currentTimestamp - targetTimestamp;
@@ -376,7 +377,7 @@ describe('BalanceHistoryService', () => {
 			// Verify estimation calculation
 			expect(estimatedBlock).toBeLessThan(currentBlockNumber);
 			expect(estimatedBlock).toBeGreaterThan(0);
-			
+
 			// 24 hours = 86400 seconds, divided by 3 = 28800 blocks
 			const expectedBlocksAgo = Math.floor(86400 / 3);
 			expect(estimatedBlock).toBeCloseTo(currentBlockNumber - expectedBlocksAgo, -3);
@@ -390,7 +391,7 @@ describe('BalanceHistoryService', () => {
 				timestamp: Math.floor(Date.now() / 1000)
 			});
 			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5'));
-			
+
 			// Mock different prices for different periods
 			vi.mocked(cryptoPriceService.getHistoricalPrice)
 				.mockResolvedValueOnce(49000) // 1 day ago
@@ -450,10 +451,10 @@ describe('BalanceHistoryService', () => {
 				number: 1000,
 				timestamp: Math.floor(Date.now() / 1000)
 			});
-			
+
 			// Historical balance: 0.5 BTC (50,000,000 sats)
 			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5'));
-			
+
 			// Historical price: $45,000
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
 
@@ -468,7 +469,7 @@ describe('BalanceHistoryService', () => {
 			const change = result[0]; // 24h
 			expect(change.satsChange).toBe(50000000); // +50M sats
 			expect(change.satsPercentChange).toBe(100); // +100%
-			
+
 			// USD change: current ($50,000) - historical (0.5 BTC * $45,000 = $22,500) = $27,500
 			expect(change.usdChange).toBeCloseTo(27500, 0);
 			expect(change.usdPercentChange).toBeCloseTo(122.22, 1); // +122.22%
@@ -479,10 +480,10 @@ describe('BalanceHistoryService', () => {
 				number: 1000,
 				timestamp: Math.floor(Date.now() / 1000)
 			});
-			
+
 			// Historical balance: 1.5 BTC (150,000,000 sats)
 			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('1.5'));
-			
+
 			// Historical price: $45,000
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
 
@@ -497,7 +498,7 @@ describe('BalanceHistoryService', () => {
 			const change = result[0]; // 24h
 			expect(change.satsChange).toBe(-50000000); // -50M sats
 			expect(change.satsPercentChange).toBeCloseTo(-33.33, 1); // -33.33%
-			
+
 			// USD change: current ($50,000) - historical (1.5 BTC * $45,000 = $67,500) = -$17,500
 			expect(change.usdChange).toBeCloseTo(-17500, 0);
 			expect(change.usdPercentChange).toBeCloseTo(-25.93, 1); // -25.93%
@@ -508,10 +509,10 @@ describe('BalanceHistoryService', () => {
 				number: 1000,
 				timestamp: Math.floor(Date.now() / 1000)
 			});
-			
+
 			// Historical balance: 0 BTC
 			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0'));
-			
+
 			// Historical price: $45,000
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
 
@@ -539,7 +540,8 @@ describe('BalanceHistoryService', () => {
 			const estimatedBlock = currentBlockNumber - Math.floor(86400 / 3);
 
 			// Mock BSC RPC endpoint calls
-			global.fetch = vi.fn()
+			global.fetch = vi
+				.fn()
 				// First call: Get current block (eth_getBlockByNumber with 'latest')
 				.mockResolvedValueOnce({
 					ok: true,
@@ -567,7 +569,7 @@ describe('BalanceHistoryService', () => {
 
 			// Verify the RPC endpoint URL is correct
 			const fetchCalls = vi.mocked(global.fetch);
-			
+
 			// Note: This test verifies the structure, actual BSC testing would require BSC provider
 			// The service uses RSK provider by default, so this test validates the RPC call format
 			expect(fetchCalls).toBeDefined();
@@ -599,18 +601,21 @@ describe('BalanceHistoryService', () => {
 			const currentBlockNumber = 50000000;
 			const currentTimestamp = Math.floor(Date.now() / 1000);
 			const hoursAgo = 24;
-			const targetTimestamp = (currentTimestamp - (hoursAgo * 3600)) * 1000; // ms
-			
+			const targetTimestamp = (currentTimestamp - hoursAgo * 3600) * 1000; // ms
+
 			// BSC blocks are ~3 seconds apart
 			const BSC_BLOCK_TIME = 3;
 			const currentTimestampMs = currentTimestamp * 1000;
 			const timeDiff = (currentTimestampMs - targetTimestamp) / 1000; // Convert to seconds
-			const estimatedBlock = Math.max(0, currentBlockNumber - Math.floor(timeDiff / BSC_BLOCK_TIME));
+			const estimatedBlock = Math.max(
+				0,
+				currentBlockNumber - Math.floor(timeDiff / BSC_BLOCK_TIME)
+			);
 
 			// Verify estimation
 			expect(estimatedBlock).toBeLessThan(currentBlockNumber);
 			expect(estimatedBlock).toBeGreaterThan(0);
-			
+
 			// 24 hours = 86400 seconds, divided by 3 = 28800 blocks
 			const expectedBlocksAgo = Math.floor(86400 / 3);
 			expect(estimatedBlock).toBe(currentBlockNumber - expectedBlocksAgo);
@@ -668,4 +673,3 @@ describe('BalanceHistoryService', () => {
 		});
 	});
 });
-
