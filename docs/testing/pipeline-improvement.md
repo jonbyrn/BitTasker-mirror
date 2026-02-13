@@ -13,21 +13,23 @@ This document describes how BitTasker improves its testing practices and integra
 
 ## 0. Progress & Decisions (Latest)
 
+**Update (2025-02-13):** Validated tests now live under **`unit/`** and **`integration/routes/`** (no separate `ci/` directory). `npm run test:ci` runs `src/lib/tests/unit/` and `src/lib/tests/integration/routes/`. See `plans/unit-testing-strategy.md` for the full layout and Phase 2 progress.
+
 ### Decisions Taken
 
-1. **Adopted Option B (Curated CI directory)** – We created `src/lib/tests/ci/` to hold validated, passing tests. CI runs only this directory. As we fix tests in other directories, we move them into `ci/` and they automatically join the CI run.
+1. **Validated tests in unit/ and integration/routes/** – CI runs `src/lib/tests/unit/` and `src/lib/tests/integration/routes/`. As we fix tests elsewhere, we move them into the appropriate `unit/` subdir or `integration/routes/` and they join the CI run.
 
 2. **Test triage script** – `scripts/test-triage.js` runs all tests once and groups results by directory. Use `npm run test:triage` to see pass/fail per group and identify where to focus.
 
-3. **First green set migrated** – `ci-placeholder.test.ts` and `routes/` (tasks-page tests) were moved into `src/lib/tests/ci/`. Both passed in triage.
+3. **Unit layout** – `unit/` contains: placeholder (smoke), helpers, utils, api/services, stores, routes (tasks-page unit + component). `integration/routes/` contains tasks-page integration tests.
 
 ### Current CI Test Set
 
 | What runs in CI | Path | Tests |
 |-----------------|------|-------|
-| CI Placeholder | `src/lib/tests/ci/ci-placeholder.test.ts` | 1 |
-| Routes (tasks-page) | `src/lib/tests/ci/routes/*.test.ts` | 34 |
-| **Total** | `src/lib/tests/ci/` | **35** |
+| Unit (all) | `src/lib/tests/unit/` | 113 |
+| Integration (routes) | `src/lib/tests/integration/routes/` | 9 |
+| **Total** | unit/ + integration/routes/ | **122** |
 
 ### How to Run CI Tests
 
@@ -36,11 +38,11 @@ This document describes how BitTasker improves its testing practices and integra
 npm run test:ci
 ```
 
-**In CI:** The GitLab pipeline validate job runs `npm run test:ci`, which executes `vitest run src/lib/tests/ci/`. No extra configuration needed.
+**In CI:** The GitLab pipeline validate job runs `npm run test:ci`, which executes `vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/`. No extra configuration needed.
 
 ### How to Run Other Directories (Step-by-Step Fixing)
 
-Use these commands to run each directory independently and fix tests before moving them into `ci/`:
+Use these commands to run each directory independently and fix tests before moving them into `unit/` or `integration/`:
 
 | Command | Directory | Use when |
 |---------|-----------|----------|
@@ -59,7 +61,7 @@ Use these commands to run each directory independently and fix tests before movi
 1. Pick a directory (suggested order: formatters → crypto → validators → api → utils → stores → components → integration).
 2. Run `npm run test:unit:<directory>` to see failures.
 3. Fix or skip tests until the directory passes.
-4. Move the fixed test files into `src/lib/tests/ci/` (preserving subdir structure if desired, e.g. `ci/utils/`).
+4. Move the fixed test files into the appropriate `unit/` subdir or `integration/` (see `plans/unit-testing-strategy.md`).
 5. Run `npm run test:ci` to confirm CI still passes.
 6. Commit. CI will now run the expanded set.
 
@@ -71,7 +73,7 @@ Use these commands to run each directory independently and fix tests before movi
 
 | Category          | Location                         | Count | Framework | CI Status              |
 |-------------------|----------------------------------|-------|-----------|------------------------|
-| **CI tests**      | `src/lib/tests/ci/`              | 4     | Vitest    | ✅ Run in CI           |
+| **CI tests**      | `src/lib/tests/unit/` + `integration/routes/` | 10    | Vitest    | ✅ Run in CI           |
 | **Unit tests**    | `src/lib/tests/` (remainder)     | ~56   | Vitest    | Run per-directory only |
 | **Integration**   | `src/lib/tests/integration/`     | 8     | Vitest    | Not in CI              |
 | **Component**     | `src/lib/tests/components/`      | ~20   | Vitest    | Not in CI              |
@@ -85,7 +87,7 @@ Use these commands to run each directory independently and fix tests before movi
 
 ### 1.2 Known Issues
 
-1. **CI runs curated set:** `.gitlab-ci.yml` validate job runs `npm run test:ci` (i.e. `src/lib/tests/ci/`). Check, lint, build are still commented out.
+1. **CI runs validated set:** `.gitlab-ci.yml` validate job runs `npm run test:ci` (i.e. `src/lib/tests/unit/` and `src/lib/tests/integration/routes/`). Check, lint, build are still commented out.
 2. **Playwright split:** Config points to `./tests/e2e` (smoke.spec.ts). E2E specs in `src/lib/tests/e2e/` are not run by default.
 3. **Stale script references:** `scripts/playwright.js` `wallet:unit` references non-existent files.
 4. **Mock gaps:** Tests fail due to incomplete mocks (e.g. `@bittasker/wallet-core` missing `FEE_TIERS` export).
@@ -105,7 +107,7 @@ Use these commands to run each directory independently and fix tests before movi
 
 ## 3. Strategy: Curated CI Directory (Option B)
 
-We adopted **Option B** – `src/lib/tests/ci/` holds validated tests; CI runs only that directory. As directories are fixed, their tests are moved into `ci/`. See section 0 for current set and workflow.
+Validated tests live in `src/lib/tests/unit/` and `src/lib/tests/integration/routes/`; CI runs those. As tests are fixed, they are moved into the appropriate `unit/` or `integration/` subdir. See section 0 and `plans/unit-testing-strategy.md` for current set and workflow.
 
 ---
 
@@ -138,7 +140,7 @@ Pre-commit (optional), MR guidelines, documentation. Re-enable check and lint in
 
 | Command | Purpose |
 |---------|---------|
-| `npm run test:ci` | **CI tests only** – runs `src/lib/tests/ci/` |
+| `npm run test:ci` | **CI tests only** – runs `src/lib/tests/unit/` and `src/lib/tests/integration/routes/` |
 | `npm run test` | Full unit test run (currently many failures) |
 | `npm run test:unit` | Vitest watch mode |
 | `npm run test:triage` | Pass/fail report per directory |
@@ -163,7 +165,7 @@ Pre-commit (optional), MR guidelines, documentation. Re-enable check and lint in
 |------|------|
 | `.gitlab-ci.yml` | Validate job runs `npm run test:ci` |
 | `package.json` | `test:ci`, `test:unit:*`, `test:triage` scripts |
-| `src/lib/tests/ci/` | Curated tests run in CI |
+| `src/lib/tests/unit/`, `src/lib/tests/integration/routes/` | Validated tests run in CI |
 | `scripts/test-triage.js` | Triage script – pass/fail per directory |
 | `playwright.config.ts` | E2E config; testDir = tests/e2e |
 | `tests/e2e/01-signup-onboarding.spec.ts` | Auth: creates users + credentials |

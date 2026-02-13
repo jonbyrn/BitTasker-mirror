@@ -16,7 +16,7 @@
 | **Environment** | jsdom, `vitest-setup-client.ts`, `$app/environment` mocked |
 | **Location** | All unit/integration tests under `src/lib/tests/` |
 | **Triage** | `scripts/test-triage.js` + `vitest.triage.config.ts` — runs full suite once, groups by category, reports pass/fail |
-| **CI** | `test:ci` runs only `src/lib/tests/ci/` (placeholder + tasks-page tests) |
+| **CI** | `test:ci` runs `src/lib/tests/unit/` and `src/lib/tests/integration/routes/` (validated set; no separate ci/ directory) |
 
 ### 1.2 Existing Test Layout (High Level)
 
@@ -27,7 +27,7 @@ Tests are grouped by **type/surface**, not strictly by **source module**:
 - **utils/** — escrow (v1), wallet (blockscout, paymentAddressParser, nostr-bid, feeCalculation, escrowErrors), test-data-factories, wallet-test-helpers
 - **stores/** — wallet.store*, bid.store, user-profile-optimization
 - **components/** — contract (DebugContractCard, escrow, loadContractsByAddress, functionParsing, contractDetection), bidding (BidAcceptanceForm), wallet (Debug*, SendPaymentForm, ReceivePaymentForm, TransactionHistory, etc.), messages (ChatMessage), AmountDisplay, BalanceHistory, CalculatorKeypad, InvoiceDisplay, TransactionSuccessScreen, WalletPaymentModal
-- **ci/** — placeholder test + routes/tasks-page (unit, integration, component)
+- **(formerly ci/)** — now in `unit/` (placeholder, routes) and `integration/routes/` (tasks-page integration)
 - **integration/** — escrow lifecycle, events, disputes, permissions, etc.
 - **e2e/** — Playwright specs, fixtures, helpers (auth, wallet); some shared with E2E, not “unit”
 
@@ -43,7 +43,7 @@ So we have **many** tests, but:
 ```text
 test:unit          → vitest (watch)
 test               → vitest run (full suite)
-test:ci            → vitest run src/lib/tests/ci/
+test:ci            → vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/
 test:triage        → node scripts/test-triage.js (grouped report)
 test:unit:validators, test:unit:formatters, test:unit:crypto, test:unit:auth, test:unit:root-other
 test:unit:api, test:unit:utils, test:unit:stores, test:unit:components, test:unit:integration
@@ -102,7 +102,7 @@ src/lib/tests/
 ├── integration/                 # Multi-module / workflow tests
 │   └── escrow/
 ├── e2e/                         # Playwright specs, fixtures, helpers (unchanged)
-├── ci/                          # CI placeholder / minimal smoke (unchanged)
+# (no ci/ — validated tests live in unit/ and integration/routes/; test:ci runs those)
 └── _fixtures/                   # Shared test data, mocks (optional)
     └── ...
 ```
@@ -163,7 +163,7 @@ Document results in a **triage table** (see below). This gives a clear “which 
 | *utils/* feeCalculation, paymentAddressParser, nostr-bid, escrow/* | (see notes) | Yes/N/A | Yes | Mixed | Keep/Update | feeCalculation local logic; paymentAddressParser load error; escrow Keep contractPermissions |
 | *stores/* user-profile-optimization, wallet.store*, bid.store | (see notes) | N/A/Yes | No/Yes | N/A/Partial | **Remove**/Keep/Update | user-profile-optimization empty file – Remove |
 | *components/* (20 files) | All exist, used | Yes | Yes | Mostly Partial/No | Update | Mock fixes needed (e.g. walletStore, getCachedReverseSwapPairs) |
-| *ci/* (4 files) | task.store, findTasks, dateFormatter, types | Yes | Yes | Yes | Keep | All 35 tests pass |
+| *ci/* (4 files) | task.store, findTasks, dateFormatter, types | Yes | Yes | Yes | Keep → **Moved (Chunk 7)** | Now in `unit/` and `integration/routes/`; see §5.1. |
 | *integration/escrow/* (7 files) | escrow, escrowEvents, contractPermissions | Yes | Yes | Partial/Yes | Keep/Update | permissions + state-transitions Keep; rest Update |
 
 Phase 1 audit complete. Full file list in Appendix A; per-file details in table above (see Appendix A). **Phase 1 totals:** Remove 2, Keep 12, Update 58. Audit “used in app” for the source files.
@@ -192,6 +192,8 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | 3 | 2025-02-13 | Created `src/lib/tests/unit/utils/`. Moved `profile-cache.test.ts` from root to `unit/utils/profile-cache.test.ts` (16 tests, all pass). Added `unit-utils` group in `scripts/test-triage.js`. Triage now shows **2 green groups**: Unit (helpers) 2/2 18/18, Unit (utils) 1/1 16/16. | — |
 | 4 | 2025-02-13 | Created `src/lib/tests/unit/api/services/`. Moved `balanceHistory.service.test.ts` from `api/services/` to `unit/api/services/` (22 tests, all pass). Added `unit-api` group in `scripts/test-triage.js`. Triage now shows **3 green groups**: Unit (helpers), Unit (utils), Unit (API services). Legacy `api/` group now only has token-balance.service (failing). | — |
 | 5 | 2025-02-13 | Created `src/lib/tests/unit/stores/`. Moved `wallet.store.test.ts` from `stores/` to `unit/stores/` (14 tests, all pass). Added `unit-stores` group in `scripts/test-triage.js`. Triage now shows **4 green groups**: Unit (helpers), Unit (utils), Unit (API services), Unit (stores). **Note:** Tried moving `utils/escrow/contractPermissions.test.ts` to `unit/utils/escrow/`; it fails to load in test env (wallet-core EventBus missing). Left it in `utils/escrow/` until test env or mocks are fixed. | Chunk 6: Move more Keep tests or start fixing Update tests. contractPermissions can be moved in a later chunk once wallet-core/EventBus is mocked or test env is fixed. |
+| 6 | 2025-02-13 | Moved `feeCalculation.test.ts` from `utils/` to `unit/utils/` (17 tests, all pass). Updated `package.json` so `test:unit:utils` runs both `src/lib/tests/utils/` and `src/lib/tests/unit/utils/`. Verified `DebugContractCard.logic.test.ts` fails to load in unit context (same wallet-core EventBus); left in `components/contract/`. **All movable Keep tests are now under unit/.** | Phase 2 restructure of Keep tests complete. Next: Phase 3 — fix Update tests or add wallet-core mocks for blocked tests. |
+| 7 | 2025-02-13 | **Moved former ci/ tests into unit/ and integration/.** Replaced `ci/` with the new approach: validated tests live under `unit/` and `integration/routes/`. Created `unit/placeholder.test.ts` (smoke), `unit/routes/tasks-page.unit.test.ts`, `unit/routes/tasks-page.component.test.ts`; created `integration/routes/tasks-page.integration.test.ts`. Deleted `src/lib/tests/ci/` (all 4 files). Updated `test:ci` to run `src/lib/tests/unit/` and `src/lib/tests/integration/routes/` (10 files, 122 tests, all pass). Added triage groups `unit-routes` and `unit-root`; removed `ci-placeholder`. Updated README and this plan. | CI now runs the same validated set from unit/ + integration/routes/. No more ci/ directory. |
 
 **If stuck:** Run `npm run test` and `npm run test:triage` to see current state. Triage groups are defined in `scripts/test-triage.js` (array `TEST_GROUPS`); paths are relative to `src/lib/tests/`. When moving a file, add or adjust a `match` regex so the file is still grouped (or leave in "Other" until a later chunk).
 
@@ -207,8 +209,25 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | **After Chunk 3** | 20 passed, 49 failed, 1 skipped (70 total) | 421 passed, 189 failed, 7 skipped (610 total) | **2** of 13 | **Unit (utils)** 1/1 files, 16/16 tests added as green. profile-cache moved to `unit/utils/`. |
 | **After Chunk 4** | 20 passed, 49 failed, 1 skipped (70 total) | 421 passed, 189 failed, 7 skipped (610 total) | **3** of 14 | **Unit (API services)** 1/1 files, 22/22 tests. balanceHistory.service.test.ts moved to `unit/api/services/`. |
 | **After Chunk 5** | 20 passed, 49 failed, 1 skipped (70 total) | 421 passed, 189 failed, 7 skipped (610 total) | **4** of 15 | **Unit (stores)** 1/1 files, 14/14 tests. wallet.store.test.ts moved to `unit/stores/`. contractPermissions left in utils/escrow (fails to load in unit context: wallet-core EventBus). |
+| **After Chunk 6** | 20 passed, 49 failed, 1 skipped (70 total) | 421 passed, 189 failed, 7 skipped (610 total) | **4** of 15 | **Unit (utils)** now 2/2 files, 33/33 tests (feeCalculation + profile-cache). All movable Keep tests moved. |
 
-**Improvement summary so far:** Chunk 1 removed 2 dead files. Chunks 2–4 added Unit (helpers), Unit (utils), Unit (API services). Chunk 5 added Unit (stores). In total **5 files and 70 tests** now live under `unit/` in a clear, all-passing structure. contractPermissions remains in `utils/escrow/` until test env supports wallet-core.
+**Improvement summary so far:** Chunk 1 removed 2 dead files. Chunks 2–5 added Unit (helpers), Unit (utils), Unit (API services), Unit (stores). Chunk 6 moved feeCalculation into unit/utils. In total **6 files and 87 tests** now live under `unit/` in a clear, all-passing structure. contractPermissions and DebugContractCard.logic remain in place (wallet-core EventBus blocks moving to unit context).
+
+**Keep tests remaining (not yet under unit/):**
+
+| File | Location | Move? | Blocker / note |
+|------|----------|-------|----------------|
+| contractPermissions.test.ts | utils/escrow/ | Later | Fails to load (wallet-core EventBus) in unit context. |
+| feeCalculation.test.ts | unit/utils/ | **Done (Chunk 6)** | Moved to unit/utils/; 17 tests pass. |
+| DebugContractCard.logic.test.ts | components/contract/ | No | Same wallet-core EventBus load failure when run in unit context; leave in place. |
+| ci-placeholder.test.ts | unit/placeholder.test.ts | **Done (Chunk 7)** | Moved to unit/; smoke test. |
+| tasks-page.unit.test.ts | unit/routes/ | **Done (Chunk 7)** | Moved to unit/routes/. |
+| tasks-page.integration.test.ts | integration/routes/ | **Done (Chunk 7)** | Moved to integration/routes/. |
+| tasks-page.component.test.ts | unit/routes/ | **Done (Chunk 7)** | Moved to unit/routes/. |
+| escrow-permissions.integration.test.ts | integration/escrow/ | No | Integration test; keep in integration/. |
+| escrow-state-transitions.integration.test.ts | integration/escrow/ | No | Integration test; keep in integration/. |
+
+**Total Keep:** 12. **In unit/ or integration/routes/:** 10 files (placeholder, helpers, utils, api/services, stores, routes ×3; integration/routes ×1). **Leave in place:** 2 (integration/escrow Keep). **Blocked (wallet-core):** 2 (contractPermissions, DebugContractCard.logic). **CI:** `test:ci` runs `unit/` + `integration/routes/` (122 tests).
 
 **How to read:** “Green groups” = triage categories where all files and tests pass. More green = better structure and clarity. Test/file counts may stay similar until we fix “Update” tests (Phase 2 fix work) or add tests (Phase 3).
 
@@ -239,7 +258,7 @@ Test **code that is actually used**. Suggested order:
    - Debug* components are lower priority (dev-only).
 
 6. **Routes** (load functions, page state)  
-   - Already have tasks-page in ci/. Extend to other high-traffic routes if load logic is non-trivial.
+   - Already have tasks-page in `unit/routes/` and `integration/routes/`. Extend to other high-traffic routes if load logic is non-trivial.
 
 For each new test file, place it in the structure from Section 3 and follow the naming convention.
 
@@ -272,7 +291,7 @@ Tools: `grep -r "from '\$lib/..." src/routes src/lib/components` and follow impo
 
 - **Vitest:** `vite.config.ts` (test env, setupFiles), `vitest.triage.config.ts`, `vitest-setup-client.ts`
 - **Triage:** `scripts/test-triage.js`, `npm run test:triage`
-- **CI:** `test:ci` runs `src/lib/tests/ci/`
+- **CI:** `test:ci` runs `src/lib/tests/unit/` and `src/lib/tests/integration/routes/`
 - **Docs:** When this plan is done, move the stable parts to `docs/testing/` and keep `plans/` for in-progress work (see `plans/README.md`).
 
 ---
@@ -356,12 +375,12 @@ Use this list to ensure every non-E2E test is triaged. Exclude `e2e/` (Playwrigh
 - wallet/DebugWalletAssetList.test.ts
 - wallet/DebugWalletSendForm.test.ts
 
-**ci/:**
+**ci/ (moved in Chunk 7 → unit/ and integration/routes/):**
 
-- ci-placeholder.test.ts
-- routes/tasks-page.component.test.ts
-- routes/tasks-page.integration.test.ts
-- routes/tasks-page.unit.test.ts
+- unit/placeholder.test.ts (was ci-placeholder.test.ts)
+- unit/routes/tasks-page.unit.test.ts
+- unit/routes/tasks-page.component.test.ts
+- integration/routes/tasks-page.integration.test.ts
 
 **integration/escrow/:**
 

@@ -6,15 +6,15 @@ Tests live under `src/lib/tests/`. Vitest is used for unit and integration tests
 
 - **Unit tests** (pure logic, minimal mocks): add under `unit/` (`unit/helpers/`, `unit/utils/`, `unit/api/services/`, `unit/stores/`). Some tests still live at root or under `api/`, `utils/`, `stores/` until Phase 2 migration is complete.
 - **Component tests** (Svelte components): `components/` with the same subfolder structure as `$lib/components/`.
-- **Route / page tests**: `ci/routes/` or a dedicated `routes/` folder.
-- **Integration tests** (multi-module flows): `integration/`.
+- **Route / page tests**: `unit/routes/` (unit + component tests for a page), `integration/routes/` (store/data-flow tests for a page).
+- **Integration tests** (multi-module flows): `integration/` (e.g. `integration/escrow/`, `integration/routes/`).
 
 Naming: `*.test.ts` for unit/component tests, `*.integration.test.ts` for integration. One test file per source module is the goal.
 
 ## Running tests
 
 - `npm run test` or `npm run test:unit` — run all unit/integration tests (watch or single run).
-- `npm run test:ci` — runs only `src/lib/tests/ci/` (used in CI).
+- `npm run test:ci` — runs the validated set: `src/lib/tests/unit/` and `src/lib/tests/integration/routes/` (used in CI).
 - `npm run test:triage` — full run with results grouped by category; use to see which areas pass or fail.
 
 ## Strategy and structure

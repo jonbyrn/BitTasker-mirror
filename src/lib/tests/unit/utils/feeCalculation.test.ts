@@ -217,4 +217,3 @@ describe('Fee Calculation', () => {
 		});
 	});
 });
-
