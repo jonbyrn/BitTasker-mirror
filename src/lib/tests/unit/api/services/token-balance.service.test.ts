@@ -1,9 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 
+/** Response-like object so service can call response.headers.entries() */
+function mockFetchResponse(data: unknown, options: { ok?: boolean; status?: number } = {}) {
+	const ok = options.ok ?? true;
+	const status = options.status ?? 200;
+	return {
+		ok,
+		status,
+		headers: {
+			entries: () => []
+		},
+		json: async () => data
+	};
+}
+
 describe('TokenBalanceService', () => {
 	let mockFetch: ReturnType<typeof vi.fn>;
-	const originalEnv = import.meta.env;
 
 	beforeEach(() => {
 		mockFetch = vi.fn();
@@ -34,10 +47,7 @@ describe('TokenBalanceService', () => {
 				}
 			];
 
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => mockResponse
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse(mockResponse));
 
 			const result = await tokenBalanceService.getRSKTokenBalances('0xaddress');
 
@@ -71,10 +81,7 @@ describe('TokenBalanceService', () => {
 				}
 			];
 
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => mockResponse
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse(mockResponse));
 
 			const result = await tokenBalanceService.getRSKTokenBalances('0xaddress');
 
@@ -93,10 +100,7 @@ describe('TokenBalanceService', () => {
 		});
 
 		it('should handle invalid API responses', async () => {
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ invalid: 'response' })
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse({ invalid: 'response' }));
 
 			const result = await tokenBalanceService.getRSKTokenBalances('0xaddress');
 			expect(result).toEqual([]);
@@ -122,10 +126,7 @@ describe('TokenBalanceService', () => {
 				next_page_params: { page: 2 }
 			};
 
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => mockResponse
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse(mockResponse));
 
 			const result = await tokenBalanceService.getRSKTokenBalances('0xaddress');
 			expect(result).toHaveLength(1);
@@ -135,10 +136,7 @@ describe('TokenBalanceService', () => {
 		it('should use correct API URL for mainnet', async () => {
 			vi.stubEnv('VITE_RSK_NETWORK', 'mainnet');
 
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => [] // API returns array directly
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse([]));
 
 			await tokenBalanceService.getRSKTokenBalances('0xaddress');
 
@@ -151,10 +149,7 @@ describe('TokenBalanceService', () => {
 		it('should use correct API URL for testnet', async () => {
 			vi.stubEnv('VITE_RSK_NETWORK', 'testnet');
 
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => [] // API returns array directly
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse([]));
 
 			await tokenBalanceService.getRSKTokenBalances('0xaddress');
 
@@ -193,10 +188,7 @@ describe('TokenBalanceService', () => {
 				}
 			];
 
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => mockResponse
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse(mockResponse));
 
 			const result = await tokenBalanceService.getRSKTokenBalances('0xaddress');
 
@@ -205,10 +197,7 @@ describe('TokenBalanceService', () => {
 		});
 
 		it('should handle HTTP error responses', async () => {
-			mockFetch.mockResolvedValueOnce({
-				ok: false,
-				status: 500
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse(null, { ok: false, status: 500 }));
 
 			await expect(
 				tokenBalanceService.getRSKTokenBalances('0xaddress')
@@ -232,10 +221,7 @@ describe('TokenBalanceService', () => {
 				}
 			];
 
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => mockResponse
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse(mockResponse));
 
 			await tokenBalanceService.getRSKTokenBalances('0xaddress');
 
@@ -269,10 +255,7 @@ describe('TokenBalanceService', () => {
 				}
 			];
 
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => mockResponse
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse(mockResponse));
 
 			await tokenBalanceService.getRSKTokenBalances('0xaddress');
 
@@ -300,10 +283,7 @@ describe('TokenBalanceService', () => {
 				}
 			];
 
-			mockFetch.mockResolvedValueOnce({
-				ok: true,
-				json: async () => mockResponse
-			});
+			mockFetch.mockResolvedValueOnce(mockFetchResponse(mockResponse));
 
 			await tokenBalanceService.getRSKTokenBalances('0xaddress');
 			expect(tokenBalanceService.getTokenMetadata('0x1234...')).toBeDefined();
