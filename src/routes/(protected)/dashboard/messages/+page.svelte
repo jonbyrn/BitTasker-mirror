@@ -23,7 +23,7 @@
 	/**
 	 * Helper function to get display content for a conversation
 	 */
-	function getDisplayContent(conversation: typeof conversations[0]): string {
+	function getDisplayContent(conversation: (typeof conversations)[0]): string {
 		if (!conversation.lastEvent.content) {
 			return $t('messages.no_messages');
 		}
@@ -413,8 +413,13 @@
 			const maxEvents = 100; // Limit total events processed
 			let searchCompleted = false;
 
+			const pool = $appStore?.pool;
+			if (!pool) {
+				throw new Error('Pool not found');
+			}
+
 			// First, search for profile events
-			const unsubscribeProfiles = $appStore.pool.subscribe([relayUrl], filter, {
+			const unsubscribeProfiles = pool.subscribe([relayUrl], filter, {
 				onevent: (event: NostrEvent) => {
 					if (searchCompleted) return;
 
@@ -467,7 +472,7 @@
 			});
 
 			// Also search for image events to get profile pictures
-			const unsubscribeImages = $appStore.pool.subscribe([relayUrl], imageFilter, {
+			const unsubscribeImages = pool.subscribe([relayUrl], imageFilter, {
 				onevent: (event: NostrEvent) => {
 					if (searchCompleted) return;
 
@@ -578,8 +583,17 @@
 			<h3 class="truncate text-2xl font-bold tracking-tight md:text-3xl">{$t('messages.title')}</h3>
 			<p class="text-base-content/60 text-sm md:text-base">{$t('messages.subtitle')}</p>
 		</div>
-		<button class="btn btn-primary btn-sm flex gap-2 shadow-md transition-all hover:shadow-lg md:btn-md" onclick={startNewMessage}>
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+		<button
+			class="btn btn-primary btn-sm flex gap-2 shadow-md transition-all hover:shadow-lg md:btn-md"
+			onclick={startNewMessage}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-4 w-4"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
 			</svg>
 			{$t('messages.new_message')}
@@ -1097,7 +1111,9 @@
 											{formatTimeAgo(new Date(conversation.lastEvent.created_at * 1000))}
 										</span>
 									</div>
-									<p class="text-base-content/60 mt-1.5 line-clamp-2 text-sm leading-relaxed md:text-md">
+									<p
+										class="text-base-content/60 mt-1.5 line-clamp-2 text-sm leading-relaxed md:text-md"
+									>
 										{getDisplayContent(conversation)}
 									</p>
 								</div>
@@ -1113,7 +1129,9 @@
 				{:else if conversations.length === 0}
 					<!-- Empty State -->
 					<div class="flex flex-col items-center justify-center py-16 px-4 text-center md:py-24">
-						<div class="bg-primary/10 mb-6 flex h-20 w-20 items-center justify-center rounded-full md:h-24 md:w-24">
+						<div
+							class="bg-primary/10 mb-6 flex h-20 w-20 items-center justify-center rounded-full md:h-24 md:w-24"
+						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="text-primary h-10 w-10 md:h-12 md:w-12"
@@ -1130,10 +1148,26 @@
 							</svg>
 						</div>
 						<h3 class="text-xl font-bold md:text-2xl">{$t('messages.no_messages')}</h3>
-						<p class="text-base-content/60 mt-2 text-sm md:text-base">{$t('messages.start_conversation')}</p>
-						<button class="btn btn-primary mt-6 gap-2 shadow-md transition-all hover:shadow-lg" onclick={startNewMessage}>
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+						<p class="text-base-content/60 mt-2 text-sm md:text-base">
+							{$t('messages.start_conversation')}
+						</p>
+						<button
+							class="btn btn-primary mt-6 gap-2 shadow-md transition-all hover:shadow-lg"
+							onclick={startNewMessage}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 4v16m8-8H4"
+								/>
 							</svg>
 							{$t('messages.start_new_message')}
 						</button>
@@ -1141,7 +1175,9 @@
 				{:else if filteredConversations.length === 0}
 					<!-- No Search Results -->
 					<div class="flex flex-col items-center justify-center py-16 px-4 text-center md:py-24">
-						<div class="bg-base-200/50 mb-6 flex h-20 w-20 items-center justify-center rounded-full md:h-24 md:w-24">
+						<div
+							class="bg-base-200/50 mb-6 flex h-20 w-20 items-center justify-center rounded-full md:h-24 md:w-24"
+						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="text-base-content/40 h-10 w-10 md:h-12 md:w-12"
@@ -1158,7 +1194,9 @@
 							</svg>
 						</div>
 						<h3 class="text-xl font-bold md:text-2xl">{$t('messages.no_conversations_found')}</h3>
-						<p class="text-base-content/60 mt-2 text-sm md:text-base">{$t('messages.try_different_search')}</p>
+						<p class="text-base-content/60 mt-2 text-sm md:text-base">
+							{$t('messages.try_different_search')}
+						</p>
 						<button class="btn btn-ghost mt-6" onclick={() => (searchQuery = '')}>
 							{$t('messages.clear_search')}
 						</button>

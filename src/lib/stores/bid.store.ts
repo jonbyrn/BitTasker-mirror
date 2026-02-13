@@ -183,7 +183,7 @@ function createBidStore() {
 
             const npub = await getNpub();
             const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-            const pool = get(appStore).pool;
+            const pool = get(appStore)?.pool;
 
             if (!pool) {
                 console.error('[BidStore] Pool not available');
@@ -208,7 +208,7 @@ function createBidStore() {
 
             // Subscription 2: Bid status updates TO user (incoming)
             bidStatusSubscriptionIncoming = pool.subscribe(
-                get(appStore).relays,
+                get(appStore)?.relays ?? [],
                 {
                     kinds: [KINDS.BID_STATUS],
                     ...TAG_FILTERS.byTask(taskIds),

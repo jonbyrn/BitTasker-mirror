@@ -5,6 +5,7 @@ import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
+import { hexToBytes } from '$lib/utils/helpers/encoding';
 import KINDS from '$lib/utils/constants/kinds';
 
 // --- Relay Configuration ---
@@ -24,7 +25,11 @@ const encryptedKinds = [
  * This ensures we use a single pool across the entire application
  */
 function getPool() {
-    return get(appStore).pool;
+    const pool = get(appStore)?.pool;
+    if (!pool) {
+        throw new Error('Pool not found');
+    }
+    return pool;
 }
 
 /**
@@ -116,6 +121,26 @@ export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string 
 // ================================================================
 // NIP-44 helpers for encryption/decryption
 // ================================================================
+
+/**
+ * Decode an encoded nsec to a Uint8Array
+ * @param nsec - The encoded nsec
+ * @returns The decoded nsec as a Uint8Array
+ */
+export function decodeNsec(nsec: string): Uint8Array<ArrayBufferLike> {
+    try {
+        if (!nsec.startsWith('nsec1')) {
+            return hexToBytes(nsec);
+        }
+        const { data, type } = nip19.decode(nsec);
+        if (type !== 'nsec') {
+            throw new Error('Invalid nsec format');
+        }
+        return data as Uint8Array<ArrayBufferLike>;
+    } catch (err) {
+        throw new Error('Invalid private key')
+    }
+}
 
 /**
  * Get the npub from an encoded nsec

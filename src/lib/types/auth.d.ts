@@ -1,36 +1,32 @@
+import type { NostrEvent } from "nostr-tools";
+
 export interface Credentials {
-	username: string;
-	password: string; // encrytpion data
-	server: string; // device id
-	isLegacyFormat: boolean; // TODO: To be removed later once all legacy users are migrated to master key format
+	npub: string;
+	deviceId: string;
+	credentialId: string;
+	deviceName: string;
+	encryptedData: EncryptedData;
+	exportedKey: string;
+	isLegacyFormat: boolean;
 }
 
-export interface NostrRegistrationData {
-	email?: string;
-	username?: string;
-	publicKey: string;
-	encryptedPrivateKey: string;
-	iv: string;
-	salt: string;
-	authTag: string;
-	iterations: number;
-	googleToken?: string; // Optional Google token for social registration
-	authMethod?: 'passkey';
-	password?: string;
-	deviceId?: string;
+export interface PasskeyLoginData {
+	event: NostrEvent;
+	deviceId: string;
+	deviceName?: string;
+	platform: 'mobile' | 'web';
 }
 
 export interface NostrLoginData {
 	event: NostrEvent;
 	challenge: string;
-	encryptedPrivateKey?: string;
-	iv?: string;
-	salt?: string;
-	authTag?: string;
+	deviceId: string;
 	iterations?: number;
-	authMethod?: 'passkey' | 'alby';
-	deviceId?: string;
-	masterKeyData?: MasterKeyEncryptedData;
+	authMethod?: 'passkey';
+	masterKeyData?: EncryptedData;
+	deviceName?: string;
+	credentialId: string;
+	platform: 'mobile' | 'web';
 }
 
 interface NostrKeyData {
@@ -180,12 +176,6 @@ export interface ApiUserProfile {
 	updatedAt: string;
 }
 
-export interface EncryptedData {
-	data: string;
-	iv: string;
-	authTag: string;
-}
-
 export interface BiometricVerifyOptions {
 	reason: string;
 	title: string;
@@ -211,16 +201,20 @@ export interface AuthState {
 
 export interface AccountRecoveryData {
 	publicKey: string;
-	recoveryData: Partial<MasterKeyEncryptedData>;
+	recoveryData: EncryptedData;
 	email?: string;
 }
 
 export interface NostrRecoveryCompleteData {
 	publicKey: string;
 	otp: string;
-	recoveryData: Partial<MasterKeyEncryptedData>;
-	encryptedMasterKeyData: MasterKeyEncryptedData;
+	recoveryData: Partial<EncryptedData>;
+	encryptedMasterKeyData: EncryptedData;
 	deviceId: string;
+	deviceName?: string;
+	platform: string;
+	credentialId: string;
+	revokeAll: boolean;
 }
 
 export interface NostrRecoveryData {
@@ -230,16 +224,22 @@ export interface NostrRecoveryData {
 }
 
 
+export interface CryptoEncryptedData {
+	data: string;
+	iv: string;
+	authTag: string;
+}
+
+
 /********************** Master Key Encrypted Data types **********************/
 
 type ContextEncryption = {
-	encrypted: EncryptedData;
+	encrypted: CryptoEncryptedData;
 	iterations: number;
 	salt: string;
 };
 
-export type MasterKeyEncryptedData = {
-	exportedMasterKey: string;
+export type EncryptedData = {
 	masterSalt: string;
 	nostr: ContextEncryption;
 	wallet: ContextEncryption;
@@ -249,7 +249,20 @@ export type MasterKeyRegistration = {
 	authMethod?: string | null | undefined;
 	deviceId?: string | null | undefined;
 	email?: string | null | undefined;
-	masterKeyData: MasterKeyEncryptedData;
+	masterKeyData: EncryptedData;
 	publicKey: string;
 	username?: string | null | undefined;
+	credentialId: string | null | undefined;
+	deviceName?: string | null | undefined;
+	platform: string | null | undefined;
+};
+
+export type MasterKeyMigration = {
+	event: NostrEvent;
+	oldCredentialId: string;
+	newCredentialId: string;
+	deviceId: string;
+	masterKeyData: EncryptedData;
+	platform: string;
+	deviceName: string;
 };
