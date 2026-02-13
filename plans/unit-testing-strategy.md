@@ -188,9 +188,25 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | Chunk | Date | What was done | Next / notes |
 |-------|------|---------------|--------------|
 | 1 | 2025-02-13 | Removed 2 dead tests: `findTasks.test.ts` (tested non-exported `convertFilterToApiParams`), `stores/user-profile-optimization.test.ts` (empty file, no source module). Added `src/lib/tests/README.md` with run commands and pointer to this plan. | — |
-| 2 | 2025-02-13 | Created `src/lib/tests/unit/helpers/`. Moved `dateFormatter.test.ts` and `encoding.test.ts` from root into `unit/helpers/` (both pass: 12 + 6 tests). Added `unit-helpers` group in `scripts/test-triage.js`. Updated `package.json`: `test:unit:formatters` and `test:unit:crypto` now point at the new paths so existing scripts still work. | Chunk 3: Move remaining root Keep tests (e.g. `profile-cache.test.ts`) into `unit/` or a new subfolder; then api/services, utils, stores in small batches. Update triage and scripts as paths change. |
+| 2 | 2025-02-13 | Created `src/lib/tests/unit/helpers/`. Moved `dateFormatter.test.ts` and `encoding.test.ts` from root into `unit/helpers/` (both pass: 12 + 6 tests). Added `unit-helpers` group in `scripts/test-triage.js`. Updated `package.json`: `test:unit:formatters` and `test:unit:crypto` now point at the new paths so existing scripts still work. | — |
+| 3 | 2025-02-13 | Created `src/lib/tests/unit/utils/`. Moved `profile-cache.test.ts` from root to `unit/utils/profile-cache.test.ts` (16 tests, all pass). Added `unit-utils` group in `scripts/test-triage.js`. Triage now shows **2 green groups**: Unit (helpers) 2/2 18/18, Unit (utils) 1/1 16/16. | Chunk 4: Move api/services Keep (balanceHistory.service.test.ts) into e.g. `unit/api/services/` and add triage group; or move more root/utils Keep tests in small batches. Update metrics table after each chunk. |
 
 **If stuck:** Run `npm run test` and `npm run test:triage` to see current state. Triage groups are defined in `scripts/test-triage.js` (array `TEST_GROUPS`); paths are relative to `src/lib/tests/`. When moving a file, add or adjust a `match` regex so the file is still grouped (or leave in "Other" until a later chunk).
+
+### 5.2 Test metrics (before / after each chunk)
+
+*(Run `npm run test` and `npm run test:triage` after each chunk to fill the next row. This shows whether we’re improving pass rate and how each chunk affects the numbers.)*
+
+| When | Test files (passed / failed / skipped) | Tests (passed / failed / skipped) | Triage: green groups | Notes |
+|------|----------------------------------------|-----------------------------------|----------------------|-------|
+| **Baseline (Phase 1 end)** | 20 passed, 51 failed, 1 skipped (72 total) | 421 passed, 182 failed, 7 skipped (610 total) | 0 of 11 | Snapshot before Phase 2. |
+| **After Chunk 1** | 20 passed, 49 failed, 1 skipped (70 total) | 421 passed, 182 failed, 7 skipped (610 total) | 0 of 11 | Removed 2 dead files; no test count change (one file didn’t run, one was empty). |
+| **After Chunk 2** | 20 passed, 49 failed, 1 skipped (70 total) | 421 passed, 182 failed, 7 skipped (610 total) | **1** of 12 | **Unit (helpers)** 2/2 files, 18/18 tests — first green group; dateFormatter + encoding moved to `unit/helpers/`. |
+| **After Chunk 3** | 20 passed, 49 failed, 1 skipped (70 total) | 421 passed, 189 failed, 7 skipped (610 total) | **2** of 13 | **Unit (utils)** 1/1 files, 16/16 tests added as green. profile-cache moved to `unit/utils/`. |
+
+**Improvement summary so far:** Chunk 1 removed 2 dead files. Chunk 2 gave the first green triage group (Unit helpers: 2 files, 18 tests under `unit/helpers/`). Chunk 3 added a second green group (Unit utils: 1 file, 16 tests under `unit/utils/`). In total **3 files and 34 tests** now live in a clear, all-passing structure.
+
+**How to read:** “Green groups” = triage categories where all files and tests pass. More green = better structure and clarity. Test/file counts may stay similar until we fix “Update” tests (Phase 2 fix work) or add tests (Phase 3).
 
 ---
 
