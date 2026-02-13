@@ -36,7 +36,6 @@ const TEST_GROUPS = [
 	{ id: 'unit-stores', label: 'Unit (stores)', match: /^unit\/stores\// },
 	{ id: 'unit-routes', label: 'Unit (routes)', match: /^unit\/routes\// },
 	{ id: 'unit-root', label: 'Unit (smoke)', match: /^unit\/[^/]+\.test\.ts$/ },
-	{ id: 'validators', label: 'Validators', match: /^validators\.test\.ts$/ },
 	{
 		id: 'formatters',
 		label: 'Formatters (currency, date)',
