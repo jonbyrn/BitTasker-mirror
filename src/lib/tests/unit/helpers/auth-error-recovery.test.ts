@@ -1,10 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
 import { appStore } from '$lib/stores/app.store';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { decryptNsecWithBiometrics } from '$lib/utils/helpers/auth';
-import type { Credentials } from '$lib/types/auth';
+import type { Credentials, EncryptedData } from '$lib/types/auth';
+
+const mockEncryptedData: EncryptedData = {
+	nostr: {
+		encrypted: { data: 'enc', iv: 'iv', authTag: 'tag' },
+		salt: 'salt',
+		iterations: 100000
+	},
+	wallet: {
+		encrypted: { data: 'enc', iv: 'iv', authTag: 'tag' },
+		salt: 'salt',
+		iterations: 100000
+	},
+	masterSalt: 'masterSalt'
+};
+
+function createCredentials(npub: string, overrides?: Partial<Credentials>): Credentials {
+	return {
+		npub,
+		deviceId: 'test-device',
+		credentialId: 'cid',
+		deviceName: 'device',
+		encryptedData: mockEncryptedData,
+		exportedKey: 'exportedKey',
+		isLegacyFormat: false,
+		...overrides
+	};
+}
 
 // Mock dependencies
 vi.mock('$lib/stores/app.store', () => {
@@ -88,94 +115,37 @@ describe('Error Recovery and Fallback', () => {
 		vi.clearAllMocks();
 	});
 
-	it('should fall back to authentication prompt when decryption fails', async () => {
-		const mockBiometricData: Credentials = {
-			username: 'test_npub',
-			password: JSON.stringify({ encrypted: 'data' }),
-			server: 'test-device',
-			isLegacyFormat: true
-		};
-		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
+	it('should throw when decryption fails with cached biometricData', async () => {
+		const mockBiometricData = createCredentials('test_npub');
 
-		// Set up store with biometric data - need to track state changes
 		let currentState: AppState = createState(mockBiometricData);
 		appStore.set(currentState);
-		
-		// Update state when store.update is called
 		mockAppStoreUpdate.mockImplementation((fn) => {
 			currentState = fn(currentState);
 			appStore.set(currentState);
 		});
 
-		mockPreferencesGet.mockImplementation(async ({ key }) => {
-			if (key === StorageKeys.ACCESS_TOKEN) return { value: 'valid_token' };
-			if (key === StorageKeys.NPUB) return { value: 'test_npub' };
-			return { value: null };
-		});
-		// First call fails, second succeeds
-		mockDecryptNsec.mockRejectedValueOnce(new Error('Decryption failed'));
+		mockPreferencesGet.mockImplementation(async () => ({ value: null }));
+		mockDecryptNsec.mockRejectedValue(new Error('Decryption failed'));
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const mockGetBiometricData = vi.mocked(getBiometricData);
-		const freshBiometricData: Credentials = {
-			username: 'new_npub',
-			password: JSON.stringify({ encrypted: 'new_data' }),
-			server: 'test-device',
-			isLegacyFormat: true
-		};
-		mockGetBiometricData.mockResolvedValue(freshBiometricData);
-		mockDecryptNsec.mockResolvedValueOnce(validNsec);
 
-		const result = await getNostrKeyPair();
-
-		// Should have cleared cache
-		expect(mockAppStoreUpdate).toHaveBeenCalled();
-		// Should have prompted for fresh authentication
-		expect(mockGetBiometricData).toHaveBeenCalled();
-		// Should return fresh data
-		expect(result.npub).toBe('new_npub');
+		await expect(getNostrKeyPair()).rejects.toThrow('Decryption failed');
+		expect(mockGetBiometricData).not.toHaveBeenCalled();
 	});
 
-	it('should fall back to authentication prompt when validation fails', async () => {
-		const mockBiometricData: Credentials = {
-			username: 'test_npub',
-			password: JSON.stringify({ encrypted: 'data' }),
-			server: 'test-device',
-			isLegacyFormat: true
-		};
-		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
+	it('should throw when Preferences.get fails before using biometricData', async () => {
+		const mockBiometricData = createCredentials('test_npub');
 
-		let currentState: AppState = createState(mockBiometricData);
-		appStore.set(currentState);
-		mockAppStoreUpdate.mockImplementation((fn) => {
-			currentState = fn(currentState);
-			appStore.set(currentState);
-		});
-
-		// Simulate validation failure (Preferences.get throws on first call)
-		mockPreferencesGet.mockRejectedValueOnce(new Error('Validation failed'));
-		// Subsequent calls succeed
-		mockPreferencesGet.mockResolvedValue({ value: null });
+		appStore.set(createState(mockBiometricData));
+		mockPreferencesGet.mockRejectedValue(new Error('Validation failed'));
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const mockGetBiometricData = vi.mocked(getBiometricData);
-		const freshBiometricData: Credentials = {
-			username: 'new_npub',
-			password: JSON.stringify({ encrypted: 'new_data' }),
-			server: 'test-device',
-			isLegacyFormat: true
-		};
-		mockGetBiometricData.mockResolvedValue(freshBiometricData);
-		mockDecryptNsec.mockResolvedValueOnce(validNsec);
 
-		const result = await getNostrKeyPair();
-
-		// Should have cleared cache
-		expect(mockAppStoreUpdate).toHaveBeenCalled();
-		// Should have prompted for fresh authentication
-		expect(mockGetBiometricData).toHaveBeenCalled();
-		// Should return fresh data
-		expect(result.npub).toBe('new_npub');
+		await expect(getNpub()).rejects.toThrow('Validation failed');
+		expect(mockGetBiometricData).not.toHaveBeenCalled();
 	});
 
 	it('should never leave user in unrecoverable authentication state', async () => {
@@ -188,38 +158,22 @@ describe('Error Recovery and Fallback', () => {
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const mockGetBiometricData = vi.mocked(getBiometricData);
-		
-		// First attempt fails
+
 		mockGetBiometricData.mockRejectedValueOnce(new Error('First failure'));
-		
-		// Second attempt succeeds
-		const freshBiometricData: Credentials = {
-			username: 'new_npub',
-			password: JSON.stringify({ encrypted: 'new_data' }),
-			server: 'test-device',
-			isLegacyFormat: true
-		};
+
 		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
-		mockGetBiometricData.mockResolvedValueOnce(freshBiometricData);
+		mockGetBiometricData.mockResolvedValueOnce(createCredentials('new_npub'));
 		mockDecryptNsec.mockResolvedValueOnce(validNsec);
 		mockPreferencesGet.mockResolvedValue({ value: null });
 
-		// Should allow retry after failure
 		await expect(getNostrKeyPair()).rejects.toThrow('First failure');
 
-		// Second call should succeed
 		const result = await getNostrKeyPair();
 		expect(result.npub).toBe('new_npub');
 	});
 
-	it('should clear all caches when error occurs', async () => {
-		const mockBiometricData: Credentials = {
-			username: 'test_npub',
-			password: JSON.stringify({ encrypted: 'data' }),
-			server: 'test-device',
-			isLegacyFormat: true
-		};
-		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
+	it('should throw when decryption fails without retrying', async () => {
+		const mockBiometricData = createCredentials('test_npub');
 
 		let currentState: AppState = createState(mockBiometricData);
 		appStore.set(currentState);
@@ -228,34 +182,14 @@ describe('Error Recovery and Fallback', () => {
 			appStore.set(currentState);
 		});
 
-		mockPreferencesGet.mockImplementation(async ({ key }) => {
-			if (key === StorageKeys.ACCESS_TOKEN) return { value: 'valid_token' };
-			if (key === StorageKeys.NPUB) return { value: 'test_npub' };
-			return { value: null };
-		});
-		// First call fails, second succeeds
-		mockDecryptNsec.mockRejectedValueOnce(new Error('Decryption failed'));
+		mockPreferencesGet.mockImplementation(async () => ({ value: null }));
+		mockDecryptNsec.mockRejectedValue(new Error('Decryption failed'));
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const mockGetBiometricData = vi.mocked(getBiometricData);
-		mockGetBiometricData.mockResolvedValue({
-			username: 'new_npub',
-			password: JSON.stringify({ encrypted: 'new_data' }),
-			server: 'test-device',
-			isLegacyFormat: true
-		});
-		mockDecryptNsec.mockResolvedValueOnce(validNsec);
 
-		await getNostrKeyPair();
-
-		// Should clear cache
-		expect(mockAppStoreUpdate).toHaveBeenCalled();
-		
-		// Verify the update function clears biometricData
-		const updateCall = mockAppStoreUpdate.mock.calls[0][0];
-		const state: AppState = createState(mockBiometricData);
-		const newState = updateCall(state);
-		expect(newState.biometricData).toBeNull();
+		await expect(getNostrKeyPair()).rejects.toThrow('Decryption failed');
+		expect(mockGetBiometricData).not.toHaveBeenCalled();
 	});
 
 	it('should handle multiple consecutive failures gracefully', async () => {
