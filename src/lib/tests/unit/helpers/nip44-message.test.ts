@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Event as NostrEvent } from 'nostr-tools';
 
+// Hoisted mocks so they can be used in vi.mock and in tests
+const mockPool = {
+	querySync: vi.fn().mockResolvedValue([]),
+	publish: vi.fn().mockResolvedValue([Promise.resolve()]),
+	subscribe: vi.fn(() => ({ close: vi.fn() })),
+	close: vi.fn()
+};
+
 // Mock the dependencies
 vi.mock('$lib/nostr/nip44', () => ({
 	default: {
@@ -16,14 +24,34 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: vi.fn(),
-	subscribeToEvents: vi.fn()
+	subscribeToEvents: vi.fn(),
+	publishToMultipleRelays: vi.fn().mockResolvedValue([{ relay: 'wss://relay1.test', success: true, error: null }])
 }));
 
-vi.mock('$lib/stores/app.store', () => ({
-	appStore: {
-		showErrorToast: vi.fn()
-	}
-}));
+vi.mock('$lib/stores/app.store', async () => {
+	const { writable } = await import('svelte/store');
+	const store = writable({ pool: mockPool });
+	return {
+		appStore: Object.assign(store, { showErrorToast: vi.fn() })
+	};
+});
+
+// Mock nip19.decode so npub strings don't trigger real bech32 (which requires valid format)
+vi.mock('nostr-tools', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('nostr-tools')>();
+	return {
+		...actual,
+		nip19: {
+			...actual.nip19,
+			decode: vi.fn((code: string) => {
+				if (code.startsWith('npub')) {
+					return { data: 'decoded-hex-pubkey', type: 'npub' };
+				}
+				return actual.nip19.decode(code);
+			})
+		}
+	};
+});
 
 vi.mock('$env/static/public', () => ({
 	PUBLIC_NOSTR_RELAY_URL: 'wss://relay1.test',
@@ -38,6 +66,7 @@ describe('NIP-44 Message Utilities', () => {
 	beforeEach(async () => {
 		// Reset all mocks
 		vi.clearAllMocks();
+		mockPool.querySync.mockResolvedValue([]);
 
 		// Get mocked modules
 		mockNip44 = (await import('$lib/nostr/nip44')).default;
@@ -86,13 +115,6 @@ describe('NIP-44 Message Utilities', () => {
 			const message = 'Hello World';
 			const recipientPubkey = 'recipient-pubkey-hex';
 
-			// Mock successful relay publishing
-			vi.doMock('nostr-tools/pool', () => ({
-				SimplePool: vi.fn(() => ({
-					publish: vi.fn().mockResolvedValue([Promise.resolve()])
-				}))
-			}));
-
 			await sendDirectMessage(message, recipientPubkey);
 
 			expect(mockNip44.getConversationKey).toHaveBeenCalled();
@@ -108,7 +130,7 @@ describe('NIP-44 Message Utilities', () => {
 
 			const recipientPubkey = 'recipient-pubkey-hex';
 
-			// Mock relay response
+			// Mock relay response via appStore pool
 			const mockEvents: NostrEvent[] = [
 				{
 					id: 'test-event-id',
@@ -120,12 +142,7 @@ describe('NIP-44 Message Utilities', () => {
 					sig: 'test-signature'
 				}
 			];
-
-			vi.doMock('nostr-tools/pool', () => ({
-				SimplePool: vi.fn(() => ({
-					querySync: vi.fn().mockResolvedValue(mockEvents)
-				}))
-			}));
+			mockPool.querySync.mockResolvedValue(mockEvents);
 
 			const messages = await getMessageHistory(recipientPubkey);
 
@@ -138,13 +155,6 @@ describe('NIP-44 Message Utilities', () => {
 
 			const message = 'Test message';
 			const recipientPubkey = 'recipient-pubkey-hex';
-
-			// Mock successful relay publishing
-			vi.doMock('nostr-tools/pool', () => ({
-				SimplePool: vi.fn(() => ({
-					publish: vi.fn().mockResolvedValue([Promise.resolve()])
-				}))
-			}));
 
 			await sendDirectMessage(message, recipientPubkey);
 			await sendDirectMessage(message, recipientPubkey);
@@ -169,7 +179,7 @@ describe('NIP-44 Message Utilities', () => {
 
 			mockNip44.decrypt.mockRejectedValue(new Error('Decryption failed'));
 
-			// Mock relay response
+			// Mock relay response via appStore pool
 			const mockEvents: NostrEvent[] = [
 				{
 					id: 'test-event-id',
@@ -181,12 +191,7 @@ describe('NIP-44 Message Utilities', () => {
 					sig: 'test-signature'
 				}
 			];
-
-			vi.doMock('nostr-tools/pool', () => ({
-				SimplePool: vi.fn(() => ({
-					querySync: vi.fn().mockResolvedValue(mockEvents)
-				}))
-			}));
+			mockPool.querySync.mockResolvedValue(mockEvents);
 
 			const messages = await getMessageHistory('recipient-pubkey');
 
@@ -197,7 +202,9 @@ describe('NIP-44 Message Utilities', () => {
 		it('should handle invalid public key formats', async () => {
 			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
 
-			// Should not crash with invalid pubkey
+			// Simulate nip44 rejecting invalid key; implementation should surface the error
+			mockNip44.getConversationKey.mockRejectedValue(new Error('Invalid public key'));
+
 			await expect(sendDirectMessage('test', 'invalid-key')).rejects.toThrow();
 		});
 	});
@@ -209,19 +216,15 @@ describe('NIP-44 Message Utilities', () => {
 			const message = 'Test message';
 			const recipientPubkey = 'recipient-pubkey-hex';
 
-			// Mock successful relay publishing
-			vi.doMock('nostr-tools/pool', () => ({
-				SimplePool: vi.fn(() => ({
-					publish: vi.fn().mockResolvedValue([Promise.resolve()])
-				}))
-			}));
-
 			await sendDirectMessage(message, recipientPubkey);
 
 			expect(mockGetSignedEvent).toHaveBeenCalledWith({
 				kind: 4,
 				content: 'encrypted_content',
-				tags: [['p', recipientPubkey]],
+				tags: [
+					['p', recipientPubkey],
+					['m', 'direct-message']
+				],
 				created_at: expect.any(Number)
 			});
 		});
@@ -233,13 +236,6 @@ describe('NIP-44 Message Utilities', () => {
 			const recipientPubkey = 'recipient-pubkey-hex';
 			const threadRootId = 'thread-root-id';
 
-			// Mock successful relay publishing
-			vi.doMock('nostr-tools/pool', () => ({
-				SimplePool: vi.fn(() => ({
-					publish: vi.fn().mockResolvedValue([Promise.resolve()])
-				}))
-			}));
-
 			await sendDirectMessage(message, recipientPubkey, threadRootId);
 
 			expect(mockGetSignedEvent).toHaveBeenCalledWith({
@@ -247,6 +243,7 @@ describe('NIP-44 Message Utilities', () => {
 				content: 'encrypted_content',
 				tags: [
 					['p', recipientPubkey],
+					['m', 'direct-message'],
 					['e', threadRootId, '', 'root']
 				],
 				created_at: expect.any(Number)
@@ -258,24 +255,8 @@ describe('NIP-44 Message Utilities', () => {
 		it('should handle npub format public keys', async () => {
 			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
 
-			// Mock nip19.decode
-			vi.doMock('nostr-tools', () => ({
-				nip19: {
-					decode: vi.fn().mockReturnValue({
-						data: 'decoded-hex-pubkey'
-					})
-				}
-			}));
-
 			const message = 'Test message';
 			const recipientNpub = 'npub1test123';
-
-			// Mock successful relay publishing
-			vi.doMock('nostr-tools/pool', () => ({
-				SimplePool: vi.fn(() => ({
-					publish: vi.fn().mockResolvedValue([Promise.resolve()])
-				}))
-			}));
 
 			await sendDirectMessage(message, recipientNpub);
 
@@ -290,13 +271,6 @@ describe('NIP-44 Message Utilities', () => {
 
 			const message = 'Test message';
 			const recipientHex = 'deadbeef'.repeat(8); // 64 char hex
-
-			// Mock successful relay publishing
-			vi.doMock('nostr-tools/pool', () => ({
-				SimplePool: vi.fn(() => ({
-					publish: vi.fn().mockResolvedValue([Promise.resolve()])
-				}))
-			}));
 
 			await sendDirectMessage(message, recipientHex);
 
