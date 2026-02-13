@@ -28,7 +28,7 @@
 		"test:ci": "vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/",
 		"test:triage": "node scripts/test-triage.js",
 		"test:unit:validators": "vitest run src/lib/tests/validators.test.ts",
-		"test:unit:formatters": "vitest run src/lib/tests/currencyFormatter.test.ts src/lib/tests/unit/helpers/dateFormatter.test.ts",
+		"test:unit:formatters": "vitest run src/lib/tests/unit/helpers/dateFormatter.test.ts src/lib/tests/unit/helpers/currencyFormatter.test.ts",
 		"test:unit:crypto": "vitest run src/lib/tests/crypto.test.ts src/lib/tests/unit/helpers/encoding.test.ts",
 		"test:unit:auth": "vitest run src/lib/tests/auth.test.ts src/lib/tests/auth-cache-validation.test.ts src/lib/tests/auth-error-recovery.test.ts",
 		"test:unit:root-other": "vitest run src/lib/tests/deviceIdentity.test.ts src/lib/tests/findTasks.test.ts src/lib/tests/nip44-message.test.ts src/lib/tests/nostr-message.test.ts src/lib/tests/profile-cache.test.ts",
