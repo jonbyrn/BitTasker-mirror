@@ -53,8 +53,8 @@ const TEST_GROUPS = [
 	},
 	{
 		id: 'root-other',
-		label: 'Root (deviceIdentity, findTasks, nostr, profile)',
-		match: /^(deviceIdentity|findTasks|nip44-message|nostr-message|profile-cache)\.test\.ts$/,
+		label: 'Root (nip44-message, nostr-message)',
+		match: /^(nip44-message|nostr-message)\.test\.ts$/,
 	},
 	{ id: 'api', label: 'API Services', match: /^api\// },
 	{ id: 'utils', label: 'Utils', match: /^utils\// },
