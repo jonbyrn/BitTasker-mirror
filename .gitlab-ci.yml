@@ -13,11 +13,14 @@
 # -----------------------------------------------------------------------------------------------
 # BRANCH STRATEGY (see also "After merging feat/workers-deployment" below)
 # -----------------------------------------------------------------------------------------------
-#   - feat/workers-deployment → validate (E2E) + deploy to development (worker.dev.bittasker.com)
-#   - dev                     → validate (E2E); deploy-staging commented out
-#   - master                    → validate (E2E); deploy-production commented out
-#   - Merge requests          → validate (E2E) only
-#   - Other branches          → no pipeline (add rules if you want E2E on every branch)
+#   - feat/workers-deployment  → validate (E2E) + deploy to development (worker.dev.bittasker.com)
+#   - feat/self-hosted-runner  → same as above; used to test pipeline on self-hosted runner (tag: self-hosted)
+#   - dev                      → validate (E2E); deploy-staging commented out
+#   - master                   → validate (E2E); deploy-production commented out
+#   - Merge requests           → validate (E2E) only
+#   - Other branches           → no pipeline (add rules if you want E2E on every branch)
+#
+# Jobs with tags: [self-hosted] run only on the self-hosted runner (zero GitLab compute minutes).
 #
 # After merging feat/workers-deployment:
 #   - Recommended: Run E2E on dev + master + MRs only (not every branch) to keep feedback fast.
@@ -46,6 +49,8 @@ stages:
 build:
   image: node:22-bookworm-slim
   stage: validate
+  tags:
+    - self-hosted
   environment:
     name: development
   cache:
@@ -63,7 +68,7 @@ build:
     expire_in: 1 hour
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
+    - if: $CI_COMMIT_BRANCH == "feat/self-hosted-runner"
     - if: $CI_COMMIT_BRANCH == "dev"
     - if: $CI_COMMIT_BRANCH == "master"
 
@@ -99,6 +104,8 @@ build:
 playwright:
   image: mcr.microsoft.com/playwright:v1.54.0-noble
   stage: validate
+  tags:
+    - self-hosted
   cache:
     key: $CI_COMMIT_REF_SLUG
     paths:
@@ -113,7 +120,7 @@ playwright:
     name: development
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
+    - if: $CI_COMMIT_BRANCH == "feat/self-hosted-runner"
     - if: $CI_COMMIT_BRANCH == "dev"
     - if: $CI_COMMIT_BRANCH == "master"
 
@@ -125,6 +132,8 @@ playwright:
 deploy-development:
   image: node:22-bookworm-slim
   stage: deploy
+  tags:
+    - self-hosted
   cache:
     key: $CI_COMMIT_REF_SLUG
     paths:
@@ -141,7 +150,7 @@ deploy-development:
     name: development
     url: https://worker.dev.bittasker.com
   rules:
-    - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
+    - if: $CI_COMMIT_BRANCH == "feat/self-hosted-runner"
 
 # ============================================
 # DEPLOY STAGING - dev branch only
