@@ -33,6 +33,7 @@ const TEST_GROUPS = [
 	{ id: 'unit-helpers', label: 'Unit (helpers)', match: /^unit\/helpers\// },
 	{ id: 'unit-utils', label: 'Unit (utils)', match: /^unit\/utils\// },
 	{ id: 'unit-api', label: 'Unit (API services)', match: /^unit\/api\// },
+	{ id: 'unit-stores', label: 'Unit (stores)', match: /^unit\/stores\// },
 	{ id: 'validators', label: 'Validators', match: /^validators\.test\.ts$/ },
 	{
 		id: 'formatters',
