@@ -31,6 +31,7 @@ const TEMP_JSON = path.join(ROOT, '.test-triage-temp.json');
 const TEST_GROUPS = [
 	{ id: 'ci-placeholder', label: 'CI Placeholder', match: /^ci-placeholder\.test\.ts$/ },
 	{ id: 'unit-helpers', label: 'Unit (helpers)', match: /^unit\/helpers\// },
+	{ id: 'unit-utils', label: 'Unit (utils)', match: /^unit\/utils\// },
 	{ id: 'validators', label: 'Validators', match: /^validators\.test\.ts$/ },
 	{
 		id: 'formatters',
