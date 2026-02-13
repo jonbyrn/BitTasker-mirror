@@ -169,11 +169,17 @@
 					<button
 					class="btn btn-secondary w-full"
 					data-testid="onboarding-continue-without-completing"
-					onclick={() => {
+					onclick={async () => {
+						if (isContinueLoading) return;
 						isContinueLoading = true;
-						goto('/dashboard').finally(() => {
+						try {
+							await goto('/dashboard');
+						} catch {
+							window.location.href = '/dashboard';
+							return;
+						} finally {
 							isContinueLoading = false;
-						});
+						}
 					}}
 						disabled={isContinueLoading}
 					>
@@ -249,11 +255,24 @@
 				</div>
 				<button
 				class="btn btn-primary mt-6 min-w-10"
-				onclick={() => {
+				onclick={async () => {
+					if (isRedirecting) return;
 					isRedirecting = true;
-					goto('/dashboard').finally(() => {
+					const NAV_TIMEOUT_MS = 5000;
+					try {
+						await Promise.race([
+							goto('/dashboard'),
+							new Promise((_, reject) =>
+								setTimeout(() => reject(new Error('navigation_timeout')), NAV_TIMEOUT_MS)
+							)
+						]);
+					} catch {
+						// Fallback: full page load if client nav fails or times out
+						window.location.href = '/dashboard';
+						return;
+					} finally {
 						isRedirecting = false;
-					});
+					}
 				}}
 				>
 					{#if isRedirecting}

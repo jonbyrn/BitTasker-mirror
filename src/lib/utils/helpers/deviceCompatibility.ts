@@ -5,6 +5,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { browser } from '$app/environment';
+import { writable } from 'svelte/store';
 
 export type DeviceOS = 'ios' | 'android' | 'windows' | 'macos' | 'linux' | 'unknown';
 export type BrowserType = 'safari' | 'chrome' | 'firefox' | 'edge' | 'opera' | 'unknown';
@@ -158,6 +159,48 @@ export async function isPasskeySupported(): Promise<boolean> {
 }
 
 /**
+ * Detects when the user is on iOS web using a non-Safari browser (e.g. Chrome, Brave).
+ * These browsers use Google Password Manager for passkeys; Chrome must be set as the
+ * autofill provider in Settings → General → AutoFill & Passwords.
+ *
+ * Returns true only when: iOS + non-Safari browser + web (not native app).
+ * Returns false for: Android, PC, iOS Safari, iOS native app — standard flow unchanged.
+ */
+export function isIosWebNonSafari(): boolean {
+	if (!browser) return false;
+	const os = detectOS();
+	const browserType = detectBrowser();
+	return os === 'ios' && browserType !== 'safari' && !Capacitor.isNativePlatform();
+}
+
+/**
+ * Reactive store for iOS Chrome/Brave passkey hint visibility.
+ * Initialize once on app load via initShowIosPasskeyHint() in +layout.svelte.
+ */
+export const showIosPasskeyHintStore = writable(false);
+
+/** Call once on client mount to initialize the store. */
+export function initShowIosPasskeyHint(): void {
+	if (browser) {
+		showIosPasskeyHintStore.set(isIosWebNonSafari());
+	}
+}
+
+/**
+ * Check if hostname is an IP address (invalid for WebAuthn rpId).
+ * WebAuthn spec requires rpId to be a valid domain string; IP addresses are rejected.
+ */
+export function isInvalidRpIdHostname(): boolean {
+	if (!browser || typeof window === 'undefined') return false;
+	const host = window.location.hostname;
+	// IPv4 pattern (e.g. 192.168.1.23)
+	if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+	// IPv6 pattern (simplified)
+	if (host.includes(':') || host.startsWith('[')) return true;
+	return false;
+}
+
+/**
  * Check if HTTPS is required (WebAuthn requires secure context)
  */
 export function requiresHTTPS(): boolean {
@@ -195,8 +238,9 @@ export async function getDeviceCompatibility(): Promise<DeviceInfo> {
 		if (os === 'ios') {
 			if (browser === 'safari') {
 				compatibilityNotes.push('iOS Safari - uses iCloud Keychain for passkeys');
-			} else if (browser === 'chrome') {
-				compatibilityNotes.push('iOS Chrome - uses iCloud Keychain for passkeys');
+			} else {
+				// Chrome, Brave on iOS - use Google Password Manager (enable Chrome in AutoFill & Passwords)
+				compatibilityNotes.push('iOS Chrome/Brave - enable Chrome in Settings → AutoFill & Passwords for passkeys');
 			}
 		} else if (os === 'android') {
 			if (browser === 'chrome') {
@@ -266,9 +310,14 @@ export function getDeviceSpecificTroubleshooting(
 				steps.push('common.components.error_troubleshooting_modal.device_specific_steps.ios_web_safari_1');
 				steps.push('common.components.error_troubleshooting_modal.device_specific_steps.ios_web_safari_2');
 				steps.push('common.components.error_troubleshooting_modal.device_specific_steps.ios_web_safari_3');
+				steps.push('common.components.error_troubleshooting_modal.device_specific_steps.ios_web_safari_4');
 			} else {
+				// Chrome, Brave on iOS - need Chrome/Brave as autofill provider for Google Password Manager
 				steps.push('common.components.error_troubleshooting_modal.device_specific_steps.ios_web_other_1');
 				steps.push('common.components.error_troubleshooting_modal.device_specific_steps.ios_web_other_2');
+				steps.push('common.components.error_troubleshooting_modal.device_specific_steps.ios_web_other_3');
+				steps.push('common.components.error_troubleshooting_modal.device_specific_steps.ios_web_other_4');
+				steps.push('common.components.error_troubleshooting_modal.device_specific_steps.ios_web_other_5');
 			}
 		}
 	}

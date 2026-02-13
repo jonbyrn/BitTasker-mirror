@@ -5,6 +5,7 @@ import { handleBiometricError } from './biometricErrorHandler';
 import { packKeysMobile, unPackKeysMobile, generateCredentialId, generateMobileChallenge } from '$lib/utils/helpers/encoding';
 import { Webauthn, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from 'capacitor-webauthn';
 import { createDisplayName, createUserDeviceShortName, createUserFriendlyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+import { isInvalidRpIdHostname } from './deviceCompatibility';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '../constants/storage';
 import { appStore } from '$lib/stores/app.store';
@@ -62,6 +63,9 @@ export async function setBiometricKey(
 		const userName = createUserFriendlyName(publicKey);
 
 		if (authMethod === 'passkey') {
+			if (isInvalidRpIdHostname()) {
+				throw new Error('WebAuthnRpIdInvalid');
+			}
 			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
 			if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
@@ -145,6 +149,9 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 
 		// Force WebAuthn if authMethod is 'passkey'
 		if (authMethod === 'passkey') {
+			if (isInvalidRpIdHostname()) {
+				throw new Error('WebAuthnRpIdInvalid');
+			}
 			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
 			if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 

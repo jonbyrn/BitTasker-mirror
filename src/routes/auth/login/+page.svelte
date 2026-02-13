@@ -32,6 +32,7 @@
 		setWebBiometricKey,
 		getWebAuthnProviderDescription
 	} from '$lib/utils/helpers/webBiometrics';
+	import { showIosPasskeyHintStore } from '$lib/utils/helpers/deviceCompatibility';
 	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
 	import { Capacitor } from '@capacitor/core';
 	import authService from '$lib/api/services/auth.service';
@@ -63,7 +64,6 @@
 	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
 	let qrScannerModal: LoginQrCodeScannerModal | null = $state(null);
 	let isQrScannerError = $state(false);
-
 	onMount(async () => {
 		try {
 			// Check available authentication methods
@@ -475,12 +475,17 @@
 							x: isNostrLogin ? 20 : -20
 						}}
 					>
+						{#if $showIosPasskeyHintStore}
+							<p class="text-base-content mb-2 text-center text-sm">
+								{$t('login.ios_passkey_chrome_hint')}
+							</p>
+						{/if}
 						<div class="flex flex-col gap-2">
 							<button
 								class="btn btn-primary"
 								data-testid="login-continue-passkey"
 								onclick={() => authenticate('passkey')}
-								disabled={isLoading}
+								disabled={isLoading || !authMethods.webAuthn}
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"

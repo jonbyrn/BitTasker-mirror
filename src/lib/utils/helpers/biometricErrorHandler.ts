@@ -6,6 +6,7 @@
 import { t, locale } from 'svelte-i18n';
 import { get } from 'svelte/store';
 import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
+import { isIosWebNonSafari } from './deviceCompatibility';
 
 /**
  * Platform types for biometric authentication
@@ -25,6 +26,11 @@ export async function handleBiometricError(error: any, platform: BiometricPlatfo
 	
 	const _ = get(t);
 
+	// Handle custom rpId error (IP address invalid for WebAuthn)
+	if (error?.message === 'WebAuthnRpIdInvalid') {
+		return _('login.biometric_errors.rp_id_invalid');
+	}
+
 	// Handle WebAuthn specific errors (both web and mobile webauthn)
 	if (error?.name && (platform === 'web' || platform === 'mobile-webauthn')) {
 		switch (error.name) {
@@ -35,6 +41,10 @@ export async function handleBiometricError(error: any, platform: BiometricPlatfo
 			case 'NotSupportedError':
 				return _('login.biometric_errors.not_supported');
 			case 'SecurityError':
+				// Often caused by invalid rpId (e.g. IP address)
+				if (error?.message?.toLowerCase?.().includes('rp') || error?.message?.toLowerCase?.().includes('domain')) {
+					return _('login.biometric_errors.rp_id_invalid');
+				}
 				return _('login.biometric_errors.security_error');
 			case 'InvalidStateError':
 				return _('login.biometric_errors.invalid_state');
@@ -174,6 +184,10 @@ export async function handleBiometricError(error: any, platform: BiometricPlatfo
 			return _('login.biometric_errors.cancelled');
 		}
 		if (message.includes('not available') || message.includes('unavailable')) {
+			// iOS Chrome/Brave: needs Chrome as autofill provider for Google Password Manager
+			if (isIosWebNonSafari()) {
+				return _('login.biometric_errors.ios_passkey_chrome_setup');
+			}
 			return _('login.biometric_errors.not_available');
 		}
 		if (message.includes('no credential') || message.includes('credential not found')) {

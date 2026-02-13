@@ -66,7 +66,7 @@
 			
 			// Get settings action if available
 			settingsAction = getSettingsAction(deviceInfo.os, deviceInfo.platform, errorType);
-			settingsInstructions = getSettingsInstructions(deviceInfo.os, deviceInfo.platform, errorType);
+			settingsInstructions = getSettingsInstructions(deviceInfo.os, deviceInfo.platform, errorType, deviceInfo.browser);
 		}
 	});
 	
@@ -394,7 +394,17 @@
 								<div class="mt-4 pt-4 border-t border-base-content/10">
 									<div class="flex items-start gap-2 mb-2">
 										<IconCog class="h-4 w-4 text-primary shrink-0 mt-0.5" />
-										<h5 class="font-semibold text-xs sm:text-sm">{$t('common.components.error_troubleshooting_modal.settings_instructions_title')}</h5>
+										<h5 class="font-semibold text-xs sm:text-sm">
+											{#if deviceInfo && !deviceInfo.isNative && deviceInfo.os === 'ios' && errorType === 'biometric'}
+												{#if deviceInfo.browser === 'safari'}
+													{$t('common.components.error_troubleshooting_modal.settings_instructions_title_ios_safari')}
+												{:else}
+													{$t('common.components.error_troubleshooting_modal.settings_instructions_title_ios_chrome')}
+												{/if}
+											{:else}
+												{$t('common.components.error_troubleshooting_modal.settings_instructions_title')}
+											{/if}
+										</h5>
 									</div>
 									<ol class="list-decimal list-inside space-y-1 text-xs sm:text-sm text-base-content/80 leading-relaxed ml-2">
 										{#each settingsInstructions as instructionKey}

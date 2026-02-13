@@ -18,6 +18,7 @@
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
 	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
+	import { initShowIosPasskeyHint } from '$lib/utils/helpers/deviceCompatibility';
 	import '../app.css';
 
 	const { children } = $props();
@@ -80,6 +81,7 @@
 
 	onMount(() => {
 		initializeTheme();
+		initShowIosPasskeyHint();
 		hideSplashScreenWhenReady(300);
 
 		if (typeof requestIdleCallback !== 'undefined') {

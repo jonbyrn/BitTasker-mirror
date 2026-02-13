@@ -18,6 +18,7 @@ import { authState } from '$lib/stores/auth.store';
 import { appStore } from '$lib/stores/app.store';
 import { goto } from '$app/navigation';
 import authService from '$lib/api/services/auth.service';
+import { isIosWebNonSafari, isInvalidRpIdHostname } from './deviceCompatibility';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
 interface WebAuthnVerifyOptions extends BiometricVerifyOptions {
@@ -26,6 +27,9 @@ interface WebAuthnVerifyOptions extends BiometricVerifyOptions {
 	attestation: AttestationConveyancePreference;
 	authenticatorSelection: AuthenticatorSelectionCriteria;
 }
+
+/** WebAuthn credential discovery timeout (ms) - prevents hanging on slow devices */
+const WEBAUTHN_VERIFY_TIMEOUT_MS = 35000;
 
 // Default options for WebAuthn authentication requests
 const WEBAUTHN_VERIFY_OPTIONS: WebAuthnVerifyOptions = {
@@ -50,46 +54,84 @@ const WEBAUTHN_VERIFY_OPTIONS: WebAuthnVerifyOptions = {
 
 /**
  * Check if WebAuthn is available in the current browser
- * Also detects Playwright's virtual authenticator for E2E testing
+ * iOS Chrome 17+ with Google Password Manager: isUserVerifyingPlatformAuthenticatorAvailable may return false
+ * but passkeys work when Chrome is set as autofill provider. We allow the attempt.
  */
 export const checkWebBiometricAvailability = async (): Promise<boolean> => {
 	if (!window.PublicKeyCredential) {
 		return false;
 	}
 
+	// IP addresses are invalid rpId - passkeys cannot work
+	if (isInvalidRpIdHostname()) {
+		return false;
+	}
+
 	try {
-		// Standard check for platform authenticator
-		const isAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-		
-		// If standard check passes, WebAuthn is available
-		if (isAvailable) {
+		// Standard check for platform authenticator (Safari, iCloud Keychain)
+		const isPlatformAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+		if (isPlatformAvailable) {
 			return true;
 		}
-		
-		// Fallback: Check if we're in a test environment with virtual authenticator
-		// Playwright's virtual authenticator might not be detected by isUserVerifyingPlatformAuthenticatorAvailable
-		// but PublicKeyCredential.create() will still work
-		// We can detect this by checking if PublicKeyCredential exists and we're in a test-like environment
-		const isTestEnvironment = 
+
+		// iOS Chrome/Brave (Chromium): GPM supports passkeys when Chrome is autofill provider (iOS 17+)
+		// Platform check may return false but navigator.credentials.create() can still work
+		if (isIosWebNonSafari()) {
+			return true;
+		}
+
+		// Test environment: virtual authenticator
+		const isTestEnvironment =
 			typeof navigator !== 'undefined' &&
-			(window.location.hostname === 'localhost' || 
-			 window.location.hostname === '127.0.0.1' ||
-			 process.env.NODE_ENV === 'test' ||
-			 (window as any).__PLAYWRIGHT_TEST__);
-		
-		// If PublicKeyCredential exists and we're in a test environment, assume virtual authenticator is available
-		// This allows E2E tests with Playwright's virtual authenticator to work
+			(window.location.hostname === 'localhost' ||
+				window.location.hostname === '127.0.0.1' ||
+				process.env.NODE_ENV === 'test' ||
+				(window as any).__PLAYWRIGHT_TEST__);
 		if (isTestEnvironment && window.PublicKeyCredential) {
-			console.log('[WebAuthn] Test environment detected, assuming virtual authenticator is available');
 			return true;
 		}
-		
+
 		return false;
 	} catch (err) {
 		console.error('WebAuthn not available:', err);
 		return false;
 	}
 };
+
+/**
+ * Use permissive WebAuthn options for iOS non-Safari (Chrome GPM uses PIN, not platform biometric)
+ */
+function getAuthenticatorSelectionForCreation(): AuthenticatorSelectionCriteria {
+	const isTestEnv =
+		typeof navigator !== 'undefined' &&
+		(window.location.hostname === 'localhost' ||
+			window.location.hostname === '127.0.0.1' ||
+			process.env.NODE_ENV === 'test' ||
+			(window as any).__PLAYWRIGHT_TEST__);
+
+	if (isTestEnv) {
+		return {
+			userVerification: 'preferred',
+			requireResidentKey: true,
+			residentKey: 'preferred'
+		};
+	}
+
+	// iOS Chrome/Brave: GPM needs permissive options (no platform-only, userVerification preferred)
+	if (isIosWebNonSafari()) {
+		return {
+			userVerification: 'preferred',
+			requireResidentKey: true,
+			residentKey: 'required'
+		};
+	}
+
+	return {
+		...WEBAUTHN_VERIFY_OPTIONS.authenticatorSelection,
+		requireResidentKey: true,
+		residentKey: 'required'
+	};
+}
 
 /**
  * Verify user identity using WebAuthn with automatic credential discovery
@@ -125,7 +167,7 @@ export async function verifyIdentity(): Promise<boolean> {
 
 		// Add manual timeout to prevent hanging
 		const timeoutPromise = new Promise<null>((_, reject) => {
-			setTimeout(() => reject(new Error('La operación expiró o no fue permitida')), 35000);
+			setTimeout(() => reject(new Error('Authentication timed out')), WEBAUTHN_VERIFY_TIMEOUT_MS);
 		});
 
 		const credential = await Promise.race([credentialPromise, timeoutPromise]);
@@ -150,6 +192,11 @@ export async function setWebBiometricKey(
 	customName?: string
 ): Promise<string> {
 	try {
+		// IP addresses are invalid rpId per WebAuthn spec - fail early with clear message
+		if (isInvalidRpIdHostname()) {
+			throw new Error('WebAuthnRpIdInvalid');
+		}
+
 		// Check availability, but allow test environments to proceed
 		// The actual WebAuthn call will fail gracefully if not available
 		const isAvailable = await checkWebBiometricAvailability();
@@ -176,15 +223,6 @@ export async function setWebBiometricKey(
 		// Use customName as-is (no prefix) so it appears in password managers
 		const userName = validCustomName || createDisplayName(publicKey);
 
-		// Create registration options
-		// In test environments, use more permissive options to work with virtual authenticators
-		const isTestEnvironment = 
-			typeof navigator !== 'undefined' &&
-			(window.location.hostname === 'localhost' || 
-			 window.location.hostname === '127.0.0.1' ||
-			 process.env.NODE_ENV === 'test' ||
-			 (window as any).__PLAYWRIGHT_TEST__);
-		
 		const registrationOptions: PublicKeyCredentialCreationOptions = {
 			challenge: generateWebChallenge(),
 			rp: {
@@ -192,30 +230,17 @@ export async function setWebBiometricKey(
 				id: window.location.hostname
 			},
 			user: {
-				id: packedKeys, // * MAX of 64 bytes
-				name: userName, // Short identifier like "8e52b613...de2612a"
-				displayName: displayName // Full display name like "BitTasker 8e52b613...de2612a (12/20/2024)"
+				id: packedKeys,
+				name: userName,
+				displayName: displayName
 			},
 			pubKeyCredParams: [
 				{ type: 'public-key', alg: -7 }, // ES256
 				{ type: 'public-key', alg: -257 } // RS256
 			],
 			timeout: 60000,
-			attestation: 'none', // Use 'none' for test environments to avoid attestation issues
-			authenticatorSelection: isTestEnvironment ? {
-				// In test mode (localhost), allow cross-platform authenticators to match virtual authenticator
-				// Using 'usb' transport in Playwright means we should allow cross-platform authenticators
-				// Don't restrict authenticatorAttachment - allow any type (platform or cross-platform)
-				// This allows the virtual authenticator to be automatically selected without browser prompts
-				// authenticatorAttachment: undefined, // Allow any authenticator type (platform or cross-platform)
-				userVerification: 'preferred', // Less strict for test environments
-				requireResidentKey: true,
-				residentKey: 'preferred' // Less strict for test environments
-			} : {
-				...WEBAUTHN_VERIFY_OPTIONS.authenticatorSelection,
-				requireResidentKey: true,
-				residentKey: 'required'
-			}
+			attestation: 'none',
+			authenticatorSelection: getAuthenticatorSelectionForCreation()
 		};
 
 		// Create credential
@@ -229,7 +254,14 @@ export async function setWebBiometricKey(
 
 		return credential.id;
 	} catch (err) {
-		console.error('Failed to set biometric key:', err);
+		console.error('[WebAuthn] setWebBiometricKey failed:', err);
+		if (err instanceof Error) {
+			console.error('[WebAuthn] Error details:', {
+				name: err.name,
+				message: err.message,
+				hostname: window?.location?.hostname
+			});
+		}
 		throw new Error(await handleBiometricError(err, 'web'));
 	}
 }
@@ -240,6 +272,11 @@ export async function setWebBiometricKey(
  */
 export async function getWebBiometricData(checkNpub: boolean = false): Promise<Credentials | null> {
 	try {
+		// IP addresses are invalid rpId per WebAuthn spec - fail early with clear message
+		if (isInvalidRpIdHostname()) {
+			throw new Error('WebAuthnRpIdInvalid');
+		}
+
 		// Check availability, but allow test environments to proceed
 		const isAvailable = await checkWebBiometricAvailability();
 		if (!isAvailable) {
@@ -257,19 +294,21 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 			// In test environment, continue - let the actual WebAuthn call determine if it works
 		}
 
-		// Use credential discovery
-		// In test environments, use more permissive options
-		const isTestEnvironment = 
+		// Use credential discovery - userVerification preferred for iOS Chrome (GPM PIN flow)
+		const userVerification: UserVerificationRequirement =
+			isIosWebNonSafari() ? 'preferred' : WEBAUTHN_VERIFY_OPTIONS.userVerification;
+
+		const isTestEnvironment =
 			typeof navigator !== 'undefined' &&
-			(window.location.hostname === 'localhost' || 
-			 window.location.hostname === '127.0.0.1' ||
-			 process.env.NODE_ENV === 'test' ||
-			 (window as any).__PLAYWRIGHT_TEST__);
-		
+			(window.location.hostname === 'localhost' ||
+				window.location.hostname === '127.0.0.1' ||
+				process.env.NODE_ENV === 'test' ||
+				(window as any).__PLAYWRIGHT_TEST__);
+
 		const authOptions: PublicKeyCredentialRequestOptions = {
 			challenge: generateWebChallenge(),
 			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
-			userVerification: isTestEnvironment ? 'preferred' : WEBAUTHN_VERIFY_OPTIONS.userVerification
+			userVerification: isTestEnvironment ? 'preferred' : userVerification
 		};
 
 		// Request authentication
@@ -381,7 +420,14 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 			return null;
 		}
 
-		console.error('Failed to get biometric data:', err);
+		console.error('[WebAuthn] getWebBiometricData failed:', err);
+		if (err instanceof Error) {
+			console.error('[WebAuthn] Error details:', {
+				name: err.name,
+				message: err.message,
+				hostname: window?.location?.hostname
+			});
+		}
 		if (err instanceof Error && err.message.includes('device has been revoked')) {
 			appStore.showInfoToast('Your device access has been revoked');
 			await authState.logout();

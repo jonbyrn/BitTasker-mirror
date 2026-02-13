@@ -16,6 +16,7 @@
 		checkWebBiometricAvailability,
 		setWebBiometricKey
 	} from '$lib/utils/helpers/webBiometrics';
+	import { showIosPasskeyHintStore } from '$lib/utils/helpers/deviceCompatibility';
 	import authService from '$lib/api/services/auth.service';
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
@@ -286,7 +287,7 @@
 </script>
 
 <div
-	class="bg-base-200 flex flex-grow flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20"
+	class="bg-base-200 flex grow flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20"
 >
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
@@ -387,6 +388,11 @@
 				</form>
 			{:else if step === 2}
 				<form onsubmit={completeRecovery} class="space-y-4">
+					{#if $showIosPasskeyHintStore}
+						<p class="text-base-content mb-2 text-center text-sm">
+							{$t('login.ios_passkey_chrome_hint')}
+						</p>
+					{/if}
 					<div class="form-control">
 						<label class="label" for="recoveryCode">
 							<span class="label-text">{$t('recovery_npub.recovery_code_label')}</span>

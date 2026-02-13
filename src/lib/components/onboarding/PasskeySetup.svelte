@@ -15,6 +15,7 @@
 		formatPasskeyName
 	} from '$lib/utils/helpers/deviceIdentity';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+	import { showIosPasskeyHintStore } from '$lib/utils/helpers/deviceCompatibility';
 	import authService from '$lib/api/services/auth.service';
 	import { t } from 'svelte-i18n';
 	import { Buffer } from 'buffer';
@@ -50,11 +51,14 @@
 		};
 	} = $props();
 
+	/** Delay after successful passkey setup before advancing to next step */
+	const PASSKEY_SUCCESS_DELAY_MS = 1500;
+
 	// Status indicators
 	let isLoading = $state(false);
 	let error = $state('');
 	let isSetupComplete = $state(false);
-	
+
 	// Error modal state
 	let errorMessage = $state('');
 	let errorType = $state<ErrorType | undefined>(undefined);
@@ -278,9 +282,7 @@
 			}
 
 			isSetupComplete = true;
-
-			// Small delay before proceeding to next step
-			setTimeout(() => nextStep(), 1500);
+			setTimeout(() => nextStep(), PASSKEY_SUCCESS_DELAY_MS);
 		} catch (err: unknown) {
 			console.error('Passkey setup failed:', err);
 			// Error already set by register() function for biometric errors
@@ -340,6 +342,12 @@
 				<p class="text-primary mb-6 text-center text-lg font-medium">
 					{$t('onboarding_auth.form.passkey_setup.next_gen_login')}
 				</p>
+
+				{#if $showIosPasskeyHintStore}
+					<p class="text-base-content mx-auto mb-4 max-w-lg text-center text-sm">
+						{$t('login.ios_passkey_chrome_hint')}
+					</p>
+				{/if}
 
 				{#if error}
 					<div data-testid="passkey-setup-error">

@@ -6,7 +6,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { browser } from '$app/environment';
-import type { DeviceOS } from './deviceCompatibility';
+import type { DeviceOS, BrowserType } from './deviceCompatibility';
 import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
 
 export type SettingsSection = 
@@ -182,11 +182,13 @@ export function getSettingsAction(
 /**
  * Get platform-specific instructions for opening settings manually
  * Returns translation keys that should be translated in the component
+ * @param browser - Optional browser type for web platform (enables iOS Safari vs Chrome/Brave specific instructions)
  */
 export function getSettingsInstructions(
 	os: DeviceOS,
 	platform: 'ios' | 'android' | 'web',
-	errorType?: ErrorType
+	errorType?: ErrorType,
+	browser?: BrowserType
 ): string[] {
 	const instructions: string[] = [];
 	
@@ -221,10 +223,29 @@ export function getSettingsInstructions(
 	} else {
 		// Web platform
 		if (os === 'ios') {
-			instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_1');
-			instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_2');
-			instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_3');
-			instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_4');
+			// Browser-specific instructions for iOS web
+			if (browser === 'safari') {
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_safari_1');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_safari_2');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_safari_3');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_safari_4');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_safari_5');
+			} else if (browser === 'chrome' || browser === 'opera') {
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_1');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_2');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_3');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_4');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_5');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_6');
+			} else {
+				// Brave, Edge, Firefox, or unknown - use Chrome instructions (Brave and Edge use similar paths)
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_1');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_2');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_3');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_4');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_5');
+				instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_ios_chrome_6');
+			}
 		} else if (os === 'android') {
 			instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_android_1');
 			instructions.push('common.components.error_troubleshooting_modal.settings_instructions.web_android_2');
