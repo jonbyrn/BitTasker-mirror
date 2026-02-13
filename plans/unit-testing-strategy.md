@@ -5,7 +5,7 @@
 **Last updated:** 2025-02-13  
 **Goal:** Establish a strategy to add and maintain unit tests for code that is actually used in the app, starting with an audit of existing tests in `src/lib/tests`, then defining structure and priorities for future tests.
 
-**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 restructure complete; Update tests fixed: currencyFormatter, crypto, deviceIdentity, nip44-message → unit/helpers. CI runs 14 files / 195 tests, all passing. Next: Phase 3 (add tests) and/or fix more Update tests (validators, auth, nostr-message, etc.).
+**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 restructure complete; Update tests fixed: currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message → unit/helpers. CI runs 15 files / 208 tests, all passing. No root-level message tests left. Next: Phase 3 (add tests) and/or fix more Update tests (validators, auth, etc.).
 
 ---
 
@@ -48,7 +48,7 @@ test:unit          → vitest (watch)
 test               → vitest run (full suite)
 test:ci            → vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/
 test:triage        → node scripts/test-triage.js (grouped report)
-test:unit:validators, test:unit:formatters, test:unit:crypto, test:unit:auth, test:unit:root-other
+test:unit:validators, test:unit:formatters, test:unit:crypto, test:unit:auth
 test:unit:api, test:unit:utils, test:unit:stores, test:unit:components, test:unit:integration
 ```
 
@@ -159,7 +159,7 @@ Document results in a **triage table** (see below). This gives a clear “which 
 | encoding.test.ts | $lib/utils/helpers/encoding | Yes | Yes | Yes | Keep | |
 | findTasks.test.ts | $lib/nostr/findTasks | No (symbol) | Yes | No | **Remove** | Tests convertFilterToApiParams – not exported |
 | nip44-message.test.ts | $lib/utils/nostr-message (NIP-44) | Yes | Yes | Yes | **Fixed (Chunk 11)** | Now in `unit/helpers/`; added publishToMultipleRelays mock, appStore pool, nip19.decode mock; event tags include ['m','direct-message']. |
-| nostr-message.test.ts | $lib/utils/nostr-message | Yes | Yes | No | Update | |
+| nostr-message.test.ts | $lib/utils/nostr-message | Yes | Yes | Yes | **Moved (Chunk 12)** | Now in `unit/helpers/`; tests already passed; root-other script removed. |
 | profile-cache.test.ts | $lib/utils/profile-cache | Yes | Yes | Yes | Keep | |
 | *api/services/* | | | | | | |
 | balanceHistory.service.test.ts | balanceHistory.service, crypto-price | Yes | Yes | Yes | Keep | |
@@ -202,6 +202,7 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | 9 | 2025-02-13 | **Fixed and moved crypto (Update → unit/).** importKey test expected `Uint8Array` but implementation passes `ArrayBuffer`; fixed assertion to expect ArrayBuffer and verify bytes. Created `unit/helpers/crypto.test.ts`, deleted root `crypto.test.ts`. Updated `test:unit:crypto` to run both crypto and encoding from `unit/helpers/`. **CI set:** 12 files, 140 tests, all pass. | Next: fix more Update tests (validators, auth, deviceIdentity, etc.) or add Phase 3 tests. |
 | 10 | 2025-02-13 | **Fixed and moved deviceIdentity (Update → unit/).** formatPasskeyName now takes a single options object `{ npub, username?, displayName? }` instead of positional args. Updated all test call sites to object form; null npub test uses `{ npub: null as unknown as string }`. Created `unit/helpers/deviceIdentity.test.ts`, deleted root `deviceIdentity.test.ts`. Updated `test:unit:root-other` to drop deviceIdentity and findTasks (root-other now only nip44-message, nostr-message). **CI set:** 13 files, 185 tests, all pass. | Next: fix more Update tests (nip44-message, nostr-message, auth, validators) or add Phase 3 tests. |
 | 11 | 2025-02-13 | **Fixed and moved nip44-message (Update → unit/).** Added `publishToMultipleRelays` to `$lib/utils/nostr` mock; mocked appStore with writable store and pool (querySync); mocked nostr-tools nip19.decode for npub strings to avoid bech32 "Data must be at least 6 characters"; getMessageHistory tests use mockPool.querySync; invalid-key test mocks getConversationKey to reject; event-structure assertions updated to include `['m','direct-message']` tag. Created `unit/helpers/nip44-message.test.ts`, deleted root `nip44-message.test.ts`. Updated `test:unit:root-other` and triage to only nostr-message. **CI set:** 14 files, 195 tests, all pass. | Next: fix nostr-message, auth, validators or add Phase 3 tests. |
+| 12 | 2025-02-13 | **Moved nostr-message (root → unit/).** Tests already passed (13 tests). Created `unit/helpers/nostr-message.test.ts`, deleted root `nostr-message.test.ts`. Removed `test:unit:root-other` script and triage `root-other` group (no root message tests left). **CI set:** 15 files, 208 tests, all pass. | Next: fix auth, validators or add Phase 3 tests. |
 
 **If stuck:** Run `npm run test` and `npm run test:triage` to see current state. Triage groups are defined in `scripts/test-triage.js` (array `TEST_GROUPS`); paths are relative to `src/lib/tests/`. When moving a file, add or adjust a `match` regex so the file is still grouped (or leave in "Other" until a later chunk).
 
@@ -223,8 +224,9 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | **After Chunk 9** | — | — | **6** of 16 | **CI set:** 12 files, 140 tests. crypto fixed (importKey ArrayBuffer) and moved to `unit/helpers/`. |
 | **After Chunk 10** | — | — | **6** of 16 | **CI set:** 13 files, 185 tests. deviceIdentity fixed (formatPasskeyName options object) and moved to `unit/helpers/`. |
 | **After Chunk 11** | — | — | **6** of 16 | **CI set:** 14 files, 195 tests. nip44-message fixed (publishToMultipleRelays, pool, nip19, tags) and moved to `unit/helpers/`. |
+| **After Chunk 12** | — | — | **6** of 15 | **CI set:** 15 files, 208 tests. nostr-message moved to `unit/helpers/`; root-other removed. |
 
-**Improvement summary:** Phase 2 (Chunks 1–11) complete. Chunk 1 removed 2 dead files. Chunks 2–6 moved all movable Keep tests into `unit/` (helpers, utils, api/services, stores, feeCalculation). Chunk 7 moved former ci/ into `unit/` (placeholder, routes) and `integration/routes/`. Chunk 8 fixed currencyFormatter (async convertCurrency, format default) and moved it to `unit/helpers/`. Chunk 9 fixed crypto (importKey ArrayBuffer assertion) and moved it to `unit/helpers/`. CI now runs **14 files, 195 tests**, all passing. contractPermissions and DebugContractCard.logic remain in place (wallet-core EventBus blocks unit context).
+**Improvement summary:** Phase 2 (Chunks 1–12) complete. Chunk 1 removed 2 dead files. Chunks 2–6 moved all movable Keep tests into `unit/` (helpers, utils, api/services, stores, feeCalculation). Chunk 7 moved former ci/ into `unit/` (placeholder, routes) and `integration/routes/`. Chunk 8 fixed currencyFormatter (async convertCurrency, format default) and moved it to `unit/helpers/`. Chunk 9 fixed crypto (importKey ArrayBuffer assertion) and moved it to `unit/helpers/`. CI now runs **15 files, 208 tests**, all passing. contractPermissions and DebugContractCard.logic remain in place (wallet-core EventBus blocks unit context).
 
 **Keep tests remaining (not yet under unit/):**
 
@@ -240,7 +242,7 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | escrow-permissions.integration.test.ts | integration/escrow/ | No | Integration test; keep in integration/. |
 | escrow-state-transitions.integration.test.ts | integration/escrow/ | No | Integration test; keep in integration/. |
 
-**Total Keep:** 12. **In unit/ or integration/routes/:** 14 files (placeholder, helpers ×6: dateFormatter, encoding, currencyFormatter, crypto, deviceIdentity, nip44-message; utils, api/services, stores, routes ×3; integration/routes ×1). **Leave in place:** 2 (integration/escrow Keep). **Blocked (wallet-core):** 2 (contractPermissions, DebugContractCard.logic). **CI:** `test:ci` runs `unit/` + `integration/routes/` (195 tests). **Update fixed:** currencyFormatter (Chunk 8), crypto (Chunk 9), deviceIdentity (Chunk 10), nip44-message (Chunk 11).
+**Total Keep:** 12. **In unit/ or integration/routes/:** 15 files (placeholder, helpers ×7: dateFormatter, encoding, currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message; utils, api/services, stores, routes ×3; integration/routes ×1). **Leave in place:** 2 (integration/escrow Keep). **Blocked (wallet-core):** 2 (contractPermissions, DebugContractCard.logic). **CI:** `test:ci` runs `unit/` + `integration/routes/` (208 tests). **Update fixed:** currencyFormatter (Chunk 8), crypto (Chunk 9), deviceIdentity (Chunk 10), nip44-message (Chunk 11); **moved:** nostr-message (Chunk 12).
 
 **How to read:** “Green groups” = triage categories where all files and tests pass. More green = better structure and clarity. Test/file counts may stay similar until we fix “Update” tests (Phase 2 fix work) or add tests (Phase 3).
 

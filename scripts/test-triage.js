@@ -51,11 +51,6 @@ const TEST_GROUPS = [
 		label: 'Auth',
 		match: /^auth(-|\.test)/,
 	},
-	{
-		id: 'root-other',
-		label: 'Root (nostr-message)',
-		match: /^nostr-message\.test\.ts$/,
-	},
 	{ id: 'api', label: 'API Services', match: /^api\// },
 	{ id: 'utils', label: 'Utils', match: /^utils\// },
 	{ id: 'stores', label: 'Stores', match: /^stores\// },
