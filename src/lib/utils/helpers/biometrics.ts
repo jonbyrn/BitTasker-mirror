@@ -43,8 +43,8 @@ export async function setBiometricKey(
 		let name = '';
 		let displayName = '';
 		if (username) {
-			name = username;
-			displayName = username;
+			name = username + ' @bittasker.com';
+			displayName = username + ' @bittasker.com';
 		} else {
 			const passkeyName = await generatePasskeyName(npub);
 			name = passkeyName.name;
