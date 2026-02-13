@@ -2,10 +2,10 @@
 
 **Status:** In progress — Phase 1 & 2 complete; Phase 3 next  
 **Created:** 2025-02-13  
-**Last updated:** 2025-02-13  
+**Last updated:** 2025-02-13 (post Chunk 14)  
 **Goal:** Establish a strategy to add and maintain unit tests for code that is actually used in the app, starting with an audit of existing tests in `src/lib/tests`, then defining structure and priorities for future tests.
 
-**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 restructure complete; Update tests fixed: currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message, auth, validators → unit/helpers. CI runs 19 files / 258 tests, all passing. Next: Phase 3 (add tests) and/or fix more Update tests.
+**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 + legacy fixes: currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message, auth, validators → unit/helpers; token-balance.service → unit/api/services (Chunk 15). CI runs 20 files / 272 tests, all passing. Next: paymentAddressParser, escrow, stores, components (order of work §10).
 
 ---
 
@@ -25,7 +25,7 @@
 
 Tests are grouped by **type/surface**, not strictly by **source module**:
 
-- **Root** (directly under `src/lib/tests/`): validators, formatters (currency, date), crypto, encoding, auth*, deviceIdentity, findTasks, nostr-message, nip44-message, profile-cache
+- **Root** (legacy — most moved): findTasks (dead), dateFormatter, encoding, profile-cache (some still in root until triaged). **unit/helpers/** now holds: validators, formatters, crypto, encoding, auth*, deviceIdentity, nostr-message, nip44-message.
 - **api/** — API services: balanceHistory, token-balance
 - **utils/** — escrow (v1), wallet (blockscout, paymentAddressParser, nostr-bid, feeCalculation, escrowErrors), test-data-factories, wallet-test-helpers
 - **stores/** — wallet.store*, bid.store, user-profile-optimization
@@ -117,7 +117,7 @@ src/lib/tests/
 - Component tests: `ComponentName.test.ts` or `ComponentName.logic.test.ts` when testing extracted logic.
 - Integration: `*.integration.test.ts` suffix.
 
-**Migration note:** Phase 2 moved all Keep tests into `unit/` and `integration/routes/`; `ci/` is removed. Remaining tests still live in root, `utils/`, `stores/`, `components/`, `api/`, `integration/escrow/` until fixed and optionally moved.
+**Migration note:** Phase 2 (Chunks 1–14) moved Keep tests and fixed Update tests into `unit/` and `integration/routes/`; `ci/` is removed. Root-level helpers (validators, formatters, crypto, auth, etc.) are now in `unit/helpers/`. Remaining Update tests live in `utils/`, `stores/`, `components/`, `api/`, `integration/escrow/` until fixed and optionally moved.
 
 ---
 
@@ -149,9 +149,9 @@ Document results in a **triage table** (see below). This gives a clear “which 
 |-----------|------------------|---------------|--------------|-------------|----------------|-------|
 | *Root* | | | | | | |
 | validators.test.ts | $lib/utils/helpers/validators | Yes | Yes | Yes | **Fixed (Chunk 14)** | Moved to unit/helpers/; mock wallet-core/liquidjs. |
-| auth.test.ts | $lib/utils/helpers/auth | Yes | Yes | No (6 failed) | Update | |
-| auth-cache-validation.test.ts | auth, nostrKeys, app.store | Yes | Yes | No | Update | |
-| auth-error-recovery.test.ts | auth, nostrKeys, app.store | Yes | Yes | No | Update | |
+| auth.test.ts | $lib/utils/helpers/auth | Yes | Yes | Yes | **Fixed (Chunk 13)** | Moved to unit/helpers/; Credentials shape, nostrKeys alignment. |
+| auth-cache-validation.test.ts | auth, nostrKeys, app.store | Yes | Yes | Yes | **Fixed (Chunk 13)** | Moved to unit/helpers/. |
+| auth-error-recovery.test.ts | auth, nostrKeys, app.store | Yes | Yes | Yes | **Fixed (Chunk 13)** | Moved to unit/helpers/. |
 | crypto.test.ts | $lib/utils/helpers/crypto | Yes | Yes | Yes | **Fixed (Chunk 9)** | Now in `unit/helpers/`; importKey expects ArrayBuffer, not Uint8Array. |
 | currencyFormatter.test.ts | $lib/utils/helpers/currencyFormatter | Yes | Yes | Yes | **Fixed (Chunk 8)** | Now in `unit/helpers/`; convertCurrency async + mock; default format "amount currency". |
 | dateFormatter.test.ts | $lib/utils/helpers/dateFormatter | Yes | Yes | Yes | Keep | |
@@ -163,7 +163,7 @@ Document results in a **triage table** (see below). This gives a clear “which 
 | profile-cache.test.ts | $lib/utils/profile-cache | Yes | Yes | Yes | Keep | |
 | *api/services/* | | | | | | |
 | balanceHistory.service.test.ts | balanceHistory.service, crypto-price | Yes | Yes | Yes | Keep | |
-| token-balance.service.test.ts | token-balance.service | Yes | Yes | No (11 failed) | Update | |
+| token-balance.service.test.ts | token-balance.service | Yes | Yes | Yes | **Fixed (Chunk 15)** | Mock Response.headers; moved to unit/api/services/. |
 | *utils/* feeCalculation, paymentAddressParser, nostr-bid, escrow/* | (see notes) | Yes/N/A | Yes | Mixed | Keep/Update | feeCalculation local logic; paymentAddressParser load error; escrow Keep contractPermissions |
 | *stores/* user-profile-optimization, wallet.store*, bid.store | (see notes) | N/A/Yes | No/Yes | N/A/Partial | **Remove**/Keep/Update | user-profile-optimization empty file – Remove |
 | *components/* (20 files) | All exist, used | Yes | Yes | Mostly Partial/No | Update | Mock fixes needed (e.g. walletStore, getCachedReverseSwapPairs) |
@@ -205,6 +205,7 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | 12 | 2025-02-13 | **Moved nostr-message (root → unit/).** Tests already passed (13 tests). Created `unit/helpers/nostr-message.test.ts`, deleted root `nostr-message.test.ts`. Removed `test:unit:root-other` script and triage `root-other` group (no root message tests left). **CI set:** 15 files, 208 tests, all pass. | Next: fix auth, validators or add Phase 3 tests. |
 | 13 | 2025-02-13 | **Fixed and moved auth tests (Update → unit/helpers/).** Updated auth.test.ts, auth-cache-validation.test.ts, auth-error-recovery.test.ts to match current Credentials shape (npub, encryptedData, exportedKey) and nostrKeys implementation (no retry on decrypt failure, no ACCESS_TOKEN/NPUB mismatch checks). Moved all three to `unit/helpers/`. Updated `test:unit:auth` path; added triage `unit-helpers-auth` group; removed old root auth group. **CI set:** 18 files, 225 tests, all pass. | Next: fix validators or add Phase 3 tests. |
 | 14 | 2025-02-13 | **Fixed and moved validators (Update → unit/helpers/).** Mocked @bittasker/wallet-core and liquidjs-lib so validators module loads (EventBus missing in test env). Aligned tests with current implementation: validatePassword now only checks length ≥12; validateNostrPrivateKey has different error messages and validation order. Moved to `unit/helpers/validators.test.ts`. **CI set:** 19 files, 258 tests, all pass. | Next: Phase 3 (add tests) or fix more Update tests. |
+| 15 | 2025-02-13 | **Fixed and moved token-balance.service (Update → unit/api/services/).** Service calls `response.headers.entries()`; mock fetch did not provide headers. Added `mockFetchResponse()` helper returning Response-like object with `headers: { entries: () => [] }`. Moved to `unit/api/services/token-balance.service.test.ts`. **CI set:** 20 files, 272 tests, all pass. | Next: paymentAddressParser (item 2). |
 
 **If stuck:** Run `npm run test` and `npm run test:triage` to see current state. Triage groups are defined in `scripts/test-triage.js` (array `TEST_GROUPS`); paths are relative to `src/lib/tests/`. When moving a file, add or adjust a `match` regex so the file is still grouped (or leave in "Other" until a later chunk).
 
@@ -229,8 +230,9 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | **After Chunk 12** | — | — | **6** of 15 | **CI set:** 15 files, 208 tests. nostr-message moved to `unit/helpers/`; root-other removed. |
 | **After Chunk 13** | — | — | **7** of 15 | **CI set:** 18 files, 225 tests. Auth tests (auth, auth-cache-validation, auth-error-recovery) fixed and moved to `unit/helpers/`. |
 | **After Chunk 14** | — | — | **7** of 14 | **CI set:** 19 files, 258 tests. Validators fixed (mock wallet-core/liquidjs) and moved to `unit/helpers/`. |
+| **After Chunk 15** | — | — | **7** of 14 | **CI set:** 20 files, 272 tests. token-balance.service fixed (mock Response.headers) and moved to `unit/api/services/`. |
 
-**Improvement summary:** Phase 2 (Chunks 1–12) complete. Chunk 1 removed 2 dead files. Chunks 2–6 moved all movable Keep tests into `unit/` (helpers, utils, api/services, stores, feeCalculation). Chunk 7 moved former ci/ into `unit/` (placeholder, routes) and `integration/routes/`. Chunk 8 fixed currencyFormatter (async convertCurrency, format default) and moved it to `unit/helpers/`. Chunk 9 fixed crypto (importKey ArrayBuffer assertion) and moved it to `unit/helpers/`. CI now runs **15 files, 208 tests**, all passing. contractPermissions and DebugContractCard.logic remain in place (wallet-core EventBus blocks unit context).
+**Improvement summary:** Phase 2 (Chunks 1–14) complete. Chunk 1 removed 2 dead files. Chunks 2–7 moved Keep tests and former ci/ into `unit/` and `integration/routes/`. Chunks 8–14 fixed Update tests: currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message, auth (×3), validators — all moved to `unit/helpers/`. CI now runs **19 files, 258 tests**, all passing. contractPermissions and DebugContractCard.logic remain in place (wallet-core EventBus blocks unit context).
 
 **Keep tests remaining (not yet under unit/):**
 
@@ -246,7 +248,7 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | escrow-permissions.integration.test.ts | integration/escrow/ | No | Integration test; keep in integration/. |
 | escrow-state-transitions.integration.test.ts | integration/escrow/ | No | Integration test; keep in integration/. |
 
-**Total Keep:** 12. **In unit/ or integration/routes/:** 15 files (placeholder, helpers ×7: dateFormatter, encoding, currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message; utils, api/services, stores, routes ×3; integration/routes ×1). **Leave in place:** 2 (integration/escrow Keep). **Blocked (wallet-core):** 2 (contractPermissions, DebugContractCard.logic). **CI:** `test:ci` runs `unit/` + `integration/routes/` (208 tests). **Update fixed:** currencyFormatter (Chunk 8), crypto (Chunk 9), deviceIdentity (Chunk 10), nip44-message (Chunk 11); **moved:** nostr-message (Chunk 12).
+**Total Keep:** 12. **In unit/ or integration/routes/:** 19 files (placeholder, helpers ×11: dateFormatter, encoding, currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message, auth×3, validators; utils×2, api/services, stores, routes×3; integration/routes×1). **Leave in place:** 2 (integration/escrow Keep). **Blocked (wallet-core):** 2 (contractPermissions, DebugContractCard.logic). **CI:** `test:ci` runs `unit/` + `integration/routes/` (258 tests). **Update fixed & moved:** currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message, auth×3, validators (Chunks 8–14).
 
 **How to read:** “Green groups” = triage categories where all files and tests pass. More green = better structure and clarity. Test/file counts may stay similar until we fix “Update” tests (Phase 2 fix work) or add tests (Phase 3).
 
@@ -299,7 +301,7 @@ Tools: `grep -r "from '\$lib/..." src/routes src/lib/components` and follow impo
 
 - [x] Audit table filled for all non-E2E tests (Phase 1) — completed 2025-02-13.
 - [ ] All tests classified as **Keep** or **Update** pass (Phase 2 fix work; many Update tests still failing in full suite).
-- [x] Tests classified as **Remove** are removed; CI still passes (`test:ci` = 122 tests).
+- [x] Tests classified as **Remove** are removed; CI still passes (`test:ci` = 258 tests).
 - [x] `src/lib/tests/README.md` added describing layout and how to add tests.
 - [x] Triage script and npm scripts updated for `unit/` and `integration/routes/` (Phase 2 Chunks 2–7).
 - [ ] Priority list (Section 6) used when adding new tests (Phase 3); optional: fix Update tests first to grow green set.
@@ -317,12 +319,28 @@ Tools: `grep -r "from '\$lib/..." src/routes src/lib/components` and follow impo
 
 ## 10. Next Steps (When Executing)
 
-**Phase 2 restructure is complete.** Use these steps to keep moving forward:
+**Phase 2 restructure complete (Chunks 1–14).** Legacy fix Chunk 15: token-balance.service. **CI: 20 files, 272 tests**, all passing.
 
-1. **Run CI set:** `npm run test:ci` — should pass (10 files, 122 tests). Run full suite when needed: `npm run test` or `npm run test:triage`.
-2. **Phase 3 — Add tests:** Use the priority order in Section 6. Add new test files under `unit/` (e.g. `unit/helpers/`, `unit/stores/`) or `integration/routes/`; follow naming in Section 3.
-3. **Optional — Fix Update tests:** Pick a triage group (e.g. formatters, validators, auth), fix failing tests with `npm run test:unit:<group>`, then move fixed files into `unit/` and update triage/scripts so CI can be expanded later.
-4. **Wallet-core blocker:** To unblock `contractPermissions` and `DebugContractCard.logic`, add EventBus mock or fix test env (see Phase 2 Chunk 5 note); then move those tests into `unit/` if desired.
+### Order of work (legacy tests — document and execute)
+
+| # | Action | Target | Command | Status |
+|---|--------|--------|--------|--------|
+| 1 | Fix token-balance.service | 11 failed (mock Response.headers) | `npm run test:unit:api` | **Done (Chunk 15)** |
+| 2 | Fix paymentAddressParser | Load error (wallet-core chain?) | `npm run test:unit:utils` | Pending |
+| 3 | Fix escrow tests | escrowBid, escrowErrors, escrowEvents, feeCalculations | `npm run test:unit:utils` | Pending |
+| 4 | Fix stores | bid.store, wallet.store.* | `npm run test:unit:stores` | Pending |
+| 5 | Fix components | Mock/setup issues | `npm run test:unit:components` | Pending |
+| 6 | Wallet-core blocker | contractPermissions, DebugContractCard.logic | Add EventBus mock | Pending |
+| 7 | Phase 3 — Add tests | New coverage per Section 6 | — | After fixes |
+
+After each fix: move the test file to `unit/` (e.g. `unit/api/services/`), update `package.json` and triage if needed, run `test:ci`.
+
+### Quick reference
+
+1. **Run CI:** `npm run test:ci` — 20 files, 272 tests.
+2. **Full suite + triage:** `npm run test` or `npm run test:triage`.
+3. **Fix Update tests:** Use `test:unit:<group>` scripts; move fixed files to `unit/`; update triage.
+4. **Add new tests:** Place under `unit/` per Section 3; follow naming convention.
 
 ---
 
@@ -330,28 +348,27 @@ Tools: `grep -r "from '\$lib/..." src/routes src/lib/components` and follow impo
 
 Use this list to ensure every non-E2E test is triaged. Exclude `e2e/` (Playwright specs and E2E helpers).
 
-**Root (src/lib/tests/):**
+**Root (src/lib/tests/):** *(most helpers now in unit/helpers/)*
 
-- *(auth tests moved to unit/helpers/ in Chunk 13; validators moved in Chunk 14)*
-- crypto.test.ts *(moved to unit/helpers/ Chunk 9)*
-- currencyFormatter.test.ts *(moved to unit/helpers/ Chunk 8)*
-- dateFormatter.test.ts
-- deviceIdentity.test.ts
-- encoding.test.ts
-- findTasks.test.ts *(known: tests removed API)*
-- nip44-message.test.ts
-- nostr-message.test.ts
-- profile-cache.test.ts
-- validators.test.ts *(moved to unit/helpers/ Chunk 14)*
+- dateFormatter.test.ts *(moved to unit/helpers/ Chunk 2)*
+- encoding.test.ts *(moved to unit/helpers/ Chunk 2)*
+- profile-cache.test.ts *(moved to unit/utils/ Chunk 3)*
+- findTasks.test.ts *(removed Chunk 1 — tested non-exported API)*
 
-**api/services/:**
+**unit/helpers/ (Chunks 2–14):**
 
-- balanceHistory.service.test.ts
-- token-balance.service.test.ts
+- validators, currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message
+- auth.test.ts, auth-cache-validation.test.ts, auth-error-recovery.test.ts
 
-**utils/:**
+**api/services/ (unit/api/services/ has balanceHistory):**
 
-- feeCalculation.test.ts
+- balanceHistory.service.test.ts *(in unit/api/services/ Chunk 4)*
+- token-balance.service.test.ts *(Fixed Chunk 15 — in unit/api/services/)*
+
+**utils/ (unit/utils/ has feeCalculation, profile-cache):**
+
+- feeCalculation.test.ts *(in unit/utils/ Chunk 6)*
+- profile-cache.test.ts *(in unit/utils/ Chunk 3)*
 - nostr-bid.test.ts
 - paymentAddressParser.test.ts
 - wallet/blockscoutTransactionStatus.test.ts
@@ -361,14 +378,14 @@ Use this list to ensure every non-E2E test is triaged. Exclude `e2e/` (Playwrigh
 - escrow/escrowEvents.test.ts
 - escrow/feeCalculations.test.ts
 
-**stores/:**
+**stores/ (unit/stores/ has wallet.store):**
 
+- wallet.store.test.ts *(in unit/stores/ Chunk 5)*
 - bid.store.test.ts
-- user-profile-optimization.test.ts
+- user-profile-optimization.test.ts *(removed Chunk 1 — empty)*
 - wallet.store.debug.test.ts
 - wallet.store.functions.test.ts
 - wallet.store.state.test.ts
-- wallet.store.test.ts
 
 **components/:**
 
