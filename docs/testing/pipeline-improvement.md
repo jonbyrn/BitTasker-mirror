@@ -50,7 +50,7 @@ Use these commands to run each directory independently and fix tests before movi
 | `npm run test:unit:formatters` | currencyFormatter, dateFormatter | Fixing formatters |
 | `npm run test:unit:crypto` | crypto, encoding | Fixing crypto/encoding |
 | `npm run test:unit:auth` | auth, auth-cache-validation, auth-error-recovery | Fixing auth tests |
-| `npm run test:unit:root-other` | deviceIdentity, findTasks, nostr, profile | Fixing root-level tests |
+| *(removed)* | root-other (nostr-message, etc.) moved to unit/helpers | All message tests now in unit/helpers |
 | `npm run test:unit:api` | api/services/ | Fixing API service tests |
 | `npm run test:unit:utils` | utils/ (escrow, wallet, etc.) | Fixing util tests |
 | `npm run test:unit:stores` | stores/ | Fixing store tests |
@@ -148,7 +148,7 @@ Pre-commit (optional), MR guidelines, documentation. Re-enable check and lint in
 | `npm run test:unit:formatters` | Currency + date formatters |
 | `npm run test:unit:crypto` | Crypto + encoding |
 | `npm run test:unit:auth` | Auth tests |
-| `npm run test:unit:root-other` | deviceIdentity, findTasks, nostr, profile |
+| *(removed)* | root-other: nostr-message, nip44-message now in unit/helpers |
 | `npm run test:unit:api` | API services |
 | `npm run test:unit:utils` | Utils (escrow, wallet, etc.) |
 | `npm run test:unit:stores` | Stores |

@@ -31,7 +31,6 @@
 		"test:unit:formatters": "vitest run src/lib/tests/unit/helpers/dateFormatter.test.ts src/lib/tests/unit/helpers/currencyFormatter.test.ts",
 		"test:unit:crypto": "vitest run src/lib/tests/unit/helpers/crypto.test.ts src/lib/tests/unit/helpers/encoding.test.ts",
 		"test:unit:auth": "vitest run src/lib/tests/auth.test.ts src/lib/tests/auth-cache-validation.test.ts src/lib/tests/auth-error-recovery.test.ts",
-		"test:unit:root-other": "vitest run src/lib/tests/nostr-message.test.ts",
 		"test:unit:api": "vitest run src/lib/tests/api/",
 		"test:unit:utils": "vitest run src/lib/tests/utils/ src/lib/tests/unit/utils/",
 		"test:unit:stores": "vitest run src/lib/tests/stores/",
