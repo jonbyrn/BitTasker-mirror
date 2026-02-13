@@ -5,7 +5,7 @@
 **Last updated:** 2025-02-13 (post Chunk 14)  
 **Goal:** Establish a strategy to add and maintain unit tests for code that is actually used in the app, starting with an audit of existing tests in `src/lib/tests`, then defining structure and priorities for future tests.
 
-**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 + legacy fixes: currencyFormatter, crypto, deviceIdentity, nip44-message, nostr-message, auth, validators → unit/helpers; token-balance.service → unit/api/services (Chunk 15). CI runs 20 files / 272 tests, all passing. Next: paymentAddressParser, escrow, stores, components (order of work §10).
+**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 + legacy fixes: helpers, token-balance (Chunk 15), paymentAddressParser (Chunk 16) → unit/. CI runs 21 files / 301 tests, all passing. Next: escrow, stores, components (order of work §10).
 
 ---
 
@@ -206,6 +206,7 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | 13 | 2025-02-13 | **Fixed and moved auth tests (Update → unit/helpers/).** Updated auth.test.ts, auth-cache-validation.test.ts, auth-error-recovery.test.ts to match current Credentials shape (npub, encryptedData, exportedKey) and nostrKeys implementation (no retry on decrypt failure, no ACCESS_TOKEN/NPUB mismatch checks). Moved all three to `unit/helpers/`. Updated `test:unit:auth` path; added triage `unit-helpers-auth` group; removed old root auth group. **CI set:** 18 files, 225 tests, all pass. | Next: fix validators or add Phase 3 tests. |
 | 14 | 2025-02-13 | **Fixed and moved validators (Update → unit/helpers/).** Mocked @bittasker/wallet-core and liquidjs-lib so validators module loads (EventBus missing in test env). Aligned tests with current implementation: validatePassword now only checks length ≥12; validateNostrPrivateKey has different error messages and validation order. Moved to `unit/helpers/validators.test.ts`. **CI set:** 19 files, 258 tests, all pass. | Next: Phase 3 (add tests) or fix more Update tests. |
 | 15 | 2025-02-13 | **Fixed and moved token-balance.service (Update → unit/api/services/).** Service calls `response.headers.entries()`; mock fetch did not provide headers. Added `mockFetchResponse()` helper returning Response-like object with `headers: { entries: () => [] }`. Moved to `unit/api/services/token-balance.service.test.ts`. **CI set:** 20 files, 272 tests, all pass. | Next: paymentAddressParser (item 2). |
+| 16 | 2025-02-13 | **Fixed and moved paymentAddressParser (Update → unit/utils/).** Load failed via validators → wallet-core EventBus. Added vi.mock for @bittasker/wallet-core and liquidjs-lib (same pattern as validators). Moved to `unit/utils/paymentAddressParser.test.ts`. **CI set:** 21 files, 301 tests, all pass. | Next: escrow tests (item 3). |
 
 **If stuck:** Run `npm run test` and `npm run test:triage` to see current state. Triage groups are defined in `scripts/test-triage.js` (array `TEST_GROUPS`); paths are relative to `src/lib/tests/`. When moving a file, add or adjust a `match` regex so the file is still grouped (or leave in "Other" until a later chunk).
 
@@ -319,14 +320,14 @@ Tools: `grep -r "from '\$lib/..." src/routes src/lib/components` and follow impo
 
 ## 10. Next Steps (When Executing)
 
-**Phase 2 restructure complete (Chunks 1–14).** Legacy fix Chunk 15: token-balance.service. **CI: 20 files, 272 tests**, all passing.
+**Phase 2 restructure complete (Chunks 1–14).** Legacy fixes: Chunk 15 token-balance.service, Chunk 16 paymentAddressParser. **CI: 21 files, 301 tests**, all passing.
 
 ### Order of work (legacy tests — document and execute)
 
 | # | Action | Target | Command | Status |
 |---|--------|--------|--------|--------|
 | 1 | Fix token-balance.service | 11 failed (mock Response.headers) | `npm run test:unit:api` | **Done (Chunk 15)** |
-| 2 | Fix paymentAddressParser | Load error (wallet-core chain?) | `npm run test:unit:utils` | Pending |
+| 2 | Fix paymentAddressParser | Load error (wallet-core chain?) | `npm run test:unit:utils` | **Done (Chunk 16)** |
 | 3 | Fix escrow tests | escrowBid, escrowErrors, escrowEvents, feeCalculations | `npm run test:unit:utils` | Pending |
 | 4 | Fix stores | bid.store, wallet.store.* | `npm run test:unit:stores` | Pending |
 | 5 | Fix components | Mock/setup issues | `npm run test:unit:components` | Pending |
@@ -337,7 +338,7 @@ After each fix: move the test file to `unit/` (e.g. `unit/api/services/`), updat
 
 ### Quick reference
 
-1. **Run CI:** `npm run test:ci` — 20 files, 272 tests.
+1. **Run CI:** `npm run test:ci` — 21 files, 301 tests.
 2. **Full suite + triage:** `npm run test` or `npm run test:triage`.
 3. **Fix Update tests:** Use `test:unit:<group>` scripts; move fixed files to `unit/`; update triage.
 4. **Add new tests:** Place under `unit/` per Section 3; follow naming convention.
@@ -369,8 +370,8 @@ Use this list to ensure every non-E2E test is triaged. Exclude `e2e/` (Playwrigh
 
 - feeCalculation.test.ts *(in unit/utils/ Chunk 6)*
 - profile-cache.test.ts *(in unit/utils/ Chunk 3)*
+- paymentAddressParser.test.ts *(Fixed Chunk 16 — in unit/utils/)*
 - nostr-bid.test.ts
-- paymentAddressParser.test.ts
 - wallet/blockscoutTransactionStatus.test.ts
 - escrow/contractPermissions.test.ts
 - escrow/escrowBid.test.ts

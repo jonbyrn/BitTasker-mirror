@@ -1,4 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Mock wallet-core and liquidjs-lib so paymentAddressParser (via validators) can load
+vi.mock('@bittasker/wallet-core', () => ({
+	normalizeRskAddress: vi.fn((addr: string) => addr)
+}));
+vi.mock('liquidjs-lib', () => ({
+	address: { toOutputScript: vi.fn() }
+}));
+
 import { parsePaymentAddress, type ParsedPaymentAddress } from '$lib/utils/helpers/paymentAddressParser';
 
 describe('parsePaymentAddress', () => {
