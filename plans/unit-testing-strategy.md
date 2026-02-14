@@ -2,7 +2,7 @@
 
 **Status:** In progress — Phase 1 & 2 complete; Phase 3 next  
 **Created:** 2025-02-13  
-**Last updated:** 2025-02-14 (Chunk 19; chunk history condensed)  
+**Last updated:** 2025-02-14 (Chunk 21; §6.1 component quality guidelines added)  
 **Goal:** Establish a strategy to add and maintain unit tests for code that is actually used in the app, starting with an audit of existing tests in `src/lib/tests`, then defining structure and priorities for future tests.
 
 **Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 + legacy fixes through Chunk 17 (escrow). **Chunk 18:** Store tests fixed and moved to `unit/stores/` (bid.store, wallet.store.state, wallet.store.debug, wallet.store.functions). CI runs **30 files** under `unit/` + `integration/routes/`. Next: components (§10 item 5).
@@ -286,12 +286,33 @@ Test **code that is actually used**. Suggested order:
 
 5. **Components** (only those on critical paths)  
    - Prioritize: forms and flows used in tasks, wallet, and auth (e.g. login, signup, create-task, send/receive payment).  
-   - Debug* components are lower priority (dev-only).
+   - Debug* components are lower priority (dev-only).  
+   - **Quality bar:** Tests must validate real component behavior, not just pass. See §6.1.
 
 6. **Routes** (load functions, page state)  
    - Already have tasks-page in `unit/routes/` and `integration/routes/`. Extend to other high-traffic routes if load logic is non-trivial.
 
 For each new test file, place it in the structure from Section 3 and follow the naming convention.
+
+### 6.1 Component Test Quality Guidelines
+
+When fixing or writing component tests, **do not aim only for passing tests**. Ensure tests validate real component behavior.
+
+| Do | Don't |
+|----|-------|
+| **Read the component** — Understand props, user flows, conditional rendering, and key behaviors before touching tests. | Mock away so many dependencies that the test no longer exercises real logic. |
+| **Assert behavior** — Test that user actions produce the expected outcomes (state changes, callbacks, DOM updates). | Assert implementation details (e.g. internal class names, structure that may change). |
+| **Use semantic queries** — Prefer `getByRole`, `getByLabelText`, `getByPlaceholderText` over brittle class/ID selectors. | Rely on fragile selectors (e.g. nth-child) that break on small UI changes. |
+| **Test user flows** — Render → interact → assert outcome. Mirror what a user would do. | Test only that something renders without verifying interactions work. |
+| **Validate mocks** — Mocks should simulate real dependencies; assertions should match component contracts. | Change assertions to match broken mocks instead of fixing the mock to match the real API. |
+
+**Per-component checklist when fixing tests:**
+
+1. Read the component source (`$lib/components/**/*.svelte`) — props, events, conditional branches.
+2. List the key behaviors the component should exhibit (e.g. "shows error when amount is invalid").
+3. Ensure each test maps to one or more of those behaviors.
+4. If a test only asserts "element exists" with no interaction or outcome, consider strengthening or removing it.
+5. Run `npx vitest run src/lib/tests/components/` to validate; fix mocks and selectors to align with real component behavior, not the reverse.
 
 ---
 
@@ -339,7 +360,7 @@ Tools: `grep -r "from '\$lib/..." src/routes src/lib/components` and follow impo
 | 2 | Fix paymentAddressParser | Load error (wallet-core chain?) | `npm run test:unit:utils` | **Done (Chunk 16)** |
 | 3 | Fix escrow tests | escrowBid, escrowErrors, escrowEvents, feeCalculations, contractPermissions | `npm run test:unit:utils` or run `src/lib/tests/unit/utils/escrow/` | **Done (Chunk 17)** |
 | 4 | Fix stores | bid.store, wallet.store.* | `npm run test:unit:stores` | **Done (Chunk 18)** |
-| 5 | Fix components | Mock/setup issues | `npm run test:unit:components` | **In progress (Chunk 19)** — TransactionHistory fixed (ProcessedTransaction mock); ReceivePaymentForm, DebugWalletSendForm partial fixes; countdown tests skipped |
+| 5 | Fix components | Mock/setup + **quality validation** (see §6.1) | `npx vitest run src/lib/tests/components/` | **In progress** — 7 files pass, 12 fail. Prioritize: validate tests assert real behavior; fix mocks to match component contracts; avoid weakening assertions to pass. |
 | 6 | Wallet-core blocker | contractPermissions, DebugContractCard.logic | Add EventBus mock | Pending |
 | 7 | Phase 3 — Add tests | New coverage per Section 6 | — | After fixes |
 
@@ -348,9 +369,11 @@ After each fix: move the test file to `unit/` (e.g. `unit/api/services/`), updat
 ### Quick reference
 
 1. **Run CI:** `npm run test:ci` — 30 files (unit/ + integration/routes/), 462+ tests.
-2. **Full suite + triage:** `npm run test` or `npm run test:triage`.
-3. **Fix Update tests:** Use `test:unit:<group>` scripts; move fixed files to `unit/`; update triage.
-4. **Add new tests:** Place under `unit/` per Section 3; follow naming convention.
+2. **Run component tests:** `npx vitest run src/lib/tests/components/` — validates all component tests.
+3. **Full suite + triage:** `npm run test` or `npm run test:triage`.
+4. **Fix Update tests:** Use `test:unit:<group>` scripts; move fixed files to `unit/`; update triage.
+5. **Add new tests:** Place under `unit/` per Section 3; follow naming convention.
+6. **Component fixes:** Follow §6.1 quality guidelines; read component source before changing tests.
 
 ---
 
