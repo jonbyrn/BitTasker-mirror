@@ -63,7 +63,23 @@ vi.mock('$lib/stores/wallet.store', async () => {
 					}
 				}
 			}),
+			getCachedReverseSwapPairs: vi.fn().mockResolvedValue({
+				BTC: {
+					RBTC: {
+						limits: { minimal: 10000, maximal: 100000000 },
+						fees: { percentage: 0.25, minerFees: { lockup: 27, claim: 20 } }
+					}
+				}
+			}),
 			getChainSwapPairs: vi.fn().mockResolvedValue({
+				'L-BTC': {
+					RBTC: {
+						limits: { minimal: 10000, maximal: 100000000 },
+						fees: { percentage: 0.1, minerFees: { user: { lockup: 34, claim: 20 } } }
+					}
+				}
+			}),
+			getCachedChainSwapPairs: vi.fn().mockResolvedValue({
 				'L-BTC': {
 					RBTC: {
 						limits: { minimal: 10000, maximal: 100000000 },

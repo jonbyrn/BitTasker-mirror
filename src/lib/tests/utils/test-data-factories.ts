@@ -113,6 +113,43 @@ export const AddressFactory = {
 };
 
 /**
+ * Minimal mock icon for ProcessedTransaction tests (TransactionHistory expects iconConfig.base)
+ */
+const MockIconComponent = () => 'svg';
+
+/**
+ * Factory for creating ProcessedTransaction-shaped objects (TransactionHistory component format)
+ */
+export const ProcessedTransactionFactory = {
+	create: (
+		overrides: Partial<{
+			hash: string;
+			displayType: 'send' | 'receive' | 'swap-claim' | 'contract-function';
+			network: 'rsk' | 'bsc' | 'lightning';
+			borderColor: 'warning' | 'success' | 'info';
+		}> = {}
+	) => ({
+		hash: overrides.hash ?? '0x' + Math.random().toString(16).substring(2, 66),
+		from: '0x1234567890123456789012345678901234567890',
+		to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+		value: '100000000',
+		timestamp: Date.now(),
+		status: { label: 'Confirmed', icon: MockIconComponent, color: 'success' },
+		network: (overrides.network ?? 'rsk') as 'rsk' | 'bsc' | 'lightning',
+		type: 'send' as const,
+		displayType: overrides.displayType ?? 'send',
+		borderColor: (overrides.borderColor ?? 'warning') as 'warning' | 'success' | 'info',
+		iconConfig: { base: MockIconComponent, overlay: null },
+		title: 'wallet.sent',
+		networkIcon: '',
+		networkDisplayName: 'Rootstock',
+		explorerUrl: null,
+		feeSats: 0,
+		balanceAfter: 0
+	})
+};
+
+/**
  * Factory for edge case test data
  */
 export const EdgeCaseFactory = {
