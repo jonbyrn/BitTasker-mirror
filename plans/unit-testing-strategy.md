@@ -360,7 +360,7 @@ Tools: `grep -r "from '\$lib/..." src/routes src/lib/components` and follow impo
 | 2 | Fix paymentAddressParser | Load error (wallet-core chain?) | `npm run test:unit:utils` | **Done (Chunk 16)** |
 | 3 | Fix escrow tests | escrowBid, escrowErrors, escrowEvents, feeCalculations, contractPermissions | `npm run test:unit:utils` or run `src/lib/tests/unit/utils/escrow/` | **Done (Chunk 17)** |
 | 4 | Fix stores | bid.store, wallet.store.* | `npm run test:unit:stores` | **Done (Chunk 18)** |
-| 5 | Fix components | Mock/setup + **quality validation** (see §6.1) | `npx vitest run src/lib/tests/components/` | **In progress** — 7 files pass, 12 fail. Prioritize: validate tests assert real behavior; fix mocks to match component contracts; avoid weakening assertions to pass. |
+| 5 | Fix components | Mock/setup + **quality validation** (see §6.1) | `npx vitest run src/lib/tests/components/` | **In progress** — DebugWalletAssetList, WalletPaymentModal, ChatMessage fixed. BalanceHistory, ReceivePaymentForm, SendPaymentForm, DebugWalletSendForm, contract/* still failing. |
 | 6 | Wallet-core blocker | contractPermissions, DebugContractCard.logic | Add EventBus mock | Pending |
 | 7 | Phase 3 — Add tests | New coverage per Section 6 | — | After fixes |
 
