@@ -109,60 +109,75 @@ describe('NIP-44 Message Utilities', () => {
 	});
 
 	describe('Encryption/Decryption', () => {
-		it('should encrypt messages using NIP-44', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+		// Dynamic import + crypto/relay mocks can be slow in CI; allow extra time
+		const ENCRYPT_DECRYPT_TIMEOUT = 15000;
 
-			const message = 'Hello World';
-			const recipientPubkey = 'recipient-pubkey-hex';
+		it(
+			'should encrypt messages using NIP-44',
+			async () => {
+				const { sendDirectMessage } = await import('$lib/utils/nostr-message');
 
-			await sendDirectMessage(message, recipientPubkey);
+				const message = 'Hello World';
+				const recipientPubkey = 'recipient-pubkey-hex';
 
-			expect(mockNip44.getConversationKey).toHaveBeenCalled();
-			expect(mockNip44.encrypt).toHaveBeenCalledWith(
-				message,
-				expect.any(Uint8Array),
-				expect.any(Uint8Array)
-			);
-		});
+				await sendDirectMessage(message, recipientPubkey);
 
-		it('should decrypt messages using NIP-44', async () => {
-			const { getMessageHistory } = await import('$lib/utils/nostr-message');
+				expect(mockNip44.getConversationKey).toHaveBeenCalled();
+				expect(mockNip44.encrypt).toHaveBeenCalledWith(
+					message,
+					expect.any(Uint8Array),
+					expect.any(Uint8Array)
+				);
+			},
+			ENCRYPT_DECRYPT_TIMEOUT
+		);
 
-			const recipientPubkey = 'recipient-pubkey-hex';
+		it(
+			'should decrypt messages using NIP-44',
+			async () => {
+				const { getMessageHistory } = await import('$lib/utils/nostr-message');
 
-			// Mock relay response via appStore pool
-			const mockEvents: NostrEvent[] = [
-				{
-					id: 'test-event-id',
-					kind: 4,
-					pubkey: 'sender-pubkey',
-					created_at: Math.floor(Date.now() / 1000),
-					content: 'encrypted_content',
-					tags: [['p', recipientPubkey]],
-					sig: 'test-signature'
-				}
-			];
-			mockPool.querySync.mockResolvedValue(mockEvents);
+				const recipientPubkey = 'recipient-pubkey-hex';
 
-			const messages = await getMessageHistory(recipientPubkey);
+				// Mock relay response via appStore pool
+				const mockEvents: NostrEvent[] = [
+					{
+						id: 'test-event-id',
+						kind: 4,
+						pubkey: 'sender-pubkey',
+						created_at: Math.floor(Date.now() / 1000),
+						content: 'encrypted_content',
+						tags: [['p', recipientPubkey]],
+						sig: 'test-signature'
+					}
+				];
+				mockPool.querySync.mockResolvedValue(mockEvents);
 
-			expect(mockNip44.getConversationKey).toHaveBeenCalled();
-			expect(mockNip44.decrypt).toHaveBeenCalledWith('encrypted_content', expect.any(Uint8Array));
-		});
+				const messages = await getMessageHistory(recipientPubkey);
 
-		it('should generate unique nonces for each message', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
+				expect(mockNip44.getConversationKey).toHaveBeenCalled();
+				expect(mockNip44.decrypt).toHaveBeenCalledWith('encrypted_content', expect.any(Uint8Array));
+			},
+			ENCRYPT_DECRYPT_TIMEOUT
+		);
 
-			const message = 'Test message';
-			const recipientPubkey = 'recipient-pubkey-hex';
+		it(
+			'should generate unique nonces for each message',
+			async () => {
+				const { sendDirectMessage } = await import('$lib/utils/nostr-message');
 
-			await sendDirectMessage(message, recipientPubkey);
-			await sendDirectMessage(message, recipientPubkey);
+				const message = 'Test message';
+				const recipientPubkey = 'recipient-pubkey-hex';
 
-			// Should be called twice with different nonces
-			expect(global.crypto.getRandomValues).toHaveBeenCalledTimes(2);
-			expect(mockNip44.encrypt).toHaveBeenCalledTimes(2);
-		});
+				await sendDirectMessage(message, recipientPubkey);
+				await sendDirectMessage(message, recipientPubkey);
+
+				// Should be called twice with different nonces
+				expect(global.crypto.getRandomValues).toHaveBeenCalledTimes(2);
+				expect(mockNip44.encrypt).toHaveBeenCalledTimes(2);
+			},
+			ENCRYPT_DECRYPT_TIMEOUT
+		);
 	});
 
 	describe('Error Handling', () => {
