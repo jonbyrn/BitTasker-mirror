@@ -1,6 +1,6 @@
 import type { NostrContract, ContractStatusEvent, ContractPermissions } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
-import { EscrowStatus } from '$lib/utils/escrow';
+import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 
 /**
  * Helper function to determine if client can cancel based on Solidity contract rules

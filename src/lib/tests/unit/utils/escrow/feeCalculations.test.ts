@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
 
-// Mock network config before importing
+// Mock wallet-core (FEE_TIERS required by escrow fee helpers; avoid EventBus in test env)
 vi.mock('@bittasker/wallet-core', () => ({
 	FEE_TIERS: {
 		1: { percentage: 250 }, // 2.5%
@@ -9,9 +9,6 @@ vi.mock('@bittasker/wallet-core', () => ({
 		3: { percentage: 150 } // 1.5%
 	}
 }));
-
-// Mock wallet-core to avoid EventBus import issues
-vi.mock('@bittasker/wallet-core', () => ({}));
 
 import {
 	calculateFeeAmount,

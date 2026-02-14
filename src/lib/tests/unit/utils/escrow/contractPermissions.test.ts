@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { EscrowStatus } from '$lib/utils/escrow';
+import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import type { NostrContract, ContractStatusEvent } from '$lib/types/contract';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
