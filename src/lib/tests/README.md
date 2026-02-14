@@ -4,7 +4,7 @@ Tests live under `src/lib/tests/`. Vitest is used for unit and integration tests
 
 ## Where to add tests
 
-- **Unit tests** (pure logic, minimal mocks): add under `unit/` (`unit/helpers/`, `unit/utils/`, `unit/api/services/`, `unit/stores/`). Some tests still live at root or under `api/`, `utils/`, `stores/` until Phase 2 migration is complete.
+- **Unit tests** (pure logic, minimal mocks): add under `unit/` (`unit/helpers/`, `unit/utils/`, `unit/utils/escrow/`, `unit/api/services/`, `unit/stores/`). Some tests still live under `utils/`, `stores/`, `components/` until migration is complete.
 - **Component tests** (Svelte components): `components/` with the same subfolder structure as `$lib/components/`.
 - **Route / page tests**: `unit/routes/` (unit + component tests for a page), `integration/routes/` (store/data-flow tests for a page).
 - **Integration tests** (multi-module flows): `integration/` (e.g. `integration/escrow/`, `integration/routes/`).

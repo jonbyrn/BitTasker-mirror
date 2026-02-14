@@ -14,15 +14,19 @@ import { appStore } from '$lib/stores/app.store';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
 
-// Mock @bittasker/wallet-core first to avoid EventBus import issues
+// Mock @bittasker/wallet-core to avoid EventBus import issues (normalizeRskAddress used by escrow)
 vi.mock('@bittasker/wallet-core', () => ({
-	normalizeRskAddress: vi.fn((addr: string) => addr.toLowerCase())
+	normalizeRskAddress: vi.fn((addr: string) => addr?.toLowerCase() ?? '')
 }));
 
 // Mock dependencies - must be defined before vi.mock calls
 vi.mock('$lib/utils/escrow/v1/nostrContract', () => ({
 	publishContractEvent: vi.fn(),
-	publishContractStatus: vi.fn()
+	publishContractStatus: vi.fn(),
+	getContracts: vi.fn().mockResolvedValue([]),
+	deleteContract: vi.fn().mockResolvedValue(undefined),
+	handleStatusEvent: vi.fn().mockResolvedValue(undefined),
+	handleContractEvent: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/utils/nostr-bid', () => ({
@@ -52,9 +56,6 @@ vi.mock('$lib/api/services/push-notification.service', () => ({
 		sendNotificationToNpubs: vi.fn()
 	}
 }));
-
-// Mock @bittasker/wallet-core to avoid EventBus import issues
-vi.mock('@bittasker/wallet-core', () => ({}));
 
 // Mock svelte-i18n
 // t is a readable store, and get(t) from svelte/store returns its value (translation function)
