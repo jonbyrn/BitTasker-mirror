@@ -33,7 +33,7 @@
 		"test:unit:auth": "vitest run src/lib/tests/unit/helpers/auth.test.ts src/lib/tests/unit/helpers/auth-cache-validation.test.ts src/lib/tests/unit/helpers/auth-error-recovery.test.ts",
 		"test:unit:api": "vitest run src/lib/tests/unit/api/",
 		"test:unit:utils": "vitest run src/lib/tests/unit/utils/ src/lib/tests/utils/",
-		"test:unit:stores": "vitest run src/lib/tests/stores/",
+		"test:unit:stores": "vitest run src/lib/tests/unit/stores/",
 		"test:unit:components": "vitest run src/lib/tests/components/",
 		"test:unit:integration": "vitest run src/lib/tests/integration/",
 		"test:e2e": "node scripts/e2e-ordered.js",

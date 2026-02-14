@@ -6,8 +6,8 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 import { get } from 'svelte/store';
-import { walletStore, allAssets, totalBalances, isAssetsLoading } from '$lib/stores/wallet.store';
-import { AssetFactory } from '../utils/test-data-factories';
+import { walletStore, allAssets, totalBalances } from '$lib/stores/wallet.store';
+import { AssetFactory } from '../../utils/test-data-factories';
 
 // We need to access hasLoadedAssets, but it's not exported. We'll test through the derived store behavior.
 
@@ -148,43 +148,6 @@ describe('Wallet Store State Management', () => {
 			expect(balances.usd).toBe(1000);
 			expect(balances.sats).toBe(100000000);
 			expect(balances.rbtc).toBe(1);
-		});
-	});
-
-	describe('isAssetsLoading derived store', () => {
-		it('should return true when has connection but assets not loaded yet', () => {
-			walletStore.update(s => ({
-				...s,
-				isInitializing: false,
-				hasAnyConnection: true
-				// hasLoadedAssets is false by default, so isLoading should be true
-			}));
-
-			const isLoading = get(isAssetsLoading);
-			// When hasAnyConnection is true but hasLoadedAssets is false, isLoading should be true
-			expect(isLoading).toBe(true);
-		});
-
-		it('should return true when initializing', () => {
-			walletStore.update(s => ({
-				...s,
-				isInitializing: true
-			}));
-
-			const isLoading = get(isAssetsLoading);
-			expect(isLoading).toBe(true);
-		});
-
-		it('should return false when no connection', () => {
-			walletStore.update(s => ({
-				...s,
-				isInitializing: false,
-				hasAnyConnection: false
-			}));
-
-			const isLoading = get(isAssetsLoading);
-			// When no connection, isAssetsLoading returns false (only shows loading when connected but assets not loaded)
-			expect(isLoading).toBe(false);
 		});
 	});
 

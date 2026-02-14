@@ -5,7 +5,7 @@
 **Last updated:** 2025-02-13 (post Chunk 17)  
 **Goal:** Establish a strategy to add and maintain unit tests for code that is actually used in the app, starting with an audit of existing tests in `src/lib/tests`, then defining structure and priorities for future tests.
 
-**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 + legacy fixes through Chunk 16. **Chunk 17:** Escrow tests fixed and moved to `unit/utils/escrow/` (contractPermissions, escrowBid, escrowErrors, escrowEvents, feeCalculations). CI runs **26 files / 420 tests**, all passing. Next: stores (§10 item 4), then components (item 5).
+**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 + legacy fixes through Chunk 17 (escrow). **Chunk 18:** Store tests fixed and moved to `unit/stores/` (bid.store, wallet.store.state, wallet.store.debug, wallet.store.functions). CI runs **30 files** under `unit/` + `integration/routes/`. Next: components (§10 item 5).
 
 ---
 
@@ -57,7 +57,7 @@ test:unit:api, test:unit:utils, test:unit:stores, test:unit:components, test:uni
 | Command | What it runs | Result |
 |--------|----------------|--------|
 | **`npm run test`** | `vitest --run` with **no path** → Vitest discovers **all** test files (default glob `**/*.{test,spec}.{ts,tsx}` under the project). That includes every file under `src/lib/tests/`: `unit/`, `integration/`, `utils/`, `stores/`, `components/`, etc. | ~500+ tests from **59 files**; many fail (e.g. 100+ failures from 39 files) because legacy tests outside `unit/` and `integration/routes/` are not yet fixed. |
-| **`npm run test:ci`** | `vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/` → only those **two directories**. | **420 tests from 26 files**, all passing (the curated, fixed set). |
+| **`npm run test:ci`** | `vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/` → only those **two directories**. | **462+ tests from 30 files** (curated set; one flaky timeout possible in nip44-message). |
 
 So the difference is **scope**: `test` runs the full suite (including broken/legacy tests); `test:ci` runs only the validated subset. Until the rest of the tests are fixed or removed, use `test:ci` for a green run; use `test` or `test:triage` to see the full picture.
 
@@ -217,6 +217,7 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 | 15 | 2025-02-13 | **Fixed and moved token-balance.service (Update → unit/api/services/).** Service calls `response.headers.entries()`; mock fetch did not provide headers. Added `mockFetchResponse()` helper returning Response-like object with `headers: { entries: () => [] }`. Moved to `unit/api/services/token-balance.service.test.ts`. **CI set:** 20 files, 272 tests, all pass. | Next: paymentAddressParser (item 2). |
 | 16 | 2025-02-13 | **Fixed and moved paymentAddressParser (Update → unit/utils/).** Load failed via validators → wallet-core EventBus. Added vi.mock for @bittasker/wallet-core and liquidjs-lib (same pattern as validators). Moved to `unit/utils/paymentAddressParser.test.ts`. **CI set:** 21 files, 301 tests, all pass. | Next: escrow tests (item 3). |
 | 17 | 2025-02-13 | **Fixed and moved escrow tests (Update → unit/utils/escrow/).** (1) escrowBid: merged duplicate @bittasker/wallet-core mocks (FEE_TIERS + normalizeRskAddress); aligned one test with implementation (past start time always adjusted to now+1h). (2) feeCalculations: removed second empty wallet-core mock. (3) escrowEvents: added getContracts, deleteContract, handleStatusEvent, handleContractEvent to nostrContract mock; removed duplicate wallet-core mock. (4) contractPermissions: import EscrowStatus from `v1/escrow.enum` in helper and test to avoid loading full escrow (wallet-core EventBus). Source change in `$lib/utils/helpers/contractPermissions.ts`. Moved all 5 files from `utils/escrow/` to `unit/utils/escrow/`. **CI set:** 26 files, 420 tests, all pass. | Next: stores (item 4). |
+| 18 | 2025-02-13 | **Fixed and moved store tests (Update → unit/stores/).** wallet.store.state: removed tests for removed `isAssetsLoading` derived store; fixed AssetFactory import path after move. wallet.store.debug: added upload.service mock to avoid profile.ts load; ensured ERC20_ABI in wallet-core mock; removed redundant spy. wallet.store.functions: added upload.service mock; WalletManager mock extended with dispose, rskWallet.loadTransactions, bscWallet.loadTransactions, submarineSwapService/reverseSwapService/chainSwapService.recoverPendingSwaps; ERC20_ABI in wallet-core mock; init error test expects rejection; race-condition test initializes wallet first; AssetFactory path. Moved bid.store, wallet.store.state, wallet.store.debug, wallet.store.functions from `stores/` to `unit/stores/`. Updated `test:unit:stores` to run `unit/stores/`. **CI set:** 30 files (unit/ + integration/routes/), 462 tests. | Next: components (item 5). |
 
 **If stuck:** Run `npm run test` and `npm run test:triage` to see current state. Triage groups are defined in `scripts/test-triage.js` (array `TEST_GROUPS`); paths are relative to `src/lib/tests/`. When moving a file, add or adjust a `match` regex so the file is still grouped (or leave in "Other" until a later chunk).
 
@@ -339,7 +340,7 @@ Tools: `grep -r "from '\$lib/..." src/routes src/lib/components` and follow impo
 | 1 | Fix token-balance.service | 11 failed (mock Response.headers) | `npm run test:unit:api` | **Done (Chunk 15)** |
 | 2 | Fix paymentAddressParser | Load error (wallet-core chain?) | `npm run test:unit:utils` | **Done (Chunk 16)** |
 | 3 | Fix escrow tests | escrowBid, escrowErrors, escrowEvents, feeCalculations, contractPermissions | `npm run test:unit:utils` or run `src/lib/tests/unit/utils/escrow/` | **Done (Chunk 17)** |
-| 4 | Fix stores | bid.store, wallet.store.* | `npm run test:unit:stores` | Pending |
+| 4 | Fix stores | bid.store, wallet.store.* | `npm run test:unit:stores` | **Done (Chunk 18)** |
 | 5 | Fix components | Mock/setup issues | `npm run test:unit:components` | Pending |
 | 6 | Wallet-core blocker | contractPermissions, DebugContractCard.logic | Add EventBus mock | Pending |
 | 7 | Phase 3 — Add tests | New coverage per Section 6 | — | After fixes |
@@ -348,7 +349,7 @@ After each fix: move the test file to `unit/` (e.g. `unit/api/services/`), updat
 
 ### Quick reference
 
-1. **Run CI:** `npm run test:ci` — 26 files, 420 tests.
+1. **Run CI:** `npm run test:ci` — 30 files (unit/ + integration/routes/), 462+ tests.
 2. **Full suite + triage:** `npm run test` or `npm run test:triage`.
 3. **Fix Update tests:** Use `test:unit:<group>` scripts; move fixed files to `unit/`; update triage.
 4. **Add new tests:** Place under `unit/` per Section 3; follow naming convention.
@@ -385,14 +386,14 @@ Use this list to ensure every non-E2E test is triaged. Exclude `e2e/` (Playwrigh
 - nostr-bid.test.ts
 - wallet/blockscoutTransactionStatus.test.ts
 
-**stores/ (unit/stores/ has wallet.store):**
+**stores/ (unit/stores/ has wallet.store, bid.store, wallet.store.*):**
 
 - wallet.store.test.ts *(in unit/stores/ Chunk 5)*
-- bid.store.test.ts
+- bid.store.test.ts *(Fixed Chunk 18 — in unit/stores/)*
+- wallet.store.debug.test.ts *(Fixed Chunk 18 — in unit/stores/)*
+- wallet.store.functions.test.ts *(Fixed Chunk 18 — in unit/stores/)*
+- wallet.store.state.test.ts *(Fixed Chunk 18 — in unit/stores/)*
 - user-profile-optimization.test.ts *(removed Chunk 1 — empty)*
-- wallet.store.debug.test.ts
-- wallet.store.functions.test.ts
-- wallet.store.state.test.ts
 
 **components/:**
 

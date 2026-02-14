@@ -3,6 +3,17 @@ import { get } from 'svelte/store';
 import { walletStore, walletManager } from '$lib/stores/wallet.store';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 
+// Prevent profile.ts -> upload.service -> BaseApiService load failure in test env
+vi.mock('$lib/api/services/upload.service', () => ({
+	default: {
+		uploadSingleFile: vi.fn(),
+		uploadMultipleFiles: vi.fn(),
+		deleteFile: vi.fn(),
+		getImageUrl: vi.fn(),
+		generateResponsiveUrls: vi.fn()
+	}
+}));
+
 // Mock dependencies
 vi.mock('$lib/utils/helpers/mnemonic', () => ({
 	getMnemonic: vi.fn().mockResolvedValue('test mnemonic phrase twelve words long enough for bip39')
@@ -34,12 +45,13 @@ vi.mock('$lib/api/services/token-balance.service', () => ({
 	}
 }));
 
-// Mock ethers Contract - need to mock the module that imports it
+const ERC20_ABI_MOCK = ['function transfer(address, uint256) returns (bool)', 'function decimals() view returns (uint8)'];
+
 vi.mock('@bittasker/wallet-core', async () => {
-	const actual = await vi.importActual('@bittasker/wallet-core');
+	const actual = await vi.importActual('@bittasker/wallet-core').catch(() => ({}));
 	return {
 		...actual,
-		ERC20_ABI: ['function transfer(address, uint256) returns (bool)', 'function decimals() view returns (uint8)']
+		ERC20_ABI: ERC20_ABI_MOCK
 	};
 });
 
@@ -305,14 +317,7 @@ describe('Wallet Store - Debug Wallet Functions', () => {
 				})
 			};
 
-			// Mock networkConfig to return mock ERC20_ABI
-			const networkConfigModule = await import('@bittasker/wallet-core');
-			vi.spyOn(networkConfigModule, 'ERC20_ABI', 'get').mockReturnValue([
-				'function transfer(address, uint256) returns (bool)',
-				'function decimals() view returns (uint8)'
-			] as any);
-
-			// Mock ethers.Contract by mocking the import
+			// Mock ethers.Contract (ERC20_ABI provided by wallet-core mock at top of file)
 			const mockEthers = {
 				Contract: vi.fn().mockImplementation(() => mockContract),
 				parseUnits: vi.fn((amount: string, decimals: number) => {
