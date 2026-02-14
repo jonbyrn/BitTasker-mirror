@@ -89,33 +89,37 @@ vi.mock('$lib/stores/wallet.store', async () => {
 			address: '0x1234567890123456789012345678901234567890'
 		}
 	});
+	const swapPairsResult = {
+		BTC: {
+			RBTC: {
+				limits: { minimal: 10000, maximal: 100000000 },
+				fees: {
+					percentage: 0.25,
+					minerFees: { lockup: 27, claim: 20 }
+				}
+			}
+		}
+	};
+	const chainPairsResult = {
+		'L-BTC': {
+			RBTC: {
+				limits: { minimal: 10000, maximal: 100000000 },
+				fees: {
+					percentage: 0.1,
+					minerFees: {
+						user: { lockup: 34, claim: 20 }
+					}
+				}
+			}
+		}
+	};
 	return {
 		walletStore: mockWalletStore,
 		walletManager: {
-			getReverseSwapPairs: vi.fn().mockResolvedValue({
-				BTC: {
-					RBTC: {
-						limits: { minimal: 10000, maximal: 100000000 },
-						fees: {
-							percentage: 0.25,
-							minerFees: { lockup: 27, claim: 20 }
-						}
-					}
-				}
-			}),
-			getChainSwapPairs: vi.fn().mockResolvedValue({
-				'L-BTC': {
-					RBTC: {
-						limits: { minimal: 10000, maximal: 100000000 },
-						fees: {
-							percentage: 0.1,
-							minerFees: {
-								user: { lockup: 34, claim: 20 }
-							}
-						}
-					}
-				}
-			}),
+			getReverseSwapPairs: vi.fn().mockResolvedValue(swapPairsResult),
+			getCachedReverseSwapPairs: vi.fn().mockResolvedValue(swapPairsResult),
+			getChainSwapPairs: vi.fn().mockResolvedValue(chainPairsResult),
+			getCachedChainSwapPairs: vi.fn().mockResolvedValue(chainPairsResult),
 			estimateRBTCGas: vi.fn().mockResolvedValue({
 				totalCostFormatted: '0.00103',
 				gasLimit: '21000',
