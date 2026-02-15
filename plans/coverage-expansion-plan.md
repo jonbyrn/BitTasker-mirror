@@ -1,8 +1,26 @@
 # Plan: Coverage Expansion for BitTasker
 
-**Status:** In progress — Phase A  
+**Status:** Phase A largely complete; Phase B next  
 **Created:** 2025-02-15  
 **Goal:** Systematically increase test coverage with the highest-value targets first. Use `coverage/index.html` (from `npm run test:ci -- --coverage`) to track progress.
+
+---
+
+## Assessment & Next Focus (post–Phase A)
+
+**Progress so far:** Phase A (helpers) — **31/42** helpers tested; 6 pending (biometrics, fcm, generateQrCodeUrl, migratePasskey, mnemonic, webBiometrics). Escrow utils and several wallet/formatting helpers are well covered.
+
+**Where to add tests next (by value for BitTasker):**
+
+| Priority | Area | Why | Effort |
+|----------|------|-----|--------|
+| **1** | **Phase B — Wallet utils** (`$lib/utils/wallet/`) | **Done.** `contractErrorHandler`, `swapTransaction`, `rpcHelpers`, `transactionHistory` ✅ tested (`unit/utils/wallet/`). `contractDetection` already tested. `balanceManager` not used — skip. | Medium — mock ethers/wallet |
+| **2** | **Phase B — Stores** (`task.store`, `auth.store`) | Core app state. Test pure logic / state transitions (e.g. task filters, auth state machine) without full DOM. | Medium |
+| **3** | **Unblock _pending** | `functionParsing.test.ts` and `loadContractsByAddress.test.ts` — get contract/wallet logic into CI by fixing mocks (EventBus, getWallet). | Low–medium |
+| **4** | **Phase C — API services** | `push-notification.service`, crypto-price, Nostr services. Mock fetch/WebSocket. | Medium |
+| **5** | **Phase D — Critical path components** | Auth (login/recover), task create, bidding. High impact but more mocks (i18n, Capacitor, stores). | High |
+
+**Recommendation:** Start with **Phase B — wallet utils** (e.g. `transactionHistory`, `balanceManager`) or **unblocking _pending** contract tests so more business logic is in CI. Then add **store tests** for `task.store` / `auth.store` where logic is testable in isolation.
 
 **Chunk strategy:** One helper per chunk (or batch 2–3 short helpers). Run `test:ci` and `test:ci -- --coverage` after each. Update this log before moving on.
 
@@ -212,3 +230,4 @@ Track in coverage report. No strict gate — use as guidance.
 - **Strategy:** `plans/unit-testing-strategy.md`
 - **Coverage config:** `vite.config.ts` (test.coverage)
 - **Test layout:** `src/lib/tests/README.md`
+- **Wallet utils (Phase B):** `plans/wallet-utils-testing-guide.md` — usage matrix, what to test, behavior guidelines, implementation order.
