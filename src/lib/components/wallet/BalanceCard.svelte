@@ -23,7 +23,7 @@
 	let isRefreshing = $state(false);
 
 	// Balance visibility state - default to hidden
-	let balancesHidden = $state(true);
+	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
 	let countdownSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -40,7 +40,7 @@
 
 	function showBalances() {
 		balancesHidden = false;
-		countdownSeconds = 60;
+		countdownSeconds = 45;
 
 		// Clear existing interval if any
 		if (countdownInterval) {

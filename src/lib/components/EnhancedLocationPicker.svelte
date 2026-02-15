@@ -47,8 +47,15 @@
 	let searchInput: HTMLInputElement;
 	let marker: google.maps.marker.AdvancedMarkerElement | null = null;
 	let circle: google.maps.Circle | null = null;
-	let currentServiceRadius = $state(serviceRadius);
-	let currentLocation = $state<Location>(location);
+	// Initialize with default values to avoid capturing initial prop values
+	let currentServiceRadius = $state(1.6);
+	let currentLocation = $state<Location>({
+		displayName: '',
+		longitude: -122.4194,
+		latitude: 37.7749,
+		zipCode: '',
+		locationLoaded: false
+	});
 	let isLoading = $state(false);
 	let isMapLoaded = $state(false);
 	let hasError = $state(false);
@@ -63,9 +70,13 @@
 	let maxRetries = 3;
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
 
-	// Update currentLocation when location prop changes
+	// Update currentLocation and currentServiceRadius when props change
 	$effect(() => {
-		currentLocation = location;
+		// Explicitly track props to ensure reactivity
+		const propLocation = location;
+		const propServiceRadius = serviceRadius;
+		currentLocation = propLocation;
+		currentServiceRadius = propServiceRadius;
 	});
 
 	// Default fallback coordinates (San Francisco)
@@ -679,25 +690,50 @@
 			console.log('Using fallback fullscreen method - Capacitor ScreenOrientation not available');
 		}
 
+		// Calculate navigation bar heights
+		const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
+		const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
+		
+		// Get footer height from CSS variable (set dynamically by layout)
+		const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+		const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
+		
+		// Calculate available height (viewport minus navigation bars)
+		const viewportHeight = window.innerHeight;
+		const availableHeight = viewportHeight - headerHeight - footerHeight;
+
 		// Store original dimensions for restoring later
 		if (mapContainerDiv) {
-			// Apply fullscreen styles
+			// Apply fullscreen styles - position below header, above footer
+			// Remove all height-related classes that might interfere
+			mapContainerDiv.className = 'map-container';
 			mapContainerDiv.style.position = 'fixed';
-			mapContainerDiv.style.top = '0';
+			mapContainerDiv.style.top = `${headerHeight}px`;
+			mapContainerDiv.style.bottom = `${footerHeight}px`;
 			mapContainerDiv.style.left = '0';
+			mapContainerDiv.style.right = '0';
 			mapContainerDiv.style.width = '100vw';
-			mapContainerDiv.style.height = '100vh';
-			mapContainerDiv.style.zIndex = '100'; // Lower z-index so controls stay on top
+			mapContainerDiv.style.height = `${availableHeight}px`;
+			mapContainerDiv.style.maxHeight = `${availableHeight}px`;
+			mapContainerDiv.style.minHeight = `${availableHeight}px`;
+			mapContainerDiv.style.zIndex = '1000'; // High z-index to be above content but below modals
 			mapContainerDiv.style.backgroundColor = 'white';
 			mapContainerDiv.style.overflow = 'hidden';
+			mapContainerDiv.style.margin = '0';
+			mapContainerDiv.style.padding = '0';
 		}
 
 		// Ensure inner map element fills the fullscreen container
+		// Remove height-related classes
 		if (mapElement) {
+			mapElement.className = 'w-full overflow-hidden';
 			mapElement.style.width = '100%';
 			mapElement.style.height = '100%';
-			mapElement.style.minHeight = '100vh';
+			mapElement.style.minHeight = '100%';
+			mapElement.style.maxHeight = '100%';
 			mapElement.style.borderRadius = '0';
+			mapElement.style.margin = '0';
+			mapElement.style.padding = '0';
 		}
 
 		// Await DOM flush, then trigger Google Maps resize and re-center
@@ -721,9 +757,31 @@
 
 		// Keep size in sync when device UI chrome changes (mobile) or orientation changes
 		fullscreenResizeHandler = () => {
+			// Only handle resize if still in fullscreen
+			if (!isFullscreen) return;
+			
+			// Recalculate navigation bar heights on resize
+			const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
+			const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
+			
+			const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+			const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
+			
+			const viewportHeight = window.innerHeight;
+			const availableHeight = viewportHeight - headerHeight - footerHeight;
+			
+			if (mapContainerDiv) {
+				mapContainerDiv.style.top = `${headerHeight}px`;
+				mapContainerDiv.style.bottom = `${footerHeight}px`;
+				mapContainerDiv.style.height = `${availableHeight}px`;
+				mapContainerDiv.style.maxHeight = `${availableHeight}px`;
+				mapContainerDiv.style.minHeight = `${availableHeight}px`;
+			}
+			
 			if (mapElement) {
 				mapElement.style.height = '100%';
-				mapElement.style.minHeight = '100vh';
+				mapElement.style.minHeight = '100%';
+				mapElement.style.maxHeight = '100%';
 			}
 			if (map) {
 				google.maps.event.trigger(map, 'resize');
@@ -752,22 +810,35 @@
 
 		// Restore original CSS styles
 		if (mapContainerDiv) {
+			// Restore original classes
+			mapContainerDiv.className = 'map-container relative w-full';
 			mapContainerDiv.style.position = 'relative';
 			mapContainerDiv.style.top = 'auto';
+			mapContainerDiv.style.bottom = 'auto';
 			mapContainerDiv.style.left = 'auto';
+			mapContainerDiv.style.right = 'auto';
 			mapContainerDiv.style.width = '100%';
+			mapContainerDiv.style.maxHeight = '';
+			mapContainerDiv.style.minHeight = '';
 			mapContainerDiv.style.height = 'auto';
 			mapContainerDiv.style.zIndex = 'auto';
 			mapContainerDiv.style.backgroundColor = 'transparent';
 			mapContainerDiv.style.overflow = 'visible';
+			mapContainerDiv.style.margin = '';
+			mapContainerDiv.style.padding = '';
 		}
 
 		// Restore map element size
 		if (mapElement) {
+			// Restore original classes
+			mapElement.className = 'h-full w-full overflow-hidden rounded-lg';
 			mapElement.style.width = '100%';
 			mapElement.style.height = '';
 			mapElement.style.minHeight = mapHeight;
+			mapElement.style.maxHeight = '';
 			mapElement.style.borderRadius = '0.5rem'; // rounded-lg
+			mapElement.style.margin = '';
+			mapElement.style.padding = '';
 		}
 
 		// Remove resize listener if present
@@ -898,13 +969,12 @@
 			</div>
 		</div>
 
-		<!-- Fullscreen Button - using fixed positioning when in fullscreen mode -->
+		<!-- Fullscreen Button - positioned relative to map container -->
 		{#if showFullscreen}
 			<button
 				onclick={toggleFullscreen}
-				class="{isFullscreen
-					? 'fixed bottom-4 left-4 z-1000'
-					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				class="absolute top-4 right-4 z-20 btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				class:z-1000={isFullscreen}
 				aria-label={isFullscreen
 					? $t('task.location_picker.exit_fullscreen')
 					: $t('task.location_picker.enter_fullscreen')}

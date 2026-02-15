@@ -3,8 +3,7 @@
 	import { onMount } from 'svelte';
 	import QRCode from 'qrcode';
 
-	let { data } = $props();
-	const seo = data.seo;
+	let { data: seo } = $props();
 
 	// QR code states
 	let appQrCode = $state('');

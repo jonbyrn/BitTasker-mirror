@@ -8,8 +8,7 @@
 	import IconShieldAccount from '~icons/mdi/shield-account';
 	import IconHandshake from '~icons/mdi/handshake';
 
-	let { data } = $props();
-	const seo = data.seo;
+	let { data: seo } = $props();
 </script>
 
 <svelte:head>

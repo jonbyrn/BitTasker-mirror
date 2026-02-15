@@ -1,40 +1,50 @@
 <script lang="ts">
-	import type { Task } from '$lib/types/task';
-	import { goto } from '$app/navigation';
-	import { deleteTask } from '$lib/nostr/task';
-	import { taskStore } from '$lib/stores/task.store';
-	import { myTasksStore } from '$lib/stores/task.store';
+	import type { Attachment, Task } from '$lib/types/task';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
+	import { browser } from '$app/environment';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import { formatStandardDate, formatStandardDateShort, formatStandardDateTime, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatStandardDate,
+		formatStandardDateShort,
+		formatStandardDateTime,
+		parseDateToLocalMidnight
+	} from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { fade, scale } from 'svelte/transition';
-	import { getContracts } from '$lib/utils/nostr-contract';
-	import { escrow } from '$lib/utils/wallet/escrow';
-	import { contractStore } from '$lib/stores/contract.store';
+	import { escrow } from '$lib/utils/escrow';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
-	import { appStore } from '$lib/stores/app.store';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import TaskShareButton from '../TaskShareButton.svelte';
+	import Gallery from '$lib/components/Gallery.svelte';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	// Icon imports for unplugin-icons
+	import IconPlus from '~icons/mdi/plus';
 
-	let { task, isOwner, onClose } = $props<{
-		task: Task;
-		isOwner: boolean;
-		onClose: () => void;
-	}>();
+	let { task, isOwner, onClose, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } =
+		$props<{
+			task: Task;
+			isOwner: boolean;
+			onClose: () => void;
+			onRequestEditConfirm?: () => void;
+			onRequestDeleteConfirm?: () => void;
+			isDeleting?: boolean;
+			onBid?: () => void;
+		}>();
 
-	let isDeleting = $state(false);
-	let errorMessage = $state('');
 	let btcPrice = $state<number>(63000); // Default fallback price
-	let showEditConfirmation = $state(false);
-	let showDeleteConfirm = $state(false);
 	let canDelete = $state(true); // Default to true, will be checked
 	let isCheckingDelete = $state(false);
+	let canEdit = $state(true); // Default to true, will be checked
+	let isCheckingEdit = $state(false);
+
+	// Video lightbox state
+	let selectedVideo = $state<Attachment | null>(null);
+	let isVideoLightboxOpen = $state(false);
+	let lightboxContainer: HTMLDivElement | null = $state(null);
 
 	// Helper function to format date string with time (for timestamps like createdAt)
 	function formatDateStringWithTime(date: string | number): string {
@@ -50,22 +60,170 @@
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
 
+	// Helper function to translate a single category
+	function translateCategory(category: string | any): string {
+		try {
+			// Extract ID from category (handle both string and object)
+			const categoryId = typeof category === 'string' ? category : (category as any).id;
+			const categoryObj = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
+			if (categoryObj) {
+				// Use slug for translation key (as defined in translation files)
+				const translatedName = $t(`categories.${categoryObj.slug}.name`);
+				// Fallback to category.name if translation key is returned (translation not loaded)
+				return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
+			}
+			return categoryId;
+		} catch (error) {
+			console.error('Error translating category:', error);
+			return typeof category === 'string' ? category : (category as any).id || '';
+		}
+	}
+
+	// Convert category IDs to translated names for display (reactive)
+	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
+
+	// Prepare gallery images for PhotoSwipe lightbox
+	// Note: attachment.url is the full-size/original image URL
+	// The Gallery component uses 'url' for the lightbox href (full-size) and 'thumbnailURL' for the thumbnail display
+	const prepareGalleryImages = async (attachments: Attachment[]) => {
+		const imagePromises = attachments
+			.filter((attachment) => !isVideoFile(attachment.url))
+			.map((attachment) => {
+				return new Promise<{
+					url: string;
+					largeURL?: string;
+					alt: string;
+					width: number;
+					height: number;
+					size: number;
+				}>((resolve) => {
+					const img = new Image();
+					// Use the full-size image URL for both thumbnail and lightbox
+					// attachment.url is the original/full-size image from the upload service
+					const fullSizeUrl = attachment.url;
+
+					img.onload = () => {
+						resolve({
+							url: fullSizeUrl, // Full-size image URL for lightbox (Gallery uses this in href)
+							largeURL: fullSizeUrl, // Explicitly set largeURL to ensure full-size is used
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
+							width: img.naturalWidth,
+							height: img.naturalHeight,
+							size: attachment.size
+						});
+					};
+					img.onerror = () => {
+						resolve({
+							url: fullSizeUrl,
+							largeURL: fullSizeUrl,
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
+							width: 0,
+							height: 0,
+							size: attachment.size
+						});
+					};
+					img.src = fullSizeUrl;
+				});
+			});
+
+		return await Promise.all(imagePromises);
+	};
+
+	// Portal action to render lightbox at body level
+	function portalToBody(node: HTMLElement) {
+		if (!browser) return;
+
+		// Append to body
+		document.body.appendChild(node);
+
+		return {
+			destroy() {
+				if (node.parentNode) {
+					node.parentNode.removeChild(node);
+				}
+			}
+		};
+	}
+
+	// Open video in lightbox
+	function openVideoLightbox(video: Attachment) {
+		selectedVideo = video;
+		isVideoLightboxOpen = true;
+		// Prevent body scroll when lightbox is open
+		if (browser) {
+			document.body.style.overflow = 'hidden';
+		}
+	}
+
+	// Close video lightbox
+	function closeVideoLightbox() {
+		isVideoLightboxOpen = false;
+		// Restore body scroll
+		if (browser) {
+			document.body.style.overflow = '';
+		}
+		// Clear video after animation
+		setTimeout(() => {
+			selectedVideo = null;
+		}, 300);
+	}
+
+	// Cleanup on component destroy
+	onDestroy(() => {
+		if (browser) {
+			if (isVideoLightboxOpen) {
+				document.body.style.overflow = '';
+			}
+			// Remove lightbox container from body if it exists
+			if (lightboxContainer) {
+				const parent = lightboxContainer.parentNode;
+				if (parent) {
+					parent.removeChild(lightboxContainer);
+				}
+			}
+		}
+	});
+
 	function handleEditTask() {
-		showEditConfirmation = true;
+		if (onRequestEditConfirm) {
+			onRequestEditConfirm();
+		}
 	}
 
-	function confirmEditTask() {
-		const editTask = { ...task };
-		['id', 'author'].forEach((key) => {
-			delete editTask[key as keyof Task];
-		});
-		taskStore.saveEditTaskDraft(task?.id, task?.uniqueId, editTask);
-		showEditConfirmation = false;
-		goto(`/dashboard/create-task?edit=true`);
-	}
+	// Check if task can be edited (cannot edit if contract exists)
+	async function checkCanEditTask(): Promise<void> {
+		if (!task?.id) {
+			canEdit = false;
+			return;
+		}
 
-	function cancelEditTask() {
-		showEditConfirmation = false;
+		// Only check if task is open and user is owner
+		if (task.status !== TaskStatusEnum.OPEN || !isOwner) {
+			canEdit = false;
+			return;
+		}
+
+		try {
+			isCheckingEdit = true;
+
+			// Check if task has any contracts
+			const contracts = await escrow.contractOps.getContracts({ taskIds: [task.id] });
+
+			if (contracts.length === 0) {
+				// No contracts found - can edit
+				canEdit = true;
+				return;
+			}
+
+			// Task has contracts - cannot edit
+			canEdit = false;
+		} catch (error) {
+			console.error('Error checking if task can be edited:', error);
+			// On error, be conservative and disallow editing
+			canEdit = false;
+		} finally {
+			isCheckingEdit = false;
+		}
 	}
 
 	// Check if task can be deleted (similar to contract deletion logic)
@@ -77,10 +235,10 @@
 
 		try {
 			isCheckingDelete = true;
-			
+
 			// Check if task has any contracts (which means it has an escrow)
-			const contracts = await getContracts({ taskIds: [task.id] });
-			
+			const contracts = await escrow.contractOps.getContracts({ taskIds: [task.id] });
+
 			if (contracts.length === 0) {
 				// No contracts found - task was never funded, can delete
 				canDelete = true;
@@ -89,21 +247,21 @@
 
 			// Task has contracts - check if any escrow was funded
 			for (const contract of contracts) {
-				const fundingStatus = await escrow.checkEscrowFundingStatus(contract.escrowData.id);
-				
+				const fundingStatus = await escrow.escrowOps.checkEscrowFundingStatus(contract);
+
 				if (fundingStatus.error) {
 					// Error checking escrow - be conservative and disallow deletion
 					canDelete = false;
 					return;
 				}
-				
+
 				if (fundingStatus.wasFunded) {
 					// Escrow was funded - cannot delete
 					canDelete = false;
 					return;
 				}
 			}
-			
+
 			// All escrows were never funded - can delete
 			canDelete = true;
 		} catch (error) {
@@ -118,26 +276,7 @@
 	// Show delete confirmation
 	function showDeleteConfirmation() {
 		if (!canDelete) return;
-		showDeleteConfirm = true;
-	}
-
-	// Delete task (after confirmation)
-	async function handleDeleteTask() {
-		if (!canDelete) return;
-		
-		showDeleteConfirm = false;
-		try {
-			isDeleting = true;
-			if (!task?.id) return;
-			await deleteTask(task.id);
-			$myTasksStore.items = $myTasksStore.items.filter((t) => t.id !== task.id);
-			onClose();
-		} catch (error) {
-			console.error('Failed to delete task:', error);
-			errorMessage = 'Failed to delete task';
-		} finally {
-			isDeleting = false;
-		}
+		onRequestDeleteConfirm();
 	}
 
 	async function fetchBtcPrice(): Promise<void> {
@@ -149,205 +288,16 @@
 		}
 	}
 
-	// Generate share link for public route - always use uniqueId for stable URLs
-	const shareLink = $derived(() => {
-		if (typeof window !== 'undefined' && task) {
-			// Always use the uniqueId from the task object for stable URLs
-			// This ensures URLs remain stable even if task is edited (event ID changes, but uniqueId stays the same)
-			const taskIdentifier = (task as any).uniqueId || task.id;
-			return `${window.location.origin}/tasks/${taskIdentifier}`;
+	// Re-check edit permission when task or isOwner changes
+	$effect(() => {
+		if (task && isOwner !== undefined) {
+			checkCanEditTask();
 		}
-		return '';
 	});
-
-	// Helper function to format date with time for sharing
-	function formatDateTimeForShare(dateString: string): string {
-		const date = parseDateToLocalMidnight(dateString) || new Date(dateString);
-		if (!date || isNaN(date.getTime())) return '';
-		
-		const localeToUse = $locale || 'en';
-		const formattedDate = formatStandardDateShort(date, localeToUse);
-		const formattedTime = date.toLocaleTimeString(localeToUse, {
-			hour: 'numeric',
-			minute: '2-digit',
-			hour12: true
-		});
-		return `${formattedDate} · ${formattedTime}`;
-	}
-
-	// Helper function to format date range for sharing
-	function formatDateRangeForShare(startDateString: string, endDateString: string): string {
-		const localeToUse = $locale || 'en';
-		const startDate = new Date(startDateString);
-		const endDate = new Date(endDateString);
-		
-		if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-			return '';
-		}
-		
-		const start = formatStandardDateShort(startDate, localeToUse);
-		const end = formatStandardDateShort(endDate, localeToUse);
-		return `${start} - ${end}`;
-	}
-
-	// Helper function to truncate text to 200 characters at last complete word
-	function truncateText(text: string, maxLength: number = 200): string {
-		if (!text || text.length <= maxLength) return text;
-		
-		const truncated = text.substring(0, maxLength);
-		const lastSpace = truncated.lastIndexOf(' ');
-		
-		if (lastSpace > 0) {
-			return truncated.substring(0, lastSpace) + '...';
-		}
-		return truncated + '...';
-	}
-
-	// Helper function to format share text with task details
-	function formatShareText(): string {
-		if (!task) return 'Check out this task';
-		
-		let text = '';
-		
-		// Add truncated description
-		const description = task.description || '';
-		if (description) {
-			text += truncateText(description, 200);
-		} else {
-			text += 'Check out this task';
-		}
-		
-		// Collect details
-		const details: string[] = [];
-		
-		// Budget
-		if (task.budget?.amount) {
-			details.push(`💰 Budget:\n$${formatNumberWithTwoDecimals(task.budget.amount)}`);
-		}
-		
-		// Deadline
-		if (task.deadline) {
-			const deadlineFormatted = formatDateTimeForShare(task.deadline);
-			if (deadlineFormatted) {
-				details.push(`📅 Deadline:\n${deadlineFormatted}`);
-			}
-		} else if (task.dateRange) {
-			const dateRangeFormatted = formatDateRangeForShare(task.dateRange.start, task.dateRange.end);
-			if (dateRangeFormatted) {
-				details.push(`📅 Deadline:\n${dateRangeFormatted}`);
-			}
-		}
-		
-		// Location
-		if (task.dropOffLocation?.displayName) {
-			details.push(`📍 Location:\n${task.dropOffLocation.displayName}`);
-		} else if (task.pickupLocation?.displayName) {
-			details.push(`📍 Location:\n${task.pickupLocation.displayName}`);
-		} else if (task.taskType === TaskTypeEnum.REMOTE) {
-			details.push(`📍 Location:\n${$t('dashboard.task_details_by_task.remote')}`);
-		}
-		
-		// Add details if any exist
-		if (details.length > 0) {
-			text += '\n\n' + details.join('\n\n');
-		}
-		
-		return text;
-	}
-
-	// Helper function to fetch first image attachment as File
-	async function getFirstImageFile(): Promise<File | null> {
-		if (!task?.attachments || task.attachments.length === 0) return null;
-		
-		// Find first non-video attachment (image)
-		const firstImage = task.attachments.find(att => !isVideoFile(att.url));
-		if (!firstImage) return null;
-		
-		try {
-			// Fetch the image
-			const response = await fetch(firstImage.url);
-			if (!response.ok) return null;
-			
-			const blob = await response.blob();
-			
-			// Get file extension from URL or use default
-			const urlParts = firstImage.url.split('.');
-			const extension = urlParts.length > 1 ? urlParts[urlParts.length - 1].split('?')[0] : 'jpg';
-			const mimeType = blob.type || `image/${extension}`;
-			
-			// Create File object
-			const fileName = firstImage.alt || `task-image.${extension}`;
-			const file = new File([blob], fileName, { type: mimeType });
-			
-			return file;
-		} catch (error) {
-			console.error('Failed to fetch image for sharing:', error);
-			return null;
-		}
-	}
-
-	// Handle share functionality
-	let shareSuccess = $state(false);
-	const handleShare = async () => {
-		const link = shareLink();
-		if (!link) return;
-
-		if (navigator.share) {
-			try {
-				// Prepare share data
-				const shareData: ShareData = {
-					title: task?.title || 'Task Details',
-					text: formatShareText(),
-					url: link
-				};
-				
-				// Try to add first image if available
-				const imageFile = await getFirstImageFile();
-				if (imageFile) {
-					// Check if files can be shared
-					if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-						shareData.files = [imageFile];
-					}
-				}
-				
-				await navigator.share(shareData);
-				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.share_success') || 'Task shared successfully!');
-				setTimeout(() => {
-					shareSuccess = false;
-				}, 2000);
-			} catch (error) {
-				// User cancelled sharing or error occurred
-				if ((error as Error).name !== 'AbortError') {
-					console.log('Share cancelled or failed:', error);
-					// Fallback to copy link if share fails
-					const success = await copyToClipboard(link);
-					if (success) {
-						shareSuccess = true;
-						appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
-						setTimeout(() => {
-							shareSuccess = false;
-						}, 2000);
-					}
-				}
-			}
-		} else {
-			// Fallback: copy to clipboard
-			const success = await copyToClipboard(link);
-			if (success) {
-				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
-				setTimeout(() => {
-					shareSuccess = false;
-				}, 2000);
-			} else {
-				appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
-			}
-		}
-	};
 
 	onMount(() => {
 		fetchBtcPrice();
+		checkCanEditTask();
 		checkCanDeleteTask();
 	});
 </script>
@@ -371,7 +321,11 @@
 	</div> -->
 
 	<!-- Task details -->
-	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+	<div class="grid grid-cols-1 gap-4 md:grid-cols-2 relative">
+		<!-- Share Button - Upper Right Corner (wrapper is div; TaskShareButton handles interactivity) -->
+		<div class="absolute top-0 right-0 z-10">
+			<TaskShareButton {task} variant="circle" />
+		</div>
 		<div>
 			<small class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
@@ -403,7 +357,10 @@
 					{$t('dashboard.task_details_by_task.deadline')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDate(parseDateToLocalMidnight(task.deadline) || new Date(task.deadline), $locale || 'en')}
+					{formatStandardDate(
+						parseDateToLocalMidnight(task.deadline) || new Date(task.deadline),
+						$locale || 'en'
+					)}
 				</p>
 			</div>
 		{:else if task.dateRange}
@@ -412,7 +369,10 @@
 					{$t('dashboard.task_details_by_task.date_range')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDateShort(parseDateToLocalMidnight(task.dateRange.start) || new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDateShort(
+					{formatStandardDateShort(
+						parseDateToLocalMidnight(task.dateRange.start) || new Date(task.dateRange.start),
+						$locale || 'en'
+					)} - {formatStandardDateShort(
 						parseDateToLocalMidnight(task.dateRange.end) || new Date(task.dateRange.end),
 						$locale || 'en'
 					)}
@@ -435,8 +395,8 @@
 		>
 		<div class="bg-base-200 rounded-2xl p-3">
 			<div class="max-h-28 overflow-y-auto">
-				<TranslatableTask 
-					{task} 
+				<TranslatableTask
+					{task}
 					showTitle={false}
 					showDescription={true}
 					showToggle={false}
@@ -467,9 +427,9 @@
 				{$t('dashboard.task_details_by_task.categories')}
 			</small>
 			<div class="flex flex-wrap gap-1">
-				{#each task.categories as category}
+				{#each translatedCategories as category}
 					<span class="badge badge-outline badge-info pb-[2px]">
-						{typeof category === 'string' ? category : category.name}
+						{category}
 					</span>
 				{/each}
 			</div>
@@ -524,12 +484,36 @@
 				{$t('dashboard.task_details_by_task.attachments')}
 			</small>
 
-			<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
-				{#each task.attachments as attachment, i}
-					{#if isVideoFile(attachment.url)}
-						<!-- Video -->
-						<div class="bg-base-200 overflow-hidden rounded-lg pb-4">
-							<video class="h-32 w-full object-cover" controls preload="metadata">
+			<!-- Images with Gallery lightbox -->
+			{#if task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+				<div class="mb-6">
+					{#await prepareGalleryImages(task.attachments) then galleryImages}
+						<Gallery
+							galleryID="task-drawer-images-gallery"
+							images={galleryImages}
+							thumbnailSize="h-32 w-full"
+						/>
+					{/await}
+				</div>
+			{/if}
+
+			<!-- Videos with clickable lightbox -->
+			{#if task.attachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
+				<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
+					{#each task.attachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
+						<div
+							class="bg-base-200 overflow-hidden rounded-lg pb-4 cursor-pointer hover:opacity-90 transition-opacity"
+							onclick={() => openVideoLightbox(attachment)}
+							role="button"
+							tabindex="0"
+							onkeydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									openVideoLightbox(attachment);
+								}
+							}}
+						>
+							<video class="h-32 w-full object-cover pointer-events-none" preload="metadata">
 								<source src={attachment.url} type="video/mp4" />
 								<track kind="captions" src="" label="English" />
 								{$t('dashboard.task_details_by_task.video_not_supported')}
@@ -543,102 +527,68 @@
 								</p>
 							</div>
 						</div>
-					{:else}
-						<!-- Image -->
-						<div class="overflow-hidden rounded-lg pb-4 bg-base-200">
-							<img
-								src={attachment.url}
-								alt={attachment?.alt || 'Attachment'}
-								class="h-32 w-full object-cover"
-							/>
-							<div class="p-3">
-								<p class="truncate text-sm font-medium">
-									{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
-								</p>
-								<p class="text-base-content/60 text-xs">
-									{(attachment.size / 1024 / 1024).toFixed(2)} MB
-								</p>
-							</div>
-						</div>
-					{/if}
-				{/each}
-			</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 
-	<div class="mb-20 space-y-3 md:mb-5">
+	<div class="space-y-3 pb-4">
 		<!-- Action Buttons Row -->
 		<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
-			<!-- Share Button (always visible) -->
-			<button 
-				class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none transition-all duration-200 {shareSuccess
-					? 'btn-success'
-					: ''}" 
-				onclick={handleShare}
-				title={$t('dashboard.task_details_by_task.share_task')}
-			>
-				{#if shareSuccess}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-1 h-4 w-4 shrink-0"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-1 h-4 w-4 shrink-0"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
-						/>
-					</svg>
-				{/if}
-				{$t('dashboard.task_details_by_task.share')}
-			</button>
+			<!-- Bid Button (shown when task is open and user is not owner) -->
+			{#if task.status === TaskStatusEnum.OPEN && !isOwner && onBid}
+				<button
+					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none gap-2"
+					onclick={async (e) => {
+						e.stopPropagation();
+						if (onBid) {
+							await onBid();
+						}
+					}}
+					aria-label={$t('dashboard.task_details_by_task.bid_now') || 'Bid on this task'}
+				>
+					<IconPlus class="h-4 w-4 shrink-0" />
+					<span>{$t('dashboard.task_details_by_task.bid_now')}</span>
+				</button>
+			{/if}
 
-			{#if isOwner && task.status === TaskStatusEnum.OPEN}
-				<button class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none" onclick={handleEditTask}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-1 h-4 w-4 shrink-0"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-						/>
-					</svg>
+			{#if isOwner && task.status === TaskStatusEnum.OPEN && onRequestEditConfirm && canEdit}
+				<button
+					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none"
+					onclick={handleEditTask}
+					disabled={isCheckingEdit}
+				>
+					{#if isCheckingEdit}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-1 h-4 w-4 shrink-0"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+							/>
+						</svg>
+					{/if}
 					{$t('dashboard.task_details_by_task.edit_task')}
 				</button>
 			{/if}
-			
-			<!-- Delete Button (always visible, disabled when canDelete is false) -->
-			{#if isOwner}
+
+			<!-- Delete Button (only shown when onRequestDeleteConfirm is provided) -->
+			{#if isOwner && onRequestDeleteConfirm}
 				<button
 					class="btn btn-error btn-sm min-h-[40px] flex-1 sm:flex-none"
 					onclick={showDeleteConfirmation}
-					disabled={isDeleting || isCheckingDelete || !canDelete}
+					disabled={(isDeleting ?? false) || isCheckingDelete || !canDelete}
 				>
-					{#if isDeleting || isCheckingDelete}
+					{#if (isDeleting ?? false) || isCheckingDelete}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
 						<svg
@@ -663,146 +613,70 @@
 	</div>
 </div>
 
-<!-- Edit Task Confirmation Modal -->
-{#if showEditConfirmation}
-	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
-		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
-			<!-- Modal Header -->
-			<div class="mb-6">
-				<div class="mb-2 flex items-center gap-3">
-					<div class="bg-error/10 flex h-10 w-10 items-center justify-center rounded-full">
-						<svg class="text-error h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-							/>
-						</svg>
-					</div>
-					<div>
-						<h4 class="text-sm font-semibold">{$t('dashboard.task_details_by_task.edit_task_confirmation.title')}</h4>
-					</div>
-				</div>
-			</div>
+<!-- Video Lightbox Modal - Rendered at body level via portal to escape drawer stacking context -->
+{#if isVideoLightboxOpen && selectedVideo}
+	<div
+		bind:this={lightboxContainer}
+		use:portalToBody
+		class="fixed inset-0 z-9999 flex items-center justify-center bg-black/90"
+		style="position: fixed; top: 0; left: 0; right: 0; bottom: 0;"
+		onclick={closeVideoLightbox}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') {
+				closeVideoLightbox();
+			}
+		}}
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="video-lightbox-title"
+		tabindex="-1"
+	>
+		<div
+			class="relative w-full h-full flex items-center justify-center p-4"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+			role="none"
+		>
+			<!-- Close button - positioned inside viewport -->
+			<button
+				class="absolute top-4 right-4 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white shadow-lg transition-colors flex items-center justify-center backdrop-blur-sm"
+				onclick={closeVideoLightbox}
+				aria-label={$t('common.close') || 'Close'}
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
 
-			<!-- Content -->
-			<div class="space-y-4">
-				<!-- Main Warning Box -->
-				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold mb-2">
-						{$t('dashboard.task_details_by_task.edit_task_confirmation.warning')}
-					</p>
-					<p class="text-sm text-error">
-						{$t('dashboard.task_details_by_task.edit_task_confirmation.details')}
-					</p>
+			<!-- Video container - centered and responsive -->
+			<div class="relative w-full max-w-5xl max-h-[90vh] flex flex-col items-center justify-center">
+				<div class="w-full bg-black rounded-lg overflow-hidden shadow-2xl">
+					<video class="w-full h-auto max-h-[85vh] object-contain" controls autoplay preload="auto">
+						<source src={selectedVideo.url} type="video/mp4" />
+						<track kind="captions" src="" label="English" />
+						{$t('dashboard.task_details_by_task.video_not_supported')}
+					</video>
+					{#if selectedVideo.alt || selectedVideo.size}
+						<div class="p-4 bg-black/50 text-white">
+							{#if selectedVideo.alt}
+								<p class="text-base font-medium">{selectedVideo.alt}</p>
+							{/if}
+							{#if selectedVideo.size}
+								<p class="text-white/60 text-sm mt-1">
+									{(selectedVideo.size / 1024 / 1024).toFixed(2)} MB
+								</p>
+							{/if}
+						</div>
+					{/if}
 				</div>
-
-				<!-- Additional Information -->
-				<div class="text-base-content/70 text-sm">
-					<p>
-						{$t('dashboard.task_details_by_task.edit_task_confirmation.message')}
-					</p>
-				</div>
-			</div>
-
-			<!-- Action Buttons -->
-			<div class="border-base-300 flex gap-3 pt-6">
-				<button type="button" class="btn btn-ghost flex-1" onclick={cancelEditTask}>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-					{$t('dashboard.task_details_by_task.edit_task_confirmation.cancel')}
-				</button>
-				<button type="button" class="btn btn-error" onclick={confirmEditTask}>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-						/>
-					</svg>
-					{$t('dashboard.task_details_by_task.edit_task_confirmation.confirm_edit')}
-				</button>
 			</div>
 		</div>
-		<button
-			class="modal-backdrop"
-			onclick={cancelEditTask}
-			aria-label={$t('dashboard.task_details_by_task.edit_task_confirmation.title')}
-		></button>
-	</div>
-{/if}
-
-<!-- Delete Task Confirmation Modal -->
-{#if showDeleteConfirm}
-	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
-		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
-			<!-- Modal Header -->
-			<div class="mb-6">
-				<div class="mb-2 flex items-center gap-3">
-					<div class="bg-error/10 flex h-10 w-10 items-center justify-center rounded-full">
-						<svg class="text-error h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-							/>
-						</svg>
-					</div>
-					<div>
-						<h4 class="text-sm font-semibold">{$t('dashboard.task_details_by_task.delete_task_confirm_title')}</h4>
-					</div>
-				</div>
-			</div>
-
-			<!-- Content -->
-			<div class="space-y-4">
-				<!-- Main Warning Box -->
-				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold">
-						{$t('dashboard.task_details_by_task.delete_task_confirm_message')}
-					</p>
-				</div>
-			</div>
-
-			<!-- Action Buttons -->
-			<div class="border-base-300 flex gap-3 pt-6">
-				<button type="button" class="btn btn-ghost flex-1" onclick={() => (showDeleteConfirm = false)}>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-					{$t('dashboard.task_details_by_task.cancel')}
-				</button>
-				<button type="button" class="btn btn-error flex-1" onclick={handleDeleteTask}>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-						/>
-					</svg>
-					{$t('dashboard.task_details_by_task.delete_task')}
-				</button>
-			</div>
-		</div>
-		<button
-			class="modal-backdrop"
-			onclick={() => (showDeleteConfirm = false)}
-			aria-label={$t('dashboard.task_details_by_task.delete_task_confirm_title')}
-		></button>
 	</div>
 {/if}

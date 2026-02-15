@@ -1,6 +1,6 @@
 
 export async function load({ url }) {
-	const seo = {
+	return {
 		title: 'How BitTasker Works - Bitcoin Task Marketplace Guide',
 		description: 'Discover how BitTasker connects task posters with skilled workers using Bitcoin and Lightning Network. Learn about our secure escrow system and bidding process.',
 		keywords: 'how BitTasker works, Bitcoin task marketplace, decentralized gig economy, Lightning Network payments, task bidding system, Bitcoin escrow, peer-to-peer tasks, cryptocurrency marketplace, blockchain tasks',
@@ -37,9 +37,5 @@ export async function load({ url }) {
 				}
 			]
 		}
-	};
-
-	return {
-		seo
 	};
 }

@@ -9,8 +9,7 @@
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
 	import IconMessageText from '~icons/mdi/message-text';
 
-	let { data } = $props();
-	const seo = data.seo;
+	let { data: seo } = $props();
 
 	// State to track which detailed step section is open
 	let openStepSection = $state<number>(-1);

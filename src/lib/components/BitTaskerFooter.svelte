@@ -13,7 +13,7 @@
 	import IconWhatsapp from '~icons/mdi/whatsapp';
 </script>
 
-<footer class="bg-base-300 text-base-content/70 py-12 pb-24 md:pb-32 lg:pb-12">
+<footer class="bg-base-300 text-base-content/70 py-12 pb-safe lg:pb-12">
 	<div class="container mx-auto px-4">
 		<div class="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
 			<!-- Company Info -->
@@ -313,7 +313,7 @@
 			</div>
 		</div>
 
-		<div class="border-base-content/10 mt-12 border-t pt-8 text-center">
+		<div class="border-base-content/10 mt-12 border-t pt-8 pb-6 text-center">
 			<p>
 				© {new Date().getFullYear()}
 				{$t('footer.company_name')}. {$t('footer.copyright')}

@@ -1,6 +1,5 @@
-
 export async function load({ url }) {
-	const seo = {
+	return {
 		title: 'Tasker Fees & Pricing - BitTasker | Bitcoin Task Costs',
 		description: 'Discover BitTasker\'s transparent tasker fee structure with tiered pricing that rewards loyalty. Learn about our competitive rates for posting Bitcoin tasks.',
 		keywords: 'BitTasker tasker fees, task posting fees, Bitcoin marketplace pricing, transparent pricing, task platform costs, cryptocurrency task fees, tiered pricing structure',
@@ -56,9 +55,5 @@ export async function load({ url }) {
 				]
 			}
 		}
-	};
-
-	return {
-		seo
 	};
 }

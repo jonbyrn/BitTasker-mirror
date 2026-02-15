@@ -1,5 +1,5 @@
 export async function load({ url }) {
-	const seo = {
+	return {
 		title: 'Contact BitTasker - Support & Partnership Inquiries',
 		description: 'Get in touch with BitTasker for support, partnership opportunities, or general inquiries. Contact our team for help with our Bitcoin task marketplace.',
 		keywords: 'contact BitTasker, customer support, partnership inquiries, Bitcoin marketplace support, task platform help, cryptocurrency support',
@@ -15,9 +15,5 @@ export async function load({ url }) {
 			description: 'Get in touch with BitTasker for support, partnership opportunities, or general inquiries.',
 			url: url.href
 		}
-	};
-
-	return {
-		seo
 	};
 }

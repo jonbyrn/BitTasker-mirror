@@ -2,12 +2,12 @@
  * Historical Balance Service
  * 
  * Handles fetching and caching of historical wallet balance data for comparison periods (24h, 7d, 30d).
- * Uses block-level accuracy with API-first approach (Blockscout/BSCScan) and RPC fallback.
+ * Uses block-level accuracy with API-first approach (Blockscout for RSK, free Binance RPC for BSC) and RPC fallback.
  * Implements daily caching strategy with localStorage persistence.
  */
 
 import { ethers } from 'ethers';
-import { RSK_NETWORKS, getBSCConfig } from '$lib/utils/wallet/networkConfig';
+import { RSK_NETWORKS, getBSCConfig } from '@bittasker/wallet-core';
 import cryptoPriceService from './crypto-price.service';
 
 // Types
@@ -91,7 +91,6 @@ class HistoricalBalanceService {
 		
 		const cachedHistoricalData = this.getCachedHistoricalData(cacheKey);
 		if (cachedHistoricalData) {
-			console.log('[BalanceHistoryService] Using cached historical data, recalculating changes with current balance');
 			historicalBalances = cachedHistoricalData.historicalBalances;
 			historicalPrices = cachedHistoricalData.historicalPrices;
 			blockNumbers = cachedHistoricalData.blockNumbers;
@@ -210,7 +209,8 @@ class HistoricalBalanceService {
 	}
 
 	/**
-	 * Get block number by timestamp using Blockscout/BSCScan API (fast, single HTTP request)
+	 * Get block number by timestamp using Blockscout API (RSK) or free Binance RPC (BSC)
+	 * For BSC, uses free public RPC endpoint with client-side estimation (no API key required)
 	 */
 	private async getBlockNumberAtTimestampViaAPI(
 		targetTimestamp: number,
@@ -226,77 +226,176 @@ class HistoricalBalanceService {
 			const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'mainnet';
 			const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'mainnet';
 
-			let explorerApiUrl: string | null = null;
-			let apiKey: string | null = null;
-			let chainId: string | null = null;
-
 			if (network === 'rsk') {
-				explorerApiUrl = RSK_NETWORKS[rskNetwork as 'mainnet' | 'testnet']?.explorerApiUrl || null;
+				// RSK: Use Blockscout API (no API key required)
+				const explorerApiUrl = RSK_NETWORKS[rskNetwork as 'mainnet' | 'testnet']?.explorerApiUrl || null;
+				if (!explorerApiUrl) {
+					return null;
+				}
+
+				const timestampSeconds = Math.floor(targetTimestamp / 1000);
+				const apiUrl = `${explorerApiUrl}?module=block&action=getblocknobytime&timestamp=${timestampSeconds}&closest=before`;
+
+				const response = await fetch(apiUrl);
+				if (!response.ok) {
+					console.warn(`[BalanceHistoryService] RSK API returned status ${response.status}`);
+					return null;
+				}
+
+				const data = await response.json();
+				if (data.status === '1' && data.result) {
+					let blockNumberStr: string;
+					if (typeof data.result === 'string') {
+						blockNumberStr = data.result;
+					} else if (
+						typeof data.result === 'object' &&
+						data.result !== null &&
+						'blockNumber' in data.result
+					) {
+						blockNumberStr = String(data.result.blockNumber);
+					} else {
+						console.warn('[BalanceHistoryService] RSK API returned unexpected result format:', data);
+						return null;
+					}
+
+					const blockNumber = parseInt(blockNumberStr, 10);
+					if (!isNaN(blockNumber) && blockNumber > 0) {
+						return blockNumber;
+					}
+				}
+				return null;
 			} else if (network === 'bsc') {
+				// BSC: Use free Binance RPC endpoint (no API key required)
 				if (this.bscIndexingUnavailable) {
 					return null;
 				}
-				const bscConfig = getBSCConfig(bscNetwork as 'mainnet' | 'testnet');
-				explorerApiUrl = bscConfig.explorerApiUrl;
-				chainId = String(bscConfig.chainId);
-				apiKey = import.meta.env.VITE_BSCSCAN_API_KEY || null;
-			}
 
-			if (!explorerApiUrl) {
-				return null;
-			}
+				const bscConfig = getBSCConfig();
+				// Use free Binance public RPC endpoint
+				const rpcUrl = bscConfig.rpcUrl || 'https://bsc-dataseed.binance.org/';
 
-			// Convert milliseconds to seconds (Unix timestamp)
-			const timestampSeconds = Math.floor(targetTimestamp / 1000);
+				// Get current block to estimate target block
+				const currentBlockResponse = await fetch(rpcUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'eth_getBlockByNumber',
+						params: ['latest', false],
+						id: 1
+					})
+				});
 
-			// Build API URL
-			let apiUrl: string;
-			if (network === 'rsk') {
-				apiUrl = `${explorerApiUrl}?module=block&action=getblocknobytime&timestamp=${timestampSeconds}&closest=before`;
-			} else {
-				apiUrl = `${explorerApiUrl}?chainid=${chainId}&module=block&action=getblocknobytime&timestamp=${timestampSeconds}&closest=before`;
-				if (apiKey) {
-					apiUrl += `&apikey=${apiKey}`;
-				}
-			}
-
-			const response = await fetch(apiUrl);
-
-			if (!response.ok) {
-				console.warn(`[BalanceHistoryService] API returned status ${response.status}`);
-				return null;
-			}
-
-			const data = await response.json();
-
-			if (data.status === '1' && data.result) {
-				let blockNumberStr: string;
-
-				// Handle different response formats
-				if (typeof data.result === 'string') {
-					blockNumberStr = data.result;
-				} else if (
-					typeof data.result === 'object' &&
-					data.result !== null &&
-					'blockNumber' in data.result
-				) {
-					blockNumberStr = String(data.result.blockNumber);
-				} else {
-					console.warn('[BalanceHistoryService] API returned unexpected result format:', data);
+				if (!currentBlockResponse.ok) {
+					console.warn(`[BalanceHistoryService] BSC RPC returned status ${currentBlockResponse.status}`);
 					return null;
 				}
 
-				const blockNumber = parseInt(blockNumberStr, 10);
-				if (!isNaN(blockNumber) && blockNumber > 0) {
-					return blockNumber;
+				const currentBlockData = await currentBlockResponse.json();
+				if (!currentBlockData.result) {
+					return null;
 				}
+
+				const currentBlockNumber = parseInt(currentBlockData.result.number, 16);
+				const currentTimestamp = parseInt(currentBlockData.result.timestamp, 16) * 1000; // Convert to ms
+
+				// If target is in the future or very recent, use latest block
+				if (targetTimestamp >= currentTimestamp) {
+					return currentBlockNumber;
+				}
+
+				// Estimate block number (BSC blocks ~3 seconds apart)
+				const BSC_BLOCK_TIME = 3; // seconds
+				const timeDiff = (currentTimestamp - targetTimestamp) / 1000; // Convert to seconds
+				const estimatedBlock = Math.max(0, currentBlockNumber - Math.floor(timeDiff / BSC_BLOCK_TIME));
+
+				// Binary search to find exact block (within ±100 blocks for efficiency)
+				const searchRange = 100;
+				const minBlock = Math.max(0, estimatedBlock - searchRange);
+				const maxBlock = Math.min(currentBlockNumber, estimatedBlock + searchRange);
+
+				return await this.binarySearchBlockByTimestamp(
+					rpcUrl,
+					targetTimestamp,
+					minBlock,
+					maxBlock,
+					currentBlockNumber
+				);
 			}
 
 			return null;
 		} catch (error) {
-			console.warn('[BalanceHistoryService] API failed:', error);
+			console.warn('[BalanceHistoryService] API/RPC failed:', error);
 			return null;
 		}
+	}
+
+	/**
+	 * Binary search to find block number closest to target timestamp
+	 * Uses free Binance RPC endpoint (no API key required)
+	 */
+	private async binarySearchBlockByTimestamp(
+		rpcUrl: string,
+		targetTimestamp: number,
+		minBlock: number,
+		maxBlock: number,
+		currentBlockNumber: number
+	): Promise<number | null> {
+		const targetTimestampSeconds = Math.floor(targetTimestamp / 1000);
+		let left = minBlock;
+		let right = maxBlock;
+		let bestBlock = minBlock;
+		let bestDiff = Infinity;
+
+		// Limit iterations to prevent excessive RPC calls
+		const maxIterations = 20;
+		let iterations = 0;
+
+		while (left <= right && iterations < maxIterations) {
+			iterations++;
+			const mid = Math.floor((left + right) / 2);
+
+			try {
+				const response = await fetch(rpcUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'eth_getBlockByNumber',
+						params: ['0x' + mid.toString(16), false],
+						id: 1
+					})
+				});
+
+				if (!response.ok) {
+					break;
+				}
+
+				const data = await response.json();
+				if (!data.result) {
+					break;
+				}
+
+				const blockTimestamp = parseInt(data.result.timestamp, 16);
+				const diff = Math.abs(blockTimestamp - targetTimestampSeconds);
+
+				if (diff < bestDiff) {
+					bestDiff = diff;
+					bestBlock = mid;
+				}
+
+				if (blockTimestamp < targetTimestampSeconds) {
+					left = mid + 1;
+				} else {
+					right = mid - 1;
+				}
+			} catch (error) {
+				console.warn(`[BalanceHistoryService] Error fetching block ${mid}:`, error);
+				break;
+			}
+		}
+
+		return bestBlock > 0 ? bestBlock : null;
 	}
 
 	/**
@@ -543,7 +642,6 @@ class HistoricalBalanceService {
 			if (entry.data && Array.isArray(entry.data)) {
 				// Check if it looks like old format (BalanceChange array)
 				if (entry.data.length > 0 && entry.data[0] && typeof entry.data[0] === 'object' && 'satsChange' in entry.data[0]) {
-					console.log('[BalanceHistoryService] Detected old cache format, clearing');
 					localStorage.removeItem(cacheKey);
 					return null;
 				}
@@ -553,7 +651,6 @@ class HistoricalBalanceService {
 			if (!entry.historicalBalances || !Array.isArray(entry.historicalBalances) ||
 			    !entry.historicalPrices || !Array.isArray(entry.historicalPrices) ||
 			    !entry.blockNumbers || !Array.isArray(entry.blockNumbers)) {
-				console.log('[BalanceHistoryService] Invalid cache format (missing required arrays), clearing');
 				localStorage.removeItem(cacheKey);
 				return null;
 			}
@@ -562,7 +659,6 @@ class HistoricalBalanceService {
 			if (entry.historicalBalances.length !== this.periods.length ||
 			    entry.historicalPrices.length !== this.periods.length ||
 			    entry.blockNumbers.length !== this.periods.length) {
-				console.log('[BalanceHistoryService] Cache array length mismatch, clearing');
 				localStorage.removeItem(cacheKey);
 				return null;
 			}
@@ -652,7 +748,6 @@ class HistoricalBalanceService {
 			// Check if this is the old format (has 'data' property with BalanceChange[])
 			if (entry.data && Array.isArray(entry.data)) {
 				if (entry.data.length > 0 && entry.data[0] && typeof entry.data[0] === 'object' && 'satsChange' in entry.data[0]) {
-					console.log('[BalanceHistoryService] Clearing old cache format for key:', cacheKey);
 					localStorage.removeItem(cacheKey);
 				}
 			}

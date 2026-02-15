@@ -103,7 +103,7 @@
 
 {#if isOpen && contract}
 	<div class="modal modal-open">
-		<div class="modal-box max-w-2xl">
+		<div class="modal-box max-w-2xl max-h-[85vh] overflow-y-auto">
 			<!-- Header -->
 			<div class="flex items-center justify-between mb-6">
 		<h3 class="text-lg font-semibold">
@@ -129,7 +129,7 @@
 						<strong>{$t('dashboard.contracts.task_description')}:</strong> {contractStore.getContractKey(contract, 'taskTitle')}
 					</p>
 					<p class="text-sm text-base-content/80">
-						<strong>{$t('dashboard.contracts.amount')}:</strong> {btcPrice > 0 ? formatUSDWithSatsSync(contractStore.getContractKey(contract, 'amount'), btcPrice) : `${contractStore.getContractKey(contract, 'amount')} RBTC`}
+						<strong>{$t('dashboard.contracts.amount')}:</strong> {btcPrice > 0 ? formatUSDWithSatsSync(contractStore.getContractKey(contract, 'amount') as string, btcPrice) : `${contractStore.getContractKey(contract, 'amount') as string} RBTC`}
 					</p>
 				</div>
 			</div>

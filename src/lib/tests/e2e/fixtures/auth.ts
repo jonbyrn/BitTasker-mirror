@@ -1,8 +1,14 @@
-import { test as base, expect, chromium } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 import { AuthHelper, createAuthHelper } from '../utils/auth-helpers';
 
 /**
- * Extended test fixtures with authentication support
+ * Extended test fixtures with authentication support.
+ *
+ * Virtual authenticator: We attach the CDP WebAuthn virtual authenticator to the **same page**
+ * that the test uses. CDP virtual authenticators are bound to the frame/target; attaching
+ * to a temporary page and then closing it leaves the test page without an authenticator,
+ * so credentials.create() would hang or fail. See requirements/details/authentication-flow.md
+ * and docs/testing/e2e-testing.md.
  */
 
 type AuthFixtures = {
@@ -10,52 +16,42 @@ type AuthFixtures = {
   authenticatedPage: any; // Page with authentication already set up
 };
 
+/** Virtual authenticator options matching app's test-mode WebAuthn creation (resident key, user verification). */
+const VIRTUAL_AUTHENTICATOR_OPTIONS = {
+  protocol: 'ctap2' as const,
+  ctap2Version: 'ctap2_1' as const,
+  transport: 'internal' as const, // platform authenticator
+  hasResidentKey: true,
+  hasUserVerification: true,
+  isUserVerified: true,
+  automaticPresenceSimulation: true,
+};
+
 export const test = base.extend<AuthFixtures>({
   /**
-   * Override context to configure virtual authenticator before any pages are created
-   * This ensures WebAuthn is available when the page loads
+   * Override page to attach the WebAuthn virtual authenticator to **this** page.
+   * The authenticator must be on the same page/frame that runs the app and calls
+   * navigator.credentials.create(); attaching to a temp page and closing it
+   * does not work (authenticator is tied to that target).
    */
-  context: async ({ browser }, use) => {
-    // Get the default context or create a new one
-    const context = await browser.newContext();
-    
-    // Create a temporary page to establish CDP connection
-    const tempPage = await context.newPage();
-    const cdpSession = await context.newCDPSession(tempPage);
-    
+  page: async ({ page }, use) => {
+    const cdpSession = await page.context().newCDPSession(page);
     try {
-      // Enable WebAuthn and add virtual authenticator BEFORE any real pages are created
       await cdpSession.send('WebAuthn.enable');
-      const authenticatorResponse = await cdpSession.send('WebAuthn.addVirtualAuthenticator', {
-        options: {
-          protocol: 'ctap2',
-          ctap2Version: 'ctap2_1',
-          transport: 'internal', // Use 'internal' for platform authenticator - matches authenticatorAttachment: 'platform'
-          hasResidentKey: true,
-          hasUserVerification: true,
-          isUserVerified: true,
-          automaticPresenceSimulation: true
-        }
+      const result = await cdpSession.send('WebAuthn.addVirtualAuthenticator', {
+        options: VIRTUAL_AUTHENTICATOR_OPTIONS,
       });
-      
-      // Ensure automatic presence simulation is enabled
-      if (authenticatorResponse.authenticatorId) {
+      if (result?.authenticatorId) {
         await cdpSession.send('WebAuthn.setAutomaticPresenceSimulation', {
-          authenticatorId: authenticatorResponse.authenticatorId,
-          enabled: true
+          authenticatorId: result.authenticatorId,
+          enabled: true,
         });
       }
-      
-      console.log('[E2E] Virtual authenticator configured in context');
+      console.log('[E2E] Virtual authenticator attached to test page');
     } catch (error) {
       console.warn('[E2E] Failed to configure virtual authenticator:', error);
-      // Continue anyway - tests can still use Nostr key login
-    } finally {
-      // Close temp page, but keep context with authenticator configured
-      await tempPage.close();
     }
-    
-    await use(context);
+    await use(page);
   },
 
   /**
@@ -70,23 +66,17 @@ export const test = base.extend<AuthFixtures>({
    * Page fixture that automatically authenticates before tests
    * Uses saved auth state if available, otherwise authenticates using virtual passkey
    */
-  authenticatedPage: async ({ page, authHelper }, use) => {
-    // Ensure user is authenticated
+  authenticatedPage: async (
+    { page, authHelper }: { page: import('@playwright/test').Page; authHelper: AuthHelper },
+    use: (page: import('@playwright/test').Page) => Promise<void>
+  ) => {
     await authHelper.ensureAuthenticated('virtual');
-
-    // Verify authentication
     const isAuthenticated = await authHelper.isAuthenticated();
     if (!isAuthenticated) {
       throw new Error('Failed to authenticate user for test');
     }
-
-    // Use the authenticated page
     await use(page);
   },
 });
 
 export { expect };
-
-
-
-

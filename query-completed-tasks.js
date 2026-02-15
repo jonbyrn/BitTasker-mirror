@@ -116,7 +116,7 @@ try {
 }
 
 // Load ABI
-const abiPath = join(__dirname, 'src/lib/utils/constants/escrowABI.json');
+const abiPath = join(__dirname, 'src/lib/utils/escrow/v1/abi.json');
 let escrowABI;
 try {
 	const abiContent = readFileSync(abiPath, 'utf-8');

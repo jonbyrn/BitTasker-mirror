@@ -112,11 +112,11 @@
 					<div class="flex flex-col items-center gap-1">
 						<div class="text-base-content/70 font-medium">{label}</div>
 						<!-- Sats amount placeholder with spinner - matching loaded state dimensions -->
-						<div class="font-semibold text-base-content inline-flex items-center gap-1 min-w-[5rem] justify-center">
+						<div class="font-semibold text-base-content inline-flex items-center gap-1 min-w-20 justify-center">
 							<span class="loading loading-spinner loading-xs text-primary"></span>
 						</div>
 						<!-- USD amount placeholder with spinner - matching loaded state dimensions -->
-						<div class="text-base-content/70 inline-flex items-center gap-1 min-w-[4rem] justify-center">
+						<div class="text-base-content/70 inline-flex items-center gap-1 min-w-16 justify-center">
 							<span class="loading loading-spinner loading-xs text-primary"></span>
 						</div>
 					</div>
@@ -131,10 +131,10 @@
 							<div class="text-base-content/50">••••</div>
 						{:else if change.satsChange === null}
 							<!-- Loading indicator - matching loaded state dimensions -->
-							<div class="font-semibold text-base-content inline-flex items-center gap-1 min-w-[5rem] justify-center">
+							<div class="font-semibold text-base-content inline-flex items-center gap-1 min-w-20 justify-center">
 								<span class="loading loading-spinner loading-xs text-primary"></span>
 							</div>
-							<div class="text-base-content/70 inline-flex items-center gap-1 min-w-[4rem] justify-center">
+							<div class="text-base-content/70 inline-flex items-center gap-1 min-w-16 justify-center">
 								<span class="loading loading-spinner loading-xs text-primary"></span>
 							</div>
 						{:else}
@@ -142,7 +142,6 @@
 							{#if formatted}
 								<div class="font-semibold {formatted.satsColorClass}">
 									{formatted.satsDisplay}
-									{$t('wallet.sats')}
 								</div>
 								<div class="{formatted.usdColorClass}">
 									{formatted.usdDisplay}

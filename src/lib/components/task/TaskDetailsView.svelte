@@ -10,8 +10,7 @@
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { authState } from '$lib/stores/auth.store';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import { appStore } from '$lib/stores/app.store';
+	import TaskShareButton from './TaskShareButton.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import {
 		formatStandardDateShort,
@@ -31,6 +30,9 @@
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
 	import IconMapMarker from '~icons/mdi/map-marker';
 	import IconMapMarkerCheck from '~icons/mdi/map-marker-check';
+	import { taskTranslationService } from '$lib/services/task-translation.service';
+	import { currentUserLanguage } from '$lib/stores/translation.store';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 
 	// Props
 	let { taskId } = $props<{ taskId: string }>();
@@ -47,6 +49,53 @@
 
 	// Check if current user is the task creator
 	const isOwner = $derived(task?.npub === $user?.npub);
+
+	// Get translated task title for page title
+	const translatedTaskTitle = $derived.by(() => {
+		if (!task) return $t('dashboard.task_details_by_task.title');
+		
+		const userLang = $currentUserLanguage;
+		if (userLang && task.translations?.sourceLanguage !== userLang) {
+			const translation = taskTranslationService.getStoredTranslation(task, userLang);
+			if (translation?.translatedTitle) {
+				return translation.translatedTitle;
+			}
+		}
+		
+		return task.title || $t('dashboard.task_details_by_task.title');
+	});
+
+	// Page title with translated task title
+	const pageTitle = $derived.by(() => {
+		if (!task) return $t('dashboard.task_details_by_task.title');
+		const budget = task.budget?.amount ? `$${formatNumberWithTwoDecimals(task.budget.amount)}` : '';
+		const title = translatedTaskTitle;
+		return budget ? `${title} - ${budget} - BitTasker` : `${title} - BitTasker`;
+	});
+
+	// Helper function to translate a single category
+	function translateCategory(category: string | any): string {
+		try {
+			// Extract ID from category (handle both string and object)
+			const categoryId = typeof category === 'string' ? category : (category as any).id;
+			const categoryObj = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+			if (categoryObj) {
+				// Use slug for translation key (as defined in translation files)
+				const translatedName = $t(`categories.${categoryObj.slug}.name`);
+				// Fallback to category.name if translation key is returned (translation not loaded)
+				return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
+			}
+			return categoryId;
+		} catch (error) {
+			console.error('Error translating category:', error);
+			return typeof category === 'string' ? category : (category as any).id || '';
+		}
+	}
+
+	// Convert category IDs to translated names for display (reactive)
+	let translatedCategories = $derived(
+		task?.categories?.map(translateCategory) || []
+	);
 
 	const isRemoteTask = $derived(() => {
 		if (!task?.taskType) return false;
@@ -75,169 +124,6 @@
 		return todayDateStr > deadlineDateStr;
 	});
 
-	// Generate share link for public route
-	const shareLink = $derived(() => {
-		if (typeof window !== 'undefined' && taskId) {
-			return `${window.location.origin}/tasks/${taskId}`;
-		}
-		return '';
-	});
-
-	// Helper function to truncate text to 200 characters at last complete word
-	function truncateText(text: string, maxLength: number = 200): string {
-		if (!text || text.length <= maxLength) return text;
-		
-		const truncated = text.substring(0, maxLength);
-		const lastSpace = truncated.lastIndexOf(' ');
-		
-		if (lastSpace > 0) {
-			return truncated.substring(0, lastSpace) + '...';
-		}
-		return truncated + '...';
-	}
-
-	// Helper function to format share text with task details
-	function formatShareText(): string {
-		if (!task) return 'Check out this task';
-		
-		let text = '';
-		
-		// Add truncated description
-		const description = task.description || '';
-		if (description) {
-			text += truncateText(description, 200);
-		} else {
-			text += 'Check out this task';
-		}
-		
-		// Collect details
-		const details: string[] = [];
-		
-		// Budget
-		if (task.budget?.amount) {
-			details.push(`💰 Budget:\n$${formatNumberWithTwoDecimals(task.budget.amount)}`);
-		}
-		
-		// Deadline
-		if (task.deadline) {
-			const deadlineFormatted = formatDateTimeReactive(task.deadline);
-			if (deadlineFormatted) {
-				details.push(`📅 Deadline:\n${deadlineFormatted}`);
-			}
-		} else if (task.dateRange) {
-			const dateRangeFormatted = formatDateRangeReactive(task.dateRange.start, task.dateRange.end);
-			if (dateRangeFormatted) {
-				details.push(`📅 Deadline:\n${dateRangeFormatted}`);
-			}
-		}
-		
-		// Location
-		if (task.dropOffLocation?.displayName) {
-			details.push(`📍 Location:\n${task.dropOffLocation.displayName}`);
-		} else if (task.pickupLocation?.displayName) {
-			details.push(`📍 Location:\n${task.pickupLocation.displayName}`);
-		} else if (isRemoteTask()) {
-			details.push(`📍 Location:\n${$t('dashboard.task_details_by_task.remote')}`);
-		}
-		
-		// Add details if any exist
-		if (details.length > 0) {
-			text += '\n\n' + details.join('\n\n');
-		}
-		
-		return text;
-	}
-
-	// Helper function to fetch first image attachment as File
-	async function getFirstImageFile(): Promise<File | null> {
-		if (!task?.attachments || task.attachments.length === 0) return null;
-		
-		// Find first non-video attachment (image)
-		const firstImage = task.attachments.find(att => !isVideoFile(att.url));
-		if (!firstImage) return null;
-		
-		try {
-			// Fetch the image
-			const response = await fetch(firstImage.url);
-			if (!response.ok) return null;
-			
-			const blob = await response.blob();
-			
-			// Get file extension from URL or use default
-			const urlParts = firstImage.url.split('.');
-			const extension = urlParts.length > 1 ? urlParts[urlParts.length - 1].split('?')[0] : 'jpg';
-			const mimeType = blob.type || `image/${extension}`;
-			
-			// Create File object
-			const fileName = firstImage.alt || `task-image.${extension}`;
-			const file = new File([blob], fileName, { type: mimeType });
-			
-			return file;
-		} catch (error) {
-			console.error('Failed to fetch image for sharing:', error);
-			return null;
-		}
-	}
-
-	// Handle share functionality
-	let shareSuccess = $state(false);
-	const handleShare = async () => {
-		const link = shareLink();
-		if (!link) return;
-
-		if (navigator.share) {
-			try {
-				// Prepare share data
-				const shareData: ShareData = {
-					title: task?.title || 'Task Details',
-					text: formatShareText(),
-					url: link
-				};
-				
-				// Try to add first image if available
-				const imageFile = await getFirstImageFile();
-				if (imageFile) {
-					// Check if files can be shared
-					if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-						shareData.files = [imageFile];
-					}
-				}
-				
-				await navigator.share(shareData);
-				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.share_success') || 'Task shared successfully!');
-				setTimeout(() => {
-					shareSuccess = false;
-				}, 2000);
-			} catch (error) {
-				// User cancelled sharing or error occurred
-				if ((error as Error).name !== 'AbortError') {
-					console.log('Share cancelled or failed:', error);
-					// Fallback to copy link if share fails
-					const success = await copyToClipboard(link);
-					if (success) {
-						shareSuccess = true;
-						appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
-						setTimeout(() => {
-							shareSuccess = false;
-						}, 2000);
-					}
-				}
-			}
-		} else {
-			// Fallback: copy to clipboard
-			const success = await copyToClipboard(link);
-			if (success) {
-				shareSuccess = true;
-				appStore.showSuccessToast($t('dashboard.task_details_by_task.link_copied'));
-				setTimeout(() => {
-					shareSuccess = false;
-				}, 2000);
-			} else {
-				appStore.showErrorToast($t('dashboard.task_details_by_task.link_copy_failed'));
-			}
-		}
-	};
 
 	function formatDateTimeReactive(dateString: string) {
 		const date = parseDateToLocalMidnight(dateString);
@@ -344,6 +230,30 @@
 		}
 	}
 
+	/** Find task event by readable d-tag (e.g. slug from SEO URL: titulo-tarea-timestamp-suffix). */
+	async function findTaskEventByDTag(dTagValue: string) {
+		try {
+			const response = await nostrEventsService.requestEvents({
+				filters: [
+					{
+						kinds: [KINDS.TASK_CREATION],
+						'#d': [dTagValue],
+						limit: 1
+					}
+				]
+			});
+			const event = response.data?.[0] ?? null;
+			if (event) {
+				const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd' && tag[1] === dTagValue);
+				if (dTag) return event;
+			}
+			return null;
+		} catch (error) {
+			console.error('Failed to load task by d-tag:', error);
+			return null;
+		}
+	}
+
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) {
 			loading = false;
@@ -362,9 +272,12 @@
 			} else if (isUuid(taskId)) {
 				event = await findTaskEventByUniqueId(taskId);
 			} else {
-				// Fallback attempt
-				const response = await nostrEventsService.findEventById(taskId);
-				event = response.data;
+				// Readable d-tag (SEO slug): find by d-tag first, then fallback to event ID
+				event = await findTaskEventByDTag(taskId);
+				if (!event) {
+					const response = await nostrEventsService.findEventById(taskId);
+					event = response.data;
+				}
 			}
 
 			if (!event) {
@@ -374,6 +287,7 @@
 
 			// Parse task data from nostr event
 			const taskData = JSON.parse(event.content) as Task;
+			const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
 
 			// Ensure we have a valid ID
 			if (!event.id) {
@@ -383,8 +297,8 @@
 
 			task = {
 				...taskData,
-				id: event.id,
-				npub: event.pubkey // Add the npub from the event to the task object
+				id: dTag || event.id,
+				npub: event.pubkey
 			};
 		} catch (error) {
 			console.error('Failed to load task details:', error);
@@ -439,54 +353,19 @@
 
 </script>
 
-<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
+<svelte:head>
+	<title>{pageTitle}</title>
+</svelte:head>
+
+	<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
 	<div class="rounded-xl pt-4 md:pt-0">
-		<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-			<div class="text-left">
+		<div class="mb-6 flex items-center gap-3">
+			<div class="flex-1 text-left">
 				<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
 				<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
 			</div>
-			<div class="flex flex-wrap gap-2 md:justify-end">
-				<button
-					class="btn btn-primary btn-sm min-w-[140px] flex-1 gap-2 transition-all duration-200 {shareSuccess
-						? 'btn-success'
-						: ''}"
-					onclick={handleShare}
-					title={$t('dashboard.task_details_by_task.share_task')}
-				>
-					{#if shareSuccess}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.935-2.186 2.25 2.25 0 00-3.935 2.186z"
-							/>
-						</svg>
-					{/if}
-					<span>{$t('dashboard.task_details_by_task.share')}</span>
-				</button>
+			<div class="shrink-0">
+				<TaskShareButton task={task} variant="icon-only" />
 			</div>
 		</div>
 		<!-- Loading state -->
@@ -677,9 +556,9 @@
 										{$t('dashboard.task_details_by_task.categories')}
 									</h4>
 									<div class="mt-2 flex flex-wrap gap-2">
-										{#each task.categories as category}
+										{#each translatedCategories as category}
 											<span class="badge badge-primary badge-outline badge-sm">
-												{typeof category === 'string' ? category : category.name}
+												{category}
 											</span>
 										{/each}
 									</div>
@@ -938,7 +817,7 @@
 >
 	{#snippet children()}
 		{#if task}
-			<BidForm {task} onClose={() => (isSidebarOpen = false)} />
+			<BidForm {task} onClose={() => (isSidebarOpen = false)} stickySubmit={false} />
 		{/if}
 	{/snippet}
 </Drawer>

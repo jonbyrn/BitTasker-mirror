@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+	<!--
+		Debug-only network security config for HTTP live reload.
+		Allows cleartext traffic to any host (your laptop IP) and trusts user-added CAs
+		(useful if you later switch to HTTPS with a local cert).
+	-->
+	<base-config cleartextTrafficPermitted="true">
+		<trust-anchors>
+			<certificates src="system" />
+			<certificates src="user" />
+		</trust-anchors>
+	</base-config>
+</network-security-config>
+
+

@@ -1,21 +1,53 @@
 // Global SEO and JSON-LD constants for BitTasker company pages
 
 export const BITTASKER_ORG_JSONLD = {
+  '@context': 'https://schema.org',
   '@type': 'Organization',
   name: 'BitTasker',
-  description: 'BitTasker exists to empower everyday people to earn, trade, and thrive—without borders, banks, or barriers. We are building a platform where skills become currency, and Bitcoin becomes the bridge between sovereign individuals.',
+  legalName: 'BitTasker',
+  description: 'Hire skilled professionals for any task. Pay with Bitcoin or dollars. Own your data with Nostr. Join the decentralized workforce on BitTasker.',
   url: 'https://bittasker.com',
-  logo: 'https://bittasker.com/images/Logos/BitTasker-Logo-Icon-light-mode.svg',
+  logo: {
+    '@type': 'ImageObject',
+    url: 'https://bittasker.com/images/Logos/BitTasker-square-logo-jsonld-org.webp'
+  },
   sameAs: [
-    'https://twitter.com/BitTaskerdotcom',
+    'https://x.com/BitTaskerdotcom',
     'https://www.linkedin.com/company/bittasker',
-    'https://www.facebook.com/BitTaskerdotcom/'
+    'https://www.facebook.com/BitTaskerdotcom/',
+    'https://instagram.com/bittasker',
+    'https://www.youtube.com/@BitTasker',
+    'https://github.com/BitTasker'
+  ],
+  contactPoint: {
+    '@type': 'ContactPoint',
+    contactType: 'Customer Service',
+    email: 'hello@bittasker.com',
+    url: 'https://bittasker.com/contact',
+    availableLanguage: ['en', 'es']
+  },
+  areaServed: {
+    '@type': 'Place',
+    name: 'Worldwide'
+  },
+  knowsAbout: [
+    'Bitcoin',
+    'Lightning Network',
+    'Decentralized Marketplace',
+    'Gig Economy',
+    'Freelance Services',
+    'Smart Contracts',
+    'Nostr Protocol',
+    'Rootstock',
+    'Liquid Network',
+    'Cryptocurrency Payments',
+    'Peer-to-Peer Transactions'
   ],
   founder: {
     '@type': 'Person',
     name: 'BitTasker Team'
   },
-  foundingDate: '2024',
+  foundingDate: '2025',
   industry: 'Technology'
 };
 
@@ -25,12 +57,38 @@ export const BITTASKER_WEBSITE_JSONLD = {
   url: 'https://bittasker.com'
 };
 
+// Homepage WebSite schema generator function
+export function generateHomepageWebsiteJsonLd(url: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'BitTasker',
+    description: 'Hire skilled professionals for any task. Pay with Bitcoin or dollars. Own your data with Nostr. Join the decentralized workforce on BitTasker.',
+    url: url,
+    inLanguage: ['en', 'es'],
+    copyrightHolder: {
+      '@type': 'Organization',
+      name: 'BitTasker'
+    },
+    copyrightYear: '2025',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: 'https://bittasker.com/tasks?search={search_term_string}',
+      'query-input': 'required name=search_term_string'
+    },
+    publisher: BITTASKER_ORG_JSONLD
+  };
+}
+
 export const BITTASKER_LOGO = 'https://bittasker.com/images/Logos/BitTasker-Logo-Icon-light-mode.svg';
 export const BITTASKER_CANONICAL_BASE = 'https://bittasker.com';
 export const BITTASKER_SOCIAL_LINKS = [
-  'https://twitter.com/BitTaskerdotcom',
+  'https://x.com/BitTaskerdotcom',
   'https://www.linkedin.com/company/bittasker',
-  'https://www.facebook.com/BitTaskerdotcom/'
+  'https://www.facebook.com/BitTaskerdotcom/',
+  'https://instagram.com/bittasker',
+  'https://www.youtube.com/@BitTasker',
+  'https://github.com/BitTasker'
 ];
 
 export const BITTASKER_SITE_NAVIGATION_JSONLD = {
@@ -48,7 +106,7 @@ export const BITTASKER_SITE_NAVIGATION_JSONLD = {
     'https://bittasker.com/privacy',
     'https://bittasker.com/auth/login',
     'https://bittasker.com/auth/signup',
-    'https://bittasker.com/dashboard/find-tasks',
+    'https://bittasker.com/tasks',
     'https://bittasker.com/dashboard/create-task',
     'https://bittasker.com/tasker-fees',
     'https://bittasker.com/secure-payments',

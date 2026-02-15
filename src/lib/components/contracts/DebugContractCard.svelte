@@ -1,13 +1,18 @@
 <script lang="ts">
 	import type { EscrowData } from '$lib/types/wallet';
 	import type { ContractPermissions } from '$lib/types/contract';
-	import { getStatusColorClass, getStatusTranslationKey } from '$lib/utils/helpers/contractStatusFormatter';
+	import {
+		getStatusColorClass,
+		getStatusTranslationKey
+	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { t } from 'svelte-i18n';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
-	import { escrow } from '$lib/utils/wallet/escrow';
+	import { escrow } from '$lib/utils/escrow/v1/escrow';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount, onDestroy } from 'svelte';
+	import { ethers } from 'ethers';
+	import { getRSKConfig } from '@bittasker/wallet-core';
 
 	// Define error types for better type safety
 	interface EthersError {
@@ -108,7 +113,7 @@
 			return false; // Unpredictable but might work, enable button
 		}
 
-		// If no gas estimate yet (still loading or failed for non-contract reasons), 
+		// If no gas estimate yet (still loading or failed for non-contract reasons),
 		// fall back to permission-based logic
 		switch (functionName) {
 			case 'completeTask':
@@ -207,7 +212,7 @@
 	function getExplorerUrl(address: string, network: 'RSK' | 'BSC'): string {
 		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
-		
+
 		if (network === 'RSK') {
 			// RSK explorer uses Blockscout format
 			if (rskNetwork === 'mainnet') {
@@ -247,6 +252,148 @@
 		}
 	}
 
+	/**
+	 * Check if escrow funds were released by checking for internal transactions
+	 * from the escrow contract to the client or freelancer addresses
+	 * @param escrowId The escrow ID to check
+	 * @param escrowData The escrow data containing client and freelancer addresses
+	 * @param contractAddress Optional contract address for legacy contracts
+	 * @returns Object with payment information or null if no payment found
+	 */
+	async function checkEscrowPayment(
+		escrowId: string,
+		escrowData: EscrowData,
+		contractAddress?: string
+	): Promise<{
+		paidOut: boolean;
+		recipient: 'client' | 'freelancer' | null;
+		recipientAddress: string | null;
+		amount: string | null;
+		timestamp: number | null;
+	} | null> {
+		try {
+			// Get contract address
+			const getDefaultContractAddress = (): string | null => {
+				const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+				return network === 'mainnet'
+					? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+					: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+			};
+
+			const escrowContractAddress = contractAddress || getDefaultContractAddress();
+			if (!escrowContractAddress) {
+				console.warn('[escrow] Contract address not configured, cannot check payment');
+				return null;
+			}
+
+			// Get network configuration
+			const rskConfig = getRSKConfig();
+			const explorerApiUrl = rskConfig.explorerApiUrl;
+
+			// Normalize addresses for comparison
+			const contractAddr = escrowContractAddress.toLowerCase();
+			const clientAddr = escrowData.client.toLowerCase();
+			const freelancerAddr = escrowData.freelancer.toLowerCase();
+
+			// Check internal transactions for both client and freelancer
+			const addressesToCheck = [clientAddr, freelancerAddr];
+			let paymentFound: {
+				recipient: 'client' | 'freelancer';
+				recipientAddress: string;
+				amount: string;
+				timestamp: number;
+			} | null = null;
+
+			for (const recipientAddr of addressesToCheck) {
+				try {
+					// Query internal transactions for the recipient address
+					// The API returns transactions where this address is involved (as sender or recipient)
+					const response = await fetch(
+						`${explorerApiUrl}/v2/addresses/${recipientAddr}/internal-transactions`,
+						{ signal: AbortSignal.timeout(10000) } // 10 second timeout
+					);
+
+					if (!response.ok) {
+						console.debug(
+							`[escrow] Failed to fetch internal transactions for ${recipientAddr}:`,
+							response.status
+						);
+						continue;
+					}
+
+					const data = await response.json();
+					if (!data || !data.items || !Array.isArray(data.items)) {
+						continue;
+					}
+
+					// Look for transfers from the escrow contract to this recipient
+					for (const tx of data.items) {
+						const txFrom = (tx.from?.hash || tx.from || '').toLowerCase();
+						const txTo = (tx.to?.hash || tx.to || '').toLowerCase();
+						const value = tx.value || '0';
+
+						// Check if this is a transfer from the escrow contract to the recipient
+						if (txFrom === contractAddr && txTo === recipientAddr && value !== '0') {
+							// Parse value
+							let amountWei: bigint;
+							if (typeof value === 'string' && value.startsWith('0x')) {
+								amountWei = BigInt(value);
+							} else {
+								amountWei = BigInt(value);
+							}
+
+							if (amountWei > 0n) {
+								// Found a payment - use the most recent one
+								const timestamp = tx.timestamp
+									? (typeof tx.timestamp === 'string' ? parseInt(tx.timestamp) : tx.timestamp) *
+										1000
+									: Date.now();
+
+								// If we already found a payment, keep the most recent one
+								if (!paymentFound || timestamp > (paymentFound.timestamp || 0)) {
+									paymentFound = {
+										recipient: recipientAddr === clientAddr ? 'client' : 'freelancer',
+										recipientAddress: recipientAddr,
+										amount: ethers.formatEther(amountWei),
+										timestamp
+									};
+								}
+							}
+						}
+					}
+				} catch (error) {
+					console.debug(
+						`[escrow] Error checking internal transactions for ${recipientAddr}:`,
+						error
+					);
+					// Continue checking other addresses
+					continue;
+				}
+			}
+
+			if (paymentFound) {
+				return {
+					paidOut: true,
+					recipient: paymentFound.recipient,
+					recipientAddress: paymentFound.recipientAddress,
+					amount: paymentFound.amount,
+					timestamp: paymentFound.timestamp
+				};
+			}
+
+			return {
+				paidOut: false,
+				recipient: null,
+				recipientAddress: null,
+				amount: null,
+				timestamp: null
+			};
+		} catch (error) {
+			console.warn(`[escrow] Failed to check escrow payment for ${escrowId}:`, error);
+			return null;
+		}
+	}
+
 	// Fetch BTC price on mount and estimate gas once
 	onMount(async () => {
 		try {
@@ -258,7 +405,7 @@
 			// Check for payment transactions
 			checkingPayment = true;
 			try {
-				const payment = await escrow.checkEscrowPayment(contract.id, contract);
+				const payment = await checkEscrowPayment(contract.id, contract);
 				paymentInfo = payment;
 			} catch (error) {
 				console.error('[DEBUG] Failed to check escrow payment:', error);
@@ -293,7 +440,7 @@
 	// Check if error is a contract revert (function blocked by contract state)
 	function isContractRevertError(error: unknown): boolean {
 		if (!error) return false;
-		
+
 		const ethersErr = isEthersError(error) ? error : null;
 		if (!ethersErr) {
 			// Check string message
@@ -303,7 +450,7 @@
 			}
 			return false;
 		}
-		
+
 		// Check the error itself and any nested cause/reason
 		const errorsToCheck: EthersError[] = [ethersErr];
 		if (ethersErr.cause && isEthersError(ethersErr.cause)) {
@@ -312,7 +459,7 @@
 		if (ethersErr.reason && isEthersError(ethersErr.reason)) {
 			errorsToCheck.push(ethersErr.reason);
 		}
-		
+
 		for (const err of errorsToCheck) {
 			// Check for CALL_EXCEPTION code (ethers.js error code for contract reverts)
 			// This is the most reliable indicator
@@ -324,18 +471,18 @@
 				}
 			}
 		}
-		
+
 		// Also check the message directly (in case error was wrapped and lost the code property)
-		// The estimateContractGas function wraps errors with "Gas estimation failed: ...", 
+		// The estimateContractGas function wraps errors with "Gas estimation failed: ...",
 		// so we need to check the message for revert indicators
 		const errorMessage = (ethersErr.message || String(error)).toLowerCase();
-		
+
 		// Explicit "execution reverted" in message is a reliable indicator
 		// even if the code property was lost due to error wrapping
 		if (errorMessage.includes('execution reverted')) {
 			return true;
 		}
-		
+
 		// Check for specific revert reasons that indicate contract state issues
 		// These are common revert messages from the escrow contract
 		const revertReasons = [
@@ -354,12 +501,12 @@
 			'invalid',
 			'required'
 		];
-		
+
 		// If the error message contains "gas estimation failed" AND a known revert reason,
 		// it's likely a contract revert (the error was wrapped but contains revert info)
 		if (errorMessage.includes('gas estimation failed')) {
 			// Check for revert reasons
-			if (revertReasons.some(reason => errorMessage.includes(reason))) {
+			if (revertReasons.some((reason) => errorMessage.includes(reason))) {
 				return true;
 			}
 			// Also check for "revert" keyword in gas estimation errors
@@ -368,7 +515,7 @@
 				return true;
 			}
 		}
-		
+
 		return false;
 	}
 
@@ -386,25 +533,27 @@
 		if (!error) return false;
 		const ethersErr = isEthersError(error) ? error : null;
 		const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase();
-		
+
 		// Network-related errors
-		if (ethersErr?.code === 'NETWORK_ERROR' || 
-		    ethersErr?.code === 'TIMEOUT' ||
-		    errorMessage.includes('network') ||
-		    errorMessage.includes('connection') ||
-		    errorMessage.includes('timeout') ||
-		    errorMessage.includes('provider') ||
-		    errorMessage.includes('fetch')) {
+		if (
+			ethersErr?.code === 'NETWORK_ERROR' ||
+			ethersErr?.code === 'TIMEOUT' ||
+			errorMessage.includes('network') ||
+			errorMessage.includes('connection') ||
+			errorMessage.includes('timeout') ||
+			errorMessage.includes('provider') ||
+			errorMessage.includes('fetch')
+		) {
 			return true;
 		}
-		
+
 		return false;
 	}
 
 	// Estimate gas for a specific function
 	async function estimateGasFee(functionName: string, ...args: any[]): Promise<void> {
 		if (estimatingGas.has(functionName)) return; // Already estimating
-		
+
 		estimatingGas.add(functionName); // Direct mutation
 		// Create new Set instance to trigger reactivity (Svelte 5 needs new reference)
 		estimatingGas = new Set(estimatingGas);
@@ -429,11 +578,11 @@
 				// If aborted, just return silently - this was a batch cancellation
 				return;
 			}
-			
+
 			// Check error type and handle accordingly
 			// Note: estimateContractGas wraps errors, but preserves original in cause
 			const originalError = isEthersError(error) && error.cause ? error.cause : error;
-			
+
 			// Debug: Log error structure to understand what we're dealing with
 			if (import.meta.env.DEV) {
 				const ethersErr = isEthersError(error) ? error : null;
@@ -444,13 +593,14 @@
 					errorCode: ethersErr?.code,
 					originalErrorCode: origEthersErr?.code,
 					errorMessage: error instanceof Error ? error.message : String(error),
-					originalErrorMessage: originalError instanceof Error ? originalError.message : String(originalError),
+					originalErrorMessage:
+						originalError instanceof Error ? originalError.message : String(originalError),
 					isContractRevert: isContractRevertError(originalError) || isContractRevertError(error),
 					isUnpredictable: isUnpredictableGasError(originalError) || isUnpredictableGasError(error),
 					isNetwork: isNetworkError(originalError) || isNetworkError(error)
 				});
 			}
-			
+
 			if (isContractRevertError(originalError) || isContractRevertError(error)) {
 				// Contract will revert - function is blocked
 				blockedFunctions.add(functionName); // Direct mutation
@@ -502,7 +652,7 @@
 		if (estimationAbortController) {
 			estimationAbortController.abort();
 		}
-		
+
 		// Create new abort controller for this estimation batch
 		estimationAbortController = new AbortController();
 		const signal = estimationAbortController.signal;
@@ -551,7 +701,7 @@
 			if (proposeResolutionTimeout) {
 				clearTimeout(proposeResolutionTimeout);
 			}
-			
+
 			// Debounce the estimation to avoid too many calls
 			proposeResolutionTimeout = setTimeout(() => {
 				const freelancerAmountSats = parseInt(proposedFreelancerAmount);
@@ -561,7 +711,7 @@
 				}
 			}, 500); // 500ms debounce
 		}
-		
+
 		// Cleanup timeout on unmount
 		return () => {
 			if (proposeResolutionTimeout) {
@@ -622,7 +772,9 @@
 						{$t(getStatusTranslationKey(contract.status))}
 					</div>
 					<div class="badge {isClient ? 'badge-primary' : 'badge-secondary'} badge-sm">
-						{isClient ? $t('debug.smart_contract.role_client') : $t('debug.smart_contract.role_freelancer')}
+						{isClient
+							? $t('debug.smart_contract.role_client')
+							: $t('debug.smart_contract.role_freelancer')}
 					</div>
 				</div>
 			</div>
@@ -646,7 +798,9 @@
 		<!-- Contract Details -->
 		<div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
 			<div>
-				<div class="label-text text-xs text-base-content/60">{$t('debug.smart_contract.client')}</div>
+				<div class="label-text text-xs text-base-content/60">
+					{$t('debug.smart_contract.client')}
+				</div>
 				<div class="flex items-center gap-2">
 					<a
 						href={getExplorerUrl(contract.client, 'RSK')}
@@ -660,7 +814,9 @@
 				</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">{$t('debug.smart_contract.freelancer')}</div>
+				<div class="label-text text-xs text-base-content/60">
+					{$t('debug.smart_contract.freelancer')}
+				</div>
 				<div class="flex items-center gap-2">
 					<a
 						href={getExplorerUrl(contract.freelancer, 'RSK')}
@@ -674,19 +830,27 @@
 				</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">{$t('debug.smart_contract.created_at')}</div>
+				<div class="label-text text-xs text-base-content/60">
+					{$t('debug.smart_contract.created_at')}
+				</div>
 				<div class="text-sm">{formatTimestamp(contract.createdAt)}</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">{$t('debug.smart_contract.estimated_start')}</div>
+				<div class="label-text text-xs text-base-content/60">
+					{$t('debug.smart_contract.estimated_start')}
+				</div>
 				<div class="text-sm">{formatTimestamp(contract.estimatedStartTime)}</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">{$t('debug.smart_contract.estimated_completion')}</div>
+				<div class="label-text text-xs text-base-content/60">
+					{$t('debug.smart_contract.estimated_completion')}
+				</div>
 				<div class="text-sm">{formatTimestamp(contract.estimatedCompletionTime)}</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">{$t('debug.smart_contract.timelock_expiry')}</div>
+				<div class="label-text text-xs text-base-content/60">
+					{$t('debug.smart_contract.timelock_expiry')}
+				</div>
 				<div class="text-sm">{formatTimestamp(contract.timelockExpiry)}</div>
 			</div>
 		</div>
@@ -765,7 +929,9 @@
 						<button
 							class="btn btn-warning btn-sm"
 							disabled={isFunctionDisabled('proposeResolution') || isExecuting}
-							title={isFunctionDisabled('proposeResolution') ? getDisabledTooltip('proposeResolution') : ''}
+							title={isFunctionDisabled('proposeResolution')
+								? getDisabledTooltip('proposeResolution')
+								: ''}
 							onclick={() => (showResolutionForm = true)}
 						>
 							{$t('debug.smart_contract.actions.propose_resolution')}
@@ -827,7 +993,9 @@
 					<button
 						class="btn btn-info btn-sm"
 						disabled={isFunctionDisabled('resolveAfterTimelock') || isExecuting}
-						title={isFunctionDisabled('resolveAfterTimelock') ? getDisabledTooltip('resolveAfterTimelock') : ''}
+						title={isFunctionDisabled('resolveAfterTimelock')
+							? getDisabledTooltip('resolveAfterTimelock')
+							: ''}
 						onclick={() => handleExecuteFunction('resolveAfterTimelock')}
 					>
 						{#if isExecuting}
@@ -842,10 +1010,7 @@
 
 		<!-- Raw Data Toggle -->
 		<div class="mt-4 border-t border-base-300 pt-4">
-			<button
-				class="btn btn-ghost btn-sm w-full"
-				onclick={onToggleRawData}
-			>
+			<button class="btn btn-ghost btn-sm w-full" onclick={onToggleRawData}>
 				{$t('debug.smart_contract.raw_data')}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -854,19 +1019,30 @@
 					viewBox="0 0 24 24"
 					stroke="currentColor"
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M19 9l-7 7-7-7"
+					/>
 				</svg>
 			</button>
 
 			{#if isExpanded}
 				<div class="mt-3 rounded-lg bg-base-200 p-4">
-					<pre class="overflow-x-auto text-xs"><code>{JSON.stringify({ contract, permissions }, (key, value) => {
-						// Handle BigInt serialization
-						if (typeof value === 'bigint') {
-							return value.toString();
-						}
-						return value;
-					}, 2)}</code></pre>
+					<pre class="overflow-x-auto text-xs"><code
+							>{JSON.stringify(
+								{ contract, permissions },
+								(key, value) => {
+									// Handle BigInt serialization
+									if (typeof value === 'bigint') {
+										return value.toString();
+									}
+									return value;
+								},
+								2
+							)}</code
+						></pre>
 				</div>
 			{/if}
 		</div>
@@ -891,4 +1067,3 @@
 		pendingFunction = null;
 	}}
 />
-

@@ -219,7 +219,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl p-6">
+<div class="card bg-base-100 w-full shadow-xl p-6" data-testid="onboarding-step-location">
 	<div class="card-body relative">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
@@ -381,12 +381,13 @@
 	</div>
 
 	<div class="mt-6 flex justify-between">
-		<button type="button" class="btn btn-outline" onclick={prevStep}>
+		<button type="button" class="btn btn-outline" data-testid="onboarding-location-back" onclick={prevStep}>
 			{$t('onboarding_auth.form.back')}
 		</button>
 		<button
 			type="button"
 			class="btn btn-primary"
+			data-testid="onboarding-location-next"
 			onclick={handleSubmit}
 			disabled={isLoading}
 		>

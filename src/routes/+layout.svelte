@@ -5,14 +5,16 @@
 	import { page } from '$app/state';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
 	import { devicePlatform } from '$lib/stores/device.store';
-	import TopBar from '$lib/components/TopBar.svelte';
 	import { authState } from '$lib/stores/auth.store';
+	import { user } from '$lib/stores/user.store';
+	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
+	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import {
 		BITTASKER_ORG_JSONLD,
-		BITTASKER_WEBSITE_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
 	} from '$lib/utils/constants/seo.constants';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
+	import TopBar from '$lib/components/TopBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
@@ -29,10 +31,11 @@
 	const showTopBar = $derived(!isOnboardingPage);
 	const showFooterSection = $derived(currentPath.includes('/dashboard'));
 	const shouldHideFooterForLoggedInTaskPage = $derived(
-		$authState.isAuthenticated && currentPath.match(/^\/tasks\/[^/]+$/)
+		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/tasks\/[^/]+$/)
 	);
+	const shouldHideFooterForTasksPage = $derived(currentPath === '/tasks');
 	const shouldHideFooterForLoggedInNpubPage = $derived(
-		$authState.isAuthenticated && currentPath.match(/^\/npub\/[^/]+$/)
+		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/npub\/[^/]+$/)
 	);
 
 	// Generate breadcrumbs from current path
@@ -76,10 +79,9 @@
 	}
 
 	onMount(() => {
-		// Initialize theme from saved preference
 		initializeTheme();
+		hideSplashScreenWhenReady(300);
 
-		// Setup keyboard helpers for protected routes
 		if (typeof requestIdleCallback !== 'undefined') {
 			requestIdleCallback(() => initializeProtectedRouteHelpers(), { timeout: 2000 });
 		} else {
@@ -89,8 +91,23 @@
 		// Global error handler
 		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
 			const error = event instanceof ErrorEvent ? event.error : event.reason;
+
+			// Skip logging null/undefined errors (often from third-party libraries like SES)
+			if (error === null || error === undefined) {
+				return;
+			}
+
+			// Only log meaningful errors
+			const errorMessage =
+				error instanceof Error ? error.message : typeof error === 'string' ? error : String(error);
+
+			// Skip empty or meaningless error messages
+			if (!errorMessage || errorMessage === 'null' || errorMessage === 'undefined') {
+				return;
+			}
+
 			console.error('[Global Error Handler]:', {
-				error: error instanceof Error ? error.message : String(error),
+				error: errorMessage,
 				stack: error instanceof Error ? error.stack : undefined,
 				type: event instanceof ErrorEvent ? 'error' : 'unhandledrejection',
 				timestamp: new Date().toISOString()
@@ -104,6 +121,108 @@
 		return () => {
 			window.removeEventListener('error', handleError);
 			window.removeEventListener('unhandledrejection', handleError);
+		};
+	});
+
+	// Primary app scroll container (middle area in app-shell layout)
+	let scrollEl = $state<HTMLElement | null>(null);
+	onMount(() => {
+		appScrollContainer.set(scrollEl);
+		return () => appScrollContainer.set(null);
+	});
+
+	$effect(() => {
+		// Keep store up to date when element binds
+		if (scrollEl) appScrollContainer.set(scrollEl);
+	});
+
+	// Measure the actual footer height and expose it as a CSS variable.
+	// This avoids any bottom-nav overlap caused by height rounding, fonts, or safe-area differences.
+	let footerEl = $state<HTMLElement | null>(null);
+	let footerObserver: ResizeObserver | null = null;
+
+	$effect(() => {
+		if (footerObserver) {
+			footerObserver.disconnect();
+			footerObserver = null;
+		}
+
+		// If the footer is unmounted (or not rendered on desktop), ensure we don't keep a stale value.
+		if (!footerEl) {
+			if (typeof document !== 'undefined') {
+				document.documentElement.style.setProperty('--app-footer-height', `0px`);
+			}
+			return;
+		}
+
+		if (typeof ResizeObserver === 'undefined') return;
+
+		let mq: MediaQueryList | null = null;
+		const onMqChange = () => updateVar();
+
+		function updateVar() {
+			const el = footerEl;
+			if (!el || typeof document === 'undefined') return;
+
+			// Desktop (lg+) has no bottom dock/footer; avoid leaving a stale mobile value around.
+			const isLgUp =
+				typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
+			if (isLgUp) {
+				document.documentElement.style.setProperty('--app-footer-height', `0px`);
+				return;
+			}
+
+			// Avoid setting 0px during first paint / hidden states, which would
+			// cause bottom-positioned UI to slip under the dock.
+			const measured = Math.ceil(el.getBoundingClientRect().height ?? 0);
+			if (measured <= 0) {
+				// If the footer is actually hidden by CSS, 0 is correct.
+				const isHidden =
+					typeof window !== 'undefined' &&
+					(window.getComputedStyle(el).display === 'none' ||
+						window.getComputedStyle(el).visibility === 'hidden');
+				if (isHidden) {
+					document.documentElement.style.setProperty('--app-footer-height', `0px`);
+				} else {
+					// When switching from desktop->mobile, the footer can briefly report 0 before layout stabilizes.
+					// Use the safe fallback immediately so floating UI doesn't get covered by the dock.
+					document.documentElement.style.setProperty(
+						'--app-footer-height',
+						`var(--bottom-nav-height-safe)`
+					);
+				}
+				return;
+			}
+			const h = Math.max(0, measured);
+			document.documentElement.style.setProperty('--app-footer-height', `${h}px`);
+		}
+
+		updateVar();
+		// Keep the variable in sync across breakpoint changes.
+		if (typeof window !== 'undefined') {
+			mq = window.matchMedia('(min-width: 1024px)');
+			try {
+				mq.addEventListener('change', onMqChange);
+			} catch {
+				// Safari fallback
+				// eslint-disable-next-line deprecation/deprecation
+				mq.addListener(onMqChange);
+			}
+		}
+		footerObserver = new ResizeObserver(() => updateVar());
+		footerObserver.observe(footerEl);
+
+		return () => {
+			footerObserver?.disconnect();
+			footerObserver = null;
+			if (mq) {
+				try {
+					mq.removeEventListener('change', onMqChange);
+				} catch {
+					// eslint-disable-next-line deprecation/deprecation
+					mq.removeListener(onMqChange);
+				}
+			}
 		};
 	});
 </script>
@@ -122,7 +241,6 @@
 
 	<!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
 	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
-	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
 	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
 	{#if page.url.pathname !== '/'}
 		{@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
@@ -138,70 +256,82 @@
 	{/if}
 </svelte:head>
 
-<main
-	data-theme={$darkMode ? 'dark' : 'light'}
-	id="main"
-	class="no-horizontal-scroll bg-base-200 min-h-dvh"
->
-	<!-- Desktop TopBar will be positioned fixed via its own component styles -->
+<main data-theme={$darkMode ? 'dark' : 'light'} id="main" class="app-shell bg-base-200">
 	{#if showTopBar}
-		<TopBar />
+		<header class="app-shell__header">
+			<TopBar />
+		</header>
 	{/if}
 
-	<div class="bg-base-200 overflow-x-hidden pb-8">
-		{#if $devicePlatform === 'web' && !isLandingPage}
-			<div class="bg-base-200 overflow-x-hidden">
-				{@render children()}
-			</div>
-		{:else}
-			<div
-				class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
-				style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
-			>
-				{@render children()}
+	<!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
+	<div bind:this={scrollEl} class="app-shell__content bg-base-200">
+		<div class="bg-base-200 overflow-x-hidden">
+			{#if $devicePlatform === 'web' && !isLandingPage}
+				<!-- Ensure web routes can use full-height (no unintended outer scrolling) -->
+				<div class="bg-base-200 flex h-full min-h-0 flex-col overflow-x-hidden">
+					{@render children()}
+				</div>
+			{:else}
+				<div class="bg-base-200 flex min-h-0 flex-1 flex-col justify-between overflow-x-hidden">
+					{@render children()}
+				</div>
+			{/if}
+		</div>
+
+		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage}
+			<div class="tasks-page-footer">
+				{#if !$authState.isAuthenticated}
+					<!-- Section 7: Final Call to Action (CTA) -->
+					<section class="bg-primary text-primary-content py-16">
+						<div class="container mx-auto px-4 text-center">
+							<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
+							<p class="mx-auto mt-4 max-w-2xl text-lg">
+								{$t('homepage.v2.finalcta.description')}
+							</p>
+							<div class="mt-8 flex flex-col items-center space-y-6">
+								<div class="flex flex-wrap justify-center gap-4">
+									<a
+										href="/tasks"
+										class="btn btn-lg border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
+									>
+										{$t('homepage.v2.finalcta.tasker_cta')}
+									</a>
+								</div>
+								<div>
+									<a
+										href="/auth/signup"
+										class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
+									>
+										{$t('homepage.v2.finalcta.get_started')}
+									</a>
+								</div>
+							</div>
+						</div>
+					</section>
+				{/if}
+				<BitTaskerFooter />
 			</div>
 		{/if}
 	</div>
-	{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage}
-		{#if !$authState.isAuthenticated}
-			<!-- Section 7: Final Call to Action (CTA) -->
-			<section class="bg-primary text-primary-content py-16">
-				<div class="container mx-auto px-4 text-center">
-					<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
-					<p class="mx-auto mt-4 max-w-2xl text-lg">{$t('homepage.v2.finalcta.description')}</p>
-					<div class="mt-8 flex flex-col items-center space-y-6">
-						<div class="flex flex-wrap justify-center gap-4">
-							<a
-								href="/tasks"
-								class="btn btn-lg border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
-							>
-								{$t('homepage.v2.finalcta.tasker_cta')}
-							</a>
-						</div>
-						<div>
-							<a
-								href="/auth/signup"
-								class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
-							>
-								{$t('homepage.v2.finalcta.get_started')}
-							</a>
-						</div>
-					</div>
-				</div>
-			</section>
-		{/if}
-		<BitTaskerFooter />
-	{/if}
 
-	<!-- BottomNavBar: Show on mobile/tablet (≤1024px) and native platforms -->
+	<!-- BottomNavBar: Show on mobile/tablet (≤1024px) -->
 	{#if showTopBar}
-		<div class="pb-safe right-0 bottom-0 left-0 z-50 lg:hidden">
+		<footer bind:this={footerEl} class="app-shell__footer lg:hidden">
 			<BottomNavBar />
-		</div>
+		</footer>
 	{/if}
-
-	<!-- Toast notifications -->
-	<Toast />
 </main>
 
+<!-- Toast notifications (fixed positioned) -->
+<Toast />
+
 <InfiniteScroll />
+
+<style>
+	/* Hide footer on mobile/tablet for tasks page */
+	@media (max-width: 1023px) {
+		.tasks-page-footer {
+			display: none !important;
+		}
+	}
+</style>

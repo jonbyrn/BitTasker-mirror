@@ -169,8 +169,8 @@ export interface TaskData extends Task {
 			email: string;
 		};
 	};
-	freelancerAssignments?: any[];
-	bids?: any[];
+	freelancerAssignments?: FreelancerAssignment[];
+	bids?: TaskBid[];
 }
 
 export interface TaskResponse {

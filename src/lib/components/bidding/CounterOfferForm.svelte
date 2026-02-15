@@ -5,6 +5,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { t } from 'svelte-i18n';
 	import DateInput from '$lib/components/date/DateInput.svelte';
+	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
 	// Props
 	const props = $props<{
@@ -250,11 +251,11 @@
 							}
 						}
 					: {}),
-				// Add new datetime fields for fixed price
-				startDate: bidType === 'FIXED' ? startDateTime : null,
-				endDate: bidType === 'FIXED' ? endDateTime : null,
-				startTime: bidType === 'FIXED' ? startDateTime : null,
-				endTime: bidType === 'FIXED' ? endDateTime : null,
+				// Add new datetime fields for fixed price - serialize with local time to preserve user's selected time
+				startDate: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
+				endDate: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
+				startTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
+				endTime: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
 				message,
 				proposedBy: 'current-user-id' // This would come from user store
 			};

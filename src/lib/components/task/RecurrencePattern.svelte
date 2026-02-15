@@ -1,34 +1,53 @@
 <script lang="ts">
-	import { type MyTaskTemplates$result, type RecurrencePatternInput } from '$houdini';
+	import { t } from 'svelte-i18n';
 	import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
 	import Input from '../Input.svelte';
 	import DateInput from '$lib/components/date/DateInput.svelte';
-	import { t } from 'svelte-i18n';
+
+	type RecurrencePattern = {
+		dayOfMonth: number | null;
+		daysOfWeek: number[] | null;
+		endDate: string | null;
+		frequency: RecurringFrequencyEnum;
+		interval: number;
+		maxOccurrences: number | null;
+	};
 
 	// Define a more specific type for the pattern prop, handling potential null
-	type PatternProp =
-		| (MyTaskTemplates$result['taskTemplates'][0]['recurrencePattern'] & { frequency: string }) // Ensure frequency is always string from Houdini
-		| RecurrencePatternInput
-		| null; // Allow null for initialization or empty states
+	type PatternProp = RecurrencePattern | null; // Allow null for initialization or empty states
 
 	let {
 		pattern,
 		isEditing = false,
-		onPatternChange = (pattern: RecurrencePatternInput) => {}
+		onPatternChange = (pattern: RecurrencePattern) => {}
 	} = $props<{
 		pattern: PatternProp;
 		isEditing?: boolean;
-		onPatternChange?: (pattern: RecurrencePatternInput) => void;
+		onPatternChange?: (pattern: RecurrencePattern) => void;
 	}>();
 
 	// Use mutable state initialized from the prop
-	let localPattern = $state<RecurrencePatternInput>({
-		frequency: pattern?.frequency ?? RecurringFrequencyEnum.WEEKLY,
-		interval: pattern?.interval ?? 1,
-		daysOfWeek: pattern?.daysOfWeek ?? [1], // Default to Monday if null
-		dayOfMonth: pattern?.dayOfMonth ?? null,
-		endDate: pattern?.endDate ?? null,
-		maxOccurrences: pattern?.maxOccurrences ?? 12
+	let localPattern = $state<RecurrencePattern>({
+		frequency: RecurringFrequencyEnum.WEEKLY,
+		interval: 1,
+		daysOfWeek: [1], // Default to Monday
+		dayOfMonth: null,
+		endDate: null,
+		maxOccurrences: 12
+	});
+
+	// Sync localPattern with pattern prop when it changes
+	$effect(() => {
+		if (pattern) {
+			localPattern = {
+				frequency: pattern.frequency ?? RecurringFrequencyEnum.WEEKLY,
+				interval: pattern.interval ?? 1,
+				daysOfWeek: pattern.daysOfWeek ?? [1],
+				dayOfMonth: pattern.dayOfMonth ?? null,
+				endDate: pattern.endDate ?? null,
+				maxOccurrences: pattern.maxOccurrences ?? 12
+			};
+		}
 	});
 
 	// Labels for days of the week
@@ -111,8 +130,8 @@
 	// Emit the updated pattern to parent
 	function emitUpdate() {
 		if (isEditing) {
-			// Ensure the object passed matches RecurrencePatternInput (e.g., handle nulls appropriately)
-			const patternToSend: RecurrencePatternInput = {
+			// Ensure the object passed matches RecurrencePattern (e.g., handle nulls appropriately)
+			const patternToSend: RecurrencePattern = {
 				frequency: localPattern.frequency as RecurringFrequencyEnum,
 				interval: localPattern.interval,
 				daysOfWeek: localPattern.daysOfWeek,
@@ -139,9 +158,18 @@
 			onChange={({ value }) => handleFrequencyChange(value as RecurringFrequencyEnum)}
 			options={[
 				{ value: RecurringFrequencyEnum.DAILY, label: $t('common.task.recurrence_pattern.daily') },
-				{ value: RecurringFrequencyEnum.WEEKLY, label: $t('common.task.recurrence_pattern.weekly') },
-				{ value: RecurringFrequencyEnum.BIWEEKLY, label: $t('common.task.recurrence_pattern.biweekly') },
-				{ value: RecurringFrequencyEnum.MONTHLY, label: $t('common.task.recurrence_pattern.monthly') },
+				{
+					value: RecurringFrequencyEnum.WEEKLY,
+					label: $t('common.task.recurrence_pattern.weekly')
+				},
+				{
+					value: RecurringFrequencyEnum.BIWEEKLY,
+					label: $t('common.task.recurrence_pattern.biweekly')
+				},
+				{
+					value: RecurringFrequencyEnum.MONTHLY,
+					label: $t('common.task.recurrence_pattern.monthly')
+				},
 				{ value: RecurringFrequencyEnum.CUSTOM, label: $t('common.task.recurrence_pattern.custom') }
 			]}
 		/>
@@ -241,7 +269,8 @@
 		{:else if localPattern.frequency === RecurringFrequencyEnum.CUSTOM}
 			<div class="form-control mb-4">
 				<label class="label" for="daysOfWeek">
-					<span class="label-text">{$t('common.task.recurrence_pattern.select_specific_days')}</span>
+					<span class="label-text">{$t('common.task.recurrence_pattern.select_specific_days')}</span
+					>
 				</label>
 				<div class="flex flex-wrap gap-2">
 					{#each dayLabels as day, index}

@@ -30,13 +30,42 @@
 		};
 	};
 
-	// Set default deadline to three days from today when component loads if no deadline is set
+	// Set default deadline to three days from today when component loads if no deadline is set or if deadline is in the past
 	$effect(() => {
-		if (!$store.task.deadline && !$store.task.dateRange) {
-			const defaultDeadline = getDefaultDeadlineDate();
-			store.updateTask({
-				deadline: normalizeDeadlineToEndOfDay(defaultDeadline) || defaultDeadline.toISOString()
-			});
+		if (!$store.task.dateRange) {
+			// Check if deadline exists and is valid (not in the past)
+			let shouldSetDefault = false;
+			
+			if (!$store.task.deadline) {
+				// No deadline set, use default
+				shouldSetDefault = true;
+			} else {
+				// Check if deadline is in the past
+				try {
+					const deadlineDate = new Date($store.task.deadline);
+					const today = new Date();
+					
+					// Compare dates using date strings to avoid timezone issues
+					const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
+					const todayDateStr = today.toISOString().split('T')[0];
+					
+					// If deadline is in the past, set default
+					if (deadlineDateStr < todayDateStr) {
+						shouldSetDefault = true;
+					}
+				} catch (error) {
+					// If parsing fails, treat as invalid and set default
+					console.error('Error parsing deadline date:', error);
+					shouldSetDefault = true;
+				}
+			}
+			
+			if (shouldSetDefault) {
+				const defaultDeadline = getDefaultDeadlineDate();
+				store.updateTask({
+					deadline: normalizeDeadlineToEndOfDay(defaultDeadline) || defaultDeadline.toISOString()
+				});
+			}
 		}
 	});
 
@@ -209,7 +238,7 @@
 			<DateInput
 				bind:value={$store.task.deadline}
 				type="single"
-				placeholderKey="task.deadline"
+				placeholderKey="task.deadline_placeholder"
 				maxDate={undefined}
 				minDate={new Date().toISOString()}
 				onChange={(date: Date | null) =>

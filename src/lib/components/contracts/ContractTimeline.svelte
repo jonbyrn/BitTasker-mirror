@@ -3,7 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
-	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+	import { EscrowStatus } from '$lib/utils/escrow';
 	import { getActionDescription } from '$lib/utils/helpers/contractStatusFormatter';
 
 	const { statusEvents, contractPubkey } = $props<{
@@ -14,11 +14,11 @@
 	/**
 	 * Filter to show only blockchain-confirmed events and final states
 	 * Excludes pending/transition states (PendingCompletion, PendingAcceptance, etc.)
-	 * 
+	 *
 	 * Shows:
 	 * - Blockchain states (0-5): Funded, InDispute, DisputeResolved, DisputeUnresolved, Completed, Cancelled
 	 * - Final Nostr states: FundsReleased (10), InProgress (7), DisputeResolutionProposed (12)
-	 * 
+	 *
 	 * Hides all pending states (6+, except specific ones) to avoid redundant timeline entries like:
 	 * "Pending completion" → "Task completed" (shows only "Task completed")
 	 */
@@ -34,7 +34,7 @@
 			case EscrowStatus.FundsReleased: // Final payment state
 			case EscrowStatus.DisputeResolutionProposed: // Proposal exists
 				return true;
-			
+
 			// All other states (pending states) should not show
 			default:
 				return false;
@@ -98,7 +98,6 @@
 		}
 		return $t('dashboard.contracts.timeline.from_unknown');
 	}
-	
 
 	// Get Rootstock explorer URL for transaction
 	function getTransactionUrl(txHash: string): string {

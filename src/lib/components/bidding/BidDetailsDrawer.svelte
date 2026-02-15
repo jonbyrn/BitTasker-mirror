@@ -4,6 +4,7 @@
 	import { formatDate } from '$lib/utils/helpers/dateFormatter';
 	import CounterOfferItem from '$lib/components/bidding/CounterOfferItem.svelte';
 	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
+	import Drawer from '$lib/components/Drawer.svelte';
 	import { t } from 'svelte-i18n';
 	import { getBidderDisplayName } from '$lib/utils/helpers/userDisplayName';
 
@@ -24,49 +25,15 @@
 	};
 </script>
 
-<!-- Drawer Overlay -->
-<div
-	class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-in-out"
-	class:opacity-0={!props.isOpen}
-	class:invisible={!props.isOpen}
-	onclick={props.onClose}
-	onkeydown={(e) => e.key === 'Escape' && props.onClose()}
-	role="dialog"
-	tabindex="-1"
-></div>
-
-<!-- Drawer -->
-<div
-	class="bg-base-100 fixed inset-y-0 right-0 z-50 w-full overflow-y-auto shadow-xl transition-transform duration-300 ease-in-out sm:w-[70%]"
-	class:translate-x-0={props.isOpen}
-	class:translate-x-full={!props.isOpen}
+<Drawer
+	isOpen={props.isOpen}
+	title={$t('dashboard.bids.bid_details.title')}
+	onClose={props.onClose}
+	position="right"
+	isScrollable={true}
 >
-	{#if props.bid}
-		<!-- Header -->
-		<div class="bg-base-200 sticky top-0 z-10 border-b p-4">
-			<div class="flex items-center justify-between">
-				<h2 class="text-xl font-bold">{$t('dashboard.bids.bid_details.title')}</h2>
-				<button class="btn btn-ghost btn-circle" onclick={props.onClose} aria-label={$t('dashboard.bids.bid_details.close_dialog')}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-				</button>
-			</div>
-		</div>
-
-		<!-- Content -->
-		<div class="p-4">
+	{#snippet children()}
+		{#if props.bid}
 			<!-- Bidder Info -->
 			<div class="mb-6">
 				<div class="flex items-start justify-between">
@@ -201,6 +168,6 @@
 					>
 				</div>
 			{/if}
-		</div>
-	{/if}
-</div>
+		{/if}
+	{/snippet}
+</Drawer>

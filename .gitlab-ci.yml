@@ -1,0 +1,196 @@
+# GitLab CI/CD for BitTasker - Cloudflare Workers Deployment
+#
+# -----------------------------------------------------------------------------------------------
+# STAGES
+# -----------------------------------------------------------------------------------------------
+#   validate  → build (once) → unit (optional, commented) + E2E (playwright). E2E and deploy reuse build.
+#   deploy    → deploy-development (active), deploy-staging / deploy-production (commented)
+#
+# Build runs once. Playwright receives build/ artifact and runs only "preview" (no second build).
+# Deploy receives the same build/ artifact and runs wrangler deploy (no rebuild).
+# Unit tests do NOT need the built app; they run against source (Vitest). When enabled, run in parallel with build.
+#
+# -----------------------------------------------------------------------------------------------
+# BRANCH STRATEGY (see also "After merging feat/workers-deployment" below)
+# -----------------------------------------------------------------------------------------------
+#   - feat/workers-deployment → validate (E2E) + deploy to development (worker.dev.bittasker.com)
+#   - dev                     → validate (E2E); deploy-staging commented out
+#   - master                    → validate (E2E); deploy-production commented out
+#   - Merge requests          → validate (E2E) only
+#   - Other branches          → no pipeline (add rules if you want E2E on every branch)
+#
+# After merging feat/workers-deployment:
+#   - Recommended: Run E2E on dev + master + MRs only (not every branch) to keep feedback fast.
+#   - Deploy dev: trigger on "dev" branch so each push to dev deploys to worker.dev.bittasker.com.
+#   - Change deploy-development rules from "feat/workers-deployment" to "dev" when you switch.
+#
+# Wrangler: GitLab injects CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from CI/CD Variables.
+# Build-time VITE_* must be set in GitLab so "npm run build" bakes them into the client bundle.
+#
+# CI/CD Variables for E2E:
+#   - VITE_API_URL             (required) — backend API for signup/onboarding/passkey
+#   - VITE_E2E_TURNSTILE_BYPASS = true    — bypass Turnstile in E2E (optional; script may warn)
+#   - VITE_NOSTR_RELAY_URL      (required for 04-messages) — Nostr relay for Messages E2E
+# -----------------------------------------------------------------------------------------------
+stages:
+  - validate
+  - deploy
+
+# ============================================
+# BUILD - Single build for E2E and deploy (validate stage)
+# ============================================
+# Runs once. Artifact build/ is used by playwright (preview only) and deploy-development (wrangler deploy).
+# environment: development → GitLab injects variables scoped to "development" (VITE_*, etc.).
+# For staging/production later: add build-staging (environment: staging) and build-production (environment: production),
+# or use environment-scoped variables and one build job per branch (e.g. rules + environment per job).
+build:
+  image: node:22-bookworm-slim
+  stage: validate
+  environment:
+    name: development
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+      - .npm/
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+      - .svelte-kit/output/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
+    - if: $CI_COMMIT_BRANCH == "dev"
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# ============================================
+# VALIDATE - Unit tests (COMMENTED)
+# ============================================
+# Unit tests run against source (Vitest); they do NOT need the built app. Uncomment to run in parallel with build.
+# To run E2E only after unit tests pass, add "validate" to playwright needs.
+# validate:
+#   image: node:22-bookworm-slim
+#   stage: validate
+#   cache:
+#     key: $CI_COMMIT_REF_SLUG
+#     paths:
+#       - node_modules/
+#       - .npm/
+#   script:
+#     - npm ci --cache .npm --prefer-offline
+#     #- npm run check
+#     #- npm run lint
+#     - npm run test:ci
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+#     - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
+#     - if: $CI_COMMIT_BRANCH == "dev"
+#     - if: $CI_COMMIT_BRANCH == "master"
+
+# ============================================
+# PLAYWRIGHT E2E - Full ordered suite (validate stage)
+# ============================================
+# Needs build/ from build job. Playwright detects build/ and runs only "preview" (no extra env var).
+# Runs: 01-signup-onboarding then 02, 03, 04. Requires VITE_API_URL and VITE_NOSTR_RELAY_URL in CI/CD Variables.
+playwright:
+  image: mcr.microsoft.com/playwright:v1.54.0-noble
+  stage: validate
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+      - .npm/
+  needs:
+    - build
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run test:e2e
+  environment:
+    name: development
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
+    - if: $CI_COMMIT_BRANCH == "dev"
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# ============================================
+# DEPLOY DEVELOPMENT (worker.dev.bittasker.com)
+# ============================================
+# Active. Reuses build/ artifact from build job (no rebuild). Runs after E2E passes.
+# Requires: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID. If variables are Protected, uncheck or protect the branch.
+deploy-development:
+  image: node:22-bookworm-slim
+  stage: deploy
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - node_modules/
+      - .npm/
+  needs:
+    - build
+    - playwright
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npx wrangler deploy --env dev
+    - ENVIRONMENT=dev node scripts/purge-cache.js
+  environment:
+    name: development
+    url: https://worker.dev.bittasker.com
+  rules:
+    - if: $CI_COMMIT_BRANCH == "feat/workers-deployment"
+
+# ============================================
+# DEPLOY STAGING - dev branch only
+# ============================================
+# COMMENTED. Uncomment to deploy dev → staging. Reuse build artifact (needs: [build, playwright]); no npm run build.
+# For staging you may want a separate build job with staging VITE_* (see "Environments" in docs).
+# deploy-staging:
+#   image: node:22-bookworm-slim
+#   stage: deploy
+#   cache:
+#     key: $CI_COMMIT_REF_SLUG
+#     paths:
+#       - node_modules/
+#       - .npm/
+#   needs:
+#     - build
+#     - playwright
+#   script:
+#     - npm ci --cache .npm --prefer-offline
+#     - npx wrangler deploy --env staging
+#     - ENVIRONMENT=staging node scripts/purge-cache.js
+#   environment:
+#     name: staging
+#     url: https://staging.bittasker.com
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "dev"
+
+# ============================================
+# DEPLOY PRODUCTION - master branch only
+# ============================================
+# COMMENTED. Uncomment to deploy master → production. Use a dedicated build job with production VITE_* (e.g. build:production)
+# and pass that artifact; or needs: [build, playwright] if the single build job uses production vars on main.
+# deploy-production:
+#   image: node:22-bookworm-slim
+#   stage: deploy
+#   cache:
+#     key: $CI_COMMIT_REF_SLUG
+#     paths:
+#       - node_modules/
+#       - .npm/
+#   needs:
+#     - build
+#     - playwright
+#   script:
+#     - npm ci --cache .npm --prefer-offline
+#     - npx wrangler deploy --env production
+#     - ENVIRONMENT=production node scripts/purge-cache.js
+#   environment:
+#     name: production
+#     url: https://worker.prod.bittasker.com
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "master"

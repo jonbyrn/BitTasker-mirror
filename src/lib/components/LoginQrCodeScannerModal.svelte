@@ -23,7 +23,6 @@
 	let showModal = $state(false);
 	let isWeb = $state(Capacitor.getPlatform() === 'web');
 	let html5QrCode: Html5Qrcode | null = $state(null);
-	let videoElement: HTMLVideoElement = $state() as HTMLVideoElement;
 	let squareElement: HTMLDivElement = $state() as HTMLDivElement;
 	let isTorchAvailable = $state(false);
 	let isSupported = $state(false);
@@ -42,6 +41,9 @@
 
 			// Wait for DOM to update so the qr-reader element is available
 			await tick();
+
+			// Wait a bit for parent component to be ready and DOM to be stable
+			await new Promise(resolve => setTimeout(resolve, 800));
 
 			if (isWeb) {
 				await startWebScan();
@@ -86,7 +88,9 @@
 				fps: 20, // Higher FPS for faster detection and better reliability
 				qrbox: qrboxFunction, // Use function to calculate based on viewfinder dimensions
 				aspectRatio: 1.0,
-				disableFlip: false // Allow flipping for better detection
+				disableFlip: false, // Allow flipping for better detection
+				showTorchButtonIfSupported: false, // Hide torch button (we have our own)
+				showZoomSliderIfSupported: false // Hide zoom slider
 			};
 
 			// html5-qrcode will request camera permissions automatically when start() is called
@@ -110,6 +114,21 @@
 					}
 				}
 			);
+
+			// Force video created by html5-qrcode to play to avoid play button overlay
+			await tick();
+			const html5Video = document.querySelector('#qr-reader video') as HTMLVideoElement;
+			if (html5Video) {
+				try {
+					html5Video.muted = true;
+					html5Video.playsInline = true;
+					await html5Video.play().catch((err) => {
+						console.debug('html5-qrcode video autoplay prevented:', err);
+					});
+				} catch (err) {
+					console.debug('Error playing html5-qrcode video:', err);
+				}
+			}
 		} catch (error) {
 			console.error('Error starting web scan:', error);
 			onError(error instanceof Error ? error.message : 'Failed to access camera');
@@ -149,8 +168,7 @@
 
 		const options = {
 			formats: [BarcodeFormat.QrCode],
-			lensFacing: LensFacing.Back,
-			videoElement: videoElement
+			lensFacing: LensFacing.Back
 		};
 
 		// Get bounding rectangle for the scanning square
@@ -275,112 +293,112 @@
 </script>
 
 {#if showModal}
-	<div class="modal modal-open">
-		<div class="modal-box max-w-2xl w-[90vw] max-h-[80vh] p-0 bg-black flex flex-col">
-			<div class="relative flex-1 flex flex-col min-h-0">
-				<!-- Header -->
-				<header class="relative z-[1001] flex items-center justify-between bg-black/70 p-4 shrink-0">
-					<div class="text-lg font-semibold text-white">
-						{$t('common.components.qr_scanner.scan_qr_code')}
-					</div>
-					<button
-						aria-label={$t('common.components.qr_scanner.close')}
-						class="btn btn-circle cursor-pointer rounded-full p-2 text-white"
-						onclick={closeModal}
+	<div class="barcode-scanning-modal fixed inset-0 z-[9999]">
+		<!-- Header - same style as QrCodeScanner -->
+		<header class="relative z-[1001] flex items-center justify-between bg-black/70 p-4">
+			<div class="text-lg font-semibold text-white">{$t('common.components.qr_scanner.scan_qr_code')}</div>
+			<button
+				aria-label={$t('common.components.qr_scanner.close')}
+				class="btn btn-circle cursor-pointer rounded-full p-2 text-white"
+				onclick={closeModal}
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<line x1="18" y1="6" x2="6" y2="18"></line>
+					<line x1="6" y1="6" x2="18" y2="18"></line>
+				</svg>
+			</button>
+		</header>
+
+		<!-- Scanner Area - same structure as QrCodeScanner -->
+		<div class="relative h-full">
+			{#if isWeb}
+				<!-- Web: html5-qrcode -->
+				<div id="qr-reader" class="w-full h-full"></div>
+			{/if}
+			<div
+				bind:this={squareElement}
+				class="square absolute top-1/2 left-1/2 h-64 w-64 -translate-x-1/2 -translate-y-[75%] transform rounded-2xl border-4 border-white shadow-[0_0_0_4000px_rgba(0,0,0,0.5)]"
+			></div>
+
+			<!-- Info Alert - positioned at bottom -->
+			<div class="absolute bottom-20 left-1/2 -translate-x-1/2 z-[1002] px-4 w-full max-w-md">
+				<div class="alert alert-outline alert-info">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
+						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
-						>
-							<line x1="18" y1="6" x2="6" y2="18"></line>
-							<line x1="6" y1="6" x2="18" y2="18"></line>
-						</svg>
-					</button>
-				</header>
-
-				<!-- Info Alert -->
-				<div class="px-4 pt-4 shrink-0">
-					<div class="alert alert-outline alert-info">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span class="text-sm">{@html $t('common.components.qr_scanner.get_qr_from_settings')}</span>
-					</div>
-				</div>
-
-				<!-- Scanner Area -->
-				<div class="relative flex-1 w-full min-h-0">
-					{#if isWeb}
-						<!-- Web: html5-qrcode (uses its own default scanning box) -->
-						<div id="qr-reader" class="w-full h-full"></div>
-					{:else}
-						<!-- Mobile: Capacitor -->
-						<video
-							bind:this={videoElement}
-							autoplay
-							class="absolute inset-0 h-full w-full object-cover"
-						>
-							<track kind="captions" label="English" srclang="en" default />
-						</video>
-						<div
-							bind:this={squareElement}
-							class="square absolute top-1/2 left-1/2 h-[60%] w-[60%] -translate-x-1/2 -translate-y-1/2 transform rounded-2xl border-4 border-white shadow-[0_0_0_4000px_rgba(0,0,0,0.5)] pointer-events-none z-10"
-						></div>
-					{/if}
-
-					<!-- Torch button (mobile only) -->
-					{#if !isWeb && isTorchAvailable}
-						<button
-							aria-label={$t('common.components.qr_scanner.toggle_torch')}
-							class="btn btn-circle absolute top-4 right-4"
-							onclick={toggleTorch}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-								/>
-							</svg>
-						</button>
-					{/if}
+							stroke-width="2"
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span class="text-sm">{@html $t('common.components.qr_scanner.get_qr_from_settings')}</span>
 				</div>
 			</div>
+
+			<!-- Torch button (mobile only) - same position as QrCodeScanner -->
+			{#if !isWeb && isTorchAvailable}
+				<button
+					aria-label={$t('common.components.qr_scanner.toggle_torch')}
+					class="btn btn-circle absolute top-4 right-4"
+					onclick={toggleTorch}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+						/>
+					</svg>
+				</button>
+			{/if}
 		</div>
 	</div>
 {/if}
 
 <style>
+	/* Enhanced global styles for barcode scanner - same as QrCodeScanner.svelte */
 	:global(body.barcode-scanning-active) {
 		visibility: hidden !important;
 		background: transparent !important;
 		--background: transparent !important;
 		--color-base-100: transparent !important;
 		overflow: hidden !important;
+	}
+
+	:global(.barcode-scanning-modal) {
+		visibility: visible !important;
+		position: fixed !important;
+		top: 0 !important;
+		left: 0 !important;
+		width: 100% !important;
+		height: 100% !important;
+		background: transparent !important;
+		backdrop-filter: none !important;
+		display: flex !important;
+		flex-direction: column !important;
+		z-index: 9999 !important;
 	}
 
 	:global(#qr-reader) {
@@ -405,14 +423,20 @@
 		display: none !important;
 	}
 
-	.square {
-		pointer-events: none;
+	/* Hide video controls created by html5-qrcode */
+	:global(#qr-reader video) {
+		pointer-events: none !important;
 	}
 
-	video {
-		object-fit: cover !important;
-		width: 100% !important;
-		height: 100% !important;
-		background: transparent !important;
+	:global(#qr-reader video::-webkit-media-controls),
+	:global(#qr-reader video::-webkit-media-controls-enclosure),
+	:global(#qr-reader video::-webkit-media-controls-panel),
+	:global(#qr-reader video::-webkit-media-controls-play-button),
+	:global(#qr-reader video::-webkit-media-controls-start-playback-button) {
+		display: none !important;
+	}
+
+	.square {
+		pointer-events: none;
 	}
 </style>

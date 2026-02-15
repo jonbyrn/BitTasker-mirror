@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
+	import { cubicOut } from 'svelte/easing';
+	import type { TransitionConfig } from 'svelte/transition';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { profileStore } from '$lib/stores/profile.store';
@@ -11,6 +13,7 @@
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
+	import { ImpactStyle, triggerHaptic } from '$lib/utils/helpers/haptics';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconQrcode from '~icons/mdi/qrcode';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
@@ -43,10 +46,36 @@
 	// Control avatar dropdown visibility
 	let isAvatarDropdownOpen = $state(false);
 
+	function popoverTransition(
+		node: Element,
+		{
+			duration = 200,
+			y = -8,
+			start = 0.98
+		}: { duration?: number; y?: number; start?: number } = {}
+	): TransitionConfig {
+		return {
+			duration,
+			easing: cubicOut,
+			css: (t) => {
+				const ty = (1 - t) * y;
+				const s = start + (1 - start) * t;
+				return `transform: translate3d(0, ${ty}px, 0) scale(${s}); opacity: ${t};`;
+			}
+		};
+	}
+
+	function handleTopNavTap(event: MouseEvent) {
+		const target = event.target as HTMLElement | null;
+		if (!target) return;
+		const interactive = target.closest('a,button,summary,[role="button"]');
+		if (!interactive) return;
+		// Fire-and-forget; navigation should not be blocked.
+		void triggerHaptic(ImpactStyle.Light);
+	}
+
 	// Toggle avatar dropdown
 	function toggleAvatarDropdown(event: MouseEvent) {
-		// Prevent the default details toggle behavior and handle it manually
-		event.preventDefault();
 		event.stopPropagation();
 		isAvatarDropdownOpen = !isAvatarDropdownOpen;
 	}
@@ -107,14 +136,22 @@
 	}
 
 	// Handle menu item click
-	function handleMenuItemClick(action?: string) {
+	async function handleMenuItemClick(event: MouseEvent, action?: string, href?: string) {
+		event.preventDefault();
+		event.stopPropagation();
 		closeDropdowns();
-		if (action === 'logout') logout();
+		isAvatarDropdownOpen = false;
+		if (action === 'logout') {
+			logout();
+		} else if (href) {
+			await goto(href, { noScroll: false, replaceState: false });
+		}
 	}
 
 	function logout() {
 		closeDrawer();
 		closeDropdowns();
+		isAvatarDropdownOpen = false;
 		showLogoutModal = true;
 	}
 
@@ -143,7 +180,7 @@
 		{#if item.action}
 			<!-- Action button (like logout) -->
 			<button
-				onclick={() => handleMenuItemClick(item.action)}
+				onclick={(e) => handleMenuItemClick(e, item.action)}
 				class="flex w-full items-center gap-2 whitespace-nowrap"
 				class:text-error={item.isError}
 			>
@@ -152,9 +189,10 @@
 			</button>
 		{:else}
 			<!-- Regular link -->
+			{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
 			<a
-				href={item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
-				onclick={() => handleMenuItemClick()}
+				href={itemHref}
+				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
 				class="flex items-center gap-2 whitespace-nowrap"
 			>
 				<item.icon class="text-primary" />
@@ -193,14 +231,25 @@
 					exclude: `#${buttonId}`
 				}}
 			>
-				<ul
+				<div
 					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
+					style="transform-origin: top left;"
+					role="menu"
+					tabindex="-1"
 					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => {
+						if (e.key === 'Escape') {
+							closeDropdowns();
+						}
+					}}
+					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 				>
-					{#each section.items as item}
-						{@render menuItem(item)}
-					{/each}
-				</ul>
+					<ul>
+						{#each section.items as item}
+							{@render menuItem(item)}
+						{/each}
+					</ul>
+				</div>
 			</div>
 		{/if}
 	</li>
@@ -209,10 +258,11 @@
 <!-- Main TopBar component -->
 <div
 	class="navbar bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
+	onclickcapture={handleTopNavTap}
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={isLoggedIn ? '/dashboard/find-tasks' : '/tasks'} class="block">
+		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -259,40 +309,53 @@
 		</div>
 		<!-- login/signup or notification + avatar -->
 		{#if !isLoggedIn}
-			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary">{$t('navbar.login')}</a>
+			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">{$t('navbar.login')}</a>
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
 			<!-- Avatar Dropdown -->
-			<details
-				class="dropdown dropdown-end"
-				bind:open={isAvatarDropdownOpen}
+			<div
+				class="dropdown dropdown-end relative"
 				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 			>
-				<summary class="btn btn-ghost" onclick={toggleAvatarDropdown}>
+				<button class="btn btn-ghost" onclick={toggleAvatarDropdown} aria-haspopup="true" aria-expanded={isAvatarDropdownOpen}>
 					<Avatar name={$user.name} picture={userPicture()} size="sm" />
-				</summary>
-				<ul
-					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
-				>
-					<!-- User Info Header -->
-					{#if userDisplayName}
-						<li class="border-b border-base-300 pb-2 mb-2">
-							<button
-								onclick={showNpubQrCode}
-								class="flex w-full items-center gap-2 whitespace-nowrap"
-							>
-								<IconQrcode class="text-primary" />
-								<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
-							</button>
-						</li>
-					{/if}
-					{#each AVATAR_MENU_ITEMS as item}
-						{@render menuItem(item)}
-					{/each}
-				</ul>
-			</details>
+				</button>
+				{#if isAvatarDropdownOpen}
+					<div
+						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
+						style="transform-origin: top right;"
+						role="menu"
+						tabindex="-1"
+						onclick={(e) => e.stopPropagation()}
+						onkeydown={(e) => {
+							if (e.key === 'Escape') {
+								isAvatarDropdownOpen = false;
+							}
+						}}
+						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
+					>
+						<ul>
+							<!-- User Info Header -->
+							{#if userDisplayName}
+								<li class="border-b border-base-300 pb-2 mb-2">
+									<button
+										onclick={showNpubQrCode}
+										class="flex w-full items-center gap-2 whitespace-nowrap"
+									>
+										<IconQrcode class="text-primary" />
+										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+									</button>
+								</li>
+							{/if}
+							{#each AVATAR_MENU_ITEMS as item}
+								{@render menuItem(item)}
+							{/each}
+						</ul>
+					</div>
+				{/if}
+			</div>
 		{/if}
 	</div>
 </div>
@@ -315,8 +378,8 @@
 					<li>
 						{#if item.action}
 							<button
-								onclick={() => {
-									handleMenuItemClick(item.action);
+								onclick={async (e) => {
+									await handleMenuItemClick(e, item.action);
 									closeDrawer();
 								}}
 								class="flex items-center gap-2"
@@ -325,9 +388,10 @@
 								{$t(item.label)}
 							</button>
 						{:else}
+							{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
 							<a
-								href={item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
-								onclick={closeDrawer}
+								href={itemHref}
+								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
 								class="flex items-center gap-2"
 							>
 								<item.icon />
@@ -378,24 +442,16 @@
 <NpubQrCodeModal isOpen={showNpubQrModal} onClose={closeNpubQrModal} />
 
 <style>
+	/* Use SystemBars fallback pattern for safe area insets
+	 * SystemBars injects --safe-area-inset-* variables for Android WebView < 140
+	 * Fallback order: --safe-area-inset-* (SystemBars) -> env() (native) -> 0px
+	 */
 	.pt-safe {
-		padding-top: env(safe-area-inset-top, 0);
+		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 	}
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {
 		margin-bottom: 0;
-	}
-
-	/* Add bottom spacing for mobile logged-out users */
-	:global(body.bottom-nav-active) {
-		padding-bottom: 80px;
-	}
-
-	/* Remove bottom padding on large screens */
-	@media (min-width: 1024px) {
-		:global(body.bottom-nav-active) {
-			padding-bottom: 0;
-		}
 	}
 
 	/* Remove hover effect and reduce padding for avatar dropdown summary */
