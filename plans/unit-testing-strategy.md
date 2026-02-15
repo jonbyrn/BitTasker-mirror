@@ -2,10 +2,10 @@
 
 **Status:** In progress — Phase 1 & 2 complete; Phase 3 next  
 **Created:** 2025-02-13  
-**Last updated:** 2025-02-14 (Chunk 21; §6.1 component quality guidelines added)  
+**Last updated:** 2025-02-14 (Chunk 21; component fixes: BalanceHistory, DebugWalletSendForm, SendPaymentForm)  
 **Goal:** Establish a strategy to add and maintain unit tests for code that is actually used in the app, starting with an audit of existing tests in `src/lib/tests`, then defining structure and priorities for future tests.
 
-**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 + legacy fixes through Chunk 17 (escrow). **Chunk 18:** Store tests fixed and moved to `unit/stores/` (bid.store, wallet.store.state, wallet.store.debug, wallet.store.functions). CI runs **30 files** under `unit/` + `integration/routes/`. Next: components (§10 item 5).
+**Current status:** Audit done (72 files: Remove 2, Keep 12, Update 58). Phase 2 + legacy fixes through Chunk 18 (stores). **Chunk 19–21:** Component fixes — TransactionHistory, ReceivePaymentForm, InvoiceDisplay, CalculatorKeypad (Chunk 19–20); BalanceHistory, DebugWalletSendForm, SendPaymentForm (Chunk 21). CI runs **30 files** under `unit/` + `integration/routes/`. **Component tests:** 13 passed files, 6 failed, 1 skipped (20 total); 214 passed tests, 16 failed, 14 skipped (244 total). Next: ReceivePaymentForm, contract tests, or add component tests to CI.
 
 ---
 
@@ -216,6 +216,7 @@ No new tests required in Phase 2 — only stabilize what exists and establish th
 |-------|------|---------------|------|
 | 19 | 2025-02-14 | **Component fixes (partial).** TransactionHistory: ProcessedTransactionFactory, iconConfig mock, walletStore isConnected/isInitializing. ReceivePaymentForm + integration: getCachedReverseSwapPairs, getCachedChainSwapPairs. DebugWalletSendForm: walletStore, estimateRBTCGas/estimateERC20Gas mocks, sendRBTC/sendRSKToken; selectors fixed; countdown tests skipped. | Continue components (WalletPaymentModal, InvoiceDisplay, etc.). |
 | 20 | 2025-02-14 | **Component fixes (continued).** InvoiceDisplay: Share tests fixed (Capacitor.getPlatform mock for mobile); QR error test uses regex and longer timeout. CalculatorKeypad: decimal-disable test drops tabindex expectation; touch test expects min-h-[52px] to match component. **Chunk history condensed** (§5.1, §5.2). | Continue remaining component tests. |
+| 21 | 2025-02-14 | **Component fixes (wallet forms).** BalanceHistory: mock walletStore (rsk.provider, rsk.address, totalBalances, formatSats), waitFor for loading; removed invalid props. DebugWalletSendForm: wallet mock (formattedBalance, formatSats, formatUsd, totalBalances), i18n validation.insufficient_balance, max/self-send/confirmation modal/ERC-20/error selectors fixed. SendPaymentForm: i18n keys + tStore values, wallet mock (formattedBalance, bsc, totalBalances), tab/input/cancel/calculator selectors fixed; 4 tests skipped (layout/timing). | ReceivePaymentForm, contract tests, or add components to CI. |
 
 **If stuck:** Run `npm run test` and `npm run test:triage` to see current state. Triage groups are defined in `scripts/test-triage.js` (array `TEST_GROUPS`); paths are relative to `src/lib/tests/`. When moving a file, add or adjust a `match` regex so the file is still grouped (or leave in "Other" until a later chunk).
 
@@ -360,7 +361,7 @@ Tools: `grep -r "from '\$lib/..." src/routes src/lib/components` and follow impo
 | 2 | Fix paymentAddressParser | Load error (wallet-core chain?) | `npm run test:unit:utils` | **Done (Chunk 16)** |
 | 3 | Fix escrow tests | escrowBid, escrowErrors, escrowEvents, feeCalculations, contractPermissions | `npm run test:unit:utils` or run `src/lib/tests/unit/utils/escrow/` | **Done (Chunk 17)** |
 | 4 | Fix stores | bid.store, wallet.store.* | `npm run test:unit:stores` | **Done (Chunk 18)** |
-| 5 | Fix components | Mock/setup + **quality validation** (see §6.1) | `npx vitest run src/lib/tests/components/` | **In progress** — DebugWalletAssetList, WalletPaymentModal, ChatMessage fixed. BalanceHistory, ReceivePaymentForm, SendPaymentForm, DebugWalletSendForm, contract/* still failing. |
+| 5 | Fix components | Mock/setup + **quality validation** (see §6.1) | `npx vitest run src/lib/tests/components/` | **In progress** — BalanceHistory ✓, DebugWalletSendForm ✓, SendPaymentForm ✓ (9 passing each; some skipped). Still failing: ReceivePaymentForm, contract/* (DebugContractCard, loadContractsByAddress, functionParsing). |
 | 6 | Wallet-core blocker | contractPermissions, DebugContractCard.logic | Add EventBus mock | Pending |
 | 7 | Phase 3 — Add tests | New coverage per Section 6 | — | After fixes |
 
@@ -374,6 +375,16 @@ After each fix: move the test file to `unit/` (e.g. `unit/api/services/`), updat
 4. **Fix Update tests:** Use `test:unit:<group>` scripts; move fixed files to `unit/`; update triage.
 5. **Add new tests:** Place under `unit/` per Section 3; follow naming convention.
 6. **Component fixes:** Follow §6.1 quality guidelines; read component source before changing tests.
+
+### Where to continue (as of Chunk 21)
+
+| Priority | Target | Notes |
+|----------|--------|-------|
+| **1** | **ReceivePaymentForm** (unit + integration) | QR/camera, calculator layout, fee estimation; similar patterns to SendPaymentForm (tabs, inputs, mocks). |
+| **2** | **Contract tests** | DebugContractCard, loadContractsByAddress, functionParsing — may depend on wallet-core EventBus; consider EventBus mock in test setup. |
+| **3** | Add component tests to CI | Once more components pass, consider including `src/lib/tests/components/` in `test:ci` or a separate `test:ci:components` job. |
+
+**Component status (latest run):** 13 passed files, 6 failed, 1 skipped (20 total); 214 passed tests, 16 failed, 14 skipped (244 total). Main failing groups: ReceivePaymentForm (unit + integration), contract tests.
 
 ---
 

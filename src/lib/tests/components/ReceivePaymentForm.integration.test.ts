@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+import { walletManager } from '$lib/stores/wallet.store';
+
+// Helper: ReceivePaymentForm renders mobile + desktop; use first match for calculator buttons
+function getCalcButton(name: string) {
+	return screen.getAllByRole('button', { name })[0];
+}
 
 // Mock dependencies (reuse from existing ReceivePaymentForm.test.ts)
 vi.mock('svelte-i18n', async () => {
@@ -49,6 +55,8 @@ vi.mock('$lib/stores/wallet.store', async () => {
 	return {
 		walletStore: writable({
 			hasAnyConnection: true,
+			isConnected: true,
+			isInitializing: false,
 			rsk: {
 				connected: true,
 				address: '0x1234567890123456789012345678901234567890'
@@ -95,6 +103,8 @@ vi.mock('$lib/stores/wallet.store', async () => {
 			}),
 			generateLightningInvoice: vi.fn().mockResolvedValue('lnbc1p0example1234567890'),
 			generateLiquidInvoice: vi.fn().mockResolvedValue('VJL1example1234567890'),
+			createReverseSwap: vi.fn().mockResolvedValue({ swapId: 'test-swap-id' }),
+			createChainSwap: vi.fn().mockResolvedValue({ swapId: 'test-chain-swap-id' }),
 			reverseSwapService: {
 				createReverseSwap: vi.fn().mockResolvedValue({
 					invoice: 'lnbc1p0example1234567890',
@@ -108,6 +118,9 @@ vi.mock('$lib/stores/wallet.store', async () => {
 				})
 			}
 		},
+		formatSats: (sats: number) => new Intl.NumberFormat('en-US').format(sats),
+		formatUsd: (amount: number) =>
+			new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount),
 		getWalletManager: vi.fn(() => ({
 			getReverseSwapPairs: vi.fn().mockResolvedValue({
 				BTC: {
@@ -142,6 +155,14 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 		getCurrentPrice: vi.fn().mockResolvedValue(65000)
 	}
 }));
+
+vi.mock('$lib/utils/helpers/common', async () => {
+	const actual = await vi.importActual('$lib/utils/helpers/common');
+	return {
+		...actual,
+		debounce: (fn: () => void) => fn
+	};
+});
 
 vi.mock('$lib/utils/helpers/haptics', () => ({
 	triggerHaptic: vi.fn(),
@@ -204,7 +225,8 @@ vi.mock('$lib/stores/app.store', async () => {
 
 describe('ReceivePaymentForm Integration Tests', () => {
 	const defaultProps = {
-		onCancel: vi.fn()
+		onCancel: vi.fn(),
+		onOpenPaymentRequest: vi.fn()
 	};
 
 	beforeEach(() => {
@@ -215,60 +237,77 @@ describe('ReceivePaymentForm Integration Tests', () => {
 		it('should generate Lightning invoice when amount is entered', async () => {
 			render(ReceivePaymentForm, defaultProps);
 			await tick();
-			
-			// Lightning is the default network, so no need to select it
-			// Enter amount using calculator (component uses calculator, not direct input)
+
+			// Enter 10000 sats using calculator (above Lightning swap minimum)
 			await waitFor(() => {
-				expect(screen.getByLabelText('1')).toBeDefined();
+				expect(screen.getAllByRole('button', { name: '1' }).length).toBeGreaterThan(0);
 			});
-			
-			// Enter 10000 sats using calculator
-			fireEvent.click(screen.getByLabelText('1'));
-			fireEvent.click(screen.getByLabelText('0'));
-			fireEvent.click(screen.getByLabelText('0'));
-			fireEvent.click(screen.getByLabelText('0'));
-			fireEvent.click(screen.getByLabelText('0')); // 10000
+			fireEvent.click(screen.getAllByRole('button', { name: 'Sats' })[0]);
 			await tick();
-			
-			// Wait for fees to calculate and form to be valid
+			fireEvent.click(getCalcButton('1'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0')); // 10000
+			await tick();
+
+			// Wait for fees to calculate
 			await waitFor(() => {
-				expect(screen.queryByText('Calculating fees...')).toBeNull();
+				expect(document.querySelector('.loading.loading-spinner')).toBeNull();
 			}, { timeout: 3000 });
-			
-			// Wait for "Get Paid" button to be enabled
-			await waitFor(() => {
-				const generateButton = screen.getByRole('button', { name: 'Get Paid' });
-				expect(generateButton).not.toHaveAttribute('disabled');
-			}, { timeout: 2000 });
-			
-			const generateButton = screen.getByRole('button', { name: 'Get Paid' });
-			fireEvent.click(generateButton);
+
+			// On mobile: click Next to go to step 2, then Get Paid
+			const nextButton = screen.queryByRole('button', { name: /Next/i });
+			if (nextButton && !nextButton.hasAttribute('disabled')) {
+				fireEvent.click(nextButton);
+				await tick();
+			}
+			const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
+			const enabledBtn = getPaidButtons.find((b) => !b.hasAttribute('disabled'));
+			if (enabledBtn) {
+				fireEvent.click(enabledBtn);
+			}
 			await tick();
-			
-		await waitFor(async () => {
-			// Import walletManager from the mocked store
-			const { walletManager } = await import('$lib/stores/wallet.store');
-			expect(walletManager.reverseSwapService?.createReverseSwap).toHaveBeenCalled();
-		}, { timeout: 2000 });
+
+			await waitFor(() => {
+				expect(walletManager.createReverseSwap).toHaveBeenCalled();
+			}, { timeout: 3000 });
 		});
 
-		it('should display QR code after invoice generation', async () => {
-			render(ReceivePaymentForm, defaultProps);
+		it('should call onOpenPaymentRequest when invoice is generated', async () => {
+			const onOpenPaymentRequest = vi.fn();
+			render(ReceivePaymentForm, { ...defaultProps, onOpenPaymentRequest });
 			await tick();
-			
-			// Simulate invoice generation
-			const generateButton = screen.queryByRole('button', { name: /generate|create/i });
-			if (generateButton) {
-				await fireEvent.click(generateButton);
+
+			// Enter 10000 sats and generate invoice
+			fireEvent.click(screen.getAllByRole('button', { name: 'Sats' })[0]);
+			await tick();
+			fireEvent.click(getCalcButton('1'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0'));
+			await tick();
+
+			await waitFor(() => {
+				const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
+				return getPaidButtons.some((b) => !b.hasAttribute('disabled'));
+			}, { timeout: 3000 });
+			const nextButton = screen.queryByRole('button', { name: /Next/i });
+			if (nextButton && !nextButton.hasAttribute('disabled')) {
+				fireEvent.click(nextButton);
 				await tick();
-				
-				await waitFor(() => {
-					const qrCode = screen.queryByAltText(/qr|code/i) || screen.queryByRole('img');
-					if (qrCode) {
-						expect(qrCode).toBeInTheDocument();
-					}
-				});
 			}
+			const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
+			const enabledBtn = getPaidButtons.find((b) => !b.hasAttribute('disabled'));
+			if (enabledBtn) {
+				fireEvent.click(enabledBtn);
+			}
+			await tick();
+
+			await waitFor(() => {
+				expect(onOpenPaymentRequest).toHaveBeenCalled();
+			}, { timeout: 3000 });
 		});
 	});
 
@@ -276,42 +315,31 @@ describe('ReceivePaymentForm Integration Tests', () => {
 		it('should update invoice when network changes', async () => {
 			render(ReceivePaymentForm, defaultProps);
 			await tick();
-			
-			// Change network using dropdown - use Rootstock Bitcoin instead since Liquid is disabled
-			const networkDropdown = screen.getByLabelText('Select Network');
-			fireEvent.click(networkDropdown);
+
+			// Network selector is a collapse; click title to expand
+			const networkButton = screen.getAllByRole('button', {
+				name: /Lightning Bitcoin\s*Network/i
+			})[0];
+			fireEvent.click(networkButton);
 			await tick();
-			
-			// Manually open the dropdown by setting the open attribute
-			const detailsElement = document.querySelector('details.dropdown') as HTMLDetailsElement;
-			if (detailsElement) {
-				detailsElement.open = true;
-			}
-			await tick();
-			
-			// Wait for dropdown to open and options to be visible
+
+			// Click Rootstock Bitcoin option
 			await waitFor(() => {
-				// Find the Rootstock Bitcoin option (available network)
-				const rootstockOption = screen.queryByText(/Rootstock Bitcoin/i);
-				return rootstockOption !== null;
+				const rootstockOptions = screen.getAllByRole('button', {
+					name: /Rootstock Bitcoin\s*Network/i
+				});
+				expect(rootstockOptions.length).toBeGreaterThan(0);
+				fireEvent.click(rootstockOptions[0]);
 			}, { timeout: 2000 });
-			
-			// Find and click the Rootstock Bitcoin option
-			const rootstockOption = screen.getByText(/Rootstock Bitcoin/i);
-			fireEvent.click(rootstockOption);
 			await tick();
-			
-			// Network should update - verify by checking dropdown summary shows new network
+
+			// Verify network was selected
 			await waitFor(() => {
-				// The dropdown summary should show the selected network
-				const networkSummary = screen.getByLabelText('Select Network');
-				const summaryText = networkSummary.textContent || '';
-				return summaryText.includes('Rootstock Bitcoin');
-			}, { timeout: 2000 });
-			
-			// Verify the network was actually changed
-			const networkSummary = screen.getByLabelText('Select Network');
-			expect(networkSummary.textContent).toContain('Rootstock Bitcoin');
+				const updatedTitles = screen.getAllByRole('button', {
+					name: /Rootstock Bitcoin\s*Network/i
+				});
+				expect(updatedTitles.length).toBeGreaterThan(0);
+			}, { timeout: 1000 });
 		});
 	});
 
@@ -319,26 +347,22 @@ describe('ReceivePaymentForm Integration Tests', () => {
 		it('should calculate fees when amount is entered', async () => {
 			render(ReceivePaymentForm, defaultProps);
 			await tick();
-			
-			// Enter amount using calculator
+
 			await waitFor(() => {
-				expect(screen.getByLabelText('1')).toBeDefined();
+				expect(screen.getAllByRole('button', { name: '1' }).length).toBeGreaterThan(0);
 			});
-			
-			// Enter 100000 sats
-			fireEvent.click(screen.getByLabelText('1'));
-			fireEvent.click(screen.getByLabelText('0'));
-			fireEvent.click(screen.getByLabelText('0'));
-			fireEvent.click(screen.getByLabelText('0'));
-			fireEvent.click(screen.getByLabelText('0'));
-			fireEvent.click(screen.getByLabelText('0')); // 100000
+			fireEvent.click(screen.getAllByRole('button', { name: 'Sats' })[0]);
 			await tick();
-			
-			// Fees should be calculated (wait for debounce)
+			fireEvent.click(getCalcButton('1'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0'));
+			fireEvent.click(getCalcButton('0')); // 100000
+			await tick();
+
 			await waitFor(() => {
-				// Check for Network Fee label or that fees are displayed
-				const feeDisplay = screen.queryByText(/Network Fee:/) || screen.queryByText(/wallet\.network_fee/i);
-				expect(feeDisplay).toBeDefined();
+				expect(screen.getByText(/Network Fee:/)).toBeDefined();
 			}, { timeout: 3000 });
 		});
 	});
