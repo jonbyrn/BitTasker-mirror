@@ -20,10 +20,10 @@ if (typeof window !== 'undefined') {
 // Mock Capacitor plugins that might be used in tests
 vi.mock('@capacitor/preferences', () => ({
 	Preferences: {
-		get: vi.fn(),
-		set: vi.fn(),
-		remove: vi.fn(),
-		clear: vi.fn()
+		get: vi.fn().mockResolvedValue({ value: null }),
+		set: vi.fn().mockResolvedValue(undefined),
+		remove: vi.fn().mockResolvedValue(undefined),
+		clear: vi.fn().mockResolvedValue(undefined)
 	}
 }));
 vi.mock('@capacitor/haptics', () => ({
