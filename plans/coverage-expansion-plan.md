@@ -53,7 +53,7 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 |-------|--------|--------|-------|
 | 1 | `contractStatusFormatter` | ✅ Done | Task/escrow flows |
 | 2 | `budgetTier` | ✅ Done | Task creation |
-| 3 | `dateTier` | ⬜ Pending | Task creation |
+| 3 | `dateTier` | ✅ Done | Task creation |
 | 4 | `task-id` | ⬜ Pending | Task IDs |
 | 5 | `userDisplayName` | ⬜ Pending | Display logic |
 | 6 | `linkParser` | ⬜ Pending | Form/display |
@@ -68,6 +68,7 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 |-------|------|--------|--------|
 | 1 | 2025-02-15 | contractStatusFormatter | Tests added; all pass |
 | 2 | 2025-02-15 | budgetTier | Tests added; all pass |
+| 3 | 2025-02-15 | dateTier | Tests added; all pass |
 
 ### Phase B — Core Business Logic
 
