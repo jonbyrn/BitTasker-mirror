@@ -18,6 +18,7 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// State
@@ -430,99 +431,17 @@
 					<div class="p-4 md:p-6">
 						<!-- Top row: User info and status (full width) -->
 						<div class="mb-4 flex w-full items-center justify-between gap-4">
-							<!-- Left side: Avatar + Username on same row, then member since and rating below -->
+							<!-- Left side: UserInfoDisplay -->
 							<div class="flex min-w-0 flex-1 items-center gap-4">
-								<!-- Avatar -->
-								{#if bidContent.bidderId}
-									<a
-										href="/npub/{bidContent.bidderId}"
-										class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80"
-									>
-										<div
-											class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-										>
-											{#if bidContent.bidderAvatar}
-												<img
-													src={bidContent.bidderAvatar}
-													alt={$t('task.drawer.avatar_alt')}
-													class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
-												/>
-											{:else}
-												<div
-													class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-												>
-													<span class="text-lg font-semibold sm:text-2xl">
-														{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
-													</span>
-												</div>
-											{/if}
-										</div>
-									</a>
-								{:else}
-									<div class="avatar shrink-0">
-										<div
-											class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-										>
-											{#if bidContent.bidderAvatar}
-												<img
-													src={bidContent.bidderAvatar}
-													alt={$t('task.drawer.avatar_alt')}
-													class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
-												/>
-											{:else}
-												<div
-													class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-												>
-													<span class="text-lg font-semibold sm:text-2xl">
-														{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
-													</span>
-												</div>
-											{/if}
-										</div>
-									</div>
-								{/if}
-								<!-- User info column -->
-								<div class="flex min-w-0 flex-1 flex-col items-start">
-									<!-- Display name -->
-									{#if bidContent.bidderId}
-										<a
-											href="/npub/{bidContent.bidderId}"
-											class="w-full cursor-pointer truncate text-base font-semibold transition-opacity hover:opacity-80 sm:text-lg"
-										>
-											{bidContent.bidderName || $t('task.drawer.anonymous')}
-										</a>
-									{:else}
-										<p class="w-full truncate text-base font-semibold sm:text-lg">
-											{bidContent.bidderName || $t('task.drawer.anonymous')}
-										</p>
-									{/if}
-									<!-- Member since -->
-									<span class="text-base-content/60 text-xs sm:text-sm">
-										{$t('task.drawer.member_since')}
-										{getCachedFormattedDate(new Date(bidContent.timestamp))}
-									</span>
-									<!-- Rating -->
-									<!-- TODO: Rating fields do not exist in the bid event -->
-									<div class="flex items-center gap-1">
-										{#each Array(5) as _, i}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3 sm:h-4 sm:w-4 {i < (bidContent.bidderRating || 0)
-													? 'text-yellow-400'
-													: 'text-base-content/30'}"
-												fill="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-												/>
-											</svg>
-										{/each}
-										<span class="text-base-content/60 ml-1 text-xs sm:text-sm"
-											>{bidContent.bidderRating || 0}</span
-										>
-									</div>
-								</div>
+								<UserInfoDisplay
+									avatar={bidContent.bidderAvatar}
+									username={bidContent.bidderName ?? ''}
+									rating={bidContent.bidderRating ?? 0}
+									size="md"
+									pubkey={bidContent.bidderId}
+									profileLink={bidContent.bidderId}
+									memberSince={bidContent.timestamp}
+								/>
 							</div>
 
 							<!-- Right side: Status badge and profile link (right-aligned) -->
@@ -755,7 +674,7 @@
 										onclick={() =>
 											openMessageModal(
 												bidContent.bidderId || '',
-												bidContent.bidderName || $t('task.drawer.anonymous')
+												bidContent.bidderName ?? ''
 											)}
 									>
 										<svg

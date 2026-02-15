@@ -124,7 +124,7 @@
 		return {
 			user: {
 				id: bid.bidderId || 'unknown',
-				name: bid.bidderName || 'Anonymous',
+				name: bid.bidderName,
 				avatar: bid.bidderAvatar || '',
 				rating: 0
 			}
@@ -212,11 +212,11 @@
 									if (userId) goto(`/dashboard/taskees/profile/${userId}`);
 								}}
 							>
-								{userProfile().user?.name || $t('task.drawer.anonymous')}
+								{userProfile().user?.name ?? ''}
 							</button>
 						{:else}
 							<p class="truncate text-base font-semibold sm:text-lg">
-								{userProfile().user?.name || $t('task.drawer.anonymous')}
+								{userProfile().user?.name ?? ''}
 							</p>
 						{/if}
 						<!-- See Profile link - Desktop only -->

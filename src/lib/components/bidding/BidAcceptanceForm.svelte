@@ -431,9 +431,9 @@ import { updateTask } from '$lib/nostr/task';
 		</div>
 	</div>
 {:else if currentScreen === 'form'}
-	<!-- Content with padding -->
+	<!-- Layout like dashboard modals: scrollable content + fixed action buttons at bottom -->
 	<div
-		class="overflow-x-hidden"
+		class="flex max-h-[calc(100vh-8rem)] min-h-0 flex-col overflow-x-hidden"
 		in:fly={{
 			duration: 200,
 			easing: linear,
@@ -441,6 +441,8 @@ import { updateTask } from '$lib/nostr/task';
 			x: -20
 		}}
 	>
+		<!-- Scrollable content -->
+		<div class="flex-1 min-h-0 overflow-y-auto">
 		<!-- Container with gap for even spacing -->
 		<div class="flex flex-col gap-4">
 			<!-- Unified Responsive Layout -->
@@ -460,85 +462,15 @@ import { updateTask } from '$lib/nostr/task';
 					<!-- Left Column: Bidder Information -->
 					<div class="min-w-0 flex-1">
 						<div class="rounded-lg px-3 pt-3">
-							<!-- Bidder Profile -->
-							<div class="flex min-w-0 items-center gap-3">
-								<div class="avatar shrink-0">
-									<div
-										class="bg-base-100 flex h-8 w-8 items-center justify-center rounded-full lg:h-10 lg:w-10"
-									>
-										{#if bidContent?.bidderAvatar}
-											<img
-												src={bidContent.bidderAvatar}
-												alt={$t('dashboard.bids.bid_acceptance.bidder_avatar')}
-												class="h-8 w-8 rounded-full object-cover lg:h-10 lg:w-10"
-											/>
-										{:else}
-											<div
-												class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center lg:h-10 lg:w-10"
-											>
-												<span class="text-sm font-semibold lg:text-lg">
-													{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
-												</span>
-											</div>
-										{/if}
-									</div>
-								</div>
-
-								<div class="flex min-w-0 flex-1 flex-col">
-									<span class="truncate text-sm font-medium">
-										{bidContent.bidderName || $t('dashboard.bids.bid_acceptance.anonymous')}
-									</span>
-
-									<div class="mt-1 flex min-w-0 items-center">
-										<div class="flex shrink-0">
-											{#each Array(5) as _, i}
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="h-3 w-3 {i < (bidContent.bidderRating || 0)
-														? 'text-yellow-400'
-														: 'text-base-content/30'}"
-													fill="currentColor"
-													viewBox="0 0 24 24"
-												>
-													<path
-														d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-													/>
-												</svg>
-											{/each}
-										</div>
-										<span class="text-base-content/60 ml-1 truncate text-xs">
-											{(bidContent.bidderRating || 0).toFixed(1)}
-											<!-- TODO: Add proper completed tasks display -->
-											<!-- {bidContent?. || 0} -->
-											<!-- {$t('dashboard.bids.bid_acceptance.tasks')} -->
-										</span>
-									</div>
-
-									<p class="text-base-content/60 mt-1 truncate text-sm">
-										{$t('dashboard.bids.bid_acceptance.member_since')}
-										{#if props.bid?.created_at}
-											{(() => {
-												try {
-													// NostrEvent.created_at is Unix timestamp in seconds
-													const date = new Date(props.bid.created_at * 1000);
-													// Check if date is valid
-													if (isNaN(date.getTime())) {
-														return 'Recently';
-													}
-													return date.toLocaleDateString('en-US', {
-														month: 'short',
-														year: 'numeric'
-													});
-												} catch (e) {
-													return 'Recently';
-												}
-											})()}
-										{:else}
-											Recently
-										{/if}
-									</p>
-								</div>
-							</div>
+							<UserInfoDisplay
+								avatar={bidContent.bidderAvatar}
+								username={bidContent.bidderName ?? ''}
+								rating={bidContent.bidderRating ?? 0}
+								size="sm"
+								pubkey={bidContent.bidderId ?? null}
+								profileLink={bidContent.bidderId ?? null}
+								memberSince={props.bid?.created_at ?? null}
+							/>
 
 							<!-- Start and end times -->
 							<div class="mt-4 block space-y-2">
@@ -1091,9 +1023,11 @@ import { updateTask } from '$lib/nostr/task';
 				</div>
 			{/if}
 
-			<!-- Submit Buttons -->
+		</div>
+		</div>
+		<!-- Action buttons (fixed at bottom, like dashboard edit/delete modals) -->
 			<div
-				class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col-reverse justify-end gap-3 py-4 pb-8 sm:flex-row md:py-2"
+				class="border-base-300 bg-base-100 flex shrink-0 flex-col-reverse justify-end gap-3 border-t py-4 sm:flex-row md:py-3"
 			>
 				<button
 					type="button"
@@ -1151,7 +1085,6 @@ import { updateTask } from '$lib/nostr/task';
 					{/if}
 				</button>
 			</div>
-		</div>
 	</div>
 {/if}
 
@@ -1167,12 +1100,12 @@ import { updateTask } from '$lib/nostr/task';
 	/>
 {/if}
 
-<!-- Fund Contract confirmation modal -->
+<!-- Fund Contract confirmation modal (structure like dashboard edit/delete modals) -->
 {#if showFundConfirmationModal}
-	<div class="modal modal-open z-120">
-		<div class="modal-box max-w-md p-4">
-			<h3 class="text-lg font-bold">{$t('dashboard.bids.bid_acceptance.fund_contract_title')}</h3>
-			<div class="space-y-8 py-3">
+	<div class="modal modal-open modal-middle z-120" role="dialog" aria-modal="true" aria-labelledby="fund-modal-title">
+		<div class="modal-box max-w-md flex flex-col max-h-[90vh] p-4">
+			<h3 id="fund-modal-title" class="text-lg font-bold shrink-0">{$t('dashboard.bids.bid_acceptance.fund_contract_title')}</h3>
+			<div class="space-y-6 py-3 overflow-y-auto min-h-0 flex-1">
 				<!-- Taskee + Total payment in same row: UserInfoDisplay left, Total (label over price) right -->
 				<div class="flex min-w-0 items-center justify-between gap-3">
 					<div class="min-w-0 flex-1">
@@ -1183,7 +1116,6 @@ import { updateTask } from '$lib/nostr/task';
 							size="sm"
 							pubkey={bidContent.bidderId ?? null}
 							memberSince={props.bid?.created_at ?? null}
-							anonymousLabel={$t('dashboard.bids.bid_acceptance.anonymous')}
 						/>
 					</div>
 					{#if true}
@@ -1247,13 +1179,14 @@ import { updateTask } from '$lib/nostr/task';
 					<span class="text-xs">{$t('dashboard.bids.bid_acceptance.fund_confirm_warning')}</span>
 				</div>
 			</div>
-			<div class="modal-action">
-				<button type="button" class="btn btn-ghost" onclick={() => (showFundConfirmationModal = false)}>
+			<!-- Action buttons (like dashboard modals) -->
+			<div class="modal-action border-base-300 shrink-0 gap-3 border-t pt-4">
+				<button type="button" class="btn btn-ghost flex-1" onclick={() => (showFundConfirmationModal = false)}>
 					{$t('common.cancel')}
 				</button>
 				<button
 					type="button"
-					class="btn btn-primary"
+					class="btn btn-primary flex-1"
 					onclick={handleFundClick}
 					disabled={isSubmitting}
 				>
