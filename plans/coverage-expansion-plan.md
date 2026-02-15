@@ -52,7 +52,7 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | Helper | Status | Notes |
 |--------|--------|-------|
 | `auth` | ✅ Tested | unit/helpers/auth.test.ts |
-| `biometricErrorHandler` | ⬜ Pending | Login, PasskeySetup; type + handleBiometricError |
+| `biometricErrorHandler` | ✅ Tested | unit/helpers/biometricErrorHandler.test.ts |
 | `biometrics` | ⬜ Pending | Login, recover, nostrKeys, PasskeySetup; requires Capacitor mock |
 | `budgetTier` | ✅ Done | Task creation |
 | `clipboard` | ✅ Tested | unit/helpers/clipboard.test.ts |
@@ -73,7 +73,7 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | `escrowErrors` | ✅ Tested | unit/utils/escrow/escrowErrors.test.ts |
 | `fcm` | ⬜ Pending | push-notification.service; Firebase mock |
 | `generateQrCodeUrl` | ⬜ Pending | Wallet QR; canvas/async |
-| `haptics` | ⬜ Pending | Wallet, nav; requires Capacitor mock |
+| `haptics` | ✅ Tested | unit/helpers/haptics.test.ts |
 | `keyboard` | ⬜ Not used | No imports — skip |
 | `lightningInvoice` | ✅ Done | Wallet flows |
 | `linkParser` | ✅ Done | Chat/messages |
@@ -82,19 +82,19 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | `migratePasskey` | ⬜ Pending | Login, auth.store; complex flow |
 | `mnemonic` | ⬜ Pending | wallet.store; getMnemonic |
 | `pageVisibility` | ⬜ Not used | No imports — skip |
-| `password` | ⬜ Pending | Auth recover; bip39 + random |
+| `password` | ✅ Tested | unit/helpers/password.test.ts |
 | `paymentAddressParser` | ✅ Tested | unit/utils/paymentAddressParser.test.ts |
 | `profile` | ✅ Done | Profile URLs |
 | `showErrorModal` | ✅ Tested | unit/helpers/showErrorModal.test.ts |
-| `splashScreen` | ⬜ Pending | +layout |
-| `statusBar` | ⬜ Pending | +layout |
+| `splashScreen` | ✅ Tested | unit/helpers/splashScreen.test.ts |
+| `statusBar` | ✅ Tested | unit/helpers/statusBar.test.ts |
 | `task-id` | ✅ Done | Task IDs |
 | `taskStatusBadge` | ✅ Done | Task status display |
 | `userDisplayName` | ✅ Done | Display logic |
 | `validators` | ✅ Tested | unit/helpers/validators.test.ts |
 | `webBiometrics` | ⬜ Pending | Recover, PasskeySetup; requires Web Authn mock |
 
-**Phase A Checklist (chunks completed):** 1–18 (…showErrorModal, deviceSettings, deviceCompatibility, clipboard).
+**Phase A Checklist (chunks completed):** 1–21 (…splashScreen, statusBar, biometricErrorHandler, password).
 
 #### Phase A Chunk Log
 
@@ -110,6 +110,8 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | 8-12 | 2025-02-15 | common, errorTypeDetector, taskStatusBadge, messageParser, profile | Tests added; all pass |
 | 13-15 | 2025-02-15 | date, lru-cache, showErrorModal | Tests added; all pass |
 | 16-18 | 2025-02-15 | deviceSettings, deviceCompatibility, clipboard | Tests added; all pass |
+| 19-20 | 2025-02-15 | haptics, splashScreen | Tests added; all pass (hoisted mocks, module state reset for splash) |
+| 21 | 2025-02-15 | statusBar, biometricErrorHandler, password | Tests added; all pass |
 
 ### Phase B — Core Business Logic
 
