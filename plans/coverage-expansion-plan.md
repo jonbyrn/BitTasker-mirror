@@ -55,7 +55,7 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | `biometricErrorHandler` | ⬜ Pending | Login, PasskeySetup; type + handleBiometricError |
 | `biometrics` | ⬜ Pending | Login, recover, nostrKeys, PasskeySetup; requires Capacitor mock |
 | `budgetTier` | ✅ Done | Task creation |
-| `clipboard` | ⬜ Pending | Wallet, auth, task share; requires navigator mock |
+| `clipboard` | ✅ Tested | unit/helpers/clipboard.test.ts |
 | `common` | ✅ Done | debounce |
 | `contractPermissions` | ✅ Tested | unit/utils/escrow/contractPermissions.test.ts |
 | `contractStatusFormatter` | ✅ Done | Task/escrow flows |
@@ -65,9 +65,9 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | `date` | ✅ Tested | unit/helpers/date.test.ts |
 | `dateFormatter` | ✅ Tested | unit/helpers/dateFormatter.test.ts |
 | `dateTier` | ✅ Done | Task creation |
-| `deviceCompatibility` | ⬜ Pending | ErrorTroubleshootingModal |
+| `deviceCompatibility` | ✅ Tested | unit/helpers/deviceCompatibility.test.ts |
 | `deviceIdentity` | ✅ Tested | unit/helpers/deviceIdentity.test.ts |
-| `deviceSettings` | ⬜ Pending | ErrorTroubleshootingModal |
+| `deviceSettings` | ✅ Tested | unit/helpers/deviceSettings.test.ts |
 | `encoding` | ✅ Tested | unit/helpers/encoding.test.ts |
 | `errorTypeDetector` | ✅ Done | Error troubleshooting |
 | `escrowErrors` | ✅ Tested | unit/utils/escrow/escrowErrors.test.ts |
@@ -94,7 +94,7 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | `validators` | ✅ Tested | unit/helpers/validators.test.ts |
 | `webBiometrics` | ⬜ Pending | Recover, PasskeySetup; requires Web Authn mock |
 
-**Phase A Checklist (chunks completed):** 1–15 (contractStatusFormatter, budgetTier, dateTier, task-id, userDisplayName, linkParser, lightningInvoice, common, errorTypeDetector, taskStatusBadge, messageParser, profile, date, lru-cache, showErrorModal).
+**Phase A Checklist (chunks completed):** 1–18 (…showErrorModal, deviceSettings, deviceCompatibility, clipboard).
 
 #### Phase A Chunk Log
 
@@ -109,6 +109,7 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | 7 | 2025-02-15 | lightningInvoice | Tests added; all pass |
 | 8-12 | 2025-02-15 | common, errorTypeDetector, taskStatusBadge, messageParser, profile | Tests added; all pass |
 | 13-15 | 2025-02-15 | date, lru-cache, showErrorModal | Tests added; all pass |
+| 16-18 | 2025-02-15 | deviceSettings, deviceCompatibility, clipboard | Tests added; all pass |
 
 ### Phase B — Core Business Logic
 
