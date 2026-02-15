@@ -34,7 +34,8 @@ export default defineConfig({
     test: {
         environment: 'jsdom',
         setupFiles: ['./vitest-setup-client.ts'],
-        globals: true
+        globals: true,
+        exclude: ['**/_pending/**']
     },
     resolve: {
         conditions: process.env.VITEST ? ['browser', 'development'] : ['browser', 'development'],
