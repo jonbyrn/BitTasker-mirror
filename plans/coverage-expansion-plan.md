@@ -15,8 +15,8 @@
 | Priority | Area | Why | Effort |
 |----------|------|-----|--------|
 | **1** | **Phase B — Wallet utils** (`$lib/utils/wallet/`) | **Done.** `contractErrorHandler`, `swapTransaction`, `rpcHelpers`, `transactionHistory` ✅ tested (`unit/utils/wallet/`). `contractDetection` already tested. `balanceManager` not used — skip. | Medium — mock ethers/wallet |
-| **2** | **Phase B — Stores** (`task.store`, `auth.store`) | Core app state. Test pure logic / state transitions (e.g. task filters, auth state machine) without full DOM. | Medium |
-| **3** | **Unblock _pending** | `functionParsing.test.ts` and `loadContractsByAddress.test.ts` — get contract/wallet logic into CI by fixing mocks (EventBus, getWallet). | Low–medium |
+| **2** | **Phase B — Stores** (`task.store`, `auth.store`) | **Done.** `task.store.test.ts` (myTasksStore, tasksStore.reset, TASKS_PER_PAGE), `auth.store.test.ts` (setLoading, setError, login, logout with mocks). See `plans/stores-testing-guide.md`. | Medium |
+| **3** | **Unblock _pending** | **Done.** `functionParsing.test.ts` and `loadContractsByAddress.test.ts` moved to `unit/utils/wallet/` with fixed mocks (escrow v1, loadEscrowDetails). Run in CI. | Low–medium |
 | **4** | **Phase C — API services** | `push-notification.service`, crypto-price, Nostr services. Mock fetch/WebSocket. | Medium |
 | **5** | **Phase D — Critical path components** | Auth (login/recover), task create, bidding. High impact but more mocks (i18n, Capacitor, stores). | High |
 
@@ -231,3 +231,4 @@ Track in coverage report. No strict gate — use as guidance.
 - **Coverage config:** `vite.config.ts` (test.coverage)
 - **Test layout:** `src/lib/tests/README.md`
 - **Wallet utils (Phase B):** `plans/wallet-utils-testing-guide.md` — usage matrix, what to test, behavior guidelines, implementation order.
+- **Stores (Phase B):** `plans/stores-testing-guide.md` — what to test, minimal mocks, reset between tests.

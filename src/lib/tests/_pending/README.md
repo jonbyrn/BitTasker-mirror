@@ -8,8 +8,8 @@ Tests in this folder are **not run by `test:ci`**. Vitest excludes `**/_pending/
 |------|-----------------|
 | `contract/DebugContractCard.logic.test.ts` | EventBus / wallet-core dependencies |
 | `contract/DebugContractCard.test.ts` | Same as above |
-| `contract/loadContractsByAddress.test.ts` | wallet.store mock (getWallet) incomplete |
-| `contract/functionParsing.test.ts` | Import path fixed; EventBus resolved via global mock |
+| `contract/loadContractsByAddress.test.ts` | **Replaced:** canonical test in `unit/utils/wallet/loadContractsByAddress.test.ts` (CI) |
+| `contract/functionParsing.test.ts` | **Replaced:** canonical test in `unit/utils/wallet/functionParsing.test.ts` (CI) |
 | `components/ReceivePaymentForm.test.ts` | Timeouts on calculator/network interactions |
 | `components/ReceivePaymentForm.integration.test.ts` | Same timeout issues |
 
