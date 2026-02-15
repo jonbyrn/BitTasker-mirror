@@ -366,7 +366,23 @@ export async function createRecurringTask(
 }
 
 /**
+ * Get the stable identifier for a task Nostr event (Addressable Event).
+ * Use this when calling updateTask so repeated updates work: after the first update
+ * the event id changes (new event published with same d-tag), and the backend/relay
+ * typically only serves the latest event by d-tag, so old event ids return 404.
+ *
+ * @param event - Nostr task event (kind TASK_CREATION)
+ * @returns d-tag from tags if present (stable across updates), else event.id (64 hex)
+ */
+export function getTaskStableId(event: NostrEvent): string {
+	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+	return dTag ?? event.id;
+}
+
+/**
  * Update an existing task. taskId = d-tag (preferred) or event id (64 hex).
+ * Prefer d-tag so repeated updates work: with event id, after the first update
+ * the backend may return 404 for the old id (see getTaskStableId).
  * Busca por backend; si falla por event id, intenta relay (pool).
  */
 export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {

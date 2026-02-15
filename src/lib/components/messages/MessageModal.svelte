@@ -81,7 +81,7 @@
 					<div>
 						<h4 class="text-sm font-semibold">{$t('common.profile.send_message')}</h4>
 						<p class="text-base-content/60 text-xs">
-							To: {props.recipientName || $t('task.drawer.anonymous')}
+							To: {props.recipientName}
 						</p>
 					</div>
 				</div>

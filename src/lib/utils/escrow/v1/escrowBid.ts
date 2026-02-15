@@ -11,6 +11,7 @@ import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { normalizeRskAddress } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+import { getTaskStableId } from '$lib/nostr/task';
 
 /**
  * Calculate escrow details from bid data
@@ -151,6 +152,7 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
 			// Normalize RSK address checks for valid Hex format and lowercases it
 			normalizeRskAddress(details.freelancerAddress);
 		} catch (error) {
+			console.error('Error validating freelancer address:', error);
 			errors.push('Invalid freelancer address format');
 		}
 	}
@@ -290,10 +292,11 @@ export async function acceptBidAndCreateEscrow(
 		// Store transaction hash for potential cleanup in catch block
 		transactionHash = transactionResult.hash;
 
-		// Register pending contract creation with our event management system
+		// Register pending contract creation with our event management system.
+		// Use d-tag (stable id) so updateTask(contract.taskId) works on repeated updates (Nostr Addressable Event).
 		registerPendingContractByTxHash({
 			bidEventId: bid.id,
-			taskId: task.id,
+			taskId: getTaskStableId(task),
 			taskTitle: taskContent.title,
 			taskDescription: taskContent.description,
 			freelancerPubkey: bidContent.bidderId || '',
