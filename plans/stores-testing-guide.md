@@ -21,6 +21,8 @@
 | **tasksStore** | reset() restores items [], loading false, hasMore true, currentPage 1, etc. | None (appStore has pool at load) |
 | **authState** | setLoading, setError, login() → state shape | None for sync |
 | **authState** | logout() → state reset to initial; clearSession and user.reset called | ✅ Done. Mock Preferences, session, user.store. |
+| **appStore** | Initial state; resetUserState(); showSuccessToast/showErrorToast/showInfoToast (add + auto-remove); initializePool | ✅ Done. Clear toasts in beforeEach. |
+| **user** | Initial profile; updateProfile(partial); reset() | ✅ Done. Sync only. |
 | **taskStore** (create-task) | nextStep, previousStep, setStep, updateTask if we can isolate (optional) | Deferred; would need Preferences, $app/state, STEPS. |
 
 ---
@@ -29,5 +31,9 @@
 
 - `src/lib/tests/unit/stores/task.store.test.ts`
 - `src/lib/tests/unit/stores/auth.store.test.ts`
+- `src/lib/tests/unit/stores/app.store.test.ts` — initial state, resetUserState, toasts (add + auto-remove), initializePool
+- `src/lib/tests/unit/stores/user.store.test.ts` — initial state, updateProfile, reset, cache (getCachedEvent, cacheEvent), getUserData (mocked appStore, getNpub, pool)
+- `src/lib/tests/unit/stores/theme.store.test.ts` — darkMode, initializeTheme (Preferences mocked), toggleDarkMode
+- `src/lib/tests/unit/stores/navigation.store.test.ts` — showBackButton (setBackButton show/hide/auto, resetBackButton; $app/state mocked)
 
 Existing: `bid.store.test.ts`, `wallet.store.*.test.ts`.
