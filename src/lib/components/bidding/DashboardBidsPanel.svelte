@@ -13,6 +13,13 @@
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import IconClose from '~icons/mdi/close';
+	import nostrEventsService from '$lib/api/services/nostr/events';
+	import { getSignedEvent } from '$lib/utils/nostr';
+	import { clearBidCache as clearBidCacheUtil } from '$lib/utils/nostr-bid';
+	import { appStore } from '$lib/stores/app.store';
+	import { SvelteSet } from 'svelte/reactivity';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	// Simple function to get translated task title/description
 	// Reactive to locale changes via $locale
@@ -77,7 +84,7 @@
 	let loading = $state(true);
 	let error = $state<string>('');
 	let btcPrice = $state<number>(0); // Default fallback price
-	let expandedBids = $state<Set<string>>(new Set()); // Track expanded bids
+	let expandedBids = $state(new SvelteSet<string>()); // Track expanded bids
 
 	/**
 	 * Fetch current BTC price
@@ -126,7 +133,6 @@
 		} else {
 			expandedBids.add(bidId);
 		}
-		expandedBids = new Set(expandedBids);
 	}
 
 	/** Status label and badge per status (constant) */
@@ -154,12 +160,58 @@
 		}
 		return '';
 	}
+
+	// Withdrawal logic
+	let withdrawingBidId = $state<string | null>(null);
+	let bidToWithdraw = $state<NostrEvent | null>(null);
+	let showWithdrawModal = $state(false);
+
+	function confirmWithdraw(bidEvent: NostrEvent) {
+		bidToWithdraw = bidEvent;
+		showWithdrawModal = true;
+	}
+
+	async function handleWithdraw() {
+		if (!bidToWithdraw) return;
+
+		const bidEventId = bidToWithdraw.id;
+		const taskId = (bidToWithdraw.content as any).taskId;
+
+		try {
+			withdrawingBidId = bidEventId;
+			showWithdrawModal = false;
+
+			const deletionEvent = {
+				kind: 5,
+				tags: [
+					['e', bidEventId],
+					['k', String(KINDS.BIDS)]
+				],
+				content: 'Bid withdrawn'
+			};
+
+			const signedEvent = await getSignedEvent(deletionEvent);
+			await nostrEventsService.deleteEvent(signedEvent);
+
+			clearBidCacheUtil(taskId);
+			appStore.showSuccessToast($t('bids.withdraw_success'));
+
+			// Refresh UI
+			myBids = myBids.filter((b) => b.id !== bidEventId);
+		} catch (err) {
+			console.error('Error withdrawing bid:', err);
+			appStore.showErrorToast($t('bids.withdraw_error'));
+		} finally {
+			withdrawingBidId = null;
+			bidToWithdraw = null;
+		}
+	}
 </script>
 
 <div class="space-y-6">
 	{#if loading}
 		<div class="space-y-4">
-			{#each Array(1) as _}
+			{#each Array(1) as _, i (i)}
 				<div class="card bg-base-100 border-base-300 animate-pulse rounded-lg border shadow-sm">
 					<div class="card-body p-4 md:p-6">
 						<!-- Task Information - Header skeleton -->
@@ -213,7 +265,7 @@
 										<div class="bg-base-300 mb-1 h-3 w-16 rounded md:h-4 md:w-20"></div>
 										<!-- Review Stars skeleton -->
 										<div class="flex items-center">
-											{#each Array(5) as _}
+											{#each Array(5) as _, i (i)}
 												<div class="bg-base-300 mr-1 h-2 w-2 rounded md:h-3 md:w-3"></div>
 											{/each}
 											<div class="bg-base-300 ml-1 h-2 w-6 rounded md:h-3 md:w-8"></div>
@@ -290,9 +342,9 @@
 		<!-- Bids List -->
 		<div class="space-y-4 pt-4">
 			<!-- bid.content (NostrBidContent) incluye taskTitle, taskDescription, taskBudget, etc. enviados al crear la bid -->
-			{#each myBids as bidEvent}
+			{#each myBids as bidEvent (bidEvent.id)}
 				{@const bid = bidEvent.content as unknown as NostrBidContent}
-				{@const status = getBidStatus(bidEvent)?.status?.toUpperCase()}
+				{@const status = getBidStatus(bidEvent)?.status?.toUpperCase() || BidStatusEnum.PENDING}
 				<div class="card bg-base-100 border-base-300 relative rounded-2xl border shadow-sm">
 					<div class="card-body p-4 md:p-6">
 						<!-- Status badge: top-right of card -->
@@ -445,14 +497,16 @@
 											</div>
 										</div>
 									{/if}
-									<div class="flex justify-end pt-2">
+									<div
+										class="flex w-full flex-col gap-2 pt-4 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
+									>
 										<button
-											class="btn btn-primary btn-sm"
+											class="btn btn-primary btn-sm h-auto min-h-[44px] w-full sm:w-auto sm:min-h-[48px] md:min-h-[56px]"
 											onclick={() => goto(`/tasks/${bid.taskId}`)}
 										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
-												class="h-5 w-5"
+												class="h-4 w-4 sm:h-5 sm:w-5"
 												fill="none"
 												viewBox="0 0 24 24"
 												stroke="currentColor"
@@ -470,8 +524,24 @@
 													d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
 												/>
 											</svg>
-											{$t('bids.view_task')}
+											<span class="text-sm sm:text-base">{$t('bids.view_task')}</span>
 										</button>
+
+										{#if status === BidStatusEnum.PENDING || status === BidStatusEnum.COUNTERED}
+											<button
+												class="btn btn-error h-auto min-h-[44px] w-full touch-manipulation select-none transition-transform duration-100 active:scale-95 sm:w-auto sm:min-h-[48px] md:min-h-[56px]"
+												onclick={() => confirmWithdraw(bidEvent)}
+												disabled={withdrawingBidId === bidEvent.id}
+												aria-label={$t('bids.withdraw_bid')}
+											>
+												{#if withdrawingBidId === bidEvent.id}
+													<span class="loading loading-spinner loading-sm"></span>
+												{:else}
+													<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+													<span class="text-sm sm:text-base">{$t('bids.withdraw_bid')}</span>
+												{/if}
+											</button>
+										{/if}
 									</div>
 								</div>
 							{/if}
@@ -482,3 +552,23 @@
 		</div>
 	{/if}
 </div>
+
+{#if showWithdrawModal}
+	<dialog class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">{$t('bids.withdraw_confirm_title')}</h3>
+			<p class="py-4">{$t('bids.withdraw_confirm_message')}</p>
+			<div class="modal-action">
+				<button class="btn" onclick={() => (showWithdrawModal = false)}>
+					{$t('bids.withdraw_confirm_cancel')}
+				</button>
+				<button class="btn btn-error" onclick={handleWithdraw}>
+					{$t('bids.withdraw_confirm_submit')}
+				</button>
+			</div>
+		</div>
+		<button class="modal-backdrop" onclick={() => (showWithdrawModal = false)}>
+			close
+		</button>
+	</dialog>
+{/if}

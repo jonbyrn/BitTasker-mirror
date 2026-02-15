@@ -19,10 +19,12 @@ import KINDS from '$lib/utils/constants/kinds';
  */
 export function clearBidCache(taskId?: string): void {
 	if (taskId) {
-		// Clear only the specific task's bid cache
+		// Clear the specific task's bid cache and all user bid caches
+		// since a change in a task's bid affects both the task view and the user's submitted bids view
 		smartCache.invalidateTaskBids(taskId);
+		smartCache.clearUserBids();
 		if (import.meta.env.DEV) {
-			console.debug(`Cleared bid cache for task: ${taskId}`);
+			console.debug(`Cleared bid cache for task: ${taskId} and all user bids`);
 		}
 	} else {
 		// Clear all bid caches if no specific ID provided
@@ -104,7 +106,7 @@ export async function getBidsForTask(taskId: string, includeStatus: boolean = tr
 
 		// Query bids with optional status followup
 		// Status events are automatically linked by parent bid event ID via #e tag
-		const bids = await queryNostrEvents(
+		let bids = await queryNostrEvents(
 			filter,
 			followupFilter,
 			followupFilter ? {
@@ -112,6 +114,22 @@ export async function getBidsForTask(taskId: string, includeStatus: boolean = tr
 				keepLatest: true          // Only keep the most recent status per bid
 			} : undefined
 		);
+
+		// Filter out deleted bids via NIP-09
+		const authors = [...new Set(bids.map((b) => b.pubkey))];
+		if (authors.length > 0) {
+			const deletionFilter: Filter = {
+				kinds: [5],
+				authors,
+				'#k': [String(KINDS.BIDS)]
+			};
+			const deletions = await queryNostrEvents(deletionFilter);
+			const deletedIds = new Set();
+			deletions.forEach((d) => {
+				d.tags.filter((t) => t[0] === 'e').forEach((t) => deletedIds.add(t[1]));
+			});
+			bids = bids.filter((b) => !deletedIds.has(b.id));
+		}
 
 		// Cache the results
 		smartCache.setBidsForTask(taskId, bids, 5);
@@ -166,7 +184,7 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
 
 		// Query bids with optional status followup
 		// Status events are automatically linked by parent bid event ID via #e tag
-		const bids = await queryNostrEvents(
+		let bids = await queryNostrEvents(
 			filter,
 			followupFilter,
 			followupFilter ? {
@@ -174,6 +192,22 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
 				keepLatest: true          // Only keep the most recent status per bid
 			} : undefined
 		);
+
+		// Filter out deleted bids via NIP-09
+		const authors = [...new Set(bids.map((b) => b.pubkey))];
+		if (authors.length > 0) {
+			const deletionFilter: Filter = {
+				kinds: [5],
+				authors,
+				'#k': [String(KINDS.BIDS)]
+			};
+			const deletions = await queryNostrEvents(deletionFilter);
+			const deletedIds = new Set();
+			deletions.forEach((d) => {
+				d.tags.filter((t) => t[0] === 'e').forEach((t) => deletedIds.add(t[1]));
+			});
+			bids = bids.filter((b) => !deletedIds.has(b.id));
+		}
 
 		// Cache the results
 		smartCache.setBidsByUser(npub, bids, 5);
