@@ -31,6 +31,15 @@ This document describes how BitTasker improves its testing practices and integra
 | Integration (routes) | `src/lib/tests/integration/routes/` | 9 |
 | **Total** | unit/ + integration/routes/ | **122** |
 
+### Merge Request coverage report
+
+When a pipeline runs for a **merge request**, the **`coverage`** job runs unit tests with `--coverage` and reports to GitLab so that:
+
+- **Merge request widget** shows the **coverage percentage** and **change vs. target branch** (e.g. +1.2% or -0.5%). GitLab extracts the percentage from the job log using the `coverage` regex in `.gitlab-ci.yml`.
+- **Merge request diff** can show **line-by-line coverage** (green/orange) if the Cobertura artifact is parsed successfully; see [GitLab Code coverage](https://docs.gitlab.com/ee/ci/testing/code_coverage.html).
+
+The coverage job runs **only** on `merge_request_event` to keep pushes to `dev`/`master` fast. To verify or change the regex, run `npm run test:ci -- --coverage` locally and match the "All files" line in the text table; the first capturing group in the regex should be the **Lines** percentage.
+
 ### How to Run CI Tests
 
 **Locally:**
@@ -38,7 +47,7 @@ This document describes how BitTasker improves its testing practices and integra
 npm run test:ci
 ```
 
-**In CI:** The GitLab pipeline validate job runs `npm run test:ci`, which executes `vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/`. No extra configuration needed.
+**In CI:** The GitLab pipeline validate job runs `npm run test:ci`, which executes `vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/`. No extra configuration needed. On merge requests, the **coverage** job also runs and reports coverage to the MR.
 
 ### How to Run Other Directories (Step-by-Step Fixing)
 
@@ -159,11 +168,60 @@ Pre-commit (optional), MR guidelines, documentation. Re-enable check and lint in
 
 ---
 
-## 6. Related Files
+## 6. How to test the pipeline (after CI config changes)
+
+### 1. Local checks (before you push)
+
+Run the same commands CI runs so you don’t waste a pipeline on a failing step:
+
+```bash
+# What the unit job runs
+npm run test:ci
+
+# What the coverage job runs (MRs only) — optional; can be slow
+npm run test:ci -- --coverage
+```
+
+If `test:ci` fails locally, the **unit** (and **coverage**) jobs will fail in CI. Fix tests first, then push.
+
+### 2. Push to your branch and watch the pipeline
+
+1. Commit your CI/config changes on `feat/unit-test-audit`.
+2. Push: `git push origin feat/unit-test-audit`.
+3. In GitLab: **CI/CD → Pipelines**. Open the new pipeline.
+4. Confirm:
+   - **build** and **unit** run (and are picked up by a **self-hosted** runner if you use tags).
+   - After both pass, **playwright** runs.
+   - **coverage** does **not** run (it only runs on merge requests).
+   - If all validate jobs pass, **deploy-development** runs (because the branch is `feat/unit-test-audit`).
+
+### 3. Open a merge request to test coverage and MR widget
+
+1. Create an MR **from** `feat/unit-test-audit` **into** `dev` (or `master`).
+2. Push a commit or use the existing one; the MR pipeline runs.
+3. In the pipeline, confirm:
+   - **build**, **unit**, **coverage**, and **playwright** all run.
+   - **coverage** job produces the Cobertura artifact and the `coverage` regex extracts a percentage.
+4. In the **merge request**:
+   - Check the MR widget for **test coverage** (current % and change vs. target branch).
+   - Open the **Changes** tab and see if the diff shows line-by-line coverage (green/orange) once the pipeline has finished and GitLab has parsed the report.
+
+### 4. Quick checklist
+
+| What to verify | How |
+|----------------|-----|
+| Unit tests pass in CI | **unit** job is green. |
+| Coverage runs only on MRs | **coverage** appears in MR pipelines; not in branch-only pipelines. |
+| Self-hosted runner is used | Job logs or runner list show the job ran on a runner with tag `self-hosted`. |
+| Deploy only on feat/unit-test-audit | **deploy-development** runs when pipeline is for `feat/unit-test-audit`; not for other branches (e.g. a random feature branch). |
+
+---
+
+## 7. Related Files
 
 | File | Role |
 |------|------|
-| `.gitlab-ci.yml` | Validate job runs `npm run test:ci` |
+| `.gitlab-ci.yml` | Pipeline: build, unit, coverage (MR only), playwright, deploy |
 | `package.json` | `test:ci`, `test:unit:*`, `test:triage` scripts |
 | `src/lib/tests/unit/`, `src/lib/tests/integration/routes/` | Validated tests run in CI |
 | `scripts/test-triage.js` | Triage script – pass/fail per directory |

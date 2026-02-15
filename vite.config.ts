@@ -38,7 +38,12 @@ export default defineConfig({
         exclude: ['**/_pending/**'],
         coverage: {
             provider: 'v8',
-            reporter: ['text', 'html', 'clover'],
+            reporter: [
+                'text',
+                'html',
+                'clover',
+                ['cobertura', { file: 'coverage/cobertura-coverage.xml' }]
+            ],
             include: ['src/**'],
             exclude: [
                 'node_modules/**',
