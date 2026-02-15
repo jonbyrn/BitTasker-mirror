@@ -102,7 +102,14 @@
         "your_offer_amount": "Tu oferta",
         "sent_at": "Enviado el",
         "status_countered": "Contraoferta",
-        "status_withdrawn": "Retirada"
+        "status_withdrawn": "Retirada",
+        "withdraw_bid": "Retirar Oferta",
+        "withdraw_confirm_title": "¿Retirar Oferta?",
+        "withdraw_confirm_message": "¿Estás seguro de que deseas retirar esta oferta? El Tasker ya no podrá verla.",
+        "withdraw_confirm_submit": "Retirar",
+        "withdraw_confirm_cancel": "Cancelar",
+        "withdraw_success": "Oferta retirada exitosamente",
+        "withdraw_error": "Error al retirar la oferta"
     },
     "bid_form": {
         "title": "Coloca tu oferta",
