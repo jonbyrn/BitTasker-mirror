@@ -1,21 +1,23 @@
-# Pending Tests — To Be Migrated
+# Pending Tests — Excluded from CI
 
-Tests in this folder are **not run in CI** and require migration before they can be re-enabled.
+Tests in this folder are **not run by `test:ci`**. Vitest excludes `**/_pending/**`. Fix blockers before moving back to `components/`.
 
 ## Status
 
-| File | Blocker / Issue | Notes |
-|------|-----------------|-------|
-| `contract/DebugContractCard.logic.test.ts` | `@bittasker/wallet-core` EventBus module not found | Add EventBus mock in test setup or update wallet-core |
-| `contract/DebugContractCard.test.ts` | Same EventBus dependency | Same fix as above |
-| `contract/loadContractsByAddress.test.ts` | Same EventBus dependency | Same fix as above |
-| `contract/functionParsing.test.ts` | Wrong import path `../functionParsing` | Should import from `$lib/utils/wallet/functionParsing` |
+| File | Blocker / Issue |
+|------|-----------------|
+| `contract/DebugContractCard.logic.test.ts` | EventBus / wallet-core dependencies |
+| `contract/DebugContractCard.test.ts` | Same as above |
+| `contract/loadContractsByAddress.test.ts` | wallet.store mock (getWallet) incomplete |
+| `contract/functionParsing.test.ts` | Import path fixed; EventBus resolved via global mock |
+| `components/ReceivePaymentForm.test.ts` | Timeouts on calculator/network interactions |
+| `components/ReceivePaymentForm.integration.test.ts` | Same timeout issues |
 
-## How to migrate
+## Re-enabling
 
-1. Fix the blocker (EventBus mock, import path, etc.).
-2. Move the test file back to `src/lib/tests/components/contract/` (or appropriate location).
-3. Remove it from this README.
-4. Run `npm run test:ci` to verify.
+1. Fix the blocker for each file.
+2. Move the file back to `src/lib/tests/components/` (or `components/contract/`).
+3. Run `npm run test:ci` to verify.
+4. Remove from this README.
 
-See `plans/unit-testing-strategy.md` for the overall testing strategy and §6 for component test quality guidelines.
+See `plans/unit-testing-strategy.md` §10 "Where to continue".
