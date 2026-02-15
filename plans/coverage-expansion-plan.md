@@ -47,24 +47,54 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 - **Location:** Add `unit/helpers/<name>.test.ts` (e.g. `contractStatusFormatter.test.ts`).
 - **After each chunk:** Run `npm run test:ci` and `npm run test:ci -- --coverage`; update Chunk log below.
 
-#### Phase A Checklist
+#### Phase A — Full Inventory (42 helpers in `$lib/utils/helpers/`)
 
-| Chunk | Helper | Status | Notes |
-|-------|--------|--------|-------|
-| 1 | `contractStatusFormatter` | ✅ Done | Task/escrow flows |
-| 2 | `budgetTier` | ✅ Done | Task creation |
-| 3 | `dateTier` | ✅ Done | Task creation |
-| 4 | `task-id` | ✅ Done | Task IDs |
-| 5 | `userDisplayName` | ✅ Done | Display logic |
-| 6 | `linkParser` | ✅ Done | Form/display |
-| 7 | `lightningInvoice` | ✅ Done | Wallet flows |
-| 8 | `common` | ✅ Done | debounce |
-| 9 | `errorTypeDetector` | ✅ Done | Error troubleshooting |
-| 10 | `taskStatusBadge` | ✅ Done | Task status display |
-| 11 | `messageParser` | ✅ Done | Chat/messages |
-| 12 | `profile` | ✅ Done | Profile URLs |
+| Helper | Status | Notes |
+|--------|--------|-------|
+| `auth` | ✅ Tested | unit/helpers/auth.test.ts |
+| `biometricErrorHandler` | ⬜ Pending | Login, PasskeySetup; type + handleBiometricError |
+| `biometrics` | ⬜ Pending | Login, recover, nostrKeys, PasskeySetup; requires Capacitor mock |
+| `budgetTier` | ✅ Done | Task creation |
+| `clipboard` | ⬜ Pending | Wallet, auth, task share; requires navigator mock |
+| `common` | ✅ Done | debounce |
+| `contractPermissions` | ✅ Tested | unit/utils/escrow/contractPermissions.test.ts |
+| `contractStatusFormatter` | ✅ Done | Task/escrow flows |
+| `cookies` | ⬜ Not used | No imports — skip |
+| `crypto` | ✅ Tested | unit/helpers/crypto.test.ts |
+| `currencyFormatter` | ✅ Tested | unit/helpers/currencyFormatter.test.ts |
+| `date` | ✅ Tested | unit/helpers/date.test.ts |
+| `dateFormatter` | ✅ Tested | unit/helpers/dateFormatter.test.ts |
+| `dateTier` | ✅ Done | Task creation |
+| `deviceCompatibility` | ⬜ Pending | ErrorTroubleshootingModal |
+| `deviceIdentity` | ✅ Tested | unit/helpers/deviceIdentity.test.ts |
+| `deviceSettings` | ⬜ Pending | ErrorTroubleshootingModal |
+| `encoding` | ✅ Tested | unit/helpers/encoding.test.ts |
+| `errorTypeDetector` | ✅ Done | Error troubleshooting |
+| `escrowErrors` | ✅ Tested | unit/utils/escrow/escrowErrors.test.ts |
+| `fcm` | ⬜ Pending | push-notification.service; Firebase mock |
+| `generateQrCodeUrl` | ⬜ Pending | Wallet QR; canvas/async |
+| `haptics` | ⬜ Pending | Wallet, nav; requires Capacitor mock |
+| `keyboard` | ⬜ Not used | No imports — skip |
+| `lightningInvoice` | ✅ Done | Wallet flows |
+| `linkParser` | ✅ Done | Chat/messages |
+| `lru-cache` | ✅ Tested | unit/helpers/lru-cache.test.ts |
+| `messageParser` | ✅ Done | Chat/messages |
+| `migratePasskey` | ⬜ Pending | Login, auth.store; complex flow |
+| `mnemonic` | ⬜ Pending | wallet.store; getMnemonic |
+| `pageVisibility` | ⬜ Not used | No imports — skip |
+| `password` | ⬜ Pending | Auth recover; bip39 + random |
+| `paymentAddressParser` | ✅ Tested | unit/utils/paymentAddressParser.test.ts |
+| `profile` | ✅ Done | Profile URLs |
+| `showErrorModal` | ✅ Tested | unit/helpers/showErrorModal.test.ts |
+| `splashScreen` | ⬜ Pending | +layout |
+| `statusBar` | ⬜ Pending | +layout |
+| `task-id` | ✅ Done | Task IDs |
+| `taskStatusBadge` | ✅ Done | Task status display |
+| `userDisplayName` | ✅ Done | Display logic |
+| `validators` | ✅ Tested | unit/helpers/validators.test.ts |
+| `webBiometrics` | ⬜ Pending | Recover, PasskeySetup; requires Web Authn mock |
 
-**Already tested (skip):** validators, auth, crypto, currencyFormatter, encoding, dateFormatter, deviceIdentity, nostr-message, nip44-message; paymentAddressParser (unit/utils/).
+**Phase A Checklist (chunks completed):** 1–15 (contractStatusFormatter, budgetTier, dateTier, task-id, userDisplayName, linkParser, lightningInvoice, common, errorTypeDetector, taskStatusBadge, messageParser, profile, date, lru-cache, showErrorModal).
 
 #### Phase A Chunk Log
 
@@ -78,6 +108,7 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | 6 | 2025-02-15 | linkParser | Tests added; all pass |
 | 7 | 2025-02-15 | lightningInvoice | Tests added; all pass |
 | 8-12 | 2025-02-15 | common, errorTypeDetector, taskStatusBadge, messageParser, profile | Tests added; all pass |
+| 13-15 | 2025-02-15 | date, lru-cache, showErrorModal | Tests added; all pass |
 
 ### Phase B — Core Business Logic
 
