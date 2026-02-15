@@ -42,7 +42,7 @@ export default defineConfig({
                 'text',
                 'html',
                 'clover',
-                ['cobertura', { file: 'coverage/cobertura-coverage.xml' }]
+                ['cobertura', { file: 'cobertura-coverage.xml' }]
             ],
             include: ['src/**'],
             exclude: [
