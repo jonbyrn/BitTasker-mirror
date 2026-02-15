@@ -4,7 +4,7 @@
 **Created:** 2025-02-15  
 **Goal:** Systematically increase test coverage with the highest-value targets first. Use `coverage/index.html` (from `npm run test:ci -- --coverage`) to track progress.
 
-**Chunk strategy:** One helper per chunk. Run `test:ci` and `test:ci -- --coverage` after each. Update this log before moving on.
+**Chunk strategy:** One helper per chunk (or batch 2–3 short helpers). Run `test:ci` and `test:ci -- --coverage` after each. Update this log before moving on.
 
 **Only test used code:** Before adding tests for a helper, verify it is imported by routes or components (grep `from '$lib/...'` in `src/routes`, `src/lib/components`). Skip helpers that are not used in the app.
 
@@ -56,9 +56,13 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | 3 | `dateTier` | ✅ Done | Task creation |
 | 4 | `task-id` | ✅ Done | Task IDs |
 | 5 | `userDisplayName` | ✅ Done | Display logic |
-| 6 | `linkParser` | ⬜ Pending | Form/display |
-| 7 | `lightningInvoice` | ⬜ Pending | Wallet flows |
-| 8 | *(more as needed)* | — | — |
+| 6 | `linkParser` | ✅ Done | Form/display |
+| 7 | `lightningInvoice` | ✅ Done | Wallet flows |
+| 8 | `common` | ✅ Done | debounce |
+| 9 | `errorTypeDetector` | ✅ Done | Error troubleshooting |
+| 10 | `taskStatusBadge` | ✅ Done | Task status display |
+| 11 | `messageParser` | ✅ Done | Chat/messages |
+| 12 | `profile` | ✅ Done | Profile URLs |
 
 **Already tested (skip):** validators, auth, crypto, currencyFormatter, encoding, dateFormatter, deviceIdentity, nostr-message, nip44-message; paymentAddressParser (unit/utils/).
 
@@ -71,6 +75,9 @@ Coverage is scoped to `src/**` (excludes node_modules, build, stories, tests). R
 | 3 | 2025-02-15 | dateTier | Tests added; all pass |
 | 4 | 2025-02-15 | task-id | Tests added; all pass |
 | 5 | 2025-02-15 | userDisplayName | Tests added; all pass |
+| 6 | 2025-02-15 | linkParser | Tests added; all pass |
+| 7 | 2025-02-15 | lightningInvoice | Tests added; all pass |
+| 8-12 | 2025-02-15 | common, errorTypeDetector, taskStatusBadge, messageParser, profile | Tests added; all pass |
 
 ### Phase B — Core Business Logic
 
