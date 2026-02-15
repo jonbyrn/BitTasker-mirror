@@ -4,7 +4,7 @@ import {
 	parseEscrowFunction,
 	decodeUnknownFunction,
 	parseFunction
-} from '../functionParsing';
+} from '$lib/utils/wallet/functionParsing';
 
 // Mock escrow ABI
 vi.mock('../../constants/escrowABI.json', () => ({
