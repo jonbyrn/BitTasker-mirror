@@ -117,6 +117,33 @@ export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string 
     }
 }
 
+/**
+ * Subscribe to Nostr events matching the given filters.
+ * Used by review system and other features that need real-time or streaming queries.
+ * @param relayUrl - Single relay URL (or first of DEFAULT_RELAYS if empty)
+ * @param filters - Array of Nostr filters
+ * @param onEvent - Callback for each matching event
+ * @param onEose - Optional callback when subscription ends
+ * @returns Unsubscribe function
+ */
+export function subscribeToEvents(
+	relayUrl: string,
+	filters: Filter[],
+	onEvent: (event: NostrEvent) => void,
+	onEose?: () => void
+): () => void {
+	const relays = relayUrl ? [relayUrl] : DEFAULT_RELAYS;
+	if (relays.length === 0) {
+		return () => {};
+	}
+	const pool = getPool();
+	const filter = filters[0] ?? {};
+	const sub = pool.subscribe(relays, filter, {
+		onevent: onEvent,
+		...(onEose && { oneose: onEose })
+	});
+	return () => sub.close();
+}
 
 // ================================================================
 // NIP-44 helpers for encryption/decryption

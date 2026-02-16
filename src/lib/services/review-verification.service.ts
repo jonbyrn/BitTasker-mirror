@@ -9,7 +9,6 @@ import type { SDKConfig, VerifiedReview, CommitmentParams, MerkleTreeData } from
 import { ensureEscrowReady } from '$lib/utils/wallet/escrow';
 import { getProvider } from '$lib/stores/wallet.store';
 import { ethers } from 'ethers';
-import escrowABI from '$lib/utils/constants/escrowABI.json';
 import type { Contract } from 'ethers';
 
 let sdkInstance: MerkleReviewSDK | null = null;
