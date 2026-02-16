@@ -52,14 +52,14 @@ This document describes how to move from deploying BitTasker to Cloudflare Worke
 
 ### Target state (GitLab pipeline) — current implementation
 
-- **All branches:** Pipeline runs **validate** (install, test). Check, lint, and build are optional in validate (currently only the CI placeholder test runs; see `.gitlab-ci.yml`).
-- **Deploy branches:** Two stages only: **validate** and **deploy**. There are **no separate build jobs**. Each deploy job runs: `npm ci` → `npm run build` (or `npm run build:production` for production) → `wrangler deploy --env <env>` → `scripts/purge-cache.js`.
-- **`feat/workers-deployment`:** validate → **deploy-development** (build runs inside the job).
-- **`dev`:** validate → **deploy-staging** (build runs inside the job).
-- **`main`:** validate → **deploy-production** (build runs inside the job).
-- **Other branches:** validate only; no deploy.
-- **Cloudflare:** No build step on Cloudflare; only receives deployments from GitLab. Build connected to Git can be disabled for this Worker (or repo) so Cloudflare does not overwrite deploys.
-- **Manual deploys:** Still available for one-off or emergency deploys (e.g. `npm run deploy:workers:dev`), but normal flow is push/merge to the branch that triggers the desired deploy.
+- **Merge requests:** Pipeline runs **validate**: build + coverage (tests with coverage for MR widget). No deploy.
+- **Push to dev:** validate (build + unit) → **deploy-development** (reuses build artifact). Deploys to worker.dev.bittasker.com.
+- **Push to master:** validate (build + unit). deploy-production is commented out until ready.
+- **Other branches:** No pipeline on push; pipeline runs when an MR is open (merge_request_event). See [pipeline-branch-strategy.md](./pipeline-branch-strategy.md).
+- **No feature-branch names** in `.gitlab-ci.yml`; only `merge_request_event`, `dev`, and `master` (or `main`).
+- **Playwright (E2E):** Commented out until dev backend is ready. Deploy needs only [build].
+- **Cloudflare:** No build on Cloudflare; GitLab builds and deploys via wrangler.
+- **Manual deploys:** Still available (e.g. `npm run deploy:workers:dev`) for one-off or emergency use.
 
 ---
 
@@ -67,9 +67,9 @@ This document describes how to move from deploying BitTasker to Cloudflare Worke
 
 | Environment | GitLab env name | Worker URL | Branch | Purpose |
 |-------------|-----------------|------------|--------|---------|
-| **Development** | development | worker.dev.bittasker.com | feat/workers-deployment (or chosen branch) | Test the **full pipeline path** (validate + deploy) without touching staging or production. Proves that GitLab Variables (e.g. VITE_CLOUDFLARE_SITEKEY) are used in the build and that wrangler deploy works in CI. |
-| **Staging** | staging | staging.bittasker.com | dev | Pre-production: QA, demos, integration tests. Mirrors production config; deploy from `dev` before merging to `main`. |
-| **Production** | production | worker.prod.bittasker.com | main | Live site. Deploy only from `main`; protect the branch (e.g. require MR and approvals). |
+| **Development** | development | worker.dev.bittasker.com | dev | Validate + deploy from `dev`. Use for integration testing and demos before production. |
+| **Staging** | staging | staging.bittasker.com | dev (when deploy-staging uncommented) | Pre-production; deploy from `dev` before merging to `main`. |
+| **Production** | production | worker.prod.bittasker.com | main / master | Live site. Deploy only from default branch; protect with MR and approvals. |
 
 **Why have all three:**
 
