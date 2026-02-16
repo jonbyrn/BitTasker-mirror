@@ -113,7 +113,7 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.find_tasks',
 				icon: IconMagnify,
-				getDynamicHref: (isLoggedIn: boolean) => (isLoggedIn ? '/dashboard/find-tasks' : '/tasks')
+				getDynamicHref: () => '/tasks'
 			},
 			{
 				label: 'navbar.bids_sent',
@@ -221,7 +221,7 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 			{
 				label: 'footer.start_earning',
 				icon: IconMagnify,
-				getDynamicHref: (isLoggedIn: boolean) => (isLoggedIn ? '/dashboard/find-tasks' : '/tasks')
+				getDynamicHref: () => '/tasks'
 			},
 			{
 				label: 'footer.community_guidelines',
@@ -343,7 +343,7 @@ export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
 	{
 		label: 'navbar.home',
 		icon: IconHome,
-		getDynamicHref: (isLoggedIn: boolean) => (isLoggedIn ? '/dashboard/find-tasks' : '/tasks')
+		getDynamicHref: () => '/tasks'
 	},
 	{
 		label: 'navbar.how_it_works',

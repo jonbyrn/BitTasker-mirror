@@ -1,5 +1,0 @@
-mutation UpdateTaskTemplate($updateTaskTemplateId: Int!, $input: UpdateTaskTemplateInput!) {
-	updateTaskTemplate(id: $updateTaskTemplateId, input: $input) {
-		id
-	}
-}

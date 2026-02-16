@@ -1,7 +1,7 @@
 import { BITTASKER_ORG_JSONLD } from '$lib/utils/constants/seo.constants';
 
 export async function load({ url }) {
-	const seo = {
+	return {
 		title: 'Careers at BitTasker - Bitcoin Jobs | Remote Opportunities',
 		description: 'Join BitTasker\'s mission to democratize work through Bitcoin and decentralized technology. Remote Bitcoin jobs available. Help build the future of work.',
 		keywords: 'BitTasker careers, Bitcoin jobs, remote cryptocurrency jobs, Bitcoin developers, decentralized work, Lightning Network jobs, blockchain careers, Bitcoin startup jobs, remote work Bitcoin, cryptocurrency careers',
@@ -39,9 +39,5 @@ export async function load({ url }) {
 			workHours: 'Flexible',
 			benefits: 'Bitcoin salary, Remote work, Flexible hours, Innovation-driven environment'
 		}
-	};
-
-	return {
-		seo
 	};
 }

@@ -51,7 +51,19 @@ async function getContractAddresses(): Promise<ContractAddresses> {
 
     // Get Escrow addresses from constants based on network
     const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-    const escrowAddresses = ESCROW_CONTRACT_ADDRESSES[rskNetwork].map(addr => addr.toLowerCase());
+    const escrowAddressesArray = ESCROW_CONTRACT_ADDRESSES[rskNetwork];
+    
+    if (!escrowAddressesArray || !Array.isArray(escrowAddressesArray)) {
+        console.error('[getContractAddresses] Invalid escrow addresses configuration', {
+            rskNetwork,
+            hasConfig: !!ESCROW_CONTRACT_ADDRESSES[rskNetwork]
+        });
+        throw new Error(`Invalid escrow addresses configuration for network: ${rskNetwork}`);
+    }
+    
+    const escrowAddresses = escrowAddressesArray
+        .filter((addr): addr is string => addr != null && typeof addr === 'string')
+        .map(addr => addr.toLowerCase());
 
     contractAddressesCache = {
         etherSwap: etherSwapAddress?.toLowerCase() || null,
@@ -104,6 +116,9 @@ function extractMethodName(tx: Transaction, isEscrowContract: boolean): string |
  * Check if address is an escrow contract
  */
 function isEscrowContract(address: string, escrowAddresses: string[]): boolean {
+    if (!address || typeof address !== 'string') {
+        return false;
+    }
     const lowerAddress = address.toLowerCase();
     return escrowAddresses.some(escrow => escrow === lowerAddress);
 }
@@ -112,11 +127,13 @@ function isEscrowContract(address: string, escrowAddresses: string[]): boolean {
  * Get network information based on network and environment
  * Computes explorer URL dynamically based on environment
  */
-const rskExplorerBaseUrl = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet' === 'mainnet'
+const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+const rskExplorerBaseUrl = rskNetwork === 'mainnet'
     ? 'https://rootstock.blockscout.com/tx/'
     : 'https://rootstock-testnet.blockscout.com/tx/';
 
-const bscExplorerBaseUrl = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet' === 'mainnet'
+const bscNetwork = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+const bscExplorerBaseUrl = bscNetwork === 'mainnet'
     ? 'https://bscscan.com/tx/'
     : 'https://testnet.bscscan.com/tx/';
 
@@ -197,6 +214,23 @@ function detectTransactionType(
     swapType?: 'submarine' | 'reverse' | 'chain';
     isInternalEscrowPayout?: boolean;
 } {
+    // Add null checks to prevent "Cannot read properties of null" errors
+    if (!tx.to || !tx.to.hash || !tx.from || !tx.from.hash) {
+        // If transaction data is incomplete, default to contract type
+        return {
+            type: 'contract',
+            methodName: 'unknown'
+        };
+    }
+
+    if (!userAddress) {
+        // If user address is missing, we can't determine send/receive
+        return {
+            type: 'contract',
+            methodName: 'unknown'
+        };
+    }
+
     const toAddress = tx.to.hash.toLowerCase();
     const fromAddress = tx.from.hash.toLowerCase();
     const userAddr = userAddress.toLowerCase();
@@ -247,6 +281,7 @@ function detectTransactionType(
     }
 
     // Check if it's a contract interaction
+    // Add null check for tx.to.is_contract
     if (!tx.to.is_contract) {
         // Simple transfer
         return {
@@ -262,7 +297,7 @@ function detectTransactionType(
 
     // Check if it's EtherSwap contract (by address OR by contract name from API)
     const isEtherSwap = (contractAddresses.etherSwap && toAddress === contractAddresses.etherSwap) ||
-        tx.to.name === 'EtherSwap';
+        (tx.to.name === 'EtherSwap');
 
     if (isEtherSwap) {
         // Determine swap subtype
@@ -411,6 +446,9 @@ function determineDisplayProperties(
  * Convert transaction status from API to our standard format
  */
 function normalizeStatus(status: string): 'confirmed' | 'pending' | 'failed' {
+    if (!status || typeof status !== 'string') {
+        return 'pending'; // Default to pending if status is invalid
+    }
     const statusLower = status.toLowerCase();
     if (statusLower === 'ok' || statusLower === 'success' || statusLower === 'confirmed') {
         return 'confirmed';
@@ -439,151 +477,196 @@ export async function processTransactions(
     network: 'rsk' | 'bsc',
     currentBalanceSats: number
 ): Promise<ProcessedTransaction[]> {
-    // Fetch contract addresses once
-    const contractAddresses = await getContractAddresses();
+    try {
+        // Validate userAddress
+        if (!userAddress || typeof userAddress !== 'string') {
+            if (import.meta.env.DEV) {
+                console.error('[processTransactions] Invalid userAddress', { userAddress, type: typeof userAddress });
+            }
+            return []; // Return empty array if user address is invalid
+        }
 
-    // Fetch internal transactions
-    const internalTransactions = await fetchInternalTransactions(userAddress, network);
-    
-    // Convert internal transactions to ExtendedTransaction format
-    const convertedInternalTxs = internalTransactions
-        .map(internal => convertInternalToTransaction(internal, contractAddresses.escrowAddresses))
-        .filter((tx): tx is ExtendedTransaction => tx !== null);
+        // Fetch contract addresses once
+        const contractAddresses = await getContractAddresses();
 
-    // Merge regular and internal transactions
-    const allTransactions: ExtendedTransaction[] = [...rawTransactions, ...convertedInternalTxs];
-    
-    // Deduplicate by hash + internal index (regular txs don't have _internalIndex)
-    const uniqueTransactions = Array.from(
-        new Map(
-            allTransactions.map(tx => {
-                const key = tx.hash + (tx._isInternal && tx._internalIndex !== undefined ? `-internal-${tx._internalIndex}` : '');
-                return [key, tx];
-            })
-        ).values()
-    );
+        // Fetch internal transactions
+        const internalTransactions = await fetchInternalTransactions(userAddress, network);
+        
+        // Convert internal transactions to ExtendedTransaction format
+        const convertedInternalTxs = internalTransactions
+            .map(internal => convertInternalToTransaction(internal, contractAddresses.escrowAddresses))
+            .filter((tx): tx is ExtendedTransaction => tx !== null);
 
-    // Process all transactions in single iteration
-    const processed = uniqueTransactions.map((tx) => {
-        // Detect transaction type
-        const { type, subType, methodName, swapType, isInternalEscrowPayout } = detectTransactionType(
-            tx as Transaction & { _isInternal?: boolean },
-            userAddress,
-            contractAddresses
+        // Merge regular and internal transactions
+        const allTransactions: ExtendedTransaction[] = [...rawTransactions, ...convertedInternalTxs];
+        
+        // Deduplicate by hash + internal index (regular txs don't have _internalIndex)
+        const uniqueTransactions = Array.from(
+            new Map(
+                allTransactions.map(tx => {
+                    const key = tx.hash + (tx._isInternal && tx._internalIndex !== undefined ? `-internal-${tx._internalIndex}` : '');
+                    return [key, tx];
+                })
+            ).values()
         );
 
-        // Extract transaction value
-        // For swap claims/refunds, the value field is 0, but the actual amount is in decoded_input.parameters
-        let valueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
-
-        // Special handling for swap claims and refunds - extract amount from decoded input
-        if (type === 'swap' && (subType === 'claim' || subType === 'refund')) {
-            if (tx.decoded_input?.parameters) {
-                const amountParam = tx.decoded_input.parameters.find((p) => p.name === 'amount');
-                if (amountParam?.value) {
-                    valueSats = Number(weiToSatoshi(BigInt(amountParam.value)));
+        // Process all transactions in single iteration
+        const processed = uniqueTransactions
+        .filter((tx) => {
+            // Filter out transactions with missing required fields
+            if (!tx.to || !tx.to.hash || !tx.from || !tx.from.hash) {
+                if (import.meta.env.DEV) {
+                    console.warn('[processTransactions] Skipping transaction with missing to/from addresses', {
+                        hash: tx.hash,
+                        hasTo: !!tx.to,
+                        hasFrom: !!tx.from,
+                        toHash: tx.to?.hash,
+                        fromHash: tx.from?.hash
+                    });
                 }
+                return false;
+            }
+            return true;
+        })
+            .map((tx) => {
+                // Detect transaction type
+                const { type, subType, methodName, swapType, isInternalEscrowPayout } = detectTransactionType(
+                    tx as Transaction & { _isInternal?: boolean },
+                    userAddress,
+                    contractAddresses
+                );
+
+                // Extract transaction value
+                // For swap claims/refunds, the value field is 0, but the actual amount is in decoded_input.parameters
+                let valueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
+
+                // Special handling for swap claims and refunds - extract amount from decoded input
+                if (type === 'swap' && (subType === 'claim' || subType === 'refund')) {
+                    if (tx.decoded_input?.parameters) {
+                        const amountParam = tx.decoded_input.parameters.find((p) => p.name === 'amount');
+                        if (amountParam?.value) {
+                            valueSats = Number(weiToSatoshi(BigInt(amountParam.value)));
+                        }
+                    }
+                }
+
+                // Check if transaction has value
+                const hasValue = valueSats > 0;
+
+                // Determine all display properties in one go (including icon config and translation keys)
+                const { displayType, borderColor, iconConfig, title } = determineDisplayProperties(
+                    type,
+                    subType,
+                    methodName,
+                    hasValue,
+                    isInternalEscrowPayout
+                );
+
+                // Calculate fee in sats (internal transactions have no gas fees)
+                const feeSats = tx._isInternal ? 0 : Number(weiToSatoshi(BigInt(tx.fee?.value || '0')));
+
+                // Determine network - Lightning for submarine/reverse swaps, otherwise use provided network
+                // Get network information once
+                const isLightningSwap = type === 'swap' && (swapType === 'submarine' || swapType === 'reverse');
+                const networkInfo = networks[isLightningSwap ? 'lightning' : network];
+
+                // Build explorer URL
+                const explorerUrl = tx.hash ? `${networkInfo.explorerBaseUrl}${tx.hash}` : null;
+
+                // Build processed transaction with all properties computed
+                // Note: We've already filtered out transactions with missing to/from, but add defensive checks
+                const processedTx: ProcessedTransaction = {
+                    // Core fields
+                    hash: tx.hash,
+                    from: tx.from?.hash || '',
+                    to: tx.to?.hash || '',
+                    value: valueSats.toString(),
+                    timestamp: tx.timestamp,
+                    status: statusUI[normalizeStatus(tx.status || 'pending') as keyof typeof statusUI],
+                    network: isLightningSwap ? 'lightning' : network,
+
+                    // Computed fields
+                    type,
+                    subType,
+                    methodName,
+
+                    // Display helpers (all computed in one pass)
+                    displayType,
+                    borderColor,
+                    iconConfig, // Pre-computed icon components
+                    title, // Translation key for i18n
+
+                    // Network information (computed once)
+                    networkIcon: networkInfo.icon,
+                    networkDisplayName: networkInfo.displayName,
+                    explorerUrl,
+
+                    // Fee
+                    feeSats,
+
+                    // Balance (will be calculated below)
+                    balanceAfter: 0, // Placeholder, calculated in next step
+
+                    // Raw data
+                    rawMethod: tx.method || undefined,
+                    decodedInput: tx.decoded_input || undefined
+                };
+
+                // Add token symbol for BSC transactions if available
+                if (network === 'bsc' && tx.token_transfers && tx.token_transfers.length > 0) {
+                    // For token transfers, use the token symbol
+                    processedTx.tokenSymbol = 'USDT'; // Default for now, can be enhanced
+                }
+
+                return processedTx;
+            });
+
+        // Sort by timestamp (newest first) - required for balance calculation
+        processed.sort((a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime());
+
+        // Calculate running balances in single pass (working backwards from current balance)
+        let runningBalance = currentBalanceSats;
+
+        for (const tx of processed) {
+            const txValueSats = Number(tx.value);
+            const txFeeSats = tx.feeSats || 0;
+
+            // Store balance after this transaction
+            tx.balanceAfter = runningBalance;
+
+            // Work backwards: if it was a receive, subtract it; if it was a send, add it back
+            if (tx.displayType === 'receive' || tx.displayType === 'swap-claim') {
+                // For receives and swap claims, user received RBTC, so subtract when going backwards
+                runningBalance -= txValueSats;
+            } else if (tx.displayType === 'send' || tx.displayType === 'contract-function') {
+                // For sends and contract functions, user spent RBTC, so add it back when going backwards
+                runningBalance += txValueSats + txFeeSats;
             }
         }
 
-        // Check if transaction has value
-        const hasValue = valueSats > 0;
-
-        // Determine all display properties in one go (including icon config and translation keys)
-        const { displayType, borderColor, iconConfig, title } = determineDisplayProperties(
-            type,
-            subType,
-            methodName,
-            hasValue,
-            isInternalEscrowPayout
-        );
-
-        // Calculate fee in sats (internal transactions have no gas fees)
-        const feeSats = tx._isInternal ? 0 : Number(weiToSatoshi(BigInt(tx.fee.value || '0')));
-
-        // Determine network - Lightning for submarine/reverse swaps, otherwise use provided network
-        // Get network information once
-        const isLightningSwap = type === 'swap' && (swapType === 'submarine' || swapType === 'reverse');
-        const networkInfo = networks[isLightningSwap ? 'lightning' : network];
-
-        // Build explorer URL
-        const explorerUrl = tx.hash ? `${networkInfo.explorerBaseUrl}${tx.hash}` : null;
-
-        // Build processed transaction with all properties computed
-        const processedTx: ProcessedTransaction = {
-            // Core fields
-            hash: tx.hash,
-            from: tx.from.hash,
-            to: tx.to.hash,
-            value: valueSats.toString(),
-            timestamp: tx.timestamp,
-            status: statusUI[normalizeStatus(tx.status) as keyof typeof statusUI],
-            network: isLightningSwap ? 'lightning' : network,
-
-            // Computed fields
-            type,
-            subType,
-            methodName,
-
-            // Display helpers (all computed in one pass)
-            displayType,
-            borderColor,
-            iconConfig, // Pre-computed icon components
-            title, // Translation key for i18n
-
-            // Network information (computed once)
-            networkIcon: networkInfo.icon,
-            networkDisplayName: networkInfo.displayName,
-            explorerUrl,
-
-            // Fee
-            feeSats,
-
-            // Balance (will be calculated below)
-            balanceAfter: 0, // Placeholder, calculated in next step
-
-            // Raw data
-            rawMethod: tx.method || undefined,
-            decodedInput: tx.decoded_input || undefined
-        };
-
-        // Add token symbol for BSC transactions if available
-        if (network === 'bsc' && tx.token_transfers && tx.token_transfers.length > 0) {
-            // For token transfers, use the token symbol
-            processedTx.tokenSymbol = 'USDT'; // Default for now, can be enhanced
+        return processed;
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[processTransactions] Error processing transactions:', errorMessage, error);
+        
+        // Log additional context for debugging
+        if (import.meta.env.DEV) {
+            console.error('[processTransactions] Error context:', {
+                userAddress,
+                network,
+                rawTransactionCount: rawTransactions?.length || 0,
+                errorStack: error instanceof Error ? error.stack : 'No stack'
+            });
         }
-
-        return processedTx;
-    });
-
-    // Sort by timestamp (newest first) - required for balance calculation
-    processed.sort((a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime());
-
-    // Calculate running balances in single pass (working backwards from current balance)
-    let runningBalance = currentBalanceSats;
-
-    for (const tx of processed) {
-        const txValueSats = Number(tx.value);
-        const txFeeSats = tx.feeSats || 0;
-
-        // Store balance after this transaction
-        tx.balanceAfter = runningBalance;
-
-        // Work backwards: if it was a receive, subtract it; if it was a send, add it back
-        if (tx.displayType === 'receive' || tx.displayType === 'swap-claim') {
-            // For receives and swap claims, user received RBTC, so subtract when going backwards
-            runningBalance -= txValueSats;
-        } else if (tx.displayType === 'send' || tx.displayType === 'contract-function') {
-            // For sends and contract functions, user spent RBTC, so add it back when going backwards
-            runningBalance += txValueSats + txFeeSats;
-        }
+        
+        // Return empty array on error to prevent UI crash
+        return [];
     }
-
-    return processed;
 }
 
 /**
  * Get explorer API URL based on network
+ * Note: BSC internal transactions are not supported (BSCScan API not used)
  */
 function getExplorerApiUrl(network: 'rsk' | 'bsc'): string {
     if (network === 'rsk') {
@@ -592,10 +675,9 @@ function getExplorerApiUrl(network: 'rsk' | 'bsc'): string {
             ? 'https://rootstock.blockscout.com/api/v2'
             : 'https://rootstock-testnet.blockscout.com/api/v2';
     } else {
-        const bscNetwork = (import.meta.env.VITE_BSC_NETWORK || 'testnet') as 'mainnet' | 'testnet';
-        return bscNetwork === 'mainnet'
-            ? 'https://api.bscscan.com/api'
-            : 'https://api-testnet.bscscan.com/api';
+        // BSC: Internal transactions not supported (BSCScan API no longer used)
+        // This function is only called for RSK, but included for type safety
+        return '';
     }
 }
 
@@ -609,6 +691,12 @@ async function fetchInternalTransactions(
     userAddress: string,
     network: 'rsk' | 'bsc'
 ): Promise<InternalTransaction[]> {
+    // BSCScan API doesn't support Blockscout-style internal transactions endpoint
+    // Only fetch for RSK network which uses Blockscout
+    if (network === 'bsc') {
+        return [];
+    }
+    
     try {
         const explorerApiUrl = getExplorerApiUrl(network);
         const url = `${explorerApiUrl}/addresses/${userAddress}/internal-transactions`;
@@ -618,7 +706,10 @@ async function fetchInternalTransactions(
         });
 
         if (!response.ok) {
-            console.error(`Failed to fetch internal transactions: ${response.status}`);
+            // 404 is expected for addresses without internal transactions - only log in dev mode
+            if (import.meta.env.DEV && response.status !== 404) {
+                console.error(`Failed to fetch internal transactions: ${response.status}`);
+            }
             return [];
         }
 
@@ -626,13 +717,19 @@ async function fetchInternalTransactions(
         
         // Blockscout returns { items: [...] }
         if (!data.items || !Array.isArray(data.items)) {
-            console.error('Invalid internal transactions response format');
+            // Only log in dev mode - API may return unexpected formats
+            if (import.meta.env.DEV) {
+                console.error('Invalid internal transactions response format:', data);
+            }
             return [];
         }
 
         return data.items;
     } catch (error) {
-        console.error('Error fetching internal transactions:', error);
+        // Only log errors in dev mode - network errors are expected
+        if (import.meta.env.DEV) {
+            console.error('Error fetching internal transactions:', error);
+        }
         return [];
     }
 }
@@ -651,6 +748,18 @@ function convertInternalToTransaction(
 ): ExtendedTransaction | null {
     // Only process successful internal transactions
     if (!internal.success) {
+        return null;
+    }
+
+    // Validate that from and to addresses exist
+    if (!internal.from || !internal.from.hash || !internal.to || !internal.to.hash) {
+        if (import.meta.env.DEV) {
+            console.warn('[convertInternalToTransaction] Missing from/to addresses in internal transaction', {
+                internal,
+                hasFrom: !!internal.from,
+                hasTo: !!internal.to
+            });
+        }
         return null;
     }
 

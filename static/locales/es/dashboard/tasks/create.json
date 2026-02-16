@@ -20,6 +20,7 @@
       "end_date": "Fecha de fin",
       "tags_placeholder": "Agregar etiquetas...",
       "deadline": "fecha límite",
+      "deadline_placeholder": "Selecciona una fecha",
       "complete_by": "Completar para:",
       "complete_between": "Completar entre:",
       "and": "y",
@@ -49,6 +50,7 @@
       "sats_placeholder": "Ingresa el monto en sats",
       "btc_price": "Precio actual de BTC:",
       "estimated_hours": "Horas estimadas",
+      "hours": "horas",
       "hours_placeholder": "Horas estimadas necesarias",
       "description": "Detalles de la tarea",
       "description_placeholder": "Describe tu tarea en detalle",
@@ -127,7 +129,8 @@
         "too_many_files": "Solo puedes subir hasta 5 archivos",
         "background_uploading": "Subiendo archivos en segundo plano...",
         "files_uploaded": "¡Archivos subidos correctamente!",
-        "upload_failed": "No se pudieron subir algunos archivos. Puedes intentar subirlos nuevamente en la revisión."
+        "upload_failed": "No se pudieron subir algunos archivos. Puedes intentar subirlos nuevamente en la revisión.",
+        "uploading_files": "Subiendo archivos..."
       },
       "success": {
         "created": "¡Tarea creada correctamente!",

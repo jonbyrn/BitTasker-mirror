@@ -318,19 +318,21 @@
 	<!-- QR Code Modal -->
 	{#if showQrModal && qrCodeDataUrl && authMethod !== 'alby'}
 		<div class="modal modal-open">
-			<div class="modal-box w-full h-full max-w-none p-0 bg-base-100 lg:max-w-2xl lg:h-auto lg:max-h-[90vh] flex flex-col">
+			<div class="modal-box max-w-md max-h-[85vh] p-0 bg-base-100 flex flex-col overflow-hidden">
 				<div class="flex flex-col flex-1 min-h-0">
 					<!-- Header -->
-					<div class="flex items-center justify-between p-4 border-b border-base-300 shrink-0">
-						<h3 class="text-lg font-bold">{$t('settings.nostr.title')} - {$t('settings.nostr.qrCode.show')}</h3>
+					<div class="flex items-center justify-between bg-base-300 px-3 py-2 rounded-t-lg sm:px-4 sm:py-3 shrink-0">
+						<div class="flex items-center gap-2 sm:gap-3">
+							<h4 class="text-base font-bold text-base-content sm:text-lg">{$t('settings.nostr.title')} - {$t('settings.nostr.qrCode.show')}</h4>
+						</div>
 						<button
-							class="btn btn-sm btn-circle btn-ghost"
+							class="btn btn-sm btn-circle btn-ghost hover:bg-white/20"
 							onclick={closeQrModal}
 							aria-label={$t('common.close')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5"
+								class="h-4 w-4 sm:h-5 sm:w-5"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
@@ -347,7 +349,7 @@
 
 					<!-- QR Code Content -->
 					<div class="flex-1 flex flex-col items-center justify-center p-6 min-h-0 overflow-auto">
-						<div class="w-full max-w-md rounded-lg bg-white p-4 shadow-xl">
+						<div class="w-full max-w-xs rounded-lg bg-white p-4 shadow-xl">
 							<img
 								src={qrCodeDataUrl}
 								alt="Private Key QR Code"
@@ -356,7 +358,7 @@
 						</div>
 						<!-- Close Button -->
 						<button
-							class="btn btn-primary mt-8"
+							class="btn btn-primary w-full mt-6"
 							onclick={closeQrModal}
 						>
 							{$t('common.close')}

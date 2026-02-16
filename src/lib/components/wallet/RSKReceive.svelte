@@ -3,13 +3,9 @@
 	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import { rskConnection } from '$lib/stores/wallet.store';
-	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
-	import { debounce } from '$lib/utils/helpers/common';
 
-	let amount = $state('');
-	let message = $state('');
 	let addressCopied = $state(false);
 	let qrCodeData = $state('');
 	let address = $state($rskConnection.address);
@@ -23,32 +19,8 @@
 				return;
 			}
 
-			if (!amount && !message) {
-				qrCodeData = await generateQrCodeUrl(address);
-				return;
-			}
-
-			const params = new URLSearchParams();
-
-			if (amount) {
-				// Convert sats to wei: 1 sat = 1e10 wei (since 1 BTC = 1e8 sats = 1e18 wei)
-				const amountSats = parseFloat(amount);
-				if (!isNaN(amountSats) && amountSats > 0) {
-					params.append('value', (amountSats * 1e10).toString()); // Convert sats to wei
-				}
-			}
-			if (message) {
-				params.append('message', message);
-			}
-
-			// Add chain ID for RSK
-			const chainId = RSK_NETWORKS[$appStore.network]?.chainId || 31;
-			params.append('chainId', chainId.toString());
-
-			if (params.toString()) {
-				address += `?${params.toString()}`;
-			}
-
+			// Use EIP-1191 checksummed address only (no URI encoding)
+			// Amount and message are not encoded in the address
 			qrCodeData = await generateQrCodeUrl(address);
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
@@ -72,54 +44,9 @@
 	}
 </script>
 
-<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-	<!-- Payment Request Form -->
-	<div class="space-y-4">
-		<h4 class="font-semibold">{$t('wallet.payment_request.title')}</h4>
-		<p class="text-sm text-base-content/70">
-			{$t('wallet.payment_request.description')}
-		</p>
-
-		<!-- Amount Field for RSK -->
-		<div class="form-control">
-			<label class="label" for="rsk-amount">
-				<span class="label-text">
-					{$t('wallet.swap.amount_sats')}
-				</span>
-				<span class="label-text-alt">{$t('wallet.optional')}</span>
-			</label>
-			<input
-				id="rsk-amount"
-				type="number"
-				step="1"
-				min="0"
-				placeholder="100000"
-				class="input input-bordered w-full"
-				bind:value={amount}
-				oninput={debounce(() => paymentRequest(), 1000)}
-				disabled={!$rskConnection.connected}
-			/>
-		</div>
-		<!-- Message Field for RSK -->
-		<div class="form-control">
-			<label class="label" for="rsk-message">
-				<span class="label-text">{$t('wallet.description')}</span>
-				<span class="label-text-alt">{$t('wallet.optional')}</span>
-			</label>
-			<textarea
-				id="rsk-message"
-				placeholder={$t('wallet.payment_for_placeholder')}
-				class="textarea textarea-bordered w-full"
-				rows="3"
-				bind:value={message}
-				oninput={debounce(() => paymentRequest(), 1000)}
-				disabled={!$rskConnection.connected}
-			></textarea>
-		</div>
-	</div>
-
+<div class="flex flex-col items-center justify-center gap-6">
 	<!-- QR Code Display or Testnet Alert -->
-	<div class="flex flex-col items-center text-center w-full">
+	<div class="flex flex-col items-center text-center w-full max-w-md">
 		<h4 class="mb-4 font-semibold w-full text-left sm:text-center">{$t('wallet.receive_rbtc')}</h4>
 
 		{#if $appStore.network === 'testnet'}
@@ -241,7 +168,7 @@
 		{/if}
 	</div>
 
-	<button class="btn btn-primary w-full sm:col-span-2" onclick={copyAddress} disabled={!address}>
+	<button class="btn btn-primary w-full max-w-md" onclick={copyAddress} disabled={!address}>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			class="h-4 w-4"
@@ -256,6 +183,6 @@
 				d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
 			/>
 		</svg>
-		{$t('wallet.copy_payment_link')}
+		{$t('wallet.copy_address')}
 	</button>
 </div>

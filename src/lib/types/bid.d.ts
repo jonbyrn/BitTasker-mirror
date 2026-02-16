@@ -36,6 +36,9 @@ export interface NostrBidContent {
 	taskCreatorPubkey?: string;
 	taskCreatorRating?: number;
 
+	/** Original task budget (when bid was created) for display in sent offers */
+	taskBudget?: { amount: number; currency?: string };
+
 	// Bidder information
 	bidderId?: string;
 	bidderName?: string;

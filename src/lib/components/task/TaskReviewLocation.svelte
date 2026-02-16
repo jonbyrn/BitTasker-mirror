@@ -19,6 +19,12 @@
 	
 	// Check if we have a valid drop-off location
 	let hasDropOffLocation = $derived(task.dropOffLocation?.locationLoaded === true);
+
+	// Helper function to get complete address for display
+	function getCompleteAddress(location: typeof task.pickupLocation | typeof task.dropOffLocation): string {
+		if (!location) return '';
+		return location.formattedAddress || location.displayName;
+	}
 </script>
 
 <div class="space-y-4">
@@ -90,7 +96,7 @@
 						<div class="h-3 w-3 rounded-full bg-orange-500"></div>
 						<div>
 							<h4 class="font-semibold text-orange-500">{$t('task.pickup_location_review')}</h4>
-							<p class="text-sm text-orange-500">{task.pickupLocation.displayName}</p>
+							<p class="text-sm text-orange-500 wrap-break-word">{getCompleteAddress(task.pickupLocation)}</p>
 							{#if task.pickupLocation.zipCode}
 								<p class="text-xs text-orange-500">
 									{$t('task.zip_label')}
@@ -104,7 +110,7 @@
 						<div class="h-3 w-3 rounded-full bg-green-500"></div>
 						<div>
 							<h4 class="font-semibold ">{$t('task.dropoff_location_review')}</h4>
-							<p class="text-sm ">{task.dropOffLocation.displayName}</p>
+							<p class="text-sm wrap-break-word">{getCompleteAddress(task.dropOffLocation)}</p>
 							{#if task.dropOffLocation.zipCode}
 								<p class="text-xs ">
 									{$t('task.zip_label')}
@@ -130,7 +136,7 @@
 							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
-					<span>{$t('task.location_picker.location_set')}: {task.pickupLocation.displayName}</span>
+					<span class="wrap-break-word">{$t('task.location_picker.location_set')}: {getCompleteAddress(task.pickupLocation)}</span>
 				</div>
 			{/if}
 		</div>

@@ -153,9 +153,47 @@
 		error = null;
 
 		try {
+			// Ensure wallet is initialized before loading transactions
+			const { get } = await import('svelte/store');
+			const { walletStore } = await import('$lib/stores/wallet.store');
+			const state = get(walletStore);
+
+			if (!state.isConnected || state.isInitializing) {
+				if (import.meta.env.DEV) {
+					console.log('[DEBUG] [TransactionHistory] Wallet not ready, initializing...', {
+						isConnected: state.isConnected,
+						isInitializing: state.isInitializing
+					});
+				}
+				
+				// Wait for initialization if in progress, or initialize if not started
+				if (state.isInitializing) {
+					// Wait for initialization to complete (max 10 seconds)
+					const maxWaitTime = 10000;
+					const startTime = Date.now();
+					while (state.isInitializing && (Date.now() - startTime) < maxWaitTime) {
+						await new Promise(resolve => setTimeout(resolve, 100));
+						const currentState = get(walletStore);
+						if (currentState.isConnected && !currentState.isInitializing) {
+							break;
+						}
+					}
+				} else {
+					// Initialize wallet if not already initializing
+					await walletManager.initialize();
+				}
+
+				// Re-check state after initialization
+				const updatedState = get(walletStore);
+				if (!updatedState.isConnected) {
+					throw new Error('Wallet initialization failed. Please try again.');
+				}
+			}
+
+			// Now load transactions
 			await walletManager.loadTransactions();
 		} catch (err) {
-			console.error('Failed to load transactions:', err);
+			console.error('[TransactionHistory] Failed to load transactions:', err);
 			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');
 		} finally {
 			isLoading = false;
@@ -478,6 +516,13 @@
 										>
 											<tx.iconConfig.base class="h-6 w-6" />
 										</div>
+										<!-- Status Badge on top-left -->
+										<div
+											class="bg-base-100 absolute top-0 left-0 rounded-full p-0.5 shadow-sm"
+											title={tx.status.label}
+										>
+											<tx.status.icon class="h-4 w-4 {tx.status.color}" />
+										</div>
 										{#if tx.iconConfig.overlay}
 											<div class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm">
 												<tx.iconConfig.overlay
@@ -492,12 +537,6 @@
 										<span class="font-semibold">
 											{$t(tx.title)}
 										</span>
-										<div
-											class="flex h-5 w-5 items-center justify-center {tx.status.color}"
-											title={tx.status.label}
-										>
-											<tx.status.icon class="h-5 w-5" />
-										</div>
 									</div>
 								</div>
 								<div class="flex flex-col items-end">
@@ -531,10 +570,11 @@
 									</div>
 								</div>
 								<div class="text-right">
+									<div class="text-xs opacity-70">
+										{$t('wallet.balance_after')}:
+									</div>
 									<div class="text-sm font-semibold md:text-base">
-										{$t('wallet.balance_after')}: {Math.floor(tx.balanceAfter)?.toLocaleString() ||
-											'0'}
-										{$t('wallet.sats')}
+										{Math.floor(tx.balanceAfter)?.toLocaleString() || '0'} {$t('wallet.sats')}
 									</div>
 									<!-- Swap Action Buttons - Thin, directly below balance -->
 									{#if tx.swap?.actions && tx.swap.actions.length > 0}

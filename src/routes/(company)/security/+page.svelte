@@ -3,8 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import IconEmailOutline from '~icons/mdi/email-outline';
 
-	let { data } = $props();
-	const seo = data.seo;
+	let { data: seo } = $props();
 
 	const user = 'hello';
 	const domain = 'bittasker.com';

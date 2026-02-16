@@ -7,8 +7,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 
-	let { data }: { data: PageData } = $props();
-	const seo = data.seo;
+	let { data: seo }: { data: PageData } = $props();
 	
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
@@ -118,27 +117,29 @@
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href={seo.canonical} />
-
-	<!-- Open Graph / Facebook -->
+	
+	<!-- Open Graph / Facebook / WhatsApp -->
 	<meta property="og:type" content="website" />
+	<meta property="og:image:type" content="image/png" />
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
-
+	<meta property="og:image" content={seo.ogImage} />
+	<meta property="og:image:secure_url" content={seo.ogImage} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="BitTasker - Decentralized Bitcoin Task Marketplace" />
 	<meta property="og:site_name" content="BitTasker" />
 
-	<!-- Twitter -->
-	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:url" content={seo.canonical} />
-	<meta property="twitter:title" content={seo.twitterTitle} />
-	<meta property="twitter:description" content={seo.twitterDescription} />
-
-	<meta property="twitter:image:alt" content="BitTasker Logo" />
-	<meta property="twitter:site" content="@BitTaskerdotcom" />
-	<meta property="twitter:creator" content="@BitTaskerdotcom" />
+	<!-- Twitter Card - Note: Twitter uses 'name' attribute, not 'property' -->
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:url" content={seo.canonical} />
+	<meta name="twitter:title" content={seo.twitterTitle} />
+	<meta name="twitter:description" content={seo.twitterDescription} />
+	<meta name="twitter:image" content={seo.twitterImage} />
+	<meta name="twitter:image:alt" content="BitTasker Logo" />
+	<meta name="twitter:site" content="@BitTaskerdotcom" />
+	<meta name="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
@@ -167,7 +168,7 @@
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
-						<a href="/auth/signup" class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto"
+						<a href="/auth/signup" class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto" data-testid="signup-link"
 							>{$t('homepage.v2.hero.cta')}</a
 						>
 					</div>

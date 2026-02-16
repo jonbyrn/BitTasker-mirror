@@ -79,7 +79,7 @@
 		aria-modal="true"
 		aria-labelledby="contract-modal-title"
 	>
-		<div class="modal-box max-h-[90vh] w-11/12 max-w-4xl overflow-y-auto">
+		<div class="modal-box max-h-[85vh] w-11/12 max-w-4xl overflow-y-auto">
 			<!-- Header -->
 			<div class="mb-6 flex items-start justify-between gap-4">
 				<div class="min-w-0 flex-1">
@@ -130,7 +130,7 @@
 								<div class="flex justify-between">
 									<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
 									<span class="font-semibold"
-										>{formatRBTC(contractStore.getContractKey(contract, 'amount'))} RBTC</span
+										>{formatRBTC(contractStore.getContractKey(contract, 'amount') as string)} RBTC</span
 									>
 								</div>
 
@@ -168,7 +168,7 @@
 									>
 									<span class="text-sm"
 										>{formatDate(
-											contractStore.getContractKey(contract, 'estimatedStartTime')
+											contractStore.getContractKey(contract, 'estimatedStartTime') as number
 										)}</span
 									>
 								</div>
@@ -179,7 +179,7 @@
 									>
 									<span class="text-sm"
 										>{formatDate(
-											contractStore.getContractKey(contract, 'estimatedCompletionTime')
+											contractStore.getContractKey(contract, 'estimatedCompletionTime') as number
 										)}</span
 									>
 								</div>
@@ -215,7 +215,7 @@
 
 							<ContractTimeline
 								statusEvents={contract.statusEvents}
-								contractPubkey={contractStore.getContractKey(contract, 'clientPubkey')}
+								contractPubkey={contractStore.getContractKey(contract, 'clientPubkey') as string}
 							/>
 						</div>
 					</div>

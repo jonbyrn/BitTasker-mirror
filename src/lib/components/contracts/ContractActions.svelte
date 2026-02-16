@@ -3,14 +3,12 @@
 	import type { Attachment } from '$lib/types/task';
 	import type { EscrowData } from '$lib/types/wallet';
 	import { t, locale } from 'svelte-i18n';
-	import { escrow } from '$lib/utils/wallet/escrow';
+	import { escrow, EscrowStatus } from '$lib/utils/escrow';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
-	import { deleteContract } from '$lib/utils/nostr-contract';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import { contractStore } from '$lib/stores/contract.store';
-	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
@@ -20,6 +18,9 @@
 		CONTRACT_MODAL_CONFIGS
 	} from '$lib/utils/constants/contract-modals';
 	import { portal } from '$lib/utils/portal';
+import {
+	sendTaskCompletionMessageToTasker
+} from '$lib/utils/location/sendLocation';
 
 	const {
 		contract,
@@ -61,7 +62,7 @@
 			(e: ContractStatusEvent) =>
 				e.content.action === EscrowStatus.DisputeResolutionProposed &&
 				e.pubkey.toLowerCase() ===
-					contractStore.getContractKey(contract, 'clientPubkey').toLowerCase()
+					(contractStore.getContractKey(contract, 'clientPubkey') as string).toLowerCase()
 		).length
 	);
 
@@ -70,7 +71,7 @@
 			(e: ContractStatusEvent) =>
 				e.content.action === EscrowStatus.DisputeResolutionProposed &&
 				e.pubkey.toLowerCase() ===
-					contractStore.getContractKey(contract, 'freelancerPubkey').toLowerCase()
+					(contractStore.getContractKey(contract, 'otherPartyNpub') as string).toLowerCase()
 		).length
 	);
 
@@ -95,10 +96,10 @@
 
 		// Convert timestamps to milliseconds if they're in seconds
 		const startTime =
-			estimatedStartTime > 1000000000000 ? estimatedStartTime : estimatedStartTime * 1000;
-		const createdTime = createdAt > 1000000000000 ? createdAt : createdAt * 1000;
+			Number(estimatedStartTime) > 1000000000000 ? Number(estimatedStartTime) : Number(estimatedStartTime) * 1000;
+		const createdTime = Number(createdAt) > 1000000000000 ? Number(createdAt) : Number(createdAt) * 1000;
 
-		const hoursUntilStart = (startTime - now) / (1000 * 60 * 60);
+		const hoursUntilStart = (Number(startTime) - now) / (1000 * 60 * 60);
 		const hoursSinceCreation = (now - createdTime) / (1000 * 60 * 60);
 
 		// Can cancel if more than 24 hours before estimated start time
@@ -138,7 +139,7 @@
 
 			// Add timeout protection (5 seconds)
 			const escrowData = (await Promise.race([
-				escrow.getEscrow(contract.escrowData.id),
+				escrow.escrowOps.loadEscrowDetails(contract),
 				new Promise<null>((_, reject) =>
 					setTimeout(() => reject(new Error('Blockchain check timeout')), 5000)
 				)
@@ -188,20 +189,31 @@
 		setLoading('complete', true);
 		try {
 			// Call RSK escrow completeTask - this publishes Nostr event with transactionHash
-			await escrow.completeTask(
-				contract.escrowData.id,
-				contract.contractEvent.id,
-				attachments
-			);
+			await escrow.escrowOps.completeTask(contract, attachments);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'freelancerPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Task Completed',
 				body: `Task ${contractStore.getContractKey(contract, 'taskTitle')} has been marked as completed`,
 				type: 'task_completed',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
+
+			// Send task completion message to tasker (client)
+			// This is done in the background without blocking the task completion flow
+			const clientPubkey = contractStore.getContractKey(contract, 'clientPubkey') as string;
+			if (clientPubkey) {
+				// Send message asynchronously in background - don't block UI or fail on error
+				sendTaskCompletionMessageToTasker(clientPubkey, {
+					taskId: contractStore.getContractKey(contract, 'taskId') as string,
+					taskTitle: contractStore.getContractKey(contract, 'taskTitle') as string,
+					escrowId: contract.escrowData.id
+				}).catch((messageError) => {
+					// Log error but don't fail task completion if message sending fails
+					console.error('Failed to send task completion message to tasker:', messageError);
+				});
+			}
 
 			// Note: Status will be updated via blockchain event -> Nostr update
 			// Loading will be cleared when contract.isPending becomes false
@@ -231,19 +243,30 @@
 		setLoading('accept', true);
 		try {
 			// Call RSK escrow acceptTask - this publishes Nostr event with transactionHash
-			await escrow.acceptTask(
-				contract.escrowData.id,
-				contract.contractEvent.id
-			);
+			await escrow.escrowOps.acceptTask(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Payment Released',
 				body: `Payment has been released for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'payment_released',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
+
+			const freelancerPubkey = contractStore.getContractKey(contract, 'freelancerPubkey') as string;
+			if (freelancerPubkey) {
+			/* 	sendPaymentReleasedMessageToTaskee(
+					freelancerPubkey,
+					{
+						taskId: contractStore.getContractKey(contract, 'taskId') as string,
+						taskTitle: contractStore.getContractKey(contract, 'taskTitle') as string,
+						escrowId: contract.escrowData.id
+					}
+				).catch((messageError: any) => {
+					console.error('Failed to send payment released message to taskee:', messageError);
+				}); */
+			}
 
 			// Note: Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
@@ -273,17 +296,14 @@
 		setLoading('dispute', true);
 		try {
 			// Call RSK escrow disputeTask - this publishes Nostr event with transactionHash
-			await escrow.disputeTask(
-				contract.escrowData.id,
-				contract.contractEvent.id
-			);
+			await escrow.escrowOps.disputeTask(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'freelancerPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Dispute Raised',
 				body: `A dispute has been raised for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'dispute_raised',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -309,7 +329,7 @@
 
 		// Convert USD amounts to RBTC for validation and contract call
 		const freelancerAmountUSD = parseFloat(proposedFreelancerAmountUSD);
-		const totalAmountRBTC = parseFloat(contractStore.getContractKey(contract, 'amount'));
+		const totalAmountRBTC = parseFloat(contractStore.getContractKey(contract, 'amount') as string);
 		const totalAmountUSD = totalAmountRBTC * btcPrice;
 
 		// Validate that freelancer amount is not greater than total
@@ -326,20 +346,19 @@
 		setLoading('propose', true);
 		try {
 			// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
-			await escrow.proposeResolution(
-				contract.escrowData.id,
+			await escrow.escrowOps.proposeResolution(
+				contract,
 				freelancerAmountRBTC,
-				contract.contractEvent.id,
 				clientAmountRBTC,
 				freelancerAmountRBTC
 			);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Resolution Proposed',
 				body: `A resolution has been proposed for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'resolution_proposed',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
@@ -365,17 +384,14 @@
 		setLoading('acceptProposal', true);
 		try {
 			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
-			await escrow.acceptProposal(
-				contract.escrowData.id,
-				contract.contractEvent.id
-			);
+			await escrow.escrowOps.acceptProposal(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Proposal Accepted',
 				body: `A proposal has been accepted for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'proposal_accepted',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -405,22 +421,14 @@
 		setLoading('cancel', true);
 		try {
 			// Call RSK escrow cancelEscrow - this publishes Nostr event with transactionHash
-			await escrow.cancelEscrow(
-				contract.escrowData.id,
-				contract.contractEvent.id
-			);
-
-			const isClient = contract.isClient;
-			const npubs = isClient
-				? [contractStore.getContractKey(contract, 'freelancerPubkey')]
-				: [contractStore.getContractKey(contract, 'clientPubkey')];
+			await escrow.escrowOps.cancelEscrow(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs,
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Escrow Cancelled',
 				body: `An escrow has been cancelled for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'escrow_cancelled',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -446,18 +454,14 @@
 				status: contract.escrowData.status,
 				eventId: contract.contractEvent.id
 			});
-			await escrow.resolveAfterTimelock(
-				contract.escrowData.id,
-				contract.escrowData.status,
-				contract.contractEvent.id
-			);
+			await escrow.escrowOps.resolveAfterTimelock(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
-				npubs: [contractStore.getContractKey(contract, 'clientPubkey')],
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
 				title: 'Timelock Resolved',
 				body: `A timelock has been resolved for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'timelock_resolved',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=contracts`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
@@ -477,10 +481,7 @@
 		if (!contract.permissions.canDelete) return;
 		setLoading('delete', true);
 		try {
-			await deleteContract(
-				contract.contractEvent.id,
-				contract.escrowData.id
-			);
+			await escrow.contractOps.deleteContract(contract);
 			appStore.showSuccessToast($t('dashboard.contracts.actions.delete_contract_success'));
 		} catch (error) {
 			console.error('Error deleting contract:', error);
@@ -931,9 +932,9 @@
 
 				<div class="text-base-content/60 text-xs">
 					{$t('dashboard.contracts.actions.total_amount')}: ${(
-						parseFloat(contractStore.getContractKey(contract, 'amount')) * btcPrice
+						parseFloat(contractStore.getContractKey(contract, 'amount') as string) * btcPrice
 					).toFixed(2)} ({Math.round(
-						parseFloat(contractStore.getContractKey(contract, 'amount')) * 100_000_000
+						parseFloat(contractStore.getContractKey(contract, 'amount') as string) * 100_000_000
 					).toLocaleString()} Sats)
 				</div>
 
@@ -991,7 +992,11 @@
 
 	<!-- Resolve After Timelock -->
 	{#if contract.permissions.canResolveTimelock}
-		<div class="{isInline ? 'w-full sm:w-auto' : 'col-span-2'} space-y-3 rounded-lg {!isInline ? 'bg-base-300 p-3' : ''}">
+		<div
+			class="{isInline ? 'w-full sm:w-auto' : 'col-span-2'} space-y-3 rounded-lg {!isInline
+				? 'bg-base-300 p-3'
+				: ''}"
+		>
 			{#if !isInline}
 				<h5 class="text-sm font-medium">
 					{$t('dashboard.contracts.actions.timelock_resolution')}

@@ -4,12 +4,12 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
-	import { escrow } from '$lib/utils/wallet/escrow';
+	import { escrow } from '$lib/utils/escrow/v1/escrow';
 	import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 	import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
 	import type { EscrowData } from '$lib/types/wallet';
 	import type { ContractPermissions } from '$lib/types/contract';
-	import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import DebugContractCard from '$lib/components/contracts/DebugContractCard.svelte';
@@ -20,7 +20,6 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	import { RSK_NETWORKS, BSC_NETWORKS } from '$lib/utils/wallet/networkConfig';
 
 	interface ContractWithPermissions extends EscrowData {
 		permissions: ContractPermissions;
@@ -185,8 +184,8 @@
 			const loadContractsDuration = loadContractsEndTime - loadContractsStartTime;
 			console.log('[DEBUG] loadContractsByAddress returned', {
 				count: contracts.length,
-				contractIds: contracts.map(c => c.id),
-				contracts: contracts.map(c => ({
+				contractIds: contracts.map((c) => c.id),
+				contracts: contracts.map((c) => ({
 					id: c.id,
 					client: c.client,
 					freelancer: c.freelancer,
@@ -199,7 +198,10 @@
 			const permissionsStartTime = performance.now();
 			const contractsWithPermissions: ContractWithPermissions[] = await Promise.all(
 				contracts.map(async (contract) => {
-					const { permissions, isClient, isFreelancer } = await calculatePermissions(contract, address);
+					const { permissions, isClient, isFreelancer } = await calculatePermissions(
+						contract,
+						address
+					);
 					return {
 						...contract,
 						permissions,
@@ -215,7 +217,7 @@
 
 			console.log('[DEBUG] Contracts with permissions calculated', {
 				count: contractsWithPermissions.length,
-				contracts: contractsWithPermissions.map(c => ({
+				contracts: contractsWithPermissions.map((c) => ({
 					id: c.id,
 					isClient: c.isClient,
 					isFreelancer: c.isFreelancer,
@@ -279,10 +281,10 @@
 	async function loadAllContracts() {
 		const loadAllStartTime = performance.now();
 		console.log('[DEBUG] loadAllContracts called');
-		
+
 		// Reset cached contract to ensure fresh provider connection
 		escrow.resetCachedContract();
-		
+
 		const addresses = getConnectedAddresses();
 
 		if (addresses.length === 0) {
@@ -294,7 +296,7 @@
 
 		console.log('[DEBUG] Loading contracts for addresses', addresses);
 		initialLoadComplete = false;
-		
+
 		try {
 			const loadAddressesStartTime = performance.now();
 			await Promise.all(
@@ -351,11 +353,7 @@
 	}
 
 	// Execute contract function
-	async function executeContractFunction(
-		contractId: string,
-		functionName: string,
-		...args: any[]
-	) {
+	async function executeContractFunction(contractId: string, functionName: string, ...args: any[]) {
 		const actionKey = `${contractId}-${functionName}`;
 		executingActions.set(actionKey, true);
 		executingActions = new Map(executingActions);
@@ -433,7 +431,7 @@
 	function getExplorerUrl(address: string, network: 'RSK' | 'BSC'): string {
 		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
-		
+
 		if (network === 'RSK') {
 			if (rskNetwork === 'mainnet') {
 				return `https://rootstock.blockscout.com/address/${address}`;
@@ -457,7 +455,7 @@
 				safetyOverride = true;
 			}
 		}
-		
+
 		// Initialize wallet first
 		try {
 			console.log('[DEBUG] Initializing wallet...');
@@ -471,7 +469,7 @@
 				})
 			);
 		}
-		
+
 		// Load contracts after wallet is initialized
 		loadAllContracts();
 	});
@@ -492,13 +490,13 @@
 	function handleSafetyOverrideChange(event: Event) {
 		const target = event.target as HTMLInputElement;
 		const newValue = target.checked;
-		
+
 		// If disabling, allow it immediately
 		if (!newValue) {
 			safetyOverride = false;
 			return;
 		}
-		
+
 		// If enabling, prevent the change and show confirmation
 		event.preventDefault();
 		target.checked = false; // Reset checkbox
@@ -536,133 +534,141 @@
 
 	<!-- Wallet Address Groups -->
 	{#if true}
-		{@const hasAnyContracts = contractsByAddress.size > 0 && Array.from(contractsByAddress.values()).some((g) => g.contracts.length > 0)}
-		{@const isAnyLoading = contractsByAddress.size > 0 && Array.from(contractsByAddress.values()).some((g) => g.isLoading)}
-		{@const allLoaded = contractsByAddress.size === 0 || Array.from(contractsByAddress.values()).every((g) => !g.isLoading)}
-		
+		{@const hasAnyContracts =
+			contractsByAddress.size > 0 &&
+			Array.from(contractsByAddress.values()).some((g) => g.contracts.length > 0)}
+		{@const isAnyLoading =
+			contractsByAddress.size > 0 &&
+			Array.from(contractsByAddress.values()).some((g) => g.isLoading)}
+		{@const allLoaded =
+			contractsByAddress.size === 0 ||
+			Array.from(contractsByAddress.values()).every((g) => !g.isLoading)}
+
 		{#if !initialLoadComplete || isAnyLoading}
-		<!-- Loading State -->
-		<div class="py-12 text-center">
-			<span class="loading loading-spinner loading-md"></span>
-			<p class="text-base-content/60 mt-4">{$t('debug.smart_contract.loading')}</p>
-		</div>
-	{:else if initialLoadComplete && allLoaded && !hasAnyContracts}
-		<!-- No Contracts Found -->
-		<div class="py-8 text-center">
-			<div class="text-base-content/60 mb-3">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mx-auto h-12 w-12"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-					/>
-				</svg>
+			<!-- Loading State -->
+			<div class="py-12 text-center">
+				<span class="loading loading-spinner loading-md"></span>
+				<p class="text-base-content/60 mt-4">{$t('debug.smart_contract.loading')}</p>
 			</div>
-			<h3 class="mb-2 text-lg font-semibold">{$t('debug.smart_contract.no_contracts')}</h3>
-			<p class="text-base-content/70 mb-3">{$t('debug.smart_contract.no_contracts_message')}</p>
-			<button class="btn btn-primary" onclick={loadAllContracts}>
-				<IconRefresh class="h-4 w-4" />
-				{$t('debug.smart_contract.refresh')}
-			</button>
-		</div>
-	{:else if hasAnyContracts}
-		{#each Array.from(contractsByAddress.entries()) as [key, group]}
-			<div class="card bg-base-100 shadow-xl">
-				<div class="card-body">
-					<!-- Wallet Address Header -->
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-3">
+		{:else if initialLoadComplete && allLoaded && !hasAnyContracts}
+			<!-- No Contracts Found -->
+			<div class="py-8 text-center">
+				<div class="text-base-content/60 mb-3">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="mx-auto h-12 w-12"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+						/>
+					</svg>
+				</div>
+				<h3 class="mb-2 text-lg font-semibold">{$t('debug.smart_contract.no_contracts')}</h3>
+				<p class="text-base-content/70 mb-3">{$t('debug.smart_contract.no_contracts_message')}</p>
+				<button class="btn btn-primary" onclick={loadAllContracts}>
+					<IconRefresh class="h-4 w-4" />
+					{$t('debug.smart_contract.refresh')}
+				</button>
+			</div>
+		{:else if hasAnyContracts}
+			{#each Array.from(contractsByAddress.entries()) as [key, group]}
+				<div class="card bg-base-100 shadow-xl">
+					<div class="card-body">
+						<!-- Wallet Address Header -->
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-3">
+								<button class="btn btn-ghost btn-sm" onclick={() => toggleAddress(key)}>
+									{#if group.isExpanded}
+										<IconChevronUp class="h-5 w-5" />
+									{:else}
+										<IconChevronDown class="h-5 w-5" />
+									{/if}
+								</button>
+								<div>
+									<div class="font-semibold">
+										{$t('debug.smart_contract.wallet_address')}:
+										<a
+											href={getExplorerUrl(group.address, group.network)}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="link link-primary ml-1"
+										>
+											{formatAddress(group.address)}
+										</a>
+										<IconOpenInNew class="ml-1 inline h-4 w-4 text-base-content/60" />
+									</div>
+									<div class="text-base-content/60 text-sm">
+										{getNetworkName(group.network)} • {$t('debug.smart_contract.contract_count', {
+											values: { count: group.contracts.length }
+										})}
+									</div>
+								</div>
+							</div>
 							<button
 								class="btn btn-ghost btn-sm"
-								onclick={() => toggleAddress(key)}
+								onclick={() => copyAddress(group.address)}
+								title={$t('debug.smart_contract.copy_address')}
 							>
-								{#if group.isExpanded}
-									<IconChevronUp class="h-5 w-5" />
-								{:else}
-									<IconChevronDown class="h-5 w-5" />
-								{/if}
+								<IconContentCopy class="h-5 w-5" />
 							</button>
-							<div>
-								<div class="font-semibold">
-									{$t('debug.smart_contract.wallet_address')}: 
-									<a
-										href={getExplorerUrl(group.address, group.network)}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="link link-primary ml-1"
-									>
-										{formatAddress(group.address)}
-									</a>
-									<IconOpenInNew class="ml-1 inline h-4 w-4 text-base-content/60" />
-								</div>
-								<div class="text-base-content/60 text-sm">
-									{getNetworkName(group.network)} • {$t('debug.smart_contract.contract_count', {
-										values: { count: group.contracts.length }
-									})}
-								</div>
-							</div>
 						</div>
-						<button
-							class="btn btn-ghost btn-sm"
-							onclick={() => copyAddress(group.address)}
-							title={$t('debug.smart_contract.copy_address')}
-						>
-							<IconContentCopy class="h-5 w-5" />
-						</button>
-					</div>
 
-					<!-- Contracts List -->
-					{#if group.isExpanded}
-						{#if group.isLoading}
-							<div class="flex justify-center py-8">
-								<span class="loading loading-spinner loading-md"></span>
-							</div>
-						{:else if group.error}
-							<div class="alert alert-outline alert-error">
-								<span>{group.error}</span>
-								<button class="btn btn-sm" onclick={() => loadContractsForAddress(group.address, group.network)}>
-									{$t('debug.smart_contract.refresh')}
-								</button>
-							</div>
-						{:else if group.contracts.length === 0}
-							<div class="py-8 text-center text-base-content/60">
-								{$t('debug.smart_contract.no_contracts')}
-							</div>
-						{:else}
-							<div class="mt-4 space-y-4">
-								{#each group.contracts as contract (contract.id)}
-									{@const isExecuting = executingActions.has(`${contract.id}-completeTask`) ||
-										executingActions.has(`${contract.id}-acceptTask`) ||
-										executingActions.has(`${contract.id}-cancelEscrow`) ||
-										executingActions.has(`${contract.id}-disputeTask`) ||
-										executingActions.has(`${contract.id}-proposeResolution`) ||
-										executingActions.has(`${contract.id}-acceptProposal`) ||
-										executingActions.has(`${contract.id}-resolveAfterTimelock`)}
-									<DebugContractCard
-										{contract}
-										permissions={contract.permissions}
-										isClient={contract.isClient}
-										isFreelancer={contract.isFreelancer}
-										isExpanded={expandedContracts.has(contract.id)}
-										{safetyOverride}
-										{isExecuting}
-										onToggleRawData={() => toggleContractRawData(contract.id)}
-										onExecuteFunction={(fn, ...args) => executeContractFunction(contract.id, fn, ...args)}
-									/>
-								{/each}
-							</div>
+						<!-- Contracts List -->
+						{#if group.isExpanded}
+							{#if group.isLoading}
+								<div class="flex justify-center py-8">
+									<span class="loading loading-spinner loading-md"></span>
+								</div>
+							{:else if group.error}
+								<div class="alert alert-outline alert-error">
+									<span>{group.error}</span>
+									<button
+										class="btn btn-sm"
+										onclick={() => loadContractsForAddress(group.address, group.network)}
+									>
+										{$t('debug.smart_contract.refresh')}
+									</button>
+								</div>
+							{:else if group.contracts.length === 0}
+								<div class="py-8 text-center text-base-content/60">
+									{$t('debug.smart_contract.no_contracts')}
+								</div>
+							{:else}
+								<div class="mt-4 space-y-4">
+									{#each group.contracts as contract (contract.id)}
+										{@const isExecuting =
+											executingActions.has(`${contract.id}-completeTask`) ||
+											executingActions.has(`${contract.id}-acceptTask`) ||
+											executingActions.has(`${contract.id}-cancelEscrow`) ||
+											executingActions.has(`${contract.id}-disputeTask`) ||
+											executingActions.has(`${contract.id}-proposeResolution`) ||
+											executingActions.has(`${contract.id}-acceptProposal`) ||
+											executingActions.has(`${contract.id}-resolveAfterTimelock`)}
+										<DebugContractCard
+											{contract}
+											permissions={contract.permissions}
+											isClient={contract.isClient}
+											isFreelancer={contract.isFreelancer}
+											isExpanded={expandedContracts.has(contract.id)}
+											{safetyOverride}
+											{isExecuting}
+											onToggleRawData={() => toggleContractRawData(contract.id)}
+											onExecuteFunction={(fn, ...args) =>
+												executeContractFunction(contract.id, fn, ...args)}
+										/>
+									{/each}
+								</div>
+							{/if}
 						{/if}
-					{/if}
+					</div>
 				</div>
-			</div>
-		{/each}
+			{/each}
 		{/if}
 	{/if}
 
@@ -709,4 +715,3 @@
 		// safetyOverride remains false since we prevented the toggle
 	}}
 />
-

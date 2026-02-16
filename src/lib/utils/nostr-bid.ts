@@ -288,21 +288,15 @@ export async function sendBidStatusUpdate(
 		// Clear bid cache for this specific task and bidder to ensure fresh data
 		// This is more efficient than clearing all caches
 		clearBidCache(taskId);
-
-		pushNotificationService.sendNotificationToNpubs({
-			npubs: [bidderPubkey],
-			title: `Bid Status Updated - ${status}`,
-			body: `Your bid has been ${status}`,
-			type: 'bid_status_updated',
-			clickAction: `${import.meta.env.VITE_APP_URL}/dashboard?tab=/bids`,
-			icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-		})
-
+		
 		bidStore.removeProcessingBid(bidEventId);
 		appStore.showInfoToast(`Bid status updated to ${status}`);
 	} catch (error) {
 		// Log error but don't throw - allow UI to continue
 		console.warn('Error sending bid status update:', error);
+		// Ensure cleanup happens even if sending status update fails
+		// This prevents bid from being stuck in processing state
+		bidStore.removeProcessingBid(bidEventId);
 		// Don't throw - let the caller handle the error if needed
 		// The UI should show a warning but not break
 	}

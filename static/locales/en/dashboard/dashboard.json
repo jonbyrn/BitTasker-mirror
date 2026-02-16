@@ -1,5 +1,7 @@
 {
   "dashboard": {
+    "title": "My Dashboard",
+    "description": "Manage your tasks and bids.",
     "task": {
       "deadline": {
         "label": "Deadline"
@@ -14,13 +16,9 @@
         "remote": "Remote"
       }
     },
-    "title": "My Dashboard",
-    "description": "Manage your tasks and bids.",
-    "titl": "Dashboard",
     "create_task": "Create Task",
     "find_task": "Find Tasks",
     "manage_wallet": "Manage Wallet",
-    "wallet": "Wallet",
     "client": "Tasker",
     "freelancer": "Taskee",
     "member_since": "Member since",
@@ -89,7 +87,7 @@
       "remote_location_description": "This task can be completed remotely.",
       "task_attachment": "Task attachment",
       "avatar_alt": "Avatar",
-      "sign_up_to_bid": "Sign up to bid",
+      "sign_up_to_bid": "Bid",
       "task_cancelled": "Task cancelled",
       "task_disputed": "Task disputed",
       "task_in_progress": "Task in progress",
@@ -128,6 +126,8 @@
       "delete_task_confirm_title": "Delete Task",
       "delete_task_confirm_message": "Are you sure you want to delete this task? This action cannot be undone. The task will be permanently removed.",
       "cannot_delete_message": "This task cannot be deleted because it has been funded. Tasks can only be deleted before funding or if funding failed. Once a task is funded, it must be completed, cancelled, or resolved through the normal task lifecycle.",
+      "cannot_edit_with_contract": "Cannot edit task: A contract has been created for this task. Tasks cannot be edited once a contract exists.",
+      "cannot_edit_error": "Unable to verify if task can be edited. Please try again.",
       "cancel": "Cancel",
       "page_title": "Task Details - BitTasker",
       "page_description": "Here you can see the details of the task."
@@ -142,7 +142,7 @@
       "plus_icon_alt": "Plus icon"
     },
     "find_tasks": {
-      "sign_up_to_bid": "Sign up to bid",
+      "sign_up_to_bid": "Bid",
       "bidding_closed": "Bidding closed",
       "sign_up_to_bid_aria": "Sign up to bid on this task",
       "avatar_alt": "Avatar",
@@ -153,7 +153,8 @@
       "task_completed": "Task completed",
       "bid_sent": "Bid sent",
       "cannot_bid_own_task": "Cannot bid on your own task",
-      "bid_already_sent": "Bid already sent"
+      "bid_already_sent": "Bid already sent",
+      "view_task": "View Task"
     },
     "bids": {
       "bid_acceptance": {
@@ -198,6 +199,9 @@
         "estimated_completion": "Estimated Completion:",
         "estimated_duration": "Estimated Duration:",
         "estimated_gas_fee": "Estimated Network Fee:",
+        "additional_notes_label": "Additional Notes",
+        "additional_notes_placeholder": "Add any additional information or instructions for the taskee...",
+        "additional_notes_helper": "These notes will be sent to the taskee along with the acceptance message.",
         "btc_price": "BTC Price:",
         "sats": "Sats",
         "base_amount_tooltip": "The amount the taskee is charging for completing this task.",
@@ -222,6 +226,10 @@
         "milestones": "Milestones",
         "location": "Location",
         "accept_and_pay": "Accept & Pay",
+        "accept": "Accept",
+        "fund_contract_title": "Fund Contract",
+        "fund": "Fund",
+        "fund_confirm_warning": "This will send your payment into the secure payment contract. Please verify all details before confirming.",
         "contract_information": "Contract Information",
         "day": "day",
         "days": "days",
@@ -390,14 +398,14 @@
             "end_date": "End Date",
             "clear_availability_filters": "Clear Availability Filters",
             "airdatepicker": {
-              "select_date": "Select a date",
-              "select_date_range": "Select date range",
-              "select_datetime": "Select date and time",
-              "select_time": "Select time",
-              "select_start_date": "Select start date",
-              "select_end_date": "Select end date",
-              "select_start_datetime": "Select start date and time",
-              "select_end_datetime": "Select end date and time"
+              "select_date": "Date", 
+              "select_date_range": "Date range",
+              "select_datetime": "Date and time",
+              "select_time": "Time",
+              "select_start_date": "Start date",
+              "select_end_date": "End date",
+              "select_start_datetime": "Start date and time",
+              "select_end_datetime": "End date and time"
             }
           },
           "price_range": {
@@ -517,8 +525,8 @@
       "filter_description": "Choose the contract status and your role to review.",
       "all_roles": "All",
       "all_statuses": "All statuses",
-      "as_client": "As tasker",
-      "as_freelancer": "As taskee",
+      "as_client": "Tasker",
+      "as_freelancer": "Taskee",
       "amount": "Amount",
       "escrow_id": "Contract ID",
       "task_id": "Task ID",
@@ -661,7 +669,8 @@
         "nonce_error": "Transaction ordering error. Please try again in a moment.",
         "wallet_error": "Wallet connection error. Please reconnect your wallet and try again.",
         "contract_revert": "Smart contract rejected the transaction. Please verify the transaction details and try again.",
-        "generic_error": "Transaction failed. Please check your wallet balance and network connection."
+        "generic_error": "Transaction failed. Please check your wallet balance and network connection.",
+        "invalid_argument": "Bad address format. Please check the address and try again."
       },
       "timeline": {
         "label": "Timeline",
@@ -690,7 +699,7 @@
           "title": "Mark Task as Complete",
           "task_info": "Task Information",
           "instructions_title": "Upload Completion Evidence",
-          "instructions_text": "Please upload photos or videos showing that the task has been completed successfully. This evidence will be shared with the tasker.",
+          "instructions_text": "Share photos or video with the Tasker to confirm your work",
           "upload_evidence": "Upload Evidence",
           "upload_placeholder": "Click to upload photos or videos",
           "upload_limits": "Max 5 files, 10MB each, videos up to 5 minutes",

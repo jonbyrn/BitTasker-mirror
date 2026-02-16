@@ -11,7 +11,8 @@
 	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
 	import {
 		createUserDeviceShortName,
-		getDeviceIdentifier
+		getDeviceIdentifier,
+		formatPasskeyName
 	} from '$lib/utils/helpers/deviceIdentity';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import authService from '$lib/api/services/auth.service';
@@ -51,11 +52,8 @@
 
 	// Status indicators
 	let isLoading = $state(false);
-	let error = $state('');
 	let isSetupComplete = $state(false);
-	
-	// Error modal state
-	let errorMessage = $state('');
+	let error = $state('');
 	let errorType = $state<ErrorType | undefined>(undefined);
 
 	async function generateKeyPair() {
@@ -74,36 +72,27 @@
 
 			// Only run in browser environment to avoid Buffer issues
 			if (typeof Buffer === 'undefined') {
-				const errorMsg = 'Buffer is not defined';
-				error = errorMsg;
-				errorMessage = errorMsg;
-				errorType = detectErrorType(errorMsg);
-				throw new Error(errorMsg);
+				throw new Error('Buffer is not defined');
 			}
 
 			// Create master key encryption for both Nostr and wallet
-			const masterKeyData = await encryptMasterKeyData(nsec, mnemonic, deviceId);
+			const { encryptedData: masterKeyData, exportedKey } = await encryptMasterKeyData(
+				nsec,
+				mnemonic,
+				nsec
+			);
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
 			const deviceName = await createUserDeviceShortName(npub);
 
-			// Validate username and provide fallback to deviceName if invalid
-			// This ensures we always have a valid name for the passkey
-			const passkeyName = username?.trim() || deviceName;
-
 			// Register device with server using master key
 			// Use username for passkey naming so it appears in password managers
 			let credentialId = '';
 			if (isMobileBiometrics) {
 				try {
-					credentialId = await setBiometricKey(
-						npub,
-						masterKeyData.exportedMasterKey,
-						'biometrics',
-						passkeyName
-					);
+					credentialId = await setBiometricKey(npub, exportedKey, username);
 				} catch (biometricError: any) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'mobile-native';
@@ -111,20 +100,17 @@
 						error: biometricError,
 						platform
 					});
-					
+
 					// Set error state
 					error = msg;
-					errorMessage = msg;
 					errorType = type;
-					
-					// Error state is set, ErrorAlertWithModal will auto-open for passkey errors
-					
+
 					// Re-throw to stop registration
 					throw biometricError;
 				}
 			} else {
 				try {
-					credentialId = await setWebBiometricKey(npub, masterKeyData.exportedMasterKey, passkeyName);
+					credentialId = await setWebBiometricKey(npub, exportedKey, username);
 				} catch (biometricError: any) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'web';
@@ -132,59 +118,44 @@
 						error: biometricError,
 						platform
 					});
-					
+
 					error = msg;
-					errorMessage = msg;
 					errorType = type;
-					
-					// Error state is set, ErrorAlertWithModal will auto-open for passkey errors
-					
+
 					throw biometricError;
 				}
 			}
 
 			if (!credentialId) {
-				const errorMsg = 'Failed to get credential ID';
-				error = errorMsg;
-				errorMessage = errorMsg;
-				errorType = detectErrorType(errorMsg);
-				throw new Error(errorMsg);
+				throw new Error('Failed to get credential ID');
 			}
 
 			// Register with server using master key GraphQL mutation
-			await authService
-				.registerWithMasterKey({
-					username,
-					publicKey: npub,
-					masterKeyData: masterKeyData,
-					authMethod: 'passkey',
-					deviceId
-				})
-				.then(async () => {
-					// Register passkey device
-					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-				});
+			const response = await authService.registerWithMasterKey({
+				username,
+				publicKey: npub,
+				masterKeyData,
+				authMethod: 'passkey',
+				deviceId,
+				credentialId,
+				deviceName,
+				platform: isMobileBiometrics ? 'mobile' : 'web'
+			});
 
-			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
 				// Store master key data in biometric format for compatibility
 				const biometricData = {
-					username: npub,
-					password: JSON.stringify({
-						key: masterKeyData.exportedMasterKey,
-						masterKeyData: masterKeyData, // Store full master key structure
-						// Legacy compatibility fields
-						data: masterKeyData.nostr.encrypted.data,
-						iv: masterKeyData.nostr.encrypted.iv,
-						authTag: masterKeyData.nostr.encrypted.authTag,
-						salt: masterKeyData.nostr.salt
-					}),
-					server: deviceId,
+					npub,
+					deviceId,
+					deviceName,
+					encryptedData: masterKeyData,
+					exportedKey,
+					credentialId: credentialId,
 					isLegacyFormat: false
 				};
 				authState.setupAuthData(
 					response.access_token,
-					'biometrics',
+					'passkey',
 					npub,
 					response.user,
 					biometricData,
@@ -192,18 +163,10 @@
 				);
 			}
 		} catch (err: unknown) {
-			console.error('Registration failed:', err);
-			// Only set generic error if not already set by biometric error handler
-			if (!error) {
-				const errorMsg = err instanceof Error
+			error =
+				err instanceof Error
 					? err.message
 					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
-				error = errorMsg;
-				// For non-biometric errors, also set errorMessage for modal
-				if (!errorMessage) {
-					errorMessage = errorMsg;
-				}
-			}
 			throw new Error(error);
 		}
 	}
@@ -216,15 +179,15 @@
 		email: string
 	) {
 		try {
-			const recoveryData = await encryptMasterKeyData(nsec, walletMnemonic, password);
+			const { encryptedData: recoveryData } = await encryptMasterKeyData(
+				nsec,
+				walletMnemonic,
+				password
+			);
 
 			const data: AccountRecoveryData = {
 				publicKey: npub,
-				recoveryData: {
-					nostr: recoveryData.nostr,
-					wallet: recoveryData.wallet,
-					masterSalt: recoveryData.masterSalt
-				},
+				recoveryData,
 				email
 			};
 
@@ -240,7 +203,6 @@
 		try {
 			isLoading = true;
 			error = '';
-			errorMessage = '';
 			errorType = undefined;
 
 			let npub: string;
@@ -251,11 +213,9 @@
 				// Convert nsec to hex format
 				const { type, data } = nip19.decode(userData.nsec);
 				if (type !== 'nsec') {
-					const errorMsg = 'Invalid nsec format';
-					error = errorMsg;
-					errorMessage = errorMsg;
-					errorType = detectErrorType(errorMsg);
-					throw new Error(errorMsg);
+					error = 'Invalid nsec format';
+					errorType = detectErrorType(error);
+					throw new Error(error);
 				}
 				// Convert Uint8Array to hex
 				nsec = bytesToHex(data);
@@ -274,7 +234,13 @@
 
 			// Setup recovery if enabled
 			if (userData.hasRecovery && userData.recoveryEmail && userData.recoveryPassword) {
-				await setupAccRecovery(npub, nsec, walletMnemonic, userData.recoveryPassword, userData.recoveryEmail);
+				await setupAccRecovery(
+					npub,
+					nsec,
+					walletMnemonic,
+					userData.recoveryPassword,
+					userData.recoveryEmail
+				);
 			}
 
 			isSetupComplete = true;
@@ -285,16 +251,12 @@
 			console.error('Passkey setup failed:', err);
 			// Error already set by register() function for biometric errors
 			if (!error) {
-				const errorMsg = err instanceof Error
-					? err.message
-					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
-				error = errorMsg;
-				// For non-biometric errors, also set errorMessage for modal
-				if (!errorMessage) {
-					errorMessage = errorMsg;
-					// Try to detect error type for non-biometric errors
-					errorType = detectErrorType(errorMsg);
-				}
+				error =
+					err instanceof Error
+						? err.message
+						: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+				// Try to detect error type for non-biometric errors
+				errorType = detectErrorType(error);
 			}
 		} finally {
 			isLoading = false;
@@ -302,7 +264,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-passkey">
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
@@ -342,19 +304,19 @@
 				</p>
 
 				{#if error}
+					<div data-testid="passkey-setup-error">
 					<ErrorAlertWithModal
 						{error}
-						errorType={errorType}
+						{errorType}
 						isPasskeyError={true}
-						autoOpenModal={true}
 						onRetry={async () => {
 							error = '';
-							errorMessage = '';
 							errorType = undefined;
 							await handlePasskeySetup();
 						}}
 						class="mx-auto mb-6 max-w-lg"
 					/>
+					</div>
 				{/if}
 
 				{#if isSetupComplete}
@@ -387,6 +349,7 @@
 				<button
 					type="button"
 					class="btn btn-primary"
+					data-testid="passkey-setup-button"
 					onclick={handlePasskeySetup}
 					disabled={isLoading}
 				>

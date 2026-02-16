@@ -61,7 +61,11 @@
 
 	// Debounced function to validate password match
 	const validatePasswordMatch = debounce(() => {
-		if (confirmRecoveryPassword && recoveryPassword && confirmRecoveryPassword !== recoveryPassword) {
+		if (
+			confirmRecoveryPassword &&
+			recoveryPassword &&
+			confirmRecoveryPassword !== recoveryPassword
+		) {
 			passwordMismatchError = $t('settings.validation.passwordMismatch');
 		} else {
 			passwordMismatchError = '';
@@ -150,15 +154,15 @@
 			const { data: publicKeyHex } = nip19.decode(npub);
 
 			// Encrypt the nsec with the recovery password
-			const recoveryData = await encryptMasterKeyData(nsec, mnemonic, recoveryPassword);
+			const { encryptedData: recoveryData } = await encryptMasterKeyData(
+				nsec,
+				mnemonic,
+				recoveryPassword
+			);
 
 			const data = {
 				publicKey: publicKeyHex as string,
-				recoveryData: {
-					nostr: recoveryData.nostr,
-					wallet: recoveryData.wallet,
-					masterSalt: recoveryData.masterSalt
-				},
+				recoveryData,
 				email: recoveryEmail
 			};
 
@@ -261,7 +265,9 @@
 								updatePasswordStrength(e);
 								validatePasswordMatch();
 							}}
-							class="input input-bordered w-full pr-28 {(passwordError || passwordMismatchError) ? 'input-error' : ''}"
+							class="input input-bordered w-full pr-28 {passwordError || passwordMismatchError
+								? 'input-error'
+								: ''}"
 							placeholder={$t('settings.recovery.password.placeholder')}
 							required
 							disabled={recoveryLoading}
@@ -392,7 +398,9 @@
 							id="confirm-recovery-password"
 							bind:value={confirmRecoveryPassword}
 							oninput={validatePasswordMatch}
-							class="input input-bordered w-full pr-20 {(passwordError || passwordMismatchError) ? 'input-error' : ''}"
+							class="input input-bordered w-full pr-20 {passwordError || passwordMismatchError
+								? 'input-error'
+								: ''}"
 							placeholder={$t('settings.recovery.confirmPassword.placeholder')}
 							required
 							disabled={recoveryLoading}

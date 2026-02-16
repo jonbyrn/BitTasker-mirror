@@ -5,13 +5,11 @@
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager, transactions } from '$lib/stores/wallet.store';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
-	import IconPencil from '~icons/mdi/pencil';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
 
@@ -291,7 +289,7 @@
 
 	<!-- Modal Container - Full screen on mobile/tablet -->
 	<div
-		class="bg-base-100 fixed inset-0 z-101 flex flex-col overflow-y-auto py-1 shadow-2xl lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl"
+		class="bg-base-100 fixed inset-0 z-101 flex flex-col overflow-y-auto py-1 shadow-2xl pb-safe lg:pb-0 lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl"
 		transition:fly={prefersReducedMotion
 			? undefined
 			: {
@@ -365,23 +363,25 @@
 					<!-- Payment Request Content -->
 					<div class="space-y-2">
 						<!-- Total Amount Display (Prominent) -->
-						<div
-							class="bg-primary/10 border-primary flex flex-col items-center gap-1 rounded-2xl border-2 p-2"
-						>
-							<div class="flex items-baseline gap-2">
-								<span class="text-primary text-3xl font-bold tabular-nums md:text-4xl">
-									{formatSats(payerTotalAmount)}
-								</span>
-								<span class="text-primary text-xl font-semibold md:text-2xl"
-									>{$t('wallet.sats')}</span
-								>
-							</div>
-							{#if btcPrice > 0 && payerTotalAmountUSD > 0}
-								<div class="text-base-content/70 text-lg font-semibold md:text-xl">
-									≈ {formatUSD(payerTotalAmountUSD)}
+						{#if network !== 'rootstock-bitcoin'}
+							<div
+								class="bg-primary/10 border-primary flex flex-col items-center gap-1 rounded-2xl border-2 p-2"
+							>
+								<div class="flex items-baseline gap-2">
+									<span class="text-primary text-3xl font-bold tabular-nums md:text-4xl">
+										{formatSats(payerTotalAmount)}
+									</span>
+									<span class="text-primary text-xl font-semibold md:text-2xl"
+										>{$t('wallet.sats')}</span
+									>
 								</div>
-							{/if}
-						</div>
+								{#if btcPrice > 0 && payerTotalAmountUSD > 0}
+									<div class="text-base-content/70 text-lg font-semibold md:text-xl">
+										≈ {formatUSD(payerTotalAmountUSD)}
+									</div>
+								{/if}
+							</div>
+						{/if}
 
 						<!-- Network Display - Show icon, translated name, and status indicator -->
 						<div class="bg-base-200 flex items-center justify-between gap-3 rounded-lg p-2">
@@ -407,14 +407,12 @@
 					<span class="text-base font-medium">{networkInfo.label}</span>
 				</div>
 				<!-- Status Indicator (only show for swap-based payments) -->
-				{#if isSwapBased && swapStatus && !isTransactionConfirmed}
+				<!-- {#if isSwapBased && swapStatus && !isTransactionConfirmed}
 					{@const IconComponent = swapStatus.icon}
 					<div class="flex items-center gap-2">
-						<!-- Only show spinner when actually pending -->
 						{#if swapStatus.label === 'wallet.transaction.status.pending'}
 							<span class="loading loading-spinner loading-sm"></span>
 						{/if}
-						<!-- Dynamic status badge with proper colors -->
 									<span
 										class="badge"
 							class:badge-warning={swapStatus.label === 'wallet.transaction.status.pending'}
@@ -425,8 +423,23 @@
 							{$t(swapStatus.label)}
 						</span>
 					</div>
-				{/if}
+				{/if} -->
 				</div>
+
+						<!-- Invoice Total (Rootstock only, above QR code) -->
+						{#if network === 'rootstock-bitcoin' && payerTotalAmount > 0}
+							<div class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4">
+								<span class="text-center text-xs opacity-70">{$t('wallet.receive.invoice_total')}</span>
+								<div class="flex w-full items-center justify-center gap-1.5">
+									<span class="text-primary text-xl font-bold">
+										{formatSats(payerTotalAmount)} {$t('wallet.sats')}
+									</span>
+									{#if btcPrice > 0 && payerTotalAmountUSD > 0}
+										<span class="text-xs opacity-60">≈ {formatUSD(payerTotalAmountUSD)}</span>
+									{/if}
+								</div>
+							</div>
+						{/if}
 
 						<!-- QR Code (Almost Full Screen Width) -->
 						<div class="flex justify-center px-2">
@@ -471,7 +484,7 @@
 
 			<!-- Fixed Action Buttons at Bottom -->
 			<div
-				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex flex-shrink-0 gap-2 pt-2 pb-1 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:py-1 md:static md:py-0 md:shadow-none"
+				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex shrink-0 gap-2 pt-2 pb-1 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:py-1 md:static md:py-0 md:shadow-none"
 			>
 				{#if !isTransactionConfirmed}
 					<!-- Back Button (show if onEdit callback exists) -->

@@ -1,0 +1,26 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://bittasker.com/sitemap.xml
+
+# Disallow sensitive areas
+Disallow: /dashboard/
+Disallow: /auth/onboarding
+Disallow: /auth/recover/
+Disallow: /api/
+Disallow: /_app/
+
+# Allow important public pages
+Allow: /
+Allow: /about
+Allow: /careers
+Allow: /contact
+Allow: /faq
+Allow: /how-it-works
+Allow: /privacy
+Allow: /security
+Allow: /terms
+Allow: /auth/login
+Allow: /auth/signup
+

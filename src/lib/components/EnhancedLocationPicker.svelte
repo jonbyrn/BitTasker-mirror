@@ -59,8 +59,15 @@
 	let searchInput: HTMLInputElement;
 	let marker: google.maps.marker.AdvancedMarkerElement | null = null;
 	let circle: google.maps.Circle | null = null;
-	let currentServiceRadius = $state(serviceRadius);
-	let currentLocation = $state<Location>(location);
+	// Initialize with default values to avoid capturing initial prop values
+	let currentServiceRadius = $state(1.6);
+	let currentLocation = $state<Location>({
+		displayName: '',
+		longitude: -122.4194,
+		latitude: 37.7749,
+		zipCode: '',
+		locationLoaded: false
+	});
 	let isLoading = $state(false);
 	let isMapLoaded = $state(false);
 	let hasError = $state(false);
@@ -75,9 +82,13 @@
 	let maxRetries = 3;
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
 
-	// Update currentLocation when location prop changes
+	// Update currentLocation and currentServiceRadius when props change
 	$effect(() => {
-		currentLocation = location;
+		// Explicitly track props to ensure reactivity
+		const propLocation = location;
+		const propServiceRadius = serviceRadius;
+		currentLocation = propLocation;
+		currentServiceRadius = propServiceRadius;
 	});
 
 	// Default fallback coordinates (San Francisco)
@@ -113,7 +124,7 @@
 
 	// Helper function to extract address components from Google Maps address components
 	function extractAddressComponents(
-		components: google.maps.GeocoderAddressComponent[] | google.maps.places.PlaceComponent[]
+		components: google.maps.GeocoderAddressComponent[] 
 	): Location['addressComponents'] {
 		const addressComponents: Location['addressComponents'] = {};
 
@@ -243,10 +254,10 @@
 			// Create initial marker with safe coordinates
 			await createMarkerAndCircle(safeCoords.lat, safeCoords.lng);
 			
-			// If we have a valid existing location, update the search input
+			// If we have a valid existing location, update the search input with complete address
 			if (isValidCoordinate(currentLocation.latitude, currentLocation.longitude) && currentLocation.displayName) {
 				if (searchInput) {
-					searchInput.value = currentLocation.displayName;
+					searchInput.value = currentLocation.formattedAddress || currentLocation.displayName;
 				}
 			}
 		} catch (error) {
@@ -402,11 +413,11 @@
 					const extractedComponents = extractAddressComponents(addressComponents);
 
 					// Extraer ciudad y estado para displayName
-					const city = extractedComponents.city || '';
-					const stateRegion = extractedComponents.state || '';
-					const country = extractedComponents.country || '';
-					const neighborhood = extractedComponents.neighborhood || '';
-					const sublocality = extractedComponents.sublocality || '';
+					const city = extractedComponents?.city || '';
+					const stateRegion = extractedComponents?.state || '';
+					const country = extractedComponents?.country || '';
+					const neighborhood = extractedComponents?.neighborhood || '';
+					const sublocality = extractedComponents?.sublocality || '';
 
 					let displayName = '';
 
@@ -451,9 +462,9 @@
 
 					currentLocation = newLocation;
 
-					// Update input value
+					// Update input value with complete address (formattedAddress from Google Maps)
 					if (searchInput) {
-						searchInput.value = newLocation.displayName;
+						searchInput.value = newLocation.formattedAddress || newLocation.displayName;
 					}
 
 					// Call callback
@@ -629,13 +640,13 @@
 		// Extract address components
 		const addressComponents = place.addressComponents;
 		const extractedComponents = addressComponents
-			? extractAddressComponents(addressComponents)
+			? extractAddressComponents(addressComponents as any)
 			: undefined;
 
 		// Extract postal code
 		const zipCode =
 			addressComponents?.find((component) => component.types.includes('postal_code'))
-				?.short_name || '';
+				?.longText || '';
 
 		// Update location state with full address details
 		const newLocation: Location = {
@@ -652,9 +663,9 @@
 
 		currentLocation = newLocation;
 
-		// Update input value
+		// Update input value with complete address (formattedAddress from Google Maps)
 		if (searchInput) {
-			searchInput.value = newLocation.displayName;
+			searchInput.value = newLocation.formattedAddress || newLocation.displayName;
 		}
 
 		// Call callback
@@ -691,25 +702,50 @@
 			console.log('Using fallback fullscreen method - Capacitor ScreenOrientation not available');
 		}
 
+		// Calculate navigation bar heights
+		const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
+		const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
+		
+		// Get footer height from CSS variable (set dynamically by layout)
+		const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+		const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
+		
+		// Calculate available height (viewport minus navigation bars)
+		const viewportHeight = window.innerHeight;
+		const availableHeight = viewportHeight - headerHeight - footerHeight;
+
 		// Store original dimensions for restoring later
 		if (mapContainerDiv) {
-			// Apply fullscreen styles
+			// Apply fullscreen styles - position below header, above footer
+			// Remove all height-related classes that might interfere
+			mapContainerDiv.className = 'map-container';
 			mapContainerDiv.style.position = 'fixed';
-			mapContainerDiv.style.top = '0';
+			mapContainerDiv.style.top = `${headerHeight}px`;
+			mapContainerDiv.style.bottom = `${footerHeight}px`;
 			mapContainerDiv.style.left = '0';
+			mapContainerDiv.style.right = '0';
 			mapContainerDiv.style.width = '100vw';
-			mapContainerDiv.style.height = '100vh';
-			mapContainerDiv.style.zIndex = '100'; // Lower z-index so controls stay on top
+			mapContainerDiv.style.height = `${availableHeight}px`;
+			mapContainerDiv.style.maxHeight = `${availableHeight}px`;
+			mapContainerDiv.style.minHeight = `${availableHeight}px`;
+			mapContainerDiv.style.zIndex = '1000'; // High z-index to be above content but below modals
 			mapContainerDiv.style.backgroundColor = 'white';
 			mapContainerDiv.style.overflow = 'hidden';
+			mapContainerDiv.style.margin = '0';
+			mapContainerDiv.style.padding = '0';
 		}
 
 		// Ensure inner map element fills the fullscreen container
+		// Remove height-related classes
 		if (mapElement) {
+			mapElement.className = 'w-full overflow-hidden';
 			mapElement.style.width = '100%';
 			mapElement.style.height = '100%';
-			mapElement.style.minHeight = '100vh';
+			mapElement.style.minHeight = '100%';
+			mapElement.style.maxHeight = '100%';
 			mapElement.style.borderRadius = '0';
+			mapElement.style.margin = '0';
+			mapElement.style.padding = '0';
 		}
 
 		// Await DOM flush, then trigger Google Maps resize and re-center
@@ -733,9 +769,31 @@
 
 		// Keep size in sync when device UI chrome changes (mobile) or orientation changes
 		fullscreenResizeHandler = () => {
+			// Only handle resize if still in fullscreen
+			if (!isFullscreen) return;
+			
+			// Recalculate navigation bar heights on resize
+			const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
+			const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
+			
+			const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+			const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
+			
+			const viewportHeight = window.innerHeight;
+			const availableHeight = viewportHeight - headerHeight - footerHeight;
+			
+			if (mapContainerDiv) {
+				mapContainerDiv.style.top = `${headerHeight}px`;
+				mapContainerDiv.style.bottom = `${footerHeight}px`;
+				mapContainerDiv.style.height = `${availableHeight}px`;
+				mapContainerDiv.style.maxHeight = `${availableHeight}px`;
+				mapContainerDiv.style.minHeight = `${availableHeight}px`;
+			}
+			
 			if (mapElement) {
 				mapElement.style.height = '100%';
-				mapElement.style.minHeight = '100vh';
+				mapElement.style.minHeight = '100%';
+				mapElement.style.maxHeight = '100%';
 			}
 			if (map) {
 				google.maps.event.trigger(map, 'resize');
@@ -764,22 +822,35 @@
 
 		// Restore original CSS styles
 		if (mapContainerDiv) {
+			// Restore original classes
+			mapContainerDiv.className = 'map-container relative w-full';
 			mapContainerDiv.style.position = 'relative';
 			mapContainerDiv.style.top = 'auto';
+			mapContainerDiv.style.bottom = 'auto';
 			mapContainerDiv.style.left = 'auto';
+			mapContainerDiv.style.right = 'auto';
 			mapContainerDiv.style.width = '100%';
+			mapContainerDiv.style.maxHeight = '';
+			mapContainerDiv.style.minHeight = '';
 			mapContainerDiv.style.height = 'auto';
 			mapContainerDiv.style.zIndex = 'auto';
 			mapContainerDiv.style.backgroundColor = 'transparent';
 			mapContainerDiv.style.overflow = 'visible';
+			mapContainerDiv.style.margin = '';
+			mapContainerDiv.style.padding = '';
 		}
 
 		// Restore map element size
 		if (mapElement) {
+			// Restore original classes
+			mapElement.className = 'h-full w-full overflow-hidden rounded-lg';
 			mapElement.style.width = '100%';
 			mapElement.style.height = '';
 			mapElement.style.minHeight = mapHeight;
+			mapElement.style.maxHeight = '';
 			mapElement.style.borderRadius = '0.5rem'; // rounded-lg
+			mapElement.style.margin = '';
+			mapElement.style.padding = '';
 		}
 
 		// Remove resize listener if present
@@ -819,7 +890,7 @@
 		<!-- Search bar - using fixed positioning when in fullscreen mode -->
 		<div
 			class={isFullscreen
-				? 'fixed top-6 right-6 left-6 z-[1000]'
+				? 'fixed top-6 right-6 left-6 z-1000'
 				: 'absolute top-4 right-0 left-0 z-10 px-4'}
 		>
 			{#if isFullscreen}
@@ -876,7 +947,7 @@
 
 				{#if showOptions}
 					<div
-						class="predictions-dropdown bg-base-100 border-base-300 absolute z-[1000] mt-2 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
+						class="predictions-dropdown bg-base-100 border-base-300 absolute z-1000 mt-2 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 					>
 						{#if predictions.length > 0}
 							{#each predictions as prediction}
@@ -910,13 +981,12 @@
 			</div>
 		</div>
 
-		<!-- Fullscreen Button - using fixed positioning when in fullscreen mode -->
+		<!-- Fullscreen Button - positioned relative to map container -->
 		{#if showFullscreen}
 			<button
 				onclick={toggleFullscreen}
-				class="{isFullscreen
-					? 'fixed bottom-4 left-4 z-[1000]'
-					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				class="absolute top-4 right-4 z-20 btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				class:z-1000={isFullscreen}
 				aria-label={isFullscreen
 					? getLocationPickerTranslation('exit_fullscreen')
 					: getLocationPickerTranslation('enter_fullscreen')}
@@ -954,7 +1024,7 @@
 
 		<!-- Service Radius Panel - mejor posicionado y espaciado -->
 		{#if showServiceRadius}
-			<div class={isFullscreen ? 'fixed top-32 right-6 z-[1000]' : 'absolute top-16 right-4 z-20'}>
+			<div class={isFullscreen ? 'fixed top-32 right-6 z-1000' : 'absolute top-16 right-4 z-20'}>
 				<div class="bg-base-100/95 border-base-300 rounded-lg border p-4 shadow-lg">
 					<div class="text-base-content mb-3 text-sm font-medium">
 						{getLocationPickerTranslation('service_radius')}: {currentServiceRadius}{' '}
@@ -1010,7 +1080,7 @@
 					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/></svg
 			>
-			<span>{getLocationPickerTranslation('location_set')}: {currentLocation.displayName}</span>
+			<span>{$t('task.location_picker.location_set')}: {currentLocation.formattedAddress || currentLocation.displayName}</span>
 		</div>
 	{/if}
 

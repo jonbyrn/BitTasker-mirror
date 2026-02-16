@@ -5,10 +5,14 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { getMyBids, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
-	import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+	import { getMyBids, getBidStatus, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { formatStandardDateTime, parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
+	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
+	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 
 	// Simple function to get translated task title/description
 	// Reactive to locale changes via $locale
@@ -125,11 +129,30 @@
 		expandedBids = new Set(expandedBids);
 	}
 
-	// Reactive date formatting functions using Svelte 5 runes
-	function formatDateRangeReactive(startDate: Date, endDate: Date) {
-		const start = formatStandardDateShort(startDate, $locale || 'en');
-		const end = formatStandardDateShort(endDate, $locale || 'en');
-		return `${start} - ${end}`;
+	/** Status label and badge per status (constant) */
+	const StatusRender: Record<string, { label: string; badge: string }> = {
+		[BidStatusEnum.ACCEPTED]: { label: $t('bids.accepted'), badge: 'badge-success' },
+		[BidStatusEnum.REJECTED]: { label: $t('bids.rejected'), badge: 'badge-error' },
+		[BidStatusEnum.COUNTERED]: { label: $t('bids.status_countered'), badge: 'badge-info' },
+		[BidStatusEnum.WITHDRAWN]: { label: $t('bids.status_withdrawn'), badge: 'badge-neutral' }
+	};
+
+	/** Format sent-at timestamp (Unix seconds) for display */
+	function formatSentAt(createdAt: number): string {
+		const currentLocale = $locale || 'en';
+		return formatStandardDateTime(new Date(createdAt * 1000), currentLocale);
+	}
+
+	/** Format bid's proposed date range (dates you set for completing the task) */
+	function formatProposedDateRange(bid: NostrBidContent): string {
+		if (!bid.startDateTime || !bid.endDateTime) return '';
+		const start = parseDateWithLocalTime(bid.startDateTime);
+		const end = parseDateWithLocalTime(bid.endDateTime);
+		const loc = $locale || 'en';
+		if (start && end) {
+			return `${formatStandardDateTime(start, loc)} - ${formatStandardDateTime(end, loc)}`;
+		}
+		return '';
 	}
 </script>
 
@@ -266,94 +289,80 @@
 	{:else}
 		<!-- Bids List -->
 		<div class="space-y-4 pt-4">
+			<!-- bid.content (NostrBidContent) incluye taskTitle, taskDescription, taskBudget, etc. enviados al crear la bid -->
 			{#each myBids as bidEvent}
 				{@const bid = bidEvent.content as unknown as NostrBidContent}
-				<div class="card bg-base-100 border-base-300 rounded-2xl border shadow-sm">
+				{@const status = getBidStatus(bidEvent)?.status?.toUpperCase()}
+				<div class="card bg-base-100 border-base-300 relative rounded-2xl border shadow-sm">
 					<div class="card-body p-4 md:p-6">
-						<!-- Top Row: Title + Price -->
-						<div class="flex flex-col">
-							<!-- Left: Title -->
-							<small class="card-title line-clamp-2 text-lg">
-								<button
-									onclick={(e) => {
-										e.stopPropagation();
-										goto(`/tasks/${bid.taskId}`);
-									}}
-									class="hover:text-primary cursor-pointer transition-colors"
-								>
-									{getTranslatedTaskText(bid, 'title') || $t('bids.unknown_task')}
-								</button>
-							</small>
+						<!-- Status badge: top-right of card -->
+						<div class="absolute right-4 top-4 z-10">
+							<span class="badge {StatusRender[status ?? '']?.badge ?? 'badge-warning'}">
+								{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
+							</span>
+						</div>
 
-							<div class="text-base-content/60 text-sm line-clamp-2">
+						<!-- Section TAREA (what the task is) -->
+						<div class="border-base-200 border-b pb-4">
+							<span class="text-base-content/60 mb-2 block text-xs font-semibold uppercase tracking-wide">
+								{$t('bids.section_task')}
+							</span>
+							<button
+								onclick={(e) => {
+									e.stopPropagation();
+									goto(`/tasks/${bid.taskId}`);
+								}}
+								class="hover:text-primary card-title line-clamp-2 text-left text-lg transition-colors"
+							>
+								{getTranslatedTaskText(bid, 'title') || $t('bids.unknown_task')}
+							</button>
+							<p class="text-base-content/60 mt-1 line-clamp-2 text-sm">
 								{getTranslatedTaskText(bid, 'description')}
+							</p>
+							<div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+								<div class="flex flex-col gap-2">
+									<TaskDeadlineDisplay
+										dateRangeStart={bid.startDateTime}
+										dateRangeEnd={bid.endDateTime}
+									/>
+									<TaskLocationDisplay />
+								</div>
+								{#if bid.taskBudget != null}
+									<div class="shrink-0 text-right">
+										<p class="text-lg font-bold">${formatNumberWithTwoDecimals(bid.taskBudget.amount)}</p>
+										<p class="text-base-content/60 text-sm">{cachedSatsFromUsd(bid.taskBudget.amount, btcPrice)} {$t('bids.sats')}</p>
+									</div>
+								{/if}
+							</div>
+							<div class="mt-3">
+								<UserInfoDisplay
+									avatar={bid.taskCreatorAvatar}
+									username={bid.taskCreatorUsername}
+									rating={bid.taskCreatorRating || 0}
+									size="md"
+									avatarAlt={$t('common.components.bidding.dashboard_bids.avatar_alt')}
+									pubkey={bid.taskCreatorPubkey}
+									memberSince={bidEvent.created_at}
+								/>
 							</div>
 						</div>
 
-
-						<!-- Schedule and Sats Row -->
-						<div class=" flex flex-col gap-2 md:flex-row md:flex-wrap">
-							<div class="flex w-full items-center justify-between">
-								<!-- Left: Schedule -->
-								<div class="flex items-center gap-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="text-base-content/60 h-4 w-4 shrink-0"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-										/>
-									</svg>
-									<div class="flex flex-col px-2">
-										{#if bid.paymentType === 'FIXED'}
-											<small class="text-base-content/60 text-xs">
-												{$t('bids.your_proposal')} - {bid.paymentType.toLowerCase()}
-											</small>
-											<span class="text-sm font-medium">
-												{formatDateRangeReactive(
-													new Date(bid.startDateTime),
-													new Date(bid.endDateTime)
-												)}
-											</span>
-										{:else if bid.paymentType === 'HOURLY'}
-											<small class="text-base-content/60 text-xs">
-												{$t('bids.your_proposal')} - {bid.paymentType.toLowerCase()}
-											</small>
-											<span class="text-sm font-medium">
-												{bid.hourlyRate}
-												{$t('bids.sats')}/{$t('bids.per_hour')}
-												{#if bid.estimatedHours}
-													<br />
-													<span class="text-base-content/70 text-xs">
-														{bid.estimatedHours}
-														{$t('bids.hours')}
-													</span>
-												{/if}
-											</span>
-										{/if}
-									</div>
-								</div>
-
-								<!-- Right: Sats -->
-								<div class="text-lg font-bold">
-									${formatNumberWithTwoDecimals(bid.amount)}
-									<div class="text-base-content/60 text-sm">
-										{cachedSatsFromUsd(bid.amount, btcPrice)} Sats
-									</div>
-								</div>
-							</div>
-
-							<!-- Location -->
-							<div class="flex w-full items-start gap-2">
+						<!-- Section TU OFERTA (what you sent) - dropdown -->
+						<div class="pt-4">
+							<button
+								type="button"
+								class="hover:bg-base-content/5 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-200/40 px-3 py-2 text-left transition-colors"
+								onclick={() => toggleBidExpansion(bid.bidId)}
+								aria-expanded={expandedBids.has(bid.bidId)}
+							>
+								<span class="text-base-content/60 text-xs font-semibold uppercase tracking-wide">
+									{$t('bids.section_your_offer')}
+								</span>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
+									class="h-4 w-4 shrink-0 transition-transform duration-200 {expandedBids.has(bid.bidId)
+										? 'rotate-180'
+										: ''}"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -362,166 +371,53 @@
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
-										d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-									/>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+										d="M19 9l-7 7-7-7"
 									/>
 								</svg>
-								<div class="flex min-w-0 flex-1 flex-col">
-									<small class="text-base-content/60 text-xs">
-										{$t('dashboard.task_details_by_task.location_details')}
-									</small>
-									<span class="line-clamp-2 text-sm font-medium">
-										{$t('dashboard.task_details_by_task.remote')}
-									</span>
-								</div>
-							</div>
-						</div>
-
-						<div class="flex flex-col gap-3 pt-2 md:flex-row md:items-center md:justify-between">
-							<!-- Left: Avatar, Username, and Review Stars -->
-							<div class="flex items-center gap-3">
-								<!-- Avatar -->
-								<div class="avatar">
-									<div class="bg-base-300 flex h-8 w-8 items-center justify-center rounded-full">
-										{#if bid.taskCreatorAvatar}
-											<img
-												src={bid.taskCreatorAvatar}
-												alt={$t('common.components.bidding.dashboard_bids.avatar_alt')}
-												class="h-8 w-8 rounded-full object-cover"
-											/>
-										{:else}
-											<!-- Placeholder con iniciales del nombre -->
-											<div
-												class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center"
-											>
-												{#if bid.taskCreatorUsername}
-													<span class="text-lg font-semibold">
-														{bid.taskCreatorUsername.charAt(0).toUpperCase()}
-													</span>
-												{:else}
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														class="text-base-content/60 h-6 w-6"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke="currentColor"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-														/>
-													</svg>
-												{/if}
-											</div>
-										{/if}
+							</button>
+							{#if expandedBids.has(bid.bidId)}
+								<div class="border-base-200 mt-3 space-y-3 rounded-lg border bg-base-200/30 p-3">
+									<!-- Status, sent-at and price in one row, price on the right -->
+									<div class="flex flex-wrap items-center justify-between gap-3">
+										<div class="flex flex-wrap items-center gap-3">
+											<span class="badge {StatusRender[status ?? '']?.badge ?? 'badge-warning'}">{StatusRender[status ?? '']?.label ?? $t('bids.pending')}</span>
+											<span class="text-base-content/60 text-sm">
+												{$t('bids.sent_at')}: <strong class="text-base-content">{formatSentAt(bidEvent.created_at)}</strong>
+											</span>
+										</div>
+										<div class="shrink-0 text-right">
+											<p class="text-xl font-bold">${formatNumberWithTwoDecimals(bid.amount)}</p>
+											<p class="text-base-content/60 text-sm">{cachedSatsFromUsd(bid.amount, btcPrice)} {$t('bids.sats')}</p>
+										</div>
 									</div>
-								</div>
-
-								<!-- Username and Review Stars -->
-								<div class="flex flex-col">
-									<span class="text-sm font-medium">
-										{bid.taskCreatorUsername || ''}
-									</span>
-									<!-- Review Stars -->
-									<!-- TODO: These fields do not exist in the bid event -->
-									<div class="flex items-center">
-										{#each Array(5) as _, i}
+									{#if bid.startDateTime && bid.endDateTime}
+										<div class="flex items-start gap-2">
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3 {i < (bid.taskCreatorRating || 0)
-													? 'text-yellow-400'
-													: 'text-base-content/30'}"
-												fill="currentColor"
+												class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
+												fill="none"
 												viewBox="0 0 24 24"
+												stroke="currentColor"
 											>
 												<path
-													d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
 												/>
 											</svg>
-										{/each}
-										<span class="text-base-content/60 ml-1 text-xs">
-											{bid.taskCreatorRating || 0}</span
-										>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<!-- Expandable sections -->
-						<div class="flex flex-col gap-3">
-							<!-- Show more button and View Task button in same row -->
-							<div class="flex items-center justify-between">
-								{#if bid.description || (bid.proposedApproach && bid.proposedApproach.trim() !== '') || bid.coverLetter}
-									<button
-										type="button"
-										onclick={() => toggleBidExpansion(bid.bidId)}
-										class="hover:bg-base-content/5 flex w-fit cursor-pointer items-center gap-2 rounded-2xl p-2 text-left transition-colors duration-200"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-3 w-3 transition-transform duration-200 {expandedBids.has(bid.bidId)
-												? 'rotate-180'
-												: ''}"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M19 9l-7 7-7-7"
-											/>
-										</svg>
-										{expandedBids.has(bid.bidId) ? $t('bids.show_less') : $t('bids.show_more')}
-									</button>
-								{:else}
-									<div></div>
-								{/if}
-
-								<button
-									class="btn btn-secondary btn-sm"
-									onclick={() => goto(`/tasks/${bid.taskId}`)}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-										/>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-										/>
-									</svg>
-									{$t('bids.view_task')}
-								</button>
-							</div>
-
-							<!-- Expandable content - full width -->
-							{#if (bid.description || (bid.proposedApproach && bid.proposedApproach.trim() !== '') || bid.coverLetter) && expandedBids.has(bid.bidId)}
-								<div class="w-full space-y-4">
+											<div class="min-w-0 flex-1">
+												<small class="text-base-content/60 text-xs">{$t('bids.estimated_date')}</small>
+												<p class="text-sm font-medium">{formatProposedDateRange(bid)}</p>
+												{#if bid.estimatedDuration}
+													<span class="text-base-content/60 text-xs">({bid.estimatedDuration})</span>
+												{/if}
+											</div>
+										</div>
+									{/if}
 									{#if bid.description}
 										<div>
-											<p class="text-base-content/60 mb-2 text-xs font-medium">
-												{$t('bids.your_description')}
-											</p>
+											<p class="text-base-content/60 mb-1 text-xs font-medium">{$t('bids.your_description')}</p>
 											<div class="bg-base-200 rounded-lg p-3">
 												<p class="text-base-content/80 text-sm leading-relaxed">
 													{getTranslatedBidContent(bid, 'description')}
@@ -529,12 +425,9 @@
 											</div>
 										</div>
 									{/if}
-
 									{#if bid.proposedApproach && bid.proposedApproach.trim() !== ''}
 										<div>
-											<p class="text-base-content/60 mb-2 text-xs font-medium">
-												{$t('bids.your_approach')}
-											</p>
+											<p class="text-base-content/60 mb-1 text-xs font-medium">{$t('bids.your_approach')}</p>
 											<div class="bg-base-200 rounded-lg p-3">
 												<p class="text-base-content/80 text-sm leading-relaxed">
 													{getTranslatedBidContent(bid, 'proposedApproach')}
@@ -542,12 +435,9 @@
 											</div>
 										</div>
 									{/if}
-
 									{#if bid.coverLetter}
 										<div>
-											<p class="text-base-content/60 mb-2 text-xs font-medium">
-												{$t('bids.your_cover_letter')}
-											</p>
+											<p class="text-base-content/60 mb-1 text-xs font-medium">{$t('bids.your_cover_letter')}</p>
 											<div class="bg-base-200 rounded-lg p-3">
 												<p class="text-base-content/80 text-sm leading-relaxed">
 													{getTranslatedBidContent(bid, 'coverLetter')}
@@ -555,6 +445,34 @@
 											</div>
 										</div>
 									{/if}
+									<div class="flex justify-end pt-2">
+										<button
+											class="btn btn-primary btn-sm"
+											onclick={() => goto(`/tasks/${bid.taskId}`)}
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-5 w-5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+												/>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+												/>
+											</svg>
+											{$t('bids.view_task')}
+										</button>
+									</div>
 								</div>
 							{/if}
 						</div>
