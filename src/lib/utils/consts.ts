@@ -5,6 +5,7 @@ export const sections = [
 	{ id: '', path: '/dashboard?tab=tasks', label: 'navbar.my_tasks', icon: 'mdi:format-list-bulleted', mobile: true }, // Default section
 	{ id: 'create-task', path: '/dashboard/create-task', label: 'navbar.create_task', icon: 'mdi:plus-circle-outline', mobile: true },
 	{ id: 'find-tasks', path: '/tasks', label: 'navbar.find_tasks', icon: 'mdi:magnify', mobile: true },
+	{ id: 'find-services', path: '/services', label: 'navbar.find_services', icon: 'mdi:briefcase-search', mobile: true },
 	{ id: 'bids-sent', path: '/dashboard?tab=bids', label: 'navbar.bids_sent', icon: 'mdi:invoice-text-send-outline', mobile: true },
 	{ id: 'contracts', path: '/dashboard?tab=contracts', label: 'navbar.contracts', icon: 'mdi:file-sign', mobile: true },
 	{ id: 'wallet', path: '/dashboard/wallet', label: 'navbar.wallet', icon: 'mdi:wallet-outline', mobile: true },

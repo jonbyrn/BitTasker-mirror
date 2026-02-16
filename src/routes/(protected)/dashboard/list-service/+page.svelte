@@ -10,7 +10,6 @@
 	import { ServiceStepEnum, ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { t } from 'svelte-i18n';
 	import { browser } from '$app/environment';
-	import { nip19 } from 'nostr-tools';
 
 	// Import step components
 	import ServiceBasics from '$lib/components/service/steps/ServiceBasics.svelte';
@@ -204,16 +203,18 @@
 				// Details step is optional, no validation needed
 				break;
 			case ServiceStepEnum.PRICING:
-				if (!service?.pricing) errors.pricing = $t('dashboard.services.create.errors.pricing_required');
-				if (service?.pricing?.type === ServicePricingTypeEnum.FIXED) {
-					if (!service.pricing.amount || service.pricing.amount <= 0)
-						errors.pricing = $t('dashboard.services.create.errors.amount_required');
-				}
-				if (service?.pricing?.type === ServicePricingTypeEnum.HOURLY) {
+				if (!service?.pricing) {
+					errors.pricing = $t('dashboard.services.create.errors.pricing_required');
+				} else if (service.pricing.type === ServicePricingTypeEnum.FIXED) {
+					// Misma validación que Create Task: presupuesto no puede ser cero
+					if (service.pricing.amount == null || service.pricing.amount <= 0) {
+						errors.amount = $t('dashboard.services.create.errors.budget_required');
+						errors.pricing = $t('dashboard.services.create.errors.budget_required');
+					}
+				} else if (service.pricing.type === ServicePricingTypeEnum.HOURLY) {
 					if (!service.pricing.hourlyRate || service.pricing.hourlyRate <= 0)
 						errors.pricing = $t('dashboard.services.create.errors.hourly_rate_required');
-				}
-				if (service?.pricing?.type === ServicePricingTypeEnum.TIERED) {
+				} else if (service.pricing.type === ServicePricingTypeEnum.TIERED) {
 					if (!service.pricing.tiers || service.pricing.tiers.length < 2)
 						errors.pricing = $t('dashboard.services.create.errors.tiers_required');
 				}
@@ -320,7 +321,8 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl py-4 px-4">
+<!-- Mismas dimensiones que Create Task: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
+<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">
@@ -344,33 +346,9 @@
 	</div>
 	<div class="bg-base-100 rounded-xl">
 		<div class="card-body">
+			<!-- Step counter (igual que Create Task) -->
 			<div class="mb-4 flex items-center justify-between">
-				<!-- Step Title -->
-				<div class="text-lg font-semibold">
-					{#if $store.currentStep === ServiceStepEnum.BASICS}
-						{$t('dashboard.services.create.basics.title_label')}
-					{:else if $store.currentStep === ServiceStepEnum.LOCATION}
-						{$t('dashboard.services.create.location.types_label')}
-					{:else if $store.currentStep === ServiceStepEnum.DETAILS}
-						{$t('dashboard.services.create.details.title')}
-					{:else if $store.currentStep === ServiceStepEnum.PRICING}
-						{$t('dashboard.services.create.pricing.type_label')}
-					{:else if $store.currentStep === ServiceStepEnum.TIERS}
-						{$t('dashboard.services.create.tiers.title')}
-					{:else if $store.currentStep === ServiceStepEnum.ADD_ONS}
-						{$t('dashboard.services.create.addons.title')}
-					{:else if $store.currentStep === ServiceStepEnum.FAQS}
-						{$t('dashboard.services.create.faqs.title')}
-					{:else if $store.currentStep === ServiceStepEnum.INQUIRY_FORM}
-						{$t('dashboard.services.create.inquiry_form.title')}
-					{:else if $store.currentStep === ServiceStepEnum.PORTFOLIO}
-						{$t('dashboard.services.create.portfolio.title')}
-					{:else if $store.currentStep === ServiceStepEnum.REVIEW}
-						{$t('dashboard.services.create.review.title')}
-					{/if}
-				</div>
-				<!-- Step Counter -->
-				<div class="text-sm text-base-content/70">
+				<div class="text-sm">
 					{$t('dashboard.services.create.step')}
 					{$STEPS.indexOf($store.currentStep) + 1}
 					{$t('dashboard.services.create.of')}

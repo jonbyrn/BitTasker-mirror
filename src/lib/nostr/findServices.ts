@@ -271,12 +271,12 @@ export async function findServices(
 		// Filter out deleted services
 		const activeServices = await filterDeletedServices(rawServices);
 
-		// For public users, exclude own services (if npub available)
+		// For public users, exclude own services (if npub available and valid Bech32)
 		let filteredServices = activeServices;
 		try {
 			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
-			if (npub) {
-				// Convert npub to hex for comparison
+			// Only decode if it looks like a NIP-19 npub (starts with npub1); otherwise skip to avoid Bech32 errors
+			if (npub && typeof npub === 'string' && npub.startsWith('npub1')) {
 				const { nip19 } = await import('nostr-tools');
 				const decoded = nip19.decode(npub);
 				if (decoded.type === 'npub') {
@@ -286,8 +286,8 @@ export async function findServices(
 			}
 		} catch (error) {
 			console.error('Error filtering own services:', error);
-			// If npub not available, show all services (public user)
-			console.debug('NPUB not available, showing all services');
+			// If npub not available or invalid, show all services (public user)
+			console.debug('NPUB not available or invalid, showing all services');
 		}
 
 		// Pre-index services for optimized filtering
@@ -367,7 +367,7 @@ export async function findMyServices(
 		const { getNpub } = await import('$lib/utils/nostrKeys');
 		const npub = await getNpub();
 
-		if (!npub) {
+		if (!npub || typeof npub !== 'string' || !npub.startsWith('npub1')) {
 			return { services: [], total: 0, hasMore: false };
 		}
 

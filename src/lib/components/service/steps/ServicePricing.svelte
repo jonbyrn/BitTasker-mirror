@@ -1,14 +1,98 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import { t } from 'svelte-i18n';
+	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	let { errors, direction } = $props();
 
+	// BTC price and USD/Sats sync (same as Create Task budget step)
+	let usdAmount = $state<number>(0);
+	let btcPrice = $state<number>(0);
+	let sats = $derived(
+		formatNumberForInput(btcPrice > 0 ? Math.round((usdAmount / btcPrice) * SATS_PER_BTC) : 0)
+	);
+
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			if ($store.service.pricing?.amount != null) {
+				usdAmount = $store.service.pricing.amount;
+			}
+		} catch (err) {
+			console.error('Error fetching BTC price:', err);
+		}
+	}
+
+	function cleanInput(value: string): string {
+		return value.replace(/[^0-9.,]/g, '');
+	}
+
+	function handleUsdChange(event: Event) {
+		const rawValue = (event.target as HTMLInputElement).value;
+		const input = cleanInput(rawValue);
+		let cleanedInput = input.replace(/,/g, '');
+		if (cleanedInput.length > 1 && cleanedInput.startsWith('0') && cleanedInput[1] !== '.') {
+			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
+		}
+		const usdValue = parseFloat(cleanedInput);
+		if (!isNaN(usdValue)) {
+			store.updateService({
+				pricing: {
+					...$store.service.pricing!,
+					amount: usdValue,
+					currency: 'USDt'
+				}
+			});
+			usdAmount = usdValue;
+		} else {
+			store.updateService({
+				pricing: {
+					...$store.service.pricing!,
+					amount: 0,
+					currency: 'USDt'
+				}
+			});
+			usdAmount = 0;
+		}
+	}
+
+	function handleSatsChange(event: Event) {
+		const rawValue = (event.target as HTMLInputElement).value;
+		const input = cleanInput(rawValue);
+		let cleanedInput = input.replace(/,/g, '');
+		if (cleanedInput.length > 1 && cleanedInput.startsWith('0')) {
+			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
+		}
+		const satsValue = parseInt(cleanedInput, 10);
+		if (!isNaN(satsValue) && btcPrice > 0) {
+			const usdValue = (satsValue / SATS_PER_BTC) * btcPrice;
+			store.updateService({
+				pricing: {
+					...$store.service.pricing!,
+					amount: usdValue,
+					currency: 'USDt'
+				}
+			});
+			usdAmount = usdValue;
+		} else if (!isNaN(satsValue) && satsValue === 0) {
+			store.updateService({
+				pricing: {
+					...$store.service.pricing!,
+					amount: 0,
+					currency: 'USDt'
+				}
+			});
+			usdAmount = 0;
+		}
+	}
+
 	// Initialize pricing if not set
-	$effect(() => {	
+	$effect(() => {
 		if (!$store.service.pricing) {
 			store.updateService({
 				pricing: {
@@ -20,6 +104,13 @@
 		}
 	});
 
+	// Sync usdAmount from store when amount changes externally
+	$effect(() => {
+		if ($store.service.pricing?.type === ServicePricingTypeEnum.FIXED && $store.service.pricing?.amount != null) {
+			usdAmount = $store.service.pricing.amount;
+		}
+	});
+
 	// Update pricing type
 	function updatePricingType(type: ServicePricingTypeEnum) {
 		const currentPricing = $store.service.pricing || {
@@ -28,12 +119,10 @@
 			amount: 0
 		};
 
-		// Preserve currency when changing type
 		store.updateService({
 			pricing: {
 				...currentPricing,
 				type,
-				// Clear type-specific fields when switching types
 				...(type === ServicePricingTypeEnum.FIXED
 					? { hourlyRate: undefined, estimatedHours: undefined, tiers: undefined, inquiryForm: undefined }
 					: {}),
@@ -49,10 +138,14 @@
 			}
 		});
 	}
+
+	onMount(() => {
+		fetchBtcPrice();
+	});
 </script>
 
 <div
-	class="space-y-6"
+	class="space-y-4"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -60,194 +153,77 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<div class="w-full">
-		<label class="label" for="pricing-type">
-			<span class="label-text-alt">{$t('dashboard.services.create.pricing.type_hint')}</span>
-		</label>
+	<h4 class="text-lg font-semibold">{$t('dashboard.services.create.pricing.budget_question')}</h4>
 
-		<div class="space-y-3">
-			<!-- Fixed Pricing -->
-			<label class="flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors {$store.service.pricing?.type === ServicePricingTypeEnum.FIXED ? 'border-primary bg-primary/10' : 'border-base-300'}">
-				<input
-					type="radio"
-					name="pricingType"
-					class="radio radio-primary"
-					checked={$store.service.pricing?.type === ServicePricingTypeEnum.FIXED}
-					onchange={() => updatePricingType(ServicePricingTypeEnum.FIXED)}
-				/>
-				<div class="flex-1">
-					<div class="font-semibold">{$t('dashboard.services.create.pricing.fixed_title')}</div>
-					<div class="text-sm text-base-content/70">{$t('dashboard.services.create.pricing.fixed_description')}</div>
-				</div>
-			</label>
-
-			<!-- Hourly Pricing -->
-			<label class="flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors {$store.service.pricing?.type === ServicePricingTypeEnum.HOURLY ? 'border-primary bg-primary/10' : 'border-base-300'}">
-				<input
-					type="radio"
-					name="pricingType"
-					class="radio radio-primary"
-					checked={$store.service.pricing?.type === ServicePricingTypeEnum.HOURLY}
-					onchange={() => updatePricingType(ServicePricingTypeEnum.HOURLY)}
-				/>
-				<div class="flex-1">
-					<div class="font-semibold">{$t('dashboard.services.create.pricing.hourly_title')}</div>
-					<div class="text-sm text-base-content/70">{$t('dashboard.services.create.pricing.hourly_description')}</div>
-				</div>
-			</label>
-
-			<!-- Tiered Pricing -->
-			<label class="flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors {$store.service.pricing?.type === ServicePricingTypeEnum.TIERED ? 'border-primary bg-primary/10' : 'border-base-300'}">
-				<input
-					type="radio"
-					name="pricingType"
-					class="radio radio-primary"
-					checked={$store.service.pricing?.type === ServicePricingTypeEnum.TIERED}
-					onchange={() => updatePricingType(ServicePricingTypeEnum.TIERED)}
-				/>
-				<div class="flex-1">
-					<div class="font-semibold">{$t('dashboard.services.create.pricing.tiered_title')}</div>
-					<div class="text-sm text-base-content/70">{$t('dashboard.services.create.pricing.tiered_description')}</div>
-				</div>
-			</label>
-
-			<!-- Inquiry Required -->
-			<label class="flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors {$store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED ? 'border-primary bg-primary/10' : 'border-base-300'}">
-				<input
-					type="radio"
-					name="pricingType"
-					class="radio radio-primary"
-					checked={$store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
-					onchange={() => updatePricingType(ServicePricingTypeEnum.INQUIRY_REQUIRED)}
-				/>
-				<div class="flex-1">
-					<div class="font-semibold">{$t('dashboard.services.create.pricing.inquiry_title')}</div>
-					<div class="text-sm text-base-content/70">{$t('dashboard.services.create.pricing.inquiry_description')}</div>
-				</div>
-			</label>
-		</div>
-
-		{#if errors.pricingType}
-			<span class="label-text-alt text-error">{errors.pricingType}</span>
-		{/if}
-	</div>
-
-	<!-- Currency Selection -->
-	<div class="w-full">
-		<label for="currency" class="label" id="currency-label">
-			<span class="label-text">{$t('dashboard.services.create.pricing.currency_label')}</span>
-		</label>
-		<select
-			id="currency"
-			class="select select-bordered w-full"
-			value={$store.service.pricing?.currency || 'USDt'}
-			onchange={(e) => {
-				const currency = (e.target as HTMLSelectElement).value;
-				store.updateService({
-					pricing: {
-						...$store.service.pricing!,
-						currency
-					}
-				});
-			}}
+	<!-- Pill buttons (same as Create Task) -->
+	<div class="flex flex-wrap gap-4">
+		<button
+			type="button"
+			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.FIXED ? 'btn-primary' : 'btn-outline'}"
+			onclick={() => updatePricingType(ServicePricingTypeEnum.FIXED)}
 		>
-			<option value="USDt">USDt (Tether on Liquid)</option>
-			<option value="BTC">BTC (Bitcoin)</option>
-		</select>
+			{$t('dashboard.services.create.pricing.fixed_title')}
+		</button>
+		<button
+			type="button"
+			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.TIERED ? 'btn-primary' : 'btn-outline'}"
+			onclick={() => updatePricingType(ServicePricingTypeEnum.TIERED)}
+		>
+			{$t('dashboard.services.create.pricing.tiered_title')}
+		</button>
+		<button
+			type="button"
+			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED ? 'btn-primary' : 'btn-outline'}"
+			onclick={() => updatePricingType(ServicePricingTypeEnum.INQUIRY_REQUIRED)}
+		>
+			{$t('dashboard.services.create.pricing.inquiry_title')}
+		</button>
 	</div>
 
-	<!-- Fixed Pricing Fields -->
+	{#if errors.pricingType}
+		<span class="label-text-alt text-error">{errors.pricingType}</span>
+	{/if}
+
+	<!-- Fixed: Presupuesto con $ y Sats (igual que Create Task) -->
 	{#if $store.service.pricing?.type === ServicePricingTypeEnum.FIXED}
 		<div class="w-full">
-			<label for="fixedAmount" class="label" id="fixedAmount-label">
-				<span class="label-text">{$t('dashboard.services.create.pricing.fixed_amount_label')}</span>
+			<label for="budget" class="label">
+				<span class="label-text">{$t('dashboard.services.create.pricing.budget_label')}</span>
 			</label>
 			<div class="flex gap-2">
-				<input
-					type="number"
-					id="fixedAmount"
-					min="0"
-					step="0.01"
-					value={$store.service.pricing?.amount || 0}
-					onchange={(e) => {
-						const amount = Number((e.target as HTMLInputElement).value);
-						store.updateService({
-							pricing: {
-								...$store.service.pricing!,
-								amount
-							}
-						});
-					}}
-					class="input input-bordered flex-1 {errors.amount ? 'input-error' : ''}"
-				/>
-				<span class="flex items-center px-4 text-sm font-semibold">
-					{$store.service.pricing?.currency || 'USDt'}
-				</span>
+				<div class="relative">
+					<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"> $ </span>
+					<input
+						type="text"
+						id="budget-usd"
+						value={formatNumberForInput(usdAmount)}
+						oninput={handleUsdChange}
+						class="input input-bordered w-full pl-7 {errors.amount ? 'input-error' : ''}"
+						placeholder="0"
+						min="0"
+					/>
+				</div>
+				<div class="relative">
+					<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2">
+						Sats
+					</span>
+					<input
+						type="text"
+						id="budget-sats"
+						value={sats}
+						oninput={handleSatsChange}
+						class="input input-bordered w-full pr-12 {errors.amount ? 'input-error' : ''}"
+						placeholder="0"
+						min="0"
+					/>
+				</div>
 			</div>
 			{#if errors.amount}
 				<span class="label-text-alt text-error">{errors.amount}</span>
 			{/if}
-		</div>
-	{/if}
-
-	<!-- Hourly Pricing Fields -->
-	{#if $store.service.pricing?.type === ServicePricingTypeEnum.HOURLY}
-		<div class="w-full">
-			<label for="hourlyRate" class="label" id="hourlyRate-label">
-				<span class="label-text">{$t('dashboard.services.create.pricing.hourly_rate_label')}</span>
-			</label>
-			<div class="flex gap-2">
-				<input
-					type="number"
-					id="hourlyRate"
-					min="0"
-					step="0.01"
-					value={$store.service.pricing?.hourlyRate || 0}
-					onchange={(e) => {
-						const hourlyRate = Number((e.target as HTMLInputElement).value);
-						store.updateService({
-							pricing: {
-								...$store.service.pricing!,
-								hourlyRate
-							}
-						});
-					}}
-					class="input input-bordered flex-1 {errors.hourlyRate ? 'input-error' : ''}"
-				/>
-				<span class="flex items-center px-4 text-sm font-semibold">
-					{$store.service.pricing?.currency || 'USDt'}/{$t('dashboard.services.create.pricing.hour')}
-				</span>
-			</div>
-			{#if errors.hourlyRate}
-				<span class="label-text-alt text-error">{errors.hourlyRate}</span>
-			{/if}
-		</div>
-
-		<div class="w-full">
-			<label for="estimatedHours" class="label" id="estimatedHours-label">
-				<span class="label-text">{$t('dashboard.services.create.pricing.estimated_hours_label')}</span>
-				<span class="label-text-alt">{$t('dashboard.services.create.pricing.estimated_hours_hint')}</span>
-			</label>
-			<input
-				type="number"
-				id="estimatedHours"
-				min="0"
-				step="0.5"
-				value={$store.service.pricing?.estimatedHours || ''}
-				onchange={(e) => {
-					const estimatedHours = (e.target as HTMLInputElement).value
-						? Number((e.target as HTMLInputElement).value)
-						: undefined;
-					store.updateService({
-						pricing: {
-							...$store.service.pricing!,
-							estimatedHours
-						}
-					});
-				}}
-				class="input input-bordered w-full"
-				placeholder={$t('dashboard.services.create.pricing.estimated_hours_placeholder')}
-			/>
+			<span class="label-text-alt mt-1 block text-base-content/70">
+				{$t('dashboard.services.create.pricing.btc_price')} ${Math.round(btcPrice).toLocaleString()}
+			</span>
 		</div>
 	{/if}
 
@@ -265,4 +241,3 @@
 		</div>
 	{/if}
 </div>
-

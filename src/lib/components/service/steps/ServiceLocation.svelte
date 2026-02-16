@@ -329,7 +329,6 @@
 						}}
 					/>
 				</label>
-				<span class="label-text-alt">{$t('dashboard.services.create.location.use_global_location_hint')}</span>
 			</div>
 
 			<!-- Specific Service Location (if not using global) -->

@@ -118,7 +118,6 @@
 	<div class="w-full">
 		<label for="category" class="label">
 			<span class="label-text">{$t('dashboard.services.create.basics.category_label')}</span>
-			<span class="label-text-alt">{$t('dashboard.services.create.basics.category_hint')}</span>
 		</label>
 		<CategoryMultiselect
 			bind:externalCategoryIds={selectedCategoryIds}
@@ -136,10 +135,6 @@
 	<div class="form-control w-full">
 		<label class="label" for="skills">
 			<span class="label-text">{$t('dashboard.services.create.basics.skills_label')}</span>
-			<span class="label-text-alt">
-				{($store.service.skills || []).length}/10
-				{$t('dashboard.services.create.basics.skills_hint')}
-			</span>
 		</label>
 		<SkillsMultiselect
 			bind:selectedSkills={$store.service.skills}

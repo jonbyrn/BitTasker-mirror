@@ -1080,7 +1080,7 @@
 					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/></svg
 			>
-			<span>{$t('task.location_picker.location_set')}: {currentLocation.formattedAddress || currentLocation.displayName}</span>
+			<span>{getLocationPickerTranslation('location_set')}: {currentLocation.formattedAddress || currentLocation.displayName}</span>
 		</div>
 	{/if}
 

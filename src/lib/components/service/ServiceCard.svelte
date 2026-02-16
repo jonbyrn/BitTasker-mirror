@@ -48,10 +48,24 @@
 		}
 	}
 
-	// Helper function to get location types display
+	// Helper: show only address when available (no "En Mi Ubicación"), max 50 chars
+	const LOCATION_DISPLAY_MAX_LENGTH = 50;
+
 	function getLocationTypesDisplay(): string {
 		if (!service.serviceLocationTypes || service.serviceLocationTypes.length === 0) {
 			return '';
+		}
+
+		const hasTaskerLocation = service.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKER_LOCATION);
+		const baseAddress =
+			service.locationDetails?.taskerLocation?.serviceLocation?.displayName ||
+			service.locationDetails?.taskerLocation?.serviceLocation?.formattedAddress;
+
+		// When "En Mi Ubicación" with address: show only the address, truncated to 50 chars
+		if (hasTaskerLocation && baseAddress) {
+			return baseAddress.length > LOCATION_DISPLAY_MAX_LENGTH
+				? baseAddress.slice(0, LOCATION_DISPLAY_MAX_LENGTH).trim() + '…'
+				: baseAddress;
 		}
 
 		const locationLabels: Record<ServiceLocationTypeEnum, string> = {
@@ -82,13 +96,6 @@
 		}
 	}
 
-	// Handle heart icon click (favorite)
-	function handleFavoriteClick(e: MouseEvent): void {
-		e.stopPropagation();
-		// TODO: Implement favorite functionality
-		console.log('Favorite clicked for service:', service.id);
-	}
-
 	// Get portfolio images (non-video)
 	let portfolioImages = $derived.by<Attachment[]>(() => {
 		if (service.portfolio && service.portfolio.length > 0) {
@@ -104,7 +111,7 @@
 	let currentImageIndex = $state(0);
 
 	// Get rating (hardcoded if not available)
-	let rating = $derived(service.creator?.rating || 4.2);
+	let rating = $derived(service.creator?.rating || 0);
 </script>
 
 <div
@@ -205,35 +212,13 @@
 				</svg>
 			</div>
 		{/if}
-		<!-- Heart Icon - Top Right -->
-		<button
-			class="absolute top-2 right-2 btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 backdrop-blur-sm border-0 shadow-sm"
-			onclick={handleFavoriteClick}
-			aria-label="Add to favorites"
-			title="Add to favorites"
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-5 w-5 text-base-content/70 hover:text-error"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-				/>
-			</svg>
-		</button>
 	</figure>
 
 	<!-- Card Body -->
 	<div class="card-body p-4 flex-1 flex flex-col">
-		<!-- Provider Info - Single line, compact with rating -->
+		<!-- Provider Info - Single line, compact with rating (stars flush right) -->
 		{#if service.creator}
-			<div class="flex items-center gap-2">
+			<div class="flex w-full items-center justify-between gap-2 -mr-4">
 				{#if service.creator.avatar}
 					<div class="avatar shrink-0">
 						<div class="w-7 h-7 rounded-full">
@@ -241,27 +226,24 @@
 						</div>
 					</div>
 				{/if}
-				<div class="flex items-center gap-1.5 flex-1 min-w-0">
-					<span class="text-sm font-medium text-base-content truncate">{service.creator.username || 'Provider'}</span>
-					<!-- Rating Stars - Always show, hardcoded if not available -->
-					<div class="flex items-center gap-0.5 shrink-0">
-						{#each Array(5) as _, i}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-3.5 w-3.5 {i < Math.round(rating)
-									? 'text-warning fill-current'
-									: 'text-base-content/30'}"
-								viewBox="0 0 24 24"
-							>
-								<path
-									d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-								/>
-							</svg>
-						{/each}
-						<span class="text-xs font-semibold text-base-content ml-0.5">
-							{rating.toFixed(1)}
-						</span>
-					</div>
+				<span class="text-sm font-medium text-base-content truncate min-w-0 flex-1">{service.creator.username || 'Provider'}</span>
+				<!-- Rating Stars - right-aligned -->
+				<div class="flex items-center shrink-0">
+					{#each Array(5) as _, i}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-3 w-3 text-base-content/40"
+							fill="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+							/>
+						</svg>
+					{/each}
+					<span class="text-base-content/60 ml-1 text-xs">
+						{rating.toFixed(1)}
+					</span>
 				</div>
 			</div>
 		{/if}
@@ -275,7 +257,7 @@
 			<div class="text-right shrink-0">
 				<div class="text-base font-bold leading-tight">{getPricingDisplay()}</div>
 				{#if service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount}
-					<div class="text-base-content/60 font-s} text-sm">
+					<div class="text-base-content/60 text-sm">
 						{satsFromUsd(service.pricing.amount, btcPrice)}
 					</div>
 				{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate}
@@ -303,14 +285,14 @@
 			<p class="text-sm text-base-content/70 line-clamp-2 mb-2">{service.description}</p>
 		{/if}
 
-		<!-- Categories and Skills - Moved up, no border, limit to 2 and show +X -->
+		<!-- Categories and Skills - Moved up, no border, limit to 2 lines and show +X -->
 		{#if (service.categories && service.categories.length > 0) || (service.skills && service.skills.length > 0)}
 			{@const totalCategories = service.categories?.length || 0}
 			{@const totalSkills = service.skills?.length || 0}
 			{@const shownCategories = service.categories?.slice(0, 2) || []}
 			{@const shownSkills = service.skills?.slice(0, 2) || []}
 			{@const remainingCount = Math.max(0, (totalCategories - 2) + (totalSkills - 2))}
-			<div class="flex flex-wrap gap-1.5 mb-2">
+			<div class="flex flex-wrap gap-1.5 mb-2 max-h-11.5 overflow-hidden">
 				{#if shownCategories.length > 0}
 					{#each shownCategories as category}
 						<span class="badge badge-sm badge-info badge-outline">
@@ -334,7 +316,7 @@
 			<div class="flex items-center gap-1.5 text-xs text-base-content/60 mt-auto">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4 shrink-0"
+					class="h-4 w-4 shrink-0 text-primary"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
