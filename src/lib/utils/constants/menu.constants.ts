@@ -116,6 +116,11 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				getDynamicHref: () => '/tasks'
 			},
 			{
+				label: 'navbar.find_services',
+				icon: IconBriefcaseSearch,
+				href: '/services'
+			},
+			{
 				label: 'navbar.bids_sent',
 				icon: IconInvoiceTextSendOutline,
 				href: '/dashboard?tab=bids'

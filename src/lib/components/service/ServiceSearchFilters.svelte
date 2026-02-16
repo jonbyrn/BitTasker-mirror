@@ -36,26 +36,6 @@
 	// Store selected location coordinates for distance calculation
 	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
 
-	// Delivery time filter options (in hours) - using $derived for reactivity
-	const deliveryTimeOptions = $derived([
-		{ 
-			label: $t('dashboard.services.browse.filters.delivery_time.less_than_day') || 'Less than 1 day', 
-			value: 24 
-		},
-		{ 
-			label: $t('dashboard.services.browse.filters.delivery_time.one_to_three_days') || '1-3 days', 
-			value: 72 
-		},
-		{ 
-			label: $t('dashboard.services.browse.filters.delivery_time.one_week') || '1 week', 
-			value: 168 
-		},
-		{ 
-			label: $t('dashboard.services.browse.filters.delivery_time.more_than_week') || 'More than 1 week', 
-			value: undefined 
-		}
-	]);
-
 	// Sync filters with initialFilters when drawer opens
 	$effect(() => {
 		if (isOpen && initialFilters) {
@@ -84,7 +64,6 @@
 		if (filters.serviceLocationTypes && filters.serviceLocationTypes.length > 0) count++;
 		if (filters.pricingType) count++;
 		if (filters.minPrice !== undefined || filters.maxPrice !== undefined) count++;
-		if (filters.deliveryTime !== undefined) count++;
 		if (filters.location) count++;
 		if (filters.status && filters.status.length > 0) count++;
 		activeFilterCount = count;
@@ -178,11 +157,6 @@
 	function handlePriceRangeChange(min: number | undefined, max: number | undefined) {
 		filters.minPrice = min;
 		filters.maxPrice = max;
-	}
-
-	// Handle delivery time change
-	function handleDeliveryTimeChange(hours: number | undefined) {
-		filters.deliveryTime = hours;
 	}
 
 	// Handle location selection
@@ -464,46 +438,6 @@
 							{$t('dashboard.services.browse.filters.clear_price_range') || 'Clear'}
 						</button>
 					{/if}
-				</div>
-			</div>
-		</div>
-
-		<!-- Delivery Time -->
-		<div class="collapse-arrow collapse mb-2">
-			<input
-				type="checkbox"
-				class="peer"
-				aria-label={$t('dashboard.services.browse.filters.toggle_delivery_time') || 'Toggle delivery time'}
-			/>
-			<div class="collapse-title font-medium">
-				{$t('dashboard.services.browse.filters.delivery_time') || 'Delivery Time'}
-			</div>
-			<div class="collapse-content">
-				<div class="flex flex-col gap-2">
-					{#each deliveryTimeOptions as option}
-						<label class="label cursor-pointer justify-start gap-3">
-							<input
-								type="radio"
-								name="deliveryTime"
-								class="radio"
-								checked={filters.deliveryTime === option.value}
-								onchange={() => handleDeliveryTimeChange(option.value)}
-							/>
-							<span class="label-text">{option.label}</span>
-						</label>
-					{/each}
-					<label class="label cursor-pointer justify-start gap-3">
-						<input
-							type="radio"
-							name="deliveryTime"
-							class="radio"
-							checked={filters.deliveryTime === undefined}
-							onchange={() => handleDeliveryTimeChange(undefined)}
-						/>
-						<span class="label-text">
-							{$t('dashboard.services.browse.filters.any_delivery_time') || 'Any'}
-						</span>
-					</label>
 				</div>
 			</div>
 		</div>

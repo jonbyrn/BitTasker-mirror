@@ -46,8 +46,8 @@
 			avatar: 'h-12 w-12 sm:h-14 sm:w-14',
 			text: 'text-base',
 			name: 'text-base font-semibold sm:text-lg',
-			star: 'h-3 w-3 sm:h-4 sm:w-4',
-			rating: 'text-xs sm:text-sm',
+			star: 'h-3 w-3',
+			rating: 'text-xs',
 			memberSince: 'text-xs sm:text-sm'
 		},
 		lg: {
@@ -414,8 +414,8 @@
 			</span>
 		{/if}
 		
-		<!-- Rating -->
-		<div class="flex items-center gap-1">
+		<!-- Rating - same pattern as find-tasks: filled stars, yellow for filled, grey for empty -->
+		<div class="flex items-center">
 			{#each Array(5) as _, i}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

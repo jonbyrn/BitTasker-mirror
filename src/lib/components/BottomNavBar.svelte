@@ -372,6 +372,12 @@
 								<span class="font-medium">{$t('navbar.find_tasks')}</span>
 							</a>
 						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/services" onclick={(e) => handleNavWithMenuClose(e, '/services')} class="min-h-[44px] py-2 pl-6">
+								<IconBriefcaseSearch class="text-primary" />
+								<span class="font-medium">{$t('navbar.find_services')}</span>
+							</a>
+						</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard" onclick={(e) => handleNavWithMenuClose(e, '/dashboard')} class="min-h-[44px] py-2 pl-6">
 									<IconFormatListBulleted class="text-primary" />
