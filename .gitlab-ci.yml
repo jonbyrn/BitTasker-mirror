@@ -40,6 +40,14 @@
 #   - Ensure VITE_API_URL, VITE_E2E_TURNSTILE_BYPASS, VITE_NOSTR_RELAY_URL are set in CI/CD Variables.
 #
 # -----------------------------------------------------------------------------------------------
+# CACHE
+# -----------------------------------------------------------------------------------------------
+#   Key from package-lock.json so the same lockfile reuses cache across branches and MRs.
+#   Build job uses policy: pull-push (creates/updates cache). Other jobs use policy: pull only
+#   (restore but don't upload), saving ~1–2 min per job and avoiding duplicate uploads.
+#   "No URL provided" in logs = cache is local to the runner; for multiple runners configure
+#   a distributed cache (e.g. S3) in the runner's config.toml.
+# -----------------------------------------------------------------------------------------------
 # WRANGLER / VARIABLES
 # -----------------------------------------------------------------------------------------------
 #   GitLab injects CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID. Build-time VITE_* in GitLab.
@@ -63,10 +71,13 @@ build:
   environment:
     name: development
   cache:
-    key: $CI_COMMIT_REF_SLUG
+    key:
+      files:
+        - package-lock.json
     paths:
       - node_modules/
       - .npm/
+    policy: pull-push
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run build
@@ -91,10 +102,13 @@ unit:
   tags:
     - self-hosted
   cache:
-    key: $CI_COMMIT_REF_SLUG
+    key:
+      files:
+        - package-lock.json
     paths:
       - node_modules/
       - .npm/
+    policy: pull
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run test:ci
@@ -115,10 +129,13 @@ coverage:
   tags:
     - self-hosted
   cache:
-    key: $CI_COMMIT_REF_SLUG
+    key:
+      files:
+        - package-lock.json
     paths:
       - node_modules/
       - .npm/
+    policy: pull
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run test:ci -- --coverage
@@ -144,10 +161,9 @@ coverage:
 #   tags:
 #     - self-hosted
 #   cache:
-#     key: $CI_COMMIT_REF_SLUG
-#     paths:
-#       - node_modules/
-#       - .npm/
+#     key: { files: [package-lock.json] }
+#     paths: [node_modules/, .npm/]
+#     policy: pull
 #   needs:
 #     - build
 #   script:
@@ -171,10 +187,13 @@ deploy-development:
   tags:
     - self-hosted
   cache:
-    key: $CI_COMMIT_REF_SLUG
+    key:
+      files:
+        - package-lock.json
     paths:
       - node_modules/
       - .npm/
+    policy: pull
   needs:
     - build
   script:
