@@ -17,16 +17,19 @@ import {
 	type SubmarineSwapResult,
 	type BoltzSwapData,
 	type ChainSwapData,
+	ERC20_ABI,
 } from '@bittasker/wallet-core';
-import type { SwapPairsCache } from '$lib/types/wallet';
+import type { SwapPairsCache, TokenBalance } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
-import { ethers } from 'ethers';
-import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { ethers, type JsonRpcProvider } from 'ethers';
 import { processTransactions, type ProcessedTransaction } from '$lib/utils/wallet/transactionHistory';
 import { isSwapCompleted, mapSwapToTransaction, shouldShowSwap } from '$lib/utils/wallet/swapTransaction';
+import { ERROR_MESSAGES } from '$lib/utils/constants/wallet.constants';
+import tokenBalanceService from '$lib/api/services/token-balance.service';
+import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 // Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
@@ -100,9 +103,6 @@ let cachedSwapStorages: {
 	submarine: NostrSwapStorage;
 } | null = null;
 
-// Event listeners cleanup
-const eventListeners: (() => void)[] = [];
-
 // Cache instances for each swap type
 let cachedSwapPairs: {
 	submarine: SwapPairsCache | null;
@@ -124,32 +124,48 @@ function getWalletManager(): WalletManager {
 	if (!sdkWalletManager) {
 		throw new Error('Wallet is not initialized.');
 	}
-	return sdkWalletManager;
-}
 
-/**
- * Get event listeners array (for cleanup management)
- */
-export function getEventListeners(): (() => void)[] {
-	return eventListeners;
+	return sdkWalletManager;
 }
 
 /**
  * Initialize wallet using SDK
  * 
- * @param getBalance - Whether to get the balance of the wallet (RSK and BSC)
  * @returns void
  * @throws {Error} If the wallet fails to initialize
  */
 
-async function initializeWallet(getBalance = false): Promise<void> {
+async function initialize(): Promise<void> {
 	const state = get(walletStore);
 
 	// Skip if already initializing or already connected
 	if (state.isInitializing) return;
 
 	// Skip if already fully initialized
-	if (sdkWalletManager && state.isConnected) return;
+	// BUT: Check if provider is actually valid (not destroyed)
+	if (sdkWalletManager && state.isConnected) {
+		// Test if provider is actually working (not destroyed)
+		const provider = state.rsk?.provider;
+		if (provider) {
+			// Check if provider is destroyed (type-safe check)
+			const providerWithDestroyed = provider as JsonRpcProvider & { _destroyed?: boolean };
+			const isDestroyed = providerWithDestroyed._destroyed === true || (provider as any).destroyed === true;
+
+			if (isDestroyed) {
+				// Provider is marked as destroyed, forcing reinitialization
+				// Force cleanup and reinitialize
+				sdkWalletManager = null;
+				walletStore.set(initialState);
+			} else {
+				// Provider exists and not marked as destroyed - skip initialization
+				return;
+			}
+		} else {
+			// No provider but state says connected - inconsistent state - force reinitialization
+			sdkWalletManager = null;
+			walletStore.set(initialState);
+		}
+	}
 
 	try {
 		walletStore.update(s => ({ ...s, isInitializing: true, error: null }));
@@ -206,37 +222,20 @@ async function initializeWallet(getBalance = false): Promise<void> {
 					provider: bscWallet.getProvider() as ethers.JsonRpcProvider
 				}
 			}));
-
-			if (getBalance) {
-				Promise.all([
-					rskWallet.getBalance(),
-					bscWallet.getBalances()
-				]).then(([rskBalance, bscBalances]) => {
-					walletStore.update(s => ({
-						...s,
-						rsk: {
-							...s.rsk,
-							balance: rskBalance.balance.toString(),
-							formattedBalance: rskBalance.formatted,
-						},
-						bsc: {
-							...s.bsc,
-							bnbBalance: bscBalances.bnb.balance.toString(),
-							usdtBalance: bscBalances.usdt.balance.toString(),
-							formattedBnbBalance: bscBalances.bnb.formatted,
-							formattedUsdtBalance: bscBalances.usdt.formatted,
-						}
-					}));
-				});
-			}
 		}
 	} catch (error) {
-		console.error('Failed to initialize wallet:', error);
+		console.error('[WALLET-STORE] initializeWallet() - Failed to initialize wallet:', error);
+		const errorMessage = error instanceof Error ? error.message : 'Failed to initialize wallet';
+		console.error('[WALLET-STORE] initializeWallet() - Error details:', {
+			message: errorMessage,
+			stack: error instanceof Error ? error.stack : 'No stack'
+		});
 		walletStore.update(s => ({
 			...s,
 			isInitializing: false,
-			error: error instanceof Error ? error.message : 'Failed to initialize wallet'
+			error: errorMessage
 		}));
+		console.error('[WALLET-STORE] initializeWallet() - Store updated with error, rethrowing...');
 		throw error;
 	}
 }
@@ -255,7 +254,7 @@ export async function getRSKAddress(): Promise<string> {
 		return state.rsk.address;
 	}
 
-	const address = await initializeWallet().then(() => {
+	const address = await initialize().then(() => {
 		return get(walletStore).rsk.address;
 	});
 
@@ -273,10 +272,6 @@ function disconnectWallet(): void {
 
 	// Clear cached swap storages
 	cachedSwapStorages = null;
-
-	// Cleanup event listeners
-	eventListeners.forEach(cleanup => cleanup());
-	eventListeners.length = 0;
 
 	walletStore.set(initialState);
 }
@@ -300,6 +295,8 @@ async function loadAssets(): Promise<void> {
 		let totalUsd = 0;
 
 		// Fetch ALL data in parallel: prices and balances
+		// Note: For debug wallet, we'll load all tokens separately via loadRSKTokenBalances()
+		// This keeps the existing loadAssets() working for main wallet page
 		const [rbtcPrice, bnbPrice, rskBalanceData, bscBalances] = await Promise.all([
 			cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
 			cryptoPriceService.getCurrentPrice('BNB').catch(() => 0),
@@ -309,12 +306,6 @@ async function loadAssets(): Promise<void> {
 
 		// Process RSK assets
 		if (rskBalanceData) {
-			// Use integer arithmetic for sats calculation to match historical balance calculation
-			// Convert Wei directly to sats: 1 RBTC = 10^18 Wei, 1 BTC = 10^8 sats
-			// So: sats = Wei / 10^10
-			const balanceWei = BigInt(rskBalanceData.balance.toString());
-			const rbtcBalanceSats = Number(balanceWei / BigInt(10_000_000_000));
-			
 			// Keep formatted balance for display and USD calculations
 			const rbtcBalance = parseFloat(rskBalanceData.formatted);
 			totalRbtc += rbtcBalance;
@@ -333,7 +324,7 @@ async function loadAssets(): Promise<void> {
 
 			assets.push({
 				assetId: 'rbtc',
-				name: 'Smart Bitcoin',
+				name: 'Rootstock Bitcoin',
 				ticker: 'RBTC',
 				precision: 8,
 				icon: '₿',
@@ -394,13 +385,8 @@ async function loadAssets(): Promise<void> {
 			}
 		}
 
-		// Calculate total sats using integer arithmetic to match historical balance calculation
-		// This ensures consistency between current and historical balance calculations
-		let totalSats = 0;
-		if (rskBalanceData) {
-			const balanceWei = BigInt(rskBalanceData.balance.toString());
-			totalSats = Number(balanceWei / BigInt(10_000_000_000));
-		}
+		// Calculate total sats (RBTC to sats)
+		const totalSats = Math.floor(totalRbtc * 100_000_000);
 
 		// Update store with assets and totals
 		walletStore.update(s => ({
@@ -424,50 +410,125 @@ async function loadAssets(): Promise<void> {
  */
 async function loadTransactions(): Promise<void> {
 	try {
-		const manager = getWalletManager();
 		const state = get(walletStore);
 
+		// Ensure wallet is initialized before loading transactions
+		if (!state.isConnected || !sdkWalletManager) {
+			if (import.meta.env.DEV) {
+				console.log('[DEBUG] [loadTransactions] Wallet not initialized, initializing...', {
+					isConnected: state.isConnected,
+					hasManager: !!sdkWalletManager,
+					timestamp: new Date().toISOString()
+				});
+			}
+
+			// Initialize wallet if not already initialized
+			if (!state.isInitializing) {
+				await initialize();
+			} else {
+				// Wait for initialization to complete
+				// Poll until initialized or timeout after 10 seconds
+				const maxWaitTime = 10000; // 10 seconds
+				const startTime = Date.now();
+				while (state.isInitializing && (Date.now() - startTime) < maxWaitTime) {
+					await new Promise(resolve => setTimeout(resolve, 100));
+					const currentState = get(walletStore);
+					if (currentState.isConnected && sdkWalletManager) {
+						break;
+					}
+				}
+			}
+
+			// Re-check state after initialization attempt
+			const updatedState = get(walletStore);
+			if (!updatedState.isConnected || !sdkWalletManager) {
+				const errorMsg = 'Wallet not initialized. Cannot load transactions.';
+				if (import.meta.env.DEV) {
+					console.error('[DEBUG] [loadTransactions]', errorMsg, {
+						isConnected: updatedState.isConnected,
+						hasManager: !!sdkWalletManager,
+						error: updatedState.error
+					});
+				}
+				throw new Error(errorMsg);
+			}
+		}
+
+		const manager = getWalletManager();
+		const finalState = get(walletStore);
+
+		// Validate wallets exist
+		if (!manager.rskWallet || !manager.bscWallet) {
+			const errorMsg = `Wallets not available. RSK: ${!!manager.rskWallet}, BSC: ${!!manager.bscWallet}`;
+			if (import.meta.env.DEV) {
+				console.error('[DEBUG] [loadTransactions]', errorMsg, {
+					hasRSKWallet: !!manager.rskWallet,
+					hasBSCWallet: !!manager.bscWallet,
+					rskAddress: finalState.rsk.address,
+					bscAddress: finalState.bsc.address
+				});
+			}
+			throw new Error(errorMsg);
+		}
+
 		// Get current balance for running balance calculation
-		const currentBalanceSats = state.totalBalances.sats;
+		const currentBalanceSats = finalState.totalBalances.sats;
+
+		if (import.meta.env.DEV) {
+			console.log('[DEBUG] [loadTransactions] Loading transactions...', {
+				rskAddress: finalState.rsk.address,
+				bscAddress: finalState.bsc.address,
+				currentBalanceSats,
+				timestamp: new Date().toISOString()
+			});
+		}
 
 		// Load blockchain transactions
 		const [rskTxs, bscTxs] = await Promise.all([
-			manager.rskWallet ? manager.rskWallet.loadTransactions() : Promise.resolve([]),
-			manager.bscWallet ? manager.bscWallet.loadTransactions() : Promise.resolve([])
+			manager.rskWallet.loadTransactions(),
+			manager.bscWallet.loadTransactions()
 		]);
+
+		if (import.meta.env.DEV) {
+			console.log('[DEBUG] [loadTransactions] Raw transactions loaded', {
+				rskTxCount: rskTxs.length,
+				bscTxCount: bscTxs.length,
+				timestamp: new Date().toISOString()
+			});
+		}
 
 		// Process blockchain transactions
 		const [processedRskTxs, processedBscTxs] = await Promise.all([
-			processTransactions(rskTxs, state.rsk.address || '', 'rsk', currentBalanceSats),
-			processTransactions(bscTxs, state.bsc.address || '', 'bsc', currentBalanceSats)
+			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk', currentBalanceSats),
+			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBalanceSats)
 		]);
 
-	// Load pending swaps from all services
-	const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
-		manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
-		manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
-		manager.chainSwapService.recoverPendingSwaps().catch(() => [])
-	]);
+		// Load pending swaps from all services
+		const [submarineSwaps, reverseSwaps, chainSwaps] = await Promise.all([
+			manager.submarineSwapService.recoverPendingSwaps().catch(() => []),
+			manager.reverseSwapService.recoverPendingSwaps().catch(() => []),
+			manager.chainSwapService.recoverPendingSwaps().catch(() => [])
+		]);
 
-	// Defer expired swap cleanup to allow WebSocket to sync status first
-	// The swaps are recovered from Nostr with potentially stale status (e.g., 'swap.created')
-	// but the WebSocket immediately updates them to current status (e.g., 'swap.expired')
-	setTimeout(() => {
-		cleanupExpiredSwaps(manager, submarineSwaps, reverseSwaps, chainSwaps);
-	}, 2000); // Wait 2 seconds for WebSocket to sync
+		// Defer expired swap cleanup to allow WebSocket to sync status first
+		// The swaps are recovered from Nostr with potentially stale status (e.g., 'swap.created')
+		// but the WebSocket immediately updates them to current status (e.g., 'swap.expired')
+		setTimeout(() => {
+			cleanupExpiredSwaps(manager, submarineSwaps, reverseSwaps, chainSwaps);
+		}, 2000); // Wait 2 seconds for WebSocket to sync
 
-	// Map swaps to transaction format (updated filter signature)
-	const swapTransactions = [
-		...submarineSwaps
-			.filter((s) => shouldShowSwap(s.status, 'submarine', s))
-			.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
-		...reverseSwaps
-			.filter((s) => shouldShowSwap(s.status, 'reverse', s))
-			.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
-		...chainSwaps
-			.filter((s) => shouldShowSwap(s.status, 'chain', s))
-			.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
-	];
+		// Map swaps to transaction format (updated filter signature)
+		const swapTransactions = [
+			...submarineSwaps
+				.filter((s) => shouldShowSwap(s.status, 'submarine', s))
+				.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
+			...reverseSwaps
+				.filter((s) => shouldShowSwap(s.status, 'reverse', s))
+				.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
+			...chainSwaps
+				.filter((s) => shouldShowSwap(s.status, 'chain', s))
+				.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
+		];
 
 		// Combine blockchain transactions
 		const allBlockchainTxs = [...processedRskTxs, ...processedBscTxs];
@@ -483,9 +544,28 @@ async function loadTransactions(): Promise<void> {
 			(a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime()
 		);
 
+		if (import.meta.env.DEV) {
+			console.log('[DEBUG] [loadTransactions] Transactions processed and sorted', {
+				totalTransactions: allTransactions.length,
+				blockchainTxs: allBlockchainTxs.length,
+				swapTxs: uniqueSwapTxs.length,
+				timestamp: new Date().toISOString()
+			});
+		}
+
 		walletStore.update((s) => ({ ...s, transactions: allTransactions }));
 	} catch (error) {
-		console.error('Failed to load transactions:', error);
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		console.error('[loadTransactions] Failed to load transactions:', errorMessage, error);
+
+		// Update store with error for UI to display
+		walletStore.update((s) => ({
+			...s,
+			error: s.error || errorMessage
+		}));
+
+		// Re-throw to allow calling code to handle
+		throw error;
 	}
 }
 
@@ -535,10 +615,12 @@ export function updateSwapTransaction(
 	// Check if swap is completed - remove from pending list
 	// (it will appear from blockchain transactions shortly)
 	if (isSwapCompleted(updatedSwap.status)) {
-		walletStore.update((state) => ({
-			...state,
-			transactions: state.transactions.filter((tx) => tx.swap?.id !== swapId)
-		}));
+		loadTransactions().then(() => {
+			walletStore.update((state) => ({
+				...state,
+				transactions: state.transactions.filter((tx) => tx.swap?.id !== swapId)
+			}));
+		});
 		return;
 	}
 
@@ -576,6 +658,64 @@ async function loadRbtcExchangeRate(): Promise<void> {
 }
 
 /**
+ * Load all RSK token balances from Blockscout API
+ * Includes RBTC (native) and all ERC-20 tokens with non-zero balances
+ * Filters out tokens with zero balance automatically
+ * Uses caching to reduce API calls
+ * 
+ * @param forceRefresh - Force refresh even if cache is valid
+ * @returns Array of token balances (non-zero only)
+ * @throws {Error} If wallet manager is not initialized or API call fails
+ */
+export async function loadRSKTokenBalances(forceRefresh = false): Promise<TokenBalance[]> {
+	try {
+		const manager = getWalletManager();
+		const state = get(walletStore);
+		const address = state.rsk.address;
+
+		if (!address) {
+			if (import.meta.env.DEV) {
+				console.error('[WALLET-STORE] loadRSKTokenBalances() - RSK address not available');
+			}
+			throw new Error(ERROR_MESSAGES.RSK_ADDRESS_NOT_AVAILABLE);
+		}
+
+		// Fetch all ERC-20 token balances (service will filter zero balances and use cache)
+		const tokenBalances = await tokenBalanceService.getRSKTokenBalances(address, forceRefresh);
+
+		// Always include RBTC (even if zero) for consistency
+		const rbtcBalance = await manager.rskWallet.getBalance();
+		const rbtcToken: TokenBalance = {
+			address: 'native', // Special identifier for native token
+			name: 'Smart Bitcoin',
+			symbol: 'RBTC',
+			decimals: 18,
+			balance: rbtcBalance.balance.toString(),
+			formattedBalance: rbtcBalance.formatted,
+			isNative: true,
+			icon: '₿'
+		};
+
+		// Combine RBTC with ERC-20 tokens
+		// Filter out RBTC if balance is zero (optional - you may want to always show it)
+		const allTokens = [rbtcToken, ...tokenBalances];
+
+		// Final filter: remove any tokens with zero balance (except native if you want to keep it)
+		return allTokens.filter(token => {
+			if (token.isNative) {
+				// Always show native token
+				return true;
+			}
+			const balance = BigInt(token.balance);
+			return balance > 0n; // Filter out zero balance ERC-20 tokens
+		});
+	} catch (error) {
+		console.error('Failed to load RSK token balances:', error);
+		throw error;
+	}
+}
+
+/**
  * Send RBTC transaction
  * 
  * @param to - Recipient address
@@ -591,6 +731,101 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 	await Promise.allSettled([loadAssets(), loadTransactions()]);
 
 	return txHash;
+}
+
+/**
+ * Send ERC-20 token transaction
+ * 
+ * @param tokenAddress - ERC-20 token contract address
+ * @param to - Recipient address
+ * @param amount - Amount to send in token units (as string)
+ * @returns Transaction hash
+ * @throws {Error} If wallet manager is not initialized or transaction fails
+ */
+export async function sendRSKToken(
+	tokenAddress: string,
+	to: string,
+	amount: string
+): Promise<string> {
+	const manager = getWalletManager();
+	const wallet = manager.rskWallet.getWallet();
+	const provider = manager.rskWallet.getProvider();
+
+	if (!wallet || !provider) {
+		throw new Error('RSK wallet not initialized');
+	}
+
+	// Normalize addresses to EIP-55 checksum format (required by ethers v6)
+	// Note: getAddress() requires addresses to be lowercase OR correctly checksummed
+	// Convert to lowercase first to handle addresses with invalid checksums
+	let normalizedTokenAddress: string;
+	let normalizedTo: string;
+	// Convert to lowercase first, then getAddress() will compute correct checksum
+	normalizedTokenAddress = ethers.getAddress(tokenAddress.toLowerCase());
+	normalizedTo = ethers.getAddress(to.toLowerCase());
+
+	// Create ERC-20 contract instance
+	const tokenContract = new ethers.Contract(normalizedTokenAddress, ERC20_ABI, wallet);
+
+	// Get token decimals
+	const decimals = await tokenContract.decimals();
+
+	// Parse amount with correct decimals
+	const amountWei = ethers.parseUnits(amount, decimals);
+
+	// Send transaction with normalized address
+	const tx = await tokenContract.transfer(normalizedTo, amountWei);
+
+	const receipt = await tx.wait();
+	if (!receipt) {
+		throw new Error('Transaction receipt is null');
+	}
+
+	// Refresh data and invalidate token cache
+	await Promise.allSettled([loadAssets(), loadTransactions()]);
+
+	// Invalidate token balance cache after successful send
+	const state = get(walletStore);
+	if (state.rsk?.address) {
+		tokenBalanceService.clearBalanceCache(state.rsk.address);
+	}
+
+	return receipt.hash;
+}
+
+/**
+ * Get balance for a specific token
+ * 
+ * @param tokenAddress - Token contract address (or 'native' for RBTC)
+ * @returns Token balance or null if not found
+ * @throws {Error} If wallet manager is not initialized
+ */
+export async function getTokenBalance(tokenAddress: string): Promise<TokenBalance | null> {
+	try {
+		const manager = getWalletManager();
+
+		if (tokenAddress === 'native') {
+			// Return native RBTC balance
+			const rbtcBalance = await manager.rskWallet.getBalance();
+			return {
+				address: 'native',
+				name: 'Rootstock Bitcoin',
+				symbol: 'RBTC',
+				decimals: 18,
+				balance: rbtcBalance.balance.toString(),
+				formattedBalance: rbtcBalance.formatted,
+				isNative: true,
+				icon: '₿'
+			};
+		}
+
+		// Load all tokens and find the one matching the address
+		const allTokens = await loadRSKTokenBalances();
+		return allTokens.find(token => token.address.toLowerCase() === tokenAddress.toLowerCase()) || null;
+	} catch (error) {
+		console.error('Failed to get token balance:', error);
+		return null;
+	}
 }
 
 /**
@@ -841,6 +1076,72 @@ export function clearSwapPairsCache(): void {
 }
 
 /**
+ * Estimate gas for ERC-20 token transfer
+ * 
+ * @param tokenAddress - ERC-20 token contract address
+ * @param to - Recipient address
+ * @param amount - Amount to send in token units (as string)
+ * @returns Gas estimation with gas limit, gas price, and total cost
+ * @throws {Error} If RSK wallet is not initialized or gas estimation fails
+ */
+export async function estimateERC20Gas(
+	tokenAddress: string,
+	to: string,
+	amount: string
+): Promise<GasEstimation> {
+	try {
+		const state = get(walletStore);
+		if (!state.rsk.wallet || !state.rsk.provider) {
+			console.error('[WALLET-STORE] estimateERC20Gas() - Wallet not initialized:', {
+				hasWallet: !!state.rsk.wallet,
+				hasProvider: !!state.rsk.provider
+			});
+			throw new Error('RSK wallet not initialized');
+		}
+
+		const provider = state.rsk.provider;
+		const wallet = state.rsk.wallet;
+
+		// Normalize addresses to EIP-55 checksum format (required by ethers v6)
+		// Note: getAddress() requires addresses to be lowercase OR correctly checksummed
+		// Convert to lowercase first to handle addresses with invalid checksums
+		let normalizedTokenAddress: string;
+		let normalizedTo: string;
+		// Convert to lowercase first, then getAddress() will compute correct checksum
+		normalizedTokenAddress = ethers.getAddress(tokenAddress.toLowerCase());
+		normalizedTo = ethers.getAddress(to.toLowerCase());
+
+		// Create ERC-20 contract instance
+		const tokenContract = new ethers.Contract(normalizedTokenAddress, ERC20_ABI, wallet);
+
+		// Get token decimals
+		const decimals = await tokenContract.decimals();
+
+		// Parse amount with correct decimals
+		const amountWei = ethers.parseUnits(amount, decimals);
+
+		// Estimate gas for transfer with normalized address
+		const gasEstimate = await tokenContract.transfer.estimateGas(normalizedTo, amountWei);
+
+		// Get gas price
+		const feeData = await provider.getFeeData();
+		const gasPrice = feeData.gasPrice || BigInt(0);
+
+		// Calculate total cost (gas only, no value for ERC-20)
+		const gasCost = gasEstimate * gasPrice;
+
+		return {
+			gasLimit: gasEstimate.toString(),
+			gasPrice: gasPrice.toString(),
+			totalCost: gasCost.toString(),
+			totalCostFormatted: ethers.formatEther(gasCost)
+		};
+	} catch (error) {
+		throw new Error(`ERC-20 gas estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+	}
+}
+
+/**
  * Estimate gas for RBTC transaction
  * 
  * @param to - Recipient address
@@ -850,38 +1151,8 @@ export function clearSwapPairsCache(): void {
  */
 export async function estimateRBTCGas(to: string, amount: string): Promise<GasEstimation> {
 	try {
-		const state = get(walletStore);
-		if (!state.rsk.wallet || !state.rsk.provider) {
-			throw new Error('RSK wallet not initialized');
-		}
-
-		const provider = state.rsk.provider;
-		const wallet = state.rsk.wallet;
-
-		// Parse amount
-		const value = ethers.parseEther(amount);
-
-		// Estimate gas
-		const gasEstimate = await provider.estimateGas({
-			from: wallet.address,
-			to,
-			value
-		});
-
-		// Get gas price
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || BigInt(0);
-
-		// Calculate total cost
-		const gasCost = gasEstimate * gasPrice;
-		const totalCost = value + gasCost;
-
-		return {
-			gasLimit: gasEstimate.toString(),
-			gasPrice: gasPrice.toString(),
-			totalCost: totalCost.toString(),
-			totalCostFormatted: ethers.formatEther(totalCost)
-		};
+		const manager = getWalletManager();
+		return await manager.rskWallet.estimateGas(to, amount);
 	} catch (error) {
 		throw new Error(`Gas estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
 	}
@@ -1052,7 +1323,7 @@ function cleanupExpiredSwaps(
 }
 
 export const walletManager = {
-	initialize: initializeWallet,
+	initialize,
 	cleanup: disconnectWallet,
 	getRSKAddress,
 	setActiveTab,
@@ -1060,6 +1331,7 @@ export const walletManager = {
 	loadTransactions,
 	loadRbtcExchangeRate,
 	sendRBTC,
+	sendRSKToken,
 	sendBSCUSDT,
 	sendBSCBNB,
 	createReverseSwap,
@@ -1075,6 +1347,9 @@ export const walletManager = {
 	getCachedReverseSwapPairs,
 	getCachedChainSwapPairs,
 	clearSwapPairsCache,
+	loadRSKTokenBalances,
+	getTokenBalance,
+	estimateERC20Gas,
 	onSwapUpdate(callback: (event: any) => void): () => void {
 		return getWalletManager().onSwapUpdate(callback);
 	},

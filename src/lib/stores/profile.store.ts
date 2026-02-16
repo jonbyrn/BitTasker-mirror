@@ -223,6 +223,21 @@ function createProfileStore() {
                 cleanup = null;
             }
             closeNostrPool();
+        },
+
+        /**
+         * Reset store to initial state
+         * Called on logout to prevent stale data
+         */
+        reset() {
+            // First cleanup any active subscriptions
+            if (cleanup) {
+                cleanup();
+                cleanup = null;
+            }
+            closeNostrPool();
+            // Reset to initial state
+            set(initialState);
         }
     };
 }

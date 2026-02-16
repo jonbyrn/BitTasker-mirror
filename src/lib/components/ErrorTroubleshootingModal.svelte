@@ -3,8 +3,12 @@
 	import { fade, fly } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
-	import { getDeviceCompatibility, getDeviceSpecificTroubleshooting, type DeviceInfo } from '$lib/utils/helpers/deviceCompatibility';
-	import { getSettingsAction, getSettingsInstructions, openDeviceSettings } from '$lib/utils/helpers/deviceSettings';
+	import {
+		getDeviceCompatibility,
+		getDeviceSpecificTroubleshooting,
+		type DeviceInfo
+	} from '$lib/utils/helpers/deviceCompatibility';
+	import { getSettingsAction, getSettingsInstructions } from '$lib/utils/helpers/deviceSettings';
 	// Icon imports for unplugin-icons
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconCheckCircle from '~icons/mdi/check-circle';
@@ -12,10 +16,9 @@
 	import IconWrench from '~icons/mdi/wrench';
 	import IconRefresh from '~icons/mdi/refresh';
 	import IconShieldAlert from '~icons/mdi/shield-alert';
-	import IconCellphone from '~icons/mdi/cellphone';
 	import IconCog from '~icons/mdi/cog';
 
-	export type ErrorType = 
+	export type ErrorType =
 		| 'biometric'
 		| 'network'
 		| 'authentication'
@@ -33,7 +36,14 @@
 		open?: boolean; // Control modal open state programmatically
 	}
 
-	let { onClose, onRetry, errorMessage, errorType: providedErrorType, showButton = false, open: controlledOpen }: Props = $props();
+	let {
+		onClose,
+		onRetry,
+		errorMessage,
+		errorType: providedErrorType,
+		showButton = false,
+		open: controlledOpen
+	}: Props = $props();
 
 	// Auto-detect error type if not provided
 	const errorType = $derived(providedErrorType || detectErrorType(errorMessage));
@@ -57,23 +67,23 @@
 			console.error('Failed to get device compatibility:', err);
 		}
 	});
-	
+
 	// Update device-specific steps and settings when errorType or deviceInfo changes
 	$effect(() => {
 		if (deviceInfo) {
 			// Get device-specific troubleshooting steps
 			deviceSpecificSteps = getDeviceSpecificTroubleshooting(deviceInfo, errorType);
-			
+
 			// Get settings action if available
 			settingsAction = getSettingsAction(deviceInfo.os, deviceInfo.platform, errorType);
 			settingsInstructions = getSettingsInstructions(deviceInfo.os, deviceInfo.platform, errorType);
 		}
 	});
-	
+
 	// Handle opening device settings
 	async function handleOpenSettings() {
 		if (!deviceInfo || !settingsAction) return;
-		
+
 		try {
 			await settingsAction.action();
 		} catch (error) {
@@ -129,13 +139,13 @@
 	// Get troubleshooting steps based on error type (limited to 3 most important steps)
 	const troubleshootingSteps = $derived.by(() => {
 		const steps: string[] = [];
-		
+
 		// Try to get up to 3 steps for the error type (most important ones)
 		for (let i = 1; i <= 3; i++) {
 			try {
 				const stepKey = `common.components.error_troubleshooting_modal.steps.${errorType}.step${i}`;
 				const step = $t(stepKey);
-				
+
 				// If we get the key back, the translation doesn't exist
 				if (step && step !== stepKey) {
 					steps.push(step);
@@ -146,7 +156,7 @@
 				break; // Stop on error
 			}
 		}
-		
+
 		// If we didn't get any steps, use generic ones (only 3)
 		if (steps.length === 0) {
 			return [
@@ -155,7 +165,7 @@
 				$t('common.components.error_troubleshooting_modal.steps.generic.step3')
 			];
 		}
-		
+
 		return steps;
 	});
 </script>
@@ -186,16 +196,30 @@
 />
 {#if isOpen}
 	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
-		<div class="modal-box w-full max-w-3xl max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0 m-4 sm:m-0" transition:fly={{ y: 20, duration: 300 }}>
+		<div
+			class="modal-box max-w-3xl max-h-[85vh] flex flex-col p-0"
+			transition:fly={{ y: 20, duration: 300 }}
+		>
 			<!-- Modal Header -->
 			<div class="flex items-center justify-end bg-error/10 px-3 sm:px-4 py-2 sm:py-3 rounded-t-lg">
-				<button 
+				<button
 					class="btn btn-sm btn-circle btn-ghost hover:bg-error/20"
 					onclick={closeModal}
 					aria-label={$t('common.components.modal.close')}
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
 					</svg>
 				</button>
 			</div>
@@ -206,7 +230,9 @@
 				<div class="alert alert-outline alert-error">
 					<IconAlertCircle class="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
 					<div class="min-w-0">
-						<h4 class="font-bold text-[10px] sm:text-xs text-base-content whitespace-nowrap">{$t('common.components.error_troubleshooting_modal.error_occurred')}</h4>
+						<h4 class="font-bold text-[10px] sm:text-xs text-base-content whitespace-nowrap">
+							{$t('common.components.error_troubleshooting_modal.error_occurred')}
+						</h4>
 						<p class="text-[10px] sm:text-xs mt-1 overflow-wrap-anywhere">{errorMessage}</p>
 					</div>
 				</div>
@@ -221,11 +247,19 @@
 							</h4>
 						</div>
 						<div class="space-y-2 text-xs sm:text-sm text-base-content/80 leading-relaxed">
-							<p>{$t('common.components.error_troubleshooting_modal.passkey_overview.description')}</p>
+							<p>
+								{$t('common.components.error_troubleshooting_modal.passkey_overview.description')}
+							</p>
 							<ul class="list-disc list-inside space-y-1 ml-2">
-								<li>{$t('common.components.error_troubleshooting_modal.passkey_overview.benefit1')}</li>
-								<li>{$t('common.components.error_troubleshooting_modal.passkey_overview.benefit2')}</li>
-								<li>{$t('common.components.error_troubleshooting_modal.passkey_overview.benefit3')}</li>
+								<li>
+									{$t('common.components.error_troubleshooting_modal.passkey_overview.benefit1')}
+								</li>
+								<li>
+									{$t('common.components.error_troubleshooting_modal.passkey_overview.benefit2')}
+								</li>
+								<li>
+									{$t('common.components.error_troubleshooting_modal.passkey_overview.benefit3')}
+								</li>
 							</ul>
 						</div>
 					</div>
@@ -335,8 +369,8 @@
 									<p class="text-xs sm:text-sm text-base-content/80 leading-relaxed pt-2">
 										{$t('common.components.error_troubleshooting_modal.passkey_faq.answer5')}
 									</p>
-									</div>
-									</div>
+								</div>
+							</div>
 
 							<!-- FAQ Item 6: Timeout -->
 							<div
@@ -368,14 +402,16 @@
 							{#if deviceSpecificSteps.length > 0}
 								<div class="space-y-2 mb-4">
 									{#each deviceSpecificSteps as stepKey}
-										<div class="flex items-start gap-2 text-xs sm:text-sm text-base-content/80 leading-relaxed">
+										<div
+											class="flex items-start gap-2 text-xs sm:text-sm text-base-content/80 leading-relaxed"
+										>
 											<IconCheckCircle class="h-4 w-4 text-primary shrink-0 mt-0.5" />
 											<span class="flex-1 min-w-0">{$t(stepKey)}</span>
 										</div>
 									{/each}
 								</div>
 							{/if}
-							
+
 							<!-- Open Settings Button (for native apps) -->
 							{#if settingsAction && settingsAction.available}
 								<div class="mt-4 pt-4 border-t border-base-content/10">
@@ -388,15 +424,21 @@
 									</button>
 								</div>
 							{/if}
-							
+
 							<!-- Settings Instructions (for web or when button not available) -->
 							{#if settingsInstructions.length > 0 && (!settingsAction || !settingsAction.available)}
 								<div class="mt-4 pt-4 border-t border-base-content/10">
 									<div class="flex items-start gap-2 mb-2">
 										<IconCog class="h-4 w-4 text-primary shrink-0 mt-0.5" />
-										<h5 class="font-semibold text-xs sm:text-sm">{$t('common.components.error_troubleshooting_modal.settings_instructions_title')}</h5>
+										<h5 class="font-semibold text-xs sm:text-sm">
+											{$t(
+												'common.components.error_troubleshooting_modal.settings_instructions_title'
+											)}
+										</h5>
 									</div>
-									<ol class="list-decimal list-inside space-y-1 text-xs sm:text-sm text-base-content/80 leading-relaxed ml-2">
+									<ol
+										class="list-decimal list-inside space-y-1 text-xs sm:text-sm text-base-content/80 leading-relaxed ml-2"
+									>
 										{#each settingsInstructions as instructionKey}
 											<li>{$t(instructionKey)}</li>
 										{/each}
@@ -418,11 +460,19 @@
 								</h4>
 							</div>
 							<div class="space-y-2 text-xs sm:text-sm text-base-content/80">
-								<p class="leading-relaxed">{$t('common.components.error_troubleshooting_modal.biometric_help_description')}</p>
+								<p class="leading-relaxed">
+									{$t('common.components.error_troubleshooting_modal.biometric_help_description')}
+								</p>
 								<ul class="list-disc list-inside space-y-1 ml-2 leading-relaxed">
-									<li>{$t('common.components.error_troubleshooting_modal.biometric_help_point1')}</li>
-									<li>{$t('common.components.error_troubleshooting_modal.biometric_help_point2')}</li>
-									<li>{$t('common.components.error_troubleshooting_modal.biometric_help_point3')}</li>
+									<li>
+										{$t('common.components.error_troubleshooting_modal.biometric_help_point1')}
+									</li>
+									<li>
+										{$t('common.components.error_troubleshooting_modal.biometric_help_point2')}
+									</li>
+									<li>
+										{$t('common.components.error_troubleshooting_modal.biometric_help_point3')}
+									</li>
 								</ul>
 							</div>
 						</div>
@@ -433,21 +483,29 @@
 				<div class="alert alert-outline alert-info">
 					<IconInformation class="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
 					<div class="min-w-0">
-						<h4 class="font-bold text-sm sm:text-base text-base-content">{$t('common.components.error_troubleshooting_modal.still_need_help_title')}</h4>
-						<p class="text-xs sm:text-sm mt-1 leading-relaxed">{$t('common.components.error_troubleshooting_modal.still_need_help_description')}</p>
+						<h4 class="font-bold text-sm sm:text-base text-base-content">
+							{$t('common.components.error_troubleshooting_modal.still_need_help_title')}
+						</h4>
+						<p class="text-xs sm:text-sm mt-1 leading-relaxed">
+							{$t('common.components.error_troubleshooting_modal.still_need_help_description')}
+						</p>
 					</div>
 				</div>
 			</div>
 
 			<!-- Action Buttons - Fixed at bottom -->
-			<div class="border-t border-base-300 bg-base-100 flex flex-col sm:flex-row gap-3 sm:gap-3 p-4 sm:p-4 shrink-0">
+			<div
+				class="border-t border-base-300 bg-base-100 flex flex-col sm:flex-row gap-3 sm:gap-3 p-4 sm:p-4 shrink-0"
+			>
 				<button
 					type="button"
 					class="btn btn-ghost flex-1 sm:flex-none order-1 sm:order-2 min-h-[44px] h-auto py-3 sm:py-2"
 					onclick={closeModal}
 				>
 					<IconCheckCircle class="mr-2 h-4 w-4 sm:h-4 sm:w-4 shrink-0" />
-					<span class="text-sm sm:text-sm font-medium">{$t('common.components.error_troubleshooting_modal.got_it_button')}</span>
+					<span class="text-sm sm:text-sm font-medium"
+						>{$t('common.components.error_troubleshooting_modal.got_it_button')}</span
+					>
 				</button>
 				<button
 					type="button"
@@ -459,16 +517,17 @@
 							await onRetry();
 						} else {
 							// Fallback to page reload if no retry callback provided
-						window.location.reload();
+							window.location.reload();
 						}
 					}}
 				>
 					<IconRefresh class="mr-2 h-4 w-4 sm:h-4 sm:w-4 shrink-0" />
-					<span class="text-sm sm:text-sm font-medium">{$t('common.components.error_troubleshooting_modal.retry_button')}</span>
+					<span class="text-sm sm:text-sm font-medium"
+						>{$t('common.components.error_troubleshooting_modal.retry_button')}</span
+					>
 				</button>
 			</div>
 		</div>
 		<button class="modal-backdrop" onclick={closeModal} aria-label="Close modal"></button>
 	</div>
 {/if}
-

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+	<!--
+		Debug-only manifest overrides to enable HTTP live reload (cleartext).
+		This avoids relaxing cleartext/network security for release builds.
+	-->
+	<application
+		android:usesCleartextTraffic="true"
+		android:networkSecurityConfig="@xml/network_security_config"
+	/>
+</manifest>
+
+

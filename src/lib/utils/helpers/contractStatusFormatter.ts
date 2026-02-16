@@ -1,4 +1,4 @@
-import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
 
 /**
  * Status event messages configuration
@@ -186,7 +186,6 @@ export function getStatusTranslationKey(status: EscrowStatus): string {
 export function getStatusColorClass(status: EscrowStatus): string {
 	switch (status) {
 		// Active/In-Progress states - Primary (Bitcoin orange)
-		case EscrowStatus.Funded:
 		case EscrowStatus.InProgress:
 		case EscrowStatus.PendingFunding:
 			return 'badge-primary';
@@ -198,6 +197,7 @@ export function getStatusColorClass(status: EscrowStatus): string {
 			return 'badge-success';
 
 		// Pending states - Info (Blue)
+		case EscrowStatus.Funded:
 		case EscrowStatus.PendingCompletion:
 		case EscrowStatus.PendingAcceptance:
 		case EscrowStatus.DisputeUnresolved:

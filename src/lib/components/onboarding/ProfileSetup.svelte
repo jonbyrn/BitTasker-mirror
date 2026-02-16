@@ -326,7 +326,7 @@
 		</div>
 	</div>
 {:else}
-	<div class="card bg-base-100 w-full shadow-xl">
+	<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-profile">
 		<div class="card-body">
 			<!-- Educational Header -->
             <div class="education-header mb-6 text-center">
@@ -394,6 +394,7 @@
 					<input
 						type="text"
 						id="displayName"
+						data-testid="onboarding-display-name"
 						bind:value={displayName}
 						class="input input-bordered w-full {nameError ? 'input-error' : ''}"
 						placeholder={$t('onboarding_auth.form.your_full_name')}
@@ -414,6 +415,7 @@
 					<input
 						type="text"
 						id="professionalTitle"
+						data-testid="onboarding-professional-title"
 						bind:value={professionalTitle}
 						class="input input-bordered w-full"
 						placeholder={$t('onboarding_auth.form.professional_title_placeholder')}
@@ -428,6 +430,7 @@
                     </label>
 					<textarea
 						id="profileDescription"
+						data-testid="onboarding-profile-description"
 						bind:value={profileDescription}
                         minlength={saveForLater ? undefined : 100}
 						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
@@ -444,7 +447,7 @@
 				</div>
 
 				<!-- Skills Tags -->
-				<div class="form-control mx-auto max-w-xl">
+				<div class="form-control mx-auto max-w-xl" data-testid="onboarding-skills">
 					<label class="label" for="skills">
 						<span class="label-text">{$t('onboarding_auth.form.skills')}</span>
 						<span class="label-text-alt">{selectedSkills.length}/20</span>
@@ -496,7 +499,7 @@
 					{:else}
 						<div></div>
 					{/if}
-					<button type="submit" class="btn btn-primary" disabled={isLoading || pictureLoading}>
+					<button type="submit" class="btn btn-primary" data-testid="onboarding-profile-next" disabled={isLoading || pictureLoading}>
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{/if}

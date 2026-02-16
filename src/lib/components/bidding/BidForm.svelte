@@ -15,11 +15,17 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
-	// Props - Simplified to just task and onClose
-	const { task, onClose } = $props<{
+	// Props - Simplified to just task, onClose, and stickySubmit
+	const { task, onClose, stickySubmit = true } = $props<{
 		task: Task;
 		onClose: () => void;
+		/**
+		 * When true, the submit button stays visible while scrolling.
+		 * For drawer usage we prefer it to be in normal flow, at the bottom of the drawer.
+		 */
+		stickySubmit?: boolean;
 	}>();
 
 	// Form state
@@ -431,6 +437,25 @@
 		return Object.keys(errors).length === 0;
 	}
 
+	// Helper function to get the first validation error message
+	function getFirstValidationError(): string | null {
+		// Priority order: general error first, then field errors in order of importance
+		if (bidFormErrors.general) {
+			return bidFormErrors.general;
+		}
+
+		// Check field errors in priority order
+		const errorFields = ['amount', 'hourlyRate', 'estimatedHours', 'datetime', 'description', 'proposedApproach', 'coverLetter'];
+		
+		for (const field of errorFields) {
+			if (bidFormErrors[field] && bidFormErrors[field].trim() !== '') {
+				return bidFormErrors[field];
+			}
+		}
+
+		return null;
+	}
+
 	// Helper function to format duration for display (reactive)
 	const formatDurationForDisplay = $derived.by(() => {
 		if (bidType === 'FIXED' && startDateTime && endDateTime) {
@@ -479,7 +504,15 @@
 	async function handleBidSubmit(e: Event) {
 		e.preventDefault();
 
-		if (!validateBidForm()) return;
+		// Clear general error before validation
+		if (bidFormErrors.general) {
+			bidFormErrors = { ...bidFormErrors, general: '' };
+		}
+
+		if (!validateBidForm()) {
+			// Validation failed - errors are already set in bidFormErrors
+			return;
+		}
 
 		submittingBid = true;
 
@@ -516,6 +549,12 @@
 				taskCreatorUsername: task.creator?.username,
 				taskCreatorAvatar: task.creator?.avatar,
 
+				// Original task budget — mismo origen que taskTitle/taskDescription: se guarda en la bid
+				// para mostrarlo en Ofertas enviadas (DashboardBidsPanel) sin cargar la tarea de nuevo
+				...(typeof task.budget?.amount === 'number' && {
+					taskBudget: { amount: task.budget.amount, currency: task.budget.currency ?? 'USD' }
+				}),
+
 				// Add logged-in user information
 				bidderId: $user.npub || $user.id?.toString() || '',
 				bidderName: $user.username || $user.name,
@@ -524,9 +563,9 @@
 				// Add RSK wallet address for escrow funding
 				bidderWalletAddress: rskAddress,
 
-				// Add new datetime fields
-				startDateTime: bidType === 'FIXED' ? startDateTime : null,
-				endDateTime: bidType === 'FIXED' ? endDateTime : null,
+				// Add new datetime fields - serialize with local time to preserve user's selected time
+				startDateTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
+				endDateTime: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
 
 				// Add bid translations
 				...(bidTranslations && { translations: bidTranslations })
@@ -536,19 +575,19 @@
 			const customTags = TAG_PATTERNS.bid(bidData.bidId, task.id, task.npub, bidType);
 
 			// Submit a bid as an encrypted event to the task creator with custom tags
-			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
+		await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
 
 			// Send notification to task creator
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [task.npub],
 				title: 'New Bid Received',
-				body: `New bid received for task: ${task.title || task.id} | taskId:${task.id} | task.npub:${task.npub}`,
+				body: `New bid received ${task.title ? `for task: ${task.title}` : ''}`,
 				type: 'bid_created',
-				clickAction: `${import.meta.env.VITE_APP_URL}/dashboard/task/${task.id}`,
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard/task/${task.id}`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Clear bid cache for this specific task
+			// Clear bid cache for this specific task and current user
 			// This ensures fresh data on next load without clearing unrelated caches
 			clearBidCache(task.id);
 
@@ -571,7 +610,7 @@
 	});
 </script>
 
-<div class="bg-base-100 relative mx-auto rounded-lg">
+<div class="relative mx-auto flex min-h-0 flex-1 flex-col bid-form-container">
 	{#if bidSubmitted}
 		<div
 			class="p-8 text-center"
@@ -606,7 +645,9 @@
 			</div>
 		</div>
 	{:else}
-		<form class="space-y-4" onsubmit={handleBidSubmit}>
+		<form class="flex min-h-0 flex-1 flex-col" onsubmit={handleBidSubmit}>
+			<!-- Scrollable content area -->
+			<div class="flex-1 space-y-4 pb-4">
 			<!-- Payment Type -->
 			<div class="form-control">
 				<label class="label cursor-pointer" for="payment-type-group">
@@ -681,7 +722,7 @@
 					</div>
 					{#if bidFormErrors.amount}
 						<div class="label">
-							<span class="label-text-alt text-error" id="amount-error" aria-live="polite"
+							<span class="label-text-alt text-error wrap-break-words" id="amount-error" aria-live="polite"
 								>{bidFormErrors.amount}</span
 							>
 						</div>
@@ -751,15 +792,17 @@
 					</div>
 					{#if bidFormErrors.datetime}
 						<div class="label">
-							<span class="label-text-alt text-error" id="datetime-error" aria-live="polite"
+							<span class="label-text-alt text-error wrap-break-words" id="datetime-error" aria-live="polite"
 								>{bidFormErrors.datetime}</span
 							>
 						</div>
 					{/if}
 					{#if startDateTime && endDateTime}
-						<span class="label-text-alt text-base-content/60 mt-1 block">
-							{$t('bid_form.form.duration')}: {formatDurationForDisplay}
-						</span>
+						<div class="mt-3 rounded-lg bg-primary/10 px-3 py-2">
+							<span class="text-sm font-semibold text-primary">
+								{$t('bid_form.form.duration')}: {formatDurationForDisplay}
+							</span>
+						</div>
 					{/if}
 				</div>
 			{:else}
@@ -806,7 +849,7 @@
 					</div>
 					{#if bidFormErrors.hourlyRate}
 						<div class="label">
-							<span class="label-text-alt text-error" id="hourly-rate-error" aria-live="polite"
+							<span class="label-text-alt text-error wrap-break-words" id="hourly-rate-error" aria-live="polite"
 								>{bidFormErrors.hourlyRate}</span
 							>
 						</div>
@@ -839,7 +882,7 @@
 					/>
 					{#if bidFormErrors.estimatedHours}
 						<div class="label">
-							<span class="label-text-alt text-error" id="estimated-hours-error" aria-live="polite"
+							<span class="label-text-alt text-error wrap-break-words" id="estimated-hours-error" aria-live="polite"
 								>{bidFormErrors.estimatedHours}</span
 							>
 						</div>
@@ -902,7 +945,7 @@
 				{#if bidFormErrors.description}
 					<div class="label">
 						<span
-							class="label-text-alt text-error whitespace-break-spaces"
+							class="label-text-alt text-error wrap-break-words"
 							id="description-error"
 							aria-live="polite">{bidFormErrors.description}</span
 						>
@@ -940,7 +983,7 @@
 				{#if bidFormErrors.proposedApproach}
 					<div class="label">
 						<span
-							class="label-text-alt text-error whitespace-break-spaces"
+							class="label-text-alt text-error wrap-break-words"
 							id="proposed-approach-error"
 							aria-live="polite">{bidFormErrors.proposedApproach}</span
 						>
@@ -972,32 +1015,57 @@
 				{/if}
 				{#if bidFormErrors.coverLetter}
 					<div class="label">
-						<span class="label-text-alt text-error" id="cover-letter-error" aria-live="polite"
+						<span class="label-text-alt text-error wrap-break-words" id="cover-letter-error" aria-live="polite"
 							>{bidFormErrors.coverLetter}</span
 						>
 					</div>
 				{/if}
 			</div>
+			</div>
 
-			<!-- Submit Buttons -->
-			<button
-				id="bid-submit-btn"
-				type="submit"
-				class="btn btn-primary ml-auto block {bidFormErrors.general ? '' : 'mb-20 lg:mb-4'}"
-				disabled={submittingBid}
+			<!-- Submit area -->
+			<div
+				class="-mx-4 border-t border-base-300 bg-base-100 px-4 pt-4 pb-safe {stickySubmit
+					? 'sticky bottom-0 z-50'
+					: 'mt-auto'}"
 			>
-				{#if submittingBid}
-					<span class="loading loading-spinner loading-sm"></span>
-					{$t('bid_form.form.submitting')}
-				{:else}
-					{$t('bid_form.form.submit_bid')}
+				{#if getFirstValidationError()}
+					<div class="alert alert-outline alert-error mb-4">
+						<span>{getFirstValidationError()}</span>
+					</div>
 				{/if}
-			</button>
-			{#if bidFormErrors.general}
-				<div class="alert alert-error alert-outline mb-20 lg:mb-4">
-					<span>{bidFormErrors.general}</span>
-				</div>
-			{/if}
+				<button
+					id="bid-submit-btn"
+					type="submit"
+					class="btn btn-primary ml-auto mb-6 block w-full sm:w-auto"
+					disabled={submittingBid}
+				>
+					{#if submittingBid}
+						<span class="loading loading-spinner loading-sm"></span>
+						{$t('bid_form.form.submitting')}
+					{:else}
+						{$t('bid_form.form.submit_bid')}
+					{/if}
+				</button>
+			</div>
 		</form>
 	{/if}
 </div>
+
+<style>
+	/* Ensure submit button is always visible above bottom navigation bar on mobile */
+	@media (max-width: 1024px) {
+		.bid-form-container form > div:first-child {
+			/* Add minimal padding to ensure button is accessible when scrolled to bottom */
+			padding-bottom: 0.5rem;
+		}
+		
+		.bid-form-container .sticky {
+			/* Ensure sticky button stays visible above bottom nav */
+			position: sticky;
+			bottom: 0;
+			z-index: 50;
+			background-color: hsl(var(--b1));
+		}
+	}
+</style>

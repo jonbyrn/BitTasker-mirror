@@ -28,7 +28,11 @@ const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
  * Get the centralized pool instance from appStore
  */
 function getPool() {
-	return get(appStore).pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
+	return pool;
 }
 
 // Swap type tags for filtering

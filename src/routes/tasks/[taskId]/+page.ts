@@ -4,6 +4,7 @@ import type { Task } from '$lib/types/task';
 import { nip19 } from 'nostr-tools';
 import { redirect } from '@sveltejs/kit';
 import KINDS from '$lib/utils/constants/kinds';
+import type { NostrEvent } from '$lib/types/nostr';
 
 const SITE_URL = 'https://bittasker.com';
 
@@ -49,7 +50,7 @@ function npubToHex(npub: string): string {
 /**
  * Find task event by author (npub or hex pubkey)
  */
-async function findTaskByAuthor(pubkey: string): Promise<{ data: any } | null> {
+async function findTaskByAuthor(pubkey: string): Promise<{ data: NostrEvent } | null> {
 	try {
 		// Query events by author with task creation kind
 		const response = await nostrEventsService.findEvents({
@@ -70,59 +71,40 @@ async function findTaskByAuthor(pubkey: string): Promise<{ data: any } | null> {
 }
 
 /**
- * Find task event by unique ID using the 'd' tag
+ * Find task event by d-tag (Addressable Event: kind:pubkey:d-tag).
+ * Supports legacy task-{uuid} and readable d-tag (slug-timestamp-suffix).
  */
-async function findTaskByUniqueId(uniqueId: string): Promise<{ data: any } | null> {
+async function findTaskByDTag(dTagValue: string): Promise<{ data: NostrEvent } | null> {
 	try {
-		// The uniqueId is stored in the 'd' tag as 'task-{uniqueId}'
-		const dTagValue = `task-${uniqueId}`;
-		
-		// Use requestEvents for proper tag filtering
-		// The filter format for Nostr tag queries
 		const filter = {
 			kinds: [KINDS.TASK_CREATION],
 			'#d': [dTagValue],
 			limit: 1
 		};
-		
 		const response = await nostrEventsService.requestEvents({
 			filters: [filter]
 		});
-		
 		if (response.data && response.data.length > 0) {
-			// Verify the event actually has the uniqueId in its content or tags
 			const event = response.data[0];
-			
-			// First check tags for the 'd' tag
 			const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd' && tag[1] === dTagValue);
 			if (dTag) {
 				return { data: event };
 			}
-			
-			// Also check the content for uniqueId
-			try {
-				const taskData = JSON.parse(event.content);
-				if (taskData.uniqueId === uniqueId) {
-					return { data: event };
-				}
-			} catch {
-				// If parsing fails, we already checked tags above
-			}
 		}
 		return null;
 	} catch (error) {
-		console.error('Error finding task by unique ID:', error);
+		console.error('Error finding task by d-tag:', error);
 		return null;
 	}
 }
 
-export const load: PageLoad = async ({ params, url }) => {
+export const load: PageLoad = async ({ params }) => {
 	const taskId = params.taskId;
 	let uniqueId = taskId; // Default to using taskId as uniqueId
 	let shouldRedirect = false;
 	
 	// Determine if taskId is an event ID, UUID, or npub/pubkey
-	let event: any = null;
+	let event = null;
 	
 	if (isEventId(taskId)) {
 		// It's an event ID, load the event and extract uniqueId for redirect
@@ -146,10 +128,9 @@ export const load: PageLoad = async ({ params, url }) => {
 			console.error('Error loading task by event ID:', error);
 		}
 	} else if (isUuid(taskId)) {
-		// It's a unique ID (UUID), find task by uniqueId using 'd' tag
-		// No redirect needed - UUID is the stable identifier
+		// Legacy: UUID in URL → d-tag was task-{uuid}
 		try {
-			const result = await findTaskByUniqueId(taskId);
+			const result = await findTaskByDTag(`task-${taskId}`);
 			if (result?.data) {
 				event = result.data;
 			}
@@ -198,25 +179,29 @@ export const load: PageLoad = async ({ params, url }) => {
 			console.error('Error loading task by pubkey:', error);
 		}
 	} else {
-		// Try as event ID anyway (fallback)
+		// Readable d-tag (slug-timestamp-suffix): query by d-tag
 		try {
-			const result = await nostrEventsService.findEventById(taskId);
-			event = result.data;
-			
-			if (event) {
-				// Extract uniqueId for redirect
-				try {
-					const taskData = JSON.parse(event.content) as Task;
-					if (taskData.uniqueId) {
-						uniqueId = taskData.uniqueId;
-						shouldRedirect = true; // Redirect to UUID URL for stability
-					}
-				} catch (parseError) {
-					console.error('Error parsing task data from event:', parseError);
-				}
+			const result = await findTaskByDTag(taskId);
+			if (result?.data) {
+				event = result.data;
 			}
 		} catch (error) {
-			console.error('Error loading task:', error);
+			console.error('Error loading task by d-tag:', error);
+		}
+		if (!event) {
+			try {
+				const result = await nostrEventsService.findEventById(taskId);
+				event = result.data;
+				if (event) {
+					const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
+					if (dTag && dTag !== taskId) {
+						uniqueId = dTag;
+						shouldRedirect = true;
+					}
+				}
+			} catch {
+				// Ignore
+			}
 		}
 	}
 	
@@ -239,17 +224,29 @@ export const load: PageLoad = async ({ params, url }) => {
 		twitterTitle: 'Task Details - BitTasker',
 		twitterDescription: 'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
 		twitterImage: `${SITE_URL}/images/og-task-default.jpg`,
-		jsonLd: null as any,
+		jsonLd: null,
 		task: null as Task | null
 	};
 
 	if (event) {
 		const taskData = JSON.parse(event.content) as Task;
+		const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
 		const task = {
 			...taskData,
-			id: event.id,
+			id: dTag || event.id,
 			npub: event.pubkey
 		};
+
+		// Helper function to check if URL is a video
+		function isVideoFile(url: string): boolean {
+			const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+			const urlLower = url.toLowerCase();
+			return videoExtensions.some((ext) => urlLower.endsWith(ext));
+		}
+
+		// Get first image attachment (not video) for meta tags
+		const firstImage = task.attachments?.find(att => !isVideoFile(att.url));
+		const taskImage = firstImage?.url || `${SITE_URL}/images/og-task-default.jpg`;
 
 		// Generate dynamic SEO data based on task content
 		const taskTitle = task.title || 'Untitled Task';
@@ -270,10 +267,10 @@ export const load: PageLoad = async ({ params, url }) => {
 			canonical: canonicalUrl,
 			ogTitle: `${taskTitle} - ${taskBudget} - BitTasker`,
 			ogDescription: `${truncatedDescription} | Budget: ${taskBudget} | Location: ${taskLocation}`,
-			ogImage: task.attachments?.[0]?.url || `${SITE_URL}/images/og-task-default.jpg`,
+			ogImage: taskImage,
 			twitterTitle: `${taskTitle} - ${taskBudget} - BitTasker`,
 			twitterDescription: `${truncatedDescription} | Budget: ${taskBudget} | Location: ${taskLocation}`,
-			twitterImage: task.attachments?.[0]?.url || `${SITE_URL}/images/og-task-default.jpg`,
+			twitterImage: taskImage,
 			jsonLd: generateTaskJsonLd(task, canonicalUrl),
 			task
 		};

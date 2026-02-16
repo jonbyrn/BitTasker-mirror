@@ -3,7 +3,7 @@ import type { PageLoad } from './$types';
 
 
 export const load: PageLoad = async ({ url }) => {
-	const seo = {
+	return {
 		title: 'Press & Media - BitTasker | Company News & Media Coverage',
 		description: 'Latest news, press releases, and media coverage about BitTasker, the decentralized Bitcoin task marketplace. Get media kits and company updates.',
 		keywords: 'BitTasker press, media coverage, company news, Bitcoin marketplace news, press releases, media kit, partnership announcements, startup news',
@@ -27,9 +27,5 @@ export const load: PageLoad = async ({ url }) => {
 				'dateModified': '2024-01-15'
 			}
 		}
-	};
-
-	return {
-		seo
 	};
 };

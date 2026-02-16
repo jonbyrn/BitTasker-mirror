@@ -13,13 +13,31 @@
 	import IconWhatsapp from '~icons/mdi/whatsapp';
 </script>
 
-<footer class="bg-base-300 text-base-content/70 py-12 pb-24 md:pb-32 lg:pb-12">
+<footer class="bg-base-300 text-base-content/70 py-12 pb-safe lg:pb-12">
 	<div class="container mx-auto px-4">
 		<div class="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
 			<!-- Company Info -->
 			<div class="col-span-2 px-4 md:col-span-3 md:px-6 lg:col-span-1 lg:px-0">
 				<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
 				<p class="mb-4">{$t('footer.company_description')}</p>
+				
+				<!-- Zapstore Badge -->
+				<div class="mb-6">
+					<a
+						href="https://zapstore.dev/apps/naddr1qvzqqqr7pvpzpdxcukch9yuvrpytr66vwlqfe0j2e4nuhdch79r52zmqh9s6tuxcqqgkxmmd9e3xjar5v9ekketj9eshquqj9fac3"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="hover:opacity-80 inline-block transition-opacity"
+						aria-label={$t('footer.zapstore_aria')}
+					>
+						<img 
+							src="/zapstore-badge.svg" 
+							alt="Get it on Zapstore" 
+							class="h-12"
+						/>
+					</a>
+				</div>
+
 				<!-- Social media icons -->
 				<div class="flex flex-col space-y-6 lg:space-y-2">
 					<!-- First row: Primal, Twitter, WhatsApp, Telegram, Facebook, Instagram -->
@@ -295,7 +313,7 @@
 			</div>
 		</div>
 
-		<div class="border-base-content/10 mt-12 border-t pt-8 text-center">
+		<div class="border-base-content/10 mt-12 border-t pt-8 pb-6 text-center">
 			<p>
 				© {new Date().getFullYear()}
 				{$t('footer.company_name')}. {$t('footer.copyright')}

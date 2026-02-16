@@ -21,7 +21,11 @@ const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
  * This ensures we use a single pool across the entire application
  */
 function getPool() {
-	return get(appStore).pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
+	return pool;
 }
 
 // --- Batch Profile Fetching ---
@@ -259,17 +263,31 @@ export function subscribeToProfileUpdates(
 
 export async function fetchProfileMetadata(npub: string): Promise<{ name?: string; picture?: string; createdAt?: string }> {
 	try {
-		// First check cache
+		// First check cache (using original format for cache key)
 		const cachedProfile = await profileCache.getProfile(npub);
 		if (cachedProfile) {
 			return cachedProfile;
+		}
+
+		// Convert npub to hex if needed (Nostr filters require hex pubkeys)
+		let hexPubkey = npub;
+		if (npub.startsWith('npub')) {
+			try {
+				const decoded = nip19.decode(npub);
+				if (decoded.type === 'npub') {
+					hexPubkey = decoded.data as string;
+				}
+			} catch (e) {
+				console.error('Failed to decode npub:', e);
+				// If decoding fails, try using as-is (might already be hex)
+			}
 		}
 
 		// If not in cache, fetch from relays
 		const pool = getPool();
 		const filter: Filter = {
 			kinds: [KINDS.PROFILE_METADATA, KINDS.FILE_METADATA, KINDS.PROFILE_IMAGES, KINDS.NIP_65_RELAY_LIST],
-			authors: [npub],
+			authors: [hexPubkey],
 			limit: 20
 		};
 

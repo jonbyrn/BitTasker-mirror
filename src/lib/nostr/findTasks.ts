@@ -129,9 +129,12 @@ function createTaskFilter(params: SearchTasksParams): Filter {
  * Convert a Nostr event to a Task
  */
 function convertEventToTask(event: Event): Task {
+	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+	// Use d-tag as id when present (Addressable Event: stable, readable identifier for URLs/SEO)
+	const taskId = dTag || event.id;
 	return {
 		...JSON.parse(event.content),
-		id: event.id,
+		id: taskId,
 		npub: event.pubkey,
 		createdAt: event.created_at
 	};

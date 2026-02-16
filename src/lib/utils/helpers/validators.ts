@@ -1,7 +1,10 @@
+import { normalizeRskAddress } from '@bittasker/wallet-core';
+
 export interface ValidationResult {
 	isValid: boolean;
 	error?: string;
 }
+
 
 // Import liquidjs-lib for Liquid address validation
 import { address as liquidAddress } from 'liquidjs-lib';
@@ -102,15 +105,20 @@ export function validateNostrPrivateKey(nsec: string): { isValid: boolean; error
 
 export function validateUsername(username: string): ValidationResult {
 	if (!username) {
-		return { isValid: false, error: 'Username is required' };
+		return { isValid: false, error: 'onboarding_auth.form.username_setup.errors.required' };
 	}
 
 	if (username.length < 3) {
-		return { isValid: false, error: 'Username must be at least 3 characters long' };
+		return { isValid: false, error: 'onboarding_auth.form.username_setup.errors.too_short' };
 	}
 
 	if (username.length > 64) {
-		return { isValid: false, error: 'Username must be less than 64 characters long' };
+		return { isValid: false, error: 'onboarding_auth.form.username_setup.errors.too_long' };
+	}
+
+	// check for spaces
+	if (username.includes(' ')) {
+		return { isValid: false, error: 'onboarding_auth.form.username_setup.errors.invalid_characters' };
 	}
 
 	// Validate allowed characters: letters, numbers, and hyphens only
@@ -118,7 +126,7 @@ export function validateUsername(username: string): ValidationResult {
 	// Cannot contain spaces or other special characters
 	const usernameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
 	if (!usernameRegex.test(username)) {
-		return { isValid: false, error: 'Invalid characters' };
+		return { isValid: false, error: 'onboarding_auth.form.username_setup.errors.invalid_characters' };
 	}
 
 	return { isValid: true };
@@ -153,7 +161,14 @@ export function validateRSKAddress(address: string): ValidationResult {
 		return { isValid: false, error: 'Address must contain only hexadecimal characters (0-9, a-f)' };
 	}
 
-	return { isValid: true };
+	// Try to normalize the RSK address to validate format
+	// normalizeRskAddress will throw if the address is invalid
+	try {
+		normalizeRskAddress(address);
+		return { isValid: true };
+	} catch (error) {
+		return { isValid: false, error: 'Invalid RSK address checksum' };
+	}
 }
 
 

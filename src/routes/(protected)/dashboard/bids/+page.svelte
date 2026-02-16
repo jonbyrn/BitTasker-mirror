@@ -6,6 +6,7 @@
 	<title>Bids - BitTasker</title>
 </svelte:head>
 
-<div class="mx-auto px-4 sm:p-0">
+<!-- Mismas dimensiones que Mi Panel -->
+<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<DashboardBidsPanel />
 </div>

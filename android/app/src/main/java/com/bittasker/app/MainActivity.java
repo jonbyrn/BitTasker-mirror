@@ -11,33 +11,6 @@ import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        handleNotificationIntent(getIntent());
-    }
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        handleNotificationIntent(intent);
-    }
-
-    private void handleNotificationIntent(Intent intent) {
-        if (intent != null) {
-            String notificationUrl = intent.getStringExtra("notification_url");
-            if (notificationUrl != null && !notificationUrl.isEmpty()) {
-                Log.d("MainActivity", "Handling notification URL: " + notificationUrl);
-                
-                // Store the URL to be handled once the bridge is ready
-                // We'll use a JavaScript call to navigate to the URL
-                getBridge().triggerJSEvent("notificationUrlOpen", "{ \"url\": \"" + notificationUrl + "\" }");
-            }
-        }
-    }
-
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);

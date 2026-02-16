@@ -2,6 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	// Icon imports for unplugin-icons
 	import IconSwapHorizontalCircleOutline from '~icons/mdi/swap-horizontal-circle-outline';
 	import IconShieldCheck from '~icons/mdi/shield-check';
@@ -29,10 +30,12 @@
 	});
 
 	function openModal() {
+		triggerHaptic(ImpactStyle.Light);
 		isOpen = true;
 	}
 
 	function closeModal() {
+		triggerHaptic(ImpactStyle.Light);
 		isOpen = false;
 		if (onClose) {
 			onClose();
@@ -40,6 +43,7 @@
 	}
 
 	function toggleFaq(index: number) {
+		triggerHaptic(ImpactStyle.Light);
 		if (openFaqIndex === index) {
 			openFaqIndex = -1; // Close if already open
 		} else {

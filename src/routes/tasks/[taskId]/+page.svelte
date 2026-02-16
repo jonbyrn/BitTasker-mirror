@@ -16,51 +16,59 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
+	import type { PageData } from './$types';
 
 	// Get taskId from route params
 	const taskId = page.params.taskId;
+	
+	// Get SEO data from page data
+	let { data }: { data: PageData } = $props();
 
 	// Check if user is logged in
 	const isLoggedIn = $derived($authState.isAuthenticated);
 
-	// Dashboard layout state
+	// Layout state
 	let width = $state(375);
-	let activeSection = $state('');
-
-	// Update active section based on URL
-	$effect(() => {
-		const path = page.url.pathname;
-
-		// Only set active section if we're on a dashboard route
-		if (path.includes('/dashboard/')) {
-			const section = path.split('/dashboard/')[1] || '';
-			const tabParam = page.url.searchParams.get('tab');
-
-			// Handle special cases for tab-based navigation
-			if (tabParam === 'bids') {
-				activeSection = 'bids-sent';
-			} else if (tabParam === 'contracts') {
-				activeSection = 'contracts';
-			} else {
-				activeSection = section;
-			}
-		} else {
-			// Not on a dashboard route, don't highlight any menu item
-			activeSection = 'none';
-		}
-	});
 </script>
 
 <svelte:head>
-	<title>{$t('dashboard.task_details_by_task.page_title')}</title>
-	<meta name="description" content={$t('dashboard.task_details_by_task.page_description')} />
+	<title>{data.seo.title}</title>
+	<meta name="description" content={data.seo.description} />
+	<meta name="keywords" content={data.seo.keywords} />
+	<link rel="canonical" href={data.seo.canonical} />
+
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={data.seo.canonical} />
+	<meta property="og:title" content={data.seo.ogTitle} />
+	<meta property="og:description" content={data.seo.ogDescription} />
+	<meta property="og:image" content={data.seo.ogImage} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content={data.seo.ogTitle} />
+	<meta property="og:site_name" content="BitTasker" />
+
+	<!-- Twitter -->
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content={data.seo.canonical} />
+	<meta property="twitter:title" content={data.seo.twitterTitle} />
+	<meta property="twitter:description" content={data.seo.twitterDescription} />
+	<meta property="twitter:image" content={data.seo.twitterImage} />
+	<meta property="twitter:image:alt" content={data.seo.twitterTitle} />
+	<meta property="twitter:site" content="@BitTaskerdotcom" />
+	<meta property="twitter:creator" content="@BitTaskerdotcom" />
+
+	<!-- Structured Data -->
+	{#if data.seo.jsonLd}
+		{@html `<script type="application/ld+json">${JSON.stringify(data.seo.jsonLd)}</script>`}
+	{/if}
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
 
 {#if isLoggedIn}
-	<!-- Dashboard layout for logged-in users -->
-	<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
+	<!-- Mismas dimensiones que Mi Panel -->
+	<div class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4">
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<!-- Fixed Sidebar - Only on desktop -->
 			<div class="w-full shrink-0 md:w-64">
@@ -72,12 +80,8 @@
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={section.id === 'bids-sent'
-												? '/dashboard?tab=bids'
-												: section.id === 'contracts'
-													? '/dashboard?tab=contracts'
-													: `/dashboard/${section.id}`}
-											class:menu-active={activeSection === section.id}
+											href={section.path}
+											class:menu-active={page.url.pathname + page.url.search === section.path || (section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks'))}
 											class="flex items-center gap-3"
 										>
 											{#if section.icon === 'mdi:format-list-bulleted'}
@@ -112,9 +116,11 @@
 			</div>
 		{/if}
 
-		<!-- Main Content with left margin for fixed sidebar -->
-		<div class="min-h-0 w-full flex-1">
-			<TaskDetailsView {taskId} />
+		<!-- Main Content - mismas dimensiones que Mi Panel -->
+		<div class="min-h-0 w-full flex-1 overflow-hidden">
+			<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+				<TaskDetailsView {taskId} />
+			</div>
 		</div>
 	</div>
 	<WarningPopup />
