@@ -92,7 +92,17 @@ When the backend is ready for E2E:
 
 ---
 
-## 7. Quick reference
+## 7. Cache (faster installs and less upload time)
+
+The pipeline caches `node_modules/` and `.npm/` so `npm ci` can reuse downloaded packages.
+
+- **Cache key:** Based on **`package-lock.json`** (checksum). Same lockfile across branches and MRs → same key → one shared cache. When you change dependencies, the key changes and a new cache is built.
+- **Who updates the cache:** Only the **build** job uses `policy: pull-push`. The **unit**, **coverage**, and **deploy** jobs use `policy: pull` so they restore cache but **don’t upload** it. That saves about 1–2 minutes per job and avoids three jobs uploading the same cache.
+- **“No URL provided” in logs:** The cache is stored **locally on the runner**. If you have one runner, that’s fine. With **multiple runners**, each has its own local cache unless you configure a **distributed cache** (e.g. S3) in the runner’s `config.toml` (see [GitLab: Caching](https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runnerscache-section)).
+
+---
+
+## 8. Quick reference
 
 | Branch / event | build | unit | coverage | deploy-development |
 |----------------|-------|------|----------|--------------------|
@@ -100,3 +110,5 @@ When the backend is ready for E2E:
 | Push to dev | ✅ | ✅ | ❌ | ✅ |
 | Push to master | ✅ | ✅ | ❌ | ❌ |
 | Push to other branch | ❌ | ❌ | ❌ | ❌ (MR pipeline runs when MR exists) |
+
+**Cache:** Key = `package-lock.json` checksum. Build = pull-push; unit, coverage, deploy = pull only.
