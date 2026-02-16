@@ -10,7 +10,7 @@ import { escrow } from '$lib/utils/wallet/escrow';
 import { createEscrowCommitment, getCommitmentProof } from '$lib/services/review-verification.service';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { publishEvent } from '../nostr';
-import { EscrowStatus } from '$lib/utils/enums/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
 
 // Mock dependencies
 vi.mock('$lib/utils/wallet/escrow', () => ({

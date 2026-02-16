@@ -32,11 +32,11 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 		}
 
 		// Get all user contracts
-		const contracts = await getUserContracts();
+		const contracts = await getUserContracts({ limit: 100 });
 		
 		// Filter to completed contracts
 		const completedContracts = contracts.filter(contract => {
-			const status = contract.contract.status;
+			const status = contract.status;
 			return status === 'completed' || status === 'resolved';
 		});
 
@@ -45,17 +45,18 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 		
 		for (const contract of completedContracts) {
 			// Check if user has already reviewed this escrow
-			const escrowReviews = await getReviewsForEscrow(contract.contract.escrowId);
+			const escrowReviews = await getReviewsForEscrow(contract.escrowData.id);
 			const userReviewed = escrowReviews.some(r => r.reviewerPubkey === currentUserPubkey);
 			
 			if (!userReviewed) {
 				// Determine who the reviewee is (the other party)
 				// If current user is client, review Taskee; if current user is Taskee, review client
-				const isClient = contract.contract.clientPubkey === currentUserPubkey;
-				const revieweePubkey = isClient ? contract.contract.freelancerPubkey : contract.contract.clientPubkey;
+				const content = contract.contractEvent.content;
+				const isClient = content.clientPubkey === currentUserPubkey;
+				const revieweePubkey = isClient ? content.freelancerPubkey : content.clientPubkey;
 				
 				// Get completion date (use latest status event or contract creation)
-				let completedAt = contract.contract.createdAt || Date.now();
+				let completedAt = (contract.contractEvent.created_at || 0) * 1000 || Date.now();
 				if (contract.statusEvents && contract.statusEvents.length > 0) {
 					const completionEvent = contract.statusEvents.find((e) => {
 						const action = e.status.action;
@@ -68,7 +69,7 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 
 				pending.push({
 					contract,
-					escrowId: contract.contract.escrowId,
+					escrowId: contract.escrowData.id,
 					revieweePubkey,
 					revieweeName: undefined, // Will need to get from profile
 					completedAt,
@@ -144,7 +145,7 @@ export async function getRevieweeRole(
 			return null;
 		}
 
-		const contract = contracts[0].contract;
+		const contract = contracts[0].contractEvent.content;
 		
 		// Normalize pubkeys for comparison (handle both hex and npub formats)
 		const normalizePubkey = async (pubkey: string): Promise<string> => {
