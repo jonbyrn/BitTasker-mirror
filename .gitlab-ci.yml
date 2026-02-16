@@ -3,12 +3,11 @@
 # -----------------------------------------------------------------------------------------------
 # STAGES
 # -----------------------------------------------------------------------------------------------
-#   validate  → build + unit (parallel) + coverage (MR only) + E2E (playwright). E2E and deploy reuse build.
-#   deploy    → deploy-development (active), deploy-staging / deploy-production (commented)
+#   validate  → build + unit (branch pushes only) + coverage (MR only). No duplicate test runs.
+#   deploy    → deploy-development (dev branch), deploy-staging / deploy-production (commented)
 #
-# Build runs once. Playwright receives build/ artifact and runs only "preview" (no second build).
-# Deploy receives the same build/ artifact and runs wrangler deploy (no rebuild).
-# Unit tests do NOT need the built app; they run against source (Vitest). When enabled, run in parallel with build.
+# Build runs once; deploy reuses build/ (wrangler deploy, no rebuild).
+# Unit tests (Vitest) run against source; no built app needed.
 #
 # -----------------------------------------------------------------------------------------------
 # RUNNERS
@@ -16,26 +15,34 @@
 #   All jobs use tags: [self-hosted] so the pipeline runs on your self-hosted GitLab runner.
 #
 # -----------------------------------------------------------------------------------------------
-# BRANCH STRATEGY (see also "After merging feat/unit-test-audit" below)
+# BRANCH STRATEGY (no feature-branch names — use long-lived branches only)
 # -----------------------------------------------------------------------------------------------
-#   - feat/unit-test-audit    → validate (unit + E2E) + deploy to development (worker.dev.bittasker.com)
-#   - dev                     → validate (unit + E2E); deploy-staging commented out
-#   - master                  → validate (unit + E2E); deploy-production commented out
-#   - Merge requests          → validate (unit + coverage + E2E) only
-#   - Other branches          → no pipeline (add rules if you want E2E on every branch)
+#   When to run the pipeline:
+#     - Merge requests  → build + coverage (tests with coverage for MR widget). No unit job (coverage does it).
+#     - Push to dev     → build + unit. deploy-development runs (deploys to worker.dev.bittasker.com).
+#     - Push to master  → build + unit. deploy-production commented out; uncomment when ready.
 #
-# After merging feat/unit-test-audit:
-#   - Recommended: Run E2E on dev + master + MRs only (not every branch) to keep feedback fast.
-#   - Deploy dev: trigger on "dev" branch so each push to dev deploys to worker.dev.bittasker.com.
-#   - Change deploy-development rules from "feat/unit-test-audit" to "dev" when you switch.
+#   What to include in rules:
+#     Use merge_request_event for MRs, and explicit branch names for the branches you actually use:
+#     dev, master (or main). Do NOT hardcode feature branches (e.g. feat/unit-test-audit); when you
+#     work on a feature, open an MR to dev → pipeline runs via merge_request_event. When you merge
+#     to dev, the dev pipeline runs and deploys. To test deploy from a feature branch temporarily,
+#     add one rule to deploy-development: - if: $CI_COMMIT_BRANCH == "your-feature-branch".
 #
-# Wrangler: GitLab injects CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from CI/CD Variables.
-# Build-time VITE_* must be set in GitLab so "npm run build" bakes them into the client bundle.
+#   See docs/ci/pipeline-branch-strategy.md for the full approach.
 #
-# CI/CD Variables for E2E:
-#   - VITE_API_URL             (required) — backend API for signup/onboarding/passkey
-#   - VITE_E2E_TURNSTILE_BYPASS = true    — bypass Turnstile in E2E (optional; script may warn)
-#   - VITE_NOSTR_RELAY_URL      (required for 04-messages) — Nostr relay for Messages E2E
+# -----------------------------------------------------------------------------------------------
+# E2E (PLAYWRIGHT) — COMMENTED OUT
+# -----------------------------------------------------------------------------------------------
+#   Playwright is disabled until the development backend is updated for E2E. When re-enabling:
+#   - Uncomment the playwright job below.
+#   - Add needs: [build, playwright] to deploy-development (and deploy-staging/deploy-production).
+#   - Ensure VITE_API_URL, VITE_E2E_TURNSTILE_BYPASS, VITE_NOSTR_RELAY_URL are set in CI/CD Variables.
+#
+# -----------------------------------------------------------------------------------------------
+# WRANGLER / VARIABLES
+# -----------------------------------------------------------------------------------------------
+#   GitLab injects CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID. Build-time VITE_* in GitLab.
 # -----------------------------------------------------------------------------------------------
 stages:
   - validate
@@ -70,15 +77,14 @@ build:
     expire_in: 1 hour
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "feat/unit-test-audit"
     - if: $CI_COMMIT_BRANCH == "dev"
     - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
-# UNIT - Unit tests (no coverage)
+# UNIT - Unit tests (no coverage), branch pushes only
 # ============================================
-# Runs test:ci on every pipeline. No check/lint (not enabled yet). Runs in parallel with build.
-# On MRs, the coverage job also runs (test:ci --coverage) for the MR widget.
+# Runs test:ci on branch pushes (dev, master). Does NOT run on MRs — the coverage job runs
+# test:ci --coverage there, so we avoid running the same suite twice. One test run per pipeline.
 unit:
   image: node:22-bookworm-slim
   stage: validate
@@ -93,8 +99,6 @@ unit:
     - npm ci --cache .npm --prefer-offline
     - npm run test:ci
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "feat/unit-test-audit"
     - if: $CI_COMMIT_BRANCH == "dev"
     - if: $CI_COMMIT_BRANCH == "master"
 
@@ -131,38 +135,36 @@ coverage:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # ============================================
-# PLAYWRIGHT E2E - Full ordered suite (validate stage)
+# PLAYWRIGHT E2E - COMMENTED OUT (backend not ready)
 # ============================================
-# Needs build/ from build job. Playwright detects build/ and runs only "preview" (no extra env var).
-# Runs: 01-signup-onboarding then 02, 03, 04. Requires VITE_API_URL and VITE_NOSTR_RELAY_URL in CI/CD Variables.
-playwright:
-  image: mcr.microsoft.com/playwright:v1.54.0-noble
-  stage: validate
-  tags:
-    - self-hosted
-  cache:
-    key: $CI_COMMIT_REF_SLUG
-    paths:
-      - node_modules/
-      - .npm/
-  needs:
-    - build
-  script:
-    - npm ci --cache .npm --prefer-offline
-    - npm run test:e2e
-  environment:
-    name: development
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "feat/unit-test-audit"
-    - if: $CI_COMMIT_BRANCH == "dev"
-    - if: $CI_COMMIT_BRANCH == "master"
+# Uncomment when dev backend is updated for E2E. Then add playwright back to deploy-development needs.
+# playwright:
+#   image: mcr.microsoft.com/playwright:v1.54.0-noble
+#   stage: validate
+#   tags:
+#     - self-hosted
+#   cache:
+#     key: $CI_COMMIT_REF_SLUG
+#     paths:
+#       - node_modules/
+#       - .npm/
+#   needs:
+#     - build
+#   script:
+#     - npm ci --cache .npm --prefer-offline
+#     - npm run test:e2e
+#   environment:
+#     name: development
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+#     - if: $CI_COMMIT_BRANCH == "dev"
+#     - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
 # DEPLOY DEVELOPMENT (worker.dev.bittasker.com)
 # ============================================
-# Active. Reuses build/ artifact from build job (no rebuild). Runs after E2E passes.
-# Requires: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID. If variables are Protected, uncheck or protect the branch.
+# Reuses build/ artifact (no rebuild). Needs only build until Playwright is re-enabled.
+# Requires: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
 deploy-development:
   image: node:22-bookworm-slim
   stage: deploy
@@ -175,7 +177,6 @@ deploy-development:
       - .npm/
   needs:
     - build
-    - playwright
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env dev
@@ -184,7 +185,7 @@ deploy-development:
     name: development
     url: https://worker.dev.bittasker.com
   rules:
-    - if: $CI_COMMIT_BRANCH == "feat/unit-test-audit"
+    - if: $CI_COMMIT_BRANCH == "dev"
 
 # ============================================
 # DEPLOY STAGING - dev branch only

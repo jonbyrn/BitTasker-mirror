@@ -13,7 +13,13 @@ This document describes how BitTasker improves its testing practices and integra
 
 ## 0. Progress & Decisions (Latest)
 
-**Update (2025-02-13):** Validated tests now live under **`unit/`** and **`integration/routes/`** (no separate `ci/` directory). `npm run test:ci` runs `src/lib/tests/unit/` and `src/lib/tests/integration/routes/`. See `plans/unit-testing-strategy.md` for the full layout and Phase 2 progress.
+**Update (2025-02-15):**
+
+- **Branch strategy:** Pipeline runs on **merge requests** (build + coverage) and on pushes to **`dev`** and **`master`** (build + unit). No feature-branch names in the config; see [Pipeline branch strategy](../ci/pipeline-branch-strategy.md).
+- **Unit vs coverage:** On MRs only **coverage** runs (tests with coverage); on branch pushes only **unit** runs (tests only). One test run per pipeline, no duplicate suite.
+- **Playwright (E2E):** Commented out in CI until the development backend is updated. Re-enable by uncommenting the job and adding it back to deploy **needs**; see `.gitlab-ci.yml` and [pipeline-branch-strategy.md](../ci/pipeline-branch-strategy.md#6-re-enabling-playwright-e2e).
+
+**Earlier:** Validated tests live under **`unit/`**, **`integration/routes/`**, **`components/`**. `npm run test:ci` runs those; see `plans/unit-testing-strategy.md`.
 
 ### Decisions Taken
 
@@ -39,6 +45,8 @@ When a pipeline runs for a **merge request**, the **`coverage`** job runs unit t
 - **Merge request diff** can show **line-by-line coverage** (green/orange) if the Cobertura artifact is parsed successfully; see [GitLab Code coverage](https://docs.gitlab.com/ee/ci/testing/code_coverage.html).
 
 The coverage job runs **only** on `merge_request_event` to keep pushes to `dev`/`master` fast. To verify or change the regex, run `npm run test:ci -- --coverage` locally and match the "All files" line in the text table; the first capturing group in the regex should be the **Lines** percentage.
+
+For a full explanation of how the widget works and what else is possible, see [Coverage in GitLab (how it works)](./coverage-how-it-works.md).
 
 ### How to Run CI Tests
 
@@ -184,16 +192,16 @@ npm run test:ci -- --coverage
 
 If `test:ci` fails locally, the **unit** (and **coverage**) jobs will fail in CI. Fix tests first, then push.
 
-### 2. Push to your branch and watch the pipeline
+### 2. Push to dev or master and watch the pipeline
 
-1. Commit your CI/config changes on `feat/unit-test-audit`.
-2. Push: `git push origin feat/unit-test-audit`.
+1. Commit your CI/config changes on `dev` or `master` (or merge an MR into them).
+2. Push: `git push origin dev` (or `master`).
 3. In GitLab: **CI/CD → Pipelines**. Open the new pipeline.
 4. Confirm:
    - **build** and **unit** run (and are picked up by a **self-hosted** runner if you use tags).
-   - After both pass, **playwright** runs.
    - **coverage** does **not** run (it only runs on merge requests).
-   - If all validate jobs pass, **deploy-development** runs (because the branch is `feat/unit-test-audit`).
+   - **playwright** is commented out.
+   - If validate passes, **deploy-development** runs when the branch is `dev`.
 
 ### 3. Open a merge request to test coverage and MR widget
 
@@ -210,10 +218,11 @@ If `test:ci` fails locally, the **unit** (and **coverage**) jobs will fail in CI
 
 | What to verify | How |
 |----------------|-----|
-| Unit tests pass in CI | **unit** job is green. |
-| Coverage runs only on MRs | **coverage** appears in MR pipelines; not in branch-only pipelines. |
+| Unit tests pass in CI | **unit** job is green (branch pipelines) or **coverage** job (MR pipelines). |
+| Coverage runs only on MRs | **coverage** appears in MR pipelines; not when pushing to dev/master. |
 | Self-hosted runner is used | Job logs or runner list show the job ran on a runner with tag `self-hosted`. |
-| Deploy only on feat/unit-test-audit | **deploy-development** runs when pipeline is for `feat/unit-test-audit`; not for other branches (e.g. a random feature branch). |
+| Deploy only on dev | **deploy-development** runs when pipeline is for `dev`; not for master or feature branches. |
+| Branch strategy | No feature-branch names in rules; see [pipeline-branch-strategy.md](../ci/pipeline-branch-strategy.md). |
 
 ---
 
@@ -221,7 +230,8 @@ If `test:ci` fails locally, the **unit** (and **coverage**) jobs will fail in CI
 
 | File | Role |
 |------|------|
-| `.gitlab-ci.yml` | Pipeline: build, unit, coverage (MR only), playwright, deploy |
+| `.gitlab-ci.yml` | Pipeline: build, unit (branch only), coverage (MR only), deploy; Playwright commented out |
+| `docs/ci/pipeline-branch-strategy.md` | When the pipeline runs, unit vs coverage, re-enabling E2E |
 | `package.json` | `test:ci`, `test:unit:*`, `test:triage` scripts |
 | `src/lib/tests/unit/`, `src/lib/tests/integration/routes/` | Validated tests run in CI |
 | `scripts/test-triage.js` | Triage script – pass/fail per directory |
