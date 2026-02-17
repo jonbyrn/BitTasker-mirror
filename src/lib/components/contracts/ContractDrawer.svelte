@@ -23,6 +23,9 @@
 	let isTechnicalDetailsOpen = $state(false);
 	let isOriginalBidOpen = $state(false);
 
+	// Timeline display count (bound from ContractTimeline - matches actual items shown)
+	let timelineDisplayCount = $state(0);
+
 	// Helper function to detect video files
 	function isVideoFile(url: string): boolean {
 		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
@@ -260,11 +263,11 @@
 					<div class="card bg-base-200 flex-1">
 						<div class="card-body p-4">
 							<div class="mb-3 flex items-center gap-3">
-								{#if $contractStore.contract.statusEvents.length > 0}
+								{#if timelineDisplayCount > 0}
 									<div
 										class="bg-primary text-primary-content flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full text-base font-semibold"
 									>
-										{$contractStore.contract.statusEvents.length}
+										{timelineDisplayCount}
 									</div>
 								{/if}
 								<h4 class="font-semibold">
@@ -281,6 +284,7 @@
 								contractCreatedAt={$contractStore.contract.contractEvent.created_at}
 								contractCreatorPubkey={$contractStore.contract.contractEvent.pubkey}
 								contractFundingTransactionHash={$contractStore.contract.contractEvent.content.transactionHash}
+								onDisplayCountChange={(count) => (timelineDisplayCount = count)}
 							/>
 						</div>
 					</div>

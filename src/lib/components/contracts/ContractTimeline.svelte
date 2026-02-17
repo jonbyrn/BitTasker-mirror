@@ -6,14 +6,21 @@
 	import { EscrowStatus } from '$lib/utils/escrow';
 	import { getActionDescription } from '$lib/utils/helpers/contractStatusFormatter';
 
-	const { statusEvents, contractPubkey, contractCreatedAt, contractCreatorPubkey, contractFundingTransactionHash } =
-		$props<{
-			statusEvents: ContractStatusEvent[];
-			contractPubkey: string;
-			contractCreatedAt?: number;
-			contractCreatorPubkey?: string;
-			contractFundingTransactionHash?: string;
-		}>();
+	const {
+		statusEvents,
+		contractPubkey,
+		contractCreatedAt,
+		contractCreatorPubkey,
+		contractFundingTransactionHash,
+		onDisplayCountChange
+	} = $props<{
+		statusEvents: ContractStatusEvent[];
+		contractPubkey: string;
+		contractCreatedAt?: number;
+		contractCreatorPubkey?: string;
+		contractFundingTransactionHash?: string;
+		onDisplayCountChange?: (count: number) => void;
+	}>();
 
 	/**
 	 * Filter to show only blockchain-confirmed events and final states
@@ -78,6 +85,11 @@
 			});
 		}
 		return items.sort((a, b) => a.timestamp - b.timestamp);
+	});
+
+	// Notify parent of display count when timeline items change
+	$effect(() => {
+		onDisplayCountChange?.(allTimelineItems.length);
 	});
 
 	// Format date for timeline
