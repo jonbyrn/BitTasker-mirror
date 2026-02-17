@@ -92,10 +92,11 @@ build:
     - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
-# UNIT - Unit tests (no coverage), branch pushes only
+# UNIT - Unit tests (no coverage)
 # ============================================
-# Runs test:ci on branch pushes (dev, master). Does NOT run on MRs — the coverage job runs
-# test:ci --coverage there, so we avoid running the same suite twice. One test run per pipeline.
+# Runs test:ci on branch pushes. Does NOT run on MRs (coverage runs there) or on dev/master
+# (coverage runs there too so GitLab has a stored baseline for "change vs. target" in the MR widget).
+# One test run per pipeline.
 unit:
   image: node:22-bookworm-slim
   stage: validate
@@ -113,16 +114,24 @@ unit:
     - npm ci --cache .npm --prefer-offline
     - npm run test:ci
   rules:
+    # Skip on MR (coverage runs) and on dev/master (coverage runs for baseline)
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
     - if: $CI_COMMIT_BRANCH == "dev"
+      when: never
     - if: $CI_COMMIT_BRANCH == "master"
+      when: never
+    # Run on other branch pushes (if any)
+    - when: on_success
 
 # ============================================
-# COVERAGE - Merge request only (for MR widget % and diff visualization)
+# COVERAGE - MR and target branches (for widget % and "change vs. target")
 # ============================================
 # Runs unit tests with coverage and reports to GitLab so the MR shows:
 #   - Coverage percentage and change vs. target branch (from coverage: regex)
 #   - Line-by-line coverage in MR diff (from artifacts: reports: coverage_report)
-# Only runs on merge_request_event to keep other pipelines fast.
+# Runs on merge_request_event (MRs) and on push to dev/master so GitLab has a stored
+# coverage for the target branch; without that, the widget cannot show "change vs. target".
 coverage:
   image: node:22-bookworm-slim
   stage: validate
@@ -150,6 +159,8 @@ coverage:
     expire_in: 1 week
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "dev"
+    - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
 # PLAYWRIGHT E2E - COMMENTED OUT (backend not ready)
