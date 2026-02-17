@@ -19,13 +19,13 @@ See also [CONTRIBUTING.md](../../CONTRIBUTING.md) and the root [README](../../RE
 
 ### 2.1 What runs in CI
 
-| Layer | Location | In CI? | Approx |
-|-------|----------|--------|--------|
-| **Unit + integration routes + components** | `src/lib/tests/unit/`, `integration/routes/`, `components/` | ✅ Yes | ~79 files, ~1046 tests |
-| **Integration (escrow)** | `src/lib/tests/integration/escrow/` | ❌ No | 8 files |
-| **Other** | `src/lib/tests/utils/` | ❌ No | Run with `test:unit:utils` |
-| **Pending** | `src/lib/tests/_pending/` | ❌ Excluded by Vitest | 6 files |
-| **E2E** | `tests/e2e/` | ❌ Commented out in CI | 4 specs |
+| Layer                                      | Location                                                    | In CI?                 | Approx                     |
+| ------------------------------------------ | ----------------------------------------------------------- | ---------------------- | -------------------------- |
+| **Unit + integration routes + components** | `src/lib/tests/unit/`, `integration/routes/`, `components/` | ✅ Yes                 | ~79 files, ~1046 tests     |
+| **Integration (escrow)**                   | `src/lib/tests/integration/escrow/`                         | ❌ No                  | 8 files                    |
+| **Other**                                  | `src/lib/tests/utils/`                                      | ❌ No                  | Run with `test:unit:utils` |
+| **Pending**                                | `src/lib/tests/_pending/`                                   | ❌ Excluded by Vitest  | 6 files                    |
+| **E2E**                                    | `tests/e2e/`                                                | ❌ Commented out in CI | 4 specs                    |
 
 **Command:** `npm run test:ci` → `vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/ src/lib/tests/components/`
 
@@ -48,14 +48,14 @@ src/lib/tests/
 
 ### 2.3 How to run tests
 
-| Goal | Command |
-|------|--------|
-| **CI set** | `npm run test:ci` |
-| **CI set + coverage** | `npm run test:ci -- --coverage` |
-| **Watch** | `npm run test:unit` |
-| **By group** | `npm run test:unit:stores`, `test:unit:utils`, etc. |
-| **Triage** | `npm run test:triage` |
-| **E2E** | `npm run test:e2e` |
+| Goal                  | Command                                             |
+| --------------------- | --------------------------------------------------- |
+| **CI set**            | `npm run test:ci`                                   |
+| **CI set + coverage** | `npm run test:ci -- --coverage`                     |
+| **Watch**             | `npm run test:unit`                                 |
+| **By group**          | `npm run test:unit:stores`, `test:unit:utils`, etc. |
+| **Triage**            | `npm run test:triage`                               |
+| **E2E**               | `npm run test:e2e`                                  |
 
 ### 2.4 Coverage
 
@@ -74,18 +74,17 @@ src/lib/tests/
 - MR description template with testing checklist.
 - Triage and per-dir scripts; cache (package-lock key, pull vs pull-push).
 - E2E “run locally” guidance in CONTRIBUTING.
+- **Git hooks (Husky):** **Pre-commit** runs Prettier + ESLint on staged files via `lint-staged`. **Pre-push** runs `npm run test:ci`. See [CONTRIBUTING § Git hooks](../../CONTRIBUTING.md#git-hooks); use `git push --no-verify` only in emergencies.
 
 ### 3.2 Do next
 
 1. **GitLab:** In **Settings → Merge requests**, enable **“Pipelines must succeed”** so red pipelines block merge.
-2. **Pre-push hook:** Husky + `npm run test:ci`; document `git push --no-verify` for emergencies.
 
 ### 3.3 Optional / when ready
 
 - Add **check + lint** to CI once they pass.
-- One line in CONTRIBUTING: “Flaky tests: fix or quarantine (e.g. _pending/ with a note).”
+- One line in CONTRIBUTING: “Flaky tests: fix or quarantine (e.g. \_pending/ with a note).”
 - Short **mocking** note: point to `src/lib/mocks/`, vitest-setup-client, mock at boundary.
-- **Pre-commit:** lint-staged + format/lint on staged files.
 
 ---
 
@@ -94,12 +93,12 @@ src/lib/tests/
 - **Unit strategy:** [plans/unit-testing-strategy.md](../../plans/unit-testing-strategy.md)
 - **Coverage expansion:** [plans/coverage-expansion-plan.md](../../plans/coverage-expansion-plan.md)
 - **Pipeline / branch strategy:** [../ci/pipeline-branch-strategy.md](../ci/pipeline-branch-strategy.md)
-- **Pending tests:** [src/lib/tests/_pending/README.md](../../src/lib/tests/_pending/README.md)
+- **Pending tests:** [src/lib/tests/\_pending/README.md](../../src/lib/tests/_pending/README.md)
 
-| Doc | Content |
-|-----|---------|
-| [testing-in-ci.md](./testing-in-ci.md) | CI test set, triage, per-dir commands, how to test the pipeline, **coverage in GitLab** (how widget works, what else is possible) |
-| [e2e-testing.md](./e2e-testing.md) | E2E specs, env vars, credentials, run order |
-| [e2e-account-creation.md](./e2e-account-creation.md) | Account creation challenges and implementation |
-| [e2e-wallet-post-login.md](./e2e-wallet-post-login.md) | Wallet E2E flow |
-| [e2e-messages-start-new-chat.md](./e2e-messages-start-new-chat.md) | Messages E2E flow |
+| Doc                                                                | Content                                                                                                                           |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| [testing-in-ci.md](./testing-in-ci.md)                             | CI test set, triage, per-dir commands, how to test the pipeline, **coverage in GitLab** (how widget works, what else is possible) |
+| [e2e-testing.md](./e2e-testing.md)                                 | E2E specs, env vars, credentials, run order                                                                                       |
+| [e2e-account-creation.md](./e2e-account-creation.md)               | Account creation challenges and implementation                                                                                    |
+| [e2e-wallet-post-login.md](./e2e-wallet-post-login.md)             | Wallet E2E flow                                                                                                                   |
+| [e2e-messages-start-new-chat.md](./e2e-messages-start-new-chat.md) | Messages E2E flow                                                                                                                 |
