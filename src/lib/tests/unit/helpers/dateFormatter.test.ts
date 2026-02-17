@@ -48,6 +48,14 @@ describe('Date Formatter', () => {
 			expect(result).toContain('23');
 			expect(result.toLowerCase()).toMatch(/september/);
 		});
+
+		it('should format date with Spanish locale and capitalize month', () => {
+			const testDate = new Date('2025-03-15T12:00:00Z');
+			const result = formatStandardDate(testDate, 'es');
+			expect(result).toContain('2025');
+			expect(result).toContain('15');
+			expect(result).toMatch(/marzo|Marzo/);
+		});
 	});
 
 	describe('timeAgo', () => {
