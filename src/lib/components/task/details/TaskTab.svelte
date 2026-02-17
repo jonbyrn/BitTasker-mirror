@@ -7,14 +7,13 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { browser } from '$app/environment';
-	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import {
 		formatStandardDate,
 		formatStandardDateShort,
 		formatStandardDateTime,
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { escrow } from '$lib/utils/escrow';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
@@ -327,17 +326,11 @@
 			<TaskShareButton {task} variant="circle" />
 		</div>
 		<div>
-			<small class="text-base-content/60 text-sm">
-				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
-			</small>
-
-			<div class="text-lg font-bold">
-				${formatNumberWithTwoDecimals(task.budget.amount)}
-
-				<div class="text-base-content/60 text-sm">
-					{satsFromUsd(task.budget.amount, btcPrice)}
-				</div>
-			</div>
+			<UsdSatsDisplay
+				amount={task.budget.amount}
+				btcPrice={btcPrice}
+				title={$t('dashboard.task_details_by_task.budget') + ' - ' + task.budget.type}
+			/>
 		</div>
 
 		<div>
