@@ -75,6 +75,40 @@ export function formatStandardDateShort(date: Date, locale: string = 'en'): stri
 }
 
 /**
+ * Format a date with short month and time: "Feb 14, 2026 at 10:59 PM"
+ * @param date - The date to format
+ * @param locale - The locale to use for formatting (defaults to current locale)
+ * @returns Formatted date string with short month and time
+ */
+export function formatStandardDateTimeShort(date: Date, locale: string = 'en'): string {
+	try {
+		const formatted = new Intl.DateTimeFormat(locale, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		}).format(date);
+
+		// For Spanish, capitalize month and use AM/PM
+		if (locale === 'es') {
+			return formatted
+				.replace(/\b(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/gi, (m) =>
+					m.charAt(0).toUpperCase() + m.slice(1)
+				)
+				.replace(/a\.\s*m\./gi, 'AM')
+				.replace(/p\.\s*m\./gi, 'PM');
+		}
+
+		return formatted;
+	} catch (error) {
+		console.error('Error formatting standard date time short:', error);
+		return 'Invalid date';
+	}
+}
+
+/**
  * Format a date to the standard app format with time: "September 23, 2025 at 2:30 PM"
  * @param date - The date to format
  * @param locale - The locale to use for formatting (defaults to current locale)

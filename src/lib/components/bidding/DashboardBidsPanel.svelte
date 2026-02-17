@@ -2,18 +2,31 @@
 	import type { NostrEvent } from 'nostr-tools';
 	import type { NostrBidContent } from '$lib/types/bid';
 	import { onMount } from 'svelte';
+	import { slide } from 'svelte/transition';
+	import { linear } from 'svelte/easing';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { getMyBids, getBidStatus, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { formatStandardDateTime, parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatInteger,
+		formatNumberWithTwoDecimals
+	} from '$lib/utils/helpers/currencyFormatter';
+	import {
+		formatStandardDateTimeShort,
+		parseDateWithLocalTime
+	} from '$lib/utils/helpers/dateFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import IconCheck from '~icons/mdi/check';
 	import IconClose from '~icons/mdi/close';
+	import IconClockOutline from '~icons/mdi/clock-outline';
+	import IconEmailArrowRight from '~icons/mdi/email-arrow-right';
+	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
+	import IconUndo from '~icons/mdi/undo';
 	import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 	import { clearBidCache as clearBidCacheUtil } from '$lib/utils/nostr-bid';
 	import { appStore } from '$lib/stores/app.store';
@@ -134,28 +147,52 @@
 		}
 	}
 
-	/** Status label and badge per status (constant) */
-	const StatusRender: Record<string, { label: string; badge: string }> = {
-		[BidStatusEnum.ACCEPTED]: { label: $t('bids.accepted'), badge: 'badge-success' },
-		[BidStatusEnum.REJECTED]: { label: $t('bids.rejected'), badge: 'badge-error' },
-		[BidStatusEnum.COUNTERED]: { label: $t('bids.status_countered'), badge: 'badge-info' },
-		[BidStatusEnum.WITHDRAWN]: { label: $t('bids.status_withdrawn'), badge: 'badge-neutral' }
+	/** Status label, badge, and icon per status */
+	const StatusRender: Record<
+		string,
+		{ label: string; badge: string; icon: typeof IconCheck }
+	> = {
+		[BidStatusEnum.ACCEPTED]: {
+			label: $t('bids.accepted'),
+			badge: 'badge-success',
+			icon: IconCheck
+		},
+		[BidStatusEnum.REJECTED]: {
+			label: $t('bids.rejected'),
+			badge: 'badge-error',
+			icon: IconClose
+		},
+		[BidStatusEnum.COUNTERED]: {
+			label: $t('bids.status_countered'),
+			badge: 'badge-info',
+			icon: IconSwapHorizontal
+		},
+		[BidStatusEnum.WITHDRAWN]: {
+			label: $t('bids.status_withdrawn'),
+			badge: 'badge-neutral',
+			icon: IconUndo
+		},
+		[BidStatusEnum.PENDING]: {
+			label: $t('bids.pending'),
+			badge: 'badge-warning',
+			icon: IconClockOutline
+		}
 	};
 
-	/** Format sent-at timestamp (Unix seconds) for display */
+	/** Format sent-at timestamp (Unix seconds) for display: "Feb 14, 2026 at 10:59 PM" */
 	function formatSentAt(createdAt: number): string {
 		const currentLocale = $locale || 'en';
-		return formatStandardDateTime(new Date(createdAt * 1000), currentLocale);
+		return formatStandardDateTimeShort(new Date(createdAt * 1000), currentLocale);
 	}
 
-	/** Format bid's proposed date range (dates you set for completing the task) */
+	/** Format bid's proposed date range: "Feb 14, 2026 at 10:59 PM - Feb 14, 2026 at 11:59 PM" */
 	function formatProposedDateRange(bid: NostrBidContent): string {
 		if (!bid.startDateTime || !bid.endDateTime) return '';
 		const start = parseDateWithLocalTime(bid.startDateTime);
 		const end = parseDateWithLocalTime(bid.endDateTime);
 		const loc = $locale || 'en';
 		if (start && end) {
-			return `${formatStandardDateTime(start, loc)} - ${formatStandardDateTime(end, loc)}`;
+			return `${formatStandardDateTimeShort(start, loc)} - ${formatStandardDateTimeShort(end, loc)}`;
 		}
 		return '';
 	}
@@ -349,46 +386,59 @@
 			{#each myBids as bidEvent (bidEvent.id)}
 				{@const bid = bidEvent.content as unknown as NostrBidContent}
 				{@const status = getBidStatus(bidEvent)?.status?.toUpperCase() || BidStatusEnum.PENDING}
-				<div class="card bg-base-100 border-base-300 relative rounded-2xl border shadow-sm">
+				{@const StatusIcon = StatusRender[status ?? '']?.icon ?? IconClockOutline}
+				<div class="card bg-base-100 border-base-300 rounded-2xl border shadow-sm">
 					<div class="card-body p-4 md:p-6">
-						<!-- Status badge: top-right of card -->
-						<div class="absolute right-4 top-4 z-10">
-							<span class="badge {StatusRender[status ?? '']?.badge ?? 'badge-warning'}">
-								{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
-							</span>
-						</div>
-
 						<!-- Section TAREA (what the task is) -->
 						<div class="border-base-200 border-b pb-4">
-							<span class="text-base-content/60 mb-2 block text-xs font-semibold uppercase tracking-wide">
-								{$t('bids.section_task')}
-							</span>
-							<button
-								onclick={(e) => {
-									e.stopPropagation();
-									goto(`/tasks/${bid.taskId}`);
-								}}
-								class="hover:text-primary card-title line-clamp-2 text-left text-lg transition-colors"
-							>
-								{getTranslatedTaskText(bid, 'title') || $t('bids.unknown_task')}
-							</button>
-							<p class="text-base-content/60 mt-1 line-clamp-2 text-sm">
-								{getTranslatedTaskText(bid, 'description')}
-							</p>
-							<div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-								<div class="flex flex-col gap-2">
+							<!-- Row 1: Task title (headline) + badge -->
+							<div class="mb-2 flex items-center justify-between gap-2">
+								<button
+									onclick={(e) => {
+										e.stopPropagation();
+										goto(`/tasks/${bid.taskId}`);
+									}}
+									class="hover:text-primary card-title line-clamp-2 flex-1 break-words text-left text-lg transition-colors"
+								>
+									{getTranslatedTaskText(bid, 'title') || $t('bids.unknown_task')}
+								</button>
+								<span
+									class="badge badge-sm shrink-0 inline-flex items-center gap-1 {StatusRender[status ?? '']?.badge ?? 'badge-warning'}"
+								>
+									<StatusIcon class="h-3.5 w-3.5 shrink-0" />
+									{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
+								</span>
+							</div>
+							<!-- Row 2: Description | Budget -->
+							<div class="flex items-start gap-4">
+								<div class="min-w-0 flex-1 overflow-hidden">
+									<p class="text-base-content/60 line-clamp-2 break-words text-sm">
+										{getTranslatedTaskText(bid, 'description')}
+									</p>
+								</div>
+								{#if bid.taskBudget != null}
+									<div class="shrink-0 text-right pl-4">
+										<p class="text-lg font-bold">${formatNumberWithTwoDecimals(bid.taskBudget.amount)}</p>
+										<p class="text-base-content/60 text-sm mt-1">{formatInteger(cachedSatsFromUsd(bid.taskBudget.amount, btcPrice))} {$t('bids.sats')}</p>
+									</div>
+								{/if}
+							</div>
+							<!-- Date/Location row with Your Bid stack on the right, vertically centered -->
+							<div class="mt-3 flex items-center justify-between gap-4">
+								<div class="flex min-w-0 flex-1 flex-col gap-2">
 									<TaskDeadlineDisplay
 										dateRangeStart={bid.startDateTime}
 										dateRangeEnd={bid.endDateTime}
 									/>
 									<TaskLocationDisplay />
 								</div>
-								{#if bid.taskBudget != null}
-									<div class="shrink-0 text-right">
-										<p class="text-lg font-bold">${formatNumberWithTwoDecimals(bid.taskBudget.amount)}</p>
-										<p class="text-base-content/60 text-sm">{cachedSatsFromUsd(bid.taskBudget.amount, btcPrice)} {$t('bids.sats')}</p>
-									</div>
-								{/if}
+								<div class="shrink-0 text-right pl-4">
+									<span class="text-base-content/60 block text-xs font-semibold uppercase tracking-wide">
+										{$t('bids.section_your_bid')}
+									</span>
+									<p class="text-primary text-lg font-bold">${formatNumberWithTwoDecimals(bid.amount)}</p>
+									<p class="text-base-content/60 text-sm">{formatInteger(cachedSatsFromUsd(bid.amount, btcPrice))} {$t('bids.sats')}</p>
+								</div>
 							</div>
 							<div class="mt-3">
 								<UserInfoDisplay
@@ -432,41 +482,23 @@
 								</svg>
 							</button>
 							{#if expandedBids.has(bid.bidId)}
-								<div class="border-base-200 mt-3 space-y-3 rounded-lg border bg-base-200/30 p-3">
-									<!-- Status, sent-at and price in one row, price on the right -->
-									<div class="flex flex-wrap items-center justify-between gap-3">
-										<div class="flex flex-wrap items-center gap-3">
-											<span class="badge {StatusRender[status ?? '']?.badge ?? 'badge-warning'}">{StatusRender[status ?? '']?.label ?? $t('bids.pending')}</span>
-											<span class="text-base-content/60 text-sm">
-												{$t('bids.sent_at')}: <strong class="text-base-content">{formatSentAt(bidEvent.created_at)}</strong>
-											</span>
-										</div>
-										<div class="shrink-0 text-right">
-											<p class="text-xl font-bold">${formatNumberWithTwoDecimals(bid.amount)}</p>
-											<p class="text-base-content/60 text-sm">{cachedSatsFromUsd(bid.amount, btcPrice)} {$t('bids.sats')}</p>
-										</div>
+								<div
+									class="border-base-200 mt-3 space-y-3 rounded-lg border bg-base-200/30 p-3"
+									in:slide={{ duration: 200, easing: linear }}
+									out:slide={{ duration: 200, easing: linear }}
+								>
+									<!-- Sent-at with icon (matches date icon styling) -->
+									<div class="flex items-center gap-2">
+										<IconEmailArrowRight class="text-primary h-8 w-8 shrink-0" />
+										<span class="text-sm font-medium">{formatSentAt(bidEvent.created_at)}</span>
 									</div>
 									{#if bid.startDateTime && bid.endDateTime}
-										<div class="flex items-start gap-2">
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-												/>
-											</svg>
+										<div class="flex items-center gap-2">
+											<IconClockOutline class="text-primary h-8 w-8 shrink-0" />
 											<div class="min-w-0 flex-1">
-												<small class="text-base-content/60 text-xs">{$t('bids.estimated_date')}</small>
 												<p class="text-sm font-medium">{formatProposedDateRange(bid)}</p>
 												{#if bid.estimatedDuration}
-													<span class="text-base-content/60 text-xs">({bid.estimatedDuration})</span>
+													<span class="text-base-content/60 block text-xs">({bid.estimatedDuration})</span>
 												{/if}
 											</div>
 										</div>
