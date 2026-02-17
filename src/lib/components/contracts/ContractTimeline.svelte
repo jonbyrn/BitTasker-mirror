@@ -135,14 +135,15 @@
 		}
 	}
 
-	// Get sender role text
-	function getSenderRoleText(pubkey: string): string {
+	// Get sender role for badge (Tasker/Taskee)
+	function getSenderRoleBadge(pubkey: string): { labelKey: string; badgeClass: string } {
 		if (pubkey === contractPubkey) {
-			return $t('dashboard.contracts.timeline.from_client');
-		} else if (pubkey !== contractPubkey) {
-			return $t('dashboard.contracts.timeline.from_freelancer');
+			return { labelKey: 'dashboard.client', badgeClass: 'badge-primary' };
 		}
-		return $t('dashboard.contracts.timeline.from_unknown');
+		if (pubkey !== contractPubkey) {
+			return { labelKey: 'dashboard.freelancer', badgeClass: 'badge-secondary' };
+		}
+		return { labelKey: 'dashboard.contracts.timeline.from_unknown', badgeClass: 'badge-neutral' };
 	}
 
 	// Get Rootstock explorer URL for transaction
@@ -183,15 +184,25 @@
 					<div class="bg-base-300 h-2 w-2 rounded-full"></div>
 				</div>
 
-				<!-- Timeline content -->
+				<!-- Timeline content: more padding between content and center line; extra left padding on mobile -->
 				<div
-					class="timeline-{index % 2 === 0 ? 'start' : 'end'} mb-10 md:text-{index % 2 === 0
+					class="timeline-{index % 2 === 0 ? 'start' : 'end'} mb-10 pl-8 pr-8 {index % 2 === 0
+						? 'md:pl-0 md:pr-10'
+						: 'md:pl-10 md:pr-0'} md:text-{index % 2 === 0
 						? 'end'
 						: 'start'}"
 				>
 					<time class="text-base-content/60 font-mono text-xs italic">
 						{formatTimelineDate(item.timestamp)}
 					</time>
+
+					<div class="mt-1.5">
+						<span
+							class="badge badge-sm shrink-0 {getSenderRoleBadge(item.pubkey).badgeClass}"
+						>
+							{$t(getSenderRoleBadge(item.pubkey).labelKey)}
+						</span>
+					</div>
 
 					<div class="mt-1 flex items-center gap-2">
 						{#if !item.isInitiation && item.content && (item.content.action === EscrowStatus.Completed || item.content.action === EscrowStatus.FundsReleased || item.content.action === EscrowStatus.DisputeResolved)}
@@ -214,13 +225,9 @@
 								</svg>
 							</div>
 						{/if}
-						<div class="text-sm font-semibold {item.isInitiation ? 'text-base-content/60' : item.content ? getActionColorClass(item.content.action) : 'text-base-content/60'}">
+						<span class="text-sm font-semibold {item.isInitiation ? 'text-base-content/60' : item.content ? getActionColorClass(item.content.action) : 'text-base-content/60'}">
 							{item.isInitiation ? $t('dashboard.contracts.timeline.contract_initiated') : item.content ? $t(getActionDescription(item.content.action)) : ''}
-						</div>
-					</div>
-
-					<div class="text-base-content/60 mt-1 text-xs">
-						{getSenderRoleText(item.pubkey)}
+						</span>
 					</div>
 
 					{#if (item.transactionHash ?? item.content?.transactionHash)}
