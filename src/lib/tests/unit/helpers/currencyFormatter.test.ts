@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { formatCurrency, convertCurrency } from '$lib/utils/helpers/currencyFormatter';
+import {
+	formatCurrency,
+	formatCurrencyWithUsd,
+	convertCurrency
+} from '$lib/utils/helpers/currencyFormatter';
 
 vi.mock('$lib/api/services/crypto-price.service', () => ({
 	default: {
@@ -34,12 +38,27 @@ describe('Currency Formatter', () => {
 		});
 
 		it('should handle null and undefined values', () => {
-			expect(formatCurrency(null as any, 'BTC')).toBe('-');
-			expect(formatCurrency(undefined as any, 'USD')).toBe('-');
+			expect(formatCurrency(null as unknown as number, 'BTC')).toBe('-');
+			expect(formatCurrency(undefined as unknown as number, 'USD')).toBe('-');
 		});
 
 		it('should handle other currencies (default: amount + currency)', () => {
 			expect(formatCurrency(100, 'EUR')).toBe('100 EUR');
+		});
+
+		it('should format RBTC in sats when isAmountInSats is true', () => {
+			expect(formatCurrency(100_000_000, 'RBTC', true)).toBe('RBTC 1.00000000');
+		});
+	});
+
+	describe('formatCurrencyWithUsd', () => {
+		it('should show sats for BTC when isAmountInSats is true', () => {
+			expect(formatCurrencyWithUsd(50_000, 'BTC', true)).toBe('50,000 sats');
+		});
+
+		it('should return dash for null or undefined amount', () => {
+			expect(formatCurrencyWithUsd(null as unknown as number, 'BTC')).toBe('-');
+			expect(formatCurrencyWithUsd(undefined as unknown as number, 'USD')).toBe('-');
 		});
 	});
 
