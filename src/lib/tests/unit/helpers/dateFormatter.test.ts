@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { formatDate, timeAgo } from '$lib/utils/helpers/dateFormatter';
+import { formatDate, formatStandardDate, timeAgo } from '$lib/utils/helpers/dateFormatter';
 
 describe('Date Formatter', () => {
 	describe('formatDate', () => {
@@ -29,7 +29,7 @@ describe('Date Formatter', () => {
 						throw new Error('Test error');
 					}
 				};
-			} as any;
+			} as unknown as typeof Intl.DateTimeFormat;
 
 			expect(formatDate(new Date())).toBe('Invalid date');
 			expect(consoleSpy).toHaveBeenCalled();
@@ -37,6 +37,16 @@ describe('Date Formatter', () => {
 			// Restore original implementation
 			global.Intl.DateTimeFormat = originalDateTimeFormat;
 			consoleSpy.mockRestore();
+		});
+	});
+
+	describe('formatStandardDate', () => {
+		it('should format date in standard app format with default locale', () => {
+			const testDate = new Date('2025-09-23T12:00:00Z');
+			const result = formatStandardDate(testDate);
+			expect(result).toContain('2025');
+			expect(result).toContain('23');
+			expect(result.toLowerCase()).toMatch(/september/);
 		});
 	});
 
