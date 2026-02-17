@@ -423,6 +423,50 @@ export function serializeDateWithLocalTime(date: Date | null | undefined): strin
 }
 
 /**
+ * Format the duration between two dates as human-readable text (e.g., "18 hours and 45 minutes").
+ * @param start - Start date
+ * @param end - End date
+ * @param t - Translation function (e.g., $t from svelte-i18n) for day/day/hour/minutes
+ * @returns Formatted duration string or empty if invalid
+ */
+export function formatDurationBetweenDates(
+	start: Date,
+	end: Date,
+	t: (key: string) => string
+): string {
+	const diffMs = end.getTime() - start.getTime();
+	if (diffMs <= 0) return '';
+
+	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+	const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+	const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+	const parts: string[] = [];
+	if (diffDays > 0) {
+		parts.push(
+			`${diffDays} ${diffDays === 1 ? t('dashboard.bids.bid_creation.day') : t('dashboard.bids.bid_creation.days')}`
+		);
+	}
+	if (diffHours > 0) {
+		parts.push(
+			`${diffHours} ${diffHours === 1 ? t('dashboard.bids.bid_creation.hour') : t('dashboard.bids.bid_creation.hours')}`
+		);
+	}
+	if (diffMinutes > 0) {
+		parts.push(
+			`${diffMinutes} ${diffMinutes === 1 ? t('dashboard.bids.bid_creation.minute') : t('dashboard.bids.bid_creation.minutes')}`
+		);
+	}
+	if (parts.length === 0) {
+		return t('dashboard.bids.bid_creation.one_hour');
+	}
+	if (parts.length === 1) return parts[0];
+	const lastPart = parts.pop()!;
+	const conjunction = t('common.components.date_input.and');
+	return `${parts.join(', ')} ${conjunction} ${lastPart}`;
+}
+
+/**
  * Parse a date string that was serialized with local time (no timezone)
  * This interprets the string as local time, not UTC
  * Format: "YYYY-MM-DDTHH:mm:ss" or "YYYY-MM-DDTHH:mm" (without timezone indicator)
