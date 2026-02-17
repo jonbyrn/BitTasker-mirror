@@ -57,7 +57,7 @@ This plan is for **discussion**. It proposes practices, hooks, and pipeline chan
 
 ### 2.5 Documentation and onboarding
 
-- **Single “how we test” doc** — Point from README to `docs/testing/` (e2e, pipeline-improvement, and this plan once finalized).
+- **Single “how we test” doc** — Point from README to `docs/testing/` (e2e, testing-in-ci, and this plan once finalized).
 - **Checklist for new features** — e.g. “If you add a helper/store/API, add or extend unit tests; if you change auth/tasks/wallet flows, consider E2E.”
 
 ---
@@ -76,7 +76,7 @@ This plan is for **discussion**. It proposes practices, hooks, and pipeline chan
 
 2. **Fix any flake** in `test:ci` so it’s green in CI (same command as locally).
 
-3. **Docs:** Add one short section in `docs/testing/pipeline-improvement.md`: “CI now runs unit tests, check, and lint in validate; they run in parallel with build.”
+3. **Docs:** Add one short section in `docs/testing/testing-in-ci.md`: “CI now runs unit tests, check, and lint in validate; they run in parallel with build.”
 
 **Outcome:** Every MR and target-branch push runs unit tests + check + lint. Team sees failing pipelines when they break tests or types.
 
@@ -93,7 +93,7 @@ This plan is for **discussion**. It proposes practices, hooks, and pipeline chan
 2. **Optional: pre-commit**
    - Lint + check only (no tests), so commits stay fast. Example: `npx lint-staged` running `eslint` and `svelte-check` on staged files only (requires lint-staged config).
 
-3. **Docs:** Update `docs/testing/pipeline-improvement.md` with “Local hooks” and link to this plan.
+3. **Docs:** Update `docs/testing/testing-in-ci.md` with “Local hooks” and link to this plan.
 
 **Outcome:** Most pushes already pass CI because pre-push ran the same tests. `--no-verify` remains for emergencies.
 
@@ -200,7 +200,7 @@ Later (Phase 3 Option B) you can add an earlier “quick” stage so that when o
 
 1. **Align on phases** — Agree which phases to adopt and in what order (e.g. Phase 1 → 2 → 3 → 4, or Phase 1 + 3 first, then 2 and 4).
 2. **Implement Phase 1** — Uncomment and adjust the unit/check/lint job in `.gitlab-ci.yml`; run it in parallel with build; fix any CI-only failures.
-3. **Document** — Update `docs/testing/pipeline-improvement.md` and, if you like, add a “Testing” section to the main README that points to `docs/testing/`.
+3. **Document** — Update `docs/testing/testing-in-ci.md` and, if you like, add a “Testing” section to the main README that points to `docs/testing/`.
 4. **Phase 2** — Add Husky, pre-push (and optionally pre-commit + lint-staged); document hooks in README and testing docs.
 5. **Revisit** — After Phase 2, decide on Phase 3 (quick stage, coverage artifact, E2E split) and Phase 4 (coverage gate, MR rules, conventions).
 
@@ -211,6 +211,6 @@ Later (Phase 3 Option B) you can add an earlier “quick” stage so that when o
 - **Current CI:** `.gitlab-ci.yml`
 - **Unit strategy:** `plans/unit-testing-strategy.md`
 - **Coverage expansion:** `plans/coverage-expansion-plan.md`
-- **Pipeline improvement (existing):** `docs/testing/pipeline-improvement.md`
+- **Pipeline improvement (existing):** `docs/testing/testing-in-ci.md`
 - **CI migration:** `docs/ci/workers-pipeline-migration.md`
 - **E2E:** `docs/testing/e2e-testing.md`

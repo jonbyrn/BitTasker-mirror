@@ -8,14 +8,12 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 
 | Document | Purpose |
 |----------|---------|
-| [state-of-testing.md](testing/state-of-testing.md) | **State of testing:** what exists, what runs in CI, layout, coverage, how to run, next steps. |
-| [testing-practices-baseline.md](testing/testing-practices-baseline.md) | **Testing practices baseline:** what we have, what’s missing, prioritized actions (CONTRIBUTING, MR template, hooks, DoD). |
+| [README.md](testing/README.md) | **Testing overview:** state (what runs in CI, layout, commands), practices (policy, done, next), coverage baseline. Start here. |
+| [testing-in-ci.md](testing/testing-in-ci.md) | Pipeline (when jobs run, CI test set), triage and per-dir commands, how to test the pipeline, **coverage in GitLab** (widget, Cobertura). |
 | [e2e-testing.md](testing/e2e-testing.md) | E2E pipeline: test files (01–04), credentials file, fixtures, run order, how to run. |
 | [e2e-account-creation.md](testing/e2e-account-creation.md) | E2E account creation: challenges (Turnstile, WebAuthn, backend) and how we implemented signup/onboarding. |
 | [e2e-wallet-post-login.md](testing/e2e-wallet-post-login.md) | Wallet post-login E2E: login with passkey → wallet route → validation; `performPasskeyLogin` helper. |
 | [e2e-messages-start-new-chat.md](testing/e2e-messages-start-new-chat.md) | Messages E2E: Nostr user starts new chat with signup user, send/receive flow, Nostr relay, username lookup. |
-| [pipeline-improvement.md](testing/pipeline-improvement.md) | Testing pipeline improvement: CI curated set, triage, per-directory fixing, workflow. |
-| [coverage-how-it-works.md](testing/coverage-how-it-works.md) | How the GitLab coverage widget gets its data (regex + Cobertura), and what else is possible (badges, analytics, approval rules). |
 
 ### CI/CD (`docs/ci/`)
 
