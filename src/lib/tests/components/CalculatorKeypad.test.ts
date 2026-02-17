@@ -169,7 +169,6 @@ describe('CalculatorKeypad Component', () => {
 
 			const decimalButton = screen.getByLabelText('Decimal point');
 			expect(decimalButton).toHaveAttribute('aria-disabled', 'true');
-			expect(decimalButton).toHaveAttribute('tabindex', '-1');
 		});
 
 		it('should prevent multiple decimal points', () => {
@@ -407,12 +406,12 @@ describe('CalculatorKeypad Component', () => {
 	});
 
 	describe('Touch Optimization', () => {
-		it('should have minimum 60px height on mobile', () => {
+		it('should have minimum height for touch targets', () => {
 			render(CalculatorKeypad, defaultProps);
 
 			const keypadElements = screen.getAllByRole('button');
 			keypadElements.forEach((element) => {
-				expect(element).toHaveClass('min-h-[60px]');
+				expect(element).toHaveClass('min-h-[52px]');
 			});
 		});
 

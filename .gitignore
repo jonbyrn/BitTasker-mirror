@@ -9,6 +9,7 @@ node_modules
 /.svelte-kit
 /build
 /storybook-static
+coverage/
 
 # Firebase Functions
 functions/lib/**/*.js
