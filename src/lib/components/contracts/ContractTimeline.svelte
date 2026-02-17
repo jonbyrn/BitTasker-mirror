@@ -1,15 +1,19 @@
 <script lang="ts">
-	import type { ContractStatusEvent } from '$lib/types/contract';
+	import type { ContractStatusEvent, NostrContractStatus } from '$lib/types/contract';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { EscrowStatus } from '$lib/utils/escrow';
 	import { getActionDescription } from '$lib/utils/helpers/contractStatusFormatter';
 
-	const { statusEvents, contractPubkey } = $props<{
-		statusEvents: ContractStatusEvent[];
-		contractPubkey: string;
-	}>();
+	const { statusEvents, contractPubkey, contractCreatedAt, contractCreatorPubkey, contractFundingTransactionHash } =
+		$props<{
+			statusEvents: ContractStatusEvent[];
+			contractPubkey: string;
+			contractCreatedAt?: number;
+			contractCreatorPubkey?: string;
+			contractFundingTransactionHash?: string;
+		}>();
 
 	/**
 	 * Filter to show only blockchain-confirmed events and final states
@@ -45,6 +49,36 @@
 	const filteredStatusEvents = $derived(
 		statusEvents.filter((event: ContractStatusEvent) => shouldShowInTimeline(event.content.action))
 	);
+
+	// Build unified timeline: contract initiation first (if provided), then status events, sorted by timestamp
+	interface TimelineItem {
+		timestamp: number;
+		pubkey: string;
+		isInitiation: boolean;
+		content?: NostrContractStatus;
+		transactionHash?: string; // For initiation: funding tx; for status: action tx
+	}
+	const allTimelineItems = $derived.by((): TimelineItem[] => {
+		const items: TimelineItem[] = [];
+		if (contractCreatedAt != null && contractCreatorPubkey != null) {
+			items.push({
+				timestamp: contractCreatedAt * 1000, // Nostr uses seconds; status events use ms
+				pubkey: contractCreatorPubkey,
+				isInitiation: true,
+				transactionHash: contractFundingTransactionHash
+			});
+		}
+		for (const ev of filteredStatusEvents) {
+			items.push({
+				timestamp: ev.content.timestamp,
+				pubkey: ev.pubkey,
+				isInitiation: false,
+				content: ev.content,
+				transactionHash: ev.content.transactionHash
+			});
+		}
+		return items.sort((a, b) => a.timestamp - b.timestamp);
+	});
 
 	// Format date for timeline
 	function formatTimelineDate(timestamp: number): string {
@@ -110,7 +144,7 @@
 	}
 </script>
 
-{#if filteredStatusEvents.length === 0}
+{#if allTimelineItems.length === 0}
 	<div class="text-base-content/60 py-4 text-center">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -130,7 +164,7 @@
 	</div>
 {:else}
 	<div class="timeline timeline-snap-icon max-md:timeline-compact timeline-vertical">
-		{#each filteredStatusEvents as { content, pubkey }, index (index)}
+		{#each allTimelineItems as item, index (`${item.isInitiation}-${item.timestamp}`)}
 			<li>
 				<!-- Timeline point -->
 				<div class="timeline-middle">
@@ -144,11 +178,11 @@
 						: 'start'}"
 				>
 					<time class="text-base-content/60 font-mono text-xs italic">
-						{formatTimelineDate(content.timestamp)}
+						{formatTimelineDate(item.timestamp)}
 					</time>
 
 					<div class="mt-1 flex items-center gap-2">
-						{#if content.action === EscrowStatus.Completed || content.action === EscrowStatus.FundsReleased || content.action === EscrowStatus.DisputeResolved}
+						{#if !item.isInitiation && item.content && (item.content.action === EscrowStatus.Completed || item.content.action === EscrowStatus.FundsReleased || item.content.action === EscrowStatus.DisputeResolved)}
 							<div
 								class="bg-success text-success-content flex h-5 min-h-5 w-5 min-w-5 shrink-0 items-center justify-center rounded-full"
 							>
@@ -168,19 +202,19 @@
 								</svg>
 							</div>
 						{/if}
-						<div class="text-sm font-semibold {getActionColorClass(content.action)}">
-							{$t(getActionDescription(content.action))}
+						<div class="text-sm font-semibold {item.isInitiation ? 'text-base-content/60' : item.content ? getActionColorClass(item.content.action) : 'text-base-content/60'}">
+							{item.isInitiation ? $t('dashboard.contracts.timeline.contract_initiated') : item.content ? $t(getActionDescription(item.content.action)) : ''}
 						</div>
 					</div>
 
 					<div class="text-base-content/60 mt-1 text-xs">
-						{getSenderRoleText(pubkey)}
+						{getSenderRoleText(item.pubkey)}
 					</div>
 
-					{#if content.transactionHash}
+					{#if (item.transactionHash ?? item.content?.transactionHash)}
 						<div class="text-base-content/60 mt-2 text-xs">
 							<a
-								href={getTransactionUrl(content.transactionHash)}
+								href={getTransactionUrl((item.transactionHash ?? item.content?.transactionHash) ?? '')}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="link link-primary inline-flex items-center gap-1"
@@ -204,16 +238,16 @@
 						</div>
 					{/if}
 
-					{#if content.proposedClientAmount && content.proposedFreelancerAmount}
+					{#if !item.isInitiation && item.content?.proposedClientAmount && item.content?.proposedFreelancerAmount}
 						<div class="text-base-content/80 mt-2 space-y-1 text-xs">
 							<div>
 								<span class="font-medium">{$t('dashboard.contracts.timeline.proposed_split')}:</span
 								>
 							</div>
 							<div class="pl-2">
-								<div>{$t('dashboard.client')}: {content.proposedClientAmount} RBTC</div>
+								<div>{$t('dashboard.client')}: {item.content.proposedClientAmount} RBTC</div>
 								<div>
-									{$t('dashboard.freelancer')}: {content.proposedFreelancerAmount} RBTC
+									{$t('dashboard.freelancer')}: {item.content.proposedFreelancerAmount} RBTC
 								</div>
 							</div>
 						</div>
@@ -221,7 +255,7 @@
 				</div>
 
 				<!-- Timeline line (except for last item) -->
-				{#if index < filteredStatusEvents.length - 1}
+				{#if index < allTimelineItems.length - 1}
 					<hr class="bg-base-300" />
 				{/if}
 			</li>
