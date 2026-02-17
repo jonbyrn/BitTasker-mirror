@@ -147,7 +147,7 @@ coverage:
     policy: pull
   script:
     - npm ci --cache .npm --prefer-offline
-    - npm run test:ci -- --coverage
+    - npm run test:ci -- --coverage --sequence.seed=0
   coverage: '/All files[^|]*\|[^|]*\|[^|]*\|[^|]*\|\s*(\d+\.?\d*)%?/'
   artifacts:
     reports:
