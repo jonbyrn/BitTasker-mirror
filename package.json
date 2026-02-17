@@ -6,6 +6,10 @@
 	"engines": {
 		"node": ">=20.0.0"
 	},
+	"lint-staged": {
+		"*.{js,ts,svelte,json,css,md}": "prettier --write",
+		"*.{js,ts,svelte}": "eslint --fix"
+	},
 	"scripts": {
 		"dev": "vite dev --host --port 3000",
 		"dev:app": "vite dev --host --port 3000",
@@ -18,7 +22,7 @@
 		"android:install": "cd android && ./gradlew installDebug",
 		"android:build:install": "npm run android:build && cd android && ./gradlew assembleDebug installDebug",
 		"preview": "vite preview",
-		"prepare": "npx --yes svelte-kit sync || echo ''",
+		"prepare": "husky && (npx --yes svelte-kit sync || echo '')",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
@@ -78,7 +82,9 @@
 		"globals": "^16.0.0",
 		"houdini": "2.0.0-next.11",
 		"houdini-svelte": "3.0.0-next.13",
+		"husky": "^9.1.7",
 		"jsdom": "^26.0.0",
+		"lint-staged": "^15.5.2",
 		"playwright": "^1.57.0",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
