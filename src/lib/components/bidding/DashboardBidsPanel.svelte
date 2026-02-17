@@ -14,8 +14,7 @@
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconClose from '~icons/mdi/close';
-	import nostrEventsService from '$lib/api/services/nostr/events';
-	import { getSignedEvent } from '$lib/utils/nostr';
+	import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 	import { clearBidCache as clearBidCacheUtil } from '$lib/utils/nostr-bid';
 	import { appStore } from '$lib/stores/app.store';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -175,7 +174,6 @@
 		if (!bidToWithdraw) return;
 
 		const bidEventId = bidToWithdraw.id;
-		const taskId = (bidToWithdraw.content as any).taskId;
 
 		try {
 			withdrawingBidId = bidEventId;
@@ -191,9 +189,15 @@
 			};
 
 			const signedEvent = await getSignedEvent(deletionEvent);
-			await nostrEventsService.deleteEvent(signedEvent);
+			const results = await publishToMultipleRelays(signedEvent);
+			const successfulRelays = results.filter((r) => r.success);
+			if (successfulRelays.length === 0) {
+				const errors = results.map((r) => `${r.relay}: ${r.error}`).join(', ');
+				throw new Error(`Failed to publish deletion to any relay: ${errors}`);
+			}
 
-			clearBidCacheUtil(taskId);
+			// Clear all bid caches so refresh fetches fresh data with NIP-09 filtering
+			clearBidCacheUtil();
 			appStore.showSuccessToast($t('bids.withdraw_success'));
 
 			// Refresh UI
@@ -501,7 +505,7 @@
 										class="flex w-full flex-col gap-2 pt-4 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
 									>
 										<button
-											class="btn btn-primary btn-sm h-auto min-h-[44px] w-full sm:w-auto sm:min-h-[48px] md:min-h-[56px]"
+											class="btn btn-primary btn-sm h-auto w-full sm:w-auto min-h-[48px] md:min-h-[44px]"
 											onclick={() => goto(`/tasks/${bid.taskId}`)}
 										>
 											<svg
@@ -529,7 +533,7 @@
 
 										{#if status === BidStatusEnum.PENDING || status === BidStatusEnum.COUNTERED}
 											<button
-												class="btn btn-error h-auto min-h-[44px] w-full touch-manipulation select-none transition-transform duration-100 active:scale-95 sm:w-auto sm:min-h-[48px] md:min-h-[56px]"
+												class="btn btn-error h-auto w-full touch-manipulation select-none transition-transform duration-100 active:scale-95 sm:w-auto min-h-[44px] md:min-h-[48px]"
 												onclick={() => confirmWithdraw(bidEvent)}
 												disabled={withdrawingBidId === bidEvent.id}
 												aria-label={$t('bids.withdraw_bid')}

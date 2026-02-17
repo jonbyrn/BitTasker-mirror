@@ -54,6 +54,38 @@ export function batchSatsFromUsd(amounts: number[], btcPrice: number): number[] 
 	return currencyCache.batchConvert(amounts, btcPrice);
 }
 
+/**
+ * Filter out NIP-09 deleted events from a list of Nostr events.
+ * Fetches kind 5 (deletion) events from the given authors and excludes any
+ * event whose ID is referenced in a deletion. Required because relays MAY
+ * not honor NIP-09 - clients MUST filter client-side per spec.
+ *
+ * @param events - Events to filter (e.g. bids)
+ * @returns Events with deleted ones removed
+ */
+async function filterNip09DeletedEvents(events: NostrEvent[]): Promise<NostrEvent[]> {
+	if (events.length === 0) return events;
+
+	const authors = [...new Set(events.map((e) => e.pubkey))];
+	const deletionFilter: Filter = {
+		kinds: [5],
+		authors,
+		limit: 500
+	};
+
+	const deletions = await queryNostrEvents(deletionFilter);
+	const deletedIds = new Set<string>();
+
+	for (const d of deletions) {
+		for (const tag of d.tags) {
+			if (tag[0] === 'e' && tag[1]) {
+				deletedIds.add(tag[1]);
+			}
+		}
+	}
+
+	return events.filter((e) => !deletedIds.has(e.id));
+}
 
 /**
  * Get all bids for a specific task using optimized tag-based filtering
@@ -115,21 +147,8 @@ export async function getBidsForTask(taskId: string, includeStatus: boolean = tr
 			} : undefined
 		);
 
-		// Filter out deleted bids via NIP-09
-		const authors = [...new Set(bids.map((b) => b.pubkey))];
-		if (authors.length > 0) {
-			const deletionFilter: Filter = {
-				kinds: [5],
-				authors,
-				'#k': [String(KINDS.BIDS)]
-			};
-			const deletions = await queryNostrEvents(deletionFilter);
-			const deletedIds = new Set();
-			deletions.forEach((d) => {
-				d.tags.filter((t) => t[0] === 'e').forEach((t) => deletedIds.add(t[1]));
-			});
-			bids = bids.filter((b) => !deletedIds.has(b.id));
-		}
+		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
+		bids = await filterNip09DeletedEvents(bids);
 
 		// Cache the results
 		smartCache.setBidsForTask(taskId, bids, 5);
@@ -193,21 +212,8 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
 			} : undefined
 		);
 
-		// Filter out deleted bids via NIP-09
-		const authors = [...new Set(bids.map((b) => b.pubkey))];
-		if (authors.length > 0) {
-			const deletionFilter: Filter = {
-				kinds: [5],
-				authors,
-				'#k': [String(KINDS.BIDS)]
-			};
-			const deletions = await queryNostrEvents(deletionFilter);
-			const deletedIds = new Set();
-			deletions.forEach((d) => {
-				d.tags.filter((t) => t[0] === 'e').forEach((t) => deletedIds.add(t[1]));
-			});
-			bids = bids.filter((b) => !deletedIds.has(b.id));
-		}
+		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
+		bids = await filterNip09DeletedEvents(bids);
 
 		// Cache the results
 		smartCache.setBidsByUser(npub, bids, 5);
