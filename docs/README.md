@@ -8,6 +8,8 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 
 | Document | Purpose |
 |----------|---------|
+| [state-of-testing.md](testing/state-of-testing.md) | **State of testing:** what exists, what runs in CI, layout, coverage, how to run, next steps. |
+| [testing-practices-baseline.md](testing/testing-practices-baseline.md) | **Testing practices baseline:** what we have, what’s missing, prioritized actions (CONTRIBUTING, MR template, hooks, DoD). |
 | [e2e-testing.md](testing/e2e-testing.md) | E2E pipeline: test files (01–04), credentials file, fixtures, run order, how to run. |
 | [e2e-account-creation.md](testing/e2e-account-creation.md) | E2E account creation: challenges (Turnstile, WebAuthn, backend) and how we implemented signup/onboarding. |
 | [e2e-wallet-post-login.md](testing/e2e-wallet-post-login.md) | Wallet post-login E2E: login with passkey → wallet route → validation; `performPasskeyLogin` helper. |
