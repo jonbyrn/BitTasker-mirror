@@ -615,7 +615,7 @@ BitTasker is a Bitcoin platform in the gig economy sector inspired by Airtasker,
 - **Test Data Generation**: Faker.js for generating test data
 - **Coverage Reporting**: Vitest coverage with C8/V8 engine
 
-**How we test (for contributors):** Run `npm run test:ci` before pushing or opening a merge request. The same suite runs in CI. New or changed helpers, stores, API services, or critical UI should include or extend tests where practical; if you break a test, fix or remove it. See [State of testing](docs/testing/state-of-testing.md) for what runs where and [Testing practices baseline](docs/testing/testing-practices-baseline.md) for team practices and gaps.
+**How we test (for contributors):** Run `npm run test:ci` before pushing or opening a merge request. The same suite runs in CI. New or changed helpers, stores, API services, or critical UI should include or extend tests where practical; if you break a test, fix or remove it. See [Testing overview](docs/testing/README.md) for what runs where and team practices.
 
 ### CI/CD Pipeline
 
