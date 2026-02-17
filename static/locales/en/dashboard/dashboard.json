@@ -552,6 +552,7 @@
       "currency": "Currency",
       "original_bid_proposal": "Original Bid Proposal",
       "bid_details": "Bid Details",
+      "approach": "Approach",
       "proposed_approach": "Proposed Approach",
       "estimated_duration": "Estimated Duration",
       "original_amount": "Original Amount",
@@ -685,6 +686,7 @@
         "transaction": "Transaction",
         "view_transaction": "View Transaction",
         "proposed_split": "Proposed Split",
+        "contract_initiated": "Contract initiated",
         "actions": {
           "task_completed": "Task marked as completed",
           "payment_released": "Payment released",

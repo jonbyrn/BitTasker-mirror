@@ -24,15 +24,19 @@ import {
 } from '$lib/utils/location/sendLocation';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { updateTask } from '$lib/nostr/task';
+	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 
 	const {
 		contract,
 		containerClass = 'space-y-3',
-		isInline = false
+		isInline = false,
+		compactButtons = false
 	} = $props<{
 		contract: ContractWithEvents;
 		containerClass?: string;
 		isInline?: boolean;
+		/** When true, buttons size to content (w-fit) instead of full width - for drawers/narrow layouts */
+		compactButtons?: boolean;
 	}>();
 
 	// State for actions
@@ -605,11 +609,10 @@ import {
 
 <div class="{containerClass} {containerClass.includes('grid') ? 'w-full' : ''}">
 	<!-- Complete Task (Freelancer) -->
-	{#if contract.permissions.canComplete}
+	{#if contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
 		<button
-			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+			class="btn btn-success btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={() => (activeModal = ContractModalAction.Complete)}
-			disabled={isCompleteDisabled || isDisabledDueToPending}
 			title={blockchainCompletionStatus === EscrowStatus.Completed
 				? $t('dashboard.contracts.actions.task_already_completed_tooltip')
 				: contract.isPending
@@ -654,11 +657,10 @@ import {
 	{/if}
 
 	<!-- Accept Task (Client) -->
-	{#if contract.permissions.canAccept}
+	{#if contract.permissions.canAccept && !isAcceptDisabled && !isDisabledDueToPending}
 		<button
-			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+			class="btn btn-success btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={() => openModal(ContractModalAction.Accept)}
-			disabled={isAcceptDisabled || isDisabledDueToPending}
 		>
 			{#if isLoading.accept}
 				<span class="loading loading-spinner loading-xs"></span>
@@ -683,11 +685,10 @@ import {
 	{/if}
 
 	<!-- Dispute Task (Client) -->
-	{#if contract.permissions.canDispute}
+	{#if contract.permissions.canDispute && !isDisputeDisabled}
 		<button
-			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+			class="btn btn-error btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={() => openModal(ContractModalAction.Dispute)}
-			disabled={isDisputeDisabled}
 		>
 			{#if isLoading.dispute}
 				<span class="loading loading-spinner loading-xs"></span>
@@ -713,7 +714,7 @@ import {
 
 	<!-- Accept Proposal -->
 	{#if !isInline && contract.permissions.canAcceptProposal}
-		<div class="bg-base-300 col-span-2 w-full space-y-3 rounded-lg p-3">
+		<div class="bg-base-300 col-span-2 min-w-0 w-full space-y-3 rounded-lg p-3">
 			<h5 class="text-sm font-medium">
 				{$t('dashboard.contracts.actions.current_proposal')}
 			</h5>
@@ -762,16 +763,21 @@ import {
 			{/if}
 
 			<!-- Action buttons -->
-			<div class="flex flex-col gap-2 sm:flex-row">
-				<!-- Accept Proposal Button -->
-				<button
-					class="btn btn-success btn-sm flex-1"
-					onclick={acceptProposal}
-					disabled={isLoading.acceptProposal || !contract.disputeProposal}
-				>
-					{#if isLoading.acceptProposal}
+			<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+				<!-- Accept Proposal Button - hidden when disabled (loading or no proposal) -->
+				{#if isLoading.acceptProposal}
+					<div
+						class="btn btn-success btn-sm gap-2 {compactButtons ? 'w-fit' : 'flex-1'}"
+						aria-busy="true"
+					>
 						<span class="loading loading-spinner loading-xs"></span>
-					{:else}
+						{$t('dashboard.contracts.actions.accept_proposal')}
+					</div>
+				{:else if contract.disputeProposal}
+					<button
+						class="btn btn-success btn-sm {compactButtons ? 'w-fit' : 'flex-1'}"
+						onclick={acceptProposal}
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-4 w-4"
@@ -786,30 +792,17 @@ import {
 								d="M5 13l4 4L19 7"
 							/>
 						</svg>
-					{/if}
-					{$t('dashboard.contracts.actions.accept_proposal')}
-				</button>
+						{$t('dashboard.contracts.actions.accept_proposal')}
+					</button>
+				{/if}
 
 				<!-- Counter Proposal Button (if user has proposals left) -->
 				{#if contract.permissions.canPropose && hasProposalsLeft}
 					<button
-						class="btn btn-warning btn-sm flex-1 text-black"
+						class="btn btn-warning btn-sm {compactButtons ? 'w-fit' : 'flex-1'}"
 						onclick={openDrawerForResolution}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0h2m-2 0v4l3-3-3-3m2-5a2 2 0 012-2h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m0 0v4l-3-3 3-3"
-							/>
-						</svg>
+						<IconSwapHorizontal class="h-4 w-4" />
 						{$t('dashboard.contracts.actions.counter_proposal')}
 						<span class="text-base-content/60 ml-1 text-xs">
 							({currentUserProposalCount}/2)
@@ -845,25 +838,11 @@ import {
 	{#if contract.permissions.canPropose}
 		{#if isInline || !$contractStore.isResolutionFormOpen}
 			<button
-				class="btn btn-warning btn-sm w-full text-black"
-				class:sm:w-fit={isInline}
+				class="btn btn-warning btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full'}"
 				class:hidden={!isInline && contract.permissions.canAcceptProposal}
 				onclick={openDrawerForResolution}
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0h2m-2 0v4l3-3-3-3m2-5a2 2 0 012-2h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m0 0v4l-3-3 3-3"
-					/>
-				</svg>
+				<IconSwapHorizontal class="h-4 w-4" />
 				{contract.disputeProposal
 					? $t('dashboard.contracts.actions.counter_proposal')
 					: $t('dashboard.contracts.actions.propose_resolution')}
@@ -942,17 +921,22 @@ import {
 				</div>
 
 				<div class="flex flex-row-reverse gap-2 place-self-end">
-					<button
-						class="btn btn-warning btn-sm text-black"
-						onclick={proposeResolution}
-						disabled={isLoading.propose}
-					>
-						{#if isLoading.propose}
+					{#if isLoading.propose}
+						<div
+							class="btn btn-warning btn-sm gap-2"
+							aria-busy="true"
+						>
 							<span class="loading loading-spinner loading-xs"></span>
-						{:else}
 							{$t('dashboard.contracts.actions.propose')}
-						{/if}
-					</button>
+						</div>
+					{:else}
+						<button
+							class="btn btn-warning btn-sm"
+							onclick={proposeResolution}
+						>
+							{$t('dashboard.contracts.actions.propose')}
+						</button>
+					{/if}
 					<button
 						class="btn btn-ghost btn-outline btn-sm"
 						onclick={() => ($contractStore.isResolutionFormOpen = false)}
@@ -965,11 +949,10 @@ import {
 	{/if}
 
 	<!-- Cancel Escrow -->
-	{#if contract.permissions.canCancel}
+	{#if contract.permissions.canCancel && !isCancelDisabled}
 		<button
-			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+			class="btn btn-error btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 			onclick={() => openModal(ContractModalAction.Cancel)}
-			disabled={isCancelDisabled}
 		>
 			{#if isLoading.cancel}
 				<span class="loading loading-spinner loading-xs"></span>
@@ -996,29 +979,32 @@ import {
 	<!-- Resolve After Timelock -->
 	{#if contract.permissions.canResolveTimelock}
 		<div
-			class="{isInline ? 'w-full sm:w-auto' : 'col-span-2'} space-y-3 rounded-lg {!isInline
-				? 'bg-base-300 p-3'
-				: ''}"
+			class="flex flex-col gap-2 {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
 		>
 			{#if !isInline}
-				<h5 class="text-sm font-medium">
-					{$t('dashboard.contracts.actions.timelock_resolution')}
-				</h5>
+					<h5 class="text-sm font-medium">
+						{$t('dashboard.contracts.actions.timelock_resolution')}
+					</h5>
 
-				<div class="text-base-content/60 text-xs">
-					{$t('dashboard.contracts.actions.timelock_expired_message')}
-				</div>
-			{/if}
+					<div class="text-base-content/60 text-xs">
+						{$t('dashboard.contracts.actions.timelock_expired_message')}
+					</div>
+				{/if}
 
-			<button
-				class="btn btn-info btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-				onclick={resolveAfterTimelock}
-				disabled={isLoading.resolveTimelock}
-			>
 				{#if isLoading.resolveTimelock}
-					<span class="loading loading-spinner loading-xs"></span>
+					<div
+						class="btn btn-info btn-sm gap-2 {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+						aria-busy="true"
+					>
+						<span class="loading loading-spinner loading-xs"></span>
+						{$t('dashboard.contracts.actions.resolve_timelock')}
+					</div>
 				{:else}
-					<svg
+					<button
+						class="btn btn-info btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+						onclick={resolveAfterTimelock}
+					>
+						<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-4 w-4"
 						fill="none"
@@ -1032,22 +1018,28 @@ import {
 							d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
+						{$t('dashboard.contracts.actions.resolve_timelock')}
+					</button>
 				{/if}
-				{$t('dashboard.contracts.actions.resolve_timelock')}
-			</button>
 		</div>
 	{/if}
 
-	<!-- Delete Contract (always visible, disabled when canDelete is false) -->
-	<button
-		class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-		onclick={() => openModal(ContractModalAction.Delete)}
-		disabled={isLoading.delete || !contract.permissions.canDelete}
-	>
+	<!-- Delete Contract (only visible when can delete) -->
+	{#if contract.permissions.canDelete}
 		{#if isLoading.delete}
-			<span class="loading loading-spinner loading-xs"></span>
+			<div
+				class="btn btn-error btn-sm gap-2 {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+				aria-busy="true"
+			>
+				<span class="loading loading-spinner loading-xs"></span>
+				{$t('dashboard.contracts.actions.delete_contract')}
+			</div>
 		{:else}
-			<svg
+			<button
+				class="btn btn-error btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+				onclick={() => openModal(ContractModalAction.Delete)}
+			>
+				<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-4 w-4"
 				fill="none"
@@ -1061,9 +1053,10 @@ import {
 					d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
 				/>
 			</svg>
+			{$t('dashboard.contracts.actions.delete_contract')}
+		</button>
 		{/if}
-		{$t('dashboard.contracts.actions.delete_contract')}
-	</button>
+	{/if}
 </div>
 
 <!-- Modals -->

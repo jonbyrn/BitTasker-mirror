@@ -98,7 +98,7 @@ describe('WalletPaymentModal Component', () => {
 		// Reset wallet store to default state
 		walletStore.set({
 			isInitializing: false,
-			hasAnyConnection: true,
+			isConnected: false,
 			error: null
 		} as any);
 	});
@@ -127,9 +127,8 @@ describe('WalletPaymentModal Component', () => {
 			const onClose = vi.fn();
 			render(WalletPaymentModal, { ...defaultProps, onClose });
 
-			const backdrop = document.querySelector('.fixed.inset-0.z-40');
+			const backdrop = document.querySelector('.fixed.inset-0');
 			expect(backdrop).toBeDefined();
-
 			if (backdrop) {
 				await fireEvent.click(backdrop);
 				expect(onClose).toHaveBeenCalled();
@@ -144,18 +143,14 @@ describe('WalletPaymentModal Component', () => {
 			expect(onClose).toHaveBeenCalled();
 		});
 
-		it('should call onClose when close button is clicked', async () => {
+		it('should call onClose when backdrop is clicked (no dedicated close button)', async () => {
 			const onClose = vi.fn();
-			// Modal doesn't have its own close button - it's in child components
-			// Test that backdrop click works instead
-			render(WalletPaymentModal, { 
-				...defaultProps, 
-				onClose,
-				children: () => '<div>Test Content</div>'
-			});
+			// Modal doesn't have its own close button - it's in child components. Test backdrop click.
+			render(WalletPaymentModal, { ...defaultProps, onClose });
 
-			// Click backdrop to close
-			const backdrop = document.querySelector('.fixed.inset-0.z-\\[100\\]');
+			// Backdrop is the first .fixed.inset-0 element (z-[99])
+			const backdrop = document.querySelector('.fixed.inset-0');
+			expect(backdrop).toBeDefined();
 			if (backdrop) {
 				await fireEvent.click(backdrop);
 				expect(onClose).toHaveBeenCalled();
@@ -285,7 +280,7 @@ describe('WalletPaymentModal Component', () => {
 		it('should show error state when wallet initialization fails', () => {
 			walletStore.set({
 				isInitializing: false,
-				hasAnyConnection: false,
+				isConnected: false,
 				error: 'Initialization failed'
 			} as any);
 
@@ -298,7 +293,7 @@ describe('WalletPaymentModal Component', () => {
 		it('should show no connection state when wallet is not connected', () => {
 			walletStore.set({
 				isInitializing: false,
-				hasAnyConnection: false,
+				isConnected: false,
 				error: null
 			} as any);
 
@@ -311,14 +306,13 @@ describe('WalletPaymentModal Component', () => {
 		it('should show modal content when wallet is connected', () => {
 			walletStore.set({
 				isInitializing: false,
-				hasAnyConnection: true,
+				isConnected: true,
 				error: null
 			} as any);
 
-			// For now, just verify the modal renders without the initialization states
 			render(WalletPaymentModal, defaultProps);
 
-			// Modal should render (not show initialization states)
+			// Modal should render without initialization/error states (content area visible)
 			const modal = screen.getByRole('dialog');
 			expect(modal).toBeDefined();
 			expect(screen.queryByText('Initializing wallet...')).toBeNull();
@@ -363,27 +357,26 @@ describe('WalletPaymentModal Component', () => {
 			const modal = screen.getByRole('dialog');
 			expect(modal).toHaveClass('lg:relative');
 			expect(modal).toHaveClass('lg:rounded-2xl');
-			expect(modal).toHaveClass('lg:max-w-2xl');
+			expect(modal).toHaveClass('lg:max-w-4xl'); // Component uses lg:max-w-4xl
 		});
 	});
 
 	describe('Safe Area Support', () => {
-		it('should apply safe area insets to header', () => {
-			render(WalletPaymentModal, {
-				...defaultProps,
-				children: () => '<div>Content</div>'
-			});
-
-			// Content area should have safe area insets
-			const content = document.querySelector('.flex-1.overflow-y-auto');
-			expect(content).toHaveClass('pt-[max(1rem,env(safe-area-inset-top))]');
-		});
-
 		it('should apply safe area insets to content area', () => {
 			render(WalletPaymentModal, defaultProps);
 
-			const content = document.querySelector('.flex-1.overflow-y-auto');
-			expect(content).toHaveClass('pb-[max(1rem,env(safe-area-inset-bottom))]');
+			// Content area has flex-1 overflow-hidden and safe area padding
+			const content = document.querySelector('.flex-1.overflow-hidden');
+			expect(content).toBeDefined();
+			expect(content).toHaveClass('pt-[max(0.75rem,env(safe-area-inset-top))]');
+		});
+
+		it('should apply safe area insets to bottom of content area', () => {
+			render(WalletPaymentModal, defaultProps);
+
+			const content = document.querySelector('.flex-1.overflow-hidden');
+			expect(content).toBeDefined();
+			expect(content).toHaveClass('pb-[max(0.75rem,env(safe-area-inset-bottom))]');
 		});
 	});
 

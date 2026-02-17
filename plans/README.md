@@ -12,7 +12,7 @@ This directory is a **temporary** place for plans that AI agents (or humans) are
 
 | Topic | Location |
 |-------|----------|
-| **Testing (E2E, pipeline, triage)** | `docs/testing/` – e2e-testing.md, e2e-account-creation.md, e2e-wallet-post-login.md, pipeline-improvement.md |
+| **Testing (E2E, pipeline, triage)** | `docs/testing/` – README.md (overview), testing-in-ci.md, e2e-testing.md, e2e-account-creation.md, e2e-wallet-post-login.md |
 | **CI/CD (Workers, GitLab)** | `docs/ci/` – workers-pipeline-migration.md, workers-ci-setup-walkthrough.md |
 | **Other project docs** | `docs/` (e.g. gitea-to-gitlab-migration.md) |
 

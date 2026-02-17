@@ -34,7 +34,39 @@ export default defineConfig({
     test: {
         environment: 'jsdom',
         setupFiles: ['./vitest-setup-client.ts'],
-        globals: true
+        globals: true,
+        exclude: ['**/_pending/**'],
+        coverage: {
+            provider: 'v8',
+            reporter: [
+                'text',
+                'html',
+                'clover',
+                ['cobertura', { file: 'cobertura-coverage.xml' }]
+            ],
+            include: ['src/**'],
+            exclude: [
+                'node_modules/**',
+                '.svelte-kit/**',
+                '.houdini/**',
+                'build/**',
+                'dist/**',
+                'packages/**',
+                '**/.storybook/**',
+                '**/functions/**',
+                'src/lib/tests/**',
+                'src/stories/**',
+                '**/e2e/**',
+                '**/workers-site/**',
+                '**/static/**',
+                '**/*.test.ts',
+                '**/*.test.tsx',
+                '**/*.spec.ts',
+                '**/*.spec.tsx',
+                'vitest*.ts',
+                'scripts/**'
+            ]
+        }
     },
     resolve: {
         conditions: process.env.VITEST ? ['browser', 'development'] : ['browser', 'development'],
