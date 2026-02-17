@@ -75,6 +75,40 @@ export function formatStandardDateShort(date: Date, locale: string = 'en'): stri
 }
 
 /**
+ * Format a date with short month and time: "Feb 14, 2026 at 10:59 PM"
+ * @param date - The date to format
+ * @param locale - The locale to use for formatting (defaults to current locale)
+ * @returns Formatted date string with short month and time
+ */
+export function formatStandardDateTimeShort(date: Date, locale: string = 'en'): string {
+	try {
+		const formatted = new Intl.DateTimeFormat(locale, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		}).format(date);
+
+		// For Spanish, capitalize month and use AM/PM
+		if (locale === 'es') {
+			return formatted
+				.replace(/\b(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/gi, (m) =>
+					m.charAt(0).toUpperCase() + m.slice(1)
+				)
+				.replace(/a\.\s*m\./gi, 'AM')
+				.replace(/p\.\s*m\./gi, 'PM');
+		}
+
+		return formatted;
+	} catch (error) {
+		console.error('Error formatting standard date time short:', error);
+		return 'Invalid date';
+	}
+}
+
+/**
  * Format a date to the standard app format with time: "September 23, 2025 at 2:30 PM"
  * @param date - The date to format
  * @param locale - The locale to use for formatting (defaults to current locale)
@@ -386,6 +420,50 @@ export function serializeDateWithLocalTime(date: Date | null | undefined): strin
 	
 	// Return as "YYYY-MM-DDTHH:mm:ss" (no timezone, preserving local time)
 	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * Format the duration between two dates as human-readable text (e.g., "18 hours and 45 minutes").
+ * @param start - Start date
+ * @param end - End date
+ * @param t - Translation function (e.g., $t from svelte-i18n) for day/day/hour/minutes
+ * @returns Formatted duration string or empty if invalid
+ */
+export function formatDurationBetweenDates(
+	start: Date,
+	end: Date,
+	t: (key: string) => string
+): string {
+	const diffMs = end.getTime() - start.getTime();
+	if (diffMs <= 0) return '';
+
+	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+	const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+	const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+	const parts: string[] = [];
+	if (diffDays > 0) {
+		parts.push(
+			`${diffDays} ${diffDays === 1 ? t('dashboard.bids.bid_creation.day') : t('dashboard.bids.bid_creation.days')}`
+		);
+	}
+	if (diffHours > 0) {
+		parts.push(
+			`${diffHours} ${diffHours === 1 ? t('dashboard.bids.bid_creation.hour') : t('dashboard.bids.bid_creation.hours')}`
+		);
+	}
+	if (diffMinutes > 0) {
+		parts.push(
+			`${diffMinutes} ${diffMinutes === 1 ? t('dashboard.bids.bid_creation.minute') : t('dashboard.bids.bid_creation.minutes')}`
+		);
+	}
+	if (parts.length === 0) {
+		return t('dashboard.bids.bid_creation.one_hour');
+	}
+	if (parts.length === 1) return parts[0];
+	const lastPart = parts.pop()!;
+	const conjunction = t('common.components.date_input.and');
+	return `${parts.join(', ')} ${conjunction} ${lastPart}`;
 }
 
 /**
