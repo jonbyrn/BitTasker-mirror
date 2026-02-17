@@ -96,6 +96,8 @@
         "no_task_description": "No hay descripción disponible",
         "bid_id": "ID de Oferta",
         "section_task": "Tarea",
+        "section_budget": "Presupuesto",
+        "section_your_bid": "Tu puja",
         "section_your_offer": "Tu oferta",
         "section_received_offer": "Oferta recibida",
         "task_original_budget": "Presupuesto original de la tarea",

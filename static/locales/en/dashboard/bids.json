@@ -97,6 +97,8 @@
         "no_task_description": "No description available",
         "bid_id": "Bid ID",
         "section_task": "Task",
+        "section_budget": "Budget",
+        "section_your_bid": "Your Bid",
         "section_your_offer": "Your offer",
         "section_received_offer": "Received offer",
         "task_original_budget": "Original task budget",
