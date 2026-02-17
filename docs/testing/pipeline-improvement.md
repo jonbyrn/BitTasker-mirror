@@ -31,11 +31,14 @@ This document describes how BitTasker improves its testing practices and integra
 
 ### Current CI Test Set
 
-| What runs in CI | Path | Tests |
-|-----------------|------|-------|
-| Unit (all) | `src/lib/tests/unit/` | 113 |
-| Integration (routes) | `src/lib/tests/integration/routes/` | 9 |
-| **Total** | unit/ + integration/routes/ | **122** |
+| What runs in CI | Path | Approx |
+|-----------------|------|--------|
+| Unit | `src/lib/tests/unit/` | ~65 files |
+| Integration (routes) | `src/lib/tests/integration/routes/` | 1 file |
+| Components | `src/lib/tests/components/` | ~13 files |
+| **Total** | unit/ + integration/routes/ + components/ | **~79 files, ~1046 tests** |
+
+For the full picture (pending, E2E, coverage, next steps), see [state-of-testing.md](./state-of-testing.md).
 
 ### Merge Request coverage report
 
