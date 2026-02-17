@@ -15,7 +15,7 @@ Hooks are installed when you run `npm install`. To skip them in an emergency (e.
 git push --no-verify
 ```
 
-Use sparingly; the pipeline will still run in GitLab and may fail.
+Use sparingly; the pipeline will still run in GitLab and may fail. For **merge commits** (e.g. merging `dev` into your branch), you can use `git commit --no-verify` so the hook doesn’t lint the whole merged set; keep normal commits to your own changes so only your files are linted.
 
 ## Testing
 
