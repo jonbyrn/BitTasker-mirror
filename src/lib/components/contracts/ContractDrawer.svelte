@@ -13,7 +13,7 @@
 		getStatusTranslationKey
 	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
-	import UserNostrBadge from '../UserNostrBadge.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 
 	const { btcPrice } = $props<{
 		btcPrice: number;
@@ -94,11 +94,18 @@
 					<div class="card-body min-w-0 p-4">
 						<!-- Row 1: User info | Role + Status badges (stacked, right-aligned) -->
 						<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-							<UserNostrBadge
-								npub={contractStore.getContractKey(
+							<UserInfoDisplay
+								pubkey={contractStore.getContractKey(
 									$contractStore.contract,
 									'otherPartyNpub'
 								) as string}
+								profileLink={contractStore.getContractKey(
+									$contractStore.contract,
+									'otherPartyNpub'
+								) as string}
+								rating={0}
+								size="sm"
+								avatarAlt={$t('dashboard.task_details_by_task.avatar_alt')}
 							/>
 							<div class="flex shrink-0 flex-col items-end gap-2">
 								<div
