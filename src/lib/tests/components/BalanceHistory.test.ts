@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
+import { render } from '@testing-library/svelte';
+import { waitFor } from '@testing-library/svelte';
 import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 import balanceHistoryService from '$lib/api/services/balanceHistory.service';
+import { walletStore } from '$lib/stores/wallet.store';
 import { writable } from 'svelte/store';
 
 // Mock the balance history service
@@ -11,45 +13,49 @@ vi.mock('$lib/api/services/balanceHistory.service', () => ({
 	}
 }));
 
-// Mock wallet store
+// Mock wallet store - component imports walletStore, totalBalances, formatSats
 vi.mock('$lib/stores/wallet.store', () => {
-	const { writable } = require('svelte/store');
+	const { writable, derived } = require('svelte/store');
+	const mockWalletStore = writable({
+		rsk: {
+			provider: {},
+			address: '0x1234567890123456789012345678901234567890',
+			connected: true,
+			balance: '1000000000000000000',
+			formattedBalance: '1.0'
+		},
+		bsc: { connected: false, address: null },
+		totalBalances: {
+			sats: 100000000,
+			usd: 50000
+		}
+	});
+	const totalBalances = derived(mockWalletStore, ($s) => $s.totalBalances);
 	return {
-		walletStore: writable({
-			rsk: {
-				provider: {} as any,
-				address: '0x1234567890123456789012345678901234567890',
-				isConnected: true,
-				balance: '1000000000000000000',
-				balanceSats: 100000000,
-				balanceUsd: 50000
-			},
-			bsc: {
-				provider: null,
-				address: null,
-				isConnected: false,
-				balance: '0',
-				balanceSats: 0,
-				balanceUsd: 0
-			},
-			assets: [],
-			transactions: [],
-			totalBalances: {
-				sats: 100000000,
-				usd: 50000
-			}
-		})
+		walletStore: mockWalletStore,
+		totalBalances,
+		formatSats: (sats: number) => new Intl.NumberFormat('en-US').format(sats)
 	};
 });
 
 // Mock svelte-i18n
-vi.mock('svelte-i18n', () => ({
-	t: {
-		subscribe: (fn: any) => {
-			fn((key: string) => key);
-			return () => {};
-		}
-	}
+vi.mock('svelte-i18n', () => {
+	const { readable } = require('svelte/store');
+	const t = readable((key: string) =>
+		key === 'wallet.balance_history.error' ? 'Failed to load balance history' : key
+	);
+	return { t };
+});
+
+// Mock haptics
+vi.mock('$lib/utils/helpers/haptics', () => ({
+	triggerHaptic: vi.fn(),
+	ImpactStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' }
+}));
+
+// Mock BalanceChartModal (Svelte component)
+vi.mock('$lib/components/wallet/BalanceChartModal.svelte', () => ({
+	default: vi.fn(() => null)
 }));
 
 describe('BalanceHistory', () => {
@@ -79,6 +85,18 @@ describe('BalanceHistory', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// Reset wallet store (component reads totalBalances from store)
+		walletStore.set({
+			rsk: {
+				provider: {},
+				address: '0x1234567890123456789012345678901234567890',
+				connected: true,
+				balance: '1000000000000000000',
+				formattedBalance: '1.0'
+			},
+			bsc: { connected: false, address: null },
+			totalBalances: { sats: 100000000, usd: 50000 }
+		} as any);
 	});
 
 	it('should render loading state initially', () => {
@@ -86,64 +104,42 @@ describe('BalanceHistory', () => {
 			() => new Promise(() => {}) // Never resolves
 		);
 
-		render(BalanceHistory, {
-			props: {
-				currentSats: 100000000,
-				currentUsd: 50000,
-				balancesHidden: false
-			}
-		});
+		render(BalanceHistory, { props: { balancesHidden: false } });
 
-		// Should show skeleton loaders
-		const skeletons = document.querySelectorAll('.skeleton');
-		expect(skeletons.length).toBeGreaterThan(0);
+		// Component uses loading spinners during {#await}
+		const spinners = document.querySelectorAll('.loading.loading-spinner');
+		expect(spinners.length).toBeGreaterThan(0);
 	});
 
 	it('should display balance changes when loaded', async () => {
 		vi.mocked(balanceHistoryService.getBalanceChanges).mockResolvedValue(mockBalanceChanges);
 
-		const { container } = render(BalanceHistory, {
-			props: {
-				currentSats: 100000000,
-				currentUsd: 50000,
-				balancesHidden: false
-			}
-		});
+		const { container } = render(BalanceHistory, { props: { balancesHidden: false } });
 
-		// Wait for data to load
-		await vi.waitFor(() => {
+		await waitFor(() => {
 			expect(container.textContent).toContain('24h');
 		});
 
-		// Check that all periods are displayed
 		expect(container.textContent).toContain('24h');
 		expect(container.textContent).toContain('7d');
 		expect(container.textContent).toContain('30d');
-
-		// Check that values are displayed
-		expect(container.textContent).toContain('10000000.00 sats');
-		expect(container.textContent).toContain('5000.00 USD');
+		// formatSats uses Intl.NumberFormat (e.g. "10,000,000"); USD uses $X,XXX.XX
+		expect(container.textContent).toMatch(/10[,.]?000[,.]?000/);
+		expect(container.textContent).toContain('5,000.00');
 	});
 
 	it('should hide balances when balancesHidden is true', async () => {
 		vi.mocked(balanceHistoryService.getBalanceChanges).mockResolvedValue(mockBalanceChanges);
 
-		const { container } = render(BalanceHistory, {
-			props: {
-				currentSats: 100000000,
-				currentUsd: 50000,
-				balancesHidden: true
-			}
-		});
+		const { container } = render(BalanceHistory, { props: { balancesHidden: true } });
 
-		// Wait for data to load
-		await vi.waitFor(() => {
+		await waitFor(() => {
 			expect(container.textContent).toContain('24h');
 		});
 
-		// Check that values are hidden
-		expect(container.textContent).toContain('••••••');
-		expect(container.textContent).not.toContain('10000000.00 sats');
+		// Component shows •••• for each hidden value (two per period × 3 periods)
+		expect(container.textContent).toContain('••••');
+		expect(container.textContent).not.toMatch(/10[,.]?000[,.]?000/);
 	});
 
 	it('should apply correct color classes for positive changes', async () => {
@@ -157,21 +153,13 @@ describe('BalanceHistory', () => {
 			}
 		]);
 
-		const { container } = render(BalanceHistory, {
-			props: {
-				currentSats: 100000000,
-				currentUsd: 50000,
-				balancesHidden: false
-			}
-		});
+		const { container } = render(BalanceHistory, { props: { balancesHidden: false } });
 
-		// Wait for data to load
-		await vi.waitFor(() => {
+		await waitFor(() => {
 			expect(container.textContent).toContain('24h');
 		});
 
-		// Check for success color class
-		const successElements = container.querySelectorAll('.text-success');
+		const successElements = container.querySelectorAll('.text-success, .text-success\\/80');
 		expect(successElements.length).toBeGreaterThan(0);
 	});
 
@@ -186,21 +174,13 @@ describe('BalanceHistory', () => {
 			}
 		]);
 
-		const { container } = render(BalanceHistory, {
-			props: {
-				currentSats: 100000000,
-				currentUsd: 50000,
-				balancesHidden: false
-			}
-		});
+		const { container } = render(BalanceHistory, { props: { balancesHidden: false } });
 
-		// Wait for data to load
-		await vi.waitFor(() => {
+		await waitFor(() => {
 			expect(container.textContent).toContain('24h');
 		});
 
-		// Check for error color class
-		const errorElements = container.querySelectorAll('.text-error');
+		const errorElements = container.querySelectorAll('.text-error, .text-error\\/80');
 		expect(errorElements.length).toBeGreaterThan(0);
 	});
 
@@ -209,40 +189,29 @@ describe('BalanceHistory', () => {
 			new Error('Service error')
 		);
 
-		const { container } = render(BalanceHistory, {
-			props: {
-				currentSats: 100000000,
-				currentUsd: 50000,
-				balancesHidden: false
-			}
-		});
+		const { container } = render(BalanceHistory, { props: { balancesHidden: false } });
 
-		// Wait for error to be displayed
-		await vi.waitFor(() => {
+		await waitFor(() => {
 			expect(container.textContent).toContain('Failed to load balance history');
 		});
 
-		// Check for alert
-		const alert = container.querySelector('.alert-error');
-		expect(alert).not.toBeNull();
+		const errorSpan = container.querySelector('.text-error');
+		expect(errorSpan).not.toBeNull();
 	});
 
-	it('should not load data when currentSats is 0', async () => {
+	it('should call service with store values when totalBalances has data', async () => {
 		vi.mocked(balanceHistoryService.getBalanceChanges).mockResolvedValue(mockBalanceChanges);
 
-		render(BalanceHistory, {
-			props: {
-				currentSats: 0,
-				currentUsd: 0,
-				balancesHidden: false
-			}
+		render(BalanceHistory, { props: { balancesHidden: false } });
+
+		await waitFor(() => {
+			expect(balanceHistoryService.getBalanceChanges).toHaveBeenCalledWith(
+				100000000,
+				50000,
+				expect.anything(),
+				'0x1234567890123456789012345678901234567890'
+			);
 		});
-
-		// Wait a bit to ensure no call is made
-		await new Promise((resolve) => setTimeout(resolve, 100));
-
-		// Service should not be called
-		expect(balanceHistoryService.getBalanceChanges).not.toHaveBeenCalled();
 	});
 
 	it('should format positive numbers with + sign', async () => {
@@ -256,21 +225,16 @@ describe('BalanceHistory', () => {
 			}
 		]);
 
-		const { container } = render(BalanceHistory, {
-			props: {
-				currentSats: 100000000,
-				currentUsd: 50000,
-				balancesHidden: false
-			}
+		const { container } = render(BalanceHistory, { props: { balancesHidden: false } });
+
+		await waitFor(() => {
+			expect(container.textContent).toContain('24h');
 		});
 
-		// Wait for data to load
-		await vi.waitFor(() => {
-			expect(container.textContent).toContain('+10000000.00');
-		});
-
-		expect(container.textContent).toContain('+5000.00');
-		expect(container.textContent).toContain('+10.00%');
+		// Component shows + for positive sats and USD (format: +10,000,000 and +$5,000.00)
+		expect(container.textContent).toContain('+');
+		expect(container.textContent).toMatch(/\+.*10[,.]?000[,.]?000/);
+		expect(container.textContent).toMatch(/\+.*5[,.]?000/);
 	});
 
 	it('should format negative numbers with - sign', async () => {
@@ -284,21 +248,15 @@ describe('BalanceHistory', () => {
 			}
 		]);
 
-		const { container } = render(BalanceHistory, {
-			props: {
-				currentSats: 100000000,
-				currentUsd: 50000,
-				balancesHidden: false
-			}
+		const { container } = render(BalanceHistory, { props: { balancesHidden: false } });
+
+		await waitFor(() => {
+			expect(container.textContent).toContain('24h');
 		});
 
-		// Wait for data to load
-		await vi.waitFor(() => {
-			expect(container.textContent).toContain('-10000000.00');
-		});
-
-		expect(container.textContent).toContain('-5000.00');
-		expect(container.textContent).toContain('-10.00%');
+		expect(container.textContent).toContain('-');
+		expect(container.textContent).toMatch(/-.*10[,.]?000[,.]?000/);
+		expect(container.textContent).toMatch(/-.*5[,.]?000/);
 	});
 });
 

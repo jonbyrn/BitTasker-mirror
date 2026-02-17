@@ -473,11 +473,12 @@
 										<IconWalletOutline class="h-4 w-4" />
 										<span>{$t('dashboard.task_details_by_task.amount')}</span>
 									</div> -->
-										<div class="text-2xl font-bold tracking-tight">
-											${formatNumberWithTwoDecimals(task.budget.amount)}
-											<div class="text-base-content/60 text-base">
-												{satsFromUsd(task.budget.amount, btcPrice)}
-											</div>
+										<div class="tracking-tight">
+											<UsdSatsDisplay
+												amount={task.budget.amount}
+												btcPrice={btcPrice}
+												size="large"
+											/>
 										</div>
 									</div>
 								</div>
