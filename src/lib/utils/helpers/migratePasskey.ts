@@ -1,19 +1,20 @@
-import { type NostrEvent } from "nostr-tools";
+import type { EncryptedData, UserData } from "$lib/types/auth";
+import { finalizeEvent } from "nostr-tools";
 import { encryptMasterKeyData } from "$lib/utils/helpers/auth";
 import { setWebBiometricKey } from "$lib/utils/helpers/webBiometrics";
 import { checkBiometricAvailability, setBiometricKey } from "$lib/utils/helpers/biometrics";
 import { writable, get } from "svelte/store";
+import { decodeNsec } from "$lib/utils/nostr";
+import authService from "$lib/api/services/auth.service";
 
-type MigrationState = 'info' | 'processing' | 'success' | 'error';
+type MigrationState = 'info' | 'processing' | 'success' | 'error' | 'migrated';
 
 interface MigrationContext {
-    signedEvent: NostrEvent;
-    nsec: string;
-    mnemonic: string;
+    npub: string;
+    decryptedData: { nsec: string; mnemonic: string };
     deviceId: string;
     deviceName: string;
     platform: 'mobile' | 'web';
-    oldCredentialId: string;
 }
 
 interface PasskeyMigrationStore {
@@ -27,7 +28,7 @@ interface PasskeyMigrationStore {
 
 export const passkeyMigration = writable<PasskeyMigrationStore>({
     isOpen: false,
-    state: 'info',
+    state: 'migrated',
     countdown: 30,
     error: null,
     shouldProceed: false,
@@ -104,7 +105,7 @@ export function resetMigration() {
  * Internal function to perform the actual migration process
  */
 async function performMigration(context: MigrationContext) {
-    const { signedEvent, nsec, mnemonic, deviceId, deviceName, platform, oldCredentialId } = context;
+    const { npub, decryptedData, deviceId, deviceName, platform } = context;
 
     // Update state to processing
     passkeyMigration.update(state => ({
@@ -112,30 +113,55 @@ async function performMigration(context: MigrationContext) {
         state: 'processing'
     }));
 
-    const npub = signedEvent.pubkey;
+    const decodedNsec = decodeNsec(decryptedData.nsec);
 
-    const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
+    // Get login challenge from server
+    const { challenge } = await authService.getChallenge();
+
+    const event = {
+        kind: 22242,
+        created_at: Math.floor(Date.now() / 1000),
+        content: challenge,
+        tags: [
+            ['relay', window.location.origin],
+            ['challenge', challenge],
+        ],
+        pubkey: npub
+    };
+
+    const signedEvent = finalizeEvent(event, decodedNsec);
+
+    const { encryptedData, exportedKey } = await encryptMasterKeyData(decryptedData.nsec, decryptedData.mnemonic, decryptedData.nsec);
 
     const isMobileBiometrics = await checkBiometricAvailability();
 
-    let credentialId = '';
-    if (isMobileBiometrics) {
-        credentialId = await setBiometricKey(npub, exportedKey);
-    } else {
-        credentialId = await setWebBiometricKey(npub, exportedKey);
+    let credentialData = {
+        credentialId: '',
+        passkeyPubkey: '',
+        clientDataJSON: '',
+        attestationObject: '',
+        challenge: ''
     }
 
-    // Dynamically import authService to avoid circular dependency
-    const authService = (await import('$lib/api/services/auth.service')).default;
+    if (isMobileBiometrics) {
+        credentialData = await setBiometricKey({ npub, exportedKey, challenge });
+    } else {
+        credentialData = await setWebBiometricKey({ npub, exportedKey, challenge });
+    }
 
-    const response = await authService.migratePasskey({
+    const response = await authService.nostrLogin({
         event: signedEvent,
-        newCredentialId: credentialId,
-        oldCredentialId,
+        challenge,
+        encryptedData,
+        authMethod: 'passkey',
         deviceId,
-        masterKeyData: encryptedData,
         deviceName,
-        platform: platform
+        credentialId: credentialData.credentialId,
+        passkeyPubkey: credentialData.passkeyPubkey,
+        clientDataJSON: credentialData.clientDataJSON,
+        attestationObject: credentialData.attestationObject,
+        appVersion: __APP_VERSION__,
+        platform
     });
 
     // Update state to success
@@ -148,7 +174,7 @@ async function performMigration(context: MigrationContext) {
     // Wait 2 seconds to show success state to user
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    return response;
+    return { ...response, encryptedData };
 }
 
 /**
@@ -156,15 +182,13 @@ async function performMigration(context: MigrationContext) {
  */
 async function migratePasskey(
     params: {
-        signedEvent: NostrEvent;
-        nsec: string;
-        mnemonic: string;
+        npub: string;
+        decryptedData: { nsec: string; mnemonic: string };
         deviceId: string;
         deviceName: string;
         platform: 'mobile' | 'web';
-        oldCredentialId: string;
     }
-) {
+): Promise<{ user: UserData; access_token: string, encryptedData: EncryptedData }> {
     try {
         // Store context for retry/skip
         passkeyMigration.update(state => ({
@@ -249,61 +273,11 @@ export async function retryMigration() {
     }
 }
 
-/**
- * Skip migration and use regular passkey login instead
- */
-export async function skipMigration() {
-    const currentState = get(passkeyMigration);
-    if (!currentState.context) {
-        throw new Error('No migration context available');
-    }
+export async function continueAfterMigration() {
+    // Close modal
+    resetMigration();
 
-    try {
-        const { signedEvent, deviceId, deviceName, platform } = currentState.context;
-
-        // Update state to processing
-        passkeyMigration.update(state => ({
-            ...state,
-            state: 'processing'
-        }));
-
-        // Dynamically import authService
-        const authService = (await import('$lib/api/services/auth.service')).default;
-
-        // Use regular passkey login instead of migration
-        const response = await authService.loginWithPasskey({
-            event: signedEvent,
-            deviceId,
-            deviceName,
-            platform
-        });
-
-        // Update state to success
-        passkeyMigration.update(state => ({
-            ...state,
-            state: 'success',
-            error: null
-        }));
-
-        // Wait 2 seconds to show success state to user
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Close modal
-        resetMigration();
-
-        return response;
-    } catch (error) {
-        console.error('Error skipping migration:', error);
-
-        // Update state to error
-        passkeyMigration.update(state => ({
-            ...state,
-            state: 'error',
-            error: error instanceof Error ? error.message : 'Skip migration failed'
-        }));
-
-        throw error;
-    }
+    return true;
 }
 
 export default migratePasskey;
