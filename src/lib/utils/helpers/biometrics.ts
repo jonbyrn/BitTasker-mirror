@@ -24,13 +24,17 @@ export const checkBiometricAvailability = async (): Promise<boolean> => {
  * @param exportedKey The exported private key for decryption
  * @param authMethod Authentication method: 'biometrics' for native, 'passkey' for WebAuthn
  * @param customName Optional custom name for the passkey (mobile device name)
- * @returns Promise with credential ID (like WebAuthn)
+ * @returns Promise with credential data including ID, public key (hex), clientDataJSON, attestationObject, and challenge
  */
 export async function setBiometricKey(
-	npub: string,
-	exportedKey: string,
-	username?: string
-): Promise<string> {
+	{ npub, exportedKey, username, challenge }: { npub: string; exportedKey: string; username?: string; challenge?: string }
+): Promise<{
+	credentialId: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	challenge: string;
+}> {
 	try {
 		let credentialId: string | null = null;
 
@@ -43,16 +47,19 @@ export async function setBiometricKey(
 		let name = '';
 		let displayName = '';
 		if (username) {
-			name = username + ' @bittasker.com';
-			displayName = username + ' @bittasker.com';
+			name = username + '@bittasker.com';
+			displayName = username + '@bittasker.com';
 		} else {
 			const passkeyName = await generatePasskeyName(npub);
 			name = passkeyName.name;
 			displayName = passkeyName.displayName;
 		}
 
+		// Decode challenge from base64url
+		let _challenge = challenge ? challenge : (await authService.getChallenge()).challenge;
+
 		const registrationOptions: PublicKeyCredentialCreationOptionsJSON = {
-			challenge: generateMobileChallenge(),
+			challenge: _challenge,
 			rp: {
 				name: 'BitTasker',
 				id: window.location.hostname
@@ -84,8 +91,33 @@ export async function setBiometricKey(
 			throw new Error('No credential ID found');
 		}
 
-		// Return credential ID like WebAuthn does
-		return credentialId;
+		// Extract public key from response
+		// Capacitor WebAuthn plugin returns the public key in the response
+		const response = result.response;
+
+		// Convert public key to hex if available
+		let passkeyPubkey = '';
+		if (response.publicKey) {
+			// If publicKey is already a string, use it directly
+			if (typeof response.publicKey === 'string') {
+				passkeyPubkey = response.publicKey;
+			} else {
+				// Otherwise convert ArrayBuffer/Uint8Array to hex
+				const publicKeyBytes = new Uint8Array(response.publicKey);
+				passkeyPubkey = Array.from(publicKeyBytes)
+					.map(b => b.toString(16).padStart(2, '0'))
+					.join('');
+			}
+		}
+
+		// Return credential data like WebAuthn does
+		return {
+			credentialId,
+			passkeyPubkey,
+			clientDataJSON: response.clientDataJSON,
+			attestationObject: response.attestationObject,
+			challenge: _challenge
+		};
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
 		throw new Error(await handleBiometricError(err, 'mobile-webauthn'));
@@ -99,14 +131,15 @@ export async function setBiometricKey(
  */
 export async function getBiometricData(checkNpub: boolean = false): Promise<Credentials | null> {
 	try {
-		const deviceId = await getDeviceIdentifier();
-
 		// Force WebAuthn if authMethod is 'passkey'
 		const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
 		if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
+		const { challenge } = await authService.getChallenge();
+		const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
+
 		const options: PublicKeyCredentialRequestOptionsJSON = {
-			challenge: generateMobileChallenge(),
+			challenge: challengeBuffer,
 			timeout: 60000,
 			userVerification: 'required',
 			rpId: window.location.hostname,
@@ -136,28 +169,12 @@ export async function getBiometricData(checkNpub: boolean = false): Promise<Cred
 			}
 		}
 
-		const deviceName = await createUserDeviceShortName(publicKey);
-
-		try {
-			const { encryptionData, isLegacyFormat } = await authService.getEncryptedData(publicKey, deviceId, credentials.id, deviceName);
-
-			if (encryptionData) {
-				return {
-					npub: publicKey,
-					encryptedData: encryptionData,
-					// @ts-ignore - Legacy format type check can be ignored as it will be removed in the future
-					exportedKey: isLegacyFormat ? encryptionData.exportedMasterKey : exportedKey,
-					deviceId,
-					deviceName,
-					credentialId: credentials.id,
-					isLegacyFormat
-				};
-			} else {
-				throw new Error('We could not find data associated with this passkey.');
-			}
-		} catch (error) {
-			console.warn('Master key not available:', error);
-			throw new Error('We could not find data associated with this passkey.');
+		return {
+			npub: publicKey,
+			exportedKey,
+			credentialId: credentials.id,
+			response: credentials.response,
+			challenge: challenge
 		}
 	} catch (err) {
 		const platform = 'mobile-webauthn';

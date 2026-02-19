@@ -1,4 +1,5 @@
 import type { CryptoEncryptedData } from '$lib/types/auth';
+import { entropyToMnemonic } from 'bip39';
 import { bytesToBase64, base64ToBytes } from './encoding';
 
 export async function generateRandomKey(): Promise<CryptoKey> {
@@ -185,4 +186,20 @@ export function formatNumberForInput(value: number | undefined): string {
 		minimumFractionDigits: 0,
 		maximumFractionDigits: 2
 	});
+}
+
+export async function deriveWalletFromNostr(nsec: string): Promise<string> {
+	// Use the nsec as entropy to deterministically generate mnemonic
+	const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nsec));
+	const entropy = new Uint8Array(hash).slice(0, 16); // 128 bits = 12 word mnemonic
+
+	// Convert entropy to hex string for BIP39
+	const entropyHex = Array.from(entropy)
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+
+	// Convert to mnemonic using BIP39
+	const mnemonic = entropyToMnemonic(entropyHex);
+	console.log({ mnemonic });
+	return mnemonic;
 }
