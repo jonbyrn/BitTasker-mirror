@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ethers } from 'ethers';
 import type { Contract, Wallet, JsonRpcProvider } from 'ethers';
 
 // Mock wallet store before importing escrow
@@ -63,35 +62,88 @@ vi.mock('$lib/utils/escrow/v1/abi.json', () => ({
 // Mock rpcHelpers
 const mockCallContractMethod = vi.fn();
 vi.mock('../rpcHelpers', () => ({
-	callContractMethod: (...args: any[]) => mockCallContractMethod(...args)
+	callContractMethod: (...args: unknown[]) => mockCallContractMethod(...args)
+}));
+
+// Mock task.store to prevent "Pool not found" when loaded transitively (task.store requires appStore.pool at init)
+vi.mock('$lib/stores/task.store', async () => {
+	const { writable } = await import('svelte/store');
+	const mockPool = { subscribe: () => () => {}, publish: () => [], querySync: () => [] };
+	const mockTasksStore = writable({
+		pool: mockPool,
+		items: [],
+		loading: false,
+		error: null,
+		currentPage: 1,
+		hasMore: true,
+		searchParamsKey: ''
+	});
+	const mockMyTasksStore = writable({
+		items: [],
+		loading: false,
+		error: null,
+		currentPage: 1,
+		hasMore: true
+	});
+	return {
+		tasksStore: {
+			subscribe: mockTasksStore.subscribe,
+			set: vi.fn(),
+			update: vi.fn(),
+			reset: vi.fn(),
+			pool: mockPool
+		},
+		myTasksStore: {
+			subscribe: mockMyTasksStore.subscribe,
+			set: vi.fn(),
+			update: vi.fn(),
+			reset: vi.fn()
+		},
+		taskStore: {},
+		TASKS_PER_PAGE: 10,
+		STEPS: writable([])
+	};
+});
+vi.mock('$lib/nostr/task', () => ({
+	getTaskStableId: (x: string) => x,
+	createTask: vi.fn(),
+	updateTask: vi.fn(),
+	deleteTask: vi.fn()
 }));
 
 // Mock app store
-vi.mock('$lib/stores/app.store', () => ({
-	appStore: {
-		showErrorToast: vi.fn(),
-		showSuccessToast: vi.fn(),
-		showInfoToast: vi.fn()
-	}
-}));
+vi.mock('$lib/stores/app.store', async () => {
+	const { writable } = await import('svelte/store');
+	const mockPool = { subscribe: () => () => {}, publish: () => [], querySync: () => [] };
+	return {
+		appStore: writable({
+			pool: mockPool,
+			showErrorToast: vi.fn(),
+			showSuccessToast: vi.fn(),
+			showInfoToast: vi.fn()
+		})
+	};
+});
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => ({
 	t: vi.fn((key: string) => key),
-	get: vi.fn((fn: any) => fn)
+	get: vi.fn((fn: (key: string) => string) => fn)
 }));
 
 // Mock svelte/store
 vi.mock('svelte/store', async () => {
-	const actual = await vi.importActual('svelte/store');
+	const actual = await vi.importActual<typeof import('svelte/store')>('svelte/store');
 	return {
 		...actual,
-		get: vi.fn((store: any) => {
-			if (typeof store === 'function') {
-				return store();
+		get: vi.fn(
+			(store: { subscribe?: (fn: (v: unknown) => void) => () => void } | (() => unknown)) => {
+				if (typeof store === 'function') {
+					return store();
+				}
+				return store;
 			}
-			return store;
-		})
+		)
 	};
 });
 
@@ -200,7 +252,7 @@ describe('escrow', () => {
 					...mockProvider,
 					_destroyed: true
 				};
-				(mockContract as any).provider = destroyedProvider;
+				Object.assign(mockContract, { provider: destroyedProvider });
 
 				// Second call should detect destroyed provider and recreate contract
 				mockGetProviderFn.mockReturnValue(mockProvider);
@@ -218,7 +270,7 @@ describe('escrow', () => {
 					...mockProvider,
 					destroyed: true
 				};
-				(mockContract as any).provider = destroyedProvider;
+				Object.assign(mockContract, { provider: destroyedProvider });
 
 				// Second call should detect destroyed provider and recreate contract
 				mockGetProviderFn.mockReturnValue(mockProvider);
@@ -228,8 +280,7 @@ describe('escrow', () => {
 
 			it('should handle error when checking provider state', async () => {
 				// First call creates contract
-				const result1 = await escrow.ensureEscrowReady(undefined, false);
-				expect(result1.contract).toBeDefined();
+				await escrow.ensureEscrowReady(undefined, false);
 
 				// Simulate error accessing provider
 				const errorProvider = {
@@ -237,7 +288,7 @@ describe('escrow', () => {
 						throw new Error('Provider access error');
 					}
 				};
-				(mockContract as any).provider = errorProvider;
+				Object.assign(mockContract, { provider: errorProvider });
 
 				// Should handle error gracefully and recreate contract
 				mockGetProviderFn.mockReturnValue(mockProvider);
@@ -279,7 +330,7 @@ describe('escrow', () => {
 					...mockProvider,
 					_destroyed: true
 				};
-				(legacyContract as any).provider = destroyedProvider;
+				Object.assign(legacyContract, { provider: destroyedProvider });
 
 				// Currently legacy contracts are not checked - this test documents the issue
 				// After fix, this should recreate the contract
@@ -357,7 +408,7 @@ describe('escrow', () => {
 			});
 
 			it('should throw error when balance is zero and requireBalance is true', async () => {
-				(mockProvider.getBalance as any).mockResolvedValueOnce(BigInt(0));
+				vi.mocked(mockProvider.getBalance).mockResolvedValueOnce(BigInt(0));
 
 				await expect(escrow.ensureEscrowReady(undefined, true)).rejects.toThrow(
 					'Insufficient balance'
@@ -403,7 +454,7 @@ describe('escrow', () => {
 			});
 
 			it('should handle provider getBalance errors', async () => {
-				(mockProvider.getBalance as any).mockRejectedValueOnce(new Error('RPC error'));
+				vi.mocked(mockProvider.getBalance).mockRejectedValueOnce(new Error('RPC error'));
 
 				await expect(escrow.ensureEscrowReady(undefined, true)).rejects.toThrow();
 			});
@@ -430,15 +481,16 @@ describe('escrow', () => {
 
 	describe('Provider validation', () => {
 		it('should validate provider after contract reset', async () => {
-			// First call
+			// First call creates contract
 			const result1 = await escrow.ensureEscrowReady(undefined, false);
+			expect(result1.contract).toBeDefined();
 
 			// Simulate provider destruction
 			const destroyedProvider = {
 				...mockProvider,
 				_destroyed: true
 			};
-			(mockContract as any).provider = destroyedProvider;
+			Object.assign(mockContract, { provider: destroyedProvider });
 
 			// Get fresh provider
 			mockGetProviderFn.mockReturnValue(mockProvider);
@@ -449,4 +501,3 @@ describe('escrow', () => {
 		});
 	});
 });
-

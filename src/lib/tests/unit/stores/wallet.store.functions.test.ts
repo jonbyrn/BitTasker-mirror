@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
-import {
-	getRSKAddress,
-	walletStore,
-	walletManager
-} from '$lib/stores/wallet.store';
+import { getRSKAddress, walletStore, walletManager } from '$lib/stores/wallet.store';
 // Import will be used inside hoisted function
 
 // Prevent profile.ts -> upload.service -> BaseApiService load failure in test env
@@ -36,19 +32,23 @@ vi.mock('$lib/utils/swapAdapter', () => ({
 	}))
 }));
 
-vi.mock('$lib/stores/app.store', () => {
-	const { writable } = require('svelte/store');
+vi.mock('$lib/stores/app.store', async () => {
+	const { writable } = await import('svelte/store');
+	const mockPool = { subscribe: () => () => {}, publish: () => [], querySync: () => [] };
 	return {
 		appStore: writable({
 			biometricData: {
 				password: 'encrypted-password'
-			}
+			},
+			pool: mockPool
 		})
 	};
 });
 
 vi.mock('$lib/utils/helpers/auth', () => ({
-	decryptWalletMnemonicWithBiometrics: vi.fn().mockResolvedValue('test mnemonic phrase twelve words long enough for bip39')
+	decryptWalletMnemonicWithBiometrics: vi
+		.fn()
+		.mockResolvedValue('test mnemonic phrase twelve words long enough for bip39')
 }));
 
 vi.mock('$lib/api/services/crypto-price.service', () => ({
@@ -64,7 +64,9 @@ const mockWalletManager = vi.hoisted(() => {
 		connect: vi.fn().mockResolvedValue(undefined),
 		disconnect: vi.fn().mockResolvedValue(undefined),
 		getAddress: vi.fn().mockResolvedValue('0x1234567890123456789012345678901234567890'),
-		getBalance: vi.fn().mockResolvedValue({ balance: BigInt('1000000000000000000'), formatted: '1.00' }),
+		getBalance: vi
+			.fn()
+			.mockResolvedValue({ balance: BigInt('1000000000000000000'), formatted: '1.00' }),
 		getWallet: vi.fn().mockReturnValue(null),
 		getProvider: vi.fn().mockReturnValue(null),
 		loadTransactions: vi.fn().mockResolvedValue([])
@@ -103,7 +105,10 @@ const mockWalletManager = vi.hoisted(() => {
 vi.mock('@bittasker/wallet-core', async () => {
 	return {
 		WalletManager: vi.fn().mockImplementation(() => mockWalletManager),
-		ERC20_ABI: ['function transfer(address, uint256) returns (bool)', 'function decimals() view returns (uint8)']
+		ERC20_ABI: [
+			'function transfer(address, uint256) returns (bool)',
+			'function decimals() view returns (uint8)'
+		]
 	};
 });
 
@@ -170,10 +175,10 @@ describe('Wallet Store Functions', () => {
 		it('should return RSK address if wallet is initialized', async () => {
 			// Initialize wallet first
 			await walletManager.initialize();
-			
+
 			// Wait for initialization
-			await new Promise(resolve => setTimeout(resolve, 100));
-			
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
 			const address = await getRSKAddress();
 			expect(address).toBeTruthy();
 			expect(address).toMatch(/^0x[a-fA-F0-9]{40}$/);
@@ -182,11 +187,7 @@ describe('Wallet Store Functions', () => {
 		it('should prevent race conditions with promise cache', async () => {
 			await walletManager.initialize();
 
-			const promises = [
-				getRSKAddress(),
-				getRSKAddress(),
-				getRSKAddress()
-			];
+			const promises = [getRSKAddress(), getRSKAddress(), getRSKAddress()];
 
 			const addresses = await Promise.all(promises);
 
@@ -199,7 +200,7 @@ describe('Wallet Store Functions', () => {
 
 		it('should return cached address if already available', async () => {
 			// Set address in store
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				rsk: {
 					...s.rsk,
@@ -224,7 +225,7 @@ describe('Wallet Store Functions', () => {
 
 		it('should skip initialization if already initializing', async () => {
 			// Set initializing flag
-			walletStore.update(s => ({ ...s, isInitializing: true }));
+			walletStore.update((s) => ({ ...s, isInitializing: true }));
 
 			await walletManager.initialize();
 
@@ -235,7 +236,7 @@ describe('Wallet Store Functions', () => {
 
 		it('should skip initialization if already connected', async () => {
 			// Set connected flag
-			walletStore.update(s => ({ ...s, isConnected: true }));
+			walletStore.update((s) => ({ ...s, isConnected: true }));
 
 			await walletManager.initialize();
 
@@ -275,14 +276,16 @@ describe('Wallet Store Functions', () => {
 
 		it('should handle load errors gracefully', async () => {
 			await walletManager.initialize();
-			
+
 			// Mock crypto price service to throw error
 			const cryptoPriceService = await import('$lib/api/services/crypto-price.service');
-			vi.mocked(cryptoPriceService.default.getCurrentPrice).mockRejectedValueOnce(new Error('Price fetch failed'));
+			vi.mocked(cryptoPriceService.default.getCurrentPrice).mockRejectedValueOnce(
+				new Error('Price fetch failed')
+			);
 
 			// loadAssets catches errors internally, so it shouldn't throw
 			await walletManager.loadAssets();
-			
+
 			// Should have completed without throwing
 			await expect(walletManager.loadAssets()).resolves.not.toThrow();
 		});
@@ -300,7 +303,7 @@ describe('Wallet Store Functions', () => {
 
 		it('should prevent concurrent transaction loads', async () => {
 			await walletManager.initialize();
-			
+
 			// Start multiple concurrent loads
 			const promises = [
 				walletManager.loadTransactions(),
@@ -309,7 +312,7 @@ describe('Wallet Store Functions', () => {
 			];
 
 			await Promise.all(promises);
-			
+
 			// Should have completed without errors
 			const state = get(walletStore);
 			expect(Array.isArray(state.transactions)).toBe(true);
@@ -319,7 +322,7 @@ describe('Wallet Store Functions', () => {
 	describe('disconnectWallet', () => {
 		it('should disconnect wallet and reset state', async () => {
 			await walletManager.initialize();
-			
+
 			walletManager.cleanup();
 
 			const state = get(walletStore);
@@ -330,12 +333,12 @@ describe('Wallet Store Functions', () => {
 
 		it('should clear RSK address promise cache', async () => {
 			await walletManager.initialize();
-			
+
 			// Get address to populate cache
 			await getRSKAddress();
-			
+
 			walletManager.cleanup();
-			
+
 			// Cache should be cleared
 			const state = get(walletStore);
 			expect(state.rsk.address).toBeNull();
@@ -343,7 +346,7 @@ describe('Wallet Store Functions', () => {
 
 		it('should handle disconnect errors gracefully', async () => {
 			await walletManager.initialize();
-			
+
 			// Mock disconnect to throw error
 			const { WalletManager } = await import('@bittasker/wallet-core');
 			const mockInstance = vi.mocked(WalletManager).mock.results[0]?.value;
@@ -358,5 +361,3 @@ describe('Wallet Store Functions', () => {
 		});
 	});
 });
-
-
