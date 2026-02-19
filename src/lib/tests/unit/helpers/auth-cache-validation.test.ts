@@ -4,8 +4,11 @@ import { getNostrKeyPair, getNpub, getAllKeys } from '$lib/utils/nostrKeys';
 import { appStore } from '$lib/stores/app.store';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { decryptNsecWithBiometrics, decryptMasterKeyDataFromBiometrics } from '$lib/utils/helpers/auth';
-import type { Credentials, EncryptedData } from '$lib/types/auth';
+import {
+	decryptNsecWithBiometrics,
+	decryptMasterKeyDataFromBiometrics
+} from '$lib/utils/helpers/auth';
+import type { BiometricData, EncryptedData } from '$lib/types/auth';
 
 const mockEncryptedData: EncryptedData = {
 	nostr: {
@@ -21,32 +24,35 @@ const mockEncryptedData: EncryptedData = {
 	masterSalt: 'masterSalt'
 };
 
-function createCredentials(npub: string, overrides?: Partial<Credentials>): Credentials {
+function createCredentials(npub: string, overrides?: Partial<BiometricData>): BiometricData {
 	return {
 		npub,
-		deviceId: 'test-device',
-		credentialId: 'cid',
-		deviceName: 'device',
 		encryptedData: mockEncryptedData,
 		exportedKey: 'exportedKey',
-		isLegacyFormat: false,
 		...overrides
 	};
 }
 
 // Mock dependencies
-vi.mock('$lib/stores/app.store', () => {
-	const { writable } = require('svelte/store');
+vi.mock('$lib/api/services/upload.service', () => ({
+	default: {
+		uploadFile: vi.fn(),
+		uploadMultipleFiles: vi.fn()
+	}
+}));
+
+vi.mock('$lib/stores/app.store', async () => {
+	const { writable } = await import('svelte/store');
 
 	// Derive the app store state type from the update() signature (AppStore is not exported).
-	const createState = (biometricData: Credentials | null) => ({
+	const createState = (biometricData: BiometricData | null) => ({
 		nostrKeys: { nsec: null, npub: null, mnemonic: null },
 		isLoading: false,
 		error: null,
 		toasts: [],
 		biometricData,
-		network: 'testnet',
-		pool: {} as any,
+		network: 'testnet' as const,
+		pool: {} as Record<string, unknown>,
 		relays: []
 	});
 
@@ -80,7 +86,12 @@ vi.mock('nostr-tools', () => ({
 	nip19: {
 		decode: vi.fn((nsec: string) => {
 			if (nsec.startsWith('nsec1')) {
-				return { data: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]) };
+				return {
+					data: new Uint8Array([
+						1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+						25, 26, 27, 28, 29, 30, 31, 32
+					])
+				};
 			}
 			throw new Error('Invalid nsec format');
 		})
@@ -103,15 +114,15 @@ describe('Cache Validation Logic', () => {
 	const mockDecryptMasterKey = vi.mocked(decryptMasterKeyDataFromBiometrics);
 
 	type AppState = Parameters<Parameters<typeof appStore.update>[0]>[0];
-	const createState = (biometricData: Credentials | null): AppState =>
+	const createState = (biometricData: BiometricData | null): AppState =>
 		({
 			nostrKeys: { nsec: null, npub: null, mnemonic: null },
 			isLoading: false,
 			error: null,
 			toasts: [],
 			biometricData,
-			network: 'testnet',
-			pool: {} as any,
+			network: 'testnet' as const,
+			pool: {} as Record<string, unknown>,
 			relays: []
 		}) as unknown as AppState;
 
@@ -144,7 +155,10 @@ describe('Cache Validation Logic', () => {
 			const result = await getNostrKeyPair();
 
 			expect(result.npub).toBe('test_npub');
-			expect(mockDecryptNsec).toHaveBeenCalledWith(mockEncryptedData, mockBiometricData.exportedKey);
+			expect(mockDecryptNsec).toHaveBeenCalledWith(
+				mockEncryptedData,
+				mockBiometricData.exportedKey
+			);
 			expect(updateCalled).toBe(true);
 		});
 
@@ -168,7 +182,10 @@ describe('Cache Validation Logic', () => {
 			const result = await getNostrKeyPair();
 
 			expect(result.npub).toBe('test_npub');
-			expect(mockDecryptNsec).toHaveBeenCalledWith(mockEncryptedData, mockBiometricData.exportedKey);
+			expect(mockDecryptNsec).toHaveBeenCalledWith(
+				mockEncryptedData,
+				mockBiometricData.exportedKey
+			);
 			expect(mockAppStoreUpdate).toHaveBeenCalled();
 			expect(mockGetBiometricData).not.toHaveBeenCalled();
 		});
@@ -292,7 +309,10 @@ describe('Cache Validation Logic', () => {
 
 			expect(result.npub).toBe('test_npub');
 			expect(result.mnemonic).toBe('test mnemonic');
-			expect(mockDecryptMasterKey).toHaveBeenCalledWith(mockEncryptedData, mockBiometricData.exportedKey);
+			expect(mockDecryptMasterKey).toHaveBeenCalledWith(
+				mockEncryptedData,
+				mockBiometricData.exportedKey
+			);
 			expect(updateCalled).toBe(true);
 		});
 
@@ -317,4 +337,3 @@ describe('Cache Validation Logic', () => {
 		});
 	});
 });
-

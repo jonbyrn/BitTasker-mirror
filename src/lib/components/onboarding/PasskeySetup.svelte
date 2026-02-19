@@ -1,28 +1,25 @@
 <script lang="ts">
-	import IconCheck from '~icons/mdi/check-circle-outline';
-	import type { AccountRecoveryData } from '$lib/types/auth';
-	import { nip19 } from 'nostr-tools';
-	import { appStore } from '$lib/stores/app.store';
-	import { authState } from '$lib/stores/auth.store';
-	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
-	import { bytesToHex } from '$lib/utils/helpers/encoding';
-	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { generateMnemonic } from 'bip39';
-	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
-	import {
-		createUserDeviceShortName,
-		getDeviceIdentifier,
-		formatPasskeyName
-	} from '$lib/utils/helpers/deviceIdentity';
-	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
-	import authService from '$lib/api/services/auth.service';
-	import { t } from 'svelte-i18n';
-	import { Buffer } from 'buffer';
-	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
-	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
-	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import type { BiometricPlatform } from '$lib/utils/helpers/biometricErrorHandler';
 	import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
+	import { t } from 'svelte-i18n';
+	import { Buffer } from 'buffer';
+	import { nip19 } from 'nostr-tools';
+	import { authState } from '$lib/stores/auth.store';
+	import { bytesToHex } from '$lib/utils/helpers/encoding';
+	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
+	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
+	import {
+		createUserDeviceShortName,
+		getDeviceIdentifier
+	} from '$lib/utils/helpers/deviceIdentity';
+	import IconCheck from '~icons/mdi/check-circle-outline';
+	import authService from '$lib/api/services/auth.service';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -76,23 +73,25 @@
 			}
 
 			// Create master key encryption for both Nostr and wallet
-			const { encryptedData: masterKeyData, exportedKey } = await encryptMasterKeyData(
-				nsec,
-				mnemonic,
-				nsec
-			);
+			const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
 			const deviceName = await createUserDeviceShortName(npub);
 
-			// Register device with server using master key
-			// Use username for passkey naming so it appears in password managers
-			let credentialId = '';
+			// Register device with server using
+			let credentialData = {
+				credentialId: '',
+				passkeyPubkey: '',
+				clientDataJSON: '',
+				attestationObject: '',
+				challenge: ''
+			};
+
 			if (isMobileBiometrics) {
 				try {
-					credentialId = await setBiometricKey(npub, exportedKey, username);
+					credentialData = await setBiometricKey({ npub, exportedKey, username });
 				} catch (biometricError: any) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'mobile-native';
@@ -110,7 +109,7 @@
 				}
 			} else {
 				try {
-					credentialId = await setWebBiometricKey(npub, exportedKey, username);
+					credentialData = await setWebBiometricKey({ npub, exportedKey, username });
 				} catch (biometricError: any) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'web';
@@ -126,20 +125,30 @@
 				}
 			}
 
-			if (!credentialId) {
-				throw new Error('Failed to get credential ID');
+			if (
+				!credentialData.credentialId ||
+				!credentialData.passkeyPubkey ||
+				!credentialData.clientDataJSON ||
+				!credentialData.attestationObject
+			) {
+				throw new Error('Failed to get credential data');
 			}
 
-			// Register with server using master key GraphQL mutation
-			const response = await authService.registerWithMasterKey({
+			// Register with server using credential data
+			const response = await authService.register({
 				username,
 				publicKey: npub,
-				masterKeyData,
+				encryptedData,
 				authMethod: 'passkey',
 				deviceId,
-				credentialId,
+				credentialId: credentialData.credentialId,
+				passkeyPubkey: credentialData.passkeyPubkey,
 				deviceName,
-				platform: isMobileBiometrics ? 'mobile' : 'web'
+				platform: isMobileBiometrics ? 'mobile' : 'web',
+				challenge: credentialData.challenge,
+				clientDataJSON: credentialData.clientDataJSON,
+				attestationObject: credentialData.attestationObject,
+				appVersion: __APP_VERSION__
 			});
 
 			if (response && response.access_token) {
@@ -148,9 +157,9 @@
 					npub,
 					deviceId,
 					deviceName,
-					encryptedData: masterKeyData,
+					encryptedData,
 					exportedKey,
-					credentialId: credentialId,
+					credentialId: credentialData.credentialId,
 					isLegacyFormat: false
 				};
 				authState.setupAuthData(
@@ -168,34 +177,6 @@
 					? err.message
 					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
 			throw new Error(error);
-		}
-	}
-
-	async function setupAccRecovery(
-		npub: string,
-		nsec: string,
-		walletMnemonic: string,
-		password: string,
-		email: string
-	) {
-		try {
-			const { encryptedData: recoveryData } = await encryptMasterKeyData(
-				nsec,
-				walletMnemonic,
-				password
-			);
-
-			const data: AccountRecoveryData = {
-				publicKey: npub,
-				recoveryData,
-				email
-			};
-
-			await authService.setupAccountRecoveryPassword(data);
-		} catch (err: unknown) {
-			appStore.showErrorToast(
-				err instanceof Error ? err.message : 'Failed to setup account recovery'
-			);
 		}
 	}
 
@@ -227,21 +208,10 @@
 			}
 
 			// Generate wallet mnemonic
-			const walletMnemonic = generateMnemonic();
+			const walletMnemonic = await deriveWalletFromNostr(nsec);
 
 			// Register with passkey
 			await register(userData.username, npub, nsec, walletMnemonic);
-
-			// Setup recovery if enabled
-			if (userData.hasRecovery && userData.recoveryEmail && userData.recoveryPassword) {
-				await setupAccRecovery(
-					npub,
-					nsec,
-					walletMnemonic,
-					userData.recoveryPassword,
-					userData.recoveryEmail
-				);
-			}
 
 			isSetupComplete = true;
 
@@ -305,17 +275,17 @@
 
 				{#if error}
 					<div data-testid="passkey-setup-error">
-					<ErrorAlertWithModal
-						{error}
-						{errorType}
-						isPasskeyError={true}
-						onRetry={async () => {
-							error = '';
-							errorType = undefined;
-							await handlePasskeySetup();
-						}}
-						class="mx-auto mb-6 max-w-lg"
-					/>
+						<ErrorAlertWithModal
+							{error}
+							{errorType}
+							isPasskeyError={true}
+							onRetry={async () => {
+								error = '';
+								errorType = undefined;
+								await handlePasskeySetup();
+							}}
+							class="mx-auto mb-6 max-w-lg"
+						/>
 					</div>
 				{/if}
 
