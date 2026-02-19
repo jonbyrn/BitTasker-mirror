@@ -1,283 +1,288 @@
-import type { EncryptedData, UserData } from "$lib/types/auth";
-import { finalizeEvent } from "nostr-tools";
-import { encryptMasterKeyData } from "$lib/utils/helpers/auth";
-import { setWebBiometricKey } from "$lib/utils/helpers/webBiometrics";
-import { checkBiometricAvailability, setBiometricKey } from "$lib/utils/helpers/biometrics";
-import { writable, get } from "svelte/store";
-import { decodeNsec } from "$lib/utils/nostr";
-import authService from "$lib/api/services/auth.service";
+import type { EncryptedData, UserData } from '$lib/types/auth';
+import { finalizeEvent } from 'nostr-tools';
+import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
+import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
+import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+import { writable, get } from 'svelte/store';
+import { decodeNsec } from '$lib/utils/nostr';
+import authService from '$lib/api/services/auth.service';
 
 type MigrationState = 'info' | 'processing' | 'success' | 'error' | 'migrated';
 
 interface MigrationContext {
-    npub: string;
-    decryptedData: { nsec: string; mnemonic: string };
-    deviceId: string;
-    deviceName: string;
-    platform: 'mobile' | 'web';
+	npub: string;
+	decryptedData: { nsec: string; mnemonic: string };
+	deviceId: string;
+	deviceName: string;
+	platform: 'mobile' | 'web';
 }
 
 interface PasskeyMigrationStore {
-    isOpen: boolean;
-    state: MigrationState;
-    countdown: number;
-    error: string | null;
-    shouldProceed: boolean;
-    context: MigrationContext | null;
+	isOpen: boolean;
+	state: MigrationState;
+	countdown: number;
+	error: string | null;
+	shouldProceed: boolean;
+	context: MigrationContext | null;
 }
 
 export const passkeyMigration = writable<PasskeyMigrationStore>({
-    isOpen: false,
-    state: 'migrated',
-    countdown: 30,
-    error: null,
-    shouldProceed: false,
-    context: null
+	isOpen: false,
+	state: 'migrated',
+	countdown: 30,
+	error: null,
+	shouldProceed: false,
+	context: null
 });
 
 /**
  * Start the countdown timer and wait for user action
  */
 export function startMigrationCountdown() {
-    passkeyMigration.update(state => ({
-        ...state,
-        isOpen: true,
-        state: 'info',
-        countdown: 30,
-        error: null,
-        shouldProceed: false
-    }));
+	passkeyMigration.update((state) => ({
+		...state,
+		isOpen: true,
+		state: 'info',
+		countdown: 30,
+		error: null,
+		shouldProceed: false
+	}));
 
-    const interval = setInterval(() => {
-        const currentState = get(passkeyMigration);
+	const interval = setInterval(() => {
+		const currentState = get(passkeyMigration);
 
-        // If user clicked continue, clear interval
-        if (currentState.shouldProceed) {
-            clearInterval(interval);
-            return;
-        }
+		// If user clicked continue, clear interval
+		if (currentState.shouldProceed) {
+			clearInterval(interval);
+			return;
+		}
 
-        // Countdown
-        if (currentState.countdown > 0) {
-            passkeyMigration.update(state => ({
-                ...state,
-                countdown: state.countdown - 1
-            }));
-        } else {
-            // Auto-proceed when countdown reaches 0
-            clearInterval(interval);
-            passkeyMigration.update(state => ({
-                ...state,
-                shouldProceed: true
-            }));
-        }
-    }, 1000);
+		// Countdown
+		if (currentState.countdown > 0) {
+			passkeyMigration.update((state) => ({
+				...state,
+				countdown: state.countdown - 1
+			}));
+		} else {
+			// Auto-proceed when countdown reaches 0
+			clearInterval(interval);
+			passkeyMigration.update((state) => ({
+				...state,
+				shouldProceed: true
+			}));
+		}
+	}, 1000);
 
-    return interval;
+	return interval;
 }
 
 /**
  * User clicked continue button - skip countdown
  */
 export function skipCountdown() {
-    passkeyMigration.update(state => ({
-        ...state,
-        shouldProceed: true,
-        countdown: 0
-    }));
+	passkeyMigration.update((state) => ({
+		...state,
+		shouldProceed: true,
+		countdown: 0
+	}));
 }
 
 /**
  * Reset migration state
  */
 export function resetMigration() {
-    passkeyMigration.set({
-        isOpen: false,
-        state: 'info',
-        countdown: 30,
-        error: null,
-        shouldProceed: false,
-        context: null
-    });
+	passkeyMigration.set({
+		isOpen: false,
+		state: 'info',
+		countdown: 30,
+		error: null,
+		shouldProceed: false,
+		context: null
+	});
 }
 
 /**
  * Internal function to perform the actual migration process
  */
 async function performMigration(context: MigrationContext) {
-    const { npub, decryptedData, deviceId, deviceName, platform } = context;
+	const { npub, decryptedData, deviceId, deviceName, platform } = context;
 
-    // Update state to processing
-    passkeyMigration.update(state => ({
-        ...state,
-        state: 'processing'
-    }));
+	// Update state to processing
+	passkeyMigration.update((state) => ({
+		...state,
+		state: 'processing'
+	}));
 
-    const decodedNsec = decodeNsec(decryptedData.nsec);
+	const decodedNsec = decodeNsec(decryptedData.nsec);
 
-    // Get login challenge from server
-    const { challenge } = await authService.getChallenge();
+	// Get login challenge from server
+	const { challenge } = await authService.getChallenge();
 
-    const event = {
-        kind: 22242,
-        created_at: Math.floor(Date.now() / 1000),
-        content: challenge,
-        tags: [
-            ['relay', window.location.origin],
-            ['challenge', challenge],
-        ],
-        pubkey: npub
-    };
+	const event = {
+		kind: 22242,
+		created_at: Math.floor(Date.now() / 1000),
+		content: challenge,
+		tags: [
+			['relay', window.location.origin],
+			['challenge', challenge]
+		],
+		pubkey: npub
+	};
 
-    const signedEvent = finalizeEvent(event, decodedNsec);
+	const signedEvent = finalizeEvent(event, decodedNsec);
 
-    const { encryptedData, exportedKey } = await encryptMasterKeyData(decryptedData.nsec, decryptedData.mnemonic, decryptedData.nsec);
+	const { encryptedData, exportedKey } = await encryptMasterKeyData(
+		decryptedData.nsec,
+		decryptedData.mnemonic,
+		decryptedData.nsec
+	);
 
-    const isMobileBiometrics = await checkBiometricAvailability();
+	const isMobileBiometrics = await checkBiometricAvailability();
 
-    let credentialData = {
-        credentialId: '',
-        passkeyPubkey: '',
-        clientDataJSON: '',
-        attestationObject: '',
-        challenge: ''
-    }
+	let credentialData = {
+		credentialId: '',
+		passkeyPubkey: '',
+		clientDataJSON: '',
+		attestationObject: '',
+		challenge: ''
+	};
 
-    if (isMobileBiometrics) {
-        credentialData = await setBiometricKey({ npub, exportedKey, challenge });
-    } else {
-        credentialData = await setWebBiometricKey({ npub, exportedKey, challenge });
-    }
+	if (isMobileBiometrics) {
+		credentialData = await setBiometricKey({ npub, exportedKey, challenge });
+	} else {
+		credentialData = await setWebBiometricKey({ npub, exportedKey, challenge });
+	}
 
-    const response = await authService.nostrLogin({
-        event: signedEvent,
-        challenge,
-        encryptedData,
-        authMethod: 'passkey',
-        deviceId,
-        deviceName,
-        credentialId: credentialData.credentialId,
-        passkeyPubkey: credentialData.passkeyPubkey,
-        clientDataJSON: credentialData.clientDataJSON,
-        attestationObject: credentialData.attestationObject,
-        appVersion: __APP_VERSION__,
-        platform
-    });
+	const response = await authService.nostrLogin({
+		event: signedEvent,
+		challenge,
+		encryptedData,
+		authMethod: 'passkey',
+		deviceId,
+		deviceName,
+		credentialId: credentialData.credentialId,
+		passkeyPubkey: credentialData.passkeyPubkey,
+		clientDataJSON: credentialData.clientDataJSON,
+		attestationObject: credentialData.attestationObject,
+		appVersion: __APP_VERSION__,
+		platform
+	});
 
-    // Update state to success
-    passkeyMigration.update(state => ({
-        ...state,
-        state: 'success',
-        error: null
-    }));
+	// Update state to success
+	passkeyMigration.update((state) => ({
+		...state,
+		state: 'success',
+		error: null
+	}));
 
-    // Wait 2 seconds to show success state to user
-    await new Promise(resolve => setTimeout(resolve, 2000));
+	// Wait 2 seconds to show success state to user
+	await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    return { ...response, encryptedData };
+	return { response: { ...response, encryptedData }, exportedKey };
 }
 
 /**
  * Main migration function - stores context and initiates migration flow
  */
-async function migratePasskey(
-    params: {
-        npub: string;
-        decryptedData: { nsec: string; mnemonic: string };
-        deviceId: string;
-        deviceName: string;
-        platform: 'mobile' | 'web';
-    }
-): Promise<{ user: UserData; access_token: string, encryptedData: EncryptedData }> {
-    try {
-        // Store context for retry/skip
-        passkeyMigration.update(state => ({
-            ...state,
-            context: params
-        }));
+async function migratePasskey(params: {
+	npub: string;
+	decryptedData: { nsec: string; mnemonic: string };
+	deviceId: string;
+	deviceName: string;
+	platform: 'mobile' | 'web';
+}): Promise<{
+	response: { user: UserData; access_token: string; encryptedData: EncryptedData };
+	exportedKey: string;
+}> {
+	try {
+		// Store context for retry/skip
+		passkeyMigration.update((state) => ({
+			...state,
+			context: params
+		}));
 
-        // Start the migration flow
-        startMigrationCountdown();
+		// Start the migration flow
+		startMigrationCountdown();
 
-        // Wait for user to proceed (either by clicking or countdown reaching 0)
-        await new Promise<void>((resolve) => {
-            const unsubscribe = passkeyMigration.subscribe(state => {
-                if (state.shouldProceed) {
-                    unsubscribe();
-                    resolve();
-                }
-            });
-        });
+		// Wait for user to proceed (either by clicking or countdown reaching 0)
+		await new Promise<void>((resolve) => {
+			const unsubscribe = passkeyMigration.subscribe((state) => {
+				if (state.shouldProceed) {
+					unsubscribe();
+					resolve();
+				}
+			});
+		});
 
-        // Perform the actual migration
-        return await performMigration(params);
-    } catch (error) {
-        console.error('Error migrating passkey:', error);
+		// Perform the actual migration
+		return await performMigration(params);
+	} catch (error) {
+		console.error('Error migrating passkey:', error);
 
-        // Update state to error
-        passkeyMigration.update(state => ({
-            ...state,
-            state: 'error',
-            error: error instanceof Error ? error.message : 'Migration failed'
-        }));
+		// Update state to error
+		passkeyMigration.update((state) => ({
+			...state,
+			state: 'error',
+			error: error instanceof Error ? error.message : 'Migration failed'
+		}));
 
-        throw error;
-    }
+		throw error;
+	}
 }
 
 /**
  * Retry migration after an error
  */
 export async function retryMigration() {
-    const currentState = get(passkeyMigration);
-    if (!currentState.context) {
-        throw new Error('No migration context available');
-    }
+	const currentState = get(passkeyMigration);
+	if (!currentState.context) {
+		throw new Error('No migration context available');
+	}
 
-    try {
-        // Reset state and restart countdown
-        passkeyMigration.update(state => ({
-            ...state,
-            state: 'info',
-            countdown: 30,
-            error: null,
-            shouldProceed: false
-        }));
+	try {
+		// Reset state and restart countdown
+		passkeyMigration.update((state) => ({
+			...state,
+			state: 'info',
+			countdown: 30,
+			error: null,
+			shouldProceed: false
+		}));
 
-        // Restart countdown
-        startMigrationCountdown();
+		// Restart countdown
+		startMigrationCountdown();
 
-        // Wait for user to proceed again
-        await new Promise<void>((resolve) => {
-            const unsubscribe = passkeyMigration.subscribe(state => {
-                if (state.shouldProceed) {
-                    unsubscribe();
-                    resolve();
-                }
-            });
-        });
+		// Wait for user to proceed again
+		await new Promise<void>((resolve) => {
+			const unsubscribe = passkeyMigration.subscribe((state) => {
+				if (state.shouldProceed) {
+					unsubscribe();
+					resolve();
+				}
+			});
+		});
 
-        // Perform the migration with stored context
-        return await performMigration(currentState.context);
-    } catch (error) {
-        console.error('Error retrying migration:', error);
+		// Perform the migration with stored context
+		return await performMigration(currentState.context);
+	} catch (error) {
+		console.error('Error retrying migration:', error);
 
-        // Update state to error
-        passkeyMigration.update(state => ({
-            ...state,
-            state: 'error',
-            error: error instanceof Error ? error.message : 'Migration retry failed'
-        }));
+		// Update state to error
+		passkeyMigration.update((state) => ({
+			...state,
+			state: 'error',
+			error: error instanceof Error ? error.message : 'Migration retry failed'
+		}));
 
-        throw error;
-    }
+		throw error;
+	}
 }
 
 export async function continueAfterMigration() {
-    // Close modal
-    resetMigration();
+	// Close modal
+	resetMigration();
 
-    return true;
+	return true;
 }
 
 export default migratePasskey;

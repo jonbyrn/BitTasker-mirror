@@ -13,10 +13,10 @@
 	import CompleteSetup from '$lib/components/onboarding/CompleteSetup.svelte';
 
 	let { data } = $props();
-	
+
 	const totalSteps = 6;
 
-	let currentStep = $derived(data.currentStep ?? 0);
+	let currentStep = $state(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
 
 	// Onboarding state management
@@ -35,12 +35,12 @@
 		direction = 'forward';
 	};
 
-	const prevStep = () => {
+	const prevStep = async () => {
 		if (currentStep > 0) {
 			currentStep--;
 			direction = 'backward';
 		} else {
-			goto('/auth/signup');
+			await goto('/auth/signup');
 		}
 	};
 
@@ -66,12 +66,19 @@
 
 			<!-- Progress indicator -->
 			<div class="w-full">
-				<div class="flex items-center justify-between mb-2">
-					<span class="text-sm font-medium text-primary">{$t('onboarding_auth.form.username_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.username_setup.of')} {totalSteps}</span>
-					<span class="text-sm text-base-content/70">{Math.round(((currentStep + 1) / totalSteps) * 100)}%</span>
+				<div class="mb-2 flex items-center justify-between">
+					<span class="text-primary text-sm font-medium"
+						>{$t('onboarding_auth.form.username_setup.step')}
+						{currentStep + 1}
+						{$t('onboarding_auth.form.username_setup.of')}
+						{totalSteps}</span
+					>
+					<span class="text-base-content/70 text-sm"
+						>{Math.round(((currentStep + 1) / totalSteps) * 100)}%</span
+					>
 				</div>
-				<div class="w-full bg-base-300 rounded-full h-2">
-					<div 
+				<div class="bg-base-300 h-2 w-full rounded-full">
+					<div
 						class="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
 						style="width: {((currentStep + 1) / totalSteps) * 100}%"
 					></div>
@@ -81,7 +88,12 @@
 
 		{#if currentStep === 0}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<UsernameSetup {nextStep} {currentStep} {totalSteps} onUsernameChange={handleUsernameChange} />
+				<UsernameSetup
+					{nextStep}
+					{currentStep}
+					{totalSteps}
+					onUsernameChange={handleUsernameChange}
+				/>
 			</div>
 		{:else if currentStep === 1}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>

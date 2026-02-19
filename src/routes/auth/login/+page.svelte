@@ -35,6 +35,7 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { Buffer } from 'buffer';
+	import { bytesToHex } from 'nostr-tools/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
 	import authService from '$lib/api/services/auth.service';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
@@ -46,7 +47,7 @@
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
-		(globalThis as any).Buffer = Buffer;
+		globalThis.Buffer = Buffer;
 	}
 
 	let error = $state('');
@@ -93,6 +94,8 @@
 				return (isPasskeyError = true);
 			}
 
+			let exportedKey = credentails.exportedKey;
+
 			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(credentails.npub);
 
@@ -111,23 +114,26 @@
 			let mnemonic = '';
 
 			if (response.isLegacy) {
-				// @ts-ignore
-				// TODO:error ignored for legacy format to be removed in the future
-				const exportedKey = response.encryptedData.exportedMasterKey;
+				// @ts-expect-error - Legacy format to be removed in the future
+				// TODO: Remove this once all users have migrated
+				const _exportedKey = response.encryptedData.exportedMasterKey;
 				const decryptedData = await decryptMasterKeyDataFromBiometrics(
 					response.encryptedData,
-					exportedKey
+					_exportedKey
 				);
 				nsec = decryptedData.nsec;
 				mnemonic = decryptedData.mnemonic;
 
-				response = await migratePasskey({
+				const migrationResponse = await migratePasskey({
 					npub: credentails.npub,
 					decryptedData,
 					deviceId,
 					deviceName,
 					platform: authMethods.biometric ? 'mobile' : 'web'
 				});
+
+				response = migrationResponse.response;
+				exportedKey = migrationResponse.exportedKey;
 			} else {
 				// decrypt nsec
 				const decryptedData = await decryptMasterKeyDataFromBiometrics(
@@ -150,7 +156,7 @@
 
 			const biometricData = {
 				npub: credentails.npub,
-				exportedKey: credentails.exportedKey,
+				exportedKey: exportedKey,
 				encryptedData: response.encryptedData
 			};
 
@@ -251,7 +257,11 @@
 			if (response.encryptedData) {
 				// Account exists, decrypt wallet mnemonic
 				const masterSalt = base64ToBytes(response.encryptedData.masterSalt);
-				const exportedMasterKey = await deriveKeyFromPassword(nsec, masterSalt, 100000);
+				let _nsec = nsec;
+				if (nsec.startsWith('nsec1')) {
+					_nsec = bytesToHex(privateKey);
+				}
+				const exportedMasterKey = await deriveKeyFromPassword(_nsec, masterSalt, 100000);
 				const _exportedKey = await exportKey(exportedMasterKey);
 
 				const decryptedData = await decryptMasterKeyDataFromBiometrics(
@@ -260,7 +270,6 @@
 				);
 				mnemonic = decryptedData.mnemonic;
 			} else {
-				console.log('account does not exist - generating new wallet mnemonic');
 				// Account does not exist, generate new wallet mnemonic
 				mnemonic = await deriveWalletFromNostr(nsec);
 			}
@@ -269,7 +278,9 @@
 
 			// Check if we're in a test environment (E2E tests)
 			const isTestEnvironment =
-				typeof window !== 'undefined' && (window as any).__PLAYWRIGHT_TEST__;
+				typeof window !== 'undefined' &&
+				'__PLAYWRIGHT_TEST__' in window &&
+				(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__;
 
 			let credentialData = {
 				credentialId: '',
@@ -320,13 +331,27 @@
 			if (res.isMigrated) {
 				// Show modal info to user that passkey has been migrated and old passkeys for this account have been revoked
 				// Wait for the modal to be closed by the user
-				await new Promise((resolve) => {
-					const unsubscribe = passkeyMigration.subscribe((state) => {
+				await new Promise((resolve, reject) => {
+					let unsubscribe: (() => void) | undefined;
+					let timeoutId: ReturnType<typeof setTimeout>;
+
+					unsubscribe = passkeyMigration.subscribe((state) => {
 						if (state.state === 'info') {
-							if (unsubscribe) unsubscribe();
+							clearTimeout(timeoutId);
+							unsubscribe?.();
 							resolve(true);
 						}
 					});
+
+					// Timeout after 5 minutes
+					timeoutId = setTimeout(
+						() => {
+							unsubscribe();
+							reject(new Error('Timeout waiting for user action'));
+						},
+						5 * 60 * 1000
+					);
+
 					passkeyMigration.update((state) => ({
 						...state,
 						isOpen: true,
@@ -347,9 +372,9 @@
 
 				authState
 					.setupAuthData(res.access_token, 'passkey', npub, res.user, biometricData, false)
-					.then(() => {
-						if (res.isNewUser) goto('/auth/onboarding');
-						else goto('/dashboard');
+					.then(async () => {
+						if (res.isNewUser) await goto('/auth/onboarding');
+						else await goto('/dashboard');
 					});
 			}
 		} catch (err) {
@@ -673,12 +698,19 @@
 
 				<div class="divider my-1">{$t('common.or')}</div>
 
-				<button onclick={() => goto('/auth/signup')} class="btn btn-outline btn-primary w-full">
+				<button
+					onclick={async () => await goto('/auth/signup')}
+					class="btn btn-outline btn-primary w-full"
+				>
 					{$t('login.create_account')}
 				</button>
 
 				<div class="mt-2 text-center">
-					<a href="/auth/recover/send" class="link link-primary text-sm">
+					<a
+						href="/auth/recover/send"
+						class="link link-primary text-sm"
+						data-sveltekit-preload-data
+					>
 						{$t('login.recover_account')}
 					</a>
 				</div>
