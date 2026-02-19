@@ -1,9 +1,6 @@
 <script lang="ts">
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
-	import type { Credentials, UserData } from '$lib/types/auth';
-	import type { NostrEvent } from '$lib/types/nostr';
 	import { onMount } from 'svelte';
-	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
@@ -13,16 +10,21 @@
 	} from '$lib/utils/helpers/deviceIdentity';
 	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 	import {
+		deriveKeyFromPassword,
+		deriveWalletFromNostr,
+		exportKey
+	} from '$lib/utils/helpers/crypto';
+	import { base64ToBytes } from '$lib/utils/helpers/encoding';
+	import {
 		decryptMasterKeyDataFromBiometrics,
 		encryptMasterKeyData
 	} from '$lib/utils/helpers/auth';
-	import { generateMnemonic } from 'bip39';
 	import {
 		checkBiometricAvailability,
 		getBiometricData,
 		setBiometricKey
 	} from '$lib/utils/helpers/biometrics';
-	import { finalizeEvent, getPublicKey, validateEvent } from 'nostr-tools/pure';
+	import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 	import {
 		checkWebBiometricAvailability,
 		getWebBiometricData,
@@ -30,21 +32,22 @@
 	} from '$lib/utils/helpers/webBiometrics';
 	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
 	import { Capacitor } from '@capacitor/core';
-	import authService from '$lib/api/services/auth.service';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { Buffer } from 'buffer';
+	import { bytesToHex } from 'nostr-tools/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
+	import authService from '$lib/api/services/auth.service';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import LoginQrCodeScannerModal from '$lib/components/LoginQrCodeScannerModal.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
-	import migratePasskey from '$lib/utils/helpers/migratePasskey';
 	import Logo from '$lib/components/Logo.svelte';
+	import migratePasskey, { passkeyMigration } from '$lib/utils/helpers/migratePasskey';
 	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
-		(globalThis as any).Buffer = Buffer;
+		globalThis.Buffer = Buffer;
 	}
 
 	let error = $state('');
@@ -71,77 +74,6 @@
 		}
 	});
 
-	/**
-	 * Login with biometric authentication
-	 */
-	async function login(biometricData: Credentials) {
-		const deviceId = await getDeviceIdentifier();
-
-		// Decrypt private key using biometrics
-		const { nsec, mnemonic } = await decryptMasterKeyDataFromBiometrics(
-			biometricData.encryptedData,
-			biometricData.exportedKey
-		);
-
-		// Get login challenge from server
-		const { challenge } = await authService.getLoginChallenge();
-
-		const event: NostrEvent = {
-			kind: 22242,
-			created_at: Math.floor(Date.now() / 1000),
-			content: challenge,
-			tags: [
-				['relay', window.location.origin],
-				['challenge', challenge],
-				['credential', biometricData.credentialId]
-			],
-			pubkey: biometricData.npub
-		};
-
-		const decodedNsec = decodeNsec(nsec);
-
-		const signedEvent = finalizeEvent(event, decodedNsec);
-		if (!validateEvent(signedEvent)) {
-			throw new Error('Invalid event');
-		}
-
-		const deviceName = await createUserDeviceShortName(biometricData.npub);
-
-		let response: { user: UserData; access_token: string } | null = null;
-		if (biometricData.isLegacyFormat) {
-			// Migrate passkey
-			response = await migratePasskey({
-				signedEvent,
-				nsec,
-				mnemonic,
-				deviceId,
-				deviceName,
-				platform: authMethods.biometric ? 'mobile' : 'web',
-				oldCredentialId: biometricData.credentialId
-			});
-		} else {
-			// Login with passkey
-			response = await authService.loginWithPasskey({
-				event: signedEvent,
-				deviceId,
-				deviceName,
-				platform: authMethods.biometric ? 'mobile' : 'web'
-			});
-		}
-
-		if (!response.access_token) {
-			throw new Error($t('login.errors.no_token'));
-		}
-
-		await authState.setupAuthData(
-			response.access_token,
-			'passkey',
-			biometricData.npub,
-			response.user,
-			biometricData
-		);
-	}
-
 	async function authenticate() {
 		try {
 			isLoading = true;
@@ -149,20 +81,92 @@
 			isPasskeyError = false;
 			lastAction = 'authenticate'; // Track which action was attempted
 
-			let biometricData = null;
+			let credentails = null;
 
 			if (authMethods.biometric) {
-				biometricData = await getBiometricData();
+				credentails = await getBiometricData();
 			} else if (authMethods.webAuthn) {
-				biometricData = await getWebBiometricData();
+				credentails = await getWebBiometricData();
 			}
 
-			if (biometricData) {
-				await login(biometricData);
-			} else {
+			if (!credentails) {
 				error = $t('login.errors.no_account');
-				isPasskeyError = true;
+				return (isPasskeyError = true);
 			}
+
+			let exportedKey = credentails.exportedKey;
+
+			const deviceId = await getDeviceIdentifier();
+			const deviceName = await createUserDeviceShortName(credentails.npub);
+
+			let response = await authService.passkeyLogin({
+				npub: credentails.npub,
+				challenge: credentails.challenge,
+				credentialId: credentails.credentialId,
+				deviceId,
+				deviceName,
+				platform: authMethods.biometric ? 'mobile' : 'web',
+				response: credentails.response,
+				appVersion: __APP_VERSION__
+			});
+
+			let nsec = '';
+			let mnemonic = '';
+
+			if (response.isLegacy) {
+				// @ts-expect-error - Legacy format to be removed in the future
+				// TODO: Remove this once all users have migrated
+				const _exportedKey = response.encryptedData.exportedMasterKey;
+				const decryptedData = await decryptMasterKeyDataFromBiometrics(
+					response.encryptedData,
+					_exportedKey
+				);
+				nsec = decryptedData.nsec;
+				mnemonic = decryptedData.mnemonic;
+
+				const migrationResponse = await migratePasskey({
+					npub: credentails.npub,
+					decryptedData,
+					deviceId,
+					deviceName,
+					platform: authMethods.biometric ? 'mobile' : 'web'
+				});
+
+				response = migrationResponse.response;
+				exportedKey = migrationResponse.exportedKey;
+			} else {
+				// decrypt nsec
+				const decryptedData = await decryptMasterKeyDataFromBiometrics(
+					response.encryptedData,
+					credentails.exportedKey
+				);
+				nsec = decryptedData.nsec;
+				mnemonic = decryptedData.mnemonic;
+			}
+
+			if (!nsec || !mnemonic) {
+				error = $t('login.errors.failed');
+				isPasskeyError = true;
+				return;
+			}
+
+			if (!response.access_token) {
+				throw new Error($t('login.errors.no_token'));
+			}
+
+			const biometricData = {
+				npub: credentails.npub,
+				exportedKey: exportedKey,
+				encryptedData: response.encryptedData
+			};
+
+			await authState.setupAuthData(
+				response.access_token,
+				'passkey',
+				credentails.npub,
+				response.user,
+				biometricData
+			);
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
 
@@ -215,107 +219,162 @@
 				throw new Error('Buffer is not defined');
 			}
 
-			const { challenge } = await authService.getLoginChallenge();
+			const { challenge } = await authService.getChallenge();
 
-			const validation = validateNostrPrivateKey(nsec);
-			if (!validation.isValid) {
-				error = validation.error!;
-				return;
-			}
-
-			let npub = '';
-			let privateKey: Uint8Array<ArrayBufferLike>;
-
-			try {
-				// Convert nsec to hex format
-				const { type, data } = nip19.decode(nsec);
-				if (type !== 'nsec') {
-					error = 'Invalid nsec format';
-					return;
-				}
-				// Convert Uint8Array to hex
-				privateKey = data;
-				// Get public key
-				npub = getPublicKey(data);
-			} catch (err) {
-				error = 'Invalid private key';
-				return;
-			}
+			const privateKey = decodeNsec(nsec);
+			const npub = getPublicKey(privateKey);
 
 			if (!privateKey && !npub) {
 				error = 'Invalid nostr keys';
 				return;
 			}
 
-			const event: NostrEvent = {
-				kind: 22242,
-				created_at: Math.floor(Date.now() / 1000),
-				content: challenge,
-				tags: [
-					['relay', window.location.origin],
-					['challenge', challenge]
-				],
-				pubkey: npub
-			};
-
-			const signedEvent = finalizeEvent(event, privateKey);
-			if (!validateEvent(signedEvent)) {
-				throw new Error('Invalid event');
-			}
-
-			let deviceId = await getDeviceIdentifier();
-
-			const walletMnemonic = generateMnemonic();
-			let { encryptedData: masterKeyData, exportedKey } = await encryptMasterKeyData(
-				nsec,
-				walletMnemonic,
-				deviceId
+			const signedEvent = finalizeEvent(
+				{
+					kind: 22242,
+					created_at: Math.floor(Date.now() / 1000),
+					content: challenge,
+					tags: [
+						['relay', window.location.origin],
+						['challenge', challenge]
+					]
+				},
+				privateKey
 			);
 
+			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(npub);
+
+			const response = await authService.encryptedNostrData({
+				event: signedEvent,
+				deviceId: deviceId,
+				deviceName: deviceName,
+				platform: authMethods.biometric ? 'mobile' : 'web',
+				appVersion: __APP_VERSION__
+			});
+
+			let mnemonic = '';
+			if (response.encryptedData) {
+				// Account exists, decrypt wallet mnemonic
+				const masterSalt = base64ToBytes(response.encryptedData.masterSalt);
+				let _nsec = nsec;
+				if (nsec.startsWith('nsec1')) {
+					_nsec = bytesToHex(privateKey);
+				}
+				const exportedMasterKey = await deriveKeyFromPassword(_nsec, masterSalt, 100000);
+				const _exportedKey = await exportKey(exportedMasterKey);
+
+				const decryptedData = await decryptMasterKeyDataFromBiometrics(
+					response.encryptedData,
+					_exportedKey
+				);
+				mnemonic = decryptedData.mnemonic;
+			} else {
+				// Account does not exist, generate new wallet mnemonic
+				mnemonic = await deriveWalletFromNostr(nsec);
+			}
+
+			let { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
 			// Check if we're in a test environment (E2E tests)
 			const isTestEnvironment =
-				typeof window !== 'undefined' && (window as any).__PLAYWRIGHT_TEST__;
+				typeof window !== 'undefined' &&
+				'__PLAYWRIGHT_TEST__' in window &&
+				(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__;
 
-			let credentialId = '';
+			let credentialData = {
+				credentialId: '',
+				passkeyPubkey: '',
+				clientDataJSON: '',
+				attestationObject: '',
+				challenge: ''
+			};
 			// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
 			if (!isTestEnvironment) {
 				if (authMethods.biometric) {
-					credentialId = await setBiometricKey(npub, exportedKey);
+					credentialData = await setBiometricKey({ npub, exportedKey });
 				} else if (authMethods.webAuthn) {
-					credentialId = await setWebBiometricKey(npub, exportedKey);
+					credentialData = await setWebBiometricKey({ npub, exportedKey });
 				}
 			}
 
+			// sign a new event with the new challenge
+			const newSignedEvent = finalizeEvent(
+				{
+					kind: 22242,
+					created_at: Math.floor(Date.now() / 1000),
+					content: challenge,
+					tags: [
+						['relay', window.location.origin],
+						['challenge', credentialData.challenge]
+					]
+				},
+				privateKey
+			);
+
 			// Login with nostr, register user if it does not exist
-			const res = await authService.loginWithNostr({
-				event: signedEvent, // signed event contains user npub
-				challenge,
+			const res = await authService.nostrLogin({
+				event: newSignedEvent,
+				challenge: credentialData.challenge,
 				authMethod: 'passkey',
 				deviceId,
-				masterKeyData,
+				encryptedData,
 				deviceName,
-				credentialId,
+				credentialId: credentialData.credentialId,
+				passkeyPubkey: credentialData.passkeyPubkey,
+				clientDataJSON: credentialData.clientDataJSON,
+				attestationObject: credentialData.attestationObject,
+				appVersion: __APP_VERSION__,
 				platform: authMethods.biometric ? 'mobile' : 'web'
 			});
+
+			if (res.isMigrated) {
+				// Show modal info to user that passkey has been migrated and old passkeys for this account have been revoked
+				// Wait for the modal to be closed by the user
+				await new Promise((resolve, reject) => {
+					let unsubscribe: (() => void) | undefined;
+					let timeoutId: ReturnType<typeof setTimeout>;
+
+					unsubscribe = passkeyMigration.subscribe((state) => {
+						if (state.state === 'info') {
+							clearTimeout(timeoutId);
+							unsubscribe?.();
+							resolve(true);
+						}
+					});
+
+					// Timeout after 5 minutes
+					timeoutId = setTimeout(
+						() => {
+							unsubscribe();
+							reject(new Error('Timeout waiting for user action'));
+						},
+						5 * 60 * 1000
+					);
+
+					passkeyMigration.update((state) => ({
+						...state,
+						isOpen: true,
+						state: 'migrated',
+						error: null,
+						shouldProceed: false,
+						context: null
+					}));
+				});
+			}
 
 			if (res.access_token) {
 				const biometricData = {
 					npub,
-					deviceId,
-					deviceName,
-					encryptedData: masterKeyData,
-					exportedKey,
-					credentialId,
-					isLegacyFormat: false
+					encryptedData,
+					exportedKey
 				};
 
 				authState
 					.setupAuthData(res.access_token, 'passkey', npub, res.user, biometricData, false)
-					.then(() => {
-						if (res.isNewUser) goto('/auth/onboarding');
-						else goto('/dashboard');
+					.then(async () => {
+						if (res.isNewUser) await goto('/auth/onboarding');
+						else await goto('/dashboard');
 					});
 			}
 		} catch (err) {
@@ -352,8 +411,6 @@
 
 		// Trim whitespace from scanned text (extra safety check)
 		const trimmedText = scannedText.trim();
-		console.log('[Login] Processing QR scan - original:', scannedText);
-		console.log('[Login] Processing QR scan - trimmed:', trimmedText);
 
 		// Validate that the scanned text is an nsec
 		const validation = validateNostrPrivateKey(trimmedText);
@@ -373,7 +430,6 @@
 			return;
 		}
 
-		console.log('[Login] QR code validated successfully, proceeding with login');
 		// Set nsec and trigger login
 		nsec = trimmedText;
 		handleNsecLogin();
@@ -642,12 +698,19 @@
 
 				<div class="divider my-1">{$t('common.or')}</div>
 
-				<button onclick={() => goto('/auth/signup')} class="btn btn-outline btn-primary w-full">
+				<button
+					onclick={async () => await goto('/auth/signup')}
+					class="btn btn-outline btn-primary w-full"
+				>
 					{$t('login.create_account')}
 				</button>
 
 				<div class="mt-2 text-center">
-					<a href="/auth/recover/send" class="link link-primary text-sm">
+					<a
+						href="/auth/recover/send"
+						class="link link-primary text-sm"
+						data-sveltekit-preload-data
+					>
 						{$t('login.recover_account')}
 					</a>
 				</div>
@@ -674,4 +737,5 @@
 	/>
 </div>
 
+<!-- TODO: To be removed after all users have migrated their passkeys -->
 <MigratePasskey />

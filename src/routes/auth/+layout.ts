@@ -21,7 +21,10 @@ export const load: LayoutLoad = async ({ url }) => {
 				if (onboardingStatus.isComplete) {
 					redirect(303, '/dashboard');
 				} else {
-					return { currentStep: 4 };
+					const fields = ['displayName', 'profilePicture', 'professionalTitle', 'profileDescription', 'skills']; // field 'location' left out for step 4 
+					const step3 = fields.filter(field => onboardingStatus.missingFields.includes(field)).length > 0
+
+					return { currentStep: step3 ? 3 : 4 };
 				}
 			} catch (error) {
 				console.error('Error checking onboarding status:', error);

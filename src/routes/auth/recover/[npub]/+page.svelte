@@ -20,9 +20,9 @@
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { locale } from 'svelte-i18n';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 
 	const npub = page.params.npub;
 
@@ -178,11 +178,7 @@
 			}
 
 			// Encrypt with device ID for biometric storage
-			const { encryptedData: masterKeyData, exportedKey } = await encryptMasterKeyData(
-				nsec,
-				mnemonic,
-				nsec
-			);
+			const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
@@ -191,14 +187,20 @@
 
 			// Create passkey with deviceName first (username not available yet)
 			// After login, username will be available for future passkey creations
-			let credentialId = '';
+			let credentialData = {
+				credentialId: '',
+				passkeyPubkey: '',
+				clientDataJSON: '',
+				attestationObject: '',
+				challenge: ''
+			};
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(npub, exportedKey);
+				credentialData = await setBiometricKey({ npub, exportedKey });
 			} else {
-				credentialId = await setWebBiometricKey(npub, exportedKey);
+				credentialData = await setWebBiometricKey({ npub, exportedKey });
 			}
 
-			if (!credentialId) {
+			if (!credentialData.credentialId) {
 				throw new Error($t('recovery_npub.errors.register_device_failed'));
 			}
 
@@ -212,26 +214,26 @@
 			const deviceId = await getDeviceIdentifier();
 
 			const { access_token, user } = await authService.completeNostrRecovery({
-				publicKey: npub,
+				npub: npub,
 				otp: otpCode,
+				encryptedData,
 				recoveryData,
-				encryptedMasterKeyData: masterKeyData,
+				credentialId: credentialData.credentialId,
+				challenge: credentialData.challenge,
+				passkeyPubkey: credentialData.passkeyPubkey,
+				clientDataJSON: credentialData.clientDataJSON,
+				attestationObject: credentialData.attestationObject,
 				deviceId,
 				deviceName,
 				platform: isMobileBiometrics ? 'mobile' : 'web',
-				credentialId,
 				revokeAll
 			});
 
 			if (access_token && user) {
 				const biometricData = {
 					npub,
-					deviceId,
-					deviceName,
-					encryptedData: masterKeyData,
-					exportedKey,
-					credentialId,
-					isLegacyFormat: false
+					encryptedData,
+					exportedKey
 				};
 				authState.setupAuthData(access_token, 'passkey', npub, user, biometricData, true);
 			}
