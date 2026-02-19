@@ -14,7 +14,11 @@
 		dateRangeEnd = null,
 		showTime = false,
 		showDuration = false,
-		estimatedDuration = null
+		estimatedDuration = null,
+		label = null,
+		labelPlacement = 'above',
+		variant = 'default',
+		align = 'left'
 	} = $props<{
 		deadline?: Date | number | string | null;
 		dateRangeStart?: Date | number | string | null;
@@ -25,6 +29,14 @@
 		showDuration?: boolean;
 		/** Pre-formatted duration string (used when bid has estimatedDuration); overrides computed duration */
 		estimatedDuration?: string | null;
+		/** Optional label shown above or inline with the date */
+		label?: string | null;
+		/** Where to render `label` when provided */
+		labelPlacement?: 'above' | 'inline';
+		/** Layout variant for the block */
+		variant?: 'default' | 'stacked';
+		/** Text alignment when using stacked layout */
+		align?: 'left' | 'right';
 	}>();
 
 	function toDate(value: Date | number | string | null | undefined): Date | null {
@@ -73,17 +85,57 @@
 {#if hasDate}
 	<div class="flex items-center gap-2">
 		<IconClockOutline class="text-primary h-8 w-8 shrink-0" />
-		<div class="flex min-w-0 flex-1 flex-col gap-0.5">
-			<span class="line-clamp-2 text-sm font-medium">
-				{#if formattedDeadline}
-					{formattedDeadline}
-				{:else if formattedDateRange}
-					{formattedDateRange}
+		{#if variant === 'stacked'}
+			<div
+				class="flex min-w-0 flex-1 flex-col gap-0.5 {align === 'right'
+					? 'items-end text-right'
+					: 'items-start'}"
+			>
+				{#if label}
+					<span class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+						{label}
+					</span>
 				{/if}
-			</span>
-			{#if durationText}
-				<span class="text-base-content/60 text-xs">({durationText})</span>
-			{/if}
-		</div>
+				<span class="line-clamp-2 text-sm font-bold">
+					{#if formattedDeadline}
+						{formattedDeadline}
+					{:else if formattedDateRange}
+						{formattedDateRange}
+					{/if}
+				</span>
+				{#if durationText}
+					<span class="text-base-content/60 text-xs">({durationText})</span>
+				{/if}
+			</div>
+		{:else}
+			<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+				{#if label && labelPlacement === 'above'}
+					<span class="text-base-content/60 text-xs font-medium">{label}</span>
+				{/if}
+				{#if label && labelPlacement === 'inline'}
+					<div class="flex min-w-0 flex-wrap items-baseline gap-2">
+						<span class="text-base-content/60 text-xs font-medium">{label}</span>
+						<span class="line-clamp-2 text-sm font-medium">
+							{#if formattedDeadline}
+								{formattedDeadline}
+							{:else if formattedDateRange}
+								{formattedDateRange}
+							{/if}
+						</span>
+					</div>
+				{:else}
+					<span class="line-clamp-2 text-sm font-medium">
+						{#if formattedDeadline}
+							{formattedDeadline}
+						{:else if formattedDateRange}
+							{formattedDateRange}
+						{/if}
+					</span>
+				{/if}
+				{#if durationText}
+					<span class="text-base-content/60 text-xs">({durationText})</span>
+				{/if}
+			</div>
+		{/if}
 	</div>
 {/if}

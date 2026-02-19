@@ -95,7 +95,7 @@
 	// Track if component has mounted to ensure proper initial state
 	let isMounted = $state(false);
 	let drawerPanelRef: HTMLDivElement | null = $state(null);
-	
+
 	// Track the visual open state (ensures animation on first open)
 	// Start as false to ensure drawer always starts closed visually
 	let visualOpenState = $state(false);
@@ -104,11 +104,11 @@
 	onMount(async () => {
 		// Ensure drawer starts visually closed
 		visualOpenState = false;
-		
+
 		// Wait for DOM to be ready and browser to paint initial closed state
 		await tick();
 		await new Promise((resolve) => requestAnimationFrame(resolve));
-		
+
 		// Now sync with actual prop state and mark as mounted
 		// This will trigger animation if props.isOpen is true
 		visualOpenState = props.isOpen;
@@ -118,10 +118,10 @@
 	// Sync visual state with props after mount (for subsequent opens/closes)
 	$effect(() => {
 		if (!isMounted || !browser) return;
-		
+
 		// Track props.isOpen to react to changes
 		const shouldBeOpen = props.isOpen;
-		
+
 		// Only update if state actually changed
 		if (visualOpenState !== shouldBeOpen) {
 			// Force a reflow to ensure browser sees the state change and applies transition
@@ -173,18 +173,14 @@
 >
 	{#if props.isOpen}
 		<!-- Header -->
-		<div
-			class="sticky top-0 z-10 flex items-center justify-between p-2 {props.title
-				? 'bg-base-200'
-				: ''}"
-		>
-			<h5 id="drawer-title" class="min-w-0 wrap-break-word pr-2 text-xl font-bold line-clamp-2">
+		<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
+			<h4 id="drawer-title" class="min-w-0 flex-1 truncate pr-2 text-xl font-bold">
 				{#if props.title}
 					{props.title}
 				{/if}
-			</h5>
+			</h4>
 			<button
-				class="btn btn-ghost btn-circle"
+				class="btn btn-ghost btn-circle shrink-0"
 				onclick={props.onClose}
 				aria-label={$t('common.components.drawer.close')}
 			>
@@ -206,7 +202,7 @@
 		</div>
 
 		<!-- Content -->
-		<div class="p-4 drawer-content">
+		<div class="drawer-content p-4">
 			{@render props.children?.()}
 		</div>
 
