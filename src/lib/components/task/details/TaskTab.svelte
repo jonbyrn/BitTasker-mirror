@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Attachment, Task } from '$lib/types/task';
+	import type { Attachment, Task, Category } from '$lib/types/task';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -8,31 +8,30 @@
 	import { locale } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
-	import {
-		formatStandardDate,
-		formatStandardDateShort,
-		formatStandardDateTime,
-		parseDateToLocalMidnight
-	} from '$lib/utils/helpers/dateFormatter';
+	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
+	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { escrow } from '$lib/utils/escrow';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
+	import TaskLocationDisplay from '../TaskLocationDisplay.svelte';
 	import TaskShareButton from '../TaskShareButton.svelte';
+	import {
+		formatLocationAddress,
+		generateGoogleMapsDirectionsLink
+	} from '$lib/utils/location/maps';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
 
-	let { task, isOwner, onClose, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } =
-		$props<{
-			task: Task;
-			isOwner: boolean;
-			onClose: () => void;
-			onRequestEditConfirm?: () => void;
-			onRequestDeleteConfirm?: () => void;
-			isDeleting?: boolean;
-			onBid?: () => void;
-		}>();
+	let { task, isOwner, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } = $props<{
+		task: Task;
+		isOwner: boolean;
+		onRequestEditConfirm?: () => void;
+		onRequestDeleteConfirm?: () => void;
+		isDeleting?: boolean;
+		onBid?: () => void;
+	}>();
 
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let canDelete = $state(true); // Default to true, will be checked
@@ -60,10 +59,10 @@
 	}
 
 	// Helper function to translate a single category
-	function translateCategory(category: string | any): string {
+	function translateCategory(category: string | Category): string {
 		try {
 			// Extract ID from category (handle both string and object)
-			const categoryId = typeof category === 'string' ? category : (category as any).id;
+			const categoryId = typeof category === 'string' ? category : (category as Category).id;
 			const categoryObj = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
 			if (categoryObj) {
 				// Use slug for translation key (as defined in translation files)
@@ -74,12 +73,20 @@
 			return categoryId;
 		} catch (error) {
 			console.error('Error translating category:', error);
-			return typeof category === 'string' ? category : (category as any).id || '';
+			return typeof category === 'string' ? category : (category as Category).id || '';
 		}
 	}
 
 	// Convert category IDs to translated names for display (reactive)
 	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
+
+	// Directions link for in-person tasks with location (used to make location text/icon clickable)
+	const locationDirectionsLink = $derived.by(() => {
+		if (task?.taskType !== TaskTypeEnum.IN_PERSON) return null;
+		const loc = task.pickupLocation || task.dropOffLocation;
+		if (!loc?.latitude || !loc?.longitude) return null;
+		return generateGoogleMapsDirectionsLink(loc, { origin: 'current' });
+	});
 
 	// Prepare gallery images for PhotoSwipe lightbox
 	// Note: attachment.url is the full-size/original image URL
@@ -144,15 +151,7 @@
 		};
 	}
 
-	// Open video in lightbox
-	function openVideoLightbox(video: Attachment) {
-		selectedVideo = video;
-		isVideoLightboxOpen = true;
-		// Prevent body scroll when lightbox is open
-		if (browser) {
-			document.body.style.overflow = 'hidden';
-		}
-	}
+	// (video lightbox opener removed — no inline video thumbnails present)
 
 	// Close video lightbox
 	function closeVideoLightbox() {
@@ -301,138 +300,183 @@
 	});
 </script>
 
-<div class="space-y-6">
-	<!-- Task header with status and edit button -->
-	<!-- 	<div class="flex items-center justify-between">
-		<div class="flex items-center gap-2">
-			{#if task.status}
-				<div
-					class="badge {task.status === TaskStatusEnum.OPEN
-						? 'badge-success'
-						: task.status === TaskStatusEnum.COMPLETED
-							? 'badge-primary'
-							: 'badge-neutral'}"
-				>
-					{task.status}
+<div class="min-w-0 space-y-6 overflow-x-hidden">
+	<!-- Task Info Card - adapted from ContractDrawer layout -->
+	<div class="card bg-base-200 min-w-0 overflow-hidden">
+		<div class="card-body min-w-0 p-4">
+			<!-- Row: Task title (left) and Share button (right), vertically centered -->
+			<div class="mb-4 flex flex-row flex-nowrap items-center justify-between gap-4">
+				<div class="min-w-0 flex-1">
+					<TranslatableTask
+						{task}
+						showTitle={true}
+						showDescription={false}
+						titleClass="line-clamp-2 text-lg font-bold leading-tight"
+					/>
 				</div>
-			{/if}
-		</div>
-	</div> -->
-
-	<!-- Task details -->
-	<div class="grid grid-cols-1 gap-4 md:grid-cols-2 relative">
-		<!-- Share Button - Upper Right Corner (wrapper is div; TaskShareButton handles interactivity) -->
-		<div class="absolute top-0 right-0 z-10">
-			<TaskShareButton {task} variant="circle" />
-		</div>
-		<div>
-			<UsdSatsDisplay
-				amount={task.budget.amount}
-				btcPrice={btcPrice}
-				title={$t('dashboard.task_details_by_task.budget') + ' - ' + task.budget.type}
-			/>
-		</div>
-
-		<div>
-			<small class="text-base-content/60 text-sm">
-				{$t('dashboard.task_details_by_task.type')}
-			</small>
-			<p class="font-semibold">
-				{task.taskType === TaskTypeEnum.REMOTE
-					? $t('dashboard.task_details_by_task.remote')
-					: $t('dashboard.task_details_by_task.in_person')}
-			</p>
-		</div>
-
-		{#if task.deadline}
-			<div>
-				<small class="text-base-content/60 text-sm">
-					{$t('dashboard.task_details_by_task.deadline')}
-				</small>
-				<p class="font-semibold">
-					{formatStandardDate(
-						parseDateToLocalMidnight(task.deadline) || new Date(task.deadline),
-						$locale || 'en'
-					)}
-				</p>
+				<div class="shrink-0 pl-4">
+					<TaskShareButton {task} variant="default" class="btn-lg" />
+				</div>
 			</div>
-		{:else if task.dateRange}
-			<div>
-				<small class="text-base-content/60 text-sm">
-					{$t('dashboard.task_details_by_task.date_range')}
-				</small>
-				<p class="font-semibold">
-					{formatStandardDateShort(
-						parseDateToLocalMidnight(task.dateRange.start) || new Date(task.dateRange.start),
-						$locale || 'en'
-					)} - {formatStandardDateShort(
-						parseDateToLocalMidnight(task.dateRange.end) || new Date(task.dateRange.end),
-						$locale || 'en'
-					)}
-				</p>
-			</div>
-		{/if}
 
-		<div>
-			<small class="text-base-content/60 text-sm"
-				>{$t('dashboard.task_details_by_task.posted')}</small
-			>
-			<p class="font-semibold">{formatDateStringWithTime(task.createdAt)}</p>
+			<!-- Row 2: Description (left, with show more) | Budget (right) - inline description -->
+			<div class="mb-4 flex flex-row flex-nowrap items-start justify-between gap-4">
+				<div class="min-w-0 flex-1">
+					<TranslatableTask
+						{task}
+						showTitle={false}
+						showDescription={true}
+						showToggle={false}
+						showDescriptionToggle={true}
+						descriptionClass="text-sm whitespace-pre-line line-clamp-2"
+					/>
+				</div>
+				<div class="flex shrink-0 flex-col items-end pl-4">
+					{#if btcPrice > 0}
+						<UsdSatsDisplay
+							amount={task.budget.amount}
+							{btcPrice}
+							title={$t('dashboard.task_details_by_task.budget') + ' - ' + task.budget.type}
+							satsKey="bids.sats"
+						/>
+					{:else}
+						<div class="text-right">
+							<span
+								class="text-base-content/60 block text-xs font-semibold tracking-wide uppercase"
+							>
+								{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
+							</span>
+							<p class="text-lg font-bold">${task.budget.amount.toFixed(2)}</p>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Row 3: Location (link when in-person) | Date range / deadline -->
+			<div class="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+				<div class="min-w-0 md:flex-1">
+					<TaskLocationDisplay
+						pickupLocation={task.pickupLocation}
+						dropOffLocation={task.dropOffLocation}
+						locationText={task.taskType === TaskTypeEnum.IN_PERSON && task.pickupLocation
+							? formatLocationAddress(task.pickupLocation)
+							: task.taskType === TaskTypeEnum.IN_PERSON && task.dropOffLocation
+								? formatLocationAddress(task.dropOffLocation)
+								: ''}
+						directionsLink={locationDirectionsLink}
+					/>
+				</div>
+				<div class="min-w-0 md:w-2/5 md:flex-shrink-0 md:text-right">
+					{#if task.dateRange}
+						<div class="mb-2 md:text-right">
+							<!-- Mobile: stacked layout (label above date, UsdSatsDisplay-like) -->
+							<div class="md:hidden">
+								<TaskDeadlineDisplay
+									label={$t('dashboard.task_details_by_task.date_range')}
+									variant="stacked"
+									align="left"
+									dateRangeStart={task.dateRange.start}
+									dateRangeEnd={task.dateRange.end}
+									showTime={false}
+									showDuration={true}
+								/>
+							</div>
+							<!-- Desktop/tablet: right-aligned stacked block -->
+							<div class="hidden items-center justify-end md:flex">
+								<TaskDeadlineDisplay
+									label={$t('dashboard.task_details_by_task.date_range')}
+									variant="stacked"
+									align="right"
+									dateRangeStart={task.dateRange.start}
+									dateRangeEnd={task.dateRange.end}
+									showTime={false}
+									showDuration={true}
+								/>
+							</div>
+						</div>
+					{:else if task.deadline}
+						<div class="mb-2 md:text-right">
+							<div class="md:hidden">
+								<TaskDeadlineDisplay
+									label={$t('dashboard.task_details_by_task.deadline')}
+									variant="stacked"
+									align="left"
+									deadline={task.deadline}
+									showTime={false}
+								/>
+							</div>
+							<div class="hidden items-center justify-end md:flex">
+								<TaskDeadlineDisplay
+									label={$t('dashboard.task_details_by_task.deadline')}
+									variant="stacked"
+									align="right"
+									deadline={task.deadline}
+									showTime={false}
+								/>
+							</div>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Row 4: Skills and Categories badges -->
+			<div class="flex flex-col gap-3 space-y-2 sm:flex-row sm:flex-wrap sm:items-start sm:gap-4">
+				{#if task.skills?.length > 0}
+					<div class="min-w-0">
+						<small class="text-base-content/60 mb-1 block text-sm">
+							{$t('dashboard.task_details_by_task.required_skills')}
+						</small>
+						<div class="flex flex-wrap gap-1">
+							{#each task.skills as skill (skill)}
+								<span class="badge badge-primary badge-outline pb-[2px]">{skill}</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+				{#if task?.categories?.length > 0}
+					<div class="min-w-0">
+						<small class="text-base-content/60 mb-1 block text-sm">
+							{$t('dashboard.task_details_by_task.categories')}
+						</small>
+						<div class="flex flex-wrap gap-1">
+							{#each translatedCategories as category, i (i)}
+								<span class="badge badge-outline badge-info pb-[2px]">
+									{category}
+								</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Move image attachments (assets) here: above Posted row, below categories -->
+				{#if task.attachments && task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+					<div class="mt-2 w-full">
+						{#await prepareGalleryImages(task.attachments) then galleryImages}
+							<div class="mb-2">
+								<Gallery
+									galleryID="task-drawer-images-gallery-inline"
+									images={galleryImages}
+									thumbnailSize="h-32 w-32"
+								/>
+							</div>
+						{/await}
+					</div>
+				{/if}
+			</div>
+
+			<!-- Posted - at bottom of card (reduced spacing) -->
+			<div>
+				<small class="text-base-content/60 block text-sm">
+					{$t('dashboard.task_details_by_task.posted')}
+				</small>
+				<p class="font-semibold">{formatDateStringWithTime(task.createdAt)}</p>
+			</div>
 		</div>
 	</div>
 
-	<!-- Task description -->
-	<div class="mb-4">
-		<small class="text-base-content/60"
-			>{$t('dashboard.task_details_by_task.description_task')}</small
-		>
-		<div class="bg-base-200 rounded-2xl p-3">
-			<div class="max-h-28 overflow-y-auto">
-				<TranslatableTask
-					{task}
-					showTitle={false}
-					showDescription={true}
-					showToggle={false}
-					descriptionClass="text-sm whitespace-pre-line"
-				/>
-			</div>
-		</div>
-	</div>
-
-	<!-- Task skills -->
-	{#if task.skills?.length > 0}
-		<div>
-			<small class="text-base-content/60 mb-1 text-sm">
-				{$t('dashboard.task_details_by_task.required_skills')}
-			</small>
-			<div class="flex flex-wrap gap-1">
-				{#each task.skills as skill}
-					<span class="badge badge-primary badge-outline pb-[2px]">{skill}</span>
-				{/each}
-			</div>
-		</div>
-	{/if}
-
-	<!-- Task categories -->
-	{#if task?.categories?.length > 0}
-		<div>
-			<small class="text-base-content/60 mb-1 text-sm">
-				{$t('dashboard.task_details_by_task.categories')}
-			</small>
-			<div class="flex flex-wrap gap-1">
-				{#each translatedCategories as category}
-					<span class="badge badge-outline badge-info pb-[2px]">
-						{category}
-					</span>
-				{/each}
-			</div>
-		</div>
-	{/if}
-
-	<!-- Task location -->
+	<!-- Task location area: compact display (link) and optional dropoff card -->
 	<div class="space-y-3">
 		{#if task.taskType === TaskTypeEnum.REMOTE}
-			<!-- Remote task - show message that it can be completed remotely -->
 			<div class="alert alert-outline alert-info">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -450,15 +494,7 @@
 				<span>{$t('dashboard.task_details_by_task.remote_location_description')}</span>
 			</div>
 		{:else}
-			<!-- In-person task - show pickup and/or dropoff locations -->
-			{#if task.pickupLocation && task.pickupLocation.latitude !== null && task.pickupLocation.longitude !== null && task.pickupLocation.locationLoaded}
-				<LocationDetailsCard
-					location={task.pickupLocation}
-					label={$t('common.location.pickup_location')}
-					showDirections={true}
-					showAddress={true}
-				/>
-			{/if}
+			<!-- Removed pickup location card as requested -->
 			{#if task.dropOffLocation && task.dropOffLocation.latitude !== null && task.dropOffLocation.longitude !== null && task.dropOffLocation.locationLoaded && task.dropOffLocation.displayName}
 				<LocationDetailsCard
 					location={task.dropOffLocation}
@@ -470,61 +506,7 @@
 		{/if}
 	</div>
 
-	<!-- Task attachments -->
-	{#if task.attachments && task.attachments.length > 0}
-		<div class={!isOwner ? 'mb-20 sm:mb-0' : ''}>
-			<small class="text-base-content/60 mb-1 text-sm">
-				{$t('dashboard.task_details_by_task.attachments')}
-			</small>
-
-			<!-- Images with Gallery lightbox -->
-			{#if task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
-				<div class="mb-6">
-					{#await prepareGalleryImages(task.attachments) then galleryImages}
-						<Gallery
-							galleryID="task-drawer-images-gallery"
-							images={galleryImages}
-							thumbnailSize="h-32 w-full"
-						/>
-					{/await}
-				</div>
-			{/if}
-
-			<!-- Videos with clickable lightbox -->
-			{#if task.attachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
-				<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
-					{#each task.attachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
-						<div
-							class="bg-base-200 overflow-hidden rounded-lg pb-4 cursor-pointer hover:opacity-90 transition-opacity"
-							onclick={() => openVideoLightbox(attachment)}
-							role="button"
-							tabindex="0"
-							onkeydown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') {
-									e.preventDefault();
-									openVideoLightbox(attachment);
-								}
-							}}
-						>
-							<video class="h-32 w-full object-cover pointer-events-none" preload="metadata">
-								<source src={attachment.url} type="video/mp4" />
-								<track kind="captions" src="" label="English" />
-								{$t('dashboard.task_details_by_task.video_not_supported')}
-							</video>
-							<div class="p-3">
-								<p class="truncate text-sm font-medium">
-									{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
-								</p>
-								<p class="text-base-content/60 text-xs">
-									{(attachment.size / 1024 / 1024).toFixed(2)} MB
-								</p>
-							</div>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	{/if}
+	<!-- Attachments moved inline above (assets were relocated) -->
 
 	<div class="space-y-3 pb-4">
 		<!-- Action Buttons Row -->
@@ -532,7 +514,7 @@
 			<!-- Bid Button (shown when task is open and user is not owner) -->
 			{#if task.status === TaskStatusEnum.OPEN && !isOwner && onBid}
 				<button
-					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none gap-2"
+					class="btn btn-primary btn-sm min-h-[40px] flex-1 gap-2 sm:flex-none"
 					onclick={async (e) => {
 						e.stopPropagation();
 						if (onBid) {
@@ -625,14 +607,14 @@
 		tabindex="-1"
 	>
 		<div
-			class="relative w-full h-full flex items-center justify-center p-4"
+			class="relative flex h-full w-full items-center justify-center p-4"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
 			role="none"
 		>
 			<!-- Close button - positioned inside viewport -->
 			<button
-				class="absolute top-4 right-4 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white shadow-lg transition-colors flex items-center justify-center backdrop-blur-sm"
+				class="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-white/20"
 				onclick={closeVideoLightbox}
 				aria-label={$t('common.close') || 'Close'}
 			>
@@ -649,20 +631,20 @@
 			</button>
 
 			<!-- Video container - centered and responsive -->
-			<div class="relative w-full max-w-5xl max-h-[90vh] flex flex-col items-center justify-center">
-				<div class="w-full bg-black rounded-lg overflow-hidden shadow-2xl">
-					<video class="w-full h-auto max-h-[85vh] object-contain" controls autoplay preload="auto">
+			<div class="relative flex max-h-[90vh] w-full max-w-5xl flex-col items-center justify-center">
+				<div class="w-full overflow-hidden rounded-lg bg-black shadow-2xl">
+					<video class="h-auto max-h-[85vh] w-full object-contain" controls autoplay preload="auto">
 						<source src={selectedVideo.url} type="video/mp4" />
 						<track kind="captions" src="" label="English" />
 						{$t('dashboard.task_details_by_task.video_not_supported')}
 					</video>
 					{#if selectedVideo.alt || selectedVideo.size}
-						<div class="p-4 bg-black/50 text-white">
+						<div class="bg-black/50 p-4 text-white">
 							{#if selectedVideo.alt}
 								<p class="text-base font-medium">{selectedVideo.alt}</p>
 							{/if}
 							{#if selectedVideo.size}
-								<p class="text-white/60 text-sm mt-1">
+								<p class="mt-1 text-sm text-white/60">
 									{(selectedVideo.size / 1024 / 1024).toFixed(2)} MB
 								</p>
 							{/if}
