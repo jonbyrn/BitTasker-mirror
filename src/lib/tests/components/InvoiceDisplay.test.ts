@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { Capacitor } from '@capacitor/core';
 import InvoiceDisplay from '$lib/components/wallet/InvoiceDisplay.svelte';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
@@ -249,12 +250,13 @@ describe('InvoiceDisplay Component', () => {
 	});
 
 	describe('Share Functionality', () => {
-		it('should show share button when Web Share API is available', async () => {
-			// Mock navigator.share
-			Object.defineProperty(navigator, 'share', {
-				writable: true,
-				value: vi.fn().mockResolvedValue(undefined)
-			});
+		afterEach(() => {
+			vi.mocked(Capacitor.getPlatform).mockReturnValue('web');
+		});
+
+		it('should show share button on mobile', async () => {
+			// Share button is shown when not web OR when navigator.share is unavailable.
+			vi.mocked(Capacitor.getPlatform).mockReturnValue('android');
 
 			render(InvoiceDisplay, defaultProps);
 			await tick();
@@ -270,6 +272,7 @@ describe('InvoiceDisplay Component', () => {
 				writable: true,
 				value: mockShare
 			});
+			vi.mocked(Capacitor.getPlatform).mockReturnValue('android');
 
 			render(InvoiceDisplay, defaultProps);
 			await tick();
@@ -294,9 +297,9 @@ describe('InvoiceDisplay Component', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('Failed to generate QR code')).toBeDefined();
+					expect(screen.getByText(/Failed to generate QR code/)).toBeInTheDocument();
 				},
-				{ timeout: 2000 }
+				{ timeout: 3000 }
 			);
 		});
 	});

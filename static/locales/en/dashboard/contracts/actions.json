@@ -9,7 +9,7 @@
 				"counter_proposal": "Counter Proposal",
 				"accept_proposal": "Accept Proposal",
 				"cancel_contract": "Cancel Contract",
-				"resolve_timelock": "Resolve Timelock",
+				"resolve_timelock": "Claim Funds",
 				"delete_contract": "Delete Contract",
 				"proposal_counter": "Your proposals: {count}/2",
 				"proposal_counter_final": "Final proposal (2/2)",
