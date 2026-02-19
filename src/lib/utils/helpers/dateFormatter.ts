@@ -32,13 +32,15 @@ export function formatStandardDate(date: Date, locale: string = 'en'): string {
 			month: 'long',
 			day: 'numeric'
 		}).format(date);
-		
+
 		// For Spanish, capitalize only the month name, not connecting words like "de"
 		if (locale === 'es') {
-			return formatted.replace(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/gi, 
-				(match) => match.charAt(0).toUpperCase() + match.slice(1));
+			return formatted.replace(
+				/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/gi,
+				(match) => match.charAt(0).toUpperCase() + match.slice(1)
+			);
 		}
-		
+
 		return formatted;
 	} catch (error) {
 		console.error('Error formatting standard date:', error);
@@ -60,16 +62,53 @@ export function formatStandardDateShort(date: Date, locale: string = 'en'): stri
 			month: 'short',
 			day: 'numeric'
 		}).format(date);
-		
+
 		// For Spanish, capitalize only the month name, not connecting words like "de"
 		if (locale === 'es') {
-			return formatted.replace(/\b(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/gi, 
-				(match) => match.charAt(0).toUpperCase() + match.slice(1));
+			return formatted.replace(
+				/\b(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/gi,
+				(match) => match.charAt(0).toUpperCase() + match.slice(1)
+			);
 		}
-		
+
 		return formatted;
 	} catch (error) {
 		console.error('Error formatting standard date short:', error);
+		return 'Invalid date';
+	}
+}
+
+/**
+ * Format a date with short month and time: "Feb 14, 2026 at 10:59 PM"
+ * @param date - The date to format
+ * @param locale - The locale to use for formatting (defaults to current locale)
+ * @returns Formatted date string with short month and time
+ */
+export function formatStandardDateTimeShort(date: Date, locale: string = 'en'): string {
+	try {
+		const formatted = new Intl.DateTimeFormat(locale, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		}).format(date);
+
+		// For Spanish, capitalize month and use AM/PM
+		if (locale === 'es') {
+			return formatted
+				.replace(
+					/\b(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/gi,
+					(m) => m.charAt(0).toUpperCase() + m.slice(1)
+				)
+				.replace(/a\.\s*m\./gi, 'AM')
+				.replace(/p\.\s*m\./gi, 'PM');
+		}
+
+		return formatted;
+	} catch (error) {
+		console.error('Error formatting standard date time short:', error);
 		return 'Invalid date';
 	}
 }
@@ -90,16 +129,18 @@ export function formatStandardDateTime(date: Date, locale: string = 'en'): strin
 			minute: '2-digit',
 			hour12: true
 		}).format(date);
-		
+
 		// For Spanish, capitalize only the month name and use AM/PM instead of a.m./p.m.
 		if (locale === 'es') {
 			return formatted
-				.replace(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/gi, 
-					(match) => match.charAt(0).toUpperCase() + match.slice(1)) // Capitalize only month name
+				.replace(
+					/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/gi,
+					(match) => match.charAt(0).toUpperCase() + match.slice(1)
+				) // Capitalize only month name
 				.replace(/a\.\s*m\./gi, 'AM') // Replace a.m. with AM
 				.replace(/p\.\s*m\./gi, 'PM'); // Replace p.m. with PM
 		}
-		
+
 		return formatted;
 	} catch (error) {
 		console.error('Error formatting standard date time:', error);
@@ -137,12 +178,12 @@ export function formatTimeLarge(time: string): string {
  */
 export function formatTime12Hour(time: string): string {
 	if (!time) return '';
-	
+
 	try {
 		const [hours, minutes] = time.split(':').map(Number);
 		const date = new Date();
 		date.setHours(hours, minutes, 0, 0);
-		
+
 		return date.toLocaleTimeString('en-US', {
 			hour: 'numeric',
 			minute: '2-digit',
@@ -219,17 +260,17 @@ export function formatTimestamp(timestamp: number): string {
  */
 export function normalizeDateToUTC(date: Date | string | null | undefined): string | undefined {
 	if (!date) return undefined;
-	
+
 	// If it's already a string in YYYY-MM-DD format, extract components directly
 	if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(date)) {
 		const datePart = date.split('T')[0]; // Get YYYY-MM-DD part
 		const parts = datePart.split('-');
-		
+
 		if (parts.length === 3) {
 			const year = parseInt(parts[0], 10);
 			const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in Date.UTC
 			const day = parseInt(parts[2], 10);
-			
+
 			if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
 				// Create a new date at midnight UTC for the selected date
 				const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
@@ -237,7 +278,7 @@ export function normalizeDateToUTC(date: Date | string | null | undefined): stri
 			}
 		}
 	}
-	
+
 	// For Date objects, extract local date components and create UTC date at midnight
 	if (date instanceof Date) {
 		// Extract year, month, and day from the date in local timezone
@@ -245,22 +286,22 @@ export function normalizeDateToUTC(date: Date | string | null | undefined): stri
 		const year = date.getFullYear();
 		const month = date.getMonth();
 		const day = date.getDate();
-		
+
 		// Create a new date at midnight UTC for the selected date
 		const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
 		return normalizedDate.toISOString();
 	}
-	
+
 	// For ISO string formats, extract the date part and normalize
 	if (typeof date === 'string') {
 		const datePart = date.split('T')[0];
 		const parts = datePart.split('-');
-		
+
 		if (parts.length === 3) {
 			const year = parseInt(parts[0], 10);
 			const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in Date.UTC
 			const day = parseInt(parts[2], 10);
-			
+
 			if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
 				// Create a new date at midnight UTC for the selected date
 				const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
@@ -268,7 +309,7 @@ export function normalizeDateToUTC(date: Date | string | null | undefined): stri
 			}
 		}
 	}
-	
+
 	console.error('Invalid date provided to normalizeDateToUTC:', date);
 	return undefined;
 }
@@ -280,19 +321,21 @@ export function normalizeDateToUTC(date: Date | string | null | undefined): stri
  * @param date - The date to normalize (can be Date object or ISO string or YYYY-MM-DD string)
  * @returns ISO string at end of day UTC for the selected date
  */
-export function normalizeDeadlineToEndOfDay(date: Date | string | null | undefined): string | undefined {
+export function normalizeDeadlineToEndOfDay(
+	date: Date | string | null | undefined
+): string | undefined {
 	if (!date) return undefined;
-	
+
 	// If it's already a string in YYYY-MM-DD format, extract components directly
 	if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(date)) {
 		const datePart = date.split('T')[0]; // Get YYYY-MM-DD part
 		const parts = datePart.split('-');
-		
+
 		if (parts.length === 3) {
 			const year = parseInt(parts[0], 10);
 			const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in Date.UTC
 			const day = parseInt(parts[2], 10);
-			
+
 			if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
 				// Create a new date at end of day UTC (23:59:59.999) for the selected date
 				const normalizedDate = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
@@ -300,7 +343,7 @@ export function normalizeDeadlineToEndOfDay(date: Date | string | null | undefin
 			}
 		}
 	}
-	
+
 	// For Date objects, extract local date components and create UTC date at end of day
 	if (date instanceof Date) {
 		// Extract year, month, and day from the date in local timezone
@@ -308,22 +351,22 @@ export function normalizeDeadlineToEndOfDay(date: Date | string | null | undefin
 		const year = date.getFullYear();
 		const month = date.getMonth();
 		const day = date.getDate();
-		
+
 		// Create a new date at end of day UTC (23:59:59.999) for the selected date
 		const normalizedDate = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
 		return normalizedDate.toISOString();
 	}
-	
+
 	// For ISO string formats, extract the date part and normalize
 	if (typeof date === 'string') {
 		const datePart = date.split('T')[0];
 		const parts = datePart.split('-');
-		
+
 		if (parts.length === 3) {
 			const year = parseInt(parts[0], 10);
 			const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in Date.UTC
 			const day = parseInt(parts[2], 10);
-			
+
 			if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
 				// Create a new date at end of day UTC (23:59:59.999) for the selected date
 				const normalizedDate = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
@@ -331,7 +374,7 @@ export function normalizeDeadlineToEndOfDay(date: Date | string | null | undefin
 			}
 		}
 	}
-	
+
 	console.error('Invalid date provided to normalizeDeadlineToEndOfDay:', date);
 	return undefined;
 }
@@ -344,24 +387,24 @@ export function normalizeDeadlineToEndOfDay(date: Date | string | null | undefin
  */
 export function parseDateToLocalMidnight(dateString: string | null | undefined): Date | null {
 	if (!dateString) return null;
-	
+
 	// Extract date components directly from the ISO string to avoid timezone conversion issues
 	// ISO format: "YYYY-MM-DDTHH:mm:ss.sssZ" or "YYYY-MM-DD"
 	const datePart = dateString.split('T')[0]; // Get "YYYY-MM-DD" part
 	const parts = datePart.split('-');
-	
+
 	if (parts.length === 3) {
 		const year = parseInt(parts[0], 10);
 		const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in JavaScript Date
 		const day = parseInt(parts[2], 10);
-		
+
 		// Validate the parsed values
 		if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
 			// Create a new date at local midnight to avoid timezone display issues
 			return new Date(year, month, day, 0, 0, 0, 0);
 		}
 	}
-	
+
 	console.error('Invalid date string provided to parseDateToLocalMidnight:', dateString);
 	return null;
 }
@@ -375,7 +418,7 @@ export function parseDateToLocalMidnight(dateString: string | null | undefined):
  */
 export function serializeDateWithLocalTime(date: Date | null | undefined): string | null {
 	if (!date) return null;
-	
+
 	// Extract local time components to preserve the user's selected time
 	const year = date.getFullYear();
 	const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -383,9 +426,53 @@ export function serializeDateWithLocalTime(date: Date | null | undefined): strin
 	const hours = String(date.getHours()).padStart(2, '0');
 	const minutes = String(date.getMinutes()).padStart(2, '0');
 	const seconds = String(date.getSeconds()).padStart(2, '0');
-	
+
 	// Return as "YYYY-MM-DDTHH:mm:ss" (no timezone, preserving local time)
 	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * Format the duration between two dates as human-readable text (e.g., "18 hours and 45 minutes").
+ * @param start - Start date
+ * @param end - End date
+ * @param t - Translation function (e.g., $t from svelte-i18n) for day/day/hour/minutes
+ * @returns Formatted duration string or empty if invalid
+ */
+export function formatDurationBetweenDates(
+	start: Date,
+	end: Date,
+	t: (key: string) => string
+): string {
+	const diffMs = end.getTime() - start.getTime();
+	if (diffMs <= 0) return '';
+
+	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+	const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+	const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+	const parts: string[] = [];
+	if (diffDays > 0) {
+		parts.push(
+			`${diffDays} ${diffDays === 1 ? t('dashboard.bids.bid_creation.day') : t('dashboard.bids.bid_creation.days')}`
+		);
+	}
+	if (diffHours > 0) {
+		parts.push(
+			`${diffHours} ${diffHours === 1 ? t('dashboard.bids.bid_creation.hour') : t('dashboard.bids.bid_creation.hours')}`
+		);
+	}
+	if (diffMinutes > 0) {
+		parts.push(
+			`${diffMinutes} ${diffMinutes === 1 ? t('dashboard.bids.bid_creation.minute') : t('dashboard.bids.bid_creation.minutes')}`
+		);
+	}
+	if (parts.length === 0) {
+		return t('dashboard.bids.bid_creation.one_hour');
+	}
+	if (parts.length === 1) return parts[0];
+	const lastPart = parts.pop()!;
+	const conjunction = t('common.components.date_input.and');
+	return `${parts.join(', ')} ${conjunction} ${lastPart}`;
 }
 
 /**
@@ -397,10 +484,10 @@ export function serializeDateWithLocalTime(date: Date | null | undefined): strin
  */
 export function parseDateWithLocalTime(dateString: string | null | undefined): Date | null {
 	if (!dateString) return null;
-	
+
 	// Handle both "YYYY-MM-DDTHH:mm:ss" and "YYYY-MM-DDTHH:mm" formats
 	const dateTimeMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
-	
+
 	if (dateTimeMatch) {
 		const year = parseInt(dateTimeMatch[1], 10);
 		const month = parseInt(dateTimeMatch[2], 10) - 1; // Month is 0-indexed
@@ -408,16 +495,19 @@ export function parseDateWithLocalTime(dateString: string | null | undefined): D
 		const hours = parseInt(dateTimeMatch[4], 10);
 		const minutes = parseInt(dateTimeMatch[5], 10);
 		const seconds = dateTimeMatch[6] ? parseInt(dateTimeMatch[6], 10) : 0;
-		
+
 		if (!isNaN(year) && !isNaN(month) && !isNaN(day) && !isNaN(hours) && !isNaN(minutes)) {
 			// Create Date object using local time components (not UTC)
 			// This preserves the time as the user selected it
 			return new Date(year, month, day, hours, minutes, seconds, 0);
 		}
 	}
-	
+
 	// Fallback: try standard Date parsing (but this may cause timezone issues)
-	console.warn('Could not parse date with local time format, falling back to standard parsing:', dateString);
+	console.warn(
+		'Could not parse date with local time format, falling back to standard parsing:',
+		dateString
+	);
 	const parsed = new Date(dateString);
 	return isNaN(parsed.getTime()) ? null : parsed;
 }

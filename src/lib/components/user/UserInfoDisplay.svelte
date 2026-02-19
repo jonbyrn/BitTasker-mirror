@@ -26,8 +26,8 @@
 		profileLink?: string | null; // npub or hex pubkey for profile link
 	}>();
 
-	// State for fetched profile data
-	let fetchedProfile = $state<{ name?: string; picture?: string } | null>(null);
+	// State for fetched profile data (fetchProfileMetadata returns name, picture, createdAt)
+	let fetchedProfile = $state<{ name?: string; picture?: string; createdAt?: string } | null>(null);
 	let isLoadingProfile = $state(false);
 	let normalizedHexPubkey = $state<string | null>(null); // Normalized hex pubkey for consistent caching
 	let lastLoadedPubkey = $state<string | null>(null); // Track which pubkey we last loaded to prevent duplicate loads
@@ -84,10 +84,12 @@
 
 	/**
 	 * Get formatted member since text
+	 * Uses memberSince prop when provided, otherwise falls back to fetched profile's createdAt
 	 */
 	const formattedMemberSince = $derived.by(() => {
-		if (!memberSince) return null;
-		return formatMemberSinceDate(memberSince);
+		const dateSource = memberSince ?? fetchedProfile?.createdAt;
+		if (!dateSource) return null;
+		return formatMemberSinceDate(dateSource);
 	});
 
 	/**

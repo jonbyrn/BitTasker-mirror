@@ -29,8 +29,13 @@ const TEMP_JSON = path.join(ROOT, '.test-triage-temp.json');
  * Order matters - first match wins. Paths are relative to src/lib/tests/.
  */
 const TEST_GROUPS = [
-	{ id: 'ci-placeholder', label: 'CI Placeholder', match: /^ci-placeholder\.test\.ts$/ },
-	{ id: 'validators', label: 'Validators', match: /^validators\.test\.ts$/ },
+	{ id: 'unit-helpers-auth', label: 'Unit (auth)', match: /^unit\/helpers\/auth/ },
+	{ id: 'unit-helpers', label: 'Unit (helpers)', match: /^unit\/helpers\// },
+	{ id: 'unit-utils', label: 'Unit (utils)', match: /^unit\/utils\// },
+	{ id: 'unit-api', label: 'Unit (API services)', match: /^unit\/api\// },
+	{ id: 'unit-stores', label: 'Unit (stores)', match: /^unit\/stores\// },
+	{ id: 'unit-routes', label: 'Unit (routes)', match: /^unit\/routes\// },
+	{ id: 'unit-root', label: 'Unit (smoke)', match: /^unit\/[^/]+\.test\.ts$/ },
 	{
 		id: 'formatters',
 		label: 'Formatters (currency, date)',
@@ -40,16 +45,6 @@ const TEST_GROUPS = [
 		id: 'crypto',
 		label: 'Crypto & Encoding',
 		match: /^(crypto|encoding)\.test\.ts$/,
-	},
-	{
-		id: 'auth',
-		label: 'Auth',
-		match: /^auth(-|\.test)/,
-	},
-	{
-		id: 'root-other',
-		label: 'Root (deviceIdentity, findTasks, nostr, profile)',
-		match: /^(deviceIdentity|findTasks|nip44-message|nostr-message|profile-cache)\.test\.ts$/,
 	},
 	{ id: 'api', label: 'API Services', match: /^api\// },
 	{ id: 'utils', label: 'Utils', match: /^utils\// },
