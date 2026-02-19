@@ -172,7 +172,7 @@ Setup Passkey
         └── Store: npub + exportedKey in secure storage
     ↓
 Register with Server
-    ├── Send: publicKey, encryptedData, credentialId
+    ├── Send: publicKey, encryptedData, credentialId, passkeyPubkey, clientDataJSON, attestationObject
     ├── Receive: access_token, user data
     └── Mark as new user (isNewUser: true)
     ↓
@@ -378,16 +378,19 @@ getAllKeys()
 ### Best Practices
 
 1. **Key Material Handling**
+
    - Keys are only decrypted when needed
    - Keys are cleared from memory after use (where possible)
    - Never log or display full keys
 
 2. **Error Handling**
+
    - Generic error messages to users
    - Detailed errors logged (not displayed)
    - No sensitive data in error messages
 
 3. **Session Management**
+
    - Access tokens expire
    - Biometric re-authentication for sensitive operations
    - Cache invalidation on logout
@@ -423,11 +426,9 @@ getAllKeys()
 
 ## Future Enhancements
 
-- [ ] Multi-device passkey sync
 - [ ] Hardware security key support
 - [ ] Biometric re-authentication timeout
 - [ ] Key rotation mechanisms
-- [ ] Social recovery options
 - [ ] Passkey revocation UI
 - [ ] Audit logging
 - [ ] Advanced threat detection
