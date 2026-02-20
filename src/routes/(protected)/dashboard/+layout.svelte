@@ -7,6 +7,7 @@
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 import IconMagnify from '~icons/mdi/magnify';
 import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
 	import IconFileSign from '~icons/mdi/file-sign';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
@@ -44,7 +45,7 @@ import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
 									<a
 										data-sveltekit-reload="off"
 										href={section.path}
-										class:menu-active={page.url.pathname + page.url.search === section.path}
+										class:menu-active={page.url.pathname + page.url.search === section.path || (section.id === 'my-services' && page.url.pathname === '/dashboard/my-services')}
 										class="flex items-center gap-3"
 									>
 										{#if section.icon === 'mdi:format-list-bulleted'}
@@ -55,6 +56,8 @@ import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
 											<IconMagnify class="text-primary" />
 										{:else if section.icon === 'mdi:briefcase-search'}
 											<IconBriefcaseSearch class="text-primary" />
+										{:else if section.icon === 'mdi:briefcase-outline'}
+											<IconBriefcaseOutline class="text-primary" />
 										{:else if section.icon === 'mdi:invoice-text-send-outline'}
 											<IconInvoiceTextSendOutline class="text-primary" />
 										{:else if section.icon === 'mdi:file-sign'}

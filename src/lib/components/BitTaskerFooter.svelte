@@ -13,7 +13,7 @@
 	import IconWhatsapp from '~icons/mdi/whatsapp';
 </script>
 
-<footer class="bg-base-300 text-base-content/70 py-12 pb-safe lg:pb-12">
+<footer class="bg-base-300 text-base-content/70 py-16 pb-safe lg:py-20 lg:pb-16">
 	<div class="container mx-auto px-4">
 		<div class="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
 			<!-- Company Info -->

@@ -1,0 +1,23 @@
+{
+	"dashboard": {
+		"services": {
+			"my_services": {
+				"page_title": "Mis Servicios",
+				"title": "Mis Servicios",
+				"description": "Gestiona tus servicios. Edita, duplica o vélos en el marketplace.",
+				"list_service": "Publicar Servicio",
+				"loading": "Cargando tus servicios...",
+				"error_loading": "Error al cargar servicios",
+				"retry": "Reintentar",
+				"empty_title": "Aún no tienes servicios",
+				"empty_message": "Publica tu primer servicio para recibir consultas de Taskers.",
+				"view": "Ver",
+				"edit": "Editar",
+				"duplicate": "Duplicar",
+				"status_active": "Activo",
+				"status_inactive": "Inactivo",
+				"status_sold": "Vendido"
+			}
+		}
+	}
+}
