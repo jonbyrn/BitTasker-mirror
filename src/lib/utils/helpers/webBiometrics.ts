@@ -141,13 +141,17 @@ export async function verifyIdentity(): Promise<boolean> {
  * @param publicKey User's Nostr public key
  * @param exportedKey The exported private key for decryption
  * @param customName Optional custom name for the passkey
- * @returns Promise with credential ID
+ * @returns Promise with credential data including ID, public key (hex), clientDataJSON, attestationObject, and challenge
  */
 export async function setWebBiometricKey(
-	npub: string,
-	exportedKey: string,
-	username?: string
-): Promise<string> {
+	{ npub, exportedKey, username, challenge }: { npub: string; exportedKey: string; username?: string; challenge?: string }
+): Promise<{
+	credentialId: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	challenge: string;
+}> {
 	try {
 		// Check availability, but allow test environments to proceed
 		// The actual WebAuthn call will fail gracefully if not available
@@ -171,8 +175,8 @@ export async function setWebBiometricKey(
 		let name = '';
 		let displayName = '';
 		if (username) {
-			name = username + ' @bittasker.com';
-			displayName = username + ' @bittasker.com';
+			name = username + '@bittasker.com';
+			displayName = username + '@bittasker.com';
 		} else {
 			const passkeyName = await generatePasskeyName(npub);
 			name = passkeyName.name;
@@ -188,8 +192,12 @@ export async function setWebBiometricKey(
 				process.env.NODE_ENV === 'test' ||
 				(window as any).__PLAYWRIGHT_TEST__);
 
+		// Decode challenge from base64url
+		let _challenge = challenge ? challenge : (await authService.getChallenge()).challenge;
+		const challengeBuffer = Uint8Array.from(atob(_challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+
 		const registrationOptions: PublicKeyCredentialCreationOptions = {
-			challenge: generateWebChallenge(),
+			challenge: challengeBuffer,
 			rp: {
 				name: 'BitTasker',
 				id: window.location.hostname
@@ -230,7 +238,40 @@ export async function setWebBiometricKey(
 			throw new Error('Failed to create WebAuthn credential');
 		}
 
-		return credential.id;
+		// Extract response data
+		const response = credential.response as AuthenticatorAttestationResponse;
+
+		// Convert clientDataJSON to base64url
+		const clientDataJSON = btoa(String.fromCharCode(...new Uint8Array(response.clientDataJSON)))
+			.replace(/\+/g, '-')
+			.replace(/\//g, '_')
+			.replace(/=/g, '');
+
+		// Convert attestationObject to base64url
+		const attestationObject = btoa(String.fromCharCode(...new Uint8Array(response.attestationObject)))
+			.replace(/\+/g, '-')
+			.replace(/\//g, '_')
+			.replace(/=/g, '');
+
+		// Extract public key from credential and convert to hex
+		// The public key is in COSE format in the attestationObject
+		const publicKeyBytes = response.getPublicKey();
+		if (!publicKeyBytes) {
+			throw new Error('Failed to extract public key from credential');
+		}
+
+		// Convert public key to hex format
+		const passkeyPubkey = Array.from(new Uint8Array(publicKeyBytes))
+			.map(b => b.toString(16).padStart(2, '0'))
+			.join('');
+
+		return {
+			credentialId: credential.id,
+			passkeyPubkey,
+			clientDataJSON,
+			attestationObject,
+			challenge: _challenge
+		};
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
 		throw new Error(await handleBiometricError(err, 'web'));
@@ -269,8 +310,11 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 				process.env.NODE_ENV === 'test' ||
 				(window as any).__PLAYWRIGHT_TEST__);
 
+		const { challenge } = await authService.getChallenge();
+		const challengeBuffer = Uint8Array.from(atob(challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+
 		const authOptions: PublicKeyCredentialRequestOptions = {
-			challenge: generateWebChallenge(),
+			challenge: challengeBuffer,
 			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
 			userVerification: isTestEnvironment ? 'preferred' : WEBAUTHN_VERIFY_OPTIONS.userVerification
 		};
@@ -303,33 +347,29 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 			}
 		}
 
-		const deviceId = await getDeviceIdentifier();
+		const convertToBase64url = (data: ArrayBuffer) => {
+			return btoa(String.fromCharCode(...new Uint8Array(data)))
+				.replace(/\+/g, '-')
+				.replace(/\//g, '_')
+				.replace(/=/g, '');
+		}
 
-		const deviceName = await createUserDeviceShortName(publicKey);
+		const authenticatorData = convertToBase64url(response.authenticatorData);
+		const clientDataJSON = convertToBase64url(response.clientDataJSON);
+		const signature = convertToBase64url(response.signature);
+		const userHandle = convertToBase64url(response.userHandle);
 
-		// Try to get master key encrypted data first, fallback to legacy
-		try {
-			const { encryptionData, isLegacyFormat } =
-				await authService.getEncryptedData(publicKey, deviceId, credential.id, deviceName);
-
-			if (encryptionData) {
-				return {
-					npub: publicKey,
-					encryptedData: encryptionData,
-					// @ts-ignore - Legacy format type check can be ignored as it will be removed in the future
-					exportedKey: isLegacyFormat ? encryptionData.exportedMasterKey : exportedKey,
-					deviceId,
-					deviceName,
-					credentialId: credential.id,
-					isLegacyFormat,
-				};
-			} else {
-				throw new Error('We could not find data associated with this passkey.');
+		return {
+			npub: publicKey,
+			exportedKey,
+			credentialId: credential.id,
+			challenge,
+			response: {
+				authenticatorData,
+				clientDataJSON,
+				signature,
+				userHandle
 			}
-		} catch (error) {
-			// Fallback to legacy method if master key endpoint doesn't exist yet
-			console.warn('Master key not available, falling back to legacy:', error);
-			throw new Error('We could not find data associated with this passkey.');
 		}
 	} catch (err) {
 		// Silently ignore "A request is already pending" errors

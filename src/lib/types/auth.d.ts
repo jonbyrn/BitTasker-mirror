@@ -1,31 +1,91 @@
 import type { NostrEvent } from "nostr-tools";
 
+type ContextEncryption = {
+	encrypted: CryptoEncryptedData;
+	iterations: number;
+	salt: string;
+};
+
+export type EncryptedData = {
+	masterSalt: string;
+	nostr: ContextEncryption;
+	wallet: ContextEncryption;
+};
+
+export interface BiometricData {
+	npub: string;
+	exportedKey: string;
+	encryptedData: EncryptedData;
+}
+
 export interface Credentials {
 	npub: string;
-	deviceId: string;
+	challenge: string;
 	credentialId: string;
-	deviceName: string;
-	encryptedData: EncryptedData;
 	exportedKey: string;
-	isLegacyFormat: boolean;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle?: string;
+	}
+}
+
+export interface PasskeyLoginArgs {
+	npub: string;
+	challenge: string;
+	credentialId: string;
+	deviceId: string;
+	deviceName: string;
+	platform: string;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle?: string;
+	}
+	appVersion: string;
+}
+
+export interface NostrLoginArgs {
+	event: NostrEvent;
+	challenge: string;
+	deviceId: string;
+	authMethod: 'passkey';
+	encryptedData: EncryptedData;
+	deviceName: string;
+	credentialId: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	platform: string;
+	appVersion: string;
+}
+
+export interface EncryptedNostrDataArgs {
+	event: NostrEvent;
+	deviceId: string;
+	deviceName: string;
+	platform: string;
+	appVersion: string;
+}
+
+export interface PasskeyEncryptedDataArgs {
+	npub: string;
+	challenge: string;
+	credentialId: string;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle?: string;
+	}
 }
 
 export interface PasskeyLoginData {
 	event: NostrEvent;
 	deviceId: string;
 	deviceName?: string;
-	platform: 'mobile' | 'web';
-}
-
-export interface NostrLoginData {
-	event: NostrEvent;
-	challenge: string;
-	deviceId: string;
-	iterations?: number;
-	authMethod?: 'passkey';
-	masterKeyData?: EncryptedData;
-	deviceName?: string;
-	credentialId: string;
 	platform: 'mobile' | 'web';
 }
 
@@ -206,14 +266,18 @@ export interface AccountRecoveryData {
 }
 
 export interface NostrRecoveryCompleteData {
-	publicKey: string;
+	npub: string;
 	otp: string;
-	recoveryData: Partial<EncryptedData>;
-	encryptedMasterKeyData: EncryptedData;
+	recoveryData: EncryptedData;
+	encryptedData: EncryptedData;
 	deviceId: string;
 	deviceName?: string;
 	platform: string;
 	credentialId: string;
+	challenge: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
 	revokeAll: boolean;
 }
 
@@ -230,39 +294,19 @@ export interface CryptoEncryptedData {
 	authTag: string;
 }
 
-
-/********************** Master Key Encrypted Data types **********************/
-
-type ContextEncryption = {
-	encrypted: CryptoEncryptedData;
-	iterations: number;
-	salt: string;
-};
-
-export type EncryptedData = {
-	masterSalt: string;
-	nostr: ContextEncryption;
-	wallet: ContextEncryption;
-};
-
-export type MasterKeyRegistration = {
+export type RegistrationData = {
+	email?: string | null | undefined;
+	username?: string | null | undefined;
+	publicKey: string;
+	encryptedData: EncryptedData;
 	authMethod?: string | null | undefined;
 	deviceId?: string | null | undefined;
-	email?: string | null | undefined;
-	masterKeyData: EncryptedData;
-	publicKey: string;
-	username?: string | null | undefined;
-	credentialId: string | null | undefined;
 	deviceName?: string | null | undefined;
+	credentialId: string | null | undefined;
 	platform: string | null | undefined;
-};
-
-export type MasterKeyMigration = {
-	event: NostrEvent;
-	oldCredentialId: string;
-	newCredentialId: string;
-	deviceId: string;
-	masterKeyData: EncryptedData;
-	platform: string;
-	deviceName: string;
+	challenge: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	appVersion: string;
 };

@@ -21,6 +21,7 @@ import { nip19 } from 'nostr-tools';
 import { decryptNsecWithBiometrics, decryptMasterKeyDataFromBiometrics } from '$lib/utils/helpers/auth';
 import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
+import authService from '$lib/api/services/auth.service';
 
 /**
  * Internal helper to retrieve biometric credentials
@@ -74,12 +75,16 @@ export const getNpub = async (): Promise<string> => {
         return npub;
     }
 
-    const biometricData: Credentials | null = await getBiometrics();
+    const credentialData: Credentials | null = await getBiometrics();
 
-    if (!biometricData) throw new Error('No biometric data found');
+    if (!credentialData) throw new Error('No biometric data found');
 
-    const npub = biometricData.npub;
-    appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, npub }, biometricData }));
+    const npub = credentialData.npub;
+
+    appStore.update((state) => ({
+        ...state,
+        nostrKeys: { ...state.nostrKeys, npub }
+    }));
     await Preferences.set({ key: StorageKeys.NPUB, value: npub });
     return npub;
 };
@@ -138,18 +143,40 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
         return { nsec, npub };
     }
 
-    const biometricData: Credentials | null = await getBiometrics();
+    const credentialData: Credentials | null = await getBiometrics();
 
-    if (!biometricData) throw new Error('No biometric data found');
+    if (!credentialData) throw new Error('No biometric data found');
 
-    const npub = biometricData.npub;
-    const encryptedData = biometricData.encryptedData;
-    const exportedKey = biometricData.exportedKey;
+    const npub = credentialData.npub;
+    const exportedKey = credentialData.exportedKey;
 
-    const sk = await decryptNsecWithBiometrics(encryptedData, exportedKey);
+    const response = await authService.getPasskeyEncryptedData({
+        npub: credentialData.npub,
+        challenge: credentialData.challenge,
+        credentialId: credentialData.credentialId,
+        response: credentialData.response
+    });
+
+    if (!response.encryptedData) throw new Error('No encrypted data found');
+
+    const sk = await decryptNsecWithBiometrics(response.encryptedData, exportedKey);
     const nsec: Uint8Array = decodeNsec(sk);
 
-    appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub }, biometricData }));
+    appStore.update((state) => (
+        {
+            ...state,
+            nostrKeys: {
+                ...state.nostrKeys,
+                nsec,
+                npub
+            },
+            biometricData: {
+                npub,
+                exportedKey,
+                encryptedData: response.encryptedData
+            }
+        }));
+
     await Preferences.set({ key: StorageKeys.NPUB, value: npub });
     return { nsec, npub };
 };
@@ -203,19 +230,45 @@ export const getAllKeys = async (): Promise<{ npub: string, nsec: Uint8Array, mn
         return { nsec, npub, mnemonic };
     }
 
-    const biometricData: Credentials | null = await getBiometrics();
+    const credentialData: Credentials | null = await getBiometrics();
 
-    if (!biometricData) throw new Error('No biometric data found');
+    if (!credentialData) throw new Error('No biometric data found');
+
+    const response = await authService.getPasskeyEncryptedData({
+        npub: credentialData.npub,
+        challenge: credentialData.challenge,
+        credentialId: credentialData.credentialId,
+        response: credentialData.response
+    });
+
+    console.log(response);
+
+    if (!response.encryptedData) throw new Error('No encrypted data found');
 
     const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
-        biometricData.encryptedData,
-        biometricData.exportedKey
+        response.encryptedData,
+        credentialData.exportedKey
     );
 
     const nsec: Uint8Array = decodeNsec(sk);
-    const npub = biometricData.npub;
+    const npub = credentialData.npub;
 
-    appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub, mnemonic }, biometricData }));
+    appStore.update((state) => (
+        {
+            ...state,
+            nostrKeys: {
+                ...state.nostrKeys,
+                nsec,
+                npub,
+                mnemonic
+            },
+            biometricData: {
+                npub,
+                exportedKey: credentialData.exportedKey,
+                encryptedData: response.encryptedData
+            }
+        }));
+
     await Preferences.set({ key: StorageKeys.NPUB, value: npub });
     return { nsec, npub, mnemonic };
 };
