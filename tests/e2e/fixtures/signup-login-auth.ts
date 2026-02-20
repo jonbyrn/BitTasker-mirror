@@ -36,7 +36,8 @@ const test = authTest.extend<
 	injectWebAuthnCredentials: [false, { option: true }],
 
 	webauthnCredentialStore: [
-		async (_deps, use) => {
+		// eslint-disable-next-line no-empty-pattern -- worker fixture has no dependencies
+		async ({}, use) => {
 			const store: WebAuthnCredential[] = [];
 			await use(store);
 		},
