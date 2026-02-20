@@ -137,13 +137,9 @@ export async function deriveContextKey(
 		const masterKeyBytes = await crypto.subtle.exportKey('raw', masterKey);
 
 		// Import as HKDF key material
-		const keyMaterial = await crypto.subtle.importKey(
-			'raw',
-			masterKeyBytes,
-			'HKDF',
-			false,
-			['deriveKey']
-		);
+		const keyMaterial = await crypto.subtle.importKey('raw', masterKeyBytes, 'HKDF', false, [
+			'deriveKey'
+		]);
 
 		// Derive context-specific key using HKDF
 		return await crypto.subtle.deriveKey(
@@ -200,6 +196,5 @@ export async function deriveWalletFromNostr(nsec: string): Promise<string> {
 
 	// Convert to mnemonic using BIP39
 	const mnemonic = entropyToMnemonic(entropyHex);
-	console.log({ mnemonic });
 	return mnemonic;
 }
