@@ -257,18 +257,35 @@
 			if (response.encryptedData) {
 				// Account exists, decrypt wallet mnemonic
 				const masterSalt = base64ToBytes(response.encryptedData.masterSalt);
-				let _nsec = nsec;
-				if (nsec.startsWith('nsec1')) {
-					_nsec = bytesToHex(privateKey);
-				}
-				const exportedMasterKey = await deriveKeyFromPassword(_nsec, masterSalt, 100000);
-				const _exportedKey = await exportKey(exportedMasterKey);
+				try {
+					// try direct decryption with nsec bech32 format (nsec1...)
+					const exportedMasterKey = await deriveKeyFromPassword(nsec, masterSalt, 100000);
+					const _exportedKey = await exportKey(exportedMasterKey);
+					const decryptedData = await decryptMasterKeyDataFromBiometrics(
+						response.encryptedData,
+						_exportedKey
+					);
+					mnemonic = decryptedData.mnemonic;
+					// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				} catch (error) {
+					try {
+						// try decryption with nsec hex format (...64 characters)
+						let _nsec = nsec;
+						if (nsec.startsWith('nsec1')) {
+							_nsec = bytesToHex(privateKey);
+						}
+						const exportedMasterKey = await deriveKeyFromPassword(_nsec, masterSalt, 100000);
+						const _exportedKey = await exportKey(exportedMasterKey);
 
-				const decryptedData = await decryptMasterKeyDataFromBiometrics(
-					response.encryptedData,
-					_exportedKey
-				);
-				mnemonic = decryptedData.mnemonic;
+						const decryptedData = await decryptMasterKeyDataFromBiometrics(
+							response.encryptedData,
+							_exportedKey
+						);
+						mnemonic = decryptedData.mnemonic;
+					} catch (error) {
+						throw new Error(error instanceof Error ? error.message : 'Unknown error');
+					}
+				}
 			} else {
 				// Account does not exist, generate new wallet mnemonic
 				mnemonic = await deriveWalletFromNostr(nsec);
