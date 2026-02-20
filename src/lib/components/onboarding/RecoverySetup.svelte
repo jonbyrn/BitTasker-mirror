@@ -177,7 +177,7 @@
 				email: recoveryEmail
 			};
 
-			await authService.setupAccountRecoveryPassword(data).catch((err) => {
+			await authService.setupRecovery(data).catch((err) => {
 				console.error('Failed to setup account recovery:', err);
 				throw new Error(
 					err instanceof Error

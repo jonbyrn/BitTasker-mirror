@@ -166,7 +166,7 @@
 				email: recoveryEmail
 			};
 
-			await authService.setupAccountRecoveryPassword(data);
+			await authService.setupRecovery(data);
 
 			recoverySuccess = $t('settings.recovery.success');
 
