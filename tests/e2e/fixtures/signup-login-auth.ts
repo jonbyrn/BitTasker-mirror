@@ -1,4 +1,3 @@
-import type { BrowserContext } from '@playwright/test';
 import { test as authTest, expect } from './auth';
 import {
 	type WebAuthnCredential,
@@ -37,7 +36,7 @@ const test = authTest.extend<
 	injectWebAuthnCredentials: [false, { option: true }],
 
 	webauthnCredentialStore: [
-		async ({}, use) => {
+		async (_deps, use) => {
 			const store: WebAuthnCredential[] = [];
 			await use(store);
 		},
@@ -47,6 +46,16 @@ const test = authTest.extend<
 	page: async ({ context, webauthnCredentialStore, injectWebAuthnCredentials }, use, testInfo) => {
 		// Use default context (new per test) so each test gets fresh storage – no shared auth state.
 		const page = await context.newPage();
+
+		// CDP/WebAuthn virtual authenticators only work in Chromium
+		const browser = context.browser();
+		if (!browser || browser.browserType().name() !== 'chromium') {
+			testInfo.skip(true, 'Signup/onboarding tests require Chromium (CDP for WebAuthn)');
+			await use(page);
+			await page.close();
+			return;
+		}
+
 		const cdpSession = await page.context().newCDPSession(page);
 		let authenticatorId: string | null = null;
 
@@ -77,7 +86,11 @@ const test = authTest.extend<
 								credential: cred
 							});
 						}
-						console.log('[E2E] Injected', toInject.length, 'credential(s) (injectWebAuthnCredentials=true)');
+						console.log(
+							'[E2E] Injected',
+							toInject.length,
+							'credential(s) (injectWebAuthnCredentials=true)'
+						);
 					}
 				}
 			}
@@ -97,7 +110,13 @@ const test = authTest.extend<
 				webauthnCredentialStore.push(...(credentials ?? []));
 				if (webauthnCredentialStore.length > 0) {
 					writeCredentialSet(credentialLabel, webauthnCredentialStore);
-					console.log('[E2E] Exported', webauthnCredentialStore.length, 'credential(s) (label:', credentialLabel, ')');
+					console.log(
+						'[E2E] Exported',
+						webauthnCredentialStore.length,
+						'credential(s) (label:',
+						credentialLabel,
+						')'
+					);
 				}
 			} catch (e) {
 				console.warn('[E2E] Failed to export WebAuthn credentials:', e);
