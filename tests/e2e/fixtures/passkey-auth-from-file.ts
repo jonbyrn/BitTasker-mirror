@@ -35,16 +35,30 @@ type PasskeyAuthFromFileFixtures = {
  * Skip when file is missing; use a function so the condition runs at runtime (after 01 runs):
  *   test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
  */
+const CHROMIUM_ONLY_MESSAGE =
+	'Passkey auth uses CDP/WebAuthn virtual authenticators, which are only available in Chromium.';
+
 const test = base.extend<PasskeyAuthFromFileFixtures>({
 	credentialLabel: ['signup', { option: true }],
 
 	authenticatedPageFromPasskeyFile: async ({ browser, credentialLabel }, use, testInfo) => {
-		const credentials =
-			readCredentialSet(credentialLabel) ?? readFirstCredentialSet();
+		if (browser.browserType().name() !== 'chromium') {
+			testInfo.skip(true, CHROMIUM_ONLY_MESSAGE);
+			const baseURL = testInfo.project.use.baseURL ?? 'http://localhost:4173';
+			const ctx = await browser.newContext({
+				baseURL,
+				storageState: undefined,
+				viewport: testInfo.project.use.viewport ?? { width: 1280, height: 720 }
+			});
+			const page = await ctx.newPage();
+			await use(page);
+			await ctx.close();
+			return;
+		}
+
+		const credentials = readCredentialSet(credentialLabel) ?? readFirstCredentialSet();
 		if (!credentials || credentials.length === 0) {
-			throw new Error(
-				`${CREDENTIALS_MISSING_MESSAGE} (label: ${credentialLabel})`
-			);
+			throw new Error(`${CREDENTIALS_MISSING_MESSAGE} (label: ${credentialLabel})`);
 		}
 
 		const baseURL = testInfo.project.use.baseURL ?? 'http://localhost:4173';
