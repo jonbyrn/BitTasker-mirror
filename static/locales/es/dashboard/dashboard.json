@@ -552,6 +552,7 @@
       "currency": "Moneda",
       "original_bid_proposal": "Propuesta de Oferta Original",
       "bid_details": "Detalles de la Oferta",
+      "approach": "Enfoque",
       "proposed_approach": "Enfoque Propuesto",
       "estimated_duration": "Duración Estimada",
       "original_amount": "Cantidad Original",
@@ -686,6 +687,7 @@
         "transaction": "Transacción",
         "view_transaction": "Ver Transacción",
         "proposed_split": "División Propuesta",
+        "contract_initiated": "Contrato iniciado",
         "actions": {
           "task_completed": "Tarea marcada como completada",
           "payment_released": "Pago liberado",

@@ -96,13 +96,22 @@
         "no_task_description": "No hay descripción disponible",
         "bid_id": "ID de Oferta",
         "section_task": "Tarea",
+        "section_budget": "Presupuesto",
+        "section_your_bid": "Tu puja",
         "section_your_offer": "Tu oferta",
         "section_received_offer": "Oferta recibida",
         "task_original_budget": "Presupuesto original de la tarea",
         "your_offer_amount": "Tu oferta",
         "sent_at": "Enviado el",
         "status_countered": "Contraoferta",
-        "status_withdrawn": "Retirada"
+        "status_withdrawn": "Retirada",
+        "withdraw_bid": "Retirar Oferta",
+        "withdraw_confirm_title": "¿Retirar Oferta?",
+        "withdraw_confirm_message": "¿Estás seguro de que deseas retirar esta oferta? El Tasker ya no podrá verla.",
+        "withdraw_confirm_submit": "Retirar",
+        "withdraw_confirm_cancel": "Cancelar",
+        "withdraw_success": "Oferta retirada exitosamente",
+        "withdraw_error": "Error al retirar la oferta"
     },
     "bid_form": {
         "title": "Coloca tu oferta",

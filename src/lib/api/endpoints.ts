@@ -16,12 +16,13 @@ const NOTIFICATIONS = 'notifications';
 export const ENDPOINTS = {
 	// Auth endpoints
 	AUTH: {
-		REGISTER_MASTER_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/register/master-key`,
-		ACCOUNT_RECOVERY_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/update/nostr/recovery-key`,
-		MASTER_KEY_ENCRYPTED_DATA: `${API_PATH}/${API_VERSION}/${AUTH}/encrypted-data`,
-		NOSTR_CHALLENGE: `${API_PATH}/${API_VERSION}/${AUTH}/nostr/challenge`,
+		NOSTR_CHALLENGE: `${API_PATH}/${API_VERSION}/${AUTH}/challenge`,
+		REGISTER: `${API_PATH}/${API_VERSION}/${AUTH}/register`,
 		PASSKEY_LOGIN: `${API_PATH}/${API_VERSION}/${AUTH}/login/passkey`,
-		NOSTR_LOGIN: `${API_PATH}/${API_VERSION}/${AUTH}/nostr/login`,
+		NOSTR_LOGIN: `${API_PATH}/${API_VERSION}/${AUTH}/login/nostr`,
+		ENCRYPTED_NOSTR_DATA: `${API_PATH}/${API_VERSION}/${AUTH}/login/nostr/encrypted-data`,
+		ENCRYPTED_PASSKEY_DATA: `${API_PATH}/${API_VERSION}/${AUTH}/login/passkey/encrypted-data`,
+		ACCOUNT_RECOVERY_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/recovery/setup`,
 		NOSTR_RECOVERY_VERIFY: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/verify`,
 		NOSTR_RECOVERY_COMPLETE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/complete`,
 		NOSTR_RECOVERY_INITIATE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/initiate`,
@@ -29,7 +30,7 @@ export const ENDPOINTS = {
 		VERIFY_TURNSTILE: `${API_PATH}/${API_VERSION}/${AUTH}/verify-turnstile`,
 		ONBOARDING_STATUS: `${API_PATH}/${API_VERSION}/${AUTH}/onboarding/status`,
 		CHECK_USERNAME: `${API_PATH}/${API_VERSION}/${AUTH}/username/check`,
-		MIGRATE_MASTER_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/migrate/master-key`,
+		MIGRATE_AUTH: `${API_PATH}/${API_VERSION}/${AUTH}/migrate`,
 	},
 
 	// Upload endpoints

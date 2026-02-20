@@ -21,10 +21,12 @@ import KINDS from '$lib/utils/constants/kinds';
  */
 export function clearBidCache(taskId?: string): void {
 	if (taskId) {
-		// Clear only the specific task's bid cache
+		// Clear the specific task's bid cache and all user bid caches
+		// since a change in a task's bid affects both the task view and the user's submitted bids view
 		smartCache.invalidateTaskBids(taskId);
+		smartCache.clearUserBids();
 		if (import.meta.env.DEV) {
-			console.debug(`Cleared bid cache for task: ${taskId}`);
+			console.debug(`Cleared bid cache for task: ${taskId} and all user bids`);
 		}
 	} else {
 		// Clear all bid caches if no specific ID provided
@@ -54,6 +56,38 @@ export function batchSatsFromUsd(amounts: number[], btcPrice: number): number[] 
 	return currencyCache.batchConvert(amounts, btcPrice);
 }
 
+/**
+ * Filter out NIP-09 deleted events from a list of Nostr events.
+ * Fetches kind 5 (deletion) events from the given authors and excludes any
+ * event whose ID is referenced in a deletion. Required because relays MAY
+ * not honor NIP-09 - clients MUST filter client-side per spec.
+ *
+ * @param events - Events to filter (e.g. bids)
+ * @returns Events with deleted ones removed
+ */
+async function filterNip09DeletedEvents(events: NostrEvent[]): Promise<NostrEvent[]> {
+	if (events.length === 0) return events;
+
+	const authors = [...new Set(events.map((e) => e.pubkey))];
+	const deletionFilter: Filter = {
+		kinds: [5],
+		authors,
+		limit: 500
+	};
+
+	const deletions = await queryNostrEvents(deletionFilter);
+	const deletedIds = new Set<string>();
+
+	for (const d of deletions) {
+		for (const tag of d.tags) {
+			if (tag[0] === 'e' && tag[1]) {
+				deletedIds.add(tag[1]);
+			}
+		}
+	}
+
+	return events.filter((e) => !deletedIds.has(e.id));
+}
 
 /**
  * Get all bids for a specific task using optimized tag-based filtering
@@ -106,7 +140,7 @@ export async function getBidsForTask(taskId: string, includeStatus: boolean = tr
 
 		// Query bids with optional status followup
 		// Status events are automatically linked by parent bid event ID via #e tag
-		const bids = await queryNostrEvents(
+		let bids = await queryNostrEvents(
 			filter,
 			followupFilter,
 			followupFilter ? {
@@ -114,6 +148,9 @@ export async function getBidsForTask(taskId: string, includeStatus: boolean = tr
 				keepLatest: true          // Only keep the most recent status per bid
 			} : undefined
 		);
+
+		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
+		bids = await filterNip09DeletedEvents(bids);
 
 		// Cache the results
 		smartCache.setBidsForTask(taskId, bids, 5);
@@ -168,7 +205,7 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
 
 		// Query bids with optional status followup
 		// Status events are automatically linked by parent bid event ID via #e tag
-		const bids = await queryNostrEvents(
+		let bids = await queryNostrEvents(
 			filter,
 			followupFilter,
 			followupFilter ? {
@@ -176,6 +213,9 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
 				keepLatest: true          // Only keep the most recent status per bid
 			} : undefined
 		);
+
+		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
+		bids = await filterNip09DeletedEvents(bids);
 
 		// Cache the results
 		smartCache.setBidsByUser(npub, bids, 5);
