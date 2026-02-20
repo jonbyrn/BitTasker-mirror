@@ -144,11 +144,14 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/list-service')) {
 			namespaces.push('dashboard/services/create', 'categories');
 		}
+		if (route.includes('/my-services')) {
+			namespaces.push('dashboard/services/my-services', 'dashboard/services/browse', 'categories');
+		}
 	}
 
 	// Services routes (public)
 	if (route.includes('/services') && !route.includes('/services/[')) {
-		namespaces.push('dashboard/services/browse', 'dashboard/services/create', 'categories');
+		namespaces.push('dashboard/services/browse', 'dashboard/services/create', 'dashboard/services/detail', 'categories');
 	}
 
 	if (route.includes('/onboarding')) namespaces.push('onboarding');

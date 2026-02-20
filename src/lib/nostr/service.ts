@@ -768,6 +768,30 @@ export async function deleteService(serviceId: string): Promise<string> {
 }
 
 /**
+ * Find service by Nostr event ID (64-char hex).
+ * Fetches the event and parses content; returns null if kind is not a service kind.
+ */
+export async function findServiceByEventId(eventId: string): Promise<Service | null> {
+	try {
+		const response = await nostrEventsService.findEventById(eventId);
+		const event = response?.data;
+		if (!event || (event.kind !== KINDS.SERVICE_ACTIVE && event.kind !== KINDS.SERVICE_DRAFT)) {
+			return null;
+		}
+		const contentData = JSON.parse(event.content) as ServiceBody;
+		const service: Service = {
+			...contentData,
+			id: event.id,
+			npub: event.pubkey
+		};
+		return service;
+	} catch (error) {
+		console.error('Error finding service by event ID:', error);
+		return null;
+	}
+}
+
+/**
  * Find service by uniqueId
  * Queries by d tag filter: #d: ['service-${uniqueId}']
  */

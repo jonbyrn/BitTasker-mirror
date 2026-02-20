@@ -1,0 +1,29 @@
+{
+	"dashboard": {
+		"services": {
+			"detail": {
+				"title": "Detalles del Servicio",
+				"description": "Consulta los detalles del servicio y contacta al Taskee.",
+				"not_found": "Servicio no encontrado",
+				"not_found_message": "El servicio que buscas no existe o ya no está disponible.",
+				"browse_services": "Explorar Servicios",
+				"portfolio": "Portafolio",
+				"faqs": "Preguntas Frecuentes",
+				"attachment": "Adjunto",
+				"taskee": "Taskee",
+				"avatar_alt": "Avatar del Taskee",
+				"interested": "¿Te interesa este servicio?",
+				"contact_taskee": "Contactar Taskee",
+				"request_quote": "Solicitar Cotización",
+				"you_are_provider": "Tú eres el proveedor de este servicio.",
+				"edit_service": "Editar Servicio",
+				"service_not_available": "Este servicio no está disponible actualmente.",
+				"member_since": "Miembro desde",
+				"anonymous": "Anónimo",
+				"see_more": "Ver más",
+				"see_less": "Ver menos",
+				"price_levels": "Niveles de Precio"
+			}
+		}
+	}
+}
