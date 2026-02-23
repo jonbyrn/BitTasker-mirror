@@ -164,7 +164,7 @@ export async function findTasks(
 
 			const limit = params.limit || BATCH_SIZE;
 			const currentItemsCount = get(tasksStore).items.length;
-			
+
 			// If we're loading more (page > 1), get the next batch from cache
 			if (params.page && params.page > 1) {
 				const startIndex = currentItemsCount;
@@ -213,7 +213,7 @@ export async function findTasks(
 
 			// Limit results to requested batch size for initial load
 			const limitedTasks = cleanTasks.slice(0, limit);
-			
+
 			// hasMore: true if we got the full limit AND there are more tasks available in cache
 			const hasMore = limitedTasks.length >= limit && cleanTasks.length > limit;
 
@@ -238,19 +238,28 @@ export async function findTasks(
 			const events = response.data || [];
 			// const total = events.length;
 
-		// For public users, show all tasks without filtering by npub
-		// This avoids triggering biometric authentication for public users
-		const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+			// For public users, show all tasks without filtering by npub
+			// This avoids triggering biometric authentication for public users
+			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
 
-		const rawTasks = events
-			.map((event: Event) => convertEventToTask(event))
-			.filter((task: Task) => {
-				// Exclude own tasks
-				return task.npub !== npub;
+			const rawTasks = events
+				.map((event: Event) => convertEventToTask(event))
+				.filter((task: Task) => {
+					// Exclude own tasks
+					return task.npub !== npub;
+				});
+
+			// Deduplicate by task.id (can occur when same replaceable event comes from multiple relays,
+			// or due to d-tag collision - same title+timestamp+suffix)
+			const seenIds = new Set<string>();
+			const uniqueTasks = rawTasks.filter((task: Task) => {
+				if (seenIds.has(task.id)) return false;
+				seenIds.add(task.id);
+				return true;
 			});
 
 			// Pre-index tasks for optimized filtering
-			const indexedTasks = indexTaskData(rawTasks);
+			const indexedTasks = indexTaskData(uniqueTasks);
 
 			// Apply optimized frontend filtering
 			const { tasks: filteredTasks, metrics } = filterIndexedTasks(indexedTasks, params);
@@ -259,11 +268,11 @@ export async function findTasks(
 			// Get existing cached data if available
 			const existingCached = cache.get(cacheKey);
 			let allCachedTasks: IndexedTask[] = [];
-			
+
 			if (existingCached && Date.now() - existingCached.timestamp < CACHE_TTL) {
 				// Merge with existing cache, avoiding duplicates
-				const existingIds = new Set(existingCached.data.map(t => t.id));
-				const newTasks = filteredTasks.filter(t => !existingIds.has(t.id));
+				const existingIds = new Set(existingCached.data.map((t) => t.id));
+				const newTasks = filteredTasks.filter((t) => !existingIds.has(t.id));
 				allCachedTasks = [...existingCached.data, ...newTasks];
 			} else {
 				allCachedTasks = filteredTasks;
@@ -283,7 +292,7 @@ export async function findTasks(
 			const limit = params.limit || BATCH_SIZE;
 			// Limit results to requested batch size
 			const limitedTasks = cleanTasks.slice(0, limit);
-			
+
 			// hasMore: true if we got the full limit from API
 			const hasMore = events.length >= limit;
 
