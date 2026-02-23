@@ -1,4 +1,4 @@
-import type { AuthState, Credentials, UserData } from '$lib/types/auth';
+import type { AuthState, BiometricData, Credentials, UserData } from '$lib/types/auth';
 import { writable } from 'svelte/store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
@@ -34,7 +34,7 @@ const createAuthStore = () => {
 		set(initialAuthState);
 	}
 
-	const setupAuthData = async (accessToken: string, authMethod: string, npub: string, userData: Partial<UserData>, biometricData?: Credentials, redirect: boolean = true) => {
+	const setupAuthData = async (accessToken: string, authMethod: string, npub: string, userData: Partial<UserData>, biometricData?: BiometricData, redirect: boolean = true) => {
 		await Preferences.set({ key: StorageKeys.ACCESS_TOKEN, value: accessToken });
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
 

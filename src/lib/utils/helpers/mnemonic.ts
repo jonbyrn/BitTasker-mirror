@@ -3,6 +3,7 @@ import { get } from "svelte/store";
 import { checkBiometricAvailability, getBiometricData } from "./biometrics";
 import { getWebBiometricData } from "./webBiometrics";
 import { decryptWalletMnemonicWithBiometrics } from "./auth";
+import authService from "$lib/api/services/auth.service";
 
 // Helper function to get mnemonic using the same logic as wallet.store.ts
 export async function getMnemonic(): Promise<string> {
@@ -16,17 +17,27 @@ export async function getMnemonic(): Promise<string> {
             return await decryptWalletMnemonicWithBiometrics(biometricData.encryptedData, biometricData.exportedKey);
         } else {
             const biometricsAvailable = await checkBiometricAvailability();
-            let biometricData = null;
+            let credentialData = null;
             if (biometricsAvailable) {
-                biometricData = await getBiometricData(true);
+                credentialData = await getBiometricData(true);
             } else {
-                biometricData = await getWebBiometricData(true);
+                credentialData = await getWebBiometricData(true);
             }
 
-            if (!biometricData) throw new Error('No biometric data found');
+            if (!credentialData) throw new Error('No biometric data found');
 
-            appStore.update((state) => ({ ...state, biometricData }));
-            return await decryptWalletMnemonicWithBiometrics(biometricData.encryptedData, biometricData.exportedKey);
+            const response = await authService.getPasskeyEncryptedData({
+                npub: credentialData.npub,
+                challenge: credentialData.challenge,
+                credentialId: credentialData.credentialId,
+                response: credentialData.response
+            });
+
+            if (!response.encryptedData) throw new Error('No encrypted data found');
+
+            appStore.update((state) => ({ ...state, biometricData: { npub: credentialData.npub, exportedKey: credentialData.exportedKey, encryptedData: response.encryptedData } }));
+
+            return await decryptWalletMnemonicWithBiometrics(response.encryptedData, credentialData.exportedKey);
         }
     } catch (error) {
         throw new Error(error instanceof Error ? error.message : 'Failed to get mnemonic');
