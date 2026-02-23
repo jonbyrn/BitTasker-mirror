@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
@@ -13,23 +14,19 @@
 	let selectedCategoryIds = $state([] as string[]);
 	let skillsMultiselectRef: any = $state(null);
 
-	$effect(() => {
+	// Initialize selectedCategoryIds from store once on mount; CategoryMultiselect onChange updates store
+	onMount(() => {
 		try {
-			// Sync with store categories
 			const currentCategories = $store.service.categories || [];
-			// Extract IDs from category objects
-			const categoryIds = currentCategories.map((cat) =>
-				typeof cat === 'string' ? cat : (cat as any).id
+			selectedCategoryIds = currentCategories.map((cat) =>
+				typeof cat === 'string' ? cat : (cat as { id: string }).id
 			);
-			if (JSON.stringify(categoryIds) !== JSON.stringify(selectedCategoryIds)) {
-				selectedCategoryIds = [...categoryIds];
-			}
 		} catch (error) {
-			console.error('Error syncing category IDs:', error);
+			console.error('Error initializing category IDs:', error);
 		}
 	});
 
-	// Handle category changes - now CategoryMultiselect returns IDs directly
+	// Handle category changes via CategoryMultiselect onChange callback
 	function handleCategoryChange(selectedItems: string[]) {
 		try {
 			// Convert IDs to full category objects

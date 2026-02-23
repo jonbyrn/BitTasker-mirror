@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
@@ -7,8 +8,8 @@
 
 	let { errors, direction } = $props();
 
-	// Initialize tiers if not set
-	$effect(() => {
+	// Initialize tiers if not set (run once on mount)
+	onMount(() => {
 		if (!$store.service.pricing?.tiers || $store.service.pricing.tiers.length === 0) {
 			// Create default 3 tiers
 			const defaultTiers: ServiceTier[] = [

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
@@ -7,8 +8,8 @@
 
 	let { errors, direction } = $props();
 
-	// Initialize FAQs if not set
-	$effect(() => {
+	// Initialize FAQs if not set (run once on mount)
+	onMount(() => {
 		if (!$store.service.faqs) {
 			store.updateService({
 				faqs: []

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
@@ -18,8 +19,7 @@
 	// Store object URLs for immediate preview (will be cleaned up)
 	let filePreviewUrls = $state<Map<File, string>>(new Map());
 
-	// Initialize portfolio if not set
-	$effect(() => {
+	onMount(() => {
 		if (!$store.service.portfolio) {
 			store.updateService({
 				portfolio: []
@@ -27,15 +27,11 @@
 		}
 	});
 
-	// Cleanup object URLs when component is destroyed
-	$effect(() => {
-		return () => {
-			// Cleanup all object URLs
-			filePreviewUrls.forEach((url) => {
-				URL.revokeObjectURL(url);
-			});
-			filePreviewUrls.clear();
-		};
+	onDestroy(() => {
+		filePreviewUrls.forEach((url) => {
+			URL.revokeObjectURL(url);
+		});
+		filePreviewUrls.clear();
 	});
 
 	// Validate file (no compression - compression will happen on publish)

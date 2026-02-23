@@ -5,6 +5,7 @@ import { get } from 'svelte/store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
+import { TAGS } from '$lib/utils/constants/tags';
 import { TranslationService } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '$lib/i18n/i18n';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
@@ -12,6 +13,27 @@ import { nip19 } from 'nostr-tools';
 
 // Translation service instance
 const translationService = new TranslationService();
+
+/**
+ * Generate a human-readable d-tag for service events (like tasks).
+ * Format: service-{slug}-{createdAt}-{suffix} for SEO and stable identification.
+ */
+function getReadableServiceDTag(title: string, createdAt: number, npub?: string): string {
+	const slug = title
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, '-')
+		.replace(/[^a-z0-9-]/g, '')
+		.slice(0, 50) || 'service';
+	const fromNpub = npub ? npub.replace(/[^a-z0-9]/gi, '').slice(0, 6) : '';
+	const suffix =
+		fromNpub.length >= 6
+			? fromNpub
+			: Array.from(crypto.getRandomValues(new Uint8Array(3)))
+					.map((b) => b.toString(16).padStart(2, '0'))
+					.join('');
+	return `service-${slug}-${createdAt}-${suffix}`;
+}
 
 /**
  * Generate translations for a service
@@ -399,21 +421,22 @@ function getDeliveryTimeInHours(pricing: ServicePricing): number | undefined {
 /**
  * Generate Nostr tags for service events
  * Includes NIP-99 compatible tags and BitTasker extensions
+ * @param dTagValue - Human-readable d-tag (same format as tasks), e.g. service-{slug}-{createdAt}-{suffix}
  */
 async function generateServiceTags(
 	serviceData: ServiceBody,
-	uniqueId: string
+	dTagValue: string
 ): Promise<string[][]> {
 	const tags: string[][] = [];
 
-	// NIP-99 COMPATIBLE TAGS (for interoperability)
-	tags.push(['d', `service-${uniqueId}`]); // NIP-99: Unique identifier (parameterized replaceable)
+	// NIP-99: d-tag unique identifier (human-readable, like tasks)
+	tags.push(['d', dTagValue]);
 	tags.push(['title', serviceData.title]); // NIP-99: Service title
 	tags.push(['summary', serviceData.description.substring(0, 200)]); // NIP-99: Brief summary/tagline
 	tags.push(['published_at', serviceData.createdAt.toString()]); // NIP-99: Publication timestamp
 	tags.push(['location', getLocationDisplayName(serviceData)]); // NIP-99: Service location
 	tags.push(['price', getPriceForTag(serviceData.pricing).toString(), serviceData.pricing.currency]); // NIP-99: Price array
-	tags.push(['status', serviceData.status]); // NIP-99: Status
+	tags.push([TAGS.S, serviceData.status]); // NIP-99: Status (single-char for filtering)
 
 	// BITTASKER EXTENSIONS (advanced features - human-readable tags)
 	const npub = await getNpub();
@@ -435,10 +458,10 @@ async function generateServiceTags(
 		});
 	}
 
-	// Location types
+	// Location types (single-char tag O for filtering)
 	if (serviceData.serviceLocationTypes && serviceData.serviceLocationTypes.length > 0) {
 		serviceData.serviceLocationTypes.forEach((locationType) => {
-			tags.push(['location_types', locationType]);
+			tags.push([TAGS.O, locationType]);
 		});
 	}
 
@@ -468,20 +491,20 @@ async function generateServiceTags(
 		tags.push(['per_distance_charge', charge.amount.toString(), charge.currency, charge.unit]);
 	}
 
-	// Pricing type
-	tags.push(['pricing_type', serviceData.pricing.type]);
+	// Pricing type (single-char tag Y for filtering)
+	tags.push([TAGS.Y, serviceData.pricing.type]);
 
-	// Price range tags (for tiered pricing)
+	// Price range tags for tiered pricing (single-char I, X for filtering)
 	if (serviceData.pricing.type === ServicePricingTypeEnum.TIERED && serviceData.pricing.tiers) {
 		const prices = serviceData.pricing.tiers.map((t) => t.price);
-		tags.push(['min_price', Math.min(...prices).toString(), serviceData.pricing.currency]);
-		tags.push(['max_price', Math.max(...prices).toString(), serviceData.pricing.currency]);
+		tags.push([TAGS.I, Math.min(...prices).toString(), serviceData.pricing.currency]);
+		tags.push([TAGS.X, Math.max(...prices).toString(), serviceData.pricing.currency]);
 	}
 
-	// Delivery time tags (for filtering)
+	// Delivery time (single-char tag U for filtering)
 	const deliveryTimeHours = getDeliveryTimeInHours(serviceData.pricing);
 	if (deliveryTimeHours !== undefined) {
-		tags.push(['delivery_time', deliveryTimeHours.toString()]);
+		tags.push([TAGS.U, deliveryTimeHours.toString()]);
 		// Add human-readable display for fixed/hourly pricing
 		if (
 			serviceData.pricing.type === ServicePricingTypeEnum.FIXED ||
@@ -510,7 +533,7 @@ function generateServiceNaddr(
 		const naddrData = {
 			kind,
 			pubkey,
-			d: dTag,
+			identifier: dTag,
 			...(relays && relays.length > 0 ? { relays } : {})
 		};
 		// Use custom 'nservice' prefix instead of standard 'naddr' for better branding
@@ -552,8 +575,9 @@ export async function listService(serviceData: ServiceBody): Promise<string> {
 			throw new Error('User not authenticated');
 		}
 
-		// Generate a unique identifier for this service
-		const uniqueId = crypto.randomUUID();
+		const createdAt = Math.floor(Date.now() / 1000);
+		// Human-readable d-tag (same pattern as tasks), used as unique identifier
+		const dTagValue = getReadableServiceDTag(serviceData.title, createdAt, npub);
 
 		// Use user name if available, otherwise use shortened npub as fallback
 		const username =
@@ -567,12 +591,12 @@ export async function listService(serviceData: ServiceBody): Promise<string> {
 		// Generate translations for all supported languages (BEFORE creating event)
 		const translations = await generateServiceTranslations(serviceData);
 
-		// Add metadata to service data
+		// Add metadata to service data (uniqueId = d-tag for backwards compat in content)
 		const serviceDataWithMeta = {
 			...serviceData,
 			creator,
-			createdAt: Math.floor(Date.now() / 1000),
-			uniqueId,
+			createdAt,
+			uniqueId: dTagValue,
 			...(translations && { translations }) // Only include if translations were generated
 		};
 
@@ -580,8 +604,8 @@ export async function listService(serviceData: ServiceBody): Promise<string> {
 		const eventKind =
 			serviceData.status === 'active' ? KINDS.SERVICE_ACTIVE : KINDS.SERVICE_DRAFT;
 
-		// Generate tags
-		const tags = await generateServiceTags(serviceDataWithMeta, uniqueId);
+		// Generate tags (d-tag is the human-readable identifier)
+		const tags = await generateServiceTags(serviceDataWithMeta, dTagValue);
 
 		// Create event
 		const event = {
@@ -595,7 +619,8 @@ export async function listService(serviceData: ServiceBody): Promise<string> {
 		const signedEvent = await getSignedEvent(event);
 		await nostrEventsService.publishEvent(signedEvent);
 
-		return signedEvent.id;
+		// Return d-tag (human-readable identifier for URLs and updates)
+		return dTagValue;
 	} catch (error) {
 		console.error('❌ Failed to list service:', error);
 		throw error;
@@ -603,83 +628,49 @@ export async function listService(serviceData: ServiceBody): Promise<string> {
 }
 
 /**
- * Update an existing service using NIP-33 parameterized replaceable events
+ * Update an existing service using NIP-33 parameterized replaceable events.
+ * Uses only #d tag identifier (human-readable, like tasks).
  */
-export async function updateService(serviceId: string, updates: Partial<ServiceBody>): Promise<string> {
+export async function updateService(dTag: string, updates: Partial<ServiceBody>): Promise<string> {
 	try {
-		// Check if serviceId is an event ID (64 hex chars) or UUID (uniqueId) or naddr
-		const isEventId = /^[0-9a-fA-F]{64}$/.test(serviceId);
-		const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-			serviceId
-		);
-		const isNaddr = serviceId.startsWith('nservice1') || serviceId.startsWith('naddr1');
-		let originalService = null;
-
-		if (isNaddr) {
-			// Decode naddr to get pubkey, kind, and d tag
-			try {
-				const decoded = nip19.decode(serviceId);
-				if (decoded.type === 'naddr') {
-					const dTagValue = decoded.data.d;
-					const filter = {
-						kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
-						'#d': [dTagValue],
-						authors: [decoded.data.pubkey],
-						limit: 1
-					};
-
-					const response = await nostrEventsService.requestEvents({
-						filters: [filter]
-					});
-
-					if (response.data && response.data.length > 0) {
-						// Get latest version (highest created_at)
-						originalService = response.data.reduce((latest, current) =>
-							current.created_at > latest.created_at ? current : latest
-						);
-					}
-				}
-			} catch (error) {
-				console.error('Error decoding naddr:', error);
-			}
-		} else if (isEventId) {
-			// It's an event ID, use it directly
-			const result = await nostrEventsService.findEventById(serviceId);
-			originalService = result.data;
-		} else if (isUuid) {
-			// It's a uniqueId (UUID), query by d-tag
-			const dTagValue = `service-${serviceId}`;
-			const filter = {
-				kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
-				'#d': [dTagValue],
-				limit: 1
-			};
-
-			const response = await nostrEventsService.requestEvents({
-				filters: [filter]
-			});
-
-			if (response.data && response.data.length > 0) {
-				// Get latest version (highest created_at)
-				originalService = response.data.reduce((latest, current) =>
-					current.created_at > latest.created_at ? current : latest
-				);
-			}
-		} else {
-			throw new Error('Invalid service ID format');
+		const npub = await getNpub();
+		if (!npub) {
+			throw new Error('User not authenticated');
 		}
+		const decoded = nip19.decode(npub);
+		if (decoded.type !== 'npub') {
+			throw new Error('Invalid npub');
+		}
+		const authorHex = decoded.data;
 
-		if (!originalService) {
+		const filter = {
+			kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
+			'#d': [dTag],
+			authors: [authorHex],
+			limit: 10
+		};
+
+		const response = await nostrEventsService.requestEvents({
+			filters: [filter]
+		});
+
+		if (!response.data?.length) {
 			throw new Error('Service not found');
 		}
+		const originalService = response.data.reduce((latest, current) =>
+			current.created_at > latest.created_at ? current : latest
+		);
 
 		// Parse original service data
 		const originalServiceData = JSON.parse(originalService.content) as ServiceBody;
 
-		// Get the original uniqueId
-		const uniqueId = originalServiceData.uniqueId;
-		if (!uniqueId) {
-			throw new Error('Original service has no uniqueId');
+		// d-tag is the stable identifier (from tags or param)
+		const dTagValue =
+			originalService.tags?.find((t: string[]) => t[0] === 'd')?.[1] ??
+			originalServiceData.uniqueId ??
+			dTag;
+		if (!dTagValue) {
+			throw new Error('Original service has no d-tag');
 		}
 
 		// Check if title or description changed - if so, regenerate translations
@@ -711,13 +702,13 @@ export async function updateService(serviceId: string, updates: Partial<ServiceB
 		const updatedServiceData: ServiceBody = {
 			...originalServiceData,
 			...updates,
-			uniqueId, // Keep the same uniqueId
+			uniqueId: dTagValue, // Keep same d-tag as identifier
 			status: updatedStatus,
 			...(translations && { translations }) // Include updated translations
 		};
 
-		// Generate tags
-		const tags = await generateServiceTags(updatedServiceData, uniqueId);
+		// Generate tags (same d-tag for replaceable event)
+		const tags = await generateServiceTags(updatedServiceData, dTagValue);
 
 		// Create update event using the same kind as original (or updated if status changed)
 		const event = {
@@ -740,18 +731,15 @@ export async function updateService(serviceId: string, updates: Partial<ServiceB
 
 /**
  * Delete a service using NIP-09 deletion event (kind 5)
+ * @param eventId - Nostr event ID (64-char hex) of the service event to delete
  */
-export async function deleteService(serviceId: string): Promise<string> {
+export async function deleteService(eventId: string): Promise<string> {
 	try {
-		// Create deletion event (kind 5)
 		const event = {
 			kind: 5, // NIP-09 deletion event
 			created_at: Math.floor(Date.now() / 1000),
 			content: 'Service deleted',
-			tags: [
-				['e', serviceId], // Reference to event being deleted
-				['k', KINDS.SERVICE_ACTIVE.toString()] // Service event kind
-			]
+			tags: [['e', eventId]] // Reference to event being deleted (kind is event key, no need for k tag)
 		};
 
 		// Sign and publish
@@ -792,24 +780,22 @@ export async function findServiceByEventId(eventId: string): Promise<Service | n
 }
 
 /**
- * Find service by uniqueId
- * Queries by d tag filter: #d: ['service-${uniqueId}']
+ * Find service by d-tag (human-readable identifier, same as tasks)
+ * Queries by #d tag filter.
  */
-export async function findServiceByUniqueId(uniqueId: string): Promise<Service | null> {
+export async function findServiceByUniqueId(dTag: string): Promise<Service | null> {
 	try {
-		const dTagValue = `service-${uniqueId}`;
 		const filter = {
 			kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
-			'#d': [dTagValue],
-			limit: 1
+			'#d': [dTag],
+			limit: 10
 		};
 
 		const response = await nostrEventsService.requestEvents({
 			filters: [filter]
 		});
 
-		if (response.data && response.data.length > 0) {
-			// Get latest version (highest created_at)
+		if (response.data?.length) {
 			const latestEvent = response.data.reduce((latest, current) =>
 				current.created_at > latest.created_at ? current : latest
 			);
@@ -844,7 +830,11 @@ export async function findServiceByNaddr(naddr: string): Promise<Service | null>
 			return null;
 		}
 
-		const dTagValue = decoded.data.d;
+		// NIP-19 AddressPointer uses 'identifier' for the d-tag value
+		const dTagValue = (decoded.data as { identifier?: string }).identifier ?? (decoded.data as { d?: string }).d;
+		if (!dTagValue) {
+			return null;
+		}
 		const filter = {
 			kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
 			'#d': [dTagValue],
