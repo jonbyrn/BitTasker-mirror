@@ -1,16 +1,9 @@
+import { Preferences } from '@capacitor/preferences';
 import type { ClientPlugin } from '$houdini';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
-
-// Only import Capacitor modules in browser
-let Preferences: any = null;
-if (browser) {
-	import('@capacitor/preferences').then(module => {
-		Preferences = module.Preferences;
-	});
-}
 
 interface GraphQLError {
 	message: string;
@@ -29,77 +22,67 @@ interface GraphQLError {
  * 3. Handles auth errors in responses
  */
 const authPlugin: ClientPlugin = () => {
-	// Keep token in memory for synchronous access
+	// Keep token and device ID in memory for synchronous access
 	let cachedToken: string | null = null;
-	let tokenInitialized = false;
-	let tokenInitPromise: Promise<void> | null = null;
+	let cachedDeviceId: string | null = null;
+	let initialized = false;
+	let initPromise: Promise<void> | null = null;
 
-	// Initialize token function
-	const initializeToken = async (): Promise<void> => {
-		if (!browser || !Preferences) return;
+	// Initialize function
+	const initialize = async (): Promise<void> => {
+		if (!browser) return;
 
 		try {
-			const result = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-			cachedToken = result.value;
+			// Fetch token and device ID in parallel for speed
+			const [tokenResult, deviceId] = await Promise.all([
+				Preferences.get({ key: StorageKeys.ACCESS_TOKEN }),
+				getDeviceIdentifier()
+			]);
+
+			cachedToken = tokenResult.value;
+			cachedDeviceId = deviceId;
 		} catch (error) {
-			console.error('Failed to initialize token:', error);
-			cachedToken = null;
+			console.error('[AuthPlugin] Initialization failed:', error);
 		} finally {
-			if (cachedToken) tokenInitialized = true;
+			initialized = true;
 		}
 	};
 
-	// Start initialization only in browser and after Preferences is loaded
+	// Start initialization immediately in browser
 	if (browser) {
-		// Create initialization promise right away
-		tokenInitPromise = new Promise<void>(resolve => {
-			// Delay initialization until Preferences is loaded
-			const checkAndInit = () => {
-				if (Preferences) {
-					initializeToken().then(resolve);
-				} else {
-					// Check again in 50ms
-					setTimeout(checkAndInit, 50);
-				}
-			};
-
-			checkAndInit();
-		});
+		initPromise = initialize();
 	}
 
 	return {
 		// Add auth token and device ID to outgoing requests
 		beforeNetwork: async (ctx, { next }) => {
-			// Only run in browser environment
-			if (browser) {
-				// Always ensure token is initialized before proceeding
-				if (!tokenInitialized && tokenInitPromise) {
-					await tokenInitPromise;
-				}
-
-				// Get device ID directly (it's fast enough to do on each request)
-				const deviceId = await getDeviceIdentifier();
-
-				// Create or extend the fetch params with headers
-				ctx.fetchParams = {
-					...(ctx.fetchParams || {}),
-					headers: {
-						...(ctx.fetchParams?.headers || {}),
-						...(cachedToken && { Authorization: `Bearer ${cachedToken}` }),
-						...(deviceId && { 'X-Device-ID': deviceId })
-					}
-				};
-
-				// Continue the request pipeline
-				next(ctx);
+			if (!browser) {
+				return next(ctx);
 			}
+
+			// Always ensure initialization is complete
+			if (!initialized && initPromise) {
+				await initPromise;
+			}
+
+			// Add headers to outgoing request
+			ctx.fetchParams = {
+				...(ctx.fetchParams || {}),
+				headers: {
+					...(ctx.fetchParams?.headers || {}),
+					...(cachedToken && { Authorization: `Bearer ${cachedToken}` }),
+					...(cachedDeviceId && { 'X-Device-ID': cachedDeviceId })
+				}
+			};
+
+			next(ctx);
 		},
 
 		// Handle auth errors in responses
 		end: async (ctx, { value, resolve }) => {
-			if (value.errors && value.errors.length > 0) {
-				console.warn('encountered errors:', value.errors);
+			let shouldRedirect = false;
 
+			if (value.errors && value.errors.length > 0) {
 				const authError = value.errors.find(
 					(err: GraphQLError) =>
 						err.extensions?.code === 'UNAUTHENTICATED' &&
@@ -107,25 +90,25 @@ const authPlugin: ClientPlugin = () => {
 				);
 
 				if (authError) {
-					console.warn('Detected auth error. Logging out...', authError);
+					console.warn('[AuthPlugin] Detected auth error. Logging out...');
 
-					// Only run Capacitor/browser-specific code in the browser
-					if (browser && Preferences) {
-						// Clear cached token
+					if (browser) {
 						cachedToken = null;
-
-						// Remove token from storage
 						await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 
-						// Redirect to auth page
 						const { authState } = await import('$lib/stores/auth.store');
 						authState.logout();
-						goto('/auth/login');
+						shouldRedirect = true;
 					}
 				}
 			}
 
 			resolve(ctx);
+
+			if (shouldRedirect) {
+				// eslint-disable-next-line svelte/no-navigation-without-resolve
+				goto('/auth/login');
+			}
 		}
 	};
 };
@@ -133,7 +116,7 @@ const authPlugin: ClientPlugin = () => {
 // Export methods to manage token - only perform operations in browser
 export const TokenManager = {
 	async setToken(token: string): Promise<void> {
-		if (browser && Preferences) {
+		if (browser) {
 			await Preferences.set({
 				key: StorageKeys.ACCESS_TOKEN,
 				value: token
@@ -142,11 +125,10 @@ export const TokenManager = {
 	},
 
 	async clearToken(): Promise<void> {
-		if (browser && Preferences) {
+		if (browser) {
 			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 		}
 	}
 };
 
 export default authPlugin;
-
