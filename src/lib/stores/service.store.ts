@@ -92,17 +92,18 @@ function createServiceStore() {
 		return isEditing ? EDIT_STORAGE_KEY : CREATE_STORAGE_KEY;
 	};
 
-	// Load draft from preferences
+	// Load draft from preferences (merge with initial state so pricing and other fields have defaults)
 	const loadDraft = async (isEditing: boolean = false) => {
 		const storageKey = getStorageKey(isEditing);
 		const stored = await Preferences.get({ key: storageKey });
 		if (stored.value) {
 			const parsedData = JSON.parse(stored.value);
+			const initialService = getInitialState().service;
 			store.update((state) => ({
 				...state,
 				id: parsedData.id || '',
 				uniqueId: parsedData.uniqueId || '',
-				service: { ...parsedData.service } as Partial<ServiceBody>,
+				service: { ...initialService, ...parsedData.service } as Partial<ServiceBody>,
 				currentStep: parsedData.currentStep || ServiceStepEnum.BASICS,
 				isEditing: Boolean(parsedData.isEditing ?? isEditing),
 				isDuplicating: Boolean(parsedData.isDuplicating ?? false),

@@ -3,14 +3,14 @@ import { type Event, type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
+import { TAG_FILTERS } from '$lib/utils/constants/tags';
 import {
 	indexServiceData,
 	filterIndexedServices,
 	cleanupIndexedServices,
 	type IndexedService
 } from '$lib/utils/service-indexing';
-import { Preferences } from '@capacitor/preferences';
-import { StorageKeys } from '$lib/utils/constants/storage';
+import { getNpub } from '$lib/utils/nostrKeys';
 import { findServiceByUniqueId } from './service';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
@@ -43,6 +43,8 @@ const performanceMetrics: FilterPerformanceMetrics[] = [];
 
 /**
  * Convert search params to Nostr filter
+ * Uses single-character tags from TAG_FILTERS (centralized in tags.ts)
+ * Only requests service kinds (SERVICE_ACTIVE) — deleted services are NIP-09 kind 5; we filter those client-side until relay supports exclusion.
  */
 function createServiceFilter(params: SearchServicesParams): Filter {
 	const filter: Filter & { [key: string]: string[] | number[] | string | number | undefined } = {
@@ -54,36 +56,27 @@ function createServiceFilter(params: SearchServicesParams): Filter {
 
 	// Enhanced search with NIP-50
 	if (params.search) {
-		const searchTerm = params.search.trim();
-		filter.search = searchTerm;
+		filter.search = params.search.trim();
 	}
 
-	// Status filter - use NIP-99 status tag
+	// Centralized single-char tag filters (TAG_FILTERS)
 	if (params.status && params.status.length > 0) {
-		filter['#status'] = params.status;
+		Object.assign(filter, TAG_FILTERS.byServiceStatus(params.status));
 	}
-
-	// Pricing type filter - use pricing_type tag
 	if (params.pricingType) {
-		filter['#pricing_type'] = [params.pricingType];
+		Object.assign(filter, TAG_FILTERS.byServicePricingType(params.pricingType));
 	}
-
-	// Location types filter - use location_types tag
 	if (params.serviceLocationTypes && params.serviceLocationTypes.length > 0) {
-		filter['#location_types'] = params.serviceLocationTypes;
+		Object.assign(filter, TAG_FILTERS.byServiceLocationTypes(params.serviceLocationTypes));
 	}
-
-	// Price range filters - use min_price and max_price tags for tiered, price tag for fixed/hourly
 	if (params.minPrice !== undefined) {
-		filter['#min_price'] = [params.minPrice.toString()];
+		Object.assign(filter, TAG_FILTERS.byServiceMinPrice(params.minPrice));
 	}
 	if (params.maxPrice !== undefined) {
-		filter['#max_price'] = [params.maxPrice.toString()];
+		Object.assign(filter, TAG_FILTERS.byServiceMaxPrice(params.maxPrice));
 	}
-
-	// Delivery time filter - use delivery_time tag (in hours)
 	if (params.deliveryTime !== undefined) {
-		filter['#delivery_time'] = [params.deliveryTime.toString()];
+		Object.assign(filter, TAG_FILTERS.byServiceDeliveryTime(params.deliveryTime));
 	}
 
 	return filter;
@@ -274,8 +267,7 @@ export async function findServices(
 		// For public users, exclude own services (if npub available and valid Bech32)
 		let filteredServices = activeServices;
 		try {
-			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
-			// Only decode if it looks like a NIP-19 npub (starts with npub1); otherwise skip to avoid Bech32 errors
+			const npub = await getNpub();
 			if (npub && typeof npub === 'string' && npub.startsWith('npub1')) {
 				const { nip19 } = await import('nostr-tools');
 				const decoded = nip19.decode(npub);
@@ -286,7 +278,6 @@ export async function findServices(
 			}
 		} catch (error) {
 			console.error('Error filtering own services:', error);
-			// If npub not available or invalid, show all services (public user)
 			console.debug('NPUB not available or invalid, showing all services');
 		}
 
@@ -391,9 +382,8 @@ export async function findMyServices(
 			filter.search = params.search.trim();
 		}
 
-		// Add status filter if provided
 		if (params.status && params.status.length > 0) {
-			filter['#status'] = params.status;
+			Object.assign(filter, TAG_FILTERS.byServiceStatus(params.status));
 		}
 
 		const response = await nostrEventsService.findEvents(filter);

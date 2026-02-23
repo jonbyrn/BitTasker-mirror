@@ -59,6 +59,19 @@ export const TAGS = {
 
 	/** Version - contract/escrow version (v1, v2, v3, etc.) */
 	V: 'v' as const,
+
+	// Service listing tags (NIP-99 / findServices filters)
+	/** Service location types (remote, tasker_location, etc.) */
+	O: 'o' as const,
+
+	/** Min price (service tiered pricing) */
+	I: 'i' as const,
+
+	/** Max price (service tiered pricing) */
+	X: 'x' as const,
+
+	/** Delivery time (hours) */
+	U: 'u' as const,
 } as const;
 
 /**
@@ -229,6 +242,25 @@ export const TAG_FILTERS = {
 
 	/** Filter events by location data */
 	byLocation: () => ({ [`#${TAGS.M}`]: ['location'] }),
+
+	// Service listing filters (single-char tags, same as TAG_PATTERNS)
+	/** Filter services by status (active, inactive, etc.) */
+	byServiceStatus: (status: string[]) => ({ [`#${TAGS.S}`]: status }),
+
+	/** Filter services by pricing type (FIXED, HOURLY, TIERED, etc.) */
+	byServicePricingType: (pricingType: string) => ({ [`#${TAGS.Y}`]: [pricingType] }),
+
+	/** Filter services by location types */
+	byServiceLocationTypes: (types: string[]) => ({ [`#${TAGS.O}`]: types }),
+
+	/** Filter services by min price */
+	byServiceMinPrice: (minPrice: number) => ({ [`#${TAGS.I}`]: [minPrice.toString()] }),
+
+	/** Filter services by max price */
+	byServiceMaxPrice: (maxPrice: number) => ({ [`#${TAGS.X}`]: [maxPrice.toString()] }),
+
+	/** Filter services by delivery time (hours) */
+	byServiceDeliveryTime: (hours: number) => ({ [`#${TAGS.U}`]: [hours.toString()] }),
 } as const;
 
 export default TAGS;

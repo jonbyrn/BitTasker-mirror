@@ -16,41 +16,43 @@
 		initialFilters?: SearchServicesParams;
 	}>();
 
-	// State
-	const filters = $state<SearchServicesParams>({
-		search: undefined,
-		categories: [],
-		skills: [],
-		serviceLocationTypes: [],
-		pricingType: undefined,
-		minPrice: undefined,
-		maxPrice: undefined,
-		deliveryTime: undefined,
-		location: undefined,
-		radius: 10, // Default radius in km
-		status: undefined,
-		page: 1,
-		limit: SERVICES_PER_PAGE
-	});
+	function getDefaultFilters(): SearchServicesParams {
+		return {
+			search: undefined,
+			categories: [],
+			skills: [],
+			serviceLocationTypes: [],
+			pricingType: undefined,
+			minPrice: undefined,
+			maxPrice: undefined,
+			deliveryTime: undefined,
+			location: undefined,
+			radius: 10, // Default radius in km
+			status: undefined,
+			page: 1,
+			limit: SERVICES_PER_PAGE
+		};
+	}
+
+	// State — use getDefaultFilters directly instead of a separate object literal
+	let filters = $state<SearchServicesParams>(getDefaultFilters());
 
 	// Store selected location coordinates for distance calculation
 	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
 
-	// Sync filters with initialFilters when drawer opens
+	// Sync filters with initialFilters when drawer opens (assign from getDefaultFilters + initialFilters)
 	$effect(() => {
 		if (isOpen && initialFilters) {
-			filters.categories = initialFilters.categories ? [...initialFilters.categories] : [];
-			filters.skills = initialFilters.skills ? [...initialFilters.skills] : [];
-			filters.serviceLocationTypes = initialFilters.serviceLocationTypes
-				? [...initialFilters.serviceLocationTypes]
-				: [];
-			filters.pricingType = initialFilters.pricingType;
-			filters.minPrice = initialFilters.minPrice;
-			filters.maxPrice = initialFilters.maxPrice;
-			filters.deliveryTime = initialFilters.deliveryTime;
-			filters.location = initialFilters.location;
-			filters.radius = initialFilters.radius ?? 10;
-			filters.status = initialFilters.status;
+			filters = {
+				...getDefaultFilters(),
+				...initialFilters,
+				categories: initialFilters.categories ? [...initialFilters.categories] : [],
+				skills: initialFilters.skills ? [...initialFilters.skills] : [],
+				serviceLocationTypes: initialFilters.serviceLocationTypes
+					? [...initialFilters.serviceLocationTypes]
+					: [],
+				radius: initialFilters.radius ?? 10
+			};
 		}
 	});
 
@@ -87,29 +89,11 @@
 		return enableBodyScroll;
 	});
 
-	// Clear all filters
+	// Clear all filters (use getDefaultFilters directly)
 	function clearFilters() {
-		filters.categories = [];
-		filters.skills = [];
-		filters.serviceLocationTypes = [];
-		filters.pricingType = undefined;
-		filters.minPrice = undefined;
-		filters.maxPrice = undefined;
-		filters.deliveryTime = undefined;
-		filters.location = undefined;
-		filters.radius = 10;
-		filters.status = undefined;
+		filters = getDefaultFilters();
 		selectedLocationCoords = null;
-
-		const cleanFilters: SearchServicesParams = {
-			...filters,
-			categories: [],
-			skills: [],
-			serviceLocationTypes: [],
-			location: undefined,
-			radius: undefined
-		};
-		onApply(cleanFilters);
+		onApply(getDefaultFilters());
 	}
 
 	// Apply filters and close drawer

@@ -288,7 +288,13 @@
 			const isUpdating = $page.url.searchParams.get('edit') === 'true';
 
 			if (isUpdating) {
-				signedEventId = await updateService($store.id, serviceData);
+				// updateService uses #d tag (human-readable identifier)
+				const dTag = $store.service.uniqueId;
+				if (!dTag) {
+					appStore.showErrorToast($t('dashboard.services.create.errors.service_not_found'));
+					return;
+				}
+				signedEventId = await updateService(dTag, serviceData);
 				appStore.showSuccessToast($t('dashboard.services.success.updated'));
 
 				// Refresh My Services list to show updated service

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
@@ -9,8 +10,8 @@
 
 	let { errors, direction } = $props();
 
-	// Initialize location types if not set
-	$effect(() => {
+	// Initialize location types if not set (run once on mount)
+	onMount(() => {
 		if (!$store.service.serviceLocationTypes || $store.service.serviceLocationTypes.length === 0) {
 			store.updateService({
 				serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE]

@@ -10,9 +10,15 @@
 
 	let { errors, direction } = $props();
 
-	// BTC price and USD/Sats sync (same as Create Task budget step)
-	let usdAmount = $state<number>(0);
+	// BTC price and USD amount from store (derived — no $effect needed)
 	let btcPrice = $state<number>(0);
+	let usdAmount = $derived.by(
+		() =>
+			$store.service.pricing?.type === ServicePricingTypeEnum.FIXED &&
+			$store.service.pricing?.amount != null
+				? $store.service.pricing.amount
+				: 0
+	);
 	let sats = $derived(
 		formatNumberForInput(btcPrice > 0 ? Math.round((usdAmount / btcPrice) * SATS_PER_BTC) : 0)
 	);
@@ -20,9 +26,6 @@
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-			if ($store.service.pricing?.amount != null) {
-				usdAmount = $store.service.pricing.amount;
-			}
 		} catch (err) {
 			console.error('Error fetching BTC price:', err);
 		}
@@ -48,7 +51,6 @@
 					currency: 'USDt'
 				}
 			});
-			usdAmount = usdValue;
 		} else {
 			store.updateService({
 				pricing: {
@@ -57,7 +59,6 @@
 					currency: 'USDt'
 				}
 			});
-			usdAmount = 0;
 		}
 	}
 
@@ -78,7 +79,6 @@
 					currency: 'USDt'
 				}
 			});
-			usdAmount = usdValue;
 		} else if (!isNaN(satsValue) && satsValue === 0) {
 			store.updateService({
 				pricing: {
@@ -87,29 +87,8 @@
 					currency: 'USDt'
 				}
 			});
-			usdAmount = 0;
 		}
 	}
-
-	// Initialize pricing if not set
-	$effect(() => {
-		if (!$store.service.pricing) {
-			store.updateService({
-				pricing: {
-					type: ServicePricingTypeEnum.FIXED,
-					currency: 'USDt',
-					amount: 0
-				}
-			});
-		}
-	});
-
-	// Sync usdAmount from store when amount changes externally
-	$effect(() => {
-		if ($store.service.pricing?.type === ServicePricingTypeEnum.FIXED && $store.service.pricing?.amount != null) {
-			usdAmount = $store.service.pricing.amount;
-		}
-	});
 
 	// Update pricing type
 	function updatePricingType(type: ServicePricingTypeEnum) {
