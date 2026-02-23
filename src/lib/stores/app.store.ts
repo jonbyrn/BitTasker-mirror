@@ -1,4 +1,4 @@
-import type { Credentials } from '$lib/types/auth';
+import type { BiometricData } from '$lib/types/auth';
 import { SimplePool } from 'nostr-tools';
 import { writable } from 'svelte/store';
 
@@ -17,7 +17,7 @@ interface AppStore {
 	isLoading: boolean;
 	error: string | null;
 	toasts: Toast[];
-	biometricData: Credentials | null;
+	biometricData: BiometricData | null;
 	network: 'mainnet' | 'testnet' | 'regtest';
 	pool: SimplePool;
 	relays: string[];

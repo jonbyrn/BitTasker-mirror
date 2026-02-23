@@ -224,9 +224,7 @@ export async function generatePasskeyName(npub: string): Promise<{
 	const metadataEvent = await getProfileMetaData(decodedNpub);
 	if (metadataEvent) {
 		const metadata = JSON.parse(metadataEvent.content);
-		if (metadata.display_name) {
-			passkeyName = metadata.display_name || metadata.displayName || metadata.name;
-		}
+		passkeyName = metadata.display_name || metadata.displayName || metadata.name;
 	}
 
 	const deviceShortName = await createUserDeviceShortName(decodedNpub);
