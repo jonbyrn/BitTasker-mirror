@@ -18,13 +18,14 @@
 		CONTRACT_MODAL_CONFIGS
 	} from '$lib/utils/constants/contract-modals';
 	import { portal } from '$lib/utils/portal';
-import {
-	sendTaskCompletionMessageToTasker,
-	sendPaymentReleasedMessageToTaskee
-} from '$lib/utils/location/sendLocation';
+	import {
+		sendTaskCompletionMessageToTasker,
+		sendPaymentReleasedMessageToTaskee
+	} from '$lib/utils/location/sendLocation';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { updateTask } from '$lib/nostr/task';
 	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	const {
 		contract,
@@ -56,7 +57,7 @@ import {
 	let blockchainCompletionStatus = $state<EscrowStatus | null>(null);
 
 	// Blockchain check cache (30 second TTL)
-	const blockchainCheckCache = new Map<
+	const blockchainCheckCache = new SvelteMap<
 		string,
 		{ status: EscrowStatus | null; timestamp: number }
 	>();
@@ -103,8 +104,11 @@ import {
 
 		// Convert timestamps to milliseconds if they're in seconds
 		const startTime =
-			Number(estimatedStartTime) > 1000000000000 ? Number(estimatedStartTime) : Number(estimatedStartTime) * 1000;
-		const createdTime = Number(createdAt) > 1000000000000 ? Number(createdAt) : Number(createdAt) * 1000;
+			Number(estimatedStartTime) > 1000000000000
+				? Number(estimatedStartTime)
+				: Number(estimatedStartTime) * 1000;
+		const createdTime =
+			Number(createdAt) > 1000000000000 ? Number(createdAt) : Number(createdAt) * 1000;
 
 		const hoursUntilStart = (Number(startTime) - now) / (1000 * 60 * 60);
 		const hoursSinceCreation = (now - createdTime) / (1000 * 60 * 60);
@@ -197,13 +201,8 @@ import {
 		try {
 			await escrow.escrowOps.completeTask(contract, attachments);
 
-			// Taskee marca completado y sube evidencia → actualizar estado de la tarea a COMPLETED (solo el taskee puede)
-			const taskId = contractStore.getContractKey(contract, 'taskId') as string | undefined;
-			if (taskId) {
-				updateTask(taskId, { status: TaskStatusEnum.COMPLETED }).catch((err) =>
-					console.error('Failed to update task status to COMPLETED:', err)
-				);
-			}
+			// Task event is owned by the Tasker; COMPLETED is set by the Tasker when they accept task (release funds), not here.
+			// See docs/task-status-flow.md.
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
@@ -249,8 +248,16 @@ import {
 
 		setLoading('accept', true);
 		try {
-			// Tasker acepta trabajo → libera pago. El estado COMPLETED de la tarea lo pone el taskee al marcar completado.
 			await escrow.escrowOps.acceptTask(contract);
+
+			// Task event is owned by the Tasker; set task status to COMPLETED only when Tasker accepts (releases funds).
+			// See docs/task-status-flow.md.
+			const taskId = contractStore.getContractKey(contract, 'taskId') as string | undefined;
+			if (taskId) {
+				updateTask(taskId, { status: TaskStatusEnum.COMPLETED }).catch((err) =>
+					console.error('Failed to update task status to COMPLETED:', err)
+				);
+			}
 
 			const taskTitle = contractStore.getContractKey(contract, 'taskTitle') as string;
 			const taskeeNpub = contractStore.getContractKey(contract, 'otherPartyNpub') as string;
@@ -275,7 +282,6 @@ import {
 					console.error('Failed to send payment released message to taskee:', messageError);
 				});
 			}
-
 		} catch (error) {
 			console.error('Error accepting task:', error);
 
@@ -611,7 +617,11 @@ import {
 	<!-- Complete Task (Freelancer) -->
 	{#if contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
 		<button
-			class="btn btn-success btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+			class="btn btn-success btn-sm {compactButtons
+				? 'w-fit'
+				: isInline
+					? 'w-full sm:w-fit'
+					: 'w-full min-w-0'}"
 			onclick={() => (activeModal = ContractModalAction.Complete)}
 			title={blockchainCompletionStatus === EscrowStatus.Completed
 				? $t('dashboard.contracts.actions.task_already_completed_tooltip')
@@ -659,7 +669,11 @@ import {
 	<!-- Accept Task (Client) -->
 	{#if contract.permissions.canAccept && !isAcceptDisabled && !isDisabledDueToPending}
 		<button
-			class="btn btn-success btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+			class="btn btn-success btn-sm {compactButtons
+				? 'w-fit'
+				: isInline
+					? 'w-full sm:w-fit'
+					: 'w-full min-w-0'}"
 			onclick={() => openModal(ContractModalAction.Accept)}
 		>
 			{#if isLoading.accept}
@@ -687,7 +701,11 @@ import {
 	<!-- Dispute Task (Client) -->
 	{#if contract.permissions.canDispute && !isDisputeDisabled}
 		<button
-			class="btn btn-error btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+			class="btn btn-error btn-sm {compactButtons
+				? 'w-fit'
+				: isInline
+					? 'w-full sm:w-fit'
+					: 'w-full min-w-0'}"
 			onclick={() => openModal(ContractModalAction.Dispute)}
 		>
 			{#if isLoading.dispute}
@@ -714,7 +732,7 @@ import {
 
 	<!-- Accept Proposal -->
 	{#if !isInline && contract.permissions.canAcceptProposal}
-		<div class="bg-base-300 col-span-2 min-w-0 w-full space-y-3 rounded-lg p-3">
+		<div class="bg-base-300 col-span-2 w-full min-w-0 space-y-3 rounded-lg p-3">
 			<h5 class="text-sm font-medium">
 				{$t('dashboard.contracts.actions.current_proposal')}
 			</h5>
@@ -838,7 +856,11 @@ import {
 	{#if contract.permissions.canPropose}
 		{#if isInline || !$contractStore.isResolutionFormOpen}
 			<button
-				class="btn btn-warning btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full'}"
+				class="btn btn-warning btn-sm {compactButtons
+					? 'w-fit'
+					: isInline
+						? 'w-full sm:w-fit'
+						: 'w-full'}"
 				class:hidden={!isInline && contract.permissions.canAcceptProposal}
 				onclick={openDrawerForResolution}
 			>
@@ -922,18 +944,12 @@ import {
 
 				<div class="flex flex-row-reverse gap-2 place-self-end">
 					{#if isLoading.propose}
-						<div
-							class="btn btn-warning btn-sm gap-2"
-							aria-busy="true"
-						>
+						<div class="btn btn-warning btn-sm gap-2" aria-busy="true">
 							<span class="loading loading-spinner loading-xs"></span>
 							{$t('dashboard.contracts.actions.propose')}
 						</div>
 					{:else}
-						<button
-							class="btn btn-warning btn-sm"
-							onclick={proposeResolution}
-						>
+						<button class="btn btn-warning btn-sm" onclick={proposeResolution}>
 							{$t('dashboard.contracts.actions.propose')}
 						</button>
 					{/if}
@@ -951,7 +967,11 @@ import {
 	<!-- Cancel Escrow -->
 	{#if contract.permissions.canCancel && !isCancelDisabled}
 		<button
-			class="btn btn-error btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+			class="btn btn-error btn-sm {compactButtons
+				? 'w-fit'
+				: isInline
+					? 'w-full sm:w-fit'
+					: 'w-full min-w-0'}"
 			onclick={() => openModal(ContractModalAction.Cancel)}
 		>
 			{#if isLoading.cancel}
@@ -979,32 +999,44 @@ import {
 	<!-- Resolve After Timelock -->
 	{#if contract.permissions.canResolveTimelock}
 		<div
-			class="flex flex-col gap-2 {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+			class="flex flex-col gap-2 {compactButtons
+				? 'w-fit'
+				: isInline
+					? 'w-full sm:w-fit'
+					: 'w-full min-w-0'}"
 		>
 			{#if !isInline}
-					<h5 class="text-sm font-medium">
-						{$t('dashboard.contracts.actions.timelock_resolution')}
-					</h5>
+				<h5 class="text-sm font-medium">
+					{$t('dashboard.contracts.actions.timelock_resolution')}
+				</h5>
 
-					<div class="text-base-content/60 text-xs">
-						{$t('dashboard.contracts.actions.timelock_expired_message')}
-					</div>
-				{/if}
+				<div class="text-base-content/60 text-xs">
+					{$t('dashboard.contracts.actions.timelock_expired_message')}
+				</div>
+			{/if}
 
-				{#if isLoading.resolveTimelock}
-					<div
-						class="btn btn-info btn-sm gap-2 {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-						aria-busy="true"
-					>
-						<span class="loading loading-spinner loading-xs"></span>
-						{$t('dashboard.contracts.actions.resolve_timelock')}
-					</div>
-				{:else}
-					<button
-						class="btn btn-info btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
-						onclick={resolveAfterTimelock}
-					>
-						<svg
+			{#if isLoading.resolveTimelock}
+				<div
+					class="btn btn-info btn-sm gap-2 {compactButtons
+						? 'w-fit'
+						: isInline
+							? 'w-full sm:w-fit'
+							: 'w-full min-w-0'}"
+					aria-busy="true"
+				>
+					<span class="loading loading-spinner loading-xs"></span>
+					{$t('dashboard.contracts.actions.resolve_timelock')}
+				</div>
+			{:else}
+				<button
+					class="btn btn-info btn-sm {compactButtons
+						? 'w-fit'
+						: isInline
+							? 'w-full sm:w-fit'
+							: 'w-full min-w-0'}"
+					onclick={resolveAfterTimelock}
+				>
+					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-4 w-4"
 						fill="none"
@@ -1018,9 +1050,9 @@ import {
 							d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
-						{$t('dashboard.contracts.actions.resolve_timelock')}
-					</button>
-				{/if}
+					{$t('dashboard.contracts.actions.resolve_timelock')}
+				</button>
+			{/if}
 		</div>
 	{/if}
 
@@ -1028,7 +1060,11 @@ import {
 	{#if contract.permissions.canDelete}
 		{#if isLoading.delete}
 			<div
-				class="btn btn-error btn-sm gap-2 {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+				class="btn btn-error btn-sm gap-2 {compactButtons
+					? 'w-fit'
+					: isInline
+						? 'w-full sm:w-fit'
+						: 'w-full min-w-0'}"
 				aria-busy="true"
 			>
 				<span class="loading loading-spinner loading-xs"></span>
@@ -1036,25 +1072,29 @@ import {
 			</div>
 		{:else}
 			<button
-				class="btn btn-error btn-sm {compactButtons ? 'w-fit' : isInline ? 'w-full sm:w-fit' : 'w-full min-w-0'}"
+				class="btn btn-error btn-sm {compactButtons
+					? 'w-fit'
+					: isInline
+						? 'w-full sm:w-fit'
+						: 'w-full min-w-0'}"
 				onclick={() => openModal(ContractModalAction.Delete)}
 			>
 				<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-4 w-4"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-				/>
-			</svg>
-			{$t('dashboard.contracts.actions.delete_contract')}
-		</button>
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+					/>
+				</svg>
+				{$t('dashboard.contracts.actions.delete_contract')}
+			</button>
 		{/if}
 	{/if}
 </div>

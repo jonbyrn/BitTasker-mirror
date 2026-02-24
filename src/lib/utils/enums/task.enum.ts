@@ -24,7 +24,7 @@ export enum TaskStatusEnum {
 	IN_PROGRESS = 'IN_PROGRESS', // work ongoing
 	RESCOPED = 'RESCOPED', // taskee proposed rescope
 	RESCOPE_ACCEPTED = 'RESCOPE_ACCEPTED', // tasker accepted rescope
-	COMPLETED = 'COMPLETED', // taskee marks task complete
+	COMPLETED = 'COMPLETED', // tasker sets when accepting task (releasing funds); task event is owned by tasker
 	CANCELLED = 'CANCELLED', // taskee cancelled task
 	REFUNDED = 'REFUNDED', // taskee refunded tasker
 	DISPUTED = 'DISPUTED', // tasker opened dispute

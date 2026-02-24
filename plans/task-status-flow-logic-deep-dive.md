@@ -11,17 +11,19 @@
 ```
 OPEN → BID_ACCEPTED → ESCROW_FUNDED → IN_PROGRESS → COMPLETED
   │         │               │               │            │
-  │         │               │               │            └── Freelancer completes task (ContractActions)
+  │         │               │               │            └── Tasker accepts task / releases funds (ContractActions → acceptTask)
   │         │               │               └── Bid accepted, escrow created (BidAcceptanceForm)
   │         │               └── Client funds escrow (blockchain)
   │         └── Client accepts bid (triggers escrow creation)
   └── Initial state when task is created
 ```
 
+**Task event ownership:** The task Nostr event is owned by the Tasker; only the Tasker should publish task status updates. See **docs/task-status-flow.md**.
+
 **This branch touches these transitions:**
 
 - **OPEN → IN_PROGRESS:** When Tasker accepts a bid (BidAcceptanceForm)
-- **IN_PROGRESS → COMPLETED:** When Freelancer marks task complete (ContractActions)
+- **IN_PROGRESS → COMPLETED:** When Tasker accepts task and releases funds (ContractActions → acceptTask). **Not** when Taskee marks complete (completeTask).
 
 ---
 
@@ -86,58 +88,60 @@ User clicks "Accept" in BidAcceptanceForm
 
 ---
 
-## 3. Flow B: IN_PROGRESS → COMPLETED (Contract Completion)
+## 3. Flow B: IN_PROGRESS → COMPLETED (Tasker accepts task / releases funds)
 
-### 3.1 Call Chain
+**Ownership:** The task event is owned by the Tasker. COMPLETED is set by the **Tasker** when they accept the task (release funds), not by the Taskee when they mark complete. See **docs/task-status-flow.md**.
+
+### 3.1 Taskee marks complete (no task event update)
 
 ```
-Freelancer clicks "Complete" in ContractActions
+Taskee clicks "Complete" in ContractActions
     │
     ├── completeTaskWithAttachments(attachments)
     │       │
-    │       ├── Guards: canComplete, !isPending, !alreadyCompleted (blockchain check)
-    │       │
     │       ├── escrow.escrowOps.completeTask(contract, attachments)
-    │       │       │
-    │       │       └── [escrow.ts] completeTask(escrowId, contractEventId, attachments)
-    │       │               │
-    │       │               ├── contract.completeTask(escrowId) → broadcasts tx
-    │       │               ├── publishEscrowStatus(PendingCompletion) — BEFORE confirmation
-    │       │               ├── tx.wait().then(...) — async:
-    │       │               │       └── publishEscrowStatus(Completed) — AFTER confirmation
-    │       │               └── Returns { hash, status: 'pending' } immediately
+    │       │       └── [escrow.ts] completeTask() → tx, PendingCompletion, then Completed on confirm
     │       │
-    │       ├── updateTask(taskId, { status: TaskStatusEnum.COMPLETED })  ◄── TASK STATUS UPDATE
-    │       │       └── [task.ts] updateTask() — same as Flow A
-    │       │
+    │       ├── (no updateTask — task event is owned by Tasker)
     │       ├── pushNotificationService.sendNotificationToNpubs(...)
     │       └── sendTaskCompletionMessageToTasker(...)
 ```
 
-### 3.2 Key Files and Lines
+### 3.2 Tasker accepts task → COMPLETED (task status update)
 
-| Step            | File                     | Lines   | Description                                                                   |
-| --------------- | ------------------------ | ------- | ----------------------------------------------------------------------------- |
-| Entry point     | `ContractActions.svelte` | 177–236 | `completeTaskWithAttachments()`                                               |
-| updateTask call | `ContractActions.svelte` | 199–205 | After `escrow.escrowOps.completeTask` returns                                 |
-| Escrow complete | `escrow.ts`              | 507–574 | `completeTask()` — tx broadcast, PendingCompletion, then Completed on confirm |
+```
+Tasker clicks "Accept" (release funds) in ContractActions
+    │
+    ├── acceptTask()
+    │       │
+    │       ├── escrow.escrowOps.acceptTask(contract)
+    │       │       └── [escrow.ts] acceptTask() → tx, FundsReleased on confirm
+    │       │
+    │       ├── updateTask(taskId, { status: TaskStatusEnum.COMPLETED })  ◄── TASK STATUS UPDATE (Tasker only)
+    │       │       └── [task.ts] updateTask()
+    │       │
+    │       ├── pushNotificationService.sendNotificationToNpubs(...)
+    │       └── sendPaymentReleasedMessageToTaskee(...)
+```
 
-### 3.3 Order of Operations
+### 3.3 Key Files and Lines
 
-1. **Blockchain check** — `checkBlockchainCompletionStatus()` to avoid double-complete.
-2. **Escrow tx broadcast** — `contract.completeTask(escrowId)`.
-3. **PendingCompletion published** — Nostr contract status event (prevents double-submit).
-4. **completeTask returns** — Does **not** await `tx.wait()`; returns immediately with `status: 'pending'`.
-5. **updateTask called** — Task status → COMPLETED (optimistic: before blockchain confirmation).
-6. **Notifications/messages** — Push + DM to Tasker.
-7. **Async: tx confirms** — `publishEscrowStatus(Completed)` runs in tx.wait() callback.
+| Step                | File                     | Description                                                                    |
+| ------------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| Taskee complete     | `ContractActions.svelte` | `completeTaskWithAttachments()` — no task event update.                        |
+| Tasker accept       | `ContractActions.svelte` | `acceptTask()` — calls `updateTask(..., COMPLETED)` after acceptTask succeeds. |
+| Escrow completeTask | `escrow.ts`              | 507–574 — completeTask()                                                       |
+| Escrow acceptTask   | `escrow.ts`              | 579+ — acceptTask()                                                            |
 
-**Important:** Task status is updated **optimistically** — right after tx broadcast, not after confirmation. The escrow Nostr status goes PendingCompletion → Completed when the tx confirms.
+### 3.4 Order of Operations
 
-### 3.4 Error Handling
+1. **Taskee:** completeTask on contract → PendingCompletion → (async) Completed on confirm. Task event stays IN_PROGRESS.
+2. **Tasker:** acceptTask on contract → funds released. Then Tasker updates task event to COMPLETED.
 
-- `updateTask` is called with `.catch(err => console.error(...))` — failure does not surface to user; task may show IN_PROGRESS in Nostr while contract shows Completed locally.
-- Escrow completion errors are caught and shown via `appStore.showErrorToast`.
+### 3.5 Error Handling
+
+- `updateTask` in acceptTask is called with `.catch(err => console.error(...))` — failure does not surface to user.
+- Escrow errors are caught and shown via `appStore.showErrorToast`.
 
 ---
 
