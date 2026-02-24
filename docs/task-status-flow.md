@@ -56,7 +56,14 @@ If the Taskee updated the task event to COMPLETED as soon as they marked complet
 
 ---
 
-## 5. See also
+## 5. Resilience and hardening
 
+Risks, priorities, and recommended actions (without implementing them) are in **[task-status-resilience.md](task-status-resilience.md)**. Use it as a checklist for cache merge, silent updateTask failure, backend verification, task ID consistency, and tests.
+
+---
+
+## 6. See also
+
+- **Resilience checklist:** [task-status-resilience.md](task-status-resilience.md) — P0–P3 items, risk vectors, how to deal with them.
 - **Plans:** `plans/task-status-flow-logic-deep-dive.md` — detailed call chains and order of operations.
 - **Enums:** `src/lib/utils/enums/task.enum.ts` — `TaskStatusEnum.COMPLETED` comment.
