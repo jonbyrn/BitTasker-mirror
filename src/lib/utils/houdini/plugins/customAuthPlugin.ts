@@ -25,32 +25,43 @@ const authPlugin: ClientPlugin = () => {
 	// Keep token and device ID in memory for synchronous access
 	let cachedToken: string | null = null;
 	let cachedDeviceId: string | null = null;
-	let initialized = false;
-	let initPromise: Promise<void> | null = null;
+	let tokenInitialized = false;
+	let tokenInitPromise: Promise<void> | null = null;
 
-	// Initialize function
-	const initialize = async (): Promise<void> => {
+	// Initialize token only — single Preferences.get() call, resolves quickly
+	const initializeToken = async (): Promise<void> => {
 		if (!browser) return;
 
 		try {
-			// Fetch token and device ID in parallel for speed
-			const [tokenResult, deviceId] = await Promise.all([
-				Preferences.get({ key: StorageKeys.ACCESS_TOKEN }),
-				getDeviceIdentifier()
-			]);
-
-			cachedToken = tokenResult.value;
-			cachedDeviceId = deviceId;
+			const result = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+			cachedToken = result.value;
 		} catch (error) {
-			console.error('[AuthPlugin] Initialization failed:', error);
+			console.error('[AuthPlugin] Token initialization failed:', error);
 		} finally {
-			initialized = true;
+			// Always mark as initialized so beforeNetwork never blocks twice
+			tokenInitialized = true;
+		}
+	};
+
+	// Initialize device ID separately — fire-and-forget, does NOT block requests.
+	// On first visit this can take several async hops (Device.getInfo, Device.getId,
+	// sha256 fingerprint, Preferences.set). Requests that fire before it resolves
+	// simply omit the X-Device-ID header; subsequent requests will have it cached.
+	const initializeDeviceId = async (): Promise<void> => {
+		if (!browser) return;
+
+		try {
+			cachedDeviceId = await getDeviceIdentifier();
+		} catch (error) {
+			console.error('[AuthPlugin] Device ID initialization failed:', error);
 		}
 	};
 
 	// Start initialization immediately in browser
 	if (browser) {
-		initPromise = initialize();
+		// Token init blocks the first request; device ID init does not
+		tokenInitPromise = initializeToken();
+		initializeDeviceId(); // intentionally not awaited
 	}
 
 	return {
@@ -60,9 +71,11 @@ const authPlugin: ClientPlugin = () => {
 				return next(ctx);
 			}
 
-			// Always ensure initialization is complete
-			if (!initialized && initPromise) {
-				await initPromise;
+			// Only await token initialization — fast (single localStorage read after
+			// the Capacitor web plugin loads on the first call).
+			// Device ID is used opportunistically: included when ready, omitted when not.
+			if (!tokenInitialized && tokenInitPromise) {
+				await tokenInitPromise;
 			}
 
 			// Add headers to outgoing request
