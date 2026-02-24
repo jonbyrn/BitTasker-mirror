@@ -34,10 +34,11 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 
 ### Other (`docs/`)
 
-| Document                                                     | Purpose                                                                                                         |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| [task-status-flow.md](task-status-flow.md)                   | Task event ownership (Tasker), who updates each status (OPEN, IN_PROGRESS, COMPLETED), and completion workflow. |
-| [gitea-to-gitlab-migration.md](gitea-to-gitlab-migration.md) | Gitea to GitLab migration (if present).                                                                         |
+| Document                                                     | Purpose                                                                                                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [task-status-flow.md](task-status-flow.md)                   | Task event ownership (Tasker), who updates each status (OPEN, IN_PROGRESS, COMPLETED), and completion workflow.                      |
+| [task-status-resilience.md](task-status-resilience.md)       | Resilience checklist: risks by priority (P0–P3), recommendations, and how to deal with them (documentation only; no implementation). |
+| [gitea-to-gitlab-migration.md](gitea-to-gitlab-migration.md) | Gitea to GitLab migration (if present).                                                                                              |
 
 ## See also
 

@@ -197,13 +197,13 @@ Same pattern for `myTasksStore`.
 
 ## 5. Escrow Events vs Task Status
 
-| Concern                                      | Handled By                         | When                                                 |
-| -------------------------------------------- | ---------------------------------- | ---------------------------------------------------- |
-| Task status (OPEN → IN_PROGRESS)             | BidAcceptanceForm → updateTask     | After escrow tx broadcast, before confirmation       |
-| Task status (IN_PROGRESS → COMPLETED)        | ContractActions → updateTask       | After completeTask tx broadcast, before confirmation |
-| Contract creation (Nostr)                    | escrowEvents.handleEscrowCreated   | When escrow tx confirms                              |
-| Bid status (ACCEPTED)                        | escrowEvents → sendBidStatusUpdate | When escrow tx confirms                              |
-| Escrow status (PendingCompletion, Completed) | escrow.ts → publishEscrowStatus    | Before/after completeTask tx                         |
+| Concern                                      | Handled By                         | When                                                    |
+| -------------------------------------------- | ---------------------------------- | ------------------------------------------------------- |
+| Task status (OPEN → IN_PROGRESS)             | BidAcceptanceForm → updateTask     | After escrow tx broadcast, before confirmation          |
+| Task status (IN_PROGRESS → COMPLETED)        | ContractActions → acceptTask       | After acceptTask (release funds) succeeds (Tasker only) |
+| Contract creation (Nostr)                    | escrowEvents.handleEscrowCreated   | When escrow tx confirms                                 |
+| Bid status (ACCEPTED)                        | escrowEvents → sendBidStatusUpdate | When escrow tx confirms                                 |
+| Escrow status (PendingCompletion, Completed) | escrow.ts → publishEscrowStatus    | Before/after completeTask tx                            |
 
 **Design note (from escrowEvents.ts:203):** "Task status update to IN_PROGRESS is done in BidAcceptanceForm.svelte to keep task logic out of escrow events."
 
