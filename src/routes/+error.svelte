@@ -1,13 +1,11 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Logo from '$lib/components/Logo.svelte';
 
 	// Simple error handling without complex derived values
 	let { error } = $props();
-
-	// Debug logging to understand error structure
-	
 
 	// Get basic error info - try multiple sources
 	const getErrorInfo = () => {
@@ -86,6 +84,18 @@
 	// Get error info and content
 	const errorInfo = getErrorInfo();
 	const errorContent = getErrorContent(errorInfo.status);
+
+	// Diagnostic: log once when the error page is shown (onMount is the right hook per Svelte docs)
+	onMount(() => {
+		const info = getErrorInfo();
+		console.error('[BitTasker Error Page]', {
+			status: info.status,
+			message: info.message,
+			pathname: page.url.pathname,
+			propsError: error,
+			pageError: page.error,
+		});
+	});
 
 	// Navigation functions
 	const goHome = () => {
