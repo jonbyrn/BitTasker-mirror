@@ -280,10 +280,8 @@
 			</div>
 		</div>
 
-		<!-- Description -->
-		{#if service.description}
-			<p class="text-sm text-base-content/70 line-clamp-2 mb-2">{service.description}</p>
-		{/if}
+		<!-- Description: 2 lines max with ellipsis (min-w-0 so line-clamp works inside flex) -->
+			<p class="text-sm text-base-content/70 line-clamp-2">{service.description}</p>
 
 		<!-- Categories and Skills - Moved up, no border, limit to 2 lines and show +X -->
 		{#if (service.categories && service.categories.length > 0) || (service.skills && service.skills.length > 0)}

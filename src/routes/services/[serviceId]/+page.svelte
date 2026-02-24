@@ -19,7 +19,6 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	const isLoggedIn = $derived($authState.isAuthenticated);
 	let width = $state(375);
 </script>
 
@@ -55,7 +54,7 @@
 
 <svelte:window bind:innerWidth={width} />
 
-{#if isLoggedIn}
+{#if $authState.isAuthenticated}
 	<div class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4">
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<div class="w-full shrink-0 md:w-64">

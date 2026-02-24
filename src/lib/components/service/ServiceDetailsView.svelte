@@ -17,7 +17,6 @@
 	}>();
 
 	const isOwner = $derived(service?.npub === $user?.npub);
-	const isLoggedIn = $derived($authState.isAuthenticated);
 
 	let descriptionExpanded = $state(false);
 	const DESCRIPTION_PREVIEW_LENGTH = 300;
@@ -85,7 +84,7 @@
 
 	function handleContactTaskee() {
 		if (!service?.npub) return;
-		if (!isLoggedIn) {
+		if (!$authState.isAuthenticated) {
 			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
 			return;
 		}

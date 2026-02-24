@@ -47,9 +47,6 @@
 	// Selected taskee for map display
 	let selectedTaskee = $state<TaskeeProfile | null>(null);
 
-	// Authentication state
-	let isAuthenticated = $derived($authState.isAuthenticated);
-
 	// Debounce function
 	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
 		let timeoutId: ReturnType<typeof setTimeout>;

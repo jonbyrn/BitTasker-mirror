@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { SearchServicesParams } from '$lib/types/service.d';
 	import { onMount, onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { browser } from '$app/environment';
 	import { servicesStore } from '$lib/stores/service.store';
 	import { findServices, cleanup } from '$lib/nostr/findServices';
@@ -37,6 +38,7 @@
 	// Lazy loading state
 	let serviceListRef = $state<HTMLElement | null>(null);
 	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+	let loadingTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 	let intersectionObserver: IntersectionObserver | null = null;
 
 	// Infinite scroll state
@@ -82,6 +84,19 @@
 	async function loadNostrData(): Promise<void> {
 		if (dataLoaded) return;
 
+		if (loadingTimeoutTimer) {
+			clearTimeout(loadingTimeoutTimer);
+			loadingTimeoutTimer = null;
+		}
+		loadingTimeout = false;
+
+		loadingTimeoutTimer = setTimeout(() => {
+			if (get(servicesStore).loading && !dataLoaded) {
+				loadingTimeout = true;
+				console.error('[FindServices] Query timeout - fetching took too long');
+			}
+		}, 10000);
+
 		try {
 			cleanup();
 
@@ -101,6 +116,7 @@
 
 			await findServices(searchParams);
 			dataLoaded = true;
+			isInitialLoad = false;
 			showSkeleton = false;
 
 			if (serviceListRef) {
@@ -117,6 +133,12 @@
 			}
 		} catch (error) {
 			console.error('[FindServices] Error loading Nostr data:', error);
+		} finally {
+			if (loadingTimeoutTimer) {
+				clearTimeout(loadingTimeoutTimer);
+				loadingTimeoutTimer = null;
+			}
+			loadingTimeout = false;
 		}
 	}
 
@@ -323,6 +345,7 @@
 
 			if ($servicesStore.items.length > 0) {
 				dataLoaded = true;
+				isInitialLoad = false;
 				showSkeleton = false;
 				if (serviceListRef) {
 					setupInfiniteScroll();
@@ -344,6 +367,10 @@
 				clearTimeout(fallbackTimer);
 				fallbackTimer = null;
 			}
+			if (loadingTimeoutTimer) {
+				clearTimeout(loadingTimeoutTimer);
+				loadingTimeoutTimer = null;
+			}
 
 			if (scrollHandler && serviceListRef) {
 				serviceListRef.removeEventListener('scroll', scrollHandler);
@@ -352,29 +379,6 @@
 
 			cleanup();
 		}
-	});
-
-	// Loading state management effect
-	$effect(() => {
-		if (isInitialLoad && dataLoaded) {
-			isInitialLoad = false;
-		}
-
-		let timer: ReturnType<typeof setTimeout> | undefined;
-		if ($servicesStore.loading && searchParams.page === 1 && !dataLoaded) {
-			timer = setTimeout(() => {
-				if ($servicesStore.loading && searchParams.page === 1 && !dataLoaded) {
-					loadingTimeout = true;
-					console.error('[FindServices] Query timeout - fetching took too long');
-				}
-			}, 10000);
-		} else {
-			loadingTimeout = false;
-		}
-
-		return () => {
-			if (timer) clearTimeout(timer);
-		};
 	});
 
 	function getSearchPlaceholder(): string {
