@@ -40,6 +40,14 @@ export default ts.config(
 			'svelte/no-navigation-without-resolve': 'off'
 		}
 	},
+	// SvelteKit +error.svelte receives `error` (and optionally `status`) from the framework; the
+	// valid-prop-names rule only allows data/errors/form/params/snapshot, so we exempt this file.
+	{
+		files: ['**/routes/+error.svelte'],
+		rules: {
+			'svelte/valid-prop-names-in-kit-pages': 'off'
+		}
+	},
 	{
 		files: ['src/lib/api/functions/**/*.ts', 'src/lib/api/functions/**/*.js'],
 		languageOptions: {

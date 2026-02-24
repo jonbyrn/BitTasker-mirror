@@ -23,23 +23,25 @@ if (process.env.NODE_ENV !== 'development') {
 
 		// Enable sending user PII (Personally Identifiable Information)
 		// https://docs.sentry.io/platforms/javascript/guides/sveltekit/configuration/options/#sendDefaultPii
-		sendDefaultPii: true,
+		sendDefaultPii: true
 	});
 }
 
 // If you have a custom error handler, pass it to `handleErrorWithSentry`
 /* { error, event, status, message } */
-export const handleError: HandleClientError = handleErrorWithSentry(({ error, event, status, message }) => {
-	// Diagnostic: log the real error so the console has enough to diagnose server/GraphQL/auth issues
-	console.error('[BitTasker handleError]', {
-		status,
-		message,
-		error,
-		errorMessage: error instanceof Error ? error.message : String(error),
-		errorStack: error instanceof Error ? error.stack : undefined,
-		event: event?.type,
-	});
-	return {
-		message: 'Whoops! An error occurred',
-	};
-});
+export const handleError: HandleClientError = handleErrorWithSentry(
+	({ error, event, status, message }) => {
+		// Diagnostic: log the real error so the console has enough to diagnose server/GraphQL/auth issues
+		console.error('[BitTasker handleError]', {
+			status,
+			message,
+			error,
+			errorMessage: error instanceof Error ? error.message : String(error),
+			errorStack: error instanceof Error ? error.stack : undefined,
+			event: event?.type
+		});
+		return {
+			message: 'Whoops! An error occurred'
+		};
+	}
+);

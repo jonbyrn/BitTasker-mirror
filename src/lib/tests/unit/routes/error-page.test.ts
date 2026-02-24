@@ -68,7 +68,9 @@ describe('Error page (+error.svelte)', () => {
 
 			expect(screen.getByText('Bad Request')).toBeInTheDocument();
 			expect(
-				screen.getByText('There was an issue with your request. Please check your input and try again.')
+				screen.getByText(
+					'There was an issue with your request. Please check your input and try again.'
+				)
 			).toBeInTheDocument();
 		});
 	});

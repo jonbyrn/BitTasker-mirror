@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import Logo from '$lib/components/Logo.svelte';
 
-	// Simple error handling without complex derived values
+	// SvelteKit passes `error` (and optionally `status`) to +error.svelte; exception is in eslint.config.js
 	let { error } = $props();
 
 	// Get basic error info - try multiple sources
@@ -19,7 +19,12 @@
 		// If no error in props, try to get from page store
 		else if (page.error) {
 			// Handle different error types
-			const pageError = page.error as any;
+			const pageError = page.error as {
+				status?: number;
+				code?: number;
+				message?: string;
+				body?: { message?: string };
+			};
 
 			// Check if this is a "Not Found" error (common for 404s)
 			if (pageError?.message === 'Not Found' || pageError?.message?.includes('Not found')) {
@@ -93,7 +98,7 @@
 			message: info.message,
 			pathname: page.url.pathname,
 			propsError: error,
-			pageError: page.error,
+			pageError: page.error
 		});
 	});
 
