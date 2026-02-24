@@ -37,9 +37,6 @@
 	// Control npub QR code modal
 	let showNpubQrModal = $state(false);
 
-	// Track if user is logged in
-	let isLoggedIn = $derived($authState.isAuthenticated);
-
 	// Dropdown state - track which section ID is open
 	let openSectionId = $state<string | null>(null);
 
@@ -82,7 +79,7 @@
 
 	// Initialize stores when component mounts
 	onMount(async () => {
-		if (isLoggedIn) {
+		if ($authState.isAuthenticated) {
 			try {
 				// Initialize user store
 				await user.getUserData();
@@ -189,7 +186,7 @@
 			</button>
 		{:else}
 			<!-- Regular link -->
-			{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
+			{@const itemHref = item.getDynamicHref ? item.getDynamicHref($authState.isAuthenticated) : item.href || '#'}
 			<a
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
@@ -262,7 +259,7 @@
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
+		<a href={$authState.isAuthenticated ? '/dashboard' : '/'} class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -278,7 +275,7 @@
 	<!-- Hide navbar-center on mobile and tablet -->
 	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
-			{#if isLoggedIn}
+			{#if $authState.isAuthenticated}
 				<!-- Logged-in menu sections -->
 				{#each LOGGED_IN_MENU_SECTIONS as section}
 					{@render menuSection(section)}
@@ -308,7 +305,7 @@
 			<DarkModeToggle />
 		</div>
 		<!-- login/signup or notification + avatar -->
-		{#if !isLoggedIn}
+		{#if !$authState.isAuthenticated}
 			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">{$t('navbar.login')}</a>
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
@@ -372,7 +369,7 @@
 
 			<li class="divider"></li>
 
-			{#if isLoggedIn}
+			{#if $authState.isAuthenticated}
 				<!-- Logged-in mobile menu -->
 				{#each MOBILE_DRAWER_LOGGED_IN as item}
 					<li>
@@ -388,7 +385,7 @@
 								{$t(item.label)}
 							</button>
 						{:else}
-							{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
+							{@const itemHref = item.getDynamicHref ? item.getDynamicHref($authState.isAuthenticated) : item.href || '#'}
 							<a
 								href={itemHref}
 								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}

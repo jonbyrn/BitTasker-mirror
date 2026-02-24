@@ -5,8 +5,9 @@
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
 	import { serviceStore as store, STEPS } from '$lib/stores/service.store';
-	import { listService, updateService, findServiceByUniqueId, findServiceByNaddr } from '$lib/nostr/service';
+	import { listService, updateService, findServiceByUniqueId } from '$lib/nostr/service';
 	import { findMyServices } from '$lib/nostr/findServices';
+	import { myServicesStore } from '$lib/stores/service.store';
 	import { ServiceStepEnum, ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { t } from 'svelte-i18n';
 	import { browser } from '$app/environment';
@@ -35,8 +36,14 @@
 	// Function to refresh My Services list after creating/updating a service
 	async function refreshMyServices() {
 		try {
-			// Reload the first page of My Services to show the new service
-			await findMyServices({ page: 1, limit: 20, refresh: true });
+			const result = await findMyServices({ page: 1, limit: 100, refresh: true });
+			myServicesStore.update((s) => ({
+				...s,
+				items: result.services,
+				currentPage: 1,
+				hasMore: result.hasMore,
+				error: null
+			}));
 		} catch (error) {
 			console.error('Error refreshing My Services:', error);
 		}
@@ -74,15 +81,7 @@
 			if (isEditing && serviceIdParam) {
 				// Load service for edit mode
 				try {
-					let service: Service | null = null;
-
-					// Try to load by naddr first (standard format)
-					if (serviceIdParam.startsWith('nservice1') || serviceIdParam.startsWith('naddr1')) {
-						service = await findServiceByNaddr(serviceIdParam);
-					} else {
-						// Fallback to uniqueId
-						service = await findServiceByUniqueId(serviceIdParam);
-					}
+					const service = await findServiceByUniqueId(serviceIdParam);
 
 					if (!service) {
 						appStore.showErrorToast($t('dashboard.services.create.errors.service_not_found'));
@@ -103,15 +102,7 @@
 			} else if (isDuplicating && serviceIdParam) {
 				// Load service for duplicate mode
 				try {
-					let service: Service | null = null;
-
-					// Try to load by naddr first (standard format)
-					if (serviceIdParam.startsWith('nservice1') || serviceIdParam.startsWith('naddr1')) {
-						service = await findServiceByNaddr(serviceIdParam);
-					} else {
-						// Fallback to uniqueId
-						service = await findServiceByUniqueId(serviceIdParam);
-					}
+					const service = await findServiceByUniqueId(serviceIdParam);
 
 					if (!service) {
 						appStore.showErrorToast($t('dashboard.services.create.errors.service_not_found'));
@@ -311,7 +302,9 @@
 				// Clear the draft (creation or duplicate)
 				await store.clearDraft(false);
 
-				// Refresh My Services list to show new service
+				// Brief delay so the relay can index the new event before we fetch
+				await new Promise((r) => setTimeout(r, 600));
+				// Refresh My Services list and update store so the list is ready when we navigate
 				await refreshMyServices();
 
 				await goto('/dashboard/my-services');

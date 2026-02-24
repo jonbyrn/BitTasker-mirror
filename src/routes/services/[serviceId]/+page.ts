@@ -1,52 +1,17 @@
 import type { PageLoad } from './$types';
 import type { Service } from '$lib/types/service.d';
-import { redirect } from '@sveltejs/kit';
-import {
-	findServiceByUniqueId,
-	findServiceByNaddr,
-	findServiceByEventId
-} from '$lib/nostr/service';
+import { findServiceByUniqueId } from '$lib/nostr/service';
 
-const SITE_URL = 'https://bittasker.com';
+const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
 export const prerender = false;
 
-function isNaddr(str: string): boolean {
-	return str.startsWith('nservice1') || str.startsWith('naddr1');
-}
-
-function isEventId(str: string): boolean {
-	return /^[0-9a-fA-F]{64}$/.test(str);
-}
-
 export const load: PageLoad = async ({ params }) => {
 	const serviceId = params.serviceId;
-	let service: Service | null = null;
-	let canonicalId = serviceId;
-	let shouldRedirect = false;
+	const service: Service | null = await findServiceByUniqueId(serviceId);
+	const canonicalId = service?.uniqueId ?? serviceId;
 
-	if (isNaddr(serviceId)) {
-		service = await findServiceByNaddr(serviceId);
-		if (service?.uniqueId) {
-			canonicalId = service.uniqueId;
-			shouldRedirect = true;
-		}
-	} else if (isEventId(serviceId)) {
-		service = await findServiceByEventId(serviceId);
-		if (service?.uniqueId) {
-			canonicalId = service.uniqueId;
-			shouldRedirect = true;
-		}
-	} else {
-		service = await findServiceByUniqueId(serviceId);
-		canonicalId = service?.uniqueId ?? serviceId;
-	}
-
-	if (shouldRedirect && canonicalId && canonicalId !== serviceId) {
-		redirect(301, `/services/${canonicalId}`);
-	}
-
-	const canonicalUrl = `${SITE_URL}/services/${canonicalId}`;
+	const canonicalUrl = `${baseUrl}/services/${canonicalId}`;
 
 	const defaultSeo = {
 		title: 'Service Details - BitTasker',
@@ -57,23 +22,23 @@ export const load: PageLoad = async ({ params }) => {
 		ogTitle: 'Service Details - BitTasker',
 		ogDescription:
 			'View service details on BitTasker, the Bitcoin-powered task and service marketplace.',
-		ogImage: `${SITE_URL}/images/og-task-default.jpg`,
+		ogImage: `${baseUrl}/images/og-task-default.jpg`,
 		twitterTitle: 'Service Details - BitTasker',
 		twitterDescription:
 			'View service details on BitTasker, the Bitcoin-powered task and service marketplace.',
-		twitterImage: `${SITE_URL}/images/og-task-default.jpg`,
+		twitterImage: `${baseUrl}/images/og-task-default.jpg`,
 		jsonLd: null
 	};
 
 	if (service) {
 		const title = service.title || 'Untitled Service';
 		const desc =
-			service.description?.replace(/\s+/g, ' ').slice(0, 157) + (service.description?.length > 157 ? '...' : '') ||
-			'No description available';
+			service.description?.replace(/\s+/g, ' ').slice(0, 157) +
+				(service.description?.length > 157 ? '...' : '') || 'No description available';
 		const firstImage = service.portfolio?.find(
 			(a) => a.url && !/\.(mp4|webm|ogg|mov)$/i.test(a.url)
 		);
-		const image = firstImage?.url || `${SITE_URL}/images/og-task-default.jpg`;
+		const image = firstImage?.url || `${baseUrl}/images/og-task-default.jpg`;
 
 		defaultSeo.title = `${title} - BitTasker`;
 		defaultSeo.description = desc;
@@ -83,24 +48,12 @@ export const load: PageLoad = async ({ params }) => {
 		defaultSeo.twitterTitle = title;
 		defaultSeo.twitterDescription = desc;
 		defaultSeo.twitterImage = image;
-		defaultSeo.jsonLd = {
-			'@context': 'https://schema.org',
-			'@type': 'Service',
-			name: title,
-			description: service.description,
-			url: canonicalUrl,
-			provider: service.creator
-				? {
-						'@type': 'Person',
-						name: service.creator.username
-					}
-				: undefined
+		defaultSeo.jsonLd = null;
+
+		return {
+			service,
+			serviceId: canonicalId,
+			seo: defaultSeo
 		};
 	}
-
-	return {
-		service,
-		serviceId: canonicalId,
-		seo: defaultSeo
-	};
 };

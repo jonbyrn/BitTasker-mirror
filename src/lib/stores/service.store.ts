@@ -119,21 +119,21 @@ function createServiceStore() {
 		}
 
 		const save = async () => {
-			const storeData = get(store);
-			if (storeData) {
-				const editingMode = isEditing !== null ? isEditing : Boolean(storeData.isEditing);
+			const state = get(store);
+			if (state) {
+				const editingMode = isEditing !== null ? isEditing : Boolean(state.isEditing);
 				const storageKey = getStorageKey(editingMode);
 
 				await Preferences.set({
 					key: storageKey,
 					value: JSON.stringify({
-						id: storeData.id,
-						uniqueId: storeData.uniqueId,
-						currentStep: storeData.currentStep,
-						service: storeData.service,
+						id: state.id,
+						uniqueId: state.uniqueId,
+						currentStep: state.currentStep,
+						service: state.service,
 						isEditing: editingMode,
-						isDuplicating: storeData.isDuplicating,
-						originalServiceId: storeData.originalServiceId
+						isDuplicating: state.isDuplicating,
+						originalServiceId: state.originalServiceId
 					})
 				});
 			}
@@ -192,8 +192,7 @@ function createServiceStore() {
 			}
 			return state;
 		});
-		const storeData = get(store);
-		saveDraft(Boolean(storeData.isEditing), true); // Immediate save on step change
+		saveDraft(Boolean(get(store).isEditing), true); // Immediate save on step change
 	};
 
 	const previousStep = () => {
@@ -217,8 +216,7 @@ function createServiceStore() {
 			...state,
 			service: { ...state.service, ...updates } as Partial<ServiceBody>
 		}));
-		const storeData = get(store);
-		saveDraft(Boolean(storeData.isEditing), immediate);
+		saveDraft(Boolean(get(store).isEditing), immediate);
 	};
 
 	// Update store data (for non-service fields like pendingFiles, isLoading, error)
@@ -227,8 +225,7 @@ function createServiceStore() {
 			...state,
 			...updates
 		}));
-		const storeData = get(store);
-		saveDraft(Boolean(storeData.isEditing), immediate);
+		saveDraft(Boolean(get(store).isEditing), immediate);
 	};
 
 	// Load service for edit mode

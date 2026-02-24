@@ -756,30 +756,6 @@ export async function deleteService(eventId: string): Promise<string> {
 }
 
 /**
- * Find service by Nostr event ID (64-char hex).
- * Fetches the event and parses content; returns null if kind is not a service kind.
- */
-export async function findServiceByEventId(eventId: string): Promise<Service | null> {
-	try {
-		const response = await nostrEventsService.findEventById(eventId);
-		const event = response?.data;
-		if (!event || (event.kind !== KINDS.SERVICE_ACTIVE && event.kind !== KINDS.SERVICE_DRAFT)) {
-			return null;
-		}
-		const contentData = JSON.parse(event.content) as ServiceBody;
-		const service: Service = {
-			...contentData,
-			id: event.id,
-			npub: event.pubkey
-		};
-		return service;
-	} catch (error) {
-		console.error('Error finding service by event ID:', error);
-		return null;
-	}
-}
-
-/**
  * Find service by d-tag (human-readable identifier, same as tasks)
  * Queries by #d tag filter.
  */
@@ -814,58 +790,6 @@ export async function findServiceByUniqueId(dTag: string): Promise<Service | nul
 		return null;
 	} catch (error) {
 		console.error('Error finding service by uniqueId:', error);
-		return null;
-	}
-}
-
-/**
- * Find service by NIP-19 naddr/nservice identifier
- * Decodes naddr to get pubkey, kind, and d tag, then queries latest version
- */
-export async function findServiceByNaddr(naddr: string): Promise<Service | null> {
-	try {
-		// Decode naddr
-		const decoded = nip19.decode(naddr);
-		if (decoded.type !== 'naddr') {
-			return null;
-		}
-
-		// NIP-19 AddressPointer uses 'identifier' for the d-tag value
-		const dTagValue = (decoded.data as { identifier?: string }).identifier ?? (decoded.data as { d?: string }).d;
-		if (!dTagValue) {
-			return null;
-		}
-		const filter = {
-			kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
-			'#d': [dTagValue],
-			authors: [decoded.data.pubkey],
-			limit: 1
-		};
-
-		const response = await nostrEventsService.requestEvents({
-			filters: [filter]
-		});
-
-		if (response.data && response.data.length > 0) {
-			// Get latest version (highest created_at)
-			const latestEvent = response.data.reduce((latest, current) =>
-				current.created_at > latest.created_at ? current : latest
-			);
-
-			// Parse service data
-			const contentData = JSON.parse(latestEvent.content) as ServiceBody;
-			const service: Service = {
-				...contentData,
-				id: latestEvent.id,
-				npub: latestEvent.pubkey
-			};
-
-			return service;
-		}
-
-		return null;
-	} catch (error) {
-		console.error('Error finding service by naddr:', error);
 		return null;
 	}
 }

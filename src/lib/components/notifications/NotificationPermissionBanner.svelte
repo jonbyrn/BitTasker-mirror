@@ -10,7 +10,6 @@
 	let permissionStatus = $state<NotificationPermission | 'unsupported'>('unsupported');
 	
 	// Get authentication state
-	let isLoggedIn = $derived($authState.isAuthenticated);
 	
 	// Check if we're in onboarding or auth routes
 	let isOnboardingOrAuth = $derived.by(() => {
@@ -26,7 +25,7 @@
 		}
 		
 		// Only show banner if user is logged in
-		if (!isLoggedIn) {
+		if (!$authState.isAuthenticated) {
 			showBanner = false;
 			return;
 		}
@@ -48,7 +47,7 @@
 
 	// React to authentication state changes and route changes
 	$effect(() => {
-		if (isLoggedIn !== undefined) {
+		if ($authState.isAuthenticated !== undefined) {
 			checkNotificationPermission();
 		}
 		// Also react to route changes
@@ -81,7 +80,7 @@
 	}
 </script>
 
-{#if showBanner && isLoggedIn && !isOnboardingOrAuth}
+{#if showBanner && $authState.isAuthenticated && !isOnboardingOrAuth}
 	<div class="fixed inset-x-3 top-3 z-50 mx-auto max-w-none sm:inset-x-4 sm:top-4 md:inset-x-auto md:right-4 md:max-w-sm md:top-4">
 		<div class="bg-primary text-primary-content rounded-xl shadow-2xl border border-primary-content/20 p-3 sm:p-4 md:p-5">
 			<!-- Header with icon, title and close button -->

@@ -57,12 +57,17 @@
 			// Lock scroll when modal is open
 			disableBodyScroll();
 
-			// Focus modal after a short delay to allow transition
-			setTimeout(() => {
+			// Focus modal after next frame to allow transition (avoids setTimeout inside $effect)
+			const rafId = requestAnimationFrame(() => {
 				if (modalElement) {
 					modalElement.focus();
 				}
-			}, 100);
+			});
+
+			return () => {
+				cancelAnimationFrame(rafId);
+				enableBodyScroll();
+			};
 		} else {
 			// Restore scrolling when modal is closed
 			enableBodyScroll();
@@ -71,10 +76,8 @@
 			if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
 				previousActiveElement.focus();
 			}
+			return enableBodyScroll;
 		}
-
-		// Cleanup on unmount
-		return enableBodyScroll;
 	});
 
 	// Escape key handler
@@ -189,7 +192,7 @@
 {#if props.isOpen}
 	<!-- Modal Backdrop -->
 	<div
-		class="fixed inset-0 z-[99] bg-black/80 lg:bg-black/50 backdrop-blur-sm lg:backdrop-blur transition-opacity duration-300"
+		class="fixed inset-0 z-99 bg-black/80 lg:bg-black/50 backdrop-blur-sm lg:backdrop-blur transition-opacity duration-300"
 		onclick={handleBackdropClick}
 		role="presentation"
 		transition:fly={{ y: prefersReducedMotion ? 0 : 20, duration: prefersReducedMotion ? 0 : 300 }}
@@ -197,7 +200,7 @@
 
 	<!-- Modal Container -->
 	<div
-		class="fixed inset-0 z-[100] flex items-center justify-center lg:p-4 pointer-events-none"
+		class="fixed inset-0 z-100 flex items-center justify-center lg:p-4 pointer-events-none"
 		role="presentation"
 	>
 		<!-- Modal Content -->

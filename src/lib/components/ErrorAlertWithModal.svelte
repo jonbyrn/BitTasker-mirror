@@ -47,13 +47,12 @@
 
 		// Auto-open if error exists and shouldOpen is true
 		if (error && shouldOpen) {
-			// Use setTimeout to ensure DOM is ready after error appears
-			// In Svelte 5, effects run synchronously, so we need async for DOM updates
-			const timeoutId = setTimeout(() => {
+			// Defer to next frame so DOM is ready after error appears (avoids setTimeout inside $effect)
+			const rafId = requestAnimationFrame(() => {
 				showErrorModal = true;
-			}, 0);
+			});
 
-			return () => clearTimeout(timeoutId);
+			return () => cancelAnimationFrame(rafId);
 		}
 	});
 

@@ -25,7 +25,6 @@
 	let { data }: { data: PageData } = $props();
 
 	// Check if user is logged in
-	const isLoggedIn = $derived($authState.isAuthenticated);
 
 	// Layout state
 	let width = $state(375);
@@ -66,7 +65,7 @@
 
 <svelte:window bind:innerWidth={width} />
 
-{#if isLoggedIn}
+{#if $authState.isAuthenticated}
 	<!-- Mismas dimensiones que Mi Panel -->
 	<div class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4">
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
