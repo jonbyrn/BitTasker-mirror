@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Attachment, Task } from '$lib/types/task';
+	import type { Attachment, Category, Task } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { format } from 'date-fns';
@@ -7,14 +7,12 @@
 	import { goto } from '$app/navigation';
 	import { user } from '$lib/stores/user.store';
 	import { afterNavigate } from '$app/navigation';
-	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { authState } from '$lib/stores/auth.store';
 	import TaskShareButton from './TaskShareButton.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import {
 		formatStandardDateShort,
-		formatStandardDateTime,
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import KINDS from '$lib/utils/constants/kinds';
@@ -32,6 +30,7 @@
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import UsdSatsDisplay from '../shared/UsdSatsDisplay.svelte';
 
 	// Props
 	let { taskId } = $props<{ taskId: string }>();
@@ -52,7 +51,7 @@
 	// Get translated task title for page title
 	const translatedTaskTitle = $derived.by(() => {
 		if (!task) return $t('dashboard.task_details_by_task.title');
-		
+
 		const userLang = $currentUserLanguage;
 		if (userLang && task.translations?.sourceLanguage !== userLang) {
 			const translation = taskTranslationService.getStoredTranslation(task, userLang);
@@ -60,7 +59,7 @@
 				return translation.translatedTitle;
 			}
 		}
-		
+
 		return task.title || $t('dashboard.task_details_by_task.title');
 	});
 
@@ -73,11 +72,11 @@
 	});
 
 	// Helper function to translate a single category
-	function translateCategory(category: string | any): string {
+	function translateCategory(category: string | Category): string {
 		try {
 			// Extract ID from category (handle both string and object)
-			const categoryId = typeof category === 'string' ? category : (category as any).id;
-			const categoryObj = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+			const categoryId = typeof category === 'string' ? category : category.id;
+			const categoryObj = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
 			if (categoryObj) {
 				// Use slug for translation key (as defined in translation files)
 				const translatedName = $t(`categories.${categoryObj.slug}.name`);
@@ -87,14 +86,12 @@
 			return categoryId;
 		} catch (error) {
 			console.error('Error translating category:', error);
-			return typeof category === 'string' ? category : (category as any).id || '';
+			return typeof category === 'string' ? category : (category as Category).id || '';
 		}
 	}
 
 	// Convert category IDs to translated names for display (reactive)
-	let translatedCategories = $derived(
-		task?.categories?.map(translateCategory) || []
-	);
+	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
 
 	const isRemoteTask = $derived(() => {
 		if (!task?.taskType) return false;
@@ -122,7 +119,6 @@
 		// Deadline is expired only if today is AFTER the deadline date
 		return todayDateStr > deadlineDateStr;
 	});
-
 
 	function formatDateTimeReactive(dateString: string) {
 		const date = parseDateToLocalMidnight(dateString);
@@ -263,7 +259,7 @@
 			loading = true;
 			errorMessage = '';
 
-			let event: any = null;
+			let event: { id: string; pubkey: string; content: string; tags?: string[][] } | null = null;
 
 			if (isEventId(taskId)) {
 				const response = await nostrEventsService.findEventById(taskId);
@@ -334,7 +330,7 @@
 	});
 
 	// Reload task details when navigating to this route (handles back navigation)
-	afterNavigate(({ to, from }) => {
+	afterNavigate(({ to }) => {
 		// Only reload if we're navigating TO a task details route (not away from it)
 		// Check if the current URL matches a task details pattern
 		if (to && taskId && to.url.pathname.includes(`/tasks/${taskId}`)) {
@@ -349,14 +345,13 @@
 	onMount(() => {
 		fetchBtcPrice();
 	});
-
 </script>
 
 <svelte:head>
 	<title>{pageTitle}</title>
 </svelte:head>
 
-	<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
+<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
 	<div class="rounded-xl pt-4 md:pt-0">
 		<div class="mb-6 flex items-center gap-3">
 			<div class="flex-1 text-left">
@@ -364,7 +359,7 @@
 				<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
 			</div>
 			<div class="shrink-0">
-				<TaskShareButton task={task} variant="icon-only" />
+				<TaskShareButton {task} variant="icon-only" />
 			</div>
 		</div>
 		<!-- Loading state -->
@@ -474,11 +469,7 @@
 										<span>{$t('dashboard.task_details_by_task.amount')}</span>
 									</div> -->
 										<div class="tracking-tight">
-											<UsdSatsDisplay
-												amount={task.budget.amount}
-												btcPrice={btcPrice}
-												size="large"
-											/>
+											<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
 										</div>
 									</div>
 								</div>
@@ -540,7 +531,7 @@
 												{$t('dashboard.task_details_by_task.required_skills')}
 											</h4>
 											<div class="flex flex-wrap gap-2 pb-4">
-												{#each task.skills as skill}
+												{#each task.skills as skill (skill)}
 													<span class="badge badge-primary badge-outline badge-sm">{skill}</span>
 												{/each}
 											</div>
@@ -556,7 +547,7 @@
 										{$t('dashboard.task_details_by_task.categories')}
 									</h4>
 									<div class="mt-2 flex flex-wrap gap-2">
-										{#each translatedCategories as category}
+										{#each translatedCategories as category (category)}
 											<span class="badge badge-primary badge-outline badge-sm">
 												{category}
 											</span>
@@ -587,7 +578,7 @@
 									<!-- Only show non-image attachments (videos, documents, etc.) -->
 									{#if task.attachments.filter((att) => isVideoFile(att.url)).length > 0}
 										<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-											{#each task.attachments.filter((att) => isVideoFile(att.url)) as attachment}
+											{#each task.attachments.filter( (att) => isVideoFile(att.url) ) as attachment (attachment.key)}
 												<div class="bg-base-200 overflow-hidden rounded-lg">
 													<video class="h-48 w-full object-cover" controls preload="metadata">
 														<source src={attachment.url} type="video/mp4" />
@@ -753,7 +744,7 @@
 											</span>
 											<!-- Review Stars -->
 											<div class="flex items-center">
-												{#each Array(5) as _, i}
+												{#each [0, 1, 2, 3, 4] as i (i)}
 													<svg
 														xmlns="http://www.w3.org/2000/svg"
 														class="h-4 w-4 {i < (task.creator?.rating || 0)
@@ -807,9 +798,7 @@
 	position="right"
 	isScrollable={true}
 >
-	{#snippet children()}
-		{#if task}
-			<BidForm {task} onClose={() => (isSidebarOpen = false)} stickySubmit={false} />
-		{/if}
-	{/snippet}
+	{#if task}
+		<BidForm {task} onClose={() => (isSidebarOpen = false)} stickySubmit={false} />
+	{/if}
 </Drawer>
