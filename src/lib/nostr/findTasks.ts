@@ -15,6 +15,9 @@ import {
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { TASKS_PER_PAGE } from '$lib/stores/task.store';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('findTasks');
 
 // Constants
 const BATCH_SIZE = TASKS_PER_PAGE; // Default tasks limit per page
@@ -132,11 +135,14 @@ function convertEventToTask(event: Event): Task {
 	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
 	// Use d-tag as id when present (Addressable Event: stable, readable identifier for URLs/SEO)
 	const taskId = dTag || event.id;
+	// Prefer event timestamp so dedup keeps latest replaceable event; fallback to 0 so sort is deterministic
+	const createdAt =
+		typeof event.created_at === 'number' && !Number.isNaN(event.created_at) ? event.created_at : 0;
 	return {
 		...JSON.parse(event.content),
 		id: taskId,
 		npub: event.pubkey,
-		createdAt: event.created_at
+		createdAt
 	};
 }
 
@@ -154,6 +160,13 @@ export async function findTasks(
 		const cacheKey = JSON.stringify(filter);
 		const cached = cache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+			d.log('cache hit', {
+				cachedCount: cached.data.length,
+				cacheAgeMs: Date.now() - cached.timestamp,
+				sampleStatuses: cached.data
+					.slice(0, 10)
+					.map((t) => ({ id: t.id, status: (t as Task).status, createdAt: (t as Task).createdAt }))
+			});
 			// Use optimized filtering with pre-indexed data
 			const { tasks: filteredTasks, metrics } = filterIndexedTasks(cached.data, params);
 			metrics.cacheHit = true;
@@ -213,6 +226,10 @@ export async function findTasks(
 
 			// Limit results to requested batch size for initial load
 			const limitedTasks = cleanTasks.slice(0, limit);
+			d.log('cache hit → store', {
+				limitedCount: limitedTasks.length,
+				statuses: limitedTasks.map((t) => ({ id: t.id, status: t.status }))
+			});
 
 			// hasMore: true if we got the full limit AND there are more tasks available in cache
 			const hasMore = limitedTasks.length >= limit && cleanTasks.length > limit;
@@ -233,35 +250,76 @@ export async function findTasks(
 		}
 
 		try {
+			d.log('fetch start', { cacheKey: cacheKey.slice(0, 80) });
 			const response = await nostrEventsService.findEvents(filter);
 
 			const events = response.data || [];
-			// const total = events.length;
+			// Log raw API events: id, S tag, content.status, created_at (to verify replaceable event handling)
+			const eventSamples = events.slice(0, 15).map((ev: Event) => {
+				const content = (() => {
+					try {
+						return JSON.parse(ev.content) as { status?: string };
+					} catch {
+						return {};
+					}
+				})();
+				const sTag = ev.tags?.find((t: string[]) => t[0] === 'S')?.[1];
+				return {
+					eventId: ev.id?.slice(0, 8),
+					dTag: ev.tags?.find((t: string[]) => t[0] === 'd')?.[1],
+					contentStatus: content.status,
+					sTag,
+					created_at: ev.created_at
+				};
+			});
+			d.log('api response', { eventsCount: events.length, sample: eventSamples });
 
-			// For public users, show all tasks without filtering by npub
-			// This avoids triggering biometric authentication for public users
-			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+			// Convert all events to tasks first (no npub filter yet). We need every version for dedup.
+			const rawTasks = events.map((event: Event) => convertEventToTask(event));
 
-			const rawTasks = events
-				.map((event: Event) => convertEventToTask(event))
-				.filter((task: Task) => {
-					// Exclude own tasks
-					return task.npub !== npub;
-				});
+			// Task creator = pubkey of the oldest event per task id (who created the task). Used to exclude "own tasks" after dedup.
+			const byIdForCreator = new Map<string, Task[]>();
+			for (const t of rawTasks) {
+				const list = byIdForCreator.get(t.id) ?? [];
+				list.push(t);
+				byIdForCreator.set(t.id, list);
+			}
+			const creatorByTaskId = new Map<string, string>();
+			for (const [id, list] of byIdForCreator) {
+				const oldest = list.reduce(
+					(acc, t) => ((t.createdAt ?? 0) < (acc.createdAt ?? 0) ? t : acc),
+					list[0]
+				);
+				creatorByTaskId.set(id, oldest.npub);
+			}
 
-			// Deduplicate by task.id: for Nostr replaceable addressable events (same d-tag),
-			// keep only the most recent (highest createdAt) - that is the latest version
+			// Deduplicate by task.id: keep only the most recent (highest createdAt). Sort desc so first wins = newest.
+			const sortedByNewest = [...rawTasks].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 			const taskById = new Map<string, Task>();
-			for (const task of rawTasks) {
-				const existing = taskById.get(task.id);
-				if (!existing || task.createdAt > existing.createdAt) {
+			for (const task of sortedByNewest) {
+				if (!taskById.has(task.id)) {
 					taskById.set(task.id, task);
 				}
 			}
 			const uniqueTasks = Array.from(taskById.values());
 
-			// Pre-index tasks for optimized filtering
-			const indexedTasks = indexTaskData(uniqueTasks);
+			// Exclude own tasks: tasks I created (creator = my npub). Applied after dedup so we don't drop the latest version.
+			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+			const tasksExcludingOwn = npub
+				? uniqueTasks.filter((t) => creatorByTaskId.get(t.id) !== npub)
+				: uniqueTasks;
+			const excludedOwnCount = uniqueTasks.length - tasksExcludingOwn.length;
+			d.log('after dedup + exclude own', {
+				rawCount: rawTasks.length,
+				uniqueCount: uniqueTasks.length,
+				excludedOwn: excludedOwnCount,
+				sampleStatuses: tasksExcludingOwn
+					.slice(0, 10)
+					.map((t) => ({ id: t.id, status: t.status, createdAt: t.createdAt }))
+			});
+
+			// Pre-index tasks for optimized filtering (use tasks after excluding own)
+			const indexedTasks = indexTaskData(tasksExcludingOwn);
 
 			// Apply optimized frontend filtering
 			const { tasks: filteredTasks, metrics } = filterIndexedTasks(indexedTasks, params);
@@ -276,8 +334,29 @@ export async function findTasks(
 				const existingIds = new Set(existingCached.data.map((t) => t.id));
 				const newTasks = filteredTasks.filter((t) => !existingIds.has(t.id));
 				allCachedTasks = [...existingCached.data, ...newTasks];
+				const excludedByMerge = filteredTasks.filter((t) => existingIds.has(t.id));
+				d.log('merge with existing cache', {
+					existingCachedCount: existingCached.data.length,
+					filteredCount: filteredTasks.length,
+					existingIdsCount: existingIds.size,
+					newTasksCount: newTasks.length,
+					allCachedCount: allCachedTasks.length,
+					excludedIds: excludedByMerge.map((t) => t.id),
+					excludedStatusInFresh: excludedByMerge.map((t) => ({
+						id: t.id,
+						status: (t as Task).status,
+						createdAt: (t as Task).createdAt
+					})),
+					statusInExistingForExcluded: excludedByMerge.map((t) => {
+						const inExisting = existingCached.data.find((c) => c.id === t.id) as Task | undefined;
+						return inExisting
+							? { id: t.id, status: inExisting.status, createdAt: inExisting.createdAt }
+							: null;
+					})
+				});
 			} else {
 				allCachedTasks = filteredTasks;
+				d.log('no existing cache', { filteredCount: filteredTasks.length });
 			}
 
 			// Limit cache to MAX_CACHE_SIZE to prevent memory issues
@@ -294,6 +373,14 @@ export async function findTasks(
 			const limit = params.limit || BATCH_SIZE;
 			// Limit results to requested batch size
 			const limitedTasks = cleanTasks.slice(0, limit);
+			d.log('fetch → store', {
+				limitedCount: limitedTasks.length,
+				statusesWrittenToStore: limitedTasks.map((t) => ({ id: t.id, status: t.status })),
+				cacheStoredCount: allCachedTasks.length,
+				cacheSampleStatuses: allCachedTasks
+					.slice(0, 10)
+					.map((t) => ({ id: t.id, status: (t as Task).status }))
+			});
 
 			// hasMore: true if we got the full limit from API
 			const hasMore = events.length >= limit;

@@ -1,4 +1,9 @@
-import type { ContractCreationEvent, CreateContractParams, PendingContractCreation, PublishContractStatusParams } from '$lib/types/contract';
+import type {
+	ContractCreationEvent,
+	CreateContractParams,
+	PendingContractCreation,
+	PublishContractStatusParams
+} from '$lib/types/contract';
 import { writable } from 'svelte/store';
 import { publishContractEvent, publishContractStatus } from './nostrContract';
 import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
@@ -10,7 +15,10 @@ import { pushNotificationService } from '$lib/api/services/push-notification.ser
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { contractStore } from '$lib/stores/contract.store';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
+import { createDebug } from '$lib/utils/debug';
+
 const _ = get(t);
+const d = createDebug('escrow:events');
 
 // Event types for escrow events
 export interface EscrowCreatedEvent {
@@ -33,9 +41,14 @@ const processingContracts = new Set<string>();
 /**
  * Register a pending contract creation by transaction hash (before we have escrow ID)
  */
-export function registerPendingContractByTxHash(params: Omit<PendingContractCreation, 'escrowId'>): void {
+export function registerPendingContractByTxHash(
+	params: Omit<PendingContractCreation, 'escrowId'>
+): void {
 	pendingContractsByTxHash.set(params.transactionHash, params as PendingContractCreation);
-	console.log('✅ Registered pending contract for transaction:', params.transactionHash);
+	d.log('registerPendingContractByTxHash', {
+		txHash: params.transactionHash.slice(0, 10),
+		taskId: params.taskId
+	});
 }
 
 /**
@@ -45,14 +58,16 @@ export function registerPendingContractByTxHash(params: Omit<PendingContractCrea
 export function cleanupPendingContractByTxHash(transactionHash: string): void {
 	// Check if contract is currently being processed
 	if (processingContracts.has(transactionHash)) {
-		console.log('⚠️ Skipping cleanup - contract is currently being processed:', transactionHash);
+		d.warn('cleanupPendingContractByTxHash skipped (processing)', {
+			transactionHash: transactionHash.slice(0, 10)
+		});
 		return;
 	}
 
 	// Atomic check-and-delete to prevent race conditions
 	const removed = pendingContractsByTxHash.delete(transactionHash);
 	if (removed) {
-		console.log('🧹 Cleaned up pending contract for failed transaction:', transactionHash);
+		d.log('cleanupPendingContractByTxHash', { transactionHash: transactionHash.slice(0, 10) });
 	}
 }
 
@@ -61,24 +76,24 @@ export function cleanupPendingContractByTxHash(transactionHash: string): void {
  */
 export function registerPendingContract(params: PendingContractCreation): void {
 	pendingContracts.set(params.escrowId, params);
-	console.log('Registered pending contract for escrow:', params.escrowId);
+	d.log('registerPendingContract', { escrowId: params.escrowId, taskId: params.taskId });
 }
 
 /**
  * Unified function to publish contract status to Nostr and show appropriate toast
- * 
+ *
  * Call with PENDING status (e.g., PendingCompletion) BEFORE transaction broadcast
  * Call with CONFIRMED status (e.g., Completed) AFTER transaction confirmation
- * 
+ *
  * This function handles:
  * - Publishing status to Nostr
  * - Showing appropriate toast (info for pending, success for confirmed, error on failure)
  * - All message translations
- * 
+ *
  * @example
  * // Before transaction
  * await publishEscrowStatus({ status: EscrowStatus.PendingCompletion, ... });
- * 
+ *
  * // After confirmation
  * await publishEscrowStatus({ status: EscrowStatus.Completed, ... });
  */
@@ -92,12 +107,16 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
 			contractEventId: params.contractEventId,
 			escrowId: params.escrowId,
 			action: params.status,
-			message: _(isPending ? (messages.pendingMessage || messages.confirmedMessage) : messages.confirmedMessage),
+			message: _(
+				isPending ? messages.pendingMessage || messages.confirmedMessage : messages.confirmedMessage
+			),
 			transactionHash: params.transactionHash,
 			completionAttachments: params.completionAttachments,
 			proposedClientAmount: params.proposedClientAmount,
 			proposedFreelancerAmount: params.proposedFreelancerAmount
 		});
+
+		d.log('publishEscrowStatus', { escrowId: params.escrowId, status: params.status });
 
 		// Show appropriate toast
 		if (isPending) {
@@ -111,7 +130,11 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
 		}
 	} catch (error) {
 		const messages = getStatusMessages(params.status);
-		console.error(`Failed to publish status (${params.status}):`, error);
+		d.error(
+			'publishEscrowStatus failed',
+			{ status: params.status, escrowId: params.escrowId },
+			error
+		);
 		appStore.showErrorToast(get(t)(messages.errorToast));
 	}
 }
@@ -163,6 +186,10 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				transactionHash: event.transactionHash
 			};
 
+			d.log('handleEscrowCreated: publishing contract event', {
+				escrowId: event.escrowId,
+				taskId: pendingContract.taskId
+			});
 			await publishContractEvent(contractParams);
 
 			pushNotificationService.sendNotificationToNpubs({
@@ -195,9 +222,15 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				);
 			} catch (statusUpdateError) {
 				// Log error but don't throw - escrow is already created
-				console.error('Failed to send bid status update after escrow creation:', statusUpdateError);
+				d.error(
+					'handleEscrowCreated: Failed to send bid status update',
+					{ escrowId: event.escrowId },
+					statusUpdateError
+				);
 				// Show warning to user that bid status update failed
-				appStore.showErrorToast('Escrow created successfully, but failed to update bid status. The bid status may need to be updated manually.');
+				appStore.showErrorToast(
+					'Escrow created successfully, but failed to update bid status. The bid status may need to be updated manually.'
+				);
 			}
 
 			// Note: Task status update to IN_PROGRESS is done in BidAcceptanceForm.svelte to keep task logic out of escrow events
@@ -215,9 +248,16 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			pendingContracts.delete(event.escrowId);
 			// Also remove from processing set if it was there
 			processingContracts.delete(event.transactionHash);
-
+			d.log('handleEscrowCreated: completed', {
+				escrowId: event.escrowId,
+				taskId: pendingContract.taskId
+			});
 		} catch (error) {
-			console.error('Failed to create Nostr contract:', error);
+			d.error(
+				'handleEscrowCreated: Failed to create Nostr contract',
+				{ escrowId: event.escrowId },
+				error
+			);
 
 			// Remove from processing set on error
 			processingContracts.delete(event.transactionHash);
@@ -234,6 +274,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			);
 		}
 	} else {
-		console.log('No pending contract found for escrow:', event.escrowId);
+		d.warn('handleEscrowCreated: no pending contract', { escrowId: event.escrowId });
 	}
 }

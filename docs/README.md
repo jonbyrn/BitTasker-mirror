@@ -34,9 +34,10 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 
 ### Other (`docs/`)
 
-| Document                                                     | Purpose                                 |
-| ------------------------------------------------------------ | --------------------------------------- |
-| [gitea-to-gitlab-migration.md](gitea-to-gitlab-migration.md) | Gitea to GitLab migration (if present). |
+| Document                                                     | Purpose                                                                                                         |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| [task-status-flow.md](task-status-flow.md)                   | Task event ownership (Tasker), who updates each status (OPEN, IN_PROGRESS, COMPLETED), and completion workflow. |
+| [gitea-to-gitlab-migration.md](gitea-to-gitlab-migration.md) | Gitea to GitLab migration (if present).                                                                         |
 
 ## See also
 
