@@ -3,24 +3,19 @@
 	import type { NostrBidContent } from '$lib/types/bid';
 	import type { Task } from '$lib/types/task';
 	import { onMount } from 'svelte';
-	import { slide } from 'svelte/transition';
-	import { linear } from 'svelte/easing';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { getMyBids, getBidStatus } from '$lib/utils/nostr-bid';
+	import { getMyBids, getBidStatus, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
-	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconCheck from '~icons/mdi/check';
 	import IconClose from '~icons/mdi/close';
 	import IconClockOutline from '~icons/mdi/clock-outline';
-	import IconEmailArrowRight from '~icons/mdi/email-arrow-right';
 	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 	import IconUndo from '~icons/mdi/undo';
 	import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
@@ -28,6 +23,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { SvelteSet } from 'svelte/reactivity';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { taskTranslationService } from '$lib/services/task-translation.service';
 
 	/** Build a task-like object from bid for TranslatableTask (title + description) */
 	function taskFromBid(bid: NostrBidContent): Task {
@@ -47,7 +44,7 @@
 	): string {
 		const currentLang = $locale || 'en';
 		const originalText = bid[field] || '';
-		
+
 		// If no translations, return original
 		if (!bid.translations) {
 			return originalText;
@@ -68,12 +65,23 @@
 		return originalText;
 	}
 
+	/** Get translated task title or description for a bid using stored task translations (reactive to $locale). */
+	function getTranslatedTaskText(bid: NostrBidContent, field: 'title' | 'description'): string {
+		const task = taskFromBid(bid);
+		const currentLang = $locale || 'en';
+		const stored = taskTranslationService.getStoredTranslation(task, currentLang);
+		if (stored) {
+			return field === 'title' ? stored.translatedTitle : stored.translatedDescription;
+		}
+		return field === 'title' ? bid.taskTitle || '' : bid.taskDescription || '';
+	}
+
 	// State
 	let myBids = $state<NostrEvent[]>([]);
 	let loading = $state(true);
 	let error = $state<string>('');
 	let btcPrice = $state<number>(0); // Default fallback price
-	let expandedBids = $state(new SvelteSet<string>()); // Track expanded bids
+	let expandedBids = new SvelteSet<string>(); // Track expanded bids (SvelteSet is already reactive)
 
 	/**
 	 * Fetch current BTC price
@@ -125,10 +133,7 @@
 	}
 
 	/** Status label, badge, and icon per status */
-	const StatusRender: Record<
-		string,
-		{ label: string; badge: string; icon: typeof IconCheck }
-	> = {
+	const StatusRender: Record<string, { label: string; badge: string; icon: typeof IconCheck }> = {
 		[BidStatusEnum.ACCEPTED]: {
 			label: $t('bids.accepted'),
 			badge: 'badge-success',
@@ -217,8 +222,11 @@
 <div class="space-y-6">
 	{#if loading}
 		<div class="space-y-4">
-			{#each Array(1) as _, i (i)}
-				<div class="card bg-base-100 border-base-300 animate-pulse rounded-lg border shadow-sm">
+			{#each Array(1) as __placeholder, i (i)}
+				<div
+					class="card bg-base-100 border-base-300 animate-pulse rounded-lg border shadow-sm"
+					data-skeleton={__placeholder}
+				>
 					<div class="card-body p-4 md:p-6">
 						<!-- Task Information - Header skeleton -->
 						<div class="border-base-300 mb-4 md:mb-6">
@@ -271,8 +279,11 @@
 										<div class="bg-base-300 mb-1 h-3 w-16 rounded md:h-4 md:w-20"></div>
 										<!-- Review Stars skeleton -->
 										<div class="flex items-center">
-											{#each Array(5) as _, i (i)}
-												<div class="bg-base-300 mr-1 h-2 w-2 rounded md:h-3 md:w-3"></div>
+											{#each Array(5) as __star, i (i)}
+												<div
+													class="bg-base-300 mr-1 h-2 w-2 rounded md:h-3 md:w-3"
+													data-skeleton={__star}
+												></div>
 											{/each}
 											<div class="bg-base-300 ml-1 h-2 w-6 rounded md:h-3 md:w-8"></div>
 										</div>
@@ -355,7 +366,9 @@
 					<div class="card-body rounded-xl p-4 md:p-4">
 						<!-- Section TAREA: misma estructura que Find Tasks (TaskCard) -->
 						<div class="border-base-200 border-b pb-4">
-							<span class="text-base-content/60 mb-2 block text-xs font-semibold uppercase tracking-wide">
+							<span
+								class="text-base-content/60 mb-2 block text-xs font-semibold tracking-wide uppercase"
+							>
 								{$t('bids.section_task')}
 							</span>
 							<!-- Top row: título + descripción | badge + precio (alineado, sin espacio de más) -->
@@ -374,14 +387,24 @@
 										{getTranslatedTaskText(bid, 'description')}
 									</p>
 								</div>
-								<div class="flex w-[min(30%,120px)] shrink-0 flex-col items-end justify-between gap-1">
-									<span class="badge badge-sm {StatusRender[status ?? '']?.badge ?? 'badge-warning'} max-w-full truncate text-center">
+								<div
+									class="flex w-[min(30%,120px)] shrink-0 flex-col items-end justify-between gap-1"
+								>
+									<span
+										class="badge badge-sm {StatusRender[status ?? '']?.badge ??
+											'badge-warning'} max-w-full truncate text-center"
+									>
 										{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
 									</span>
 									{#if bid.taskBudget != null}
 										<div class="text-right">
-											<p class="text-xl font-bold">${formatNumberWithTwoDecimals(bid.taskBudget.amount)}</p>
-											<p class="text-base-content/60 text-sm">{cachedSatsFromUsd(bid.taskBudget.amount, btcPrice)} {$t('bids.sats')}</p>
+											<p class="text-xl font-bold">
+												${formatNumberWithTwoDecimals(bid.taskBudget.amount)}
+											</p>
+											<p class="text-base-content/60 text-sm">
+												{cachedSatsFromUsd(bid.taskBudget.amount, btcPrice)}
+												{$t('bids.sats')}
+											</p>
 										</div>
 									{/if}
 								</div>
@@ -411,16 +434,18 @@
 						<div class="pt-4">
 							<button
 								type="button"
-								class="hover:bg-base-content/5 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-200/40 px-3 py-2 text-left transition-colors"
+								class="hover:bg-base-content/5 border-base-300 bg-base-200/40 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors"
 								onclick={() => toggleBidExpansion(bid.bidId)}
 								aria-expanded={expandedBids.has(bid.bidId)}
 							>
-								<span class="text-base-content/60 text-xs font-semibold uppercase tracking-wide">
+								<span class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
 									{$t('bids.section_your_offer')}
 								</span>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4 shrink-0 transition-transform duration-200 {expandedBids.has(bid.bidId)
+									class="h-4 w-4 shrink-0 transition-transform duration-200 {expandedBids.has(
+										bid.bidId
+									)
 										? 'rotate-180'
 										: ''}"
 									fill="none"
@@ -436,17 +461,23 @@
 								</svg>
 							</button>
 							{#if expandedBids.has(bid.bidId)}
-								<div class="border-base-200 mt-3 space-y-3 rounded-lg border bg-base-200/30 p-3">
+								<div class="border-base-200 bg-base-200/30 mt-3 space-y-3 rounded-lg border p-3">
 									<!-- Fecha enviado 60% | Precio 40% en la misma fila -->
 									<div class="grid grid-cols-[3fr_2fr] items-center gap-3">
 										<div class="min-w-0">
 											<span class="text-base-content/60 text-sm">
-												{$t('bids.sent_at')}: <strong class="text-base-content">{formatSentAt(bidEvent.created_at)}</strong>
+												{$t('bids.sent_at')}:
+												<strong class="text-base-content"
+													>{formatSentAt(bidEvent.created_at)}</strong
+												>
 											</span>
 										</div>
 										<div class="min-w-0 text-right">
 											<p class="text-xl font-bold">${formatNumberWithTwoDecimals(bid.amount)}</p>
-											<p class="text-base-content/60 text-sm">{cachedSatsFromUsd(bid.amount, btcPrice)} {$t('bids.sats')}</p>
+											<p class="text-base-content/60 text-sm">
+												{cachedSatsFromUsd(bid.amount, btcPrice)}
+												{$t('bids.sats')}
+											</p>
 										</div>
 									</div>
 									{#if bid.startDateTime && bid.endDateTime}
@@ -460,7 +491,9 @@
 									{/if}
 									{#if bid.description}
 										<div class="min-w-0">
-											<p class="text-base-content/60 mb-1 text-xs font-medium">{$t('bids.your_description')}</p>
+											<p class="text-base-content/60 mb-1 text-xs font-medium">
+												{$t('bids.your_description')}
+											</p>
 											<div class="bg-base-200 min-w-0 overflow-hidden rounded-lg p-3">
 												<p class="text-base-content/80 wrap-break-words text-sm leading-relaxed">
 													{getTranslatedBidContent(bid, 'description')}
@@ -470,7 +503,9 @@
 									{/if}
 									{#if bid.proposedApproach && bid.proposedApproach.trim() !== ''}
 										<div class="min-w-0">
-											<p class="text-base-content/60 mb-1 text-xs font-medium">{$t('bids.your_approach')}</p>
+											<p class="text-base-content/60 mb-1 text-xs font-medium">
+												{$t('bids.your_approach')}
+											</p>
 											<div class="bg-base-200 min-w-0 overflow-hidden rounded-lg p-3">
 												<p class="text-base-content/80 wrap-break-words text-sm leading-relaxed">
 													{getTranslatedBidContent(bid, 'proposedApproach')}
@@ -480,7 +515,9 @@
 									{/if}
 									{#if bid.coverLetter}
 										<div class="min-w-0">
-											<p class="text-base-content/60 mb-1 text-xs font-medium">{$t('bids.your_cover_letter')}</p>
+											<p class="text-base-content/60 mb-1 text-xs font-medium">
+												{$t('bids.your_cover_letter')}
+											</p>
 											<div class="bg-base-200 min-w-0 overflow-hidden rounded-lg p-3">
 												<p class="text-base-content/80 wrap-break-words text-sm leading-relaxed">
 													{getTranslatedBidContent(bid, 'coverLetter')}
@@ -489,10 +526,10 @@
 										</div>
 									{/if}
 									<div
-										class="flex min-w-0 flex-col gap-2 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:w-auto"
+										class="flex min-w-0 flex-col gap-2 pt-4 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center"
 									>
 										<button
-											class="btn btn-primary btn-sm min-w-0 w-full sm:w-auto sm:min-w-fit"
+											class="btn btn-primary btn-sm w-full min-w-0 sm:w-auto sm:min-w-fit"
 											onclick={() => goto(`/tasks/${bid.taskId}`)}
 										>
 											<svg
@@ -521,7 +558,7 @@
 										{#if status === BidStatusEnum.PENDING || status === BidStatusEnum.COUNTERED}
 											{#if withdrawingBidId === bidEvent.id}
 												<div
-													class="btn btn-error btn-sm min-w-0 w-full gap-2 touch-manipulation sm:w-auto sm:min-w-fit"
+													class="btn btn-error btn-sm w-full min-w-0 touch-manipulation gap-2 sm:w-auto sm:min-w-fit"
 													aria-busy="true"
 												>
 													<span class="loading loading-spinner loading-sm"></span>
@@ -529,7 +566,7 @@
 												</div>
 											{:else}
 												<button
-													class="btn btn-error btn-sm min-w-0 w-full touch-manipulation select-none transition-transform duration-100 active:scale-95 sm:w-auto sm:min-w-fit"
+													class="btn btn-error btn-sm w-full min-w-0 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:w-auto sm:min-w-fit"
 													onclick={() => confirmWithdraw(bidEvent)}
 													aria-label={$t('bids.withdraw_bid')}
 												>
@@ -563,8 +600,6 @@
 				</button>
 			</div>
 		</div>
-		<button class="modal-backdrop" onclick={() => (showWithdrawModal = false)}>
-			close
-		</button>
+		<button class="modal-backdrop" onclick={() => (showWithdrawModal = false)}> close </button>
 	</dialog>
 {/if}
