@@ -249,14 +249,16 @@ export async function findTasks(
 					return task.npub !== npub;
 				});
 
-			// Deduplicate by task.id (can occur when same replaceable event comes from multiple relays,
-			// or due to d-tag collision - same title+timestamp+suffix)
-			const seenIds = new Set<string>();
-			const uniqueTasks = rawTasks.filter((task: Task) => {
-				if (seenIds.has(task.id)) return false;
-				seenIds.add(task.id);
-				return true;
-			});
+			// Deduplicate by task.id: for Nostr replaceable addressable events (same d-tag),
+			// keep only the most recent (highest createdAt) - that is the latest version
+			const taskById = new Map<string, Task>();
+			for (const task of rawTasks) {
+				const existing = taskById.get(task.id);
+				if (!existing || task.createdAt > existing.createdAt) {
+					taskById.set(task.id, task);
+				}
+			}
+			const uniqueTasks = Array.from(taskById.values());
 
 			// Pre-index tasks for optimized filtering
 			const indexedTasks = indexTaskData(uniqueTasks);
