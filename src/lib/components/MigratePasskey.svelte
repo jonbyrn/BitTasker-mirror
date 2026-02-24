@@ -6,7 +6,8 @@
 		retryMigration,
 		continueAfterMigration
 	} from '$lib/utils/helpers/migratePasskey';
-	import Modal from '$lib/components/Modal.svelte';
+	import { fly } from 'svelte/transition';
+	import { linear } from 'svelte/easing';
 
 	async function handleRetry() {
 		try {
@@ -16,32 +17,26 @@
 			// Error state is already updated in retryMigration
 		}
 	}
-
-	const title = {
-		info: $t('passkey_migration.info.title'),
-		processing: $t('passkey_migration.processing.title'),
-		success: $t('passkey_migration.success.title'),
-		migrated: $t('passkey_migration.migrated.title'),
-		error: $t('passkey_migration.error.title')
-	};
 </script>
 
-<Modal
-	isOpen={$passkeyMigration.isOpen}
-	title={title[$passkeyMigration.state]}
-	onClose={() => {}}
-	showCloseButton={false}
+<div
+	in:fly={{
+		duration: 200,
+		easing: linear,
+		y: 0,
+		x: 20
+	}}
 >
 	{#if $passkeyMigration.state === 'info'}
 		<!-- Information Screen -->
-		<div class="space-y-6">
+		<div class="space-y-2">
 			<div class="text-center">
 				<div
-					class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"
+					class="bg-primary/10 mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-8 w-8 text-primary"
+						class="text-primary h-8 w-8"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -77,7 +72,7 @@
 				</svg>
 				<div class="flex flex-col gap-2">
 					<p class="font-semibold">{$t('passkey_migration.info.what_happens')}</p>
-					<ul class="list-disc list-inside space-y-1 text-sm">
+					<ul class="list-inside list-disc space-y-1 text-sm">
 						<li>{$t('passkey_migration.info.point_1')}</li>
 						<li>{$t('passkey_migration.info.point_2')}</li>
 						<li>{$t('passkey_migration.info.point_3')}</li>
@@ -121,7 +116,7 @@
 				</button>
 
 				{#if $passkeyMigration.countdown > 0}
-					<p class="text-center text-sm text-base-content/70">
+					<p class="text-base-content/70 text-center text-sm">
 						{$t('passkey_migration.info.auto_continue')}
 					</p>
 				{/if}
@@ -129,7 +124,7 @@
 		</div>
 	{:else if $passkeyMigration.state === 'processing'}
 		<!-- Processing Screen -->
-		<div class="flex flex-col items-center gap-6 py-8">
+		<div class="flex flex-col items-center gap-2 py-8">
 			<div class="loading loading-spinner loading-lg text-primary"></div>
 			<div class="text-center">
 				<h4 class="mb-2">{$t('passkey_migration.processing.title')}</h4>
@@ -140,11 +135,11 @@
 		</div>
 	{:else if $passkeyMigration.state === 'success'}
 		<!-- Success Screen -->
-		<div class="flex flex-col items-center gap-6 py-8">
-			<div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/10">
+		<div class="flex flex-col items-center gap-2 py-8">
+			<div class="bg-success/10 mx-auto flex h-20 w-20 items-center justify-center rounded-full">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-12 w-12 text-success"
+					class="text-success h-12 w-12"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -166,12 +161,12 @@
 		</div>
 	{:else if $passkeyMigration.state === 'migrated'}
 		<!-- Already Migrated Screen -->
-		<div class="space-y-6">
+		<div class="space-y-2">
 			<div class="flex flex-col items-center gap-4 py-4">
-				<div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/10">
+				<div class="bg-success/10 mx-auto flex h-20 w-20 items-center justify-center rounded-full">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-12 w-12 text-success"
+						class="text-success h-12 w-12"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -185,7 +180,7 @@
 					</svg>
 				</div>
 				<div class="text-center">
-					<p class="text-base-content text-lg mb-2">
+					<p class="text-base-content mb-2 text-lg">
 						{$t('passkey_migration.migrated.message')}
 					</p>
 					<p class="text-base-content/70 text-sm">
@@ -234,7 +229,7 @@
 				</svg>
 				<div class="flex flex-col gap-2">
 					<p class="font-semibold">{$t('passkey_migration.migrated.next_steps_title')}</p>
-					<ul class="list-disc list-inside space-y-1 text-sm">
+					<ul class="list-inside list-disc space-y-1 text-sm">
 						<li>{$t('passkey_migration.migrated.next_steps.point_1')}</li>
 						<li>{$t('passkey_migration.migrated.next_steps.point_2')}</li>
 						<li>{$t('passkey_migration.migrated.next_steps.point_3')}</li>
@@ -251,7 +246,7 @@
 		</div>
 	{:else if $passkeyMigration.state === 'error'}
 		<!-- Error Screen -->
-		<div class="space-y-6">
+		<div class="space-y-2">
 			<div class="alert alert-outline alert-error">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -282,10 +277,10 @@
 			</div>
 
 			<div class="text-center">
-				<p class="text-sm text-base-content/70">
+				<p class="text-base-content/70 text-sm">
 					{$t('passkey_migration.error.skip_info')}
 				</p>
 			</div>
 		</div>
 	{/if}
-</Modal>
+</div>

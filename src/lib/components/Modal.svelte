@@ -134,7 +134,7 @@
 	>
 		<!-- Modal Content -->
 		<div
-			class="card bg-base-100 w-full shadow-xl flex flex-col {props.size === 'sm'
+			class="card bg-base-100 flex w-full flex-col shadow-xl {props.size === 'sm'
 				? 'max-w-sm'
 				: props.size === 'lg'
 					? 'max-w-2xl'
@@ -148,7 +148,7 @@
 			tabindex="-1"
 		>
 			<!-- Modal Header -->
-			<div class="card-body flex flex-col min-h-0 overflow-hidden">
+			<div class="card-body flex min-h-0 flex-col overflow-hidden">
 				{#if !props.hideHeader}
 					<div class="mb-4 flex items-center justify-between">
 						<h3 id="modal-title" class="card-title">{props.title}</h3>
@@ -182,7 +182,7 @@
 
 				<!-- Modal Footer (Optional) -->
 				{#if props.footer}
-					<div class="card-actions mt-6 justify-end shrink-0">
+					<div class="card-actions mt-6 shrink-0 justify-end">
 						{@render props.footer()}
 					</div>
 				{/if}
