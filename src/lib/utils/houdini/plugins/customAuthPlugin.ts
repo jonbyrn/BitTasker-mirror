@@ -156,7 +156,12 @@ const authPlugin: ClientPlugin = () => {
 			}
 
 			if (!tokenInitialized && tokenInitPromise) {
-				await tokenInitPromise;
+				try {
+					await tokenInitPromise;
+				} catch (error) {
+					console.error('[AuthPlugin] Token initialization failed in beforeNetwork:', error);
+					// Continue without token so request is not blocked
+				}
 			}
 
 			let existingHeaders: Record<string, string>;

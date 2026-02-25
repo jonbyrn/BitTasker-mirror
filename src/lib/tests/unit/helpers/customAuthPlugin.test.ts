@@ -81,6 +81,7 @@ const loadHarness = async (options: HarnessOptions) => {
 
 	vi.doMock('$app/environment', () => ({ browser: options.browser }));
 	vi.doMock('$app/navigation', () => ({ goto: mockGoto }));
+	vi.doMock('$app/paths', () => ({ resolve: (path: string) => path }));
 	vi.doMock('@capacitor/preferences', () => ({ Preferences: mockPreferences }));
 	vi.doMock('$lib/utils/helpers/deviceIdentity', () => ({
 		getDeviceIdentifier: mockGetDeviceIdentifier
@@ -148,8 +149,10 @@ describe('customAuthPlugin', () => {
 
 		deviceDeferred.resolve('device-late');
 		await flushMicrotasks();
+		// Let Node run the device promise continuation (initializeDeviceId) before second request
+		await new Promise<void>((r) => setImmediate(r));
 
-		const secondCtx = { fetchParams: {} } as any;
+		const secondCtx = { fetchParams: { headers: {} } } as any;
 		await plugin.beforeNetwork(secondCtx, { next: vi.fn() } as any);
 		expect(secondCtx.fetchParams.headers['X-Device-ID']).toBe('device-late');
 		expect(mocks.getDeviceIdentifier).toHaveBeenCalledOnce();
@@ -183,7 +186,9 @@ describe('customAuthPlugin', () => {
 		const next = vi.fn();
 		const ctx = { fetchParams: { headers: { foo: 'bar' } } } as any;
 
-		await plugin.beforeNetwork(ctx, { next } as any);
+		const result = plugin.beforeNetwork(ctx, { next } as any);
+		// When browser is false, beforeNetwork returns next(ctx) synchronously
+		await result;
 
 		expect(next).toHaveBeenCalledWith(ctx);
 		expect(mocks.preferences.get).not.toHaveBeenCalled();
