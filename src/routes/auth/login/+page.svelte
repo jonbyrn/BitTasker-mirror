@@ -387,12 +387,16 @@
 					exportedKey
 				};
 
-				authState
-					.setupAuthData(res.access_token, 'passkey', npub, res.user, biometricData, false)
-					.then(async () => {
-						if (res.isNewUser) await goto('/auth/onboarding');
-						else await goto('/dashboard');
-					});
+				await authState.setupAuthData(
+					res.access_token,
+					'passkey',
+					npub,
+					res.user,
+					biometricData,
+					false
+				);
+				if (res.isNewUser) await goto('/auth/onboarding');
+				else await goto('/dashboard');
 			}
 		} catch (err) {
 			console.error('Error:', err);

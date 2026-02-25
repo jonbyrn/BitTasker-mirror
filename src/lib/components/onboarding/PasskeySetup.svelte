@@ -162,7 +162,7 @@
 					credentialId: credentialData.credentialId,
 					isLegacyFormat: false
 				};
-				authState.setupAuthData(
+				await authState.setupAuthData(
 					response.access_token,
 					'passkey',
 					npub,

@@ -235,7 +235,14 @@
 					encryptedData,
 					exportedKey
 				};
-				authState.setupAuthData(access_token, 'passkey', npub, user, biometricData, true);
+				await authState.setupAuthData(
+					access_token,
+					'passkey',
+					npub,
+					user,
+					biometricData,
+					true
+				);
 			}
 		} catch (err: any) {
 			error = err.message || $t('recovery_npub.errors.recovery_failed');
