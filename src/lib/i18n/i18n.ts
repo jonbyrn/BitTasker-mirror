@@ -1,6 +1,6 @@
 import { addMessages, init, locale, getLocaleFromNavigator } from 'svelte-i18n';
 import { browser } from '$app/environment';
-import { get, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
 
 export const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
@@ -9,24 +9,63 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 // Track loaded namespaces to avoid duplicate loads
 const loadedNamespaces = new Map<string, Set<string>>();
 
-// Store for loading state
+// Ref count for loading state
+let loadingCount = 0;
 export const isI18nLoading = writable(false);
 
-// Lazy loading cache
-const translationCache = new Map<string, any>();
+/**
+ * Update loading state based on counter
+ */
+function updateLoadingState(delta: number) {
+	loadingCount = Math.max(0, loadingCount + delta);
+	isI18nLoading.set(loadingCount > 0);
+}
+
+// Lazy loading cache - Stores promises to collapse redundant requests
+const translationCache = new Map<string, Promise<Record<string, unknown>>>();
+
+/**
+ * Fetch with timeout helper
+ */
+async function fetchWithTimeout(url: string, timeout = 5000): Promise<Response> {
+	const controller = new AbortController();
+	const id = setTimeout(() => controller.abort(), timeout);
+	try {
+		const response = await fetch(url, { signal: controller.signal });
+		clearTimeout(id);
+		return response;
+	} catch (error) {
+		clearTimeout(id);
+		throw error;
+	}
+}
+
+/**
+ * Clear all caches (useful for testing and manual refresh)
+ */
+export function clearCache(): void {
+	translationCache.clear();
+	loadedNamespaces.clear();
+	loadingCount = 0;
+	isI18nLoading.set(false);
+}
 
 /**
  * Get the initial locale based on user preference
  */
 const getInitialLocale = async (): Promise<SupportedLanguage> => {
 	if (browser) {
-		// Check Preferences first
-		const storedLocale = await Preferences.get({ key: 'locale' });
-		if (
-			storedLocale.value &&
-			SUPPORTED_LANGUAGES.includes(storedLocale.value as SupportedLanguage)
-		) {
-			return storedLocale.value as SupportedLanguage;
+		try {
+			// Check Preferences first
+			const storedLocale = await Preferences.get({ key: 'locale' });
+			if (
+				storedLocale.value &&
+				SUPPORTED_LANGUAGES.includes(storedLocale.value as SupportedLanguage)
+			) {
+				return storedLocale.value as SupportedLanguage;
+			}
+		} catch (error) {
+			console.warn('[i18n] Failed to load stored locale, falling back to browser defaults:', error);
 		}
 
 		// Fallback to browser locale
@@ -42,39 +81,47 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 /**
  * Load a specific namespace for a locale
  */
-export async function loadNamespace(locale: SupportedLanguage, namespace: string): Promise<any> {
+export function loadNamespace(
+	locale: SupportedLanguage,
+	namespace: string
+): Promise<Record<string, unknown>> {
 	const cacheKey = `${locale}-${namespace}`;
 
-	// Return cached if available
+	// Return existing promise if a fetch is already in progress or cached
 	if (translationCache.has(cacheKey)) {
-		return translationCache.get(cacheKey);
+		return translationCache.get(cacheKey)!;
 	}
 
-	try {
-		// Fetch JSON as static asset instead of dynamic import
-		const response = await fetch(`/locales/${locale}/${namespace}.json`);
-		if (!response.ok) {
-			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+	// Create and cache the fetch promise
+	const fetchPromise = (async () => {
+		try {
+			// Fetch JSON as static asset with 5s timeout
+			const response = await fetchWithTimeout(`/locales/${locale}/${namespace}.json`);
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			}
+			const data = (await response.json()) as Record<string, unknown>;
+
+			// Track loaded namespace
+			if (!loadedNamespaces.has(locale)) {
+				loadedNamespaces.set(locale, new Set());
+			}
+			loadedNamespaces.get(locale)!.add(namespace);
+
+			// Add to svelte-i18n
+			addMessages(locale, data);
+
+			return data;
+		} catch (error) {
+			console.warn(`Failed to load namespace ${namespace} for locale ${locale}:`, error);
+			// Remove failed promise from cache so it can be retried later
+			translationCache.delete(cacheKey);
+			return {};
 		}
-		const data = await response.json();
+	})();
 
-		// Cache the result
-		translationCache.set(cacheKey, data);
-
-		// Track loaded namespace
-		if (!loadedNamespaces.has(locale)) {
-			loadedNamespaces.set(locale, new Set());
-		}
-		loadedNamespaces.get(locale)!.add(namespace);
-
-		// Add to svelte-i18n
-		addMessages(locale, data);
-
-		return data;
-	} catch (error) {
-		console.warn(`Failed to load namespace ${namespace} for locale ${locale}:`, error);
-		return {};
-	}
+	translationCache.set(cacheKey, fetchPromise);
+	return fetchPromise;
 }
 
 /**
@@ -104,8 +151,14 @@ async function loadEssentialTranslations(currentLocale: SupportedLanguage): Prom
 export function getNamespacesForRoute(route: string): string[] {
 	const namespaces: string[] = [];
 
-	if(route.includes('/tasks')) {
-		namespaces.push('common', 'dashboard/dashboard','dashboard/tasks/find','dashboard/tasks/info','dashboard/bids');
+	if (route.includes('/tasks')) {
+		namespaces.push(
+			'common',
+			'dashboard/dashboard',
+			'dashboard/tasks/find',
+			'dashboard/tasks/info',
+			'dashboard/bids'
+		);
 		// Include wallet namespace for bid-related components
 		namespaces.push('dashboard/wallet');
 		// Include categories and recommendations for task discovery
@@ -136,7 +189,12 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Note: /find-tasks route redirects to /tasks, so this check is kept for backward compatibility
 		// but /tasks route already loads all necessary namespaces above
 		if (route.includes('/find-tasks')) {
-			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
+			namespaces.push(
+				'dashboard/tasks/find',
+				'dashboard/recomendations',
+				'dashboard/bids',
+				'categories'
+			);
 		}
 		if (route.includes('/create-task')) {
 			namespaces.push('dashboard/tasks/create', 'categories');
@@ -153,7 +211,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/onboarding')) namespaces.push('onboarding');
 	if (route.includes('/how-it-works')) namespaces.push('how_it_works');
 	if (route.includes('/auth')) namespaces.push('auth');
-	
+
 	// Protected routes (routes that require authentication)
 	if (route.includes('(protected)')) {
 		namespaces.push('auth');
@@ -202,27 +260,35 @@ export async function loadRouteTranslations(
 export async function setupI18n(): Promise<void> {
 	if (!browser) return console.warn('Not in client context');
 
-	isI18nLoading.set(true);
+	updateLoadingState(1);
 
 	try {
-		const currentLocale = await getInitialLocale();
-
-		// Load only essential translations
-		await loadEssentialTranslations(currentLocale);
-
-		// Initialize svelte-i18n
+		// Initialize svelte-i18n IMMEDIATELY with fallback
+		// to ensure $t is available even during the storage/network microtasks
 		init({
 			fallbackLocale: 'en',
-			initialLocale: currentLocale,
+			initialLocale: 'en',
 			loadingDelay: 200
 		});
 
+		const currentLocale = await getInitialLocale();
+
+		// Update to the actual preferred locale
+		locale.set(currentLocale);
+
+		// Load essential translations in background
+		await loadEssentialTranslations(currentLocale);
+
 		// Set up locale persistence
-		await Preferences.set({ key: 'locale', value: get(locale) || 'en' });
+		try {
+			await Preferences.set({ key: 'locale', value: currentLocale });
+		} catch (storageError) {
+			console.warn('[i18n] Failed to persist locale preference:', storageError);
+		}
 	} catch (error) {
 		console.error('Failed to setup i18n:', error);
 	} finally {
-		isI18nLoading.set(false);
+		updateLoadingState(-1);
 	}
 }
 
@@ -232,7 +298,7 @@ export async function setupI18n(): Promise<void> {
 export async function switchLanguage(newLocale: SupportedLanguage): Promise<void> {
 	if (!browser) return;
 
-	isI18nLoading.set(true);
+	updateLoadingState(1);
 
 	try {
 		// Load essential translations for new locale
@@ -242,7 +308,11 @@ export async function switchLanguage(newLocale: SupportedLanguage): Promise<void
 		locale.set(newLocale);
 
 		// Persist the new locale
-		await Preferences.set({ key: 'locale', value: newLocale });
+		try {
+			await Preferences.set({ key: 'locale', value: newLocale });
+		} catch (storageError) {
+			console.warn('[i18n] Failed to persist locale change:', storageError);
+		}
 
 		// Load current route translations for new locale
 		if (typeof window !== 'undefined') {
@@ -251,7 +321,7 @@ export async function switchLanguage(newLocale: SupportedLanguage): Promise<void
 	} catch (error) {
 		console.error(`Failed to switch to locale ${newLocale}:`, error);
 	} finally {
-		isI18nLoading.set(false);
+		updateLoadingState(-1);
 	}
 }
 
