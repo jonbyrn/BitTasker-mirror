@@ -26,6 +26,15 @@ type PasskeyAuthFromFileFixtures = {
 	/** Which credential set to use ('signup' | 'nostr' | etc.). Default 'signup'. */
 	credentialLabel: string;
 	authenticatedPageFromPasskeyFile: import('@playwright/test').Page;
+	/**
+	 * Page on /auth/login with passkey credentials injected; completeLogin() triggers
+	 * passkey login and waits for dashboard. Use when you need to attach listeners
+	 * before the app navigates to dashboard (e.g. to capture GraphQL on first load).
+	 */
+	pageAndCompleteLogin: {
+		page: import('@playwright/test').Page;
+		completeLogin: () => Promise<void>;
+	};
 };
 
 /**
@@ -103,6 +112,79 @@ const test = base.extend<PasskeyAuthFromFileFixtures>({
 			await understandBtn.click({ timeout: 5_000 }).catch(() => {});
 
 			await use(page);
+		} finally {
+			await ctx.close();
+		}
+	},
+
+	pageAndCompleteLogin: async ({ browser, credentialLabel }, use, testInfo) => {
+		if (browser.browserType().name() !== 'chromium') {
+			testInfo.skip(true, CHROMIUM_ONLY_MESSAGE);
+			const baseURL = testInfo.project.use.baseURL ?? 'http://localhost:4173';
+			const ctx = await browser.newContext({
+				baseURL,
+				storageState: undefined,
+				viewport: testInfo.project.use.viewport ?? { width: 1280, height: 720 }
+			});
+			const page = await ctx.newPage();
+			await use({
+				page,
+				completeLogin: async () => {
+					/* no-op when skipped */
+				}
+			});
+			await ctx.close();
+			return;
+		}
+
+		const credentials = readCredentialSet(credentialLabel) ?? readFirstCredentialSet();
+		if (!credentials || credentials.length === 0) {
+			throw new Error(`${CREDENTIALS_MISSING_MESSAGE} (label: ${credentialLabel})`);
+		}
+
+		const baseURL = testInfo.project.use.baseURL ?? 'http://localhost:4173';
+		const ctx = await browser.newContext({
+			baseURL,
+			storageState: undefined,
+			viewport: testInfo.project.use.viewport ?? { width: 1280, height: 720 },
+			userAgent: testInfo.project.use.userAgent
+		});
+
+		const page = await ctx.newPage();
+		const cdpSession = await ctx.newCDPSession(page);
+
+		try {
+			await cdpSession.send('WebAuthn.enable');
+			const result = await cdpSession.send('WebAuthn.addVirtualAuthenticator', {
+				options: VIRTUAL_AUTHENTICATOR_OPTIONS
+			});
+			const authenticatorId = result?.authenticatorId ?? null;
+			if (authenticatorId) {
+				await cdpSession.send('WebAuthn.setAutomaticPresenceSimulation', {
+					authenticatorId,
+					enabled: true
+				});
+				for (const cred of credentials) {
+					await cdpSession.send('WebAuthn.addCredential', {
+						authenticatorId,
+						credential: cred
+					});
+				}
+			}
+
+			await page.goto('/auth/login', { waitUntil: 'load' });
+
+			const completeLogin = async (): Promise<void> => {
+				await page.getByTestId('login-continue-passkey').click();
+				await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+				const understandBtn = page.getByRole('button', {
+					name: 'I understand',
+					exact: true
+				});
+				await understandBtn.click({ timeout: 5_000 }).catch(() => {});
+			};
+
+			await use({ page, completeLogin });
 		} finally {
 			await ctx.close();
 		}

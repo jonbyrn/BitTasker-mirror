@@ -21,10 +21,7 @@ const EXPECTED_LABELS = ['signup', 'nostr'] as const;
 test.describe('Credentials file login (validate each user can log in)', () => {
 	// Use a function so the condition is evaluated at runtime (when each test runs),
 	// not at load time. By then, 01-signup-onboarding has run and the file exists.
-	test.skip(
-		() => !webauthnCredentialsFileExists(),
-		CREDENTIALS_MISSING_MESSAGE
-	);
+	test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
 
 	for (const label of EXPECTED_LABELS) {
 		test.describe(`user: ${label}`, () => {
@@ -37,4 +34,45 @@ test.describe('Credentials file login (validate each user can log in)', () => {
 			});
 		});
 	}
+
+	test.describe('Auth plugin / GraphQL after login', () => {
+		test.use({ credentialLabel: 'signup' });
+
+		test('after login, GraphQL requests succeed (no 401) and send Authorization header', async ({
+			pageAndCompleteLogin
+		}) => {
+			const { page, completeLogin } = pageAndCompleteLogin;
+			const graphqlResponses: { status: number }[] = [];
+			const graphqlAuthHeaders: (string | undefined)[] = [];
+
+			// Attach before navigation to dashboard so we capture layout/init GraphQL (e.g. push notification)
+			page.on('response', (response) => {
+				if (response.url().includes('/graph')) {
+					graphqlResponses.push({ status: response.status() });
+				}
+			});
+			page.on('request', (request) => {
+				if (request.url().includes('/graph')) {
+					graphqlAuthHeaders.push(request.headers()['authorization']);
+				}
+			});
+
+			await completeLogin();
+			await page.waitForLoadState('networkidle');
+
+			const status401 = graphqlResponses.filter((r) => r.status === 401);
+			expect(status401, 'GraphQL should not return 401 after login').toHaveLength(0);
+
+			const status2xx = graphqlResponses.filter((r) => r.status >= 200 && r.status < 300);
+			expect(status2xx.length, 'At least one GraphQL request should succeed (2xx)').toBeGreaterThan(
+				0
+			);
+
+			const withBearer = graphqlAuthHeaders.filter((h) => h?.startsWith('Bearer '));
+			expect(
+				withBearer.length,
+				'At least one GraphQL request should send Authorization: Bearer'
+			).toBeGreaterThan(0);
+		});
+	});
 });
