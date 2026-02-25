@@ -1,6 +1,7 @@
 import { Preferences } from '@capacitor/preferences';
 import type { ClientPlugin } from '$houdini';
 import { goto } from '$app/navigation';
+import { resolve as resolvePath } from '$app/paths';
 import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
@@ -204,8 +205,8 @@ const authPlugin: ClientPlugin = () => {
 			} finally {
 				resolve(ctx);
 				if (shouldRedirect) {
-					// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve(ctx) is called above
-					const nav = goto('/auth/login');
+					const loginPath = resolvePath('/auth/login', {} as Record<string, string>);
+					const nav = goto(loginPath);
 					if (typeof nav?.catch === 'function') {
 						void nav.catch((err: unknown) => {
 							console.error('[AuthPlugin] Redirect failed:', err);
