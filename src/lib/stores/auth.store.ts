@@ -1,8 +1,9 @@
-import type { AuthState, BiometricData, Credentials, UserData } from '$lib/types/auth';
+import type { AuthState, BiometricData, UserData } from '$lib/types/auth';
 import { writable } from 'svelte/store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
+import { resolve as resolvePath } from '$app/paths';
 import { appStore } from './app.store';
 import { resetMigration } from '$lib/utils/helpers/migratePasskey';
 
@@ -16,6 +17,10 @@ const createAuthStore = () => {
 	const { subscribe, set, update } = writable<AuthState>(initialAuthState);
 
 	const logout = async () => {
+		// Clear plugin in-memory token cache so next request does not send stale token
+		const { clearPluginTokenCache } = await import('$lib/utils/houdini/plugins/customAuthPlugin');
+		clearPluginTokenCache();
+
 		// Clear persistent storage
 		await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 		await Preferences.remove({ key: StorageKeys.NPUB });
@@ -32,10 +37,18 @@ const createAuthStore = () => {
 
 		// Reset auth state
 		set(initialAuthState);
-	}
+	};
 
-	const setupAuthData = async (accessToken: string, authMethod: string, npub: string, userData: Partial<UserData>, biometricData?: BiometricData, redirect: boolean = true) => {
-		await Preferences.set({ key: StorageKeys.ACCESS_TOKEN, value: accessToken });
+	const setupAuthData = async (
+		accessToken: string,
+		authMethod: string,
+		npub: string,
+		userData: Partial<UserData>,
+		biometricData?: BiometricData,
+		redirect: boolean = true
+	) => {
+		const { setAccessToken } = await import('$lib/utils/houdini/plugins/customAuthPlugin');
+		await setAccessToken(accessToken);
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
 
 		// Lazy load user store only when needed
@@ -43,16 +56,17 @@ const createAuthStore = () => {
 
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
-		if (redirect) await goto('/dashboard').then(async () => {
-			// Close modal and reset migration state
-			resetMigration();
+		if (redirect)
+			await goto(resolvePath('/dashboard', {} as Record<string, string>)).then(async () => {
+				// Close modal and reset migration state
+				resetMigration();
 
-			// TODO: To be removed after getting auth method from the server
-			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
-			const { user } = await import('./user.store');
-			if (userData) user.updateProfile(userData);
-		});
-	}
+				// TODO: To be removed after getting auth method from the server
+				await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
+				const { user } = await import('./user.store');
+				if (userData) user.updateProfile(userData);
+			});
+	};
 
 	return {
 		subscribe,
