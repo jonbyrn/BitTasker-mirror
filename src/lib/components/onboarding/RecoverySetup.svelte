@@ -280,6 +280,7 @@
 			<h3 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.recovery_setup.title')}</h3>
 			<h5 class="mb-3">{$t('onboarding_auth.form.recovery_setup.subtitle')}</h5>
 			<p class="step-description text-base-content mx-auto mb-6 max-w-lg text-lg">
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				{@html $t('onboarding_auth.form.recovery_setup.description')}
 			</p>
 
@@ -287,18 +288,22 @@
 			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					<span>{@html $t('onboarding_auth.form.recovery_setup.features.secure')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					<span>{@html $t('onboarding_auth.form.recovery_setup.features.recoverable')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					<span>{@html $t('onboarding_auth.form.recovery_setup.features.optional')}</span>
 				</div>
 				<div class="feature-item mb-6 flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					<span>{@html $t('onboarding_auth.form.recovery_setup.features.private')}</span>
 				</div>
 
@@ -312,7 +317,12 @@
 			<!-- Recovery Password Option -->
 			<div class="form-control mx-auto max-w-lg">
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
-					<input type="checkbox" bind:checked={enableRecovery} class="checkbox checkbox-sm" />
+					<input
+						type="checkbox"
+						bind:checked={enableRecovery}
+						class="checkbox checkbox-sm"
+						data-testid="onboarding-recovery-enable-checkbox"
+					/>
 					<span class="label-text"
 						>{$t('onboarding_auth.form.recovery_setup.create_recovery_password')}</span
 					>
@@ -338,6 +348,7 @@
 							class="input input-bordered w-full {emailError ? 'input-error' : ''}"
 							placeholder={$t('onboarding_auth.form.recovery_setup.email_placeholder')}
 							required={enableRecovery}
+							data-testid="onboarding-recovery-email"
 						/>
 						{#if emailError}
 							<label class="label" for="email">
@@ -389,6 +400,7 @@
 										: ''}"
 									placeholder={$t('onboarding_auth.form.recovery_setup.password_placeholder')}
 									required={enableRecovery}
+									data-testid="onboarding-recovery-password"
 								/>
 								<!-- Eye Icon -->
 								<button
@@ -495,6 +507,7 @@
 										'onboarding_auth.form.recovery_setup.confirm_password_placeholder'
 									)}
 									required={enableRecovery}
+									data-testid="onboarding-recovery-confirm-password"
 								/>
 								<!-- Eye Icon -->
 								<button
@@ -606,7 +619,7 @@
 							<div class="mt-2">
 								<div class="flex items-center gap-2">
 									<div class="flex-1">
-										<div class="h-2 w-full overflow-hidden rounded-full bg-base-300">
+										<div class="bg-base-300 h-2 w-full overflow-hidden rounded-full">
 											<div
 												class="h-full transition-all duration-300 {passwordStrength === 'weak'
 													? 'bg-error'

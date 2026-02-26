@@ -35,6 +35,9 @@ export const passkeyMigration = writable<PasskeyMigrationStore>({
 	context: null
 });
 
+/** Interval id for the migration countdown; cleared in resetMigration and when countdown ends */
+let migrationCountdownIntervalId: ReturnType<typeof setInterval> | null = null;
+
 /**
  * Start the countdown timer and wait for user action
  */
@@ -54,6 +57,7 @@ export function startMigrationCountdown() {
 		// If user clicked continue, clear interval
 		if (currentState.shouldProceed) {
 			clearInterval(interval);
+			migrationCountdownIntervalId = null;
 			return;
 		}
 
@@ -66,6 +70,7 @@ export function startMigrationCountdown() {
 		} else {
 			// Auto-proceed when countdown reaches 0
 			clearInterval(interval);
+			migrationCountdownIntervalId = null;
 			passkeyMigration.update((state) => ({
 				...state,
 				shouldProceed: true
@@ -73,6 +78,7 @@ export function startMigrationCountdown() {
 		}
 	}, 1000);
 
+	migrationCountdownIntervalId = interval;
 	return interval;
 }
 
@@ -88,9 +94,13 @@ export function skipCountdown() {
 }
 
 /**
- * Reset migration state
+ * Reset migration state and clear the countdown interval
  */
 export function resetMigration() {
+	if (migrationCountdownIntervalId != null) {
+		clearInterval(migrationCountdownIntervalId);
+		migrationCountdownIntervalId = null;
+	}
 	passkeyMigration.set({
 		isOpen: false,
 		state: 'info',

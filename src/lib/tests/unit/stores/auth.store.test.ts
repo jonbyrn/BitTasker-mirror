@@ -215,13 +215,24 @@ describe('auth.store', () => {
 			expect(clearPluginTokenCache).toHaveBeenCalled();
 		});
 
-		it('when redirect is true and goto rejects, setupAuthData does not throw', async () => {
-			const { Preferences } = await import('@capacitor/preferences');
-			vi.mocked(Preferences.set).mockResolvedValue(undefined);
-			const { goto } = await import('$app/navigation');
-			vi.mocked(goto).mockRejectedValueOnce(new Error('nav failed'));
-			await authState.setupAuthData('token', 'passkey', 'npub1', {}, undefined, true);
-			expect(get(authState).isAuthenticated).toBe(true);
+		describe('login flow: setupAuthData then failed goto', () => {
+			it('when redirect is true and goto rejects, setupAuthData does not throw and user remains authenticated', async () => {
+				const { Preferences } = await import('@capacitor/preferences');
+				vi.mocked(Preferences.set).mockResolvedValue(undefined);
+				const { goto } = await import('$app/navigation');
+				vi.mocked(goto).mockRejectedValueOnce(new Error('nav failed'));
+				await authState.setupAuthData('token', 'passkey', 'npub1', {}, undefined, true);
+				expect(get(authState).isAuthenticated).toBe(true);
+			});
+
+			it('when redirect is true and goto rejects, sets error to Navigation failed', async () => {
+				const { Preferences } = await import('@capacitor/preferences');
+				vi.mocked(Preferences.set).mockResolvedValue(undefined);
+				const { goto } = await import('$app/navigation');
+				vi.mocked(goto).mockRejectedValueOnce(new Error('nav failed'));
+				await authState.setupAuthData('token', 'passkey', 'npub1', {}, undefined, true);
+				expect(get(authState).error).toBe('Navigation failed');
+			});
 		});
 
 		it('releases setup guard after completion so sequential setupAuthData calls both run', async () => {
@@ -284,11 +295,11 @@ describe('auth.store', () => {
 			expect(get(authState).isAuthenticated).toBe(false);
 		});
 
-		it('when logout throws (e.g. clearSession rejects), auth state is still reset in finally', async () => {
+		it('when clearSession rejects, logout still completes and auth state is reset', async () => {
 			const { clearSession } = await import('$lib/utils/session');
 			vi.mocked(clearSession).mockRejectedValueOnce(new Error('session failed'));
 			authState.set({ isAuthenticated: true, isLoading: false, error: null });
-			await authState.logout().catch(() => {});
+			await authState.logout();
 			expect(get(authState).isAuthenticated).toBe(false);
 		});
 	});

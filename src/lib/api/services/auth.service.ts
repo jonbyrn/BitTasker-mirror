@@ -5,7 +5,6 @@ import type {
 	UserData,
 	EncryptedData,
 	RegistrationData,
-	PasskeyLoginData,
 	PasskeyLoginArgs,
 	NostrLoginArgs,
 	EncryptedNostrDataArgs,
@@ -13,7 +12,7 @@ import type {
 } from '$lib/types/auth';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
-
+import { normalizeToError } from '$lib/utils/helpers/normalizeError';
 
 /**
  * Authentication Service
@@ -29,7 +28,9 @@ export class AuthService extends BaseApiService {
 	 * @throws {Error} 422 - Invalid encryption data format
 	 * @throws {Error} 500 - Internal server error
 	 */
-	async register(registrationData: RegistrationData): Promise<{ publicKey: string; user: UserData, access_token: string }> {
+	async register(
+		registrationData: RegistrationData
+	): Promise<{ publicKey: string; user: UserData; access_token: string }> {
 		try {
 			// Validate required fields
 			if (!registrationData.publicKey || !registrationData.encryptedData) {
@@ -42,18 +43,20 @@ export class AuthService extends BaseApiService {
 				throw new Error('Invalid master key data structure');
 			}
 
-			const response = await this.post<{ publicKey: string; user: UserData; access_token: string; error: any }>(
-				ENDPOINTS.AUTH.REGISTER,
-				registrationData
-			);
+			const response = await this.post<{
+				publicKey: string;
+				user: UserData;
+				access_token: string;
+				error: { message: string } | null;
+			}>(ENDPOINTS.AUTH.REGISTER, registrationData);
 
 			if (response?.data?.error) {
 				throw new Error(response.data.error?.message);
 			}
 
 			return response.data;
-		} catch (error: any) {
-			throw new Error(error);
+		} catch (error: unknown) {
+			throw normalizeToError(error, 'Registration failed. Please try again.');
 		}
 	}
 
@@ -74,11 +77,20 @@ export class AuthService extends BaseApiService {
 	 * @param deviceId Unique device identifier
 	 * @returns Promise with authentication response
 	 */
-	async passkeyLogin(data: PasskeyLoginArgs): Promise<{ user: UserData; access_token: string, isLegacy?: boolean, encryptedData: EncryptedData }> {
-		const response = await this.post<{ user: UserData; access_token: string, isLegacy?: boolean, encryptedData: EncryptedData }>(
-			ENDPOINTS.AUTH.PASSKEY_LOGIN,
-			data
-		);
+	async passkeyLogin(
+		data: PasskeyLoginArgs
+	): Promise<{
+		user: UserData;
+		access_token: string;
+		isLegacy?: boolean;
+		encryptedData: EncryptedData;
+	}> {
+		const response = await this.post<{
+			user: UserData;
+			access_token: string;
+			isLegacy?: boolean;
+			encryptedData: EncryptedData;
+		}>(ENDPOINTS.AUTH.PASSKEY_LOGIN, data);
 		return response.data;
 	}
 
@@ -90,27 +102,31 @@ export class AuthService extends BaseApiService {
 	 * @throws {Error} 401 - Invalid signature or unauthorized access
 	 * @throws {Error} 500 - Internal server error
 	 */
-	async nostrLogin(data: NostrLoginArgs): Promise<{ access_token: string; user: UserData; isNewUser: boolean, isMigrated: boolean }> {
+	async nostrLogin(
+		data: NostrLoginArgs
+	): Promise<{ access_token: string; user: UserData; isNewUser: boolean; isMigrated: boolean }> {
 		try {
-			const response = await this.post<{ access_token: string; user: UserData; isNewUser: boolean, isMigrated: boolean }>(
-				ENDPOINTS.AUTH.NOSTR_LOGIN,
-				data
-			);
+			const response = await this.post<{
+				access_token: string;
+				user: UserData;
+				isNewUser: boolean;
+				isMigrated: boolean;
+			}>(ENDPOINTS.AUTH.NOSTR_LOGIN, data);
 			return response.data;
-		} catch (error: any) {
-			if (error?.status === 400) {
+		} catch (error: unknown) {
+			const err = error as { status?: number; data?: { message?: string } };
+			if (err?.status === 400) {
 				throw new Error(
-					error.data?.message || 'No account associated with this Nostr key. Please register first.'
+					err.data?.message || 'No account associated with this Nostr key. Please register first.'
 				);
 			}
-			if (error?.status === 401) {
+			if (err?.status === 401) {
 				throw new Error('Invalid signature or unauthorized access');
 			}
-			if (error?.status === 500) {
+			if (err?.status === 500) {
 				throw new Error('Internal server error. Please try again later.');
 			}
-
-			throw new Error(error || 'Login failed. Please try again.');
+			throw normalizeToError(error, 'Login failed. Please try again.');
 		}
 	}
 
@@ -119,21 +135,24 @@ export class AuthService extends BaseApiService {
 	 * @param data Encrypted nostr data arguments
 	 * @returns Promise with encrypted data
 	 */
-	async encryptedNostrData(data: EncryptedNostrDataArgs): Promise<{ encryptedData: EncryptedData | null }> {
+	async encryptedNostrData(
+		data: EncryptedNostrDataArgs
+	): Promise<{ encryptedData: EncryptedData | null }> {
 		try {
 			const response = await this.post<{ encryptedData: EncryptedData }>(
 				ENDPOINTS.AUTH.ENCRYPTED_NOSTR_DATA,
 				data
 			);
 			return response.data;
-		} catch (error: any) {
-			if (error?.status === 400) {
+		} catch (error: unknown) {
+			const err = error as { status?: number };
+			if (err?.status === 400) {
 				return { encryptedData: null };
 			}
-			if (error?.status === 500) {
+			if (err?.status === 500) {
 				throw new Error('Internal server error. Please try again later.');
 			}
-			throw new Error(error || 'Failed to encrypt Nostr data. Please try again.');
+			throw normalizeToError(error, 'Failed to encrypt Nostr data. Please try again.');
 		}
 	}
 
@@ -142,7 +161,9 @@ export class AuthService extends BaseApiService {
 	 * @param data Passkey encrypted data arguments
 	 * @returns Promise with encrypted data
 	 */
-	async getPasskeyEncryptedData(data: PasskeyEncryptedDataArgs): Promise<{ encryptedData: EncryptedData }> {
+	async getPasskeyEncryptedData(
+		data: PasskeyEncryptedDataArgs
+	): Promise<{ encryptedData: EncryptedData }> {
 		const response = await this.post<{ encryptedData: EncryptedData }>(
 			ENDPOINTS.AUTH.ENCRYPTED_PASSKEY_DATA,
 			data
@@ -168,7 +189,7 @@ export class AuthService extends BaseApiService {
 	 * @response 404 - No recovery data found
 	 * @returns Promise with recovery data
 	 */
-	async getNostrRecoveryData(data: { npub: string, otp: string }): Promise<NostrRecoveryData> {
+	async getNostrRecoveryData(data: { npub: string; otp: string }): Promise<NostrRecoveryData> {
 		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_VERIFY, data);
 		return response.data;
 	}
@@ -181,7 +202,9 @@ export class AuthService extends BaseApiService {
 	 * @response 404 - User not found
 	 * @returns Promise with recovery response
 	 */
-	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<{ access_token: string; user: UserData }> {
+	async completeNostrRecovery(
+		data: NostrRecoveryCompleteData
+	): Promise<{ access_token: string; user: UserData }> {
 		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
 		return response.data;
 	}
@@ -220,21 +243,25 @@ export class AuthService extends BaseApiService {
 	 * @response 500 - Verification service error
 	 * @returns Promise with verification response
 	 */
-	async verifyTurnstile(token: string, action?: string): Promise<{ success: boolean; message: string }> {
+	async verifyTurnstile(
+		token: string,
+		action?: string
+	): Promise<{ success: boolean; message: string }> {
 		try {
 			const response = await this.post<{ success: boolean; message: string }>(
 				ENDPOINTS.AUTH.VERIFY_TURNSTILE,
 				{ token, action }
 			);
 			return response.data;
-		} catch (error: any) {
-			if (error?.status === 400) {
-				throw new Error(error.data?.message || 'Invalid token');
+		} catch (error: unknown) {
+			const err = error as { status?: number; data?: { message?: string } };
+			if (err?.status === 400) {
+				throw new Error(err.data?.message || 'Invalid token');
 			}
-			if (error?.status === 500) {
+			if (err?.status === 500) {
 				throw new Error('Verification service error. Please try again later.');
 			}
-			throw new Error(error || 'Turnstile verification failed. Please try again.');
+			throw normalizeToError(error, 'Turnstile verification failed. Please try again.');
 		}
 	}
 
@@ -250,11 +277,12 @@ export class AuthService extends BaseApiService {
 				ENDPOINTS.AUTH.ONBOARDING_STATUS
 			);
 			return response.data;
-		} catch (error: any) {
-			if (error?.status === 401) {
+		} catch (error: unknown) {
+			const err = error as { status?: number };
+			if (err?.status === 401) {
 				throw new Error('Unauthorized. Please login again.');
 			}
-			throw new Error(error || 'Failed to check onboarding status. Please try again.');
+			throw normalizeToError(error, 'Failed to check onboarding status. Please try again.');
 		}
 	}
 
@@ -266,13 +294,12 @@ export class AuthService extends BaseApiService {
 	 */
 	async checkUsernameAvailability(username: string): Promise<boolean> {
 		try {
-			const response = await this.get<{ available: boolean }>(
-				ENDPOINTS.AUTH.CHECK_USERNAME,
-				{ params: { username } }
-			);
+			const response = await this.get<{ available: boolean }>(ENDPOINTS.AUTH.CHECK_USERNAME, {
+				params: { username }
+			});
 			return response.data.available;
-		} catch (error: any) {
-			throw new Error(error || 'Failed to check username availability. Please try again.');
+		} catch (error: unknown) {
+			throw normalizeToError(error, 'Failed to check username availability. Please try again.');
 		}
 	}
 }

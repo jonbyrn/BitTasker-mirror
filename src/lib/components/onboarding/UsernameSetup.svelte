@@ -86,31 +86,35 @@
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
+			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
 				{$t('onboarding_auth.form.username_setup.step')}
 				{currentStep + 1}
 				{$t('onboarding_auth.form.username_setup.of')}
 				{totalSteps}
 			</div>
 
-			<h4 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.username_setup.title')}</h4>
+			<h4 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.username_setup.title')}</h4>
 			<h5 class="mb-3">{$t('onboarding_auth.form.username_setup.subtitle')}</h5>
 
-			<div class="features-list mb-6 space-y-2 text-center mx-auto w-fit">
+			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-center">
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					<span>{@html $t('onboarding_auth.form.username_setup.features.claim_name')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					<span>{@html $t('onboarding_auth.form.username_setup.features.professional')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					<span>{@html $t('onboarding_auth.form.username_setup.features.shareable')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					<span>{@html $t('onboarding_auth.form.username_setup.features.nostr_portable')}</span>
 				</div>
 			</div>
@@ -122,9 +126,9 @@
 
 		<form onsubmit={handleSubmit} class="">
 			<!-- Username Field -->
-			<div class="form-control max-w-lg mx-auto">
+			<div class="form-control mx-auto max-w-lg">
 				<label class="label" for="username">
-					<span class="label-text pb-1 text-base-content">
+					<span class="label-text text-base-content pb-1">
 						{$t('onboarding_auth.form.username_setup.username_field')}
 					</span>
 				</label>
@@ -169,7 +173,9 @@
 				</div>
 				{#if usernameError}
 					<label class="label" for="username">
-						<span class="label-text-alt text-error">{usernameError}</span>
+						<span class="label-text-alt text-error" data-testid="onboarding-username-error"
+							>{usernameError}</span
+						>
 					</label>
 				{/if}
 			</div>

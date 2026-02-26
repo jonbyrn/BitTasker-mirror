@@ -1,10 +1,10 @@
 /**
  * Session Management Module
- * 
+ *
  * Provides centralized session cleanup functionality to ensure all user-specific
  * data is properly cleared when a user logs out. This prevents stale data from
  * persisting when a new user logs in.
- * 
+ *
  * Usage:
  * - Called automatically by auth.store.ts on logout
  * - Can also be called manually if needed for testing or edge cases
@@ -16,7 +16,6 @@ import { contractStore } from '$lib/stores/contract.store';
 import { bidStore } from '$lib/stores/bid.store';
 import { tasksStore, myTasksStore } from '$lib/stores/task.store';
 import { profileStore } from '$lib/stores/profile.store';
-import { walletStore } from '$lib/stores/wallet.store';
 
 // Import cache utilities
 import { nostrEventCache } from '$lib/stores/user.store';
@@ -87,13 +86,13 @@ function resetAllStores(): void {
 
 /**
  * Complete session cleanup
- * 
+ *
  * Call this function when a user logs out to ensure:
  * 1. All Nostr subscriptions are closed
  * 2. All caches are cleared
  * 3. All stores are reset to initial state
  * 4. Wallet is disconnected
- * 
+ *
  * This prevents stale data from the previous user from appearing
  * when a new user logs in.
  */
@@ -114,7 +113,7 @@ export async function clearSession(): Promise<void> {
 		}
 	} catch (error) {
 		console.error('[Session] Error during session cleanup:', error);
-		// Don't throw - we want logout to succeed even if cleanup has issues
+		throw error;
 	}
 }
 

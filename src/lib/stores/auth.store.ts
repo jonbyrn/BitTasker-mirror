@@ -30,7 +30,11 @@ const createAuthStore = () => {
 			await Preferences.remove({ key: StorageKeys.AUTH_METHOD });
 
 			const { clearSession } = await import('$lib/utils/session');
-			await clearSession();
+			try {
+				await clearSession();
+			} catch (cleanupError) {
+				console.error('[auth.store] Session cleanup failed during logout:', cleanupError);
+			}
 
 			const { user } = await import('./user.store');
 			user.reset();

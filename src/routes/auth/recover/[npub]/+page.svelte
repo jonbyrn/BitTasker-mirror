@@ -2,7 +2,13 @@
 	import type { NostrRecoveryData } from '$lib/types/auth';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import {
+		redirectRetryStore,
+		startRedirectRetryCountdown,
+		goToRedirectTarget,
+		cleanupRedirectRetry
+	} from '$lib/utils/helpers/redirectWithRetry';
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import { validatePassword } from '$lib/utils/helpers/validators';
@@ -98,12 +104,16 @@
 			newPassword = generatedPassword;
 			confirmPassword = generatedPassword;
 			passwordStrength = getPasswordStrength(generatedPassword);
-		} catch (err: any) {
+		} catch (err: unknown) {
 			const message =
 				err instanceof Error ? err.message : $t('recovery_npub.errors.no_recovery_data');
 			appStore.showErrorToast(message, 4000);
 			return goto('/auth/login');
 		}
+	});
+
+	onDestroy(() => {
+		cleanupRedirectRetry();
 	});
 
 	function regeneratePassword() {
@@ -139,8 +149,8 @@
 			// Decrypt private key with current password
 			({ nsec, mnemonic } = await decryptMasterKeyWithPassword(recoveryData, currentPassword));
 			step = 2;
-		} catch (err: any) {
-			error = err.message || $t('recovery_npub.errors.decrypt_failed');
+		} catch (err: unknown) {
+			error = (err as Error).message || $t('recovery_npub.errors.decrypt_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -235,17 +245,17 @@
 					encryptedData,
 					exportedKey
 				};
-				await authState.setupAuthData(
-					access_token,
-					'passkey',
-					npub,
-					user,
-					biometricData,
-					true
-				);
+				await authState.setupAuthData(access_token, 'passkey', npub, user, biometricData, false);
+				const redirectPath = '/dashboard';
+				try {
+					await goto(redirectPath);
+				} catch (gotoErr) {
+					console.error('[Recovery] Redirect failed, will retry:', gotoErr);
+					startRedirectRetryCountdown(redirectPath, goto);
+				}
 			}
-		} catch (err: any) {
-			error = err.message || $t('recovery_npub.errors.recovery_failed');
+		} catch (err: unknown) {
+			error = (err as Error).message || $t('recovery_npub.errors.recovery_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -255,209 +265,50 @@
 <div class="bg-base-200 flex grow flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight">
-				{$t('recovery_npub.title')}
-			</h3>
-
-			{#if step === 1}
-				<form onsubmit={decryptAccountKeys} class="space-y-4">
-					<div class="form-control">
-						<label class="label" for="currentPassword">
-							<span class="label-text">{$t('recovery_npub.current_password_label')}</span>
-						</label>
-						<div class="relative">
-							<input
-								type={showCurrentPassword ? 'text' : 'password'}
-								id="currentPassword"
-								bind:value={currentPassword}
-								placeholder={$t('recovery_npub.current_password_placeholder')}
-								class="input input-bordered w-full pr-10"
-								required
-							/>
-							<button
-								type="button"
-								class="absolute inset-y-0 right-0 flex items-center pr-3"
-								onclick={() => (showCurrentPassword = !showCurrentPassword)}
-							>
-								{#if showCurrentPassword}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-										/>
-									</svg>
-								{:else}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-										/>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-										/>
-									</svg>
-								{/if}
-							</button>
-						</div>
-					</div>
-
-					<div class="form-control">
-						<label class="label" for="recoveryCode">
-							<span class="label-text">{$t('recovery_npub.recovery_code_label')}</span>
-						</label>
-						<input
-							type="text"
-							id="recoveryCode"
-							bind:value={otpCode}
-							placeholder={$t('recovery_npub.recovery_code_placeholder')}
-							class="input input-bordered w-full"
-							required
-						/>
-					</div>
-
-					<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
-						{#if isLoading}
-							<span class="loading loading-spinner"></span>
-						{:else}
-							{$t('recovery_npub.continue_button')}
-						{/if}
-					</button>
+			{#if $redirectRetryStore.pending && $redirectRetryStore.target}
+				<div class="alert alert-outline alert-success flex flex-col gap-2">
+					<span>{$t('login.redirecting_message')}</span>
+					{#if $redirectRetryStore.countdown > 0}
+						<p class="text-sm opacity-90">
+							{$t('login.redirecting_retry_in', {
+								values: { seconds: $redirectRetryStore.countdown }
+							})}
+						</p>
+					{/if}
 					<button
 						type="button"
-						class="btn btn-soft w-full"
-						disabled={isLoading}
-						onclick={() => goto('/auth/recover/send')}
+						class="btn btn-primary btn-sm self-start"
+						onclick={goToRedirectTarget}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 19l-7-7m0 0l7-7m-7 7h18"
-							/>
-						</svg>
-						{$t('recovery_npub.back_to_recovery')}
+						{$t('login.go_to_dashboard')}
 					</button>
-				</form>
-			{:else if step === 2}
-				<form onsubmit={completeRecovery} class="space-y-4">
-					<div class="form-control">
-						<!-- Generated Password Note -->
-						<div class="alert alert-warning alert-outline mb-2">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				</div>
+			{:else}
+				<h3 class="card-title mb-6 text-center text-xl leading-tight font-semibold sm:text-2xl">
+					{$t('recovery_npub.title')}
+				</h3>
+
+				{#if step === 1}
+					<form onsubmit={decryptAccountKeys} class="space-y-4">
+						<div class="form-control">
+							<label class="label" for="currentPassword">
+								<span class="label-text">{$t('recovery_npub.current_password_label')}</span>
+							</label>
+							<div class="relative">
+								<input
+									type={showCurrentPassword ? 'text' : 'password'}
+									id="currentPassword"
+									bind:value={currentPassword}
+									placeholder={$t('recovery_npub.current_password_placeholder')}
+									class="input input-bordered w-full pr-10"
+									required
 								/>
-							</svg>
-							<span class="text-sm"
-								>{$t('onboarding_auth.form.recovery_setup.generated_password_note')}</span
-							>
-						</div>
-						<label class="label" for="newPassword">
-							<span class="label-text">{$t('recovery_npub.new_password_label')}</span>
-						</label>
-						<div class="relative">
-							<input
-								type={showNewPassword ? 'text' : 'password'}
-								id="newPassword"
-								bind:value={newPassword}
-								oninput={(e) => {
-									updatePasswordStrength(e);
-									validatePasswordMatch();
-								}}
-								placeholder={$t('recovery_npub.new_password_placeholder')}
-								class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-20"
-								required
-							/>
-							<div class="absolute inset-y-0 right-0 flex items-center pr-3">
-								<!-- Copy Button -->
 								<button
 									type="button"
-									class="mr-2"
-									onclick={() => copyToClipboard(newPassword)}
-									disabled={!newPassword}
-									title={$t('recovery_npub.copy_password_title')}
-									aria-label={$t('recovery_npub.copy_password_title')}
+									class="absolute inset-y-0 right-0 flex items-center pr-3"
+									onclick={() => (showCurrentPassword = !showCurrentPassword)}
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-										/>
-									</svg>
-								</button>
-								<!-- Regenerate Button -->
-								<button
-									aria-label={$t('recovery_npub.regenerate_password_title')}
-									type="button"
-									class="mr-2"
-									onclick={regeneratePassword}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M8.25 4.5l7.5 7.5-7.5 7.5"
-										/>
-									</svg>
-								</button>
-								<!-- Show/Hide Button -->
-								<button
-									type="button"
-									onclick={() => (showNewPassword = !showNewPassword)}
-									aria-label={showNewPassword
-										? $t('recovery_npub.hide_password_title')
-										: $t('recovery_npub.show_password_title')}
-								>
-									{#if showNewPassword}
+									{#if showCurrentPassword}
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											class="h-5 w-5"
@@ -497,187 +348,366 @@
 								</button>
 							</div>
 						</div>
-					</div>
 
-					<div class="form-control">
-						<label class="label" for="confirmPassword">
-							<span class="label-text">{$t('recovery_npub.confirm_password_label')}</span>
-						</label>
-						<div class="relative">
+						<div class="form-control">
+							<label class="label" for="recoveryCode">
+								<span class="label-text">{$t('recovery_npub.recovery_code_label')}</span>
+							</label>
 							<input
-								type={showNewPassword ? 'text' : 'password'}
-								id="confirmPassword"
-								bind:value={confirmPassword}
-								oninput={validatePasswordMatch}
-								placeholder={$t('recovery_npub.confirm_password_placeholder')}
-								class="input input-bordered w-full {passwordError || passwordMismatchError
-									? 'input-error'
-									: ''} pr-20"
+								type="text"
+								id="recoveryCode"
+								bind:value={otpCode}
+								placeholder={$t('recovery_npub.recovery_code_placeholder')}
+								class="input input-bordered w-full"
 								required
 							/>
-							<!-- Copy Button -->
-							<button
-								type="button"
-								class="absolute inset-y-0 right-0 flex items-center pr-3"
-								onclick={() => copyToClipboard(confirmPassword)}
-								disabled={!confirmPassword}
-								title={$t('recovery_npub.copy_password_title')}
-								aria-label={$t('recovery_npub.copy_password_title')}
+						</div>
+
+						<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
+							{#if isLoading}
+								<span class="loading loading-spinner"></span>
+							{:else}
+								{$t('recovery_npub.continue_button')}
+							{/if}
+						</button>
+						<button
+							type="button"
+							class="btn btn-soft w-full"
+							disabled={isLoading}
+							onclick={() => goto('/auth/recover/send')}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
 							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 19l-7-7m0 0l7-7m-7 7h18"
+								/>
+							</svg>
+							{$t('recovery_npub.back_to_recovery')}
+						</button>
+					</form>
+				{:else if step === 2}
+					<form onsubmit={completeRecovery} class="space-y-4">
+						<div class="form-control">
+							<!-- Generated Password Note -->
+							<div class="alert alert-warning alert-outline mb-2">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5"
+									class="h-5 w-5 shrink-0 stroke-current"
 									fill="none"
 									viewBox="0 0 24 24"
-									stroke="currentColor"
 								>
 									<path
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
-										d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 									/>
 								</svg>
-							</button>
-						</div>
-						{#if passwordMismatchError}
-							<label class="label" for="confirmPassword">
-								<span class="label-text-alt text-error">{passwordMismatchError}</span>
+								<span class="text-sm"
+									>{$t('onboarding_auth.form.recovery_setup.generated_password_note')}</span
+								>
+							</div>
+							<label class="label" for="newPassword">
+								<span class="label-text">{$t('recovery_npub.new_password_label')}</span>
 							</label>
-						{:else if passwordError}
-							<label class="label" for="confirmPassword">
-								<span class="label-text-alt text-error">{passwordError}</span>
-							</label>
-						{/if}
-
-						<!-- Password Strength Indicator -->
-						{#if newPassword && newPassword.length >= 12}
-							<div class="mt-2">
-								<div class="flex items-center gap-2">
-									<div class="flex-1">
-										<div class="h-2 w-full overflow-hidden rounded-full bg-base-300">
-											<div
-												class="h-full transition-all duration-300 {passwordStrength === 'weak'
-													? 'bg-error'
-													: passwordStrength === 'medium'
-														? 'bg-warning'
-														: 'bg-success'}"
-												style="width: {passwordStrength === 'weak'
-													? '33%'
-													: passwordStrength === 'medium'
-														? '66%'
-														: '100%'}"
-											></div>
-										</div>
-									</div>
-									<span
-										class="text-sm font-medium {passwordStrength === 'weak'
-											? 'text-error'
-											: passwordStrength === 'medium'
-												? 'text-warning'
-												: 'text-success'}"
+							<div class="relative">
+								<input
+									type={showNewPassword ? 'text' : 'password'}
+									id="newPassword"
+									bind:value={newPassword}
+									oninput={(e) => {
+										updatePasswordStrength(e);
+										validatePasswordMatch();
+									}}
+									placeholder={$t('recovery_npub.new_password_placeholder')}
+									class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-20"
+									required
+								/>
+								<div class="absolute inset-y-0 right-0 flex items-center pr-3">
+									<!-- Copy Button -->
+									<button
+										type="button"
+										class="mr-2"
+										onclick={() => copyToClipboard(newPassword)}
+										disabled={!newPassword}
+										title={$t('recovery_npub.copy_password_title')}
+										aria-label={$t('recovery_npub.copy_password_title')}
 									>
-										{$t(
-											`onboarding_auth.form.recovery_setup.password_strength.${passwordStrength}`
-										)}
-									</span>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+											/>
+										</svg>
+									</button>
+									<!-- Regenerate Button -->
+									<button
+										aria-label={$t('recovery_npub.regenerate_password_title')}
+										type="button"
+										class="mr-2"
+										onclick={regeneratePassword}
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8.25 4.5l7.5 7.5-7.5 7.5"
+											/>
+										</svg>
+									</button>
+									<!-- Show/Hide Button -->
+									<button
+										type="button"
+										onclick={() => (showNewPassword = !showNewPassword)}
+										aria-label={showNewPassword
+											? $t('recovery_npub.hide_password_title')
+											: $t('recovery_npub.show_password_title')}
+									>
+										{#if showNewPassword}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-5 w-5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+												/>
+											</svg>
+										{:else}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-5 w-5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+												/>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+												/>
+											</svg>
+										{/if}
+									</button>
 								</div>
 							</div>
-						{/if}
-					</div>
+						</div>
 
-					<!-- Revoke All Devices Checkbox -->
-					<div class="form-control">
-						<label class="label cursor-pointer gap-3">
-							<input
-								type="checkbox"
-								bind:checked={revokeAll}
-								class="checkbox checkbox-primary"
-								id="revokeAll"
-							/>
-							<span class="label-text font-medium">{$t('recovery_npub.revoke_all_label')}</span>
-						</label>
-						<p class="label-text-alt text-base-content/70 whitespace-break-spaces">
-							{$t('recovery_npub.revoke_all_description')}
-						</p>
-					</div>
+						<div class="form-control">
+							<label class="label" for="confirmPassword">
+								<span class="label-text">{$t('recovery_npub.confirm_password_label')}</span>
+							</label>
+							<div class="relative">
+								<input
+									type={showNewPassword ? 'text' : 'password'}
+									id="confirmPassword"
+									bind:value={confirmPassword}
+									oninput={validatePasswordMatch}
+									placeholder={$t('recovery_npub.confirm_password_placeholder')}
+									class="input input-bordered w-full {passwordError || passwordMismatchError
+										? 'input-error'
+										: ''} pr-20"
+									required
+								/>
+								<!-- Copy Button -->
+								<button
+									type="button"
+									class="absolute inset-y-0 right-0 flex items-center pr-3"
+									onclick={() => copyToClipboard(confirmPassword)}
+									disabled={!confirmPassword}
+									title={$t('recovery_npub.copy_password_title')}
+									aria-label={$t('recovery_npub.copy_password_title')}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+										/>
+									</svg>
+								</button>
+							</div>
+							{#if passwordMismatchError}
+								<label class="label" for="confirmPassword">
+									<span class="label-text-alt text-error">{passwordMismatchError}</span>
+								</label>
+							{:else if passwordError}
+								<label class="label" for="confirmPassword">
+									<span class="label-text-alt text-error">{passwordError}</span>
+								</label>
+							{/if}
 
-					<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
-						{#if isLoading}
-							<span class="loading loading-spinner"></span>
-						{:else}
-							{$t('recovery_npub.reset_password_button')}
-						{/if}
-					</button>
-					<button
-						type="button"
-						class="btn btn-soft w-full"
-						disabled={isLoading}
-						onclick={() => goto('/auth/recover/send')}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
+							<!-- Password Strength Indicator -->
+							{#if newPassword && newPassword.length >= 12}
+								<div class="mt-2">
+									<div class="flex items-center gap-2">
+										<div class="flex-1">
+											<div class="bg-base-300 h-2 w-full overflow-hidden rounded-full">
+												<div
+													class="h-full transition-all duration-300 {passwordStrength === 'weak'
+														? 'bg-error'
+														: passwordStrength === 'medium'
+															? 'bg-warning'
+															: 'bg-success'}"
+													style="width: {passwordStrength === 'weak'
+														? '33%'
+														: passwordStrength === 'medium'
+															? '66%'
+															: '100%'}"
+												></div>
+											</div>
+										</div>
+										<span
+											class="text-sm font-medium {passwordStrength === 'weak'
+												? 'text-error'
+												: passwordStrength === 'medium'
+													? 'text-warning'
+													: 'text-success'}"
+										>
+											{$t(
+												`onboarding_auth.form.recovery_setup.password_strength.${passwordStrength}`
+											)}
+										</span>
+									</div>
+								</div>
+							{/if}
+						</div>
+
+						<!-- Revoke All Devices Checkbox -->
+						<div class="form-control">
+							<label class="label cursor-pointer gap-3">
+								<input
+									type="checkbox"
+									bind:checked={revokeAll}
+									class="checkbox checkbox-primary"
+									id="revokeAll"
+								/>
+								<span class="label-text font-medium">{$t('recovery_npub.revoke_all_label')}</span>
+							</label>
+							<p class="label-text-alt text-base-content/70 whitespace-break-spaces">
+								{$t('recovery_npub.revoke_all_description')}
+							</p>
+						</div>
+
+						<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
+							{#if isLoading}
+								<span class="loading loading-spinner"></span>
+							{:else}
+								{$t('recovery_npub.reset_password_button')}
+							{/if}
+						</button>
+						<button
+							type="button"
+							class="btn btn-soft w-full"
+							disabled={isLoading}
+							onclick={() => goto('/auth/recover/send')}
 						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 19l-7-7m0 0l7-7m-7 7h18"
-							/>
-						</svg>
-						{$t('recovery_npub.back_to_recovery')}
-					</button>
-				</form>
-			{/if}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 19l-7-7m0 0l7-7m-7 7h18"
+								/>
+							</svg>
+							{$t('recovery_npub.back_to_recovery')}
+						</button>
+					</form>
+				{/if}
 
-			{#if error}
-				<ErrorAlertWithModal
-					{error}
-					isPasskeyError={(() => {
-						// Check if error is passkey/biometric related
-						const errorLower = error.toLowerCase();
-						return (
-							lastRecoveryAction === 'complete' &&
-							(errorLower.includes('passkey') ||
-								errorLower.includes('biometric') ||
-								errorLower.includes('webauthn') ||
-								errorLower.includes('authentication') ||
-								errorLower.includes('credential') ||
-								errorLower.includes('device'))
-						);
-					})()}
-					autoOpenModal={(() => {
-						// Auto-open modal for passkey errors
-						const errorLower = error.toLowerCase();
-						return (
-							lastRecoveryAction === 'complete' &&
-							(errorLower.includes('passkey') ||
-								errorLower.includes('biometric') ||
-								errorLower.includes('webauthn') ||
-								errorLower.includes('authentication') ||
-								errorLower.includes('credential') ||
-								errorLower.includes('device'))
-						);
-					})()}
-					onRetry={async () => {
-						error = '';
-						// Create a minimal event object for the form handlers
-						const syntheticEvent = {
-							preventDefault: () => {}
-						} as Event;
+				{#if error}
+					<ErrorAlertWithModal
+						{error}
+						isPasskeyError={(() => {
+							// Check if error is passkey/biometric related
+							const errorLower = error.toLowerCase();
+							return (
+								lastRecoveryAction === 'complete' &&
+								(errorLower.includes('passkey') ||
+									errorLower.includes('biometric') ||
+									errorLower.includes('webauthn') ||
+									errorLower.includes('authentication') ||
+									errorLower.includes('credential') ||
+									errorLower.includes('device'))
+							);
+						})()}
+						autoOpenModal={(() => {
+							// Auto-open modal for passkey errors
+							const errorLower = error.toLowerCase();
+							return (
+								lastRecoveryAction === 'complete' &&
+								(errorLower.includes('passkey') ||
+									errorLower.includes('biometric') ||
+									errorLower.includes('webauthn') ||
+									errorLower.includes('authentication') ||
+									errorLower.includes('credential') ||
+									errorLower.includes('device'))
+							);
+						})()}
+						onRetry={async () => {
+							error = '';
+							// Create a minimal event object for the form handlers
+							const syntheticEvent = {
+								preventDefault: () => {}
+							} as Event;
 
-						if (lastRecoveryAction === 'decrypt') {
-							await decryptAccountKeys(syntheticEvent);
-						} else if (lastRecoveryAction === 'complete') {
-							await completeRecovery(syntheticEvent);
-						}
-					}}
-					class="mt-4"
-				/>
+							if (lastRecoveryAction === 'decrypt') {
+								await decryptAccountKeys(syntheticEvent);
+							} else if (lastRecoveryAction === 'complete') {
+								await completeRecovery(syntheticEvent);
+							}
+						}}
+						class="mt-4"
+					/>
+				{/if}
 			{/if}
 		</div>
 	</div>

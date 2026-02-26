@@ -21,7 +21,6 @@ const createDeferred = <T>(): Deferred<T> => {
 	return { promise, resolve, reject };
 };
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const flushMicrotasks = async () => {
 	await Promise.resolve();
 	await Promise.resolve();
@@ -120,7 +119,7 @@ describe('customAuthPlugin', () => {
 		vi.clearAllMocks();
 	});
 
-	it('does not block first request on slow device ID initialization', async () => {
+	it('waits for device ID before first request so X-Device-ID is always sent (avoids 401 Device ID required)', async () => {
 		const { authPlugin, mocks, deviceDeferred } = await loadHarness({
 			browser: true,
 			tokenValue: 'token-abc',
@@ -136,21 +135,16 @@ describe('customAuthPlugin', () => {
 			}
 		} as any;
 
-		const result = await Promise.race([
-			plugin.beforeNetwork(ctx, { next } as any).then(() => 'done'),
-			wait(100).then(() => 'timeout')
-		]);
-		expect(result).toBe('done');
+		// Resolve device ID so beforeNetwork can complete (plugin now awaits device ID to avoid 401)
+		deviceDeferred.resolve('device-late');
+		await flushMicrotasks();
+
+		await plugin.beforeNetwork(ctx, { next } as any);
 
 		expect(next).toHaveBeenCalledOnce();
 		expect(ctx.fetchParams.headers['X-Existing']).toBe('keep-me');
 		expect(ctx.fetchParams.headers['Authorization']).toBe('Bearer token-abc');
-		expect(ctx.fetchParams.headers['X-Device-ID']).toBeUndefined();
-
-		deviceDeferred.resolve('device-late');
-		await flushMicrotasks();
-		// Let Node run the device promise continuation (initializeDeviceId) before second request
-		await new Promise<void>((r) => setImmediate(r));
+		expect(ctx.fetchParams.headers['X-Device-ID']).toBe('device-late');
 
 		const secondCtx = { fetchParams: { headers: {} } } as any;
 		await plugin.beforeNetwork(secondCtx, { next: vi.fn() } as any);
@@ -159,7 +153,7 @@ describe('customAuthPlugin', () => {
 	});
 
 	it('continues request flow when token initialization fails', async () => {
-		const { authPlugin } = await loadHarness({
+		const { authPlugin, deviceDeferred } = await loadHarness({
 			browser: true,
 			tokenGetReject: new Error('token read failed'),
 			deviceMode: 'deferred'
@@ -168,12 +162,12 @@ describe('customAuthPlugin', () => {
 		const next = vi.fn();
 		const ctx = { fetchParams: {} } as any;
 
-		const result = await Promise.race([
-			plugin.beforeNetwork(ctx, { next } as any).then(() => 'done'),
-			wait(100).then(() => 'timeout')
-		]);
+		// Resolve device ID so beforeNetwork can complete (plugin awaits both token and device ID)
+		deviceDeferred.resolve('device-ok');
+		await flushMicrotasks();
 
-		expect(result).toBe('done');
+		await plugin.beforeNetwork(ctx, { next } as any);
+
 		expect(next).toHaveBeenCalledOnce();
 		expect(ctx.fetchParams.headers?.Authorization).toBeUndefined();
 	});
