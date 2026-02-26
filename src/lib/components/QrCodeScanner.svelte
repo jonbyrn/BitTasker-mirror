@@ -48,7 +48,7 @@
 		// Auto-start if no scanBtn is provided (used in SendPaymentForm)
 		if (!scanBtn) {
 			// Wait a bit for parent component to be ready and DOM to be stable
-			await new Promise(resolve => setTimeout(resolve, 800));
+			await new Promise((resolve) => setTimeout(resolve, 800));
 			await startScan();
 		}
 	});
@@ -157,7 +157,11 @@
 		document.documentElement.style.removeProperty('--color-base-100');
 		document.documentElement.style.removeProperty('--background');
 
-		await BarcodeScanner.stopScan();
+		try {
+			await BarcodeScanner.stopScan();
+		} catch (error) {
+			console.warn('[QrCodeScanner] Failed to stop scan:', error);
+		}
 	}
 
 	async function closeModal() {
@@ -181,7 +185,9 @@
 {#if showScanner}
 	<div class="barcode-scanning-modal fixed inset-0 z-[9999]">
 		<header class="relative z-[1001] flex items-center justify-between bg-black/70 p-4">
-			<div class="text-lg font-semibold text-white">{$t('common.components.qr_scanner.scan_qr_code')}</div>
+			<div class="text-lg font-semibold text-white">
+				{$t('common.components.qr_scanner.scan_qr_code')}
+			</div>
 			<button
 				aria-label={$t('common.components.qr_scanner.close')}
 				class="btn btn-circle cursor-pointer rounded-full p-2 text-white"

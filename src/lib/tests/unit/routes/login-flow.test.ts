@@ -17,29 +17,25 @@ const mockGetWebBiometricData = vi.fn();
 vi.mock('$lib/utils/helpers/biometrics', () => ({
 	checkBiometricAvailability: (...args: unknown[]) => mockCheckBiometricAvailability(...args),
 	getBiometricData: (...args: unknown[]) => mockGetBiometricData(...args),
-	setBiometricKey: vi
-		.fn()
-		.mockResolvedValue({
-			credentialId: '',
-			passkeyPubkey: '',
-			clientDataJSON: '',
-			attestationObject: '',
-			challenge: ''
-		})
+	setBiometricKey: vi.fn().mockResolvedValue({
+		credentialId: '',
+		passkeyPubkey: '',
+		clientDataJSON: '',
+		attestationObject: '',
+		challenge: ''
+	})
 }));
 
 vi.mock('$lib/utils/helpers/webBiometrics', () => ({
 	checkWebBiometricAvailability: (...args: unknown[]) => mockCheckWebBiometricAvailability(...args),
 	getWebBiometricData: (...args: unknown[]) => mockGetWebBiometricData(...args),
-	setWebBiometricKey: vi
-		.fn()
-		.mockResolvedValue({
-			credentialId: '',
-			passkeyPubkey: '',
-			clientDataJSON: '',
-			attestationObject: '',
-			challenge: ''
-		})
+	setWebBiometricKey: vi.fn().mockResolvedValue({
+		credentialId: '',
+		passkeyPubkey: '',
+		clientDataJSON: '',
+		attestationObject: '',
+		challenge: ''
+	})
 }));
 
 vi.mock('$lib/utils/helpers/deviceIdentity', () => ({
@@ -85,8 +81,28 @@ vi.mock('$lib/utils/helpers/biometricErrorHandler', () => ({
 	handleBiometricError: vi.fn().mockResolvedValue('Error')
 }));
 
-vi.mock('@capacitor/core', () => ({
+vi.mock('@capacitor-core', () => ({
 	Capacitor: { getPlatform: () => 'web' }
+}));
+
+vi.mock('@capacitor-mlkit/barcode-scanning', () => ({
+	BarcodeScanner: {
+		isSupported: vi.fn().mockResolvedValue({ supported: true }),
+		checkPermissions: vi.fn().mockResolvedValue({ camera: 'granted' }),
+		startScan: vi.fn().mockResolvedValue(undefined),
+		stopScan: vi.fn().mockResolvedValue(undefined),
+		addListener: vi.fn().mockResolvedValue({ remove: vi.fn() }),
+		removeAllListeners: vi.fn().mockResolvedValue(undefined),
+		isTorchAvailable: vi.fn().mockResolvedValue({ available: false }),
+		getMinZoomRatio: vi.fn().mockResolvedValue({ zoomRatio: 1 }),
+		getMaxZoomRatio: vi.fn().mockResolvedValue({ zoomRatio: 10 })
+	},
+	BarcodeFormat: {
+		QrCode: 'QR_CODE'
+	},
+	LensFacing: {
+		Back: 'BACK'
+	}
 }));
 
 vi.mock('svelte-i18n', async () => {
