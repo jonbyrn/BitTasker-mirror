@@ -73,18 +73,84 @@
 
 ---
 
-## 5. Recommended order of work (when implementing)
+## 5. Reliability: what’s wrong and what we can do
 
-1. ~~**P0-1**~~ — Done. Cache merge prefers newer by `createdAt` in findTasks.
-2. **P1-1** — Surface updateTask failure in acceptTask (toast + optional retry/refresh).
-3. **P1-3** — Verify backend: same response for same filter for auth vs no-auth (diagnostic).
-4. **P2-1** — Audit task ID usage and add test for d-tag consistency.
-5. **P2-2** — Optional needsRefresh + one bypass refetch on /tasks.
-6. Then P1-2, P2-3, P3 items as capacity allows.
+This section summarises the **reliability** issues (P1) and suggests options for discussion. No implementation yet.
+
+### 5.1 What’s wrong
+
+| Item     | What happens today                                                                                                                                                                                                                                                                      | Why it matters                                                                                                  |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **P1-1** | In `acceptTask`, we call `updateTask(taskId, { status: COMPLETED }).catch(err => console.error(...))`. If the Nostr publish fails (network, relay, auth), the user sees success (funds released, notifications sent) but the task can still show IN_PROGRESS on /tasks or for others.   | User has no way to know the task status didn’t update; support/debugging is harder.                             |
+| **P1-2** | We call `updateTask` right after `escrow.escrowOps.acceptTask(contract)` returns. The escrow layer returns as soon as the tx is _broadcast_; confirmation runs in the background (`tx.wait().then(...)`). If the tx later reverts or fails, we’ve already published COMPLETED to Nostr. | Rare but possible: Nostr says COMPLETED, chain says not released. Hard to revert automatically.                 |
+| **P1-3** | Backend `/events` might return different event sets for authenticated vs anonymous (e.g. user-specific index). We haven’t verified.                                                                                                                                                     | If backend serves an older event to the Taskee, they could still see stale status despite correct client merge. |
+
+### 5.2 P1-1: updateTask failure in acceptTask (silent)
+
+**Options:**
+
+| Option                              | Description                                                                                                                                    | Pros                                                       | Cons                                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **A. Toast on failure**             | In acceptTask, on updateTask reject: show an error/warning toast (e.g. “Task completed, but status update failed. Pull to refresh on Tasks.”). | Simple, user is informed, no new concepts.                 | User must remember to refresh; task list may stay wrong until then.                       |
+| **B. Toast + retry once**           | Same as A, but retry updateTask once after a short delay; if retry fails, then show toast.                                                     | Often fixes transient failures.                            | Slightly more code; still need toast if retry fails.                                      |
+| **C. Toast + “refresh tasks” flag** | On failure: show toast and set a flag (e.g. `tasksStore.needsRefresh`). On next /tasks or dashboard load, bypass cache once.                   | User gets fresh list on next visit without manual pull.    | Requires wiring the flag into the page that loads the list (P2-2).                        |
+| **D. Await updateTask**             | Make acceptTask `await updateTask(...)` and on throw show toast and optionally keep loading state so user can retry.                           | Consistent with “everything succeeded or user sees error”. | Slower UX (wait for Nostr publish); if we still do notifications after, order is clearer. |
+
+**Suggestion:** Start with **A** (toast on failure). Add **B** (retry once) if we see transient relay errors. Consider **C** when we implement P2-2 (needsRefresh) so one flag serves both “updateTask failed” and “list may be stale”.
+
+### 5.3 P1-2: Task status vs tx confirmation (optimistic)
+
+**Current behaviour:** We publish COMPLETED to Nostr as soon as the accept tx is _sent_, not when it’s _confirmed_. Escrow layer already publishes Nostr “PendingAcceptance” before confirm and “FundsReleased” after confirm; task status is updated optimistically.
+
+**Options:**
+
+| Option                                          | Description                                                                                                                                                                            | Pros                                               | Cons                                                                                                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Document and leave as is**                 | Treat as accepted trade-off: task status is optimistic; contract/escrow status reflects chain. If tx fails, user sees escrow error; we don’t revert task status.                       | No code change; matches current product behaviour. | If tx reverts, task can show COMPLETED while funds aren’t released (rare).                                                                   |
+| **B. Update task status only after tx confirm** | Move updateTask to the escrow layer’s `tx.wait().then(...)` callback (e.g. after publishing FundsReleased). acceptTask would need a way to run “on confirm” logic (callback or event). | Task status and chain are in sync.                 | More coupling (escrow knows about task); acceptTask returns before confirm so UI would need to show “pending” until confirm for task status. |
+| **C. Revert on tx failure**                     | If escrow layer ever calls back “tx failed” or “tx reverted”, call updateTask again to set status back to IN_PROGRESS (or leave and show a banner “Task status may be outdated”).      | Reduces divergence.                                | Escrow doesn’t currently expose a “tx failed” callback; would need design.                                                                   |
+
+**Suggestion:** **A** for now: document in task-status-flow or resilience that task status is updated optimistically and that contract/escrow status is the source of truth for chain state. Revisit **B** or **C** only if we see real issues (e.g. tx reverts) or product wants “task COMPLETED only after confirm”.
+
+### 5.4 P1-3: Backend returning different data (auth vs no-auth)
+
+**Options:**
+
+| Option                   | Description                                                                                                                                                                  | Pros                                        | Cons                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------- |
+| **A. Diagnostic first**  | Compare `/events` response (same filter) for logged-in Taskee vs incognito (or same filter, no auth). Document whether backend returns different events.                     | Data-driven; we only change code if needed. | No immediate fix.                                                             |
+| **B. Backend fix**       | If diagnostic shows backend returns user-specific or older events, fix backend so same filter → same event set.                                                              | Single source of truth.                     | Requires backend change and deploy.                                           |
+| **C. Client workaround** | If we can’t change backend: e.g. force refetch without auth for task list, or merge by `createdAt` on client (we already do; so if backend sends both versions, we’re fine). | Works without backend.                      | Refetch without auth might change semantics; only needed if backend is wrong. |
+
+**Suggestion:** **A** first (run diagnostic, document result). If backend is wrong, **B**. Use **C** only if **B** isn’t possible.
+
+### 5.5 What to tackle next (reliability)
+
+1. **P1-1** — Implement Option A (toast on updateTask failure in acceptTask). Optional: add one retry (Option B) or hook into a future needsRefresh (Option C).
+2. **P1-3** — Run diagnostic (Option A); document and fix backend (B) or add workaround (C) only if needed.
+3. **P1-2** — Document optimistic behaviour (Option A); no code change unless product asks for “COMPLETED only after confirm”.
+
+### 5.6 Strategy: Nostr after confirmation + self-healing (implemented)
+
+**Adopted strategy:** Publish task status to Nostr only **after** blockchain confirmation, plus self-healing when viewing contracts.
+
+**Implementation outline:** (1) Move updateTask(IN_PROGRESS) from BidAcceptanceForm to handleEscrowCreated. (2) Add onConfirmed callback to escrow acceptTask; call updateTask(COMPLETED) there. (3) New `reconcileTaskStatusWithContracts` returns taskIds needing update. (4) Wire reconciliation when loading contracts with FundsReleased.
 
 ---
 
-## 6. Reviewer / developer checklist
+## 6. Recommended order of work (when implementing)
+
+1. ~~**P0-1**~~ — Done. Cache merge prefers newer by `createdAt` in findTasks.
+2. **P1-1** — Surface updateTask failure in acceptTask (§5.2: toast, optional retry or needsRefresh).
+3. **P1-3** — Diagnostic then fix or workaround (§5.4).
+4. **P2-1** — Audit task ID usage and add test for d-tag consistency.
+5. **P2-2** — Optional needsRefresh + one bypass refetch on /tasks.
+6. **P1-2** — Document optimistic task status (§5.3); no code change unless required.
+7. Then P2-3, P3 items as capacity allows.
+
+---
+
+## 7. Reviewer / developer checklist
 
 When changing task status flow or updateTask call sites, verify:
 
@@ -97,7 +163,7 @@ When changing task status flow or updateTask call sites, verify:
 
 ---
 
-## 7. References
+## 8. References
 
 - **Ownership and flow:** [task-status-flow.md](task-status-flow.md)
 - **Deep dive (call chains, updateTask):** [plans/task-status-flow-logic-deep-dive.md](../plans/task-status-flow-logic-deep-dive.md)

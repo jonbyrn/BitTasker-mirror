@@ -16,6 +16,8 @@ import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { contractStore } from '$lib/stores/contract.store';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
 import { createDebug } from '$lib/utils/debug';
+import { updateTask } from '$lib/nostr/task';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 const _ = get(t);
 const d = createDebug('escrow:events');
@@ -233,8 +235,18 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				);
 			}
 
-			// Note: Task status update to IN_PROGRESS is done in BidAcceptanceForm.svelte to keep task logic out of escrow events
-			// Note: Success toast is shown in BidAcceptanceForm.svelte success screen
+			// Task status update to IN_PROGRESS (Nostr after chain confirmation). See docs/task-status-resilience.md §5.6.
+			try {
+				await updateTask(pendingContract.taskId, { status: TaskStatusEnum.IN_PROGRESS });
+			} catch (taskUpdateError) {
+				d.error(
+					'handleEscrowCreated: Failed to update task status',
+					{ taskId: pendingContract.taskId },
+					taskUpdateError
+				);
+			}
+
+			// Success toast is shown in BidAcceptanceForm.svelte success screen
 			// No need to show duplicate toast here to avoid double notifications
 
 			// Reload the newly created contract from Nostr to populate the store

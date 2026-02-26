@@ -22,8 +22,6 @@
 		sendTaskCompletionMessageToTasker,
 		sendPaymentReleasedMessageToTaskee
 	} from '$lib/utils/location/sendLocation';
-	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { updateTask } from '$lib/nostr/task';
 	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 	import { SvelteMap } from 'svelte/reactivity';
 
@@ -249,15 +247,7 @@
 		setLoading('accept', true);
 		try {
 			await escrow.escrowOps.acceptTask(contract);
-
-			// Task event is owned by the Tasker; set task status to COMPLETED only when Tasker accepts (releases funds).
-			// See docs/task-status-flow.md.
-			const taskId = contractStore.getContractKey(contract, 'taskId') as string | undefined;
-			if (taskId) {
-				updateTask(taskId, { status: TaskStatusEnum.COMPLETED }).catch((err) =>
-					console.error('Failed to update task status to COMPLETED:', err)
-				);
-			}
+			// Task status COMPLETED is updated in escrow onConfirmed callback (after chain confirmation).
 
 			const taskTitle = contractStore.getContractKey(contract, 'taskTitle') as string;
 			const taskeeNpub = contractStore.getContractKey(contract, 'otherPartyNpub') as string;
