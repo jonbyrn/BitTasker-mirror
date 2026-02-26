@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { bidStore } from '$lib/stores/bid.store';
 
@@ -76,7 +76,7 @@ describe('bidStore', () => {
 
 		it('should prevent multiple rapid submissions of the same bid', () => {
 			const bidId = 'bid-123';
-			
+
 			// First submission
 			bidStore.addProcessingBid(bidId);
 			let state = get(bidStore);

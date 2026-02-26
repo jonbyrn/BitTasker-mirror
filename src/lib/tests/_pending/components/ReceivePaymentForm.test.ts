@@ -203,15 +203,18 @@ describe('ReceivePaymentForm Component', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// Reset wallet store using update method
-		walletStore.update(() => ({
-			hasAnyConnection: true,
-			isConnected: true,
-			isInitializing: false,
-			rsk: {
-				connected: true,
-				address: '0x1234567890123456789012345678901234567890'
-			}
-		} as any));
+		walletStore.update(
+			() =>
+				({
+					hasAnyConnection: true,
+					isConnected: true,
+					isInitializing: false,
+					rsk: {
+						connected: true,
+						address: '0x1234567890123456789012345678901234567890'
+					}
+				}) as any
+		);
 	});
 
 	describe('Basic Rendering', () => {
@@ -316,22 +319,28 @@ describe('ReceivePaymentForm Component', () => {
 			await tick();
 
 			// Click first Rootstock Bitcoin option (mobile + desktop both render)
-			await waitFor(() => {
-				const rootstockOptions = screen.getAllByRole('button', {
-					name: /Rootstock Bitcoin\s*Network/i
-				});
-				expect(rootstockOptions.length).toBeGreaterThan(0);
-				fireEvent.click(rootstockOptions[0]);
-			}, { timeout: 2000 });
+			await waitFor(
+				() => {
+					const rootstockOptions = screen.getAllByRole('button', {
+						name: /Rootstock Bitcoin\s*Network/i
+					});
+					expect(rootstockOptions.length).toBeGreaterThan(0);
+					fireEvent.click(rootstockOptions[0]);
+				},
+				{ timeout: 2000 }
+			);
 			await tick();
 
 			// Verify the network was selected
-			await waitFor(() => {
-				const updatedTitles = screen.getAllByRole('button', {
-					name: /Rootstock Bitcoin\s*Network/i
-				});
-				expect(updatedTitles.length).toBeGreaterThan(0);
-			}, { timeout: 1000 });
+			await waitFor(
+				() => {
+					const updatedTitles = screen.getAllByRole('button', {
+						name: /Rootstock Bitcoin\s*Network/i
+					});
+					expect(updatedTitles.length).toBeGreaterThan(0);
+				},
+				{ timeout: 1000 }
+			);
 		});
 	});
 
@@ -368,13 +377,16 @@ describe('ReceivePaymentForm Component', () => {
 			// Expand network collapse and select Rootstock
 			fireEvent.click(getNetworkButton());
 			await tick();
-			await waitFor(() => {
-				const rootstockOptions = screen.getAllByRole('button', {
-					name: /Rootstock Bitcoin\s*Network/i
-				});
-				expect(rootstockOptions.length).toBeGreaterThan(0);
-				fireEvent.click(rootstockOptions[0]);
-			}, { timeout: 2000 });
+			await waitFor(
+				() => {
+					const rootstockOptions = screen.getAllByRole('button', {
+						name: /Rootstock Bitcoin\s*Network/i
+					});
+					expect(rootstockOptions.length).toBeGreaterThan(0);
+					fireEvent.click(rootstockOptions[0]);
+				},
+				{ timeout: 2000 }
+			);
 			await tick();
 
 			// Enter amount in sats
@@ -405,10 +417,7 @@ describe('ReceivePaymentForm Component', () => {
 				}
 			};
 			vi.mocked(walletManager.getCachedReverseSwapPairs).mockImplementationOnce(
-				() =>
-					new Promise((resolve) =>
-						setTimeout(() => resolve(swapPairsResult as any), 300)
-					)
+				() => new Promise((resolve) => setTimeout(() => resolve(swapPairsResult as any), 300))
 			);
 
 			render(ReceivePaymentForm, defaultProps);
@@ -482,13 +491,16 @@ describe('ReceivePaymentForm Component', () => {
 
 			await tick();
 			// Wait for fees to load; primary action (Next or Get Paid) should be enabled
-			await waitFor(() => {
-				const nextButtons = screen.queryAllByRole('button', { name: /Next/i });
-				const getPaidButtons = screen.queryAllByRole('button', { name: /Get Paid/i });
-				const primaryButton = getPaidButtons[0] ?? nextButtons[0];
-				expect(primaryButton).toBeDefined();
-				expect(primaryButton).not.toHaveAttribute('disabled');
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					const nextButtons = screen.queryAllByRole('button', { name: /Next/i });
+					const getPaidButtons = screen.queryAllByRole('button', { name: /Get Paid/i });
+					const primaryButton = getPaidButtons[0] ?? nextButtons[0];
+					expect(primaryButton).toBeDefined();
+					expect(primaryButton).not.toHaveAttribute('disabled');
+				},
+				{ timeout: 3000 }
+			);
 		});
 	});
 
@@ -510,13 +522,16 @@ describe('ReceivePaymentForm Component', () => {
 			fireEvent.click(getCalcButton('0')); // 10000 sats
 
 			await tick();
-			await waitFor(() => {
-				const nextButtons = screen.queryAllByRole('button', { name: /Next/i });
-				const getPaidButtons = screen.queryAllByRole('button', { name: /Get Paid/i });
-				const primaryButton = getPaidButtons[0] ?? nextButtons[0];
-				expect(primaryButton).toBeDefined();
-				expect(primaryButton).not.toHaveAttribute('disabled');
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					const nextButtons = screen.queryAllByRole('button', { name: /Next/i });
+					const getPaidButtons = screen.queryAllByRole('button', { name: /Get Paid/i });
+					const primaryButton = getPaidButtons[0] ?? nextButtons[0];
+					expect(primaryButton).toBeDefined();
+					expect(primaryButton).not.toHaveAttribute('disabled');
+				},
+				{ timeout: 3000 }
+			);
 
 			// On mobile step 1: Next advances to step 2; on desktop: Get Paid is always visible
 			const nextButton = screen.queryByRole('button', { name: /Next/i });
@@ -525,11 +540,14 @@ describe('ReceivePaymentForm Component', () => {
 				await tick();
 			}
 			// Wait for Get Paid to appear and be enabled, then click
-			await waitFor(() => {
-				const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
-				const enabled = getPaidButtons.find((b) => !b.hasAttribute('disabled'));
-				return enabled !== undefined;
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
+					const enabled = getPaidButtons.find((b) => !b.hasAttribute('disabled'));
+					return enabled !== undefined;
+				},
+				{ timeout: 3000 }
+			);
 			const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
 			const enabledBtn = getPaidButtons.find((b) => !b.hasAttribute('disabled'));
 			if (enabledBtn) {
@@ -537,9 +555,12 @@ describe('ReceivePaymentForm Component', () => {
 			}
 			await tick();
 
-			await waitFor(() => {
-				expect(walletManager.createReverseSwap).toHaveBeenCalled();
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					expect(walletManager.createReverseSwap).toHaveBeenCalled();
+				},
+				{ timeout: 3000 }
+			);
 		});
 
 		it('should call onCancel when Cancel button is clicked', async () => {
@@ -559,9 +580,8 @@ describe('ReceivePaymentForm Component', () => {
 			await tick();
 			await waitFor(
 				() => {
-					const memoField =
-						(document.querySelector('textarea[id="memo-input"]') ??
-							document.querySelector('textarea[id="memo-input-desktop"]')) as HTMLTextAreaElement;
+					const memoField = (document.querySelector('textarea[id="memo-input"]') ??
+						document.querySelector('textarea[id="memo-input-desktop"]')) as HTMLTextAreaElement;
 					expect(memoField).toBeDefined();
 					if (memoField) {
 						fireEvent.input(memoField, { target: { value: 'Test payment' } });
@@ -573,4 +593,3 @@ describe('ReceivePaymentForm Component', () => {
 		});
 	});
 });
-

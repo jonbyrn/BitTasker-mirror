@@ -54,33 +54,20 @@ describe('transactionHistory', () => {
 
 	describe('processTransactions', () => {
 		it('should return empty array when userAddress is empty', async () => {
-			const result = await processTransactions(
-				[makeTx() as any],
-				'',
-				'rsk',
-				100_000
-			);
+			const result = await processTransactions([makeTx() as any], '', 'rsk', 100_000);
 			expect(result).toEqual([]);
 		});
 
 		it('should return empty array when userAddress is null', async () => {
-			const result = await processTransactions(
-				[makeTx() as any],
-				null as any,
-				'rsk',
-				100_000
-			);
+			const result = await processTransactions([makeTx() as any], null as any, 'rsk', 100_000);
 			expect(result).toEqual([]);
 		});
 
 		it('should classify simple transfer from user as send', async () => {
-			const raw = [makeTx({ from: { hash: userAddress }, to: { hash: otherAddress, is_contract: false } })];
-			const result = await processTransactions(
-				raw as any,
-				userAddress,
-				'rsk',
-				100_000
-			);
+			const raw = [
+				makeTx({ from: { hash: userAddress }, to: { hash: otherAddress, is_contract: false } })
+			];
+			const result = await processTransactions(raw as any, userAddress, 'rsk', 100_000);
 			expect(result).toHaveLength(1);
 			expect(result[0].type).toBe('send');
 			expect(result[0].displayType).toBe('send');
@@ -89,13 +76,10 @@ describe('transactionHistory', () => {
 		});
 
 		it('should classify simple transfer to user as receive', async () => {
-			const raw = [makeTx({ from: { hash: otherAddress }, to: { hash: userAddress, is_contract: false } })];
-			const result = await processTransactions(
-				raw as any,
-				userAddress,
-				'rsk',
-				100_000
-			);
+			const raw = [
+				makeTx({ from: { hash: otherAddress }, to: { hash: userAddress, is_contract: false } })
+			];
+			const result = await processTransactions(raw as any, userAddress, 'rsk', 100_000);
 			expect(result).toHaveLength(1);
 			expect(result[0].type).toBe('receive');
 			expect(result[0].displayType).toBe('receive');
@@ -118,12 +102,7 @@ describe('transactionHistory', () => {
 				value: '20000000000000000000',
 				timestamp: '2024-01-15T10:00:00Z'
 			});
-			const result = await processTransactions(
-				[older, newer] as any,
-				userAddress,
-				'rsk',
-				100_000
-			);
+			const result = await processTransactions([older, newer] as any, userAddress, 'rsk', 100_000);
 			expect(result).toHaveLength(2);
 			const newestFirst = result[0].timestamp >= result[1].timestamp;
 			expect(newestFirst).toBe(true);

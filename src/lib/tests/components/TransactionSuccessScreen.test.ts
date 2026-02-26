@@ -368,7 +368,8 @@ describe('TransactionSuccessScreen Component', () => {
 		vi.useFakeTimers();
 
 		const mockProvider = {
-			getTransactionReceipt: vi.fn()
+			getTransactionReceipt: vi
+				.fn()
 				.mockResolvedValueOnce(null) // First call returns null (not found yet)
 				.mockResolvedValueOnce({
 					status: 1,
@@ -398,11 +399,11 @@ describe('TransactionSuccessScreen Component', () => {
 				// Use flexible text matching since translation might format it differently
 				const confirmationText = screen.queryByText(/Confirmations/i);
 				if (!confirmationText) return false;
-				
+
 				// Find the parent container and check for the count value
 				const parent = confirmationText.closest('div');
 				if (!parent) return false;
-				
+
 				const text = parent.textContent || '';
 				return text.includes('6');
 			},
@@ -413,7 +414,7 @@ describe('TransactionSuccessScreen Component', () => {
 		const confirmationLabel = screen.getByText(/Confirmations/i);
 		const parent = confirmationLabel.closest('div');
 		expect(parent?.textContent).toContain('6');
-		
+
 		vi.useRealTimers();
 	});
 
@@ -463,4 +464,3 @@ describe('TransactionSuccessScreen Component', () => {
 		expect(screen.getByText(/1,234,567/)).toBeDefined();
 	});
 });
-

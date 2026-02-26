@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { tasksStore } from '$lib/stores/task.store';
-import { findTasks } from '$lib/nostr/findTasks';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { TaskStatusEnum, TaskTypeEnum, BudgetTypeEnum } from '$lib/utils/enums/task.enum';
 import type { Task, SearchTasksParams } from '$lib/types/task.d';
+import { SimplePool } from 'nostr-tools';
 
 /**
  * Integration tests for /tasks page store interactions
@@ -16,6 +16,9 @@ vi.mock('$lib/nostr/findTasks', () => ({
 	cleanup: vi.fn()
 }));
 
+// Create mock pool
+const mockPool = new SimplePool();
+
 // Create mock task data
 const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	id: `task-${Math.random().toString(36).substr(2, 9)}`,
@@ -23,11 +26,11 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	status: TaskStatusEnum.OPEN,
 	title: 'Test Task',
 	description: 'Test description',
-	taskType: 'delivery' as any,
+	taskType: TaskTypeEnum.IN_PERSON,
 	budget: {
 		amount: 100,
 		currency: 'USD',
-		type: 'fixed' as any
+		type: BudgetTypeEnum.FIXED
 	},
 	deadline: '2024-12-31T23:59:59Z',
 	dateRange: null,
@@ -60,6 +63,7 @@ describe('Tasks Page - Integration Tests', () => {
 	beforeEach(() => {
 		// Reset store to initial state
 		tasksStore.set({
+			pool: mockPool,
 			items: [],
 			loading: false,
 			error: null,
@@ -72,13 +76,11 @@ describe('Tasks Page - Integration Tests', () => {
 
 	describe('Store Integration', () => {
 		it('should update store when tasks are loaded', async () => {
-			const mockTasks = [
-				createMockTask({ id: 'task-1' }),
-				createMockTask({ id: 'task-2' })
-			];
+			const mockTasks = [createMockTask({ id: 'task-1' }), createMockTask({ id: 'task-2' })];
 
 			// Simulate findTasks updating the store
 			tasksStore.set({
+				pool: mockPool,
 				items: mockTasks,
 				loading: false,
 				error: null,
@@ -95,6 +97,7 @@ describe('Tasks Page - Integration Tests', () => {
 
 		it('should handle loading state correctly', () => {
 			tasksStore.set({
+				pool: mockPool,
 				items: [],
 				loading: true,
 				error: null,
@@ -110,6 +113,7 @@ describe('Tasks Page - Integration Tests', () => {
 		it('should handle error state correctly', () => {
 			const errorMessage = 'Failed to fetch tasks';
 			tasksStore.set({
+				pool: mockPool,
 				items: [],
 				loading: false,
 				error: errorMessage,
@@ -125,6 +129,7 @@ describe('Tasks Page - Integration Tests', () => {
 		it('should track search params key for cache invalidation', () => {
 			const searchKey = JSON.stringify({ search: 'test', page: 1 });
 			tasksStore.set({
+				pool: mockPool,
 				items: [createMockTask()],
 				loading: false,
 				error: null,
@@ -139,6 +144,7 @@ describe('Tasks Page - Integration Tests', () => {
 
 		it('should handle pagination state', () => {
 			tasksStore.set({
+				pool: mockPool,
 				items: [createMockTask()],
 				loading: false,
 				error: null,
@@ -155,6 +161,7 @@ describe('Tasks Page - Integration Tests', () => {
 		it('should clear items when search params change', () => {
 			// Set initial state with tasks
 			tasksStore.set({
+				pool: mockPool,
 				items: [createMockTask({ id: 'old-task' })],
 				loading: false,
 				error: null,
@@ -196,6 +203,7 @@ describe('Tasks Page - Integration Tests', () => {
 			// Simulate search params being set
 			const searchKey = JSON.stringify(searchParams);
 			tasksStore.set({
+				pool: mockPool,
 				items: [],
 				loading: false,
 				error: null,
@@ -216,6 +224,7 @@ describe('Tasks Page - Integration Tests', () => {
 			);
 
 			tasksStore.set({
+				pool: mockPool,
 				items: initialTasks,
 				loading: false,
 				error: null,
@@ -242,6 +251,7 @@ describe('Tasks Page - Integration Tests', () => {
 
 		it('should not load more when hasMore is false', () => {
 			tasksStore.set({
+				pool: mockPool,
 				items: [createMockTask()],
 				loading: false,
 				error: null,

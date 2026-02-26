@@ -38,11 +38,7 @@ describe('escrowErrors', () => {
 
 	describe('isEscrowError', () => {
 		it('should return true for EscrowError instance', () => {
-			const error = new EscrowError(
-				EscrowErrorCode.ESCROW_NOT_FOUND,
-				'Test error',
-				undefined
-			);
+			const error = new EscrowError(EscrowErrorCode.ESCROW_NOT_FOUND, 'Test error', undefined);
 
 			expect(isEscrowError(error)).toBe(true);
 		});

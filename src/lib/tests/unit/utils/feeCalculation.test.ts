@@ -9,10 +9,10 @@ import { describe, it, expect } from 'vitest';
 type FeeTier = 'tier1' | 'tier2' | 'tier3' | 'tier4';
 
 const FEE_TIERS: Record<FeeTier, { percentage: number }> = {
-	tier1: { percentage: 50 },   // 0.5%
-	tier2: { percentage: 100 },  // 1.0%
-	tier3: { percentage: 150 },  // 1.5%
-	tier4: { percentage: 200 }   // 2.0%
+	tier1: { percentage: 50 }, // 0.5%
+	tier2: { percentage: 100 }, // 1.0%
+	tier3: { percentage: 150 }, // 1.5%
+	tier4: { percentage: 200 } // 2.0%
 };
 
 /**
@@ -54,27 +54,27 @@ function refineMaxAmountWithPercentageFee(
 	if (balance <= fixedFee) {
 		return 0n;
 	}
-	
+
 	let maxAmount = balance - fixedFee;
-	
+
 	for (let i = 0; i < maxIterations; i++) {
 		const feeAmount = (maxAmount * BigInt(feePercentage)) / 10000n;
 		const totalNeeded = maxAmount + feeAmount + fixedFee;
-		
+
 		if (totalNeeded <= balance) {
 			// We found the correct max amount
 			break;
 		}
-		
+
 		// Adjust max amount downward
 		const excess = totalNeeded - balance;
 		maxAmount = maxAmount > excess ? maxAmount - excess : 0n;
-		
+
 		if (maxAmount === 0n) {
 			break;
 		}
 	}
-	
+
 	return maxAmount;
 }
 
@@ -88,7 +88,7 @@ describe('Fee Calculation', () => {
 
 		it('should handle different fee tiers', () => {
 			const baseAmount = 1000000n;
-			expect(calculateFeeAmount(baseAmount, 'tier1')).toBe(5000n);  // 0.5%
+			expect(calculateFeeAmount(baseAmount, 'tier1')).toBe(5000n); // 0.5%
 			expect(calculateFeeAmount(baseAmount, 'tier2')).toBe(10000n); // 1.0%
 			expect(calculateFeeAmount(baseAmount, 'tier3')).toBe(15000n); // 1.5%
 			expect(calculateFeeAmount(baseAmount, 'tier4')).toBe(20000n); // 2.0%
@@ -151,13 +151,13 @@ describe('Fee Calculation', () => {
 			const balance = 1000000n; // 1,000,000 sats
 			const feePercentage = 100; // 1%
 			const fixedFee = 3000n;
-			
+
 			const maxAmount = refineMaxAmountWithPercentageFee(balance, feePercentage, fixedFee);
-			
+
 			// Verify: maxAmount + (maxAmount * 1%) + 3000 <= 1,000,000
 			const feeAmount = (maxAmount * BigInt(feePercentage)) / 10000n;
 			const totalNeeded = maxAmount + feeAmount + fixedFee;
-			
+
 			expect(totalNeeded).toBeLessThanOrEqual(balance);
 			expect(maxAmount).toBeGreaterThan(0n);
 		});
@@ -178,18 +178,18 @@ describe('Fee Calculation', () => {
 			const balance = 1000000n;
 			const feePercentage = 150; // 1.5%
 			const fixedFee = 3000n;
-			
+
 			const maxAmount = refineMaxAmountWithPercentageFee(balance, feePercentage, fixedFee);
-			
+
 			// Verify the result is valid: maxAmount + fee + fixedFee <= balance
 			const feeAmount = (maxAmount * BigInt(feePercentage)) / 10000n;
 			const totalNeeded = maxAmount + feeAmount + fixedFee;
-			
+
 			expect(totalNeeded).toBeLessThanOrEqual(balance);
 			expect(maxAmount).toBeGreaterThan(0n);
-			
+
 			// Allow some tolerance for iterative convergence (within 500 sats)
-			const expectedMax = (balance - fixedFee) * 10000n / (10000n + BigInt(feePercentage));
+			const expectedMax = ((balance - fixedFee) * 10000n) / (10000n + BigInt(feePercentage));
 			const diff = maxAmount > expectedMax ? maxAmount - expectedMax : expectedMax - maxAmount;
 			expect(diff).toBeLessThan(500n); // Within 500 sats tolerance
 		});

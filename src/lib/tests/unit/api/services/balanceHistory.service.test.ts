@@ -80,12 +80,7 @@ describe('BalanceHistoryService', () => {
 			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0'));
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
 
-			const result = await balanceHistoryService.getBalanceChanges(
-				0,
-				0,
-				mockProvider,
-				mockAddress
-			);
+			const result = await balanceHistoryService.getBalanceChanges(0, 0, mockProvider, mockAddress);
 
 			expect(result).toHaveLength(3);
 			expect(result[0].label).toBe('24h');
@@ -234,12 +229,7 @@ describe('BalanceHistoryService', () => {
 			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5'));
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
 
-			await balanceHistoryService.getBalanceChanges(
-				100000000,
-				50000,
-				mockProvider,
-				mockAddress
-			);
+			await balanceHistoryService.getBalanceChanges(100000000, 50000, mockProvider, mockAddress);
 
 			// Should call Blockscout API for RSK
 			expect(global.fetch).toHaveBeenCalled();
@@ -293,12 +283,7 @@ describe('BalanceHistoryService', () => {
 			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5'));
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
 
-			await balanceHistoryService.getBalanceChanges(
-				100000000,
-				50000,
-				mockProvider,
-				mockAddress
-			);
+			await balanceHistoryService.getBalanceChanges(100000000, 50000, mockProvider, mockAddress);
 
 			// Should call fetch (for RSK Blockscout API in this case)
 			expect(global.fetch).toHaveBeenCalled();
@@ -319,12 +304,7 @@ describe('BalanceHistoryService', () => {
 			mockProvider.getBalance.mockResolvedValue(ethers.parseEther('0.5'));
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
 
-			await balanceHistoryService.getBalanceChanges(
-				100000000,
-				50000,
-				mockProvider,
-				mockAddress
-			);
+			await balanceHistoryService.getBalanceChanges(100000000, 50000, mockProvider, mockAddress);
 
 			// Should call API first
 			expect(global.fetch).toHaveBeenCalled();
@@ -398,12 +378,7 @@ describe('BalanceHistoryService', () => {
 				.mockResolvedValueOnce(47000) // 7 days ago
 				.mockResolvedValueOnce(45000); // 30 days ago
 
-			await balanceHistoryService.getBalanceChanges(
-				100000000,
-				50000,
-				mockProvider,
-				mockAddress
-			);
+			await balanceHistoryService.getBalanceChanges(100000000, 50000, mockProvider, mockAddress);
 
 			// Should call getHistoricalPrice for each period
 			expect(cryptoPriceService.getHistoricalPrice).toHaveBeenCalledTimes(3);
@@ -421,23 +396,13 @@ describe('BalanceHistoryService', () => {
 			vi.mocked(cryptoPriceService.getHistoricalPrice).mockResolvedValue(45000);
 
 			// First call
-			await balanceHistoryService.getBalanceChanges(
-				100000000,
-				50000,
-				mockProvider,
-				mockAddress
-			);
+			await balanceHistoryService.getBalanceChanges(100000000, 50000, mockProvider, mockAddress);
 
 			// Clear localStorage to force refetch (but keep in-memory cache)
 			localStorage.clear();
 
 			// Second call
-			await balanceHistoryService.getBalanceChanges(
-				100000000,
-				50000,
-				mockProvider,
-				mockAddress
-			);
+			await balanceHistoryService.getBalanceChanges(100000000, 50000, mockProvider, mockAddress);
 
 			// Should use in-memory cache for prices
 			// First call: 3 prices, Second call: 0 (cached)

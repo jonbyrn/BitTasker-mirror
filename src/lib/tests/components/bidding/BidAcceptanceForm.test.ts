@@ -7,16 +7,15 @@ import type { NostrEventWithFollowup } from '$lib/types/bid';
 import type { NostrEvent } from 'nostr-tools';
 import type { Task } from '$lib/types/task';
 
-const { mockAcceptBidAndCreateEscrow, mockValidateSufficientBalance, mockContractCreationStore } = vi.hoisted(
-	() => ({
+const { mockAcceptBidAndCreateEscrow, mockValidateSufficientBalance, mockContractCreationStore } =
+	vi.hoisted(() => ({
 		mockAcceptBidAndCreateEscrow: vi.fn(),
 		mockValidateSufficientBalance: vi.fn(),
 		mockContractCreationStore: (() => {
 			const { writable } = require('svelte/store');
 			return writable<{ escrowId: string; contractEventId?: string; error?: string } | null>(null);
 		})()
-	})
-);
+	}));
 
 vi.mock('$lib/utils/escrow', () => ({
 	escrow: {
@@ -68,7 +67,12 @@ vi.mock('svelte-i18n', async () => {
 
 vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: writable({
-		rsk: { connected: true, contractConnected: true, address: '0x123', balance: '1000000000000000000' },
+		rsk: {
+			connected: true,
+			contractConnected: true,
+			address: '0x123',
+			balance: '1000000000000000000'
+		},
 		bsc: { connected: false },
 		allAssets: [],
 		totalBalances: {}
@@ -103,7 +107,9 @@ vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/environment', () => ({ browser: true }));
 
 vi.mock('$lib/nostr/task', () => ({ updateTask: vi.fn().mockResolvedValue(undefined) }));
-vi.mock('$lib/utils/location/sendLocation', () => ({ sendLocationsToTaskee: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('$lib/utils/location/sendLocation', () => ({
+	sendLocationsToTaskee: vi.fn().mockResolvedValue(undefined)
+}));
 
 vi.mock('$lib/components/user/UserInfoDisplay.svelte', () => ({
 	default: vi.fn(() => ({ type: 'div', props: {}, children: [] }))

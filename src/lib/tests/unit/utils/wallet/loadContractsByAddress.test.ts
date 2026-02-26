@@ -122,8 +122,7 @@ describe('loadContractsByAddress', () => {
 
 			contracts.forEach((contract) => {
 				const isClient = contract.client.toLowerCase() === mockWalletAddress.toLowerCase();
-				const isFreelancer =
-					contract.freelancer.toLowerCase() === mockWalletAddress.toLowerCase();
+				const isFreelancer = contract.freelancer.toLowerCase() === mockWalletAddress.toLowerCase();
 				expect(isClient || isFreelancer).toBe(true);
 			});
 		});

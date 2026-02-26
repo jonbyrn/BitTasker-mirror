@@ -84,7 +84,11 @@ const test = authTest.extend<
 							credential: cred
 						});
 					}
-					console.log('[E2E] Injected', webauthnCredentialStore.length, 'credential(s) into virtual authenticator');
+					console.log(
+						'[E2E] Injected',
+						webauthnCredentialStore.length,
+						'credential(s) into virtual authenticator'
+					);
 				}
 			}
 			console.log('[E2E] Virtual authenticator attached (shared context)');
@@ -103,7 +107,11 @@ const test = authTest.extend<
 				webauthnCredentialStore.length = 0;
 				webauthnCredentialStore.push(...(credentials ?? []));
 				if (webauthnCredentialStore.length > 0) {
-					console.log('[E2E] Exported', webauthnCredentialStore.length, 'credential(s) for next test');
+					console.log(
+						'[E2E] Exported',
+						webauthnCredentialStore.length,
+						'credential(s) for next test'
+					);
 					// Persist to file so other spec files (e.g. wallet) can reuse via passkey-auth-from-file
 					writeWebAuthnCredentialsToFile(webauthnCredentialStore);
 				}

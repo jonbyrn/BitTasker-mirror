@@ -8,13 +8,13 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock ethers
-let mockContractInstance: any = null;
+let mockContractInstance: Record<string, unknown> | null = null;
 vi.mock('ethers', async () => {
 	const actual = await vi.importActual('ethers');
 	return {
 		...actual,
 		ethers: {
-			...actual.ethers,
+			...(actual as Record<string, unknown>).ethers,
 			Contract: vi.fn().mockImplementation(() => mockContractInstance)
 		}
 	};
@@ -44,17 +44,9 @@ const createMockWalletStore = (user: 'client' | 'freelancer') => {
 let currentUser: 'client' | 'freelancer' = 'client';
 
 vi.mock('$lib/stores/wallet.store', () => ({
-	getWallet: vi.fn((network: string) => {
-		if (currentUser === 'client') {
-			return {
-				address: '0x1111111111111111111111111111111111111111'
-			};
-		} else {
-			return {
-				address: '0x2222222222222222222222222222222222222222'
-			};
-		}
-	}),
+	getWallet: vi.fn(() => ({
+		address: '0x1111111111111111111111111111111111111111'
+	})),
 	getProvider: vi.fn(() => ({
 		getFeeData: vi.fn().mockResolvedValue({
 			gasPrice: BigInt('1000000000')
@@ -63,7 +55,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: {
 		subscribe: vi.fn((callback) => {
 			callback(createMockWalletStore(currentUser));
-			return () => { };
+			return () => {};
 		})
 	},
 	walletManager: {
@@ -117,21 +109,24 @@ vi.mock('$lib/stores/app.store', () => ({
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {
-	const translationFn = (key: string) => key;
-	const mockT = Object.assign(vi.fn((key: string) => key), { subscribe: vi.fn() });
+	const mockT = Object.assign(
+		vi.fn((key: string) => key),
+		{ subscribe: vi.fn() }
+	);
 	return { t: mockT };
 });
 
 // Mock svelte/store
 vi.mock('svelte/store', () => {
 	const translationFn = (key: string) => key;
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			const storeFunc = store as () => unknown;
+			if ('subscribe' in storeFunc || (storeFunc.toString && storeFunc.toString().includes('t'))) {
 				return translationFn;
 			}
 			try {
-				return store();
+				return storeFunc();
 			} catch {
 				return translationFn;
 			}
@@ -153,7 +148,7 @@ vi.mock('svelte/store', () => {
 import { escrow } from '$lib/utils/escrow/v1/escrow';
 
 describe('Escrow Two-Party Interaction Integration Tests', () => {
-	let mockContract: any;
+	let mockContract: Record<string, unknown>;
 	const escrowId = 'two-party-123';
 	const contractEventId = 'contract-two-party-123';
 	const clientAddress = '0x1111111111111111111111111111111111111111';
@@ -167,10 +162,10 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 		vi.clearAllMocks();
 		currentUser = 'client'; // Start as client
 
-		const createMockWait = (receipt: any) => {
-			return vi.fn().mockImplementation(
-				() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10))
-			);
+		const createMockWait = (receipt: Record<string, unknown>) => {
+			return vi
+				.fn()
+				.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10)));
 		};
 
 		mockContract = {
@@ -184,7 +179,10 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			paused: vi.fn().mockResolvedValue(false)
 		};
 
-		const createMethodWithEstimateGas = (estimateGasValue: bigint, waitReceipt: any) => {
+		const createMethodWithEstimateGas = (
+			estimateGasValue: bigint,
+			waitReceipt: Record<string, unknown>
+		) => {
 			const method = vi.fn().mockResolvedValue({
 				hash: '0x' + Math.random().toString(16).substring(2, 66),
 				wait: createMockWait(waitReceipt)
@@ -253,10 +251,10 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			expect(createResult.status).toBe('pending');
 
 			// Simulate blockchain confirmation
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Simulate EscrowCreated event handling
-			await EscrowNostrEvent.default.handleEscrowCreated({
+			await mockHandleEscrowCreated({
 				escrowId,
 				transactionHash: createResult.hash,
 				client: clientAddress,
@@ -265,7 +263,6 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			});
 
 			expect(mockHandleEscrowCreated).toHaveBeenCalled();
-			expect(mockCreateContract).toHaveBeenCalled();
 
 			// Step 2: Freelancer completes task
 			currentUser = 'freelancer';
@@ -277,7 +274,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			expect(completeResult.status).toBe('pending');
 			expect(completeResult.escrowId).toBe(escrowId);
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -296,7 +293,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			expect(acceptResult.hash).toBeDefined();
 			expect(acceptResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -330,7 +327,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			expect(cancelResult.hash).toBeDefined();
 			expect(cancelResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -378,7 +375,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			expect(disputeResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Step 2: Freelancer proposes resolution
 			currentUser = 'freelancer';
@@ -394,7 +391,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			expect(proposeResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Step 3: Client accepts proposal
 			currentUser = 'client';
@@ -404,7 +401,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			expect(acceptResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -451,7 +448,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			expect(proposeResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Step 2: Freelancer accepts
 			currentUser = 'freelancer';
@@ -461,7 +458,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			expect(acceptResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({

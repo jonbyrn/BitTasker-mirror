@@ -1,5 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { parseDateToLocalMidnight, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+import { describe, it, expect, vi } from 'vitest';
+import {
+	parseDateToLocalMidnight,
+	formatStandardDateShort
+} from '$lib/utils/helpers/dateFormatter';
 import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 import type { SearchTasksParams } from '$lib/types/task.d';
 
@@ -40,12 +43,16 @@ function formatDateTimeReactive(dateString: string, locale: string = 'en'): stri
 
 	const date = parseDateToLocalMidnight(dateString);
 	if (!date) return '';
-	
+
 	return formatStandardDateShort(date, locale);
 }
 
 // Helper function to format date range (extracted from component logic)
-function formatDateRangeReactive(startDateString: string, endDateString: string, locale: string = 'en'): string {
+function formatDateRangeReactive(
+	startDateString: string,
+	endDateString: string,
+	locale: string = 'en'
+): string {
 	const formatValue = (value: string) => {
 		const date = parseDateToLocalMidnight(value);
 		if (!date) return '';
@@ -105,7 +112,7 @@ describe('Tasks Page - Unit Tests', () => {
 		});
 
 		it('should return empty string for null input', () => {
-			expect(formatDateTimeReactive(null as any)).toBe('');
+			expect(formatDateTimeReactive(null as unknown as string)).toBe('');
 		});
 
 		it('should format valid date string', () => {
@@ -126,7 +133,7 @@ describe('Tasks Page - Unit Tests', () => {
 			const dateString = '2024-01-15T10:00:00Z';
 			const enResult = formatDateTimeReactive(dateString, 'en');
 			const esResult = formatDateTimeReactive(dateString, 'es');
-			
+
 			expect(enResult).toBeTruthy();
 			expect(esResult).toBeTruthy();
 		});
@@ -137,7 +144,7 @@ describe('Tasks Page - Unit Tests', () => {
 			const start = '2024-01-15T10:00:00Z';
 			const end = '2024-01-20T10:00:00Z';
 			const result = formatDateRangeReactive(start, end);
-			
+
 			expect(result).toContain(' - ');
 			expect(result.length).toBeGreaterThan(0);
 		});
@@ -146,7 +153,7 @@ describe('Tasks Page - Unit Tests', () => {
 			const start = '2024-01-15T10:00:00Z';
 			const end = '';
 			const result = formatDateRangeReactive(start, end);
-			
+
 			expect(result).toBeTruthy();
 			expect(result).not.toContain(' - ');
 		});
@@ -155,7 +162,7 @@ describe('Tasks Page - Unit Tests', () => {
 			const start = '';
 			const end = '2024-01-20T10:00:00Z';
 			const result = formatDateRangeReactive(start, end);
-			
+
 			expect(result).toBeTruthy();
 			expect(result).not.toContain(' - ');
 		});
@@ -172,7 +179,7 @@ describe('Tasks Page - Unit Tests', () => {
 			const end = '2024-01-20T10:00:00Z';
 			const enResult = formatDateRangeReactive(start, end, 'en');
 			const esResult = formatDateRangeReactive(start, end, 'es');
-			
+
 			expect(enResult).toContain(' - ');
 			expect(esResult).toContain(' - ');
 		});

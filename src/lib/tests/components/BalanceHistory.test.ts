@@ -259,4 +259,3 @@ describe('BalanceHistory', () => {
 		expect(container.textContent).toMatch(/-.*5[,.]?000/);
 	});
 });
-

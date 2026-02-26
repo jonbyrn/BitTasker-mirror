@@ -10,9 +10,7 @@ import type { Writable } from 'svelte/store';
 /**
  * Create a mock wallet store with optional overrides
  */
-export function createMockWalletStore(
-	overrides: Partial<WalletState> = {}
-): Writable<WalletState> {
+export function createMockWalletStore(overrides: Partial<WalletState> = {}): Writable<WalletState> {
 	const defaultState: WalletState = {
 		isInitializing: false,
 		isConnected: false,
@@ -160,7 +158,7 @@ export function generateMockAddress(network: NetworkType = 'rootstock-bitcoin'):
 		'usdt-bsc': '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
 		'lightning-bitcoin': 'lnbc1p0example1234567890abcdef',
 		'liquid-bitcoin': 'VJL1example123456789012345678901234567890',
-		'bitcoin': 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+		bitcoin: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
 	};
 	return addresses[network] || addresses['rootstock-bitcoin'];
 }
@@ -175,7 +173,7 @@ export async function waitForWalletUpdate(
 	timeout: number = 5000
 ): Promise<WalletState> {
 	const startTime = Date.now();
-	
+
 	return new Promise((resolve, reject) => {
 		const check = () => {
 			const state = get(store);
@@ -214,8 +212,3 @@ export function createMockParsedAddress(overrides: any = {}) {
 		...overrides
 	};
 }
-
-
-
-
-

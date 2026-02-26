@@ -20,12 +20,7 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNpub: vi.fn()
 }));
 
-import {
-	user,
-	getCachedEvent,
-	cacheEvent,
-	nostrEventCache
-} from '$lib/stores/user.store';
+import { user, getCachedEvent, cacheEvent, nostrEventCache } from '$lib/stores/user.store';
 import { getNpub } from '$lib/utils/nostrKeys';
 
 const initialProfile = {

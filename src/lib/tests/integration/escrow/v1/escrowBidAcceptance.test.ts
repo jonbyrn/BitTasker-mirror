@@ -10,13 +10,13 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock ethers
-let mockContractInstance: any = null;
+const mockContractInstance: Record<string, unknown> | null = null;
 vi.mock('ethers', async () => {
 	const actual = await vi.importActual('ethers');
 	return {
 		...actual,
 		ethers: {
-			...actual.ethers,
+			...(actual as Record<string, unknown>).ethers,
 			Contract: vi.fn().mockImplementation(() => mockContractInstance)
 		}
 	};

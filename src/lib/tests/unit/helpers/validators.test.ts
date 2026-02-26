@@ -235,7 +235,7 @@ describe('Validators', () => {
 
 		it('should return valid result for single character username (if length check passes)', () => {
 			// Note: This will fail length check, but we're testing character validation
-			const result = validateUsername('a'); 
+			const result = validateUsername('a');
 			expect(result.isValid).toBe(false);
 			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.too_short');
 		});

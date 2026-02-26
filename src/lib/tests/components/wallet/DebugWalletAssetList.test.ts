@@ -14,7 +14,8 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.debug_wallet.refresh': 'Refresh',
 		'wallet.debug_wallet.error': 'Failed to load assets',
 		'wallet.debug_wallet.no_assets': 'No assets found',
-		'wallet.debug_wallet.no_assets_description': "You don't have any assets in your Rootstock wallet yet.",
+		'wallet.debug_wallet.no_assets_description':
+			"You don't have any assets in your Rootstock wallet yet.",
 		'wallet.debug_wallet.asset_list.native_token': 'Native Token',
 		'wallet.debug_wallet.asset_list.erc20_token': 'ERC-20 Token',
 		'wallet.debug_wallet.asset_list.balance': 'Balance',
@@ -221,4 +222,3 @@ describe('DebugWalletAssetList', () => {
 		});
 	});
 });
-

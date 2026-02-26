@@ -20,7 +20,7 @@ describe('Contract Detection', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		clearContractCodeCache();
-		
+
 		mockProvider = {
 			getCode: vi.fn()
 		};
@@ -43,34 +43,46 @@ describe('Contract Detection', () => {
 	describe('isContractAddress', () => {
 		it('should return true for contract address with code', async () => {
 			mockProvider.getCode.mockResolvedValue('0x6080604052348015600f57600080fd5b50');
-			
-			const result = await isContractAddress('0x1234567890123456789012345678901234567890', mockProvider);
-			
+
+			const result = await isContractAddress(
+				'0x1234567890123456789012345678901234567890',
+				mockProvider
+			);
+
 			expect(result).toBe(true);
-			expect(mockProvider.getCode).toHaveBeenCalledWith('0x1234567890123456789012345678901234567890', undefined);
+			expect(mockProvider.getCode).toHaveBeenCalledWith(
+				'0x1234567890123456789012345678901234567890',
+				undefined
+			);
 		});
 
 		it('should return false for EOA address', async () => {
 			mockProvider.getCode.mockResolvedValue('0x');
-			
-			const result = await isContractAddress('0x1234567890123456789012345678901234567890', mockProvider);
-			
+
+			const result = await isContractAddress(
+				'0x1234567890123456789012345678901234567890',
+				mockProvider
+			);
+
 			expect(result).toBe(false);
 		});
 
 		it('should return false for null address', async () => {
-			const result = await isContractAddress('0x0000000000000000000000000000000000000000', mockProvider);
-			
+			const result = await isContractAddress(
+				'0x0000000000000000000000000000000000000000',
+				mockProvider
+			);
+
 			expect(result).toBe(false);
 		});
 
 		it('should cache results', async () => {
 			mockProvider.getCode.mockResolvedValue('0x6080604052348015600f57600080fd5b50');
 			const address = '0x1234567890123456789012345678901234567890';
-			
+
 			await isContractAddress(address, mockProvider);
 			await isContractAddress(address, mockProvider);
-			
+
 			// Should only call getCode once due to caching
 			expect(mockProvider.getCode).toHaveBeenCalledTimes(1);
 		});
@@ -145,7 +157,7 @@ describe('Contract Detection', () => {
 				'testnet',
 				'0x0987654321098765432109876543210987654321'
 			);
-			
+
 			expect(result.isContract).toBe(false);
 		});
 	});
@@ -172,4 +184,3 @@ describe('Contract Detection', () => {
 		});
 	});
 });
-

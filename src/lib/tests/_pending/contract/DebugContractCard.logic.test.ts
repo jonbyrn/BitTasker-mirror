@@ -145,8 +145,7 @@ describe('DebugContractCard Business Logic', () => {
 
 		it('should detect freelancer role correctly', () => {
 			const currentAddress = freelancerAddress;
-			const isFreelancer =
-				mockContract.freelancer.toLowerCase() === currentAddress.toLowerCase();
+			const isFreelancer = mockContract.freelancer.toLowerCase() === currentAddress.toLowerCase();
 			expect(isFreelancer).toBe(true);
 		});
 
@@ -157,4 +156,3 @@ describe('DebugContractCard Business Logic', () => {
 		});
 	});
 });
-

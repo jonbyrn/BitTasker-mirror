@@ -42,7 +42,7 @@ vi.mock('$lib/stores/contract.store', () => ({
 // Mock task.store to prevent "Pool not found" when loaded transitively
 vi.mock('$lib/stores/task.store', async () => {
 	const { writable } = await import('svelte/store');
-	const mockPool = { subscribe: () => () => {}, publish: () => [], querySync: () => [] };
+	const mockPool = { subscribe: () => () => { }, publish: () => [], querySync: () => [] };
 	const mockTasksStore = writable({
 		pool: mockPool,
 		items: [],
@@ -87,7 +87,7 @@ vi.mock('$lib/nostr/task', () => ({
 
 vi.mock('$lib/stores/app.store', async () => {
 	const { writable } = await import('svelte/store');
-	const mockPool = { subscribe: () => () => {}, publish: () => [], querySync: () => [] };
+	const mockPool = { subscribe: () => () => { }, publish: () => [], querySync: () => [] };
 	const store = writable({ pool: mockPool });
 	return {
 		appStore: {
@@ -137,7 +137,7 @@ vi.mock('svelte/store', () => {
 	// In svelte-i18n, t is a readable store, and get(t) returns the translation function
 	const translationFn = (key: string) => key;
 
-	const mockGet = vi.fn((store: unknown) => {
+	const mockGet = vi.fn((store) => {
 		// When get(t) is called, t is a svelte-i18n readable store
 		// get(t) should return the translation function: (key: string) => string
 		if (typeof store === 'function') {
@@ -279,7 +279,9 @@ describe('escrowEvents', () => {
 				{
 					type: 'image',
 					url: 'https://example.com/image.jpg',
-					name: 'image.jpg'
+					key: 'image-key-1',
+					alt: 'image.jpg',
+					size: 1024
 				}
 			];
 
@@ -580,7 +582,8 @@ describe('escrowEvents', () => {
 				freelancerPubkey: 'npub1freelancer',
 				amount: '1.0',
 				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
-				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0x123'
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);

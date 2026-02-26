@@ -23,8 +23,7 @@ vi.mock('$lib/utils/escrow', () => ({
 }));
 
 vi.mock('$lib/utils/wallet/contractDetection', () => ({
-	hasContractInteraction: (input: string | null | undefined) =>
-		!!input && input.length > 10
+	hasContractInteraction: (input: string | null | undefined) => !!input && input.length > 10
 }));
 
 describe('functionParsing', () => {
@@ -34,12 +33,8 @@ describe('functionParsing', () => {
 
 	describe('extractFunctionSelector', () => {
 		it('should extract selector from valid input data', () => {
-			expect(extractFunctionSelector('0xa9059cbb000000000000000000000000')).toBe(
-				'0xa9059cbb'
-			);
-			expect(extractFunctionSelector('a9059cbb000000000000000000000000')).toBe(
-				'0xa9059cbb'
-			);
+			expect(extractFunctionSelector('0xa9059cbb000000000000000000000000')).toBe('0xa9059cbb');
+			expect(extractFunctionSelector('a9059cbb000000000000000000000000')).toBe('0xa9059cbb');
 		});
 
 		it('should return null for invalid input', () => {
@@ -70,10 +65,7 @@ describe('functionParsing', () => {
 
 	describe('parseFunction', () => {
 		it('should decode common functions for unknown contract type', () => {
-			const result = parseFunction(
-				'0xa9059cbb000000000000000000000000',
-				'unknown'
-			);
+			const result = parseFunction('0xa9059cbb000000000000000000000000', 'unknown');
 			expect(result).not.toBeNull();
 			if (result) {
 				expect(result.functionName).toBe('transfer');

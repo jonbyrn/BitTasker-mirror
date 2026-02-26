@@ -16,10 +16,10 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.error.retry': 'Retry',
 		'wallet.error.no_connection': 'Wallet not connected'
 	};
-	
+
 	// Create a readable store that returns the translation function
 	const tStore = readable((key: string) => translations[key] || key);
-	
+
 	return {
 		t: tStore,
 		locale: readable('en'),
@@ -211,29 +211,29 @@ describe('WalletPaymentModal Component', () => {
 			});
 		});
 
-	it('should unlock body scroll when modal is closed', async () => {
-		const onClose = vi.fn();
-		const { unmount } = render(WalletPaymentModal, { ...defaultProps, onClose });
+		it('should unlock body scroll when modal is closed', async () => {
+			const onClose = vi.fn();
+			const { unmount } = render(WalletPaymentModal, { ...defaultProps, onClose });
 
-		await waitFor(() => {
-			expect(document.body.style.overflow).toBe('hidden');
+			await waitFor(() => {
+				expect(document.body.style.overflow).toBe('hidden');
+			});
+
+			// Close modal by unmounting
+			unmount();
+
+			await waitFor(() => {
+				expect(document.body.style.overflow).toBe('');
+			});
 		});
-
-		// Close modal by unmounting
-		unmount();
-
-		await waitFor(() => {
-			expect(document.body.style.overflow).toBe('');
-		});
-	});
 	});
 
 	describe('Modal Title', () => {
 		it('should display "Request Payment" for receive mode', () => {
 			// Modal doesn't render title itself - it's in child components
 			// Just verify modal renders with correct mode
-			render(WalletPaymentModal, { 
-				...defaultProps, 
+			render(WalletPaymentModal, {
+				...defaultProps,
 				mode: 'receive',
 				children: () => '<div>Request Payment Content</div>'
 			});
@@ -246,8 +246,8 @@ describe('WalletPaymentModal Component', () => {
 		it('should display "Send Payment" for send mode', () => {
 			// Modal doesn't render title itself - it's in child components
 			// Just verify modal renders with correct mode
-			render(WalletPaymentModal, { 
-				...defaultProps, 
+			render(WalletPaymentModal, {
+				...defaultProps,
 				mode: 'send',
 				children: () => '<div>Send Payment Content</div>'
 			});
@@ -386,13 +386,13 @@ describe('WalletPaymentModal Component', () => {
 			const TestContent = `
 				<button>Test Button</button>
 			`;
-			
+
 			// Render modal with children - need to use proper snippet syntax
 			// For now, just test that the modal handles Tab key events
 			render(WalletPaymentModal, defaultProps);
 
 			const modal = screen.getByRole('dialog');
-			
+
 			// Focus modal itself
 			modal.focus();
 			expect(document.activeElement).toBe(modal);
@@ -442,4 +442,3 @@ describe('WalletPaymentModal Component', () => {
 		});
 	});
 });
-

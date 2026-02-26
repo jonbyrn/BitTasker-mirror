@@ -166,8 +166,8 @@ class EscrowManager {
 
 			const onConfirmed = taskId
 				? async () => {
-						await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
-					}
+					await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
+				}
 				: undefined;
 
 			return handler.escrow.acceptTask(escrowId, contractEventId, { onConfirmed });
@@ -239,8 +239,8 @@ class EscrowManager {
 			const onConfirmed =
 				taskId && contract.isClient
 					? async () => {
-							await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
-						}
+						await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
+					}
 					: undefined;
 
 			return handler.escrow.acceptProposal(escrowId, contractEventId, { onConfirmed });
@@ -262,8 +262,8 @@ class EscrowManager {
 
 			const onConfirmed = taskId
 				? async () => {
-						await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
-					}
+					await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
+				}
 				: undefined;
 
 			return handler.escrow.resolveAfterTimelock(escrowId, Number(escrowStatus), contractEventId, {

@@ -8,13 +8,13 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock ethers
-let mockContractInstance: any = null;
+let mockContractInstance: Record<string, unknown> | null = null;
 vi.mock('ethers', async () => {
 	const actual = await vi.importActual('ethers');
 	return {
 		...actual,
 		ethers: {
-			...actual.ethers,
+			...(actual as Record<string, unknown>).ethers,
 			Contract: vi.fn().mockImplementation(() => mockContractInstance)
 		}
 	};
@@ -83,21 +83,24 @@ vi.mock('$lib/stores/app.store', () => ({
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {
-	const translationFn = (key: string) => key;
-	const mockT = Object.assign(vi.fn((key: string) => key), { subscribe: vi.fn() });
+	const mockT = Object.assign(
+		vi.fn((key: string) => key),
+		{ subscribe: vi.fn() }
+	);
 	return { t: mockT };
 });
 
 // Mock svelte/store
 vi.mock('svelte/store', () => {
 	const translationFn = (key: string) => key;
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			const storeFunc = store as () => unknown;
+			if ('subscribe' in storeFunc || (storeFunc.toString && storeFunc.toString().includes('t'))) {
 				return translationFn;
 			}
 			try {
-				return store();
+				return storeFunc();
 			} catch {
 				return translationFn;
 			}
@@ -120,15 +123,15 @@ import { escrow } from '$lib/utils/escrow/v1/escrow';
 import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
 
 describe('Escrow Event Flow Integration Tests', () => {
-	let mockContract: any;
+	let mockContract: Record<string, unknown>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 
-		const createMockWait = (receipt: any) => {
-			return vi.fn().mockImplementation(
-				() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10))
-			);
+		const createMockWait = (receipt: Record<string, unknown>) => {
+			return vi
+				.fn()
+				.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10)));
 		};
 
 		mockContract = {
@@ -142,7 +145,10 @@ describe('Escrow Event Flow Integration Tests', () => {
 			paused: vi.fn().mockResolvedValue(false)
 		};
 
-		const createMethodWithEstimateGas = (estimateGasValue: bigint, waitReceipt: any) => {
+		const createMethodWithEstimateGas = (
+			estimateGasValue: bigint,
+			waitReceipt: Record<string, unknown>
+		) => {
 			const method = vi.fn().mockResolvedValue({
 				hash: '0x' + Math.random().toString(16).substring(2, 66),
 				wait: createMockWait(waitReceipt)
@@ -191,7 +197,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			});
 
 			// Complete task
-			const result = await escrow.completeTask(escrowId, contractEventId);
+			await escrow.completeTask(escrowId, contractEventId);
 
 			// Should publish pending status immediately
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
@@ -203,7 +209,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			);
 
 			// Wait for confirmation
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Should publish confirmed status after confirmation
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
@@ -307,7 +313,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			expect(acceptResult.hash).toBeDefined();
 
 			// Wait for both to confirm
-			await new Promise(resolve => setTimeout(resolve, 150));
+			await new Promise((resolve) => setTimeout(resolve, 150));
 
 			// Both should have published statuses
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(

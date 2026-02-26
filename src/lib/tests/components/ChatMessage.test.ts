@@ -95,7 +95,12 @@ describe('ChatMessage Component', () => {
 			});
 
 			// Component preserves newlines via whitespace-pre-wrap; use flexible matcher
-			expect(screen.getByText((content) => content.includes('Line 1') && content.includes('Line 2') && content.includes('Line 3'))).toBeDefined();
+			expect(
+				screen.getByText(
+					(content) =>
+						content.includes('Line 1') && content.includes('Line 2') && content.includes('Line 3')
+				)
+			).toBeDefined();
 		});
 
 		it('should handle empty messages', () => {

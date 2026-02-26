@@ -254,7 +254,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 								contractEvent.content.escrowId,
 								contractEvent.id,
 								transactionHash
-							).catch(() => {});
+							).catch(() => { });
 						}
 					}
 				}
@@ -281,7 +281,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				// Determine if we need to pass contract address for backwards compatibility
 				const contractAddress =
 					contractEvent.content.contractAddress &&
-					contractEvent.content.contractAddress.toLowerCase() !==
+						contractEvent.content.contractAddress.toLowerCase() !==
 						currentContractAddress?.toLowerCase()
 						? contractEvent.content.contractAddress
 						: undefined;
@@ -827,7 +827,7 @@ export async function handleContractEvent(event: NostrEvent) {
 			// Determine if we need to pass contract address for backwards compatibility
 			const contractAddress =
 				contractEvent.content.contractAddress &&
-				contractEvent.content.contractAddress.toLowerCase() !==
+					contractEvent.content.contractAddress.toLowerCase() !==
 					currentContractAddress?.toLowerCase()
 					? contractEvent.content.contractAddress
 					: undefined;

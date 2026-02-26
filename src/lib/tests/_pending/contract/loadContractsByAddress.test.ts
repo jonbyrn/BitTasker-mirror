@@ -16,7 +16,7 @@ vi.mock('../escrow', () => ({
 // Mock wallet store
 vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: {
-		subscribe: vi.fn(() => () => { })
+		subscribe: vi.fn(() => () => {})
 	}
 }));
 
@@ -132,8 +132,7 @@ describe('loadContractsByAddress', () => {
 			// Should only include contracts where user is client or freelancer
 			contracts.forEach((contract) => {
 				const isClient = contract.client.toLowerCase() === mockWalletAddress.toLowerCase();
-				const isFreelancer =
-					contract.freelancer.toLowerCase() === mockWalletAddress.toLowerCase();
+				const isFreelancer = contract.freelancer.toLowerCase() === mockWalletAddress.toLowerCase();
 				expect(isClient || isFreelancer).toBe(true);
 			});
 		});
@@ -196,4 +195,3 @@ describe('loadContractsByAddress', () => {
 		});
 	});
 });
-

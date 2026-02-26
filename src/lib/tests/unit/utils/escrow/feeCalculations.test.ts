@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ethers } from 'ethers';
 
 // Mock wallet-core (FEE_TIERS required by escrow fee helpers; avoid EventBus in test env)
@@ -10,10 +10,7 @@ vi.mock('@bittasker/wallet-core', () => ({
 	}
 }));
 
-import {
-	calculateFeeAmount,
-	calculateTotalPayment,
-} from '$lib/utils/escrow/v1/escrow';
+import { calculateFeeAmount, calculateTotalPayment } from '$lib/utils/escrow/v1/escrow';
 import type { FeeTier } from '@bittasker/wallet-core';
 
 // Utility function to calculate freelancer payout (base amount - freelancer fee)

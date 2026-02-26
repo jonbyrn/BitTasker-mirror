@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	extractFunctionSelector,
-	parseEscrowFunction,
 	decodeUnknownFunction,
 	parseFunction
 } from '$lib/utils/wallet/functionParsing';
@@ -69,14 +68,17 @@ describe('Function Parsing', () => {
 	describe('parseFunction', () => {
 		it('should parse escrow function when contract type is escrow', () => {
 			// Mock parseEscrowFunction to return a result
-			const result = parseFunction('0x123456780000000000000000000000000000000000000000000000000000000000000001', 'escrow');
+			const result = parseFunction(
+				'0x123456780000000000000000000000000000000000000000000000000000000000000001',
+				'escrow'
+			);
 			// Should attempt to parse as escrow function
 			expect(result).not.toBeNull();
 		});
 
 		it('should decode common functions for unknown contract type', () => {
 			const result = parseFunction('0xa9059cbb000000000000000000000000', 'unknown');
-			
+
 			expect(result).not.toBeNull();
 			if (result) {
 				expect(result.functionName).toBe('transfer');
@@ -85,8 +87,11 @@ describe('Function Parsing', () => {
 		});
 
 		it('should return selector only for unknown functions', () => {
-			const result = parseFunction('0x123456780000000000000000000000000000000000000000000000000000000000000001', 'unknown');
-			
+			const result = parseFunction(
+				'0x123456780000000000000000000000000000000000000000000000000000000000000001',
+				'unknown'
+			);
+
 			expect(result).not.toBeNull();
 			if (result) {
 				expect(result.functionSelector).toBe('0x12345678');
@@ -100,4 +105,3 @@ describe('Function Parsing', () => {
 		});
 	});
 });
-

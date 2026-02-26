@@ -45,23 +45,33 @@ describe('contractStatusFormatter', () => {
 
 	describe('getStatusTranslationKey', () => {
 		it('should return translation key for Funded', () => {
-			expect(getStatusTranslationKey(EscrowStatus.Funded)).toBe('dashboard.contracts.status.funded');
+			expect(getStatusTranslationKey(EscrowStatus.Funded)).toBe(
+				'dashboard.contracts.status.funded'
+			);
 		});
 
 		it('should return translation key for InDispute', () => {
-			expect(getStatusTranslationKey(EscrowStatus.InDispute)).toBe('dashboard.contracts.status.in_dispute');
+			expect(getStatusTranslationKey(EscrowStatus.InDispute)).toBe(
+				'dashboard.contracts.status.in_dispute'
+			);
 		});
 
 		it('should return translation key for Completed', () => {
-			expect(getStatusTranslationKey(EscrowStatus.Completed)).toBe('dashboard.contracts.status.completed');
+			expect(getStatusTranslationKey(EscrowStatus.Completed)).toBe(
+				'dashboard.contracts.status.completed'
+			);
 		});
 
 		it('should return translation key for Cancelled', () => {
-			expect(getStatusTranslationKey(EscrowStatus.Cancelled)).toBe('dashboard.contracts.status.cancelled');
+			expect(getStatusTranslationKey(EscrowStatus.Cancelled)).toBe(
+				'dashboard.contracts.status.cancelled'
+			);
 		});
 
 		it('should return funded for unknown status (default)', () => {
-			expect(getStatusTranslationKey(999 as EscrowStatus)).toBe('dashboard.contracts.status.funded');
+			expect(getStatusTranslationKey(999 as EscrowStatus)).toBe(
+				'dashboard.contracts.status.funded'
+			);
 		});
 	});
 
@@ -99,7 +109,9 @@ describe('contractStatusFormatter', () => {
 
 	describe('getActionDescription', () => {
 		it('should return action key for Completed', () => {
-			expect(getActionDescription(EscrowStatus.Completed)).toBe('dashboard.contracts.status.task_completed');
+			expect(getActionDescription(EscrowStatus.Completed)).toBe(
+				'dashboard.contracts.status.task_completed'
+			);
 		});
 
 		it('should return action key for PendingCompletion', () => {
@@ -115,7 +127,9 @@ describe('contractStatusFormatter', () => {
 		});
 
 		it('should return action key for InDispute', () => {
-			expect(getActionDescription(EscrowStatus.InDispute)).toBe('dashboard.contracts.status.dispute_raised');
+			expect(getActionDescription(EscrowStatus.InDispute)).toBe(
+				'dashboard.contracts.status.dispute_raised'
+			);
 		});
 
 		it('should return action key for Cancelled', () => {

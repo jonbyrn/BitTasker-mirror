@@ -249,16 +249,15 @@ describe('DebugWalletSendForm', () => {
 			expect(screen.getByText('Confirm Payment')).toBeInTheDocument();
 		});
 		const modal = screen.getByText('Confirm Payment').closest('.modal-box');
-		const confirmButton = modal ? within(modal as HTMLElement).getByRole('button', { name: /send/i }) : screen.getAllByRole('button', { name: /send/i })[1];
+		const confirmButton = modal
+			? within(modal as HTMLElement).getByRole('button', { name: /send/i })
+			: screen.getAllByRole('button', { name: /send/i })[1];
 		await user.click(confirmButton);
 
 		await vi.advanceTimersByTimeAsync(58000);
 
 		await waitFor(() => {
-			expect(sendRBTC).toHaveBeenCalledWith(
-				'0x1234567890123456789012345678901234567890',
-				'0.5'
-			);
+			expect(sendRBTC).toHaveBeenCalledWith('0x1234567890123456789012345678901234567890', '0.5');
 		});
 
 		expect(appStore.showSuccessToast).toHaveBeenCalled();
@@ -292,7 +291,9 @@ describe('DebugWalletSendForm', () => {
 			expect(screen.getByText('Confirm Payment')).toBeInTheDocument();
 		});
 		const modal = screen.getByText('Confirm Payment').closest('.modal-box');
-		const confirmButton = modal ? within(modal as HTMLElement).getByRole('button', { name: /send/i }) : screen.getByRole('button', { name: /send/i });
+		const confirmButton = modal
+			? within(modal as HTMLElement).getByRole('button', { name: /send/i })
+			: screen.getByRole('button', { name: /send/i });
 		await user.click(confirmButton);
 
 		await waitFor(() => {
@@ -339,11 +340,15 @@ describe('DebugWalletSendForm', () => {
 			expect(screen.getByText('Confirm Payment')).toBeInTheDocument();
 		});
 		const modal = screen.getByText('Confirm Payment').closest('.modal-box');
-		const confirmButton = modal ? within(modal as HTMLElement).getByRole('button', { name: /send/i }) : screen.getAllByRole('button', { name: /send/i })[1];
+		const confirmButton = modal
+			? within(modal as HTMLElement).getByRole('button', { name: /send/i })
+			: screen.getAllByRole('button', { name: /send/i })[1];
 		await user.click(confirmButton);
 
 		// Error is shown in transaction status screen when sendRBTC rejects
-		expect(await screen.findByRole('heading', { name: /Transaction failed/i }, { timeout: 3000 })).toBeInTheDocument();
+		expect(
+			await screen.findByRole('heading', { name: /Transaction failed/i }, { timeout: 3000 })
+		).toBeInTheDocument();
 
 		expect(appStore.showErrorToast).toHaveBeenCalled();
 	});
@@ -374,7 +379,9 @@ describe('DebugWalletSendForm', () => {
 			expect(screen.getByText('Confirm Payment')).toBeInTheDocument();
 		});
 		const modal = screen.getByText('Confirm Payment').closest('.modal-box');
-		const confirmButton = modal ? within(modal as HTMLElement).getByRole('button', { name: /send/i }) : screen.getAllByRole('button', { name: /send/i })[1];
+		const confirmButton = modal
+			? within(modal as HTMLElement).getByRole('button', { name: /send/i })
+			: screen.getAllByRole('button', { name: /send/i })[1];
 		await user.click(confirmButton);
 
 		// After confirm, modal closes and we show "Transaction Pending" screen (form is replaced)
@@ -406,7 +413,7 @@ describe('DebugWalletSendForm', () => {
 			const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 			const onSuccess = vi.fn();
 			const txHash = '0xtesthash123';
-			
+
 			vi.mocked(sendRBTC).mockResolvedValue(txHash);
 
 			render(DebugWalletSendForm, { token: mockNativeToken, onSuccess });
@@ -461,7 +468,7 @@ describe('DebugWalletSendForm', () => {
 			const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 			const onSuccess = vi.fn();
 			const txHash = '0xtesthash123';
-			
+
 			vi.mocked(sendRBTC).mockResolvedValue(txHash);
 
 			render(DebugWalletSendForm, { token: mockNativeToken, onSuccess });
@@ -505,13 +512,15 @@ describe('DebugWalletSendForm', () => {
 			vi.advanceTimersByTime(3000);
 
 			// Wait for confirmed state
-			await waitFor(() => {
-				expect(screen.getByText(/Transaction Successful/i)).toBeInTheDocument();
-			}, { timeout: 5000 });
+			await waitFor(
+				() => {
+					expect(screen.getByText(/Transaction Successful/i)).toBeInTheDocument();
+				},
+				{ timeout: 5000 }
+			);
 
 			// Countdown should have stopped (should not see 54s or lower once confirmed)
 			expect(screen.queryByText(/54s|53s|52s/)).not.toBeInTheDocument();
 		});
 	});
 });
-

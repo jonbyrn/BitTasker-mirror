@@ -1,9 +1,9 @@
 /**
  * Component rendering tests for DebugContractCard
- * 
+ *
  * These tests run in a real browser environment using Vitest Browser Mode.
  * Business logic tests are in DebugContractCard.logic.test.ts
- * 
+ *
  * This test file is configured to run in browser mode via the 'component' project
  * in vite.config.ts
  */
@@ -31,10 +31,10 @@ vi.mock('svelte-i18n', () => ({
 	t: {
 		subscribe: (fn: (value: any) => void) => {
 			fn(mockT);
-			return () => { };
+			return () => {};
 		}
 	},
-	locale: { subscribe: vi.fn(() => () => { }) }
+	locale: { subscribe: vi.fn(() => () => {}) }
 }));
 
 // Mock ConfirmModal
@@ -173,8 +173,7 @@ describe('DebugContractCard Component', () => {
 
 			const buttons = screen.getAllByRole('button');
 			const actionButtons = buttons.filter(
-				(btn) =>
-					btn.textContent?.includes('Complete') || btn.textContent?.includes('Accept')
+				(btn) => btn.textContent?.includes('Complete') || btn.textContent?.includes('Accept')
 			);
 
 			actionButtons.forEach((button) => {
@@ -241,10 +240,7 @@ describe('DebugContractCard Component', () => {
 			await fireEvent.click(cancelButton);
 
 			await waitFor(() => {
-				expect(mockExecuteFunction).toHaveBeenCalledWith(
-					mockContract.id,
-					'cancelEscrow'
-				);
+				expect(mockExecuteFunction).toHaveBeenCalledWith(mockContract.id, 'cancelEscrow');
 			});
 		});
 

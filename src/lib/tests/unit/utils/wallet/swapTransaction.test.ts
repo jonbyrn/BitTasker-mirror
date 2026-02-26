@@ -75,21 +75,15 @@ describe('swapTransaction', () => {
 
 	describe('isExpiredSwapSafeToDelete', () => {
 		it('should return false when status is not swap.expired', () => {
-			expect(
-				isExpiredSwapSafeToDelete(
-					{ status: 'swap.created', id: '1' } as any,
-					'reverse'
-				)
-			).toBe(false);
+			expect(isExpiredSwapSafeToDelete({ status: 'swap.created', id: '1' } as any, 'reverse')).toBe(
+				false
+			);
 		});
 
 		it('should return true for reverse swap when expired', () => {
-			expect(
-				isExpiredSwapSafeToDelete(
-					{ status: 'swap.expired', id: '1' } as any,
-					'reverse'
-				)
-			).toBe(true);
+			expect(isExpiredSwapSafeToDelete({ status: 'swap.expired', id: '1' } as any, 'reverse')).toBe(
+				true
+			);
 		});
 
 		it('should return true for submarine when expired and no lockupTxHash', () => {
@@ -157,11 +151,7 @@ describe('swapTransaction', () => {
 
 		it('should return false for expired swap safe to delete', () => {
 			expect(
-				shouldShowSwap(
-					'swap.expired',
-					'reverse',
-					{ status: 'swap.expired', id: '1' } as any
-				)
+				shouldShowSwap('swap.expired', 'reverse', { status: 'swap.expired', id: '1' } as any)
 			).toBe(false);
 		});
 
@@ -176,11 +166,11 @@ describe('swapTransaction', () => {
 
 		it('should return true for expired submarine when user locked (not safe to delete)', () => {
 			expect(
-				shouldShowSwap(
-					'swap.expired',
-					'submarine',
-					{ status: 'swap.expired', id: '1', lockupTxHash: '0xabc' } as any
-				)
+				shouldShowSwap('swap.expired', 'submarine', {
+					status: 'swap.expired',
+					id: '1',
+					lockupTxHash: '0xabc'
+				} as any)
 			).toBe(true);
 		});
 	});
@@ -290,9 +280,7 @@ describe('swapTransaction', () => {
 			const actions = getSwapActions(swap, 'submarine');
 			expect(actions.length).toBeGreaterThanOrEqual(1);
 			expect(actions.some((a) => a.type === 'viewQR')).toBe(true);
-			expect(actions.find((a) => a.type === 'viewQR')?.label).toBe(
-				'wallet.swap.action.view_qr'
-			);
+			expect(actions.find((a) => a.type === 'viewQR')?.label).toBe('wallet.swap.action.view_qr');
 		});
 
 		it('should not include viewQR for final status', () => {

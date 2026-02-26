@@ -116,7 +116,7 @@ describe('AmountDisplay Component', () => {
 			render(AmountDisplay, { ...defaultProps, unit: 'sats' });
 			expect(screen.getByLabelText('Sats')).toBeDefined();
 
-			const { rerender } = render(AmountDisplay, { ...defaultProps, unit: 'usd' });
+			render(AmountDisplay, { ...defaultProps, unit: 'usd' });
 			expect(screen.getByLabelText('USD')).toBeDefined();
 		});
 	});
@@ -306,4 +306,3 @@ describe('AmountDisplay Component', () => {
 		});
 	});
 });
-

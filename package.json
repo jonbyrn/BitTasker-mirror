@@ -7,8 +7,8 @@
 		"node": ">=20.0.0"
 	},
 	"lint-staged": {
-		"*.{js,ts,svelte,json,css,md}": "prettier --write",
-		"*.{js,ts,svelte}": "eslint --fix"
+		"*.{js,ts,svelte,json,css,md}": "prettier --check",
+		"*.{js,ts,svelte}": "eslint"
 	},
 	"scripts": {
 		"dev": "vite dev --host --port 3000",

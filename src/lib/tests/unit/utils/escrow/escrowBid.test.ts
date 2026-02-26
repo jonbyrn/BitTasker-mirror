@@ -18,7 +18,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 				},
 				bsc: { connected: false, balance: null, wallet: null, provider: null }
 			});
-			return () => {};
+			return () => { };
 		})
 	},
 	getWallet: vi.fn(),
@@ -306,7 +306,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: mockBidContent as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -329,8 +329,8 @@ describe('escrowBid', () => {
 				status: 'pending' as const
 			};
 
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockResolvedValue(mockTxResult);
+			(escrow.ensureEscrowReady as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as ReturnType<typeof vi.fn>).mockResolvedValue(mockTxResult);
 
 			const result = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
 
@@ -343,7 +343,7 @@ describe('escrowBid', () => {
 			const invalidBid = { ...mockBidContent, amount: 0 };
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: invalidBid as any,
+				content: invalidBid as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -381,7 +381,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: pastBid as any,
+				content: pastBid as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -404,8 +404,8 @@ describe('escrowBid', () => {
 				status: 'pending' as const
 			};
 
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockResolvedValue(mockTxResult);
+			(escrow.ensureEscrowReady as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as ReturnType<typeof vi.fn>).mockResolvedValue(mockTxResult);
 
 			const result = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
 
@@ -422,7 +422,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: mockBidContent as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -441,8 +441,10 @@ describe('escrowBid', () => {
 			};
 
 			const userRejectedError = new Error('user rejected transaction');
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockRejectedValue(userRejectedError);
+			(escrow.ensureEscrowReady as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+				userRejectedError
+			);
 
 			const result = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
 
@@ -460,7 +462,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: mockBidContent as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -479,8 +481,10 @@ describe('escrowBid', () => {
 			};
 
 			const transactionError = new Error('Transaction failed: insufficient funds');
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockRejectedValue(transactionError);
+			(escrow.ensureEscrowReady as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+				transactionError
+			);
 
 			const result = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
 
@@ -506,7 +510,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: pastBid as any,
+				content: pastBid as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -529,8 +533,8 @@ describe('escrowBid', () => {
 				status: 'pending' as const
 			};
 
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockResolvedValue(mockTxResult);
+			(escrow.ensureEscrowReady as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as ReturnType<typeof vi.fn>).mockResolvedValue(mockTxResult);
 
 			const result = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
 
@@ -547,7 +551,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: mockBidContent as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -571,8 +575,10 @@ describe('escrowBid', () => {
 				// hash is missing
 			};
 
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockResolvedValue(mockTxResultWithoutHash);
+			(escrow.ensureEscrowReady as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+				mockTxResultWithoutHash
+			);
 
 			const result = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
 
@@ -590,7 +596,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: mockBidContent as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -608,8 +614,8 @@ describe('escrowBid', () => {
 				tags: []
 			};
 
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockResolvedValue(null);
+			(escrow.ensureEscrowReady as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
 			const result = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
 
@@ -634,7 +640,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: pastBid as any,
+				content: pastBid as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -657,16 +663,17 @@ describe('escrowBid', () => {
 				status: 'pending' as const
 			};
 
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockResolvedValue(mockTxResult);
+			(escrow.ensureEscrowReady as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as ReturnType<typeof vi.fn>).mockResolvedValue(mockTxResult);
 
 			const result = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
 
 			// Implementation adjusts any past start time to now+1h (no 15-min threshold)
 			if (result.success) {
 				expect(escrow.createEscrow).toHaveBeenCalled();
-				const callArgs = (escrow.createEscrow as any).mock.calls[0];
-				const calledStartTime = callArgs[2];
+				const callArgs = (escrow.createEscrow as unknown as ReturnType<typeof vi.fn>).mock
+					.calls[0] as unknown[];
+				const calledStartTime = callArgs[2] as number;
 				const now = Math.floor(Date.now() / 1000);
 				const expectedAdjustedStart = now + 3600;
 				// Should use adjusted time (now + 1 hour) when start was in the past
@@ -694,7 +701,7 @@ describe('escrowBid', () => {
 		});
 
 		it('should return default tier 1 label for invalid tier', () => {
-			const display = getFeePercentageDisplay(99 as any);
+			const display = getFeePercentageDisplay(99 as 1 | 2 | 3);
 			expect(display).toBe('2.5%');
 		});
 	});
@@ -725,7 +732,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: mockBidContent as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -748,13 +755,13 @@ describe('escrowBid', () => {
 				status: 'pending' as const
 			};
 
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockResolvedValue(mockTxResult);
+			(escrow.ensureEscrowReady as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as ReturnType<typeof vi.fn>).mockResolvedValue(mockTxResult);
 
 			// Mock registerPendingContractByTxHash to throw an error after being called
 			// This simulates an error occurring after transaction is registered
 			let callCount = 0;
-			(registerPendingContractByTxHash as any).mockImplementation(() => {
+			(registerPendingContractByTxHash as ReturnType<typeof vi.fn>).mockImplementation(() => {
 				callCount++;
 				if (callCount === 1) {
 					// First call succeeds (registration happens)
@@ -763,7 +770,6 @@ describe('escrowBid', () => {
 				// Subsequent operations fail
 				throw new Error('Error after registration');
 			});
-
 			// Simulate error after registration by making registerPendingContractByTxHash throw
 			// on second access (simulating a scenario where something fails after registration)
 			// Actually, we need to test the case where registerPendingContractByTxHash is called
@@ -790,14 +796,14 @@ describe('escrowBid', () => {
 			mockCleanupPendingContractByTxHash.mockClear();
 
 			// Now test error scenario: transaction created and registered, but error occurs
-			(escrow.ensureEscrowReady as any).mockResolvedValue({});
-			(escrow.createEscrow as any).mockResolvedValue(mockTxResult);
+			(escrow.ensureEscrowReady as ReturnType<typeof vi.fn>).mockResolvedValue({});
+			(escrow.createEscrow as ReturnType<typeof vi.fn>).mockResolvedValue(mockTxResult);
 
-			// Make registerPendingContractByTxHash succeed (registration completes)
-			(registerPendingContractByTxHash as any).mockImplementation(() => {
+			// Make registerPendingContractByTxHash succeed, but then throw error
+			// We'll simulate this by making the function throw after registration
+			(registerPendingContractByTxHash as ReturnType<typeof vi.fn>).mockImplementation(() => {
 				// Registration succeeds
 			});
-
 			// Override the return to throw an error
 			// Actually, we need to test the catch block. Let's make createEscrow throw
 			// after returning a result, but that's not possible. Instead, let's test
@@ -824,7 +830,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: mockBidContent as unknown as string,
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -853,12 +859,12 @@ describe('escrowBid', () => {
 				})
 			};
 
-			(escrow.ensureEscrowReady as any).mockResolvedValue({
+			(escrow.ensureEscrowReady as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
 				provider: mockProvider,
 				contract: {},
 				wallet: {}
 			});
-			(escrow.createEscrow as any).mockResolvedValue(mockTxResult);
+			(escrow.createEscrow as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(mockTxResult);
 
 			await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
 

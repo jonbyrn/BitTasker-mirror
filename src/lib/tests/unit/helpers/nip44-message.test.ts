@@ -25,7 +25,9 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: vi.fn(),
 	subscribeToEvents: vi.fn(),
-	publishToMultipleRelays: vi.fn().mockResolvedValue([{ relay: 'wss://relay1.test', success: true, error: null }])
+	publishToMultipleRelays: vi
+		.fn()
+		.mockResolvedValue([{ relay: 'wss://relay1.test', success: true, error: null }])
 }));
 
 vi.mock('$lib/stores/app.store', async () => {

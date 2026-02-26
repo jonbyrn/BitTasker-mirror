@@ -8,7 +8,10 @@ vi.mock('liquidjs-lib', () => ({
 	address: { toOutputScript: vi.fn() }
 }));
 
-import { parsePaymentAddress, type ParsedPaymentAddress } from '$lib/utils/helpers/paymentAddressParser';
+import {
+	parsePaymentAddress,
+	type ParsedPaymentAddress
+} from '$lib/utils/helpers/paymentAddressParser';
 
 describe('parsePaymentAddress', () => {
 	describe('Empty and invalid inputs', () => {
@@ -143,10 +146,11 @@ describe('parsePaymentAddress', () => {
 	describe('Liquid addresses', () => {
 		// Note: These tests use the actual Liquid address format from the user's example
 		// The address validation is done by liquidjs-lib which will validate the Bech32 checksum
-		
+
 		it('should parse plain Liquid mainnet address (lq1 prefix)', () => {
 			// Using a real Liquid mainnet address format (lq1...)
-			const address = 'lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6';
+			const address =
+				'lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6';
 			const result = parsePaymentAddress(address);
 			// If liquidjs-lib validates successfully
 			if (result.isValid) {
@@ -158,47 +162,60 @@ describe('parsePaymentAddress', () => {
 		});
 
 		it('should parse Liquid address with liquid: scheme', () => {
-			const address = 'liquid:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6';
+			const address =
+				'liquid:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6';
 			const result = parsePaymentAddress(address);
 			if (result.isValid) {
 				expect(result.network).toBe('liquid-bitcoin');
-				expect(result.address).toBe('lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6');
+				expect(result.address).toBe(
+					'lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6'
+				);
 			}
 		});
 
 		it('should parse Liquid address with liquidnetwork: scheme', () => {
-			const address = 'liquidnetwork:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6';
+			const address =
+				'liquidnetwork:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6';
 			const result = parsePaymentAddress(address);
 			if (result.isValid) {
 				expect(result.network).toBe('liquid-bitcoin');
-				expect(result.address).toBe('lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6');
+				expect(result.address).toBe(
+					'lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6'
+				);
 			}
 		});
 
 		it('should parse Liquid address with amount parameter', () => {
-			const address = 'liquidnetwork:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6?amount=0.000025';
+			const address =
+				'liquidnetwork:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6?amount=0.000025';
 			const result = parsePaymentAddress(address);
 			if (result.isValid) {
 				expect(result.network).toBe('liquid-bitcoin');
 				expect(result.amount).toBe(2500); // 0.000025 BTC = 2,500 sats
-				expect(result.address).toBe('lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6');
+				expect(result.address).toBe(
+					'lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6'
+				);
 			}
 		});
 
 		it('should parse Liquid address with all parameters (amount, assetid, blindingkey)', () => {
 			// Full Liquid URI with all parameters as provided by user
-			const address = 'liquidnetwork:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6?amount=0.000025&assetid=6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d&blindingkey=0acd9629b620b773cd8cce0ab03dd7126b40474ad0bea1316860fc80235dc5af';
+			const address =
+				'liquidnetwork:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6?amount=0.000025&assetid=6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d&blindingkey=0acd9629b620b773cd8cce0ab03dd7126b40474ad0bea1316860fc80235dc5af';
 			const result = parsePaymentAddress(address);
 			if (result.isValid) {
 				expect(result.network).toBe('liquid-bitcoin');
 				expect(result.amount).toBe(2500); // 0.000025 BTC = 2,500 sats
-				expect(result.address).toBe('lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6');
+				expect(result.address).toBe(
+					'lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6'
+				);
 				// Note: assetid and blindingkey are not currently extracted but could be added in future
 			}
 		});
 
 		it('should parse Liquid address with memo/label', () => {
-			const address = 'liquid:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6?amount=0.0001&label=TestPayment';
+			const address =
+				'liquid:lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6?amount=0.0001&label=TestPayment';
 			const result = parsePaymentAddress(address);
 			if (result.isValid) {
 				expect(result.network).toBe('liquid-bitcoin');
@@ -208,7 +225,8 @@ describe('parsePaymentAddress', () => {
 		});
 
 		it('should parse plain Liquid address without parameters', () => {
-			const address = 'lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6';
+			const address =
+				'lq1pqfhehc3v3nn483yrvlxua0tz8292cmr4gdlj44jyyerac0c7tl87z6tufnv4wjxcq9qqtlckl92zhttk2mjc6fuypznzkd9eyk7lq4eg8f07vgqvc9a6';
 			const result = parsePaymentAddress(address);
 			if (result.isValid) {
 				expect(result.network).toBe('liquid-bitcoin');
@@ -269,4 +287,3 @@ describe('parsePaymentAddress', () => {
 		});
 	});
 });
-

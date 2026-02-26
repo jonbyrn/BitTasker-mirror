@@ -174,8 +174,3 @@ export const EdgeCaseFactory = {
 	invalidAddress: '0x123', // Too short
 	invalidHash: '0xabc' // Too short
 };
-
-
-
-
-

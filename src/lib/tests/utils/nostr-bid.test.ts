@@ -12,7 +12,10 @@ vi.mock('$lib/utils/nostr', () => ({
 
 vi.mock('$lib/utils/constants/tags', () => ({
 	TAG_PATTERNS: {
-		bidStatus: vi.fn(() => [['t', 'bid-status'], ['bid', 'bid-123']])
+		bidStatus: vi.fn(() => [
+			['t', 'bid-status'],
+			['bid', 'bid-123']
+		])
 	},
 	TAG_FILTERS: {}
 }));

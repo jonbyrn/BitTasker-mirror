@@ -1,7 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Create simple mocks using vi.hoisted to avoid hoisting issues
-const { mockNip04, mockGetNostrKeyPair, mockSubscribeToEvents, mockSimplePool, mockPool, mockNip44, mockGetNpub, mockGetSignedEvent, mockPublishToMultipleRelays } = vi.hoisted(() => {
+const {
+	mockNip04,
+	mockGetNostrKeyPair,
+	mockSubscribeToEvents,
+	mockSimplePool,
+	mockPool,
+	mockNip44,
+	mockGetNpub,
+	mockGetSignedEvent,
+	mockPublishToMultipleRelays
+} = vi.hoisted(() => {
 	const mockNip04 = {
 		encrypt: vi.fn(),
 		decrypt: vi.fn()
@@ -40,11 +50,21 @@ const { mockNip04, mockGetNostrKeyPair, mockSubscribeToEvents, mockSimplePool, m
 		sig: 'test-sig'
 	});
 
-	const mockPublishToMultipleRelays = vi.fn().mockResolvedValue([
-		{ relay: 'ws://localhost:7777', success: true, error: null }
-	]);
+	const mockPublishToMultipleRelays = vi
+		.fn()
+		.mockResolvedValue([{ relay: 'ws://localhost:7777', success: true, error: null }]);
 
-	return { mockNip04, mockGetNostrKeyPair, mockGetNpub, mockSubscribeToEvents, mockSimplePool, mockPool, mockNip44, mockGetSignedEvent, mockPublishToMultipleRelays };
+	return {
+		mockNip04,
+		mockGetNostrKeyPair,
+		mockGetNpub,
+		mockSubscribeToEvents,
+		mockSimplePool,
+		mockPool,
+		mockNip44,
+		mockGetSignedEvent,
+		mockPublishToMultipleRelays
+	};
 });
 
 // Mock modules with simple implementations
