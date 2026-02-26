@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { createPortal } from '$lib/utils/portal';
 	import { EscrowStatus } from '$lib/utils/escrow';
 	import { contractStore } from '$lib/stores/contract.store';
+	import { tasksStore, myTasksStore } from '$lib/stores/task.store';
+	import { reconcileTaskStatusWithContracts } from '$lib/utils/helpers/task-status-reconciliation';
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
@@ -28,7 +31,6 @@
 	let isStatusDropdownOpen = $state(false);
 
 	let btcPrice = $state<number>(0);
-	let btcPriceError = $state<string | null>(null);
 
 	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
@@ -104,14 +106,30 @@
 	// Load contracts on mount
 	async function fetchBtcPrice(): Promise<void> {
 		try {
-			btcPriceError = null;
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
-			btcPriceError = error instanceof Error ? error.message : 'Failed to fetch BTC price';
 			// Set fallback price to 0 so UI shows RBTC amount instead
 			btcPrice = 0;
 		}
+	}
+
+	function getTaskStatusFromStores(taskId: string): string | undefined {
+		const tasks = get(tasksStore).items;
+		const myTasks = get(myTasksStore).items;
+		const task = tasks.find((t) => t.id === taskId) ?? myTasks.find((t) => t.id === taskId);
+		return task?.status;
+	}
+
+	async function runTaskStatusReconciliation(): Promise<void> {
+		const contracts = get(contractStore).contracts;
+		if (contracts.length === 0) return;
+		await reconcileTaskStatusWithContracts(contracts, getTaskStatusFromStores);
+	}
+
+	async function refreshContracts(): Promise<void> {
+		await contractStore.loadContracts();
+		await runTaskStatusReconciliation();
 	}
 
 	onMount(async () => {
@@ -131,6 +149,9 @@
 		}
 
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
+
+		// Self-heal: sync Nostr task status for FundsReleased contracts (docs/task-status-resilience.md §5.6)
+		runTaskStatusReconciliation();
 
 		// Configure infinite scroll
 		scroll.update((state) => ({
@@ -214,7 +235,7 @@
 			<!-- Refresh button: icon only on mobile, with text on desktop -->
 			<button
 				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
-				onclick={() => contractStore.loadContracts()}
+				onclick={() => refreshContracts()}
 				disabled={$contractStore.isLoading}
 				aria-label={$t('dashboard.contracts.refresh')}
 			>
@@ -236,7 +257,7 @@
 
 			<!-- Role Filter Buttons (Mobile) -->
 			<div class="mb-3 flex gap-2">
-				{#each roleFilterOptions as option}
+				{#each roleFilterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
 						class="btn {roleFilter === option.id
@@ -266,7 +287,7 @@
 					aria-label={$t('dashboard.contracts.filter_by_status')}
 				>
 					<div class="flex items-center gap-2">
-						{#each statusFilterOptions as option}
+						{#each statusFilterOptions as option (String(option.id))}
 							{#if statusFilter === option.id}
 								{@const IconComponent = option.icon}
 								<IconComponent class="h-5 w-5" />
@@ -290,7 +311,7 @@
 						aria-label={$t('dashboard.contracts.status_filter_menu')}
 						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
-						{#each statusFilterOptions as option}
+						{#each statusFilterOptions as option (String(option.id))}
 							{@const IconComponent = option.icon}
 							<button
 								role="menuitemradio"
@@ -320,7 +341,7 @@
 		<!-- Desktop: Role Filter Buttons -->
 		<div class="mb-4 hidden sm:block">
 			<div class="flex gap-2">
-				{#each roleFilterOptions as option}
+				{#each roleFilterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
 						class="btn {roleFilter === option.id
@@ -343,7 +364,7 @@
 		<!-- Desktop: Status Filter Buttons -->
 		<div class="mt-4 hidden sm:block">
 			<div class="flex flex-col gap-3 sm:flex-row">
-				{#each statusFilterOptions as option}
+				{#each statusFilterOptions as option (String(option.id))}
 					{@const IconComponent = option.icon}
 					<button
 						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {statusFilter ===
@@ -391,7 +412,7 @@
 				<h3 class="font-bold">{$t('dashboard.contracts.error_title')}</h3>
 				<div class="text-xs">{$contractStore.error}</div>
 			</div>
-			<button class="btn btn-sm btn-outline" onclick={() => contractStore.loadContracts()}>
+			<button class="btn btn-sm btn-outline" onclick={() => refreshContracts()}>
 				{$t('dashboard.contracts.retry')}
 			</button>
 		</div>

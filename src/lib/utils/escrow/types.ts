@@ -1,11 +1,19 @@
 /**
  * Shared types and interfaces for Escrow Version Management System
- * 
+ *
  * This file defines the core interfaces that ALL version handlers must implement
  * to ensure consistent API across different escrow contract versions.
  */
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
-import type { ContractCreationEvent, ContractFilter, ContractWithEvents, CreateContractParams, PendingContractCreation, PublishContractStatusParams, PublishStatusParams } from '$lib/types/contract';
+import type {
+	ContractCreationEvent,
+	ContractFilter,
+	ContractWithEvents,
+	CreateContractParams,
+	PendingContractCreation,
+	PublishContractStatusParams,
+	PublishStatusParams
+} from '$lib/types/contract';
 import type { Attachment, Task } from '$lib/types/task';
 import type {
 	ContractTransactionResult,
@@ -17,6 +25,7 @@ import type { FeeTier } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
 import type { Writable } from 'svelte/store';
 import type { EscrowError } from '../helpers/escrowErrors';
+import type { InterfaceAbi } from 'ethers';
 
 /**
  * Supported escrow contract versions
@@ -67,15 +76,24 @@ export interface IEscrowHandler {
 	 * @param completionAttachments - Optional completion attachments
 	 * @returns Transaction result
 	 */
-	completeTask(escrowId: string, contractEventId?: string, completionAttachments?: Attachment[]): Promise<ContractTransactionResult>;
+	completeTask(
+		escrowId: string,
+		contractEventId?: string,
+		completionAttachments?: Attachment[]
+	): Promise<ContractTransactionResult>;
 
 	/**
 	 * Accept completed task and release funds (client action)
 	 * @param escrowId - Unique escrow identifier
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
+	 * @param options - Optional callbacks (e.g. onConfirmed for task status update after chain confirm)
 	 * @returns Transaction result
 	 */
-	acceptTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
+	acceptTask(
+		escrowId: string,
+		contractEventId?: string,
+		options?: { onConfirmed?: () => Promise<void> }
+	): Promise<ContractTransactionResult>;
 
 	/**
 	 * Cancel escrow and refund client
@@ -129,7 +147,11 @@ export interface IEscrowHandler {
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @returns Transaction result
 	 */
-	resolveAfterTimelock(escrowId: string, escrowStatus: number, contractEventId?: string): Promise<ContractTransactionResult>;
+	resolveAfterTimelock(
+		escrowId: string,
+		escrowStatus: number,
+		contractEventId?: string
+	): Promise<ContractTransactionResult>;
 
 	// ============================================
 	// V2+ Operations (Optional - not all versions have these)
@@ -141,7 +163,10 @@ export interface IEscrowHandler {
 	 * @param contractAddress - Optional contract address for legacy contracts
 	 * @returns Transaction result
 	 */
-	markWorkInProgress?(escrowId: string, contractAddress?: string): Promise<ContractTransactionResult>;
+	markWorkInProgress?(
+		escrowId: string,
+		contractAddress?: string
+	): Promise<ContractTransactionResult>;
 
 	/**
 	 * Mark freelancer as no-show (V2+)
@@ -157,7 +182,10 @@ export interface IEscrowHandler {
 	 * @param contractAddress - Optional contract address for legacy contracts
 	 * @returns Transaction result
 	 */
-	claimNoShowRefund?(escrowId: string, contractAddress?: string): Promise<ContractTransactionResult>;
+	claimNoShowRefund?(
+		escrowId: string,
+		contractAddress?: string
+	): Promise<ContractTransactionResult>;
 
 	/**
 	 * Claim upfront deposit (V2+)
@@ -165,7 +193,10 @@ export interface IEscrowHandler {
 	 * @param contractAddress - Optional contract address for legacy contracts
 	 * @returns Transaction result
 	 */
-	claimUpfrontDeposit?(escrowId: string, contractAddress?: string): Promise<ContractTransactionResult>;
+	claimUpfrontDeposit?(
+		escrowId: string,
+		contractAddress?: string
+	): Promise<ContractTransactionResult>;
 
 	/**
 	 * Check escrow funding status
@@ -232,7 +263,7 @@ export interface INostrContractHandler {
 	 * Get all contracts where the user is either client or freelancer
 	 * @param filter - Filter options
 	 * @returns Array of contract with events
-	 * 
+	 *
 	 * Filter breakdown:
 	 * - escrowIds: Array of escrow IDs to filter by
 	 * - taskIds: Array of task IDs to filter by
@@ -241,11 +272,11 @@ export interface INostrContractHandler {
 	 * - limit: The number of contracts to return
 	 * - since: The timestamp to start from
 	 * - until: The timestamp to end at
-	 * 
+	 *
 	 * @example
 	 * // Get first page of contracts
 	 * const contracts = await getContracts({ limit: 5 });
-	 * 
+	 *
 	 * @example
 	 * // Get next page of contracts
 	 * const contracts = await getContracts({ limit: 5, until: oldestTimestamp });
@@ -280,19 +311,19 @@ export interface INostrContractHandler {
 export interface IEscrowNostrEvents {
 	/**
 	 * Unified function to publish contract status to Nostr and show appropriate toast
-	 * 
+	 *
 	 * Call with PENDING status (e.g., PendingCompletion) BEFORE transaction broadcast
 	 * Call with CONFIRMED status (e.g., Completed) AFTER transaction confirmation
-	 * 
+	 *
 	 * This function handles:
 	 * - Publishing status to Nostr
 	 * - Showing appropriate toast (info for pending, success for confirmed, error on failure)
 	 * - All message translations
-	 * 
+	 *
 	 * @example
 	 * // Before transaction
 	 * await publishEscrowStatus({ status: EscrowStatus.PendingCompletion, ... });
-	 * 
+	 *
 	 * // After confirmation
 	 * await publishEscrowStatus({ status: EscrowStatus.Completed, ... });
 	 */
@@ -341,5 +372,5 @@ export interface IVersionHandler {
 	};
 
 	/** ABI JSON for contract interaction */
-	abi: any;
+	abi: InterfaceAbi;
 }
