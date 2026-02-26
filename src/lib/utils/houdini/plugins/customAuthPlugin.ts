@@ -67,6 +67,7 @@ let tokenInitialized = false;
 let tokenInitPromise: Promise<void> | null = null;
 let logoutInProgress = false;
 let currentDeviceId: string | null = null;
+let deviceIdInitPromise: Promise<void> | null = null;
 /** When true, init must not overwrite currentToken (user called setAccessToken/clearPluginTokenCache). */
 let tokenExplicitlySet = false;
 
@@ -126,7 +127,7 @@ async function initializeToken(): Promise<void> {
 	}
 }
 
-/** Initialize device ID; fire-and-forget, never blocks. */
+/** Initialize device ID; never throws (logs on failure). */
 async function initializeDeviceId(): Promise<void> {
 	if (!browser) return;
 	try {
@@ -146,7 +147,7 @@ const authPlugin: ClientPlugin = () => {
 	// Start init at most once per module load (tokenInitPromise guard prevents double init).
 	if (browser && !tokenInitialized && !tokenInitPromise) {
 		tokenInitPromise = initializeToken();
-		initializeDeviceId(); // fire-and-forget; does not block requests
+		deviceIdInitPromise = initializeDeviceId();
 	}
 
 	return {
@@ -161,6 +162,14 @@ const authPlugin: ClientPlugin = () => {
 				} catch (error) {
 					console.error('[AuthPlugin] Token initialization failed in beforeNetwork:', error);
 					// Continue without token so request is not blocked
+				}
+			}
+			if (deviceIdInitPromise) {
+				try {
+					await deviceIdInitPromise;
+				} catch (error) {
+					console.error('[AuthPlugin] Device ID initialization failed in beforeNetwork:', error);
+					// Continue without device ID so request is not blocked
 				}
 			}
 
