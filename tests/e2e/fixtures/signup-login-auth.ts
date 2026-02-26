@@ -2,10 +2,15 @@ import { test as authTest, expect } from './auth';
 import {
 	type WebAuthnCredential,
 	readCredentialSet,
-	writeCredentialSet
+	writeCredentialSet,
+	assertPasskeyUserNameEndsWithBittasker,
+	assertPasskeyUserNameEquals
 } from '../utils/webauthn-credentials';
 
 export type { WebAuthnCredential } from '../utils/webauthn-credentials';
+
+/** Mutable bag for test to set expected passkey username; fixture teardown reads it for assertions. */
+export type PasskeyAssertion = { expectedUsername: string | null };
 
 const VIRTUAL_AUTHENTICATOR_OPTIONS = {
 	protocol: 'ctap2' as const,
@@ -29,22 +34,41 @@ const VIRTUAL_AUTHENTICATOR_OPTIONS = {
  *   test.use({ injectWebAuthnCredentials: true });
  *   test('login with passkey', async ({ page }) => { ... });   // injects from store/file
  */
+/** Worker-scoped store for last signup username (used by "username taken" test). */
+export type LastSignupUsernameStore = { value: string | null };
+
 const test = authTest.extend<
-	{ injectWebAuthnCredentials: boolean },
-	{ webauthnCredentialStore: WebAuthnCredential[] }
+	{ injectWebAuthnCredentials: boolean; passkeyAssertion: PasskeyAssertion },
+	{
+		webauthnCredentialStore: WebAuthnCredential[];
+		lastSignupUsernameStore: LastSignupUsernameStore;
+	}
 >({
 	injectWebAuthnCredentials: [false, { option: true }],
 
+	/** Test sets passkeyAssertion.expectedUsername (e.g. signup username) for exact userName assertion in teardown. */
+	passkeyAssertion: [{ expectedUsername: null }, { option: true }],
+
 	webauthnCredentialStore: [
-		// eslint-disable-next-line no-empty-pattern -- worker fixture has no dependencies
-		async ({}, use) => {
+		async (_deps, use) => {
 			const store: WebAuthnCredential[] = [];
 			await use(store);
 		},
 		{ scope: 'worker' }
 	],
 
-	page: async ({ context, webauthnCredentialStore, injectWebAuthnCredentials }, use, testInfo) => {
+	lastSignupUsernameStore: [
+		async (_deps, use) => {
+			await use({ value: null });
+		},
+		{ scope: 'worker' }
+	],
+
+	page: async (
+		{ context, webauthnCredentialStore, injectWebAuthnCredentials, passkeyAssertion },
+		use,
+		testInfo
+	) => {
 		// Use default context (new per test) so each test gets fresh storage – no shared auth state.
 		const page = await context.newPage();
 
@@ -110,6 +134,12 @@ const test = authTest.extend<
 				webauthnCredentialStore.length = 0;
 				webauthnCredentialStore.push(...(credentials ?? []));
 				if (webauthnCredentialStore.length > 0) {
+					assertPasskeyUserNameEndsWithBittasker(webauthnCredentialStore);
+					// Only assert exact username for signup flow (Nostr uses device name, not signup username)
+					const expected = passkeyAssertion.expectedUsername?.trim();
+					if (expected && credentialLabel === 'signup') {
+						assertPasskeyUserNameEquals(webauthnCredentialStore, expected);
+					}
 					writeCredentialSet(credentialLabel, webauthnCredentialStore);
 					console.log(
 						'[E2E] Exported',

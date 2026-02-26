@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
@@ -42,7 +42,16 @@
 	import LoginQrCodeScannerModal from '$lib/components/LoginQrCodeScannerModal.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import Logo from '$lib/components/Logo.svelte';
-	import migratePasskey, { passkeyMigration } from '$lib/utils/helpers/migratePasskey';
+	import migratePasskey, {
+		passkeyMigration,
+		resetMigration
+	} from '$lib/utils/helpers/migratePasskey';
+	import {
+		redirectRetryStore,
+		startRedirectRetryCountdown,
+		goToRedirectTarget,
+		cleanupRedirectRetry
+	} from '$lib/utils/helpers/redirectWithRetry';
 	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
 
 	// Polyfill Buffer
@@ -59,54 +68,70 @@
 		biometric: false,
 		webAuthn: false
 	});
+	/** Set true after onMount has finished checking device auth methods; prevents nsec submit before ready */
+	let authMethodsReady = $state(false);
 	let isPasskeyError = $state(false);
 	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
 	let qrScannerModal: LoginQrCodeScannerModal | null = $state(null);
 	let isQrScannerError = $state(false);
 
 	onMount(async () => {
+		// E2E: show redirect-retry UI without requiring a failed goto (dev only)
+		if (import.meta.env.DEV && typeof window !== 'undefined') {
+			const params = new URL(window.location.href).searchParams;
+			if (params.get('__e2e_redirect_retry') === '1') {
+				startRedirectRetryCountdown('/dashboard', goto);
+			}
+		}
 		try {
 			// Check available authentication methods
 			authMethods.biometric = await checkBiometricAvailability();
 			authMethods.webAuthn = await checkWebBiometricAvailability();
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
+		} finally {
+			authMethodsReady = true;
 		}
 	});
 
+	onDestroy(() => {
+		cleanupRedirectRetry();
+	});
+
 	async function authenticate() {
+		if (isLoading) return;
 		try {
 			isLoading = true;
 			error = '';
 			isPasskeyError = false;
 			lastAction = 'authenticate'; // Track which action was attempted
 
-			let credentails = null;
+			let credentials = null;
 
 			if (authMethods.biometric) {
-				credentails = await getBiometricData();
+				credentials = await getBiometricData();
 			} else if (authMethods.webAuthn) {
-				credentails = await getWebBiometricData();
+				credentials = await getWebBiometricData();
 			}
 
-			if (!credentails) {
+			if (!credentials) {
 				error = $t('login.errors.no_account');
 				return (isPasskeyError = true);
 			}
 
-			let exportedKey = credentails.exportedKey;
+			let exportedKey = credentials.exportedKey;
 
 			const deviceId = await getDeviceIdentifier();
-			const deviceName = await createUserDeviceShortName(credentails.npub);
+			const deviceName = await createUserDeviceShortName(credentials.npub);
 
 			let response = await authService.passkeyLogin({
-				npub: credentails.npub,
-				challenge: credentails.challenge,
-				credentialId: credentails.credentialId,
+				npub: credentials.npub,
+				challenge: credentials.challenge,
+				credentialId: credentials.credentialId,
 				deviceId,
 				deviceName,
 				platform: authMethods.biometric ? 'mobile' : 'web',
-				response: credentails.response,
+				response: credentials.response,
 				appVersion: __APP_VERSION__
 			});
 
@@ -125,7 +150,7 @@
 				mnemonic = decryptedData.mnemonic;
 
 				const migrationResponse = await migratePasskey({
-					npub: credentails.npub,
+					npub: credentials.npub,
 					decryptedData,
 					deviceId,
 					deviceName,
@@ -138,7 +163,7 @@
 				// decrypt nsec
 				const decryptedData = await decryptMasterKeyDataFromBiometrics(
 					response.encryptedData,
-					credentails.exportedKey
+					credentials.exportedKey
 				);
 				nsec = decryptedData.nsec;
 				mnemonic = decryptedData.mnemonic;
@@ -155,7 +180,7 @@
 			}
 
 			const biometricData = {
-				npub: credentails.npub,
+				npub: credentials.npub,
 				exportedKey: exportedKey,
 				encryptedData: response.encryptedData
 			};
@@ -163,35 +188,48 @@
 			await authState.setupAuthData(
 				response.access_token,
 				'passkey',
-				credentails.npub,
+				credentials.npub,
 				response.user,
-				biometricData
+				biometricData,
+				false
 			);
+			const redirectPath = '/dashboard';
+			try {
+				await goto(redirectPath);
+			} catch (gotoErr) {
+				console.error('[Login] Redirect failed, will retry:', gotoErr);
+				startRedirectRetryCountdown(redirectPath, goto);
+			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
 
 			// Handle specific WebAuthn cancellation error
 			if (err instanceof Error) {
-				// Silently ignore "A request is already pending" errors
+				// Silently ignore "A request is already pending" errors; show generic message for empty message
 				if (
 					err.message.includes('A request is already pending') ||
-					err.message.includes('request is already pending') ||
-					err.message === ''
+					err.message.includes('request is already pending')
 				) {
-					// Don't show error for pending requests
 					error = '';
+					isPasskeyError = false;
+				} else if (!err.message?.trim()) {
+					error = $t('login.errors.failed');
 					isPasskeyError = false;
 				} else {
 					// Use biometric error handler to translate error messages
 					const platform = Capacitor.getPlatform() === 'web' ? 'web' : 'mobile-webauthn';
 					error = await handleBiometricError(err, platform);
-					// Check if error is related to passkeys/biometrics
+					// Check if error is related to passkeys/biometrics (include credential for no-credential flows)
+					const msg = err.message.toLowerCase();
 					isPasskeyError =
 						error !== '' &&
-						(err.message.toLowerCase().includes('passkey') ||
-							err.message.toLowerCase().includes('biometric') ||
-							err.message.toLowerCase().includes('webauthn') ||
-							err.message.toLowerCase().includes('authentication') ||
+						(msg.includes('passkey') ||
+							msg.includes('biometric') ||
+							msg.includes('webauthn') ||
+							msg.includes('authentication') ||
+							msg.includes('credential') ||
+							msg.includes('not allowed') ||
+							msg.includes('timed out') ||
 							err.name === 'NotAllowedError' ||
 							err.name === 'NotSupportedError' ||
 							err.name === 'SecurityError' ||
@@ -208,11 +246,23 @@
 
 	// Login with Nostr private key
 	async function handleNsecLogin() {
+		if (isLoading) return;
+		error = '';
+		isPasskeyError = false;
+		lastAction = 'nsecLogin'; // Track which action was attempted
+
+		// Validate nsec format before hitting the backend (empty, format, length)
+		const validation = validateNostrPrivateKey(nsec);
+		if (!validation.isValid) {
+			error =
+				nsec.trim() === ''
+					? $t('login.errors.nsec_required')
+					: $t('login.errors.nsec_format_requirements');
+			return;
+		}
+
 		try {
 			isLoading = true;
-			error = '';
-			isPasskeyError = false;
-			lastAction = 'nsecLogin'; // Track which action was attempted
 
 			// Only run in browser environment to avoid Buffer issues
 			if (typeof Buffer === 'undefined') {
@@ -223,11 +273,6 @@
 
 			const privateKey = decodeNsec(nsec);
 			const npub = getPublicKey(privateKey);
-
-			if (!privateKey && !npub) {
-				error = 'Invalid nostr keys';
-				return;
-			}
 
 			const signedEvent = finalizeEvent(
 				{
@@ -282,8 +327,10 @@
 							_exportedKey
 						);
 						mnemonic = decryptedData.mnemonic;
-					} catch (error) {
-						throw new Error(error instanceof Error ? error.message : 'Unknown error');
+					} catch (innerErr) {
+						throw new Error(innerErr instanceof Error ? innerErr.message : 'Unknown error', {
+							cause: innerErr
+						});
 					}
 				}
 			} else {
@@ -329,10 +376,11 @@
 				privateKey
 			);
 
-			// Login with nostr, register user if it does not exist
+			// Login with nostr, register user if it does not exist.
+			// Send the original auth challenge (event.content), not the passkey challenge, so the backend can verify the Nostr signature.
 			const res = await authService.nostrLogin({
 				event: newSignedEvent,
-				challenge: credentialData.challenge,
+				challenge,
 				authMethod: 'passkey',
 				deviceId,
 				encryptedData,
@@ -363,7 +411,8 @@
 					// Timeout after 5 minutes
 					timeoutId = setTimeout(
 						() => {
-							unsubscribe();
+							unsubscribe?.();
+							resetMigration();
 							reject(new Error('Timeout waiting for user action'));
 						},
 						5 * 60 * 1000
@@ -378,6 +427,11 @@
 						context: null
 					}));
 				});
+			}
+
+			if (res.isMigrated && !res.access_token) {
+				error = $t('login.errors.failed');
+				return;
 			}
 
 			if (res.access_token) {
@@ -395,12 +449,21 @@
 					biometricData,
 					false
 				);
-				if (res.isNewUser) await goto('/auth/onboarding');
-				else await goto('/dashboard');
+				const redirectPath = res.isNewUser ? '/auth/onboarding' : '/dashboard';
+				try {
+					await goto(redirectPath);
+				} catch (gotoErr) {
+					console.error('[Login] Redirect failed, will retry:', gotoErr);
+					startRedirectRetryCountdown(redirectPath, goto);
+				}
 			}
 		} catch (err) {
 			console.error('Error:', err);
-			error = err instanceof Error ? err.message : $t('login.errors.failed');
+			// Preserve cause for debugging and user-facing message
+			const errObj = err instanceof Error ? err : new Error(String(err));
+			const causeMessage = errObj.cause instanceof Error ? errObj.cause.message : '';
+			const fullMessage = errObj.message + (causeMessage ? ` (${causeMessage})` : '');
+			error = fullMessage.trim() || $t('login.errors.failed');
 			// Check if error is related to passkeys/biometrics (nsec login can involve passkey setup)
 			if (err instanceof Error) {
 				isPasskeyError =
@@ -475,267 +538,305 @@
 				<Logo />
 				<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
 				<br />
-				<p class="text-base-content mb-4 text-center text-sm">
-					{$t('login.subtitle')}
-				</p>
-				<p class="text-base-content text-center text-sm">
-					{$t('login.passkey_info')}
-				</p>
+				<div class="w-full px-4">
+					<p class="text-base-content mb-4 text-center text-sm">
+						{$t('login.subtitle')}
+					</p>
+					<p class="text-base-content text-center text-sm">
+						{$t('login.passkey_info')}
+					</p>
+				</div>
 			</div>
-			<div class="flex flex-col gap-4">
-				{#if !isNostrLogin}
-					<div
-						class="flex flex-col gap-4"
-						in:fly={{
-							duration: 200,
-							easing: linear,
-							y: 0,
-							x: isNostrLogin ? 20 : -20
-						}}
+			{#if $redirectRetryStore.pending && $redirectRetryStore.target}
+				<div
+					class="alert alert-outline alert-success flex flex-col gap-2"
+					data-testid="login-redirect-retry"
+				>
+					<span>{$t('login.redirecting_message')}</span>
+					{#if $redirectRetryStore.countdown > 0}
+						<p class="text-sm opacity-90">
+							{$t('login.redirecting_retry_in', {
+								values: { seconds: $redirectRetryStore.countdown }
+							})}
+						</p>
+					{/if}
+					<button
+						type="button"
+						class="btn btn-primary btn-sm self-start"
+						data-testid="login-redirect-retry-go"
+						onclick={goToRedirectTarget}
 					>
-						<div class="flex flex-col gap-2">
+						{$redirectRetryStore.target === '/auth/onboarding'
+							? $t('login.go_to_onboarding')
+							: $t('login.go_to_dashboard')}
+					</button>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-4">
+					{#if !isNostrLogin}
+						<div
+							class="flex flex-col gap-4"
+							in:fly={{
+								duration: 200,
+								easing: linear,
+								y: 0,
+								x: isNostrLogin ? 20 : -20
+							}}
+						>
+							<div class="flex flex-col gap-2">
+								<button
+									class="btn btn-primary"
+									data-testid="login-continue-passkey"
+									onclick={authenticate}
+									disabled={isLoading}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="size-5"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+										/>
+									</svg>
+									{isLoading ? $t('common.processing') + '...' : $t('login.continue_passkey')}
+								</button>
+							</div>
+
 							<button
-								class="btn btn-primary"
-								data-testid="login-continue-passkey"
-								onclick={authenticate}
+								class="btn btn-secondary btn-sm md:btn-md w-full py-5"
+								onclick={openQrScanner}
 								disabled={isLoading}
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="size-5"
-								>
+								<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
 									<path
-										stroke-linecap="round"
+										fill="none"
+										stroke="currentColor"
 										stroke-linejoin="round"
-										d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+										d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
+										stroke-width="1"
 									/>
 								</svg>
-								{isLoading ? $t('common.processing') + '...' : $t('login.continue_passkey')}
+								{$t('login.login_with_qr_code')}
 							</button>
-						</div>
 
-						<button
-							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
-							onclick={openQrScanner}
-							disabled={isLoading}
-						>
-							<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
-								<path
-									fill="none"
-									stroke="currentColor"
-									stroke-linejoin="round"
-									d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
-									stroke-width="1"
-								/>
-							</svg>
-							{$t('login.login_with_qr_code')}
-						</button>
-
-						<button
-							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
-							data-testid="login-with-nsec"
-							onclick={() => {
-								error = '';
-								isPasskeyError = false;
-								isNostrLogin = true;
-							}}
-							disabled={isLoading}
-						>
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="size-6"
-								><path
-									fill="#fff"
-									d="M231.2 159.5c0 20.7 0 31.1-3.5 42.2-4.4 12.2-14 21.8-26.2 26.2-11.1 3.5-21.5 3.5-42.2 3.5H96.8c-20.7 0-31.1 0-42.2-3.5-12.2-4.4-21.8-14-26.2-26.2-3.5-11.1-3.5-21.5-3.5-42.2V97c0-20.7 0-31.1 3.5-42.2 4.4-12.2 14-21.8 26.2-26.2 11.2-3.5 21.5-3.5 42.2-3.5h62.5c20.7 0 31.1 0 42.2 3.5 12.2 4.4 21.8 14 26.2 26.2 3.5 11.2 3.5 21.5 3.5 42.2v62.5Z"
-								/><path
-									fill="#662482"
-									d="M210.8 199.4c0 3.1-2.5 5.7-5.7 5.7h-68c-3.1 0-5.7-2.5-5.7-5.7v-15.5c.3-19 2.3-37.2 6.5-45.5 2.5-5 6.7-7.7 11.5-9.1 9.1-2.7 24.9-.9 31.7-1.2 0 0 20.4.8 20.4-10.7s-9.1-8.6-9.1-8.6c-10 .3-17.7-.4-22.6-2.4-8.3-3.3-8.6-9.2-8.6-11.2-.4-23.1-34.5-25.9-64.5-20.1-32.8 6.2.4 53.3.4 116.1v8.4c0 3.1-2.6 5.6-5.7 5.6H57.7c-3.1 0-5.7-2.5-5.7-5.7v-144c0-3.1 2.5-5.7 5.7-5.7h31.7c3.1 0 5.7 2.5 5.7 5.7 0 4.7 5.2 7.2 9 4.5 11.4-8.2 26-12.5 42.4-12.5 36.6 0 64.4 21.4 64.4 68.7v83.2ZM150 99.3c0-6.7-5.4-12.1-12.1-12.1s-12.1 5.4-12.1 12.1 5.4 12.1 12.1 12.1S150 106 150 99.3Z"
-								/></svg
-							>
-							{$t('login.login_with_nsec')}
-						</button>
-					</div>
-				{:else}
-					<div
-						class="flex flex-col gap-3"
-						in:fly={{
-							duration: 200,
-							easing: linear,
-							y: 0,
-							x: isNostrLogin ? 20 : -20
-						}}
-					>
-						<div class="relative">
-							<input
-								type={showNsec ? 'text' : 'password'}
-								id="privateKey"
-								data-testid="login-nsec-input"
-								bind:value={nsec}
-								class="input input-bordered w-full pr-10 {error ? 'input-error' : ''}"
-								placeholder={$t('login.nostr_private_key_placeholder')}
-								required
-							/>
 							<button
-								type="button"
-								class="absolute inset-y-0 right-0 flex items-center pr-3"
-								onclick={() => (showNsec = !showNsec)}
-							>
-								{#if showNsec}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-										/>
-									</svg>
-								{:else}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-										/>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-										/>
-									</svg>
-								{/if}
-							</button>
-						</div>
-						<button
-							class="btn btn-block btn-primary"
-							data-testid="login-submit"
-							onclick={handleNsecLogin}
-							disabled={isLoading}
-						>
-							{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
-						</button>
-						<!-- QR Code login - Only for mobile -->
-						{#if authMethods.biometric}
-							<QrCodeScanner onScan={handleLoginWithQrCode}>
-								{#snippet scanBtn({ disabled, onStartScan })}
-									<button
-										class="btn btn-secondary btn-sm md:btn-md py-5"
-										onclick={onStartScan}
-										{disabled}
-									>
-										<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
-											<path
-												fill="none"
-												stroke="currentColor"
-												stroke-linejoin="round"
-												d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
-												stroke-width="1"
-											/>
-										</svg>
-										{$t('login.login_with_qr_code')}
-									</button>
-								{/snippet}
-							</QrCodeScanner>
-						{/if}
-						<button
-							class="btn btn-block btn-secondary"
-							onclick={() => {
-								error = '';
-								isPasskeyError = false;
-								isNostrLogin = false;
-								nsec = '';
-							}}
-							disabled={isLoading}
-						>
-							{$t('login.cancel_button')}
-						</button>
-					</div>
-				{/if}
-
-				{#if error}
-					{#if isQrScannerError}
-						<!-- QR Scanner errors - simple alert, no passkey retry -->
-						<div class="alert alert-outline alert-error mt-2">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-								/>
-							</svg>
-							<span>{error}</span>
-							<button
-								class="btn btn-sm btn-ghost"
+								class="btn btn-secondary btn-sm md:btn-md w-full py-5"
+								data-testid="login-with-nsec"
 								onclick={() => {
 									error = '';
-									isQrScannerError = false;
+									isPasskeyError = false;
+									isNostrLogin = true;
 								}}
+								disabled={isLoading}
 							>
-								{$t('common.close')}
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="size-6"
+									><path
+										fill="#fff"
+										d="M231.2 159.5c0 20.7 0 31.1-3.5 42.2-4.4 12.2-14 21.8-26.2 26.2-11.1 3.5-21.5 3.5-42.2 3.5H96.8c-20.7 0-31.1 0-42.2-3.5-12.2-4.4-21.8-14-26.2-26.2-3.5-11.1-3.5-21.5-3.5-42.2V97c0-20.7 0-31.1 3.5-42.2 4.4-12.2 14-21.8 26.2-26.2 11.2-3.5 21.5-3.5 42.2-3.5h62.5c20.7 0 31.1 0 42.2 3.5 12.2 4.4 21.8 14 26.2 26.2 3.5 11.2 3.5 21.5 3.5 42.2v62.5Z"
+									/><path
+										fill="#662482"
+										d="M210.8 199.4c0 3.1-2.5 5.7-5.7 5.7h-68c-3.1 0-5.7-2.5-5.7-5.7v-15.5c.3-19 2.3-37.2 6.5-45.5 2.5-5 6.7-7.7 11.5-9.1 9.1-2.7 24.9-.9 31.7-1.2 0 0 20.4.8 20.4-10.7s-9.1-8.6-9.1-8.6c-10 .3-17.7-.4-22.6-2.4-8.3-3.3-8.6-9.2-8.6-11.2-.4-23.1-34.5-25.9-64.5-20.1-32.8 6.2.4 53.3.4 116.1v8.4c0 3.1-2.6 5.6-5.7 5.6H57.7c-3.1 0-5.7-2.5-5.7-5.7v-144c0-3.1 2.5-5.7 5.7-5.7h31.7c3.1 0 5.7 2.5 5.7 5.7 0 4.7 5.2 7.2 9 4.5 11.4-8.2 26-12.5 42.4-12.5 36.6 0 64.4 21.4 64.4 68.7v83.2ZM150 99.3c0-6.7-5.4-12.1-12.1-12.1s-12.1 5.4-12.1 12.1 5.4 12.1 12.1 12.1S150 106 150 99.3Z"
+									/></svg
+								>
+								{$t('login.login_with_nsec')}
 							</button>
 						</div>
 					{:else}
-						<!-- Passkey/biometric errors - use ErrorAlertWithModal -->
-						<ErrorAlertWithModal
-							{error}
-							{isPasskeyError}
-							autoOpenModal={isPasskeyError}
-							onRetry={async () => {
-								// Close modal and clear error state
-								error = '';
-								isPasskeyError = false;
-								// Retry the last action that was attempted
-								if (lastAction === 'nsecLogin') {
-									await handleNsecLogin();
-								} else if (lastAction === 'authenticate') {
-									await authenticate();
-								}
+						<div
+							class="flex flex-col gap-3"
+							in:fly={{
+								duration: 200,
+								easing: linear,
+								y: 0,
+								x: isNostrLogin ? 20 : -20
 							}}
-							class="mt-2"
-						/>
+						>
+							<div class="relative">
+								<input
+									type={showNsec ? 'text' : 'password'}
+									id="privateKey"
+									data-testid="login-nsec-input"
+									bind:value={nsec}
+									class="input input-bordered w-full pr-10 {error ? 'input-error' : ''}"
+									placeholder={$t('login.nostr_private_key_placeholder')}
+									required
+								/>
+								<button
+									type="button"
+									class="absolute inset-y-0 right-0 flex items-center pr-3"
+									onclick={() => (showNsec = !showNsec)}
+								>
+									{#if showNsec}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+											/>
+										</svg>
+									{:else}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+											/>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+											/>
+										</svg>
+									{/if}
+								</button>
+							</div>
+							<button
+								class="btn btn-block btn-primary"
+								data-testid="login-submit"
+								onclick={handleNsecLogin}
+								disabled={!authMethodsReady || isLoading}
+							>
+								{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
+							</button>
+							<!-- QR Code login - Only for mobile -->
+							{#if authMethods.biometric}
+								<QrCodeScanner onScan={handleLoginWithQrCode}>
+									{#snippet scanBtn({ disabled, onStartScan })}
+										<button
+											class="btn btn-secondary btn-sm md:btn-md py-5"
+											onclick={onStartScan}
+											{disabled}
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
+												<path
+													fill="none"
+													stroke="currentColor"
+													stroke-linejoin="round"
+													d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
+													stroke-width="1"
+												/>
+											</svg>
+											{$t('login.login_with_qr_code')}
+										</button>
+									{/snippet}
+								</QrCodeScanner>
+							{/if}
+							<button
+								type="button"
+								class="btn btn-block btn-secondary"
+								data-testid="login-nsec-cancel"
+								onclick={() => {
+									error = '';
+									isPasskeyError = false;
+									isNostrLogin = false;
+									nsec = '';
+								}}
+								disabled={isLoading}
+							>
+								{$t('login.cancel_button')}
+							</button>
+						</div>
 					{/if}
-				{/if}
 
-				<div class="divider my-1">{$t('common.or')}</div>
+					{#if error}
+						<div data-testid="login-error">
+							{#if isQrScannerError}
+								<!-- QR Scanner errors - simple alert, no passkey retry -->
+								<div class="alert alert-outline alert-error mt-2">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-6 w-6 shrink-0 stroke-current"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+									<span>{error}</span>
+									<button
+										class="btn btn-sm btn-ghost"
+										onclick={() => {
+											error = '';
+											isQrScannerError = false;
+										}}
+									>
+										{$t('common.close')}
+									</button>
+								</div>
+							{:else}
+								<!-- Passkey/biometric errors - use ErrorAlertWithModal -->
+								<ErrorAlertWithModal
+									{error}
+									{isPasskeyError}
+									autoOpenModal={isPasskeyError}
+									showHelpButton={isPasskeyError}
+									onRetry={async () => {
+										// Close modal and clear error state
+										error = '';
+										isPasskeyError = false;
+										// Defer retry to next tick so modal/UI can close before auth runs (avoids race in E2E)
+										await new Promise((r) => setTimeout(r, 0));
+										// Retry the last action that was attempted
+										if (lastAction === 'nsecLogin') {
+											await handleNsecLogin();
+										} else if (lastAction === 'authenticate') {
+											await authenticate();
+										}
+									}}
+									class="mt-2"
+								/>
+							{/if}
+						</div>
+					{/if}
 
-				<button
-					onclick={async () => await goto('/auth/signup')}
-					class="btn btn-outline btn-primary w-full"
-				>
-					{$t('login.create_account')}
-				</button>
+					<div class="divider my-1">{$t('common.or')}</div>
 
-				<div class="mt-2 text-center">
-					<a
-						href="/auth/recover/send"
-						class="link link-primary text-sm"
-						data-sveltekit-preload-data
+					<button
+						type="button"
+						class="btn btn-outline btn-primary w-full"
+						data-testid="login-signup-link"
+						onclick={async () => await goto('/auth/signup')}
 					>
-						{$t('login.recover_account')}
-					</a>
+						{$t('login.create_account')}
+					</button>
+
+					<div class="mt-2 text-center">
+						<a
+							href="/auth/recover/send"
+							class="link link-primary text-sm"
+							data-testid="login-recover-link"
+							data-sveltekit-preload-data
+						>
+							{$t('login.recover_account')}
+						</a>
+					</div>
 				</div>
-			</div>
+			{/if}
 		</div>
 	</div>
 
