@@ -59,7 +59,11 @@ function readRaw(): WebAuthnCredentialsFile | null {
 		const raw = fs.readFileSync(p, 'utf-8');
 		const data = JSON.parse(raw) as WebAuthnCredentialsFile | LegacyCredentialsFile;
 		// Legacy: { credentials: [...] } → one set with default label
-		if (data && 'credentials' in data && Array.isArray((data as LegacyCredentialsFile).credentials)) {
+		if (
+			data &&
+			'credentials' in data &&
+			Array.isArray((data as LegacyCredentialsFile).credentials)
+		) {
 			const leg = data as LegacyCredentialsFile;
 			return {
 				credentialSets: [{ label: DEFAULT_LABEL, credentials: leg.credentials ?? [] }],
@@ -102,7 +106,55 @@ export function getCredentialSetLabels(): string[] {
 	return file.credentialSets.map((s) => s.label);
 }
 
-const USERNAME_DOMAIN_SUFFIX = '@bittasker.com';
+export const USERNAME_DOMAIN_SUFFIX = '@bittasker.com';
+
+/**
+ * Note: Only the signup onboarding flow (PasskeySetup) currently creates passkeys with the
+ * account username in username@bittasker.com format. Other flows (Nostr new user, recovery,
+ * migrate) are on the todo list to be updated to the same format; they may use device name
+ * or npub-derived values + @bittasker.com until then.
+ */
+
+/**
+ * Assert that the first credential's userName ends with @bittasker.com.
+ * Use after passkey creation (signup or nsec new user) to ensure app set the correct format.
+ */
+export function assertPasskeyUserNameEndsWithBittasker(credentials: WebAuthnCredential[]): void {
+	if (!credentials?.length) {
+		throw new Error('assertPasskeyUserNameEndsWithBittasker: no credentials');
+	}
+	const userName = credentials[0].userName;
+	if (typeof userName !== 'string' || !userName.trim()) {
+		throw new Error(
+			`assertPasskeyUserNameEndsWithBittasker: userName missing or empty (got: ${String(userName)})`
+		);
+	}
+	if (!userName.endsWith(USERNAME_DOMAIN_SUFFIX)) {
+		throw new Error(
+			`assertPasskeyUserNameEndsWithBittasker: userName must end with ${USERNAME_DOMAIN_SUFFIX}, got: ${userName}`
+		);
+	}
+}
+
+/**
+ * Assert that the first credential's userName equals expectedUsername@bittasker.com.
+ * Use only for the signup flow (the only flow that currently uses account username in this format).
+ */
+export function assertPasskeyUserNameEquals(
+	credentials: WebAuthnCredential[],
+	expectedUsername: string
+): void {
+	if (!credentials?.length) {
+		throw new Error('assertPasskeyUserNameEquals: no credentials');
+	}
+	const expected = expectedUsername.trim() + USERNAME_DOMAIN_SUFFIX;
+	const actual = credentials[0].userName;
+	if (actual !== expected) {
+		throw new Error(
+			`assertPasskeyUserNameEquals: expected userName "${expected}", got: ${actual ?? '(missing)'}`
+		);
+	}
+}
 
 /**
  * Return the username part for a credential set (e.g. 'signup', 'nostr').
@@ -152,4 +204,31 @@ export function readWebAuthnCredentialsFromFile(label?: string): WebAuthnCredent
  */
 export function writeWebAuthnCredentialsToFile(credentials: WebAuthnCredential[]): void {
 	writeCredentialSet(DEFAULT_LABEL, credentials);
+}
+
+/** Path to stored nsec for "nsec existing user" E2E test (created by 01 user 2). */
+export function getNostrNsecPath(): string {
+	return path.join(path.dirname(getWebAuthnCredentialsPath()), 'nostr-nsec.txt');
+}
+
+export function nostrNsecFileExists(): boolean {
+	try {
+		const p = getNostrNsecPath();
+		return fs.existsSync(p) && fs.statSync(p).isFile();
+	} catch {
+		return false;
+	}
+}
+
+export function writeNostrNsec(nsec: string): void {
+	const dir = path.dirname(getWebAuthnCredentialsPath());
+	if (!fs.existsSync(dir)) {
+		fs.mkdirSync(dir, { recursive: true });
+	}
+	fs.writeFileSync(getNostrNsecPath(), nsec.trim(), 'utf-8');
+}
+
+export function readNostrNsec(): string | null {
+	if (!nostrNsecFileExists()) return null;
+	return fs.readFileSync(getNostrNsecPath(), 'utf-8').trim() || null;
 }

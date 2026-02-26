@@ -109,34 +109,31 @@
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
-	<div class="card bg-base-100 w-full p-4 shadow-xl mb-6">
-		<div class="flex flex-col items-center justify-center">
-			<Logo />
-			<h3 class="mt-6 text-center font-bold">{$t('signup.title')}</h3>
-			<br />
-			<p class="mx-auto space-y-2 text-center px-6">
-				<span class="text-base-content mb-10 block text-center text-md">
-					{$t('signup.subtitle')}
-				</span>
-				<span class="text-base-content my-10 block text-center text-md">
-					{$t('signup.description')}
-				</span>
-				<span class="text-base-content my-10 block text-center text-md">
-					{@html $t('signup.nostr_info') + $t('signup.nostr_import')}
-				</span>
-			</p>
-		</div>
-
+	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
+			<div class="mb-8 flex flex-col items-center justify-center">
+				<Logo />
+				<h3 class="mt-2 text-center font-bold">{$t('signup.title')}</h3>
+				<br />
+				<div class="w-full px-4">
+					<p class="text-base-content mb-4 text-center text-sm">
+						{$t('signup.subtitle')}
+					</p>
+					<p class="text-base-content text-center text-sm">
+						{$t('signup.description')}
+					</p>
+				</div>
+			</div>
+
 			<div class="flex flex-col gap-4">
 				<!-- Cloudflare Turnstile Captcha -->
 				<div class="mt-2">
 					<div class="mb-2">
-						<p class="w-full text-start text-sm mb-2">{$t('signup.verify_human')}</p>
+						<p class="mb-2 w-full text-start text-sm">{$t('signup.verify_human')}</p>
 					</div>
 					<div bind:this={turnstileWidget} class="flex justify-center"></div>
 					{#if captchaFailed && !$isCaptchaVerified}
-						<div class="flex justify-center mt-2">
+						<div class="mt-2 flex justify-center">
 							<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
 								{$t('signup.retry_verification')}
 							</button>

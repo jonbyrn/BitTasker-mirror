@@ -10,13 +10,14 @@ End-to-end tests for BitTasker use **Playwright** and depend on a **credentials 
 
 Tests must run in order so that the credentials file exists before specs that log in with passkey.
 
-| File                                   | Purpose                                                                                                                          | Doc                                                                              |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **01-signup-onboarding.spec.ts**       | **Creates** two users (signup + Nostr) and writes passkey credentials to `tests/e2e/.auth/webauthn-credentials.json`. Run first. | [e2e-account-creation.md](../docs/testing/e2e-account-creation.md)               |
-| **02-credentials-login.spec.ts**       | Loads credentials from file; for each user (`signup`, `nostr`) injects passkey, logs in, asserts dashboard.                      | —                                                                                |
-| **03-wallet-post-login.spec.ts**       | Signup user: login → navigate to `/dashboard/wallet` → validate page loads.                                                      | [e2e-wallet-post-login.md](../docs/testing/e2e-wallet-post-login.md)             |
-| **04-messages-start-new-chat.spec.ts** | Nostr user sends message to signup user; signup user opens conversation and sees same message. Requires Nostr relay.             | [e2e-messages-start-new-chat.md](../docs/testing/e2e-messages-start-new-chat.md) |
-| **wallet/balance-management.spec.ts**  | Skipped (`describe.skip`). Re-enable when wallet E2E is added.                                                                   | —                                                                                |
+| File                                   | Purpose                                                                                                                              | Doc                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| **01-signup-onboarding.spec.ts**       | **Creates** two users (signup + Nostr) and writes passkey credentials to `tests/e2e/.auth/webauthn-credentials.json`. Run first.     | [e2e-account-creation.md](../docs/testing/e2e-account-creation.md)               |
+| **02-credentials-login.spec.ts**       | Loads credentials from file; for each user (`signup`, `nostr`) injects passkey, logs in, asserts dashboard.                          | —                                                                                |
+| **login-page.spec.ts**                 | Login page only (no credentials file): loads and shows passkey/nsec options, signup/recover links, invalid/empty nsec error, cancel. | —                                                                                |
+| **03-wallet-post-login.spec.ts**       | Signup user: login → navigate to `/dashboard/wallet` → validate page loads.                                                          | [e2e-wallet-post-login.md](../docs/testing/e2e-wallet-post-login.md)             |
+| **04-messages-start-new-chat.spec.ts** | Nostr user sends message to signup user; signup user opens conversation and sees same message. Requires Nostr relay.                 | [e2e-messages-start-new-chat.md](../docs/testing/e2e-messages-start-new-chat.md) |
+| **wallet/balance-management.spec.ts**  | Skipped (`describe.skip`). Re-enable when wallet E2E is added.                                                                       | —                                                                                |
 
 **Recommended:** Run the full ordered suite (credentials phase first, then the rest):
 
@@ -185,10 +186,12 @@ The fixture logs in via passkey, dismisses the Beta modal, and hands you a page 
 ### General steps for any new test
 
 1. **Decide which fixture you need**
+
    - **Need an already-logged-in user (signup or Nostr)?** Use `fixtures/passkey-auth-from-file.ts`, and `test.use({ credentialLabel: 'signup' })` or `credentialLabel: 'nostr'`. See [Quick start](#quick-start-tests-needing-a-logged-in-user) above.
    - **Creating new users or custom auth?** Use `fixtures/signup-login-auth.ts` (01) or `fixtures/auth.ts` and implement the flow.
 
 2. **Depend on credentials file only when necessary**
+
    - If the spec needs the credentials file (e.g. passkey login), skip when it’s missing:
      ```ts
      test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
@@ -196,9 +199,11 @@ The fixture logs in via passkey, dismisses the Beta modal, and hands you a page 
    - Use a **function** in `test.skip()` so the condition runs at **runtime** (after 01 has created the file), not at load time.
 
 3. **Place the spec in `tests/e2e/`**
+
    - Any `*.spec.ts` under `tests/e2e/` is included in phase 2 of `npm run test:e2e` (see [scripts/e2e-ordered.js](../../scripts/e2e-ordered.js)). No script change needed.
 
 4. **Run order**
+
    - If the new test must run after another (e.g. “B after A”), use `test.describe.serial()` so they run in order in the same worker, or run phases manually with `--workers=1` when ordering matters.
 
 5. **Add a feature doc if useful**
@@ -286,12 +291,10 @@ const attachDiagnostics = async (label: string) => {
 	await test
 		.info()
 		.attach(`${label}-step-log.txt`, { body: stepLog.join('\n'), contentType: 'text/plain' });
-	await test
-		.info()
-		.attach(`${label}-console.txt`, {
-			body: consoleMessages.join('\n') || '(none)',
-			contentType: 'text/plain'
-		});
+	await test.info().attach(`${label}-console.txt`, {
+		body: consoleMessages.join('\n') || '(none)',
+		contentType: 'text/plain'
+	});
 };
 
 // On failure in a step:
