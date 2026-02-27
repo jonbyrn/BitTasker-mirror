@@ -9,7 +9,6 @@
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { getTaskId } from '$lib/utils/helpers/task-id';
-	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';

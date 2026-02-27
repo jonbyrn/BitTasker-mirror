@@ -85,7 +85,7 @@
 				"pricing": {
 					"type_label": "Pricing Type",
 					"type_hint": "Choose how you want to price your service",
-					"budget_question": "What's your budget?",
+					"budget_question": "What's your price?",
 					"budget_label": "Budget",
 					"btc_price": "Current BTC Price:",
 					"fixed_title": "Fixed Price",
@@ -251,7 +251,7 @@
 				"service_location_required": "Service location is required when 'At My Location' is selected",
 				"taskee_location_required": "Service location is required when 'At Client Location' is selected",
 				"pricing_required": "Pricing configuration is required",
-				"budget_required": "Valid budget is required",
+				"budget_required": "Valid price is required",
 				"amount_required": "Fixed price amount is required",
 				"hourly_rate_required": "Hourly rate is required",
 				"tiers_required": "At least 2 tiers are required for tiered pricing",

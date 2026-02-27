@@ -7,6 +7,8 @@
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
+	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
 	import IconFileSign from '~icons/mdi/file-sign';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
@@ -57,6 +59,10 @@ const isTaskDetailsRoute = $derived(
 												<IconPlusCircleOutline class="text-primary" />
 											{:else if section.icon === 'mdi:magnify'}
 												<IconMagnify class="text-primary" />
+										{:else if section.icon === 'mdi:briefcase-search'}
+											<IconBriefcaseSearch class="text-primary" />
+										{:else if section.icon === 'mdi:briefcase-outline'}
+											<IconBriefcaseOutline class="text-primary" />
 											{:else if section.icon === 'mdi:invoice-text-send-outline'}
 												<IconInvoiceTextSendOutline class="text-primary" />
 											{:else if section.icon === 'mdi:file-sign'}

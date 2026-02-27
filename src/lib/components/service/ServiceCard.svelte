@@ -6,6 +6,8 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
+	import { json } from '@sveltejs/kit';
+	import Avatar from '../Avatar.svelte';
 
 	const { service, btcPrice, onclick } = $props<{
 		service: Service;
@@ -221,12 +223,18 @@
 			<div class="flex w-full items-center justify-between gap-2 -mr-4">
 				{#if service.creator.avatar}
 					<div class="avatar shrink-0">
-						<div class="w-7 h-7 rounded-full">
-							<img src={service.creator.avatar} alt={service.creator.username || 'Provider'} />
+						<div class="">
+							<Avatar name={service.creator.name} picture={service.creator.avatar} size="sm" />
+						</div>		
+					</div>	
+				{:else}
+					<div class="avatar shrink-0">
+						<div class="">
+							<Avatar name={service.creator.name} size="sm" />
 						</div>
 					</div>
 				{/if}
-				<span class="text-sm font-medium text-base-content truncate min-w-0 flex-1">{service.creator.username || 'Provider'}</span>
+				<span class="text-sm font-medium text-base-content truncate min-w-0 flex-1">{service.creator.name || service.creator.username}</span>
 				<!-- Rating Stars - right-aligned -->
 				<div class="flex items-center shrink-0">
 					{#each Array(5) as _, i}

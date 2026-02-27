@@ -85,7 +85,7 @@
 				"pricing": {
 					"type_label": "Tipo de Precio",
 					"type_hint": "Elige cómo quieres fijar el precio de tu servicio",
-					"budget_question": "¿Cuál es tu presupuesto?",
+					"budget_question": "¿Cuál es tu precio?",
 					"budget_label": "Presupuesto",
 					"btc_price": "Precio actual de BTC:",
 					"fixed_title": "Precio Fijo",
@@ -251,7 +251,7 @@
 				"service_location_required": "La ubicación del servicio es requerida cuando se selecciona 'En Mi Ubicación'",
 				"taskee_location_required": "La ubicación del servicio es requerida cuando se selecciona 'En Ubicación del Cliente'",
 				"pricing_required": "La configuración de precios es requerida",
-				"budget_required": "Se requiere un presupuesto válido",
+				"budget_required": "Se requiere un precio válido",
 				"amount_required": "El monto del precio fijo es requerido",
 				"hourly_rate_required": "La tarifa por hora es requerida",
 				"tiers_required": "Se requieren al menos 2 niveles para precios por niveles",
