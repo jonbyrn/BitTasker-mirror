@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { UploaderProps } from '$lib/types/props';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
+	import { untrack } from 'svelte';
 
 	let {
 		id = 'image-uploader',
@@ -19,6 +20,35 @@
 		onError = () => {}
 	}: UploaderProps = $props();
 
+	// Track blob URLs created for File objects so we can revoke them (avoid memory leaks)
+	let displayUrls = $state<string[]>([]);
+
+	$effect(() => {
+		const currentFiles = files ?? [];
+		const prev = untrack(() => displayUrls);
+		const newUrls: string[] = [];
+		const toRevoke: string[] = [];
+		for (let i = 0; i < currentFiles.length; i++) {
+			const f = currentFiles[i];
+			if (typeof f === 'string') {
+				newUrls[i] = f;
+			} else {
+				const oldUrl = prev[i];
+				if (oldUrl && oldUrl.startsWith('blob:')) toRevoke.push(oldUrl);
+				newUrls[i] = URL.createObjectURL(f);
+			}
+		}
+		for (let i = currentFiles.length; i < prev.length; i++) {
+			if (prev[i]?.startsWith('blob:')) toRevoke.push(prev[i]);
+		}
+		toRevoke.forEach((u) => URL.revokeObjectURL(u));
+		displayUrls = newUrls;
+		return () => {
+			newUrls.forEach((u) => u?.startsWith('blob:') && URL.revokeObjectURL(u));
+			displayUrls = [];
+		};
+	});
+
 	// Helper function to detect if a URL is a video
 	function isVideoURL(url: string): boolean {
 		// Check common video extensions
@@ -36,7 +66,7 @@
 
 		// Check if the file type is valid
 		let isValidType = false;
-		
+
 		if (isImageAllowed && isImageFile) {
 			isValidType = true;
 		} else if (isVideoAllowed && isVideoFile) {
@@ -59,7 +89,9 @@
 
 		// Validate file size
 		if (file.size > maxFileSize * 1024 * 1024) {
-			error = $t('common.components.uploader.file_size_limit', { values: { maxSize: maxFileSize } });
+			error = $t('common.components.uploader.file_size_limit', {
+				values: { maxSize: maxFileSize }
+			});
 			onError(error);
 			return false;
 		}
@@ -76,7 +108,9 @@
 				});
 
 				if (video.duration > maxDuration) {
-					error = $t('common.components.uploader.video_duration_limit', { values: { maxDuration } });
+					error = $t('common.components.uploader.video_duration_limit', {
+						values: { maxDuration }
+					});
 					onError(error);
 					URL.revokeObjectURL(video.src);
 					return false;
@@ -154,6 +188,11 @@
 
 	function removeFile(index: number) {
 		const file = files[index];
+		const url = displayUrls[index];
+		if (url?.startsWith('blob:')) {
+			URL.revokeObjectURL(url);
+			displayUrls = displayUrls.map((u, i) => (i === index ? '' : u));
+		}
 		files = files.filter((_, i) => i !== index);
 		onRemove(index, file);
 		error = '';
@@ -180,7 +219,7 @@
 			? 'grid w-full grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
 			: 'h-full w-full'}
 	>
-		{#each files as file, index}
+		{#each files as file, index (index)}
 			<div class="relative {className}">
 				{#if typeof file === 'string'}
 					{#if isVideoURL(file)}
@@ -195,11 +234,15 @@
 							<track kind="captions" />
 						</video>
 					{:else}
-						<img src={file} alt={$t('common.components.uploader.preview')} class="h-full w-full rounded-lg object-cover" />
+						<img
+							src={file}
+							alt={$t('common.components.uploader.preview')}
+							class="h-full w-full rounded-lg object-cover"
+						/>
 					{/if}
 				{:else if file.type.startsWith('video/')}
 					<video
-						src={URL.createObjectURL(file)}
+						src={displayUrls[index] ?? ''}
 						class="h-full w-full cursor-pointer rounded-lg object-cover"
 						controls
 						muted={false}
@@ -210,7 +253,7 @@
 					</video>
 				{:else}
 					<img
-						src={URL.createObjectURL(file)}
+						src={displayUrls[index] ?? ''}
 						alt={$t('common.components.uploader.preview')}
 						class="h-full w-full rounded-lg object-cover"
 					/>
@@ -238,14 +281,14 @@
 		{/each}
 
 		{#if files.length < maxFiles}
-			<div class="relative overflow-hidden w-full {className}">
+			<div class="relative w-full overflow-hidden {className}">
 				<label
 					for="file-upload-{id}"
 					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
 				>
 					<div class="flex flex-col items-center justify-center pt-5 pb-6">
 						<svg
-							class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
+							class="label label-text mb-1 h-4 w-4 sm:mb-2 sm:h-8 sm:w-8"
 							aria-hidden="true"
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -259,7 +302,7 @@
 								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
 							/>
 						</svg>
-						<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
+						<p class="label label-text mb-1 text-[10px] sm:mb-2 sm:text-xs">
 							<span class="font-semibold">{label}</span>
 						</p>
 						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
