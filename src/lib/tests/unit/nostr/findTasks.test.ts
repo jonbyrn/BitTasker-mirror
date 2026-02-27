@@ -188,5 +188,69 @@ describe('findTasks', () => {
 				'task-two-1700000001-def456'
 			]);
 		});
+
+		it('should filter out zombie events (same d-tag from different pubkey)', async () => {
+			// Original owner published first (older created_at)
+			const originalEvent = createTaskEvent(
+				'a1b2c3d4' + '0'.repeat(56),
+				'tend-to-my-zen-garden-1771972971-790fc1',
+				OTHER_NPUB,
+				{ title: 'Tend to my zen garden', createdAt: 1771972971 },
+				{ created_at: 1771972971 }
+			);
+			// Zombie: different user wrongly used same d-tag (newer created_at)
+			const zombieEvent = createTaskEvent(
+				'f6e5d4c3' + '0'.repeat(56),
+				'tend-to-my-zen-garden-1771972971-790fc1',
+				'npub1zombie0000000000000000000000000000000000000000',
+				{ title: 'Zombie Task Copy', createdAt: 1771973000 },
+				{ created_at: 1771973000 }
+			);
+
+			mockFindEvents.mockResolvedValueOnce({
+				data: [originalEvent, zombieEvent]
+			});
+
+			const result = await findTasks({ page: 1 });
+
+			// Should keep only original owner's event, filter out zombie
+			expect(result.tasks).toHaveLength(1);
+			expect(result.tasks[0].id).toBe('tend-to-my-zen-garden-1771972971-790fc1');
+			expect(result.tasks[0].npub).toBe(OTHER_NPUB);
+			expect(result.tasks[0].title).toBe('Tend to my zen garden');
+
+			const state = get(tasksStore);
+			expect(state.items).toHaveLength(1);
+			expect(state.items.map((t) => t.id)).toEqual(['tend-to-my-zen-garden-1771972971-790fc1']);
+		});
+
+		it('should keep zombie pubkey event when it published first (oldest created_at wins)', async () => {
+			// Edge case: if the "wrong" user published first, they become the owner
+			// (per Nostr semantics: first publisher owns the d-tag coordinate)
+			const firstPublisher = createTaskEvent(
+				'a1b2c3d4' + '0'.repeat(56),
+				'some-task-1771972971-abc123',
+				'npub1first00000000000000000000000000000000000000',
+				{ title: 'First Publisher Task' },
+				{ created_at: 1771972971 }
+			);
+			const secondPublisher = createTaskEvent(
+				'f6e5d4c3' + '0'.repeat(56),
+				'some-task-1771972971-abc123',
+				OTHER_NPUB,
+				{ title: 'Second Publisher Task' },
+				{ created_at: 1771973000 }
+			);
+
+			mockFindEvents.mockResolvedValueOnce({
+				data: [firstPublisher, secondPublisher]
+			});
+
+			const result = await findTasks({ page: 1 });
+
+			expect(result.tasks).toHaveLength(1);
+			expect(result.tasks[0].npub).toBe('npub1first00000000000000000000000000000000000000');
+			expect(result.tasks[0].title).toBe('First Publisher Task');
+		});
 	});
 });
