@@ -32,17 +32,17 @@ export class FeaturedTasksService {
 			});
 
 			// Separate non-expired and expired tasks
-			const nonExpiredTasks = result.tasks.filter(task => !this.isExpired(task));
-			const expiredTasks = result.tasks.filter(task => this.isExpired(task));
+			const nonExpiredTasks = result.tasks.filter((task) => !this.isExpired(task));
+			const expiredTasks = result.tasks.filter((task) => this.isExpired(task));
 
 			// Sort non-expired tasks: close to expiring first, then newest
 			const sortedNonExpired = nonExpiredTasks.sort((a, b) => {
 				const aCloseToExpiring = this.isCloseToExpiring(a);
 				const bCloseToExpiring = this.isCloseToExpiring(b);
-				
+
 				if (aCloseToExpiring && !bCloseToExpiring) return -1;
 				if (!aCloseToExpiring && bCloseToExpiring) return 1;
-				
+
 				return b.createdAt - a.createdAt;
 			});
 
@@ -56,10 +56,11 @@ export class FeaturedTasksService {
 				combinedTasks.push(...sortedExpired.slice(0, remaining));
 			}
 
-			// Convert to LiveTask format and limit results
-			const featuredTasks = combinedTasks
-				.slice(0, limit)
-				.map(task => this.convertToLiveTask(task));
+			// Deduplicate by id (defense in depth for zombie events), then convert to LiveTask format
+			const uniqueTasks = combinedTasks.filter(
+				(task, index, arr) => arr.findIndex((t) => t.id === task.id) === index
+			);
+			const featuredTasks = uniqueTasks.slice(0, limit).map((task) => this.convertToLiveTask(task));
 
 			// Update cache
 			this.cache = {
@@ -82,10 +83,10 @@ export class FeaturedTasksService {
 			return false;
 		}
 
-		return task.attachments.some(attachment => {
+		return task.attachments.some((attachment) => {
 			const url = attachment.url.toLowerCase();
 			const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-			return imageExtensions.some(ext => url.includes(ext));
+			return imageExtensions.some((ext) => url.includes(ext));
 		});
 	}
 
@@ -100,7 +101,7 @@ export class FeaturedTasksService {
 
 		const now = new Date();
 		const deadlineDate = new Date(task.deadline);
-		
+
 		// Task is expired if current time is past the deadline
 		return now.getTime() > deadlineDate.getTime();
 	}
@@ -130,10 +131,10 @@ export class FeaturedTasksService {
 			return '';
 		}
 
-		const imageAttachment = task.attachments.find(attachment => {
+		const imageAttachment = task.attachments.find((attachment) => {
 			const url = attachment.url.toLowerCase();
 			const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-			return imageExtensions.some(ext => url.includes(ext));
+			return imageExtensions.some((ext) => url.includes(ext));
 		});
 
 		return imageAttachment?.url || '';
@@ -145,7 +146,7 @@ export class FeaturedTasksService {
 	private static convertToLiveTask(task: Task): LiveTask {
 		// Calculate time left based on deadline
 		const timeLeft = this.calculateTimeLeft(task.deadline);
-		
+
 		// Get budget amount (convert from sats to USD if needed)
 		const budgetAmount = this.getBudgetAmount(task.budget);
 

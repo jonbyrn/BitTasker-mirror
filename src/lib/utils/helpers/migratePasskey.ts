@@ -28,7 +28,7 @@ interface PasskeyMigrationStore {
 
 export const passkeyMigration = writable<PasskeyMigrationStore>({
 	isOpen: false,
-	state: 'migrated',
+	state: 'info',
 	countdown: 30,
 	error: null,
 	shouldProceed: false,
