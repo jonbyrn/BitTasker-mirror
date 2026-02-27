@@ -28,6 +28,7 @@ const createAuthStore = () => {
 			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 			await Preferences.remove({ key: StorageKeys.NPUB });
 			await Preferences.remove({ key: StorageKeys.AUTH_METHOD });
+			await Preferences.remove({ key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID });
 
 			const { clearSession } = await import('$lib/utils/session');
 			try {
@@ -50,7 +51,8 @@ const createAuthStore = () => {
 		npub: string,
 		userData: Partial<UserData>,
 		biometricData?: BiometricData,
-		redirect: boolean = true
+		redirect: boolean = true,
+		credentialId?: string
 	) => {
 		if (setupInProgress) return;
 		setupInProgress = true;
@@ -68,6 +70,9 @@ const createAuthStore = () => {
 
 			resetMigration();
 			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
+			if (authMethod === 'passkey' && credentialId != null && credentialId !== '') {
+				await Preferences.set({ key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID, value: credentialId });
+			}
 			const { user } = await import('./user.store');
 			if (userData) user.updateProfile(userData);
 

@@ -10,7 +10,7 @@ import type {
 	EncryptedNostrDataArgs,
 	PasskeyEncryptedDataArgs
 } from '$lib/types/auth';
-import { BaseApiService } from '../apiService';
+import { BaseApiService, ApiError } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import { normalizeToError } from '$lib/utils/helpers/normalizeError';
 
@@ -278,6 +278,10 @@ export class AuthService extends BaseApiService {
 			);
 			return response.data;
 		} catch (error: unknown) {
+			// Rethrow ApiError 401 so protected layout can logout and redirect
+			if (error instanceof ApiError && error.status === 401) {
+				throw error;
+			}
 			const err = error as { status?: number };
 			if (err?.status === 401) {
 				throw new Error('Unauthorized. Please login again.');

@@ -191,7 +191,8 @@
 				credentials.npub,
 				response.user,
 				biometricData,
-				false
+				false,
+				credentials.credentialId
 			);
 			const redirectPath = '/dashboard';
 			try {
@@ -447,7 +448,8 @@
 					npub,
 					res.user,
 					biometricData,
-					false
+					false,
+					credentialData.credentialId
 				);
 				const redirectPath = res.isNewUser ? '/auth/onboarding' : '/dashboard';
 				try {
@@ -535,15 +537,12 @@
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
 			<div class="mb-8 flex flex-col items-center justify-center">
-				<Logo />
+				<Logo class="block mx-auto mt-2 mb-2 sm:mt-8 sm:mb-8 w-full max-w-xs sm:max-w-sm md:max-w-md" />
 				<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
 				<br />
 				<div class="w-full px-4">
 					<p class="text-base-content mb-4 text-center text-sm">
 						{$t('login.subtitle')}
-					</p>
-					<p class="text-base-content text-center text-sm">
-						{$t('login.passkey_info')}
 					</p>
 				</div>
 			</div>

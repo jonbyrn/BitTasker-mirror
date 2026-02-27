@@ -30,7 +30,7 @@ declare global {
 	type TurnstileCallback = (token: string) => void;
 
 	interface TurnstileWidget {
-		render: (container: string | HTMLElement, params: any) => string;
+		render: (container: string | HTMLElement, params?: Record<string, unknown>) => string;
 		reset: (widgetId?: string) => void;
 		getResponse: (widgetId?: string) => string;
 		isExpired: (widgetId?: string) => boolean;
@@ -40,6 +40,8 @@ declare global {
 	interface Window {
 		turnstile: TurnstileWidget;
 		onloadTurnstileCallback: () => void;
+		/** Set by Playwright for E2E tests (e.g. virtual WebAuthn). */
+		__PLAYWRIGHT_TEST__?: boolean;
 	}
 
 	const __APP_VERSION__: string;
@@ -58,4 +60,4 @@ declare module '~icons/mdi/*' {
 	export default component;
 }
 
-export { };
+export {};

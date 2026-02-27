@@ -245,7 +245,7 @@
 					encryptedData,
 					exportedKey
 				};
-				await authState.setupAuthData(access_token, 'passkey', npub, user, biometricData, false);
+				await authState.setupAuthData(access_token, 'passkey', npub, user, biometricData, false, credentialData.credentialId);
 				const redirectPath = '/dashboard';
 				try {
 					await goto(redirectPath);

@@ -17,41 +17,43 @@
 		createUserDeviceShortName,
 		getDeviceIdentifier
 	} from '$lib/utils/helpers/deviceIdentity';
-	import IconCheck from '~icons/mdi/check-circle-outline';
 	import authService from '$lib/api/services/auth.service';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import ErrorTroubleshootingModal from '$lib/components/ErrorTroubleshootingModal.svelte';
+	import IconInformation from '~icons/mdi/information';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
-		(globalThis as any).Buffer = Buffer;
+		(globalThis as typeof globalThis & { Buffer: typeof Buffer }).Buffer = Buffer;
 	}
 
+	// currentStep/totalSteps accepted for parent API but not used in this step
 	let {
 		nextStep,
 		prevStep,
-		currentStep,
-		totalSteps,
-		userData
+		userData,
+		currentStep: _currentStep,
+		totalSteps: _totalSteps
 	}: {
 		nextStep: () => void;
 		prevStep: () => void;
-		currentStep: number;
-		totalSteps: number;
 		userData: {
 			username: string;
 			nsec: string;
 			hasNostrKey: boolean;
-			recoveryEmail: string;
-			recoveryPassword: string;
-			hasRecovery: boolean;
 		};
+		currentStep: number;
+		totalSteps: number;
 	} = $props();
+	void _currentStep;
+	void _totalSteps;
 
 	// Status indicators
 	let isLoading = $state(false);
 	let isSetupComplete = $state(false);
 	let error = $state('');
 	let errorType = $state<ErrorType | undefined>(undefined);
+	let showLearnMoreModal = $state(false);
 
 	async function generateKeyPair() {
 		const sk = generateSecretKey();
@@ -92,7 +94,7 @@
 			if (isMobileBiometrics) {
 				try {
 					credentialData = await setBiometricKey({ npub, exportedKey, username });
-				} catch (biometricError: any) {
+				} catch (biometricError: unknown) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'mobile-native';
 					const { errorMessage: msg, errorType: type } = await getErrorModalData({
@@ -110,7 +112,7 @@
 			} else {
 				try {
 					credentialData = await setWebBiometricKey({ npub, exportedKey, username });
-				} catch (biometricError: any) {
+				} catch (biometricError: unknown) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'web';
 					const { errorMessage: msg, errorType: type } = await getErrorModalData({
@@ -168,7 +170,8 @@
 					npub,
 					response.user,
 					biometricData,
-					false
+					false,
+					credentialData.credentialId
 				);
 			}
 		} catch (err: unknown) {
@@ -235,83 +238,84 @@
 </script>
 
 <div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-passkey">
-	<div class="card-body">
+	<div class="card-body space-y-2">
 		<!-- Educational Header -->
-		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
-				{$t('onboarding_auth.form.passkey_setup.step')}
-				{currentStep + 1}
-				{$t('onboarding_auth.form.passkey_setup.of')}
-				{totalSteps}
-			</div>
-			<h3 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.passkey_setup.title')}</h3>
-			<h5 class="mb-3">{$t('onboarding_auth.form.passkey_setup.subtitle')}</h5>
-			<p class="step-description text-base-content mx-auto mb-6 max-w-lg text-lg">
-				{@html $t('onboarding_auth.form.passkey_setup.description')}
+		<div class="education-header text-center">
+			<h4 class="step-title">{$t('onboarding_auth.form.passkey_setup.title')}</h4>
+
+			<p class="text-primary text-center text-base font-medium md:text-lg">
+				{$t('onboarding_auth.form.passkey_setup.next_gen_login')}
 			</p>
 
-			<!-- Features List -->
-			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.passkey_setup.features.secure')}</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.passkey_setup.features.encrypted')}</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.passkey_setup.features.private')}</span>
-				</div>
-				<div class="feature-item mb-6 flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.passkey_setup.features.easy')}</span>
-				</div>
+			<p class="text-base-content/90 mx-auto max-w-lg text-center text-sm md:text-base">
+				{$t('onboarding_auth.form.passkey_setup.what_you_will_do')}
+			</p>
 
-				<p class="text-primary mb-6 text-center text-lg font-medium">
-					{$t('onboarding_auth.form.passkey_setup.next_gen_login')}
-				</p>
-
-				{#if error}
-					<div data-testid="passkey-setup-error">
-						<ErrorAlertWithModal
-							{error}
-							{errorType}
-							isPasskeyError={true}
-							onRetry={async () => {
-								error = '';
-								errorType = undefined;
-								await handlePasskeySetup();
-							}}
-							class="mx-auto mb-6 max-w-lg"
-						/>
-					</div>
-				{/if}
-
-				{#if isSetupComplete}
-					<div class="alert alert-success alert-outline mx-auto mb-6 max-w-lg">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span>{$t('onboarding_auth.form.passkey_setup.setup_complete')}</span>
-					</div>
-				{/if}
+			<div class="flex justify-center">
+				<button
+					type="button"
+					class="btn btn-ghost btn-md text-primary my-4 gap-1.5"
+					onclick={() => (showLearnMoreModal = true)}
+					data-testid="passkey-setup-learn-more"
+				>
+					<IconInformation class="h-4 w-4 shrink-0" />
+					<span>{$t('onboarding_auth.form.passkey_setup.learn_more')}</span>
+				</button>
 			</div>
+
+			{#if error}
+				<div data-testid="passkey-setup-error">
+					<ErrorAlertWithModal
+						{error}
+						{errorType}
+						isPasskeyError={true}
+						onRetry={async () => {
+							error = '';
+							errorType = undefined;
+							await handlePasskeySetup();
+						}}
+						class="mx-auto max-w-lg"
+					/>
+				</div>
+			{/if}
+
+			{#if isSetupComplete}
+				<div class="alert alert-success alert-outline mx-auto max-w-lg">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{$t('onboarding_auth.form.passkey_setup.setup_complete')}</span>
+				</div>
+			{/if}
 		</div>
 
+		<!-- Learn more modal (setup variant: no error styling, Setup Passkey + Cancel) -->
+		{#if showLearnMoreModal}
+			<ErrorTroubleshootingModal
+				errorMessage=""
+				showButton={false}
+				open={showLearnMoreModal}
+				variant="setup"
+				onClose={() => (showLearnMoreModal = false)}
+				onRetry={async () => {
+					showLearnMoreModal = false;
+					await handlePasskeySetup();
+				}}
+			/>
+		{/if}
+
 		<!-- Form Actions -->
-		<div class="mt-6 flex justify-between">
+		<div class="flex justify-between">
 			<button type="button" class="btn btn-outline" onclick={prevStep} disabled={isLoading}>
 				{$t('onboarding_auth.form.passkey_setup.back')}
 			</button>

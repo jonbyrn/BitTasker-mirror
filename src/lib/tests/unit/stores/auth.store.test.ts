@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { authState } from '$lib/stores/auth.store';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 vi.mock('@capacitor/preferences', () => ({
 	Preferences: {
@@ -113,6 +114,14 @@ describe('auth.store', () => {
 			expect(keysRemoved).toContain('auth_method');
 		});
 
+		it('should remove WEB_AUTHN_CREDENTIAL_ID from preferences on logout', async () => {
+			const { Preferences } = await import('@capacitor/preferences');
+			await authState.logout();
+			const removeCalls = vi.mocked(Preferences.remove).mock.calls;
+			const keysRemoved = removeCalls.map((c) => c[0].key);
+			expect(keysRemoved).toContain(StorageKeys.WEB_AUTHN_CREDENTIAL_ID);
+		});
+
 		it('should call clearPluginTokenCache on logout', async () => {
 			const { clearPluginTokenCache } = await import('$lib/utils/houdini/plugins/customAuthPlugin');
 			await authState.logout();
@@ -172,6 +181,39 @@ describe('auth.store', () => {
 			const { goto } = await import('$app/navigation');
 			await authState.setupAuthData('token', 'passkey', 'npub1', {}, undefined, false);
 			expect(goto).not.toHaveBeenCalled();
+		});
+
+		it('when authMethod is passkey and credentialId is provided, should set WEB_AUTHN_CREDENTIAL_ID in Preferences', async () => {
+			const { Preferences } = await import('@capacitor/preferences');
+			await authState.setupAuthData(
+				'token',
+				'passkey',
+				'npub1',
+				{},
+				undefined,
+				false,
+				'cred-id-base64url-xyz'
+			);
+			expect(Preferences.set).toHaveBeenCalledWith({
+				key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
+				value: 'cred-id-base64url-xyz'
+			});
+		});
+
+		it('when authMethod is passkey and credentialId is undefined, should not set WEB_AUTHN_CREDENTIAL_ID', async () => {
+			const { Preferences } = await import('@capacitor/preferences');
+			await authState.setupAuthData('token', 'passkey', 'npub1', {}, undefined, false);
+			const setCalls = vi.mocked(Preferences.set).mock.calls;
+			const keysSet = setCalls.map((c) => c[0].key);
+			expect(keysSet).not.toContain(StorageKeys.WEB_AUTHN_CREDENTIAL_ID);
+		});
+
+		it('when authMethod is not passkey, should not set WEB_AUTHN_CREDENTIAL_ID even if credentialId is provided', async () => {
+			const { Preferences } = await import('@capacitor/preferences');
+			await authState.setupAuthData('token', 'alby', 'npub1', {}, undefined, false, 'cred-id');
+			const setCalls = vi.mocked(Preferences.set).mock.calls;
+			const keysSet = setCalls.map((c) => c[0].key);
+			expect(keysSet).not.toContain(StorageKeys.WEB_AUTHN_CREDENTIAL_ID);
 		});
 
 		it('when biometricData is provided should update appStore with it', async () => {
