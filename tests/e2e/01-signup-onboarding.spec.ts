@@ -16,7 +16,12 @@
  */
 import { nip19, generateSecretKey } from 'nostr-tools';
 import { test, expect } from './fixtures/signup-login-auth';
-import { writeNostrNsec } from './utils/webauthn-credentials';
+import {
+	writeNostrNsec,
+	getCredentialSetLabels,
+	readCredentialSet,
+	USERNAME_DOMAIN_SUFFIX
+} from './utils/webauthn-credentials';
 
 function e2eLog(message: string, stepLog: string[]): void {
 	const line = `[E2E] ${message}`;
@@ -50,7 +55,8 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		passkeyAssertion,
 		lastSignupUsernameStore
 	}) => {
-		test.setTimeout(180_000);
+		// Long flow: signup → onboarding (username, passkey, recovery skip, profile, location, complete) → dashboard
+		test.setTimeout(240_000);
 		const ts = Date.now();
 		const uniqueUsername = `e2e-${ts}`;
 		lastSignupUsernameStore.value = uniqueUsername;
@@ -74,11 +80,12 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 			});
 		};
 
-		const gotoOptions = { waitUntil: 'load' as const };
+		const gotoOptions = { waitUntil: 'networkidle' as const };
 
 		e2eLog('Step 1: goto /', stepLog);
 		await page.goto('/', gotoOptions);
 		await expect(page).toHaveURL(/\//);
+		await expect(page.getByTestId('signup-link')).toBeVisible({ timeout: 20_000 });
 		await page.getByTestId('signup-link').click();
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
@@ -151,6 +158,8 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		e2eLog('Step 7: Profile step visible', stepLog);
 
 		await page.getByTestId('onboarding-display-name').fill(displayName);
+		// Professional title/description/skills are optional and only visible when "I want to get hired" is checked
+		await page.getByTestId('onboarding-want-to-get-hired').check();
 		await page.getByTestId('onboarding-professional-title').fill('E2E Test Professional');
 		await page.getByTestId('onboarding-profile-description').fill(E2E_PROFILE_DESCRIPTION);
 		const skillsInput = page.getByTestId('onboarding-skills').getByRole('combobox');
@@ -185,6 +194,12 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 			test.skip(true, 'Requires user 1 to have run first (lastSignupUsernameStore)');
 			return;
 		}
+		// Test 1 (user 1 credential in file): after user 1, signup set should exist with that username
+		const signupCreds = readCredentialSet('signup');
+		expect(signupCreds, 'user 1 teardown should have written signup credentials').not.toBeNull();
+		expect(signupCreds!.length).toBeGreaterThan(0);
+		expect(signupCreds![0].userName).toBe(taken + USERNAME_DOMAIN_SUFFIX);
+
 		await page.goto('/auth/signup', { waitUntil: 'load' });
 		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
 		await expect(page.getByTestId('signup-continue')).toBeEnabled({ timeout: 10_000 });
@@ -198,6 +213,70 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await expect(page.getByTestId('onboarding-username-error')).toContainText(
 			/username is already taken|already taken/i
 		);
+
+		// Test 3 (no passkey = no write): this test did not create a passkey, so file should be unchanged
+		const signupCredsAfter = readCredentialSet('signup');
+		expect(signupCredsAfter, 'signup set should still exist').not.toBeNull();
+		expect(
+			signupCredsAfter![0].userName,
+			'username-taken run should not have overwritten signup credentials (no passkey created)'
+		).toBe(taken + USERNAME_DOMAIN_SUFFIX);
+	});
+
+	test('5a. Onboarding: step 1 (Passkey) Back goes to step 0 (Username)', async ({
+		page,
+		passkeyAssertion
+	}) => {
+		test.setTimeout(90_000);
+		const ts = Date.now();
+		const uniqueUsername = `e2e-back-${ts}`;
+		passkeyAssertion.expectedUsername = uniqueUsername;
+		await page.goto('/', { waitUntil: 'networkidle' });
+		await expect(page.getByTestId('signup-link')).toBeVisible({ timeout: 20_000 });
+		await page.getByTestId('signup-link').click();
+		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
+		await page.getByTestId('signup-continue').click();
+		await page
+			.getByTestId('onboarding-step-username')
+			.waitFor({ state: 'visible', timeout: 45_000 });
+		await page.getByTestId('onboarding-username-input').fill(uniqueUsername);
+		await page.getByTestId('onboarding-username-next').click();
+		await expect(page.getByTestId('passkey-setup-button')).toBeVisible({ timeout: 15_000 });
+		// We are on step 1 (Passkey). Click Back → should show step 0 (Username).
+		await page.getByRole('button', { name: /back|atrás/i }).click();
+		await expect(page.getByTestId('onboarding-step-username')).toBeVisible({ timeout: 5_000 });
+	});
+
+	test('8a. Onboarding recovery: password mismatch shows error', async ({
+		page,
+		passkeyAssertion
+	}) => {
+		test.setTimeout(120_000);
+		const ts = Date.now();
+		const uniqueUsername = `e2e-pwm-${ts}`;
+		passkeyAssertion.expectedUsername = uniqueUsername;
+		await page.goto('/', { waitUntil: 'networkidle' });
+		await page.getByTestId('signup-link').click();
+		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
+		await page.getByTestId('signup-continue').click();
+		await page
+			.getByTestId('onboarding-step-username')
+			.waitFor({ state: 'visible', timeout: 45_000 });
+		await page.getByTestId('onboarding-username-input').fill(uniqueUsername);
+		await page.getByTestId('onboarding-username-next').click();
+		await expect(page.getByTestId('passkey-setup-button')).toBeVisible({ timeout: 15_000 });
+		await page.getByTestId('passkey-setup-button').click();
+		await page
+			.getByTestId('onboarding-step-recovery')
+			.waitFor({ state: 'visible', timeout: 60_000 });
+		await page.getByTestId('onboarding-recovery-enable-checkbox').check();
+		await page.getByTestId('onboarding-recovery-email').fill('e2e-mismatch@example.com');
+		await page.getByTestId('onboarding-recovery-password').fill('ValidPass1!abc');
+		await page.getByTestId('onboarding-recovery-confirm-password').fill('DifferentPass1!xyz');
+		await page.getByTestId('onboarding-recovery-next').click();
+		await expect(
+			page.getByText(/passwords? don't match|passwords? mismatch|no coinciden|match/i)
+		).toBeVisible({ timeout: 5_000 });
 	});
 
 	test('user 1 with recovery: signup → onboarding with recovery step filled → dashboard', async ({
@@ -234,6 +313,7 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 			.getByTestId('onboarding-step-profile')
 			.waitFor({ state: 'visible', timeout: 15_000 });
 		await page.getByTestId('onboarding-display-name').fill(displayName);
+		await page.getByTestId('onboarding-want-to-get-hired').check();
 		await page.getByTestId('onboarding-professional-title').fill('E2E Recovery Professional');
 		await page.getByTestId('onboarding-profile-description').fill(E2E_PROFILE_DESCRIPTION);
 		const skillsInput = page.getByTestId('onboarding-skills').getByRole('combobox');
@@ -304,6 +384,7 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 			.waitFor({ state: 'visible', timeout: 30_000 });
 		e2eLog('Step 3: Profile step visible; fill and next', stepLog);
 		await page.getByTestId('onboarding-display-name').fill(displayName);
+		await page.getByTestId('onboarding-want-to-get-hired').check();
 		await page.getByTestId('onboarding-professional-title').fill('E2E Nostr Professional');
 		await page.getByTestId('onboarding-profile-description').fill(E2E_PROFILE_DESCRIPTION);
 		const skillsInput = page.getByTestId('onboarding-skills').getByRole('combobox');
@@ -324,5 +405,20 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await page.getByTestId('onboarding-continue-without-completing').click();
 		await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 		e2eLog('Step 5: Nostr user onboarding complete; dashboard', stepLog);
+	});
+
+	// Test 7: credential file has both signup and nostr labels after full 01 run
+	test('credential file has both signup and nostr labels after onboarding flows', async ({
+		page
+	}) => {
+		const labels = getCredentialSetLabels();
+		expect(labels, 'credential file should exist and have at least signup and nostr').toContain(
+			'signup'
+		);
+		expect(labels).toContain('nostr');
+		expect(readCredentialSet('signup')).not.toBeNull();
+		expect(readCredentialSet('nostr')).not.toBeNull();
+		// Minimal use of page so fixture teardown runs (no-op for this test)
+		await page.goto('/auth/login', { waitUntil: 'load' }).catch(() => {});
 	});
 });

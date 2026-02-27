@@ -72,6 +72,19 @@ test.describe('Credentials file login (validate each user can log in)', () => {
 				timeout: 10_000
 			});
 		});
+
+		// Test 6: session persistence after reload
+		test('after passkey login, reloading dashboard keeps session then navigate to protected route', async ({
+			authenticatedPageFromPasskeyFile
+		}) => {
+			await expect(authenticatedPageFromPasskeyFile).toHaveURL(/\/dashboard/);
+			await authenticatedPageFromPasskeyFile.reload({ waitUntil: 'load' });
+			await expect(authenticatedPageFromPasskeyFile).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+			await authenticatedPageFromPasskeyFile.goto('/dashboard/profile', { waitUntil: 'load' });
+			await expect(authenticatedPageFromPasskeyFile).toHaveURL(/\/dashboard\/profile/, {
+				timeout: 10_000
+			});
+		});
 	});
 
 	test.describe('redirect-retry UI after login', () => {

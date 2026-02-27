@@ -50,7 +50,8 @@ const test = authTest.extend<
 	passkeyAssertion: [{ expectedUsername: null }, { option: true }],
 
 	webauthnCredentialStore: [
-		async (_deps, use) => {
+		async (deps, use) => {
+			void deps;
 			const store: WebAuthnCredential[] = [];
 			await use(store);
 		},
@@ -58,7 +59,8 @@ const test = authTest.extend<
 	],
 
 	lastSignupUsernameStore: [
-		async (_deps, use) => {
+		async (deps, use) => {
+			void deps;
 			await use({ value: null });
 		},
 		{ scope: 'worker' }
