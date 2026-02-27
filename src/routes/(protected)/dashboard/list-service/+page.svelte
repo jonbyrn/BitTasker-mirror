@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Service, ServiceBody } from '$lib/types/service.d';
+	import type { ServiceBody } from '$lib/types/service.d';
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -11,6 +11,7 @@
 	import { ServiceStepEnum, ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { t } from 'svelte-i18n';
 	import { browser } from '$app/environment';
+	import { user } from '$lib/stores/user.store';
 
 	// Import step components
 	import ServiceBasics from '$lib/components/service/steps/ServiceBasics.svelte';
@@ -23,7 +24,6 @@
 	import InquiryFormBuilder from '$lib/components/service/steps/InquiryFormBuilder.svelte';
 	import ServicePortfolio from '$lib/components/service/steps/ServicePortfolio.svelte';
 	import ServiceReview from '$lib/components/service/steps/ServiceReview.svelte';
-	import uploadService from '$lib/api/services/upload.service';
 
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
@@ -258,8 +258,9 @@
 				createdAt: $store.service.createdAt || 0,
 				creator: $store.service.creator || {
 					username: '',
-					avatar: ''
-				},
+					avatar: '',
+					name: $user?.name || ''
+				} as { username: string; avatar: string; name: string },
 				title: $store.service.title || '',
 				description: $store.service.description || '',
 				serviceLocationTypes: $store.service.serviceLocationTypes || [],
