@@ -1,9 +1,11 @@
 # Bug: Task Status Stale on /tasks for Taskee (Account 2)
 
-**Status:** Open  
+**Status:** Resolved  
 **Related:** [feat-task-status-review-and-testing-plan.md](./feat-task-status-review-and-testing-plan.md), [task-status-flow-logic-deep-dive.md](./task-status-flow-logic-deep-dive.md)
 
-**Updated:** Propagation/cache ruled out — user confirmed: cleared cache, logged out, logged back in as Account 2, still sees "In progress". Same data source as incognito/Account 3. Bug persists on clean login.
+**Resolution:** See §10 below. Root cause was Taskee publishing COMPLETED; task event is owned by Tasker. Fix: only Tasker publishes; COMPLETED via escrow onConfirmed after chain confirmation. Cache merge fix (H1) also implemented.
+
+**Updated (pre-resolution):** Propagation/cache ruled out — user confirmed: cleared cache, logged out, logged back in as Account 2, still sees "In progress". Same data source as incognito/Account 3. Bug persists on clean login.
 
 ---
 
@@ -41,13 +43,11 @@ After the full task lifecycle (create → bid → accept → complete → accept
 
 ## 3. Data Flow (Relevant Paths)
 
-### 3.1 Who Updates the Task to COMPLETED?
+### 3.1 Who Updates the Task to COMPLETED? (Updated post-fix)
 
-From `ContractActions.svelte` → `completeTaskWithAttachments()`:
+**Before fix (buggy):** Taskee called `updateTask(COMPLETED)` in `completeTaskWithAttachments`. Taskee's event was filtered out by findTasks (task.npub !== npub) because the task event is owned by the Tasker.
 
-- **Actor:** Taskee (Account 2) clicks "Complete".
-- **Flow:** `escrow.escrowOps.completeTask()` → `updateTask(taskId, { status: COMPLETED })`.
-- **Context:** Runs in Account 2's browser.
+**After fix:** Only the Tasker publishes COMPLETED. The escrow `onConfirmed` callback runs after the accept tx confirms and calls `updateTask(taskId, { status: COMPLETED })`. Taskee never updates the task event.
 
 ### 3.2 Where Does /tasks Get Its Data?
 
@@ -207,6 +207,19 @@ Most plausible:
 ## 9. References
 
 - `src/lib/nostr/task.ts` — `updateTask`, `getTaskStableId`
-- `src/lib/nostr/findTasks.ts` — cache, `tasksStore` updates
-- `src/lib/components/contracts/ContractActions.svelte` — `completeTaskWithAttachments`, `updateTask` call
+- `src/lib/nostr/findTasks.ts` — cache, `tasksStore` updates (merge prefers newer by createdAt)
+- `src/lib/components/contracts/ContractActions.svelte` — `completeTaskWithAttachments` (no updateTask), `acceptTask` (triggers escrow onConfirmed)
+- `src/lib/utils/escrow/index.ts` — onConfirmed callback for updateTask(COMPLETED)
+- `src/lib/utils/helpers/task-status-reconciliation.ts` — self-healing when viewing contracts
 - `src/routes/tasks/+page.svelte` — `onMount`, `loadNostrData`, `hasCachedData`
+
+---
+
+## 10. Resolution (Implemented)
+
+| Fix                          | Description                                                                                 | Location                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **Ownership**                | Taskee no longer calls updateTask(COMPLETED). Only Tasker publishes via escrow onConfirmed. | ContractActions, escrow/index.ts                       |
+| **Nostr after confirmation** | updateTask(COMPLETED) runs in onConfirmed when accept tx confirms on chain.                 | escrow/v1/escrow.ts, escrow/index.ts                   |
+| **H1 Cache merge**           | When merging with existing cache, prefer task with higher `createdAt` per id.               | findTasks.ts                                           |
+| **Self-healing**             | reconcileTaskStatusWithContracts syncs stale task status when viewing contracts.            | task-status-reconciliation.ts, DashboardContractsPanel |
