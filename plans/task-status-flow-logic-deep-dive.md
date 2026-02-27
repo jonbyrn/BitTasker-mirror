@@ -29,6 +29,8 @@ OPEN → BID_ACCEPTED → ESCROW_FUNDED → IN_PROGRESS → COMPLETED
 
 ## 2. Flow A: OPEN → IN_PROGRESS (Bid Acceptance)
 
+**Nostr-after-confirmation:** Task status is updated only **after** the escrow tx confirms on chain. See [docs/task-status-resilience.md](../docs/task-status-resilience.md) §5.6.
+
 ### 2.1 Call Chain
 
 ```
@@ -46,26 +48,33 @@ User clicks "Accept" in BidAcceptanceForm
     │       └── if (result.success && result.transactionResult)
     │               │
     │               ├── currentScreen = 'success'
-    │               │
-    │               ├── updateTask(props.task.id, { status: TaskStatusEnum.IN_PROGRESS })  ◄── TASK STATUS UPDATE
-    │               │       │
-    │               │       └── [task.ts] updateTask() → Nostr addressable event (same kind/pubkey/d-tag)
-    │               │
     │               └── sendLocationsToTaskee(...)  // if in-person; skipped for remote
+    │
+    │  (async, when escrow tx confirms)
+    │
+    └── Blockchain emits EscrowCreated event
+            │
+            └── handleEscrowCreated(event)  [escrowEvents.ts]
+                    │
+                    ├── publishContractEvent(...)
+                    ├── sendBidStatusUpdate(...)
+                    └── updateTask(pendingContract.taskId, { status: IN_PROGRESS })  ◄── TASK STATUS UPDATE
+                            └── [task.ts] updateTask() → Nostr addressable event (same kind/pubkey/d-tag)
 ```
 
 ### 2.2 Key Files and Lines
 
-| Step               | File                       | Lines   | Description                                                  |
-| ------------------ | -------------------------- | ------- | ------------------------------------------------------------ |
-| Entry point        | `BidAcceptanceForm.svelte` | 241–332 | `handleSubmit()`                                             |
-| Escrow creation    | `escrowBid.ts`             | 202+    | `acceptBidAndCreateEscrow()`                                 |
-| Task status update | `BidAcceptanceForm.svelte` | 284–290 | `updateTask(props.task.id, { status: IN_PROGRESS })`         |
-| updateTask impl    | `task.ts`                  | 388–521 | Fetches original task, merges updates, publishes Nostr event |
+| Step               | File                        | Description                                                             |
+| ------------------ | --------------------------- | ----------------------------------------------------------------------- |
+| Entry point        | `BidAcceptanceForm.svelte`  | `handleSubmit()` — triggers escrow creation                             |
+| Escrow creation    | `escrowBid.ts`              | `acceptBidAndCreateEscrow()`                                            |
+| Escrow tx confirm  | Blockchain → event listener | EscrowCreated event emitted                                             |
+| Task status update | `escrowEvents.ts`           | `handleEscrowCreated()` → `updateTask(taskId, { status: IN_PROGRESS })` |
+| updateTask impl    | `task.ts`                   | Fetches original task, merges updates, publishes Nostr event            |
 
 ### 2.3 Task ID Handling
 
-- **`props.task.id`** — From Nostr `task` event. Can be:
+- **`pendingContract.taskId`** — From `registerPendingContractByTxHash`; same as `props.task.id` from the Nostr task event. Can be:
   - **Event ID** (64 hex): `isEventId = /^[0-9a-fA-F]{64}$/.test(taskId)` → fetch via `nostrEventsService.findEventById(taskId)`
   - **d-tag**: fetch via `nostrEventsService.requestEvents({ filters: [{ kinds: [KINDS.TASK_CREATION], '#d': [taskId], limit: 1 }] })`
 - **`updateTask`** resolves the original task, gets d-tag from `tags.find(t => t[0] === 'd')?.[1]`, then publishes a **replaceable addressable event** (same kind, pubkey, d-tag).
@@ -75,16 +84,15 @@ User clicks "Accept" in BidAcceptanceForm
 1. **Escrow tx broadcast** — Blockchain transaction is sent.
 2. **Pending contract registered** — `registerPendingContractByTxHash` stores taskId, bidEventId, etc.
 3. **Success screen shown** — `currentScreen = 'success'`.
-4. **Task status updated** — `updateTask` publishes Nostr event; updates `tasksStore` and `myTasksStore` in-memory.
-5. **Location message sent** — `sendLocationsToTaskee` (only for in-person; `isRemote` skips location data).
-6. **Async: Escrow confirmed** — `tx.wait()` in escrow.ts fires; `handleEscrowCreated` runs; `publishContractEvent`, `sendBidStatusUpdate`, etc.
+4. **Location message sent** — `sendLocationsToTaskee` (only for in-person; `isRemote` skips location data).
+5. **Escrow tx confirms** — Blockchain emits EscrowCreated event.
+6. **handleEscrowCreated** — Publishes contract event, bid status, then `updateTask(IN_PROGRESS)`.
 
-**Important:** Task status is updated **before** the escrow tx is confirmed. The UI shows success immediately; the Nostr task event is updated right away. Escrow creation and contract event publish happen asynchronously when the tx confirms.
+**Important:** Task status is updated **after** the escrow tx confirms. Nostr task event stays in sync with chain state. See [task-status-resilience.md](../docs/task-status-resilience.md) §5.6.
 
 ### 2.5 Error Handling
 
-- If `updateTask` throws → error logged, toast shown (`task_status_update_error`), but bid acceptance is already considered successful (escrow tx was sent).
-- Bid acceptance does **not** roll back if task update fails.
+- If `updateTask` in handleEscrowCreated throws → error logged; contract event and bid status already published. Self-healing (`reconcileTaskStatusWithContracts`) will fix when user views contracts.
 
 ---
 
@@ -109,16 +117,19 @@ Taskee clicks "Complete" in ContractActions
 
 ### 3.2 Tasker accepts task → COMPLETED (task status update)
 
+**Nostr-after-confirmation:** Task status is updated only **after** the accept tx confirms on chain. See [docs/task-status-resilience.md](../docs/task-status-resilience.md) §5.6.
+
 ```
 Tasker clicks "Accept" (release funds) in ContractActions
     │
     ├── acceptTask()
     │       │
     │       ├── escrow.escrowOps.acceptTask(contract)
-    │       │       └── [escrow.ts] acceptTask() → tx, FundsReleased on confirm
-    │       │
-    │       ├── updateTask(taskId, { status: TaskStatusEnum.COMPLETED })  ◄── TASK STATUS UPDATE (Tasker only)
-    │       │       └── [task.ts] updateTask()
+    │       │       │  [escrow/index.ts wraps v1 acceptTask with onConfirmed]
+    │       │       └── [escrow.ts] acceptTask() → tx, then tx.wait().then(onConfirmed)
+    │       │               │
+    │       │               └── onConfirmed() → updateTask(taskId, { status: COMPLETED })  ◄── TASK STATUS UPDATE
+    │       │                       └── [task.ts] updateTask() → Nostr addressable event
     │       │
     │       ├── pushNotificationService.sendNotificationToNpubs(...)
     │       └── sendPaymentReleasedMessageToTaskee(...)
@@ -126,21 +137,22 @@ Tasker clicks "Accept" (release funds) in ContractActions
 
 ### 3.3 Key Files and Lines
 
-| Step                | File                     | Description                                                                    |
-| ------------------- | ------------------------ | ------------------------------------------------------------------------------ |
-| Taskee complete     | `ContractActions.svelte` | `completeTaskWithAttachments()` — no task event update.                        |
-| Tasker accept       | `ContractActions.svelte` | `acceptTask()` — calls `updateTask(..., COMPLETED)` after acceptTask succeeds. |
-| Escrow completeTask | `escrow.ts`              | 507–574 — completeTask()                                                       |
-| Escrow acceptTask   | `escrow.ts`              | 579+ — acceptTask()                                                            |
+| Step                | File                     | Description                                                                      |
+| ------------------- | ------------------------ | -------------------------------------------------------------------------------- |
+| Taskee complete     | `ContractActions.svelte` | `completeTaskWithAttachments()` — no task event update.                          |
+| Tasker accept       | `ContractActions.svelte` | `acceptTask()` — triggers escrow acceptTask; no direct updateTask call.          |
+| Escrow acceptTask   | `escrow/index.ts`        | Wraps handler; passes `onConfirmed` callback that calls `updateTask(COMPLETED)`. |
+| Task status update  | `escrow/v1/escrow.ts`    | `tx.wait().then(() => options?.onConfirmed?.())` — after chain confirmation.     |
+| Escrow completeTask | `escrow.ts`              | 507–574 — completeTask()                                                         |
 
 ### 3.4 Order of Operations
 
 1. **Taskee:** completeTask on contract → PendingCompletion → (async) Completed on confirm. Task event stays IN_PROGRESS.
-2. **Tasker:** acceptTask on contract → funds released. Then Tasker updates task event to COMPLETED.
+2. **Tasker:** acceptTask on contract → tx broadcast → tx confirms → `onConfirmed()` → `updateTask(COMPLETED)`.
 
 ### 3.5 Error Handling
 
-- `updateTask` in acceptTask is called with `.catch(err => console.error(...))` — failure does not surface to user.
+- If `onConfirmed` (updateTask) throws → error logged in escrow layer; user not notified. Self-healing (`reconcileTaskStatusWithContracts`) will fix when user views contracts.
 - Escrow errors are caught and shown via `appStore.showErrorToast`.
 
 ---
@@ -197,15 +209,16 @@ Same pattern for `myTasksStore`.
 
 ## 5. Escrow Events vs Task Status
 
-| Concern                                      | Handled By                         | When                                                    |
-| -------------------------------------------- | ---------------------------------- | ------------------------------------------------------- |
-| Task status (OPEN → IN_PROGRESS)             | BidAcceptanceForm → updateTask     | After escrow tx broadcast, before confirmation          |
-| Task status (IN_PROGRESS → COMPLETED)        | ContractActions → acceptTask       | After acceptTask (release funds) succeeds (Tasker only) |
-| Contract creation (Nostr)                    | escrowEvents.handleEscrowCreated   | When escrow tx confirms                                 |
-| Bid status (ACCEPTED)                        | escrowEvents → sendBidStatusUpdate | When escrow tx confirms                                 |
-| Escrow status (PendingCompletion, Completed) | escrow.ts → publishEscrowStatus    | Before/after completeTask tx                            |
+| Concern                                      | Handled By                         | When                                               |
+| -------------------------------------------- | ---------------------------------- | -------------------------------------------------- |
+| Task status (OPEN → IN_PROGRESS)             | escrowEvents.handleEscrowCreated   | When escrow tx confirms (Nostr after confirmation) |
+| Task status (IN_PROGRESS → COMPLETED)        | escrow onConfirmed callback        | When accept tx confirms (Nostr after confirmation) |
+| Contract creation (Nostr)                    | escrowEvents.handleEscrowCreated   | When escrow tx confirms                            |
+| Bid status (ACCEPTED)                        | escrowEvents → sendBidStatusUpdate | When escrow tx confirms                            |
+| Escrow status (PendingCompletion, Completed) | escrow.ts → publishEscrowStatus    | Before/after completeTask tx                       |
+| Self-healing (sync stale task status)        | reconcileTaskStatusWithContracts   | When loading contracts (DashboardContractsPanel)   |
 
-**Design note (from escrowEvents.ts:203):** "Task status update to IN_PROGRESS is done in BidAcceptanceForm.svelte to keep task logic out of escrow events."
+**Design note:** Task status updates happen **after** chain confirmation. See [task-status-resilience.md](../docs/task-status-resilience.md) §5.6.
 
 ---
 
@@ -216,11 +229,12 @@ Same pattern for `myTasksStore`.
 - `props.task.id` in BidAcceptanceForm comes from the Nostr task event. The event's `id` property is the 64-char hex event ID. Some code paths may use d-tag as "task id" for display/routing.
 - **Risk:** If `task.id` is sometimes d-tag and sometimes eventId, `updateTask` handles both — but callers must pass a resolvable ID.
 
-### 6.2 Optimistic vs Confirmed
+### 6.2 Nostr After Confirmation
 
-- Both task status updates happen **before** blockchain confirmation.
-- **OPEN → IN_PROGRESS:** If escrow tx fails, task could already show IN_PROGRESS. The escrow flow would clean up (`cleanupPendingContractByTxHash`) but would **not** revert the task status.
-- **IN_PROGRESS → COMPLETED:** If completeTask tx fails, task could show COMPLETED. User would see error toast; Nostr task would be out of sync until manual correction or re-fetch.
+- Both task status updates happen **after** blockchain confirmation (Nostr-after-confirmation strategy).
+- **OPEN → IN_PROGRESS:** `handleEscrowCreated` runs only when escrow tx confirms; if tx fails, no task status update.
+- **IN_PROGRESS → COMPLETED:** `onConfirmed` runs only when accept tx confirms; if tx fails, no task status update.
+- **Self-healing:** If updateTask fails at confirmation time, `reconcileTaskStatusWithContracts` fixes when user views contracts (DashboardContractsPanel).
 
 ### 6.3 Concurrent Updates
 
@@ -229,19 +243,19 @@ Same pattern for `myTasksStore`.
 
 ### 6.4 Failure Isolation
 
-- Task update failure in BidAcceptanceForm: logged + toast; escrow/contract flow continues.
-- Task update failure in ContractActions: only `console.error`; user not notified; contract/escrow may show completed but task may still show IN_PROGRESS elsewhere.
+- Task update failure in handleEscrowCreated: logged; contract event and bid status already published. Self-healing fixes when user views contracts.
+- Task update failure in onConfirmed: logged in escrow layer; user not notified. Self-healing fixes when user views contracts.
 
 ---
 
 ## 7. Trace Checklist for Reviewer
 
-- [ ] Confirm `props.task.id` in BidAcceptanceForm is the value passed to `updateTask` and that it resolves (eventId or d-tag).
-- [ ] Verify `contractStore.getContractKey(contract, 'taskId')` returns a valid task ID for ContractActions.
+- [ ] Confirm `pendingContract.taskId` in handleEscrowCreated comes from registerPendingContractByTxHash and resolves (eventId or d-tag).
+- [ ] Verify `contractStore.getContractKey(contract, 'taskId')` returns a valid task ID for escrow index onConfirmed.
 - [ ] Trace `generateTaskTags` to ensure status tag `['S', status]` is correct.
 - [ ] Confirm store update logic matches tasks in both `tasksStore` and `myTasksStore`.
-- [ ] Review error handling: is silent failure in ContractActions acceptable?
-- [ ] Consider adding integration test: mock escrow + task flow, assert updateTask called with correct status at each transition.
+- [ ] Review error handling: self-healing mitigates silent failure; consider toast on onConfirmed failure.
+- [ ] Consider adding integration test: mock escrow + task flow, assert updateTask called with correct status after confirmation.
 
 ---
 

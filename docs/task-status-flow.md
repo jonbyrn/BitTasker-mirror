@@ -14,11 +14,11 @@
 
 ## 2. Status lifecycle and who updates
 
-| Status      | Set by | When                                                                                                                                             |
-| ----------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| OPEN        | Tasker | Task creation.                                                                                                                                   |
-| IN_PROGRESS | Tasker | When Tasker accepts a bid and escrow is created (BidAcceptanceForm).                                                                             |
-| COMPLETED   | Tasker | When Tasker accepts the task and releases funds (ContractActions → acceptTask). **Not** when the Taskee marks the task complete on the contract. |
+| Status      | Set by | When                                                                                                                                    |
+| ----------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| OPEN        | Tasker | Task creation.                                                                                                                          |
+| IN_PROGRESS | Tasker | When escrow tx confirms (handleEscrowCreated), after Tasker accepts a bid.                                                              |
+| COMPLETED   | Tasker | When accept tx confirms (escrow onConfirmed), after Tasker accepts the task and releases funds. **Not** when the Taskee marks complete. |
 
 Other statuses (BID_ACCEPTED, ESCROW_FUNDED, CANCELLED, DISPUTED, etc.) follow the same rule: only the Tasker publishes task event updates.
 
@@ -35,7 +35,7 @@ The full completion flow is:
 
 The task should show as **COMPLETED** only after step 2, i.e. when the Tasker has accepted and released funds. Therefore:
 
-- **Tasker** calls `updateTask(taskId, { status: COMPLETED })` in **acceptTask** (ContractActions), after `escrow.escrowOps.acceptTask(contract)` succeeds.
+- **Tasker** triggers `updateTask(taskId, { status: COMPLETED })` via the escrow **onConfirmed** callback, which runs after the accept tx confirms on chain.
 - **Taskee** must **not** call `updateTask(..., COMPLETED)` in completeTaskWithAttachments. The Taskee only updates the contract (completeTask); the task event is updated by the Tasker when they accept.
 
 If the Taskee updated the task event to COMPLETED as soon as they marked complete, the UI would show “Completed” before the Tasker has accepted and released funds, which is incorrect.
@@ -44,15 +44,16 @@ If the Taskee updated the task event to COMPLETED as soon as they marked complet
 
 ## 4. Implementation reference
 
-| Action           | Component / flow                              | Task event update                                                 |
-| ---------------- | --------------------------------------------- | ----------------------------------------------------------------- |
-| Create task      | Create task page                              | OPEN (Tasker).                                                    |
-| Accept bid       | BidAcceptanceForm.svelte                      | IN_PROGRESS (Tasker).                                             |
-| Taskee completes | ContractActions → completeTaskWithAttachments | **None.** Taskee only does contract completeTask + notifications. |
-| Tasker accepts   | ContractActions → acceptTask                  | **COMPLETED** (Tasker).                                           |
+| Action           | Component / flow                              | Task event update                                                                    |
+| ---------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Create task      | Create task page                              | OPEN (Tasker).                                                                       |
+| Accept bid       | BidAcceptanceForm.svelte → escrow creation    | IN_PROGRESS (Tasker) when escrow tx confirms — `handleEscrowCreated` in escrowEvents |
+| Taskee completes | ContractActions → completeTaskWithAttachments | **None.** Taskee only does contract completeTask + notifications.                    |
+| Tasker accepts   | ContractActions → acceptTask                  | **COMPLETED** (Tasker) when accept tx confirms — escrow `onConfirmed` callback       |
 
 - **Task event updates:** `src/lib/nostr/task.ts` → `updateTask()`.
-- **Call sites:** `BidAcceptanceForm.svelte` (IN_PROGRESS), `ContractActions.svelte` (COMPLETED in acceptTask only).
+- **Call sites:** `escrowEvents.ts` handleEscrowCreated (IN_PROGRESS), `escrow/index.ts` onConfirmed (COMPLETED).
+- **Self-healing:** `reconcileTaskStatusWithContracts` in DashboardContractsPanel syncs stale status when viewing contracts.
 
 ---
 
