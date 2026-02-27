@@ -34,6 +34,10 @@
 		errorType?: ErrorType;
 		showButton?: boolean;
 		open?: boolean; // Control modal open state programmatically
+		/** 'error' = full error styling and help section; 'setup' = neutral styling, no error alert, no "Still need help?", Setup Passkey + Cancel buttons */
+		variant?: 'error' | 'setup';
+		retryButtonLabel?: string; // When variant is 'setup', label for primary action (default: Setup Passkey)
+		cancelButtonLabel?: string; // When variant is 'setup', label for secondary button (default: Cancel)
 	}
 
 	let {
@@ -42,7 +46,10 @@
 		errorMessage,
 		errorType: providedErrorType,
 		showButton = false,
-		open: controlledOpen
+		open: controlledOpen,
+		variant = 'error',
+		retryButtonLabel,
+		cancelButtonLabel
 	}: Props = $props();
 
 	// Auto-detect error type if not provided
@@ -163,9 +170,14 @@
 			transition:fly={{ y: 20, duration: 300 }}
 		>
 			<!-- Modal Header -->
-			<div class="bg-error/10 flex items-center justify-end rounded-t-lg px-3 py-2 sm:px-4 sm:py-3">
+			<div
+				class="flex items-center justify-end rounded-t-lg px-3 py-2 sm:px-4 sm:py-3 {variant ===
+				'error'
+					? 'bg-error/10'
+					: 'bg-base-200'}"
+			>
 				<button
-					class="btn btn-sm btn-circle btn-ghost hover:bg-error/20"
+					class="btn btn-sm btn-circle btn-ghost {variant === 'error' ? 'hover:bg-error/20' : ''}"
 					onclick={closeModal}
 					aria-label={$t('common.components.modal.close')}
 				>
@@ -188,16 +200,18 @@
 
 			<!-- Modal Content -->
 			<div class="flex-1 space-y-4 overflow-y-auto p-4 sm:space-y-6 sm:p-6">
-				<!-- Error Message Section -->
-				<div class="alert alert-outline alert-error">
-					<IconAlertCircle class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-					<div class="min-w-0">
-						<h4 class="text-base-content text-[10px] font-bold whitespace-nowrap sm:text-xs">
-							{$t('common.components.error_troubleshooting_modal.error_occurred')}
-						</h4>
-						<p class="overflow-wrap-anywhere mt-1 text-[10px] sm:text-xs">{errorMessage}</p>
+				<!-- Error Message Section (only in error variant) -->
+				{#if variant === 'error' && errorMessage}
+					<div class="alert alert-outline alert-error">
+						<IconAlertCircle class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+						<div class="min-w-0">
+							<h4 class="text-base-content text-[10px] font-bold whitespace-nowrap sm:text-xs">
+								{$t('common.components.error_troubleshooting_modal.error_occurred')}
+							</h4>
+							<p class="overflow-wrap-anywhere mt-1 text-[10px] sm:text-xs">{errorMessage}</p>
+						</div>
 					</div>
-				</div>
+				{/if}
 
 				<!-- Passkey Overview Section -->
 				<div class="card bg-base-200 border-primary/20 border-2">
@@ -441,18 +455,20 @@
 					</div>
 				{/if}
 
-				<!-- Still Need Help Section -->
-				<div class="alert alert-outline alert-info">
-					<IconInformation class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
-					<div class="min-w-0">
-						<h4 class="text-base-content text-sm font-bold sm:text-base">
-							{$t('common.components.error_troubleshooting_modal.still_need_help_title')}
-						</h4>
-						<p class="mt-1 text-xs leading-relaxed sm:text-sm">
-							{$t('common.components.error_troubleshooting_modal.still_need_help_description')}
-						</p>
+				<!-- Still Need Help Section (only in error variant) -->
+				{#if variant === 'error'}
+					<div class="alert alert-outline alert-info">
+						<IconInformation class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+						<div class="min-w-0">
+							<h4 class="text-base-content text-sm font-bold sm:text-base">
+								{$t('common.components.error_troubleshooting_modal.still_need_help_title')}
+							</h4>
+							<p class="mt-1 text-xs leading-relaxed sm:text-sm">
+								{$t('common.components.error_troubleshooting_modal.still_need_help_description')}
+							</p>
+						</div>
 					</div>
-				</div>
+				{/if}
 			</div>
 
 			<!-- Action Buttons - Fixed at bottom -->
@@ -466,7 +482,10 @@
 				>
 					<IconCheckCircle class="mr-2 h-4 w-4 shrink-0 sm:h-4 sm:w-4" />
 					<span class="text-sm font-medium sm:text-sm"
-						>{$t('common.components.error_troubleshooting_modal.got_it_button')}</span
+						>{variant === 'setup'
+							? (cancelButtonLabel ??
+								$t('common.components.error_troubleshooting_modal.cancel_button'))
+							: $t('common.components.error_troubleshooting_modal.got_it_button')}</span
 					>
 				</button>
 				<button
@@ -476,17 +495,18 @@
 					onclick={async () => {
 						closeModal();
 						if (onRetry) {
-							// Call the retry callback - it should handle closing modal, clearing error, and retrying the action
 							await onRetry();
 						} else {
-							// Fallback to page reload if no retry callback provided
 							window.location.reload();
 						}
 					}}
 				>
 					<IconRefresh class="mr-2 h-4 w-4 shrink-0 sm:h-4 sm:w-4" />
 					<span class="text-sm font-medium sm:text-sm"
-						>{$t('common.components.error_troubleshooting_modal.retry_button')}</span
+						>{variant === 'setup'
+							? (retryButtonLabel ??
+								$t('common.components.error_troubleshooting_modal.setup_passkey_button'))
+							: $t('common.components.error_troubleshooting_modal.retry_button')}</span
 					>
 				</button>
 			</div>

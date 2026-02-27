@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { linear } from 'svelte/easing';
-	import { fly } from 'svelte/transition';
+	import { cubicIn, cubicOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
 	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { locale, t } from 'svelte-i18n';
@@ -8,7 +8,6 @@
 	import { getAllKeys } from '$lib/utils/nostrKeys';
 	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { nip19 } from 'nostr-tools';
-	import IconCheck from '~icons/mdi/check-circle-outline';
 	import type { AccountRecoveryData } from '$lib/types/auth';
 	import authService from '$lib/api/services/auth.service';
 	import { appStore } from '$lib/stores/app.store';
@@ -17,14 +16,16 @@
 	let {
 		nextStep,
 		prevStep,
-		currentStep,
-		totalSteps
+		currentStep: _currentStep,
+		totalSteps: _totalSteps
 	}: {
 		nextStep: () => void;
 		prevStep: () => void;
 		currentStep: number;
 		totalSteps: number;
 	} = $props();
+	void _currentStep;
+	void _totalSteps;
 
 	// User data
 	let recoveryEmail = $state('');
@@ -268,54 +269,21 @@
 </script>
 
 <div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-recovery">
-	<div class="card-body">
+	<div class="card-body space-y-2">
 		<!-- Educational Header -->
-		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
-				{$t('onboarding_auth.form.recovery_setup.step')}
-				{currentStep + 1}
-				{$t('onboarding_auth.form.recovery_setup.of')}
-				{totalSteps} — {$t('onboarding_auth.form.recovery_setup.optional')}
-			</div>
-			<h3 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.recovery_setup.title')}</h3>
-			<h5 class="mb-3">{$t('onboarding_auth.form.recovery_setup.subtitle')}</h5>
-			<p class="step-description text-base-content mx-auto mb-6 max-w-lg text-lg">
-				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-				{@html $t('onboarding_auth.form.recovery_setup.description')}
+		<div class="education-header text-center">
+			<h4 class="step-title">{$t('onboarding_auth.form.recovery_setup.title')}</h4>
+			<p class="text-base-content/90 mx-auto max-w-lg text-center text-sm md:text-base">
+				{$t('onboarding_auth.form.recovery_setup.description')}
 			</p>
-
-			<!-- Features List (aligned with Nostr import styling) -->
-			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					<span>{@html $t('onboarding_auth.form.recovery_setup.features.secure')}</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					<span>{@html $t('onboarding_auth.form.recovery_setup.features.recoverable')}</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					<span>{@html $t('onboarding_auth.form.recovery_setup.features.optional')}</span>
-				</div>
-				<div class="feature-item mb-6 flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					<span>{@html $t('onboarding_auth.form.recovery_setup.features.private')}</span>
-				</div>
-
-				<p class="text-primary mb-6 text-center text-lg">
-					{$t('onboarding_auth.form.recovery_setup.highly_recommended')}
-				</p>
-			</div>
+			<p class="text-base-content/80 mx-auto max-w-lg text-center text-sm md:text-base">
+				{$t('onboarding_auth.form.recovery_setup.set_later')}
+			</p>
 		</div>
 
-		<form onsubmit={handleSubmit} class="space-y-6">
+		<form onsubmit={handleSubmit} class="space-y-2">
 			<!-- Recovery Password Option -->
-			<div class="form-control mx-auto max-w-lg">
+			<div class="form-control mx-auto max-w-lg py-4">
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input
 						type="checkbox"
@@ -330,7 +298,11 @@
 			</div>
 
 			{#if enableRecovery}
-				<div class="space-y-6" in:fly={{ duration: 200, y: -20, easing: linear }}>
+				<div
+					class="space-y-2"
+					in:slide={{ duration: 200, easing: cubicOut }}
+					out:slide={{ duration: 200, easing: cubicIn }}
+				>
 					<!-- Recovery Email Field -->
 					<div class="form-control mx-auto max-w-lg">
 						<label class="label" for="email">
@@ -360,7 +332,7 @@
 					<!-- Recovery Password Field -->
 					<div class="form-control mx-auto max-w-lg">
 						<!-- Generated Password Note -->
-						<div class="alert alert-warning alert-outline mb-2">
+						<div class="alert alert-warning alert-outline">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-5 w-5 shrink-0 stroke-current"
@@ -385,8 +357,8 @@
 						</label>
 
 						<!-- Password Input with Eye Icon and Generate Button in same row -->
-						<div class="mb-3 flex gap-2">
-							<div class="relative flex-1">
+						<div class="flex items-stretch gap-2">
+							<div class="relative min-w-0 flex-1">
 								<input
 									type={showPassword ? 'text' : 'password'}
 									id="password"
@@ -454,10 +426,10 @@
 								</button>
 							</div>
 
-							<!-- Generate Button - Same row as input -->
+							<!-- Generate Button - icon only, same size as copy button -->
 							<button
 								type="button"
-								class="btn btn-outline btn-sm"
+								class="btn btn-outline btn-sm btn-square flex shrink-0 items-center justify-center"
 								onclick={handleGeneratePassword}
 								title={$t('onboarding_auth.form.recovery_setup.generate_password', {
 									locale: $locale === 'es' ? 'Spanish' : 'English'
@@ -468,7 +440,7 @@
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="mr-2 h-4 w-4"
+									class="h-4 w-4"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -493,8 +465,8 @@
 						</label>
 
 						<!-- Confirm Password Input with Eye Icon and Copy Button in same row -->
-						<div class="mb-3 flex gap-2">
-							<div class="relative flex-1">
+						<div class="flex items-stretch gap-2">
+							<div class="relative min-w-0 flex-1">
 								<input
 									type={showConfirmPassword ? 'text' : 'password'}
 									id="confirmPassword"
@@ -564,7 +536,7 @@
 							<!-- Copy Button - Same row as input -->
 							<button
 								type="button"
-								class="btn btn-outline btn-sm"
+								class="btn btn-outline btn-sm btn-square flex shrink-0 items-center justify-center"
 								onclick={handleCopyPassword}
 								title={$t('onboarding_auth.form.recovery_setup.copy_password')}
 								disabled={!recoveryPassword}
@@ -616,7 +588,7 @@
 
 						<!-- Password Strength Indicator -->
 						{#if recoveryPassword && recoveryPassword.length >= 12}
-							<div class="mt-2">
+							<div>
 								<div class="flex items-center gap-2">
 									<div class="flex-1">
 										<div class="bg-base-300 h-2 w-full overflow-hidden rounded-full">
@@ -653,7 +625,7 @@
 			{/if}
 
 			<!-- Form Actions -->
-			<div class="mt-8 flex justify-between">
+			<div class="flex justify-between">
 				<button type="button" class="btn btn-outline" onclick={prevStep}
 					>{$t('onboarding_auth.form.recovery_setup.back')}</button
 				>

@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { validateUsername } from '$lib/utils/helpers/validators';
 	import { t } from 'svelte-i18n';
-	import IconCheck from '~icons/mdi/check-circle-outline';
 	import authService from '$lib/api/services/auth.service';
 
 	let {
 		nextStep,
-		currentStep,
-		totalSteps,
+		currentStep: _currentStep,
+		totalSteps: _totalSteps,
 		onUsernameChange
 	}: {
 		nextStep: () => void;
@@ -15,6 +14,8 @@
 		totalSteps: number;
 		onUsernameChange: (username: string, isAvailable: boolean) => void;
 	} = $props();
+	void _currentStep;
+	void _totalSteps;
 
 	// User data
 	let username = $state('');
@@ -83,48 +84,17 @@
 </script>
 
 <div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-username">
-	<div class="card-body">
+	<div class="card-body space-y-2">
 		<!-- Educational Header -->
-		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
-				{$t('onboarding_auth.form.username_setup.step')}
-				{currentStep + 1}
-				{$t('onboarding_auth.form.username_setup.of')}
-				{totalSteps}
-			</div>
+		<div class="education-header text-center">
+			<h4 class="step-title">{$t('onboarding_auth.form.username_setup.title')}</h4>
 
-			<h4 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.username_setup.title')}</h4>
-			<h5 class="mb-3">{$t('onboarding_auth.form.username_setup.subtitle')}</h5>
-
-			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-center">
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					<span>{@html $t('onboarding_auth.form.username_setup.features.claim_name')}</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					<span>{@html $t('onboarding_auth.form.username_setup.features.professional')}</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					<span>{@html $t('onboarding_auth.form.username_setup.features.shareable')}</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					<span>{@html $t('onboarding_auth.form.username_setup.features.nostr_portable')}</span>
-				</div>
-			</div>
-
-			<p class="text-primary mb-2 text-lg">
+			<p class="text-primary text-base md:text-lg">
 				{$t('onboarding_auth.form.username_setup.first_impressions')}
 			</p>
 		</div>
 
-		<form onsubmit={handleSubmit} class="">
+		<form onsubmit={handleSubmit} class="space-y-2">
 			<!-- Username Field -->
 			<div class="form-control mx-auto max-w-lg">
 				<label class="label" for="username">
@@ -181,7 +151,7 @@
 			</div>
 
 			<!-- Form Actions -->
-			<div class="mt-6 flex justify-between">
+			<div class="flex justify-between">
 				<!-- Empty div for spacing since there's no back on step 1 -->
 				<div></div>
 				<button

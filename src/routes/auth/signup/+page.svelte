@@ -111,26 +111,19 @@
 <div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
-			<div class="mb-8 flex flex-col items-center justify-center">
-				<Logo />
+			<div class="mb-4 flex flex-col items-center justify-center">
+				<Logo
+					class="mx-auto mt-2 mb-2 block w-full max-w-xs sm:mt-8 sm:mb-8 sm:max-w-sm md:max-w-md"
+				/>
 				<h3 class="mt-2 text-center font-bold">{$t('signup.title')}</h3>
-				<br />
-				<div class="w-full px-4">
-					<p class="text-base-content mb-4 text-center text-sm">
-						{$t('signup.subtitle')}
-					</p>
-					<p class="text-base-content text-center text-sm">
-						{$t('signup.description')}
-					</p>
-				</div>
+				<p class="text-base-content mt-2 px-4 text-center text-sm">
+					{$t('signup.subtitle')}
+				</p>
 			</div>
 
 			<div class="flex flex-col gap-4">
 				<!-- Cloudflare Turnstile Captcha -->
 				<div class="mt-2">
-					<div class="mb-2">
-						<p class="mb-2 w-full text-start text-sm">{$t('signup.verify_human')}</p>
-					</div>
 					<div bind:this={turnstileWidget} class="flex justify-center"></div>
 					{#if captchaFailed && !$isCaptchaVerified}
 						<div class="mt-2 flex justify-center">

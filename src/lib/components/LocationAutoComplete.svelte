@@ -1,6 +1,8 @@
 <script lang="ts">
+	/* global google */
 	import type { LocationProps } from '$lib/types/props';
 	import type { GooglePlaceFields } from '$lib/types/placeFields';
+	import type { Snippet } from 'svelte';
 	import LocationPickerMap from '$lib/components/maps/LocationPickerMap.svelte';
 	import { t } from 'svelte-i18n';
 
@@ -18,11 +20,13 @@
 		onLocationSelect,
 		showMap = true,
 		mapHeight = '300px',
-		searchRadius = 1.5
+		searchRadius = 1.5,
+		trailingAction
 	}: LocationProps & {
 		showMap?: boolean;
 		mapHeight?: string;
 		searchRadius?: number;
+		trailingAction?: Snippet;
 	} = $props();
 
 	// State
@@ -36,9 +40,8 @@
 		try {
 			if (!searchInput.value) return;
 			isLoading = true;
-			const { AutocompleteSessionToken, AutocompleteSuggestion } = (await google.maps.importLibrary(
-				'places'
-			)) as google.maps.PlacesLibrary;
+			const { AutocompleteSessionToken, AutocompleteSuggestion } =
+				(await window.google.maps.importLibrary('places')) as google.maps.PlacesLibrary;
 
 			const token = new AutocompleteSessionToken();
 
@@ -62,7 +65,7 @@
 	}
 
 	// Debounce function
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
+	function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number) {
 		let timeoutId: ReturnType<typeof setTimeout>;
 		return function (...args: Parameters<T>) {
 			clearTimeout(timeoutId);
@@ -71,9 +74,14 @@
 	}
 
 	async function selectPrediction(prediction: google.maps.places.PlacePrediction) {
-		let place = prediction.toPlace();
+		const place = prediction.toPlace();
 		await place.fetchFields({
-			fields: ['displayName', 'formattedAddress', 'location', 'addressComponents'] as GooglePlaceFields[]
+			fields: [
+				'displayName',
+				'formattedAddress',
+				'location',
+				'addressComponents'
+			] as GooglePlaceFields[]
 		});
 
 		const lat = place.location?.lat();
@@ -97,10 +105,10 @@
 	}
 
 	// Handle location changes from map
-	function handleMapLocationChange(event: CustomEvent<{ location: any }>) {
+	function handleMapLocationChange(event: CustomEvent<{ location: typeof location }>) {
 		const newLocation = event.detail.location;
 		location = newLocation;
-		
+
 		// Update input value
 		if (searchInput) {
 			searchInput.value = newLocation.displayName;
@@ -119,18 +127,48 @@
 		</label>
 	{/if}
 	<div class="relative">
-		<input
-			bind:this={searchInput}
-			id="location-search"
-			type="text"
-			{placeholder}
-			class="input input-bordered w-full {hasError ? 'input-error' : ''}"
-			value={location.displayName}
-			oninput={debounce(() => getPredictions(), 300)}
-		/>
-		{#if isLoading}
-			<div class="absolute top-1/2 right-3 -translate-y-1/2">
-				<span class="loading loading-spinner loading-sm"></span>
+		<div class="flex flex-row items-center gap-2">
+			<div class="relative min-w-0 flex-1">
+				<input
+					bind:this={searchInput}
+					id="location-search"
+					type="text"
+					{placeholder}
+					class="input input-bordered w-full {hasError ? 'input-error' : ''}"
+					value={location.displayName}
+					oninput={debounce(() => getPredictions(), 300)}
+				/>
+				{#if isLoading}
+					<div class="absolute top-1/2 right-3 -translate-y-1/2">
+						<span class="loading loading-spinner loading-sm"></span>
+					</div>
+				{/if}
+			</div>
+			{#if trailingAction}
+				{@render trailingAction()}
+			{/if}
+		</div>
+
+		{#if showOptions}
+			<div
+				class="predictions-dropdown bg-base-100 absolute top-full right-0 left-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg shadow-lg"
+			>
+				{#if predictions.length > 0}
+					{#each predictions as prediction, index (index)}
+						<button
+							class="hover:bg-base-200 w-full cursor-pointer px-4 py-2 text-left"
+							onclick={() => selectPrediction(prediction!)}
+						>
+							{prediction?.text}
+						</button>
+					{/each}
+				{:else}
+					<label class="label" for="location-search">
+						<span class="label-text-alt text-error"
+							>{$t('common.components.location_autocomplete.no_places_found')}</span
+						>
+					</label>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -143,36 +181,15 @@
 		</label>
 	{/if}
 
-	{#if showOptions}
-		<div
-			class="predictions-dropdown bg-base-100 absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg"
-		>
-			{#if predictions.length > 0}
-				{#each predictions as prediction}
-					<button
-						class="hover:bg-base-200 w-full cursor-pointer px-4 py-2 text-left"
-						onclick={() => selectPrediction(prediction!)}
-					>
-						{prediction?.text}
-					</button>
-				{/each}
-			{:else}
-				<label class="label" for="location-search">
-					<span class="label-text-alt text-error">{$t('common.components.location_autocomplete.no_places_found')}</span>
-				</label>
-			{/if}
-		</div>
-	{/if}
-
 	<!-- Map Component -->
 	{#if showMap}
 		<div class="mt-4">
-			<LocationPickerMap 
-				{location} 
+			<LocationPickerMap
+				{location}
 				height={mapHeight}
 				showPin={true}
 				allowPinDrop={true}
-				searchRadius={searchRadius}
+				{searchRadius}
 				on:locationChanged={handleMapLocationChange}
 			/>
 		</div>

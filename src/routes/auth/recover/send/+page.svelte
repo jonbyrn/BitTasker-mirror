@@ -40,8 +40,10 @@
 <div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
-			<div class="mb-8 flex flex-col items-center justify-center">
-				<Logo />
+			<div class="mb-4 flex flex-col items-center justify-center">
+				<Logo
+					class="mx-auto mt-2 mb-2 block w-full max-w-xs sm:mt-8 sm:mb-8 sm:max-w-sm md:max-w-md"
+				/>
 				<h3 class="mt-2 text-center font-bold">{$t('recovery_send.title')}</h3>
 				<br />
 				<div class="w-full px-4">
@@ -60,6 +62,7 @@
 						<input
 							type="email"
 							id="email"
+							data-testid="recover-send-email"
 							bind:value={email}
 							placeholder={$t('recovery_send.email_placeholder')}
 							class="input input-bordered w-full"
@@ -67,7 +70,12 @@
 						/>
 					</div>
 
-					<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
+					<button
+						type="submit"
+						class="btn btn-primary w-full"
+						disabled={isLoading}
+						data-testid="recover-send-submit"
+					>
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{:else}

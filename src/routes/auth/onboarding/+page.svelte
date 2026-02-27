@@ -58,11 +58,13 @@
 	};
 </script>
 
-<div class="flex w-full grow flex-col items-center px-4 py-8" use:autoLoadTranslations>
+<div class="flex w-full grow flex-col items-center px-4 md:py-8" use:autoLoadTranslations>
 	<div class="w-full max-w-4xl">
-		<div class="mb-8 flex flex-col items-center">
-			<Logo />
-			<h3 class="my-2">{$t('onboarding_auth.title')}</h3>
+		<div class="mb-4 flex flex-col items-center md:mb-8">
+			<Logo
+				class="mx-auto mt-4 mb-4 block max-h-[60px] w-full max-w-xs sm:max-h-none sm:max-w-sm md:max-w-md"
+			/>
+			<p>{$t('onboarding_auth.title')}</p>
 
 			<!-- Progress indicator -->
 			<div class="w-full">

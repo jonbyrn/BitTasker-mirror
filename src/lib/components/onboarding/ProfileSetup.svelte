@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { NostrProfile, NostrProfileImage, Skill } from '$lib/types/profile.d';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
+	import { cubicIn, cubicOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { t } from 'svelte-i18n';
-	import IconCheck from '~icons/mdi/check-circle-outline';
 	import {
 		publishProfileMetadata,
 		publishMultipleImages,
@@ -16,12 +17,19 @@
 	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { nextStep, prevStep, currentStep, totalSteps } = $props<{
+	let {
+		nextStep,
+		prevStep,
+		currentStep: _currentStep,
+		totalSteps: _totalSteps
+	} = $props<{
 		nextStep: () => void;
 		prevStep: () => void;
 		currentStep: number;
 		totalSteps: number;
 	}>();
+	void _currentStep;
+	void _totalSteps;
 
 	// User data
 	let displayName = $state('');
@@ -38,12 +46,29 @@
 	let descriptionError = $state('');
 	let picture = $state<NostrProfileImage | null>(null);
 	let selectedFile = $state<File | null>(null);
+	let selectedFileBlobUrl = $state<string | null>(null);
 	let pictureLoading = $state(false);
 	let isInitialLoading = $state(false);
 
+	// Single blob URL per selectedFile; revoke only when file changes or on unmount (avoid leak)
+	let blobUrlForFile = $state.raw<File | null>(null);
+	$effect(() => {
+		const file = selectedFile;
+		const prevUrl = untrack(() => selectedFileBlobUrl);
+		const prevFile = untrack(() => blobUrlForFile);
+		if (prevFile !== file && prevUrl) URL.revokeObjectURL(prevUrl);
+		blobUrlForFile = file;
+		const newUrl = file ? URL.createObjectURL(file) : null;
+		selectedFileBlobUrl = newUrl;
+		return () => {
+			if (newUrl) URL.revokeObjectURL(newUrl);
+			blobUrlForFile = null;
+		};
+	});
+
 	// Event IDs for updates
 	let imageEventId = $state<string | null>(null);
-	let saveForLater = $state(false);
+	let wantToGetHired = $state(false);
 	let showPrevBtn = $state(false);
 	let cleanup: (() => void) | null = null;
 
@@ -67,6 +92,10 @@
 							metadata.display_name || metadata.displayName || metadata.name || displayName;
 						professionalTitle = metadata.professionalTitle || professionalTitle;
 						profileDescription = metadata.about || profileDescription;
+						// Show worker fields if we have any worker profile data
+						if (metadata.professionalTitle || metadata.about) {
+							wantToGetHired = true;
+						}
 
 						// NIP-24 extended metadata fields
 						// Handle profile picture - priority: picture > banner (if no picture exists)
@@ -104,20 +133,20 @@
 						}
 					}
 					// Handle skills update
-				else if (
-					event.kind === KINDS.PROFILE_SKILLS &&
-					event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
-				) {
-					const skillsData = JSON.parse(event.content);
-					if (Array.isArray(skillsData)) {
-						skills = skillsData.map((skill) => ({
-							...skill,
-							id: skill.id
-						}));
-						// Mirror arriving skills into selectedSkills once to initialize the UI
-						selectedSkills = skillsData.map((s) => s.name);
+					else if (
+						event.kind === KINDS.PROFILE_SKILLS &&
+						event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
+					) {
+						const skillsData = JSON.parse(event.content);
+						if (Array.isArray(skillsData)) {
+							skills = skillsData.map((skill) => ({
+								...skill,
+								id: skill.id
+							}));
+							// Mirror arriving skills into selectedSkills once to initialize the UI
+							selectedSkills = skillsData.map((s) => s.name);
+						}
 					}
-				}
 				} catch (err) {
 					console.error('Failed to process profile update:', err);
 					error = $t('onboarding_auth.form.failed_process_profile_update');
@@ -142,7 +171,9 @@
 		if (selectedFile) {
 			try {
 				pictureLoading = true;
-				const uploadedFile = await uploadService.uploadSingleFile(selectedFile, { folder: 'profile' });
+				const uploadedFile = await uploadService.uploadSingleFile(selectedFile, {
+					folder: 'profile'
+				});
 				const uploadedPicture = {
 					url: uploadedFile.url,
 					type: selectedFile.type,
@@ -168,7 +199,10 @@
 		// If both arrays represent the same names (order-insensitive), skip
 		const currentNames = new Set(skills.map((s) => s.name));
 		const selectedNames = new Set(selectedSkills);
-		if (currentNames.size === selectedNames.size && [...currentNames].every((n) => selectedNames.has(n))) {
+		if (
+			currentNames.size === selectedNames.size &&
+			[...currentNames].every((n) => selectedNames.has(n))
+		) {
 			return;
 		}
 
@@ -203,21 +237,23 @@
 	}
 
 	// Remove skill tag (legacy function for compatibility)
-	function removeSkill(index: number) {
+	function _removeSkill(index: number) {
 		selectedSkills = selectedSkills.filter((_, i) => i !== index);
 	}
 
 	// Handle key press for skill tags (legacy function for compatibility)
-	function handleSkillKeypress(event: KeyboardEvent) {
+	function _handleSkillKeypress(event: KeyboardEvent) {
 		if (event.key === 'Enter' || event.key === ',') {
 			event.preventDefault();
 			addSkill();
 		}
 	}
+	void _removeSkill;
+	void _handleSkillKeypress;
 
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		
+
 		try {
 			isLoading = true;
 			error = '';
@@ -231,9 +267,8 @@
 				return;
 			}
 
-
-			// Validate profile description only when not saving for later
-			if (!saveForLater) {
+			// Validate profile description only when user wants to get hired
+			if (wantToGetHired) {
 				if (!profileDescription) {
 					descriptionError = $t('onboarding_auth.form.profile_description_required');
 					isLoading = false;
@@ -251,19 +286,22 @@
 			// Upload and publish profile picture if a new file is selected
 			await handleImageUpload();
 
-			// Generate translations for profile content (professionalTitle and about)
+			// Generate translations for profile content only when we have worker fields
 			const { generateProfileTranslations } = await import('$lib/nostr/profile');
-			const profileTranslations = await generateProfileTranslations({
-				professionalTitle,
-				about: profileDescription
-			});
+			const profileTranslations =
+				wantToGetHired && (professionalTitle || profileDescription)
+					? await generateProfileTranslations({
+							professionalTitle,
+							about: profileDescription
+						})
+					: undefined;
 
-			// Publish profile metadata
+			// Publish profile metadata (minimal when not "want to get hired")
 			const profileData: NostrProfile = {
-				name: displayName, // Use 'name' as primary field per NIP-24
+				name: displayName,
 				display_name: displayName,
-				professionalTitle,
-				about: profileDescription,
+				professionalTitle: wantToGetHired ? professionalTitle : '',
+				about: wantToGetHired ? profileDescription : '',
 				...(profileTranslations && { translations: profileTranslations })
 			};
 
@@ -274,8 +312,8 @@
 
 			await publishProfileMetadata(profileData);
 
-			// Publish skills if not saving for later
-			if (!saveForLater && skills.length > 0) {
+			// Publish skills only when user wants to get hired
+			if (wantToGetHired && skills.length > 0) {
 				await publishSkillsUpdate(skills);
 			}
 
@@ -283,7 +321,10 @@
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Profile setup failed:', err);
-			error = err instanceof Error ? err.message : $t('onboarding_auth.form.profile_setup.errors.profile_setup_failed');
+			error =
+				err instanceof Error
+					? err.message
+					: $t('onboarding_auth.form.profile_setup.errors.profile_setup_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -327,42 +368,17 @@
 	</div>
 {:else}
 	<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-profile">
-		<div class="card-body">
+		<div class="card-body space-y-2">
 			<!-- Educational Header -->
-            <div class="education-header mb-6 text-center">
-                <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
-                    {$t('onboarding_auth.form.profile_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.profile_setup.of')} {totalSteps}
-                </div>
-                <h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.profile_setup.title')}</h3>
-                <h5 class="mb-3">{$t('onboarding_auth.form.profile_setup.subtitle')}</h5>
-                <p class="step-description text-base-content mb-6 text-lg max-w-xl mx-auto">
-                    {$t('onboarding_auth.form.profile_setup.description')}
-                </p>
+			<div class="education-header text-center">
+				<h4 class="step-title">{$t('onboarding_auth.form.profile_setup.title')}</h4>
 
-                <!-- Features List (aligned with Nostr import styling) -->
-                <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
-                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                        <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span>{@html $t('onboarding_auth.form.profile_setup.features.visible')}</span>
-                    </div>
-                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                        <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span>{@html $t('onboarding_auth.form.profile_setup.features.trustworthy')}</span>
-                    </div>
-                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                        <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span>{@html $t('onboarding_auth.form.profile_setup.features.discoverable')}</span>
-                    </div>
-                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                        <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span>{@html $t('onboarding_auth.form.profile_setup.features.professional')}</span>
-                    </div>
-                </div>
+				<p class="text-primary text-base md:text-lg">
+					{$t('onboarding_auth.form.profile_setup.stand_out')}
+				</p>
+			</div>
 
-                <p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.profile_setup.stand_out')}</p>
-            </div>
-
-			<form onsubmit={handleSubmit} class="space-y-4">
+			<form onsubmit={handleSubmit} class="space-y-2">
 				<!-- Profile Picture Upload -->
 				<div class="form-control mx-auto w-full">
 					<Uploader
@@ -370,18 +386,25 @@
 						label={$t('onboarding_auth.form.profile_setup.profile_picture')}
 						maxFiles={1}
 						className="h-32 w-full max-w-32 mx-auto"
-						files={selectedFile
-							? [URL.createObjectURL(selectedFile)]
+						files={selectedFileBlobUrl
+							? [selectedFileBlobUrl]
 							: picture
 								? [picture.url]
 								: undefined}
 						onChange={(files) => {
-							if (!files[0]) return;
+							if (!files[0]) {
+								selectedFile = null;
+								return;
+							}
 							selectedFile = files[0];
 							// Clear any previous uploaded picture since we have a new file
 							if (!picture) {
 								picture = null;
 							}
+						}}
+						onRemove={() => {
+							selectedFile = null;
+							picture = null;
 						}}
 					/>
 				</div>
@@ -407,69 +430,83 @@
 					{/if}
 				</div>
 
-				<!-- Professional Title Field -->
+				<!-- I want to get hired (reveals worker profile fields) -->
 				<div class="form-control mx-auto max-w-xl">
-					<label class="label" for="professionalTitle">
-						<span class="label-text">{$t('onboarding_auth.form.professional_title')}</span>
-					</label>
-					<input
-						type="text"
-						id="professionalTitle"
-						data-testid="onboarding-professional-title"
-						bind:value={professionalTitle}
-						class="input input-bordered w-full"
-						placeholder={$t('onboarding_auth.form.professional_title_placeholder')}
-					/>
-				</div>
-
-				<!-- Profile Description Field -->
-				<div class="form-control mx-auto max-w-xl">
-                    <label class="label" for="profileDescription">
-                        <span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
-                        <span class="label-text-alt">{profileDescription.length}/100 {$t('onboarding_auth.form.min_characters')}</span>
-                    </label>
-					<textarea
-						id="profileDescription"
-						data-testid="onboarding-profile-description"
-						bind:value={profileDescription}
-                        minlength={saveForLater ? undefined : 100}
-						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
-							? 'textarea-error'
-							: ''}"
-                        placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
-						disabled={saveForLater}
-					></textarea>
-					{#if descriptionError}
-						<label class="label whitespace-normal" for="profileDescription">
-							<span class="label-text-alt text-error">{descriptionError}</span>
-						</label>
-					{/if}
-				</div>
-
-				<!-- Skills Tags -->
-				<div class="form-control mx-auto max-w-xl" data-testid="onboarding-skills">
-					<label class="label" for="skills">
-						<span class="label-text">{$t('onboarding_auth.form.skills')}</span>
-						<span class="label-text-alt">{selectedSkills.length}/20</span>
-					</label>
-					<SkillsMultiselect
-						bind:selectedSkills={selectedSkills}
-						maxSelections={20}
-						placeholder={$t('onboarding_auth.form.add_skills')}
-						className="w-full"
-					/>
-				</div>
-
-				<!-- Save for Later Option -->
-				<div class="form-control space-y-2 mx-auto max-w-xl">
 					<label class="label flex cursor-pointer items-center justify-start gap-2">
-						<input type="checkbox" bind:checked={saveForLater} class="checkbox checkbox-sm" />
-						<span class="label-text">{$t('onboarding_auth.form.save_for_later')}</span>
+						<input
+							type="checkbox"
+							bind:checked={wantToGetHired}
+							class="checkbox checkbox-sm"
+							data-testid="onboarding-want-to-get-hired"
+						/>
+						<span class="label-text">{$t('onboarding_auth.form.want_to_get_hired')}</span>
 					</label>
 					<span class="text-base-content/70 block text-xs">
-						{$t('onboarding_auth.form.you_can_complete_your_profile_later')}
+						{$t('onboarding_auth.form.want_to_get_hired_hint')}
 					</span>
 				</div>
+
+				{#if wantToGetHired}
+					<div
+						class="space-y-2"
+						in:slide={{ duration: 200, easing: cubicOut }}
+						out:slide={{ duration: 200, easing: cubicIn }}
+					>
+						<!-- Professional Title Field -->
+						<div class="form-control mx-auto max-w-xl">
+							<label class="label" for="professionalTitle">
+								<span class="label-text">{$t('onboarding_auth.form.professional_title')}</span>
+							</label>
+							<input
+								type="text"
+								id="professionalTitle"
+								data-testid="onboarding-professional-title"
+								bind:value={professionalTitle}
+								class="input input-bordered w-full"
+								placeholder={$t('onboarding_auth.form.professional_title_placeholder')}
+							/>
+						</div>
+
+						<!-- Profile Description Field -->
+						<div class="form-control mx-auto max-w-xl">
+							<label class="label" for="profileDescription">
+								<span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
+								<span class="label-text-alt"
+									>{profileDescription.length}/100 {$t('onboarding_auth.form.min_characters')}</span
+								>
+							</label>
+							<textarea
+								id="profileDescription"
+								data-testid="onboarding-profile-description"
+								bind:value={profileDescription}
+								minlength={100}
+								class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
+									? 'textarea-error'
+									: ''}"
+								placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
+							></textarea>
+							{#if descriptionError}
+								<label class="label whitespace-normal" for="profileDescription">
+									<span class="label-text-alt text-error">{descriptionError}</span>
+								</label>
+							{/if}
+						</div>
+
+						<!-- Skills Tags -->
+						<div class="form-control mx-auto max-w-xl" data-testid="onboarding-skills">
+							<label class="label" for="skills">
+								<span class="label-text">{$t('onboarding_auth.form.skills')}</span>
+								<span class="label-text-alt">{selectedSkills.length}/20</span>
+							</label>
+							<SkillsMultiselect
+								bind:selectedSkills
+								maxSelections={20}
+								placeholder={$t('onboarding_auth.form.add_skills')}
+								className="w-full"
+							/>
+						</div>
+					</div>
+				{/if}
 
 				{#if error}
 					<div class="alert alert-error alert-outline">
@@ -491,15 +528,20 @@
 				{/if}
 
 				<!-- Form Actions -->
-				<div class="mt-6 flex justify-between">
+				<div class="flex justify-between">
 					{#if showPrevBtn}
 						<button type="button" class="btn btn-outline" onclick={prevStep}>
-							{$t('onboarding_auth.form.back')}	
+							{$t('onboarding_auth.form.back')}
 						</button>
 					{:else}
 						<div></div>
 					{/if}
-					<button type="submit" class="btn btn-primary" data-testid="onboarding-profile-next" disabled={isLoading || pictureLoading}>
+					<button
+						type="submit"
+						class="btn btn-primary"
+						data-testid="onboarding-profile-next"
+						disabled={isLoading || pictureLoading}
+					>
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{/if}
@@ -510,4 +552,3 @@
 		</div>
 	</div>
 {/if}
-
