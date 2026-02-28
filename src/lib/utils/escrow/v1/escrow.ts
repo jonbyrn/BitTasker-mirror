@@ -888,7 +888,8 @@ async function proposeResolution(
 // Accept proposal
 async function acceptProposal(
 	escrowId: string,
-	contractEventId?: string
+	contractEventId?: string,
+	options?: { onConfirmed?: () => Promise<void> }
 ): Promise<ContractTransactionResult> {
 	try {
 		const { contract, provider } = await ensureEscrowReady();
@@ -939,6 +940,9 @@ async function acceptProposal(
 							status: EscrowStatus.DisputeResolved
 						});
 					}
+					if (options?.onConfirmed) {
+						await options.onConfirmed();
+					}
 				} else {
 					result.status = 'failed';
 					console.error('Proposal acceptance transaction receipt is null');
@@ -963,7 +967,8 @@ async function acceptProposal(
 async function resolveAfterTimelock(
 	escrowId: string,
 	escrowStatus: EscrowStatus,
-	contractEventId?: string
+	contractEventId?: string,
+	options?: { onConfirmed?: () => Promise<void> }
 ): Promise<ContractTransactionResult> {
 	try {
 		const { contract, provider } = await ensureEscrowReady();
@@ -1032,6 +1037,9 @@ async function resolveAfterTimelock(
 							transactionHash: receipt.hash,
 							status: finalStatus
 						});
+						if (finalStatus === EscrowStatus.FundsReleased && options?.onConfirmed) {
+							await options.onConfirmed();
+						}
 					}
 				} else {
 					result.status = 'failed';

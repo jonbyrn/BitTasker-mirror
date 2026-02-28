@@ -144,28 +144,24 @@ describe('reconcileTaskStatusWithContracts', () => {
 		expect(getTaskStatus).not.toHaveBeenCalled();
 	});
 
-	it('continues on updateTask failure and logs error', async () => {
+	it('continues on updateTask failure (logs via d.error, does not throw)', async () => {
 		const { updateTask } = await import('$lib/nostr/task');
 		vi.mocked(updateTask)
 			.mockRejectedValueOnce(new Error('network error'))
 			.mockResolvedValueOnce('');
-		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const contracts = [
 			createMockContract({ escrowId: 'e1', taskId: 't1', status: EscrowStatus.FundsReleased }),
 			createMockContract({ escrowId: 'e2', taskId: 't2', status: EscrowStatus.FundsReleased })
 		];
 		const getTaskStatus: GetTaskStatusFn = vi.fn(() => TaskStatusEnum.IN_PROGRESS);
 
-		await reconcileTaskStatusWithContracts(contracts, getTaskStatus);
+		await expect(
+			reconcileTaskStatusWithContracts(contracts, getTaskStatus)
+		).resolves.toBeUndefined();
 
 		expect(updateTask).toHaveBeenCalledTimes(2);
-		expect(consoleSpy).toHaveBeenCalledWith(
-			'[reconcileTaskStatus] Failed to update task',
-			't1',
-			TaskStatusEnum.COMPLETED,
-			expect.any(Error)
-		);
-		consoleSpy.mockRestore();
+		expect(updateTask).toHaveBeenNthCalledWith(1, 't1', { status: TaskStatusEnum.COMPLETED });
+		expect(updateTask).toHaveBeenNthCalledWith(2, 't2', { status: TaskStatusEnum.COMPLETED });
 	});
 });
 
@@ -253,5 +249,22 @@ describe('reconcileTaskStatusWithContracts (general)', () => {
 
 		expect(updateTask).toHaveBeenCalledTimes(1);
 		expect(updateTask).toHaveBeenCalledWith('t1', { status: TaskStatusEnum.IN_PROGRESS });
+	});
+
+	it('skips reconciliation for legacy event-id taskId (logs warning, does not call updateTask)', async () => {
+		const { updateTask } = await import('$lib/nostr/task');
+		const eventIdTaskId = '9df1e49bedbc5a3122da5f78033c344ffa77d787edd1a1815d2effdd0e841b66';
+		const contracts = [
+			createMockContract({
+				escrowId: 'e1',
+				taskId: eventIdTaskId,
+				status: EscrowStatus.FundsReleased
+			})
+		];
+		const getTaskStatus: GetTaskStatusFn = vi.fn(() => TaskStatusEnum.IN_PROGRESS);
+
+		await reconcileTaskStatusWithContracts(contracts, getTaskStatus);
+
+		expect(updateTask).not.toHaveBeenCalled();
 	});
 });
