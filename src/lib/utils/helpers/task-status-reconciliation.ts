@@ -120,7 +120,11 @@ export function getTaskIdsNeedingCompletionSync(
  * if it's behind (OPEN when should be IN_PROGRESS, or not COMPLETED when should be COMPLETED).
  * Call when loading contracts (e.g. DashboardContractsPanel).
  *
- * @param contracts - Loaded contracts
+ * IMPORTANT: Only pass contracts where the current user is the Tasker (client). The task
+ * event is owned by the Tasker; only they can call updateTask. Passing Taskee contracts
+ * causes "Task author mismatch" errors.
+ *
+ * @param contracts - Loaded contracts (filter to isClient === true before calling)
  * @param getTaskStatus - Function to get current task status by taskId (e.g. from tasksStore + myTasksStore)
  */
 export async function reconcileTaskStatusWithContracts(

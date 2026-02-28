@@ -29,9 +29,10 @@ DashboardContractsPanel (onMount)
     │                               └── Build ContractWithEvents
     │
     └── 3. runTaskStatusReconciliation()
+            │   taskerContracts = contracts.filter(c => c.isClient)  [only Tasker contracts]
+            │   Task event is owned by Tasker; Taskee contracts cause "Task author mismatch".
             │
-            └── reconcileTaskStatusWithContracts(contracts, getTaskStatusFromStores)
-                    │
+            └── reconcileTaskStatusWithContracts(taskerContracts, getTaskStatusFromStores)
                     ├── getTaskStatusSyncItems()  [which contracts need task status update]
                     │   └── For each contract: taskId from contractEvent.content.taskId
                     │

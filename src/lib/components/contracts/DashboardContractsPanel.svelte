@@ -123,8 +123,12 @@
 
 	async function runTaskStatusReconciliation(): Promise<void> {
 		const contracts = get(contractStore).contracts;
-		if (contracts.length === 0) return;
-		await reconcileTaskStatusWithContracts(contracts, getTaskStatusFromStores);
+		// Only reconcile contracts where current user is the Tasker (client).
+		// The task event is owned by the Tasker; only they can call updateTask.
+		// Running reconciliation on Taskee contracts causes "Task author mismatch" errors.
+		const taskerContracts = contracts.filter((c) => c.isClient);
+		if (taskerContracts.length === 0) return;
+		await reconcileTaskStatusWithContracts(taskerContracts, getTaskStatusFromStores);
 	}
 
 	async function refreshContracts(): Promise<void> {
