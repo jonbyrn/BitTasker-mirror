@@ -8,7 +8,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import ServiceCard from '$lib/components/service/ServiceCard.svelte';
 	import ServiceSearchFilters from '$lib/components/service/ServiceSearchFilters.svelte';
-	import ServiceLocationMap from '$lib/components/maps/ServiceLocationMap.svelte';
+	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { t } from 'svelte-i18n';
 
 	// Function to create initial search parameters
@@ -680,7 +680,7 @@
 
 					<!-- Desktop Map Sidebar (hidden on mobile) -->
 					<div class="hidden lg:block lg:w-1/2">
-						<ServiceLocationMap
+						<TaskLocationMap
 							services={$servicesStore.items}
 							height="65vh"
 							selectedService={selectedServiceForMap}
@@ -688,6 +688,7 @@
 								selectedServiceForMap = event.service;
 								scrollToServiceCard(event.service.id);
 							}}
+							btcPrice={btcPrice}
 						/>
 					</div>
 				</div>
@@ -722,7 +723,7 @@
 		{:else}
 			<!-- Map View - Full Width (Mobile only) -->
 			<div class="relative w-full lg:hidden">
-				<ServiceLocationMap
+				<TaskLocationMap
 					services={$servicesStore.items}
 					height="65vh"
 					selectedService={selectedServiceForMap}
@@ -732,6 +733,7 @@
 						viewMode = 'list';
 						scrollToServiceCard(event.service.id);
 					}}
+					btcPrice={btcPrice}
 				/>
 
 				<!-- Mobile Floating Button - Show List -->
