@@ -39,13 +39,65 @@ vi.mock('$lib/stores/contract.store', () => ({
 	}
 }));
 
-vi.mock('$lib/stores/app.store', () => ({
-	appStore: {
-		showSuccessToast: vi.fn(),
-		showErrorToast: vi.fn(),
-		showInfoToast: vi.fn()
-	}
+// Mock task.store to prevent "Pool not found" when loaded transitively
+vi.mock('$lib/stores/task.store', async () => {
+	const { writable } = await import('svelte/store');
+	const mockPool = { subscribe: () => () => {}, publish: () => [], querySync: () => [] };
+	const mockTasksStore = writable({
+		pool: mockPool,
+		items: [],
+		loading: false,
+		error: null,
+		currentPage: 1,
+		hasMore: true,
+		searchParamsKey: ''
+	});
+	const mockMyTasksStore = writable({
+		items: [],
+		loading: false,
+		error: null,
+		currentPage: 1,
+		hasMore: true
+	});
+	return {
+		tasksStore: {
+			subscribe: mockTasksStore.subscribe,
+			set: vi.fn(),
+			update: vi.fn(),
+			reset: vi.fn(),
+			pool: mockPool
+		},
+		myTasksStore: {
+			subscribe: mockMyTasksStore.subscribe,
+			set: vi.fn(),
+			update: vi.fn(),
+			reset: vi.fn()
+		},
+		taskStore: {},
+		TASKS_PER_PAGE: 10,
+		STEPS: writable([])
+	};
+});
+vi.mock('$lib/nostr/task', () => ({
+	getTaskStableId: (x: string) => x,
+	createTask: vi.fn(),
+	updateTask: vi.fn(),
+	deleteTask: vi.fn()
 }));
+
+vi.mock('$lib/stores/app.store', async () => {
+	const { writable } = await import('svelte/store');
+	const mockPool = { subscribe: () => () => {}, publish: () => [], querySync: () => [] };
+	const store = writable({ pool: mockPool });
+	return {
+		appStore: {
+			...store,
+			showSuccessToast: vi.fn(),
+			showErrorToast: vi.fn(),
+			showInfoToast: vi.fn()
+		}
+	};
+});
 
 vi.mock('$lib/utils/helpers/contractStatusFormatter', () => ({
 	getStatusMessages: vi.fn()
@@ -85,7 +137,7 @@ vi.mock('svelte/store', () => {
 	// In svelte-i18n, t is a readable store, and get(t) returns the translation function
 	const translationFn = (key: string) => key;
 
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		// When get(t) is called, t is a svelte-i18n readable store
 		// get(t) should return the translation function: (key: string) => string
 		if (typeof store === 'function') {
@@ -502,8 +554,8 @@ describe('escrowEvents', () => {
 
 		it('should handle null transaction hash gracefully', () => {
 			// Should not throw when hash is null or undefined
-			expect(() => cleanupPendingContractByTxHash(null as any)).not.toThrow();
-			expect(() => cleanupPendingContractByTxHash(undefined as any)).not.toThrow();
+			expect(() => cleanupPendingContractByTxHash(null as unknown as string)).not.toThrow();
+			expect(() => cleanupPendingContractByTxHash(undefined as unknown as string)).not.toThrow();
 			expect(() => cleanupPendingContractByTxHash('')).not.toThrow();
 		});
 	});
@@ -536,7 +588,9 @@ describe('escrowEvents', () => {
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			// Make sendBidStatusUpdate fail
-			vi.mocked(sendBidStatusUpdate).mockRejectedValueOnce(new Error('Failed to send bid status update'));
+			vi.mocked(sendBidStatusUpdate).mockRejectedValueOnce(
+				new Error('Failed to send bid status update')
+			);
 
 			// Should not throw - error should be caught and logged
 			await expect(handleEscrowCreated(event)).resolves.not.toThrow();

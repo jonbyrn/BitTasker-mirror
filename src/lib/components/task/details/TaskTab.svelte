@@ -300,9 +300,9 @@
 	});
 </script>
 
-<div class="min-w-0 overflow-x-hidden space-y-6">
+<div class="min-w-0 space-y-6 overflow-x-hidden">
 	<!-- Task Info Card - adapted from ContractDrawer layout -->
-	<div class="card min-w-0 overflow-hidden bg-base-200">
+	<div class="card bg-base-200 min-w-0 overflow-hidden">
 		<div class="card-body min-w-0 p-4">
 			<!-- Row: Task title (left) and Share button (right), vertically centered -->
 			<div class="mb-4 flex flex-row flex-nowrap items-center justify-between gap-4">
@@ -342,7 +342,7 @@
 					{:else}
 						<div class="text-right">
 							<span
-								class="text-base-content/60 block text-xs font-semibold uppercase tracking-wide"
+								class="text-base-content/60 block text-xs font-semibold tracking-wide uppercase"
 							>
 								{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
 							</span>
@@ -382,7 +382,7 @@
 								/>
 							</div>
 							<!-- Desktop/tablet: right-aligned stacked block -->
-							<div class="hidden md:flex items-center justify-end">
+							<div class="hidden items-center justify-end md:flex">
 								<TaskDeadlineDisplay
 									label={$t('dashboard.task_details_by_task.date_range')}
 									variant="stacked"
@@ -405,7 +405,7 @@
 									showTime={false}
 								/>
 							</div>
-							<div class="hidden md:flex items-center justify-end">
+							<div class="hidden items-center justify-end md:flex">
 								<TaskDeadlineDisplay
 									label={$t('dashboard.task_details_by_task.deadline')}
 									variant="stacked"
@@ -420,7 +420,7 @@
 			</div>
 
 			<!-- Row 4: Skills and Categories badges -->
-			<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:gap-4 space-y-2">
+			<div class="flex flex-col gap-3 space-y-2 sm:flex-row sm:flex-wrap sm:items-start sm:gap-4">
 				{#if task.skills?.length > 0}
 					<div class="min-w-0">
 						<small class="text-base-content/60 mb-1 block text-sm">
@@ -450,7 +450,7 @@
 
 				<!-- Move image attachments (assets) here: above Posted row, below categories -->
 				{#if task.attachments && task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
-					<div class="w-full mt-2">
+					<div class="mt-2 w-full">
 						{#await prepareGalleryImages(task.attachments) then galleryImages}
 							<div class="mb-2">
 								<Gallery
@@ -466,7 +466,7 @@
 
 			<!-- Posted - at bottom of card (reduced spacing) -->
 			<div>
-				<small class="text-base-content/60 text-sm block">
+				<small class="text-base-content/60 block text-sm">
 					{$t('dashboard.task_details_by_task.posted')}
 				</small>
 				<p class="font-semibold">{formatDateStringWithTime(task.createdAt)}</p>
@@ -514,7 +514,7 @@
 			<!-- Bid Button (shown when task is open and user is not owner) -->
 			{#if task.status === TaskStatusEnum.OPEN && !isOwner && onBid}
 				<button
-					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none gap-2"
+					class="btn btn-primary btn-sm min-h-[40px] flex-1 gap-2 sm:flex-none"
 					onclick={async (e) => {
 						e.stopPropagation();
 						if (onBid) {
@@ -607,14 +607,14 @@
 		tabindex="-1"
 	>
 		<div
-			class="relative w-full h-full flex items-center justify-center p-4"
+			class="relative flex h-full w-full items-center justify-center p-4"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
 			role="none"
 		>
 			<!-- Close button - positioned inside viewport -->
 			<button
-				class="absolute top-4 right-4 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white shadow-lg transition-colors flex items-center justify-center backdrop-blur-sm"
+				class="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-white/20"
 				onclick={closeVideoLightbox}
 				aria-label={$t('common.close') || 'Close'}
 			>
@@ -631,20 +631,20 @@
 			</button>
 
 			<!-- Video container - centered and responsive -->
-			<div class="relative w-full max-w-5xl max-h-[90vh] flex flex-col items-center justify-center">
-				<div class="w-full bg-black rounded-lg overflow-hidden shadow-2xl">
-					<video class="w-full h-auto max-h-[85vh] object-contain" controls autoplay preload="auto">
+			<div class="relative flex max-h-[90vh] w-full max-w-5xl flex-col items-center justify-center">
+				<div class="w-full overflow-hidden rounded-lg bg-black shadow-2xl">
+					<video class="h-auto max-h-[85vh] w-full object-contain" controls autoplay preload="auto">
 						<source src={selectedVideo.url} type="video/mp4" />
 						<track kind="captions" src="" label="English" />
 						{$t('dashboard.task_details_by_task.video_not_supported')}
 					</video>
 					{#if selectedVideo.alt || selectedVideo.size}
-						<div class="p-4 bg-black/50 text-white">
+						<div class="bg-black/50 p-4 text-white">
 							{#if selectedVideo.alt}
 								<p class="text-base font-medium">{selectedVideo.alt}</p>
 							{/if}
 							{#if selectedVideo.size}
-								<p class="text-white/60 text-sm mt-1">
+								<p class="mt-1 text-sm text-white/60">
 									{(selectedVideo.size / 1024 / 1024).toFixed(2)} MB
 								</p>
 							{/if}

@@ -10,11 +10,12 @@ This directory is a **temporary** place for plans that AI agents (or humans) are
 
 ## Where canonical docs live
 
-| Topic | Location |
-|-------|----------|
-| **Testing (E2E, pipeline, triage)** | `docs/testing/` – README.md (overview), testing-in-ci.md, e2e-testing.md, e2e-account-creation.md, e2e-wallet-post-login.md |
-| **CI/CD (Workers, GitLab)** | `docs/ci/` – workers-pipeline-migration.md, workers-ci-setup-walkthrough.md |
-| **Other project docs** | `docs/` (e.g. gitea-to-gitlab-migration.md) |
+| Topic                               | Location                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| **Task status**                     | `docs/tasks/task-status.md` – ownership, flow, resilience, debug            |
+| **Testing (E2E, pipeline, triage)** | `docs/testing/` – README.md (overview), testing-in-ci.md, e2e-testing.md    |
+| **CI/CD (Workers, GitLab)**         | `docs/ci/` – workers-pipeline-migration.md, workers-ci-setup-walkthrough.md |
+| **Other project docs**              | `docs/` – see `docs/README.md` for the full index                           |
 
 See **`docs/README.md`** for the full index.
 

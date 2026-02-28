@@ -7,7 +7,7 @@
 	 * Reusable collapsible section with header button and slide animation.
 	 * Matches the "YOUR OFFER" / "Original Bid Proposal" pattern from bids and contracts.
 	 */
-	const {
+	let {
 		title,
 		expanded = $bindable(false),
 		children,
@@ -33,20 +33,17 @@
 		aria-expanded={expanded}
 		aria-controls="collapsible-content"
 	>
-		<span class="text-base-content/70 text-xs font-semibold uppercase tracking-wide">{title}</span>
+		<span class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">{title}</span>
 		<svg
-			class="h-4 w-4 shrink-0 transition-transform duration-200 {expanded ? 'rotate-180' : 'rotate-0'}"
+			class="h-4 w-4 shrink-0 transition-transform duration-200 {expanded
+				? 'rotate-180'
+				: 'rotate-0'}"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
 			aria-hidden="true"
 		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				stroke-width="2"
-				d="M19 9l-7 7-7-7"
-			/>
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 		</svg>
 	</button>
 	{#if expanded}

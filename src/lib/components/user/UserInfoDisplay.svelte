@@ -8,7 +8,6 @@
 		avatar = null,
 		username = null,
 		rating = 0,
-		anonymousLabel = $t('dashboard.task_details_by_task.anonymous'),
 		avatarAlt = $t('dashboard.find_tasks.avatar_alt') || 'Avatar',
 		size = 'md',
 		pubkey = null, // Optional pubkey to fetch profile if username is invalid
@@ -18,7 +17,6 @@
 		avatar?: string | null;
 		username?: string | null;
 		rating?: number;
-		anonymousLabel?: string;
 		avatarAlt?: string;
 		size?: 'sm' | 'md' | 'lg';
 		pubkey?: string | null; // npub or hex pubkey for fetching profile metadata
@@ -165,17 +163,17 @@
 	});
 
 	/**
-	 * Get the display username - use fetched profile if available, otherwise use normalized username
+	 * Get the display username - use fetched profile if available, otherwise use normalized username.
+	 * Username is always present (not optional); no anonymous fallback.
 	 */
 	const displayUsername = $derived.by(() => {
-		// Priority: fetched profile name > normalized username > anonymous
 		if (fetchedProfile?.name) {
 			return fetchedProfile.name;
 		}
 		if (normalizedUsername) {
 			return normalizedUsername;
 		}
-		return anonymousLabel;
+		return '';
 	});
 
 	/**
@@ -352,7 +350,7 @@
 					<div
 						class="avatar placeholder text-neutral-content bg-primary flex {config.avatar} items-center justify-center overflow-hidden rounded-full text-center"
 					>
-						{#if displayUsername && displayUsername !== anonymousLabel}
+						{#if displayUsername}
 							<span class="text-lg font-semibold sm:text-2xl">
 								{displayUsername.charAt(0).toUpperCase()}
 							</span>
@@ -380,7 +378,7 @@
 					<div
 						class="avatar placeholder text-neutral-content bg-primary flex {config.avatar} items-center justify-center overflow-hidden rounded-full text-center"
 					>
-						{#if displayUsername && displayUsername !== anonymousLabel}
+						{#if displayUsername}
 							<span class="text-lg font-semibold sm:text-2xl">
 								{displayUsername.charAt(0).toUpperCase()}
 							</span>

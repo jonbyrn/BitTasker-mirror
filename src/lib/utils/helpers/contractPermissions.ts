@@ -127,40 +127,11 @@ function mapBlockchainStatusToPermissions(
 		case EscrowStatus.Completed: // 4 - Freelancer marked task complete
 			const completionTimelockExpired = now > escrowData.timelockExpiry;
 
-			// DEBUG: Log all status events for this contract
-			if (import.meta.env.DEV) {
-				console.log(`[DEBUG] [contractPermissions] Processing Completed status for escrow ${escrowData.id}`, {
-					escrowId: escrowData.id,
-					blockchainStatus: status,
-					statusEventsCount: statusEvents?.length || 0,
-					statusEvents: statusEvents?.map(e => ({
-						action: e.content.action,
-						transactionHash: e.content.transactionHash,
-						created_at: e.created_at,
-						eventId: e.id
-					})) || [],
-					timestamp: new Date().toISOString()
-				});
-			}
-
 			// PRIORITY 1: Check if funds were released (FINAL STATE - takes precedence over pending states)
 			// This checks blockchain state (via event query in getContracts) or Nostr confirmation
 			const hasFundsReleased = statusEvents?.some(e =>
 				e.content.action === EscrowStatus.FundsReleased
 			);
-
-			if (import.meta.env.DEV) {
-				console.log(`[DEBUG] [contractPermissions] Checking FundsReleased for escrow ${escrowData.id}`, {
-					escrowId: escrowData.id,
-					hasFundsReleased,
-					fundsReleasedEvents: statusEvents?.filter(e => e.content.action === EscrowStatus.FundsReleased).map(e => ({
-						eventId: e.id,
-						transactionHash: e.content.transactionHash,
-						created_at: e.created_at
-					})) || [],
-					willReturnFundsReleased: hasFundsReleased
-				});
-			}
 
 			if (hasFundsReleased) {
 				return {
@@ -184,9 +155,6 @@ function mapBlockchainStatusToPermissions(
 			);
 
 			if (hasPendingTimelockResolution) {
-				if (import.meta.env.DEV) {
-					console.log(`[DEBUG] [contractPermissions] Found PendingTimelockResolution for escrow ${escrowData.id}`);
-				}
 				return {
 					status: EscrowStatus.PendingTimelockResolution,
 					permissions: {
@@ -208,37 +176,7 @@ function mapBlockchainStatusToPermissions(
 			);
 			const hasPendingAcceptance = pendingAcceptanceEvents.length > 0;
 
-			if (import.meta.env.DEV) {
-				console.log(`[DEBUG] [contractPermissions] Checking PendingAcceptance for escrow ${escrowData.id}`, {
-					escrowId: escrowData.id,
-					hasPendingAcceptance,
-					pendingAcceptanceEvents: pendingAcceptanceEvents.map(e => ({
-						eventId: e.id,
-						transactionHash: e.content.transactionHash,
-						created_at: e.created_at,
-						ageMinutes: ((now * 1000) - (e.created_at * 1000)) / 60000
-					})),
-					willReturnPendingAcceptance: hasPendingAcceptance,
-					issue: hasPendingAcceptance && !hasFundsReleased ? '⚠️ PendingAcceptance found but FundsReleased missing - transaction may have confirmed but event not published' : null
-				});
-			}
-
 			if (hasPendingAcceptance) {
-				// DEBUG: Check if the transactionHash has been confirmed (stale pending)
-				if (import.meta.env.DEV && pendingAcceptanceEvents.length > 0) {
-					const oldestPendingAcceptance = pendingAcceptanceEvents.sort((a, b) => a.created_at - b.created_at)[0];
-					const ageMinutes = ((now * 1000) - (oldestPendingAcceptance.created_at * 1000)) / 60000;
-					if (ageMinutes > 5) {
-						console.warn(`[DEBUG] [contractPermissions] ⚠️ STALE PendingAcceptance detected for escrow ${escrowData.id}`, {
-							escrowId: escrowData.id,
-							transactionHash: oldestPendingAcceptance.content.transactionHash,
-							ageMinutes: ageMinutes.toFixed(2),
-							issue: 'PendingAcceptance event is older than 5 minutes - transaction likely confirmed but FundsReleased event missing',
-							recommendation: 'Check if transactionHash is confirmed on blockchain and publish FundsReleased event if missing'
-						});
-					}
-				}
-
 				return {
 					status: EscrowStatus.PendingAcceptance,
 					permissions: {
@@ -480,34 +418,8 @@ export function determineContractState(
 	status: EscrowStatus;
 	permissions: ContractPermissions;
 } {
-	// DEBUG: Log contract state determination
-	if (import.meta.env.DEV) {
-		const escrowId = escrowData?.id ?? contract.escrowId;
-		console.log(`[DEBUG] [determineContractState] Determining state for escrow ${escrowId}`, {
-			escrowId,
-			blockchainStatus,
-			hasEscrowData: !!escrowData,
-			statusEventsCount: statusEvents?.length || 0,
-			isPending,
-			isClient,
-			isFreelancer,
-			statusEventsSummary: statusEvents?.map(e => ({
-				action: e.content.action,
-				hasTransactionHash: !!e.content.transactionHash,
-				created_at: e.created_at
-			})) || []
-		});
-	}
-
 	// CASE 1: Blockchain state exists (escrow was funded)
 	if (blockchainStatus !== null && escrowData) {
-		if (import.meta.env.DEV) {
-			console.log(`[DEBUG] [determineContractState] Using blockchain status for escrow ${escrowData.id}`, {
-				escrowId: escrowData.id,
-				blockchainStatus,
-				willCallMapBlockchainStatusToPermissions: true
-			});
-		}
 		return mapBlockchainStatusToPermissions(
 			blockchainStatus,
 			escrowData,

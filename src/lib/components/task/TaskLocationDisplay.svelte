@@ -26,7 +26,7 @@
 		href={directionsLink}
 		target="_blank"
 		rel="external noopener noreferrer"
-		class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+		class="flex items-center gap-2 transition-opacity hover:opacity-80"
 	>
 		<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
 		<div class="flex min-w-0 flex-1">
