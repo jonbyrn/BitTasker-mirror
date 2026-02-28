@@ -11,9 +11,9 @@
 		subscribeToProfileUpdates,
 		publishSkillsUpdate
 	} from '$lib/nostr/profile';
-	import MediaUploader from '$lib/components/MediaUploader.svelte';
+	import Uploader from '$lib/components/Uploader.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
-	import type { UploadResult } from '$lib/api/services/upload.service';
+	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	let { nextStep, prevStep, currentStep, totalSteps } = $props<{
@@ -37,7 +37,8 @@
 	let nameError = $state('');
 	let descriptionError = $state('');
 	let picture = $state<NostrProfileImage | null>(null);
-	let uploadResults = $state<UploadResult[]>([]);
+	let selectedFile = $state<File | null>(null);
+	let pictureLoading = $state(false);
 	let isInitialLoading = $state(false);
 
 	// Event IDs for updates
@@ -45,8 +46,6 @@
 	let saveForLater = $state(false);
 	let showPrevBtn = $state(false);
 	let cleanup: (() => void) | null = null;
-
-	let showInfoDropdown = $state(false);
 
 	onMount(async () => {
 		const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
@@ -138,31 +137,41 @@
 		if (cleanup) cleanup();
 	});
 
-	// Publish uploaded images to Nostr (MediaUploader handles upload on select)
-	async function publishProfileImages() {
-		if (uploadResults.length === 0) return;
-		try {
-			const images = uploadResults.map((r) => ({
-				url: r.url,
-				type: r.type,
-				alt: 'Profile picture',
-				key: r.key
-			}));
-			await publishMultipleImages(images, imageEventId, 'profile-images');
-		} catch (publishErr) {
-			console.error('Publish images failed:', publishErr);
-			error = $t('onboarding_auth.form.file_upload_failed');
-			throw publishErr;
+	// Handle image selection (store locally, don't upload yet)
+	async function handleImageUpload() {
+		if (selectedFile) {
+			try {
+				pictureLoading = true;
+				const uploadedFile = await uploadService.uploadSingleFile(selectedFile, { folder: 'profile' });
+				const uploadedPicture = {
+					url: uploadedFile.url,
+					type: selectedFile.type,
+					alt: selectedFile.name,
+					key: uploadedFile.key
+				};
+				await publishMultipleImages([uploadedPicture], imageEventId, 'profile-images');
+			} catch (uploadErr) {
+				console.error('File upload failed:', uploadErr);
+				error = $t('onboarding_auth.form.file_upload_failed');
+				isLoading = false;
+				return;
+			} finally {
+				pictureLoading = false;
+			}
 		}
 	}
 
-	// Keep skills in sync with selectedSkills
-	function syncSkillsFromSelectedSkills() {
+	// Remove bidirectional ping-pong: selectedSkills will be initialized from subscription
+
+	// Convert string array back to skills array, guarded to avoid self-triggered loops
+	$effect(() => {
+		// If both arrays represent the same names (order-insensitive), skip
 		const currentNames = new Set(skills.map((s) => s.name));
 		const selectedNames = new Set(selectedSkills);
 		if (currentNames.size === selectedNames.size && [...currentNames].every((n) => selectedNames.has(n))) {
 			return;
 		}
+
 		skills = selectedSkills.map((skillName) => {
 			const existingSkill = skills.find((skill) => skill.name === skillName);
 			if (existingSkill) return existingSkill;
@@ -175,7 +184,7 @@
 				id: crypto.randomUUID()
 			};
 		});
-	}
+	});
 
 	// Add skill tag (legacy function for compatibility)
 	function addSkill() {
@@ -187,7 +196,6 @@
 			selectedSkills.length < 20
 		) {
 			selectedSkills = [...selectedSkills, skillsInput.trim()];
-			syncSkillsFromSelectedSkills();
 			skillsInput = '';
 		} else {
 			error = $t('onboarding_auth.form.skill_already_exists_or_too_short');
@@ -197,7 +205,6 @@
 	// Remove skill tag (legacy function for compatibility)
 	function removeSkill(index: number) {
 		selectedSkills = selectedSkills.filter((_, i) => i !== index);
-		syncSkillsFromSelectedSkills();
 	}
 
 	// Handle key press for skill tags (legacy function for compatibility)
@@ -206,10 +213,6 @@
 			event.preventDefault();
 			addSkill();
 		}
-	}
-
-	function toggleInfoDropdown() {
-		showInfoDropdown = !showInfoDropdown;
 	}
 
 	async function handleSubmit(event: SubmitEvent) {
@@ -245,8 +248,8 @@
 				}
 			}
 
-			// Publish profile picture to Nostr (MediaUploader already uploaded on select)
-			await publishProfileImages();
+			// Upload and publish profile picture if a new file is selected
+			await handleImageUpload();
 
 			// Generate translations for profile content (professionalTitle and about)
 			const { generateProfileTranslations } = await import('$lib/nostr/profile');
@@ -264,10 +267,9 @@
 				...(profileTranslations && { translations: profileTranslations })
 			};
 
-			// Include picture URL if available (NIP-24) - prefer newly uploaded over existing
-			const pictureUrl = uploadResults[0]?.url ?? picture?.url;
-			if (pictureUrl) {
-				profileData.picture = pictureUrl;
+			// Include picture URL if available (NIP-24)
+			if (picture?.url) {
+				profileData.picture = picture.url;
 			}
 
 			await publishProfileMetadata(profileData);
@@ -326,84 +328,60 @@
 {:else}
 	<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-profile">
 		<div class="card-body">
-			<!-- Step indicator + Muestra tu experiencia (same row, aligned) -->
-			<div class="relative mb-4 grid w-full grid-cols-[1fr_auto] items-center gap-3 overflow-visible">
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm justify-start gap-2 font-medium text-primary"
-					onclick={toggleInfoDropdown}
-					aria-expanded={showInfoDropdown}
-					aria-haspopup="true"
-				>
-					<span>{$t('onboarding_auth.form.profile_setup.subtitle')}</span>
-					<svg
-						class="h-4 w-4 shrink-0 transition-transform"
-						class:rotate-180={showInfoDropdown}
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-					</svg>
-				</button>
-				<span class="step-indicator shrink-0 text-right text-sm font-medium text-primary">
-					{$t('onboarding_auth.form.profile_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.profile_setup.of')} {totalSteps}
-				</span>
-				{#if showInfoDropdown}
-					<div
-						class="fixed inset-0 z-40"
-						aria-hidden="true"
-						onclick={() => (showInfoDropdown = false)}
-					></div>
-					<div
-						class="bg-base-200 border-base-300 absolute left-0 top-full z-50 mt-2 w-full min-w-64 rounded-lg border p-4 text-left shadow"
-						role="region"
-						aria-label={$t('onboarding_auth.form.profile_setup.subtitle')}
-					>
-						<p class="text-base-content mb-4 text-sm">
-							{$t('onboarding_auth.form.profile_setup.description')}
-						</p>
-						<div class="features-list mb-4 space-y-2 text-sm">
-							<div class="feature-item flex items-center justify-start gap-2">
-								<IconCheck class="text-primary min-w-[1.25em] shrink-0" />
-								<span>{@html $t('onboarding_auth.form.profile_setup.features.visible')}</span>
-							</div>
-							<div class="feature-item flex items-center justify-start gap-2">
-								<IconCheck class="text-primary min-w-[1.25em] shrink-0" />
-								<span>{@html $t('onboarding_auth.form.profile_setup.features.trustworthy')}</span>
-							</div>
-							<div class="feature-item flex items-center justify-start gap-2">
-								<IconCheck class="text-primary min-w-[1.25em] shrink-0" />
-								<span>{@html $t('onboarding_auth.form.profile_setup.features.discoverable')}</span>
-							</div>
-							<div class="feature-item flex items-center justify-start gap-2">
-								<IconCheck class="text-primary min-w-[1.25em] shrink-0" />
-								<span>{@html $t('onboarding_auth.form.profile_setup.features.professional')}</span>
-							</div>
-						</div>
-						<p class="text-primary text-sm font-medium">
-							{$t('onboarding_auth.form.profile_setup.stand_out')}
-						</p>
-					</div>
-				{/if}
-			</div>
+			<!-- Educational Header -->
+            <div class="education-header mb-6 text-center">
+                <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
+                    {$t('onboarding_auth.form.profile_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.profile_setup.of')} {totalSteps}
+                </div>
+                <h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.profile_setup.title')}</h3>
+                <h5 class="mb-3">{$t('onboarding_auth.form.profile_setup.subtitle')}</h5>
+                <p class="step-description text-base-content mb-6 text-lg max-w-xl mx-auto">
+                    {$t('onboarding_auth.form.profile_setup.description')}
+                </p>
+
+                <!-- Features List (aligned with Nostr import styling) -->
+                <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.visible')}</span>
+                    </div>
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.trustworthy')}</span>
+                    </div>
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.discoverable')}</span>
+                    </div>
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.professional')}</span>
+                    </div>
+                </div>
+
+                <p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.profile_setup.stand_out')}</p>
+            </div>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
-				<!-- Profile Picture: small menu = Select from gallery | Camera -->
+				<!-- Profile Picture Upload -->
 				<div class="form-control mx-auto w-full">
-					<MediaUploader
+					<Uploader
 						id="profilePicture"
 						label={$t('onboarding_auth.form.profile_setup.profile_picture')}
 						maxFiles={1}
-						enablePhotoMenu={true}
-						uploadFolder="profile"
 						className="h-32 w-full max-w-32 mx-auto"
-						files={uploadResults.length > 0 ? uploadResults.map((r) => r.url) : picture ? [picture.url] : []}
-						onChange={(results) => {
-							uploadResults = results;
-						}}
-						onRemove={(index) => {
-							uploadResults = uploadResults.filter((_, i) => i !== index);
+						files={selectedFile
+							? [URL.createObjectURL(selectedFile)]
+							: picture
+								? [picture.url]
+								: undefined}
+						onChange={(files) => {
+							if (!files[0]) return;
+							selectedFile = files[0];
+							// Clear any previous uploaded picture since we have a new file
+							if (!picture) {
+								picture = null;
+							}
 						}}
 					/>
 				</div>
@@ -479,7 +457,6 @@
 						maxSelections={20}
 						placeholder={$t('onboarding_auth.form.add_skills')}
 						className="w-full"
-						onChange={syncSkillsFromSelectedSkills}
 					/>
 				</div>
 
@@ -522,7 +499,7 @@
 					{:else}
 						<div></div>
 					{/if}
-					<button type="submit" class="btn btn-primary" data-testid="onboarding-profile-next" disabled={isLoading}>
+					<button type="submit" class="btn btn-primary" data-testid="onboarding-profile-next" disabled={isLoading || pictureLoading}>
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{/if}
