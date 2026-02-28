@@ -1,0 +1,115 @@
+{
+	"reviews": {
+		"form": {
+			"title": "Escribir una Reseña",
+			"overall_rating": "Calificación General",
+			"calculated_from_categories": "calculada a partir de las categorías abajo",
+			"quality": "Calidad",
+			"quality_taskee": "Calidad del Trabajo",
+			"quality_taskee_desc": "Calidad del trabajo entregado, entregables y resultados",
+			"quality_tasker": "Calidad de Requisitos",
+			"quality_tasker_desc": "Claridad de requisitos, instrucciones y retroalimentación proporcionada",
+			"professionalism": "Profesionalismo",
+			"professionalism_taskee": "Profesionalismo",
+			"professionalism_taskee_desc": "Conducta profesional, comunicación y ética de trabajo",
+			"professionalism_tasker": "Profesionalismo",
+			"professionalism_tasker_desc": "Conducta profesional como cliente y comunicación respetuosa",
+			"timeliness": "Puntualidad",
+			"timeliness_taskee": "Velocidad de Entrega",
+			"timeliness_taskee_desc": "Qué tan rápido se completó el trabajo y se cumplieron los plazos",
+			"timeliness_tasker": "Velocidad de Respuesta",
+			"timeliness_tasker_desc": "Tiempo de respuesta, velocidad de aprobación y puntualidad de pago",
+			"work_quality": "Calidad del Trabajo",
+			"work_quality_desc": "Calidad del trabajo entregado, entregables y resultados",
+			"experience": "Experiencia",
+			"experience_desc": "Nivel de experiencia, expertise y habilidades demostradas",
+			"delivery_speed": "Velocidad de Entrega",
+			"delivery_speed_desc": "Qué tan rápido se completó el trabajo y se cumplieron los plazos",
+			"communication": "Comunicación",
+			"communication_desc": "Calidad de comunicación, capacidad de respuesta y claridad en las interacciones",
+			"clarity": "Claridad",
+			"clarity_desc": "Claridad de requisitos, instrucciones y retroalimentación proporcionada",
+			"payment_timeliness": "Puntualidad de Pago",
+			"payment_timeliness_desc": "Velocidad de procesamiento de pago y puntualidad de pago",
+			"role_unknown": "No se puede determinar el rol. Por favor asegúrate de que la información del contrato esté disponible.",
+			"comment": "Comentario (Opcional)",
+			"comment_placeholder": "Comparte tu experiencia...",
+			"submit": "Enviar Reseña",
+			"submitting": "Enviando...",
+			"success": "¡Reseña enviada exitosamente!",
+			"already_reviewed": "Ya has reseñado este depósito en garantía. Puedes actualizar tu reseña enviando una nueva.",
+		"errors": {
+			"overall_rating_required": "Por favor proporciona una calificación general",
+			"quality_rating_required": "Por favor califica la calidad",
+			"professionalism_rating_required": "Por favor califica el profesionalismo",
+			"timeliness_rating_required": "Por favor califica la puntualidad",
+			"work_quality_required": "Por favor califica la calidad del trabajo",
+			"experience_required": "Por favor califica la experiencia",
+			"delivery_speed_required": "Por favor califica la velocidad de entrega",
+			"communication_required": "Por favor califica la comunicación",
+			"clarity_required": "Por favor califica la claridad",
+			"payment_timeliness_required": "Por favor califica la puntualidad de pago",
+			"category_rating_required": "Por favor califica todas las categorías",
+			"comment_too_long": "El comentario no puede exceder 1000 caracteres",
+			"submit_failed": "No se pudo enviar la reseña. Por favor intenta de nuevo.",
+			"task_id_required": "Se requiere el ID de la tarea para enviar una reseña."
+		}
+		},
+		"verified": "Verificado",
+		"unverified": "No Verificado",
+		"reply": "Responder",
+		"reviewed": "Reseñado",
+		"review_pending": "Reseña Pendiente",
+		"review_received": "Reseña Recibida",
+		"you_reviewed": "Has reseñado este contrato",
+		"list": {
+			"load_error": "Error al cargar reseñas",
+			"no_reviews": "Aún no hay reseñas"
+		},
+		"view_all": "Ver todas las reseñas",
+		"summary": {
+			"title": "Resumen de Reseñas",
+			"average_rating": "Calificación Promedio",
+			"total_reviews": "Total de Reseñas",
+			"reviews_received": "Reseñas recibidas",
+			"recent_reviews": "Reseñas Recientes",
+			"last_30_days": "Últimos 30 días",
+			"rating_distribution": "Distribución de Calificaciones",
+			"category_averages": "Promedios por Categoría",
+			"as_taskee": "Como Taskee",
+			"as_tasker": "Como Tasker",
+			"reviews_count": "{count} reseñas"
+		},
+		"tabs": {
+			"received": "Recibidas",
+			"given": "Dadas",
+			"pending": "Pendientes"
+		},
+		"profile": {
+			"no_user": "Información de usuario no disponible"
+		},
+		"pending": {
+			"coming_soon": "Funcionalidad de reseñas pendientes próximamente",
+			"no_pending": "No hay reseñas pendientes",
+			"all_caught_up": "¡Estás al día! Todas las tareas completadas han sido reseñadas.",
+			"contract": "Contrato",
+			"completed": "Completado",
+			"review_for": "Reseñar a",
+			"completed_on": "Completado el",
+			"review_now": "Reseñar Ahora",
+			"only_current_user": "Las reseñas pendientes solo son visibles para el propietario de la cuenta"
+		},
+		"management": {
+			"title": "Gestión de Reseñas",
+			"description": "Gestiona tus reseñas, ve reseñas pendientes y revisa las reseñas que has dado y recibido"
+		},
+		"prompt": {
+			"title": "Escribir una Reseña",
+			"reviewing": "Reseñando a",
+			"missing_info": "Falta información requerida para enviar la reseña",
+			"missing_escrow": "Se requiere el ID del depósito en garantía para enviar una reseña"
+		}
+	}
+}
+
+

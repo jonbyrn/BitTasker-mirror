@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
+	import ProfileReviewsSection from '$lib/components/profile/ProfileReviewsSection.svelte';
 	import { onMount } from 'svelte';
 	import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
+	import { getStatsForUser } from '$lib/utils/review-source';
 	import { goto } from '$app/navigation';
 	import { t, locale } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
@@ -189,6 +192,9 @@
 	let isAboutTruncated = $state(false);
 	let showFullAbout = $state(false);
 
+	// Review count from Nostr kind 1985 (matches Reviews section)
+	let reviewCount = $state(0);
+
 	// Get user picture with priority: pictures array > picture field
 	let userPicture = $derived(() => {
 		if (userProfile?.pictures && userProfile.pictures.length > 0) {
@@ -374,13 +380,6 @@
 		}
 	}
 
-	// Calcular rating promedio
-	const averageRating = $derived(
-		userProfile?.reviews && userProfile.reviews.length > 0
-			? (userProfile.reviews.reduce((acc, review) => acc + review.rating, 0) / userProfile.reviews.length).toFixed(1)
-			: null
-	);
-
 	// Generar nombre de usuario para email (user.name@bittasker.com)
 	const userNameForEmail = $derived(
 		userProfile?.name
@@ -425,6 +424,23 @@
 				checkIfAboutTruncated();
 			});
 		}
+	});
+
+	// Load review count (Nostr 1985) for Performance Stats
+	$effect(() => {
+		const npub = routeNpub;
+		if (!npub) {
+			reviewCount = 0;
+			return;
+		}
+		(async () => {
+			try {
+				const stats = await getStatsForUser(npub);
+				reviewCount = stats.totalReviews;
+			} catch {
+				reviewCount = 0;
+			}
+		})();
 	});
 
 </script>
@@ -614,17 +630,12 @@
 												<h3 class="text-base-content font-bold">
 													{userProfile?.name || 'Unknown User'}
 												</h3>
-												{#if averageRating}
-													<div class="flex items-center gap-1">
-														<span class="text-lg font-bold">{averageRating}</span>
-														<svg class="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-															<path
-																fill-rule="evenodd"
-																d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-																clip-rule="evenodd"
-															/>
-														</svg>
-													</div>
+												{#if routeNpub}
+													<UserRatingDisplay
+														userPubkey={routeNpub}
+														size="md"
+														showCount={false}
+													/>
 												{/if}
 											</div>
 											{#if userNameForEmail}
@@ -912,6 +923,40 @@
 							</div>
 						</div>
 					{/if}
+
+					<!-- Reviews Section (Nostr kind 1985) -->
+					{#if routeNpub}
+						<ProfileReviewsSection userPubkey={routeNpub} isCurrentUser={false} />
+					{/if}
+
+					<!-- Quick Actions (in main column below Reviews - visible on mobile) -->
+					<div class="block md:hidden">
+						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+							<div class="card-body p-3">
+								<p class="mb-2 text-xl font-bold">{$t('common.profile.quick_actions')}</p>
+								<div class="space-y-3">
+									{#if $authState.isAuthenticated}
+										<button class="btn btn-primary btn-sm w-full" onclick={openMessageModal}>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+											</svg>
+											{$t('common.profile.send_message')}
+										</button>
+										<button class="btn btn-outline btn-sm w-full" onclick={goToChat}>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+											</svg>
+											{$t('common.profile.go_to_chat')}
+										</button>
+									{:else}
+										<button class="btn btn-primary btn-sm w-full" onclick={() => goto('/auth/signup')}>
+											{$t('common.profile.signup_to_hire')}
+										</button>
+									{/if}
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 
 				<!-- Columna 4: Sidebar -->
@@ -922,30 +967,20 @@
 							<p class="mb-2 text-xl font-bold">{$t('common.profile.performance_stats')}</p>
 							<div class="space-y-1">
 								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 text-sm">{$t('common.profile.tasks_completed')}</span>
+									<span class="text-base-content/70 text-sm">{$t('reviews.summary.reviews_received')}</span>
 									<span class="text-primary text-lg font-bold">
-										{userProfile?.reviews?.length || 0}
+										{reviewCount}
 									</span>
 								</div>
 								<div class="flex items-center justify-between">
 									<span class="text-base-content/70 text-sm">{$t('common.profile.rating')}</span>
-									<div class="flex items-center gap-1">
-										{#if userProfile?.reviews && userProfile.reviews.length > 0}
-											{@const avgRating =
-												userProfile.reviews.reduce((sum, review) => sum + review.rating, 0) /
-												userProfile.reviews.length}
-											<span class="text-lg font-bold">{avgRating.toFixed(1)}</span>
-											<svg class="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-												<path
-													fill-rule="evenodd"
-													d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-													clip-rule="evenodd"
-												/>
-											</svg>
-										{:else}
-											<span class="text-base-content/60 text-sm">{$t('common.profile.no_ratings')}</span>
-										{/if}
-									</div>
+									{#if routeNpub}
+										<UserRatingDisplay
+											userPubkey={routeNpub}
+											size="sm"
+											showCount={true}
+										/>
+									{/if}
 								</div>
 								<div class="flex items-center justify-between">
 									<span class="text-base-content/70 text-sm">{$t('common.profile.skills')}</span>

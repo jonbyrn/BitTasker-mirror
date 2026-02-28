@@ -21,6 +21,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
 	import BidForm from '$lib/components/bidding/BidForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import IconAlertCircle from '~icons/mdi/alert-circle';
@@ -742,26 +743,34 @@
 											<span class="text-base font-medium">
 												{task.creator.username}
 											</span>
-											<!-- Review Stars -->
-											<div class="flex items-center">
-												{#each [0, 1, 2, 3, 4] as i (i)}
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														class="h-4 w-4 {i < (task.creator?.rating || 0)
-															? 'text-yellow-400'
-															: 'text-base-content/30'}"
-														fill="currentColor"
-														viewBox="0 0 24 24"
+											<!-- Review Stars from Review System -->
+											{#if task.npub}
+												<div class="flex items-center gap-2">
+													<UserRatingDisplay userPubkey={task.npub} size="md" showCount={true} />
+													<a
+														href="/dashboard/profile?user={task.npub}&tab=reviews"
+														class="text-xs text-primary hover:underline"
 													>
-														<path
-															d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-														/>
-													</svg>
-												{/each}
-												<span class="text-base-content/60 ml-2 text-sm"
-													>{task.creator?.rating || 0}</span
-												>
-											</div>
+														{$t('reviews.view_all')}
+													</a>
+												</div>
+											{:else}
+												<div class="flex items-center">
+													{#each Array(5) as _, i}
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															class="h-4 w-4 text-base-content/30"
+															fill="currentColor"
+															viewBox="0 0 24 24"
+														>
+															<path
+																d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+															/>
+														</svg>
+													{/each}
+													<span class="text-base-content/60 ml-2 text-sm">0</span>
+												</div>
+											{/if}
 											<p class="text-base-content/60 text-sm">
 												{$t('dashboard.task_details_by_task.member_since')}
 												{formatDateString(task.createdAt)}

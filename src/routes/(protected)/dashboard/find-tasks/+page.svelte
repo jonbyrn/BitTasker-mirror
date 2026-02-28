@@ -12,8 +12,11 @@ import type { Task, SearchTasksParams } from '$lib/types/task.d';
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
+	// Import performance testing helper in development
+	import '$lib/utils/performance-testing-helper';
 	import {
 		formatStandardDateShort,
 		parseDateToLocalMidnight
@@ -976,26 +979,10 @@ function getTaskIdentifier(task: Task): string {
 															<span class="truncate text-sm font-medium">
 																{task.creator?.username}
 															</span>
-															<!-- Review Stars -->
-															<div class="flex items-center">
-																{#each Array(5) as _, i}
-																	<svg
-																		xmlns="http://www.w3.org/2000/svg"
-																		class="h-3 w-3 {i < ((task.creator as any)?.rating || 0)
-																			? 'text-yellow-400'
-																			: 'text-base-content/30'}"
-																		fill="currentColor"
-																		viewBox="0 0 24 24"
-																	>
-																		<path
-																			d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-																		/>
-																	</svg>
-																{/each}
-																<span class="text-base-content/60 ml-1 text-xs"
-																	>{(task.creator as any)?.rating || 0}</span
-																>
-															</div>
+															<!-- Review Stars from Review System -->
+															{#if task.npub}
+																<UserRatingDisplay userPubkey={task.npub} size="sm" showCount={false} />
+															{/if}
 														</div>
 													</div>
 

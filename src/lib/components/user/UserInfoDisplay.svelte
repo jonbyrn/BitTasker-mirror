@@ -3,6 +3,7 @@
 	import IconAccount from '~icons/mdi/account';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { nip19 } from 'nostr-tools';
+	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
 
 	const {
 		avatar = null,
@@ -414,23 +415,32 @@
 			</span>
 		{/if}
 		
-		<!-- Rating -->
+		<!-- Rating: live from Nostr when pubkey available, otherwise static -->
 		<div class="flex items-center gap-1">
-			{#each Array(5) as _, i}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="{config.star} {i < (rating || 0)
-						? 'text-yellow-400'
-						: 'text-base-content/30'}"
-					fill="currentColor"
-					viewBox="0 0 24 24"
-				>
-					<path
-						d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-					/>
-				</svg>
-			{/each}
-			<span class="text-base-content/60 ml-1 {config.rating}">{rating || 0}</span>
+			{#if profileLink || pubkey}
+				<UserRatingDisplay
+					userPubkey={profileLink || pubkey}
+					size={size}
+					showCount={false}
+					showStars={true}
+				/>
+			{:else}
+				{#each Array(5) as _, i}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="{config.star} {i < Math.round(rating || 0)
+							? 'text-warning fill-warning'
+							: 'text-base-content/30'}"
+						fill="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+						/>
+					</svg>
+				{/each}
+				<span class="text-base-content/60 ml-1 {config.rating}">{(rating ?? 0).toFixed(1)}</span>
+			{/if}
 		</div>
 	</div>
 </div>

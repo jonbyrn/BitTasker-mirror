@@ -12,6 +12,7 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
+	import IconStarOutline from '~icons/mdi/star-outline';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 
 	let { children } = $props();
@@ -43,32 +44,34 @@
 									<a
 										data-sveltekit-reload="off"
 										href={section.path}
-										class:menu-active={page.url.pathname + page.url.search === section.path}
-										class="flex items-center gap-3"
-									>
-										{#if section.icon === 'mdi:format-list-bulleted'}
-											<IconFormatListBulleted class="text-primary" />
-										{:else if section.icon === 'mdi:plus-circle-outline'}
-											<IconPlusCircleOutline class="text-primary" />
-										{:else if section.icon === 'mdi:magnify'}
-											<IconMagnify class="text-primary" />
-										{:else if section.icon === 'mdi:invoice-text-send-outline'}
-											<IconInvoiceTextSendOutline class="text-primary" />
-										{:else if section.icon === 'mdi:file-sign'}
-											<IconFileSign class="text-primary" />
-										{:else if section.icon === 'mdi:wallet-outline'}
-											<IconWalletOutline class="text-primary" />
-										{:else if section.icon === 'mdi:account'}
-											<IconAccount class="text-primary" />
-										{:else if section.icon === 'mdi:chat-outline'}
-											<IconChatOutline class="text-primary" />
-										{:else if section.icon === 'mdi:cog'}
-											<IconCog class="text-primary" />
-										{:else}
-											<IconFormatListBulleted class="text-primary" />
-										{/if}
-										{$t(section.label)}
-									</a>
+									class:menu-active={page.url.pathname + page.url.search === section.path}
+									class="flex items-center gap-3"
+								>
+									{#if section.icon === 'mdi:format-list-bulleted'}
+										<IconFormatListBulleted class="text-primary" />
+									{:else if section.icon === 'mdi:plus-circle-outline'}
+										<IconPlusCircleOutline class="text-primary" />
+									{:else if section.icon === 'mdi:magnify'}
+										<IconMagnify class="text-primary" />
+									{:else if section.icon === 'mdi:invoice-text-send-outline'}
+										<IconInvoiceTextSendOutline class="text-primary" />
+									{:else if section.icon === 'mdi:file-sign'}
+										<IconFileSign class="text-primary" />
+									{:else if section.icon === 'mdi:wallet-outline'}
+										<IconWalletOutline class="text-primary" />
+									{:else if section.icon === 'mdi:star-outline'}
+										<IconStarOutline class="text-primary" />
+									{:else if section.icon === 'mdi:account'}
+										<IconAccount class="text-primary" />
+									{:else if section.icon === 'mdi:chat-outline'}
+										<IconChatOutline class="text-primary" />
+									{:else if section.icon === 'mdi:cog'}
+										<IconCog class="text-primary" />
+									{:else}
+										<IconFormatListBulleted class="text-primary" />
+									{/if}
+									{$t(section.label)}
+								</a>
 								</li>
 							{/each}
 						</ul>

@@ -25,9 +25,9 @@
 			<div class="flex items-center justify-between">
 				<span class="text-base-content/70 text-sm">{$t('stats.rating')}</span>
 				<div class="flex items-center gap-1">
-					<span class="text-lg font-bold">{stats.rating}</span>
+					<span class="text-primary text-lg font-bold">{stats.rating}</span>
 					<svg
-						class="h-4 w-4 text-yellow-500"
+						class="h-4 w-4 text-primary"
 						fill="currentColor"
 						viewBox="0 0 20 20"
 					>

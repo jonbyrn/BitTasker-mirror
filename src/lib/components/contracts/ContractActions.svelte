@@ -12,6 +12,7 @@
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
+	import ReviewPromptModal from '../reviews/ReviewPromptModal.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import {
 		ContractModalAction,
@@ -41,6 +42,8 @@
 	// State for actions
 	let isLoading = $state<Record<string, boolean>>({});
 	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
+	let showReviewModal = $state(false);
+	let reviewEscrowTxHash = $state<string | undefined>(undefined);
 
 	// Disable ALL critical actions when transaction is pending
 	const isDisabledDueToPending = $derived(contract.isPending);
@@ -221,6 +224,14 @@
 					console.error('Failed to send task completion message to tasker:', messageError);
 				});
 			}
+
+			// Show review prompt after successful completion
+			setTimeout(() => {
+				showReviewModal = true;
+			}, 2000);
+
+			// Note: Status will be updated via blockchain event -> Nostr update
+			// Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
 			console.error('Error completing task:', error);
 
@@ -263,15 +274,12 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Enviar DM al taskee: fondos liberados y trabajo aceptado
-			if (taskeeNpub) {
-				sendPaymentReleasedMessageToTaskee(taskeeNpub, {
-					taskId: contractStore.getContractKey(contract, 'taskId') as string,
-					taskTitle: taskTitle || undefined
-				}).catch((messageError: unknown) => {
-					console.error('Failed to send payment released message to taskee:', messageError);
-				});
-			}
+			// Show review prompt after successful acceptance
+			setTimeout(() => {
+				showReviewModal = true;
+			}, 1000);
+
+			// Note: Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
 			console.error('Error accepting task:', error);
 
@@ -397,6 +405,11 @@
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
+
+			// Show review prompt after successful proposal acceptance (dispute resolved)
+			setTimeout(() => {
+				showReviewModal = true;
+			}, 1000);
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
 			const errorMessage =
@@ -452,11 +465,6 @@
 		setLoading('resolveTimelock', true);
 		try {
 			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
-			console.log({
-				id: contract.escrowData.id,
-				status: contract.escrowData.status,
-				eventId: contract.contractEvent.id
-			});
 			await escrow.escrowOps.resolveAfterTimelock(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
@@ -467,6 +475,11 @@
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
+
+			// Show review prompt after successful timelock resolution
+			setTimeout(() => {
+				showReviewModal = true;
+			}, 1000);
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
 			const errorMessage =
@@ -1100,6 +1113,21 @@
 		closeModal();
 	}}
 	{btcPrice}
+/>
+
+<!-- Review Prompt Modal -->
+<ReviewPromptModal
+	isOpen={showReviewModal}
+	escrowId={contract.escrowData.id}
+	escrowTxHash={reviewEscrowTxHash}
+	onClose={() => {
+		showReviewModal = false;
+		reviewEscrowTxHash = undefined;
+	}}
+	onSubmit={(eventId: string) => {
+		console.log('Review submitted:', eventId);
+		appStore.showSuccessToast($t('reviews.form.success'));
+	}}
 />
 
 <!-- Generic Confirmation Modal for Accept/Dispute/Cancel/Delete -->

@@ -64,6 +64,16 @@ const KINDS = {
     /** Contract status updates - regular event (not replaceable) */
     CONTRACT_STATUS: 31006,
 
+    // Review System (client-side only, NIP-33 replaceable by d=escrowId)
+    REVIEW_EVENT_KIND: 1985,
+    REVIEW_VERIFIED: 1985, // Alias for REVIEW_EVENT_KIND
+    REVIEW_LEGACY: 31007, // Legacy kind (read-only compatibility)
+    MERKLE_TREE_METADATA: 31008, // Merkle tree metadata (root, version, etc.)
+    MERKLE_TREE_CHUNK: 31009, // Chunked Merkle tree data
+    MERKLE_TREE_UPDATE: 31010, // Merkle tree update notification
+    REVIEW_REPORTED: 31011, // Reported review for moderation
+    REVIEW_REPLY: 31012, // Reply to a review
+
     /** User relay list (NIP-65) - replaceable */
     NIP_65_RELAY_LIST: 10002,
 
