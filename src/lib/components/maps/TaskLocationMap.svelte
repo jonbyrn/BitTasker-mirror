@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Task, Location } from '$lib/types/task';
+	import type { Service, ServiceTier } from '$lib/types/service.d';
 	import { smallCountries, mediumCountries, largeCountries } from '$lib/utils/constants/countries';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
@@ -8,6 +9,7 @@
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { getTaskId } from '$lib/utils/helpers/task-id';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { locale } from 'svelte-i18n';
@@ -15,9 +17,12 @@
 
 	let {
 		tasks = [],
+		services = [],
 		height = '60vh',
 		selectedTask = null,
+		selectedService = null,
 		onTaskSelected,
+		onServiceSelected,
 		showFullscreen = true,
 		btcPrice = 0,
 		formatDateTimeReactive,
@@ -27,10 +32,13 @@
 		drawersLoaded = false,
 		loadDrawerComponents
 	} = $props<{
-		tasks: Task[];
+		tasks?: Task[];
+		services?: Service[];
 		height?: string;
 		selectedTask?: Task | null;
+		selectedService?: Service | null;
 		onTaskSelected?: (event: { task: Task; locationType: 'pickup' | 'dropoff' }) => void;
+		onServiceSelected?: (event: { service: Service }) => void;
 		showFullscreen?: boolean;
 		btcPrice?: number;
 		formatDateTimeReactive?: (dateString: string) => string;
@@ -40,6 +48,8 @@
 		drawersLoaded?: boolean;
 		loadDrawerComponents?: () => Promise<void>;
 	}>();
+
+	const isServicesMode = $derived(services?.length > 0);
 
 	// State
 	let map: google.maps.Map | null = null;
@@ -920,10 +930,28 @@
 				throw new Error('Map element not found');
 			}
 
-		// Determine map center: first task pickup location > user location > default
+		// Determine map center: services mode (first service) > first task pickup > user location > default
 		let centerLocation: Location;
-		
-		if (tasks.length > 0) {
+		if (isServicesMode && services.length > 0) {
+			const firstServiceLoc = getServiceLocation(services[0]);
+			if (firstServiceLoc?.latitude != null && firstServiceLoc?.longitude != null) {
+				centerLocation = {
+					displayName: firstServiceLoc.displayName || 'Service Location',
+					latitude: firstServiceLoc.latitude,
+					longitude: firstServiceLoc.longitude,
+					zipCode: firstServiceLoc.zipCode || '',
+					locationLoaded: true
+				};
+			} else {
+				centerLocation = userLocation || {
+					displayName: 'Centroamérica',
+					latitude: 13.6929,
+					longitude: -89.2182,
+					zipCode: '',
+					locationLoaded: false
+				};
+			}
+		} else if (tasks.length > 0) {
 			// Use first task's pickup location if available
 			const firstTask = tasks[0];
 			if (firstTask.pickupLocation?.latitude && firstTask.pickupLocation.longitude) {
@@ -935,7 +963,6 @@
 					locationLoaded: true
 				};
 			} else {
-				// Fallback to user location or default
 				centerLocation = userLocation || {
 					displayName: 'Centroamérica',
 					latitude: 13.6929,
@@ -945,7 +972,6 @@
 				};
 			}
 		} else {
-			// Fallback to user location or default
 			centerLocation = userLocation || {
 				displayName: 'Centroamérica',
 				latitude: 13.6929,
@@ -1016,7 +1042,8 @@
 			// Use requestAnimationFrame for better performance
 			requestAnimationFrame(() => {
 				requestAnimationFrame(() => {
-					createTaskMarkers();
+					if (isServicesMode) createServiceMarkers();
+					else createTaskMarkers();
 				});
 			});
 		} catch (error) {
@@ -1114,6 +1141,192 @@
 			error = err instanceof Error ? err.message : 'Error initializing map';
 			hasError = true;
 			isLoading = false;
+		}
+	}
+
+	// ---------- Services mode helpers (same logic as ServiceLocationMap / ServiceCard) ----------
+	function getServiceLocation(service: Service): Location | null {
+		if (service.locationDetails?.taskerLocation?.serviceLocation) {
+			return service.locationDetails.taskerLocation.serviceLocation;
+		}
+		if (service.locationDetails?.taskeeLocation?.serviceLocation) {
+			return service.locationDetails.taskeeLocation.serviceLocation;
+		}
+		return null;
+	}
+
+	function groupServicesByLocation(svc: Service[]) {
+		const groups: Array<{ latitude: number; longitude: number; services: Service[] }> = [];
+		const processed = new Set<string>();
+		for (const service of svc) {
+			const loc = getServiceLocation(service);
+			if (!loc?.latitude || loc.longitude == null) continue;
+			const key = `${loc.latitude.toFixed(4)},${loc.longitude.toFixed(4)}`;
+			if (processed.has(key)) continue;
+			processed.add(key);
+			const nearby = svc.filter((s) => {
+				const l = getServiceLocation(s);
+				return l?.latitude != null && l?.longitude != null &&
+					Math.abs(l.latitude - loc.latitude!) < 0.001 &&
+					Math.abs(l.longitude - loc.longitude!) < 0.001;
+			});
+			groups.push({
+				latitude: loc.latitude,
+				longitude: loc.longitude,
+				services: nearby
+			});
+		}
+		return groups;
+	}
+
+	function getServicePricingDisplay(service: Service): string {
+		if (!service.pricing) return $t('dashboard.services.browse.pricing.inquiry_required') || 'Request Quote';
+		switch (service.pricing.type) {
+			case ServicePricingTypeEnum.FIXED:
+				return service.pricing.amount != null
+					? `$${formatNumberWithTwoDecimals(service.pricing.amount)}`
+					: ($t('dashboard.services.browse.pricing.not_set') || 'Price not set');
+			case ServicePricingTypeEnum.HOURLY:
+				return service.pricing.hourlyRate != null
+					? `$${formatNumberWithTwoDecimals(service.pricing.hourlyRate)}/hr`
+					: ($t('dashboard.services.browse.pricing.not_set') || 'Price not set');
+			case ServicePricingTypeEnum.TIERED:
+				if (service.pricing.tiers?.length) {
+					const prices = service.pricing.tiers
+						.map((tier: ServiceTier) => tier.price)
+						.filter((p: number | undefined): p is number => typeof p === 'number' && p > 0);
+					if (prices.length) return `From $${formatNumberWithTwoDecimals(Math.min(...prices))}`;
+				}
+				return $t('dashboard.services.browse.pricing.from_price') || 'From $X';
+			case ServicePricingTypeEnum.INQUIRY_REQUIRED:
+				return $t('dashboard.services.browse.pricing.request_quote') || 'Request Quote';
+			default:
+				return $t('dashboard.services.browse.pricing.not_set') || 'Price not set';
+		}
+	}
+
+	function getServiceLocationDisplay(service: Service): string {
+		const locLabels: Record<ServiceLocationTypeEnum, string> = {
+			[ServiceLocationTypeEnum.REMOTE]: $t('dashboard.services.create.location.remote_title') || 'Remote',
+			[ServiceLocationTypeEnum.TASKER_LOCATION]: $t('dashboard.services.create.location.tasker_title') || 'At My Location',
+			[ServiceLocationTypeEnum.TASKEE_LOCATION]: $t('dashboard.services.create.location.taskee_title') || 'At Client Location'
+		};
+		const base =
+			service.locationDetails?.taskerLocation?.serviceLocation?.displayName ||
+			service.locationDetails?.taskerLocation?.serviceLocation?.formattedAddress;
+		if (service.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKER_LOCATION) && base) {
+			return base.length > 50 ? base.slice(0, 50).trim() + '…' : base;
+		}
+		if (service.serviceLocationTypes?.length) {
+			return service.serviceLocationTypes.map((t) => locLabels[t] || t).join(', ');
+		}
+		return 'Remote';
+	}
+
+	function generateServiceInfoWindowContent(service: Service): string {
+		const escapeHtml = (text: string): string => {
+			const div = document.createElement('div');
+			div.textContent = text;
+			return div.innerHTML;
+		};
+		const title = escapeHtml(service.title || 'Service');
+		const desc = (service.description || '').substring(0, 120);
+		const escapedDesc = escapeHtml(desc + (service.description && service.description.length > 120 ? '...' : ''));
+		const price = getServicePricingDisplay(service);
+		const locationText = escapeHtml(getServiceLocationDisplay(service));
+		const username = escapeHtml(service.creator?.username || 'Provider');
+		const viewText = $t('find_tasks.view_task') || 'View'; // reuse key or add services.view
+		const serviceId = service.uniqueId || service.id;
+		return `
+			<div class="service-info-window" style="min-width: 260px; max-width: 320px; font-family: system-ui, sans-serif;">
+				<div class="card bg-base-100 rounded-xl shadow-md" style="border: none;">
+					<div class="card-body rounded-xl p-4">
+						<div style="margin-bottom: 12px;">
+							<h3 style="font-size: 18px; font-weight: 600; margin: 0; -webkit-line-clamp: 2; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${title}</h3>
+							<p style="font-size: 14px; color: hsl(var(--bc) / 0.8); margin-top: 4px; -webkit-line-clamp: 2; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${escapedDesc}</p>
+						</div>
+						<div style="margin-bottom: 12px; font-size: 20px; font-weight: bold;">${price}</div>
+						<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+							<svg class="text-primary" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2C8.13,2 5,5.13 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9C19,5.13 15.87,2 12,2M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5Z"/></svg>
+							<span style="font-size: 14px;">${locationText}</span>
+						</div>
+						<div style="font-size: 14px; color: hsl(var(--bc) / 0.7); margin-bottom: 12px;">${username}</div>
+						<button class="btn btn-primary btn-sm" style="width: 100%; min-height: 44px;" data-service-id="${serviceId}" data-action="view" onclick="window.handleMapServiceInfoWindowAction(event, '${serviceId.replace(/'/g, "\\'")}')">${viewText}</button>
+					</div>
+				</div>
+			</div>`;
+	}
+
+	function showServiceInfoWindow(service: Service, marker: google.maps.marker.AdvancedMarkerElement) {
+		if (!map) return;
+		if (infoWindow) infoWindow.close();
+		try {
+			infoWindow = new google.maps.InfoWindow({ content: generateServiceInfoWindowContent(service), maxWidth: 320 });
+			openInfoWindowMarker = marker;
+			infoWindow.open({ anchor: marker, map });
+			const currentServices: Service[] = services;
+			(window as any).handleMapServiceInfoWindowAction = (event: Event, serviceId: string) => {
+				event.preventDefault();
+				event.stopPropagation();
+				const svc = currentServices.find((s) => (s.uniqueId || s.id) === serviceId);
+				if (svc) {
+					onServiceSelected?.({ service: svc });
+					if (typeof window !== 'undefined' && (window as any).goto) {
+						(window as any).goto(`/services/${serviceId}`);
+					}
+				}
+			};
+		} catch (e) {
+			console.error('Error showing service InfoWindow:', e);
+		}
+	}
+
+	async function createServiceMarker(
+		lat: number,
+		lng: number,
+		service: Service
+	): Promise<google.maps.marker.AdvancedMarkerElement | null> {
+		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return null;
+		try {
+			const { AdvancedMarkerElement } = markerLibrary;
+			const markerContainer = document.createElement('div');
+			markerContainer.style.position = 'relative';
+			markerContainer.style.cursor = 'pointer';
+			const img = document.createElement('img');
+			img.src = '/map-pin.png';
+			img.style.width = '3.5rem';
+			img.style.height = '3.5rem';
+			img.style.display = 'block';
+			img.style.borderRadius = '50%';
+			markerContainer.appendChild(img);
+			const marker = new AdvancedMarkerElement({
+				position: { lat, lng },
+				map,
+				content: markerContainer,
+				gmpDraggable: false
+			});
+			marker.addListener('click', () => {
+				hideAllCircles();
+				showServiceInfoWindow(service, marker);
+				onServiceSelected?.({ service });
+			});
+			return marker;
+		} catch (error) {
+			console.error('Error creating service marker:', error);
+			return null;
+		}
+	}
+
+	async function createServiceMarkers() {
+		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return;
+		try {
+			const groups = groupServicesByLocation(services);
+			for (const group of groups) {
+				const marker = await createServiceMarker(group.latitude, group.longitude, group.services[0]);
+				if (marker) markers.push(marker);
+			}
+		} catch (error) {
+			console.error('Error creating service markers:', error);
 		}
 	}
 
@@ -1326,14 +1539,12 @@
 		circles = [];
 	}
 
-	// Función para actualizar markers cuando cambien las tasks
+	// Función para actualizar markers cuando cambien las tasks o los servicios
 	async function updateMarkers() {
 		if (map && isMapLoaded) {
-			// Limpiar markers existentes
 			clearMarkers();
-
-			// Crear nuevos markers
-			await createTaskMarkers();
+			if (isServicesMode) await createServiceMarkers();
+			else await createTaskMarkers();
 		}
 	}
 
@@ -1539,14 +1750,15 @@
 		}
 	});
 
-	// Watch for tasks changes - usando $effect.pre para evitar bucles infinitos
+	// Watch for tasks or services changes - usando $effect.pre para evitar bucles infinitos
 	$effect.pre(() => {
-		if (tasks.length > 0 && map && isMapLoaded) {
-			// Solo actualizar si realmente cambió algo
-			const currentTaskIds = tasks.map((t: Task) => t.id).join(',');
-			if (currentTaskIds !== lastTaskIds) {
-				lastTaskIds = currentTaskIds;
-				// Usar requestAnimationFrame para mejor rendimiento
+		const hasItems = isServicesMode ? services.length > 0 : tasks.length > 0;
+		if (hasItems && map && isMapLoaded) {
+			const currentIds = isServicesMode
+				? services.map((s: Service) => s.uniqueId || s.id).join(',')
+				: tasks.map((t: Task) => t.id).join(',');
+			if (currentIds !== lastTaskIds) {
+				lastTaskIds = currentIds;
 				requestAnimationFrame(() => {
 					updateMarkers();
 				});
