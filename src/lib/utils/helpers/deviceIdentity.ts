@@ -2,7 +2,6 @@ import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
 import { nip19 } from 'nostr-tools';
 import { StorageKeys } from '../constants/storage';
-import { getProfileMetaData } from '$lib/nostr/profile';
 
 /**
  * Get unique device identifier for biometric authentication
@@ -67,7 +66,8 @@ export async function getDeviceName(): Promise<string> {
 		if (info.platform === 'ios') {
 			return info.model || 'iOS Device'; // e.g. "iPhone 13 Pro"
 		} else if (info.platform === 'android') {
-			return `${info.manufacturer} ${info.model}` || 'Android Device'; // e.g. "Samsung Galaxy S21"
+			const name = [info.manufacturer, info.model].filter(Boolean).join(' ').trim();
+			return name || 'Android Device'; // e.g. "Samsung Galaxy S21"
 		} else if (info.platform === 'web') {
 			// For web, use browser info
 			const browser = getBrowserInfo();
@@ -92,7 +92,7 @@ interface BrowserInfo {
  */
 async function generateBrowserFingerprint(): Promise<string> {
 	const userAgent = navigator.userAgent;
-	// @ts-ignore
+	// @ts-expect-error userAgentData is not in all browser types
 	const platform = navigator?.userAgentData?.platform || navigator.platform || 'unknown';
 	const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
 	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -221,10 +221,17 @@ export async function generatePasskeyName(npub: string): Promise<{
 		decodedNpub = nip19.decode(npub).data as string;
 	}
 
-	const metadataEvent = await getProfileMetaData(decodedNpub);
-	if (metadataEvent) {
-		const metadata = JSON.parse(metadataEvent.content);
-		passkeyName = metadata.display_name || metadata.displayName || metadata.name;
+	try {
+		// Lazy import avoids a module cycle on cold startup:
+		// apiService -> axios -> deviceIdentity -> profile -> upload.service -> apiService
+		const { getProfileMetaData } = await import('$lib/nostr/profile');
+		const metadataEvent = await getProfileMetaData(decodedNpub);
+		if (metadataEvent) {
+			const metadata = JSON.parse(metadataEvent.content);
+			passkeyName = metadata.display_name || metadata.displayName || metadata.name;
+		}
+	} catch (error) {
+		console.warn('Failed to load profile metadata for passkey name:', error);
 	}
 
 	const deviceShortName = await createUserDeviceShortName(decodedNpub);
@@ -251,22 +258,21 @@ export function createDisplayName(publicKey: string, customName?: string): strin
 /**
  * Format passkey name as email-like identifier: <username|displayname|first 6 chars of npub>@bittasker.com
  * Uses the format but doesn't enforce strict email validation - it's just borrowing the format.
- * 
+ *
  * @param npub - Nostr public key (hex or npub format)
  * @param username - Optional username (highest priority)
  * @param displayName - Optional display name (second priority)
  * @returns Formatted passkey name in email format (e.g., "John.Doe@bittasker.com")
  */
-export async function formatPasskeyName(
-	{
-		npub,
-		username,
-		displayName
-	}: {
-		npub: string;
-		username?: string | null;
-		displayName?: string | null;
-	}): Promise<string> {
+export async function formatPasskeyName({
+	npub,
+	username,
+	displayName
+}: {
+	npub: string;
+	username?: string | null;
+	displayName?: string | null;
+}): Promise<string> {
 	// Validate npub is non-empty and has length > 0
 	if (!npub || npub.length === 0) {
 		// When npub is empty, directly return "Unknown" (no point trying device name)
