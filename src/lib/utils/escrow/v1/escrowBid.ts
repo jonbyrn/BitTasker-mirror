@@ -11,6 +11,10 @@ import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { normalizeRskAddress } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+import { getTaskStableId } from '$lib/nostr/task';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('escrow:bid');
 
 /**
  * Calculate escrow details from bid data
@@ -18,7 +22,11 @@ import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
  * @param task Task details
  * @param btcPrice Current BTC price in USD (needed to convert USD to rBTC)
  */
-export function calculateBidEscrowDetails(bid: NostrBidContent, task: Task, btcPrice: number): BidEscrowDetails {
+export function calculateBidEscrowDetails(
+	bid: NostrBidContent,
+	task: Task,
+	btcPrice: number
+): BidEscrowDetails {
 	// Convert bid amount from USD to rBTC
 	// Ensure minimum amount to avoid parsing issues
 	if (bid.amount <= 0) {
@@ -116,10 +124,12 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 			const requiredRBTC = ethers.formatEther(totalRequired);
 			const shortfallRBTC = ethers.formatEther(totalRequired - currentBalanceWei);
 
-			errors.push(`Insufficient RBTC balance. You have ${parseFloat(currentBalanceRBTC).toFixed(6)} RBTC but need ${parseFloat(requiredRBTC).toFixed(6)} RBTC (including gas fees). Shortfall: ${parseFloat(shortfallRBTC).toFixed(6)} RBTC.`);
+			errors.push(
+				`Insufficient RBTC balance. You have ${parseFloat(currentBalanceRBTC).toFixed(6)} RBTC but need ${parseFloat(requiredRBTC).toFixed(6)} RBTC (including gas fees). Shortfall: ${parseFloat(shortfallRBTC).toFixed(6)} RBTC.`
+			);
 		}
 	} catch (error) {
-		console.error('Error validating balance:', error);
+		d.error('validateSufficientBalance', error);
 		errors.push('Unable to validate balance. Please check your wallet connection.');
 	}
 
@@ -151,6 +161,7 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
 			// Normalize RSK address checks for valid Hex format and lowercases it
 			normalizeRskAddress(details.freelancerAddress);
 		} catch (error) {
+			d.error('validateEscrowDetails: freelancer address', error);
 			errors.push('Invalid freelancer address format');
 		}
 	}
@@ -206,12 +217,19 @@ export async function acceptBidAndCreateEscrow(
 	// Store transaction hash outside try block for cleanup in catch block
 	let transactionHash: string | null = null;
 
+	const taskId = getTaskStableId(task);
+	d.log('acceptBidAndCreateEscrow start', { taskId, bidId: bid.id });
+
 	try {
 		const bidContent = bid.content as unknown as NostrBidContent;
 		const taskContent = JSON.parse(task.content) as Task;
 
 		// Calculate escrow details
 		const escrowDetails = calculateBidEscrowDetails(bidContent, taskContent, btcPrice);
+		d.log('acceptBidAndCreateEscrow escrowDetails', {
+			taskId,
+			totalAmount: escrowDetails.totalAmount
+		});
 
 		// Validate details
 		const validationResult = validateEscrowDetails(escrowDetails);
@@ -270,6 +288,7 @@ export async function acceptBidAndCreateEscrow(
 		}
 
 		// Create the escrow using multi-network manager
+		d.log('acceptBidAndCreateEscrow createEscrow', { taskId });
 		const transactionResult = await escrow.createEscrow(
 			escrowDetails.freelancerAddress,
 			escrowDetails.baseAmount,
@@ -289,11 +308,16 @@ export async function acceptBidAndCreateEscrow(
 
 		// Store transaction hash for potential cleanup in catch block
 		transactionHash = transactionResult.hash;
+		d.log('acceptBidAndCreateEscrow tx submitted', {
+			taskId,
+			txHash: transactionHash.slice(0, 10)
+		});
 
-		// Register pending contract creation with our event management system
+		// Register pending contract creation with our event management system.
+		// Use d-tag (stable id) so updateTask(contract.taskId) works on repeated updates (Nostr Addressable Event).
 		registerPendingContractByTxHash({
 			bidEventId: bid.id,
-			taskId: task.id,
+			taskId,
 			taskTitle: taskContent.title,
 			taskDescription: taskContent.description,
 			freelancerPubkey: bidContent.bidderId || '',
@@ -302,23 +326,23 @@ export async function acceptBidAndCreateEscrow(
 			estimatedCompletionTime: adjustedCompletionTime,
 			transactionHash: transactionHash
 		});
+		d.log('acceptBidAndCreateEscrow success', { taskId, txHash: transactionHash.slice(0, 10) });
 
 		return {
 			success: true,
 			transactionResult
 		};
-
 	} catch (error) {
-		console.error('Failed to accept bid and create escrow:', error);
+		d.error('acceptBidAndCreateEscrow failed', { taskId }, error);
 
 		// Clean up any pending contracts that might have been registered
 		// If transaction was submitted and registered, we need to clean up by transaction hash
 		if (transactionHash) {
 			try {
 				cleanupPendingContractByTxHash(transactionHash);
+				d.log('acceptBidAndCreateEscrow cleanup', { taskId, txHash: transactionHash.slice(0, 10) });
 			} catch (cleanupError) {
-				// If cleanup fails, log but don't throw - we're already in error handling
-				console.warn('Failed to cleanup pending contract in catch block:', cleanupError);
+				d.warn('acceptBidAndCreateEscrow cleanup failed', { taskId }, cleanupError);
 			}
 		}
 

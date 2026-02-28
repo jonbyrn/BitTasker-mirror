@@ -3,7 +3,6 @@
 	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import { BudgetTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
@@ -208,25 +207,6 @@
 >
 	<h4 class="text-lg font-semibold">{$t('task.budget_question')}</h4>
 
-	<div class="flex gap-4">
-		<button
-			class="btn {$store.task.budget.type === BudgetTypeEnum.FIXED ? 'btn-primary' : 'btn-outline'}"
-			onclick={() =>
-				store.updateTask({ budget: { ...$store.task.budget, type: BudgetTypeEnum.FIXED } })}
-		>
-			{$t('task.budget_fixed')}
-		</button>
-		<button
-			class="btn {$store.task.budget.type === BudgetTypeEnum.HOURLY
-				? 'btn-primary'
-				: 'btn-outline'}"
-			onclick={() =>
-				store.updateTask({ budget: { ...$store.task.budget, type: BudgetTypeEnum.HOURLY } })}
-		>
-			{$t('task.budget_hourly')}
-		</button>
-	</div>
-
 	<div class="w-full">
 		<label for="budget" class="label">
 			<span class="label-text">{$t('task.budget_label')}</span>
@@ -266,33 +246,6 @@
 			>{$t('task.btc_price')} ${Math.round(btcPrice).toLocaleString()}</span
 		>
 	</div>
-
-	{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
-		<div class="w-full">
-			<label for="estimatedHours" class="label">
-				<span class="label-text">{$t('task.estimated_hours')}</span>
-			</label>
-			<input
-				type="number"
-				id="estimatedHours"
-				value={$store.task.budget.estimatedHours}
-				onchange={(e) => {
-					store.updateTask({
-						budget: {
-							...$store.task.budget,
-							estimatedHours: parseInt((e.target as HTMLInputElement).value)
-						}
-					});
-				}}
-				class="input input-bordered w-full"
-				placeholder={$t('task.hours_placeholder')}
-				min="1"
-			/>
-			{#if errors.estimatedHours}
-				<span class="label-text-alt text-error">{errors.estimatedHours}</span>
-			{/if}
-		</div>
-	{/if}
 
 	<div class="w-full">
 		<label for="description" class="label">

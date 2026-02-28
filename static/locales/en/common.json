@@ -24,7 +24,9 @@
             "task_accepted_congratulations": "Congratulations! Your task has been accepted.",
             "location_details_below": "Here are the location details:",
             "task_completed_message": "Task Completed",
-            "task_completed_review_message": "The task has been marked as completed. Please review the work and confirm if it's ready."
+            "task_completed_review_message": "The task has been marked as completed. Please review the work and confirm if it's ready.",
+            "funds_released_message": "Funds released",
+            "funds_released_taskee_message": "Your work has been accepted and payment has been released to you."
         },
         "back": "Back",
         "back_2": "Back",

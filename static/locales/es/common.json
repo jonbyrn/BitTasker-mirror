@@ -24,7 +24,9 @@
       "task_accepted_congratulations": "¡Felicitaciones! Tu tarea ha sido aceptada.",
       "location_details_below": "Aquí tienes los detalles de la ubicación:",
       "task_completed_message": "Tarea Completada",
-      "task_completed_review_message": "La tarea ha sido marcada como completada. Por favor revisa el trabajo y confirma si está listo."
+      "task_completed_review_message": "La tarea ha sido marcada como completada. Por favor revisa el trabajo y confirma si está listo.",
+      "funds_released_message": "Fondos liberados",
+      "funds_released_taskee_message": "Tu trabajo ha sido aceptado y el pago ha sido liberado para ti."
     },
     "back": "Volver",
     "back_2": "Regresar",
