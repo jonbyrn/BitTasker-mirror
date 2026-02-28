@@ -1,9 +1,9 @@
 /**
  * File 1 of 2: Creates two users and writes their passkey credentials to the file.
  *
- * Test 1: Signup (root → signup → Turnstile bypass) → username → passkey creation
- *   → Recovery (skip) → Profile → Complete → Dashboard.
- *   Teardown writes credentials to webauthn-credentials.json with label "signup".
+ * Test 1: Signup (root → signup → Turnstile bypass) → display name → passkey creation
+ *   → Profile → Recovery (skip) → Complete → Dashboard.
+ *   Handle is auto-derived from display name on passkey step; teardown writes credentials with label "signup".
  *
  * Test 2: Nostr signup (login → Login with nsec → submit → passkey automatic → land on profile)
  *   → fill profile → complete → Dashboard.
@@ -19,8 +19,7 @@ import { test, expect } from './fixtures/signup-login-auth';
 import {
 	writeNostrNsec,
 	getCredentialSetLabels,
-	readCredentialSet,
-	USERNAME_DOMAIN_SUFFIX
+	readCredentialSet
 } from './utils/webauthn-credentials';
 
 function e2eLog(message: string, stepLog: string[]): void {
@@ -52,17 +51,14 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 
 	test('user 1: signup → full onboarding → dashboard', async ({
 		page,
-		passkeyAssertion,
 		lastSignupUsernameStore
 	}) => {
-		// Long flow: signup → onboarding (username, passkey, recovery skip, profile, complete) → dashboard
+		// Flow: signup → onboarding (display name, passkey, profile, recovery skip, complete) → dashboard
 		test.setTimeout(240_000);
 		const ts = Date.now();
-		const uniqueUsername = `e2e-${ts}`;
-		lastSignupUsernameStore.value = uniqueUsername;
-		passkeyAssertion.expectedUsername = uniqueUsername;
-		// Use same value as username so Nostr profile "name" matches; messages E2E searches by this
-		const displayName = uniqueUsername;
+		const uniqueDisplayName = `e2e-${ts}`;
+		lastSignupUsernameStore.value = uniqueDisplayName;
+		// Handle is auto-derived on passkey step; passkey assertion only checks @bittasker.com
 		const stepLog: string[] = [];
 		const consoleMessages: string[] = [];
 		page.on('console', (msg) => {
@@ -92,10 +88,9 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		const continueBtn = page.getByTestId('signup-continue');
 		await expect(continueBtn).toBeEnabled({ timeout: 10_000 });
 		await continueBtn.click();
-		// Retry: if still on signup after 5s (slow backend), click Continue again
 		const onboardingStepTimeout = 45_000;
 		let reachedOnboarding = await page
-			.getByTestId('onboarding-step-username')
+			.getByTestId('onboarding-step-display-name')
 			.waitFor({ state: 'visible', timeout: 5_000 })
 			.then(() => true)
 			.catch(() => false);
@@ -103,7 +98,7 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 			e2eLog('Step 3 retry: still on signup, clicking Continue again', stepLog);
 			await page.getByTestId('signup-continue').click();
 			reachedOnboarding = await page
-				.getByTestId('onboarding-step-username')
+				.getByTestId('onboarding-step-display-name')
 				.waitFor({ state: 'visible', timeout: onboardingStepTimeout })
 				.then(() => true)
 				.catch(() => false);
@@ -117,20 +112,21 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		}
 		await expect(page).toHaveURL(/\/auth\/onboarding/);
 
-		await page.getByTestId('onboarding-username-input').fill(uniqueUsername);
-		await page.getByTestId('onboarding-username-next').click();
+		await page.getByTestId('onboarding-display-name-input').fill(uniqueDisplayName);
+		await page.getByTestId('onboarding-display-name-next').click();
 		const passkeySetupButton = page.getByTestId('passkey-setup-button');
 		await expect(passkeySetupButton).toBeVisible({ timeout: 15_000 });
 		e2eLog('Step 5: PasskeySetup visible; clicking Set up passkey', stepLog);
 
 		await passkeySetupButton.click();
-		const recoveryLocator = page.getByTestId('onboarding-step-recovery');
+		// Step order: Passkey → Profile → Recovery → Complete
+		const profileLocator = page.getByTestId('onboarding-step-profile');
 		const errorLocator = page.getByTestId('passkey-setup-error');
 		const timeoutMs = 60_000;
 		const first = await Promise.race([
-			recoveryLocator
+			profileLocator
 				.waitFor({ state: 'visible', timeout: timeoutMs })
-				.then(() => 'recovery' as const),
+				.then(() => 'profile' as const),
 			errorLocator.waitFor({ state: 'visible', timeout: timeoutMs }).then(() => 'error' as const)
 		]).catch(() => null);
 
@@ -142,23 +138,15 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 				`Passkey setup failed. Ensure VITE_API_URL is set and backend is running. Error: ${(errorText || '').slice(0, 200)}`
 			);
 		}
-		if (first !== 'recovery') {
+		if (first !== 'profile') {
 			e2eLog(`Step 6 FAILED: Timeout. URL=${page.url()}`, stepLog);
 			await attachDiagnostics('passkey-creation-failure');
 			throw new Error(
-				'Timeout waiting for Recovery step. Set VITE_API_URL to your dev backend and ensure it is running.'
+				'Timeout waiting for Profile step. Set VITE_API_URL to your dev backend and ensure it is running.'
 			);
 		}
-		e2eLog('Step 6: Recovery step visible (passkey created)', stepLog);
+		e2eLog('Step 6: Profile step visible (passkey created)', stepLog);
 
-		await page.getByTestId('onboarding-recovery-next').click();
-		await page
-			.getByTestId('onboarding-step-profile')
-			.waitFor({ state: 'visible', timeout: 15_000 });
-		e2eLog('Step 7: Profile step visible', stepLog);
-
-		await page.getByTestId('onboarding-display-name').fill(displayName);
-		// Professional title/description/skills are optional and only visible when "I want to get hired" is checked
 		await page.getByTestId('onboarding-want-to-get-hired').check();
 		await page.getByTestId('onboarding-professional-title').fill('E2E Test Professional');
 		await page.getByTestId('onboarding-profile-description').fill(E2E_PROFILE_DESCRIPTION);
@@ -169,6 +157,12 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await skillsInput.press('Enter');
 		await page.getByTestId('onboarding-profile-next').click();
 		await page
+			.getByTestId('onboarding-step-recovery')
+			.waitFor({ state: 'visible', timeout: 15_000 });
+		e2eLog('Step 7: Recovery step visible', stepLog);
+
+		await page.getByTestId('onboarding-recovery-next').click();
+		await page
 			.getByTestId('onboarding-step-complete')
 			.waitFor({ state: 'visible', timeout: 30_000 });
 		e2eLog('Step 8: Complete step visible', stepLog);
@@ -178,91 +172,48 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		e2eLog('Step 10: Navigated to dashboard', stepLog);
 	});
 
-	test('username taken: duplicate username shows error', async ({
-		page,
-		lastSignupUsernameStore
-	}) => {
-		test.setTimeout(60_000);
-		const taken = lastSignupUsernameStore.value;
-		if (!taken) {
-			test.skip(true, 'Requires user 1 to have run first (lastSignupUsernameStore)');
-			return;
-		}
-		// Test 1 (user 1 credential in file): after user 1, signup set should exist with that username
-		const signupCreds = readCredentialSet('signup');
-		expect(signupCreds, 'user 1 teardown should have written signup credentials').not.toBeNull();
-		expect(signupCreds!.length).toBeGreaterThan(0);
-		expect(signupCreds![0].userName).toBe(taken + USERNAME_DOMAIN_SUFFIX);
-
-		await page.goto('/auth/signup', { waitUntil: 'load' });
-		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
-		await expect(page.getByTestId('signup-continue')).toBeEnabled({ timeout: 10_000 });
-		await page.getByTestId('signup-continue').click();
-		await page
-			.getByTestId('onboarding-step-username')
-			.waitFor({ state: 'visible', timeout: 15_000 });
-		await page.getByTestId('onboarding-username-input').fill(taken);
-		await page.getByTestId('onboarding-username-next').click();
-		await expect(page.getByTestId('onboarding-username-error')).toBeVisible({ timeout: 10_000 });
-		await expect(page.getByTestId('onboarding-username-error')).toContainText(
-			/username is already taken|already taken/i
-		);
-
-		// Test 3 (no passkey = no write): this test did not create a passkey, so file should be unchanged
-		const signupCredsAfter = readCredentialSet('signup');
-		expect(signupCredsAfter, 'signup set should still exist').not.toBeNull();
-		expect(
-			signupCredsAfter![0].userName,
-			'username-taken run should not have overwritten signup credentials (no passkey created)'
-		).toBe(taken + USERNAME_DOMAIN_SUFFIX);
-	});
-
-	test('5a. Onboarding: step 1 (Passkey) Back goes to step 0 (Username)', async ({
-		page,
-		passkeyAssertion
-	}) => {
+	test('5a. Onboarding: step 1 (Passkey) Back goes to step 0 (Display name)', async ({ page }) => {
 		test.setTimeout(90_000);
 		const ts = Date.now();
-		const uniqueUsername = `e2e-back-${ts}`;
-		passkeyAssertion.expectedUsername = uniqueUsername;
+		const uniqueDisplayName = `e2e-back-${ts}`;
 		await page.goto('/', { waitUntil: 'networkidle' });
 		await expect(page.getByTestId('signup-link')).toBeVisible({ timeout: 20_000 });
 		await page.getByTestId('signup-link').click();
 		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
 		await page.getByTestId('signup-continue').click();
 		await page
-			.getByTestId('onboarding-step-username')
+			.getByTestId('onboarding-step-display-name')
 			.waitFor({ state: 'visible', timeout: 45_000 });
-		await page.getByTestId('onboarding-username-input').fill(uniqueUsername);
-		await page.getByTestId('onboarding-username-next').click();
+		await page.getByTestId('onboarding-display-name-input').fill(uniqueDisplayName);
+		await page.getByTestId('onboarding-display-name-next').click();
 		await expect(page.getByTestId('passkey-setup-button')).toBeVisible({ timeout: 15_000 });
-		// We are on step 1 (Passkey). Click Back → should show step 0 (Username).
+		// We are on step 1 (Passkey). Click Back → should show step 0 (Display name).
 		await page.getByRole('button', { name: /back|atrás/i }).click();
-		await expect(page.getByTestId('onboarding-step-username')).toBeVisible({ timeout: 5_000 });
+		await expect(page.getByTestId('onboarding-step-display-name')).toBeVisible({ timeout: 5_000 });
 	});
 
-	test('8a. Onboarding recovery: password mismatch shows error', async ({
-		page,
-		passkeyAssertion
-	}) => {
+	test('8a. Onboarding recovery: password mismatch shows error', async ({ page }) => {
 		test.setTimeout(120_000);
 		const ts = Date.now();
-		const uniqueUsername = `e2e-pwm-${ts}`;
-		passkeyAssertion.expectedUsername = uniqueUsername;
+		const uniqueDisplayName = `e2e-pwm-${ts}`;
 		await page.goto('/', { waitUntil: 'networkidle' });
 		await page.getByTestId('signup-link').click();
 		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
 		await page.getByTestId('signup-continue').click();
 		await page
-			.getByTestId('onboarding-step-username')
+			.getByTestId('onboarding-step-display-name')
 			.waitFor({ state: 'visible', timeout: 45_000 });
-		await page.getByTestId('onboarding-username-input').fill(uniqueUsername);
-		await page.getByTestId('onboarding-username-next').click();
+		await page.getByTestId('onboarding-display-name-input').fill(uniqueDisplayName);
+		await page.getByTestId('onboarding-display-name-next').click();
 		await expect(page.getByTestId('passkey-setup-button')).toBeVisible({ timeout: 15_000 });
 		await page.getByTestId('passkey-setup-button').click();
 		await page
-			.getByTestId('onboarding-step-recovery')
+			.getByTestId('onboarding-step-profile')
 			.waitFor({ state: 'visible', timeout: 60_000 });
+		await page.getByTestId('onboarding-profile-next').click();
+		await page
+			.getByTestId('onboarding-step-recovery')
+			.waitFor({ state: 'visible', timeout: 15_000 });
 		await page.getByTestId('onboarding-recovery-enable-checkbox').check();
 		await page.getByTestId('onboarding-recovery-email').fill('e2e-mismatch@example.com');
 		await page.getByTestId('onboarding-recovery-password').fill('ValidPass1!abc');
@@ -274,14 +225,11 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 	});
 
 	test('user 1 with recovery: signup → onboarding with recovery step filled → dashboard', async ({
-		page,
-		passkeyAssertion
+		page
 	}) => {
 		test.setTimeout(180_000);
 		const ts = Date.now();
-		const uniqueUsername = `e2e-rec-${ts}`;
-		passkeyAssertion.expectedUsername = uniqueUsername;
-		const displayName = uniqueUsername;
+		const uniqueDisplayName = `e2e-rec-${ts}`;
 		const gotoOptions = { waitUntil: 'load' as const };
 
 		await page.goto('/', gotoOptions);
@@ -290,23 +238,15 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await expect(page.getByTestId('signup-continue')).toBeEnabled({ timeout: 10_000 });
 		await page.getByTestId('signup-continue').click();
 		await page
-			.getByTestId('onboarding-step-username')
+			.getByTestId('onboarding-step-display-name')
 			.waitFor({ state: 'visible', timeout: 45_000 });
-		await page.getByTestId('onboarding-username-input').fill(uniqueUsername);
-		await page.getByTestId('onboarding-username-next').click();
+		await page.getByTestId('onboarding-display-name-input').fill(uniqueDisplayName);
+		await page.getByTestId('onboarding-display-name-next').click();
 		await expect(page.getByTestId('passkey-setup-button')).toBeVisible({ timeout: 15_000 });
 		await page.getByTestId('passkey-setup-button').click();
 		await page
-			.getByTestId('onboarding-step-recovery')
-			.waitFor({ state: 'visible', timeout: 60_000 });
-		// Enable recovery, fill email (password is auto-generated when we check the box)
-		await page.getByTestId('onboarding-recovery-enable-checkbox').check();
-		await page.getByTestId('onboarding-recovery-email').fill('e2e-recovery@example.com');
-		await page.getByTestId('onboarding-recovery-next').click();
-		await page
 			.getByTestId('onboarding-step-profile')
-			.waitFor({ state: 'visible', timeout: 15_000 });
-		await page.getByTestId('onboarding-display-name').fill(displayName);
+			.waitFor({ state: 'visible', timeout: 60_000 });
 		await page.getByTestId('onboarding-want-to-get-hired').check();
 		await page.getByTestId('onboarding-professional-title').fill('E2E Recovery Professional');
 		await page.getByTestId('onboarding-profile-description').fill(E2E_PROFILE_DESCRIPTION);
@@ -314,6 +254,12 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await skillsInput.fill('Testing');
 		await skillsInput.press('Enter');
 		await page.getByTestId('onboarding-profile-next').click();
+		await page
+			.getByTestId('onboarding-step-recovery')
+			.waitFor({ state: 'visible', timeout: 15_000 });
+		await page.getByTestId('onboarding-recovery-enable-checkbox').check();
+		await page.getByTestId('onboarding-recovery-email').fill('e2e-recovery@example.com');
+		await page.getByTestId('onboarding-recovery-next').click();
 		await page
 			.getByTestId('onboarding-step-complete')
 			.waitFor({ state: 'visible', timeout: 30_000 });
@@ -325,8 +271,6 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 	// New user: nsec submit → passkey happens automatically → we land on profile step, then complete.
 	test('user 2: Nostr login (new user) → profile → complete onboarding', async ({ page }) => {
 		test.setTimeout(180_000);
-		const ts = Date.now();
-		const displayName = `e2e-nostr-${ts}`;
 		const stepLog: string[] = [];
 		const gotoOptions = { waitUntil: 'load' as const };
 
@@ -371,7 +315,6 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 			.getByTestId('onboarding-step-profile')
 			.waitFor({ state: 'visible', timeout: 30_000 });
 		e2eLog('Step 3: Profile step visible; fill and next', stepLog);
-		await page.getByTestId('onboarding-display-name').fill(displayName);
 		await page.getByTestId('onboarding-want-to-get-hired').check();
 		await page.getByTestId('onboarding-professional-title').fill('E2E Nostr Professional');
 		await page.getByTestId('onboarding-profile-description').fill(E2E_PROFILE_DESCRIPTION);

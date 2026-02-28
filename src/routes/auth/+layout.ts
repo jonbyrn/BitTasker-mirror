@@ -5,36 +5,18 @@ import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { authState, isCaptchaVerified } from '$lib/stores/auth.store';
 import { Preferences } from '@capacitor/preferences';
-import authService from '$lib/api/services/auth.service';
 
 export const load: LayoutLoad = async ({ url }) => {
-	if (!browser) return;
+	// SSR: return default so data is never undefined (avoids "reading 'call'" / currentStep errors)
+	if (!browser) {
+		return { currentStep: 0 };
+	}
 
 	const token = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
-	// If user is logged in and not in onboarding, redirect to dashboard
+	// If user is logged in, redirect to dashboard (onboarding is only for new signups)
 	if (token.value) {
-		if (url.pathname.includes('/onboarding')) {
-			try {
-				const onboardingStatus = await authService.checkOnboardingStatus();
-
-				if (onboardingStatus.isComplete) {
-					redirect(303, '/dashboard');
-				} else {
-					const fields = ['displayName', 'profilePicture', 'professionalTitle', 'profileDescription', 'skills']; // field 'location' left out for step 4 
-					const step3 = fields.filter(field => onboardingStatus.missingFields.includes(field)).length > 0
-
-					return { currentStep: step3 ? 3 : 4 };
-				}
-			} catch (error) {
-				console.error('Error checking onboarding status:', error);
-				// If error checking onboarding status, log out user
-				await authState.logout();
-				redirect(303, '/auth/login');
-			}
-		} else {
-			redirect(303, '/dashboard');
-		}
+		redirect(303, '/dashboard');
 	} else {
 		if (url.pathname.includes('/onboarding')) {
 			await authState.logout();
@@ -44,12 +26,15 @@ export const load: LayoutLoad = async ({ url }) => {
 				typeof import.meta !== 'undefined' && import.meta.env?.VITE_E2E_TURNSTILE_BYPASS === 'true';
 			if (!verified && !e2eBypass) {
 				// Diagnostic: visible in Playwright page console and CI attachments when redirect happens
-				console.warn('[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup');
+				console.warn(
+					'[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup'
+				);
 				redirect(303, '/auth/signup');
 			}
 			// Diagnostic: when we allow onboarding
 			if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');
 			else console.log('[E2E] Auth layout: allowing onboarding (isCaptchaVerified=true)');
+			return { currentStep: 0 };
 		}
 	}
 };

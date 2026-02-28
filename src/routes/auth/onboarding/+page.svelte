@@ -5,23 +5,21 @@
 	import { fly } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
-	import UsernameSetup from '$lib/components/onboarding/UsernameSetup.svelte';
-	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
+	import DisplayNameSetup from '$lib/components/onboarding/DisplayNameSetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
+	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import CompleteSetup from '$lib/components/onboarding/CompleteSetup.svelte';
 
 	let { data } = $props();
 
 	const totalSteps = 5;
-
-	let currentStep = $state(data.currentStep ?? 0);
+	// Step order: 0 Display name, 1 Passkey, 2 Profile, 3 Recovery, 4 Complete
+	let currentStep = $state(data?.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
 
-	// Onboarding state management
 	let onboardingData = $state({
-		username: '',
-		usernameAvailable: false,
+		displayName: '',
 		nsec: '',
 		hasNostrKey: false,
 		recoveryEmail: '',
@@ -44,16 +42,13 @@
 	};
 
 	const restartSetup = () => {
-		// Only restart from ProfileSetup step (step 3 now, was step 4)
-		// The previous steps (username, passkey) are required and shouldn't be repeated
-		currentStep = 3;
+		// Restart from Profile step (step 2); display name and passkey are already done
+		currentStep = 2;
 		direction = 'backward';
 	};
 
-	// Callback functions for each step
-	const handleUsernameChange = (username: string, isAvailable: boolean) => {
-		onboardingData.username = username;
-		onboardingData.usernameAvailable = isAvailable;
+	const handleDisplayNameChange = (displayName: string) => {
+		onboardingData.displayName = displayName;
 	};
 </script>
 
@@ -89,11 +84,11 @@
 
 		{#if currentStep === 0}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<UsernameSetup
+				<DisplayNameSetup
 					{nextStep}
 					{currentStep}
 					{totalSteps}
-					onUsernameChange={handleUsernameChange}
+					onDisplayNameChange={handleDisplayNameChange}
 				/>
 			</div>
 		{:else if currentStep === 1}
@@ -102,11 +97,11 @@
 			</div>
 		{:else if currentStep === 2}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<RecoverySetup {nextStep} {prevStep} {currentStep} {totalSteps} />
+				<ProfileSetup {nextStep} {prevStep} {currentStep} {totalSteps} />
 			</div>
 		{:else if currentStep === 3}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<ProfileSetup {nextStep} {prevStep} {currentStep} {totalSteps} />
+				<RecoverySetup {nextStep} {prevStep} {currentStep} {totalSteps} />
 			</div>
 		{:else if currentStep === 4}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>

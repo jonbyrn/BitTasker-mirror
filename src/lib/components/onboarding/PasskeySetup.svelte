@@ -18,6 +18,7 @@
 		getDeviceIdentifier
 	} from '$lib/utils/helpers/deviceIdentity';
 	import authService from '$lib/api/services/auth.service';
+	import { resolveHandle } from '$lib/utils/helpers/handleResolver';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import ErrorTroubleshootingModal from '$lib/components/ErrorTroubleshootingModal.svelte';
 	import IconInformation from '~icons/mdi/information';
@@ -38,7 +39,7 @@
 		nextStep: () => void;
 		prevStep: () => void;
 		userData: {
-			username: string;
+			displayName: string;
 			nsec: string;
 			hasNostrKey: boolean;
 		};
@@ -189,32 +190,36 @@
 			error = '';
 			errorType = undefined;
 
-			let npub: string;
+			let npubHex: string;
 			let nsec: string;
 
-			// Use existing key or generate new one
+			// Use existing key or generate new one (npubHex is public key in hex)
 			if (userData.hasNostrKey && userData.nsec) {
-				// Convert nsec to hex format
 				const { type, data } = nip19.decode(userData.nsec);
 				if (type !== 'nsec') {
 					error = 'Invalid nsec format';
 					errorType = detectErrorType(error);
 					throw new Error(error);
 				}
-				// Convert Uint8Array to hex
 				nsec = bytesToHex(data);
-				// Get public key
-				npub = getPublicKey(data);
+				npubHex = getPublicKey(data);
 			} else {
-				// Generate key pair
-				({ npub, nsec } = await generateKeyPair());
+				const pair = await generateKeyPair();
+				npubHex = pair.npub;
+				nsec = pair.nsec;
 			}
 
-			// Generate wallet mnemonic
+			// Derive handle invisibly (NIP-05 + email compatible; uniqueness via npub suffix)
+			const checkAvailable = (handle: string): Promise<boolean> =>
+				(
+					authService as { checkUsernameAvailability: (username: string) => Promise<boolean> }
+				).checkUsernameAvailability(handle);
+			const handle = await resolveHandle(userData.displayName, npubHex, checkAvailable);
+
 			const walletMnemonic = await deriveWalletFromNostr(nsec);
 
-			// Register with passkey
-			await register(userData.username, npub, nsec, walletMnemonic);
+			// Register with passkey using derived handle as username
+			await register(handle, npubHex, nsec, walletMnemonic);
 
 			isSetupComplete = true;
 

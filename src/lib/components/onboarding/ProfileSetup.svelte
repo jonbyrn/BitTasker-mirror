@@ -42,8 +42,6 @@
 	// Status indicators
 	let isLoading = $state(false);
 	let error = $state('');
-	let nameError = $state('');
-	let descriptionError = $state('');
 	let picture = $state<NostrProfileImage | null>(null);
 	let selectedFile = $state<File | null>(null);
 	let selectedFileBlobUrl = $state<string | null>(null);
@@ -257,31 +255,8 @@
 		try {
 			isLoading = true;
 			error = '';
-			nameError = '';
-			descriptionError = '';
 
-			// Validate display name
-			if (!displayName) {
-				nameError = $t('onboarding_auth.form.display_name_required');
-				isLoading = false;
-				return;
-			}
-
-			// Validate profile description only when user wants to get hired
-			if (wantToGetHired) {
-				if (!profileDescription) {
-					descriptionError = $t('onboarding_auth.form.profile_description_required');
-					isLoading = false;
-					return;
-				}
-
-				// Enforce minimum description length of 100 characters
-				if (profileDescription.trim().length < 100) {
-					descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
-					isLoading = false;
-					return;
-				}
-			}
+			// All profile fields are optional; upload and publish whatever the user provided.
 
 			// Upload and publish profile picture if a new file is selected
 			await handleImageUpload();
@@ -296,10 +271,10 @@
 						})
 					: undefined;
 
-			// Publish profile metadata (minimal when not "want to get hired")
+			// Publish profile metadata (all fields optional; display name may come from subscription or stay empty)
 			const profileData: NostrProfile = {
-				name: displayName,
-				display_name: displayName,
+				name: displayName || '',
+				display_name: displayName || '',
 				professionalTitle: wantToGetHired ? professionalTitle : '',
 				about: wantToGetHired ? profileDescription : '',
 				...(profileTranslations && { translations: profileTranslations })
@@ -338,12 +313,6 @@
 				<!-- Profile Picture Skeleton -->
 				<div class="mx-auto max-h-32 w-full max-w-32">
 					<div class="bg-base-300 h-32 w-32 animate-pulse rounded-full"></div>
-				</div>
-
-				<!-- Display Name Skeleton -->
-				<div class="space-y-2">
-					<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
-					<div class="bg-base-300 h-12 w-full animate-pulse rounded"></div>
 				</div>
 
 				<!-- Professional Title Skeleton -->
@@ -409,27 +378,6 @@
 					/>
 				</div>
 
-				<!-- Display Name Field -->
-				<div class="form-control mx-auto max-w-xl">
-					<label class="label" for="displayName">
-						<span class="label-text">{$t('onboarding_auth.form.display_name')}</span>
-					</label>
-					<input
-						type="text"
-						id="displayName"
-						data-testid="onboarding-display-name"
-						bind:value={displayName}
-						class="input input-bordered w-full {nameError ? 'input-error' : ''}"
-						placeholder={$t('onboarding_auth.form.your_full_name')}
-						required
-					/>
-					{#if nameError}
-						<label class="label" for="displayName">
-							<span class="label-text-alt text-error">{nameError}</span>
-						</label>
-					{/if}
-				</div>
-
 				<!-- I want to get hired (reveals worker profile fields) -->
 				<div class="form-control mx-auto max-w-xl">
 					<label class="label flex cursor-pointer items-center justify-start gap-2">
@@ -479,17 +427,9 @@
 								id="profileDescription"
 								data-testid="onboarding-profile-description"
 								bind:value={profileDescription}
-								minlength={100}
-								class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
-									? 'textarea-error'
-									: ''}"
+								class="textarea textarea-bordered h-24 w-full rounded-2xl"
 								placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
 							></textarea>
-							{#if descriptionError}
-								<label class="label whitespace-normal" for="profileDescription">
-									<span class="label-text-alt text-error">{descriptionError}</span>
-								</label>
-							{/if}
 						</div>
 
 						<!-- Skills Tags -->

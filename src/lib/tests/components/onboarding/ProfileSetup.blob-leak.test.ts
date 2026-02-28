@@ -37,11 +37,12 @@ describe('ProfileSetup blob URL and remove behavior', () => {
 	let revokeObjectURLSpy: ReturnType<typeof vi.spyOn>;
 
 	const noop = () => {};
+	// Step order: 0 Display name, 1 Passkey, 2 Profile, 3 Recovery, 4 Complete
 	const defaultProps = {
 		nextStep: noop,
 		prevStep: noop,
-		currentStep: 1,
-		totalSteps: 6
+		currentStep: 2,
+		totalSteps: 5
 	};
 
 	beforeEach(() => {
@@ -85,12 +86,17 @@ describe('ProfileSetup blob URL and remove behavior', () => {
 		const callsAfterSelect = createObjectURLSpy.mock.calls.length;
 		expect(callsAfterSelect).toBeGreaterThanOrEqual(1);
 
-		// Cause re-renders by typing in display name
-		const displayNameInput = getByTestId('onboarding-display-name');
-		if (displayNameInput) {
-			fireEvent.input(displayNameInput, { target: { value: 'A' } });
+		// Cause re-renders by revealing worker fields and typing in professional title
+		const wantToGetHiredCheckbox = getByTestId('onboarding-want-to-get-hired');
+		if (wantToGetHiredCheckbox) {
+			fireEvent.click(wantToGetHiredCheckbox);
 			await tick();
-			fireEvent.input(displayNameInput, { target: { value: 'AB' } });
+		}
+		const titleInput = getByTestId('onboarding-professional-title');
+		if (titleInput) {
+			fireEvent.input(titleInput, { target: { value: 'A' } });
+			await tick();
+			fireEvent.input(titleInput, { target: { value: 'AB' } });
 			await tick();
 		}
 
