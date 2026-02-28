@@ -29,8 +29,23 @@ declare global {
 	// TypeScript interfaces for Turnstile for type checking
 	type TurnstileCallback = (token: string) => void;
 
+	interface TurnstileRenderParams {
+		sitekey: string;
+		callback?: (token: string) => void;
+		'error-callback'?: () => void;
+		'expired-callback'?: () => void;
+		'timeout-callback'?: () => void;
+		theme?: 'auto' | 'light' | 'dark';
+		language?: string;
+		tabindex?: number;
+		size?: 'normal' | 'compact';
+		appearance?: 'always' | 'execute' | 'interaction-only';
+		execution?: 'render' | 'execute';
+		[key: string]: unknown;
+	}
+
 	interface TurnstileWidget {
-		render: (container: string | HTMLElement, params: any) => string;
+		render: (container: string | HTMLElement, params: TurnstileRenderParams) => string;
 		reset: (widgetId?: string) => void;
 		getResponse: (widgetId?: string) => string;
 		isExpired: (widgetId?: string) => boolean;
@@ -43,6 +58,9 @@ declare global {
 	}
 
 	const __APP_VERSION__: string;
+
+	/** Unique identifier stamped at build time via vite.config.ts `define`. */
+	const __BUILD_VERSION__: string;
 }
 
 // unplugin-icons type declarations
@@ -58,4 +76,4 @@ declare module '~icons/mdi/*' {
 	export default component;
 }
 
-export { };
+export {};
