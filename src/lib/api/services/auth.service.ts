@@ -14,6 +14,34 @@ import { BaseApiService, ApiError } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import { normalizeToError } from '$lib/utils/helpers/normalizeError';
 
+const getErrorStatus = (error: unknown): number | undefined => {
+	if (typeof error !== 'object' || error === null) return undefined;
+	const candidate = error as { status?: unknown; response?: { status?: unknown } };
+	if (typeof candidate.status === 'number') return candidate.status;
+	if (typeof candidate.response?.status === 'number') return candidate.response.status;
+	return undefined;
+};
+
+const getErrorMessage = (error: unknown): string | undefined => {
+	if (typeof error !== 'object' || error === null) return undefined;
+	const candidate = error as {
+		message?: unknown;
+		data?: { message?: unknown };
+		response?: { data?: { message?: unknown } };
+	};
+	if (typeof candidate.data?.message === 'string' && candidate.data.message.trim()) {
+		return candidate.data.message;
+	}
+	if (
+		typeof candidate.response?.data?.message === 'string' &&
+		candidate.response.data.message.trim()
+	) {
+		return candidate.response.data.message;
+	}
+	if (typeof candidate.message === 'string' && candidate.message.trim()) return candidate.message;
+	return undefined;
+};
+
 /**
  * Authentication Service
  * Handles user authentication, registration, and related operations
@@ -77,9 +105,7 @@ export class AuthService extends BaseApiService {
 	 * @param deviceId Unique device identifier
 	 * @returns Promise with authentication response
 	 */
-	async passkeyLogin(
-		data: PasskeyLoginArgs
-	): Promise<{
+	async passkeyLogin(data: PasskeyLoginArgs): Promise<{
 		user: UserData;
 		access_token: string;
 		isLegacy?: boolean;
@@ -114,16 +140,17 @@ export class AuthService extends BaseApiService {
 			}>(ENDPOINTS.AUTH.NOSTR_LOGIN, data);
 			return response.data;
 		} catch (error: unknown) {
-			const err = error as { status?: number; data?: { message?: string } };
-			if (err?.status === 400) {
+			const status = getErrorStatus(error);
+			if (status === 400) {
 				throw new Error(
-					err.data?.message || 'No account associated with this Nostr key. Please register first.'
+					getErrorMessage(error) ||
+						'No account associated with this Nostr key. Please register first.'
 				);
 			}
-			if (err?.status === 401) {
+			if (status === 401) {
 				throw new Error('Invalid signature or unauthorized access');
 			}
-			if (err?.status === 500) {
+			if (status === 500) {
 				throw new Error('Internal server error. Please try again later.');
 			}
 			throw normalizeToError(error, 'Login failed. Please try again.');
@@ -145,11 +172,11 @@ export class AuthService extends BaseApiService {
 			);
 			return response.data;
 		} catch (error: unknown) {
-			const err = error as { status?: number };
-			if (err?.status === 400) {
+			const status = getErrorStatus(error);
+			if (status === 400) {
 				return { encryptedData: null };
 			}
-			if (err?.status === 500) {
+			if (status === 500) {
 				throw new Error('Internal server error. Please try again later.');
 			}
 			throw normalizeToError(error, 'Failed to encrypt Nostr data. Please try again.');
@@ -254,11 +281,11 @@ export class AuthService extends BaseApiService {
 			);
 			return response.data;
 		} catch (error: unknown) {
-			const err = error as { status?: number; data?: { message?: string } };
-			if (err?.status === 400) {
-				throw new Error(err.data?.message || 'Invalid token');
+			const status = getErrorStatus(error);
+			if (status === 400) {
+				throw new Error(getErrorMessage(error) || 'Invalid token');
 			}
-			if (err?.status === 500) {
+			if (status === 500) {
 				throw new Error('Verification service error. Please try again later.');
 			}
 			throw normalizeToError(error, 'Turnstile verification failed. Please try again.');
@@ -278,13 +305,10 @@ export class AuthService extends BaseApiService {
 			);
 			return response.data;
 		} catch (error: unknown) {
-			// Rethrow ApiError 401 so protected layout can logout and redirect
-			if (error instanceof ApiError && error.status === 401) {
-				throw error;
-			}
-			const err = error as { status?: number };
-			if (err?.status === 401) {
-				throw new Error('Unauthorized. Please login again.');
+			const status = getErrorStatus(error);
+			if (status === 401) {
+				if (error instanceof ApiError) throw error;
+				throw new ApiError(getErrorMessage(error) || 'Unauthorized. Please login again.', 401);
 			}
 			throw normalizeToError(error, 'Failed to check onboarding status. Please try again.');
 		}

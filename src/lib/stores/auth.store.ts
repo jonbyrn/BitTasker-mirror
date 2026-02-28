@@ -5,7 +5,6 @@ import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { resolve as resolvePath } from '$app/paths';
 import { appStore } from './app.store';
-import { resetMigration } from '$lib/utils/helpers/migratePasskey';
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
@@ -68,6 +67,7 @@ const createAuthStore = () => {
 
 			if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
+			const { resetMigration } = await import('$lib/utils/helpers/migratePasskey');
 			resetMigration();
 			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 			if (authMethod === 'passkey' && credentialId != null && credentialId !== '') {
