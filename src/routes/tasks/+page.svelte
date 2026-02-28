@@ -153,6 +153,9 @@
 	let selectedTaskForDetails = $state<Task | null>(null);
 	let isTaskDetailsOpen = $state(false);
 	
+	// Track if we're transitioning from task drawer to bid drawer
+	let isTransitioningToBid = $state(false);
+	
 	// Timeout IDs for drawer close animations (to prevent memory leaks)
 	let drawerCloseTimeouts: Set<ReturnType<typeof setTimeout>> = $state.raw(new Set());
 	
@@ -1349,11 +1352,19 @@
 	title={$t('bid_form.title')}
 	onClose={() => {
 		isBidOpen = false;
+		const wasTransitioningToBid = isTransitioningToBid;
+		isTransitioningToBid = false;
+		
 		// Clear selected task after animation completes (with cleanup tracking)
 		const timeoutId = setTimeout(() => {
 			drawerCloseTimeouts.delete(timeoutId);
 			if (!isBidOpen) {
 				selectedTaskForBid = null;
+				
+				// If we came from task drawer, reopen it
+				if (wasTransitioningToBid && selectedTaskForDetails) {
+					isTaskDetailsOpen = true;
+				}
 			}
 		}, 300);
 		drawerCloseTimeouts.add(timeoutId);
@@ -1395,12 +1406,15 @@
 			activeTab="details"
 			onClose={() => {
 				isTaskDetailsOpen = false;
-				// Clear task after animation completes (300ms transition duration) with cleanup tracking
-				const timeoutId = setTimeout(() => {
-					drawerCloseTimeouts.delete(timeoutId);
-					selectedTaskForDetails = null;
-				}, 300);
-				drawerCloseTimeouts.add(timeoutId);
+				// Only clear task if we're not transitioning to bid drawer
+				// This allows reopening task drawer after bid drawer closes
+				if (!isTransitioningToBid) {
+					const timeoutId = setTimeout(() => {
+						drawerCloseTimeouts.delete(timeoutId);
+						selectedTaskForDetails = null;
+					}, 300);
+					drawerCloseTimeouts.add(timeoutId);
+				}
 			}}
 			onBid={async () => {
 				// Prevent multiple simultaneous bid attempts (race condition protection)
@@ -1434,6 +1448,9 @@
 						// Store the task before closing the details drawer
 						const taskToBid = selectedTaskForDetails;
 						
+						// Mark that we're transitioning to bid drawer (prevents clearing selectedTaskForDetails)
+						isTransitioningToBid = true;
+						
 						// Close the task details drawer first
 						isTaskDetailsOpen = false;
 						
@@ -1442,6 +1459,7 @@
 						
 						// Double-check task is still valid after delay
 						if (!taskToBid || taskToBid.status !== TaskStatusEnum.OPEN) {
+							isTransitioningToBid = false;
 							appStore.showErrorToast($t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding');
 							return;
 						}

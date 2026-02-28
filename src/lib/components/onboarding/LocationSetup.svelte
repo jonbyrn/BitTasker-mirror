@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { Geolocation } from '@capacitor/geolocation';
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { Capacitor } from '@capacitor/core';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 	import IconCheck from '~icons/mdi/check-circle-outline';
@@ -23,6 +23,7 @@
 	let isGettingLocation = $state(false);
 	let radiusPanelCollapsed = $state(false); // Para mobile, colapsar por defecto
 	let locationError = $state<string | null>(null);
+	let showInfoDropdown = $state(false);
 
 	// Función mejorada para obtener ubicación del usuario
 	// Siempre solicita permisos de nuevo
@@ -219,43 +220,66 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl p-6" data-testid="onboarding-step-location">
-	<div class="card-body relative">
-		<!-- Educational Header -->
-		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
+<div class="card bg-base-100 w-full shadow-xl">
+	<div class="card-body">
+		<!-- Step indicator + dropdown title (same row/alignment as step 4) -->
+		<div class="relative mb-4 grid w-full grid-cols-[1fr_auto] items-center gap-3 overflow-visible">
+			<button
+				type="button"
+				class="btn btn-ghost btn-sm justify-start gap-2 font-medium text-primary"
+				onclick={() => (showInfoDropdown = !showInfoDropdown)}
+				aria-expanded={showInfoDropdown}
+				aria-haspopup="true"
+			>
+				<span>{$locale === 'es' ? 'Encuentra tareas' : 'Find tasks'}</span>
+				<svg
+					class="h-4 w-4 shrink-0 transition-transform"
+					class:rotate-180={showInfoDropdown}
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+				</svg>
+			</button>
+			<span class="step-indicator shrink-0 text-right text-sm font-medium text-primary">
 				{$t('onboarding_auth.form.location_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.location_setup.of')} {totalSteps}
-			</div>
-			<h3 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.location_setup.title')}</h3>
-			<h5 class="mb-3">{$t('onboarding_auth.form.location_setup.subtitle')}</h5>
-			<p class="step-description text-base-content mx-auto mb-6 max-w-xl text-lg">
-				{$t('onboarding_auth.form.location_setup.description')}
-			</p>
-
-			<!-- Features List -->
-			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.location_setup.features.flexible')}</span>
+			</span>
+			{#if showInfoDropdown}
+				<div
+					class="bg-base-200 border-base-300 absolute left-0 top-full z-50 mt-2 w-full min-w-64 rounded-lg border p-4 text-left shadow"
+					role="region"
+					aria-label={$locale === 'es' ? 'Encuentra tareas' : 'Find tasks'}
+				>
+					<p class="text-base-content mb-4 text-sm">
+						{$t('onboarding_auth.form.location_setup.description')}
+					</p>
+					<div class="features-list mb-4 space-y-2 text-sm">
+						<div class="feature-item flex items-center justify-start gap-2">
+							<IconCheck class="text-primary min-w-[1.25em] shrink-0" />
+							<span>{@html $t('onboarding_auth.form.location_setup.features.flexible')}</span>
+						</div>
+						<div class="feature-item flex items-center justify-start gap-2">
+							<IconCheck class="text-primary min-w-[1.25em] shrink-0" />
+							<span>{@html $t('onboarding_auth.form.location_setup.features.private')}</span>
+						</div>
+						<div class="feature-item flex items-center justify-start gap-2">
+							<IconCheck class="text-primary min-w-[1.25em] shrink-0" />
+							<span>{@html $t('onboarding_auth.form.location_setup.features.adjustable')}</span>
+						</div>
+						<div class="feature-item flex items-center justify-start gap-2">
+							<IconCheck class="text-primary min-w-[1.25em] shrink-0" />
+							<span>{@html $t('onboarding_auth.form.location_setup.features.optional')}</span>
+						</div>
+					</div>
+					<p class="text-primary text-sm font-medium">
+						{$t('onboarding_auth.form.location_setup.find_tasks')}
+					</p>
 				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.location_setup.features.private')}</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.location_setup.features.adjustable')}</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
-					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.location_setup.features.optional')}</span>
-				</div>
-			</div>
-			<p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.location_setup.find_tasks')}</p>
+			{/if}
 		</div>
-	</div>
 
-	<!-- Location Search and Map -->
+		<!-- Location Search and Map (default location, radius, etc.) -->
 	<div class="mx-auto w-full max-w-xl">
 		<!-- Location AutoComplete Component -->
 		<div class="mb-4">
@@ -378,6 +402,7 @@
 				</span>
 			</div>
 		{/if}
+	</div>
 	</div>
 
 	<div class="mt-6 flex justify-between">

@@ -67,6 +67,10 @@
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This app uses Bluetooth to discover nearby devices for passkey authentication</string>
 	<key>NSCameraUsageDescription</key>
-	<string>The app enables the scanning of various barcodes.</string>
+	<string>The app uses the camera to take photos for task attachments and completion evidence.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>The app needs access to your photo library to attach images to tasks and completion evidence.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>The app may save photos to your library when you take pictures for tasks.</string>
 </dict>
 </plist>
