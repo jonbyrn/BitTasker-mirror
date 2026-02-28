@@ -3,12 +3,12 @@
 	import { t } from 'svelte-i18n';
 	import { 
 		compressImage, 
-		compressImages,
 		validateImageFile, 
 		formatFileSize,
 		type CompressionResult 
 	} from '$lib/utils/imageCompression';
 	import uploadService, { type UploadResult, type UploadOptions } from '$lib/api/services/upload.service';
+	import { clickOutside } from '$lib/utils/clickOutside';
 
 	interface MediaUploaderProps extends Omit<UploaderProps, 'onChange'> {
 		enableImageCompression?: boolean;
@@ -18,6 +18,8 @@
 		useCloudflare?: boolean;
 		generateVariants?: boolean;
 		uploadFolder?: string;
+		/** When true and images are allowed, shows Take Photo / Choose from Gallery menu (mobile-friendly) */
+		enablePhotoMenu?: boolean;
 		onChange?: (results: UploadResult[]) => void;
 		onUploadProgress?: (completed: number, total: number, currentFile: string) => void;
 		onCompressionProgress?: (progress: { processed: number; total: number; currentFile: string }) => void;
@@ -42,6 +44,7 @@
 		useCloudflare = true,
 		generateVariants = true,
 		uploadFolder = 'uploads',
+		enablePhotoMenu = false,
 		onChange = () => {},
 		onRemove = () => {},
 		onError = () => {},
@@ -56,8 +59,12 @@
 	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
 	let compressionInfo = $state<CompressionResult[]>([]);
 	let uploadResults = $state<UploadResult[]>([]);
+	let cameraInputElement = $state<HTMLInputElement | undefined>(undefined);
+	let galleryInputElement = $state<HTMLInputElement | undefined>(undefined);
+	let photoMenuOpen = $state(false);
 
-	// Label is now passed as a prop and doesn't need to be overridden
+	// Show Take Photo / Choose from Gallery menu when images are allowed
+	let showPhotoMenu = $derived(enablePhotoMenu && allowedTypes.includes('image/*'));
 
 	// Helper function to detect if a URL is a video
 	function isVideoURL(url: string): boolean {
@@ -221,34 +228,34 @@
 		const selectedFiles = input.files;
 		if (!selectedFiles) return;
 
-		if (files?.length + selectedFiles.length > maxFiles) {
+		// Reset input so the same file can be selected again
+		input.value = '';
+
+		const selectedFilesArray = Array.from(selectedFiles);
+		if (files?.length + selectedFilesArray.length > maxFiles) {
 			error = $t('common.components.media_uploader.max_files_limit', { values: { maxFiles } });
 			onError?.(error);
 			return;
 		}
 
-		// Set compression state
-		const selectedFilesArray = Array.from(selectedFiles);
 		const hasImages = selectedFilesArray.some(file => file.type.startsWith('image/'));
-		
+
 		if (hasImages && enableImageCompression) {
 			isCompressing = true;
 			compressionProgress = { processed: 0, total: selectedFilesArray.length, currentFile: '' };
 		}
 
-		// Process files sequentially to avoid memory issues with large files
 		const processedFiles: File[] = [];
 		let hasErrors = false;
 
 		for (let i = 0; i < selectedFilesArray.length; i++) {
 			const file = selectedFilesArray[i];
-			
-			// Update compression progress
+
 			if (hasImages && enableImageCompression) {
-				compressionProgress = { 
-					processed: i, 
-					total: selectedFilesArray.length, 
-					currentFile: file.name 
+				compressionProgress = {
+					processed: i,
+					total: selectedFilesArray.length,
+					currentFile: file.name
 				};
 				onCompressionProgress(compressionProgress);
 			}
@@ -261,17 +268,13 @@
 			processedFiles.push(processedFile);
 		}
 
-		// Finalize compression state
 		if (hasImages && enableImageCompression) {
 			isCompressing = false;
 			compressionProgress = { processed: selectedFilesArray.length, total: selectedFilesArray.length, currentFile: '' };
 		}
 
-		if (hasErrors) {
-			return;
-		}
+		if (hasErrors) return;
 
-		// Upload files
 		isUploading = true;
 		uploadProgress = { completed: 0, total: processedFiles.length, currentFile: '' };
 
@@ -279,7 +282,7 @@
 			const uploadOptions: UploadOptions = {
 				folder: uploadFolder,
 				useCloudflare,
-				enableCompression: false, // Already compressed client-side
+				enableCompression: false,
 				generateVariants,
 				metadata: {
 					uploadedAt: new Date().toISOString(),
@@ -288,7 +291,7 @@
 			};
 
 			const results = await uploadService.uploadMultipleFiles(
-				processedFiles, 
+				processedFiles,
 				uploadOptions,
 				(completed, total, currentFile) => {
 					uploadProgress = { completed, total, currentFile };
@@ -297,10 +300,9 @@
 			);
 
 			uploadResults = [...uploadResults, ...results];
-			files = [...files, ...results.map(result => typeof result === 'string' ? result : result.url)];
+			files = [...files, ...results.map(result => (typeof result === 'string' ? result : result.url))];
 			error = '';
 			onChange(uploadResults);
-
 		} catch (err) {
 			console.error('Upload failed:', err);
 			error = $t('common.components.media_uploader.upload_failed', { values: { error: (err as Error).message } });
@@ -322,6 +324,16 @@
 		
 		onRemove(index, file);
 		error = '';
+	}
+
+	function onTakePhoto() {
+		photoMenuOpen = false;
+		cameraInputElement?.click();
+	}
+
+	function onChooseFromGallery() {
+		photoMenuOpen = false;
+		galleryInputElement?.click();
 	}
 
 	// Get translation strings reactively
@@ -397,43 +409,123 @@
 
 		{#if files.length < maxFiles && !isUploading}
 			<div class="relative overflow-hidden {className}">
-				<label
-					for="file-upload-{id}"
-					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
-				>
-					<div class="flex flex-col items-center justify-center pt-5 pb-6">
-						<svg
-							class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
-							aria-hidden="true"
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 20 16"
+				{#if showPhotoMenu}
+					<!-- Take Photo / Choose from Gallery menu -->
+					<details
+						class="dropdown dropdown-end h-full w-full"
+						bind:open={photoMenuOpen}
+						use:clickOutside={{ callback: () => { photoMenuOpen = false; } }}
+					>
+						<summary
+							class="bg-base-200 flex h-full w-full cursor-pointer list-none flex-col items-center justify-center rounded-lg border border-white/50 [&::-webkit-details-marker]:hidden"
 						>
-							<path
-								stroke="currentColor"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
-							/>
-						</svg>
-						<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
-							<span class="font-semibold">{label}</span>
-						</p>
-						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
-							{fileTypeText} (Max. {maxFileSize}MB{durationText})
-						</p>
-					</div>
-				</label>
-				<input
-					id="file-upload-{id}"
-					type="file"
-					class="hidden"
-					accept={allowedTypes.join(',')}
-					onchange={handleFileChange}
-					multiple={files.length + 1 < maxFiles}
-					disabled={isUploading}
-				/>
+							<div class="flex flex-col items-center justify-center pt-5 pb-6">
+								<svg
+									class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
+									aria-hidden="true"
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 20 16"
+								>
+									<path
+										stroke="currentColor"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+									/>
+								</svg>
+								<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
+									<span class="font-semibold">{label}</span>
+								</p>
+								<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
+									{fileTypeText} (Max. {maxFileSize}MB{durationText})
+								</p>
+							</div>
+						</summary>
+						<ul
+							class="menu dropdown-content bg-base-100 rounded-box z-10 mt-1 w-48 p-2 shadow-lg"
+							role="menu"
+						>
+							<li role="menuitem">
+								<button type="button" onclick={onTakePhoto} class="gap-2">
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 13v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7" />
+									</svg>
+									{$t('common.components.media_uploader.take_photo')}
+								</button>
+							</li>
+							<li role="menuitem">
+								<button type="button" onclick={onChooseFromGallery} class="gap-2">
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+									</svg>
+									{$t('common.components.media_uploader.choose_from_gallery')}
+								</button>
+							</li>
+						</ul>
+					</details>
+					<input
+						type="file"
+						class="hidden"
+						accept="image/*"
+						capture="environment"
+						bind:this={cameraInputElement}
+						onchange={handleFileChange}
+						multiple={files.length + 1 < maxFiles}
+						disabled={isUploading}
+					/>
+					<input
+						type="file"
+						class="hidden"
+						accept="image/*"
+						bind:this={galleryInputElement}
+						onchange={handleFileChange}
+						multiple={files.length + 1 < maxFiles}
+						disabled={isUploading}
+					/>
+				{:else}
+					<!-- Single file input (default) -->
+					<label
+						for="file-upload-{id}"
+						class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
+					>
+						<div class="flex flex-col items-center justify-center pt-5 pb-6">
+							<svg
+								class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
+								aria-hidden="true"
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 20 16"
+							>
+								<path
+									stroke="currentColor"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+								/>
+							</svg>
+							<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
+								<span class="font-semibold">{label}</span>
+							</p>
+							<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
+								{fileTypeText} (Max. {maxFileSize}MB{durationText})
+							</p>
+						</div>
+					</label>
+					<input
+						id="file-upload-{id}"
+						type="file"
+						class="hidden"
+						accept={allowedTypes.join(',')}
+						onchange={handleFileChange}
+						multiple={files.length + 1 < maxFiles}
+						disabled={isUploading}
+					/>
+				{/if}
 			</div>
 		{/if}
 	</div>
