@@ -154,7 +154,7 @@
 
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
 
-		// Self-heal: sync Nostr task status for FundsReleased contracts (docs/task-status-resilience.md §5.6)
+		// Self-heal: sync Nostr task status for FundsReleased contracts (docs/tasks/task-status.md)
 		runTaskStatusReconciliation();
 
 		// Configure infinite scroll

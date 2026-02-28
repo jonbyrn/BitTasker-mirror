@@ -235,7 +235,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				);
 			}
 
-			// Task status update to IN_PROGRESS (Nostr after chain confirmation). See docs/task-status-resilience.md §5.6.
+			// Task status update to IN_PROGRESS (Nostr after chain confirmation). See docs/tasks/task-status.md.
 			try {
 				await updateTask(pendingContract.taskId, { status: TaskStatusEnum.IN_PROGRESS });
 			} catch (taskUpdateError) {

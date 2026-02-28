@@ -6,7 +6,7 @@
  * - OPEN → IN_PROGRESS: contract is Funded (or any active state) but task still OPEN
  * - IN_PROGRESS → COMPLETED: contract is FundsReleased (or DisputeResolved) but task not COMPLETED
  *
- * See docs/task-status-resilience.md §5.6.
+ * See docs/tasks/task-status.md.
  */
 
 import { EscrowStatus } from '$lib/utils/escrow';

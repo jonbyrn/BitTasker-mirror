@@ -200,7 +200,7 @@
 			await escrow.escrowOps.completeTask(contract, attachments);
 
 			// Task event is owned by the Tasker; COMPLETED is set by the Tasker when they accept task (release funds), not here.
-			// See docs/task-status-flow.md.
+			// See docs/tasks/task-status.md.
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
