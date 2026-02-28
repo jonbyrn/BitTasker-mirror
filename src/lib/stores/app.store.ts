@@ -1,5 +1,5 @@
 import type { BiometricData } from '$lib/types/auth';
-import { SimplePool } from 'nostr-tools';
+import { SimplePool } from 'nostr-tools/pool';
 import { writable } from 'svelte/store';
 
 interface Toast {

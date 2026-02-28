@@ -6,7 +6,7 @@ import { Preferences } from '@capacitor/preferences';
 import { TaskTypeEnum, BudgetTypeEnum, TaskStepEnum } from '$lib/utils/enums/task.enum';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
-import { SimplePool } from 'nostr-tools';
+import type { SimplePool } from 'nostr-tools/pool';
 import { appStore } from './app.store';
 
 const CREATE_STORAGE_KEY = StorageKeys.DRAFT_TASK;
@@ -14,7 +14,12 @@ const EDIT_STORAGE_KEY = StorageKeys.DRAFT_TASK_EDIT;
 
 export const TASKS_PER_PAGE = 10;
 
-export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET, TaskStepEnum.REVIEW]);
+export const STEPS = writable([
+	TaskStepEnum.BASICS,
+	TaskStepEnum.LOCATION,
+	TaskStepEnum.BUDGET,
+	TaskStepEnum.REVIEW
+]);
 
 const getInitialState = () => ({
 	task: {
@@ -298,13 +303,13 @@ export const tasksStore = (() => {
 	}
 
 	const { subscribe, set, update } = writable<{
-		pool: SimplePool,
-		items: Task[],
-		loading: boolean,
-		error: string | null,
-		currentPage: number,
-		hasMore: boolean,
-		searchParamsKey: string
+		pool: SimplePool;
+		items: Task[];
+		loading: boolean;
+		error: string | null;
+		currentPage: number;
+		hasMore: boolean;
+		searchParamsKey: string;
 	}>({
 		pool,
 		...tasksStoreInitialState
@@ -325,7 +330,7 @@ export const tasksStore = (() => {
 				...tasksStoreInitialState
 			});
 		}
-	}
+	};
 })();
 
 // My tasks store initial state
@@ -340,11 +345,11 @@ const myTasksStoreInitialState = {
 // My tasks store
 function createMyTasksStore() {
 	const { subscribe, set, update } = writable<{
-		items: Task[],
-		loading: boolean,
-		error: string | null,
-		currentPage: number,
-		hasMore: boolean
+		items: Task[];
+		loading: boolean;
+		error: string | null;
+		currentPage: number;
+		hasMore: boolean;
 	}>(myTasksStoreInitialState);
 
 	return {
