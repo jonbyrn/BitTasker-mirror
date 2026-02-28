@@ -225,6 +225,7 @@ class EscrowManager {
 
 		/**
 		 * Accept proposal (version-aware from contract)
+		 * Only updates Nostr task to COMPLETED when the Tasker (client) accepts - not when Taskee accepts.
 		 */
 		acceptProposal: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
 			const version = this.getVersionFromContract(contract);
@@ -232,8 +233,17 @@ class EscrowManager {
 
 			const escrowId = contract.escrowData.id;
 			const contractEventId = contract.contractEvent.id;
+			const taskId = contract.contractEvent.content?.taskId as string | undefined;
 
-			return handler.escrow.acceptProposal(escrowId, contractEventId);
+			// Only update task when Tasker (client) accepts - Taskee accepting should not update the task event
+			const onConfirmed =
+				taskId && contract.isClient
+					? async () => {
+							await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
+						}
+					: undefined;
+
+			return handler.escrow.acceptProposal(escrowId, contractEventId, { onConfirmed });
 		},
 
 		/**
@@ -248,8 +258,17 @@ class EscrowManager {
 			const escrowId = contract.escrowData.id;
 			const contractEventId = contract.contractEvent.id;
 			const escrowStatus = contract.escrowData.status;
+			const taskId = contract.contractEvent.content?.taskId as string | undefined;
 
-			return handler.escrow.resolveAfterTimelock(escrowId, Number(escrowStatus), contractEventId);
+			const onConfirmed = taskId
+				? async () => {
+						await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
+					}
+				: undefined;
+
+			return handler.escrow.resolveAfterTimelock(escrowId, Number(escrowStatus), contractEventId, {
+				onConfirmed
+			});
 		},
 
 		// V2+ Operations (with capability checks)

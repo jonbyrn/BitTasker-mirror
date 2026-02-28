@@ -1,5 +1,8 @@
 import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
 import { writable } from 'svelte/store';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('storecontracts');
 import { escrow } from '$lib/utils/escrow';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19, type NostrEvent } from 'nostr-tools';
@@ -63,7 +66,8 @@ function createContractStore() {
 	async function subscribeToStatusUpdates() {
 		try {
 			if (statusSubscriptionIncoming && statusSubscriptionOutgoing) {
-				return console.log('[ContractStore] Already subscribed to status updates');
+				d.log('Already subscribed to status updates');
+				return;
 			}
 
 			const npub = await getNpub();
@@ -72,7 +76,7 @@ function createContractStore() {
 			const pool = _appStore?.pool;
 
 			if (!pool) {
-				console.error('[ContractStore] Pool not available');
+				d.error('Pool not available (subscribeToStatusUpdates)');
 				return;
 			}
 
@@ -100,7 +104,7 @@ function createContractStore() {
 				{ onevent: async (event: NostrEvent) => await escrow.contractOps.handleStatusEvent(event) }
 			);
 		} catch (error) {
-			console.error('[ContractStore] Failed to subscribe:', error);
+			d.error('Failed to subscribe:', error);
 		}
 	}
 
@@ -120,7 +124,7 @@ function createContractStore() {
 			const pool = _appStore?.pool;
 
 			if (!pool) {
-				console.error('[ContractStore] Pool not available');
+				d.error('Pool not available (subscribeToNewContracts)');
 				return;
 			}
 
@@ -139,7 +143,7 @@ function createContractStore() {
 				{ onevent: escrow.contractOps.handleContractEvent }
 			);
 		} catch (error) {
-			console.error('[ContractStore] Failed to subscribe to new contracts:', error);
+			d.error('Failed to subscribe to new contracts:', error);
 		}
 	}
 
@@ -184,6 +188,7 @@ function createContractStore() {
 			}
 
 			update((state) => ({ ...state, isLoading: true, error: null }));
+			d.log('load start', { limit: CONTRACTS_LIMIT });
 
 			try {
 				const loadedContracts = await escrow.contractOps.getContracts({ limit: CONTRACTS_LIMIT });
@@ -218,6 +223,21 @@ function createContractStore() {
 					isLoadingMore: false
 				});
 
+				d.log('load result', {
+					count: loadedContracts.length,
+					sample: loadedContracts.map((c) => ({
+						escrowId: c.escrowData?.id ?? c.contractEvent.content.escrowId,
+						taskId: c.contractEvent.content.taskId,
+						taskIdFormat:
+							typeof c.contractEvent.content.taskId === 'string'
+								? /^[0-9a-fA-F]{64}$/.test(c.contractEvent.content.taskId)
+									? 'event-id'
+									: 'd-tag'
+								: 'unknown',
+						status: c.status
+					}))
+				});
+
 				// Subscribe to real-time updates AFTER initial load
 				await subscribeToStatusUpdates();
 				await subscribeToNewContracts();
@@ -249,14 +269,14 @@ function createContractStore() {
 
 			// Prevent multiple simultaneous loads
 			if (state.isLoadingMore || state.isLoading || !state.hasMore) {
-				return console.log(
-					'[ContractStore] Already loading more contracts or no more contracts to load'
-				);
+				d.log('Already loading more contracts or no more contracts to load');
+				return;
 			}
 
 			if (!state.oldestTimestamp) {
 				update((state) => ({ ...state, isLoadingMore: false, hasMore: false }));
-				return console.log('[ContractStore] No oldest timestamp to load more contracts');
+				d.log('No oldest timestamp to load more contracts');
+				return;
 			}
 
 			update((state) => ({ ...state, isLoadingMore: true }));
@@ -272,17 +292,15 @@ function createContractStore() {
 				// Check if we got any new contracts
 				if (fetchedContracts.length === 0) {
 					update((s) => ({ ...s, hasMore: false, isLoadingMore: false }));
-					console.log('[ContractStore] No more contracts available');
+					d.log('No more contracts available');
 					return;
 				}
 
 				// Filter out already-loaded contracts by escrowData.id (deduplication)
-				const newContracts = fetchedContracts.filter(
-					(contract) => {
-						const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
-						return !state.contractsMap.has(id);
-					}
-				);
+				const newContracts = fetchedContracts.filter((contract) => {
+					const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+					return !state.contractsMap.has(id);
+				});
 
 				// Take only the contracts we need (LIMIT)
 				const contractsToAdd = newContracts.slice(0, CONTRACTS_LIMIT);
@@ -290,7 +308,7 @@ function createContractStore() {
 				if (contractsToAdd.length === 0) {
 					// All fetched contracts were duplicates - try fetching from older timestamp
 					const oldestFetched = fetchedContracts[fetchedContracts.length - 1];
-					console.log('[ContractStore] All contracts were duplicates, updating boundary');
+					d.log('All contracts were duplicates, updating boundary');
 
 					update((s) => ({
 						...s,
@@ -330,7 +348,7 @@ function createContractStore() {
 					};
 				});
 			} catch (err) {
-				console.error('[ContractStore] Error loading more contracts:', err);
+				d.error('Error loading more contracts:', err);
 				update((s) => ({ ...s, isLoadingMore: false }));
 			}
 		},
@@ -346,7 +364,8 @@ function createContractStore() {
 
 				if (loadedContracts.length > 0) {
 					const updatedContract = loadedContracts[0];
-					const escrowDataId = updatedContract.escrowData?.id ?? updatedContract.contractEvent.content.escrowId;
+					const escrowDataId =
+						updatedContract.escrowData?.id ?? updatedContract.contractEvent.content.escrowId;
 
 					update((state) => {
 						const index = state.contractsMap.get(escrowDataId);
@@ -375,7 +394,7 @@ function createContractStore() {
 					});
 				}
 			} catch (err) {
-				console.error(`[ContractStore] Error reloading contract ${escrowId}:`, err);
+				d.error('Error reloading contract', { escrowId }, err);
 			}
 		},
 
@@ -414,7 +433,7 @@ function createContractStore() {
 				return contract.contractEvent.content[key as keyof NostrContract];
 			}
 
-			console.warn(`[ContractStore] Unknown key: ${String(key)}`);
+			d.warn('Unknown key', { key: String(key) });
 			return undefined;
 		},
 

@@ -23,6 +23,9 @@ Use namespaced debug logs to trace contract lifecycle and task event processing.
    | `btasker:findTasks`     | Task list: API, cache, dedup, merge, store                                         |
    | `btasker:escrow:events` | Contract lifecycle: pending registration, handleEscrowCreated, publishEscrowStatus |
    | `btasker:escrow:bid`    | Accept-bid flow: acceptBidAndCreateEscrow, validation, tx, cleanup                 |
+   | `btasker:contracts`     | Contract loading: store load/loadMore, getContracts (Nostr query, per-contract)    |
+   | `btasker:reconcile`     | Task status reconciliation: sync items, updateTask calls, getTaskStatus lookup     |
+   | `btasker:task`          | Task updateTask: taskId format, API/relay lookup, success/failure                  |
 
    Examples:
 
@@ -106,9 +109,38 @@ Use these to verify both Tasker and Taskee flows (who registers pending, who rec
 
 ---
 
+## Contracts loading (btasker:contracts, btasker:reconcile)
+
+See [contracts-loading-flow.md](./contracts-loading-flow.md) for the full flow map.
+
+### Log points
+
+1. **`contracts load start`** — `loadContracts()` called; wallet initialized.
+2. **`contracts load result`** — Count, sample escrowIds, taskIds (d-tag vs event id).
+3. **`getContracts start`** — Filter (limit, until, escrowIds, taskIds).
+4. **`getContracts nostr query`** — Contract events count from Nostr.
+5. **`getContracts per contract`** — escrowId, taskId format (d-tag vs 64-char hex), status from blockchain.
+6. **`reconcile start`** — Contract count, contracts needing sync.
+7. **`reconcile sync items`** — taskIds, expected status, current status from store.
+8. **`reconcile updateTask`** — taskId, status, success/failure.
+9. **`updateTask`** (btasker:task or extend) — taskId format, API/relay lookup result.
+
+### How to use
+
+1. Enable `btasker:contracts,btasker:reconcile`.
+2. Open dashboard → Contracts tab, or click Refresh.
+3. Trace: loadContracts → getContracts (Nostr + blockchain) → reconcile → updateTask.
+4. For "Task not found" issues: check `taskId` format (d-tag vs event id) in getContracts per-contract and reconcile sync items.
+
+---
+
 ## References
 
 - `src/lib/utils/debug.ts`: `createDebug`, `initDebug`
 - `src/routes/+layout.ts`: `initDebug()` on load
 - `plans/task-status-stale-display-bug.md`: merge fix (prefer higher `createdAt` for same id)
+- `plans/contracts-loading-flow.md`: contract loading flow map
 - `src/lib/nostr/findTasks.ts`: cache key, cache hit/miss, API → dedup → merge → store
+- `src/lib/stores/contract.store.ts`: loadContracts, loadMoreContracts
+- `src/lib/utils/escrow/v1/nostrContract.ts`: getContracts
+- `src/lib/utils/helpers/task-status-reconciliation.ts`: reconcileTaskStatusWithContracts

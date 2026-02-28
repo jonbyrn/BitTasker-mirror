@@ -13,6 +13,9 @@ import { EscrowStatus } from '$lib/utils/escrow';
 import type { ContractWithEvents } from '$lib/types/contract';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { updateTask } from '$lib/nostr/task';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('reconcile');
 
 export type GetTaskStatusFn = (taskId: string) => string | undefined;
 
@@ -124,12 +127,35 @@ export async function reconcileTaskStatusWithContracts(
 	contracts: ContractWithEvents[],
 	getTaskStatus: GetTaskStatusFn
 ): Promise<void> {
+	d.log('reconcile start', { contractCount: contracts.length });
+
 	const items = getTaskStatusSyncItems(contracts, getTaskStatus);
+	d.log('reconcile sync items', {
+		items: items.map(({ taskId, status }) => ({
+			taskId,
+			taskIdFormat: /^[0-9a-fA-F]{64}$/.test(taskId) ? 'event-id' : 'd-tag',
+			expectedStatus: status,
+			currentStatus: getTaskStatus(taskId)
+		}))
+	});
+
+	const isEventId = (id: string) => /^[0-9a-fA-F]{64}$/.test(id);
+
 	for (const { taskId, status } of items) {
+		if (isEventId(taskId)) {
+			d.warn(
+				'Skipping reconciliation for legacy event-id taskId (API may return 404 for superseded event); contract should use d-tag',
+				{ taskId: taskId.slice(0, 16) + '…', status }
+			);
+			continue;
+		}
+
 		try {
+			d.log('reconcile updateTask', { taskId: taskId.slice(0, 16) + '…', status });
 			await updateTask(taskId, { status });
+			d.log('reconcile updateTask success', { taskId: taskId.slice(0, 16) + '…', status });
 		} catch (err) {
-			console.error('[reconcileTaskStatus] Failed to update task', taskId, status, err);
+			d.error('Failed to update task', { taskId, status }, err);
 		}
 	}
 }

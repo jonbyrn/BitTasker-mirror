@@ -136,21 +136,28 @@ export interface IEscrowHandler {
 	 * Accept proposed resolution
 	 * @param escrowId - Unique escrow identifier
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
+	 * @param options - Optional callbacks (e.g. onConfirmed for task status update after chain confirm)
 	 * @returns Transaction result
 	 */
-	acceptProposal(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
+	acceptProposal(
+		escrowId: string,
+		contractEventId?: string,
+		options?: { onConfirmed?: () => Promise<void> }
+	): Promise<ContractTransactionResult>;
 
 	/**
 	 * Resolve dispute after timelock expires
 	 * @param escrowId - Unique escrow identifier
 	 * @param escrowStatus - Current escrow status (EscrowStatus enum value)
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
+	 * @param options - Optional callbacks (e.g. onConfirmed when outcome is FundsReleased)
 	 * @returns Transaction result
 	 */
 	resolveAfterTimelock(
 		escrowId: string,
 		escrowStatus: number,
-		contractEventId?: string
+		contractEventId?: string,
+		options?: { onConfirmed?: () => Promise<void> }
 	): Promise<ContractTransactionResult>;
 
 	// ============================================
