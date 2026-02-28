@@ -9,12 +9,11 @@
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
-	import LocationSetup from '$lib/components/onboarding/LocationSetup.svelte';
 	import CompleteSetup from '$lib/components/onboarding/CompleteSetup.svelte';
 
 	let { data } = $props();
 
-	const totalSteps = 6;
+	const totalSteps = 5;
 
 	let currentStep = $state(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
@@ -110,10 +109,6 @@
 				<ProfileSetup {nextStep} {prevStep} {currentStep} {totalSteps} />
 			</div>
 		{:else if currentStep === 4}
-			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<LocationSetup {nextStep} {prevStep} {currentStep} {totalSteps} />
-			</div>
-		{:else if currentStep === 5}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
 				<CompleteSetup {restartSetup} {currentStep} {totalSteps} />
 			</div>

@@ -2,11 +2,11 @@
  * File 1 of 2: Creates two users and writes their passkey credentials to the file.
  *
  * Test 1: Signup (root → signup → Turnstile bypass) → username → passkey creation
- *   → Recovery (skip) → Profile → Location → Complete → Dashboard.
+ *   → Recovery (skip) → Profile → Complete → Dashboard.
  *   Teardown writes credentials to webauthn-credentials.json with label "signup".
  *
  * Test 2: Nostr signup (login → Login with nsec → submit → passkey automatic → land on profile)
- *   → fill profile → location → complete → Dashboard.
+ *   → fill profile → complete → Dashboard.
  *   Teardown writes credentials with label "nostr".
  *
  * Run first, then run 02-credentials-login.spec.ts. Use --workers=1 so file order is respected:
@@ -55,7 +55,7 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		passkeyAssertion,
 		lastSignupUsernameStore
 	}) => {
-		// Long flow: signup → onboarding (username, passkey, recovery skip, profile, location, complete) → dashboard
+		// Long flow: signup → onboarding (username, passkey, recovery skip, profile, complete) → dashboard
 		test.setTimeout(240_000);
 		const ts = Date.now();
 		const uniqueUsername = `e2e-${ts}`;
@@ -169,15 +169,9 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await skillsInput.press('Enter');
 		await page.getByTestId('onboarding-profile-next').click();
 		await page
-			.getByTestId('onboarding-step-location')
-			.waitFor({ state: 'visible', timeout: 30_000 });
-		e2eLog('Step 8: Location step visible', stepLog);
-
-		await page.getByTestId('onboarding-location-next').click();
-		await page
 			.getByTestId('onboarding-step-complete')
 			.waitFor({ state: 'visible', timeout: 30_000 });
-		e2eLog('Step 9: Complete step visible', stepLog);
+		e2eLog('Step 8: Complete step visible', stepLog);
 
 		await page.getByTestId('onboarding-continue-without-completing').click();
 		await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
@@ -321,10 +315,6 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await skillsInput.press('Enter');
 		await page.getByTestId('onboarding-profile-next').click();
 		await page
-			.getByTestId('onboarding-step-location')
-			.waitFor({ state: 'visible', timeout: 30_000 });
-		await page.getByTestId('onboarding-location-next').click();
-		await page
 			.getByTestId('onboarding-step-complete')
 			.waitFor({ state: 'visible', timeout: 30_000 });
 		await page.getByTestId('onboarding-continue-without-completing').click();
@@ -332,10 +322,8 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 	});
 
 	// Title contains "Nostr" so fixture uses empty authenticator and writes label 'nostr'.
-	// New user: nsec submit → passkey happens automatically → we land on profile step, then location → complete.
-	test('user 2: Nostr login (new user) → profile → location → complete onboarding', async ({
-		page
-	}) => {
+	// New user: nsec submit → passkey happens automatically → we land on profile step, then complete.
+	test('user 2: Nostr login (new user) → profile → complete onboarding', async ({ page }) => {
 		test.setTimeout(180_000);
 		const ts = Date.now();
 		const displayName = `e2e-nostr-${ts}`;
@@ -394,14 +382,10 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await skillsInput.press('Enter');
 		await page.getByTestId('onboarding-profile-next').click();
 		await page
-			.getByTestId('onboarding-step-location')
-			.waitFor({ state: 'visible', timeout: 30_000 });
-		e2eLog('Step 4: Location step visible; next → complete', stepLog);
-
-		await page.getByTestId('onboarding-location-next').click();
-		await page
 			.getByTestId('onboarding-step-complete')
 			.waitFor({ state: 'visible', timeout: 30_000 });
+		e2eLog('Step 4: Complete step visible; continue → dashboard', stepLog);
+
 		await page.getByTestId('onboarding-continue-without-completing').click();
 		await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 		e2eLog('Step 5: Nostr user onboarding complete; dashboard', stepLog);

@@ -3,18 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import { subscribeToProfileUpdates } from '$lib/nostr/profile';
-	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-	import { bytesToHex } from '@noble/hashes/utils';
-	import nip44 from '$lib/nostr/nip44';
-	import KINDS from '$lib/utils/constants/kinds';
-
-	type LocationInput = {
-		displayName?: string | null | undefined;
-		latitude?: number | null | undefined;
-		locationLoaded: boolean;
-		longitude?: number | null | undefined;
-		zipCode?: string | null | undefined;
-	};
 
 	let {
 		restartSetup,
@@ -34,13 +22,12 @@
 	let error = $state('');
 	let cleanup: (() => void) | null = null;
 
-	// Profile data
+	// Profile data (metadata only; location is no longer set during onboarding)
 	let profile = $state({
 		displayName: '',
 		professionalTitle: '',
 		about: '',
-		picture: null,
-		location: null as LocationInput | null
+		picture: null
 	});
 
 	// Handle restart setup click - destroy component first
@@ -53,13 +40,12 @@
 	}
 
 	onMount(async () => {
-		// Subscribe to profile metadata and location updates
+		// Subscribe to profile metadata (kind 0) to know when onboarding data is ready
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				isLoading = true;
 				try {
 					if (event.kind === 0) {
-						// Handle profile metadata
 						const metadata = JSON.parse(event.content);
 						profile.displayName =
 							metadata.display_name || metadata.displayName || metadata.name || '';
@@ -67,23 +53,6 @@
 						profile.about = metadata.about || '';
 						profile.picture = metadata.picture || '';
 						doneLoading();
-					} else if (
-						event.kind === KINDS.PROFILE_LOCATION &&
-						event.tags.find((t) => t[0] === 'd' && t[1] === 'location')
-					) {
-						// Handle location data
-						try {
-							const keyPair = await getNostrKeyPair();
-							const nsec = bytesToHex(keyPair.nsec);
-							const conversationKey = await nip44.getConversationKey(nsec, keyPair.npub);
-							const decryptedContent = await nip44.decrypt(event.content, conversationKey);
-
-							const locationData = JSON.parse(decryptedContent);
-							profile.location = locationData;
-							doneLoading();
-						} catch (err) {
-							console.error('Failed to parse location data:', err);
-						}
 					}
 				} catch (err) {
 					console.error('Failed to process profile update:', err);
@@ -92,10 +61,7 @@
 					isLoading = false;
 				}
 			},
-			{
-				0: null, // Kind 0 for profile metadata
-				30005: { d: 'location' } // Kind 30005 for location data
-			}
+			{ 0: null }
 		);
 	});
 

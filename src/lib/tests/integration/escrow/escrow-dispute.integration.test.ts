@@ -8,7 +8,7 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock ethers
-let mockContractInstance: any = null;
+let mockContractInstance: unknown = null;
 vi.mock('ethers', async () => {
 	const actual = await vi.importActual('ethers');
 	return {
@@ -70,21 +70,24 @@ vi.mock('$lib/stores/app.store', () => ({
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {
-	const translationFn = (key: string) => key;
-	const mockT = Object.assign(vi.fn((key: string) => key), { subscribe: vi.fn() });
+	const mockT = Object.assign(
+		vi.fn((key: string) => key),
+		{ subscribe: vi.fn() }
+	);
 	return { t: mockT };
 });
 
 // Mock svelte/store
 vi.mock('svelte/store', () => {
 	const translationFn = (key: string) => key;
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			const fn = store as { subscribe?: unknown; toString?: () => string };
+			if (fn.subscribe || fn.toString?.()?.includes('t')) {
 				return translationFn;
 			}
 			try {
-				return store();
+				return (store as () => unknown)();
 			} catch {
 				return translationFn;
 			}
@@ -107,15 +110,24 @@ import { escrow } from '$lib/utils/escrow/v1/escrow';
 import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
 
 describe('Escrow Dispute Resolution Integration Tests', () => {
-	let mockContract: any;
+	let mockContract: {
+		interface: { parseLog: ReturnType<typeof vi.fn> };
+		disputeTask: ReturnType<typeof vi.fn>;
+		proposeResolution: ReturnType<typeof vi.fn>;
+		acceptProposal: ReturnType<typeof vi.fn>;
+		resolveAfterTimelock: ReturnType<typeof vi.fn>;
+		getEscrow: ReturnType<typeof vi.fn>;
+		getDisputeProposal: ReturnType<typeof vi.fn>;
+		paused: ReturnType<typeof vi.fn>;
+	};
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 
-		const createMockWait = (receipt: any) => {
-			return vi.fn().mockImplementation(
-				() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10))
-			);
+		const createMockWait = (receipt: { hash?: string; gasUsed?: bigint; logs?: unknown[] }) => {
+			return vi
+				.fn()
+				.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10)));
 		};
 
 		mockContract = {
@@ -131,7 +143,10 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			paused: vi.fn().mockResolvedValue(false)
 		};
 
-		const createMethodWithEstimateGas = (estimateGasValue: bigint, waitReceipt: any) => {
+		const createMethodWithEstimateGas = (
+			estimateGasValue: bigint,
+			waitReceipt: { hash?: string; gasUsed?: bigint; logs?: unknown[] }
+		) => {
 			const method = vi.fn().mockResolvedValue({
 				hash: '0x' + Math.random().toString(16).substring(2, 66),
 				wait: createMockWait(waitReceipt)
@@ -205,7 +220,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			expect(disputeResult.hash).toBeDefined();
 			expect(disputeResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(vi.mocked(EscrowNostrEvent.publishEscrowStatus)).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -229,7 +244,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			expect(proposeResult.hash).toBeDefined();
 			expect(proposeResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(vi.mocked(EscrowNostrEvent.publishEscrowStatus)).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -249,7 +264,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			expect(acceptResult.hash).toBeDefined();
 			expect(acceptResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(vi.mocked(EscrowNostrEvent.publishEscrowStatus)).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -289,7 +304,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			expect(resolveResult.hash).toBeDefined();
 			expect(resolveResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(vi.mocked(EscrowNostrEvent.publishEscrowStatus)).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -329,7 +344,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			expect(resolveResult.hash).toBeDefined();
 			expect(resolveResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(vi.mocked(EscrowNostrEvent.publishEscrowStatus)).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -362,9 +377,12 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			// Mock contract to reject proposal with invalid amounts (smart contract validation)
 			// Override the estimateGas mock for this specific test
 			const originalEstimateGas = mockContract.proposeResolution.estimateGas;
-			mockContract.proposeResolution.estimateGas = vi.fn().mockRejectedValue(
-				new Error('Amount exceeds escrow balance')
-			);
+			mockContract.proposeResolution.estimateGas = vi
+				.fn()
+				.mockRejectedValue(new Error('Amount exceeds escrow balance'));
+
+			// Force escrow module to use fresh contract (current mock) instead of cached one
+			escrow.resetCachedContract();
 
 			// Proposal with amount exceeding base amount
 			await expect(
