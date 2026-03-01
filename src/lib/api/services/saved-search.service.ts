@@ -1,6 +1,6 @@
-import type { TaskBody } from '$lib/types/task';
-import { BaseApiService } from '../apiService';
+import { ApiError, BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
+import { normalizeToError } from '$lib/utils/helpers/normalizeError';
 
 /**
  * DTO for task body sent to saved search check endpoint
@@ -48,6 +48,36 @@ export interface SavedSearchNotificationResult {
  * Handles saved search notifications and checks
  */
 export class SavedSearchService extends BaseApiService {
+	private getErrorStatus(error: unknown): number | undefined {
+		if (typeof error !== 'object' || error === null) return undefined;
+		const candidate = error as { status?: unknown; response?: { status?: unknown } };
+		if (typeof candidate.status === 'number') return candidate.status;
+		if (typeof candidate.response?.status === 'number') return candidate.response.status;
+		return undefined;
+	}
+
+	private getErrorMessage(error: unknown): string | undefined {
+		if (typeof error !== 'object' || error === null) return undefined;
+		const candidate = error as {
+			message?: unknown;
+			data?: { message?: unknown };
+			response?: { data?: { message?: unknown } };
+		};
+		if (typeof candidate.data?.message === 'string' && candidate.data.message.trim()) {
+			return candidate.data.message;
+		}
+		if (
+			typeof candidate.response?.data?.message === 'string' &&
+			candidate.response.data.message.trim()
+		) {
+			return candidate.response.data.message;
+		}
+		if (typeof candidate.message === 'string' && candidate.message.trim()) {
+			return candidate.message;
+		}
+		return undefined;
+	}
+
 	/**
 	 * Trigger saved search check for a new task
 	 * @param taskBody Task data to check against saved searches
@@ -62,14 +92,20 @@ export class SavedSearchService extends BaseApiService {
 				taskBody
 			);
 			return response.data;
-		} catch (error: any) {
-			if (error?.status === 401) {
-				throw new Error('Unauthorized. Please login again.');
+		} catch (error: unknown) {
+			const status = this.getErrorStatus(error);
+			if (status === 401) {
+				if (error instanceof ApiError) throw error;
+				throw new ApiError(this.getErrorMessage(error) || 'Unauthorized. Please login again.', 401);
 			}
-			if (error?.status === 500) {
-				throw new Error('Internal server error. Please try again later.');
+			if (status === 500) {
+				if (error instanceof ApiError) throw error;
+				throw new ApiError(
+					this.getErrorMessage(error) || 'Internal server error. Please try again later.',
+					500
+				);
 			}
-			throw new Error(error || 'Failed to trigger saved search check. Please try again.');
+			throw normalizeToError(error, 'Failed to trigger saved search check. Please try again.');
 		}
 	}
 }
