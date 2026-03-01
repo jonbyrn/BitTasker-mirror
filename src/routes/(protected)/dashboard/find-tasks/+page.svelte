@@ -974,8 +974,7 @@ function getTaskIdentifier(task: Task): string {
 														<!-- Username and Review Stars -->
 														<div class="flex min-w-0 flex-1 flex-col">
 															<span class="truncate text-sm font-medium">
-																{task.creator?.username ||
-																	$t('dashboard.task_details_by_task.anonymous')}
+																{task.creator?.username}
 															</span>
 															<!-- Review Stars -->
 															<div class="flex items-center">

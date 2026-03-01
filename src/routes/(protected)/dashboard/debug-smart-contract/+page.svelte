@@ -50,28 +50,14 @@
 		const state = get(walletStore);
 		const addresses: Array<{ address: string; network: 'RSK' | 'BSC' }> = [];
 
-		console.log('[DEBUG] getConnectedAddresses - wallet store state', {
-			rsk: {
-				connected: state.rsk.connected,
-				address: state.rsk.address
-			},
-			bsc: {
-				connected: state.bsc.connected,
-				address: state.bsc.address
-			}
-		});
-
 		if (state.rsk.connected && state.rsk.address) {
 			addresses.push({ address: state.rsk.address, network: 'RSK' });
-			console.log('[DEBUG] Added RSK address:', state.rsk.address);
 		}
 
 		if (state.bsc.connected && state.bsc.address) {
 			addresses.push({ address: state.bsc.address, network: 'BSC' });
-			console.log('[DEBUG] Added BSC address:', state.bsc.address);
 		}
 
-		console.log('[DEBUG] Total addresses to check:', addresses.length, addresses);
 		return addresses;
 	}
 
@@ -80,7 +66,6 @@
 		contract: EscrowData,
 		userAddress: string
 	): Promise<{ permissions: ContractPermissions; isClient: boolean; isFreelancer: boolean }> {
-		const permStartTime = performance.now();
 		// Defensive check for undefined addresses
 		const clientAddr = contract.client?.toLowerCase() || '';
 		const freelancerAddr = contract.freelancer?.toLowerCase() || '';
@@ -92,13 +77,7 @@
 		let disputeProposal = null;
 		if (contract.status === EscrowStatus.InDispute) {
 			try {
-				const disputeStartTime = performance.now();
 				disputeProposal = await escrow.getDisputeProposal(contract.id);
-				const disputeEndTime = performance.now();
-				const disputeDuration = disputeEndTime - disputeStartTime;
-				console.log(`[DEBUG] Loaded dispute proposal for contract ${contract.id}`, {
-					durationMs: disputeDuration.toFixed(2)
-				});
 			} catch (error) {
 				console.warn(`Failed to load dispute proposal for ${contract.id}:`, error);
 			}
@@ -122,7 +101,6 @@
 			}
 		};
 
-		const determineStartTime = performance.now();
 		const { permissions } = determineContractState(
 			contract.status,
 			[], // No status events for debug view
@@ -133,24 +111,13 @@
 			isClient,
 			isFreelancer
 		);
-		const determineEndTime = performance.now();
-		const determineDuration = determineEndTime - determineStartTime;
-
-		const permEndTime = performance.now();
-		const totalPermTime = permEndTime - permStartTime;
-		console.log(`[DEBUG] Calculated permissions for contract ${contract.id}`, {
-			totalDurationMs: totalPermTime.toFixed(2),
-			determineStateDurationMs: determineDuration.toFixed(2)
-		});
 
 		return { permissions, isClient, isFreelancer };
 	}
 
 	// Load contracts for a specific address
 	async function loadContractsForAddress(address: string, network: 'RSK' | 'BSC') {
-		const functionStartTime = performance.now();
 		const key = `${network}-${address}`;
-		console.log('[DEBUG] loadContractsForAddress called', { address, network, key });
 
 		const group = contractsByAddress.get(key);
 
@@ -177,25 +144,8 @@
 		}
 
 		try {
-			const loadContractsStartTime = performance.now();
-			console.log('[DEBUG] Calling loadContractsByAddress...', { address, network });
 			const contracts = await loadContractsByAddress(address, 100, network);
-			const loadContractsEndTime = performance.now();
-			const loadContractsDuration = loadContractsEndTime - loadContractsStartTime;
-			console.log('[DEBUG] loadContractsByAddress returned', {
-				count: contracts.length,
-				contractIds: contracts.map((c) => c.id),
-				contracts: contracts.map((c) => ({
-					id: c.id,
-					client: c.client,
-					freelancer: c.freelancer,
-					status: c.status,
-					baseAmount: c.baseAmount
-				})),
-				durationMs: loadContractsDuration.toFixed(2)
-			});
 
-			const permissionsStartTime = performance.now();
 			const contractsWithPermissions: ContractWithPermissions[] = await Promise.all(
 				contracts.map(async (contract) => {
 					const { permissions, isClient, isFreelancer } = await calculatePermissions(
@@ -211,25 +161,6 @@
 					};
 				})
 			);
-			const permissionsEndTime = performance.now();
-			const permissionsDuration = permissionsEndTime - permissionsStartTime;
-			const avgPermissionTime = contracts.length > 0 ? permissionsDuration / contracts.length : 0;
-
-			console.log('[DEBUG] Contracts with permissions calculated', {
-				count: contractsWithPermissions.length,
-				contracts: contractsWithPermissions.map((c) => ({
-					id: c.id,
-					isClient: c.isClient,
-					isFreelancer: c.isFreelancer,
-					status: c.status
-				})),
-				timing: {
-					totalPermissionsDurationMs: permissionsDuration.toFixed(2),
-					avgPermissionTimeMs: avgPermissionTime.toFixed(2),
-					note: 'Permissions calculated in parallel with Promise.all'
-				}
-			});
-
 			const updatedGroup = contractsByAddress.get(key);
 			if (updatedGroup) {
 				// Create a new group object to trigger reactivity
@@ -241,20 +172,6 @@
 				});
 				// Reassign Map to trigger reactivity
 				contractsByAddress = new Map(contractsByAddress);
-				const functionEndTime = performance.now();
-				const totalFunctionTime = functionEndTime - functionStartTime;
-				console.log('[DEBUG] Updated group with contracts', {
-					key,
-					contractCount: contractsWithPermissions.length,
-					totalDurationMs: totalFunctionTime.toFixed(2),
-					breakdown: {
-						loadContractsMs: loadContractsDuration.toFixed(2),
-						permissionsMs: permissionsDuration.toFixed(2),
-						otherMs: (totalFunctionTime - loadContractsDuration - permissionsDuration).toFixed(2)
-					}
-				});
-			} else {
-				console.warn('[DEBUG] Group not found after loading contracts', { key });
 			}
 		} catch (error) {
 			const updatedGroup = contractsByAddress.get(key);
@@ -268,63 +185,32 @@
 				// Reassign Map to trigger reactivity
 				contractsByAddress = new Map(contractsByAddress);
 			}
-			console.error('[DEBUG] Error loading contracts for address', {
-				address,
-				network,
-				error: error instanceof Error ? error.message : 'Unknown error',
-				stack: error instanceof Error ? error.stack : undefined
-			});
 		}
 	}
 
 	// Load all contracts
 	async function loadAllContracts() {
-		const loadAllStartTime = performance.now();
-		console.log('[DEBUG] loadAllContracts called');
-
 		// Reset cached contract to ensure fresh provider connection
 		escrow.resetCachedContract();
 
 		const addresses = getConnectedAddresses();
 
 		if (addresses.length === 0) {
-			console.warn('[DEBUG] No connected addresses found');
 			initialLoadComplete = true;
 			appStore.showErrorToast($t('debug.smart_contract.no_contracts'));
 			return;
 		}
 
-		console.log('[DEBUG] Loading contracts for addresses', addresses);
 		initialLoadComplete = false;
 
 		try {
-			const loadAddressesStartTime = performance.now();
 			await Promise.all(
 				addresses.map(({ address, network }) => loadContractsForAddress(address, network))
 			);
-			const loadAddressesEndTime = performance.now();
-			const loadAddressesDuration = loadAddressesEndTime - loadAddressesStartTime;
-			console.log('[DEBUG] All contracts loaded successfully', {
-				addressesLoaded: addresses.length,
-				parallelLoadDurationMs: loadAddressesDuration.toFixed(2),
-				note: 'Addresses loaded in parallel with Promise.all'
-			});
-		} catch (error) {
-			console.error('[DEBUG] Error in loadAllContracts', error);
+		} catch {
+			// Error handled by loadContractsForAddress per-address
 		} finally {
 			initialLoadComplete = true;
-			const loadAllEndTime = performance.now();
-			const totalLoadAllTime = loadAllEndTime - loadAllStartTime;
-			console.log('[DEBUG] Initial load complete. Final state:', {
-				contractsByAddressSize: contractsByAddress.size,
-				groups: Array.from(contractsByAddress.entries()).map(([key, group]) => ({
-					key,
-					contractCount: group.contracts.length,
-					isLoading: group.isLoading,
-					error: group.error
-				})),
-				totalDurationMs: totalLoadAllTime.toFixed(2)
-			});
 		}
 	}
 
@@ -380,7 +266,7 @@
 					await escrow.acceptProposal(contractId);
 					break;
 				case 'resolveAfterTimelock':
-					await escrow.resolveAfterTimelock(contractId);
+					await escrow.resolveAfterTimelock(contractId, args[0] || '0');
 					break;
 				default:
 					throw new Error(`Unknown function: ${functionName}`);
@@ -458,11 +344,8 @@
 
 		// Initialize wallet first
 		try {
-			console.log('[DEBUG] Initializing wallet...');
 			await walletManager.initialize();
-			console.log('[DEBUG] Wallet initialized successfully');
 		} catch (error) {
-			console.error('[DEBUG] Failed to initialize wallet:', error);
 			appStore.showErrorToast(
 				$t('debug.smart_contract.wallet_init_error', {
 					values: { error: error instanceof Error ? error.message : 'Unknown error' }

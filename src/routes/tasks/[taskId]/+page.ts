@@ -251,7 +251,15 @@ export const load: PageLoad = async ({ params }) => {
 		// Generate dynamic SEO data based on task content
 		const taskTitle = task.title || 'Untitled Task';
 		const taskDescription = task.description || 'No description available';
-		const taskBudget = task.budget?.amount ? `$${task.budget.amount}` : 'Price not specified';
+		// For hourly rate tasks, show total (hourly × estimated hours) in link preview so it's not misleading
+		const displayAmount =
+			task.budget?.type === 'HOURLY' &&
+			task.budget.estimatedHours != null &&
+			task.budget.estimatedHours > 0 &&
+			task.budget.amount != null
+				? task.budget.amount * task.budget.estimatedHours
+				: task.budget?.amount;
+		const taskBudget = displayAmount != null && displayAmount > 0 ? `$${displayAmount}` : 'Price not specified';
 		const taskLocation = task.pickupLocation?.displayName || task.dropOffLocation?.displayName || 'Remote';
 		const taskSkills = task.skills?.join(', ') || '';
 		
@@ -314,11 +322,18 @@ function generateTaskJsonLd(task: Task, canonicalUrl: string) {
 				addressLocality: 'Remote'
 			}
 		},
-		baseSalary: task.budget?.amount ? {
-			'@type': 'MonetaryAmount',
-			currency: 'USD',
-			value: task.budget.amount
-		} : undefined,
+		baseSalary: (() => {
+			const amt =
+				task.budget?.type === 'HOURLY' &&
+				task.budget.estimatedHours != null &&
+				task.budget.estimatedHours > 0 &&
+				task.budget.amount != null
+					? task.budget.amount * task.budget.estimatedHours
+					: task.budget?.amount;
+			return amt != null && amt > 0
+				? { '@type': 'MonetaryAmount' as const, currency: 'USD', value: amt }
+				: undefined;
+		})(),
 		skills: task.skills || [],
 		url: canonicalUrl,
 		identifier: {

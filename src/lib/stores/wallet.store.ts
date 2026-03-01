@@ -414,14 +414,6 @@ async function loadTransactions(): Promise<void> {
 
 		// Ensure wallet is initialized before loading transactions
 		if (!state.isConnected || !sdkWalletManager) {
-			if (import.meta.env.DEV) {
-				console.log('[DEBUG] [loadTransactions] Wallet not initialized, initializing...', {
-					isConnected: state.isConnected,
-					hasManager: !!sdkWalletManager,
-					timestamp: new Date().toISOString()
-				});
-			}
-
 			// Initialize wallet if not already initialized
 			if (!state.isInitializing) {
 				await initialize();
@@ -442,15 +434,7 @@ async function loadTransactions(): Promise<void> {
 			// Re-check state after initialization attempt
 			const updatedState = get(walletStore);
 			if (!updatedState.isConnected || !sdkWalletManager) {
-				const errorMsg = 'Wallet not initialized. Cannot load transactions.';
-				if (import.meta.env.DEV) {
-					console.error('[DEBUG] [loadTransactions]', errorMsg, {
-						isConnected: updatedState.isConnected,
-						hasManager: !!sdkWalletManager,
-						error: updatedState.error
-					});
-				}
-				throw new Error(errorMsg);
+				throw new Error('Wallet not initialized. Cannot load transactions.');
 			}
 		}
 
@@ -459,43 +443,17 @@ async function loadTransactions(): Promise<void> {
 
 		// Validate wallets exist
 		if (!manager.rskWallet || !manager.bscWallet) {
-			const errorMsg = `Wallets not available. RSK: ${!!manager.rskWallet}, BSC: ${!!manager.bscWallet}`;
-			if (import.meta.env.DEV) {
-				console.error('[DEBUG] [loadTransactions]', errorMsg, {
-					hasRSKWallet: !!manager.rskWallet,
-					hasBSCWallet: !!manager.bscWallet,
-					rskAddress: finalState.rsk.address,
-					bscAddress: finalState.bsc.address
-				});
-			}
-			throw new Error(errorMsg);
+			throw new Error(`Wallets not available. RSK: ${!!manager.rskWallet}, BSC: ${!!manager.bscWallet}`);
 		}
 
 		// Get current balance for running balance calculation
 		const currentBalanceSats = finalState.totalBalances.sats;
-
-		if (import.meta.env.DEV) {
-			console.log('[DEBUG] [loadTransactions] Loading transactions...', {
-				rskAddress: finalState.rsk.address,
-				bscAddress: finalState.bsc.address,
-				currentBalanceSats,
-				timestamp: new Date().toISOString()
-			});
-		}
 
 		// Load blockchain transactions
 		const [rskTxs, bscTxs] = await Promise.all([
 			manager.rskWallet.loadTransactions(),
 			manager.bscWallet.loadTransactions()
 		]);
-
-		if (import.meta.env.DEV) {
-			console.log('[DEBUG] [loadTransactions] Raw transactions loaded', {
-				rskTxCount: rskTxs.length,
-				bscTxCount: bscTxs.length,
-				timestamp: new Date().toISOString()
-			});
-		}
 
 		// Process blockchain transactions
 		const [processedRskTxs, processedBscTxs] = await Promise.all([
@@ -543,15 +501,6 @@ async function loadTransactions(): Promise<void> {
 		const allTransactions = [...allBlockchainTxs, ...uniqueSwapTxs].sort(
 			(a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime()
 		);
-
-		if (import.meta.env.DEV) {
-			console.log('[DEBUG] [loadTransactions] Transactions processed and sorted', {
-				totalTransactions: allTransactions.length,
-				blockchainTxs: allBlockchainTxs.length,
-				swapTxs: uniqueSwapTxs.length,
-				timestamp: new Date().toISOString()
-			});
-		}
 
 		walletStore.update((s) => ({ ...s, transactions: allTransactions }));
 	} catch (error) {

@@ -228,12 +228,6 @@
 				if (!$store.task.budget.amount || $store.task.budget.amount <= 0) {
 					errors.budget = $t('task.errors.budget_required');
 				}
-				if (
-					$store.task.budget.type === BudgetTypeEnum.HOURLY &&
-					(!$store.task.budget.estimatedHours || $store.task.budget.estimatedHours <= 0)
-				) {
-					errors.estimatedHours = $t('task.errors.estimated_hours_required');
-				}
 				if (!$store.task.description?.trim())
 					errors.description = $t('task.errors.description_required');
 				if ($store.task.description?.trim().length < 20)
