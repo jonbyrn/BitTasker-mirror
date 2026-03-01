@@ -92,7 +92,7 @@
 					: 'items-start'}"
 			>
 				{#if label}
-					<span class="text-base-content/60 text-xs font-semibold uppercase tracking-wide">
+					<span class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
 						{label}
 					</span>
 				{/if}
@@ -113,7 +113,7 @@
 					<span class="text-base-content/60 text-xs font-medium">{label}</span>
 				{/if}
 				{#if label && labelPlacement === 'inline'}
-					<div class="min-w-0 flex flex-wrap items-baseline gap-2">
+					<div class="flex min-w-0 flex-wrap items-baseline gap-2">
 						<span class="text-base-content/60 text-xs font-medium">{label}</span>
 						<span class="line-clamp-2 text-sm font-medium">
 							{#if formattedDeadline}

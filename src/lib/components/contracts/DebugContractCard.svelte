@@ -407,8 +407,8 @@
 			try {
 				const payment = await checkEscrowPayment(contract.id, contract);
 				paymentInfo = payment;
-			} catch (error) {
-				console.error('[DEBUG] Failed to check escrow payment:', error);
+			} catch {
+				// Payment check failed
 			} finally {
 				checkingPayment = false;
 			}
@@ -583,24 +583,6 @@
 			// Note: estimateContractGas wraps errors, but preserves original in cause
 			const originalError = isEthersError(error) && error.cause ? error.cause : error;
 
-			// Debug: Log error structure to understand what we're dealing with
-			if (import.meta.env.DEV) {
-				const ethersErr = isEthersError(error) ? error : null;
-				const origEthersErr = isEthersError(originalError) ? originalError : null;
-				console.log(`[DEBUG] Gas estimation error for ${functionName}:`, {
-					error,
-					originalError,
-					errorCode: ethersErr?.code,
-					originalErrorCode: origEthersErr?.code,
-					errorMessage: error instanceof Error ? error.message : String(error),
-					originalErrorMessage:
-						originalError instanceof Error ? originalError.message : String(originalError),
-					isContractRevert: isContractRevertError(originalError) || isContractRevertError(error),
-					isUnpredictable: isUnpredictableGasError(originalError) || isUnpredictableGasError(error),
-					isNetwork: isNetworkError(originalError) || isNetworkError(error)
-				});
-			}
-
 			if (isContractRevertError(originalError) || isContractRevertError(error)) {
 				// Contract will revert - function is blocked
 				blockedFunctions.add(functionName); // Direct mutation
@@ -678,18 +660,15 @@
 					try {
 						await estimateGasFee(name, ...args);
 					} catch (error) {
-						// Ignore abort errors, but log others
-						if (!(error instanceof Error && error.name === 'AbortError')) {
-							console.error(`[DEBUG] Gas estimation failed for ${name}:`, error);
+						// Ignore abort errors
+						if (error instanceof Error && error.name === 'AbortError') {
+							// Expected when estimation is cancelled
 						}
 					}
 				})
 			);
-		} catch (error) {
-			// Ignore abort errors
-			if (error instanceof Error && error.name !== 'AbortError') {
-				console.error('[DEBUG] Error in estimateAllGasFees:', error);
-			}
+		} catch {
+			// Ignore errors (including abort)
 		}
 	}
 

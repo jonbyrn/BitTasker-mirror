@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
@@ -54,16 +55,23 @@ vi.mock('$lib/utils/wallet/contractErrorHandler', () => ({
 	}))
 }));
 
-const mockGet = vi.fn((store: any) => {
-	if (typeof store === 'function') {
-		return store();
-	}
-	return store;
-});
+const mockGet = vi.hoisted(() => vi.fn());
 
-vi.mock('svelte/store', () => ({
-	get: (store: any) => mockGet(store)
-}));
+vi.mock('svelte/store', async () => {
+	const actual = await vi.importActual<typeof import('svelte/store')>('svelte/store');
+	mockGet.mockImplementation((store: any) => {
+		if (typeof store === 'function') return store();
+		if (store?.subscribe) return actual.get(store);
+		return store;
+	});
+	return {
+		...actual,
+		get: (store: any) => {
+			if (store?.showSuccessToast) return actual.get(store);
+			return mockGet(store);
+		}
+	};
+});
 
 import {
 	calculateBidEscrowDetails,
@@ -75,10 +83,15 @@ import {
 } from '$lib/utils/escrow/v1/escrowBid';
 import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 import { escrow } from '$lib/utils/escrow/v1/escrow';
-import { registerPendingContractByTxHash, cleanupPendingContractByTxHash } from '$lib/utils/escrow/v1/escrowEvents';
+import {
+	registerPendingContractByTxHash,
+	cleanupPendingContractByTxHash
+} from '$lib/utils/escrow/v1/escrowEvents';
 
 // Get the mocked cleanup function for use in tests
-const mockCleanupPendingContractByTxHash = cleanupPendingContractByTxHash as ReturnType<typeof vi.fn>;
+const mockCleanupPendingContractByTxHash = cleanupPendingContractByTxHash as ReturnType<
+	typeof vi.fn
+>;
 
 describe('escrowBid', () => {
 	const mockBidContent: NostrBidContent = {
@@ -737,7 +750,7 @@ describe('escrowBid', () => {
 
 			(escrow.ensureEscrowReady as any).mockResolvedValue({});
 			(escrow.createEscrow as any).mockResolvedValue(mockTxResult);
-			
+
 			// Mock registerPendingContractByTxHash to throw an error after being called
 			// This simulates an error occurring after transaction is registered
 			let callCount = 0;
@@ -758,46 +771,44 @@ describe('escrowBid', () => {
 			// Actually, the issue is: if registerPendingContractByTxHash is called (line 287)
 			// but then an error occurs before the return (line 299), cleanup should happen.
 			// But in the current code, there's no cleanup in the catch block if txHash exists.
-			
+
 			// Let's test the actual scenario: transaction is created, registered, but then
 			// something fails. The current code doesn't clean up in catch block.
 			// We'll verify that cleanupPendingContractByTxHash is NOT called in catch block
 			// (which is the bug), then we'll fix it and verify it IS called.
-			
-			const result = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
-			
+
+			const acceptResult = await acceptBidAndCreateEscrow(mockBidEvent, mockTaskEvent, 50000);
+			expect(acceptResult.success).toBe(true);
+
 			// In current implementation, if everything succeeds, no cleanup needed
 			// But if an error occurs after registerPendingContractByTxHash, cleanup should happen
 			// Let's test the error case by making registerPendingContractByTxHash throw
 			expect(registerPendingContractByTxHash).toHaveBeenCalled();
-			
+
 			// Reset mocks for error scenario
 			vi.clearAllMocks();
 			mockCleanupPendingContractByTxHash.mockClear();
-			
+
 			// Now test error scenario: transaction created and registered, but error occurs
 			(escrow.ensureEscrowReady as any).mockResolvedValue({});
 			(escrow.createEscrow as any).mockResolvedValue(mockTxResult);
-			
-			// Make registerPendingContractByTxHash succeed, but then throw error
-			// We'll simulate this by making the function throw after registration
-			let shouldThrow = false;
+
+			// Make registerPendingContractByTxHash succeed (registration completes)
 			(registerPendingContractByTxHash as any).mockImplementation(() => {
 				// Registration succeeds
-				shouldThrow = true;
 			});
-			
+
 			// Override the return to throw an error
 			// Actually, we need to test the catch block. Let's make createEscrow throw
 			// after returning a result, but that's not possible. Instead, let's test
 			// the scenario where registerPendingContractByTxHash is called but then
 			// an error occurs. We can do this by making registerPendingContractByTxHash
 			// throw on the second call or by making something else fail.
-			
+
 			// Better approach: Test that if we manually call cleanupPendingContractByTxHash
 			// with the transaction hash, it should work. Then verify that in the catch block,
 			// if transactionResult.hash exists, cleanup is called.
-			
+
 			// For now, let's verify the current behavior: cleanup is NOT called in catch block
 			// when transaction hash exists (this is the bug we're testing for)
 			expect(mockCleanupPendingContractByTxHash).not.toHaveBeenCalled();
@@ -853,7 +864,7 @@ describe('escrowBid', () => {
 
 			// Verify that createEscrow was called (which should fetch gas price internally)
 			expect(escrow.createEscrow).toHaveBeenCalled();
-			
+
 			// The issue is that gas price is fetched once in escrow.ts before createEscrow
 			// but if gas price changes between fetch and submission, transaction may fail.
 			// We need to verify that gas price is fetched as close as possible to submission.

@@ -85,9 +85,9 @@
 >
 	{#if $contractStore.contract}
 		<!-- Contract Details -->
-		<div class="min-w-0 overflow-x-hidden space-y-6">
+		<div class="min-w-0 space-y-6 overflow-x-hidden">
 			<!-- Contract Info Card -->
-			<div class="card min-w-0 overflow-hidden bg-base-200">
+			<div class="card bg-base-200 min-w-0 overflow-hidden">
 				<div class="card-body min-w-0 p-4">
 					<!-- Row 1: User info | Role + Status badges (stacked, right-aligned) -->
 					<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -123,7 +123,7 @@
 					<!-- Row 2: Task title + description | Price block (same row on all sizes) -->
 					<div class="mb-4 flex flex-row flex-nowrap items-start justify-between gap-4">
 						<div class="min-w-0 flex-1">
-							<p class="text-lg font-bold leading-tight">
+							<p class="text-lg leading-tight font-bold">
 								{contractStore.getContractKey($contractStore.contract, 'taskTitle')}
 							</p>
 							<p class="text-base-content/60 mt-1 text-sm leading-relaxed">
@@ -173,12 +173,12 @@
 						<div class="order-2 w-full sm:order-3 sm:basis-full">
 							<div class="join join-vertical w-full">
 								<div
-									class="collapse-arrow join-item collapse border-b border-base-300"
+									class="collapse-arrow join-item border-base-300 collapse border-b"
 									class:collapse-open={isOriginalBidOpen}
 								>
 									<button
 										type="button"
-										class="collapse-title text-left text-lg font-bold leading-tight"
+										class="collapse-title text-left text-lg leading-tight font-bold"
 										onclick={() => (isOriginalBidOpen = !isOriginalBidOpen)}
 										aria-expanded={isOriginalBidOpen}
 										aria-controls="original-bid-content"
@@ -201,7 +201,7 @@
 							</div>
 						</div>
 						<div
-							class="order-3 flex min-w-0 flex-wrap gap-2 pl-0 sm:order-2 sm:flex-row sm:items-center sm:justify-end sm:pl-4 sm:w-fit"
+							class="order-3 flex min-w-0 flex-wrap gap-2 pl-0 sm:order-2 sm:w-fit sm:flex-row sm:items-center sm:justify-end sm:pl-4"
 						>
 							<ContractActions
 								contract={$contractStore.contract}
@@ -299,12 +299,12 @@
 			<div class="card bg-base-200 mb-16 overflow-hidden sm:mb-0">
 				<div class="card-body bg-base-200 p-0">
 					<div
-						class="collapse-arrow collapse border-b border-base-300"
+						class="collapse-arrow border-base-300 collapse border-b"
 						class:collapse-open={isTechnicalDetailsOpen}
 					>
 						<button
 							type="button"
-							class="collapse-title text-left px-4 py-3 text-sm font-medium"
+							class="collapse-title px-4 py-3 text-left text-sm font-medium"
 							onclick={() => (isTechnicalDetailsOpen = !isTechnicalDetailsOpen)}
 							aria-expanded={isTechnicalDetailsOpen}
 							aria-controls="technical-details-content"

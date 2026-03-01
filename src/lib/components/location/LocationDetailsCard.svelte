@@ -24,25 +24,25 @@
 	);
 </script>
 
-<div class="card shadow-lg bg-base-100 border border-base-300">
+<div class="card bg-base-100 border-base-300 border shadow-lg">
 	<div class="p-4">
 		{#if label}
-			<h4 class="card-title text-base font-semibold text-base-content mb-3">{label}</h4>
+			<h4 class="card-title text-base-content mb-3 text-base font-semibold">{label}</h4>
 		{/if}
 
 		{#if showAddress && formattedAddress}
 			<div class="mb-4">
-				<p class="text-sm mb-1 text-base-content/70">{$t('common.location.address')}</p>
+				<p class="text-base-content/70 mb-1 text-sm">{$t('common.location.address')}</p>
 				{#if showDirections}
 					<a
 						href={directionsLink}
 						target="_blank"
 						rel="external noopener noreferrer"
-						class="flex items-center gap-2 font-medium text-base-content hover:opacity-80 transition-opacity"
+						class="text-base-content flex items-center gap-2 font-medium transition-opacity hover:opacity-80"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4 shrink-0 text-primary"
+							class="text-primary h-4 w-4 shrink-0"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -57,7 +57,7 @@
 						<span class="line-clamp-2">{formattedAddress}</span>
 					</a>
 				{:else}
-					<p class="font-medium text-base-content">{formattedAddress}</p>
+					<p class="text-base-content font-medium">{formattedAddress}</p>
 				{/if}
 			</div>
 		{/if}
