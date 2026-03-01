@@ -8,6 +8,7 @@
 				"filters_button": "Filters",
 				"clear_filters": "Clear Filters",
 				"showing_services": "Showing {count} service{count, plural, =1 {} other {s}}",
+				"view_service": "View Service",
 				"no_services_found": "No services found",
 				"no_services_message": "Try adjusting your search or filters to find more services.",
 				"no_more_services": "No more services to load",

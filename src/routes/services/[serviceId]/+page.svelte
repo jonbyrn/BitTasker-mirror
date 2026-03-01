@@ -6,6 +6,7 @@
 	import { devicePlatform } from '$lib/stores/device.store';
 	import { sections } from '$lib/utils/consts';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
+	// Icon imports for unplugin-icons
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
@@ -18,47 +19,74 @@
 	import IconCog from '~icons/mdi/cog';
 	import type { PageData } from './$types';
 
+	// Get serviceId from route params
+	const serviceId = page.params.serviceId;
+
+	// Get SEO data from page data
 	let { data }: { data: PageData } = $props();
+
+	// Layout state
 	let width = $state(375);
+
+	const seo = $derived(
+		data.seo ?? {
+			title: 'Service Details - BitTasker',
+			description: '',
+			keywords: '',
+			canonical: '',
+			ogTitle: '',
+			ogDescription: '',
+			ogImage: '',
+			twitterTitle: '',
+			twitterDescription: '',
+			twitterImage: '',
+			jsonLd: null
+		}
+	);
 </script>
 
 <svelte:head>
-	<title>{data.seo.title}</title>
-	<meta name="description" content={data.seo.description} />
-	<meta name="keywords" content={data.seo.keywords} />
-	<link rel="canonical" href={data.seo.canonical} />
+	<title>{seo.title}</title>
+	<meta name="description" content={seo.description} />
+	<meta name="keywords" content={seo.keywords} />
+	<link rel="canonical" href={seo.canonical} />
 
+	<!-- Open Graph / Facebook -->
 	<meta property="og:type" content="website" />
-	<meta property="og:url" content={data.seo.canonical} />
-	<meta property="og:title" content={data.seo.ogTitle} />
-	<meta property="og:description" content={data.seo.ogDescription} />
-	<meta property="og:image" content={data.seo.ogImage} />
+	<meta property="og:url" content={seo.canonical} />
+	<meta property="og:title" content={seo.ogTitle} />
+	<meta property="og:description" content={seo.ogDescription} />
+	<meta property="og:image" content={seo.ogImage} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content={data.seo.ogTitle} />
+	<meta property="og:image:alt" content={seo.ogTitle} />
 	<meta property="og:site_name" content="BitTasker" />
 
+	<!-- Twitter -->
 	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:url" content={data.seo.canonical} />
-	<meta property="twitter:title" content={data.seo.twitterTitle} />
-	<meta property="twitter:description" content={data.seo.twitterDescription} />
-	<meta property="twitter:image" content={data.seo.twitterImage} />
-	<meta property="twitter:image:alt" content={data.seo.twitterTitle} />
+	<meta property="twitter:url" content={seo.canonical} />
+	<meta property="twitter:title" content={seo.twitterTitle} />
+	<meta property="twitter:description" content={seo.twitterDescription} />
+	<meta property="twitter:image" content={seo.twitterImage} />
+	<meta property="twitter:image:alt" content={seo.twitterTitle} />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
-	{#if data.seo.jsonLd}
-		{@html `<script type="application/ld+json">${JSON.stringify(data.seo.jsonLd)}</script>`}
+	<!-- Structured Data -->
+	{#if seo.jsonLd}
+		{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 	{/if}
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
 
 {#if $authState.isAuthenticated}
+	<!-- Mismas dimensiones que Mi Panel -->
 	<div class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4">
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
+			<!-- Fixed Sidebar - Only on desktop; max-h + overflow para que no se desborde -->
 			<div class="w-full shrink-0 md:w-64">
-				<div class="fixed top-24 left-8 z-10 w-56">
+				<div class="fixed top-24 left-8 z-10 w-56 max-h-[calc(100dvh-6rem)] overflow-y-auto">
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
@@ -106,13 +134,15 @@
 			</div>
 		{/if}
 
+		<!-- Main Content - mismas dimensiones que Mi Panel -->
 		<div class="min-h-0 w-full flex-1 overflow-hidden">
 			<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-				<ServiceDetailsView service={data.service} serviceId={data.serviceId} />
+				<ServiceDetailsView service={data.service ?? null} serviceId={data.serviceId ?? serviceId} />
 			</div>
 		</div>
 	</div>
 	<WarningPopup />
 {:else}
-	<ServiceDetailsView service={data.service} serviceId={data.serviceId} />
+	<!-- Simple layout for non-logged-in users -->
+	<ServiceDetailsView service={data.service ?? null} serviceId={data.serviceId ?? serviceId} />
 {/if}
