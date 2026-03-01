@@ -2,6 +2,7 @@
 	import type { Task } from '$lib/types/task';
 	import type { NostrEvent } from 'nostr-tools';
 	import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
+	import type { BidEscrowDetails } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
 	import { escrow, type ValidationWarning } from '$lib/utils/escrow';
 	import { formatStandardDateTime, formatDate } from '$lib/utils/helpers/dateFormatter';
@@ -16,9 +17,8 @@
 	import { linear } from 'svelte/easing';
 	import { onMount, onDestroy } from 'svelte';
 	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
-import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { bidStore } from '$lib/stores/bid.store';
-import { updateTask } from '$lib/nostr/task';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconMessage from '~icons/mdi/message';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
@@ -48,7 +48,7 @@ import { updateTask } from '$lib/nostr/task';
 	let validationWarnings = $state<(string | ValidationWarning)[]>([]);
 	let balanceErrors = $state<string[]>([]);
 	let currentScreen = $state<'form' | 'success'>('form');
-	let escrowDetails = $state<any>(null);
+	let escrowDetails = $state<BidEscrowDetails | null>(null);
 	let additionalNotes = $state<string>('');
 	let additionalNotesExpanded = $state(false);
 	let isLoading = $state(false);
@@ -122,12 +122,16 @@ import { updateTask } from '$lib/nostr/task';
 		try {
 			const translated = $t(warning.key, { values: warning.params || {} });
 			// If translation returns the key itself (not found), or is undefined, use fallback
-			if (translated == null || translated === warning.key || String(translated).startsWith('dashboard.bids')) {
+			if (
+				translated == null ||
+				translated === warning.key ||
+				String(translated).startsWith('dashboard.bids')
+			) {
 				// Fallback to English text with parameters
 				return `The estimated start time was ${warning.params?.timeText || 'in the past'}. You may need to contact the Taskee to arrange a new start time.`;
 			}
 			return String(translated);
-		} catch (e) {
+		} catch {
 			// Fallback on error
 			return `The estimated start time was ${warning.params?.timeText || 'in the past'}. You may need to contact the Taskee to arrange a new start time.`;
 		}
@@ -220,12 +224,9 @@ import { updateTask } from '$lib/nostr/task';
 
 	// Track any async operations that need cleanup
 	let monitoringInterval: ReturnType<typeof setInterval> | null = null;
-	let isComponentMounted = $state(true);
 
 	// Cleanup on component unmount to prevent memory leaks
 	onDestroy(() => {
-		isComponentMounted = false;
-
 		// Clean up processing bid if component is destroyed during submission
 		if (props.bid?.id && $bidStore.processingBidIds.has(props.bid.id)) {
 			bidStore.removeProcessingBid(props.bid.id);
@@ -280,14 +281,7 @@ import { updateTask } from '$lib/nostr/task';
 				};
 
 				currentScreen = 'success';
-
-				// Update task status to BID_ACCEPTED so bidding is closed (Addressable Event: same kind/pubkey/d-tag, latest content)
-				try {
-					await updateTask(props.task.id, { status: TaskStatusEnum.BID_ACCEPTED });
-				} catch (taskUpdateError) {
-					console.error('Failed to update task status to BID_ACCEPTED:', taskUpdateError);
-					appStore.showErrorToast($t('dashboard.bids.bid_acceptance.task_status_update_error'));
-				}
+				// Task status IN_PROGRESS is updated in handleEscrowCreated (after escrow tx confirms).
 
 				// Note: Bid status update is automatically sent via escrowEvents.ts after contract creation
 
@@ -431,9 +425,9 @@ import { updateTask } from '$lib/nostr/task';
 		</div>
 	</div>
 {:else if currentScreen === 'form'}
-	<!-- Content with padding -->
+	<!-- Layout like dashboard modals: scrollable content + fixed action buttons at bottom -->
 	<div
-		class="overflow-x-hidden"
+		class="flex max-h-[calc(100vh-8rem)] min-h-0 flex-col overflow-x-hidden"
 		in:fly={{
 			duration: 200,
 			easing: linear,
@@ -441,502 +435,217 @@ import { updateTask } from '$lib/nostr/task';
 			x: -20
 		}}
 	>
-		<!-- Container with gap for even spacing -->
-		<div class="flex flex-col gap-4">
-			<!-- Unified Responsive Layout -->
-			<div class="bg-base-300 lg:bg-base-200 rounded-2xl">
-				<!-- Task Title Row -->
-				<div class="w-full min-w-0 px-6 pt-3">
-					<h5 class="wrap-break-words line-clamp-2 text-lg font-semibold">{taskContent.title}</h5>
-				</div>
+		<!-- Scrollable content -->
+		<div class="min-h-0 flex-1 overflow-y-auto">
+			<!-- Container with gap for even spacing -->
+			<div class="flex flex-col gap-4">
+				<!-- Unified Responsive Layout -->
+				<div class="bg-base-300 lg:bg-base-200 rounded-2xl">
+					<!-- Task Title Row -->
+					<div class="w-full min-w-0 px-6 pt-3">
+						<h5 class="wrap-break-words line-clamp-2 text-lg font-semibold">{taskContent.title}</h5>
+					</div>
 
-				<!-- Divider (Desktop only) -->
-				<div class="divider text-base-content/60 mx-6 my-2 text-sm">
-					{$t('dashboard.bids.bid_acceptance.contract_information')}
-				</div>
+					<!-- Divider (Desktop only) -->
+					<div class="divider text-base-content/60 mx-6 my-2 text-sm">
+						{$t('dashboard.bids.bid_acceptance.contract_information')}
+					</div>
 
-				<!-- User Info and Pricing Layout -->
-				<div class="flex flex-col gap-4 px-3 pb-4 lg:flex-row">
-					<!-- Left Column: Bidder Information -->
-					<div class="min-w-0 flex-1">
-						<div class="rounded-lg px-3 pt-3">
-							<!-- Bidder Profile -->
-							<div class="flex min-w-0 items-center gap-3">
-								<div class="avatar shrink-0">
-									<div
-										class="bg-base-100 flex h-8 w-8 items-center justify-center rounded-full lg:h-10 lg:w-10"
-									>
-										{#if bidContent?.bidderAvatar}
-											<img
-												src={bidContent.bidderAvatar}
-												alt={$t('dashboard.bids.bid_acceptance.bidder_avatar')}
-												class="h-8 w-8 rounded-full object-cover lg:h-10 lg:w-10"
-											/>
-										{:else}
-											<div
-												class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center lg:h-10 lg:w-10"
-											>
-												<span class="text-sm font-semibold lg:text-lg">
-													{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
-												</span>
-											</div>
-										{/if}
+					<!-- User Info and Pricing Layout -->
+					<div class="flex flex-col gap-4 px-3 pb-4 lg:flex-row">
+						<!-- Left Column: Bidder Information -->
+						<div class="min-w-0 flex-1">
+							<div class="rounded-lg px-3 pt-3">
+								<UserInfoDisplay
+									avatar={bidContent.bidderAvatar}
+									username={bidContent.bidderName ?? ''}
+									rating={bidContent.bidderRating ?? 0}
+									size="sm"
+									pubkey={bidContent.bidderId ?? null}
+									profileLink={bidContent.bidderId ?? null}
+									memberSince={props.bid?.created_at ?? null}
+								/>
+
+								<!-- Start and end times -->
+								<div class="mt-4 block space-y-2">
+									<div class="flex min-w-0 items-center justify-between gap-2 text-xs">
+										<span class="text-base-content/60 shrink-0"
+											>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
+										>
+										<span class="text-base-content/80 truncate text-right">
+											{adjustedTimes
+												? formatStandardDateTime(new Date(adjustedTimes.startTime * 1000))
+												: 'N/A'}
+										</span>
+									</div>
+									<div class="flex min-w-0 items-center justify-between gap-2 text-xs">
+										<span class="text-base-content/60 shrink-0"
+											>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
+										>
+										<span class="text-base-content/80 truncate text-right">
+											{adjustedTimes
+												? formatStandardDateTime(new Date(adjustedTimes.completionTime * 1000))
+												: 'N/A'}
+										</span>
+									</div>
+									<div class="flex min-w-0 items-center justify-between gap-2 text-xs">
+										<span class="text-base-content/60 shrink-0"
+											>{$t('dashboard.bids.bid_acceptance.estimated_duration')}</span
+										>
+										<span class="text-base-content/80 truncate text-right"
+											>{adjustedTimes
+												? formatDuration(
+														adjustedTimes.startTime * 1000,
+														adjustedTimes.completionTime * 1000
+													)
+												: 'N/A'}</span
+										>
 									</div>
 								</div>
+							</div>
+						</div>
 
-								<div class="flex min-w-0 flex-1 flex-col">
-									<span class="truncate text-sm font-medium">
-										{bidContent.bidderName || $t('dashboard.bids.bid_acceptance.anonymous')}
-									</span>
-
-									<div class="mt-1 flex min-w-0 items-center">
-										<div class="flex shrink-0">
-											{#each Array(5) as _, i}
+						<!-- Pricing Section -->
+						<div class="min-w-0 flex-1">
+							<div class="bg-base-100 mt-3 rounded-lg p-3 lg:mt-0 lg:bg-transparent">
+								<div class="space-y-2">
+									<div class="flex min-w-0 items-center justify-between gap-2">
+										<div class="flex min-w-0 items-center gap-1">
+											<span class="truncate text-xs font-medium"
+												>{$t('dashboard.bids.bid_acceptance.base_amount')}</span
+											>
+											<div
+												class="tooltip tooltip-top shrink-0"
+												data-tip={$t('dashboard.bids.bid_acceptance.base_amount_tooltip')}
+											>
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
-													class="h-3 w-3 {i < (bidContent.bidderRating || 0)
-														? 'text-yellow-400'
-														: 'text-base-content/30'}"
-													fill="currentColor"
+													class="text-base-content/60 h-3 w-3"
+													fill="none"
 													viewBox="0 0 24 24"
+													stroke="currentColor"
 												>
 													<path
-														d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 													/>
 												</svg>
-											{/each}
+											</div>
 										</div>
-										<span class="text-base-content/60 ml-1 truncate text-xs">
-											{(bidContent.bidderRating || 0).toFixed(1)}
-											<!-- TODO: Add proper completed tasks display -->
-											<!-- {bidContent?. || 0} -->
-											<!-- {$t('dashboard.bids.bid_acceptance.tasks')} -->
+										<span class="shrink-0 text-xs font-bold">
+											{bidEscrowDetails
+												? formatUSDAmount(parseFloat(bidEscrowDetails.baseAmount))
+												: '$0.00'}
 										</span>
 									</div>
 
-									<p class="text-base-content/60 mt-1 truncate text-sm">
-										{$t('dashboard.bids.bid_acceptance.member_since')}
-										{#if props.bid?.created_at}
-											{(() => {
-												try {
-													// NostrEvent.created_at is Unix timestamp in seconds
-													const date = new Date(props.bid.created_at * 1000);
-													// Check if date is valid
-													if (isNaN(date.getTime())) {
-														return 'Recently';
+									<div class="flex min-w-0 items-center justify-between gap-2">
+										<div class="flex min-w-0 items-center gap-1">
+											<span class="truncate text-xs font-medium"
+												>{$t('dashboard.bids.bid_acceptance.client_fee', {
+													values: {
+														fee: bidEscrowDetails
+															? escrow.bidOps.getFeePercentageDisplay(
+																	bidEscrowDetails.clientFeeTier
+																)
+															: '0%'
 													}
-													return date.toLocaleDateString('en-US', {
-														month: 'short',
-														year: 'numeric'
-													});
-												} catch (e) {
-													return 'Recently';
-												}
-											})()}
-										{:else}
-											Recently
-										{/if}
-									</p>
-								</div>
-							</div>
-
-							<!-- Start and end times -->
-							<div class="mt-4 block space-y-2">
-								<div class="flex min-w-0 items-center justify-between gap-2 text-xs">
-									<span class="text-base-content/60 shrink-0"
-										>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
-									>
-									<span class="text-base-content/80 truncate text-right">
-										{adjustedTimes
-											? formatStandardDateTime(new Date(adjustedTimes.startTime * 1000))
-											: 'N/A'}
-									</span>
-								</div>
-								<div class="flex min-w-0 items-center justify-between gap-2 text-xs">
-									<span class="text-base-content/60 shrink-0"
-										>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
-									>
-									<span class="text-base-content/80 truncate text-right">
-										{adjustedTimes
-											? formatStandardDateTime(new Date(adjustedTimes.completionTime * 1000))
-											: 'N/A'}
-									</span>
-								</div>
-								<div class="flex min-w-0 items-center justify-between gap-2 text-xs">
-									<span class="text-base-content/60 shrink-0"
-										>{$t('dashboard.bids.bid_acceptance.estimated_duration')}</span
-									>
-									<span class="text-base-content/80 truncate text-right"
-										>{adjustedTimes
-											? formatDuration(
-													adjustedTimes.startTime * 1000,
-													adjustedTimes.completionTime * 1000
-												)
-											: 'N/A'}</span
-									>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Pricing Section -->
-					<div class="min-w-0 flex-1">
-						<div class="bg-base-100 mt-3 rounded-lg p-3 lg:mt-0 lg:bg-transparent">
-							<div class="space-y-2">
-								<div class="flex min-w-0 items-center justify-between gap-2">
-									<div class="flex min-w-0 items-center gap-1">
-										<span class="truncate text-xs font-medium"
-											>{$t('dashboard.bids.bid_acceptance.base_amount')}</span
-										>
-										<div
-											class="tooltip tooltip-top shrink-0"
-											data-tip={$t('dashboard.bids.bid_acceptance.base_amount_tooltip')}
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="text-base-content/60 h-3 w-3"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
+												})}</span
 											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-												/>
-											</svg>
-										</div>
-									</div>
-									<span class="shrink-0 text-xs font-bold">
-										{bidEscrowDetails
-											? formatUSDAmount(parseFloat(bidEscrowDetails.baseAmount))
-											: '$0.00'}
-									</span>
-								</div>
-
-								<div class="flex min-w-0 items-center justify-between gap-2">
-									<div class="flex min-w-0 items-center gap-1">
-										<span class="truncate text-xs font-medium"
-											>{$t('dashboard.bids.bid_acceptance.client_fee', {
-												values: {
-													fee: bidEscrowDetails
-														? escrow.bidOps.getFeePercentageDisplay(bidEscrowDetails.clientFeeTier)
-														: '0%'
-												}
-											})}</span
-										>
-										<div
-											class="tooltip tooltip-top shrink-0"
-											data-tip={$t('dashboard.bids.bid_acceptance.fee_tooltip')}
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="text-base-content/60 h-3 w-3"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
+											<div
+												class="tooltip tooltip-top shrink-0"
+												data-tip={$t('dashboard.bids.bid_acceptance.fee_tooltip')}
 											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-												/>
-											</svg>
-										</div>
-									</div>
-									<span class="shrink-0 text-xs font-bold"
-										>{bidEscrowDetails
-											? formatUSDAmount(parseFloat(bidEscrowDetails.clientFee))
-											: '$0.00'}</span
-									>
-								</div>
-
-								<div class="flex min-w-0 items-center justify-between gap-2">
-									<div class="flex min-w-0 items-center gap-1">
-										<span class="truncate text-xs font-medium italic"
-											>{$t('dashboard.bids.bid_acceptance.estimated_gas_fee')}</span
-										>
-										<div
-											class="tooltip tooltip-top shrink-0"
-											data-tip={$t('dashboard.bids.bid_acceptance.gas_fee_tooltip')}
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="text-base-content/60 h-3 w-3"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-												/>
-											</svg>
-										</div>
-									</div>
-									<span class="shrink-0 text-xs font-bold italic"
-										>${getEstimatedGasFee().toFixed(2)}</span
-									>
-								</div>
-
-								<div class="border-base-200 border-t pt-2">
-									<div class="flex min-w-0 items-center justify-between gap-2">
-										<span class="truncate text-base font-bold"
-											>{$t('dashboard.bids.bid_acceptance.total_payment')}</span
-										>
-										<span class="text-primary shrink-0 text-base font-bold"
-											>${getTotalWithGasFee().toFixed(2)}</span
-										>
-									</div>
-								</div>
-
-								<!-- BTC Price and Sats on same row -->
-								<div class="">
-									<div class="flex min-w-0 items-center justify-between gap-2">
-										<span class="text-base-content/60 truncate text-xs font-medium italic"
-											>{$t('dashboard.bids.bid_acceptance.btc_price')} {formatBTCPrice()}</span
-										>
-										<span class="text-base-content/60 shrink-0 text-xs font-medium italic"
-											>{formatTotalSatsAmount()} {$t('dashboard.bids.bid_acceptance.sats')}</span
-										>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Validation Warnings (above Bitcoin Balance Accordion) -->
-			{#if validationWarnings.length > 0}
-				<div class="alert alert-outline alert-warning">
-					<div class="flex items-center gap-3 w-full">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-							/>
-						</svg>
-						<div class="min-w-0 flex-1 flex items-center gap-2">
-							<div class="min-w-0 flex-1">
-								{#if validationWarnings.length === 1}
-									<p class="word-break-words">
-										{getTranslatedWarning(validationWarnings[0])}
-									</p>
-								{:else}
-									<ul class="list-inside list-disc space-y-1">
-										{#each validationWarnings as warning}
-											<li class="word-break-words">
-												{getTranslatedWarning(warning)}
-											</li>
-										{/each}
-									</ul>
-								{/if}
-							</div>
-							{#if bidContent.bidderId}
-								<button
-									type="button"
-									class="btn btn-primary btn-sm shrink-0"
-									onclick={openMessageModal}
-									title={$t('dashboard.bids.bid_acceptance.message_taskee')}
-									aria-label={$t('dashboard.bids.bid_acceptance.message_taskee')}
-								>
-									<IconMessage class="h-5 w-5" />
-								</button>
-							{/if}
-						</div>
-					</div>
-				</div>
-			{/if}
-
-			<!-- Bitcoin Balance Accordion -->
-			<div>
-				<div
-					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-					class:collapse-open={bitcoinExpanded}
-				>
-					<button
-						type="button"
-						class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-						onclick={() => (bitcoinExpanded = !bitcoinExpanded)}
-					>
-						<div class="flex min-w-0 flex-1 items-center gap-2">
-							<img
-								src="/images/chains/Bitcoin.svg"
-								alt="Bitcoin"
-								class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-							/>
-							<span>{$t('wallet.bitcoin')}</span>
-						</div>
-						<div class="ml-2 shrink-0 text-right">
-							{#if isLoading || $walletStore.rsk.connecting}
-								<div class="flex flex-col items-end gap-0.5 h-9 w-9 justify-center">
-									<span class="loading loading-spinner loading-md"></span>
-								</div>
-							{:else if !$walletStore.rsk.connected || $walletStore.rsk.error}
-								<div class="text-sm font-semibold sm:text-base text-error">
-									{$walletStore.rsk.error
-										? $t('dashboard.bids.bid_acceptance.wallet_error_prefix')
-										: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
-								</div>
-							{:else if balancesHidden}
-								<div class="text-sm font-semibold sm:text-base">
-									•••• {$t('wallet.sats')}
-								</div>
-								<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
-							{:else}
-								<div class="text-sm font-semibold sm:text-base">
-									{formatSats($totalBalances.sats)}
-									{$t('wallet.sats')}
-								</div>
-								{#if bitcoinAsset?.usdValue}
-									<div class="text-xs opacity-70 sm:text-sm">
-										≈ ${bitcoinAsset.usdValue.toFixed(2)}
-									</div>
-								{/if}
-							{/if}
-						</div>
-					</button>
-					<div class="collapse-content">
-						<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
-							<!-- L2 BTC Entry with Lightning Bolt Icon -->
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-1.5 sm:gap-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M13 10V3L4 14h7v7l9-11h-7z"
-										/>
-									</svg>
-									<span class="text-sm font-medium sm:text-base">{$t('wallet.l2_btc')}</span>
-								</div>
-								<div class="text-right">
-									{#if balancesHidden}
-										<div class="text-sm font-semibold sm:text-base">
-											•••• {$t('wallet.sats')}
-										</div>
-										<div class="text-xs opacity-70">$••••</div>
-									{:else if bitcoinAsset}
-										{@const balanceInSats = Math.floor(bitcoinAsset.balance * 100_000_000)}
-										<div class="text-sm font-semibold sm:text-base">
-											{formatSats(balanceInSats)}
-											{$t('wallet.sats')}
-										</div>
-										{#if bitcoinAsset.usdValue > 0}
-											<div class="text-xs opacity-70">
-												${bitcoinAsset.usdValue.toFixed(2)}
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="text-base-content/60 h-3 w-3"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+													/>
+												</svg>
 											</div>
-										{/if}
-									{:else}
-										<div class="text-sm font-semibold sm:text-base">0 {$t('wallet.sats')}</div>
-									{/if}
-								</div>
-							</div>
+										</div>
+										<span class="shrink-0 text-xs font-bold"
+											>{bidEscrowDetails
+												? formatUSDAmount(parseFloat(bidEscrowDetails.clientFee))
+												: '$0.00'}</span
+										>
+									</div>
 
-							<!-- BTC Entry (Coming Soon) -->
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-1.5 sm:gap-2">
-									<img
-										src="/images/chains/Bitcoin.svg"
-										alt="BTC"
-										class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
-									/>
-									<span class="text-base-content/50 text-sm font-medium sm:text-base"
-										>{$t('wallet.btc')}</span
-									>
-								</div>
-								<div class="text-right">
-									<span class="text-base-content/50 text-sm font-semibold sm:text-base"
-										>{$t('wallet.coming_soon')}</span
-									>
+									<div class="flex min-w-0 items-center justify-between gap-2">
+										<div class="flex min-w-0 items-center gap-1">
+											<span class="truncate text-xs font-medium italic"
+												>{$t('dashboard.bids.bid_acceptance.estimated_gas_fee')}</span
+											>
+											<div
+												class="tooltip tooltip-top shrink-0"
+												data-tip={$t('dashboard.bids.bid_acceptance.gas_fee_tooltip')}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="text-base-content/60 h-3 w-3"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+													/>
+												</svg>
+											</div>
+										</div>
+										<span class="shrink-0 text-xs font-bold italic"
+											>${getEstimatedGasFee().toFixed(2)}</span
+										>
+									</div>
+
+									<div class="border-base-200 border-t pt-2">
+										<div class="flex min-w-0 items-center justify-between gap-2">
+											<span class="truncate text-base font-bold"
+												>{$t('dashboard.bids.bid_acceptance.total_payment')}</span
+											>
+											<span class="text-primary shrink-0 text-base font-bold"
+												>${getTotalWithGasFee().toFixed(2)}</span
+											>
+										</div>
+									</div>
+
+									<!-- BTC Price and Sats on same row -->
+									<div class="">
+										<div class="flex min-w-0 items-center justify-between gap-2">
+											<span class="text-base-content/60 truncate text-xs font-medium italic"
+												>{$t('dashboard.bids.bid_acceptance.btc_price')} {formatBTCPrice()}</span
+											>
+											<span class="text-base-content/60 shrink-0 text-xs font-medium italic"
+												>{formatTotalSatsAmount()} {$t('dashboard.bids.bid_acceptance.sats')}</span
+											>
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
 				</div>
-			</div>
 
-			<!-- Additional Notes Section -->
-			<div
-				class="collapse-arrow border-primary py-2 bg-base-100 collapse rounded-lg border-2"
-				class:collapse-open={additionalNotesExpanded}
-			>
-				<button
-					type="button"
-					class="collapse-title min-h-0 px-3 py-1 text-left text-sm font-medium text-base-content/80"
-					onclick={() => {
-						additionalNotesExpanded = !additionalNotesExpanded;
-					}}
-				>
-					{$t('dashboard.bids.bid_acceptance.additional_notes_label')} ({$t('common.optional')})
-				</button>
-				<div class="collapse-content">
-					<div class="form-control">
-						<textarea
-							class="textarea textarea-bordered w-full text-sm sm:text-base"
-							placeholder={$t('dashboard.bids.bid_acceptance.additional_notes_placeholder')}
-							bind:value={additionalNotes}
-							rows="4"
-						></textarea>
-					</div>
-				</div>
-			</div>
-
-			<!-- Escrow Information -->
-			<button
-				type="button"
-				class="alert alert-info alert-outline w-full text-left cursor-pointer hover:bg-base-200 transition-colors"
-				onclick={() => (showContractModal = true)}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					class="h-5 w-5 shrink-0 stroke-current"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<small class="text-xs md:text-sm">
-					<strong>{$t('dashboard.bids.bid_acceptance.note')}</strong>
-					{$t('dashboard.bids.bid_acceptance.contract_note')}
-				</small>
-			</button>
-
-			<!-- Rootstock Escrow Contract Details -->
-			<div>
-				<!-- Wallet Connection Error (only show if connection failed after attempting) -->
-				{#if $walletStore.rsk.error}
-					<div
-						class="alert alert-outline alert-warning mt-4 flex! flex-row! items-center! justify-between! text-black"
-					>
-						<div class="flex items-center">
+				<!-- Validation Warnings (above Bitcoin Balance Accordion) -->
+				{#if validationWarnings.length > 0}
+					<div class="alert alert-outline alert-warning">
+						<div class="flex w-full items-center gap-3">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="mr-2 h-6 w-6 shrink-0 stroke-current"
+								class="h-6 w-6 shrink-0 stroke-current"
 								fill="none"
 								viewBox="0 0 24 24"
 							>
@@ -944,54 +653,252 @@ import { updateTask } from '$lib/nostr/task';
 									stroke-linecap="round"
 									stroke-linejoin="round"
 									stroke-width="2"
-									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
 								/>
 							</svg>
-							<span>
-								{$walletStore.rsk.error
-									? `${$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} ${$walletStore.rsk.error}`
-									: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
-							</span>
+							<div class="flex min-w-0 flex-1 items-center gap-2">
+								<div class="min-w-0 flex-1">
+									{#if validationWarnings.length === 1}
+										<p class="word-break-words">
+											{getTranslatedWarning(validationWarnings[0])}
+										</p>
+									{:else}
+										<ul class="list-inside list-disc space-y-1">
+											{#each validationWarnings as warning, i (i)}
+												<li class="word-break-words">
+													{getTranslatedWarning(warning)}
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								</div>
+								{#if bidContent.bidderId}
+									<button
+										type="button"
+										class="btn btn-primary btn-sm shrink-0"
+										onclick={openMessageModal}
+										title={$t('dashboard.bids.bid_acceptance.message_taskee')}
+										aria-label={$t('dashboard.bids.bid_acceptance.message_taskee')}
+									>
+										<IconMessage class="h-5 w-5" />
+									</button>
+								{/if}
+							</div>
 						</div>
-						<button
-							class="btn btn-sm btn-primary ml-auto"
-							onclick={async () => await initializeWallet()}
-							disabled={$walletStore.rsk.connecting}
-						>
-							{$t('dashboard.bids.bid_acceptance.connect_wallet')}
-						</button>
 					</div>
 				{/if}
-			</div>
 
-			<!-- Insufficient Balance Error -->
-			{#if balanceErrors.length > 0}
+				<!-- Bitcoin Balance Accordion -->
+				<div>
+					<div
+						class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+						class:collapse-open={bitcoinExpanded}
+					>
+						<button
+							type="button"
+							class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
+							onclick={() => (bitcoinExpanded = !bitcoinExpanded)}
+						>
+							<div class="flex min-w-0 flex-1 items-center gap-2">
+								<img
+									src="/images/chains/Bitcoin.svg"
+									alt="Bitcoin"
+									class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
+								/>
+								<span>{$t('wallet.bitcoin')}</span>
+							</div>
+							<div class="ml-2 shrink-0 text-right">
+								{#if isLoading || $walletStore.rsk.connecting}
+									<div class="flex h-9 w-9 flex-col items-end justify-center gap-0.5">
+										<span class="loading loading-spinner loading-md"></span>
+									</div>
+								{:else if !$walletStore.rsk.connected || $walletStore.rsk.error}
+									<div class="text-error text-sm font-semibold sm:text-base">
+										{$walletStore.rsk.error
+											? $t('dashboard.bids.bid_acceptance.wallet_error_prefix')
+											: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
+									</div>
+								{:else if balancesHidden}
+									<div class="text-sm font-semibold sm:text-base">
+										•••• {$t('wallet.sats')}
+									</div>
+									<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
+								{:else}
+									<div class="text-sm font-semibold sm:text-base">
+										{formatSats($totalBalances.sats)}
+										{$t('wallet.sats')}
+									</div>
+									{#if bitcoinAsset?.usdValue}
+										<div class="text-xs opacity-70 sm:text-sm">
+											≈ ${bitcoinAsset.usdValue.toFixed(2)}
+										</div>
+									{/if}
+								{/if}
+							</div>
+						</button>
+						<div class="collapse-content">
+							<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
+								<!-- L2 BTC Entry with Lightning Bolt Icon -->
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-1.5 sm:gap-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M13 10V3L4 14h7v7l9-11h-7z"
+											/>
+										</svg>
+										<span class="text-sm font-medium sm:text-base">{$t('wallet.l2_btc')}</span>
+									</div>
+									<div class="text-right">
+										{#if balancesHidden}
+											<div class="text-sm font-semibold sm:text-base">
+												•••• {$t('wallet.sats')}
+											</div>
+											<div class="text-xs opacity-70">$••••</div>
+										{:else if bitcoinAsset}
+											{@const balanceInSats = Math.floor(bitcoinAsset.balance * 100_000_000)}
+											<div class="text-sm font-semibold sm:text-base">
+												{formatSats(balanceInSats)}
+												{$t('wallet.sats')}
+											</div>
+											{#if bitcoinAsset.usdValue > 0}
+												<div class="text-xs opacity-70">
+													${bitcoinAsset.usdValue.toFixed(2)}
+												</div>
+											{/if}
+										{:else}
+											<div class="text-sm font-semibold sm:text-base">0 {$t('wallet.sats')}</div>
+										{/if}
+									</div>
+								</div>
+
+								<!-- BTC Entry (Coming Soon) -->
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-1.5 sm:gap-2">
+										<img
+											src="/images/chains/Bitcoin.svg"
+											alt="BTC"
+											class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
+										/>
+										<span class="text-base-content/50 text-sm font-medium sm:text-base"
+											>{$t('wallet.btc')}</span
+										>
+									</div>
+									<div class="text-right">
+										<span class="text-base-content/50 text-sm font-semibold sm:text-base"
+											>{$t('wallet.coming_soon')}</span
+										>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Additional Notes Section -->
+				<div
+					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2 py-2"
+					class:collapse-open={additionalNotesExpanded}
+				>
+					<button
+						type="button"
+						class="collapse-title text-base-content/80 min-h-0 px-3 py-1 text-left text-sm font-medium"
+						onclick={() => {
+							additionalNotesExpanded = !additionalNotesExpanded;
+						}}
+					>
+						{$t('dashboard.bids.bid_acceptance.additional_notes_label')} ({$t('common.optional')})
+					</button>
+					<div class="collapse-content">
+						<div class="form-control">
+							<textarea
+								class="textarea textarea-bordered w-full text-sm sm:text-base"
+								placeholder={$t('dashboard.bids.bid_acceptance.additional_notes_placeholder')}
+								bind:value={additionalNotes}
+								rows="4"
+							></textarea>
+						</div>
+					</div>
+				</div>
+
+				<!-- Escrow Information -->
 				<button
 					type="button"
-					class="alert alert-outline alert-error w-full cursor-pointer transition-opacity hover:opacity-80"
-					onclick={() => goto('/dashboard/wallet')}
+					class="alert alert-info alert-outline hover:bg-base-200 w-full cursor-pointer text-left transition-colors"
+					onclick={() => (showContractModal = true)}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
 						fill="none"
 						viewBox="0 0 24 24"
+						class="h-5 w-5 shrink-0 stroke-current"
 					>
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
-					<span>{$t('dashboard.bids.bid_acceptance.insufficient_balance')}</span>
+					<small class="text-xs md:text-sm">
+						<strong>{$t('dashboard.bids.bid_acceptance.note')}</strong>
+						{$t('dashboard.bids.bid_acceptance.contract_note')}
+					</small>
 				</button>
-			{/if}
 
-			<!-- Validation Errors -->
-			{#if validationErrors.length > 0}
-				<div class="alert alert-outline alert-error">
-					<div class="flex items-center gap-3">
+				<!-- Rootstock Escrow Contract Details -->
+				<div>
+					<!-- Wallet Connection Error (only show if connection failed after attempting) -->
+					{#if $walletStore.rsk.error}
+						<div
+							class="alert alert-outline alert-warning mt-4 flex! flex-row! items-center! justify-between! text-black"
+						>
+							<div class="flex items-center">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="mr-2 h-6 w-6 shrink-0 stroke-current"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+									/>
+								</svg>
+								<span>
+									{$walletStore.rsk.error
+										? `${$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} ${$walletStore.rsk.error}`
+										: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
+								</span>
+							</div>
+							<button
+								class="btn btn-sm btn-primary ml-auto"
+								onclick={async () => await initializeWallet()}
+								disabled={$walletStore.rsk.connecting}
+							>
+								{$t('dashboard.bids.bid_acceptance.connect_wallet')}
+							</button>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Insufficient Balance Error -->
+				{#if balanceErrors.length > 0}
+					<button
+						type="button"
+						class="alert alert-outline alert-error w-full cursor-pointer transition-opacity hover:opacity-80"
+						onclick={() => goto('/dashboard/wallet')}
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
@@ -1002,105 +909,158 @@ import { updateTask } from '$lib/nostr/task';
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
 							/>
 						</svg>
-						<div class="min-w-0 flex-1">
-							{#if validationErrors.length === 1}
-								<p class="word-break-words">{validationErrors[0]}</p>
-							{:else}
-								<ul class="list-inside list-disc space-y-1">
-									{#each validationErrors as error}
-										<li class="word-break-words">{error}</li>
-									{/each}
-								</ul>
-							{/if}
+						<span>{$t('dashboard.bids.bid_acceptance.insufficient_balance')}</span>
+					</button>
+				{/if}
+
+				<!-- Validation Errors -->
+				{#if validationErrors.length > 0}
+					<div class="alert alert-outline alert-error">
+						<div class="flex items-center gap-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<div class="min-w-0 flex-1">
+								{#if validationErrors.length === 1}
+									<p class="word-break-words">{validationErrors[0]}</p>
+								{:else}
+									<ul class="list-inside list-disc space-y-1">
+										{#each validationErrors as error, i (i)}
+											<li class="word-break-words">{error}</li>
+										{/each}
+									</ul>
+								{/if}
+							</div>
 						</div>
 					</div>
-				</div>
-			{/if}
+				{/if}
 
-			<!-- Testnet Warning Alert -->
-			{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
-				<div class="alert alert-outline alert-warning">
-					<div class="flex items-center">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="mr-3 h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-							/>
-						</svg>
-						<div class="flex-1">
-							<div class="text-warning text-center font-bold">
-								{$t('wallet.testnet_warning.title')}
-							</div>
-							<div class="text-sm">
-								<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong>
-								{$t('wallet.testnet_warning.description')}
-							</div>
-
-							<!-- User's Testnet Address -->
-							{#if $walletStore.rsk.address}
-								<div class="bg-base-200 mt-3 rounded-lg p-3">
-									<div class="mb-2 text-sm font-medium">
-										{$t('wallet.testnet_warning.your_address')}
-									</div>
-									<div class="flex items-center gap-2">
-										<input
-											type="text"
-											value={$walletStore.rsk.address}
-											readonly
-											class="input input-sm flex-1 font-mono text-xs"
-										/>
-										<button
-											class="btn btn-sm btn-outline"
-											onclick={() => {
-												copyToClipboard($walletStore.rsk.address || '');
-												appStore.showSuccessToast($t('wallet.address_copied'));
-											}}
-											title={$t('wallet.testnet_warning.copy_address')}
-											aria-label={$t('wallet.testnet_warning.copy_address')}
-										>
-											<IconContentCopy class="h-4 w-4" />
-										</button>
-									</div>
+				<!-- Testnet Warning Alert -->
+				{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
+					<div class="alert alert-outline alert-warning">
+						<div class="flex items-center">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="mr-3 h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+								/>
+							</svg>
+							<div class="flex-1">
+								<div class="text-warning text-center font-bold">
+									{$t('wallet.testnet_warning.title')}
 								</div>
-							{/if}
+								<div class="text-sm">
+									<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong>
+									{$t('wallet.testnet_warning.description')}
+								</div>
 
-							<div class="mt-2 text-sm">
-								{$t('wallet.testnet_warning.faucet_instruction')}
-								<a
-									href="https://faucet.rootstock.io/"
-									target="_blank"
-									rel="noopener noreferrer"
-									class="link link-primary font-semibold"
-								>
-									{$t('wallet.testnet_warning.faucet_link_text')}
-								</a>
-								{$t('wallet.testnet_warning.faucet_instruction_end')}
+								<!-- User's Testnet Address -->
+								{#if $walletStore.rsk.address}
+									<div class="bg-base-200 mt-3 rounded-lg p-3">
+										<div class="mb-2 text-sm font-medium">
+											{$t('wallet.testnet_warning.your_address')}
+										</div>
+										<div class="flex items-center gap-2">
+											<input
+												type="text"
+												value={$walletStore.rsk.address}
+												readonly
+												class="input input-sm flex-1 font-mono text-xs"
+											/>
+											<button
+												class="btn btn-sm btn-outline"
+												onclick={() => {
+													copyToClipboard($walletStore.rsk.address || '');
+													appStore.showSuccessToast($t('wallet.address_copied'));
+												}}
+												title={$t('wallet.testnet_warning.copy_address')}
+												aria-label={$t('wallet.testnet_warning.copy_address')}
+											>
+												<IconContentCopy class="h-4 w-4" />
+											</button>
+										</div>
+									</div>
+								{/if}
+
+								<div class="mt-2 text-sm">
+									{$t('wallet.testnet_warning.faucet_instruction')}
+									<a
+										href="https://faucet.rootstock.io/"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="link link-primary font-semibold"
+									>
+										{$t('wallet.testnet_warning.faucet_link_text')}
+									</a>
+									{$t('wallet.testnet_warning.faucet_instruction_end')}
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
-			{/if}
-
-			<!-- Submit Buttons -->
-			<div
-				class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col-reverse justify-end gap-3 py-4 pb-8 sm:flex-row md:py-2"
+				{/if}
+			</div>
+		</div>
+		<!-- Action buttons (fixed at bottom, like dashboard edit/delete modals) -->
+		<div
+			class="border-base-300 bg-base-100 flex shrink-0 flex-col-reverse justify-end gap-3 border-t py-4 sm:flex-row md:py-3"
+		>
+			<button
+				type="button"
+				class="btn btn-error btn-outline"
+				onclick={props.onCancel}
+				disabled={isSubmitting}
 			>
-				<button
-					type="button"
-					class="btn btn-error btn-outline"
-					onclick={props.onCancel}
-					disabled={isSubmitting}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-5 w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
 				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M6 18L18 6M6 6l12 12"
+					/>
+				</svg>
+				{$t('dashboard.bids.bid_acceptance.cancel')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-primary"
+				disabled={isSubmitting ||
+					validationErrors.length > 0 ||
+					balanceErrors.length > 0 ||
+					!$walletStore.rsk.connected}
+				onclick={openFundConfirmationModal}
+			>
+				{#if isSubmitting}
+					<span class="loading loading-spinner loading-sm"></span>
+					<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.creating_escrow')}</span
+					>
+					<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.creating')}</span>
+				{:else}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-5 w-5"
@@ -1112,45 +1072,12 @@ import { updateTask } from '$lib/nostr/task';
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
+							d="M5 13l4 4L19 7"
 						/>
 					</svg>
-					{$t('dashboard.bids.bid_acceptance.cancel')}
-				</button>
-				<button
-					type="button"
-					class="btn btn-primary"
-					disabled={isSubmitting ||
-						validationErrors.length > 0 ||
-						balanceErrors.length > 0 ||
-						!$walletStore.rsk.connected}
-					onclick={openFundConfirmationModal}
-				>
-					{#if isSubmitting}
-						<span class="loading loading-spinner loading-sm"></span>
-						<span class="hidden sm:inline"
-							>{$t('dashboard.bids.bid_acceptance.creating_escrow')}</span
-						>
-						<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.creating')}</span>
-					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
-						{$t('dashboard.bids.bid_acceptance.accept')}
-					{/if}
-				</button>
-			</div>
+					{$t('dashboard.bids.bid_acceptance.accept')}
+				{/if}
+			</button>
 		</div>
 	</div>
 {/if}
@@ -1167,12 +1094,19 @@ import { updateTask } from '$lib/nostr/task';
 	/>
 {/if}
 
-<!-- Fund Contract confirmation modal -->
+<!-- Fund Contract confirmation modal (structure like dashboard edit/delete modals) -->
 {#if showFundConfirmationModal}
-	<div class="modal modal-open z-120">
-		<div class="modal-box max-w-md p-4">
-			<h3 class="text-lg font-bold">{$t('dashboard.bids.bid_acceptance.fund_contract_title')}</h3>
-			<div class="space-y-8 py-3">
+	<div
+		class="modal modal-open modal-middle z-120"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="fund-modal-title"
+	>
+		<div class="modal-box flex max-h-[90vh] max-w-md flex-col p-4">
+			<h3 id="fund-modal-title" class="shrink-0 text-lg font-bold">
+				{$t('dashboard.bids.bid_acceptance.fund_contract_title')}
+			</h3>
+			<div class="min-h-0 flex-1 space-y-6 overflow-y-auto py-3">
 				<!-- Taskee + Total payment in same row: UserInfoDisplay left, Total (label over price) right -->
 				<div class="flex min-w-0 items-center justify-between gap-3">
 					<div class="min-w-0 flex-1">
@@ -1183,7 +1117,6 @@ import { updateTask } from '$lib/nostr/task';
 							size="sm"
 							pubkey={bidContent.bidderId ?? null}
 							memberSince={props.bid?.created_at ?? null}
-							anonymousLabel={$t('dashboard.bids.bid_acceptance.anonymous')}
 						/>
 					</div>
 					{#if true}
@@ -1208,15 +1141,18 @@ import { updateTask } from '$lib/nostr/task';
 				{#if adjustedTimes}
 					<div class="flex min-w-0 items-center justify-between gap-3 text-sm">
 						<span class="flex min-w-0 items-center gap-1">
-							<IconCalendarClock class="h-6 w-6 shrink-0 text-primary" />
+							<IconCalendarClock class="text-primary h-6 w-6 shrink-0" />
 							<span class="truncate">
 								{formatDate(new Date(adjustedTimes.startTime * 1000))}
 							</span>
 						</span>
 						<span class="flex shrink-0 items-center gap-1">
-							<IconTimerOutline class="h-6 w-6 shrink-0 text-primary" />
+							<IconTimerOutline class="text-primary h-6 w-6 shrink-0" />
 							<span>
-								{formatDuration(adjustedTimes.startTime * 1000, adjustedTimes.completionTime * 1000)}
+								{formatDuration(
+									adjustedTimes.startTime * 1000,
+									adjustedTimes.completionTime * 1000
+								)}
 							</span>
 						</span>
 					</div>
@@ -1247,13 +1183,18 @@ import { updateTask } from '$lib/nostr/task';
 					<span class="text-xs">{$t('dashboard.bids.bid_acceptance.fund_confirm_warning')}</span>
 				</div>
 			</div>
-			<div class="modal-action">
-				<button type="button" class="btn btn-ghost" onclick={() => (showFundConfirmationModal = false)}>
+			<!-- Action buttons (like dashboard modals) -->
+			<div class="modal-action border-base-300 shrink-0 gap-3 border-t pt-4">
+				<button
+					type="button"
+					class="btn btn-ghost flex-1"
+					onclick={() => (showFundConfirmationModal = false)}
+				>
 					{$t('common.cancel')}
 				</button>
 				<button
 					type="button"
-					class="btn btn-primary"
+					class="btn btn-primary flex-1"
 					onclick={handleFundClick}
 					disabled={isSubmitting}
 				>
