@@ -1,5 +1,10 @@
 import type { HandleClientError } from '@sveltejs/kit';
 import { init, replayIntegration, handleErrorWithSentry } from '@sentry/sveltekit';
+// Eagerly pull BaseApiService into the entry bundle so it is guaranteed to be fully
+// evaluated before any route chunk that extends it. This, combined with the
+// manualChunks isolation in vite.config.ts, eliminates the circular chunk dependency
+// that causes "TypeError: Class extends value undefined" (BITTASKER-DEV-1X).
+import '$lib/api/apiService';
 
 if (process.env.NODE_ENV !== 'development') {
 	init({
