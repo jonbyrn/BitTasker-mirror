@@ -31,6 +31,9 @@
 			<p class="text-primary text-base md:text-lg">
 				{$t('onboarding_auth.form.display_name_setup.subtitle')}
 			</p>
+			<p class="text-base-content text-sm md:text-base">
+				{$t('onboarding_auth.form.display_name_setup.change_later_hint')}
+			</p>
 		</div>
 
 		<form
@@ -41,15 +44,11 @@
 			class="space-y-2"
 		>
 			<div class="form-control mx-auto max-w-lg">
-				<label class="label" for="display-name">
-					<span class="label-text text-base-content pb-1">
-						{$t('onboarding_auth.form.display_name_setup.label')}
-					</span>
-				</label>
 				<input
 					type="text"
 					id="display-name"
 					data-testid="onboarding-display-name-input"
+					aria-label={$t('onboarding_auth.form.display_name_setup.label')}
 					bind:value={displayName}
 					class="input input-bordered w-full"
 					placeholder={$t('onboarding_auth.form.display_name_setup.placeholder')}
