@@ -4,14 +4,24 @@ import {
 	getReviewsForUser,
 	hasUserReviewedEscrow
 } from '../nostr-review';
-import { escrow } from '$lib/utils/wallet/escrow';
+import { escrow } from '$lib/utils/escrow';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { publishEvent } from '../nostr';
 import { EscrowStatus } from '$lib/utils/escrow';
 
-vi.mock('$lib/utils/wallet/escrow', () => ({
+vi.mock('$lib/utils/escrow', () => ({
 	escrow: {
 		getEscrow: vi.fn()
+	},
+	EscrowStatus: {
+		Funded: 0,
+		InDispute: 1,
+		DisputeResolved: 2,
+		DisputeUnresolved: 3,
+		Completed: 4,
+		Cancelled: 5,
+		FundsReleased: 6,
+		PendingAcceptance: 7
 	}
 }));
 

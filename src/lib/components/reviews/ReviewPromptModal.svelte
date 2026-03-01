@@ -2,7 +2,7 @@
 	// @ts-nocheck - Svelte 5 component type inference issues with VerifiedReviewForm
 	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
-	import { escrow } from '$lib/utils/wallet/escrow';
+	import { escrow } from '$lib/utils/escrow';
 	import { getUserContracts } from '$lib/utils/nostr-bid';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { getRevieweeRole } from '$lib/utils/review-helpers';

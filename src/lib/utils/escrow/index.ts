@@ -587,6 +587,20 @@ class EscrowManager {
 		const handler = this.getHandler(version);
 		return handler.EscrowStatus;
 	}
+
+	/**
+	 * Fetch escrow data by ID from the blockchain.
+	 * Uses the latest version handler; pass contractAddress to target a specific deployment.
+	 * Returns null if the escrow cannot be found or the call fails.
+	 */
+	async getEscrow(escrowId: string, contractAddress?: string): Promise<EscrowData | null> {
+		try {
+			const handler = this.getHandler(LATEST_ESCROW_VERSION);
+			return await handler.escrow.loadEscrowDetails(escrowId, contractAddress);
+		} catch {
+			return null;
+		}
+	}
 }
 
 // Export singleton instance

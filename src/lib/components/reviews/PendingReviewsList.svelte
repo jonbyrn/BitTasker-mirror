@@ -4,8 +4,7 @@
 	import { findPendingReviews } from '$lib/utils/review-helpers';
 	import type { PendingReview } from '$lib/utils/review-helpers';
 	import ReviewPromptModal from './ReviewPromptModal.svelte';
-	import { EscrowStatus } from '$lib/utils/escrow';
-	import { escrow } from '$lib/utils/wallet/escrow';
+	import { escrow, EscrowStatus } from '$lib/utils/escrow';
 	import { appStore } from '$lib/stores/app.store';
 
 	let pendingReviews = $state<PendingReview[]>([]);

@@ -12,8 +12,7 @@ import type {
 	ReviewEventContent,
 	RevieweeRole
 } from '$lib/types/review';
-import { escrow } from '$lib/utils/wallet/escrow';
-import { EscrowStatus } from '$lib/utils/escrow';
+import { escrow, EscrowStatus } from '$lib/utils/escrow';
 
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 

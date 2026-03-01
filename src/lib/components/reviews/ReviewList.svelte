@@ -71,12 +71,13 @@
 	{:else}
 		<div class="space-y-4">
 			{#each reviews as review (review.nostrEventId)}
-				<div
-					class="cursor-pointer transition-opacity hover:opacity-80"
-					onclick={() => onReviewClick?.(review)}
-				>
-					<VerifiedReviewCard {review} {onReply} />
-				</div>
+			<button
+				type="button"
+				class="w-full text-left cursor-pointer transition-opacity hover:opacity-80"
+				onclick={() => onReviewClick?.(review)}
+			>
+				<VerifiedReviewCard {review} {onReply} />
+			</button>
 			{/each}
 		</div>
 	{/if}
