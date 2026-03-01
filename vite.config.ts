@@ -128,35 +128,23 @@ export default defineConfig({
 		minify: 'oxc', // Vite 6 default, best balance of speed and compression
 		sourcemap: false, // Disable in production
 		cssCodeSplit: true, // Enable CSS code splitting
-		cssMinify: true // Explicitly enable CSS minification (default but explicit)
-		/* chunkSizeWarningLimit: 1000, // Increase to 1000 kB to reduce noise
-        rollupOptions: {
-            output: {
-                manualChunks: (id) => {
-                    // Vendor chunks - separate large dependencies
-                    if (id.includes('node_modules')) {
-                        // Crypto libraries
-                        if (id.includes('liquidjs-lib') || id.includes('bitcoinjs-lib')) {
-                            return 'vendor-crypto';
-                        }
-                        // Boltz SDK
-                        if (id.includes('boltz-core') || id.includes('boltz')) {
-                            return 'vendor-boltz';
-                        }
-                        // Nostr libraries
-                        if (id.includes('nostr-tools') || id.includes('nostr')) {
-                            return 'vendor-nostr';
-                        }
-                        // UI libraries
-                        if (id.includes('swiper') || id.includes('photoswipe')) {
-                            return 'vendor-ui';
-                        }
-                        // All other vendor code
-                        return 'vendor';
-                    }
-                }
-            }
-        } */
+		cssMinify: true, // Explicitly enable CSS minification (default but explicit)
+		rollupOptions: {
+			output: {
+				manualChunks: (id) => {
+					// Isolate BaseApiService into its own chunk.
+					// This prevents Vite from co-locating it with other modules that
+					// transitively import service subclasses, which creates a circular
+					// chunk dependency and causes "Class extends value undefined" at runtime.
+					// apiService.ts has no imports from any service file so this chunk
+					// is guaranteed to have no circular dependencies and will always be
+					// fully evaluated before any subclass chunk executes.
+					if (id.includes('src/lib/api/apiService')) {
+						return 'api-base';
+					}
+				}
+			}
+		}
 	},
 	optimizeDeps: {
 		include: ['date-fns', 'axios', 'swiper', 'buffer', 'bitcoinjs-lib', 'bip32', 'bip39'],
