@@ -18,7 +18,7 @@
 	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
 
-	const { contract, btcPrice 	} = $props<{
+	const { contract, btcPrice } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
 	}>();
