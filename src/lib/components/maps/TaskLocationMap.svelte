@@ -1231,7 +1231,7 @@
 		const price = getServicePricingDisplay(service);
 		const locationText = escapeHtml(getServiceLocationDisplay(service));
 		const username = escapeHtml(service.creator?.username || 'Provider');
-		const viewText = $t('find_tasks.view_task') || 'View'; // reuse key or add services.view
+		const viewText = $t('dashboard.services.browse.view_service') || 'View Service';
 		const serviceId = service.uniqueId || service.id;
 		return `
 			<div class="service-info-window" style="min-width: 260px; max-width: 320px; font-family: system-ui, sans-serif;">
@@ -1985,7 +1985,7 @@
 		z-index: 9999;
 	}
 
-	/* Style InfoWindow content to match theme */
+	/* Style InfoWindow content to match theme (evita fondo blanco en popup de servicios) */
 	:global(.gm-style .gm-style-iw-c) {
 		padding: 0 !important;
 		border-radius: 0.75rem !important;
@@ -1993,6 +1993,11 @@
 
 	:global(.gm-style .gm-style-iw-d) {
 		overflow: hidden !important;
+		background-color: hsl(var(--b1)) !important;
+	}
+
+	:global(.service-info-window) {
+		background-color: hsl(var(--b1));
 	}
 
 	:global(.task-info-window) {
