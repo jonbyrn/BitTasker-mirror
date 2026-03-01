@@ -517,7 +517,7 @@
 													<Avatar name={taskee.name} picture={taskee.picture} size="md" />
 													<div class="flex-1 min-w-0">
 														<h3 class="card-title line-clamp-1 text-lg font-semibold">
-															{taskee.name || $t('find_taskees.anonymous')}
+															{taskee.name}
 														</h3>
 														{#if taskee.professionalTitle}
 															<p class="text-base-content/70 text-sm">{taskee.professionalTitle}</p>

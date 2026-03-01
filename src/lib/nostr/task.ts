@@ -1,5 +1,6 @@
 import type { Task, TaskBody, TaskTranslations } from '$lib/types/task.d';
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
+import { nip19 } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { calculatePOW } from '$lib/nostr';
 import { getSignedEvent } from '$lib/utils/nostr';
@@ -17,6 +18,9 @@ import { appStore } from '$lib/stores/app.store';
 import { tasksStore, myTasksStore } from '$lib/stores/task.store';
 import { cleanup as cleanupTasksCache } from '$lib/nostr/findTasks';
 import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('task');
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -27,20 +31,20 @@ const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove
  * Suffix: 6 chars from npub (task creator or user) when provided; otherwise random.
  */
 function getReadableDTag(title: string, createdAt: number, npub?: string): string {
-	const slug = title
-		.trim()
-		.toLowerCase()
-		.replace(/\s+/g, '-')
-		.replace(/[^a-z0-9-]/g, '')
-		.slice(0, 50)
-		|| 'task';
+	const slug =
+		title
+			.trim()
+			.toLowerCase()
+			.replace(/\s+/g, '-')
+			.replace(/[^a-z0-9-]/g, '')
+			.slice(0, 50) || 'task';
 	const fromNpub = npub ? npub.replace(/[^a-z0-9]/gi, '').slice(0, 6) : '';
 	const suffix =
 		fromNpub.length >= 6
 			? fromNpub
 			: Array.from(crypto.getRandomValues(new Uint8Array(3)))
-				.map((b) => b.toString(16).padStart(2, '0'))
-				.join('');
+					.map((b) => b.toString(16).padStart(2, '0'))
+					.join('');
 	return `${slug}-${createdAt}-${suffix}`;
 }
 
@@ -64,9 +68,7 @@ const translationService = new TranslationService();
  * Generate translations for a task
  * Translates title and description to all supported languages
  */
-async function generateTaskTranslations(
-	taskData: TaskBody
-): Promise<TaskTranslations | undefined> {
+async function generateTaskTranslations(taskData: TaskBody): Promise<TaskTranslations | undefined> {
 	// Only generate translations if translation service is available
 	if (!translationService.isAvailable()) {
 		console.warn('Translation service not available, skipping translations');
@@ -87,12 +89,12 @@ async function generateTaskTranslations(
 		// but we'll still translate to ensure both languages are available
 		const sourceLanguage =
 			detectedLanguage &&
-				SUPPORTED_LANGUAGES.includes(detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number])
+			SUPPORTED_LANGUAGES.includes(detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number])
 				? detectedLanguage
 				: 'en';
 
 		// Always translate to the other language to ensure we have translations in both
-		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		const targetLanguages = SUPPORTED_LANGUAGES.filter((lang) => lang !== sourceLanguage);
 
 		// Translate title and description to all target languages in parallel
 		const translationPromises = targetLanguages.map(async (targetLang) => {
@@ -124,7 +126,7 @@ async function generateTaskTranslations(
 
 		// Build translations object, filtering out failed translations
 		const translations: TaskTranslations['translations'] = {};
-		results.forEach(result => {
+		results.forEach((result) => {
 			if (result) {
 				translations[result.language] = {
 					title: result.title,
@@ -137,10 +139,9 @@ async function generateTaskTranslations(
 		// This ensures we always have translations available in both languages
 		if (
 			(!detectedLanguage ||
-				!SUPPORTED_LANGUAGES.includes(
-					detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number]
-				)) &&
-			Object.keys(translations).length === 0) {
+				!SUPPORTED_LANGUAGES.includes(detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number])) &&
+			Object.keys(translations).length === 0
+		) {
 			// Try translating assuming the text is in Spanish
 			const reverseSource = sourceLanguage === 'en' ? 'es' : 'en';
 			const reverseTarget = reverseSource === 'en' ? 'es' : 'en';
@@ -366,33 +367,88 @@ export async function createRecurringTask(
 }
 
 /**
- * Update an existing task
+ * Get the stable identifier for a task Nostr event (Addressable Event).
+ * Use this when calling updateTask so repeated updates work: after the first update
+ * the event id changes (new event published with same d-tag), and the backend/relay
+ * typically only serves the latest event by d-tag, so old event ids return 404.
+ *
+ * @param event - Nostr task event (kind TASK_CREATION)
+ * @returns d-tag from tags if present (stable across updates), else event.id (64 hex)
+ */
+export function getTaskStableId(event: NostrEvent): string {
+	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+	return dTag ?? event.id;
+}
+
+/**
+ * Update an existing task. taskId = d-tag (preferred) or event id (64 hex).
+ * Prefer d-tag so repeated updates work: with event id, after the first update
+ * the backend may return 404 for the old id (see getTaskStableId).
+ * Busca por backend; si falla por event id, intenta relay (pool).
  */
 export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
 	try {
-		// Event ID (64 hex) → find by id; otherwise taskId is d-tag (readable or legacy task-uuid)
 		const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
+		d.log('updateTask', {
+			taskId: taskId.slice(0, 20) + '…',
+			taskIdFormat: isEventId ? 'event-id' : 'd-tag',
+			updates: Object.keys(updates)
+		});
+
 		let originalTask: NostrEvent | null = null;
 
 		if (isEventId) {
-			const result = await nostrEventsService.findEventById(taskId);
-			originalTask = result.data;
+			try {
+				const result = await nostrEventsService.findEventById(taskId);
+				originalTask = result.data as unknown as NostrEvent;
+				d.log('updateTask: API findEventById success', { taskId: taskId.slice(0, 16) + '…' });
+			} catch (apiErr) {
+				d.log('updateTask: API findEventById failed, trying relay fallback', {
+					taskId: taskId.slice(0, 16) + '…',
+					apiError: apiErr
+				});
+				// Fallback: contrato viejo con event id; backend puede no tenerlo → buscar en relay
+				const relays = get(appStore).relays?.length ? get(appStore).relays : RELAYS;
+				originalTask = await getTaskById(taskId, undefined, relays);
+				d.log('updateTask: relay fallback', {
+					taskId: taskId.slice(0, 16) + '…',
+					found: !!originalTask,
+					relaysCount: relays.length
+				});
+			}
 		} else {
-			const filter = {
-				kinds: [KINDS.TASK_CREATION],
-				'#d': [taskId],
-				limit: 1
-			};
-			const response = await nostrEventsService.requestEvents({
-				filters: [filter]
-			});
-			if (response.data && response.data.length > 0) {
-				originalTask = response.data[0];
+			try {
+				const response = await nostrEventsService.requestEvents({
+					filters: [{ kinds: [KINDS.TASK_CREATION], '#d': [taskId], limit: 1 }]
+				});
+				if (response.data?.length > 0) {
+					originalTask = response.data[0] as unknown as NostrEvent;
+				}
+			} catch {
+				// ignore
 			}
 		}
 
 		if (!originalTask) {
+			d.error('updateTask: Task not found', {
+				taskId,
+				taskIdFormat: isEventId ? 'event-id' : 'd-tag'
+			});
 			throw new Error('Task not found');
+		}
+
+		// Enforce: only the task author (same npub as current user) may update
+		const npub = await getNpub();
+		if (!npub) {
+			throw new Error('User not authenticated');
+		}
+		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+		if (originalTask.pubkey.toLowerCase() !== userPubkeyHex.toLowerCase()) {
+			d.error('updateTask: Task author mismatch', {
+				taskPubkey: originalTask.pubkey.slice(0, 16) + '…',
+				userPubkey: userPubkeyHex.slice(0, 16) + '…'
+			});
+			throw new Error('Only the task author may update this task');
 		}
 
 		// Parse original task data
@@ -402,8 +458,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		// Support legacy: if no d tag, fall back to uniqueId in content (task-${uniqueId})
 		const dTagFromTags = originalTask.tags?.find((t: string[]) => t[0] === 'd')?.[1];
 		const dTagValue =
-			dTagFromTags ||
-			(originalTaskData.uniqueId ? `task-${originalTaskData.uniqueId}` : null);
+			dTagFromTags || (originalTaskData.uniqueId ? `task-${originalTaskData.uniqueId}` : null);
 		if (!dTagValue) {
 			throw new Error('Original task has no d-tag in tags and no uniqueId in content');
 		}
@@ -465,8 +520,9 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		cleanupMyTasks();
 
 		// Update in-memory stores to reflect status immediately (target single task, avoid full array iteration)
+		const originalEventId = originalTask.id;
 		const isMatchingTask = (t: TaskWithIds) =>
-			t.uniqueId === dTagValue || t.id === dTagValue || t.eventId === originalTask.id;
+			t.uniqueId === dTagValue || t.id === dTagValue || t.eventId === originalEventId;
 
 		tasksStore.update((state) => {
 			const index = state.items.findIndex((task) => isMatchingTask(task as TaskWithIds));
@@ -494,7 +550,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 
 		return signedEvent.id;
 	} catch (error) {
-		console.error('Failed to update task:', error);
+		d.error('Failed to update task', { taskId, error });
 		throw error;
 	}
 }
@@ -521,7 +577,7 @@ export async function deleteTask(taskId: string, eventId?: string): Promise<stri
 				finalEventId = taskId;
 			} else {
 				throw new Error(
-					'eventId is required when taskId is a UUID. Pass the task\'s eventId from the already-fetched task.'
+					"eventId is required when taskId is a UUID. Pass the task's eventId from the already-fetched task."
 				);
 			}
 		}

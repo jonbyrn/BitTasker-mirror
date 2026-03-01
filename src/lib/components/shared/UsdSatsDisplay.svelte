@@ -41,7 +41,7 @@
 
 <div class="flex flex-col gap-0.5 text-right">
 	{#if title}
-		<span class="text-base-content/60 block text-xs font-semibold uppercase tracking-wide">
+		<span class="text-base-content/60 block text-xs font-semibold tracking-wide uppercase">
 			{title}
 		</span>
 	{/if}

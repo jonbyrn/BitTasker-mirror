@@ -109,7 +109,6 @@
 		
 		// Get translations for UI text - use try/catch since $t() might fail if translations aren't loaded
 		let statusText = statusBadge.text;
-		let anonymousText = 'Anonymous';
 		let bidText = 'Bid';
 		let biddingClosedText = 'Bidding closed';
 		let viewText = 'View';
@@ -118,9 +117,6 @@
 			// Try to get translations - $t() is available in Svelte component context
 			const statusTranslated = $t(`common.status.${task.status.toLowerCase()}`);
 			if (statusTranslated) statusText = statusTranslated;
-			
-			const anonymousTranslated = $t('dashboard.task_details_by_task.anonymous');
-			if (anonymousTranslated) anonymousText = anonymousTranslated;
 			
 			const bidTranslated = $t('dashboard.find_tasks.sign_up_to_bid');
 			if (bidTranslated) bidText = bidTranslated;
@@ -153,8 +149,8 @@
 			task.dropOffLocation?.displayName || 
 			'Location not specified';
 		
-		// Get username
-		const username = task.creator?.username || anonymousText;
+		// Get username (always present, not optional)
+		const username = task.creator?.username ?? '';
 		const rating = task.creator?.rating || 0;
 		
 		// Generate stars HTML - match TaskCard styling (text-yellow-400 for filled, text-base-content/30 for empty)

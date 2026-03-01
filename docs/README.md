@@ -32,6 +32,12 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 | [flows.md](auth/flows.md)               | Authentication flows: detailed diagrams for registration, login (passkey/nsec), and key retrieval.        |
 | [encryption.md](auth/encryption.md)     | Encryption & key management: cryptographic foundations, master key derivation, AES-GCM, PBKDF2, HKDF.     |
 
+### Tasks (`docs/tasks/`)
+
+| Document                               | Purpose                                                                                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [task-status.md](tasks/task-status.md) | Task status: ownership, lifecycle, call chains, stale display bug, resilience, contracts loading, debug visibility, reviewer checklist. |
+
 ### Other (`docs/`)
 
 | Document                                                     | Purpose                                 |

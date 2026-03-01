@@ -299,6 +299,11 @@ export const LOGGED_OUT_MENU_SECTIONS = [
  */
 export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
+		label: 'navbar.find_tasks',
+		icon: IconMagnify,
+		href: '/tasks'
+	},
+	{
 		label: 'navbar.my_tasks',
 		icon: IconFormatListBulleted,
 		href: '/dashboard'
