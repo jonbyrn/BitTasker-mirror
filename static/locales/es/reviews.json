@@ -97,7 +97,8 @@
 			"review_for": "Reseñar a",
 			"completed_on": "Completado el",
 			"review_now": "Reseñar Ahora",
-			"only_current_user": "Las reseñas pendientes solo son visibles para el propietario de la cuenta"
+			"only_current_user": "Las reseñas pendientes solo son visibles para el propietario de la cuenta",
+			"payment_not_confirmed": "El pago aún está siendo confirmado en la blockchain. Inténtalo de nuevo en un momento."
 		},
 		"management": {
 			"title": "Gestión de Reseñas",
@@ -109,11 +110,9 @@
 			"loading": "Cargando detalles de la reseña...",
 			"missing_info": "Falta información requerida para enviar la reseña",
 			"missing_escrow": "Se requiere el ID del depósito en garantía para enviar una reseña",
-			"waiting_confirmation": "Esperando confirmación del pago",
-			"waiting_confirmation_desc": "El pago está siendo confirmado en la blockchain. Esto suele tomar un momento.",
-			"retry_in": "Verificando en {seconds}s...",
-			"check_now": "Verificar ahora",
-			"try_again": "Intentar de nuevo"
+			"contract_not_found": "Contrato no encontrado. Por favor proporciona la información del revisor directamente.",
+			"not_participant": "No eres participante de este contrato.",
+			"load_error": "Error al cargar los detalles de la reseña. Por favor intenta de nuevo."
 		}
 	}
 }

@@ -4,12 +4,22 @@
 	import { findPendingReviews } from '$lib/utils/review-helpers';
 	import type { PendingReview } from '$lib/utils/review-helpers';
 	import ReviewPromptModal from './ReviewPromptModal.svelte';
+	import { EscrowStatus } from '$lib/utils/escrow';
+	import { escrow } from '$lib/utils/wallet/escrow';
+	import { appStore } from '$lib/stores/app.store';
 
 	let pendingReviews = $state<PendingReview[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let selectedReview = $state<PendingReview | null>(null);
 	let showReviewModal = $state(false);
+	let checkingEscrow = $state<string | null>(null); // escrowId being checked
+
+	const COMPLETED_STATES = [
+		EscrowStatus.Completed,
+		EscrowStatus.FundsReleased,
+		EscrowStatus.DisputeResolved
+	];
 
 	onMount(async () => {
 		await loadPendingReviews();
@@ -28,9 +38,26 @@
 		}
 	}
 
-	function handleReviewClick(pendingReview: PendingReview) {
-		selectedReview = pendingReview;
-		showReviewModal = true;
+	/**
+	 * Check escrow status before opening the modal.
+	 * If payment hasn't confirmed yet, show a toast and stay put —
+	 * no modal is opened so the user doesn't see a loading screen.
+	 */
+	async function handleReviewClick(pendingReview: PendingReview) {
+		checkingEscrow = pendingReview.escrowId;
+		try {
+			const escrowData = await escrow.getEscrow(pendingReview.escrowId);
+			if (!escrowData || !COMPLETED_STATES.includes(escrowData.status)) {
+				appStore.showInfoToast($t('reviews.pending.payment_not_confirmed'));
+				return;
+			}
+			selectedReview = pendingReview;
+			showReviewModal = true;
+		} catch {
+			appStore.showInfoToast($t('reviews.pending.payment_not_confirmed'));
+		} finally {
+			checkingEscrow = null;
+		}
 	}
 
 	function handleReviewSubmitted() {
@@ -107,27 +134,33 @@
 								</p>
 							</div>
 						</div>
-						<div class="card-actions justify-end mt-4">
-							<button
-								class="btn btn-primary btn-sm"
-								onclick={() => handleReviewClick(pendingReview)}
-							>
-								{$t('reviews.pending.review_now')}
-							</button>
-						</div>
+					<div class="card-actions justify-end mt-4">
+						<button
+							class="btn btn-primary btn-sm"
+							onclick={() => handleReviewClick(pendingReview)}
+							disabled={checkingEscrow === pendingReview.escrowId}
+						>
+							{#if checkingEscrow === pendingReview.escrowId}
+								<span class="loading loading-spinner loading-xs"></span>
+							{/if}
+							{$t('reviews.pending.review_now')}
+						</button>
+					</div>
 					</div>
 				</div>
 			{/each}
 		</div>
 	{/if}
 
-	<!-- Review Modal -->
+	<!-- Review Modal — escrowConfirmed=true because we verified status before opening -->
 	{#if showReviewModal && selectedReview}
 		<ReviewPromptModal
 			isOpen={showReviewModal}
 			escrowId={selectedReview.escrowId}
 			revieweePubkey={selectedReview.revieweePubkey}
+			revieweeName={selectedReview.revieweeName}
 			taskId={selectedReview.contract?.contractEvent?.content?.taskId}
+			escrowConfirmed={true}
 			onClose={() => {
 				showReviewModal = false;
 				selectedReview = null;

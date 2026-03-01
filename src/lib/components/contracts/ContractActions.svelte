@@ -1138,11 +1138,13 @@
 />
 
 <!-- Review Prompt Modal — opens when escrow reaches FundsReleased/DisputeResolved via Nostr -->
+<!-- escrowConfirmed=true skips the redundant blockchain check since the $effect already verified the status -->
 <ReviewPromptModal
 	isOpen={showReviewModal}
 	escrowId={contract.escrowData.id}
 	escrowTxHash={reviewEscrowTxHash}
 	taskId={contract.contractEvent?.content?.taskId}
+	escrowConfirmed={true}
 	onClose={() => {
 		showReviewModal = false;
 	}}
