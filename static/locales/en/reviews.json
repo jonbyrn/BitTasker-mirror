@@ -106,8 +106,14 @@
 		"prompt": {
 			"title": "Write a Review",
 			"reviewing": "Reviewing",
+			"loading": "Loading review details...",
 			"missing_info": "Missing required information to submit review",
-			"missing_escrow": "Escrow ID is required to submit a review"
+			"missing_escrow": "Escrow ID is required to submit a review",
+			"waiting_confirmation": "Waiting for payment confirmation",
+			"waiting_confirmation_desc": "The payment is being confirmed on the blockchain. This usually takes a moment.",
+			"retry_in": "Checking again in {seconds}s...",
+			"check_now": "Check now",
+			"try_again": "Try again"
 		}
 	}
 }

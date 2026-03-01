@@ -36,10 +36,114 @@
 	}>();
 
 	let targetRevieweePubkey = $state<string | null>(null);
-	let targetRevieweeName = $state<string | null>(revieweeName || null);
+	let targetRevieweeName = $state<string | null>(null);
 	let revieweeRole = $state<'tasker' | 'taskee' | null>(null);
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
+	let isEscrowPending = $state(false);
+	let retryCountdown = $state(0);
+	let retryInterval: ReturnType<typeof setInterval> | null = null;
+	const RETRY_AFTER_SECONDS = 15;
+
+	function startRetryCountdown() {
+		retryCountdown = RETRY_AFTER_SECONDS;
+		retryInterval = setInterval(() => {
+			retryCountdown -= 1;
+			if (retryCountdown <= 0) {
+				clearInterval(retryInterval!);
+				retryInterval = null;
+				retryLoad();
+			}
+		}, 1000);
+	}
+
+	async function retryLoad() {
+		error = null;
+		isEscrowPending = false;
+		isLoading = true;
+		// Re-trigger the effect by toggling isOpen equivalent — just call load directly
+		await loadReviewDetails();
+	}
+
+	async function loadReviewDetails() {
+		if (!escrowId) return;
+		isLoading = true;
+		error = null;
+		isEscrowPending = false;
+
+		try {
+			const currentUserNpub = await getNpub();
+			const currentUserPubkey = currentUserNpub.startsWith('npub')
+				? (nip19.decode(currentUserNpub).data as string)
+				: currentUserNpub;
+
+			// If revieweePubkey provided directly, use it
+			if (revieweePubkey) {
+				targetRevieweePubkey = revieweePubkey;
+				if (!targetRevieweeName) {
+					try {
+						const profile = await fetchProfileMetadata(hexToNpub(revieweePubkey));
+						targetRevieweeName = profile.name || null;
+					} catch { /* continue */ }
+				}
+			} else {
+				// Resolve from contract
+				const contracts = await getUserContracts({ escrowIds: [escrowId] });
+				if (contracts.length === 0) {
+					error = 'Contract not found. Please provide reviewee pubkey directly.';
+					isLoading = false;
+					return;
+				}
+				const contractContent = contracts[0].contractEvent.content;
+				if (contractContent.clientPubkey === currentUserPubkey) {
+					targetRevieweePubkey = contractContent.freelancerPubkey;
+				} else if (contractContent.freelancerPubkey === currentUserPubkey) {
+					targetRevieweePubkey = contractContent.clientPubkey;
+				} else {
+					error = 'You are not a participant in this contract.';
+					isLoading = false;
+					return;
+				}
+				if (!targetRevieweeName && targetRevieweePubkey) {
+					try {
+						const profile = await fetchProfileMetadata(hexToNpub(targetRevieweePubkey));
+						targetRevieweeName = profile.name || null;
+					} catch { /* continue */ }
+				}
+			}
+
+			// Verify escrow is completed
+			const escrowData = await escrow.getEscrow(escrowId);
+			if (!escrowData) {
+				error = 'Escrow not found.';
+				isLoading = false;
+				return;
+			}
+
+			const completedStates = [
+				EscrowStatus.Completed,
+				EscrowStatus.FundsReleased,
+				EscrowStatus.DisputeResolved
+			];
+			if (!completedStates.includes(escrowData.status)) {
+				// Escrow still pending — show a friendly waiting state with auto-retry
+				isEscrowPending = true;
+				isLoading = false;
+				startRetryCountdown();
+				return;
+			}
+
+			// Determine reviewee role
+			if (targetRevieweePubkey && escrowId) {
+				revieweeRole = await getRevieweeRole(escrowId, targetRevieweePubkey);
+			}
+		} catch (err) {
+			console.error('Failed to load review details:', err);
+			error = err instanceof Error ? err.message : 'Failed to load contract details';
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	// Convert hex pubkey to npub if needed
 	function hexToNpub(hexPubkey: string): string {
@@ -55,119 +159,22 @@
 		}
 	}
 
-	// Load reviewee pubkey from contract if escrowId provided
+	// Load review details when modal opens; cleanup retry interval when it closes
 	$effect(() => {
-		if (!isOpen) return;
-		
-		(async () => {
-
-		// If revieweePubkey is directly provided, use it
-		if (revieweePubkey) {
-			targetRevieweePubkey = revieweePubkey;
-			
-			// Fetch name if not provided
-			if (!targetRevieweeName) {
-				try {
-					const revieweeNpub = hexToNpub(revieweePubkey);
-					const profile = await fetchProfileMetadata(revieweeNpub);
-					targetRevieweeName = profile.name || null;
-				} catch (err) {
-					console.error('Failed to fetch reviewee name:', err);
-					// Continue without name
-				}
-			}
-
-			// Try to determine role if escrowId is also provided
-			if (escrowId && targetRevieweePubkey) {
-				try {
-					revieweeRole = await getRevieweeRole(escrowId, targetRevieweePubkey);
-				} catch (err) {
-					console.error('Failed to determine reviewee role:', err);
-					// Continue without role - will use generic labels
-				}
-			}
-			return;
-		}
-
-		// If escrowId provided, fetch contract to get pubkeys
-		if (escrowId) {
-			isLoading = true;
+		if (isOpen) {
+			// Reset state on each open
+			targetRevieweePubkey = null;
+			targetRevieweeName = revieweeName || null;
+			revieweeRole = null;
 			error = null;
-
-			try {
-				const currentUserNpub = await getNpub();
-				const currentUserPubkey = currentUserNpub.startsWith('npub')
-					? (nip19.decode(currentUserNpub).data as string)
-					: currentUserNpub;
-
-				// Get contracts to find the one with this escrowId
-				const contracts = await getUserContracts({ escrowIds: [escrowId] });
-				
-				if (contracts.length === 0) {
-					// Fallback: try to get from escrow contract directly
-					// But we still need the Nostr pubkey, so we'll need another approach
-					// For now, show error
-					error = 'Contract not found. Please provide reviewee pubkey directly.';
-					isLoading = false;
-					return;
-				}
-
-				const contract = contracts[0].contractEvent.content;
-				
-				// Determine who to review: if current user is client, review freelancer, and vice versa
-				if (contract.clientPubkey === currentUserPubkey) {
-					targetRevieweePubkey = contract.freelancerPubkey;
-				} else if (contract.freelancerPubkey === currentUserPubkey) {
-					targetRevieweePubkey = contract.clientPubkey;
-				} else {
-					error = 'You are not a participant in this contract.';
-					isLoading = false;
-					return;
-				}
-
-				// Fetch reviewee name if not provided
-				if (!targetRevieweeName && targetRevieweePubkey) {
-					try {
-						const revieweeNpub = hexToNpub(targetRevieweePubkey);
-						const profile = await fetchProfileMetadata(revieweeNpub);
-						targetRevieweeName = profile.name || null;
-					} catch (err) {
-						console.error('Failed to fetch reviewee name:', err);
-						// Continue without name
-					}
-				}
-
-				// Verify escrow is completed
-				const escrowData = await escrow.getEscrow(escrowId);
-				if (!escrowData) {
-					error = 'Escrow not found.';
-					isLoading = false;
-					return;
-				}
-
-				const completedStates = [
-					EscrowStatus.Completed,
-					EscrowStatus.FundsReleased,
-					EscrowStatus.DisputeResolved
-				];
-				if (!completedStates.includes(escrowData.status)) {
-					error = `Escrow is not completed. Current status: ${escrowData.status}`;
-					isLoading = false;
-					return;
-				}
-
-				// Determine reviewee role for role-specific labels
-				if (targetRevieweePubkey && escrowId) {
-					revieweeRole = await getRevieweeRole(escrowId, targetRevieweePubkey);
-				}
-			} catch (err) {
-				console.error('Failed to load contract details:', err);
-				error = err instanceof Error ? err.message : 'Failed to load contract details';
-			} finally {
-				isLoading = false;
-			}
+			isEscrowPending = false;
+			if (retryInterval) { clearInterval(retryInterval); retryInterval = null; }
+			loadReviewDetails();
+		} else {
+			// Cleanup countdown on close
+			if (retryInterval) { clearInterval(retryInterval); retryInterval = null; }
+			retryCountdown = 0;
 		}
-		})();
 	});
 
 	function handleSubmit(eventId: string) {
@@ -191,14 +198,38 @@
 		{#if isLoading}
 			<div class="flex flex-col justify-center items-center py-16">
 				<span class="loading loading-spinner loading-lg text-primary mb-4"></span>
-				<p class="text-base-content/60 text-sm">Loading review details...</p>
+				<p class="text-base-content/60 text-sm">{$t('reviews.prompt.loading')}</p>
+			</div>
+		{:else if isEscrowPending}
+			<!-- Escrow not yet confirmed on-chain — show friendly waiting state with auto-retry -->
+			<div class="flex flex-col items-center gap-6 py-12 px-4 text-center">
+				<span class="loading loading-ring loading-lg text-primary"></span>
+				<div>
+					<p class="font-semibold text-base-content">{$t('reviews.prompt.waiting_confirmation')}</p>
+					<p class="text-base-content/60 text-sm mt-1">{$t('reviews.prompt.waiting_confirmation_desc')}</p>
+				</div>
+				{#if retryCountdown > 0}
+					<p class="text-base-content/40 text-xs">
+						{$t('reviews.prompt.retry_in', { values: { seconds: retryCountdown } })}
+					</p>
+				{:else}
+					<span class="loading loading-dots loading-sm text-primary"></span>
+				{/if}
+				<button class="btn btn-ghost btn-sm" onclick={retryLoad}>
+					{$t('reviews.prompt.check_now')}
+				</button>
 			</div>
 		{:else if error}
-			<div class="alert alert-outline alert-error shadow-sm">
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-				</svg>
-				<span class="text-sm">{error}</span>
+			<div class="flex flex-col items-center gap-4 py-8 px-4">
+				<div class="alert alert-outline alert-error shadow-sm">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+					</svg>
+					<span class="text-sm">{error}</span>
+				</div>
+				<button class="btn btn-ghost btn-sm" onclick={retryLoad}>
+					{$t('reviews.prompt.try_again')}
+				</button>
 			</div>
 		{:else if targetRevieweePubkey && escrowId}
 			{#if targetRevieweeName}
@@ -217,7 +248,7 @@
 				</div>
 			{/if}
 			{#if targetRevieweePubkey && escrowId}
-				<!-- svelte-ignore a11y-no-static-element-interactions -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				{@const _formProps = {
 					escrowId: escrowId as string,
 					revieweePubkey: targetRevieweePubkey as string,

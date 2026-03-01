@@ -106,8 +106,14 @@
 		"prompt": {
 			"title": "Escribir una Reseña",
 			"reviewing": "Reseñando a",
+			"loading": "Cargando detalles de la reseña...",
 			"missing_info": "Falta información requerida para enviar la reseña",
-			"missing_escrow": "Se requiere el ID del depósito en garantía para enviar una reseña"
+			"missing_escrow": "Se requiere el ID del depósito en garantía para enviar una reseña",
+			"waiting_confirmation": "Esperando confirmación del pago",
+			"waiting_confirmation_desc": "El pago está siendo confirmado en la blockchain. Esto suele tomar un momento.",
+			"retry_in": "Verificando en {seconds}s...",
+			"check_now": "Verificar ahora",
+			"try_again": "Intentar de nuevo"
 		}
 	}
 }

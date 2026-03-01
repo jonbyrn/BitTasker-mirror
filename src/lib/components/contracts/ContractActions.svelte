@@ -45,6 +45,38 @@
 	let showReviewModal = $state(false);
 	let reviewEscrowTxHash = $state<string | undefined>(undefined);
 
+	// Track whether this contract triggered a review prompt (avoid duplicate shows)
+	let reviewPromptTriggered = $state(false);
+
+	// Watch for escrow reaching a final paid state via Nostr subscription (updated by contractStore).
+	// This fires the review modal at the correct moment — after blockchain confirmation — instead of
+	// using a setTimeout after the action function returns (which is pre-confirmation).
+	const reviewTriggerStatuses = [
+		EscrowStatus.FundsReleased,
+		EscrowStatus.DisputeResolved
+	];
+
+	$effect(() => {
+		const status = contract.escrowData?.status;
+		if (
+			!reviewPromptTriggered &&
+			status !== undefined &&
+			reviewTriggerStatuses.includes(status as EscrowStatus)
+		) {
+			// Grab tx hash from the most recent status event that matches
+			const latestStatusEvent = [...(contract.statusEvents ?? [])]
+				.reverse()
+				.find((e: ContractStatusEvent) =>
+					reviewTriggerStatuses.includes(e.content.action as EscrowStatus)
+				);
+			if (latestStatusEvent?.content?.transactionHash) {
+				reviewEscrowTxHash = latestStatusEvent.content.transactionHash;
+			}
+			reviewPromptTriggered = true;
+			showReviewModal = true;
+		}
+	});
+
 	// Disable ALL critical actions when transaction is pending
 	const isDisabledDueToPending = $derived(contract.isPending);
 
@@ -225,11 +257,8 @@
 				});
 			}
 
-			// Show review prompt after successful completion
-			setTimeout(() => {
-				showReviewModal = true;
-			}, 2000);
-
+			// Note: Review prompt fires via $effect when escrow status reaches FundsReleased
+			// (after blockchain confirmation via Nostr subscription), not here.
 			// Note: Status will be updated via blockchain event -> Nostr update
 			// Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
@@ -274,11 +303,8 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Show review prompt after successful acceptance
-			setTimeout(() => {
-				showReviewModal = true;
-			}, 1000);
-
+			// Note: Review prompt fires via $effect when escrow status reaches FundsReleased
+			// (after blockchain confirmation via Nostr subscription), not here.
 			// Note: Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
 			console.error('Error accepting task:', error);
@@ -406,10 +432,8 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Show review prompt after successful proposal acceptance (dispute resolved)
-			setTimeout(() => {
-				showReviewModal = true;
-			}, 1000);
+			// Note: Review prompt fires via $effect when escrow status reaches DisputeResolved
+			// (after blockchain confirmation via Nostr subscription), not here.
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
 			const errorMessage =
@@ -476,10 +500,8 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Show review prompt after successful timelock resolution
-			setTimeout(() => {
-				showReviewModal = true;
-			}, 1000);
+			// Note: Review prompt fires via $effect when escrow status reaches FundsReleased
+			// (after blockchain confirmation via Nostr subscription), not here.
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
 			const errorMessage =
@@ -1115,14 +1137,14 @@
 	{btcPrice}
 />
 
-<!-- Review Prompt Modal -->
+<!-- Review Prompt Modal — opens when escrow reaches FundsReleased/DisputeResolved via Nostr -->
 <ReviewPromptModal
 	isOpen={showReviewModal}
 	escrowId={contract.escrowData.id}
 	escrowTxHash={reviewEscrowTxHash}
+	taskId={contract.contractEvent?.content?.taskId}
 	onClose={() => {
 		showReviewModal = false;
-		reviewEscrowTxHash = undefined;
 	}}
 	onSubmit={(eventId: string) => {
 		console.log('Review submitted:', eventId);
