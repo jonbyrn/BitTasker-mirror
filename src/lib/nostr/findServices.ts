@@ -355,23 +355,33 @@ export async function findMyServices(
 	params: SearchServicesParams & { refresh?: boolean }
 ): Promise<{ services: Service[]; total: number; hasMore: boolean }> {
 	try {
-		const { getNpub } = await import('$lib/utils/nostrKeys');
 		const npub = await getNpub();
 
-		if (!npub || typeof npub !== 'string' || !npub.startsWith('npub1')) {
+		if (!npub || typeof npub !== 'string') {
+			console.warn('findMyServices: No public key found');
 			return { services: [], total: 0, hasMore: false };
 		}
 
-		// Convert npub to hex for filtering
-		const { nip19 } = await import('nostr-tools');
-		const decoded = nip19.decode(npub);
-		if (decoded.type !== 'npub') {
-			return { services: [], total: 0, hasMore: false };
+		// Support both npub and raw hex public keys (same behavior as findMyTasks)
+		let pubkeyHex = npub;
+		if (npub.startsWith('npub')) {
+			try {
+				const { nip19 } = await import('nostr-tools');
+				const decoded = nip19.decode(npub);
+				if (decoded.type !== 'npub') {
+					console.error('findMyServices: Invalid npub type from nip19.decode');
+					return { services: [], total: 0, hasMore: false };
+				}
+				pubkeyHex = decoded.data as string;
+			} catch (error) {
+				console.error('findMyServices: Error decoding npub', error);
+				return { services: [], total: 0, hasMore: false };
+			}
 		}
 
 		const filter: Filter = {
 			kinds: params.kinds || [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
-			authors: [decoded.data],
+			authors: [pubkeyHex],
 			limit: params.limit || SERVICES_PER_PAGE,
 			until: params.until || undefined,
 			since: params.since || undefined

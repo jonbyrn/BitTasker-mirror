@@ -637,11 +637,16 @@ export async function updateService(dTag: string, updates: Partial<ServiceBody>)
 		if (!npub) {
 			throw new Error('User not authenticated');
 		}
-		const decoded = nip19.decode(npub);
-		if (decoded.type !== 'npub') {
-			throw new Error('Invalid npub');
+
+		// Support both npub (bech32) and raw hex public keys, like tasks/services finders
+		let authorHex = npub;
+		if (npub.startsWith('npub')) {
+			const decoded = nip19.decode(npub);
+			if (decoded.type !== 'npub') {
+				throw new Error('Invalid npub');
+			}
+			authorHex = decoded.data as string;
 		}
-		const authorHex = decoded.data;
 
 		const filter = {
 			kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],

@@ -315,7 +315,7 @@
 						{#if fileType === 'image/*' || fileType.startsWith('image/')}
 							<img
 								src={file.url}
-								alt={file.alt || 'Portfolio item'}
+								alt={file.alt || $t('dashboard.services.create.portfolio.item_alt')}
 								class="h-full w-full object-cover"
 								loading="lazy"
 							/>

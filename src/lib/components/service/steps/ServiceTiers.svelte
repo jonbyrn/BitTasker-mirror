@@ -5,24 +5,26 @@
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import type { ServiceTier, DeliveryTime, RushDelivery } from '$lib/types/service.d';
 	import { t } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 
 	let { errors, direction } = $props();
 
 	// Initialize tiers if not set (run once on mount)
 	onMount(() => {
 		if (!$store.service.pricing?.tiers || $store.service.pricing.tiers.length === 0) {
-			// Create default 3 tiers
+			// Create default 3 tiers with translated names (same language detection as tasks)
+			const translate = get(t);
 			const defaultTiers: ServiceTier[] = [
 				{
 					id: crypto.randomUUID(),
-					name: 'Basic',
+					name: translate('dashboard.services.create.tiers.default_basic'),
 					description: '',
 					price: 0,
 					features: []
 				},
 				{
 					id: crypto.randomUUID(),
-					name: 'Standard',
+					name: translate('dashboard.services.create.tiers.default_standard'),
 					description: '',
 					price: 0,
 					features: [],
@@ -30,7 +32,7 @@
 				},
 				{
 					id: crypto.randomUUID(),
-					name: 'Premium',
+					name: translate('dashboard.services.create.tiers.default_premium'),
 					description: '',
 					price: 0,
 					features: []
@@ -59,9 +61,12 @@
 		if (currentTiers.length >= 4) {
 			return; // Max 4 tiers
 		}
+		const translate = get(t);
 		const newTier: ServiceTier = {
 			id: crypto.randomUUID(),
-			name: `Tier ${currentTiers.length + 1}`,
+			name: translate('dashboard.services.create.tiers.tier_number', {
+				values: { n: currentTiers.length + 1 }
+			}),
 			description: '',
 			price: 0,
 			features: []
