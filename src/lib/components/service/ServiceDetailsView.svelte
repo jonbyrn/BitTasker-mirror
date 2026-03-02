@@ -1,8 +1,16 @@
 <script lang="ts">
 	import type { Service, ServiceTier } from '$lib/types/service.d';
 	import type { Attachment } from '$lib/types/task.d';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import {
+		getServiceDisplayTitle,
+		getServiceDisplayDescription,
+		getServiceDisplayTiers,
+		getServiceDisplayAddOns,
+		getServiceDisplayFaqs,
+		getServiceDeliveryTimeDisplay
+	} from '$lib/utils/serviceDisplayTranslation';
 	import { format } from 'date-fns';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
@@ -18,20 +26,28 @@
 
 	const isOwner = $derived(service?.npub === $user?.npub);
 
+	const currentLocale = $derived($locale || 'en');
+	const displayTitle = $derived(service ? getServiceDisplayTitle(service, currentLocale) : '');
+	const displayDescriptionFull = $derived(service ? getServiceDisplayDescription(service, currentLocale) : '');
+	const displayTiers = $derived(service ? getServiceDisplayTiers(service, currentLocale) : []);
+	const displayAddOns = $derived(service ? getServiceDisplayAddOns(service, currentLocale) : []);
+	const displayFaqs = $derived(service ? getServiceDisplayFaqs(service, currentLocale) : []);
+	const deliveryTimeDisplay = $derived(service ? getServiceDeliveryTimeDisplay(service, currentLocale) : undefined);
+
 	let descriptionExpanded = $state(false);
 	const DESCRIPTION_PREVIEW_LENGTH = 300;
 	const descriptionNeedsExpand = $derived(
-		!!service?.description && service.description.length > DESCRIPTION_PREVIEW_LENGTH
+		!!displayDescriptionFull && displayDescriptionFull.length > DESCRIPTION_PREVIEW_LENGTH
 	);
 	const descriptionPreview = $derived(
-		service?.description?.slice(0, DESCRIPTION_PREVIEW_LENGTH).trim() ?? ''
+		displayDescriptionFull?.slice(0, DESCRIPTION_PREVIEW_LENGTH).trim() ?? ''
 	);
 	const descriptionDisplay = $derived(
-		descriptionExpanded || !descriptionNeedsExpand ? (service?.description ?? '') : descriptionPreview + '...'
+		descriptionExpanded || !descriptionNeedsExpand ? (displayDescriptionFull ?? '') : descriptionPreview + '...'
 	);
 
 	const tiersWithPrice = $derived(
-		(service?.pricing?.tiers ?? []).filter((t: ServiceTier) => (t.price ?? 0) > 0)
+		displayTiers.filter((t: ServiceTier) => (t.price ?? 0) > 0)
 	);
 
 	function translateCategory(category: { id: string; name: string } | string): string {
@@ -130,7 +146,7 @@
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 				<div class="space-y-4 lg:col-span-2">
 					<div class="bg-base-100 border-base-300 rounded-2xl border p-6 shadow-sm">
-						<span class="line-clamp-2 text-xl font-semibold">{service.title}</span>
+						<span class="line-clamp-2 text-xl font-semibold">{displayTitle}</span>
 						<div class="text-base-content/70 mt-2 whitespace-pre-line text-sm">
 							{descriptionDisplay}
 						</div>
@@ -202,8 +218,8 @@
 								<p class="text-base-content/70 text-sm">
 									{#if service.pricing.type === ServicePricingTypeEnum.FIXED}
 										{$t('dashboard.services.create.pricing.fixed_title')}: ${formatNumberWithTwoDecimals(service.pricing.amount ?? 0)} {service.pricing.currency}
-										{#if service.pricing.deliveryTime?.display}
-											 · {service.pricing.deliveryTime.display}
+										{#if deliveryTimeDisplay}
+											 · {deliveryTimeDisplay}
 										{/if}
 									{:else if service.pricing.type === ServicePricingTypeEnum.HOURLY}
 										{$t('dashboard.services.create.pricing.hourly_title')}: ${formatNumberWithTwoDecimals(service.pricing.hourlyRate ?? 0)}/{$t('dashboard.services.create.pricing.hour')} {service.pricing.currency}
@@ -219,12 +235,12 @@
 							</div>
 						{/if}
 
-						<!-- Add-ons -->
-						{#if service.pricing?.addOns && service.pricing.addOns.length > 0}
+						<!-- Add-ons (locale-aware) -->
+						{#if displayAddOns.length > 0}
 							<div class="border-base-300 mt-4 border-t pt-4">
 								<h4 class="mb-3 font-semibold">{$t('dashboard.services.create.review.addons_title')}</h4>
 								<div class="flex flex-wrap gap-2">
-									{#each service.pricing.addOns as addOn}
+									{#each displayAddOns as addOn}
 										<div class="badge badge-outline gap-1">
 											{addOn.name} · ${formatNumberWithTwoDecimals(addOn.price)}
 										</div>
@@ -318,7 +334,7 @@
 							</div>
 						{/if}
 
-						<!-- Price levels (tiers) in sidebar - only when at least one tier has price > 0 -->
+						<!-- Price levels (tiers) in sidebar - locale-aware -->
 						{#if tiersWithPrice.length > 0}
 							<div class="border-base-300 mt-4 border-t pt-4">
 								<h4 class="mb-3 font-semibold">{$t('dashboard.services.detail.price_levels')}</h4>
@@ -346,12 +362,12 @@
 							</div>
 						{/if}
 
-						<!-- FAQs (right sidebar) -->
-						{#if service.faqs && service.faqs.length > 0}
+						<!-- FAQs (right sidebar, locale-aware) -->
+						{#if displayFaqs.length > 0}
 							<div class="border-base-300 mt-4 border-t pt-4">
 								<h4 class="mb-3 font-semibold">{$t('dashboard.services.detail.faqs')}</h4>
 								<div class="space-y-3">
-									{#each service.faqs as faq}
+									{#each displayFaqs as faq}
 										<div class="collapse collapse-arrow bg-base-200">
 											<input type="checkbox" />
 											<div class="collapse-title font-medium text-sm">{faq.question}</div>

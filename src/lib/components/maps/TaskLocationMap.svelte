@@ -14,6 +14,7 @@
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
+	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
 
 	let {
 		tasks = [],
@@ -1225,9 +1226,12 @@
 			div.textContent = text;
 			return div.innerHTML;
 		};
-		const title = escapeHtml(service.title || 'Service');
-		const desc = (service.description || '').substring(0, 120);
-		const escapedDesc = escapeHtml(desc + (service.description && service.description.length > 120 ? '...' : ''));
+		const currentLocale = get(locale) || 'en';
+		const displayTitle = getServiceDisplayTitle(service, currentLocale) || 'Service';
+		const displayDescription = getServiceDisplayDescription(service, currentLocale) || '';
+		const title = escapeHtml(displayTitle);
+		const desc = displayDescription.substring(0, 120);
+		const escapedDesc = escapeHtml(desc + (displayDescription.length > 120 ? '...' : ''));
 		const price = getServicePricingDisplay(service);
 		const locationText = escapeHtml(getServiceLocationDisplay(service));
 		const username = escapeHtml(service.creator?.username || 'Provider');

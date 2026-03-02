@@ -32,9 +32,9 @@
 	}>();
 
 	// Set defaults
-	const position = props.position || 'right';
-	const respectBottomNav = props.respectBottomNav ?? true;
-	const bottomOffset = props.bottomOffset ?? 'var(--app-footer-height, 0px)';
+	const position = $derived(props.position || 'right');
+	const respectBottomNav = $derived(props.respectBottomNav ?? true);
+	const bottomOffset = $derived(props.bottomOffset ?? 'var(--app-footer-height, 0px)');
 	const effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
 
 	// Scroll lock management

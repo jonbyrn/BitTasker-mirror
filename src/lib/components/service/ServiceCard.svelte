@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { Service, ServiceTier } from '$lib/types/service.d';
 	import type { Attachment } from '$lib/types/task.d';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
@@ -114,6 +115,11 @@
 
 	// Get rating (hardcoded if not available)
 	let rating = $derived(service.creator?.rating || 0);
+
+	// Display title and description in current locale (reactive to language switch)
+	const currentLocale = $derived($locale || 'en');
+	const displayTitle = $derived(getServiceDisplayTitle(service, currentLocale));
+	const displayDescription = $derived(getServiceDisplayDescription(service, currentLocale));
 </script>
 
 <div
@@ -129,7 +135,7 @@
 			<div class="relative h-full w-full">
 				<img
 					src={portfolioImages[currentImageIndex]?.url}
-					alt={service.title || 'Service image'}
+					alt={displayTitle || 'Service image'}
 					class="h-full w-full object-cover transition-opacity duration-300"
 					loading="lazy"
 				/>
@@ -256,10 +262,10 @@
 			</div>
 		{/if}
 
-		<!-- Service Title with Price - Larger, more prominent -->
+		<!-- Service Title with Price - Larger, more prominent (locale-aware) -->
 		<div class="flex items-start justify-between gap-2">
 			<span class="text-sm font-semibold line-clamp-2 text-base-content hover:text-primary transition-colors">
-				{service.title}
+				{displayTitle}
 			</span>
 			<!-- Price - Next to title -->
 			<div class="text-right shrink-0">
@@ -288,8 +294,8 @@
 			</div>
 		</div>
 
-		<!-- Description: 2 lines max with ellipsis (min-w-0 so line-clamp works inside flex) -->
-			<p class="text-sm text-base-content/70 line-clamp-2">{service.description}</p>
+		<!-- Description: 2 lines max with ellipsis (locale-aware) -->
+			<p class="text-sm text-base-content/70 line-clamp-2">{displayDescription}</p>
 
 		<!-- Categories and Skills - Moved up, no border, limit to 2 lines and show +X -->
 		{#if (service.categories && service.categories.length > 0) || (service.skills && service.skills.length > 0)}

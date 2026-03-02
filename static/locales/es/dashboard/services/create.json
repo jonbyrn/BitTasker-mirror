@@ -52,6 +52,8 @@
 					"taskee_specific_location_label": "Ubicación Específica del Servicio",
 					"taskee_location_picker_label": "Seleccionar ubicación de servicio",
 					"taskee_location_placeholder": "Ingresa la dirección donde se puede proporcionar el servicio",
+					"unit_km": "km",
+					"unit_mile": "millas",
 					"location_picker": {
 						"use_my_location": "Usar mi ubicación",
 						"search_location": "Buscar ubicación",
@@ -86,7 +88,7 @@
 					"type_label": "Tipo de Precio",
 					"type_hint": "Elige cómo quieres fijar el precio de tu servicio",
 					"budget_question": "¿Cuál es tu precio?",
-					"budget_label": "Presupuesto",
+					"budget_label": "Precio",
 					"btc_price": "Precio actual de BTC:",
 					"fixed_title": "Precio Fijo",
 					"fixed_description": "Establece un precio fijo para tu servicio",
@@ -103,12 +105,17 @@
 					"estimated_hours_hint": "Opcional: Horas estimadas necesarias (para referencia del cliente)",
 					"estimated_hours_placeholder": "ej. 5",
 					"hour": "hora",
+					"sats_label": "Sats",
 					"tiered_note": "Configura tus niveles de servicio en el siguiente paso",
 					"inquiry_note": "Configura tu formulario de consulta en un paso posterior"
 				},
 				"tiers": {
 					"title": "Niveles de Servicio",
 					"hint": "Crea 2-4 paquetes de servicio (ej. Básico, Estándar, Premium)",
+					"default_basic": "Básico",
+					"default_standard": "Estándar",
+					"default_premium": "Premium",
+					"tier_number": "Nivel {n}",
 					"popular": "Popular",
 					"toggle_popular": "Marcar como popular/recomendado",
 					"remove": "Eliminar nivel",
@@ -194,6 +201,7 @@
 				"portfolio": {
 					"title": "Portafolio",
 					"hint": "Muestra tu trabajo con imágenes y videos (hasta 10 elementos)",
+					"item_alt": "Elemento del portafolio",
 					"upload_button": "Subir Elementos del Portafolio",
 					"compressing": "Comprimiendo",
 					"uploading": "Subiendo",

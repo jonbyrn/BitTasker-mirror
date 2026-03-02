@@ -12,6 +12,7 @@
 	import { t } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
+	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 
 	// Import step components
 	import ServiceBasics from '$lib/components/service/steps/ServiceBasics.svelte';
@@ -68,6 +69,8 @@
 	// Load the draft when the page is loaded
 	onMount(async () => {
 		try {
+			// Load route translations (create service - all 10 steps) same as create-task
+			await loadPageTranslations('/dashboard/list-service');
 			isLoading = true;
 
 			// Check if we're in edit or duplicate mode
@@ -121,8 +124,8 @@
 					return;
 				}
 			} else {
-				// Load draft for new service creation (uses CREATE_STORAGE_KEY)
-				await store.loadDraft(false);
+				// New service: clear create draft so "Publicar Servicio" always shows an empty form
+				await store.clearDraft(false);
 				isEditDataLoaded = true;
 			}
 

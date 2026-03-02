@@ -184,7 +184,7 @@
 				</div>
 				<div class="relative">
 					<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2">
-						Sats
+						{$t('dashboard.services.create.pricing.sats_label')}
 					</span>
 					<input
 						type="text"

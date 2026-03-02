@@ -292,8 +292,8 @@
 									}
 								}}
 							>
-								<option value="km">km</option>
-								<option value="mile">mile</option>
+								<option value="km">{$t('dashboard.services.create.location.unit_km')}</option>
+								<option value="mile">{$t('dashboard.services.create.location.unit_mile')}</option>
 							</select>
 						</div>
 					</div>

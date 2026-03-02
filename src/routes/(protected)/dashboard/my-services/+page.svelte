@@ -2,8 +2,9 @@
 	import type { Service } from '$lib/types/service.d';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { findMyServices } from '$lib/nostr/findServices';
+	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import type { ServiceTier } from '$lib/types/service.d';
@@ -126,7 +127,7 @@
 					<div class="card-body p-4">
 						<div class="flex flex-col gap-3">
 							<div class="flex items-start justify-between gap-2">
-								<h4 class="font-semibold line-clamp-2 flex-1">{service.title}</h4>
+								<span class="font-semibold text-lg line-clamp-2 flex-1">{getServiceDisplayTitle(service, $locale || 'en')}</span>
 								<span
 									class="badge badge-sm shrink-0 {service.status === 'active'
 										? 'badge-success'
@@ -143,7 +144,7 @@
 									{/if}
 								</span>
 							</div>
-							<p class="text-base-content/60 text-sm line-clamp-2">{service.description || '—'}</p>
+							<p class="text-base-content/60 text-sm line-clamp-2">{getServiceDisplayDescription(service, $locale || 'en') || '—'}</p>
 							<p class="text-sm font-medium">{getPriceLabel(service)}</p>
 							<div class="flex flex-wrap gap-2 pt-2">
 								<button
