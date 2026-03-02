@@ -158,7 +158,8 @@
 	</div>
 {/snippet}
 
-<div class="mx-auto max-w-6xl p-4">
+<!-- Mismas dimensiones que Mi Panel -->
+<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<div class="mb-4">
 		<div class="flex items-center justify-between">
 			<div>

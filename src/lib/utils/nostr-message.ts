@@ -21,7 +21,11 @@ const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
  * This ensures we use a single pool across the entire application
  */
 function getPool() {
-	return get(appStore).pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
+	return pool;
 }
 
 // --- Batch Profile Fetching ---

@@ -10,13 +10,6 @@ type AttachmentOutput {
   fileUrl: String!
 }
 
-type Auth {
-  access_token: String!
-  expires_in: Int!
-  token_type: String!
-  user: User!
-}
-
 type Bid {
   amount: Float!
   clicks: Int!
@@ -103,22 +96,10 @@ type BidsWithPaginationDto {
   pagination: BidPaginationDto!
 }
 
-input BudgetInput {
-  currency: String
-  tier: String
-  type: BudgetTypeEnum
-}
-
 enum BudgetType {
   FIXED
   HOURLY
   RANGE
-}
-
-"""The type of budget (fixed or hourly)"""
-enum BudgetTypeEnum {
-  FIXED
-  HOURLY
 }
 
 type Category {
@@ -132,11 +113,6 @@ type Category {
   parentId: Float
   slug: String!
   updatedAt: DateTime!
-}
-
-input ChangePasswordInput {
-  currentPassword: String!
-  newPassword: String!
 }
 
 input ContextEncryptionDto {
@@ -260,14 +236,6 @@ input EncryptedDataDto {
   iv: String!
 }
 
-type LegacyEncryptedDataDto {
-  authTag: String!
-  encryptedPrivateKey: String!
-  iterations: Float!
-  iv: String!
-  salt: String!
-}
-
 input LocationInput {
   displayName: String
   latitude: Float
@@ -288,21 +256,15 @@ type LocationOutput {
   zipCode: String
 }
 
-input LoginInput {
-  email: String!
-  password: String!
-}
-
 input MasterKeyEncryptedDataDto {
-  exportedMasterKey: String!
-  masterSalt: String!
+  exportedMasterKey: String
+  masterSalt: String
   nostr: ContextEncryptionDto!
   wallet: ContextEncryptionDto!
 }
 
 type Mutation {
   acceptBid(id: Int!): BidResponse!
-  changePassword(input: ChangePasswordInput!): Boolean!
   changeTaskStatus(status: TaskStatus!, taskId: ID!): Task!
   createBid(input: CreateBidInput!): BidResponse!
   createTask(input: CreateTaskInput!): Task!
@@ -310,8 +272,6 @@ type Mutation {
   createTaskTemplate(input: CreateTaskTemplateInput!): TaskTemplateResponse!
   deleteTask(id: Int!): Boolean!
   deleteTaskTemplate(id: Int!): Boolean!
-  login(input: LoginInput!): Auth!
-  register(input: RegisterInput!): Auth!
   registerDevice(input: RegisterDeviceInput!): UserDevice!
   rejectBid(id: Int!): BidResponse!
   revokeAllDevices: NotificationResponse!
@@ -320,8 +280,6 @@ type Mutation {
   sendNotificationToDevice(input: SendNotificationToDeviceInput!): DeviceNotificationResult!
   sendNotificationToNpubs(input: SendNotificationToNpubsInput!): NpubNotificationResponse!
   subscribeToTopic(input: SubscribeToTopicInput!): NotificationResponse!
-  triggerBatchTaskCheck: SavedSearchNotificationResult!
-  triggerSavedSearchCheck(task: TaskBodyInput!): SavedSearchNotificationResult!
   unsubscribeFromTopic(input: SubscribeToTopicInput!): NotificationResponse!
   updateBid(id: Int!, input: UpdateBidInput!): BidResponse!
   updateDevice(deviceId: String!, input: UpdateDeviceInput!): UserDevice!
@@ -329,15 +287,7 @@ type Mutation {
   updateTask(id: Int!, input: UpdateTaskInput!): Task!
   updateTaskTemplate(id: Int!, input: UpdateTaskTemplateInput!): TaskTemplateResponse!
   updateUserProfile(input: UpdateUserProfileInput!): User!
-  verifyTurnstileToken(input: TurnstileVerificationInput!): TurnstileVerificationResult!
   withdrawBid(id: Int!, reason: String): Boolean!
-}
-
-"""The frequency of notifications for saved searches"""
-enum NotificationFrequency {
-  DAILY
-  INSTANT
-  WEEKLY
 }
 
 type NotificationResponse {
@@ -363,11 +313,6 @@ type NpubNotificationResult {
   successfulDevices: Int!
 }
 
-type OnboardingStatusDto {
-  isComplete: Boolean!
-  missingFields: [String!]!
-}
-
 type PaginatedTasksResponse {
   items: [Task!]!
   meta: PaginationMeta!
@@ -389,17 +334,12 @@ type PlatformDistribution {
 }
 
 type Query {
-  IsOnboardingComplete: OnboardingStatusDto!
   bid(id: Int!): Bid!
   bids: UserBidsResponse!
   bidsByTask(taskId: Int!): [Bid!]!
   categories: [Category!]!
   category(id: Int!): Category
-  checkUsernameAvailability(username: String!): Boolean!
   deviceStatistics: DeviceStatistics!
-  getUserSavedSearches: [SavedSearchInfo!]!
-  getUsernameHistory(userId: Int!): [String!]!
-  me: User!
   myDevices: [UserDevice!]!
   myNotificationPreferences: UserNotificationPreferences
   myTasks: [Task!]!
@@ -412,7 +352,6 @@ type Query {
   tasks(input: SearchTasksDto!): PaginatedTasksResponse!
   user(id: Int!): User!
   users: [User!]!
-  verifyToken(token: String!): TokenVerificationResult!
 }
 
 enum RecurrenceFrequency {
@@ -455,28 +394,6 @@ input RegisterDeviceInput {
   deviceName: String
   fcmToken: String!
   platform: DevicePlatform!
-}
-
-input RegisterInput {
-  email: String!
-  name: String
-  password: String!
-}
-
-type SavedSearchInfo {
-  createdAt: String!
-  id: String!
-  isActive: Boolean!
-  name: String!
-  notificationFrequency: NotificationFrequency!
-  notifyOnMatch: Boolean!
-  unreadNotifications: Int!
-}
-
-type SavedSearchNotificationResult {
-  matchCount: Int
-  message: String
-  success: Boolean!
 }
 
 input SearchTasksDto {
@@ -577,20 +494,6 @@ type Task {
   visibility: TaskVisibility!
 }
 
-input TaskBodyInput {
-  budget: BudgetInput
-  categories: [String!]!
-  dateRange: String
-  deadline: String
-  description: String!
-  dropOffLocation: LocationInput
-  eventId: String
-  pickupLocation: LocationInput
-  skills: [String!]!
-  taskType: TaskType!
-  title: String!
-}
-
 enum TaskStatus {
   CANCELLED
   COMPLETED
@@ -622,21 +525,6 @@ enum TaskVisibility {
   INVITE_ONLY
   PRIVATE
   PUBLIC
-}
-
-type TokenVerificationResult {
-  isValid: Boolean!
-  user: User
-}
-
-input TurnstileVerificationInput {
-  action: String
-  token: String!
-}
-
-type TurnstileVerificationResult {
-  message: String
-  success: Boolean!
 }
 
 input UpdateBidInput {

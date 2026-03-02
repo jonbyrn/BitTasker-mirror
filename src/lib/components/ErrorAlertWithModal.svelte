@@ -27,13 +27,8 @@
 	// Auto-detect error type if not provided
 	const errorType = $derived(providedErrorType || detectErrorType(error));
 
-	// Determine if modal should auto-open
-	const shouldAutoOpen = $derived(
-		autoOpenModal !== undefined ? autoOpenModal : isPasskeyError
-	);
-
 	let showErrorModal = $state(false);
-	
+
 	// errorMessage is derived from error prop - use $derived for reactive values
 	const errorMessage = $derived(error || '');
 
@@ -46,10 +41,10 @@
 			showErrorModal = false;
 			return;
 		}
-		
+
 		// Determine if we should auto-open - access props directly for reactivity
 		const shouldOpen = autoOpenModal !== undefined ? autoOpenModal : isPasskeyError;
-		
+
 		// Auto-open if error exists and shouldOpen is true
 		if (error && shouldOpen) {
 			// Use setTimeout to ensure DOM is ready after error appears
@@ -57,7 +52,7 @@
 			const timeoutId = setTimeout(() => {
 				showErrorModal = true;
 			}, 0);
-			
+
 			return () => clearTimeout(timeoutId);
 		}
 	});

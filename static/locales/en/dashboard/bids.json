@@ -95,15 +95,37 @@
         "show_more_details": "Show more details",
         "show_less": "Show less",
         "no_task_description": "No description available",
-        "bid_id": "Bid ID"
+        "bid_id": "Bid ID",
+        "section_task": "Task",
+        "section_budget": "Budget",
+        "section_your_bid": "Your Bid",
+        "section_your_offer": "Your offer",
+        "section_received_offer": "Received offer",
+        "task_original_budget": "Original task budget",
+        "your_offer_amount": "Your offer",
+        "sent_at": "Sent at",
+        "status_countered": "Countered",
+        "status_withdrawn": "Withdrawn",
+        "withdraw_bid": "Withdraw Bid",
+        "withdraw_confirm_title": "Withdraw Bid?",
+        "withdraw_confirm_message": "Are you sure you want to withdraw this bid? The Tasker will no longer be able to see it.",
+        "withdraw_confirm_submit": "Withdraw",
+        "withdraw_confirm_cancel": "Cancel",
+        "withdraw_success": "Bid withdrawn successfully",
+        "withdraw_error": "Failed to withdraw bid"
     },
     "bid_form": {
         "title": "Place Your Bid",
+        "help_modal_title": "How to place a bid?",
+        "help_tooltip": "Set your price, dates, and describe how you'll do the task. This is your proposal to get the job. The tasker will review it and can accept, reject, or send a counteroffer.",
+        "task_you_are_bidding_on": "Task you're bidding on",
         "form": {
+            "suggested_price": "Suggested price",
             "payment_type": "Payment Type",
             "fixed_price": "Fixed Price",
             "hourly_rate": "Hourly Rate",
             "budget": "Budget",
+            "budget_unavailable": "Not available",
             "hourly_rate_label": "Hourly Rate",
             "estimated_hours": "Estimated Hours",
             "total_estimated": "Total Estimated Amount",
@@ -124,15 +146,16 @@
                 "placeholder": "Select date and time"
             },
             "description": {
-                "label": "Bid Description",
+                "label": "Description of your offer",
                 "placeholder": "Explain why you're the right person for this task"
             },
+            "additional_info_title": "Additional information (optional)",
             "approach": {
-                "label": "Your Approach (Optional)",
+                "label": "Your Approach",
                 "placeholder": "Describe how you plan to complete this task"
             },
             "cover_letter": {
-                "label": "Cover Letter (Optional)",
+                "label": "Cover Letter",
                 "placeholder": "Add additional information about your experience and qualifications"
             },
             "airdatepicker": {
@@ -244,7 +267,11 @@
         "creating_escrow": "Creating Secure Payment Contract...",
         "creating": "Creating...",
         "accept_and_pay": "Accept & Pay",
+        "accept": "Accept",
+        "fund_contract_title": "Fund Contract",
+        "fund": "Fund",
         "bid_accepted_message": "Your bid has been accepted!",
+        "task_status_update_error": "Escrow and bid status updated, but task status could not be updated. Bidding may still appear open.",
         "day": "day",
         "days": "days",
         "hour": "hour",

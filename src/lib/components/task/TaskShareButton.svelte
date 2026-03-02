@@ -1,7 +1,16 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
-	import { handleTaskShare } from '$lib/composables/useTaskShare';
+	import { get } from 'svelte/store';
+	import { locale } from 'svelte-i18n';
+	import { formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
+	import { currentUserLanguage } from '$lib/stores/translation.store';
+	import { taskTranslationService } from '$lib/services/task-translation.service';
+	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { Capacitor } from '@capacitor/core';
 
 	let { task, variant = 'default', class: className = '' } = $props<{
 		task: Task | null;
@@ -10,6 +19,159 @@
 	}>();
 
 	let shareSuccess = $state(false);
+
+	function truncateText(text: string, maxLength = 200): string {
+		if (!text || text.length <= maxLength) return text;
+		const truncated = text.substring(0, maxLength);
+		const lastSpace = truncated.lastIndexOf(' ');
+		if (lastSpace > 0) return truncated.substring(0, lastSpace) + '...';
+		return truncated + '...';
+	}
+
+	function formatDateTimeForShare(dateString: string): string {
+		const date = parseDateToLocalMidnight(dateString) || new Date(dateString);
+		if (!date || isNaN(date.getTime())) return '';
+		const localeToUse = get(locale) || 'en';
+		const formattedDate = formatStandardDateShort(date, localeToUse);
+		const formattedTime = date.toLocaleTimeString(localeToUse, {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		});
+		return `${formattedDate} · ${formattedTime}`;
+	}
+
+	function formatDateRangeForShare(startDateString: string, endDateString: string): string {
+		const localeToUse = get(locale) || 'en';
+		const startDate = new Date(startDateString);
+		const endDate = new Date(endDateString);
+		if (
+			!startDate ||
+			!endDate ||
+			isNaN(startDate.getTime()) ||
+			isNaN(endDate.getTime())
+		)
+			return '';
+		return `${formatStandardDateShort(startDate, localeToUse)} - ${formatStandardDateShort(endDate, localeToUse)}`;
+	}
+
+	function formatShareText(task: Task): string {
+		if (!task) return get(t)('common.share.check_out_task');
+		const userLang = get(currentUserLanguage) || 'en';
+		const translation = taskTranslationService.getStoredTranslation(task, userLang);
+		const description = translation?.translatedDescription || task.description || '';
+		let text = description ? truncateText(description, 200) : get(t)('common.share.check_out_task');
+		const details: string[] = [];
+		if (task.budget?.amount) {
+			details.push(
+				`💰 ${get(t)('common.share.budget')}:\n$${formatNumberWithTwoDecimals(task.budget.amount)}`
+			);
+		}
+		if (task.deadline) {
+			const deadlineFormatted = formatDateTimeForShare(task.deadline);
+			if (deadlineFormatted)
+				details.push(`📅 ${get(t)('common.share.deadline')}:\n${deadlineFormatted}`);
+		} else if (task.dateRange) {
+			const dateRangeFormatted = formatDateRangeForShare(
+				task.dateRange.start,
+				task.dateRange.end
+			);
+			if (dateRangeFormatted)
+				details.push(`📅 ${get(t)('common.share.deadline')}:\n${dateRangeFormatted}`);
+		}
+		if (task.dropOffLocation?.displayName) {
+			details.push(
+				`📍 ${get(t)('common.share.location')}:\n${task.dropOffLocation.displayName}`
+			);
+		} else if (task.pickupLocation?.displayName) {
+			details.push(
+				`📍 ${get(t)('common.share.location')}:\n${task.pickupLocation.displayName}`
+			);
+		} else if (task.taskType === TaskTypeEnum.REMOTE) {
+			details.push(
+				`📍 ${get(t)('common.share.location')}:\n${get(t)('dashboard.task_details_by_task.remote')}`
+			);
+		}
+		if (details.length > 0) text += '\n\n' + details.join('\n\n');
+		return text;
+	}
+
+	function getTaskShareLink(task: Task | null, taskId?: string): string {
+		if (typeof window !== 'undefined') {
+			if (task) return `${window.location.origin}/tasks/${task.id}`;
+			if (taskId) return `${window.location.origin}/tasks/${taskId}`;
+		}
+		return '';
+	}
+
+	async function handleTaskShare(
+		task: Task | null,
+		onSuccess: (success: boolean) => void,
+		event?: MouseEvent
+	): Promise<void> {
+		if (event) event.stopPropagation();
+		if (!task) return;
+		const link = getTaskShareLink(task);
+		if (!link) return;
+		const userLang = get(currentUserLanguage) || 'en';
+		const translation = taskTranslationService.getStoredTranslation(task, userLang);
+		const shareTitle =
+			translation?.translatedTitle ||
+			task?.title ||
+			get(t)('dashboard.task_details_by_task.title');
+		const shareText = formatShareText(task);
+
+		if (Capacitor.isNativePlatform()) {
+			try {
+				const { Share } = await import('@capacitor/share');
+				await Share.share({
+					title: shareTitle,
+					text: shareText,
+					url: link,
+					dialogTitle: shareTitle
+				});
+				onSuccess(true);
+				appStore.showSuccessToast(get(t)('common.toast.link_copied'));
+				setTimeout(() => onSuccess(false), 2000);
+				return;
+			} catch (error) {
+				if (
+					(error as Error).name !== 'AbortError' &&
+					!(error as Error).message?.includes('cancel')
+				) {
+					/* fall through to Web Share API */
+				}
+			}
+		}
+
+		if (typeof navigator !== 'undefined' && navigator.share) {
+			try {
+				await navigator.share({
+					title: shareTitle,
+					text: shareText,
+					url: link
+				});
+				onSuccess(true);
+				appStore.showSuccessToast(get(t)('common.toast.link_copied'));
+				setTimeout(() => onSuccess(false), 2000);
+				return;
+			} catch (error) {
+				if ((error as Error).name !== 'AbortError') {
+					/* fall through to copy */
+				}
+			}
+		}
+
+		const fullText = `${shareText}\n\n${link}`;
+		const success = await copyToClipboard(fullText);
+		if (success) {
+			onSuccess(true);
+			appStore.showSuccessToast(get(t)('common.toast.link_copied'));
+			setTimeout(() => onSuccess(false), 2000);
+		} else {
+			appStore.showErrorToast(get(t)('common.toast.link_copy_failed'));
+		}
+	}
 
 	const handleClick = async (e: MouseEvent) => {
 		await handleTaskShare(task, (success) => {

@@ -1,6 +1,9 @@
 import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
 import { writable } from 'svelte/store';
-import { getContracts, handleStatusEvent, handleContractEvent } from '$lib/utils/escrow/v1/nostrContract';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('storecontracts');
+import { escrow } from '$lib/utils/escrow';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19, type NostrEvent } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
@@ -63,16 +66,17 @@ function createContractStore() {
 	async function subscribeToStatusUpdates() {
 		try {
 			if (statusSubscriptionIncoming && statusSubscriptionOutgoing) {
-				return console.log('[ContractStore] Already subscribed to status updates');
+				d.log('Already subscribed to status updates');
+				return;
 			}
 
 			const npub = await getNpub();
 			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 			const _appStore = get(appStore);
-			const pool = _appStore.pool;
+			const pool = _appStore?.pool;
 
 			if (!pool) {
-				console.error('[ContractStore] Pool not available');
+				d.error('Pool not available (subscribeToStatusUpdates)');
 				return;
 			}
 
@@ -80,27 +84,27 @@ function createContractStore() {
 
 			// Subscription 1: Status events where user is RECIPIENT
 			statusSubscriptionIncoming = pool.subscribe(
-				_appStore.relays,
+				_appStore?.relays ?? [],
 				{
 					kinds: [KINDS.CONTRACT_STATUS],
 					'#p': [userPubkeyHex],
 					since
 				},
-				{ onevent: async (event: NostrEvent) => await handleStatusEvent(event) }
+				{ onevent: async (event: NostrEvent) => await escrow.contractOps.handleStatusEvent(event) }
 			);
 
 			// Subscription 2: Status events where user is AUTHOR (to see own updates)
 			statusSubscriptionOutgoing = pool.subscribe(
-				_appStore.relays,
+				_appStore?.relays ?? [],
 				{
 					kinds: [KINDS.CONTRACT_STATUS],
 					authors: [userPubkeyHex],
 					since
 				},
-				{ onevent: async (event: NostrEvent) => await handleStatusEvent(event) }
+				{ onevent: async (event: NostrEvent) => await escrow.contractOps.handleStatusEvent(event) }
 			);
 		} catch (error) {
-			console.error('[ContractStore] Failed to subscribe:', error);
+			d.error('Failed to subscribe:', error);
 		}
 	}
 
@@ -117,10 +121,10 @@ function createContractStore() {
 			const npub = await getNpub();
 			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 			const _appStore = get(appStore);
-			const pool = _appStore.pool;
+			const pool = _appStore?.pool;
 
 			if (!pool) {
-				console.error('[ContractStore] Pool not available');
+				d.error('Pool not available (subscribeToNewContracts)');
 				return;
 			}
 
@@ -129,17 +133,17 @@ function createContractStore() {
 
 			// Subscription 1: Contract events where user is PARTICIPANT
 			contractSubscription = pool.subscribe(
-				_appStore.relays,
+				_appStore?.relays ?? [],
 				{
 					kinds: [KINDS.CONTRACT],
 					'#p': [userPubkeyHex],
 					'#n': [currentNetwork], // Filter by current network
 					since
 				},
-				{ onevent: handleContractEvent }
+				{ onevent: escrow.contractOps.handleContractEvent }
 			);
 		} catch (error) {
-			console.error('[ContractStore] Failed to subscribe to new contracts:', error);
+			d.error('Failed to subscribe to new contracts:', error);
 		}
 	}
 
@@ -175,56 +179,19 @@ function createContractStore() {
 		 * Load all contracts (initial load)
 		 */
 		async loadContracts() {
-			const loadStartTime = performance.now();
-			console.log('[DEBUG] [ContractStore] loadContracts() called', {
-				timestamp: new Date().toISOString()
-			});
-
 			// Check wallet state before loading
 			try {
-				const { walletStore } = await import('$lib/stores/wallet.store');
-				const { get } = await import('svelte/store');
-				const walletState = get(walletStore);
-				console.log('[DEBUG] [ContractStore] Wallet state at loadContracts() start', {
-					isConnected: walletState.isConnected,
-					isInitializing: walletState.isInitializing,
-					hasRSKWallet: !!walletState.rsk?.wallet,
-					hasRSKProvider: !!walletState.rsk?.provider,
-					rskConnected: walletState.rsk?.connected
-				});
-			} catch (walletStateError) {
-				console.warn('[DEBUG] [ContractStore] Failed to check wallet state:', walletStateError);
+				await import('$lib/stores/wallet.store');
+				await import('svelte/store');
+			} catch {
+				// Wallet state check failed
 			}
 
 			update((state) => ({ ...state, isLoading: true, error: null }));
+			d.log('load start', { limit: CONTRACTS_LIMIT });
 
 			try {
-				const getContractsStartTime = performance.now();
-				const loadedContracts = await getContracts({ limit: CONTRACTS_LIMIT });
-				const getContractsDuration = performance.now() - getContractsStartTime;
-
-				console.log('[DEBUG] [ContractStore] getContracts() completed', {
-					contractCount: loadedContracts.length,
-					durationMs: getContractsDuration.toFixed(2),
-					contractsWithPending: loadedContracts.filter(c => c.isPending).length,
-					contractsWithNullEscrowData: loadedContracts.filter(c => !c.escrowData).length,
-					contractsWithBlockchainStatus: loadedContracts.filter(c => c.blockchainStatus !== null).length
-				});
-
-				// Log details about contracts with issues
-				loadedContracts.forEach((contract, index) => {
-					if (contract.isPending || !contract.escrowData || contract.blockchainStatus === null) {
-						const escrowId = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
-						console.warn(`[DEBUG] [ContractStore] Contract ${index} has issues:`, {
-							escrowId,
-							isPending: contract.isPending,
-							hasEscrowData: !!contract.escrowData,
-							blockchainStatus: contract.blockchainStatus,
-							status: contract.status,
-							hasTransactionHash: !!contract.contractEvent.content.transactionHash
-						});
-					}
-				});
+				const loadedContracts = await escrow.contractOps.getContracts({ limit: CONTRACTS_LIMIT });
 
 				// Build index map: escrowData.id -> array index for O(1) access
 				const contractsMap = new Map<string, number>();
@@ -256,31 +223,29 @@ function createContractStore() {
 					isLoadingMore: false
 				});
 
+				d.log('load result', {
+					count: loadedContracts.length,
+					sample: loadedContracts.map((c) => ({
+						escrowId: c.escrowData?.id ?? c.contractEvent.content.escrowId,
+						taskId: c.contractEvent.content.taskId,
+						taskIdFormat:
+							typeof c.contractEvent.content.taskId === 'string'
+								? /^[0-9a-fA-F]{64}$/.test(c.contractEvent.content.taskId)
+									? 'event-id'
+									: 'd-tag'
+								: 'unknown',
+						status: c.status
+					}))
+				});
+
 				// Subscribe to real-time updates AFTER initial load
 				await subscribeToStatusUpdates();
 				await subscribeToNewContracts();
 
 				// Mark as subscribed
 				update((state) => ({ ...state, isSubscribed: true }));
-
-				const totalDuration = performance.now() - loadStartTime;
-				console.log('[DEBUG] [ContractStore] loadContracts() completed successfully', {
-					totalDurationMs: totalDuration.toFixed(2),
-					contractCount: loadedContracts.length,
-					timestamp: new Date().toISOString()
-				});
 			} catch (err) {
-				const totalDuration = performance.now() - loadStartTime;
 				const error = err instanceof Error ? err.message : 'Failed to load contracts';
-				console.error('[DEBUG] [ContractStore] ❌ loadContracts() failed', {
-					error,
-					errorDetails: err instanceof Error ? {
-						message: err.message,
-						stack: err.stack?.split('\n').slice(0, 5).join('\n')
-					} : String(err),
-					totalDurationMs: totalDuration.toFixed(2),
-					timestamp: new Date().toISOString()
-				});
 				update((state) => ({ ...state, error, isLoading: false }));
 			}
 		},
@@ -304,14 +269,14 @@ function createContractStore() {
 
 			// Prevent multiple simultaneous loads
 			if (state.isLoadingMore || state.isLoading || !state.hasMore) {
-				return console.log(
-					'[ContractStore] Already loading more contracts or no more contracts to load'
-				);
+				d.log('Already loading more contracts or no more contracts to load');
+				return;
 			}
 
 			if (!state.oldestTimestamp) {
 				update((state) => ({ ...state, isLoadingMore: false, hasMore: false }));
-				return console.log('[ContractStore] No oldest timestamp to load more contracts');
+				d.log('No oldest timestamp to load more contracts');
+				return;
 			}
 
 			update((state) => ({ ...state, isLoadingMore: true }));
@@ -319,7 +284,7 @@ function createContractStore() {
 			try {
 				// Fetch with buffer for handling collisions and duplicates
 				const fetchLimit = CONTRACTS_LIMIT + PAGINATION_BUFFER;
-				const fetchedContracts = await getContracts({
+				const fetchedContracts = await escrow.contractOps.getContracts({
 					limit: fetchLimit,
 					until: state.oldestTimestamp
 				});
@@ -327,17 +292,15 @@ function createContractStore() {
 				// Check if we got any new contracts
 				if (fetchedContracts.length === 0) {
 					update((s) => ({ ...s, hasMore: false, isLoadingMore: false }));
-					console.log('[ContractStore] No more contracts available');
+					d.log('No more contracts available');
 					return;
 				}
 
 				// Filter out already-loaded contracts by escrowData.id (deduplication)
-				const newContracts = fetchedContracts.filter(
-					(contract) => {
-						const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
-						return !state.contractsMap.has(id);
-					}
-				);
+				const newContracts = fetchedContracts.filter((contract) => {
+					const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+					return !state.contractsMap.has(id);
+				});
 
 				// Take only the contracts we need (LIMIT)
 				const contractsToAdd = newContracts.slice(0, CONTRACTS_LIMIT);
@@ -345,7 +308,7 @@ function createContractStore() {
 				if (contractsToAdd.length === 0) {
 					// All fetched contracts were duplicates - try fetching from older timestamp
 					const oldestFetched = fetchedContracts[fetchedContracts.length - 1];
-					console.log('[ContractStore] All contracts were duplicates, updating boundary');
+					d.log('All contracts were duplicates, updating boundary');
 
 					update((s) => ({
 						...s,
@@ -385,7 +348,7 @@ function createContractStore() {
 					};
 				});
 			} catch (err) {
-				console.error('[ContractStore] Error loading more contracts:', err);
+				d.error('Error loading more contracts:', err);
 				update((s) => ({ ...s, isLoadingMore: false }));
 			}
 		},
@@ -397,11 +360,12 @@ function createContractStore() {
 		 */
 		async loadContractByEscrowId(escrowId: string) {
 			try {
-				const loadedContracts = await getContracts({ escrowIds: [escrowId] });
+				const loadedContracts = await escrow.contractOps.getContracts({ escrowIds: [escrowId] });
 
 				if (loadedContracts.length > 0) {
 					const updatedContract = loadedContracts[0];
-					const escrowDataId = updatedContract.escrowData?.id ?? updatedContract.contractEvent.content.escrowId;
+					const escrowDataId =
+						updatedContract.escrowData?.id ?? updatedContract.contractEvent.content.escrowId;
 
 					update((state) => {
 						const index = state.contractsMap.get(escrowDataId);
@@ -430,7 +394,7 @@ function createContractStore() {
 					});
 				}
 			} catch (err) {
-				console.error(`[ContractStore] Error reloading contract ${escrowId}:`, err);
+				d.error('Error reloading contract', { escrowId }, err);
 			}
 		},
 
@@ -469,7 +433,7 @@ function createContractStore() {
 				return contract.contractEvent.content[key as keyof NostrContract];
 			}
 
-			console.warn(`[ContractStore] Unknown key: ${String(key)}`);
+			d.warn('Unknown key', { key: String(key) });
 			return undefined;
 		},
 

@@ -1,9 +1,10 @@
-import type { AuthState, Credentials, UserData } from '$lib/types/auth';
+import type { AuthState, BiometricData, Credentials, UserData } from '$lib/types/auth';
 import { writable } from 'svelte/store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { appStore } from './app.store';
+import { resetMigration } from '$lib/utils/helpers/migratePasskey';
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
@@ -33,7 +34,7 @@ const createAuthStore = () => {
 		set(initialAuthState);
 	}
 
-	const setupAuthData = async (accessToken: string, authMethod: string, npub: string, userData: Partial<UserData>, biometricData?: Credentials, redirect: boolean = true) => {
+	const setupAuthData = async (accessToken: string, authMethod: string, npub: string, userData: Partial<UserData>, biometricData?: BiometricData, redirect: boolean = true) => {
 		await Preferences.set({ key: StorageKeys.ACCESS_TOKEN, value: accessToken });
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
 
@@ -43,6 +44,9 @@ const createAuthStore = () => {
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
 		if (redirect) await goto('/dashboard').then(async () => {
+			// Close modal and reset migration state
+			resetMigration();
+
 			// TODO: To be removed after getting auth method from the server
 			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 			const { user } = await import('./user.store');

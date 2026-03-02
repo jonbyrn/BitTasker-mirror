@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { createPortal } from '$lib/utils/portal';
-	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+	import { EscrowStatus } from '$lib/utils/escrow';
 	import { contractStore } from '$lib/stores/contract.store';
+	import { tasksStore, myTasksStore } from '$lib/stores/task.store';
+	import { reconcileTaskStatusWithContracts } from '$lib/utils/helpers/task-status-reconciliation';
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
@@ -28,7 +31,6 @@
 	let isStatusDropdownOpen = $state(false);
 
 	let btcPrice = $state<number>(0);
-	let btcPriceError = $state<string | null>(null);
 
 	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
@@ -104,85 +106,56 @@
 	// Load contracts on mount
 	async function fetchBtcPrice(): Promise<void> {
 		try {
-			btcPriceError = null;
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
-			btcPriceError = error instanceof Error ? error.message : 'Failed to fetch BTC price';
 			// Set fallback price to 0 so UI shows RBTC amount instead
 			btcPrice = 0;
 		}
 	}
 
-	onMount(async () => {
-		const mountStartTime = import.meta.env.DEV ? performance.now() : 0;
-		if (import.meta.env.DEV) {
-			console.log('[DEBUG] [DashboardContractsPanel] onMount - Starting contract load', {
-				timestamp: new Date().toISOString()
-			});
-		}
+	function getTaskStatusFromStores(taskId: string): string | undefined {
+		const tasks = get(tasksStore).items;
+		const myTasks = get(myTasksStore).items;
+		const task = tasks.find((t) => t.id === taskId) ?? myTasks.find((t) => t.id === taskId);
+		return task?.status;
+	}
 
+	async function runTaskStatusReconciliation(): Promise<void> {
+		const contracts = get(contractStore).contracts;
+		// Only reconcile contracts where current user is the Tasker (client).
+		// The task event is owned by the Tasker; only they can call updateTask.
+		// Running reconciliation on Taskee contracts causes "Task author mismatch" errors.
+		const taskerContracts = contracts.filter((c) => c.isClient);
+		if (taskerContracts.length === 0) return;
+		await reconcileTaskStatusWithContracts(taskerContracts, getTaskStatusFromStores);
+	}
+
+	async function refreshContracts(): Promise<void> {
+		await contractStore.loadContracts();
+		await runTaskStatusReconciliation();
+	}
+
+	onMount(async () => {
 		// Ensure wallet is initialized BEFORE loading contracts
 		try {
 			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
 			const { get } = await import('svelte/store');
 			let walletState = get(walletStore);
-			
-			if (import.meta.env.DEV) {
-				console.log('[DEBUG] [DashboardContractsPanel] Wallet state before initialization check', {
-					isConnected: walletState.isConnected,
-					isInitializing: walletState.isInitializing,
-					hasRSKWallet: !!walletState.rsk?.wallet,
-					hasRSKProvider: !!walletState.rsk?.provider,
-					rskConnected: walletState.rsk?.connected,
-					rskAddress: walletState.rsk?.address,
-					timestamp: new Date().toISOString()
-				});
-			}
 
 			// Wait for wallet initialization if not already initialized
 			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
-				if (import.meta.env.DEV) {
-					console.log('[DEBUG] [DashboardContractsPanel] Wallet not ready, initializing...');
-				}
-				const walletInitStartTime = import.meta.env.DEV ? performance.now() : 0;
 				await walletManager.initialize();
-				
-				// Re-check wallet state after initialization
 				walletState = get(walletStore);
-				if (import.meta.env.DEV) {
-					const walletInitDuration = performance.now() - walletInitStartTime;
-					console.log('[DEBUG] [DashboardContractsPanel] Wallet initialization completed', {
-						isConnected: walletState.isConnected,
-						hasRSKWallet: !!walletState.rsk?.wallet,
-						hasRSKProvider: !!walletState.rsk?.provider,
-						rskConnected: walletState.rsk?.connected,
-						initDurationMs: walletInitDuration.toFixed(2)
-					});
-				}
-			} else if (import.meta.env.DEV) {
-				console.log('[DEBUG] [DashboardContractsPanel] Wallet already initialized');
 			}
-		} catch (walletStateError) {
-			if (import.meta.env.DEV) {
-				console.error('[DEBUG] [DashboardContractsPanel] Failed to initialize wallet:', walletStateError);
-			}
+		} catch {
 			// Continue anyway - contracts will handle wallet initialization individually
 		}
 
-		const loadStartTime = import.meta.env.DEV ? performance.now() : 0;
 		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
-		
-		if (import.meta.env.DEV) {
-			const loadDuration = performance.now() - loadStartTime;
-			const totalMountDuration = performance.now() - mountStartTime;
-			console.log('[DEBUG] [DashboardContractsPanel] Contract load completed', {
-				loadDurationMs: loadDuration.toFixed(2),
-				totalMountDurationMs: totalMountDuration.toFixed(2),
-				contractCount: $contractStore.contracts.length,
-				timestamp: new Date().toISOString()
-			});
-		}
+
+		// Self-heal: sync Nostr task status for FundsReleased contracts (docs/tasks/task-status.md)
+		runTaskStatusReconciliation();
 
 		// Configure infinite scroll
 		scroll.update((state) => ({
@@ -237,11 +210,11 @@
 	// Handle window clicks for dropdown - use effect to conditionally attach
 	$effect(() => {
 		if (!isStatusDropdownOpen) return;
-		
+
 		const handler = (event: MouseEvent) => {
 			handleClickOutside(event);
 		};
-		
+
 		window.addEventListener('click', handler);
 		return () => {
 			window.removeEventListener('click', handler);
@@ -266,7 +239,7 @@
 			<!-- Refresh button: icon only on mobile, with text on desktop -->
 			<button
 				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
-				onclick={() => contractStore.loadContracts()}
+				onclick={() => refreshContracts()}
 				disabled={$contractStore.isLoading}
 				aria-label={$t('dashboard.contracts.refresh')}
 			>
@@ -288,7 +261,7 @@
 
 			<!-- Role Filter Buttons (Mobile) -->
 			<div class="mb-3 flex gap-2">
-				{#each roleFilterOptions as option}
+				{#each roleFilterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
 						class="btn {roleFilter === option.id
@@ -318,7 +291,7 @@
 					aria-label={$t('dashboard.contracts.filter_by_status')}
 				>
 					<div class="flex items-center gap-2">
-						{#each statusFilterOptions as option}
+						{#each statusFilterOptions as option (String(option.id))}
 							{#if statusFilter === option.id}
 								{@const IconComponent = option.icon}
 								<IconComponent class="h-5 w-5" />
@@ -342,7 +315,7 @@
 						aria-label={$t('dashboard.contracts.status_filter_menu')}
 						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
-						{#each statusFilterOptions as option}
+						{#each statusFilterOptions as option (String(option.id))}
 							{@const IconComponent = option.icon}
 							<button
 								role="menuitemradio"
@@ -372,7 +345,7 @@
 		<!-- Desktop: Role Filter Buttons -->
 		<div class="mb-4 hidden sm:block">
 			<div class="flex gap-2">
-				{#each roleFilterOptions as option}
+				{#each roleFilterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
 						class="btn {roleFilter === option.id
@@ -395,7 +368,7 @@
 		<!-- Desktop: Status Filter Buttons -->
 		<div class="mt-4 hidden sm:block">
 			<div class="flex flex-col gap-3 sm:flex-row">
-				{#each statusFilterOptions as option}
+				{#each statusFilterOptions as option (String(option.id))}
 					{@const IconComponent = option.icon}
 					<button
 						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {statusFilter ===
@@ -443,13 +416,13 @@
 				<h3 class="font-bold">{$t('dashboard.contracts.error_title')}</h3>
 				<div class="text-xs">{$contractStore.error}</div>
 			</div>
-			<button class="btn btn-sm btn-outline" onclick={() => contractStore.loadContracts()}>
+			<button class="btn btn-sm btn-outline" onclick={() => refreshContracts()}>
 				{$t('dashboard.contracts.retry')}
 			</button>
 		</div>
 	{/if}
 
-		<!-- Contracts List -->
+	<!-- Contracts List -->
 	{#if !$contractStore.isLoading && !$contractStore.error}
 		{#if filteredContracts.length === 0}
 			<div class="py-12 text-center">

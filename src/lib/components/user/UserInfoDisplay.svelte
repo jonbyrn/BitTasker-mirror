@@ -8,7 +8,6 @@
 		avatar = null,
 		username = null,
 		rating = 0,
-		anonymousLabel = $t('dashboard.task_details_by_task.anonymous'),
 		avatarAlt = $t('dashboard.find_tasks.avatar_alt') || 'Avatar',
 		size = 'md',
 		pubkey = null, // Optional pubkey to fetch profile if username is invalid
@@ -18,7 +17,6 @@
 		avatar?: string | null;
 		username?: string | null;
 		rating?: number;
-		anonymousLabel?: string;
 		avatarAlt?: string;
 		size?: 'sm' | 'md' | 'lg';
 		pubkey?: string | null; // npub or hex pubkey for fetching profile metadata
@@ -26,8 +24,8 @@
 		profileLink?: string | null; // npub or hex pubkey for profile link
 	}>();
 
-	// State for fetched profile data
-	let fetchedProfile = $state<{ name?: string; picture?: string } | null>(null);
+	// State for fetched profile data (fetchProfileMetadata returns name, picture, createdAt)
+	let fetchedProfile = $state<{ name?: string; picture?: string; createdAt?: string } | null>(null);
 	let isLoadingProfile = $state(false);
 	let normalizedHexPubkey = $state<string | null>(null); // Normalized hex pubkey for consistent caching
 	let lastLoadedPubkey = $state<string | null>(null); // Track which pubkey we last loaded to prevent duplicate loads
@@ -84,10 +82,12 @@
 
 	/**
 	 * Get formatted member since text
+	 * Uses memberSince prop when provided, otherwise falls back to fetched profile's createdAt
 	 */
 	const formattedMemberSince = $derived.by(() => {
-		if (!memberSince) return null;
-		return formatMemberSinceDate(memberSince);
+		const dateSource = memberSince ?? fetchedProfile?.createdAt;
+		if (!dateSource) return null;
+		return formatMemberSinceDate(dateSource);
 	});
 
 	/**
@@ -163,17 +163,17 @@
 	});
 
 	/**
-	 * Get the display username - use fetched profile if available, otherwise use normalized username
+	 * Get the display username - use fetched profile if available, otherwise use normalized username.
+	 * Username is always present (not optional); no anonymous fallback.
 	 */
 	const displayUsername = $derived.by(() => {
-		// Priority: fetched profile name > normalized username > anonymous
 		if (fetchedProfile?.name) {
 			return fetchedProfile.name;
 		}
 		if (normalizedUsername) {
 			return normalizedUsername;
 		}
-		return anonymousLabel;
+		return '';
 	});
 
 	/**
@@ -350,7 +350,7 @@
 					<div
 						class="avatar placeholder text-neutral-content bg-primary flex {config.avatar} items-center justify-center overflow-hidden rounded-full text-center"
 					>
-						{#if displayUsername && displayUsername !== anonymousLabel}
+						{#if displayUsername}
 							<span class="text-lg font-semibold sm:text-2xl">
 								{displayUsername.charAt(0).toUpperCase()}
 							</span>
@@ -378,7 +378,7 @@
 					<div
 						class="avatar placeholder text-neutral-content bg-primary flex {config.avatar} items-center justify-center overflow-hidden rounded-full text-center"
 					>
-						{#if displayUsername && displayUsername !== anonymousLabel}
+						{#if displayUsername}
 							<span class="text-lg font-semibold sm:text-2xl">
 								{displayUsername.charAt(0).toUpperCase()}
 							</span>

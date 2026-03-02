@@ -39,7 +39,8 @@ vi.mock('$lib/stores/app.store', () => ({
 vi.mock('$lib/utils/cache/bid-cache', () => ({
 	smartCache: {
 		invalidateTaskBids: vi.fn(),
-		clearBids: vi.fn()
+		clearBids: vi.fn(),
+		clearUserBids: vi.fn()
 	},
 	currencyCache: {
 		clear: vi.fn()
@@ -70,6 +71,7 @@ describe('sendBidStatusUpdate', () => {
 
 		expect(bidStore.removeProcessingBid).toHaveBeenCalledWith('bid-123');
 		expect(vi.mocked(smartCache.invalidateTaskBids)).toHaveBeenCalledWith('task-123');
+		expect(vi.mocked(smartCache.clearUserBids)).toHaveBeenCalled();
 		expect(appStore.showInfoToast).toHaveBeenCalled();
 	});
 

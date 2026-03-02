@@ -1,28 +1,25 @@
 <script lang="ts">
-	import IconCheck from '~icons/mdi/check-circle-outline';
-	import type { AccountRecoveryData } from '$lib/types/auth';
-	import { nip19 } from 'nostr-tools';
-	import { appStore } from '$lib/stores/app.store';
-	import { authState } from '$lib/stores/auth.store';
-	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
-	import { bytesToHex } from '$lib/utils/helpers/encoding';
-	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { generateMnemonic } from 'bip39';
-	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
-	import {
-		createUserDeviceShortName,
-		getDeviceIdentifier,
-		formatPasskeyName
-	} from '$lib/utils/helpers/deviceIdentity';
-	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
-	import authService from '$lib/api/services/auth.service';
-	import { t } from 'svelte-i18n';
-	import { Buffer } from 'buffer';
-	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
-	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
-	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import type { BiometricPlatform } from '$lib/utils/helpers/biometricErrorHandler';
 	import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
+	import { t } from 'svelte-i18n';
+	import { Buffer } from 'buffer';
+	import { nip19 } from 'nostr-tools';
+	import { authState } from '$lib/stores/auth.store';
+	import { bytesToHex } from '$lib/utils/helpers/encoding';
+	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
+	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
+	import {
+		createUserDeviceShortName,
+		getDeviceIdentifier
+	} from '$lib/utils/helpers/deviceIdentity';
+	import IconCheck from '~icons/mdi/check-circle-outline';
+	import authService from '$lib/api/services/auth.service';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -52,11 +49,8 @@
 
 	// Status indicators
 	let isLoading = $state(false);
-	let error = $state('');
 	let isSetupComplete = $state(false);
-	
-	// Error modal state
-	let errorMessage = $state('');
+	let error = $state('');
 	let errorType = $state<ErrorType | undefined>(undefined);
 
 	async function generateKeyPair() {
@@ -75,35 +69,29 @@
 
 			// Only run in browser environment to avoid Buffer issues
 			if (typeof Buffer === 'undefined') {
-				const errorMsg = 'Buffer is not defined';
-				error = errorMsg;
-				errorMessage = errorMsg;
-				errorType = detectErrorType(errorMsg);
-				throw new Error(errorMsg);
+				throw new Error('Buffer is not defined');
 			}
 
 			// Create master key encryption for both Nostr and wallet
-			const masterKeyData = await encryptMasterKeyData(nsec, mnemonic, deviceId);
+			const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
 			const deviceName = await createUserDeviceShortName(npub);
 
-			// Format passkey name as email: <username|displayname|first 6 chars of npub>@bittasker.com
-			const passkeyName = await formatPasskeyName(npub, username);
+			// Register device with server using
+			let credentialData = {
+				credentialId: '',
+				passkeyPubkey: '',
+				clientDataJSON: '',
+				attestationObject: '',
+				challenge: ''
+			};
 
-			// Register device with server using master key
-			// Use username for passkey naming so it appears in password managers
-			let credentialId = '';
 			if (isMobileBiometrics) {
 				try {
-					credentialId = await setBiometricKey(
-						npub,
-						masterKeyData.exportedMasterKey,
-						'biometrics',
-						passkeyName
-					);
+					credentialData = await setBiometricKey({ npub, exportedKey, username });
 				} catch (biometricError: any) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'mobile-native';
@@ -111,20 +99,17 @@
 						error: biometricError,
 						platform
 					});
-					
+
 					// Set error state
 					error = msg;
-					errorMessage = msg;
 					errorType = type;
-					
-					// Error state is set, ErrorAlertWithModal will auto-open for passkey errors
-					
+
 					// Re-throw to stop registration
 					throw biometricError;
 				}
 			} else {
 				try {
-					credentialId = await setWebBiometricKey(npub, masterKeyData.exportedMasterKey, passkeyName);
+					credentialData = await setWebBiometricKey({ npub, exportedKey, username });
 				} catch (biometricError: any) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'web';
@@ -132,59 +117,54 @@
 						error: biometricError,
 						platform
 					});
-					
+
 					error = msg;
-					errorMessage = msg;
 					errorType = type;
-					
-					// Error state is set, ErrorAlertWithModal will auto-open for passkey errors
-					
+
 					throw biometricError;
 				}
 			}
 
-			if (!credentialId) {
-				const errorMsg = 'Failed to get credential ID';
-				error = errorMsg;
-				errorMessage = errorMsg;
-				errorType = detectErrorType(errorMsg);
-				throw new Error(errorMsg);
+			if (
+				!credentialData.credentialId ||
+				!credentialData.passkeyPubkey ||
+				!credentialData.clientDataJSON ||
+				!credentialData.attestationObject
+			) {
+				throw new Error('Failed to get credential data');
 			}
 
-			// Register with server using master key GraphQL mutation
-			await authService
-				.registerWithMasterKey({
-					username,
-					publicKey: npub,
-					masterKeyData: masterKeyData,
-					authMethod: 'passkey',
-					deviceId
-				})
-				.then(async () => {
-					// Register passkey device
-					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-				});
+			// Register with server using credential data
+			const response = await authService.register({
+				username,
+				publicKey: npub,
+				encryptedData,
+				authMethod: 'passkey',
+				deviceId,
+				credentialId: credentialData.credentialId,
+				passkeyPubkey: credentialData.passkeyPubkey,
+				deviceName,
+				platform: isMobileBiometrics ? 'mobile' : 'web',
+				challenge: credentialData.challenge,
+				clientDataJSON: credentialData.clientDataJSON,
+				attestationObject: credentialData.attestationObject,
+				appVersion: __APP_VERSION__
+			});
 
-			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
 				// Store master key data in biometric format for compatibility
 				const biometricData = {
-					username: npub,
-					password: JSON.stringify({
-						key: masterKeyData.exportedMasterKey,
-						masterKeyData: masterKeyData, // Store full master key structure
-						// Legacy compatibility fields
-						data: masterKeyData.nostr.encrypted.data,
-						iv: masterKeyData.nostr.encrypted.iv,
-						authTag: masterKeyData.nostr.encrypted.authTag,
-						salt: masterKeyData.nostr.salt
-					}),
-					server: deviceId,
+					npub,
+					deviceId,
+					deviceName,
+					encryptedData,
+					exportedKey,
+					credentialId: credentialData.credentialId,
 					isLegacyFormat: false
 				};
 				authState.setupAuthData(
 					response.access_token,
-					'biometrics',
+					'passkey',
 					npub,
 					response.user,
 					biometricData,
@@ -192,47 +172,11 @@
 				);
 			}
 		} catch (err: unknown) {
-			console.error('Registration failed:', err);
-			// Only set generic error if not already set by biometric error handler
-			if (!error) {
-				const errorMsg = err instanceof Error
+			error =
+				err instanceof Error
 					? err.message
 					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
-				error = errorMsg;
-				// For non-biometric errors, also set errorMessage for modal
-				if (!errorMessage) {
-					errorMessage = errorMsg;
-				}
-			}
 			throw new Error(error);
-		}
-	}
-
-	async function setupAccRecovery(
-		npub: string,
-		nsec: string,
-		walletMnemonic: string,
-		password: string,
-		email: string
-	) {
-		try {
-			const recoveryData = await encryptMasterKeyData(nsec, walletMnemonic, password);
-
-			const data: AccountRecoveryData = {
-				publicKey: npub,
-				recoveryData: {
-					nostr: recoveryData.nostr,
-					wallet: recoveryData.wallet,
-					masterSalt: recoveryData.masterSalt
-				},
-				email
-			};
-
-			await authService.setupAccountRecoveryPassword(data);
-		} catch (err: unknown) {
-			appStore.showErrorToast(
-				err instanceof Error ? err.message : 'Failed to setup account recovery'
-			);
 		}
 	}
 
@@ -240,7 +184,6 @@
 		try {
 			isLoading = true;
 			error = '';
-			errorMessage = '';
 			errorType = undefined;
 
 			let npub: string;
@@ -251,11 +194,9 @@
 				// Convert nsec to hex format
 				const { type, data } = nip19.decode(userData.nsec);
 				if (type !== 'nsec') {
-					const errorMsg = 'Invalid nsec format';
-					error = errorMsg;
-					errorMessage = errorMsg;
-					errorType = detectErrorType(errorMsg);
-					throw new Error(errorMsg);
+					error = 'Invalid nsec format';
+					errorType = detectErrorType(error);
+					throw new Error(error);
 				}
 				// Convert Uint8Array to hex
 				nsec = bytesToHex(data);
@@ -267,15 +208,10 @@
 			}
 
 			// Generate wallet mnemonic
-			const walletMnemonic = generateMnemonic();
+			const walletMnemonic = await deriveWalletFromNostr(nsec);
 
 			// Register with passkey
 			await register(userData.username, npub, nsec, walletMnemonic);
-
-			// Setup recovery if enabled
-			if (userData.hasRecovery && userData.recoveryEmail && userData.recoveryPassword) {
-				await setupAccRecovery(npub, nsec, walletMnemonic, userData.recoveryPassword, userData.recoveryEmail);
-			}
 
 			isSetupComplete = true;
 
@@ -285,16 +221,12 @@
 			console.error('Passkey setup failed:', err);
 			// Error already set by register() function for biometric errors
 			if (!error) {
-				const errorMsg = err instanceof Error
-					? err.message
-					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
-				error = errorMsg;
-				// For non-biometric errors, also set errorMessage for modal
-				if (!errorMessage) {
-					errorMessage = errorMsg;
-					// Try to detect error type for non-biometric errors
-					errorType = detectErrorType(errorMsg);
-				}
+				error =
+					err instanceof Error
+						? err.message
+						: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+				// Try to detect error type for non-biometric errors
+				errorType = detectErrorType(error);
 			}
 		} finally {
 			isLoading = false;
@@ -302,7 +234,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-passkey">
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
@@ -342,19 +274,19 @@
 				</p>
 
 				{#if error}
-					<ErrorAlertWithModal
-						{error}
-						errorType={errorType}
-						isPasskeyError={true}
-						autoOpenModal={true}
-						onRetry={async () => {
-							error = '';
-							errorMessage = '';
-							errorType = undefined;
-							await handlePasskeySetup();
-						}}
-						class="mx-auto mb-6 max-w-lg"
-					/>
+					<div data-testid="passkey-setup-error">
+						<ErrorAlertWithModal
+							{error}
+							{errorType}
+							isPasskeyError={true}
+							onRetry={async () => {
+								error = '';
+								errorType = undefined;
+								await handlePasskeySetup();
+							}}
+							class="mx-auto mb-6 max-w-lg"
+						/>
+					</div>
 				{/if}
 
 				{#if isSetupComplete}
@@ -387,6 +319,7 @@
 				<button
 					type="button"
 					class="btn btn-primary"
+					data-testid="passkey-setup-button"
 					onclick={handlePasskeySetup}
 					disabled={isLoading}
 				>

@@ -5,22 +5,45 @@
 	import { page } from '$app/state';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
 	import { devicePlatform } from '$lib/stores/device.store';
-	import TopBar from '$lib/components/TopBar.svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
+	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import {
 		BITTASKER_ORG_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
 	} from '$lib/utils/constants/seo.constants';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
+	import TopBar from '$lib/components/TopBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
-	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import '../app.css';
 
 	const { children } = $props();
+
+	/**
+	 * vite:preloadError fires when a dynamic import chunk fails to load,
+	 * which happens when the user has stale in-memory JS after a new deployment
+	 * replaced the old chunk hashes. Calling event.preventDefault() suppresses
+	 * the error from propagating to unhandledrejection, then we reload once to
+	 * fetch fresh index.html with the new chunk references.
+	 * The key is scoped to the build version so a flag from a previous deployment
+	 * never blocks a reload for a different deployment.
+	 */
+	const CHUNK_RELOAD_KEY = `chunk-reload-${__BUILD_VERSION__}`;
+
+	const handlePreloadError = (event: Event & { payload: Error }) => {
+		if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+			// First failure for this build version: suppress + reload once.
+			event.preventDefault();
+			sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+			location.reload();
+		}
+		// Flag already set: this is a persistent error (not a stale-cache issue).
+		// Let the error propagate naturally so handleError in hooks.client.ts
+		// can surface it through Sentry.
+	};
 
 	// Derive layout state from current route
 	const currentPath = $derived(page.url.pathname);
@@ -88,27 +111,26 @@
 			setTimeout(() => initializeProtectedRouteHelpers(), 100);
 		}
 
+		window.addEventListener('vite:preloadError', handlePreloadError);
+
 		// Global error handler
 		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
 			const error = event instanceof ErrorEvent ? event.error : event.reason;
-			
+
 			// Skip logging null/undefined errors (often from third-party libraries like SES)
 			if (error === null || error === undefined) {
 				return;
 			}
-			
+
 			// Only log meaningful errors
-			const errorMessage = error instanceof Error 
-				? error.message 
-				: typeof error === 'string' 
-					? error 
-					: String(error);
-			
+			const errorMessage =
+				error instanceof Error ? error.message : typeof error === 'string' ? error : String(error);
+
 			// Skip empty or meaningless error messages
 			if (!errorMessage || errorMessage === 'null' || errorMessage === 'undefined') {
 				return;
 			}
-			
+
 			console.error('[Global Error Handler]:', {
 				error: errorMessage,
 				stack: error instanceof Error ? error.stack : undefined,
@@ -122,6 +144,7 @@
 		window.addEventListener('unhandledrejection', handleError);
 
 		return () => {
+			window.removeEventListener('vite:preloadError', handlePreloadError);
 			window.removeEventListener('error', handleError);
 			window.removeEventListener('unhandledrejection', handleError);
 		};
@@ -182,13 +205,17 @@
 				// If the footer is actually hidden by CSS, 0 is correct.
 				const isHidden =
 					typeof window !== 'undefined' &&
-					(window.getComputedStyle(el).display === 'none' || window.getComputedStyle(el).visibility === 'hidden');
+					(window.getComputedStyle(el).display === 'none' ||
+						window.getComputedStyle(el).visibility === 'hidden');
 				if (isHidden) {
 					document.documentElement.style.setProperty('--app-footer-height', `0px`);
 				} else {
 					// When switching from desktop->mobile, the footer can briefly report 0 before layout stabilizes.
 					// Use the safe fallback immediately so floating UI doesn't get covered by the dock.
-					document.documentElement.style.setProperty('--app-footer-height', `var(--bottom-nav-height-safe)`);
+					document.documentElement.style.setProperty(
+						'--app-footer-height',
+						`var(--bottom-nav-height-safe)`
+					);
 				}
 				return;
 			}
@@ -204,7 +231,6 @@
 				mq.addEventListener('change', onMqChange);
 			} catch {
 				// Safari fallback
-				// eslint-disable-next-line deprecation/deprecation
 				mq.addListener(onMqChange);
 			}
 		}
@@ -218,7 +244,6 @@
 				try {
 					mq.removeEventListener('change', onMqChange);
 				} catch {
-					// eslint-disable-next-line deprecation/deprecation
 					mq.removeListener(onMqChange);
 				}
 			}
@@ -239,11 +264,15 @@
 	<link href="/images/Logos/BitTasker-Logo-light-mode.svg" as="image" />
 
 	<!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
-	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
-	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
+	<!-- svelte-eslint-parser bug: literal `<script` inside template literals causes "Parsing error: Unexpected keyword or identifier". -->
+	<!-- Workaround: use \u{73} for the 's' so the parser never sees a `<script` token. See: https://github.com/sveltejs/svelte-eslint-parser/issues/346 -->
+	<!-- eslint-disable svelte/no-at-html-tags -->
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
 	{#if page.url.pathname !== '/'}
-		{@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
+		{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
 	{/if}
+	<!-- eslint-enable svelte/no-at-html-tags -->
 
 	<!-- Analytics tracking - only load in production -->
 	{#if import.meta.env.MODE === 'production'}

@@ -1,5 +1,9 @@
 # E2E Test Documentation
 
+## E2E migration (src → tests/e2e)
+
+We are migrating E2E specs and fixtures from `src/lib/tests/e2e/` to **`tests/e2e/`** incrementally. Current auth design (file-based credentials, multi-user, run order): **`docs/testing/e2e-testing.md`**. Status and import patterns: **`tests/e2e/MIGRATION.md`**. New E2E work should use `tests/e2e/` and the fixtures there.
+
 ## Overview
 
 This directory contains end-to-end tests for BitTasker using Playwright. Tests are organized by feature area and use authentication helpers for consistent test setup.
@@ -108,7 +112,17 @@ tests/e2e/
 - No real biometrics required
 - Useful for CI/CD environments
 
-### 3. Nostr Key Login
+### 3. Shared Passkey Credentials (Cross-File Reuse)
+
+- **Signup-onboarding** creates a passkey and persists it to `tests/e2e/.auth/webauthn-credentials.json`.
+- Other specs (e.g. wallet) can use the **passkey-auth-from-file** fixture to log in with that passkey and test app flows without re-running full signup.
+- **Run order:** Run signup-onboarding first, then wallet (or other) specs:
+  ```bash
+  npx playwright test tests/e2e/signup-onboarding.spec.ts tests/e2e/wallet/ --project=chromium
+  ```
+- If the credential file is missing, specs that depend on it will skip (or fail with a clear message). See `docs/testing/e2e-testing.md` in the repo root.
+
+### 4. Nostr Key Login
 
 - Fallback authentication method
 - Uses test Nostr private key
@@ -140,6 +154,32 @@ test('my test', async ({ page }) => {
   // ... test code
 });
 ```
+
+### Using Shared Passkey Credentials (Cross-File)
+
+For specs that should run after signup-onboarding and reuse the same passkey (e.g. wallet, dashboard flows):
+
+```typescript
+import {
+  test,
+  expect,
+  webauthnCredentialsFileExists,
+  CREDENTIALS_MISSING_MESSAGE
+} from '../../src/lib/tests/e2e/fixtures/passkey-auth-from-file';
+
+test.describe('My feature', () => {
+  test.skip(!webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
+
+  test('my test', async ({ authenticatedPageFromPasskeyFile }) => {
+    // Page is already logged in via passkey (credentials from file)
+    await authenticatedPageFromPasskeyFile.goto('/dashboard/wallet');
+    // ... test code
+  });
+});
+```
+
+Run signup-onboarding first so the credential file exists:  
+`npx playwright test tests/e2e/signup-onboarding.spec.ts tests/e2e/wallet/ --project=chromium`
 
 ## Troubleshooting
 

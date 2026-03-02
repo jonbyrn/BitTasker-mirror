@@ -1,7 +1,6 @@
 <script lang="ts">
-	import type { PaymentType } from '$lib/types/bid';
 	import type { Task } from '$lib/types/task';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { user } from '$lib/stores/user.store';
@@ -10,14 +9,15 @@
 	import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 	import { getRSKAddress } from '$lib/stores/wallet.store';
 	import { generateBidTranslations } from '$lib/nostr/bid';
-	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
+	import { formatNumberForInput, satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 
-	// Props - Simplified to just task and onClose
+	// Props - Simplified to just task, onClose, and stickySubmit
 	const { task, onClose, stickySubmit = true } = $props<{
 		task: Task;
 		onClose: () => void;
@@ -28,11 +28,8 @@
 		stickySubmit?: boolean;
 	}>();
 
-	// Form state
-	let bidType = $state<PaymentType>('FIXED');
-	let amount = $state<number>(0); // This will store USD amount for FIXED type
-	let hourlyRate = $state<number>(0); // This will store USD amount for HOURLY type
-	let estimatedHours = $state<string>('');
+	// Form state (fixed price only)
+	let amount = $state<number>(0);
 	let description = $state('');
 	let estimatedDuration = $state('');
 	let proposedApproach = $state('');
@@ -40,6 +37,21 @@
 	let submittingBid = $state(false);
 	let bidFormErrors = $state<Record<string, string>>({});
 	let bidSubmitted = $state(false);
+	let additionalInfoOpen = $state(false);
+	/**
+	 * Returns the task field (title or description) in the user's selected language.
+	 * Uses task.translations when available and language differs from source; otherwise returns the source value.
+	 */
+	function getTaskTranslation(key: 'title' | 'description'): string {
+		const currentLang = $locale || 'en';
+		const tr = task.translations?.translations;
+		if (!tr || task.translations?.sourceLanguage === currentLang) {
+			return key === 'title' ? task.title : task.description;
+		}
+		const translation = tr[currentLang];
+		const fallback = key === 'title' ? task.title : task.description;
+		return (key === 'title' ? translation?.title : translation?.description) ?? fallback;
+	}
 
 	// New datetime fields for fixed price bids
 	let startDateTime = $state<Date | null>(null);
@@ -96,55 +108,6 @@
 
 		// Clear amount error when user starts typing
 		clearFieldError('amount');
-	}
-
-	// Handle hourly rate USD changes
-	function handleHourlyRateUsdChange(event: Event) {
-		let input = cleanInput((event.target as HTMLInputElement).value);
-		(event.target as HTMLInputElement).value = input;
-
-		const usdValue = parseFloat(input.replace(/,/g, ''));
-		if (!isNaN(usdValue)) {
-			hourlyRate = usdValue;
-		} else {
-			hourlyRate = 0;
-		}
-
-		// Clear hourly rate error when user starts typing
-		clearFieldError('hourlyRate');
-	}
-
-	// Handle hourly rate sats changes
-	function handleHourlyRateSatsChange(event: Event) {
-		let input = cleanInput((event.target as HTMLInputElement).value);
-		(event.target as HTMLInputElement).value = input;
-
-		const satsValue = parseInt(input.replace(/,/g, ''), 10);
-		if (!isNaN(satsValue)) {
-			// Convert sats to USD using the same formula as TaskBudget.svelte
-			hourlyRate = (satsValue / 100_000_000) * btcPrice;
-		} else {
-			hourlyRate = 0;
-		}
-
-		// Clear hourly rate error when user starts typing
-		clearFieldError('hourlyRate');
-	}
-
-	// Handle estimated hours changes
-	function handleEstimatedHoursChange(event: Event) {
-		let input = cleanInput((event.target as HTMLInputElement).value);
-		(event.target as HTMLInputElement).value = input;
-
-		const hoursValue = parseFloat(input.replace(/,/g, ''));
-		if (!isNaN(hoursValue)) {
-			estimatedHours = hoursValue.toString();
-		} else {
-			estimatedHours = '';
-		}
-
-		// Clear estimated hours error when user starts typing
-		clearFieldError('estimatedHours');
 	}
 
 	function cleanInput(value: string): string {
@@ -336,31 +299,6 @@
 		clearFieldError('datetime');
 	}
 
-	// Handle payment type change
-	function handlePaymentTypeChange(newType: PaymentType) {
-		if (bidType === newType) return;
-
-		bidType = newType;
-
-		if (newType === 'HOURLY') {
-			// Clear fixed price fields and initialize hourly rate with current USD amount
-			amount = 0;
-			if (hourlyRate > 0) {
-				// Keep the current hourly rate USD value
-			} else {
-				hourlyRate = 0;
-			}
-		} else {
-			// Clear hourly rate fields and initialize fixed price with current hourly rate
-			hourlyRate = 0;
-			estimatedHours = '';
-			if (hourlyRate > 0 && parseFloat(estimatedHours || '0') > 0) {
-				// Convert hourly rate to total amount
-				amount = hourlyRate * parseFloat(estimatedHours);
-			}
-		}
-	}
-
 	// Helper function to clear specific validation errors
 	function clearFieldError(fieldName: string) {
 		if (bidFormErrors[fieldName]) {
@@ -372,46 +310,27 @@
 	function validateBidForm() {
 		const errors: Record<string, string> = {};
 
-		// Validate amount for FIXED type
-		if (bidType === 'FIXED') {
-			if (amount <= 0) {
-				errors.amount = $t('bid_form.errors.amount_greater_than_zero');
-			}
-
-			// Validate datetime fields for fixed price
-			if (!startDateTime || !endDateTime) {
-				errors.datetime = $t('bid_form.errors.datetime_required');
-			} else if (startDateTime >= endDateTime) {
-				errors.datetime = $t('bid_form.errors.datetime_invalid');
-			} else {
-				// Validate that end date/time is before task deadline (same day is OK if time is before)
-				const deadlineDate = parseDate(task.deadline);
-				if (deadlineDate) {
-					// Allow same day but must be before the deadline time
-					if (endDateTime >= deadlineDate) {
-						errors.datetime = $t('bid_form.errors.end_date_before_deadline');
-					}
-				}
-				const rangeEnd = parseDate(task.dateRange?.end);
-				if (rangeEnd) {
-					// Allow same day but must be before the range end time
-					if (endDateTime >= rangeEnd) {
-						errors.datetime = $t('bid_form.errors.end_date_before_deadline');
-					}
-				}
-			}
+		if (amount <= 0) {
+			errors.amount = $t('bid_form.errors.amount_greater_than_zero');
 		}
 
-		// Validate hourly rate and estimated hours for HOURLY type
-		if (bidType === 'HOURLY') {
-			if (hourlyRate <= 0) {
-				errors.hourlyRate = $t('bid_form.errors.hourly_rate_greater_than_zero');
+		// Validate datetime fields
+		if (!startDateTime || !endDateTime) {
+			errors.datetime = $t('bid_form.errors.datetime_required');
+		} else if (startDateTime >= endDateTime) {
+			errors.datetime = $t('bid_form.errors.datetime_invalid');
+		} else {
+			const deadlineDate = parseDate(task.deadline);
+			if (deadlineDate) {
+				if (endDateTime >= deadlineDate) {
+					errors.datetime = $t('bid_form.errors.end_date_before_deadline');
+				}
 			}
-
-			if (!estimatedHours || estimatedHours.trim() === '') {
-				errors.estimatedHours = $t('bid_form.errors.estimated_hours_required');
-			} else if (parseFloat(estimatedHours) <= 0) {
-				errors.estimatedHours = $t('bid_form.errors.estimated_hours_greater_than_zero');
+			const rangeEnd = parseDate(task.dateRange?.end);
+			if (rangeEnd) {
+				if (endDateTime >= rangeEnd) {
+					errors.datetime = $t('bid_form.errors.end_date_before_deadline');
+				}
 			}
 		}
 
@@ -445,7 +364,7 @@
 		}
 
 		// Check field errors in priority order
-		const errorFields = ['amount', 'hourlyRate', 'estimatedHours', 'datetime', 'description', 'proposedApproach', 'coverLetter'];
+		const errorFields = ['amount', 'datetime', 'description', 'proposedApproach', 'coverLetter'];
 		
 		for (const field of errorFields) {
 			if (bidFormErrors[field] && bidFormErrors[field].trim() !== '') {
@@ -458,7 +377,7 @@
 
 	// Helper function to format duration for display (reactive)
 	const formatDurationForDisplay = $derived.by(() => {
-		if (bidType === 'FIXED' && startDateTime && endDateTime) {
+		if (startDateTime && endDateTime) {
 			const diffMs = endDateTime.getTime() - startDateTime.getTime();
 			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 			const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -535,11 +454,11 @@
 				taskTranslations: task.translations, // Save task translations
 				amount: amount, // Send USD amount directly
 				currency: 'USD',
-				paymentType: bidType,
-				hourlyRate: bidType === 'HOURLY' && hourlyRate ? hourlyRate : null, // Send USD hourly rate directly
-				estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : null,
+				paymentType: 'FIXED',
+				hourlyRate: null,
+				estimatedHours: null,
 				description,
-				estimatedDuration: bidType === 'FIXED' ? formatDurationForDisplay : estimatedDuration,
+				estimatedDuration: formatDurationForDisplay,
 				proposedApproach,
 				coverLetter: coverLetter,
 				timestamp: Date.now(),
@@ -548,6 +467,12 @@
 				taskCreatorPubkey: task.npub,
 				taskCreatorUsername: task.creator?.username,
 				taskCreatorAvatar: task.creator?.avatar,
+
+				// Original task budget — mismo origen que taskTitle/taskDescription: se guarda en la bid
+				// para mostrarlo en Ofertas enviadas (DashboardBidsPanel) sin cargar la tarea de nuevo
+				...(typeof task.budget?.amount === 'number' && {
+					taskBudget: { amount: task.budget.amount, currency: task.budget.currency ?? 'USD' }
+				}),
 
 				// Add logged-in user information
 				bidderId: $user.npub || $user.id?.toString() || '',
@@ -558,18 +483,18 @@
 				bidderWalletAddress: rskAddress,
 
 				// Add new datetime fields - serialize with local time to preserve user's selected time
-				startDateTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
-				endDateTime: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
+				startDateTime: serializeDateWithLocalTime(startDateTime),
+				endDateTime: serializeDateWithLocalTime(endDateTime),
 
 				// Add bid translations
 				...(bidTranslations && { translations: bidTranslations })
 			};
 
 			// Create custom tags for the bid event using TAG_PATTERNS
-			const customTags = TAG_PATTERNS.bid(bidData.bidId, task.id, task.npub, bidType);
+			const customTags = TAG_PATTERNS.bid(bidData.bidId, task.id, task.npub, 'FIXED');
 
 			// Submit a bid as an encrypted event to the task creator with custom tags
-			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
+		await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
 
 			// Send notification to task creator
 			pushNotificationService.sendNotificationToNpubs({
@@ -581,7 +506,7 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Clear bid cache for this specific task
+			// Clear bid cache for this specific task and current user
 			// This ensures fresh data on next load without clearing unrelated caches
 			clearBidCache(task.id);
 
@@ -604,7 +529,7 @@
 	});
 </script>
 
-<div class="relative mx-auto flex min-h-0 flex-1 flex-col bid-form-container">
+<div class="relative mx-auto flex min-h-0 flex-1 flex-col min-w-0 bid-form-container">
 	{#if bidSubmitted}
 		<div
 			class="p-8 text-center"
@@ -640,46 +565,50 @@
 		</div>
 	{:else}
 		<form class="flex min-h-0 flex-1 flex-col" onsubmit={handleBidSubmit}>
-			<!-- Scrollable content area -->
-			<div class="flex-1 space-y-4 pb-4">
-			<!-- Payment Type -->
-			<div class="form-control">
-				<label class="label cursor-pointer" for="payment-type-group">
-					<span class="label-text">{$t('bid_form.form.payment_type')}</span>
-				</label>
-				<div
-					id="payment-type-group"
-					class="mb-2 flex max-w-md gap-2"
-					role="radiogroup"
-					aria-label="Payment Type"
-				>
-					<button
-						type="button"
-						class="btn btn-sm {bidType === 'FIXED' ? 'btn-primary' : 'btn-outline'}"
-						onclick={() => handlePaymentTypeChange('FIXED')}
-						role="radio"
-						aria-checked={bidType === 'FIXED'}
+			<!-- Scrollable content area - compact spacing -->
+			<div class="flex-1 space-y-2 pb-2 bid-form-fields">
+			<!-- Task context: title, description, help -->
+			<div class="bg-base-200 min-w-0 overflow-visible rounded-lg border border-base-300/50 p-2.5">
+				<div class="mb-1 flex min-w-0 items-start justify-between gap-2">
+					<span class="min-w-0 shrink text-xs font-semibold text-info">
+						{$t('bid_form.task_you_are_bidding_on')}
+					</span>
+					<div
+						class="bid-form-help-tooltip tooltip tooltip-left shrink-0"
+						data-tip={$t('bid_form.help_tooltip')}
 					>
-						{$t('bid_form.form.fixed_price')}
-					</button>
-					<button
-						type="button"
-						class="btn btn-sm {bidType === 'HOURLY' ? 'btn-primary' : 'btn-outline'}"
-						onclick={() => handlePaymentTypeChange('HOURLY')}
-						role="radio"
-						aria-checked={bidType === 'HOURLY'}
-					>
-						{$t('bid_form.form.hourly_rate')}
-					</button>
+						<button
+							type="button"
+							class="btn btn-circle btn-ghost btn-xs text-base-content/60 hover:text-primary"
+							aria-label={$t('bid_form.help_modal_title')}
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+						</button>
+					</div>
 				</div>
+				<span class="block min-w-0 wrap-break-word text-sm font-medium text-base-content line-clamp-1">{getTaskTranslation('title')}</span>
+				{#if getTaskTranslation('description')}
+					<p class="mt-0.5 text-xs text-base-content/70 wrap-break-word line-clamp-2 whitespace-pre-line">{getTaskTranslation('description')}</p>
+				{/if}
 			</div>
 
-			{#if bidType === 'FIXED'}
-				<!-- Fixed price bid amount - USD and Sats like in create-task -->
+			<!-- Fixed price bid amount - USD and Sats like in create-task -->
 				<div class="form-control">
-					<label class="label" for="bid-amount">
+					<label class="label min-h-0 py-0.5" for="bid-amount">
 						<span class="label-text">{$t('bid_form.form.budget')}</span>
+						{#if task.budget?.amount != null}
+							<span class="label-text-alt text-xs text-info min-w-0 wrap-break-word">
+								{$t('bid_form.form.suggested_price')}: ${formatNumberWithTwoDecimals(task.budget.amount)}
+							</span>
+						{:else}
+							<span class="label-text-alt text-base-content/60 min-w-0 wrap-break-word">
+								{$t('bid_form.form.budget_unavailable')}
+							</span>
+						{/if}
 					</label>
+					
 					<div class="flex gap-2">
 						<div class="relative flex-1">
 							<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
@@ -715,8 +644,8 @@
 						</div>
 					</div>
 					{#if bidFormErrors.amount}
-						<div class="label">
-							<span class="label-text-alt text-error wrap-break-words" id="amount-error" aria-live="polite"
+						<div class="label min-w-0 w-full">
+							<span class="label-text-alt text-error wrap-break-word block" id="amount-error" aria-live="polite"
 								>{bidFormErrors.amount}</span
 							>
 						</div>
@@ -729,11 +658,11 @@
 				</div>
 
 				<!-- Date and Time Selection for Fixed Price -->
-				<div class="form-control">
-					<label class="label" for="datetime-range">
-						<span class="label-text">{$t('bid_form.form.datetime_range')}</span>
+				<div class="form-control min-w-0">
+					<label class="label min-h-0 py-0.5" for="datetime-range">
+						<span class="label-text text-sm">{$t('bid_form.form.datetime_range')}</span>
 					</label>
-					<div class="flex flex-col gap-4 sm:flex-row">
+					<div class="flex min-w-0 flex-col gap-2 sm:flex-row">
 						<div class="flex-1">
 							<DateInput
 								bind:value={startDateTime}
@@ -743,6 +672,7 @@
 								minDate={new Date()}
 								maxDate={undefined}
 								timeStep={15}
+								hideTimeRoundedHint={true}
 								onChange={(date: Date | null) => {
 									startDateTime = date;
 									handleDateTimeChange();
@@ -776,6 +706,7 @@
 									return undefined;
 								})()}
 								timeStep={15}
+								hideTimeRoundedHint={true}
 								onChange={(date: Date | null) => {
 									endDateTime = date;
 									handleDateTimeChange();
@@ -785,143 +716,32 @@
 						</div>
 					</div>
 					{#if bidFormErrors.datetime}
-						<div class="label">
-							<span class="label-text-alt text-error wrap-break-words" id="datetime-error" aria-live="polite"
+						<div class="label min-w-0 w-full">
+							<span class="label-text-alt text-error wrap-break-word block" id="datetime-error" aria-live="polite"
 								>{bidFormErrors.datetime}</span
 							>
 						</div>
 					{/if}
 					{#if startDateTime && endDateTime}
-						<div class="mt-3 rounded-lg bg-primary/10 px-3 py-2">
-							<span class="text-sm font-semibold text-primary">
+						<div class="mt-1.5 bg-info/10 rounded-lg px-2.5 py-1">
+							<span class="text-xs font-semibold text-info">
 								{$t('bid_form.form.duration')}: {formatDurationForDisplay}
 							</span>
 						</div>
 					{/if}
 				</div>
-			{:else}
-				<!-- Hourly rate bid details -->
-				<div class="form-control">
-					<label class="label" for="hourly-rate">
-						<span class="label-text">{$t('bid_form.form.hourly_rate_label')}</span>
-					</label>
-					<div class="flex gap-2">
-						<div class="relative flex-1">
-							<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"
-								>$</span
-							>
-							<input
-								type="text"
-								id="hourly-rate-usd"
-								value={formatNumberForInput(hourlyRate)}
-								onchange={handleHourlyRateUsdChange}
-								oninput={handleHourlyRateUsdChange}
-								class="input input-bordered w-full pl-7 {bidFormErrors.hourlyRate
-									? 'input-error'
-									: ''}"
-								placeholder={$t('bid_form.form.hourly_usd_placeholder')}
-								min="0"
-							/>
-						</div>
-						<div class="relative flex-1">
-							<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"
-								>Sats</span
-							>
-							<input
-								type="text"
-								id="hourly-rate-sats"
-								value={formatNumberForInput(Math.round((hourlyRate / btcPrice) * 100_000_000))}
-								onchange={handleHourlyRateSatsChange}
-								oninput={handleHourlyRateSatsChange}
-								class="input input-bordered w-full pr-12 {bidFormErrors.hourlyRate
-									? 'input-error'
-									: ''}"
-								placeholder={$t('bid_form.form.hourly_sats_placeholder')}
-								min="0"
-							/>
-						</div>
-					</div>
-					{#if bidFormErrors.hourlyRate}
-						<div class="label">
-							<span class="label-text-alt text-error wrap-break-words" id="hourly-rate-error" aria-live="polite"
-								>{bidFormErrors.hourlyRate}</span
-							>
-						</div>
-					{/if}
-					{#if hourlyRate > 0}
-						<span class="label-text-alt text-base-content/60 mt-1 block">
-							{$t('bid_form.form.btc_price')} ${Math.round(btcPrice).toLocaleString()}
-						</span>
-					{/if}
-				</div>
-
-				<!-- Estimated Hours -->
-				<div class="form-control">
-					<label class="label" for="estimated-hours">
-						<span class="label-text">{$t('bid_form.form.estimated_hours')}</span>
-					</label>
-					<input
-						id="estimated-hours"
-						type="text"
-						class="input input-bordered w-full"
-						class:input-error={bidFormErrors.estimatedHours}
-						aria-invalid={bidFormErrors.estimatedHours ? 'true' : undefined}
-						aria-describedby={bidFormErrors.estimatedHours ? 'estimated-hours-error' : undefined}
-						placeholder={$t('bid_form.form.hours_placeholder')}
-						min="1"
-						step="1"
-						value={estimatedHours}
-						onchange={handleEstimatedHoursChange}
-						oninput={handleEstimatedHoursChange}
-					/>
-					{#if bidFormErrors.estimatedHours}
-						<div class="label">
-							<span class="label-text-alt text-error wrap-break-words" id="estimated-hours-error" aria-live="polite"
-								>{bidFormErrors.estimatedHours}</span
-							>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Estimated total for hourly rate -->
-				<div class="form-control">
-					<label class="label" for="total-estimated-amount">
-						<span class="label-text">{$t('bid_form.form.total_estimated')}</span>
-					</label>
-					<div class="bg-base-200 rounded-md p-3">
-						<div class="text-lg font-semibold">
-							${(hourlyRate * parseFloat(estimatedHours || '0')).toLocaleString('en-US', {
-								minimumFractionDigits: 2,
-								maximumFractionDigits: 2
-							})}
-						</div>
-						<div class="text-sm opacity-70">
-							${hourlyRate.toLocaleString('en-US')} × {parseFloat(
-								estimatedHours || '0'
-							).toLocaleString('en-US')}
-							{$t('dashboard.bids.bid_creation.hours')}
-						</div>
-						<div class="mt-1 text-sm opacity-70">
-							≈ {Math.round(
-								(hourlyRate / btcPrice) * 100_000_000 * parseFloat(estimatedHours || '0')
-							).toLocaleString('en-US')}
-							{$t('dashboard.bids.bid_creation.sats')}
-						</div>
-					</div>
-				</div>
-			{/if}
 
 			<!-- Remove the old estimated duration field since we now have datetime for fixed price -->
 			<!-- Estimated Completion Time field removed - not needed for either payment type -->
 
-			<!-- Bid Description -->
+			<!-- Description of your offer -->
 			<div class="form-control flex flex-col">
-				<label class="label block" for="bid-description">
-					<span class="label-text">{$t('bid_form.form.description.label')}</span>
+				<label class="label block min-h-0 py-0.5" for="bid-description">
+					<span class="label-text text-sm">{$t('bid_form.form.description.label')}</span>
 				</label>
 				<textarea
 					id="bid-description"
-					class="textarea textarea-bordered h-24 w-full {bidFormErrors.description
+					class="textarea textarea-bordered textarea-sm min-h-16 w-full {bidFormErrors.description
 						? 'textarea-error'
 						: ''}"
 					placeholder={$t('bid_form.form.description.placeholder')}
@@ -937,9 +757,9 @@
 					</small>
 				{/if}
 				{#if bidFormErrors.description}
-					<div class="label">
+					<div class="label min-w-0 w-full">
 						<span
-							class="label-text-alt text-error wrap-break-words"
+							class="label-text-alt text-error wrap-break-word block"
 							id="description-error"
 							aria-live="polite">{bidFormErrors.description}</span
 						>
@@ -947,91 +767,115 @@
 				{/if}
 			</div>
 
-			<!-- Your approach -->
-			<div class="form-control flex flex-col">
-				<label class="label block" for="proposed-approach">
-					<span class="label-text">{$t('bid_form.form.approach.label')}</span>
-				</label>
-				<textarea
-					id="proposed-approach"
-					class="textarea textarea-bordered h-24 w-full {bidFormErrors.proposedApproach
-						? 'textarea-error'
-						: ''}"
-					class:textarea-error={bidFormErrors.proposedApproach}
-					placeholder={$t('bid_form.form.approach.placeholder')}
-					aria-invalid={bidFormErrors.proposedApproach ? 'true' : undefined}
-					aria-describedby={bidFormErrors.proposedApproach ? 'proposed-approach-error' : undefined}
-					bind:value={proposedApproach}
-					oninput={handleProposedApproachChange}
-					maxlength="1000"
-				></textarea>
-				{#if proposedApproach.length > 0}
-					<small
-						class="text-base-content/60 text-xs {proposedApproach.length >= 1000
-							? 'text-warning'
-							: ''}"
-					>
-						{proposedApproach.length}/1000 {$t('dashboard.bids.bid_creation.max')}
-					</small>
-				{/if}
-				{#if bidFormErrors.proposedApproach}
-					<div class="label">
-						<span
-							class="label-text-alt text-error wrap-break-words"
-							id="proposed-approach-error"
-							aria-live="polite">{bidFormErrors.proposedApproach}</span
-						>
-					</div>
-				{/if}
-			</div>
+			<!-- Additional information (optional) - dropdown -->
+			<div
+				class="collapse collapse-arrow border border-base-300 bg-base-100 rounded-lg"
+				class:collapse-open={additionalInfoOpen}
+			>
+				<input
+					type="checkbox"
+					id="bid-additional-info-toggle"
+					bind:checked={additionalInfoOpen}
+					class="min-h-0 w-0 border-0 p-0 opacity-0"
+					aria-label={$t('bid_form.form.additional_info_title')}
+				/>
+				<div
+					class="collapse-title text-primary bg-primary/10 min-h-0 py-2 text-left text-sm font-medium after:end-4"
+					role="button"
+					tabindex="0"
+					onclick={() => (additionalInfoOpen = !additionalInfoOpen)}
+					onkeydown={(e) => e.key === 'Enter' && (additionalInfoOpen = !additionalInfoOpen)}
+				>
+					{$t('bid_form.form.additional_info_title')}
+				</div>
+				<div class="collapse-content">
+					<div class="space-y-2 pt-0.5">
+						<div class="form-control flex flex-col">
+							<label class="label block" for="proposed-approach">
+								<span class="label-text">{$t('bid_form.form.approach.label')}</span>
+							</label>
+							<textarea
+								id="proposed-approach"
+								class="textarea textarea-bordered textarea-sm min-h-14 w-full {bidFormErrors.proposedApproach
+									? 'textarea-error'
+									: ''}"
+								class:textarea-error={bidFormErrors.proposedApproach}
+								placeholder={$t('bid_form.form.approach.placeholder')}
+								aria-invalid={bidFormErrors.proposedApproach ? 'true' : undefined}
+								aria-describedby={bidFormErrors.proposedApproach ? 'proposed-approach-error' : undefined}
+								bind:value={proposedApproach}
+								oninput={handleProposedApproachChange}
+								maxlength="1000"
+							></textarea>
+							{#if proposedApproach.length > 0}
+								<small
+									class="text-base-content/60 text-xs {proposedApproach.length >= 1000
+										? 'text-warning'
+										: ''}"
+								>
+									{proposedApproach.length}/1000 {$t('dashboard.bids.bid_creation.max')}
+								</small>
+							{/if}
+							{#if bidFormErrors.proposedApproach}
+								<div class="label min-w-0 w-full">
+									<span
+										class="label-text-alt text-error wrap-break-word block"
+										id="proposed-approach-error"
+										aria-live="polite">{bidFormErrors.proposedApproach}</span
+									>
+								</div>
+							{/if}
+						</div>
 
-			<!-- Cover letter -->
-			<div class="form-control flex flex-col">
-				<label class="label block" for="bid-cover-letter">
-					<span class="label-text">{$t('bid_form.form.cover_letter.label')}</span>
-				</label>
-				<textarea
-					id="bid-cover-letter"
-					class="textarea textarea-bordered h-24 w-full {bidFormErrors.coverLetter
-						? 'textarea-error'
-						: ''}"
-					placeholder={$t('bid_form.form.cover_letter.placeholder')}
-					bind:value={coverLetter}
-					oninput={handleCoverLetterChange}
-					maxlength="800"
-				></textarea>
-				{#if coverLetter.length > 0}
-					<small
-						class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}"
-					>
-						{coverLetter.length}/800 {$t('dashboard.bids.bid_creation.max')}
-					</small>
-				{/if}
-				{#if bidFormErrors.coverLetter}
-					<div class="label">
-						<span class="label-text-alt text-error wrap-break-words" id="cover-letter-error" aria-live="polite"
-							>{bidFormErrors.coverLetter}</span
-						>
+						<div class="form-control flex flex-col">
+							<label class="label block" for="bid-cover-letter">
+								<span class="label-text">{$t('bid_form.form.cover_letter.label')}</span>
+							</label>
+							<textarea
+								id="bid-cover-letter"
+								class="textarea textarea-bordered textarea-sm min-h-14 w-full {bidFormErrors.coverLetter
+									? 'textarea-error'
+									: ''}"
+								placeholder={$t('bid_form.form.cover_letter.placeholder')}
+								bind:value={coverLetter}
+								oninput={handleCoverLetterChange}
+								maxlength="800"
+							></textarea>
+							{#if coverLetter.length > 0}
+								<small
+									class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}"
+								>
+									{coverLetter.length}/800 {$t('dashboard.bids.bid_creation.max')}
+								</small>
+							{/if}
+							{#if bidFormErrors.coverLetter}
+								<div class="label min-w-0 w-full">
+									<span class="label-text-alt text-error wrap-break-word block" id="cover-letter-error" aria-live="polite"
+										>{bidFormErrors.coverLetter}</span
+									>
+								</div>
+							{/if}
+						</div>
 					</div>
-				{/if}
+				</div>
 			</div>
 			</div>
 
 			<!-- Submit area -->
 			<div
-				class="-mx-4 border-t border-base-300 bg-base-100 px-4 pt-4 pb-safe {stickySubmit
+				class="-mx-4 border-t border-base-300 bg-base-100 px-4 pt-3 pb-safe {stickySubmit
 					? 'sticky bottom-0 z-50'
 					: 'mt-auto'}"
 			>
 				{#if getFirstValidationError()}
-					<div class="alert alert-outline alert-error mb-4">
+					<div class="alert alert-outline alert-error mb-2">
 						<span>{getFirstValidationError()}</span>
 					</div>
 				{/if}
 				<button
 					id="bid-submit-btn"
 					type="submit"
-					class="btn btn-primary ml-auto mb-6 block w-full sm:w-auto"
+					class="btn btn-primary btn-sm ml-auto mb-4 block w-full sm:w-auto"
 					disabled={submittingBid}
 				>
 					{#if submittingBid}
@@ -1044,9 +888,34 @@
 			</div>
 		</form>
 	{/if}
+
 </div>
 
 <style>
+	/* Compact form: reduce vertical spacing so less scroll is needed */
+	.bid-form-fields :global(.form-control) {
+		margin-top: 0;
+	}
+	.bid-form-fields :global(.label) {
+		padding-top: 0.25rem;
+		padding-bottom: 0.25rem;
+		min-height: 0;
+	}
+
+	/* Help tooltip: fixed width so it fits in drawer/modal, wraps and is not clipped */
+	:global(.bid-form-help-tooltip[data-tip]::before) {
+		width: 16rem;
+		max-width: min(16rem, 90vw);
+		white-space: normal;
+		word-wrap: break-word;
+		overflow-wrap: break-word;
+		text-align: left;
+		z-index: 100;
+		margin-top: 0.5rem;
+		padding-inline: 1rem;
+		padding-block: 0.75rem;
+	}
+
 	/* Ensure submit button is always visible above bottom navigation bar on mobile */
 	@media (max-width: 1024px) {
 		.bid-form-container form > div:first-child {

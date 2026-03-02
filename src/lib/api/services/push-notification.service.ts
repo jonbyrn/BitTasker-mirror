@@ -61,7 +61,7 @@ class PushNotificationService {
 				const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 				if (token) {
 					// User is authenticated, safe to access biometric data
-					let npub = get(appStore)?.biometricData?.username || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
+					let npub = get(appStore)?.biometricData?.npub || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
 					if (npub) {
 						createUserDeviceShortName(npub).then((deviceName) => {
 							this.deviceName = deviceName;

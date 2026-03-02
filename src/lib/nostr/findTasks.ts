@@ -15,6 +15,9 @@ import {
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { TASKS_PER_PAGE } from '$lib/stores/task.store';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('findTasks');
 
 // Constants
 const BATCH_SIZE = TASKS_PER_PAGE; // Default tasks limit per page
@@ -111,29 +114,69 @@ function createTaskFilter(params: SearchTasksParams): Filter {
 	//     filter['L'] = [params.location];
 	// }
 
-	// Add NIP-50 search support
-	if (params.search) {
-		filter.search = params.search.trim();
-	}
-
-	// No automatic filters - show all tasks regardless of status
-	// Only apply status filter if explicitly requested by user
-	if (params.status && params.status.length > 0) {
-		filter['S'] = params.status;
-	}
-
 	return filter;
+}
+
+/**
+ * Deduplicate tasks by id (defense in depth: ensures unique keys for Svelte each blocks).
+ * For same id, keeps the task with highest createdAt (latest version).
+ */
+function deduplicateTasksById<T extends { id: string; createdAt?: number }>(tasks: T[]): T[] {
+	const byId = new Map<string, T>();
+	for (const task of tasks) {
+		const existing = byId.get(task.id);
+		if (
+			!existing ||
+			(task.createdAt != null && existing.createdAt != null && task.createdAt > existing.createdAt)
+		) {
+			byId.set(task.id, task);
+		}
+	}
+	return Array.from(byId.values());
+}
+
+/**
+ * Filter out "zombie" events: for addressable replaceable events (same d-tag),
+ * only the original owner (pubkey that published first = oldest created_at) may use that d-tag.
+ * Events from other pubkeys using the same d-tag are invalid and must be ignored.
+ */
+function filterZombieEvents(events: Event[]): Event[] {
+	// Map: d-tag -> { pubkey: original owner, created_at: first publish time }
+	const dTagOwner = new Map<string, { pubkey: string; created_at: number }>();
+
+	for (const event of events) {
+		const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+		if (!dTag) continue; // Events without d-tag use event.id (globally unique), no conflict
+
+		const existing = dTagOwner.get(dTag);
+		if (!existing || event.created_at < existing.created_at) {
+			dTagOwner.set(dTag, { pubkey: event.pubkey, created_at: event.created_at });
+		}
+	}
+
+	return events.filter((event) => {
+		const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+		if (!dTag) return true; // No d-tag: keep (uses event.id)
+		const owner = dTagOwner.get(dTag);
+		return owner && event.pubkey === owner.pubkey;
+	});
 }
 
 /**
  * Convert a Nostr event to a Task
  */
 function convertEventToTask(event: Event): Task {
+	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+	// Use d-tag as id when present (Addressable Event: stable, readable identifier for URLs/SEO)
+	const taskId = dTag || event.id;
+	// Prefer event timestamp so dedup keeps latest replaceable event; fallback to 0 so sort is deterministic
+	const createdAt =
+		typeof event.created_at === 'number' && !Number.isNaN(event.created_at) ? event.created_at : 0;
 	return {
 		...JSON.parse(event.content),
-		id: event.id,
+		id: taskId,
 		npub: event.pubkey,
-		createdAt: event.created_at
+		createdAt
 	};
 }
 
@@ -151,17 +194,21 @@ export async function findTasks(
 		const cacheKey = JSON.stringify(filter);
 		const cached = cache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+			d.log('cache hit', {
+				cachedCount: cached.data.length,
+				cacheAgeMs: Date.now() - cached.timestamp
+			});
 			// Use optimized filtering with pre-indexed data
 			const { tasks: filteredTasks, metrics } = filterIndexedTasks(cached.data, params);
 			metrics.cacheHit = true;
 			performanceMonitor.addMetric(metrics);
 
-			// Convert back to regular Task objects for the store
-			const cleanTasks = cleanupIndexedTasks(filteredTasks);
+			// Convert back to regular Task objects and deduplicate (defense in depth)
+			const cleanTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
 
 			const limit = params.limit || BATCH_SIZE;
 			const currentItemsCount = get(tasksStore).items.length;
-			
+
 			// If we're loading more (page > 1), get the next batch from cache
 			if (params.page && params.page > 1) {
 				const startIndex = currentItemsCount;
@@ -171,14 +218,14 @@ export async function findTasks(
 
 				tasksStore.update((state) => ({
 					...state,
-					items: [...state.items, ...limitedTasks],
+					items: deduplicateTasksById([...state.items, ...limitedTasks]),
 					loading: false,
 					currentPage: params.page || 1,
 					hasMore
 				}));
 
 				return {
-					tasks: limitedTasks,
+					tasks: deduplicateTasksById(limitedTasks),
 					total: limitedTasks.length,
 					hasMore
 				};
@@ -195,14 +242,14 @@ export async function findTasks(
 
 				tasksStore.update((state) => ({
 					...state,
-					items: [...state.items, ...limitedTasks],
+					items: deduplicateTasksById([...state.items, ...limitedTasks]),
 					loading: false,
 					currentPage: params.page || 1,
 					hasMore
 				}));
 
 				return {
-					tasks: limitedTasks,
+					tasks: deduplicateTasksById(limitedTasks),
 					total: limitedTasks.length,
 					hasMore
 				};
@@ -210,20 +257,22 @@ export async function findTasks(
 
 			// Limit results to requested batch size for initial load
 			const limitedTasks = cleanTasks.slice(0, limit);
-			
+
 			// hasMore: true if we got the full limit AND there are more tasks available in cache
 			const hasMore = limitedTasks.length >= limit && cleanTasks.length > limit;
 
 			tasksStore.update((state) => ({
 				...state,
-				items: params.page === 1 ? limitedTasks : [...state.items, ...limitedTasks],
+				items: deduplicateTasksById(
+					params.page === 1 ? limitedTasks : [...state.items, ...limitedTasks]
+				),
 				loading: false,
 				currentPage: params.page || 1,
 				hasMore
 			}));
 
 			return {
-				tasks: limitedTasks,
+				tasks: deduplicateTasksById(limitedTasks),
 				total: limitedTasks.length,
 				hasMore
 			};
@@ -233,21 +282,34 @@ export async function findTasks(
 			const response = await nostrEventsService.findEvents(filter);
 
 			const events = response.data || [];
-			// const total = events.length;
+			// Filter out zombie events: same d-tag from different pubkeys (keep only original owner's)
+			const validEvents = filterZombieEvents(events);
 
-		// For public users, show all tasks without filtering by npub
-		// This avoids triggering biometric authentication for public users
-		const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+			// Pipeline: API (createTaskFilter) → convert → dedup by id (newest createdAt) → exclude own (npub) → index → filterIndexedTasks → cache merge (newer wins) → store.
+			// Convert events to tasks. Only Tasker publishes task events (replaceable by d-tag), so we need every version for dedup.
+			const rawTasks = validEvents.map((event: Event) => convertEventToTask(event));
 
-		const rawTasks = events
-			.map((event: Event) => convertEventToTask(event))
-			.filter((task: Task) => {
-				// Exclude own tasks
-				return task.npub !== npub;
+			// Deduplicate by task.id: keep only the most recent (highest createdAt). Sort desc so first wins = newest.
+			const sortedByNewest = [...rawTasks].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+			const taskById = new Map<string, Task>();
+			for (const task of sortedByNewest) {
+				if (!taskById.has(task.id)) {
+					taskById.set(task.id, task);
+				}
+			}
+			const uniqueTasks = Array.from(taskById.values());
+
+			// Exclude own tasks: task.npub is the event publisher = Tasker (task creator), since only Tasker publishes task events.
+			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+			const tasksExcludingOwn = npub ? uniqueTasks.filter((t) => t.npub !== npub) : uniqueTasks;
+			d.log('fetch', {
+				rawCount: rawTasks.length,
+				uniqueCount: uniqueTasks.length,
+				excludedOwn: uniqueTasks.length - tasksExcludingOwn.length
 			});
 
-			// Pre-index tasks for optimized filtering
-			const indexedTasks = indexTaskData(rawTasks);
+			// Pre-index tasks for optimized filtering (use tasks after excluding own)
+			const indexedTasks = indexTaskData(tasksExcludingOwn);
 
 			// Apply optimized frontend filtering
 			const { tasks: filteredTasks, metrics } = filterIndexedTasks(indexedTasks, params);
@@ -256,17 +318,28 @@ export async function findTasks(
 			// Get existing cached data if available
 			const existingCached = cache.get(cacheKey);
 			let allCachedTasks: IndexedTask[] = [];
-			
+
 			if (existingCached && Date.now() - existingCached.timestamp < CACHE_TTL) {
-				// Merge with existing cache, avoiding duplicates
-				const existingIds = new Set(existingCached.data.map(t => t.id));
-				const newTasks = filteredTasks.filter(t => !existingIds.has(t.id));
-				allCachedTasks = [...existingCached.data, ...newTasks];
+				// Merge with existing cache: for replaceable events (same id), keep the version with higher createdAt (P0-1).
+				const mergedById = new Map<string, IndexedTask>();
+				for (const t of existingCached.data) {
+					mergedById.set(t.id, t);
+				}
+				for (const t of filteredTasks) {
+					const existing = mergedById.get(t.id);
+					const tCreated = (t as Task).createdAt ?? 0;
+					const existingCreated = (existing as Task)?.createdAt ?? 0;
+					if (!existing || tCreated > existingCreated) {
+						mergedById.set(t.id, t);
+					}
+				}
+				allCachedTasks = Array.from(mergedById.values());
 			} else {
 				allCachedTasks = filteredTasks;
 			}
 
-			// Limit cache to MAX_CACHE_SIZE to prevent memory issues
+			// Deduplicate and limit cache to MAX_CACHE_SIZE
+			allCachedTasks = deduplicateTasksById(allCachedTasks);
 			if (allCachedTasks.length > MAX_CACHE_SIZE) {
 				allCachedTasks = allCachedTasks.slice(0, MAX_CACHE_SIZE);
 			}
@@ -274,27 +347,29 @@ export async function findTasks(
 			// Update cache with merged indexed data
 			cache.set(cacheKey, { data: allCachedTasks, timestamp: Date.now() });
 
-			// Convert back to regular Task objects for the store
-			const cleanTasks = cleanupIndexedTasks(filteredTasks);
+			// Convert back to regular Task objects and deduplicate (defense in depth)
+			const cleanTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
 
 			const limit = params.limit || BATCH_SIZE;
 			// Limit results to requested batch size
 			const limitedTasks = cleanTasks.slice(0, limit);
-			
+
 			// hasMore: true if we got the full limit from API
 			const hasMore = events.length >= limit;
 
-			// Update store - REEMPLAZAR en lugar de concatenar
+			// Update store and ensure no duplicate ids (defense in depth)
 			tasksStore.update((state) => ({
 				...state,
-				items: params.page === 1 ? limitedTasks : [...state.items, ...limitedTasks],
+				items: deduplicateTasksById(
+					params.page === 1 ? limitedTasks : [...state.items, ...limitedTasks]
+				),
 				loading: false,
 				currentPage: params.page || 1,
 				hasMore
 			}));
 
 			return {
-				tasks: limitedTasks,
+				tasks: deduplicateTasksById(limitedTasks),
 				total: limitedTasks.length,
 				hasMore
 			};
