@@ -22,6 +22,29 @@
 
 	const { children } = $props();
 
+	/**
+	 * vite:preloadError fires when a dynamic import chunk fails to load,
+	 * which happens when the user has stale in-memory JS after a new deployment
+	 * replaced the old chunk hashes. Calling event.preventDefault() suppresses
+	 * the error from propagating to unhandledrejection, then we reload once to
+	 * fetch fresh index.html with the new chunk references.
+	 * The key is scoped to the build version so a flag from a previous deployment
+	 * never blocks a reload for a different deployment.
+	 */
+	const CHUNK_RELOAD_KEY = `chunk-reload-${__BUILD_VERSION__}`;
+
+	const handlePreloadError = (event: Event & { payload: Error }) => {
+		if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+			// First failure for this build version: suppress + reload once.
+			event.preventDefault();
+			sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+			location.reload();
+		}
+		// Flag already set: this is a persistent error (not a stale-cache issue).
+		// Let the error propagate naturally so handleError in hooks.client.ts
+		// can surface it through Sentry.
+	};
+
 	// Derive layout state from current route
 	const currentPath = $derived(page.url.pathname);
 	const isOnboardingPage = $derived(currentPath.includes('/onboarding'));
@@ -92,6 +115,8 @@
 			setTimeout(() => initializeProtectedRouteHelpers(), 100);
 		}
 
+		window.addEventListener('vite:preloadError', handlePreloadError);
+
 		// Global error handler
 		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
 			const error = event instanceof ErrorEvent ? event.error : event.reason;
@@ -123,6 +148,7 @@
 		window.addEventListener('unhandledrejection', handleError);
 
 		return () => {
+			window.removeEventListener('vite:preloadError', handlePreloadError);
 			window.removeEventListener('error', handleError);
 			window.removeEventListener('unhandledrejection', handleError);
 		};
@@ -209,7 +235,6 @@
 				mq.addEventListener('change', onMqChange);
 			} catch {
 				// Safari fallback
-				// eslint-disable-next-line deprecation/deprecation
 				mq.addListener(onMqChange);
 			}
 		}
@@ -223,7 +248,6 @@
 				try {
 					mq.removeEventListener('change', onMqChange);
 				} catch {
-					// eslint-disable-next-line deprecation/deprecation
 					mq.removeListener(onMqChange);
 				}
 			}
@@ -244,11 +268,15 @@
 	<link href="/images/Logos/BitTasker-Logo-light-mode.svg" as="image" />
 
 	<!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
-	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
-	{@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
+	<!-- svelte-eslint-parser bug: literal `<script` inside template literals causes "Parsing error: Unexpected keyword or identifier". -->
+	<!-- Workaround: use \u{73} for the 's' so the parser never sees a `<script` token. See: https://github.com/sveltejs/svelte-eslint-parser/issues/346 -->
+	<!-- eslint-disable svelte/no-at-html-tags -->
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
 	{#if page.url.pathname !== '/'}
-		{@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
+		{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
 	{/if}
+	<!-- eslint-enable svelte/no-at-html-tags -->
 
 	<!-- Analytics tracking - only load in production -->
 	{#if import.meta.env.MODE === 'production'}
