@@ -168,7 +168,7 @@
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
-						<a href="/auth/signup" class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto"
+						<a href="/auth/signup" class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto" data-testid="signup-link"
 							>{$t('homepage.v2.hero.cta')}</a
 						>
 					</div>

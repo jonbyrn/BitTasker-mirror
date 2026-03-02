@@ -159,13 +159,6 @@
 			const state = get(walletStore);
 
 			if (!state.isConnected || state.isInitializing) {
-				if (import.meta.env.DEV) {
-					console.log('[DEBUG] [TransactionHistory] Wallet not ready, initializing...', {
-						isConnected: state.isConnected,
-						isInitializing: state.isInitializing
-					});
-				}
-				
 				// Wait for initialization if in progress, or initialize if not started
 				if (state.isInitializing) {
 					// Wait for initialization to complete (max 10 seconds)

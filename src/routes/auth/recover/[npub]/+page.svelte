@@ -20,14 +20,13 @@
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import { RevokeAllDevicesStore } from '$houdini';
-	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { locale } from 'svelte-i18n';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 
 	const npub = page.params.npub;
 
-	let recoveryCode = $state<string>('');
+	let otpCode = $state<string>('');
 	let currentPassword = $state<string>('');
 	let newPassword = $state<string>('');
 	let confirmPassword = $state<string>('');
@@ -46,6 +45,7 @@
 		webAuthn: false
 	});
 	let lastRecoveryAction = $state<'decrypt' | 'complete' | null>(null);
+	let revokeAll = $state(false);
 
 	// Password strength state
 	let passwordStrength = $state<'weak' | 'medium' | 'strong'>('weak');
@@ -86,23 +86,10 @@
 	}
 
 	onMount(async () => {
-		if (!npub) {
-			error = $t('recovery_npub.errors.no_public_key');
-			return;
-		}
-
 		try {
-			// Fetch recovery data for this npub
-			recoveryData = await authService.getNostrRecoveryData(npub);
-
-			// Check if recovery data is valid
-			if (
-				!recoveryData ||
-				!recoveryData.nostr ||
-				!recoveryData.wallet ||
-				!recoveryData.masterSalt
-			) {
-				throw new Error($t('recovery_npub.errors.no_recovery_data'));
+			if (!npub) {
+				error = $t('recovery_npub.errors.no_public_key');
+				throw new Error(error);
 			}
 
 			authMethods.biometric = await checkBiometricAvailability();
@@ -119,13 +106,13 @@
 		}
 	});
 
-		function regeneratePassword() {
-			const generatedPassword = generatePassword($locale || 'en');
-			newPassword = generatedPassword;
-			confirmPassword = generatedPassword;
-			passwordStrength = getPasswordStrength(generatedPassword);
-			passwordMismatchError = '';
-		}
+	function regeneratePassword() {
+		const generatedPassword = generatePassword($locale || 'en');
+		newPassword = generatedPassword;
+		confirmPassword = generatedPassword;
+		passwordStrength = getPasswordStrength(generatedPassword);
+		passwordMismatchError = '';
+	}
 
 	async function decryptAccountKeys(event: Event) {
 		event.preventDefault();
@@ -135,14 +122,17 @@
 			error = '';
 			lastRecoveryAction = 'decrypt';
 
-			if (!currentPassword || !recoveryData) {
-				error = $t('recovery_npub.errors.password_required');
-				return;
+			// Fetch recovery data for this npub
+			recoveryData = await authService.getNostrRecoveryData({ npub, otp: otpCode });
+
+			// Check if recovery data is valid
+			if (!recoveryData || !recoveryData.nostr || !recoveryData.wallet) {
+				error = $t('recovery_npub.errors.no_recovery_data');
+				throw new Error(error);
 			}
 
-			// Check if recovery data has the required fields
-			if (!recoveryData.nostr || !recoveryData.wallet || !recoveryData.masterSalt) {
-				error = $t('recovery_npub.errors.no_recovery_data_available');
+			if (!currentPassword) {
+				error = $t('recovery_npub.errors.password_required');
 				return;
 			}
 
@@ -150,7 +140,7 @@
 			({ nsec, mnemonic } = await decryptMasterKeyWithPassword(recoveryData, currentPassword));
 			step = 2;
 		} catch (err: any) {
-			error = $t('recovery_npub.errors.decrypt_failed');
+			error = err.message || $t('recovery_npub.errors.decrypt_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -165,7 +155,13 @@
 			error = '';
 			passwordError = '';
 
-			if (!newPassword || !confirmPassword || !recoveryCode) {
+			// Complete recovery
+			if (!npub) {
+				error = $t('recovery_npub.errors.invalid_link');
+				return;
+			}
+
+			if (!newPassword || !confirmPassword || !otpCode) {
 				error = $t('recovery_npub.errors.all_fields_required');
 				return;
 			}
@@ -181,37 +177,8 @@
 				return;
 			}
 
-			const deviceId = await getDeviceIdentifier();
-
 			// Encrypt with device ID for biometric storage
-			const masterKeyData = await encryptMasterKeyData(nsec, mnemonic, deviceId);
-
-			// Encrypt private key with new password for recovery
-			const recoveryData = await encryptMasterKeyData(nsec, mnemonic, newPassword);
-
-			// Complete recovery
-			if (!npub) {
-				error = $t('recovery_npub.errors.invalid_link');
-				return;
-			}
-
-			const recoveryResponse = await authService.completeNostrRecovery({
-				publicKey: npub,
-				otp: recoveryCode,
-				recoveryData: {
-					nostr: recoveryData.nostr,
-					wallet: recoveryData.wallet,
-					masterSalt: recoveryData.masterSalt
-				},
-				encryptedMasterKeyData: masterKeyData,
-				deviceId
-			});
-
-			// TODO: revoke all devices access except the one being used for recovery
-			/* const revokeStore = new RevokeAllDevicesStore();
-			await revokeStore.mutate({
-					
-			}); */
+			const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
@@ -220,62 +187,55 @@
 
 			// Create passkey with deviceName first (username not available yet)
 			// After login, username will be available for future passkey creations
-			let credentialId = '';
+			let credentialData = {
+				credentialId: '',
+				passkeyPubkey: '',
+				clientDataJSON: '',
+				attestationObject: '',
+				challenge: ''
+			};
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(
-					npub,
-					masterKeyData.exportedMasterKey,
-					'biometrics',
-					deviceName
-				);
+				credentialData = await setBiometricKey({ npub, exportedKey });
 			} else {
-				credentialId = await setWebBiometricKey(npub, masterKeyData.exportedMasterKey, deviceName);
+				credentialData = await setWebBiometricKey({ npub, exportedKey });
 			}
 
-			if (!credentialId) {
+			if (!credentialData.credentialId) {
 				throw new Error($t('recovery_npub.errors.register_device_failed'));
 			}
 
-			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
+			// Encrypt private key with new password for recovery
+			const { encryptedData: recoveryData } = await encryptMasterKeyData(
+				nsec,
+				mnemonic,
+				newPassword
+			);
 
-			// Login with passkey to get user data including username
-			const response = await authService.loginWithPasskey(npub, deviceId);
-			console.log({ response, recoveryResponse });
-			
-			// If username is available from login response, update the passkey with username
-			// Note: For native biometrics, we can update the stored credential
-			// For WebAuthn, we'd need to create a new credential, which is complex
-			// So we'll use deviceName for this passkey, but username will be used for future passkeys
-			if (response && response.access_token && response.user?.username && isMobileBiometrics) {
-				const passkeyName = response.user.username.trim();
-				// Update native biometric credential with username
-				await setBiometricKey(
-					npub,
-					masterKeyData.exportedMasterKey,
-					'biometrics',
-					passkeyName,
-					credentialId
-				);
-			}
-			
-			if (response && response.access_token) {
+			const deviceId = await getDeviceIdentifier();
+
+			const { access_token, user } = await authService.completeNostrRecovery({
+				npub: npub,
+				otp: otpCode,
+				encryptedData,
+				recoveryData,
+				credentialId: credentialData.credentialId,
+				challenge: credentialData.challenge,
+				passkeyPubkey: credentialData.passkeyPubkey,
+				clientDataJSON: credentialData.clientDataJSON,
+				attestationObject: credentialData.attestationObject,
+				deviceId,
+				deviceName,
+				platform: isMobileBiometrics ? 'mobile' : 'web',
+				revokeAll
+			});
+
+			if (access_token && user) {
 				const biometricData = {
-					username: npub,
-					password: JSON.stringify({
-						masterKeyData,
-						key: masterKeyData.exportedMasterKey
-					}),
-					server: deviceId,
-					isLegacyFormat: false
-				};
-				authState.setupAuthData(
-					response.access_token,
-					'biometrics',
 					npub,
-					response.user,
-					biometricData,
-					true
-				);
+					encryptedData,
+					exportedKey
+				};
+				authState.setupAuthData(access_token, 'passkey', npub, user, biometricData, true);
 			}
 		} catch (err: any) {
 			error = err.message || $t('recovery_npub.errors.recovery_failed');
@@ -285,9 +245,7 @@
 	}
 </script>
 
-<div
-	class="bg-base-200 flex flex-grow flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20"
->
+<div class="bg-base-200 flex grow flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight">
@@ -355,6 +313,20 @@
 						</div>
 					</div>
 
+					<div class="form-control">
+						<label class="label" for="recoveryCode">
+							<span class="label-text">{$t('recovery_npub.recovery_code_label')}</span>
+						</label>
+						<input
+							type="text"
+							id="recoveryCode"
+							bind:value={otpCode}
+							placeholder={$t('recovery_npub.recovery_code_placeholder')}
+							class="input input-bordered w-full"
+							required
+						/>
+					</div>
+
 					<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
@@ -388,20 +360,6 @@
 			{:else if step === 2}
 				<form onsubmit={completeRecovery} class="space-y-4">
 					<div class="form-control">
-						<label class="label" for="recoveryCode">
-							<span class="label-text">{$t('recovery_npub.recovery_code_label')}</span>
-						</label>
-						<input
-							type="text"
-							id="recoveryCode"
-							bind:value={recoveryCode}
-							placeholder={$t('recovery_npub.recovery_code_placeholder')}
-							class="input input-bordered w-full"
-							required
-						/>
-					</div>
-
-					<div class="form-control">
 						<!-- Generated Password Note -->
 						<div class="alert alert-warning alert-outline mb-2">
 							<svg
@@ -417,7 +375,9 @@
 									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
-							<span class="text-sm">{$t('onboarding_auth.form.recovery_setup.generated_password_note')}</span>
+							<span class="text-sm"
+								>{$t('onboarding_auth.form.recovery_setup.generated_password_note')}</span
+							>
 						</div>
 						<label class="label" for="newPassword">
 							<span class="label-text">{$t('recovery_npub.new_password_label')}</span>
@@ -543,7 +503,9 @@
 								bind:value={confirmPassword}
 								oninput={validatePasswordMatch}
 								placeholder={$t('recovery_npub.confirm_password_placeholder')}
-								class="input input-bordered w-full {(passwordError || passwordMismatchError) ? 'input-error' : ''} pr-20"
+								class="input input-bordered w-full {passwordError || passwordMismatchError
+									? 'input-error'
+									: ''} pr-20"
 								required
 							/>
 							<!-- Copy Button -->
@@ -608,11 +570,29 @@
 												? 'text-warning'
 												: 'text-success'}"
 									>
-										{$t(`onboarding_auth.form.recovery_setup.password_strength.${passwordStrength}`)}
+										{$t(
+											`onboarding_auth.form.recovery_setup.password_strength.${passwordStrength}`
+										)}
 									</span>
 								</div>
 							</div>
 						{/if}
+					</div>
+
+					<!-- Revoke All Devices Checkbox -->
+					<div class="form-control">
+						<label class="label cursor-pointer gap-3">
+							<input
+								type="checkbox"
+								bind:checked={revokeAll}
+								class="checkbox checkbox-primary"
+								id="revokeAll"
+							/>
+							<span class="label-text font-medium">{$t('recovery_npub.revoke_all_label')}</span>
+						</label>
+						<p class="label-text-alt text-base-content/70 whitespace-break-spaces">
+							{$t('recovery_npub.revoke_all_description')}
+						</p>
 					</div>
 
 					<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
@@ -653,25 +633,27 @@
 					isPasskeyError={(() => {
 						// Check if error is passkey/biometric related
 						const errorLower = error.toLowerCase();
-						return lastRecoveryAction === 'complete' && (
-							errorLower.includes('passkey') ||
-							errorLower.includes('biometric') ||
-							errorLower.includes('webauthn') ||
-							errorLower.includes('authentication') ||
-							errorLower.includes('credential') ||
-							errorLower.includes('device')
+						return (
+							lastRecoveryAction === 'complete' &&
+							(errorLower.includes('passkey') ||
+								errorLower.includes('biometric') ||
+								errorLower.includes('webauthn') ||
+								errorLower.includes('authentication') ||
+								errorLower.includes('credential') ||
+								errorLower.includes('device'))
 						);
 					})()}
 					autoOpenModal={(() => {
 						// Auto-open modal for passkey errors
 						const errorLower = error.toLowerCase();
-						return lastRecoveryAction === 'complete' && (
-							errorLower.includes('passkey') ||
-							errorLower.includes('biometric') ||
-							errorLower.includes('webauthn') ||
-							errorLower.includes('authentication') ||
-							errorLower.includes('credential') ||
-							errorLower.includes('device')
+						return (
+							lastRecoveryAction === 'complete' &&
+							(errorLower.includes('passkey') ||
+								errorLower.includes('biometric') ||
+								errorLower.includes('webauthn') ||
+								errorLower.includes('authentication') ||
+								errorLower.includes('credential') ||
+								errorLower.includes('device'))
 						);
 					})()}
 					onRetry={async () => {
@@ -680,7 +662,7 @@
 						const syntheticEvent = {
 							preventDefault: () => {}
 						} as Event;
-						
+
 						if (lastRecoveryAction === 'decrypt') {
 							await decryptAccountKeys(syntheticEvent);
 						} else if (lastRecoveryAction === 'complete') {

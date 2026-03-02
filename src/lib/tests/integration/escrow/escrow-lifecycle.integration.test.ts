@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 import type { Task } from '$lib/types/task';
 import type { NostrEvent } from 'nostr-tools';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
 
 // Mock @bittasker/wallet-core
 vi.mock('@bittasker/wallet-core', () => ({
@@ -42,7 +42,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: {
 		subscribe: vi.fn((callback) => {
 			callback(mockWalletStore);
-			return () => {};
+			return () => { };
 		})
 	},
 	getWallet: vi.fn(() => ({
@@ -61,7 +61,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 }));
 
 // Mock network config
-vi.mock('$lib/utils/wallet/networkConfig', () => ({
+vi.mock('@bittasker/wallet-core', () => ({
 	FEE_TIERS: {
 		1: { percentage: 250, label: '2.5%' },
 		2: { percentage: 200, label: '2.0%' },
@@ -102,7 +102,7 @@ const mockCreateContract = vi.fn();
 const mockPublishContractStatus = vi.fn();
 
 vi.mock('$lib/utils/escrow/v1/nostrContract', () => ({
-	createContract: mockCreateContract,
+	createContractEvent: mockCreateContract,
 	publishContractStatus: mockPublishContractStatus
 }));
 

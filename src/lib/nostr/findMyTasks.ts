@@ -18,13 +18,16 @@ const cache = new Map<string, { data: Task[]; timestamp: number }>();
 /**
  * Convert a Nostr event to a Task
  */
-function convertEventToTask(event: Event): Task {
-    return {
-        ...JSON.parse(event.content),
-        id: event.id,
-        npub: event.pubkey,
-        createdAt: event.created_at
-    }
+function convertEventToTask(event: Event): Task & { eventId?: string } {
+	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+	const taskId = dTag || event.id;
+	return {
+		...JSON.parse(event.content),
+		id: taskId,
+		eventId: event.id,
+		npub: event.pubkey,
+		createdAt: event.created_at
+	};
 }
 
 /**

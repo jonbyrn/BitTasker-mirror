@@ -1,5 +1,5 @@
 import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices, ProfileTranslations, SkillTranslations, CertificationTranslations, PortfolioTranslations } from '$lib/types/profile.d';
-import type { NostrEvent, Filter } from 'nostr-tools';
+import { type NostrEvent, type Filter, nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
 import { getNpub } from '$lib/utils/nostrKeys';
@@ -12,9 +12,6 @@ import type { SubCloser } from 'nostr-tools/abstract-pool';
 
 // Translation service instance
 const translationService = new TranslationService();
-
-const pool = get(appStore).pool;
-const RELAYS = get(appStore).relays;
 
 // Subscription store for profile updates
 const profileSubscriptions = new Map<
@@ -58,7 +55,7 @@ export function createSubscriptionKey(
 export async function subscribeToProfileUpdates(
 	callback: (event: NostrEvent) => void,
 	kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined },
-	relays = RELAYS
+	relays = get(appStore)?.relays ?? []
 ): Promise<() => void> {
 	let npub: string;
 
@@ -67,7 +64,7 @@ export async function subscribeToProfileUpdates(
 		npub = await getNpub();
 		if (!npub) {
 			console.error('No public key found');
-			return () => {};
+			return () => { };
 		}
 
 		// Create a unique subscription key based on npub and filters
@@ -103,6 +100,11 @@ export async function subscribeToProfileUpdates(
 					authors: [npub],
 					limit: 10
 				});
+			}
+
+			const pool = get(appStore)?.pool;
+			if (!pool) {
+				throw new Error('Pool not found');
 			}
 
 			// Create separate subscriptions for each filter
@@ -145,7 +147,7 @@ export async function subscribeToProfileUpdates(
 		};
 	} catch (err) {
 		console.error('Failed to get public key:', err);
-		return () => {};
+		return () => { };
 	}
 }
 
@@ -226,10 +228,10 @@ export async function generateProfileTranslations(profileData: {
 			}
 		});
 
-	return {
-		sourceLanguage,
-		translations
-	};
+		return {
+			sourceLanguage,
+			translations
+		};
 	} catch (error) {
 		console.error('Error generating profile translations:', error);
 		return undefined;
@@ -259,7 +261,7 @@ export async function generateSkillTranslations(
 
 		// Detect source language from the skill name
 		const detectedLanguage = await translationService.detectLanguage(skillName);
-		
+
 		// Determine source language:
 		// 1. If detected language is supported, use it
 		// 2. If fallback locale is provided and supported, use it
@@ -272,10 +274,10 @@ export async function generateSkillTranslations(
 		} else {
 			sourceLanguage = 'en';
 		}
-		
+
 		// Always translate to the other language to ensure we have translations in both
 		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
-		
+
 		// If no target languages (skill is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
 			return {
@@ -301,7 +303,7 @@ export async function generateSkillTranslations(
 		});
 
 		const results = await Promise.all(translationPromises);
-		
+
 		// Build translations object, filtering out failed translations
 		const translations: SkillTranslations['translations'] = {};
 		results.forEach(result => {
@@ -338,7 +340,7 @@ export async function generateCertificationTranslations(
 	try {
 		// Combine name and issuer for language detection
 		const combinedText = `${certificationName || ''} ${issuer || ''}`.trim();
-		
+
 		// If all fields are empty, return undefined
 		if (!combinedText) {
 			return undefined;
@@ -346,16 +348,16 @@ export async function generateCertificationTranslations(
 
 		// Detect source language from the combined text
 		const detectedLanguage = await translationService.detectLanguage(combinedText);
-		
+
 		// Determine source language - if detection fails or language is not supported, default to 'en'
 		// but we'll still translate to ensure both languages are available
-		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as SupportedLanguage)) 
-			? detectedLanguage 
+		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as SupportedLanguage))
+			? detectedLanguage
 			: 'en';
-		
+
 		// Always translate to the other language to ensure we have translations in both
 		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
-		
+
 		// If no target languages (certification is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
 			return {
@@ -389,7 +391,7 @@ export async function generateCertificationTranslations(
 		});
 
 		const results = await Promise.all(translationPromises);
-		
+
 		// Build translations object, filtering out failed translations
 		const translations: CertificationTranslations['translations'] = {};
 		results.forEach(result => {
@@ -432,7 +434,7 @@ export async function generatePortfolioTranslations(
 	try {
 		// Combine title and description for language detection
 		const combinedText = `${portfolioData.title || ''} ${portfolioData.description || ''}`.trim();
-		
+
 		// If all fields are empty, return undefined
 		if (!combinedText) {
 			return undefined;
@@ -440,7 +442,7 @@ export async function generatePortfolioTranslations(
 
 		// Detect source language from the combined text
 		const detectedLanguage = await translationService.detectLanguage(combinedText);
-		
+
 		// Determine source language:
 		// 1. If detected language is supported, use it
 		// 2. If fallback locale is provided and supported, use it
@@ -453,10 +455,10 @@ export async function generatePortfolioTranslations(
 		} else {
 			sourceLanguage = 'en';
 		}
-		
+
 		// Always translate to the other language to ensure we have translations in both
 		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
-		
+
 		// If no target languages (portfolio is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
 			return {
@@ -490,7 +492,7 @@ export async function generatePortfolioTranslations(
 		});
 
 		const results = await Promise.all(translationPromises);
-		
+
 		// Build translations object, filtering out failed translations
 		const translations: PortfolioTranslations['translations'] = {};
 		results.forEach(result => {
@@ -518,7 +520,7 @@ export async function generatePortfolioTranslations(
 export async function publishProfileMetadata(
 	metadata: NostrProfile,
 	existingMetadata: NostrProfile = {},
-	relays = RELAYS
+	relays = get(appStore)?.relays ?? []
 ): Promise<NostrEvent> {
 	// Merge new metadata with existing, giving priority to new values
 	// Only override fields that are explicitly provided (not undefined/null/empty)
@@ -562,6 +564,11 @@ export async function publishProfileMetadata(
 		// Publish with timeout and retry logic
 		const maxRetries = 3;
 		const timeout = 5000; // 5 seconds
+
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 
 		for (let attempt = 1; attempt <= maxRetries; attempt++) {
 			try {
@@ -610,7 +617,7 @@ export async function publishMultipleImages(
 	images: NostrProfileImage[],
 	eventId: string | null,
 	identifier: string,
-	relays = RELAYS
+	relays = get(appStore)?.relays ?? []
 ): Promise<string[]> {
 	try {
 		// Always use kind 30063 for replaceable events
@@ -627,6 +634,10 @@ export async function publishMultipleImages(
 			throw new Error('Event is undefined');
 		}
 
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		const signedEvent = await getSignedEvent(event);
 		const pub = await Promise.all(pool.publish(relays, signedEvent));
 
@@ -645,13 +656,18 @@ export async function publishMultipleImages(
 export async function deleteNostrEvent(
 	eventId: string,
 	eventKind?: string,
-	relays = RELAYS
+	relays = get(appStore)?.relays ?? []
 ): Promise<void> {
 	try {
 		const npub = await getNpub();
 		if (!npub) {
 			console.error('No public key found');
 			return;
+		}
+
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
 		}
 
 		const event: Partial<NostrEvent> = {
@@ -686,52 +702,63 @@ export function closeNostrPool(): void {
 	}
 	profileSubscriptions.clear();
 
+	const relays = get(appStore)?.relays ?? [];
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
+
 	// Close pool
-	pool.close(RELAYS);
+	pool.close(relays);
 }
 
 /**
  * Publish skills update to Nostr
  */
 export async function publishSkillsUpdate(
-    skills: Skill[],
-    relays = RELAYS
+	skills: Skill[],
+	relays = get(appStore)?.relays ?? []
 ): Promise<void> {
-    try {
-        // Get current locale from svelte-i18n if available
-        let currentLocale: string | undefined;
-        try {
-            const { get } = await import('svelte/store');
-            const { locale } = await import('svelte-i18n');
-            currentLocale = get(locale) || undefined;
-        } catch {
-            // If svelte-i18n is not available, continue without locale
-        }
+	try {
+		// Get current locale from svelte-i18n if available
+		let currentLocale: string | undefined;
+		try {
+			const { get } = await import('svelte/store');
+			const { locale } = await import('svelte-i18n');
+			currentLocale = get(locale) || undefined;
+		} catch {
+			// If svelte-i18n is not available, continue without locale
+		}
 
-        // Generate translations for skills that don't have them yet
-        const skillsWithTranslations = await Promise.all(
-            skills.map(async (skill) => {
-                // Only generate translations if skill doesn't already have them
-                if (!skill.translations && skill.name.trim()) {
-                    const translations = await generateSkillTranslations(skill.name, currentLocale);
-                    return {
-                        ...skill,
-                        ...(translations && { translations })
-                    };
-                }
-                return skill;
-            })
-        );
+		// Generate translations for skills that don't have them yet
+		const skillsWithTranslations = await Promise.all(
+			skills.map(async (skill) => {
+				// Only generate translations if skill doesn't already have them
+				if (!skill.translations && skill.name.trim()) {
+					const translations = await generateSkillTranslations(skill.name, currentLocale);
+					return {
+						...skill,
+						...(translations && { translations })
+					};
+				}
+				return skill;
+			})
+		);
 
-        // Create skills event (kind 30000 is replaceable)
-        const skillsEvent = {
-            kind: KINDS.PROFILE_SKILLS,
-            created_at: Math.floor(Date.now() / 1000),
-            tags: [['d', 'skills']],
-            content: JSON.stringify(skillsWithTranslations)
-        };
+		// Create skills event (kind 30000 is replaceable)
+		const skillsEvent = {
+			kind: KINDS.PROFILE_SKILLS,
+			created_at: Math.floor(Date.now() / 1000),
+			tags: [['d', 'skills']],
+			content: JSON.stringify(skillsWithTranslations)
+		};
 
 		const signedSkillsEvent = await getSignedEvent(skillsEvent);
+
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 
 		pool.publish(relays, signedSkillsEvent);
 	} catch (error) {
@@ -751,7 +778,7 @@ export async function uploadCertification(
 		date: string;
 		file: File;
 	},
-	relays = RELAYS
+	relays = get(appStore)?.relays ?? []
 ): Promise<string> {
 	try {
 		// Upload file
@@ -781,6 +808,11 @@ export async function uploadCertification(
 
 		const signedCertEvent = await getSignedEvent(certEvent);
 
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+
 		// Publish event
 		pool.publish(relays, signedCertEvent);
 
@@ -797,46 +829,50 @@ export async function uploadCertification(
 export async function publishPortfolioItem(
 	item: PortfolioItem,
 	tags: string[][],
-	relays = RELAYS
+	relays = get(appStore)?.relays ?? []
 ): Promise<void> {
-    try {
-        // Get current locale from svelte-i18n if available
-        let currentLocale: string | undefined;
-        try {
-            const { get } = await import('svelte/store');
-            const { locale } = await import('svelte-i18n');
-            currentLocale = get(locale) || undefined;
-        } catch {
-            // If svelte-i18n is not available, continue without locale
-        }
+	try {
+		// Get current locale from svelte-i18n if available
+		let currentLocale: string | undefined;
+		try {
+			const { get } = await import('svelte/store');
+			const { locale } = await import('svelte-i18n');
+			currentLocale = get(locale) || undefined;
+		} catch {
+			// If svelte-i18n is not available, continue without locale
+		}
 
-        // Generate translations for portfolio item if it doesn't already have them
-        let itemWithTranslations = item;
-        if (!item.translations && item.title.trim() && item.description.trim()) {
-            const translations = await generatePortfolioTranslations(
-                {
-                    title: item.title,
-                    description: item.description
-                },
-                currentLocale
-            );
-            if (translations) {
-                itemWithTranslations = {
-                    ...item,
-                    translations
-                };
-            }
-        }
+		// Generate translations for portfolio item if it doesn't already have them
+		let itemWithTranslations = item;
+		if (!item.translations && item.title.trim() && item.description.trim()) {
+			const translations = await generatePortfolioTranslations(
+				{
+					title: item.title,
+					description: item.description
+				},
+				currentLocale
+			);
+			if (translations) {
+				itemWithTranslations = {
+					...item,
+					translations
+				};
+			}
+		}
 
-        // Create portfolio item event
-        const itemEvent = {
-            kind: KINDS.PROFILE_PORTFOLIO,
-            created_at: Math.floor(Date.now() / 1000),
-            tags,
-            content: JSON.stringify(itemWithTranslations)
-        };
+		// Create portfolio item event
+		const itemEvent = {
+			kind: KINDS.PROFILE_PORTFOLIO,
+			created_at: Math.floor(Date.now() / 1000),
+			tags,
+			content: JSON.stringify(itemWithTranslations)
+		};
 
 		const signedEvent = await getSignedEvent(itemEvent);
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to publish portfolio item:', error);
@@ -847,7 +883,7 @@ export async function publishPortfolioItem(
 /**
  * Delete a portfolio item
  */
-export async function deletePortfolioItem(id: string, relays = RELAYS): Promise<void> {
+export async function deletePortfolioItem(id: string, relays = get(appStore)?.relays ?? []): Promise<void> {
 	try {
 		// Create deletion event according to NIP-09
 		const deleteEvent = {
@@ -861,6 +897,10 @@ export async function deletePortfolioItem(id: string, relays = RELAYS): Promise<
 		};
 
 		const signedEvent = await getSignedEvent(deleteEvent);
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Error deleting portfolio item:', error);
@@ -881,8 +921,14 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
 			content: JSON.stringify(availability)
 		};
 
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+		const relays = get(appStore)?.relays ?? [];
+
 		const signedEvent = await getSignedEvent(event);
-		await Promise.all(pool.publish(RELAYS, signedEvent));
+		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to publish availability update:', error);
 		throw error;
@@ -897,9 +943,13 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
 export async function publishStandardServices(
 	servicesData: NostrStandardServices,
 	tags: string[][],
-	relays = RELAYS
+	relays = get(appStore)?.relays ?? []
 ): Promise<void> {
 	try {
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		const event = {
 			kind: KINDS.PROFILE_STANDARD_SERVICES,
 			created_at: Math.floor(Date.now() / 1000),
@@ -919,8 +969,12 @@ export async function publishStandardServices(
  * Deletes a standard service event from Nostr
  * @param eventId The ID of the event to delete
  */
-export async function deleteStandardService(eventId: string, relays = RELAYS): Promise<void> {
+export async function deleteStandardService(eventId: string, relays = get(appStore)?.relays ?? []): Promise<void> {
 	try {
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		const event = {
 			kind: 5,
 			created_at: Math.floor(Date.now() / 1000),
@@ -945,17 +999,50 @@ export async function deleteStandardService(eventId: string, relays = RELAYS): P
  * @param relays Optional array of relay URLs
  * @returns Promise resolving to the event or null if not found
  */
-export async function getEventById(eventId: string, relays = RELAYS): Promise<NostrEvent | null> {
+export async function getEventById(eventId: string, relays = get(appStore)?.relays ?? []): Promise<NostrEvent | null> {
 	try {
 		const filter: Filter = {
 			ids: [eventId]
 		};
 
 		// Use get method instead of list
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
 		const event = await pool.get(relays, filter);
 		return event || null;
 	} catch (error) {
 		console.error('Error fetching event by ID:', error);
 		throw error;
+	}
+}
+
+export async function getProfileMetaData(npub: string): Promise<NostrEvent | null> {
+	try {
+		if (npub.startsWith('npub')) {
+			const decoded = nip19.decode(npub);
+			if (decoded.type === 'npub') {
+				npub = decoded.data as string;
+			}
+		}
+
+		const filter: Filter = {
+			authors: [npub],
+			kinds: [KINDS.PROFILE_METADATA],
+			limit: 20
+		};
+
+		const pool = get(appStore)?.pool;
+		if (!pool) {
+			throw new Error('Pool not found');
+		}
+		const relays = get(appStore)?.relays ?? [];
+
+		const event = await pool.get(relays, filter);
+		return event || null;
+	} catch (error) {
+		console.error('Error fetching profile metadata:', error);
+		return null;
 	}
 }

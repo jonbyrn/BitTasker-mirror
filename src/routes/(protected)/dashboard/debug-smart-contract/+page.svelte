@@ -50,28 +50,14 @@
 		const state = get(walletStore);
 		const addresses: Array<{ address: string; network: 'RSK' | 'BSC' }> = [];
 
-		console.log('[DEBUG] getConnectedAddresses - wallet store state', {
-			rsk: {
-				connected: state.rsk.connected,
-				address: state.rsk.address
-			},
-			bsc: {
-				connected: state.bsc.connected,
-				address: state.bsc.address
-			}
-		});
-
 		if (state.rsk.connected && state.rsk.address) {
 			addresses.push({ address: state.rsk.address, network: 'RSK' });
-			console.log('[DEBUG] Added RSK address:', state.rsk.address);
 		}
 
 		if (state.bsc.connected && state.bsc.address) {
 			addresses.push({ address: state.bsc.address, network: 'BSC' });
-			console.log('[DEBUG] Added BSC address:', state.bsc.address);
 		}
 
-		console.log('[DEBUG] Total addresses to check:', addresses.length, addresses);
 		return addresses;
 	}
 
@@ -80,7 +66,6 @@
 		contract: EscrowData,
 		userAddress: string
 	): Promise<{ permissions: ContractPermissions; isClient: boolean; isFreelancer: boolean }> {
-		const permStartTime = performance.now();
 		// Defensive check for undefined addresses
 		const clientAddr = contract.client?.toLowerCase() || '';
 		const freelancerAddr = contract.freelancer?.toLowerCase() || '';
@@ -92,13 +77,7 @@
 		let disputeProposal = null;
 		if (contract.status === EscrowStatus.InDispute) {
 			try {
-				const disputeStartTime = performance.now();
 				disputeProposal = await escrow.getDisputeProposal(contract.id);
-				const disputeEndTime = performance.now();
-				const disputeDuration = disputeEndTime - disputeStartTime;
-				console.log(`[DEBUG] Loaded dispute proposal for contract ${contract.id}`, {
-					durationMs: disputeDuration.toFixed(2)
-				});
 			} catch (error) {
 				console.warn(`Failed to load dispute proposal for ${contract.id}:`, error);
 			}
@@ -122,7 +101,6 @@
 			}
 		};
 
-		const determineStartTime = performance.now();
 		const { permissions } = determineContractState(
 			contract.status,
 			[], // No status events for debug view
@@ -133,24 +111,13 @@
 			isClient,
 			isFreelancer
 		);
-		const determineEndTime = performance.now();
-		const determineDuration = determineEndTime - determineStartTime;
-
-		const permEndTime = performance.now();
-		const totalPermTime = permEndTime - permStartTime;
-		console.log(`[DEBUG] Calculated permissions for contract ${contract.id}`, {
-			totalDurationMs: totalPermTime.toFixed(2),
-			determineStateDurationMs: determineDuration.toFixed(2)
-		});
 
 		return { permissions, isClient, isFreelancer };
 	}
 
 	// Load contracts for a specific address
 	async function loadContractsForAddress(address: string, network: 'RSK' | 'BSC') {
-		const functionStartTime = performance.now();
 		const key = `${network}-${address}`;
-		console.log('[DEBUG] loadContractsForAddress called', { address, network, key });
 
 		const group = contractsByAddress.get(key);
 
@@ -177,28 +144,14 @@
 		}
 
 		try {
-			const loadContractsStartTime = performance.now();
-			console.log('[DEBUG] Calling loadContractsByAddress...', { address, network });
 			const contracts = await loadContractsByAddress(address, 100, network);
-			const loadContractsEndTime = performance.now();
-			const loadContractsDuration = loadContractsEndTime - loadContractsStartTime;
-			console.log('[DEBUG] loadContractsByAddress returned', {
-				count: contracts.length,
-				contractIds: contracts.map(c => c.id),
-				contracts: contracts.map(c => ({
-					id: c.id,
-					client: c.client,
-					freelancer: c.freelancer,
-					status: c.status,
-					baseAmount: c.baseAmount
-				})),
-				durationMs: loadContractsDuration.toFixed(2)
-			});
 
-			const permissionsStartTime = performance.now();
 			const contractsWithPermissions: ContractWithPermissions[] = await Promise.all(
 				contracts.map(async (contract) => {
-					const { permissions, isClient, isFreelancer } = await calculatePermissions(contract, address);
+					const { permissions, isClient, isFreelancer } = await calculatePermissions(
+						contract,
+						address
+					);
 					return {
 						...contract,
 						permissions,
@@ -208,25 +161,6 @@
 					};
 				})
 			);
-			const permissionsEndTime = performance.now();
-			const permissionsDuration = permissionsEndTime - permissionsStartTime;
-			const avgPermissionTime = contracts.length > 0 ? permissionsDuration / contracts.length : 0;
-
-			console.log('[DEBUG] Contracts with permissions calculated', {
-				count: contractsWithPermissions.length,
-				contracts: contractsWithPermissions.map(c => ({
-					id: c.id,
-					isClient: c.isClient,
-					isFreelancer: c.isFreelancer,
-					status: c.status
-				})),
-				timing: {
-					totalPermissionsDurationMs: permissionsDuration.toFixed(2),
-					avgPermissionTimeMs: avgPermissionTime.toFixed(2),
-					note: 'Permissions calculated in parallel with Promise.all'
-				}
-			});
-
 			const updatedGroup = contractsByAddress.get(key);
 			if (updatedGroup) {
 				// Create a new group object to trigger reactivity
@@ -238,20 +172,6 @@
 				});
 				// Reassign Map to trigger reactivity
 				contractsByAddress = new Map(contractsByAddress);
-				const functionEndTime = performance.now();
-				const totalFunctionTime = functionEndTime - functionStartTime;
-				console.log('[DEBUG] Updated group with contracts', {
-					key,
-					contractCount: contractsWithPermissions.length,
-					totalDurationMs: totalFunctionTime.toFixed(2),
-					breakdown: {
-						loadContractsMs: loadContractsDuration.toFixed(2),
-						permissionsMs: permissionsDuration.toFixed(2),
-						otherMs: (totalFunctionTime - loadContractsDuration - permissionsDuration).toFixed(2)
-					}
-				});
-			} else {
-				console.warn('[DEBUG] Group not found after loading contracts', { key });
 			}
 		} catch (error) {
 			const updatedGroup = contractsByAddress.get(key);
@@ -265,63 +185,32 @@
 				// Reassign Map to trigger reactivity
 				contractsByAddress = new Map(contractsByAddress);
 			}
-			console.error('[DEBUG] Error loading contracts for address', {
-				address,
-				network,
-				error: error instanceof Error ? error.message : 'Unknown error',
-				stack: error instanceof Error ? error.stack : undefined
-			});
 		}
 	}
 
 	// Load all contracts
 	async function loadAllContracts() {
-		const loadAllStartTime = performance.now();
-		console.log('[DEBUG] loadAllContracts called');
-		
 		// Reset cached contract to ensure fresh provider connection
 		escrow.resetCachedContract();
-		
+
 		const addresses = getConnectedAddresses();
 
 		if (addresses.length === 0) {
-			console.warn('[DEBUG] No connected addresses found');
 			initialLoadComplete = true;
 			appStore.showErrorToast($t('debug.smart_contract.no_contracts'));
 			return;
 		}
 
-		console.log('[DEBUG] Loading contracts for addresses', addresses);
 		initialLoadComplete = false;
-		
+
 		try {
-			const loadAddressesStartTime = performance.now();
 			await Promise.all(
 				addresses.map(({ address, network }) => loadContractsForAddress(address, network))
 			);
-			const loadAddressesEndTime = performance.now();
-			const loadAddressesDuration = loadAddressesEndTime - loadAddressesStartTime;
-			console.log('[DEBUG] All contracts loaded successfully', {
-				addressesLoaded: addresses.length,
-				parallelLoadDurationMs: loadAddressesDuration.toFixed(2),
-				note: 'Addresses loaded in parallel with Promise.all'
-			});
-		} catch (error) {
-			console.error('[DEBUG] Error in loadAllContracts', error);
+		} catch {
+			// Error handled by loadContractsForAddress per-address
 		} finally {
 			initialLoadComplete = true;
-			const loadAllEndTime = performance.now();
-			const totalLoadAllTime = loadAllEndTime - loadAllStartTime;
-			console.log('[DEBUG] Initial load complete. Final state:', {
-				contractsByAddressSize: contractsByAddress.size,
-				groups: Array.from(contractsByAddress.entries()).map(([key, group]) => ({
-					key,
-					contractCount: group.contracts.length,
-					isLoading: group.isLoading,
-					error: group.error
-				})),
-				totalDurationMs: totalLoadAllTime.toFixed(2)
-			});
 		}
 	}
 
@@ -350,11 +239,7 @@
 	}
 
 	// Execute contract function
-	async function executeContractFunction(
-		contractId: string,
-		functionName: string,
-		...args: any[]
-	) {
+	async function executeContractFunction(contractId: string, functionName: string, ...args: any[]) {
 		const actionKey = `${contractId}-${functionName}`;
 		executingActions.set(actionKey, true);
 		executingActions = new Map(executingActions);
@@ -381,7 +266,7 @@
 					await escrow.acceptProposal(contractId);
 					break;
 				case 'resolveAfterTimelock':
-					await escrow.resolveAfterTimelock(contractId);
+					await escrow.resolveAfterTimelock(contractId, args[0] || '0');
 					break;
 				default:
 					throw new Error(`Unknown function: ${functionName}`);
@@ -432,7 +317,7 @@
 	function getExplorerUrl(address: string, network: 'RSK' | 'BSC'): string {
 		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
-		
+
 		if (network === 'RSK') {
 			if (rskNetwork === 'mainnet') {
 				return `https://rootstock.blockscout.com/address/${address}`;
@@ -456,21 +341,18 @@
 				safetyOverride = true;
 			}
 		}
-		
+
 		// Initialize wallet first
 		try {
-			console.log('[DEBUG] Initializing wallet...');
 			await walletManager.initialize();
-			console.log('[DEBUG] Wallet initialized successfully');
 		} catch (error) {
-			console.error('[DEBUG] Failed to initialize wallet:', error);
 			appStore.showErrorToast(
 				$t('debug.smart_contract.wallet_init_error', {
 					values: { error: error instanceof Error ? error.message : 'Unknown error' }
 				})
 			);
 		}
-		
+
 		// Load contracts after wallet is initialized
 		loadAllContracts();
 	});
@@ -491,13 +373,13 @@
 	function handleSafetyOverrideChange(event: Event) {
 		const target = event.target as HTMLInputElement;
 		const newValue = target.checked;
-		
+
 		// If disabling, allow it immediately
 		if (!newValue) {
 			safetyOverride = false;
 			return;
 		}
-		
+
 		// If enabling, prevent the change and show confirmation
 		event.preventDefault();
 		target.checked = false; // Reset checkbox
@@ -535,133 +417,141 @@
 
 	<!-- Wallet Address Groups -->
 	{#if true}
-		{@const hasAnyContracts = contractsByAddress.size > 0 && Array.from(contractsByAddress.values()).some((g) => g.contracts.length > 0)}
-		{@const isAnyLoading = contractsByAddress.size > 0 && Array.from(contractsByAddress.values()).some((g) => g.isLoading)}
-		{@const allLoaded = contractsByAddress.size === 0 || Array.from(contractsByAddress.values()).every((g) => !g.isLoading)}
-		
+		{@const hasAnyContracts =
+			contractsByAddress.size > 0 &&
+			Array.from(contractsByAddress.values()).some((g) => g.contracts.length > 0)}
+		{@const isAnyLoading =
+			contractsByAddress.size > 0 &&
+			Array.from(contractsByAddress.values()).some((g) => g.isLoading)}
+		{@const allLoaded =
+			contractsByAddress.size === 0 ||
+			Array.from(contractsByAddress.values()).every((g) => !g.isLoading)}
+
 		{#if !initialLoadComplete || isAnyLoading}
-		<!-- Loading State -->
-		<div class="py-12 text-center">
-			<span class="loading loading-spinner loading-md"></span>
-			<p class="text-base-content/60 mt-4">{$t('debug.smart_contract.loading')}</p>
-		</div>
-	{:else if initialLoadComplete && allLoaded && !hasAnyContracts}
-		<!-- No Contracts Found -->
-		<div class="py-8 text-center">
-			<div class="text-base-content/60 mb-3">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mx-auto h-12 w-12"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-					/>
-				</svg>
+			<!-- Loading State -->
+			<div class="py-12 text-center">
+				<span class="loading loading-spinner loading-md"></span>
+				<p class="text-base-content/60 mt-4">{$t('debug.smart_contract.loading')}</p>
 			</div>
-			<h3 class="mb-2 text-lg font-semibold">{$t('debug.smart_contract.no_contracts')}</h3>
-			<p class="text-base-content/70 mb-3">{$t('debug.smart_contract.no_contracts_message')}</p>
-			<button class="btn btn-primary" onclick={loadAllContracts}>
-				<IconRefresh class="h-4 w-4" />
-				{$t('debug.smart_contract.refresh')}
-			</button>
-		</div>
-	{:else if hasAnyContracts}
-		{#each Array.from(contractsByAddress.entries()) as [key, group]}
-			<div class="card bg-base-100 shadow-xl">
-				<div class="card-body">
-					<!-- Wallet Address Header -->
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-3">
+		{:else if initialLoadComplete && allLoaded && !hasAnyContracts}
+			<!-- No Contracts Found -->
+			<div class="py-8 text-center">
+				<div class="text-base-content/60 mb-3">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="mx-auto h-12 w-12"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+						/>
+					</svg>
+				</div>
+				<h3 class="mb-2 text-lg font-semibold">{$t('debug.smart_contract.no_contracts')}</h3>
+				<p class="text-base-content/70 mb-3">{$t('debug.smart_contract.no_contracts_message')}</p>
+				<button class="btn btn-primary" onclick={loadAllContracts}>
+					<IconRefresh class="h-4 w-4" />
+					{$t('debug.smart_contract.refresh')}
+				</button>
+			</div>
+		{:else if hasAnyContracts}
+			{#each Array.from(contractsByAddress.entries()) as [key, group]}
+				<div class="card bg-base-100 shadow-xl">
+					<div class="card-body">
+						<!-- Wallet Address Header -->
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-3">
+								<button class="btn btn-ghost btn-sm" onclick={() => toggleAddress(key)}>
+									{#if group.isExpanded}
+										<IconChevronUp class="h-5 w-5" />
+									{:else}
+										<IconChevronDown class="h-5 w-5" />
+									{/if}
+								</button>
+								<div>
+									<div class="font-semibold">
+										{$t('debug.smart_contract.wallet_address')}:
+										<a
+											href={getExplorerUrl(group.address, group.network)}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="link link-primary ml-1"
+										>
+											{formatAddress(group.address)}
+										</a>
+										<IconOpenInNew class="ml-1 inline h-4 w-4 text-base-content/60" />
+									</div>
+									<div class="text-base-content/60 text-sm">
+										{getNetworkName(group.network)} • {$t('debug.smart_contract.contract_count', {
+											values: { count: group.contracts.length }
+										})}
+									</div>
+								</div>
+							</div>
 							<button
 								class="btn btn-ghost btn-sm"
-								onclick={() => toggleAddress(key)}
+								onclick={() => copyAddress(group.address)}
+								title={$t('debug.smart_contract.copy_address')}
 							>
-								{#if group.isExpanded}
-									<IconChevronUp class="h-5 w-5" />
-								{:else}
-									<IconChevronDown class="h-5 w-5" />
-								{/if}
+								<IconContentCopy class="h-5 w-5" />
 							</button>
-							<div>
-								<div class="font-semibold">
-									{$t('debug.smart_contract.wallet_address')}: 
-									<a
-										href={getExplorerUrl(group.address, group.network)}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="link link-primary ml-1"
-									>
-										{formatAddress(group.address)}
-									</a>
-									<IconOpenInNew class="ml-1 inline h-4 w-4 text-base-content/60" />
-								</div>
-								<div class="text-base-content/60 text-sm">
-									{getNetworkName(group.network)} • {$t('debug.smart_contract.contract_count', {
-										values: { count: group.contracts.length }
-									})}
-								</div>
-							</div>
 						</div>
-						<button
-							class="btn btn-ghost btn-sm"
-							onclick={() => copyAddress(group.address)}
-							title={$t('debug.smart_contract.copy_address')}
-						>
-							<IconContentCopy class="h-5 w-5" />
-						</button>
-					</div>
 
-					<!-- Contracts List -->
-					{#if group.isExpanded}
-						{#if group.isLoading}
-							<div class="flex justify-center py-8">
-								<span class="loading loading-spinner loading-md"></span>
-							</div>
-						{:else if group.error}
-							<div class="alert alert-outline alert-error">
-								<span>{group.error}</span>
-								<button class="btn btn-sm" onclick={() => loadContractsForAddress(group.address, group.network)}>
-									{$t('debug.smart_contract.refresh')}
-								</button>
-							</div>
-						{:else if group.contracts.length === 0}
-							<div class="py-8 text-center text-base-content/60">
-								{$t('debug.smart_contract.no_contracts')}
-							</div>
-						{:else}
-							<div class="mt-4 space-y-4">
-								{#each group.contracts as contract (contract.id)}
-									{@const isExecuting = executingActions.has(`${contract.id}-completeTask`) ||
-										executingActions.has(`${contract.id}-acceptTask`) ||
-										executingActions.has(`${contract.id}-cancelEscrow`) ||
-										executingActions.has(`${contract.id}-disputeTask`) ||
-										executingActions.has(`${contract.id}-proposeResolution`) ||
-										executingActions.has(`${contract.id}-acceptProposal`) ||
-										executingActions.has(`${contract.id}-resolveAfterTimelock`)}
-									<DebugContractCard
-										{contract}
-										permissions={contract.permissions}
-										isClient={contract.isClient}
-										isFreelancer={contract.isFreelancer}
-										isExpanded={expandedContracts.has(contract.id)}
-										{safetyOverride}
-										{isExecuting}
-										onToggleRawData={() => toggleContractRawData(contract.id)}
-										onExecuteFunction={(fn, ...args) => executeContractFunction(contract.id, fn, ...args)}
-									/>
-								{/each}
-							</div>
+						<!-- Contracts List -->
+						{#if group.isExpanded}
+							{#if group.isLoading}
+								<div class="flex justify-center py-8">
+									<span class="loading loading-spinner loading-md"></span>
+								</div>
+							{:else if group.error}
+								<div class="alert alert-outline alert-error">
+									<span>{group.error}</span>
+									<button
+										class="btn btn-sm"
+										onclick={() => loadContractsForAddress(group.address, group.network)}
+									>
+										{$t('debug.smart_contract.refresh')}
+									</button>
+								</div>
+							{:else if group.contracts.length === 0}
+								<div class="py-8 text-center text-base-content/60">
+									{$t('debug.smart_contract.no_contracts')}
+								</div>
+							{:else}
+								<div class="mt-4 space-y-4">
+									{#each group.contracts as contract (contract.id)}
+										{@const isExecuting =
+											executingActions.has(`${contract.id}-completeTask`) ||
+											executingActions.has(`${contract.id}-acceptTask`) ||
+											executingActions.has(`${contract.id}-cancelEscrow`) ||
+											executingActions.has(`${contract.id}-disputeTask`) ||
+											executingActions.has(`${contract.id}-proposeResolution`) ||
+											executingActions.has(`${contract.id}-acceptProposal`) ||
+											executingActions.has(`${contract.id}-resolveAfterTimelock`)}
+										<DebugContractCard
+											{contract}
+											permissions={contract.permissions}
+											isClient={contract.isClient}
+											isFreelancer={contract.isFreelancer}
+											isExpanded={expandedContracts.has(contract.id)}
+											{safetyOverride}
+											{isExecuting}
+											onToggleRawData={() => toggleContractRawData(contract.id)}
+											onExecuteFunction={(fn, ...args) =>
+												executeContractFunction(contract.id, fn, ...args)}
+										/>
+									{/each}
+								</div>
+							{/if}
 						{/if}
-					{/if}
+					</div>
 				</div>
-			</div>
-		{/each}
+			{/each}
 		{/if}
 	{/if}
 
@@ -708,4 +598,3 @@
 		// safetyOverride remains false since we prevented the toggle
 	}}
 />
-

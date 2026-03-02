@@ -181,6 +181,20 @@ export class SmartBidCache {
 	}
 
 	/**
+	 * Clear only user-related bid caches
+	 */
+	clearUserBids(): void {
+		this.bidsByUser.clear();
+	}
+
+	/**
+	 * Clear only task-related bid caches
+	 */
+	clearTaskBids(): void {
+		this.bidsByTask.clear();
+	}
+
+	/**
 	 * Clear all contract-related caches
 	 */
 	clearContracts(): void {

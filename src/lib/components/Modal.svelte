@@ -35,6 +35,11 @@
 		 * Defaults to false.
 		 */
 		hideHeader?: boolean;
+		/**
+		 * When false, hides the close button in the header. Useful for modals that require user action.
+		 * Defaults to true.
+		 */
+		showCloseButton?: boolean;
 		children?: import('svelte').Snippet;
 		footer?: import('svelte').Snippet;
 	}>();
@@ -43,6 +48,7 @@
 	const bottomOffset = props.bottomOffset ?? 'var(--app-footer-height, 0px)';
 	const effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
 	const maxHeight = props.maxHeight ?? '85vh';
+	const showCloseButton = props.showCloseButton ?? true;
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -98,7 +104,7 @@
 
 	// Escape key handler
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && props.isOpen) {
+		if (e.key === 'Escape' && props.isOpen && showCloseButton) {
 			props.onClose();
 		}
 	}
@@ -111,7 +117,7 @@
 	<div
 		class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-in-out"
 		style={`bottom: ${effectiveBottomOffset};`}
-		onclick={props.onClose}
+		onclick={showCloseButton ? props.onClose : undefined}
 		role="presentation"
 		aria-hidden="true"
 	></div>
@@ -128,7 +134,7 @@
 	>
 		<!-- Modal Content -->
 		<div
-			class="card bg-base-100 w-full shadow-xl flex flex-col {props.size === 'sm'
+			class="card bg-base-100 flex w-full flex-col shadow-xl {props.size === 'sm'
 				? 'max-w-sm'
 				: props.size === 'lg'
 					? 'max-w-2xl'
@@ -142,30 +148,32 @@
 			tabindex="-1"
 		>
 			<!-- Modal Header -->
-			<div class="card-body flex flex-col min-h-0 overflow-hidden">
+			<div class="card-body flex min-h-0 flex-col overflow-hidden">
 				{#if !props.hideHeader}
 					<div class="mb-4 flex items-center justify-between">
 						<h3 id="modal-title" class="card-title">{props.title}</h3>
-						<button
-							class="btn btn-circle btn-ghost btn-sm"
-							onclick={props.onClose}
-							aria-label={$t('common.components.modal.close')}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
+						{#if showCloseButton}
+							<button
+								class="btn btn-circle btn-ghost btn-sm"
+								onclick={props.onClose}
+								aria-label={$t('common.components.modal.close')}
 							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M6 18L18 6M6 6l12 12"
-								/>
-							</svg>
-						</button>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-6 w-6"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M6 18L18 6M6 6l12 12"
+									/>
+								</svg>
+							</button>
+						{/if}
 					</div>
 				{/if}
 
@@ -174,7 +182,7 @@
 
 				<!-- Modal Footer (Optional) -->
 				{#if props.footer}
-					<div class="card-actions mt-6 justify-end flex-shrink-0">
+					<div class="card-actions mt-6 shrink-0 justify-end">
 						{@render props.footer()}
 					</div>
 				{/if}

@@ -27,32 +27,8 @@
 	// Check if user is logged in
 	const isLoggedIn = $derived($authState.isAuthenticated);
 
-	// Dashboard layout state
+	// Layout state
 	let width = $state(375);
-	let activeSection = $state('');
-
-	// Update active section based on URL
-	$effect(() => {
-		const path = page.url.pathname;
-
-		// Only set active section if we're on a dashboard route
-		if (path.includes('/dashboard/')) {
-			const section = path.split('/dashboard/')[1] || '';
-			const tabParam = page.url.searchParams.get('tab');
-
-			// Handle special cases for tab-based navigation
-			if (tabParam === 'bids') {
-				activeSection = 'bids-sent';
-			} else if (tabParam === 'contracts') {
-				activeSection = 'contracts';
-			} else {
-				activeSection = section;
-			}
-		} else {
-			// Not on a dashboard route, don't highlight any menu item
-			activeSection = 'none';
-		}
-	});
 </script>
 
 <svelte:head>
@@ -91,8 +67,8 @@
 <svelte:window bind:innerWidth={width} />
 
 {#if isLoggedIn}
-	<!-- Dashboard layout for logged-in users -->
-	<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
+	<!-- Mismas dimensiones que Mi Panel -->
+	<div class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4">
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<!-- Fixed Sidebar - Only on desktop -->
 			<div class="w-full shrink-0 md:w-64">
@@ -104,12 +80,8 @@
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={section.id === 'bids-sent'
-												? '/dashboard?tab=bids'
-												: section.id === 'contracts'
-													? '/dashboard?tab=contracts'
-													: `/dashboard/${section.id}`}
-											class:menu-active={activeSection === section.id}
+											href={section.path}
+											class:menu-active={page.url.pathname + page.url.search === section.path || (section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks'))}
 											class="flex items-center gap-3"
 										>
 											{#if section.icon === 'mdi:format-list-bulleted'}
@@ -144,9 +116,11 @@
 			</div>
 		{/if}
 
-		<!-- Main Content with left margin for fixed sidebar -->
-		<div class="min-h-0 w-full flex-1">
-			<TaskDetailsView {taskId} />
+		<!-- Main Content - mismas dimensiones que Mi Panel -->
+		<div class="min-h-0 w-full flex-1 overflow-hidden">
+			<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+				<TaskDetailsView {taskId} />
+			</div>
 		</div>
 	</div>
 	<WarningPopup />

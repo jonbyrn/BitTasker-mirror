@@ -93,17 +93,20 @@ export async function sendLocationsToTaskee(
 		// Get translations (common translations are loaded by default)
 		const _ = get(t);
 
-		// Build locations array - only include valid locations
+		const isRemote = options?.isRemote === true;
+
+		// Build locations array - only include valid locations and never for remote tasks
 		const locations: Array<{ location: Location; label: string }> = [];
-		if (isValidLocation(pickupLocation)) {
-			locations.push({ location: pickupLocation!, label: _('common.location.pickup_location') });
-		}
-		if (isValidLocation(dropoffLocation)) {
-			locations.push({ location: dropoffLocation!, label: _('common.location.dropoff_location') });
+		if (!isRemote) {
+			if (isValidLocation(pickupLocation)) {
+				locations.push({ location: pickupLocation!, label: _('common.location.pickup_location') });
+			}
+			if (isValidLocation(dropoffLocation)) {
+				locations.push({ location: dropoffLocation!, label: _('common.location.dropoff_location') });
+			}
 		}
 
 		const hasValidLocations = locations.length > 0;
-		const isRemote = options?.isRemote === true;
 
 		// For remote tasks, always send message with congratulations, title, and description
 		// For in-person tasks, only send if there are valid locations
@@ -227,6 +230,44 @@ export async function sendTaskCompletionMessageToTasker(
 		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, tags);
 	} catch (error) {
 		console.error('Error sending task completion message to tasker:', error);
+		throw error;
+	}
+}
+
+/**
+ * Send payment released message to taskee
+ * This is called when the tasker accepts the work and releases payment (so the taskee receives a DM)
+ */
+export async function sendPaymentReleasedMessageToTaskee(
+	recipientPubkey: string,
+	options?: {
+		taskId?: string;
+		taskTitle?: string;
+		threadRootId?: string;
+	}
+): Promise<void> {
+	try {
+		const recipientPubkeyHex = recipientPubkey.startsWith('npub')
+			? (nip19.decode(recipientPubkey).data as string)
+			: recipientPubkey;
+
+		const _ = get(t);
+
+		let messageText = '';
+		if (options?.taskTitle) {
+			messageText += `💰 ${_('common.location.funds_released_message')}\n\n`;
+			messageText += `📋 ${options.taskTitle}\n\n`;
+			messageText += `${_('common.location.funds_released_taskee_message')}\n`;
+		} else {
+			messageText += `💰 ${_('common.location.funds_released_message')}\n\n`;
+			messageText += `${_('common.location.funds_released_taskee_message')}\n`;
+		}
+
+		const tags = TAG_PATTERNS.paymentReleased(options?.taskId || '');
+
+		await sendDirectMessage(messageText, recipientPubkeyHex, options?.threadRootId, tags);
+	} catch (error) {
+		console.error('Error sending payment released message to taskee:', error);
 		throw error;
 	}
 }

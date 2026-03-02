@@ -19,7 +19,9 @@ export default ts.config(
 		languageOptions: {
 			globals: {
 				...globals.browser,
-				...globals.node
+				...globals.node,
+				__APP_VERSION__: 'readonly',
+				__BUILD_VERSION__: 'readonly'
 			}
 		}
 	},
@@ -34,6 +36,9 @@ export default ts.config(
 				parser: ts.parser,
 				svelteConfig
 			}
+		},
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
 		}
 	},
 	{
@@ -49,8 +54,8 @@ export default ts.config(
 			}
 		},
 		rules: {
-			'quotes': ['error', 'double'],
-			'indent': ['error', 2],
+			quotes: ['error', 'double'],
+			indent: ['error', 2],
 			'@typescript-eslint/no-unused-vars': 'error',
 			'@typescript-eslint/no-explicit-any': 'warn'
 		}

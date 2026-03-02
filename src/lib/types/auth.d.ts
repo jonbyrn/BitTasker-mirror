@@ -1,36 +1,92 @@
-export interface Credentials {
-	username: string;
-	password: string; // encrytpion data
-	server: string; // device id
-	isLegacyFormat: boolean; // TODO: To be removed later once all legacy users are migrated to master key format
-}
+import type { NostrEvent } from "nostr-tools";
 
-export interface NostrRegistrationData {
-	email?: string;
-	username?: string;
-	publicKey: string;
-	encryptedPrivateKey: string;
-	iv: string;
-	salt: string;
-	authTag: string;
+type ContextEncryption = {
+	encrypted: CryptoEncryptedData;
 	iterations: number;
-	googleToken?: string; // Optional Google token for social registration
-	authMethod?: 'passkey';
-	password?: string;
-	deviceId?: string;
+	salt: string;
+};
+
+export type EncryptedData = {
+	masterSalt: string;
+	nostr: ContextEncryption;
+	wallet: ContextEncryption;
+};
+
+export interface BiometricData {
+	npub: string;
+	exportedKey: string;
+	encryptedData: EncryptedData;
 }
 
-export interface NostrLoginData {
+export interface Credentials {
+	npub: string;
+	challenge: string;
+	credentialId: string;
+	exportedKey: string;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle?: string;
+	}
+}
+
+export interface PasskeyLoginArgs {
+	npub: string;
+	challenge: string;
+	credentialId: string;
+	deviceId: string;
+	deviceName: string;
+	platform: string;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle?: string;
+	}
+	appVersion: string;
+}
+
+export interface NostrLoginArgs {
 	event: NostrEvent;
 	challenge: string;
-	encryptedPrivateKey?: string;
-	iv?: string;
-	salt?: string;
-	authTag?: string;
-	iterations?: number;
-	authMethod?: 'passkey' | 'alby';
-	deviceId?: string;
-	masterKeyData?: MasterKeyEncryptedData;
+	deviceId: string;
+	authMethod: 'passkey';
+	encryptedData: EncryptedData;
+	deviceName: string;
+	credentialId: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	platform: string;
+	appVersion: string;
+}
+
+export interface EncryptedNostrDataArgs {
+	event: NostrEvent;
+	deviceId: string;
+	deviceName: string;
+	platform: string;
+	appVersion: string;
+}
+
+export interface PasskeyEncryptedDataArgs {
+	npub: string;
+	challenge: string;
+	credentialId: string;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle?: string;
+	}
+}
+
+export interface PasskeyLoginData {
+	event: NostrEvent;
+	deviceId: string;
+	deviceName?: string;
+	platform: 'mobile' | 'web';
 }
 
 interface NostrKeyData {
@@ -180,12 +236,6 @@ export interface ApiUserProfile {
 	updatedAt: string;
 }
 
-export interface EncryptedData {
-	data: string;
-	iv: string;
-	authTag: string;
-}
-
 export interface BiometricVerifyOptions {
 	reason: string;
 	title: string;
@@ -211,16 +261,24 @@ export interface AuthState {
 
 export interface AccountRecoveryData {
 	publicKey: string;
-	recoveryData: Partial<MasterKeyEncryptedData>;
+	recoveryData: EncryptedData;
 	email?: string;
 }
 
 export interface NostrRecoveryCompleteData {
-	publicKey: string;
+	npub: string;
 	otp: string;
-	recoveryData: Partial<MasterKeyEncryptedData>;
-	encryptedMasterKeyData: MasterKeyEncryptedData;
+	recoveryData: EncryptedData;
+	encryptedData: EncryptedData;
 	deviceId: string;
+	deviceName?: string;
+	platform: string;
+	credentialId: string;
+	challenge: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	revokeAll: boolean;
 }
 
 export interface NostrRecoveryData {
@@ -230,26 +288,25 @@ export interface NostrRecoveryData {
 }
 
 
-/********************** Master Key Encrypted Data types **********************/
+export interface CryptoEncryptedData {
+	data: string;
+	iv: string;
+	authTag: string;
+}
 
-type ContextEncryption = {
-	encrypted: EncryptedData;
-	iterations: number;
-	salt: string;
-};
-
-export type MasterKeyEncryptedData = {
-	exportedMasterKey: string;
-	masterSalt: string;
-	nostr: ContextEncryption;
-	wallet: ContextEncryption;
-};
-
-export type MasterKeyRegistration = {
+export type RegistrationData = {
+	email?: string | null | undefined;
+	username?: string | null | undefined;
+	publicKey: string;
+	encryptedData: EncryptedData;
 	authMethod?: string | null | undefined;
 	deviceId?: string | null | undefined;
-	email?: string | null | undefined;
-	masterKeyData: MasterKeyEncryptedData;
-	publicKey: string;
-	username?: string | null | undefined;
+	deviceName?: string | null | undefined;
+	credentialId: string | null | undefined;
+	platform: string | null | undefined;
+	challenge: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	appVersion: string;
 };

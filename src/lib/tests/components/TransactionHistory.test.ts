@@ -37,21 +37,23 @@ vi.mock('svelte-i18n', async () => {
 
 vi.mock('$lib/stores/wallet.store', async () => {
 	const { writable } = await import('svelte/store');
-	// Import TransactionFactory inside the mock factory to avoid circular dependencies
-	const { TransactionFactory } = await import('../utils/test-data-factories');
-	
+	const { ProcessedTransactionFactory } = await import('../utils/test-data-factories');
+
 	const mockTransactions = [
-		TransactionFactory.createSendTransaction(),
-		TransactionFactory.createReceiveTransaction(),
-		TransactionFactory.createPendingTransaction()
+		ProcessedTransactionFactory.create({ displayType: 'send', network: 'rsk' }),
+		ProcessedTransactionFactory.create({ displayType: 'receive', network: 'rsk', borderColor: 'success' }),
+		ProcessedTransactionFactory.create({ displayType: 'send', network: 'rsk' })
 	];
 	
 	const mockWalletManager = {
-		loadTransactions: vi.fn().mockResolvedValue(undefined)
+		loadTransactions: vi.fn().mockResolvedValue(undefined),
+		initialize: vi.fn().mockResolvedValue(undefined)
 	};
 	
 	return {
 		walletStore: writable({
+			isConnected: true,
+			isInitializing: false,
 			isLoadingTransactions: false,
 			transactionsLastLoaded: Date.now(),
 			totalBalances: {
@@ -237,9 +239,9 @@ describe('TransactionHistory Component', () => {
 
 	describe('Pagination', () => {
 		it('should paginate transactions', async () => {
-			// Create many transactions
-			const { TransactionFactory } = await import('../utils/test-data-factories');
-			const manyTransactions = Array.from({ length: 25 }, () => TransactionFactory.createSendTransaction());
+			// Create many ProcessedTransactions (component expects iconConfig, displayType, network)
+			const { ProcessedTransactionFactory } = await import('../utils/test-data-factories');
+			const manyTransactions = Array.from({ length: 25 }, () => ProcessedTransactionFactory.create());
 			const { transactions } = await import('$lib/stores/wallet.store');
 			transactions.set(manyTransactions);
 			

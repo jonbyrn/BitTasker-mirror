@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+import { EscrowStatus } from '$lib/utils/escrow';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import type { NostrContract, ContractStatusEvent } from '$lib/types/contract';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Task, SearchTasksParams } from '$lib/types/task.d';
+import type { Task, SearchTasksParams } from '$lib/types/task.d';
 	import { onMount, onDestroy, tick, type Component } from 'svelte';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
@@ -22,7 +22,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
-	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 
 	// Constants
 	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
@@ -250,6 +250,7 @@
 			console.error('[FindTasks] Error loading Nostr data:', error);
 		}
 	}
+
 
 	// Debounce function
 	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
@@ -536,6 +537,7 @@
 		}
 	});
 
+
 	// Cleanup on component destroy
 	onDestroy(() => {
 		// Cleanup infinite scroll listeners and timeouts
@@ -557,8 +559,8 @@
 		cleanup();
 	});
 
-	const onSelectTask = (task: Task) => {
-		if (task.status === TaskStatusEnum.OPEN) {
+const onSelectTask = (task: Task) => {
+	if (canBidTask(task)) {
 			if (task?.npub === $user?.npub) {
 				appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
 			} else {
@@ -567,6 +569,18 @@
 			}
 		}
 	};
+
+function isSelectedTask(task: Task): boolean {
+	return selectedTask?.id === task.id;
+}
+
+function canBidTask(task: Task): boolean {
+	return task.status === TaskStatusEnum.OPEN;
+}
+
+function getTaskIdentifier(task: Task): string {
+	return task.id;
+}
 
 	// Function to handle task selection for map display
 	function selectTaskForMap(task: Task) {
@@ -670,7 +684,8 @@
 	</div>
 {/snippet}
 
-<div class="mx-auto h-full min-h-0 max-w-6xl overflow-hidden p-0 find-tasks-container find-tasks-page" data-find-tasks-page="true">
+<!-- Mismas dimensiones que Mi Panel -->
+<div class="find-tasks-container find-tasks-page mx-auto h-full min-h-0 max-w-6xl overflow-hidden px-2 py-6 md:px-0 md:py-0" data-find-tasks-page="true">
 	<div
 		id="panel-find-tasks"
 		role="tabpanel"
@@ -846,19 +861,19 @@
 							{:else if $tasksStore.items && $tasksStore.items.length > 0}
 								<div class="space-y-4">
 									{#each $tasksStore.items as task, index}
-										{@const isSelected = selectedTask?.id === task.id}
 										<div
 											use:registerTaskCard={{ taskId: task.id }}
-											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {isSelected
+											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg {isSelectedTask(task)
 												? 'bg-base-300 border-primary border-2'
 												: ''}"
 											onclick={() => selectTaskForMap(task)}
 											tabindex="0"
 											role="button"
 											aria-label={$t('find_tasks.view_task')}
-											aria-current={selectedTask?.id === task.id}
-											aria-disabled={task.status !== TaskStatusEnum.OPEN}
-											aria-hidden={task.status !== TaskStatusEnum.OPEN}
+											aria-pressed={isSelectedTask(task)}
+											aria-current={isSelectedTask(task)}
+											aria-disabled={!canBidTask(task)}
+											aria-hidden={!canBidTask(task)}
 											data-task-id={task.id}
 										>
 											<div class="card-body rounded-xl p-4 md:p-4">
@@ -959,8 +974,7 @@
 														<!-- Username and Review Stars -->
 														<div class="flex min-w-0 flex-1 flex-col">
 															<span class="truncate text-sm font-medium">
-																{task.creator?.username ||
-																	$t('dashboard.task_details_by_task.anonymous')}
+																{task.creator?.username}
 															</span>
 															<!-- Review Stars -->
 															<div class="flex items-center">
@@ -989,10 +1003,7 @@
 													<div class="grid w-full shrink-0 grid-cols-2 gap-2 md:flex md:w-auto md:items-center">
 														<button
 															class="btn btn-primary btn-sm w-full md:w-auto md:flex-none"
-															class:btn-disabled={task.status === TaskStatusEnum.CANCELLED ||
-																task.status === TaskStatusEnum.DISPUTED ||
-																task.status === TaskStatusEnum.COMPLETED ||
-																task.status === TaskStatusEnum.IN_PROGRESS}
+															class:btn-disabled={!canBidTask(task)}
 															onclick={(e) => {
 																e.stopPropagation();
 																onSelectTask(task);
@@ -1013,18 +1024,18 @@
 																	d="M12 4v16m8-8H4"
 																/>
 															</svg>
-															{task.status === TaskStatusEnum.OPEN
-																? $t('find_tasks.bid_now')
-																: $t('find_tasks.bidding_closed')}
+															{#if task.status === TaskStatusEnum.OPEN}
+																{$t('find_tasks.bid_now')}
+															{:else}
+																{$t('find_tasks.bidding_closed')}
+															{/if}
 														</button>
 
 														<button
 															class="btn btn-secondary btn-sm w-full md:w-auto md:flex-none"
 															onclick={(e) => {
 																e.stopPropagation();
-																// Use uniqueId if available, fallback to id for backward compatibility
-																const taskIdentifier = (task as any).uniqueId || task.id;
-																goto(`/tasks/${taskIdentifier}`);
+																goto(`/tasks/${getTaskIdentifier(task)}`);
 															}}
 															aria-label={$t('find_tasks.view_task')}
 														>
@@ -1202,7 +1213,11 @@
 		>
 			{#snippet children()}
 				{#if BidForm}
-					<BidForm task={selectedTask} onClose={() => (isBidOpen = false)} stickySubmit={false} />
+					<BidForm
+						task={selectedTask}
+						onClose={() => (isBidOpen = false)}
+						stickySubmit={false}
+					/>
 				{/if}
 			{/snippet}
 		</Drawer>

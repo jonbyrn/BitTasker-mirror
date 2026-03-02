@@ -25,7 +25,8 @@
 	let hasLoadedTokens = $state(false); // Track if we've successfully loaded tokens at least once
 
 	async function loadTokens(forceRefresh = false) {
-		if (!isMounted || isLoading || isRefreshing) return;
+		// When forceRefresh is true we're called from handleRefresh (which already set isRefreshing), so allow the load
+		if (!isMounted || isLoading || (isRefreshing && !forceRefresh)) return;
 		
 		try {
 			error = null;
@@ -46,7 +47,7 @@
 			}
 		} catch (err) {
 			if (!isMounted) return;
-			
+
 			const errorMessage = err instanceof Error ? err.message : String(err);
 			
 			// Check if this is a wallet initialization error
@@ -66,6 +67,8 @@
 					appStore.showErrorToast(error);
 				}
 			}
+			// Mark that we've attempted a load so $effect doesn't retry in a loop
+			hasLoadedTokens = true;
 		} finally {
 			if (isMounted) {
 				isLoading = false;
@@ -112,9 +115,11 @@
 			// Only load if:
 			// 1. Wallet is ready
 			// 2. Not already loading/refreshing
-			// 3. Either we have no tokens, OR refresh trigger actually changed
+			// 3. Not yet loaded (load once), OR refresh trigger actually changed
 			if (isMounted && isConnected && !isInitializing && hasAddress && !isLoading && !isRefreshing) {
-				const shouldLoad = tokens.length === 0 || (currentRefreshTrigger > 0 && currentRefreshTrigger !== lastRefreshTrigger);
+				const shouldLoad =
+					(tokens.length === 0 && !hasLoadedTokens) ||
+					(currentRefreshTrigger > 0 && currentRefreshTrigger !== lastRefreshTrigger);
 				
 				if (shouldLoad) {
 					// Update last refresh trigger BEFORE loading to prevent duplicate calls
