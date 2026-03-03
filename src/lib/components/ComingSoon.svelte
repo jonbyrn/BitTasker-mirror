@@ -8,7 +8,15 @@
 	import { t } from 'svelte-i18n';
 
 	// Props
-	const props = $props<{
+	let {
+		title,
+		subtitle,
+		description,
+		showIcon = true,
+		showGlow = true,
+		size = 'md',
+		children
+	} = $props<{
 		title?: string;
 		subtitle?: string;
 		description?: string;
@@ -19,12 +27,9 @@
 	}>();
 
 	// Default values using translations
-	const title = props.title ?? $t('common.coming_soon.title');
-	const subtitle = props.subtitle ?? $t('common.coming_soon.subtitle');
-	const description = props.description ?? $t('common.coming_soon.description');
-	const showIcon = props.showIcon ?? true;
-	const showGlow = props.showGlow ?? true;
-	const size: 'sm' | 'md' | 'lg' = props.size ?? 'md';
+	const displayTitle = $derived(title ?? $t('common.coming_soon.title'));
+	const displaySubtitle = $derived(subtitle ?? $t('common.coming_soon.subtitle'));
+	const displayDescription = $derived(description ?? $t('common.coming_soon.description'));
 
 	// Size classes
 	const sizeClasses = {
@@ -97,20 +102,20 @@
 				{/if}
 
 				<h1 class="card-title {titleSizeClasses[size]} text-primary mb-4 justify-center font-bold">
-					{title}
+					{displayTitle}
 				</h1>
 
 				<h2 class="{subtitleSizeClasses[size]} text-base-content/80 mb-4 font-semibold">
-					{subtitle}
+					{displaySubtitle}
 				</h2>
 
 				<p class="{descriptionSizeClasses[size]} text-base-content/70 mb-6">
-					{description}
+					{displayDescription}
 				</p>
 
-				{#if props.children}
+				{#if children}
 					<div class="mt-6">
-						{@render props.children()}
+						{@render children()}
 					</div>
 				{/if}
 

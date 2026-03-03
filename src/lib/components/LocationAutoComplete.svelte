@@ -97,8 +97,8 @@
 	}
 
 	// Handle location changes from map
-	function handleMapLocationChange(event: CustomEvent<{ location: any }>) {
-		const newLocation = event.detail.location;
+	function handleMapLocationChange(event: { location: any }) {
+		const newLocation = event.location;
 		location = newLocation;
 		
 		// Update input value
@@ -173,7 +173,7 @@
 				showPin={true}
 				allowPinDrop={true}
 				searchRadius={searchRadius}
-				on:locationChanged={handleMapLocationChange}
+				onLocationChanged={handleMapLocationChange}
 			/>
 		</div>
 	{/if}

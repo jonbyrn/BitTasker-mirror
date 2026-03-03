@@ -62,7 +62,7 @@
 	}
 
 	// Determine which class to use based on content type
-	const displayClass = contentType === 'description' ? fallbackClass : contentClass;
+	const displayClass = $derived(contentType === 'description' ? fallbackClass : contentClass);
 </script>
 
 <div class="translatable-bid-content">
@@ -90,4 +90,3 @@
 		{/if}
 	{/if}
 </div>
-
