@@ -93,6 +93,15 @@
 		adjustScrollableHeight();
 	}
 
+	function onHandleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			sheetTop = snaps.mid;
+			applyTop();
+			adjustScrollableHeight();
+		}
+	}
+
 	function handleResize() {
 		recalcSnaps();
 	}
@@ -146,13 +155,16 @@
 	<!-- SHEET encima del mapa -->
 	<div bind:this={sheetEl} class="sheet bg-base-300 absolute inset-x-0 bottom-0 z-50">
 		<!-- handle (drag area) -->
-		<!-- svelte-ignore event_directive_deprecated -->
 		<div
 			bind:this={handleEl}
 			class="relative mx-auto mt-2 flex h-6 w-full bg-base-300 rounded-t-2xl pt-4 pb-1 touch-none items-center justify-center"
-			on:pointerdown={onPointerDown}
-			on:pointermove={onPointerMove}
-			on:pointerup={onPointerUp}
+			role="button"
+			tabindex="0"
+			aria-label="Drag task sheet"
+			onpointerdown={onPointerDown}
+			onpointermove={onPointerMove}
+			onpointerup={onPointerUp}
+			onkeydown={onHandleKeydown}
 		>
 			<!-- un ligero degradado para separar visualmente del mapa -->
 			<div class="my-4 mt-2 h-1.5 w-12 rounded-full bg-gray-300 py-1"></div>
@@ -163,14 +175,13 @@
 			<div class="space-y-3">
 				{#if tasks?.length}
 					{#each tasks as task}
-						<!-- svelte-ignore event_directive_deprecated -->
 						<div
 							class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg"
 							role="button"
 							tabindex="0"
 							aria-label={$t('dashboard.bids.components.maps.mobile_map_sheet.view_task')}
-							on:click={() => onCardClick(task)}
-							on:keydown={(e) => onCardKeydown(e, task)}
+							onclick={() => onCardClick(task)}
+							onkeydown={(e) => onCardKeydown(e, task)}
 							data-task-id={task.id}
 						>
 							<div class="card-body p-4">
@@ -206,7 +217,7 @@
 									<button
 										type="button"
 										class="btn btn-primary btn-sm flex-1"
-										on:click={(e) => onBidClick(task, e)}
+										onclick={(e) => onBidClick(task, e)}
 									>
 										{$t('dashboard.bids.components.maps.mobile_map_sheet.bid_now')}
 									</button>

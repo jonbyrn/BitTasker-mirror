@@ -22,7 +22,11 @@
 	} = $props();
 
 	let isDeleting = $state(false); // Local state for deleting button
-	let isExpanded = $state(expanded);
+	let isExpanded = $state(false);
+
+	$effect(() => {
+		isExpanded = expanded;
+	});
 
 	/**
 	 * Get status display info

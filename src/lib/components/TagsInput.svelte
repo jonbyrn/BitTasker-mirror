@@ -29,7 +29,7 @@
 	let isOpen = $state(false);
 	let inputValue = $state('');
 	let isInputFocused = $state(false);
-	let filteredOptions = $state<string[]>(options);
+	let filteredOptions = $state<string[]>([]);
 
 	function filterOptions(searchTerm: string): string[] {
 		if (!options.length || autoComplete === 'off') return options;

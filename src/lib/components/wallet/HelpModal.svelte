@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
@@ -9,8 +8,6 @@
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
 	import IconLockClock from '~icons/mdi/lock-clock';
 	import IconHelpCircle from '~icons/mdi/help-circle';
-
-	const dispatch = createEventDispatcher();
 
 	interface Props {
 		onClose?: () => void;
@@ -62,9 +59,13 @@
 			closeModal();
 		}
 	}
-</script>
 
-<svelte:window on:keydown={handleKeydown} />
+	$effect(() => {
+		const onKeyDown = (event: KeyboardEvent) => handleKeydown(event);
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	});
+</script>
 
 <!-- Help Button - Always in DOM but hidden on mobile (visible on tablet/desktop) for programmatic access -->
 {#if showButton}

@@ -15,8 +15,8 @@
 	}>();
 
 	// Internal state
-	let searchQuery = $state(location || '');
-	let radiusValue = $state(radius || 5);
+	let searchQuery = $state('');
+	let radiusValue = $state(5);
 	let searchResults = $state<
 		Array<{
 			displayName: string;
@@ -29,6 +29,14 @@
 	let showResults = $state(false);
 	let isGettingCurrentLocation = $state(false);
 	let locationError = $state<string | null>(null);
+
+	$effect(() => {
+		searchQuery = location || '';
+	});
+
+	$effect(() => {
+		radiusValue = radius || 5;
+	});
 
 	// Debounce search to avoid excessive API calls
 	let searchTimeout: NodeJS.Timeout | null = null;

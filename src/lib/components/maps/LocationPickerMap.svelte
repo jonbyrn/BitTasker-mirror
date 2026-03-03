@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Location } from '$lib/types/task';
-	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 
 	let {
@@ -14,18 +14,15 @@
 		height = '300px',
 		showPin = true,
 		allowPinDrop = true,
-		searchRadius = 1.5
+		searchRadius = 1.5,
+		onLocationChanged
 	} = $props<{
 		location?: Location;
 		height?: string;
 		showPin?: boolean;
 		allowPinDrop?: boolean;
 		searchRadius?: number;
-	}>();
-
-	// Event dispatcher
-	const dispatch = createEventDispatcher<{
-		locationChanged: { location: Location };
+		onLocationChanged?: (event: { location: Location }) => void;
 	}>();
 
 	// State
@@ -335,8 +332,7 @@
 				// Update location
 				location = newLocation;
 
-				// Dispatch event
-				dispatch('locationChanged', { location: newLocation });
+				onLocationChanged?.({ location: newLocation });
 			}
 		} catch (error) {
 			console.error('Error reverse geocoding:', error);

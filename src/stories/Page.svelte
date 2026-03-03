@@ -1,20 +1,16 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
-
-	let { user } = $props();
-
-	const dispatch = createEventDispatcher();
+	let { user, onLogin, onLogout, onCreateAccount } = $props();
 
 	function handleLogin() {
-		dispatch('login');
+		onLogin?.();
 	}
 
 	function handleLogout() {
-		dispatch('logout');
+		onLogout?.();
 	}
 
 	function handleCreateAccount() {
-		dispatch('createAccount');
+		onCreateAccount?.();
 	}
 </script>
 
