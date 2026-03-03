@@ -4,10 +4,12 @@
 	import { goto } from '$app/navigation';
 	import { t, locale } from 'svelte-i18n';
 	import { findMyServices } from '$lib/nostr/findServices';
+	import { updateService } from '$lib/nostr/service';
 	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import type { ServiceTier } from '$lib/types/service.d';
+	import { appStore } from '$lib/stores/app.store';
 	import IconPlus from '~icons/mdi/plus';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 	import IconPencilOutline from '~icons/mdi/pencil-outline';
@@ -17,6 +19,7 @@
 	let services = $state<Service[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let togglingServiceId = $state<string | null>(null);
 
 	async function loadServices() {
 		loading = true;
@@ -77,6 +80,23 @@
 		e.stopPropagation();
 		const id = service.uniqueId || service.id;
 		goto(`/dashboard/list-service?duplicate=true&serviceId=${encodeURIComponent(id)}`);
+	}
+
+	async function handleStatusToggle(service: Service, _e?: Event) {
+		const id = service.uniqueId || service.id;
+		if (!id) return;
+		if (service.status === 'sold') return;
+		togglingServiceId = id;
+		try {
+			const nextStatus = service.status === 'active' ? 'inactive' : 'active';
+			await updateService(id, { status: nextStatus });
+			appStore.showSuccessToast($t('dashboard.services.my_services.status_updated'));
+			await loadServices();
+		} catch (err) {
+			appStore.showErrorToast($t('dashboard.services.my_services.status_update_failed'));
+		} finally {
+			togglingServiceId = null;
+		}
 	}
 </script>
 
@@ -146,7 +166,33 @@
 							</div>
 							<p class="text-base-content/60 text-sm line-clamp-2">{getServiceDisplayDescription(service, $locale || 'en') || '—'}</p>
 							<p class="text-sm font-medium">{getPriceLabel(service)}</p>
-							<div class="flex flex-wrap gap-2 pt-2">
+							<div class="flex flex-wrap items-center gap-2 pt-2">
+								{#if service.status !== 'sold'}
+									<label
+										class="flex items-center gap-2 {togglingServiceId === (service.uniqueId || service.id)
+											? 'opacity-60'
+											: ''}"
+										title={service.status === 'active'
+											? $t('dashboard.services.my_services.status_toggle_inactive')
+											: $t('dashboard.services.my_services.status_toggle_active')}
+									>
+										<input
+											type="checkbox"
+											class="toggle toggle-primary toggle-sm"
+											checked={service.status === 'active'}
+											disabled={togglingServiceId === (service.uniqueId || service.id)}
+											onchange={() => handleStatusToggle(service)}
+											aria-label={service.status === 'active'
+												? $t('dashboard.services.my_services.status_toggle_inactive')
+												: $t('dashboard.services.my_services.status_toggle_active')}
+										/>
+										<span class="text-xs text-base-content/70">
+											{service.status === 'active'
+												? $t('dashboard.services.my_services.status_active')
+												: $t('dashboard.services.my_services.status_inactive')}
+										</span>
+									</label>
+								{/if}
 								<button
 									type="button"
 									class="btn btn-ghost btn-sm gap-1"

@@ -16,7 +16,11 @@
 				"duplicate": "Duplicar",
 				"status_active": "Activo",
 				"status_inactive": "Inactivo",
-				"status_sold": "Vendido"
+				"status_sold": "Vendido",
+				"status_toggle_active": "Activar",
+				"status_toggle_inactive": "Desactivar",
+				"status_updated": "Estado actualizado",
+				"status_update_failed": "Error al actualizar el estado"
 			}
 		}
 	}

@@ -22,7 +22,12 @@
 				"anonymous": "Anonymous",
 				"see_more": "See more",
 				"see_less": "See less",
-				"price_levels": "Price Levels"
+				"price_levels": "Price Levels",
+				"select_tier": "Choose a package",
+				"addons_title": "Add-ons",
+				"base_price": "Base price",
+				"addons_total": "Add-ons",
+				"total_price": "Total"
 			}
 		}
 	}
