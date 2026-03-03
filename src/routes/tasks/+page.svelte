@@ -156,9 +156,16 @@
 
 	// Infinite scroll state - use atomic flag to prevent race conditions
 	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
+	let isTaskFetchInFlight = false;
+	let queuedTaskFetch: {
+		params: SearchTasksParams;
+		errorMessage: string;
+		isPageOne: boolean;
+	} | null = null;
 
 	// Task selection locking to prevent race conditions
 	let isTaskSelectionInProgress = $state(false);
+	let detailsCloseToken = 0;
 
 	// Add class to app-shell__content to prevent scrolling (avoids :has() flickering)
 	// Using $state.raw for DOM element reference - only reassigned, not mutated
@@ -180,6 +187,48 @@
 			error: null,
 			searchParamsKey: ''
 		}));
+	}
+
+	function setSearchParamsKey(key: string): void {
+		tasksStore.update((state) => ({ ...state, searchParamsKey: key }));
+	}
+
+	async function runLatestTaskFetch(
+		params: SearchTasksParams,
+		errorMessage: string,
+		isPageOne = false
+	): Promise<void> {
+		queuedTaskFetch = { params: { ...params }, errorMessage, isPageOne };
+		if (isTaskFetchInFlight) {
+			return;
+		}
+
+		isTaskFetchInFlight = true;
+		try {
+			while (queuedTaskFetch) {
+				const next = queuedTaskFetch;
+				queuedTaskFetch = null;
+				if (next.isPageOne) {
+					loadingState = 'loading';
+				}
+				try {
+					await findTasks(next.params);
+					if (next.isPageOne) {
+						loadingState = 'loaded';
+					}
+				} catch (error) {
+					if (next.isPageOne) {
+						loadingState = 'error';
+					}
+					tasksStore.update((state) => ({
+						...state,
+						error: error instanceof Error ? error.message : next.errorMessage
+					}));
+				}
+			}
+		} finally {
+			isTaskFetchInFlight = false;
+		}
 	}
 
 	// ============================================================================
@@ -282,7 +331,6 @@
 
 			// Batch all DOM reads together to minimize reflows
 			const scrollTop = taskListRef.scrollTop;
-
 			// Show/hide scroll to top button (lightweight check)
 			showScrollToTop = scrollTop > SCROLL_TO_TOP_THRESHOLD;
 
@@ -428,6 +476,7 @@
 			mapLoaded = true;
 		} catch (error) {
 			console.error('Error loading map component:', error);
+			mapPreloadAttempted = false;
 		}
 	}
 
@@ -488,7 +537,7 @@
 
 		// If we have existing tasks and search hasn't changed, don't reload - just use what's in the store
 		if (hasExistingTasks && !searchChanged) {
-			$tasksStore.searchParamsKey = currentSearchKey;
+			setSearchParamsKey(currentSearchKey);
 			loadingState = 'loaded';
 			return;
 		}
@@ -497,8 +546,6 @@
 		if ($tasksStore.loading) return;
 
 		try {
-			loadingState = 'loading';
-
 			// Only load if we don't have tasks or search changed
 			const newSearchParams: SearchTasksParams = {
 				...searchParams,
@@ -518,10 +565,8 @@
 				clearTasksStore();
 			}
 
-			await findTasks(searchParams);
-
-			$tasksStore.searchParamsKey = currentSearchKey;
-			loadingState = 'loaded';
+			await runLatestTaskFetch(searchParams, 'Failed to load tasks', true);
+			setSearchParamsKey(currentSearchKey);
 		} catch (error) {
 			loadingState = 'error';
 			// Set error in store for user-facing error message
@@ -543,7 +588,6 @@
 		const trimmedQuery = searchQuery.trim();
 		const newSearchValue = trimmedQuery.length < SEARCH_MIN_LENGTH ? '' : trimmedQuery;
 
-		// Update searchParams and explicitly clear until for new search
 		searchParams = {
 			...searchParams,
 			page: 1,
@@ -576,7 +620,7 @@
 		searchQuery = filters.search || '';
 
 		try {
-			await findTasks(searchParams);
+			await runLatestTaskFetch(searchParams, 'Failed to apply filters', true);
 		} catch (error) {
 			tasksStore.update((state) => ({
 				...state,
@@ -598,7 +642,7 @@
 		clearTasksStore();
 
 		try {
-			await findTasks(searchParams);
+			await runLatestTaskFetch(searchParams, 'Failed to clear filters', true);
 		} catch (error) {
 			tasksStore.update((state) => ({
 				...state,
@@ -637,7 +681,7 @@
 				limit: TASKS_PER_PAGE
 			};
 
-			await findTasks(searchParams);
+			await runLatestTaskFetch(searchParams, 'Failed to load more tasks', false);
 		} catch (error) {
 			console.error('[FindTasks] Error loading more tasks:', error);
 		} finally {
@@ -950,6 +994,7 @@
 			}
 			// Wait a tick to ensure TaskDrawer component is available
 			await tick();
+			detailsCloseToken++;
 			selectedTaskForDetails = task;
 			isTaskDetailsOpen = true;
 		}, 100); // 100ms debounce delay
@@ -1038,6 +1083,7 @@
 			searchInputClass={getSearchInputClass()}
 			searchPlaceholder={getSearchPlaceholder()}
 			onSearchInput={debouncedSearch}
+			{isFilterDrawerOpen}
 			onFilterClick={() => (isFilterDrawerOpen = true)}
 			onSaveSearch={async () => {
 				// Ensure drawer components are loaded before opening save search form
@@ -1065,7 +1111,7 @@
 					<!-- Error Message (full width across both columns) -->
 					{#if $tasksStore.error}
 						<div class="col-span-full mb-3">
-							<div class="alert alert-error alert-outline mb-3">
+							<div class="alert alert-error alert-outline mb-3" data-testid="tasks-error-alert">
 								<IconAlertCircle class="h-5 w-5 shrink-0 stroke-current" />
 								<span>{$t('find_tasks.error_loading').replace('{error}', $tasksStore.error)}</span>
 							</div>
@@ -1076,6 +1122,7 @@
 					<div class="min-h-0" data-tasks-list-column>
 						<div
 							class="task-list-scroll-container box-border h-full w-full overflow-y-auto"
+							data-testid="tasks-scroll-container"
 							bind:this={taskListRef}
 						>
 							<!-- Skeleton Loading -->
@@ -1083,7 +1130,10 @@
 								<TaskListSkeleton count={4} />
 							{:else if loadingState === 'timeout'}
 								<!-- Loading Timeout Warning -->
-								<div class="alert alert-warning alert-outline mb-3 rounded-xl">
+								<div
+									class="alert alert-warning alert-outline mb-3 rounded-xl"
+									data-testid="tasks-timeout-warning"
+								>
 									<IconAlertCircle class="h-5 w-5 shrink-0 stroke-current" />
 									<div>
 										<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
@@ -1095,7 +1145,7 @@
 								</div>
 							{:else if loadingState === 'error'}
 								<!-- Error State -->
-								<div class="py-8 text-center">
+								<div class="py-8 text-center" data-testid="tasks-error-state">
 									<div class="text-base-content/60 mb-3">
 										<IconAlertCircle class="mx-auto h-12 w-12" />
 									</div>
@@ -1137,7 +1187,10 @@
 								{/if}
 							{:else if $tasksStore.loading}
 								<!-- Loading State Fallback (when skeleton is false but still loading) -->
-								<div class="flex h-full items-center justify-center py-8">
+								<div
+									class="flex h-full items-center justify-center py-8"
+									data-testid="tasks-loading-state"
+								>
 									<div class="text-center">
 										<span class="loading loading-spinner loading-lg text-primary"></span>
 										<p class="text-base-content/70 mt-4">
@@ -1147,7 +1200,7 @@
 								</div>
 							{:else}
 								<!-- No Results -->
-								<div class="py-8 text-center">
+								<div class="py-8 text-center" data-testid="tasks-no-results-state">
 									<div class="text-base-content/60 mb-3">
 										<IconMagnify class="mx-auto h-12 w-12" />
 									</div>
@@ -1191,6 +1244,7 @@
 				<!-- Mobile Floating Button - Scroll to Top (only visible on mobile) -->
 				{#if showScrollToTop}
 					<button
+						data-testid="tasks-scroll-to-top-button"
 						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex translate-y-[10px] scale-90 items-center justify-center rounded-4xl p-3 opacity-0 transition-all duration-300 hover:scale-110 hover:opacity-100 hover:brightness-110 active:scale-95 active:opacity-90 lg:hidden"
 						style="bottom: var(--app-bottom-fab);"
 						onclick={scrollToTop}
@@ -1205,6 +1259,7 @@
 				<section
 					class="map-container-wrapper relative min-h-0 w-full lg:hidden"
 					data-tasks-map-view
+					data-testid="tasks-mobile-map-view"
 				>
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
@@ -1290,10 +1345,13 @@
 			activeTab="details"
 			onClose={() => {
 				isTaskDetailsOpen = false;
+				const closeToken = ++detailsCloseToken;
 				// Clear task after animation completes (300ms transition duration) with cleanup tracking
 				const timeoutId = setTimeout(() => {
 					drawerCloseTimeouts.delete(timeoutId);
-					selectedTaskForDetails = null;
+					if (!isTaskDetailsOpen && closeToken === detailsCloseToken) {
+						selectedTaskForDetails = null;
+					}
 				}, 300);
 				drawerCloseTimeouts.add(timeoutId);
 			}}
@@ -1386,10 +1444,13 @@
 			title={getTranslatedTaskTitle}
 			onClose={() => {
 				isTaskDetailsOpen = false;
+				const closeToken = ++detailsCloseToken;
 				// Clear task after animation completes (300ms transition duration) with cleanup tracking
 				const timeoutId = setTimeout(() => {
 					drawerCloseTimeouts.delete(timeoutId);
-					selectedTaskForDetails = null;
+					if (!isTaskDetailsOpen && closeToken === detailsCloseToken) {
+						selectedTaskForDetails = null;
+					}
 				}, 300);
 				drawerCloseTimeouts.add(timeoutId);
 			}}
@@ -1404,11 +1465,6 @@
 {/if}
 
 <style>
-	:global([name='gmp-internal-google-attribution']),
-	:global([name='gmp-internal-dialog']) {
-		display: none !important;
-	}
-
 	/* Prevent app-shell__content from scrolling on find-tasks page only */
 	/* This page handles its own internal scrolling */
 	/* Use data attribute for simpler, more stable targeting */

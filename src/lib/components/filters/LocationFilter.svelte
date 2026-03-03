@@ -5,6 +5,7 @@
 -->
 <script lang="ts">
 	import locationService from '$lib/api/services/location.service';
+	import { onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 
 	// Props
@@ -15,8 +16,8 @@
 	}>();
 
 	// Internal state
-	let searchQuery = $state('');
-	let radiusValue = $state(5);
+	let searchQuery = $derived(location || '');
+	let radiusValue = $derived(radius || 5);
 	let searchResults = $state<
 		Array<{
 			displayName: string;
@@ -29,27 +30,18 @@
 	let showResults = $state(false);
 	let isGettingCurrentLocation = $state(false);
 	let locationError = $state<string | null>(null);
-
-	$effect(() => {
-		searchQuery = location || '';
-	});
-
-	$effect(() => {
-		radiusValue = radius || 5;
-	});
+	let searchRequestId = 0;
 
 	// Debounce search to avoid excessive API calls
-	let searchTimeout: NodeJS.Timeout | null = null;
+	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	$effect(() => {
-		// Update parent component when our internal state changes
-		if (searchQuery || radiusValue) {
-			onLocationChange(searchQuery || undefined, radiusValue || undefined);
-		}
-	});
+	function emitLocationChange(nextLocation?: string, nextRadius?: number) {
+		onLocationChange(nextLocation, nextRadius);
+	}
 
 	// Search for locations based on the user input
 	async function searchLocations() {
+		locationError = null;
 		if (!searchQuery.trim() || searchQuery.length < 2) {
 			searchResults = [];
 			showResults = false;
@@ -61,11 +53,18 @@
 			clearTimeout(searchTimeout);
 		}
 
+		const querySnapshot = searchQuery.trim();
+		const requestId = ++searchRequestId;
+
 		// Set a new timeout to debounce the search
 		searchTimeout = setTimeout(async () => {
 			try {
 				isLoading = true;
-				const results = await locationService.searchLocations(searchQuery);
+				const results = await locationService.searchLocations(querySnapshot);
+				// Ignore stale async responses
+				if (requestId !== searchRequestId || searchQuery.trim() !== querySnapshot) {
+					return;
+				}
 				searchResults = results.locations;
 				showResults = true;
 			} catch (error) {
@@ -89,7 +88,7 @@
 			showResults = false;
 
 			// Update parent component
-			onLocationChange(location.displayName, radiusValue);
+			emitLocationChange(location.displayName, radiusValue);
 		} catch (error) {
 			console.error('Error getting current location:', error);
 			locationError = $t('dashboard.bids.components.filters.location.location_error');
@@ -109,7 +108,7 @@
 		showResults = false;
 
 		// Update parent component
-		onLocationChange(result.displayName, radiusValue);
+		emitLocationChange(result.displayName, radiusValue);
 	}
 
 	// Handle radius change
@@ -118,7 +117,7 @@
 		radiusValue = parseInt(target.value, 10);
 
 		// Update parent component
-		onLocationChange(searchQuery || undefined, radiusValue);
+		emitLocationChange(searchQuery || undefined, radiusValue);
 	}
 
 	// Clear location
@@ -126,10 +125,19 @@
 		searchQuery = '';
 		showResults = false;
 		searchResults = [];
+		locationError = null;
 
 		// Update parent component
-		onLocationChange(undefined, radiusValue);
+		emitLocationChange(undefined, radiusValue);
 	}
+
+	onDestroy(() => {
+		searchRequestId += 1;
+		if (searchTimeout) {
+			clearTimeout(searchTimeout);
+			searchTimeout = null;
+		}
+	});
 </script>
 
 <div class="space-y-4">
@@ -214,13 +222,16 @@
 			<div
 				class="bg-base-100 absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md shadow-lg"
 			>
-				{#each searchResults as result}
+				{#each searchResults as result (`${result.displayName}-${result.zipCode}`)}
 					<button
 						class="hover:bg-base-200 block w-full cursor-pointer px-4 py-2 text-left"
 						onclick={() => selectLocation(result)}
 					>
 						<div class="font-medium">{result.displayName}</div>
-						<div class="text-sm text-gray-500">{$t('dashboard.bids.components.filters.location.zip')} {result.zipCode}</div>
+						<div class="text-sm text-gray-500">
+							{$t('dashboard.bids.components.filters.location.zip')}
+							{result.zipCode}
+						</div>
 					</button>
 				{/each}
 			</div>
@@ -234,7 +245,11 @@
 	<!-- Radius selection -->
 	<div>
 		<label class="label" for="radius">
-			<span class="label-text">{$t('dashboard.bids.components.filters.location.search_radius', { values: { radius: radiusValue } })}</span>
+			<span class="label-text"
+				>{$t('dashboard.bids.components.filters.location.search_radius', {
+					values: { radius: radiusValue }
+				})}</span
+			>
 		</label>
 		<input
 			type="range"
