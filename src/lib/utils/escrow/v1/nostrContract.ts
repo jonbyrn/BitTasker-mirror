@@ -25,6 +25,7 @@ import { publishEscrowStatus } from './escrowEvents';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { createDebug } from '$lib/utils/debug';
+import { getProvider } from '$lib/stores/wallet.store';
 
 const d = createDebug('contracts');
 
@@ -475,7 +476,6 @@ async function recoverMissingFundsReleasedEvent(
 ): Promise<void> {
 	try {
 		// Get provider to check transaction status
-		const { getProvider } = await import('$lib/stores/wallet.store');
 		const provider = await getProvider('rsk');
 
 		if (!provider) {
@@ -615,14 +615,12 @@ export async function handleStatusEvent(event: NostrEvent) {
 
 		// Get current contract state
 		const contractsStore = get(contractStore);
-
-		const index = contractsStore.contractsMap.get(escrowId);
-		if (index === undefined) {
+		const currentIndex = contractsStore.contractsMap.get(escrowId);
+		if (currentIndex === undefined) {
 			console.warn(`[ContractStore] Contract not found for escrowId: ${escrowId}`);
 			return;
 		}
-
-		const contract = contractsStore.contracts[index];
+		const contract = contractsStore.contracts[currentIndex];
 
 		// Add the new status event to the contract's status events
 		const updatedStatusEvents = [...(contract.statusEvents || []), statusEvent].sort(
@@ -665,8 +663,15 @@ export async function handleStatusEvent(event: NostrEvent) {
 
 		// Update store once with everything
 		contractStore.update((state) => {
+			const liveIndex = state.contractsMap.get(escrowId);
+			if (liveIndex === undefined) return state;
+			const liveContract = state.contracts[liveIndex];
+			if (!liveContract || liveContract.contractEvent.content.escrowId !== escrowId) {
+				return state;
+			}
+
 			const updatedContract: ContractWithEvents = {
-				...contract,
+				...liveContract,
 				statusEvents: updatedStatusEvents,
 				status,
 				permissions,
@@ -674,7 +679,7 @@ export async function handleStatusEvent(event: NostrEvent) {
 			};
 
 			const newContracts = [...state.contracts];
-			newContracts[index] = updatedContract;
+			newContracts[liveIndex] = updatedContract;
 
 			return {
 				...state,
@@ -738,6 +743,10 @@ export async function handleStatusEvent(event: NostrEvent) {
 						contractStore.update((s) => {
 							const idx = s.contractsMap.get(escrowId);
 							if (idx === undefined) return s;
+							const liveContract = s.contracts[idx];
+							if (!liveContract || liveContract.contractEvent.content.escrowId !== escrowId) {
+								return s;
+							}
 
 							const newContracts = [...s.contracts];
 							newContracts[idx] = {
@@ -852,11 +861,36 @@ export async function handleContractEvent(event: NostrEvent) {
 					}
 				}
 			}
-		} catch {
-			console.warn(`Escrow not found: ${escrowId}`);
-			// Check if there's a transactionHash in Nostr - indicates pending funding
-			if (contractEvent.content.transactionHash) {
+		} catch (escrowError) {
+			const errorMessage = escrowError instanceof Error ? escrowError.message : String(escrowError);
+			const isWalletError =
+				errorMessage.includes('wallet') ||
+				errorMessage.includes('Failed to initialize') ||
+				errorMessage.includes('not initialized') ||
+				errorMessage.includes('not connected');
+			const isProviderError =
+				errorMessage.includes('provider') ||
+				errorMessage.includes('Failed to get provider') ||
+				errorMessage.includes('provider destroyed');
+			const isContractError =
+				errorMessage.includes('contract') || errorMessage.includes('Failed to connect');
+			const isEscrowNotFound =
+				errorMessage.includes('not found') ||
+				errorMessage.includes('does not exist') ||
+				(errorMessage.includes('execution reverted') &&
+					!isProviderError &&
+					!isWalletError &&
+					!isContractError);
+
+			if (isEscrowNotFound && contractEvent.content.transactionHash) {
+				console.warn(`Escrow pending funding: ${escrowId}`);
 				isPending = true;
+			} else if (isWalletError || isProviderError || isContractError) {
+				console.warn(`Skipping contract ${escrowId} due to infrastructure error:`, errorMessage);
+				return;
+			} else {
+				console.warn(`Unknown escrow loading error for ${escrowId}:`, errorMessage);
+				return;
 			}
 		}
 
@@ -872,13 +906,39 @@ export async function handleContractEvent(event: NostrEvent) {
 			isFreelancer
 		);
 
+		if (!escrowData && isPending) {
+			escrowData = {
+				id: escrowId,
+				client: contractEvent.content.clientPubkey || '',
+				freelancer: contractEvent.content.freelancerPubkey || '',
+				baseAmount: contractEvent.content.amount || '0',
+				clientFee: '0',
+				freelancerFee: '0',
+				totalAmount: contractEvent.content.amount || '0',
+				status: EscrowStatus.PendingFunding,
+				estimatedStartTime: contractEvent.content.estimatedStartTime || 0,
+				estimatedCompletionTime: contractEvent.content.estimatedCompletionTime || 0,
+				completionTime: 0,
+				timelockExpiry: 0,
+				clientFeeTier: 'standard' as const,
+				freelancerFeeTier: 'standard' as const,
+				createdAt: contractEvent.created_at * 1000,
+				lastUpdated: Date.now()
+			};
+		}
+
+		if (!escrowData) {
+			console.warn(`[ContractStore] Skipping contract ${escrowId} due to missing escrow data`);
+			return;
+		}
+
 		// Create the new contract object
 		const newContract: ContractWithEvents = {
 			contractEvent,
 			statusEvents: [],
 			isClient,
 			blockchainStatus,
-			escrowData: escrowData!, // Non-null assertion safe here due to check above
+			escrowData,
 			status,
 			isPending,
 			permissions,

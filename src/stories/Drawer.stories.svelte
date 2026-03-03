@@ -54,20 +54,16 @@
 		width: 'md',
 		isScrollable: true
 	}}
+	let:args
 >
-	<Drawer
-		isOpen={true}
-		title="Task Details"
-		position="right"
-		width="md"
-		isScrollable={true}
-		{onClose}
-	>
+	<Drawer {...args} {onClose}>
 		<div class="space-y-4">
 			<h3 class="font-bold">Task Details</h3>
 			<div class="bg-base-200 rounded p-4">
 				<p class="font-semibold">Website Development</p>
-				<p class="text-base-content/70">Create a modern e-commerce website with payment integration</p>
+				<p class="text-base-content/70">
+					Create a modern e-commerce website with payment integration
+				</p>
 			</div>
 		</div>
 		<snippet name="footer">
@@ -99,18 +95,12 @@
 		width: 'lg',
 		isScrollable: true
 	}}
+	let:args
 >
-	<Drawer
-		isOpen={true}
-		title="Long Content Drawer"
-		position="right"
-		width="lg"
-		isScrollable={true}
-		{onClose}
-	>
+	<Drawer {...args} {onClose}>
 		<div class="space-y-4">
 			<h3 class="font-bold">Scrollable Content</h3>
-			{#each Array(8) as _, i}
+			{#each Array.from({ length: 8 }, (_, i) => i) as i (i)}
 				<div class="card bg-base-200 mb-4 shadow-sm">
 					<div class="card-body">
 						<h4 class="card-title">Item {i + 1}</h4>

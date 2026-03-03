@@ -28,8 +28,9 @@
 		size: 'md',
 		isScrollable: false
 	}}
+	let:args
 >
-	<Modal isOpen={true} title="Modal Example" size="md" isScrollable={false} {onClose}>
+	<Modal {...args} {onClose}>
 		<p class="mb-4">This is a basic example of using the Modal component.</p>
 	</Modal>
 </Story>
@@ -42,8 +43,9 @@
 		size: 'md',
 		isScrollable: false
 	}}
+	let:args
 >
-	<Modal isOpen={true} title="Confirm Action" size="md" isScrollable={false} {onClose}>
+	<Modal {...args} {onClose}>
 		<p class="py-4">This modal includes footer buttons for common actions.</p>
 		<snippet name="footer">
 			<button class="btn btn-ghost" onclick={onClose}>Cancel</button>
@@ -60,10 +62,11 @@
 		size: 'lg',
 		isScrollable: true
 	}}
+	let:args
 >
-	<Modal isOpen={true} title="Long Content" size="lg" isScrollable={true} {onClose}>
+	<Modal {...args} {onClose}>
 		<div class="space-y-4">
-			{#each Array(8) as _}
+			{#each Array.from({ length: 8 }, (_, i) => i) as i (i)}
 				<div class="bg-base-200 rounded p-4">
 					<h3 class="font-bold">Scrollable Content</h3>
 					<p>This is a paragraph of text that demonstrates scrollable content within the modal.</p>
@@ -85,8 +88,9 @@
 		size: 'xl',
 		isScrollable: false
 	}}
+	let:args
 >
-	<Modal isOpen={true} title="Large Modal" size="xl" isScrollable={false} {onClose}>
+	<Modal {...args} {onClose}>
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<div class="bg-base-200 rounded p-4">
 				<h3 class="font-bold">Left Column</h3>

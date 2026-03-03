@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task, SearchTasksParams } from '$lib/types/task.d';
-	import { onMount, onDestroy, tick, type Component } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { user } from '$lib/stores/user.store';
@@ -9,7 +9,6 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
-	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import {
@@ -32,7 +31,7 @@
 	import TaskCard from '$lib/components/task/TaskCard.svelte';
 	import TaskListSkeleton from '$lib/components/task/TaskListSkeleton.svelte';
 	import TaskListControls from '$lib/components/task/TaskListControls.svelte';
-	
+
 	// Icon imports for unplugin-icons
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconChevronUp from '~icons/mdi/chevron-up';
@@ -44,25 +43,25 @@
 	// ============================================================================
 	// CONSTANTS - Organized by category
 	// ============================================================================
-	
+
 	// Scroll constants
 	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
 	const INFINITE_SCROLL_TRIGGER_DISTANCE = 300; // px - Load more tasks when within this distance from bottom
 	const SCROLL_DEBOUNCE_DELAY = 200; // ms - Delay for scroll event debouncing
-	
+
 	// Search constants
 	const SEARCH_DEBOUNCE_DELAY = 1000; // ms - Delay before executing search
 	const SEARCH_MIN_LENGTH = 3; // Minimum characters for search
-	
+
 	// Layout constants
 	const DESKTOP_MIN_WIDTH = 1024; // Desktop breakpoint in pixels
 	const DATE_CACHE_MAX_SIZE = 1000; // Maximum entries in LRU cache for date formatting
-	
+
 	// Data loading constants
 	const DOM_QUERY_MAX_RETRIES = 10; // Maximum retries for DOM element queries
 	const BTC_PRICE_FALLBACK = 120000; // Default fallback BTC price in USD
 	const LOADING_TIMEOUT_MS = 10000; // 10 seconds timeout for loading
-	
+
 	// Map preload timing constants
 	const MAP_PRELOAD_TIMEOUT_MS = 2000; // Load within 2 seconds even if not idle
 	const MAP_PRELOAD_FALLBACK_MS = 1000; // Fallback timeout for browsers without requestIdleCallback
@@ -82,7 +81,7 @@
 	// ============================================================================
 	// INITIALIZATION FUNCTIONS
 	// ============================================================================
-	
+
 	/**
 	 * Create initial search parameters with defaults
 	 */
@@ -106,21 +105,18 @@
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let searchQuery = $state('');
 
-
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
-	
+
 	// Save search state
 	let isSaveSearchOpen = $state(false);
 
 	// Loading states - consolidated into single state machine
 	type LoadingState = 'initial' | 'loading' | 'loaded' | 'timeout' | 'error';
 	let loadingState = $state<LoadingState>('initial');
-	
+
 	// Derived loading state flags for backward compatibility
-	let dataLoaded = $derived(loadingState === 'loaded');
 	let showSkeleton = $derived(loadingState === 'initial' || loadingState === 'loading');
-	let loadingTimeout = $derived(loadingState === 'timeout');
 
 	// Scroll state
 	// Using $state.raw for DOM element reference - only reassigned, not mutated
@@ -139,32 +135,38 @@
 
 	// Selected task for map display (separate from bid task to avoid conflicts)
 	let selectedTaskForMap = $state<Task | null>(null);
-	
+
 	// Selected task for bid drawer (separate from map selection)
 	let selectedTaskForBid = $state<Task | null>(null);
-	
+
 	// Derived: Check if map is visible (desktop sidebar or mobile map view)
 	const isMapVisible = $derived(mapLoaded && (viewMode === 'list' || viewMode === 'map'));
-	
+
 	// Bid drawer state
 	let isBidOpen = $state(false);
-	
+
 	// Task details drawer state
 	let selectedTaskForDetails = $state<Task | null>(null);
 	let isTaskDetailsOpen = $state(false);
-	
+
 	// Timeout IDs for drawer close animations (to prevent memory leaks)
 	let drawerCloseTimeouts: Set<ReturnType<typeof setTimeout>> = $state.raw(new Set());
-	
+
 	// Debounce state for onViewTask
 	let viewTaskDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Infinite scroll state - use atomic flag to prevent race conditions
 	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
-	
+	let isTaskFetchInFlight = false;
+	let queuedTaskFetch: {
+		params: SearchTasksParams;
+		errorMessage: string;
+		isPageOne: boolean;
+	} | null = null;
+
 	// Task selection locking to prevent race conditions
 	let isTaskSelectionInProgress = $state(false);
-
+	let detailsCloseToken = 0;
 
 	// Add class to app-shell__content to prevent scrolling (avoids :has() flickering)
 	// Using $state.raw for DOM element reference - only reassigned, not mutated
@@ -173,7 +175,7 @@
 	// ============================================================================
 	// STORE MANAGEMENT FUNCTIONS
 	// ============================================================================
-	
+
 	/**
 	 * Clear tasks store - extracted to reduce duplication
 	 */
@@ -188,21 +190,63 @@
 		}));
 	}
 
+	function setSearchParamsKey(key: string): void {
+		tasksStore.update((state) => ({ ...state, searchParamsKey: key }));
+	}
+
+	async function runLatestTaskFetch(
+		params: SearchTasksParams,
+		errorMessage: string,
+		isPageOne = false
+	): Promise<void> {
+		queuedTaskFetch = { params: { ...params }, errorMessage, isPageOne };
+		if (isTaskFetchInFlight) {
+			return;
+		}
+
+		isTaskFetchInFlight = true;
+		try {
+			while (queuedTaskFetch) {
+				const next = queuedTaskFetch;
+				queuedTaskFetch = null;
+				if (next.isPageOne) {
+					loadingState = 'loading';
+				}
+				try {
+					await findTasks(next.params);
+					if (next.isPageOne) {
+						loadingState = 'loaded';
+					}
+				} catch (error) {
+					if (next.isPageOne) {
+						loadingState = 'error';
+					}
+					tasksStore.update((state) => ({
+						...state,
+						error: error instanceof Error ? error.message : next.errorMessage
+					}));
+				}
+			}
+		} finally {
+			isTaskFetchInFlight = false;
+		}
+	}
+
 	// ============================================================================
 	// DATE FORMATTING - LRU Cache with max 1000 entries
 	// ============================================================================
-	
+
 	// LRU caches for date formatting (max 1000 entries each)
 	const dateFormatterCache = new LRUCache<string, string>(DATE_CACHE_MAX_SIZE);
 	const dateRangeFormatterCache = new LRUCache<string, string>(DATE_CACHE_MAX_SIZE);
-	
+
 	// Current locale for cache key optimization
 	let currentLocale = $state($locale || 'en');
 
 	// ============================================================================
 	// REACTIVE EFFECTS - Optimized and combined where appropriate
 	// ============================================================================
-	
+
 	// Clear cache when locale changes
 	$effect(() => {
 		const newLocale = $locale || 'en';
@@ -219,7 +263,7 @@
 	 */
 	function formatDateTimeReactive(dateString: string): string {
 		if (!dateString) return '';
-		
+
 		// Optimized cache key: dateString + locale (no pipe separator needed)
 		const cacheKey = `${dateString}:${currentLocale}`;
 		const cached = dateFormatterCache.get(cacheKey);
@@ -229,7 +273,7 @@
 
 		const date = parseDateToLocalMidnight(dateString);
 		if (!date) return '';
-		
+
 		const formatted = formatStandardDateShort(date, currentLocale);
 		dateFormatterCache.set(cacheKey, formatted);
 		return formatted;
@@ -241,7 +285,7 @@
 	 */
 	function formatDateRangeReactive(startDateString: string, endDateString: string): string {
 		if (!startDateString && !endDateString) return '';
-		
+
 		// Optimized cache key: start|end:locale
 		const cacheKey = `${startDateString || ''}|${endDateString || ''}:${currentLocale}`;
 		const cached = dateRangeFormatterCache.get(cacheKey);
@@ -273,7 +317,7 @@
 	// ============================================================================
 	// SCROLL FUNCTIONS
 	// ============================================================================
-	
+
 	/**
 	 * Combined scroll handler for both scroll-to-top button and infinite scroll
 	 * Optimized to avoid forced reflows by batching DOM reads in requestAnimationFrame
@@ -288,9 +332,6 @@
 
 			// Batch all DOM reads together to minimize reflows
 			const scrollTop = taskListRef.scrollTop;
-			const scrollHeight = taskListRef.scrollHeight;
-			const clientHeight = taskListRef.clientHeight;
-
 			// Show/hide scroll to top button (lightweight check)
 			showScrollToTop = scrollTop > SCROLL_TO_TOP_THRESHOLD;
 
@@ -303,7 +344,7 @@
 			scrollTimeout = setTimeout(() => {
 				// Clear timeout reference when it executes
 				scrollTimeout = null;
-				
+
 				if (!taskListRef || !$tasksStore.hasMore || $tasksStore.loading || isLoadingMore) {
 					return;
 				}
@@ -334,7 +375,7 @@
 			});
 		}
 	}
-	
+
 	/**
 	 * Cleanup scroll listener and timeout
 	 */
@@ -374,10 +415,10 @@
 	function attemptMapPreload(reason: 'view-mode' | 'resize' | 'mount'): (() => void) | null {
 		// Prevent multiple preload attempts
 		if (mapLoaded || mapPreloadAttempted) return null;
-		
+
 		const isMobileOrTablet = windowWidth < DESKTOP_MIN_WIDTH;
 		const isDesktop = windowWidth >= DESKTOP_MIN_WIDTH;
-		
+
 		// Only preload on mobile/tablet, or if explicitly requested for mount (desktop)
 		if (reason === 'mount' && isDesktop) {
 			// Desktop: load immediately on mount
@@ -385,22 +426,25 @@
 			loadMapComponent();
 			return null;
 		}
-		
+
 		if (!isMobileOrTablet && reason !== 'mount') {
 			return null;
 		}
-		
+
 		mapPreloadAttempted = true;
-		
+
 		let idleCallbackId: number | undefined;
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
-		
+
 		if (window.requestIdleCallback) {
-			idleCallbackId = window.requestIdleCallback(() => {
-				if (!mapLoaded) {
-					loadMapComponent();
-				}
-			}, { timeout: MAP_PRELOAD_TIMEOUT_MS });
+			idleCallbackId = window.requestIdleCallback(
+				() => {
+					if (!mapLoaded) {
+						loadMapComponent();
+					}
+				},
+				{ timeout: MAP_PRELOAD_TIMEOUT_MS }
+			);
 		} else {
 			// Fallback for browsers without requestIdleCallback
 			timeoutId = setTimeout(() => {
@@ -409,7 +453,7 @@
 				}
 			}, MAP_PRELOAD_FALLBACK_MS);
 		}
-		
+
 		// Return cleanup function
 		return () => {
 			if (idleCallbackId && window.cancelIdleCallback) {
@@ -433,9 +477,9 @@
 			mapLoaded = true;
 		} catch (error) {
 			console.error('Error loading map component:', error);
+			mapPreloadAttempted = false;
 		}
 	}
-
 
 	/**
 	 * Fast hash function for search params to avoid expensive JSON.stringify
@@ -444,27 +488,27 @@
 	function hashSearchParams(params: SearchTasksParams): string {
 		// Create a stable string representation without JSON.stringify overhead
 		const parts: string[] = [];
-		
+
 		if (params.search) parts.push(`s:${params.search}`);
 		if (params.taskType) parts.push(`t:${params.taskType}`);
 		if (params.page) parts.push(`p:${params.page}`);
 		if (params.limit) parts.push(`l:${params.limit}`);
 		if (params.until) parts.push(`u:${params.until}`);
-		
+
 		if (params.categories?.length) {
 			parts.push(`c:${[...params.categories].sort().join(',')}`);
 		}
 		if (params.skills?.length) {
 			parts.push(`sk:${[...params.skills].sort().join(',')}`);
 		}
-		
+
 		if (params.budget) {
 			const b = params.budget;
 			if (b.tier) parts.push(`bt:${b.tier}`);
 			if (b.currency) parts.push(`bc:${b.currency}`);
 			if (b.type) parts.push(`bty:${b.type}`);
 		}
-		
+
 		return parts.join('|');
 	}
 
@@ -494,7 +538,7 @@
 
 		// If we have existing tasks and search hasn't changed, don't reload - just use what's in the store
 		if (hasExistingTasks && !searchChanged) {
-			$tasksStore.searchParamsKey = currentSearchKey;
+			setSearchParamsKey(currentSearchKey);
 			return;
 		}
 
@@ -521,11 +565,8 @@
 				clearTasksStore();
 			}
 
-			await findTasks(searchParams);
-
-			$tasksStore.searchParamsKey = currentSearchKey;
-			loadingState = 'loaded';
-
+			await runLatestTaskFetch(searchParams, 'Failed to load tasks', true);
+			setSearchParamsKey(currentSearchKey);
 		} catch (error) {
 			loadingState = 'error';
 			// Set error in store for user-facing error message
@@ -539,7 +580,7 @@
 	// ============================================================================
 	// SEARCH FUNCTIONS
 	// ============================================================================
-	
+
 	/**
 	 * Debounced search function with proper error handling
 	 */
@@ -557,7 +598,7 @@
 			searchQuery = '';
 
 			try {
-				await findTasks(searchParams);
+				await runLatestTaskFetch(searchParams, 'Search failed', true);
 			} catch (err) {
 				tasksStore.update((state) => ({
 					...state,
@@ -580,7 +621,7 @@
 		clearTasksStore();
 
 		try {
-			await findTasks(searchParams);
+			await runLatestTaskFetch(searchParams, 'Search failed', true);
 		} catch (err) {
 			tasksStore.update((state) => ({
 				...state,
@@ -609,7 +650,7 @@
 		searchQuery = filters.search || '';
 
 		try {
-			await findTasks(searchParams);
+			await runLatestTaskFetch(searchParams, 'Failed to apply filters', true);
 		} catch (error) {
 			tasksStore.update((state) => ({
 				...state,
@@ -631,7 +672,7 @@
 		clearTasksStore();
 
 		try {
-			await findTasks(searchParams);
+			await runLatestTaskFetch(searchParams, 'Failed to clear filters', true);
 		} catch (error) {
 			tasksStore.update((state) => ({
 				...state,
@@ -651,7 +692,6 @@
 		isLoadingMore = true;
 
 		try {
-
 			const nextPage = $tasksStore.currentPage + 1;
 			const lastItem = $tasksStore.items[$tasksStore.items.length - 1];
 
@@ -671,7 +711,7 @@
 				limit: TASKS_PER_PAGE
 			};
 
-			await findTasks(searchParams);
+			await runLatestTaskFetch(searchParams, 'Failed to load more tasks', false);
 		} catch (error) {
 			console.error('[FindTasks] Error loading more tasks:', error);
 		} finally {
@@ -681,17 +721,17 @@
 
 	// Track if map preload has been attempted to avoid repeated checks
 	let mapPreloadAttempted = $state(false);
-	
+
 	// Track window width for responsive map preloading
 	// Initialize safely for SSR
 	let windowWidth = $state(DESKTOP_MIN_WIDTH);
-	
+
 	// Combined effect: Setup scroll listener and loading timeout management
 	$effect(() => {
 		// Setup scroll listener when taskListRef is available
 		const ref = taskListRef;
 		let scrollCleanup: (() => void) | undefined;
-		
+
 		if (ref) {
 			ref.addEventListener('scroll', handleScroll, { passive: true });
 			scrollCleanup = () => {
@@ -699,7 +739,7 @@
 				cleanupScrollListener();
 			};
 		}
-		
+
 		// Handle loading timeout for Nostr data
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		if ($tasksStore.loading && searchParams.page === 1 && loadingState === 'loading') {
@@ -714,7 +754,7 @@
 				}
 			}, LOADING_TIMEOUT_MS);
 		}
-		
+
 		return () => {
 			if (scrollCleanup) scrollCleanup();
 			if (timer) clearTimeout(timer);
@@ -724,21 +764,21 @@
 	// Combined effect: Map loading and preloading with proper cleanup
 	$effect(() => {
 		if (!browser) return;
-		
+
 		// Load map component immediately when view mode changes to 'map'
 		// This ensures fast loading when user switches to map view
 		if (viewMode === 'map' && !mapLoaded) {
 			// Cancel any pending preload attempts and load immediately
 			loadMapComponent();
 		}
-		
+
 		// Preload map component on mobile/tablet when in list view (only once)
 		// This helps prepare the map for faster switching
 		let preloadCleanup: (() => void) | null = null;
 		if (viewMode === 'list' && !mapLoaded && !mapPreloadAttempted) {
 			preloadCleanup = attemptMapPreload('view-mode');
 		}
-		
+
 		return () => {
 			// Cleanup preload if component unmounts or view mode changes
 			if (preloadCleanup) {
@@ -746,24 +786,24 @@
 			}
 		};
 	});
-	
+
 	// Window resize handler for responsive map preloading
 	// Throttled to prevent excessive calls and forced reflows
 	$effect(() => {
 		if (!browser) return;
-		
+
 		// Initialize window width on mount
 		windowWidth = window.innerWidth;
-		
+
 		let preloadCleanup: (() => void) | null = null;
 		let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
-		
+
 		const handleResize = () => {
 			// Throttle resize handler to prevent excessive calls
 			if (resizeTimeout) {
 				clearTimeout(resizeTimeout);
 			}
-			
+
 			resizeTimeout = setTimeout(() => {
 				resizeTimeout = null;
 				// Use requestAnimationFrame to batch DOM reads
@@ -780,7 +820,7 @@
 				});
 			}, 150); // Throttle resize to 150ms
 		};
-		
+
 		window.addEventListener('resize', handleResize, { passive: true });
 		return () => {
 			window.removeEventListener('resize', handleResize);
@@ -835,8 +875,7 @@
 		// Check if we have cached tasks that match current search
 		const currentSearchKey = hashSearchParams(searchParams);
 		const hasCachedData =
-			$tasksStore.items.length > 0 &&
-			$tasksStore.searchParamsKey === currentSearchKey;
+			$tasksStore.items.length > 0 && $tasksStore.searchParamsKey === currentSearchKey;
 
 		// Load data if no cache or cache doesn't match
 		if (!hasCachedData) {
@@ -860,7 +899,7 @@
 				// Attempt map preload for desktop (mount reason)
 				mountCleanup.preloadCleanup = attemptMapPreload('mount');
 			};
-			
+
 			if (window.requestIdleCallback) {
 				mountCleanup.idleCallbackId = window.requestIdleCallback(deferredOperations);
 			} else {
@@ -873,7 +912,7 @@
 	onDestroy(() => {
 		// Cleanup scroll listener timeout (ensure it's cleared even if effect cleanup didn't run)
 		cleanupScrollListener();
-		
+
 		// Cleanup onMount operations
 		if (mountCleanup.idleCallbackId && window.cancelIdleCallback) {
 			window.cancelIdleCallback(mountCleanup.idleCallbackId);
@@ -884,19 +923,19 @@
 		if (mountCleanup.preloadCleanup) {
 			mountCleanup.preloadCleanup();
 		}
-		
+
 		// Cleanup drawer close timeouts to prevent memory leaks
-		drawerCloseTimeouts.forEach(timeoutId => {
+		drawerCloseTimeouts.forEach((timeoutId) => {
 			clearTimeout(timeoutId);
 		});
 		drawerCloseTimeouts.clear();
-		
+
 		// Cleanup view task debounce timeout
 		if (viewTaskDebounceTimeout) {
 			clearTimeout(viewTaskDebounceTimeout);
 			viewTaskDebounceTimeout = null;
 		}
-		
+
 		// Scroll listeners are cleaned up by $effect return function
 		// Remove data attribute from app-shell__content
 		if (appShellContent) {
@@ -923,10 +962,10 @@
 		if (isTaskSelectionInProgress) {
 			return;
 		}
-		
+
 		if (task.status === TaskStatusEnum.OPEN) {
 			isTaskSelectionInProgress = true;
-			
+
 			try {
 				// Check if user is logged in
 				if ($user?.npub) {
@@ -969,22 +1008,23 @@
 			clearTimeout(viewTaskDebounceTimeout);
 			viewTaskDebounceTimeout = null;
 		}
-		
+
 		// Debounce to prevent rapid clicks from opening multiple drawers
 		viewTaskDebounceTimeout = setTimeout(async () => {
 			viewTaskDebounceTimeout = null;
-			
+
 			// Prevent opening if already viewing a task or if task details drawer is already open
 			if (isTaskDetailsOpen || selectedTaskForDetails) {
 				return;
 			}
-			
+
 			// Ensure drawer components are loaded before opening task details drawer
 			if (!drawersLoaded) {
 				await loadDrawerComponents();
 			}
 			// Wait a tick to ensure TaskDrawer component is available
 			await tick();
+			detailsCloseToken++;
 			selectedTaskForDetails = task;
 			isTaskDetailsOpen = true;
 		}, 100); // 100ms debounce delay
@@ -1014,21 +1054,21 @@
 	// ============================================================================
 	// TASK SELECTION FUNCTIONS
 	// ============================================================================
-	
+
 	/**
 	 * Handle task selection for map display
 	 */
 	function selectTaskForMap(task: Task) {
 		selectedTaskForMap = task;
 	}
-	
+
 	/**
 	 * Scroll to a specific task card by task ID
 	 */
 	async function scrollToTaskCard(taskId: string) {
 		// Wait for DOM to update, especially important when switching views
 		await tick();
-		
+
 		// Use double requestAnimationFrame to ensure the element is fully rendered
 		// This helps avoid forced reflows by ensuring layout is stable
 		await new Promise<void>((resolve) => {
@@ -1036,14 +1076,14 @@
 				requestAnimationFrame(() => {
 					// Try to find the card by data attribute in the scrollable container first
 					let cardElement: HTMLElement | null = null;
-					
+
 					if (taskListRef) {
 						const found = taskListRef.querySelector(`[data-task-id="${taskId}"]`);
 						if (found instanceof HTMLElement) {
 							cardElement = found;
 						}
 					}
-					
+
 					// Fallback to document query if not found in container
 					if (!cardElement) {
 						const found = document.querySelector(`[data-task-id="${taskId}"]`);
@@ -1051,7 +1091,7 @@
 							cardElement = found;
 						}
 					}
-					
+
 					if (cardElement && taskListRef) {
 						// Batch all DOM reads together to minimize reflows
 						const containerRect = taskListRef.getBoundingClientRect();
@@ -1059,7 +1099,7 @@
 						const scrollTop = taskListRef.scrollTop;
 						const elementTop = elementRect.top - containerRect.top + scrollTop;
 						const centerOffset = containerRect.height / 2 - elementRect.height / 2;
-						
+
 						taskListRef.scrollTo({
 							top: elementTop - centerOffset,
 							behavior: 'smooth'
@@ -1085,7 +1125,7 @@
 	// ============================================================================
 	// REACTIVE DERIVED VALUES - Optimized to reduce unnecessary reactive reads
 	// ============================================================================
-	
+
 	/**
 	 * Get translated task title for drawer - optimized to reduce reactive reads
 	 * Only re-computes when selectedTaskForDetails or currentUserLanguage changes
@@ -1098,7 +1138,7 @@
 		// Cache user language to avoid multiple reactive reads
 		const userLang = $currentUserLanguage;
 		const task = selectedTaskForDetails;
-		
+
 		if (userLang && task.translations?.sourceLanguage !== userLang) {
 			const translation = taskTranslationService.getStoredTranslation(task, userLang);
 			if (translation?.translatedTitle) {
@@ -1112,7 +1152,10 @@
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
-<main class="find-tasks-container find-tasks-page mx-auto flex-1 w-full h-full min-h-0 max-w-6xl px-2 py-6 md:px-0 md:py-0" data-find-tasks-page="true">
+<main
+	class="find-tasks-container find-tasks-page mx-auto h-full min-h-0 w-full max-w-6xl flex-1 px-2 py-6 md:px-0 md:py-0"
+	data-find-tasks-page="true"
+>
 	<div
 		id="panel-find-tasks"
 		role="tabpanel"
@@ -1125,7 +1168,7 @@
 			searchInputClass={getSearchInputClass()}
 			searchPlaceholder={getSearchPlaceholder()}
 			onSearchInput={debouncedSearch}
-			isFilterDrawerOpen={isFilterDrawerOpen}
+			{isFilterDrawerOpen}
 			onFilterClick={() => (isFilterDrawerOpen = true)}
 			onSaveSearch={async () => {
 				// Ensure drawer components are loaded before opening save search form
@@ -1153,7 +1196,7 @@
 					<!-- Error Message (full width across both columns) -->
 					{#if $tasksStore.error}
 						<div class="col-span-full mb-3">
-							<div class="alert alert-error alert-outline mb-3">
+							<div class="alert alert-error alert-outline mb-3" data-testid="tasks-error-alert">
 								<IconAlertCircle class="h-5 w-5 shrink-0 stroke-current" />
 								<span>{$t('find_tasks.error_loading').replace('{error}', $tasksStore.error)}</span>
 							</div>
@@ -1163,7 +1206,8 @@
 					<!-- Tasks List (scrolls) - Grid column 1 -->
 					<div class="min-h-0" data-tasks-list-column>
 						<div
-							class="h-full w-full overflow-y-auto box-border task-list-scroll-container"
+							class="task-list-scroll-container box-border h-full w-full overflow-y-auto"
+							data-testid="tasks-scroll-container"
 							bind:this={taskListRef}
 						>
 							<!-- Skeleton Loading -->
@@ -1171,7 +1215,10 @@
 								<TaskListSkeleton count={4} />
 							{:else if loadingState === 'timeout'}
 								<!-- Loading Timeout Warning -->
-								<div class="alert alert-warning alert-outline mb-3 rounded-xl">
+								<div
+									class="alert alert-warning alert-outline mb-3 rounded-xl"
+									data-testid="tasks-timeout-warning"
+								>
 									<IconAlertCircle class="h-5 w-5 shrink-0 stroke-current" />
 									<div>
 										<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
@@ -1183,20 +1230,24 @@
 								</div>
 							{:else if loadingState === 'error'}
 								<!-- Error State -->
-								<div class="py-8 text-center">
+								<div class="py-8 text-center" data-testid="tasks-error-state">
 									<div class="text-base-content/60 mb-3">
 										<IconAlertCircle class="mx-auto h-12 w-12" />
 									</div>
-									<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.error_loading_title') || 'Error Loading Tasks'}</h3>
+									<h3 class="mb-2 text-lg font-semibold">
+										{$t('find_tasks.error_loading_title') || 'Error Loading Tasks'}
+									</h3>
 									<p class="text-base-content/70 mb-3">
-										{$tasksStore.error || $t('find_tasks.error_loading_message') || 'An error occurred while loading tasks. Please try again.'}
+										{$tasksStore.error ||
+											$t('find_tasks.error_loading_message') ||
+											'An error occurred while loading tasks. Please try again.'}
 									</p>
 									<button class="btn btn-primary" onclick={() => window.location.reload()}>
 										{$t('find_tasks.refresh') || 'Refresh'}
 									</button>
 								</div>
 							{:else if $tasksStore.items && $tasksStore.items.length > 0}
-								<ul class="space-y-4 task-list-items pb-0 mb-0" role="list">
+								<ul class="task-list-items mb-0 space-y-4 pb-0" role="list">
 									{#each $tasksStore.items as task (task.id)}
 										<li role="listitem">
 											<TaskCard
@@ -1223,15 +1274,20 @@
 								{/if}
 							{:else if $tasksStore.loading}
 								<!-- Loading State Fallback (when skeleton is false but still loading) -->
-								<div class="flex h-full items-center justify-center py-8">
+								<div
+									class="flex h-full items-center justify-center py-8"
+									data-testid="tasks-loading-state"
+								>
 									<div class="text-center">
 										<span class="loading loading-spinner loading-lg text-primary"></span>
-										<p class="mt-4 text-base-content/70">{$t('find_tasks.loading') || 'Loading tasks...'}</p>
+										<p class="text-base-content/70 mt-4">
+											{$t('find_tasks.loading') || 'Loading tasks...'}
+										</p>
 									</div>
 								</div>
 							{:else}
 								<!-- No Results -->
-								<div class="py-8 text-center">
+								<div class="py-8 text-center" data-testid="tasks-no-results-state">
 									<div class="text-base-content/60 mb-3">
 										<IconMagnify class="mx-auto h-12 w-12" />
 									</div>
@@ -1246,7 +1302,11 @@
 					</div>
 
 					<!-- Desktop Map Sidebar (hidden on mobile) -->
-					<aside class="hidden min-h-0 lg:block map-container-wrapper" data-tasks-map-column aria-label={$t('find_tasks.map') || 'Task map'}>
+					<aside
+						class="map-container-wrapper hidden min-h-0 lg:block"
+						data-tasks-map-column
+						aria-label={$t('find_tasks.map') || 'Task map'}
+					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
 								tasks={$tasksStore.items}
@@ -1269,16 +1329,17 @@
 							/>
 						{:else}
 							<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
-							<span class="loading loading-spinner loading-lg"></span>
-						</div>
-					{/if}
-				</aside>
+								<span class="loading loading-spinner loading-lg"></span>
+							</div>
+						{/if}
+					</aside>
 				</div>
 
 				<!-- Mobile Floating Button - Scroll to Top (only visible on mobile) -->
 				{#if showScrollToTop}
 					<button
-						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex items-center justify-center rounded-4xl p-3 opacity-0 translate-y-[10px] scale-90 transition-all duration-300 hover:opacity-100 hover:scale-110 hover:brightness-110 active:scale-95 active:opacity-90 lg:hidden"
+						data-testid="tasks-scroll-to-top-button"
+						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex translate-y-[10px] scale-90 items-center justify-center rounded-4xl p-3 opacity-0 transition-all duration-300 hover:scale-110 hover:opacity-100 hover:brightness-110 active:scale-95 active:opacity-90 lg:hidden"
 						style="bottom: var(--app-bottom-fab);"
 						onclick={scrollToTop}
 						title={$t('find_tasks.scroll_to_top') || 'Scroll to top'}
@@ -1289,39 +1350,40 @@
 				{/if}
 			{:else}
 				<!-- Map View - Full Width (Mobile only) -->
-				<section class="relative min-h-0 w-full map-container-wrapper lg:hidden" data-tasks-map-view>
-				{#if mapLoaded && TaskLocationMap}
-					<TaskLocationMap
-						tasks={$tasksStore.items}
-						height="100%"
-						selectedTask={selectedTaskForMap}
-						{btcPrice}
-						{formatDateTimeReactive}
-						{formatDateRangeReactive}
-						{onSelectTask}
-						{onViewTask}
-						{drawersLoaded}
-						{loadDrawerComponents}
-						onTaskSelected={async (event: {
-							task: Task;
-							locationType: 'pickup' | 'dropoff';
-						}) => {
-							selectedTaskForMap = event.task;
-							// When a task is selected on the map, switch to list view to show the task
-							viewMode = 'list';
-							// Wait for view mode change to complete before scrolling
-							await tick();
-							// Wait for next frame to ensure DOM is fully updated and taskListRef is available
-							await new Promise((resolve) => requestAnimationFrame(resolve));
-							await scrollToTaskCard(getTaskId(event.task));
-						}}
-					/>
-				{:else}
-					<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
-						<span class="loading loading-spinner loading-lg"></span>
-					</div>
-					<!-- Map will load via $effect when viewMode changes to 'map' -->
-				{/if}
+				<section
+					class="map-container-wrapper relative min-h-0 w-full lg:hidden"
+					data-tasks-map-view
+					data-testid="tasks-mobile-map-view"
+				>
+					{#if mapLoaded && TaskLocationMap}
+						<TaskLocationMap
+							tasks={$tasksStore.items}
+							height="100%"
+							selectedTask={selectedTaskForMap}
+							{btcPrice}
+							{formatDateTimeReactive}
+							{formatDateRangeReactive}
+							{onSelectTask}
+							{onViewTask}
+							{drawersLoaded}
+							{loadDrawerComponents}
+							onTaskSelected={async (event: { task: Task; locationType: 'pickup' | 'dropoff' }) => {
+								selectedTaskForMap = event.task;
+								// When a task is selected on the map, switch to list view to show the task
+								viewMode = 'list';
+								// Wait for view mode change to complete before scrolling
+								await tick();
+								// Wait for next frame to ensure DOM is fully updated and taskListRef is available
+								await new Promise((resolve) => requestAnimationFrame(resolve));
+								await scrollToTaskCard(getTaskId(event.task));
+							}}
+						/>
+					{:else}
+						<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
+							<span class="loading loading-spinner loading-lg"></span>
+						</div>
+						<!-- Map will load via $effect when viewMode changes to 'map' -->
+					{/if}
 				</section>
 			{/if}
 		</section>
@@ -1336,11 +1398,9 @@
 	position="right"
 	isScrollable={true}
 >
-	{#snippet children()}
-		{#if FilterDrawer}
-			<FilterDrawer initialFilters={searchParams} onApply={handleFilterApply} />
-		{/if}
-	{/snippet}
+	{#if FilterDrawer}
+		<FilterDrawer initialFilters={searchParams} onApply={handleFilterApply} />
+	{/if}
 </Drawer>
 
 <!-- Bid Form Drawer Component -->
@@ -1361,19 +1421,13 @@
 	position="right"
 	isScrollable={true}
 >
-	{#snippet children()}
-		{#if drawersLoaded && BidForm && selectedTaskForBid}
-			<BidForm
-				task={selectedTaskForBid!}
-				onClose={() => (isBidOpen = false)}
-				stickySubmit={false}
-			/>
-		{:else}
-			<div class="flex items-center justify-center p-8">
-				<span class="loading loading-spinner loading-md"></span>
-			</div>
-		{/if}
-	{/snippet}
+	{#if drawersLoaded && BidForm && selectedTaskForBid}
+		<BidForm task={selectedTaskForBid!} onClose={() => (isBidOpen = false)} stickySubmit={false} />
+	{:else}
+		<div class="flex items-center justify-center p-8">
+			<span class="loading loading-spinner loading-md"></span>
+		</div>
+	{/if}
 </Drawer>
 
 <!-- Save Search Form Component -->
@@ -1395,10 +1449,13 @@
 			activeTab="details"
 			onClose={() => {
 				isTaskDetailsOpen = false;
+				const closeToken = ++detailsCloseToken;
 				// Clear task after animation completes (300ms transition duration) with cleanup tracking
 				const timeoutId = setTimeout(() => {
 					drawerCloseTimeouts.delete(timeoutId);
-					selectedTaskForDetails = null;
+					if (!isTaskDetailsOpen && closeToken === detailsCloseToken) {
+						selectedTaskForDetails = null;
+					}
 				}, 300);
 				drawerCloseTimeouts.add(timeoutId);
 			}}
@@ -1407,21 +1464,23 @@
 				if (isTaskSelectionInProgress || isBidOpen) {
 					return;
 				}
-				
+
 				// Validate task still exists and is still OPEN
 				if (!selectedTaskForDetails) {
 					appStore.showErrorToast($t('find_tasks.task_not_found') || 'Task not found');
 					return;
 				}
-				
+
 				// Check task status before allowing bid
 				if (selectedTaskForDetails.status !== TaskStatusEnum.OPEN) {
-					appStore.showErrorToast($t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding');
+					appStore.showErrorToast(
+						$t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding'
+					);
 					return;
 				}
-				
+
 				isTaskSelectionInProgress = true;
-				
+
 				try {
 					// Check if user is logged in
 					if ($user?.npub) {
@@ -1430,29 +1489,31 @@
 							appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
 							return;
 						}
-						
+
 						// Store the task before closing the details drawer
 						const taskToBid = selectedTaskForDetails;
-						
+
 						// Close the task details drawer first
 						isTaskDetailsOpen = false;
-						
+
 						// Wait for the drawer close animation to complete (300ms)
-						await new Promise(resolve => setTimeout(resolve, DRAWER_CLOSE_DELAY_MS));
-						
+						await new Promise((resolve) => setTimeout(resolve, DRAWER_CLOSE_DELAY_MS));
+
 						// Double-check task is still valid after delay
 						if (!taskToBid || taskToBid.status !== TaskStatusEnum.OPEN) {
-							appStore.showErrorToast($t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding');
+							appStore.showErrorToast(
+								$t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding'
+							);
 							return;
 						}
-						
+
 						// Ensure drawer components are loaded before opening bid drawer
 						if (!drawersLoaded) {
 							await loadDrawerComponents();
 						}
 						// Wait a tick to ensure BidForm component is available
 						await tick();
-						
+
 						// Set the selected task for the bid form
 						selectedTaskForBid = taskToBid;
 						// Wait another tick to ensure selectedTaskForBid is set
@@ -1472,7 +1533,9 @@
 					}
 				} catch (error) {
 					console.error('[TaskDrawer] Error opening bid form:', error);
-					appStore.showErrorToast($t('find_tasks.error_opening_bid_form') || 'Error opening bid form');
+					appStore.showErrorToast(
+						$t('find_tasks.error_opening_bid_form') || 'Error opening bid form'
+					);
 				} finally {
 					// Always release lock, even on error
 					isTaskSelectionInProgress = false;
@@ -1485,31 +1548,27 @@
 			title={getTranslatedTaskTitle}
 			onClose={() => {
 				isTaskDetailsOpen = false;
+				const closeToken = ++detailsCloseToken;
 				// Clear task after animation completes (300ms transition duration) with cleanup tracking
 				const timeoutId = setTimeout(() => {
 					drawerCloseTimeouts.delete(timeoutId);
-					selectedTaskForDetails = null;
+					if (!isTaskDetailsOpen && closeToken === detailsCloseToken) {
+						selectedTaskForDetails = null;
+					}
 				}, 300);
 				drawerCloseTimeouts.add(timeoutId);
 			}}
 			position="right"
 			isScrollable={true}
 		>
-			{#snippet children()}
-				<div class="flex items-center justify-center p-8">
-					<span class="loading loading-spinner loading-md"></span>
-				</div>
-			{/snippet}
+			<div class="flex items-center justify-center p-8">
+				<span class="loading loading-spinner loading-md"></span>
+			</div>
 		</Drawer>
 	{/if}
 {/if}
 
 <style>
-	:global([name='gmp-internal-google-attribution']),
-	:global([name='gmp-internal-dialog']) {
-		display: none !important;
-	}
-
 	/* Prevent app-shell__content from scrolling on find-tasks page only */
 	/* This page handles its own internal scrolling */
 	/* Use data attribute for simpler, more stable targeting */
@@ -1535,7 +1594,8 @@
 	 * ============================================================================ */
 	.find-tasks-container {
 		--tasks-content-height-mobile: calc(
-			100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - var(--header-controls-height, 10rem)
+			100vh - var(--app-dock-height, var(--app-footer-height, 64px)) -
+				var(--header-controls-height, 10rem)
 		);
 	}
 
@@ -1562,7 +1622,7 @@
 	/* ============================================================================
 	 * Responsive Layout - Mobile and Desktop
 	 * ============================================================================ */
-	
+
 	/* Mobile Layout (< 1024px) */
 	@media (max-width: 1023px) {
 		.task-list-scroll-container {
@@ -1631,4 +1691,3 @@
 		animation: fadeInButton 0.3s ease-out forwards;
 	}
 </style>
-

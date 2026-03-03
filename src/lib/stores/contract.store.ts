@@ -52,6 +52,7 @@ let statusSubscriptionOutgoing: { close: () => void } | null = null;
 
 // Contract creation subscriptions
 let contractSubscription: { close: () => void } | null = null;
+let paginationNoProgressCount = 0;
 
 // Create the store
 function createContractStore() {
@@ -63,11 +64,11 @@ function createContractStore() {
 	 * Subscription 1: Status events TO the user (recipient - #p tag)
 	 * Subscription 2: Status events FROM the user (author - to see own status updates)
 	 */
-	async function subscribeToStatusUpdates() {
+	async function subscribeToStatusUpdates(): Promise<boolean> {
 		try {
 			if (statusSubscriptionIncoming && statusSubscriptionOutgoing) {
 				d.log('Already subscribed to status updates');
-				return;
+				return true;
 			}
 
 			const npub = await getNpub();
@@ -77,7 +78,7 @@ function createContractStore() {
 
 			if (!pool) {
 				d.error('Pool not available (subscribeToStatusUpdates)');
-				return;
+				return false;
 			}
 
 			const since = Math.floor(Date.now() / 1000);
@@ -93,18 +94,29 @@ function createContractStore() {
 				{ onevent: async (event: NostrEvent) => await escrow.contractOps.handleStatusEvent(event) }
 			);
 
-			// Subscription 2: Status events where user is AUTHOR (to see own updates)
-			statusSubscriptionOutgoing = pool.subscribe(
-				_appStore?.relays ?? [],
-				{
-					kinds: [KINDS.CONTRACT_STATUS],
-					authors: [userPubkeyHex],
-					since
-				},
-				{ onevent: async (event: NostrEvent) => await escrow.contractOps.handleStatusEvent(event) }
-			);
+			try {
+				// Subscription 2: Status events where user is AUTHOR (to see own updates)
+				statusSubscriptionOutgoing = pool.subscribe(
+					_appStore?.relays ?? [],
+					{
+						kinds: [KINDS.CONTRACT_STATUS],
+						authors: [userPubkeyHex],
+						since
+					},
+					{
+						onevent: async (event: NostrEvent) => await escrow.contractOps.handleStatusEvent(event)
+					}
+				);
+			} catch (error) {
+				// Rollback incoming subscription to avoid partial-subscription state and duplicate events on retry
+				statusSubscriptionIncoming?.close();
+				statusSubscriptionIncoming = null;
+				throw error;
+			}
+			return true;
 		} catch (error) {
 			d.error('Failed to subscribe:', error);
+			return false;
 		}
 	}
 
@@ -114,9 +126,9 @@ function createContractStore() {
 	 * Subscription 1: Contract events where user is PARTICIPANT (#p tag)
 	 * Subscription 2: Contract events where user is AUTHOR (contracts they create)
 	 */
-	async function subscribeToNewContracts() {
+	async function subscribeToNewContracts(): Promise<boolean> {
 		try {
-			if (contractSubscription) return;
+			if (contractSubscription) return true;
 
 			const npub = await getNpub();
 			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
@@ -125,7 +137,7 @@ function createContractStore() {
 
 			if (!pool) {
 				d.error('Pool not available (subscribeToNewContracts)');
-				return;
+				return false;
 			}
 
 			const since = Math.floor(Date.now() / 1000);
@@ -142,8 +154,10 @@ function createContractStore() {
 				},
 				{ onevent: escrow.contractOps.handleContractEvent }
 			);
+			return true;
 		} catch (error) {
 			d.error('Failed to subscribe to new contracts:', error);
+			return false;
 		}
 	}
 
@@ -179,14 +193,6 @@ function createContractStore() {
 		 * Load all contracts (initial load)
 		 */
 		async loadContracts() {
-			// Check wallet state before loading
-			try {
-				await import('$lib/stores/wallet.store');
-				await import('svelte/store');
-			} catch {
-				// Wallet state check failed
-			}
-
 			update((state) => ({ ...state, isLoading: true, error: null }));
 			d.log('load start', { limit: CONTRACTS_LIMIT });
 
@@ -222,6 +228,7 @@ function createContractStore() {
 					isSubscribed: false,
 					isLoadingMore: false
 				});
+				paginationNoProgressCount = 0;
 
 				d.log('load result', {
 					count: loadedContracts.length,
@@ -239,11 +246,11 @@ function createContractStore() {
 				});
 
 				// Subscribe to real-time updates AFTER initial load
-				await subscribeToStatusUpdates();
-				await subscribeToNewContracts();
+				const statusSubscribed = await subscribeToStatusUpdates();
+				const newContractsSubscribed = await subscribeToNewContracts();
 
 				// Mark as subscribed
-				update((state) => ({ ...state, isSubscribed: true }));
+				update((state) => ({ ...state, isSubscribed: statusSubscribed && newContractsSubscribed }));
 			} catch (err) {
 				const error = err instanceof Error ? err.message : 'Failed to load contracts';
 				update((state) => ({ ...state, error, isLoading: false }));
@@ -309,19 +316,28 @@ function createContractStore() {
 					// All fetched contracts were duplicates - try fetching from older timestamp
 					const oldestFetched = fetchedContracts[fetchedContracts.length - 1];
 					d.log('All contracts were duplicates, updating boundary');
+					const nextBoundary = oldestFetched.contractEvent.created_at - 1;
+					paginationNoProgressCount += 1;
 
 					update((s) => ({
 						...s,
-						oldestTimestamp: oldestFetched.contractEvent.created_at,
+						oldestTimestamp: nextBoundary > 0 ? nextBoundary : null,
+						hasMore: paginationNoProgressCount < 2 && nextBoundary > 0,
 						isLoadingMore: false
 					}));
 					return;
 				}
+				paginationNoProgressCount = 0;
 
 				// Update store with new contracts
 				update((state) => {
+					// Re-dedupe using current state to avoid races between await and update
+					const dedupedToAdd = contractsToAdd.filter((contract) => {
+						const id = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+						return !state.contractsMap.has(id);
+					});
 					// Merge contracts
-					const allContracts = [...state.contracts, ...contractsToAdd];
+					const allContracts = [...state.contracts, ...dedupedToAdd];
 
 					// Rebuild index map
 					const newContractsMap = new Map<string, number>();
@@ -332,11 +348,14 @@ function createContractStore() {
 
 					// Update boundary timestamp (use last DISPLAYED contract's timestamp)
 					const newOldestTimestamp =
-						contractsToAdd[contractsToAdd.length - 1].contractEvent.created_at;
+						dedupedToAdd.length > 0
+							? dedupedToAdd[dedupedToAdd.length - 1].contractEvent.created_at
+							: state.oldestTimestamp;
 
 					// Determine if more contracts might exist
 					// If we got more unique contracts than we needed, there's likely more
-					const hasMore = newContracts.length > CONTRACTS_LIMIT;
+					const hasMore =
+						newContracts.length > CONTRACTS_LIMIT || dedupedToAdd.length === CONTRACTS_LIMIT;
 
 					return {
 						...state,

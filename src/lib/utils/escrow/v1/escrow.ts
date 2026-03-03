@@ -11,25 +11,64 @@ import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
 import { ethers, type JsonRpcProvider } from 'ethers';
 import { EscrowStatus } from './escrow.enum';
-import { getProvider, getWallet } from '$lib/stores/wallet.store';
+import { getProvider, getWallet, walletManager } from '$lib/stores/wallet.store';
 import * as EscrowNostrEvent from './escrowEvents';
 import escrowABI from './abi.json';
 
-let contract: ethers.Contract | null = null;
-// Cache for legacy contracts to avoid recreating them
-const legacyContracts = new Map<string, ethers.Contract>();
+// Cache contracts by address + wallet + network to avoid stale runner/provider reuse
+const contractCache = new Map<string, ethers.Contract>();
 
 /**
  * Force reset the cached contract (useful when provider is destroyed)
  * Also clears legacy contract cache
  */
 function resetCachedContract(): void {
-	contract = null;
-	legacyContracts.clear(); // Also clear legacy contracts cache
+	contractCache.clear();
 }
 
 const getRSKWallet = () => getWallet('rsk');
 const getRSKProvider = () => getProvider('rsk');
+
+function getContractCacheKey(address: string, walletAddress: string): string {
+	const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	return `${network}:${address.toLowerCase()}:${walletAddress.toLowerCase()}`;
+}
+
+function isProviderDestroyed(provider: unknown): boolean {
+	const providerWithMeta = provider as JsonRpcProvider & {
+		destroyed?: boolean;
+		_destroyed?: boolean;
+	};
+	return providerWithMeta?._destroyed === true || providerWithMeta?.destroyed === true;
+}
+
+function isContractUsable(
+	candidate: ethers.Contract | undefined,
+	wallet: ethers.Wallet,
+	provider: ethers.JsonRpcProvider
+): candidate is ethers.Contract {
+	if (!candidate) return false;
+	const runner = (candidate as ethers.Contract & { runner?: ethers.ContractRunner | null }).runner;
+	const candidateProvider =
+		(runner && 'provider' in runner ? (runner.provider as JsonRpcProvider | null) : null) ||
+		((candidate as ethers.Contract & { provider?: JsonRpcProvider | null }).provider ?? null);
+	if (!candidateProvider || isProviderDestroyed(candidateProvider)) {
+		return false;
+	}
+	// Ensure the cached runner still points to current wallet/provider context
+	return runner === wallet || candidateProvider === provider;
+}
+
+async function publishEscrowStatusSafely(
+	params: Parameters<typeof EscrowNostrEvent.publishEscrowStatus>[0],
+	context: string
+): Promise<void> {
+	try {
+		await EscrowNostrEvent.publishEscrowStatus(params);
+	} catch (error) {
+		console.warn(`[Escrow] Failed to publish status (${context})`, error);
+	}
+}
 
 /**
  * Simple initialization check for escrow operations
@@ -49,7 +88,6 @@ export async function ensureEscrowReady(
 	// Check and initialize wallet if needed
 	let wallet = getRSKWallet();
 	if (!wallet) {
-		const { walletManager } = await import('$lib/stores/wallet.store');
 		await walletManager.initialize();
 		wallet = getRSKWallet();
 		if (!wallet) {
@@ -60,77 +98,44 @@ export async function ensureEscrowReady(
 	// Check and get provider if needed
 	let provider = getRSKProvider();
 	if (!provider) {
-		const { walletManager } = await import('$lib/stores/wallet.store');
 		await walletManager.initialize();
 		provider = getRSKProvider();
 		if (!provider) {
 			throw new Error('Failed to get provider');
 		}
-	} else {
-		// Check if provider is destroyed (can happen during concurrent initialization)
-		const providerWithMeta = provider as JsonRpcProvider & {
-			destroyed?: boolean;
-			_destroyed?: boolean;
-		};
-		const isDestroyed = providerWithMeta._destroyed === true || providerWithMeta.destroyed === true;
-
-		if (isDestroyed) {
-			const { walletManager } = await import('$lib/stores/wallet.store');
-			await walletManager.initialize();
-			provider = getRSKProvider();
-			if (!provider) {
-				throw new Error('Failed to get provider after reinitialization');
-			}
+	} else if (isProviderDestroyed(provider)) {
+		await walletManager.initialize();
+		provider = getRSKProvider();
+		if (!provider) {
+			throw new Error('Failed to get provider after reinitialization');
 		}
 	}
 
 	// Determine which contract to use/initialize
 	let targetContract: ethers.Contract;
 
-	if (!contractAddress) {
-		// No contract address provided - use default contract
-		if (!contract) {
-			await connectToEscrowContract();
-			if (!contract) {
-				throw new Error('Failed to connect to contract');
-			}
-		}
-		targetContract = contract;
+	const defaultAddress = getDefaultContractAddress();
+	const resolvedAddress = (contractAddress || defaultAddress)?.toLowerCase();
+	if (!resolvedAddress) {
+		throw new Error('Failed to resolve escrow contract address');
+	}
+	const checksummedAddress = ethers.getAddress(resolvedAddress);
+	const cacheKey = getContractCacheKey(checksummedAddress, wallet.address);
+	const cachedContract = contractCache.get(cacheKey);
+
+	if (isContractUsable(cachedContract, wallet, provider)) {
+		targetContract = cachedContract;
 	} else {
-		// Contract address provided - check if it's default or legacy
-		const defaultAddress = getDefaultContractAddress();
-
-		if (contractAddress.toLowerCase() === defaultAddress?.toLowerCase()) {
-			// Matches default - use default contract
-			if (!contract) {
-				await connectToEscrowContract();
-				if (!contract) {
-					throw new Error('Failed to connect to contract');
-				}
-			}
-			targetContract = contract;
-		} else {
-			// Legacy contract - check cache or create new instance
-			const normalizedAddress = contractAddress.toLowerCase();
-
-			if (legacyContracts.has(normalizedAddress)) {
-				// Use cached legacy contract
-				targetContract = legacyContracts.get(normalizedAddress)!;
-			} else {
-				// Create new legacy contract instance
-				try {
-					// Convert to lowercase first to handle addresses with invalid checksums
-					const checksummedAddress = ethers.getAddress(contractAddress.toLowerCase());
-					targetContract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
-
-					// Cache it for future use
-					legacyContracts.set(normalizedAddress, targetContract);
-				} catch (error) {
-					throw new Error(
-						`Failed to connect to legacy contract at ${contractAddress}: ${error instanceof Error ? error.message : 'Unknown error'}`
-					);
-				}
-			}
+		if (cachedContract) {
+			contractCache.delete(cacheKey);
+		}
+		try {
+			targetContract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
+			contractCache.set(cacheKey, targetContract);
+		} catch (error) {
+			throw new Error(
+				`Failed to connect to contract at ${checksummedAddress}: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
 		}
 	}
 
@@ -169,45 +174,6 @@ function getDefaultContractAddress(): string | undefined {
 		: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
 }
 
-// Connect to escrow contract
-async function connectToEscrowContract(): Promise<void> {
-	const wallet = getRSKWallet();
-	const provider = getRSKProvider();
-
-	if (!wallet || !provider) {
-		throw new Error('RSK wallet not initialized. Please connect your wallet first.');
-	}
-
-	// Verify wallet has an address and is connected
-	if (!wallet.address) {
-		throw new Error('Wallet address not available. Please ensure wallet is properly connected.');
-	}
-
-	try {
-		const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK;
-		const contractAddress = getDefaultContractAddress();
-
-		if (!contractAddress) {
-			throw new Error(`Contract address not configured for ${network}.`);
-		}
-
-		const contractConfig = {
-			address: contractAddress.toLowerCase(),
-			abi: escrowABI,
-			network
-		};
-
-		// Ensure the contract address is properly checksummed
-		const checksummedAddress = ethers.getAddress(contractConfig.address);
-
-		contract = new ethers.Contract(checksummedAddress, contractConfig.abi, wallet);
-	} catch (error) {
-		throw new Error(
-			`Failed to connect to contract: ${error instanceof Error ? error.message : 'Unknown error'}`
-		);
-	}
-}
-
 // Load escrow details from contract
 async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData> {
 	const MAX_RETRIES = 2;
@@ -234,6 +200,11 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 				5: EscrowStatus.Cancelled
 			};
 
+			const mappedStatus = statusMapping[escrowData.state];
+			if (mappedStatus === undefined) {
+				throw new Error(`Unknown escrow state: ${escrowData.state}`);
+			}
+
 			const escrow: EscrowData = {
 				id: escrowId,
 				client: escrowData.client?.toLowerCase() || '', // Ensure consistent address format
@@ -242,7 +213,7 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 				clientFee: '0', // Will be calculated based on fee tier
 				freelancerFee: '0', // Will be calculated based on fee tier
 				totalAmount: ethers.formatEther(escrowData.amount),
-				status: statusMapping[escrowData.state] || EscrowStatus.Funded,
+				status: mappedStatus,
 				estimatedStartTime: Number(escrowData.estimatedStartTime),
 				estimatedCompletionTime: Number(escrowData.estimatedCompletionTime),
 				completionTime: 0, // Not stored in contract, would need separate call
@@ -462,16 +433,18 @@ async function createEscrow(
 			})
 			.catch((error: unknown) => {
 				console.error('Transaction failed or timed out:', error);
+				if (error instanceof Error && error.message.includes('timeout')) {
+					// Keep pending to avoid incorrect terminal failure while tx may still confirm later.
+					result.status = 'pending';
+					console.warn(
+						'Transaction wait timed out. Transaction may still be pending on the blockchain.'
+					);
+					return;
+				}
 				result.status = 'failed';
 				// Clean up pending contract on failure (only if hash exists)
 				if (result.hash) {
 					EscrowNostrEvent.cleanupPendingContractByTxHash(result.hash);
-				}
-				// If it's a timeout, update the error message
-				if (error instanceof Error && error.message.includes('timeout')) {
-					console.warn(
-						'Transaction wait timed out. Transaction may still be pending on the blockchain.'
-					);
 				}
 			});
 
@@ -514,13 +487,16 @@ async function completeTask(
 		// CRITICAL: Publish pending status BEFORE showing toast
 		// This prevents double-submissions during ~30s blockchain confirmation
 		if (contractEventId) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingCompletion,
-				completionAttachments
-			});
+			await publishEscrowStatusSafely(
+				{
+					escrowId,
+					contractEventId,
+					transactionHash: tx.hash,
+					status: EscrowStatus.PendingCompletion,
+					completionAttachments
+				},
+				'completeTask.pending'
+			);
 		}
 
 		// Handle confirmation asynchronously
@@ -532,13 +508,16 @@ async function completeTask(
 					console.log('Task completion transaction confirmed:', receipt);
 
 					if (contractEventId) {
-						await EscrowNostrEvent.publishEscrowStatus({
-							escrowId,
-							contractEventId,
-							transactionHash: receipt.hash,
-							status: EscrowStatus.Completed,
-							completionAttachments
-						});
+						await publishEscrowStatusSafely(
+							{
+								escrowId,
+								contractEventId,
+								transactionHash: receipt.hash,
+								status: EscrowStatus.Completed,
+								completionAttachments
+							},
+							'completeTask.confirmed'
+						);
 					}
 				} else {
 					result.status = 'failed';
@@ -597,12 +576,15 @@ async function acceptTask(
 		// CRITICAL: Publish pending status BEFORE showing toast
 		// This prevents double-submissions during ~30s blockchain confirmation
 		if (contractEventId) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingAcceptance
-			});
+			await publishEscrowStatusSafely(
+				{
+					escrowId,
+					contractEventId,
+					transactionHash: tx.hash,
+					status: EscrowStatus.PendingAcceptance
+				},
+				'acceptTask.pending'
+			);
 		}
 
 		// Handle confirmation asynchronously
@@ -615,12 +597,15 @@ async function acceptTask(
 
 					if (contractEventId) {
 						try {
-							await EscrowNostrEvent.publishEscrowStatus({
-								escrowId,
-								contractEventId,
-								transactionHash: receipt.hash,
-								status: EscrowStatus.FundsReleased
-							});
+							await publishEscrowStatusSafely(
+								{
+									escrowId,
+									contractEventId,
+									transactionHash: receipt.hash,
+									status: EscrowStatus.FundsReleased
+								},
+								'acceptTask.confirmed'
+							);
 						} catch {
 							// FundsReleased event not published - contract may show PendingAcceptance status
 						}
@@ -681,12 +666,15 @@ async function cancelEscrow(
 		// CRITICAL: Publish pending status BEFORE showing toast
 		// This prevents double-submissions during ~30s blockchain confirmation
 		if (contractEventId) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingCancellation
-			});
+			await publishEscrowStatusSafely(
+				{
+					escrowId,
+					contractEventId,
+					transactionHash: tx.hash,
+					status: EscrowStatus.PendingCancellation
+				},
+				'cancelEscrow.pending'
+			);
 		}
 
 		// Handle confirmation asynchronously
@@ -698,12 +686,15 @@ async function cancelEscrow(
 					console.log('Escrow cancellation transaction confirmed:', receipt);
 
 					if (contractEventId) {
-						await EscrowNostrEvent.publishEscrowStatus({
-							escrowId,
-							contractEventId,
-							transactionHash: receipt.hash,
-							status: EscrowStatus.Cancelled
-						});
+						await publishEscrowStatusSafely(
+							{
+								escrowId,
+								contractEventId,
+								transactionHash: receipt.hash,
+								status: EscrowStatus.Cancelled
+							},
+							'cancelEscrow.confirmed'
+						);
 					}
 				} else {
 					result.status = 'failed';
@@ -755,12 +746,15 @@ async function disputeTask(
 		// CRITICAL: Publish pending status BEFORE showing toast
 		// This prevents double-submissions during ~30s blockchain confirmation
 		if (contractEventId) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingDispute
-			});
+			await publishEscrowStatusSafely(
+				{
+					escrowId,
+					contractEventId,
+					transactionHash: tx.hash,
+					status: EscrowStatus.PendingDispute
+				},
+				'disputeTask.pending'
+			);
 		}
 
 		// Handle confirmation asynchronously
@@ -772,12 +766,15 @@ async function disputeTask(
 					console.log('Task dispute transaction confirmed:', receipt);
 
 					if (contractEventId) {
-						await EscrowNostrEvent.publishEscrowStatus({
-							escrowId,
-							contractEventId,
-							transactionHash: receipt.hash,
-							status: EscrowStatus.InDispute
-						});
+						await publishEscrowStatusSafely(
+							{
+								escrowId,
+								contractEventId,
+								transactionHash: receipt.hash,
+								status: EscrowStatus.InDispute
+							},
+							'disputeTask.confirmed'
+						);
 					}
 				} else {
 					result.status = 'failed';
@@ -837,14 +834,17 @@ async function proposeResolution(
 		// CRITICAL: Publish pending status BEFORE showing toast
 		// This prevents double-submissions during ~30s blockchain confirmation
 		if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingResolutionProposal,
-				proposedClientAmount,
-				proposedFreelancerAmount
-			});
+			await publishEscrowStatusSafely(
+				{
+					escrowId,
+					contractEventId,
+					transactionHash: tx.hash,
+					status: EscrowStatus.PendingResolutionProposal,
+					proposedClientAmount,
+					proposedFreelancerAmount
+				},
+				'proposeResolution.pending'
+			);
 		}
 
 		// Handle confirmation asynchronously
@@ -856,14 +856,17 @@ async function proposeResolution(
 					console.log('Resolution proposal transaction confirmed:', receipt);
 
 					if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
-						await EscrowNostrEvent.publishEscrowStatus({
-							escrowId,
-							contractEventId,
-							transactionHash: receipt.hash,
-							status: EscrowStatus.DisputeResolutionProposed,
-							proposedClientAmount,
-							proposedFreelancerAmount
-						});
+						await publishEscrowStatusSafely(
+							{
+								escrowId,
+								contractEventId,
+								transactionHash: receipt.hash,
+								status: EscrowStatus.DisputeResolutionProposed,
+								proposedClientAmount,
+								proposedFreelancerAmount
+							},
+							'proposeResolution.confirmed'
+						);
 					}
 				} else {
 					result.status = 'failed';
@@ -916,12 +919,15 @@ async function acceptProposal(
 		// CRITICAL: Publish pending status BEFORE showing toast
 		// This prevents double-submissions during ~30s blockchain confirmation
 		if (contractEventId) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingProposalAcceptance
-			});
+			await publishEscrowStatusSafely(
+				{
+					escrowId,
+					contractEventId,
+					transactionHash: tx.hash,
+					status: EscrowStatus.PendingProposalAcceptance
+				},
+				'acceptProposal.pending'
+			);
 		}
 
 		// Handle confirmation asynchronously
@@ -933,12 +939,15 @@ async function acceptProposal(
 					console.log('Proposal acceptance transaction confirmed:', receipt);
 
 					if (contractEventId) {
-						await EscrowNostrEvent.publishEscrowStatus({
-							escrowId,
-							contractEventId,
-							transactionHash: receipt.hash,
-							status: EscrowStatus.DisputeResolved
-						});
+						await publishEscrowStatusSafely(
+							{
+								escrowId,
+								contractEventId,
+								transactionHash: receipt.hash,
+								status: EscrowStatus.DisputeResolved
+							},
+							'acceptProposal.confirmed'
+						);
 					}
 					if (options?.onConfirmed) {
 						await options.onConfirmed();
@@ -995,12 +1004,15 @@ async function resolveAfterTimelock(
 		// CRITICAL: Publish pending status BEFORE showing toast
 		// This prevents double-submissions during ~30s blockchain confirmation
 		if (contractEventId) {
-			await EscrowNostrEvent.publishEscrowStatus({
-				escrowId,
-				contractEventId,
-				transactionHash: tx.hash,
-				status: EscrowStatus.PendingTimelockResolution
-			});
+			await publishEscrowStatusSafely(
+				{
+					escrowId,
+					contractEventId,
+					transactionHash: tx.hash,
+					status: EscrowStatus.PendingTimelockResolution
+				},
+				'resolveAfterTimelock.pending'
+			);
 		}
 
 		appStore.showInfoToast(get(t)('dashboard.contracts.actions.timelock_resolving_message'));
@@ -1031,12 +1043,15 @@ async function resolveAfterTimelock(
 							finalStatus = EscrowStatus.DisputeUnresolved;
 						}
 
-						await EscrowNostrEvent.publishEscrowStatus({
-							escrowId,
-							contractEventId,
-							transactionHash: receipt.hash,
-							status: finalStatus
-						});
+						await publishEscrowStatusSafely(
+							{
+								escrowId,
+								contractEventId,
+								transactionHash: receipt.hash,
+								status: finalStatus
+							},
+							'resolveAfterTimelock.confirmed'
+						);
 						if (finalStatus === EscrowStatus.FundsReleased && options?.onConfirmed) {
 							await options.onConfirmed();
 						}

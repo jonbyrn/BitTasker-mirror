@@ -2,6 +2,7 @@
 	import type { Location } from '$lib/types/task';
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
+	/* global google */
 
 	let {
 		location = {
@@ -33,11 +34,39 @@
 	let isMapLoaded = $state(false);
 	let hasError = $state(false);
 	let error = $state('');
-	let scriptLoaded = $state(false);
 	let googleMapsReady = $state(false);
 	let isComponentMounted = $state(false);
 	let isLoading = $state(true);
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
+	let geocodeRequestId = 0;
+	let pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
+	let pendingIntervals: ReturnType<typeof setInterval>[] = [];
+
+	function trackTimeout(callback: () => void, delayMs: number): ReturnType<typeof setTimeout> {
+		const id = setTimeout(() => {
+			pendingTimeouts = pendingTimeouts.filter((timeoutId) => timeoutId !== id);
+			callback();
+		}, delayMs);
+		pendingTimeouts = [...pendingTimeouts, id];
+		return id;
+	}
+
+	function trackInterval(callback: () => void, delayMs: number): ReturnType<typeof setInterval> {
+		const id = setInterval(callback, delayMs);
+		pendingIntervals = [...pendingIntervals, id];
+		return id;
+	}
+
+	function clearTrackedTimers() {
+		for (const id of pendingTimeouts) {
+			clearTimeout(id);
+		}
+		pendingTimeouts = [];
+		for (const id of pendingIntervals) {
+			clearInterval(id);
+		}
+		pendingIntervals = [];
+	}
 
 	// Function to dynamically load Google Maps script
 	async function loadGoogleMapsScript() {
@@ -45,7 +74,6 @@
 			try {
 				// Check if script is already loaded and API is available
 				if (window.google?.maps?.Map) {
-					scriptLoaded = true;
 					googleMapsReady = true;
 					resolve();
 					return;
@@ -57,25 +85,25 @@
 					// Check if script is already loaded
 					if (existingScript.getAttribute('data-loaded') === 'true' || window.google?.maps?.Map) {
 						// Script already loaded, just wait a bit for it to be ready
-						setTimeout(() => {
+						trackTimeout(() => {
 							if (window.google?.maps?.Map) {
-								scriptLoaded = true;
 								googleMapsReady = true;
 								resolve();
 							} else {
 								// Wait a bit more and try again
-								const checkInterval = setInterval(() => {
+								const checkInterval = trackInterval(() => {
 									if (window.google?.maps?.Map) {
 										clearInterval(checkInterval);
-										scriptLoaded = true;
+										pendingIntervals = pendingIntervals.filter((id) => id !== checkInterval);
 										googleMapsReady = true;
 										resolve();
 									}
 								}, 100);
-								
+
 								// Timeout after 5 seconds
-								setTimeout(() => {
+								trackTimeout(() => {
 									clearInterval(checkInterval);
+									pendingIntervals = pendingIntervals.filter((id) => id !== checkInterval);
 									if (!window.google?.maps?.Map) {
 										reject(new Error('Google Maps API not initialized'));
 									}
@@ -84,13 +112,12 @@
 						}, 500);
 						return;
 					}
-					
+
 					// Wait for existing script to load
 					existingScript.addEventListener('load', () => {
 						existingScript.setAttribute('data-loaded', 'true');
-						setTimeout(() => {
+						trackTimeout(() => {
 							if (window.google?.maps?.Map) {
-								scriptLoaded = true;
 								googleMapsReady = true;
 								resolve();
 							} else {
@@ -109,24 +136,25 @@
 
 				script.onload = () => {
 					script.setAttribute('data-loaded', 'true');
-					scriptLoaded = true;
-					setTimeout(() => {
+					trackTimeout(() => {
 						if (window.google?.maps?.Map) {
 							googleMapsReady = true;
 							resolve();
 						} else {
 							// Wait a bit more and try again
-							const checkInterval = setInterval(() => {
+							const checkInterval = trackInterval(() => {
 								if (window.google?.maps?.Map) {
 									clearInterval(checkInterval);
+									pendingIntervals = pendingIntervals.filter((id) => id !== checkInterval);
 									googleMapsReady = true;
 									resolve();
 								}
 							}, 100);
-							
+
 							// Timeout after 5 seconds
-							setTimeout(() => {
+							trackTimeout(() => {
 								clearInterval(checkInterval);
+								pendingIntervals = pendingIntervals.filter((id) => id !== checkInterval);
 								if (!window.google?.maps?.Map) {
 									reject(new Error('Google Maps API not initialized'));
 								}
@@ -150,7 +178,7 @@
 	// Function to load marker library
 	async function loadMarkerLibrary() {
 		if (markerLibrary) return markerLibrary;
-		
+
 		try {
 			markerLibrary = (await google.maps.importLibrary('marker')) as google.maps.MarkerLibrary;
 			return markerLibrary;
@@ -205,7 +233,6 @@
 			if (allowPinDrop) {
 				map.addListener('click', handleMapClick);
 			}
-
 		} catch (error) {
 			console.error('Error initializing Google Maps:', error);
 			throw error;
@@ -253,13 +280,12 @@
 					if (position) {
 						const newLat = typeof position.lat === 'function' ? position.lat() : position.lat;
 						const newLng = typeof position.lng === 'function' ? position.lng() : position.lng;
-						if (newLat && newLng) {
+						if (Number.isFinite(newLat) && Number.isFinite(newLng)) {
 							updateLocationFromCoordinates(newLat, newLng);
 						}
 					}
 				});
 			}
-
 		} catch (error) {
 			console.error('Error creating marker:', error);
 		}
@@ -314,10 +340,14 @@
 	}
 
 	async function updateLocationFromCoordinates(lat: number, lng: number) {
+		const requestId = ++geocodeRequestId;
 		try {
 			// Use reverse geocoding to get address
 			const geocoder = new google.maps.Geocoder();
 			const result = await geocoder.geocode({ location: { lat, lng } });
+			if (!isComponentMounted || requestId !== geocodeRequestId) {
+				return;
+			}
 
 			if (result.results && result.results.length > 0) {
 				const place = result.results[0];
@@ -340,9 +370,7 @@
 	}
 
 	function extractZipCode(components: google.maps.GeocoderAddressComponent[]): string {
-		const zipComponent = components.find(component => 
-			component.types.includes('postal_code')
-		);
+		const zipComponent = components.find((component) => component.types.includes('postal_code'));
 		return zipComponent?.long_name || '';
 	}
 
@@ -351,7 +379,7 @@
 			// Only proceed if Google Maps is ready and mapElement exists
 			if (!googleMapsReady) {
 				// Don't throw error immediately, wait a bit more
-				setTimeout(() => {
+				trackTimeout(() => {
 					if (!googleMapsReady) {
 						console.warn('Google Maps not ready after waiting');
 						error = 'Google Maps API not initialized';
@@ -361,7 +389,7 @@
 				}, 2000);
 				return;
 			}
-			
+
 			if (!mapElement) {
 				throw new Error('Map element not found');
 			}
@@ -370,12 +398,11 @@
 			isMapLoaded = true;
 			hasError = false; // Clear any previous errors
 			error = '';
-			
+
 			// Hide loading after everything is ready
-			setTimeout(() => {
+			trackTimeout(() => {
 				isLoading = false;
 			}, 500);
-			
 		} catch (err) {
 			console.error('Error initializing map:', err);
 			error = err instanceof Error ? err.message : 'Error initializing map';
@@ -402,7 +429,7 @@
 
 	// Watch for location changes
 	$effect(() => {
-		if (location.latitude && location.longitude && isMapLoaded) {
+		if (Number.isFinite(location.latitude) && Number.isFinite(location.longitude) && isMapLoaded) {
 			updateMapCenter();
 		}
 	});
@@ -418,7 +445,7 @@
 	$effect(() => {
 		if (isComponentMounted && googleMapsReady && mapElement && !isMapLoaded && !hasError) {
 			// Use a small delay to ensure DOM is fully ready
-			setTimeout(() => {
+			trackTimeout(() => {
 				tryInitMap();
 			}, 300);
 		}
@@ -428,22 +455,20 @@
 		try {
 			// Mark component as mounted
 			isComponentMounted = true;
-			
+
 			// Load Google Maps script
 			await loadGoogleMapsScript();
-			
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
-			// Only show error if it's a real failure, not just initialization delay
-			if (err instanceof Error && err.message.includes('Failed to load')) {
-				error = err.message;
-				hasError = true;
-			}
+			error = err instanceof Error ? err.message : 'Failed to load Google Maps';
+			hasError = true;
 			isLoading = false;
 		}
 	});
 
 	onDestroy(() => {
+		isComponentMounted = false;
+		clearTrackedTimers();
 		// Cleanup
 		if (marker) marker.map = null;
 		if (searchRadiusCircle) searchRadiusCircle.setMap(null);
@@ -461,7 +486,7 @@
 				<div class="bg-base-200 flex h-full w-full items-center justify-center">
 					<div class="text-center">
 						<span class="loading loading-spinner loading-lg mb-2"></span>
-						<p class="text-sm text-base-content/70">Loading map...</p>
+						<p class="text-base-content/70 text-sm">Loading map...</p>
 					</div>
 				</div>
 			{:else if hasError}
@@ -469,7 +494,7 @@
 					<div class="text-center">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="mx-auto h-12 w-12 text-error mb-2"
+							class="text-error mx-auto mb-2 h-12 w-12"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -481,7 +506,9 @@
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 							/>
 						</svg>
-						<p class="text-sm text-error">{$t('dashboard.bids.components.maps.location_picker_map.error_loading_map')}</p>
+						<p class="text-error text-sm">
+							{$t('dashboard.bids.components.maps.location_picker_map.error_loading_map')}
+						</p>
 					</div>
 				</div>
 			{/if}

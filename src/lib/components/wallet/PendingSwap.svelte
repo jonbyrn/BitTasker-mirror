@@ -22,11 +22,7 @@
 	} = $props();
 
 	let isDeleting = $state(false); // Local state for deleting button
-	let isExpanded = $state(false);
-
-	$effect(() => {
-		isExpanded = expanded;
-	});
+	let isExpanded = $derived(expanded);
 
 	/**
 	 * Get status display info
@@ -165,10 +161,14 @@
 	}
 
 	async function handleCopyPaymentDetails() {
-		if (swapType === 'lightning' && onCopyInvoice) {
-			await onCopyInvoice((swap as BoltzSwapData).invoice);
-		} else if (swapType === 'lbtc' && onCopyAddress) {
-			await onCopyAddress((swap as ChainSwapData).lockupAddress);
+		try {
+			if (swapType === 'lightning' && onCopyInvoice) {
+				await onCopyInvoice((swap as BoltzSwapData).invoice);
+			} else if (swapType === 'lbtc' && onCopyAddress) {
+				await onCopyAddress((swap as ChainSwapData).lockupAddress);
+			}
+		} catch (error) {
+			console.error('[PendingSwap] Failed to copy payment details', error);
 		}
 	}
 
@@ -199,6 +199,8 @@
 			: 'https://explorer.rsk.co';
 
 	const statusInfo = $derived(getStatusInfo(swap.status));
+
+	let qrCodePromise = $derived<Promise<string>>(generateQrCodeUrl(qrCodeData));
 </script>
 
 <div class="card bg-base-200 shadow-lg">
@@ -260,13 +262,13 @@
 				<div class="border-base-300 border-t p-4">
 					<div class="flex flex-col items-center gap-4">
 						<!-- QR Code -->
-						<div class="w-full flex justify-center sm:max-w-[50%]">
-							{#await generateQrCodeUrl(qrCodeData)}
+						<div class="flex w-full justify-center sm:max-w-[50%]">
+							{#await qrCodePromise}
 								<div class="flex h-44 w-44 items-center justify-center rounded-lg bg-white p-3">
 									<span class="loading loading-spinner loading-md"></span>
 								</div>
 							{:then qrUrl}
-								<div class="rounded-lg bg-white p-1 w-full max-w-[176px] sm:max-w-full">
+								<div class="w-full max-w-[176px] rounded-lg bg-white p-1 sm:max-w-full">
 									<img src={qrUrl} alt="QR Code" class="h-full w-full" />
 								</div>
 							{/await}
