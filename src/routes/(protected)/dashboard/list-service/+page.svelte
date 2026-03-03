@@ -290,7 +290,7 @@
 					return;
 				}
 				signedEventId = await updateService(dTag, serviceData);
-				appStore.showSuccessToast($t('dashboard.services.success.updated'));
+				appStore.showSuccessToast($t('dashboard.services.create.success.updated'));
 
 				// Refresh My Services list to show updated service
 				await refreshMyServices();
@@ -301,7 +301,7 @@
 				goto(url);
 			} else {
 				signedEventId = await listService(serviceData);
-				appStore.showSuccessToast($t('dashboard.services.success.created'));
+				appStore.showSuccessToast($t('dashboard.services.create.success.created'));
 
 				// Clear the draft (creation or duplicate)
 				await store.clearDraft(false);

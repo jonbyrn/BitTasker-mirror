@@ -22,7 +22,12 @@
 				"anonymous": "Anónimo",
 				"see_more": "Ver más",
 				"see_less": "Ver menos",
-				"price_levels": "Niveles de Precio"
+				"price_levels": "Niveles de Precio",
+				"select_tier": "Elige un paquete",
+				"addons_title": "Complementos",
+				"base_price": "Precio base",
+				"addons_total": "Complementos",
+				"total_price": "Total"
 			}
 		}
 	}

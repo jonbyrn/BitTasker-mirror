@@ -402,8 +402,19 @@ export async function findMyServices(
 		// Convert events to services (with async profile data fetching)
 		const rawServices = await Promise.all(events.map((event: Event) => convertEventToService(event)));
 
+		// NIP-33: keep only the latest version per service (same uniqueId = same logical service)
+		const latestByUniqueId = new Map<string, Service>();
+		for (const s of rawServices) {
+			const uid = s.uniqueId || s.id;
+			const existing = latestByUniqueId.get(uid);
+			if (!existing || (s.createdAt ?? 0) > (existing.createdAt ?? 0)) {
+				latestByUniqueId.set(uid, s);
+			}
+		}
+		const dedupedServices = Array.from(latestByUniqueId.values());
+
 		// Filter out deleted services (even for own services, respect deletions)
-		const activeServices = await filterDeletedServices(rawServices);
+		const activeServices = await filterDeletedServices(dedupedServices);
 
 		// Pre-index services for optimized filtering
 		const indexedServices = indexServiceData(activeServices);

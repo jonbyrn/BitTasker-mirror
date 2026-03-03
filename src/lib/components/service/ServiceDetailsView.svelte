@@ -18,6 +18,8 @@
 	import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import ServiceTierSelector from '$lib/components/service/ServiceTierSelector.svelte';
+	import ServiceAddOnsSelector from '$lib/components/service/ServiceAddOnsSelector.svelte';
 
 	let { service, serviceId } = $props<{
 		service: Service | null;
@@ -48,6 +50,32 @@
 
 	const tiersWithPrice = $derived(
 		displayTiers.filter((t: ServiceTier) => (t.price ?? 0) > 0)
+	);
+
+	let selectedTierId = $state<string | null>(null);
+	let selectedAddOnIds = $state<string[]>([]);
+
+	const basePriceForAddOns = $derived.by(() => {
+		if (!service?.pricing) return 0;
+		const p = service.pricing;
+		if (p.type === ServicePricingTypeEnum.TIERED && selectedTierId && p.tiers?.length) {
+			const tier = p.tiers.find((t: ServiceTier) => t.id === selectedTierId);
+			return tier?.price ?? 0;
+		}
+		if (p.type === ServicePricingTypeEnum.FIXED && p.amount != null) return p.amount;
+		if (p.type === ServicePricingTypeEnum.HOURLY && p.hourlyRate != null) return p.hourlyRate;
+		return 0;
+	});
+
+	const showTierSelector = $derived(
+		!isOwner &&
+			service?.pricing?.type === ServicePricingTypeEnum.TIERED &&
+			tiersWithPrice.length > 0
+	);
+	const showAddOnsSelector = $derived(
+		!isOwner &&
+			service?.pricing?.type !== ServicePricingTypeEnum.INQUIRY_REQUIRED &&
+			displayAddOns.length > 0
 	);
 
 	function translateCategory(category: { id: string; name: string } | string): string {
@@ -334,8 +362,15 @@
 							</div>
 						{/if}
 
-						<!-- Price levels (tiers) in sidebar - locale-aware -->
-						{#if tiersWithPrice.length > 0}
+						<!-- Tier selector (non-owner, tiered pricing) or read-only price levels (owner) -->
+						{#if showTierSelector}
+							<div class="border-base-300 mt-4 border-t pt-4">
+								<ServiceTierSelector
+									tiers={tiersWithPrice}
+									bind:selectedTierId
+								/>
+							</div>
+						{:else if tiersWithPrice.length > 0 && isOwner}
 							<div class="border-base-300 mt-4 border-t pt-4">
 								<h4 class="mb-3 font-semibold">{$t('dashboard.services.detail.price_levels')}</h4>
 								<div class="space-y-3">
@@ -359,6 +394,18 @@
 										</div>
 									{/each}
 								</div>
+							</div>
+						{/if}
+
+						<!-- Add-ons selector (non-owner, with checkboxes and total) -->
+						{#if showAddOnsSelector}
+							<div class="border-base-300 mt-4 border-t pt-4">
+								<ServiceAddOnsSelector
+									addOns={displayAddOns}
+									basePrice={basePriceForAddOns}
+									bind:selectedAddOnIds
+									disabled={service?.pricing?.type === ServicePricingTypeEnum.TIERED && !selectedTierId}
+								/>
 							</div>
 						{/if}
 
