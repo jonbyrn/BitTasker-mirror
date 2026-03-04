@@ -149,7 +149,8 @@
 			const biometricData = {
 				npub: credentails.npub,
 				exportedKey: exportedKey,
-				encryptedData: response.encryptedData
+				encryptedData: response.encryptedData,
+				credentialId: credentails.credentialId
 			};
 
 			await authState.setupAuthData(
@@ -380,7 +381,8 @@
 				const biometricData = {
 					npub,
 					encryptedData,
-					exportedKey
+					exportedKey,
+					credentialId: credentialData.credentialId
 				};
 
 				authState

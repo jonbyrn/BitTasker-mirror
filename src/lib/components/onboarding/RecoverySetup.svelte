@@ -162,7 +162,11 @@
 				recoveryData,
 				email: recoveryEmail
 			});
+
+			nextStep();
 		} catch (err) {
+			// Clear recovery email to allow skipping recovery setup
+			recoveryEmail = '';
 			console.error('Failed to setup account recovery:', err);
 			const error =
 				err instanceof Error
@@ -170,8 +174,6 @@
 					: $t('onboarding_auth.form.recovery_setup.errors.setup_failed');
 			appStore.showErrorToast(error);
 			throw new Error(error);
-		} finally {
-			nextStep();
 		}
 	}
 
