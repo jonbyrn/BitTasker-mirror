@@ -1,34 +1,54 @@
 import type { Credentials } from '$lib/types/auth';
-import { Capacitor } from '@capacitor/core';
+import {
+	Webauthn,
+	type PublicKeyCredentialCreationOptionsJSON,
+	type PublicKeyCredentialDescriptorJSON,
+	type PublicKeyCredentialRequestOptionsJSON
+} from 'capacitor-webauthn';
 import { handleBiometricError } from './biometricErrorHandler';
-import { packKeysMobile, unPackKeysMobile, generateMobileChallenge } from '$lib/utils/helpers/encoding';
-import { Webauthn, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from 'capacitor-webauthn';
-import { createUserDeviceShortName, generatePasskeyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+import { generatePasskeyName } from '$lib/utils/helpers/deviceIdentity';
+import {
+	extractPublicKeyFromAttestationObject,
+	packKeysMobile,
+	unPackKeysMobile
+} from '$lib/utils/helpers/encoding';
 import { Preferences } from '@capacitor/preferences';
-import { StorageKeys } from '../constants/storage';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import { appStore } from '$lib/stores/app.store';
 import { authState } from '$lib/stores/auth.store';
 import { goto } from '$app/navigation';
+import { Capacitor } from '@capacitor/core';
 import authService from '$lib/api/services/auth.service';
 
-export const checkBiometricAvailability = async (): Promise<boolean> => {
+export const checkNativePlatform = (): boolean => {
 	const isNative = Capacitor.isNativePlatform();
-	if (!isNative) return false;
+	return isNative;
+};
+
+export const checkBiometricAvailability = async (): Promise<boolean> => {
 	const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
 	return webAuthnAvailable;
 };
 
 /**
  * Set biometric key using shared packKeys format - matches web implementation exactly
- * @param publicKey User's Nostr public key  
+ * @param npub User's Nostr public key
  * @param exportedKey The exported private key for decryption
  * @param authMethod Authentication method: 'biometrics' for native, 'passkey' for WebAuthn
  * @param customName Optional custom name for the passkey (mobile device name)
  * @returns Promise with credential data including ID, public key (hex), clientDataJSON, attestationObject, and challenge
  */
-export async function setBiometricKey(
-	{ npub, exportedKey, username, challenge }: { npub: string; exportedKey: string; username?: string; challenge?: string }
-): Promise<{
+export async function setBiometricKey({
+	npub,
+	exportedKey,
+	username,
+	challenge
+}: {
+	npub: string;
+	exportedKey: string;
+	username?: string;
+	challenge?: string;
+}): Promise<{
 	credentialId: string;
 	passkeyPubkey: string;
 	clientDataJSON: string;
@@ -56,7 +76,7 @@ export async function setBiometricKey(
 		}
 
 		// Decode challenge from base64url
-		let _challenge = challenge ? challenge : (await authService.getChallenge()).challenge;
+		const _challenge = challenge ? challenge : (await authService.getChallenge()).challenge;
 
 		const registrationOptions: PublicKeyCredentialCreationOptionsJSON = {
 			challenge: _challenge,
@@ -81,7 +101,7 @@ export async function setBiometricKey(
 				requireResidentKey: true,
 				residentKey: 'required'
 			}
-		}
+		};
 
 		const result = await Webauthn.startRegistration(registrationOptions);
 
@@ -105,10 +125,22 @@ export async function setBiometricKey(
 				// Otherwise convert ArrayBuffer/Uint8Array to hex
 				const publicKeyBytes = new Uint8Array(response.publicKey);
 				passkeyPubkey = Array.from(publicKeyBytes)
-					.map(b => b.toString(16).padStart(2, '0'))
+					.map((b) => b.toString(16).padStart(2, '0'))
+					.join('');
+			}
+		} else {
+			// get public key from attestationObject
+			const publicKeyBytes = extractPublicKeyFromAttestationObject(
+				result.response.attestationObject
+			);
+			if (publicKeyBytes) {
+				passkeyPubkey = Array.from(publicKeyBytes)
+					.map((b) => b.toString(16).padStart(2, '0'))
 					.join('');
 			}
 		}
+
+		await Preferences.set({ key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID, value: credentialId });
 
 		// Return credential data like WebAuthn does
 		return {
@@ -129,7 +161,10 @@ export async function setBiometricKey(
  * @param checkNpub For already logged in users check biometric npub against localStorage npub
  * @returns Promise<Credentials | null>
  */
-export async function getBiometricData(checkNpub: boolean = false): Promise<Credentials | null> {
+export async function getBiometricData(
+	checkNpub: boolean = false,
+	allowCredentials: PublicKeyCredentialDescriptorJSON[] = []
+): Promise<Credentials | null> {
 	try {
 		// Force WebAuthn if authMethod is 'passkey'
 		const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
@@ -143,8 +178,8 @@ export async function getBiometricData(checkNpub: boolean = false): Promise<Cred
 			timeout: 60000,
 			userVerification: 'required',
 			rpId: window.location.hostname,
-			allowCredentials: []
-		}
+			allowCredentials
+		};
 		const credentials = await Webauthn.startAuthentication(options);
 
 		if (!credentials) throw new Error('No credentials found');
@@ -165,7 +200,7 @@ export async function getBiometricData(checkNpub: boolean = false): Promise<Cred
 		if (checkNpub) {
 			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
 			if (npub !== publicKey) {
-				throw new Error("Passkey mismatch: Please select the correct one linked to this account.");
+				throw new Error('Passkey mismatch: Please select the correct one linked to this account.');
 			}
 		}
 
@@ -175,16 +210,17 @@ export async function getBiometricData(checkNpub: boolean = false): Promise<Cred
 			credentialId: credentials.id,
 			response: credentials.response,
 			challenge: challenge
-		}
+		};
 	} catch (err) {
 		const platform = 'mobile-webauthn';
 
 		// Silently ignore "A request is already pending" errors
-		if (err instanceof Error && (
-			err.message.includes('A request is already pending') ||
-			err.message.includes('request is already pending') ||
-			err.message.includes('OperationError') && err.message.includes('already pending')
-		)) {
+		if (
+			err instanceof Error &&
+			(err.message.includes('A request is already pending') ||
+				err.message.includes('request is already pending') ||
+				(err.message.includes('OperationError') && err.message.includes('already pending')))
+		) {
 			console.log('Biometric request already in progress, ignoring duplicate request');
 			return null;
 		}
@@ -193,7 +229,7 @@ export async function getBiometricData(checkNpub: boolean = false): Promise<Cred
 		if (err instanceof Error && err.message.includes('device has been revoked')) {
 			appStore.showInfoToast('Your device access has been revoked');
 			await authState.logout();
-			goto('/auth/login');
+			await goto('/auth/login');
 		}
 		throw new Error(await handleBiometricError(err, platform));
 	}

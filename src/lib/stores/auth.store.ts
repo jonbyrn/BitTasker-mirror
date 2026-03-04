@@ -1,4 +1,4 @@
-import type { AuthState, BiometricData, Credentials, UserData } from '$lib/types/auth';
+import type { AuthState, BiometricData, UserData } from '$lib/types/auth';
 import { writable } from 'svelte/store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
@@ -20,6 +20,7 @@ const createAuthStore = () => {
 		await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 		await Preferences.remove({ key: StorageKeys.NPUB });
 		await Preferences.remove({ key: StorageKeys.AUTH_METHOD });
+		await Preferences.remove({ key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID });
 
 		// Clear all user-specific stores, caches, and subscriptions
 		// This prevents stale data when a new user logs in
@@ -32,9 +33,16 @@ const createAuthStore = () => {
 
 		// Reset auth state
 		set(initialAuthState);
-	}
+	};
 
-	const setupAuthData = async (accessToken: string, authMethod: string, npub: string, userData: Partial<UserData>, biometricData?: BiometricData, redirect: boolean = true) => {
+	const setupAuthData = async (
+		accessToken: string,
+		authMethod: string,
+		npub: string,
+		userData: Partial<UserData>,
+		biometricData?: BiometricData,
+		redirect: boolean = true
+	) => {
 		await Preferences.set({ key: StorageKeys.ACCESS_TOKEN, value: accessToken });
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
 
@@ -43,7 +51,8 @@ const createAuthStore = () => {
 
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
-		if (redirect) await goto('/dashboard').then(async () => {
+		if (redirect) {
+			await goto('/dashboard');
 			// Close modal and reset migration state
 			resetMigration();
 
@@ -51,8 +60,8 @@ const createAuthStore = () => {
 			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 			const { user } = await import('./user.store');
 			if (userData) user.updateProfile(userData);
-		});
-	}
+		}
+	};
 
 	return {
 		subscribe,

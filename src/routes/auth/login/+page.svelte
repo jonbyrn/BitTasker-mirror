@@ -21,15 +21,11 @@
 	} from '$lib/utils/helpers/auth';
 	import {
 		checkBiometricAvailability,
+		checkNativePlatform,
 		getBiometricData,
 		setBiometricKey
 	} from '$lib/utils/helpers/biometrics';
 	import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
-	import {
-		checkWebBiometricAvailability,
-		getWebBiometricData,
-		setWebBiometricKey
-	} from '$lib/utils/helpers/webBiometrics';
 	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
 	import { Capacitor } from '@capacitor/core';
 	import { fly } from 'svelte/transition';
@@ -55,10 +51,8 @@
 	let isNostrLogin = $state(false);
 	let showNsec = $state(false);
 	let nsec = $state('');
-	let authMethods = $state({
-		biometric: false,
-		webAuthn: false
-	});
+	let isBiometricsAvailable = $state(false);
+	let isNativePlatform = $state(false);
 	let isPasskeyError = $state(false);
 	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
 	let qrScannerModal: LoginQrCodeScannerModal | null = $state(null);
@@ -67,8 +61,8 @@
 	onMount(async () => {
 		try {
 			// Check available authentication methods
-			authMethods.biometric = await checkBiometricAvailability();
-			authMethods.webAuthn = await checkWebBiometricAvailability();
+			isBiometricsAvailable = await checkBiometricAvailability();
+			isNativePlatform = checkNativePlatform();
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
 		}
@@ -83,10 +77,8 @@
 
 			let credentails = null;
 
-			if (authMethods.biometric) {
+			if (isBiometricsAvailable) {
 				credentails = await getBiometricData();
-			} else if (authMethods.webAuthn) {
-				credentails = await getWebBiometricData();
 			}
 
 			if (!credentails) {
@@ -105,7 +97,7 @@
 				credentialId: credentails.credentialId,
 				deviceId,
 				deviceName,
-				platform: authMethods.biometric ? 'mobile' : 'web',
+				platform: isNativePlatform ? 'mobile' : 'web',
 				response: credentails.response,
 				appVersion: __APP_VERSION__
 			});
@@ -129,7 +121,7 @@
 					decryptedData,
 					deviceId,
 					deviceName,
-					platform: authMethods.biometric ? 'mobile' : 'web'
+					platform: checkNativePlatform() ? 'mobile' : 'web'
 				});
 
 				response = migrationResponse.response;
@@ -221,6 +213,7 @@
 
 			const { challenge } = await authService.getChallenge();
 
+			// decode nsec includes validation of nsec
 			const privateKey = decodeNsec(nsec);
 			const npub = getPublicKey(privateKey);
 
@@ -245,39 +238,39 @@
 			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(npub);
 
+			let mnemonic = '';
+
 			const response = await authService.encryptedNostrData({
 				event: signedEvent,
 				deviceId: deviceId,
 				deviceName: deviceName,
-				platform: authMethods.biometric ? 'mobile' : 'web',
+				platform: isNativePlatform ? 'mobile' : 'web',
 				appVersion: __APP_VERSION__
 			});
 
-			let mnemonic = '';
-			if (response.encryptedData) {
+			if (response && response.encryptedData) {
 				// Account exists, decrypt wallet mnemonic
 				const masterSalt = base64ToBytes(response.encryptedData.masterSalt);
 				try {
-					// try direct decryption with nsec bech32 format (nsec1...)
-					const exportedMasterKey = await deriveKeyFromPassword(nsec, masterSalt, 100000);
+					// try decryption with nsec hex format (...64 characters)
+					let _nsec = nsec;
+					if (nsec.startsWith('nsec1')) {
+						_nsec = bytesToHex(privateKey);
+					}
+					const exportedMasterKey = await deriveKeyFromPassword(_nsec, masterSalt, 100000);
 					const _exportedKey = await exportKey(exportedMasterKey);
+
 					const decryptedData = await decryptMasterKeyDataFromBiometrics(
 						response.encryptedData,
 						_exportedKey
 					);
 					mnemonic = decryptedData.mnemonic;
-					// eslint-disable-next-line @typescript-eslint/no-unused-vars
-				} catch (error) {
+				} catch {
 					console.warn('Error decrypting in bech32 format, trying hex format');
 					try {
-						// try decryption with nsec hex format (...64 characters)
-						let _nsec = nsec;
-						if (nsec.startsWith('nsec1')) {
-							_nsec = bytesToHex(privateKey);
-						}
-						const exportedMasterKey = await deriveKeyFromPassword(_nsec, masterSalt, 100000);
+						// try direct decryption with nsec bech32 format (nsec1...)
+						const exportedMasterKey = await deriveKeyFromPassword(nsec, masterSalt, 100000);
 						const _exportedKey = await exportKey(exportedMasterKey);
-
 						const decryptedData = await decryptMasterKeyDataFromBiometrics(
 							response.encryptedData,
 							_exportedKey
@@ -309,10 +302,12 @@
 			};
 			// Store master key data in biometrics (skip in test environments to avoid passkey prompts)
 			if (!isTestEnvironment) {
-				if (authMethods.biometric) {
-					credentialData = await setBiometricKey({ npub, exportedKey });
-				} else if (authMethods.webAuthn) {
-					credentialData = await setWebBiometricKey({ npub, exportedKey });
+				if (isBiometricsAvailable) {
+					credentialData = await setBiometricKey({
+						npub,
+						exportedKey,
+						username: response?.username
+					});
 				}
 			}
 
@@ -343,7 +338,7 @@
 				clientDataJSON: credentialData.clientDataJSON,
 				attestationObject: credentialData.attestationObject,
 				appVersion: __APP_VERSION__,
-				platform: authMethods.biometric ? 'mobile' : 'web'
+				platform: isNativePlatform ? 'mobile' : 'web'
 			});
 
 			if (res.isMigrated) {
@@ -628,7 +623,7 @@
 								{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
 							</button>
 							<!-- QR Code login - Only for mobile -->
-							{#if authMethods.biometric}
+							{#if isNativePlatform}
 								<QrCodeScanner onScan={handleLoginWithQrCode}>
 									{#snippet scanBtn({ disabled, onStartScan })}
 										<button
