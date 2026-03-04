@@ -4,12 +4,8 @@
  */
 
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
-import {
-	createUserDeviceShortName,
-	generatePasskeyName,
-	getDeviceIdentifier
-} from './deviceIdentity';
-import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/encoding';
+import { generatePasskeyName } from './deviceIdentity';
+import { packKeys, unPackKeys } from '$lib/utils/helpers/encoding';
 import { handleBiometricError } from './biometricErrorHandler';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '../constants/storage';
@@ -74,12 +70,14 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
 			(window.location.hostname === 'localhost' ||
 				window.location.hostname === '127.0.0.1' ||
 				process.env.NODE_ENV === 'test' ||
-				(window as any).__PLAYWRIGHT_TEST__);
+				window.__PLAYWRIGHT_TEST__);
 
 		// If PublicKeyCredential exists and we're in a test environment, assume virtual authenticator is available
 		// This allows E2E tests with Playwright's virtual authenticator to work
 		if (isTestEnvironment && window.PublicKeyCredential) {
-			console.log('[WebAuthn] Test environment detected, assuming virtual authenticator is available');
+			console.log(
+				'[WebAuthn] Test environment detected, assuming virtual authenticator is available'
+			);
 			return true;
 		}
 
@@ -91,61 +89,23 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
 };
 
 /**
- * Verify user identity using WebAuthn with automatic credential discovery
- * Returns the credentials if authentication is successful
- */
-export async function verifyIdentity(): Promise<boolean> {
-	try {
-		if (!(await checkWebBiometricAvailability())) {
-			throw new Error('WebAuthn is not available on this device');
-		}
-
-		// Use credential discovery - empty allowCredentials enables discovery
-		// In test environments, use more permissive options
-		const isTestEnvironment =
-			typeof navigator !== 'undefined' &&
-			(window.location.hostname === 'localhost' ||
-				window.location.hostname === '127.0.0.1' ||
-				process.env.NODE_ENV === 'test' ||
-				(window as any).__PLAYWRIGHT_TEST__);
-
-		const authOptions: PublicKeyCredentialRequestOptions = {
-			challenge: generateWebChallenge(),
-			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
-			userVerification: isTestEnvironment ? 'preferred' : WEBAUTHN_VERIFY_OPTIONS.userVerification,
-			// Empty allowCredentials enables discovery of resident keys
-			allowCredentials: []
-		};
-
-		// Request authentication with timeout protection
-		const credentialPromise = navigator.credentials.get({
-			publicKey: authOptions
-		}) as Promise<PublicKeyCredential>;
-
-		// Add manual timeout to prevent hanging
-		const timeoutPromise = new Promise<null>((_, reject) => {
-			setTimeout(() => reject(new Error('La operación expiró o no fue permitida')), 35000);
-		});
-
-		const credential = await Promise.race([credentialPromise, timeoutPromise]);
-
-		return credential !== null;
-	} catch (err) {
-		console.error('Biometric verification failed:', err);
-		return false;
-	}
-}
-
-/**
  * Register WebAuthn credentials
  * @param publicKey User's Nostr public key
  * @param exportedKey The exported private key for decryption
  * @param customName Optional custom name for the passkey
  * @returns Promise with credential data including ID, public key (hex), clientDataJSON, attestationObject, and challenge
  */
-export async function setWebBiometricKey(
-	{ npub, exportedKey, username, challenge }: { npub: string; exportedKey: string; username?: string; challenge?: string }
-): Promise<{
+export async function setWebBiometricKey({
+	npub,
+	exportedKey,
+	username,
+	challenge
+}: {
+	npub: string;
+	exportedKey: string;
+	username?: string;
+	challenge?: string;
+}): Promise<{
 	credentialId: string;
 	passkeyPubkey: string;
 	clientDataJSON: string;
@@ -190,11 +150,14 @@ export async function setWebBiometricKey(
 			(window.location.hostname === 'localhost' ||
 				window.location.hostname === '127.0.0.1' ||
 				process.env.NODE_ENV === 'test' ||
-				(window as any).__PLAYWRIGHT_TEST__);
+				window.__PLAYWRIGHT_TEST__);
 
 		// Decode challenge from base64url
-		let _challenge = challenge ? challenge : (await authService.getChallenge()).challenge;
-		const challengeBuffer = Uint8Array.from(atob(_challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+		const _challenge = challenge ? challenge : (await authService.getChallenge()).challenge;
+		const challengeBuffer = Uint8Array.from(
+			atob(_challenge.replace(/-/g, '+').replace(/_/g, '/')),
+			(c) => c.charCodeAt(0)
+		);
 
 		const registrationOptions: PublicKeyCredentialCreationOptions = {
 			challenge: challengeBuffer,
@@ -213,20 +176,22 @@ export async function setWebBiometricKey(
 			],
 			timeout: 60000,
 			attestation: 'none', // Use 'none' for test environments to avoid attestation issues
-			authenticatorSelection: isTestEnvironment ? {
-				// In test mode (localhost), allow cross-platform authenticators to match virtual authenticator
-				// Using 'usb' transport in Playwright means we should allow cross-platform authenticators
-				// Don't restrict authenticatorAttachment - allow any type (platform or cross-platform)
-				// This allows the virtual authenticator to be automatically selected without browser prompts
-				// authenticatorAttachment: undefined, // Allow any authenticator type (platform or cross-platform)
-				userVerification: 'preferred', // Less strict for test environments
-				requireResidentKey: true,
-				residentKey: 'preferred' // Less strict for test environments
-			} : {
-				...WEBAUTHN_VERIFY_OPTIONS.authenticatorSelection,
-				requireResidentKey: true,
-				residentKey: 'required'
-			}
+			authenticatorSelection: isTestEnvironment
+				? {
+						// In test mode (localhost), allow cross-platform authenticators to match virtual authenticator
+						// Using 'usb' transport in Playwright means we should allow cross-platform authenticators
+						// Don't restrict authenticatorAttachment - allow any type (platform or cross-platform)
+						// This allows the virtual authenticator to be automatically selected without browser prompts
+						// authenticatorAttachment: undefined, // Allow any authenticator type (platform or cross-platform)
+						userVerification: 'preferred', // Less strict for test environments
+						requireResidentKey: true,
+						residentKey: 'preferred' // Less strict for test environments
+					}
+				: {
+						...WEBAUTHN_VERIFY_OPTIONS.authenticatorSelection,
+						requireResidentKey: true,
+						residentKey: 'required'
+					}
 		};
 
 		// Create credential
@@ -248,7 +213,9 @@ export async function setWebBiometricKey(
 			.replace(/=/g, '');
 
 		// Convert attestationObject to base64url
-		const attestationObject = btoa(String.fromCharCode(...new Uint8Array(response.attestationObject)))
+		const attestationObject = btoa(
+			String.fromCharCode(...new Uint8Array(response.attestationObject))
+		)
 			.replace(/\+/g, '-')
 			.replace(/\//g, '_')
 			.replace(/=/g, '');
@@ -262,7 +229,7 @@ export async function setWebBiometricKey(
 
 		// Convert public key to hex format
 		const passkeyPubkey = Array.from(new Uint8Array(publicKeyBytes))
-			.map(b => b.toString(16).padStart(2, '0'))
+			.map((b) => b.toString(16).padStart(2, '0'))
 			.join('');
 
 		return {
@@ -282,25 +249,11 @@ export async function setWebBiometricKey(
  * Get stored credentials after biometric verification
  * @param checkNpub For already logged in users check biometric npub agains localStorage npub
  */
-export async function getWebBiometricData(checkNpub: boolean = false): Promise<Credentials | null> {
+export async function getWebBiometricData(
+	checkNpub: boolean = false,
+	allowCredentials: PublicKeyCredentialDescriptor[] = []
+): Promise<Credentials | null> {
 	try {
-		// Check availability, but allow test environments to proceed
-		const isAvailable = await checkWebBiometricAvailability();
-		if (!isAvailable) {
-			// In test environments, try anyway (virtual authenticator might work)
-			const isTestEnvironment =
-				typeof navigator !== 'undefined' &&
-				(window.location.hostname === 'localhost' ||
-					window.location.hostname === '127.0.0.1' ||
-					process.env.NODE_ENV === 'test' ||
-					(window as any).__PLAYWRIGHT_TEST__);
-
-			if (!isTestEnvironment) {
-				throw new Error('WebAuthn is not available on this device');
-			}
-			// In test environment, continue - let the actual WebAuthn call determine if it works
-		}
-
 		// Use credential discovery
 		// In test environments, use more permissive options
 		const isTestEnvironment =
@@ -308,15 +261,26 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 			(window.location.hostname === 'localhost' ||
 				window.location.hostname === '127.0.0.1' ||
 				process.env.NODE_ENV === 'test' ||
-				(window as any).__PLAYWRIGHT_TEST__);
+				window.__PLAYWRIGHT_TEST__);
+
+		// Check availability, but allow test environments to proceed
+		const isAvailable = await checkWebBiometricAvailability();
+		if (!isAvailable && !isTestEnvironment) {
+			// In test environment, continue - let the actual WebAuthn call determine if it works
+			throw new Error('WebAuthn is not available on this device');
+		}
 
 		const { challenge } = await authService.getChallenge();
-		const challengeBuffer = Uint8Array.from(atob(challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+		const challengeBuffer = Uint8Array.from(
+			atob(challenge.replace(/-/g, '+').replace(/_/g, '/')),
+			(c) => c.charCodeAt(0)
+		);
 
 		const authOptions: PublicKeyCredentialRequestOptions = {
 			challenge: challengeBuffer,
 			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
-			userVerification: isTestEnvironment ? 'preferred' : WEBAUTHN_VERIFY_OPTIONS.userVerification
+			userVerification: isTestEnvironment ? 'preferred' : WEBAUTHN_VERIFY_OPTIONS.userVerification,
+			allowCredentials
 		};
 
 		// Request authentication
@@ -352,12 +316,14 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 				.replace(/\+/g, '-')
 				.replace(/\//g, '_')
 				.replace(/=/g, '');
-		}
+		};
 
 		const authenticatorData = convertToBase64url(response.authenticatorData);
 		const clientDataJSON = convertToBase64url(response.clientDataJSON);
 		const signature = convertToBase64url(response.signature);
 		const userHandle = convertToBase64url(response.userHandle);
+
+		await Preferences.set({ key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID, value: credential.id });
 
 		return {
 			npub: publicKey,
@@ -370,7 +336,7 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 				signature,
 				userHandle
 			}
-		}
+		};
 	} catch (err) {
 		// Silently ignore "A request is already pending" errors
 		if (

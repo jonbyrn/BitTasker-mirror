@@ -5,7 +5,6 @@ import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { authState, isCaptchaVerified } from '$lib/stores/auth.store';
 import { Preferences } from '@capacitor/preferences';
-import authService from '$lib/api/services/auth.service';
 
 export const load: LayoutLoad = async ({ url }) => {
 	if (!browser) return;
@@ -15,23 +14,7 @@ export const load: LayoutLoad = async ({ url }) => {
 	// If user is logged in and not in onboarding, redirect to dashboard
 	if (token.value) {
 		if (url.pathname.includes('/onboarding')) {
-			try {
-				const onboardingStatus = await authService.checkOnboardingStatus();
-
-				if (onboardingStatus.isComplete) {
-					redirect(303, '/dashboard');
-				} else {
-					const fields = ['displayName', 'profilePicture', 'professionalTitle', 'profileDescription', 'skills']; // field 'location' left out for step 4 
-					const step3 = fields.filter(field => onboardingStatus.missingFields.includes(field)).length > 0
-
-					return { currentStep: step3 ? 3 : 4 };
-				}
-			} catch (error) {
-				console.error('Error checking onboarding status:', error);
-				// If error checking onboarding status, log out user
-				await authState.logout();
-				redirect(303, '/auth/login');
-			}
+			return { currentStep: 2 };
 		} else {
 			redirect(303, '/dashboard');
 		}
@@ -44,7 +27,9 @@ export const load: LayoutLoad = async ({ url }) => {
 				typeof import.meta !== 'undefined' && import.meta.env?.VITE_E2E_TURNSTILE_BYPASS === 'true';
 			if (!verified && !e2eBypass) {
 				// Diagnostic: visible in Playwright page console and CI attachments when redirect happens
-				console.warn('[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup');
+				console.warn(
+					'[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup'
+				);
 				redirect(303, '/auth/signup');
 			}
 			// Diagnostic: when we allow onboarding

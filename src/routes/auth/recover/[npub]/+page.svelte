@@ -11,18 +11,18 @@
 		getDeviceIdentifier
 	} from '$lib/utils/helpers/deviceIdentity';
 	import { decryptMasterKeyWithPassword, encryptMasterKeyData } from '$lib/utils/helpers/auth';
-	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
-		checkWebBiometricAvailability,
-		setWebBiometricKey
-	} from '$lib/utils/helpers/webBiometrics';
-	import authService from '$lib/api/services/auth.service';
+		checkBiometricAvailability,
+		checkNativePlatform,
+		setBiometricKey
+	} from '$lib/utils/helpers/biometrics';
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { locale } from 'svelte-i18n';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import authService from '$lib/api/services/auth.service';
 
 	const npub = page.params.npub;
 
@@ -40,10 +40,7 @@
 	let recoveryData = $state<NostrRecoveryData>();
 	let showCurrentPassword = $state(false);
 	let showNewPassword = $state(false);
-	let authMethods = $state({
-		biometric: false,
-		webAuthn: false
-	});
+	let isBiometricsAvailable = $state(false);
 	let lastRecoveryAction = $state<'decrypt' | 'complete' | null>(null);
 	let revokeAll = $state(false);
 
@@ -92,13 +89,12 @@
 				throw new Error(error);
 			}
 
-			authMethods.biometric = await checkBiometricAvailability();
-			authMethods.webAuthn = await checkWebBiometricAvailability();
+			isBiometricsAvailable = await checkBiometricAvailability();
 			const generatedPassword = generatePassword($locale || 'en');
 			newPassword = generatedPassword;
 			confirmPassword = generatedPassword;
 			passwordStrength = getPasswordStrength(generatedPassword);
-		} catch (err: any) {
+		} catch (err: unknown) {
 			const message =
 				err instanceof Error ? err.message : $t('recovery_npub.errors.no_recovery_data');
 			appStore.showErrorToast(message, 4000);
@@ -139,8 +135,8 @@
 			// Decrypt private key with current password
 			({ nsec, mnemonic } = await decryptMasterKeyWithPassword(recoveryData, currentPassword));
 			step = 2;
-		} catch (err: any) {
-			error = err.message || $t('recovery_npub.errors.decrypt_failed');
+		} catch (err: unknown) {
+			error = err instanceof Error ? err.message : $t('recovery_npub.errors.decrypt_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -180,9 +176,6 @@
 			// Encrypt with device ID for biometric storage
 			const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
-			// Check available authentication methods
-			const isMobileBiometrics = await checkBiometricAvailability();
-
 			const deviceName = await createUserDeviceShortName(npub);
 
 			// Create passkey with deviceName first (username not available yet)
@@ -194,10 +187,8 @@
 				attestationObject: '',
 				challenge: ''
 			};
-			if (isMobileBiometrics) {
+			if (isBiometricsAvailable) {
 				credentialData = await setBiometricKey({ npub, exportedKey });
-			} else {
-				credentialData = await setWebBiometricKey({ npub, exportedKey });
 			}
 
 			if (!credentialData.credentialId) {
@@ -225,7 +216,7 @@
 				attestationObject: credentialData.attestationObject,
 				deviceId,
 				deviceName,
-				platform: isMobileBiometrics ? 'mobile' : 'web',
+				platform: checkNativePlatform() ? 'mobile' : 'web',
 				revokeAll
 			});
 
@@ -237,8 +228,8 @@
 				};
 				authState.setupAuthData(access_token, 'passkey', npub, user, biometricData, true);
 			}
-		} catch (err: any) {
-			error = err.message || $t('recovery_npub.errors.recovery_failed');
+		} catch (err: unknown) {
+			error = err instanceof Error ? err.message : $t('recovery_npub.errors.recovery_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -248,7 +239,7 @@
 <div class="bg-base-200 flex grow flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight">
+			<h3 class="card-title mb-6 text-center text-xl leading-tight font-semibold sm:text-2xl">
 				{$t('recovery_npub.title')}
 			</h3>
 
@@ -548,7 +539,7 @@
 							<div class="mt-2">
 								<div class="flex items-center gap-2">
 									<div class="flex-1">
-										<div class="h-2 w-full overflow-hidden rounded-full bg-base-300">
+										<div class="bg-base-300 h-2 w-full overflow-hidden rounded-full">
 											<div
 												class="h-full transition-all duration-300 {passwordStrength === 'weak'
 													? 'bg-error'

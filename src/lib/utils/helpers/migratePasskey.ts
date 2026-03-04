@@ -1,7 +1,6 @@
 import type { EncryptedData, UserData } from '$lib/types/auth';
 import { finalizeEvent } from 'nostr-tools';
 import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
-import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
 import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 import { writable, get } from 'svelte/store';
 import { decodeNsec } from '$lib/utils/nostr';
@@ -137,7 +136,7 @@ async function performMigration(context: MigrationContext) {
 		decryptedData.nsec
 	);
 
-	const isMobileBiometrics = await checkBiometricAvailability();
+	const isBiometricsAvailable = await checkBiometricAvailability();
 
 	let credentialData = {
 		credentialId: '',
@@ -147,10 +146,8 @@ async function performMigration(context: MigrationContext) {
 		challenge: ''
 	};
 
-	if (isMobileBiometrics) {
+	if (isBiometricsAvailable) {
 		credentialData = await setBiometricKey({ npub, exportedKey, challenge });
-	} else {
-		credentialData = await setWebBiometricKey({ npub, exportedKey, challenge });
 	}
 
 	const response = await authService.nostrLogin({

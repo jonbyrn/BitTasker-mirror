@@ -42,6 +42,13 @@ export default ts.config(
 		}
 	},
 	{
+		files: ['**/*.ts', '**/*.js'],
+		ignores: ['eslint.config.js', 'svelte.config.js'],
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
+		}
+	},
+	{
 		files: ['src/lib/api/functions/**/*.ts', 'src/lib/api/functions/**/*.js'],
 		languageOptions: {
 			globals: {
