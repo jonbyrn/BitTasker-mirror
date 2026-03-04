@@ -238,6 +238,8 @@
 			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(npub);
 
+			let mnemonic = '';
+
 			const response = await authService.encryptedNostrData({
 				event: signedEvent,
 				deviceId: deviceId,
@@ -246,8 +248,7 @@
 				appVersion: __APP_VERSION__
 			});
 
-			let mnemonic = '';
-			if (response.encryptedData) {
+			if (response && response.encryptedData) {
 				// Account exists, decrypt wallet mnemonic
 				const masterSalt = base64ToBytes(response.encryptedData.masterSalt);
 				try {
@@ -305,7 +306,7 @@
 					credentialData = await setBiometricKey({
 						npub,
 						exportedKey,
-						username: response.username
+						username: response?.username
 					});
 				}
 			}

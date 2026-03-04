@@ -38,7 +38,6 @@
 
 			// generate username from display name
 			formData.username = await resolveHandle(formData.displayName, formData.npub);
-			console.log(formData);
 		}
 
 		currentStep++;
@@ -52,13 +51,6 @@
 		} else {
 			await goto('/auth/signup');
 		}
-	};
-
-	const restartSetup = () => {
-		// Only restart from ProfileSetup step (step 2)
-		// The previous steps (displayName, passkey) are required and shouldn't be repeated
-		currentStep = 2;
-		direction = 'backward';
 	};
 </script>
 
@@ -151,7 +143,7 @@
 					delay: 100
 				}}
 			>
-				<CompleteSetup {restartSetup} />
+				<CompleteSetup />
 			</div>
 		{/if}
 	</div>
