@@ -121,6 +121,7 @@
 					decryptedData,
 					deviceId,
 					deviceName,
+					username: response.user?.username ?? '',
 					platform: checkNativePlatform() ? 'mobile' : 'web'
 				});
 

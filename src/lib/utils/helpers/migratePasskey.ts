@@ -10,6 +10,7 @@ type MigrationState = 'info' | 'processing' | 'success' | 'error' | 'migrated';
 
 interface MigrationContext {
 	npub: string;
+	username: string;
 	decryptedData: { nsec: string; mnemonic: string };
 	deviceId: string;
 	deviceName: string;
@@ -104,7 +105,7 @@ export function resetMigration() {
  * Internal function to perform the actual migration process
  */
 async function performMigration(context: MigrationContext) {
-	const { npub, decryptedData, deviceId, deviceName, platform } = context;
+	const { npub, username, decryptedData, deviceId, deviceName, platform } = context;
 
 	// Update state to processing
 	passkeyMigration.update((state) => ({
@@ -147,7 +148,7 @@ async function performMigration(context: MigrationContext) {
 	};
 
 	if (isBiometricsAvailable) {
-		credentialData = await setBiometricKey({ npub, exportedKey, challenge });
+		credentialData = await setBiometricKey({ npub, exportedKey, challenge, username });
 	}
 
 	const response = await authService.nostrLogin({
@@ -183,6 +184,7 @@ async function performMigration(context: MigrationContext) {
  */
 async function migratePasskey(params: {
 	npub: string;
+	username: string;
 	decryptedData: { nsec: string; mnemonic: string };
 	deviceId: string;
 	deviceName: string;

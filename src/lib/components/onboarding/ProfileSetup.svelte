@@ -8,7 +8,8 @@
 		publishProfileMetadata,
 		publishMultipleImages,
 		subscribeToProfileUpdates,
-		publishSkillsUpdate
+		publishSkillsUpdate,
+		generateProfileTranslations
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
@@ -25,6 +26,9 @@
 	let profileDescription = $state('');
 	let skills = $state<Skill[]>([]);
 	let selectedSkills = $state<string[]>([]);
+
+	// Immutable
+	let displayName = $state('');
 
 	// Status indicators
 	let isLoading = $state(false);
@@ -55,6 +59,12 @@
 					// Handle profile metadata update (NIP-01 + NIP-24)
 					if (event.kind === 0) {
 						const metadata = JSON.parse(event.content);
+
+						// Basic NIP-01 fields
+						displayName =
+							metadata.display_name || metadata.displayName || metadata.name || displayName;
+						professionalTitle = metadata.professionalTitle || professionalTitle;
+						profileDescription = metadata.about || profileDescription;
 
 						// NIP-24 extended metadata fields
 						// Handle profile picture - priority: picture > banner (if no picture exists)
@@ -187,27 +197,17 @@
 			error = '';
 			descriptionError = '';
 
-			// Validate profile description only when not saving for later
-			if (!saveForLater) {
-				if (!profileDescription) {
-					descriptionError = $t('onboarding_auth.form.profile_description_required');
-					isLoading = false;
-					return;
-				}
-
-				// Enforce minimum description length of 100 characters
-				if (profileDescription.trim().length < 100) {
-					descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
-					isLoading = false;
-					return;
-				}
+			// Enforce minimum description length of 100 characters
+			if (profileDescription && profileDescription.trim().length < 100) {
+				descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
+				isLoading = false;
+				return;
 			}
 
 			// Upload and publish profile picture if a new file is selected
 			await handleImageUpload();
 
 			// Generate translations for profile content (professionalTitle and about)
-			const { generateProfileTranslations } = await import('$lib/nostr/profile');
 			const profileTranslations = await generateProfileTranslations({
 				professionalTitle,
 				about: profileDescription
@@ -215,6 +215,8 @@
 
 			// Publish profile metadata
 			const profileData: NostrProfile = {
+				name: displayName, // Use 'name' as primary field per NIP-24
+				display_name: displayName,
 				professionalTitle,
 				about: profileDescription,
 				...(profileTranslations && { translations: profileTranslations })
@@ -253,12 +255,6 @@
 				<!-- Profile Picture Skeleton -->
 				<div class="mx-auto max-h-32 w-full max-w-32">
 					<div class="bg-base-300 h-32 w-32 animate-pulse rounded-full"></div>
-				</div>
-
-				<!-- Display Name Skeleton -->
-				<div class="space-y-2">
-					<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
-					<div class="bg-base-300 h-12 w-full animate-pulse rounded"></div>
 				</div>
 
 				<!-- Professional Title Skeleton -->
