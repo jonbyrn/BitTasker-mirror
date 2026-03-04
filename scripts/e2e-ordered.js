@@ -56,13 +56,13 @@ function buildPhases(extraArgs) {
 	const phases = [
 		{
 			label: 'Credentials (01-signup-onboarding)',
-			args: [path.join(E2E_DIR, CREDENTIALS_SPEC), '--workers=1', ...base]
+			args: [path.join(E2E_DIR, CREDENTIALS_SPEC).replace(/\\/g, '/'), '--workers=1', ...base]
 		}
 	];
 	if (restSpecs.length > 0) {
 		phases.push({
 			label: 'Rest of E2E',
-			args: [...restSpecs, `--workers=${phase2Workers}`, ...base]
+			args: [...restSpecs.map((f) => f.replace(/\\/g, '/')), `--workers=${phase2Workers}`, ...base]
 		});
 	}
 	return phases;
@@ -74,9 +74,14 @@ function runPlaywright(args) {
 		const fullArgs = ['playwright', 'test', ...args];
 		console.log(`\n→ ${cmd} ${fullArgs.join(' ')}\n`);
 
+		// Strip CI from the child env so playwright.config.ts uses the dev server (port 3000).
+		// The backend only allows localhost:3000, not the preview server port (4173).
+		// CI/CD pipelines that call `npx playwright test` directly are unaffected.
+		const { CI: _, ...childEnv } = process.env;
 		const proc = spawn(cmd, fullArgs, {
 			stdio: 'inherit',
-			shell: true
+			shell: true,
+			env: childEnv
 		});
 
 		proc.on('close', (code) => {
@@ -96,7 +101,7 @@ async function main() {
 	const extraArgs = rawArgs.filter((a) => a !== '--ui');
 
 	if (uiMode) {
-		const allSpecs = listSpecFiles(E2E_DIR);
+		const allSpecs = listSpecFiles(E2E_DIR).map((f) => f.replace(/\\/g, '/'));
 		const args = [...allSpecs, '--workers=1', '--project=chromium', '--ui', ...extraArgs];
 		console.log('\n→ E2E UI mode: all specs in order (run 01 first for credentials)\n');
 		await runPlaywright(args);

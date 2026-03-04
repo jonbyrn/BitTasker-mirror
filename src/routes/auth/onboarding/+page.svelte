@@ -5,32 +5,41 @@
 	import { fly } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
-	import UsernameSetup from '$lib/components/onboarding/UsernameSetup.svelte';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools';
+	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
+	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
+	import DisplayNameSetup from '$lib/components/onboarding/DisplayNameSetup.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
-	import LocationSetup from '$lib/components/onboarding/LocationSetup.svelte';
 	import CompleteSetup from '$lib/components/onboarding/CompleteSetup.svelte';
 
 	let { data } = $props();
 
-	const totalSteps = 6;
+	// Step order: 0 Display name, 1 Passkey, 2 Profile, 3 Recovery, 4 Complete
+	const totalSteps = 5;
 
+	// svelte-ignore state_referenced_locally
 	let currentStep = $state(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
-
-	// Onboarding state management
-	let onboardingData = $state({
+	const formData = $state({
+		displayName: '',
 		username: '',
-		usernameAvailable: false,
 		nsec: '',
-		hasNostrKey: false,
-		recoveryEmail: '',
-		recoveryPassword: '',
-		hasRecovery: false
+		npub: ''
 	});
 
-	const nextStep = () => {
+	const nextStep = async () => {
+		if (currentStep === 0) {
+			// Generate key pair
+			const sk = generateSecretKey();
+			formData.nsec = bytesToHex(sk);
+			formData.npub = getPublicKey(sk);
+
+			// generate username from display name
+			formData.username = await resolveHandle(formData.displayName, formData.npub);
+		}
+
 		currentStep++;
 		direction = 'forward';
 	};
@@ -43,26 +52,15 @@
 			await goto('/auth/signup');
 		}
 	};
-
-	const restartSetup = () => {
-		// Only restart from ProfileSetup step (step 3 now, was step 4)
-		// The previous steps (username, passkey) are required and shouldn't be repeated
-		currentStep = 3;
-		direction = 'backward';
-	};
-
-	// Callback functions for each step
-	const handleUsernameChange = (username: string, isAvailable: boolean) => {
-		onboardingData.username = username;
-		onboardingData.usernameAvailable = isAvailable;
-	};
 </script>
 
-<div class="flex w-full grow flex-col items-center px-4 py-8" use:autoLoadTranslations>
+<div class="flex w-full grow flex-col items-center px-4 md:py-8" use:autoLoadTranslations>
 	<div class="w-full max-w-4xl">
-		<div class="mb-8 flex flex-col items-center">
-			<Logo />
-			<h3 class="my-2">{$t('onboarding_auth.title')}</h3>
+		<div class="mb-4 flex flex-col items-center md:mb-8">
+			<Logo
+				class="mx-auto mt-4 mb-4 block max-h-[60px] w-full max-w-xs sm:max-h-none sm:max-w-sm md:max-w-md"
+			/>
+			<p>{$t('onboarding_auth.title')}</p>
 
 			<!-- Progress indicator -->
 			<div class="w-full">
@@ -87,33 +85,65 @@
 		</div>
 
 		{#if currentStep === 0}
-			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<UsernameSetup
-					{nextStep}
-					{currentStep}
-					{totalSteps}
-					onUsernameChange={handleUsernameChange}
-				/>
+			<div
+				in:fly={{
+					duration: 200,
+					x: direction === 'forward' ? 20 : -20,
+					easing: linear,
+					delay: 100
+				}}
+			>
+				<DisplayNameSetup bind:displayName={formData.displayName} {nextStep} />
 			</div>
 		{:else if currentStep === 1}
-			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<PasskeySetup {nextStep} {prevStep} {currentStep} {totalSteps} userData={onboardingData} />
+			<div
+				in:fly={{
+					duration: 200,
+					x: direction === 'forward' ? 20 : -20,
+					easing: linear,
+					delay: 100
+				}}
+			>
+				<PasskeySetup
+					{nextStep}
+					{prevStep}
+					username={formData.username}
+					npub={formData.npub}
+					nsec={formData.nsec}
+				/>
 			</div>
 		{:else if currentStep === 2}
-			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<RecoverySetup {nextStep} {prevStep} {currentStep} {totalSteps} />
+			<div
+				in:fly={{
+					duration: 200,
+					x: direction === 'forward' ? 20 : -20,
+					easing: linear,
+					delay: 100
+				}}
+			>
+				<ProfileSetup {nextStep} {prevStep} />
 			</div>
 		{:else if currentStep === 3}
-			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<ProfileSetup {nextStep} {prevStep} {currentStep} {totalSteps} />
+			<div
+				in:fly={{
+					duration: 200,
+					x: direction === 'forward' ? 20 : -20,
+					easing: linear,
+					delay: 100
+				}}
+			>
+				<RecoverySetup {nextStep} {prevStep} />
 			</div>
 		{:else if currentStep === 4}
-			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<LocationSetup {nextStep} {prevStep} {currentStep} {totalSteps} />
-			</div>
-		{:else if currentStep === 5}
-			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<CompleteSetup {restartSetup} {currentStep} {totalSteps} />
+			<div
+				in:fly={{
+					duration: 200,
+					x: direction === 'forward' ? 20 : -20,
+					easing: linear,
+					delay: 100
+				}}
+			>
+				<CompleteSetup />
 			</div>
 		{/if}
 	</div>
