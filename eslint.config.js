@@ -42,6 +42,14 @@ export default ts.config(
 		}
 	},
 	{
+		files: ['**/*.ts', '**/*.js'],
+		ignores: ['eslint.config.js', 'svelte.config.js'],
+		rules: {
+			'@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_' }],
+			'svelte/no-navigation-without-resolve': 'off'
+		}
+	},
+	{
 		files: ['src/lib/api/functions/**/*.ts', 'src/lib/api/functions/**/*.js'],
 		languageOptions: {
 			globals: {
@@ -56,7 +64,7 @@ export default ts.config(
 		rules: {
 			quotes: ['error', 'double'],
 			indent: ['error', 2],
-			'@typescript-eslint/no-unused-vars': 'error',
+			'@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_' }],
 			'@typescript-eslint/no-explicit-any': 'warn'
 		}
 	}
