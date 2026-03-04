@@ -76,9 +76,7 @@ export class AuthService extends BaseApiService {
 	 * @param deviceId Unique device identifier
 	 * @returns Promise with authentication response
 	 */
-	async passkeyLogin(
-		data: PasskeyLoginArgs
-	): Promise<{
+	async passkeyLogin(data: PasskeyLoginArgs): Promise<{
 		user: UserData;
 		access_token: string;
 		isLegacy?: boolean;
@@ -139,7 +137,7 @@ export class AuthService extends BaseApiService {
 	 */
 	async encryptedNostrData(
 		data: EncryptedNostrDataArgs
-	): Promise<{ username: string; encryptedData: EncryptedData | null }> {
+	): Promise<{ username: string; encryptedData: EncryptedData | null } | undefined> {
 		try {
 			const response = await this.post<{ username: string; encryptedData: EncryptedData }>(
 				ENDPOINTS.AUTH.ENCRYPTED_NOSTR_DATA,
@@ -151,11 +149,6 @@ export class AuthService extends BaseApiService {
 			if (err?.status === 500) {
 				throw new Error('Internal server error. Please try again later.');
 			}
-			throw new Error(
-				error instanceof Error
-					? error.message
-					: String(error) || 'Failed to get encrypted Nostr data. Please try again.'
-			);
 		}
 	}
 
