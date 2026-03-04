@@ -86,6 +86,8 @@
 				return (isPasskeyError = true);
 			}
 
+			let credentialId = credentails.credentialId;
+
 			let exportedKey = credentails.exportedKey;
 
 			const deviceId = await getDeviceIdentifier();
@@ -94,7 +96,7 @@
 			let response = await authService.passkeyLogin({
 				npub: credentails.npub,
 				challenge: credentails.challenge,
-				credentialId: credentails.credentialId,
+				credentialId,
 				deviceId,
 				deviceName,
 				platform: isNativePlatform ? 'mobile' : 'web',
@@ -121,11 +123,13 @@
 					decryptedData,
 					deviceId,
 					deviceName,
+					username: response.user?.username ?? '',
 					platform: checkNativePlatform() ? 'mobile' : 'web'
 				});
 
 				response = migrationResponse.response;
 				exportedKey = migrationResponse.exportedKey;
+				credentialId = migrationResponse.credentialId;
 			} else {
 				// decrypt nsec
 				const decryptedData = await decryptMasterKeyDataFromBiometrics(
@@ -150,7 +154,7 @@
 				npub: credentails.npub,
 				exportedKey: exportedKey,
 				encryptedData: response.encryptedData,
-				credentialId: credentails.credentialId
+				credentialId
 			};
 
 			await authState.setupAuthData(
