@@ -140,8 +140,6 @@ export async function setBiometricKey({
 			}
 		}
 
-		await Preferences.set({ key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID, value: credentialId });
-
 		// Return credential data like WebAuthn does
 		return {
 			credentialId,

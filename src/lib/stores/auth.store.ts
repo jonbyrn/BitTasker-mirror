@@ -45,6 +45,12 @@ const createAuthStore = () => {
 	) => {
 		await Preferences.set({ key: StorageKeys.ACCESS_TOKEN, value: accessToken });
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+		if (biometricData) {
+			await Preferences.set({
+				key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
+				value: biometricData.credentialId
+			});
+		}
 
 		// Lazy load user store only when needed
 		authState.login();

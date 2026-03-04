@@ -224,7 +224,8 @@
 				const biometricData = {
 					npub,
 					encryptedData,
-					exportedKey
+					exportedKey,
+					credentialId: credentialData.credentialId
 				};
 				authState.setupAuthData(access_token, 'passkey', npub, user, biometricData, true);
 			}
