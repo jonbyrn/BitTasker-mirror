@@ -16,6 +16,7 @@ export interface BiometricData {
 	npub: string;
 	exportedKey: string;
 	encryptedData: EncryptedData;
+	credentialId: string;
 }
 
 export interface Credentials {

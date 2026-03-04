@@ -129,12 +129,9 @@
 				// Store master key data in biometric format for compatibility
 				const biometricData = {
 					npub,
-					deviceId,
-					deviceName,
 					encryptedData,
 					exportedKey,
-					credentialId: credentialData.credentialId,
-					isLegacyFormat: false
+					credentialId: credentialData.credentialId
 				};
 				authState.setupAuthData(
 					response.access_token,
