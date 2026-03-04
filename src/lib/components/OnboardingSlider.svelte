@@ -73,27 +73,28 @@
 		goto('/auth/login');
 	};
 
+	type SwiperContainerElement = HTMLElement & {
+		swiper?: {
+			slideTo: (index: number) => void;
+		};
+	};
+
+	let swiperContainerEl: SwiperContainerElement | null = null;
+
 	const skipOnboardingToLastSlide = async () => {
-		const swiperEl = document.querySelector('swiper-container');
-		if (swiperEl) {
-			const swiper = swiperEl.swiper;
-			if (swiper) {
-				swiper.slideTo(slides.length - 1);
-			}
-		}
+		swiperContainerEl?.swiper?.slideTo(slides.length - 1);
 	};
 </script>
 
 <div class="bg-base-400 h-full flex-grow px-6">
 	<!-- Floating Controls -->
 	<div class="flex flex-row items-center justify-between py-6">
-
 		<ul class="menu menu-horizontal px-1">
 			<li>
 				<details class="dropdown">
 					<summary>{$t('navbar.language')}</summary>
 					<ul class="menu dropdown-content rounded-box bg-base-100 z-[1] w-52 p-2 shadow">
-						{#each languages as { code, name }}
+						{#each languages as { code, name } (code)}
 							<li>
 								<button class="text-left" onclick={() => handleLanguageChange(code)}>
 									{name}
@@ -107,6 +108,7 @@
 	</div>
 
 	<swiper-container
+		bind:this={swiperContainerEl}
 		pagination={true}
 		pagination-clickable={true}
 		navigation={false}
@@ -115,7 +117,7 @@
 		onswiperslidechange={() => {}}
 		class="[--swiper-pagination-bottom:10px] [--swiper-pagination-bullet-border-color:#fff] [--swiper-pagination-bullet-inactive-color:#fff] [--swiper-pagination-bullet-inactive-opacity:0.5] [--swiper-pagination-color:#fff]"
 	>
-		{#each slides as slide}
+		{#each slides as slide (slide.id)}
 			<swiper-slide>
 				<div class="relative flex flex-col items-center justify-evenly pb-12">
 					<div class="flex flex-col items-center justify-evenly">
