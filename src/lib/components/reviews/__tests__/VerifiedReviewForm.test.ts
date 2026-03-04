@@ -42,7 +42,6 @@ describe('VerifiedReviewForm', () => {
 	it('should render the form', () => {
 		render(VerifiedReviewForm, { props: mockProps });
 		
-		expect(screen.getByText(/Write a Review/i)).toBeInTheDocument();
 		expect(screen.getByText(/Overall Rating/i)).toBeInTheDocument();
 		// Taskee role shows: Work Quality, Experience, Delivery Speed
 		expect(screen.getByText(/Work Quality/i)).toBeInTheDocument();

@@ -10,6 +10,7 @@ import { getPendingReviewsCount } from '$lib/utils/review-helpers';
 	import ReviewList from '$lib/components/reviews/ReviewList.svelte';
 	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
 	import PendingReviewsList from '$lib/components/reviews/PendingReviewsList.svelte';
+	import ReviewsEmptyState from '$lib/components/reviews/ReviewsEmptyState.svelte';
 
 	let currentUserPubkey = $state<string | null>(null);
 	let receivedReviews = $state<NostrVerifiedReview[]>([]);
@@ -116,9 +117,7 @@ import { getPendingReviewsCount } from '$lib/utils/review-helpers';
 					<!-- Show given reviews -->
 					<div class="space-y-4">
 						{#if givenReviews.length === 0}
-							<div class="text-center py-8 text-base-content/70">
-								<p>{$t('reviews.list.no_reviews')}</p>
-							</div>
+							<ReviewsEmptyState />
 						{:else}
 							{#each givenReviews as review (review.nostrEventId)}
 								<div class="cursor-pointer transition-opacity hover:opacity-80">

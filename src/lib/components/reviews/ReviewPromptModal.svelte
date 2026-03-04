@@ -1,15 +1,11 @@
 <script lang="ts">
 	// @ts-nocheck - Svelte 5 component type inference issues with VerifiedReviewForm
 	import { t } from 'svelte-i18n';
-	import { getNpub } from '$lib/utils/nostrKeys';
+	import { getNpub, npubToHex, hexToNpub } from '$lib/utils/nostrKeys';
 	import { escrow } from '$lib/utils/escrow';
-	import { getUserContracts } from '$lib/utils/nostr-bid';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { getRevieweeRole } from '$lib/utils/review-helpers';
-	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-	// @ts-ignore nostr-tools type definitions issue
-	import { nip19 } from 'nostr-tools';
-	import { EscrowStatus } from '$lib/utils/escrow';
+	import { ESCROW_STATUSES_REVIEW_COMPLETED } from '$lib/utils/escrow';
 	import VerifiedReviewForm from './VerifiedReviewForm.svelte';
 	// @ts-ignore - Svelte 5 component, no default export needed
 	import Drawer from '../Drawer.svelte';
@@ -43,19 +39,10 @@
 
 	let targetRevieweePubkey = $state<string | null>(null);
 	let targetRevieweeName = $state<string | null>(null);
+	let targetTaskId = $state<string | null>(null);
 	let revieweeRole = $state<'tasker' | 'taskee' | null>(null);
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
-
-	// Convert hex pubkey to npub if needed
-	function hexToNpub(hexPubkey: string): string {
-		try {
-			if (hexPubkey.startsWith('npub')) return hexPubkey;
-			return nip19.npubEncode(hexPubkey);
-		} catch {
-			return hexPubkey;
-		}
-	}
 
 	async function loadReviewDetails() {
 		if (!escrowId) return;
@@ -68,21 +55,26 @@
 				? (nip19.decode(currentUserNpub).data as string)
 				: currentUserNpub;
 
-			// Resolve reviewee pubkey if not already provided
-			if (!targetRevieweePubkey) {
-				const contracts = await getUserContracts({ escrowIds: [escrowId] });
+			// Resolve reviewee pubkey and taskId from contract when not provided by caller
+			if (!targetRevieweePubkey || !targetTaskId) {
+				const contracts = await escrow.contractOps.getContracts({ escrowIds: [escrowId] });
 				if (contracts.length === 0) {
 					error = $t('reviews.prompt.contract_not_found');
 					return;
 				}
 				const content = contracts[0].contractEvent.content;
-				if (content.clientPubkey === currentUserPubkey) {
-					targetRevieweePubkey = content.freelancerPubkey;
-				} else if (content.freelancerPubkey === currentUserPubkey) {
-					targetRevieweePubkey = content.clientPubkey;
-				} else {
-					error = $t('reviews.prompt.not_participant');
-					return;
+				if (!targetRevieweePubkey) {
+					if (content.clientPubkey === currentUserPubkey) {
+						targetRevieweePubkey = content.freelancerPubkey;
+					} else if (content.freelancerPubkey === currentUserPubkey) {
+						targetRevieweePubkey = content.clientPubkey;
+					} else {
+						error = $t('reviews.prompt.not_participant');
+						return;
+					}
+				}
+				if (!targetTaskId && content.taskId) {
+					targetTaskId = content.taskId;
 				}
 			}
 
@@ -97,12 +89,7 @@
 			// Only check escrow status when the caller hasn't already confirmed it
 			if (!escrowConfirmed) {
 				const escrowData = await escrow.getEscrow(escrowId);
-				const completedStates = [
-					EscrowStatus.Completed,
-					EscrowStatus.FundsReleased,
-					EscrowStatus.DisputeResolved
-				];
-				if (!escrowData || !completedStates.includes(escrowData.status)) {
+				if (!escrowData || !ESCROW_STATUSES_REVIEW_COMPLETED.includes(escrowData.status)) {
 					// Not ready yet — close modal and let caller handle notification
 					onClose();
 					return;
@@ -112,6 +99,11 @@
 			// Determine reviewee role
 			if (targetRevieweePubkey && escrowId) {
 				revieweeRole = await getRevieweeRole(escrowId, targetRevieweePubkey);
+			}
+
+			// taskId is required to submit; must come from props or from loaded contract
+			if (!targetTaskId?.trim()) {
+				error = $t('reviews.form.errors.task_id_required');
 			}
 		} catch (err) {
 			console.error('[ReviewPromptModal] Failed to load details:', err);
@@ -125,6 +117,7 @@
 		if (isOpen) {
 			targetRevieweePubkey = revieweePubkey ?? null;
 			targetRevieweeName = revieweeName ?? null;
+			targetTaskId = taskId ?? null;
 			revieweeRole = null;
 			error = null;
 			loadReviewDetails();
@@ -201,7 +194,7 @@
 					escrowId: escrowId as string,
 					revieweePubkey: targetRevieweePubkey as string,
 					escrowTxHash: escrowTxHash as string | undefined,
-					taskId: taskId ?? undefined,
+					taskId: targetTaskId ?? undefined,
 					onSubmit: handleSubmit as (eventId: string) => void,
 					onCancel: handleCancel as () => void
 				}}

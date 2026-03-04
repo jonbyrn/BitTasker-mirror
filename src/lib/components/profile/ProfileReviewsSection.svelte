@@ -10,6 +10,8 @@ import { getPendingReviewsCount } from '$lib/utils/review-helpers';
 	import ReviewList from '../reviews/ReviewList.svelte';
 	import VerifiedReviewCard from '../reviews/VerifiedReviewCard.svelte';
 	import PendingReviewsList from '../reviews/PendingReviewsList.svelte';
+	import ReviewsEmptyState from '../reviews/ReviewsEmptyState.svelte';
+	import CollapsibleSection from '../shared/CollapsibleSection.svelte';
 
 	let {
 		userPubkey,
@@ -28,6 +30,12 @@ import { getPendingReviewsCount } from '$lib/utils/review-helpers';
 	let error = $state<string | null>(null);
 	let activeTab = $state<'received' | 'given' | 'pending'>('received');
 	let pendingCount = $state(0);
+	let reviewsExpanded = $state(false);
+	let reviewsSectionTitle = $derived(
+		receivedReviews.length > 0
+			? `${$t('profile.reviews')} (${receivedReviews.length})`
+			: `${$t('profile.reviews')} (${$t('reviews.list.no_reviews')})`
+	);
 
 	// Get current user pubkey if viewing own profile
 	onMount(async () => {
@@ -100,53 +108,56 @@ import { getPendingReviewsCount } from '$lib/utils/review-helpers';
 			<span>{$t('reviews.profile.no_user')}</span>
 		</div>
 	{:else}
-		<!-- Review Summary Section -->
-		{#if stats}
-			<ReviewSummaryCard {stats} />
-		{/if}
+		<CollapsibleSection
+			title={reviewsSectionTitle}
+			bind:expanded={reviewsExpanded}
+			contentClass="pt-2"
+		>
+			{#snippet children()}
+				{#if stats}
+					<ReviewSummaryCard {stats} />
+				{/if}
 
-		<!-- Review Management Tabs -->
-		<ReviewManagementTabs
-			{activeTab}
-			onTabChange={handleTabChange}
-			receivedCount={receivedReviews.length}
-			givenCount={givenReviews.length}
-			{pendingCount}
-			{isCurrentUser}
-		/>
+				<!-- Review Management Tabs -->
+				<ReviewManagementTabs
+					{activeTab}
+					onTabChange={handleTabChange}
+					receivedCount={receivedReviews.length}
+					givenCount={givenReviews.length}
+					{pendingCount}
+					{isCurrentUser}
+				/>
 
-		<!-- Review List Section -->
-		{#if activeTab === 'pending'}
-			{#if isCurrentUser}
-				<PendingReviewsList />
-			{:else}
-				<div class="text-center py-8 text-base-content/70">
-					<p>{$t('reviews.pending.only_current_user')}</p>
-				</div>
-			{/if}
-		{:else if activeTab === 'given'}
-			<!-- Show given reviews -->
-			<div class="space-y-4">
-				{#if givenReviews.length === 0}
-					<div class="text-center py-8 text-base-content/70">
-						<p>{$t('reviews.list.no_reviews')}</p>
+				<!-- Review List Section -->
+				{#if activeTab === 'pending'}
+					{#if isCurrentUser}
+						<PendingReviewsList />
+					{:else}
+						<div class="text-center py-8 text-base-content/70">
+							<p>{$t('reviews.pending.only_current_user')}</p>
+						</div>
+					{/if}
+				{:else if activeTab === 'given'}
+					<div class="space-y-4">
+						{#if givenReviews.length === 0}
+							<ReviewsEmptyState />
+						{:else}
+							{#each givenReviews as review (review.nostrEventId)}
+								<div class="cursor-pointer transition-opacity hover:opacity-80">
+									<VerifiedReviewCard {review} />
+								</div>
+							{/each}
+						{/if}
 					</div>
 				{:else}
-					{#each givenReviews as review (review.nostrEventId)}
-						<div class="cursor-pointer transition-opacity hover:opacity-80">
-							<VerifiedReviewCard {review} />
-						</div>
-					{/each}
+					<ReviewList
+						revieweePubkey={targetPubkey}
+						sort="newest"
+						limit={50}
+					/>
 				{/if}
-			</div>
-		{:else}
-			<!-- Show received reviews -->
-			<ReviewList
-				revieweePubkey={targetPubkey}
-				sort="newest"
-				limit={50}
-			/>
-		{/if}
+			{/snippet}
+		</CollapsibleSection>
 	{/if}
 </div>
 

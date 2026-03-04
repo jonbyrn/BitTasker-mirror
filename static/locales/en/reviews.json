@@ -64,7 +64,8 @@
 		"you_reviewed": "You have reviewed this contract",
 		"list": {
 			"load_error": "Failed to load reviews",
-			"no_reviews": "No reviews yet"
+			"no_reviews": "No reviews yet",
+			"no_reviews_hint": "Complete tasks to receive your first review"
 		},
 		"view_all": "View all reviews",
 		"summary": {
@@ -93,7 +94,9 @@
 			"no_pending": "No pending reviews",
 			"all_caught_up": "You're all caught up! All completed tasks have been reviewed.",
 			"contract": "Contract",
+			"task": "Task",
 			"completed": "Completed",
+			"send_review": "Send Review",
 			"review_for": "Review for",
 			"completed_on": "Completed on",
 			"review_now": "Review Now",

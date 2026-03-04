@@ -26,12 +26,15 @@ vi.mock('$lib/utils/escrow', () => ({
 }));
 
 vi.mock('$lib/utils/nostrKeys', () => ({
-	getNpub: vi.fn()
+	getNpub: vi.fn(),
+	npubToHex: (p: string) => (p?.startsWith('npub') ? 'a'.repeat(64) : p?.replace(/^0x/, '') ?? ''),
+	hexToNpub: (h: string) => h
 }));
 
 vi.mock('../nostr', () => ({
 	publishEvent: vi.fn(),
-	getSignedEvent: vi.fn((event: unknown) => Promise.resolve({ ...event, id: 'signed-event-id', sig: 'sig' }))
+	getSignedEvent: vi.fn((event: unknown) => Promise.resolve({ ...event, id: 'signed-event-id', sig: 'sig' })),
+	subscribeToEvents: vi.fn(() => () => {})
 }));
 
 describe('nostr-review utilities', () => {
@@ -94,15 +97,23 @@ describe('nostr-review utilities', () => {
 	});
 
 	describe('getReviewsForUser', () => {
-		it('should fetch reviews for a user (uses real relay; may timeout if no relay)', async () => {
-			const reviews = await getReviewsForUser('npub1reviewee', 10);
+		it('should fetch reviews for a user (mocked relay; returns array)', async () => {
+			vi.useFakeTimers();
+			const promise = getReviewsForUser('npub1reviewee', 10);
+			await vi.advanceTimersByTimeAsync(11000);
+			const reviews = await promise;
+			vi.useRealTimers();
 			expect(Array.isArray(reviews)).toBe(true);
-		}, 15000);
+		});
 	});
 
 	describe('hasUserReviewedEscrow', () => {
 		it('should return boolean', async () => {
-			const hasReviewed = await hasUserReviewedEscrow('123', 'npub1reviewer');
+			vi.useFakeTimers();
+			const promise = hasUserReviewedEscrow('123', 'npub1reviewer');
+			await vi.advanceTimersByTimeAsync(11000);
+			const hasReviewed = await promise;
+			vi.useRealTimers();
 			expect(typeof hasReviewed).toBe('boolean');
 		});
 	});

@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { t } from 'svelte-i18n';
-	import { findPendingReviews } from '$lib/utils/review-helpers';
-	import type { PendingReview } from '$lib/utils/review-helpers';
+	import { t, locale } from 'svelte-i18n';
+	import { findPendingReviews, formatCompletedAt, type PendingReview } from '$lib/utils/review-helpers';
 	import ReviewPromptModal from './ReviewPromptModal.svelte';
 	import { escrow, EscrowStatus } from '$lib/utils/escrow';
 	import { appStore } from '$lib/stores/app.store';
@@ -62,17 +61,7 @@
 	function handleReviewSubmitted() {
 		showReviewModal = false;
 		selectedReview = null;
-		// Reload pending reviews
 		loadPendingReviews();
-	}
-
-	function formatDate(timestamp: number): string {
-		const date = new Date(timestamp);
-		return date.toLocaleDateString('en-US', { 
-			year: 'numeric', 
-			month: 'short', 
-			day: 'numeric' 
-		});
 	}
 </script>
 
@@ -110,15 +99,16 @@
 	{:else}
 		<div class="space-y-3">
 			{#each pendingReviews as pendingReview (pendingReview.escrowId)}
+				{@const taskTitle = pendingReview.contract?.contractEvent?.content?.taskTitle?.trim()}
 				<div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
 					<div class="card-body p-4">
 						<div class="flex items-start justify-between gap-4">
 							<div class="flex-1">
 								<div class="flex items-center gap-2 mb-2">
-									<h4 class="font-semibold text-lg">
-										{$t('reviews.pending.contract')} #{pendingReview.escrowId.slice(0, 8)}
-									</h4>
-									<span class="badge badge-outline badge-sm">
+									{#if taskTitle}
+										<h4 class="font-semibold text-lg line-clamp-2">{taskTitle}</h4>
+									{/if}
+									<span class="badge badge-outline badge-sm shrink-0">
 										{$t('reviews.pending.completed')}
 									</span>
 								</div>
@@ -126,10 +116,10 @@
 							<div class="text-sm text-base-content/70">
 								<p class="mb-1">
 									<span class="font-medium">{$t('reviews.pending.review_for')}:</span>
-									{pendingReview.revieweeName || pendingReview.revieweePubkey.slice(0, 16) + '...'}
+									{pendingReview.revieweeName ?? '—'}
 								</p>
 								<p class="text-xs">
-									{$t('reviews.pending.completed_on')} {formatDate(pendingReview.completedAt)}
+									{$t('reviews.pending.completed_on')} {formatCompletedAt(pendingReview.completedAt, $locale || 'en')}
 								</p>
 							</div>
 						</div>

@@ -97,25 +97,25 @@ export function calculateReviewStats(reviews: NostrVerifiedReview[]): ReviewStat
 
 	const stats: ReviewStats = {
 		totalReviews,
-		averageRating: totalOverall / totalReviews,
-		averageQuality: totalQuality / totalReviews,
-		averageProfessionalism: totalProfessionalism / totalReviews,
-		averageTimeliness: totalTimeliness / totalReviews,
+		averageRating: Math.round((totalOverall / totalReviews) * 10) / 10,
+		averageQuality: Math.round((totalQuality / totalReviews) * 10) / 10,
+		averageProfessionalism: Math.round((totalProfessionalism / totalReviews) * 10) / 10,
+		averageTimeliness: Math.round((totalTimeliness / totalReviews) * 10) / 10,
 		ratingDistribution
 	};
 
 	// Add role-specific averages and counts if we have reviews for that role
 	if (taskeeCount > 0) {
-		stats.averageWorkQuality = totalWorkQuality / taskeeCount;
-		stats.averageExperience = totalExperience / taskeeCount;
-		stats.averageDeliverySpeed = totalDeliverySpeed / taskeeCount;
+		stats.averageWorkQuality = Math.round((totalWorkQuality / taskeeCount) * 10) / 10;
+		stats.averageExperience = Math.round((totalExperience / taskeeCount) * 10) / 10;
+		stats.averageDeliverySpeed = Math.round((totalDeliverySpeed / taskeeCount) * 10) / 10;
 		stats.taskeeReviewCount = taskeeCount;
 	}
 
 	if (taskerCount > 0) {
-		stats.averageCommunication = totalCommunication / taskerCount;
-		stats.averageClarity = totalClarity / taskerCount;
-		stats.averagePaymentTimeliness = totalPaymentTimeliness / taskerCount;
+		stats.averageCommunication = Math.round((totalCommunication / taskerCount) * 10) / 10;
+		stats.averageClarity = Math.round((totalClarity / taskerCount) * 10) / 10;
+		stats.averagePaymentTimeliness = Math.round((totalPaymentTimeliness / taskerCount) * 10) / 10;
 		stats.taskerReviewCount = taskerCount;
 	}
 

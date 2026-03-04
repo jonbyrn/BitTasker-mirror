@@ -1,7 +1,7 @@
 import type { Filter, NostrEvent } from 'nostr-tools';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
-import { nip19, nip44 } from 'nostr-tools';
-import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
+import { nip44 } from 'nostr-tools';
+import { getNostrKeyPair, getNpub, npubToHex } from '$lib/utils/nostrKeys';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import TAGS, { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import type {
@@ -28,19 +28,26 @@ import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('contracts');
 
+/** Get current network's escrow contract address, with fallback to VITE_RSK_CONTRACT_ADDRESS. */
+function getDefaultContractAddress(): string | undefined {
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	const fallback = import.meta.env.VITE_RSK_CONTRACT_ADDRESS;
+	return (
+		(network === 'mainnet'
+			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET) ?? fallback
+	);
+}
+
 /**
  * Create a new contract event after escrow creation (as encrypted DM)
  */
 export async function publishContractEvent(params: CreateContractParams): Promise<void> {
 	try {
 		const npub = await getNpub();
-		const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+		const clientPubkey = npubToHex(npub ?? '');
 
-		const network = import.meta.env.VITE_RSK_NETWORK;
-		const contractAddress =
-			network === 'mainnet'
-				? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-				: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+		const contractAddress = getDefaultContractAddress();
 
 		const contractData: NostrContract = {
 			escrowId: params.escrowId,
@@ -61,6 +68,7 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 
 		// Send as encrypted contract event
 		const contractMessage = JSON.stringify(contractData);
+		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const tags = TAG_PATTERNS.contract(
 			params.escrowId,
 			params.taskId,
@@ -81,11 +89,8 @@ export async function publishContractEvent(params: CreateContractParams): Promis
  */
 export async function publishContractStatus(params: PublishStatusParams): Promise<void> {
 	try {
-		let npub = await getNpub();
-		if (npub.startsWith('npub')) {
-			const { nip19 } = await import('nostr-tools');
-			npub = nip19.decode(npub).data as string;
-		}
+		const npub = await getNpub();
+		const userHex = npubToHex(npub ?? '');
 
 		const statusData: NostrContractStatus = {
 			contractEventId: params.contractEventId,
@@ -116,7 +121,7 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 
 		// Determine recipient: if sender is client, send to freelancer, and vice versa
 		const recipientPubkey =
-			npub === contractData.clientPubkey
+			userHex === contractData.clientPubkey
 				? contractData.freelancerPubkey
 				: contractData.clientPubkey;
 
@@ -158,12 +163,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 		taskIds: filter?.taskIds
 	});
 
-	let npub = await getNpub();
-
-	if (npub.startsWith('npub')) {
-		const { nip19 } = await import('nostr-tools');
-		npub = nip19.decode(npub).data as string;
-	}
+	const userHex = npubToHex((await getNpub()) ?? '');
 
 	// Get current network from environment
 	const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
@@ -171,7 +171,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 	// Build filter for contract events
 	const nostrFilter: Filter = {
 		kinds: [KINDS.CONTRACT],
-		...TAG_FILTERS.byNpub(npub), // Contracts where user is participant
+		...TAG_FILTERS.byNpub(userHex), // Contracts where user is participant
 		...TAG_FILTERS.byNetwork(currentNetwork), // Filter by current network
 		limit: filter?.limit || 5 // Default to 5 for infinite scroll
 	};
@@ -261,8 +261,8 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			}
 
 			// Determine if user is client
-			const isClient = contractEvent.content.clientPubkey === npub;
-			const isFreelancer = contractEvent.content.freelancerPubkey === npub;
+			const isClient = contractEvent.content.clientPubkey === userHex;
+			const isFreelancer = contractEvent.content.freelancerPubkey === userHex;
 
 			// Query blockchain escrow data (source of truth)
 			let escrowData: EscrowData | null = null;
@@ -272,11 +272,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 			try {
 				// Check if contract address differs from current environment
-				const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
-				const currentContractAddress =
-					currentNetwork === 'mainnet'
-						? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-						: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+				const currentContractAddress = getDefaultContractAddress();
 
 				// Determine if we need to pass contract address for backwards compatibility
 				const contractAddress =
@@ -592,7 +588,7 @@ export async function deleteContract(contractEventId: string, escrowId: string):
 export async function handleStatusEvent(event: NostrEvent) {
 	try {
 		const npub = await getNpub();
-		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+		const userPubkeyHex = npubToHex(npub ?? '');
 
 		// Decrypt the status event
 		const statusEvent = await decryptStatusEvent(event, userPubkeyHex);
@@ -776,7 +772,7 @@ export async function handleStatusEvent(event: NostrEvent) {
 export async function handleContractEvent(event: NostrEvent) {
 	try {
 		const npub = await getNpub();
-		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+		const userPubkeyHex = npubToHex(npub ?? '');
 
 		// Decrypt the contract event
 		const contractEvent = await decryptContractEvent(event, userPubkeyHex);
@@ -818,11 +814,7 @@ export async function handleContractEvent(event: NostrEvent) {
 
 		try {
 			// Check if contract address differs from current environment
-			const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
-			const currentContractAddress =
-				currentNetwork === 'mainnet'
-					? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-					: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+			const currentContractAddress = getDefaultContractAddress();
 
 			// Determine if we need to pass contract address for backwards compatibility
 			const contractAddress =

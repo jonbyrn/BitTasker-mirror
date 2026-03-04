@@ -12,8 +12,6 @@
 
 <div class="card bg-base-100 shadow-xl border border-base-300">
 	<div class="card-body">
-		<h2 class="card-title mb-4">{$t('reviews.summary.title')}</h2>
-
 		<!-- Quick Stats -->
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 			<div class="stat bg-base-200 rounded-lg p-4">

@@ -620,8 +620,8 @@ export type {
 // Re-export utility types from escrowBid for convenience
 export type { ValidationWarning, ValidationResult } from './v1/escrowBid';
 
-// Re-export EscrowStatus enum from v1 (for backward compatibility and type imports)
-export { EscrowStatus } from './v1/escrow.enum';
+// Re-export EscrowStatus enum and review constants from v1 (for backward compatibility and type imports)
+export { EscrowStatus, ESCROW_STATUSES_REVIEW_COMPLETED } from './v1/escrow.enum';
 
 // TODO: Implementation not working as expected, fix later
 // Export EscrowStatus as a type derived from the return type of getEscrowStatus

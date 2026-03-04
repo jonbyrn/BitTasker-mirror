@@ -160,13 +160,17 @@ export function calculateTotalPayment(baseAmount: bigint, clientFeeTier: FeeTier
 }
 
 /**
- * Get the default contract address for the current network
+ * Get the default contract address for the current network.
+ * Falls back to VITE_RSK_CONTRACT_ADDRESS when network-specific env is not set.
  */
 function getDefaultContractAddress(): string | undefined {
 	const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-	return network === 'mainnet'
-		? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-		: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+	const fallback = import.meta.env.VITE_RSK_CONTRACT_ADDRESS;
+	return (
+		(network === 'mainnet'
+			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET) ?? fallback
+	);
 }
 
 // Connect to escrow contract

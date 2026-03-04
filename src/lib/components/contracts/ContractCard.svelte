@@ -4,26 +4,26 @@
 		getStatusTranslationKey,
 		getStatusColorClass
 	} from '$lib/utils/helpers/contractStatusFormatter';
+	import { EscrowStatus } from '$lib/utils/escrow';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
 	import ReviewPromptModal from '$lib/components/reviews/ReviewPromptModal.svelte';
-	import { hasUserReviewedContract, getOtherPartyPubkey } from '$lib/utils/review-helpers';
-	import { getReviewsForEscrow } from '$lib/utils/nostr-review';
-	import { getNpub } from '$lib/utils/nostrKeys';
-	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-	// @ts-ignore nostr-tools type definitions issue
-	import { nip19 } from 'nostr-tools';
+	import { getReviewStatusForContract } from '$lib/utils/review-helpers';
 	import UserNostrBadge from '../UserNostrBadge.svelte';
 	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
 
-	const { contract, btcPrice } = $props<{
+	const { contract, btcPrice, reviewStatus: reviewStatusFromParent, isLoadingReviewStatus = false } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
+		/** When provided (e.g. from list bulk fetch), no per-card relay subscription is used. */
+		reviewStatus?: { userReviewed: boolean; otherPartyReviewed: boolean } | null | undefined;
+		/** True while parent is loading bulk review status. */
+		isLoadingReviewStatus?: boolean;
 	}>();
 
-	// Review status state
+	// Review status: from parent (bulk) when provided, else from per-card fetch. Local override when user submits.
 	let reviewStatus = $state<{
 		userReviewed: boolean;
 		otherPartyReviewed: boolean;
@@ -31,35 +31,16 @@
 	}>({
 		userReviewed: false,
 		otherPartyReviewed: false,
-		isLoading: true
+		isLoading: false
 	});
+	let userSubmittedLocal = $state(false);
 
 	let isReviewModalOpen = $state(false);
-	let revieweePubkey = $state<string | null>(null);
 
-	// Convert npub to hex for comparison with contract pubkeys
-	function npubToHex(npub: string): string {
-		try {
-			if (npub.startsWith('npub')) {
-				return nip19.decode(npub).data as string;
-			}
-			return npub; // Already hex
-		} catch {
-			return npub; // Return as is if conversion fails
-		}
-	}
-
-	// Convert hex to npub for review modal
-	function hexToNpub(hexPubkey: string): string {
-		try {
-			if (hexPubkey.startsWith('npub')) {
-				return hexPubkey; // Already npub
-			}
-			return nip19.npubEncode(hexPubkey);
-		} catch {
-			return hexPubkey; // Return as is if conversion fails
-		}
-	}
+	// Reviewee pubkey from contract (synchronous) — button shows immediately when status is Funds Released
+	const revieweePubkey = $derived(
+		(contractStore.getContractKey(contract, 'otherPartyNpub') as string) || null
+	);
 
 	// Check if blockchain query failed (no blockchain status and not pending)
 	const isBlockchainQueryFailed = $derived(
@@ -68,71 +49,79 @@
 			!contract.contractEvent.content.transactionHash
 	);
 
-	// Check review status for completed contracts
+	// Contracts in a final state where the user can submit a review (funds released or dispute resolved)
+	const canShowReviewUi = $derived(
+		contract.status === EscrowStatus.FundsReleased ||
+			contract.status === EscrowStatus.Completed ||
+			contract.status === EscrowStatus.DisputeResolved
+	);
+
+	// When parent provides bulk review status, use it (no per-card subscription). When parent is loading, show loading and do not open a subscription.
 	$effect(() => {
+		if (reviewStatusFromParent !== undefined && reviewStatusFromParent !== null) {
+			reviewStatus = {
+				userReviewed: userSubmittedLocal || reviewStatusFromParent.userReviewed,
+				otherPartyReviewed: reviewStatusFromParent.otherPartyReviewed,
+				isLoading: isLoadingReviewStatus
+			};
+			return;
+		}
+		if (isLoadingReviewStatus) {
+			reviewStatus = {
+				userReviewed: userSubmittedLocal,
+				otherPartyReviewed: false,
+				isLoading: true
+			};
+			return;
+		}
+		// No parent data and not loading: run per-card fetch only for single-contract view (e.g. drawer or other page)
+		if (!canShowReviewUi || !revieweePubkey) {
+			reviewStatus = { userReviewed: false, otherPartyReviewed: false, isLoading: false };
+			return;
+		}
+		const escrowId = contract.escrowData.id;
+		let cancelled = false;
+		if (userSubmittedLocal) return;
+		reviewStatus = { userReviewed: false, otherPartyReviewed: false, isLoading: true };
 		(async () => {
-			const isCompleted = contract.status === 'completed' || contract.status === 'resolved';
-			if (!isCompleted) {
-				reviewStatus = { userReviewed: false, otherPartyReviewed: false, isLoading: false };
-				return;
-			}
-
 			try {
-				reviewStatus.isLoading = true;
-				const currentUserNpub = await getNpub();
-				if (!currentUserNpub) {
-					reviewStatus = { userReviewed: false, otherPartyReviewed: false, isLoading: false };
-					return;
-				}
-
-				// Convert npub to hex for contract comparison
-				const currentUserPubkey = npubToHex(currentUserNpub);
-
-				// Check if user has reviewed
-				const userReviewed = await hasUserReviewedContract(contract.escrowData.id);
-
-				// Check if other party has reviewed
-				const reviews = await getReviewsForEscrow(contract.escrowData.id);
-				const otherPartyPubkeyHex = getOtherPartyPubkey(contract, currentUserPubkey);
-				
-				// Convert other party's hex pubkey to npub for comparison with reviews
-				const otherPartyPubkeyNpub = otherPartyPubkeyHex ? hexToNpub(otherPartyPubkeyHex) : null;
-				const otherPartyReviewed = otherPartyPubkeyNpub
-					? reviews.some(r => {
-							// Reviews may have npub or hex format, so check both
-							const reviewerHex = r.reviewerPubkey.startsWith('npub') 
-								? npubToHex(r.reviewerPubkey) 
-								: r.reviewerPubkey;
-							return reviewerHex === otherPartyPubkeyHex || r.reviewerPubkey === otherPartyPubkeyNpub;
-						})
-					: false;
-
-				reviewStatus = {
-					userReviewed,
-					otherPartyReviewed,
-					isLoading: false
-				};
-
-				// Set reviewee pubkey for review modal (use npub format)
-				if (otherPartyPubkeyHex) {
-					revieweePubkey = hexToNpub(otherPartyPubkeyHex);
+				const { userReviewed, otherPartyReviewed } = await getReviewStatusForContract(
+					escrowId,
+					contract,
+					{ maxWaitMs: 3000 }
+				);
+				if (!cancelled) {
+					reviewStatus = {
+						userReviewed: userReviewed || reviewStatus.userReviewed,
+						otherPartyReviewed,
+						isLoading: false
+					};
 				}
 			} catch (error) {
-				console.error('Failed to check review status:', error);
-				reviewStatus = { userReviewed: false, otherPartyReviewed: false, isLoading: false };
+				if (!cancelled) {
+					console.error('Failed to check review status:', error);
+					reviewStatus = { userReviewed: false, otherPartyReviewed: false, isLoading: false };
+				}
 			}
 		})();
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	function handleReviewClick(e: MouseEvent) {
 		e.stopPropagation();
-		if (revieweePubkey && !reviewStatus.userReviewed) {
-			isReviewModalOpen = true;
-		}
+		if (!revieweePubkey || reviewStatus.userReviewed || reviewStatus.isLoading) return;
+		isReviewModalOpen = true;
 	}
 
-	function handleReviewSubmit(eventId: string) {
-		reviewStatus.userReviewed = true;
+	function handleReviewSubmit(_eventId: string) {
+		userSubmittedLocal = true;
+		reviewStatus = {
+			userReviewed: true,
+			otherPartyReviewed: reviewStatus.otherPartyReviewed,
+			isLoading: false
+		};
 		isReviewModalOpen = false;
 	}
 
@@ -237,13 +226,8 @@
 					<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
 						{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
 					</div>
-					{#if import.meta.env.DEV}
-						<div class="badge badge-error badge-sm">
-							{contract.escrowData?.id}
-						</div>
-					{/if}
 					<!-- Review Status Badges -->
-					{#if (contract.status === 'completed' || contract.status === 'resolved') && !reviewStatus.isLoading}
+					{#if canShowReviewUi && !reviewStatus.isLoading}
 						{#if reviewStatus.userReviewed}
 							<div class="badge badge-success badge-sm gap-1" title={$t('reviews.you_reviewed')}>
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -271,9 +255,6 @@
 								{$t('reviews.review_received')}
 							</div>
 						{/if}
-					{/if}
-					{#if reviewStatus.isLoading}
-						<span class="loading loading-spinner loading-xs"></span>
 					{/if}
 				</div>
 				<!-- Bottom row: Status badge (with min gap from top badges) -->
@@ -332,6 +313,29 @@
 						isInline={true}
 					/>
 				{/if}
+				{#if canShowReviewUi && !reviewStatus.isLoading && !reviewStatus.userReviewed && revieweePubkey}
+					<button
+						class="btn btn-primary btn-sm w-full sm:w-auto"
+						onclick={handleReviewClick}
+						type="button"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+							/>
+						</svg>
+						{$t('reviews.pending.send_review')}
+					</button>
+				{/if}
 				<button class="btn btn-outline btn-sm w-full sm:w-auto" onclick={openDrawer}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -360,6 +364,7 @@
 			escrowId={contract.escrowData.id}
 			revieweePubkey={revieweePubkey}
 			escrowTxHash={contract.contractEvent.content.transactionHash}
+			taskId={contract.contractEvent.content.taskId}
 			onClose={() => {
 				isReviewModalOpen = false;
 			}}

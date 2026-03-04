@@ -4,7 +4,8 @@
  */
 
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
-import { getSignedEvent, publishEvent, subscribeToEvents } from './nostr';
+import { DEFAULT_RELAYS, getSignedEvent, publishEvent, subscribeToEvents } from './nostr';
+import { npubToHex } from './nostrKeys';
 import KINDS from './constants/kinds';
 import type {
 	NostrVerifiedReview,
@@ -12,19 +13,16 @@ import type {
 	ReviewEventContent,
 	RevieweeRole
 } from '$lib/types/review';
-import { escrow, EscrowStatus } from '$lib/utils/escrow';
+import { escrow, ESCROW_STATUSES_REVIEW_COMPLETED } from '$lib/utils/escrow';
 
-const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
-
-async function pubkeyToHex(pubkey: string): Promise<string> {
-	if (!pubkey) return '';
-	const p = pubkey.trim().toLowerCase();
-	if (p.startsWith('npub')) {
-		const { nip19 } = await import('nostr-tools');
-		const decoded = nip19.decode(p);
-		return (decoded.data as string) ?? '';
-	}
-	return p.startsWith('0x') ? p.slice(2) : p;
+/** Unique key for a review event (pubkey + identifier from tags) for deduplication. */
+function getReviewEventDedupeKey(event: NostrEvent): string {
+	const idTag =
+		event.tags.find((t) => t[0] === 'd')?.[1] ??
+		event.tags.find((t) => t[0] === 'e')?.[1] ??
+		event.tags.find((t) => t[0] === 'escrow')?.[1] ??
+		event.id;
+	return `${event.pubkey}:${idTag}`;
 }
 
 /** Parse kind-1985 (or legacy 31007) event into NostrVerifiedReview for UI. */
@@ -95,12 +93,7 @@ export async function publishReview(
 ): Promise<string> {
 	const escrowData = await escrow.getEscrow(escrowId);
 	if (!escrowData) throw new Error('Escrow not found');
-	const completedStates = [
-		EscrowStatus.Completed,
-		EscrowStatus.FundsReleased,
-		EscrowStatus.DisputeResolved
-	];
-	if (!completedStates.includes(escrowData.status)) {
+	if (!ESCROW_STATUSES_REVIEW_COMPLETED.includes(escrowData.status)) {
 		throw new Error(`Escrow is not in a completed state. Current status: ${escrowData.status}`);
 	}
 
@@ -108,7 +101,7 @@ export async function publishReview(
 	const reviewerPubkey = await getNpub();
 	if (!reviewerPubkey) throw new Error('Failed to get reviewer pubkey');
 
-	const revieweeHex = await pubkeyToHex(revieweePubkey);
+	const revieweeHex = npubToHex(revieweePubkey);
 	const categoryRatings = content.categoryRatings as Record<string, number>;
 	const revieweeRole = content.revieweeRole ?? 'taskee';
 
@@ -176,7 +169,7 @@ function subscribeReviews(
 			relayUrl,
 			[filter],
 			(event: NostrEvent) => {
-				const key = `${event.pubkey}:${event.tags.find((t) => t[0] === 'd')?.[1] ?? event.tags.find((t) => t[0] === 'escrow')?.[1] ?? event.id}`;
+				const key = getReviewEventDedupeKey(event);
 				if (seen.has(key)) return;
 				seen.add(key);
 				mapEvent(event, relayUrl);
@@ -204,7 +197,7 @@ export async function getReviewsByReviewer(
 	reviewerPubkey: string,
 	limit = 50
 ): Promise<NostrVerifiedReview[]> {
-	const hex = await pubkeyToHex(reviewerPubkey);
+	const hex = npubToHex(reviewerPubkey);
 	const reviews: NostrVerifiedReview[] = [];
 	const filter: Filter = { kinds: REVIEW_KINDS, authors: [hex], limit };
 	await subscribeReviews(filter, limit, (event, relayUrl) => {
@@ -218,7 +211,7 @@ export async function getReviewsForUser(
 	revieweePubkey: string,
 	limit = 50
 ): Promise<NostrVerifiedReview[]> {
-	const hex = await pubkeyToHex(revieweePubkey);
+	const hex = npubToHex(revieweePubkey);
 	const reviews: NostrVerifiedReview[] = [];
 	const filter: Filter = { kinds: REVIEW_KINDS, '#p': [hex], limit };
 	await subscribeReviews(filter, limit, (event, relayUrl) => {
@@ -257,13 +250,22 @@ export async function getReviewByEventId(eventId: string): Promise<NostrVerified
 	});
 }
 
-export async function getReviewsForEscrow(escrowId: string): Promise<NostrVerifiedReview[]> {
+const DEFAULT_REVIEWS_FETCH_MS = 10000;
+
+/**
+ * Fetch reviews for an escrow. Optional shorter timeout for UI so the "Send Review" button can appear sooner.
+ */
+export async function getReviewsForEscrow(
+	escrowId: string,
+	options?: { maxWaitMs?: number }
+): Promise<NostrVerifiedReview[]> {
+	const maxWaitMs = options?.maxWaitMs ?? DEFAULT_REVIEWS_FETCH_MS;
 	const reviews: NostrVerifiedReview[] = [];
 	const seen = new Set<string>();
 	const relayUrl = DEFAULT_RELAYS[0] || '';
 	if (!relayUrl) return [];
 	const push = (event: NostrEvent) => {
-		const key = `${event.pubkey}:${event.tags.find((t) => t[0] === 'd')?.[1] ?? event.tags.find((t) => t[0] === 'e')?.[1] ?? event.tags.find((t) => t[0] === 'escrow')?.[1] ?? event.id}`;
+		const key = getReviewEventDedupeKey(event);
 		if (seen.has(key)) return;
 		seen.add(key);
 		const r = parseReviewEvent(event, relayUrl);
@@ -276,7 +278,7 @@ export async function getReviewsForEscrow(escrowId: string): Promise<NostrVerifi
 			unsub1();
 			unsub2();
 			resolve();
-		}, 10000);
+		}, maxWaitMs);
 	});
 	return reviews;
 }
@@ -286,11 +288,9 @@ export async function hasUserReviewedEscrow(
 	reviewerPubkey: string
 ): Promise<boolean> {
 	const reviews = await getReviewsForEscrow(escrowId);
-	const reviewerHex = await pubkeyToHex(reviewerPubkey);
+	const reviewerHex = npubToHex(reviewerPubkey);
 	for (const r of reviews) {
-		const rHex = r.reviewerPubkey.length === 64 && /^[a-f0-9]+$/.test(r.reviewerPubkey)
-			? r.reviewerPubkey
-			: await pubkeyToHex(r.reviewerPubkey);
+		const rHex = npubToHex(r.reviewerPubkey);
 		if (rHex === reviewerHex) return true;
 	}
 	return false;

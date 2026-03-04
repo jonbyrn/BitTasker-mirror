@@ -4,8 +4,7 @@ import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 import KINDS from '$lib/utils/constants/kinds';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
-
-const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
+import { DEFAULT_RELAYS } from '$lib/utils/nostr';
 
 /**
  * Get the centralized pool instance from appStore

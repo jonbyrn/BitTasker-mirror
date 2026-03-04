@@ -1,17 +1,18 @@
 /**
  * Review Helper Utilities
- * 
+ *
  * Functions to help with review management, finding pending reviews, etc.
+ * Reviewee names are resolved from Nostr profile metadata (pubkey → name).
  */
 
-import { getUserContracts } from './nostr-bid';
-import { getReviewsByReviewer, hasUserReviewedEscrow } from './review-source';
-import { getNpub } from './nostrKeys';
+import { escrow } from '$lib/utils/escrow';
+import { getReviewsByReviewer, getReviewsForUser, hasUserReviewedEscrow } from './review-source';
+import { getReviewsForEscrow } from './nostr-review';
+import { getNpub, npubToHex, hexToNpub } from './nostrKeys';
 import type { ContractWithEvents } from '$lib/types/contract';
-import { EscrowStatus } from '$lib/utils/escrow';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore nostr-tools type definitions issue
-import { nip19 } from 'nostr-tools';
+import { EscrowStatus, ESCROW_STATUSES_REVIEW_COMPLETED } from '$lib/utils/escrow';
+import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
+import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 
 /**
  * Pending review information
@@ -25,16 +26,16 @@ export interface PendingReview {
 	canReview: boolean; // Whether current user can review this contract
 }
 
-/** Normalize npub to hex for comparison with contract pubkeys (which may be hex). */
-function npubToHex(pubkey: string): string {
-	try {
-		if (pubkey.startsWith('npub')) {
-			return nip19.decode(pubkey).data as string;
-		}
-		return pubkey;
-	} catch {
-		return pubkey;
-	}
+/**
+ * Format a completion timestamp (seconds or ms) as date and time using app dateFormatter.
+ * Single place for "completed at" formatting to avoid duplicate logic.
+ */
+export function formatCompletedAt(timestamp: number, locale = 'en'): string {
+	if (!timestamp || timestamp <= 0) return '—';
+	const ms = timestamp >= 1e12 ? timestamp : timestamp * 1000;
+	const date = new Date(ms);
+	if (Number.isNaN(date.getTime())) return '—';
+	return formatStandardDateTimeShort(date, locale);
 }
 
 /**
@@ -50,7 +51,7 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 		const currentUserHex = npubToHex(currentUserNpub);
 
 		const [contracts, reviewsGiven] = await Promise.all([
-			getUserContracts({ limit: 100 }),
+			escrow.contractOps.getContracts({ limit: 100 }),
 			getReviewsByReviewer(currentUserNpub, 200)
 		]);
 
@@ -59,12 +60,9 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 			if (r.escrowId) reviewedEscrowIds.add(r.escrowId);
 		}
 
-		const completedStatuses = [
-			EscrowStatus.Completed,
-			EscrowStatus.FundsReleased,
-			EscrowStatus.DisputeResolved
-		];
-		const completedContracts = contracts.filter((c) => completedStatuses.includes(c.status));
+		const completedContracts = contracts.filter((c) =>
+			ESCROW_STATUSES_REVIEW_COMPLETED.includes(c.status)
+		);
 		const pending: PendingReview[] = [];
 
 		for (const contract of completedContracts) {
@@ -77,14 +75,14 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 			const revieweePubkey = isClient ? content.freelancerPubkey : content.clientPubkey;
 			let completedAt = (contract.contractEvent.created_at || 0) * 1000 || Date.now();
 			if (contract.statusEvents?.length) {
-				const completionEvent = contract.statusEvents.find(
-					(e) =>
-						e.content?.action === EscrowStatus.Completed ||
-						e.content?.action === EscrowStatus.FundsReleased ||
-						e.content?.action === EscrowStatus.DisputeResolved
+				const completionEvent = contract.statusEvents.find((e) =>
+					e.content?.action != null
+						? ESCROW_STATUSES_REVIEW_COMPLETED.includes(e.content.action as EscrowStatus)
+						: false
 				);
-				if (completionEvent?.content?.timestamp) {
-					completedAt = completionEvent.content.timestamp * 1000;
+				if (completionEvent?.content?.timestamp != null) {
+					const ts = completionEvent.content.timestamp;
+					completedAt = ts >= 1e12 ? ts : ts * 1000;
 				}
 			}
 			pending.push({
@@ -96,6 +94,24 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 				canReview: true
 			});
 		}
+
+		// Resolve reviewee names from Nostr profile metadata (batch, no per-row fallbacks)
+		const uniqueRevieweeHex = [...new Set(pending.map((p) => npubToHex(p.revieweePubkey)))];
+		const nameByHex = new Map<string, string>();
+		await Promise.all(
+			uniqueRevieweeHex.map(async (hex) => {
+				try {
+					const profile = await fetchProfileMetadata(hexToNpub(hex));
+					if (profile?.name?.trim()) nameByHex.set(hex, profile.name.trim());
+				} catch {
+					// Leave name unset; UI will show — when missing
+				}
+			})
+		);
+		for (const p of pending) {
+			p.revieweeName = nameByHex.get(npubToHex(p.revieweePubkey));
+		}
+
 		return pending.sort((a, b) => b.completedAt - a.completedAt);
 	} catch (error) {
 		console.error('Failed to find pending reviews:', error);
@@ -118,6 +134,83 @@ export async function hasUserReviewedContract(escrowId: string): Promise<boolean
 		console.error('Failed to check if contract reviewed:', error);
 		return false;
 	}
+}
+
+/** Result of bulk review status fetch: one entry per escrowId. */
+export type ReviewStatusByEscrow = Map<string, { userReviewed: boolean; otherPartyReviewed: boolean }>;
+
+/**
+ * Fetch review status for all given contracts with exactly two relay subscriptions (not per contract).
+ * Use this on the contracts list to avoid "Maximum concurrent subscription count reached".
+ * - Subscription 1: all reviews by current user (authors=[me])
+ * - Subscription 2: all reviews where current user is reviewee (#p=[me])
+ */
+export async function getReviewStatusBulk(
+	contracts: ContractWithEvents[]
+): Promise<ReviewStatusByEscrow> {
+	const result: ReviewStatusByEscrow = new Map();
+	const currentUserNpub = await getNpub();
+	if (!currentUserNpub) return result;
+	const currentUserHex = npubToHex(currentUserNpub);
+
+	const reviewable = contracts.filter(
+		(c) =>
+			c.status === EscrowStatus.FundsReleased ||
+			c.status === EscrowStatus.Completed ||
+			c.status === EscrowStatus.DisputeResolved
+	);
+	if (reviewable.length === 0) return result;
+
+	const [myReviews, reviewsAboutMe] = await Promise.all([
+		getReviewsByReviewer(currentUserNpub, 250),
+		getReviewsForUser(currentUserNpub, 250)
+	]);
+
+	const userReviewedEscrows = new Set(
+		myReviews.map((r) => r.escrowId).filter((id): id is string => Boolean(id))
+	);
+	const otherPartyReviewedKeys = new Set(
+		reviewsAboutMe
+			.map((r) => {
+				const eid = r.escrowId;
+				const reviewerHex = npubToHex(r.reviewerPubkey);
+				return eid && reviewerHex ? `${eid}:${reviewerHex}` : null;
+			})
+			.filter((k): k is string => Boolean(k))
+	);
+
+	for (const contract of reviewable) {
+		const escrowId = contract.escrowData.id;
+		const userReviewed = userReviewedEscrows.has(escrowId);
+		const otherPartyHex = getOtherPartyPubkey(contract, currentUserHex);
+		const otherPartyReviewed =
+			Boolean(otherPartyHex) && otherPartyReviewedKeys.has(`${escrowId}:${otherPartyHex}`);
+		result.set(escrowId, { userReviewed, otherPartyReviewed });
+	}
+	return result;
+}
+
+/**
+ * Fetch review status for a contract in one call: userReviewed and otherPartyReviewed.
+ * Relay-only (no cache); uses shorter maxWaitMs so the contract page gets the result quickly.
+ * Prefer getReviewStatusBulk when rendering a list of contracts to avoid subscription explosion.
+ */
+export async function getReviewStatusForContract(
+	escrowId: string,
+	contract: ContractWithEvents,
+	options?: { maxWaitMs?: number }
+): Promise<{ userReviewed: boolean; otherPartyReviewed: boolean }> {
+	const currentUserNpub = await getNpub();
+	if (!currentUserNpub) return { userReviewed: false, otherPartyReviewed: false };
+	const currentUserHex = npubToHex(currentUserNpub);
+	const otherPartyHex = getOtherPartyPubkey(contract, currentUserHex);
+
+	const reviews = await getReviewsForEscrow(escrowId, { maxWaitMs: options?.maxWaitMs ?? 4000 });
+	const userReviewed = reviews.some((r) => npubToHex(r.reviewerPubkey) === currentUserHex);
+	const otherPartyReviewed = otherPartyHex
+		? reviews.some((r) => npubToHex(r.reviewerPubkey) === otherPartyHex)
+		: false;
+	return { userReviewed, otherPartyReviewed };
 }
 
 /**
@@ -160,7 +253,7 @@ export async function getRevieweeRole(
 	revieweePubkey: string
 ): Promise<'tasker' | 'taskee' | null> {
 	try {
-		const contracts = await getUserContracts({ escrowIds: [escrowId] });
+		const contracts = await escrow.contractOps.getContracts({ escrowIds: [escrowId] });
 		
 		if (contracts.length === 0) {
 			return null;
@@ -171,26 +264,9 @@ export async function getRevieweeRole(
 			return null;
 		}
 
-		// Normalize pubkeys for comparison (handle both hex and npub formats)
-		const normalizePubkey = async (pubkey: string): Promise<string> => {
-			// If it's an npub, decode it to hex
-			if (pubkey.startsWith('npub')) {
-				try {
-					// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-					// @ts-ignore nostr-tools type definitions issue
-					const { nip19 } = await import('nostr-tools');
-					const decoded = nip19.decode(pubkey);
-					return (decoded.data as string).toLowerCase();
-				} catch {
-					return pubkey.toLowerCase();
-				}
-			}
-			return pubkey.toLowerCase();
-		};
-
-		const normalizedReviewee = await normalizePubkey(revieweePubkey);
-		const normalizedClient = await normalizePubkey(content.clientPubkey);
-		const normalizedFreelancer = await normalizePubkey(content.freelancerPubkey);
+		const normalizedReviewee = npubToHex(revieweePubkey).toLowerCase();
+		const normalizedClient = npubToHex(content.clientPubkey).toLowerCase();
+		const normalizedFreelancer = npubToHex(content.freelancerPubkey).toLowerCase();
 
 		if (normalizedReviewee === normalizedClient) {
 			return 'tasker'; // Reviewee is the client (Tasker)

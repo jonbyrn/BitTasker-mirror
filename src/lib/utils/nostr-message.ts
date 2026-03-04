@@ -12,9 +12,7 @@ import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
 import type { NostrProfileImage, NostrReview, NostrSkill, SkillCertification, TimeSlot, ProfileTranslations } from '$lib/types/profile';
-
-// --- Relay Configuration ---
-const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
+import { DEFAULT_RELAYS } from '$lib/utils/nostr';
 
 /**
  * Get the centralized pool instance from appStore

@@ -26,8 +26,11 @@ export async function getReviewsByReviewer(
 	return nostrGetReviewsByReviewer(reviewerPubkey, limit);
 }
 
-export async function getReviewsForEscrow(escrowId: string): Promise<NostrVerifiedReview[]> {
-	return nostrGetReviewsForEscrow(escrowId);
+export async function getReviewsForEscrow(
+	escrowId: string,
+	options?: { maxWaitMs?: number }
+): Promise<NostrVerifiedReview[]> {
+	return nostrGetReviewsForEscrow(escrowId, options);
 }
 
 export async function getStatsForUser(revieweePubkey: string): Promise<ReviewStats> {

@@ -68,14 +68,17 @@ const registry: ContractRegistry = {
 };
 
 /**
- * Initialize contract registry with addresses from environment variables
+ * Initialize contract registry with addresses from environment variables.
+ * Falls back to VITE_RSK_CONTRACT_ADDRESS when network-specific vars are not set.
  */
 export function initializeContractRegistry(): void {
-	const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as Environment;
-	
+	const fallback = import.meta.env.VITE_RSK_CONTRACT_ADDRESS || null;
+
 	// RSK Escrow contracts
-	registry.rsk.mainnet.escrow.current = import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET || null;
-	registry.rsk.testnet.escrow.current = import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET || null;
+	registry.rsk.mainnet.escrow.current =
+		import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET || fallback;
+	registry.rsk.testnet.escrow.current =
+		import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET || fallback;
 	
 	// BSC Escrow contract
 	registry.bsc.mainnet.escrow.current = import.meta.env.VITE_BSC_CONTRACT_ADDRESS || null;

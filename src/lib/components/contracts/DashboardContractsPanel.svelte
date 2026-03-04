@@ -10,6 +10,7 @@
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
+	import { getReviewStatusBulk, type ReviewStatusByEscrow } from '$lib/utils/review-helpers';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
@@ -31,6 +32,8 @@
 	let isStatusDropdownOpen = $state(false);
 
 	let btcPrice = $state<number>(0);
+	let reviewStatusByEscrowId = $state<ReviewStatusByEscrow>(new Map());
+	let isLoadingReviewStatus = $state(false);
 
 	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
@@ -101,6 +104,27 @@
 		}
 
 		return filtered;
+	});
+
+	// Single bulk fetch for review status (2 relay subscriptions for whole list) to avoid "Maximum concurrent subscription count reached"
+	$effect(() => {
+		const list = filteredContracts;
+		if (list.length === 0) return;
+		let cancelled = false;
+		isLoadingReviewStatus = true;
+		getReviewStatusBulk(list)
+			.then((map) => {
+				if (!cancelled) {
+					reviewStatusByEscrowId = map;
+					isLoadingReviewStatus = false;
+				}
+			})
+			.catch(() => {
+				if (!cancelled) isLoadingReviewStatus = false;
+			});
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	// Load contracts on mount
@@ -455,7 +479,12 @@
 			</div>
 		{:else}
 			{#each filteredContracts as contract (contract.escrowData?.id ?? contract.contractEvent.content.escrowId)}
-				<ContractCard {contract} {btcPrice} />
+				<ContractCard
+					{contract}
+					{btcPrice}
+					reviewStatus={reviewStatusByEscrowId.get(contract.escrowData?.id ?? contract.contractEvent.content?.escrowId ?? '')}
+					isLoadingReviewStatus={isLoadingReviewStatus}
+				/>
 			{/each}
 
 			<!-- Loading more indicator -->

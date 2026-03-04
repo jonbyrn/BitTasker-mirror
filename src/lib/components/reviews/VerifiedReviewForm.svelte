@@ -213,22 +213,7 @@
 
 </script>
 
-<div class="w-full">
-	<!-- Header Section -->
-	<div class="mb-6 pb-4 border-b border-base-300">
-		<div class="flex items-center gap-3 mb-3">
-			<div class="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
-				<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-				</svg>
-			</div>
-			<div>
-				<h2 class="text-2xl font-bold text-base-content">{$t('reviews.form.title')}</h2>
-				<p class="text-base-content/60 text-sm mt-1">Share your experience and help build trust in the community</p>
-			</div>
-		</div>
-	</div>
-
+<div class="w-full min-w-0">
 	{#if alreadyReviewed}
 		<div class="alert alert-outline alert-warning mb-6">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
@@ -239,33 +224,6 @@
 	{/if}
 
 	<div class="space-y-6">
-		<!-- Overall Rating (read-only, calculated from category ratings below) -->
-		<div class="form-control">
-			<div class="flex items-center justify-between mb-3">
-				<span class="text-base font-semibold text-base-content">{$t('reviews.form.overall_rating')}</span>
-				<span class="text-xs text-base-content/50">({$t('reviews.form.calculated_from_categories')})</span>
-				{#if computedOverallRating > 0}
-					<div class="badge badge-primary badge-lg gap-1">
-						<span>{computedOverallRating}</span>
-						<span class="text-xs">/ 5</span>
-					</div>
-				{/if}
-			</div>
-			<div class="flex gap-2 items-center bg-base-200/50 rounded-xl p-4" aria-hidden="true">
-				{#each Array(5) as _, i}
-					<svg
-						class="w-5 h-5 {getStarClassForIndexMuted(i + 1, computedOverallRating)} transition-colors duration-200"
-						fill="currentColor"
-						viewBox="0 0 20 20"
-						xmlns="http://www.w3.org/2000/svg"
-						aria-hidden="true"
-					>
-						<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-					</svg>
-				{/each}
-			</div>
-		</div>
-
 		<!-- Divider -->
 		<div class="divider my-6">
 			<span class="text-xs text-base-content/40">Category Ratings</span>
@@ -548,8 +506,35 @@
 			{/if}
 		</div>
 
+		<!-- Overall Rating (read-only, below comment; calculated from category ratings above) -->
+		<div class="form-control pt-4 border-t border-base-300">
+			<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+				<span class="text-base font-semibold text-base-content">{$t('reviews.form.overall_rating')}</span>
+				<span class="text-xs text-base-content/50">({$t('reviews.form.calculated_from_categories')})</span>
+				{#if computedOverallRating > 0}
+					<div class="badge badge-primary badge-lg gap-1">
+						<span>{computedOverallRating}</span>
+						<span class="text-xs">/ 5</span>
+					</div>
+				{/if}
+			</div>
+			<div class="flex gap-2 items-center bg-base-200/50 rounded-xl p-3 sm:p-4 min-w-0" aria-hidden="true">
+				{#each Array(5) as _, i}
+					<svg
+						class="w-5 h-5 shrink-0 {getStarClassForIndexMuted(i + 1, computedOverallRating)} transition-colors duration-200"
+						fill="currentColor"
+						viewBox="0 0 20 20"
+						xmlns="http://www.w3.org/2000/svg"
+						aria-hidden="true"
+					>
+						<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+					</svg>
+				{/each}
+			</div>
+		</div>
+
 		<!-- Actions -->
-		<div class="flex gap-3 pt-6 border-t border-base-300">
+		<div class="flex flex-wrap gap-3 pt-6 border-t border-base-300">
 			{#if onCancel}
 				<button
 					class="btn btn-ghost btn-outline flex-1"

@@ -64,7 +64,8 @@
 		"you_reviewed": "Has reseñado este contrato",
 		"list": {
 			"load_error": "Error al cargar reseñas",
-			"no_reviews": "Aún no hay reseñas"
+			"no_reviews": "Aún no hay reseñas",
+			"no_reviews_hint": "Completa tareas para recibir tu primera reseña"
 		},
 		"view_all": "Ver todas las reseñas",
 		"summary": {
@@ -93,7 +94,9 @@
 			"no_pending": "No hay reseñas pendientes",
 			"all_caught_up": "¡Estás al día! Todas las tareas completadas han sido reseñadas.",
 			"contract": "Contrato",
+			"task": "Tarea",
 			"completed": "Completado",
+			"send_review": "Enviar reseña",
 			"review_for": "Reseñar a",
 			"completed_on": "Completado el",
 			"review_now": "Reseñar Ahora",

@@ -10,8 +10,8 @@ import { acceptBidAndCreateEscrow, calculateBidEscrowDetails } from './escrowBid
 import { publishContractEvent, publishContractStatus, getContracts, deleteContract, handleStatusEvent, handleContractEvent } from './nostrContract';
 import { publishEscrowStatus, registerPendingContractByTxHash, cleanupPendingContractByTxHash, contractCreationStore } from './escrowEvents';
 
-// Export status enum
-export { EscrowStatus } from './escrow.enum';
+// Export status enum and review-related constants
+export { EscrowStatus, ESCROW_STATUSES_REVIEW_COMPLETED } from './escrow.enum';
 
 // Export ABI for external use (e.g., functionParsing.ts)
 export { default as abi } from './abi.json';

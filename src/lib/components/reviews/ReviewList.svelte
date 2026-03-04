@@ -3,6 +3,7 @@
 	import { getReviewsForUser } from '$lib/utils/review-source';
 	import { filterReviews, sortReviews } from '$lib/utils/review-aggregation';
 	import VerifiedReviewCard from './VerifiedReviewCard.svelte';
+	import ReviewsEmptyState from './ReviewsEmptyState.svelte';
 	import type { NostrVerifiedReview, ReviewFilter, ReviewSort } from '$lib/types/review';
 
 	let {
@@ -65,9 +66,7 @@
 			<span>{error}</span>
 		</div>
 	{:else if reviews.length === 0}
-		<div class="text-center py-8 text-base-content/70">
-			<p>{$t('reviews.list.no_reviews')}</p>
-		</div>
+		<ReviewsEmptyState />
 	{:else}
 		<div class="space-y-4">
 			{#each reviews as review (review.nostrEventId)}

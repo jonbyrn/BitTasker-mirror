@@ -44,3 +44,10 @@ export enum EscrowStatus {
 	PendingProposalAcceptance = 15, // BEFORE acceptProposal() confirms - prevents double-acceptance
 	PendingTimelockResolution = 16, // BEFORE resolveAfterTimelock() confirms - prevents double-resolution
 }
+
+/** Escrow statuses that allow submitting a review (task completed path). */
+export const ESCROW_STATUSES_REVIEW_COMPLETED: EscrowStatus[] = [
+	EscrowStatus.Completed,
+	EscrowStatus.FundsReleased,
+	EscrowStatus.DisputeResolved
+];
