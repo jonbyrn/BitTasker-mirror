@@ -176,7 +176,11 @@ async function performMigration(context: MigrationContext) {
 	// Wait 2 seconds to show success state to user
 	await new Promise((resolve) => setTimeout(resolve, 2000));
 
-	return { response: { ...response, encryptedData }, exportedKey };
+	return {
+		response: { ...response, encryptedData },
+		exportedKey,
+		credentialId: credentialData.credentialId
+	};
 }
 
 /**
@@ -192,6 +196,7 @@ async function migratePasskey(params: {
 }): Promise<{
 	response: { user: UserData; access_token: string; encryptedData: EncryptedData };
 	exportedKey: string;
+	credentialId: string;
 }> {
 	try {
 		// Store context for retry/skip

@@ -176,10 +176,6 @@
 			// Encrypt with device ID for biometric storage
 			const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
-			const deviceName = await createUserDeviceShortName(npub);
-
-			// Create passkey with deviceName first (username not available yet)
-			// After login, username will be available for future passkey creations
 			let credentialData = {
 				credentialId: '',
 				passkeyPubkey: '',
@@ -203,6 +199,7 @@
 			);
 
 			const deviceId = await getDeviceIdentifier();
+			const deviceName = await createUserDeviceShortName(npub);
 
 			const { access_token, user } = await authService.completeNostrRecovery({
 				npub: npub,

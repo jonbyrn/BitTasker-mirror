@@ -16,7 +16,8 @@
 	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { nextStep, prevStep } = $props<{
+	let { displayName, nextStep, prevStep } = $props<{
+		displayName: string;
 		nextStep: () => void;
 		prevStep: () => void;
 	}>();
@@ -26,9 +27,6 @@
 	let profileDescription = $state('');
 	let skills = $state<Skill[]>([]);
 	let selectedSkills = $state<string[]>([]);
-
-	// Immutable
-	let displayName = $state('');
 
 	// Status indicators
 	let isLoading = $state(false);
@@ -41,7 +39,6 @@
 
 	// Event IDs for updates
 	let imageEventId = $state<string | null>(null);
-	let saveForLater = $state(false);
 	let showPrevBtn = $state(false);
 	let cleanup: (() => void) | null = null;
 
@@ -229,8 +226,8 @@
 
 			await publishProfileMetadata(profileData);
 
-			// Publish skills if not saving for later
-			if (!saveForLater && skills.length > 0) {
+			// Publish skills
+			if (skills.length > 0) {
 				await publishSkillsUpdate(skills);
 			}
 
@@ -339,12 +336,11 @@
 						id="profileDescription"
 						data-testid="onboarding-profile-description"
 						bind:value={profileDescription}
-						minlength={saveForLater ? undefined : 100}
+						minlength={profileDescription.length === 0 ? undefined : 100}
 						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
 							? 'textarea-error'
 							: ''}"
 						placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
-						disabled={saveForLater}
 					></textarea>
 					{#if descriptionError}
 						<label class="label whitespace-normal" for="profileDescription">
@@ -365,17 +361,6 @@
 						placeholder={$t('onboarding_auth.form.add_skills')}
 						className="w-full"
 					/>
-				</div>
-
-				<!-- Save for Later Option -->
-				<div class="form-control mx-auto max-w-xl space-y-2">
-					<label class="label flex cursor-pointer items-center justify-start gap-2">
-						<input type="checkbox" bind:checked={saveForLater} class="checkbox checkbox-sm" />
-						<span class="label-text">{$t('onboarding_auth.form.save_for_later')}</span>
-					</label>
-					<span class="text-base-content/70 block text-xs">
-						{$t('onboarding_auth.form.you_can_complete_your_profile_later')}
-					</span>
 				</div>
 
 				{#if error}
