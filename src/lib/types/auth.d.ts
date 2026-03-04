@@ -1,4 +1,4 @@
-import type { NostrEvent } from "nostr-tools";
+import type { NostrEvent } from 'nostr-tools';
 
 type ContextEncryption = {
 	encrypted: CryptoEncryptedData;
@@ -28,7 +28,7 @@ export interface Credentials {
 		clientDataJSON: string;
 		signature: string;
 		userHandle?: string;
-	}
+	};
 }
 
 export interface PasskeyLoginArgs {
@@ -43,7 +43,7 @@ export interface PasskeyLoginArgs {
 		clientDataJSON: string;
 		signature: string;
 		userHandle?: string;
-	}
+	};
 	appVersion: string;
 }
 
@@ -79,7 +79,7 @@ export interface PasskeyEncryptedDataArgs {
 		clientDataJSON: string;
 		signature: string;
 		userHandle?: string;
-	}
+	};
 }
 
 export interface PasskeyLoginData {
@@ -111,7 +111,7 @@ interface NostrKeyData {
 	};
 	masterSalt: string;
 	exportedMasterKey: string;
-	keyDerivationMethod: "master-key" | null;
+	keyDerivationMethod: 'master-key' | null;
 	encryptedWalletMnemonic: string;
 }
 
@@ -134,13 +134,13 @@ export interface UserData {
 	deleted?: boolean;
 	nostrKey?: NostrKeyData;
 
-	userRole?: "USER";
+	userRole?: 'USER';
 	dob?: null;
 	biddingAllowed?: false;
 	mobileNumber?: null;
-	verificationLevel?: "NONE";
-	displayName?: "test4";
-	username?: "test4";
+	verificationLevel?: 'NONE';
+	displayName?: 'test4';
+	username?: 'test4';
 	profilePictureId?: null;
 	profilePictureUrl?: null;
 }
@@ -159,83 +159,6 @@ export interface Location {
 	createdAt: string;
 	updatedAt: string;
 }
-
-export interface ApiUserProfile {
-	id: number;
-	name: string | null;
-	email: string;
-	dob: string | null;
-	profilePicture: string | null;
-	userRole: string;
-	authMethods: Array<{
-		id: number;
-		userId: number;
-		type: string;
-		identifier: string;
-		credentials: Record<string, any>; // TODO: Define the type for credentials
-		isVerified: boolean;
-		lastUsedAt: string;
-		createdAt: string;
-		updatedAt: string;
-		providerDetails: any; // TODO: Define the type for provider details
-	}>;
-	client: {
-		id: number;
-		userId: number;
-		tasksCompleted: number;
-		tasksPosted: number;
-		averageRating: number | null;
-		level: number;
-		experiencePoints: number;
-		verificationLevel: string;
-		createdAt: string;
-		updatedAt: string;
-	} | null;
-	freelancer: {
-		id: number;
-		userId: number;
-		professionalTitle: string | null;
-		bio: string | null;
-		promotionalVideo: string | null;
-		yearsExperience: number | null;
-		specialties: string[];
-		standardRates: any; // TODO: Define the type for standard rates
-		tasksCompleted: number;
-		bidsSent: number;
-		successRate: number | null;
-		averageRating: number | null;
-		level: number;
-		experiencePoints: number;
-		reputationScore: number;
-		feeDiscount: number;
-		monthlyActivityPoints: number;
-		verificationLevel: string;
-		identityVerified: boolean;
-		createdAt: string;
-		updatedAt: string;
-	} | null;
-	preferences: any; // TODO: Define the type for preferences
-	location: {
-		id: number;
-		userId: number;
-		addressLine1: string | null;
-		addressLine2: string | null;
-		city: string;
-		state: string;
-		postalCode: string;
-		country: string;
-		latitude: number;
-		longitude: number;
-		createdAt: string;
-		updatedAt: string;
-	} | null;
-	isEmailVerified: boolean;
-	onboardingComplete: boolean;
-	lastLoginAt: string;
-	createdAt: string;
-	updatedAt: string;
-}
-
 export interface BiometricVerifyOptions {
 	reason: string;
 	title: string;
@@ -259,8 +182,8 @@ export interface AuthState {
 	error: string | null;
 }
 
-export interface AccountRecoveryData {
-	publicKey: string;
+export interface RecoveryData {
+	credentialId: string;
 	recoveryData: EncryptedData;
 	email?: string;
 }
@@ -286,7 +209,6 @@ export interface NostrRecoveryData {
 	wallet: ContextEncryption;
 	masterSalt: string;
 }
-
 
 export interface CryptoEncryptedData {
 	data: string;

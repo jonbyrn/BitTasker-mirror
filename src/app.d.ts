@@ -55,6 +55,8 @@ declare global {
 	interface Window {
 		turnstile: TurnstileWidget;
 		onloadTurnstileCallback: () => void;
+		/** Set by Playwright for E2E tests (e.g. virtual WebAuthn). */
+		__PLAYWRIGHT_TEST__?: boolean;
 	}
 
 	const __APP_VERSION__: string;
