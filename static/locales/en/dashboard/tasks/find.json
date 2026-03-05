@@ -14,6 +14,8 @@
 		"map": "Map",
 		"list": "List",
 		"error_loading": "Error loading tasks: {error}. Please try again.",
+		"error_loading_title": "Error Loading Tasks",
+		"error_loading_message": "An error occurred while loading tasks. Please try again.",
 		"loading_timeout_title": "Loading is taking longer than expected",
 		"loading_timeout_message": "Try refreshing the page or check your connection",
 		"refresh": "Refresh",
@@ -63,6 +65,7 @@
 		"no_results_message": "Try adjusting your filters or search criteria",
 		"view_list": "View List",
 		"view_map": "View Map",
+		"loading": "Loading tasks...",
 		"loading_more": "Loading more tasks...",
 		"load_more": "Load More Tasks",
 		"search_minimum_chars": "Enter at least 3 characters to search"
