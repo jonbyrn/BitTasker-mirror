@@ -4,7 +4,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import VerifiedReviewForm from '../VerifiedReviewForm.svelte';
 import { publishReview, hasUserReviewedEscrow } from '$lib/utils/nostr-review';
 import { getNpub } from '$lib/utils/nostrKeys';
-import { appStore } from '$lib/stores/app.store';
+
+vi.mock('svelte-i18n', async () => {
+	const { readable } = await import('svelte/store');
+	return {
+		t: readable((key: string) => key),
+		locale: readable('en'),
+		locales: readable(['en', 'es']),
+		isLoading: readable(false)
+	};
+});
 
 // Mock dependencies
 vi.mock('$lib/utils/nostr-review', () => ({
@@ -41,31 +50,30 @@ describe('VerifiedReviewForm', () => {
 
 	it('should render the form', () => {
 		render(VerifiedReviewForm, { props: mockProps });
-		
-		expect(screen.getByText(/Overall Rating/i)).toBeInTheDocument();
-		// Taskee role shows: Work Quality, Experience, Delivery Speed
-		expect(screen.getByText(/Work Quality/i)).toBeInTheDocument();
-		expect(screen.getByText(/Experience/i)).toBeInTheDocument();
-		expect(screen.getByText(/Delivery Speed/i)).toBeInTheDocument();
+		// With i18n mock returning keys: labels show as translation keys (exact to avoid matching _desc)
+		expect(screen.getByText('reviews.form.overall_rating')).toBeInTheDocument();
+		expect(screen.getByText('reviews.form.work_quality')).toBeInTheDocument();
+		expect(screen.getByText('reviews.form.experience')).toBeInTheDocument();
+		expect(screen.getByText('reviews.form.delivery_speed')).toBeInTheDocument();
 	});
 
 	it('should disable form when user has already reviewed', async () => {
 		vi.mocked(hasUserReviewedEscrow).mockResolvedValue(true);
-		
+
 		render(VerifiedReviewForm, { props: mockProps });
-		
+
 		await waitFor(() => {
-			const submitButton = screen.getByRole('button', { name: /Submit Review/i });
+			const submitButton = screen.getByRole('button', { name: /reviews\.form\.submit/i });
 			expect(submitButton).toBeDisabled();
 		});
 	});
 
 	it('should validate required ratings', async () => {
 		render(VerifiedReviewForm, { props: mockProps });
-		
-		const submitButton = screen.getByRole('button', { name: /Submit Review/i });
+
+		const submitButton = screen.getByRole('button', { name: /reviews\.form\.submit/i });
 		await fireEvent.click(submitButton);
-		
+
 		// Form should not submit without ratings
 		await waitFor(() => {
 			expect(publishReview).not.toHaveBeenCalled();
@@ -74,24 +82,17 @@ describe('VerifiedReviewForm', () => {
 
 	it('should submit review with valid data', async () => {
 		render(VerifiedReviewForm, { props: mockProps });
-		
-		// Set ratings (simulate clicking stars)
-		// Note: In a real test, we'd need to simulate the actual star clicks
-		// For now, we'll test the form structure
-		
-		const submitButton = screen.getByRole('button', { name: /Submit Review/i });
+
+		const submitButton = screen.getByRole('button', { name: /reviews\.form\.submit/i });
 		expect(submitButton).toBeInTheDocument();
 	});
 
 	it('should show comment character counter', () => {
 		render(VerifiedReviewForm, { props: mockProps });
-		
-		const textarea = screen.getByPlaceholderText(/Share your experience/i);
+		// Placeholder is translated; mock returns key
+		const textarea = screen.getByPlaceholderText(/reviews\.form\.comment_placeholder/i);
 		expect(textarea).toBeInTheDocument();
-		
-		// Character counter should be visible
-		expect(screen.getByText(/0\/1000/i)).toBeInTheDocument();
+		// Counter is literal: 0/1000
+		expect(screen.getByText(/0\/1000/)).toBeInTheDocument();
 	});
 });
-
-

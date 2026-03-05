@@ -1,13 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-	publishReview,
-	getReviewsForUser,
-	hasUserReviewedEscrow
-} from '../nostr-review';
+import { publishReview, getReviewsForUser, hasUserReviewedEscrow } from '../nostr-review';
 import { escrow } from '$lib/utils/escrow';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { publishEvent } from '../nostr';
 import { EscrowStatus } from '$lib/utils/escrow';
+import type { EscrowData } from '$lib/types/wallet';
 
 vi.mock('$lib/utils/escrow', () => ({
 	escrow: {
@@ -22,18 +19,23 @@ vi.mock('$lib/utils/escrow', () => ({
 		Cancelled: 5,
 		FundsReleased: 6,
 		PendingAcceptance: 7
-	}
+	},
+	ESCROW_STATUSES_REVIEW_COMPLETED: [4, 6, 2] // Completed, FundsReleased, DisputeResolved
 }));
 
 vi.mock('$lib/utils/nostrKeys', () => ({
 	getNpub: vi.fn(),
-	npubToHex: (p: string) => (p?.startsWith('npub') ? 'a'.repeat(64) : p?.replace(/^0x/, '') ?? ''),
+	npubToHex: (p: string) =>
+		p?.startsWith('npub') ? 'a'.repeat(64) : (p?.replace(/^0x/, '') ?? ''),
 	hexToNpub: (h: string) => h
 }));
 
 vi.mock('../nostr', () => ({
+	DEFAULT_RELAYS: ['wss://relay.example.com'],
 	publishEvent: vi.fn(),
-	getSignedEvent: vi.fn((event: unknown) => Promise.resolve({ ...event, id: 'signed-event-id', sig: 'sig' })),
+	getSignedEvent: vi.fn((event: unknown) =>
+		Promise.resolve({ ...event, id: 'signed-event-id', sig: 'sig' })
+	),
 	subscribeToEvents: vi.fn(() => () => {})
 }));
 
@@ -51,7 +53,7 @@ describe('nostr-review utilities', () => {
 				status: EscrowStatus.Completed,
 				baseAmount: '1.0',
 				createdAt: Date.now()
-			} as any);
+			} as EscrowData);
 
 			vi.mocked(getNpub).mockResolvedValue('npub1reviewer');
 
@@ -79,7 +81,7 @@ describe('nostr-review utilities', () => {
 				status: EscrowStatus.Funded,
 				baseAmount: '1.0',
 				createdAt: Date.now()
-			} as any);
+			} as EscrowData);
 
 			const content = {
 				overallRating: 5,
@@ -90,9 +92,7 @@ describe('nostr-review utilities', () => {
 				}
 			};
 
-			await expect(
-				publishReview('123', 'npub1reviewee', content, 'task-abc')
-			).rejects.toThrow();
+			await expect(publishReview('123', 'npub1reviewee', content, 'task-abc')).rejects.toThrow();
 		});
 	});
 
