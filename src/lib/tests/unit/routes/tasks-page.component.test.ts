@@ -392,6 +392,40 @@ describe('Tasks Page - Component Tests', () => {
 				expect(state.items).toEqual(resetTasks);
 			});
 		});
+
+		it('should clear "until" parameter when search bar is cleared', async () => {
+			const { findTasks } = await import('$lib/nostr/findTasks');
+
+			render(TasksPage);
+			await tick();
+
+			const searchInput = screen.getByPlaceholderText('Search tasks...') as HTMLInputElement;
+
+			// Trigger a search
+			await fireEvent.input(searchInput, { target: { value: 'Repair' } });
+
+			// Wait for initial search call
+			await waitFor(() => {
+				expect(findTasks).toHaveBeenCalled();
+			});
+
+			// Now clear the search
+			await fireEvent.input(searchInput, { target: { value: '' } });
+
+			// Verify findTasks reset call has until: undefined
+			await waitFor(
+				() => {
+					expect(findTasks).toHaveBeenCalledWith(
+						expect.objectContaining({
+							page: 1,
+							search: '',
+							until: undefined
+						})
+					);
+				},
+				{ timeout: 3000 }
+			);
+		});
 	});
 
 	describe('View Mode Toggle', () => {
