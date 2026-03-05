@@ -8,14 +8,16 @@
 		publishProfileMetadata,
 		publishMultipleImages,
 		subscribeToProfileUpdates,
-		publishSkillsUpdate
+		publishSkillsUpdate,
+		generateProfileTranslations
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { nextStep, prevStep } = $props<{
+	let { displayName, nextStep, prevStep } = $props<{
+		displayName: string;
 		nextStep: () => void;
 		prevStep: () => void;
 	}>();
@@ -37,7 +39,6 @@
 
 	// Event IDs for updates
 	let imageEventId = $state<string | null>(null);
-	let saveForLater = $state(false);
 	let showPrevBtn = $state(false);
 	let cleanup: (() => void) | null = null;
 
@@ -55,6 +56,12 @@
 					// Handle profile metadata update (NIP-01 + NIP-24)
 					if (event.kind === 0) {
 						const metadata = JSON.parse(event.content);
+
+						// Basic NIP-01 fields
+						displayName =
+							metadata.display_name || metadata.displayName || metadata.name || displayName;
+						professionalTitle = metadata.professionalTitle || professionalTitle;
+						profileDescription = metadata.about || profileDescription;
 
 						// NIP-24 extended metadata fields
 						// Handle profile picture - priority: picture > banner (if no picture exists)
@@ -187,27 +194,17 @@
 			error = '';
 			descriptionError = '';
 
-			// Validate profile description only when not saving for later
-			if (!saveForLater) {
-				if (!profileDescription) {
-					descriptionError = $t('onboarding_auth.form.profile_description_required');
-					isLoading = false;
-					return;
-				}
-
-				// Enforce minimum description length of 100 characters
-				if (profileDescription.trim().length < 100) {
-					descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
-					isLoading = false;
-					return;
-				}
+			// Enforce minimum description length of 100 characters
+			if (profileDescription && profileDescription.trim().length < 100) {
+				descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
+				isLoading = false;
+				return;
 			}
 
 			// Upload and publish profile picture if a new file is selected
 			await handleImageUpload();
 
 			// Generate translations for profile content (professionalTitle and about)
-			const { generateProfileTranslations } = await import('$lib/nostr/profile');
 			const profileTranslations = await generateProfileTranslations({
 				professionalTitle,
 				about: profileDescription
@@ -215,6 +212,8 @@
 
 			// Publish profile metadata
 			const profileData: NostrProfile = {
+				name: displayName, // Use 'name' as primary field per NIP-24
+				display_name: displayName,
 				professionalTitle,
 				about: profileDescription,
 				...(profileTranslations && { translations: profileTranslations })
@@ -227,8 +226,8 @@
 
 			await publishProfileMetadata(profileData);
 
-			// Publish skills if not saving for later
-			if (!saveForLater && skills.length > 0) {
+			// Publish skills
+			if (skills.length > 0) {
 				await publishSkillsUpdate(skills);
 			}
 
@@ -253,12 +252,6 @@
 				<!-- Profile Picture Skeleton -->
 				<div class="mx-auto max-h-32 w-full max-w-32">
 					<div class="bg-base-300 h-32 w-32 animate-pulse rounded-full"></div>
-				</div>
-
-				<!-- Display Name Skeleton -->
-				<div class="space-y-2">
-					<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
-					<div class="bg-base-300 h-12 w-full animate-pulse rounded"></div>
 				</div>
 
 				<!-- Professional Title Skeleton -->
@@ -343,12 +336,11 @@
 						id="profileDescription"
 						data-testid="onboarding-profile-description"
 						bind:value={profileDescription}
-						minlength={saveForLater ? undefined : 100}
+						minlength={profileDescription.length === 0 ? undefined : 100}
 						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
 							? 'textarea-error'
 							: ''}"
 						placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
-						disabled={saveForLater}
 					></textarea>
 					{#if descriptionError}
 						<label class="label whitespace-normal" for="profileDescription">
@@ -369,17 +361,6 @@
 						placeholder={$t('onboarding_auth.form.add_skills')}
 						className="w-full"
 					/>
-				</div>
-
-				<!-- Save for Later Option -->
-				<div class="form-control mx-auto max-w-xl space-y-2">
-					<label class="label flex cursor-pointer items-center justify-start gap-2">
-						<input type="checkbox" bind:checked={saveForLater} class="checkbox checkbox-sm" />
-						<span class="label-text">{$t('onboarding_auth.form.save_for_later')}</span>
-					</label>
-					<span class="text-base-content/70 block text-xs">
-						{$t('onboarding_auth.form.you_can_complete_your_profile_later')}
-					</span>
 				</div>
 
 				{#if error}
